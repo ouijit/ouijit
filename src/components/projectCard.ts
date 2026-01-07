@@ -39,9 +39,9 @@ function createProjectIcon(project: Project): HTMLElement {
   const iconContainer = document.createElement('div');
   iconContainer.className = 'project-icon';
 
-  if (project.iconPath) {
+  if (project.iconDataUrl) {
     const img = document.createElement('img');
-    img.src = `file://${project.iconPath}`;
+    img.src = project.iconDataUrl;
     img.alt = `${project.name} icon`;
     img.className = 'project-icon-image';
     img.onerror = () => {

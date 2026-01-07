@@ -12,7 +12,7 @@ export interface Project {
   lastModified: Date;
   description?: string;
   language?: string;
-  iconPath?: string;
+  iconDataUrl?: string;
 }
 
 // Expose protected methods that allow the renderer process to use

@@ -1,6 +1,7 @@
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import * as os from 'node:os';
+import { nativeImage } from 'electron';
 
 export interface Project {
   name: string;
@@ -10,7 +11,7 @@ export interface Project {
   lastModified: Date;
   description?: string;
   language?: string;
-  iconPath?: string;
+  iconDataUrl?: string;
 }
 
 const PROJECT_DIRECTORIES = [
@@ -100,37 +101,81 @@ async function getDescription(dirPath: string): Promise<string | undefined> {
  * Common icon file names to look for
  */
 const ICON_FILES = [
+  // macOS icons - various locations
+  'icon.icns',
+  'icons.icns',
+  'src/icon.icns',
+  'src/images/icon.icns',
+  'src/assets/icon.icns',
+  'resources/icon.icns',
+  'build/icon.icns',
+  'build/icons.icns',
+  'build/darwin/icon.icns',
+  'build/darwin/icons.icns',
+  'assets/icon.icns',
+  'assets/icons.icns',
+  'electron/icon.icns',
+  'images/icon.icns',
+  // Windows icons
+  'icon.ico',
+  'icons.ico',
+  'src/icon.ico',
+  'src/images/icon.ico',
+  'resources/icon.ico',
+  'build/icon.ico',
+  'assets/icon.ico',
+  // Standard image icons
   'icon.png',
   'icon.jpg',
   'icon.svg',
+  'src/images/icon.png',
+  'src/images/logo.png',
   'app-icon.png',
   'app-icon.svg',
   'logo.png',
   'logo.jpg',
   'logo.svg',
+  // Electron Forge / Electron Builder locations
+  'resources/icon.png',
+  'resources/icons/icon.png',
+  'build/icons/icon.png',
+  'buildResources/icon.png',
+  'buildResources/icon.icns',
+  // Web/general locations
   'favicon.ico',
   'favicon.png',
   'favicon.svg',
-  '.icon.png',
   'assets/icon.png',
   'assets/logo.png',
   'public/favicon.ico',
   'public/favicon.png',
   'public/logo.png',
+  'public/icon.png',
   'src/assets/icon.png',
   'src/assets/logo.png',
-  'resources/icon.png',
-  'build/icon.png',
+  'static/icon.png',
+  'static/logo.png',
+  'images/icon.png',
+  'images/logo.png',
 ];
 
 /**
- * Finds an icon file for the project
+ * Finds an icon file and converts it to a data URL
  */
-async function findIconPath(dirPath: string): Promise<string | undefined> {
+async function getIconDataUrl(dirPath: string): Promise<string | undefined> {
   for (const iconFile of ICON_FILES) {
     const iconPath = path.join(dirPath, iconFile);
     if (await exists(iconPath)) {
-      return iconPath;
+      try {
+        const image = nativeImage.createFromPath(iconPath);
+        if (!image.isEmpty()) {
+          // Resize to 96x96 for consistent display (2x for retina)
+          const resized = image.resize({ width: 96, height: 96, quality: 'best' });
+          return resized.toDataURL();
+        }
+      } catch (error) {
+        console.warn(`Failed to load icon: ${iconPath}`, error);
+      }
     }
   }
   return undefined;
@@ -153,7 +198,7 @@ async function createProject(dirPath: string): Promise<Project> {
     lastModified: stats.mtime,
     description: await getDescription(dirPath),
     language: await detectLanguage(dirPath),
-    iconPath: await findIconPath(dirPath),
+    iconDataUrl: await getIconDataUrl(dirPath),
   };
 }
 
