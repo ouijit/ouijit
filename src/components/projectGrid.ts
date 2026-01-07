@@ -1,5 +1,5 @@
 import type { Project } from '../types';
-import { createProjectCard } from './projectCard';
+import { createProjectRow } from './projectRow';
 
 /**
  * Renders projects to a container element
@@ -23,11 +23,11 @@ export function renderProjects(
     return;
   }
 
-  // Create and append project cards with staggered animation
+  // Create and append project rows with staggered animation
   projects.forEach((project, index) => {
-    const card = createProjectCard(project, onOpen);
-    card.style.animationDelay = `${index * 50}ms`;
-    container.appendChild(card);
+    const row = createProjectRow(project, onOpen);
+    row.style.animationDelay = `${index * 50}ms`;
+    container.appendChild(row);
   });
 }
 
