@@ -114,7 +114,8 @@ function truncate(str: string, maxLength: number): string {
  */
 function createLaunchDropdown(
   project: Project,
-  onLaunch: (path: string, runConfig: RunConfig) => void,
+  row: HTMLElement,
+  onLaunch: (path: string, runConfig: RunConfig, row: HTMLElement) => void,
   onOpenFinder: (path: string) => void
 ): HTMLElement {
   const dropdown = document.createElement('div');
@@ -132,7 +133,7 @@ function createLaunchDropdown(
     `;
     option.addEventListener('click', (e) => {
       e.stopPropagation();
-      onLaunch(project.path, config);
+      onLaunch(project.path, config, row);
       dropdown.classList.remove('visible');
     });
     dropdown.appendChild(option);
@@ -165,7 +166,7 @@ function createLaunchDropdown(
 export function createProjectRow(
   project: Project,
   onOpen: (path: string) => void,
-  onLaunch?: (path: string, runConfig: RunConfig) => void,
+  onLaunch?: (path: string, runConfig: RunConfig, row: HTMLElement) => void,
   onOpenFinder?: (path: string) => void
 ): HTMLElement {
   const row = document.createElement('div');
@@ -256,7 +257,7 @@ export function createProjectRow(
     const primaryConfig = project.runConfigs![0];
     launchButton.innerHTML = `<span>Launch</span><span class="dropdown-arrow">▾</span>`;
 
-    const dropdown = createLaunchDropdown(project, onLaunch, onOpenFinder);
+    const dropdown = createLaunchDropdown(project, row, onLaunch, onOpenFinder);
 
     launchButton.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -275,7 +276,7 @@ export function createProjectRow(
 
     // Row click launches primary config
     row.addEventListener('click', () => {
-      onLaunch(project.path, primaryConfig);
+      onLaunch(project.path, primaryConfig, row);
     });
   } else {
     // Fallback to simple Open button

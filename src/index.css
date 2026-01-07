@@ -841,3 +841,109 @@ body {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ===================================
+   Terminal Accordion Styles
+   =================================== */
+
+.terminal-accordion {
+  max-height: 0;
+  overflow: hidden;
+  background: var(--color-terminal-bg, #1a1a1a);
+  margin: 0 var(--spacing-lg) 0 56px;
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: max-height 0.3s ease-out, opacity 0.3s ease-out, margin 0.3s ease-out;
+  opacity: 0;
+}
+
+.terminal-accordion--open {
+  max-height: 350px;
+  opacity: 1;
+  margin-top: var(--spacing-sm);
+  margin-bottom: var(--spacing-md);
+}
+
+.terminal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: transparent;
+}
+
+.terminal-title {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  color: rgba(255, 255, 255, 0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.terminal-controls {
+  display: flex;
+  gap: var(--spacing-xs);
+}
+
+.terminal-close-btn {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  border-radius: var(--radius-full);
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 14px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.terminal-close-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.terminal-viewport {
+  height: 280px;
+  padding: 0 var(--spacing-md) var(--spacing-md);
+}
+
+/* Override xterm.js styles */
+.terminal-viewport .xterm {
+  padding: 0;
+}
+
+.terminal-viewport .xterm-viewport {
+  overflow-y: auto;
+  border-radius: var(--radius-md);
+}
+
+.terminal-viewport .xterm-viewport::-webkit-scrollbar {
+  width: 6px;
+}
+
+.terminal-viewport .xterm-viewport::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.terminal-viewport .xterm-viewport::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: var(--radius-full);
+}
+
+.terminal-viewport .xterm-viewport::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* Subtle row highlight when terminal is open */
+.project-row--has-terminal {
+  background: var(--color-background);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .terminal-accordion {
+    transition: none;
+  }
+}

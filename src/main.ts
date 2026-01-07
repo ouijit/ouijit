@@ -1,20 +1,22 @@
 import { app, BrowserWindow, nativeTheme } from 'electron';
 import path from 'node:path';
 import started from 'electron-squirrel-startup';
-import { registerIpcHandlers } from './ipc';
+import { registerIpcHandlers, cleanupIpc } from './ipc';
+
+let mainWindow: BrowserWindow | null = null;
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (started) {
   app.quit();
 }
 
-const createWindow = () => {
+const createWindow = (): BrowserWindow => {
   // Determine background color based on system theme
   const isDark = nativeTheme.shouldUseDarkColors;
   const backgroundColor = isDark ? '#1C1C1E' : '#F5F5F7';
 
   // Create the browser window.
-  const mainWindow = new BrowserWindow({
+  const window = new BrowserWindow({
     width: 1200,
     height: 800,
     minWidth: 600,
@@ -29,23 +31,29 @@ const createWindow = () => {
 
   // and load the index.html of the app.
   if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
-    mainWindow.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
+    window.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
   } else {
-    mainWindow.loadFile(
+    window.loadFile(
       path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`),
     );
   }
 
   // Open the DevTools.
-  // mainWindow.webContents.openDevTools();
+  // window.webContents.openDevTools();
+
+  return window;
 };
 
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
 app.on('ready', () => {
-  registerIpcHandlers();
-  createWindow();
+  mainWindow = createWindow();
+  registerIpcHandlers(mainWindow);
+});
+
+app.on('before-quit', () => {
+  cleanupIpc();
 });
 
 // Quit when all windows are closed, except on macOS. There, it's common

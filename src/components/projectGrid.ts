@@ -8,7 +8,7 @@ export function renderProjects(
   container: HTMLElement,
   projects: Project[],
   onOpen: (path: string) => void,
-  onLaunch?: (path: string, runConfig: RunConfig) => void,
+  onLaunch?: (path: string, runConfig: RunConfig, row: HTMLElement) => void,
   onOpenFinder?: (path: string) => void
 ): void {
   // Clear existing content

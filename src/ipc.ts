@@ -1,7 +1,14 @@
-import { ipcMain, shell } from 'electron';
+import { ipcMain, shell, BrowserWindow } from 'electron';
 import { spawn } from 'node:child_process';
 import { scanForProjects } from './scanner';
-import type { RunConfig, LaunchResult } from './types';
+import {
+  spawnPty,
+  writeToPty,
+  resizePty,
+  killPty,
+  cleanupAllPtys,
+} from './ptyManager';
+import type { RunConfig, LaunchResult, PtySpawnOptions } from './types';
 
 /**
  * Escapes a string for use in AppleScript
@@ -42,7 +49,7 @@ function launchInTerminal(projectPath: string, command: string): Promise<LaunchR
 /**
  * Registers all IPC handlers for the main process
  */
-export function registerIpcHandlers(): void {
+export function registerIpcHandlers(mainWindow: BrowserWindow): void {
   // Handler to get all detected projects
   ipcMain.handle('get-projects', async () => {
     try {
@@ -95,4 +102,28 @@ export function registerIpcHandlers(): void {
       };
     }
   });
+
+  // PTY handlers
+  ipcMain.handle('pty:spawn', (_event, options: PtySpawnOptions) => {
+    return spawnPty(options, mainWindow);
+  });
+
+  ipcMain.on('pty:write', (_event, ptyId: string, data: string) => {
+    writeToPty(ptyId, data);
+  });
+
+  ipcMain.on('pty:resize', (_event, ptyId: string, cols: number, rows: number) => {
+    resizePty(ptyId, cols, rows);
+  });
+
+  ipcMain.on('pty:kill', (_event, ptyId: string) => {
+    killPty(ptyId);
+  });
+}
+
+/**
+ * Cleanup function to be called when app is quitting
+ */
+export function cleanupIpc(): void {
+  cleanupAllPtys();
 }

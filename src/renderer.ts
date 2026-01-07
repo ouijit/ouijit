@@ -5,9 +5,11 @@
  */
 
 import './index.css';
+import '@xterm/xterm/css/xterm.css';
 import type { Project, RunConfig, ElectronAPI } from './types';
 import { renderProjects } from './components/projectGrid';
 import { setupSearch } from './components/searchBar';
+import { createTerminal, destroyTerminal, hasTerminal } from './components/terminalComponent';
 
 // Declare the global window.api interface
 declare global {
@@ -52,13 +54,24 @@ async function handleOpenProject(path: string): Promise<void> {
 }
 
 /**
- * Handles launching a project with a run config
+ * Handles launching a project with a run config (opens inline terminal)
  */
-async function handleLaunchProject(path: string, runConfig: RunConfig): Promise<void> {
+async function handleLaunchProject(path: string, runConfig: RunConfig, row: HTMLElement): Promise<void> {
   try {
-    const result = await window.api.launchProject(path, runConfig);
-    if (!result.success) {
-      console.error('Failed to launch project:', result.error);
+    // Toggle terminal if already open
+    if (hasTerminal(path)) {
+      destroyTerminal(path);
+      row.classList.remove('project-row--has-terminal');
+      return;
+    }
+
+    // Create inline terminal
+    const result = await createTerminal(path, runConfig.command, row);
+
+    if (result.success) {
+      row.classList.add('project-row--has-terminal');
+    } else {
+      console.error('Failed to create terminal:', result.error);
     }
   } catch (error) {
     console.error('Failed to launch project:', error);

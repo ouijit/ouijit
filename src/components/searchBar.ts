@@ -29,7 +29,7 @@ export function setupSearch(
   projects: Project[],
   container: HTMLElement,
   onOpen: (path: string) => void,
-  onLaunch?: (path: string, runConfig: RunConfig) => void,
+  onLaunch?: (path: string, runConfig: RunConfig, row: HTMLElement) => void,
   onOpenFinder?: (path: string) => void
 ): void {
   const handleSearch = (query: string) => {
