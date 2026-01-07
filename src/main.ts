@@ -1,4 +1,4 @@
-import { app, BrowserWindow } from 'electron';
+import { app, BrowserWindow, nativeTheme } from 'electron';
 import path from 'node:path';
 import started from 'electron-squirrel-startup';
 import { registerIpcHandlers } from './ipc';
@@ -9,6 +9,10 @@ if (started) {
 }
 
 const createWindow = () => {
+  // Determine background color based on system theme
+  const isDark = nativeTheme.shouldUseDarkColors;
+  const backgroundColor = isDark ? '#1C1C1E' : '#F5F5F7';
+
   // Create the browser window.
   const mainWindow = new BrowserWindow({
     width: 1200,
@@ -17,7 +21,7 @@ const createWindow = () => {
     minHeight: 400,
     titleBarStyle: 'hiddenInset',
     trafficLightPosition: { x: 16, y: 16 },
-    backgroundColor: '#F5F5F7',
+    backgroundColor,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
     },

@@ -2,7 +2,7 @@
    ouijit - Apple-Inspired Design System
    =================================== */
 
-/* CSS Variables */
+/* CSS Variables - Light Mode (Default) */
 :root {
   /* Colors */
   --color-background: #F5F5F7;
@@ -30,6 +30,43 @@
   --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12);
   --shadow-hover: 0 12px 32px rgba(0, 0, 0, 0.14);
 
+  /* Color scheme */
+  color-scheme: light dark;
+}
+
+/* Dark Mode */
+@media (prefers-color-scheme: dark) {
+  :root {
+    /* Colors */
+    --color-background: #1C1C1E;
+    --color-surface: #2C2C2E;
+    --color-text-primary: #F5F5F7;
+    --color-text-secondary: #98989D;
+    --color-text-tertiary: #636366;
+    --color-border: rgba(255, 255, 255, 0.1);
+    --color-border-hover: rgba(255, 255, 255, 0.15);
+
+    /* Accent Colors */
+    --color-accent: #0A84FF;
+    --color-accent-hover: #409CFF;
+    --color-accent-light: rgba(10, 132, 255, 0.2);
+
+    /* Status Colors */
+    --color-git: #FF6B4A;
+    --color-git-light: rgba(255, 107, 74, 0.15);
+    --color-claude: #F59E0B;
+    --color-claude-light: rgba(245, 158, 11, 0.15);
+
+    /* Shadows - more subtle in dark mode */
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+    --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5);
+    --shadow-hover: 0 12px 32px rgba(0, 0, 0, 0.6);
+  }
+}
+
+/* Non-color variables (shared between light/dark) */
+:root {
   /* Spacing */
   --spacing-xs: 4px;
   --spacing-sm: 8px;
@@ -103,6 +140,12 @@ body {
   border-bottom: 1px solid var(--color-border);
   -webkit-app-region: drag;
   padding-top: env(titlebar-area-height, 0px);
+}
+
+@media (prefers-color-scheme: dark) {
+  .header {
+    background: rgba(28, 28, 30, 0.8);
+  }
 }
 
 .header-content {
@@ -221,6 +264,17 @@ body {
   border-color: var(--color-border-hover);
 }
 
+.project-card .btn-primary {
+  opacity: 0;
+  transform: translateX(8px);
+  transition: opacity var(--transition-fast), transform var(--transition-fast);
+}
+
+.project-card:hover .btn-primary {
+  opacity: 1;
+  transform: translateX(0);
+}
+
 .project-card-header {
   display: flex;
   flex-direction: row;
@@ -298,7 +352,6 @@ body {
   justify-content: space-between;
   margin-top: auto;
   padding-top: var(--spacing-sm);
-  border-top: 1px solid var(--color-border);
 }
 
 .last-modified {
@@ -387,7 +440,7 @@ body {
 }
 
 .btn-primary {
-  color: var(--color-surface);
+  color: #FFFFFF;
   background: var(--color-accent);
 }
 
