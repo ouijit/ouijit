@@ -1,6 +1,74 @@
 import type { Project } from '../types';
 
 /**
+ * Generate a consistent color from a string (project name)
+ */
+function stringToColor(str: string): string {
+  const colors = [
+    '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7',
+    '#DDA0DD', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E9',
+    '#F8B500', '#FF8C00', '#00CED1', '#9370DB', '#3CB371',
+    '#FF69B4', '#20B2AA', '#778899', '#B8860B', '#5F9EA0',
+  ];
+
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = str.charCodeAt(i) + ((hash << 5) - hash);
+  }
+
+  return colors[Math.abs(hash) % colors.length];
+}
+
+/**
+ * Get initials from project name (up to 2 characters)
+ */
+function getInitials(name: string): string {
+  const words = name.replace(/[-_]/g, ' ').split(/\s+/).filter(Boolean);
+
+  if (words.length >= 2) {
+    return (words[0][0] + words[1][0]).toUpperCase();
+  }
+
+  return name.slice(0, 2).toUpperCase();
+}
+
+/**
+ * Creates a project icon element (image or placeholder)
+ */
+function createProjectIcon(project: Project): HTMLElement {
+  const iconContainer = document.createElement('div');
+  iconContainer.className = 'project-icon';
+
+  if (project.iconPath) {
+    const img = document.createElement('img');
+    img.src = `file://${project.iconPath}`;
+    img.alt = `${project.name} icon`;
+    img.className = 'project-icon-image';
+    img.onerror = () => {
+      // Fallback to placeholder if image fails to load
+      iconContainer.innerHTML = '';
+      iconContainer.appendChild(createPlaceholderIcon(project));
+    };
+    iconContainer.appendChild(img);
+  } else {
+    iconContainer.appendChild(createPlaceholderIcon(project));
+  }
+
+  return iconContainer;
+}
+
+/**
+ * Creates a placeholder icon with initials
+ */
+function createPlaceholderIcon(project: Project): HTMLElement {
+  const placeholder = document.createElement('div');
+  placeholder.className = 'project-icon-placeholder';
+  placeholder.style.backgroundColor = stringToColor(project.name);
+  placeholder.textContent = getInitials(project.name);
+  return placeholder;
+}
+
+/**
  * Format a date as a relative time string (e.g., "2 days ago")
  */
 function formatRelativeTime(date: Date): string {
@@ -51,18 +119,33 @@ export function createProjectCard(
   const card = document.createElement('div');
   card.className = 'project-card';
 
+  // Card header with icon and name
+  const header = document.createElement('div');
+  header.className = 'project-card-header';
+
+  // Project icon
+  const icon = createProjectIcon(project);
+  header.appendChild(icon);
+
+  // Project info (name + path)
+  const info = document.createElement('div');
+  info.className = 'project-info';
+
   // Project name
   const nameElement = document.createElement('h3');
   nameElement.className = 'project-name';
   nameElement.textContent = project.name;
-  card.appendChild(nameElement);
+  info.appendChild(nameElement);
 
   // Project path (truncated with full path on hover)
   const pathElement = document.createElement('p');
   pathElement.className = 'project-path';
-  pathElement.textContent = truncate(project.path, 40);
+  pathElement.textContent = truncate(project.path, 35);
   pathElement.title = project.path;
-  card.appendChild(pathElement);
+  info.appendChild(pathElement);
+
+  header.appendChild(info);
+  card.appendChild(header);
 
   // Badges container
   const badgesContainer = document.createElement('div');

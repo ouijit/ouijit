@@ -9,6 +9,7 @@ export interface Project {
   lastModified: Date;
   description?: string;
   language?: string;
+  iconPath?: string;
 }
 
 /**

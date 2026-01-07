@@ -10,6 +10,7 @@ export interface Project {
   lastModified: Date;
   description?: string;
   language?: string;
+  iconPath?: string;
 }
 
 const PROJECT_DIRECTORIES = [
@@ -96,6 +97,46 @@ async function getDescription(dirPath: string): Promise<string | undefined> {
 }
 
 /**
+ * Common icon file names to look for
+ */
+const ICON_FILES = [
+  'icon.png',
+  'icon.jpg',
+  'icon.svg',
+  'app-icon.png',
+  'app-icon.svg',
+  'logo.png',
+  'logo.jpg',
+  'logo.svg',
+  'favicon.ico',
+  'favicon.png',
+  'favicon.svg',
+  '.icon.png',
+  'assets/icon.png',
+  'assets/logo.png',
+  'public/favicon.ico',
+  'public/favicon.png',
+  'public/logo.png',
+  'src/assets/icon.png',
+  'src/assets/logo.png',
+  'resources/icon.png',
+  'build/icon.png',
+];
+
+/**
+ * Finds an icon file for the project
+ */
+async function findIconPath(dirPath: string): Promise<string | undefined> {
+  for (const iconFile of ICON_FILES) {
+    const iconPath = path.join(dirPath, iconFile);
+    if (await exists(iconPath)) {
+      return iconPath;
+    }
+  }
+  return undefined;
+}
+
+/**
  * Creates a Project object from a directory path
  */
 async function createProject(dirPath: string): Promise<Project> {
@@ -112,6 +153,7 @@ async function createProject(dirPath: string): Promise<Project> {
     lastModified: stats.mtime,
     description: await getDescription(dirPath),
     language: await detectLanguage(dirPath),
+    iconPath: await findIconPath(dirPath),
   };
 }
 
