@@ -508,41 +508,55 @@ body {
   background: rgba(0, 122, 255, 0.15);
 }
 
+/* Terminal button */
+.btn-terminal svg {
+  width: 16px;
+  height: 16px;
+}
+
 .btn-icon {
   width: 14px;
   height: 14px;
 }
 
-/* Launch Container & Dropdown */
-.launch-container {
+/* Actions Container */
+.actions-container {
   position: absolute;
   right: var(--spacing-lg);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
   z-index: 10;
 }
 
-.launch-container:has(.launch-dropdown.visible) {
+.actions-container:has(.launch-dropdown.visible) {
   z-index: 100;
 }
 
-.btn-launch {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-xs);
-}
-
-.project-row .launch-container {
+.project-row .actions-container {
   opacity: 0;
   transform: translateX(8px);
   transition: opacity var(--transition-fast), transform var(--transition-fast);
 }
 
-.project-row:hover .launch-container {
+.project-row:hover .actions-container {
   opacity: 1;
   transform: translateX(0);
 }
 
 .project-row:hover .last-modified {
   opacity: 0;
+}
+
+/* Launch Wrapper & Dropdown */
+.launch-wrapper {
+  position: relative;
+}
+
+.btn-launch {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-xs);
 }
 
 .dropdown-arrow {
@@ -829,7 +843,7 @@ body {
   }
 
   .project-row > .btn-primary,
-  .project-row .launch-container {
+  .project-row .actions-container {
     opacity: 1;
     position: static;
     transform: none;

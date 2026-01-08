@@ -30,11 +30,12 @@ export function setupSearch(
   container: HTMLElement,
   onOpen: (path: string) => void,
   onLaunch?: (path: string, runConfig: RunConfig, row: HTMLElement) => void,
-  onOpenFinder?: (path: string) => void
+  onOpenFinder?: (path: string) => void,
+  onOpenTerminal?: (path: string, row: HTMLElement) => void
 ): void {
   const handleSearch = (query: string) => {
     const filteredProjects = filterProjects(projects, query);
-    renderProjects(container, filteredProjects, onOpen, onLaunch, onOpenFinder);
+    renderProjects(container, filteredProjects, onOpen, onLaunch, onOpenFinder, onOpenTerminal);
 
     // Update empty state message for search results
     if (filteredProjects.length === 0 && query.trim()) {

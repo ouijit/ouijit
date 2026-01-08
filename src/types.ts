@@ -32,7 +32,8 @@ export type PtyId = string;
  */
 export interface PtySpawnOptions {
   cwd: string;
-  command: string;
+  /** Command to run. If not provided, spawns an interactive shell */
+  command?: string;
   cols?: number;
   rows?: number;
 }

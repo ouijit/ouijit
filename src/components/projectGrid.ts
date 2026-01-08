@@ -9,7 +9,8 @@ export function renderProjects(
   projects: Project[],
   onOpen: (path: string) => void,
   onLaunch?: (path: string, runConfig: RunConfig, row: HTMLElement) => void,
-  onOpenFinder?: (path: string) => void
+  onOpenFinder?: (path: string) => void,
+  onOpenTerminal?: (path: string, row: HTMLElement) => void
 ): void {
   // Clear existing content
   container.innerHTML = '';
@@ -27,7 +28,7 @@ export function renderProjects(
 
   // Create and append project rows with staggered animation
   projects.forEach((project, index) => {
-    const row = createProjectRow(project, onOpen, onLaunch, onOpenFinder);
+    const row = createProjectRow(project, onOpen, onLaunch, onOpenFinder, onOpenTerminal);
     row.style.animationDelay = `${index * 50}ms`;
     container.appendChild(row);
   });

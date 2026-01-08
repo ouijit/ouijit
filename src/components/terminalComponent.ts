@@ -76,7 +76,7 @@ function getTerminalTheme(): Record<string, string> {
 
 export async function createTerminal(
   projectPath: string,
-  command: string,
+  command: string | undefined,
   anchorElement: HTMLElement
 ): Promise<{ success: boolean; error?: string }> {
   // Check if terminal already exists for this project

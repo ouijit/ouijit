@@ -29,9 +29,10 @@ export function spawnPty(
     const ptyId = generatePtyId();
     const shell = getDefaultShell();
 
-    const shellArgs = process.platform === 'win32'
-      ? ['/c', options.command]
-      : ['-c', options.command];
+    // If no command provided, spawn interactive shell; otherwise run the command
+    const shellArgs = options.command
+      ? (process.platform === 'win32' ? ['/c', options.command] : ['-c', options.command])
+      : [];
 
     const ptyProcess = pty.spawn(shell, shellArgs, {
       name: 'xterm-256color',
@@ -47,7 +48,7 @@ export function spawnPty(
     activePtys.set(ptyId, {
       process: ptyProcess,
       projectPath: options.cwd,
-      command: options.command,
+      command: options.command || '',
     });
 
     ptyProcess.onData((data: string) => {
