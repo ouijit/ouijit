@@ -973,6 +973,30 @@ body {
   color: rgba(255, 255, 255, 0.9);
 }
 
+.terminal-theatre-btn {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  border-radius: var(--radius-full);
+  color: rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.terminal-theatre-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.terminal-theatre-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
 .terminal-viewport {
   height: 280px;
   padding: 0 var(--spacing-md) var(--spacing-md);
@@ -1228,4 +1252,128 @@ body {
 .drop-overlay-text {
   font-size: var(--font-size-lg);
   font-weight: var(--font-weight-semibold);
+}
+
+/* ===================================
+   Theatre Mode Styles
+   =================================== */
+
+/* Hide project rows in theatre mode - NOT main-content */
+body.theatre-mode .project-row {
+  display: none !important;
+}
+
+/* Hide search/refresh area in header */
+body.theatre-mode .search-container {
+  display: none !important;
+}
+
+body.theatre-mode #refresh-btn {
+  display: none !important;
+}
+
+/* Hide project list header */
+body.theatre-mode .project-list-header {
+  display: none !important;
+}
+
+/* Theatre mode terminal - position fixed lifts it visually */
+.terminal-accordion--theatre {
+  position: fixed !important;
+  top: 72px;
+  left: 20px;
+  right: 20px;
+  bottom: 20px;
+  max-height: none !important;
+  height: auto !important;
+  margin: 0 !important;
+  opacity: 1 !important;
+  overflow: visible !important;
+  z-index: 100;
+  border-radius: var(--radius-lg);
+  display: flex;
+  flex-direction: column;
+}
+
+.terminal-accordion--theatre .terminal-viewport {
+  flex: 1;
+  min-height: 0;
+  height: auto;
+}
+
+/* Theatre header content */
+.theatre-header-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  padding-left: 80px;
+}
+
+.theatre-project-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-md);
+  object-fit: cover;
+}
+
+.theatre-project-icon--placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-background-secondary);
+  color: var(--color-text-tertiary);
+}
+
+.theatre-project-icon--placeholder svg {
+  width: 16px;
+  height: 16px;
+}
+
+.theatre-project-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.theatre-project-name {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  line-height: 1.2;
+}
+
+.theatre-project-path {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.theatre-exit-btn {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-background-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.theatre-exit-btn:hover {
+  background: var(--color-background-tertiary);
+  color: var(--color-text-primary);
+}
+
+.theatre-exit-btn svg {
+  width: 16px;
+  height: 16px;
 }

@@ -58,7 +58,7 @@ async function handleOpenProject(path: string): Promise<void> {
 /**
  * Handles launching a project with a run config (opens inline terminal)
  */
-async function handleLaunchProject(path: string, runConfig: RunConfig, row: HTMLElement): Promise<void> {
+async function handleLaunchProject(path: string, runConfig: RunConfig, row: HTMLElement, projectData: Project): Promise<void> {
   try {
     // Toggle terminal if already open
     if (hasTerminal(path)) {
@@ -68,7 +68,7 @@ async function handleLaunchProject(path: string, runConfig: RunConfig, row: HTML
     }
 
     // Create inline terminal
-    const result = await createTerminal(path, runConfig.command, row);
+    const result = await createTerminal(path, runConfig.command, row, projectData);
 
     if (result.success) {
       row.classList.add('project-row--has-terminal');
@@ -94,7 +94,7 @@ async function handleOpenInFinder(path: string): Promise<void> {
 /**
  * Handles opening an interactive terminal at the project root
  */
-async function handleOpenTerminal(path: string, row: HTMLElement): Promise<void> {
+async function handleOpenTerminal(path: string, row: HTMLElement, projectData: Project): Promise<void> {
   try {
     // Toggle terminal if already open
     if (hasTerminal(path)) {
@@ -104,7 +104,7 @@ async function handleOpenTerminal(path: string, row: HTMLElement): Promise<void>
     }
 
     // Create inline terminal (interactive shell, no command)
-    const result = await createTerminal(path, undefined, row);
+    const result = await createTerminal(path, undefined, row, projectData);
 
     if (result.success) {
       row.classList.add('project-row--has-terminal');
@@ -148,6 +148,9 @@ async function refreshProjects(): Promise<void> {
     console.error('Failed to refresh projects:', error);
   }
 }
+
+// Expose refreshProjects on window for theatre mode restoration
+(window as any).refreshProjects = refreshProjects;
 
 /**
  * Creates the drop overlay element

@@ -39,7 +39,7 @@ const createWindow = (): BrowserWindow => {
   }
 
   // Open the DevTools.
-  // window.webContents.openDevTools();
+  window.webContents.openDevTools();
 
   return window;
 };

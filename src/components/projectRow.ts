@@ -117,7 +117,7 @@ function truncate(str: string, maxLength: number): string {
 function createLaunchDropdown(
   project: Project,
   row: HTMLElement,
-  onLaunch: (path: string, runConfig: RunConfig, row: HTMLElement) => void,
+  onLaunch: (path: string, runConfig: RunConfig, row: HTMLElement, projectData: Project) => void,
   onOpenFinder: (path: string) => void
 ): HTMLElement {
   const dropdown = document.createElement('div');
@@ -135,7 +135,7 @@ function createLaunchDropdown(
     `;
     option.addEventListener('click', (e) => {
       e.stopPropagation();
-      onLaunch(project.path, config, row);
+      onLaunch(project.path, config, row, project);
       dropdown.classList.remove('visible');
     });
     dropdown.appendChild(option);
@@ -201,9 +201,9 @@ function createLaunchDropdown(
 export function createProjectRow(
   project: Project,
   onOpen: (path: string) => void,
-  onLaunch?: (path: string, runConfig: RunConfig, row: HTMLElement) => void,
+  onLaunch?: (path: string, runConfig: RunConfig, row: HTMLElement, projectData: Project) => void,
   onOpenFinder?: (path: string) => void,
-  onOpenTerminal?: (path: string, row: HTMLElement) => void
+  onOpenTerminal?: (path: string, row: HTMLElement, projectData: Project) => void
 ): HTMLElement {
   const row = document.createElement('div');
   row.className = 'project-row';
@@ -298,7 +298,7 @@ export function createProjectRow(
 
     terminalBtn.addEventListener('click', (e) => {
       e.stopPropagation();
-      onOpenTerminal(project.path, row);
+      onOpenTerminal(project.path, row, project);
     });
 
     actionsContainer.appendChild(terminalBtn);
@@ -340,7 +340,7 @@ export function createProjectRow(
 
     // Row click launches primary config
     row.addEventListener('click', () => {
-      onLaunch(project.path, primaryConfig, row);
+      onLaunch(project.path, primaryConfig, row, project);
     });
   } else {
     // Container for open button

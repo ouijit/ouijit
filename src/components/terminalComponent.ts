@@ -1,6 +1,9 @@
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
-import type { PtyId, PtySpawnOptions } from '../types';
+import { createIcons, Maximize2, Minimize2, Folder, RefreshCw } from 'lucide';
+import type { PtyId, PtySpawnOptions, Project } from '../types';
+
+const theatreIcons = { Maximize2, Minimize2, Folder, RefreshCw };
 
 interface TerminalInstance {
   terminal: Terminal;
@@ -13,6 +16,11 @@ interface TerminalInstance {
 }
 
 const terminals = new Map<string, TerminalInstance>();
+
+// Theatre mode state
+let theatreModeProjectPath: string | null = null;
+let originalHeaderContent: string | null = null;
+let escapeKeyHandler: ((e: KeyboardEvent) => void) | null = null;
 
 function createTerminalContainer(projectPath: string): HTMLElement {
   const container = document.createElement('div');
@@ -29,11 +37,17 @@ function createTerminalContainer(projectPath: string): HTMLElement {
   const controls = document.createElement('div');
   controls.className = 'terminal-controls';
 
+  const theatreBtn = document.createElement('button');
+  theatreBtn.className = 'terminal-theatre-btn';
+  theatreBtn.innerHTML = '<i data-lucide="maximize-2"></i>';
+  theatreBtn.title = 'Theatre mode';
+
   const closeBtn = document.createElement('button');
   closeBtn.className = 'terminal-close-btn';
   closeBtn.innerHTML = '&times;';
   closeBtn.title = 'Close terminal';
 
+  controls.appendChild(theatreBtn);
   controls.appendChild(closeBtn);
   header.appendChild(title);
   header.appendChild(controls);
@@ -77,7 +91,8 @@ function getTerminalTheme(): Record<string, string> {
 export async function createTerminal(
   projectPath: string,
   command: string | undefined,
-  anchorElement: HTMLElement
+  anchorElement: HTMLElement,
+  projectData?: Project
 ): Promise<{ success: boolean; error?: string }> {
   // Check if terminal already exists for this project
   if (terminals.has(projectPath)) {
@@ -93,6 +108,10 @@ export async function createTerminal(
 
   const viewport = container.querySelector('.terminal-viewport') as HTMLElement;
   const closeBtn = container.querySelector('.terminal-close-btn') as HTMLButtonElement;
+  const theatreBtn = container.querySelector('.terminal-theatre-btn') as HTMLButtonElement;
+
+  // Initialize lucide icons for the theatre button
+  createIcons({ icons: theatreIcons, nodes: [container] });
 
   // Initialize xterm
   const terminal = new Terminal({
@@ -138,6 +157,21 @@ export async function createTerminal(
   // Set up close button
   closeBtn.addEventListener('click', () => {
     destroyTerminal(projectPath);
+  });
+
+  // Set up theatre mode button
+  console.log('[Theatre] createTerminal called with projectData:', projectData);
+  theatreBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    console.log('[Theatre] Button clicked, projectData:', projectData);
+    const isInTheatre = container.classList.contains('terminal-accordion--theatre');
+    if (isInTheatre) {
+      exitTheatreMode();
+    } else if (projectData) {
+      enterTheatreMode(projectPath, projectData);
+    } else {
+      console.error('[Theatre] No projectData available!');
+    }
   });
 
   // Spawn PTY
@@ -193,6 +227,11 @@ export async function createTerminal(
 export function destroyTerminal(projectPath: string): void {
   const instance = terminals.get(projectPath);
   if (!instance) return;
+
+  // Exit theatre mode if this terminal is in theatre mode
+  if (theatreModeProjectPath === projectPath) {
+    exitTheatreMode();
+  }
 
   // Kill PTY if running
   if (instance.ptyId) {
@@ -262,4 +301,151 @@ export function destroyAllTerminals(): void {
   for (const projectPath of terminals.keys()) {
     destroyTerminal(projectPath);
   }
+}
+
+/**
+ * Build the theatre mode header content
+ */
+function buildTheatreHeader(projectData: Project): string {
+  const icon = projectData.iconDataUrl
+    ? `<img src="${projectData.iconDataUrl}" alt="" class="theatre-project-icon" />`
+    : '<div class="theatre-project-icon theatre-project-icon--placeholder"><i data-lucide="folder"></i></div>';
+
+  return `
+    <div class="theatre-header-content">
+      ${icon}
+      <div class="theatre-project-info">
+        <span class="theatre-project-name">${projectData.name}</span>
+        <span class="theatre-project-path">${projectData.path}</span>
+      </div>
+      <button class="theatre-exit-btn" title="Exit theatre mode (Esc)">
+        <i data-lucide="minimize-2"></i>
+      </button>
+    </div>
+  `;
+}
+
+/**
+ * Enter theatre mode for the specified terminal
+ */
+export function enterTheatreMode(projectPath: string, projectData: Project): void {
+  if (theatreModeProjectPath) return; // Already in theatre mode
+
+  const instance = terminals.get(projectPath);
+  if (!instance) return;
+
+  // 1. Add class to body - CSS handles the rest
+  document.body.classList.add('theatre-mode');
+
+  // 2. Add class to terminal container
+  instance.container.classList.add('terminal-accordion--theatre');
+
+  // 3. Update theatre button icon to minimize
+  const theatreBtn = instance.container.querySelector('.terminal-theatre-btn');
+  if (theatreBtn) {
+    theatreBtn.innerHTML = '<i data-lucide="minimize-2"></i>';
+    theatreBtn.setAttribute('title', 'Exit theatre mode');
+    createIcons({ icons: theatreIcons, nodes: [instance.container] });
+  }
+
+  // 4. Update header content
+  const headerContent = document.querySelector('.header-content');
+  if (headerContent) {
+    originalHeaderContent = headerContent.innerHTML;
+    headerContent.innerHTML = buildTheatreHeader(projectData);
+    createIcons({ icons: theatreIcons, nodes: [headerContent as HTMLElement] });
+
+    // Wire up exit button in header
+    const exitBtn = headerContent.querySelector('.theatre-exit-btn');
+    if (exitBtn) {
+      exitBtn.addEventListener('click', () => exitTheatreMode());
+    }
+  }
+
+  // 5. Escape key handler
+  escapeKeyHandler = (e) => { if (e.key === 'Escape') exitTheatreMode(); };
+  document.addEventListener('keydown', escapeKeyHandler);
+
+  // 6. Refit terminal
+  requestAnimationFrame(() => {
+    instance.fitAddon.fit();
+    if (instance.ptyId) {
+      window.api.pty.resize(instance.ptyId, instance.terminal.cols, instance.terminal.rows);
+    }
+    instance.terminal.focus();
+  });
+
+  theatreModeProjectPath = projectPath;
+}
+
+/**
+ * Exit theatre mode
+ */
+export function exitTheatreMode(): void {
+  if (!theatreModeProjectPath) return;
+
+  const instance = terminals.get(theatreModeProjectPath);
+
+  // 1. Remove class from body
+  document.body.classList.remove('theatre-mode');
+
+  // 2. Remove class from terminal
+  if (instance) {
+    instance.container.classList.remove('terminal-accordion--theatre');
+
+    // Update theatre button icon back to maximize
+    const theatreBtn = instance.container.querySelector('.terminal-theatre-btn');
+    if (theatreBtn) {
+      theatreBtn.innerHTML = '<i data-lucide="maximize-2"></i>';
+      theatreBtn.setAttribute('title', 'Theatre mode');
+      createIcons({ icons: theatreIcons, nodes: [instance.container] });
+    }
+  }
+
+  // 3. Restore header content
+  const headerContent = document.querySelector('.header-content');
+  if (headerContent && originalHeaderContent) {
+    headerContent.innerHTML = originalHeaderContent;
+    createIcons({ icons: theatreIcons, nodes: [headerContent as HTMLElement] });
+    // Re-attach refresh handler with full behavior
+    const refreshBtn = headerContent.querySelector('#refresh-btn');
+    if (refreshBtn) {
+      refreshBtn.addEventListener('click', async () => {
+        refreshBtn.classList.add('spinning');
+        refreshBtn.setAttribute('disabled', 'true');
+        try {
+          await (window as any).refreshProjects?.();
+        } finally {
+          refreshBtn.classList.remove('spinning');
+          refreshBtn.removeAttribute('disabled');
+        }
+      });
+    }
+  }
+
+  // 4. Remove escape handler
+  if (escapeKeyHandler) {
+    document.removeEventListener('keydown', escapeKeyHandler);
+    escapeKeyHandler = null;
+  }
+
+  // 5. Refit terminal
+  if (instance) {
+    requestAnimationFrame(() => {
+      instance.fitAddon.fit();
+      if (instance.ptyId) {
+        window.api.pty.resize(instance.ptyId, instance.terminal.cols, instance.terminal.rows);
+      }
+    });
+  }
+
+  originalHeaderContent = null;
+  theatreModeProjectPath = null;
+}
+
+/**
+ * Check if we're currently in theatre mode
+ */
+export function isInTheatreMode(): boolean {
+  return theatreModeProjectPath !== null;
 }

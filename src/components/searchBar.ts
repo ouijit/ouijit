@@ -30,9 +30,9 @@ export function setupSearch(
   projects: Project[],
   container: HTMLElement,
   onOpen: (path: string) => void,
-  onLaunch?: (path: string, runConfig: RunConfig, row: HTMLElement) => void,
+  onLaunch?: (path: string, runConfig: RunConfig, row: HTMLElement, projectData: Project) => void,
   onOpenFinder?: (path: string) => void,
-  onOpenTerminal?: (path: string, row: HTMLElement) => void
+  onOpenTerminal?: (path: string, row: HTMLElement, projectData: Project) => void
 ): void {
   const handleSearch = (query: string) => {
     const openTerminalPaths = getOpenTerminalPaths();
