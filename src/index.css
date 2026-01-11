@@ -1280,7 +1280,7 @@ body.theatre-mode .project-list-header {
 /* Theatre mode terminal - position fixed lifts it visually */
 .terminal-accordion--theatre {
   position: fixed !important;
-  top: 72px;
+  top: 92px;
   left: 20px;
   right: 20px;
   bottom: 20px;
