@@ -1,9 +1,10 @@
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
-import { createIcons, Maximize2, Minimize2, Folder, RefreshCw } from 'lucide';
+import { createIcons, Maximize2, Minimize2, RefreshCw } from 'lucide';
 import type { PtyId, PtySpawnOptions, Project } from '../types';
+import { stringToColor, getInitials } from '../utils/projectIcon';
 
-const theatreIcons = { Maximize2, Minimize2, Folder, RefreshCw };
+const theatreIcons = { Maximize2, Minimize2, RefreshCw };
 
 interface TerminalInstance {
   terminal: Terminal;
@@ -309,7 +310,7 @@ export function destroyAllTerminals(): void {
 function buildTheatreHeader(projectData: Project): string {
   const icon = projectData.iconDataUrl
     ? `<img src="${projectData.iconDataUrl}" alt="" class="theatre-project-icon" />`
-    : '<div class="theatre-project-icon theatre-project-icon--placeholder"><i data-lucide="folder"></i></div>';
+    : `<div class="theatre-project-icon theatre-project-icon--placeholder" style="background-color: ${stringToColor(projectData.name)}">${getInitials(projectData.name)}</div>`;
 
   return `
     <div class="theatre-header-content">
