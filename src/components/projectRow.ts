@@ -283,7 +283,7 @@ export function createProjectRow(
 
     const primaryConfig = project.runConfigs![0];
     const launchText = document.createElement('span');
-    launchText.textContent = 'Launch';
+    launchText.textContent = 'Open';
     launchButton.appendChild(launchText);
 
     const chevron = createElement(ChevronDown);
@@ -316,10 +316,10 @@ export function createProjectRow(
     const actionContainer = document.createElement('div');
     actionContainer.className = 'launch-container';
 
-    // Fallback to simple Open button
+    // Fallback to View in Finder button
     const openButton = document.createElement('button');
     openButton.className = 'btn btn-primary';
-    openButton.textContent = 'Open';
+    openButton.textContent = 'View in Finder';
     openButton.addEventListener('click', (e) => {
       e.stopPropagation();
       onOpen(project.path);
