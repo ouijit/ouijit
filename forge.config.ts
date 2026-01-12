@@ -3,19 +3,70 @@ import { MakerSquirrel } from '@electron-forge/maker-squirrel';
 import { MakerZIP } from '@electron-forge/maker-zip';
 import { MakerDeb } from '@electron-forge/maker-deb';
 import { MakerRpm } from '@electron-forge/maker-rpm';
-import { AutoUnpackNativesPlugin } from '@electron-forge/plugin-auto-unpack-natives';
 import { VitePlugin } from '@electron-forge/plugin-vite';
 import { FusesPlugin } from '@electron-forge/plugin-fuses';
 import { FuseV1Options, FuseVersion } from '@electron/fuses';
+import path from 'path';
+import fs from 'fs';
+
+// Helper to copy native modules to the packaged app.
+// We need this because node-pty (a native module with .node binaries) fails to load
+// from inside ASAR archives. Electron's AutoUnpackNativesPlugin didn't reliably solve
+// this, so we manually copy native modules after packaging.
+const copyRecursive = (src: string, dest: string) => {
+  if (!fs.existsSync(src)) return;
+  fs.mkdirSync(dest, { recursive: true });
+  for (const entry of fs.readdirSync(src, { withFileTypes: true })) {
+    const srcPath = path.join(src, entry.name);
+    const destPath = path.join(dest, entry.name);
+    if (entry.isDirectory()) {
+      copyRecursive(srcPath, destPath);
+    } else {
+      fs.copyFileSync(srcPath, destPath);
+    }
+  }
+};
 
 const config: ForgeConfig = {
   packagerConfig: {
-    asar: {
-      unpack: '**/*.node',
-    },
+    // Disabled ASAR because native modules (node-pty) don't load reliably from archives.
+    // Node's native module loader expects .node files on the real filesystem.
+    asar: false,
     icon: './src/assets/icons/icon',
   },
   rebuildConfig: {},
+  hooks: {
+    // Vite bundles JS but excludes native modules. We manually copy them post-package
+    // so they're available at runtime in the packaged app.
+    postPackage: async (_config, options) => {
+      const platform = options.platform;
+      let appPath: string;
+
+      if (platform === 'darwin') {
+        // macOS: look for .app bundle
+        const outputDir = options.outputPaths[0];
+        const appBundle = fs.readdirSync(outputDir).find(f => f.endsWith('.app'));
+        if (!appBundle) {
+          console.error('Could not find .app bundle');
+          return;
+        }
+        appPath = path.join(outputDir, appBundle, 'Contents', 'Resources', 'app');
+      } else {
+        // Windows/Linux
+        appPath = path.join(options.outputPaths[0], 'resources', 'app');
+      }
+
+      const nodeModulesDest = path.join(appPath, 'node_modules');
+
+      const modulesToCopy = ['node-pty'];
+      for (const mod of modulesToCopy) {
+        const src = path.join(__dirname, 'node_modules', mod);
+        const dest = path.join(nodeModulesDest, mod);
+        console.log(`Copying ${mod} to ${dest}`);
+        copyRecursive(src, dest);
+      }
+    },
+  },
   makers: [
     new MakerSquirrel({}),
     new MakerZIP({}, ['darwin']),
@@ -23,7 +74,6 @@ const config: ForgeConfig = {
     new MakerDeb({}),
   ],
   plugins: [
-    new AutoUnpackNativesPlugin({}),
     new VitePlugin({
       // `build` can specify multiple entry builds, which can be Main process, Preload scripts, Worker process, etc.
       // If you are familiar with Vite configuration, it will look really familiar.
@@ -55,8 +105,9 @@ const config: ForgeConfig = {
       [FuseV1Options.EnableCookieEncryption]: true,
       [FuseV1Options.EnableNodeOptionsEnvironmentVariable]: false,
       [FuseV1Options.EnableNodeCliInspectArguments]: false,
-      [FuseV1Options.EnableEmbeddedAsarIntegrityValidation]: true,
-      [FuseV1Options.OnlyLoadAppFromAsar]: true,
+      // These must be disabled since we're not using ASAR (see packagerConfig.asar above)
+      [FuseV1Options.EnableEmbeddedAsarIntegrityValidation]: false,
+      [FuseV1Options.OnlyLoadAppFromAsar]: false,
     }),
   ],
 };
