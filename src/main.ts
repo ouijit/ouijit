@@ -1,7 +1,12 @@
 import { app, BrowserWindow, nativeTheme } from 'electron';
 import path from 'node:path';
 import started from 'electron-squirrel-startup';
+import fixPath from 'fix-path';
 import { registerIpcHandlers, cleanupIpc } from './ipc';
+
+// Fix PATH for packaged apps launched from Finder/Dock
+// This sources the user's shell PATH so npm/node are available in PTY
+fixPath();
 
 let mainWindow: BrowserWindow | null = null;
 

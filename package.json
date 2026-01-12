@@ -40,6 +40,7 @@
     "@xterm/xterm": "^6.0.0",
     "adm-zip": "^0.5.16",
     "electron-squirrel-startup": "^1.0.1",
+    "fix-path": "^5.0.0",
     "lucide": "^0.562.0",
     "node-pty": "^1.1.0",
     "tar": "^7.5.2"
