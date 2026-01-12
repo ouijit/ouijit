@@ -73,6 +73,10 @@ function createTerminalContainer(projectPath: string): HTMLElement {
   const viewport = document.createElement('div');
   viewport.className = 'terminal-viewport';
 
+  const xtermContainer = document.createElement('div');
+  xtermContainer.className = 'terminal-xterm-container';
+  viewport.appendChild(xtermContainer);
+
   container.appendChild(header);
   container.appendChild(viewport);
 
@@ -125,6 +129,7 @@ export async function createTerminal(
   anchorElement.insertAdjacentElement('afterend', container);
 
   const viewport = container.querySelector('.terminal-viewport') as HTMLElement;
+  const xtermContainer = container.querySelector('.terminal-xterm-container') as HTMLElement;
   const closeBtn = container.querySelector('.terminal-close-btn') as HTMLButtonElement;
   const theatreBtn = container.querySelector('.terminal-theatre-btn') as HTMLButtonElement;
 
@@ -145,7 +150,7 @@ export async function createTerminal(
 
   const fitAddon = new FitAddon();
   terminal.loadAddon(fitAddon);
-  terminal.open(viewport);
+  terminal.open(xtermContainer);
 
   // Wait for next frame before fitting
   await new Promise(resolve => requestAnimationFrame(resolve));
@@ -163,14 +168,14 @@ export async function createTerminal(
   };
   terminals.set(projectPath, instance);
 
-  // Set up resize observer
+  // Set up resize observer on the xterm container (not viewport, which has padding)
   instance.resizeObserver = new ResizeObserver(() => {
     fitAddon.fit();
     if (instance.ptyId) {
       window.api.pty.resize(instance.ptyId, terminal.cols, terminal.rows);
     }
   });
-  instance.resizeObserver.observe(viewport);
+  instance.resizeObserver.observe(xtermContainer);
 
   // Set up close button
   closeBtn.addEventListener('click', () => {

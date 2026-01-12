@@ -989,33 +989,43 @@ textarea,
   border-radius: var(--radius-lg);
   border: 1px solid rgba(255, 255, 255, 0.1);
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Inner container for xterm - no padding so FitAddon measures correctly */
+.terminal-xterm-container {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
 }
 
 /* Override xterm.js styles */
-.terminal-viewport .xterm {
-  padding: 0;
+.terminal-xterm-container .xterm {
   height: 100%;
+  width: 100%;
 }
 
-.terminal-viewport .xterm-viewport {
+.terminal-xterm-container .xterm-viewport {
   overflow-y: auto;
   border-radius: var(--radius-md);
 }
 
-.terminal-viewport .xterm-viewport::-webkit-scrollbar {
+.terminal-xterm-container .xterm-viewport::-webkit-scrollbar {
   width: 6px;
 }
 
-.terminal-viewport .xterm-viewport::-webkit-scrollbar-track {
+.terminal-xterm-container .xterm-viewport::-webkit-scrollbar-track {
   background: transparent;
 }
 
-.terminal-viewport .xterm-viewport::-webkit-scrollbar-thumb {
+.terminal-xterm-container .xterm-viewport::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.2);
   border-radius: var(--radius-full);
 }
 
-.terminal-viewport .xterm-viewport::-webkit-scrollbar-thumb:hover {
+.terminal-xterm-container .xterm-viewport::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.3);
 }
 
@@ -1378,11 +1388,12 @@ body.theatre-mode .project-list-header {
   height: auto !important;
   margin: 0 !important;
   opacity: 1 !important;
-  overflow: visible !important;
+  overflow: hidden;
   z-index: 100;
   border-radius: var(--radius-lg);
   display: flex;
   flex-direction: column;
+  transition: right 0.25s ease;
 }
 
 .terminal-accordion--theatre .terminal-header {
@@ -1712,7 +1723,6 @@ body.is-fullscreen .theatre-header-content {
 /* Terminal adjustment when panel is open */
 .terminal-accordion--theatre.diff-panel-open {
   right: calc(50% + 24px);
-  transition: right 0.25s ease;
 }
 
 /* Diff Panel Header */
