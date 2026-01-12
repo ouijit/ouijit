@@ -12,9 +12,9 @@ import {
   cleanupAllPtys,
 } from './ptyManager';
 import { exportProject, previewOuijitFile, importOuijitPackage } from './ouijit';
-import { getGitStatus, getGitDropdownInfo, checkoutBranch } from './git';
+import { getGitStatus, getGitDropdownInfo, checkoutBranch, getChangedFiles, getFileDiff } from './git';
 import type { RunConfig, LaunchResult, PtySpawnOptions, ExportResult, PreviewResult, ImportResult, CreateProjectOptions, CreateProjectResult } from './types';
-import type { GitStatus, GitDropdownInfo } from './git';
+import type { GitStatus, GitDropdownInfo, ChangedFile, FileDiff } from './git';
 
 /**
  * Escapes a string for use in AppleScript
@@ -209,6 +209,16 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
   // Checkout a git branch
   ipcMain.handle('git-checkout', async (_event, projectPath: string, branchName: string) => {
     return checkoutBranch(projectPath, branchName);
+  });
+
+  // Get list of changed files
+  ipcMain.handle('get-changed-files', async (_event, projectPath: string): Promise<ChangedFile[]> => {
+    return getChangedFiles(projectPath);
+  });
+
+  // Get diff for a specific file
+  ipcMain.handle('get-file-diff', async (_event, projectPath: string, filePath: string): Promise<FileDiff | null> => {
+    return getFileDiff(projectPath, filePath);
   });
 
   // Create a new project

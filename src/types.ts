@@ -7,7 +7,7 @@ export interface GitStatus {
 }
 
 // Re-export extended git types from git.ts
-export type { GitDropdownInfo, ExtendedGitStatus, RecentBranch, UncommittedChanges } from './git';
+export type { GitDropdownInfo, ExtendedGitStatus, RecentBranch, UncommittedChanges, ChangedFile, DiffLine, DiffHunk, FileDiff } from './git';
 
 /**
  * Represents a run configuration for launching a project
@@ -122,6 +122,10 @@ export interface ElectronAPI {
   getGitDropdownInfo(projectPath: string): Promise<import('./git').GitDropdownInfo | null>;
   /** Checkout a git branch */
   gitCheckout(projectPath: string, branchName: string): Promise<GitCheckoutResult>;
+  /** Get list of changed files */
+  getChangedFiles(projectPath: string): Promise<import('./git').ChangedFile[]>;
+  /** Get diff for a specific file */
+  getFileDiff(projectPath: string, filePath: string): Promise<import('./git').FileDiff | null>;
   /** Create a new project */
   createProject(options: CreateProjectOptions): Promise<CreateProjectResult>;
   /** Listen for fullscreen state changes */

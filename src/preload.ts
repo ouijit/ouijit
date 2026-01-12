@@ -2,7 +2,7 @@
 // https://www.electronjs.org/docs/latest/tutorial/process-model#preload-scripts
 
 import { contextBridge, ipcRenderer, webUtils } from 'electron';
-import type { Project, RunConfig, LaunchResult, PtySpawnOptions, PtySpawnResult, PtyId, ExportResult, PreviewResult, ImportResult, CreateProjectOptions, CreateProjectResult, GitStatus, GitDropdownInfo, GitCheckoutResult } from './types';
+import type { Project, RunConfig, LaunchResult, PtySpawnOptions, PtySpawnResult, PtyId, ExportResult, PreviewResult, ImportResult, CreateProjectOptions, CreateProjectResult, GitStatus, GitDropdownInfo, GitCheckoutResult, ChangedFile, FileDiff } from './types';
 
 // Expose protected methods that allow the renderer process to use
 // ipcRenderer without exposing the entire object
@@ -111,6 +111,18 @@ contextBridge.exposeInMainWorld('api', {
    */
   gitCheckout: (projectPath: string, branchName: string): Promise<GitCheckoutResult> =>
     ipcRenderer.invoke('git-checkout', projectPath, branchName),
+
+  /**
+   * Get list of changed files
+   */
+  getChangedFiles: (projectPath: string): Promise<ChangedFile[]> =>
+    ipcRenderer.invoke('get-changed-files', projectPath),
+
+  /**
+   * Get diff for a specific file
+   */
+  getFileDiff: (projectPath: string, filePath: string): Promise<FileDiff | null> =>
+    ipcRenderer.invoke('get-file-diff', projectPath, filePath),
 
   /**
    * Create a new project

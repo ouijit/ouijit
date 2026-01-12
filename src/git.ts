@@ -46,6 +46,41 @@ export interface GitDropdownInfo {
 }
 
 /**
+ * A changed file with its status
+ */
+export interface ChangedFile {
+  path: string;
+  status: 'M' | 'A' | 'D' | 'R' | '?';  // Modified, Added, Deleted, Renamed, Untracked
+  oldPath?: string;  // For renamed files
+}
+
+/**
+ * A line in a diff
+ */
+export interface DiffLine {
+  type: 'context' | 'addition' | 'deletion';
+  content: string;
+  oldLineNo?: number;
+  newLineNo?: number;
+}
+
+/**
+ * A hunk in a diff
+ */
+export interface DiffHunk {
+  header: string;
+  lines: DiffLine[];
+}
+
+/**
+ * Full diff for a file
+ */
+export interface FileDiff {
+  path: string;
+  hunks: DiffHunk[];
+}
+
+/**
  * Gets the current git branch and dirty status for a project
  * @param projectPath - Path to the project directory
  * @returns GitStatus object or null if not a git repo or commands fail
@@ -272,5 +307,131 @@ export function checkoutBranch(projectPath: string, branchName: string): { succe
     }
 
     return { success: false, error: 'Checkout failed' };
+  }
+}
+
+/**
+ * Gets list of changed files with their status
+ */
+export function getChangedFiles(projectPath: string): ChangedFile[] {
+  const opts = { cwd: projectPath, encoding: 'utf8' as const, stdio: ['pipe', 'pipe', 'pipe'] as const };
+  const files: ChangedFile[] = [];
+
+  try {
+    // Get tracked file changes (modified, deleted, renamed)
+    const tracked = execSync('git diff --name-status HEAD', opts).toString().trim();
+    if (tracked) {
+      for (const line of tracked.split('\n')) {
+        const parts = line.split('\t');
+        if (parts.length >= 2) {
+          const statusChar = parts[0][0] as ChangedFile['status'];
+          if (statusChar === 'R' && parts.length >= 3) {
+            // Renamed: R100<tab>oldPath<tab>newPath
+            files.push({ path: parts[2], status: 'R', oldPath: parts[1] });
+          } else {
+            files.push({ path: parts[1], status: statusChar });
+          }
+        }
+      }
+    }
+
+    // Get untracked files
+    const untracked = execSync('git ls-files --others --exclude-standard', opts).toString().trim();
+    if (untracked) {
+      for (const path of untracked.split('\n')) {
+        if (path) {
+          files.push({ path, status: '?' });
+        }
+      }
+    }
+
+    return files;
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Parses unified diff output into structured hunks
+ */
+function parseDiff(diffOutput: string): DiffHunk[] {
+  const hunks: DiffHunk[] = [];
+  const lines = diffOutput.split('\n');
+  let currentHunk: DiffHunk | null = null;
+  let oldLine = 0;
+  let newLine = 0;
+
+  for (const line of lines) {
+    // Hunk header: @@ -1,3 +1,4 @@
+    if (line.startsWith('@@')) {
+      const match = line.match(/@@ -(\d+),?\d* \+(\d+),?\d* @@/);
+      if (match) {
+        currentHunk = { header: line, lines: [] };
+        hunks.push(currentHunk);
+        oldLine = parseInt(match[1], 10);
+        newLine = parseInt(match[2], 10);
+      }
+      continue;
+    }
+
+    if (!currentHunk) continue;
+
+    if (line.startsWith('+') && !line.startsWith('+++')) {
+      currentHunk.lines.push({
+        type: 'addition',
+        content: line.substring(1),
+        newLineNo: newLine++,
+      });
+    } else if (line.startsWith('-') && !line.startsWith('---')) {
+      currentHunk.lines.push({
+        type: 'deletion',
+        content: line.substring(1),
+        oldLineNo: oldLine++,
+      });
+    } else if (line.startsWith(' ')) {
+      currentHunk.lines.push({
+        type: 'context',
+        content: line.substring(1),
+        oldLineNo: oldLine++,
+        newLineNo: newLine++,
+      });
+    }
+  }
+
+  return hunks;
+}
+
+/**
+ * Gets the diff for a specific file
+ */
+export function getFileDiff(projectPath: string, filePath: string): FileDiff | null {
+  const opts = { cwd: projectPath, encoding: 'utf8' as const, stdio: ['pipe', 'pipe', 'pipe'] as const, maxBuffer: 10 * 1024 * 1024 };
+
+  try {
+    let diffOutput: string;
+
+    // Check if file is untracked (new file)
+    const untrackedFiles = execSync('git ls-files --others --exclude-standard', opts).toString().trim().split('\n');
+    const isUntracked = untrackedFiles.includes(filePath);
+
+    if (isUntracked) {
+      // For untracked files, show the entire file as additions
+      const fileContent = execSync(`git diff --no-index /dev/null "${filePath}" || true`, { ...opts, stdio: ['pipe', 'pipe', 'ignore'] }).toString();
+      diffOutput = fileContent;
+    } else {
+      // For tracked files, get the diff against HEAD
+      diffOutput = execSync(`git diff HEAD -- "${filePath}"`, opts).toString();
+    }
+
+    if (!diffOutput.trim()) {
+      return null;
+    }
+
+    return {
+      path: filePath,
+      hunks: parseDiff(diffOutput),
+    };
+  } catch {
+    return null;
   }
 }

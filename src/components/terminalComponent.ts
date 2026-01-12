@@ -1,7 +1,7 @@
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { createIcons, Maximize2, Minimize2, RefreshCw, GitBranch } from 'lucide';
-import type { PtyId, PtySpawnOptions, Project, GitStatus, GitDropdownInfo } from '../types';
+import type { PtyId, PtySpawnOptions, Project, GitStatus, GitDropdownInfo, ChangedFile, FileDiff } from '../types';
 import { stringToColor, getInitials } from '../utils/projectIcon';
 import { showToast } from './importDialog';
 
@@ -32,6 +32,11 @@ const GIT_STATUS_IDLE_DELAY = 1000; // 1 second of idle before refreshing
 // Git dropdown state
 let gitDropdownVisible = false;
 let gitDropdownCleanup: (() => void) | null = null;
+
+// Diff panel state
+let diffPanelVisible = false;
+let diffPanelSelectedFile: string | null = null;
+let diffPanelFiles: ChangedFile[] = [];
 
 function createTerminalContainer(projectPath: string): HTMLElement {
   const container = document.createElement('div');
@@ -357,7 +362,7 @@ function buildGitDropdownHtml(info: GitDropdownInfo): string {
     parts.push(`${filesChanged} file${filesChanged === 1 ? '' : 's'}`);
     if (insertions > 0) parts.push(`<span class="insertions">+${insertions}</span>`);
     if (deletions > 0) parts.push(`<span class="deletions">-${deletions}</span>`);
-    uncommittedHtml = `<div class="git-dropdown-uncommitted">${parts.join(' \u00B7 ')}</div>`;
+    uncommittedHtml = `<div class="git-dropdown-uncommitted git-dropdown-uncommitted--clickable" role="button" title="View changes">${parts.join(' \u00B7 ')}</div>`;
   } else if (current.ahead === 0 && current.behind === 0) {
     uncommittedHtml = `<div class="git-dropdown-uncommitted">Up to date</div>`;
   }
@@ -449,6 +454,16 @@ async function showGitDropdown(projectPath: string): Promise<void> {
       }
     });
   });
+
+  // Wire up click handler for uncommitted changes (diff viewer)
+  const uncommittedEl = dropdown.querySelector('.git-dropdown-uncommitted--clickable');
+  if (uncommittedEl) {
+    uncommittedEl.addEventListener('click', (e) => {
+      e.stopPropagation();
+      hideGitDropdown();
+      showDiffPanel();
+    });
+  }
 
   // Show with animation
   requestAnimationFrame(() => {
@@ -614,6 +629,218 @@ function scheduleGitStatusRefresh(): void {
 }
 
 /**
+ * Escape HTML special characters
+ */
+function escapeHtml(text: string): string {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+/**
+ * Build HTML for the diff panel
+ */
+function buildDiffPanelHtml(files: ChangedFile[]): string {
+  const fileItems = files.map((file, index) => {
+    const statusLabel = file.status === '?' ? 'U' : file.status;  // Untracked shows as U (for Untracked/New)
+    const fileName = file.path.split('/').pop() || file.path;
+    return `
+      <div class="diff-file-item${index === 0 ? ' diff-file-item--selected' : ''}" data-path="${escapeHtml(file.path)}" data-status="${file.status}">
+        <span class="diff-file-status diff-file-status--${statusLabel}">${statusLabel}</span>
+        <span class="diff-file-name" title="${escapeHtml(file.path)}">${escapeHtml(fileName)}</span>
+      </div>
+    `;
+  }).join('');
+
+  return `
+    <div class="diff-panel">
+      <div class="diff-file-list">
+        <div class="diff-file-list-header">Changed Files</div>
+        <div class="diff-file-list-items">
+          ${fileItems}
+        </div>
+      </div>
+      <div class="diff-content">
+        <div class="diff-content-header">
+          <span class="diff-content-filename"></span>
+          <button class="diff-panel-close" title="Close diff panel">&times;</button>
+        </div>
+        <div class="diff-content-body"></div>
+      </div>
+    </div>
+  `;
+}
+
+/**
+ * Render diff content HTML from FileDiff
+ */
+function renderDiffContentHtml(diff: FileDiff): string {
+  if (!diff.hunks.length) {
+    return '<div class="diff-empty-state">No changes to display</div>';
+  }
+
+  return diff.hunks.map(hunk => {
+    const linesHtml = hunk.lines.map(line => {
+      const oldNum = line.oldLineNo !== undefined ? line.oldLineNo : '';
+      const newNum = line.newLineNo !== undefined ? line.newLineNo : '';
+      return `
+        <div class="diff-line diff-line--${line.type}">
+          <div class="diff-line-numbers">
+            <span class="diff-line-number">${oldNum}</span>
+            <span class="diff-line-number">${newNum}</span>
+          </div>
+          <span class="diff-line-content">${escapeHtml(line.content)}</span>
+        </div>
+      `;
+    }).join('');
+
+    return `
+      <div class="diff-hunk">
+        <div class="diff-hunk-header">${escapeHtml(hunk.header)}</div>
+        ${linesHtml}
+      </div>
+    `;
+  }).join('');
+}
+
+/**
+ * Select a file in the diff panel and show its diff
+ */
+async function selectDiffFile(filePath: string): Promise<void> {
+  if (!theatreModeProjectPath) return;
+
+  diffPanelSelectedFile = filePath;
+
+  // Update selected state in file list
+  const panel = document.querySelector('.diff-panel');
+  if (!panel) return;
+
+  panel.querySelectorAll('.diff-file-item').forEach(item => {
+    const itemPath = (item as HTMLElement).dataset.path;
+    item.classList.toggle('diff-file-item--selected', itemPath === filePath);
+  });
+
+  // Update filename in header
+  const filenameEl = panel.querySelector('.diff-content-filename');
+  if (filenameEl) {
+    filenameEl.textContent = filePath;
+  }
+
+  // Fetch and render diff
+  const contentBody = panel.querySelector('.diff-content-body');
+  if (!contentBody) return;
+
+  contentBody.innerHTML = '<div class="diff-empty-state">Loading...</div>';
+
+  const diff = await window.api.getFileDiff(theatreModeProjectPath, filePath);
+  if (diff) {
+    contentBody.innerHTML = renderDiffContentHtml(diff);
+  } else {
+    contentBody.innerHTML = '<div class="diff-empty-state">Unable to load diff</div>';
+  }
+}
+
+/**
+ * Show the diff panel
+ */
+async function showDiffPanel(): Promise<void> {
+  if (!theatreModeProjectPath || diffPanelVisible) return;
+
+  // Fetch changed files
+  const files = await window.api.getChangedFiles(theatreModeProjectPath);
+  if (!files.length) {
+    showToast('No uncommitted changes', 'info');
+    return;
+  }
+
+  diffPanelFiles = files;
+  diffPanelVisible = true;
+
+  // Create and insert panel
+  const panelHtml = buildDiffPanelHtml(files);
+  document.body.insertAdjacentHTML('beforeend', panelHtml);
+
+  const panel = document.querySelector('.diff-panel');
+  if (!panel) return;
+
+  // Wire up file item clicks
+  panel.querySelectorAll('.diff-file-item').forEach(item => {
+    item.addEventListener('click', () => {
+      const filePath = (item as HTMLElement).dataset.path;
+      if (filePath) {
+        selectDiffFile(filePath);
+      }
+    });
+  });
+
+  // Wire up close button
+  const closeBtn = panel.querySelector('.diff-panel-close');
+  if (closeBtn) {
+    closeBtn.addEventListener('click', () => hideDiffPanel());
+  }
+
+  // Add class to terminal to shrink it
+  const instance = theatreModeProjectPath ? terminals.get(theatreModeProjectPath) : null;
+  if (instance) {
+    instance.container.classList.add('diff-panel-open');
+  }
+
+  // Animate panel in
+  requestAnimationFrame(() => {
+    panel.classList.add('diff-panel--visible');
+  });
+
+  // Refit terminal after animation
+  setTimeout(() => {
+    if (instance) {
+      instance.fitAddon.fit();
+      if (instance.ptyId) {
+        window.api.pty.resize(instance.ptyId, instance.terminal.cols, instance.terminal.rows);
+      }
+    }
+  }, 250);
+
+  // Select first file
+  if (files.length > 0) {
+    selectDiffFile(files[0].path);
+  }
+}
+
+/**
+ * Hide the diff panel
+ */
+function hideDiffPanel(): void {
+  if (!diffPanelVisible) return;
+
+  const panel = document.querySelector('.diff-panel');
+  if (panel) {
+    panel.classList.remove('diff-panel--visible');
+    // Remove after animation
+    setTimeout(() => panel.remove(), 250);
+  }
+
+  // Remove class from terminal
+  const instance = theatreModeProjectPath ? terminals.get(theatreModeProjectPath) : null;
+  if (instance) {
+    instance.container.classList.remove('diff-panel-open');
+  }
+
+  // Refit terminal after animation
+  setTimeout(() => {
+    if (instance) {
+      instance.fitAddon.fit();
+      if (instance.ptyId) {
+        window.api.pty.resize(instance.ptyId, instance.terminal.cols, instance.terminal.rows);
+      }
+    }
+  }, 250);
+
+  diffPanelVisible = false;
+  diffPanelSelectedFile = null;
+  diffPanelFiles = [];
+}
+
+/**
  * Enter theatre mode for the specified terminal
  */
 export async function enterTheatreMode(projectPath: string, projectData: Project): Promise<void> {
@@ -750,6 +977,9 @@ export function exitTheatreMode(): void {
 
   // 5b. Hide and cleanup git dropdown
   hideGitDropdown();
+
+  // 5c. Hide diff panel
+  hideDiffPanel();
 
   // 6. Refit terminal
   if (instance) {
