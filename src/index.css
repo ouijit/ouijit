@@ -999,6 +999,7 @@ textarea,
   min-height: 0;
   min-width: 0;
   overflow: hidden;
+  background: var(--color-terminal-bg, #1a1a1a);
 }
 
 /* Override xterm.js styles */
@@ -1010,6 +1011,7 @@ textarea,
 .terminal-xterm-container .xterm-viewport {
   overflow-y: auto;
   border-radius: var(--radius-md);
+  background-color: transparent !important;
 }
 
 .terminal-xterm-container .xterm-viewport::-webkit-scrollbar {
