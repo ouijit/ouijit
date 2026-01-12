@@ -369,7 +369,7 @@ function buildGitDropdownHtml(info: GitDropdownInfo): string {
         ? `+${branch.commitsAhead} \u00B7 ${branch.lastCommitAge}`
         : branch.lastCommitAge;
       return `
-        <div class="git-dropdown-branch">
+        <div class="git-dropdown-branch" data-branch="${branch.name}">
           <span class="git-dropdown-branch-name">${branch.name}</span>
           <span class="git-dropdown-branch-stats">${statsHtml}</span>
         </div>
@@ -399,6 +399,22 @@ function buildGitDropdownHtml(info: GitDropdownInfo): string {
 }
 
 /**
+ * Switch to a branch by writing git checkout command to the terminal
+ */
+function switchToBranch(branchName: string): void {
+  if (!theatreModeProjectPath) return;
+
+  const instance = terminals.get(theatreModeProjectPath);
+  if (!instance?.ptyId) return;
+
+  // Write git checkout command to terminal
+  window.api.pty.write(instance.ptyId, `git checkout ${branchName}\n`);
+
+  // Close dropdown
+  hideGitDropdown();
+}
+
+/**
  * Show the git dropdown
  */
 async function showGitDropdown(projectPath: string): Promise<void> {
@@ -417,6 +433,17 @@ async function showGitDropdown(projectPath: string): Promise<void> {
 
   const dropdown = gitStatusEl.querySelector('.theatre-git-dropdown');
   if (!dropdown) return;
+
+  // Wire up click handlers for branch switching
+  dropdown.querySelectorAll('.git-dropdown-branch[data-branch]').forEach(el => {
+    el.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const branchName = (el as HTMLElement).dataset.branch;
+      if (branchName) {
+        switchToBranch(branchName);
+      }
+    });
+  });
 
   // Show with animation
   requestAnimationFrame(() => {

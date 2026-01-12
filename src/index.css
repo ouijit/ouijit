@@ -1591,11 +1591,16 @@ body.is-fullscreen .theatre-header-content {
   align-items: center;
   justify-content: space-between;
   padding: 8px 12px;
+  cursor: pointer;
   transition: background-color var(--transition-fast);
 }
 
 .git-dropdown-branch:hover {
   background: var(--color-background);
+}
+
+.git-dropdown-branch:active {
+  background: var(--color-border);
 }
 
 .git-dropdown-branch .git-dropdown-branch-name {
