@@ -34,6 +34,14 @@ export interface LaunchResult {
 }
 
 /**
+ * Result of git checkout operation
+ */
+export interface GitCheckoutResult {
+  success: boolean;
+  error?: string;
+}
+
+/**
  * Unique identifier for a PTY session
  */
 export type PtyId = string;
@@ -112,6 +120,8 @@ export interface ElectronAPI {
   getGitStatus(projectPath: string): Promise<GitStatus | null>;
   /** Get extended git dropdown info for a project */
   getGitDropdownInfo(projectPath: string): Promise<import('./git').GitDropdownInfo | null>;
+  /** Checkout a git branch */
+  gitCheckout(projectPath: string, branchName: string): Promise<GitCheckoutResult>;
   /** Create a new project */
   createProject(options: CreateProjectOptions): Promise<CreateProjectResult>;
   /** Listen for fullscreen state changes */

@@ -12,7 +12,7 @@ import {
   cleanupAllPtys,
 } from './ptyManager';
 import { exportProject, previewOuijitFile, importOuijitPackage } from './ouijit';
-import { getGitStatus, getGitDropdownInfo } from './git';
+import { getGitStatus, getGitDropdownInfo, checkoutBranch } from './git';
 import type { RunConfig, LaunchResult, PtySpawnOptions, ExportResult, PreviewResult, ImportResult, CreateProjectOptions, CreateProjectResult } from './types';
 import type { GitStatus, GitDropdownInfo } from './git';
 
@@ -204,6 +204,11 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
   // Get extended git dropdown info for a project
   ipcMain.handle('get-git-dropdown-info', async (_event, projectPath: string): Promise<GitDropdownInfo | null> => {
     return getGitDropdownInfo(projectPath);
+  });
+
+  // Checkout a git branch
+  ipcMain.handle('git-checkout', async (_event, projectPath: string, branchName: string) => {
+    return checkoutBranch(projectPath, branchName);
   });
 
   // Create a new project

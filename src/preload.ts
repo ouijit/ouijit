@@ -2,7 +2,7 @@
 // https://www.electronjs.org/docs/latest/tutorial/process-model#preload-scripts
 
 import { contextBridge, ipcRenderer, webUtils } from 'electron';
-import type { Project, RunConfig, LaunchResult, PtySpawnOptions, PtySpawnResult, PtyId, ExportResult, PreviewResult, ImportResult, CreateProjectOptions, CreateProjectResult, GitStatus, GitDropdownInfo } from './types';
+import type { Project, RunConfig, LaunchResult, PtySpawnOptions, PtySpawnResult, PtyId, ExportResult, PreviewResult, ImportResult, CreateProjectOptions, CreateProjectResult, GitStatus, GitDropdownInfo, GitCheckoutResult } from './types';
 
 // Expose protected methods that allow the renderer process to use
 // ipcRenderer without exposing the entire object
@@ -105,6 +105,12 @@ contextBridge.exposeInMainWorld('api', {
    */
   getGitDropdownInfo: (projectPath: string): Promise<GitDropdownInfo | null> =>
     ipcRenderer.invoke('get-git-dropdown-info', projectPath),
+
+  /**
+   * Checkout a git branch
+   */
+  gitCheckout: (projectPath: string, branchName: string): Promise<GitCheckoutResult> =>
+    ipcRenderer.invoke('git-checkout', projectPath, branchName),
 
   /**
    * Create a new project

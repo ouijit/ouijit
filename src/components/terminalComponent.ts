@@ -3,6 +3,7 @@ import { FitAddon } from '@xterm/addon-fit';
 import { createIcons, Maximize2, Minimize2, RefreshCw, GitBranch } from 'lucide';
 import type { PtyId, PtySpawnOptions, Project, GitStatus, GitDropdownInfo } from '../types';
 import { stringToColor, getInitials } from '../utils/projectIcon';
+import { showToast } from './importDialog';
 
 const theatreIcons = { Maximize2, Minimize2, RefreshCw, GitBranch };
 
@@ -399,19 +400,23 @@ function buildGitDropdownHtml(info: GitDropdownInfo): string {
 }
 
 /**
- * Switch to a branch by writing git checkout command to the terminal
+ * Switch to a branch using IPC git checkout
  */
-function switchToBranch(branchName: string): void {
+async function switchToBranch(branchName: string): Promise<void> {
   if (!theatreModeProjectPath) return;
 
-  const instance = terminals.get(theatreModeProjectPath);
-  if (!instance?.ptyId) return;
-
-  // Write git checkout command to terminal
-  window.api.pty.write(instance.ptyId, `git checkout ${branchName}\n`);
-
-  // Close dropdown
+  // Close dropdown immediately for responsiveness
   hideGitDropdown();
+
+  const result = await window.api.gitCheckout(theatreModeProjectPath, branchName);
+
+  if (result.success) {
+    showToast(`Switched to ${branchName}`, 'success');
+    // Trigger git status refresh to update the UI
+    await refreshGitStatus();
+  } else {
+    showToast(result.error || 'Checkout failed', 'error');
+  }
 }
 
 /**

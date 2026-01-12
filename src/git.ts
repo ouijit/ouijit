@@ -247,3 +247,30 @@ export function getGitDropdownInfo(projectPath: string): GitDropdownInfo | null 
     return null;
   }
 }
+
+/**
+ * Checkout a git branch
+ */
+export function checkoutBranch(projectPath: string, branchName: string): { success: boolean; error?: string } {
+  const opts = { cwd: projectPath, encoding: 'utf8' as const, stdio: ['pipe', 'pipe', 'pipe'] as const };
+
+  try {
+    execSync(`git checkout "${branchName}"`, opts);
+    return { success: true };
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+
+    // Parse git error messages into user-friendly text
+    if (errorMsg.includes('Your local changes')) {
+      return {
+        success: false,
+        error: 'Uncommitted changes would be overwritten. Commit or stash first.'
+      };
+    }
+    if (errorMsg.includes('did not match any')) {
+      return { success: false, error: `Branch '${branchName}' not found` };
+    }
+
+    return { success: false, error: 'Checkout failed' };
+  }
+}
