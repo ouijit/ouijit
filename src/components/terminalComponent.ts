@@ -422,6 +422,19 @@ export function exitTheatreMode(): void {
         }
       });
     }
+    // Re-attach new project handler
+    const newProjectBtn = headerContent.querySelector('#new-project-btn');
+    if (newProjectBtn) {
+      newProjectBtn.addEventListener('click', async () => {
+        const { showNewProjectDialog } = await import('./newProjectDialog');
+        const result = await showNewProjectDialog();
+        if (result?.created) {
+          await (window as any).refreshProjects?.();
+          const { showToast } = await import('./importDialog');
+          showToast(`Created project: ${result.projectName}`, 'success');
+        }
+      });
+    }
   }
 
   // 4. Remove escape handler
