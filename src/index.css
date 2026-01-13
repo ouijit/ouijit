@@ -2205,8 +2205,8 @@ body.is-fullscreen .theatre-header-content {
   right: 16px;
   bottom: 16px;
   z-index: 100;
-  perspective: 1000px;
-  transition: right 0.25s ease;
+  overflow: visible; /* Allow back card tabs to render above container */
+  transition: right 0.25s ease, top 0.2s ease;
 }
 
 /* Adjust stack when diff panel is open */
@@ -2226,39 +2226,55 @@ body.is-fullscreen .theatre-header-content {
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  transition: transform 0.3s ease, opacity 0.3s ease, z-index 0s;
+  transition: transform 0.2s ease, border-color 0.2s ease;
   cursor: pointer;
 }
 
 .theatre-card--active {
-  transform: translateY(0) translateX(0) scale(1);
-  opacity: 1;
+  transform: none;
   z-index: 10;
   cursor: default;
 }
 
 .theatre-card--back-1 {
-  transform: translateY(-12px) translateX(-12px) scale(0.97);
-  opacity: 0.9;
+  transform: translateY(-30px);
   z-index: 9;
 }
 
 .theatre-card--back-2 {
-  transform: translateY(-24px) translateX(-24px) scale(0.94);
-  opacity: 0.75;
+  transform: translateY(-60px);
   z-index: 8;
 }
 
 .theatre-card--back-3 {
-  transform: translateY(-36px) translateX(-36px) scale(0.91);
-  opacity: 0.6;
+  transform: translateY(-90px);
   z-index: 7;
 }
 
 .theatre-card--back-4 {
-  transform: translateY(-48px) translateX(-48px) scale(0.88);
-  opacity: 0.45;
+  transform: translateY(-120px);
   z-index: 6;
+}
+
+/* Hover effect on back cards */
+.theatre-card:not(.theatre-card--active):hover {
+  border-color: var(--color-accent);
+}
+
+.theatre-card--back-1:hover {
+  transform: translateY(-34px);
+}
+
+.theatre-card--back-2:hover {
+  transform: translateY(-64px);
+}
+
+.theatre-card--back-3:hover {
+  transform: translateY(-94px);
+}
+
+.theatre-card--back-4:hover {
+  transform: translateY(-124px);
 }
 
 /* Card label */

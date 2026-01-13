@@ -1328,8 +1328,14 @@ function createTheatreCard(label: string, index: number): HTMLElement {
  * Update card stack visual positions
  */
 function updateCardStack(): void {
-  const stack = document.querySelector('.theatre-stack');
+  const stack = document.querySelector('.theatre-stack') as HTMLElement;
   if (!stack) return;
+
+  // Calculate number of back cards and adjust stack position
+  // Each back card needs 30px of space for its visible tab
+  const backCardCount = Math.min(theatreTerminals.length - 1, 4);
+  const tabSpace = backCardCount * 30;
+  stack.style.top = `${82 + tabSpace}px`;
 
   theatreTerminals.forEach((term, index) => {
     // Remove all position classes
