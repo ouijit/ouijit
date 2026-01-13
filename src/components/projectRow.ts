@@ -1,7 +1,42 @@
-import type { Project, RunConfig } from '../types';
-import { createElement, ChevronDown, Upload, FolderOpen, SquareTerminal } from 'lucide';
+import type { Project, RunConfig, CustomCommand } from '../types';
+import { createElement, ChevronDown, Upload, FolderOpen, SquareTerminal, Plus, Star, X } from 'lucide';
 import { showToast } from './importDialog';
+import { showCustomCommandDialog } from './customCommandDialog';
 import { stringToColor, getInitials } from '../utils/projectIcon';
+
+/**
+ * Generates a unique ID for a detected run config (for default selection)
+ */
+function getConfigId(config: RunConfig): string {
+  return config.isCustom ? config.name : `${config.source}:${config.name}`;
+}
+
+/**
+ * Converts custom commands to RunConfig format
+ */
+function customCommandsToRunConfigs(customCommands: CustomCommand[]): RunConfig[] {
+  return customCommands.map(cmd => ({
+    name: cmd.name,
+    command: cmd.command,
+    source: 'custom' as const,
+    description: cmd.description,
+    priority: 0, // Custom commands have highest priority
+    isCustom: true,
+  }));
+}
+
+/**
+ * Merges detected run configs with custom commands
+ * Custom commands appear first, then detected configs
+ */
+function mergeRunConfigs(
+  detectedConfigs: RunConfig[] | undefined,
+  customCommands: CustomCommand[]
+): RunConfig[] {
+  const customConfigs = customCommandsToRunConfigs(customCommands);
+  const detected = detectedConfigs || [];
+  return [...customConfigs, ...detected];
+}
 
 /**
  * Creates a project icon element (image or placeholder)
@@ -71,37 +106,90 @@ function formatRelativeTime(date: Date): string {
 }
 
 /**
- * Truncate a string to a maximum length with ellipsis
+ * Builds the dropdown content by fetching fresh settings
+ * Called each time the dropdown is opened to ensure state is current
  */
-function truncate(str: string, maxLength: number): string {
-  if (str.length <= maxLength) {
-    return str;
-  }
-  return str.substring(0, maxLength - 3) + '...';
-}
-
-/**
- * Creates a launch dropdown menu
- */
-function createLaunchDropdown(
+async function buildDropdownContent(
+  dropdown: HTMLElement,
   project: Project,
   row: HTMLElement,
   onLaunch: (path: string, runConfig: RunConfig, row: HTMLElement, projectData: Project) => void,
   onOpenFinder: (path: string) => void
-): HTMLElement {
-  const dropdown = document.createElement('div');
-  dropdown.className = 'launch-dropdown';
+): Promise<void> {
+  // Clear existing dropdown content
+  dropdown.innerHTML = '';
 
-  const runConfigs = project.runConfigs || [];
+  // Fetch fresh settings
+  const settings = await window.api.getProjectSettings(project.path);
+  const allConfigs = mergeRunConfigs(project.runConfigs, settings.customCommands);
+  const defaultCommandId = settings.defaultCommandId;
 
   // Add run config options
-  runConfigs.forEach((config) => {
+  allConfigs.forEach((config, index) => {
     const option = document.createElement('button');
     option.className = 'launch-option';
-    option.innerHTML = `
-      <span class="launch-option-name">${config.name}</span>
-      <span class="launch-option-source">${config.source}</span>
-    `;
+
+    const configId = getConfigId(config);
+    // Check if this is explicitly set as default
+    const isExplicitDefault = defaultCommandId === configId;
+    // If no default is set, treat the first command as the visual default
+    const isVisualDefault = defaultCommandId
+      ? configId === defaultCommandId
+      : index === 0;
+
+    // Add set-as-default star button on the left
+    const starBtn = document.createElement('span');
+    starBtn.className = isVisualDefault ? 'launch-option-star launch-option-star--active' : 'launch-option-star';
+    starBtn.title = isVisualDefault ? 'Default command' : 'Set as default';
+    const starBtnIcon = createElement(Star);
+    starBtn.appendChild(starBtnIcon);
+    starBtn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      if (!isExplicitDefault) {
+        await window.api.setDefaultCommand(project.path, configId);
+        showToast(`Default: ${config.name}`, 'success');
+        dropdown.classList.remove('visible');
+        // No DOM updates - dropdown rebuilds on next open
+      }
+    });
+    option.appendChild(starBtn);
+
+    // Create name element
+    const nameContainer = document.createElement('span');
+    nameContainer.className = 'launch-option-name';
+    nameContainer.textContent = config.name;
+    option.appendChild(nameContainer);
+
+    const sourceSpan = document.createElement('span');
+    sourceSpan.className = 'launch-option-source';
+    sourceSpan.textContent = config.source;
+    option.appendChild(sourceSpan);
+
+    // Add delete button for custom commands
+    if (config.isCustom) {
+      const deleteBtn = document.createElement('span');
+      deleteBtn.className = 'launch-option-delete';
+      deleteBtn.title = 'Delete command';
+      const deleteIcon = createElement(X);
+      deleteBtn.appendChild(deleteIcon);
+      deleteBtn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const confirmed = confirm(`Delete "${config.name}"?`);
+        if (confirmed) {
+          // Find the matching custom command to get its ID
+          const currentSettings = await window.api.getProjectSettings(project.path);
+          const customCmd = currentSettings.customCommands.find(c => c.name === config.name);
+          if (customCmd) {
+            await window.api.deleteCustomCommand(project.path, customCmd.id);
+            showToast(`Deleted: ${config.name}`, 'success');
+            dropdown.classList.remove('visible');
+            // No DOM updates - dropdown rebuilds on next open
+          }
+        }
+      });
+      option.appendChild(deleteBtn);
+    }
+
     option.addEventListener('click', (e) => {
       e.stopPropagation();
       onLaunch(project.path, config, row, project);
@@ -110,12 +198,43 @@ function createLaunchDropdown(
     dropdown.appendChild(option);
   });
 
-  // Divider
-  if (runConfigs.length > 0) {
+  // Divider before custom command option
+  if (allConfigs.length > 0) {
     const divider = document.createElement('div');
     divider.className = 'launch-dropdown-divider';
     dropdown.appendChild(divider);
   }
+
+  // Custom command option
+  const customOption = document.createElement('button');
+  customOption.className = 'launch-option';
+  const plusIcon = createElement(Plus);
+  plusIcon.classList.add('launch-option-icon');
+  customOption.appendChild(plusIcon);
+  const customText = document.createElement('span');
+  customText.className = 'launch-option-name';
+  customText.textContent = 'Custom command...';
+  customOption.appendChild(customText);
+  customOption.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    dropdown.classList.remove('visible');
+
+    const existingCount = allConfigs.length;
+    const result = await showCustomCommandDialog(project.path, undefined, {
+      defaultToDefault: existingCount === 0
+    });
+
+    if (result?.saved) {
+      showToast(`Added command: ${result.command?.name}`, 'success');
+      // No DOM updates - dropdown rebuilds on next open
+    }
+  });
+  dropdown.appendChild(customOption);
+
+  // Divider
+  const divider2 = document.createElement('div');
+  divider2.className = 'launch-dropdown-divider';
+  dropdown.appendChild(divider2);
 
   // Export option
   const exportOption = document.createElement('button');
@@ -138,7 +257,7 @@ function createLaunchDropdown(
       } else if (result.error !== 'Cancelled') {
         showToast(`Export failed: ${result.error}`, 'error');
       }
-    } catch (error) {
+    } catch {
       showToast('Export failed', 'error');
     }
   });
@@ -160,8 +279,6 @@ function createLaunchDropdown(
     dropdown.classList.remove('visible');
   });
   dropdown.appendChild(finderOption);
-
-  return dropdown;
 }
 
 /**
@@ -249,8 +366,6 @@ export function createProjectRow(
   lastModified.textContent = formatRelativeTime(date);
   row.appendChild(lastModified);
 
-  const hasRunConfigs = project.runConfigs && project.runConfigs.length > 0;
-
   // Actions container for buttons
   const actionsContainer = document.createElement('div');
   actionsContainer.className = 'actions-container';
@@ -273,7 +388,7 @@ export function createProjectRow(
     actionsContainer.appendChild(terminalBtn);
   }
 
-  if (hasRunConfigs && onLaunch && onOpenFinder) {
+  if (onLaunch && onOpenFinder) {
     // Create launch button with dropdown
     const launchWrapper = document.createElement('div');
     launchWrapper.className = 'launch-wrapper';
@@ -281,7 +396,6 @@ export function createProjectRow(
     const launchButton = document.createElement('button');
     launchButton.className = 'btn btn-primary btn-launch';
 
-    const primaryConfig = project.runConfigs![0];
     const launchText = document.createElement('span');
     launchText.textContent = 'Open';
     launchButton.appendChild(launchText);
@@ -290,15 +404,20 @@ export function createProjectRow(
     chevron.classList.add('dropdown-arrow');
     launchButton.appendChild(chevron);
 
-    const dropdown = createLaunchDropdown(project, row, onLaunch, onOpenFinder);
+    // Create empty dropdown container - content built on open
+    const dropdown = document.createElement('div');
+    dropdown.className = 'launch-dropdown';
 
-    launchButton.addEventListener('click', (e) => {
+    // Lazy load dropdown content when button is clicked
+    launchButton.addEventListener('click', async (e) => {
       e.stopPropagation();
-      // Toggle dropdown visibility
       const isVisible = dropdown.classList.contains('visible');
       // Close all other dropdowns
       document.querySelectorAll('.launch-dropdown.visible').forEach(d => d.classList.remove('visible'));
+
       if (!isVisible) {
+        // Build fresh content before showing
+        await buildDropdownContent(dropdown, project, row, onLaunch, onOpenFinder);
         dropdown.classList.add('visible');
       }
     });
@@ -307,15 +426,30 @@ export function createProjectRow(
     launchWrapper.appendChild(dropdown);
     actionsContainer.appendChild(launchWrapper);
 
-    // Row click launches primary config
-    row.addEventListener('click', () => {
-      onLaunch(project.path, primaryConfig, row, project);
+    // Lazy row click - fetch fresh settings and launch default
+    row.addEventListener('click', async () => {
+      // Fetch fresh settings
+      const settings = await window.api.getProjectSettings(project.path);
+      const allConfigs = mergeRunConfigs(project.runConfigs, settings.customCommands);
+
+      if (allConfigs.length === 0) {
+        // No commands available, open in finder
+        onOpen(project.path);
+        return;
+      }
+
+      // Determine default: explicit default or first config
+      let defaultConfig = allConfigs[0];
+      if (settings.defaultCommandId) {
+        const explicit = allConfigs.find(c => getConfigId(c) === settings.defaultCommandId);
+        if (explicit) {
+          defaultConfig = explicit;
+        }
+      }
+
+      onLaunch(project.path, defaultConfig, row, project);
     });
   } else {
-    // Container for open button
-    const actionContainer = document.createElement('div');
-    actionContainer.className = 'launch-container';
-
     // Fallback to View in Finder button
     const openButton = document.createElement('button');
     openButton.className = 'btn btn-primary';

@@ -30,7 +30,13 @@ export function renderProjects(
 
   // Create and append project rows with staggered animation
   projects.forEach((project, index) => {
-    const row = createProjectRow(project, onOpen, onLaunch, onOpenFinder, onOpenTerminal);
+    const row = createProjectRow(
+      project,
+      onOpen,
+      onLaunch,
+      onOpenFinder,
+      onOpenTerminal
+    );
     row.style.animationDelay = `${index * 50}ms`;
     container.appendChild(row);
 
