@@ -2241,7 +2241,7 @@ body.is-fullscreen .theatre-header-content {
 }
 
 .theatre-card--back-1 {
-  transform: translateY(-24px);
+  transform: translateY(-24px) scaleX(0.98);
   z-index: 9;
   box-shadow:
     0 0 0 1px rgba(0, 0, 0, 0.05),
@@ -2250,7 +2250,7 @@ body.is-fullscreen .theatre-header-content {
 }
 
 .theatre-card--back-2 {
-  transform: translateY(-48px);
+  transform: translateY(-48px) scaleX(0.96);
   z-index: 8;
   box-shadow:
     0 0 0 1px rgba(0, 0, 0, 0.05),
@@ -2259,7 +2259,7 @@ body.is-fullscreen .theatre-header-content {
 }
 
 .theatre-card--back-3 {
-  transform: translateY(-72px);
+  transform: translateY(-72px) scaleX(0.94);
   z-index: 7;
   box-shadow:
     0 0 0 1px rgba(0, 0, 0, 0.05),
@@ -2268,7 +2268,7 @@ body.is-fullscreen .theatre-header-content {
 }
 
 .theatre-card--back-4 {
-  transform: translateY(-96px);
+  transform: translateY(-96px) scaleX(0.92);
   z-index: 6;
   box-shadow:
     0 0 0 1px rgba(0, 0, 0, 0.05),
@@ -2282,19 +2282,19 @@ body.is-fullscreen .theatre-header-content {
 }
 
 .theatre-card--back-1:hover {
-  transform: translateY(-28px);
+  transform: translateY(-28px) scaleX(0.98);
 }
 
 .theatre-card--back-2:hover {
-  transform: translateY(-52px);
+  transform: translateY(-52px) scaleX(0.96);
 }
 
 .theatre-card--back-3:hover {
-  transform: translateY(-76px);
+  transform: translateY(-76px) scaleX(0.94);
 }
 
 .theatre-card--back-4:hover {
-  transform: translateY(-100px);
+  transform: translateY(-100px) scaleX(0.92);
 }
 
 /* Card label */
