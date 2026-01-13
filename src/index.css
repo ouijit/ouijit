@@ -2327,19 +2327,18 @@ body.is-fullscreen .theatre-header-content {
 .theatre-launch-btn {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  background: var(--color-accent);
+  gap: 4px;
+  padding: 4px 8px;
+  background: var(--color-background);
   border: none;
   border-radius: var(--radius-full);
-  color: white;
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-medium);
-  transition: background-color var(--transition-fast), transform var(--transition-fast);
+  color: var(--color-text-secondary);
+  transition: background-color var(--transition-fast), color var(--transition-fast);
 }
 
 .theatre-launch-btn:hover {
-  background: var(--color-accent-hover);
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--color-text-primary);
 }
 
 .theatre-launch-btn:active {
@@ -2351,10 +2350,10 @@ body.is-fullscreen .theatre-header-content {
   height: 14px;
 }
 
-.theatre-launch-count {
-  font-family: 'SF Mono', Monaco, Menlo, monospace;
-  font-size: 10px;
-  opacity: 0.85;
+.theatre-launch-chevron {
+  width: 12px;
+  height: 12px;
+  opacity: 0.6;
 }
 
 /* Launch dropdown - reuses .launch-dropdown pattern */

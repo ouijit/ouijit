@@ -1,12 +1,12 @@
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
-import { createIcons, Maximize2, Minimize2, RefreshCw, GitBranch, ChevronDown, Plus, FolderOpen, Upload, Star, X } from 'lucide';
+import { createIcons, Maximize2, Minimize2, RefreshCw, GitBranch, ChevronDown, Play, Plus, FolderOpen, Upload, Star, X } from 'lucide';
 import type { PtyId, PtySpawnOptions, Project, GitStatus, GitDropdownInfo, ChangedFile, FileDiff, RunConfig, CustomCommand } from '../types';
 import { stringToColor, getInitials } from '../utils/projectIcon';
 import { showToast } from './importDialog';
 import { showCustomCommandDialog } from './customCommandDialog';
 
-const theatreIcons = { Maximize2, Minimize2, RefreshCw, GitBranch, ChevronDown, Plus, FolderOpen, Upload, Star, X };
+const theatreIcons = { Maximize2, Minimize2, RefreshCw, GitBranch, ChevronDown, Play, Plus, FolderOpen, Upload, Star, X };
 
 interface TerminalInstance {
   terminal: Terminal;
@@ -605,9 +605,9 @@ function buildTheatreHeader(projectData: Project, gitStatus: GitStatus | null): 
         <span class="theatre-project-path">${projectData.path}</span>
       </div>
       <div class="theatre-launch-wrapper">
-        <button class="theatre-launch-btn" title="Launch command">
-          <i data-lucide="plus"></i>
-          <span class="theatre-launch-count">1/${MAX_THEATRE_TERMINALS}</span>
+        <button class="theatre-launch-btn" title="Run command">
+          <i data-lucide="play"></i>
+          <i data-lucide="chevron-down" class="theatre-launch-chevron"></i>
         </button>
       </div>
       ${gitStatusHtml}
@@ -616,16 +616,6 @@ function buildTheatreHeader(projectData: Project, gitStatus: GitStatus | null): 
       </button>
     </div>
   `;
-}
-
-/**
- * Update the terminal count display in the launch button
- */
-function updateLaunchButtonCount(): void {
-  const countEl = document.querySelector('.theatre-launch-count');
-  if (countEl) {
-    countEl.textContent = `${theatreTerminals.length}/${MAX_THEATRE_TERMINALS}`;
-  }
 }
 
 /**
@@ -1354,9 +1344,6 @@ function updateCardStack(): void {
       term.container.classList.add(backClass);
     }
   });
-
-  // Update launch button count
-  updateLaunchButtonCount();
 }
 
 /**
