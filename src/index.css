@@ -639,6 +639,7 @@ textarea,
 }
 
 .launch-option {
+  position: relative;
   display: flex;
   align-items: center;
   gap: var(--spacing-sm);
@@ -651,10 +652,6 @@ textarea,
   color: var(--color-text-primary);
   text-align: left;
   transition: background-color var(--transition-fast);
-}
-
-.launch-option .launch-option-source {
-  margin-left: auto;
 }
 
 .launch-option:hover {
@@ -675,6 +672,105 @@ textarea,
 .launch-option-source {
   font-size: var(--font-size-xs);
   color: var(--color-text-tertiary);
+  margin-left: auto;
+  transition: margin-right var(--transition-fast);
+}
+
+/* Slide source text left when delete button appears */
+.launch-option:hover .launch-option-source:has(+ .launch-option-delete) {
+  margin-right: calc(18px + var(--spacing-sm));
+}
+
+/* Set as default star button (left side) */
+.launch-option-star {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  margin-right: var(--spacing-xs);
+  border-radius: var(--radius-full);
+  opacity: 0;
+  transition: opacity var(--transition-fast), background-color var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.launch-option-star svg {
+  width: 12px;
+  height: 12px;
+  color: var(--color-text-tertiary);
+}
+
+.launch-option:hover .launch-option-star {
+  opacity: 1;
+}
+
+.launch-option-star:hover {
+  background: rgba(255, 214, 10, 0.15);
+}
+
+.launch-option-star:hover svg {
+  color: #FFD60A;
+}
+
+/* Active/default star state - always visible */
+.launch-option-star--active {
+  opacity: 1;
+}
+
+.launch-option-star--active svg {
+  color: #FFD60A;
+  fill: #FFD60A;
+}
+
+@media (prefers-color-scheme: light) {
+  .launch-option-star:hover svg {
+    color: #FF9F0A;
+  }
+
+  .launch-option-star--active svg {
+    color: #FF9F0A;
+    fill: #FF9F0A;
+  }
+}
+
+/* Delete button for custom commands */
+.launch-option-delete {
+  position: absolute;
+  right: var(--spacing-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: var(--radius-full);
+  opacity: 0;
+  transition: opacity var(--transition-fast), background-color var(--transition-fast);
+  flex-shrink: 0;
+}
+
+.launch-option-delete svg {
+  width: 12px;
+  height: 12px;
+  color: var(--color-text-tertiary);
+}
+
+.launch-option:hover .launch-option-delete {
+  opacity: 1;
+}
+
+.launch-option-delete:hover {
+  background: rgba(255, 59, 48, 0.15);
+}
+
+.launch-option-delete:hover svg {
+  color: #FF3B30;
+}
+
+@media (prefers-color-scheme: dark) {
+  .launch-option-delete:hover svg {
+    color: #FF453A;
+  }
 }
 
 .launch-dropdown-divider {
@@ -1216,6 +1312,26 @@ textarea,
   font-size: var(--font-size-xs);
   color: var(--color-error, #dc3545);
   margin-top: var(--spacing-xs);
+}
+
+/* Custom Checkbox */
+.custom-checkbox {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  cursor: pointer;
+}
+
+.custom-checkbox input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--color-accent);
+  cursor: pointer;
+}
+
+.custom-checkbox-label {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
 }
 
 /* ===================================

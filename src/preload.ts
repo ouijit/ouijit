@@ -2,7 +2,7 @@
 // https://www.electronjs.org/docs/latest/tutorial/process-model#preload-scripts
 
 import { contextBridge, ipcRenderer, webUtils } from 'electron';
-import type { Project, RunConfig, LaunchResult, PtySpawnOptions, PtySpawnResult, PtyId, ExportResult, PreviewResult, ImportResult, CreateProjectOptions, CreateProjectResult, GitStatus, GitDropdownInfo, GitCheckoutResult, ChangedFile, FileDiff } from './types';
+import type { Project, RunConfig, LaunchResult, PtySpawnOptions, PtySpawnResult, PtyId, ExportResult, PreviewResult, ImportResult, CreateProjectOptions, CreateProjectResult, GitStatus, GitDropdownInfo, GitCheckoutResult, ChangedFile, FileDiff, ProjectSettings, CustomCommand } from './types';
 
 // Expose protected methods that allow the renderer process to use
 // ipcRenderer without exposing the entire object
@@ -138,6 +138,30 @@ contextBridge.exposeInMainWorld('api', {
     ipcRenderer.on('fullscreen-change', handler);
     return () => ipcRenderer.removeListener('fullscreen-change', handler);
   },
+
+  /**
+   * Get project settings (custom commands, default command)
+   */
+  getProjectSettings: (projectPath: string): Promise<ProjectSettings> =>
+    ipcRenderer.invoke('get-project-settings', projectPath),
+
+  /**
+   * Save a custom command for a project
+   */
+  saveCustomCommand: (projectPath: string, command: CustomCommand): Promise<{ success: boolean }> =>
+    ipcRenderer.invoke('save-custom-command', projectPath, command),
+
+  /**
+   * Delete a custom command
+   */
+  deleteCustomCommand: (projectPath: string, commandId: string): Promise<{ success: boolean }> =>
+    ipcRenderer.invoke('delete-custom-command', projectPath, commandId),
+
+  /**
+   * Set the default command for a project
+   */
+  setDefaultCommand: (projectPath: string, commandId: string | null): Promise<{ success: boolean }> =>
+    ipcRenderer.invoke('set-default-command', projectPath, commandId),
 });
 
 // Expose Electron utilities

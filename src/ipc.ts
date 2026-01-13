@@ -13,7 +13,13 @@ import {
 } from './ptyManager';
 import { exportProject, previewOuijitFile, importOuijitPackage } from './ouijit';
 import { getGitStatus, getGitDropdownInfo, checkoutBranch, getChangedFiles, getFileDiff } from './git';
-import type { RunConfig, LaunchResult, PtySpawnOptions, ExportResult, PreviewResult, ImportResult, CreateProjectOptions, CreateProjectResult } from './types';
+import {
+  getProjectSettings,
+  saveCustomCommand,
+  deleteCustomCommand,
+  setDefaultCommand,
+} from './projectSettings';
+import type { RunConfig, LaunchResult, PtySpawnOptions, ExportResult, PreviewResult, ImportResult, CreateProjectOptions, CreateProjectResult, CustomCommand, ProjectSettings } from './types';
 import type { GitStatus, GitDropdownInfo, ChangedFile, FileDiff } from './git';
 
 /**
@@ -270,6 +276,26 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
         error: error instanceof Error ? error.message : 'Unknown error occurred',
       };
     }
+  });
+
+  // Get project settings (custom commands, default command)
+  ipcMain.handle('get-project-settings', async (_event, projectPath: string): Promise<ProjectSettings> => {
+    return getProjectSettings(projectPath);
+  });
+
+  // Save a custom command for a project
+  ipcMain.handle('save-custom-command', async (_event, projectPath: string, command: CustomCommand) => {
+    return saveCustomCommand(projectPath, command);
+  });
+
+  // Delete a custom command
+  ipcMain.handle('delete-custom-command', async (_event, projectPath: string, commandId: string) => {
+    return deleteCustomCommand(projectPath, commandId);
+  });
+
+  // Set the default command for a project
+  ipcMain.handle('set-default-command', async (_event, projectPath: string, commandId: string | null) => {
+    return setDefaultCommand(projectPath, commandId);
   });
 }
 

@@ -18,11 +18,37 @@ export interface RunConfig {
   /** Full command to execute */
   command: string;
   /** Source file that defined this config */
-  source: 'package.json' | 'Makefile' | 'Cargo.toml' | 'go.mod' | 'pyproject.toml' | 'docker-compose.yml';
+  source: 'package.json' | 'Makefile' | 'Cargo.toml' | 'go.mod' | 'pyproject.toml' | 'docker-compose.yml' | 'custom';
   /** Optional description of the command */
   description?: string;
   /** Priority for sorting (lower = higher priority) */
   priority: number;
+  /** Whether this is a custom user-defined command */
+  isCustom?: boolean;
+}
+
+/**
+ * Custom command defined by the user
+ */
+export interface CustomCommand {
+  /** Unique identifier */
+  id: string;
+  /** Display name */
+  name: string;
+  /** Full command to execute */
+  command: string;
+  /** Optional description */
+  description?: string;
+}
+
+/**
+ * Project-specific settings stored by the app
+ */
+export interface ProjectSettings {
+  /** Custom commands added by the user */
+  customCommands: CustomCommand[];
+  /** ID of the default command (custom ID or detected command key like "package.json:dev") */
+  defaultCommandId?: string;
 }
 
 /**
@@ -130,6 +156,14 @@ export interface ElectronAPI {
   createProject(options: CreateProjectOptions): Promise<CreateProjectResult>;
   /** Listen for fullscreen state changes */
   onFullscreenChange(callback: (isFullscreen: boolean) => void): () => void;
+  /** Get project settings (custom commands, default command) */
+  getProjectSettings(projectPath: string): Promise<ProjectSettings>;
+  /** Save a custom command for a project */
+  saveCustomCommand(projectPath: string, command: CustomCommand): Promise<{ success: boolean }>;
+  /** Delete a custom command */
+  deleteCustomCommand(projectPath: string, commandId: string): Promise<{ success: boolean }>;
+  /** Set the default command for a project */
+  setDefaultCommand(projectPath: string, commandId: string | null): Promise<{ success: boolean }>;
 }
 
 /**
