@@ -124,6 +124,11 @@ async function buildDropdownContent(
   const allConfigs = mergeRunConfigs(project.runConfigs, settings.customCommands);
   const defaultCommandId = settings.defaultCommandId;
 
+  // Check if the explicit default still exists in configs
+  const explicitDefaultExists = defaultCommandId
+    ? allConfigs.some(c => getConfigId(c) === defaultCommandId)
+    : false;
+
   // Add run config options
   allConfigs.forEach((config, index) => {
     const option = document.createElement('button');
@@ -132,8 +137,8 @@ async function buildDropdownContent(
     const configId = getConfigId(config);
     // Check if this is explicitly set as default
     const isExplicitDefault = defaultCommandId === configId;
-    // If no default is set, treat the first command as the visual default
-    const isVisualDefault = defaultCommandId
+    // Visual default: explicit default if it exists, otherwise first item
+    const isVisualDefault = explicitDefaultExists
       ? configId === defaultCommandId
       : index === 0;
 
