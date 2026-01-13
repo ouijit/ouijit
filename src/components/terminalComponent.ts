@@ -1,11 +1,12 @@
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
-import { createIcons, Maximize2, Minimize2, RefreshCw, GitBranch, ChevronDown } from 'lucide';
-import type { PtyId, PtySpawnOptions, Project, GitStatus, GitDropdownInfo, ChangedFile, FileDiff } from '../types';
+import { createIcons, Maximize2, Minimize2, RefreshCw, GitBranch, ChevronDown, Plus, FolderOpen, Upload, Star, X } from 'lucide';
+import type { PtyId, PtySpawnOptions, Project, GitStatus, GitDropdownInfo, ChangedFile, FileDiff, RunConfig, CustomCommand } from '../types';
 import { stringToColor, getInitials } from '../utils/projectIcon';
 import { showToast } from './importDialog';
+import { showCustomCommandDialog } from './customCommandDialog';
 
-const theatreIcons = { Maximize2, Minimize2, RefreshCw, GitBranch, ChevronDown };
+const theatreIcons = { Maximize2, Minimize2, RefreshCw, GitBranch, ChevronDown, Plus, FolderOpen, Upload, Star, X };
 
 interface TerminalInstance {
   terminal: Terminal;
@@ -18,6 +19,25 @@ interface TerminalInstance {
 }
 
 const terminals = new Map<string, TerminalInstance>();
+
+// Theatre terminal interface for multi-terminal support
+interface TheatreTerminal {
+  ptyId: PtyId;
+  projectPath: string;
+  command: string | undefined;  // undefined = interactive shell
+  label: string;  // Display name for the card
+  terminal: Terminal;
+  fitAddon: FitAddon;
+  container: HTMLElement;
+  cleanupData: (() => void) | null;
+  cleanupExit: (() => void) | null;
+  resizeObserver: ResizeObserver | null;
+}
+
+const MAX_THEATRE_TERMINALS = 5;
+let theatreTerminals: TheatreTerminal[] = [];
+let activeTheatreIndex: number = 0;
+let theatreProjectData: Project | null = null;
 
 // Theatre mode state
 let theatreModeProjectPath: string | null = null;
@@ -39,6 +59,43 @@ let diffPanelSelectedFile: string | null = null;
 let diffPanelFiles: ChangedFile[] = [];
 let diffFileDropdownVisible = false;
 let diffFileDropdownCleanup: (() => void) | null = null;
+
+// Launch dropdown state
+let launchDropdownVisible = false;
+let launchDropdownCleanup: (() => void) | null = null;
+
+/**
+ * Generates a unique ID for a detected run config (for default selection)
+ */
+function getConfigId(config: RunConfig): string {
+  return config.isCustom ? config.name : `${config.source}:${config.name}`;
+}
+
+/**
+ * Converts custom commands to RunConfig format
+ */
+function customCommandsToRunConfigs(customCommands: CustomCommand[]): RunConfig[] {
+  return customCommands.map(cmd => ({
+    name: cmd.name,
+    command: cmd.command,
+    source: 'custom' as const,
+    description: cmd.description,
+    priority: 0,
+    isCustom: true,
+  }));
+}
+
+/**
+ * Merges detected run configs with custom commands
+ */
+function mergeRunConfigs(
+  detectedConfigs: RunConfig[] | undefined,
+  customCommands: CustomCommand[]
+): RunConfig[] {
+  const customConfigs = customCommandsToRunConfigs(customCommands);
+  const detected = detectedConfigs || [];
+  return [...customConfigs, ...detected];
+}
 
 function createTerminalContainer(projectPath: string): HTMLElement {
   const container = document.createElement('div');
@@ -547,12 +604,276 @@ function buildTheatreHeader(projectData: Project, gitStatus: GitStatus | null): 
         <span class="theatre-project-name">${projectData.name}</span>
         <span class="theatre-project-path">${projectData.path}</span>
       </div>
+      <div class="theatre-launch-wrapper">
+        <button class="theatre-launch-btn" title="Launch command">
+          <i data-lucide="plus"></i>
+          <span class="theatre-launch-count">1/${MAX_THEATRE_TERMINALS}</span>
+        </button>
+      </div>
       ${gitStatusHtml}
       <button class="theatre-exit-btn" title="Exit theatre mode (Esc)">
         <i data-lucide="minimize-2"></i>
       </button>
     </div>
   `;
+}
+
+/**
+ * Update the terminal count display in the launch button
+ */
+function updateLaunchButtonCount(): void {
+  const countEl = document.querySelector('.theatre-launch-count');
+  if (countEl) {
+    countEl.textContent = `${theatreTerminals.length}/${MAX_THEATRE_TERMINALS}`;
+  }
+}
+
+/**
+ * Build the launch dropdown content
+ */
+async function buildLaunchDropdownContent(dropdown: HTMLElement): Promise<void> {
+  if (!theatreModeProjectPath || !theatreProjectData) return;
+
+  dropdown.innerHTML = '';
+
+  // Fetch fresh settings
+  const settings = await window.api.getProjectSettings(theatreModeProjectPath);
+  const allConfigs = mergeRunConfigs(theatreProjectData.runConfigs, settings.customCommands);
+  const defaultCommandId = settings.defaultCommandId;
+
+  const explicitDefaultExists = defaultCommandId
+    ? allConfigs.some(c => getConfigId(c) === defaultCommandId)
+    : false;
+
+  // Add run config options
+  allConfigs.forEach((config, index) => {
+    const option = document.createElement('button');
+    option.className = 'launch-option';
+
+    const configId = getConfigId(config);
+    const isExplicitDefault = defaultCommandId === configId;
+    const isVisualDefault = explicitDefaultExists
+      ? configId === defaultCommandId
+      : index === 0;
+
+    // Star button
+    const starBtn = document.createElement('span');
+    starBtn.className = isVisualDefault ? 'launch-option-star launch-option-star--active' : 'launch-option-star';
+    starBtn.title = isVisualDefault ? 'Default command' : 'Set as default';
+    starBtn.innerHTML = '<i data-lucide="star"></i>';
+    starBtn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      if (!isExplicitDefault && theatreModeProjectPath) {
+        await window.api.setDefaultCommand(theatreModeProjectPath, configId);
+        showToast(`Default: ${config.name}`, 'success');
+        hideLaunchDropdown();
+      }
+    });
+    option.appendChild(starBtn);
+
+    const nameContainer = document.createElement('span');
+    nameContainer.className = 'launch-option-name';
+    nameContainer.textContent = config.name;
+    option.appendChild(nameContainer);
+
+    const sourceSpan = document.createElement('span');
+    sourceSpan.className = 'launch-option-source';
+    sourceSpan.textContent = config.source;
+    option.appendChild(sourceSpan);
+
+    // Delete button for custom commands
+    if (config.isCustom) {
+      const deleteBtn = document.createElement('span');
+      deleteBtn.className = 'launch-option-delete';
+      deleteBtn.title = 'Delete command';
+      deleteBtn.innerHTML = '<i data-lucide="x"></i>';
+      deleteBtn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const confirmed = confirm(`Delete "${config.name}"?`);
+        if (confirmed && theatreModeProjectPath) {
+          const currentSettings = await window.api.getProjectSettings(theatreModeProjectPath);
+          const customCmd = currentSettings.customCommands.find(c => c.name === config.name);
+          if (customCmd) {
+            await window.api.deleteCustomCommand(theatreModeProjectPath, customCmd.id);
+            showToast(`Deleted: ${config.name}`, 'success');
+            hideLaunchDropdown();
+          }
+        }
+      });
+      option.appendChild(deleteBtn);
+    }
+
+    option.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      hideLaunchDropdown();
+      await addTheatreTerminal(config);
+    });
+    dropdown.appendChild(option);
+  });
+
+  // Divider
+  if (allConfigs.length > 0) {
+    const divider = document.createElement('div');
+    divider.className = 'launch-dropdown-divider';
+    dropdown.appendChild(divider);
+  }
+
+  // Custom command option
+  const customOption = document.createElement('button');
+  customOption.className = 'launch-option';
+  customOption.innerHTML = '<i data-lucide="plus" class="launch-option-icon"></i>';
+  const customText = document.createElement('span');
+  customText.className = 'launch-option-name';
+  customText.textContent = 'Custom command...';
+  customOption.appendChild(customText);
+  customOption.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    hideLaunchDropdown();
+    if (theatreModeProjectPath) {
+      const result = await showCustomCommandDialog(theatreModeProjectPath, undefined, {
+        defaultToDefault: allConfigs.length === 0
+      });
+      if (result?.saved && result.command) {
+        showToast(`Added command: ${result.command.name}`, 'success');
+        // Optionally launch the new command
+        const newConfig: RunConfig = {
+          name: result.command.name,
+          command: result.command.command,
+          source: 'custom',
+          description: result.command.description,
+          priority: 0,
+          isCustom: true,
+        };
+        await addTheatreTerminal(newConfig);
+      }
+    }
+  });
+  dropdown.appendChild(customOption);
+
+  // Divider
+  const divider2 = document.createElement('div');
+  divider2.className = 'launch-dropdown-divider';
+  dropdown.appendChild(divider2);
+
+  // Close current terminal option (only when multiple terminals)
+  if (theatreTerminals.length > 1) {
+    const closeOption = document.createElement('button');
+    closeOption.className = 'launch-option launch-option--danger';
+    closeOption.innerHTML = '<i data-lucide="x" class="launch-option-icon"></i>';
+    const closeText = document.createElement('span');
+    closeText.className = 'launch-option-name';
+    closeText.textContent = 'Close current terminal';
+    closeOption.appendChild(closeText);
+    closeOption.addEventListener('click', (e) => {
+      e.stopPropagation();
+      hideLaunchDropdown();
+      closeTheatreTerminal(activeTheatreIndex);
+    });
+    dropdown.appendChild(closeOption);
+
+    const divider3 = document.createElement('div');
+    divider3.className = 'launch-dropdown-divider';
+    dropdown.appendChild(divider3);
+  }
+
+  // Open in Finder option
+  const finderOption = document.createElement('button');
+  finderOption.className = 'launch-option';
+  finderOption.innerHTML = '<i data-lucide="folder-open" class="launch-option-icon"></i>';
+  const finderText = document.createElement('span');
+  finderText.className = 'launch-option-name';
+  finderText.textContent = 'Open in Finder';
+  finderOption.appendChild(finderText);
+  finderOption.addEventListener('click', (e) => {
+    e.stopPropagation();
+    hideLaunchDropdown();
+    if (theatreModeProjectPath) {
+      window.api.openInFinder(theatreModeProjectPath);
+    }
+  });
+  dropdown.appendChild(finderOption);
+
+  // Initialize icons
+  createIcons({ icons: theatreIcons, nodes: [dropdown] });
+}
+
+/**
+ * Show the launch dropdown
+ */
+async function showLaunchDropdown(): Promise<void> {
+  if (launchDropdownVisible) return;
+
+  const wrapper = document.querySelector('.theatre-launch-wrapper');
+  if (!wrapper) return;
+
+  // Check if at max terminals
+  if (theatreTerminals.length >= MAX_THEATRE_TERMINALS) {
+    showToast(`Maximum ${MAX_THEATRE_TERMINALS} terminals`, 'info');
+    return;
+  }
+
+  // Create dropdown if it doesn't exist
+  let dropdown = wrapper.querySelector('.theatre-launch-dropdown') as HTMLElement;
+  if (!dropdown) {
+    dropdown = document.createElement('div');
+    dropdown.className = 'theatre-launch-dropdown';
+    wrapper.appendChild(dropdown);
+  }
+
+  await buildLaunchDropdownContent(dropdown);
+
+  requestAnimationFrame(() => {
+    dropdown.classList.add('visible');
+  });
+
+  launchDropdownVisible = true;
+
+  // Click outside handler
+  const handleClickOutside = (e: MouseEvent) => {
+    const target = e.target as HTMLElement;
+    if (!target.closest('.theatre-launch-wrapper')) {
+      hideLaunchDropdown();
+    }
+  };
+
+  setTimeout(() => {
+    document.addEventListener('click', handleClickOutside);
+  }, 0);
+
+  launchDropdownCleanup = () => {
+    document.removeEventListener('click', handleClickOutside);
+  };
+}
+
+/**
+ * Hide the launch dropdown
+ */
+function hideLaunchDropdown(): void {
+  if (!launchDropdownVisible) return;
+
+  const dropdown = document.querySelector('.theatre-launch-dropdown');
+  if (dropdown) {
+    dropdown.classList.remove('visible');
+    setTimeout(() => dropdown.remove(), 150);
+  }
+
+  if (launchDropdownCleanup) {
+    launchDropdownCleanup();
+    launchDropdownCleanup = null;
+  }
+
+  launchDropdownVisible = false;
+}
+
+/**
+ * Toggle launch dropdown visibility
+ */
+function toggleLaunchDropdown(): void {
+  if (launchDropdownVisible) {
+    hideLaunchDropdown();
+  } else {
+    showLaunchDropdown();
+  }
 }
 
 /**
@@ -921,10 +1242,10 @@ async function showDiffPanel(): Promise<void> {
     closeBtn.addEventListener('click', () => hideDiffPanel());
   }
 
-  // Add class to terminal to shrink it
-  const instance = theatreModeProjectPath ? terminals.get(theatreModeProjectPath) : null;
-  if (instance) {
-    instance.container.classList.add('diff-panel-open');
+  // Add class to theatre stack to shrink it
+  const stack = document.querySelector('.theatre-stack');
+  if (stack) {
+    stack.classList.add('diff-panel-open');
   }
 
   // Animate panel in
@@ -932,13 +1253,12 @@ async function showDiffPanel(): Promise<void> {
     panel.classList.add('diff-panel--visible');
   });
 
-  // Refit terminal after animation
+  // Refit active theatre terminal after animation
   setTimeout(() => {
-    if (instance) {
-      instance.fitAddon.fit();
-      if (instance.ptyId) {
-        window.api.pty.resize(instance.ptyId, instance.terminal.cols, instance.terminal.rows);
-      }
+    if (theatreTerminals.length > 0 && activeTheatreIndex < theatreTerminals.length) {
+      const activeTerminal = theatreTerminals[activeTheatreIndex];
+      activeTerminal.fitAddon.fit();
+      window.api.pty.resize(activeTerminal.ptyId, activeTerminal.terminal.cols, activeTerminal.terminal.rows);
     }
   }, 250);
 
@@ -964,19 +1284,18 @@ function hideDiffPanel(): void {
     setTimeout(() => panel.remove(), 250);
   }
 
-  // Remove class from terminal
-  const instance = theatreModeProjectPath ? terminals.get(theatreModeProjectPath) : null;
-  if (instance) {
-    instance.container.classList.remove('diff-panel-open');
+  // Remove class from theatre stack
+  const stack = document.querySelector('.theatre-stack');
+  if (stack) {
+    stack.classList.remove('diff-panel-open');
   }
 
-  // Refit terminal after animation
+  // Refit active theatre terminal after animation
   setTimeout(() => {
-    if (instance) {
-      instance.fitAddon.fit();
-      if (instance.ptyId) {
-        window.api.pty.resize(instance.ptyId, instance.terminal.cols, instance.terminal.rows);
-      }
+    if (theatreTerminals.length > 0 && activeTheatreIndex < theatreTerminals.length) {
+      const activeTerminal = theatreTerminals[activeTheatreIndex];
+      activeTerminal.fitAddon.fit();
+      window.api.pty.resize(activeTerminal.ptyId, activeTerminal.terminal.cols, activeTerminal.terminal.rows);
     }
   }, 250);
 
@@ -986,13 +1305,267 @@ function hideDiffPanel(): void {
 }
 
 /**
- * Enter theatre mode for the specified terminal
+ * Create a theatre terminal card element
  */
-export async function enterTheatreMode(projectPath: string, projectData: Project): Promise<void> {
+function createTheatreCard(label: string, index: number): HTMLElement {
+  const card = document.createElement('div');
+  card.className = 'theatre-card';
+  card.dataset.index = String(index);
+
+  // Card label
+  const labelEl = document.createElement('div');
+  labelEl.className = 'theatre-card-label';
+  labelEl.innerHTML = `
+    <span class="theatre-card-label-text">${label}</span>
+    <button class="theatre-card-close" title="Close terminal">&times;</button>
+  `;
+  card.appendChild(labelEl);
+
+  // Terminal viewport
+  const viewport = document.createElement('div');
+  viewport.className = 'terminal-viewport';
+
+  const xtermContainer = document.createElement('div');
+  xtermContainer.className = 'terminal-xterm-container';
+  viewport.appendChild(xtermContainer);
+
+  card.appendChild(viewport);
+
+  return card;
+}
+
+/**
+ * Update card stack visual positions
+ */
+function updateCardStack(): void {
+  const stack = document.querySelector('.theatre-stack');
+  if (!stack) return;
+
+  theatreTerminals.forEach((term, index) => {
+    // Remove all position classes
+    term.container.classList.remove('theatre-card--active', 'theatre-card--back-1', 'theatre-card--back-2', 'theatre-card--back-3', 'theatre-card--back-4');
+
+    if (index === activeTheatreIndex) {
+      term.container.classList.add('theatre-card--active');
+    } else {
+      // Calculate back position relative to active
+      const diff = index < activeTheatreIndex ? activeTheatreIndex - index : theatreTerminals.length - index + activeTheatreIndex;
+      const backClass = `theatre-card--back-${Math.min(diff, 4)}`;
+      term.container.classList.add(backClass);
+    }
+  });
+
+  // Update launch button count
+  updateLaunchButtonCount();
+}
+
+/**
+ * Switch to a specific theatre terminal
+ */
+function switchToTheatreTerminal(index: number): void {
+  if (index < 0 || index >= theatreTerminals.length || index === activeTheatreIndex) return;
+
+  activeTheatreIndex = index;
+  updateCardStack();
+
+  // Focus the active terminal
+  const activeTerminal = theatreTerminals[activeTheatreIndex];
+  requestAnimationFrame(() => {
+    activeTerminal.fitAddon.fit();
+    window.api.pty.resize(activeTerminal.ptyId, activeTerminal.terminal.cols, activeTerminal.terminal.rows);
+    activeTerminal.terminal.focus();
+  });
+}
+
+/**
+ * Add a new theatre terminal
+ */
+async function addTheatreTerminal(runConfig?: RunConfig): Promise<boolean> {
+  if (!theatreModeProjectPath || theatreTerminals.length >= MAX_THEATRE_TERMINALS) {
+    if (theatreTerminals.length >= MAX_THEATRE_TERMINALS) {
+      showToast(`Maximum ${MAX_THEATRE_TERMINALS} terminals`, 'info');
+    }
+    return false;
+  }
+
+  const stack = document.querySelector('.theatre-stack');
+  if (!stack) return false;
+
+  const label = runConfig?.name || 'Shell';
+  const command = runConfig?.command;
+  const index = theatreTerminals.length;
+
+  // Create card element
+  const card = createTheatreCard(label, index);
+  stack.appendChild(card);
+
+  const xtermContainer = card.querySelector('.terminal-xterm-container') as HTMLElement;
+  const closeBtn = card.querySelector('.theatre-card-close') as HTMLButtonElement;
+
+  // Initialize xterm
+  const terminal = new Terminal({
+    theme: getTerminalTheme(),
+    fontFamily: 'SF Mono, Monaco, Menlo, monospace',
+    fontSize: 13,
+    lineHeight: 1.2,
+    cursorBlink: true,
+    cursorStyle: 'bar',
+    allowTransparency: true,
+    scrollback: 10000,
+  });
+
+  const fitAddon = new FitAddon();
+  terminal.loadAddon(fitAddon);
+  terminal.open(xtermContainer);
+
+  await new Promise(resolve => requestAnimationFrame(resolve));
+  fitAddon.fit();
+
+  // Spawn PTY
+  const spawnOptions: PtySpawnOptions = {
+    cwd: theatreModeProjectPath,
+    command,
+    cols: terminal.cols,
+    rows: terminal.rows,
+  };
+
+  try {
+    const result = await window.api.pty.spawn(spawnOptions);
+
+    if (!result.success || !result.ptyId) {
+      terminal.writeln(`\x1b[31mFailed to start terminal: ${result.error || 'Unknown error'}\x1b[0m`);
+      card.remove();
+      terminal.dispose();
+      return false;
+    }
+
+    const theatreTerminal: TheatreTerminal = {
+      ptyId: result.ptyId,
+      projectPath: theatreModeProjectPath,
+      command,
+      label,
+      terminal,
+      fitAddon,
+      container: card,
+      cleanupData: null,
+      cleanupExit: null,
+      resizeObserver: null,
+    };
+
+    // Set up resize observer
+    theatreTerminal.resizeObserver = new ResizeObserver(() => {
+      fitAddon.fit();
+      window.api.pty.resize(result.ptyId!, terminal.cols, terminal.rows);
+    });
+    theatreTerminal.resizeObserver.observe(xtermContainer);
+
+    // Set up data listener
+    theatreTerminal.cleanupData = window.api.pty.onData(result.ptyId, (data) => {
+      terminal.write(data);
+      if (theatreModeProjectPath) {
+        scheduleGitStatusRefresh();
+      }
+    });
+
+    // Set up exit listener
+    theatreTerminal.cleanupExit = window.api.pty.onExit(result.ptyId, (exitCode) => {
+      terminal.writeln('');
+      const exitColor = exitCode === 0 ? '32' : '31';
+      terminal.writeln(`\x1b[${exitColor}m● Process exited with code ${exitCode}\x1b[0m`);
+    });
+
+    // Forward terminal input
+    terminal.onData((data) => {
+      window.api.pty.write(result.ptyId!, data);
+    });
+
+    // Close button handler
+    closeBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const currentIndex = theatreTerminals.indexOf(theatreTerminal);
+      if (currentIndex !== -1) {
+        closeTheatreTerminal(currentIndex);
+      }
+    });
+
+    // Card click handler (to bring to front)
+    card.addEventListener('click', () => {
+      const currentIndex = theatreTerminals.indexOf(theatreTerminal);
+      if (currentIndex !== -1 && currentIndex !== activeTheatreIndex) {
+        switchToTheatreTerminal(currentIndex);
+      }
+    });
+
+    theatreTerminals.push(theatreTerminal);
+    activeTheatreIndex = theatreTerminals.length - 1;
+    updateCardStack();
+
+    terminal.focus();
+    return true;
+  } catch (error) {
+    terminal.writeln(`\x1b[31mError: ${error instanceof Error ? error.message : 'Unknown error'}\x1b[0m`);
+    card.remove();
+    terminal.dispose();
+    return false;
+  }
+}
+
+/**
+ * Close a theatre terminal
+ */
+function closeTheatreTerminal(index: number): void {
+  if (index < 0 || index >= theatreTerminals.length) return;
+
+  const term = theatreTerminals[index];
+
+  // Kill PTY
+  window.api.pty.kill(term.ptyId);
+
+  // Clean up
+  if (term.cleanupData) term.cleanupData();
+  if (term.cleanupExit) term.cleanupExit();
+  if (term.resizeObserver) term.resizeObserver.disconnect();
+  term.terminal.dispose();
+  term.container.remove();
+
+  theatreTerminals.splice(index, 1);
+
+  // If no terminals left, exit theatre mode
+  if (theatreTerminals.length === 0) {
+    exitTheatreMode();
+    return;
+  }
+
+  // Adjust active index
+  if (activeTheatreIndex >= theatreTerminals.length) {
+    activeTheatreIndex = theatreTerminals.length - 1;
+  } else if (index < activeTheatreIndex) {
+    activeTheatreIndex--;
+  }
+
+  updateCardStack();
+
+  // Focus the now-active terminal
+  if (theatreTerminals.length > 0) {
+    theatreTerminals[activeTheatreIndex].terminal.focus();
+  }
+}
+
+/**
+ * Enter theatre mode for the specified project
+ */
+export async function enterTheatreMode(
+  projectPath: string,
+  projectData: Project,
+  runConfig?: RunConfig
+): Promise<void> {
   if (theatreModeProjectPath) return; // Already in theatre mode
 
-  const instance = terminals.get(projectPath);
-  if (!instance) return;
+  // Store project data for later use
+  theatreModeProjectPath = projectPath;
+  theatreProjectData = projectData;
+  theatreTerminals = [];
+  activeTheatreIndex = 0;
 
   // Fetch git status
   const gitStatus = projectData.hasGit ? await window.api.getGitStatus(projectPath) : null;
@@ -1000,31 +1573,20 @@ export async function enterTheatreMode(projectPath: string, projectData: Project
   // 1. Add class to body - CSS handles the rest
   document.body.classList.add('theatre-mode');
 
-  // 2. Add class to terminal container
-  instance.container.classList.add('terminal-accordion--theatre');
-
-  // 3. Update theatre button icon to minimize
-  const theatreBtn = instance.container.querySelector('.terminal-theatre-btn');
-  if (theatreBtn) {
-    theatreBtn.innerHTML = '<i data-lucide="minimize-2"></i>';
-    theatreBtn.setAttribute('title', 'Exit theatre mode');
-    createIcons({ icons: theatreIcons, nodes: [instance.container] });
-  }
-
-  // 4. Update header content
+  // 2. Update header content
   const headerContent = document.querySelector('.header-content');
   if (headerContent) {
     originalHeaderContent = headerContent.innerHTML;
     headerContent.innerHTML = buildTheatreHeader(projectData, gitStatus);
     createIcons({ icons: theatreIcons, nodes: [headerContent as HTMLElement] });
 
-    // Wire up exit button in header
+    // Wire up exit button
     const exitBtn = headerContent.querySelector('.theatre-exit-btn');
     if (exitBtn) {
       exitBtn.addEventListener('click', () => exitTheatreMode());
     }
 
-    // Wire up git status click handler for dropdown
+    // Wire up git status click handler
     const gitStatusEl = headerContent.querySelector('.theatre-git-status');
     if (gitStatusEl) {
       gitStatusEl.addEventListener('click', (e) => {
@@ -1032,22 +1594,31 @@ export async function enterTheatreMode(projectPath: string, projectData: Project
         toggleGitDropdown(projectPath);
       });
     }
+
+    // Wire up launch button
+    const launchBtn = headerContent.querySelector('.theatre-launch-btn');
+    if (launchBtn) {
+      launchBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        toggleLaunchDropdown();
+      });
+    }
   }
+
+  // 3. Create card stack container
+  const mainContent = document.querySelector('.main-content');
+  if (mainContent) {
+    const stack = document.createElement('div');
+    stack.className = 'theatre-stack';
+    mainContent.appendChild(stack);
+  }
+
+  // 4. Create first terminal with the provided command
+  await addTheatreTerminal(runConfig);
 
   // 5. Escape key handler
   escapeKeyHandler = (e) => { if (e.key === 'Escape') exitTheatreMode(); };
   document.addEventListener('keydown', escapeKeyHandler);
-
-  // 6. Refit terminal
-  requestAnimationFrame(() => {
-    instance.fitAddon.fit();
-    if (instance.ptyId) {
-      window.api.pty.resize(instance.ptyId, instance.terminal.cols, instance.terminal.rows);
-    }
-    instance.terminal.focus();
-  });
-
-  theatreModeProjectPath = projectPath;
 }
 
 /**
@@ -1056,25 +1627,28 @@ export async function enterTheatreMode(projectPath: string, projectData: Project
 export function exitTheatreMode(): void {
   if (!theatreModeProjectPath) return;
 
-  const instance = terminals.get(theatreModeProjectPath);
+  // 1. Kill all theatre terminals
+  for (const term of theatreTerminals) {
+    window.api.pty.kill(term.ptyId);
+    if (term.cleanupData) term.cleanupData();
+    if (term.cleanupExit) term.cleanupExit();
+    if (term.resizeObserver) term.resizeObserver.disconnect();
+    term.terminal.dispose();
+    term.container.remove();
+  }
+  theatreTerminals = [];
+  activeTheatreIndex = 0;
 
-  // 1. Remove class from body
-  document.body.classList.remove('theatre-mode');
-
-  // 2. Remove class from terminal
-  if (instance) {
-    instance.container.classList.remove('terminal-accordion--theatre');
-
-    // Update theatre button icon back to maximize
-    const theatreBtn = instance.container.querySelector('.terminal-theatre-btn');
-    if (theatreBtn) {
-      theatreBtn.innerHTML = '<i data-lucide="maximize-2"></i>';
-      theatreBtn.setAttribute('title', 'Theatre mode');
-      createIcons({ icons: theatreIcons, nodes: [instance.container] });
-    }
+  // 2. Remove card stack container
+  const stack = document.querySelector('.theatre-stack');
+  if (stack) {
+    stack.remove();
   }
 
-  // 3. Restore header content
+  // 3. Remove class from body
+  document.body.classList.remove('theatre-mode');
+
+  // 4. Restore header content
   const headerContent = document.querySelector('.header-content');
   if (headerContent && originalHeaderContent) {
     headerContent.innerHTML = originalHeaderContent;
@@ -1108,36 +1682,30 @@ export function exitTheatreMode(): void {
     }
   }
 
-  // 4. Remove escape handler
+  // 5. Remove escape handler
   if (escapeKeyHandler) {
     document.removeEventListener('keydown', escapeKeyHandler);
     escapeKeyHandler = null;
   }
 
-  // 5. Clear git status idle timeout
+  // 6. Clear git status idle timeout
   if (gitStatusIdleTimeout) {
     clearTimeout(gitStatusIdleTimeout);
     gitStatusIdleTimeout = null;
   }
 
-  // 5b. Hide and cleanup git dropdown
+  // 7. Hide and cleanup git dropdown
   hideGitDropdown();
 
-  // 5c. Hide diff panel
-  hideDiffPanel();
+  // 8. Hide launch dropdown
+  hideLaunchDropdown();
 
-  // 6. Refit terminal
-  if (instance) {
-    requestAnimationFrame(() => {
-      instance.fitAddon.fit();
-      if (instance.ptyId) {
-        window.api.pty.resize(instance.ptyId, instance.terminal.cols, instance.terminal.rows);
-      }
-    });
-  }
+  // 9. Hide diff panel
+  hideDiffPanel();
 
   originalHeaderContent = null;
   theatreModeProjectPath = null;
+  theatreProjectData = null;
 }
 
 /**

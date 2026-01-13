@@ -3,6 +3,7 @@ import { createElement, ChevronDown, Upload, FolderOpen, SquareTerminal, Plus, S
 import { showToast } from './importDialog';
 import { showCustomCommandDialog } from './customCommandDialog';
 import { stringToColor, getInitials } from '../utils/projectIcon';
+import { enterTheatreMode } from './terminalComponent';
 
 /**
  * Generates a unique ID for a detected run config (for default selection)
@@ -195,10 +196,11 @@ async function buildDropdownContent(
       option.appendChild(deleteBtn);
     }
 
-    option.addEventListener('click', (e) => {
+    option.addEventListener('click', async (e) => {
       e.stopPropagation();
-      onLaunch(project.path, config, row, project);
       dropdown.classList.remove('visible');
+      // Enter theatre mode with the selected command
+      await enterTheatreMode(project.path, project, config);
     });
     dropdown.appendChild(option);
   });
@@ -229,9 +231,18 @@ async function buildDropdownContent(
       defaultToDefault: existingCount === 0
     });
 
-    if (result?.saved) {
-      showToast(`Added command: ${result.command?.name}`, 'success');
-      // No DOM updates - dropdown rebuilds on next open
+    if (result?.saved && result.command) {
+      showToast(`Added command: ${result.command.name}`, 'success');
+      // Enter theatre mode with the new command
+      const newConfig: RunConfig = {
+        name: result.command.name,
+        command: result.command.command,
+        source: 'custom',
+        description: result.command.description,
+        priority: 0,
+        isCustom: true,
+      };
+      await enterTheatreMode(project.path, project, newConfig);
     }
   });
   dropdown.appendChild(customOption);
@@ -431,15 +442,15 @@ export function createProjectRow(
     launchWrapper.appendChild(dropdown);
     actionsContainer.appendChild(launchWrapper);
 
-    // Lazy row click - fetch fresh settings and launch default
+    // Row click - enter theatre mode directly with default command
     row.addEventListener('click', async () => {
       // Fetch fresh settings
       const settings = await window.api.getProjectSettings(project.path);
       const allConfigs = mergeRunConfigs(project.runConfigs, settings.customCommands);
 
       if (allConfigs.length === 0) {
-        // No commands available, open in finder
-        onOpen(project.path);
+        // No commands available, enter theatre mode with interactive shell
+        await enterTheatreMode(project.path, project);
         return;
       }
 
@@ -452,7 +463,8 @@ export function createProjectRow(
         }
       }
 
-      onLaunch(project.path, defaultConfig, row, project);
+      // Enter theatre mode with the default command
+      await enterTheatreMode(project.path, project, defaultConfig);
     });
   } else {
     // Fallback to View in Finder button

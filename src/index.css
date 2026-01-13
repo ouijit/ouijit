@@ -2193,3 +2193,237 @@ body.is-fullscreen .theatre-header-content {
     color: #333;
   }
 }
+
+/* ==========================================
+   Theatre Mode Card Stack
+   ========================================== */
+
+.theatre-stack {
+  position: fixed;
+  top: 82px;
+  left: 16px;
+  right: 16px;
+  bottom: 16px;
+  z-index: 100;
+  perspective: 1000px;
+  transition: right 0.25s ease;
+}
+
+/* Adjust stack when diff panel is open */
+.theatre-stack.diff-panel-open {
+  right: calc(50% + 24px);
+}
+
+.theatre-card {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--color-terminal-bg, #1a1a1a);
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.3s ease, opacity 0.3s ease, z-index 0s;
+  cursor: pointer;
+}
+
+.theatre-card--active {
+  transform: translateY(0) translateX(0) scale(1);
+  opacity: 1;
+  z-index: 10;
+  cursor: default;
+}
+
+.theatre-card--back-1 {
+  transform: translateY(-12px) translateX(-12px) scale(0.97);
+  opacity: 0.9;
+  z-index: 9;
+}
+
+.theatre-card--back-2 {
+  transform: translateY(-24px) translateX(-24px) scale(0.94);
+  opacity: 0.75;
+  z-index: 8;
+}
+
+.theatre-card--back-3 {
+  transform: translateY(-36px) translateX(-36px) scale(0.91);
+  opacity: 0.6;
+  z-index: 7;
+}
+
+.theatre-card--back-4 {
+  transform: translateY(-48px) translateX(-48px) scale(0.88);
+  opacity: 0.45;
+  z-index: 6;
+}
+
+/* Card label */
+.theatre-card-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.05);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  min-height: 36px;
+}
+
+.theatre-card-label-text {
+  font-family: 'SF Mono', Monaco, Menlo, monospace;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  color: rgba(255, 255, 255, 0.7);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.theatre-card-close {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-full);
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 14px;
+  line-height: 1;
+  opacity: 0;
+  transition: opacity var(--transition-fast), background-color var(--transition-fast), color var(--transition-fast);
+}
+
+.theatre-card--active .theatre-card-close {
+  opacity: 1;
+}
+
+.theatre-card-close:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+/* Card viewport */
+.theatre-card .terminal-viewport {
+  flex: 1;
+  min-height: 0;
+  height: auto;
+  border-radius: 0;
+  border: none;
+}
+
+/* Theatre Launch Button & Dropdown */
+.theatre-launch-wrapper {
+  position: relative;
+  margin-left: auto;
+  margin-right: 12px;
+  -webkit-app-region: no-drag;
+}
+
+.theatre-launch-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: var(--color-accent);
+  border: none;
+  border-radius: var(--radius-full);
+  color: white;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  transition: background-color var(--transition-fast), transform var(--transition-fast);
+}
+
+.theatre-launch-btn:hover {
+  background: var(--color-accent-hover);
+}
+
+.theatre-launch-btn:active {
+  transform: scale(0.97);
+}
+
+.theatre-launch-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+.theatre-launch-count {
+  font-family: 'SF Mono', Monaco, Menlo, monospace;
+  font-size: 10px;
+  opacity: 0.85;
+}
+
+/* Launch dropdown - reuses .launch-dropdown pattern */
+.theatre-launch-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: var(--spacing-xs);
+  min-width: 240px;
+  max-height: 400px;
+  overflow-y: auto;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  z-index: 1000;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-8px);
+  transition: all var(--transition-fast);
+}
+
+.theatre-launch-dropdown.visible {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+}
+
+/* Danger option (close current terminal) */
+.launch-option--danger .launch-option-name {
+  color: #FF3B30;
+}
+
+.launch-option--danger .launch-option-icon {
+  color: #FF3B30;
+}
+
+@media (prefers-color-scheme: dark) {
+  .launch-option--danger .launch-option-name {
+    color: #FF453A;
+  }
+
+  .launch-option--danger .launch-option-icon {
+    color: #FF453A;
+  }
+}
+
+/* Light mode adjustments for card stack */
+@media (prefers-color-scheme: light) {
+  .theatre-card-label {
+    background: rgba(0, 0, 0, 0.03);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  }
+
+  .theatre-card-label-text {
+    color: rgba(0, 0, 0, 0.7);
+  }
+
+  .theatre-card-close {
+    color: rgba(0, 0, 0, 0.4);
+  }
+
+  .theatre-card-close:hover {
+    background: rgba(0, 0, 0, 0.08);
+    color: rgba(0, 0, 0, 0.9);
+  }
+}
+
+/* Hide old theatre accordion styles in new mode */
+body.theatre-mode .terminal-accordion--theatre {
+  display: none;
+}
