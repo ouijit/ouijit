@@ -491,14 +491,6 @@ function buildGitDropdownHtml(info: GitDropdownInfo): string {
     });
   }
 
-  if (branches.length === 0) {
-    return `
-      <div class="theatre-git-dropdown">
-        <div class="git-dropdown-empty">No other branches</div>
-      </div>
-    `;
-  }
-
   const branchItems = branches.map(branch => `
     <div class="git-dropdown-branch" data-branch="${branch.name}">
       <span class="git-dropdown-branch-name">${branch.name}</span>
@@ -506,9 +498,22 @@ function buildGitDropdownHtml(info: GitDropdownInfo): string {
     </div>
   `).join('');
 
+  // New branch action (always shown)
+  const newBranchAction = `
+    <div class="git-dropdown-new-branch">
+      <i data-lucide="plus" class="git-dropdown-new-icon"></i>
+      <span>New branch</span>
+    </div>
+    <div class="git-dropdown-new-input" style="display: none;">
+      <input type="text" placeholder="Branch name" spellcheck="false" autocomplete="off" />
+    </div>
+  `;
+
   return `
     <div class="theatre-git-dropdown">
       ${branchItems}
+      ${branches.length > 0 ? '<div class="git-dropdown-separator"></div>' : ''}
+      ${newBranchAction}
     </div>
   `;
 }
@@ -530,6 +535,26 @@ async function switchToBranch(branchName: string): Promise<void> {
     await refreshGitStatus();
   } else {
     showToast(result.error || 'Checkout failed', 'error');
+  }
+}
+
+/**
+ * Create a new branch using IPC
+ */
+async function createNewBranch(branchName: string): Promise<void> {
+  if (!theatreModeProjectPath) return;
+
+  // Close dropdown immediately for responsiveness
+  hideGitDropdown();
+
+  const result = await window.api.gitCreateBranch(theatreModeProjectPath, branchName);
+
+  if (result.success) {
+    showToast(`Created branch ${branchName}`, 'success');
+    // Trigger git status refresh to update the UI
+    await refreshGitStatus();
+  } else {
+    showToast(result.error || 'Failed to create branch', 'error');
   }
 }
 
@@ -569,6 +594,44 @@ async function showGitDropdown(projectPath: string): Promise<void> {
       }
     });
   });
+
+  // Wire up new branch action
+  const newBranchAction = dropdown.querySelector('.git-dropdown-new-branch');
+  const newBranchInput = dropdown.querySelector('.git-dropdown-new-input');
+  const inputEl = newBranchInput?.querySelector('input');
+
+  if (newBranchAction && newBranchInput && inputEl) {
+    newBranchAction.addEventListener('click', (e) => {
+      e.stopPropagation();
+      (newBranchAction as HTMLElement).style.display = 'none';
+      (newBranchInput as HTMLElement).style.display = 'flex';
+      inputEl.focus();
+    });
+
+    inputEl.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        const branchName = inputEl.value.trim();
+        if (branchName) {
+          createNewBranch(branchName);
+        }
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        // Reset to show the action button
+        (newBranchAction as HTMLElement).style.display = 'flex';
+        (newBranchInput as HTMLElement).style.display = 'none';
+        inputEl.value = '';
+      }
+    });
+
+    // Prevent dropdown close when clicking in input
+    inputEl.addEventListener('click', (e) => {
+      e.stopPropagation();
+    });
+  }
+
+  // Initialize lucide icons for the dropdown
+  window.lucide?.createIcons({ nodes: [dropdown as Element] });
 
   // Show with animation
   requestAnimationFrame(() => {
@@ -994,7 +1057,14 @@ async function refreshGitStatus(): Promise<void> {
     const dirtyEl = document.querySelector('.theatre-git-dirty');
     if (compactStatus) {
       if (aheadEl) aheadEl.textContent = compactStatus.commitsAheadOfMain > 0 ? `\u2191${compactStatus.commitsAheadOfMain}` : '';
-      if (dirtyEl) dirtyEl.textContent = compactStatus.dirtyFileCount > 0 ? `\u2022${compactStatus.dirtyFileCount}` : '';
+      if (dirtyEl) {
+        // Update dirty count while preserving dots structure
+        // Find text node or create structure if needed
+        const firstChild = dirtyEl.firstChild;
+        if (firstChild?.nodeType === Node.TEXT_NODE) {
+          firstChild.textContent = compactStatus.dirtyFileCount > 0 ? `${compactStatus.dirtyFileCount}` : '';
+        }
+      }
     }
   } else {
     updateGitStatusElement(compactStatus);

@@ -12,7 +12,7 @@ import {
   cleanupAllPtys,
 } from './ptyManager';
 import { exportProject, previewOuijitFile, importOuijitPackage } from './ouijit';
-import { getGitStatus, getCompactGitStatus, getGitDropdownInfo, checkoutBranch, getChangedFiles, getFileDiff } from './git';
+import { getGitStatus, getCompactGitStatus, getGitDropdownInfo, checkoutBranch, createBranch, getChangedFiles, getFileDiff } from './git';
 import {
   getProjectSettings,
   saveCustomCommand,
@@ -220,6 +220,11 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
   // Checkout a git branch
   ipcMain.handle('git-checkout', async (_event, projectPath: string, branchName: string) => {
     return checkoutBranch(projectPath, branchName);
+  });
+
+  // Create a new git branch
+  ipcMain.handle('git-create-branch', async (_event, projectPath: string, branchName: string) => {
+    return createBranch(projectPath, branchName);
   });
 
   // Get list of changed files

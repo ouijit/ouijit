@@ -325,6 +325,36 @@ export function checkoutBranch(projectPath: string, branchName: string): { succe
 }
 
 /**
+ * Create a new git branch and switch to it
+ */
+export function createBranch(projectPath: string, branchName: string): { success: boolean; error?: string } {
+  const opts = { cwd: projectPath, encoding: 'utf8' as const, stdio: ['pipe', 'pipe', 'pipe'] as const };
+
+  try {
+    execSync(`git checkout -b "${branchName}"`, opts);
+    return { success: true };
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+
+    // Parse git error messages into user-friendly text
+    if (errorMsg.includes('already exists')) {
+      return { success: false, error: `Branch '${branchName}' already exists` };
+    }
+    if (errorMsg.includes('Your local changes')) {
+      return {
+        success: false,
+        error: 'Uncommitted changes would be overwritten. Commit or stash first.'
+      };
+    }
+    if (errorMsg.includes('is not a valid branch name')) {
+      return { success: false, error: 'Invalid branch name' };
+    }
+
+    return { success: false, error: 'Failed to create branch' };
+  }
+}
+
+/**
  * Gets list of changed files with their status and line stats
  */
 export function getChangedFiles(projectPath: string): ChangedFile[] {

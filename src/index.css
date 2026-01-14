@@ -1821,6 +1821,61 @@ body.is-fullscreen .theatre-header-content {
   flex-shrink: 0;
 }
 
+.git-dropdown-separator {
+  height: 1px;
+  background: var(--color-border);
+  margin: 4px 0;
+}
+
+.git-dropdown-new-branch {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+
+.git-dropdown-new-branch:hover {
+  background: var(--color-background);
+  color: var(--color-text-primary);
+}
+
+.git-dropdown-new-branch:active {
+  background: var(--color-border);
+}
+
+.git-dropdown-new-icon {
+  width: 14px;
+  height: 14px;
+}
+
+.git-dropdown-new-input {
+  display: flex;
+  padding: 6px 8px;
+}
+
+.git-dropdown-new-input input {
+  flex: 1;
+  padding: 6px 10px;
+  font-size: var(--font-size-sm);
+  font-family: inherit;
+  color: var(--color-text-primary);
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  outline: none;
+}
+
+.git-dropdown-new-input input:focus {
+  border-color: var(--color-accent);
+}
+
+.git-dropdown-new-input input::placeholder {
+  color: var(--color-text-tertiary);
+}
+
 /* ==========================================
    Diff Panel (Theatre Mode)
    ========================================== */

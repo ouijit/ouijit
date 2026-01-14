@@ -119,6 +119,12 @@ contextBridge.exposeInMainWorld('api', {
     ipcRenderer.invoke('git-checkout', projectPath, branchName),
 
   /**
+   * Create a new git branch
+   */
+  gitCreateBranch: (projectPath: string, branchName: string): Promise<GitCheckoutResult> =>
+    ipcRenderer.invoke('git-create-branch', projectPath, branchName),
+
+  /**
    * Get list of changed files
    */
   getChangedFiles: (projectPath: string): Promise<ChangedFile[]> =>
