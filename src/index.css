@@ -6,6 +6,8 @@
 :root {
   /* Colors */
   --color-background: #F5F5F7;
+  --color-background-secondary: rgba(0, 0, 0, 0.04);
+  --color-background-tertiary: rgba(0, 0, 0, 0.08);
   --color-surface: #FFFFFF;
   --color-text-primary: #1D1D1F;
   --color-text-secondary: #86868B;
@@ -39,6 +41,8 @@
   :root {
     /* Colors */
     --color-background: #1C1C1E;
+    --color-background-secondary: rgba(255, 255, 255, 0.06);
+    --color-background-tertiary: rgba(255, 255, 255, 0.12);
     --color-surface: #2C2C2E;
     --color-text-primary: #F5F5F7;
     --color-text-secondary: #98989D;
@@ -1609,8 +1613,6 @@ body.is-fullscreen .theatre-header-content {
   align-items: center;
   margin-left: auto;
   gap: 0;
-  background: var(--color-background);
-  border-radius: var(--radius-full);
   margin-right: 12px;
   -webkit-app-region: no-drag;
 }
@@ -1621,17 +1623,34 @@ body.is-fullscreen .theatre-header-content {
   display: flex;
   align-items: center;
   gap: 4px;
-  padding: 4px 8px 4px 10px;
-  border-radius: var(--radius-full) 0 0 var(--radius-full);
-  transition: background-color var(--transition-fast);
+  height: 32px;
+  padding: 0 8px 0 10px;
+  background: var(--color-background-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md) 0 0 var(--radius-md);
+  border-right: none;
+  transition: all var(--transition-fast);
 }
 
 .theatre-git-branch-zone:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--color-background-tertiary);
+  color: var(--color-text-primary);
+}
+
+.theatre-git-branch-zone:hover .theatre-git-icon,
+.theatre-git-branch-zone:hover .theatre-git-branch,
+.theatre-git-branch-zone:hover .theatre-git-chevron {
+  color: var(--color-text-primary);
 }
 
 .theatre-git-branch-zone:active {
-  background: rgba(255, 255, 255, 0.12);
+  background: var(--color-background-tertiary);
+}
+
+/* When branch zone is alone (no stats), give it full rounded corners and border */
+.theatre-git-branch-zone:only-child {
+  border-radius: var(--radius-md);
+  border-right: 1px solid var(--color-border);
 }
 
 .theatre-git-icon {
@@ -1663,21 +1682,23 @@ body.is-fullscreen .theatre-header-content {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 10px 4px 8px;
-  border-left: 1px solid var(--color-border);
-  border-radius: 0 var(--radius-full) var(--radius-full) 0;
+  height: 32px;
+  padding: 0 10px 0 8px;
+  background: var(--color-background-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
 }
 
 .theatre-git-stats-zone--clickable {
-  transition: background-color var(--transition-fast);
+  transition: all var(--transition-fast);
 }
 
 .theatre-git-stats-zone--clickable:hover {
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--color-background-tertiary);
 }
 
 .theatre-git-stats-zone--clickable:active {
-  background: rgba(255, 255, 255, 0.12);
+  background: var(--color-background-tertiary);
 }
 
 .theatre-git-ahead {
@@ -1687,12 +1708,43 @@ body.is-fullscreen .theatre-header-content {
 }
 
 .theatre-git-dirty {
+  display: flex;
+  align-items: center;
+  gap: 4px;
   font-size: 11px;
   font-weight: var(--font-weight-medium);
-  color: #FF9F0A;
+  color: var(--color-text-secondary);
+}
+
+.theatre-git-dots {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.theatre-git-dots .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.theatre-git-dots .dot--add {
+  background-color: #34C759;
+}
+
+.theatre-git-dots .dot--del {
+  background-color: #FF3B30;
 }
 
 @media (prefers-color-scheme: dark) {
+  .theatre-git-dots .dot--add {
+    background-color: #30D158;
+  }
+
+  .theatre-git-dots .dot--del {
+    background-color: #FF453A;
+  }
+
   .theatre-git-ahead {
     color: #30D158;
   }

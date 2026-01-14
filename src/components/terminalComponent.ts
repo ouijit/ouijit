@@ -430,7 +430,7 @@ export function destroyAllTerminals(): void {
 function buildGitStatusHtml(compactStatus: CompactGitStatus | null): string {
   if (!compactStatus) return '';
 
-  const { branch, commitsAheadOfMain, dirtyFileCount } = compactStatus;
+  const { branch, commitsAheadOfMain, dirtyFileCount, insertions, deletions } = compactStatus;
 
   // Build stats zone content (only shown if there's something to show)
   const hasStats = commitsAheadOfMain > 0 || dirtyFileCount > 0;
@@ -439,7 +439,18 @@ function buildGitStatusHtml(compactStatus: CompactGitStatus | null): string {
     statsContent += `<span class="theatre-git-ahead">\u2191${commitsAheadOfMain}</span>`;
   }
   if (dirtyFileCount > 0) {
-    statsContent += `<span class="theatre-git-dirty">\u2022${dirtyFileCount}</span>`;
+    // Build line dots visualization (max 5 dots each for +/-)
+    const maxDots = 5;
+    const addDots = Math.min(Math.ceil(insertions / 10), maxDots);
+    const delDots = Math.min(Math.ceil(deletions / 10), maxDots);
+    let dotsHtml = '';
+    if (addDots > 0 || delDots > 0) {
+      dotsHtml = '<span class="theatre-git-dots">';
+      for (let i = 0; i < addDots; i++) dotsHtml += '<span class="dot dot--add"></span>';
+      for (let i = 0; i < delDots; i++) dotsHtml += '<span class="dot dot--del"></span>';
+      dotsHtml += '</span>';
+    }
+    statsContent += `<span class="theatre-git-dirty">${dirtyFileCount}${dotsHtml}</span>`;
   }
 
   // Stats zone is clickable if dirty (opens diff panel)
@@ -957,12 +968,12 @@ function updateGitStatusElement(compactStatus: CompactGitStatus | null): void {
         });
       }
 
-      // Stats zone - opens diff panel (only if dirty)
+      // Stats zone - toggles diff panel (only if dirty)
       const statsZone = headerContent.querySelector('.theatre-git-stats-zone--clickable');
       if (statsZone) {
         statsZone.addEventListener('click', (e) => {
           e.stopPropagation();
-          showDiffPanel();
+          toggleDiffPanel();
         });
       }
     }
@@ -1662,12 +1673,12 @@ export async function enterTheatreMode(
       });
     }
 
-    // Wire up git stats zone click handler (opens diff panel)
+    // Wire up git stats zone click handler (toggles diff panel)
     const statsZone = headerContent.querySelector('.theatre-git-stats-zone--clickable');
     if (statsZone) {
       statsZone.addEventListener('click', (e) => {
         e.stopPropagation();
-        showDiffPanel();
+        toggleDiffPanel();
       });
     }
 
