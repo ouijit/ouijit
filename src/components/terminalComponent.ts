@@ -20,6 +20,9 @@ interface TerminalInstance {
 
 const terminals = new Map<string, TerminalInstance>();
 
+// Summary type for terminal status indication
+type SummaryType = 'error' | 'listening' | 'building' | 'watching' | 'thinking' | 'idle';
+
 // Theatre terminal interface for multi-terminal support
 interface TheatreTerminal {
   ptyId: PtyId;
@@ -32,6 +35,11 @@ interface TheatreTerminal {
   cleanupData: (() => void) | null;
   cleanupExit: (() => void) | null;
   resizeObserver: ResizeObserver | null;
+  // Summary state for dynamic status display
+  summary: string;
+  summaryType: SummaryType;
+  outputBuffer: string;
+  lastOscTitle: string;  // Last seen OSC terminal title
 }
 
 const MAX_THEATRE_TERMINALS = 5;
@@ -202,6 +210,197 @@ function getTerminalTheme(): Record<string, string> {
     brightCyan: '#99e9f2',
     brightWhite: '#ffffff',
   };
+}
+
+/**
+ * Strip ANSI escape codes from terminal output for pattern matching
+ */
+function stripAnsi(str: string): string {
+  // eslint-disable-next-line no-control-regex
+  return str.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '');
+}
+
+/**
+ * Analyze terminal output buffer and determine summary state
+ */
+function analyzeTerminalOutput(buffer: string, lastOscTitle: string): { summary: string; type: SummaryType } {
+  const clean = stripAnsi(buffer);
+  const lines = clean.split('\n').filter(l => l.trim());
+  const lastLine = lines[lines.length - 1]?.trim() || '';
+  const lastFewLines = lines.slice(-5).join('\n');
+  const recentText = lines.slice(-20).join('\n');
+
+  // Shell prompt patterns - if we see these at the end, the command has finished
+  const shellPromptPatterns = [
+    /[$%#❯➜→]\s*$/, // Common prompt endings
+    /\w+@\w+.*[$#]\s*$/, // user@host patterns
+  ];
+
+  // Claude/AI agent waiting for input patterns
+  const agentWaitingPatterns = [
+    /^>\s*$/, // Claude's input prompt
+    /claude.*>\s*$/i, // claude> prompt
+    /\(y\/n\)/i, // Yes/no prompts
+  ];
+
+  const isAtPrompt = shellPromptPatterns.some(p => p.test(lastLine));
+  const isAgentWaiting = agentWaitingPatterns.some(p => p.test(lastLine));
+
+  // Check if the last OSC title contains spinner characters (Claude thinking indicator)
+  // Only braille dots are actual spinners - stars (✻✽✶✳) are static decorations
+  const spinnerChars = /[⠁⠂⠄⠈⠐⠠⡀⢀⠃⠅⠆⠉⠊⠌⠑⠒⠔⠘⠡⠢⠤⠨⠰⡁⡂⡄⡈⡐⡠⢁⢂⢄⢈⢐⢠⣀⠇⠋⠍⠎⠓⠕⠖⠙⠚⠜⠣⠥⠦⠩⠪⠬⠱⠲⠴⠸⡃⡅⡆⡉⡊⡌⡑⡒⡔⡘⡡⡢⡤⡨⡰⢃⢅⢆⢉⢊⢌⢑⢒⢔⢘⢡⢢⢤⢨⢰⣁⣂⣄⣈⣐⣠◐◓◑◒]/;
+
+  if (spinnerChars.test(lastOscTitle)) {
+    return { summary: 'Thinking...', type: 'thinking' };
+  }
+
+  // Completion patterns - build/task finished successfully
+  const completionPatterns = [
+    /built in \d/i,
+    /compiled successfully/i,
+    /done in \d/i,
+    /finished in \d/i,
+  ];
+
+  const justCompleted = completionPatterns.some(p => p.test(lastFewLines));
+
+  // If at shell prompt and we see completion, show completed state
+  if (isAtPrompt && justCompleted) {
+    return { summary: 'Done', type: 'idle' };
+  }
+
+  // If at shell prompt with no special state, show ready
+  if (isAtPrompt) {
+    return { summary: '', type: 'idle' };
+  }
+
+  // If agent is waiting for input, show idle (green = ready for input)
+  if (isAgentWaiting) {
+    return { summary: '', type: 'idle' };
+  }
+
+  // Error patterns - only in recent output
+  const errorPatterns = [
+    { regex: /\bERROR\b.*?:(.{0,40})/i, extract: true },
+    { regex: /\bError\b:(.{0,40})/i, extract: true },
+    { regex: /npm ERR!(.{0,30})/i, extract: true },
+    { regex: /\bfailed\b/i, extract: false, text: 'Failed' },
+    { regex: /ENOENT|EACCES|ECONNREFUSED/, extract: false },
+    { regex: /TypeError|ReferenceError|SyntaxError/, extract: false },
+  ];
+
+  for (const pattern of errorPatterns) {
+    const match = lastFewLines.match(pattern.regex);
+    if (match) {
+      const summary = pattern.extract && match[1]
+        ? match[1].trim().slice(0, 30)
+        : pattern.text || match[0].slice(0, 20);
+      return { summary: `Error: ${summary}`, type: 'error' };
+    }
+  }
+
+  // Listening patterns (server is running)
+  const listeningPatterns = [
+    { regex: /listening on (?:port )?:?(\d+)/i, port: true },
+    { regex: /localhost:(\d+)/, port: true },
+    { regex: /127\.0\.0\.1:(\d+)/, port: true },
+    { regex: /\[::\]:(\d+)/, port: true },
+    { regex: /ready on http/i, port: false, text: 'Ready' },
+    { regex: /server (?:is )?(?:running|started)/i, port: false, text: 'Running' },
+    { regex: /started server/i, port: false, text: 'Started' },
+    { regex: /Network:.*http/i, port: false, text: 'Network ready' },
+  ];
+
+  for (const pattern of listeningPatterns) {
+    const match = recentText.match(pattern.regex);
+    if (match) {
+      const summary = pattern.port && match[1]
+        ? `Listening :${match[1]}`
+        : pattern.text || 'Listening';
+      return { summary, type: 'listening' };
+    }
+  }
+
+  // Building/compiling patterns - only if in the last few lines (active)
+  const buildingPatterns = [
+    /compiling\b/i,
+    /building\b/i,
+    /bundling\b/i,
+    /transforming\b/i,
+  ];
+
+  for (const pattern of buildingPatterns) {
+    if (pattern.test(lastFewLines)) {
+      return { summary: 'Building...', type: 'building' };
+    }
+  }
+
+  // Watching patterns
+  const watchingPatterns = [
+    /watching for (?:file )?changes/i,
+    /waiting for changes/i,
+    /watching\.\.\./i,
+    /hot reload/i,
+    /hmr enabled/i,
+  ];
+
+  for (const pattern of watchingPatterns) {
+    if (pattern.test(lastFewLines)) {
+      return { summary: 'Watching...', type: 'watching' };
+    }
+  }
+
+  // Default to idle
+  return { summary: '', type: 'idle' };
+}
+
+// Track pending summary updates (debounced)
+const pendingSummaryUpdates = new Map<PtyId, ReturnType<typeof setTimeout>>();
+
+/**
+ * Schedule a throttled summary update for a theatre terminal
+ */
+function scheduleTerminalSummaryUpdate(term: TheatreTerminal): void {
+  const existing = pendingSummaryUpdates.get(term.ptyId);
+  if (existing) clearTimeout(existing);
+
+  pendingSummaryUpdates.set(term.ptyId, setTimeout(() => {
+    const { summary, type } = analyzeTerminalOutput(term.outputBuffer, term.lastOscTitle);
+    if (summary !== term.summary || type !== term.summaryType) {
+      term.summary = summary;
+      term.summaryType = type;
+      updateTerminalCardLabel(term);
+    }
+    pendingSummaryUpdates.delete(term.ptyId);
+  }, 150));
+}
+
+/**
+ * Update the terminal card label with current summary state
+ */
+function updateTerminalCardLabel(term: TheatreTerminal): void {
+  const labelEl = term.container.querySelector('.theatre-card-label');
+  if (!labelEl) return;
+
+  // Ensure status dot exists
+  let dot = labelEl.querySelector('.theatre-card-status-dot') as HTMLElement;
+  if (!dot) {
+    dot = document.createElement('span');
+    dot.className = 'theatre-card-status-dot';
+    labelEl.insertBefore(dot, labelEl.firstChild);
+  }
+
+  // Update dot color
+  dot.setAttribute('data-status', term.summaryType);
+
+  // Update label text
+  const labelText = labelEl.querySelector('.theatre-card-label-text');
+  if (labelText) {
+    const display = term.summary
+      ? `${term.label} — ${term.summary}`
+      : term.label;
+    labelText.textContent = display;
+  }
 }
 
 export async function createTerminal(
@@ -1542,6 +1741,7 @@ function createTheatreCard(label: string, index: number): HTMLElement {
   const labelEl = document.createElement('div');
   labelEl.className = 'theatre-card-label';
   labelEl.innerHTML = `
+    <span class="theatre-card-status-dot" data-status="idle"></span>
     <span class="theatre-card-label-text">${label}</span>
     <button class="theatre-card-close" title="Close terminal">&times;</button>
   `;
@@ -1679,6 +1879,10 @@ async function addTheatreTerminal(runConfig?: RunConfig): Promise<boolean> {
       cleanupData: null,
       cleanupExit: null,
       resizeObserver: null,
+      summary: '',
+      summaryType: 'idle',
+      outputBuffer: '',
+      lastOscTitle: '',
     };
 
     // Set up resize observer
@@ -1691,6 +1895,18 @@ async function addTheatreTerminal(runConfig?: RunConfig): Promise<boolean> {
     // Set up data listener
     theatreTerminal.cleanupData = window.api.pty.onData(result.ptyId, (data) => {
       terminal.write(data);
+
+      // Track output for summary analysis (rolling buffer of last 2000 chars)
+      theatreTerminal.outputBuffer = (theatreTerminal.outputBuffer + data).slice(-2000);
+
+      // Extract OSC title sequences (e.g., \x1b]0;Title Here\x07)
+      const oscMatches = data.matchAll(/\x1b\]0;([^\x07]*)\x07/g);
+      for (const match of oscMatches) {
+        theatreTerminal.lastOscTitle = match[1];
+      }
+
+      scheduleTerminalSummaryUpdate(theatreTerminal);
+
       if (theatreModeProjectPath) {
         scheduleGitStatusRefresh();
       }
@@ -1701,6 +1917,11 @@ async function addTheatreTerminal(runConfig?: RunConfig): Promise<boolean> {
       terminal.writeln('');
       const exitColor = exitCode === 0 ? '32' : '31';
       terminal.writeln(`\x1b[${exitColor}m● Process exited with code ${exitCode}\x1b[0m`);
+
+      // Update summary to show exit status
+      theatreTerminal.summary = exitCode === 0 ? 'Exited' : `Exit ${exitCode}`;
+      theatreTerminal.summaryType = exitCode === 0 ? 'idle' : 'error';
+      updateTerminalCardLabel(theatreTerminal);
     });
 
     // Forward terminal input

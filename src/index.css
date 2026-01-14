@@ -2391,6 +2391,55 @@ body.is-fullscreen .theatre-header-content {
   text-overflow: ellipsis;
 }
 
+/* Status dot indicator for terminal summary */
+.theatre-card-status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  margin-right: 8px;
+  background: #69db7c; /* Green by default = idle/ready */
+  box-shadow: 0 0 4px rgba(105, 219, 124, 0.5);
+  transition: background-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.theatre-card-status-dot[data-status="idle"] {
+  background: #69db7c;
+  box-shadow: 0 0 4px rgba(105, 219, 124, 0.5);
+}
+
+.theatre-card-status-dot[data-status="error"] {
+  background: #ff6b6b;
+  box-shadow: 0 0 4px rgba(255, 107, 107, 0.5);
+}
+
+.theatre-card-status-dot[data-status="listening"] {
+  background: #74c0fc; /* Blue for active server */
+  box-shadow: 0 0 4px rgba(116, 192, 252, 0.5);
+}
+
+.theatre-card-status-dot[data-status="building"] {
+  background: #ffd43b;
+  box-shadow: 0 0 4px rgba(255, 212, 59, 0.5);
+  animation: terminal-status-pulse 1.5s ease-in-out infinite;
+}
+
+.theatre-card-status-dot[data-status="watching"] {
+  background: #ffd43b; /* Yellow like building - something active */
+  box-shadow: 0 0 4px rgba(255, 212, 59, 0.5);
+}
+
+.theatre-card-status-dot[data-status="thinking"] {
+  background: #da77f2;
+  box-shadow: 0 0 4px rgba(218, 119, 242, 0.5);
+  animation: terminal-status-pulse 1s ease-in-out infinite;
+}
+
+@keyframes terminal-status-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
 .theatre-card-close {
   width: 20px;
   height: 20px;
