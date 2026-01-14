@@ -115,6 +115,9 @@ let launchDropdownCleanup: (() => void) | null = null;
 let tasksPanelVisible = false;
 let tasksList: Task[] = [];
 
+// Task-terminal association: maps task ID to ptyId
+const taskTerminalMap = new Map<string, PtyId>();
+
 /**
  * Generates a unique ID for a detected run config (for default selection)
  */
@@ -407,6 +410,47 @@ function updateTerminalCardLabel(term: TheatreTerminal): void {
       : term.label;
     labelText.textContent = display;
   }
+
+  // Update linked task status indicator if tasks panel is visible
+  if (tasksPanelVisible) {
+    updateTaskStatusIndicator(term.ptyId);
+  }
+}
+
+/**
+ * Update the status indicator for a task linked to a terminal
+ */
+function updateTaskStatusIndicator(ptyId: PtyId): void {
+  // Find which task is linked to this terminal
+  let linkedTaskId: string | null = null;
+  for (const [taskId, termPtyId] of taskTerminalMap) {
+    if (termPtyId === ptyId) {
+      linkedTaskId = taskId;
+      break;
+    }
+  }
+  if (!linkedTaskId) return;
+
+  const terminal = theatreTerminals.find(t => t.ptyId === ptyId);
+  if (!terminal) return;
+
+  const taskItem = document.querySelector(`.tasks-panel-item[data-task-id="${linkedTaskId}"]`);
+  if (!taskItem) return;
+
+  // Update status indicator
+  let statusEl = taskItem.querySelector('.tasks-panel-item-status') as HTMLElement;
+  if (!statusEl) {
+    // Create status element if it doesn't exist
+    statusEl = document.createElement('span');
+    statusEl.className = 'tasks-panel-item-status';
+    const checkbox = taskItem.querySelector('.tasks-panel-item-checkbox');
+    if (checkbox) {
+      checkbox.after(statusEl);
+    }
+  }
+
+  statusEl.setAttribute('data-status', terminal.summaryType);
+  statusEl.setAttribute('title', terminal.summary || '');
 }
 
 export async function createTerminal(
@@ -1249,19 +1293,81 @@ function buildTasksPanelHtml(): string {
 /**
  * Build a single task item HTML
  */
+function getTaskTerminal(taskId: string): TheatreTerminal | undefined {
+  const ptyId = taskTerminalMap.get(taskId);
+  if (!ptyId) return undefined;
+  return theatreTerminals.find(t => t.ptyId === ptyId);
+}
+
 function buildTaskItemHtml(task: Task): string {
   const checkIcon = task.completed ? 'check-square' : 'square';
+  const terminal = getTaskTerminal(task.id);
+  const hasTerminal = !!terminal;
+  const statusType = terminal?.summaryType || 'idle';
+  const statusSummary = terminal?.summary || '';
+
   return `
-    <div class="tasks-panel-item${task.completed ? ' tasks-panel-item--completed' : ''}" data-task-id="${task.id}">
+    <div class="tasks-panel-item${task.completed ? ' tasks-panel-item--completed' : ''}${hasTerminal ? ' tasks-panel-item--has-terminal' : ''}" data-task-id="${task.id}">
       <button class="tasks-panel-item-checkbox" title="${task.completed ? 'Mark incomplete' : 'Mark complete'}">
         <i data-lucide="${checkIcon}"></i>
       </button>
+      ${hasTerminal ? `<span class="tasks-panel-item-status" data-status="${statusType}" title="${escapeHtml(statusSummary)}"></span>` : ''}
       <span class="tasks-panel-item-title">${escapeHtml(task.title)}</span>
+      <button class="tasks-panel-item-claude" title="${hasTerminal ? 'Show terminal' : 'Run with Claude'}">
+        <i data-lucide="play"></i>
+      </button>
       <button class="tasks-panel-item-delete" title="Delete task">
         <i data-lucide="trash-2"></i>
       </button>
     </div>
   `;
+}
+
+/**
+ * Launch Claude Code in a new theatre terminal for a task
+ */
+async function launchClaudeForTask(task: Task): Promise<void> {
+  if (!theatreModeProjectPath) return;
+
+  // Check if this task already has a terminal - if so, switch to it
+  const existingTerminal = getTaskTerminal(task.id);
+  if (existingTerminal) {
+    const index = theatreTerminals.indexOf(existingTerminal);
+    if (index !== -1) {
+      switchToTheatreTerminal(index);
+      return;
+    }
+  }
+
+  // Truncate label for display
+  const label = `Claude: ${task.title.slice(0, 20)}${task.title.length > 20 ? '...' : ''}`;
+
+  // Create a RunConfig for Claude
+  const claudeConfig: RunConfig = {
+    name: label,
+    command: 'claude',
+    source: 'custom',
+    priority: 0,
+  };
+
+  const success = await addTheatreTerminal(claudeConfig);
+
+  if (success) {
+    // Get the newly added terminal and store the mapping
+    const claudeTerminal = theatreTerminals[theatreTerminals.length - 1];
+    taskTerminalMap.set(task.id, claudeTerminal.ptyId);
+
+    // Re-render tasks to show the status indicator
+    renderTasksList();
+
+    // Send task title then Enter key after Claude initializes
+    setTimeout(() => {
+      window.api.pty.write(claudeTerminal.ptyId, task.title);
+      setTimeout(() => {
+        window.api.pty.write(claudeTerminal.ptyId, '\r');
+      }, 100);
+    }, 1500);
+  }
 }
 
 /**
@@ -1307,6 +1413,19 @@ function renderTasksList(): void {
       if (taskId && theatreModeProjectPath) {
         await window.api.deleteTask(theatreModeProjectPath, taskId);
         await refreshTasksList();
+      }
+    });
+  });
+
+  // Wire up Claude button clicks
+  listEl.querySelectorAll('.tasks-panel-item-claude').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const item = (btn as HTMLElement).closest('.tasks-panel-item') as HTMLElement;
+      const taskId = item?.dataset.taskId;
+      const task = tasksList.find(t => t.id === taskId);
+      if (task && theatreModeProjectPath) {
+        await launchClaudeForTask(task);
       }
     });
   });
@@ -2187,6 +2306,15 @@ function closeTheatreTerminal(index: number): void {
 
   // Kill PTY
   window.api.pty.kill(term.ptyId);
+
+  // Clean up task-terminal mapping and re-render tasks
+  for (const [taskId, ptyId] of taskTerminalMap) {
+    if (ptyId === term.ptyId) {
+      taskTerminalMap.delete(taskId);
+      if (tasksPanelVisible) renderTasksList();
+      break;
+    }
+  }
 
   // Clean up
   if (term.cleanupData) term.cleanupData();
