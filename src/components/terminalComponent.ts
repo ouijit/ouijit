@@ -1012,11 +1012,11 @@ function buildTheatreHeader(projectData: Project, compactStatus: CompactGitStatu
         <span class="theatre-project-name">${projectData.name}</span>
         <span class="theatre-project-path">${projectData.path}</span>
       </div>
-      ${gitStatusHtml}
-      ${mergeButtonHtml}
       <button class="theatre-tasks-btn" title="Tasks (T)">
         <i data-lucide="list-todo"></i>
       </button>
+      ${gitStatusHtml}
+      ${mergeButtonHtml}
       <div class="theatre-launch-wrapper">
         <button class="theatre-launch-chevron-btn" title="More commands">
           <i data-lucide="chevron-down"></i>
