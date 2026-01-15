@@ -12,7 +12,7 @@ import {
   cleanupAllPtys,
 } from './ptyManager';
 import { exportProject, previewOuijitFile, importOuijitPackage } from './ouijit';
-import { getGitStatus, getCompactGitStatus, getGitDropdownInfo, checkoutBranch, createBranch, mergeIntoMain, getChangedFiles, getFileDiff } from './git';
+import { getGitStatus, getCompactGitStatus, getGitDropdownInfo, checkoutBranch, createBranch, mergeIntoMain, getChangedFiles, getFileDiff, getWorktreeDiff, getWorktreeFileDiff, mergeWorktreeBranch } from './git';
 import { createWorktree, removeWorktree, listWorktrees } from './worktree';
 import type { WorktreeCreateResult, WorktreeRemoveResult, WorktreeInfo } from './worktree';
 import {
@@ -25,7 +25,7 @@ import {
   toggleTask,
   deleteTask,
 } from './projectSettings';
-import type { RunConfig, LaunchResult, PtySpawnOptions, ExportResult, PreviewResult, ImportResult, CreateProjectOptions, CreateProjectResult, CustomCommand, ProjectSettings, Task, GitStatus, CompactGitStatus, GitDropdownInfo, ChangedFile, FileDiff } from './types';
+import type { RunConfig, LaunchResult, PtySpawnOptions, ExportResult, PreviewResult, ImportResult, CreateProjectOptions, CreateProjectResult, CustomCommand, ProjectSettings, Task, GitStatus, CompactGitStatus, GitDropdownInfo, ChangedFile, FileDiff, WorktreeDiffSummary, GitMergeResult } from './types';
 
 /**
  * Escapes a string for use in AppleScript
@@ -349,6 +349,18 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
 
   ipcMain.handle('worktree:list', async (_event, projectPath: string): Promise<WorktreeInfo[]> => {
     return listWorktrees(projectPath);
+  });
+
+  ipcMain.handle('worktree:get-diff', async (_event, projectPath: string, worktreeBranch: string): Promise<WorktreeDiffSummary | null> => {
+    return getWorktreeDiff(projectPath, worktreeBranch);
+  });
+
+  ipcMain.handle('worktree:get-file-diff', async (_event, projectPath: string, worktreeBranch: string, filePath: string): Promise<FileDiff | null> => {
+    return getWorktreeFileDiff(projectPath, worktreeBranch, filePath);
+  });
+
+  ipcMain.handle('worktree:merge', async (_event, projectPath: string, worktreeBranch: string): Promise<GitMergeResult> => {
+    return mergeWorktreeBranch(projectPath, worktreeBranch);
   });
 }
 

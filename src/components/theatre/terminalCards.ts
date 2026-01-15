@@ -4,7 +4,7 @@
 
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
-import { createIcons, Terminal as TerminalIcon, Play } from 'lucide';
+import { createIcons, Terminal as TerminalIcon, Play, GitCompare, GitMerge } from 'lucide';
 import type { PtyId, PtySpawnOptions, RunConfig, WorktreeInfo } from '../../types';
 import {
   taskTerminalMap,
@@ -14,13 +14,18 @@ import {
 } from './state';
 import {
   projectPath,
+  projectData,
   terminals,
   activeIndex,
   activeTerminal,
   tasksPanelVisible,
 } from './signals';
 import { showToast } from '../importDialog';
-import { scheduleGitStatusRefresh } from './gitStatus';
+import { scheduleGitStatusRefresh, refreshGitStatus } from './gitStatus';
+import { showWorktreeDiffPanel } from './diffPanel';
+import { mergeRunConfigs, getConfigId } from '../../utils/runConfigs';
+
+const cardIcons = { Play, GitCompare, GitMerge };
 
 // Track pending summary updates (debounced)
 const pendingSummaryUpdates = new Map<PtyId, ReturnType<typeof setTimeout>>();
@@ -298,6 +303,11 @@ export function createTheatreCard(label: string, index: number): HTMLElement {
   labelEl.innerHTML = `
     <span class="theatre-card-status-dot" data-status="idle"></span>
     <span class="theatre-card-label-text">${label}</span>
+    <div class="theatre-card-worktree-actions" style="display: none;">
+      <button class="theatre-card-action" data-action="run" title="Run default command"><i data-lucide="play"></i></button>
+      <button class="theatre-card-action" data-action="diff" title="View diff vs main"><i data-lucide="git-compare"></i></button>
+      <button class="theatre-card-action" data-action="merge" title="Merge into main"><i data-lucide="git-merge"></i></button>
+    </div>
     <button class="theatre-card-close" title="Close terminal">&times;</button>
   `;
   card.appendChild(labelEl);
@@ -313,6 +323,104 @@ export function createTheatreCard(label: string, index: number): HTMLElement {
   card.appendChild(viewport);
 
   return card;
+}
+
+/**
+ * Set up worktree action buttons on a card
+ */
+export function setupWorktreeCardActions(term: TheatreTerminal): void {
+  if (!term.isWorktree || !term.worktreeBranch) return;
+
+  const actionsEl = term.container.querySelector('.theatre-card-worktree-actions') as HTMLElement;
+  if (!actionsEl) return;
+
+  // Show the actions container
+  actionsEl.style.display = 'flex';
+
+  // Initialize lucide icons
+  createIcons({ icons: cardIcons, nodes: [actionsEl] });
+
+  // Wire up action buttons
+  const runBtn = actionsEl.querySelector('[data-action="run"]');
+  const diffBtn = actionsEl.querySelector('[data-action="diff"]');
+  const mergeBtn = actionsEl.querySelector('[data-action="merge"]');
+
+  if (runBtn) {
+    runBtn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      await runDefaultInWorktreeCard(term);
+    });
+  }
+
+  if (diffBtn) {
+    diffBtn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      if (term.worktreeBranch) {
+        await showWorktreeDiffPanel(term.worktreeBranch);
+      }
+    });
+  }
+
+  if (mergeBtn) {
+    mergeBtn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      await mergeWorktreeFromCard(term);
+    });
+  }
+}
+
+/**
+ * Run the default command in the worktree from a card action
+ */
+async function runDefaultInWorktreeCard(term: TheatreTerminal): Promise<void> {
+  const path = projectPath.value;
+  const project = projectData.value;
+  if (!path || !project || !term.worktreePath || !term.worktreeBranch) return;
+
+  // Fetch settings to get default command
+  const settings = await window.api.getProjectSettings(path);
+  const allConfigs = mergeRunConfigs(project.runConfigs, settings.customCommands);
+
+  if (allConfigs.length === 0) {
+    showToast('No commands configured', 'info');
+    return;
+  }
+
+  // Find default command or use first available
+  let defaultConfig: RunConfig = allConfigs[0];
+  if (settings.defaultCommandId) {
+    const found = allConfigs.find(c => getConfigId(c) === settings.defaultCommandId);
+    if (found) {
+      defaultConfig = found;
+    }
+  }
+
+  const worktreeInfo: WorktreeInfo = {
+    path: term.worktreePath,
+    branch: term.worktreeBranch,
+    createdAt: '',
+  };
+
+  await addTheatreTerminal(defaultConfig, { existingWorktree: worktreeInfo });
+}
+
+/**
+ * Merge worktree branch into main from a card action
+ */
+async function mergeWorktreeFromCard(term: TheatreTerminal): Promise<void> {
+  const path = projectPath.value;
+  if (!path || !term.worktreeBranch) return;
+
+  const confirmed = confirm(`Merge "${term.worktreeBranch}" into main?`);
+  if (!confirmed) return;
+
+  const result = await window.api.worktree.merge(path, term.worktreeBranch);
+  if (result.success) {
+    showToast(`Merged ${term.worktreeBranch} into main`, 'success');
+    await refreshGitStatus();
+  } else {
+    showToast(result.error || 'Merge failed', 'error');
+  }
 }
 
 /**
@@ -534,6 +642,9 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
         switchToTheatreTerminal(idx);
       }
     });
+
+    // Set up worktree action buttons if this is a worktree terminal
+    setupWorktreeCardActions(theatreTerminal);
 
     // Add terminal to list and set as active - effects will handle updateCardStack
     terminals.value = [...terminals.value, theatreTerminal];

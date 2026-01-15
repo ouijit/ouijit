@@ -1,5 +1,5 @@
 // Re-export all git types from git.ts (single source of truth)
-export type { GitStatus, GitDropdownInfo, ExtendedGitStatus, RecentBranch, UncommittedChanges, ChangedFile, DiffLine, DiffHunk, FileDiff, CompactGitStatus } from './git';
+export type { GitStatus, GitDropdownInfo, ExtendedGitStatus, RecentBranch, UncommittedChanges, ChangedFile, DiffLine, DiffHunk, FileDiff, CompactGitStatus, WorktreeDiffSummary } from './git';
 
 /**
  * Represents a run configuration for launching a project
@@ -154,6 +154,9 @@ export interface WorktreeAPI {
   create(projectPath: string): Promise<WorktreeCreateResult>;
   remove(projectPath: string, worktreePath: string): Promise<WorktreeRemoveResult>;
   list(projectPath: string): Promise<WorktreeInfo[]>;
+  getDiff(projectPath: string, worktreeBranch: string): Promise<import('./git').WorktreeDiffSummary | null>;
+  getFileDiff(projectPath: string, worktreeBranch: string, filePath: string): Promise<import('./git').FileDiff | null>;
+  merge(projectPath: string, worktreeBranch: string): Promise<GitMergeResult>;
 }
 
 /**

@@ -13,6 +13,8 @@ import {
   diffPanelFiles,
   diffPanelSelectedFile,
   diffFileDropdownVisible,
+  diffPanelMode,
+  diffPanelWorktreeBranch,
 } from './signals';
 import { escapeHtml } from '../../utils/html';
 import { showToast } from '../importDialog';
@@ -32,17 +34,23 @@ export function formatDiffStats(additions: number, deletions: number): string {
 /**
  * Build HTML for the diff panel
  */
-export function buildDiffPanelHtml(files: ChangedFile[]): string {
+export function buildDiffPanelHtml(files: ChangedFile[], worktreeBranch?: string): string {
   // Get first file for initial selector state
   const firstFile = files[0];
   const statusLabel = firstFile.status === '?' ? 'U' : firstFile.status;
   const fileName = firstFile.path.split('/').pop() || firstFile.path;
   const stats = formatDiffStats(firstFile.additions, firstFile.deletions);
 
+  // Context label for worktree mode
+  const contextLabel = worktreeBranch
+    ? `<span class="diff-context-label">${escapeHtml(worktreeBranch)} vs main</span>`
+    : '';
+
   return `
     <div class="diff-panel">
       <div class="diff-content">
         <div class="diff-content-header">
+          ${contextLabel}
           <div class="diff-file-selector" title="${escapeHtml(firstFile.path)}" data-additions="${firstFile.additions}" data-deletions="${firstFile.deletions}">
             <span class="diff-file-status diff-file-status--${statusLabel}">${statusLabel}</span>
             <span class="diff-file-selector-name">${escapeHtml(fileName)}</span>
@@ -244,7 +252,18 @@ export async function selectDiffFile(filePath: string): Promise<void> {
 
   contentBody.innerHTML = '<div class="diff-empty-state">Loading...</div>';
 
-  const diff = await window.api.getFileDiff(projectPath.value!, filePath);
+  // Use appropriate API based on mode
+  let diff: FileDiff | null = null;
+  if (diffPanelMode.value === 'worktree' && diffPanelWorktreeBranch.value) {
+    diff = await window.api.worktree.getFileDiff(
+      projectPath.value!,
+      diffPanelWorktreeBranch.value,
+      filePath
+    );
+  } else {
+    diff = await window.api.getFileDiff(projectPath.value!, filePath);
+  }
+
   if (diff) {
     contentBody.innerHTML = renderDiffContentHtml(diff);
 
@@ -360,6 +379,8 @@ export function hideDiffPanel(): void {
   diffPanelVisible.value = false;
   diffPanelSelectedFile.value = null;
   diffPanelFiles.value = [];
+  diffPanelMode.value = 'uncommitted';
+  diffPanelWorktreeBranch.value = null;
 }
 
 /**
@@ -370,5 +391,69 @@ export async function toggleDiffPanel(): Promise<void> {
     hideDiffPanel();
   } else {
     await showDiffPanel();
+  }
+}
+
+/**
+ * Show the diff panel for a worktree branch (branch comparison mode)
+ */
+export async function showWorktreeDiffPanel(worktreeBranch: string): Promise<void> {
+  if (!projectPath.value || diffPanelVisible.value) return;
+
+  // Fetch worktree diff
+  const diffSummary = await window.api.worktree.getDiff(projectPath.value, worktreeBranch);
+  if (!diffSummary || !diffSummary.files.length) {
+    showToast('No changes in worktree branch', 'info');
+    return;
+  }
+
+  // Set mode before showing panel
+  diffPanelMode.value = 'worktree';
+  diffPanelWorktreeBranch.value = worktreeBranch;
+  diffPanelFiles.value = diffSummary.files;
+  diffPanelVisible.value = true;
+
+  // Create and insert panel with worktree context
+  const panelHtml = buildDiffPanelHtml(diffSummary.files, worktreeBranch);
+  document.body.insertAdjacentHTML('beforeend', panelHtml);
+
+  const panel = document.querySelector('.diff-panel');
+  if (!panel) return;
+
+  // Initialize lucide icons for the chevron
+  createIcons({ icons: diffIcons });
+
+  // Wire up file selector dropdown toggle
+  const fileSelector = panel.querySelector('.diff-file-selector');
+  if (fileSelector) {
+    fileSelector.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleDiffFileDropdown();
+    });
+  }
+
+  // Wire up close button
+  const closeBtn = panel.querySelector('.diff-panel-close');
+  if (closeBtn) {
+    closeBtn.addEventListener('click', () => hideDiffPanel());
+  }
+
+  // Add class to theatre stack to shrink it
+  const stack = document.querySelector('.theatre-stack');
+  if (stack) {
+    stack.classList.add('diff-panel-open');
+  }
+
+  // Animate panel in
+  requestAnimationFrame(() => {
+    panel.classList.add('diff-panel--visible');
+  });
+
+  // Refit active theatre terminal after animation
+  setTimeout(() => refitActiveTerminal(), 250);
+
+  // Select first file
+  if (diffSummary.files.length > 0) {
+    selectDiffFile(diffSummary.files[0].path);
   }
 }

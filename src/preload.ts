@@ -2,7 +2,7 @@
 // https://www.electronjs.org/docs/latest/tutorial/process-model#preload-scripts
 
 import { contextBridge, ipcRenderer, webUtils } from 'electron';
-import type { Project, RunConfig, LaunchResult, PtySpawnOptions, PtySpawnResult, PtyId, ExportResult, PreviewResult, ImportResult, CreateProjectOptions, CreateProjectResult, GitStatus, CompactGitStatus, GitDropdownInfo, GitCheckoutResult, GitMergeResult, ChangedFile, FileDiff, ProjectSettings, CustomCommand, Task, WorktreeCreateResult, WorktreeRemoveResult, WorktreeInfo } from './types';
+import type { Project, RunConfig, LaunchResult, PtySpawnOptions, PtySpawnResult, PtyId, ExportResult, PreviewResult, ImportResult, CreateProjectOptions, CreateProjectResult, GitStatus, CompactGitStatus, GitDropdownInfo, GitCheckoutResult, GitMergeResult, ChangedFile, FileDiff, ProjectSettings, CustomCommand, Task, WorktreeCreateResult, WorktreeRemoveResult, WorktreeInfo, WorktreeDiffSummary } from './types';
 
 // Expose protected methods that allow the renderer process to use
 // ipcRenderer without exposing the entire object
@@ -76,6 +76,15 @@ contextBridge.exposeInMainWorld('api', {
 
     list: (projectPath: string): Promise<WorktreeInfo[]> =>
       ipcRenderer.invoke('worktree:list', projectPath),
+
+    getDiff: (projectPath: string, worktreeBranch: string): Promise<WorktreeDiffSummary | null> =>
+      ipcRenderer.invoke('worktree:get-diff', projectPath, worktreeBranch),
+
+    getFileDiff: (projectPath: string, worktreeBranch: string, filePath: string): Promise<FileDiff | null> =>
+      ipcRenderer.invoke('worktree:get-file-diff', projectPath, worktreeBranch, filePath),
+
+    merge: (projectPath: string, worktreeBranch: string): Promise<GitMergeResult> =>
+      ipcRenderer.invoke('worktree:merge', projectPath, worktreeBranch),
   },
 
   /**

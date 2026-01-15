@@ -2,14 +2,17 @@
  * Worktree dropdown for theatre mode - agent shell creation and worktree management
  */
 
-import { createIcons, GitBranchPlus, Terminal, Trash2 } from 'lucide';
-import type { WorktreeInfo } from '../../types';
+import { createIcons, GitBranchPlus, Terminal, Trash2, Play, GitCompare, GitMerge } from 'lucide';
+import type { WorktreeInfo, RunConfig } from '../../types';
 import { theatreState, MAX_THEATRE_TERMINALS } from './state';
-import { projectPath, terminals, worktreeDropdownVisible } from './signals';
+import { projectPath, projectData, terminals, worktreeDropdownVisible } from './signals';
 import { showToast } from '../importDialog';
 import { addTheatreTerminal } from './terminalCards';
+import { showWorktreeDiffPanel } from './diffPanel';
+import { refreshGitStatus } from './gitStatus';
+import { mergeRunConfigs, getConfigId } from '../../utils/runConfigs';
 
-const worktreeIcons = { GitBranchPlus, Terminal, Trash2 };
+const worktreeIcons = { GitBranchPlus, Terminal, Trash2, Play, GitCompare, GitMerge };
 
 /**
  * Build the worktree dropdown content
@@ -62,10 +65,45 @@ export async function buildWorktreeDropdownContent(dropdown: HTMLElement): Promi
       const wtActions = document.createElement('div');
       wtActions.className = 'launch-option-actions';
 
-      // Open button
+      // Play button (run default command)
+      const playBtn = document.createElement('button');
+      playBtn.className = 'launch-option-action';
+      playBtn.title = 'Run default command';
+      playBtn.innerHTML = '<i data-lucide="play"></i>';
+      playBtn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        hideWorktreeDropdown();
+        await runDefaultInWorktree(wt);
+      });
+      wtActions.appendChild(playBtn);
+
+      // Diff button
+      const diffBtn = document.createElement('button');
+      diffBtn.className = 'launch-option-action';
+      diffBtn.title = 'View diff vs main';
+      diffBtn.innerHTML = '<i data-lucide="git-compare"></i>';
+      diffBtn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        hideWorktreeDropdown();
+        await showWorktreeDiffPanel(wt.branch);
+      });
+      wtActions.appendChild(diffBtn);
+
+      // Merge button
+      const mergeBtn = document.createElement('button');
+      mergeBtn.className = 'launch-option-action';
+      mergeBtn.title = 'Merge into main';
+      mergeBtn.innerHTML = '<i data-lucide="git-merge"></i>';
+      mergeBtn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        await mergeWorktree(wt, dropdown);
+      });
+      wtActions.appendChild(mergeBtn);
+
+      // Open terminal button
       const openBtn = document.createElement('button');
       openBtn.className = 'launch-option-action';
-      openBtn.title = 'Open terminal in this worktree';
+      openBtn.title = 'Open terminal';
       openBtn.innerHTML = '<i data-lucide="terminal"></i>';
       openBtn.addEventListener('click', async (e) => {
         e.stopPropagation();
@@ -179,5 +217,54 @@ export function toggleWorktreeDropdown(): void {
     hideWorktreeDropdown();
   } else {
     showWorktreeDropdown();
+  }
+}
+
+/**
+ * Run the default command in a worktree
+ */
+async function runDefaultInWorktree(wt: WorktreeInfo): Promise<void> {
+  const path = projectPath.value;
+  const project = projectData.value;
+  if (!path || !project) return;
+
+  // Fetch settings to get default command
+  const settings = await window.api.getProjectSettings(path);
+  const allConfigs = mergeRunConfigs(project.runConfigs, settings.customCommands);
+
+  if (allConfigs.length === 0) {
+    showToast('No commands configured', 'info');
+    return;
+  }
+
+  // Find default command or use first available
+  let defaultConfig: RunConfig = allConfigs[0];
+  if (settings.defaultCommandId) {
+    const found = allConfigs.find(c => getConfigId(c) === settings.defaultCommandId);
+    if (found) {
+      defaultConfig = found;
+    }
+  }
+
+  await addTheatreTerminal(defaultConfig, { existingWorktree: wt });
+}
+
+/**
+ * Merge a worktree branch into main
+ */
+async function mergeWorktree(wt: WorktreeInfo, dropdown: HTMLElement): Promise<void> {
+  const path = projectPath.value;
+  if (!path) return;
+
+  const confirmed = confirm(`Merge "${wt.branch}" into main?`);
+  if (!confirmed) return;
+
+  const result = await window.api.worktree.merge(path, wt.branch);
+  if (result.success) {
+    showToast(`Merged ${wt.branch} into main`, 'success');
+    await refreshGitStatus();
+    await buildWorktreeDropdownContent(dropdown); // Refresh list
+  } else {
+    showToast(result.error || 'Merge failed', 'error');
   }
 }

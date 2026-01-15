@@ -675,3 +675,191 @@ export function getCompactGitStatus(projectPath: string): CompactGitStatus | nul
     return null;
   }
 }
+
+/**
+ * Summary of changes between a worktree branch and main
+ */
+export interface WorktreeDiffSummary {
+  filesChanged: number;
+  insertions: number;
+  deletions: number;
+  files: ChangedFile[];
+}
+
+/**
+ * Gets the diff summary between a worktree branch and main
+ */
+export function getWorktreeDiff(
+  projectPath: string,
+  worktreeBranch: string
+): WorktreeDiffSummary | null {
+  const opts = gitExecOpts(projectPath);
+  const mainBranch = getMainBranch(projectPath);
+
+  try {
+    const files: ChangedFile[] = [];
+
+    // Get numstat for additions/deletions per file
+    const statsMap = new Map<string, { additions: number; deletions: number }>();
+    let totalInsertions = 0;
+    let totalDeletions = 0;
+
+    try {
+      const numstat = execSync(
+        `git diff --numstat ${mainBranch}...${worktreeBranch}`,
+        opts
+      ).toString().trim();
+
+      if (numstat) {
+        for (const line of numstat.split('\n')) {
+          const parts = line.split('\t');
+          if (parts.length >= 3) {
+            const additions = parts[0] === '-' ? 0 : parseInt(parts[0], 10) || 0;
+            const deletions = parts[1] === '-' ? 0 : parseInt(parts[1], 10) || 0;
+            statsMap.set(parts[2], { additions, deletions });
+            totalInsertions += additions;
+            totalDeletions += deletions;
+          }
+        }
+      }
+    } catch {
+      // Stats are optional
+    }
+
+    // Get file status (modified, added, deleted)
+    const nameStatus = execSync(
+      `git diff --name-status ${mainBranch}...${worktreeBranch}`,
+      opts
+    ).toString().trim();
+
+    if (nameStatus) {
+      for (const line of nameStatus.split('\n')) {
+        const parts = line.split('\t');
+        if (parts.length >= 2) {
+          const statusChar = parts[0][0] as ChangedFile['status'];
+          const filePath = statusChar === 'R' && parts.length >= 3 ? parts[2] : parts[1];
+          const stats = statsMap.get(filePath) || { additions: 0, deletions: 0 };
+
+          if (statusChar === 'R' && parts.length >= 3) {
+            files.push({ path: parts[2], status: 'R', oldPath: parts[1], ...stats });
+          } else {
+            files.push({ path: parts[1], status: statusChar, ...stats });
+          }
+        }
+      }
+    }
+
+    return {
+      filesChanged: files.length,
+      insertions: totalInsertions,
+      deletions: totalDeletions,
+      files,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Gets the diff for a specific file between worktree branch and main
+ */
+export function getWorktreeFileDiff(
+  projectPath: string,
+  worktreeBranch: string,
+  filePath: string
+): FileDiff | null {
+  const opts = { ...gitExecOpts(projectPath), maxBuffer: 10 * 1024 * 1024 };
+  const mainBranch = getMainBranch(projectPath);
+
+  try {
+    const diffOutput = execSync(
+      `git diff ${mainBranch}...${worktreeBranch} -- "${filePath}"`,
+      opts
+    ).toString();
+
+    if (!diffOutput.trim()) {
+      return null;
+    }
+
+    return {
+      path: filePath,
+      hunks: parseDiff(diffOutput),
+    };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Merge a specific branch into main (for worktree branches)
+ */
+export function mergeWorktreeBranch(
+  projectPath: string,
+  branchToMerge: string
+): { success: boolean; error?: string; mergedBranch?: string } {
+  const opts = gitExecOpts(projectPath);
+
+  try {
+    const mainBranch = getMainBranch(projectPath);
+
+    // Check for uncommitted changes in main repo
+    try {
+      const status = execSync('git status --porcelain', opts).toString();
+      if (status.length > 0) {
+        return { success: false, error: 'Uncommitted changes in main repo. Commit or stash first.' };
+      }
+    } catch {
+      return { success: false, error: 'Failed to check git status' };
+    }
+
+    // Get current branch
+    let currentBranch: string;
+    try {
+      currentBranch = execSync('git rev-parse --abbrev-ref HEAD', opts).toString().trim();
+    } catch {
+      return { success: false, error: 'Not a git repository' };
+    }
+
+    // Checkout main if not already there
+    if (currentBranch !== mainBranch) {
+      try {
+        execSync(`git checkout "${mainBranch}"`, opts);
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : '';
+        if (errorMsg.includes('Your local changes')) {
+          return { success: false, error: 'Uncommitted changes would be overwritten' };
+        }
+        return { success: false, error: `Failed to checkout ${mainBranch}` };
+      }
+    }
+
+    // Merge the worktree branch
+    try {
+      execSync(`git merge "${branchToMerge}"`, opts);
+      return { success: true, mergedBranch: branchToMerge };
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : '';
+      // If merge fails, try to abort
+      try {
+        execSync('git merge --abort', opts);
+      } catch {
+        // Ignore abort errors
+      }
+      // Go back to the original branch if we switched
+      if (currentBranch !== mainBranch) {
+        try {
+          execSync(`git checkout "${currentBranch}"`, opts);
+        } catch {
+          // Ignore checkout errors
+        }
+      }
+
+      if (errorMsg.includes('CONFLICT')) {
+        return { success: false, error: 'Merge conflicts. Resolve manually.' };
+      }
+      return { success: false, error: 'Merge failed' };
+    }
+  } catch {
+    return { success: false, error: 'Merge failed' };
+  }
+}

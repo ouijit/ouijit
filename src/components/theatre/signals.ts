@@ -26,6 +26,8 @@ export const isInTheatreMode = computed(() =>
 export const diffPanelVisible = signal(false);
 export const diffPanelFiles = signal<ChangedFile[]>([]);
 export const diffPanelSelectedFile = signal<string | null>(null);
+export const diffPanelMode = signal<'uncommitted' | 'worktree'>('uncommitted');
+export const diffPanelWorktreeBranch = signal<string | null>(null);
 
 export const tasksPanelVisible = signal(false);
 export const tasksList = signal<Task[]>([]);
@@ -48,6 +50,8 @@ export function resetSignals(): void {
   diffPanelVisible.value = false;
   diffPanelFiles.value = [];
   diffPanelSelectedFile.value = null;
+  diffPanelMode.value = 'uncommitted';
+  diffPanelWorktreeBranch.value = null;
   tasksPanelVisible.value = false;
   tasksList.value = [];
   gitDropdownVisible.value = false;
