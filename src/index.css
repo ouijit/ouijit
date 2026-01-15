@@ -171,6 +171,7 @@ textarea,
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: var(--spacing-sm);
 }
 
 .app-title {
@@ -248,7 +249,6 @@ textarea,
   transition: all var(--transition-fast);
   -webkit-app-region: no-drag;
   flex-shrink: 0;
-  margin-right: var(--spacing-sm);
 }
 
 .btn-icon-header:hover {
@@ -284,10 +284,6 @@ textarea,
   to { transform: rotate(360deg); }
 }
 
-.btn-icon-header--after {
-  margin-right: 0;
-  margin-left: var(--spacing-sm);
-}
 
 /* Main Content */
 .main-content {
@@ -1565,6 +1561,7 @@ body.is-fullscreen .theatre-header-content {
   color: var(--color-text-secondary);
   transition: all var(--transition-fast);
   -webkit-app-region: no-drag;
+  margin-left: 12px;
 }
 
 .theatre-exit-btn:hover {
@@ -1583,6 +1580,7 @@ body.is-fullscreen .theatre-header-content {
   display: flex;
   align-items: center;
   margin-left: auto;
+  padding-left: 12px;
   gap: 0;
   margin-right: 12px;
   -webkit-app-region: no-drag;
@@ -2469,7 +2467,6 @@ body.is-fullscreen .theatre-header-content {
 .theatre-launch-wrapper {
   position: relative;
   display: flex;
-  margin-right: 12px;
   -webkit-app-region: no-drag;
 }
 
@@ -2913,4 +2910,84 @@ body.is-fullscreen .theatre-header-content {
 .theatre-tasks-btn svg {
   width: 16px;
   height: 16px;
+}
+
+/* Worktree button and dropdown in theatre header */
+.theatre-worktree-wrapper {
+  position: relative;
+  -webkit-app-region: no-drag;
+}
+
+.theatre-worktree-btn {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-background-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+  transition: all var(--transition-fast);
+}
+
+.theatre-worktree-btn:hover {
+  background: var(--color-background-tertiary);
+  color: var(--color-text-primary);
+}
+
+.theatre-worktree-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.theatre-terminal-btn {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-background-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+  transition: all var(--transition-fast);
+  -webkit-app-region: no-drag;
+  margin-left: 12px;
+}
+
+.theatre-terminal-btn:hover {
+  background: var(--color-background-tertiary);
+  color: var(--color-text-primary);
+}
+
+.theatre-terminal-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.theatre-worktree-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: var(--spacing-xs);
+  min-width: 240px;
+  padding: var(--spacing-xs) 0;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+  z-index: 1000;
+  -webkit-app-region: no-drag;
+  overflow: hidden;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-8px);
+  transition: all var(--transition-fast);
+}
+
+.theatre-worktree-dropdown.visible {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
 }

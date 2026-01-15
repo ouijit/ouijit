@@ -2,7 +2,7 @@
  * Theatre mode orchestration - enter/exit, session management
  */
 
-import { createIcons, Maximize2, Minimize2, RefreshCw, GitBranch, ChevronDown, Play, Plus, FolderOpen, Upload, Star, X, GitMerge, ListTodo } from 'lucide';
+import { createIcons, Maximize2, Minimize2, RefreshCw, GitBranch, GitBranchPlus, ChevronDown, Play, Plus, FolderOpen, Upload, Star, X, GitMerge, ListTodo, Terminal } from 'lucide';
 import type { Project, RunConfig, ChangedFile } from '../../types';
 import {
   theatreState,
@@ -51,8 +51,9 @@ import {
   hideLaunchDropdown,
   runDefaultCommand,
 } from './launchDropdown';
+import { toggleWorktreeDropdown } from './worktreeDropdown';
 
-const theatreIcons = { Maximize2, Minimize2, RefreshCw, GitBranch, ChevronDown, Play, Plus, FolderOpen, Upload, Star, X, GitMerge, ListTodo };
+const theatreIcons = { Maximize2, Minimize2, RefreshCw, GitBranch, GitBranchPlus, ChevronDown, Play, Plus, FolderOpen, Upload, Star, X, GitMerge, ListTodo, Terminal };
 
 /**
  * Enter theatre mode for the specified project
@@ -136,6 +137,24 @@ export async function enterTheatreMode(
       tasksBtn.addEventListener('click', async (e) => {
         e.stopPropagation();
         await toggleTasksPanel();
+      });
+    }
+
+    // Wire up worktree button
+    const worktreeBtn = headerContent.querySelector('.theatre-worktree-btn');
+    if (worktreeBtn) {
+      worktreeBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        toggleWorktreeDropdown();
+      });
+    }
+
+    // Wire up terminal button (creates plain shell)
+    const terminalBtn = headerContent.querySelector('.theatre-terminal-btn');
+    if (terminalBtn) {
+      terminalBtn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        await addTheatreTerminal();
       });
     }
 

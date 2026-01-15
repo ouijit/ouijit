@@ -34,6 +34,7 @@ export const tasksList = signal<Task[]>([]);
 export const gitDropdownVisible = signal(false);
 export const launchDropdownVisible = signal(false);
 export const diffFileDropdownVisible = signal(false);
+export const worktreeDropdownVisible = signal(false);
 
 /**
  * Reset all signals to initial values
@@ -52,4 +53,5 @@ export function resetSignals(): void {
   gitDropdownVisible.value = false;
   launchDropdownVisible.value = false;
   diffFileDropdownVisible.value = false;
+  worktreeDropdownVisible.value = false;
 }

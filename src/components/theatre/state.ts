@@ -74,6 +74,7 @@ export const theatreState = {
   gitDropdownCleanup: null as (() => void) | null,
   diffFileDropdownCleanup: null as (() => void) | null,
   launchDropdownCleanup: null as (() => void) | null,
+  worktreeDropdownCleanup: null as (() => void) | null,
 };
 
 // Session storage for preserved sessions
