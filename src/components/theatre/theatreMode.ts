@@ -38,6 +38,7 @@ import {
 import {
   addTheatreTerminal,
   updateCardStack,
+  showStackEmptyState,
 } from './terminalCards';
 import {
   showTasksPanel,
@@ -281,6 +282,9 @@ export async function enterTheatreMode(
       // Only create terminal if a specific command was requested
       if (runConfig) {
         await addTheatreTerminal(runConfig);
+      } else {
+        // No command requested - show empty state
+        showStackEmptyState();
       }
     }
   }

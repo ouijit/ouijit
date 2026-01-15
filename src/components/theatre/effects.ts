@@ -13,7 +13,7 @@ import {
   projectPath,
 } from './signals';
 // Direct imports - these modules import from signals.ts, not effects.ts, so no circular dep
-import { updateCardStack, updateTerminalCardLabel } from './terminalCards';
+import { updateCardStack, updateTerminalCardLabel, showStackEmptyState, hideStackEmptyState } from './terminalCards';
 import { renderTasksList } from './tasksPanel';
 
 // Track whether effects are initialized
@@ -29,7 +29,7 @@ const cleanupFunctions: (() => void)[] = [];
 export function initializeEffects(): void {
   if (effectsInitialized) return;
 
-  // Effect: Auto-update card stack when terminals or activeIndex changes
+  // Effect: Auto-update card stack and empty state when terminals or activeIndex changes
   cleanupFunctions.push(
     effect(() => {
       // Read the signals to track dependencies
@@ -37,9 +37,16 @@ export function initializeEffects(): void {
       const _activeIndex = activeIndex.value;
       const _projectPath = projectPath.value;
 
-      // Only update if we're in theatre mode with terminals
-      if (_projectPath && _terminals.length > 0) {
-        updateCardStack();
+      // Only update if we're in theatre mode
+      if (_projectPath) {
+        if (_terminals.length > 0) {
+          // Has terminals - hide empty state, update stack
+          hideStackEmptyState();
+          updateCardStack();
+        } else {
+          // No terminals - show empty state
+          showStackEmptyState();
+        }
       }
     })
   );

@@ -4,6 +4,7 @@
 
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
+import { createIcons, Terminal as TerminalIcon, Play } from 'lucide';
 import type { PtyId, PtySpawnOptions, RunConfig, WorktreeInfo } from '../../types';
 import {
   taskTerminalMap,
@@ -593,4 +594,94 @@ export function closeTheatreTerminal(index: number): void {
   }
 
   // Effects will handle updateCardStack and focus
+}
+
+/**
+ * Build HTML for the empty state shown when no terminals are open
+ */
+export function buildEmptyStateHtml(): string {
+  return `
+    <div class="theatre-stack-empty">
+      <i data-lucide="terminal" class="theatre-stack-empty-icon"></i>
+      <h3 class="theatre-stack-empty-title">No terminals open</h3>
+      <p class="theatre-stack-empty-description">
+        Launch a command or open a shell to get started with your project.
+      </p>
+      <div class="theatre-stack-empty-actions">
+        <button class="theatre-stack-empty-btn theatre-stack-empty-btn--primary" data-action="new-terminal">
+          <i data-lucide="terminal"></i>
+          New Terminal
+        </button>
+        <button class="theatre-stack-empty-btn theatre-stack-empty-btn--secondary" data-action="run-command">
+          <i data-lucide="play"></i>
+          Run Command
+        </button>
+      </div>
+      <p class="theatre-stack-empty-hint">
+        Press <kbd>Esc</kbd> to exit theatre mode
+      </p>
+    </div>
+  `;
+}
+
+/**
+ * Show the empty state in the theatre stack
+ */
+export function showStackEmptyState(): void {
+  const stack = document.querySelector('.theatre-stack');
+  if (!stack) return;
+
+  // Check if empty state already exists
+  let emptyState = stack.querySelector('.theatre-stack-empty') as HTMLElement;
+  if (emptyState) {
+    // Already exists, just make it visible
+    requestAnimationFrame(() => {
+      emptyState.classList.add('theatre-stack-empty--visible');
+    });
+    return;
+  }
+
+  // Create and insert empty state
+  stack.insertAdjacentHTML('beforeend', buildEmptyStateHtml());
+  emptyState = stack.querySelector('.theatre-stack-empty') as HTMLElement;
+
+  // Initialize icons
+  createIcons({ icons: { Terminal: TerminalIcon, Play }, nodes: [emptyState] });
+
+  // Wire up button handlers
+  const newTerminalBtn = emptyState.querySelector('[data-action="new-terminal"]');
+  if (newTerminalBtn) {
+    newTerminalBtn.addEventListener('click', async () => {
+      await addTheatreTerminal();
+    });
+  }
+
+  const runCommandBtn = emptyState.querySelector('[data-action="run-command"]');
+  if (runCommandBtn) {
+    runCommandBtn.addEventListener('click', async () => {
+      // Import dynamically to avoid circular dependencies
+      const { toggleLaunchDropdown } = await import('./launchDropdown');
+      toggleLaunchDropdown();
+    });
+  }
+
+  // Animate in
+  requestAnimationFrame(() => {
+    emptyState.classList.add('theatre-stack-empty--visible');
+  });
+}
+
+/**
+ * Hide the empty state from the theatre stack
+ */
+export function hideStackEmptyState(): void {
+  const emptyState = document.querySelector('.theatre-stack-empty') as HTMLElement;
+  if (!emptyState) return;
+
+  emptyState.classList.remove('theatre-stack-empty--visible');
+
+  // Remove after animation
+  setTimeout(() => {
+    emptyState.remove();
+  }, 200);
 }

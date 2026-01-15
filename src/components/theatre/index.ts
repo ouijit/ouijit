@@ -86,6 +86,9 @@ export {
   switchToTheatreTerminal,
   addTheatreTerminal,
   closeTheatreTerminal,
+  buildEmptyStateHtml,
+  showStackEmptyState,
+  hideStackEmptyState,
 } from './terminalCards';
 
 // Tasks panel
