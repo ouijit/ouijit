@@ -2,7 +2,7 @@
 // https://www.electronjs.org/docs/latest/tutorial/process-model#preload-scripts
 
 import { contextBridge, ipcRenderer, webUtils } from 'electron';
-import type { Project, RunConfig, LaunchResult, PtySpawnOptions, PtySpawnResult, PtyId, ExportResult, PreviewResult, ImportResult, CreateProjectOptions, CreateProjectResult, GitStatus, CompactGitStatus, GitDropdownInfo, GitCheckoutResult, GitMergeResult, ChangedFile, FileDiff, ProjectSettings, CustomCommand, Task } from './types';
+import type { Project, RunConfig, LaunchResult, PtySpawnOptions, PtySpawnResult, PtyId, ExportResult, PreviewResult, ImportResult, CreateProjectOptions, CreateProjectResult, GitStatus, CompactGitStatus, GitDropdownInfo, GitCheckoutResult, GitMergeResult, ChangedFile, FileDiff, ProjectSettings, CustomCommand, Task, WorktreeCreateResult, WorktreeRemoveResult, WorktreeInfo } from './types';
 
 // Expose protected methods that allow the renderer process to use
 // ipcRenderer without exposing the entire object
@@ -62,6 +62,20 @@ contextBridge.exposeInMainWorld('api', {
       ipcRenderer.on(channel, handler);
       return () => ipcRenderer.removeListener(channel, handler);
     },
+  },
+
+  /**
+   * Worktree management API
+   */
+  worktree: {
+    create: (projectPath: string): Promise<WorktreeCreateResult> =>
+      ipcRenderer.invoke('worktree:create', projectPath),
+
+    remove: (projectPath: string, worktreePath: string): Promise<WorktreeRemoveResult> =>
+      ipcRenderer.invoke('worktree:remove', projectPath, worktreePath),
+
+    list: (projectPath: string): Promise<WorktreeInfo[]> =>
+      ipcRenderer.invoke('worktree:list', projectPath),
   },
 
   /**

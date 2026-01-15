@@ -122,6 +122,41 @@ export interface PtyAPI {
 }
 
 /**
+ * Information about a git worktree
+ */
+export interface WorktreeInfo {
+  path: string;
+  branch: string;
+  createdAt: string;
+}
+
+/**
+ * Result of creating a worktree
+ */
+export interface WorktreeCreateResult {
+  success: boolean;
+  worktree?: WorktreeInfo;
+  error?: string;
+}
+
+/**
+ * Result of removing a worktree
+ */
+export interface WorktreeRemoveResult {
+  success: boolean;
+  error?: string;
+}
+
+/**
+ * Worktree API exposed to the renderer
+ */
+export interface WorktreeAPI {
+  create(projectPath: string): Promise<WorktreeCreateResult>;
+  remove(projectPath: string, worktreePath: string): Promise<WorktreeRemoveResult>;
+  list(projectPath: string): Promise<WorktreeInfo[]>;
+}
+
+/**
  * Project interface representing a development project
  */
 export interface Project {
@@ -149,6 +184,8 @@ export interface ElectronAPI {
   openInFinder(path: string): Promise<{ success: boolean }>;
   /** PTY management API */
   pty: PtyAPI;
+  /** Worktree management API */
+  worktree: WorktreeAPI;
   /** Export a project as .ouijit file */
   exportProject(projectPath: string): Promise<ExportResult>;
   /** Preview a .ouijit file before importing */

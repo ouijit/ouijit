@@ -27,6 +27,10 @@ export interface TheatreTerminal {
   summaryType: SummaryType;
   outputBuffer: string;
   lastOscTitle: string;  // Last seen OSC terminal title
+  // Worktree support
+  isWorktree: boolean;
+  worktreePath?: string;
+  worktreeBranch?: string;
 }
 
 // Per-project session storage for preserving theatre mode across project switches

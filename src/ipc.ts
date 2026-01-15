@@ -13,6 +13,8 @@ import {
 } from './ptyManager';
 import { exportProject, previewOuijitFile, importOuijitPackage } from './ouijit';
 import { getGitStatus, getCompactGitStatus, getGitDropdownInfo, checkoutBranch, createBranch, mergeIntoMain, getChangedFiles, getFileDiff } from './git';
+import { createWorktree, removeWorktree, listWorktrees } from './worktree';
+import type { WorktreeCreateResult, WorktreeRemoveResult, WorktreeInfo } from './worktree';
 import {
   getProjectSettings,
   saveCustomCommand,
@@ -334,6 +336,19 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
   // Delete a task
   ipcMain.handle('delete-task', async (_event, projectPath: string, taskId: string) => {
     return deleteTask(projectPath, taskId);
+  });
+
+  // Worktree handlers
+  ipcMain.handle('worktree:create', async (_event, projectPath: string): Promise<WorktreeCreateResult> => {
+    return createWorktree(projectPath);
+  });
+
+  ipcMain.handle('worktree:remove', async (_event, projectPath: string, worktreePath: string): Promise<WorktreeRemoveResult> => {
+    return removeWorktree(projectPath, worktreePath);
+  });
+
+  ipcMain.handle('worktree:list', async (_event, projectPath: string): Promise<WorktreeInfo[]> => {
+    return listWorktrees(projectPath);
   });
 }
 

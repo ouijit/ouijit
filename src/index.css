@@ -781,6 +781,79 @@ textarea,
   margin: var(--spacing-xs) 0;
 }
 
+/* Launch dropdown section label */
+.launch-dropdown-section-label {
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+  padding: 8px 12px 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Agent shell option (worktree) */
+.launch-option--agent {
+  background: rgba(147, 51, 234, 0.08);
+}
+
+.launch-option--agent:hover {
+  background: rgba(147, 51, 234, 0.15);
+}
+
+/* Worktree entry in dropdown */
+.launch-option--worktree {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--spacing-xs) var(--spacing-sm);
+}
+
+.launch-option-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.launch-option-action {
+  background: transparent;
+  border: none;
+  padding: 4px;
+  border-radius: 4px;
+  color: var(--color-text-tertiary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.launch-option-action svg {
+  width: 14px;
+  height: 14px;
+}
+
+.launch-option-action:hover {
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-primary);
+}
+
+.launch-option-action--danger:hover {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+}
+
+@media (prefers-color-scheme: dark) {
+  .launch-option--agent {
+    background: rgba(147, 51, 234, 0.12);
+  }
+
+  .launch-option--agent:hover {
+    background: rgba(147, 51, 234, 0.2);
+  }
+
+  .launch-option-action--danger:hover {
+    background: rgba(255, 69, 58, 0.15);
+    color: #FF453A;
+  }
+}
+
 /* Empty State */
 .empty-state {
   display: flex;
@@ -2323,6 +2396,7 @@ body.is-fullscreen .theatre-header-content {
   box-shadow: 0 0 4px rgba(218, 119, 242, 0.5);
   animation: terminal-status-pulse 1s ease-in-out infinite;
 }
+
 
 @keyframes terminal-status-pulse {
   0%, 100% { opacity: 1; }

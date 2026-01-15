@@ -2,8 +2,8 @@
  * Launch dropdown for theatre mode - command selection and project actions
  */
 
-import { createIcons, ChevronDown, Play, Plus, FolderOpen, Star, X } from 'lucide';
-import type { RunConfig, CompactGitStatus } from '../../types';
+import { createIcons, ChevronDown, Play, Plus, FolderOpen, Star, X, GitBranchPlus, Terminal, Trash2 } from 'lucide';
+import type { RunConfig, CompactGitStatus, WorktreeInfo } from '../../types';
 import { theatreState, MAX_THEATRE_TERMINALS } from './state';
 import { projectPath, projectData, terminals, launchDropdownVisible } from './signals';
 import { getConfigId, mergeRunConfigs } from '../../utils/runConfigs';
@@ -13,7 +13,7 @@ import { showCustomCommandDialog } from '../customCommandDialog';
 import { addTheatreTerminal } from './terminalCards';
 import { buildGitStatusHtml } from './gitStatus';
 
-const launchIcons = { ChevronDown, Play, Plus, FolderOpen, Star, X };
+const launchIcons = { ChevronDown, Play, Plus, FolderOpen, Star, X, GitBranchPlus, Terminal, Trash2 };
 
 /**
  * Build the theatre mode header content
@@ -204,6 +204,89 @@ export async function buildLaunchDropdownContent(dropdown: HTMLElement): Promise
     }
   });
   dropdown.appendChild(customOption);
+
+  // Divider before worktree section
+  const worktreeDivider = document.createElement('div');
+  worktreeDivider.className = 'launch-dropdown-divider';
+  dropdown.appendChild(worktreeDivider);
+
+  // New Agent Shell option (creates new worktree)
+  const agentOption = document.createElement('button');
+  agentOption.className = 'launch-option launch-option--agent';
+  agentOption.innerHTML = '<i data-lucide="git-branch-plus" class="launch-option-icon"></i>';
+  const agentText = document.createElement('span');
+  agentText.className = 'launch-option-name';
+  agentText.textContent = 'New Agent Shell';
+  agentOption.appendChild(agentText);
+  const agentDesc = document.createElement('span');
+  agentDesc.className = 'launch-option-source';
+  agentDesc.textContent = 'isolated worktree';
+  agentOption.appendChild(agentDesc);
+  agentOption.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    hideLaunchDropdown();
+    await addTheatreTerminal(undefined, { useWorktree: true });
+  });
+  dropdown.appendChild(agentOption);
+
+  // List existing worktrees
+  if (path) {
+    const worktrees = await window.api.worktree.list(path);
+    if (worktrees.length > 0) {
+      const worktreeLabel = document.createElement('div');
+      worktreeLabel.className = 'launch-dropdown-section-label';
+      worktreeLabel.textContent = 'Existing Worktrees';
+      dropdown.appendChild(worktreeLabel);
+
+      for (const wt of worktrees) {
+        const wtOption = document.createElement('div');
+        wtOption.className = 'launch-option launch-option--worktree';
+
+        const wtName = document.createElement('span');
+        wtName.className = 'launch-option-name';
+        wtName.textContent = wt.branch;
+        wtOption.appendChild(wtName);
+
+        const wtActions = document.createElement('div');
+        wtActions.className = 'launch-option-actions';
+
+        // Open button
+        const openBtn = document.createElement('button');
+        openBtn.className = 'launch-option-action';
+        openBtn.title = 'Open terminal in this worktree';
+        openBtn.innerHTML = '<i data-lucide="terminal"></i>';
+        openBtn.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          hideLaunchDropdown();
+          await addTheatreTerminal(undefined, { existingWorktree: wt });
+        });
+        wtActions.appendChild(openBtn);
+
+        // Remove button
+        const removeBtn = document.createElement('button');
+        removeBtn.className = 'launch-option-action launch-option-action--danger';
+        removeBtn.title = 'Remove worktree';
+        removeBtn.innerHTML = '<i data-lucide="trash-2"></i>';
+        removeBtn.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          const confirmed = confirm(`Remove worktree "${wt.branch}"? This will delete the branch.`);
+          if (confirmed && path) {
+            const result = await window.api.worktree.remove(path, wt.path);
+            if (result.success) {
+              showToast('Worktree removed', 'success');
+              await buildLaunchDropdownContent(dropdown); // Refresh list
+            } else {
+              showToast(result.error || 'Failed to remove', 'error');
+            }
+          }
+        });
+        wtActions.appendChild(removeBtn);
+
+        wtOption.appendChild(wtActions);
+        dropdown.appendChild(wtOption);
+      }
+    }
+  }
 
   // Divider
   const divider2 = document.createElement('div');

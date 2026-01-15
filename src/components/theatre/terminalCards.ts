@@ -4,7 +4,7 @@
 
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
-import type { PtyId, PtySpawnOptions, RunConfig } from '../../types';
+import type { PtyId, PtySpawnOptions, RunConfig, WorktreeInfo } from '../../types';
 import {
   taskTerminalMap,
   TheatreTerminal,
@@ -293,6 +293,7 @@ export function createTheatreCard(label: string, index: number): HTMLElement {
   // Card label
   const labelEl = document.createElement('div');
   labelEl.className = 'theatre-card-label';
+
   labelEl.innerHTML = `
     <span class="theatre-card-status-dot" data-status="idle"></span>
     <span class="theatre-card-label-text">${label}</span>
@@ -362,9 +363,17 @@ export function switchToTheatreTerminal(index: number): void {
 }
 
 /**
+ * Options for adding a theatre terminal
+ */
+export interface AddTheatreTerminalOptions {
+  useWorktree?: boolean;
+  existingWorktree?: WorktreeInfo;
+}
+
+/**
  * Add a new theatre terminal
  */
-export async function addTheatreTerminal(runConfig?: RunConfig): Promise<boolean> {
+export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddTheatreTerminalOptions): Promise<boolean> {
   const currentProjectPath = projectPath.value;
   const currentTerminals = terminals.value;
 
@@ -378,7 +387,25 @@ export async function addTheatreTerminal(runConfig?: RunConfig): Promise<boolean
   const stack = document.querySelector('.theatre-stack');
   if (!stack) return false;
 
-  const label = runConfig?.name || 'Shell';
+  let terminalCwd = currentProjectPath;
+  let worktreeInfo: WorktreeInfo | undefined = options?.existingWorktree;
+
+  // Create worktree if requested
+  if (options?.useWorktree && !worktreeInfo) {
+    const result = await window.api.worktree.create(currentProjectPath);
+    if (!result.success || !result.worktree) {
+      showToast(result.error || 'Failed to create worktree', 'error');
+      return false;
+    }
+    worktreeInfo = result.worktree;
+  }
+
+  // Use worktree path if we have one
+  if (worktreeInfo) {
+    terminalCwd = worktreeInfo.path;
+  }
+
+  const label = worktreeInfo ? worktreeInfo.branch : (runConfig?.name || 'Shell');
   const command = runConfig?.command;
   const index = currentTerminals.length;
 
@@ -410,7 +437,7 @@ export async function addTheatreTerminal(runConfig?: RunConfig): Promise<boolean
 
   // Spawn PTY
   const spawnOptions: PtySpawnOptions = {
-    cwd: currentProjectPath,
+    cwd: terminalCwd,
     command,
     cols: terminal.cols,
     rows: terminal.rows,
@@ -441,6 +468,9 @@ export async function addTheatreTerminal(runConfig?: RunConfig): Promise<boolean
       summaryType: 'idle',
       outputBuffer: '',
       lastOscTitle: '',
+      isWorktree: !!worktreeInfo,
+      worktreePath: worktreeInfo?.path,
+      worktreeBranch: worktreeInfo?.branch,
     };
 
     // Set up resize observer
