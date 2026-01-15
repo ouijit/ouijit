@@ -1,4 +1,16 @@
 import { execSync } from 'node:child_process';
+import { formatAge } from './utils/formatDate';
+
+/**
+ * Common exec options for git commands
+ */
+function gitExecOpts(projectPath: string) {
+  return {
+    cwd: projectPath,
+    encoding: 'utf8' as const,
+    stdio: ['pipe', 'pipe', 'pipe'] as const,
+  };
+}
 
 /**
  * Git status information for a project
@@ -104,7 +116,7 @@ export interface CompactGitStatus {
  * @returns GitStatus object or null if not a git repo or commands fail
  */
 export function getGitStatus(projectPath: string): GitStatus | null {
-  const opts = { cwd: projectPath, encoding: 'utf8' as const, stdio: ['pipe', 'pipe', 'pipe'] as const };
+  const opts = gitExecOpts(projectPath);
 
   try {
     // Get current branch name
@@ -136,7 +148,7 @@ export function getGitStatus(projectPath: string): GitStatus | null {
  * Detects the main branch (main or master) for a repo
  */
 function getMainBranch(projectPath: string): string {
-  const opts = { cwd: projectPath, encoding: 'utf8' as const, stdio: ['pipe', 'pipe', 'pipe'] as const };
+  const opts = gitExecOpts(projectPath);
 
   try {
     execSync('git rev-parse --verify main', opts);
@@ -155,7 +167,7 @@ function getMainBranch(projectPath: string): string {
  * Gets ahead/behind count relative to upstream
  */
 function getAheadBehind(projectPath: string): { ahead: number; behind: number } {
-  const opts = { cwd: projectPath, encoding: 'utf8' as const, stdio: ['pipe', 'pipe', 'pipe'] as const };
+  const opts = gitExecOpts(projectPath);
 
   try {
     const result = execSync('git rev-list --left-right --count HEAD...@{upstream}', opts).toString().trim();
@@ -171,7 +183,7 @@ function getAheadBehind(projectPath: string): { ahead: number; behind: number } 
  * Gets uncommitted changes summary
  */
 function getUncommittedChanges(projectPath: string): UncommittedChanges | null {
-  const opts = { cwd: projectPath, encoding: 'utf8' as const, stdio: ['pipe', 'pipe', 'pipe'] as const };
+  const opts = gitExecOpts(projectPath);
 
   try {
     const result = execSync('git diff --shortstat HEAD', opts).toString().trim();
@@ -194,23 +206,6 @@ function getUncommittedChanges(projectPath: string): UncommittedChanges | null {
   }
 }
 
-/**
- * Formats seconds into a human-readable age string
- */
-function formatAge(seconds: number): string {
-  const minutes = Math.floor(seconds / 60);
-  const hours = Math.floor(minutes / 60);
-  const days = Math.floor(hours / 24);
-  const weeks = Math.floor(days / 7);
-  const months = Math.floor(days / 30);
-
-  if (months > 0) return `${months}mo`;
-  if (weeks > 0) return `${weeks}w`;
-  if (days > 0) return `${days}d`;
-  if (hours > 0) return `${hours}h`;
-  if (minutes > 0) return `${minutes}m`;
-  return 'now';
-}
 
 /**
  * Gets recent branches with their commit info
@@ -221,7 +216,7 @@ function getRecentBranches(
   mainBranch: string,
   limit: number = 5
 ): RecentBranch[] {
-  const opts = { cwd: projectPath, encoding: 'utf8' as const, stdio: ['pipe', 'pipe', 'pipe'] as const };
+  const opts = gitExecOpts(projectPath);
 
   try {
     // Get recent branches sorted by committer date
@@ -270,7 +265,7 @@ function getRecentBranches(
  * Gets full dropdown info for git status
  */
 export function getGitDropdownInfo(projectPath: string): GitDropdownInfo | null {
-  const opts = { cwd: projectPath, encoding: 'utf8' as const, stdio: ['pipe', 'pipe', 'pipe'] as const };
+  const opts = gitExecOpts(projectPath);
 
   try {
     // Get current branch
@@ -305,7 +300,7 @@ export function getGitDropdownInfo(projectPath: string): GitDropdownInfo | null 
  * Checkout a git branch
  */
 export function checkoutBranch(projectPath: string, branchName: string): { success: boolean; error?: string } {
-  const opts = { cwd: projectPath, encoding: 'utf8' as const, stdio: ['pipe', 'pipe', 'pipe'] as const };
+  const opts = gitExecOpts(projectPath);
 
   try {
     execSync(`git checkout "${branchName}"`, opts);
@@ -332,7 +327,7 @@ export function checkoutBranch(projectPath: string, branchName: string): { succe
  * Create a new git branch and switch to it
  */
 export function createBranch(projectPath: string, branchName: string): { success: boolean; error?: string } {
-  const opts = { cwd: projectPath, encoding: 'utf8' as const, stdio: ['pipe', 'pipe', 'pipe'] as const };
+  const opts = gitExecOpts(projectPath);
 
   try {
     execSync(`git checkout -b "${branchName}"`, opts);
@@ -362,7 +357,7 @@ export function createBranch(projectPath: string, branchName: string): { success
  * Merge current branch into main (checkout main, merge feature branch)
  */
 export function mergeIntoMain(projectPath: string): { success: boolean; error?: string; mergedBranch?: string } {
-  const opts = { cwd: projectPath, encoding: 'utf8' as const, stdio: ['pipe', 'pipe', 'pipe'] as const };
+  const opts = gitExecOpts(projectPath);
 
   try {
     // Get current branch name first
@@ -434,7 +429,7 @@ export function mergeIntoMain(projectPath: string): { success: boolean; error?: 
  * Gets list of changed files with their status and line stats
  */
 export function getChangedFiles(projectPath: string): ChangedFile[] {
-  const opts = { cwd: projectPath, encoding: 'utf8' as const, stdio: ['pipe', 'pipe', 'pipe'] as const };
+  const opts = gitExecOpts(projectPath);
   const files: ChangedFile[] = [];
 
   try {
@@ -555,7 +550,7 @@ function parseDiff(diffOutput: string): DiffHunk[] {
  * Gets the diff for a specific file
  */
 export function getFileDiff(projectPath: string, filePath: string): FileDiff | null {
-  const opts = { cwd: projectPath, encoding: 'utf8' as const, stdio: ['pipe', 'pipe', 'pipe'] as const, maxBuffer: 10 * 1024 * 1024 };
+  const opts = { ...gitExecOpts(projectPath), maxBuffer: 10 * 1024 * 1024 };
 
   try {
     let diffOutput: string;
@@ -591,7 +586,7 @@ export function getFileDiff(projectPath: string, filePath: string): FileDiff | n
  * Includes commits ahead of main and dirty file count (including untracked)
  */
 export function getCompactGitStatus(projectPath: string): CompactGitStatus | null {
-  const opts = { cwd: projectPath, encoding: 'utf8' as const, stdio: ['pipe', 'pipe', 'pipe'] as const };
+  const opts = gitExecOpts(projectPath);
 
   try {
     // Get current branch

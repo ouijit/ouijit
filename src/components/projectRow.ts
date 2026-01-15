@@ -1,43 +1,11 @@
-import type { Project, RunConfig, CustomCommand } from '../types';
+import type { Project, RunConfig } from '../types';
 import { createElement, ChevronDown, Upload, FolderOpen, SquareTerminal, Plus, Star, X } from 'lucide';
 import { showToast } from './importDialog';
 import { showCustomCommandDialog } from './customCommandDialog';
 import { stringToColor, getInitials } from '../utils/projectIcon';
+import { getConfigId, mergeRunConfigs } from '../utils/runConfigs';
+import { formatRelativeTime } from '../utils/formatDate';
 import { enterTheatreMode } from './terminalComponent';
-
-/**
- * Generates a unique ID for a detected run config (for default selection)
- */
-function getConfigId(config: RunConfig): string {
-  return config.isCustom ? config.name : `${config.source}:${config.name}`;
-}
-
-/**
- * Converts custom commands to RunConfig format
- */
-function customCommandsToRunConfigs(customCommands: CustomCommand[]): RunConfig[] {
-  return customCommands.map(cmd => ({
-    name: cmd.name,
-    command: cmd.command,
-    source: 'custom' as const,
-    description: cmd.description,
-    priority: 0, // Custom commands have highest priority
-    isCustom: true,
-  }));
-}
-
-/**
- * Merges detected run configs with custom commands
- * Custom commands appear first, then detected configs
- */
-function mergeRunConfigs(
-  detectedConfigs: RunConfig[] | undefined,
-  customCommands: CustomCommand[]
-): RunConfig[] {
-  const customConfigs = customCommandsToRunConfigs(customCommands);
-  const detected = detectedConfigs || [];
-  return [...customConfigs, ...detected];
-}
 
 /**
  * Creates a project icon element (image or placeholder)
@@ -75,36 +43,6 @@ function createPlaceholderIcon(project: Project): HTMLElement {
   return placeholder;
 }
 
-/**
- * Format a date as a relative time string (e.g., "2 days ago")
- */
-function formatRelativeTime(date: Date): string {
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffSeconds = Math.floor(diffMs / 1000);
-  const diffMinutes = Math.floor(diffSeconds / 60);
-  const diffHours = Math.floor(diffMinutes / 60);
-  const diffDays = Math.floor(diffHours / 24);
-  const diffWeeks = Math.floor(diffDays / 7);
-  const diffMonths = Math.floor(diffDays / 30);
-  const diffYears = Math.floor(diffDays / 365);
-
-  if (diffSeconds < 60) {
-    return 'just now';
-  } else if (diffMinutes < 60) {
-    return diffMinutes === 1 ? '1 minute ago' : `${diffMinutes} minutes ago`;
-  } else if (diffHours < 24) {
-    return diffHours === 1 ? '1 hour ago' : `${diffHours} hours ago`;
-  } else if (diffDays < 7) {
-    return diffDays === 1 ? '1 day ago' : `${diffDays} days ago`;
-  } else if (diffWeeks < 4) {
-    return diffWeeks === 1 ? '1 week ago' : `${diffWeeks} weeks ago`;
-  } else if (diffMonths < 12) {
-    return diffMonths === 1 ? '1 month ago' : `${diffMonths} months ago`;
-  } else {
-    return diffYears === 1 ? '1 year ago' : `${diffYears} years ago`;
-  }
-}
 
 /**
  * Builds the dropdown content by fetching fresh settings

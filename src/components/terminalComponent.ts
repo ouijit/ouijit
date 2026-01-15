@@ -3,6 +3,8 @@ import { FitAddon } from '@xterm/addon-fit';
 import { createIcons, Maximize2, Minimize2, RefreshCw, GitBranch, ChevronDown, Play, Plus, FolderOpen, Upload, Star, X, GitMerge, CheckSquare, Square, ListTodo, Trash2 } from 'lucide';
 import type { PtyId, PtySpawnOptions, Project, GitStatus, CompactGitStatus, GitDropdownInfo, ChangedFile, FileDiff, RunConfig, CustomCommand, Task } from '../types';
 import { stringToColor, getInitials } from '../utils/projectIcon';
+import { getConfigId, mergeRunConfigs } from '../utils/runConfigs';
+import { escapeHtml } from '../utils/html';
 import { showToast } from './importDialog';
 import { showCustomCommandDialog } from './customCommandDialog';
 
@@ -118,38 +120,6 @@ let tasksList: Task[] = [];
 // Task-terminal association: maps task ID to ptyId
 const taskTerminalMap = new Map<string, PtyId>();
 
-/**
- * Generates a unique ID for a detected run config (for default selection)
- */
-function getConfigId(config: RunConfig): string {
-  return config.isCustom ? config.name : `${config.source}:${config.name}`;
-}
-
-/**
- * Converts custom commands to RunConfig format
- */
-function customCommandsToRunConfigs(customCommands: CustomCommand[]): RunConfig[] {
-  return customCommands.map(cmd => ({
-    name: cmd.name,
-    command: cmd.command,
-    source: 'custom' as const,
-    description: cmd.description,
-    priority: 0,
-    isCustom: true,
-  }));
-}
-
-/**
- * Merges detected run configs with custom commands
- */
-function mergeRunConfigs(
-  detectedConfigs: RunConfig[] | undefined,
-  customCommands: CustomCommand[]
-): RunConfig[] {
-  const customConfigs = customCommandsToRunConfigs(customCommands);
-  const detected = detectedConfigs || [];
-  return [...customConfigs, ...detected];
-}
 
 function createTerminalContainer(projectPath: string): HTMLElement {
   const container = document.createElement('div');
@@ -1705,15 +1675,6 @@ function scheduleGitStatusRefresh(): void {
   gitStatusIdleTimeout = setTimeout(() => {
     refreshGitStatus();
   }, GIT_STATUS_IDLE_DELAY);
-}
-
-/**
- * Escape HTML special characters
- */
-function escapeHtml(text: string): string {
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
 }
 
 /**
