@@ -342,11 +342,11 @@ export function updateGitStatusElement(compactStatus: CompactGitStatus | null): 
   // If no git status, we're done
   if (!compactStatus) return;
 
-  // Insert new git status before the launch wrapper
-  const launchWrapper = headerContent.querySelector('.theatre-launch-wrapper');
-  if (launchWrapper) {
+  // Insert new git status before the worktree wrapper
+  const worktreeWrapper = headerContent.querySelector('.theatre-worktree-wrapper');
+  if (worktreeWrapper) {
     const gitStatusHtml = buildGitStatusHtml(compactStatus);
-    launchWrapper.insertAdjacentHTML('beforebegin', gitStatusHtml);
+    worktreeWrapper.insertAdjacentHTML('beforebegin', gitStatusHtml);
 
     // Check if merge button should be shown
     const canMerge = compactStatus.branch !== compactStatus.mainBranch &&
@@ -358,7 +358,7 @@ export function updateGitStatusElement(compactStatus: CompactGitStatus | null): 
         <i data-lucide="git-merge"></i>
         <span>Merge into ${compactStatus.mainBranch}</span>
       </button>`;
-      launchWrapper.insertAdjacentHTML('beforebegin', mergeButtonHtml);
+      worktreeWrapper.insertAdjacentHTML('beforebegin', mergeButtonHtml);
 
       // Wire up merge button
       const mergeBtn = headerContent.querySelector('.theatre-merge-btn');

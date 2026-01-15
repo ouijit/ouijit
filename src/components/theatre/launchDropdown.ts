@@ -51,6 +51,8 @@ export function buildTheatreHeader(compactStatus: CompactGitStatus | null): stri
       <button class="theatre-tasks-btn" title="Tasks (T)">
         <i data-lucide="list-todo"></i>
       </button>
+      ${gitStatusHtml}
+      ${mergeButtonHtml}
       <div class="theatre-worktree-wrapper">
         <button class="theatre-worktree-btn" title="Agent Worktrees">
           <i data-lucide="git-branch-plus"></i>
@@ -59,8 +61,6 @@ export function buildTheatreHeader(compactStatus: CompactGitStatus | null): stri
       <button class="theatre-terminal-btn" title="New Terminal">
         <i data-lucide="terminal"></i>
       </button>
-      ${gitStatusHtml}
-      ${mergeButtonHtml}
       <div class="theatre-launch-wrapper">
         <button class="theatre-launch-chevron-btn" title="More commands">
           <i data-lucide="chevron-down"></i>

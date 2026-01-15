@@ -2519,6 +2519,7 @@ body.is-fullscreen .theatre-header-content {
 .theatre-launch-wrapper {
   position: relative;
   display: flex;
+  margin-left: 12px;
   -webkit-app-region: no-drag;
 }
 
@@ -2953,7 +2954,7 @@ body.is-fullscreen .theatre-header-content {
   border-radius: var(--radius-md);
   color: var(--color-text-secondary);
   transition: all var(--transition-fast);
-  margin-right: 12px;
+  margin-right: 0;
   -webkit-app-region: no-drag;
 }
 
@@ -3186,7 +3187,7 @@ body.is-fullscreen .theatre-header-content {
 .theatre-worktree-dropdown {
   position: absolute;
   top: 100%;
-  left: 0;
+  right: 0;
   margin-top: var(--spacing-xs);
   min-width: 240px;
   padding: var(--spacing-xs) 0;
