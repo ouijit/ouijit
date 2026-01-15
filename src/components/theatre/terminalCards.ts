@@ -518,13 +518,6 @@ export async function addTheatreTerminal(runConfig?: RunConfig): Promise<boolean
   }
 }
 
-// Callback for exiting theatre mode (set by theatreMode.ts to avoid circular deps)
-let exitTheatreModeCallback: (() => void) | null = null;
-
-export function setExitTheatreModeCallback(callback: () => void): void {
-  exitTheatreModeCallback = callback;
-}
-
 /**
  * Close a theatre terminal
  */
@@ -556,11 +549,8 @@ export function closeTheatreTerminal(index: number): void {
   const newTerminals = currentTerminals.filter((_, i) => i !== index);
   terminals.value = newTerminals;
 
-  // If no terminals left, exit theatre mode
+  // If no terminals left, nothing to adjust
   if (newTerminals.length === 0) {
-    if (exitTheatreModeCallback) {
-      exitTheatreModeCallback();
-    }
     return;
   }
 

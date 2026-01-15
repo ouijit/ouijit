@@ -1,5 +1,5 @@
 import type { Project, RunConfig } from '../types';
-import { createElement, ChevronDown, Upload, FolderOpen, SquareTerminal, Plus, Star, X } from 'lucide';
+import { createElement, ChevronDown, Upload, FolderOpen, Plus, Star, X } from 'lucide';
 import { showToast } from './importDialog';
 import { showCustomCommandDialog } from './customCommandDialog';
 import { stringToColor, getInitials } from '../utils/projectIcon';
@@ -51,8 +51,6 @@ function createPlaceholderIcon(project: Project): HTMLElement {
 async function buildDropdownContent(
   dropdown: HTMLElement,
   project: Project,
-  row: HTMLElement,
-  onLaunch: (path: string, runConfig: RunConfig, row: HTMLElement, projectData: Project) => void,
   onOpenFinder: (path: string) => void
 ): Promise<void> {
   // Clear existing dropdown content
@@ -241,9 +239,7 @@ async function buildDropdownContent(
 export function createProjectRow(
   project: Project,
   onOpen: (path: string) => void,
-  onLaunch?: (path: string, runConfig: RunConfig, row: HTMLElement, projectData: Project) => void,
-  onOpenFinder?: (path: string) => void,
-  onOpenTerminal?: (path: string, row: HTMLElement, projectData: Project) => void
+  onOpenFinder?: (path: string) => void
 ): HTMLElement {
   const row = document.createElement('div');
   row.className = 'project-row';
@@ -324,25 +320,7 @@ export function createProjectRow(
   const actionsContainer = document.createElement('div');
   actionsContainer.className = 'actions-container';
 
-  // Terminal button
-  if (onOpenTerminal) {
-    const terminalBtn = document.createElement('button');
-    terminalBtn.className = 'btn btn-primary btn-terminal';
-    terminalBtn.title = 'Open Terminal';
-    terminalBtn.setAttribute('aria-label', 'Open Terminal');
-
-    const terminalIcon = createElement(SquareTerminal);
-    terminalBtn.appendChild(terminalIcon);
-
-    terminalBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      onOpenTerminal(project.path, row, project);
-    });
-
-    actionsContainer.appendChild(terminalBtn);
-  }
-
-  if (onLaunch && onOpenFinder) {
+  if (onOpenFinder) {
     // Create launch button with dropdown
     const launchWrapper = document.createElement('div');
     launchWrapper.className = 'launch-wrapper';
@@ -371,7 +349,7 @@ export function createProjectRow(
 
       if (!isVisible) {
         // Build fresh content before showing
-        await buildDropdownContent(dropdown, project, row, onLaunch, onOpenFinder);
+        await buildDropdownContent(dropdown, project, onOpenFinder);
         dropdown.classList.add('visible');
       }
     });
@@ -380,29 +358,9 @@ export function createProjectRow(
     launchWrapper.appendChild(dropdown);
     actionsContainer.appendChild(launchWrapper);
 
-    // Row click - enter theatre mode directly with default command
+    // Row click - enter theatre mode without launching a terminal
     row.addEventListener('click', async () => {
-      // Fetch fresh settings
-      const settings = await window.api.getProjectSettings(project.path);
-      const allConfigs = mergeRunConfigs(project.runConfigs, settings.customCommands);
-
-      if (allConfigs.length === 0) {
-        // No commands available, enter theatre mode with interactive shell
-        await enterTheatreMode(project.path, project);
-        return;
-      }
-
-      // Determine default: explicit default or first config
-      let defaultConfig = allConfigs[0];
-      if (settings.defaultCommandId) {
-        const explicit = allConfigs.find(c => getConfigId(c) === settings.defaultCommandId);
-        if (explicit) {
-          defaultConfig = explicit;
-        }
-      }
-
-      // Enter theatre mode with the default command
-      await enterTheatreMode(project.path, project, defaultConfig);
+      await enterTheatreMode(project.path, project);
     });
   } else {
     // Fallback to View in Finder button

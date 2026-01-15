@@ -564,12 +564,6 @@ textarea,
   background: rgba(0, 122, 255, 0.15);
 }
 
-/* Terminal button */
-.btn-terminal svg {
-  width: 16px;
-  height: 16px;
-}
-
 .btn-icon {
   width: 14px;
   height: 14px;
@@ -1024,67 +1018,8 @@ textarea,
 }
 
 /* ===================================
-   Terminal Accordion Styles
+   Terminal Viewport Styles (shared with theatre mode)
    =================================== */
-
-.terminal-accordion {
-  max-height: 0;
-  overflow: hidden;
-  margin: 0 var(--spacing-lg) 0 56px;
-  transition: max-height 0.3s ease-out, opacity 0.3s ease-out, margin 0.3s ease-out;
-  opacity: 0;
-}
-
-.terminal-accordion--open {
-  max-height: 350px;
-  opacity: 1;
-  margin-top: var(--spacing-sm);
-  margin-bottom: var(--spacing-md);
-}
-
-/* Control bar appears above the terminal */
-.terminal-header {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  padding: 0 0 var(--spacing-xs) 0;
-}
-
-/* Hide the title - controls only */
-.terminal-title {
-  display: none;
-}
-
-.terminal-controls {
-  display: flex;
-  gap: var(--spacing-xs);
-}
-
-.terminal-close-btn,
-.terminal-theatre-btn {
-  width: 24px;
-  height: 24px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--color-background-secondary);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-full);
-  color: var(--color-text-secondary);
-  font-size: 14px;
-  transition: all var(--transition-fast);
-}
-
-.terminal-close-btn:hover,
-.terminal-theatre-btn:hover {
-  background: var(--color-background-tertiary);
-  color: var(--color-text-primary);
-}
-
-.terminal-theatre-btn svg {
-  width: 14px;
-  height: 14px;
-}
 
 .terminal-viewport {
   height: 280px;
@@ -1133,17 +1068,6 @@ textarea,
 
 .terminal-xterm-container .xterm-viewport::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.3);
-}
-
-/* Subtle row highlight when terminal is open */
-.project-row--has-terminal {
-  background: var(--color-background);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .terminal-accordion {
-    transition: none;
-  }
 }
 
 /* ===================================
@@ -1498,36 +1422,6 @@ body.theatre-mode #new-project-btn {
 /* Hide project list header */
 body.theatre-mode .project-list-header {
   display: none !important;
-}
-
-/* Theatre mode terminal - position fixed lifts it visually */
-.terminal-accordion--theatre {
-  position: fixed !important;
-  top: 82px;
-  left: 16px;
-  right: 16px;
-  bottom: 16px;
-  z-index: 50;
-  max-height: none !important;
-  height: auto !important;
-  margin: 0 !important;
-  opacity: 1 !important;
-  overflow: hidden;
-  z-index: 100;
-  border-radius: var(--radius-lg);
-  display: flex;
-  flex-direction: column;
-  transition: right 0.25s ease;
-}
-
-.terminal-accordion--theatre .terminal-header {
-  display: none;
-}
-
-.terminal-accordion--theatre .terminal-viewport {
-  flex: 1;
-  min-height: 0;
-  height: auto;
 }
 
 /* Theatre header content */
@@ -1912,11 +1806,6 @@ body.is-fullscreen .theatre-header-content {
 .diff-panel--visible {
   width: 50%;
   opacity: 1;
-}
-
-/* Terminal adjustment when panel is open */
-.terminal-accordion--theatre.diff-panel-open {
-  right: calc(50% + 24px);
 }
 
 /* Diff Panel Header */
@@ -2635,11 +2524,6 @@ body.is-fullscreen .theatre-header-content {
     background: rgba(0, 0, 0, 0.08);
     color: rgba(0, 0, 0, 0.9);
   }
-}
-
-/* Hide old theatre accordion styles in new mode */
-body.theatre-mode .terminal-accordion--theatre {
-  display: none;
 }
 
 /* ==========================================

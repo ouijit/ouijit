@@ -86,7 +86,6 @@ export {
   switchToTheatreTerminal,
   addTheatreTerminal,
   closeTheatreTerminal,
-  setExitTheatreModeCallback,
 } from './terminalCards';
 
 // Tasks panel

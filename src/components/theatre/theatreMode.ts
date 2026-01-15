@@ -38,7 +38,6 @@ import {
 import {
   addTheatreTerminal,
   updateCardStack,
-  setExitTheatreModeCallback,
 } from './terminalCards';
 import {
   showTasksPanel,
@@ -260,8 +259,10 @@ export async function enterTheatreMode(
       stack.className = 'theatre-stack';
       mainContent.appendChild(stack);
 
-      // Create first terminal with the provided command
-      await addTheatreTerminal(runConfig);
+      // Only create terminal if a specific command was requested
+      if (runConfig) {
+        await addTheatreTerminal(runConfig);
+      }
     }
   }
 
@@ -282,9 +283,6 @@ export async function enterTheatreMode(
       refreshGitStatus();
     }, GIT_STATUS_PERIODIC_INTERVAL);
   }
-
-  // Set up callback for when all terminals are closed
-  setExitTheatreModeCallback(exitTheatreMode);
 }
 
 /**

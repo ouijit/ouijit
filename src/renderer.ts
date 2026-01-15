@@ -6,11 +6,10 @@
 
 import './index.css';
 import '@xterm/xterm/css/xterm.css';
-import { createIcons, Search, FolderOpen, Download, SquareTerminal, RefreshCw, Plus } from 'lucide';
-import type { Project, RunConfig, ElectronAPI } from './types';
+import { createIcons, Search, FolderOpen, Download, RefreshCw, Plus } from 'lucide';
+import type { Project, ElectronAPI } from './types';
 import { renderProjects } from './components/projectGrid';
 import { setupSearch } from './components/searchBar';
-import { createTerminal, destroyTerminal, hasTerminal, getOpenTerminalPaths } from './components/terminalComponent';
 import { showImportDialog, showToast } from './components/importDialog';
 import { showNewProjectDialog } from './components/newProjectDialog';
 
@@ -57,31 +56,6 @@ async function handleOpenProject(path: string): Promise<void> {
 }
 
 /**
- * Handles launching a project with a run config (opens inline terminal)
- */
-async function handleLaunchProject(path: string, runConfig: RunConfig, row: HTMLElement, projectData: Project): Promise<void> {
-  try {
-    // Toggle terminal if already open
-    if (hasTerminal(path)) {
-      destroyTerminal(path);
-      row.classList.remove('project-row--has-terminal');
-      return;
-    }
-
-    // Create inline terminal
-    const result = await createTerminal(path, runConfig.command, row, projectData);
-
-    if (result.success) {
-      row.classList.add('project-row--has-terminal');
-    } else {
-      console.error('Failed to create terminal:', result.error);
-    }
-  } catch (error) {
-    console.error('Failed to launch project:', error);
-  }
-}
-
-/**
  * Handles opening project in Finder
  */
 async function handleOpenInFinder(path: string): Promise<void> {
@@ -89,31 +63,6 @@ async function handleOpenInFinder(path: string): Promise<void> {
     await window.api.openInFinder(path);
   } catch (error) {
     console.error('Failed to open in Finder:', error);
-  }
-}
-
-/**
- * Handles opening an interactive terminal at the project root
- */
-async function handleOpenTerminal(path: string, row: HTMLElement, projectData: Project): Promise<void> {
-  try {
-    // Toggle terminal if already open
-    if (hasTerminal(path)) {
-      destroyTerminal(path);
-      row.classList.remove('project-row--has-terminal');
-      return;
-    }
-
-    // Create inline terminal (interactive shell, no command)
-    const result = await createTerminal(path, undefined, row, projectData);
-
-    if (result.success) {
-      row.classList.add('project-row--has-terminal');
-    } else {
-      console.error('Failed to create terminal:', result.error);
-    }
-  } catch (error) {
-    console.error('Failed to open terminal:', error);
   }
 }
 
@@ -126,24 +75,13 @@ async function refreshProjects(): Promise<void> {
 
   if (!projectGrid) return;
 
-  // Capture open terminal paths before refresh
-  const openTerminalPaths = getOpenTerminalPaths();
-
   try {
     const projects: Project[] = await window.api.refreshProjects();
-    renderProjects(projectGrid, projects, handleOpenProject, handleLaunchProject, handleOpenInFinder, handleOpenTerminal, openTerminalPaths);
-
-    // Clean up terminals for projects that no longer exist
-    const currentPaths = new Set(projects.map(p => p.path));
-    for (const path of openTerminalPaths) {
-      if (!currentPaths.has(path)) {
-        destroyTerminal(path);
-      }
-    }
+    renderProjects(projectGrid, projects, handleOpenProject, handleOpenInFinder);
 
     if (searchInput) {
       searchInput.value = ''; // Reset search on refresh
-      setupSearch(searchInput, projects, projectGrid, handleOpenProject, handleLaunchProject, handleOpenInFinder, handleOpenTerminal);
+      setupSearch(searchInput, projects, projectGrid, handleOpenProject, handleOpenInFinder);
     }
   } catch (error) {
     console.error('Failed to refresh projects:', error);
@@ -277,11 +215,11 @@ async function initialize(): Promise<void> {
     const projects: Project[] = await window.api.getProjects();
 
     // Render the projects with all handlers
-    renderProjects(projectGrid, projects, handleOpenProject, handleLaunchProject, handleOpenInFinder, handleOpenTerminal);
+    renderProjects(projectGrid, projects, handleOpenProject, handleOpenInFinder);
 
     // Set up search functionality if search input exists
     if (searchInput) {
-      setupSearch(searchInput, projects, projectGrid, handleOpenProject, handleLaunchProject, handleOpenInFinder, handleOpenTerminal);
+      setupSearch(searchInput, projects, projectGrid, handleOpenProject, handleOpenInFinder);
     }
   } catch (error) {
     console.error('Failed to load projects:', error);
@@ -294,7 +232,7 @@ async function initialize(): Promise<void> {
 document.addEventListener('DOMContentLoaded', () => {
   // Initialize Lucide icons
   createIcons({
-    icons: { Search, FolderOpen, Download, SquareTerminal, RefreshCw, Plus },
+    icons: { Search, FolderOpen, Download, RefreshCw, Plus },
   });
 
   // Set up refresh button
