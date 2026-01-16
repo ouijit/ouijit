@@ -339,8 +339,8 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
   });
 
   // Worktree handlers
-  ipcMain.handle('worktree:create', async (_event, projectPath: string): Promise<WorktreeCreateResult> => {
-    return createWorktree(projectPath);
+  ipcMain.handle('worktree:create', async (_event, projectPath: string, name?: string): Promise<WorktreeCreateResult> => {
+    return createWorktree(projectPath, name);
   });
 
   ipcMain.handle('worktree:remove', async (_event, projectPath: string, worktreePath: string): Promise<WorktreeRemoveResult> => {

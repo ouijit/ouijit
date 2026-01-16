@@ -27,6 +27,28 @@ import { mergeRunConfigs, getConfigId } from '../../utils/runConfigs';
 
 const cardIcons = { Play, GitCompare, GitMerge, GitBranch };
 
+/**
+ * Format a branch name for display (hyphens to spaces)
+ */
+function formatBranchNameForDisplay(branch: string): string {
+  // Check if it's an old-style agent-timestamp branch
+  const agentMatch = branch.match(/^agent-(\d+)$/);
+  if (agentMatch) {
+    const timestamp = parseInt(agentMatch[1], 10);
+    const date = new Date(timestamp);
+    return `Untitled ${date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+  }
+
+  // Check if it's a named branch with timestamp suffix
+  const namedMatch = branch.match(/^(.+)-\d{10,}$/);
+  if (namedMatch) {
+    return namedMatch[1].replace(/-/g, ' ');
+  }
+
+  // Fallback: just replace hyphens with spaces
+  return branch.replace(/-/g, ' ');
+}
+
 // Track pending summary updates (debounced)
 const pendingSummaryUpdates = new Map<PtyId, ReturnType<typeof setTimeout>>();
 
@@ -514,6 +536,7 @@ export function switchToTheatreTerminal(index: number): void {
 export interface AddTheatreTerminalOptions {
   useWorktree?: boolean;
   existingWorktree?: WorktreeInfo;
+  worktreeName?: string;
 }
 
 /**
@@ -538,7 +561,7 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
 
   // Create worktree if requested
   if (options?.useWorktree && !worktreeInfo) {
-    const result = await window.api.worktree.create(currentProjectPath);
+    const result = await window.api.worktree.create(currentProjectPath, options.worktreeName);
     if (!result.success || !result.worktree) {
       showToast(result.error || 'Failed to create worktree', 'error');
       return false;
@@ -551,7 +574,7 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
     terminalCwd = worktreeInfo.path;
   }
 
-  const label = worktreeInfo ? worktreeInfo.branch : (runConfig?.name || 'Shell');
+  const label = worktreeInfo ? formatBranchNameForDisplay(worktreeInfo.branch) : (runConfig?.name || 'Shell');
   const command = runConfig?.command;
   const index = currentTerminals.length;
 

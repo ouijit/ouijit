@@ -12,6 +12,104 @@ import { addTheatreTerminal } from './terminalCards';
 const worktreeIcons = { GitBranchPlus, Terminal, Trash2 };
 
 /**
+ * Format a branch name for display (hyphens to spaces)
+ */
+function formatBranchNameForDisplay(branch: string): string {
+  // Check if it's an old-style agent-timestamp branch
+  const agentMatch = branch.match(/^agent-(\d+)$/);
+  if (agentMatch) {
+    const timestamp = parseInt(agentMatch[1], 10);
+    const date = new Date(timestamp);
+    return `Untitled ${date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+  }
+
+  // Check if it's a named branch with timestamp suffix
+  const namedMatch = branch.match(/^(.+)-\d{10,}$/);
+  if (namedMatch) {
+    return namedMatch[1].replace(/-/g, ' ');
+  }
+
+  // Fallback: just replace hyphens with spaces
+  return branch.replace(/-/g, ' ');
+}
+
+/**
+ * Show a simple prompt dialog for naming a worktree
+ */
+function showWorktreeNamePrompt(): Promise<string | null> {
+  return new Promise((resolve) => {
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+
+    const dialog = document.createElement('div');
+    dialog.className = 'import-dialog';
+    dialog.style.maxWidth = '340px';
+
+    dialog.innerHTML = `
+      <h2 class="import-dialog-title">New Agent Shell</h2>
+      <div class="new-project-form">
+        <div class="form-group">
+          <label class="form-label" for="worktree-name">Task name</label>
+          <input
+            type="text"
+            id="worktree-name"
+            class="form-input"
+            placeholder="e.g., fix login bug"
+            autocomplete="off"
+            spellcheck="false"
+          />
+        </div>
+      </div>
+      <div class="import-actions">
+        <button class="btn btn-secondary" data-action="cancel">Cancel</button>
+        <button class="btn btn-primary" data-action="create">Create</button>
+      </div>
+    `;
+
+    overlay.appendChild(dialog);
+    document.body.appendChild(overlay);
+
+    const nameInput = dialog.querySelector('#worktree-name') as HTMLInputElement;
+    const createBtn = dialog.querySelector('[data-action="create"]') as HTMLButtonElement;
+
+    const cleanup = () => {
+      dialog.classList.remove('import-dialog--visible');
+      overlay.classList.remove('modal-overlay--visible');
+      setTimeout(() => overlay.remove(), 150);
+    };
+
+    const handleCreate = () => {
+      cleanup();
+      resolve(nameInput.value.trim() || null);
+    };
+
+    const handleCancel = () => {
+      cleanup();
+      resolve(null);
+    };
+
+    // Event listeners
+    createBtn.addEventListener('click', handleCreate);
+    dialog.querySelector('[data-action="cancel"]')?.addEventListener('click', handleCancel);
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) handleCancel();
+    });
+
+    nameInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') handleCreate();
+      if (e.key === 'Escape') handleCancel();
+    });
+
+    // Animate in and focus
+    requestAnimationFrame(() => {
+      overlay.classList.add('modal-overlay--visible');
+      dialog.classList.add('import-dialog--visible');
+      nameInput.focus();
+    });
+  });
+}
+
+/**
  * Build the worktree dropdown content
  */
 export async function buildWorktreeDropdownContent(dropdown: HTMLElement): Promise<void> {
@@ -34,7 +132,10 @@ export async function buildWorktreeDropdownContent(dropdown: HTMLElement): Promi
   agentOption.addEventListener('click', async (e) => {
     e.stopPropagation();
     hideWorktreeDropdown();
-    await addTheatreTerminal(undefined, { useWorktree: true });
+    const name = await showWorktreeNamePrompt();
+    if (name !== null) {
+      await addTheatreTerminal(undefined, { useWorktree: true, worktreeName: name || undefined });
+    }
   });
   dropdown.appendChild(agentOption);
 
@@ -57,7 +158,7 @@ export async function buildWorktreeDropdownContent(dropdown: HTMLElement): Promi
 
       const wtName = document.createElement('span');
       wtName.className = 'launch-option-name';
-      wtName.textContent = wt.branch;
+      wtName.textContent = formatBranchNameForDisplay(wt.branch);
       wtOption.appendChild(wtName);
 
       // Click row to open terminal

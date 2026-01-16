@@ -68,8 +68,8 @@ contextBridge.exposeInMainWorld('api', {
    * Worktree management API
    */
   worktree: {
-    create: (projectPath: string): Promise<WorktreeCreateResult> =>
-      ipcRenderer.invoke('worktree:create', projectPath),
+    create: (projectPath: string, name?: string): Promise<WorktreeCreateResult> =>
+      ipcRenderer.invoke('worktree:create', projectPath, name),
 
     remove: (projectPath: string, worktreePath: string): Promise<WorktreeRemoveResult> =>
       ipcRenderer.invoke('worktree:remove', projectPath, worktreePath),

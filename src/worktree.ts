@@ -33,19 +33,60 @@ export function getWorktreeBaseDir(projectName: string): string {
 }
 
 /**
+ * Sanitize a name to be git-branch-safe
+ */
+function sanitizeBranchName(name: string): string {
+  return name
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, '-')      // spaces to hyphens
+    .replace(/[^a-z0-9-]/g, '') // remove invalid chars
+    .replace(/-+/g, '-')        // collapse multiple hyphens
+    .replace(/^-|-$/g, '');     // trim leading/trailing hyphens
+}
+
+/**
  * Generate a unique branch name for a worktree
  */
-function generateBranchName(): string {
+function generateBranchName(name?: string): string {
+  if (name) {
+    const sanitized = sanitizeBranchName(name);
+    if (sanitized) {
+      return `${sanitized}-${Date.now()}`;
+    }
+  }
   return `agent-${Date.now()}`;
+}
+
+/**
+ * Format a branch name for display (hyphens to spaces, title case)
+ */
+export function formatBranchNameForDisplay(branch: string): string {
+  // Check if it's an old-style agent-timestamp branch
+  const agentMatch = branch.match(/^agent-(\d+)$/);
+  if (agentMatch) {
+    const timestamp = parseInt(agentMatch[1], 10);
+    const date = new Date(timestamp);
+    return `Untitled ${date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+  }
+
+  // Check if it's a named branch with timestamp suffix
+  const namedMatch = branch.match(/^(.+)-\d+$/);
+  if (namedMatch) {
+    return namedMatch[1].replace(/-/g, ' ');
+  }
+
+  // Fallback: just replace hyphens with spaces
+  return branch.replace(/-/g, ' ');
 }
 
 /**
  * Create a new git worktree for a project
  */
-export async function createWorktree(projectPath: string): Promise<WorktreeCreateResult> {
+export async function createWorktree(projectPath: string, name?: string): Promise<WorktreeCreateResult> {
   try {
     const projectName = path.basename(projectPath);
-    const branch = generateBranchName();
+    const branch = generateBranchName(name);
     const baseDir = getWorktreeBaseDir(projectName);
     const worktreePath = path.join(baseDir, branch);
 
@@ -148,6 +189,13 @@ export function listWorktrees(projectPath: string): WorktreeInfo[] {
         }
       }
     }
+
+    // Sort by timestamp in branch name (newest first)
+    worktrees.sort((a, b) => {
+      const tsA = a.branch.match(/-(\d{10,})$/)?.[1] || '0';
+      const tsB = b.branch.match(/-(\d{10,})$/)?.[1] || '0';
+      return parseInt(tsB, 10) - parseInt(tsA, 10);
+    });
 
     return worktrees;
   } catch {

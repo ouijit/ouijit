@@ -810,6 +810,7 @@ textarea,
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  margin-right: var(--spacing-sm);
 }
 
 .launch-option-actions {
