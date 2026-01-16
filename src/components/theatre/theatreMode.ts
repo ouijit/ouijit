@@ -2,7 +2,7 @@
  * Theatre mode orchestration - enter/exit, session management
  */
 
-import { createIcons, Maximize2, Minimize2, RefreshCw, GitBranch, GitBranchPlus, ChevronDown, Play, Plus, FolderOpen, Upload, Star, X, GitMerge, ListTodo, Terminal } from 'lucide';
+import { createIcons, Maximize2, Minimize2, RefreshCw, GitBranch, GitBranchPlus, ChevronDown, Play, Plus, FolderOpen, Upload, Star, X, GitMerge, Terminal } from 'lucide';
 import type { Project, RunConfig, ChangedFile } from '../../types';
 import {
   theatreState,
@@ -18,7 +18,6 @@ import {
   diffPanelVisible,
   diffPanelFiles,
   diffPanelSelectedFile,
-  tasksPanelVisible,
   resetSignals,
 } from './signals';
 import { initializeEffects } from './effects';
@@ -40,12 +39,6 @@ import {
   showStackEmptyState,
 } from './terminalCards';
 import {
-  showTasksPanel,
-  hideTasksPanel,
-  toggleTasksPanel,
-  renderTasksList,
-} from './tasksPanel';
-import {
   buildTheatreHeader,
   toggleLaunchDropdown,
   hideLaunchDropdown,
@@ -53,7 +46,7 @@ import {
 } from './launchDropdown';
 import { toggleWorktreeDropdown } from './worktreeDropdown';
 
-const theatreIcons = { Maximize2, Minimize2, RefreshCw, GitBranch, GitBranchPlus, ChevronDown, Play, Plus, FolderOpen, Upload, Star, X, GitMerge, ListTodo, Terminal };
+const theatreIcons = { Maximize2, Minimize2, RefreshCw, GitBranch, GitBranchPlus, ChevronDown, Play, Plus, FolderOpen, Upload, Star, X, GitMerge, Terminal };
 
 /**
  * Enter theatre mode for the specified project
@@ -99,15 +92,6 @@ export async function enterTheatreMode(
       playBtn.addEventListener('click', async (e) => {
         e.stopPropagation();
         await runDefaultCommand();
-      });
-    }
-
-    // Wire up tasks button
-    const tasksBtn = headerContent.querySelector('.theatre-tasks-btn');
-    if (tasksBtn) {
-      tasksBtn.addEventListener('click', async (e) => {
-        e.stopPropagation();
-        await toggleTasksPanel();
       });
     }
 
@@ -182,11 +166,6 @@ export async function enterTheatreMode(
 
       // Update card stack positions (effect handles this, but call for immediate update)
       updateCardStack();
-
-      // Restore tasks panel if it was open
-      if (existingSession.tasksPanelWasOpen) {
-        await showTasksPanel();
-      }
 
       // Restore diff panels for terminals that had them open
       // Diff panels are now inside each card, so we rebuild them
@@ -266,14 +245,9 @@ export async function enterTheatreMode(
     }
   }
 
-  // 4. Keyboard handler (Escape to exit, T to toggle tasks)
+  // 4. Keyboard handler (Escape to exit)
   theatreState.escapeKeyHandler = (e) => {
     if (e.key === 'Escape') exitTheatreMode();
-    if (e.key === 't' || e.key === 'T') {
-      // Don't toggle if user is typing in an input
-      if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA') return;
-      toggleTasksPanel();
-    }
   };
   document.addEventListener('keydown', theatreState.escapeKeyHandler);
 
@@ -320,7 +294,7 @@ export function exitTheatreMode(): void {
       const hiddenContainer = ensureHiddenSessionsContainer();
       hiddenContainer.appendChild(stack);
 
-      // Store session data including diff panel and tasks panel state
+      // Store session data including diff panel state
       projectSessions.set(currentProjectPath, {
         terminals: [...currentTerminals],
         activeIndex: activeIndex.value,
@@ -329,7 +303,6 @@ export function exitTheatreMode(): void {
         diffPanelWasOpen: diffPanelVisible.value,
         diffSelectedFile: diffPanelSelectedFile.value,
         diffFiles: [...diffPanelFiles.value],
-        tasksPanelWasOpen: tasksPanelVisible.value,
       });
     } else {
       // No terminals to preserve - just remove the stack
@@ -398,9 +371,6 @@ export function exitTheatreMode(): void {
 
   // 8. Hide diff panel
   hideDiffPanel();
-
-  // 9. Hide tasks panel
-  hideTasksPanel();
 
   theatreState.originalHeaderContent = null;
 

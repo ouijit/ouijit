@@ -33,9 +33,6 @@ export function buildTheatreHeader(): string {
         <span class="theatre-project-name">${project.name}</span>
         <span class="theatre-project-path">${project.path}</span>
       </div>
-      <button class="theatre-tasks-btn" title="Tasks (T)">
-        <i data-lucide="list-todo"></i>
-      </button>
       <div class="theatre-worktree-wrapper">
         <button class="theatre-worktree-btn" title="Agent Worktrees">
           <i data-lucide="git-branch-plus"></i>

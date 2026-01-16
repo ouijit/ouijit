@@ -49,8 +49,6 @@ export interface StoredTheatreSession {
   diffPanelWasOpen: boolean;
   diffSelectedFile: string | null;
   diffFiles: ChangedFile[];
-  // Tasks panel state
-  tasksPanelWasOpen: boolean;
 }
 
 // Constants
@@ -85,9 +83,6 @@ export const theatreState = {
 
 // Session storage for preserved sessions
 export const projectSessions = new Map<string, StoredTheatreSession>();
-
-// Task-terminal association: maps task ID to ptyId
-export const taskTerminalMap = new Map<string, PtyId>();
 
 /**
  * Ensures the hidden container for storing detached theatre sessions exists

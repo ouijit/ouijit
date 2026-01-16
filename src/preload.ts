@@ -2,7 +2,7 @@
 // https://www.electronjs.org/docs/latest/tutorial/process-model#preload-scripts
 
 import { contextBridge, ipcRenderer, webUtils } from 'electron';
-import type { Project, RunConfig, LaunchResult, PtySpawnOptions, PtySpawnResult, PtyId, ExportResult, PreviewResult, ImportResult, CreateProjectOptions, CreateProjectResult, GitStatus, CompactGitStatus, GitDropdownInfo, GitCheckoutResult, GitMergeResult, ChangedFile, FileDiff, ProjectSettings, CustomCommand, Task, WorktreeCreateResult, WorktreeRemoveResult, WorktreeInfo, WorktreeDiffSummary } from './types';
+import type { Project, RunConfig, LaunchResult, PtySpawnOptions, PtySpawnResult, PtyId, ExportResult, PreviewResult, ImportResult, CreateProjectOptions, CreateProjectResult, GitStatus, CompactGitStatus, GitDropdownInfo, GitCheckoutResult, GitMergeResult, ChangedFile, FileDiff, ProjectSettings, CustomCommand, WorktreeCreateResult, WorktreeRemoveResult, WorktreeInfo, WorktreeDiffSummary } from './types';
 
 // Expose protected methods that allow the renderer process to use
 // ipcRenderer without exposing the entire object
@@ -203,30 +203,6 @@ contextBridge.exposeInMainWorld('api', {
    */
   setDefaultCommand: (projectPath: string, commandId: string | null): Promise<{ success: boolean }> =>
     ipcRenderer.invoke('set-default-command', projectPath, commandId),
-
-  /**
-   * Get tasks for a project
-   */
-  getTasks: (projectPath: string): Promise<Task[]> =>
-    ipcRenderer.invoke('get-tasks', projectPath),
-
-  /**
-   * Add a new task to a project
-   */
-  addTask: (projectPath: string, title: string): Promise<{ success: boolean; task?: Task }> =>
-    ipcRenderer.invoke('add-task', projectPath, title),
-
-  /**
-   * Toggle a task's completed status
-   */
-  toggleTask: (projectPath: string, taskId: string): Promise<{ success: boolean }> =>
-    ipcRenderer.invoke('toggle-task', projectPath, taskId),
-
-  /**
-   * Delete a task
-   */
-  deleteTask: (projectPath: string, taskId: string): Promise<{ success: boolean }> =>
-    ipcRenderer.invoke('delete-task', projectPath, taskId),
 });
 
 // Expose Electron utilities

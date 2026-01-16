@@ -7,7 +7,6 @@
 export {
   theatreState,
   projectSessions,
-  taskTerminalMap,
   ensureHiddenSessionsContainer,
   MAX_THEATRE_TERMINALS,
   HIDDEN_SESSIONS_CONTAINER_ID,
@@ -29,8 +28,6 @@ export {
   diffPanelVisible,
   diffPanelFiles,
   diffPanelSelectedFile,
-  tasksPanelVisible,
-  tasksList,
   gitDropdownVisible,
   launchDropdownVisible,
   diffFileDropdownVisible,
@@ -75,7 +72,6 @@ export {
   getTerminalTheme,
   stripAnsi,
   analyzeTerminalOutput,
-  updateTaskStatusIndicator,
   updateTerminalCardLabel,
   scheduleTerminalSummaryUpdate,
   createTheatreCard,
@@ -87,19 +83,6 @@ export {
   showStackEmptyState,
   hideStackEmptyState,
 } from './terminalCards';
-
-// Tasks panel
-export {
-  getTaskTerminal,
-  buildTasksPanelHtml,
-  buildTaskItemHtml,
-  launchClaudeForTask,
-  renderTasksList,
-  refreshTasksList,
-  showTasksPanel,
-  hideTasksPanel,
-  toggleTasksPanel,
-} from './tasksPanel';
 
 // Launch dropdown
 export {
