@@ -801,6 +801,15 @@ textarea,
   justify-content: space-between;
   align-items: center;
   padding: var(--spacing-xs) var(--spacing-sm);
+  gap: var(--spacing-sm);
+}
+
+.launch-option--worktree .launch-option-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .launch-option-actions {
