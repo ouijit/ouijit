@@ -618,6 +618,7 @@ textarea,
   right: 0;
   margin-top: var(--spacing-xs);
   min-width: 220px;
+  max-width: 320px;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
@@ -665,6 +666,11 @@ textarea,
 
 .launch-option-name {
   font-weight: var(--font-weight-medium);
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .launch-option-source {
@@ -2369,12 +2375,17 @@ body > .diff-panel--visible {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex: 1;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
 }
 
 .theatre-card-label-right {
   display: flex;
   align-items: center;
   gap: 4px;
+  flex-shrink: 0;
 }
 
 .theatre-card-label-text {
@@ -2382,6 +2393,7 @@ body > .diff-panel--visible {
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-medium);
   color: rgba(255, 255, 255, 0.7);
+  min-width: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2681,6 +2693,7 @@ body > .diff-panel--visible {
   right: 0;
   margin-top: var(--spacing-xs);
   min-width: 240px;
+  max-width: 320px;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
@@ -3308,6 +3321,7 @@ body > .diff-panel--visible {
   right: 0;
   margin-top: var(--spacing-xs);
   min-width: 240px;
+  max-width: 320px;
   padding: var(--spacing-xs) 0;
   background: var(--color-surface);
   border: 1px solid var(--color-border);
