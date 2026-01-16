@@ -1,7 +1,7 @@
 import { app } from 'electron';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
-import type { ProjectSettings, CustomCommand, Task } from './types';
+import type { ProjectSettings, CustomCommand } from './types';
 
 const SETTINGS_FILE = 'project-settings.json';
 
@@ -52,12 +52,7 @@ async function saveSettings(settings: SettingsStore): Promise<void> {
  */
 export async function getProjectSettings(projectPath: string): Promise<ProjectSettings> {
   const settings = await loadSettings();
-  const projectSettings = settings[projectPath] || { customCommands: [], tasks: [] };
-  // Ensure tasks array exists for backwards compatibility
-  if (!projectSettings.tasks) {
-    projectSettings.tasks = [];
-  }
-  return projectSettings;
+  return settings[projectPath] || { customCommands: [] };
 }
 
 /**
@@ -69,7 +64,7 @@ export async function saveCustomCommand(
 ): Promise<{ success: boolean }> {
   try {
     const settings = await loadSettings();
-    const projectSettings = settings[projectPath] || { customCommands: [], tasks: [] };
+    const projectSettings = settings[projectPath] || { customCommands: [] };
 
     // Check if command with same ID exists (update) or add new
     const existingIndex = projectSettings.customCommands.findIndex(c => c.id === command.id);
@@ -130,7 +125,7 @@ export async function setDefaultCommand(
 ): Promise<{ success: boolean }> {
   try {
     const settings = await loadSettings();
-    const projectSettings = settings[projectPath] || { customCommands: [], tasks: [] };
+    const projectSettings = settings[projectPath] || { customCommands: [] };
 
     projectSettings.defaultCommandId = commandId || undefined;
     settings[projectPath] = projectSettings;
@@ -138,108 +133,6 @@ export async function setDefaultCommand(
     return { success: true };
   } catch (error) {
     console.error('Failed to set default command:', error);
-    return { success: false };
-  }
-}
-
-/**
- * Generate a unique ID for tasks
- */
-function generateTaskId(): string {
-  return `task-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
-}
-
-/**
- * Get all tasks for a project
- */
-export async function getTasks(projectPath: string): Promise<Task[]> {
-  const projectSettings = await getProjectSettings(projectPath);
-  return projectSettings.tasks || [];
-}
-
-/**
- * Add a new task to a project
- */
-export async function addTask(
-  projectPath: string,
-  title: string
-): Promise<{ success: boolean; task?: Task }> {
-  try {
-    const settings = await loadSettings();
-    const projectSettings = settings[projectPath] || { customCommands: [], tasks: [] };
-
-    if (!projectSettings.tasks) {
-      projectSettings.tasks = [];
-    }
-
-    const task: Task = {
-      id: generateTaskId(),
-      title,
-      completed: false,
-      createdAt: new Date().toISOString(),
-    };
-
-    projectSettings.tasks.push(task);
-    settings[projectPath] = projectSettings;
-    await saveSettings(settings);
-    return { success: true, task };
-  } catch (error) {
-    console.error('Failed to add task:', error);
-    return { success: false };
-  }
-}
-
-/**
- * Toggle a task's completed status
- */
-export async function toggleTask(
-  projectPath: string,
-  taskId: string
-): Promise<{ success: boolean }> {
-  try {
-    const settings = await loadSettings();
-    const projectSettings = settings[projectPath];
-
-    if (!projectSettings?.tasks) {
-      return { success: false };
-    }
-
-    const task = projectSettings.tasks.find(t => t.id === taskId);
-    if (!task) {
-      return { success: false };
-    }
-
-    task.completed = !task.completed;
-    settings[projectPath] = projectSettings;
-    await saveSettings(settings);
-    return { success: true };
-  } catch (error) {
-    console.error('Failed to toggle task:', error);
-    return { success: false };
-  }
-}
-
-/**
- * Delete a task
- */
-export async function deleteTask(
-  projectPath: string,
-  taskId: string
-): Promise<{ success: boolean }> {
-  try {
-    const settings = await loadSettings();
-    const projectSettings = settings[projectPath];
-
-    if (!projectSettings?.tasks) {
-      return { success: true };
-    }
-
-    projectSettings.tasks = projectSettings.tasks.filter(t => t.id !== taskId);
-    settings[projectPath] = projectSettings;
-    await saveSettings(settings);
-    return { success: true };
-  } catch (error) {
-    console.error('Failed to delete task:', error);
     return { success: false };
   }
 }

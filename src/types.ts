@@ -34,20 +34,6 @@ export interface CustomCommand {
 }
 
 /**
- * A lightweight task for tracking work items
- */
-export interface Task {
-  /** Unique identifier */
-  id: string;
-  /** Task description */
-  title: string;
-  /** Whether the task is completed */
-  completed: boolean;
-  /** ISO timestamp of when the task was created */
-  createdAt: string;
-}
-
-/**
  * Project-specific settings stored by the app
  */
 export interface ProjectSettings {
@@ -55,8 +41,6 @@ export interface ProjectSettings {
   customCommands: CustomCommand[];
   /** ID of the default command (custom ID or detected command key like "package.json:dev") */
   defaultCommandId?: string;
-  /** Lightweight tasks for the project */
-  tasks: Task[];
 }
 
 /**
@@ -227,14 +211,6 @@ export interface ElectronAPI {
   deleteCustomCommand(projectPath: string, commandId: string): Promise<{ success: boolean }>;
   /** Set the default command for a project */
   setDefaultCommand(projectPath: string, commandId: string | null): Promise<{ success: boolean }>;
-  /** Get tasks for a project */
-  getTasks(projectPath: string): Promise<Task[]>;
-  /** Add a new task to a project */
-  addTask(projectPath: string, title: string): Promise<{ success: boolean; task?: Task }>;
-  /** Toggle a task's completed status */
-  toggleTask(projectPath: string, taskId: string): Promise<{ success: boolean }>;
-  /** Delete a task */
-  deleteTask(projectPath: string, taskId: string): Promise<{ success: boolean }>;
 }
 
 /**

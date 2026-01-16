@@ -8,13 +8,10 @@ import {
   terminals,
   activeIndex,
   activeTerminal,
-  tasksPanelVisible,
-  tasksList,
   projectPath,
 } from './signals';
 // Direct imports - these modules import from signals.ts, not effects.ts, so no circular dep
 import { updateCardStack, updateTerminalCardLabel, showStackEmptyState, hideStackEmptyState } from './terminalCards';
-import { renderTasksList } from './tasksPanel';
 import { syncDiffPanelToActiveTerminal } from './diffPanel';
 
 // Track whether effects are initialized
@@ -65,23 +62,10 @@ export function initializeEffects(): void {
     })
   );
 
-  // Effect: Re-render tasks list when it changes (if panel visible)
-  cleanupFunctions.push(
-    effect(() => {
-      const visible = tasksPanelVisible.value;
-      const _tasks = tasksList.value;
-
-      if (visible) {
-        renderTasksList();
-      }
-    })
-  );
-
   // Effect: Update terminal card labels when terminal summary changes
   cleanupFunctions.push(
     effect(() => {
       const _terminals = terminals.value;
-      const visible = tasksPanelVisible.value;
 
       // Update all terminal card labels
       for (const term of _terminals) {

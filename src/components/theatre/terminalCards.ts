@@ -7,7 +7,6 @@ import { FitAddon } from '@xterm/addon-fit';
 import { createIcons, Terminal as TerminalIcon, Play, GitCompare, GitMerge, GitBranch } from 'lucide';
 import type { PtyId, PtySpawnOptions, RunConfig, WorktreeInfo } from '../../types';
 import {
-  taskTerminalMap,
   TheatreTerminal,
   SummaryType,
   MAX_THEATRE_TERMINALS,
@@ -17,8 +16,6 @@ import {
   projectData,
   terminals,
   activeIndex,
-  activeTerminal,
-  tasksPanelVisible,
 } from './signals';
 import { showToast } from '../importDialog';
 import { scheduleGitStatusRefresh, refreshGitStatus, refreshTerminalGitStatus, buildCardGitStatusHtml, getTerminalGitPath, scheduleTerminalGitStatusRefresh } from './gitStatus';
@@ -224,42 +221,6 @@ export function analyzeTerminalOutput(buffer: string, lastOscTitle: string): { s
 }
 
 /**
- * Update the status indicator for a task linked to a terminal
- */
-export function updateTaskStatusIndicator(ptyId: PtyId): void {
-  // Find which task is linked to this terminal
-  let linkedTaskId: string | null = null;
-  for (const [taskId, termPtyId] of taskTerminalMap) {
-    if (termPtyId === ptyId) {
-      linkedTaskId = taskId;
-      break;
-    }
-  }
-  if (!linkedTaskId) return;
-
-  const terminal = terminals.value.find(t => t.ptyId === ptyId);
-  if (!terminal) return;
-
-  const taskItem = document.querySelector(`.tasks-panel-item[data-task-id="${linkedTaskId}"]`);
-  if (!taskItem) return;
-
-  // Update status indicator
-  let statusEl = taskItem.querySelector('.tasks-panel-item-status') as HTMLElement;
-  if (!statusEl) {
-    // Create status element if it doesn't exist
-    statusEl = document.createElement('span');
-    statusEl.className = 'tasks-panel-item-status';
-    const checkbox = taskItem.querySelector('.tasks-panel-item-checkbox');
-    if (checkbox) {
-      checkbox.after(statusEl);
-    }
-  }
-
-  statusEl.setAttribute('data-status', terminal.summaryType);
-  statusEl.setAttribute('title', terminal.summary || '');
-}
-
-/**
  * Update the terminal card label with current summary state
  */
 export function updateTerminalCardLabel(term: TheatreTerminal): void {
@@ -312,11 +273,6 @@ export function updateTerminalCardLabel(term: TheatreTerminal): void {
         });
       }
     }
-  }
-
-  // Update linked task status indicator if tasks panel is visible
-  if (tasksPanelVisible.value) {
-    updateTaskStatusIndicator(term.ptyId);
   }
 }
 
@@ -744,14 +700,6 @@ export function closeTheatreTerminal(index: number): void {
 
   // Kill PTY
   window.api.pty.kill(term.ptyId);
-
-  // Clean up task-terminal mapping (tasks list will re-render via effect)
-  for (const [taskId, ptyId] of taskTerminalMap) {
-    if (ptyId === term.ptyId) {
-      taskTerminalMap.delete(taskId);
-      break;
-    }
-  }
 
   // Clean up
   if (term.cleanupData) term.cleanupData();

@@ -4,7 +4,7 @@
  */
 
 import { signal, computed } from '@preact/signals-core';
-import type { Project, ChangedFile, Task } from '../../types';
+import type { Project, ChangedFile } from '../../types';
 import type { TheatreTerminal } from './state';
 
 // Core reactive state
@@ -29,9 +29,6 @@ export const diffPanelSelectedFile = signal<string | null>(null);
 export const diffPanelMode = signal<'uncommitted' | 'worktree'>('uncommitted');
 export const diffPanelWorktreeBranch = signal<string | null>(null);
 
-export const tasksPanelVisible = signal(false);
-export const tasksList = signal<Task[]>([]);
-
 // Dropdown visibility
 export const gitDropdownVisible = signal(false);
 export const launchDropdownVisible = signal(false);
@@ -52,8 +49,6 @@ export function resetSignals(): void {
   diffPanelSelectedFile.value = null;
   diffPanelMode.value = 'uncommitted';
   diffPanelWorktreeBranch.value = null;
-  tasksPanelVisible.value = false;
-  tasksList.value = [];
   gitDropdownVisible.value = false;
   launchDropdownVisible.value = false;
   diffFileDropdownVisible.value = false;
