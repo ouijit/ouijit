@@ -104,15 +104,6 @@ export async function enterTheatreMode(
       });
     }
 
-    // Wire up terminal button (creates plain shell)
-    const terminalBtn = headerContent.querySelector('.theatre-terminal-btn');
-    if (terminalBtn) {
-      terminalBtn.addEventListener('click', async (e) => {
-        e.stopPropagation();
-        await addTheatreTerminal();
-      });
-    }
-
     // Wire up chevron button (opens dropdown)
     const chevronBtn = headerContent.querySelector('.theatre-launch-chevron-btn');
     if (chevronBtn) {

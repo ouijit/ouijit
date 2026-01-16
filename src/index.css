@@ -2819,31 +2819,6 @@ body > .diff-panel--visible {
   height: 16px;
 }
 
-.theatre-terminal-btn {
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--color-background-secondary);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  color: var(--color-text-secondary);
-  transition: all var(--transition-fast);
-  -webkit-app-region: no-drag;
-  margin-left: 12px;
-}
-
-.theatre-terminal-btn:hover {
-  background: var(--color-background-tertiary);
-  color: var(--color-text-primary);
-}
-
-.theatre-terminal-btn svg {
-  width: 16px;
-  height: 16px;
-}
-
 /* ==========================================
    Theatre Stack Empty State
    ========================================== */

@@ -4,7 +4,7 @@
 
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
-import { createIcons, Terminal as TerminalIcon, Play, GitCompare, GitMerge, GitBranch } from 'lucide';
+import { createIcons, Terminal as TerminalIcon, Play, GitCompare, GitMerge, GitBranch, GitBranchPlus } from 'lucide';
 import type { PtyId, PtySpawnOptions, RunConfig, WorktreeInfo } from '../../types';
 import {
   TheatreTerminal,
@@ -697,15 +697,15 @@ export function closeTheatreTerminal(index: number): void {
 export function buildEmptyStateHtml(): string {
   return `
     <div class="theatre-stack-empty">
-      <i data-lucide="terminal" class="theatre-stack-empty-icon"></i>
+      <i data-lucide="git-branch-plus" class="theatre-stack-empty-icon"></i>
       <h3 class="theatre-stack-empty-title">No terminals open</h3>
       <p class="theatre-stack-empty-description">
-        Launch a command or open a shell to get started with your project.
+        Launch a command or create an agent shell to get started.
       </p>
       <div class="theatre-stack-empty-actions">
-        <button class="theatre-stack-empty-btn theatre-stack-empty-btn--primary" data-action="new-terminal">
-          <i data-lucide="terminal"></i>
-          New Terminal
+        <button class="theatre-stack-empty-btn theatre-stack-empty-btn--primary" data-action="new-agent-shell">
+          <i data-lucide="git-branch-plus"></i>
+          New Agent Shell
         </button>
         <button class="theatre-stack-empty-btn theatre-stack-empty-btn--secondary" data-action="run-command">
           <i data-lucide="play"></i>
@@ -741,13 +741,14 @@ export function showStackEmptyState(): void {
   emptyState = stack.querySelector('.theatre-stack-empty') as HTMLElement;
 
   // Initialize icons
-  createIcons({ icons: { Terminal: TerminalIcon, Play }, nodes: [emptyState] });
+  createIcons({ icons: { GitBranchPlus, Play }, nodes: [emptyState] });
 
   // Wire up button handlers
-  const newTerminalBtn = emptyState.querySelector('[data-action="new-terminal"]');
-  if (newTerminalBtn) {
-    newTerminalBtn.addEventListener('click', async () => {
-      await addTheatreTerminal();
+  const newAgentShellBtn = emptyState.querySelector('[data-action="new-agent-shell"]');
+  if (newAgentShellBtn) {
+    newAgentShellBtn.addEventListener('click', async () => {
+      const { toggleWorktreeDropdown } = await import('./worktreeDropdown');
+      toggleWorktreeDropdown();
     });
   }
 
