@@ -1156,31 +1156,73 @@ export function closeTheatreTerminal(index: number): void {
 export function buildEmptyStateHtml(): string {
   return `
     <div class="theatre-stack-empty">
-      <form class="theatre-stack-empty-form">
-        <input
-          type="text"
-          class="theatre-stack-empty-input"
-          placeholder="fix login bug, add dark mode..."
-          autocomplete="off"
-          spellcheck="false"
-        />
-        <button type="submit" class="theatre-stack-empty-btn">Start</button>
-      </form>
+      <div class="theatre-stack-empty-previous" style="display: none;">
+        <div class="theatre-stack-empty-previous-label">Continue</div>
+        <div class="theatre-stack-empty-previous-list"></div>
+      </div>
+      <div class="theatre-stack-empty-new">
+        <div class="theatre-stack-empty-new-label">New</div>
+        <form class="theatre-stack-empty-form">
+          <input
+            type="text"
+            class="theatre-stack-empty-input"
+            placeholder="fix login bug, add dark mode..."
+            autocomplete="off"
+            spellcheck="false"
+          />
+          <button type="submit" class="theatre-stack-empty-btn">Start</button>
+        </form>
+      </div>
     </div>
   `;
 }
 
 /**
+ * Populate the previous tasks list in the empty state
+ */
+async function populatePreviousTasks(emptyState: HTMLElement): Promise<void> {
+  const path = projectPath.value;
+  if (!path) return;
+
+  const previousSection = emptyState.querySelector('.theatre-stack-empty-previous') as HTMLElement;
+  const listContainer = emptyState.querySelector('.theatre-stack-empty-previous-list') as HTMLElement;
+  if (!previousSection || !listContainer) return;
+
+  // Fetch existing worktrees
+  const worktrees = await window.api.worktree.list(path);
+
+  if (worktrees.length === 0) {
+    previousSection.style.display = 'none';
+    return;
+  }
+
+  // Show and populate
+  previousSection.style.display = 'block';
+  listContainer.innerHTML = '';
+
+  for (const wt of worktrees) {
+    const taskBtn = document.createElement('button');
+    taskBtn.className = 'theatre-stack-empty-task';
+    taskBtn.textContent = formatBranchNameForDisplay(wt.branch);
+    taskBtn.addEventListener('click', async () => {
+      await addTheatreTerminal(undefined, { existingWorktree: wt });
+    });
+    listContainer.appendChild(taskBtn);
+  }
+}
+
+/**
  * Show the empty state in the theatre stack
  */
-export function showStackEmptyState(): void {
+export async function showStackEmptyState(): Promise<void> {
   const stack = document.querySelector('.theatre-stack');
   if (!stack) return;
 
   // Check if empty state already exists
   let emptyState = stack.querySelector('.theatre-stack-empty') as HTMLElement;
   if (emptyState) {
-    // Already exists, just make it visible and focus input
+    // Already exists, refresh previous tasks and make visible
+    await populatePreviousTasks(emptyState);
     requestAnimationFrame(() => {
       emptyState.classList.add('theatre-stack-empty--visible');
       const input = emptyState.querySelector('.theatre-stack-empty-input') as HTMLInputElement;
@@ -1204,6 +1246,9 @@ export function showStackEmptyState(): void {
       await addTheatreTerminal(undefined, { useWorktree: true, worktreeName: name });
     });
   }
+
+  // Populate previous tasks
+  await populatePreviousTasks(emptyState);
 
   // Animate in and focus input
   requestAnimationFrame(() => {
