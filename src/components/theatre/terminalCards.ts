@@ -1238,12 +1238,39 @@ export async function showStackEmptyState(): Promise<void> {
   // Wire up form submission
   const form = emptyState.querySelector('.theatre-stack-empty-form') as HTMLFormElement;
   const input = emptyState.querySelector('.theatre-stack-empty-input') as HTMLInputElement;
+  const submitBtn = emptyState.querySelector('.theatre-stack-empty-btn') as HTMLButtonElement;
 
-  if (form && input) {
+  if (form && input && submitBtn) {
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
+
+      // Prevent double submission
+      if (submitBtn.disabled) return;
+
       const name = input.value.trim() || undefined;
-      await addTheatreTerminal(undefined, { useWorktree: true, worktreeName: name });
+
+      // Show loading state
+      submitBtn.disabled = true;
+      const originalText = submitBtn.textContent;
+      submitBtn.textContent = 'Creating...';
+      input.disabled = true;
+
+      try {
+        const success = await addTheatreTerminal(undefined, { useWorktree: true, worktreeName: name });
+        if (!success) {
+          // Restore form state if terminal creation failed
+          submitBtn.disabled = false;
+          submitBtn.textContent = originalText;
+          input.disabled = false;
+        }
+        // If successful, the form will be hidden by the effect system
+      } catch (error) {
+        console.error('[theatre] Failed to create task:', error);
+        showToast('Failed to create task', 'error');
+        submitBtn.disabled = false;
+        submitBtn.textContent = originalText;
+        input.disabled = false;
+      }
     });
   }
 

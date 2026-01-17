@@ -3,10 +3,13 @@
  * Creates isolated worktrees for CLI agents to work without affecting the main branch
  */
 
-import { execSync } from 'node:child_process';
+import { execSync, exec } from 'node:child_process';
+import { promisify } from 'node:util';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import * as os from 'node:os';
+
+const execAsync = promisify(exec);
 
 export interface WorktreeInfo {
   path: string;
@@ -30,6 +33,53 @@ export interface WorktreeRemoveResult {
  */
 export function getWorktreeBaseDir(projectName: string): string {
   return path.join(os.homedir(), 'Ouijit', 'worktrees', projectName);
+}
+
+/**
+ * Dependency directories to copy from source project to worktree
+ */
+const DEPENDENCY_DIRS = [
+  'node_modules',  // Node.js
+  '.venv',         // Python (common convention)
+  'venv',          // Python (alternative)
+];
+
+/**
+ * Copy dependency directories from source project to worktree
+ * This avoids needing to run npm install, pip install, etc. in the new worktree
+ * Uses shell cp -R which is more reliable for large directories with symlinks
+ * Runs asynchronously to avoid blocking the main process
+ */
+async function copyDependencies(sourcePath: string, worktreePath: string): Promise<void> {
+  const copyPromises: Promise<void>[] = [];
+
+  for (const dir of DEPENDENCY_DIRS) {
+    const sourceDir = path.join(sourcePath, dir);
+    const destDir = path.join(worktreePath, dir);
+
+    // Check if directory exists before attempting copy
+    const copyPromise = fs.stat(sourceDir).then(async (stat) => {
+      if (stat.isDirectory()) {
+        try {
+          // Use shell cp with APFS cloning for instant, space-efficient copies
+          // -R: recursive, handles symlinks properly
+          // -p: preserve timestamps and permissions
+          // -c: use APFS clones (copy-on-write) - nearly instant, zero disk space until modified
+          await execAsync(`cp -Rpc "${sourceDir}" "${destDir}"`);
+        } catch (error) {
+          // Log error for debugging but don't fail the worktree creation
+          console.warn(`[worktree] Failed to copy ${dir}:`, error instanceof Error ? error.message : error);
+        }
+      }
+    }).catch(() => {
+      // Directory doesn't exist, skip silently
+    });
+
+    copyPromises.push(copyPromise);
+  }
+
+  // Wait for all copies to complete in parallel
+  await Promise.all(copyPromises);
 }
 
 /**
@@ -99,6 +149,9 @@ export async function createWorktree(projectPath: string, name?: string): Promis
       encoding: 'utf8',
       stdio: ['pipe', 'pipe', 'pipe'],
     });
+
+    // Copy dependencies from source project to avoid needing to reinstall
+    await copyDependencies(projectPath, worktreePath);
 
     return {
       success: true,
