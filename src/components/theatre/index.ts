@@ -7,6 +7,7 @@
 export {
   theatreState,
   projectSessions,
+  orphanedSessions,
   ensureHiddenSessionsContainer,
   MAX_THEATRE_TERMINALS,
   HIDDEN_SESSIONS_CONTAINER_ID,
@@ -99,6 +100,7 @@ export {
 export {
   enterTheatreMode,
   exitTheatreMode,
+  restoreTheatreMode,
   destroyTheatreSessions,
   getPreservedSessionPaths,
   hasPreservedSession,

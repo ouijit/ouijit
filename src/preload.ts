@@ -2,7 +2,7 @@
 // https://www.electronjs.org/docs/latest/tutorial/process-model#preload-scripts
 
 import { contextBridge, ipcRenderer, webUtils } from 'electron';
-import type { Project, RunConfig, LaunchResult, PtySpawnOptions, PtySpawnResult, PtyId, ExportResult, PreviewResult, ImportResult, CreateProjectOptions, CreateProjectResult, GitStatus, CompactGitStatus, GitDropdownInfo, GitCheckoutResult, GitMergeResult, ChangedFile, FileDiff, ProjectSettings, CustomCommand, WorktreeCreateResult, WorktreeRemoveResult, WorktreeInfo, WorktreeDiffSummary } from './types';
+import type { Project, RunConfig, LaunchResult, PtySpawnOptions, PtySpawnResult, PtyId, ActiveSession, PtyReconnectResult, ExportResult, PreviewResult, ImportResult, CreateProjectOptions, CreateProjectResult, GitStatus, CompactGitStatus, GitDropdownInfo, GitCheckoutResult, GitMergeResult, ChangedFile, FileDiff, ProjectSettings, CustomCommand, WorktreeCreateResult, WorktreeRemoveResult, WorktreeInfo, WorktreeDiffSummary } from './types';
 
 // Expose protected methods that allow the renderer process to use
 // ipcRenderer without exposing the entire object
@@ -61,6 +61,19 @@ contextBridge.exposeInMainWorld('api', {
       const handler = (_event: Electron.IpcRendererEvent, exitCode: number) => callback(exitCode);
       ipcRenderer.on(channel, handler);
       return () => ipcRenderer.removeListener(channel, handler);
+    },
+
+    // Get active PTY sessions for reconnection after reload
+    getActiveSessions: (): Promise<ActiveSession[]> =>
+      ipcRenderer.invoke('pty:get-active-sessions'),
+
+    // Reconnect to an existing PTY after renderer reload
+    reconnect: (ptyId: PtyId): Promise<PtyReconnectResult> =>
+      ipcRenderer.invoke('pty:reconnect', ptyId),
+
+    // Update window reference after reconnection
+    setWindow: (): void => {
+      ipcRenderer.send('pty:set-window');
     },
   },
 

@@ -6,6 +6,9 @@ import * as os from 'node:os';
 import { scanForProjects } from './scanner';
 import {
   spawnPty,
+  reconnectPty,
+  getActiveSessions,
+  setWindow,
   writeToPty,
   resizePty,
   killPty,
@@ -131,6 +134,21 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
 
   ipcMain.on('pty:kill', (_event, ptyId: string) => {
     killPty(ptyId);
+  });
+
+  // Get active PTY sessions (for reconnection after renderer reload)
+  ipcMain.handle('pty:get-active-sessions', () => {
+    return getActiveSessions();
+  });
+
+  // Reconnect to an existing PTY after renderer reload
+  ipcMain.handle('pty:reconnect', (_event, ptyId: string) => {
+    return reconnectPty(ptyId, mainWindow);
+  });
+
+  // Update window reference (called when renderer reconnects)
+  ipcMain.on('pty:set-window', () => {
+    setWindow(mainWindow);
   });
 
   // Export project as .ouijit file

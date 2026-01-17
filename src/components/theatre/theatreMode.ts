@@ -3,12 +3,14 @@
  */
 
 import { createIcons, Maximize2, Minimize2, RefreshCw, GitBranch, ListTodo, ChevronDown, Play, Plus, FolderOpen, Upload, Star, X, GitMerge, Terminal, Bug } from 'lucide';
-import type { Project, RunConfig, ChangedFile } from '../../types';
+import type { Project, RunConfig, ChangedFile, ActiveSession } from '../../types';
 import {
   theatreState,
   projectSessions,
+  orphanedSessions,
   ensureHiddenSessionsContainer,
   GIT_STATUS_PERIODIC_INTERVAL,
+  TheatreTerminal,
 } from './state';
 import {
   projectPath,
@@ -239,8 +241,23 @@ export async function enterTheatreMode(
       stack.className = 'theatre-stack';
       mainContent.appendChild(stack);
 
-      // Only create terminal if a specific command was requested
-      if (runConfig) {
+      // Check for orphaned PTY sessions that survived an app refresh
+      const orphaned = orphanedSessions.get(path);
+      if (orphaned && orphaned.length > 0) {
+        // Reconnect to orphaned sessions
+        console.log('[Theatre] Found orphaned PTY sessions, reconnecting:', orphaned);
+        orphanedSessions.delete(path); // Consume them
+        window.api.pty.setWindow();
+        for (const session of orphaned) {
+          await reconnectTheatreTerminal(session);
+        }
+        if (terminals.value.length > 0) {
+          updateCardStack();
+        } else {
+          showStackEmptyState();
+        }
+      } else if (runConfig) {
+        // Create terminal with the requested command
         await addTheatreTerminal(runConfig);
       } else {
         // No command requested - show empty state
@@ -424,4 +441,282 @@ export function hasPreservedSession(projectPath: string): boolean {
  */
 export function isInTheatreMode(): boolean {
   return projectPath.value !== null;
+}
+
+/**
+ * Restore theatre mode after renderer reload (e.g., after sleep/wake)
+ * Reconnects to existing PTY sessions in the main process
+ */
+export async function restoreTheatreMode(
+  path: string,
+  project: Project,
+  activeSessions: ActiveSession[]
+): Promise<void> {
+  if (projectPath.value) return; // Already in theatre mode
+
+  console.log('[Theatre] Restoring theatre mode for', path, 'with', activeSessions.length, 'sessions');
+
+  // Update window reference in main process
+  window.api.pty.setWindow();
+
+  // Store project data
+  projectPath.value = path;
+  projectData.value = project;
+
+  // Initialize reactive effects
+  initializeEffects();
+
+  // 1. Add class to body
+  document.body.classList.add('theatre-mode');
+
+  // 2. Update header content
+  const headerContent = document.querySelector('.header-content');
+  if (headerContent) {
+    theatreState.originalHeaderContent = headerContent.innerHTML;
+    headerContent.innerHTML = buildTheatreHeader();
+    createIcons({ icons: theatreIcons, nodes: [headerContent as HTMLElement] });
+
+    // Wire up exit button
+    const exitBtn = headerContent.querySelector('.theatre-exit-btn');
+    if (exitBtn) {
+      exitBtn.addEventListener('click', () => exitTheatreMode());
+    }
+
+    // Wire up play button
+    const playBtn = headerContent.querySelector('.theatre-play-btn');
+    if (playBtn) {
+      playBtn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        await runDefaultCommand();
+      });
+    }
+
+    // Wire up worktree button
+    const worktreeBtn = headerContent.querySelector('.theatre-worktree-btn');
+    if (worktreeBtn) {
+      worktreeBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        toggleWorktreeDropdown();
+      });
+    }
+
+    // Wire up chevron button
+    const chevronBtn = headerContent.querySelector('.theatre-launch-chevron-btn');
+    if (chevronBtn) {
+      chevronBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        toggleLaunchDropdown();
+      });
+    }
+
+    // Wire up debug button
+    const debugBtn = headerContent.querySelector('.theatre-debug-btn');
+    if (debugBtn) {
+      debugBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        toggleOscDebug();
+        debugBtn.classList.toggle('theatre-debug-btn--active', theatreState.oscDebugEnabled);
+      });
+    }
+  }
+
+  // 3. Create stack and restore terminals
+  const mainContent = document.querySelector('.main-content');
+  if (mainContent) {
+    terminals.value = [];
+    activeIndex.value = 0;
+
+    const stack = document.createElement('div');
+    stack.className = 'theatre-stack';
+    mainContent.appendChild(stack);
+
+    // Reconnect to each active session
+    for (const session of activeSessions) {
+      await reconnectTheatreTerminal(session);
+    }
+
+    if (terminals.value.length > 0) {
+      updateCardStack();
+    } else {
+      showStackEmptyState();
+    }
+  }
+
+  // 4. Set up keyboard shortcuts
+  pushScope(Scopes.THEATRE);
+  registerHotkey('escape', Scopes.THEATRE, () => exitTheatreMode());
+  registerHotkey('command+n', Scopes.THEATRE, () => createNewAgentShell());
+
+  // 5. Start periodic git status refresh
+  if (project.hasGit) {
+    theatreState.gitStatusPeriodicInterval = setInterval(() => {
+      refreshGitStatus();
+      refreshAllTerminalGitStatus().then(() => {
+        import('./terminalCards').then(({ updateTerminalCardLabel }) => {
+          for (const term of terminals.value) {
+            updateTerminalCardLabel(term);
+          }
+        });
+      });
+    }, GIT_STATUS_PERIODIC_INTERVAL);
+  }
+}
+
+/**
+ * Reconnect to an existing PTY session and create a terminal card for it
+ */
+async function reconnectTheatreTerminal(session: ActiveSession): Promise<void> {
+  const { Terminal } = await import('@xterm/xterm');
+  const { FitAddon } = await import('@xterm/addon-fit');
+  const { getTerminalTheme, createTheatreCard, updateTerminalCardLabel } = await import('./terminalCards');
+
+  const terminal = new Terminal({
+    cursorBlink: true,
+    fontSize: 13,
+    fontFamily: 'ui-monospace, "SF Mono", Menlo, Monaco, monospace',
+    theme: getTerminalTheme(),
+    allowProposedApi: true,
+    scrollback: 10000,
+  });
+
+  const fitAddon = new FitAddon();
+  terminal.loadAddon(fitAddon);
+
+  // Create the card UI
+  const index = terminals.value.length;
+  const card = createTheatreCard(session.label, index);
+
+  // Add to DOM
+  const stack = document.querySelector('.theatre-stack');
+  if (!stack) return;
+  stack.appendChild(card);
+
+  const xtermContainer = card.querySelector('.terminal-xterm-container') as HTMLElement;
+
+  // Open terminal in container
+  terminal.open(xtermContainer);
+
+  // Fit after opening
+  requestAnimationFrame(() => {
+    fitAddon.fit();
+  });
+
+  // Reconnect to existing PTY
+  const result = await window.api.pty.reconnect(session.ptyId);
+
+  if (!result.success) {
+    console.error('[Theatre] Failed to reconnect to PTY:', session.ptyId, result.error);
+    card.remove();
+    terminal.dispose();
+    return;
+  }
+
+  // Replay buffered output (scroll history)
+  if (result.bufferedOutput) {
+    // Reset terminal state first to avoid cursor artifacts
+    terminal.reset();
+    // Write the full buffered history
+    terminal.write(result.bufferedOutput);
+  }
+
+  // Set up resize observer
+  const resizeObserver = new ResizeObserver(() => {
+    fitAddon.fit();
+    window.api.pty.resize(session.ptyId, terminal.cols, terminal.rows);
+  });
+  resizeObserver.observe(xtermContainer);
+
+  // Trigger resize to sync terminal size and force TUI apps to redraw
+  // Use a small delay to ensure the terminal is fully initialized
+  setTimeout(() => {
+    fitAddon.fit();
+    window.api.pty.resize(session.ptyId, terminal.cols, terminal.rows);
+  }, 50);
+
+  // Create terminal object
+  const theatreTerminal: TheatreTerminal = {
+    ptyId: session.ptyId,
+    projectPath: session.projectPath,
+    command: session.command,
+    label: session.label,
+    terminal,
+    fitAddon,
+    container: card,
+    cleanupData: null,
+    cleanupExit: null,
+    resizeObserver,
+    summary: 'Restored',
+    summaryType: 'idle',
+    outputBuffer: '',
+    lastOscTitle: '',
+    oscTitleHistory: [],
+    isWorktree: session.isWorktree,
+    worktreePath: session.worktreePath,
+    worktreeBranch: session.worktreeBranch,
+    gitStatus: null,
+    diffPanelOpen: false,
+    diffPanelFiles: [],
+    diffPanelSelectedFile: null,
+    diffPanelMode: session.isWorktree ? 'worktree' : 'uncommitted',
+  };
+
+  // Set up close button handler
+  const closeBtn = card.querySelector('.theatre-card-close') as HTMLButtonElement;
+  if (closeBtn) {
+    closeBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const idx = terminals.value.indexOf(theatreTerminal);
+      if (idx !== -1) {
+        import('./terminalCards').then(({ closeTheatreTerminal }) => {
+          closeTheatreTerminal(idx);
+        });
+      }
+    });
+  }
+
+  // Card click handler (to bring to front)
+  card.addEventListener('click', () => {
+    const idx = terminals.value.indexOf(theatreTerminal);
+    if (idx !== -1 && idx !== activeIndex.value) {
+      import('./terminalCards').then(({ switchToTheatreTerminal }) => {
+        switchToTheatreTerminal(idx);
+      });
+    }
+  });
+
+  // Set up data handler
+  const cleanupData = window.api.pty.onData(session.ptyId, (data) => {
+    terminal.write(data);
+    theatreTerminal.outputBuffer += data;
+    // Limit buffer size
+    if (theatreTerminal.outputBuffer.length > 50000) {
+      theatreTerminal.outputBuffer = theatreTerminal.outputBuffer.slice(-25000);
+    }
+  });
+  theatreTerminal.cleanupData = cleanupData;
+
+  // Set up exit handler
+  const cleanupExit = window.api.pty.onExit(session.ptyId, () => {
+    console.log('[Theatre] Terminal exited:', session.ptyId);
+    import('./terminalCards').then(({ closeTheatreTerminal }) => {
+      closeTheatreTerminal(theatreTerminal);
+    });
+  });
+  theatreTerminal.cleanupExit = cleanupExit;
+
+  // Forward input to PTY
+  terminal.onData((data) => {
+    window.api.pty.write(session.ptyId, data);
+  });
+
+  // Add to terminals array
+  terminals.value = [...terminals.value, theatreTerminal];
+
+  // Update card label
+  updateTerminalCardLabel(theatreTerminal);
+
+  // Focus if this is the first terminal
+  if (terminals.value.length === 1) {
+    terminal.focus();
+  }
 }

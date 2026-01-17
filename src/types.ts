@@ -82,6 +82,27 @@ export interface PtySpawnOptions {
   command?: string;
   cols?: number;
   rows?: number;
+  /** Display label for the terminal */
+  label?: string;
+  /** Whether this terminal is for a worktree */
+  isWorktree?: boolean;
+  /** Path to the worktree (if isWorktree) */
+  worktreePath?: string;
+  /** Branch name of the worktree (if isWorktree) */
+  worktreeBranch?: string;
+}
+
+/**
+ * Information about an active PTY session (for reconnection after reload)
+ */
+export interface ActiveSession {
+  ptyId: PtyId;
+  projectPath: string;
+  command: string;
+  label: string;
+  isWorktree: boolean;
+  worktreePath?: string;
+  worktreeBranch?: string;
 }
 
 /**
@@ -90,6 +111,16 @@ export interface PtySpawnOptions {
 export interface PtySpawnResult {
   success: boolean;
   ptyId?: PtyId;
+  error?: string;
+}
+
+/**
+ * Result of reconnecting to a PTY
+ */
+export interface PtyReconnectResult {
+  success: boolean;
+  /** Buffered output that was missed during disconnection */
+  bufferedOutput?: string;
   error?: string;
 }
 
@@ -103,6 +134,12 @@ export interface PtyAPI {
   kill(ptyId: PtyId): void;
   onData(ptyId: PtyId, callback: (data: string) => void): () => void;
   onExit(ptyId: PtyId, callback: (exitCode: number) => void): () => void;
+  /** Get list of active sessions (for reconnection after reload) */
+  getActiveSessions(): Promise<ActiveSession[]>;
+  /** Reconnect to an existing PTY after renderer reload */
+  reconnect(ptyId: PtyId): Promise<PtyReconnectResult>;
+  /** Update window reference after reconnection */
+  setWindow(): void;
 }
 
 /**

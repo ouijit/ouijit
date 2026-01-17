@@ -5,7 +5,7 @@
 
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
-import type { PtyId, Project, ChangedFile, CompactGitStatus } from '../../types';
+import type { PtyId, Project, ChangedFile, CompactGitStatus, ActiveSession } from '../../types';
 
 // Summary type for terminal status indication
 export type SummaryType = 'error' | 'listening' | 'building' | 'watching' | 'thinking' | 'idle';
@@ -94,8 +94,12 @@ export const theatreState = {
   worktreeDropdownCleanup: null as (() => void) | null,
 };
 
-// Session storage for preserved sessions
+// Session storage for preserved sessions (in-memory, survives project switching)
 export const projectSessions = new Map<string, StoredTheatreSession>();
+
+// Orphaned sessions storage (PTY sessions that survived an app refresh)
+// Populated on startup from main process, consumed by enterTheatreMode
+export const orphanedSessions = new Map<string, ActiveSession[]>();
 
 /**
  * Ensures the hidden container for storing detached theatre sessions exists

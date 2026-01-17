@@ -7,12 +7,13 @@
 import './index.css';
 import '@xterm/xterm/css/xterm.css';
 import { createIcons, Search, FolderOpen, Download, RefreshCw, Plus } from 'lucide';
-import type { Project, ElectronAPI } from './types';
+import type { Project, ElectronAPI, ActiveSession } from './types';
 import { renderProjects } from './components/projectGrid';
 import { setupSearch } from './components/searchBar';
 import { showImportDialog, showToast } from './components/importDialog';
 import { showNewProjectDialog } from './components/newProjectDialog';
 import { initHotkeys } from './utils/hotkeys';
+import { restoreTheatreMode, orphanedSessions } from './components/theatre';
 
 // Declare the global window.api interface
 declare global {
@@ -206,6 +207,55 @@ async function initialize(): Promise<void> {
   if (!projectGrid) {
     console.error('Project grid container not found');
     return;
+  }
+
+  // Check for active PTY sessions that need reconnection (e.g., after renderer reload)
+  try {
+    const activeSessions = await window.api.pty.getActiveSessions();
+    if (activeSessions.length > 0) {
+      console.log('[Renderer] Found active PTY sessions:', activeSessions);
+
+      // Group sessions by project path and store in orphanedSessions map
+      // This allows enterTheatreMode to restore them when opening any project
+      const sessionsByProject = new Map<string, ActiveSession[]>();
+      for (const session of activeSessions) {
+        const existing = sessionsByProject.get(session.projectPath) || [];
+        existing.push(session);
+        sessionsByProject.set(session.projectPath, existing);
+      }
+
+      // Populate orphanedSessions for ALL projects
+      for (const [path, sessions] of sessionsByProject) {
+        orphanedSessions.set(path, sessions);
+        console.log(`[Renderer] Stored ${sessions.length} orphaned sessions for project:`, path);
+      }
+
+      // Pick the project with the most sessions to restore immediately
+      // (this was the "active" project when the app refreshed)
+      let bestProjectPath = '';
+      let bestSessions: ActiveSession[] = [];
+      for (const [path, sessions] of sessionsByProject) {
+        if (sessions.length > bestSessions.length) {
+          bestProjectPath = path;
+          bestSessions = sessions;
+        }
+      }
+
+      // Get project data and restore theatre mode for the active project
+      const projects = await window.api.getProjects();
+      const project = projects.find(p => p.path === bestProjectPath);
+
+      if (project) {
+        // Remove from orphanedSessions since we're restoring it now
+        orphanedSessions.delete(bestProjectPath);
+        await restoreTheatreMode(bestProjectPath, project, bestSessions);
+        // Continue to load projects in background - CSS hides them in theatre mode,
+        // but they'll be visible when user exits theatre mode
+      }
+    }
+  } catch (error) {
+    console.error('Failed to check/restore sessions:', error);
+    // Continue to normal initialization
   }
 
   // Show loading state
