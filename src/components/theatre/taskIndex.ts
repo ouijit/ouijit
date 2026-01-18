@@ -1,0 +1,366 @@
+/**
+ * Task index sidecar panel - browse and manage all tasks (open and closed)
+ */
+
+import { createIcons, X, RotateCcw, Trash2, Check } from 'lucide';
+import type { WorktreeWithMetadata } from '../../types';
+import { theatreState } from './state';
+import { projectPath, taskIndexVisible } from './signals';
+import { showToast } from '../importDialog';
+import { addTheatreTerminal } from './terminalCards';
+import { reopenTask, deleteTask, closeTask } from './worktreeDropdown';
+import { registerHotkey, unregisterHotkey, Scopes } from '../../utils/hotkeys';
+
+const taskIndexIcons = { X, RotateCcw, Trash2, Check };
+
+/**
+ * Format a branch name for display (hyphens to spaces)
+ */
+function formatBranchNameForDisplay(branch: string): string {
+  // Check if it's an old-style agent-timestamp branch
+  const agentMatch = branch.match(/^agent-(\d+)$/);
+  if (agentMatch) {
+    const timestamp = parseInt(agentMatch[1], 10);
+    const date = new Date(timestamp);
+    return `Untitled ${date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+  }
+
+  // Check if it's a named branch with timestamp suffix
+  const namedMatch = branch.match(/^(.+)-\d{10,}$/);
+  if (namedMatch) {
+    return namedMatch[1].replace(/-/g, ' ');
+  }
+
+  // Fallback: just replace hyphens with spaces
+  return branch.replace(/-/g, ' ');
+}
+
+/**
+ * Build the task index panel HTML shell
+ */
+function buildTaskIndexHtml(): string {
+  return `
+    <div class="task-index-panel">
+      <div class="task-index-header">
+        <h2 class="task-index-title">Tasks</h2>
+        <button class="task-index-close" title="Close"><i data-lucide="x"></i></button>
+      </div>
+      <div class="task-index-content">
+        <div class="task-index-list task-index-list--open"></div>
+        <div class="task-index-empty" style="display: none;">
+          No tasks yet
+        </div>
+        <details class="task-index-closed-disclosure" style="display: none;">
+          <summary class="task-index-closed-summary"></summary>
+          <div class="task-index-list task-index-list--closed"></div>
+        </details>
+      </div>
+    </div>
+  `;
+}
+
+/**
+ * Build a task item element
+ */
+function buildTaskItem(task: WorktreeWithMetadata, path: string, index?: number): HTMLElement {
+  const item = document.createElement('button');
+  item.className = 'task-index-item';
+  if (task.status === 'closed') {
+    item.classList.add('task-index-item--closed');
+  }
+
+  // Show ⌘N shortcut for first 9 items
+  if (index !== undefined && index < 9) {
+    const shortcut = document.createElement('kbd');
+    shortcut.className = 'task-index-item-shortcut';
+    shortcut.textContent = `⌘${index + 1}`;
+    item.appendChild(shortcut);
+  }
+
+  const nameSpan = document.createElement('span');
+  nameSpan.className = 'task-index-item-name';
+  nameSpan.textContent = task.name;
+  item.appendChild(nameSpan);
+
+  const actions = document.createElement('div');
+  actions.className = 'task-index-item-actions';
+
+  if (task.status === 'closed') {
+    // Reopen button
+    const reopenBtn = document.createElement('button');
+    reopenBtn.className = 'task-index-item-action';
+    reopenBtn.title = 'Reopen task';
+    reopenBtn.innerHTML = '<i data-lucide="rotate-ccw"></i>';
+    reopenBtn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      hideTaskIndex();
+      await reopenTask(path, task);
+    });
+    actions.appendChild(reopenBtn);
+  } else {
+    // Close button (for open tasks)
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'task-index-item-action task-index-item-action--close';
+    closeBtn.title = 'Close task';
+    closeBtn.innerHTML = '<i data-lucide="check"></i>';
+    closeBtn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      await closeTask(path, task);
+      await populateTaskIndex();
+    });
+    actions.appendChild(closeBtn);
+  }
+
+  // Delete button
+  const deleteBtn = document.createElement('button');
+  deleteBtn.className = 'task-index-item-action task-index-item-action--danger';
+  deleteBtn.title = 'Delete task';
+  deleteBtn.innerHTML = '<i data-lucide="trash-2"></i>';
+  deleteBtn.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    await deleteTask(path, task);
+    // Refresh the panel
+    await populateTaskIndex();
+  });
+  actions.appendChild(deleteBtn);
+
+  item.appendChild(actions);
+
+  // Click handler - open/reopen task
+  item.addEventListener('click', async () => {
+    hideTaskIndex();
+
+    if (task.status === 'closed') {
+      await reopenTask(path, task);
+    } else {
+      await addTheatreTerminal(undefined, {
+        existingWorktree: {
+          path: task.path,
+          branch: task.branch,
+          createdAt: task.createdAt,
+        },
+      });
+    }
+  });
+
+  return item;
+}
+
+/**
+ * Refresh the task index panel if it's visible
+ */
+export async function refreshTaskIndex(): Promise<void> {
+  if (taskIndexVisible.value) {
+    await populateTaskIndex();
+  }
+}
+
+/**
+ * Populate the task index panel with tasks
+ */
+async function populateTaskIndex(): Promise<void> {
+  const path = projectPath.value;
+  if (!path) return;
+
+  const panel = document.querySelector('.task-index-panel');
+  if (!panel) return;
+
+  const openList = panel.querySelector('.task-index-list--open') as HTMLElement;
+  const closedList = panel.querySelector('.task-index-list--closed') as HTMLElement;
+  const emptyState = panel.querySelector('.task-index-empty') as HTMLElement;
+  const closedDisclosure = panel.querySelector('.task-index-closed-disclosure') as HTMLDetailsElement;
+  const closedSummary = panel.querySelector('.task-index-closed-summary') as HTMLElement;
+
+  if (!openList || !closedList || !emptyState || !closedDisclosure || !closedSummary) return;
+
+  // Fetch tasks
+  const tasks = await window.api.worktree.getTasks(path);
+  const openTasks = tasks.filter(t => t.status === 'open');
+  const closedTasks = tasks.filter(t => t.status === 'closed');
+
+  // Clear lists
+  openList.innerHTML = '';
+  closedList.innerHTML = '';
+
+  // Track index for keyboard shortcuts
+  let itemIndex = 0;
+
+  // Populate open tasks
+  for (const task of openTasks) {
+    const item = buildTaskItem(task, path, itemIndex++);
+    openList.appendChild(item);
+  }
+
+  // Populate closed tasks disclosure
+  if (closedTasks.length > 0) {
+    closedDisclosure.style.display = 'block';
+    closedSummary.textContent = `${closedTasks.length} closed`;
+    for (const task of closedTasks) {
+      const item = buildTaskItem(task, path, itemIndex++);
+      closedList.appendChild(item);
+    }
+  } else {
+    closedDisclosure.style.display = 'none';
+  }
+
+  // Show empty state only if no open tasks
+  if (openTasks.length === 0 && closedTasks.length === 0) {
+    emptyState.style.display = 'block';
+  } else {
+    emptyState.style.display = 'none';
+  }
+
+  // Initialize icons
+  createIcons({ icons: taskIndexIcons, nodes: [panel as Element] });
+}
+
+/**
+ * Show the task index panel
+ */
+export async function showTaskIndex(): Promise<void> {
+  if (taskIndexVisible.value) return;
+
+  const mainContent = document.querySelector('.main-content');
+  if (!mainContent) return;
+
+  // Create panel if it doesn't exist
+  let panel = document.querySelector('.task-index-panel');
+  if (!panel) {
+    mainContent.insertAdjacentHTML('beforeend', buildTaskIndexHtml());
+    panel = document.querySelector('.task-index-panel');
+    if (!panel) return;
+
+    // Wire up close button
+    const closeBtn = panel.querySelector('.task-index-close');
+    if (closeBtn) {
+      closeBtn.addEventListener('click', () => hideTaskIndex());
+    }
+
+    // Initialize icons
+    createIcons({ icons: taskIndexIcons, nodes: [panel as Element] });
+  }
+
+  // Populate tasks
+  await populateTaskIndex();
+
+  // Add class to body for stack repositioning
+  document.body.classList.add('task-index-open');
+
+  // Animate panel in
+  requestAnimationFrame(() => {
+    panel!.classList.add('task-index-panel--visible');
+  });
+
+  taskIndexVisible.value = true;
+
+  // Keyboard navigation
+  let selectedIndex = -1;
+
+  const getVisibleItems = () => {
+    return Array.from(panel!.querySelectorAll('.task-index-item')) as HTMLElement[];
+  };
+
+  const updateSelection = (newIndex: number) => {
+    const items = getVisibleItems();
+    if (items.length === 0) return;
+
+    // Remove previous selection
+    items.forEach(item => item.classList.remove('task-index-item--selected'));
+
+    // Clamp index
+    selectedIndex = Math.max(0, Math.min(newIndex, items.length - 1));
+
+    // Add new selection
+    items[selectedIndex]?.classList.add('task-index-item--selected');
+    items[selectedIndex]?.scrollIntoView({ block: 'nearest' });
+  };
+
+  const activateSelected = () => {
+    const items = getVisibleItems();
+    if (selectedIndex >= 0 && selectedIndex < items.length) {
+      items[selectedIndex].click();
+    }
+  };
+
+  const handleKeydown = (e: KeyboardEvent) => {
+    const items = getVisibleItems();
+    if (items.length === 0) return;
+
+    switch (e.key) {
+      case 'ArrowDown':
+      case 'j':
+        e.preventDefault();
+        updateSelection(selectedIndex + 1);
+        break;
+      case 'ArrowUp':
+      case 'k':
+        e.preventDefault();
+        updateSelection(selectedIndex - 1);
+        break;
+      case 'Enter':
+        e.preventDefault();
+        activateSelected();
+        break;
+      case 'Escape':
+        e.preventDefault();
+        hideTaskIndex();
+        break;
+      default:
+        // ⌘1-9 for quick select
+        if (e.metaKey && e.key >= '1' && e.key <= '9') {
+          const index = parseInt(e.key, 10) - 1;
+          if (index < items.length) {
+            e.preventDefault();
+            updateSelection(index);
+            activateSelected();
+          }
+        }
+        break;
+    }
+  };
+
+  document.addEventListener('keydown', handleKeydown);
+
+  // Select first item by default
+  requestAnimationFrame(() => {
+    updateSelection(0);
+  });
+
+  theatreState.taskIndexCleanup = () => {
+    document.removeEventListener('keydown', handleKeydown);
+  };
+}
+
+/**
+ * Hide the task index panel
+ */
+export function hideTaskIndex(): void {
+  if (!taskIndexVisible.value) return;
+
+  const panel = document.querySelector('.task-index-panel');
+  if (panel) {
+    panel.classList.remove('task-index-panel--visible');
+  }
+
+  // Remove class from body
+  document.body.classList.remove('task-index-open');
+
+  // Cleanup
+  if (theatreState.taskIndexCleanup) {
+    theatreState.taskIndexCleanup();
+    theatreState.taskIndexCleanup = null;
+  }
+
+  taskIndexVisible.value = false;
+}
+
+/**
+ * Toggle task index panel visibility
+ */
+export function toggleTaskIndex(): void {
+  if (taskIndexVisible.value) {
+    hideTaskIndex();
+  } else {
+    showTaskIndex();
+  }
+}

@@ -2,7 +2,7 @@
 // https://www.electronjs.org/docs/latest/tutorial/process-model#preload-scripts
 
 import { contextBridge, ipcRenderer, webUtils } from 'electron';
-import type { Project, RunConfig, LaunchResult, PtySpawnOptions, PtySpawnResult, PtyId, ActiveSession, PtyReconnectResult, ExportResult, PreviewResult, ImportResult, CreateProjectOptions, CreateProjectResult, GitStatus, CompactGitStatus, GitDropdownInfo, GitCheckoutResult, GitMergeResult, ChangedFile, FileDiff, ProjectSettings, CustomCommand, WorktreeCreateResult, WorktreeRemoveResult, WorktreeInfo, WorktreeDiffSummary } from './types';
+import type { Project, RunConfig, LaunchResult, PtySpawnOptions, PtySpawnResult, PtyId, ActiveSession, PtyReconnectResult, ExportResult, PreviewResult, ImportResult, CreateProjectOptions, CreateProjectResult, GitStatus, CompactGitStatus, GitDropdownInfo, GitCheckoutResult, GitMergeResult, ChangedFile, FileDiff, ProjectSettings, CustomCommand, WorktreeCreateResult, WorktreeRemoveResult, WorktreeInfo, WorktreeDiffSummary, WorktreeWithMetadata } from './types';
 
 // Expose protected methods that allow the renderer process to use
 // ipcRenderer without exposing the entire object
@@ -98,6 +98,15 @@ contextBridge.exposeInMainWorld('api', {
 
     merge: (projectPath: string, worktreeBranch: string): Promise<GitMergeResult> =>
       ipcRenderer.invoke('worktree:merge', projectPath, worktreeBranch),
+
+    getTasks: (projectPath: string): Promise<WorktreeWithMetadata[]> =>
+      ipcRenderer.invoke('worktree:get-tasks', projectPath),
+
+    close: (projectPath: string, branch: string): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke('worktree:close', projectPath, branch),
+
+    reopen: (projectPath: string, branch: string): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke('worktree:reopen', projectPath, branch),
   },
 
   /**

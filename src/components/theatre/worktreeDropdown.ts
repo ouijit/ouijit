@@ -1,38 +1,13 @@
 /**
- * Worktree dropdown for theatre mode - agent shell creation and worktree management
+ * Worktree/task operations for theatre mode
  */
 
-import { createIcons, GitBranchPlus, Terminal, Trash2 } from 'lucide';
-import type { WorktreeInfo } from '../../types';
-import { theatreState, MAX_THEATRE_TERMINALS } from './state';
-import { projectPath, terminals, worktreeDropdownVisible } from './signals';
+import type { WorktreeWithMetadata } from '../../types';
+import { MAX_THEATRE_TERMINALS } from './state';
+import { projectPath, terminals } from './signals';
 import { showToast } from '../importDialog';
-import { addTheatreTerminal } from './terminalCards';
+import { addTheatreTerminal, closeTheatreTerminal } from './terminalCards';
 import { registerHotkey, unregisterHotkey, pushScope, popScope, Scopes } from '../../utils/hotkeys';
-
-const worktreeIcons = { GitBranchPlus, Terminal, Trash2 };
-
-/**
- * Format a branch name for display (hyphens to spaces)
- */
-function formatBranchNameForDisplay(branch: string): string {
-  // Check if it's an old-style agent-timestamp branch
-  const agentMatch = branch.match(/^agent-(\d+)$/);
-  if (agentMatch) {
-    const timestamp = parseInt(agentMatch[1], 10);
-    const date = new Date(timestamp);
-    return `Untitled ${date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
-  }
-
-  // Check if it's a named branch with timestamp suffix
-  const namedMatch = branch.match(/^(.+)-\d{10,}$/);
-  if (namedMatch) {
-    return namedMatch[1].replace(/-/g, ' ');
-  }
-
-  // Fallback: just replace hyphens with spaces
-  return branch.replace(/-/g, ' ');
-}
 
 /**
  * Show a simple prompt dialog for naming a worktree
@@ -114,6 +89,69 @@ function showWorktreeNamePrompt(): Promise<string | null> {
 }
 
 /**
+ * Show a confirmation dialog for deleting a task
+ */
+function showDeleteConfirmDialog(taskName: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+
+    const dialog = document.createElement('div');
+    dialog.className = 'import-dialog';
+    dialog.style.maxWidth = '380px';
+
+    dialog.innerHTML = `
+      <h2 class="import-dialog-title">Delete Task?</h2>
+      <p class="import-dialog-text">
+        This will permanently remove the worktree and branch for "<strong>${taskName}</strong>".
+      </p>
+      <div class="import-actions">
+        <button class="btn btn-secondary" data-action="cancel">Cancel</button>
+        <button class="btn btn-danger" data-action="delete">Delete</button>
+      </div>
+    `;
+
+    overlay.appendChild(dialog);
+    document.body.appendChild(overlay);
+
+    const cleanup = () => {
+      unregisterHotkey('escape', Scopes.MODAL);
+      popScope();
+      dialog.classList.remove('import-dialog--visible');
+      overlay.classList.remove('modal-overlay--visible');
+      setTimeout(() => overlay.remove(), 150);
+    };
+
+    const handleDelete = () => {
+      cleanup();
+      resolve(true);
+    };
+
+    const handleCancel = () => {
+      cleanup();
+      resolve(false);
+    };
+
+    // Event listeners
+    dialog.querySelector('[data-action="delete"]')?.addEventListener('click', handleDelete);
+    dialog.querySelector('[data-action="cancel"]')?.addEventListener('click', handleCancel);
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) handleCancel();
+    });
+
+    // Set up hotkey scope for modal
+    pushScope(Scopes.MODAL);
+    registerHotkey('escape', Scopes.MODAL, handleCancel);
+
+    // Animate in
+    requestAnimationFrame(() => {
+      overlay.classList.add('modal-overlay--visible');
+      dialog.classList.add('import-dialog--visible');
+    });
+  });
+}
+
+/**
  * Create a new agent shell (worktree) - can be called from keyboard shortcut
  */
 export async function createNewAgentShell(): Promise<void> {
@@ -130,168 +168,64 @@ export async function createNewAgentShell(): Promise<void> {
 }
 
 /**
- * Build the worktree dropdown content
+ * Close a task - marks as closed and closes any open terminals for it
  */
-export async function buildWorktreeDropdownContent(dropdown: HTMLElement): Promise<void> {
-  const path = projectPath.value;
-  if (!path) return;
-
-  dropdown.innerHTML = '';
-
-  // New Agent Shell option (creates new worktree)
-  const agentOption = document.createElement('button');
-  agentOption.className = 'launch-option';
-  const agentText = document.createElement('span');
-  agentText.className = 'launch-option-name';
-  agentText.textContent = 'New Task';
-  agentOption.appendChild(agentText);
-  const agentKbd = document.createElement('kbd');
-  agentKbd.className = 'launch-option-kbd';
-  agentKbd.textContent = '⌘N';
-  agentOption.appendChild(agentKbd);
-  agentOption.addEventListener('click', async (e) => {
-    e.stopPropagation();
-    hideWorktreeDropdown();
-    await createNewAgentShell();
-  });
-  dropdown.appendChild(agentOption);
-
-  // List existing worktrees
-  const worktrees = await window.api.worktree.list(path);
-  if (worktrees.length > 0) {
-    const divider = document.createElement('div');
-    divider.className = 'launch-dropdown-divider';
-    dropdown.appendChild(divider);
-
-    const worktreeLabel = document.createElement('div');
-    worktreeLabel.className = 'launch-dropdown-section-label';
-    worktreeLabel.textContent = 'Previous Tasks';
-    dropdown.appendChild(worktreeLabel);
-
-    for (const wt of worktrees) {
-      const wtOption = document.createElement('button');
-      wtOption.className = 'launch-option launch-option--worktree';
-      wtOption.title = 'Open terminal';
-
-      const wtName = document.createElement('span');
-      wtName.className = 'launch-option-name';
-      wtName.textContent = formatBranchNameForDisplay(wt.branch);
-      wtOption.appendChild(wtName);
-
-      // Click row to open terminal
-      wtOption.addEventListener('click', async (e) => {
-        e.stopPropagation();
-        hideWorktreeDropdown();
-        await addTheatreTerminal(undefined, { existingWorktree: wt });
-      });
-
-      const wtActions = document.createElement('div');
-      wtActions.className = 'launch-option-actions';
-
-      // Remove button
-      const removeBtn = document.createElement('button');
-      removeBtn.className = 'launch-option-action launch-option-action--danger';
-      removeBtn.title = 'Delete task';
-      removeBtn.innerHTML = '<i data-lucide="trash-2"></i>';
-      removeBtn.addEventListener('click', async (e) => {
-        e.stopPropagation();
-        const confirmed = confirm(`Delete "${formatBranchNameForDisplay(wt.branch)}"?`);
-        if (confirmed && path) {
-          const result = await window.api.worktree.remove(path, wt.path);
-          if (result.success) {
-            showToast('Task deleted', 'success');
-            await buildWorktreeDropdownContent(dropdown); // Refresh list
-          } else {
-            showToast(result.error || 'Failed to remove', 'error');
-          }
-        }
-      });
-      wtActions.appendChild(removeBtn);
-
-      wtOption.appendChild(wtActions);
-      dropdown.appendChild(wtOption);
+export async function closeTask(path: string, task: WorktreeWithMetadata): Promise<void> {
+  const result = await window.api.worktree.close(path, task.branch);
+  if (result.success) {
+    // Close any open terminals for this task
+    const currentTerminals = terminals.value;
+    for (let i = currentTerminals.length - 1; i >= 0; i--) {
+      const term = currentTerminals[i];
+      if (term.worktreeBranch === task.branch) {
+        closeTheatreTerminal(i);
+      }
     }
-  }
-
-  // Initialize icons
-  createIcons({ icons: worktreeIcons, nodes: [dropdown] });
-}
-
-/**
- * Show the worktree dropdown
- */
-export async function showWorktreeDropdown(): Promise<void> {
-  if (worktreeDropdownVisible.value) return;
-
-  const wrapper = document.querySelector('.theatre-worktree-wrapper');
-  if (!wrapper) return;
-
-  // Check if at max terminals
-  if (terminals.value.length >= MAX_THEATRE_TERMINALS) {
-    showToast(`Maximum ${MAX_THEATRE_TERMINALS} terminals`, 'info');
-    return;
-  }
-
-  // Create dropdown if it doesn't exist
-  let dropdown = wrapper.querySelector('.theatre-worktree-dropdown') as HTMLElement;
-  if (!dropdown) {
-    dropdown = document.createElement('div');
-    dropdown.className = 'theatre-worktree-dropdown';
-    wrapper.appendChild(dropdown);
-  }
-
-  await buildWorktreeDropdownContent(dropdown);
-
-  requestAnimationFrame(() => {
-    dropdown.classList.add('visible');
-  });
-
-  worktreeDropdownVisible.value = true;
-
-  // Click outside handler
-  const handleClickOutside = (e: MouseEvent) => {
-    const target = e.target as HTMLElement;
-    if (!target.closest('.theatre-worktree-wrapper')) {
-      hideWorktreeDropdown();
-    }
-  };
-
-  setTimeout(() => {
-    document.addEventListener('click', handleClickOutside);
-  }, 0);
-
-  theatreState.worktreeDropdownCleanup = () => {
-    document.removeEventListener('click', handleClickOutside);
-  };
-}
-
-/**
- * Hide the worktree dropdown
- */
-export function hideWorktreeDropdown(): void {
-  if (!worktreeDropdownVisible.value) return;
-
-  const dropdown = document.querySelector('.theatre-worktree-dropdown');
-  if (dropdown) {
-    dropdown.classList.remove('visible');
-    setTimeout(() => dropdown.remove(), 150);
-  }
-
-  if (theatreState.worktreeDropdownCleanup) {
-    theatreState.worktreeDropdownCleanup();
-    theatreState.worktreeDropdownCleanup = null;
-  }
-
-  worktreeDropdownVisible.value = false;
-}
-
-/**
- * Toggle worktree dropdown visibility
- */
-export function toggleWorktreeDropdown(): void {
-  if (worktreeDropdownVisible.value) {
-    hideWorktreeDropdown();
+    showToast('Task closed', 'success');
   } else {
-    showWorktreeDropdown();
+    showToast(result.error || 'Failed to close task', 'error');
+  }
+}
+
+/**
+ * Reopen a closed task
+ */
+export async function reopenTask(path: string, task: WorktreeWithMetadata): Promise<void> {
+  const result = await window.api.worktree.reopen(path, task.branch);
+  if (result.success) {
+    // Open terminal for the task
+    await addTheatreTerminal(undefined, {
+      existingWorktree: {
+        path: task.path,
+        branch: task.branch,
+        createdAt: task.createdAt,
+      },
+    });
+  } else {
+    showToast(result.error || 'Failed to reopen task', 'error');
+  }
+}
+
+/**
+ * Delete a task - hard delete with confirmation
+ */
+export async function deleteTask(path: string, task: WorktreeWithMetadata): Promise<void> {
+  const confirmed = await showDeleteConfirmDialog(task.name);
+  if (!confirmed) return;
+
+  // Close any open terminals for this task first
+  const currentTerminals = terminals.value;
+  for (let i = currentTerminals.length - 1; i >= 0; i--) {
+    const term = currentTerminals[i];
+    if (term.worktreeBranch === task.branch) {
+      closeTheatreTerminal(i);
+    }
+  }
+
+  const result = await window.api.worktree.remove(path, task.path);
+  if (result.success) {
+    showToast('Task deleted', 'success');
+  } else {
+    showToast(result.error || 'Failed to delete task', 'error');
   }
 }

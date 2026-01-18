@@ -33,11 +33,6 @@ export function buildTheatreHeader(): string {
         <span class="theatre-project-name">${project.name}</span>
         <span class="theatre-project-path">${project.path}</span>
       </div>
-      <div class="theatre-worktree-wrapper">
-        <button class="theatre-worktree-btn" title="Tasks">
-          <i data-lucide="list-todo"></i>
-        </button>
-      </div>
       <div class="theatre-launch-wrapper">
         <button class="theatre-launch-chevron-btn" title="More commands">
           <i data-lucide="chevron-down"></i>

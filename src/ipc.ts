@@ -16,15 +16,23 @@ import {
 } from './ptyManager';
 import { exportProject, previewOuijitFile, importOuijitPackage } from './ouijit';
 import { getGitStatus, getCompactGitStatus, getGitDropdownInfo, checkoutBranch, createBranch, mergeIntoMain, getChangedFiles, getFileDiff, getWorktreeDiff, getWorktreeFileDiff, mergeWorktreeBranch } from './git';
-import { createWorktree, removeWorktree, listWorktrees } from './worktree';
+import { createWorktree, removeWorktree, listWorktrees, formatBranchNameForDisplay } from './worktree';
 import type { WorktreeCreateResult, WorktreeRemoveResult, WorktreeInfo } from './worktree';
+import {
+  getProjectTasks,
+  createTask,
+  closeTask,
+  reopenTask,
+  deleteTask,
+  ensureTaskExists,
+} from './taskMetadata';
 import {
   getProjectSettings,
   saveCustomCommand,
   deleteCustomCommand,
   setDefaultCommand,
 } from './projectSettings';
-import type { RunConfig, LaunchResult, PtySpawnOptions, ExportResult, PreviewResult, ImportResult, CreateProjectOptions, CreateProjectResult, CustomCommand, ProjectSettings, GitStatus, CompactGitStatus, GitDropdownInfo, ChangedFile, FileDiff, WorktreeDiffSummary, GitMergeResult } from './types';
+import type { RunConfig, LaunchResult, PtySpawnOptions, ExportResult, PreviewResult, ImportResult, CreateProjectOptions, CreateProjectResult, CustomCommand, ProjectSettings, GitStatus, CompactGitStatus, GitDropdownInfo, ChangedFile, FileDiff, WorktreeDiffSummary, GitMergeResult, WorktreeWithMetadata } from './types';
 
 /**
  * Escapes a string for use in AppleScript
@@ -334,11 +342,24 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
 
   // Worktree handlers
   ipcMain.handle('worktree:create', async (_event, projectPath: string, name?: string): Promise<WorktreeCreateResult> => {
-    return createWorktree(projectPath, name);
+    const result = await createWorktree(projectPath, name);
+    // Create task metadata when worktree is created
+    if (result.success && result.worktree) {
+      const displayName = name || formatBranchNameForDisplay(result.worktree.branch);
+      await createTask(projectPath, result.worktree.branch, displayName);
+    }
+    return result;
   });
 
   ipcMain.handle('worktree:remove', async (_event, projectPath: string, worktreePath: string): Promise<WorktreeRemoveResult> => {
-    return removeWorktree(projectPath, worktreePath);
+    // Get the branch name before removing (it's the last part of the path)
+    const branch = path.basename(worktreePath);
+    const result = await removeWorktree(projectPath, worktreePath);
+    // Delete task metadata when worktree is removed (hard delete)
+    if (result.success) {
+      await deleteTask(projectPath, branch);
+    }
+    return result;
   });
 
   ipcMain.handle('worktree:list', async (_event, projectPath: string): Promise<WorktreeInfo[]> => {
@@ -356,6 +377,74 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
   ipcMain.handle('worktree:merge', async (_event, projectPath: string, worktreeBranch: string): Promise<GitMergeResult> => {
     return mergeWorktreeBranch(projectPath, worktreeBranch);
   });
+
+  // Get tasks with metadata merged with worktree list
+  ipcMain.handle('worktree:get-tasks', async (_event, projectPath: string): Promise<WorktreeWithMetadata[]> => {
+    const worktrees = listWorktrees(projectPath);
+    const tasks = await getProjectTasks(projectPath);
+
+    // Create a map for quick lookup
+    const taskMap = new Map(tasks.map(t => [t.branch, t]));
+
+    // For each worktree, ensure metadata exists and merge
+    const results: WorktreeWithMetadata[] = [];
+    for (const wt of worktrees) {
+      let metadata = taskMap.get(wt.branch);
+      if (!metadata) {
+        // Create metadata for worktrees that don't have it yet
+        const displayName = formatBranchNameForDisplay(wt.branch);
+        metadata = await ensureTaskExists(projectPath, wt.branch, displayName);
+      }
+
+      results.push({
+        path: wt.path,
+        branch: wt.branch,
+        createdAt: metadata.createdAt || wt.createdAt,
+        name: metadata.name,
+        status: metadata.status,
+        closedAt: metadata.closedAt,
+      });
+    }
+
+    // Also include closed tasks that might not have worktrees anymore
+    // (though in our design they should always have worktrees)
+    for (const task of tasks) {
+      if (!results.some(r => r.branch === task.branch)) {
+        // Task exists in metadata but no worktree - might be orphaned
+        // Include it anyway for visibility
+        results.push({
+          path: '',
+          branch: task.branch,
+          createdAt: task.createdAt,
+          name: task.name,
+          status: task.status,
+          closedAt: task.closedAt,
+        });
+      }
+    }
+
+    // Sort: open first, then by creation date (newest first)
+    return results.sort((a, b) => {
+      if (a.status !== b.status) {
+        return a.status === 'open' ? -1 : 1;
+      }
+      return b.createdAt.localeCompare(a.createdAt);
+    });
+  });
+
+  // Mark a task as closed
+  ipcMain.handle('worktree:close', async (_event, projectPath: string, branch: string): Promise<{ success: boolean; error?: string }> => {
+    return closeTask(projectPath, branch);
+  });
+
+  // Reopen a closed task
+  ipcMain.handle('worktree:reopen', async (_event, projectPath: string, branch: string): Promise<{ success: boolean; error?: string }> => {
+    return reopenTask(projectPath, branch);
+  });
+
+  // Override worktree:create to also create task metadata
+  // Note: We need to update the existing handler or create a wrapper
+  // For now, we'll create metadata when tasks are listed
 }
 
 /**

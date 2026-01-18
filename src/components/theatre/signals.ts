@@ -33,7 +33,9 @@ export const diffPanelWorktreeBranch = signal<string | null>(null);
 export const gitDropdownVisible = signal(false);
 export const launchDropdownVisible = signal(false);
 export const diffFileDropdownVisible = signal(false);
-export const worktreeDropdownVisible = signal(false);
+
+// Task index panel visibility
+export const taskIndexVisible = signal(false);
 
 /**
  * Reset all signals to initial values
@@ -52,5 +54,5 @@ export function resetSignals(): void {
   gitDropdownVisible.value = false;
   launchDropdownVisible.value = false;
   diffFileDropdownVisible.value = false;
-  worktreeDropdownVisible.value = false;
+  taskIndexVisible.value = false;
 }

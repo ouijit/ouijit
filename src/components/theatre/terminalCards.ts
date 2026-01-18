@@ -4,7 +4,7 @@
 
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
-import { createIcons, Terminal as TerminalIcon, Play, GitCompare, GitMerge, GitBranch } from 'lucide';
+import { createIcons, Terminal as TerminalIcon, Play, GitCompare, GitMerge, GitBranch, Check } from 'lucide';
 import type { PtyId, PtySpawnOptions, RunConfig, WorktreeInfo } from '../../types';
 import {
   TheatreTerminal,
@@ -22,8 +22,10 @@ import { showToast } from '../importDialog';
 import { scheduleGitStatusRefresh, refreshGitStatus, refreshTerminalGitStatus, buildCardGitStatusHtml, getTerminalGitPath, scheduleTerminalGitStatusRefresh } from './gitStatus';
 import { toggleTerminalDiffPanel, toggleTerminalWorktreeDiffPanel, hideTerminalDiffPanel } from './diffPanel';
 import { mergeRunConfigs, getConfigId } from '../../utils/runConfigs';
+import { refreshTaskIndex, toggleTaskIndex } from './taskIndex';
+import { createNewAgentShell } from './worktreeDropdown';
 
-const cardIcons = { Play, GitCompare, GitMerge, GitBranch };
+const cardIcons = { Play, GitCompare, GitMerge, GitBranch, Check };
 
 /**
  * Format a branch name for display (hyphens to spaces)
@@ -443,6 +445,7 @@ export function createTheatreCard(label: string, index: number): HTMLElement {
           <span class="runner-pill-label"></span>
         </div>
       </div>
+      <button class="theatre-card-close-task theatre-card-action--worktree" style="display: none;" title="Close task"><i data-lucide="check"></i></button>
       <button class="theatre-card-close" title="Close terminal">&times;</button>
     </div>
   `;
@@ -479,6 +482,18 @@ export function setupWorktreeCardActions(term: TheatreTerminal): void {
   const runnerPill = labelEl.querySelector('.runner-pill') as HTMLElement;
   if (runnerPill) {
     runnerPill.style.display = 'flex';
+  }
+
+  // Show close button for worktree terminals
+  const closeBtn = labelEl.querySelector('.theatre-card-close-task') as HTMLElement;
+  if (closeBtn) {
+    closeBtn.style.display = 'flex';
+
+    // Wire up close button
+    closeBtn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      await closeTaskFromTerminal(term);
+    });
   }
 
   // Initialize lucide icons
@@ -551,6 +566,28 @@ export function updateRunnerPill(term: TheatreTerminal): void {
   } else {
     // No runner - collapse the pill
     pill.classList.remove('runner-pill--expanded');
+  }
+}
+
+/**
+ * Close a task from its terminal card
+ */
+async function closeTaskFromTerminal(term: TheatreTerminal): Promise<void> {
+  if (!term.isWorktree || !term.worktreeBranch) return;
+
+  const path = projectPath.value;
+  if (!path) return;
+
+  const result = await window.api.worktree.close(path, term.worktreeBranch);
+  if (result.success) {
+    // Close this terminal
+    const idx = terminals.value.indexOf(term);
+    if (idx !== -1) {
+      closeTheatreTerminal(idx);
+    }
+    showToast('Task closed', 'success');
+  } else {
+    showToast(result.error || 'Failed to close task', 'error');
   }
 }
 
@@ -771,6 +808,19 @@ async function runDefaultInWorktreeCard(term: TheatreTerminal): Promise<void> {
   const runnerFitAddon = new FitAddon();
   runnerTerminal.loadAddon(runnerFitAddon);
 
+  // Handle global hotkeys in runner terminal
+  runnerTerminal.attachCustomKeyEventHandler((event) => {
+    if (event.metaKey && event.key === 't') {
+      toggleTaskIndex();
+      return false;
+    }
+    if (event.metaKey && event.key === 'n') {
+      createNewAgentShell();
+      return false;
+    }
+    return true;
+  });
+
   term.runnerTerminal = runnerTerminal;
   term.runnerFitAddon = runnerFitAddon;
 
@@ -932,6 +982,8 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
       return false;
     }
     worktreeInfo = result.worktree;
+    // Refresh task index if visible
+    refreshTaskIndex();
   }
 
   // Use worktree path if we have one
@@ -965,6 +1017,19 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
   const fitAddon = new FitAddon();
   terminal.loadAddon(fitAddon);
   terminal.open(xtermContainer);
+
+  // Handle global hotkeys in terminal
+  terminal.attachCustomKeyEventHandler((event) => {
+    if (event.metaKey && event.key === 't') {
+      toggleTaskIndex();
+      return false;
+    }
+    if (event.metaKey && event.key === 'n') {
+      createNewAgentShell();
+      return false;
+    }
+    return true;
+  });
 
   await new Promise(resolve => requestAnimationFrame(resolve));
   fitAddon.fit();
@@ -1168,12 +1233,12 @@ export function closeTheatreTerminal(index: number): void {
 export function buildEmptyStateHtml(): string {
   return `
     <div class="theatre-stack-empty">
-      <div class="theatre-stack-empty-previous" style="display: none;">
-        <div class="theatre-stack-empty-previous-label">Continue</div>
-        <div class="theatre-stack-empty-previous-list"></div>
+      <div class="theatre-stack-empty-open" style="display: none;">
+        <div class="theatre-stack-empty-section-label">Continue</div>
+        <div class="theatre-stack-empty-open-list"></div>
       </div>
       <div class="theatre-stack-empty-new">
-        <div class="theatre-stack-empty-new-label">New</div>
+        <div class="theatre-stack-empty-section-label">New Task</div>
         <form class="theatre-stack-empty-form">
           <input
             type="text"
@@ -1185,41 +1250,64 @@ export function buildEmptyStateHtml(): string {
           <button type="submit" class="theatre-stack-empty-btn">Start</button>
         </form>
       </div>
+      <div class="theatre-stack-empty-hints">
+        <span class="theatre-stack-empty-hint"><kbd>⌘T</kbd> all tasks</span>
+      </div>
     </div>
   `;
 }
 
 /**
- * Populate the previous tasks list in the empty state
+ * Populate the tasks lists in the empty state (only open tasks)
  */
 async function populatePreviousTasks(emptyState: HTMLElement): Promise<void> {
   const path = projectPath.value;
   if (!path) return;
 
-  const previousSection = emptyState.querySelector('.theatre-stack-empty-previous') as HTMLElement;
-  const listContainer = emptyState.querySelector('.theatre-stack-empty-previous-list') as HTMLElement;
-  if (!previousSection || !listContainer) return;
+  const openSection = emptyState.querySelector('.theatre-stack-empty-open') as HTMLElement;
+  const openList = emptyState.querySelector('.theatre-stack-empty-open-list') as HTMLElement;
 
-  // Fetch existing worktrees
-  const worktrees = await window.api.worktree.list(path);
+  if (!openSection || !openList) return;
 
-  if (worktrees.length === 0) {
-    previousSection.style.display = 'none';
-    return;
-  }
+  // Fetch tasks with metadata
+  const tasks = await window.api.worktree.getTasks(path);
+  const openTasks = tasks.filter(t => t.status === 'open');
 
-  // Show and populate
-  previousSection.style.display = 'block';
-  listContainer.innerHTML = '';
+  // Populate open tasks
+  if (openTasks.length > 0) {
+    openSection.style.display = 'block';
+    openList.innerHTML = '';
 
-  for (const wt of worktrees) {
-    const taskBtn = document.createElement('button');
-    taskBtn.className = 'theatre-stack-empty-task';
-    taskBtn.textContent = formatBranchNameForDisplay(wt.branch);
-    taskBtn.addEventListener('click', async () => {
-      await addTheatreTerminal(undefined, { existingWorktree: wt });
+    openTasks.forEach((task, index) => {
+      const taskBtn = document.createElement('button');
+      taskBtn.className = 'theatre-stack-empty-task';
+      taskBtn.dataset.taskIndex = String(index);
+
+      // Add shortcut indicator for first 9 tasks
+      if (index < 9) {
+        const shortcut = document.createElement('kbd');
+        shortcut.className = 'theatre-stack-empty-task-shortcut';
+        shortcut.textContent = `⌘${index + 1}`;
+        taskBtn.appendChild(shortcut);
+      }
+
+      const nameSpan = document.createElement('span');
+      nameSpan.textContent = task.name;
+      taskBtn.appendChild(nameSpan);
+
+      taskBtn.addEventListener('click', async () => {
+        await addTheatreTerminal(undefined, {
+          existingWorktree: {
+            path: task.path,
+            branch: task.branch,
+            createdAt: task.createdAt,
+          },
+        });
+      });
+      openList.appendChild(taskBtn);
     });
-    listContainer.appendChild(taskBtn);
+  } else {
+    openSection.style.display = 'none';
   }
 }
 
@@ -1252,7 +1340,36 @@ export async function showStackEmptyState(): Promise<void> {
   const input = emptyState.querySelector('.theatre-stack-empty-input') as HTMLInputElement;
   const submitBtn = emptyState.querySelector('.theatre-stack-empty-btn') as HTMLButtonElement;
 
+  // Handle ⌘1-9 for quick task selection (document level when empty state visible)
+  const handleEmptyStateKeys = (e: KeyboardEvent) => {
+    if (e.metaKey && e.key >= '1' && e.key <= '9') {
+      const index = parseInt(e.key, 10) - 1;
+      const taskBtn = emptyState.querySelector(`.theatre-stack-empty-task[data-task-index="${index}"]`) as HTMLButtonElement;
+      if (taskBtn) {
+        e.preventDefault();
+        taskBtn.click();
+      }
+    }
+  };
+  document.addEventListener('keydown', handleEmptyStateKeys);
+
+  // Store cleanup function on the element for later removal
+  (emptyState as any)._keydownCleanup = () => {
+    document.removeEventListener('keydown', handleEmptyStateKeys);
+  };
+
   if (form && input && submitBtn) {
+    // Handle ⌘T/⌘N when input is focused (input captures these otherwise)
+    input.addEventListener('keydown', (e) => {
+      if (e.metaKey && e.key === 't') {
+        e.preventDefault();
+        toggleTaskIndex();
+      } else if (e.metaKey && e.key === 'n') {
+        e.preventDefault();
+        createNewAgentShell();
+      }
+    });
+
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
 
@@ -1302,6 +1419,11 @@ export async function showStackEmptyState(): Promise<void> {
 export function hideStackEmptyState(): void {
   const emptyState = document.querySelector('.theatre-stack-empty') as HTMLElement;
   if (!emptyState) return;
+
+  // Cleanup keydown handler
+  if ((emptyState as any)._keydownCleanup) {
+    (emptyState as any)._keydownCleanup();
+  }
 
   emptyState.classList.remove('theatre-stack-empty--visible');
 

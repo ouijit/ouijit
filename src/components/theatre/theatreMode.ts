@@ -47,7 +47,8 @@ import {
   hideLaunchDropdown,
   runDefaultCommand,
 } from './launchDropdown';
-import { toggleWorktreeDropdown, createNewAgentShell } from './worktreeDropdown';
+import { createNewAgentShell } from './worktreeDropdown';
+import { toggleTaskIndex } from './taskIndex';
 import { registerHotkey, unregisterHotkey, pushScope, popScope, Scopes } from '../../utils/hotkeys';
 
 const theatreIcons = { Maximize2, Minimize2, RefreshCw, GitBranch, ListTodo, ChevronDown, Play, Plus, FolderOpen, Upload, Star, X, GitMerge, Terminal, Bug };
@@ -96,15 +97,6 @@ export async function enterTheatreMode(
       playBtn.addEventListener('click', async (e) => {
         e.stopPropagation();
         await runDefaultCommand();
-      });
-    }
-
-    // Wire up worktree button
-    const worktreeBtn = headerContent.querySelector('.theatre-worktree-btn');
-    if (worktreeBtn) {
-      worktreeBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        toggleWorktreeDropdown();
       });
     }
 
@@ -288,6 +280,7 @@ export async function enterTheatreMode(
   pushScope(Scopes.THEATRE);
   registerHotkey('escape', Scopes.THEATRE, () => exitTheatreMode());
   registerHotkey('command+n', Scopes.THEATRE, () => createNewAgentShell());
+  registerHotkey('command+t', Scopes.THEATRE, () => toggleTaskIndex());
 
   // 5. Start periodic git status refresh (for long-running commands)
   // This now refreshes all terminals' git status
@@ -388,6 +381,7 @@ export function exitTheatreMode(): void {
   // 4. Remove keyboard shortcuts and pop scope
   unregisterHotkey('escape', Scopes.THEATRE);
   unregisterHotkey('command+n', Scopes.THEATRE);
+  unregisterHotkey('command+t', Scopes.THEATRE);
   popScope();
 
   // 5. Clear git status timers
@@ -408,6 +402,9 @@ export function exitTheatreMode(): void {
 
   // 8. Hide diff panel
   hideDiffPanel();
+
+  // 9. Hide task index panel
+  import('./taskIndex').then(({ hideTaskIndex }) => hideTaskIndex());
 
   theatreState.originalHeaderContent = null;
 
@@ -509,15 +506,6 @@ export async function restoreTheatreMode(
       });
     }
 
-    // Wire up worktree button
-    const worktreeBtn = headerContent.querySelector('.theatre-worktree-btn');
-    if (worktreeBtn) {
-      worktreeBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        toggleWorktreeDropdown();
-      });
-    }
-
     // Wire up chevron button
     const chevronBtn = headerContent.querySelector('.theatre-launch-chevron-btn');
     if (chevronBtn) {
@@ -578,6 +566,7 @@ export async function restoreTheatreMode(
   pushScope(Scopes.THEATRE);
   registerHotkey('escape', Scopes.THEATRE, () => exitTheatreMode());
   registerHotkey('command+n', Scopes.THEATRE, () => createNewAgentShell());
+  registerHotkey('command+t', Scopes.THEATRE, () => toggleTaskIndex());
 
   // 5. Start periodic git status refresh
   if (project.hasGit) {

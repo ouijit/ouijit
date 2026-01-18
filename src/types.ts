@@ -153,12 +153,32 @@ export interface PtyAPI {
 }
 
 /**
+ * Task metadata for tracking lifecycle state
+ */
+export interface TaskMetadata {
+  branch: string;           // Unique identifier (the branch name)
+  name: string;             // Display name
+  status: 'open' | 'closed';
+  createdAt: string;        // ISO timestamp
+  closedAt?: string;        // When marked closed
+}
+
+/**
  * Information about a git worktree
  */
 export interface WorktreeInfo {
   path: string;
   branch: string;
   createdAt: string;
+}
+
+/**
+ * Extended worktree info including task metadata
+ */
+export interface WorktreeWithMetadata extends WorktreeInfo {
+  name: string;             // Display name
+  status: 'open' | 'closed';
+  closedAt?: string;
 }
 
 /**
@@ -188,6 +208,12 @@ export interface WorktreeAPI {
   getDiff(projectPath: string, worktreeBranch: string): Promise<import('./git').WorktreeDiffSummary | null>;
   getFileDiff(projectPath: string, worktreeBranch: string, filePath: string): Promise<import('./git').FileDiff | null>;
   merge(projectPath: string, worktreeBranch: string): Promise<GitMergeResult>;
+  /** Get tasks with metadata merged with worktree list */
+  getTasks(projectPath: string): Promise<WorktreeWithMetadata[]>;
+  /** Mark a task as closed (metadata only, keeps worktree) */
+  close(projectPath: string, branch: string): Promise<{ success: boolean; error?: string }>;
+  /** Reopen a closed task */
+  reopen(projectPath: string, branch: string): Promise<{ success: boolean; error?: string }>;
 }
 
 /**
