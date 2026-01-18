@@ -2,7 +2,7 @@
  * Diff panel for viewing uncommitted changes in theatre mode
  */
 
-import { createIcons, ChevronDown } from 'lucide';
+import { createIcons, ChevronDown, ChevronRight } from 'lucide';
 import type { ChangedFile, FileDiff } from '../../types';
 import { theatreState, TheatreTerminal } from './state';
 import {
@@ -20,7 +20,7 @@ import { escapeHtml } from '../../utils/html';
 import { showToast } from '../importDialog';
 import { getTerminalGitPath } from './gitStatus';
 
-const diffIcons = { ChevronDown };
+const diffIcons = { ChevronDown, ChevronRight };
 
 /**
  * Format diff stats as HTML
@@ -56,7 +56,7 @@ export function buildDiffPanelHtml(files: ChangedFile[], worktreeBranch?: string
             <i data-lucide="chevron-down" class="diff-file-selector-chevron"></i>
           </div>
           <span class="diff-header-info">${headerInfo}</span>
-          <button class="diff-panel-close" title="Close diff panel">&times;</button>
+          <button class="diff-panel-close" title="Close diff panel"><i data-lucide="chevron-right"></i></button>
         </div>
         <div class="diff-content-body"></div>
       </div>

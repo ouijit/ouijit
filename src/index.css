@@ -1983,6 +1983,11 @@ body > .diff-panel--visible {
   color: rgba(255, 255, 255, 0.9);
 }
 
+.diff-panel-close svg {
+  width: 14px;
+  height: 14px;
+}
+
 /* File Selector Dropdown Trigger */
 .diff-file-selector {
   position: relative;
