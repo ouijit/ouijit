@@ -109,6 +109,15 @@ export async function enterTheatreMode(
       });
     }
 
+    // Wire up terminal button (opens new shell)
+    const terminalBtn = headerContent.querySelector('.theatre-terminal-btn');
+    if (terminalBtn) {
+      terminalBtn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        await addTheatreTerminal();
+      });
+    }
+
     // Wire up debug button (toggles OSC title debug overlay)
     const debugBtn = headerContent.querySelector('.theatre-debug-btn');
     if (debugBtn) {
@@ -512,6 +521,15 @@ export async function restoreTheatreMode(
       chevronBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         toggleLaunchDropdown();
+      });
+    }
+
+    // Wire up terminal button (opens new shell)
+    const terminalBtn = headerContent.querySelector('.theatre-terminal-btn');
+    if (terminalBtn) {
+      terminalBtn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        await addTheatreTerminal();
       });
     }
 

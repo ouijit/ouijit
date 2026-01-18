@@ -2,7 +2,7 @@
  * Launch dropdown for theatre mode - command selection and project actions
  */
 
-import { createIcons, ChevronDown, Play, Plus, FolderOpen, Star, X, ListTodo, Bug } from 'lucide';
+import { createIcons, ChevronDown, Play, Plus, FolderOpen, Star, X, ListTodo, Bug, Terminal } from 'lucide';
 import type { RunConfig } from '../../types';
 import { theatreState, MAX_THEATRE_TERMINALS } from './state';
 import { projectPath, projectData, terminals, launchDropdownVisible } from './signals';
@@ -12,7 +12,7 @@ import { showToast } from '../importDialog';
 import { showCustomCommandDialog } from '../customCommandDialog';
 import { addTheatreTerminal } from './terminalCards';
 
-const launchIcons = { ChevronDown, Play, Plus, FolderOpen, Star, X, ListTodo, Bug };
+const launchIcons = { ChevronDown, Play, Plus, FolderOpen, Star, X, ListTodo, Bug, Terminal };
 
 /**
  * Build the theatre mode header content
@@ -33,6 +33,9 @@ export function buildTheatreHeader(): string {
         <span class="theatre-project-name">${project.name}</span>
         <span class="theatre-project-path">${project.path}</span>
       </div>
+      <button class="theatre-terminal-btn" title="New terminal">
+        <i data-lucide="terminal"></i>
+      </button>
       <div class="theatre-launch-wrapper">
         <button class="theatre-launch-chevron-btn" title="More commands">
           <i data-lucide="chevron-down"></i>
