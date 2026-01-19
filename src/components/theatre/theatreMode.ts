@@ -41,7 +41,7 @@ import {
   showStackEmptyState,
   toggleOscDebug,
   switchToTheatreTerminal,
-  getTerminalIndexByStackPosition,
+  selectByStackPosition,
 } from './terminalCards';
 import {
   buildTheatreHeader,
@@ -293,13 +293,10 @@ export async function enterTheatreMode(
   registerHotkey('command+n', Scopes.THEATRE, () => createNewAgentShell());
   registerHotkey('command+t', Scopes.THEATRE, () => toggleTaskIndex());
 
-  // ⌘1-9 to switch between terminals by stack position (bottom to top)
+  // ⌘1-9 to select by stack position (terminals or tasks in empty state)
   for (let i = 1; i <= 9; i++) {
     registerHotkey(`command+${i}`, Scopes.THEATRE, () => {
-      const targetIndex = getTerminalIndexByStackPosition(i);
-      if (targetIndex !== -1) {
-        switchToTheatreTerminal(targetIndex);
-      }
+      selectByStackPosition(i);
     });
   }
 
@@ -601,13 +598,10 @@ export async function restoreTheatreMode(
   registerHotkey('command+n', Scopes.THEATRE, () => createNewAgentShell());
   registerHotkey('command+t', Scopes.THEATRE, () => toggleTaskIndex());
 
-  // ⌘1-9 to switch between terminals by stack position (bottom to top)
+  // ⌘1-9 to select by stack position (terminals or tasks in empty state)
   for (let i = 1; i <= 9; i++) {
     registerHotkey(`command+${i}`, Scopes.THEATRE, () => {
-      const targetIndex = getTerminalIndexByStackPosition(i);
-      if (targetIndex !== -1) {
-        switchToTheatreTerminal(targetIndex);
-      }
+      selectByStackPosition(i);
     });
   }
 

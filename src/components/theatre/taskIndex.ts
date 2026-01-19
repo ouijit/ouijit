@@ -220,15 +220,24 @@ async function populateTaskIndex(): Promise<void> {
 export async function showTaskIndex(): Promise<void> {
   if (taskIndexVisible.value) return;
 
+  // Set immediately to prevent re-entry during async operations
+  taskIndexVisible.value = true;
+
   const mainContent = document.querySelector('.main-content');
-  if (!mainContent) return;
+  if (!mainContent) {
+    taskIndexVisible.value = false;
+    return;
+  }
 
   // Create panel if it doesn't exist
   let panel = document.querySelector('.task-index-panel');
   if (!panel) {
     mainContent.insertAdjacentHTML('beforeend', buildTaskIndexHtml());
     panel = document.querySelector('.task-index-panel');
-    if (!panel) return;
+    if (!panel) {
+      taskIndexVisible.value = false;
+      return;
+    }
 
     // Wire up close button
     const closeBtn = panel.querySelector('.task-index-close');
@@ -250,8 +259,6 @@ export async function showTaskIndex(): Promise<void> {
   requestAnimationFrame(() => {
     panel!.classList.add('task-index-panel--visible');
   });
-
-  taskIndexVisible.value = true;
 
   // Push task index scope to capture hotkeys
   pushScope(Scopes.TASK_INDEX);

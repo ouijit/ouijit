@@ -19,7 +19,6 @@ import {
   terminals,
   activeIndex,
 } from './signals';
-import { registerHotkey, unregisterHotkey, Scopes } from '../../utils/hotkeys';
 import { showToast } from '../importDialog';
 import { scheduleGitStatusRefresh, refreshTerminalGitStatus, buildCardGitStatusHtml, scheduleTerminalGitStatusRefresh } from './gitStatus';
 import { toggleTerminalDiffPanel, toggleTerminalWorktreeDiffPanel, hideTerminalDiffPanel } from './diffPanel';
@@ -789,27 +788,6 @@ async function runDefaultInWorktreeCard(term: TheatreTerminal): Promise<void> {
   const runnerFitAddon = new FitAddon();
   runnerTerminal.loadAddon(runnerFitAddon);
 
-  // Handle global hotkeys in runner terminal
-  runnerTerminal.attachCustomKeyEventHandler((event) => {
-    if (event.metaKey && event.key === 't') {
-      theatreRegistry.toggleTaskIndex?.();
-      return false;
-    }
-    if (event.metaKey && event.key === 'n') {
-      theatreRegistry.createNewAgentShell?.();
-      return false;
-    }
-    // ⌘1-9 to switch between terminals by stack position (bottom to top)
-    if (event.metaKey && event.key >= '1' && event.key <= '9') {
-      const stackPosition = parseInt(event.key, 10);
-      const targetIndex = getTerminalIndexByStackPosition(stackPosition);
-      if (targetIndex !== -1) {
-        switchToTheatreTerminal(targetIndex);
-      }
-      return false;
-    }
-    return true;
-  });
 
   term.runnerTerminal = runnerTerminal;
   term.runnerFitAddon = runnerFitAddon;
@@ -992,6 +970,37 @@ export function switchToTheatreTerminal(index: number): void {
 }
 
 /**
+ * Select item at stack position (1-indexed)
+ * Handles both terminal switching and opening tasks from empty state
+ */
+export async function selectByStackPosition(position: number): Promise<void> {
+  const targetIndex = getTerminalIndexByStackPosition(position);
+  if (targetIndex !== -1) {
+    switchToTheatreTerminal(targetIndex);
+    return;
+  }
+
+  // No terminals - open the task at this position
+  const path = projectPath.value;
+  if (!path) return;
+
+  const tasks = await window.api.worktree.getTasks(path);
+  const openTasks = tasks.filter(t => t.status === 'open');
+  const taskIndex = position - 1;
+
+  if (taskIndex >= 0 && taskIndex < openTasks.length) {
+    const task = openTasks[taskIndex];
+    await addTheatreTerminal(undefined, {
+      existingWorktree: {
+        path: task.path,
+        branch: task.branch,
+        createdAt: task.createdAt,
+      },
+    });
+  }
+}
+
+/**
  * Options for adding a theatre terminal
  */
 export interface AddTheatreTerminalOptions {
@@ -1064,27 +1073,6 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
   terminal.loadAddon(fitAddon);
   terminal.open(xtermContainer);
 
-  // Handle global hotkeys in terminal
-  terminal.attachCustomKeyEventHandler((event) => {
-    if (event.metaKey && event.key === 't') {
-      theatreRegistry.toggleTaskIndex?.();
-      return false;
-    }
-    if (event.metaKey && event.key === 'n') {
-      theatreRegistry.createNewAgentShell?.();
-      return false;
-    }
-    // ⌘1-9 to switch between terminals by stack position (bottom to top)
-    if (event.metaKey && event.key >= '1' && event.key <= '9') {
-      const stackPosition = parseInt(event.key, 10);
-      const targetIndex = getTerminalIndexByStackPosition(stackPosition);
-      if (targetIndex !== -1) {
-        switchToTheatreTerminal(targetIndex);
-      }
-      return false;
-    }
-    return true;
-  });
 
   await new Promise(resolve => requestAnimationFrame(resolve));
   fitAddon.fit();
@@ -1395,22 +1383,10 @@ export async function showStackEmptyState(): Promise<void> {
   const input = emptyState.querySelector('.theatre-stack-empty-input') as HTMLInputElement;
   const submitBtn = emptyState.querySelector('.theatre-stack-empty-btn') as HTMLButtonElement;
 
-  // Register ⌘1-9 for quick task selection in THEATRE scope
-  for (let i = 1; i <= 9; i++) {
-    registerHotkey(`command+${i}`, Scopes.THEATRE, () => {
-      const taskBtn = emptyState.querySelector(`.theatre-stack-empty-task[data-task-index="${i - 1}"]`) as HTMLButtonElement;
-      if (taskBtn) {
-        taskBtn.click();
-      }
-    });
-  }
-
-  // Store cleanup function on the element for later removal
-  (emptyState as any)._keydownCleanup = () => {
-    for (let i = 1; i <= 9; i++) {
-      unregisterHotkey(`command+${i}`, Scopes.THEATRE);
-    }
-  };
+  // Note: ⌘1-9 hotkeys are already registered in enterTheatreMode for terminal switching.
+  // We don't register them again here to avoid duplicate handlers that cause double-firing
+  // when the task index scope is popped. Users can use Command+T to open the task index
+  // for keyboard-based task selection.
 
   if (form && input && submitBtn) {
     form.addEventListener('submit', async (e) => {
@@ -1462,11 +1438,6 @@ export async function showStackEmptyState(): Promise<void> {
 export function hideStackEmptyState(): void {
   const emptyState = document.querySelector('.theatre-stack-empty') as HTMLElement;
   if (!emptyState) return;
-
-  // Cleanup keydown handler
-  if ((emptyState as any)._keydownCleanup) {
-    (emptyState as any)._keydownCleanup();
-  }
 
   emptyState.classList.remove('theatre-stack-empty--visible');
 
