@@ -746,9 +746,12 @@ async function reconnectTheatreTerminal(session: ActiveSession): Promise<void> {
   // Set up exit handler
   const cleanupExit = window.api.pty.onExit(session.ptyId, () => {
     console.log('[Theatre] Terminal exited:', session.ptyId);
-    import('./terminalCards').then(({ closeTheatreTerminal }) => {
-      closeTheatreTerminal(theatreTerminal);
-    });
+    const idx = terminals.value.indexOf(theatreTerminal);
+    if (idx !== -1) {
+      import('./terminalCards').then(({ closeTheatreTerminal }) => {
+        closeTheatreTerminal(idx);
+      });
+    }
   });
   theatreTerminal.cleanupExit = cleanupExit;
 

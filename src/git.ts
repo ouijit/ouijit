@@ -8,7 +8,7 @@ function gitExecOpts(projectPath: string) {
   return {
     cwd: projectPath,
     encoding: 'utf8' as const,
-    stdio: ['pipe', 'pipe', 'pipe'] as const,
+    stdio: ['pipe', 'pipe', 'pipe'] as ['pipe', 'pipe', 'pipe'],
   };
 }
 

@@ -70,7 +70,7 @@ function mapLanguageToRuntime(language?: string): OuijitManifest['runtime'] {
  */
 async function getGitInfo(projectPath: string): Promise<{ remoteUrl?: string; commitHash?: string } | null> {
   try {
-    const opts = { cwd: projectPath, encoding: 'utf8' as const, stdio: ['pipe', 'pipe', 'pipe'] as const };
+    const opts = { cwd: projectPath, encoding: 'utf8' as const, stdio: ['pipe', 'pipe', 'pipe'] as ['pipe', 'pipe', 'pipe'] };
 
     let commitHash: string | undefined;
     try {

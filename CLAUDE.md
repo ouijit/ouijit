@@ -2,6 +2,29 @@
 
 Native macOS desktop app for project management.
 
+## Development
+
+### Commands for Claude
+- `npm run check` - Type check (run this to verify changes)
+
+Do NOT run `npm run start` or other dev server commands.
+
+### Project Structure
+- `src/main.ts` - Electron main process
+- `src/preload.ts` - Preload script (IPC bridge)
+- `src/renderer.ts` - Renderer entry point
+- `src/components/` - UI components
+- `src/components/theatre/` - Theatre mode (terminal/task runner UI)
+- `src/utils/` - Shared utilities
+- `src/ouijit/` - Core app logic (import/export, dependencies)
+
+### Tech Stack
+- Electron + Vite + TypeScript
+- No framework - vanilla DOM manipulation
+- @preact/signals-core for reactivity
+- xterm.js for terminal emulation
+- node-pty for shell processes
+
 ## Design Rules
 
 - No `cursor: pointer` - this is a desktop app, not web

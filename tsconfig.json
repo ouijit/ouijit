@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
     "target": "ESNext",
-    "module": "commonjs",
+    "module": "ESNext",
     "allowJs": true,
     "skipLibCheck": true,
     "esModuleInterop": true,
@@ -9,7 +9,9 @@
     "sourceMap": true,
     "baseUrl": ".",
     "outDir": "dist",
-    "moduleResolution": "node",
-    "resolveJsonModule": true
-  }
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "types": ["vite/client"]
+  },
+  "include": ["src", "forge.env.d.ts"]
 }
