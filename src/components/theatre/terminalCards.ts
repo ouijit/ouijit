@@ -241,7 +241,7 @@ export function analyzeTerminalOutput(buffer: string, lastOscTitle: string): { s
   const spinnerChars = /[⠁⠂⠄⠈⠐⠠⡀⢀⠃⠅⠆⠉⠊⠌⠑⠒⠔⠘⠡⠢⠤⠨⠰⡁⡂⡄⡈⡐⡠⢁⢂⢄⢈⢐⢠⣀⠇⠋⠍⠎⠓⠕⠖⠙⠚⠜⠣⠥⠦⠩⠪⠬⠱⠲⠴⠸⡃⡅⡆⡉⡊⡌⡑⡒⡔⡘⡡⡢⡤⡨⡰⢃⢅⢆⢉⢊⢌⢑⢒⢔⢘⢡⢢⢤⢨⢰⣁⣂⣄⣈⣐⣠◐◓◑◒]/;
 
   if (spinnerChars.test(lastOscTitle)) {
-    return { summary: 'Thinking...', type: 'thinking' };
+    return { summary: '', type: 'thinking' };
   }
 
   // Completion patterns - build/task finished successfully
@@ -365,9 +365,14 @@ export function updateTerminalCardLabel(term: TheatreTerminal): void {
   // Update label text
   const labelText = labelEl.querySelector('.theatre-card-label-text');
   if (labelText) {
-    const display = term.summary
-      ? `${term.label} — ${term.summary}`
-      : term.label;
+    // Build display: label — oscTitle — summary (each part optional)
+    let display = term.label;
+    if (term.lastOscTitle) {
+      display += ` — ${term.lastOscTitle}`;
+    }
+    if (term.summary) {
+      display += ` — ${term.summary}`;
+    }
     labelText.textContent = display;
   }
 
@@ -1153,8 +1158,12 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
       // Extract OSC title sequences (e.g., \x1b]0;Title Here\x07)
       const oscMatches = data.matchAll(/\x1b\]0;([^\x07]*)\x07/g);
       for (const match of oscMatches) {
-        theatreTerminal.lastOscTitle = match[1];
-        addOscTitleToHistory(theatreTerminal, match[1]);
+        const newTitle = match[1];
+        if (newTitle !== theatreTerminal.lastOscTitle) {
+          theatreTerminal.lastOscTitle = newTitle;
+          addOscTitleToHistory(theatreTerminal, newTitle);
+          updateTerminalCardLabel(theatreTerminal);
+        }
       }
 
       scheduleTerminalSummaryUpdate(theatreTerminal);
