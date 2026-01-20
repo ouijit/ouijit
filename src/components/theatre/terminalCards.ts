@@ -340,6 +340,88 @@ export function createTheatreCard(label: string, index: number): HTMLElement {
 }
 
 /**
+ * Create a loading placeholder card for task creation
+ */
+export function createLoadingCard(label: string): HTMLElement {
+  const card = document.createElement('div');
+  card.className = 'theatre-card theatre-card--loading theatre-card--active';
+
+  const labelEl = document.createElement('div');
+  labelEl.className = 'theatre-card-label';
+
+  labelEl.innerHTML = `
+    <div class="theatre-card-label-left">
+      <span class="theatre-card-status-dot theatre-card-status-dot--loading"></span>
+      <span class="theatre-card-label-text">${label || 'New task'}</span>
+    </div>
+    <div class="theatre-card-label-right"></div>
+  `;
+  card.appendChild(labelEl);
+
+  const cardBody = document.createElement('div');
+  cardBody.className = 'theatre-card-body';
+
+  const loadingContent = document.createElement('div');
+  loadingContent.className = 'theatre-card-loading-content';
+  loadingContent.innerHTML = `
+    <div class="theatre-card-loading-text">Setting up workspace...</div>
+  `;
+
+  cardBody.appendChild(loadingContent);
+  card.appendChild(cardBody);
+
+  return card;
+}
+
+/**
+ * Show a loading card and push existing terminals back in the stack
+ */
+export function showLoadingCardInStack(label: string): HTMLElement {
+  const stack = document.querySelector('.theatre-stack') as HTMLElement;
+  if (!stack) throw new Error('Theatre stack not found');
+
+  const currentTerminals = terminals.value;
+  const currentActiveIndex = activeIndex.value;
+
+  // Push existing terminals back by one position relative to their current position
+  currentTerminals.forEach((term, index) => {
+    term.container.classList.remove('theatre-card--active', 'theatre-card--back-1', 'theatre-card--back-2', 'theatre-card--back-3', 'theatre-card--back-4');
+
+    if (index === currentActiveIndex) {
+      // Active card becomes back-1
+      term.container.classList.add('theatre-card--back-1');
+    } else {
+      // Calculate current back position and increment it
+      const diff = index < currentActiveIndex
+        ? currentActiveIndex - index
+        : currentTerminals.length - index + currentActiveIndex;
+      // Add 1 to push it back further
+      const newBackPosition = Math.min(diff + 1, 4);
+      term.container.classList.add(`theatre-card--back-${newBackPosition}`);
+    }
+  });
+
+  // Create and add loading card as the new active card
+  const loadingCard = createLoadingCard(label);
+  stack.appendChild(loadingCard);
+
+  // Adjust stack top position to account for the loading card + existing cards
+  const backCardCount = Math.min(currentTerminals.length, 4);
+  const tabSpace = backCardCount * 24;
+  stack.style.top = `${82 + tabSpace}px`;
+
+  return loadingCard;
+}
+
+/**
+ * Remove loading card and restore normal stack positions
+ */
+export function removeLoadingCard(loadingCard: HTMLElement): void {
+  loadingCard.remove();
+  // updateCardStack will be called when terminals.value changes
+}
+
+/**
  * Set up card action buttons (runner pill for all terminals, close-task for worktrees)
  * Note: Runner pill visibility is controlled by updateCardStack (only shown on active card)
  */
@@ -842,13 +924,19 @@ export function switchToTheatreTerminal(index: number): void {
  * Handles both terminal switching and opening tasks from empty state
  */
 export async function selectByStackPosition(position: number): Promise<void> {
-  const targetIndex = getTerminalIndexByStackPosition(position);
-  if (targetIndex !== -1) {
-    switchToTheatreTerminal(targetIndex);
+  const currentTerminals = terminals.value;
+
+  // If there are terminals, try to switch to the one at this stack position
+  if (currentTerminals.length > 0) {
+    const targetIndex = getTerminalIndexByStackPosition(position);
+    if (targetIndex !== -1) {
+      switchToTheatreTerminal(targetIndex);
+    }
+    // If position doesn't exist in stack, just ignore
     return;
   }
 
-  // No terminals - open the task at this position
+  // No terminals - open the task at this position from the empty state list
   const path = projectPath.value;
   if (!path) return;
 
@@ -897,11 +985,31 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
 
   let terminalCwd = currentProjectPath;
   let worktreeInfo: WorktreeInfo | undefined = options?.existingWorktree;
+  let loadingCard: HTMLElement | null = null;
 
-  // Create worktree if requested
+  // Show loading card immediately if creating a new worktree
   if (options?.useWorktree && !worktreeInfo) {
+    const loadingLabel = options.worktreeName || 'New task';
+
+    // Hide empty state if visible
+    const emptyState = stack.querySelector('.theatre-stack-empty') as HTMLElement;
+    if (emptyState) {
+      emptyState.classList.remove('theatre-stack-empty--visible');
+    }
+
+    // Show loading card in the stack (pushes existing cards back)
+    loadingCard = showLoadingCardInStack(loadingLabel);
+
+    // Create worktree
     const result = await window.api.worktree.create(currentProjectPath, options.worktreeName);
     if (!result.success || !result.task || !result.worktreePath) {
+      removeLoadingCard(loadingCard);
+      // Restore stack positions
+      updateCardStack();
+      // Re-show empty state if no terminals
+      if (terminals.value.length === 0 && emptyState) {
+        emptyState.classList.add('theatre-stack-empty--visible');
+      }
       showToast(result.error || 'Failed to create worktree', 'error');
       return false;
     }
@@ -925,6 +1033,11 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
     : (runConfig?.name || 'Shell');
   const command = runConfig?.command;
   const index = currentTerminals.length;
+
+  // Remove loading card if present, then create real card
+  if (loadingCard) {
+    removeLoadingCard(loadingCard);
+  }
 
   // Create card element
   const card = createTheatreCard(label, index);
@@ -1276,10 +1389,8 @@ export async function showStackEmptyState(): Promise<void> {
 
       const name = input.value.trim() || undefined;
 
-      // Show loading state
+      // Disable form while creating (loading card provides visual feedback)
       submitBtn.disabled = true;
-      const originalText = submitBtn.textContent;
-      submitBtn.textContent = 'Creating...';
       input.disabled = true;
 
       try {
@@ -1287,16 +1398,16 @@ export async function showStackEmptyState(): Promise<void> {
         if (!success) {
           // Restore form state if terminal creation failed
           submitBtn.disabled = false;
-          submitBtn.textContent = originalText;
           input.disabled = false;
+          input.focus();
         }
         // If successful, the form will be hidden by the effect system
       } catch (error) {
         console.error('[theatre] Failed to create task:', error);
         showToast('Failed to create task', 'error');
         submitBtn.disabled = false;
-        submitBtn.textContent = originalText;
         input.disabled = false;
+        input.focus();
       }
     });
   }

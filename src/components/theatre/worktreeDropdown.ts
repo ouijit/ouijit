@@ -11,6 +11,7 @@ import { registerHotkey, unregisterHotkey, pushScope, popScope, Scopes } from '.
 
 /**
  * Show a simple prompt dialog for naming a worktree
+ * Returns the task name, or null if cancelled
  */
 function showWorktreeNamePrompt(): Promise<string | null> {
   return new Promise((resolve) => {
@@ -58,8 +59,9 @@ function showWorktreeNamePrompt(): Promise<string | null> {
     };
 
     const handleCreate = () => {
+      const name = nameInput.value.trim() || null;
       cleanup();
-      resolve(nameInput.value.trim() || null);
+      resolve(name);
     };
 
     const handleCancel = () => {

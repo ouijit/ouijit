@@ -2476,6 +2476,38 @@ body > .diff-panel--visible {
   50% { opacity: 0.5; }
 }
 
+/* Loading card styles */
+.theatre-card--loading {
+  pointer-events: none;
+}
+
+.theatre-card-status-dot--loading {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: transparent;
+  border: 1.5px solid rgba(255, 255, 255, 0.3);
+  border-top-color: rgba(255, 255, 255, 0.8);
+  animation: loading-dot-spin 0.8s linear infinite;
+}
+
+@keyframes loading-dot-spin {
+  to { transform: rotate(360deg); }
+}
+
+.theatre-card-loading-content {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.theatre-card-loading-text {
+  font-family: 'SF Mono', Monaco, Menlo, monospace;
+  font-size: var(--font-size-sm);
+  color: rgba(255, 255, 255, 0.4);
+}
+
 .theatre-card-close {
   width: 20px;
   height: 20px;
