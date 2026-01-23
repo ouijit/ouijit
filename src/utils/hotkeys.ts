@@ -67,14 +67,6 @@ export function unregisterHotkey(keys: string, scope: Scope): void {
 }
 
 /**
- * Check if the event target is inside an xterm.js terminal
- * xterm uses a hidden textarea for input, nested inside .xterm container
- */
-function isInsideXterm(target: HTMLElement): boolean {
-  return target.closest('.xterm') !== null;
-}
-
-/**
  * Configure hotkeys-js to work in input fields when needed
  * By default, hotkeys-js ignores events from input/textarea/select
  */
@@ -86,18 +78,8 @@ export function initHotkeys(): void {
     const isInput =
       tagName === 'INPUT' || tagName === 'TEXTAREA' || tagName === 'SELECT';
 
-    // Never intercept keys when focused inside xterm terminal
-    // Terminal needs full keyboard control for interactive programs like vim
-    if (isInsideXterm(target)) {
-      // Only allow Command+key shortcuts in terminal (for switching tabs, etc.)
-      if (event.metaKey && !event.ctrlKey && !event.altKey) {
-        return true;
-      }
-      return false;
-    }
-
-    // For regular inputs (not terminal), allow Escape and Enter for modal handling
-    if (isInput && (event.key === 'Escape' || event.key === 'Enter')) {
+    // Always allow these through, even in inputs
+    if (event.key === 'Escape' || event.key === 'Enter') {
       return true;
     }
 
