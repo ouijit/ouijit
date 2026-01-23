@@ -589,8 +589,19 @@ export async function restoreTheatreMode(
     });
   }
 
-  // 5. Start periodic git status refresh
+  // 5. Refresh git status immediately and start periodic refresh
   if (project.hasGit) {
+    // Immediate refresh so git info shows right away
+    refreshGitStatus();
+    refreshAllTerminalGitStatus().then(() => {
+      import('./terminalCards').then(({ updateTerminalCardLabel }) => {
+        for (const term of terminals.value) {
+          updateTerminalCardLabel(term);
+        }
+      });
+    });
+
+    // Periodic refresh for ongoing changes
     theatreState.gitStatusPeriodicInterval = setInterval(() => {
       refreshGitStatus();
       refreshAllTerminalGitStatus().then(() => {
@@ -661,9 +672,6 @@ async function reconnectTheatreTerminal(session: ActiveSession): Promise<void> {
     terminal.reset();
     // Write the full buffered history
     terminal.write(result.bufferedOutput);
-    // Hide cursor AFTER replay - buffered output may contain cursor-show sequences
-    // The running app will show cursor when it redraws after resize
-    terminal.write('\x1b[?25l');
   }
 
   // Set up resize observer
