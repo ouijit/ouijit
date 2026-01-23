@@ -276,6 +276,7 @@ export async function enterTheatreMode(
   registerHotkey('escape', Scopes.THEATRE, () => exitTheatreMode());
   registerHotkey('command+n', Scopes.THEATRE, () => createNewAgentShell());
   registerHotkey('command+t', Scopes.THEATRE, () => toggleTaskIndex());
+  registerHotkey('command+i', Scopes.THEATRE, () => addTheatreTerminal());
 
   // ⌘1-9 to select by stack position (terminals or tasks in empty state)
   for (let i = 1; i <= 9; i++) {
@@ -383,6 +384,7 @@ export function exitTheatreMode(): void {
   unregisterHotkey('escape', Scopes.THEATRE);
   unregisterHotkey('command+n', Scopes.THEATRE);
   unregisterHotkey('command+t', Scopes.THEATRE);
+  unregisterHotkey('command+i', Scopes.THEATRE);
   for (let i = 1; i <= 9; i++) {
     unregisterHotkey(`command+${i}`, Scopes.THEATRE);
   }
@@ -570,6 +572,7 @@ export async function restoreTheatreMode(
   registerHotkey('escape', Scopes.THEATRE, () => exitTheatreMode());
   registerHotkey('command+n', Scopes.THEATRE, () => createNewAgentShell());
   registerHotkey('command+t', Scopes.THEATRE, () => toggleTaskIndex());
+  registerHotkey('command+i', Scopes.THEATRE, () => addTheatreTerminal());
 
   // ⌘1-9 to select by stack position (terminals or tasks in empty state)
   for (let i = 1; i <= 9; i++) {
