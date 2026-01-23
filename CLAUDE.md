@@ -38,3 +38,18 @@ Do NOT run `npm run start` or other dev server commands.
 - Use targeted DOM updates instead of full rebuilds
 - Clear intervals/timeouts on cleanup
 - Use `-webkit-app-region: no-drag;` for any UI elements (dropdowns, menus) originating in the titlebar area
+
+### Theatre Mode Hotkeys
+
+To add a new hotkey in theatre mode:
+
+1. Add the handler function signature to `TheatreRegistry` interface in `helpers.ts`
+2. Add initial `null` value in the `theatreRegistry` object
+3. Implement the handler in the appropriate module (e.g., `terminalCards.ts`, `diffPanel.ts`)
+4. Register it: `theatreRegistry.myHandler = myHandler;` at module load time
+5. In `theatreMode.ts`:
+   - Register hotkey in both `enterTheatreMode` and `restoreTheatreMode`
+   - Unregister in `exitTheatreMode`
+   - Call via registry with optional chaining: `theatreRegistry.myHandler?.()`
+
+This registry pattern avoids circular dependencies between theatre modules.

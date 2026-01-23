@@ -20,6 +20,9 @@ interface TheatreRegistry {
   // From terminalCards
   addTheatreTerminal: ((runConfig?: unknown, options?: unknown) => Promise<boolean>) | null;
   closeTheatreTerminal: ((index: number) => void) | null;
+  playOrToggleRunner: (() => Promise<void>) | null;
+  // From diffPanel
+  toggleActiveDiffPanel: (() => Promise<void>) | null;
 }
 
 export const theatreRegistry: TheatreRegistry = {
@@ -28,6 +31,8 @@ export const theatreRegistry: TheatreRegistry = {
   createNewAgentShell: null,
   addTheatreTerminal: null,
   closeTheatreTerminal: null,
+  playOrToggleRunner: null,
+  toggleActiveDiffPanel: null,
 };
 
 /**

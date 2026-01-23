@@ -4,7 +4,7 @@
 
 import type { ChangedFile, FileDiff } from '../../types';
 import { theatreState, TheatreTerminal } from './state';
-import { getTerminalGitPath, hideRunnerPanel } from './helpers';
+import { getTerminalGitPath, hideRunnerPanel, theatreRegistry } from './helpers';
 import {
   projectPath,
   terminals,
@@ -849,3 +849,21 @@ export async function toggleTerminalWorktreeDiffPanel(term: TheatreTerminal): Pr
     await showTerminalWorktreeDiffPanel(term);
   }
 }
+
+/**
+ * Toggle diff panel for the active terminal (hotkey handler)
+ */
+async function toggleActiveDiffPanel(): Promise<void> {
+  const currentTerminals = terminals.value;
+  const currentActiveIndex = activeIndex.value;
+
+  if (currentTerminals.length === 0 || currentActiveIndex >= currentTerminals.length) {
+    return;
+  }
+
+  const activeTerm = currentTerminals[currentActiveIndex];
+  await toggleTerminalDiffPanel(activeTerm);
+}
+
+// Register in theatre registry for cross-module access
+theatreRegistry.toggleActiveDiffPanel = toggleActiveDiffPanel;

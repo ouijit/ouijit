@@ -821,7 +821,7 @@ export function killExistingCommandInstances(command: string): void {
 /**
  * Run the default command as a hidden runner
  */
-async function runDefaultInCard(term: TheatreTerminal): Promise<void> {
+export async function runDefaultInCard(term: TheatreTerminal): Promise<void> {
   const path = projectPath.value;
   const project = projectData.value;
   if (!path || !project) return;
@@ -1586,6 +1586,28 @@ export function hideStackEmptyState(): void {
   }, 200);
 }
 
+/**
+ * Play or toggle runner for the active terminal (hotkey handler)
+ * If runner is active, toggles its panel visibility
+ * Otherwise, starts the default command as a runner
+ */
+async function playOrToggleRunner(): Promise<void> {
+  const currentTerminals = terminals.value;
+  const currentActiveIndex = activeIndex.value;
+
+  if (currentTerminals.length === 0 || currentActiveIndex >= currentTerminals.length) {
+    return;
+  }
+
+  const activeTerm = currentTerminals[currentActiveIndex];
+  if (activeTerm.runnerPtyId) {
+    toggleRunnerPanel(activeTerm);
+  } else {
+    await runDefaultInCard(activeTerm);
+  }
+}
+
 // Register functions in the theatre registry for cross-module access
 theatreRegistry.addTheatreTerminal = addTheatreTerminal;
 theatreRegistry.closeTheatreTerminal = closeTheatreTerminal;
+theatreRegistry.playOrToggleRunner = playOrToggleRunner;

@@ -51,6 +51,7 @@ import {
 } from './launchDropdown';
 import { createNewAgentShell } from './worktreeDropdown';
 import { toggleTaskIndex } from './taskIndex';
+import { theatreRegistry } from './helpers';
 import { registerHotkey, unregisterHotkey, pushScope, popScope, Scopes } from '../../utils/hotkeys';
 
 /**
@@ -278,6 +279,8 @@ export async function enterTheatreMode(
   registerHotkey('command+n', Scopes.THEATRE, () => createNewAgentShell());
   registerHotkey('command+t', Scopes.THEATRE, () => toggleTaskIndex());
   registerHotkey('command+i', Scopes.THEATRE, () => addTheatreTerminal());
+  registerHotkey('command+p', Scopes.THEATRE, () => theatreRegistry.playOrToggleRunner?.());
+  registerHotkey('command+d', Scopes.THEATRE, () => theatreRegistry.toggleActiveDiffPanel?.());
 
   // ⌘1-9 to select by stack position (terminals or tasks in empty state)
   for (let i = 1; i <= 9; i++) {
@@ -386,6 +389,8 @@ export function exitTheatreMode(): void {
   unregisterHotkey('command+n', Scopes.THEATRE);
   unregisterHotkey('command+t', Scopes.THEATRE);
   unregisterHotkey('command+i', Scopes.THEATRE);
+  unregisterHotkey('command+p', Scopes.THEATRE);
+  unregisterHotkey('command+d', Scopes.THEATRE);
   for (let i = 1; i <= 9; i++) {
     unregisterHotkey(`command+${i}`, Scopes.THEATRE);
   }
@@ -574,6 +579,8 @@ export async function restoreTheatreMode(
   registerHotkey('command+n', Scopes.THEATRE, () => createNewAgentShell());
   registerHotkey('command+t', Scopes.THEATRE, () => toggleTaskIndex());
   registerHotkey('command+i', Scopes.THEATRE, () => addTheatreTerminal());
+  registerHotkey('command+p', Scopes.THEATRE, () => theatreRegistry.playOrToggleRunner?.());
+  registerHotkey('command+d', Scopes.THEATRE, () => theatreRegistry.toggleActiveDiffPanel?.());
 
   // ⌘1-9 to select by stack position (terminals or tasks in empty state)
   for (let i = 1; i <= 9; i++) {
