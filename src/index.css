@@ -2386,8 +2386,6 @@ body > .diff-panel--visible {
   align-items: center;
   justify-content: space-between;
   padding: 8px 12px;
-  background: rgba(255, 255, 255, 0.05);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   min-height: 36px;
 }
 
@@ -3063,11 +3061,6 @@ body > .diff-panel--visible {
 
 /* Light mode adjustments for card stack */
 @media (prefers-color-scheme: light) {
-  .theatre-card-label {
-    background: rgba(0, 0, 0, 0.03);
-    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
-  }
-
   .theatre-card-label-text {
     color: rgba(0, 0, 0, 0.7);
   }
