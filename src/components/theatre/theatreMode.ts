@@ -603,10 +603,12 @@ async function reconnectTheatreTerminal(session: ActiveSession): Promise<void> {
 
   const terminal = new Terminal({
     cursorBlink: true,
+    cursorStyle: 'bar',
     fontSize: 13,
     fontFamily: 'ui-monospace, "SF Mono", Menlo, Monaco, monospace',
+    lineHeight: 1.2,
     theme: getTerminalTheme(),
-    allowProposedApi: true,
+    allowTransparency: true,
     scrollback: 10000,
   });
 
@@ -644,10 +646,13 @@ async function reconnectTheatreTerminal(session: ActiveSession): Promise<void> {
 
   // Replay buffered output (scroll history)
   if (result.bufferedOutput) {
-    // Reset terminal state first to avoid cursor artifacts
+    // Reset terminal state first
     terminal.reset();
     // Write the full buffered history
     terminal.write(result.bufferedOutput);
+    // Hide cursor AFTER replay - buffered output may contain cursor-show sequences
+    // The running app will show cursor when it redraws after resize
+    terminal.write('\x1b[?25l');
   }
 
   // Set up resize observer
