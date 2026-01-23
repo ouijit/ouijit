@@ -34,11 +34,11 @@ export function buildTheatreHeader(): string {
         <i data-lucide="terminal"></i>
       </button>
       <div class="theatre-launch-wrapper">
-        <button class="theatre-launch-chevron-btn" title="More commands">
-          <i data-lucide="chevron-down"></i>
-        </button>
         <button class="theatre-play-btn" title="Run default command">
           <i data-lucide="play"></i>
+        </button>
+        <button class="theatre-launch-chevron-btn" title="More commands">
+          <i data-lucide="chevron-down"></i>
         </button>
       </div>
       <button class="theatre-exit-btn" title="Exit theatre mode (Esc)">

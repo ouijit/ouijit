@@ -3021,12 +3021,12 @@ body > .diff-panel--visible {
   transition: all var(--transition-fast);
 }
 
-.theatre-launch-chevron-btn {
+.theatre-play-btn {
   border-radius: var(--radius-md) 0 0 var(--radius-md);
   border-right: none;
 }
 
-.theatre-play-btn {
+.theatre-launch-chevron-btn {
   border-radius: 0 var(--radius-md) var(--radius-md) 0;
 }
 
