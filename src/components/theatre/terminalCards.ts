@@ -731,13 +731,14 @@ export function showRunnerPanel(term: TheatreTerminal): void {
     panel.classList.add('runner-panel--visible');
   });
 
-  // Refit terminals after animation
+  // Refit terminals after animation and focus runner
   setTimeout(() => {
     term.fitAddon.fit();
     window.api.pty.resize(term.ptyId, term.terminal.cols, term.terminal.rows);
     if (term.runnerFitAddon && term.runnerPtyId) {
       term.runnerFitAddon.fit();
       window.api.pty.resize(term.runnerPtyId, term.runnerTerminal!.cols, term.runnerTerminal!.rows);
+      term.runnerTerminal!.focus();
     }
   }, 250);
 }
