@@ -27,13 +27,11 @@ function debounce<T extends (...args: Parameters<T>) => void>(
 export function setupSearch(
   input: HTMLInputElement,
   projects: Project[],
-  container: HTMLElement,
-  onOpen: (path: string) => void,
-  onOpenFinder?: (path: string) => void
+  container: HTMLElement
 ): void {
   const handleSearch = (query: string) => {
     const filteredProjects = filterProjects(projects, query);
-    renderProjects(container, filteredProjects, onOpen, onOpenFinder);
+    renderProjects(container, filteredProjects);
 
     // Update empty state message for search results
     if (filteredProjects.length === 0 && query.trim()) {

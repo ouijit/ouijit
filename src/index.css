@@ -588,53 +588,7 @@ textarea,
   height: 14px;
 }
 
-/* Actions Container */
-.actions-container {
-  position: absolute;
-  right: var(--spacing-lg);
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-sm);
-  z-index: 10;
-}
-
-.actions-container:has(.launch-dropdown.visible) {
-  z-index: 100;
-}
-
-.project-row .actions-container {
-  opacity: 0;
-  transform: translateX(8px);
-  transition: opacity var(--transition-fast), transform var(--transition-fast);
-}
-
-.project-row:hover .actions-container {
-  opacity: 1;
-  transform: translateX(0);
-}
-
-.project-row:hover .last-modified {
-  opacity: 0;
-}
-
-/* Launch Wrapper & Dropdown */
-.launch-wrapper {
-  position: relative;
-}
-
-.btn-launch {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-xs);
-}
-
-.dropdown-arrow {
-  width: 14px;
-  height: 14px;
-  opacity: 0.8;
-  margin-left: 4px;
-}
-
+/* Launch Dropdown (used in theatre mode) */
 .launch-dropdown {
   position: absolute;
   top: 100%;
@@ -1043,13 +997,6 @@ textarea,
   .last-modified {
     display: none;
   }
-
-  .project-row > .btn-primary,
-  .project-row .actions-container {
-    opacity: 1;
-    position: static;
-    transform: none;
-  }
 }
 
 /* Reduced Motion */
@@ -1141,6 +1088,7 @@ textarea,
   opacity: 1;
 }
 
+/* Dialog box styles (used by import dialog, hook config dialog, etc.) */
 .import-dialog {
   background: var(--color-surface);
   border-radius: var(--radius-lg);
@@ -1164,90 +1112,6 @@ textarea,
   color: var(--color-text-primary);
   margin-bottom: var(--spacing-md);
   text-align: center;
-}
-
-.import-dialog-text {
-  font-size: var(--font-size-sm);
-  color: var(--color-text-secondary);
-  line-height: 1.5;
-  margin-bottom: var(--spacing-lg);
-  text-align: center;
-}
-
-.import-dialog-text strong {
-  color: var(--color-text-primary);
-  font-weight: var(--font-weight-medium);
-}
-
-.import-preview {
-  width: 100%;
-  height: 180px;
-  object-fit: cover;
-  border-radius: var(--radius-md);
-  margin-bottom: var(--spacing-md);
-  background: var(--color-background);
-}
-
-.import-preview-placeholder {
-  width: 100%;
-  height: 180px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--color-background);
-  border-radius: var(--radius-md);
-  margin-bottom: var(--spacing-md);
-  color: var(--color-text-tertiary);
-  font-size: var(--font-size-sm);
-}
-
-.import-meta {
-  margin-bottom: var(--spacing-lg);
-}
-
-.import-tagline {
-  font-size: var(--font-size-sm);
-  color: var(--color-text-secondary);
-  text-align: center;
-  margin-bottom: var(--spacing-md);
-}
-
-.import-details {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-sm);
-}
-
-.import-detail-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: var(--font-size-sm);
-}
-
-.import-detail-row dt {
-  color: var(--color-text-tertiary);
-  font-weight: var(--font-weight-medium);
-}
-
-.import-detail-row dd {
-  color: var(--color-text-primary);
-  text-align: right;
-}
-
-.import-detail-row code {
-  font-family: 'SF Mono', 'Monaco', 'Menlo', monospace;
-  font-size: var(--font-size-xs);
-  background: var(--color-background);
-  padding: 2px 6px;
-  border-radius: var(--radius-sm);
-}
-
-.import-source-url {
-  max-width: 200px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .import-actions {
@@ -1405,47 +1269,6 @@ textarea,
   .toast--error::before {
     background: #FF453A;
   }
-}
-
-/* ===================================
-   Drag & Drop Overlay
-   =================================== */
-
-.drop-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 122, 255, 0.1);
-  border: 3px dashed var(--color-accent);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 999;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity var(--transition-fast);
-}
-
-.drop-overlay--visible {
-  opacity: 1;
-}
-
-.drop-overlay-content {
-  text-align: center;
-  color: var(--color-accent);
-}
-
-.drop-overlay-icon {
-  width: 64px;
-  height: 64px;
-  margin-bottom: var(--spacing-md);
-}
-
-.drop-overlay-text {
-  font-size: var(--font-size-lg);
-  font-weight: var(--font-weight-semibold);
 }
 
 /* ===================================
@@ -3163,6 +2986,144 @@ body > .diff-panel--visible {
   .launch-option--danger .launch-option-icon {
     color: #FF453A;
   }
+}
+
+/* Hooks UI in launch dropdown */
+.launch-dropdown-header {
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+  padding: 8px 12px 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.hooks-container {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0 var(--spacing-xs);
+}
+
+.hook-row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+}
+
+.hook-row:hover {
+  background: var(--color-bg-secondary);
+}
+
+.hook-label {
+  flex-shrink: 0;
+  width: 52px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+}
+
+.hook-row-right {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--spacing-xs);
+  min-width: 0;
+}
+
+.hook-command {
+  font-size: 12px;
+  font-family: var(--font-mono);
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hook-action-btn {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-tertiary);
+  transition: all var(--transition-fast);
+}
+
+.hook-action-btn:hover {
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-primary);
+}
+
+.hook-action-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+.hook-configure-btn {
+  border: none;
+  background: transparent;
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+  text-align: right;
+  padding: 0;
+  transition: color var(--transition-fast);
+}
+
+.hook-configure-btn:hover {
+  color: var(--color-accent);
+}
+
+/* Hook config dialog */
+.hook-description {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  margin: -8px 0 16px 0;
+  line-height: 1.4;
+}
+
+.form-textarea {
+  height: auto;
+  padding: 10px var(--spacing-md);
+  resize: vertical;
+  min-height: 76px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.hook-env-vars {
+  margin-top: 12px;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+.hook-env-vars summary {
+  cursor: default;
+  user-select: none;
+}
+
+.hook-env-vars ul {
+  margin: 8px 0 0 0;
+  padding-left: 20px;
+}
+
+.hook-env-vars li {
+  margin: 4px 0;
+}
+
+.hook-env-vars code {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  background: var(--color-bg-secondary);
+  padding: 2px 4px;
+  border-radius: 3px;
 }
 
 /* Light mode adjustments for card stack */

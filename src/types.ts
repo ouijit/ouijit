@@ -23,6 +23,7 @@ export interface RunConfig {
 
 /**
  * Custom command defined by the user
+ * @deprecated Use ScriptHook instead
  */
 export interface CustomCommand {
   /** Unique identifier */
@@ -36,13 +37,42 @@ export interface CustomCommand {
 }
 
 /**
+ * Hook type - when the script runs
+ */
+export type HookType = 'init' | 'run' | 'cleanup';
+
+/**
+ * Script hook configuration
+ */
+export interface ScriptHook {
+  /** Unique identifier */
+  id: string;
+  /** Hook type - determines when it runs */
+  type: HookType;
+  /** Display name */
+  name: string;
+  /** Command to execute */
+  command: string;
+  /** Optional description */
+  description?: string;
+}
+
+/**
  * Project-specific settings stored by the app
  */
 export interface ProjectSettings {
-  /** Custom commands added by the user */
-  customCommands: CustomCommand[];
-  /** ID of the default command (custom ID or detected command key like "package.json:dev") */
+  /** @deprecated Use hooks instead */
+  customCommands?: CustomCommand[];
+  /** @deprecated Use hooks.run instead */
   defaultCommandId?: string;
+  /** Script hooks for project lifecycle */
+  hooks?: {
+    init?: ScriptHook;
+    run?: ScriptHook;
+    cleanup?: ScriptHook;
+  };
+  /** If true, kill existing instances of a command before starting a new one (default: true) */
+  killExistingOnRun?: boolean;
 }
 
 /**
@@ -98,6 +128,8 @@ export interface PtySpawnOptions {
   isRunner?: boolean;
   /** Parent PTY ID if this is a runner (for session restoration) */
   parentPtyId?: PtyId;
+  /** Additional environment variables to set */
+  env?: Record<string, string>;
 }
 
 /**
@@ -207,6 +239,18 @@ export interface WorktreeRemoveResult {
 }
 
 /**
+ * Hooks API exposed to the renderer
+ */
+export interface HooksAPI {
+  /** Get all hooks for a project */
+  get(projectPath: string): Promise<{ init?: ScriptHook; run?: ScriptHook; cleanup?: ScriptHook }>;
+  /** Save a hook for a project */
+  save(projectPath: string, hook: ScriptHook): Promise<{ success: boolean }>;
+  /** Delete a hook for a project */
+  delete(projectPath: string, hookType: HookType): Promise<{ success: boolean }>;
+}
+
+/**
  * Worktree API exposed to the renderer
  */
 export interface WorktreeAPI {
@@ -219,7 +263,7 @@ export interface WorktreeAPI {
   /** Get tasks with metadata merged with worktree list */
   getTasks(projectPath: string): Promise<WorktreeWithMetadata[]>;
   /** Mark a task as closed (metadata only, keeps worktree) */
-  close(projectPath: string, branch: string): Promise<{ success: boolean; error?: string }>;
+  close(projectPath: string, branch: string): Promise<{ success: boolean; error?: string; hookWarning?: string }>;
   /** Reopen a closed task */
   reopen(projectPath: string, branch: string): Promise<{ success: boolean; error?: string }>;
   /** Set a task's ready-to-ship state */
@@ -256,14 +300,6 @@ export interface ElectronAPI {
   pty: PtyAPI;
   /** Worktree management API */
   worktree: WorktreeAPI;
-  /** Export a project as .ouijit file */
-  exportProject(projectPath: string): Promise<ExportResult>;
-  /** Preview a .ouijit file before importing */
-  previewOuijitFile(filePath: string): Promise<PreviewResult>;
-  /** Import a previewed .ouijit package */
-  importOuijitPackage(tempDir: string): Promise<ImportResult>;
-  /** Open file dialog to select a .ouijit file */
-  openOuijitFileDialog(): Promise<string | null>;
   /** Refresh the project list */
   refreshProjects(): Promise<Project[]>;
   /** Get git status (branch and dirty state) for a project */
@@ -286,49 +322,12 @@ export interface ElectronAPI {
   createProject(options: CreateProjectOptions): Promise<CreateProjectResult>;
   /** Listen for fullscreen state changes */
   onFullscreenChange(callback: (isFullscreen: boolean) => void): () => void;
-  /** Get project settings (custom commands, default command) */
+  /** Get project settings */
   getProjectSettings(projectPath: string): Promise<ProjectSettings>;
-  /** Save a custom command for a project */
-  saveCustomCommand(projectPath: string, command: CustomCommand): Promise<{ success: boolean }>;
-  /** Delete a custom command */
-  deleteCustomCommand(projectPath: string, commandId: string): Promise<{ success: boolean }>;
-  /** Set the default command for a project */
-  setDefaultCommand(projectPath: string, commandId: string | null): Promise<{ success: boolean }>;
-}
-
-/**
- * Manifest for a .ouijit package file
- */
-export interface OuijitManifest {
-  version: 1;
-
-  // Display
-  name: string;
-  tagline?: string;
-
-  // Runtime
-  runtime: 'node' | 'python' | 'go' | 'rust' | 'static' | 'unknown';
-  runtimeVersion?: string;
-  entrypoint?: string;
-
-  // Provenance
-  createdAt: string;
-  createdBy?: string;
-  sourceRepo?: string;
-  sourceCommit?: string;
-
-  // Integrity
-  sourceChecksum: string;
-}
-
-/**
- * A parsed .ouijit package ready for import
- */
-export interface OuijitPackage {
-  manifest: OuijitManifest;
-  screenshotPath?: string;
-  sourcePath: string;
-  tempDir: string;
+  /** Set whether to kill existing command instances on run */
+  setKillExistingOnRun(projectPath: string, kill: boolean): Promise<{ success: boolean }>;
+  /** Script hooks API */
+  hooks: HooksAPI;
 }
 
 /**
@@ -347,39 +346,8 @@ export interface CreateProjectResult {
   error?: string;
 }
 
-/**
- * Result of exporting a project
- */
-export interface ExportResult {
-  success: boolean;
-  outputPath?: string;
-  sizeBytes?: number;
-  error?: string;
-}
-
-/**
- * Result of previewing a .ouijit file
- */
-export interface PreviewResult {
-  success: boolean;
-  package?: OuijitPackage;
-  error?: string;
-}
-
-/**
- * Result of importing a .ouijit package
- */
-export interface ImportResult {
-  success: boolean;
-  projectPath?: string;
-  error?: string;
-}
-
 declare global {
   interface Window {
     api: ElectronAPI;
-    electronAPI?: {
-      getPathForFile: (file: File) => string;
-    };
   }
 }

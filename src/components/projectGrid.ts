@@ -6,9 +6,7 @@ import { createProjectRow } from './projectRow';
  */
 export function renderProjects(
   container: HTMLElement,
-  projects: Project[],
-  onOpen: (path: string) => void,
-  onOpenFinder?: (path: string) => void
+  projects: Project[]
 ): void {
   // Clear existing content
   container.innerHTML = '';
@@ -26,11 +24,7 @@ export function renderProjects(
 
   // Create and append project rows with staggered animation
   projects.forEach((project, index) => {
-    const row = createProjectRow(
-      project,
-      onOpen,
-      onOpenFinder
-    );
+    const row = createProjectRow(project);
     row.style.animationDelay = `${index * 50}ms`;
     container.appendChild(row);
   });

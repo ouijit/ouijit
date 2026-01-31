@@ -1,8 +1,8 @@
 // See the Electron documentation for details on how to use preload scripts:
 // https://www.electronjs.org/docs/latest/tutorial/process-model#preload-scripts
 
-import { contextBridge, ipcRenderer, webUtils } from 'electron';
-import type { Project, RunConfig, LaunchResult, PtySpawnOptions, PtySpawnResult, PtyId, ActiveSession, PtyReconnectResult, ExportResult, PreviewResult, ImportResult, CreateProjectOptions, CreateProjectResult, GitStatus, CompactGitStatus, GitDropdownInfo, GitCheckoutResult, GitMergeResult, ChangedFile, FileDiff, ProjectSettings, CustomCommand, WorktreeCreateResult, WorktreeRemoveResult, WorktreeInfo, WorktreeDiffSummary, WorktreeWithMetadata } from './types';
+import { contextBridge, ipcRenderer } from 'electron';
+import type { Project, RunConfig, LaunchResult, PtySpawnOptions, PtySpawnResult, PtyId, ActiveSession, PtyReconnectResult, CreateProjectOptions, CreateProjectResult, GitStatus, CompactGitStatus, GitDropdownInfo, GitCheckoutResult, GitMergeResult, ChangedFile, FileDiff, ProjectSettings, WorktreeCreateResult, WorktreeRemoveResult, WorktreeInfo, WorktreeDiffSummary, WorktreeWithMetadata, ScriptHook, HookType } from './types';
 
 // Expose protected methods that allow the renderer process to use
 // ipcRenderer without exposing the entire object
@@ -102,7 +102,7 @@ contextBridge.exposeInMainWorld('api', {
     getTasks: (projectPath: string): Promise<WorktreeWithMetadata[]> =>
       ipcRenderer.invoke('worktree:get-tasks', projectPath),
 
-    close: (projectPath: string, branch: string): Promise<{ success: boolean; error?: string }> =>
+    close: (projectPath: string, branch: string): Promise<{ success: boolean; error?: string; hookWarning?: string }> =>
       ipcRenderer.invoke('worktree:close', projectPath, branch),
 
     reopen: (projectPath: string, branch: string): Promise<{ success: boolean; error?: string }> =>
@@ -111,30 +111,6 @@ contextBridge.exposeInMainWorld('api', {
     setReady: (projectPath: string, branch: string, ready: boolean): Promise<{ success: boolean; error?: string }> =>
       ipcRenderer.invoke('worktree:set-ready', projectPath, branch, ready),
   },
-
-  /**
-   * Export a project as .ouijit file
-   */
-  exportProject: (projectPath: string): Promise<ExportResult> =>
-    ipcRenderer.invoke('export-project', projectPath),
-
-  /**
-   * Preview a .ouijit file before importing
-   */
-  previewOuijitFile: (filePath: string): Promise<PreviewResult> =>
-    ipcRenderer.invoke('preview-ouijit-file', filePath),
-
-  /**
-   * Import a previewed .ouijit package
-   */
-  importOuijitPackage: (tempDir: string): Promise<ImportResult> =>
-    ipcRenderer.invoke('import-ouijit-package', tempDir),
-
-  /**
-   * Open file dialog to select a .ouijit file
-   */
-  openOuijitFileDialog: (): Promise<string | null> =>
-    ipcRenderer.invoke('open-ouijit-file-dialog'),
 
   /**
    * Refresh the project list
@@ -212,28 +188,31 @@ contextBridge.exposeInMainWorld('api', {
     ipcRenderer.invoke('get-project-settings', projectPath),
 
   /**
-   * Save a custom command for a project
+   * Set whether to kill existing command instances on run
    */
-  saveCustomCommand: (projectPath: string, command: CustomCommand): Promise<{ success: boolean }> =>
-    ipcRenderer.invoke('save-custom-command', projectPath, command),
+  setKillExistingOnRun: (projectPath: string, kill: boolean): Promise<{ success: boolean }> =>
+    ipcRenderer.invoke('settings:set-kill-existing-on-run', projectPath, kill),
 
   /**
-   * Delete a custom command
+   * Script hooks API
    */
-  deleteCustomCommand: (projectPath: string, commandId: string): Promise<{ success: boolean }> =>
-    ipcRenderer.invoke('delete-custom-command', projectPath, commandId),
+  hooks: {
+    /**
+     * Get all hooks for a project
+     */
+    get: (projectPath: string): Promise<{ init?: ScriptHook; run?: ScriptHook; cleanup?: ScriptHook }> =>
+      ipcRenderer.invoke('hooks:get', projectPath),
 
-  /**
-   * Set the default command for a project
-   */
-  setDefaultCommand: (projectPath: string, commandId: string | null): Promise<{ success: boolean }> =>
-    ipcRenderer.invoke('set-default-command', projectPath, commandId),
-});
+    /**
+     * Save a hook for a project
+     */
+    save: (projectPath: string, hook: ScriptHook): Promise<{ success: boolean }> =>
+      ipcRenderer.invoke('hooks:save', projectPath, hook),
 
-// Expose Electron utilities
-contextBridge.exposeInMainWorld('electronAPI', {
-  /**
-   * Get the file system path for a File object from drag & drop
-   */
-  getPathForFile: (file: File): string => webUtils.getPathForFile(file),
+    /**
+     * Delete a hook for a project
+     */
+    delete: (projectPath: string, hookType: HookType): Promise<{ success: boolean }> =>
+      ipcRenderer.invoke('hooks:delete', projectPath, hookType),
+  },
 });

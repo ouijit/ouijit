@@ -1,4 +1,4 @@
-import { ipcMain, shell, BrowserWindow, dialog } from 'electron';
+import { ipcMain, shell, BrowserWindow } from 'electron';
 import { spawn, execSync } from 'node:child_process';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
@@ -14,7 +14,6 @@ import {
   killPty,
   cleanupAllPtys,
 } from './ptyManager';
-import { exportProject, previewOuijitFile, importOuijitPackage } from './ouijit';
 import { getGitStatus, getCompactGitStatus, getGitDropdownInfo, checkoutBranch, createBranch, mergeIntoMain, getChangedFiles, getFileDiff, getWorktreeDiff, getWorktreeFileDiff, mergeWorktreeBranch } from './git';
 import { createTaskWorktree, removeTaskWorktree, listWorktrees, formatBranchNameForDisplay } from './worktree';
 import type { TaskWorktreeResult, WorktreeRemoveResult, WorktreeInfo } from './worktree';
@@ -24,14 +23,18 @@ import {
   reopenTask,
   setTaskReadyToShip,
   ensureTaskExists,
+  getTask,
 } from './taskMetadata';
 import {
   getProjectSettings,
-  saveCustomCommand,
-  deleteCustomCommand,
-  setDefaultCommand,
+  setKillExistingOnRun,
+  getHook,
+  getHooks,
+  saveHook,
+  deleteHook,
 } from './projectSettings';
-import type { RunConfig, LaunchResult, PtySpawnOptions, ExportResult, PreviewResult, ImportResult, CreateProjectOptions, CreateProjectResult, CustomCommand, ProjectSettings, GitStatus, CompactGitStatus, GitDropdownInfo, ChangedFile, FileDiff, WorktreeDiffSummary, GitMergeResult, WorktreeWithMetadata } from './types';
+import { executeHook } from './hookRunner';
+import type { RunConfig, LaunchResult, PtySpawnOptions, CreateProjectOptions, CreateProjectResult, ProjectSettings, GitStatus, CompactGitStatus, GitDropdownInfo, ChangedFile, FileDiff, WorktreeDiffSummary, GitMergeResult, WorktreeWithMetadata, ScriptHook, HookType } from './types';
 
 /**
  * Escapes a string for use in AppleScript
@@ -158,65 +161,6 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     setWindow(mainWindow);
   });
 
-  // Export project as .ouijit file
-  ipcMain.handle('export-project', async (_event, projectPath: string): Promise<ExportResult> => {
-    try {
-      // Find project by path
-      const projects = await scanForProjects();
-      const project = projects.find(p => p.path === projectPath);
-
-      if (!project) {
-        return { success: false, error: 'Project not found' };
-      }
-
-      // Show save dialog
-      const { canceled, filePath } = await dialog.showSaveDialog(mainWindow, {
-        title: 'Export Project',
-        defaultPath: `${project.name}.ouijit`,
-        filters: [{ name: 'Ouijit Package', extensions: ['ouijit'] }],
-      });
-
-      if (canceled || !filePath) {
-        return { success: false, error: 'Cancelled' };
-      }
-
-      return exportProject({
-        project,
-        outputPath: filePath,
-      });
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      };
-    }
-  });
-
-  // Preview a .ouijit file before importing
-  ipcMain.handle('preview-ouijit-file', async (_event, filePath: string): Promise<PreviewResult> => {
-    return previewOuijitFile(filePath);
-  });
-
-  // Import a previewed .ouijit package
-  ipcMain.handle('import-ouijit-package', async (_event, tempDir: string): Promise<ImportResult> => {
-    return importOuijitPackage(tempDir);
-  });
-
-  // Open file dialog to select a .ouijit file
-  ipcMain.handle('open-ouijit-file-dialog', async (): Promise<string | null> => {
-    const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow, {
-      title: 'Import .ouijit file',
-      filters: [{ name: 'Ouijit Package', extensions: ['ouijit'] }],
-      properties: ['openFile'],
-    });
-
-    if (canceled || filePaths.length === 0) {
-      return null;
-    }
-
-    return filePaths[0];
-  });
-
   // Refresh projects (re-scan)
   ipcMain.handle('refresh-projects', async () => {
     try {
@@ -319,24 +263,9 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     }
   });
 
-  // Get project settings (custom commands, default command)
+  // Get project settings
   ipcMain.handle('get-project-settings', async (_event, projectPath: string): Promise<ProjectSettings> => {
     return getProjectSettings(projectPath);
-  });
-
-  // Save a custom command for a project
-  ipcMain.handle('save-custom-command', async (_event, projectPath: string, command: CustomCommand) => {
-    return saveCustomCommand(projectPath, command);
-  });
-
-  // Delete a custom command
-  ipcMain.handle('delete-custom-command', async (_event, projectPath: string, commandId: string) => {
-    return deleteCustomCommand(projectPath, commandId);
-  });
-
-  // Set the default command for a project
-  ipcMain.handle('set-default-command', async (_event, projectPath: string, commandId: string | null) => {
-    return setDefaultCommand(projectPath, commandId);
   });
 
   // Worktree handlers
@@ -425,8 +354,42 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
   });
 
   // Mark a task as closed
-  ipcMain.handle('worktree:close', async (_event, projectPath: string, branch: string): Promise<{ success: boolean; error?: string }> => {
-    return closeTask(projectPath, branch);
+  ipcMain.handle('worktree:close', async (_event, projectPath: string, branch: string): Promise<{ success: boolean; error?: string; hookWarning?: string }> => {
+    let hookWarning: string | undefined;
+
+    // Run cleanup hook if configured
+    const cleanupHook = await getHook(projectPath, 'cleanup');
+    if (cleanupHook) {
+      // Find the worktree path for this branch
+      const worktrees = listWorktrees(projectPath);
+      const worktree = worktrees.find(wt => wt.branch === branch);
+      const task = await getTask(projectPath, branch);
+
+      if (worktree) {
+        const hookResult = await executeHook(cleanupHook, worktree.path, {
+          projectPath,
+          worktreePath: worktree.path,
+          taskBranch: branch,
+          taskName: task?.name || branch,
+        });
+
+        if (!hookResult.success) {
+          // Log warning but continue closing
+          const warningMessage = hookResult.error || hookResult.output;
+          console.warn(`Cleanup hook failed for ${branch}: ${warningMessage}`);
+          // Truncate warning for display
+          hookWarning = warningMessage && warningMessage.length > 500
+            ? warningMessage.slice(0, 500) + '...'
+            : warningMessage;
+        }
+      }
+    }
+
+    const closeResult = await closeTask(projectPath, branch);
+    return {
+      ...closeResult,
+      hookWarning,
+    };
   });
 
   // Reopen a closed task
@@ -439,9 +402,23 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     return setTaskReadyToShip(projectPath, branch, ready);
   });
 
-  // Override worktree:create to also create task metadata
-  // Note: We need to update the existing handler or create a wrapper
-  // For now, we'll create metadata when tasks are listed
+  // Hook handlers
+  ipcMain.handle('hooks:get', async (_event, projectPath: string) => {
+    return getHooks(projectPath);
+  });
+
+  ipcMain.handle('hooks:save', async (_event, projectPath: string, hook: ScriptHook) => {
+    return saveHook(projectPath, hook);
+  });
+
+  ipcMain.handle('hooks:delete', async (_event, projectPath: string, hookType: HookType) => {
+    return deleteHook(projectPath, hookType);
+  });
+
+  // Project settings handlers
+  ipcMain.handle('settings:set-kill-existing-on-run', async (_event, projectPath: string, kill: boolean) => {
+    return setKillExistingOnRun(projectPath, kill);
+  });
 }
 
 /**

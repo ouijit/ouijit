@@ -3,7 +3,7 @@
  * Extracted from importDialog.ts for wider use
  */
 
-export type ToastType = 'success' | 'error' | 'info';
+export type ToastType = 'success' | 'error' | 'info' | 'warning';
 
 /**
  * Shows a simple toast notification

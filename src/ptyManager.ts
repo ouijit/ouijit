@@ -1,7 +1,7 @@
 import * as pty from 'node-pty';
 import { BrowserWindow } from 'electron';
 import type { PtyId, PtySpawnOptions, PtySpawnResult } from './types';
-import { getCommandWithMise, isImportedProject } from './ouijit';
+import { generateId } from './utils/ids';
 
 interface ManagedPty {
   process: pty.IPty;
@@ -36,10 +36,6 @@ let currentWindow: BrowserWindow | null = null;
 
 // Maximum bytes to buffer for scroll history preservation (100KB)
 const MAX_BUFFER_SIZE = 100 * 1024;
-
-function generatePtyId(): PtyId {
-  return `pty-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-}
 
 function getDefaultShell(): string {
   if (process.platform === 'win32') {
@@ -91,7 +87,7 @@ export async function spawnPty(
   window: BrowserWindow
 ): Promise<PtySpawnResult> {
   try {
-    const ptyId = generatePtyId();
+    const ptyId = generateId('pty');
     const shell = getDefaultShell();
 
     // Store window reference
@@ -105,6 +101,7 @@ export async function spawnPty(
       env: {
         ...process.env,
         TERM: 'xterm-256color',
+        ...options.env,
       } as Record<string, string>,
     });
 
@@ -140,15 +137,11 @@ export async function spawnPty(
 
     // If a command was provided, write it to the shell after a brief delay
     if (options.command) {
-      const isImported = await isImportedProject(options.cwd);
-      finalCommand = await getCommandWithMise(options.cwd, options.command, isImported);
-      // Update the stored command
-      managed.command = finalCommand;
       // Small delay to let shell initialize, then send the command
       setTimeout(() => {
         const m = activePtys.get(ptyId);
         if (m) {
-          m.process.write(finalCommand + '\r');
+          m.process.write(options.command + '\r');
         }
       }, 100);
     }

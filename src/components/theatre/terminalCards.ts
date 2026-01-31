@@ -19,9 +19,9 @@ import {
   activeIndex,
 } from './signals';
 import { showToast } from '../importDialog';
+import { showHookConfigDialog } from '../hookConfigDialog';
 import { scheduleGitStatusRefresh, refreshTerminalGitStatus, buildCardGitStatusHtml, scheduleTerminalGitStatusRefresh } from './gitStatus';
 import { toggleTerminalDiffPanel, hideTerminalDiffPanel } from './diffPanel';
-import { mergeRunConfigs, getConfigId } from '../../utils/runConfigs';
 
 /**
  * Format a branch name for display (hyphens to spaces)
@@ -694,7 +694,12 @@ async function closeTaskFromTerminal(term: TheatreTerminal): Promise<void> {
     if (idx !== -1) {
       closeTheatreTerminal(idx);
     }
-    showToast('Task closed', 'success');
+    // Show warning if cleanup hook failed
+    if (result.hookWarning) {
+      showToast(`Task closed (cleanup hook failed)`, 'warning');
+    } else {
+      showToast('Task closed', 'success');
+    }
     // Refresh task index if visible
     theatreRegistry.refreshTaskIndex?.();
   } else {
@@ -874,42 +879,46 @@ export function killExistingCommandInstances(command: string): void {
 
 
 /**
- * Run the default command as a hidden runner
+ * Run the run hook as a hidden runner
  */
 export async function runDefaultInCard(term: TheatreTerminal): Promise<void> {
   const path = projectPath.value;
-  const project = projectData.value;
-  if (!path || !project) return;
+  if (!path) return;
 
   // If runner already active, kill it first
   if (term.runnerPtyId) {
     killRunner(term);
   }
 
-  // Fetch settings to get default command
-  const settings = await window.api.getProjectSettings(path);
-  const allConfigs = mergeRunConfigs(project.runConfigs, settings.customCommands);
+  // Fetch run hook and settings
+  const [hooks, settings] = await Promise.all([
+    window.api.hooks.get(path),
+    window.api.getProjectSettings(path),
+  ]);
 
-  if (allConfigs.length === 0) {
-    showToast('No commands configured', 'info');
+  if (!hooks.run) {
+    // Open config dialog directly when no run hook is set
+    const result = await showHookConfigDialog(path, 'run', undefined, {
+      killExistingOnRun: settings.killExistingOnRun,
+    });
+    if (result?.saved && result.hook) {
+      showToast('Run script configured', 'success');
+      // Run it now that it's configured
+      await runDefaultInCard(term);
+    }
     return;
   }
 
-  // Find default command or use first available
-  let defaultConfig: RunConfig = allConfigs[0];
-  if (settings.defaultCommandId) {
-    const found = allConfigs.find(c => getConfigId(c) === settings.defaultCommandId);
-    if (found) {
-      defaultConfig = found;
-    }
+  const runHook = hooks.run;
+
+  // Kill any existing terminals or runners with the same command (unless disabled)
+  if (settings.killExistingOnRun !== false) {
+    killExistingCommandInstances(runHook.command);
   }
 
-  // Kill any existing terminals or runners with the same command
-  killExistingCommandInstances(defaultConfig.command);
-
   // Set initial runner state
-  term.runnerLabel = defaultConfig.name;
-  term.runnerCommand = defaultConfig.command;
+  term.runnerLabel = runHook.name;
+  term.runnerCommand = runHook.command;
   term.runnerStatus = 'running';
 
   // Create hidden terminal for runner output
@@ -936,15 +945,22 @@ export async function runDefaultInCard(term: TheatreTerminal): Promise<void> {
   const spawnOptions: PtySpawnOptions = {
     cwd,
     projectPath: path,  // Use main project path for session grouping during restore
-    command: defaultConfig.command,
+    command: runHook.command,
     cols: 80,  // Default size, will be resized when panel opens
     rows: 24,
-    label: defaultConfig.name,
+    label: runHook.name,
     isWorktree: !!term.isWorktree,
     worktreePath: term.worktreePath,
     worktreeBranch: term.worktreeBranch,
     isRunner: true,
     parentPtyId: term.ptyId,
+    env: {
+      OUIJIT_HOOK_TYPE: 'run',
+      OUIJIT_PROJECT_PATH: path,
+      ...(term.worktreePath && { OUIJIT_WORKTREE_PATH: term.worktreePath }),
+      ...(term.worktreeBranch && { OUIJIT_TASK_BRANCH: term.worktreeBranch }),
+      ...(term.label && { OUIJIT_TASK_NAME: term.label }),
+    },
   };
 
   try {

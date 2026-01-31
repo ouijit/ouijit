@@ -9,8 +9,12 @@ import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import * as os from 'node:os';
 import { getNextTaskNumber, createTask, getTaskByNumber, deleteTaskByNumber, type TaskMetadata } from './taskMetadata';
+import { getHook } from './projectSettings';
+import { executeHook } from './hookRunner';
 
 const execAsync = promisify(exec);
+
+const MAX_ERROR_LENGTH = 500;
 
 export interface WorktreeInfo {
   path: string;
@@ -182,6 +186,52 @@ export async function createTaskWorktree(projectPath: string, name?: string): Pr
 
     // Copy all gitignored files (secrets, configs, dependencies, etc.)
     await copyGitIgnoredFiles(projectPath, worktreePath);
+
+    // Run init hook if configured
+    const initHook = await getHook(projectPath, 'init');
+    if (initHook) {
+      const hookResult = await executeHook(initHook, worktreePath, {
+        projectPath,
+        worktreePath,
+        taskBranch: branch,
+        taskName: displayName,
+      });
+
+      if (!hookResult.success) {
+        // Rollback: remove worktree and delete task metadata
+        try {
+          execSync(`git worktree remove "${worktreePath}" --force`, {
+            cwd: projectPath,
+            encoding: 'utf8',
+            stdio: ['pipe', 'pipe', 'pipe'],
+          });
+        } catch {
+          // Ignore cleanup errors
+        }
+
+        try {
+          execSync(`git branch -D "${branch}"`, {
+            cwd: projectPath,
+            encoding: 'utf8',
+            stdio: ['pipe', 'pipe', 'pipe'],
+          });
+        } catch {
+          // Ignore cleanup errors
+        }
+
+        await deleteTaskByNumber(projectPath, taskNumber);
+
+        // Truncate output if too large
+        const truncatedOutput = hookResult.output && hookResult.output.length > MAX_ERROR_LENGTH
+          ? hookResult.output.slice(0, MAX_ERROR_LENGTH) + '... (truncated)'
+          : hookResult.output;
+
+        return {
+          success: false,
+          error: `Init hook failed: ${hookResult.error || truncatedOutput || 'Unknown error'}`,
+        };
+      }
+    }
 
     return {
       success: true,

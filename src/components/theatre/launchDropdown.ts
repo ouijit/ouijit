@@ -1,14 +1,13 @@
 /**
- * Launch dropdown for theatre mode - command selection and project actions
+ * Launch dropdown for theatre mode - hooks configuration and project actions
  */
 
-import type { RunConfig } from '../../types';
+import type { RunConfig, ScriptHook, HookType } from '../../types';
 import { theatreState, MAX_THEATRE_TERMINALS } from './state';
 import { projectPath, projectData, terminals, launchDropdownVisible } from './signals';
-import { getConfigId, mergeRunConfigs } from '../../utils/runConfigs';
 import { stringToColor, getInitials } from '../../utils/projectIcon';
 import { showToast } from '../importDialog';
-import { showCustomCommandDialog } from '../customCommandDialog';
+import { showHookConfigDialog } from '../hookConfigDialog';
 import { addTheatreTerminal, killExistingCommandInstances } from './terminalCards';
 
 /**
@@ -34,10 +33,10 @@ export function buildTheatreHeader(): string {
         <i data-lucide="terminal"></i>
       </button>
       <div class="theatre-launch-wrapper">
-        <button class="theatre-play-btn" title="Run default command">
+        <button class="theatre-play-btn" title="Run script">
           <i data-lucide="play"></i>
         </button>
-        <button class="theatre-launch-chevron-btn" title="More commands">
+        <button class="theatre-launch-chevron-btn" title="Configure scripts">
           <i data-lucide="chevron-down"></i>
         </button>
       </div>
@@ -46,6 +45,103 @@ export function buildTheatreHeader(): string {
       </button>
     </div>
   `;
+}
+
+/**
+ * Build a hook row for the dropdown
+ */
+function buildHookRow(
+  hookType: HookType,
+  label: string,
+  hook: ScriptHook | undefined,
+  path: string,
+  options?: { killExistingOnRun?: boolean }
+): HTMLElement {
+  const row = document.createElement('div');
+  row.className = 'hook-row';
+
+  const labelEl = document.createElement('span');
+  labelEl.className = 'hook-label';
+  labelEl.textContent = label;
+  row.appendChild(labelEl);
+
+  const rightSection = document.createElement('div');
+  rightSection.className = 'hook-row-right';
+
+  if (hook) {
+    const commandEl = document.createElement('span');
+    commandEl.className = 'hook-command';
+    commandEl.textContent = hook.command.length > 30
+      ? hook.command.substring(0, 27) + '...'
+      : hook.command;
+    commandEl.title = hook.command;
+    rightSection.appendChild(commandEl);
+
+    const editBtn = document.createElement('button');
+    editBtn.className = 'hook-action-btn';
+    editBtn.title = `Edit ${label.toLowerCase()}`;
+    editBtn.innerHTML = '<i data-lucide="settings"></i>';
+    editBtn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      hideLaunchDropdown();
+      const result = await showHookConfigDialog(path, hookType, hook,
+        hookType === 'run' ? { killExistingOnRun: options?.killExistingOnRun } : undefined
+      );
+      if (result?.saved && result.hook) {
+        showToast(`${label} updated`, 'success');
+      }
+    });
+    rightSection.appendChild(editBtn);
+  } else {
+    const configureBtn = document.createElement('button');
+    configureBtn.className = 'hook-configure-btn';
+    configureBtn.textContent = '+ Configure';
+    configureBtn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      hideLaunchDropdown();
+      const result = await showHookConfigDialog(path, hookType, undefined,
+        hookType === 'run' ? { killExistingOnRun: options?.killExistingOnRun } : undefined
+      );
+      if (result?.saved && result.hook) {
+        showToast(`${label} configured`, 'success');
+      }
+    });
+    rightSection.appendChild(configureBtn);
+  }
+
+  row.appendChild(rightSection);
+  return row;
+}
+
+/**
+ * Run a hook in a terminal
+ */
+async function runHook(hook: ScriptHook): Promise<void> {
+  const path = projectPath.value;
+  if (!path) return;
+
+  // Check terminal limit
+  if (terminals.value.length >= MAX_THEATRE_TERMINALS) {
+    showToast(`Maximum ${MAX_THEATRE_TERMINALS} terminals`, 'info');
+    return;
+  }
+
+  const config: RunConfig = {
+    name: hook.name,
+    command: hook.command,
+    source: 'custom',
+    description: hook.description,
+    priority: 0,
+    isCustom: true,
+  };
+
+  // Kill existing instances unless disabled in settings
+  const settings = await window.api.getProjectSettings(path);
+  if (settings.killExistingOnRun !== false) {
+    killExistingCommandInstances(hook.command);
+  }
+
+  await addTheatreTerminal(config);
 }
 
 /**
@@ -58,137 +154,34 @@ export async function buildLaunchDropdownContent(dropdown: HTMLElement): Promise
 
   dropdown.innerHTML = '';
 
-  // Fetch fresh settings
-  const settings = await window.api.getProjectSettings(path);
-  const allConfigs = mergeRunConfigs(project.runConfigs, settings.customCommands);
-  const defaultCommandId = settings.defaultCommandId;
+  // Fetch hooks and settings
+  const [hooks, settings] = await Promise.all([
+    window.api.hooks.get(path),
+    window.api.getProjectSettings(path),
+  ]);
 
-  // Sort default command to top
-  if (defaultCommandId) {
-    allConfigs.sort((a, b) => {
-      const aIsDefault = getConfigId(a) === defaultCommandId;
-      const bIsDefault = getConfigId(b) === defaultCommandId;
-      if (aIsDefault && !bIsDefault) return -1;
-      if (bIsDefault && !aIsDefault) return 1;
-      return 0;
-    });
-  }
+  // Section header
+  const header = document.createElement('div');
+  header.className = 'launch-dropdown-header';
+  header.textContent = 'Scripts';
+  dropdown.appendChild(header);
 
-  const explicitDefaultExists = defaultCommandId
-    ? allConfigs.some(c => getConfigId(c) === defaultCommandId)
-    : false;
+  // Hook rows
+  const hooksContainer = document.createElement('div');
+  hooksContainer.className = 'hooks-container';
 
-  // Create scrollable container for command list
-  const commandList = document.createElement('div');
-  commandList.className = 'launch-dropdown-commands';
+  hooksContainer.appendChild(buildHookRow('init', 'Init', hooks.init, path));
+  hooksContainer.appendChild(buildHookRow('run', 'Run', hooks.run, path, {
+    killExistingOnRun: settings.killExistingOnRun,
+  }));
+  hooksContainer.appendChild(buildHookRow('cleanup', 'Cleanup', hooks.cleanup, path));
 
-  // Add run config options
-  allConfigs.forEach((config, index) => {
-    const option = document.createElement('button');
-    option.className = 'launch-option';
-
-    const configId = getConfigId(config);
-    const isExplicitDefault = defaultCommandId === configId;
-    const isVisualDefault = explicitDefaultExists
-      ? configId === defaultCommandId
-      : index === 0;
-
-    // Star button
-    const starBtn = document.createElement('span');
-    starBtn.className = isVisualDefault ? 'launch-option-star launch-option-star--active' : 'launch-option-star';
-    starBtn.title = isVisualDefault ? 'Default command' : 'Set as default';
-    starBtn.innerHTML = '<i data-lucide="star"></i>';
-    starBtn.addEventListener('click', async (e) => {
-      e.stopPropagation();
-      if (!isExplicitDefault && path) {
-        await window.api.setDefaultCommand(path, configId);
-        showToast(`Default: ${config.name}`, 'success');
-        hideLaunchDropdown();
-      }
-    });
-    option.appendChild(starBtn);
-
-    const nameContainer = document.createElement('span');
-    nameContainer.className = 'launch-option-name';
-    nameContainer.textContent = config.name;
-    option.appendChild(nameContainer);
-
-    const sourceSpan = document.createElement('span');
-    sourceSpan.className = 'launch-option-source';
-    sourceSpan.textContent = config.source;
-    option.appendChild(sourceSpan);
-
-    // Delete button for custom commands
-    if (config.isCustom) {
-      const deleteBtn = document.createElement('span');
-      deleteBtn.className = 'launch-option-delete';
-      deleteBtn.title = 'Delete command';
-      deleteBtn.innerHTML = '<i data-lucide="x"></i>';
-      deleteBtn.addEventListener('click', async (e) => {
-        e.stopPropagation();
-        const confirmed = confirm(`Delete "${config.name}"?`);
-        if (confirmed && path) {
-          const currentSettings = await window.api.getProjectSettings(path);
-          const customCmd = currentSettings.customCommands.find(c => c.name === config.name);
-          if (customCmd) {
-            await window.api.deleteCustomCommand(path, customCmd.id);
-            showToast(`Deleted: ${config.name}`, 'success');
-            hideLaunchDropdown();
-          }
-        }
-      });
-      option.appendChild(deleteBtn);
-    }
-
-    option.addEventListener('click', async (e) => {
-      e.stopPropagation();
-      hideLaunchDropdown();
-      await addTheatreTerminal(config);
-    });
-    commandList.appendChild(option);
-  });
-
-  // Only add command list section if there are commands
-  if (allConfigs.length > 0) {
-    dropdown.appendChild(commandList);
-  }
-
-  // Custom command option
-  const customOption = document.createElement('button');
-  customOption.className = 'launch-option';
-  customOption.innerHTML = '<i data-lucide="plus" class="launch-option-icon"></i>';
-  const customText = document.createElement('span');
-  customText.className = 'launch-option-name';
-  customText.textContent = 'Custom command...';
-  customOption.appendChild(customText);
-  customOption.addEventListener('click', async (e) => {
-    e.stopPropagation();
-    hideLaunchDropdown();
-    if (path) {
-      const result = await showCustomCommandDialog(path, undefined, {
-        defaultToDefault: allConfigs.length === 0
-      });
-      if (result?.saved && result.command) {
-        showToast(`Added command: ${result.command.name}`, 'success');
-        // Optionally launch the new command
-        const newConfig: RunConfig = {
-          name: result.command.name,
-          command: result.command.command,
-          source: 'custom',
-          description: result.command.description,
-          priority: 0,
-          isCustom: true,
-        };
-        await addTheatreTerminal(newConfig);
-      }
-    }
-  });
-  dropdown.appendChild(customOption);
+  dropdown.appendChild(hooksContainer);
 
   // Divider
-  const divider2 = document.createElement('div');
-  divider2.className = 'launch-dropdown-divider';
-  dropdown.appendChild(divider2);
+  const divider = document.createElement('div');
+  divider.className = 'launch-dropdown-divider';
+  dropdown.appendChild(divider);
 
   // Open in Finder option
   const finderOption = document.createElement('button');
@@ -216,12 +209,6 @@ export async function showLaunchDropdown(): Promise<void> {
 
   const wrapper = document.querySelector('.theatre-launch-wrapper');
   if (!wrapper) return;
-
-  // Check if at max terminals
-  if (terminals.value.length >= MAX_THEATRE_TERMINALS) {
-    showToast(`Maximum ${MAX_THEATRE_TERMINALS} terminals`, 'info');
-    return;
-  }
 
   // Create dropdown if it doesn't exist
   let dropdown = wrapper.querySelector('.theatre-launch-dropdown') as HTMLElement;
@@ -288,12 +275,11 @@ export function toggleLaunchDropdown(): void {
 }
 
 /**
- * Run the default command immediately
+ * Run the run hook immediately
  */
 export async function runDefaultCommand(): Promise<void> {
   const path = projectPath.value;
-  const project = projectData.value;
-  if (!path || !project) return;
+  if (!path) return;
 
   // Check if at max terminals
   if (terminals.value.length >= MAX_THEATRE_TERMINALS) {
@@ -301,26 +287,24 @@ export async function runDefaultCommand(): Promise<void> {
     return;
   }
 
-  // Fetch settings to get default command
-  const settings = await window.api.getProjectSettings(path);
-  const allConfigs = mergeRunConfigs(project.runConfigs, settings.customCommands);
+  // Fetch hooks and settings
+  const [hooks, settings] = await Promise.all([
+    window.api.hooks.get(path),
+    window.api.getProjectSettings(path),
+  ]);
 
-  if (allConfigs.length === 0) {
-    showToast('No commands configured', 'info');
+  if (!hooks.run) {
+    // Open config dialog directly when no run hook is set
+    const result = await showHookConfigDialog(path, 'run', undefined, {
+      killExistingOnRun: settings.killExistingOnRun,
+    });
+    if (result?.saved && result.hook) {
+      showToast('Run script configured', 'success');
+      // Run it immediately after configuring
+      await runHook(result.hook);
+    }
     return;
   }
 
-  // Find default command or use first available
-  let defaultConfig = allConfigs[0];
-  if (settings.defaultCommandId) {
-    const found = allConfigs.find(c => getConfigId(c) === settings.defaultCommandId);
-    if (found) {
-      defaultConfig = found;
-    }
-  }
-
-  // Kill any existing terminals or runners with the same command
-  killExistingCommandInstances(defaultConfig.command);
-
-  await addTheatreTerminal(defaultConfig);
+  await runHook(hooks.run);
 }

@@ -25,9 +25,7 @@
     "@electron-forge/plugin-fuses": "^7.10.2",
     "@electron-forge/plugin-vite": "^7.10.2",
     "@electron/fuses": "^1.8.0",
-    "@types/adm-zip": "^0.5.7",
     "@types/electron-squirrel-startup": "^1.0.2",
-    "@types/tar": "^6.1.13",
     "@typescript-eslint/eslint-plugin": "^5.62.0",
     "@typescript-eslint/parser": "^5.62.0",
     "electron": "39.2.7",
@@ -40,12 +38,10 @@
     "@preact/signals-core": "^1.12.1",
     "@xterm/addon-fit": "^0.11.0",
     "@xterm/xterm": "^6.0.0",
-    "adm-zip": "^0.5.16",
     "electron-squirrel-startup": "^1.0.1",
     "fix-path": "^5.0.0",
     "hotkeys-js": "^4.0.0",
     "lucide": "^0.562.0",
-    "node-pty": "^1.1.0",
-    "tar": "^7.5.2"
+    "node-pty": "^1.1.0"
   }
 }

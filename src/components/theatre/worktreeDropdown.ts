@@ -183,7 +183,12 @@ export async function closeTask(path: string, task: WorktreeWithMetadata): Promi
         theatreRegistry.closeTheatreTerminal?.(i);
       }
     }
-    showToast('Task closed', 'success');
+    // Show warning if cleanup hook failed
+    if (result.hookWarning) {
+      showToast(`Task closed (cleanup hook failed)`, 'warning');
+    } else {
+      showToast('Task closed', 'success');
+    }
   } else {
     showToast(result.error || 'Failed to close task', 'error');
   }

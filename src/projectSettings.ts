@@ -1,7 +1,7 @@
 import { app } from 'electron';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
-import type { ProjectSettings, CustomCommand } from './types';
+import type { ProjectSettings, ScriptHook, HookType } from './types';
 
 const SETTINGS_FILE = 'project-settings.json';
 
@@ -52,87 +52,97 @@ async function saveSettings(settings: SettingsStore): Promise<void> {
  */
 export async function getProjectSettings(projectPath: string): Promise<ProjectSettings> {
   const settings = await loadSettings();
-  return settings[projectPath] || { customCommands: [] };
+  return settings[projectPath] || { customCommands: [], hooks: {} };
 }
 
 /**
- * Save a custom command for a project
+ * Get all hooks for a project
  */
-export async function saveCustomCommand(
+export async function getHooks(
+  projectPath: string
+): Promise<{ init?: ScriptHook; run?: ScriptHook; cleanup?: ScriptHook }> {
+  const settings = await getProjectSettings(projectPath);
+  return settings.hooks || {};
+}
+
+/**
+ * Get a specific hook for a project
+ */
+export async function getHook(
   projectPath: string,
-  command: CustomCommand
+  hookType: HookType
+): Promise<ScriptHook | undefined> {
+  const hooks = await getHooks(projectPath);
+  return hooks[hookType];
+}
+
+/**
+ * Save a hook for a project
+ */
+export async function saveHook(
+  projectPath: string,
+  hook: ScriptHook
 ): Promise<{ success: boolean }> {
   try {
     const settings = await loadSettings();
-    const projectSettings = settings[projectPath] || { customCommands: [] };
+    const projectSettings = settings[projectPath] || { customCommands: [], hooks: {} };
 
-    // Check if command with same ID exists (update) or add new
-    const existingIndex = projectSettings.customCommands.findIndex(c => c.id === command.id);
-    if (existingIndex >= 0) {
-      projectSettings.customCommands[existingIndex] = command;
-    } else {
-      projectSettings.customCommands.push(command);
+    if (!projectSettings.hooks) {
+      projectSettings.hooks = {};
     }
 
+    projectSettings.hooks[hook.type] = hook;
     settings[projectPath] = projectSettings;
     await saveSettings(settings);
     return { success: true };
   } catch (error) {
-    console.error('Failed to save custom command:', error);
+    console.error('Failed to save hook:', error);
     return { success: false };
   }
 }
 
 /**
- * Delete a custom command
+ * Delete a hook for a project
  */
-export async function deleteCustomCommand(
+export async function deleteHook(
   projectPath: string,
-  commandId: string
+  hookType: HookType
 ): Promise<{ success: boolean }> {
   try {
     const settings = await loadSettings();
     const projectSettings = settings[projectPath];
 
-    if (!projectSettings) {
+    if (!projectSettings?.hooks) {
       return { success: true };
     }
 
-    projectSettings.customCommands = projectSettings.customCommands.filter(
-      c => c.id !== commandId
-    );
-
-    // Clear default if it was the deleted command
-    if (projectSettings.defaultCommandId === commandId) {
-      projectSettings.defaultCommandId = undefined;
-    }
-
+    delete projectSettings.hooks[hookType];
     settings[projectPath] = projectSettings;
     await saveSettings(settings);
     return { success: true };
   } catch (error) {
-    console.error('Failed to delete custom command:', error);
+    console.error('Failed to delete hook:', error);
     return { success: false };
   }
 }
 
 /**
- * Set the default command for a project
+ * Set whether to kill existing command instances on run
  */
-export async function setDefaultCommand(
+export async function setKillExistingOnRun(
   projectPath: string,
-  commandId: string | null
+  kill: boolean
 ): Promise<{ success: boolean }> {
   try {
     const settings = await loadSettings();
-    const projectSettings = settings[projectPath] || { customCommands: [] };
+    const projectSettings = settings[projectPath] || { customCommands: [], hooks: {} };
 
-    projectSettings.defaultCommandId = commandId || undefined;
+    projectSettings.killExistingOnRun = kill;
     settings[projectPath] = projectSettings;
     await saveSettings(settings);
     return { success: true };
   } catch (error) {
-    console.error('Failed to set default command:', error);
+    console.error('Failed to set killExistingOnRun:', error);
     return { success: false };
   }
 }
