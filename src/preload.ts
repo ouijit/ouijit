@@ -173,6 +173,24 @@ contextBridge.exposeInMainWorld('api', {
     ipcRenderer.invoke('create-project', options),
 
   /**
+   * Show native folder picker dialog
+   */
+  showFolderPicker: (): Promise<{ canceled: boolean; filePaths: string[] }> =>
+    ipcRenderer.invoke('show-folder-picker'),
+
+  /**
+   * Add a project folder to the app
+   */
+  addProject: (folderPath: string): Promise<{ success: boolean; error?: string }> =>
+    ipcRenderer.invoke('add-project', folderPath),
+
+  /**
+   * Remove a project folder from the app
+   */
+  removeProject: (folderPath: string): Promise<{ success: boolean }> =>
+    ipcRenderer.invoke('remove-project', folderPath),
+
+  /**
    * Listen for fullscreen state changes
    */
   onFullscreenChange: (callback: (isFullscreen: boolean) => void): (() => void) => {

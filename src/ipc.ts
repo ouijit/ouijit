@@ -1,9 +1,9 @@
-import { ipcMain, shell, BrowserWindow } from 'electron';
+import { ipcMain, shell, BrowserWindow, dialog } from 'electron';
 import { spawn, execSync } from 'node:child_process';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import * as os from 'node:os';
-import { scanForProjects } from './scanner';
+import { scanForProjects, getAddedProjects, addProject, removeProject } from './scanner';
 import {
   spawnPty,
   reconnectPty,
@@ -261,6 +261,34 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
         error: error instanceof Error ? error.message : 'Unknown error occurred',
       };
     }
+  });
+
+  // Show native folder picker dialog
+  ipcMain.handle('show-folder-picker', async () => {
+    const result = await dialog.showOpenDialog(mainWindow, {
+      properties: ['openDirectory'],
+      title: 'Add Project Folder',
+      buttonLabel: 'Add Project',
+    });
+    return {
+      canceled: result.canceled,
+      filePaths: result.filePaths,
+    };
+  });
+
+  // Add a project folder to the persisted list
+  ipcMain.handle('add-project', async (_event, folderPath: string) => {
+    return addProject(folderPath);
+  });
+
+  // Remove a project folder from the persisted list
+  ipcMain.handle('remove-project', async (_event, folderPath: string) => {
+    return removeProject(folderPath);
+  });
+
+  // Get list of manually added projects
+  ipcMain.handle('get-added-projects', async () => {
+    return getAddedProjects();
   });
 
   // Get project settings

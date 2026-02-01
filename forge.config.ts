@@ -6,6 +6,7 @@ import { MakerRpm } from '@electron-forge/maker-rpm';
 import { VitePlugin } from '@electron-forge/plugin-vite';
 import { FusesPlugin } from '@electron-forge/plugin-fuses';
 import { FuseV1Options, FuseVersion } from '@electron/fuses';
+import { notarize } from '@electron/notarize';
 import path from 'path';
 import fs from 'fs';
 
@@ -40,38 +41,48 @@ const config: ForgeConfig = {
             entitlements: './entitlements.mac.plist',
           }),
         },
+    // Copy native modules BEFORE signing (afterCopy runs before osxSign)
+    afterCopy: [
+      (buildPath, _electronVersion, platform, _arch, callback) => {
+        const nodeModulesDest = path.join(buildPath, 'node_modules');
+
+        const modulesToCopy = ['node-pty'];
+        for (const mod of modulesToCopy) {
+          const src = path.join(__dirname, 'node_modules', mod);
+          const dest = path.join(nodeModulesDest, mod);
+          console.log(`Copying ${mod} to ${dest}`);
+          copyRecursive(src, dest);
+        }
+        callback();
+      },
+    ],
   },
   rebuildConfig: {},
   hooks: {
-    // Vite bundles JS but excludes native modules. We manually copy them post-package
-    // so they're available at runtime in the packaged app.
     postPackage: async (_config, options) => {
-      const platform = options.platform;
-      let appPath: string;
-
-      if (platform === 'darwin') {
-        // macOS: look for .app bundle
-        const outputDir = options.outputPaths[0];
-        const appBundle = fs.readdirSync(outputDir).find(f => f.endsWith('.app'));
-        if (!appBundle) {
-          console.error('Could not find .app bundle');
-          return;
-        }
-        appPath = path.join(outputDir, appBundle, 'Contents', 'Resources', 'app');
-      } else {
-        // Windows/Linux
-        appPath = path.join(options.outputPaths[0], 'resources', 'app');
+      // Only notarize macOS builds when not skipping
+      if (options.platform !== 'darwin' || process.env.SKIP_NOTARIZE) {
+        return;
       }
 
-      const nodeModulesDest = path.join(appPath, 'node_modules');
+      const appPath = path.join(
+        options.outputPaths[0],
+        `${options.packageJSON.productName || options.packageJSON.name}.app`
+      );
 
-      const modulesToCopy = ['node-pty'];
-      for (const mod of modulesToCopy) {
-        const src = path.join(__dirname, 'node_modules', mod);
-        const dest = path.join(nodeModulesDest, mod);
-        console.log(`Copying ${mod} to ${dest}`);
-        copyRecursive(src, dest);
+      if (!fs.existsSync(appPath)) {
+        console.log('App not found for notarization:', appPath);
+        return;
       }
+
+      console.log(`Notarizing ${appPath}...`);
+
+      await notarize({
+        appPath,
+        keychainProfile: 'ouijit-notarize',
+      });
+
+      console.log('Notarization complete!');
     },
   },
   makers: [

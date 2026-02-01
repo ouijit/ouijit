@@ -320,6 +320,12 @@ export interface ElectronAPI {
   getFileDiff(projectPath: string, filePath: string): Promise<import('./git').FileDiff | null>;
   /** Create a new project */
   createProject(options: CreateProjectOptions): Promise<CreateProjectResult>;
+  /** Show native folder picker dialog */
+  showFolderPicker(): Promise<{ canceled: boolean; filePaths: string[] }>;
+  /** Add a project folder to the app */
+  addProject(folderPath: string): Promise<{ success: boolean; error?: string }>;
+  /** Remove a project folder from the app */
+  removeProject(folderPath: string): Promise<{ success: boolean }>;
   /** Listen for fullscreen state changes */
   onFullscreenChange(callback: (isFullscreen: boolean) => void): () => void;
   /** Get project settings */
