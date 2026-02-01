@@ -160,6 +160,22 @@ export function formatBranchNameForDisplay(branch: string): string {
  */
 export async function createTaskWorktree(projectPath: string, name?: string): Promise<TaskWorktreeResult> {
   try {
+    // Check if repo has any commits (worktrees require a valid HEAD)
+    try {
+      execSync('git rev-parse HEAD', {
+        cwd: projectPath,
+        encoding: 'utf8',
+        stdio: ['pipe', 'pipe', 'pipe'],
+      });
+    } catch {
+      // No commits yet - create an initial empty commit
+      execSync('git commit --allow-empty -m "Initial commit"', {
+        cwd: projectPath,
+        encoding: 'utf8',
+        stdio: ['pipe', 'pipe', 'pipe'],
+      });
+    }
+
     const projectName = path.basename(projectPath);
     const displayName = name || 'Untitled';
 
