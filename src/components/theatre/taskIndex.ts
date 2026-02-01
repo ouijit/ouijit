@@ -8,7 +8,6 @@ import { projectPath, taskIndexVisible, terminals } from './signals';
 import { showToast } from '../importDialog';
 import { theatreRegistry } from './helpers';
 import { reopenTask, deleteTask, closeTask } from './worktreeDropdown';
-import { updateReadyIndicator } from './terminalCards';
 import { registerHotkey, unregisterHotkey, pushScope, popScope, Scopes } from '../../utils/hotkeys';
 
 /**
@@ -58,29 +57,6 @@ function buildTaskIndexHtml(): string {
 }
 
 /**
- * Toggle the ready-to-ship state for a task
- */
-async function toggleTaskReady(path: string, task: WorktreeWithMetadata): Promise<void> {
-  const newReady = !task.readyToShip;
-  const result = await window.api.worktree.setReady(path, task.branch, newReady);
-  if (result.success) {
-    showToast(newReady ? 'Task marked ready to ship' : 'Task unmarked', 'success');
-
-    // Sync any open terminals for this task
-    for (const term of terminals.value) {
-      if (term.worktreeBranch === task.branch) {
-        term.readyToShip = newReady;
-        updateReadyIndicator(term);
-      }
-    }
-
-    await populateTaskIndex();
-  } else {
-    showToast(result.error || 'Failed to update task', 'error');
-  }
-}
-
-/**
  * Build a task item element
  */
 function buildTaskItem(task: WorktreeWithMetadata, path: string, index?: number): HTMLElement {
@@ -89,9 +65,6 @@ function buildTaskItem(task: WorktreeWithMetadata, path: string, index?: number)
   if (task.status === 'closed') {
     item.classList.add('task-index-item--closed');
   }
-  if (task.readyToShip) {
-    item.classList.add('task-index-item--ready');
-  }
 
   // Show ⌘N shortcut for first 9 items
   if (index !== undefined && index < 9) {
@@ -99,15 +72,6 @@ function buildTaskItem(task: WorktreeWithMetadata, path: string, index?: number)
     shortcut.className = 'task-index-item-shortcut';
     shortcut.textContent = `⌘${index + 1}`;
     item.appendChild(shortcut);
-  }
-
-  // Ready indicator (rocket icon for ready tasks)
-  if (task.readyToShip && task.status === 'open') {
-    const readyIndicator = document.createElement('span');
-    readyIndicator.className = 'task-index-item-ready-indicator';
-    readyIndicator.innerHTML = '<i data-lucide="rocket"></i>';
-    readyIndicator.title = 'Ready to ship';
-    item.appendChild(readyIndicator);
   }
 
   const nameSpan = document.createElement('span');
@@ -131,17 +95,6 @@ function buildTaskItem(task: WorktreeWithMetadata, path: string, index?: number)
     });
     actions.appendChild(reopenBtn);
   } else {
-    // Ready toggle button (for open tasks)
-    const readyBtn = document.createElement('button');
-    readyBtn.className = 'task-index-item-action' + (task.readyToShip ? ' task-index-item-action--ready-active' : '');
-    readyBtn.title = task.readyToShip ? 'Unmark as ready' : 'Mark as ready to ship';
-    readyBtn.innerHTML = '<i data-lucide="rocket"></i>';
-    readyBtn.addEventListener('click', async (e) => {
-      e.stopPropagation();
-      await toggleTaskReady(path, task);
-    });
-    actions.appendChild(readyBtn);
-
     // Close button (for open tasks)
     const closeBtn = document.createElement('button');
     closeBtn.className = 'task-index-item-action task-index-item-action--close';

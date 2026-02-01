@@ -281,6 +281,7 @@ export async function enterTheatreMode(
   registerHotkey('command+i', Scopes.THEATRE, () => addTheatreTerminal());
   registerHotkey('command+p', Scopes.THEATRE, () => theatreRegistry.playOrToggleRunner?.());
   registerHotkey('command+d', Scopes.THEATRE, () => theatreRegistry.toggleActiveDiffPanel?.());
+  registerHotkey('command+shift+s', Scopes.THEATRE, () => theatreRegistry.toggleActiveShipItPanel?.());
 
   // ⌘1-9 to select by stack position (terminals or tasks in empty state)
   for (let i = 1; i <= 9; i++) {
@@ -391,6 +392,7 @@ export function exitTheatreMode(): void {
   unregisterHotkey('command+i', Scopes.THEATRE);
   unregisterHotkey('command+p', Scopes.THEATRE);
   unregisterHotkey('command+d', Scopes.THEATRE);
+  unregisterHotkey('command+shift+s', Scopes.THEATRE);
   for (let i = 1; i <= 9; i++) {
     unregisterHotkey(`command+${i}`, Scopes.THEATRE);
   }
@@ -581,6 +583,7 @@ export async function restoreTheatreMode(
   registerHotkey('command+i', Scopes.THEATRE, () => addTheatreTerminal());
   registerHotkey('command+p', Scopes.THEATRE, () => theatreRegistry.playOrToggleRunner?.());
   registerHotkey('command+d', Scopes.THEATRE, () => theatreRegistry.toggleActiveDiffPanel?.());
+  registerHotkey('command+shift+s', Scopes.THEATRE, () => theatreRegistry.toggleActiveShipItPanel?.());
 
   // ⌘1-9 to select by stack position (terminals or tasks in empty state)
   for (let i = 1; i <= 9; i++) {

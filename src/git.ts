@@ -795,7 +795,8 @@ export function getWorktreeFileDiff(
  */
 export function mergeWorktreeBranch(
   projectPath: string,
-  branchToMerge: string
+  branchToMerge: string,
+  commitMessage?: string
 ): { success: boolean; error?: string; mergedBranch?: string } {
   const opts = gitExecOpts(projectPath);
 
@@ -833,17 +834,26 @@ export function mergeWorktreeBranch(
       }
     }
 
-    // Merge the worktree branch
+    // Squash merge the worktree branch
     try {
-      execSync(`git merge "${branchToMerge}"`, opts);
+      execSync(`git merge --squash "${branchToMerge}"`, opts);
+      // Create the squash commit with custom or default message
+      const commitMsg = commitMessage || branchToMerge.replace(/-\d{10,}$/, '').replace(/-/g, ' ');
+      // Use stdin to handle multi-line messages safely
+      execSync('git commit -F -', { ...opts, input: commitMsg });
       return { success: true, mergedBranch: branchToMerge };
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : '';
-      // If merge fails, try to abort
+      // If merge fails, try to abort/reset
       try {
         execSync('git merge --abort', opts);
       } catch {
-        // Ignore abort errors
+        // merge --abort may fail if squash merge, try reset instead
+        try {
+          execSync('git reset --hard HEAD', opts);
+        } catch {
+          // Ignore reset errors
+        }
       }
       // Go back to the original branch if we switched
       if (currentBranch !== mainBranch) {

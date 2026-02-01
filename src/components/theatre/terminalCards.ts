@@ -22,6 +22,7 @@ import { showToast } from '../importDialog';
 import { showHookConfigDialog } from '../hookConfigDialog';
 import { scheduleGitStatusRefresh, refreshTerminalGitStatus, buildCardGitStatusHtml, scheduleTerminalGitStatusRefresh } from './gitStatus';
 import { toggleTerminalDiffPanel, hideTerminalDiffPanel } from './diffPanel';
+import { showShipItPanel } from './shipItPanel';
 
 /**
  * Format a branch name for display (hyphens to spaces)
@@ -417,7 +418,6 @@ export function createTheatreCard(label: string, index: number): HTMLElement {
     <div class="theatre-card-label-left">
       <span class="theatre-card-status-dot" data-status="idle"></span>
       <kbd class="theatre-card-shortcut" style="display: none;"></kbd>
-      <span class="theatre-card-ready-indicator" style="display: none;" title="Ready to ship"><i data-lucide="rocket"></i></span>
       <span class="theatre-card-label-text">${label}</span>
     </div>
     <div class="theatre-card-label-right">
@@ -429,7 +429,7 @@ export function createTheatreCard(label: string, index: number): HTMLElement {
           <span class="runner-pill-label"></span>
         </div>
       </div>
-      <button class="theatre-card-ready-toggle theatre-card-action--worktree" style="display: none;" title="Mark as ready to ship"><i data-lucide="rocket"></i></button>
+      <button class="theatre-card-ship-btn theatre-card-action--worktree" style="display: none;" title="Ship changes to main"><i data-lucide="rocket"></i></button>
       <button class="theatre-card-close-task theatre-card-action--worktree" style="display: none;" title="Close task"><i data-lucide="archive"></i></button>
       <button class="theatre-card-close" title="Close terminal"><i data-lucide="x"></i></button>
     </div>
@@ -537,44 +537,6 @@ export function removeLoadingCard(loadingCard: HTMLElement): void {
 }
 
 /**
- * Update the ready indicator visibility for a terminal card
- */
-export function updateReadyIndicator(term: TheatreTerminal): void {
-  const indicator = term.container.querySelector('.theatre-card-ready-indicator') as HTMLElement;
-  const toggleBtn = term.container.querySelector('.theatre-card-ready-toggle') as HTMLElement;
-
-  if (indicator) {
-    indicator.style.display = term.readyToShip ? 'flex' : 'none';
-  }
-  if (toggleBtn) {
-    toggleBtn.classList.toggle('theatre-card-ready-toggle--active', !!term.readyToShip);
-    toggleBtn.title = term.readyToShip ? 'Unmark as ready' : 'Mark as ready to ship';
-  }
-}
-
-/**
- * Toggle ready-to-ship state for a terminal's task
- */
-async function toggleReadyFromTerminal(term: TheatreTerminal): Promise<void> {
-  if (!term.isWorktree || !term.worktreeBranch) return;
-
-  const path = projectPath.value;
-  if (!path) return;
-
-  const newReady = !term.readyToShip;
-  const result = await window.api.worktree.setReady(path, term.worktreeBranch, newReady);
-  if (result.success) {
-    term.readyToShip = newReady;
-    updateReadyIndicator(term);
-    showToast(newReady ? 'Task marked ready to ship' : 'Task unmarked', 'success');
-    // Refresh task index if visible
-    theatreRegistry.refreshTaskIndex?.();
-  } else {
-    showToast(result.error || 'Failed to update task', 'error');
-  }
-}
-
-/**
  * Set up card action buttons (runner pill for all terminals, close-task for worktrees)
  * Note: Runner pill visibility is controlled by updateCardStack (only shown on active card)
  */
@@ -584,13 +546,13 @@ export function setupCardActions(term: TheatreTerminal): void {
 
   // Show worktree-specific buttons for worktree terminals
   if (term.isWorktree && term.worktreeBranch) {
-    // Ready toggle button
-    const readyBtn = labelEl.querySelector('.theatre-card-ready-toggle') as HTMLElement;
-    if (readyBtn) {
-      readyBtn.style.display = 'flex';
-      readyBtn.addEventListener('click', async (e) => {
+    // Ship button
+    const shipBtn = labelEl.querySelector('.theatre-card-ship-btn') as HTMLElement;
+    if (shipBtn) {
+      shipBtn.style.display = 'flex';
+      shipBtn.addEventListener('click', (e) => {
         e.stopPropagation();
-        await toggleReadyFromTerminal(term);
+        showShipItPanel(term);
       });
     }
 
@@ -603,9 +565,6 @@ export function setupCardActions(term: TheatreTerminal): void {
         await closeTaskFromTerminal(term);
       });
     }
-
-    // Update ready indicator based on initial state
-    updateReadyIndicator(term);
   }
 
   // Wire up runner pill click handlers
@@ -1601,9 +1560,6 @@ async function populatePreviousTasks(emptyState: HTMLElement): Promise<void> {
     openTasks.forEach((task, index) => {
       const taskBtn = document.createElement('button');
       taskBtn.className = 'theatre-stack-empty-task';
-      if (task.readyToShip) {
-        taskBtn.classList.add('theatre-stack-empty-task--ready');
-      }
       taskBtn.dataset.taskIndex = String(index);
 
       // Add shortcut indicator for first 9 tasks
@@ -1612,15 +1568,6 @@ async function populatePreviousTasks(emptyState: HTMLElement): Promise<void> {
         shortcut.className = 'theatre-stack-empty-task-shortcut';
         shortcut.textContent = `⌘${index + 1}`;
         taskBtn.appendChild(shortcut);
-      }
-
-      // Add ready indicator for ready-to-ship tasks
-      if (task.readyToShip) {
-        const readyIndicator = document.createElement('span');
-        readyIndicator.className = 'theatre-stack-empty-task-ready';
-        readyIndicator.innerHTML = '<i data-lucide="rocket"></i>';
-        readyIndicator.title = 'Ready to ship';
-        taskBtn.appendChild(readyIndicator);
       }
 
       const nameSpan = document.createElement('span');

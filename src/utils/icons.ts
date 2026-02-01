@@ -12,6 +12,7 @@ import {
   // All icons used in the app
   Archive,
   ArrowLeft,
+  ArrowRight,
   Bug,
   ChevronDown,
   ChevronRight,
@@ -45,6 +46,7 @@ export { createElement };
 export {
   Archive,
   ArrowLeft,
+  ArrowRight,
   Bug,
   ChevronDown,
   ChevronRight,
@@ -75,6 +77,7 @@ export {
 const iconMap: Record<string, Parameters<typeof createElement>[0]> = {
   'archive': Archive,
   'arrow-left': ArrowLeft,
+  'arrow-right': ArrowRight,
   'bug': Bug,
   'chevron-down': ChevronDown,
   'chevron-right': ChevronRight,

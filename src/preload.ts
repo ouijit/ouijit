@@ -99,6 +99,9 @@ contextBridge.exposeInMainWorld('api', {
     merge: (projectPath: string, worktreeBranch: string): Promise<GitMergeResult> =>
       ipcRenderer.invoke('worktree:merge', projectPath, worktreeBranch),
 
+    ship: (projectPath: string, worktreeBranch: string, commitMessage?: string): Promise<{ success: boolean; error?: string; conflictFiles?: string[]; mergedBranch?: string }> =>
+      ipcRenderer.invoke('worktree:ship', projectPath, worktreeBranch, commitMessage),
+
     getTasks: (projectPath: string): Promise<WorktreeWithMetadata[]> =>
       ipcRenderer.invoke('worktree:get-tasks', projectPath),
 

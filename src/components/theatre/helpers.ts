@@ -23,6 +23,10 @@ interface TheatreRegistry {
   playOrToggleRunner: (() => Promise<void>) | null;
   // From diffPanel
   toggleActiveDiffPanel: (() => Promise<void>) | null;
+  // From shipItPanel
+  showShipItPanel: ((term: TheatreTerminal) => Promise<void>) | null;
+  hideShipItPanel: ((term: TheatreTerminal) => void) | null;
+  toggleActiveShipItPanel: (() => Promise<void>) | null;
 }
 
 export const theatreRegistry: TheatreRegistry = {
@@ -33,6 +37,9 @@ export const theatreRegistry: TheatreRegistry = {
   closeTheatreTerminal: null,
   playOrToggleRunner: null,
   toggleActiveDiffPanel: null,
+  showShipItPanel: null,
+  hideShipItPanel: null,
+  toggleActiveShipItPanel: null,
 };
 
 /**

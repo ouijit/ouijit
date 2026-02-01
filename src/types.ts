@@ -101,6 +101,16 @@ export interface GitMergeResult {
 }
 
 /**
+ * Result of shipping (merging) a worktree branch
+ */
+export interface ShipItResult {
+  success: boolean;
+  error?: string;
+  conflictFiles?: string[];
+  mergedBranch?: string;
+}
+
+/**
  * Unique identifier for a PTY session
  */
 export type PtyId = string;
@@ -260,6 +270,8 @@ export interface WorktreeAPI {
   getDiff(projectPath: string, worktreeBranch: string): Promise<import('./git').WorktreeDiffSummary | null>;
   getFileDiff(projectPath: string, worktreeBranch: string, filePath: string): Promise<import('./git').FileDiff | null>;
   merge(projectPath: string, worktreeBranch: string): Promise<GitMergeResult>;
+  /** Ship (merge into main) a worktree branch */
+  ship(projectPath: string, worktreeBranch: string, commitMessage?: string): Promise<ShipItResult>;
   /** Get tasks with metadata merged with worktree list */
   getTasks(projectPath: string): Promise<WorktreeWithMetadata[]>;
   /** Mark a task as closed (metadata only, keeps worktree) */

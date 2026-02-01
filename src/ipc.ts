@@ -328,6 +328,46 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     return mergeWorktreeBranch(projectPath, worktreeBranch);
   });
 
+  // Ship a worktree branch (merge into main and close task)
+  ipcMain.handle('worktree:ship', async (_event, projectPath: string, worktreeBranch: string, commitMessage?: string): Promise<{ success: boolean; error?: string; conflictFiles?: string[]; mergedBranch?: string }> => {
+    // First, check for uncommitted changes in the worktree
+    const worktrees = listWorktrees(projectPath);
+    const worktree = worktrees.find(wt => wt.branch === worktreeBranch);
+
+    if (worktree) {
+      try {
+        const status = execSync('git status --porcelain', {
+          cwd: worktree.path,
+          encoding: 'utf8',
+        });
+        if (status.trim().length > 0) {
+          return {
+            success: false,
+            error: 'Uncommitted changes in worktree. Commit or stash first.',
+          };
+        }
+      } catch {
+        // Ignore check errors and proceed
+      }
+    }
+
+    // Attempt to merge
+    const result = mergeWorktreeBranch(projectPath, worktreeBranch, commitMessage);
+
+    if (!result.success && result.error?.includes('conflict')) {
+      // Try to get conflicting files (note: merge was already aborted by mergeWorktreeBranch)
+      // Since the merge was aborted, we can't get the conflict files directly
+      // Return a generic message about conflicts
+      return {
+        success: false,
+        error: result.error,
+        conflictFiles: [], // Files are unknown after abort
+      };
+    }
+
+    return result;
+  });
+
   // Get tasks with metadata merged with worktree list
   ipcMain.handle('worktree:get-tasks', async (_event, projectPath: string): Promise<WorktreeWithMetadata[]> => {
     const worktrees = listWorktrees(projectPath);
