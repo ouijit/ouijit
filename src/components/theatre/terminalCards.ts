@@ -20,7 +20,7 @@ import {
 } from './signals';
 import { showToast } from '../importDialog';
 import { showHookConfigDialog } from '../hookConfigDialog';
-import { scheduleGitStatusRefresh, refreshTerminalGitStatus, buildCardGitStatusHtml, scheduleTerminalGitStatusRefresh } from './gitStatus';
+import { refreshTerminalGitStatus, buildCardGitStatusHtml, scheduleTerminalGitStatusRefresh } from './gitStatus';
 import { toggleTerminalDiffPanel, hideTerminalDiffPanel } from './diffPanel';
 import { showShipItPanel } from './shipItPanel';
 
@@ -369,16 +369,21 @@ export function updateTerminalCardLabel(term: TheatreTerminal): void {
   const gitWrapper = labelEl.querySelector('.theatre-card-git-wrapper') as HTMLElement;
   if (gitWrapper) {
     const gitHtml = buildCardGitStatusHtml(term.gitStatus);
-    gitWrapper.innerHTML = gitHtml;
 
-    // Wire up click handler for stats (only if clickable)
-    if (gitHtml) {
-      const statsEl = gitWrapper.querySelector('.theatre-card-git-stats--clickable') as HTMLElement;
-      if (statsEl) {
-        statsEl.addEventListener('click', (e) => {
-          e.stopPropagation();
-          toggleTerminalDiffPanel(term);
-        });
+    // Only update DOM if content actually changed (avoids destroying event listeners)
+    if (gitWrapper.dataset.lastHtml !== gitHtml) {
+      gitWrapper.dataset.lastHtml = gitHtml;
+      gitWrapper.innerHTML = gitHtml;
+
+      // Wire up click handler for stats (only if clickable)
+      if (gitHtml) {
+        const statsEl = gitWrapper.querySelector('.theatre-card-git-stats--clickable') as HTMLElement;
+        if (statsEl) {
+          statsEl.addEventListener('click', (e) => {
+            e.stopPropagation();
+            toggleTerminalDiffPanel(term);
+          });
+        }
       }
     }
   }
@@ -732,36 +737,39 @@ export function showRunnerPanel(term: TheatreTerminal): void {
       if (xtermContainer) {
         term.runnerTerminal.open(xtermContainer);
 
-        // Enable native drag/drop on the runner terminal
-        const setupRunnerDragDrop = (container: HTMLElement, runnerTerm: Terminal) => {
-          const screen = container.querySelector('.xterm-screen');
-          const target = screen || container;
+        // Enable native drag/drop on the runner terminal (only once per container)
+        if (!xtermContainer.dataset.dragDropSetup) {
+          xtermContainer.dataset.dragDropSetup = 'true';
+          const setupRunnerDragDrop = (container: HTMLElement, runnerTerm: Terminal) => {
+            const screen = container.querySelector('.xterm-screen');
+            const target = screen || container;
 
-          target.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            if ((e as DragEvent).dataTransfer) {
-              (e as DragEvent).dataTransfer!.dropEffect = 'copy';
-            }
-          });
-
-          target.addEventListener('drop', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            const dt = (e as DragEvent).dataTransfer;
-            if (dt?.files.length) {
-              const paths = Array.from(dt.files)
-                .map(f => window.api.getPathForFile(f))
-                .filter((p): p is string => !!p)
-                .map(p => p.includes(' ') ? `"${p}"` : p)
-                .join(' ');
-              if (paths) {
-                runnerTerm.paste(paths);
+            target.addEventListener('dragover', (e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              if ((e as DragEvent).dataTransfer) {
+                (e as DragEvent).dataTransfer!.dropEffect = 'copy';
               }
-            }
-          });
-        };
-        setupRunnerDragDrop(xtermContainer, term.runnerTerminal);
+            });
+
+            target.addEventListener('drop', (e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              const dt = (e as DragEvent).dataTransfer;
+              if (dt?.files.length) {
+                const paths = Array.from(dt.files)
+                  .map(f => window.api.getPathForFile(f))
+                  .filter((p): p is string => !!p)
+                  .map(p => p.includes(' ') ? `"${p}"` : p)
+                  .join(' ');
+                if (paths) {
+                  runnerTerm.paste(paths);
+                }
+              }
+            });
+          };
+          setupRunnerDragDrop(xtermContainer, term.runnerTerminal);
+        }
 
         if (term.runnerFitAddon) {
           requestAnimationFrame(() => {
@@ -1388,8 +1396,7 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
       scheduleTerminalSummaryUpdate(theatreTerminal);
 
       if (projectPath.value) {
-        scheduleGitStatusRefresh();
-        // Also schedule a refresh of this terminal's git status
+        // Only schedule a refresh of this terminal's git status (not all terminals)
         scheduleTerminalGitStatusRefresh(theatreTerminal, updateTerminalCardLabel);
       }
     });
