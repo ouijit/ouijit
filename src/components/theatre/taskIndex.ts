@@ -8,7 +8,7 @@ import { projectPath, taskIndexVisible, terminals } from './signals';
 import { showToast } from '../importDialog';
 import { theatreRegistry } from './helpers';
 import { reopenTask, deleteTask, closeTask } from './worktreeDropdown';
-import { registerHotkey, unregisterHotkey, pushScope, popScope, Scopes } from '../../utils/hotkeys';
+import { registerHotkey, unregisterHotkey, pushScope, popScope, Scopes, platformHotkey } from '../../utils/hotkeys';
 
 /**
  * Format a branch name for display (hyphens to spaces)
@@ -66,11 +66,14 @@ function buildTaskItem(task: WorktreeWithMetadata, path: string, index?: number)
     item.classList.add('task-index-item--closed');
   }
 
-  // Show ⌘N shortcut for first 9 items
+  // Show modifier+N shortcut for first 9 items (⌘ on Mac, Ctrl on Linux/Windows)
   if (index !== undefined && index < 9) {
     const shortcut = document.createElement('kbd');
     shortcut.className = 'task-index-item-shortcut';
-    shortcut.innerHTML = `⌘<span class="shortcut-number">${index + 1}</span>`;
+    const isMac = navigator.platform.toLowerCase().includes('mac');
+    shortcut.innerHTML = isMac
+      ? `⌘<span class="shortcut-number">${index + 1}</span>`
+      : `Ctrl+<span class="shortcut-number">${index + 1}</span>`;
     item.appendChild(shortcut);
   }
 
@@ -260,18 +263,18 @@ export async function showTaskIndex(): Promise<void> {
     hideTaskIndex();
   });
 
-  registerHotkey('command+t', Scopes.TASK_INDEX, () => {
+  registerHotkey(platformHotkey('mod+t'), Scopes.TASK_INDEX, () => {
     hideTaskIndex();
   });
 
-  registerHotkey('command+n', Scopes.TASK_INDEX, () => {
+  registerHotkey(platformHotkey('mod+n'), Scopes.TASK_INDEX, () => {
     hideTaskIndex();
     theatreRegistry.createNewAgentShell?.();
   });
 
-  // ⌘1-9 for quick select
+  // Mod+1-9 for quick select
   for (let i = 1; i <= 9; i++) {
-    registerHotkey(`command+${i}`, Scopes.TASK_INDEX, () => {
+    registerHotkey(platformHotkey(`mod+${i}`), Scopes.TASK_INDEX, () => {
       const items = Array.from(panel!.querySelectorAll('.task-index-item')) as HTMLElement[];
       if (i - 1 < items.length) {
         items[i - 1].click();
@@ -281,10 +284,10 @@ export async function showTaskIndex(): Promise<void> {
 
   theatreState.taskIndexCleanup = () => {
     unregisterHotkey('escape', Scopes.TASK_INDEX);
-    unregisterHotkey('command+t', Scopes.TASK_INDEX);
-    unregisterHotkey('command+n', Scopes.TASK_INDEX);
+    unregisterHotkey(platformHotkey('mod+t'), Scopes.TASK_INDEX);
+    unregisterHotkey(platformHotkey('mod+n'), Scopes.TASK_INDEX);
     for (let i = 1; i <= 9; i++) {
-      unregisterHotkey(`command+${i}`, Scopes.TASK_INDEX);
+      unregisterHotkey(platformHotkey(`mod+${i}`), Scopes.TASK_INDEX);
     }
     popScope();
   };

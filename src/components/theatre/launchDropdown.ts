@@ -183,13 +183,16 @@ export async function buildLaunchDropdownContent(dropdown: HTMLElement): Promise
   divider.className = 'launch-dropdown-divider';
   dropdown.appendChild(divider);
 
-  // Open in Finder option
+  // Open in file manager option (platform-aware text)
   const finderOption = document.createElement('button');
   finderOption.className = 'launch-option';
   finderOption.innerHTML = '<i data-lucide="folder-open" class="launch-option-icon"></i>';
   const finderText = document.createElement('span');
   finderText.className = 'launch-option-name';
-  finderText.textContent = 'Open in Finder';
+  // Platform-aware label
+  const isMac = navigator.platform.toLowerCase().includes('mac');
+  const isWin = navigator.platform.toLowerCase().includes('win');
+  finderText.textContent = isMac ? 'Open in Finder' : isWin ? 'Open in Explorer' : 'Open in Files';
   finderOption.appendChild(finderText);
   finderOption.addEventListener('click', (e) => {
     e.stopPropagation();

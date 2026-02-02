@@ -73,6 +73,89 @@ function launchInTerminal(projectPath: string, command: string): Promise<LaunchR
 }
 
 /**
+ * Finds an available terminal emulator on Linux
+ * Returns the command to launch it, or null if none found
+ */
+function findLinuxTerminal(): string | null {
+  // Terminal emulators in order of preference
+  const terminals = [
+    'x-terminal-emulator', // Debian/Ubuntu system default
+    'gnome-terminal',      // GNOME
+    'konsole',             // KDE
+    'xfce4-terminal',      // XFCE
+    'mate-terminal',       // MATE
+    'lxterminal',          // LXDE
+    'xterm',               // Fallback
+  ];
+
+  for (const term of terminals) {
+    try {
+      execSync(`which ${term}`, { stdio: 'ignore' });
+      return term;
+    } catch {
+      // Terminal not found, try next
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Launches a command in a terminal emulator on Linux
+ */
+function launchInLinuxTerminal(projectPath: string, command: string): Promise<LaunchResult> {
+  return new Promise((resolve) => {
+    const terminal = findLinuxTerminal();
+
+    if (!terminal) {
+      resolve({
+        success: false,
+        error: 'No terminal emulator found. Please install xterm or another terminal.',
+      });
+      return;
+    }
+
+    // Build the command to run in the terminal
+    // Most terminals support -e for executing a command
+    const fullCommand = `cd "${projectPath}" && ${command}; exec $SHELL`;
+
+    let args: string[];
+    switch (terminal) {
+      case 'gnome-terminal':
+        args = ['--', 'bash', '-c', fullCommand];
+        break;
+      case 'konsole':
+        args = ['-e', 'bash', '-c', fullCommand];
+        break;
+      case 'xfce4-terminal':
+      case 'mate-terminal':
+      case 'lxterminal':
+        args = ['-e', `bash -c "${fullCommand.replace(/"/g, '\\"')}"`];
+        break;
+      default:
+        // x-terminal-emulator, xterm, and others
+        args = ['-e', 'bash', '-c', fullCommand];
+    }
+
+    const proc = spawn(terminal, args, {
+      detached: true,
+      stdio: 'ignore',
+    });
+
+    proc.unref();
+
+    proc.on('error', (err) => {
+      resolve({ success: false, error: err.message });
+    });
+
+    // Give it a moment to spawn, then assume success
+    setTimeout(() => {
+      resolve({ success: true });
+    }, 100);
+  });
+}
+
+/**
  * Registers all IPC handlers for the main process
  */
 export function registerIpcHandlers(mainWindow: BrowserWindow): void {
@@ -112,12 +195,15 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
   // Handler to launch a project with a specific run config
   ipcMain.handle('launch-project', async (_event, projectPath: string, runConfig: RunConfig): Promise<LaunchResult> => {
     try {
-      // Currently macOS only
       if (process.platform === 'darwin') {
         return await launchInTerminal(projectPath, runConfig.command);
       }
 
-      // Fallback for other platforms - open in file manager
+      if (process.platform === 'linux') {
+        return await launchInLinuxTerminal(projectPath, runConfig.command);
+      }
+
+      // Fallback for other platforms (Windows) - open in file manager
       await shell.openPath(projectPath);
       return { success: true };
     } catch (error) {

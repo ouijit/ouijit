@@ -24,13 +24,15 @@ const createWindow = (): BrowserWindow => {
   const backgroundColor = isDark ? '#1C1C1E' : '#F5F5F7';
 
   // Create the browser window.
+  const isMac = process.platform === 'darwin';
   const window = new BrowserWindow({
     width: 1200,
     height: 800,
     minWidth: 600,
     minHeight: 400,
-    titleBarStyle: 'hiddenInset',
-    trafficLightPosition: { x: 16, y: 16 },
+    // macOS: hidden title bar with inset traffic lights
+    // Linux/Windows: use default frame (has native window controls)
+    ...(isMac && { titleBarStyle: 'hiddenInset', trafficLightPosition: { x: 16, y: 16 } }),
     backgroundColor,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),

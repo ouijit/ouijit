@@ -1317,13 +1317,13 @@ body.theatre-mode .project-list-header {
   align-items: center;
   gap: 12px;
   flex: 1;
-  padding-left: 96px; /* Space for macOS traffic lights */
+  padding-left: 16px;
   padding-right: 16px;
 }
 
-/* Remove traffic light padding when in fullscreen */
-body.is-fullscreen .theatre-header-content {
-  padding-left: 16px;
+/* Add extra padding for macOS traffic lights (except fullscreen) */
+body.platform-darwin:not(.is-fullscreen) .theatre-header-content {
+  padding-left: 96px;
 }
 
 .theatre-project-icon {
@@ -3702,6 +3702,19 @@ body.task-index-open .theatre-stack {
 /* Smaller numbers in shortcut hints (e.g., ⌘1 where 1 is smaller) */
 .shortcut-number {
   font-size: 12px;
+}
+
+/* On non-Mac platforms, use smaller font for shortcut text since "Ctrl+" is longer than ⌘ */
+body.platform-other .theatre-stack-empty-hint-shortcut,
+body.platform-other .theatre-stack-empty-section-shortcut,
+body.platform-other .theatre-stack-empty-task-shortcut,
+body.platform-other .task-index-item-shortcut,
+body.platform-other .theatre-card-shortcut {
+  font-size: 11px;
+}
+
+body.platform-other .shortcut-number {
+  font-size: 11px;
 }
 
 .task-index-item-id {

@@ -5,6 +5,21 @@
 
 import hotkeys from 'hotkeys-js';
 
+// Platform detection
+const isMac = navigator.platform.toLowerCase().includes('mac');
+
+/**
+ * Convert platform-agnostic hotkey to platform-specific format.
+ * Use 'mod+' as a prefix that becomes 'command+' on Mac and 'ctrl+' on other platforms.
+ *
+ * Examples:
+ *   'mod+n' -> 'command+n' (Mac) or 'ctrl+n' (Linux/Windows)
+ *   'mod+shift+s' -> 'command+shift+s' (Mac) or 'ctrl+shift+s' (Linux/Windows)
+ */
+export function platformHotkey(keys: string): string {
+  return keys.replace(/\bmod\+/g, isMac ? 'command+' : 'ctrl+');
+}
+
 // Define all scopes
 export const Scopes = {
   APP: 'app',
@@ -83,8 +98,11 @@ export function initHotkeys(): void {
       return true;
     }
 
-    // Allow ⌘+number and ⌘+letter shortcuts in inputs
-    if (event.metaKey && !event.ctrlKey && !event.altKey) {
+    // Allow modifier+key shortcuts in inputs (⌘ on Mac, Ctrl on Linux/Windows)
+    const hasModifier = isMac
+      ? event.metaKey && !event.ctrlKey
+      : event.ctrlKey && !event.metaKey;
+    if (hasModifier && !event.altKey) {
       return true;
     }
 

@@ -8,6 +8,7 @@
     "start": "electron-forge start",
     "package": "electron-forge package",
     "make": "electron-forge make",
+    "make:linux": "./scripts/build-linux.sh",
     "publish": "electron-forge publish",
     "typecheck": "tsc --noEmit",
     "check": "tsc --noEmit"

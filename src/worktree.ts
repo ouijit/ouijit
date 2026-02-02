@@ -85,12 +85,13 @@ async function copyGitIgnoredFiles(sourcePath: string, worktreePath: string): Pr
         await fs.mkdir(path.dirname(destItem), { recursive: true });
 
         if (stat.isDirectory()) {
-          // Use APFS clone for directories (fast, space-efficient)
-          // -R: recursive, -p: preserve timestamps/permissions, -c: APFS clone
-          await execAsync(`cp -Rpc ${shellEscape(sourceItem)} ${shellEscape(destItem)}`);
+          // -R: recursive, -p: preserve timestamps/permissions, -c: APFS clone (macOS only)
+          const cpFlags = os.platform() === 'darwin' ? '-Rpc' : '-Rp';
+          await execAsync(`cp ${cpFlags} ${shellEscape(sourceItem)} ${shellEscape(destItem)}`);
         } else {
-          // Use APFS clone for files too
-          await execAsync(`cp -pc ${shellEscape(sourceItem)} ${shellEscape(destItem)}`);
+          // -p: preserve timestamps/permissions, -c: APFS clone (macOS only)
+          const cpFlags = os.platform() === 'darwin' ? '-pc' : '-p';
+          await execAsync(`cp ${cpFlags} ${shellEscape(sourceItem)} ${shellEscape(destItem)}`);
         }
       } catch (error) {
         // Log but don't fail - some files might be transient or locked

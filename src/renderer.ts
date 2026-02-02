@@ -160,6 +160,10 @@ document.addEventListener('drop', (e) => e.preventDefault());
 
 // Initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
+  // Set platform class for CSS platform-specific styling
+  const isMac = navigator.platform.toLowerCase().includes('mac');
+  document.body.classList.add(isMac ? 'platform-darwin' : 'platform-other');
+
   // Initialize hotkey system
   initHotkeys();
 

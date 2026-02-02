@@ -24,6 +24,62 @@ import { refreshTerminalGitStatus, buildCardGitStatusHtml, scheduleTerminalGitSt
 import { toggleTerminalDiffPanel, hideTerminalDiffPanel } from './diffPanel';
 import { showShipItPanel } from './shipItPanel';
 
+// Platform detection for shortcuts display
+const isMac = navigator.platform.toLowerCase().includes('mac');
+
+/**
+ * Set up custom key handler for a terminal to let app hotkeys pass through.
+ * Without this, xterm captures all keys and our hotkeys-js handlers never fire.
+ */
+export function setupTerminalAppHotkeys(terminal: Terminal): void {
+  terminal.attachCustomKeyEventHandler((event) => {
+    // Check for the platform-appropriate modifier
+    const hasModifier = isMac
+      ? event.metaKey && !event.ctrlKey
+      : event.ctrlKey && !event.metaKey;
+
+    if (hasModifier && !event.altKey) {
+      const key = event.key.toLowerCase();
+      // App hotkeys that should pass through to hotkeys-js
+      const appHotkeys = ['n', 't', 'i', 'p', 'd', 's', 'w', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
+      if (appHotkeys.includes(key)) {
+        return false; // Don't handle - let it bubble up to app
+      }
+    }
+
+    // Let Escape pass through for exiting theatre mode
+    if (event.key === 'Escape') {
+      return false;
+    }
+
+    return true; // Let xterm handle all other keys
+  });
+}
+
+// Track pending resize timeouts per PTY (debounce rapid resize events)
+const pendingResizes = new Map<PtyId, ReturnType<typeof setTimeout>>();
+
+/**
+ * Debounced resize handler to avoid rapid SIGWINCH signals that cause
+ * text wrapping artifacts in shells like zsh during panel animations.
+ */
+export function debouncedResize(ptyId: PtyId, terminal: Terminal, fitAddon: FitAddon): void {
+  // Clear any pending resize for this terminal
+  const pending = pendingResizes.get(ptyId);
+  if (pending) {
+    clearTimeout(pending);
+  }
+
+  // Fit immediately (updates xterm.js display)
+  fitAddon.fit();
+
+  // Debounce the PTY resize signal (50ms delay for animation settling)
+  pendingResizes.set(ptyId, setTimeout(() => {
+    pendingResizes.delete(ptyId);
+    window.api.pty.resize(ptyId, terminal.cols, terminal.rows);
+  }, 50));
+}
+
 /**
  * Format a branch name for display (hyphens to spaces)
  */
@@ -48,119 +104,6 @@ function formatBranchNameForDisplay(branch: string): string {
 
 // Track pending summary updates (debounced)
 const pendingSummaryUpdates = new Map<PtyId, ReturnType<typeof setTimeout>>();
-
-// Long-press Ctrl+C timing (milliseconds)
-const CTRL_C_INDICATOR_DELAY_MS = 200;  // Show indicator after this delay
-const CTRL_C_CLOSE_DELAY_MS = 1000;     // Close terminal after this total time
-
-// Track active Ctrl+C state per terminal
-const ctrlCState = new Map<PtyId, {
-  indicatorTimer: ReturnType<typeof setTimeout> | null;
-  closeTimer: ReturnType<typeof setTimeout> | null;
-  progressEl: HTMLElement | null;
-}>();
-
-/**
- * Set up long-press Ctrl+C detection for a terminal.
- * A quick Ctrl+C passes through to the PTY normally.
- * Holding Ctrl+C for longer closes the terminal with visual feedback.
- */
-export function setupCtrlCLongPress(
-  term: TheatreTerminal,
-  onClose: () => void
-): void {
-  let ctrlCPressed = false;
-
-  const cleanup = () => {
-    const state = ctrlCState.get(term.ptyId);
-    if (!state) return;
-
-    if (state.indicatorTimer) clearTimeout(state.indicatorTimer);
-    if (state.closeTimer) clearTimeout(state.closeTimer);
-    if (state.progressEl) {
-      state.progressEl.remove();
-    }
-    ctrlCState.delete(term.ptyId);
-  };
-
-  const showProgress = () => {
-    // Create progress overlay
-    const progressEl = document.createElement('div');
-    progressEl.className = 'ctrl-c-progress';
-    progressEl.innerHTML = `
-      <div class="ctrl-c-progress-bar"></div>
-      <div class="ctrl-c-progress-pill">Hold <kbd>ctrl+c</kbd> to close</div>
-      <div class="ctrl-c-progress-label">Release to cancel</div>
-    `;
-    term.container.appendChild(progressEl);
-
-    // Start the progress animation
-    const bar = progressEl.querySelector('.ctrl-c-progress-bar') as HTMLElement;
-    if (bar) {
-      // Animation duration is the remaining time after indicator delay
-      const animDuration = CTRL_C_CLOSE_DELAY_MS - CTRL_C_INDICATOR_DELAY_MS;
-      bar.style.transition = `width ${animDuration}ms linear`;
-      requestAnimationFrame(() => {
-        bar.style.width = '100%';
-      });
-    }
-
-    const state = ctrlCState.get(term.ptyId);
-    if (state) {
-      state.progressEl = progressEl;
-    }
-  };
-
-  term.terminal.attachCustomKeyEventHandler((event) => {
-    const isCtrlC = event.ctrlKey && !event.metaKey && !event.altKey && !event.shiftKey &&
-                    (event.key === 'c' || event.key === 'C');
-
-    if (event.type === 'keydown' && isCtrlC) {
-      if (ctrlCPressed) {
-        // Already tracking this press, don't restart timers
-        return false; // Suppress repeated keydown events
-      }
-      ctrlCPressed = true;
-
-      // Clear any existing state
-      cleanup();
-
-      // Set up new state
-      const state = {
-        indicatorTimer: setTimeout(showProgress, CTRL_C_INDICATOR_DELAY_MS),
-        closeTimer: setTimeout(() => {
-          cleanup();
-          ctrlCPressed = false;
-          onClose();
-        }, CTRL_C_CLOSE_DELAY_MS),
-        progressEl: null as HTMLElement | null,
-      };
-      ctrlCState.set(term.ptyId, state);
-
-      // Let xterm handle the keydown (sends Ctrl+C to PTY)
-      return true;
-    }
-
-    // Cancel on keyup of either C or Ctrl (user may release in either order)
-    if (event.type === 'keyup' && ctrlCPressed) {
-      const isC = event.key === 'c' || event.key === 'C';
-      const isCtrl = event.key === 'Control';
-      if (isC || isCtrl) {
-        ctrlCPressed = false;
-        cleanup();
-        return true;
-      }
-    }
-
-    // Non-Ctrl+C key: cancel any pending timers
-    if (event.type === 'keydown' && ctrlCPressed) {
-      ctrlCPressed = false;
-      cleanup();
-    }
-
-    return true; // Let xterm handle other keys
-  });
-}
 
 /**
  * Get terminal color theme (dark theme for terminal containers)
@@ -935,6 +878,8 @@ export async function runDefaultInCard(term: TheatreTerminal): Promise<void> {
   const runnerFitAddon = new FitAddon();
   runnerTerminal.loadAddon(runnerFitAddon);
 
+  // Let app hotkeys pass through xterm
+  setupTerminalAppHotkeys(runnerTerminal);
 
   term.runnerTerminal = runnerTerminal;
   term.runnerFitAddon = runnerFitAddon;
@@ -1070,7 +1015,9 @@ export function updateCardStack(): void {
       if (shortcutEl) {
         const stackPosition = backPositions.findIndex(bp => bp.index === index);
         if (stackPosition !== -1 && stackPosition < 9) {
-          shortcutEl.innerHTML = `⌘<span class="shortcut-number">${stackPosition + 1}</span>`;
+          shortcutEl.innerHTML = isMac
+            ? `⌘<span class="shortcut-number">${stackPosition + 1}</span>`
+            : `Ctrl+<span class="shortcut-number">${stackPosition + 1}</span>`;
           shortcutEl.style.display = '';
         } else {
           shortcutEl.style.display = 'none';
@@ -1273,6 +1220,9 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
   terminal.loadAddon(fitAddon);
   terminal.open(xtermContainer);
 
+  // Let app hotkeys pass through xterm
+  setupTerminalAppHotkeys(terminal);
+
   // Enable native drag/drop on the terminal
   // xterm.js creates a .xterm-screen element that captures all mouse events,
   // so we need to attach handlers there after the terminal opens
@@ -1369,10 +1319,9 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
       runnerCleanupExit: null,
     };
 
-    // Set up resize observer
+    // Set up resize observer with debouncing to prevent zsh artifacts during animations
     theatreTerminal.resizeObserver = new ResizeObserver(() => {
-      fitAddon.fit();
-      window.api.pty.resize(result.ptyId!, terminal.cols, terminal.rows);
+      debouncedResize(result.ptyId!, terminal, fitAddon);
     });
     theatreTerminal.resizeObserver.observe(xtermContainer);
 
@@ -1437,14 +1386,6 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
 
     // Set up card action buttons (runner pill, close-task for worktrees)
     setupCardActions(theatreTerminal);
-
-    // Set up long-press Ctrl+C to close terminal
-    setupCtrlCLongPress(theatreTerminal, () => {
-      const idx = terminals.value.indexOf(theatreTerminal);
-      if (idx !== -1) {
-        closeTheatreTerminal(idx);
-      }
-    });
 
     // Fetch initial git status for this terminal
     refreshTerminalGitStatus(theatreTerminal).then(() => {
@@ -1524,7 +1465,7 @@ export function buildEmptyStateHtml(): string {
         <div class="theatre-stack-empty-open-list"></div>
       </div>
       <div class="theatre-stack-empty-new">
-        <div class="theatre-stack-empty-section-label"><span class="theatre-stack-empty-section-shortcut">⌘<span class="shortcut-number">N</span></span>New Task</div>
+        <div class="theatre-stack-empty-section-label"><span class="theatre-stack-empty-section-shortcut">${isMac ? '⌘' : 'Ctrl+'}<span class="shortcut-number">N</span></span>New Task</div>
         <form class="theatre-stack-empty-form">
           <input
             type="text"
@@ -1537,7 +1478,7 @@ export function buildEmptyStateHtml(): string {
         </form>
       </div>
       <div class="theatre-stack-empty-hints">
-        <span class="theatre-stack-empty-hint"><span class="theatre-stack-empty-hint-shortcut">⌘<span class="shortcut-number">T</span></span>All Tasks</span>
+        <span class="theatre-stack-empty-hint"><span class="theatre-stack-empty-hint-shortcut">${isMac ? '⌘' : 'Ctrl+'}<span class="shortcut-number">T</span></span>All Tasks</span>
       </div>
     </div>
   `;
@@ -1573,7 +1514,9 @@ async function populatePreviousTasks(emptyState: HTMLElement): Promise<void> {
       if (index < 9) {
         const shortcut = document.createElement('kbd');
         shortcut.className = 'theatre-stack-empty-task-shortcut';
-        shortcut.innerHTML = `⌘<span class="shortcut-number">${index + 1}</span>`;
+        shortcut.innerHTML = isMac
+          ? `⌘<span class="shortcut-number">${index + 1}</span>`
+          : `Ctrl+<span class="shortcut-number">${index + 1}</span>`;
         taskBtn.appendChild(shortcut);
       }
 

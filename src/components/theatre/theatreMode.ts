@@ -41,7 +41,8 @@ import {
   switchToTheatreTerminal,
   selectByStackPosition,
   setupCardActions,
-  setupCtrlCLongPress,
+  setupTerminalAppHotkeys,
+  debouncedResize,
 } from './terminalCards';
 import {
   buildTheatreHeader,
@@ -52,7 +53,7 @@ import {
 import { createNewAgentShell } from './worktreeDropdown';
 import { toggleTaskIndex } from './taskIndex';
 import { theatreRegistry } from './helpers';
-import { registerHotkey, unregisterHotkey, pushScope, popScope, Scopes } from '../../utils/hotkeys';
+import { registerHotkey, unregisterHotkey, pushScope, popScope, Scopes, platformHotkey } from '../../utils/hotkeys';
 
 /**
  * Enter theatre mode for the specified project
@@ -136,8 +137,7 @@ export async function enterTheatreMode(
         const xtermContainer = term.container.querySelector('.terminal-xterm-container') as HTMLElement;
         if (xtermContainer) {
           term.resizeObserver = new ResizeObserver(() => {
-            term.fitAddon.fit();
-            window.api.pty.resize(term.ptyId, term.terminal.cols, term.terminal.rows);
+            debouncedResize(term.ptyId, term.terminal, term.fitAddon);
           });
           term.resizeObserver.observe(xtermContainer);
         }
@@ -274,18 +274,26 @@ export async function enterTheatreMode(
   }
 
   // 4. Set up keyboard shortcuts for theatre mode
+  // Use platformHotkey() to convert 'mod+' to 'command+' on Mac or 'ctrl+' on Linux/Windows
   pushScope(Scopes.THEATRE);
   registerHotkey('escape', Scopes.THEATRE, () => exitTheatreMode());
-  registerHotkey('command+n', Scopes.THEATRE, () => createNewAgentShell());
-  registerHotkey('command+t', Scopes.THEATRE, () => toggleTaskIndex());
-  registerHotkey('command+i', Scopes.THEATRE, () => addTheatreTerminal());
-  registerHotkey('command+p', Scopes.THEATRE, () => theatreRegistry.playOrToggleRunner?.());
-  registerHotkey('command+d', Scopes.THEATRE, () => theatreRegistry.toggleActiveDiffPanel?.());
-  registerHotkey('command+shift+s', Scopes.THEATRE, () => theatreRegistry.toggleActiveShipItPanel?.());
+  registerHotkey(platformHotkey('mod+n'), Scopes.THEATRE, () => createNewAgentShell());
+  registerHotkey(platformHotkey('mod+t'), Scopes.THEATRE, () => toggleTaskIndex());
+  registerHotkey(platformHotkey('mod+i'), Scopes.THEATRE, () => addTheatreTerminal());
+  registerHotkey(platformHotkey('mod+p'), Scopes.THEATRE, () => theatreRegistry.playOrToggleRunner?.());
+  registerHotkey(platformHotkey('mod+d'), Scopes.THEATRE, () => theatreRegistry.toggleActiveDiffPanel?.());
+  registerHotkey(platformHotkey('mod+shift+s'), Scopes.THEATRE, () => theatreRegistry.toggleActiveShipItPanel?.());
+  registerHotkey(platformHotkey('mod+w'), Scopes.THEATRE, () => {
+    if (terminals.value.length > 0) {
+      import('./terminalCards').then(({ closeTheatreTerminal }) => {
+        closeTheatreTerminal(activeIndex.value);
+      });
+    }
+  });
 
-  // ⌘1-9 to select by stack position (terminals or tasks in empty state)
+  // Mod+1-9 to select by stack position (terminals or tasks in empty state)
   for (let i = 1; i <= 9; i++) {
-    registerHotkey(`command+${i}`, Scopes.THEATRE, () => {
+    registerHotkey(platformHotkey(`mod+${i}`), Scopes.THEATRE, () => {
       selectByStackPosition(i);
     });
   }
@@ -387,14 +395,15 @@ export function exitTheatreMode(): void {
 
   // 4. Remove keyboard shortcuts and pop scope
   unregisterHotkey('escape', Scopes.THEATRE);
-  unregisterHotkey('command+n', Scopes.THEATRE);
-  unregisterHotkey('command+t', Scopes.THEATRE);
-  unregisterHotkey('command+i', Scopes.THEATRE);
-  unregisterHotkey('command+p', Scopes.THEATRE);
-  unregisterHotkey('command+d', Scopes.THEATRE);
-  unregisterHotkey('command+shift+s', Scopes.THEATRE);
+  unregisterHotkey(platformHotkey('mod+n'), Scopes.THEATRE);
+  unregisterHotkey(platformHotkey('mod+t'), Scopes.THEATRE);
+  unregisterHotkey(platformHotkey('mod+i'), Scopes.THEATRE);
+  unregisterHotkey(platformHotkey('mod+p'), Scopes.THEATRE);
+  unregisterHotkey(platformHotkey('mod+d'), Scopes.THEATRE);
+  unregisterHotkey(platformHotkey('mod+shift+s'), Scopes.THEATRE);
+  unregisterHotkey(platformHotkey('mod+w'), Scopes.THEATRE);
   for (let i = 1; i <= 9; i++) {
-    unregisterHotkey(`command+${i}`, Scopes.THEATRE);
+    unregisterHotkey(platformHotkey(`mod+${i}`), Scopes.THEATRE);
   }
   popScope();
 
@@ -578,16 +587,23 @@ export async function restoreTheatreMode(
   // 4. Set up keyboard shortcuts
   pushScope(Scopes.THEATRE);
   registerHotkey('escape', Scopes.THEATRE, () => exitTheatreMode());
-  registerHotkey('command+n', Scopes.THEATRE, () => createNewAgentShell());
-  registerHotkey('command+t', Scopes.THEATRE, () => toggleTaskIndex());
-  registerHotkey('command+i', Scopes.THEATRE, () => addTheatreTerminal());
-  registerHotkey('command+p', Scopes.THEATRE, () => theatreRegistry.playOrToggleRunner?.());
-  registerHotkey('command+d', Scopes.THEATRE, () => theatreRegistry.toggleActiveDiffPanel?.());
-  registerHotkey('command+shift+s', Scopes.THEATRE, () => theatreRegistry.toggleActiveShipItPanel?.());
+  registerHotkey(platformHotkey('mod+n'), Scopes.THEATRE, () => createNewAgentShell());
+  registerHotkey(platformHotkey('mod+t'), Scopes.THEATRE, () => toggleTaskIndex());
+  registerHotkey(platformHotkey('mod+i'), Scopes.THEATRE, () => addTheatreTerminal());
+  registerHotkey(platformHotkey('mod+p'), Scopes.THEATRE, () => theatreRegistry.playOrToggleRunner?.());
+  registerHotkey(platformHotkey('mod+d'), Scopes.THEATRE, () => theatreRegistry.toggleActiveDiffPanel?.());
+  registerHotkey(platformHotkey('mod+shift+s'), Scopes.THEATRE, () => theatreRegistry.toggleActiveShipItPanel?.());
+  registerHotkey(platformHotkey('mod+w'), Scopes.THEATRE, () => {
+    if (terminals.value.length > 0) {
+      import('./terminalCards').then(({ closeTheatreTerminal }) => {
+        closeTheatreTerminal(activeIndex.value);
+      });
+    }
+  });
 
-  // ⌘1-9 to select by stack position (terminals or tasks in empty state)
+  // Mod+1-9 to select by stack position (terminals or tasks in empty state)
   for (let i = 1; i <= 9; i++) {
-    registerHotkey(`command+${i}`, Scopes.THEATRE, () => {
+    registerHotkey(platformHotkey(`mod+${i}`), Scopes.THEATRE, () => {
       selectByStackPosition(i);
     });
   }
@@ -654,6 +670,9 @@ async function reconnectTheatreTerminal(session: ActiveSession): Promise<void> {
   // Open terminal in container
   terminal.open(xtermContainer);
 
+  // Let app hotkeys pass through xterm (needed for Linux where Ctrl+key combos are captured)
+  setupTerminalAppHotkeys(terminal);
+
   // Enable native drag/drop on the terminal
   // xterm.js creates a .xterm-screen element that captures all mouse events
   const screen = xtermContainer.querySelector('.xterm-screen');
@@ -706,18 +725,15 @@ async function reconnectTheatreTerminal(session: ActiveSession): Promise<void> {
     terminal.write(result.bufferedOutput);
   }
 
-  // Set up resize observer
+  // Set up resize observer with debouncing to prevent zsh artifacts during animations
   const resizeObserver = new ResizeObserver(() => {
-    fitAddon.fit();
-    window.api.pty.resize(session.ptyId, terminal.cols, terminal.rows);
+    debouncedResize(session.ptyId, terminal, fitAddon);
   });
   resizeObserver.observe(xtermContainer);
 
   // Trigger resize to sync terminal size and force TUI apps to redraw
-  // Use a small delay to ensure the terminal is fully initialized
   setTimeout(() => {
-    fitAddon.fit();
-    window.api.pty.resize(session.ptyId, terminal.cols, terminal.rows);
+    debouncedResize(session.ptyId, terminal, fitAddon);
   }, 50);
 
   // Create terminal object
@@ -814,16 +830,6 @@ async function reconnectTheatreTerminal(session: ActiveSession): Promise<void> {
   // Set up card action buttons (runner pill for all, close-task for worktrees)
   setupCardActions(theatreTerminal);
 
-  // Set up long-press Ctrl+C to close terminal
-  setupCtrlCLongPress(theatreTerminal, () => {
-    const idx = terminals.value.indexOf(theatreTerminal);
-    if (idx !== -1) {
-      import('./terminalCards').then(({ closeTheatreTerminal }) => {
-        closeTheatreTerminal(idx);
-      });
-    }
-  });
-
   // Update card label
   updateTerminalCardLabel(theatreTerminal);
 
@@ -858,6 +864,9 @@ async function reconnectRunnerToParent(
 
   const runnerFitAddon = new FitAddon();
   runnerTerminal.loadAddon(runnerFitAddon);
+
+  // Let app hotkeys pass through xterm
+  setupTerminalAppHotkeys(runnerTerminal);
 
   // Reconnect to existing PTY
   const result = await window.api.pty.reconnect(session.ptyId);
