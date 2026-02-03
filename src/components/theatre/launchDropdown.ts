@@ -40,7 +40,7 @@ export function buildTheatreHeader(): string {
           <i data-lucide="chevron-down"></i>
         </button>
       </div>
-      <button class="theatre-exit-btn" title="Exit theatre mode (Esc)">
+      <button class="theatre-exit-btn" title="Exit theatre mode">
         <i data-lucide="minimize-2"></i>
       </button>
     </div>

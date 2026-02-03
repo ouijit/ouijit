@@ -9,6 +9,7 @@ import { projectPath, terminals, activeIndex } from './signals';
 import { escapeHtml } from '../../utils/html';
 import { showToast } from '../importDialog';
 import { formatDiffStats, renderDiffContentHtml, hideDiffFileDropdown, buildDiffFileDropdownHtml } from './diffPanel';
+import { registerHotkey, unregisterHotkey, pushScope, popScope, Scopes, platformHotkey } from '../../utils/hotkeys';
 
 /**
  * Build HTML for the Ship-It panel
@@ -726,14 +727,17 @@ function showCommitDialog(term: TheatreTerminal, panel: HTMLElement): void {
   });
 
   const closeDialog = () => {
+    unregisterHotkey('escape', Scopes.MODAL);
+    unregisterHotkey(platformHotkey('mod+enter'), Scopes.MODAL);
+    popScope();
     dialog.classList.remove('ship-it-commit-dialog--visible');
     setTimeout(() => dialog.remove(), 150);
   };
 
   cancelBtn?.addEventListener('click', closeDialog);
 
-  // Close on clicking outside the content
-  dialog.addEventListener('click', (e) => {
+  // Close on mousedown outside the content
+  dialog.addEventListener('mousedown', (e) => {
     if (e.target === dialog) closeDialog();
   });
 
@@ -747,16 +751,14 @@ function showCommitDialog(term: TheatreTerminal, panel: HTMLElement): void {
     await executeShip(term, panel, message);
   });
 
-  // Handle Escape and Cmd+Enter
-  textarea.addEventListener('keydown', async (e) => {
-    if (e.key === 'Escape') {
+  // Set up modal scope to prevent theatre hotkeys (like Escape) from firing
+  pushScope(Scopes.MODAL);
+  registerHotkey('escape', Scopes.MODAL, closeDialog);
+  registerHotkey(platformHotkey('mod+enter'), Scopes.MODAL, async () => {
+    const message = textarea.value.trim();
+    if (message) {
       closeDialog();
-    } else if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-      const message = textarea.value.trim();
-      if (message) {
-        closeDialog();
-        await executeShip(term, panel, message);
-      }
+      await executeShip(term, panel, message);
     }
   });
 }

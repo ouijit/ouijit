@@ -72,7 +72,7 @@ function showWorktreeNamePrompt(): Promise<string | null> {
     // Event listeners
     createBtn.addEventListener('click', handleCreate);
     dialog.querySelector('[data-action="cancel"]')?.addEventListener('click', handleCancel);
-    overlay.addEventListener('click', (e) => {
+    overlay.addEventListener('mousedown', (e) => {
       if (e.target === overlay) handleCancel();
     });
 
@@ -137,7 +137,7 @@ function showDeleteConfirmDialog(taskName: string): Promise<boolean> {
     // Event listeners
     dialog.querySelector('[data-action="delete"]')?.addEventListener('click', handleDelete);
     dialog.querySelector('[data-action="cancel"]')?.addEventListener('click', handleCancel);
-    overlay.addEventListener('click', (e) => {
+    overlay.addEventListener('mousedown', (e) => {
       if (e.target === overlay) handleCancel();
     });
 

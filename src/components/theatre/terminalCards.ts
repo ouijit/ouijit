@@ -47,12 +47,7 @@ export function setupTerminalAppHotkeys(terminal: Terminal): void {
       }
     }
 
-    // Let Escape pass through for exiting theatre mode
-    if (event.key === 'Escape') {
-      return false;
-    }
-
-    return true; // Let xterm handle all other keys
+    return true; // Let xterm handle all other keys (including Escape for TUIs)
   });
 }
 

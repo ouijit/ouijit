@@ -93,15 +93,27 @@ export function initHotkeys(): void {
     const isInput =
       tagName === 'INPUT' || tagName === 'TEXTAREA' || tagName === 'SELECT';
 
-    // Always allow these through, even in inputs
-    if (event.key === 'Escape' || event.key === 'Enter') {
-      return true;
-    }
-
-    // Allow modifier+key shortcuts in inputs (⌘ on Mac, Ctrl on Linux/Windows)
+    // Check if we have a modifier key (⌘ on Mac, Ctrl on Linux/Windows)
     const hasModifier = isMac
       ? event.metaKey && !event.ctrlKey
       : event.ctrlKey && !event.metaKey;
+
+    // Terminal handling: allow modifier shortcuts, but let raw keys pass to the shell
+    const isTerminal = target.closest('.xterm');
+    if (isTerminal) {
+      // Allow modifier shortcuts (Cmd+N, Cmd+W, etc.) even in terminal
+      return hasModifier && !event.altKey;
+    }
+
+    // Check if we're in a modal context (dialogs that need Escape to close)
+    const isInModal = target.closest('.modal-overlay') || target.closest('.ship-it-commit-dialog');
+
+    // Allow Escape through for modal dialogs so they can close
+    if (event.key === 'Escape' && isInModal) {
+      return true;
+    }
+
+    // Allow modifier+key shortcuts in inputs
     if (hasModifier && !event.altKey) {
       return true;
     }

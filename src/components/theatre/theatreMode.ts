@@ -276,7 +276,6 @@ export async function enterTheatreMode(
   // 4. Set up keyboard shortcuts for theatre mode
   // Use platformHotkey() to convert 'mod+' to 'command+' on Mac or 'ctrl+' on Linux/Windows
   pushScope(Scopes.THEATRE);
-  registerHotkey('escape', Scopes.THEATRE, () => exitTheatreMode());
   registerHotkey(platformHotkey('mod+n'), Scopes.THEATRE, () => createNewAgentShell());
   registerHotkey(platformHotkey('mod+t'), Scopes.THEATRE, () => toggleTaskIndex());
   registerHotkey(platformHotkey('mod+i'), Scopes.THEATRE, () => addTheatreTerminal());
@@ -394,7 +393,6 @@ export function exitTheatreMode(): void {
   }
 
   // 4. Remove keyboard shortcuts and pop scope
-  unregisterHotkey('escape', Scopes.THEATRE);
   unregisterHotkey(platformHotkey('mod+n'), Scopes.THEATRE);
   unregisterHotkey(platformHotkey('mod+t'), Scopes.THEATRE);
   unregisterHotkey(platformHotkey('mod+i'), Scopes.THEATRE);
@@ -586,7 +584,6 @@ export async function restoreTheatreMode(
 
   // 4. Set up keyboard shortcuts
   pushScope(Scopes.THEATRE);
-  registerHotkey('escape', Scopes.THEATRE, () => exitTheatreMode());
   registerHotkey(platformHotkey('mod+n'), Scopes.THEATRE, () => createNewAgentShell());
   registerHotkey(platformHotkey('mod+t'), Scopes.THEATRE, () => toggleTaskIndex());
   registerHotkey(platformHotkey('mod+i'), Scopes.THEATRE, () => addTheatreTerminal());

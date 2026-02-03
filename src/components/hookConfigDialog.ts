@@ -162,7 +162,7 @@ export function showHookConfigDialog(
       }
     });
 
-    overlay.addEventListener('click', (e) => {
+    overlay.addEventListener('mousedown', (e) => {
       if (e.target === overlay) {
         cleanup();
         resolve(null);

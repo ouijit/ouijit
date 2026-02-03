@@ -109,7 +109,7 @@ export function showNewProjectDialog(): Promise<NewProjectDialogResult | null> {
       }
     });
 
-    overlay.addEventListener('click', (e) => {
+    overlay.addEventListener('mousedown', (e) => {
       if (e.target === overlay) {
         cleanup();
         resolve(null);
