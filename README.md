@@ -1,32 +1,14 @@
 # Ouijit
 
-Run multiple Claude Code sessions in parallel without losing the terminal.
-
 ![Ouijit Theatre Mode](screenshot.png)
-
-## Why Ouijit?
-
-Most agent orchestration tools add dashboards and abstractions on top of the AI. Ouijit takes a different approach: keep the TUI, manage the isolation.
-
-You work directly in Claude Code's terminal. Ouijit handles git worktrees so each session stays isolated, tracks tasks tied to those worktrees, and persists sessions across restarts. That's it.
-
-## How It Works
-
-1. Open a project to enter Theatre Mode
-2. Create a task - Ouijit creates an isolated git worktree
-3. Launch Claude Code in that worktree
-4. Repeat - run multiple sessions in parallel via the terminal card stack
-5. Review diffs (⌘D), mark tasks ready-to-ship, merge when done
-
-Each Claude Code session sees only its own worktree. No stepping on each other's changes.
 
 ## Features
 
-**Terminal Card Stack** - Multiple terminal sessions with quick switching
-
-**Git Integration** - Branch status, switching, worktree diffs, one-click merge
-
-**Task Lifecycle** - Open → Ready to Ship → Closed, with worktree cleanup
+- **Isolated sessions** - Each task gets its own git worktree
+- **Status lights** - Green when a session needs input, purple when busy
+- **Terminal card stack** - Quick switching between sessions
+- **Diff review** - View changes before merging
+- **Script hooks** - Run scripts on task creation, play, and cleanup
 
 ## Script Hooks
 
