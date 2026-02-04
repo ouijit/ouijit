@@ -115,7 +115,7 @@ export function buildCardGitStatusHtml(compactStatus: CompactGitStatus | null): 
     <div class="theatre-card-git-status">
       <span class="theatre-card-git-branch" title="${branch}">
         <i data-lucide="git-branch" class="theatre-card-git-icon"></i>
-        ${branch}
+        <span class="theatre-card-git-branch-name">${branch}</span>
       </span>
       ${hasChanges ? `<span class="${statsClass}" title="View uncommitted changes">${statsContent}</span>` : ''}
     </div>

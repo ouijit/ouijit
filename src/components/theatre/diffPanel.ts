@@ -458,9 +458,15 @@ export async function showTerminalDiffPanel(term: TheatreTerminal): Promise<void
   diffPanelVisible.value = true;
   diffPanelMode.value = 'uncommitted';
 
-  // Find the card body to insert the diff panel as a sibling of terminal viewport
+  // Find the card body to insert the diff panel
   const cardBody = term.container.querySelector('.theatre-card-body');
   if (!cardBody) return;
+
+  // Hide the terminal viewport (full width panel like ship panel)
+  const viewport = cardBody.querySelector('.terminal-viewport') as HTMLElement;
+  if (viewport) {
+    viewport.style.display = 'none';
+  }
 
   // Create and insert panel inside the card body
   const panelHtml = buildDiffPanelHtml(files);
@@ -492,9 +498,6 @@ export async function showTerminalDiffPanel(term: TheatreTerminal): Promise<void
     panel.classList.add('diff-panel--visible');
   });
 
-  // Refit terminal after animation
-  setTimeout(() => refitActiveTerminal(), 250);
-
   // Select first file
   if (files.length > 0) {
     await selectTerminalDiffFile(term, files[0].path);
@@ -514,15 +517,28 @@ export function hideTerminalDiffPanel(term: TheatreTerminal): void {
   const panel = term.container.querySelector('.diff-panel');
   if (panel) {
     panel.classList.remove('diff-panel--visible');
-    // Remove after animation
-    setTimeout(() => panel.remove(), 250);
+    // Remove after animation and restore terminal viewport
+    setTimeout(() => {
+      panel.remove();
+
+      // Show the terminal viewport again
+      const cardBody = term.container.querySelector('.theatre-card-body');
+      const viewport = cardBody?.querySelector('.terminal-viewport') as HTMLElement;
+      if (viewport) {
+        viewport.style.display = '';
+      }
+
+      // Refit terminal
+      requestAnimationFrame(() => {
+        term.fitAddon.fit();
+        window.api.pty.resize(term.ptyId, term.terminal.cols, term.terminal.rows);
+        term.terminal.focus();
+      });
+    }, 250);
   }
 
   // Remove class from card
   term.container.classList.remove('diff-panel-open');
-
-  // Refit terminal after animation
-  setTimeout(() => refitActiveTerminal(), 250);
 
   // Update terminal state
   term.diffPanelOpen = false;
@@ -739,9 +755,15 @@ export async function showTerminalWorktreeDiffPanel(term: TheatreTerminal): Prom
   diffPanelMode.value = 'worktree';
   diffPanelWorktreeBranch.value = term.worktreeBranch;
 
-  // Find the card body to insert the diff panel as a sibling of terminal viewport
+  // Find the card body to insert the diff panel
   const cardBody = term.container.querySelector('.theatre-card-body');
   if (!cardBody) return;
+
+  // Hide the terminal viewport (full width panel like ship panel)
+  const viewport = cardBody.querySelector('.terminal-viewport') as HTMLElement;
+  if (viewport) {
+    viewport.style.display = 'none';
+  }
 
   // Create and insert panel inside the card body
   const panelHtml = buildDiffPanelHtml(diffSummary.files);
@@ -772,9 +794,6 @@ export async function showTerminalWorktreeDiffPanel(term: TheatreTerminal): Prom
   requestAnimationFrame(() => {
     panel.classList.add('diff-panel--visible');
   });
-
-  // Refit terminal after animation
-  setTimeout(() => refitActiveTerminal(), 250);
 
   // Select first file
   if (diffSummary.files.length > 0) {
