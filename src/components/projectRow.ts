@@ -79,14 +79,17 @@ export function createProjectRow(project: Project): HTMLElement {
   }
   row.appendChild(descriptionElement);
 
-  // Badges container
+  // Badges container (hidden on small screens)
   const badgesContainer = document.createElement('div');
-  badgesContainer.className = 'badges';
+  badgesContainer.className = 'flex flex-nowrap gap-1 justify-start max-md:hidden';
+
+  // Base badge classes
+  const badgeBase = 'inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium rounded-full transition-all duration-150';
 
   // Language badge (first for visual priority)
   if (project.language) {
     const languageBadge = document.createElement('span');
-    languageBadge.className = 'badge badge-language';
+    languageBadge.className = `${badgeBase} text-(--color-text-secondary) bg-[rgba(128,128,128,0.12)] dark:bg-[rgba(160,160,160,0.15)]`;
     languageBadge.textContent = project.language;
     badgesContainer.appendChild(languageBadge);
   }
@@ -94,7 +97,7 @@ export function createProjectRow(project: Project): HTMLElement {
   // Git badge
   if (project.hasGit) {
     const gitBadge = document.createElement('span');
-    gitBadge.className = 'badge badge-git';
+    gitBadge.className = `${badgeBase} text-[#C13B22] bg-[rgba(193,59,34,0.12)] dark:text-[#FF8A75] dark:bg-[rgba(255,138,117,0.15)]`;
     gitBadge.textContent = 'Git';
     badgesContainer.appendChild(gitBadge);
   }
@@ -102,7 +105,7 @@ export function createProjectRow(project: Project): HTMLElement {
   // Claude badge
   if (project.hasClaude) {
     const claudeBadge = document.createElement('span');
-    claudeBadge.className = 'badge badge-claude';
+    claudeBadge.className = `${badgeBase} text-[#A65D00] bg-[rgba(166,93,0,0.12)] dark:text-[#FFB84D] dark:bg-[rgba(255,184,77,0.15)]`;
     claudeBadge.textContent = 'Claude';
     badgesContainer.appendChild(claudeBadge);
   }
