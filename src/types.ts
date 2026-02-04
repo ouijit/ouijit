@@ -76,14 +76,6 @@ export interface ProjectSettings {
 }
 
 /**
- * Result of launching a project
- */
-export interface LaunchResult {
-  success: boolean;
-  error?: string;
-}
-
-/**
  * Result of git checkout operation
  */
 export interface GitCheckoutResult {
@@ -301,8 +293,6 @@ export interface Project {
   description?: string;
   language?: string;
   iconDataUrl?: string;
-  /** Detected run configurations */
-  runConfigs?: RunConfig[];
 }
 
 /**
@@ -311,8 +301,6 @@ export interface Project {
 export interface ElectronAPI {
   getProjects(): Promise<Project[]>;
   openProject(path: string): Promise<{ success: boolean }>;
-  /** Launch a project with a specific run config */
-  launchProject(projectPath: string, runConfig: RunConfig): Promise<LaunchResult>;
   /** Open project in Finder */
   openInFinder(path: string): Promise<{ success: boolean }>;
   /** PTY management API */

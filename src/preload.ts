@@ -2,7 +2,7 @@
 // https://www.electronjs.org/docs/latest/tutorial/process-model#preload-scripts
 
 import { contextBridge, ipcRenderer, webUtils } from 'electron';
-import type { Project, RunConfig, LaunchResult, PtySpawnOptions, PtySpawnResult, PtyId, ActiveSession, PtyReconnectResult, CreateProjectOptions, CreateProjectResult, GitStatus, CompactGitStatus, GitDropdownInfo, GitCheckoutResult, GitMergeResult, ChangedFile, FileDiff, ProjectSettings, WorktreeCreateResult, WorktreeRemoveResult, WorktreeInfo, WorktreeDiffSummary, WorktreeWithMetadata, ScriptHook, HookType, BranchInfo } from './types';
+import type { Project, PtySpawnOptions, PtySpawnResult, PtyId, ActiveSession, PtyReconnectResult, CreateProjectOptions, CreateProjectResult, GitStatus, CompactGitStatus, GitDropdownInfo, GitCheckoutResult, GitMergeResult, ChangedFile, FileDiff, ProjectSettings, WorktreeCreateResult, WorktreeRemoveResult, WorktreeInfo, WorktreeDiffSummary, WorktreeWithMetadata, ScriptHook, HookType, BranchInfo } from './types';
 
 // Expose protected methods that allow the renderer process to use
 // ipcRenderer without exposing the entire object
@@ -17,12 +17,6 @@ contextBridge.exposeInMainWorld('api', {
    */
   openProject: (path: string): Promise<{ success: boolean }> =>
     ipcRenderer.invoke('open-project', path),
-
-  /**
-   * Launch a project with a specific run configuration
-   */
-  launchProject: (projectPath: string, runConfig: RunConfig): Promise<LaunchResult> =>
-    ipcRenderer.invoke('launch-project', projectPath, runConfig),
 
   /**
    * Open project in Finder

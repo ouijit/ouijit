@@ -2,7 +2,7 @@
  * Theatre mode orchestration - enter/exit, session management
  */
 
-import type { Project, RunConfig, ChangedFile, ActiveSession } from '../../types';
+import type { Project, ChangedFile, ActiveSession } from '../../types';
 import {
   theatreState,
   projectSessions,
@@ -61,8 +61,7 @@ import { registerHotkey, unregisterHotkey, pushScope, popScope, Scopes, platform
  */
 export async function enterTheatreMode(
   path: string,
-  project: Project,
-  runConfig?: RunConfig
+  project: Project
 ): Promise<void> {
   if (projectPath.value) return; // Already in theatre mode
 
@@ -263,11 +262,8 @@ export async function enterTheatreMode(
         } else {
           showStackEmptyState();
         }
-      } else if (runConfig) {
-        // Create terminal with the requested command
-        await addTheatreTerminal(runConfig);
       } else {
-        // No command requested - show empty state
+        // Show empty state
         showStackEmptyState();
       }
     }

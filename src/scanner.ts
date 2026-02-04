@@ -2,7 +2,6 @@ import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import * as os from 'node:os';
 import { nativeImage } from 'electron';
-import { detectRunConfigs } from './detectRunConfigs';
 import type { Project } from './types';
 
 export type { Project };
@@ -249,9 +248,6 @@ async function createProject(dirPath: string): Promise<Project> {
   const hasClaudeDir = await exists(path.join(dirPath, '.claude'));
   const hasClaudeMd = await exists(path.join(dirPath, 'CLAUDE.md'));
 
-  // Detect run configurations
-  const runConfigs = await detectRunConfigs(dirPath);
-
   return {
     name: path.basename(dirPath),
     path: dirPath,
@@ -261,7 +257,6 @@ async function createProject(dirPath: string): Promise<Project> {
     description: await getDescription(dirPath),
     language: await detectLanguage(dirPath),
     iconDataUrl: await getIconDataUrl(dirPath),
-    runConfigs: runConfigs.length > 0 ? runConfigs : undefined,
   };
 }
 
