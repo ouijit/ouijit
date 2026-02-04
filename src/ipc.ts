@@ -542,13 +542,14 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
         });
 
         if (!hookResult.success) {
-          // Log warning but continue closing
+          // Truncate output BEFORE logging to prevent sensitive data exposure in logs
           const warningMessage = hookResult.error || hookResult.output;
-          console.warn(`Cleanup hook failed for ${branch}: ${warningMessage}`);
-          // Truncate warning for display
-          hookWarning = warningMessage && warningMessage.length > 500
+          const truncatedMessage = warningMessage && warningMessage.length > 500
             ? warningMessage.slice(0, 500) + '...'
             : warningMessage;
+          // Log only truncated message
+          console.warn(`Cleanup hook failed for ${branch}: ${truncatedMessage}`);
+          hookWarning = truncatedMessage;
         }
       }
     }

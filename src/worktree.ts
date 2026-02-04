@@ -50,6 +50,16 @@ function shellEscape(str: string): string {
 }
 
 /**
+ * Check if a resolved path is within the expected base directory
+ * Prevents path traversal attacks via ../ sequences
+ */
+function isPathWithinBase(basePath: string, targetPath: string): boolean {
+  const resolvedBase = path.resolve(basePath);
+  const resolvedTarget = path.resolve(targetPath);
+  return resolvedTarget.startsWith(resolvedBase + path.sep) || resolvedTarget === resolvedBase;
+}
+
+/**
  * Copy all gitignored files from source project to worktree
  * This ensures secrets, local configs, dependencies, and other untracked files are available
  * Uses APFS clones for instant, space-efficient copies
@@ -78,19 +88,34 @@ async function copyGitIgnoredFiles(sourcePath: string, worktreePath: string): Pr
       const sourceItem = path.join(sourcePath, cleanItem);
       const destItem = path.join(worktreePath, cleanItem);
 
+      // Validate paths don't escape their roots (prevents path traversal attacks)
+      if (!isPathWithinBase(sourcePath, sourceItem) || !isPathWithinBase(worktreePath, destItem)) {
+        console.warn(`[worktree] Skipping suspicious path: ${cleanItem}`);
+        return;
+      }
+
       try {
-        const stat = await fs.stat(sourceItem);
+        // Use lstat to detect symlinks without following them
+        const stat = await fs.lstat(sourceItem);
+
+        // Skip symlinks to prevent following malicious symlinks to sensitive files
+        if (stat.isSymbolicLink()) {
+          console.warn(`[worktree] Skipping symlink: ${cleanItem}`);
+          return;
+        }
 
         // Ensure parent directory exists
         await fs.mkdir(path.dirname(destItem), { recursive: true });
 
         if (stat.isDirectory()) {
           // -R: recursive, -p: preserve timestamps/permissions, -c: APFS clone (macOS only)
-          const cpFlags = os.platform() === 'darwin' ? '-Rpc' : '-Rp';
+          // -P: do not follow symlinks (Linux, also works on macOS)
+          const cpFlags = os.platform() === 'darwin' ? '-RPpc' : '-RPp';
           await execAsync(`cp ${cpFlags} ${shellEscape(sourceItem)} ${shellEscape(destItem)}`);
         } else {
           // -p: preserve timestamps/permissions, -c: APFS clone (macOS only)
-          const cpFlags = os.platform() === 'darwin' ? '-pc' : '-p';
+          // -P: do not follow symlinks (Linux, also works on macOS)
+          const cpFlags = os.platform() === 'darwin' ? '-Ppc' : '-Pp';
           await execAsync(`cp ${cpFlags} ${shellEscape(sourceItem)} ${shellEscape(destItem)}`);
         }
       } catch (error) {

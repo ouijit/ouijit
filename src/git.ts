@@ -1,4 +1,6 @@
-import { execSync } from 'node:child_process';
+import { execSync, execFileSync } from 'node:child_process';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import { formatAge } from './utils/formatDate';
 
 /**
@@ -277,7 +279,7 @@ function getRecentBranches(
       // Get commits ahead of main
       let commitsAhead = 0;
       try {
-        const countResult = execSync(`git rev-list --count ${mainBranch}..${name}`, opts).toString().trim();
+        const countResult = execFileSync('git', ['rev-list', '--count', `${mainBranch}..${name}`], opts).toString().trim();
         commitsAhead = parseInt(countResult, 10) || 0;
       } catch {
         // Branch may not have common ancestor with main
@@ -339,7 +341,7 @@ export function checkoutBranch(projectPath: string, branchName: string): { succe
   const opts = gitExecOpts(projectPath);
 
   try {
-    execSync(`git checkout "${branchName}"`, opts);
+    execFileSync('git', ['checkout', branchName], opts);
     return { success: true };
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : 'Unknown error';
@@ -366,7 +368,7 @@ export function createBranch(projectPath: string, branchName: string): { success
   const opts = gitExecOpts(projectPath);
 
   try {
-    execSync(`git checkout -b "${branchName}"`, opts);
+    execFileSync('git', ['checkout', '-b', branchName], opts);
     return { success: true };
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : 'Unknown error';
@@ -423,7 +425,7 @@ export function mergeIntoMain(projectPath: string): { success: boolean; error?: 
 
     // Checkout main
     try {
-      execSync(`git checkout "${mainBranch}"`, opts);
+      execFileSync('git', ['checkout', mainBranch], opts);
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : '';
       if (errorMsg.includes('Your local changes')) {
@@ -434,19 +436,19 @@ export function mergeIntoMain(projectPath: string): { success: boolean; error?: 
 
     // Merge the feature branch
     try {
-      execSync(`git merge "${currentBranch}"`, opts);
+      execFileSync('git', ['merge', currentBranch], opts);
       return { success: true, mergedBranch: currentBranch };
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : '';
       // If merge fails, try to abort and go back
       try {
-        execSync('git merge --abort', opts);
+        execFileSync('git', ['merge', '--abort'], opts);
       } catch {
         // Ignore abort errors
       }
       // Go back to the original branch
       try {
-        execSync(`git checkout "${currentBranch}"`, opts);
+        execFileSync('git', ['checkout', currentBranch], opts);
       } catch {
         // Ignore checkout errors
       }
@@ -513,13 +515,14 @@ export function getChangedFiles(projectPath: string): ChangedFile[] {
     if (untracked) {
       for (const filePath of untracked.split('\n')) {
         if (filePath) {
-          // For untracked files, count lines as additions
+          // For untracked files, count lines as additions using Node.js fs
           let additions = 0;
           try {
-            const lineCount = execSync(`wc -l < "${filePath}"`, opts).toString().trim();
-            additions = parseInt(lineCount, 10) || 0;
+            const fullPath = path.join(projectPath, filePath);
+            const content = fs.readFileSync(fullPath, 'utf8');
+            additions = content.split('\n').length;
           } catch {
-            // Can't count lines, leave as 0
+            // Can't count lines (binary file or other error), leave as 0
           }
           files.push({ path: filePath, status: '?', additions, deletions: 0 });
         }
@@ -597,11 +600,19 @@ export function getFileDiff(projectPath: string, filePath: string): FileDiff | n
 
     if (isUntracked) {
       // For untracked files, show the entire file as additions
-      const fileContent = execSync(`git diff --no-index /dev/null "${filePath}" || true`, { ...opts, stdio: ['pipe', 'pipe', 'ignore'] }).toString();
-      diffOutput = fileContent;
+      try {
+        diffOutput = execFileSync('git', ['diff', '--no-index', '/dev/null', filePath], { ...opts, stdio: ['pipe', 'pipe', 'ignore'] }).toString();
+      } catch (error) {
+        // git diff --no-index returns exit code 1 when files differ, which is expected
+        if (error && typeof error === 'object' && 'stdout' in error) {
+          diffOutput = (error as { stdout: Buffer }).stdout.toString();
+        } else {
+          diffOutput = '';
+        }
+      }
     } else {
       // For tracked files, get the diff against HEAD
-      diffOutput = execSync(`git diff HEAD -- "${filePath}"`, opts).toString();
+      diffOutput = execFileSync('git', ['diff', 'HEAD', '--', filePath], opts).toString();
     }
 
     if (!diffOutput.trim()) {
@@ -639,7 +650,7 @@ export function getCompactGitStatus(projectPath: string): CompactGitStatus | nul
     let commitsAheadOfMain = 0;
     if (branch !== mainBranch) {
       try {
-        const count = execSync(`git rev-list --count ${mainBranch}..HEAD`, opts).toString().trim();
+        const count = execFileSync('git', ['rev-list', '--count', `${mainBranch}..HEAD`], opts).toString().trim();
         commitsAheadOfMain = parseInt(count, 10) || 0;
       } catch {
         // May fail if branches don't share history
@@ -682,7 +693,7 @@ export function getCompactGitStatus(projectPath: string): CompactGitStatus | nul
     let branchDiffDeletions = 0;
     if (branch !== mainBranch) {
       try {
-        const branchDiff = execSync(`git diff --shortstat ${mainBranch}...HEAD`, opts).toString().trim();
+        const branchDiff = execFileSync('git', ['diff', '--shortstat', `${mainBranch}...HEAD`], opts).toString().trim();
         if (branchDiff) {
           const filesMatch = branchDiff.match(/(\d+) files? changed/);
           const insertionsMatch = branchDiff.match(/(\d+) insertions?\(\+\)/);
@@ -742,8 +753,8 @@ export function getWorktreeDiff(
     let totalDeletions = 0;
 
     try {
-      const numstat = execSync(
-        `git diff --numstat ${baseBranch}...${worktreeBranch}`,
+      const numstat = execFileSync(
+        'git', ['diff', '--numstat', `${baseBranch}...${worktreeBranch}`],
         opts
       ).toString().trim();
 
@@ -764,8 +775,8 @@ export function getWorktreeDiff(
     }
 
     // Get file status (modified, added, deleted)
-    const nameStatus = execSync(
-      `git diff --name-status ${baseBranch}...${worktreeBranch}`,
+    const nameStatus = execFileSync(
+      'git', ['diff', '--name-status', `${baseBranch}...${worktreeBranch}`],
       opts
     ).toString().trim();
 
@@ -810,8 +821,8 @@ export function getWorktreeFileDiff(
   const baseBranch = targetBranch || getMainBranch(projectPath);
 
   try {
-    const diffOutput = execSync(
-      `git diff ${baseBranch}...${worktreeBranch} -- "${filePath}"`,
+    const diffOutput = execFileSync(
+      'git', ['diff', `${baseBranch}...${worktreeBranch}`, '--', filePath],
       opts
     ).toString();
 
@@ -863,7 +874,7 @@ export function mergeWorktreeBranch(
     // Checkout target branch if not already there
     if (currentBranch !== mergeTo) {
       try {
-        execSync(`git checkout "${mergeTo}"`, opts);
+        execFileSync('git', ['checkout', mergeTo], opts);
       } catch (error) {
         const errorMsg = error instanceof Error ? error.message : '';
         if (errorMsg.includes('Your local changes')) {
@@ -875,7 +886,7 @@ export function mergeWorktreeBranch(
 
     // Squash merge the worktree branch
     try {
-      execSync(`git merge --squash "${branchToMerge}"`, opts);
+      execFileSync('git', ['merge', '--squash', branchToMerge], opts);
       // Create the squash commit with custom or default message
       const commitMsg = commitMessage || branchToMerge.replace(/-\d{10,}$/, '').replace(/-/g, ' ');
       // Use stdin to handle multi-line messages safely
@@ -885,11 +896,11 @@ export function mergeWorktreeBranch(
       const errorMsg = error instanceof Error ? error.message : '';
       // If merge fails, try to abort/reset
       try {
-        execSync('git merge --abort', opts);
+        execFileSync('git', ['merge', '--abort'], opts);
       } catch {
         // merge --abort may fail if squash merge, try reset instead
         try {
-          execSync('git reset --hard HEAD', opts);
+          execFileSync('git', ['reset', '--hard', 'HEAD'], opts);
         } catch {
           // Ignore reset errors
         }
@@ -897,7 +908,7 @@ export function mergeWorktreeBranch(
       // Go back to the original branch if we switched
       if (currentBranch !== mergeTo) {
         try {
-          execSync(`git checkout "${currentBranch}"`, opts);
+          execFileSync('git', ['checkout', currentBranch], opts);
         } catch {
           // Ignore checkout errors
         }

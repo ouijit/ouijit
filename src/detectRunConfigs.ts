@@ -10,6 +10,10 @@ const PRIORITY = {
   OTHER: 10,
 };
 
+// Safe script name pattern: alphanumeric, hyphens, underscores, colons, dots
+// Rejects shell metacharacters like $, ;, |, &, `, (, ), etc.
+const SAFE_SCRIPT_NAME_REGEX = /^[a-zA-Z0-9_:.-]+$/;
+
 /**
  * Checks if a file exists
  */
@@ -41,6 +45,12 @@ async function detectPackageJsonScripts(dirPath: string): Promise<RunConfig[]> {
 
     for (const [name, command] of Object.entries(scripts)) {
       if (typeof command !== 'string') continue;
+
+      // Validate script name to prevent command injection via malicious names
+      if (!SAFE_SCRIPT_NAME_REGEX.test(name)) {
+        console.warn(`[detectRunConfigs] Skipping script with unsafe name: ${name}`);
+        continue;
+      }
 
       // Skip excluded scripts
       if (excludePatterns.some(p => name.toLowerCase().includes(p))) {
@@ -90,6 +100,12 @@ async function detectMakefileTargets(dirPath: string): Promise<RunConfig[]> {
     let match;
     while ((match = targetRegex.exec(content)) !== null) {
       const targetName = match[1];
+
+      // Validate target name to prevent command injection
+      if (!SAFE_SCRIPT_NAME_REGEX.test(targetName)) {
+        console.warn(`[detectRunConfigs] Skipping Makefile target with unsafe name: ${targetName}`);
+        continue;
+      }
 
       if (runTargets.includes(targetName.toLowerCase())) {
         let priority = PRIORITY.OTHER;
