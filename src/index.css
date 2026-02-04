@@ -2066,7 +2066,7 @@ body.platform-other .shortcut-number {
 
 /* Expanded ship button (CTA mode when panel is open) */
 .theatre-card-ship-btn--expanded {
-  @apply bg-accent text-white text-xs font-semibold gap-1.5 pr-3;
+  @apply w-auto bg-accent text-white text-xs font-semibold gap-1.5 pl-2 pr-3;
 }
 
 .theatre-card-ship-btn--expanded:hover {
