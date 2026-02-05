@@ -1412,7 +1412,7 @@ body > .diff-panel--visible {
 
 /* Launch dropdown - reuses .launch-dropdown pattern */
 .theatre-launch-dropdown {
-  @apply absolute top-full right-0 mt-1 min-w-[240px] max-w-[320px] bg-surface border border-border rounded-md shadow-lg z-[1000] opacity-0 invisible transition-all duration-150 ease-out;
+  @apply absolute top-full right-0 mt-1 min-w-[240px] max-w-[296px] bg-surface border border-border rounded-md shadow-lg z-[1000] opacity-0 invisible overflow-hidden transition-all duration-150 ease-out;
   transform: translateY(-8px);
   -webkit-app-region: no-drag;
 }
@@ -1432,11 +1432,7 @@ body > .diff-panel--visible {
 }
 
 .hook-row {
-  @apply flex items-center gap-2 px-2 py-1.5 rounded-md transition-colors duration-150 ease-out;
-}
-
-.hook-row:hover {
-  @apply bg-background-secondary;
+  @apply flex items-center gap-2 px-2 py-1.5 rounded-md;
 }
 
 .hook-label {
@@ -1452,11 +1448,15 @@ body > .diff-panel--visible {
 }
 
 .hook-action-btn {
-  @apply shrink-0 w-6 h-6 bg-transparent border-none rounded-md flex items-center justify-center text-text-tertiary transition-all duration-150 ease-out;
+  @apply shrink-0 w-0 h-6 overflow-hidden opacity-0 bg-transparent border-none rounded-md flex items-center justify-center text-text-tertiary transition-all duration-150 ease-out;
+}
+
+.hook-row:hover .hook-action-btn {
+  @apply w-6 opacity-100;
 }
 
 .hook-action-btn:hover {
-  @apply bg-background-tertiary text-text-primary;
+  @apply text-text-primary;
 }
 
 .hook-action-btn svg {

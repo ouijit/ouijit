@@ -15,10 +15,16 @@ export interface HookConfigDialogOptions {
 }
 
 const HOOK_LABELS: Record<HookType, { title: string; description: string; placeholder: string; envVars?: boolean }> = {
-  init: {
-    title: 'Init Script',
-    description: 'Runs after creating a new task worktree (e.g., install dependencies). Blocks task creation on failure.',
-    placeholder: 'npm install',
+  start: {
+    title: 'Start Script',
+    description: 'Runs as the first command when a new task is created (e.g., install dependencies and start Claude)',
+    placeholder: 'npm install && claude "$OUIJIT_TASK_PROMPT"',
+    envVars: true,
+  },
+  continue: {
+    title: 'Continue Script',
+    description: 'Runs as the first command when reopening an existing task (e.g., resume Claude session)',
+    placeholder: 'claude -c',
     envVars: true,
   },
   run: {
@@ -61,6 +67,7 @@ export function showHookConfigDialog(
           <li><code>OUIJIT_WORKTREE_PATH</code> - task worktree path</li>
           <li><code>OUIJIT_TASK_BRANCH</code> - git branch name</li>
           <li><code>OUIJIT_TASK_NAME</code> - task display name</li>
+          <li><code>OUIJIT_TASK_PROMPT</code> - task description (start/continue hooks)</li>
         </ul>
       </details>
     ` : '';

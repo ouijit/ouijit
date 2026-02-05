@@ -10,17 +10,25 @@ import { theatreRegistry } from './helpers';
 import { registerHotkey, unregisterHotkey, pushScope, popScope, Scopes } from '../../utils/hotkeys';
 
 /**
- * Show a simple prompt dialog for naming a worktree
- * Returns the task name, or null if cancelled
+ * Result from the worktree name prompt dialog
  */
-function showWorktreeNamePrompt(): Promise<string | null> {
+interface WorktreePromptResult {
+  name: string | null;
+  prompt: string | null;
+}
+
+/**
+ * Show a simple prompt dialog for naming a worktree
+ * Returns the task name and optional prompt, or null if cancelled
+ */
+function showWorktreeNamePrompt(): Promise<WorktreePromptResult | null> {
   return new Promise((resolve) => {
     const overlay = document.createElement('div');
     overlay.className = 'modal-overlay';
 
     const dialog = document.createElement('div');
     dialog.className = 'import-dialog';
-    dialog.style.maxWidth = '340px';
+    dialog.style.maxWidth = '400px';
 
     dialog.innerHTML = `
       <h2 class="import-dialog-title">New Task</h2>
@@ -36,6 +44,18 @@ function showWorktreeNamePrompt(): Promise<string | null> {
             spellcheck="false"
           />
         </div>
+        <div class="form-group" style="margin-top: 16px;">
+          <label class="form-label" for="worktree-prompt">Description <span class="form-label-optional">(optional)</span></label>
+          <textarea
+            id="worktree-prompt"
+            class="form-input"
+            style="font-family: -apple-system, BlinkMacSystemFont, sans-serif; font-size: 14px; resize: vertical; padding-top: 10px; min-height: 60px;"
+            placeholder="What needs to be done..."
+            autocomplete="off"
+            spellcheck="false"
+            rows="2"
+          ></textarea>
+        </div>
       </div>
       <div class="import-actions">
         <button class="btn btn-secondary" data-action="cancel">Cancel</button>
@@ -47,6 +67,7 @@ function showWorktreeNamePrompt(): Promise<string | null> {
     document.body.appendChild(overlay);
 
     const nameInput = dialog.querySelector('#worktree-name') as HTMLInputElement;
+    const promptInput = dialog.querySelector('#worktree-prompt') as HTMLTextAreaElement;
     const createBtn = dialog.querySelector('[data-action="create"]') as HTMLButtonElement;
 
     const cleanup = () => {
@@ -60,8 +81,9 @@ function showWorktreeNamePrompt(): Promise<string | null> {
 
     const handleCreate = () => {
       const name = nameInput.value.trim() || null;
+      const prompt = promptInput.value.trim() || null;
       cleanup();
-      resolve(name);
+      resolve({ name, prompt });
     };
 
     const handleCancel = () => {
@@ -163,9 +185,13 @@ export async function createNewAgentShell(): Promise<void> {
     return;
   }
 
-  const name = await showWorktreeNamePrompt();
-  if (name !== null) {
-    await theatreRegistry.addTheatreTerminal?.(undefined, { useWorktree: true, worktreeName: name || undefined });
+  const result = await showWorktreeNamePrompt();
+  if (result !== null) {
+    await theatreRegistry.addTheatreTerminal?.(undefined, {
+      useWorktree: true,
+      worktreeName: result.name || undefined,
+      worktreePrompt: result.prompt || undefined,
+    });
   }
 }
 
@@ -205,7 +231,10 @@ export async function reopenTask(path: string, task: WorktreeWithMetadata): Prom
       existingWorktree: {
         path: task.path,
         branch: task.branch,
+        taskName: task.name,
         createdAt: task.createdAt,
+        readyToShip: task.readyToShip,
+        prompt: task.prompt,
       },
     });
   } else {

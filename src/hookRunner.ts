@@ -22,6 +22,8 @@ export interface HookEnvironment {
   taskBranch: string;
   /** Task display name */
   taskName: string;
+  /** Optional prompt for the task */
+  taskPrompt?: string;
 }
 
 const DEFAULT_TIMEOUT = 5 * 60 * 1000; // 5 minutes
@@ -57,6 +59,9 @@ export async function executeHook(
     }
     if (env?.taskName) {
       hookEnv.OUIJIT_TASK_NAME = env.taskName;
+    }
+    if (env?.taskPrompt) {
+      hookEnv.OUIJIT_TASK_PROMPT = env.taskPrompt;
     }
 
     // Spawn the process

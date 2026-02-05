@@ -170,7 +170,8 @@ export async function buildLaunchDropdownContent(dropdown: HTMLElement): Promise
   const hooksContainer = document.createElement('div');
   hooksContainer.className = 'hooks-container';
 
-  hooksContainer.appendChild(buildHookRow('init', 'Init', hooks.init, path));
+  hooksContainer.appendChild(buildHookRow('start', 'Start', hooks.start, path));
+  hooksContainer.appendChild(buildHookRow('continue', 'Continue', hooks.continue, path));
   hooksContainer.appendChild(buildHookRow('run', 'Run', hooks.run, path, {
     killExistingOnRun: settings.killExistingOnRun,
   }));

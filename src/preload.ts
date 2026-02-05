@@ -75,8 +75,8 @@ contextBridge.exposeInMainWorld('api', {
    * Worktree management API
    */
   worktree: {
-    create: (projectPath: string, name?: string): Promise<WorktreeCreateResult> =>
-      ipcRenderer.invoke('worktree:create', projectPath, name),
+    create: (projectPath: string, name?: string, prompt?: string): Promise<WorktreeCreateResult> =>
+      ipcRenderer.invoke('worktree:create', projectPath, name, prompt),
 
     remove: (projectPath: string, worktreePath: string): Promise<WorktreeRemoveResult> =>
       ipcRenderer.invoke('worktree:remove', projectPath, worktreePath),
@@ -224,7 +224,7 @@ contextBridge.exposeInMainWorld('api', {
     /**
      * Get all hooks for a project
      */
-    get: (projectPath: string): Promise<{ init?: ScriptHook; run?: ScriptHook; cleanup?: ScriptHook }> =>
+    get: (projectPath: string): Promise<{ start?: ScriptHook; continue?: ScriptHook; run?: ScriptHook; cleanup?: ScriptHook }> =>
       ipcRenderer.invoke('hooks:get', projectPath),
 
     /**

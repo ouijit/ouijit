@@ -1105,6 +1105,7 @@ export async function selectByStackPosition(position: number): Promise<void> {
         taskName: task.name,
         createdAt: task.createdAt,
         readyToShip: task.readyToShip,
+        prompt: task.prompt,
       },
     });
   }
@@ -1115,8 +1116,9 @@ export async function selectByStackPosition(position: number): Promise<void> {
  */
 export interface AddTheatreTerminalOptions {
   useWorktree?: boolean;
-  existingWorktree?: WorktreeInfo & { readyToShip?: boolean };
+  existingWorktree?: WorktreeInfo & { readyToShip?: boolean; prompt?: string };
   worktreeName?: string;
+  worktreePrompt?: string;
 }
 
 /**
@@ -1137,8 +1139,9 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
   if (!stack) return false;
 
   let terminalCwd = currentProjectPath;
-  let worktreeInfo: (WorktreeInfo & { readyToShip?: boolean }) | undefined = options?.existingWorktree;
+  let worktreeInfo: (WorktreeInfo & { readyToShip?: boolean; prompt?: string }) | undefined = options?.existingWorktree;
   let loadingCard: HTMLElement | null = null;
+  let taskPrompt: string | undefined = options?.existingWorktree?.prompt;
 
   // Show loading card immediately if creating a new worktree
   if (options?.useWorktree && !worktreeInfo) {
@@ -1154,7 +1157,7 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
     loadingCard = showLoadingCardInStack(loadingLabel);
 
     // Create worktree
-    const result = await window.api.worktree.create(currentProjectPath, options.worktreeName);
+    const result = await window.api.worktree.create(currentProjectPath, options.worktreeName, options.worktreePrompt);
     if (!result.success || !result.task || !result.worktreePath) {
       removeLoadingCard(loadingCard);
       // Restore stack positions
@@ -1172,6 +1175,7 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
       taskName: result.task.name,
       createdAt: result.task.createdAt,
     };
+    taskPrompt = options.worktreePrompt;
     // Refresh task index if visible
     theatreRegistry.refreshTaskIndex?.();
   }
@@ -1254,17 +1258,48 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
   await new Promise(resolve => requestAnimationFrame(resolve));
   fitAddon.fit();
 
+  // Determine command to run - use start/continue hooks for worktree terminals if configured
+  // - start hook: runs on new task creation (options.useWorktree)
+  // - continue hook: runs when reopening existing task (options.existingWorktree)
+  let startCommand = runConfig?.command;
+  let startEnv: Record<string, string> | undefined;
+
+  if (worktreeInfo && !runConfig) {
+    const hooks = await window.api.hooks.get(currentProjectPath);
+    // Use 'start' for new tasks, 'continue' for reopening existing tasks
+    const isNewTask = options?.useWorktree && !options?.existingWorktree;
+    const hookType = isNewTask ? 'start' : 'continue';
+    const hook = isNewTask ? hooks.start : hooks.continue;
+
+    if (hook) {
+      startCommand = hook.command;
+      // Build environment variables for the hook
+      // All values must be defined strings for proper env var passing
+      startEnv = {
+        OUIJIT_HOOK_TYPE: hookType,
+        OUIJIT_PROJECT_PATH: currentProjectPath,
+        OUIJIT_WORKTREE_PATH: worktreeInfo.path,
+        OUIJIT_TASK_BRANCH: worktreeInfo.branch,
+        OUIJIT_TASK_NAME: label,
+      };
+      if (taskPrompt) {
+        startEnv.OUIJIT_TASK_PROMPT = taskPrompt;
+      }
+    }
+  }
+
   // Spawn PTY
   const spawnOptions: PtySpawnOptions = {
     cwd: terminalCwd,
     projectPath: currentProjectPath,
-    command,
+    command: startCommand,
     cols: terminal.cols,
     rows: terminal.rows,
     label,
     isWorktree: !!worktreeInfo,
     worktreePath: worktreeInfo?.path,
     worktreeBranch: worktreeInfo?.branch,
+    env: startEnv,
   };
 
   try {
@@ -1280,7 +1315,7 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
     const theatreTerminal: TheatreTerminal = {
       ptyId: result.ptyId,
       projectPath: currentProjectPath,
-      command,
+      command: startCommand,
       label,
       terminal,
       fitAddon,
@@ -1527,6 +1562,7 @@ async function populatePreviousTasks(emptyState: HTMLElement): Promise<void> {
             taskName: task.name,
             createdAt: task.createdAt,
             readyToShip: task.readyToShip,
+            prompt: task.prompt,
           },
         });
       });

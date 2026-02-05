@@ -39,7 +39,7 @@ export interface CustomCommand {
 /**
  * Hook type - when the script runs
  */
-export type HookType = 'init' | 'run' | 'cleanup';
+export type HookType = 'start' | 'continue' | 'run' | 'cleanup';
 
 /**
  * Script hook configuration
@@ -67,7 +67,8 @@ export interface ProjectSettings {
   defaultCommandId?: string;
   /** Script hooks for project lifecycle */
   hooks?: {
-    init?: ScriptHook;
+    start?: ScriptHook;
+    continue?: ScriptHook;
     run?: ScriptHook;
     cleanup?: ScriptHook;
   };
@@ -199,6 +200,7 @@ export interface TaskMetadata {
   createdAt: string;        // ISO timestamp
   closedAt?: string;        // When marked closed
   readyToShip?: boolean;    // "Spiritually done" - code complete, pending merge/review
+  prompt?: string;          // Optional task description (OUIJIT_TASK_PROMPT)
 }
 
 /**
@@ -221,6 +223,7 @@ export interface WorktreeWithMetadata extends WorktreeInfo {
   closedAt?: string;
   readyToShip?: boolean;    // "Spiritually done" - code complete, pending merge/review
   mergeTarget?: string;     // Branch to merge into (defaults to main if unset)
+  prompt?: string;          // Optional task description
 }
 
 /**
@@ -246,7 +249,7 @@ export interface WorktreeRemoveResult {
  */
 export interface HooksAPI {
   /** Get all hooks for a project */
-  get(projectPath: string): Promise<{ init?: ScriptHook; run?: ScriptHook; cleanup?: ScriptHook }>;
+  get(projectPath: string): Promise<{ start?: ScriptHook; continue?: ScriptHook; run?: ScriptHook; cleanup?: ScriptHook }>;
   /** Save a hook for a project */
   save(projectPath: string, hook: ScriptHook): Promise<{ success: boolean }>;
   /** Delete a hook for a project */
@@ -257,7 +260,7 @@ export interface HooksAPI {
  * Worktree API exposed to the renderer
  */
 export interface WorktreeAPI {
-  create(projectPath: string, name?: string): Promise<WorktreeCreateResult>;
+  create(projectPath: string, name?: string, prompt?: string): Promise<WorktreeCreateResult>;
   remove(projectPath: string, worktreePath: string): Promise<WorktreeRemoveResult>;
   list(projectPath: string): Promise<WorktreeInfo[]>;
   getDiff(projectPath: string, worktreeBranch: string, targetBranch?: string): Promise<import('./git').WorktreeDiffSummary | null>;

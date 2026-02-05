@@ -93,25 +93,62 @@ export async function spawnPty(
     // Store window reference
     currentWindow = window;
 
-    const ptyProcess = pty.spawn(shell, [], {
+    // Build environment: start with process.env, add our vars, then custom env
+    // Filter out undefined values which can cause issues with node-pty
+    const baseEnv: Record<string, string> = {};
+    for (const [key, value] of Object.entries(process.env)) {
+      if (value !== undefined) {
+        baseEnv[key] = value;
+      }
+    }
+    const finalEnv: Record<string, string> = {
+      ...baseEnv,
+      TERM: 'xterm-256color',
+    };
+    // Add custom env vars (these take precedence)
+    if (options.env) {
+      for (const [key, value] of Object.entries(options.env)) {
+        if (value !== undefined) {
+          finalEnv[key] = value;
+        }
+      }
+    }
+
+    // Expand environment variables in the command if provided
+    let expandedCommand = options.command || '';
+    if (options.command && options.env) {
+      for (const [key, value] of Object.entries(options.env)) {
+        // Replace $VAR and ${VAR} patterns
+        expandedCommand = expandedCommand.replace(
+          new RegExp(`\\$\\{${key}\\}|\\$${key}\\b`, 'g'),
+          value
+        );
+      }
+    }
+
+    // If there's a command, run it via shell -c then exec into interactive shell
+    // This avoids the double-echo issue from writing to stdin
+    let shellArgs: string[] = [];
+    if (expandedCommand) {
+      // Escape single quotes in the command for shell -c
+      const escapedCmd = expandedCommand.replace(/'/g, "'\\''");
+      shellArgs = ['-c', `${escapedCmd}; exec ${shell}`];
+    }
+
+    const ptyProcess = pty.spawn(shell, shellArgs, {
       name: 'xterm-256color',
       cols: options.cols || 80,
       rows: options.rows || 24,
       cwd: options.cwd,
-      env: {
-        ...process.env,
-        TERM: 'xterm-256color',
-        ...options.env,
-      } as Record<string, string>,
+      env: finalEnv,
     });
 
-    let finalCommand = options.command || '';
-    const label = options.label || finalCommand || 'Shell';
+    const label = options.label || expandedCommand || 'Shell';
 
     const managed: ManagedPty = {
       process: ptyProcess,
       projectPath: options.projectPath || options.cwd,
-      command: finalCommand,
+      command: expandedCommand,
       label,
       isWorktree: options.isWorktree || false,
       worktreePath: options.worktreePath,
@@ -134,17 +171,6 @@ export async function spawnPty(
       }
       activePtys.delete(ptyId);
     });
-
-    // If a command was provided, write it to the shell after a brief delay
-    if (options.command) {
-      // Small delay to let shell initialize, then send the command
-      setTimeout(() => {
-        const m = activePtys.get(ptyId);
-        if (m) {
-          m.process.write(options.command + '\r');
-        }
-      }, 100);
-    }
 
     return { success: true, ptyId };
   } catch (error) {

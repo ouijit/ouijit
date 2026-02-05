@@ -60,7 +60,7 @@ export async function getProjectSettings(projectPath: string): Promise<ProjectSe
  */
 export async function getHooks(
   projectPath: string
-): Promise<{ init?: ScriptHook; run?: ScriptHook; cleanup?: ScriptHook }> {
+): Promise<{ start?: ScriptHook; continue?: ScriptHook; run?: ScriptHook; cleanup?: ScriptHook }> {
   const settings = await getProjectSettings(projectPath);
   return settings.hooks || {};
 }

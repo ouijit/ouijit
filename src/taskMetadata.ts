@@ -21,6 +21,7 @@ export interface TaskMetadata {
   closedAt?: string;        // When marked closed
   readyToShip?: boolean;    // "Spiritually done" - code complete, pending merge/review
   mergeTarget?: string;     // Branch to merge into (defaults to main if unset)
+  prompt?: string;          // Optional task description (OUIJIT_TASK_PROMPT)
 }
 
 /**
@@ -175,7 +176,8 @@ export async function createTask(
   taskNumber: number,
   branch: string,
   name: string,
-  mergeTarget?: string
+  mergeTarget?: string,
+  prompt?: string
 ): Promise<TaskMetadata> {
   const store = await ensureProjectStore(projectPath);
 
@@ -192,6 +194,7 @@ export async function createTask(
     status: 'open',
     createdAt: new Date().toISOString(),
     ...(mergeTarget && { mergeTarget }),
+    ...(prompt && { prompt }),
   };
 
   store[projectPath].tasks.push(task);

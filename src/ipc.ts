@@ -249,8 +249,8 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
   });
 
   // Worktree handlers
-  ipcMain.handle('worktree:create', async (_event, projectPath: string, name?: string): Promise<TaskWorktreeResult> => {
-    return createTaskWorktree(projectPath, name);
+  ipcMain.handle('worktree:create', async (_event, projectPath: string, name?: string, prompt?: string): Promise<TaskWorktreeResult> => {
+    return createTaskWorktree(projectPath, name, prompt);
   });
 
   ipcMain.handle('worktree:remove', async (_event, projectPath: string, worktreePath: string): Promise<WorktreeRemoveResult> => {
@@ -346,6 +346,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
         closedAt: metadata.closedAt,
         readyToShip: metadata.readyToShip,
         mergeTarget: metadata.mergeTarget,
+        prompt: metadata.prompt,
       });
     }
 
@@ -366,6 +367,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
           closedAt: task.closedAt,
           readyToShip: task.readyToShip,
           mergeTarget: task.mergeTarget,
+          prompt: task.prompt,
         });
       }
     }
