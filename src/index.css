@@ -1522,23 +1522,36 @@ body > .diff-panel--visible {
 }
 
 .theatre-stack-empty-form {
-  @apply flex gap-2 w-full max-w-[360px];
+  @apply w-full max-w-[480px];
 }
 
-.theatre-stack-empty-input {
-  @apply flex-1 px-3 py-1.5 font-sans text-sm text-white/90 bg-white/[0.08] border border-white/[0.12] rounded-md outline-none transition-all duration-150 ease-out;
+.theatre-stack-empty-composer {
+  @apply relative flex flex-col bg-white/[0.08] border border-white/[0.12] rounded-xl overflow-hidden transition-all duration-150 ease-out;
 }
 
-.theatre-stack-empty-input::placeholder {
-  @apply text-white/35;
-}
-
-.theatre-stack-empty-input:focus {
+.theatre-stack-empty-composer:focus-within {
   @apply border-accent bg-white/10 ring-3 ring-[rgba(0,122,255,0.15)];
 }
 
+.theatre-stack-empty-name {
+  @apply w-full px-4 pt-3.5 pb-1 font-sans text-base font-medium text-white/90 bg-transparent border-none outline-none;
+}
+
+.theatre-stack-empty-name::placeholder {
+  @apply text-white/40 font-normal;
+}
+
+.theatre-stack-empty-prompt {
+  @apply w-full pl-4 pr-14 pt-1 pb-4 font-sans text-sm text-white/70 bg-transparent border-none outline-none resize-none;
+  min-height: 64px;
+}
+
+.theatre-stack-empty-prompt::placeholder {
+  @apply text-white/30;
+}
+
 .theatre-stack-empty-btn {
-  @apply inline-flex items-center gap-1 px-4 py-1.5 font-sans text-sm font-medium border-none rounded-md shrink-0 bg-accent text-white transition-all duration-150 ease-out;
+  @apply absolute bottom-3 right-3 flex items-center justify-center w-8 h-8 p-0 border-none rounded-lg bg-accent text-white transition-all duration-150 ease-out;
 }
 
 .theatre-stack-empty-btn:hover {
@@ -1546,7 +1559,11 @@ body > .diff-panel--visible {
 }
 
 .theatre-stack-empty-btn:active {
-  @apply opacity-90;
+  @apply scale-95;
+}
+
+.theatre-stack-empty-btn:disabled {
+  @apply opacity-50;
 }
 
 .theatre-stack-empty-hints {
@@ -1568,7 +1585,7 @@ body > .diff-panel--visible {
 }
 
 .theatre-stack-empty-new {
-  @apply w-full max-w-[360px] text-center;
+  @apply w-full max-w-[480px] text-center;
 }
 
 .theatre-stack-empty-task {

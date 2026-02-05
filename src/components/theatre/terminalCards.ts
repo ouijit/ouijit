@@ -1497,14 +1497,26 @@ export function buildEmptyStateHtml(): string {
       <div class="theatre-stack-empty-new">
         <div class="theatre-stack-empty-section-label"><span class="theatre-stack-empty-section-shortcut">${isMac ? '⌘' : 'Ctrl+'}<span class="shortcut-number">N</span></span>New Task</div>
         <form class="theatre-stack-empty-form">
-          <input
-            type="text"
-            class="theatre-stack-empty-input"
-            placeholder="fix login bug, add dark mode..."
-            autocomplete="off"
-            spellcheck="false"
-          />
-          <button type="submit" class="theatre-stack-empty-btn">Start</button>
+          <div class="theatre-stack-empty-composer">
+            <input
+              type="text"
+              class="theatre-stack-empty-name"
+              placeholder="Task name"
+              autocomplete="off"
+              spellcheck="false"
+            />
+            <textarea
+              class="theatre-stack-empty-prompt"
+              placeholder="Describe what needs to be done..."
+              rows="2"
+              spellcheck="false"
+            ></textarea>
+            <button type="submit" class="theatre-stack-empty-btn" aria-label="Start task">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                <path d="M8 13V3M4 7l4-4 4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+            </button>
+          </div>
         </form>
       </div>
       <div class="theatre-stack-empty-hints">
@@ -1587,7 +1599,7 @@ export async function showStackEmptyState(): Promise<void> {
     await populatePreviousTasks(emptyState);
     requestAnimationFrame(() => {
       emptyState.classList.add('theatre-stack-empty--visible');
-      const input = emptyState.querySelector('.theatre-stack-empty-input') as HTMLInputElement;
+      const input = emptyState.querySelector('.theatre-stack-empty-name') as HTMLInputElement;
       if (input) input.focus();
     });
     return;
@@ -1599,7 +1611,8 @@ export async function showStackEmptyState(): Promise<void> {
 
   // Wire up form submission
   const form = emptyState.querySelector('.theatre-stack-empty-form') as HTMLFormElement;
-  const input = emptyState.querySelector('.theatre-stack-empty-input') as HTMLInputElement;
+  const nameInput = emptyState.querySelector('.theatre-stack-empty-name') as HTMLInputElement;
+  const promptInput = emptyState.querySelector('.theatre-stack-empty-prompt') as HTMLTextAreaElement;
   const submitBtn = emptyState.querySelector('.theatre-stack-empty-btn') as HTMLButtonElement;
 
   // Note: ⌘1-9 hotkeys are already registered in enterTheatreMode for terminal switching.
@@ -1607,34 +1620,46 @@ export async function showStackEmptyState(): Promise<void> {
   // when the task index scope is popped. Users can use Command+T to open the task index
   // for keyboard-based task selection.
 
-  if (form && input && submitBtn) {
+  if (form && nameInput && promptInput && submitBtn) {
+    // Enter in name field focuses description instead of submitting
+    nameInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        promptInput.focus();
+      }
+    });
+
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
 
       // Prevent double submission
       if (submitBtn.disabled) return;
 
-      const name = input.value.trim() || undefined;
+      const name = nameInput.value.trim() || undefined;
+      const prompt = promptInput.value.trim() || undefined;
 
       // Disable form while creating (loading card provides visual feedback)
       submitBtn.disabled = true;
-      input.disabled = true;
+      nameInput.disabled = true;
+      promptInput.disabled = true;
 
       try {
-        const success = await addTheatreTerminal(undefined, { useWorktree: true, worktreeName: name });
+        const success = await addTheatreTerminal(undefined, { useWorktree: true, worktreeName: name, worktreePrompt: prompt });
         if (!success) {
           // Restore form state if terminal creation failed
           submitBtn.disabled = false;
-          input.disabled = false;
-          input.focus();
+          nameInput.disabled = false;
+          promptInput.disabled = false;
+          nameInput.focus();
         }
         // If successful, the form will be hidden by the effect system
       } catch (error) {
         console.error('[theatre] Failed to create task:', error);
         showToast('Failed to create task', 'error');
         submitBtn.disabled = false;
-        input.disabled = false;
-        input.focus();
+        nameInput.disabled = false;
+        promptInput.disabled = false;
+        nameInput.focus();
       }
     });
   }
@@ -1645,7 +1670,7 @@ export async function showStackEmptyState(): Promise<void> {
   // Animate in and focus input
   requestAnimationFrame(() => {
     emptyState.classList.add('theatre-stack-empty--visible');
-    if (input) input.focus();
+    if (nameInput) nameInput.focus();
   });
 }
 
