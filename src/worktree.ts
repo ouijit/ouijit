@@ -8,11 +8,31 @@ import { promisify } from 'node:util';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import * as os from 'node:os';
+import koffi from 'koffi';
 import { getNextTaskNumber, createTask, getTaskByNumber, deleteTaskByNumber, type TaskMetadata } from './taskMetadata';
 
 const execAsync = promisify(exec);
 
 const MAX_ERROR_LENGTH = 500;
+
+// Native CoW clone support via koffi FFI
+// macOS: clonefile() clones files and directories atomically in one kernel call
+// Linux: ioctl(FICLONE) for CoW file cloning on btrfs/xfs
+let clonefileFn: ((src: string, dst: string, flags: number) => number) | null = null;
+let ficloneFn: ((destFd: number, srcFd: number) => boolean) | null = null;
+
+try {
+  if (os.platform() === 'darwin') {
+    const lib = koffi.load('libSystem.B.dylib');
+    clonefileFn = lib.func('clonefile', 'int', ['str', 'str', 'int']);
+  } else if (os.platform() === 'linux') {
+    const lib = koffi.load('libc.so.6');
+    // ioctl is variadic — koffi requires '...' marker for correct ARM64 calling convention
+    const ioctl = lib.func('ioctl', 'int', ['int', 'unsigned long', '...']);
+    const FICLONE = 0x40049409; // _IOW(0x94, 9, int)
+    ficloneFn = (destFd: number, srcFd: number) => ioctl(destFd, FICLONE, 'int', srcFd) === 0;
+  }
+} catch { /* koffi/FFI unavailable, fall through to cp */ }
 
 export interface WorktreeInfo {
   path: string;
@@ -62,19 +82,25 @@ function isPathWithinBase(basePath: string, targetPath: string): boolean {
  * This ensures secrets, local configs, dependencies, and other untracked files are available
  * Uses APFS clones for instant, space-efficient copies
  */
-async function copyGitIgnoredFiles(sourcePath: string, worktreePath: string): Promise<void> {
-  try {
-    // Get list of ignored files/directories from git
-    // --others: untracked files
-    // --ignored: only show ignored files
-    // --exclude-standard: use .gitignore, .git/info/exclude, global gitignore
-    // --directory: show directory names instead of their contents (efficient for copying whole dirs)
-    const { stdout } = await execAsync(
-      'git ls-files --others --ignored --exclude-standard --directory',
-      { cwd: sourcePath, maxBuffer: 10 * 1024 * 1024 } // 10MB buffer for large lists
-    );
+/**
+ * Fetch the list of gitignored files from the source project.
+ * Can be started before the worktree exists since it only reads the source directory.
+ */
+async function fetchIgnoredFiles(sourcePath: string): Promise<string[]> {
+  // --others: untracked files
+  // --ignored: only show ignored files
+  // --exclude-standard: use .gitignore, .git/info/exclude, global gitignore
+  // --directory: show directory names instead of their contents (efficient for copying whole dirs)
+  const { stdout } = await execAsync(
+    'git ls-files --others --ignored --exclude-standard --directory',
+    { cwd: sourcePath, maxBuffer: 10 * 1024 * 1024 } // 10MB buffer for large lists
+  );
+  return stdout.split('\n').filter(item => item.trim());
+}
 
-    const items = stdout.split('\n').filter(item => item.trim());
+async function copyGitIgnoredFiles(sourcePath: string, worktreePath: string, prefetchedItems?: string[]): Promise<void> {
+  try {
+    const items = prefetchedItems ?? await fetchIgnoredFiles(sourcePath);
     if (items.length === 0) return;
 
     // Copy each item in parallel
@@ -105,15 +131,40 @@ async function copyGitIgnoredFiles(sourcePath: string, worktreePath: string): Pr
         // Ensure parent directory exists
         await fs.mkdir(path.dirname(destItem), { recursive: true });
 
+        // macOS: clonefile() handles both files and directories in one kernel call
+        if (clonefileFn) {
+          if (clonefileFn(sourceItem, destItem, 0) === 0) return;
+          // Fall through to cp on failure (e.g. EEXIST from race with start script, non-APFS, cross-volume)
+        }
+
+        // Linux: ioctl(FICLONE) for per-file CoW cloning on btrfs/xfs
+        if (ficloneFn && stat.isFile()) {
+          let cloned = false;
+          const srcHandle = await fs.open(sourceItem, 'r');
+          try {
+            const dstHandle = await fs.open(destItem, 'w', stat.mode);
+            try {
+              cloned = ficloneFn(dstHandle.fd, srcHandle.fd);
+            } finally {
+              await dstHandle.close();
+            }
+          } finally {
+            await srcHandle.close();
+          }
+          if (cloned) {
+            await fs.utimes(destItem, stat.atime, stat.mtime);
+            return;
+          }
+          // FICLONE failed — remove empty dest before falling through to cp
+          await fs.unlink(destItem).catch(() => {});
+        }
+
+        // Fallback: cp command
         if (stat.isDirectory()) {
-          // -R: recursive, -p: preserve timestamps/permissions, -c: APFS clone (macOS only)
-          // -P: do not follow symlinks (Linux, also works on macOS)
-          const cpFlags = os.platform() === 'darwin' ? '-RPpc' : '-RPp';
+          const cpFlags = os.platform() === 'darwin' ? '-RPpc' : '-RPp --reflink=auto';
           await execAsync(`cp ${cpFlags} ${shellEscape(sourceItem)} ${shellEscape(destItem)}`);
         } else {
-          // -p: preserve timestamps/permissions, -c: APFS clone (macOS only)
-          // -P: do not follow symlinks (Linux, also works on macOS)
-          const cpFlags = os.platform() === 'darwin' ? '-Ppc' : '-Pp';
+          const cpFlags = os.platform() === 'darwin' ? '-Ppc' : '-Pp --reflink=auto';
           await execAsync(`cp ${cpFlags} ${shellEscape(sourceItem)} ${shellEscape(destItem)}`);
         }
       } catch (error) {
@@ -184,63 +235,51 @@ export function formatBranchNameForDisplay(branch: string): string {
  */
 export async function createTaskWorktree(projectPath: string, name?: string, prompt?: string): Promise<TaskWorktreeResult> {
   try {
-    // Check if repo has any commits (worktrees require a valid HEAD)
-    try {
-      execSync('git rev-parse HEAD', {
-        cwd: projectPath,
-        encoding: 'utf8',
-        stdio: ['pipe', 'pipe', 'pipe'],
-      });
-    } catch {
-      // No commits yet - create an initial empty commit
-      execSync('git commit --allow-empty -m "Initial commit"', {
-        cwd: projectPath,
-        encoding: 'utf8',
-        stdio: ['pipe', 'pipe', 'pipe'],
-      });
+    const [hasHead, branchResult, taskNumber] = await Promise.all([
+      // Check if repo has any commits (worktrees require a valid HEAD)
+      execAsync('git rev-parse HEAD', { cwd: projectPath }).then(() => true, () => false),
+      // Capture source branch as the default merge target
+      execAsync('git rev-parse --abbrev-ref HEAD', { cwd: projectPath })
+        .then(({ stdout }) => stdout.trim())
+        .catch((): undefined => undefined),
+      // Get next task number
+      getNextTaskNumber(projectPath),
+    ]);
+
+    if (!hasHead) {
+      await execAsync('git commit --allow-empty -m "Initial commit"', { cwd: projectPath });
     }
 
-    // Capture source branch as the default merge target
-    let mergeTarget: string | undefined;
-    try {
-      mergeTarget = execSync('git rev-parse --abbrev-ref HEAD', {
-        cwd: projectPath,
-        encoding: 'utf8',
-        stdio: ['pipe', 'pipe', 'pipe'],
-      }).trim();
-    } catch {
-      // Failed to get current branch, will default to main later
-    }
-
+    const mergeTarget = branchResult;
     const projectName = path.basename(projectPath);
     const displayName = name || 'Untitled';
 
-    // Get next task number, skipping any stale directories from failed attempts
-    let taskNumber = await getNextTaskNumber(projectPath);
+    // Find available worktree path (skip stale directories)
     const baseDir = getWorktreeBaseDir(projectName);
     await fs.mkdir(baseDir, { recursive: true });
 
-    let worktreePath = path.join(baseDir, `T-${taskNumber}`);
+    let currentTaskNumber = taskNumber;
+    let worktreePath = path.join(baseDir, `T-${currentTaskNumber}`);
     while (await fs.access(worktreePath).then(() => true, () => false)) {
-      taskNumber++;
-      worktreePath = path.join(baseDir, `T-${taskNumber}`);
+      currentTaskNumber++;
+      worktreePath = path.join(baseDir, `T-${currentTaskNumber}`);
     }
 
-    // Generate branch name
-    const branch = generateBranchName(name, taskNumber);
+    const branch = generateBranchName(name, currentTaskNumber);
 
-    // Create worktree with new branch
-    execSync(`git worktree add -b "${branch}" "${worktreePath}"`, {
-      cwd: projectPath,
-      encoding: 'utf8',
-      stdio: ['pipe', 'pipe', 'pipe'],
+    // Start ls-files in parallel with git worktree add
+    // ls-files reads from source dir, doesn't need the worktree to exist
+    const [, ignoredFiles] = await Promise.all([
+      execAsync(`git worktree add -b "${branch}" "${worktreePath}"`, { cwd: projectPath }),
+      fetchIgnoredFiles(projectPath),
+    ]);
+
+    const task = await createTask(projectPath, currentTaskNumber, branch, displayName, mergeTarget, prompt);
+
+    // Fire-and-forget file copy with pre-fetched list
+    copyGitIgnoredFiles(projectPath, worktreePath, ignoredFiles).catch(err => {
+      console.warn('[worktree] Background copy failed:', err);
     });
-
-    // Create task metadata (worktree succeeded)
-    const task = await createTask(projectPath, taskNumber, branch, displayName, mergeTarget, prompt);
-
-    // Copy all gitignored files (secrets, configs, dependencies, etc.)
-    await copyGitIgnoredFiles(projectPath, worktreePath);
 
     return {
       success: true,
