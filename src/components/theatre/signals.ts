@@ -37,6 +37,15 @@ export const diffFileDropdownVisible = signal(false);
 // Task index panel visibility
 export const taskIndexVisible = signal(false);
 
+// Task list invalidation (effects watch this to auto-refresh views)
+const taskVersion = signal(0);
+export { taskVersion };
+
+/** Call after any task mutation (create, close, delete, reopen) to refresh views */
+export function invalidateTaskList(): void {
+  taskVersion.value++;
+}
+
 /**
  * Reset all signals to initial values
  * Call this when exiting theatre mode
@@ -55,4 +64,5 @@ export function resetSignals(): void {
   launchDropdownVisible.value = false;
   diffFileDropdownVisible.value = false;
   taskIndexVisible.value = false;
+  taskVersion.value = 0;
 }

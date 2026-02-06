@@ -4,7 +4,7 @@
 
 import type { WorktreeWithMetadata } from '../../types';
 import { MAX_THEATRE_TERMINALS } from './state';
-import { projectPath, terminals } from './signals';
+import { projectPath, terminals, invalidateTaskList } from './signals';
 import { showToast } from '../importDialog';
 import { theatreRegistry } from './helpers';
 import { registerHotkey, unregisterHotkey, pushScope, popScope, Scopes } from '../../utils/hotkeys';
@@ -218,6 +218,7 @@ export async function closeTask(path: string, task: WorktreeWithMetadata): Promi
         theatreRegistry.closeTheatreTerminal?.(i);
       }
     }
+    invalidateTaskList();
     // Show warning if cleanup hook failed
     if (result.hookWarning) {
       showToast(`Task closed (cleanup hook failed)`, 'warning');
@@ -235,6 +236,7 @@ export async function closeTask(path: string, task: WorktreeWithMetadata): Promi
 export async function reopenTask(path: string, task: WorktreeWithMetadata): Promise<void> {
   const result = await window.api.worktree.reopen(path, task.branch);
   if (result.success) {
+    invalidateTaskList();
     // Open terminal for the task
     await theatreRegistry.addTheatreTerminal?.(undefined, {
       existingWorktree: {
@@ -269,6 +271,7 @@ export async function deleteTask(path: string, task: WorktreeWithMetadata): Prom
 
   const result = await window.api.worktree.remove(path, task.path);
   if (result.success) {
+    invalidateTaskList();
     showToast('Task deleted', 'success');
   } else {
     showToast(result.error || 'Failed to delete task', 'error');

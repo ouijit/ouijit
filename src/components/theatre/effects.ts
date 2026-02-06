@@ -9,9 +9,11 @@ import {
   activeIndex,
   activeTerminal,
   projectPath,
+  taskVersion,
+  taskIndexVisible,
 } from './signals';
 // Direct imports - these modules import from signals.ts, not effects.ts, so no circular dep
-import { updateCardStack, showStackEmptyState, hideStackEmptyState } from './terminalCards';
+import { updateCardStack, showStackEmptyState, hideStackEmptyState, refreshEmptyStateTasks } from './terminalCards';
 import { syncDiffPanelToActiveTerminal } from './diffPanel';
 
 // Track whether effects are initialized
@@ -79,6 +81,35 @@ export function initializeEffects(): void {
           syncDiffPanelToActiveTerminal();
         });
       }
+    })
+  );
+
+  // Effect: Auto-refresh task index when taskVersion bumps
+  let lastTaskVersionForIndex = taskVersion.value;
+  cleanupFunctions.push(
+    effect(() => {
+      const ver = taskVersion.value;
+      const visible = taskIndexVisible.value;
+      if (ver !== lastTaskVersionForIndex && visible) {
+        lastTaskVersionForIndex = ver;
+        // Dynamic import to avoid circular dependency
+        import('./taskIndex').then(({ refreshTaskIndex }) => refreshTaskIndex());
+      }
+      lastTaskVersionForIndex = ver;
+    })
+  );
+
+  // Effect: Auto-refresh empty state task list when taskVersion bumps
+  let lastTaskVersionForEmpty = taskVersion.value;
+  cleanupFunctions.push(
+    effect(() => {
+      const ver = taskVersion.value;
+      const _terminals = terminals.value;
+      if (ver !== lastTaskVersionForEmpty && _terminals.length === 0) {
+        lastTaskVersionForEmpty = ver;
+        refreshEmptyStateTasks();
+      }
+      lastTaskVersionForEmpty = ver;
     })
   );
 

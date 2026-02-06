@@ -106,7 +106,6 @@ function buildTaskItem(task: WorktreeWithMetadata, path: string, index?: number)
     closeBtn.addEventListener('click', async (e) => {
       e.stopPropagation();
       await closeTask(path, task);
-      await populateTaskIndex();
     });
     actions.appendChild(closeBtn);
   }
@@ -119,8 +118,6 @@ function buildTaskItem(task: WorktreeWithMetadata, path: string, index?: number)
   deleteBtn.addEventListener('click', async (e) => {
     e.stopPropagation();
     await deleteTask(path, task);
-    // Refresh the panel
-    await populateTaskIndex();
   });
   actions.appendChild(deleteBtn);
 

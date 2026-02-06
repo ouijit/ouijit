@@ -5,7 +5,7 @@
 import type { ChangedFile, FileDiff, ShipItResult, BranchInfo } from '../../types';
 import { TheatreTerminal } from './state';
 import { theatreRegistry, hideRunnerPanel } from './helpers';
-import { projectPath, terminals, activeIndex } from './signals';
+import { projectPath, terminals, activeIndex, invalidateTaskList } from './signals';
 import { escapeHtml } from '../../utils/html';
 import { showToast } from '../importDialog';
 import { formatDiffStats, renderDiffContentHtml, hideDiffFileDropdown, buildDiffFileDropdownHtml } from './diffPanel';
@@ -796,8 +796,7 @@ async function executeShip(term: TheatreTerminal, panel: HTMLElement, commitMess
         if (idx !== -1) {
           theatreRegistry.closeTheatreTerminal?.(idx);
         }
-        // Refresh task index if visible
-        theatreRegistry.refreshTaskIndex?.();
+        invalidateTaskList();
       }
     } else {
       // Handle error

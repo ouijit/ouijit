@@ -17,6 +17,7 @@ import {
   projectData,
   terminals,
   activeIndex,
+  invalidateTaskList,
 } from './signals';
 import { showToast } from '../importDialog';
 import { showHookConfigDialog } from '../hookConfigDialog';
@@ -602,8 +603,7 @@ async function closeTaskFromTerminal(term: TheatreTerminal): Promise<void> {
     } else {
       showToast('Task closed', 'success');
     }
-    // Refresh task index if visible
-    theatreRegistry.refreshTaskIndex?.();
+    invalidateTaskList();
   } else {
     showToast(result.error || 'Failed to close task', 'error');
   }
@@ -1168,8 +1168,7 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
       createdAt: result.task.createdAt,
     };
     taskPrompt = options.worktreePrompt;
-    // Refresh task index if visible
-    theatreRegistry.refreshTaskIndex?.();
+    invalidateTaskList();
   }
 
   // Use worktree path if we have one
@@ -1707,6 +1706,16 @@ async function playOrToggleRunner(): Promise<void> {
     toggleRunnerPanel(activeTerm);
   } else {
     await runDefaultInCard(activeTerm);
+  }
+}
+
+/**
+ * Refresh the empty state task list if it's currently visible
+ */
+export function refreshEmptyStateTasks(): void {
+  const emptyState = document.querySelector('.theatre-stack-empty') as HTMLElement;
+  if (emptyState) {
+    populatePreviousTasks(emptyState);
   }
 }
 
