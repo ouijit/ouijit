@@ -10,10 +10,6 @@ import { notarize } from '@electron/notarize';
 import path from 'path';
 import fs from 'fs';
 
-// Helper to copy native modules to the packaged app.
-// We need this because node-pty (a native module with .node binaries) fails to load
-// from inside ASAR archives. Electron's AutoUnpackNativesPlugin didn't reliably solve
-// this, so we manually copy native modules after packaging.
 const copyRecursive = (src: string, dest: string) => {
   if (!fs.existsSync(src)) return;
   fs.mkdirSync(dest, { recursive: true });
@@ -28,11 +24,26 @@ const copyRecursive = (src: string, dest: string) => {
   }
 };
 
+// Remove subdirectories that don't match the target platform/arch.
+// Native modules ship prebuilds for all platforms — we only need the one we're building for.
+const stripUnusedPrebuilds = (dir: string, keep: string) => {
+  if (!fs.existsSync(dir)) return;
+  for (const entry of fs.readdirSync(dir)) {
+    if (entry !== keep) {
+      const entryPath = path.join(dir, entry);
+      console.log(`  Removing unused prebuild: ${entry}`);
+      fs.rmSync(entryPath, { recursive: true });
+    }
+  }
+};
+
 const config: ForgeConfig = {
   packagerConfig: {
-    // Disabled ASAR because native modules (node-pty) don't load reliably from archives.
-    // Node's native module loader expects .node files on the real filesystem.
-    asar: false,
+    // ASAR archives compress app contents; native .node binaries are unpacked to the real
+    // filesystem so node-pty and koffi can load them via dlopen.
+    asar: {
+      unpack: '**/*.node',
+    },
     icon: './src/assets/icons/icon',
     osxSign: process.env.SKIP_SIGN
       ? undefined
@@ -41,9 +52,10 @@ const config: ForgeConfig = {
             entitlements: './entitlements.mac.plist',
           }),
         },
-    // Copy native modules BEFORE signing (afterCopy runs before osxSign)
+    // Copy native modules BEFORE signing (afterCopy runs before osxSign),
+    // then strip prebuilds for other platforms to reduce app size.
     afterCopy: [
-      (buildPath, _electronVersion, platform, _arch, callback) => {
+      (buildPath, _electronVersion, platform, arch, callback) => {
         const nodeModulesDest = path.join(buildPath, 'node_modules');
 
         const modulesToCopy = ['node-pty', 'koffi'];
@@ -53,6 +65,22 @@ const config: ForgeConfig = {
           console.log(`Copying ${mod} to ${dest}`);
           copyRecursive(src, dest);
         }
+
+        // node-pty ships prebuilds for all platforms under prebuilds/<platform>-<arch>/
+        // e.g. darwin-arm64, win32-x64. Strip everything except the target.
+        console.log(`Stripping unused prebuilds for ${platform}-${arch}...`);
+        stripUnusedPrebuilds(
+          path.join(nodeModulesDest, 'node-pty', 'prebuilds'),
+          `${platform}-${arch}`,
+        );
+
+        // koffi ships prebuilds under build/koffi/<platform>_<arch>/
+        // e.g. darwin_arm64, linux_x64. Strip everything except the target.
+        stripUnusedPrebuilds(
+          path.join(nodeModulesDest, 'koffi', 'build', 'koffi'),
+          `${platform}_${arch}`,
+        );
+
         callback();
       },
     ],
@@ -120,9 +148,8 @@ const config: ForgeConfig = {
       [FuseV1Options.EnableCookieEncryption]: true,
       [FuseV1Options.EnableNodeOptionsEnvironmentVariable]: false,
       [FuseV1Options.EnableNodeCliInspectArguments]: false,
-      // These must be disabled since we're not using ASAR (see packagerConfig.asar above)
-      [FuseV1Options.EnableEmbeddedAsarIntegrityValidation]: false,
-      [FuseV1Options.OnlyLoadAppFromAsar]: false,
+      [FuseV1Options.EnableEmbeddedAsarIntegrityValidation]: true,
+      [FuseV1Options.OnlyLoadAppFromAsar]: true,
     }),
   ],
 };
