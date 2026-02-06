@@ -120,27 +120,7 @@ export async function enterTheatreMode(
     // Wire up sandbox toggle button
     const sandboxBtn = headerContent.querySelector('.theatre-sandbox-btn') as HTMLElement;
     if (sandboxBtn) {
-      window.api.lima.status(path).then((status) => {
-        if (!status.available) return;
-        sandboxBtn.style.display = 'flex';
-        if (status.enabled) {
-          sandboxBtn.classList.add('theatre-sandbox-btn--active');
-          sandboxBtn.title = 'Sandbox enabled';
-        }
-      });
-      sandboxBtn.addEventListener('click', async (e) => {
-        e.stopPropagation();
-        const status = await window.api.lima.status(path);
-        if (status.enabled) {
-          await window.api.lima.disable(path);
-          sandboxBtn.classList.remove('theatre-sandbox-btn--active');
-          sandboxBtn.title = 'Sandbox disabled';
-        } else {
-          await window.api.lima.enable(path);
-          sandboxBtn.classList.add('theatre-sandbox-btn--active');
-          sandboxBtn.title = 'Sandbox enabled';
-        }
-      });
+      wireSandboxButton(sandboxBtn, path);
     }
 
   }
@@ -565,27 +545,7 @@ export async function restoreTheatreMode(
     // Wire up sandbox toggle button
     const sandboxBtn = headerContent.querySelector('.theatre-sandbox-btn') as HTMLElement;
     if (sandboxBtn) {
-      window.api.lima.status(path).then((status) => {
-        if (!status.available) return;
-        sandboxBtn.style.display = 'flex';
-        if (status.enabled) {
-          sandboxBtn.classList.add('theatre-sandbox-btn--active');
-          sandboxBtn.title = 'Sandbox enabled';
-        }
-      });
-      sandboxBtn.addEventListener('click', async (e) => {
-        e.stopPropagation();
-        const status = await window.api.lima.status(path);
-        if (status.enabled) {
-          await window.api.lima.disable(path);
-          sandboxBtn.classList.remove('theatre-sandbox-btn--active');
-          sandboxBtn.title = 'Sandbox disabled';
-        } else {
-          await window.api.lima.enable(path);
-          sandboxBtn.classList.add('theatre-sandbox-btn--active');
-          sandboxBtn.title = 'Sandbox enabled';
-        }
-      });
+      wireSandboxButton(sandboxBtn, path);
     }
 
   }
@@ -969,4 +929,119 @@ async function reconnectRunnerToParent(
   updateRunnerPill(parentTerminal);
 
   console.log('[Theatre] Reconnected runner to parent terminal:', session.ptyId, '->', parentTerminal.ptyId);
+}
+
+/**
+ * Wire up the sandbox toggle button with click handler and hover tooltip
+ */
+function wireSandboxButton(sandboxBtn: HTMLElement, path: string): void {
+  let tooltip: HTMLElement | null = null;
+  let showTimeout: ReturnType<typeof setTimeout> | null = null;
+  let hovered = false;
+
+  // Remove native title — we use a custom tooltip
+  sandboxBtn.removeAttribute('title');
+
+  // Check initial status
+  window.api.lima.status(path).then((status) => {
+    if (!status.available) return;
+    sandboxBtn.style.display = 'flex';
+    if (status.enabled) {
+      sandboxBtn.classList.add('theatre-sandbox-btn--active');
+    }
+  });
+
+  // Click handler
+  sandboxBtn.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    const status = await window.api.lima.status(path);
+    if (status.enabled) {
+      await window.api.lima.disable(path);
+      sandboxBtn.classList.remove('theatre-sandbox-btn--active');
+    } else {
+      await window.api.lima.enable(path);
+      sandboxBtn.classList.add('theatre-sandbox-btn--active');
+    }
+    // Update tooltip if visible
+    if (tooltip?.classList.contains('sandbox-tooltip--visible')) {
+      const newStatus = await window.api.lima.status(path);
+      updateSandboxTooltip(tooltip, newStatus);
+    }
+  });
+
+  // Hover tooltip
+  sandboxBtn.addEventListener('mouseenter', () => {
+    hovered = true;
+    showTimeout = setTimeout(async () => {
+      if (!hovered) return;
+      const status = await window.api.lima.status(path);
+      if (!hovered) return;
+
+      if (!tooltip) {
+        tooltip = document.createElement('div');
+        tooltip.className = 'sandbox-tooltip';
+        sandboxBtn.appendChild(tooltip);
+      }
+      updateSandboxTooltip(tooltip, status);
+      requestAnimationFrame(() => {
+        tooltip?.classList.add('sandbox-tooltip--visible');
+      });
+    }, 400);
+  });
+
+  sandboxBtn.addEventListener('mouseleave', () => {
+    hovered = false;
+    if (showTimeout) {
+      clearTimeout(showTimeout);
+      showTimeout = null;
+    }
+    if (tooltip) {
+      tooltip.classList.remove('sandbox-tooltip--visible');
+    }
+  });
+}
+
+/**
+ * Update the sandbox tooltip content with current status
+ */
+function updateSandboxTooltip(
+  tooltip: HTMLElement,
+  status: { available: boolean; enabled: boolean; vmStatus: string; instanceName?: string },
+): void {
+  const enabledText = status.enabled ? 'Enabled' : 'Disabled';
+  const dotClass = status.enabled ? 'sandbox-tooltip-dot--on' : 'sandbox-tooltip-dot--off';
+
+  // Friendly VM status text
+  const vmStatusMap: Record<string, string> = {
+    'Running': 'Running',
+    'Stopped': 'Stopped',
+    'NotCreated': 'Not created',
+    'Unavailable': 'Unavailable',
+  };
+  const vmText = vmStatusMap[status.vmStatus] || status.vmStatus;
+
+  const instanceHtml = status.instanceName
+    ? `<div class="sandbox-tooltip-detail">
+        <span class="sandbox-tooltip-label">Instance</span>
+        <span class="sandbox-tooltip-value">${status.instanceName}</span>
+      </div>`
+    : '';
+
+  const hintText = status.enabled
+    ? 'Click to disable. New terminals will run natively.'
+    : 'Click to enable. New terminals will run in an isolated Linux VM.';
+
+  tooltip.innerHTML = `
+    <div class="sandbox-tooltip-header">Lima Sandbox</div>
+    <div class="sandbox-tooltip-status">
+      <span class="sandbox-tooltip-dot ${dotClass}"></span>
+      <span class="sandbox-tooltip-status-text">${enabledText}</span>
+    </div>
+    <div class="sandbox-tooltip-detail">
+      <span class="sandbox-tooltip-label">VM</span>
+      <span class="sandbox-tooltip-value">${vmText}</span>
+    </div>
+    ${instanceHtml}
+    <div class="sandbox-tooltip-hint">${hintText}</div>
+  `;
 }

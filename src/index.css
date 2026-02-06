@@ -811,7 +811,7 @@ body.platform-darwin:not(.is-fullscreen) .theatre-header-content {
 }
 
 .theatre-sandbox-btn {
-  @apply w-8 h-8 flex items-center justify-center bg-background-secondary border border-border rounded-md text-text-secondary transition-all duration-150 ease-out ml-3;
+  @apply relative w-8 h-8 flex items-center justify-center bg-background-secondary border border-border rounded-md text-text-secondary transition-all duration-150 ease-out ml-3;
   -webkit-app-region: no-drag;
 }
 
@@ -829,6 +829,69 @@ body.platform-darwin:not(.is-fullscreen) .theatre-header-content {
 
 .theatre-sandbox-btn--active:hover {
   @apply bg-green-900/50 text-green-300;
+}
+
+/* Sandbox Tooltip */
+.sandbox-tooltip {
+  @apply absolute top-full left-1/2 mt-2 w-[220px] bg-surface border border-border rounded-lg shadow-lg z-[1000] p-3 opacity-0 invisible;
+  transform: translateX(-50%) translateY(-4px);
+  transition: opacity 0.15s ease, transform 0.15s ease, visibility 0.15s ease;
+  -webkit-app-region: no-drag;
+  pointer-events: none;
+}
+
+.sandbox-tooltip--visible {
+  @apply opacity-100 visible;
+  transform: translateX(-50%) translateY(0);
+}
+
+.sandbox-tooltip::before {
+  content: '';
+  @apply absolute w-2.5 h-2.5 bg-surface border-t border-l border-border;
+  top: -6px;
+  left: 50%;
+  transform: translateX(-50%) rotate(45deg);
+}
+
+.sandbox-tooltip-header {
+  @apply text-xs font-semibold text-text-primary mb-2;
+}
+
+.sandbox-tooltip-status {
+  @apply flex items-center gap-1.5 mb-2;
+}
+
+.sandbox-tooltip-dot {
+  @apply w-1.5 h-1.5 rounded-full shrink-0;
+}
+
+.sandbox-tooltip-dot--on {
+  @apply bg-green-400;
+  box-shadow: 0 0 4px rgba(74, 222, 128, 0.5);
+}
+
+.sandbox-tooltip-dot--off {
+  @apply bg-text-tertiary;
+}
+
+.sandbox-tooltip-status-text {
+  @apply text-xs font-medium text-text-primary;
+}
+
+.sandbox-tooltip-detail {
+  @apply flex items-center justify-between text-xs mb-1;
+}
+
+.sandbox-tooltip-label {
+  @apply text-text-tertiary;
+}
+
+.sandbox-tooltip-value {
+  @apply text-text-secondary font-mono;
+}
+
+.sandbox-tooltip-hint {
+  @apply text-[11px] text-text-tertiary leading-snug mt-2 pt-2 border-t border-border;
 }
 
 .theatre-exit-btn {

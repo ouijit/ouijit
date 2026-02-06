@@ -1,4 +1,5 @@
 import * as os from 'node:os';
+import * as path from 'node:path';
 import type { LimaConfig, LimaMount } from './types';
 
 /**
@@ -67,14 +68,23 @@ export function defaultProvisionPackages(): string {
 }
 
 /**
- * Build mounts for a project: mount the worktree base directory and the project root
+ * Build mounts for a project: mount the project root and the worktrees directory.
+ * Worktrees live at ~/Ouijit/worktrees/{projectName}/ which is outside the project,
+ * so we need a separate mount for task terminals to resolve their cwd.
  */
 export function buildProjectMounts(projectPath: string): LimaMount[] {
-  // Mount the entire project directory (contains all worktrees)
+  const projectName = path.basename(projectPath);
+  const worktreeBaseDir = path.join(os.homedir(), 'Ouijit', 'worktrees', projectName);
+
   return [
     {
       hostPath: projectPath,
       guestPath: '/worktree',
+      writable: true,
+    },
+    {
+      hostPath: worktreeBaseDir,
+      guestPath: '/worktrees',
       writable: true,
     },
   ];

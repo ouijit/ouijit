@@ -87,15 +87,27 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
   });
 
   ipcMain.on('pty:write', (_event, ptyId: string, data: string) => {
-    writeToPty(ptyId, data);
+    if (limaPlugin.isSandboxPty(ptyId)) {
+      limaPlugin.writeSandboxPty(ptyId, data);
+    } else {
+      writeToPty(ptyId, data);
+    }
   });
 
   ipcMain.on('pty:resize', (_event, ptyId: string, cols: number, rows: number) => {
-    resizePty(ptyId, cols, rows);
+    if (limaPlugin.isSandboxPty(ptyId)) {
+      limaPlugin.resizeSandboxPty(ptyId, cols, rows);
+    } else {
+      resizePty(ptyId, cols, rows);
+    }
   });
 
   ipcMain.on('pty:kill', (_event, ptyId: string) => {
-    killPty(ptyId);
+    if (limaPlugin.isSandboxPty(ptyId)) {
+      limaPlugin.killSandboxPty(ptyId);
+    } else {
+      killPty(ptyId);
+    }
   });
 
   // Get active PTY sessions (for reconnection after renderer reload)

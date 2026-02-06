@@ -158,6 +158,52 @@ export async function spawnSandboxedPty(
 }
 
 /**
+ * Check if a PTY ID belongs to a sandbox PTY
+ */
+export function isSandboxPty(ptyId: PtyId): boolean {
+  return activeSandboxPtys.has(ptyId);
+}
+
+/**
+ * Write data to a sandbox PTY
+ */
+export function writeSandboxPty(ptyId: PtyId, data: string): void {
+  const managed = activeSandboxPtys.get(ptyId);
+  if (managed) {
+    managed.process.write(data);
+  }
+}
+
+/**
+ * Resize a sandbox PTY
+ */
+export function resizeSandboxPty(ptyId: PtyId, cols: number, rows: number): void {
+  const managed = activeSandboxPtys.get(ptyId);
+  if (managed) {
+    managed.process.resize(cols, rows);
+  }
+}
+
+/**
+ * Kill a sandbox PTY
+ */
+export function killSandboxPty(ptyId: PtyId): void {
+  const managed = activeSandboxPtys.get(ptyId);
+  if (!managed) return;
+
+  try {
+    process.kill(-managed.process.pid, 'SIGTERM');
+  } catch {
+    try {
+      managed.process.kill();
+    } catch {
+      // Ignore
+    }
+  }
+  activeSandboxPtys.delete(ptyId);
+}
+
+/**
  * Clean up all sandboxed PTYs (called on app quit)
  */
 export function cleanupSandboxPtys(): void {

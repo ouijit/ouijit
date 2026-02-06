@@ -5,7 +5,7 @@ import type { SandboxSettings, SandboxStatus } from './types';
 import { isLimaInstalled, getInstance, getInstanceName, stopInstance } from './manager';
 import { spawnSandboxedPty, cleanupSandboxPtys } from './spawn';
 
-export { spawnSandboxedPty } from './spawn';
+export { spawnSandboxedPty, isSandboxPty, writeSandboxPty, resizeSandboxPty, killSandboxPty } from './spawn';
 
 const SETTINGS_FILE = 'lima-settings.json';
 

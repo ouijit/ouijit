@@ -78,7 +78,7 @@ export async function createInstance(
 
   try {
     await execFileAsync('limactl', ['create', '--name', instanceName, yamlPath], {
-      timeout: 120_000, // 2 minutes for image download + setup
+      timeout: 300_000, // 5 minutes for image download + setup
     });
     return { success: true };
   } catch (error) {
@@ -100,7 +100,7 @@ export async function createInstance(
 export async function startInstance(name: string): Promise<{ success: boolean; error?: string }> {
   try {
     await execFileAsync('limactl', ['start', name], {
-      timeout: 60_000,
+      timeout: 120_000,
     });
     return { success: true };
   } catch (error) {

@@ -1303,8 +1303,11 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
 
     if (!result.success || !result.ptyId) {
       terminal.writeln(`\x1b[31mFailed to start terminal: ${result.error || 'Unknown error'}\x1b[0m`);
-      card.remove();
-      terminal.dispose();
+      terminal.writeln(`\x1b[90mThis card will close in 10 seconds.\x1b[0m`);
+      setTimeout(() => {
+        card.remove();
+        terminal.dispose();
+      }, 10_000);
       return false;
     }
 
