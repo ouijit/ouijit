@@ -14,8 +14,9 @@ interface ManagedPty {
   // Runner identification
   isRunner: boolean;
   parentPtyId?: PtyId;
-  // Always buffer recent output for scroll history preservation
-  outputBuffer: string;
+  // Array-based buffer for scroll history preservation (avoids string concatenation churn)
+  outputChunks: string[];
+  outputSize: number;
   maxBufferSize: number;
 }
 
@@ -66,11 +67,14 @@ function handlePtyOutput(ptyId: PtyId, channel: string, data: string): void {
   const managed = activePtys.get(ptyId);
   if (!managed) return;
 
-  // Always buffer output for scroll history preservation
-  managed.outputBuffer += data;
-  // Trim buffer if too large (keep the most recent output)
-  if (managed.outputBuffer.length > managed.maxBufferSize) {
-    managed.outputBuffer = managed.outputBuffer.slice(-managed.maxBufferSize);
+  // Array-based buffering to avoid string concatenation churn
+  managed.outputChunks.push(data);
+  managed.outputSize += data.length;
+
+  // Trim from front when over limit
+  while (managed.outputSize > managed.maxBufferSize && managed.outputChunks.length > 1) {
+    const removed = managed.outputChunks.shift()!;
+    managed.outputSize -= removed.length;
   }
 
   // Forward to renderer if available
@@ -155,7 +159,8 @@ export async function spawnPty(
       worktreeBranch: options.worktreeBranch,
       isRunner: options.isRunner || false,
       parentPtyId: options.parentPtyId,
-      outputBuffer: '',
+      outputChunks: [],
+      outputSize: 0,
       maxBufferSize: MAX_BUFFER_SIZE,
     };
 
@@ -197,10 +202,8 @@ export function reconnectPty(
   // Update window reference
   currentWindow = window;
 
-  // Get the full buffered output (scroll history)
-  // Don't clear the buffer - it persists across reconnections
-  // so subsequent refreshes still have history
-  const bufferedOutput = managed.outputBuffer;
+  // Join chunks for replay (only done on reconnection, not per data event)
+  const bufferedOutput = managed.outputChunks.join('');
 
   return { success: true, bufferedOutput };
 }

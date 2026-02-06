@@ -24,7 +24,6 @@ import {
 import { initializeEffects } from './effects';
 import {
   hideGitDropdown,
-  refreshGitStatus,
   refreshAllTerminalGitStatus,
 } from './gitStatus';
 import {
@@ -294,12 +293,9 @@ export async function enterTheatreMode(
   }
 
   // 5. Start periodic git status refresh (for long-running commands)
-  // This now refreshes all terminals' git status
   if (project.hasGit) {
     theatreState.gitStatusPeriodicInterval = setInterval(() => {
-      refreshGitStatus();
       refreshAllTerminalGitStatus().then(() => {
-        // Import dynamically to update card labels
         import('./terminalCards').then(({ updateTerminalCardLabel }) => {
           for (const term of terminals.value) {
             updateTerminalCardLabel(term);
@@ -604,7 +600,6 @@ export async function restoreTheatreMode(
   // 5. Refresh git status immediately and start periodic refresh
   if (project.hasGit) {
     // Immediate refresh so git info shows right away
-    refreshGitStatus();
     refreshAllTerminalGitStatus().then(() => {
       import('./terminalCards').then(({ updateTerminalCardLabel }) => {
         for (const term of terminals.value) {
@@ -615,7 +610,6 @@ export async function restoreTheatreMode(
 
     // Periodic refresh for ongoing changes
     theatreState.gitStatusPeriodicInterval = setInterval(() => {
-      refreshGitStatus();
       refreshAllTerminalGitStatus().then(() => {
         import('./terminalCards').then(({ updateTerminalCardLabel }) => {
           for (const term of terminals.value) {

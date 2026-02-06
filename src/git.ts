@@ -1,7 +1,10 @@
-import { execSync, execFileSync } from 'node:child_process';
+import { execSync, execFileSync, execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { formatAge } from './utils/formatDate';
+
+const execFileAsync = promisify(execFile);
 
 /**
  * Common exec options for git commands
@@ -189,15 +192,15 @@ export function getMainBranch(projectPath: string): string {
   const opts = gitExecOpts(projectPath);
 
   try {
-    execSync('git rev-parse --verify main', opts);
+    const result = execFileSync('git', ['branch', '--list', 'main', 'master'], opts).toString().trim();
+    if (!result) return 'main';
+    // Each line is "  branchname" or "* branchname" - check if 'main' exists
+    const branches = result.split('\n').map(b => b.replace(/^\*?\s+/, '').trim());
+    if (branches.includes('main')) return 'main';
+    if (branches.includes('master')) return 'master';
     return 'main';
   } catch {
-    try {
-      execSync('git rev-parse --verify master', opts);
-      return 'master';
-    } catch {
-      return 'main'; // Default to main
-    }
+    return 'main';
   }
 }
 
@@ -257,11 +260,27 @@ function getRecentBranches(
   const opts = gitExecOpts(projectPath);
 
   try {
-    // Get recent branches sorted by committer date
-    const result = execSync(
-      `git for-each-ref --sort=-committerdate --format='%(refname:short)|%(committerdate:unix)' refs/heads/ --count=${limit + 2}`,
-      opts
-    ).toString().trim();
+    // Get recent branches with ahead-behind counts in a single command (Git 2.36+)
+    // %(ahead-behind:ref) returns "ahead\tbehind" relative to the given ref
+    let result: string;
+    let useAheadBehind = true;
+
+    try {
+      result = execFileSync('git', [
+        'for-each-ref',
+        '--sort=-committerdate',
+        `--format=%(refname:short)|%(committerdate:unix)|%(ahead-behind:${mainBranch})`,
+        'refs/heads/',
+        `--count=${limit + 2}`,
+      ], opts).toString().trim();
+    } catch {
+      // Fallback for older Git versions without %(ahead-behind)
+      useAheadBehind = false;
+      result = execSync(
+        `git for-each-ref --sort=-committerdate --format='%(refname:short)|%(committerdate:unix)' refs/heads/ --count=${limit + 2}`,
+        opts
+      ).toString().trim();
+    }
 
     if (!result) return [];
 
@@ -269,21 +288,27 @@ function getRecentBranches(
     const branches: RecentBranch[] = [];
 
     for (const line of result.split('\n')) {
-      const [name, timestampStr] = line.split('|');
+      const parts = line.split('|');
+      const name = parts[0];
+      const timestampStr = parts[1];
       if (!name || name === currentBranch || name === mainBranch) continue;
       if (branches.length >= limit) break;
 
       const timestamp = parseInt(timestampStr, 10);
       const age = now - timestamp;
 
-      // Get commits ahead of main
       let commitsAhead = 0;
-      try {
-        const countResult = execFileSync('git', ['rev-list', '--count', `${mainBranch}..${name}`], opts).toString().trim();
-        commitsAhead = parseInt(countResult, 10) || 0;
-      } catch {
-        // Branch may not have common ancestor with main
-        commitsAhead = 0;
+      if (useAheadBehind && parts[2]) {
+        // Format: "ahead\tbehind"
+        const [ahead] = parts[2].split('\t');
+        commitsAhead = parseInt(ahead, 10) || 0;
+      } else if (!useAheadBehind) {
+        try {
+          const countResult = execFileSync('git', ['rev-list', '--count', `${mainBranch}..${name}`], opts).toString().trim();
+          commitsAhead = parseInt(countResult, 10) || 0;
+        } catch {
+          commitsAhead = 0;
+        }
       }
 
       branches.push({
@@ -629,82 +654,87 @@ export function getFileDiff(projectPath: string, filePath: string): FileDiff | n
 }
 
 /**
- * Gets compact git status for at-a-glance display in the UI
- * Includes commits ahead of main and dirty file count (including untracked)
+ * Helper to run a git command asynchronously without blocking the main thread
  */
-export function getCompactGitStatus(projectPath: string): CompactGitStatus | null {
-  const opts = gitExecOpts(projectPath);
+async function gitAsync(args: string[], projectPath: string): Promise<string> {
+  const { stdout } = await execFileAsync('git', args, {
+    cwd: projectPath,
+    encoding: 'utf8',
+  });
+  return stdout.trim();
+}
 
+/**
+ * Parse shortstat output ("3 files changed, 47 insertions(+), 12 deletions(-)")
+ */
+function parseShortstat(shortstat: string): { files: number; insertions: number; deletions: number } {
+  const filesMatch = shortstat.match(/(\d+) files? changed/);
+  const insertionsMatch = shortstat.match(/(\d+) insertions?\(\+\)/);
+  const deletionsMatch = shortstat.match(/(\d+) deletions?\(-\)/);
+  return {
+    files: filesMatch ? parseInt(filesMatch[1], 10) : 0,
+    insertions: insertionsMatch ? parseInt(insertionsMatch[1], 10) : 0,
+    deletions: deletionsMatch ? parseInt(deletionsMatch[1], 10) : 0,
+  };
+}
+
+/**
+ * Gets compact git status for at-a-glance display in the UI
+ * Fully async — runs git commands in parallel without blocking the main thread
+ */
+export async function getCompactGitStatus(projectPath: string): Promise<CompactGitStatus | null> {
   try {
-    // Get current branch
+    // Get branch and main branch first (needed to decide which parallel commands to run)
     let branch: string;
     try {
-      branch = execSync('git rev-parse --abbrev-ref HEAD', opts).toString().trim();
+      branch = await gitAsync(['rev-parse', '--abbrev-ref', 'HEAD'], projectPath);
     } catch {
       return null; // Not a git repo
     }
 
     const mainBranch = getMainBranch(projectPath);
+    const isOnMain = branch === mainBranch;
 
-    // Get commits ahead of main (only if not on main)
-    let commitsAheadOfMain = 0;
-    if (branch !== mainBranch) {
-      try {
-        const count = execFileSync('git', ['rev-list', '--count', `${mainBranch}..HEAD`], opts).toString().trim();
-        commitsAheadOfMain = parseInt(count, 10) || 0;
-      } catch {
-        // May fail if branches don't share history
-        commitsAheadOfMain = 0;
-      }
+    // Run all independent git commands in parallel
+    const [shortstatResult, untrackedResult, commitsAheadResult, branchDiffResult] = await Promise.allSettled([
+      // Tracked file changes
+      gitAsync(['diff', '--shortstat', 'HEAD'], projectPath),
+      // Untracked file count
+      gitAsync(['ls-files', '--others', '--exclude-standard'], projectPath),
+      // Commits ahead of main (skip if on main)
+      isOnMain ? Promise.resolve('') : gitAsync(['rev-list', '--count', `${mainBranch}..HEAD`], projectPath),
+      // Branch vs main diff (skip if on main)
+      isOnMain ? Promise.resolve('') : gitAsync(['diff', '--shortstat', `${mainBranch}...HEAD`], projectPath),
+    ]);
+
+    // Parse tracked changes
+    let trackedCount = 0, insertions = 0, deletions = 0;
+    if (shortstatResult.status === 'fulfilled' && shortstatResult.value) {
+      const parsed = parseShortstat(shortstatResult.value);
+      trackedCount = parsed.files;
+      insertions = parsed.insertions;
+      deletions = parsed.deletions;
     }
 
-    // Get tracked file changes
-    let trackedCount = 0;
-    let insertions = 0;
-    let deletions = 0;
-    try {
-      const shortstat = execSync('git diff --shortstat HEAD', opts).toString().trim();
-      if (shortstat) {
-        const filesMatch = shortstat.match(/(\d+) files? changed/);
-        const insertionsMatch = shortstat.match(/(\d+) insertions?\(\+\)/);
-        const deletionsMatch = shortstat.match(/(\d+) deletions?\(-\)/);
-        trackedCount = filesMatch ? parseInt(filesMatch[1], 10) : 0;
-        insertions = insertionsMatch ? parseInt(insertionsMatch[1], 10) : 0;
-        deletions = deletionsMatch ? parseInt(deletionsMatch[1], 10) : 0;
-      }
-    } catch {
-      // Ignore errors
-    }
-
-    // Get untracked file count
+    // Parse untracked count
     let untrackedCount = 0;
-    try {
-      const untracked = execSync('git ls-files --others --exclude-standard', opts).toString().trim();
-      if (untracked) {
-        untrackedCount = untracked.split('\n').filter(line => line.length > 0).length;
-      }
-    } catch {
-      // Ignore errors
+    if (untrackedResult.status === 'fulfilled' && untrackedResult.value) {
+      untrackedCount = untrackedResult.value.split('\n').filter(line => line.length > 0).length;
     }
 
-    // Get branch vs main diff stats (total changes in this branch compared to main)
-    let branchDiffFileCount = 0;
-    let branchDiffInsertions = 0;
-    let branchDiffDeletions = 0;
-    if (branch !== mainBranch) {
-      try {
-        const branchDiff = execFileSync('git', ['diff', '--shortstat', `${mainBranch}...HEAD`], opts).toString().trim();
-        if (branchDiff) {
-          const filesMatch = branchDiff.match(/(\d+) files? changed/);
-          const insertionsMatch = branchDiff.match(/(\d+) insertions?\(\+\)/);
-          const deletionsMatch = branchDiff.match(/(\d+) deletions?\(-\)/);
-          branchDiffFileCount = filesMatch ? parseInt(filesMatch[1], 10) : 0;
-          branchDiffInsertions = insertionsMatch ? parseInt(insertionsMatch[1], 10) : 0;
-          branchDiffDeletions = deletionsMatch ? parseInt(deletionsMatch[1], 10) : 0;
-        }
-      } catch {
-        // Ignore errors - may fail if branches don't share history
-      }
+    // Parse commits ahead
+    let commitsAheadOfMain = 0;
+    if (commitsAheadResult.status === 'fulfilled' && commitsAheadResult.value) {
+      commitsAheadOfMain = parseInt(commitsAheadResult.value, 10) || 0;
+    }
+
+    // Parse branch diff
+    let branchDiffFileCount = 0, branchDiffInsertions = 0, branchDiffDeletions = 0;
+    if (branchDiffResult.status === 'fulfilled' && branchDiffResult.value) {
+      const parsed = parseShortstat(branchDiffResult.value);
+      branchDiffFileCount = parsed.files;
+      branchDiffInsertions = parsed.insertions;
+      branchDiffDeletions = parsed.deletions;
     }
 
     return {

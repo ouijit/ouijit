@@ -81,11 +81,34 @@ export async function refreshTerminalGitStatus(term: TheatreTerminal): Promise<v
 }
 
 /**
- * Refresh git status for all terminals
+ * Refresh git status for all terminals, deduplicating by git path
+ * Terminals sharing the same project path only trigger one IPC call
  */
 export async function refreshAllTerminalGitStatus(): Promise<void> {
   const currentTerminals = terminals.value;
-  await Promise.all(currentTerminals.map(refreshTerminalGitStatus));
+  if (currentTerminals.length === 0) return;
+
+  // Group terminals by git path to avoid duplicate IPC calls
+  const pathToTerminals = new Map<string, TheatreTerminal[]>();
+  for (const term of currentTerminals) {
+    const gitPath = getTerminalGitPath(term);
+    const group = pathToTerminals.get(gitPath);
+    if (group) {
+      group.push(term);
+    } else {
+      pathToTerminals.set(gitPath, [term]);
+    }
+  }
+
+  // One IPC call per unique path, then share result
+  await Promise.all(
+    Array.from(pathToTerminals.entries()).map(async ([gitPath, terms]) => {
+      const compactStatus = await window.api.getCompactGitStatus(gitPath);
+      for (const term of terms) {
+        term.gitStatus = compactStatus;
+      }
+    })
+  );
 }
 
 /**

@@ -178,9 +178,7 @@ textarea,
 
 .header {
   @apply sticky top-0 z-[100] border-b border-border;
-  background: rgba(28, 28, 30, 0.8);
-  backdrop-filter: saturate(180%) blur(20px);
-  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  background: rgba(28, 28, 30, 0.97);
   -webkit-app-region: drag;
   padding-top: env(titlebar-area-height, 0px);
 }
@@ -1028,7 +1026,7 @@ body > .diff-panel--visible {
 .theatre-card {
   @apply absolute inset-0 rounded-lg border border-white/10 overflow-hidden flex flex-col;
   background: var(--color-terminal-bg, #1a1a1a);
-  transition: translate 0.2s ease, scale 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+  transition: translate 0.2s ease, scale 0.2s ease;
 }
 
 .theatre-card--active {
@@ -1070,6 +1068,18 @@ body > .diff-panel--visible {
 .theatre-card:not(.theatre-card--active) .runner-pill,
 .theatre-card:not(.theatre-card--active) .theatre-card-close-task {
   @apply hidden;
+}
+
+/* Pause animations on non-visible cards to save GPU cycles */
+.theatre-card--back-1 .theatre-card-status-dot,
+.theatre-card--back-2 .theatre-card-status-dot,
+.theatre-card--back-3 .theatre-card-status-dot,
+.theatre-card--back-4 .theatre-card-status-dot,
+.theatre-card--back-1 .runner-pill-light,
+.theatre-card--back-2 .runner-pill-light,
+.theatre-card--back-3 .runner-pill-light,
+.theatre-card--back-4 .runner-pill-light {
+  animation: none;
 }
 
 /* Hover effect on back cards */

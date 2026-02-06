@@ -248,15 +248,21 @@ async function createProject(dirPath: string): Promise<Project> {
   const hasClaudeDir = await exists(path.join(dirPath, '.claude'));
   const hasClaudeMd = await exists(path.join(dirPath, 'CLAUDE.md'));
 
+  const [description, language, iconDataUrl] = await Promise.all([
+    getDescription(dirPath),
+    detectLanguage(dirPath),
+    getIconDataUrl(dirPath),
+  ]);
+
   return {
     name: path.basename(dirPath),
     path: dirPath,
     hasGit,
     hasClaude: hasClaudeDir || hasClaudeMd,
     lastModified: stats.mtime,
-    description: await getDescription(dirPath),
-    language: await detectLanguage(dirPath),
-    iconDataUrl: await getIconDataUrl(dirPath),
+    description,
+    language,
+    iconDataUrl,
   };
 }
 
@@ -324,17 +330,22 @@ export async function scanForProjects(): Promise<Project[]> {
     }
   }
 
-  // Then scan predefined directories
-  for (const dir of PROJECT_DIRECTORIES) {
-    const expandedPath = expandTilde(dir);
+  // Scan all predefined directories in parallel
+  const scanResults = await Promise.all(
+    PROJECT_DIRECTORIES.map(async (dir) => {
+      const expandedPath = expandTilde(dir);
+      if (await exists(expandedPath)) {
+        return scanDirectory(expandedPath);
+      }
+      return [];
+    })
+  );
 
-    if (await exists(expandedPath)) {
-      const projects = await scanDirectory(expandedPath);
-      for (const project of projects) {
-        if (!seenPaths.has(project.path)) {
-          seenPaths.add(project.path);
-          allProjects.push(project);
-        }
+  for (const projects of scanResults) {
+    for (const project of projects) {
+      if (!seenPaths.has(project.path)) {
+        seenPaths.add(project.path);
+        allProjects.push(project);
       }
     }
   }

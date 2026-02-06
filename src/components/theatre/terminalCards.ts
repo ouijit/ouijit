@@ -866,7 +866,7 @@ export async function runDefaultInCard(term: TheatreTerminal): Promise<void> {
     lineHeight: 1.2,
     cursorBlink: false,
     cursorStyle: 'bar',
-    allowTransparency: true,
+    allowTransparency: false,
     scrollback: 10000,
   });
 
@@ -1061,14 +1061,8 @@ export function switchToTheatreTerminal(index: number): void {
   const currentTerminals = terminals.value;
   if (index < 0 || index >= currentTerminals.length || index === activeIndex.value) return;
 
-  // Set the new active index - effects will handle updateCardStack and focus
+  // Set the new active index - effects will handle updateCardStack, focus, and resize
   activeIndex.value = index;
-
-  // Resize PTY to match terminal dimensions
-  const term = currentTerminals[index];
-  requestAnimationFrame(() => {
-    window.api.pty.resize(term.ptyId, term.terminal.cols, term.terminal.rows);
-  });
 }
 
 /**
@@ -1211,7 +1205,7 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
     lineHeight: 1.2,
     cursorBlink: true,
     cursorStyle: 'bar',
-    allowTransparency: true,
+    allowTransparency: false,
     scrollback: 10000,
   });
 

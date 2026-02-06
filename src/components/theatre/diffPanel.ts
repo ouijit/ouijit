@@ -656,8 +656,10 @@ export function syncDiffPanelToActiveTerminal(): void {
     diffPanelSelectedFile.value = null;
   }
 
-  // Refit terminal
-  setTimeout(() => refitActiveTerminal(), 50);
+  // Only refit if the active terminal has a diff panel open (which changes terminal width)
+  if (activeTerm.diffPanelOpen) {
+    setTimeout(() => refitActiveTerminal(), 50);
+  }
 }
 
 /**
