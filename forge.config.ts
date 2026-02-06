@@ -46,7 +46,7 @@ const config: ForgeConfig = {
       (buildPath, _electronVersion, platform, _arch, callback) => {
         const nodeModulesDest = path.join(buildPath, 'node_modules');
 
-        const modulesToCopy = ['node-pty'];
+        const modulesToCopy = ['node-pty', 'koffi'];
         for (const mod of modulesToCopy) {
           const src = path.join(__dirname, 'node_modules', mod);
           const dest = path.join(nodeModulesDest, mod);
