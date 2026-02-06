@@ -117,6 +117,32 @@ export async function enterTheatreMode(
       });
     }
 
+    // Wire up sandbox toggle button
+    const sandboxBtn = headerContent.querySelector('.theatre-sandbox-btn') as HTMLElement;
+    if (sandboxBtn) {
+      window.api.lima.status(path).then((status) => {
+        if (!status.available) return;
+        sandboxBtn.style.display = 'flex';
+        if (status.enabled) {
+          sandboxBtn.classList.add('theatre-sandbox-btn--active');
+          sandboxBtn.title = 'Sandbox enabled';
+        }
+      });
+      sandboxBtn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const status = await window.api.lima.status(path);
+        if (status.enabled) {
+          await window.api.lima.disable(path);
+          sandboxBtn.classList.remove('theatre-sandbox-btn--active');
+          sandboxBtn.title = 'Sandbox disabled';
+        } else {
+          await window.api.lima.enable(path);
+          sandboxBtn.classList.add('theatre-sandbox-btn--active');
+          sandboxBtn.title = 'Sandbox enabled';
+        }
+      });
+    }
+
   }
 
   // 3. Handle stack - restore existing or create new
@@ -533,6 +559,32 @@ export async function restoreTheatreMode(
       terminalBtn.addEventListener('click', async (e) => {
         e.stopPropagation();
         await addTheatreTerminal();
+      });
+    }
+
+    // Wire up sandbox toggle button
+    const sandboxBtn = headerContent.querySelector('.theatre-sandbox-btn') as HTMLElement;
+    if (sandboxBtn) {
+      window.api.lima.status(path).then((status) => {
+        if (!status.available) return;
+        sandboxBtn.style.display = 'flex';
+        if (status.enabled) {
+          sandboxBtn.classList.add('theatre-sandbox-btn--active');
+          sandboxBtn.title = 'Sandbox enabled';
+        }
+      });
+      sandboxBtn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const status = await window.api.lima.status(path);
+        if (status.enabled) {
+          await window.api.lima.disable(path);
+          sandboxBtn.classList.remove('theatre-sandbox-btn--active');
+          sandboxBtn.title = 'Sandbox disabled';
+        } else {
+          await window.api.lima.enable(path);
+          sandboxBtn.classList.add('theatre-sandbox-btn--active');
+          sandboxBtn.title = 'Sandbox enabled';
+        }
       });
     }
 

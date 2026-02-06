@@ -1279,6 +1279,10 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
     }
   }
 
+  // Check if sandbox is enabled for this project
+  const limaStatus = await window.api.lima.status(currentProjectPath);
+  const useSandbox = limaStatus.available && limaStatus.enabled;
+
   // Spawn PTY
   const spawnOptions: PtySpawnOptions = {
     cwd: terminalCwd,
@@ -1291,6 +1295,7 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
     worktreePath: worktreeInfo?.path,
     worktreeBranch: worktreeInfo?.branch,
     env: startEnv,
+    sandboxed: useSandbox,
   };
 
   try {
@@ -1407,6 +1412,18 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
 
     // Set up card action buttons (runner pill, close-task for worktrees)
     setupCardActions(theatreTerminal);
+
+    // Add sandbox badge if running in Lima VM
+    if (useSandbox) {
+      const labelLeft = card.querySelector('.theatre-card-label-left');
+      if (labelLeft) {
+        const badge = document.createElement('span');
+        badge.className = 'theatre-card-sandbox-badge';
+        badge.textContent = 'VM';
+        badge.title = 'Running in Lima sandbox';
+        labelLeft.insertBefore(badge, labelLeft.querySelector('.theatre-card-label-text'));
+      }
+    }
 
     // Fetch initial git status for this terminal
     refreshTerminalGitStatus(theatreTerminal).then(() => {

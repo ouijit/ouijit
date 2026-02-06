@@ -244,4 +244,16 @@ contextBridge.exposeInMainWorld('api', {
    * Get file path from a dropped File object
    */
   getPathForFile: (file: File): string => webUtils.getPathForFile(file),
+
+  /**
+   * Lima sandbox API
+   */
+  lima: {
+    status: (projectPath: string): Promise<{ available: boolean; enabled: boolean; vmStatus: string; instanceName?: string }> =>
+      ipcRenderer.invoke('lima:status', projectPath),
+    enable: (projectPath: string): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke('lima:enable', projectPath),
+    disable: (projectPath: string): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke('lima:disable', projectPath),
+  },
 });

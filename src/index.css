@@ -810,6 +810,27 @@ body.platform-darwin:not(.is-fullscreen) .theatre-header-content {
   @apply w-4 h-4;
 }
 
+.theatre-sandbox-btn {
+  @apply w-8 h-8 flex items-center justify-center bg-background-secondary border border-border rounded-md text-text-secondary transition-all duration-150 ease-out ml-3;
+  -webkit-app-region: no-drag;
+}
+
+.theatre-sandbox-btn:hover {
+  @apply bg-background-tertiary text-text-primary;
+}
+
+.theatre-sandbox-btn svg {
+  @apply w-4 h-4;
+}
+
+.theatre-sandbox-btn--active {
+  @apply bg-green-900/30 border-green-700/50 text-green-400;
+}
+
+.theatre-sandbox-btn--active:hover {
+  @apply bg-green-900/50 text-green-300;
+}
+
 .theatre-exit-btn {
   @apply w-8 h-8 flex items-center justify-center bg-background-secondary border border-border rounded-md text-text-secondary transition-all duration-150 ease-out ml-3;
   -webkit-app-region: no-drag;

@@ -14,6 +14,7 @@ import {
   killPty,
   cleanupAllPtys,
 } from './ptyManager';
+import * as limaPlugin from './lima';
 import { getGitStatus, getCompactGitStatus, getGitDropdownInfo, checkoutBranch, createBranch, mergeIntoMain, getChangedFiles, getFileDiff, getWorktreeDiff, getWorktreeFileDiff, mergeWorktreeBranch, listBranches, getMainBranch } from './git';
 import { createTaskWorktree, removeTaskWorktree, listWorktrees, formatBranchNameForDisplay } from './worktree';
 import type { TaskWorktreeResult, WorktreeRemoveResult, WorktreeInfo } from './worktree';
@@ -74,8 +75,14 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     }
   });
 
+  // Lima sandbox handlers
+  limaPlugin.registerLimaHandlers(mainWindow);
+
   // PTY handlers
   ipcMain.handle('pty:spawn', async (_event, options: PtySpawnOptions) => {
+    if (options.sandboxed) {
+      return await limaPlugin.spawnSandboxedPty(options, mainWindow);
+    }
     return await spawnPty(options, mainWindow);
   });
 
@@ -470,4 +477,5 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
  */
 export function cleanupIpc(): void {
   cleanupAllPtys();
+  limaPlugin.cleanup();
 }

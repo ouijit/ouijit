@@ -133,6 +133,8 @@ export interface PtySpawnOptions {
   parentPtyId?: PtyId;
   /** Additional environment variables to set */
   env?: Record<string, string>;
+  /** Whether to run this terminal inside a Lima sandbox VM */
+  sandboxed?: boolean;
 }
 
 /**
@@ -346,6 +348,17 @@ export interface ElectronAPI {
   hooks: HooksAPI;
   /** Get file path from a dropped File object */
   getPathForFile(file: File): string;
+  /** Lima sandbox API */
+  lima: LimaAPI;
+}
+
+/**
+ * Lima sandbox API exposed to the renderer
+ */
+export interface LimaAPI {
+  status(projectPath: string): Promise<{ available: boolean; enabled: boolean; vmStatus: string; instanceName?: string }>;
+  enable(projectPath: string): Promise<{ success: boolean; error?: string }>;
+  disable(projectPath: string): Promise<{ success: boolean; error?: string }>;
 }
 
 /**
