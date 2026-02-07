@@ -34,7 +34,7 @@ export function buildTheatreHeader(): string {
       </button>
       <div class="theatre-sandbox-wrapper" style="display: none;">
         <button class="theatre-sandbox-btn" title="Sandbox">
-          <i data-lucide="shield"></i>
+          <i data-lucide="box"></i>
         </button>
       </div>
       <div class="theatre-launch-wrapper">
