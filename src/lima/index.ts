@@ -47,6 +47,7 @@ export async function shouldSandbox(projectPath: string): Promise<boolean> {
   return settings[projectPath]?.enabled ?? false;
 }
 
+
 /**
  * Register Lima-specific IPC handlers
  */

@@ -831,17 +831,16 @@ body.platform-darwin:not(.is-fullscreen) .theatre-header-content {
   @apply bg-green-900/50 text-green-300;
 }
 
-/* Sandbox Tooltip */
+/* Sandbox Tooltip (popover — interactive when visible) */
 .sandbox-tooltip {
-  @apply absolute top-full left-1/2 mt-2 w-[220px] bg-surface border border-border rounded-lg shadow-lg z-[1000] p-3 opacity-0 invisible;
+  @apply absolute top-full left-1/2 mt-2 w-[240px] bg-surface border border-border rounded-lg shadow-lg z-[1000] p-3 opacity-0 invisible pointer-events-none;
   transform: translateX(-50%) translateY(-4px);
   transition: opacity 0.15s ease, transform 0.15s ease, visibility 0.15s ease;
   -webkit-app-region: no-drag;
-  pointer-events: none;
 }
 
 .sandbox-tooltip--visible {
-  @apply opacity-100 visible;
+  @apply opacity-100 visible pointer-events-auto;
   transform: translateX(-50%) translateY(0);
 }
 
@@ -888,6 +887,30 @@ body.platform-darwin:not(.is-fullscreen) .theatre-header-content {
 
 .sandbox-tooltip-value {
   @apply text-text-secondary font-mono;
+}
+
+.sandbox-tooltip-hook-row {
+  @apply flex items-center gap-2 px-1.5 py-1 -mx-1.5 mt-1 rounded-md transition-colors duration-100 ease-out;
+}
+
+.sandbox-tooltip-hook-row:hover {
+  @apply bg-background-tertiary;
+}
+
+.sandbox-tooltip-hook-label {
+  @apply shrink-0 text-[11px] font-medium text-text-secondary;
+}
+
+.sandbox-tooltip-hook-command {
+  @apply flex-1 text-[11px] font-mono text-text-primary truncate text-right;
+}
+
+.sandbox-tooltip-hook-configure {
+  @apply flex-1 text-[11px] text-text-tertiary text-right transition-colors duration-100 ease-out;
+}
+
+.sandbox-tooltip-hook-row:hover .sandbox-tooltip-hook-configure {
+  @apply text-accent;
 }
 
 .sandbox-tooltip-hint {

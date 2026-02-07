@@ -255,5 +255,10 @@ contextBridge.exposeInMainWorld('api', {
       ipcRenderer.invoke('lima:enable', projectPath),
     disable: (projectPath: string): Promise<{ success: boolean; error?: string }> =>
       ipcRenderer.invoke('lima:disable', projectPath),
+    onSpawnProgress: (callback: (message: string) => void): (() => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, message: string) => callback(message);
+      ipcRenderer.on('lima:spawn-progress', handler);
+      return () => ipcRenderer.removeListener('lima:spawn-progress', handler);
+    },
   },
 });

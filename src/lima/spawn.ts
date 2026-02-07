@@ -52,16 +52,25 @@ function handleOutput(ptyId: PtyId, channel: string, data: string): void {
  */
 export async function spawnSandboxedPty(
   options: PtySpawnOptions,
-  window: BrowserWindow
+  window: BrowserWindow,
+  setupScript?: string,
 ): Promise<PtySpawnResult> {
   try {
     currentWindow = window;
     const projectPath = options.projectPath || options.cwd;
 
-    // Ensure VM is running
-    const vmResult = await ensureRunning(projectPath);
+    // Ensure VM is running, forwarding progress to the renderer
+    const vmResult = await ensureRunning(projectPath, undefined, (msg) => {
+      if (window && !window.isDestroyed()) {
+        window.webContents.send('lima:spawn-progress', msg);
+      }
+    });
     if (!vmResult.success) {
       return { success: false, error: vmResult.error || 'Failed to start sandbox VM' };
+    }
+
+    if (window && !window.isDestroyed()) {
+      window.webContents.send('lima:spawn-progress', 'Launching shell…');
     }
 
     const instanceName = vmResult.instanceName;
@@ -72,12 +81,13 @@ export async function spawnSandboxedPty(
 
     // Build the command to run inside the VM
     let innerCmd: string;
+    const setupPrefix = setupScript?.trim() ? `${setupScript.trim()}\n` : '';
     if (options.command) {
       // Run command then drop to interactive bash
       const escapedCmd = options.command.replace(/'/g, "'\\''");
-      innerCmd = `${escapedCmd}; exec bash`;
+      innerCmd = `${setupPrefix}${escapedCmd}; exec bash`;
     } else {
-      innerCmd = 'exec bash';
+      innerCmd = `${setupPrefix}exec bash`;
     }
 
     // Build limactl shell args

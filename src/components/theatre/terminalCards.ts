@@ -1299,7 +1299,17 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
   };
 
   try {
+    // Show progress for sandbox VM startup
+    let cleanupProgress: (() => void) | null = null;
+    if (useSandbox) {
+      terminal.writeln(`\x1b[90m● Connecting to sandbox…\x1b[0m`);
+      cleanupProgress = window.api.lima.onSpawnProgress((msg) => {
+        terminal.writeln(`\x1b[90m● ${msg}\x1b[0m`);
+      });
+    }
+
     const result = await window.api.pty.spawn(spawnOptions);
+    cleanupProgress?.();
 
     if (!result.success || !result.ptyId) {
       terminal.writeln(`\x1b[31mFailed to start terminal: ${result.error || 'Unknown error'}\x1b[0m`);

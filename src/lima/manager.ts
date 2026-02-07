@@ -144,9 +144,13 @@ export async function deleteInstance(name: string): Promise<{ success: boolean; 
  */
 export async function ensureRunning(
   projectPath: string,
-  overrides?: { cpus?: number; memoryGiB?: number; networkMode?: 'vzNAT' | 'none' }
+  overrides?: { cpus?: number; memoryGiB?: number; networkMode?: 'vzNAT' | 'none' },
+  onProgress?: (message: string) => void,
 ): Promise<{ success: boolean; instanceName: string; error?: string }> {
+  const progress = onProgress ?? (() => {});
   const instanceName = getInstanceName(projectPath);
+
+  progress('Checking VM status…');
   const instance = await getInstance(instanceName);
 
   if (instance.status === 'Running') {
@@ -154,10 +158,12 @@ export async function ensureRunning(
   }
 
   if (instance.status === 'NotFound') {
+    progress('Creating sandbox VM (this may take a few minutes)…');
     const createResult = await createInstance(projectPath, overrides);
     if (!createResult.success) {
       return { success: false, instanceName, error: createResult.error };
     }
+    progress('Starting sandbox VM…');
     const startResult = await startInstance(instanceName);
     if (!startResult.success) {
       return { success: false, instanceName, error: startResult.error };
@@ -166,6 +172,7 @@ export async function ensureRunning(
   }
 
   if (instance.status === 'Stopped') {
+    progress('Starting sandbox VM…');
     const startResult = await startInstance(instanceName);
     if (!startResult.success) {
       return { success: false, instanceName, error: startResult.error };
@@ -174,11 +181,13 @@ export async function ensureRunning(
   }
 
   // Broken — delete and recreate
+  progress('Recreating sandbox VM…');
   await deleteInstance(instanceName);
   const createResult = await createInstance(projectPath, overrides);
   if (!createResult.success) {
     return { success: false, instanceName, error: createResult.error };
   }
+  progress('Starting sandbox VM…');
   const startResult = await startInstance(instanceName);
   if (!startResult.success) {
     return { success: false, instanceName, error: startResult.error };

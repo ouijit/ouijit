@@ -937,9 +937,10 @@ async function reconnectRunnerToParent(
 function wireSandboxButton(sandboxBtn: HTMLElement, path: string): void {
   let tooltip: HTMLElement | null = null;
   let showTimeout: ReturnType<typeof setTimeout> | null = null;
-  let hovered = false;
+  let hideTimeout: ReturnType<typeof setTimeout> | null = null;
+  let tooltipHovered = false;
 
-  // Remove native title — we use a custom tooltip
+  // Remove native title — we use a custom popover
   sandboxBtn.removeAttribute('title');
 
   // Check initial status
@@ -950,6 +951,48 @@ function wireSandboxButton(sandboxBtn: HTMLElement, path: string): void {
       sandboxBtn.classList.add('theatre-sandbox-btn--active');
     }
   });
+
+  function showTooltip() {
+    if (hideTimeout) { clearTimeout(hideTimeout); hideTimeout = null; }
+    showTimeout = setTimeout(async () => {
+      try {
+        const [status, hooks] = await Promise.all([
+          window.api.lima.status(path),
+          window.api.hooks.get(path),
+        ]);
+
+        if (!tooltip) {
+          tooltip = document.createElement('div');
+          tooltip.className = 'sandbox-tooltip';
+          sandboxBtn.appendChild(tooltip);
+
+          tooltip.addEventListener('mouseenter', () => {
+            tooltipHovered = true;
+            if (hideTimeout) { clearTimeout(hideTimeout); hideTimeout = null; }
+          });
+          tooltip.addEventListener('mouseleave', () => {
+            tooltipHovered = false;
+            scheduleHide();
+          });
+        }
+        updateSandboxTooltip(tooltip, status, hooks['sandbox-setup'], path);
+        requestAnimationFrame(() => {
+          tooltip?.classList.add('sandbox-tooltip--visible');
+        });
+      } catch {
+        // Status call failed — don't show tooltip
+      }
+    }, 400);
+  }
+
+  function scheduleHide() {
+    if (hideTimeout) clearTimeout(hideTimeout);
+    hideTimeout = setTimeout(() => {
+      if (tooltipHovered) return;
+      if (showTimeout) { clearTimeout(showTimeout); showTimeout = null; }
+      tooltip?.classList.remove('sandbox-tooltip--visible');
+    }, 200);
+  }
 
   // Click handler
   sandboxBtn.addEventListener('click', async (e) => {
@@ -962,42 +1005,23 @@ function wireSandboxButton(sandboxBtn: HTMLElement, path: string): void {
       await window.api.lima.enable(path);
       sandboxBtn.classList.add('theatre-sandbox-btn--active');
     }
-    // Update tooltip if visible
     if (tooltip?.classList.contains('sandbox-tooltip--visible')) {
-      const newStatus = await window.api.lima.status(path);
-      updateSandboxTooltip(tooltip, newStatus);
+      const [newStatus, hooks] = await Promise.all([
+        window.api.lima.status(path),
+        window.api.hooks.get(path),
+      ]);
+      updateSandboxTooltip(tooltip, newStatus, hooks['sandbox-setup'], path);
     }
   });
 
-  // Hover tooltip
   sandboxBtn.addEventListener('mouseenter', () => {
-    hovered = true;
-    showTimeout = setTimeout(async () => {
-      if (!hovered) return;
-      const status = await window.api.lima.status(path);
-      if (!hovered) return;
-
-      if (!tooltip) {
-        tooltip = document.createElement('div');
-        tooltip.className = 'sandbox-tooltip';
-        sandboxBtn.appendChild(tooltip);
-      }
-      updateSandboxTooltip(tooltip, status);
-      requestAnimationFrame(() => {
-        tooltip?.classList.add('sandbox-tooltip--visible');
-      });
-    }, 400);
+    if (hideTimeout) { clearTimeout(hideTimeout); hideTimeout = null; }
+    showTooltip();
   });
 
   sandboxBtn.addEventListener('mouseleave', () => {
-    hovered = false;
-    if (showTimeout) {
-      clearTimeout(showTimeout);
-      showTimeout = null;
-    }
-    if (tooltip) {
-      tooltip.classList.remove('sandbox-tooltip--visible');
-    }
+    if (showTimeout) { clearTimeout(showTimeout); showTimeout = null; }
+    scheduleHide();
   });
 }
 
@@ -1007,11 +1031,12 @@ function wireSandboxButton(sandboxBtn: HTMLElement, path: string): void {
 function updateSandboxTooltip(
   tooltip: HTMLElement,
   status: { available: boolean; enabled: boolean; vmStatus: string; instanceName?: string },
+  setupHook: import('../../types').ScriptHook | undefined,
+  projectPath: string,
 ): void {
   const enabledText = status.enabled ? 'Enabled' : 'Disabled';
   const dotClass = status.enabled ? 'sandbox-tooltip-dot--on' : 'sandbox-tooltip-dot--off';
 
-  // Friendly VM status text
   const vmStatusMap: Record<string, string> = {
     'Running': 'Running',
     'Stopped': 'Stopped',
@@ -1028,8 +1053,26 @@ function updateSandboxTooltip(
     : '';
 
   const hintText = status.enabled
-    ? 'Click to disable. New terminals will run natively.'
-    : 'Click to enable. New terminals will run in an isolated Linux VM.';
+    ? 'Click shield to disable.'
+    : 'Click shield to enable.';
+
+  let setupHtml: string;
+  if (setupHook?.command) {
+    const truncated = setupHook.command.length > 24
+      ? setupHook.command.substring(0, 21) + '...'
+      : setupHook.command;
+    setupHtml = `
+      <div class="sandbox-tooltip-hook-row" title="${setupHook.command.replace(/"/g, '&quot;')}">
+        <span class="sandbox-tooltip-hook-label">Setup</span>
+        <span class="sandbox-tooltip-hook-command">${truncated.replace(/</g, '&lt;')}</span>
+      </div>`;
+  } else {
+    setupHtml = `
+      <div class="sandbox-tooltip-hook-row">
+        <span class="sandbox-tooltip-hook-label">Setup</span>
+        <span class="sandbox-tooltip-hook-configure">+ Configure</span>
+      </div>`;
+  }
 
   tooltip.innerHTML = `
     <div class="sandbox-tooltip-header">Lima Sandbox</div>
@@ -1042,6 +1085,17 @@ function updateSandboxTooltip(
       <span class="sandbox-tooltip-value">${vmText}</span>
     </div>
     ${instanceHtml}
+    ${setupHtml}
     <div class="sandbox-tooltip-hint">${hintText}</div>
   `;
+
+  const setupRow = tooltip.querySelector('.sandbox-tooltip-hook-row') as HTMLElement;
+  if (setupRow) {
+    setupRow.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      tooltip.classList.remove('sandbox-tooltip--visible');
+      const { showHookConfigDialog } = await import('../hookConfigDialog');
+      await showHookConfigDialog(projectPath, 'sandbox-setup', setupHook);
+    });
+  }
 }

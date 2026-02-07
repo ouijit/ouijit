@@ -39,7 +39,7 @@ export interface CustomCommand {
 /**
  * Hook type - when the script runs
  */
-export type HookType = 'start' | 'continue' | 'run' | 'cleanup';
+export type HookType = 'start' | 'continue' | 'run' | 'cleanup' | 'sandbox-setup';
 
 /**
  * Script hook configuration
@@ -71,6 +71,7 @@ export interface ProjectSettings {
     continue?: ScriptHook;
     run?: ScriptHook;
     cleanup?: ScriptHook;
+    'sandbox-setup'?: ScriptHook;
   };
   /** If true, kill existing instances of a command before starting a new one (default: true) */
   killExistingOnRun?: boolean;
@@ -251,7 +252,7 @@ export interface WorktreeRemoveResult {
  */
 export interface HooksAPI {
   /** Get all hooks for a project */
-  get(projectPath: string): Promise<{ start?: ScriptHook; continue?: ScriptHook; run?: ScriptHook; cleanup?: ScriptHook }>;
+  get(projectPath: string): Promise<{ start?: ScriptHook; continue?: ScriptHook; run?: ScriptHook; cleanup?: ScriptHook; 'sandbox-setup'?: ScriptHook }>;
   /** Save a hook for a project */
   save(projectPath: string, hook: ScriptHook): Promise<{ success: boolean }>;
   /** Delete a hook for a project */
@@ -359,6 +360,7 @@ export interface LimaAPI {
   status(projectPath: string): Promise<{ available: boolean; enabled: boolean; vmStatus: string; instanceName?: string }>;
   enable(projectPath: string): Promise<{ success: boolean; error?: string }>;
   disable(projectPath: string): Promise<{ success: boolean; error?: string }>;
+  onSpawnProgress(callback: (message: string) => void): () => void;
 }
 
 /**

@@ -81,7 +81,8 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
   // PTY handlers
   ipcMain.handle('pty:spawn', async (_event, options: PtySpawnOptions) => {
     if (options.sandboxed) {
-      return await limaPlugin.spawnSandboxedPty(options, mainWindow);
+      const hook = await getHook(options.projectPath || options.cwd, 'sandbox-setup');
+      return await limaPlugin.spawnSandboxedPty(options, mainWindow, hook?.command);
     }
     return await spawnPty(options, mainWindow);
   });
