@@ -1416,15 +1416,11 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
     // Set up card action buttons (runner pill, close-task for worktrees)
     setupCardActions(theatreTerminal);
 
-    // Add sandbox badge if running in Lima VM
+    // Mark sandboxed terminals with a ring on the status dot
     if (useSandbox) {
-      const labelLeft = card.querySelector('.theatre-card-label-left');
-      if (labelLeft) {
-        const badge = document.createElement('span');
-        badge.className = 'theatre-card-sandbox-badge';
-        badge.textContent = 'VM';
-        badge.title = 'Running in Lima sandbox';
-        labelLeft.insertBefore(badge, labelLeft.querySelector('.theatre-card-label-text'));
+      const dot = card.querySelector('.theatre-card-status-dot');
+      if (dot) {
+        dot.classList.add('theatre-card-status-dot--sandboxed');
       }
     }
 

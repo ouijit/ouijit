@@ -1247,6 +1247,12 @@ body > .diff-panel--visible {
   animation: terminal-status-pulse 1s ease-in-out infinite;
 }
 
+/* Sandboxed terminal ring on status dot */
+.theatre-card-status-dot--sandboxed {
+  outline: 1.5px solid rgba(116, 192, 252, 0.6);
+  outline-offset: 2px;
+}
+
 /* Loading card styles */
 .theatre-card--loading {
   @apply pointer-events-none;
