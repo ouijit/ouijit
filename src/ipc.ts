@@ -24,6 +24,7 @@ import {
   reopenTask,
   setTaskReadyToShip,
   setTaskMergeTarget,
+  setTaskSandboxed,
   ensureTaskExists,
   getTask,
 } from './taskMetadata';
@@ -367,6 +368,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
         readyToShip: metadata.readyToShip,
         mergeTarget: metadata.mergeTarget,
         prompt: metadata.prompt,
+        sandboxed: metadata.sandboxed,
       });
     }
 
@@ -388,6 +390,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
           readyToShip: task.readyToShip,
           mergeTarget: task.mergeTarget,
           prompt: task.prompt,
+          sandboxed: task.sandboxed,
         });
       }
     }
@@ -459,6 +462,11 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
   // Set task merge target
   ipcMain.handle('worktree:set-merge-target', async (_event, projectPath: string, branch: string, mergeTarget: string): Promise<{ success: boolean; error?: string }> => {
     return setTaskMergeTarget(projectPath, branch, mergeTarget);
+  });
+
+  // Set task sandboxed state
+  ipcMain.handle('worktree:set-sandboxed', async (_event, projectPath: string, branch: string, sandboxed: boolean): Promise<{ success: boolean; error?: string }> => {
+    return setTaskSandboxed(projectPath, branch, sandboxed);
   });
 
   // Get the main branch for a project

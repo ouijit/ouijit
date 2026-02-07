@@ -204,6 +204,7 @@ export interface TaskMetadata {
   closedAt?: string;        // When marked closed
   readyToShip?: boolean;    // "Spiritually done" - code complete, pending merge/review
   prompt?: string;          // Optional task description (OUIJIT_TASK_PROMPT)
+  sandboxed?: boolean;      // Whether this task runs in a sandbox VM
 }
 
 /**
@@ -227,6 +228,7 @@ export interface WorktreeWithMetadata extends WorktreeInfo {
   readyToShip?: boolean;    // "Spiritually done" - code complete, pending merge/review
   mergeTarget?: string;     // Branch to merge into (defaults to main if unset)
   prompt?: string;          // Optional task description
+  sandboxed?: boolean;      // Whether this task runs in a sandbox VM
 }
 
 /**
@@ -283,6 +285,8 @@ export interface WorktreeAPI {
   listBranches(projectPath: string): Promise<import('./git').BranchInfo[]>;
   /** Set a task's merge target branch */
   setMergeTarget(projectPath: string, branch: string, mergeTarget: string): Promise<{ success: boolean; error?: string }>;
+  /** Set a task's sandboxed state */
+  setSandboxed(projectPath: string, branch: string, sandboxed: boolean): Promise<{ success: boolean; error?: string }>;
   /** Get the main branch for a project */
   getMainBranch(projectPath: string): Promise<string>;
 }

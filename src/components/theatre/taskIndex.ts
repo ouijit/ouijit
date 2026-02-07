@@ -136,6 +136,7 @@ function buildTaskItem(task: WorktreeWithMetadata, path: string, index?: number)
           branch: task.branch,
           createdAt: task.createdAt,
           readyToShip: task.readyToShip,
+          sandboxed: task.sandboxed,
         },
       });
     }

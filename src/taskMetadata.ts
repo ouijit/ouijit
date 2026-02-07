@@ -22,6 +22,7 @@ export interface TaskMetadata {
   readyToShip?: boolean;    // "Spiritually done" - code complete, pending merge/review
   mergeTarget?: string;     // Branch to merge into (defaults to main if unset)
   prompt?: string;          // Optional task description (OUIJIT_TASK_PROMPT)
+  sandboxed?: boolean;      // Whether this task runs in a sandbox VM
 }
 
 /**
@@ -177,7 +178,8 @@ export async function createTask(
   branch: string,
   name: string,
   mergeTarget?: string,
-  prompt?: string
+  prompt?: string,
+  sandboxed?: boolean
 ): Promise<TaskMetadata> {
   const store = await ensureProjectStore(projectPath);
 
@@ -195,6 +197,7 @@ export async function createTask(
     createdAt: new Date().toISOString(),
     ...(mergeTarget && { mergeTarget }),
     ...(prompt && { prompt }),
+    ...(sandboxed !== undefined && { sandboxed }),
   };
 
   store[projectPath].tasks.push(task);
@@ -298,6 +301,40 @@ export async function setTaskReadyToShip(
     return { success: true };
   } catch (error) {
     console.error('Failed to set task ready state:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+}
+
+/**
+ * Set a task's sandboxed state
+ */
+export async function setTaskSandboxed(
+  projectPath: string,
+  branch: string,
+  sandboxed: boolean
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const store = await loadStore();
+    const projectData = store[projectPath];
+
+    if (!projectData) {
+      return { success: false, error: 'Project not found' };
+    }
+
+    const task = projectData.tasks.find(t => t.branch === branch);
+    if (!task) {
+      return { success: false, error: 'Task not found' };
+    }
+
+    if (sandboxed) {
+      task.sandboxed = true;
+    } else {
+      delete task.sandboxed;
+    }
+    await saveStore(store);
+    return { success: true };
+  } catch (error) {
+    console.error('Failed to set task sandboxed state:', error);
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
   }
 }

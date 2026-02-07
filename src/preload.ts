@@ -114,6 +114,9 @@ contextBridge.exposeInMainWorld('api', {
     setMergeTarget: (projectPath: string, branch: string, mergeTarget: string): Promise<{ success: boolean; error?: string }> =>
       ipcRenderer.invoke('worktree:set-merge-target', projectPath, branch, mergeTarget),
 
+    setSandboxed: (projectPath: string, branch: string, sandboxed: boolean): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke('worktree:set-sandboxed', projectPath, branch, sandboxed),
+
     getMainBranch: (projectPath: string): Promise<string> =>
       ipcRenderer.invoke('worktree:get-main-branch', projectPath),
   },

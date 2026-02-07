@@ -1098,6 +1098,7 @@ export async function selectByStackPosition(position: number): Promise<void> {
         createdAt: task.createdAt,
         readyToShip: task.readyToShip,
         prompt: task.prompt,
+        sandboxed: task.sandboxed,
       },
     });
   }
@@ -1108,9 +1109,10 @@ export async function selectByStackPosition(position: number): Promise<void> {
  */
 export interface AddTheatreTerminalOptions {
   useWorktree?: boolean;
-  existingWorktree?: WorktreeInfo & { readyToShip?: boolean; prompt?: string };
+  existingWorktree?: WorktreeInfo & { readyToShip?: boolean; prompt?: string; sandboxed?: boolean };
   worktreeName?: string;
   worktreePrompt?: string;
+  sandboxed?: boolean;
 }
 
 /**
@@ -1168,6 +1170,10 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
       createdAt: result.task.createdAt,
     };
     taskPrompt = options.worktreePrompt;
+    // Persist sandbox preference for new task
+    if (options?.sandboxed !== undefined) {
+      await window.api.worktree.setSandboxed(currentProjectPath, worktreeInfo.branch, options.sandboxed);
+    }
     invalidateTaskList();
   }
 
@@ -1281,7 +1287,12 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
 
   // Check if sandbox is enabled for this project
   const limaStatus = await window.api.lima.status(currentProjectPath);
-  const useSandbox = limaStatus.available && limaStatus.enabled;
+  let useSandbox = limaStatus.available && limaStatus.enabled;
+  // Per-task override (only for worktree terminals)
+  const taskSandboxed = options?.sandboxed ?? options?.existingWorktree?.sandboxed;
+  if (limaStatus.available && taskSandboxed !== undefined) {
+    useSandbox = taskSandboxed;
+  }
 
   // Spawn PTY
   const spawnOptions: PtySpawnOptions = {
@@ -1504,7 +1515,7 @@ export function closeTheatreTerminal(index: number): void {
 /**
  * Build HTML for the empty state shown when no terminals are open
  */
-export function buildEmptyStateHtml(): string {
+export function buildEmptyStateHtml(limaAvailable: boolean, limaEnabled: boolean): string {
   return `
     <div class="theatre-stack-empty">
       <div class="theatre-stack-empty-open" style="display: none;">
@@ -1528,6 +1539,16 @@ export function buildEmptyStateHtml(): string {
               rows="2"
               spellcheck="false"
             ></textarea>
+            ${limaAvailable ? `
+            <div class="new-task-composer-footer">
+              <div class="new-task-sandbox-toggle">
+                <div class="sandbox-toggle ${limaEnabled ? 'sandbox-toggle--active' : ''}">
+                  <div class="sandbox-toggle-knob"></div>
+                </div>
+                <span class="new-task-sandbox-label">Sandbox</span>
+              </div>
+            </div>
+            ` : ''}
             <button type="submit" class="theatre-stack-empty-btn" aria-label="Start task">
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                 <path d="M8 13V3M4 7l4-4 4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
@@ -1592,6 +1613,7 @@ async function populatePreviousTasks(emptyState: HTMLElement): Promise<void> {
             createdAt: task.createdAt,
             readyToShip: task.readyToShip,
             prompt: task.prompt,
+            sandboxed: task.sandboxed,
           },
         });
       });
@@ -1622,8 +1644,24 @@ export async function showStackEmptyState(): Promise<void> {
     return;
   }
 
+  // Check lima availability for sandbox toggle
+  const currentProjectPath = projectPath.value;
+  let limaAvailable = false;
+  let limaEnabled = false;
+  if (currentProjectPath) {
+    try {
+      const limaStatus = await window.api.lima.status(currentProjectPath);
+      limaAvailable = limaStatus.available;
+      limaEnabled = limaStatus.enabled;
+    } catch {
+      // Lima not available
+    }
+  }
+
+  let sandboxState = limaEnabled;
+
   // Create and insert empty state
-  stack.insertAdjacentHTML('beforeend', buildEmptyStateHtml());
+  stack.insertAdjacentHTML('beforeend', buildEmptyStateHtml(limaAvailable, limaEnabled));
   emptyState = stack.querySelector('.theatre-stack-empty') as HTMLElement;
 
   // Wire up form submission
@@ -1631,6 +1669,18 @@ export async function showStackEmptyState(): Promise<void> {
   const nameInput = emptyState.querySelector('.theatre-stack-empty-name') as HTMLInputElement;
   const promptInput = emptyState.querySelector('.theatre-stack-empty-prompt') as HTMLTextAreaElement;
   const submitBtn = emptyState.querySelector('.theatre-stack-empty-btn') as HTMLButtonElement;
+
+  // Wire up sandbox toggle if present
+  const sandboxToggleRow = emptyState.querySelector('.new-task-sandbox-toggle');
+  if (sandboxToggleRow) {
+    sandboxToggleRow.addEventListener('click', () => {
+      sandboxState = !sandboxState;
+      const toggle = sandboxToggleRow.querySelector('.sandbox-toggle');
+      if (toggle) {
+        toggle.classList.toggle('sandbox-toggle--active', sandboxState);
+      }
+    });
+  }
 
   // Note: ⌘1-9 hotkeys are already registered in enterTheatreMode for terminal switching.
   // We don't register them again here to avoid duplicate handlers that cause double-firing
@@ -1669,7 +1719,12 @@ export async function showStackEmptyState(): Promise<void> {
       promptInput.disabled = true;
 
       try {
-        const success = await addTheatreTerminal(undefined, { useWorktree: true, worktreeName: name, worktreePrompt: prompt });
+        const success = await addTheatreTerminal(undefined, {
+          useWorktree: true,
+          worktreeName: name,
+          worktreePrompt: prompt,
+          sandboxed: limaAvailable ? sandboxState : undefined,
+        });
         if (!success) {
           // Restore form state if terminal creation failed
           submitBtn.disabled = false;
