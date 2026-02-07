@@ -935,6 +935,10 @@ async function reconnectRunnerToParent(
  * Wire up the sandbox toggle button with click handler and hover tooltip
  */
 function wireSandboxButton(sandboxBtn: HTMLElement, path: string): void {
+  // Guard against double-wiring
+  if (sandboxBtn.dataset.wired) return;
+  sandboxBtn.dataset.wired = '1';
+
   let tooltip: HTMLElement | null = null;
   let showTimeout: ReturnType<typeof setTimeout> | null = null;
   let hideTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -943,13 +947,13 @@ function wireSandboxButton(sandboxBtn: HTMLElement, path: string): void {
   // Remove native title — we use a custom popover
   sandboxBtn.removeAttribute('title');
 
-  // Check initial status
+  // Check initial status — set active class before showing to avoid flicker
   window.api.lima.status(path).then((status) => {
     if (!status.available) return;
-    sandboxBtn.style.display = 'flex';
     if (status.enabled) {
       sandboxBtn.classList.add('theatre-sandbox-btn--active');
     }
+    sandboxBtn.style.display = 'flex';
   });
 
   function showTooltip() {

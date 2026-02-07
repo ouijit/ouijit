@@ -2,8 +2,7 @@ import * as pty from 'node-pty';
 import { BrowserWindow } from 'electron';
 import type { PtySpawnOptions, PtySpawnResult, PtyId } from '../types';
 import { generateId } from '../utils/ids';
-import { ensureRunning, getInstanceName, hostPathToGuestPath } from './manager';
-import { buildProjectMounts } from './config';
+import { ensureRunning } from './manager';
 
 interface ManagedSandboxPty {
   process: pty.IPty;
@@ -48,7 +47,7 @@ function handleOutput(ptyId: PtyId, channel: string, data: string): void {
 
 /**
  * Spawn a sandboxed PTY via `limactl shell`.
- * Same return type as spawnPty from ptyManager.
+ * Worktree files are shared via writable mounts — no sync needed.
  */
 export async function spawnSandboxedPty(
   options: PtySpawnOptions,
@@ -69,15 +68,28 @@ export async function spawnSandboxedPty(
       return { success: false, error: vmResult.error || 'Failed to start sandbox VM' };
     }
 
-    if (window && !window.isDestroyed()) {
-      window.webContents.send('lima:spawn-progress', 'Launching shell…');
-    }
-
     const instanceName = vmResult.instanceName;
-    const mounts = buildProjectMounts(projectPath);
+    const sendProgress = (msg: string) => {
+      if (window && !window.isDestroyed()) {
+        window.webContents.send('lima:spawn-progress', msg);
+      }
+    };
 
-    // Translate host cwd to guest path
-    const guestCwd = hostPathToGuestPath(options.cwd, mounts);
+    sendProgress('Launching shell…');
+
+    // Use host cwd directly — mounts match host paths
+    const guestCwd = options.cwd;
+
+    // Export Ouijit env vars inside the VM since SSH doesn't forward them
+    let envExports = '';
+    if (options.env) {
+      for (const [key, value] of Object.entries(options.env)) {
+        if (value !== undefined) {
+          const escapedValue = value.replace(/'/g, "'\\''");
+          envExports += `export ${key}='${escapedValue}'\n`;
+        }
+      }
+    }
 
     // Build the command to run inside the VM
     let innerCmd: string;
@@ -85,9 +97,9 @@ export async function spawnSandboxedPty(
     if (options.command) {
       // Run command then drop to interactive bash
       const escapedCmd = options.command.replace(/'/g, "'\\''");
-      innerCmd = `${setupPrefix}${escapedCmd}; exec bash`;
+      innerCmd = `${envExports}${setupPrefix}${escapedCmd}; exec bash`;
     } else {
-      innerCmd = `${setupPrefix}exec bash`;
+      innerCmd = `${envExports}${setupPrefix}exec bash`;
     }
 
     // Build limactl shell args
@@ -124,7 +136,7 @@ export async function spawnSandboxedPty(
       name: 'xterm-256color',
       cols: options.cols || 80,
       rows: options.rows || 24,
-      cwd: options.cwd, // Host cwd (limactl resolves from host)
+      cwd: options.cwd,
       env: finalEnv,
     });
 

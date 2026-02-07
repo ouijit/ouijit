@@ -13,13 +13,6 @@ export function generateLimaYaml(config: LimaConfig): string {
     )
     .join('\n');
 
-  const symlinkLines = config.mounts
-    .map((m) => {
-      const parentDir = m.hostPath.substring(0, m.hostPath.lastIndexOf('/'));
-      return `      mkdir -p "${parentDir}" && ln -sfn "${m.guestPath}" "${m.hostPath}"`;
-    })
-    .join('\n');
-
   const networkYaml =
     config.networkMode === 'vzNAT'
       ? 'networks:\n  - vzNAT: true'
@@ -50,8 +43,6 @@ provision:
       set -eux
       apt-get update
       apt-get install -y ${config.provisionScript}
-      # Create host-path symlinks so absolute paths resolve inside VM
-${symlinkLines}
 
 ${networkYaml}
 
@@ -68,9 +59,9 @@ export function defaultProvisionPackages(): string {
 }
 
 /**
- * Build mounts for a project: mount the project root and the worktrees directory.
- * Worktrees live at ~/Ouijit/worktrees/{projectName}/ which is outside the project,
- * so we need a separate mount for task terminals to resolve their cwd.
+ * Build mounts for a project.
+ * Project root is read-only (for git access). Worktrees are writable (shared with host).
+ * Mounted at their real host paths so all git paths resolve naturally.
  */
 export function buildProjectMounts(projectPath: string): LimaMount[] {
   const projectName = path.basename(projectPath);
@@ -79,12 +70,12 @@ export function buildProjectMounts(projectPath: string): LimaMount[] {
   return [
     {
       hostPath: projectPath,
-      guestPath: '/worktree',
-      writable: true,
+      guestPath: projectPath,
+      writable: false,
     },
     {
       hostPath: worktreeBaseDir,
-      guestPath: '/worktrees',
+      guestPath: worktreeBaseDir,
       writable: true,
     },
   ];

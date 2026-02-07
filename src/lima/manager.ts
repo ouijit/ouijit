@@ -3,7 +3,7 @@ import { promisify } from 'node:util';
 import * as path from 'node:path';
 import * as fs from 'node:fs/promises';
 import * as os from 'node:os';
-import type { LimaInstance, LimaMount } from './types';
+import type { LimaInstance } from './types';
 import { generateLimaYaml, buildLimaConfig } from './config';
 
 const execFileAsync = promisify(execFile);
@@ -140,6 +140,26 @@ export async function deleteInstance(name: string): Promise<{ success: boolean; 
 }
 
 /**
+ * Wait for SSH to be ready by probing with a simple command.
+ * Lima may report "Running" before SSH is fully accepting connections.
+ */
+async function waitForSsh(instanceName: string, maxRetries = 5): Promise<boolean> {
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      await execFileAsync('limactl', ['shell', instanceName, '--', 'echo', 'ok'], {
+        timeout: 10_000,
+      });
+      return true;
+    } catch {
+      if (i < maxRetries - 1) {
+        await new Promise(r => setTimeout(r, 2000));
+      }
+    }
+  }
+  return false;
+}
+
+/**
  * Ensure an instance is running. Creates if missing, starts if stopped.
  */
 export async function ensureRunning(
@@ -154,6 +174,10 @@ export async function ensureRunning(
   const instance = await getInstance(instanceName);
 
   if (instance.status === 'Running') {
+    progress('Waiting for SSH…');
+    if (!await waitForSsh(instanceName)) {
+      return { success: false, instanceName, error: 'VM is running but SSH is not responding' };
+    }
     return { success: true, instanceName };
   }
 
@@ -193,19 +217,4 @@ export async function ensureRunning(
     return { success: false, instanceName, error: startResult.error };
   }
   return { success: true, instanceName };
-}
-
-/**
- * Translate a host path to the corresponding guest path using the mount config.
- * Returns the original path if no mount matches.
- */
-export function hostPathToGuestPath(hostPath: string, mounts: LimaMount[]): string {
-  for (const mount of mounts) {
-    if (hostPath === mount.hostPath || hostPath.startsWith(mount.hostPath + '/')) {
-      const relative = hostPath.slice(mount.hostPath.length);
-      return mount.guestPath + relative;
-    }
-  }
-  // Fallback: return original (host-path symlinks inside VM should resolve it)
-  return hostPath;
 }

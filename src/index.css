@@ -811,7 +811,8 @@ body.platform-darwin:not(.is-fullscreen) .theatre-header-content {
 }
 
 .theatre-sandbox-btn {
-  @apply relative w-8 h-8 flex items-center justify-center bg-background-secondary border border-border rounded-md text-text-secondary transition-all duration-150 ease-out ml-3;
+  @apply relative w-8 h-8 flex items-center justify-center bg-background-secondary border border-border rounded-md text-text-secondary ease-out ml-3;
+  transition: background-color 150ms ease-out, border-color 150ms ease-out, color 150ms ease-out;
   -webkit-app-region: no-drag;
 }
 
