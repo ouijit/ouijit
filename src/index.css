@@ -810,10 +810,15 @@ body.platform-darwin:not(.is-fullscreen) .theatre-header-content {
   @apply w-4 h-4;
 }
 
-.theatre-sandbox-btn {
-  @apply relative w-8 h-8 flex items-center justify-center bg-background-secondary border border-border rounded-md text-text-secondary ease-out ml-3;
-  transition: background-color 150ms ease-out, border-color 150ms ease-out, color 150ms ease-out;
+/* Sandbox wrapper */
+.theatre-sandbox-wrapper {
+  @apply relative flex ml-3;
   -webkit-app-region: no-drag;
+}
+
+.theatre-sandbox-btn {
+  @apply relative w-8 h-8 flex items-center justify-center bg-background-secondary border border-border rounded-md text-text-secondary ease-out;
+  transition: background-color 150ms ease-out, border-color 150ms ease-out, color 150ms ease-out;
 }
 
 .theatre-sandbox-btn:hover {
@@ -832,90 +837,129 @@ body.platform-darwin:not(.is-fullscreen) .theatre-header-content {
   @apply bg-green-900/50 text-green-300;
 }
 
-/* Sandbox Tooltip (popover — interactive when visible) */
-.sandbox-tooltip {
-  @apply absolute top-full left-1/2 mt-2 w-[240px] bg-surface border border-border rounded-lg shadow-lg z-[1000] p-3 opacity-0 invisible pointer-events-none;
-  transform: translateX(-50%) translateY(-4px);
-  transition: opacity 0.15s ease, transform 0.15s ease, visibility 0.15s ease;
+/* Sandbox Dropdown */
+.sandbox-dropdown {
+  @apply absolute top-full right-0 mt-1 min-w-[240px] bg-surface border border-border
+         rounded-md shadow-lg z-[1000] opacity-0 invisible overflow-hidden;
+  transition: opacity 150ms ease-out, transform 150ms ease-out, visibility 150ms ease-out;
+  transform: translateY(-8px);
   -webkit-app-region: no-drag;
 }
 
-.sandbox-tooltip--visible {
-  @apply opacity-100 visible pointer-events-auto;
-  transform: translateX(-50%) translateY(0);
+.sandbox-dropdown.visible {
+  @apply opacity-100 visible;
+  transform: translateY(0);
 }
 
-.sandbox-tooltip::before {
-  content: '';
-  @apply absolute w-2.5 h-2.5 bg-surface border-t border-l border-border;
-  top: -6px;
-  left: 50%;
-  transform: translateX(-50%) rotate(45deg);
+.sandbox-dropdown-header {
+  @apply text-[11px] text-text-tertiary px-3 pt-2 pb-1 uppercase tracking-wide;
 }
 
-.sandbox-tooltip-header {
-  @apply text-xs font-semibold text-text-primary mb-2;
+.sandbox-dropdown-toggle-row {
+  @apply flex items-center gap-2.5 px-3 py-2 transition-colors duration-100 ease-out;
 }
 
-.sandbox-tooltip-status {
-  @apply flex items-center gap-1.5 mb-2;
-}
-
-.sandbox-tooltip-dot {
-  @apply w-1.5 h-1.5 rounded-full shrink-0;
-}
-
-.sandbox-tooltip-dot--on {
-  @apply bg-green-400;
-  box-shadow: 0 0 4px rgba(74, 222, 128, 0.5);
-}
-
-.sandbox-tooltip-dot--off {
-  @apply bg-text-tertiary;
-}
-
-.sandbox-tooltip-status-text {
-  @apply text-xs font-medium text-text-primary;
-}
-
-.sandbox-tooltip-detail {
-  @apply flex items-center justify-between text-xs mb-1;
-}
-
-.sandbox-tooltip-label {
-  @apply text-text-tertiary;
-}
-
-.sandbox-tooltip-value {
-  @apply text-text-secondary font-mono;
-}
-
-.sandbox-tooltip-hook-row {
-  @apply flex items-center gap-2 px-1.5 py-1 -mx-1.5 mt-1 rounded-md transition-colors duration-100 ease-out;
-}
-
-.sandbox-tooltip-hook-row:hover {
+.sandbox-dropdown-toggle-row:hover {
   @apply bg-background-tertiary;
 }
 
-.sandbox-tooltip-hook-label {
-  @apply shrink-0 text-[11px] font-medium text-text-secondary;
+.sandbox-dropdown-toggle-label {
+  @apply text-xs font-medium text-text-primary;
 }
 
-.sandbox-tooltip-hook-command {
-  @apply flex-1 text-[11px] font-mono text-text-primary truncate text-right;
+.sandbox-dropdown-divider {
+  @apply h-px bg-border my-1;
 }
 
-.sandbox-tooltip-hook-configure {
-  @apply flex-1 text-[11px] text-text-tertiary text-right transition-colors duration-100 ease-out;
+.sandbox-dropdown-details {
+  @apply flex flex-col gap-0.5 px-3 py-1;
 }
 
-.sandbox-tooltip-hook-row:hover .sandbox-tooltip-hook-configure {
+.sandbox-dropdown-detail-row {
+  @apply flex items-center justify-between text-xs py-0.5;
+}
+
+.sandbox-dropdown-detail-label {
+  @apply text-text-tertiary;
+}
+
+.sandbox-dropdown-detail-value {
+  @apply text-text-secondary;
+}
+
+.sandbox-dropdown-detail-value--mono {
+  @apply font-mono;
+}
+
+.sandbox-dropdown-hook-row {
+  @apply flex items-center justify-between gap-2 px-3 py-1.5;
+}
+
+.sandbox-dropdown-hook-right {
+  @apply flex items-center gap-1 min-w-0;
+}
+
+.sandbox-dropdown-hook-command {
+  @apply text-xs font-mono text-text-primary truncate;
+}
+
+.sandbox-dropdown-hook-edit {
+  @apply shrink-0 w-0 h-6 overflow-hidden opacity-0 bg-transparent border-none rounded-md flex items-center justify-center text-text-tertiary transition-all duration-150 ease-out;
+}
+
+.sandbox-dropdown-hook-row:hover .sandbox-dropdown-hook-edit {
+  @apply w-6 opacity-100;
+}
+
+.sandbox-dropdown-hook-edit:hover {
+  @apply text-text-primary;
+}
+
+.sandbox-dropdown-hook-edit svg {
+  @apply w-3.5 h-3.5;
+}
+
+.sandbox-dropdown-hook-configure {
+  @apply bg-transparent border-none text-xs text-text-tertiary p-0 transition-colors duration-150 ease-out;
+}
+
+.sandbox-dropdown-hook-configure:hover {
   @apply text-accent;
 }
 
-.sandbox-tooltip-hint {
-  @apply text-[11px] text-text-tertiary leading-snug mt-2 pt-2 border-t border-border;
+.sandbox-dropdown-hint {
+  @apply text-[11px] text-text-tertiary leading-snug px-3 pb-2.5 pt-0.5;
+}
+
+/* Sandbox Toggle Switch */
+.sandbox-toggle {
+  position: relative;
+  width: 34px;
+  height: 20px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.15);
+  transition: background 200ms ease;
+  flex-shrink: 0;
+}
+
+.sandbox-toggle--active {
+  background: #30D158;
+}
+
+.sandbox-toggle-knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: white;
+  transition: transform 200ms ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.sandbox-toggle--active .sandbox-toggle-knob {
+  transform: translateX(14px);
 }
 
 .theatre-exit-btn {

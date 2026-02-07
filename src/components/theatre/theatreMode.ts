@@ -19,6 +19,7 @@ import {
   diffPanelVisible,
   diffPanelFiles,
   diffPanelSelectedFile,
+  sandboxDropdownVisible,
   resetSignals,
 } from './signals';
 import { initializeEffects } from './effects';
@@ -117,10 +118,10 @@ export async function enterTheatreMode(
       });
     }
 
-    // Wire up sandbox toggle button
-    const sandboxBtn = headerContent.querySelector('.theatre-sandbox-btn') as HTMLElement;
-    if (sandboxBtn) {
-      wireSandboxButton(sandboxBtn, path);
+    // Wire up sandbox button (dropdown)
+    const sandboxWrapper = headerContent.querySelector('.theatre-sandbox-wrapper') as HTMLElement;
+    if (sandboxWrapper) {
+      wireSandboxButton(sandboxWrapper, path);
     }
 
   }
@@ -419,6 +420,9 @@ export function exitTheatreMode(): void {
   // 7. Hide launch dropdown
   hideLaunchDropdown();
 
+  // 7.5. Hide sandbox dropdown
+  hideSandboxDropdown();
+
   // 8. Hide diff panel
   hideDiffPanel();
 
@@ -542,10 +546,10 @@ export async function restoreTheatreMode(
       });
     }
 
-    // Wire up sandbox toggle button
-    const sandboxBtn = headerContent.querySelector('.theatre-sandbox-btn') as HTMLElement;
-    if (sandboxBtn) {
-      wireSandboxButton(sandboxBtn, path);
+    // Wire up sandbox button (dropdown)
+    const sandboxWrapper = headerContent.querySelector('.theatre-sandbox-wrapper') as HTMLElement;
+    if (sandboxWrapper) {
+      wireSandboxButton(sandboxWrapper, path);
     }
 
   }
@@ -932,19 +936,17 @@ async function reconnectRunnerToParent(
 }
 
 /**
- * Wire up the sandbox toggle button with click handler and hover tooltip
+ * Wire up the sandbox button to open a dropdown
  */
-function wireSandboxButton(sandboxBtn: HTMLElement, path: string): void {
+function wireSandboxButton(wrapper: HTMLElement, path: string): void {
   // Guard against double-wiring
-  if (sandboxBtn.dataset.wired) return;
-  sandboxBtn.dataset.wired = '1';
+  if (wrapper.dataset.wired) return;
+  wrapper.dataset.wired = '1';
 
-  let tooltip: HTMLElement | null = null;
-  let showTimeout: ReturnType<typeof setTimeout> | null = null;
-  let hideTimeout: ReturnType<typeof setTimeout> | null = null;
-  let tooltipHovered = false;
+  const sandboxBtn = wrapper.querySelector('.theatre-sandbox-btn') as HTMLElement;
+  if (!sandboxBtn) return;
 
-  // Remove native title — we use a custom popover
+  // Remove native title — dropdown replaces it
   sandboxBtn.removeAttribute('title');
 
   // Check initial status — set active class before showing to avoid flicker
@@ -953,93 +955,160 @@ function wireSandboxButton(sandboxBtn: HTMLElement, path: string): void {
     if (status.enabled) {
       sandboxBtn.classList.add('theatre-sandbox-btn--active');
     }
-    sandboxBtn.style.display = 'flex';
+    wrapper.style.display = 'flex';
   });
 
-  function showTooltip() {
-    if (hideTimeout) { clearTimeout(hideTimeout); hideTimeout = null; }
-    showTimeout = setTimeout(async () => {
-      try {
-        const [status, hooks] = await Promise.all([
-          window.api.lima.status(path),
-          window.api.hooks.get(path),
-        ]);
-
-        if (!tooltip) {
-          tooltip = document.createElement('div');
-          tooltip.className = 'sandbox-tooltip';
-          sandboxBtn.appendChild(tooltip);
-
-          tooltip.addEventListener('mouseenter', () => {
-            tooltipHovered = true;
-            if (hideTimeout) { clearTimeout(hideTimeout); hideTimeout = null; }
-          });
-          tooltip.addEventListener('mouseleave', () => {
-            tooltipHovered = false;
-            scheduleHide();
-          });
-        }
-        updateSandboxTooltip(tooltip, status, hooks['sandbox-setup'], path);
-        requestAnimationFrame(() => {
-          tooltip?.classList.add('sandbox-tooltip--visible');
-        });
-      } catch {
-        // Status call failed — don't show tooltip
-      }
-    }, 400);
-  }
-
-  function scheduleHide() {
-    if (hideTimeout) clearTimeout(hideTimeout);
-    hideTimeout = setTimeout(() => {
-      if (tooltipHovered) return;
-      if (showTimeout) { clearTimeout(showTimeout); showTimeout = null; }
-      tooltip?.classList.remove('sandbox-tooltip--visible');
-    }, 200);
-  }
-
-  // Click handler
-  sandboxBtn.addEventListener('click', async (e) => {
+  // Click handler opens/closes dropdown
+  sandboxBtn.addEventListener('click', (e) => {
     e.stopPropagation();
-    const status = await window.api.lima.status(path);
-    if (status.enabled) {
-      await window.api.lima.disable(path);
-      sandboxBtn.classList.remove('theatre-sandbox-btn--active');
-    } else {
-      await window.api.lima.enable(path);
-      sandboxBtn.classList.add('theatre-sandbox-btn--active');
-    }
-    if (tooltip?.classList.contains('sandbox-tooltip--visible')) {
-      const [newStatus, hooks] = await Promise.all([
-        window.api.lima.status(path),
-        window.api.hooks.get(path),
-      ]);
-      updateSandboxTooltip(tooltip, newStatus, hooks['sandbox-setup'], path);
-    }
-  });
-
-  sandboxBtn.addEventListener('mouseenter', () => {
-    if (hideTimeout) { clearTimeout(hideTimeout); hideTimeout = null; }
-    showTooltip();
-  });
-
-  sandboxBtn.addEventListener('mouseleave', () => {
-    if (showTimeout) { clearTimeout(showTimeout); showTimeout = null; }
-    scheduleHide();
+    toggleSandboxDropdown(wrapper, path);
   });
 }
 
 /**
- * Update the sandbox tooltip content with current status
+ * Toggle sandbox dropdown visibility
  */
-function updateSandboxTooltip(
-  tooltip: HTMLElement,
-  status: { available: boolean; enabled: boolean; vmStatus: string; instanceName?: string },
-  setupHook: import('../../types').ScriptHook | undefined,
-  projectPath: string,
-): void {
-  const enabledText = status.enabled ? 'Enabled' : 'Disabled';
-  const dotClass = status.enabled ? 'sandbox-tooltip-dot--on' : 'sandbox-tooltip-dot--off';
+function toggleSandboxDropdown(wrapper: HTMLElement, path: string): void {
+  if (sandboxDropdownVisible.value) {
+    hideSandboxDropdown();
+  } else {
+    showSandboxDropdown(wrapper, path);
+  }
+}
+
+/**
+ * Show the sandbox dropdown
+ */
+async function showSandboxDropdown(wrapper: HTMLElement, path: string): Promise<void> {
+  if (sandboxDropdownVisible.value) return;
+
+  // Create dropdown
+  let dropdown = wrapper.querySelector('.sandbox-dropdown') as HTMLElement;
+  if (!dropdown) {
+    dropdown = document.createElement('div');
+    dropdown.className = 'sandbox-dropdown';
+    wrapper.appendChild(dropdown);
+  }
+
+  await buildSandboxDropdownContent(dropdown, wrapper, path);
+
+  requestAnimationFrame(() => {
+    dropdown.classList.add('visible');
+  });
+
+  sandboxDropdownVisible.value = true;
+
+  // Click outside handler
+  const handleClickOutside = (e: MouseEvent) => {
+    const target = e.target as HTMLElement;
+    if (!target.closest('.theatre-sandbox-wrapper')) {
+      hideSandboxDropdown();
+    }
+  };
+
+  setTimeout(() => {
+    document.addEventListener('click', handleClickOutside);
+  }, 0);
+
+  theatreState.sandboxDropdownCleanup = () => {
+    document.removeEventListener('click', handleClickOutside);
+  };
+}
+
+/**
+ * Hide the sandbox dropdown
+ */
+export function hideSandboxDropdown(): void {
+  if (!sandboxDropdownVisible.value) return;
+
+  const dropdown = document.querySelector('.sandbox-dropdown');
+  if (dropdown) {
+    dropdown.classList.remove('visible');
+    setTimeout(() => dropdown.remove(), 150);
+  }
+
+  if (theatreState.sandboxDropdownCleanup) {
+    theatreState.sandboxDropdownCleanup();
+    theatreState.sandboxDropdownCleanup = null;
+  }
+
+  sandboxDropdownVisible.value = false;
+}
+
+/**
+ * Build the sandbox dropdown content
+ */
+async function buildSandboxDropdownContent(
+  dropdown: HTMLElement,
+  wrapper: HTMLElement,
+  path: string,
+): Promise<void> {
+  dropdown.innerHTML = '';
+
+  const [status, hooks] = await Promise.all([
+    window.api.lima.status(path),
+    window.api.hooks.get(path),
+  ]);
+
+  const sandboxBtn = wrapper.querySelector('.theatre-sandbox-btn') as HTMLElement;
+  const setupHook = hooks['sandbox-setup'];
+
+  // Header
+  const header = document.createElement('div');
+  header.className = 'sandbox-dropdown-header';
+  header.textContent = 'Lima Sandbox';
+  dropdown.appendChild(header);
+
+  // Toggle row
+  const toggleRow = document.createElement('div');
+  toggleRow.className = 'sandbox-dropdown-toggle-row';
+
+  const toggle = document.createElement('div');
+  toggle.className = 'sandbox-toggle';
+  if (status.enabled) toggle.classList.add('sandbox-toggle--active');
+
+  const knob = document.createElement('div');
+  knob.className = 'sandbox-toggle-knob';
+  toggle.appendChild(knob);
+  toggleRow.appendChild(toggle);
+
+  const toggleLabel = document.createElement('span');
+  toggleLabel.className = 'sandbox-dropdown-toggle-label';
+  toggleLabel.textContent = status.enabled ? 'Enabled' : 'Disabled';
+  toggleRow.appendChild(toggleLabel);
+
+  dropdown.appendChild(toggleRow);
+
+  // Toggle click handler
+  toggleRow.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    if (status.enabled) {
+      await window.api.lima.disable(path);
+      status.enabled = false;
+      toggle.classList.remove('sandbox-toggle--active');
+      toggleLabel.textContent = 'Disabled';
+      sandboxBtn?.classList.remove('theatre-sandbox-btn--active');
+    } else {
+      await window.api.lima.enable(path);
+      status.enabled = true;
+      toggle.classList.add('sandbox-toggle--active');
+      toggleLabel.textContent = 'Enabled';
+      sandboxBtn?.classList.add('theatre-sandbox-btn--active');
+    }
+    // Refresh VM status after toggle
+    const newStatus = await window.api.lima.status(path);
+    updateDetailRows(newStatus);
+  });
+
+  // Divider
+  const divider1 = document.createElement('div');
+  divider1.className = 'sandbox-dropdown-divider';
+  dropdown.appendChild(divider1);
+
+  // Detail rows container
+  const detailsContainer = document.createElement('div');
+  detailsContainer.className = 'sandbox-dropdown-details';
+  dropdown.appendChild(detailsContainer);
 
   const vmStatusMap: Record<string, string> = {
     'Running': 'Running',
@@ -1047,59 +1116,108 @@ function updateSandboxTooltip(
     'NotCreated': 'Not created',
     'Unavailable': 'Unavailable',
   };
-  const vmText = vmStatusMap[status.vmStatus] || status.vmStatus;
 
-  const instanceHtml = status.instanceName
-    ? `<div class="sandbox-tooltip-detail">
-        <span class="sandbox-tooltip-label">Instance</span>
-        <span class="sandbox-tooltip-value">${status.instanceName}</span>
-      </div>`
-    : '';
+  function updateDetailRows(s: { vmStatus: string; instanceName?: string }) {
+    detailsContainer.innerHTML = '';
 
-  const hintText = status.enabled
-    ? 'Click shield to disable.'
-    : 'Click shield to enable.';
+    // VM row
+    const vmRow = document.createElement('div');
+    vmRow.className = 'sandbox-dropdown-detail-row';
 
-  let setupHtml: string;
+    const vmLabel = document.createElement('span');
+    vmLabel.className = 'sandbox-dropdown-detail-label';
+    vmLabel.textContent = 'VM';
+    vmRow.appendChild(vmLabel);
+
+    const vmValue = document.createElement('span');
+    vmValue.className = 'sandbox-dropdown-detail-value';
+    const vmText = vmStatusMap[s.vmStatus] || s.vmStatus;
+    vmValue.textContent = vmText;
+    vmRow.appendChild(vmValue);
+
+    detailsContainer.appendChild(vmRow);
+
+    // Instance name row (if available)
+    if (s.instanceName) {
+      const nameRow = document.createElement('div');
+      nameRow.className = 'sandbox-dropdown-detail-row';
+
+      const nameLabel = document.createElement('span');
+      nameLabel.className = 'sandbox-dropdown-detail-label';
+      nameLabel.textContent = 'Name';
+      nameRow.appendChild(nameLabel);
+
+      const nameValue = document.createElement('span');
+      nameValue.className = 'sandbox-dropdown-detail-value sandbox-dropdown-detail-value--mono';
+      nameValue.textContent = s.instanceName;
+      nameRow.appendChild(nameValue);
+
+      detailsContainer.appendChild(nameRow);
+    }
+  }
+
+  updateDetailRows(status);
+
+  // Divider
+  const divider2 = document.createElement('div');
+  divider2.className = 'sandbox-dropdown-divider';
+  dropdown.appendChild(divider2);
+
+  // Setup hook row
+  const hookRow = document.createElement('div');
+  hookRow.className = 'sandbox-dropdown-hook-row';
+
+  const hookLabel = document.createElement('span');
+  hookLabel.className = 'sandbox-dropdown-detail-label';
+  hookLabel.textContent = 'Setup';
+  hookRow.appendChild(hookLabel);
+
+  const hookRight = document.createElement('div');
+  hookRight.className = 'sandbox-dropdown-hook-right';
+
   if (setupHook?.command) {
-    const truncated = setupHook.command.length > 24
+    const commandEl = document.createElement('span');
+    commandEl.className = 'sandbox-dropdown-hook-command';
+    commandEl.textContent = setupHook.command.length > 24
       ? setupHook.command.substring(0, 21) + '...'
       : setupHook.command;
-    setupHtml = `
-      <div class="sandbox-tooltip-hook-row" title="${setupHook.command.replace(/"/g, '&quot;')}">
-        <span class="sandbox-tooltip-hook-label">Setup</span>
-        <span class="sandbox-tooltip-hook-command">${truncated.replace(/</g, '&lt;')}</span>
-      </div>`;
-  } else {
-    setupHtml = `
-      <div class="sandbox-tooltip-hook-row">
-        <span class="sandbox-tooltip-hook-label">Setup</span>
-        <span class="sandbox-tooltip-hook-configure">+ Configure</span>
-      </div>`;
-  }
+    commandEl.title = setupHook.command;
+    hookRight.appendChild(commandEl);
 
-  tooltip.innerHTML = `
-    <div class="sandbox-tooltip-header">Lima Sandbox</div>
-    <div class="sandbox-tooltip-status">
-      <span class="sandbox-tooltip-dot ${dotClass}"></span>
-      <span class="sandbox-tooltip-status-text">${enabledText}</span>
-    </div>
-    <div class="sandbox-tooltip-detail">
-      <span class="sandbox-tooltip-label">VM</span>
-      <span class="sandbox-tooltip-value">${vmText}</span>
-    </div>
-    ${instanceHtml}
-    ${setupHtml}
-    <div class="sandbox-tooltip-hint">${hintText}</div>
-  `;
-
-  const setupRow = tooltip.querySelector('.sandbox-tooltip-hook-row') as HTMLElement;
-  if (setupRow) {
-    setupRow.addEventListener('click', async (e) => {
+    const editBtn = document.createElement('button');
+    editBtn.className = 'sandbox-dropdown-hook-edit';
+    editBtn.innerHTML = '<i data-lucide="pencil"></i>';
+    editBtn.title = 'Edit setup hook';
+    editBtn.addEventListener('click', async (e) => {
       e.stopPropagation();
-      tooltip.classList.remove('sandbox-tooltip--visible');
+      hideSandboxDropdown();
       const { showHookConfigDialog } = await import('../hookConfigDialog');
-      await showHookConfigDialog(projectPath, 'sandbox-setup', setupHook);
+      await showHookConfigDialog(path, 'sandbox-setup', setupHook);
     });
+    hookRight.appendChild(editBtn);
+  } else {
+    const configureBtn = document.createElement('button');
+    configureBtn.className = 'sandbox-dropdown-hook-configure';
+    configureBtn.textContent = '+ Configure';
+    configureBtn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      hideSandboxDropdown();
+      const { showHookConfigDialog } = await import('../hookConfigDialog');
+      await showHookConfigDialog(path, 'sandbox-setup', undefined);
+    });
+    hookRight.appendChild(configureBtn);
   }
+
+  hookRow.appendChild(hookRight);
+  dropdown.appendChild(hookRow);
+
+  // Hint
+  const hint = document.createElement('div');
+  hint.className = 'sandbox-dropdown-hint';
+  hint.textContent = 'Runs once after VM creation';
+  dropdown.appendChild(hint);
+
+  // Render lucide icons in the dropdown
+  const { createIcons, icons } = await import('lucide');
+  createIcons({ icons, nameAttr: 'data-lucide' });
 }

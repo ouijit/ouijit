@@ -32,9 +32,11 @@ export function buildTheatreHeader(): string {
       <button class="theatre-terminal-btn" title="New terminal">
         <i data-lucide="terminal"></i>
       </button>
-      <button class="theatre-sandbox-btn" title="Sandbox" style="display: none;">
-        <i data-lucide="shield"></i>
-      </button>
+      <div class="theatre-sandbox-wrapper" style="display: none;">
+        <button class="theatre-sandbox-btn" title="Sandbox">
+          <i data-lucide="shield"></i>
+        </button>
+      </div>
       <div class="theatre-launch-wrapper">
         <button class="theatre-play-btn" title="Run script">
           <i data-lucide="play"></i>
