@@ -56,7 +56,8 @@ export {
   scheduleTerminalGitStatusRefresh,
   refreshTerminalGitStatus,
   refreshAllTerminalGitStatus,
-  buildCardGitStatusHtml,
+  buildCardGitBranchHtml,
+  buildCardGitStatsHtml,
 } from './gitStatus';
 
 // Diff panel

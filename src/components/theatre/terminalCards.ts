@@ -21,7 +21,7 @@ import {
 } from './signals';
 import { showToast } from '../importDialog';
 import { showHookConfigDialog } from '../hookConfigDialog';
-import { refreshTerminalGitStatus, buildCardGitStatusHtml, scheduleTerminalGitStatusRefresh } from './gitStatus';
+import { refreshTerminalGitStatus, buildCardGitBranchHtml, buildCardGitStatsHtml, scheduleTerminalGitStatusRefresh } from './gitStatus';
 import { toggleTerminalDiffPanel, hideTerminalDiffPanel } from './diffPanel';
 import { showShipItPanel } from './shipItPanel';
 
@@ -304,25 +304,30 @@ export function updateTerminalCardLabel(term: TheatreTerminal): void {
     labelText.textContent = display;
   }
 
-  // Update git status display
-  const gitWrapper = labelEl.querySelector('.theatre-card-git-wrapper') as HTMLElement;
-  if (gitWrapper) {
-    const gitHtml = buildCardGitStatusHtml(term.gitStatus);
+  // Update git branch display (second line under label)
+  const branchRow = labelEl.querySelector('.theatre-card-git-branch-row') as HTMLElement;
+  if (branchRow) {
+    const branchHtml = buildCardGitBranchHtml(term.gitStatus);
+    if (branchRow.dataset.lastHtml !== branchHtml) {
+      branchRow.dataset.lastHtml = branchHtml;
+      branchRow.innerHTML = branchHtml;
+    }
+  }
 
-    // Only update DOM if content actually changed (avoids destroying event listeners)
-    if (gitWrapper.dataset.lastHtml !== gitHtml) {
-      gitWrapper.dataset.lastHtml = gitHtml;
-      gitWrapper.innerHTML = gitHtml;
+  // Update git stats display (in label-right)
+  const statsWrapper = labelEl.querySelector('.theatre-card-git-stats-wrapper') as HTMLElement;
+  if (statsWrapper) {
+    const statsHtml = buildCardGitStatsHtml(term.gitStatus);
+    if (statsWrapper.dataset.lastHtml !== statsHtml) {
+      statsWrapper.dataset.lastHtml = statsHtml;
+      statsWrapper.innerHTML = statsHtml;
 
-      // Wire up click handler for stats (only if clickable)
-      if (gitHtml) {
-        const statsEl = gitWrapper.querySelector('.theatre-card-git-stats--clickable') as HTMLElement;
-        if (statsEl) {
-          statsEl.addEventListener('click', (e) => {
-            e.stopPropagation();
-            toggleTerminalDiffPanel(term);
-          });
-        }
+      const statsEl = statsWrapper.querySelector('.theatre-card-git-stats--clickable') as HTMLElement;
+      if (statsEl) {
+        statsEl.addEventListener('click', (e) => {
+          e.stopPropagation();
+          toggleTerminalDiffPanel(term);
+        });
       }
     }
   }
@@ -360,12 +365,15 @@ export function createTheatreCard(label: string, index: number): HTMLElement {
 
   labelEl.innerHTML = `
     <div class="theatre-card-label-left">
-      <span class="theatre-card-status-dot" data-status="idle"></span>
-      <kbd class="theatre-card-shortcut" style="display: none;"></kbd>
-      <span class="theatre-card-label-text">${label}</span>
+      <div class="theatre-card-label-top">
+        <span class="theatre-card-status-dot" data-status="idle"></span>
+        <kbd class="theatre-card-shortcut" style="display: none;"></kbd>
+        <span class="theatre-card-label-text">${label}</span>
+      </div>
+      <div class="theatre-card-git-branch-row"></div>
     </div>
     <div class="theatre-card-label-right">
-      <div class="theatre-card-git-wrapper"></div>
+      <div class="theatre-card-git-stats-wrapper"></div>
       <div class="runner-pill" style="display: none;">
         <button class="runner-pill-play" data-action="run" title="Run default command"><i data-lucide="play"></i></button>
         <div class="runner-pill-status">
@@ -410,8 +418,10 @@ export function createLoadingCard(label: string): HTMLElement {
 
   labelEl.innerHTML = `
     <div class="theatre-card-label-left">
-      <span class="theatre-card-status-dot theatre-card-status-dot--loading"></span>
-      <span class="theatre-card-label-text">${label || 'New task'}</span>
+      <div class="theatre-card-label-top">
+        <span class="theatre-card-status-dot theatre-card-status-dot--loading"></span>
+        <span class="theatre-card-label-text">${label || 'New task'}</span>
+      </div>
     </div>
     <div class="theatre-card-label-right"></div>
   `;
