@@ -23,21 +23,19 @@ interface WorktreePromptResult {
  * Returns the task name and optional prompt, or null if cancelled
  */
 async function showWorktreeNamePrompt(): Promise<WorktreePromptResult | null> {
-  // Check lima availability and project default
+  // Check lima availability
   const currentProjectPath = projectPath.value;
   let limaAvailable = false;
-  let limaEnabled = false;
   if (currentProjectPath) {
     try {
       const limaStatus = await window.api.lima.status(currentProjectPath);
       limaAvailable = limaStatus.available;
-      limaEnabled = limaStatus.enabled;
     } catch {
       // Lima not available
     }
   }
 
-  let sandboxState = limaEnabled;
+  let sandboxState = false;
 
   return new Promise((resolve) => {
     const overlay = document.createElement('div');
@@ -66,7 +64,7 @@ async function showWorktreeNamePrompt(): Promise<WorktreePromptResult | null> {
         ${limaAvailable ? `
         <div class="new-task-composer-footer">
           <div class="new-task-sandbox-toggle">
-            <div class="sandbox-toggle ${sandboxState ? 'sandbox-toggle--active' : ''}">
+            <div class="sandbox-toggle">
               <div class="sandbox-toggle-knob"></div>
             </div>
             <span class="new-task-sandbox-label">Sandbox</span>
@@ -277,7 +275,7 @@ export async function reopenTask(path: string, task: WorktreeWithMetadata): Prom
   const result = await window.api.worktree.reopen(path, task.branch);
   if (result.success) {
     invalidateTaskList();
-    // Open terminal for the task
+    // Open terminal for the task (without sandbox by default)
     await theatreRegistry.addTheatreTerminal?.(undefined, {
       existingWorktree: {
         path: task.path,
@@ -288,6 +286,7 @@ export async function reopenTask(path: string, task: WorktreeWithMetadata): Prom
         prompt: task.prompt,
         sandboxed: task.sandboxed,
       },
+      sandboxed: false,
     });
   } else {
     showToast(result.error || 'Failed to reopen task', 'error');

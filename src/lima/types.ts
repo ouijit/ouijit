@@ -23,14 +23,6 @@ export interface LimaConfig {
 
 export interface SandboxStatus {
   available: boolean;
-  enabled: boolean;
   vmStatus: 'Running' | 'Stopped' | 'NotCreated' | 'Unavailable';
   instanceName?: string;
-}
-
-export interface SandboxSettings {
-  enabled: boolean;
-  cpus?: number;
-  memoryGiB?: number;
-  networkMode?: 'vzNAT' | 'none';
 }

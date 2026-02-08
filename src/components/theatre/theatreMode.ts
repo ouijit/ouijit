@@ -952,7 +952,7 @@ function wireSandboxButton(wrapper: HTMLElement, path: string): void {
   // Check initial status — set active class before showing to avoid flicker
   window.api.lima.status(path).then((status) => {
     if (!status.available) return;
-    if (status.enabled) {
+    if (status.vmStatus === 'Running') {
       sandboxBtn.classList.add('theatre-sandbox-btn--active');
     }
     wrapper.style.display = 'flex';
@@ -1059,52 +1059,6 @@ async function buildSandboxDropdownContent(
   header.textContent = 'Lima Sandbox';
   dropdown.appendChild(header);
 
-  // Toggle row
-  const toggleRow = document.createElement('div');
-  toggleRow.className = 'sandbox-dropdown-toggle-row';
-
-  const toggle = document.createElement('div');
-  toggle.className = 'sandbox-toggle';
-  if (status.enabled) toggle.classList.add('sandbox-toggle--active');
-
-  const knob = document.createElement('div');
-  knob.className = 'sandbox-toggle-knob';
-  toggle.appendChild(knob);
-  toggleRow.appendChild(toggle);
-
-  const toggleLabel = document.createElement('span');
-  toggleLabel.className = 'sandbox-dropdown-toggle-label';
-  toggleLabel.textContent = status.enabled ? 'Enabled' : 'Disabled';
-  toggleRow.appendChild(toggleLabel);
-
-  dropdown.appendChild(toggleRow);
-
-  // Toggle click handler
-  toggleRow.addEventListener('click', async (e) => {
-    e.stopPropagation();
-    if (status.enabled) {
-      await window.api.lima.disable(path);
-      status.enabled = false;
-      toggle.classList.remove('sandbox-toggle--active');
-      toggleLabel.textContent = 'Disabled';
-      sandboxBtn?.classList.remove('theatre-sandbox-btn--active');
-    } else {
-      await window.api.lima.enable(path);
-      status.enabled = true;
-      toggle.classList.add('sandbox-toggle--active');
-      toggleLabel.textContent = 'Enabled';
-      sandboxBtn?.classList.add('theatre-sandbox-btn--active');
-    }
-    // Refresh VM status after toggle
-    const newStatus = await window.api.lima.status(path);
-    updateDetailRows(newStatus);
-  });
-
-  // Divider
-  const divider1 = document.createElement('div');
-  divider1.className = 'sandbox-dropdown-divider';
-  dropdown.appendChild(divider1);
-
   // Detail rows container
   const detailsContainer = document.createElement('div');
   detailsContainer.className = 'sandbox-dropdown-details';
@@ -1158,10 +1112,27 @@ async function buildSandboxDropdownContent(
 
   updateDetailRows(status);
 
+  // Stop VM button (only when running)
+  if (status.vmStatus === 'Running') {
+    const stopBtn = document.createElement('button');
+    stopBtn.className = 'sandbox-dropdown-stop-btn';
+    stopBtn.textContent = 'Stop VM';
+    stopBtn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      stopBtn.disabled = true;
+      stopBtn.textContent = 'Stopping...';
+      await window.api.lima.stop(path);
+      sandboxBtn?.classList.remove('theatre-sandbox-btn--active');
+      // Refresh dropdown content
+      await buildSandboxDropdownContent(dropdown, wrapper, path);
+    });
+    dropdown.appendChild(stopBtn);
+  }
+
   // Divider
-  const divider2 = document.createElement('div');
-  divider2.className = 'sandbox-dropdown-divider';
-  dropdown.appendChild(divider2);
+  const divider = document.createElement('div');
+  divider.className = 'sandbox-dropdown-divider';
+  dropdown.appendChild(divider);
 
   // Setup hook row
   const hookRow = document.createElement('div');

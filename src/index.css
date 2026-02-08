@@ -871,16 +871,34 @@ body.platform-darwin:not(.is-fullscreen) .theatre-header-content {
   @apply text-[11px] text-text-tertiary px-3 pt-2 pb-1 uppercase tracking-wide;
 }
 
-.sandbox-dropdown-toggle-row {
-  @apply flex items-center gap-2.5 px-3 py-2 transition-colors duration-100 ease-out;
+/* Task Context Menu (right-click "Open in Sandbox") */
+.task-context-menu {
+  @apply fixed z-[2000] min-w-[160px] bg-surface border border-border rounded-md shadow-lg overflow-hidden opacity-0;
+  transition: opacity 100ms ease;
 }
 
-.sandbox-dropdown-toggle-row:hover {
+.task-context-menu--visible {
+  @apply opacity-100;
+}
+
+.task-context-menu-item {
+  @apply w-full px-3 py-1.5 text-xs text-text-primary bg-transparent border-none text-left transition-colors duration-100 ease-out;
+}
+
+.task-context-menu-item:hover {
   @apply bg-background-tertiary;
 }
 
-.sandbox-dropdown-toggle-label {
-  @apply text-xs font-medium text-text-primary;
+.sandbox-dropdown-stop-btn {
+  @apply w-[calc(100%-24px)] mx-3 my-1.5 px-3 py-1.5 text-xs font-medium text-text-secondary bg-background-secondary border border-border rounded-md transition-all duration-150 ease-out;
+}
+
+.sandbox-dropdown-stop-btn:hover {
+  @apply bg-background-tertiary text-text-primary;
+}
+
+.sandbox-dropdown-stop-btn:disabled {
+  @apply opacity-50;
 }
 
 .sandbox-dropdown-divider {

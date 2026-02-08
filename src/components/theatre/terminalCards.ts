@@ -11,7 +11,7 @@ import {
   MAX_THEATRE_TERMINALS,
   theatreState,
 } from './state';
-import { getTerminalGitPath, hideRunnerPanel, theatreRegistry } from './helpers';
+import { getTerminalGitPath, hideRunnerPanel, theatreRegistry, showTaskContextMenu } from './helpers';
 import {
   projectPath,
   projectData,
@@ -1110,6 +1110,7 @@ export async function selectByStackPosition(position: number): Promise<void> {
         prompt: task.prompt,
         sandboxed: task.sandboxed,
       },
+      sandboxed: false,
     });
   }
 }
@@ -1295,14 +1296,10 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
     }
   }
 
-  // Check if sandbox is enabled for this project
+  // Check if sandbox should be used (purely per-task)
   const limaStatus = await window.api.lima.status(currentProjectPath);
-  let useSandbox = limaStatus.available && limaStatus.enabled;
-  // Per-task override (only for worktree terminals)
   const taskSandboxed = options?.sandboxed ?? options?.existingWorktree?.sandboxed;
-  if (limaStatus.available && taskSandboxed !== undefined) {
-    useSandbox = taskSandboxed;
-  }
+  const useSandbox = limaStatus.available && taskSandboxed === true;
 
   // Spawn PTY
   const spawnOptions: PtySpawnOptions = {
@@ -1525,7 +1522,7 @@ export function closeTheatreTerminal(index: number): void {
 /**
  * Build HTML for the empty state shown when no terminals are open
  */
-export function buildEmptyStateHtml(limaAvailable: boolean, limaEnabled: boolean): string {
+export function buildEmptyStateHtml(limaAvailable: boolean): string {
   return `
     <div class="theatre-stack-empty">
       <div class="theatre-stack-empty-open" style="display: none;">
@@ -1552,7 +1549,7 @@ export function buildEmptyStateHtml(limaAvailable: boolean, limaEnabled: boolean
             ${limaAvailable ? `
             <div class="new-task-composer-footer">
               <div class="new-task-sandbox-toggle">
-                <div class="sandbox-toggle ${limaEnabled ? 'sandbox-toggle--active' : ''}">
+                <div class="sandbox-toggle">
                   <div class="sandbox-toggle-knob"></div>
                 </div>
                 <span class="new-task-sandbox-label">Sandbox</span>
@@ -1590,6 +1587,13 @@ async function populatePreviousTasks(emptyState: HTMLElement): Promise<void> {
   const tasks = await window.api.worktree.getTasks(path);
   const openTasks = tasks.filter(t => t.status === 'open');
 
+  // Check lima availability for context menu
+  let limaAvailable = false;
+  try {
+    const limaStatus = await window.api.lima.status(path);
+    limaAvailable = limaStatus.available;
+  } catch { /* Lima not available */ }
+
   // Populate open tasks
   if (openTasks.length > 0) {
     openSection.style.display = 'block';
@@ -1614,19 +1618,36 @@ async function populatePreviousTasks(emptyState: HTMLElement): Promise<void> {
       nameSpan.textContent = task.name;
       taskBtn.appendChild(nameSpan);
 
+      const worktreeOpts = {
+        path: task.path,
+        branch: task.branch,
+        taskName: task.name,
+        createdAt: task.createdAt,
+        readyToShip: task.readyToShip,
+        prompt: task.prompt,
+        sandboxed: task.sandboxed,
+      };
+
+      // Normal click: open without sandbox
       taskBtn.addEventListener('click', async () => {
         await addTheatreTerminal(undefined, {
-          existingWorktree: {
-            path: task.path,
-            branch: task.branch,
-            taskName: task.name,
-            createdAt: task.createdAt,
-            readyToShip: task.readyToShip,
-            prompt: task.prompt,
-            sandboxed: task.sandboxed,
-          },
+          existingWorktree: worktreeOpts,
+          sandboxed: false,
         });
       });
+
+      // Right-click: offer "Open in Sandbox" (only if lima available)
+      if (limaAvailable) {
+        taskBtn.addEventListener('contextmenu', (e) => {
+          showTaskContextMenu(e, async () => {
+            await addTheatreTerminal(undefined, {
+              existingWorktree: worktreeOpts,
+              sandboxed: true,
+            });
+          });
+        });
+      }
+
       openList.appendChild(taskBtn);
     });
   } else {
@@ -1657,21 +1678,19 @@ export async function showStackEmptyState(): Promise<void> {
   // Check lima availability for sandbox toggle
   const currentProjectPath = projectPath.value;
   let limaAvailable = false;
-  let limaEnabled = false;
   if (currentProjectPath) {
     try {
       const limaStatus = await window.api.lima.status(currentProjectPath);
       limaAvailable = limaStatus.available;
-      limaEnabled = limaStatus.enabled;
     } catch {
       // Lima not available
     }
   }
 
-  let sandboxState = limaEnabled;
+  let sandboxState = false;
 
   // Create and insert empty state
-  stack.insertAdjacentHTML('beforeend', buildEmptyStateHtml(limaAvailable, limaEnabled));
+  stack.insertAdjacentHTML('beforeend', buildEmptyStateHtml(limaAvailable));
   emptyState = stack.querySelector('.theatre-stack-empty') as HTMLElement;
 
   // Wire up form submission
