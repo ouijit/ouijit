@@ -58,7 +58,7 @@ export function showTaskContextMenu(event: MouseEvent, onSandbox: () => void): v
 
   const item = document.createElement('button');
   item.className = 'task-context-menu-item';
-  item.textContent = 'Open in Sandbox';
+  item.innerHTML = '<i data-lucide="box"></i> Open in Sandbox';
   item.addEventListener('click', (e) => {
     e.stopPropagation();
     menu.remove();
@@ -67,6 +67,11 @@ export function showTaskContextMenu(event: MouseEvent, onSandbox: () => void): v
   menu.appendChild(item);
 
   document.body.appendChild(menu);
+
+  // Render lucide icons
+  import('lucide').then(({ createIcons, icons }) => {
+    createIcons({ icons, nameAttr: 'data-lucide', attrs: {}, nodes: [menu] });
+  });
 
   // Position at mouse, keeping within viewport
   const x = Math.min(event.clientX, window.innerWidth - 180);
