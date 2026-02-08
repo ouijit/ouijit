@@ -88,5 +88,8 @@ typings/
 # Vite
 .vite/
 
+# Bundled binaries (downloaded during build)
+resources/bin/limactl
+
 # Electron-Forge
 out/

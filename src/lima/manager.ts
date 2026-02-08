@@ -2,16 +2,36 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import * as path from 'node:path';
 import * as fs from 'node:fs/promises';
+import * as fsSync from 'node:fs';
 import * as os from 'node:os';
+import { app } from 'electron';
 import type { LimaInstance } from './types';
 import { generateLimaYaml, buildLimaConfig } from './config';
 
 const execFileAsync = promisify(execFile);
 
+/** Get the path to the bundled limactl binary */
+export function getLimactlPath(): string {
+  const bundled = path.join(process.resourcesPath ?? '', 'bin', 'limactl');
+  try {
+    fsSync.accessSync(bundled, fsSync.constants.X_OK);
+    return bundled;
+  } catch {
+    return 'limactl';
+  }
+}
+
+/** Get env with LIMA_HOME set to Ouijit-specific directory */
+export function getLimaEnv(): Record<string, string> {
+  const limaHome = path.join(app.getPath('userData'), 'lima');
+  return { ...process.env, LIMA_HOME: limaHome } as Record<string, string>;
+}
+
 /**
- * Check if limactl binary is available on PATH
+ * Check if limactl is available (bundled binary or system PATH)
  */
 export async function isLimaInstalled(): Promise<boolean> {
+  if (getLimactlPath() !== 'limactl') return true;
   try {
     await execFileAsync('which', ['limactl']);
     return true;
@@ -35,7 +55,7 @@ export function getInstanceName(projectPath: string): string {
  */
 export async function getInstance(name: string): Promise<LimaInstance> {
   try {
-    const { stdout } = await execFileAsync('limactl', ['list', '--json']);
+    const { stdout } = await execFileAsync(getLimactlPath(), ['list', '--json'], { env: getLimaEnv() });
     // limactl list --json outputs one JSON object per line
     const lines = stdout.trim().split('\n').filter(Boolean);
     for (const line of lines) {
@@ -77,8 +97,8 @@ export async function createInstance(
   await fs.writeFile(yamlPath, yaml, 'utf-8');
 
   try {
-    await execFileAsync('limactl', ['create', '--name', instanceName, yamlPath], {
-      timeout: 300_000, // 5 minutes for image download + setup
+    await execFileAsync(getLimactlPath(), ['create', '--name', instanceName, yamlPath], {
+      timeout: 300_000, env: getLimaEnv(),
     });
     return { success: true };
   } catch (error) {
@@ -99,8 +119,8 @@ export async function createInstance(
  */
 export async function startInstance(name: string): Promise<{ success: boolean; error?: string }> {
   try {
-    await execFileAsync('limactl', ['start', name], {
-      timeout: 120_000,
+    await execFileAsync(getLimactlPath(), ['start', name], {
+      timeout: 120_000, env: getLimaEnv(),
     });
     return { success: true };
   } catch (error) {
@@ -114,8 +134,8 @@ export async function startInstance(name: string): Promise<{ success: boolean; e
  */
 export async function stopInstance(name: string): Promise<{ success: boolean; error?: string }> {
   try {
-    await execFileAsync('limactl', ['stop', name], {
-      timeout: 30_000,
+    await execFileAsync(getLimactlPath(), ['stop', name], {
+      timeout: 30_000, env: getLimaEnv(),
     });
     return { success: true };
   } catch (error) {
@@ -129,8 +149,8 @@ export async function stopInstance(name: string): Promise<{ success: boolean; er
  */
 export async function deleteInstance(name: string): Promise<{ success: boolean; error?: string }> {
   try {
-    await execFileAsync('limactl', ['delete', '--force', name], {
-      timeout: 30_000,
+    await execFileAsync(getLimactlPath(), ['delete', '--force', name], {
+      timeout: 30_000, env: getLimaEnv(),
     });
     return { success: true };
   } catch (error) {
@@ -146,8 +166,8 @@ export async function deleteInstance(name: string): Promise<{ success: boolean; 
 async function waitForSsh(instanceName: string, maxRetries = 5): Promise<boolean> {
   for (let i = 0; i < maxRetries; i++) {
     try {
-      await execFileAsync('limactl', ['shell', instanceName, '--', 'echo', 'ok'], {
-        timeout: 10_000,
+      await execFileAsync(getLimactlPath(), ['shell', instanceName, '--', 'echo', 'ok'], {
+        timeout: 10_000, env: getLimaEnv(),
       });
       return true;
     } catch {

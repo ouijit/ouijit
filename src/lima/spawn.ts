@@ -2,7 +2,7 @@ import * as pty from 'node-pty';
 import { BrowserWindow } from 'electron';
 import type { PtySpawnOptions, PtySpawnResult, PtyId } from '../types';
 import { generateId } from '../utils/ids';
-import { ensureRunning } from './manager';
+import { ensureRunning, getLimactlPath, getLimaEnv } from './manager';
 
 interface ManagedSandboxPty {
   process: pty.IPty;
@@ -132,12 +132,12 @@ export async function spawnSandboxedPty(
 
     const ptyId = generateId('pty-sandbox');
 
-    const ptyProcess = pty.spawn('limactl', limactlArgs, {
+    const ptyProcess = pty.spawn(getLimactlPath(), limactlArgs, {
       name: 'xterm-256color',
       cols: options.cols || 80,
       rows: options.rows || 24,
       cwd: options.cwd,
-      env: finalEnv,
+      env: { ...finalEnv, LIMA_HOME: getLimaEnv().LIMA_HOME },
     });
 
     const label = options.label || options.command || 'Sandbox Shell';
