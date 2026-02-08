@@ -66,6 +66,7 @@ export async function getInstance(name: string): Promise<LimaInstance> {
           status: obj.status || 'Stopped',
           cpus: obj.cpus || 0,
           memory: obj.memory || 0,
+          disk: obj.disk || 0,
           mounts: (obj.config?.mounts || []).map((m: { location: string; mountPoint: string; writable?: boolean }) => ({
             hostPath: m.location,
             guestPath: m.mountPoint,
@@ -77,7 +78,7 @@ export async function getInstance(name: string): Promise<LimaInstance> {
   } catch {
     // limactl not available or failed
   }
-  return { name, status: 'NotFound', cpus: 0, memory: 0, mounts: [] };
+  return { name, status: 'NotFound', cpus: 0, memory: 0, disk: 0, mounts: [] };
 }
 
 /**
@@ -85,7 +86,7 @@ export async function getInstance(name: string): Promise<LimaInstance> {
  */
 export async function createInstance(
   projectPath: string,
-  overrides?: { cpus?: number; memoryGiB?: number; networkMode?: 'vzNAT' | 'none' }
+  overrides?: { cpus?: number; memoryGiB?: number; diskGiB?: number; networkMode?: 'vzNAT' | 'none' }
 ): Promise<{ success: boolean; error?: string }> {
   const instanceName = getInstanceName(projectPath);
   const config = buildLimaConfig(instanceName, projectPath, overrides);
@@ -184,7 +185,7 @@ async function waitForSsh(instanceName: string, maxRetries = 5): Promise<boolean
  */
 export async function ensureRunning(
   projectPath: string,
-  overrides?: { cpus?: number; memoryGiB?: number; networkMode?: 'vzNAT' | 'none' },
+  overrides?: { cpus?: number; memoryGiB?: number; diskGiB?: number; networkMode?: 'vzNAT' | 'none' },
   onProgress?: (message: string) => void,
 ): Promise<{ success: boolean; instanceName: string; error?: string }> {
   const progress = onProgress ?? (() => {});

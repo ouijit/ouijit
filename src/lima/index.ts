@@ -1,7 +1,8 @@
 import { ipcMain, BrowserWindow } from 'electron';
 import type { SandboxStatus } from './types';
-import { isLimaInstalled, getInstance, getInstanceName, stopInstance, stopAllInstances } from './manager';
+import { isLimaInstalled, getInstance, getInstanceName, stopInstance, deleteInstance, startInstance, createInstance, stopAllInstances } from './manager';
 import { spawnSandboxedPty, cleanupSandboxPtys } from './spawn';
+import { getSandboxConfig, setSandboxConfig } from '../projectSettings';
 
 export { spawnSandboxedPty, isSandboxPty, writeSandboxPty, resizeSandboxPty, killSandboxPty } from './spawn';
 
@@ -34,7 +35,12 @@ export function registerLimaHandlers(mainWindow: BrowserWindow): void {
         break;
     }
 
-    return { available: true, vmStatus, instanceName };
+    return {
+      available: true,
+      vmStatus,
+      instanceName,
+      ...(vmStatus !== 'NotCreated' && { memory: instance.memory, disk: instance.disk }),
+    };
   });
 
   ipcMain.handle('lima:stop', async (_event, projectPath: string): Promise<{ success: boolean; error?: string }> => {
@@ -44,6 +50,65 @@ export function registerLimaHandlers(mainWindow: BrowserWindow): void {
       return stopInstance(instanceName);
     }
     return { success: true };
+  });
+
+  ipcMain.handle('lima:get-config', async (_event, projectPath: string): Promise<{ memoryGiB: number; diskGiB: number }> => {
+    return getSandboxConfig(projectPath);
+  });
+
+  ipcMain.handle('lima:set-config', async (_event, projectPath: string, config: { memoryGiB?: number; diskGiB?: number }): Promise<{ success: boolean }> => {
+    return setSandboxConfig(projectPath, config);
+  });
+
+  ipcMain.handle('lima:recreate', async (_event, projectPath: string): Promise<{ success: boolean; error?: string }> => {
+    const instanceName = getInstanceName(projectPath);
+    const sendProgress = (msg: string) => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('lima:spawn-progress', msg);
+      }
+    };
+
+    try {
+      // Stop if running
+      const instance = await getInstance(instanceName);
+      if (instance.status === 'Running') {
+        sendProgress('Stopping VM…');
+        const stopResult = await stopInstance(instanceName);
+        if (!stopResult.success) {
+          return { success: false, error: stopResult.error };
+        }
+      }
+
+      // Delete if exists
+      if (instance.status !== 'NotFound') {
+        sendProgress('Deleting VM…');
+        const deleteResult = await deleteInstance(instanceName);
+        if (!deleteResult.success) {
+          return { success: false, error: deleteResult.error };
+        }
+      }
+
+      // Create with current project settings
+      const config = await getSandboxConfig(projectPath);
+      sendProgress('Creating sandbox VM (this may take a few minutes)…');
+      const createResult = await createInstance(projectPath, { memoryGiB: config.memoryGiB, diskGiB: config.diskGiB });
+      if (!createResult.success) {
+        return { success: false, error: createResult.error };
+      }
+
+      // Start
+      sendProgress('Starting sandbox VM…');
+      const startResult = await startInstance(instanceName);
+      if (!startResult.success) {
+        return { success: false, error: startResult.error };
+      }
+
+      sendProgress('VM recreated successfully');
+      return { success: true };
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Unknown error';
+      return { success: false, error: msg };
+    }
   });
 }
 

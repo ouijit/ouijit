@@ -26,6 +26,7 @@ arch: default
 
 cpus: ${config.cpus}
 memory: ${config.memoryGiB}GiB
+disk: ${config.diskGiB}GiB
 
 images:
   - location: "https://cloud-images.ubuntu.com/releases/24.04/release/ubuntu-24.04-server-cloudimg-arm64.img"
@@ -87,12 +88,13 @@ export function buildProjectMounts(projectPath: string): LimaMount[] {
 export function buildLimaConfig(
   instanceName: string,
   projectPath: string,
-  overrides?: { cpus?: number; memoryGiB?: number; networkMode?: 'vzNAT' | 'none' }
+  overrides?: { cpus?: number; memoryGiB?: number; diskGiB?: number; networkMode?: 'vzNAT' | 'none' }
 ): LimaConfig {
   return {
     name: instanceName,
     cpus: overrides?.cpus ?? 2,
     memoryGiB: overrides?.memoryGiB ?? 4,
+    diskGiB: overrides?.diskGiB ?? 100,
     mounts: buildProjectMounts(projectPath),
     provisionScript: defaultProvisionPackages(),
     networkMode: overrides?.networkMode ?? 'vzNAT',

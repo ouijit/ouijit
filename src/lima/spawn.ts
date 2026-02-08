@@ -3,6 +3,7 @@ import { BrowserWindow } from 'electron';
 import type { PtySpawnOptions, PtySpawnResult, PtyId } from '../types';
 import { generateId } from '../utils/ids';
 import { ensureRunning, getLimactlPath, getLimaEnv } from './manager';
+import { getSandboxConfig } from '../projectSettings';
 
 interface ManagedSandboxPty {
   process: pty.IPty;
@@ -58,8 +59,11 @@ export async function spawnSandboxedPty(
     currentWindow = window;
     const projectPath = options.projectPath || options.cwd;
 
+    // Load per-project sandbox config for VM resource overrides
+    const sandboxConfig = await getSandboxConfig(projectPath);
+
     // Ensure VM is running, forwarding progress to the renderer
-    const vmResult = await ensureRunning(projectPath, undefined, (msg) => {
+    const vmResult = await ensureRunning(projectPath, { memoryGiB: sandboxConfig.memoryGiB, diskGiB: sandboxConfig.diskGiB }, (msg) => {
       if (window && !window.isDestroyed()) {
         window.webContents.send('lima:spawn-progress', msg);
       }

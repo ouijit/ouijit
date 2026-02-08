@@ -252,10 +252,16 @@ contextBridge.exposeInMainWorld('api', {
    * Lima sandbox API
    */
   lima: {
-    status: (projectPath: string): Promise<{ available: boolean; vmStatus: string; instanceName?: string }> =>
+    status: (projectPath: string): Promise<{ available: boolean; vmStatus: string; instanceName?: string; memory?: number; disk?: number }> =>
       ipcRenderer.invoke('lima:status', projectPath),
     stop: (projectPath: string): Promise<{ success: boolean; error?: string }> =>
       ipcRenderer.invoke('lima:stop', projectPath),
+    getConfig: (projectPath: string): Promise<{ memoryGiB: number; diskGiB: number }> =>
+      ipcRenderer.invoke('lima:get-config', projectPath),
+    setConfig: (projectPath: string, config: { memoryGiB?: number; diskGiB?: number }): Promise<{ success: boolean }> =>
+      ipcRenderer.invoke('lima:set-config', projectPath, config),
+    recreate: (projectPath: string): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke('lima:recreate', projectPath),
     onSpawnProgress: (callback: (message: string) => void): (() => void) => {
       const handler = (_event: Electron.IpcRendererEvent, message: string) => callback(message);
       ipcRenderer.on('lima:spawn-progress', handler);

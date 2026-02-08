@@ -969,6 +969,24 @@ body.platform-darwin:not(.is-fullscreen) .theatre-header-content {
   @apply text-[11px] text-text-tertiary leading-snug px-3 pb-2.5 pt-0.5;
 }
 
+.sandbox-dropdown-select {
+  @apply text-xs text-text-primary bg-background-secondary border border-border rounded px-1.5 py-0.5 outline-none transition-colors duration-150 ease-out;
+  -webkit-appearance: none;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg width='8' height='5' viewBox='0 0 8 5' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L4 4L7 1' stroke='%2398989D' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 4px center;
+  padding-right: 16px;
+}
+
+.sandbox-dropdown-select:hover {
+  @apply border-border-hover bg-background-tertiary;
+}
+
+.sandbox-dropdown-select:focus {
+  @apply border-accent;
+}
+
 /* Sandbox Toggle Switch */
 .sandbox-toggle {
   position: relative;

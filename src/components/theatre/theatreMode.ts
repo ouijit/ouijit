@@ -1045,9 +1045,10 @@ async function buildSandboxDropdownContent(
 ): Promise<void> {
   dropdown.innerHTML = '';
 
-  const [status, hooks] = await Promise.all([
+  const [status, hooks, config] = await Promise.all([
     window.api.lima.status(path),
     window.api.hooks.get(path),
+    window.api.lima.getConfig(path),
   ]);
 
   const sandboxBtn = wrapper.querySelector('.theatre-sandbox-btn') as HTMLElement;
@@ -1071,7 +1072,28 @@ async function buildSandboxDropdownContent(
     'Unavailable': 'Unavailable',
   };
 
-  function updateDetailRows(s: { vmStatus: string; instanceName?: string }) {
+  function formatBytes(bytes: number): string {
+    if (bytes === 0) return '0 B';
+    const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(1024));
+    const value = bytes / Math.pow(1024, i);
+    return `${Math.round(value * 10) / 10} ${units[i]}`;
+  }
+
+  function createSelect(options: number[], selected: number, suffix: string): HTMLSelectElement {
+    const select = document.createElement('select');
+    select.className = 'sandbox-dropdown-select';
+    for (const val of options) {
+      const opt = document.createElement('option');
+      opt.value = String(val);
+      opt.textContent = `${val} ${suffix}`;
+      if (val === selected) opt.selected = true;
+      select.appendChild(opt);
+    }
+    return select;
+  }
+
+  function updateDetailRows(s: { vmStatus: string; instanceName?: string; memory?: number; disk?: number }) {
     detailsContainer.innerHTML = '';
 
     // VM row
@@ -1108,9 +1130,48 @@ async function buildSandboxDropdownContent(
 
       detailsContainer.appendChild(nameRow);
     }
+
+    // Memory select row
+    const memRow = document.createElement('div');
+    memRow.className = 'sandbox-dropdown-detail-row';
+    const memLabel = document.createElement('span');
+    memLabel.className = 'sandbox-dropdown-detail-label';
+    memLabel.textContent = 'Memory';
+    memRow.appendChild(memLabel);
+
+    const memSelect = createSelect([2, 4, 8, 16], config.memoryGiB, 'GiB');
+    memSelect.addEventListener('change', (e) => {
+      e.stopPropagation();
+      const val = Number((e.target as HTMLSelectElement).value);
+      config.memoryGiB = val;
+      window.api.lima.setConfig(path, { memoryGiB: val });
+    });
+    memRow.appendChild(memSelect);
+    detailsContainer.appendChild(memRow);
+
+    // Disk select row
+    const diskRow = document.createElement('div');
+    diskRow.className = 'sandbox-dropdown-detail-row';
+    const diskLabel = document.createElement('span');
+    diskLabel.className = 'sandbox-dropdown-detail-label';
+    diskLabel.textContent = 'Disk';
+    diskRow.appendChild(diskLabel);
+
+    const diskSelect = createSelect([20, 50, 100, 200], config.diskGiB, 'GiB');
+    diskSelect.addEventListener('change', (e) => {
+      e.stopPropagation();
+      const val = Number((e.target as HTMLSelectElement).value);
+      config.diskGiB = val;
+      window.api.lima.setConfig(path, { diskGiB: val });
+    });
+    diskRow.appendChild(diskSelect);
+    detailsContainer.appendChild(diskRow);
   }
 
   updateDetailRows(status);
+
+  // Action buttons container
+  const vmExists = status.vmStatus === 'Running' || status.vmStatus === 'Stopped';
 
   // Stop VM button (only when running)
   if (status.vmStatus === 'Running') {
@@ -1123,10 +1184,31 @@ async function buildSandboxDropdownContent(
       stopBtn.textContent = 'Stopping...';
       await window.api.lima.stop(path);
       sandboxBtn?.classList.remove('theatre-sandbox-btn--active');
-      // Refresh dropdown content
       await buildSandboxDropdownContent(dropdown, wrapper, path);
     });
     dropdown.appendChild(stopBtn);
+  }
+
+  // Recreate VM button (when VM exists)
+  if (vmExists) {
+    const recreateBtn = document.createElement('button');
+    recreateBtn.className = 'sandbox-dropdown-stop-btn';
+    recreateBtn.textContent = 'Recreate VM';
+    recreateBtn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      recreateBtn.disabled = true;
+      recreateBtn.textContent = 'Recreating...';
+      const result = await window.api.lima.recreate(path);
+      if (!result.success) {
+        recreateBtn.textContent = result.error || 'Failed';
+        setTimeout(() => {
+          buildSandboxDropdownContent(dropdown, wrapper, path);
+        }, 2000);
+        return;
+      }
+      await buildSandboxDropdownContent(dropdown, wrapper, path);
+    });
+    dropdown.appendChild(recreateBtn);
   }
 
   // Divider

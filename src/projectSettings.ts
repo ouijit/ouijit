@@ -127,6 +127,43 @@ export async function deleteHook(
 }
 
 /**
+ * Get sandbox resource config for a project (with defaults)
+ */
+export async function getSandboxConfig(
+  projectPath: string
+): Promise<{ memoryGiB: number; diskGiB: number }> {
+  const settings = await getProjectSettings(projectPath);
+  return {
+    memoryGiB: settings.sandbox?.memoryGiB ?? 4,
+    diskGiB: settings.sandbox?.diskGiB ?? 100,
+  };
+}
+
+/**
+ * Set sandbox resource config for a project
+ */
+export async function setSandboxConfig(
+  projectPath: string,
+  config: { memoryGiB?: number; diskGiB?: number }
+): Promise<{ success: boolean }> {
+  try {
+    const settings = await loadSettings();
+    const projectSettings = settings[projectPath] || { customCommands: [], hooks: {} };
+
+    projectSettings.sandbox = {
+      ...projectSettings.sandbox,
+      ...config,
+    };
+    settings[projectPath] = projectSettings;
+    await saveSettings(settings);
+    return { success: true };
+  } catch (error) {
+    console.error('Failed to set sandbox config:', error);
+    return { success: false };
+  }
+}
+
+/**
  * Set whether to kill existing command instances on run
  */
 export async function setKillExistingOnRun(

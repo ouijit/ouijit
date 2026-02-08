@@ -75,6 +75,8 @@ export interface ProjectSettings {
   };
   /** If true, kill existing instances of a command before starting a new one (default: true) */
   killExistingOnRun?: boolean;
+  /** Sandbox VM resource configuration */
+  sandbox?: { memoryGiB?: number; diskGiB?: number };
 }
 
 /**
@@ -361,8 +363,11 @@ export interface ElectronAPI {
  * Lima sandbox API exposed to the renderer
  */
 export interface LimaAPI {
-  status(projectPath: string): Promise<{ available: boolean; vmStatus: string; instanceName?: string }>;
+  status(projectPath: string): Promise<{ available: boolean; vmStatus: string; instanceName?: string; memory?: number; disk?: number }>;
   stop(projectPath: string): Promise<{ success: boolean; error?: string }>;
+  getConfig(projectPath: string): Promise<{ memoryGiB: number; diskGiB: number }>;
+  setConfig(projectPath: string, config: { memoryGiB?: number; diskGiB?: number }): Promise<{ success: boolean }>;
+  recreate(projectPath: string): Promise<{ success: boolean; error?: string }>;
   onSpawnProgress(callback: (message: string) => void): () => void;
 }
 
