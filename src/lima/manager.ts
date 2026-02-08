@@ -1,4 +1,4 @@
-import { execFile } from 'node:child_process';
+import { execFile, execFileSync } from 'node:child_process';
 import { promisify } from 'node:util';
 import * as path from 'node:path';
 import * as fs from 'node:fs/promises';
@@ -237,4 +237,30 @@ export async function ensureRunning(
     return { success: false, instanceName, error: startResult.error };
   }
   return { success: true, instanceName };
+}
+
+/**
+ * Stop all running ouijit-* instances. Synchronous — safe to call during app quit.
+ */
+export function stopAllInstances(): void {
+  const limactl = getLimactlPath();
+  const env = getLimaEnv();
+
+  try {
+    const stdout = execFileSync(limactl, ['list', '--json'], { env, timeout: 5_000, encoding: 'utf-8' });
+    const lines = stdout.trim().split('\n').filter(Boolean);
+    for (const line of lines) {
+      try {
+        const obj = JSON.parse(line);
+        if (obj.name?.startsWith('ouijit-') && obj.status === 'Running') {
+          console.log(`Stopping Lima VM: ${obj.name}`);
+          execFileSync(limactl, ['stop', '--force', obj.name], { env, timeout: 15_000 });
+        }
+      } catch {
+        // Best-effort per instance
+      }
+    }
+  } catch {
+    // limactl not available or no instances — nothing to do
+  }
 }

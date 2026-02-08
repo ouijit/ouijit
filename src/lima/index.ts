@@ -2,7 +2,7 @@ import { ipcMain, app, BrowserWindow } from 'electron';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import type { SandboxSettings, SandboxStatus } from './types';
-import { isLimaInstalled, getInstance, getInstanceName, stopInstance } from './manager';
+import { isLimaInstalled, getInstance, getInstanceName, stopInstance, stopAllInstances } from './manager';
 import { spawnSandboxedPty, cleanupSandboxPtys } from './spawn';
 
 export { spawnSandboxedPty, isSandboxPty, writeSandboxPty, resizeSandboxPty, killSandboxPty } from './spawn';
@@ -14,9 +14,6 @@ interface LimaSettingsStore {
 }
 
 let settingsCache: LimaSettingsStore | null = null;
-
-// Track running instance names so we can stop them on cleanup
-const activeInstances = new Set<string>();
 
 function getSettingsPath(): string {
   return path.join(app.getPath('userData'), SETTINGS_FILE);
@@ -97,9 +94,6 @@ export function registerLimaHandlers(mainWindow: BrowserWindow): void {
     settings[projectPath] = { ...settings[projectPath], enabled: true };
     await saveSettings(settings);
 
-    const instanceName = getInstanceName(projectPath);
-    activeInstances.add(instanceName);
-
     return { success: true };
   });
 
@@ -114,29 +108,16 @@ export function registerLimaHandlers(mainWindow: BrowserWindow): void {
     if (instance.status === 'Running') {
       await stopInstance(instanceName);
     }
-    activeInstances.delete(instanceName);
 
     return { success: true };
   });
 }
 
 /**
- * Clean up: stop running VMs and kill sandboxed PTYs
+ * Clean up: kill sandboxed PTYs and stop all running ouijit VMs.
+ * Synchronous so it completes before the process exits.
  */
-export async function cleanup(): Promise<void> {
+export function cleanup(): void {
   cleanupSandboxPtys();
-
-  // Stop any VMs we started
-  const stopPromises = Array.from(activeInstances).map(async (name) => {
-    try {
-      const instance = await getInstance(name);
-      if (instance.status === 'Running') {
-        await stopInstance(name);
-      }
-    } catch {
-      // Best-effort cleanup
-    }
-  });
-  await Promise.allSettled(stopPromises);
-  activeInstances.clear();
+  stopAllInstances();
 }
