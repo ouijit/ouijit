@@ -77,8 +77,9 @@ export function showTaskContextMenu(event: MouseEvent, onSandbox: () => void): v
   // Animate in
   requestAnimationFrame(() => menu.classList.add('task-context-menu--visible'));
 
-  // Dismiss on click outside
-  const dismiss = () => {
+  // Dismiss on click outside (ignore clicks inside the menu itself)
+  const dismiss = (e: MouseEvent) => {
+    if (menu.contains(e.target as Node)) return;
     menu.classList.remove('task-context-menu--visible');
     setTimeout(() => menu.remove(), 100);
     document.removeEventListener('mousedown', dismiss);
