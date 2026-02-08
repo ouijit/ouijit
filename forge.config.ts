@@ -57,7 +57,7 @@ const config: ForgeConfig = {
         // Copy bundled limactl binary
         const limactlSrc = path.join(__dirname, 'resources', 'bin', 'limactl');
         if (fs.existsSync(limactlSrc)) {
-          const binDest = path.join(buildPath, '..', 'Resources', 'bin');
+          const binDest = path.join(buildPath, '..', 'bin');
           fs.mkdirSync(binDest, { recursive: true });
           fs.copyFileSync(limactlSrc, path.join(binDest, 'limactl'));
           fs.chmodSync(path.join(binDest, 'limactl'), 0o755);
