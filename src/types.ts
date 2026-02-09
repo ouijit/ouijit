@@ -39,7 +39,7 @@ export interface CustomCommand {
 /**
  * Hook type - when the script runs
  */
-export type HookType = 'start' | 'continue' | 'run' | 'cleanup';
+export type HookType = 'start' | 'continue' | 'run' | 'cleanup' | 'sandbox-setup';
 
 /**
  * Script hook configuration
@@ -71,9 +71,12 @@ export interface ProjectSettings {
     continue?: ScriptHook;
     run?: ScriptHook;
     cleanup?: ScriptHook;
+    'sandbox-setup'?: ScriptHook;
   };
   /** If true, kill existing instances of a command before starting a new one (default: true) */
   killExistingOnRun?: boolean;
+  /** Sandbox VM resource configuration */
+  sandbox?: { memoryGiB?: number; diskGiB?: number };
 }
 
 /**
@@ -133,6 +136,8 @@ export interface PtySpawnOptions {
   parentPtyId?: PtyId;
   /** Additional environment variables to set */
   env?: Record<string, string>;
+  /** Whether to run this terminal inside a Lima sandbox VM */
+  sandboxed?: boolean;
 }
 
 /**
@@ -201,6 +206,7 @@ export interface TaskMetadata {
   closedAt?: string;        // When marked closed
   readyToShip?: boolean;    // "Spiritually done" - code complete, pending merge/review
   prompt?: string;          // Optional task description (OUIJIT_TASK_PROMPT)
+  sandboxed?: boolean;      // Whether this task runs in a sandbox VM
 }
 
 /**
@@ -224,6 +230,7 @@ export interface WorktreeWithMetadata extends WorktreeInfo {
   readyToShip?: boolean;    // "Spiritually done" - code complete, pending merge/review
   mergeTarget?: string;     // Branch to merge into (defaults to main if unset)
   prompt?: string;          // Optional task description
+  sandboxed?: boolean;      // Whether this task runs in a sandbox VM
 }
 
 /**
@@ -249,7 +256,7 @@ export interface WorktreeRemoveResult {
  */
 export interface HooksAPI {
   /** Get all hooks for a project */
-  get(projectPath: string): Promise<{ start?: ScriptHook; continue?: ScriptHook; run?: ScriptHook; cleanup?: ScriptHook }>;
+  get(projectPath: string): Promise<{ start?: ScriptHook; continue?: ScriptHook; run?: ScriptHook; cleanup?: ScriptHook; 'sandbox-setup'?: ScriptHook }>;
   /** Save a hook for a project */
   save(projectPath: string, hook: ScriptHook): Promise<{ success: boolean }>;
   /** Delete a hook for a project */
@@ -280,6 +287,8 @@ export interface WorktreeAPI {
   listBranches(projectPath: string): Promise<import('./git').BranchInfo[]>;
   /** Set a task's merge target branch */
   setMergeTarget(projectPath: string, branch: string, mergeTarget: string): Promise<{ success: boolean; error?: string }>;
+  /** Set a task's sandboxed state */
+  setSandboxed(projectPath: string, branch: string, sandboxed: boolean): Promise<{ success: boolean; error?: string }>;
   /** Get the main branch for a project */
   getMainBranch(projectPath: string): Promise<string>;
 }
@@ -346,6 +355,21 @@ export interface ElectronAPI {
   hooks: HooksAPI;
   /** Get file path from a dropped File object */
   getPathForFile(file: File): string;
+  /** Lima sandbox API */
+  lima: LimaAPI;
+}
+
+/**
+ * Lima sandbox API exposed to the renderer
+ */
+export interface LimaAPI {
+  status(projectPath: string): Promise<{ available: boolean; vmStatus: string; instanceName?: string; memory?: number; disk?: number }>;
+  stop(projectPath: string): Promise<{ success: boolean; error?: string }>;
+  getConfig(projectPath: string): Promise<{ memoryGiB: number; diskGiB: number }>;
+  setConfig(projectPath: string, config: { memoryGiB?: number; diskGiB?: number }): Promise<{ success: boolean }>;
+  recreate(projectPath: string): Promise<{ success: boolean; error?: string }>;
+  delete(projectPath: string): Promise<{ success: boolean; error?: string }>;
+  onSpawnProgress(callback: (message: string) => void): () => void;
 }
 
 /**

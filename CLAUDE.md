@@ -17,6 +17,7 @@ Do NOT run `npm run start` or other dev server commands.
 - `src/components/theatre/` - Theatre mode (terminal/task runner UI)
 - `src/utils/` - Shared utilities
 - `src/ouijit/` - Core app logic (import/export, dependencies)
+- `src/lima/` - Lima VM sandbox integration
 
 ### Tech Stack
 - Electron + Vite + TypeScript

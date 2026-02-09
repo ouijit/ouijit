@@ -14,6 +14,7 @@ import {
   killPty,
   cleanupAllPtys,
 } from './ptyManager';
+import * as limaPlugin from './lima';
 import { getGitStatus, getCompactGitStatus, getGitDropdownInfo, checkoutBranch, createBranch, mergeIntoMain, getChangedFiles, getFileDiff, getWorktreeDiff, getWorktreeFileDiff, mergeWorktreeBranch, listBranches, getMainBranch } from './git';
 import { createTaskWorktree, removeTaskWorktree, listWorktrees, formatBranchNameForDisplay } from './worktree';
 import type { TaskWorktreeResult, WorktreeRemoveResult, WorktreeInfo } from './worktree';
@@ -23,6 +24,7 @@ import {
   reopenTask,
   setTaskReadyToShip,
   setTaskMergeTarget,
+  setTaskSandboxed,
   ensureTaskExists,
   getTask,
 } from './taskMetadata';
@@ -74,21 +76,40 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     }
   });
 
+  // Lima sandbox handlers
+  limaPlugin.registerLimaHandlers(mainWindow);
+
   // PTY handlers
   ipcMain.handle('pty:spawn', async (_event, options: PtySpawnOptions) => {
+    if (options.sandboxed) {
+      const hook = await getHook(options.projectPath || options.cwd, 'sandbox-setup');
+      return await limaPlugin.spawnSandboxedPty(options, mainWindow, hook?.command);
+    }
     return await spawnPty(options, mainWindow);
   });
 
   ipcMain.on('pty:write', (_event, ptyId: string, data: string) => {
-    writeToPty(ptyId, data);
+    if (limaPlugin.isSandboxPty(ptyId)) {
+      limaPlugin.writeSandboxPty(ptyId, data);
+    } else {
+      writeToPty(ptyId, data);
+    }
   });
 
   ipcMain.on('pty:resize', (_event, ptyId: string, cols: number, rows: number) => {
-    resizePty(ptyId, cols, rows);
+    if (limaPlugin.isSandboxPty(ptyId)) {
+      limaPlugin.resizeSandboxPty(ptyId, cols, rows);
+    } else {
+      resizePty(ptyId, cols, rows);
+    }
   });
 
   ipcMain.on('pty:kill', (_event, ptyId: string) => {
-    killPty(ptyId);
+    if (limaPlugin.isSandboxPty(ptyId)) {
+      limaPlugin.killSandboxPty(ptyId);
+    } else {
+      killPty(ptyId);
+    }
   });
 
   // Get active PTY sessions (for reconnection after renderer reload)
@@ -347,6 +368,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
         readyToShip: metadata.readyToShip,
         mergeTarget: metadata.mergeTarget,
         prompt: metadata.prompt,
+        sandboxed: metadata.sandboxed,
       });
     }
 
@@ -368,6 +390,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
           readyToShip: task.readyToShip,
           mergeTarget: task.mergeTarget,
           prompt: task.prompt,
+          sandboxed: task.sandboxed,
         });
       }
     }
@@ -441,6 +464,11 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     return setTaskMergeTarget(projectPath, branch, mergeTarget);
   });
 
+  // Set task sandboxed state
+  ipcMain.handle('worktree:set-sandboxed', async (_event, projectPath: string, branch: string, sandboxed: boolean): Promise<{ success: boolean; error?: string }> => {
+    return setTaskSandboxed(projectPath, branch, sandboxed);
+  });
+
   // Get the main branch for a project
   ipcMain.handle('worktree:get-main-branch', async (_event, projectPath: string): Promise<string> => {
     return getMainBranch(projectPath);
@@ -470,4 +498,5 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
  */
 export function cleanupIpc(): void {
   cleanupAllPtys();
+  limaPlugin.cleanup();
 }

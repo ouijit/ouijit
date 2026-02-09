@@ -11,7 +11,7 @@ import {
   MAX_THEATRE_TERMINALS,
   theatreState,
 } from './state';
-import { getTerminalGitPath, hideRunnerPanel, theatreRegistry } from './helpers';
+import { getTerminalGitPath, hideRunnerPanel, theatreRegistry, showTaskContextMenu } from './helpers';
 import {
   projectPath,
   projectData,
@@ -21,7 +21,7 @@ import {
 } from './signals';
 import { showToast } from '../importDialog';
 import { showHookConfigDialog } from '../hookConfigDialog';
-import { refreshTerminalGitStatus, buildCardGitStatusHtml, scheduleTerminalGitStatusRefresh } from './gitStatus';
+import { refreshTerminalGitStatus, buildCardGitBranchHtml, buildCardGitStatsHtml, scheduleTerminalGitStatusRefresh } from './gitStatus';
 import { toggleTerminalDiffPanel, hideTerminalDiffPanel } from './diffPanel';
 import { showShipItPanel } from './shipItPanel';
 
@@ -293,36 +293,54 @@ export function updateTerminalCardLabel(term: TheatreTerminal): void {
   // Update label text
   const labelText = labelEl.querySelector('.theatre-card-label-text');
   if (labelText) {
-    // Build display: label — oscTitle — summary (each part optional)
     let display = term.label;
-    if (term.lastOscTitle) {
-      display += ` — ${term.lastOscTitle}`;
-    }
     if (term.summary) {
       display += ` — ${term.summary}`;
     }
     labelText.textContent = display;
   }
 
-  // Update git status display
-  const gitWrapper = labelEl.querySelector('.theatre-card-git-wrapper') as HTMLElement;
-  if (gitWrapper) {
-    const gitHtml = buildCardGitStatusHtml(term.gitStatus);
+  // Update OSC title pill
+  const labelTop = labelEl.querySelector('.theatre-card-label-top');
+  if (labelTop) {
+    let oscPill = labelTop.querySelector('.theatre-card-osc-title') as HTMLElement;
+    if (term.lastOscTitle) {
+      if (!oscPill) {
+        oscPill = document.createElement('span');
+        oscPill.className = 'theatre-card-osc-title';
+        labelTop.appendChild(oscPill);
+      }
+      oscPill.textContent = term.lastOscTitle;
+      oscPill.title = term.lastOscTitle;
+    } else if (oscPill) {
+      oscPill.remove();
+    }
+  }
 
-    // Only update DOM if content actually changed (avoids destroying event listeners)
-    if (gitWrapper.dataset.lastHtml !== gitHtml) {
-      gitWrapper.dataset.lastHtml = gitHtml;
-      gitWrapper.innerHTML = gitHtml;
+  // Update git branch display (second line under label)
+  const branchRow = labelEl.querySelector('.theatre-card-git-branch-row') as HTMLElement;
+  if (branchRow) {
+    const branchHtml = buildCardGitBranchHtml(term.gitStatus);
+    if (branchRow.dataset.lastHtml !== branchHtml) {
+      branchRow.dataset.lastHtml = branchHtml;
+      branchRow.innerHTML = branchHtml;
+    }
+  }
 
-      // Wire up click handler for stats (only if clickable)
-      if (gitHtml) {
-        const statsEl = gitWrapper.querySelector('.theatre-card-git-stats--clickable') as HTMLElement;
-        if (statsEl) {
-          statsEl.addEventListener('click', (e) => {
-            e.stopPropagation();
-            toggleTerminalDiffPanel(term);
-          });
-        }
+  // Update git stats display (in label-right)
+  const statsWrapper = labelEl.querySelector('.theatre-card-git-stats-wrapper') as HTMLElement;
+  if (statsWrapper) {
+    const statsHtml = buildCardGitStatsHtml(term.gitStatus);
+    if (statsWrapper.dataset.lastHtml !== statsHtml) {
+      statsWrapper.dataset.lastHtml = statsHtml;
+      statsWrapper.innerHTML = statsHtml;
+
+      const statsEl = statsWrapper.querySelector('.theatre-card-git-stats--clickable') as HTMLElement;
+      if (statsEl) {
+        statsEl.addEventListener('click', (e) => {
+          e.stopPropagation();
+          toggleTerminalDiffPanel(term);
+        });
       }
     }
   }
@@ -360,12 +378,15 @@ export function createTheatreCard(label: string, index: number): HTMLElement {
 
   labelEl.innerHTML = `
     <div class="theatre-card-label-left">
-      <span class="theatre-card-status-dot" data-status="idle"></span>
-      <kbd class="theatre-card-shortcut" style="display: none;"></kbd>
-      <span class="theatre-card-label-text">${label}</span>
+      <div class="theatre-card-label-top">
+        <span class="theatre-card-status-dot" data-status="idle"></span>
+        <kbd class="theatre-card-shortcut" style="display: none;"></kbd>
+        <span class="theatre-card-label-text">${label}</span>
+      </div>
+      <div class="theatre-card-git-branch-row"></div>
     </div>
     <div class="theatre-card-label-right">
-      <div class="theatre-card-git-wrapper"></div>
+      <div class="theatre-card-git-stats-wrapper"></div>
       <div class="runner-pill" style="display: none;">
         <button class="runner-pill-play" data-action="run" title="Run default command"><i data-lucide="play"></i></button>
         <div class="runner-pill-status">
@@ -410,8 +431,10 @@ export function createLoadingCard(label: string): HTMLElement {
 
   labelEl.innerHTML = `
     <div class="theatre-card-label-left">
-      <span class="theatre-card-status-dot theatre-card-status-dot--loading"></span>
-      <span class="theatre-card-label-text">${label || 'New task'}</span>
+      <div class="theatre-card-label-top">
+        <span class="theatre-card-status-dot theatre-card-status-dot--loading"></span>
+        <span class="theatre-card-label-text">${label || 'New task'}</span>
+      </div>
     </div>
     <div class="theatre-card-label-right"></div>
   `;
@@ -1098,7 +1121,9 @@ export async function selectByStackPosition(position: number): Promise<void> {
         createdAt: task.createdAt,
         readyToShip: task.readyToShip,
         prompt: task.prompt,
+        sandboxed: task.sandboxed,
       },
+      sandboxed: false,
     });
   }
 }
@@ -1108,9 +1133,10 @@ export async function selectByStackPosition(position: number): Promise<void> {
  */
 export interface AddTheatreTerminalOptions {
   useWorktree?: boolean;
-  existingWorktree?: WorktreeInfo & { readyToShip?: boolean; prompt?: string };
+  existingWorktree?: WorktreeInfo & { readyToShip?: boolean; prompt?: string; sandboxed?: boolean };
   worktreeName?: string;
   worktreePrompt?: string;
+  sandboxed?: boolean;
 }
 
 /**
@@ -1168,6 +1194,10 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
       createdAt: result.task.createdAt,
     };
     taskPrompt = options.worktreePrompt;
+    // Persist sandbox preference for new task
+    if (options?.sandboxed !== undefined) {
+      await window.api.worktree.setSandboxed(currentProjectPath, worktreeInfo.branch, options.sandboxed);
+    }
     invalidateTaskList();
   }
 
@@ -1249,6 +1279,71 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
   await new Promise(resolve => requestAnimationFrame(resolve));
   fitAddon.fit();
 
+  // For sandbox opens without a loading card, add the terminal to signals immediately
+  // so the card is fully integrated into the stack (hotkeys, cycling, styling)
+  // during the slow VM startup. The ptyId gets updated after spawn completes.
+  const taskSandboxedEarly = options?.sandboxed ?? options?.existingWorktree?.sandboxed;
+  const addedEarly = !loadingCard && taskSandboxedEarly;
+  let theatreTerminal: TheatreTerminal | null = null;
+
+  if (addedEarly) {
+    theatreTerminal = {
+      ptyId: '' as PtyId,
+      projectPath: currentProjectPath,
+      command: undefined,
+      label,
+      terminal,
+      fitAddon,
+      container: card,
+      cleanupData: null,
+      cleanupExit: null,
+      resizeObserver: null,
+      summary: '',
+      summaryType: 'idle',
+      outputBuffer: '',
+      lastOscTitle: '',
+      isWorktree: !!worktreeInfo,
+      worktreePath: worktreeInfo?.path,
+      worktreeBranch: worktreeInfo?.branch,
+      readyToShip: worktreeInfo?.readyToShip,
+      gitStatus: null,
+      diffPanelOpen: false,
+      diffPanelFiles: [],
+      diffPanelSelectedFile: null,
+      diffPanelMode: 'uncommitted',
+      runnerPanelOpen: false,
+      runnerPtyId: null,
+      runnerTerminal: null,
+      runnerFitAddon: null,
+      runnerLabel: '',
+      runnerCommand: null,
+      runnerStatus: 'idle',
+      runnerCleanupData: null,
+      runnerCleanupExit: null,
+    };
+
+    // Set up close button and card click handlers
+    closeBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const idx = terminals.value.indexOf(theatreTerminal!);
+      if (idx !== -1) closeTheatreTerminal(idx);
+    });
+    card.addEventListener('click', () => {
+      const idx = terminals.value.indexOf(theatreTerminal!);
+      if (idx !== -1 && idx !== activeIndex.value) switchToTheatreTerminal(idx);
+    });
+
+    // Set up card action buttons and sandbox dot
+    setupCardActions(theatreTerminal);
+    const dot = card.querySelector('.theatre-card-status-dot');
+    if (dot) dot.classList.add('theatre-card-status-dot--sandboxed');
+
+    // Add to signals — effects handle updateCardStack, empty state, focus
+    terminals.value = [...terminals.value, theatreTerminal];
+    activeIndex.value = terminals.value.length - 1;
+    terminal.focus();
+  }
+
   // Determine command to run - use start/continue hooks for worktree terminals if configured
   // - start hook: runs on new task creation (options.useWorktree)
   // - continue hook: runs when reopening existing task (options.existingWorktree)
@@ -1279,6 +1374,11 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
     }
   }
 
+  // Check if sandbox should be used (purely per-task)
+  const limaStatus = await window.api.lima.status(currentProjectPath);
+  const taskSandboxed = options?.sandboxed ?? options?.existingWorktree?.sandboxed;
+  const useSandbox = limaStatus.available && taskSandboxed === true;
+
   // Spawn PTY
   const spawnOptions: PtySpawnOptions = {
     cwd: terminalCwd,
@@ -1291,19 +1391,114 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
     worktreePath: worktreeInfo?.path,
     worktreeBranch: worktreeInfo?.branch,
     env: startEnv,
+    sandboxed: useSandbox,
   };
 
   try {
-    const result = await window.api.pty.spawn(spawnOptions);
+    // Show progress for sandbox VM startup
+    let cleanupProgress: (() => void) | null = null;
+    if (useSandbox) {
 
-    if (!result.success || !result.ptyId) {
-      terminal.writeln(`\x1b[31mFailed to start terminal: ${result.error || 'Unknown error'}\x1b[0m`);
-      card.remove();
-      terminal.dispose();
+      const { setSandboxButtonStarting } = await import('./theatreMode');
+      setSandboxButtonStarting(true);
+      terminal.writeln(`\x1b[90m● Connecting to sandbox…\x1b[0m`);
+      cleanupProgress = window.api.lima.onSpawnProgress((msg) => {
+        terminal.writeln(`\x1b[90m● ${msg}\x1b[0m`);
+      });
+    }
+
+    const result = await window.api.pty.spawn(spawnOptions);
+    cleanupProgress?.();
+
+    // Refresh sandbox button now that the VM is (or isn't) running
+    if (useSandbox) {
+
+      const { refreshSandboxButton } = await import('./theatreMode');
+      await refreshSandboxButton(currentProjectPath);
+
+    }
+
+    // If terminal was closed during loading (user clicked X), clean up and bail
+    if (addedEarly && !terminals.value.includes(theatreTerminal!)) {
+      if (result.success && result.ptyId) window.api.pty.kill(result.ptyId);
       return false;
     }
 
-    const theatreTerminal: TheatreTerminal = {
+    if (!result.success || !result.ptyId) {
+      terminal.writeln(`\x1b[31mFailed to start terminal: ${result.error || 'Unknown error'}\x1b[0m`);
+      terminal.writeln(`\x1b[90mThis card will close in 10 seconds.\x1b[0m`);
+      if (addedEarly && theatreTerminal) {
+        // Card is in signals — use closeTheatreTerminal for clean removal
+        setTimeout(() => {
+          const idx = terminals.value.indexOf(theatreTerminal!);
+          if (idx !== -1) closeTheatreTerminal(idx);
+        }, 10_000);
+      } else {
+        setTimeout(() => {
+          card.remove();
+          terminal.dispose();
+        }, 10_000);
+      }
+      return false;
+    }
+
+    // If added early, update the existing TheatreTerminal in-place
+    if (addedEarly && theatreTerminal) {
+      theatreTerminal.ptyId = result.ptyId;
+      theatreTerminal.command = startCommand;
+
+      // Set up resize observer
+      theatreTerminal.resizeObserver = new ResizeObserver(() => {
+        debouncedResize(result.ptyId!, terminal, fitAddon);
+      });
+      theatreTerminal.resizeObserver.observe(xtermContainer);
+
+      // Set up data listener
+      theatreTerminal.cleanupData = window.api.pty.onData(result.ptyId, (data) => {
+        terminal.write(data);
+        theatreTerminal!.outputBuffer = (theatreTerminal!.outputBuffer + data).slice(-2000);
+
+        const oscMatches = data.matchAll(/\x1b\]0;([^\x07]*)\x07/g);
+        for (const match of oscMatches) {
+          const newTitle = match[1];
+          if (newTitle !== theatreTerminal!.lastOscTitle) {
+            theatreTerminal!.lastOscTitle = newTitle;
+            updateTerminalCardLabel(theatreTerminal!);
+          }
+        }
+
+        scheduleTerminalSummaryUpdate(theatreTerminal!);
+        if (projectPath.value) {
+          scheduleTerminalGitStatusRefresh(theatreTerminal!, updateTerminalCardLabel);
+        }
+      });
+
+      // Set up exit listener
+      theatreTerminal.cleanupExit = window.api.pty.onExit(result.ptyId, (exitCode) => {
+        terminal.writeln('');
+        const exitColor = exitCode === 0 ? '32' : '31';
+        terminal.writeln(`\x1b[${exitColor}m● Process exited with code ${exitCode}\x1b[0m`);
+        theatreTerminal!.summary = exitCode === 0 ? 'Exited' : `Exit ${exitCode}`;
+        theatreTerminal!.summaryType = exitCode === 0 ? 'idle' : 'error';
+        updateTerminalCardLabel(theatreTerminal!);
+      });
+
+      // Forward terminal input
+      terminal.onData((data) => {
+        window.api.pty.write(result.ptyId!, data);
+      });
+
+      // Fetch initial git status
+      refreshTerminalGitStatus(theatreTerminal).then(() => {
+        updateTerminalCardLabel(theatreTerminal!);
+      });
+
+      terminal.focus();
+      return true;
+    }
+
+    // Normal path: create TheatreTerminal after spawn
+    theatreTerminal = {
       ptyId: result.ptyId,
       projectPath: currentProjectPath,
       command: startCommand,
@@ -1351,23 +1546,23 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
       terminal.write(data);
 
       // Track output for summary analysis (rolling buffer of last 2000 chars)
-      theatreTerminal.outputBuffer = (theatreTerminal.outputBuffer + data).slice(-2000);
+      theatreTerminal!.outputBuffer = (theatreTerminal!.outputBuffer + data).slice(-2000);
 
       // Extract OSC title sequences (e.g., \x1b]0;Title Here\x07)
       const oscMatches = data.matchAll(/\x1b\]0;([^\x07]*)\x07/g);
       for (const match of oscMatches) {
         const newTitle = match[1];
-        if (newTitle !== theatreTerminal.lastOscTitle) {
-          theatreTerminal.lastOscTitle = newTitle;
-          updateTerminalCardLabel(theatreTerminal);
+        if (newTitle !== theatreTerminal!.lastOscTitle) {
+          theatreTerminal!.lastOscTitle = newTitle;
+          updateTerminalCardLabel(theatreTerminal!);
         }
       }
 
-      scheduleTerminalSummaryUpdate(theatreTerminal);
+      scheduleTerminalSummaryUpdate(theatreTerminal!);
 
       if (projectPath.value) {
         // Only schedule a refresh of this terminal's git status (not all terminals)
-        scheduleTerminalGitStatusRefresh(theatreTerminal, updateTerminalCardLabel);
+        scheduleTerminalGitStatusRefresh(theatreTerminal!, updateTerminalCardLabel);
       }
     });
 
@@ -1378,9 +1573,9 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
       terminal.writeln(`\x1b[${exitColor}m● Process exited with code ${exitCode}\x1b[0m`);
 
       // Update summary to show exit status
-      theatreTerminal.summary = exitCode === 0 ? 'Exited' : `Exit ${exitCode}`;
-      theatreTerminal.summaryType = exitCode === 0 ? 'idle' : 'error';
-      updateTerminalCardLabel(theatreTerminal);
+      theatreTerminal!.summary = exitCode === 0 ? 'Exited' : `Exit ${exitCode}`;
+      theatreTerminal!.summaryType = exitCode === 0 ? 'idle' : 'error';
+      updateTerminalCardLabel(theatreTerminal!);
     });
 
     // Forward terminal input
@@ -1391,7 +1586,7 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
     // Close button handler
     closeBtn.addEventListener('click', (e) => {
       e.stopPropagation();
-      const idx = terminals.value.indexOf(theatreTerminal);
+      const idx = terminals.value.indexOf(theatreTerminal!);
       if (idx !== -1) {
         closeTheatreTerminal(idx);
       }
@@ -1399,7 +1594,7 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
 
     // Card click handler (to bring to front)
     card.addEventListener('click', () => {
-      const idx = terminals.value.indexOf(theatreTerminal);
+      const idx = terminals.value.indexOf(theatreTerminal!);
       if (idx !== -1 && idx !== activeIndex.value) {
         switchToTheatreTerminal(idx);
       }
@@ -1408,9 +1603,17 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
     // Set up card action buttons (runner pill, close-task for worktrees)
     setupCardActions(theatreTerminal);
 
+    // Mark sandboxed terminals with a ring on the status dot
+    if (useSandbox) {
+      const dot = card.querySelector('.theatre-card-status-dot');
+      if (dot) {
+        dot.classList.add('theatre-card-status-dot--sandboxed');
+      }
+    }
+
     // Fetch initial git status for this terminal
     refreshTerminalGitStatus(theatreTerminal).then(() => {
-      updateTerminalCardLabel(theatreTerminal);
+      updateTerminalCardLabel(theatreTerminal!);
     });
 
     // Add terminal to list and set as active - effects will handle updateCardStack
@@ -1420,9 +1623,19 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
     terminal.focus();
     return true;
   } catch (error) {
+    if (useSandbox) {
+      const { setSandboxButtonStarting } = await import('./theatreMode');
+      setSandboxButtonStarting(false);
+    }
     terminal.writeln(`\x1b[31mError: ${error instanceof Error ? error.message : 'Unknown error'}\x1b[0m`);
-    card.remove();
-    terminal.dispose();
+    if (addedEarly && theatreTerminal) {
+      // Card is in signals — remove via closeTheatreTerminal
+      const idx = terminals.value.indexOf(theatreTerminal);
+      if (idx !== -1) closeTheatreTerminal(idx);
+    } else {
+      card.remove();
+      terminal.dispose();
+    }
     return false;
   }
 }
@@ -1478,7 +1691,7 @@ export function closeTheatreTerminal(index: number): void {
 /**
  * Build HTML for the empty state shown when no terminals are open
  */
-export function buildEmptyStateHtml(): string {
+export function buildEmptyStateHtml(limaAvailable: boolean): string {
   return `
     <div class="theatre-stack-empty">
       <div class="theatre-stack-empty-open" style="display: none;">
@@ -1502,6 +1715,16 @@ export function buildEmptyStateHtml(): string {
               rows="2"
               spellcheck="false"
             ></textarea>
+            ${limaAvailable ? `
+            <div class="new-task-composer-footer">
+              <div class="new-task-sandbox-toggle">
+                <div class="sandbox-toggle">
+                  <div class="sandbox-toggle-knob"></div>
+                </div>
+                <span class="new-task-sandbox-label">Sandbox</span>
+              </div>
+            </div>
+            ` : ''}
             <button type="submit" class="theatre-stack-empty-btn" aria-label="Start task">
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                 <path d="M8 13V3M4 7l4-4 4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
@@ -1533,6 +1756,13 @@ async function populatePreviousTasks(emptyState: HTMLElement): Promise<void> {
   const tasks = await window.api.worktree.getTasks(path);
   const openTasks = tasks.filter(t => t.status === 'open');
 
+  // Check lima availability for context menu
+  let limaAvailable = false;
+  try {
+    const limaStatus = await window.api.lima.status(path);
+    limaAvailable = limaStatus.available;
+  } catch { /* Lima not available */ }
+
   // Populate open tasks
   if (openTasks.length > 0) {
     openSection.style.display = 'block';
@@ -1557,18 +1787,36 @@ async function populatePreviousTasks(emptyState: HTMLElement): Promise<void> {
       nameSpan.textContent = task.name;
       taskBtn.appendChild(nameSpan);
 
+      const worktreeOpts = {
+        path: task.path,
+        branch: task.branch,
+        taskName: task.name,
+        createdAt: task.createdAt,
+        readyToShip: task.readyToShip,
+        prompt: task.prompt,
+        sandboxed: task.sandboxed,
+      };
+
+      // Normal click: open without sandbox
       taskBtn.addEventListener('click', async () => {
         await addTheatreTerminal(undefined, {
-          existingWorktree: {
-            path: task.path,
-            branch: task.branch,
-            taskName: task.name,
-            createdAt: task.createdAt,
-            readyToShip: task.readyToShip,
-            prompt: task.prompt,
-          },
+          existingWorktree: worktreeOpts,
+          sandboxed: false,
         });
       });
+
+      // Right-click: offer "Open in Sandbox" (only if lima available)
+      if (limaAvailable) {
+        taskBtn.addEventListener('contextmenu', (e) => {
+          showTaskContextMenu(e, async () => {
+            await addTheatreTerminal(undefined, {
+              existingWorktree: worktreeOpts,
+              sandboxed: true,
+            });
+          });
+        });
+      }
+
       openList.appendChild(taskBtn);
     });
   } else {
@@ -1596,8 +1844,22 @@ export async function showStackEmptyState(): Promise<void> {
     return;
   }
 
+  // Check lima availability for sandbox toggle
+  const currentProjectPath = projectPath.value;
+  let limaAvailable = false;
+  if (currentProjectPath) {
+    try {
+      const limaStatus = await window.api.lima.status(currentProjectPath);
+      limaAvailable = limaStatus.available;
+    } catch {
+      // Lima not available
+    }
+  }
+
+  let sandboxState = false;
+
   // Create and insert empty state
-  stack.insertAdjacentHTML('beforeend', buildEmptyStateHtml());
+  stack.insertAdjacentHTML('beforeend', buildEmptyStateHtml(limaAvailable));
   emptyState = stack.querySelector('.theatre-stack-empty') as HTMLElement;
 
   // Wire up form submission
@@ -1605,6 +1867,18 @@ export async function showStackEmptyState(): Promise<void> {
   const nameInput = emptyState.querySelector('.theatre-stack-empty-name') as HTMLInputElement;
   const promptInput = emptyState.querySelector('.theatre-stack-empty-prompt') as HTMLTextAreaElement;
   const submitBtn = emptyState.querySelector('.theatre-stack-empty-btn') as HTMLButtonElement;
+
+  // Wire up sandbox toggle if present
+  const sandboxToggleRow = emptyState.querySelector('.new-task-sandbox-toggle');
+  if (sandboxToggleRow) {
+    sandboxToggleRow.addEventListener('click', () => {
+      sandboxState = !sandboxState;
+      const toggle = sandboxToggleRow.querySelector('.sandbox-toggle');
+      if (toggle) {
+        toggle.classList.toggle('sandbox-toggle--active', sandboxState);
+      }
+    });
+  }
 
   // Note: ⌘1-9 hotkeys are already registered in enterTheatreMode for terminal switching.
   // We don't register them again here to avoid duplicate handlers that cause double-firing
@@ -1643,7 +1917,12 @@ export async function showStackEmptyState(): Promise<void> {
       promptInput.disabled = true;
 
       try {
-        const success = await addTheatreTerminal(undefined, { useWorktree: true, worktreeName: name, worktreePrompt: prompt });
+        const success = await addTheatreTerminal(undefined, {
+          useWorktree: true,
+          worktreeName: name,
+          worktreePrompt: prompt,
+          sandboxed: limaAvailable ? sandboxState : undefined,
+        });
         if (!success) {
           // Restore form state if terminal creation failed
           submitBtn.disabled = false;

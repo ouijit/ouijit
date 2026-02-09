@@ -115,32 +115,28 @@ export async function refreshAllTerminalGitStatus(): Promise<void> {
  * Build compact git status HTML for display in terminal card
  * Only shows uncommitted changes (working directory vs HEAD)
  */
-export function buildCardGitStatusHtml(compactStatus: CompactGitStatus | null): string {
+export function buildCardGitBranchHtml(compactStatus: CompactGitStatus | null): string {
   if (!compactStatus) return '';
 
-  const { branch, dirtyFileCount, insertions, deletions } = compactStatus;
-
-  // Only show uncommitted changes
-  const hasChanges = dirtyFileCount > 0;
-
-  let statsContent = '';
-  let statsClass = 'theatre-card-git-stats';
-
-  if (hasChanges) {
-    const parts: string[] = [`<span class="theatre-card-git-count">${dirtyFileCount}</span>`];
-    if (insertions > 0) parts.push(`<span class="theatre-card-git-add">+${insertions}</span>`);
-    if (deletions > 0) parts.push(`<span class="theatre-card-git-del">-${deletions}</span>`);
-    statsContent = parts.join(' ');
-    statsClass += ' theatre-card-git-stats--clickable';
-  }
-
+  const { branch } = compactStatus;
   return `
-    <div class="theatre-card-git-status">
-      <span class="theatre-card-git-branch" title="${branch}">
-        <i data-lucide="git-branch" class="theatre-card-git-icon"></i>
-        <span class="theatre-card-git-branch-name">${branch}</span>
-      </span>
-      ${hasChanges ? `<span class="${statsClass}" title="View uncommitted changes">${statsContent}</span>` : ''}
-    </div>
+    <span class="theatre-card-git-branch" title="${branch}">
+      <i data-lucide="git-branch" class="theatre-card-git-icon"></i>
+      <span class="theatre-card-git-branch-name">${branch}</span>
+    </span>
   `;
+}
+
+export function buildCardGitStatsHtml(compactStatus: CompactGitStatus | null): string {
+  if (!compactStatus) return '';
+
+  const { dirtyFileCount, insertions, deletions } = compactStatus;
+  const hasChanges = dirtyFileCount > 0;
+  if (!hasChanges) return '';
+
+  const parts: string[] = [`<span class="theatre-card-git-count">${dirtyFileCount}</span>`];
+  if (insertions > 0) parts.push(`<span class="theatre-card-git-add">+${insertions}</span>`);
+  if (deletions > 0) parts.push(`<span class="theatre-card-git-del">-${deletions}</span>`);
+
+  return `<span class="theatre-card-git-stats theatre-card-git-stats--clickable" title="View uncommitted changes">${parts.join(' ')}</span>`;
 }

@@ -11,7 +11,8 @@
     "make:linux": "./scripts/build-linux.sh",
     "publish": "electron-forge publish",
     "typecheck": "tsc --noEmit",
-    "check": "tsc --noEmit"
+    "check": "tsc --noEmit",
+    "postinstall": "./scripts/download-lima.sh"
   },
   "keywords": [],
   "author": "pbjer",

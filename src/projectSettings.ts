@@ -60,7 +60,7 @@ export async function getProjectSettings(projectPath: string): Promise<ProjectSe
  */
 export async function getHooks(
   projectPath: string
-): Promise<{ start?: ScriptHook; continue?: ScriptHook; run?: ScriptHook; cleanup?: ScriptHook }> {
+): Promise<{ start?: ScriptHook; continue?: ScriptHook; run?: ScriptHook; cleanup?: ScriptHook; 'sandbox-setup'?: ScriptHook }> {
   const settings = await getProjectSettings(projectPath);
   return settings.hooks || {};
 }
@@ -122,6 +122,43 @@ export async function deleteHook(
     return { success: true };
   } catch (error) {
     console.error('Failed to delete hook:', error);
+    return { success: false };
+  }
+}
+
+/**
+ * Get sandbox resource config for a project (with defaults)
+ */
+export async function getSandboxConfig(
+  projectPath: string
+): Promise<{ memoryGiB: number; diskGiB: number }> {
+  const settings = await getProjectSettings(projectPath);
+  return {
+    memoryGiB: settings.sandbox?.memoryGiB ?? 4,
+    diskGiB: settings.sandbox?.diskGiB ?? 100,
+  };
+}
+
+/**
+ * Set sandbox resource config for a project
+ */
+export async function setSandboxConfig(
+  projectPath: string,
+  config: { memoryGiB?: number; diskGiB?: number }
+): Promise<{ success: boolean }> {
+  try {
+    const settings = await loadSettings();
+    const projectSettings = settings[projectPath] || { customCommands: [], hooks: {} };
+
+    projectSettings.sandbox = {
+      ...projectSettings.sandbox,
+      ...config,
+    };
+    settings[projectPath] = projectSettings;
+    await saveSettings(settings);
+    return { success: true };
+  } catch (error) {
+    console.error('Failed to set sandbox config:', error);
     return { success: false };
   }
 }

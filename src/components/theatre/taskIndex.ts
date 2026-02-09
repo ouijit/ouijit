@@ -4,9 +4,9 @@
 
 import type { WorktreeWithMetadata } from '../../types';
 import { theatreState } from './state';
-import { projectPath, taskIndexVisible, terminals } from './signals';
+import { projectPath, taskIndexVisible, terminals, invalidateTaskList } from './signals';
 import { showToast } from '../importDialog';
-import { theatreRegistry } from './helpers';
+import { theatreRegistry, showTaskContextMenu } from './helpers';
 import { reopenTask, deleteTask, closeTask } from './worktreeDropdown';
 import { registerHotkey, unregisterHotkey, pushScope, popScope, Scopes, platformHotkey } from '../../utils/hotkeys';
 
@@ -59,7 +59,7 @@ function buildTaskIndexHtml(): string {
 /**
  * Build a task item element
  */
-function buildTaskItem(task: WorktreeWithMetadata, path: string, index?: number): HTMLElement {
+function buildTaskItem(task: WorktreeWithMetadata, path: string, index?: number, limaAvailable?: boolean): HTMLElement {
   const item = document.createElement('button');
   item.className = 'task-index-item';
   if (task.status === 'closed') {
@@ -123,7 +123,15 @@ function buildTaskItem(task: WorktreeWithMetadata, path: string, index?: number)
 
   item.appendChild(actions);
 
-  // Click handler - open/reopen task
+  const worktreeOpts = {
+    path: task.path,
+    branch: task.branch,
+    createdAt: task.createdAt,
+    readyToShip: task.readyToShip,
+    sandboxed: task.sandboxed,
+  };
+
+  // Click handler - open/reopen task (always without sandbox)
   item.addEventListener('click', async () => {
     hideTaskIndex();
 
@@ -131,15 +139,36 @@ function buildTaskItem(task: WorktreeWithMetadata, path: string, index?: number)
       await reopenTask(path, task);
     } else {
       await theatreRegistry.addTheatreTerminal?.(undefined, {
-        existingWorktree: {
-          path: task.path,
-          branch: task.branch,
-          createdAt: task.createdAt,
-          readyToShip: task.readyToShip,
-        },
+        existingWorktree: worktreeOpts,
+        sandboxed: false,
       });
     }
   });
+
+  // Right-click: offer "Open in Sandbox" (only if lima available)
+  if (limaAvailable) {
+    item.addEventListener('contextmenu', (e) => {
+      showTaskContextMenu(e, async () => {
+        hideTaskIndex();
+        if (task.status === 'closed') {
+          // Reopen and open sandboxed
+          const result = await window.api.worktree.reopen(path, task.branch);
+          if (result.success) {
+            invalidateTaskList();
+            await theatreRegistry.addTheatreTerminal?.(undefined, {
+              existingWorktree: worktreeOpts,
+              sandboxed: true,
+            });
+          }
+        } else {
+          await theatreRegistry.addTheatreTerminal?.(undefined, {
+            existingWorktree: worktreeOpts,
+            sandboxed: true,
+          });
+        }
+      });
+    });
+  }
 
   return item;
 }
@@ -171,8 +200,11 @@ async function populateTaskIndex(): Promise<void> {
 
   if (!openList || !closedList || !emptyState || !closedDisclosure || !closedSummary) return;
 
-  // Fetch tasks
-  const tasks = await window.api.worktree.getTasks(path);
+  // Fetch tasks and check lima availability
+  const [tasks, limaAvailable] = await Promise.all([
+    window.api.worktree.getTasks(path),
+    window.api.lima.status(path).then(s => s.available).catch(() => false),
+  ]);
   const openTasks = tasks.filter(t => t.status === 'open');
   const closedTasks = tasks.filter(t => t.status === 'closed');
 
@@ -185,7 +217,7 @@ async function populateTaskIndex(): Promise<void> {
 
   // Populate open tasks
   for (const task of openTasks) {
-    const item = buildTaskItem(task, path, itemIndex++);
+    const item = buildTaskItem(task, path, itemIndex++, limaAvailable);
     openList.appendChild(item);
   }
 
@@ -194,7 +226,7 @@ async function populateTaskIndex(): Promise<void> {
     closedDisclosure.style.display = 'block';
     closedSummary.textContent = `${closedTasks.length} closed`;
     for (const task of closedTasks) {
-      const item = buildTaskItem(task, path, itemIndex++);
+      const item = buildTaskItem(task, path, itemIndex++, limaAvailable);
       closedList.appendChild(item);
     }
   } else {

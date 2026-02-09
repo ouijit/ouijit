@@ -15,13 +15,28 @@ import { registerHotkey, unregisterHotkey, pushScope, popScope, Scopes } from '.
 interface WorktreePromptResult {
   name: string | null;
   prompt: string | null;
+  sandboxed: boolean | undefined;
 }
 
 /**
  * Show a simple prompt dialog for naming a worktree
  * Returns the task name and optional prompt, or null if cancelled
  */
-function showWorktreeNamePrompt(): Promise<WorktreePromptResult | null> {
+async function showWorktreeNamePrompt(): Promise<WorktreePromptResult | null> {
+  // Check lima availability
+  const currentProjectPath = projectPath.value;
+  let limaAvailable = false;
+  if (currentProjectPath) {
+    try {
+      const limaStatus = await window.api.lima.status(currentProjectPath);
+      limaAvailable = limaStatus.available;
+    } catch {
+      // Lima not available
+    }
+  }
+
+  let sandboxState = false;
+
   return new Promise((resolve) => {
     const overlay = document.createElement('div');
     overlay.className = 'modal-overlay';
@@ -46,6 +61,16 @@ function showWorktreeNamePrompt(): Promise<WorktreePromptResult | null> {
           spellcheck="false"
           rows="2"
         ></textarea>
+        ${limaAvailable ? `
+        <div class="new-task-composer-footer">
+          <div class="new-task-sandbox-toggle">
+            <div class="sandbox-toggle">
+              <div class="sandbox-toggle-knob"></div>
+            </div>
+            <span class="new-task-sandbox-label">Sandbox</span>
+          </div>
+        </div>
+        ` : ''}
         <button type="submit" class="new-task-composer-btn" aria-label="Create task">
           <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
             <path d="M8 13V3M4 7l4-4 4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
@@ -61,6 +86,18 @@ function showWorktreeNamePrompt(): Promise<WorktreePromptResult | null> {
     const nameInput = dialog.querySelector('#worktree-name') as HTMLInputElement;
     const promptInput = dialog.querySelector('#worktree-prompt') as HTMLTextAreaElement;
 
+    // Wire up sandbox toggle if present
+    const sandboxToggleRow = dialog.querySelector('.new-task-sandbox-toggle');
+    if (sandboxToggleRow) {
+      sandboxToggleRow.addEventListener('click', () => {
+        sandboxState = !sandboxState;
+        const toggle = sandboxToggleRow.querySelector('.sandbox-toggle');
+        if (toggle) {
+          toggle.classList.toggle('sandbox-toggle--active', sandboxState);
+        }
+      });
+    }
+
     const cleanup = () => {
       unregisterHotkey('escape', Scopes.MODAL);
       popScope();
@@ -73,7 +110,7 @@ function showWorktreeNamePrompt(): Promise<WorktreePromptResult | null> {
       const name = nameInput.value.trim() || null;
       const prompt = promptInput.value.trim() || null;
       cleanup();
-      resolve({ name, prompt });
+      resolve({ name, prompt, sandboxed: limaAvailable ? sandboxState : undefined });
     };
 
     const handleCancel = () => {
@@ -200,6 +237,7 @@ export async function createNewAgentShell(): Promise<void> {
       useWorktree: true,
       worktreeName: result.name || undefined,
       worktreePrompt: result.prompt || undefined,
+      sandboxed: result.sandboxed,
     });
   }
 }
@@ -237,7 +275,7 @@ export async function reopenTask(path: string, task: WorktreeWithMetadata): Prom
   const result = await window.api.worktree.reopen(path, task.branch);
   if (result.success) {
     invalidateTaskList();
-    // Open terminal for the task
+    // Open terminal for the task (without sandbox by default)
     await theatreRegistry.addTheatreTerminal?.(undefined, {
       existingWorktree: {
         path: task.path,
@@ -246,7 +284,9 @@ export async function reopenTask(path: string, task: WorktreeWithMetadata): Prom
         createdAt: task.createdAt,
         readyToShip: task.readyToShip,
         prompt: task.prompt,
+        sandboxed: task.sandboxed,
       },
+      sandboxed: false,
     });
   } else {
     showToast(result.error || 'Failed to reopen task', 'error');

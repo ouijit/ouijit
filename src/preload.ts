@@ -114,6 +114,9 @@ contextBridge.exposeInMainWorld('api', {
     setMergeTarget: (projectPath: string, branch: string, mergeTarget: string): Promise<{ success: boolean; error?: string }> =>
       ipcRenderer.invoke('worktree:set-merge-target', projectPath, branch, mergeTarget),
 
+    setSandboxed: (projectPath: string, branch: string, sandboxed: boolean): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke('worktree:set-sandboxed', projectPath, branch, sandboxed),
+
     getMainBranch: (projectPath: string): Promise<string> =>
       ipcRenderer.invoke('worktree:get-main-branch', projectPath),
   },
@@ -244,4 +247,27 @@ contextBridge.exposeInMainWorld('api', {
    * Get file path from a dropped File object
    */
   getPathForFile: (file: File): string => webUtils.getPathForFile(file),
+
+  /**
+   * Lima sandbox API
+   */
+  lima: {
+    status: (projectPath: string): Promise<{ available: boolean; vmStatus: string; instanceName?: string; memory?: number; disk?: number }> =>
+      ipcRenderer.invoke('lima:status', projectPath),
+    stop: (projectPath: string): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke('lima:stop', projectPath),
+    getConfig: (projectPath: string): Promise<{ memoryGiB: number; diskGiB: number }> =>
+      ipcRenderer.invoke('lima:get-config', projectPath),
+    setConfig: (projectPath: string, config: { memoryGiB?: number; diskGiB?: number }): Promise<{ success: boolean }> =>
+      ipcRenderer.invoke('lima:set-config', projectPath, config),
+    recreate: (projectPath: string): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke('lima:recreate', projectPath),
+    delete: (projectPath: string): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke('lima:delete', projectPath),
+    onSpawnProgress: (callback: (message: string) => void): (() => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, message: string) => callback(message);
+      ipcRenderer.on('lima:spawn-progress', handler);
+      return () => ipcRenderer.removeListener('lima:spawn-progress', handler);
+    },
+  },
 });

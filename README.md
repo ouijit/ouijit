@@ -9,6 +9,7 @@
 - **Terminal card stack** - Quick switching between sessions
 - **Diff review** - View changes before merging
 - **Script hooks** - Run scripts on task creation, play, and cleanup
+- **Sandboxed terminals** - Optionally run tasks in isolated Linux VMs via Lima
 
 ## Script Hooks
 
@@ -19,6 +20,7 @@ Configure shell scripts that run at key points in the task lifecycle:
 | **init** | After worktree is created | `npm install` to set up dependencies |
 | **run** | On-demand via launch menu | `npm run dev` to start dev server |
 | **cleanup** | Before worktree is removed | Clean up resources, stop services |
+| **sandbox-setup** | After sandbox VM is created | Install tools, configure the VM environment |
 
 Hooks receive environment variables:
 
@@ -59,7 +61,7 @@ OUIJIT_HOOK_TYPE       # Which hook is running
 npm install
 ```
 
-This compiles native C/C++ modules (node-pty, koffi) and may take a minute on first run.
+This compiles native C/C++ modules (node-pty, koffi) and downloads the limactl binary for sandbox support. May take a minute on first run.
 
 ### Running in dev mode
 
@@ -85,6 +87,7 @@ src/components/      # UI components
 src/components/theatre/  # Theatre mode (terminal/task runner UI)
 src/utils/           # Shared utilities
 src/ouijit/          # Core app logic (import/export, dependencies)
+src/lima/            # Lima VM sandbox integration
 ```
 
 ### Native modules
@@ -138,7 +141,7 @@ See [docs/building-linux.md](docs/building-linux.md) for the full guide. In shor
 
 ## Tech Stack
 
-Electron, Vite, TypeScript, xterm.js, node-pty, @preact/signals-core
+Electron, Vite, TypeScript, xterm.js, node-pty, @preact/signals-core, Lima
 
 ## Platforms
 

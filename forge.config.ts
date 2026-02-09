@@ -53,6 +53,25 @@ const config: ForgeConfig = {
           console.log(`Copying ${mod} to ${dest}`);
           copyRecursive(src, dest);
         }
+
+        // Copy bundled limactl binary
+        const limactlSrc = path.join(__dirname, 'resources', 'bin', 'limactl');
+        if (fs.existsSync(limactlSrc)) {
+          const binDest = path.join(buildPath, '..', 'bin');
+          fs.mkdirSync(binDest, { recursive: true });
+          fs.copyFileSync(limactlSrc, path.join(binDest, 'limactl'));
+          fs.chmodSync(path.join(binDest, 'limactl'), 0o755);
+          console.log(`Copied limactl to ${binDest}`);
+        }
+
+        // Copy Lima guest agent binaries
+        const guestAgentSrc = path.join(__dirname, 'resources', 'share', 'lima');
+        if (fs.existsSync(guestAgentSrc)) {
+          const shareDest = path.join(buildPath, '..', 'share', 'lima');
+          copyRecursive(guestAgentSrc, shareDest);
+          console.log(`Copied Lima guest agents to ${shareDest}`);
+        }
+
         callback();
       },
     ],

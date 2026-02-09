@@ -88,5 +88,10 @@ typings/
 # Vite
 .vite/
 
+# Bundled binaries (downloaded during build)
+resources/bin/*
+!resources/bin/.gitkeep
+resources/share/
+
 # Electron-Forge
 out/

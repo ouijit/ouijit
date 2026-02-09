@@ -43,6 +43,56 @@ export const theatreRegistry: TheatreRegistry = {
 };
 
 /**
+ * Show a context menu for a task with "Open in Sandbox" option.
+ * Calls onSandbox() when the user selects "Open in Sandbox".
+ */
+export function showTaskContextMenu(event: MouseEvent, onSandbox: () => void): void {
+  event.preventDefault();
+  event.stopPropagation();
+
+  // Remove any existing context menu
+  document.querySelector('.task-context-menu')?.remove();
+
+  const menu = document.createElement('div');
+  menu.className = 'task-context-menu';
+
+  const item = document.createElement('button');
+  item.className = 'task-context-menu-item';
+  item.innerHTML = '<i data-lucide="box"></i> Open in Sandbox';
+  item.addEventListener('click', (e) => {
+    e.stopPropagation();
+    menu.remove();
+    onSandbox();
+  });
+  menu.appendChild(item);
+
+  document.body.appendChild(menu);
+
+  // Render lucide icons
+  import('lucide').then(({ createIcons, icons }) => {
+    createIcons({ icons, nameAttr: 'data-lucide', attrs: {}, nodes: [menu] });
+  });
+
+  // Position at mouse, keeping within viewport
+  const x = Math.min(event.clientX, window.innerWidth - 180);
+  const y = Math.min(event.clientY, window.innerHeight - 40);
+  menu.style.left = `${x}px`;
+  menu.style.top = `${y}px`;
+
+  // Animate in
+  requestAnimationFrame(() => menu.classList.add('task-context-menu--visible'));
+
+  // Dismiss on click outside (ignore clicks inside the menu itself)
+  const dismiss = (e: MouseEvent) => {
+    if (menu.contains(e.target as Node)) return;
+    menu.classList.remove('task-context-menu--visible');
+    setTimeout(() => menu.remove(), 100);
+    document.removeEventListener('mousedown', dismiss);
+  };
+  setTimeout(() => document.addEventListener('mousedown', dismiss), 0);
+}
+
+/**
  * Get the git path for a terminal (worktree path if it's a worktree, otherwise project path)
  */
 export function getTerminalGitPath(term: TheatreTerminal): string {
