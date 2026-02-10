@@ -1,6 +1,6 @@
 import { ipcMain, BrowserWindow } from 'electron';
 import type { SandboxStatus } from './types';
-import { isLimaInstalled, getInstance, getInstanceName, stopInstance, deleteInstance, startInstance, createInstance, stopAllInstances } from './manager';
+import { isLimaInstalled, getInstance, getInstanceName, stopInstance, deleteInstance, startInstance, createInstance, stopAllInstances, ensureRunning } from './manager';
 import { spawnSandboxedPty, cleanupSandboxPtys } from './spawn';
 import { getSandboxConfig, setSandboxConfig } from '../projectSettings';
 
@@ -60,6 +60,17 @@ export function registerLimaHandlers(mainWindow: BrowserWindow): void {
     return setSandboxConfig(projectPath, config);
   });
 
+  ipcMain.handle('lima:start', async (_event, projectPath: string): Promise<{ success: boolean; error?: string }> => {
+    const sandboxConfig = await getSandboxConfig(projectPath);
+    const sendProgress = (msg: string) => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send('lima:spawn-progress', msg);
+      }
+    };
+    const result = await ensureRunning(projectPath, { memoryGiB: sandboxConfig.memoryGiB, diskGiB: sandboxConfig.diskGiB }, sendProgress);
+    return { success: result.success, error: result.error };
+  });
+
   ipcMain.handle('lima:recreate', async (_event, projectPath: string): Promise<{ success: boolean; error?: string }> => {
     const instanceName = getInstanceName(projectPath);
     const sendProgress = (msg: string) => {
@@ -98,7 +109,7 @@ export function registerLimaHandlers(mainWindow: BrowserWindow): void {
 
       // Start
       sendProgress('Starting sandbox VM…');
-      const startResult = await startInstance(instanceName);
+      const startResult = await startInstance(instanceName, sendProgress);
       if (!startResult.success) {
         return { success: false, error: startResult.error };
       }

@@ -1285,6 +1285,32 @@ async function buildSandboxDropdownContent(
   // Action buttons container
   const vmExists = status.vmStatus === 'Running' || status.vmStatus === 'Stopped';
 
+  // Start VM button (when stopped or not created)
+  if (status.vmStatus === 'Stopped' || status.vmStatus === 'NotCreated') {
+    const startBtn = document.createElement('button');
+    startBtn.className = 'sandbox-dropdown-stop-btn';
+    startBtn.textContent = 'Start VM';
+    startBtn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      hideSandboxDropdown();
+      sandboxBtn.classList.remove('theatre-sandbox-btn--active');
+      setSandboxButtonStarting(true);
+      window.api.lima.start(path).catch(() => {});
+      // Poll until VM is running (timeout after 5 min)
+      const poll = setInterval(async () => {
+        try {
+          const s = await window.api.lima.status(path);
+          if (s.vmStatus === 'Running') {
+            clearInterval(poll);
+            await refreshSandboxButton(path);
+          }
+        } catch { /* ignore */ }
+      }, 3000);
+      setTimeout(() => { clearInterval(poll); refreshSandboxButton(path); }, 300_000);
+    });
+    dropdown.appendChild(startBtn);
+  }
+
   // Stop VM button (only when running)
   if (status.vmStatus === 'Running') {
     const stopBtn = document.createElement('button');
@@ -1299,7 +1325,22 @@ async function buildSandboxDropdownContent(
       await buildSandboxDropdownContent(dropdown, wrapper, path);
     });
     dropdown.appendChild(stopBtn);
+
   }
+
+  // VM Console — open a plain shell in the sandbox (creates/starts VM if needed)
+  const consoleBtn = document.createElement('button');
+  consoleBtn.className = 'sandbox-dropdown-stop-btn';
+  consoleBtn.textContent = 'VM Console';
+  consoleBtn.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    hideSandboxDropdown();
+    await theatreRegistry.addTheatreTerminal?.(
+      { name: 'VM Console', command: '', source: 'custom', priority: 0 },
+      { sandboxed: true },
+    );
+  });
+  dropdown.appendChild(consoleBtn);
 
   // Recreate VM button (when VM exists)
   if (vmExists) {

@@ -254,6 +254,8 @@ contextBridge.exposeInMainWorld('api', {
   lima: {
     status: (projectPath: string): Promise<{ available: boolean; vmStatus: string; instanceName?: string; memory?: number; disk?: number }> =>
       ipcRenderer.invoke('lima:status', projectPath),
+    start: (projectPath: string): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke('lima:start', projectPath),
     stop: (projectPath: string): Promise<{ success: boolean; error?: string }> =>
       ipcRenderer.invoke('lima:stop', projectPath),
     getConfig: (projectPath: string): Promise<{ memoryGiB: number; diskGiB: number }> =>

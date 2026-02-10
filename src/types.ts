@@ -364,6 +364,7 @@ export interface ElectronAPI {
  */
 export interface LimaAPI {
   status(projectPath: string): Promise<{ available: boolean; vmStatus: string; instanceName?: string; memory?: number; disk?: number }>;
+  start(projectPath: string): Promise<{ success: boolean; error?: string }>;
   stop(projectPath: string): Promise<{ success: boolean; error?: string }>;
   getConfig(projectPath: string): Promise<{ memoryGiB: number; diskGiB: number }>;
   setConfig(projectPath: string, config: { memoryGiB?: number; diskGiB?: number }): Promise<{ success: boolean }>;

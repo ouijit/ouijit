@@ -116,17 +116,74 @@ export async function createInstance(
 }
 
 /**
+ * Tail ha.stderr.log during VM startup and forward human-readable progress.
+ * Returns a cleanup function to stop tailing.
+ */
+function tailHostAgentLog(instanceName: string, onMessage: (msg: string) => void): () => void {
+  const env = getLimaEnv();
+  const logPath = path.join(env.LIMA_HOME, instanceName, 'ha.stderr.log');
+
+  let offset = 0;
+  let stopped = false;
+
+  // Start from current end of file so we only see new messages
+  try {
+    offset = fsSync.statSync(logPath).size;
+  } catch {
+    // Log may not exist yet — will pick it up on first poll
+  }
+
+  const interval = setInterval(() => {
+    if (stopped) return;
+    try {
+      const size = fsSync.statSync(logPath).size;
+      if (size <= offset) return;
+
+      const fd = fsSync.openSync(logPath, 'r');
+      const buf = Buffer.alloc(size - offset);
+      fsSync.readSync(fd, buf, 0, buf.length, offset);
+      fsSync.closeSync(fd);
+      offset = size;
+
+      for (const line of buf.toString('utf-8').split('\n')) {
+        if (!line.trim()) continue;
+        try {
+          const entry = JSON.parse(line);
+          if (entry.level !== 'info') continue;
+          const msg: string = entry.msg;
+          // Skip noisy port-forwarding chatter
+          if (msg.startsWith('Not forwarding') || msg.startsWith('Forwarding')) continue;
+          onMessage(msg);
+        } catch {
+          // Not valid JSON — skip
+        }
+      }
+    } catch {
+      // File may not exist yet during early startup
+    }
+  }, 500);
+
+  return () => {
+    stopped = true;
+    clearInterval(interval);
+  };
+}
+
+/**
  * Start a Lima instance
  */
-export async function startInstance(name: string): Promise<{ success: boolean; error?: string }> {
+export async function startInstance(name: string, onProgress?: (message: string) => void): Promise<{ success: boolean; error?: string }> {
+  const stopTailing = onProgress ? tailHostAgentLog(name, onProgress) : undefined;
   try {
     await execFileAsync(getLimactlPath(), ['start', name], {
-      timeout: 120_000, env: getLimaEnv(),
+      timeout: 300_000, env: getLimaEnv(),
     });
     return { success: true };
   } catch (error) {
     const msg = error instanceof Error ? error.message : 'Unknown error';
     return { success: false, error: `Failed to start VM: ${msg}` };
+  } finally {
+    stopTailing?.();
   }
 }
 
@@ -209,7 +266,7 @@ export async function ensureRunning(
       return { success: false, instanceName, error: createResult.error };
     }
     progress('Starting sandbox VM…');
-    const startResult = await startInstance(instanceName);
+    const startResult = await startInstance(instanceName, progress);
     if (!startResult.success) {
       return { success: false, instanceName, error: startResult.error };
     }
@@ -218,7 +275,7 @@ export async function ensureRunning(
 
   if (instance.status === 'Stopped') {
     progress('Starting sandbox VM…');
-    const startResult = await startInstance(instanceName);
+    const startResult = await startInstance(instanceName, progress);
     if (!startResult.success) {
       return { success: false, instanceName, error: startResult.error };
     }
@@ -233,7 +290,7 @@ export async function ensureRunning(
     return { success: false, instanceName, error: createResult.error };
   }
   progress('Starting sandbox VM…');
-  const startResult = await startInstance(instanceName);
+  const startResult = await startInstance(instanceName, progress);
   if (!startResult.success) {
     return { success: false, instanceName, error: startResult.error };
   }
