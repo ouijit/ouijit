@@ -183,7 +183,7 @@ async function copyGitIgnoredFiles(sourcePath: string, worktreePath: string, pre
 /**
  * Sanitize a name to be git-branch-safe
  */
-function sanitizeBranchName(name: string): string {
+export function sanitizeBranchName(name: string): string {
   return name
     .toLowerCase()
     .trim()
@@ -197,7 +197,7 @@ function sanitizeBranchName(name: string): string {
  * Generate a branch name from a task name
  * Always includes task number to guarantee uniqueness
  */
-function generateBranchName(name: string | undefined, taskNumber: number): string {
+export function generateBranchName(name: string | undefined, taskNumber: number): string {
   if (name) {
     const sanitized = sanitizeBranchName(name);
     if (sanitized) {
@@ -205,6 +205,42 @@ function generateBranchName(name: string | undefined, taskNumber: number): strin
     }
   }
   return `task-${taskNumber}`;
+}
+
+/**
+ * Validate a branch name for git compatibility and conflicts
+ */
+export async function validateBranchName(projectPath: string, branchName: string): Promise<{ valid: boolean; error?: string }> {
+  if (!branchName) {
+    return { valid: false, error: 'Branch name is required' };
+  }
+
+  if (branchName.length > 100) {
+    return { valid: false, error: 'Branch name must be 100 characters or less' };
+  }
+
+  if (branchName === 'HEAD') {
+    return { valid: false, error: 'HEAD is a reserved name' };
+  }
+
+  // Check git ref format validity
+  try {
+    await execAsync(`git check-ref-format --branch ${shellEscape(branchName)}`, { cwd: projectPath });
+  } catch {
+    return { valid: false, error: 'Invalid branch name' };
+  }
+
+  // Check for conflicts with existing branches
+  try {
+    const { stdout } = await execAsync(`git branch --list ${shellEscape(branchName)}`, { cwd: projectPath });
+    if (stdout.trim()) {
+      return { valid: false, error: 'Branch already exists' };
+    }
+  } catch {
+    // If git branch --list fails, skip conflict check
+  }
+
+  return { valid: true };
 }
 
 /**
@@ -233,7 +269,7 @@ export function formatBranchNameForDisplay(branch: string): string {
  * Create a new task with its git worktree
  * This is the main entry point - combines task metadata and worktree creation
  */
-export async function createTaskWorktree(projectPath: string, name?: string, prompt?: string): Promise<TaskWorktreeResult> {
+export async function createTaskWorktree(projectPath: string, name?: string, prompt?: string, branchName?: string): Promise<TaskWorktreeResult> {
   try {
     const [hasHead, branchResult, taskNumber] = await Promise.all([
       // Check if repo has any commits (worktrees require a valid HEAD)
@@ -265,7 +301,7 @@ export async function createTaskWorktree(projectPath: string, name?: string, pro
       worktreePath = path.join(baseDir, `T-${currentTaskNumber}`);
     }
 
-    const branch = generateBranchName(name, currentTaskNumber);
+    const branch = branchName || generateBranchName(name, currentTaskNumber);
 
     // Start ls-files in parallel with git worktree add
     // ls-files reads from source dir, doesn't need the worktree to exist

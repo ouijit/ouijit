@@ -267,7 +267,11 @@ export interface HooksAPI {
  * Worktree API exposed to the renderer
  */
 export interface WorktreeAPI {
-  create(projectPath: string, name?: string, prompt?: string): Promise<WorktreeCreateResult>;
+  create(projectPath: string, name?: string, prompt?: string, branchName?: string): Promise<WorktreeCreateResult>;
+  /** Validate a branch name for git compatibility and conflicts */
+  validateBranchName(projectPath: string, branchName: string): Promise<{ valid: boolean; error?: string }>;
+  /** Generate the auto-generated branch name for a given task name */
+  generateBranchName(projectPath: string, name: string): Promise<string>;
   remove(projectPath: string, worktreePath: string): Promise<WorktreeRemoveResult>;
   list(projectPath: string): Promise<WorktreeInfo[]>;
   getDiff(projectPath: string, worktreeBranch: string, targetBranch?: string): Promise<import('./git').WorktreeDiffSummary | null>;

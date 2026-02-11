@@ -16,7 +16,7 @@ import {
 } from './ptyManager';
 import * as limaPlugin from './lima';
 import { getGitStatus, getCompactGitStatus, getGitDropdownInfo, checkoutBranch, createBranch, mergeIntoMain, getChangedFiles, getFileDiff, getWorktreeDiff, getWorktreeFileDiff, mergeWorktreeBranch, listBranches, getMainBranch } from './git';
-import { createTaskWorktree, removeTaskWorktree, listWorktrees, formatBranchNameForDisplay } from './worktree';
+import { createTaskWorktree, removeTaskWorktree, listWorktrees, formatBranchNameForDisplay, validateBranchName, generateBranchName } from './worktree';
 import type { TaskWorktreeResult, WorktreeRemoveResult, WorktreeInfo } from './worktree';
 import {
   getProjectTasks,
@@ -270,8 +270,18 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
   });
 
   // Worktree handlers
-  ipcMain.handle('worktree:create', async (_event, projectPath: string, name?: string, prompt?: string): Promise<TaskWorktreeResult> => {
-    return createTaskWorktree(projectPath, name, prompt);
+  ipcMain.handle('worktree:create', async (_event, projectPath: string, name?: string, prompt?: string, branchName?: string): Promise<TaskWorktreeResult> => {
+    return createTaskWorktree(projectPath, name, prompt, branchName);
+  });
+
+  ipcMain.handle('worktree:validate-branch-name', async (_event, projectPath: string, branchName: string): Promise<{ valid: boolean; error?: string }> => {
+    return validateBranchName(projectPath, branchName);
+  });
+
+  ipcMain.handle('worktree:generate-branch-name', async (_event, projectPath: string, name: string): Promise<string> => {
+    const { getNextTaskNumber } = await import('./taskMetadata');
+    const taskNumber = await getNextTaskNumber(projectPath);
+    return generateBranchName(name, taskNumber);
   });
 
   ipcMain.handle('worktree:remove', async (_event, projectPath: string, worktreePath: string): Promise<WorktreeRemoveResult> => {

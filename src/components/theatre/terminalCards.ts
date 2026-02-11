@@ -24,6 +24,7 @@ import { showHookConfigDialog } from '../hookConfigDialog';
 import { refreshTerminalGitStatus, buildCardGitBranchHtml, buildCardGitStatsHtml, scheduleTerminalGitStatusRefresh } from './gitStatus';
 import { toggleTerminalDiffPanel, hideTerminalDiffPanel } from './diffPanel';
 import { showShipItPanel } from './shipItPanel';
+import { buildTaskFormHtml, setupTaskForm } from './taskForm';
 
 // Platform detection for shortcuts display
 const isMac = navigator.platform.toLowerCase().includes('mac');
@@ -1136,6 +1137,7 @@ export interface AddTheatreTerminalOptions {
   existingWorktree?: WorktreeInfo & { readyToShip?: boolean; prompt?: string; sandboxed?: boolean };
   worktreeName?: string;
   worktreePrompt?: string;
+  worktreeBranchName?: string;
   sandboxed?: boolean;
 }
 
@@ -1175,7 +1177,7 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
     loadingCard = showLoadingCardInStack(loadingLabel);
 
     // Create worktree
-    const result = await window.api.worktree.create(currentProjectPath, options.worktreeName, options.worktreePrompt);
+    const result = await window.api.worktree.create(currentProjectPath, options.worktreeName, options.worktreePrompt, options.worktreeBranchName);
     if (!result.success || !result.task || !result.worktreePath) {
       removeLoadingCard(loadingCard);
       // Restore stack positions
@@ -1702,36 +1704,7 @@ export function buildEmptyStateHtml(limaAvailable: boolean): string {
         <div class="theatre-stack-empty-section-label"><span class="theatre-stack-empty-section-shortcut">${isMac ? '⌘' : 'Ctrl+'}<span class="shortcut-number">N</span></span>New Task</div>
         <form class="theatre-stack-empty-form">
           <div class="theatre-stack-empty-composer">
-            <div class="theatre-stack-empty-scroll">
-              <input
-                type="text"
-                class="theatre-stack-empty-name"
-                placeholder="Task name"
-                autocomplete="off"
-                spellcheck="false"
-              />
-              <textarea
-                class="theatre-stack-empty-prompt"
-                placeholder="Describe what needs to be done..."
-                rows="2"
-                spellcheck="false"
-              ></textarea>
-            </div>
-            ${limaAvailable ? `
-            <div class="new-task-composer-footer">
-              <div class="new-task-sandbox-toggle">
-                <div class="sandbox-toggle">
-                  <div class="sandbox-toggle-knob"></div>
-                </div>
-                <span class="new-task-sandbox-label">Sandbox</span>
-              </div>
-            </div>
-            ` : ''}
-            <button type="submit" class="theatre-stack-empty-btn" aria-label="Start task">
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                <path d="M8 13V3M4 7l4-4 4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-              </svg>
-            </button>
+            ${buildTaskFormHtml(limaAvailable)}
           </div>
         </form>
       </div>
@@ -1840,7 +1813,7 @@ export async function showStackEmptyState(): Promise<void> {
     await populatePreviousTasks(emptyState);
     requestAnimationFrame(() => {
       emptyState.classList.add('theatre-stack-empty--visible');
-      const input = emptyState.querySelector('.theatre-stack-empty-name') as HTMLInputElement;
+      const input = emptyState.querySelector('.task-form-name') as HTMLInputElement;
       if (input) input.focus();
     });
     return;
@@ -1858,94 +1831,45 @@ export async function showStackEmptyState(): Promise<void> {
     }
   }
 
-  let sandboxState = false;
-
   // Create and insert empty state
   stack.insertAdjacentHTML('beforeend', buildEmptyStateHtml(limaAvailable));
   emptyState = stack.querySelector('.theatre-stack-empty') as HTMLElement;
 
-  // Wire up form submission
-  const form = emptyState.querySelector('.theatre-stack-empty-form') as HTMLFormElement;
-  const nameInput = emptyState.querySelector('.theatre-stack-empty-name') as HTMLInputElement;
-  const promptInput = emptyState.querySelector('.theatre-stack-empty-prompt') as HTMLTextAreaElement;
-  const submitBtn = emptyState.querySelector('.theatre-stack-empty-btn') as HTMLButtonElement;
-
-  // Auto-resize textarea to grow with content
-  promptInput.addEventListener('input', () => {
-    promptInput.style.height = 'auto';
-    promptInput.style.height = promptInput.scrollHeight + 'px';
-  });
-
-  // Wire up sandbox toggle if present
-  const sandboxToggleRow = emptyState.querySelector('.new-task-sandbox-toggle');
-  if (sandboxToggleRow) {
-    sandboxToggleRow.addEventListener('click', () => {
-      sandboxState = !sandboxState;
-      const toggle = sandboxToggleRow.querySelector('.sandbox-toggle');
-      if (toggle) {
-        toggle.classList.toggle('sandbox-toggle--active', sandboxState);
-      }
-    });
-  }
+  const formHandle = setupTaskForm(emptyState, currentProjectPath, limaAvailable);
 
   // Note: ⌘1-9 hotkeys are already registered in enterTheatreMode for terminal switching.
   // We don't register them again here to avoid duplicate handlers that cause double-firing
   // when the task index scope is popped. Users can use Command+T to open the task index
   // for keyboard-based task selection.
 
-  if (form && nameInput && promptInput && submitBtn) {
-    // Enter in name field focuses description instead of submitting
-    nameInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        promptInput.focus();
-      }
-    });
-
-    // Mod+Enter in prompt field submits the form
-    promptInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-        e.preventDefault();
-        form.requestSubmit();
-      }
-    });
-
+  const form = emptyState.querySelector('.theatre-stack-empty-form') as HTMLFormElement;
+  if (form) {
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
+      if (!formHandle.isValid()) return;
 
-      // Prevent double submission
-      if (submitBtn.disabled) return;
-
-      const name = nameInput.value.trim() || undefined;
-      const prompt = promptInput.value.trim() || undefined;
-
-      // Disable form while creating (loading card provides visual feedback)
-      submitBtn.disabled = true;
-      nameInput.disabled = true;
-      promptInput.disabled = true;
+      const values = formHandle.getValues();
+      formHandle.disable();
+      formHandle.cleanup();
 
       try {
         const success = await addTheatreTerminal(undefined, {
           useWorktree: true,
-          worktreeName: name,
-          worktreePrompt: prompt,
-          sandboxed: limaAvailable ? sandboxState : undefined,
+          worktreeName: values.name || undefined,
+          worktreePrompt: values.prompt || undefined,
+          worktreeBranchName: values.branchName || undefined,
+          sandboxed: values.sandboxed,
         });
         if (!success) {
-          // Restore form state if terminal creation failed
-          submitBtn.disabled = false;
-          nameInput.disabled = false;
-          promptInput.disabled = false;
-          nameInput.focus();
+          formHandle.enable();
+          formHandle.focus();
         }
         // If successful, the form will be hidden by the effect system
       } catch (error) {
         console.error('[theatre] Failed to create task:', error);
         showToast('Failed to create task', 'error');
-        submitBtn.disabled = false;
-        nameInput.disabled = false;
-        promptInput.disabled = false;
-        nameInput.focus();
+        formHandle.enable();
+        formHandle.focus();
       }
     });
   }
@@ -1956,7 +1880,7 @@ export async function showStackEmptyState(): Promise<void> {
   // Animate in and focus input
   requestAnimationFrame(() => {
     emptyState.classList.add('theatre-stack-empty--visible');
-    if (nameInput) nameInput.focus();
+    formHandle.focus();
   });
 }
 

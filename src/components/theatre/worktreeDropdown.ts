@@ -8,21 +8,13 @@ import { projectPath, terminals, invalidateTaskList } from './signals';
 import { showToast } from '../importDialog';
 import { theatreRegistry } from './helpers';
 import { registerHotkey, unregisterHotkey, pushScope, popScope, Scopes } from '../../utils/hotkeys';
-
-/**
- * Result from the worktree name prompt dialog
- */
-interface WorktreePromptResult {
-  name: string | null;
-  prompt: string | null;
-  sandboxed: boolean | undefined;
-}
+import { buildTaskFormHtml, setupTaskForm, type TaskFormValues } from './taskForm';
 
 /**
  * Show a simple prompt dialog for naming a worktree
  * Returns the task name and optional prompt, or null if cancelled
  */
-async function showWorktreeNamePrompt(): Promise<WorktreePromptResult | null> {
+async function showWorktreeNamePrompt(): Promise<TaskFormValues | null> {
   // Check lima availability
   const currentProjectPath = projectPath.value;
   let limaAvailable = false;
@@ -35,8 +27,6 @@ async function showWorktreeNamePrompt(): Promise<WorktreePromptResult | null> {
     }
   }
 
-  let sandboxState = false;
-
   return new Promise((resolve) => {
     const overlay = document.createElement('div');
     overlay.className = 'modal-overlay';
@@ -46,67 +36,18 @@ async function showWorktreeNamePrompt(): Promise<WorktreePromptResult | null> {
 
     dialog.innerHTML = `
       <form class="new-task-composer">
-        <div class="new-task-composer-scroll">
-          <input
-            type="text"
-            id="worktree-name"
-            class="new-task-composer-name"
-            placeholder="Task name"
-            autocomplete="off"
-            spellcheck="false"
-          />
-          <textarea
-            id="worktree-prompt"
-            class="new-task-composer-prompt"
-            placeholder="Describe what needs to be done..."
-            spellcheck="false"
-            rows="2"
-          ></textarea>
-        </div>
-        ${limaAvailable ? `
-        <div class="new-task-composer-footer">
-          <div class="new-task-sandbox-toggle">
-            <div class="sandbox-toggle">
-              <div class="sandbox-toggle-knob"></div>
-            </div>
-            <span class="new-task-sandbox-label">Sandbox</span>
-          </div>
-        </div>
-        ` : ''}
-        <button type="submit" class="new-task-composer-btn" aria-label="Create task">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-            <path d="M8 13V3M4 7l4-4 4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-        </button>
+        ${buildTaskFormHtml(limaAvailable)}
       </form>
     `;
 
     overlay.appendChild(dialog);
     document.body.appendChild(overlay);
 
+    const formHandle = setupTaskForm(dialog, currentProjectPath, limaAvailable);
     const form = dialog.querySelector('.new-task-composer') as HTMLFormElement;
-    const nameInput = dialog.querySelector('#worktree-name') as HTMLInputElement;
-    const promptInput = dialog.querySelector('#worktree-prompt') as HTMLTextAreaElement;
-
-    // Auto-resize textarea to grow with content
-    promptInput.addEventListener('input', () => {
-      promptInput.style.height = 'auto';
-      promptInput.style.height = promptInput.scrollHeight + 'px';
-    });
-
-    // Wire up sandbox toggle if present
-    const sandboxToggleRow = dialog.querySelector('.new-task-sandbox-toggle');
-    if (sandboxToggleRow) {
-      sandboxToggleRow.addEventListener('click', () => {
-        sandboxState = !sandboxState;
-        const toggle = sandboxToggleRow.querySelector('.sandbox-toggle');
-        if (toggle) {
-          toggle.classList.toggle('sandbox-toggle--active', sandboxState);
-        }
-      });
-    }
 
     const cleanup = () => {
+      formHandle.cleanup();
       unregisterHotkey('escape', Scopes.MODAL);
       popScope();
       dialog.classList.remove('import-dialog--visible');
@@ -115,32 +56,16 @@ async function showWorktreeNamePrompt(): Promise<WorktreePromptResult | null> {
     };
 
     const handleCreate = () => {
-      const name = nameInput.value.trim() || null;
-      const prompt = promptInput.value.trim() || null;
+      if (!formHandle.isValid()) return;
+      const values = formHandle.getValues();
       cleanup();
-      resolve({ name, prompt, sandboxed: limaAvailable ? sandboxState : undefined });
+      resolve(values);
     };
 
     const handleCancel = () => {
       cleanup();
       resolve(null);
     };
-
-    // Enter in name field focuses description instead of submitting
-    nameInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') {
-        e.preventDefault();
-        promptInput.focus();
-      }
-    });
-
-    // Mod+Enter in prompt field submits the form
-    promptInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-        e.preventDefault();
-        form.requestSubmit();
-      }
-    });
 
     // Form submission
     form.addEventListener('submit', (e) => {
@@ -161,7 +86,7 @@ async function showWorktreeNamePrompt(): Promise<WorktreePromptResult | null> {
     requestAnimationFrame(() => {
       overlay.classList.add('modal-overlay--visible');
       dialog.classList.add('import-dialog--visible');
-      nameInput.focus();
+      formHandle.focus();
     });
   });
 }
@@ -245,6 +170,7 @@ export async function createNewAgentShell(): Promise<void> {
       useWorktree: true,
       worktreeName: result.name || undefined,
       worktreePrompt: result.prompt || undefined,
+      worktreeBranchName: result.branchName || undefined,
       sandboxed: result.sandboxed,
     });
   }

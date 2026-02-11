@@ -75,8 +75,14 @@ contextBridge.exposeInMainWorld('api', {
    * Worktree management API
    */
   worktree: {
-    create: (projectPath: string, name?: string, prompt?: string): Promise<WorktreeCreateResult> =>
-      ipcRenderer.invoke('worktree:create', projectPath, name, prompt),
+    create: (projectPath: string, name?: string, prompt?: string, branchName?: string): Promise<WorktreeCreateResult> =>
+      ipcRenderer.invoke('worktree:create', projectPath, name, prompt, branchName),
+
+    validateBranchName: (projectPath: string, branchName: string): Promise<{ valid: boolean; error?: string }> =>
+      ipcRenderer.invoke('worktree:validate-branch-name', projectPath, branchName),
+
+    generateBranchName: (projectPath: string, name: string): Promise<string> =>
+      ipcRenderer.invoke('worktree:generate-branch-name', projectPath, name),
 
     remove: (projectPath: string, worktreePath: string): Promise<WorktreeRemoveResult> =>
       ipcRenderer.invoke('worktree:remove', projectPath, worktreePath),

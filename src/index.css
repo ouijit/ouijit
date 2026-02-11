@@ -652,50 +652,110 @@ textarea,
   @apply border-accent ring-3 ring-accent-light;
 }
 
-.new-task-composer-scroll {
+/* Shared Task Form (used in dialog and empty state) */
+.task-form-scroll {
   @apply flex flex-col overflow-y-auto pb-2;
   max-height: 40vh;
 }
 
-.new-task-composer-name {
-  @apply w-full px-4 pt-3.5 pb-1 font-sans text-base font-medium text-text-primary bg-transparent border-none outline-none;
+.task-form-name {
+  @apply w-full px-4 pt-3.5 pb-1 font-sans text-base font-medium text-white/90 bg-transparent border-none outline-none;
 }
 
-.new-task-composer-name::placeholder {
-  @apply text-text-tertiary font-normal;
+.task-form-name::placeholder {
+  @apply text-white/40 font-normal;
 }
 
-.new-task-composer-prompt {
-  @apply w-full pl-4 pr-14 pt-1 pb-4 font-sans text-sm text-text-secondary bg-transparent border-none outline-none resize-none;
+.task-form-branch-row {
+  @apply flex items-center gap-1.5 px-4 pb-1;
+}
+
+.task-form-branch-icon {
+  @apply w-3 h-3 shrink-0 text-white/25;
+}
+
+.task-form-branch {
+  @apply w-full font-mono text-xs text-white/40 bg-transparent border-none outline-none;
+}
+
+.task-form-branch::placeholder {
+  @apply text-white/15;
+}
+
+.task-form-branch--invalid {
+  color: #FF453A;
+}
+
+.task-form-branch-error {
+  @apply px-4 font-sans text-left;
+  font-size: var(--font-size-xs);
+  color: #FF453A;
+}
+
+.task-form-branch-error:empty {
+  @apply hidden;
+}
+
+.task-form-prompt {
+  @apply w-full pl-4 pr-14 pt-1 pb-4 font-sans text-sm text-white/70 bg-transparent border-none outline-none resize-none;
   min-height: 64px;
 }
 
-.new-task-composer-prompt::placeholder {
-  @apply text-text-tertiary;
+.task-form-prompt::placeholder {
+  @apply text-white/30;
 }
 
-.new-task-composer-footer {
+.task-form-footer {
   @apply flex items-center px-4 pb-3;
 }
 
-.new-task-sandbox-toggle {
+.task-form-sandbox-toggle {
   @apply flex items-center gap-2;
 }
 
-.new-task-sandbox-label {
-  @apply text-xs text-text-tertiary;
+.task-form-sandbox-label {
+  @apply text-xs text-white/40;
 }
 
-.new-task-composer-btn {
+.task-form-submit {
   @apply absolute bottom-3 right-3 flex items-center justify-center w-8 h-8 p-0 border-none rounded-lg bg-accent text-white transition-all duration-150 ease-out;
 }
 
-.new-task-composer-btn:hover {
+.task-form-submit:hover {
   @apply bg-accent-hover;
 }
 
-.new-task-composer-btn:active {
+.task-form-submit:active {
   @apply scale-95;
+}
+
+.task-form-submit:disabled {
+  @apply opacity-50;
+}
+
+/* Dialog-specific overrides for theme-token colors */
+.new-task-composer .task-form-name {
+  @apply text-text-primary;
+}
+
+.new-task-composer .task-form-name::placeholder {
+  @apply text-text-tertiary;
+}
+
+.new-task-composer .task-form-branch {
+  @apply text-text-tertiary;
+}
+
+.new-task-composer .task-form-branch--invalid {
+  color: #FF453A;
+}
+
+.new-task-composer .task-form-prompt {
+  @apply text-text-secondary;
+}
+
+.new-task-composer .task-form-prompt::placeholder {
+  @apply text-text-tertiary;
 }
 
 /* Custom Checkbox */
@@ -1867,46 +1927,8 @@ body > .diff-panel--visible {
   @apply relative flex flex-col bg-white/[0.08] border border-white/[0.12] rounded-xl overflow-hidden transition-all duration-150 ease-out;
 }
 
-.theatre-stack-empty-scroll {
-  @apply flex flex-col overflow-y-auto pb-2;
-  max-height: 40vh;
-}
-
 .theatre-stack-empty-composer:focus-within {
   @apply border-accent bg-white/10 ring-3 ring-[rgba(0,122,255,0.15)];
-}
-
-.theatre-stack-empty-name {
-  @apply w-full px-4 pt-3.5 pb-1 font-sans text-base font-medium text-white/90 bg-transparent border-none outline-none;
-}
-
-.theatre-stack-empty-name::placeholder {
-  @apply text-white/40 font-normal;
-}
-
-.theatre-stack-empty-prompt {
-  @apply w-full pl-4 pr-14 pt-1 pb-4 font-sans text-sm text-white/70 bg-transparent border-none outline-none resize-none;
-  min-height: 64px;
-}
-
-.theatre-stack-empty-prompt::placeholder {
-  @apply text-white/30;
-}
-
-.theatre-stack-empty-btn {
-  @apply absolute bottom-3 right-3 flex items-center justify-center w-8 h-8 p-0 border-none rounded-lg bg-accent text-white transition-all duration-150 ease-out;
-}
-
-.theatre-stack-empty-btn:hover {
-  @apply bg-accent-hover;
-}
-
-.theatre-stack-empty-btn:active {
-  @apply scale-95;
-}
-
-.theatre-stack-empty-btn:disabled {
-  @apply opacity-50;
 }
 
 .theatre-stack-empty-hints {
