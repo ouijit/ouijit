@@ -6,6 +6,7 @@ Native macOS desktop app for project management.
 
 ### Commands for Claude
 - `npm run check` - Type check (run this to verify changes)
+- `npm test` - Run tests (run this to validate data layer changes)
 
 Do NOT run `npm run start` or other dev server commands.
 

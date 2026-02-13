@@ -2,7 +2,7 @@
  * Task index sidecar panel - browse and manage all tasks (open and closed)
  */
 
-import type { WorktreeWithMetadata } from '../../types';
+import type { TaskWithWorkspace } from '../../types';
 import { theatreState } from './state';
 import { projectPath, taskIndexVisible, terminals, invalidateTaskList } from './signals';
 import { showToast } from '../importDialog';
@@ -59,10 +59,10 @@ function buildTaskIndexHtml(): string {
 /**
  * Build a task item element
  */
-function buildTaskItem(task: WorktreeWithMetadata, path: string, index?: number, limaAvailable?: boolean): HTMLElement {
+function buildTaskItem(task: TaskWithWorkspace, path: string, index?: number, limaAvailable?: boolean): HTMLElement {
   const item = document.createElement('button');
   item.className = 'task-index-item';
-  if (task.status === 'closed') {
+  if (task.status === 'done') {
     item.classList.add('task-index-item--closed');
   }
 
@@ -85,7 +85,7 @@ function buildTaskItem(task: WorktreeWithMetadata, path: string, index?: number,
   const actions = document.createElement('div');
   actions.className = 'task-index-item-actions';
 
-  if (task.status === 'closed') {
+  if (task.status === 'done') {
     // Reopen button
     const reopenBtn = document.createElement('button');
     reopenBtn.className = 'task-index-item-action';
@@ -124,10 +124,9 @@ function buildTaskItem(task: WorktreeWithMetadata, path: string, index?: number,
   item.appendChild(actions);
 
   const worktreeOpts = {
-    path: task.path,
-    branch: task.branch,
+    path: task.worktreePath || '',
+    branch: task.branch || '',
     createdAt: task.createdAt,
-    readyToShip: task.readyToShip,
     sandboxed: task.sandboxed,
   };
 
@@ -135,11 +134,12 @@ function buildTaskItem(task: WorktreeWithMetadata, path: string, index?: number,
   item.addEventListener('click', async () => {
     hideTaskIndex();
 
-    if (task.status === 'closed') {
+    if (task.status === 'done') {
       await reopenTask(path, task);
     } else {
       await theatreRegistry.addTheatreTerminal?.(undefined, {
         existingWorktree: worktreeOpts,
+        taskId: task.taskNumber,
         sandboxed: false,
       });
     }
@@ -150,19 +150,23 @@ function buildTaskItem(task: WorktreeWithMetadata, path: string, index?: number,
     item.addEventListener('contextmenu', (e) => {
       showTaskContextMenu(e, async () => {
         hideTaskIndex();
-        if (task.status === 'closed') {
+        if (task.status === 'done') {
           // Reopen and open sandboxed
-          const result = await window.api.worktree.reopen(path, task.branch);
-          if (result.success) {
-            invalidateTaskList();
-            await theatreRegistry.addTheatreTerminal?.(undefined, {
-              existingWorktree: worktreeOpts,
-              sandboxed: true,
-            });
+          if (task.taskNumber != null) {
+            const result = await window.api.task.setStatus(path, task.taskNumber, 'in_progress');
+            if (result.success) {
+              invalidateTaskList();
+              await theatreRegistry.addTheatreTerminal?.(undefined, {
+                existingWorktree: worktreeOpts,
+                taskId: task.taskNumber,
+                sandboxed: true,
+              });
+            }
           }
         } else {
           await theatreRegistry.addTheatreTerminal?.(undefined, {
             existingWorktree: worktreeOpts,
+            taskId: task.taskNumber,
             sandboxed: true,
           });
         }
@@ -202,11 +206,11 @@ async function populateTaskIndex(): Promise<void> {
 
   // Fetch tasks and check lima availability
   const [tasks, limaAvailable] = await Promise.all([
-    window.api.worktree.getTasks(path),
+    window.api.task.getAll(path),
     window.api.lima.status(path).then(s => s.available).catch(() => false),
   ]);
-  const openTasks = tasks.filter(t => t.status === 'open');
-  const closedTasks = tasks.filter(t => t.status === 'closed');
+  const openTasks = tasks.filter(t => t.status !== 'done');
+  const closedTasks = tasks.filter(t => t.status === 'done');
 
   // Clear lists
   openList.innerHTML = '';

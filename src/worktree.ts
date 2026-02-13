@@ -9,7 +9,7 @@ import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import * as os from 'node:os';
 import koffi from 'koffi';
-import { getNextTaskNumber, createTask, getTaskByNumber, deleteTaskByNumber, type TaskMetadata } from './taskMetadata';
+import { getNextTaskNumber, createTask, getTaskByNumber, deleteTaskByNumber, setTaskStatus, setTaskBranch, setTaskWorktreePath, type TaskMetadata, type TaskStatus } from './taskMetadata';
 
 const execAsync = promisify(exec);
 
@@ -243,32 +243,83 @@ export async function validateBranchName(projectPath: string, branchName: string
   return { valid: true };
 }
 
-/**
- * Format a branch name for display (hyphens to spaces, title case)
- */
-export function formatBranchNameForDisplay(branch: string): string {
-  // Check if it's an old-style agent-timestamp branch
-  const agentMatch = branch.match(/^agent-(\d+)$/);
-  if (agentMatch) {
-    const timestamp = parseInt(agentMatch[1], 10);
-    const date = new Date(timestamp);
-    return `Untitled ${date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
-  }
 
-  // Check if it's a named branch with timestamp suffix
-  const namedMatch = branch.match(/^(.+)-\d+$/);
-  if (namedMatch) {
-    return namedMatch[1].replace(/-/g, ' ');
+export async function createTodoTask(
+  projectPath: string,
+  name?: string,
+  prompt?: string
+): Promise<TaskWorktreeResult> {
+  try {
+    const taskNumber = await getNextTaskNumber(projectPath);
+    const displayName = name || 'Untitled';
+    const task = await createTask(projectPath, taskNumber, displayName, { status: 'todo', prompt });
+    return { success: true, task };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : 'Failed to create task' };
   }
-
-  // Fallback: just replace hyphens with spaces
-  return branch.replace(/-/g, ' ');
 }
 
-/**
- * Create a new task with its git worktree
- * This is the main entry point - combines task metadata and worktree creation
- */
+export async function startTask(
+  projectPath: string,
+  taskNumber: number,
+  branchName?: string
+): Promise<TaskWorktreeResult> {
+  try {
+    const task = await getTaskByNumber(projectPath, taskNumber);
+    if (!task) return { success: false, error: 'Task not found' };
+
+    const [hasHead, branchResult] = await Promise.all([
+      execAsync('git rev-parse HEAD', { cwd: projectPath }).then(() => true, () => false),
+      execAsync('git rev-parse --abbrev-ref HEAD', { cwd: projectPath })
+        .then(({ stdout }) => stdout.trim())
+        .catch((): undefined => undefined),
+    ]);
+
+    if (!hasHead) {
+      await execAsync('git commit --allow-empty -m "Initial commit"', { cwd: projectPath });
+    }
+
+    const mergeTarget = branchResult;
+    const projectName = path.basename(projectPath);
+    const baseDir = getWorktreeBaseDir(projectName);
+    await fs.mkdir(baseDir, { recursive: true });
+
+    let worktreePath = path.join(baseDir, `T-${taskNumber}`);
+    let dirNum = taskNumber;
+    while (await fs.access(worktreePath).then(() => true, () => false)) {
+      dirNum++;
+      worktreePath = path.join(baseDir, `T-${dirNum}`);
+    }
+
+    const branch = branchName || generateBranchName(task.name, taskNumber);
+
+    const [, ignoredFiles] = await Promise.all([
+      execAsync(`git worktree add -b "${branch}" "${worktreePath}"`, { cwd: projectPath }),
+      fetchIgnoredFiles(projectPath),
+    ]);
+
+    await Promise.all([
+      setTaskStatus(projectPath, taskNumber, 'in_progress'),
+      setTaskBranch(projectPath, taskNumber, branch),
+      setTaskWorktreePath(projectPath, taskNumber, worktreePath),
+    ]);
+
+    if (mergeTarget) {
+      const { setTaskMergeTarget } = await import('./taskMetadata');
+      await setTaskMergeTarget(projectPath, taskNumber, mergeTarget);
+    }
+
+    copyGitIgnoredFiles(projectPath, worktreePath, ignoredFiles).catch(err => {
+      console.warn('[worktree] Background copy failed:', err);
+    });
+
+    const updated = await getTaskByNumber(projectPath, taskNumber);
+    return { success: true, task: updated || undefined, worktreePath };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : 'Failed to start task' };
+  }
+}
+
 export async function createTaskWorktree(projectPath: string, name?: string, prompt?: string, branchName?: string): Promise<TaskWorktreeResult> {
   try {
     const [hasHead, branchResult, taskNumber] = await Promise.all([
@@ -310,7 +361,7 @@ export async function createTaskWorktree(projectPath: string, name?: string, pro
       fetchIgnoredFiles(projectPath),
     ]);
 
-    const task = await createTask(projectPath, currentTaskNumber, branch, displayName, mergeTarget, prompt);
+    const task = await createTask(projectPath, currentTaskNumber, displayName, { branch, mergeTarget, prompt, worktreePath });
 
     // Fire-and-forget file copy with pre-fetched list
     copyGitIgnoredFiles(projectPath, worktreePath, ignoredFiles).catch(err => {

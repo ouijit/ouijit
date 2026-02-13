@@ -8,9 +8,8 @@ interface ManagedPty {
   projectPath: string;
   command: string;
   label: string;
-  isWorktree: boolean;
+  taskId?: number;
   worktreePath?: string;
-  worktreeBranch?: string;
   // Runner identification
   isRunner: boolean;
   parentPtyId?: PtyId;
@@ -25,9 +24,8 @@ export interface ActiveSession {
   projectPath: string;
   command: string;
   label: string;
-  isWorktree: boolean;
+  taskId?: number;
   worktreePath?: string;
-  worktreeBranch?: string;
   isRunner?: boolean;
   parentPtyId?: PtyId;
 }
@@ -155,9 +153,8 @@ export async function spawnPty(
       projectPath: options.projectPath || options.cwd,
       command: expandedCommand,
       label,
-      isWorktree: options.isWorktree || false,
+      taskId: options.taskId,
       worktreePath: options.worktreePath,
-      worktreeBranch: options.worktreeBranch,
       isRunner: options.isRunner || false,
       parentPtyId: options.parentPtyId,
       outputChunks: [],
@@ -218,9 +215,8 @@ export function getActiveSessions(): ActiveSession[] {
     projectPath: managed.projectPath,
     command: managed.command,
     label: managed.label,
-    isWorktree: managed.isWorktree,
+    taskId: managed.taskId,
     worktreePath: managed.worktreePath,
-    worktreeBranch: managed.worktreeBranch,
     isRunner: managed.isRunner,
     parentPtyId: managed.parentPtyId,
   }));

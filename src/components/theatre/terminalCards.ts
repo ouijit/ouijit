@@ -513,7 +513,7 @@ export function setupCardActions(term: TheatreTerminal): void {
   if (!labelEl) return;
 
   // Show worktree-specific buttons for worktree terminals
-  if (term.isWorktree && term.worktreeBranch) {
+  if (term.taskId != null) {
     // Ship button
     const shipBtn = labelEl.querySelector('.theatre-card-ship-btn') as HTMLElement;
     if (shipBtn) {
@@ -609,12 +609,12 @@ export function updateRunnerPill(term: TheatreTerminal): void {
  * Close a task from its terminal card
  */
 async function closeTaskFromTerminal(term: TheatreTerminal): Promise<void> {
-  if (!term.isWorktree || !term.worktreeBranch) return;
+  if (term.taskId == null) return;
 
   const path = projectPath.value;
   if (!path) return;
 
-  const result = await window.api.worktree.close(path, term.worktreeBranch);
+  const result = await window.api.task.setStatus(path, term.taskId, 'done');
   if (result.success) {
     // Close this terminal
     const idx = terminals.value.indexOf(term);
@@ -910,9 +910,7 @@ export async function runDefaultInCard(term: TheatreTerminal): Promise<void> {
     cols: 80,  // Default size, will be resized when panel opens
     rows: 24,
     label: runHook.name,
-    isWorktree: !!term.isWorktree,
     worktreePath: term.worktreePath,
-    worktreeBranch: term.worktreeBranch,
     isRunner: true,
     parentPtyId: term.ptyId,
     env: {
@@ -1108,22 +1106,22 @@ export async function selectByStackPosition(position: number): Promise<void> {
   const path = projectPath.value;
   if (!path) return;
 
-  const tasks = await window.api.worktree.getTasks(path);
-  const openTasks = tasks.filter(t => t.status === 'open');
+  const tasks = await window.api.task.getAll(path);
+  const openTasks = tasks.filter(t => t.status !== 'done' && t.worktreePath);
   const taskIndex = position - 1;
 
   if (taskIndex >= 0 && taskIndex < openTasks.length) {
     const task = openTasks[taskIndex];
     await addTheatreTerminal(undefined, {
       existingWorktree: {
-        path: task.path,
-        branch: task.branch,
+        path: task.worktreePath || '',
+        branch: task.branch || '',
         taskName: task.name,
         createdAt: task.createdAt,
-        readyToShip: task.readyToShip,
         prompt: task.prompt,
         sandboxed: task.sandboxed,
       },
+      taskId: task.taskNumber,
       sandboxed: false,
     });
   }
@@ -1134,11 +1132,12 @@ export async function selectByStackPosition(position: number): Promise<void> {
  */
 export interface AddTheatreTerminalOptions {
   useWorktree?: boolean;
-  existingWorktree?: WorktreeInfo & { readyToShip?: boolean; prompt?: string; sandboxed?: boolean };
+  existingWorktree?: WorktreeInfo & { prompt?: string; sandboxed?: boolean };
   worktreeName?: string;
   worktreePrompt?: string;
   worktreeBranchName?: string;
   sandboxed?: boolean;
+  taskId?: number;
 }
 
 /**
@@ -1159,7 +1158,7 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
   if (!stack) return false;
 
   let terminalCwd = currentProjectPath;
-  let worktreeInfo: (WorktreeInfo & { readyToShip?: boolean; prompt?: string }) | undefined = options?.existingWorktree;
+  let worktreeInfo: (WorktreeInfo & { prompt?: string }) | undefined = options?.existingWorktree;
   let loadingCard: HTMLElement | null = null;
   let taskPrompt: string | undefined = options?.existingWorktree?.prompt;
 
@@ -1176,8 +1175,8 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
     // Show loading card in the stack (pushes existing cards back)
     loadingCard = showLoadingCardInStack(loadingLabel);
 
-    // Create worktree
-    const result = await window.api.worktree.create(currentProjectPath, options.worktreeName, options.worktreePrompt, options.worktreeBranchName);
+    // Create task and worktree
+    const result = await window.api.task.createAndStart(currentProjectPath, options.worktreeName, options.worktreePrompt, options.worktreeBranchName);
     if (!result.success || !result.task || !result.worktreePath) {
       removeLoadingCard(loadingCard);
       // Restore stack positions
@@ -1186,20 +1185,23 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
       if (terminals.value.length === 0 && emptyState) {
         emptyState.classList.add('theatre-stack-empty--visible');
       }
-      showToast(result.error || 'Failed to create worktree', 'error');
+      showToast(result.error || 'Failed to create task', 'error');
       return false;
     }
     worktreeInfo = {
       path: result.worktreePath,
-      branch: result.task.branch,
+      branch: result.task.branch || '',
       taskName: result.task.name,
       createdAt: result.task.createdAt,
     };
     taskPrompt = options.worktreePrompt;
     // Persist sandbox preference for new task
     if (options?.sandboxed !== undefined) {
-      await window.api.worktree.setSandboxed(currentProjectPath, worktreeInfo.branch, options.sandboxed);
+      await window.api.task.setSandboxed(currentProjectPath, result.task.taskNumber, options.sandboxed);
     }
+    // Store taskId for the new task
+    if (!options) options = {};
+    options.taskId = result.task.taskNumber;
     invalidateTaskList();
   }
 
@@ -1304,10 +1306,9 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
       summaryType: 'idle',
       outputBuffer: '',
       lastOscTitle: '',
-      isWorktree: !!worktreeInfo,
+      taskId: options?.taskId ?? null,
       worktreePath: worktreeInfo?.path,
       worktreeBranch: worktreeInfo?.branch,
-      readyToShip: worktreeInfo?.readyToShip,
       gitStatus: null,
       diffPanelOpen: false,
       diffPanelFiles: [],
@@ -1389,9 +1390,7 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
     cols: terminal.cols,
     rows: terminal.rows,
     label,
-    isWorktree: !!worktreeInfo,
     worktreePath: worktreeInfo?.path,
-    worktreeBranch: worktreeInfo?.branch,
     env: startEnv,
     sandboxed: useSandbox,
   };
@@ -1515,10 +1514,9 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
       summaryType: 'idle',
       outputBuffer: '',
       lastOscTitle: '',
-      isWorktree: !!worktreeInfo,
+      taskId: options?.taskId ?? null,
       worktreePath: worktreeInfo?.path,
       worktreeBranch: worktreeInfo?.branch,
-      readyToShip: worktreeInfo?.readyToShip,
       // Per-terminal git status and diff panel state
       gitStatus: null,
       diffPanelOpen: false,
@@ -1728,8 +1726,8 @@ async function populatePreviousTasks(emptyState: HTMLElement): Promise<void> {
   if (!openSection || !openList) return;
 
   // Fetch tasks with metadata
-  const tasks = await window.api.worktree.getTasks(path);
-  const openTasks = tasks.filter(t => t.status === 'open');
+  const tasks = await window.api.task.getAll(path);
+  const openTasks = tasks.filter(t => t.status !== 'done' && t.worktreePath);
 
   // Check lima availability for context menu
   let limaAvailable = false;
@@ -1763,19 +1761,20 @@ async function populatePreviousTasks(emptyState: HTMLElement): Promise<void> {
       taskBtn.appendChild(nameSpan);
 
       const worktreeOpts = {
-        path: task.path,
-        branch: task.branch,
+        path: task.worktreePath || '',
+        branch: task.branch || '',
         taskName: task.name,
         createdAt: task.createdAt,
-        readyToShip: task.readyToShip,
         prompt: task.prompt,
         sandboxed: task.sandboxed,
       };
+      const taskNumber = task.taskNumber;
 
       // Normal click: open without sandbox
       taskBtn.addEventListener('click', async () => {
         await addTheatreTerminal(undefined, {
           existingWorktree: worktreeOpts,
+          taskId: taskNumber,
           sandboxed: false,
         });
       });
@@ -1786,6 +1785,7 @@ async function populatePreviousTasks(emptyState: HTMLElement): Promise<void> {
           showTaskContextMenu(e, async () => {
             await addTheatreTerminal(undefined, {
               existingWorktree: worktreeOpts,
+              taskId: taskNumber,
               sandboxed: true,
             });
           });

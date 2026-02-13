@@ -2,7 +2,7 @@
 // https://www.electronjs.org/docs/latest/tutorial/process-model#preload-scripts
 
 import { contextBridge, ipcRenderer, webUtils } from 'electron';
-import type { Project, PtySpawnOptions, PtySpawnResult, PtyId, ActiveSession, PtyReconnectResult, CreateProjectOptions, CreateProjectResult, GitStatus, CompactGitStatus, GitDropdownInfo, GitCheckoutResult, GitMergeResult, ChangedFile, FileDiff, ProjectSettings, WorktreeCreateResult, WorktreeRemoveResult, WorktreeInfo, WorktreeDiffSummary, WorktreeWithMetadata, ScriptHook, HookType, BranchInfo } from './types';
+import type { Project, PtySpawnOptions, PtySpawnResult, PtyId, ActiveSession, PtyReconnectResult, CreateProjectOptions, CreateProjectResult, GitStatus, CompactGitStatus, GitDropdownInfo, GitCheckoutResult, GitMergeResult, ChangedFile, FileDiff, ProjectSettings, TaskCreateResult, WorktreeRemoveResult, WorktreeInfo, WorktreeDiffSummary, TaskWithWorkspace, TaskStatus, ScriptHook, HookType, BranchInfo } from './types';
 
 // Expose protected methods that allow the renderer process to use
 // ipcRenderer without exposing the entire object
@@ -72,12 +72,9 @@ contextBridge.exposeInMainWorld('api', {
   },
 
   /**
-   * Worktree management API
+   * Worktree management API (git plumbing only — task ops are on task namespace)
    */
   worktree: {
-    create: (projectPath: string, name?: string, prompt?: string, branchName?: string): Promise<WorktreeCreateResult> =>
-      ipcRenderer.invoke('worktree:create', projectPath, name, prompt, branchName),
-
     validateBranchName: (projectPath: string, branchName: string): Promise<{ valid: boolean; error?: string }> =>
       ipcRenderer.invoke('worktree:validate-branch-name', projectPath, branchName),
 
@@ -102,29 +99,37 @@ contextBridge.exposeInMainWorld('api', {
     ship: (projectPath: string, worktreeBranch: string, commitMessage?: string): Promise<{ success: boolean; error?: string; conflictFiles?: string[]; mergedBranch?: string }> =>
       ipcRenderer.invoke('worktree:ship', projectPath, worktreeBranch, commitMessage),
 
-    getTasks: (projectPath: string): Promise<WorktreeWithMetadata[]> =>
-      ipcRenderer.invoke('worktree:get-tasks', projectPath),
-
-    close: (projectPath: string, branch: string): Promise<{ success: boolean; error?: string; hookWarning?: string }> =>
-      ipcRenderer.invoke('worktree:close', projectPath, branch),
-
-    reopen: (projectPath: string, branch: string): Promise<{ success: boolean; error?: string }> =>
-      ipcRenderer.invoke('worktree:reopen', projectPath, branch),
-
-    setReady: (projectPath: string, branch: string, ready: boolean): Promise<{ success: boolean; error?: string }> =>
-      ipcRenderer.invoke('worktree:set-ready', projectPath, branch, ready),
-
     listBranches: (projectPath: string): Promise<BranchInfo[]> =>
       ipcRenderer.invoke('worktree:list-branches', projectPath),
 
-    setMergeTarget: (projectPath: string, branch: string, mergeTarget: string): Promise<{ success: boolean; error?: string }> =>
-      ipcRenderer.invoke('worktree:set-merge-target', projectPath, branch, mergeTarget),
-
-    setSandboxed: (projectPath: string, branch: string, sandboxed: boolean): Promise<{ success: boolean; error?: string }> =>
-      ipcRenderer.invoke('worktree:set-sandboxed', projectPath, branch, sandboxed),
-
     getMainBranch: (projectPath: string): Promise<string> =>
       ipcRenderer.invoke('worktree:get-main-branch', projectPath),
+  },
+
+  task: {
+    create: (projectPath: string, name?: string, prompt?: string): Promise<TaskCreateResult> =>
+      ipcRenderer.invoke('task:create', projectPath, name, prompt),
+
+    createAndStart: (projectPath: string, name?: string, prompt?: string, branchName?: string): Promise<TaskCreateResult> =>
+      ipcRenderer.invoke('task:create-and-start', projectPath, name, prompt, branchName),
+
+    start: (projectPath: string, taskNumber: number, branchName?: string): Promise<TaskCreateResult> =>
+      ipcRenderer.invoke('task:start', projectPath, taskNumber, branchName),
+
+    getAll: (projectPath: string): Promise<TaskWithWorkspace[]> =>
+      ipcRenderer.invoke('task:get-all', projectPath),
+
+    setStatus: (projectPath: string, taskNumber: number, status: TaskStatus): Promise<{ success: boolean; error?: string; hookWarning?: string }> =>
+      ipcRenderer.invoke('task:set-status', projectPath, taskNumber, status),
+
+    delete: (projectPath: string, taskNumber: number): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke('task:delete', projectPath, taskNumber),
+
+    setMergeTarget: (projectPath: string, taskNumber: number, mergeTarget: string): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke('task:set-merge-target', projectPath, taskNumber, mergeTarget),
+
+    setSandboxed: (projectPath: string, taskNumber: number, sandboxed: boolean): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke('task:set-sandboxed', projectPath, taskNumber, sandboxed),
   },
 
   /**

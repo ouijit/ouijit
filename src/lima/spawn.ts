@@ -10,9 +10,7 @@ interface ManagedSandboxPty {
   projectPath: string;
   command: string;
   label: string;
-  isWorktree: boolean;
   worktreePath?: string;
-  worktreeBranch?: string;
   isRunner: boolean;
   parentPtyId?: PtyId;
   outputChunks: string[];
@@ -182,9 +180,7 @@ export async function spawnSandboxedPty(
       projectPath,
       command: options.command || '',
       label,
-      isWorktree: options.isWorktree || false,
       worktreePath: options.worktreePath,
-      worktreeBranch: options.worktreeBranch,
       isRunner: options.isRunner || false,
       parentPtyId: options.parentPtyId,
       outputChunks: [],

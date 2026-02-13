@@ -2,7 +2,7 @@
  * Worktree/task operations for theatre mode
  */
 
-import type { WorktreeWithMetadata } from '../../types';
+import type { TaskWithWorkspace } from '../../types';
 import { MAX_THEATRE_TERMINALS } from './state';
 import { projectPath, terminals, invalidateTaskList } from './signals';
 import { showToast } from '../importDialog';
@@ -179,14 +179,15 @@ export async function createNewAgentShell(): Promise<void> {
 /**
  * Close a task - marks as closed and closes any open terminals for it
  */
-export async function closeTask(path: string, task: WorktreeWithMetadata): Promise<void> {
-  const result = await window.api.worktree.close(path, task.branch);
+export async function closeTask(path: string, task: TaskWithWorkspace): Promise<void> {
+  if (task.taskNumber == null) return;
+  const result = await window.api.task.setStatus(path, task.taskNumber, 'done');
   if (result.success) {
     // Close any open terminals for this task
     const currentTerminals = terminals.value;
     for (let i = currentTerminals.length - 1; i >= 0; i--) {
       const term = currentTerminals[i];
-      if (term.worktreeBranch === task.branch) {
+      if (term.taskId === task.taskNumber) {
         theatreRegistry.closeTheatreTerminal?.(i);
       }
     }
@@ -205,21 +206,23 @@ export async function closeTask(path: string, task: WorktreeWithMetadata): Promi
 /**
  * Reopen a closed task
  */
-export async function reopenTask(path: string, task: WorktreeWithMetadata): Promise<void> {
-  const result = await window.api.worktree.reopen(path, task.branch);
+export async function reopenTask(path: string, task: TaskWithWorkspace): Promise<void> {
+  if (task.taskNumber == null) return;
+  const result = await window.api.task.setStatus(path, task.taskNumber, 'in_progress');
   if (result.success) {
     invalidateTaskList();
     // Open terminal for the task (without sandbox by default)
+    const taskPath = task.worktreePath || '';
     await theatreRegistry.addTheatreTerminal?.(undefined, {
       existingWorktree: {
-        path: task.path,
-        branch: task.branch,
+        path: taskPath,
+        branch: task.branch || '',
         taskName: task.name,
         createdAt: task.createdAt,
-        readyToShip: task.readyToShip,
         prompt: task.prompt,
         sandboxed: task.sandboxed,
       },
+      taskId: task.taskNumber,
       sandboxed: false,
     });
   } else {
@@ -230,7 +233,8 @@ export async function reopenTask(path: string, task: WorktreeWithMetadata): Prom
 /**
  * Delete a task - hard delete with confirmation
  */
-export async function deleteTask(path: string, task: WorktreeWithMetadata): Promise<void> {
+export async function deleteTask(path: string, task: TaskWithWorkspace): Promise<void> {
+  if (task.taskNumber == null) return;
   const confirmed = await showDeleteConfirmDialog(task.name);
   if (!confirmed) return;
 
@@ -238,12 +242,12 @@ export async function deleteTask(path: string, task: WorktreeWithMetadata): Prom
   const currentTerminals = terminals.value;
   for (let i = currentTerminals.length - 1; i >= 0; i--) {
     const term = currentTerminals[i];
-    if (term.worktreeBranch === task.branch) {
+    if (term.taskId === task.taskNumber) {
       theatreRegistry.closeTheatreTerminal?.(i);
     }
   }
 
-  const result = await window.api.worktree.remove(path, task.path);
+  const result = await window.api.task.delete(path, task.taskNumber);
   if (result.success) {
     invalidateTaskList();
     showToast('Task deleted', 'success');

@@ -27,11 +27,10 @@ export interface TheatreTerminal {
   summaryType: SummaryType;
   outputBuffer: string;
   lastOscTitle: string;  // Last seen OSC terminal title
-  // Worktree support
-  isWorktree: boolean;
+  // Task support
+  taskId: number | null;
   worktreePath?: string;
   worktreeBranch?: string;
-  readyToShip?: boolean;  // "Spiritually done" state from task metadata
   // Per-terminal git status and diff panel state
   gitStatus: CompactGitStatus | null;
   diffPanelOpen: boolean;

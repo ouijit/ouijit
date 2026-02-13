@@ -27,7 +27,7 @@ export const diffPanelVisible = signal(false);
 export const diffPanelFiles = signal<ChangedFile[]>([]);
 export const diffPanelSelectedFile = signal<string | null>(null);
 export const diffPanelMode = signal<'uncommitted' | 'worktree'>('uncommitted');
-export const diffPanelWorktreeBranch = signal<string | null>(null);
+export const diffPanelTaskId = signal<number | null>(null);
 
 // Dropdown visibility
 export const gitDropdownVisible = signal(false);
@@ -60,7 +60,7 @@ export function resetSignals(): void {
   diffPanelFiles.value = [];
   diffPanelSelectedFile.value = null;
   diffPanelMode.value = 'uncommitted';
-  diffPanelWorktreeBranch.value = null;
+  diffPanelTaskId.value = null;
   gitDropdownVisible.value = false;
   launchDropdownVisible.value = false;
   sandboxDropdownVisible.value = false;

@@ -101,7 +101,7 @@ function buildShipItPanelHtml(
  * Show the Ship-It panel for a terminal
  */
 export async function showShipItPanel(term: TheatreTerminal): Promise<void> {
-  if (!term.isWorktree || !term.worktreeBranch) {
+  if (term.taskId == null || !term.worktreeBranch) {
     showToast('Ship-It is only available for worktree tasks', 'info');
     return;
   }
@@ -132,8 +132,8 @@ export async function showShipItPanel(term: TheatreTerminal): Promise<void> {
   }
 
   // Get task metadata to find merge target
-  const tasks = await window.api.worktree.getTasks(basePath);
-  const task = tasks.find(t => t.branch === term.worktreeBranch);
+  const tasks = await window.api.task.getAll(basePath);
+  const task = tasks.find(t => t.taskNumber === term.taskId);
 
   // Get main branch as fallback
   const mainBranch = await window.api.worktree.getMainBranch(basePath);
@@ -472,7 +472,7 @@ async function showMergeTargetDropdown(
   if (state.branchDropdownOpen) return;
 
   const basePath = projectPath.value;
-  if (!basePath || !term.worktreeBranch) return;
+  if (!basePath || term.taskId == null) return;
 
   const targetEl = panel.querySelector('.ship-it-merge-target');
   if (!targetEl) return;
@@ -579,7 +579,7 @@ async function selectMergeTarget(
   state: ShipItPanelState
 ): Promise<void> {
   const basePath = projectPath.value;
-  if (!basePath || !term.worktreeBranch) return;
+  if (!basePath || term.taskId == null) return;
 
   // Close dropdown
   hideMergeTargetDropdown(panel, state);
@@ -588,7 +588,7 @@ async function selectMergeTarget(
   state.mergeTarget = branchName;
 
   // Persist the change
-  await window.api.worktree.setMergeTarget(basePath, term.worktreeBranch, branchName);
+  await window.api.task.setMergeTarget(basePath, term.taskId, branchName);
 
   // Update the merge target display text
   const targetEl = panel.querySelector('.ship-it-merge-target');
@@ -703,7 +703,7 @@ function buildCommitDialogHtml(defaultMessage: string): string {
  * Show commit message dialog before shipping
  */
 function showCommitDialog(term: TheatreTerminal, panel: HTMLElement): void {
-  if (!term.worktreeBranch) return;
+  if (!term.worktreeBranch || term.taskId == null) return;
 
   // Don't open multiple dialogs
   if (panel.querySelector('.ship-it-commit-dialog')) return;
@@ -767,7 +767,7 @@ function showCommitDialog(term: TheatreTerminal, panel: HTMLElement): void {
  * Execute the ship operation (merge branch into main)
  */
 async function executeShip(term: TheatreTerminal, panel: HTMLElement, commitMessage: string): Promise<void> {
-  if (!term.worktreeBranch) return;
+  if (!term.worktreeBranch || term.taskId == null) return;
 
   const basePath = projectPath.value;
   if (!basePath) return;
@@ -789,7 +789,7 @@ async function executeShip(term: TheatreTerminal, panel: HTMLElement, commitMess
       hideShipItPanel(term);
 
       // Close the task and terminal
-      const closeResult = await window.api.worktree.close(basePath, term.worktreeBranch);
+      const closeResult = await window.api.task.setStatus(basePath, term.taskId!, 'done');
       if (closeResult.success) {
         // Find terminal index and close it
         const idx = terminals.value.indexOf(term);

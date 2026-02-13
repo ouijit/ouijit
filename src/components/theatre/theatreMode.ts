@@ -567,9 +567,14 @@ export async function restoreTheatreMode(
     const mainSessions = activeSessions.filter(s => !s.isRunner);
     const runnerSessions = activeSessions.filter(s => s.isRunner);
 
+    // Fetch task data for branch lookup during restoration
+    const allTasks = await window.api.task.getAll(path);
+    const taskBranchMap = new Map(allTasks.filter(t => t.branch).map(t => [t.taskNumber, t.branch!]));
+
     // First reconnect main terminals
     for (const session of mainSessions) {
-      await reconnectTheatreTerminal(session);
+      const worktreeBranch = session.taskId != null ? taskBranchMap.get(session.taskId) : undefined;
+      await reconnectTheatreTerminal(session, worktreeBranch);
     }
 
     // Then reconnect runners to their parent terminals
@@ -639,7 +644,7 @@ export async function restoreTheatreMode(
 /**
  * Reconnect to an existing PTY session and create a terminal card for it
  */
-async function reconnectTheatreTerminal(session: ActiveSession): Promise<void> {
+async function reconnectTheatreTerminal(session: ActiveSession, worktreeBranch?: string): Promise<void> {
   const { Terminal } = await import('@xterm/xterm');
   const { FitAddon } = await import('@xterm/addon-fit');
   const { getTerminalTheme, createTheatreCard, updateTerminalCardLabel } = await import('./terminalCards');
@@ -761,14 +766,14 @@ async function reconnectTheatreTerminal(session: ActiveSession): Promise<void> {
     summaryType: 'idle',
     outputBuffer: '',
     lastOscTitle: '',
-    isWorktree: session.isWorktree,
+    taskId: session.taskId ?? null,
     worktreePath: session.worktreePath,
-    worktreeBranch: session.worktreeBranch,
+    worktreeBranch,
     gitStatus: null,
     diffPanelOpen: false,
     diffPanelFiles: [],
     diffPanelSelectedFile: null,
-    diffPanelMode: session.isWorktree ? 'worktree' : 'uncommitted',
+    diffPanelMode: (session.taskId != null) ? 'worktree' : 'uncommitted',
     // Runner panel state
     runnerPanelOpen: false,
     runnerPtyId: null,
