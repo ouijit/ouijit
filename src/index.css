@@ -1477,27 +1477,6 @@ body > .diff-panel--visible {
   box-shadow: 0 0 4px rgba(105, 219, 124, 0.5);
 }
 
-.theatre-card-status-dot[data-status="error"] {
-  @apply bg-[#ff6b6b];
-  box-shadow: 0 0 4px rgba(255, 107, 107, 0.5);
-}
-
-.theatre-card-status-dot[data-status="listening"] {
-  @apply bg-[#74c0fc];
-  box-shadow: 0 0 4px rgba(116, 192, 252, 0.5);
-}
-
-.theatre-card-status-dot[data-status="building"] {
-  @apply bg-[#ffd43b];
-  box-shadow: 0 0 4px rgba(255, 212, 59, 0.5);
-  animation: terminal-status-pulse 1.5s ease-in-out infinite;
-}
-
-.theatre-card-status-dot[data-status="watching"] {
-  @apply bg-[#ffd43b];
-  box-shadow: 0 0 4px rgba(255, 212, 59, 0.5);
-}
-
 .theatre-card-status-dot[data-status="thinking"] {
   @apply bg-[#da77f2];
   box-shadow: 0 0 4px rgba(218, 119, 242, 0.5);

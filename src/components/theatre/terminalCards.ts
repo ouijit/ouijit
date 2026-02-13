@@ -142,29 +142,7 @@ export function stripAnsi(str: string): string {
 /**
  * Analyze terminal output buffer and determine summary state
  */
-export function analyzeTerminalOutput(buffer: string, lastOscTitle: string): { summary: string; type: SummaryType } {
-  const clean = stripAnsi(buffer);
-  const lines = clean.split('\n').filter(l => l.trim());
-  const lastLine = lines[lines.length - 1]?.trim() || '';
-  const lastFewLines = lines.slice(-5).join('\n');
-  const recentText = lines.slice(-20).join('\n');
-
-  // Shell prompt patterns - if we see these at the end, the command has finished
-  const shellPromptPatterns = [
-    /[$%#❯➜→]\s*$/, // Common prompt endings
-    /\w+@\w+.*[$#]\s*$/, // user@host patterns
-  ];
-
-  // Claude/AI agent waiting for input patterns
-  const agentWaitingPatterns = [
-    /^>\s*$/, // Claude's input prompt
-    /claude.*>\s*$/i, // claude> prompt
-    /\(y\/n\)/i, // Yes/no prompts
-  ];
-
-  const isAtPrompt = shellPromptPatterns.some(p => p.test(lastLine));
-  const isAgentWaiting = agentWaitingPatterns.some(p => p.test(lastLine));
-
+export function analyzeTerminalOutput(_buffer: string, lastOscTitle: string): { summary: string; type: SummaryType } {
   // Check if the last OSC title contains spinner characters (Claude thinking indicator)
   // Only braille dots are actual spinners - stars (✻✽✶✳) are static decorations
   const spinnerChars = /[⠁⠂⠄⠈⠐⠠⡀⢀⠃⠅⠆⠉⠊⠌⠑⠒⠔⠘⠡⠢⠤⠨⠰⡁⡂⡄⡈⡐⡠⢁⢂⢄⢈⢐⢠⣀⠇⠋⠍⠎⠓⠕⠖⠙⠚⠜⠣⠥⠦⠩⠪⠬⠱⠲⠴⠸⡃⡅⡆⡉⡊⡌⡑⡒⡔⡘⡡⡢⡤⡨⡰⢃⢅⢆⢉⢊⢌⢑⢒⢔⢘⢡⢢⢤⢨⢰⣁⣂⣄⣈⣐⣠◐◓◑◒]/;
@@ -173,103 +151,6 @@ export function analyzeTerminalOutput(buffer: string, lastOscTitle: string): { s
     return { summary: '', type: 'thinking' };
   }
 
-  // Completion patterns - build/task finished successfully
-  const completionPatterns = [
-    /built in \d/i,
-    /compiled successfully/i,
-    /done in \d/i,
-    /finished in \d/i,
-  ];
-
-  const justCompleted = completionPatterns.some(p => p.test(lastFewLines));
-
-  // If at shell prompt and we see completion, show completed state
-  if (isAtPrompt && justCompleted) {
-    return { summary: 'Done', type: 'idle' };
-  }
-
-  // If at shell prompt with no special state, show ready
-  if (isAtPrompt) {
-    return { summary: '', type: 'idle' };
-  }
-
-  // If agent is waiting for input, show idle (green = ready for input)
-  if (isAgentWaiting) {
-    return { summary: '', type: 'idle' };
-  }
-
-  // Error patterns - only in recent output
-  const errorPatterns = [
-    { regex: /\bERROR\b.*?:(.{0,40})/i, extract: true },
-    { regex: /\bError\b:(.{0,40})/i, extract: true },
-    { regex: /npm ERR!(.{0,30})/i, extract: true },
-    { regex: /\bfailed\b/i, extract: false, text: 'Failed' },
-    { regex: /ENOENT|EACCES|ECONNREFUSED/, extract: false },
-    { regex: /TypeError|ReferenceError|SyntaxError/, extract: false },
-  ];
-
-  for (const pattern of errorPatterns) {
-    const match = lastFewLines.match(pattern.regex);
-    if (match) {
-      const summary = pattern.extract && match[1]
-        ? match[1].trim().slice(0, 30)
-        : pattern.text || match[0].slice(0, 20);
-      return { summary: `Error: ${summary}`, type: 'error' };
-    }
-  }
-
-  // Listening patterns (server is running)
-  const listeningPatterns = [
-    { regex: /listening on (?:port )?:?(\d+)/i, port: true },
-    { regex: /localhost:(\d+)/, port: true },
-    { regex: /127\.0\.0\.1:(\d+)/, port: true },
-    { regex: /\[::\]:(\d+)/, port: true },
-    { regex: /ready on http/i, port: false, text: 'Ready' },
-    { regex: /server (?:is )?(?:running|started)/i, port: false, text: 'Running' },
-    { regex: /started server/i, port: false, text: 'Started' },
-    { regex: /Network:.*http/i, port: false, text: 'Network ready' },
-  ];
-
-  for (const pattern of listeningPatterns) {
-    const match = recentText.match(pattern.regex);
-    if (match) {
-      const summary = pattern.port && match[1]
-        ? `Listening :${match[1]}`
-        : pattern.text || 'Listening';
-      return { summary, type: 'listening' };
-    }
-  }
-
-  // Building/compiling patterns - only if in the last few lines (active)
-  const buildingPatterns = [
-    /compiling\b/i,
-    /building\b/i,
-    /bundling\b/i,
-    /transforming\b/i,
-  ];
-
-  for (const pattern of buildingPatterns) {
-    if (pattern.test(lastFewLines)) {
-      return { summary: 'Building...', type: 'building' };
-    }
-  }
-
-  // Watching patterns
-  const watchingPatterns = [
-    /watching for (?:file )?changes/i,
-    /waiting for changes/i,
-    /watching\.\.\./i,
-    /hot reload/i,
-    /hmr enabled/i,
-  ];
-
-  for (const pattern of watchingPatterns) {
-    if (pattern.test(lastFewLines)) {
-      return { summary: 'Watching...', type: 'watching' };
-    }
-  }
-
-  // Default to idle
   return { summary: '', type: 'idle' };
 }
 
@@ -1470,7 +1351,7 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
       const exitColor = exitCode === 0 ? '32' : '31';
       terminal.writeln(`\x1b[${exitColor}m● Process exited with code ${exitCode}\x1b[0m`);
       theatreTerminal.summary = exitCode === 0 ? 'Exited' : `Exit ${exitCode}`;
-      theatreTerminal.summaryType = exitCode === 0 ? 'idle' : 'error';
+      theatreTerminal.summaryType = 'idle';
       updateTerminalCardLabel(theatreTerminal);
     });
 
