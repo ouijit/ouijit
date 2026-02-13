@@ -73,7 +73,7 @@ app.on('ready', () => {
 });
 
 app.on('before-quit', () => {
-  cleanupIpc({ skipVm: !app.isPackaged });
+  cleanupIpc();
 });
 
 // Quit when all windows are closed, except on macOS. There, it's common

@@ -27,12 +27,11 @@ npm run make:linux
 ```
 
 This will:
-1. Create/start a Lima VM (`ouijit-linux-builder`)
-2. Install Node.js and QEMU in the VM
-3. Build `node-pty` for x64 inside an emulated Docker container
-4. Package the Electron app for Linux x64
-5. Replace the pty.node binary with the correct x64 version
-6. Create `out/ouijit-linux-x64.zip`
+1. Download a Linux limactl binary into a staging directory
+2. Create/start a Lima VM (`ouijit-linux-builder`) with Node.js and QEMU
+3. Cross-compile `node-pty` for x64 inside an emulated Docker container
+4. Package the Electron app with staged binaries via `OUIJIT_CROSS_STAGING`
+5. Create `out/ouijit-linux-x64.zip`
 
 The first run takes longer as it sets up the VM and downloads Docker images. Subsequent builds are faster.
 
@@ -44,11 +43,14 @@ The build produces:
 
 ## Verification
 
-To verify the binary is correct:
+To verify the binaries are correct:
 
 ```bash
 file out/ouijit-linux-x64/resources/app/node_modules/node-pty/build/Release/pty.node
 # Should output: ELF 64-bit LSB shared object, x86-64, ...
+
+file out/ouijit-linux-x64/resources/bin/limactl
+# Should output: ELF 64-bit LSB executable, x86-64, ...
 ```
 
 ## Installing on Linux

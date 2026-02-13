@@ -6,6 +6,9 @@ import type { LimaConfig, LimaMount } from './types';
  * Generate a lima.yaml configuration string for a sandbox VM
  */
 export function generateLimaYaml(config: LimaConfig): string {
+  const isMac = os.platform() === 'darwin';
+  const vmType = isMac ? 'vz' : 'qemu';
+
   const mountsYaml = config.mounts
     .map(
       (m) =>
@@ -13,6 +16,7 @@ export function generateLimaYaml(config: LimaConfig): string {
     )
     .join('\n');
 
+  // vzNAT requires macOS Virtualization.framework; on Linux, Lima QEMU uses user-mode (slirp) networking by default
   const networkYaml =
     config.networkMode === 'vzNAT'
       ? 'networks:\n  - vzNAT: true'
@@ -21,7 +25,7 @@ export function generateLimaYaml(config: LimaConfig): string {
   return `# Ouijit Sandbox VM Configuration
 # Auto-generated - do not edit directly
 
-vmType: vz
+vmType: ${vmType}
 arch: default
 
 cpus: ${config.cpus}
@@ -90,6 +94,8 @@ export function buildLimaConfig(
   projectPath: string,
   overrides?: { cpus?: number; memoryGiB?: number; diskGiB?: number; networkMode?: 'vzNAT' | 'none' }
 ): LimaConfig {
+  // vzNAT requires macOS Virtualization.framework; on Linux, QEMU provides user-mode networking by default
+  const defaultNetworkMode = os.platform() === 'darwin' ? 'vzNAT' : 'none';
   return {
     name: instanceName,
     cpus: overrides?.cpus ?? 2,
@@ -97,7 +103,7 @@ export function buildLimaConfig(
     diskGiB: overrides?.diskGiB ?? 100,
     mounts: buildProjectMounts(projectPath),
     provisionScript: defaultProvisionPackages(),
-    networkMode: overrides?.networkMode ?? 'vzNAT',
+    networkMode: overrides?.networkMode ?? defaultNetworkMode,
   };
 }
 

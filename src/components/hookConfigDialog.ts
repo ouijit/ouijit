@@ -1,7 +1,7 @@
 import type { ScriptHook, HookType } from '../types';
+import { registerHotkey, unregisterHotkey, pushScope, popScope, Scopes } from '../utils/hotkeys';
 import { showToast } from './importDialog';
 import { generateId } from '../utils/ids';
-import { showDialog } from '../utils/dialog';
 
 export interface HookConfigDialogResult {
   saved: boolean;
@@ -53,25 +53,31 @@ export function showHookConfigDialog(
   existingHook?: ScriptHook,
   options?: HookConfigDialogOptions
 ): Promise<HookConfigDialogResult | null> {
-  const labels = HOOK_LABELS[hookType];
-  const isRunHook = hookType === 'run';
-  const killExistingChecked = options?.killExistingOnRun !== false;
+  return new Promise((resolve) => {
+    const labels = HOOK_LABELS[hookType];
+    const isRunHook = hookType === 'run';
+    const killExistingChecked = options?.killExistingOnRun !== false;
 
-  const envVarsHtml = labels.envVars ? `
-    <details class="hook-env-vars">
-      <summary>Environment variables</summary>
-      <ul>
-        <li><code>OUIJIT_PROJECT_PATH</code> - main project path</li>
-        <li><code>OUIJIT_WORKTREE_PATH</code> - task worktree path</li>
-        <li><code>OUIJIT_TASK_BRANCH</code> - git branch name</li>
-        <li><code>OUIJIT_TASK_NAME</code> - task display name</li>
-        <li><code>OUIJIT_TASK_PROMPT</code> - task description (start/continue hooks)</li>
-      </ul>
-    </details>
-  ` : '';
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
 
-  return showDialog<HookConfigDialogResult>({
-    content: `
+    const dialog = document.createElement('div');
+    dialog.className = 'import-dialog';
+
+    const envVarsHtml = labels.envVars ? `
+      <details class="hook-env-vars">
+        <summary>Environment variables</summary>
+        <ul>
+          <li><code>OUIJIT_PROJECT_PATH</code> - main project path</li>
+          <li><code>OUIJIT_WORKTREE_PATH</code> - task worktree path</li>
+          <li><code>OUIJIT_TASK_BRANCH</code> - git branch name</li>
+          <li><code>OUIJIT_TASK_NAME</code> - task display name</li>
+          <li><code>OUIJIT_TASK_PROMPT</code> - task description (start/continue hooks)</li>
+        </ul>
+      </details>
+    ` : '';
+
+    dialog.innerHTML = `
       <h2 class="import-dialog-title">${labels.title}</h2>
       <p class="hook-description">${labels.description}</p>
 
@@ -104,47 +110,81 @@ export function showHookConfigDialog(
         <button class="btn btn-secondary" data-action="cancel">Cancel</button>
         <button class="btn btn-primary" data-action="save">Save</button>
       </div>
-    `,
-    focusSelector: '#hook-command',
-    onMount({ dialog, resolve, cancel }) {
-      const commandInput = dialog.querySelector('#hook-command') as HTMLTextAreaElement;
+    `;
 
-      dialog.querySelector('[data-action="cancel"]')?.addEventListener('click', cancel);
+    overlay.appendChild(dialog);
+    document.body.appendChild(overlay);
 
-      dialog.querySelector('[data-action="save"]')?.addEventListener('click', async () => {
-        const command = commandInput.value.trim();
+    const commandInput = dialog.querySelector('#hook-command') as HTMLTextAreaElement;
 
-        // Empty command = clear the hook
-        if (command.length === 0) {
-          await window.api.hooks.delete(projectPath, hookType);
-          resolve({ saved: true, hook: undefined });
-          return;
-        }
+    requestAnimationFrame(() => {
+      overlay.classList.add('modal-overlay--visible');
+      dialog.classList.add('import-dialog--visible');
+      commandInput.focus();
+    });
 
-        const hook: ScriptHook = {
-          id: existingHook?.id || generateId('hook'),
-          type: hookType,
-          name: labels.title,
-          command,
-        };
+    const cleanup = () => {
+      unregisterHotkey('escape', Scopes.MODAL);
+      popScope();
+      overlay.classList.remove('modal-overlay--visible');
+      dialog.classList.remove('import-dialog--visible');
+      setTimeout(() => overlay.remove(), 200);
+    };
 
-        const result = await window.api.hooks.save(projectPath, hook);
+    dialog.querySelector('[data-action="cancel"]')?.addEventListener('click', () => {
+      cleanup();
+      resolve(null);
+    });
 
-        // Save kill setting for run hook
-        let killExistingValue: boolean | undefined;
-        if (isRunHook) {
-          const killCheckbox = dialog.querySelector('#kill-existing') as HTMLInputElement;
-          killExistingValue = killCheckbox?.checked ?? true;
-          await window.api.setKillExistingOnRun(projectPath, killExistingValue);
-        }
+    dialog.querySelector('[data-action="save"]')?.addEventListener('click', async () => {
+      const command = commandInput.value.trim();
 
-        if (result.success) {
-          resolve({ saved: true, hook, killExistingOnRun: killExistingValue });
-        } else {
-          showToast('Failed to save hook', 'error');
-          resolve({ saved: false });
-        }
-      });
-    },
+      // Empty command = clear the hook
+      if (command.length === 0) {
+        await window.api.hooks.delete(projectPath, hookType);
+        cleanup();
+        resolve({ saved: true, hook: undefined });
+        return;
+      }
+
+      const hook: ScriptHook = {
+        id: existingHook?.id || generateId('hook'),
+        type: hookType,
+        name: labels.title,
+        command,
+      };
+
+      const result = await window.api.hooks.save(projectPath, hook);
+
+      // Save kill setting for run hook
+      let killExistingValue: boolean | undefined;
+      if (isRunHook) {
+        const killCheckbox = dialog.querySelector('#kill-existing') as HTMLInputElement;
+        killExistingValue = killCheckbox?.checked ?? true;
+        await window.api.setKillExistingOnRun(projectPath, killExistingValue);
+      }
+
+      if (result.success) {
+        cleanup();
+        resolve({ saved: true, hook, killExistingOnRun: killExistingValue });
+      } else {
+        showToast('Failed to save hook', 'error');
+        cleanup();
+        resolve({ saved: false });
+      }
+    });
+
+    overlay.addEventListener('mousedown', (e) => {
+      if (e.target === overlay) {
+        cleanup();
+        resolve(null);
+      }
+    });
+
+    pushScope(Scopes.MODAL);
+    registerHotkey('escape', Scopes.MODAL, () => {
+      cleanup();
+      resolve(null);
+    });
   });
 }

@@ -49,9 +49,12 @@ OUIJIT_HOOK_TYPE       # Which hook is running
 ### Prerequisites
 
 - **Node.js 20+** and npm
-- **Xcode Command Line Tools** — required for compiling native modules (node-pty, koffi)
+- **C/C++ build tools** — required for compiling native modules (node-pty, koffi)
   ```bash
+  # macOS
   xcode-select --install
+  # Ubuntu/Debian
+  sudo apt-get install build-essential
   ```
 - **git**
 

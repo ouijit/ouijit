@@ -41,35 +41,48 @@ const config: ForgeConfig = {
             entitlements: './entitlements.mac.plist',
           }),
         },
-    // Copy native modules BEFORE signing (afterCopy runs before osxSign)
+    // Copy native modules BEFORE signing (afterCopy runs before osxSign).
+    // For cross-builds (e.g. Linux from macOS), set OUIJIT_CROSS_STAGING to a directory
+    // containing pre-built binaries: node_modules/node-pty/, bin/limactl, share/lima/
     afterCopy: [
       (buildPath, _electronVersion, platform, _arch, callback) => {
+        const staging = process.env.OUIJIT_CROSS_STAGING;
         const nodeModulesDest = path.join(buildPath, 'node_modules');
 
         const modulesToCopy = ['node-pty', 'koffi'];
         for (const mod of modulesToCopy) {
-          const src = path.join(__dirname, 'node_modules', mod);
+          // For cross-builds, use staged native modules when available
+          const stagedSrc = staging ? path.join(staging, 'node_modules', mod) : null;
+          const src = stagedSrc && fs.existsSync(stagedSrc)
+            ? stagedSrc
+            : path.join(__dirname, 'node_modules', mod);
           const dest = path.join(nodeModulesDest, mod);
-          console.log(`Copying ${mod} to ${dest}`);
+          console.log(`Copying ${mod} from ${src}`);
           copyRecursive(src, dest);
         }
 
-        // Copy bundled limactl binary
-        const limactlSrc = path.join(__dirname, 'resources', 'bin', 'limactl');
+        // Copy limactl binary — prefer staged version for cross-builds
+        const stagedLimactl = staging ? path.join(staging, 'bin', 'limactl') : null;
+        const limactlSrc = stagedLimactl && fs.existsSync(stagedLimactl)
+          ? stagedLimactl
+          : path.join(__dirname, 'resources', 'bin', 'limactl');
         if (fs.existsSync(limactlSrc)) {
           const binDest = path.join(buildPath, '..', 'bin');
           fs.mkdirSync(binDest, { recursive: true });
           fs.copyFileSync(limactlSrc, path.join(binDest, 'limactl'));
           fs.chmodSync(path.join(binDest, 'limactl'), 0o755);
-          console.log(`Copied limactl to ${binDest}`);
+          console.log(`Copied limactl from ${limactlSrc}`);
         }
 
-        // Copy Lima guest agent binaries
-        const guestAgentSrc = path.join(__dirname, 'resources', 'share', 'lima');
+        // Copy Lima guest agent binaries — prefer staged version for cross-builds
+        const stagedAgents = staging ? path.join(staging, 'share', 'lima') : null;
+        const guestAgentSrc = stagedAgents && fs.existsSync(stagedAgents)
+          ? stagedAgents
+          : path.join(__dirname, 'resources', 'share', 'lima');
         if (fs.existsSync(guestAgentSrc)) {
           const shareDest = path.join(buildPath, '..', 'share', 'lima');
           copyRecursive(guestAgentSrc, shareDest);
-          console.log(`Copied Lima guest agents to ${shareDest}`);
+          console.log(`Copied Lima guest agents from ${guestAgentSrc}`);
         }
 
         callback();
