@@ -650,6 +650,10 @@ export async function showKanbanBoard(): Promise<void> {
     hideKanbanBoard();
   });
 
+  registerHotkey(platformHotkey('mod+t'), Scopes.KANBAN, () => {
+    hideKanbanBoard();
+  });
+
   registerHotkey(platformHotkey('mod+n'), Scopes.KANBAN, () => {
     addTodoTask();
   });
@@ -657,6 +661,7 @@ export async function showKanbanBoard(): Promise<void> {
   theatreState.kanbanCleanup = () => {
     unregisterHotkey('escape', Scopes.KANBAN);
     unregisterHotkey(platformHotkey('mod+b'), Scopes.KANBAN);
+    unregisterHotkey(platformHotkey('mod+t'), Scopes.KANBAN);
     unregisterHotkey(platformHotkey('mod+n'), Scopes.KANBAN);
     popScope();
   };
