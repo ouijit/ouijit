@@ -190,7 +190,7 @@ function buildKanbanCard(task: TaskWithWorkspace, path: string, limaAvailable: b
   if (task.prompt) {
     const promptRow = document.createElement('div');
     promptRow.className = 'kanban-card-detail-row';
-    promptRow.innerHTML = `<span class="kanban-card-detail-label">Prompt</span><span class="kanban-card-detail-value kanban-card-detail-value--clamp">${escapeHtml(task.prompt)}</span>`;
+    promptRow.innerHTML = `<span class="kanban-card-detail-label">Description</span><span class="kanban-card-detail-value kanban-card-detail-value--clamp">${escapeHtml(task.prompt)}</span>`;
     detail.appendChild(promptRow);
   }
 
