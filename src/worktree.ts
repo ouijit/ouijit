@@ -9,7 +9,7 @@ import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import * as os from 'node:os';
 import koffi from 'koffi';
-import { getNextTaskNumber, createTask, getTaskByNumber, deleteTaskByNumber, setTaskStatus, setTaskBranch, setTaskWorktreePath, setTaskMergeTarget, type TaskMetadata, type TaskStatus } from './taskMetadata';
+import { getNextTaskNumber, createTask, getTaskByNumber, deleteTaskByNumber, setTaskBranch, setTaskWorktreePath, setTaskMergeTarget, type TaskMetadata, type TaskStatus } from './taskMetadata';
 
 const execAsync = promisify(exec);
 
@@ -300,7 +300,6 @@ export async function startTask(
     ]);
 
     await Promise.all([
-      setTaskStatus(projectPath, taskNumber, 'in_progress'),
       setTaskBranch(projectPath, taskNumber, branch),
       setTaskWorktreePath(projectPath, taskNumber, worktreePath),
     ]);
