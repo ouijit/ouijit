@@ -87,8 +87,8 @@ function buildKanbanCard(task: TaskWithWorkspace, path: string, limaAvailable: b
 
   if (task.branch) {
     const branchRow = document.createElement('div');
-    branchRow.className = 'kanban-card-detail-row';
-    branchRow.innerHTML = `<span class="kanban-card-detail-label">Branch</span><span class="kanban-card-detail-value">${escapeHtml(task.branch)}</span>`;
+    branchRow.className = 'kanban-card-branch';
+    branchRow.innerHTML = `<i data-lucide="git-branch"></i><span class="kanban-card-branch-name">${escapeHtml(task.branch)}</span>`;
     detail.appendChild(branchRow);
   }
 
@@ -152,6 +152,7 @@ function buildKanbanCard(task: TaskWithWorkspace, path: string, limaAvailable: b
     e.stopPropagation();
     const isExpanded = detail.classList.toggle('kanban-card-detail--visible');
     expandBtn.classList.toggle('kanban-card-expand--open', isExpanded);
+    card.classList.toggle('kanban-card--expanded', isExpanded);
   });
 
   // Click to open terminal — switch to existing session if one is open
@@ -626,9 +627,37 @@ export async function showKanbanBoard(): Promise<void> {
   // Add body class to hide the stack
   document.body.classList.add('kanban-open');
 
+  // Create scroll shadow overlays
+  const columns = board.querySelector('.kanban-columns') as HTMLElement;
+  const leftShadow = document.createElement('div');
+  leftShadow.className = 'kanban-scroll-shadow kanban-scroll-shadow--left';
+  const rightShadow = document.createElement('div');
+  rightShadow.className = 'kanban-scroll-shadow kanban-scroll-shadow--right';
+  board.appendChild(leftShadow);
+  board.appendChild(rightShadow);
+
+  const SHADOW_FADE_DISTANCE = 80;
+  const updateOverflowShadow = () => {
+    if (!columns) return;
+    const maxScroll = columns.scrollWidth - columns.clientWidth;
+    if (maxScroll <= 0) {
+      leftShadow.style.opacity = '0';
+      rightShadow.style.opacity = '0';
+      return;
+    }
+    leftShadow.style.opacity = String(Math.min(columns.scrollLeft / SHADOW_FADE_DISTANCE, 1));
+    rightShadow.style.opacity = String(Math.min((maxScroll - columns.scrollLeft) / SHADOW_FADE_DISTANCE, 1));
+  };
+  if (columns) {
+    columns.addEventListener('scroll', updateOverflowShadow);
+  }
+  const resizeObserver = new ResizeObserver(updateOverflowShadow);
+  resizeObserver.observe(board);
+
   // Animate in
   requestAnimationFrame(() => {
     board.classList.add('kanban-board--visible');
+    updateOverflowShadow();
   });
 
   // Push scope and register hotkeys
@@ -652,6 +681,7 @@ export async function showKanbanBoard(): Promise<void> {
   });
 
   theatreState.kanbanCleanup = () => {
+    resizeObserver.disconnect();
     unregisterHotkey('escape', Scopes.KANBAN);
     unregisterHotkey(platformHotkey('mod+b'), Scopes.KANBAN);
     unregisterHotkey(platformHotkey('mod+t'), Scopes.KANBAN);

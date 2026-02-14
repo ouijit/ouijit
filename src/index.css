@@ -2018,7 +2018,7 @@ body.kanban-open .theatre-stack {
 }
 
 .kanban-board {
-  @apply fixed top-[82px] left-4 right-4 bottom-4 z-[140] flex flex-col opacity-0 transition-all duration-200 ease-out;
+  @apply fixed top-[82px] left-4 right-4 bottom-4 z-[140] flex flex-col opacity-0 transition-all duration-200 ease-out rounded-lg overflow-hidden;
   transform: translateY(6px);
 }
 
@@ -2027,14 +2027,34 @@ body.kanban-open .theatre-stack {
   transform: translateY(0);
 }
 
+.kanban-scroll-shadow {
+  @apply absolute top-0 bottom-0 w-8 pointer-events-none z-[200];
+  opacity: 0;
+  border-radius: 0.5rem;
+}
+
+.kanban-scroll-shadow--left {
+  left: 0;
+  background: linear-gradient(to left, transparent 0%, rgba(0,0,0,0.03) 30%, rgba(0,0,0,0.1) 60%, rgba(0,0,0,0.25) 85%, rgba(0,0,0,0.35) 100%);
+}
+
+.kanban-scroll-shadow--right {
+  right: 0;
+  background: linear-gradient(to right, transparent 0%, rgba(0,0,0,0.03) 30%, rgba(0,0,0,0.1) 60%, rgba(0,0,0,0.25) 85%, rgba(0,0,0,0.35) 100%);
+}
+
 .kanban-columns {
-  @apply flex flex-1 min-h-0 rounded-lg border border-white/10 overflow-hidden;
+  @apply flex flex-1 min-h-0 rounded-lg border border-white/10;
+  overflow-x: auto;
+  overflow-y: hidden;
   background: var(--color-terminal-bg, #1a1a1a);
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.05), 0 4px 12px rgba(0, 0, 0, 0.15), 0 20px 40px rgba(0, 0, 0, 0.2);
 }
 
 .kanban-column {
-  @apply flex-1 flex flex-col transition-all duration-150 ease-out;
+  @apply flex flex-col transition-all duration-150 ease-out shrink-0;
+  min-width: 240px;
+  flex: 1 0 240px;
   border-right: 1px solid rgba(255, 255, 255, 0.06);
 }
 
@@ -2085,11 +2105,15 @@ body.kanban-open .theatre-stack {
 }
 
 .kanban-card:hover {
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(0, 0, 0, 0.1);
 }
 
 .kanban-card:active {
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(0, 0, 0, 0.12);
+}
+
+.kanban-card--expanded {
+  background: rgba(0, 0, 0, 0.15);
 }
 
 .kanban-card--done .kanban-card-name {
@@ -2156,6 +2180,18 @@ body.kanban-open .theatre-stack {
 
 .kanban-card-detail--visible {
   @apply grid;
+}
+
+.kanban-card-branch {
+  @apply flex items-center gap-1 font-mono text-[11px] text-white/50 min-w-0 overflow-hidden;
+}
+
+.kanban-card-branch svg {
+  @apply w-3 h-3 shrink-0;
+}
+
+.kanban-card-branch-name {
+  @apply truncate min-w-0;
 }
 
 .kanban-card-detail-row {
