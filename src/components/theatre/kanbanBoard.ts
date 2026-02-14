@@ -2,12 +2,13 @@
  * Kanban board view — spatial task management with drag-and-drop
  */
 
-import type { TaskWithWorkspace, TaskStatus } from '../../types';
+import type { TaskWithWorkspace, TaskStatus, RunConfig } from '../../types';
 import { theatreState } from './state';
 import { projectPath, kanbanVisible, terminals, activeIndex, invalidateTaskList } from './signals';
 import { theatreRegistry, showTaskContextMenu } from './helpers';
 import { reopenTask, deleteTask, closeTask } from './worktreeDropdown';
 import { switchToTheatreTerminal } from './terminalCards';
+import { hideTaskIndex } from './taskIndex';
 import { escapeHtml } from '../../utils/html';
 import { registerHotkey, unregisterHotkey, pushScope, popScope, Scopes, platformHotkey } from '../../utils/hotkeys';
 
@@ -28,6 +29,7 @@ function buildKanbanHtml(): string {
       <div class="kanban-column-header">
         <span class="kanban-column-title">${col.label}</span>
         <span class="kanban-column-count">0</span>
+        ${col.status === 'todo' ? '<button class="kanban-add-btn" title="Add task" style="-webkit-app-region: no-drag;"><i data-lucide="plus"></i></button>' : ''}
       </div>
       <div class="kanban-column-body"></div>
     </div>
@@ -157,33 +159,53 @@ function buildKanbanCard(task: TaskWithWorkspace, path: string, limaAvailable: b
 
   // Click to open terminal — switch to existing session if one is open
   card.addEventListener('click', async () => {
-    hideKanbanBoard();
-
     // If there's already a terminal open for this task, just switch to it
     const existingIdx = terminals.value.findIndex(t => t.taskId === task.taskNumber);
     if (existingIdx !== -1) {
+      hideKanbanBoard();
       if (existingIdx !== activeIndex.value) {
         switchToTheatreTerminal(existingIdx);
       }
       return;
     }
 
-    const worktreeOpts = {
-      path: task.worktreePath || '',
-      branch: task.branch || '',
-      createdAt: task.createdAt,
-      sandboxed: task.sandboxed,
-    };
-
     if (task.status === 'done') {
+      hideKanbanBoard();
       await reopenTask(path, task);
-    } else {
+      return;
+    }
+
+    // Todo task with no worktree — create one first
+    if (!task.worktreePath) {
+      const startResult = await window.api.task.start(path, task.taskNumber);
+      if (!startResult.success || !startResult.worktreePath) return;
+      invalidateTaskList();
+      hideKanbanBoard();
       await theatreRegistry.addTheatreTerminal?.(undefined, {
-        existingWorktree: worktreeOpts,
+        existingWorktree: {
+          path: startResult.worktreePath,
+          branch: startResult.task?.branch || '',
+          createdAt: task.createdAt,
+          sandboxed: task.sandboxed,
+        },
         taskId: task.taskNumber,
         sandboxed: false,
       });
+      return;
     }
+
+    // Task already has a worktree
+    hideKanbanBoard();
+    await theatreRegistry.addTheatreTerminal?.(undefined, {
+      existingWorktree: {
+        path: task.worktreePath,
+        branch: task.branch || '',
+        createdAt: task.createdAt,
+        sandboxed: task.sandboxed,
+      },
+      taskId: task.taskNumber,
+      sandboxed: false,
+    });
   });
 
   // Drag handlers
@@ -272,6 +294,51 @@ function setupColumnDropTargets(): void {
       const path = projectPath.value;
       if (!path) return;
 
+      // Dropping a todo task (no worktree) into in_progress — create worktree + show start command dialog
+      if (newStatus === 'in_progress') {
+        const tasks = await window.api.task.getAll(path);
+        const task = tasks.find(t => t.taskNumber === taskNumber);
+
+        if (task && !task.worktreePath) {
+          // Create the worktree first
+          const startResult = await window.api.task.start(path, taskNumber);
+          if (!startResult.success || !startResult.worktreePath) return;
+          invalidateTaskList();
+
+          // Show start command dialog
+          const dialogResult = await showStartCommandDialog(path, task.name);
+          if (dialogResult === null) {
+            // User cancelled — abort (worktree was created but that's fine)
+            await populateKanbanBoard();
+            return;
+          }
+
+          // Build runConfig if user chose to run a command
+          let runConfig: RunConfig | undefined;
+          if (dialogResult !== 'skip' && dialogResult.command) {
+            runConfig = {
+              name: 'start',
+              command: dialogResult.command,
+              source: 'custom',
+              priority: 0,
+            };
+          }
+
+          hideKanbanBoard();
+          await theatreRegistry.addTheatreTerminal?.(runConfig, {
+            existingWorktree: {
+              path: startResult.worktreePath,
+              branch: startResult.task?.branch || '',
+              createdAt: task.createdAt,
+              sandboxed: task.sandboxed,
+            },
+            taskId: taskNumber,
+            sandboxed: false,
+          });
+          return;
+        }
+      }
+
       const result = await window.api.task.setStatus(path, taskNumber, newStatus);
       if (result.success) {
         invalidateTaskList();
@@ -323,6 +390,176 @@ async function populateKanbanBoard(): Promise<void> {
 }
 
 /**
+ * Prompt for a task name and create a todo task (no terminal)
+ */
+async function addTodoTask(): Promise<void> {
+  const path = projectPath.value;
+  if (!path) return;
+
+  const todoColumn = document.querySelector('.kanban-column[data-status="todo"]');
+  if (!todoColumn) return;
+  const body = todoColumn.querySelector('.kanban-column-body') as HTMLElement;
+  if (!body) return;
+
+  // Create inline input at the top of the todo column
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'kanban-add-input';
+  input.placeholder = 'Task name...';
+  input.setAttribute('style', '-webkit-app-region: no-drag;');
+  body.prepend(input);
+  input.focus();
+
+  let submitting = false;
+
+  const cleanup = () => {
+    if (input.parentNode) input.remove();
+  };
+
+  const submit = async () => {
+    const name = input.value.trim();
+    submitting = true;
+    cleanup();
+    if (!name) return;
+    await window.api.task.create(path, name);
+    invalidateTaskList();
+    await populateKanbanBoard();
+  };
+
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      submit();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      cleanup();
+    }
+  });
+
+  input.addEventListener('blur', () => {
+    if (!submitting) cleanup();
+  });
+}
+
+/**
+ * Show a start command dialog before opening a terminal.
+ * Returns { command: string } to run a command, 'skip' to open terminal with no command, or null to cancel.
+ */
+function showStartCommandDialog(path: string, taskName: string): Promise<{ command: string } | 'skip' | null> {
+  return new Promise(async (resolve) => {
+    let resolved = false;
+    const finish = (result: { command: string } | 'skip' | null) => {
+      if (resolved) return;
+      resolved = true;
+      cleanup();
+      resolve(result);
+    };
+
+    // Fetch start hook command
+    let startCommand = '';
+    try {
+      const hooks = await window.api.hooks.get(path);
+      if (hooks.start?.command) startCommand = hooks.start.command;
+    } catch { /* no hook configured */ }
+
+    // Build overlay + dialog
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+
+    const dialog = document.createElement('div');
+    dialog.className = 'import-dialog';
+
+    const title = document.createElement('div');
+    title.className = 'import-dialog-title';
+    title.textContent = 'Start Command';
+    dialog.appendChild(title);
+
+    // Textarea for the command
+    const textarea = document.createElement('textarea');
+    textarea.className = 'form-input form-textarea start-command-textarea';
+    textarea.value = startCommand;
+    textarea.placeholder = 'e.g. npm run dev';
+    textarea.rows = 3;
+    textarea.setAttribute('style', '-webkit-app-region: no-drag;');
+    dialog.appendChild(textarea);
+
+    // Environment variables hint
+    const envHint = document.createElement('details');
+    envHint.className = 'hook-env-vars';
+    envHint.innerHTML = `<summary>Available environment variables</summary>
+<ul>
+  <li><code>OUIJIT_TASK_NAME</code> — ${escapeHtml(taskName)}</li>
+  <li><code>OUIJIT_PROJECT_PATH</code></li>
+  <li><code>OUIJIT_WORKTREE_PATH</code></li>
+  <li><code>OUIJIT_BRANCH</code></li>
+</ul>`;
+    dialog.appendChild(envHint);
+
+    // Action buttons
+    const actions = document.createElement('div');
+    actions.className = 'import-actions';
+
+    const skipBtn = document.createElement('button');
+    skipBtn.className = 'btn btn-secondary';
+    skipBtn.textContent = 'Skip';
+    skipBtn.setAttribute('style', '-webkit-app-region: no-drag;');
+    skipBtn.addEventListener('click', () => finish('skip'));
+    actions.appendChild(skipBtn);
+
+    const runBtn = document.createElement('button');
+    runBtn.className = 'btn btn-primary';
+    runBtn.textContent = 'Run';
+    runBtn.setAttribute('style', '-webkit-app-region: no-drag;');
+    runBtn.addEventListener('click', () => {
+      const cmd = textarea.value.trim();
+      if (cmd) {
+        finish({ command: cmd });
+      } else {
+        finish('skip');
+      }
+    });
+    actions.appendChild(runBtn);
+
+    dialog.appendChild(actions);
+    overlay.appendChild(dialog);
+    document.body.appendChild(overlay);
+
+    // Scope + hotkeys
+    pushScope(Scopes.MODAL);
+
+    const cleanup = () => {
+      unregisterHotkey('escape', Scopes.MODAL);
+      popScope();
+      dialog.classList.remove('import-dialog--visible');
+      overlay.classList.remove('modal-overlay--visible');
+      setTimeout(() => overlay.remove(), 150);
+    };
+
+    registerHotkey('escape', Scopes.MODAL, () => finish(null));
+
+    // Click outside cancels
+    overlay.addEventListener('mousedown', (e) => {
+      if (e.target === overlay) finish(null);
+    });
+
+    // Enter in textarea submits (Shift+Enter for newline)
+    textarea.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        runBtn.click();
+      }
+    });
+
+    // Animate in
+    requestAnimationFrame(() => {
+      overlay.classList.add('modal-overlay--visible');
+      dialog.classList.add('import-dialog--visible');
+      textarea.focus();
+    });
+  });
+}
+
+/**
  * Show the kanban board
  */
 export async function showKanbanBoard(): Promise<void> {
@@ -330,7 +567,6 @@ export async function showKanbanBoard(): Promise<void> {
   kanbanVisible.value = true;
 
   // Close task index if open
-  const { hideTaskIndex } = await import('./taskIndex');
   hideTaskIndex();
 
   const mainContent = document.querySelector('.main-content');
@@ -345,6 +581,12 @@ export async function showKanbanBoard(): Promise<void> {
   if (!board) {
     kanbanVisible.value = false;
     return;
+  }
+
+  // Wire up add button in the todo column
+  const addBtn = board.querySelector('.kanban-add-btn');
+  if (addBtn) {
+    addBtn.addEventListener('click', () => addTodoTask());
   }
 
   // Set up drop targets
@@ -378,9 +620,14 @@ export async function showKanbanBoard(): Promise<void> {
     hideKanbanBoard();
   });
 
+  registerHotkey(platformHotkey('mod+n'), Scopes.KANBAN, () => {
+    addTodoTask();
+  });
+
   theatreState.kanbanCleanup = () => {
     unregisterHotkey('escape', Scopes.KANBAN);
     unregisterHotkey(platformHotkey('mod+b'), Scopes.KANBAN);
+    unregisterHotkey(platformHotkey('mod+n'), Scopes.KANBAN);
     popScope();
   };
 }
