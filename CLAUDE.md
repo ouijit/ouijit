@@ -6,6 +6,7 @@ Native macOS desktop app for project management.
 
 ### Commands for Claude
 - `npm run check` - Type check (run this to verify changes)
+- `npm test` - Run tests (run this to validate data layer changes)
 
 Do NOT run `npm run start` or other dev server commands.
 
@@ -35,6 +36,7 @@ Do NOT run `npm run start` or other dev server commands.
 
 ## Code Rules
 
+- **No dynamic imports** — never use `import()` for lazy loading or code splitting. Always use static `import` at the top of the file. Vite handles circular dependencies fine for functions called inside handlers (not at module evaluation time). Use the `theatreRegistry` pattern only when true circular top-level access is needed.
 - Don't replace `innerHTML` on elements with event listeners (destroys handlers)
 - Use targeted DOM updates instead of full rebuilds
 - Clear intervals/timeouts on cleanup

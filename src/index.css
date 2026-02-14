@@ -958,7 +958,7 @@ body.platform-darwin:not(.is-fullscreen) .theatre-header-content {
 
 /* Task Context Menu (right-click "Open in Sandbox") */
 .task-context-menu {
-  @apply fixed z-[2000] bg-surface border border-border rounded-md shadow-lg overflow-hidden opacity-0;
+  @apply fixed z-[2000] py-1 bg-surface border border-border rounded-md shadow-lg overflow-hidden opacity-0;
   transition: opacity 100ms ease;
 }
 
@@ -976,6 +976,10 @@ body.platform-darwin:not(.is-fullscreen) .theatre-header-content {
 
 .task-context-menu-item:hover {
   @apply bg-background-tertiary;
+}
+
+.task-context-menu-separator {
+  @apply border-t border-border my-1;
 }
 
 .sandbox-dropdown-stop-btn {
@@ -1477,27 +1481,6 @@ body > .diff-panel--visible {
   box-shadow: 0 0 4px rgba(105, 219, 124, 0.5);
 }
 
-.theatre-card-status-dot[data-status="error"] {
-  @apply bg-[#ff6b6b];
-  box-shadow: 0 0 4px rgba(255, 107, 107, 0.5);
-}
-
-.theatre-card-status-dot[data-status="listening"] {
-  @apply bg-[#74c0fc];
-  box-shadow: 0 0 4px rgba(116, 192, 252, 0.5);
-}
-
-.theatre-card-status-dot[data-status="building"] {
-  @apply bg-[#ffd43b];
-  box-shadow: 0 0 4px rgba(255, 212, 59, 0.5);
-  animation: terminal-status-pulse 1.5s ease-in-out infinite;
-}
-
-.theatre-card-status-dot[data-status="watching"] {
-  @apply bg-[#ffd43b];
-  box-shadow: 0 0 4px rgba(255, 212, 59, 0.5);
-}
-
 .theatre-card-status-dot[data-status="thinking"] {
   @apply bg-[#da77f2];
   box-shadow: 0 0 4px rgba(218, 119, 242, 0.5);
@@ -1987,95 +1970,6 @@ body > .diff-panel--visible {
   @apply flex flex-wrap gap-1 justify-center;
 }
 
-/* ==========================================
-   Task Index Panel
-   ========================================== */
-
-.task-index-panel {
-  @apply fixed top-[82px] left-4 bottom-4 w-0 bg-transparent z-[150] flex flex-col overflow-hidden opacity-0 transition-all duration-200 ease-out;
-  transform: translateX(-10px);
-}
-
-.task-index-panel--visible {
-  @apply w-[260px] opacity-100;
-  transform: translateX(0);
-}
-
-/* Adjust theatre stack when task index is open */
-body.task-index-open .theatre-stack {
-  left: calc(16px + 260px + 16px);
-}
-
-.task-index-header {
-  @apply flex items-center justify-between pt-2 pb-1 px-1 shrink-0;
-}
-
-.task-index-title {
-  @apply text-[11px] font-medium text-text-secondary m-0 uppercase tracking-wide;
-}
-
-.task-index-close {
-  @apply flex items-center justify-center w-7 h-7 p-0 bg-transparent border-none rounded-md text-text-secondary opacity-70 transition-all duration-150 ease-out;
-}
-
-.task-index-close:hover {
-  @apply bg-white/[0.08] text-text-primary opacity-100;
-}
-
-.task-index-close svg {
-  @apply w-3.5 h-3.5;
-}
-
-.task-index-content {
-  @apply flex-1 overflow-y-auto p-0;
-}
-
-.task-index-list {
-  @apply flex flex-col gap-px;
-}
-
-.task-index-closed-disclosure {
-  @apply mt-6 pt-0;
-}
-
-.task-index-closed-summary {
-  @apply block px-1 py-1.5 text-[11px] text-text-secondary opacity-70 transition-opacity duration-150 ease-out;
-}
-
-.task-index-closed-summary::-webkit-details-marker {
-  @apply hidden;
-}
-
-.task-index-closed-disclosure[open] .task-index-closed-summary,
-.task-index-closed-summary:hover {
-  @apply opacity-100;
-}
-
-.task-index-item {
-  @apply flex items-center justify-between w-full px-1 py-1.5 bg-transparent border-none rounded-md text-text-primary text-sm text-left transition-opacity duration-150 ease-out;
-  opacity: 0.8;
-}
-
-.task-index-item:hover {
-  opacity: 1;
-}
-
-.task-index-item--closed {
-  @apply opacity-40;
-}
-
-.task-index-item--closed:hover {
-  @apply opacity-60;
-}
-
-.task-index-item-name {
-  @apply flex-1 truncate font-normal;
-}
-
-.task-index-item-shortcut {
-  @apply inline-flex items-center font-mono text-base text-text-secondary mr-1 shrink-0;
-}
-
 /* Smaller numbers in shortcut hints (e.g., ⌘1 where 1 is smaller) */
 .shortcut-number {
   @apply text-xs;
@@ -2085,7 +1979,6 @@ body.task-index-open .theatre-stack {
 body.platform-other .theatre-stack-empty-hint-shortcut,
 body.platform-other .theatre-stack-empty-section-shortcut,
 body.platform-other .theatre-stack-empty-task-shortcut,
-body.platform-other .task-index-item-shortcut,
 body.platform-other .theatre-card-shortcut {
   @apply text-[11px];
 }
@@ -2094,36 +1987,260 @@ body.platform-other .shortcut-number {
   @apply text-[11px];
 }
 
-.task-index-item-actions {
-  @apply flex gap-0.5 w-0 overflow-hidden opacity-0 transition-all duration-150 ease-out;
+/* ==========================================
+   View Toggle (Stack / Board)
+   ========================================== */
+
+.theatre-view-toggle {
+  @apply flex items-center ml-3 bg-background-secondary border border-border rounded-md overflow-hidden;
+  -webkit-app-region: no-drag;
 }
 
-.task-index-item:hover .task-index-item-actions {
-  @apply w-[60px] opacity-100;
+.theatre-view-toggle-btn {
+  @apply w-[30px] h-[30px] flex items-center justify-center text-text-secondary transition-all duration-150 ease-out;
 }
 
-.task-index-item-action {
-  @apply flex items-center justify-center w-7 h-7 shrink-0 p-0 bg-transparent border-none rounded-md text-text-secondary transition-all duration-150 ease-out;
+.theatre-view-toggle-btn:hover {
+  @apply text-text-primary bg-background-tertiary;
 }
 
-.task-index-item-action:hover {
-  @apply text-text-primary;
+.theatre-view-toggle-btn--active {
+  @apply text-text-primary bg-background-tertiary;
 }
 
-.task-index-item-action--close:hover {
-  @apply text-text-primary;
+.theatre-view-toggle-btn svg {
+  @apply w-3.5 h-3.5;
 }
 
-.task-index-item-action--danger:hover {
+/* ==========================================
+   Kanban Board
+   ========================================== */
+
+/* Hide terminal stack when kanban is open (terminals keep running) */
+body.kanban-open .theatre-stack {
+  display: none;
+}
+
+.kanban-board {
+  @apply fixed top-[82px] left-4 right-4 bottom-4 z-[140] flex flex-col opacity-0 transition-all duration-200 ease-out rounded-lg overflow-hidden border border-white/10;
+  transform: translateY(6px);
+  background: var(--color-terminal-bg, #1a1a1a);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.05), 0 4px 12px rgba(0, 0, 0, 0.15), 0 20px 40px rgba(0, 0, 0, 0.2);
+}
+
+.kanban-board--visible {
+  @apply opacity-100;
+  transform: translateY(0);
+}
+
+.kanban-scroll-shadow {
+  @apply absolute top-0 bottom-0 w-8 pointer-events-none z-[200];
+  opacity: 0;
+  border-radius: 0.5rem;
+}
+
+.kanban-scroll-shadow--left {
+  left: 0;
+  background: linear-gradient(to left, transparent 0%, rgba(0,0,0,0.03) 30%, rgba(0,0,0,0.1) 60%, rgba(0,0,0,0.25) 85%, rgba(0,0,0,0.35) 100%);
+}
+
+.kanban-scroll-shadow--right {
+  right: 0;
+  background: linear-gradient(to right, transparent 0%, rgba(0,0,0,0.03) 30%, rgba(0,0,0,0.1) 60%, rgba(0,0,0,0.25) 85%, rgba(0,0,0,0.35) 100%);
+}
+
+.kanban-columns {
+  @apply flex flex-1 min-h-0;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.kanban-column {
+  @apply flex flex-col transition-all duration-150 ease-out shrink-0;
+  min-width: 240px;
+  flex: 1 0 240px;
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.kanban-column:last-child {
+  border-right: none;
+}
+
+.kanban-column--drop-target {
+  background: rgba(10, 132, 255, 0.05);
+}
+
+.kanban-column-header {
+  @apply flex items-center gap-2 px-3 py-2.5 shrink-0;
+}
+
+.kanban-column-title {
+  @apply text-[11px] font-medium text-text-secondary uppercase tracking-wide flex-1;
+}
+
+.kanban-column-count {
+  @apply text-[11px] text-text-secondary opacity-50;
+}
+
+/* Start command dialog textarea */
+.start-command-textarea {
+  @apply mb-2 font-mono;
+}
+
+.kanban-add-input {
+  @apply w-full font-mono text-xs font-medium text-text-primary bg-transparent px-3 py-3.5 outline-none transition-all duration-150 ease-out;
+  border: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.kanban-add-input:focus {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.kanban-column-body {
+  @apply flex flex-col overflow-y-auto flex-1 min-h-0;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.kanban-card {
+  @apply px-3 py-3.5 transition-all duration-150 ease-out;
+  -webkit-app-region: no-drag;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.kanban-card:hover {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.kanban-card:active {
+  background: rgba(0, 0, 0, 0.12);
+}
+
+.kanban-card--expanded {
+  background: rgba(0, 0, 0, 0.15);
+}
+
+.kanban-card--done .kanban-card-name {
+  @apply line-through text-text-secondary;
+}
+
+.kanban-card--dragging {
+  opacity: 0.4;
+}
+
+.kanban-card-header {
+  @apply flex items-center gap-2;
+}
+
+.kanban-card-name {
+  @apply flex-1 font-mono text-xs font-medium text-text-primary truncate;
+}
+
+.kanban-card-status-dots {
+  @apply flex flex-col gap-0.5 shrink-0;
+}
+
+.kanban-card-status-dot {
+  @apply w-1.5 h-1.5 rounded-full shrink-0 bg-[#69db7c] transition-all duration-200 ease-out;
+  box-shadow: 0 0 4px rgba(105, 219, 124, 0.5);
+}
+
+.kanban-card-status-dot[data-status="idle"] {
+  @apply bg-[#69db7c];
+  box-shadow: 0 0 4px rgba(105, 219, 124, 0.5);
+}
+
+.kanban-card-status-dot[data-status="thinking"] {
+  @apply bg-[#da77f2];
+  box-shadow: 0 0 4px rgba(218, 119, 242, 0.5);
+  animation: terminal-status-pulse 1s ease-in-out infinite;
+}
+
+.kanban-card-status-dot--sandboxed {
+  outline: 1.5px solid rgba(116, 192, 252, 0.6);
+  outline-offset: 2px;
+}
+
+.kanban-card-expand {
+  @apply flex items-center justify-center w-5 h-5 p-0 bg-transparent border-none rounded text-text-secondary opacity-0 transition-all duration-150 ease-out shrink-0;
+  -webkit-app-region: no-drag;
+}
+
+.kanban-card:hover .kanban-card-expand {
+  @apply opacity-60;
+}
+
+.kanban-card-expand:hover {
+  @apply opacity-100;
+}
+
+.kanban-card-expand svg {
+  @apply w-3 h-3 transition-transform duration-150 ease-out;
+}
+
+.kanban-card-expand--open svg {
+  transform: rotate(180deg);
+}
+
+.kanban-card-detail {
+  @apply mt-2 pt-2 border-t border-white/[0.04] gap-2 hidden;
+}
+
+.kanban-card-detail--visible {
+  @apply grid;
+}
+
+.kanban-card-branch {
+  @apply flex items-center gap-1 font-mono text-[11px] text-white/50 min-w-0 overflow-hidden;
+}
+
+.kanban-card-branch svg {
+  @apply w-3 h-3 shrink-0;
+}
+
+.kanban-card-branch-name {
+  @apply truncate min-w-0;
+}
+
+.kanban-card-detail-row {
+  @apply flex flex-col gap-1 text-xs;
+}
+
+.kanban-card-detail-label {
+  @apply text-text-secondary;
+}
+
+.kanban-card-detail-value {
+  @apply text-text-primary truncate;
+}
+
+.kanban-card-detail-value--clamp {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  white-space: normal;
+}
+
+.kanban-card-actions {
+  @apply flex gap-1 mt-1.5;
+}
+
+.kanban-card-action {
+  @apply flex items-center justify-center w-6 h-6 p-0 bg-transparent border-none rounded text-text-secondary transition-all duration-150 ease-out;
+  -webkit-app-region: no-drag;
+}
+
+.kanban-card-action:hover {
+  @apply bg-white/[0.08] text-text-primary;
+}
+
+.kanban-card-action--danger:hover {
   @apply text-error;
 }
 
-.task-index-item-action svg {
-  @apply !w-3.5 !h-3.5;
-}
-
-.task-index-empty {
-  @apply text-left text-text-secondary text-sm px-1 py-4;
+.kanban-card-action svg {
+  @apply !w-3 !h-3;
 }
 
 /* ==========================================

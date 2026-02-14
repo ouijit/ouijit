@@ -10,11 +10,12 @@ import {
   activeTerminal,
   projectPath,
   taskVersion,
-  taskIndexVisible,
+  kanbanVisible,
 } from './signals';
 // Direct imports - these modules import from signals.ts, not effects.ts, so no circular dep
 import { updateCardStack, showStackEmptyState, hideStackEmptyState, refreshEmptyStateTasks } from './terminalCards';
 import { syncDiffPanelToActiveTerminal } from './diffPanel';
+import { refreshKanbanBoard, syncKanbanStatusDots } from './kanbanBoard';
 
 // Track whether effects are initialized
 let effectsInitialized = false;
@@ -84,18 +85,30 @@ export function initializeEffects(): void {
     })
   );
 
-  // Effect: Auto-refresh task index when taskVersion bumps
-  let lastTaskVersionForIndex = taskVersion.value;
+  // Effect: Auto-refresh kanban board when taskVersion bumps
+  let lastTaskVersionForKanban = taskVersion.value;
   cleanupFunctions.push(
     effect(() => {
       const ver = taskVersion.value;
-      const visible = taskIndexVisible.value;
-      if (ver !== lastTaskVersionForIndex && visible) {
-        lastTaskVersionForIndex = ver;
-        // Dynamic import to avoid circular dependency
-        import('./taskIndex').then(({ refreshTaskIndex }) => refreshTaskIndex());
+      const visible = kanbanVisible.value;
+      if (ver !== lastTaskVersionForKanban && visible) {
+        lastTaskVersionForKanban = ver;
+        refreshKanbanBoard();
       }
-      lastTaskVersionForIndex = ver;
+      lastTaskVersionForKanban = ver;
+    })
+  );
+
+  // Effect: Sync kanban status dots when terminals are added/removed
+  cleanupFunctions.push(
+    effect(() => {
+      const _terminals = terminals.value; // subscribe to terminal list changes
+      const visible = kanbanVisible.value;
+      if (visible) {
+        // Use void to ensure the subscription triggers even if sync is a no-op
+        void _terminals.length;
+        syncKanbanStatusDots();
+      }
     })
   );
 

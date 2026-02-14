@@ -44,6 +44,14 @@ export function buildTheatreHeader(): string {
           <i data-lucide="chevron-down" class="theatre-sandbox-caret"></i>
         </button>
       </div>
+      <div class="theatre-view-toggle">
+        <button class="theatre-view-toggle-btn theatre-view-toggle-btn--active" data-view="stack" title="Terminal stack">
+          <i data-lucide="layers"></i>
+        </button>
+        <button class="theatre-view-toggle-btn" data-view="board" title="Board view">
+          <i data-lucide="columns-3"></i>
+        </button>
+      </div>
       <div class="theatre-launch-wrapper">
         <button class="theatre-scripts-btn" title="Configure scripts">
           <i data-lucide="code"></i>

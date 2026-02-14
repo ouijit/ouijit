@@ -27,7 +27,7 @@ export const diffPanelVisible = signal(false);
 export const diffPanelFiles = signal<ChangedFile[]>([]);
 export const diffPanelSelectedFile = signal<string | null>(null);
 export const diffPanelMode = signal<'uncommitted' | 'worktree'>('uncommitted');
-export const diffPanelWorktreeBranch = signal<string | null>(null);
+export const diffPanelTaskId = signal<number | null>(null);
 
 // Dropdown visibility
 export const gitDropdownVisible = signal(false);
@@ -35,8 +35,8 @@ export const launchDropdownVisible = signal(false);
 export const sandboxDropdownVisible = signal(false);
 export const diffFileDropdownVisible = signal(false);
 
-// Task index panel visibility
-export const taskIndexVisible = signal(false);
+// Kanban board visibility
+export const kanbanVisible = signal(false);
 
 // Task list invalidation (effects watch this to auto-refresh views)
 const taskVersion = signal(0);
@@ -60,11 +60,11 @@ export function resetSignals(): void {
   diffPanelFiles.value = [];
   diffPanelSelectedFile.value = null;
   diffPanelMode.value = 'uncommitted';
-  diffPanelWorktreeBranch.value = null;
+  diffPanelTaskId.value = null;
   gitDropdownVisible.value = false;
   launchDropdownVisible.value = false;
   sandboxDropdownVisible.value = false;
   diffFileDropdownVisible.value = false;
-  taskIndexVisible.value = false;
+  kanbanVisible.value = false;
   taskVersion.value = 0;
 }

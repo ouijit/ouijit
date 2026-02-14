@@ -5,6 +5,7 @@
  */
 
 import type { TheatreTerminal } from './state';
+import { createIcons, icons } from 'lucide';
 
 /**
  * Cross-module function registry
@@ -12,15 +13,15 @@ import type { TheatreTerminal } from './state';
  * allowing other modules to call them without direct imports
  */
 interface TheatreRegistry {
-  // From taskIndex
-  toggleTaskIndex: (() => void) | null;
-  refreshTaskIndex: (() => Promise<void>) | null;
   // From worktreeDropdown
   createNewAgentShell: (() => void) | null;
   // From terminalCards
   addTheatreTerminal: ((runConfig?: unknown, options?: unknown) => Promise<boolean>) | null;
   closeTheatreTerminal: ((index: number) => void) | null;
   playOrToggleRunner: (() => Promise<void>) | null;
+  // From kanbanBoard
+  toggleKanbanBoard: (() => void) | null;
+  syncKanbanStatusDots: (() => void) | null;
   // From diffPanel
   toggleActiveDiffPanel: (() => Promise<void>) | null;
   // From shipItPanel
@@ -30,9 +31,9 @@ interface TheatreRegistry {
 }
 
 export const theatreRegistry: TheatreRegistry = {
-  toggleTaskIndex: null,
-  refreshTaskIndex: null,
   createNewAgentShell: null,
+  toggleKanbanBoard: null,
+  syncKanbanStatusDots: null,
   addTheatreTerminal: null,
   closeTheatreTerminal: null,
   playOrToggleRunner: null,
@@ -69,9 +70,7 @@ export function showTaskContextMenu(event: MouseEvent, onSandbox: () => void): v
   document.body.appendChild(menu);
 
   // Render lucide icons
-  import('lucide').then(({ createIcons, icons }) => {
-    createIcons({ icons, nameAttr: 'data-lucide', attrs: {}, nodes: [menu] });
-  });
+  createIcons({ icons, nameAttr: 'data-lucide', attrs: {}, nodes: [menu] });
 
   // Position at mouse, keeping within viewport
   const x = Math.min(event.clientX, window.innerWidth - 180);

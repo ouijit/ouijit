@@ -16,17 +16,18 @@ import {
 } from './ptyManager';
 import * as limaPlugin from './lima';
 import { getGitStatus, getCompactGitStatus, getGitDropdownInfo, checkoutBranch, createBranch, mergeIntoMain, getChangedFiles, getFileDiff, getWorktreeDiff, getWorktreeFileDiff, mergeWorktreeBranch, listBranches, getMainBranch } from './git';
-import { createTaskWorktree, removeTaskWorktree, listWorktrees, formatBranchNameForDisplay, validateBranchName, generateBranchName } from './worktree';
+import { createTaskWorktree, createTodoTask, startTask, removeTaskWorktree, listWorktrees, validateBranchName, generateBranchName } from './worktree';
 import type { TaskWorktreeResult, WorktreeRemoveResult, WorktreeInfo } from './worktree';
 import {
   getProjectTasks,
-  closeTask,
-  reopenTask,
-  setTaskReadyToShip,
+  getNextTaskNumber,
+  setTaskStatus,
   setTaskMergeTarget,
   setTaskSandboxed,
-  ensureTaskExists,
+  deleteTaskByNumber,
   getTask,
+  getTaskByNumber,
+  type TaskStatus,
 } from './taskMetadata';
 import {
   getProjectSettings,
@@ -37,7 +38,7 @@ import {
   deleteHook,
 } from './projectSettings';
 import { executeHook } from './hookRunner';
-import type { PtySpawnOptions, CreateProjectOptions, CreateProjectResult, ProjectSettings, GitStatus, CompactGitStatus, GitDropdownInfo, ChangedFile, FileDiff, WorktreeDiffSummary, GitMergeResult, WorktreeWithMetadata, ScriptHook, HookType, BranchInfo } from './types';
+import type { PtySpawnOptions, CreateProjectOptions, CreateProjectResult, ProjectSettings, GitStatus, CompactGitStatus, GitDropdownInfo, ChangedFile, FileDiff, WorktreeDiffSummary, GitMergeResult, TaskWithWorkspace, ScriptHook, HookType, BranchInfo } from './types';
 
 /**
  * Registers all IPC handlers for the main process
@@ -269,17 +270,12 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     return getProjectSettings(projectPath);
   });
 
-  // Worktree handlers
-  ipcMain.handle('worktree:create', async (_event, projectPath: string, name?: string, prompt?: string, branchName?: string): Promise<TaskWorktreeResult> => {
-    return createTaskWorktree(projectPath, name, prompt, branchName);
-  });
-
+  // Worktree handlers (git plumbing — task ops are on task:* namespace)
   ipcMain.handle('worktree:validate-branch-name', async (_event, projectPath: string, branchName: string): Promise<{ valid: boolean; error?: string }> => {
     return validateBranchName(projectPath, branchName);
   });
 
   ipcMain.handle('worktree:generate-branch-name', async (_event, projectPath: string, name: string): Promise<string> => {
-    const { getNextTaskNumber } = await import('./taskMetadata');
     const taskNumber = await getNextTaskNumber(projectPath);
     return generateBranchName(name, taskNumber);
   });
@@ -348,140 +344,127 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     return result;
   });
 
-  // Get tasks with metadata merged with worktree list
-  ipcMain.handle('worktree:get-tasks', async (_event, projectPath: string): Promise<WorktreeWithMetadata[]> => {
-    const worktrees = listWorktrees(projectPath);
-    const tasks = await getProjectTasks(projectPath);
-
-    // Create a map for quick lookup
-    const taskMap = new Map(tasks.map(t => [t.branch, t]));
-
-    // For each worktree, ensure metadata exists and merge
-    const results: WorktreeWithMetadata[] = [];
-    for (const wt of worktrees) {
-      let metadata = taskMap.get(wt.branch);
-      if (!metadata) {
-        // Create metadata for worktrees that don't have it yet
-        const displayName = formatBranchNameForDisplay(wt.branch);
-        metadata = await ensureTaskExists(projectPath, wt.branch, displayName);
-      }
-
-      results.push({
-        path: wt.path,
-        branch: wt.branch,
-        taskName: metadata.name,
-        createdAt: metadata.createdAt || wt.createdAt,
-        taskNumber: metadata.taskNumber,
-        name: metadata.name,
-        status: metadata.status,
-        closedAt: metadata.closedAt,
-        readyToShip: metadata.readyToShip,
-        mergeTarget: metadata.mergeTarget,
-        prompt: metadata.prompt,
-        sandboxed: metadata.sandboxed,
-      });
-    }
-
-    // Also include closed tasks that might not have worktrees anymore
-    // (though in our design they should always have worktrees)
-    for (const task of tasks) {
-      if (!results.some(r => r.branch === task.branch)) {
-        // Task exists in metadata but no worktree - might be orphaned
-        // Include it anyway for visibility
-        results.push({
-          path: '',
-          branch: task.branch,
-          taskName: task.name,
-          createdAt: task.createdAt,
-          taskNumber: task.taskNumber,
-          name: task.name,
-          status: task.status,
-          closedAt: task.closedAt,
-          readyToShip: task.readyToShip,
-          mergeTarget: task.mergeTarget,
-          prompt: task.prompt,
-          sandboxed: task.sandboxed,
-        });
-      }
-    }
-
-    // Sort: open first, then by creation date (newest first)
-    return results.sort((a, b) => {
-      if (a.status !== b.status) {
-        return a.status === 'open' ? -1 : 1;
-      }
-      return b.createdAt.localeCompare(a.createdAt);
-    });
-  });
-
-  // Mark a task as closed
-  ipcMain.handle('worktree:close', async (_event, projectPath: string, branch: string): Promise<{ success: boolean; error?: string; hookWarning?: string }> => {
-    let hookWarning: string | undefined;
-
-    // Run cleanup hook if configured
-    const cleanupHook = await getHook(projectPath, 'cleanup');
-    if (cleanupHook) {
-      // Find the worktree path for this branch
-      const worktrees = listWorktrees(projectPath);
-      const worktree = worktrees.find(wt => wt.branch === branch);
-      const task = await getTask(projectPath, branch);
-
-      if (worktree) {
-        const hookResult = await executeHook(cleanupHook, worktree.path, {
-          projectPath,
-          worktreePath: worktree.path,
-          taskBranch: branch,
-          taskName: task?.name || branch,
-        });
-
-        if (!hookResult.success) {
-          // Truncate output BEFORE logging to prevent sensitive data exposure in logs
-          const warningMessage = hookResult.error || hookResult.output;
-          const truncatedMessage = warningMessage && warningMessage.length > 500
-            ? warningMessage.slice(0, 500) + '...'
-            : warningMessage;
-          // Log only truncated message
-          console.warn(`Cleanup hook failed for ${branch}: ${truncatedMessage}`);
-          hookWarning = truncatedMessage;
-        }
-      }
-    }
-
-    const closeResult = await closeTask(projectPath, branch);
-    return {
-      ...closeResult,
-      hookWarning,
-    };
-  });
-
-  // Reopen a closed task
-  ipcMain.handle('worktree:reopen', async (_event, projectPath: string, branch: string): Promise<{ success: boolean; error?: string }> => {
-    return reopenTask(projectPath, branch);
-  });
-
-  // Set task ready-to-ship state
-  ipcMain.handle('worktree:set-ready', async (_event, projectPath: string, branch: string, ready: boolean): Promise<{ success: boolean; error?: string }> => {
-    return setTaskReadyToShip(projectPath, branch, ready);
-  });
-
   // List all branches in the project
   ipcMain.handle('worktree:list-branches', async (_event, projectPath: string): Promise<BranchInfo[]> => {
     return listBranches(projectPath);
   });
 
-  // Set task merge target
-  ipcMain.handle('worktree:set-merge-target', async (_event, projectPath: string, branch: string, mergeTarget: string): Promise<{ success: boolean; error?: string }> => {
-    return setTaskMergeTarget(projectPath, branch, mergeTarget);
-  });
-
-  // Set task sandboxed state
-  ipcMain.handle('worktree:set-sandboxed', async (_event, projectPath: string, branch: string, sandboxed: boolean): Promise<{ success: boolean; error?: string }> => {
-    return setTaskSandboxed(projectPath, branch, sandboxed);
-  });
-
   // Get the main branch for a project
   ipcMain.handle('worktree:get-main-branch', async (_event, projectPath: string): Promise<string> => {
     return getMainBranch(projectPath);
+  });
+
+  // ---- Task lifecycle handlers (new task:* namespace) ----
+
+  ipcMain.handle('task:create', async (_event, projectPath: string, name?: string, prompt?: string): Promise<TaskWorktreeResult> => {
+    return createTodoTask(projectPath, name, prompt);
+  });
+
+  ipcMain.handle('task:create-and-start', async (_event, projectPath: string, name?: string, prompt?: string, branchName?: string): Promise<TaskWorktreeResult> => {
+    return createTaskWorktree(projectPath, name, prompt, branchName);
+  });
+
+  ipcMain.handle('task:start', async (_event, projectPath: string, taskNumber: number, branchName?: string): Promise<TaskWorktreeResult> => {
+    return startTask(projectPath, taskNumber, branchName);
+  });
+
+  ipcMain.handle('task:get-all', async (_event, projectPath: string): Promise<TaskWithWorkspace[]> => {
+    const worktrees = listWorktrees(projectPath);
+    const tasks = await getProjectTasks(projectPath);
+
+    const worktreeMap = new Map(worktrees.map(wt => [wt.branch, wt]));
+
+    return tasks.map(task => {
+      const wt = task.branch ? worktreeMap.get(task.branch) : undefined;
+      return {
+        taskNumber: task.taskNumber,
+        name: task.name,
+        status: task.status,
+        branch: task.branch,
+        worktreePath: wt?.path || task.worktreePath,
+        createdAt: task.createdAt,
+        closedAt: task.closedAt,
+        mergeTarget: task.mergeTarget,
+        prompt: task.prompt,
+        sandboxed: task.sandboxed,
+      };
+    });
+  });
+
+  ipcMain.handle('task:get-by-number', async (_event, projectPath: string, taskNumber: number): Promise<TaskWithWorkspace | null> => {
+    const task = await getTaskByNumber(projectPath, taskNumber);
+    if (!task) return null;
+    const worktrees = listWorktrees(projectPath);
+    const wt = task.branch ? worktrees.find(w => w.branch === task.branch) : undefined;
+    return {
+      taskNumber: task.taskNumber,
+      name: task.name,
+      status: task.status,
+      branch: task.branch,
+      worktreePath: wt?.path || task.worktreePath,
+      createdAt: task.createdAt,
+      closedAt: task.closedAt,
+      mergeTarget: task.mergeTarget,
+      prompt: task.prompt,
+      sandboxed: task.sandboxed,
+    };
+  });
+
+  ipcMain.handle('task:set-status', async (_event, projectPath: string, taskNumber: number, status: TaskStatus): Promise<{ success: boolean; error?: string; hookWarning?: string }> => {
+    let hookWarning: string | undefined;
+
+    if (status === 'done') {
+      const cleanupHook = await getHook(projectPath, 'cleanup');
+      if (cleanupHook) {
+        const task = await getTaskByNumber(projectPath, taskNumber);
+        const worktrees = listWorktrees(projectPath);
+        const worktree = task?.branch ? worktrees.find(wt => wt.branch === task.branch) : undefined;
+
+        if (worktree && task) {
+          const hookResult = await executeHook(cleanupHook, worktree.path, {
+            projectPath,
+            worktreePath: worktree.path,
+            taskBranch: task.branch || '',
+            taskName: task.name,
+          });
+
+          if (!hookResult.success) {
+            const warningMessage = hookResult.error || hookResult.output;
+            const truncatedMessage = warningMessage && warningMessage.length > 500
+              ? warningMessage.slice(0, 500) + '...'
+              : warningMessage;
+            hookWarning = truncatedMessage;
+          }
+        }
+      }
+    }
+
+    const result = await setTaskStatus(projectPath, taskNumber, status);
+    return { ...result, hookWarning };
+  });
+
+  ipcMain.handle('task:delete', async (_event, projectPath: string, taskNumber: number): Promise<{ success: boolean; error?: string }> => {
+    const task = await getTaskByNumber(projectPath, taskNumber);
+    if (task?.worktreePath || task?.branch) {
+      const worktrees = listWorktrees(projectPath);
+      const wt = task.branch
+        ? worktrees.find(w => w.branch === task.branch)
+        : worktrees.find(w => w.path === task.worktreePath);
+      if (wt) {
+        const removeResult = await removeTaskWorktree(projectPath, wt.path);
+        if (!removeResult.success) return removeResult;
+        return { success: true };
+      }
+    }
+    return deleteTaskByNumber(projectPath, taskNumber);
+  });
+
+  ipcMain.handle('task:set-merge-target', async (_event, projectPath: string, taskNumber: number, mergeTarget: string): Promise<{ success: boolean; error?: string }> => {
+    return setTaskMergeTarget(projectPath, taskNumber, mergeTarget);
+  });
+
+  ipcMain.handle('task:set-sandboxed', async (_event, projectPath: string, taskNumber: number, sandboxed: boolean): Promise<{ success: boolean; error?: string }> => {
+    return setTaskSandboxed(projectPath, taskNumber, sandboxed);
   });
 
   // Hook handlers

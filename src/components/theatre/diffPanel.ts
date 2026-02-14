@@ -14,7 +14,7 @@ import {
   diffPanelSelectedFile,
   diffFileDropdownVisible,
   diffPanelMode,
-  diffPanelWorktreeBranch,
+  diffPanelTaskId,
 } from './signals';
 import { escapeHtml } from '../../utils/html';
 import { showToast } from '../importDialog';
@@ -291,12 +291,15 @@ export async function selectDiffFile(filePath: string): Promise<void> {
 
   // Use appropriate API based on mode
   let diff: FileDiff | null = null;
-  if (diffPanelMode.value === 'worktree' && diffPanelWorktreeBranch.value) {
-    diff = await window.api.worktree.getFileDiff(
-      projectPath.value!,
-      diffPanelWorktreeBranch.value,
-      filePath
-    );
+  if (diffPanelMode.value === 'worktree' && diffPanelTaskId.value != null) {
+    const task = await window.api.task.getByNumber(projectPath.value!, diffPanelTaskId.value);
+    if (task?.branch) {
+      diff = await window.api.worktree.getFileDiff(
+        projectPath.value!,
+        task.branch,
+        filePath
+      );
+    }
   } else {
     diff = await window.api.getFileDiff(projectPath.value!, filePath);
   }
@@ -414,7 +417,7 @@ export function hideDiffPanel(): void {
   diffPanelSelectedFile.value = null;
   diffPanelFiles.value = [];
   diffPanelMode.value = 'uncommitted';
-  diffPanelWorktreeBranch.value = null;
+  diffPanelTaskId.value = null;
 }
 
 /**
@@ -551,7 +554,7 @@ export function hideTerminalDiffPanel(term: TheatreTerminal): void {
   diffPanelSelectedFile.value = null;
   diffPanelFiles.value = [];
   diffPanelMode.value = 'uncommitted';
-  diffPanelWorktreeBranch.value = null;
+  diffPanelTaskId.value = null;
 }
 
 /**
@@ -676,9 +679,11 @@ export async function showWorktreeDiffPanel(worktreeBranch: string): Promise<voi
     return;
   }
 
-  // Set mode before showing panel
+  // Set mode before showing panel — look up task by branch for legacy callers
   diffPanelMode.value = 'worktree';
-  diffPanelWorktreeBranch.value = worktreeBranch;
+  const allTasks = await window.api.task.getAll(projectPath.value);
+  const matchedTask = allTasks.find(t => t.branch === worktreeBranch);
+  diffPanelTaskId.value = matchedTask?.taskNumber ?? null;
   diffPanelFiles.value = diffSummary.files;
   diffPanelVisible.value = true;
 
@@ -729,7 +734,7 @@ export async function showWorktreeDiffPanel(worktreeBranch: string): Promise<voi
  * Shows changes between the worktree branch and main, inside the terminal's card
  */
 export async function showTerminalWorktreeDiffPanel(term: TheatreTerminal): Promise<void> {
-  if (term.diffPanelOpen || !term.isWorktree || !term.worktreeBranch) return;
+  if (term.diffPanelOpen || term.taskId == null || !term.worktreeBranch) return;
 
   // Close runner panel if open (mutual exclusivity)
   if (term.runnerPanelOpen) {
@@ -755,7 +760,7 @@ export async function showTerminalWorktreeDiffPanel(term: TheatreTerminal): Prom
   diffPanelFiles.value = diffSummary.files;
   diffPanelVisible.value = true;
   diffPanelMode.value = 'worktree';
-  diffPanelWorktreeBranch.value = term.worktreeBranch;
+  diffPanelTaskId.value = term.taskId;
 
   // Find the card body to insert the diff panel
   const cardBody = term.container.querySelector('.theatre-card-body');
@@ -807,7 +812,7 @@ export async function showTerminalWorktreeDiffPanel(term: TheatreTerminal): Prom
  * Select a file in the worktree diff panel for a specific terminal
  */
 export async function selectTerminalWorktreeDiffFile(term: TheatreTerminal, filePath: string): Promise<void> {
-  if (!term.isWorktree || !term.worktreeBranch) return;
+  if (term.taskId == null || !term.worktreeBranch) return;
 
   const basePath = projectPath.value;
   if (!basePath) return;

@@ -8,7 +8,7 @@ import { FitAddon } from '@xterm/addon-fit';
 import type { PtyId, Project, ChangedFile, CompactGitStatus, ActiveSession } from '../../types';
 
 // Summary type for terminal status indication
-export type SummaryType = 'error' | 'listening' | 'building' | 'watching' | 'thinking' | 'idle';
+export type SummaryType = 'thinking' | 'idle';
 
 // Theatre terminal interface for multi-terminal support
 export interface TheatreTerminal {
@@ -27,11 +27,10 @@ export interface TheatreTerminal {
   summaryType: SummaryType;
   outputBuffer: string;
   lastOscTitle: string;  // Last seen OSC terminal title
-  // Worktree support
-  isWorktree: boolean;
+  // Task support
+  taskId: number | null;
   worktreePath?: string;
   worktreeBranch?: string;
-  readyToShip?: boolean;  // "Spiritually done" state from task metadata
   // Per-terminal git status and diff panel state
   gitStatus: CompactGitStatus | null;
   diffPanelOpen: boolean;
@@ -91,8 +90,8 @@ export const theatreState = {
   launchDropdownCleanup: null as (() => void) | null,
   sandboxDropdownCleanup: null as (() => void) | null,
 
-  // Cleanup function for task index panel
-  taskIndexCleanup: null as (() => void) | null,
+  // Cleanup function for kanban board
+  kanbanCleanup: null as (() => void) | null,
 };
 
 // Session storage for preserved sessions (in-memory, survives project switching)

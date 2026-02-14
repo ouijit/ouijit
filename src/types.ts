@@ -1,7 +1,7 @@
 // Re-export all git types from git.ts (single source of truth)
 export type { GitStatus, GitDropdownInfo, ExtendedGitStatus, RecentBranch, UncommittedChanges, ChangedFile, DiffLine, DiffHunk, FileDiff, CompactGitStatus, WorktreeDiffSummary, BranchInfo } from './git';
 // Import for local use within this file
-import type { GitStatus } from './git';
+import type { GitStatus, CompactGitStatus, GitDropdownInfo, ChangedFile, FileDiff, WorktreeDiffSummary, BranchInfo } from './git';
 
 /**
  * Represents a run configuration for launching a project
@@ -124,12 +124,10 @@ export interface PtySpawnOptions {
   rows?: number;
   /** Display label for the terminal */
   label?: string;
-  /** Whether this terminal is for a worktree */
-  isWorktree?: boolean;
-  /** Path to the worktree (if isWorktree) */
+  /** Task ID for task terminals */
+  taskId?: number;
+  /** Path to the worktree */
   worktreePath?: string;
-  /** Branch name of the worktree (if isWorktree) */
-  worktreeBranch?: string;
   /** Whether this is a runner PTY (secondary terminal for running commands) */
   isRunner?: boolean;
   /** Parent PTY ID if this is a runner (for session restoration) */
@@ -148,9 +146,8 @@ export interface ActiveSession {
   projectPath: string;
   command: string;
   label: string;
-  isWorktree: boolean;
+  taskId?: number;
   worktreePath?: string;
-  worktreeBranch?: string;
   /** Whether this is a runner PTY */
   isRunner?: boolean;
   /** Parent PTY ID if this is a runner */
@@ -194,19 +191,19 @@ export interface PtyAPI {
   setWindow(): void;
 }
 
-/**
- * Task metadata for tracking lifecycle state
- */
+export type TaskStatus = 'todo' | 'in_progress' | 'in_review' | 'done';
+
 export interface TaskMetadata {
-  taskNumber?: number;      // Sequential number (1, 2, 3...) - displayed as T-{taskNumber}
-  branch: string;           // Git branch name
-  name: string;             // Display name
-  status: 'open' | 'closed';
-  createdAt: string;        // ISO timestamp
-  closedAt?: string;        // When marked closed
-  readyToShip?: boolean;    // "Spiritually done" - code complete, pending merge/review
-  prompt?: string;          // Optional task description (OUIJIT_TASK_PROMPT)
-  sandboxed?: boolean;      // Whether this task runs in a sandbox VM
+  taskNumber: number;
+  branch?: string;
+  name: string;
+  status: TaskStatus;
+  createdAt: string;
+  closedAt?: string;
+  worktreePath?: string;
+  mergeTarget?: string;
+  prompt?: string;
+  sandboxed?: boolean;
 }
 
 /**
@@ -219,24 +216,20 @@ export interface WorktreeInfo {
   createdAt: string;
 }
 
-/**
- * Extended worktree info including task metadata
- */
-export interface WorktreeWithMetadata extends WorktreeInfo {
-  taskNumber?: number;      // Sequential number - displayed as T-{taskNumber}
-  name: string;             // Display name
-  status: 'open' | 'closed';
+export interface TaskWithWorkspace {
+  taskNumber: number;
+  name: string;
+  status: TaskStatus;
+  branch?: string;
+  worktreePath?: string;
+  createdAt: string;
   closedAt?: string;
-  readyToShip?: boolean;    // "Spiritually done" - code complete, pending merge/review
-  mergeTarget?: string;     // Branch to merge into (defaults to main if unset)
-  prompt?: string;          // Optional task description
-  sandboxed?: boolean;      // Whether this task runs in a sandbox VM
+  mergeTarget?: string;
+  prompt?: string;
+  sandboxed?: boolean;
 }
 
-/**
- * Result of creating a task with worktree
- */
-export interface WorktreeCreateResult {
+export interface TaskCreateResult {
   success: boolean;
   task?: TaskMetadata;
   worktreePath?: string;
@@ -263,37 +256,31 @@ export interface HooksAPI {
   delete(projectPath: string, hookType: HookType): Promise<{ success: boolean }>;
 }
 
+export interface TaskAPI {
+  create(projectPath: string, name?: string, prompt?: string): Promise<TaskCreateResult>;
+  createAndStart(projectPath: string, name?: string, prompt?: string, branchName?: string): Promise<TaskCreateResult>;
+  start(projectPath: string, taskNumber: number, branchName?: string): Promise<TaskCreateResult>;
+  getAll(projectPath: string): Promise<TaskWithWorkspace[]>;
+  getByNumber(projectPath: string, taskNumber: number): Promise<TaskWithWorkspace | null>;
+  setStatus(projectPath: string, taskNumber: number, status: TaskStatus): Promise<{ success: boolean; error?: string; hookWarning?: string }>;
+  delete(projectPath: string, taskNumber: number): Promise<{ success: boolean; error?: string }>;
+  setMergeTarget(projectPath: string, taskNumber: number, mergeTarget: string): Promise<{ success: boolean; error?: string }>;
+  setSandboxed(projectPath: string, taskNumber: number, sandboxed: boolean): Promise<{ success: boolean; error?: string }>;
+}
+
 /**
- * Worktree API exposed to the renderer
+ * Worktree API exposed to the renderer (git plumbing only — task ops are on TaskAPI)
  */
 export interface WorktreeAPI {
-  create(projectPath: string, name?: string, prompt?: string, branchName?: string): Promise<WorktreeCreateResult>;
-  /** Validate a branch name for git compatibility and conflicts */
   validateBranchName(projectPath: string, branchName: string): Promise<{ valid: boolean; error?: string }>;
-  /** Generate the auto-generated branch name for a given task name */
   generateBranchName(projectPath: string, name: string): Promise<string>;
   remove(projectPath: string, worktreePath: string): Promise<WorktreeRemoveResult>;
   list(projectPath: string): Promise<WorktreeInfo[]>;
-  getDiff(projectPath: string, worktreeBranch: string, targetBranch?: string): Promise<import('./git').WorktreeDiffSummary | null>;
-  getFileDiff(projectPath: string, worktreeBranch: string, filePath: string, targetBranch?: string): Promise<import('./git').FileDiff | null>;
+  getDiff(projectPath: string, worktreeBranch: string, targetBranch?: string): Promise<WorktreeDiffSummary | null>;
+  getFileDiff(projectPath: string, worktreeBranch: string, filePath: string, targetBranch?: string): Promise<FileDiff | null>;
   merge(projectPath: string, worktreeBranch: string): Promise<GitMergeResult>;
-  /** Ship (merge into target branch) a worktree branch */
   ship(projectPath: string, worktreeBranch: string, commitMessage?: string): Promise<ShipItResult>;
-  /** Get tasks with metadata merged with worktree list */
-  getTasks(projectPath: string): Promise<WorktreeWithMetadata[]>;
-  /** Mark a task as closed (metadata only, keeps worktree) */
-  close(projectPath: string, branch: string): Promise<{ success: boolean; error?: string; hookWarning?: string }>;
-  /** Reopen a closed task */
-  reopen(projectPath: string, branch: string): Promise<{ success: boolean; error?: string }>;
-  /** Set a task's ready-to-ship state */
-  setReady(projectPath: string, branch: string, ready: boolean): Promise<{ success: boolean; error?: string }>;
-  /** List all branches in the project */
-  listBranches(projectPath: string): Promise<import('./git').BranchInfo[]>;
-  /** Set a task's merge target branch */
-  setMergeTarget(projectPath: string, branch: string, mergeTarget: string): Promise<{ success: boolean; error?: string }>;
-  /** Set a task's sandboxed state */
-  setSandboxed(projectPath: string, branch: string, sandboxed: boolean): Promise<{ success: boolean; error?: string }>;
-  /** Get the main branch for a project */
+  listBranches(projectPath: string): Promise<BranchInfo[]>;
   getMainBranch(projectPath: string): Promise<string>;
 }
 
@@ -323,14 +310,16 @@ export interface ElectronAPI {
   pty: PtyAPI;
   /** Worktree management API */
   worktree: WorktreeAPI;
+  /** Task lifecycle API */
+  task: TaskAPI;
   /** Refresh the project list */
   refreshProjects(): Promise<Project[]>;
   /** Get git status (branch and dirty state) for a project */
   getGitStatus(projectPath: string): Promise<GitStatus | null>;
   /** Get compact git status for at-a-glance display */
-  getCompactGitStatus(projectPath: string): Promise<import('./git').CompactGitStatus | null>;
+  getCompactGitStatus(projectPath: string): Promise<CompactGitStatus | null>;
   /** Get extended git dropdown info for a project */
-  getGitDropdownInfo(projectPath: string): Promise<import('./git').GitDropdownInfo | null>;
+  getGitDropdownInfo(projectPath: string): Promise<GitDropdownInfo | null>;
   /** Checkout a git branch */
   gitCheckout(projectPath: string, branchName: string): Promise<GitCheckoutResult>;
   /** Create a new git branch */
@@ -338,9 +327,9 @@ export interface ElectronAPI {
   /** Merge current branch into main */
   gitMergeIntoMain(projectPath: string): Promise<GitMergeResult>;
   /** Get list of changed files */
-  getChangedFiles(projectPath: string): Promise<import('./git').ChangedFile[]>;
+  getChangedFiles(projectPath: string): Promise<ChangedFile[]>;
   /** Get diff for a specific file */
-  getFileDiff(projectPath: string, filePath: string): Promise<import('./git').FileDiff | null>;
+  getFileDiff(projectPath: string, filePath: string): Promise<FileDiff | null>;
   /** Create a new project */
   createProject(options: CreateProjectOptions): Promise<CreateProjectResult>;
   /** Show native folder picker dialog */

@@ -25,6 +25,7 @@ import { refreshTerminalGitStatus, buildCardGitBranchHtml, buildCardGitStatsHtml
 import { toggleTerminalDiffPanel, hideTerminalDiffPanel } from './diffPanel';
 import { showShipItPanel } from './shipItPanel';
 import { buildTaskFormHtml, setupTaskForm } from './taskForm';
+import { setSandboxButtonStarting, refreshSandboxButton } from './theatreMode';
 
 // Platform detection for shortcuts display
 const isMac = navigator.platform.toLowerCase().includes('mac');
@@ -43,7 +44,7 @@ export function setupTerminalAppHotkeys(terminal: Terminal): void {
     if (hasModifier && !event.altKey) {
       const key = event.key.toLowerCase();
       // App hotkeys that should pass through to hotkeys-js
-      const appHotkeys = ['n', 't', 'i', 'p', 'd', 's', 'w', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
+      const appHotkeys = ['n', 't', 'b', 'i', 'p', 'd', 's', 'w', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
       if (appHotkeys.includes(key)) {
         return false; // Don't handle - let it bubble up to app
       }
@@ -142,29 +143,7 @@ export function stripAnsi(str: string): string {
 /**
  * Analyze terminal output buffer and determine summary state
  */
-export function analyzeTerminalOutput(buffer: string, lastOscTitle: string): { summary: string; type: SummaryType } {
-  const clean = stripAnsi(buffer);
-  const lines = clean.split('\n').filter(l => l.trim());
-  const lastLine = lines[lines.length - 1]?.trim() || '';
-  const lastFewLines = lines.slice(-5).join('\n');
-  const recentText = lines.slice(-20).join('\n');
-
-  // Shell prompt patterns - if we see these at the end, the command has finished
-  const shellPromptPatterns = [
-    /[$%#❯➜→]\s*$/, // Common prompt endings
-    /\w+@\w+.*[$#]\s*$/, // user@host patterns
-  ];
-
-  // Claude/AI agent waiting for input patterns
-  const agentWaitingPatterns = [
-    /^>\s*$/, // Claude's input prompt
-    /claude.*>\s*$/i, // claude> prompt
-    /\(y\/n\)/i, // Yes/no prompts
-  ];
-
-  const isAtPrompt = shellPromptPatterns.some(p => p.test(lastLine));
-  const isAgentWaiting = agentWaitingPatterns.some(p => p.test(lastLine));
-
+export function analyzeTerminalOutput(_buffer: string, lastOscTitle: string): { summary: string; type: SummaryType } {
   // Check if the last OSC title contains spinner characters (Claude thinking indicator)
   // Only braille dots are actual spinners - stars (✻✽✶✳) are static decorations
   const spinnerChars = /[⠁⠂⠄⠈⠐⠠⡀⢀⠃⠅⠆⠉⠊⠌⠑⠒⠔⠘⠡⠢⠤⠨⠰⡁⡂⡄⡈⡐⡠⢁⢂⢄⢈⢐⢠⣀⠇⠋⠍⠎⠓⠕⠖⠙⠚⠜⠣⠥⠦⠩⠪⠬⠱⠲⠴⠸⡃⡅⡆⡉⡊⡌⡑⡒⡔⡘⡡⡢⡤⡨⡰⢃⢅⢆⢉⢊⢌⢑⢒⢔⢘⢡⢢⢤⢨⢰⣁⣂⣄⣈⣐⣠◐◓◑◒]/;
@@ -173,103 +152,6 @@ export function analyzeTerminalOutput(buffer: string, lastOscTitle: string): { s
     return { summary: '', type: 'thinking' };
   }
 
-  // Completion patterns - build/task finished successfully
-  const completionPatterns = [
-    /built in \d/i,
-    /compiled successfully/i,
-    /done in \d/i,
-    /finished in \d/i,
-  ];
-
-  const justCompleted = completionPatterns.some(p => p.test(lastFewLines));
-
-  // If at shell prompt and we see completion, show completed state
-  if (isAtPrompt && justCompleted) {
-    return { summary: 'Done', type: 'idle' };
-  }
-
-  // If at shell prompt with no special state, show ready
-  if (isAtPrompt) {
-    return { summary: '', type: 'idle' };
-  }
-
-  // If agent is waiting for input, show idle (green = ready for input)
-  if (isAgentWaiting) {
-    return { summary: '', type: 'idle' };
-  }
-
-  // Error patterns - only in recent output
-  const errorPatterns = [
-    { regex: /\bERROR\b.*?:(.{0,40})/i, extract: true },
-    { regex: /\bError\b:(.{0,40})/i, extract: true },
-    { regex: /npm ERR!(.{0,30})/i, extract: true },
-    { regex: /\bfailed\b/i, extract: false, text: 'Failed' },
-    { regex: /ENOENT|EACCES|ECONNREFUSED/, extract: false },
-    { regex: /TypeError|ReferenceError|SyntaxError/, extract: false },
-  ];
-
-  for (const pattern of errorPatterns) {
-    const match = lastFewLines.match(pattern.regex);
-    if (match) {
-      const summary = pattern.extract && match[1]
-        ? match[1].trim().slice(0, 30)
-        : pattern.text || match[0].slice(0, 20);
-      return { summary: `Error: ${summary}`, type: 'error' };
-    }
-  }
-
-  // Listening patterns (server is running)
-  const listeningPatterns = [
-    { regex: /listening on (?:port )?:?(\d+)/i, port: true },
-    { regex: /localhost:(\d+)/, port: true },
-    { regex: /127\.0\.0\.1:(\d+)/, port: true },
-    { regex: /\[::\]:(\d+)/, port: true },
-    { regex: /ready on http/i, port: false, text: 'Ready' },
-    { regex: /server (?:is )?(?:running|started)/i, port: false, text: 'Running' },
-    { regex: /started server/i, port: false, text: 'Started' },
-    { regex: /Network:.*http/i, port: false, text: 'Network ready' },
-  ];
-
-  for (const pattern of listeningPatterns) {
-    const match = recentText.match(pattern.regex);
-    if (match) {
-      const summary = pattern.port && match[1]
-        ? `Listening :${match[1]}`
-        : pattern.text || 'Listening';
-      return { summary, type: 'listening' };
-    }
-  }
-
-  // Building/compiling patterns - only if in the last few lines (active)
-  const buildingPatterns = [
-    /compiling\b/i,
-    /building\b/i,
-    /bundling\b/i,
-    /transforming\b/i,
-  ];
-
-  for (const pattern of buildingPatterns) {
-    if (pattern.test(lastFewLines)) {
-      return { summary: 'Building...', type: 'building' };
-    }
-  }
-
-  // Watching patterns
-  const watchingPatterns = [
-    /watching for (?:file )?changes/i,
-    /waiting for changes/i,
-    /watching\.\.\./i,
-    /hot reload/i,
-    /hmr enabled/i,
-  ];
-
-  for (const pattern of watchingPatterns) {
-    if (pattern.test(lastFewLines)) {
-      return { summary: 'Watching...', type: 'watching' };
-    }
-  }
-
-  // Default to idle
   return { summary: '', type: 'idle' };
 }
 
@@ -345,6 +227,9 @@ export function updateTerminalCardLabel(term: TheatreTerminal): void {
       }
     }
   }
+
+  // Sync kanban card status dot if the board is visible
+  theatreRegistry.syncKanbanStatusDots?.();
 }
 
 /**
@@ -513,7 +398,7 @@ export function setupCardActions(term: TheatreTerminal): void {
   if (!labelEl) return;
 
   // Show worktree-specific buttons for worktree terminals
-  if (term.isWorktree && term.worktreeBranch) {
+  if (term.taskId != null) {
     // Ship button
     const shipBtn = labelEl.querySelector('.theatre-card-ship-btn') as HTMLElement;
     if (shipBtn) {
@@ -609,12 +494,12 @@ export function updateRunnerPill(term: TheatreTerminal): void {
  * Close a task from its terminal card
  */
 async function closeTaskFromTerminal(term: TheatreTerminal): Promise<void> {
-  if (!term.isWorktree || !term.worktreeBranch) return;
+  if (term.taskId == null) return;
 
   const path = projectPath.value;
   if (!path) return;
 
-  const result = await window.api.worktree.close(path, term.worktreeBranch);
+  const result = await window.api.task.setStatus(path, term.taskId, 'done');
   if (result.success) {
     // Close this terminal
     const idx = terminals.value.indexOf(term);
@@ -910,9 +795,7 @@ export async function runDefaultInCard(term: TheatreTerminal): Promise<void> {
     cols: 80,  // Default size, will be resized when panel opens
     rows: 24,
     label: runHook.name,
-    isWorktree: !!term.isWorktree,
     worktreePath: term.worktreePath,
-    worktreeBranch: term.worktreeBranch,
     isRunner: true,
     parentPtyId: term.ptyId,
     env: {
@@ -1108,22 +991,22 @@ export async function selectByStackPosition(position: number): Promise<void> {
   const path = projectPath.value;
   if (!path) return;
 
-  const tasks = await window.api.worktree.getTasks(path);
-  const openTasks = tasks.filter(t => t.status === 'open');
+  const tasks = await window.api.task.getAll(path);
+  const openTasks = tasks.filter(t => t.status !== 'done' && t.worktreePath);
   const taskIndex = position - 1;
 
   if (taskIndex >= 0 && taskIndex < openTasks.length) {
     const task = openTasks[taskIndex];
     await addTheatreTerminal(undefined, {
       existingWorktree: {
-        path: task.path,
-        branch: task.branch,
+        path: task.worktreePath || '',
+        branch: task.branch || '',
         taskName: task.name,
         createdAt: task.createdAt,
-        readyToShip: task.readyToShip,
         prompt: task.prompt,
         sandboxed: task.sandboxed,
       },
+      taskId: task.taskNumber,
       sandboxed: false,
     });
   }
@@ -1134,11 +1017,12 @@ export async function selectByStackPosition(position: number): Promise<void> {
  */
 export interface AddTheatreTerminalOptions {
   useWorktree?: boolean;
-  existingWorktree?: WorktreeInfo & { readyToShip?: boolean; prompt?: string; sandboxed?: boolean };
+  existingWorktree?: WorktreeInfo & { prompt?: string; sandboxed?: boolean };
   worktreeName?: string;
   worktreePrompt?: string;
   worktreeBranchName?: string;
   sandboxed?: boolean;
+  taskId?: number;
 }
 
 /**
@@ -1159,7 +1043,7 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
   if (!stack) return false;
 
   let terminalCwd = currentProjectPath;
-  let worktreeInfo: (WorktreeInfo & { readyToShip?: boolean; prompt?: string }) | undefined = options?.existingWorktree;
+  let worktreeInfo: (WorktreeInfo & { prompt?: string }) | undefined = options?.existingWorktree;
   let loadingCard: HTMLElement | null = null;
   let taskPrompt: string | undefined = options?.existingWorktree?.prompt;
 
@@ -1176,8 +1060,8 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
     // Show loading card in the stack (pushes existing cards back)
     loadingCard = showLoadingCardInStack(loadingLabel);
 
-    // Create worktree
-    const result = await window.api.worktree.create(currentProjectPath, options.worktreeName, options.worktreePrompt, options.worktreeBranchName);
+    // Create task and worktree
+    const result = await window.api.task.createAndStart(currentProjectPath, options.worktreeName, options.worktreePrompt, options.worktreeBranchName);
     if (!result.success || !result.task || !result.worktreePath) {
       removeLoadingCard(loadingCard);
       // Restore stack positions
@@ -1186,20 +1070,23 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
       if (terminals.value.length === 0 && emptyState) {
         emptyState.classList.add('theatre-stack-empty--visible');
       }
-      showToast(result.error || 'Failed to create worktree', 'error');
+      showToast(result.error || 'Failed to create task', 'error');
       return false;
     }
     worktreeInfo = {
       path: result.worktreePath,
-      branch: result.task.branch,
+      branch: result.task.branch || '',
       taskName: result.task.name,
       createdAt: result.task.createdAt,
     };
     taskPrompt = options.worktreePrompt;
     // Persist sandbox preference for new task
     if (options?.sandboxed !== undefined) {
-      await window.api.worktree.setSandboxed(currentProjectPath, worktreeInfo.branch, options.sandboxed);
+      await window.api.task.setSandboxed(currentProjectPath, result.task.taskNumber, options.sandboxed);
     }
+    // Store taskId for the new task
+    if (!options) options = {};
+    options.taskId = result.task.taskNumber;
     invalidateTaskList();
   }
 
@@ -1304,10 +1191,9 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
       summaryType: 'idle',
       outputBuffer: '',
       lastOscTitle: '',
-      isWorktree: !!worktreeInfo,
+      taskId: options?.taskId ?? null,
       worktreePath: worktreeInfo?.path,
       worktreeBranch: worktreeInfo?.branch,
-      readyToShip: worktreeInfo?.readyToShip,
       gitStatus: null,
       diffPanelOpen: false,
       diffPanelFiles: [],
@@ -1389,9 +1275,8 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
     cols: terminal.cols,
     rows: terminal.rows,
     label,
-    isWorktree: !!worktreeInfo,
+    taskId: options?.taskId,
     worktreePath: worktreeInfo?.path,
-    worktreeBranch: worktreeInfo?.branch,
     env: startEnv,
     sandboxed: useSandbox,
   };
@@ -1400,8 +1285,6 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
     // Show progress for sandbox VM startup
     let cleanupProgress: (() => void) | null = null;
     if (useSandbox) {
-
-      const { setSandboxButtonStarting } = await import('./theatreMode');
       setSandboxButtonStarting(true);
       terminal.writeln(`\x1b[90m● Connecting to sandbox…\x1b[0m`);
       cleanupProgress = window.api.lima.onSpawnProgress((msg) => {
@@ -1414,10 +1297,7 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
 
     // Refresh sandbox button now that the VM is (or isn't) running
     if (useSandbox) {
-
-      const { refreshSandboxButton } = await import('./theatreMode');
       await refreshSandboxButton(currentProjectPath);
-
     }
 
     // If terminal was closed during loading (user clicked X), clean up and bail
@@ -1481,7 +1361,7 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
         const exitColor = exitCode === 0 ? '32' : '31';
         terminal.writeln(`\x1b[${exitColor}m● Process exited with code ${exitCode}\x1b[0m`);
         theatreTerminal!.summary = exitCode === 0 ? 'Exited' : `Exit ${exitCode}`;
-        theatreTerminal!.summaryType = exitCode === 0 ? 'idle' : 'error';
+        theatreTerminal!.summaryType = 'idle';
         updateTerminalCardLabel(theatreTerminal!);
       });
 
@@ -1515,10 +1395,9 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
       summaryType: 'idle',
       outputBuffer: '',
       lastOscTitle: '',
-      isWorktree: !!worktreeInfo,
+      taskId: options?.taskId ?? null,
       worktreePath: worktreeInfo?.path,
       worktreeBranch: worktreeInfo?.branch,
-      readyToShip: worktreeInfo?.readyToShip,
       // Per-terminal git status and diff panel state
       gitStatus: null,
       diffPanelOpen: false,
@@ -1576,7 +1455,7 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
 
       // Update summary to show exit status
       theatreTerminal!.summary = exitCode === 0 ? 'Exited' : `Exit ${exitCode}`;
-      theatreTerminal!.summaryType = exitCode === 0 ? 'idle' : 'error';
+      theatreTerminal!.summaryType = 'idle';
       updateTerminalCardLabel(theatreTerminal!);
     });
 
@@ -1626,7 +1505,6 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
     return true;
   } catch (error) {
     if (useSandbox) {
-      const { setSandboxButtonStarting } = await import('./theatreMode');
       setSandboxButtonStarting(false);
     }
     terminal.writeln(`\x1b[31mError: ${error instanceof Error ? error.message : 'Unknown error'}\x1b[0m`);
@@ -1709,7 +1587,7 @@ export function buildEmptyStateHtml(limaAvailable: boolean): string {
         </form>
       </div>
       <div class="theatre-stack-empty-hints">
-        <span class="theatre-stack-empty-hint"><span class="theatre-stack-empty-hint-shortcut">${isMac ? '⌘' : 'Ctrl+'}<span class="shortcut-number">T</span></span>All Tasks</span>
+        <span class="theatre-stack-empty-hint"><span class="theatre-stack-empty-hint-shortcut">${isMac ? '⌘' : 'Ctrl+'}<span class="shortcut-number">B</span></span>Board</span>
       </div>
     </div>
   `;
@@ -1728,8 +1606,8 @@ async function populatePreviousTasks(emptyState: HTMLElement): Promise<void> {
   if (!openSection || !openList) return;
 
   // Fetch tasks with metadata
-  const tasks = await window.api.worktree.getTasks(path);
-  const openTasks = tasks.filter(t => t.status === 'open');
+  const tasks = await window.api.task.getAll(path);
+  const openTasks = tasks.filter(t => t.status !== 'done' && t.worktreePath);
 
   // Check lima availability for context menu
   let limaAvailable = false;
@@ -1763,19 +1641,20 @@ async function populatePreviousTasks(emptyState: HTMLElement): Promise<void> {
       taskBtn.appendChild(nameSpan);
 
       const worktreeOpts = {
-        path: task.path,
-        branch: task.branch,
+        path: task.worktreePath || '',
+        branch: task.branch || '',
         taskName: task.name,
         createdAt: task.createdAt,
-        readyToShip: task.readyToShip,
         prompt: task.prompt,
         sandboxed: task.sandboxed,
       };
+      const taskNumber = task.taskNumber;
 
       // Normal click: open without sandbox
       taskBtn.addEventListener('click', async () => {
         await addTheatreTerminal(undefined, {
           existingWorktree: worktreeOpts,
+          taskId: taskNumber,
           sandboxed: false,
         });
       });
@@ -1786,6 +1665,7 @@ async function populatePreviousTasks(emptyState: HTMLElement): Promise<void> {
           showTaskContextMenu(e, async () => {
             await addTheatreTerminal(undefined, {
               existingWorktree: worktreeOpts,
+              taskId: taskNumber,
               sandboxed: true,
             });
           });

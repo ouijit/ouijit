@@ -2,6 +2,9 @@
  * Theatre mode orchestration - enter/exit, session management
  */
 
+import { Terminal } from '@xterm/xterm';
+import { FitAddon } from '@xterm/addon-fit';
+import { createIcons, icons } from 'lucide';
 import type { Project, ChangedFile, ActiveSession } from '../../types';
 import {
   theatreState,
@@ -20,6 +23,7 @@ import {
   diffPanelFiles,
   diffPanelSelectedFile,
   sandboxDropdownVisible,
+  kanbanVisible,
   resetSignals,
 } from './signals';
 import { initializeEffects } from './effects';
@@ -33,6 +37,8 @@ import {
   buildDiffPanelHtml,
   selectDiffFile,
   toggleDiffFileDropdown,
+  hideTerminalDiffPanel,
+  selectTerminalDiffFile,
 } from './diffPanel';
 import {
   addTheatreTerminal,
@@ -43,6 +49,11 @@ import {
   setupCardActions,
   setupTerminalAppHotkeys,
   debouncedResize,
+  closeTheatreTerminal,
+  getTerminalTheme,
+  createTheatreCard,
+  updateTerminalCardLabel,
+  updateRunnerPill,
 } from './terminalCards';
 import {
   buildTheatreHeader,
@@ -50,9 +61,12 @@ import {
   hideLaunchDropdown,
 } from './launchDropdown';
 import { createNewAgentShell } from './worktreeDropdown';
-import { toggleTaskIndex } from './taskIndex';
+import { hideKanbanBoard, showKanbanBoard, syncViewToggle } from './kanbanBoard';
 import { theatreRegistry } from './helpers';
 import { registerHotkey, unregisterHotkey, pushScope, popScope, Scopes, platformHotkey } from '../../utils/hotkeys';
+import { showNewProjectDialog } from '../newProjectDialog';
+import { showToast } from '../importDialog';
+import { showHookConfigDialog } from '../hookConfigDialog';
 
 /**
  * Enter theatre mode for the specified project
@@ -122,6 +136,9 @@ export async function enterTheatreMode(
     if (sandboxWrapper) {
       wireSandboxButton(sandboxWrapper, path);
     }
+
+    // Wire up view toggle buttons
+    wireViewToggle(headerContent);
 
   }
 
@@ -193,8 +210,7 @@ export async function enterTheatreMode(
               const closeBtn = panel.querySelector('.diff-panel-close');
               if (closeBtn) {
                 const termRef = term; // Capture for closure
-                closeBtn.addEventListener('click', async () => {
-                  const { hideTerminalDiffPanel } = await import('./diffPanel');
+                closeBtn.addEventListener('click', () => {
                   hideTerminalDiffPanel(termRef);
                 });
               }
@@ -210,7 +226,6 @@ export async function enterTheatreMode(
               // Select the previously selected file (or first file)
               const fileToSelect = term.diffPanelSelectedFile || term.diffPanelFiles[0]?.path;
               if (fileToSelect) {
-                const { selectTerminalDiffFile } = await import('./diffPanel');
                 selectTerminalDiffFile(term, fileToSelect);
               }
             }
@@ -278,16 +293,15 @@ export async function enterTheatreMode(
   // Use platformHotkey() to convert 'mod+' to 'command+' on Mac or 'ctrl+' on Linux/Windows
   pushScope(Scopes.THEATRE);
   registerHotkey(platformHotkey('mod+n'), Scopes.THEATRE, () => createNewAgentShell());
-  registerHotkey(platformHotkey('mod+t'), Scopes.THEATRE, () => toggleTaskIndex());
+  registerHotkey(platformHotkey('mod+b'), Scopes.THEATRE, () => theatreRegistry.toggleKanbanBoard?.());
+  registerHotkey(platformHotkey('mod+t'), Scopes.THEATRE, () => theatreRegistry.toggleKanbanBoard?.());
   registerHotkey(platformHotkey('mod+i'), Scopes.THEATRE, () => addTheatreTerminal());
   registerHotkey(platformHotkey('mod+p'), Scopes.THEATRE, () => theatreRegistry.playOrToggleRunner?.());
   registerHotkey(platformHotkey('mod+d'), Scopes.THEATRE, () => theatreRegistry.toggleActiveDiffPanel?.());
   registerHotkey(platformHotkey('mod+shift+s'), Scopes.THEATRE, () => theatreRegistry.toggleActiveShipItPanel?.());
   registerHotkey(platformHotkey('mod+w'), Scopes.THEATRE, () => {
     if (terminals.value.length > 0) {
-      import('./terminalCards').then(({ closeTheatreTerminal }) => {
-        closeTheatreTerminal(activeIndex.value);
-      });
+      closeTheatreTerminal(activeIndex.value);
     }
   });
 
@@ -302,11 +316,9 @@ export async function enterTheatreMode(
   if (project.hasGit) {
     theatreState.gitStatusPeriodicInterval = setInterval(() => {
       refreshAllTerminalGitStatus().then(() => {
-        import('./terminalCards').then(({ updateTerminalCardLabel }) => {
-          for (const term of terminals.value) {
-            updateTerminalCardLabel(term);
-          }
-        });
+        for (const term of terminals.value) {
+          updateTerminalCardLabel(term);
+        }
       });
     }, GIT_STATUS_PERIODIC_INTERVAL);
   }
@@ -379,11 +391,9 @@ export function exitTheatreMode(): void {
     const newProjectBtn = headerContent.querySelector('#new-project-btn');
     if (newProjectBtn) {
       newProjectBtn.addEventListener('click', async () => {
-        const { showNewProjectDialog } = await import('../newProjectDialog');
         const result = await showNewProjectDialog();
         if (result?.created) {
           await (window as any).refreshProjects?.();
-          const { showToast } = await import('../importDialog');
           showToast(`Created project: ${result.projectName}`, 'success');
         }
       });
@@ -412,6 +422,7 @@ export function exitTheatreMode(): void {
 
   // 4. Remove keyboard shortcuts and pop scope
   unregisterHotkey(platformHotkey('mod+n'), Scopes.THEATRE);
+  unregisterHotkey(platformHotkey('mod+b'), Scopes.THEATRE);
   unregisterHotkey(platformHotkey('mod+t'), Scopes.THEATRE);
   unregisterHotkey(platformHotkey('mod+i'), Scopes.THEATRE);
   unregisterHotkey(platformHotkey('mod+p'), Scopes.THEATRE);
@@ -445,8 +456,8 @@ export function exitTheatreMode(): void {
   // 8. Hide diff panel
   hideDiffPanel();
 
-  // 9. Hide task index panel
-  import('./taskIndex').then(({ hideTaskIndex }) => hideTaskIndex());
+  // 9. Hide kanban board
+  hideKanbanBoard();
 
   theatreState.originalHeaderContent = null;
 
@@ -571,6 +582,9 @@ export async function restoreTheatreMode(
       wireSandboxButton(sandboxWrapper, path);
     }
 
+    // Wire up view toggle buttons
+    wireViewToggle(headerContent);
+
   }
 
   // 3. Create stack and restore terminals
@@ -587,9 +601,14 @@ export async function restoreTheatreMode(
     const mainSessions = activeSessions.filter(s => !s.isRunner);
     const runnerSessions = activeSessions.filter(s => s.isRunner);
 
+    // Fetch task data for branch lookup during restoration
+    const allTasks = await window.api.task.getAll(path);
+    const taskBranchMap = new Map(allTasks.filter(t => t.branch).map(t => [t.taskNumber, t.branch!]));
+
     // First reconnect main terminals
     for (const session of mainSessions) {
-      await reconnectTheatreTerminal(session);
+      const worktreeBranch = session.taskId != null ? taskBranchMap.get(session.taskId) : undefined;
+      await reconnectTheatreTerminal(session, worktreeBranch);
     }
 
     // Then reconnect runners to their parent terminals
@@ -612,16 +631,15 @@ export async function restoreTheatreMode(
   // 4. Set up keyboard shortcuts
   pushScope(Scopes.THEATRE);
   registerHotkey(platformHotkey('mod+n'), Scopes.THEATRE, () => createNewAgentShell());
-  registerHotkey(platformHotkey('mod+t'), Scopes.THEATRE, () => toggleTaskIndex());
+  registerHotkey(platformHotkey('mod+b'), Scopes.THEATRE, () => theatreRegistry.toggleKanbanBoard?.());
+  registerHotkey(platformHotkey('mod+t'), Scopes.THEATRE, () => theatreRegistry.toggleKanbanBoard?.());
   registerHotkey(platformHotkey('mod+i'), Scopes.THEATRE, () => addTheatreTerminal());
   registerHotkey(platformHotkey('mod+p'), Scopes.THEATRE, () => theatreRegistry.playOrToggleRunner?.());
   registerHotkey(platformHotkey('mod+d'), Scopes.THEATRE, () => theatreRegistry.toggleActiveDiffPanel?.());
   registerHotkey(platformHotkey('mod+shift+s'), Scopes.THEATRE, () => theatreRegistry.toggleActiveShipItPanel?.());
   registerHotkey(platformHotkey('mod+w'), Scopes.THEATRE, () => {
     if (terminals.value.length > 0) {
-      import('./terminalCards').then(({ closeTheatreTerminal }) => {
-        closeTheatreTerminal(activeIndex.value);
-      });
+      closeTheatreTerminal(activeIndex.value);
     }
   });
 
@@ -636,21 +654,17 @@ export async function restoreTheatreMode(
   if (project.hasGit) {
     // Immediate refresh so git info shows right away
     refreshAllTerminalGitStatus().then(() => {
-      import('./terminalCards').then(({ updateTerminalCardLabel }) => {
-        for (const term of terminals.value) {
-          updateTerminalCardLabel(term);
-        }
-      });
+      for (const term of terminals.value) {
+        updateTerminalCardLabel(term);
+      }
     });
 
     // Periodic refresh for ongoing changes
     theatreState.gitStatusPeriodicInterval = setInterval(() => {
       refreshAllTerminalGitStatus().then(() => {
-        import('./terminalCards').then(({ updateTerminalCardLabel }) => {
-          for (const term of terminals.value) {
-            updateTerminalCardLabel(term);
-          }
-        });
+        for (const term of terminals.value) {
+          updateTerminalCardLabel(term);
+        }
       });
     }, GIT_STATUS_PERIODIC_INTERVAL);
   }
@@ -659,10 +673,7 @@ export async function restoreTheatreMode(
 /**
  * Reconnect to an existing PTY session and create a terminal card for it
  */
-async function reconnectTheatreTerminal(session: ActiveSession): Promise<void> {
-  const { Terminal } = await import('@xterm/xterm');
-  const { FitAddon } = await import('@xterm/addon-fit');
-  const { getTerminalTheme, createTheatreCard, updateTerminalCardLabel } = await import('./terminalCards');
+async function reconnectTheatreTerminal(session: ActiveSession, worktreeBranch?: string): Promise<void> {
 
   const terminal = new Terminal({
     cursorBlink: true,
@@ -781,14 +792,14 @@ async function reconnectTheatreTerminal(session: ActiveSession): Promise<void> {
     summaryType: 'idle',
     outputBuffer: '',
     lastOscTitle: '',
-    isWorktree: session.isWorktree,
+    taskId: session.taskId ?? null,
     worktreePath: session.worktreePath,
-    worktreeBranch: session.worktreeBranch,
+    worktreeBranch,
     gitStatus: null,
     diffPanelOpen: false,
     diffPanelFiles: [],
     diffPanelSelectedFile: null,
-    diffPanelMode: session.isWorktree ? 'worktree' : 'uncommitted',
+    diffPanelMode: (session.taskId != null) ? 'worktree' : 'uncommitted',
     // Runner panel state
     runnerPanelOpen: false,
     runnerPtyId: null,
@@ -808,9 +819,7 @@ async function reconnectTheatreTerminal(session: ActiveSession): Promise<void> {
       e.stopPropagation();
       const idx = terminals.value.indexOf(theatreTerminal);
       if (idx !== -1) {
-        import('./terminalCards').then(({ closeTheatreTerminal }) => {
-          closeTheatreTerminal(idx);
-        });
+        closeTheatreTerminal(idx);
       }
     });
   }
@@ -819,9 +828,7 @@ async function reconnectTheatreTerminal(session: ActiveSession): Promise<void> {
   card.addEventListener('click', () => {
     const idx = terminals.value.indexOf(theatreTerminal);
     if (idx !== -1 && idx !== activeIndex.value) {
-      import('./terminalCards').then(({ switchToTheatreTerminal }) => {
-        switchToTheatreTerminal(idx);
-      });
+      switchToTheatreTerminal(idx);
     }
   });
 
@@ -841,9 +848,7 @@ async function reconnectTheatreTerminal(session: ActiveSession): Promise<void> {
     console.log('[Theatre] Terminal exited:', session.ptyId);
     const idx = terminals.value.indexOf(theatreTerminal);
     if (idx !== -1) {
-      import('./terminalCards').then(({ closeTheatreTerminal }) => {
-        closeTheatreTerminal(idx);
-      });
+      closeTheatreTerminal(idx);
     }
   });
   theatreTerminal.cleanupExit = cleanupExit;
@@ -875,10 +880,6 @@ async function reconnectRunnerToParent(
   session: ActiveSession,
   parentTerminal: TheatreTerminal
 ): Promise<void> {
-  const { Terminal } = await import('@xterm/xterm');
-  const { FitAddon } = await import('@xterm/addon-fit');
-  const { getTerminalTheme, updateRunnerPill } = await import('./terminalCards');
-
   // Create runner terminal (hidden until panel is opened)
   const runnerTerminal = new Terminal({
     theme: getTerminalTheme(),
@@ -965,6 +966,24 @@ async function reconnectRunnerToParent(
   updateRunnerPill(parentTerminal);
 
   console.log('[Theatre] Reconnected runner to parent terminal:', session.ptyId, '->', parentTerminal.ptyId);
+}
+
+/**
+ * Wire up the view toggle buttons in the header
+ */
+function wireViewToggle(headerContent: Element): void {
+  const toggleBtns = headerContent.querySelectorAll('.theatre-view-toggle-btn');
+  toggleBtns.forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const view = (btn as HTMLElement).dataset.view;
+      if (view === 'board') {
+        showKanbanBoard();
+      } else {
+        hideKanbanBoard();
+      }
+    });
+  });
 }
 
 /**
@@ -1451,7 +1470,6 @@ async function buildSandboxDropdownContent(
     editBtn.addEventListener('click', async (e) => {
       e.stopPropagation();
       hideSandboxDropdown();
-      const { showHookConfigDialog } = await import('../hookConfigDialog');
       await showHookConfigDialog(path, 'sandbox-setup', setupHook);
     });
     hookRight.appendChild(editBtn);
@@ -1462,7 +1480,6 @@ async function buildSandboxDropdownContent(
     configureBtn.addEventListener('click', async (e) => {
       e.stopPropagation();
       hideSandboxDropdown();
-      const { showHookConfigDialog } = await import('../hookConfigDialog');
       await showHookConfigDialog(path, 'sandbox-setup', undefined);
     });
     hookRight.appendChild(configureBtn);
@@ -1478,6 +1495,5 @@ async function buildSandboxDropdownContent(
   dropdown.appendChild(hint);
 
   // Render lucide icons in the dropdown
-  const { createIcons, icons } = await import('lucide');
   createIcons({ icons, nameAttr: 'data-lucide' });
 }
