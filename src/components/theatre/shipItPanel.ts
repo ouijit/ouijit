@@ -8,8 +8,9 @@ import { theatreRegistry, hideRunnerPanel } from './helpers';
 import { projectPath, terminals, activeIndex, invalidateTaskList } from './signals';
 import { escapeHtml } from '../../utils/html';
 import { showToast } from '../importDialog';
-import { formatDiffStats, renderDiffContentHtml, hideDiffFileDropdown, buildDiffFileDropdownHtml } from './diffPanel';
+import { formatDiffStats, renderDiffContentHtml, hideDiffFileDropdown, buildDiffFileDropdownHtml, hideTerminalDiffPanel } from './diffPanel';
 import { registerHotkey, unregisterHotkey, pushScope, popScope, Scopes, platformHotkey } from '../../utils/hotkeys';
+import { createIcons, icons } from 'lucide';
 
 /**
  * Build HTML for the Ship-It panel
@@ -127,7 +128,6 @@ export async function showShipItPanel(term: TheatreTerminal): Promise<void> {
 
   // Close diff panel if open
   if (term.diffPanelOpen) {
-    const { hideTerminalDiffPanel } = await import('./diffPanel');
     hideTerminalDiffPanel(term);
   }
 
@@ -605,7 +605,6 @@ async function selectMergeTarget(
   }
 
   // Re-initialize lucide icons
-  const { createIcons, icons } = await import('lucide');
   createIcons({ icons, nameAttr: 'data-lucide' });
 
   // Refresh the diff with new target
@@ -768,6 +767,7 @@ function showCommitDialog(term: TheatreTerminal, panel: HTMLElement): void {
  */
 async function executeShip(term: TheatreTerminal, panel: HTMLElement, commitMessage: string): Promise<void> {
   if (!term.worktreeBranch || term.taskId == null) return;
+  const taskId = term.taskId;
 
   const basePath = projectPath.value;
   if (!basePath) return;
@@ -789,7 +789,7 @@ async function executeShip(term: TheatreTerminal, panel: HTMLElement, commitMess
       hideShipItPanel(term);
 
       // Close the task and terminal
-      const closeResult = await window.api.task.setStatus(basePath, term.taskId!, 'done');
+      const closeResult = await window.api.task.setStatus(basePath, taskId, 'done');
       if (closeResult.success) {
         // Find terminal index and close it
         const idx = terminals.value.indexOf(term);

@@ -119,6 +119,9 @@ contextBridge.exposeInMainWorld('api', {
     getAll: (projectPath: string): Promise<TaskWithWorkspace[]> =>
       ipcRenderer.invoke('task:get-all', projectPath),
 
+    getByNumber: (projectPath: string, taskNumber: number): Promise<TaskWithWorkspace | null> =>
+      ipcRenderer.invoke('task:get-by-number', projectPath, taskNumber),
+
     setStatus: (projectPath: string, taskNumber: number, status: TaskStatus): Promise<{ success: boolean; error?: string; hookWarning?: string }> =>
       ipcRenderer.invoke('task:set-status', projectPath, taskNumber, status),
 

@@ -3,6 +3,8 @@
  * and the empty state (terminalCards).
  */
 
+import { createIcons, icons } from 'lucide';
+
 export interface TaskFormValues {
   name: string | null;
   prompt: string | null;
@@ -93,9 +95,7 @@ export function setupTaskForm(
   const submitBtn = root.querySelector('.task-form-submit') as HTMLButtonElement;
 
   // Render lucide icons scoped to root
-  import('lucide').then(({ createIcons, icons }) => {
-    createIcons({ icons, nameAttr: 'data-lucide', attrs: {}, nodes: [root] });
-  });
+  createIcons({ icons, nameAttr: 'data-lucide', attrs: {}, nodes: [root] });
 
   let sandboxState = false;
   let branchDetached = false;

@@ -25,6 +25,7 @@ import { refreshTerminalGitStatus, buildCardGitBranchHtml, buildCardGitStatsHtml
 import { toggleTerminalDiffPanel, hideTerminalDiffPanel } from './diffPanel';
 import { showShipItPanel } from './shipItPanel';
 import { buildTaskFormHtml, setupTaskForm } from './taskForm';
+import { setSandboxButtonStarting, refreshSandboxButton } from './theatreMode';
 
 // Platform detection for shortcuts display
 const isMac = navigator.platform.toLowerCase().includes('mac');
@@ -1284,8 +1285,6 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
     // Show progress for sandbox VM startup
     let cleanupProgress: (() => void) | null = null;
     if (useSandbox) {
-
-      const { setSandboxButtonStarting } = await import('./theatreMode');
       setSandboxButtonStarting(true);
       terminal.writeln(`\x1b[90m● Connecting to sandbox…\x1b[0m`);
       cleanupProgress = window.api.lima.onSpawnProgress((msg) => {
@@ -1298,10 +1297,7 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
 
     // Refresh sandbox button now that the VM is (or isn't) running
     if (useSandbox) {
-
-      const { refreshSandboxButton } = await import('./theatreMode');
       await refreshSandboxButton(currentProjectPath);
-
     }
 
     // If terminal was closed during loading (user clicked X), clean up and bail
@@ -1509,7 +1505,6 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
     return true;
   } catch (error) {
     if (useSandbox) {
-      const { setSandboxButtonStarting } = await import('./theatreMode');
       setSandboxButtonStarting(false);
     }
     terminal.writeln(`\x1b[31mError: ${error instanceof Error ? error.message : 'Unknown error'}\x1b[0m`);

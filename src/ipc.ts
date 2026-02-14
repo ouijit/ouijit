@@ -20,6 +20,7 @@ import { createTaskWorktree, createTodoTask, startTask, removeTaskWorktree, list
 import type { TaskWorktreeResult, WorktreeRemoveResult, WorktreeInfo } from './worktree';
 import {
   getProjectTasks,
+  getNextTaskNumber,
   setTaskStatus,
   setTaskMergeTarget,
   setTaskSandboxed,
@@ -275,7 +276,6 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
   });
 
   ipcMain.handle('worktree:generate-branch-name', async (_event, projectPath: string, name: string): Promise<string> => {
-    const { getNextTaskNumber } = await import('./taskMetadata');
     const taskNumber = await getNextTaskNumber(projectPath);
     return generateBranchName(name, taskNumber);
   });
@@ -391,6 +391,25 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     });
   });
 
+  ipcMain.handle('task:get-by-number', async (_event, projectPath: string, taskNumber: number): Promise<TaskWithWorkspace | null> => {
+    const task = await getTaskByNumber(projectPath, taskNumber);
+    if (!task) return null;
+    const worktrees = listWorktrees(projectPath);
+    const wt = task.branch ? worktrees.find(w => w.branch === task.branch) : undefined;
+    return {
+      taskNumber: task.taskNumber,
+      name: task.name,
+      status: task.status,
+      branch: task.branch,
+      worktreePath: wt?.path || task.worktreePath,
+      createdAt: task.createdAt,
+      closedAt: task.closedAt,
+      mergeTarget: task.mergeTarget,
+      prompt: task.prompt,
+      sandboxed: task.sandboxed,
+    };
+  });
+
   ipcMain.handle('task:set-status', async (_event, projectPath: string, taskNumber: number, status: TaskStatus): Promise<{ success: boolean; error?: string; hookWarning?: string }> => {
     let hookWarning: string | undefined;
 
@@ -428,7 +447,9 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     const task = await getTaskByNumber(projectPath, taskNumber);
     if (task?.worktreePath || task?.branch) {
       const worktrees = listWorktrees(projectPath);
-      const wt = task.branch ? worktrees.find(w => w.branch === task.branch) : undefined;
+      const wt = task.branch
+        ? worktrees.find(w => w.branch === task.branch)
+        : worktrees.find(w => w.path === task.worktreePath);
       if (wt) {
         const removeResult = await removeTaskWorktree(projectPath, wt.path);
         if (!removeResult.success) return removeResult;

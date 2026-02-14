@@ -5,6 +5,7 @@
  */
 
 import type { TheatreTerminal } from './state';
+import { createIcons, icons } from 'lucide';
 
 /**
  * Cross-module function registry
@@ -69,9 +70,7 @@ export function showTaskContextMenu(event: MouseEvent, onSandbox: () => void): v
   document.body.appendChild(menu);
 
   // Render lucide icons
-  import('lucide').then(({ createIcons, icons }) => {
-    createIcons({ icons, nameAttr: 'data-lucide', attrs: {}, nodes: [menu] });
-  });
+  createIcons({ icons, nameAttr: 'data-lucide', attrs: {}, nodes: [menu] });
 
   // Position at mouse, keeping within viewport
   const x = Math.min(event.clientX, window.innerWidth - 180);

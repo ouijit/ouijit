@@ -1,7 +1,7 @@
 // Re-export all git types from git.ts (single source of truth)
 export type { GitStatus, GitDropdownInfo, ExtendedGitStatus, RecentBranch, UncommittedChanges, ChangedFile, DiffLine, DiffHunk, FileDiff, CompactGitStatus, WorktreeDiffSummary, BranchInfo } from './git';
 // Import for local use within this file
-import type { GitStatus } from './git';
+import type { GitStatus, CompactGitStatus, GitDropdownInfo, ChangedFile, FileDiff, WorktreeDiffSummary, BranchInfo } from './git';
 
 /**
  * Represents a run configuration for launching a project
@@ -261,6 +261,7 @@ export interface TaskAPI {
   createAndStart(projectPath: string, name?: string, prompt?: string, branchName?: string): Promise<TaskCreateResult>;
   start(projectPath: string, taskNumber: number, branchName?: string): Promise<TaskCreateResult>;
   getAll(projectPath: string): Promise<TaskWithWorkspace[]>;
+  getByNumber(projectPath: string, taskNumber: number): Promise<TaskWithWorkspace | null>;
   setStatus(projectPath: string, taskNumber: number, status: TaskStatus): Promise<{ success: boolean; error?: string; hookWarning?: string }>;
   delete(projectPath: string, taskNumber: number): Promise<{ success: boolean; error?: string }>;
   setMergeTarget(projectPath: string, taskNumber: number, mergeTarget: string): Promise<{ success: boolean; error?: string }>;
@@ -275,11 +276,11 @@ export interface WorktreeAPI {
   generateBranchName(projectPath: string, name: string): Promise<string>;
   remove(projectPath: string, worktreePath: string): Promise<WorktreeRemoveResult>;
   list(projectPath: string): Promise<WorktreeInfo[]>;
-  getDiff(projectPath: string, worktreeBranch: string, targetBranch?: string): Promise<import('./git').WorktreeDiffSummary | null>;
-  getFileDiff(projectPath: string, worktreeBranch: string, filePath: string, targetBranch?: string): Promise<import('./git').FileDiff | null>;
+  getDiff(projectPath: string, worktreeBranch: string, targetBranch?: string): Promise<WorktreeDiffSummary | null>;
+  getFileDiff(projectPath: string, worktreeBranch: string, filePath: string, targetBranch?: string): Promise<FileDiff | null>;
   merge(projectPath: string, worktreeBranch: string): Promise<GitMergeResult>;
   ship(projectPath: string, worktreeBranch: string, commitMessage?: string): Promise<ShipItResult>;
-  listBranches(projectPath: string): Promise<import('./git').BranchInfo[]>;
+  listBranches(projectPath: string): Promise<BranchInfo[]>;
   getMainBranch(projectPath: string): Promise<string>;
 }
 
@@ -316,9 +317,9 @@ export interface ElectronAPI {
   /** Get git status (branch and dirty state) for a project */
   getGitStatus(projectPath: string): Promise<GitStatus | null>;
   /** Get compact git status for at-a-glance display */
-  getCompactGitStatus(projectPath: string): Promise<import('./git').CompactGitStatus | null>;
+  getCompactGitStatus(projectPath: string): Promise<CompactGitStatus | null>;
   /** Get extended git dropdown info for a project */
-  getGitDropdownInfo(projectPath: string): Promise<import('./git').GitDropdownInfo | null>;
+  getGitDropdownInfo(projectPath: string): Promise<GitDropdownInfo | null>;
   /** Checkout a git branch */
   gitCheckout(projectPath: string, branchName: string): Promise<GitCheckoutResult>;
   /** Create a new git branch */
@@ -326,9 +327,9 @@ export interface ElectronAPI {
   /** Merge current branch into main */
   gitMergeIntoMain(projectPath: string): Promise<GitMergeResult>;
   /** Get list of changed files */
-  getChangedFiles(projectPath: string): Promise<import('./git').ChangedFile[]>;
+  getChangedFiles(projectPath: string): Promise<ChangedFile[]>;
   /** Get diff for a specific file */
-  getFileDiff(projectPath: string, filePath: string): Promise<import('./git').FileDiff | null>;
+  getFileDiff(projectPath: string, filePath: string): Promise<FileDiff | null>;
   /** Create a new project */
   createProject(options: CreateProjectOptions): Promise<CreateProjectResult>;
   /** Show native folder picker dialog */

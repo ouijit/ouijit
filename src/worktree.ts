@@ -9,7 +9,7 @@ import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import * as os from 'node:os';
 import koffi from 'koffi';
-import { getNextTaskNumber, createTask, getTaskByNumber, deleteTaskByNumber, setTaskStatus, setTaskBranch, setTaskWorktreePath, type TaskMetadata, type TaskStatus } from './taskMetadata';
+import { getNextTaskNumber, createTask, getTaskByNumber, deleteTaskByNumber, setTaskStatus, setTaskBranch, setTaskWorktreePath, setTaskMergeTarget, type TaskMetadata, type TaskStatus } from './taskMetadata';
 
 const execAsync = promisify(exec);
 
@@ -267,6 +267,7 @@ export async function startTask(
   try {
     const task = await getTaskByNumber(projectPath, taskNumber);
     if (!task) return { success: false, error: 'Task not found' };
+    if (task.status !== 'todo') return { success: false, error: 'Task is already started' };
 
     const [hasHead, branchResult] = await Promise.all([
       execAsync('git rev-parse HEAD', { cwd: projectPath }).then(() => true, () => false),
@@ -305,7 +306,6 @@ export async function startTask(
     ]);
 
     if (mergeTarget) {
-      const { setTaskMergeTarget } = await import('./taskMetadata');
       await setTaskMergeTarget(projectPath, taskNumber, mergeTarget);
     }
 

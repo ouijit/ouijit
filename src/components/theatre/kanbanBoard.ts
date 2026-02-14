@@ -3,6 +3,7 @@
  */
 
 import type { TaskWithWorkspace, TaskStatus, RunConfig } from '../../types';
+import type { TheatreTerminal } from './state';
 import { theatreState } from './state';
 import { projectPath, kanbanVisible, terminals, activeIndex, invalidateTaskList } from './signals';
 import { theatreRegistry } from './helpers';
@@ -10,11 +11,12 @@ import { reopenTask, deleteTask, closeTask } from './worktreeDropdown';
 import { switchToTheatreTerminal } from './terminalCards';
 import { escapeHtml } from '../../utils/html';
 import { registerHotkey, unregisterHotkey, pushScope, popScope, Scopes, platformHotkey } from '../../utils/hotkeys';
+import { createIcons, icons } from 'lucide';
 
 /**
  * Sync the view toggle buttons' active state with kanban visibility
  */
-function syncViewToggle(): void {
+export function syncViewToggle(): void {
   const btns = document.querySelectorAll('.theatre-view-toggle-btn');
   btns.forEach(btn => {
     const view = (btn as HTMLElement).dataset.view;
@@ -22,8 +24,6 @@ function syncViewToggle(): void {
     btn.classList.toggle('theatre-view-toggle-btn--active', isBoard === kanbanVisible.value);
   });
 }
-
-import type { TheatreTerminal } from './state';
 
 /**
  * Show a context menu for a kanban card with terminal/sandbox options
@@ -95,9 +95,7 @@ function showKanbanCardContextMenu(
   document.body.appendChild(menu);
 
   // Render lucide icons
-  import('lucide').then(({ createIcons, icons }) => {
-    createIcons({ icons, nameAttr: 'data-lucide', attrs: {}, nodes: [menu] });
-  });
+  createIcons({ icons, nameAttr: 'data-lucide', attrs: {}, nodes: [menu] });
 
   // Position at mouse, keeping within viewport
   const menuWidth = 200;
@@ -313,25 +311,23 @@ function buildKanbanCard(task: TaskWithWorkspace, path: string, limaAvailable: b
       });
     };
 
-    const onSandbox = limaAvailable ? async () => {
+    const onSandbox = limaAvailable && task.worktreePath ? async () => {
       const worktreeOpts = {
-        path: task.worktreePath || '',
+        path: task.worktreePath!,
         branch: task.branch || '',
         createdAt: task.createdAt,
         sandboxed: task.sandboxed,
       };
       if (task.status === 'done') {
-        if (task.taskNumber != null) {
-          const result = await window.api.task.setStatus(path, task.taskNumber, 'in_progress');
-          if (result.success) {
-            invalidateTaskList();
-            hideKanbanBoard();
-            await theatreRegistry.addTheatreTerminal?.(undefined, {
-              existingWorktree: worktreeOpts,
-              taskId: task.taskNumber,
-              sandboxed: true,
-            });
-          }
+        const result = await window.api.task.setStatus(path, task.taskNumber, 'in_progress');
+        if (result.success) {
+          invalidateTaskList();
+          hideKanbanBoard();
+          await theatreRegistry.addTheatreTerminal?.(undefined, {
+            existingWorktree: worktreeOpts,
+            taskId: task.taskNumber,
+            sandboxed: true,
+          });
         }
       } else {
         hideKanbanBoard();
@@ -501,9 +497,7 @@ async function populateKanbanBoard(): Promise<void> {
   }
 
   // Render lucide icons
-  import('lucide').then(({ createIcons, icons }) => {
-    createIcons({ icons, nameAttr: 'data-lucide', attrs: {}, nodes: [board as HTMLElement] });
-  });
+  createIcons({ icons, nameAttr: 'data-lucide', attrs: {}, nodes: [board as HTMLElement] });
 
   // Sync status dots with current terminal state
   syncKanbanStatusDots();
@@ -544,8 +538,15 @@ function wireAddInput(board: Element): void {
  * Show a start command dialog before opening a terminal.
  * Returns { command: string } to run a command, 'skip' to open terminal with no command, or null to cancel.
  */
-function showStartCommandDialog(path: string, taskName: string): Promise<{ command: string } | 'skip' | null> {
-  return new Promise(async (resolve) => {
+async function showStartCommandDialog(path: string, taskName: string): Promise<{ command: string } | 'skip' | null> {
+  // Fetch start hook command before opening the dialog
+  let startCommand = '';
+  try {
+    const hooks = await window.api.hooks.get(path);
+    if (hooks.start?.command) startCommand = hooks.start.command;
+  } catch { /* no hook configured */ }
+
+  return new Promise((resolve) => {
     let resolved = false;
     const finish = (result: { command: string } | 'skip' | null) => {
       if (resolved) return;
@@ -553,13 +554,6 @@ function showStartCommandDialog(path: string, taskName: string): Promise<{ comma
       cleanup();
       resolve(result);
     };
-
-    // Fetch start hook command
-    let startCommand = '';
-    try {
-      const hooks = await window.api.hooks.get(path);
-      if (hooks.start?.command) startCommand = hooks.start.command;
-    } catch { /* no hook configured */ }
 
     // Build overlay + dialog
     const overlay = document.createElement('div');
@@ -810,8 +804,7 @@ export function hideKanbanBoard(): void {
 
   const board = document.querySelector('.kanban-board');
   if (board) {
-    board.classList.remove('kanban-board--visible');
-    setTimeout(() => board.remove(), 200);
+    board.remove();
   }
 
   document.body.classList.remove('kanban-open');

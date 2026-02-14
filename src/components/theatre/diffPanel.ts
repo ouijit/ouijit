@@ -292,8 +292,7 @@ export async function selectDiffFile(filePath: string): Promise<void> {
   // Use appropriate API based on mode
   let diff: FileDiff | null = null;
   if (diffPanelMode.value === 'worktree' && diffPanelTaskId.value != null) {
-    const tasks = await window.api.task.getAll(projectPath.value!);
-    const task = tasks.find(t => t.taskNumber === diffPanelTaskId.value);
+    const task = await window.api.task.getByNumber(projectPath.value!, diffPanelTaskId.value);
     if (task?.branch) {
       diff = await window.api.worktree.getFileDiff(
         projectPath.value!,

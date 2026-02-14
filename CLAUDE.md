@@ -36,6 +36,7 @@ Do NOT run `npm run start` or other dev server commands.
 
 ## Code Rules
 
+- **No dynamic imports** — never use `import()` for lazy loading or code splitting. Always use static `import` at the top of the file. Vite handles circular dependencies fine for functions called inside handlers (not at module evaluation time). Use the `theatreRegistry` pattern only when true circular top-level access is needed.
 - Don't replace `innerHTML` on elements with event listeners (destroys handlers)
 - Use targeted DOM updates instead of full rebuilds
 - Clear intervals/timeouts on cleanup

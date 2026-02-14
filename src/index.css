@@ -2022,8 +2022,10 @@ body.kanban-open .theatre-stack {
 }
 
 .kanban-board {
-  @apply fixed top-[82px] left-4 right-4 bottom-4 z-[140] flex flex-col opacity-0 transition-all duration-200 ease-out rounded-lg overflow-hidden;
+  @apply fixed top-[82px] left-4 right-4 bottom-4 z-[140] flex flex-col opacity-0 transition-all duration-200 ease-out rounded-lg overflow-hidden border border-white/10;
   transform: translateY(6px);
+  background: var(--color-terminal-bg, #1a1a1a);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.05), 0 4px 12px rgba(0, 0, 0, 0.15), 0 20px 40px rgba(0, 0, 0, 0.2);
 }
 
 .kanban-board--visible {
@@ -2048,11 +2050,9 @@ body.kanban-open .theatre-stack {
 }
 
 .kanban-columns {
-  @apply flex flex-1 min-h-0 rounded-lg border border-white/10;
+  @apply flex flex-1 min-h-0;
   overflow-x: auto;
   overflow-y: hidden;
-  background: var(--color-terminal-bg, #1a1a1a);
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.05), 0 4px 12px rgba(0, 0, 0, 0.15), 0 20px 40px rgba(0, 0, 0, 0.2);
 }
 
 .kanban-column {
