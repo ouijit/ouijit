@@ -306,6 +306,8 @@ export interface ElectronAPI {
   openProject(path: string): Promise<{ success: boolean }>;
   /** Open project in Finder */
   openInFinder(path: string): Promise<{ success: boolean }>;
+  /** Open a URL in the default browser */
+  openExternal(url: string): Promise<void>;
   /** PTY management API */
   pty: PtyAPI;
   /** Worktree management API */

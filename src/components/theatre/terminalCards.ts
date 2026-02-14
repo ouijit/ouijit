@@ -4,6 +4,7 @@
 
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
+import { WebLinksAddon } from '@xterm/addon-web-links';
 import type { PtyId, PtySpawnOptions, RunConfig, WorktreeInfo } from '../../types';
 import {
   TheatreTerminal,
@@ -779,6 +780,9 @@ export async function runDefaultInCard(term: TheatreTerminal): Promise<void> {
 
   const runnerFitAddon = new FitAddon();
   runnerTerminal.loadAddon(runnerFitAddon);
+  runnerTerminal.loadAddon(new WebLinksAddon((_event, uri) => {
+    window.api.openExternal(uri);
+  }));
 
   // Let app hotkeys pass through xterm
   setupTerminalAppHotkeys(runnerTerminal);
@@ -1127,6 +1131,9 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
 
   const fitAddon = new FitAddon();
   terminal.loadAddon(fitAddon);
+  terminal.loadAddon(new WebLinksAddon((_event, uri) => {
+    window.api.openExternal(uri);
+  }));
   terminal.open(xtermContainer);
 
   // Let app hotkeys pass through xterm

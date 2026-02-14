@@ -4,6 +4,7 @@
 
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
+import { WebLinksAddon } from '@xterm/addon-web-links';
 import { createIcons, icons } from 'lucide';
 import type { Project, ChangedFile, ActiveSession } from '../../types';
 import {
@@ -688,6 +689,9 @@ async function reconnectTheatreTerminal(session: ActiveSession, worktreeBranch?:
 
   const fitAddon = new FitAddon();
   terminal.loadAddon(fitAddon);
+  terminal.loadAddon(new WebLinksAddon((_event, uri) => {
+    window.api.openExternal(uri);
+  }));
 
   // Create the card UI
   const index = terminals.value.length;
@@ -894,6 +898,9 @@ async function reconnectRunnerToParent(
 
   const runnerFitAddon = new FitAddon();
   runnerTerminal.loadAddon(runnerFitAddon);
+  runnerTerminal.loadAddon(new WebLinksAddon((_event, uri) => {
+    window.api.openExternal(uri);
+  }));
 
   // Let app hotkeys pass through xterm
   setupTerminalAppHotkeys(runnerTerminal);
