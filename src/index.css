@@ -2139,7 +2139,8 @@ body.kanban-open .theatre-stack {
 }
 
 .kanban-card-status-dots {
-  @apply flex flex-col gap-0.5 shrink-0;
+  @apply flex flex-col gap-2.5 shrink-0;
+  padding-top: 5px;
 }
 
 .kanban-card-status-dot {
