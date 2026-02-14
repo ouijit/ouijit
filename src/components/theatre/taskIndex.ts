@@ -4,11 +4,12 @@
 
 import type { TaskWithWorkspace } from '../../types';
 import { theatreState } from './state';
-import { projectPath, taskIndexVisible, terminals, invalidateTaskList } from './signals';
+import { projectPath, taskIndexVisible, kanbanVisible, terminals, invalidateTaskList } from './signals';
 import { showToast } from '../importDialog';
 import { theatreRegistry, showTaskContextMenu } from './helpers';
 import { reopenTask, deleteTask, closeTask } from './worktreeDropdown';
 import { registerHotkey, unregisterHotkey, pushScope, popScope, Scopes, platformHotkey } from '../../utils/hotkeys';
+import { hideKanbanBoard } from './kanbanBoard';
 
 /**
  * Format a branch name for display (hyphens to spaces)
@@ -40,7 +41,10 @@ function buildTaskIndexHtml(): string {
     <div class="task-index-panel">
       <div class="task-index-header">
         <h2 class="task-index-title">Tasks</h2>
-        <button class="task-index-close" title="Close"><i data-lucide="arrow-left"></i></button>
+        <div class="task-index-header-actions">
+          <button class="task-index-board-btn" title="Board view"><i data-lucide="columns-3"></i></button>
+          <button class="task-index-close" title="Close"><i data-lucide="arrow-left"></i></button>
+        </div>
       </div>
       <div class="task-index-content">
         <div class="task-index-list task-index-list--open"></div>
@@ -251,6 +255,11 @@ async function populateTaskIndex(): Promise<void> {
 export async function showTaskIndex(): Promise<void> {
   if (taskIndexVisible.value) return;
 
+  // Close kanban board if open (mutual exclusion)
+  if (kanbanVisible.value) {
+    hideKanbanBoard();
+  }
+
   // Set immediately to prevent re-entry during async operations
   taskIndexVisible.value = true;
 
@@ -274,6 +283,15 @@ export async function showTaskIndex(): Promise<void> {
     const closeBtn = panel.querySelector('.task-index-close');
     if (closeBtn) {
       closeBtn.addEventListener('click', () => hideTaskIndex());
+    }
+
+    // Wire up board toggle button
+    const boardBtn = panel.querySelector('.task-index-board-btn');
+    if (boardBtn) {
+      boardBtn.addEventListener('click', () => {
+        hideTaskIndex();
+        theatreRegistry.toggleKanbanBoard?.();
+      });
     }
   }
 

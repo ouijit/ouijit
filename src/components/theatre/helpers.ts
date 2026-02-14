@@ -21,6 +21,8 @@ interface TheatreRegistry {
   addTheatreTerminal: ((runConfig?: unknown, options?: unknown) => Promise<boolean>) | null;
   closeTheatreTerminal: ((index: number) => void) | null;
   playOrToggleRunner: (() => Promise<void>) | null;
+  // From kanbanBoard
+  toggleKanbanBoard: (() => void) | null;
   // From diffPanel
   toggleActiveDiffPanel: (() => Promise<void>) | null;
   // From shipItPanel
@@ -33,6 +35,7 @@ export const theatreRegistry: TheatreRegistry = {
   toggleTaskIndex: null,
   refreshTaskIndex: null,
   createNewAgentShell: null,
+  toggleKanbanBoard: null,
   addTheatreTerminal: null,
   closeTheatreTerminal: null,
   playOrToggleRunner: null,

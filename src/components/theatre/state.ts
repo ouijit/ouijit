@@ -8,7 +8,7 @@ import { FitAddon } from '@xterm/addon-fit';
 import type { PtyId, Project, ChangedFile, CompactGitStatus, ActiveSession } from '../../types';
 
 // Summary type for terminal status indication
-export type SummaryType = 'error' | 'listening' | 'building' | 'watching' | 'thinking' | 'idle';
+export type SummaryType = 'thinking' | 'idle';
 
 // Theatre terminal interface for multi-terminal support
 export interface TheatreTerminal {
@@ -92,6 +92,9 @@ export const theatreState = {
 
   // Cleanup function for task index panel
   taskIndexCleanup: null as (() => void) | null,
+
+  // Cleanup function for kanban board
+  kanbanCleanup: null as (() => void) | null,
 };
 
 // Session storage for preserved sessions (in-memory, survives project switching)

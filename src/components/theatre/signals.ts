@@ -38,6 +38,9 @@ export const diffFileDropdownVisible = signal(false);
 // Task index panel visibility
 export const taskIndexVisible = signal(false);
 
+// Kanban board visibility
+export const kanbanVisible = signal(false);
+
 // Task list invalidation (effects watch this to auto-refresh views)
 const taskVersion = signal(0);
 export { taskVersion };
@@ -66,5 +69,6 @@ export function resetSignals(): void {
   sandboxDropdownVisible.value = false;
   diffFileDropdownVisible.value = false;
   taskIndexVisible.value = false;
+  kanbanVisible.value = false;
   taskVersion.value = 0;
 }

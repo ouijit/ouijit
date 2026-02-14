@@ -11,10 +11,12 @@ import {
   projectPath,
   taskVersion,
   taskIndexVisible,
+  kanbanVisible,
 } from './signals';
 // Direct imports - these modules import from signals.ts, not effects.ts, so no circular dep
 import { updateCardStack, showStackEmptyState, hideStackEmptyState, refreshEmptyStateTasks } from './terminalCards';
 import { syncDiffPanelToActiveTerminal } from './diffPanel';
+import { refreshKanbanBoard } from './kanbanBoard';
 
 // Track whether effects are initialized
 let effectsInitialized = false;
@@ -96,6 +98,20 @@ export function initializeEffects(): void {
         import('./taskIndex').then(({ refreshTaskIndex }) => refreshTaskIndex());
       }
       lastTaskVersionForIndex = ver;
+    })
+  );
+
+  // Effect: Auto-refresh kanban board when taskVersion bumps
+  let lastTaskVersionForKanban = taskVersion.value;
+  cleanupFunctions.push(
+    effect(() => {
+      const ver = taskVersion.value;
+      const visible = kanbanVisible.value;
+      if (ver !== lastTaskVersionForKanban && visible) {
+        lastTaskVersionForKanban = ver;
+        refreshKanbanBoard();
+      }
+      lastTaskVersionForKanban = ver;
     })
   );
 
