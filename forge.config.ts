@@ -85,6 +85,16 @@ const config: ForgeConfig = {
           console.log(`Copied Lima guest agents from ${guestAgentSrc}`);
         }
 
+        // Copy app icon for Linux (used by BrowserWindow.icon at runtime)
+        if (platform === 'linux') {
+          const iconSrc = path.join(__dirname, 'src', 'assets', 'icons', 'icon.png');
+          if (fs.existsSync(iconSrc)) {
+            const iconDest = path.join(buildPath, 'icon.png');
+            fs.copyFileSync(iconSrc, iconDest);
+            console.log(`Copied icon.png for Linux`);
+          }
+        }
+
         callback();
       },
     ],
