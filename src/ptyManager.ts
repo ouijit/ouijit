@@ -137,7 +137,7 @@ export async function spawnPty(
     if (expandedCommand) {
       // Escape single quotes in the command for shell -c
       const escapedCmd = expandedCommand.replace(/'/g, "'\\''");
-      shellArgs = ['-c', `${escapedCmd}; exec ${shell}`];
+      shellArgs = ['-ic', `${escapedCmd}; exec ${shell}`];
     }
 
     const ptyProcess = pty.spawn(shell, shellArgs, {
