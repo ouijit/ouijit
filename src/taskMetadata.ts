@@ -398,3 +398,61 @@ export async function setTaskBranch(
   }
 }
 
+export async function setTaskName(
+  projectPath: string,
+  taskNumber: number,
+  name: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const store = await loadStore();
+    const projectData = getProjectData(store, projectPath);
+
+    if (!projectData) {
+      return { success: false, error: 'Project not found' };
+    }
+
+    const task = projectData.tasks.find(t => t.taskNumber === taskNumber);
+    if (!task) {
+      return { success: false, error: 'Task not found' };
+    }
+
+    task.name = name;
+    await saveStore(store);
+    return { success: true };
+  } catch (error) {
+    console.error('Failed to set task name:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+}
+
+export async function setTaskDescription(
+  projectPath: string,
+  taskNumber: number,
+  description: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const store = await loadStore();
+    const projectData = getProjectData(store, projectPath);
+
+    if (!projectData) {
+      return { success: false, error: 'Project not found' };
+    }
+
+    const task = projectData.tasks.find(t => t.taskNumber === taskNumber);
+    if (!task) {
+      return { success: false, error: 'Task not found' };
+    }
+
+    if (description) {
+      task.prompt = description;
+    } else {
+      delete task.prompt;
+    }
+    await saveStore(store);
+    return { success: true };
+  } catch (error) {
+    console.error('Failed to set task description:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+}
+

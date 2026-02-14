@@ -133,6 +133,12 @@ contextBridge.exposeInMainWorld('api', {
 
     setSandboxed: (projectPath: string, taskNumber: number, sandboxed: boolean): Promise<{ success: boolean; error?: string }> =>
       ipcRenderer.invoke('task:set-sandboxed', projectPath, taskNumber, sandboxed),
+
+    setName: (projectPath: string, taskNumber: number, name: string): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke('task:set-name', projectPath, taskNumber, name),
+
+    setDescription: (projectPath: string, taskNumber: number, description: string): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke('task:set-description', projectPath, taskNumber, description),
   },
 
   /**
