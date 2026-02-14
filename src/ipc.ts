@@ -79,6 +79,11 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
     }
   });
 
+  // Handler to open a URL in the default browser
+  ipcMain.handle('open-external', async (_event, url: string) => {
+    await shell.openExternal(url);
+  });
+
   // Lima sandbox handlers
   limaPlugin.registerLimaHandlers(mainWindow);
 

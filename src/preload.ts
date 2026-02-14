@@ -142,6 +142,12 @@ contextBridge.exposeInMainWorld('api', {
   },
 
   /**
+   * Open a URL in the default browser
+   */
+  openExternal: (url: string): Promise<void> =>
+    ipcRenderer.invoke('open-external', url),
+
+  /**
    * Refresh the project list
    */
   refreshProjects: (): Promise<Project[]> =>
