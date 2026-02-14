@@ -311,14 +311,14 @@ function buildKanbanCard(task: TaskWithWorkspace, path: string, limaAvailable: b
       });
     };
 
-    const onSandbox = limaAvailable && task.worktreePath ? async () => {
-      const worktreeOpts = {
-        path: task.worktreePath!,
-        branch: task.branch || '',
-        createdAt: task.createdAt,
-        sandboxed: task.sandboxed,
-      };
+    const onSandbox = limaAvailable ? async () => {
       if (task.status === 'done') {
+        const worktreeOpts = {
+          path: task.worktreePath!,
+          branch: task.branch || '',
+          createdAt: task.createdAt,
+          sandboxed: task.sandboxed,
+        };
         const result = await window.api.task.setStatus(path, task.taskNumber, 'in_progress');
         if (result.success) {
           invalidateTaskList();
@@ -329,10 +329,30 @@ function buildKanbanCard(task: TaskWithWorkspace, path: string, limaAvailable: b
             sandboxed: true,
           });
         }
+      } else if (!task.worktreePath) {
+        const startResult = await window.api.task.start(path, task.taskNumber);
+        if (!startResult.success || !startResult.worktreePath) return;
+        invalidateTaskList();
+        hideKanbanBoard();
+        await theatreRegistry.addTheatreTerminal?.(undefined, {
+          existingWorktree: {
+            path: startResult.worktreePath,
+            branch: startResult.task?.branch || '',
+            createdAt: task.createdAt,
+            sandboxed: task.sandboxed,
+          },
+          taskId: task.taskNumber,
+          sandboxed: true,
+        });
       } else {
         hideKanbanBoard();
         await theatreRegistry.addTheatreTerminal?.(undefined, {
-          existingWorktree: worktreeOpts,
+          existingWorktree: {
+            path: task.worktreePath,
+            branch: task.branch || '',
+            createdAt: task.createdAt,
+            sandboxed: task.sandboxed,
+          },
           taskId: task.taskNumber,
           sandboxed: true,
         });
