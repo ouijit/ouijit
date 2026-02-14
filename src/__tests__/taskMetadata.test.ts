@@ -8,6 +8,8 @@ import {
   setTaskStatus,
   setTaskMergeTarget,
   setTaskSandboxed,
+  setTaskName,
+  setTaskDescription,
   deleteTaskByNumber,
 } from '../taskMetadata';
 
@@ -158,6 +160,47 @@ describe('taskMetadata', () => {
 
     expect(tasksB).toHaveLength(1);
     expect(tasksB[0].name).toBe('Task B');
+  });
+
+  test('setTaskName updates the task name', async () => {
+    const project = '/test/set-name';
+    await createTask(project, 1, 'Original name', { branch: 'feat/name' });
+
+    const result = await setTaskName(project, 1, 'Updated name');
+    expect(result.success).toBe(true);
+
+    const task = await getTaskByNumber(project, 1);
+    expect(task!.name).toBe('Updated name');
+  });
+
+  test('setTaskName returns error for missing task', async () => {
+    const project = '/test/set-name-missing';
+    await createTask(project, 1, 'Exists');
+    const result = await setTaskName(project, 99, 'No task');
+    expect(result.success).toBe(false);
+    expect(result.error).toBe('Task not found');
+  });
+
+  test('setTaskDescription sets a description', async () => {
+    const project = '/test/set-description';
+    await createTask(project, 1, 'Desc task', { branch: 'feat/desc' });
+
+    const result = await setTaskDescription(project, 1, 'New description');
+    expect(result.success).toBe(true);
+
+    const task = await getTaskByNumber(project, 1);
+    expect(task!.prompt).toBe('New description');
+  });
+
+  test('setTaskDescription with empty string clears the description', async () => {
+    const project = '/test/set-description-clear';
+    await createTask(project, 1, 'Clear desc task', { branch: 'feat/clear', prompt: 'Has a description' });
+
+    const result = await setTaskDescription(project, 1, '');
+    expect(result.success).toBe(true);
+
+    const task = await getTaskByNumber(project, 1);
+    expect(task!.prompt).toBeUndefined();
   });
 
   test('createTask with todo status (no branch)', async () => {

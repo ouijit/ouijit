@@ -2129,15 +2129,18 @@ body.kanban-open .theatre-stack {
 }
 
 .kanban-card-header {
-  @apply flex items-center gap-2;
+  @apply flex items-start gap-2;
 }
 
 .kanban-card-name {
-  @apply flex-1 font-mono text-xs font-medium text-text-primary truncate;
+  @apply flex-1 font-mono text-xs font-medium text-text-primary min-w-0;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
 }
 
 .kanban-card-status-dots {
-  @apply flex flex-col gap-0.5 shrink-0;
+  @apply flex flex-col gap-2.5 shrink-0;
+  padding-top: 5px;
 }
 
 .kanban-card-status-dot {
@@ -2220,6 +2223,31 @@ body.kanban-open .theatre-stack {
   -webkit-box-orient: vertical;
   overflow: hidden;
   white-space: normal;
+}
+
+.kanban-card-detail-value--placeholder {
+  @apply text-text-tertiary italic transition-colors duration-150 ease-out;
+}
+
+.kanban-card-detail-value--placeholder:hover {
+  @apply text-text-secondary;
+}
+
+.kanban-card-name-input {
+  @apply flex-1 font-mono text-xs font-medium text-text-primary bg-transparent border-0 border-b border-accent p-0 outline-none min-w-0 resize-none overflow-hidden;
+  -webkit-app-region: no-drag;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+.kanban-card-description-textarea {
+  @apply w-full font-sans text-xs text-text-primary bg-transparent border border-white/10 rounded p-1 outline-none resize-none;
+  min-height: 3lh;
+  -webkit-app-region: no-drag;
+}
+
+.kanban-card-description-textarea:focus {
+  @apply border-accent;
 }
 
 .kanban-card-actions {
