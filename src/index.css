@@ -958,7 +958,7 @@ body.platform-darwin:not(.is-fullscreen) .theatre-header-content {
 
 /* Task Context Menu (right-click "Open in Sandbox") */
 .task-context-menu {
-  @apply fixed z-[2000] bg-surface border border-border rounded-md shadow-lg overflow-hidden opacity-0;
+  @apply fixed z-[2000] py-1 bg-surface border border-border rounded-md shadow-lg overflow-hidden opacity-0;
   transition: opacity 100ms ease;
 }
 
@@ -976,6 +976,10 @@ body.platform-darwin:not(.is-fullscreen) .theatre-header-content {
 
 .task-context-menu-item:hover {
   @apply bg-background-tertiary;
+}
+
+.task-context-menu-separator {
+  @apply border-t border-border my-1;
 }
 
 .sandbox-dropdown-stop-btn {
@@ -2130,6 +2134,10 @@ body.kanban-open .theatre-stack {
 
 .kanban-card-name {
   @apply flex-1 font-mono text-xs font-medium text-text-primary truncate;
+}
+
+.kanban-card-status-dots {
+  @apply flex flex-col gap-0.5 shrink-0;
 }
 
 .kanban-card-status-dot {

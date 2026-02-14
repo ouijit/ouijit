@@ -5,7 +5,7 @@
 import type { TaskWithWorkspace, TaskStatus, RunConfig } from '../../types';
 import { theatreState } from './state';
 import { projectPath, kanbanVisible, terminals, activeIndex, invalidateTaskList } from './signals';
-import { theatreRegistry, showTaskContextMenu } from './helpers';
+import { theatreRegistry } from './helpers';
 import { reopenTask, deleteTask, closeTask } from './worktreeDropdown';
 import { switchToTheatreTerminal } from './terminalCards';
 import { escapeHtml } from '../../utils/html';
@@ -21,6 +21,103 @@ function syncViewToggle(): void {
     const isBoard = view === 'board';
     btn.classList.toggle('theatre-view-toggle-btn--active', isBoard === kanbanVisible.value);
   });
+}
+
+import type { TheatreTerminal } from './state';
+
+/**
+ * Show a context menu for a kanban card with terminal/sandbox options
+ */
+function showKanbanCardContextMenu(
+  event: MouseEvent,
+  onOpenTerminal: () => void,
+  onSandbox: (() => void) | null,
+  connectedTerminals: { terminal: TheatreTerminal; index: number }[],
+  onSwitchTerminal: (index: number) => void,
+): void {
+  event.preventDefault();
+  event.stopPropagation();
+
+  // Remove any existing context menu
+  document.querySelector('.task-context-menu')?.remove();
+
+  const menu = document.createElement('div');
+  menu.className = 'task-context-menu';
+
+  // Connected terminals listed first (no icons)
+  if (connectedTerminals.length > 0) {
+    for (const { terminal, index } of connectedTerminals) {
+      const item = document.createElement('button');
+      item.className = 'task-context-menu-item';
+      const dot = document.createElement('span');
+      dot.className = 'kanban-card-status-dot';
+      dot.setAttribute('data-status', terminal.summaryType);
+      item.appendChild(dot);
+      const label = terminal.label || 'Terminal';
+      item.appendChild(document.createTextNode(label));
+      item.addEventListener('click', (e) => {
+        e.stopPropagation();
+        menu.remove();
+        onSwitchTerminal(index);
+      });
+      menu.appendChild(item);
+    }
+
+    const separator = document.createElement('div');
+    separator.className = 'task-context-menu-separator';
+    menu.appendChild(separator);
+  }
+
+  // "Open in Terminal" option
+  const terminalItem = document.createElement('button');
+  terminalItem.className = 'task-context-menu-item';
+  terminalItem.innerHTML = '<i data-lucide="terminal"></i> Open in Terminal';
+  terminalItem.addEventListener('click', (e) => {
+    e.stopPropagation();
+    menu.remove();
+    onOpenTerminal();
+  });
+  menu.appendChild(terminalItem);
+
+  // "Open in Sandbox" option (only if lima is available)
+  if (onSandbox) {
+    const sandboxItem = document.createElement('button');
+    sandboxItem.className = 'task-context-menu-item';
+    sandboxItem.innerHTML = '<i data-lucide="box"></i> Open in Sandbox';
+    sandboxItem.addEventListener('click', (e) => {
+      e.stopPropagation();
+      menu.remove();
+      onSandbox();
+    });
+    menu.appendChild(sandboxItem);
+  }
+
+  document.body.appendChild(menu);
+
+  // Render lucide icons
+  import('lucide').then(({ createIcons, icons }) => {
+    createIcons({ icons, nameAttr: 'data-lucide', attrs: {}, nodes: [menu] });
+  });
+
+  // Position at mouse, keeping within viewport
+  const menuWidth = 200;
+  const menuHeight = 32 * (1 + (onSandbox ? 1 : 0) + connectedTerminals.length) + (connectedTerminals.length > 0 ? 9 : 0);
+  const x = Math.min(event.clientX, window.innerWidth - menuWidth);
+  const y = Math.min(event.clientY, window.innerHeight - menuHeight);
+  menu.style.left = `${x}px`;
+  menu.style.top = `${y}px`;
+
+  // Animate in
+  requestAnimationFrame(() => menu.classList.add('task-context-menu--visible'));
+
+  // Dismiss on click outside
+  const dismiss = (e: MouseEvent) => {
+    if (menu.contains(e.target as Node)) return;
+    menu.classList.remove('task-context-menu--visible');
+    setTimeout(() => menu.remove(), 100);
+    document.removeEventListener('mousedown', dismiss);
+  };
+  setTimeout(() => document.addEventListener('mousedown', dismiss), 0);
 }
 
 /** Column definitions matching TaskStatus values */
@@ -147,63 +244,20 @@ function buildKanbanCard(task: TaskWithWorkspace, path: string, limaAvailable: b
   detail.appendChild(actions);
   card.appendChild(detail);
 
-  // Expand toggle
-  expandBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
+  // Click anywhere on card toggles expand/collapse
+  const toggleExpand = () => {
     const isExpanded = detail.classList.toggle('kanban-card-detail--visible');
     expandBtn.classList.toggle('kanban-card-expand--open', isExpanded);
     card.classList.toggle('kanban-card--expanded', isExpanded);
+  };
+
+  expandBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    toggleExpand();
   });
 
-  // Click to open terminal — switch to existing session if one is open
-  card.addEventListener('click', async () => {
-    // If there's already a terminal open for this task, just switch to it
-    const existingIdx = terminals.value.findIndex(t => t.taskId === task.taskNumber);
-    if (existingIdx !== -1) {
-      hideKanbanBoard();
-      if (existingIdx !== activeIndex.value) {
-        switchToTheatreTerminal(existingIdx);
-      }
-      return;
-    }
-
-    if (task.status === 'done') {
-      hideKanbanBoard();
-      await reopenTask(path, task);
-      return;
-    }
-
-    // Todo task with no worktree — create one first
-    if (!task.worktreePath) {
-      const startResult = await window.api.task.start(path, task.taskNumber);
-      if (!startResult.success || !startResult.worktreePath) return;
-      invalidateTaskList();
-      hideKanbanBoard();
-      await theatreRegistry.addTheatreTerminal?.(undefined, {
-        existingWorktree: {
-          path: startResult.worktreePath,
-          branch: startResult.task?.branch || '',
-          createdAt: task.createdAt,
-          sandboxed: task.sandboxed,
-        },
-        taskId: task.taskNumber,
-        sandboxed: false,
-      });
-      return;
-    }
-
-    // Task already has a worktree
-    hideKanbanBoard();
-    await theatreRegistry.addTheatreTerminal?.(undefined, {
-      existingWorktree: {
-        path: task.worktreePath,
-        branch: task.branch || '',
-        createdAt: task.createdAt,
-        sandboxed: task.sandboxed,
-      },
-      taskId: task.taskNumber,
-      sandboxed: false,
-    });
+  card.addEventListener('click', () => {
+    toggleExpand();
   });
 
   // Drag handlers
@@ -217,39 +271,87 @@ function buildKanbanCard(task: TaskWithWorkspace, path: string, limaAvailable: b
     card.classList.remove('kanban-card--dragging');
   });
 
-  // Right-click context menu (sandbox option)
-  if (limaAvailable) {
-    card.addEventListener('contextmenu', (e) => {
-      showTaskContextMenu(e, async () => {
+  // Right-click context menu
+  card.addEventListener('contextmenu', (e) => {
+    const connectedTerminals = terminals.value
+      .map((t, i) => ({ terminal: t, index: i }))
+      .filter(({ terminal: t }) => t.taskId === task.taskNumber);
+
+    const onOpenTerminal = async () => {
+      if (task.status === 'done') {
         hideKanbanBoard();
-        const worktreeOpts = {
-          path: task.worktreePath || '',
+        await reopenTask(path, task);
+        return;
+      }
+      if (!task.worktreePath) {
+        const startResult = await window.api.task.start(path, task.taskNumber);
+        if (!startResult.success || !startResult.worktreePath) return;
+        invalidateTaskList();
+        hideKanbanBoard();
+        await theatreRegistry.addTheatreTerminal?.(undefined, {
+          existingWorktree: {
+            path: startResult.worktreePath,
+            branch: startResult.task?.branch || '',
+            createdAt: task.createdAt,
+            sandboxed: task.sandboxed,
+          },
+          taskId: task.taskNumber,
+          sandboxed: false,
+        });
+        return;
+      }
+      hideKanbanBoard();
+      await theatreRegistry.addTheatreTerminal?.(undefined, {
+        existingWorktree: {
+          path: task.worktreePath,
           branch: task.branch || '',
           createdAt: task.createdAt,
           sandboxed: task.sandboxed,
-        };
-        if (task.status === 'done') {
-          if (task.taskNumber != null) {
-            const result = await window.api.task.setStatus(path, task.taskNumber, 'in_progress');
-            if (result.success) {
-              invalidateTaskList();
-              await theatreRegistry.addTheatreTerminal?.(undefined, {
-                existingWorktree: worktreeOpts,
-                taskId: task.taskNumber,
-                sandboxed: true,
-              });
-            }
-          }
-        } else {
-          await theatreRegistry.addTheatreTerminal?.(undefined, {
-            existingWorktree: worktreeOpts,
-            taskId: task.taskNumber,
-            sandboxed: true,
-          });
-        }
+        },
+        taskId: task.taskNumber,
+        sandboxed: false,
       });
-    });
-  }
+    };
+
+    const onSandbox = limaAvailable ? async () => {
+      const worktreeOpts = {
+        path: task.worktreePath || '',
+        branch: task.branch || '',
+        createdAt: task.createdAt,
+        sandboxed: task.sandboxed,
+      };
+      if (task.status === 'done') {
+        if (task.taskNumber != null) {
+          const result = await window.api.task.setStatus(path, task.taskNumber, 'in_progress');
+          if (result.success) {
+            invalidateTaskList();
+            hideKanbanBoard();
+            await theatreRegistry.addTheatreTerminal?.(undefined, {
+              existingWorktree: worktreeOpts,
+              taskId: task.taskNumber,
+              sandboxed: true,
+            });
+          }
+        }
+      } else {
+        hideKanbanBoard();
+        await theatreRegistry.addTheatreTerminal?.(undefined, {
+          existingWorktree: worktreeOpts,
+          taskId: task.taskNumber,
+          sandboxed: true,
+        });
+      }
+    } : null;
+
+    const onSwitchTerminal = (idx: number) => {
+      hideKanbanBoard();
+      if (idx !== activeIndex.value) {
+        switchToTheatreTerminal(idx);
+      }
+    };
+
+    showKanbanCardContextMenu(e, onOpenTerminal, onSandbox, connectedTerminals, onSwitchTerminal);
+  });
 
   return card;
 }
@@ -570,20 +672,27 @@ export function syncKanbanStatusDots(): void {
     const header = card.querySelector('.kanban-card-header');
     if (!header) return;
 
-    const term = terminalList.find(t => t.taskId === taskNumber);
-    let dot = header.querySelector('.kanban-card-status-dot') as HTMLElement | null;
+    const matchingTerminals = terminalList.filter(t => t.taskId === taskNumber);
+    let stack = header.querySelector('.kanban-card-status-dots') as HTMLElement | null;
 
-    if (term) {
-      if (!dot) {
-        dot = document.createElement('span');
-        dot.className = 'kanban-card-status-dot';
-        header.insertBefore(dot, header.firstChild);
+    if (matchingTerminals.length > 0) {
+      if (!stack) {
+        stack = document.createElement('span');
+        stack.className = 'kanban-card-status-dots';
+        header.insertBefore(stack, header.firstChild);
       }
-      dot.setAttribute('data-status', term.summaryType);
-      const isSandboxed = term.container.querySelector('.theatre-card-status-dot--sandboxed') !== null;
-      dot.classList.toggle('kanban-card-status-dot--sandboxed', isSandboxed);
-    } else if (dot) {
-      dot.remove();
+      // Rebuild dots to match current terminal list
+      stack.innerHTML = '';
+      for (const term of matchingTerminals) {
+        const dot = document.createElement('span');
+        dot.className = 'kanban-card-status-dot';
+        dot.setAttribute('data-status', term.summaryType);
+        const isSandboxed = term.container.querySelector('.theatre-card-status-dot--sandboxed') !== null;
+        dot.classList.toggle('kanban-card-status-dot--sandboxed', isSandboxed);
+        stack.appendChild(dot);
+      }
+    } else if (stack) {
+      stack.remove();
     }
   });
 }
