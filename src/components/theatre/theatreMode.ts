@@ -398,6 +398,26 @@ export function exitTheatreMode(): void {
         }
       });
     }
+    // Re-attach add folder handler
+    const addFolderBtn = headerContent.querySelector('#add-folder-btn');
+    if (addFolderBtn) {
+      addFolderBtn.addEventListener('click', async () => {
+        const result = await window.api.showFolderPicker();
+        if (!result.canceled && result.filePaths.length > 0) {
+          const folderPath = result.filePaths[0];
+          const addResult = await window.api.addProject(folderPath);
+          if (addResult.success) {
+            await (window as any).refreshProjects?.();
+            const folderName = folderPath.split('/').pop() || folderPath;
+            const { showToast } = await import('../importDialog');
+            showToast(`Added project: ${folderName}`, 'success');
+          } else {
+            const { showToast } = await import('../importDialog');
+            showToast(addResult.error || 'Failed to add project', 'error');
+          }
+        }
+      });
+    }
   }
 
   // 4. Remove keyboard shortcuts and pop scope

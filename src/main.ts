@@ -31,6 +31,7 @@ const createWindow = (): BrowserWindow => {
 
   // Create the browser window.
   const isMac = process.platform === 'darwin';
+  const isLinux = process.platform === 'linux';
   const window = new BrowserWindow({
     width: 1200,
     height: 800,
@@ -39,6 +40,8 @@ const createWindow = (): BrowserWindow => {
     // macOS: hidden title bar with inset traffic lights
     // Linux/Windows: use default frame (has native window controls)
     ...(isMac && { titleBarStyle: 'hiddenInset', trafficLightPosition: { x: 16, y: 16 } }),
+    // Linux needs explicit icon (macOS uses .icns from app bundle)
+    ...(isLinux && { icon: path.join(__dirname, '..', '..', 'icon.png') }),
     backgroundColor,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
