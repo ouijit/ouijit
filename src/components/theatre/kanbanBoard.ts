@@ -166,6 +166,57 @@ function buildKanbanCard(task: TaskWithWorkspace, path: string, limaAvailable: b
   const name = document.createElement('span');
   name.className = 'kanban-card-name';
   name.textContent = task.name;
+
+  // Double-click to edit title inline
+  name.addEventListener('dblclick', (e) => {
+    e.stopPropagation();
+    clearTimeout(clickTimer);
+
+    const input = document.createElement('textarea');
+    input.className = 'kanban-card-name-input';
+    input.value = task.name;
+    input.rows = 1;
+    input.setAttribute('style', '-webkit-app-region: no-drag;');
+
+    const autoResize = () => {
+      input.style.height = 'auto';
+      input.style.height = input.scrollHeight + 'px';
+    };
+
+    let cancelled = false;
+
+    const restoreName = () => {
+      name.textContent = task.name;
+      header.replaceChild(name, input);
+    };
+
+    const commit = async () => {
+      if (cancelled) return;
+      const newName = input.value.trim();
+      if (newName && newName !== task.name) {
+        const result = await window.api.task.setName(path, task.taskNumber, newName);
+        if (result.success) {
+          task.name = newName;
+          invalidateTaskList();
+        }
+      }
+      restoreName();
+    };
+
+    input.addEventListener('input', autoResize);
+    input.addEventListener('blur', () => commit());
+    input.addEventListener('keydown', (ke) => {
+      ke.stopPropagation();
+      if (ke.key === 'Enter') { ke.preventDefault(); input.blur(); }
+      if (ke.key === 'Escape') { ke.preventDefault(); cancelled = true; restoreName(); }
+    });
+
+    header.replaceChild(input, name);
+    input.focus();
+    input.select();
+    autoResize();
+  });
+
   header.appendChild(name);
 
   const expandBtn = document.createElement('button');
@@ -187,12 +238,75 @@ function buildKanbanCard(task: TaskWithWorkspace, path: string, limaAvailable: b
     detail.appendChild(branchRow);
   }
 
-  if (task.prompt) {
-    const promptRow = document.createElement('div');
-    promptRow.className = 'kanban-card-detail-row';
-    promptRow.innerHTML = `<span class="kanban-card-detail-label">Description</span><span class="kanban-card-detail-value kanban-card-detail-value--clamp">${escapeHtml(task.prompt)}</span>`;
-    detail.appendChild(promptRow);
-  }
+  // Description row — always visible, with placeholder when empty
+  const promptRow = document.createElement('div');
+  promptRow.className = 'kanban-card-detail-row';
+
+  const promptLabel = document.createElement('span');
+  promptLabel.className = 'kanban-card-detail-label';
+  promptLabel.textContent = 'Description';
+  promptRow.appendChild(promptLabel);
+
+  const promptValue = document.createElement('span');
+  promptValue.className = 'kanban-card-detail-value' + (task.prompt ? ' kanban-card-detail-value--clamp' : ' kanban-card-detail-value--placeholder');
+  promptValue.textContent = task.prompt || 'Add description...';
+  promptRow.appendChild(promptValue);
+
+  // Enter description edit mode
+  const startDescriptionEdit = () => {
+    const textarea = document.createElement('textarea');
+    textarea.className = 'kanban-card-description-textarea';
+    textarea.value = task.prompt || '';
+    textarea.setAttribute('style', '-webkit-app-region: no-drag;');
+    let cancelled = false;
+
+    const restorePromptValue = () => {
+      promptValue.textContent = task.prompt || 'Add description...';
+      promptValue.className = 'kanban-card-detail-value' + (task.prompt ? ' kanban-card-detail-value--clamp' : ' kanban-card-detail-value--placeholder');
+      promptRow.replaceChild(promptValue, textarea);
+    };
+
+    const commitDesc = async () => {
+      if (cancelled) return;
+      const newDesc = textarea.value.trim();
+      if (newDesc !== (task.prompt || '')) {
+        const result = await window.api.task.setDescription(path, task.taskNumber, newDesc);
+        if (result.success) {
+          task.prompt = newDesc || undefined;
+          invalidateTaskList();
+        }
+      }
+      restorePromptValue();
+    };
+
+    textarea.addEventListener('blur', () => commitDesc());
+    textarea.addEventListener('keydown', (ke) => {
+      ke.stopPropagation();
+      if (ke.key === 'Enter' && !ke.shiftKey) { ke.preventDefault(); textarea.blur(); }
+      if (ke.key === 'Escape') { ke.preventDefault(); cancelled = true; restorePromptValue(); }
+    });
+
+    promptRow.replaceChild(textarea, promptValue);
+    textarea.focus();
+  };
+
+  // Double-click to edit existing description
+  promptValue.addEventListener('dblclick', (e) => {
+    e.stopPropagation();
+    clearTimeout(clickTimer);
+    startDescriptionEdit();
+  });
+
+  // Single click on placeholder to start editing
+  promptValue.addEventListener('click', (e) => {
+    if (!task.prompt) {
+      e.stopPropagation();
+      clearTimeout(clickTimer);
+      startDescriptionEdit();
+    }
+  });
+
+  detail.appendChild(promptRow);
 
   const dateRow = document.createElement('div');
   dateRow.className = 'kanban-card-detail-row';
@@ -243,6 +357,8 @@ function buildKanbanCard(task: TaskWithWorkspace, path: string, limaAvailable: b
   card.appendChild(detail);
 
   // Click anywhere on card toggles expand/collapse
+  let clickTimer: ReturnType<typeof setTimeout>;
+
   const toggleExpand = () => {
     const isExpanded = detail.classList.toggle('kanban-card-detail--visible');
     expandBtn.classList.toggle('kanban-card-expand--open', isExpanded);
@@ -255,11 +371,21 @@ function buildKanbanCard(task: TaskWithWorkspace, path: string, limaAvailable: b
   });
 
   card.addEventListener('click', () => {
-    toggleExpand();
+    clearTimeout(clickTimer);
+    clickTimer = setTimeout(() => toggleExpand(), 200);
+  });
+
+  card.addEventListener('dblclick', () => {
+    clearTimeout(clickTimer);
   });
 
   // Drag handlers
   card.addEventListener('dragstart', (e) => {
+    // Prevent drag when editing inline
+    if (card.querySelector('.kanban-card-name-input, .kanban-card-description-textarea')) {
+      e.preventDefault();
+      return;
+    }
     card.classList.add('kanban-card--dragging');
     e.dataTransfer?.setData('text/plain', String(task.taskNumber));
     if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move';

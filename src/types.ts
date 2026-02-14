@@ -266,6 +266,8 @@ export interface TaskAPI {
   delete(projectPath: string, taskNumber: number): Promise<{ success: boolean; error?: string }>;
   setMergeTarget(projectPath: string, taskNumber: number, mergeTarget: string): Promise<{ success: boolean; error?: string }>;
   setSandboxed(projectPath: string, taskNumber: number, sandboxed: boolean): Promise<{ success: boolean; error?: string }>;
+  setName(projectPath: string, taskNumber: number, name: string): Promise<{ success: boolean; error?: string }>;
+  setDescription(projectPath: string, taskNumber: number, description: string): Promise<{ success: boolean; error?: string }>;
 }
 
 /**

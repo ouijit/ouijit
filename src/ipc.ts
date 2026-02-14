@@ -24,6 +24,8 @@ import {
   setTaskStatus,
   setTaskMergeTarget,
   setTaskSandboxed,
+  setTaskName,
+  setTaskDescription,
   deleteTaskByNumber,
   getTask,
   getTaskByNumber,
@@ -465,6 +467,14 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
 
   ipcMain.handle('task:set-sandboxed', async (_event, projectPath: string, taskNumber: number, sandboxed: boolean): Promise<{ success: boolean; error?: string }> => {
     return setTaskSandboxed(projectPath, taskNumber, sandboxed);
+  });
+
+  ipcMain.handle('task:set-name', async (_event, projectPath: string, taskNumber: number, name: string): Promise<{ success: boolean; error?: string }> => {
+    return setTaskName(projectPath, taskNumber, name);
+  });
+
+  ipcMain.handle('task:set-description', async (_event, projectPath: string, taskNumber: number, description: string): Promise<{ success: boolean; error?: string }> => {
+    return setTaskDescription(projectPath, taskNumber, description);
   });
 
   // Hook handlers
