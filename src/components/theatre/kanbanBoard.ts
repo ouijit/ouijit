@@ -52,22 +52,9 @@ function buildKanbanCard(task: TaskWithWorkspace, path: string, limaAvailable: b
   card.dataset.taskNumber = String(task.taskNumber);
   card.setAttribute('style', '-webkit-app-region: no-drag;');
 
-  // Look up terminal for this task to get status dot info
-  const matchingTerminal = terminals.value.find(t => t.taskId === task.taskNumber);
-
-  // Header row
+  // Header row (status dot is managed by syncKanbanStatusDots)
   const header = document.createElement('div');
   header.className = 'kanban-card-header';
-
-  // Only show status dot if there's an active terminal session for this task
-  if (matchingTerminal) {
-    const dot = document.createElement('span');
-    dot.className = 'kanban-card-status-dot';
-    dot.setAttribute('data-status', matchingTerminal.summaryType);
-    const isSandboxed = matchingTerminal.container.querySelector('.theatre-card-status-dot--sandboxed') !== null;
-    if (isSandboxed) dot.classList.add('kanban-card-status-dot--sandboxed');
-    header.appendChild(dot);
-  }
 
   const name = document.createElement('span');
   name.className = 'kanban-card-name';
@@ -324,7 +311,6 @@ function setupColumnDropTargets(): void {
             };
           }
 
-          hideKanbanBoard();
           await theatreRegistry.addTheatreTerminal?.(runConfig, {
             existingWorktree: {
               path: startResult.worktreePath,
@@ -335,6 +321,7 @@ function setupColumnDropTargets(): void {
             taskId: taskNumber,
             sandboxed: false,
           });
+          await populateKanbanBoard();
           return;
         }
       }
@@ -387,6 +374,9 @@ async function populateKanbanBoard(): Promise<void> {
   import('lucide').then(({ createIcons, icons }) => {
     createIcons({ icons, nameAttr: 'data-lucide', attrs: {}, nodes: [board as HTMLElement] });
   });
+
+  // Sync status dots with current terminal state
+  syncKanbanStatusDots();
 }
 
 /**
@@ -560,6 +550,38 @@ function showStartCommandDialog(path: string, taskName: string): Promise<{ comma
 }
 
 /**
+ * Sync all kanban card status dots with current terminal state.
+ * Creates, updates, or removes dots as needed.
+ */
+export function syncKanbanStatusDots(): void {
+  const cards = document.querySelectorAll('.kanban-card[data-task-number]');
+  const terminalList = terminals.value;
+  cards.forEach(card => {
+    const taskNumber = parseInt((card as HTMLElement).dataset.taskNumber || '', 10);
+    if (isNaN(taskNumber)) return;
+
+    const header = card.querySelector('.kanban-card-header');
+    if (!header) return;
+
+    const term = terminalList.find(t => t.taskId === taskNumber);
+    let dot = header.querySelector('.kanban-card-status-dot') as HTMLElement | null;
+
+    if (term) {
+      if (!dot) {
+        dot = document.createElement('span');
+        dot.className = 'kanban-card-status-dot';
+        header.insertBefore(dot, header.firstChild);
+      }
+      dot.setAttribute('data-status', term.summaryType);
+      const isSandboxed = term.container.querySelector('.theatre-card-status-dot--sandboxed') !== null;
+      dot.classList.toggle('kanban-card-status-dot--sandboxed', isSandboxed);
+    } else if (dot) {
+      dot.remove();
+    }
+  });
+}
+
+/**
  * Show the kanban board
  */
 export async function showKanbanBoard(): Promise<void> {
@@ -676,3 +698,4 @@ export async function refreshKanbanBoard(): Promise<void> {
 
 // Register in the theatre registry for cross-module access
 theatreRegistry.toggleKanbanBoard = toggleKanbanBoard;
+theatreRegistry.syncKanbanStatusDots = syncKanbanStatusDots;

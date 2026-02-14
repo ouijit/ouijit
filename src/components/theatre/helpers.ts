@@ -23,6 +23,7 @@ interface TheatreRegistry {
   playOrToggleRunner: (() => Promise<void>) | null;
   // From kanbanBoard
   toggleKanbanBoard: (() => void) | null;
+  syncKanbanStatusDots: (() => void) | null;
   // From diffPanel
   toggleActiveDiffPanel: (() => Promise<void>) | null;
   // From shipItPanel
@@ -36,6 +37,7 @@ export const theatreRegistry: TheatreRegistry = {
   refreshTaskIndex: null,
   createNewAgentShell: null,
   toggleKanbanBoard: null,
+  syncKanbanStatusDots: null,
   addTheatreTerminal: null,
   closeTheatreTerminal: null,
   playOrToggleRunner: null,

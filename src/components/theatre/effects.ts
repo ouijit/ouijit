@@ -16,7 +16,7 @@ import {
 // Direct imports - these modules import from signals.ts, not effects.ts, so no circular dep
 import { updateCardStack, showStackEmptyState, hideStackEmptyState, refreshEmptyStateTasks } from './terminalCards';
 import { syncDiffPanelToActiveTerminal } from './diffPanel';
-import { refreshKanbanBoard } from './kanbanBoard';
+import { refreshKanbanBoard, syncKanbanStatusDots } from './kanbanBoard';
 
 // Track whether effects are initialized
 let effectsInitialized = false;
@@ -112,6 +112,19 @@ export function initializeEffects(): void {
         refreshKanbanBoard();
       }
       lastTaskVersionForKanban = ver;
+    })
+  );
+
+  // Effect: Sync kanban status dots when terminals are added/removed
+  cleanupFunctions.push(
+    effect(() => {
+      const _terminals = terminals.value; // subscribe to terminal list changes
+      const visible = kanbanVisible.value;
+      if (visible) {
+        // Use void to ensure the subscription triggers even if sync is a no-op
+        void _terminals.length;
+        syncKanbanStatusDots();
+      }
     })
   );
 

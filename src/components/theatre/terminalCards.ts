@@ -226,6 +226,9 @@ export function updateTerminalCardLabel(term: TheatreTerminal): void {
       }
     }
   }
+
+  // Sync kanban card status dot if the board is visible
+  theatreRegistry.syncKanbanStatusDots?.();
 }
 
 /**
@@ -1271,6 +1274,7 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
     cols: terminal.cols,
     rows: terminal.rows,
     label,
+    taskId: options?.taskId,
     worktreePath: worktreeInfo?.path,
     env: startEnv,
     sandboxed: useSandbox,
