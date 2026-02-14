@@ -13,5 +13,6 @@
     "resolveJsonModule": true,
     "types": ["vite/client"]
   },
-  "include": ["src", "forge.env.d.ts"]
+  "include": ["src", "forge.env.d.ts"],
+  "exclude": ["src/__tests__"]
 }
