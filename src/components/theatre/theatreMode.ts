@@ -20,6 +20,7 @@ import {
   diffPanelFiles,
   diffPanelSelectedFile,
   sandboxDropdownVisible,
+  kanbanVisible,
   resetSignals,
 } from './signals';
 import { initializeEffects } from './effects';
@@ -50,8 +51,7 @@ import {
   hideLaunchDropdown,
 } from './launchDropdown';
 import { createNewAgentShell } from './worktreeDropdown';
-import { toggleTaskIndex, hideTaskIndex } from './taskIndex';
-import { hideKanbanBoard } from './kanbanBoard';
+import { hideKanbanBoard, showKanbanBoard } from './kanbanBoard';
 import { theatreRegistry } from './helpers';
 import { registerHotkey, unregisterHotkey, pushScope, popScope, Scopes, platformHotkey } from '../../utils/hotkeys';
 
@@ -123,6 +123,9 @@ export async function enterTheatreMode(
     if (sandboxWrapper) {
       wireSandboxButton(sandboxWrapper, path);
     }
+
+    // Wire up view toggle buttons
+    wireViewToggle(headerContent);
 
   }
 
@@ -279,7 +282,6 @@ export async function enterTheatreMode(
   // Use platformHotkey() to convert 'mod+' to 'command+' on Mac or 'ctrl+' on Linux/Windows
   pushScope(Scopes.THEATRE);
   registerHotkey(platformHotkey('mod+n'), Scopes.THEATRE, () => createNewAgentShell());
-  registerHotkey(platformHotkey('mod+t'), Scopes.THEATRE, () => toggleTaskIndex());
   registerHotkey(platformHotkey('mod+b'), Scopes.THEATRE, () => theatreRegistry.toggleKanbanBoard?.());
   registerHotkey(platformHotkey('mod+i'), Scopes.THEATRE, () => addTheatreTerminal());
   registerHotkey(platformHotkey('mod+p'), Scopes.THEATRE, () => theatreRegistry.playOrToggleRunner?.());
@@ -394,7 +396,6 @@ export function exitTheatreMode(): void {
 
   // 4. Remove keyboard shortcuts and pop scope
   unregisterHotkey(platformHotkey('mod+n'), Scopes.THEATRE);
-  unregisterHotkey(platformHotkey('mod+t'), Scopes.THEATRE);
   unregisterHotkey(platformHotkey('mod+b'), Scopes.THEATRE);
   unregisterHotkey(platformHotkey('mod+i'), Scopes.THEATRE);
   unregisterHotkey(platformHotkey('mod+p'), Scopes.THEATRE);
@@ -428,10 +429,7 @@ export function exitTheatreMode(): void {
   // 8. Hide diff panel
   hideDiffPanel();
 
-  // 9. Hide task index panel
-  hideTaskIndex();
-
-  // 10. Hide kanban board
+  // 9. Hide kanban board
   hideKanbanBoard();
 
   theatreState.originalHeaderContent = null;
@@ -557,6 +555,9 @@ export async function restoreTheatreMode(
       wireSandboxButton(sandboxWrapper, path);
     }
 
+    // Wire up view toggle buttons
+    wireViewToggle(headerContent);
+
   }
 
   // 3. Create stack and restore terminals
@@ -603,7 +604,6 @@ export async function restoreTheatreMode(
   // 4. Set up keyboard shortcuts
   pushScope(Scopes.THEATRE);
   registerHotkey(platformHotkey('mod+n'), Scopes.THEATRE, () => createNewAgentShell());
-  registerHotkey(platformHotkey('mod+t'), Scopes.THEATRE, () => toggleTaskIndex());
   registerHotkey(platformHotkey('mod+b'), Scopes.THEATRE, () => theatreRegistry.toggleKanbanBoard?.());
   registerHotkey(platformHotkey('mod+i'), Scopes.THEATRE, () => addTheatreTerminal());
   registerHotkey(platformHotkey('mod+p'), Scopes.THEATRE, () => theatreRegistry.playOrToggleRunner?.());
@@ -957,6 +957,36 @@ async function reconnectRunnerToParent(
   updateRunnerPill(parentTerminal);
 
   console.log('[Theatre] Reconnected runner to parent terminal:', session.ptyId, '->', parentTerminal.ptyId);
+}
+
+/**
+ * Wire up the view toggle buttons in the header
+ */
+function wireViewToggle(headerContent: Element): void {
+  const toggleBtns = headerContent.querySelectorAll('.theatre-view-toggle-btn');
+  toggleBtns.forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const view = (btn as HTMLElement).dataset.view;
+      if (view === 'board') {
+        showKanbanBoard();
+      } else {
+        hideKanbanBoard();
+      }
+    });
+  });
+}
+
+/**
+ * Sync the view toggle buttons' active state with kanban visibility
+ */
+export function syncViewToggle(): void {
+  const btns = document.querySelectorAll('.theatre-view-toggle-btn');
+  btns.forEach(btn => {
+    const view = (btn as HTMLElement).dataset.view;
+    const isBoard = view === 'board';
+    btn.classList.toggle('theatre-view-toggle-btn--active', isBoard === kanbanVisible.value);
+  });
 }
 
 /**

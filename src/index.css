@@ -1966,95 +1966,6 @@ body > .diff-panel--visible {
   @apply flex flex-wrap gap-1 justify-center;
 }
 
-/* ==========================================
-   Task Index Panel
-   ========================================== */
-
-.task-index-panel {
-  @apply fixed top-[82px] left-4 bottom-4 w-0 bg-transparent z-[150] flex flex-col overflow-hidden opacity-0 transition-all duration-200 ease-out;
-  transform: translateX(-10px);
-}
-
-.task-index-panel--visible {
-  @apply w-[260px] opacity-100;
-  transform: translateX(0);
-}
-
-/* Adjust theatre stack when task index is open */
-body.task-index-open .theatre-stack {
-  left: calc(16px + 260px + 16px);
-}
-
-.task-index-header {
-  @apply flex items-center justify-between pt-2 pb-1 px-1 shrink-0;
-}
-
-.task-index-title {
-  @apply text-[11px] font-medium text-text-secondary m-0 uppercase tracking-wide;
-}
-
-.task-index-close {
-  @apply flex items-center justify-center w-7 h-7 p-0 bg-transparent border-none rounded-md text-text-secondary opacity-70 transition-all duration-150 ease-out;
-}
-
-.task-index-close:hover {
-  @apply bg-white/[0.08] text-text-primary opacity-100;
-}
-
-.task-index-close svg {
-  @apply w-3.5 h-3.5;
-}
-
-.task-index-content {
-  @apply flex-1 overflow-y-auto p-0;
-}
-
-.task-index-list {
-  @apply flex flex-col gap-px;
-}
-
-.task-index-closed-disclosure {
-  @apply mt-6 pt-0;
-}
-
-.task-index-closed-summary {
-  @apply block px-1 py-1.5 text-[11px] text-text-secondary opacity-70 transition-opacity duration-150 ease-out;
-}
-
-.task-index-closed-summary::-webkit-details-marker {
-  @apply hidden;
-}
-
-.task-index-closed-disclosure[open] .task-index-closed-summary,
-.task-index-closed-summary:hover {
-  @apply opacity-100;
-}
-
-.task-index-item {
-  @apply flex items-center justify-between w-full px-1 py-1.5 bg-transparent border-none rounded-md text-text-primary text-sm text-left transition-opacity duration-150 ease-out;
-  opacity: 0.8;
-}
-
-.task-index-item:hover {
-  opacity: 1;
-}
-
-.task-index-item--closed {
-  @apply opacity-40;
-}
-
-.task-index-item--closed:hover {
-  @apply opacity-60;
-}
-
-.task-index-item-name {
-  @apply flex-1 truncate font-normal;
-}
-
-.task-index-item-shortcut {
-  @apply inline-flex items-center font-mono text-base text-text-secondary mr-1 shrink-0;
-}
-
 /* Smaller numbers in shortcut hints (e.g., ⌘1 where 1 is smaller) */
 .shortcut-number {
   @apply text-xs;
@@ -2064,7 +1975,6 @@ body.task-index-open .theatre-stack {
 body.platform-other .theatre-stack-empty-hint-shortcut,
 body.platform-other .theatre-stack-empty-section-shortcut,
 body.platform-other .theatre-stack-empty-task-shortcut,
-body.platform-other .task-index-item-shortcut,
 body.platform-other .theatre-card-shortcut {
   @apply text-[11px];
 }
@@ -2073,52 +1983,29 @@ body.platform-other .shortcut-number {
   @apply text-[11px];
 }
 
-.task-index-item-actions {
-  @apply flex gap-0.5 w-0 overflow-hidden opacity-0 transition-all duration-150 ease-out;
+/* ==========================================
+   View Toggle (Stack / Board)
+   ========================================== */
+
+.theatre-view-toggle {
+  @apply flex items-center ml-3 bg-background-secondary border border-border rounded-md overflow-hidden;
+  -webkit-app-region: no-drag;
 }
 
-.task-index-item:hover .task-index-item-actions {
-  @apply w-[60px] opacity-100;
+.theatre-view-toggle-btn {
+  @apply w-8 h-8 flex items-center justify-center text-text-tertiary transition-all duration-150 ease-out;
 }
 
-.task-index-item-action {
-  @apply flex items-center justify-center w-7 h-7 shrink-0 p-0 bg-transparent border-none rounded-md text-text-secondary transition-all duration-150 ease-out;
+.theatre-view-toggle-btn:hover {
+  @apply text-text-secondary bg-background-tertiary;
 }
 
-.task-index-item-action:hover {
-  @apply text-text-primary;
+.theatre-view-toggle-btn--active {
+  @apply text-text-primary bg-background-tertiary;
 }
 
-.task-index-item-action--close:hover {
-  @apply text-text-primary;
-}
-
-.task-index-item-action--danger:hover {
-  @apply text-error;
-}
-
-.task-index-item-action svg {
-  @apply !w-3.5 !h-3.5;
-}
-
-.task-index-empty {
-  @apply text-left text-text-secondary text-sm px-1 py-4;
-}
-
-.task-index-header-actions {
-  @apply flex items-center gap-0.5;
-}
-
-.task-index-board-btn {
-  @apply flex items-center justify-center w-7 h-7 p-0 bg-transparent border-none rounded-md text-text-secondary opacity-70 transition-all duration-150 ease-out;
-}
-
-.task-index-board-btn:hover {
-  @apply bg-white/[0.08] text-text-primary opacity-100;
-}
-
-.task-index-board-btn svg {
-  @apply w-3.5 h-3.5;
+.theatre-view-toggle-btn svg {
+  @apply w-4 h-4;
 }
 
 /* ==========================================
@@ -2127,11 +2014,6 @@ body.platform-other .shortcut-number {
 
 /* Hide terminal stack when kanban is open (terminals keep running) */
 body.kanban-open .theatre-stack {
-  display: none;
-}
-
-/* Hide task index sidebar when kanban is open */
-body.kanban-open .task-index-panel {
   display: none;
 }
 

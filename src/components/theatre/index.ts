@@ -113,14 +113,6 @@ export {
   isInTheatreMode,
 } from './theatreMode';
 
-// Task index
-export {
-  showTaskIndex,
-  hideTaskIndex,
-  toggleTaskIndex,
-  refreshTaskIndex,
-} from './taskIndex';
-
 // Worktree/task operations
 export {
   createNewAgentShell,

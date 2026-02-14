@@ -12,9 +12,6 @@ import type { TheatreTerminal } from './state';
  * allowing other modules to call them without direct imports
  */
 interface TheatreRegistry {
-  // From taskIndex
-  toggleTaskIndex: (() => void) | null;
-  refreshTaskIndex: (() => Promise<void>) | null;
   // From worktreeDropdown
   createNewAgentShell: (() => void) | null;
   // From terminalCards
@@ -33,8 +30,6 @@ interface TheatreRegistry {
 }
 
 export const theatreRegistry: TheatreRegistry = {
-  toggleTaskIndex: null,
-  refreshTaskIndex: null,
   createNewAgentShell: null,
   toggleKanbanBoard: null,
   syncKanbanStatusDots: null,

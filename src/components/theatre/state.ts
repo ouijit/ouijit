@@ -90,9 +90,6 @@ export const theatreState = {
   launchDropdownCleanup: null as (() => void) | null,
   sandboxDropdownCleanup: null as (() => void) | null,
 
-  // Cleanup function for task index panel
-  taskIndexCleanup: null as (() => void) | null,
-
   // Cleanup function for kanban board
   kanbanCleanup: null as (() => void) | null,
 };

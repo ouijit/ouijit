@@ -1592,7 +1592,7 @@ export function buildEmptyStateHtml(limaAvailable: boolean): string {
         </form>
       </div>
       <div class="theatre-stack-empty-hints">
-        <span class="theatre-stack-empty-hint"><span class="theatre-stack-empty-hint-shortcut">${isMac ? '⌘' : 'Ctrl+'}<span class="shortcut-number">T</span></span>All Tasks</span>
+        <span class="theatre-stack-empty-hint"><span class="theatre-stack-empty-hint-shortcut">${isMac ? '⌘' : 'Ctrl+'}<span class="shortcut-number">B</span></span>Board</span>
       </div>
     </div>
   `;

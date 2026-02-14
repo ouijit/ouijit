@@ -25,7 +25,6 @@ export const Scopes = {
   APP: 'app',
   PROJECT_LIST: 'project-list',
   THEATRE: 'theatre',
-  TASK_INDEX: 'task-index',
   KANBAN: 'kanban',
   MODAL: 'modal',
   DROPDOWN: 'dropdown',

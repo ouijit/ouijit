@@ -10,7 +10,6 @@ import {
   activeTerminal,
   projectPath,
   taskVersion,
-  taskIndexVisible,
   kanbanVisible,
 } from './signals';
 // Direct imports - these modules import from signals.ts, not effects.ts, so no circular dep
@@ -83,21 +82,6 @@ export function initializeEffects(): void {
           syncDiffPanelToActiveTerminal();
         });
       }
-    })
-  );
-
-  // Effect: Auto-refresh task index when taskVersion bumps
-  let lastTaskVersionForIndex = taskVersion.value;
-  cleanupFunctions.push(
-    effect(() => {
-      const ver = taskVersion.value;
-      const visible = taskIndexVisible.value;
-      if (ver !== lastTaskVersionForIndex && visible) {
-        lastTaskVersionForIndex = ver;
-        // Dynamic import to avoid circular dependency
-        import('./taskIndex').then(({ refreshTaskIndex }) => refreshTaskIndex());
-      }
-      lastTaskVersionForIndex = ver;
     })
   );
 

@@ -8,9 +8,20 @@ import { projectPath, kanbanVisible, terminals, activeIndex, invalidateTaskList 
 import { theatreRegistry, showTaskContextMenu } from './helpers';
 import { reopenTask, deleteTask, closeTask } from './worktreeDropdown';
 import { switchToTheatreTerminal } from './terminalCards';
-import { hideTaskIndex } from './taskIndex';
 import { escapeHtml } from '../../utils/html';
 import { registerHotkey, unregisterHotkey, pushScope, popScope, Scopes, platformHotkey } from '../../utils/hotkeys';
+
+/**
+ * Sync the view toggle buttons' active state with kanban visibility
+ */
+function syncViewToggle(): void {
+  const btns = document.querySelectorAll('.theatre-view-toggle-btn');
+  btns.forEach(btn => {
+    const view = (btn as HTMLElement).dataset.view;
+    const isBoard = view === 'board';
+    btn.classList.toggle('theatre-view-toggle-btn--active', isBoard === kanbanVisible.value);
+  });
+}
 
 /** Column definitions matching TaskStatus values */
 const KANBAN_COLUMNS: { status: TaskStatus; label: string }[] = [
@@ -588,9 +599,6 @@ export async function showKanbanBoard(): Promise<void> {
   if (kanbanVisible.value) return;
   kanbanVisible.value = true;
 
-  // Close task index if open
-  hideTaskIndex();
-
   const mainContent = document.querySelector('.main-content');
   if (!mainContent) {
     kanbanVisible.value = false;
@@ -652,6 +660,9 @@ export async function showKanbanBoard(): Promise<void> {
     unregisterHotkey(platformHotkey('mod+n'), Scopes.KANBAN);
     popScope();
   };
+
+  // Sync view toggle in header
+  syncViewToggle();
 }
 
 /**
@@ -674,6 +685,9 @@ export function hideKanbanBoard(): void {
   }
 
   kanbanVisible.value = false;
+
+  // Sync view toggle in header
+  syncViewToggle();
 }
 
 /**

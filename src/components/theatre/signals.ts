@@ -35,9 +35,6 @@ export const launchDropdownVisible = signal(false);
 export const sandboxDropdownVisible = signal(false);
 export const diffFileDropdownVisible = signal(false);
 
-// Task index panel visibility
-export const taskIndexVisible = signal(false);
-
 // Kanban board visibility
 export const kanbanVisible = signal(false);
 
@@ -68,7 +65,6 @@ export function resetSignals(): void {
   launchDropdownVisible.value = false;
   sandboxDropdownVisible.value = false;
   diffFileDropdownVisible.value = false;
-  taskIndexVisible.value = false;
   kanbanVisible.value = false;
   taskVersion.value = 0;
 }
