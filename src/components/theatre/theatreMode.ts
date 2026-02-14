@@ -283,6 +283,7 @@ export async function enterTheatreMode(
   pushScope(Scopes.THEATRE);
   registerHotkey(platformHotkey('mod+n'), Scopes.THEATRE, () => createNewAgentShell());
   registerHotkey(platformHotkey('mod+b'), Scopes.THEATRE, () => theatreRegistry.toggleKanbanBoard?.());
+  registerHotkey(platformHotkey('mod+t'), Scopes.THEATRE, () => theatreRegistry.toggleKanbanBoard?.());
   registerHotkey(platformHotkey('mod+i'), Scopes.THEATRE, () => addTheatreTerminal());
   registerHotkey(platformHotkey('mod+p'), Scopes.THEATRE, () => theatreRegistry.playOrToggleRunner?.());
   registerHotkey(platformHotkey('mod+d'), Scopes.THEATRE, () => theatreRegistry.toggleActiveDiffPanel?.());
@@ -397,6 +398,7 @@ export function exitTheatreMode(): void {
   // 4. Remove keyboard shortcuts and pop scope
   unregisterHotkey(platformHotkey('mod+n'), Scopes.THEATRE);
   unregisterHotkey(platformHotkey('mod+b'), Scopes.THEATRE);
+  unregisterHotkey(platformHotkey('mod+t'), Scopes.THEATRE);
   unregisterHotkey(platformHotkey('mod+i'), Scopes.THEATRE);
   unregisterHotkey(platformHotkey('mod+p'), Scopes.THEATRE);
   unregisterHotkey(platformHotkey('mod+d'), Scopes.THEATRE);
@@ -605,6 +607,7 @@ export async function restoreTheatreMode(
   pushScope(Scopes.THEATRE);
   registerHotkey(platformHotkey('mod+n'), Scopes.THEATRE, () => createNewAgentShell());
   registerHotkey(platformHotkey('mod+b'), Scopes.THEATRE, () => theatreRegistry.toggleKanbanBoard?.());
+  registerHotkey(platformHotkey('mod+t'), Scopes.THEATRE, () => theatreRegistry.toggleKanbanBoard?.());
   registerHotkey(platformHotkey('mod+i'), Scopes.THEATRE, () => addTheatreTerminal());
   registerHotkey(platformHotkey('mod+p'), Scopes.THEATRE, () => theatreRegistry.playOrToggleRunner?.());
   registerHotkey(platformHotkey('mod+d'), Scopes.THEATRE, () => theatreRegistry.toggleActiveDiffPanel?.());
