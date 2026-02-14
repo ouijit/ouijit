@@ -40,9 +40,10 @@ function buildKanbanHtml(): string {
       <div class="kanban-column-header">
         <span class="kanban-column-title">${col.label}</span>
         <span class="kanban-column-count">0</span>
-        ${col.status === 'todo' ? '<button class="kanban-add-btn" title="Add task" style="-webkit-app-region: no-drag;"><i data-lucide="plus"></i></button>' : ''}
       </div>
-      <div class="kanban-column-body"></div>
+      <div class="kanban-column-body">
+        ${col.status === 'todo' ? '<input type="text" class="kanban-add-input" placeholder="New task..." style="-webkit-app-region: no-drag;" />' : ''}
+      </div>
     </div>
   `).join('');
 
@@ -58,7 +59,7 @@ function buildKanbanHtml(): string {
  */
 function buildKanbanCard(task: TaskWithWorkspace, path: string, limaAvailable: boolean): HTMLElement {
   const card = document.createElement('div');
-  card.className = 'kanban-card';
+  card.className = 'kanban-card' + (task.status === 'done' ? ' kanban-card--done' : '');
   card.draggable = true;
   card.dataset.taskNumber = String(task.taskNumber);
   card.setAttribute('style', '-webkit-app-region: no-drag;');
@@ -83,7 +84,6 @@ function buildKanbanCard(task: TaskWithWorkspace, path: string, limaAvailable: b
   // Detail section (hidden by default)
   const detail = document.createElement('div');
   detail.className = 'kanban-card-detail';
-  detail.style.display = 'none';
 
   if (task.branch) {
     const branchRow = document.createElement('div');
@@ -150,9 +150,8 @@ function buildKanbanCard(task: TaskWithWorkspace, path: string, limaAvailable: b
   // Expand toggle
   expandBtn.addEventListener('click', (e) => {
     e.stopPropagation();
-    const isExpanded = detail.style.display !== 'none';
-    detail.style.display = isExpanded ? 'none' : 'block';
-    expandBtn.classList.toggle('kanban-card-expand--open', !isExpanded);
+    const isExpanded = detail.classList.toggle('kanban-card-detail--visible');
+    expandBtn.classList.toggle('kanban-card-expand--open', isExpanded);
   });
 
   // Click to open terminal — switch to existing session if one is open
@@ -370,14 +369,31 @@ async function populateKanbanBoard(): Promise<void> {
     const count = column.querySelector('.kanban-column-count') as HTMLElement;
     if (!body) continue;
 
+    // Preserve the persistent input if present
+    const persistentInput = body.querySelector('.kanban-add-input') as HTMLInputElement | null;
     body.innerHTML = '';
-    const columnTasks = tasks.filter(t => t.status === col.status);
+    const columnTasks = tasks.filter(t => t.status === col.status)
+      .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 
     if (count) count.textContent = String(columnTasks.length);
 
     for (const task of columnTasks) {
       const card = buildKanbanCard(task, path, limaAvailable);
       body.appendChild(card);
+    }
+
+    // Re-append the persistent input at the end of the todo column
+    if (col.status === 'todo') {
+      if (persistentInput) {
+        body.appendChild(persistentInput);
+      } else {
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'kanban-add-input';
+        input.placeholder = 'New task...';
+        input.setAttribute('style', '-webkit-app-region: no-drag;');
+        body.appendChild(input);
+      }
     }
   }
 
@@ -391,54 +407,33 @@ async function populateKanbanBoard(): Promise<void> {
 }
 
 /**
- * Prompt for a task name and create a todo task (no terminal)
+ * Wire up the persistent add-task input in the todo column
  */
-async function addTodoTask(): Promise<void> {
-  const path = projectPath.value;
-  if (!path) return;
+function wireAddInput(board: Element): void {
+  const input = board.querySelector('.kanban-add-input') as HTMLInputElement | null;
+  if (!input || input.dataset.wired) return;
+  input.dataset.wired = '1';
 
-  const todoColumn = document.querySelector('.kanban-column[data-status="todo"]');
-  if (!todoColumn) return;
-  const body = todoColumn.querySelector('.kanban-column-body') as HTMLElement;
-  if (!body) return;
-
-  // Create inline input at the top of the todo column
-  const input = document.createElement('input');
-  input.type = 'text';
-  input.className = 'kanban-add-input';
-  input.placeholder = 'Task name...';
-  input.setAttribute('style', '-webkit-app-region: no-drag;');
-  body.prepend(input);
-  input.focus();
-
-  let submitting = false;
-
-  const cleanup = () => {
-    if (input.parentNode) input.remove();
-  };
-
-  const submit = async () => {
-    const name = input.value.trim();
-    submitting = true;
-    cleanup();
-    if (!name) return;
-    await window.api.task.create(path, name);
-    invalidateTaskList();
-    await populateKanbanBoard();
-  };
-
-  input.addEventListener('keydown', (e) => {
+  input.addEventListener('keydown', async (e) => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      submit();
+      const name = input.value.trim();
+      if (!name) return;
+      const path = projectPath.value;
+      if (!path) return;
+      input.value = '';
+      await window.api.task.create(path, name);
+      invalidateTaskList();
+      await populateKanbanBoard();
+      // Re-wire and focus since populateKanbanBoard may recreate the input
+      wireAddInput(board);
+      const newInput = board.querySelector('.kanban-add-input') as HTMLInputElement | null;
+      if (newInput) newInput.focus();
     } else if (e.key === 'Escape') {
       e.preventDefault();
-      cleanup();
+      input.value = '';
+      input.blur();
     }
-  });
-
-  input.addEventListener('blur', () => {
-    if (!submitting) cleanup();
   });
 }
 
@@ -613,11 +608,8 @@ export async function showKanbanBoard(): Promise<void> {
     return;
   }
 
-  // Wire up add button in the todo column
-  const addBtn = board.querySelector('.kanban-add-btn');
-  if (addBtn) {
-    addBtn.addEventListener('click', () => addTodoTask());
-  }
+  // Wire up persistent add input in the todo column
+  wireAddInput(board);
 
   // Set up drop targets
   setupColumnDropTargets();
@@ -655,7 +647,8 @@ export async function showKanbanBoard(): Promise<void> {
   });
 
   registerHotkey(platformHotkey('mod+n'), Scopes.KANBAN, () => {
-    addTodoTask();
+    const input = document.querySelector('.kanban-add-input') as HTMLInputElement | null;
+    if (input) input.focus();
   });
 
   theatreState.kanbanCleanup = () => {
