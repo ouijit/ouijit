@@ -32,6 +32,7 @@ function showKanbanCardContextMenu(
   event: MouseEvent,
   onOpenTerminal: () => void,
   onSandbox: (() => void) | null,
+  onOpenInEditor: (() => void) | null,
   connectedTerminals: { terminal: TheatreTerminal; index: number }[],
   onSwitchTerminal: (index: number) => void,
   onCloseOrReopen: () => void,
@@ -113,6 +114,19 @@ function showKanbanCardContextMenu(
     menu.appendChild(sandboxItem);
   }
 
+  // "Open in Editor" option (only if task has a worktree path)
+  if (onOpenInEditor) {
+    const editorItem = document.createElement('button');
+    editorItem.className = 'task-context-menu-item';
+    editorItem.innerHTML = '<i data-lucide="code"></i> Open in Editor';
+    editorItem.addEventListener('click', (e) => {
+      e.stopPropagation();
+      menu.remove();
+      onOpenInEditor();
+    });
+    menu.appendChild(editorItem);
+  }
+
   // Separator before task actions
   const actionSeparator = document.createElement('div');
   actionSeparator.className = 'task-context-menu-separator';
@@ -148,7 +162,7 @@ function showKanbanCardContextMenu(
 
   // Position at mouse, keeping within viewport
   const menuWidth = 200;
-  const itemCount = 1 + (onSandbox ? 1 : 0) + connectedTerminals.length + 2; // +2 for close/reopen and delete
+  const itemCount = 1 + (onSandbox ? 1 : 0) + (onOpenInEditor ? 1 : 0) + connectedTerminals.length + 2; // +2 for close/reopen and delete
   const separatorCount = (connectedTerminals.length > 0 ? 1 : 0) + 1; // +1 for action separator
   const menuHeight = 32 * itemCount + 9 * separatorCount;
   const x = Math.min(event.clientX, window.innerWidth - menuWidth);
@@ -203,7 +217,7 @@ function buildKanbanHtml(): string {
 /**
  * Build a kanban card DOM element for a task
  */
-function buildKanbanCard(task: TaskWithWorkspace, path: string, limaAvailable: boolean): HTMLElement {
+function buildKanbanCard(task: TaskWithWorkspace, path: string, limaAvailable: boolean, editorConfigured: boolean): HTMLElement {
   const card = document.createElement('div');
   card.className = 'kanban-card' + (task.status === 'done' ? ' kanban-card--done' : '');
   card.draggable = true;
@@ -532,7 +546,11 @@ function buildKanbanCard(task: TaskWithWorkspace, path: string, limaAvailable: b
       await deleteTask(path, task);
     };
 
-    showKanbanCardContextMenu(e, onOpenTerminal, onSandbox, connectedTerminals, onSwitchTerminal, onCloseOrReopen, closeOrReopenLabel, onDelete);
+    const onOpenInEditor = (editorConfigured && task.worktreePath) ? () => {
+      window.api.openInEditor(path, task.worktreePath!);
+    } : null;
+
+    showKanbanCardContextMenu(e, onOpenTerminal, onSandbox, onOpenInEditor, connectedTerminals, onSwitchTerminal, onCloseOrReopen, closeOrReopenLabel, onDelete);
   });
 
   return card;
@@ -673,10 +691,12 @@ async function populateKanbanBoard(): Promise<void> {
   const board = document.querySelector('.kanban-board');
   if (!board) return;
 
-  const [tasks, limaAvailable] = await Promise.all([
+  const [tasks, limaAvailable, hooks] = await Promise.all([
     window.api.task.getAll(path),
     window.api.lima.status(path).then(s => s.available).catch(() => false),
+    window.api.hooks.get(path).catch(() => ({} as Awaited<ReturnType<typeof window.api.hooks.get>>)),
   ]);
+  const editorConfigured = !!hooks.editor;
 
   // Distribute tasks into columns
   for (const col of KANBAN_COLUMNS) {
@@ -696,7 +716,7 @@ async function populateKanbanBoard(): Promise<void> {
     if (count) count.textContent = String(columnTasks.length);
 
     for (const task of columnTasks) {
-      const card = buildKanbanCard(task, path, limaAvailable);
+      const card = buildKanbanCard(task, path, limaAvailable, editorConfigured);
       body.appendChild(card);
     }
 

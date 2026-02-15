@@ -281,6 +281,7 @@ export function createTheatreCard(label: string, index: number): HTMLElement {
           <span class="runner-pill-label"></span>
         </div>
       </div>
+      <button class="theatre-card-editor-btn theatre-card-action--worktree" style="display: none;" title="Open in editor"><i data-lucide="code"></i></button>
       <button class="theatre-card-ship-btn theatre-card-action--worktree" style="display: none;" title="Ship changes to main"><i data-lucide="rocket"></i></button>
       <button class="theatre-card-close-task theatre-card-action--worktree" style="display: none;" title="Close task"><i data-lucide="archive"></i></button>
       <button class="theatre-card-close" title="Close terminal"><i data-lucide="x"></i></button>
@@ -400,6 +401,23 @@ export function setupCardActions(term: TheatreTerminal): void {
 
   // Show worktree-specific buttons for worktree terminals
   if (term.taskId != null) {
+    // Editor button — only shown if editor hook is configured
+    const editorBtn = labelEl.querySelector('.theatre-card-editor-btn') as HTMLElement;
+    if (editorBtn && term.worktreePath) {
+      const projPath = projectPath.value;
+      if (projPath) {
+        window.api.hooks.get(projPath).then(hooks => {
+          if (hooks.editor) {
+            editorBtn.style.display = 'flex';
+            editorBtn.addEventListener('click', (e) => {
+              e.stopPropagation();
+              window.api.openInEditor(projPath, term.worktreePath!);
+            });
+          }
+        }).catch(() => { /* no hooks configured */ });
+      }
+    }
+
     // Ship button
     const shipBtn = labelEl.querySelector('.theatre-card-ship-btn') as HTMLElement;
     if (shipBtn) {

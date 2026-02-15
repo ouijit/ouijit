@@ -14,6 +14,7 @@ const HOOK_HINTS: Record<string, string> = {
   continue: 'Runs when reopening an existing task',
   run: 'Runs when you click the play button',
   cleanup: 'Runs before archiving a task',
+  editor: 'Opens the task worktree in your editor',
 };
 
 /**
@@ -172,6 +173,7 @@ export async function buildLaunchDropdownContent(dropdown: HTMLElement): Promise
     killExistingOnRun: settings.killExistingOnRun,
   }));
   hooksContainer.appendChild(buildHookRow('cleanup', 'Cleanup', hooks.cleanup, path));
+  hooksContainer.appendChild(buildHookRow('editor', 'Editor', hooks.editor, path));
 
   dropdown.appendChild(hooksContainer);
 }

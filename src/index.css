@@ -2552,6 +2552,24 @@ body.kanban-open .theatre-stack {
   @apply bg-accent-hover;
 }
 
+/* Editor button in card header */
+.theatre-card-editor-btn {
+  @apply w-7 h-7 flex items-center justify-center bg-transparent border-none rounded-md text-white/50 opacity-0 overflow-hidden;
+  transition: opacity 0.15s ease, background-color 0.2s ease, color 0.2s ease;
+}
+
+.theatre-card-editor-btn svg {
+  @apply w-4 h-4 shrink-0;
+}
+
+.theatre-card--active .theatre-card-editor-btn {
+  @apply opacity-100;
+}
+
+.theatre-card-editor-btn:hover {
+  @apply bg-white/10 text-white/90;
+}
+
 /* Ship button in card header */
 .theatre-card-ship-btn {
   @apply w-7 h-7 flex items-center justify-center bg-transparent border-none rounded-md text-white/50 opacity-0 overflow-hidden;
