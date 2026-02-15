@@ -34,21 +34,96 @@ export function formatDiffStats(additions: number, deletions: number): string {
 // ==========================================
 
 /**
- * Build sidebar file list HTML
- * Used by both diff panel and ship-it panel
+ * Get the Lucide icon name and CSS class for a file change status
+ */
+function fileStatusIcon(status: string): { icon: string; cls: string } {
+  switch (status) {
+    case 'A': case '?': return { icon: 'file-plus', cls: 'diff-file-icon--added' };
+    case 'D': return { icon: 'file-minus', cls: 'diff-file-icon--deleted' };
+    case 'R': return { icon: 'file-pen', cls: 'diff-file-icon--renamed' };
+    default:  return { icon: 'file-diff', cls: 'diff-file-icon--modified' };
+  }
+}
+
+/**
+ * Build a nested directory tree from a flat list of file paths.
+ * Returns HTML with toggleable directories and file leaf nodes.
  */
 export function buildFileListHtml(files: ChangedFile[]): string {
-  return files.map(file => {
-    const statusLabel = file.status === '?' ? 'U' : file.status;
-    const stats = formatDiffStats(file.additions, file.deletions);
-    return `
-      <div class="diff-panel-file-item" data-path="${escapeHtml(file.path)}">
-        <span class="diff-file-status diff-file-status--${statusLabel}">${statusLabel}</span>
-        <span class="diff-panel-file-name" title="${escapeHtml(file.path)}">${escapeHtml(file.path)}</span>
-        <span class="diff-panel-file-stats">${stats}</span>
-      </div>
-    `;
-  }).join('');
+  // Build tree structure
+  interface TreeNode {
+    name: string;
+    children: Map<string, TreeNode>;
+    file?: ChangedFile;
+  }
+  const root: TreeNode = { name: '', children: new Map() };
+
+  for (const file of files) {
+    const parts = file.path.split('/');
+    let node = root;
+    for (let i = 0; i < parts.length - 1; i++) {
+      if (!node.children.has(parts[i])) {
+        node.children.set(parts[i], { name: parts[i], children: new Map() });
+      }
+      node = node.children.get(parts[i])!;
+    }
+    const fileName = parts[parts.length - 1];
+    const leaf: TreeNode = { name: fileName, children: new Map(), file };
+    node.children.set(file.path, leaf); // use full path as key to avoid name collisions
+  }
+
+  // Collapse single-child directory chains (e.g. src/components -> src/components)
+  function collapse(node: TreeNode): TreeNode {
+    for (const [key, child] of node.children) {
+      if (!child.file && child.children.size === 1) {
+        const [grandKey, grandChild] = [...child.children.entries()][0];
+        if (!grandChild.file) {
+          // Merge: child/grandchild -> "child/grandchild"
+          const merged: TreeNode = { name: `${child.name}/${grandChild.name}`, children: grandChild.children };
+          node.children.delete(key);
+          node.children.set(grandKey, collapse(merged));
+          continue;
+        }
+      }
+      node.children.set(key, collapse(child));
+    }
+    return node;
+  }
+  collapse(root);
+
+  // Render tree to HTML
+  function renderNode(node: TreeNode, depth: number): string {
+    // Sort: directories first, then files, alphabetically within each group
+    const entries = [...node.children.values()].sort((a, b) => {
+      const aIsDir = !a.file ? 0 : 1;
+      const bIsDir = !b.file ? 0 : 1;
+      if (aIsDir !== bIsDir) return aIsDir - bIsDir;
+      return a.name.localeCompare(b.name);
+    });
+
+    return entries.map(child => {
+      if (child.file) {
+        const { icon, cls } = fileStatusIcon(child.file.status);
+        const stats = formatDiffStats(child.file.additions, child.file.deletions);
+        return `<div class="diff-tree-file" data-path="${escapeHtml(child.file.path)}" style="padding-left:${12 + depth * 12}px">
+          <i data-lucide="${icon}" class="diff-file-icon ${cls}"></i>
+          <span class="diff-tree-name">${escapeHtml(child.name)}</span>
+          <span class="diff-panel-file-stats">${stats}</span>
+        </div>`;
+      }
+      // Directory node
+      const childrenHtml = renderNode(child, depth + 1);
+      return `<div class="diff-tree-dir" data-expanded="true">
+        <div class="diff-tree-dir-label" style="padding-left:${12 + depth * 12}px">
+          <i data-lucide="chevron-down" class="diff-tree-chevron"></i>
+          <span class="diff-tree-name">${escapeHtml(child.name)}</span>
+        </div>
+        <div class="diff-tree-dir-children">${childrenHtml}</div>
+      </div>`;
+    }).join('');
+  }
+
+  return renderNode(root, 0);
 }
 
 /**
@@ -57,12 +132,10 @@ export function buildFileListHtml(files: ChangedFile[]): string {
  */
 export function buildStackedDiffsHtml(files: ChangedFile[]): string {
   return files.map(file => {
-    const statusLabel = file.status === '?' ? 'U' : file.status;
     const stats = formatDiffStats(file.additions, file.deletions);
     return `
       <div class="diff-file-section" data-path="${escapeHtml(file.path)}">
         <div class="diff-file-section-header">
-          <span class="diff-file-status diff-file-status--${statusLabel}">${statusLabel}</span>
           <span class="diff-file-section-name" title="${escapeHtml(file.path)}">${escapeHtml(file.path)}</span>
           <span class="diff-file-section-stats">${stats}</span>
         </div>
@@ -106,13 +179,35 @@ export async function loadAllDiffs(
 }
 
 /**
- * Wire sidebar navigation - clicking a file item scrolls to its section
+ * Wire sidebar navigation - collapse toggle, directory toggling, file click-to-scroll
  */
 export function wireSidebarNavigation(panel: Element): void {
   const fileList = panel.querySelector('.diff-panel-file-list');
   if (!fileList) return;
 
-  fileList.querySelectorAll('.diff-panel-file-item').forEach(item => {
+  // Sidebar collapse toggle (button lives in the header bar)
+  const sidebar = fileList.closest('.diff-panel-sidebar, .ship-it-left');
+  const root = panel.closest('.diff-panel, .ship-it-panel') ?? panel;
+  const toggleBtn = root.querySelector('.diff-sidebar-toggle');
+  if (sidebar && toggleBtn) {
+    toggleBtn.addEventListener('click', () => {
+      const collapsed = sidebar.classList.toggle('collapsed');
+      toggleBtn.classList.toggle('collapsed', collapsed);
+    });
+  }
+
+  // Directory toggle
+  fileList.querySelectorAll('.diff-tree-dir-label').forEach(label => {
+    label.addEventListener('click', () => {
+      const dir = label.closest('.diff-tree-dir');
+      if (!dir) return;
+      const expanded = dir.getAttribute('data-expanded') === 'true';
+      dir.setAttribute('data-expanded', expanded ? 'false' : 'true');
+    });
+  });
+
+  // File click -> scroll to section
+  fileList.querySelectorAll('.diff-tree-file').forEach(item => {
     item.addEventListener('click', () => {
       const path = (item as HTMLElement).dataset.path;
       if (!path) return;
@@ -184,6 +279,9 @@ export function buildDiffPanelHtml(files: ChangedFile[]): string {
       </div>
       <div class="diff-panel-main">
         <div class="diff-content-header">
+          <button class="diff-sidebar-toggle" title="Toggle file list">
+            <i data-lucide="chevron-left" class="diff-sidebar-toggle-icon"></i>
+          </button>
           <span class="diff-header-info"></span>
           <button class="diff-panel-close" title="Close diff panel"><i data-lucide="chevron-right"></i></button>
         </div>

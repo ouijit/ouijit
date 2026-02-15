@@ -49,6 +49,9 @@ function buildShipItPanelHtml(
   return `
     <div class="ship-it-panel${uncommittedCount > 0 ? ' ship-it-panel--uncommitted' : ''}">
       <div class="ship-it-header${uncommittedCount > 0 ? ' ship-it-header--warning' : ''}">
+        <button class="diff-sidebar-toggle" title="Toggle file list">
+          <i data-lucide="chevron-left" class="diff-sidebar-toggle-icon"></i>
+        </button>
         <span class="ship-it-title">${headerTitle}</span>
         <button class="ship-it-close" title="Close panel"><i data-lucide="chevron-right"></i></button>
       </div>
