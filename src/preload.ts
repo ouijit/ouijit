@@ -142,6 +142,12 @@ contextBridge.exposeInMainWorld('api', {
   },
 
   /**
+   * Open a directory in the user's configured code editor
+   */
+  openInEditor: (projectPath: string, dirPath: string): Promise<{ success: boolean }> =>
+    ipcRenderer.invoke('open-in-editor', projectPath, dirPath),
+
+  /**
    * Open a URL in the default browser
    */
   openExternal: (url: string): Promise<void> =>
@@ -253,7 +259,7 @@ contextBridge.exposeInMainWorld('api', {
     /**
      * Get all hooks for a project
      */
-    get: (projectPath: string): Promise<{ start?: ScriptHook; continue?: ScriptHook; run?: ScriptHook; cleanup?: ScriptHook }> =>
+    get: (projectPath: string): Promise<{ start?: ScriptHook; continue?: ScriptHook; run?: ScriptHook; cleanup?: ScriptHook; editor?: ScriptHook }> =>
       ipcRenderer.invoke('hooks:get', projectPath),
 
     /**
