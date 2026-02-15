@@ -188,7 +188,7 @@ body > .diff-panel--visible {
 }
 
 .diff-hunks-wrapper {
-  @apply inline-block min-w-full;
+  @apply min-w-full;
 }
 
 .diff-hunk {
@@ -217,7 +217,7 @@ body > .diff-panel--visible {
 }
 
 .diff-line-content {
-  @apply flex-1 pl-4 pr-12 whitespace-pre;
+  @apply flex-1 pl-4 pr-12 whitespace-pre-wrap break-words;
 }
 
 .diff-line--addition {
@@ -260,15 +260,13 @@ body > .diff-panel--visible {
 
 /* Diff panel inside card - full width like ship panel */
 .theatre-card .diff-panel {
-  @apply absolute inset-0 rounded-none border-none shadow-none z-20 flex overflow-hidden opacity-0;
+  @apply absolute inset-0 rounded-none border-0 border-t border-solid border-white/10 shadow-none z-20 flex overflow-hidden opacity-0 pointer-events-none;
   background: var(--color-terminal-bg, #1a1a1a);
-  transform: translateX(100%);
-  transition: transform 0.25s ease, opacity 0.15s ease;
+  transition: opacity 0.15s ease;
 }
 
 .theatre-card .diff-panel--visible {
-  @apply opacity-100;
-  transform: translateX(0);
+  @apply opacity-100 pointer-events-auto;
 }
 
 /* ==========================================
@@ -276,22 +274,17 @@ body > .diff-panel--visible {
    ========================================== */
 
 .ship-it-panel {
-  @apply absolute inset-0 rounded-lg flex flex-col z-20 opacity-0 transition-all duration-250 ease-out;
+  @apply absolute inset-0 rounded-none border-t border-white/10 flex flex-col z-20 opacity-0 pointer-events-none;
   background: var(--color-terminal-bg, #1a1a1a);
-  transform: translateX(100%);
+  transition: opacity 0.15s ease;
 }
 
 .ship-it-panel--visible {
-  @apply opacity-100;
-  transform: translateX(0);
-}
-
-.ship-it-header {
-  @apply flex items-center justify-between px-4 py-3 border-b border-white/10 bg-white/[0.03] shrink-0;
+  @apply opacity-100 pointer-events-auto;
 }
 
 .ship-it-title {
-  @apply text-sm font-semibold text-white/90;
+  @apply text-sm font-semibold text-white/90 ml-auto;
 }
 
 .ship-it-close {

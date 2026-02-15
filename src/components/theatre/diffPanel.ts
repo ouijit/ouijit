@@ -283,7 +283,7 @@ export function buildDiffPanelHtml(files: ChangedFile[]): string {
             <i data-lucide="chevron-left" class="diff-sidebar-toggle-icon"></i>
           </button>
           <span class="diff-header-info"></span>
-          <button class="diff-panel-close" title="Close diff panel"><i data-lucide="chevron-right"></i></button>
+          <button class="diff-panel-close" title="Close diff panel"><i data-lucide="x"></i></button>
         </div>
         <div class="diff-content-body">
           ${stackedDiffsHtml}
