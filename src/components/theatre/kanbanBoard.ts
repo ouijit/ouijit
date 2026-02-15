@@ -56,8 +56,26 @@ function showKanbanCardContextMenu(
       dot.className = 'kanban-card-status-dot';
       dot.setAttribute('data-status', terminal.summaryType);
       item.appendChild(dot);
-      const label = terminal.label || 'Terminal';
-      item.appendChild(document.createTextNode(label));
+      // Show distinguishing info instead of repeating the task title
+      let menuLabel: string;
+      if (terminal.command) {
+        menuLabel = terminal.command.length > 40
+          ? terminal.command.slice(0, 40) + '…'
+          : terminal.command;
+      } else if (terminal.lastOscTitle) {
+        const cleaned = terminal.lastOscTitle.replace(/\p{Extended_Pictographic}/gu, '').trim();
+        if (cleaned) {
+          menuLabel = cleaned.length > 40 ? cleaned.slice(0, 40) + '…' : cleaned;
+        } else {
+          menuLabel = 'Shell';
+        }
+      } else {
+        menuLabel = 'Shell';
+      }
+      if (terminal.summary) {
+        menuLabel += ` — ${terminal.summary}`;
+      }
+      item.appendChild(document.createTextNode(menuLabel));
       item.addEventListener('click', (e) => {
         e.stopPropagation();
         menu.remove();
