@@ -34,6 +34,9 @@ function showKanbanCardContextMenu(
   onSandbox: (() => void) | null,
   connectedTerminals: { terminal: TheatreTerminal; index: number }[],
   onSwitchTerminal: (index: number) => void,
+  onCloseOrReopen: () => void,
+  closeOrReopenLabel: string,
+  onDelete: () => void,
 ): void {
   event.preventDefault();
   event.stopPropagation();
@@ -92,6 +95,34 @@ function showKanbanCardContextMenu(
     menu.appendChild(sandboxItem);
   }
 
+  // Separator before task actions
+  const actionSeparator = document.createElement('div');
+  actionSeparator.className = 'task-context-menu-separator';
+  menu.appendChild(actionSeparator);
+
+  // Close/Reopen option
+  const closeReopenItem = document.createElement('button');
+  closeReopenItem.className = 'task-context-menu-item';
+  const closeReopenIcon = closeOrReopenLabel === 'Reopen' ? 'rotate-ccw' : 'archive';
+  closeReopenItem.innerHTML = `<i data-lucide="${closeReopenIcon}"></i> ${closeOrReopenLabel}`;
+  closeReopenItem.addEventListener('click', (e) => {
+    e.stopPropagation();
+    menu.remove();
+    onCloseOrReopen();
+  });
+  menu.appendChild(closeReopenItem);
+
+  // Delete option
+  const deleteItem = document.createElement('button');
+  deleteItem.className = 'task-context-menu-item task-context-menu-item--danger';
+  deleteItem.innerHTML = '<i data-lucide="trash-2"></i> Delete';
+  deleteItem.addEventListener('click', (e) => {
+    e.stopPropagation();
+    menu.remove();
+    onDelete();
+  });
+  menu.appendChild(deleteItem);
+
   document.body.appendChild(menu);
 
   // Render lucide icons
@@ -99,7 +130,9 @@ function showKanbanCardContextMenu(
 
   // Position at mouse, keeping within viewport
   const menuWidth = 200;
-  const menuHeight = 32 * (1 + (onSandbox ? 1 : 0) + connectedTerminals.length) + (connectedTerminals.length > 0 ? 9 : 0);
+  const itemCount = 1 + (onSandbox ? 1 : 0) + connectedTerminals.length + 2; // +2 for close/reopen and delete
+  const separatorCount = (connectedTerminals.length > 0 ? 1 : 0) + 1; // +1 for action separator
+  const menuHeight = 32 * itemCount + 9 * separatorCount;
   const x = Math.min(event.clientX, window.innerWidth - menuWidth);
   const y = Math.min(event.clientY, window.innerHeight - menuHeight);
   menu.style.left = `${x}px`;
@@ -314,46 +347,6 @@ function buildKanbanCard(task: TaskWithWorkspace, path: string, limaAvailable: b
   dateRow.innerHTML = `<span class="kanban-card-detail-label">Created</span><span class="kanban-card-detail-value">${date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>`;
   detail.appendChild(dateRow);
 
-  // Action buttons
-  const actions = document.createElement('div');
-  actions.className = 'kanban-card-actions';
-
-  if (task.status === 'done') {
-    const reopenBtn = document.createElement('button');
-    reopenBtn.className = 'kanban-card-action';
-    reopenBtn.title = 'Reopen task';
-    reopenBtn.innerHTML = '<i data-lucide="rotate-ccw"></i>';
-    reopenBtn.setAttribute('style', '-webkit-app-region: no-drag;');
-    reopenBtn.addEventListener('click', async (e) => {
-      e.stopPropagation();
-      await reopenTask(path, task);
-    });
-    actions.appendChild(reopenBtn);
-  } else {
-    const closeBtn = document.createElement('button');
-    closeBtn.className = 'kanban-card-action';
-    closeBtn.title = 'Close task';
-    closeBtn.innerHTML = '<i data-lucide="archive"></i>';
-    closeBtn.setAttribute('style', '-webkit-app-region: no-drag;');
-    closeBtn.addEventListener('click', async (e) => {
-      e.stopPropagation();
-      await closeTask(path, task);
-    });
-    actions.appendChild(closeBtn);
-  }
-
-  const delBtn = document.createElement('button');
-  delBtn.className = 'kanban-card-action kanban-card-action--danger';
-  delBtn.title = 'Delete task';
-  delBtn.innerHTML = '<i data-lucide="trash-2"></i>';
-  delBtn.setAttribute('style', '-webkit-app-region: no-drag;');
-  delBtn.addEventListener('click', async (e) => {
-    e.stopPropagation();
-    await deleteTask(path, task);
-  });
-  actions.appendChild(delBtn);
-
-  detail.appendChild(actions);
   card.appendChild(detail);
 
   // Click anywhere on card toggles expand/collapse
@@ -498,7 +491,20 @@ function buildKanbanCard(task: TaskWithWorkspace, path: string, limaAvailable: b
       }
     };
 
-    showKanbanCardContextMenu(e, onOpenTerminal, onSandbox, connectedTerminals, onSwitchTerminal);
+    const onCloseOrReopen = async () => {
+      if (task.status === 'done') {
+        await reopenTask(path, task);
+      } else {
+        await closeTask(path, task);
+      }
+    };
+    const closeOrReopenLabel = task.status === 'done' ? 'Reopen' : 'Move to Done';
+
+    const onDelete = async () => {
+      await deleteTask(path, task);
+    };
+
+    showKanbanCardContextMenu(e, onOpenTerminal, onSandbox, connectedTerminals, onSwitchTerminal, onCloseOrReopen, closeOrReopenLabel, onDelete);
   });
 
   return card;
