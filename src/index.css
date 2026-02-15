@@ -588,7 +588,7 @@ textarea,
 }
 
 .import-actions {
-  @apply flex gap-2 justify-end;
+  @apply flex gap-2 justify-end mt-4 items-center;
 }
 
 /* ===================================
