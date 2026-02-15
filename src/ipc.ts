@@ -288,7 +288,9 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
   });
 
   ipcMain.handle('worktree:remove', async (_event, projectPath: string, worktreePath: string): Promise<WorktreeRemoveResult> => {
-    return removeTaskWorktree(projectPath, worktreePath);
+    const dirName = path.basename(worktreePath);
+    const taskNumber = parseInt(dirName.slice(2), 10);
+    return removeTaskWorktree(projectPath, worktreePath, taskNumber);
   });
 
   ipcMain.handle('worktree:list', async (_event, projectPath: string): Promise<WorktreeInfo[]> => {
@@ -458,7 +460,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
         ? worktrees.find(w => w.branch === task.branch)
         : worktrees.find(w => w.path === task.worktreePath);
       if (wt) {
-        const removeResult = await removeTaskWorktree(projectPath, wt.path);
+        const removeResult = await removeTaskWorktree(projectPath, wt.path, taskNumber);
         if (!removeResult.success) return removeResult;
         return { success: true };
       }
