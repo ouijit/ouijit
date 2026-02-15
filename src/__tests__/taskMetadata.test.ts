@@ -203,6 +203,16 @@ describe('taskMetadata', () => {
     expect(task!.prompt).toBeUndefined();
   });
 
+  test('setTaskName is visible via getProjectTasks', async () => {
+    const project = '/test/name-propagates';
+    await createTask(project, 1, 'Original', { branch: 'feat/orig' });
+
+    await setTaskName(project, 1, 'Renamed');
+
+    const tasks = await getProjectTasks(project);
+    expect(tasks[0].name).toBe('Renamed');
+  });
+
   test('createTask with todo status (no branch)', async () => {
     const project = '/test/todo-task';
     const task = await createTask(project, 1, 'Plan feature', { status: 'todo' });

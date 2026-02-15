@@ -261,8 +261,16 @@ export async function enterTheatreMode(
         const mainSessions = orphaned.filter(s => !s.isRunner);
         const runnerSessions = orphaned.filter(s => s.isRunner);
 
+        // Override stale labels with current task names
+        const allTasks = await window.api.task.getAll(path);
+        const taskNameMap = new Map(allTasks.map(t => [t.taskNumber, t.name]));
+
         // First reconnect main terminals
         for (const session of mainSessions) {
+          if (session.taskId != null) {
+            const currentName = taskNameMap.get(session.taskId);
+            if (currentName) session.label = currentName;
+          }
           await reconnectTheatreTerminal(session);
         }
 
@@ -601,12 +609,18 @@ export async function restoreTheatreMode(
     const mainSessions = activeSessions.filter(s => !s.isRunner);
     const runnerSessions = activeSessions.filter(s => s.isRunner);
 
-    // Fetch task data for branch lookup during restoration
+    // Fetch task data for branch lookup and label override during restoration
     const allTasks = await window.api.task.getAll(path);
     const taskBranchMap = new Map(allTasks.filter(t => t.branch).map(t => [t.taskNumber, t.branch!]));
+    const taskNameMap = new Map(allTasks.map(t => [t.taskNumber, t.name]));
 
     // First reconnect main terminals
     for (const session of mainSessions) {
+      // Override stale label with current task name
+      if (session.taskId != null) {
+        const currentName = taskNameMap.get(session.taskId);
+        if (currentName) session.label = currentName;
+      }
       const worktreeBranch = session.taskId != null ? taskBranchMap.get(session.taskId) : undefined;
       await reconnectTheatreTerminal(session, worktreeBranch);
     }

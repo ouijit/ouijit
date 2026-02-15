@@ -13,7 +13,7 @@ import {
   kanbanVisible,
 } from './signals';
 // Direct imports - these modules import from signals.ts, not effects.ts, so no circular dep
-import { updateCardStack, showStackEmptyState, hideStackEmptyState } from './terminalCards';
+import { updateCardStack, showStackEmptyState, hideStackEmptyState, updateTerminalCardLabel } from './terminalCards';
 import { syncDiffPanelToActiveTerminal } from './diffPanel';
 import { refreshKanbanBoard, syncKanbanStatusDots } from './kanbanBoard';
 
@@ -109,6 +109,33 @@ export function initializeEffects(): void {
         void _terminals.length;
         syncKanbanStatusDots();
       }
+    })
+  );
+
+  // Effect: Sync terminal card labels when taskVersion bumps (e.g. task renamed)
+  let lastTaskVersionForLabels = taskVersion.value;
+  cleanupFunctions.push(
+    effect(() => {
+      const ver = taskVersion.value;
+      const path = projectPath.value;
+      const currentTerminals = terminals.value;
+      if (ver !== lastTaskVersionForLabels && path) {
+        lastTaskVersionForLabels = ver;
+        const taskTerminals = currentTerminals.filter(t => t.taskId != null);
+        if (taskTerminals.length > 0) {
+          window.api.task.getAll(path).then(tasks => {
+            const taskMap = new Map(tasks.map(t => [t.taskNumber, t]));
+            for (const term of taskTerminals) {
+              const task = taskMap.get(term.taskId!);
+              if (task && task.name !== term.label) {
+                term.label = task.name;
+                updateTerminalCardLabel(term);
+              }
+            }
+          });
+        }
+      }
+      lastTaskVersionForLabels = ver;
     })
   );
 
