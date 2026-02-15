@@ -1,5 +1,5 @@
 import { ipcMain, shell, BrowserWindow, dialog } from 'electron';
-import { execSync } from 'node:child_process';
+import { execSync, execFileSync, spawn } from 'node:child_process';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import * as os from 'node:os';
@@ -77,6 +77,28 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
       console.error('Error opening in Finder:', error);
       throw error;
     }
+  });
+
+  // Handler to open a directory in the user's configured code editor
+  ipcMain.handle('open-in-editor', async (_event, projectPath: string, dirPath: string) => {
+    const hook = await getHook(projectPath, 'editor');
+    if (!hook?.command) throw new Error('No editor configured');
+
+    // GUI apps don't inherit the user's shell PATH — resolve it from their login shell
+    let userPath = process.env.PATH || '';
+    try {
+      const shell = process.env.SHELL || '/bin/sh';
+      const resolved = execFileSync(shell, ['-l', '-c', 'printenv PATH'], {
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'ignore'],
+        timeout: 5000,
+      }).trim();
+      if (resolved) userPath = resolved;
+    } catch { /* keep process.env.PATH */ }
+
+    const env = { ...process.env, PATH: userPath };
+    spawn(hook.command, [dirPath], { detached: true, stdio: 'ignore', shell: true, env }).unref();
+    return { success: true };
   });
 
   // Handler to open a URL in the default browser

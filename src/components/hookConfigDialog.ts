@@ -44,6 +44,11 @@ const HOOK_LABELS: Record<HookType, { title: string; description: string; placeh
     description: 'Runs inside the VM before each terminal command. Use idempotent commands so repeated runs are fast.',
     placeholder: 'which claude || npm i -g @anthropic-ai/claude-code',
   },
+  editor: {
+    title: 'Editor',
+    description: 'Opens the task worktree in your preferred code editor',
+    placeholder: 'code',
+  },
 };
 
 

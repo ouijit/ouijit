@@ -39,7 +39,7 @@ export interface CustomCommand {
 /**
  * Hook type - when the script runs
  */
-export type HookType = 'start' | 'continue' | 'run' | 'cleanup' | 'sandbox-setup';
+export type HookType = 'start' | 'continue' | 'run' | 'cleanup' | 'sandbox-setup' | 'editor';
 
 /**
  * Script hook configuration
@@ -72,6 +72,7 @@ export interface ProjectSettings {
     run?: ScriptHook;
     cleanup?: ScriptHook;
     'sandbox-setup'?: ScriptHook;
+    editor?: ScriptHook;
   };
   /** If true, kill existing instances of a command before starting a new one (default: true) */
   killExistingOnRun?: boolean;
@@ -249,7 +250,7 @@ export interface WorktreeRemoveResult {
  */
 export interface HooksAPI {
   /** Get all hooks for a project */
-  get(projectPath: string): Promise<{ start?: ScriptHook; continue?: ScriptHook; run?: ScriptHook; cleanup?: ScriptHook; 'sandbox-setup'?: ScriptHook }>;
+  get(projectPath: string): Promise<{ start?: ScriptHook; continue?: ScriptHook; run?: ScriptHook; cleanup?: ScriptHook; 'sandbox-setup'?: ScriptHook; editor?: ScriptHook }>;
   /** Save a hook for a project */
   save(projectPath: string, hook: ScriptHook): Promise<{ success: boolean }>;
   /** Delete a hook for a project */
@@ -308,6 +309,8 @@ export interface ElectronAPI {
   openProject(path: string): Promise<{ success: boolean }>;
   /** Open project in Finder */
   openInFinder(path: string): Promise<{ success: boolean }>;
+  /** Open a directory in the user's configured code editor */
+  openInEditor(projectPath: string, dirPath: string): Promise<{ success: boolean }>;
   /** Open a URL in the default browser */
   openExternal(url: string): Promise<void>;
   /** PTY management API */
