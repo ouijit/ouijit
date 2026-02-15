@@ -38,7 +38,6 @@ export {
   diffPanelSelectedFile,
   gitDropdownVisible,
   launchDropdownVisible,
-  diffFileDropdownVisible,
   resetSignals,
 } from './signals';
 
@@ -64,12 +63,11 @@ export {
 export {
   formatDiffStats,
   buildDiffPanelHtml,
-  buildDiffFileDropdownHtml,
-  showDiffFileDropdown,
-  hideDiffFileDropdown,
-  toggleDiffFileDropdown,
+  buildFileListHtml,
+  buildStackedDiffsHtml,
+  loadAllDiffs,
+  wireSidebarNavigation,
   renderDiffContentHtml,
-  selectDiffFile,
   showDiffPanel,
   hideDiffPanel,
   toggleDiffPanel,

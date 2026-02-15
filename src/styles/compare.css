@@ -1,0 +1,472 @@
+/* ==========================================
+   Compare / Diff Panel Styles
+   Shared between diff panel and ship-it panel
+   ========================================== */
+
+@keyframes ship-it-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ==========================================
+   Diff Panel Container
+   ========================================== */
+
+/* Default styles for fixed position (legacy/global mode) */
+body > .diff-panel {
+  @apply fixed top-[82px] right-4 bottom-4 w-0 rounded-md border border-white/10 z-[101] flex overflow-hidden opacity-0;
+  background: var(--color-terminal-bg, #1a1a1a);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.05),
+    0 4px 12px rgba(0, 0, 0, 0.15),
+    0 20px 40px rgba(0, 0, 0, 0.2);
+  transition: width 0.25s ease, opacity 0.15s ease;
+}
+
+body > .diff-panel--visible {
+  @apply w-1/2 opacity-100;
+}
+
+.diff-panel-close {
+  @apply w-7 h-7 rounded-md bg-transparent border-none text-white/60 flex items-center justify-center shrink-0 transition-all duration-150 ease-out;
+}
+
+.diff-panel-close:hover {
+  @apply bg-white/10 text-white/90;
+}
+
+.diff-panel-close svg {
+  @apply w-4 h-4;
+}
+
+/* ==========================================
+   Sidebar (shared by diff panel and ship-it)
+   ========================================== */
+
+.diff-panel-sidebar {
+  @apply w-[220px] shrink-0 border-r border-white/10 overflow-y-auto;
+}
+
+.diff-panel-file-list {
+  @apply flex-1 overflow-y-auto py-2;
+}
+
+.diff-panel-file-item {
+  @apply flex items-center gap-2 px-4 py-1.5 text-xs text-white/70 transition-colors duration-150 ease-out;
+}
+
+.diff-panel-file-item:hover {
+  @apply bg-white/5;
+}
+
+.diff-panel-file-name {
+  @apply flex-1 min-w-0 truncate font-mono text-[11px];
+}
+
+.diff-panel-file-stats {
+  @apply shrink-0 font-mono text-[11px];
+}
+
+/* ==========================================
+   Main Content Area
+   ========================================== */
+
+.diff-panel-main {
+  @apply flex-1 flex flex-col min-w-0 overflow-hidden;
+}
+
+/* ==========================================
+   File Sections (stacked diffs)
+   ========================================== */
+
+.diff-file-section {
+  @apply border-b border-white/[0.08];
+}
+
+.diff-file-section:last-child {
+  @apply border-b-0;
+}
+
+.diff-file-section-header {
+  @apply sticky top-0 z-10 flex items-center gap-2 px-4 py-2 bg-[#252525] border-b border-white/[0.06];
+}
+
+.diff-file-section-name {
+  @apply flex-1 min-w-0 truncate font-mono text-xs text-white/80;
+}
+
+.diff-file-section-stats {
+  @apply shrink-0 font-mono text-[11px];
+}
+
+.diff-file-section-body {
+  /* No overflow - parent scrolls */
+}
+
+/* ==========================================
+   Stats colors
+   ========================================== */
+
+.diff-stat-add {
+  @apply text-[#34C759];
+}
+
+.diff-stat-del {
+  @apply text-[#FF3B30];
+}
+
+/* ==========================================
+   File Status Badge (reused across panels)
+   ========================================== */
+
+.diff-file-status {
+  @apply w-[18px] h-[18px] rounded-md flex items-center justify-center text-[10px] font-bold shrink-0;
+}
+
+.diff-file-status--M { @apply bg-[rgba(255,159,10,0.15)] text-[#FF9F0A]; }
+.diff-file-status--A { @apply bg-[rgba(52,199,89,0.15)] text-[#34C759]; }
+.diff-file-status--D { @apply bg-[rgba(255,59,48,0.15)] text-[#FF3B30]; }
+.diff-file-status--R { @apply bg-[rgba(88,86,214,0.15)] text-[#5856D6]; }
+.diff-file-status--U { @apply bg-[rgba(52,199,89,0.15)] text-[#34C759]; }
+
+/* ==========================================
+   Diff Content Area
+   ========================================== */
+
+.diff-content {
+  @apply flex-1 flex flex-col overflow-hidden bg-[#1a1a1a];
+}
+
+.diff-content-header {
+  @apply relative px-4 py-3 bg-[#252525] border-b border-white/10 font-mono text-sm text-white/70 flex items-center justify-end gap-2;
+}
+
+.diff-content-body {
+  @apply flex-1 overflow-auto p-0;
+}
+
+.diff-hunks-wrapper {
+  @apply inline-block min-w-full;
+}
+
+.diff-hunk {
+  @apply mb-4;
+}
+
+.diff-hunk:last-child {
+  @apply mb-0;
+}
+
+.diff-hunk-header {
+  @apply py-1 pr-4 bg-[rgba(88,86,214,0.2)] text-[#a0a0ff] font-mono text-xs;
+  padding-left: 106px; /* Align with content after line numbers (90px + 16px) */
+}
+
+.diff-line {
+  @apply flex font-mono text-sm leading-normal;
+}
+
+.diff-line-numbers {
+  @apply flex shrink-0 select-none sticky left-0 z-[1];
+}
+
+.diff-line-number {
+  @apply w-[45px] px-2 text-right text-white/25 bg-[#141414] border-r border-white/5;
+}
+
+.diff-line-content {
+  @apply flex-1 pl-4 pr-12 whitespace-pre;
+}
+
+.diff-line--addition {
+  @apply bg-[rgba(52,199,89,0.15)];
+}
+
+.diff-line--addition .diff-line-content {
+  @apply text-[#69db7c];
+}
+
+.diff-line--deletion {
+  @apply bg-[rgba(255,59,48,0.15)];
+}
+
+.diff-line--deletion .diff-line-content {
+  @apply text-[#ff6b6b];
+}
+
+.diff-line--context .diff-line-content {
+  @apply text-[#e4e4e4];
+}
+
+/* Empty state */
+.diff-empty-state {
+  @apply flex-1 flex flex-col items-center justify-center text-text-tertiary gap-2;
+}
+
+.diff-empty-state svg {
+  @apply w-12 h-12 opacity-50;
+}
+
+/* Header info */
+.diff-header-info {
+  @apply text-xs text-text-tertiary ml-auto;
+}
+
+/* ==========================================
+   Diff Panel inside Theatre Card
+   ========================================== */
+
+/* Diff panel inside card - full width like ship panel */
+.theatre-card .diff-panel {
+  @apply absolute inset-0 rounded-none border-none shadow-none z-20 flex overflow-hidden opacity-0;
+  background: var(--color-terminal-bg, #1a1a1a);
+  transform: translateX(100%);
+  transition: transform 0.25s ease, opacity 0.15s ease;
+}
+
+.theatre-card .diff-panel--visible {
+  @apply opacity-100;
+  transform: translateX(0);
+}
+
+/* ==========================================
+   Ship-It Panel - Full-Width Takeover
+   ========================================== */
+
+.ship-it-panel {
+  @apply absolute inset-0 rounded-lg flex flex-col z-20 opacity-0 transition-all duration-250 ease-out;
+  background: var(--color-terminal-bg, #1a1a1a);
+  transform: translateX(100%);
+}
+
+.ship-it-panel--visible {
+  @apply opacity-100;
+  transform: translateX(0);
+}
+
+.ship-it-header {
+  @apply flex items-center justify-between px-4 py-3 border-b border-white/10 bg-white/[0.03] shrink-0;
+}
+
+.ship-it-title {
+  @apply text-sm font-semibold text-white/90;
+}
+
+.ship-it-close {
+  @apply w-[22px] h-[22px] rounded-md bg-transparent border-none text-white/60 flex items-center justify-center shrink-0 transition-all duration-150 ease-out;
+}
+
+.ship-it-close:hover {
+  @apply bg-white/10 text-white/90;
+}
+
+.ship-it-close svg {
+  @apply w-4 h-4;
+}
+
+/* Warning state for header (uncommitted changes) */
+.ship-it-header--warning {
+  @apply bg-[rgba(234,179,8,0.15)] border-b-[rgba(234,179,8,0.3)];
+}
+
+.ship-it-header--warning .ship-it-title {
+  @apply text-[rgb(234,179,8)];
+}
+
+.ship-it-header--warning .ship-it-close {
+  @apply text-[rgba(234,179,8,0.7)];
+}
+
+.ship-it-header--warning .ship-it-close:hover {
+  @apply bg-[rgba(234,179,8,0.2)] text-[rgb(234,179,8)];
+}
+
+.ship-it-uncommitted-label {
+  @apply text-[rgb(234,179,8)] text-xs;
+}
+
+.ship-it-panel--uncommitted .ship-it-confirm {
+  @apply opacity-50;
+}
+
+.ship-it-body {
+  @apply flex-1 flex flex-row min-h-0 overflow-hidden;
+}
+
+.ship-it-left {
+  @apply w-[280px] shrink-0 flex flex-col border-r border-white/10;
+}
+
+.ship-it-summary {
+  @apply p-4 border-b border-white/[0.08] shrink-0;
+}
+
+.ship-it-summary-stat {
+  @apply flex items-center gap-1.5 mb-1;
+}
+
+.ship-it-summary-value {
+  @apply text-xl font-semibold text-white/90;
+}
+
+.ship-it-summary-label {
+  @apply text-sm text-white/50;
+}
+
+.ship-it-add {
+  @apply text-[#69db7c];
+}
+
+.ship-it-del {
+  @apply text-[#ff6b6b];
+}
+
+.ship-it-summary-branch {
+  @apply flex items-center gap-1.5 mt-3 text-xs text-white/50;
+}
+
+.ship-it-summary-branch svg {
+  @apply w-3 h-3 shrink-0;
+}
+
+/* Merge target dropdown trigger */
+.ship-it-merge-target {
+  @apply inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-white/[0.08] font-medium text-white/90 relative;
+}
+
+.ship-it-merge-target:hover {
+  @apply bg-white/[0.12];
+}
+
+.ship-it-merge-target.open {
+  @apply bg-white/15;
+}
+
+.ship-it-merge-target svg {
+  @apply w-2.5 h-2.5 opacity-60;
+}
+
+/* Merge target branch dropdown */
+.ship-it-branch-dropdown {
+  @apply absolute top-full left-0 mt-1 min-w-[180px] max-w-[280px] max-h-[300px] overflow-y-auto bg-surface border border-white/15 rounded-md shadow-lg z-[100] opacity-0 transition-all duration-150 ease-out;
+  transform: translateY(-4px);
+  -webkit-app-region: no-drag;
+}
+
+.ship-it-branch-dropdown.visible {
+  @apply opacity-100;
+  transform: translateY(0);
+}
+
+.ship-it-branch-dropdown-item {
+  @apply flex items-center gap-2 px-3 py-2 text-xs text-white/80;
+}
+
+.ship-it-branch-dropdown-item:hover {
+  @apply bg-white/[0.08];
+}
+
+.ship-it-branch-dropdown-item.selected {
+  @apply bg-white/10 text-white;
+}
+
+.ship-it-branch-name {
+  @apply flex-1 min-w-0 truncate;
+}
+
+.ship-it-branch-main-badge {
+  @apply shrink-0 text-[10px] px-1.5 py-px rounded bg-white/10 text-white/60;
+}
+
+/* Ship-it panel reuses .diff-panel-file-list and .diff-panel-file-item for file list */
+
+.ship-it-right {
+  @apply flex-1 flex flex-col min-w-0 overflow-hidden;
+}
+
+.ship-it-actions {
+  @apply flex items-center justify-end gap-3 px-4 py-3 border-t border-white/10 shrink-0;
+}
+
+.ship-it-cancel {
+  @apply px-4 py-1.5 font-sans text-sm font-medium text-white/70 bg-transparent border border-white/20 rounded-md transition-all duration-150 ease-out;
+}
+
+.ship-it-cancel:hover {
+  @apply bg-white/[0.08] border-white/30 text-white/90;
+}
+
+.ship-it-cancel:disabled {
+  @apply opacity-50;
+}
+
+.ship-it-confirm {
+  @apply flex items-center gap-1.5 px-4 py-1.5 font-sans text-sm font-semibold text-white bg-accent border-none rounded-md transition-all duration-150 ease-out;
+}
+
+.ship-it-confirm:hover {
+  @apply bg-accent-hover;
+}
+
+.ship-it-confirm:disabled {
+  @apply opacity-60;
+}
+
+.ship-it-confirm svg {
+  @apply w-3.5 h-3.5;
+}
+
+.ship-it-loading {
+  @apply inline-block w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full;
+  animation: ship-it-spin 0.8s linear infinite;
+}
+
+/* Commit message dialog */
+.ship-it-commit-dialog {
+  @apply absolute inset-0 flex items-center justify-center bg-black/50 z-[100] opacity-0 transition-opacity duration-200 ease-out;
+}
+
+.ship-it-commit-dialog--visible {
+  @apply opacity-100;
+}
+
+.ship-it-commit-dialog-content {
+  @apply bg-surface rounded-[32px] shadow-lg max-w-[400px] w-[90%] p-6 opacity-0 transition-all duration-200 ease-out;
+  transform: scale(0.95) translateY(10px);
+}
+
+.ship-it-commit-dialog--visible .ship-it-commit-dialog-content {
+  @apply opacity-100;
+  transform: scale(1) translateY(0);
+}
+
+.ship-it-commit-dialog-header {
+  @apply text-lg font-semibold text-text-primary mb-4;
+}
+
+.ship-it-commit-message {
+  @apply w-full bg-background-secondary border border-border rounded-md px-3 py-2 text-text-primary font-mono text-sm leading-snug resize-y min-h-[72px];
+}
+
+.ship-it-commit-message:focus {
+  @apply outline-none border-accent;
+}
+
+.ship-it-commit-dialog-actions {
+  @apply flex justify-end gap-2 mt-4;
+}
+
+.ship-it-commit-cancel {
+  @apply px-3 py-1.5 bg-transparent border border-border rounded-md text-text-secondary text-sm font-medium transition-all duration-150 ease-out;
+}
+
+.ship-it-commit-cancel:hover {
+  @apply bg-background-secondary text-text-primary;
+}
+
+.ship-it-commit-confirm {
+  @apply px-4 py-1.5 bg-accent border-none rounded-md text-white text-sm font-semibold transition-all duration-150 ease-out;
+}
+
+.ship-it-commit-confirm:hover {
+  @apply bg-accent-hover;
+}

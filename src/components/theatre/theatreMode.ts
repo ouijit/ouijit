@@ -6,7 +6,7 @@ import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import { createIcons, icons } from 'lucide';
-import type { Project, ChangedFile, ActiveSession } from '../../types';
+import type { Project, ActiveSession } from '../../types';
 import {
   theatreState,
   projectSessions,
@@ -33,13 +33,11 @@ import {
   refreshAllTerminalGitStatus,
 } from './gitStatus';
 import {
-  toggleDiffPanel,
   hideDiffPanel,
   buildDiffPanelHtml,
-  selectDiffFile,
-  toggleDiffFileDropdown,
   hideTerminalDiffPanel,
-  selectTerminalDiffFile,
+  wireSidebarNavigation,
+  loadAllDiffs,
 } from './diffPanel';
 import {
   addTheatreTerminal,
@@ -197,23 +195,18 @@ export async function enterTheatreMode(
 
             const panel = cardBody.querySelector('.diff-panel');
             if (panel) {
-              // Wire up file selector dropdown toggle
-              const fileSelector = panel.querySelector('.diff-file-selector');
-              if (fileSelector) {
-                fileSelector.addEventListener('click', (e) => {
-                  e.stopPropagation();
-                  toggleDiffFileDropdown();
-                });
-              }
+              const termRef = term; // Capture for closure
 
               // Wire up close button
               const closeBtn = panel.querySelector('.diff-panel-close');
               if (closeBtn) {
-                const termRef = term; // Capture for closure
                 closeBtn.addEventListener('click', () => {
                   hideTerminalDiffPanel(termRef);
                 });
               }
+
+              // Wire sidebar navigation
+              wireSidebarNavigation(panel);
 
               // Add class to card
               term.container.classList.add('diff-panel-open');
@@ -223,11 +216,16 @@ export async function enterTheatreMode(
                 panel.classList.add('diff-panel--visible');
               });
 
-              // Select the previously selected file (or first file)
-              const fileToSelect = term.diffPanelSelectedFile || term.diffPanelFiles[0]?.path;
-              if (fileToSelect) {
-                selectTerminalDiffFile(term, fileToSelect);
-              }
+              // Load all diffs
+              const isWorktreeMode = term.diffPanelMode === 'worktree';
+              const gitPath = term.worktreePath || term.projectPath;
+              const basePath = projectPath.value;
+              loadAllDiffs(panel, term.diffPanelFiles, (filePath) => {
+                if (isWorktreeMode && basePath && termRef.worktreeBranch) {
+                  return window.api.worktree.getFileDiff(basePath, termRef.worktreeBranch, filePath);
+                }
+                return window.api.getFileDiff(gitPath, filePath);
+              });
             }
           }
         }

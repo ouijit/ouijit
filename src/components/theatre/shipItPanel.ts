@@ -8,15 +8,18 @@ import { theatreRegistry, hideRunnerPanel } from './helpers';
 import { projectPath, terminals, activeIndex, invalidateTaskList } from './signals';
 import { escapeHtml } from '../../utils/html';
 import { showToast } from '../importDialog';
-import { formatDiffStats, renderDiffContentHtml, hideDiffFileDropdown, buildDiffFileDropdownHtml, hideTerminalDiffPanel } from './diffPanel';
+import {
+  hideTerminalDiffPanel,
+  buildFileListHtml,
+  buildStackedDiffsHtml,
+  loadAllDiffs,
+  wireSidebarNavigation,
+} from './diffPanel';
 import { registerHotkey, unregisterHotkey, pushScope, popScope, Scopes, platformHotkey } from '../../utils/hotkeys';
 import { createIcons, icons } from 'lucide';
 
 /**
  * Build HTML for the Ship-It panel
- * @param uncommittedCount - Number of uncommitted files (0 if none, disables merge when > 0)
- * @param showingUncommitted - Whether we're displaying uncommitted changes (vs committed branch diff)
- * @param mergeTarget - Branch to merge into
  */
 function buildShipItPanelHtml(
   branchName: string,
@@ -27,29 +30,18 @@ function buildShipItPanelHtml(
   showingUncommitted: boolean = false,
   mergeTarget: string = 'main'
 ): string {
-  const displayBranch = branchName.length > 30
-    ? branchName.slice(0, 27) + '...'
-    : branchName;
+  // Build file list using shared function
+  const fileListHtml = buildFileListHtml(files);
 
-  // Build file list HTML
-  const fileListHtml = files.map(file => {
-    const statusLabel = file.status === '?' ? 'U' : file.status;
-    const stats = formatDiffStats(file.additions, file.deletions);
-    return `
-      <div class="ship-it-file" data-path="${escapeHtml(file.path)}" data-status="${file.status}" data-additions="${file.additions}" data-deletions="${file.deletions}">
-        <span class="diff-file-status diff-file-status--${statusLabel}">${statusLabel}</span>
-        <span class="ship-it-file-name" title="${escapeHtml(file.path)}">${escapeHtml(file.path)}</span>
-        <span class="ship-it-file-stats">${stats}</span>
-      </div>
-    `;
-  }).join('');
+  // Build stacked diffs using shared function
+  const stackedDiffsHtml = buildStackedDiffsHtml(files);
 
-  // Header title - show warning if uncommitted changes, otherwise ready state
+  // Header title
   const headerTitle = uncommittedCount > 0
     ? `${uncommittedCount} uncommitted file${uncommittedCount !== 1 ? 's' : ''} — commit to merge`
     : 'Ready to merge';
 
-  // Summary branch section - only show "Uncommitted changes" if we're showing uncommitted files
+  // Summary branch section
   const branchSummary = showingUncommitted
     ? `<span class="ship-it-uncommitted-label">Uncommitted changes</span>`
     : `${escapeHtml(branchName)} <i data-lucide="arrow-right"></i> <span class="ship-it-merge-target" title="Click to change target branch">${escapeHtml(mergeTarget)}<i data-lucide="chevron-down"></i></span>`;
@@ -76,21 +68,13 @@ function buildShipItPanelHtml(
               ${branchSummary}
             </div>
           </div>
-          <div class="ship-it-file-list">
+          <div class="diff-panel-file-list">
             ${fileListHtml}
           </div>
         </div>
         <div class="ship-it-right">
-          <div class="ship-it-diff-header">
-            <div class="ship-it-diff-file-selector" title="">
-              <span class="diff-file-status"></span>
-              <span class="ship-it-diff-file-name"></span>
-              <span class="ship-it-diff-file-stats"></span>
-              <i data-lucide="chevron-down" class="diff-file-selector-chevron"></i>
-            </div>
-          </div>
-          <div class="ship-it-diff-content">
-            <div class="diff-empty-state">Select a file to view diff</div>
+          <div class="diff-content-body">
+            ${stackedDiffsHtml}
           </div>
         </div>
       </div>
@@ -196,9 +180,6 @@ export async function showShipItPanel(term: TheatreTerminal): Promise<void> {
   const panelState: ShipItPanelState = {
     files,
     showingUncommitted,
-    selectedFile: null,
-    dropdownOpen: false,
-    dropdownCleanup: null,
     mergeTarget,
     branchDropdownOpen: false,
     branchDropdownCleanup: null,
@@ -211,17 +192,15 @@ export async function showShipItPanel(term: TheatreTerminal): Promise<void> {
     closeBtn.addEventListener('click', () => hideShipItPanel(term));
   }
 
-  // Update ship button in header - only expand to CTA when ready to merge
+  // Update ship button in header
   const shipBtn = term.container.querySelector('.theatre-card-ship-btn') as HTMLElement;
   if (shipBtn) {
     const canMerge = uncommittedCount === 0;
     shipBtn.dataset.canShip = canMerge ? 'true' : 'false';
     if (canMerge) {
-      // Ready to merge - expand to full CTA
       shipBtn.classList.add('theatre-card-ship-btn--expanded');
       shipBtn.innerHTML = `<i data-lucide="rocket"></i><span>Merge to ${escapeHtml(mergeTarget)}</span>`;
     }
-    // If not ready, button stays as-is (just the rocket icon)
   }
 
   // Wire up merge target click
@@ -233,217 +212,45 @@ export async function showShipItPanel(term: TheatreTerminal): Promise<void> {
     });
   }
 
-  // Wire up file list clicks
-  const fileList = panel.querySelector('.ship-it-file-list');
-  if (fileList) {
-    fileList.querySelectorAll('.ship-it-file').forEach(fileEl => {
-      fileEl.addEventListener('click', () => {
-        const path = (fileEl as HTMLElement).dataset.path;
-        if (path) {
-          selectShipItFile(term, panel, path, panelState);
-        }
-      });
-    });
-  }
-
-  // Wire up file selector dropdown
-  const fileSelector = panel.querySelector('.ship-it-diff-file-selector');
-  if (fileSelector) {
-    fileSelector.addEventListener('click', (e) => {
-      e.stopPropagation();
-      if (panelState.selectedFile) {
-        toggleShipItFileDropdown(term, panel, panelState);
-      }
-    });
-  }
+  // Wire sidebar navigation
+  wireSidebarNavigation(panel);
 
   // Animate panel in
   requestAnimationFrame(() => {
     panel.classList.add('ship-it-panel--visible');
   });
 
-  // Select first file
-  if (files.length > 0) {
-    await selectShipItFile(term, panel, files[0].path, panelState);
-  }
+  // Load all diffs concurrently
+  const fetchDiff = buildFetchDiff(term, panelState);
+  await loadAllDiffs(panel, files, fetchDiff);
+}
+
+/**
+ * Build a fetch function for loading file diffs based on panel state
+ */
+function buildFetchDiff(
+  term: TheatreTerminal,
+  state: ShipItPanelState
+): (filePath: string) => Promise<FileDiff | null> {
+  const basePath = projectPath.value;
+  return async (filePath: string) => {
+    if (state.showingUncommitted && term.worktreePath) {
+      return window.api.getFileDiff(term.worktreePath, filePath);
+    } else if (basePath && term.worktreeBranch) {
+      return window.api.worktree.getFileDiff(basePath, term.worktreeBranch, filePath, state.mergeTarget);
+    }
+    return null;
+  };
 }
 
 // Panel state type
 interface ShipItPanelState {
   files: ChangedFile[];
   showingUncommitted: boolean;
-  selectedFile: string | null;
-  dropdownOpen: boolean;
-  dropdownCleanup: (() => void) | null;
   mergeTarget: string;
   branchDropdownOpen: boolean;
   branchDropdownCleanup: (() => void) | null;
   availableBranches: BranchInfo[];
-}
-
-/**
- * Select a file in the Ship-It panel and show its diff
- */
-async function selectShipItFile(
-  term: TheatreTerminal,
-  panel: HTMLElement,
-  filePath: string,
-  state: ShipItPanelState
-): Promise<void> {
-  if (!term.worktreeBranch) return;
-
-  const basePath = projectPath.value;
-  if (!basePath) return;
-
-  state.selectedFile = filePath;
-
-  // Close dropdown if open
-  if (state.dropdownOpen) {
-    hideShipItFileDropdown(panel, state);
-  }
-
-  // Update file list selection
-  panel.querySelectorAll('.ship-it-file').forEach(el => {
-    el.classList.toggle('ship-it-file--selected', (el as HTMLElement).dataset.path === filePath);
-  });
-
-  // Find file info
-  const file = state.files.find(f => f.path === filePath);
-  if (!file) return;
-
-  // Update file selector header
-  const selector = panel.querySelector('.ship-it-diff-file-selector');
-  const statusEl = selector?.querySelector('.diff-file-status');
-  const nameEl = selector?.querySelector('.ship-it-diff-file-name');
-  const statsEl = selector?.querySelector('.ship-it-diff-file-stats');
-
-  if (statusEl && nameEl && selector) {
-    const statusLabel = file.status === '?' ? 'U' : file.status;
-    statusEl.className = `diff-file-status diff-file-status--${statusLabel}`;
-    statusEl.textContent = statusLabel;
-    nameEl.textContent = file.path.split('/').pop() || file.path;
-    (selector as HTMLElement).title = file.path;
-
-    if (statsEl) {
-      statsEl.innerHTML = formatDiffStats(file.additions, file.deletions);
-    }
-  }
-
-  // Fetch and render diff
-  const diffContent = panel.querySelector('.ship-it-diff-content');
-  if (!diffContent) return;
-
-  diffContent.innerHTML = '<div class="diff-empty-state">Loading...</div>';
-
-  // Use different diff API based on mode
-  let diff: FileDiff | null;
-  if (state.showingUncommitted && term.worktreePath) {
-    // Uncommitted changes - use worktree path
-    diff = await window.api.getFileDiff(term.worktreePath, filePath);
-  } else {
-    // Committed branch diff - use merge target
-    diff = await window.api.worktree.getFileDiff(basePath, term.worktreeBranch, filePath, state.mergeTarget);
-  }
-
-  if (diff) {
-    diffContent.innerHTML = renderDiffContentHtml(diff);
-  } else {
-    diffContent.innerHTML = '<div class="diff-empty-state">Unable to load diff</div>';
-  }
-}
-
-/**
- * Toggle file dropdown in Ship-It panel
- */
-function toggleShipItFileDropdown(
-  term: TheatreTerminal,
-  panel: HTMLElement,
-  state: ShipItPanelState
-): void {
-  if (state.dropdownOpen) {
-    hideShipItFileDropdown(panel, state);
-  } else {
-    showShipItFileDropdown(term, panel, state);
-  }
-}
-
-/**
- * Show file dropdown in Ship-It panel
- */
-function showShipItFileDropdown(
-  term: TheatreTerminal,
-  panel: HTMLElement,
-  state: ShipItPanelState
-): void {
-  if (state.dropdownOpen || !state.selectedFile) return;
-
-  const selector = panel.querySelector('.ship-it-diff-file-selector');
-  if (!selector) return;
-
-  state.dropdownOpen = true;
-  selector.classList.add('open');
-
-  // Build and insert dropdown
-  const dropdownHtml = buildDiffFileDropdownHtml(state.files, state.selectedFile);
-  selector.insertAdjacentHTML('beforeend', dropdownHtml);
-
-  const dropdown = selector.querySelector('.diff-file-dropdown');
-  if (!dropdown) return;
-
-  // Animate in
-  requestAnimationFrame(() => {
-    dropdown.classList.add('visible');
-  });
-
-  // Wire up item clicks
-  dropdown.querySelectorAll('.diff-file-dropdown-item').forEach(item => {
-    item.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const path = (item as HTMLElement).dataset.path;
-      if (path) {
-        selectShipItFile(term, panel, path, state);
-      }
-    });
-  });
-
-  // Click-outside handler
-  const handleClickOutside = (e: MouseEvent) => {
-    if (!selector.contains(e.target as Node)) {
-      hideShipItFileDropdown(panel, state);
-    }
-  };
-
-  setTimeout(() => {
-    document.addEventListener('click', handleClickOutside);
-    state.dropdownCleanup = () => {
-      document.removeEventListener('click', handleClickOutside);
-    };
-  }, 0);
-}
-
-/**
- * Hide file dropdown in Ship-It panel
- */
-function hideShipItFileDropdown(
-  panel: HTMLElement,
-  state: { dropdownOpen: boolean; dropdownCleanup: (() => void) | null }
-): void {
-  if (!state.dropdownOpen) return;
-
-  state.dropdownOpen = false;
-
-  const selector = panel.querySelector('.ship-it-diff-file-selector');
-  const dropdown = selector?.querySelector('.diff-file-dropdown');
-
-  selector?.classList.remove('open');
-
-  if (dropdown) {
-    dropdown.classList.remove('visible');
-    setTimeout(() => dropdown.remove(), 150);
-  }
-
-  state.dropdownCleanup?.();
-  state.dropdownCleanup = null;
 }
 
 /**
@@ -593,7 +400,6 @@ async function selectMergeTarget(
   // Update the merge target display text
   const targetEl = panel.querySelector('.ship-it-merge-target');
   if (targetEl) {
-    // Preserve the chevron icon when updating text
     const chevronHtml = '<i data-lucide="chevron-down"></i>';
     targetEl.innerHTML = `${escapeHtml(branchName)}${chevronHtml}`;
   }
@@ -609,7 +415,7 @@ async function selectMergeTarget(
 
   // Refresh the diff with new target
   if (!state.showingUncommitted) {
-    const diffSummary = await window.api.worktree.getDiff(basePath, term.worktreeBranch, branchName);
+    const diffSummary = await window.api.worktree.getDiff(basePath, term.worktreeBranch!, branchName);
     const files = diffSummary?.files || [];
     state.files = files;
 
@@ -630,44 +436,29 @@ async function selectMergeTarget(
       summaryLabelEl.textContent = `file${files.length !== 1 ? 's' : ''} changed`;
     }
 
-    // Update file list
-    const fileListHtml = files.map(file => {
-      const statusLabel = file.status === '?' ? 'U' : file.status;
-      const stats = formatDiffStats(file.additions, file.deletions);
-      return `
-        <div class="ship-it-file${file.path === state.selectedFile ? ' ship-it-file--selected' : ''}" data-path="${escapeHtml(file.path)}" data-status="${file.status}" data-additions="${file.additions}" data-deletions="${file.deletions}">
-          <span class="diff-file-status diff-file-status--${statusLabel}">${statusLabel}</span>
-          <span class="ship-it-file-name" title="${escapeHtml(file.path)}">${escapeHtml(file.path)}</span>
-          <span class="ship-it-file-stats">${stats}</span>
-        </div>
-      `;
-    }).join('');
-
-    const fileList = panel.querySelector('.ship-it-file-list');
+    // Rebuild sidebar file list
+    const fileList = panel.querySelector('.ship-it-left .diff-panel-file-list');
     if (fileList) {
-      fileList.innerHTML = fileListHtml;
-
-      // Re-wire file list clicks
-      fileList.querySelectorAll('.ship-it-file').forEach(fileEl => {
-        fileEl.addEventListener('click', () => {
-          const path = (fileEl as HTMLElement).dataset.path;
-          if (path) {
-            selectShipItFile(term, panel, path, state);
-          }
-        });
-      });
+      fileList.innerHTML = buildFileListHtml(files);
     }
 
-    // Refresh the selected file diff if one was selected
-    if (state.selectedFile && files.some(f => f.path === state.selectedFile)) {
-      await selectShipItFile(term, panel, state.selectedFile, state);
-    } else if (files.length > 0) {
-      await selectShipItFile(term, panel, files[0].path, state);
-    } else {
-      const diffContent = panel.querySelector('.ship-it-diff-content');
-      if (diffContent) {
-        diffContent.innerHTML = '<div class="diff-empty-state">No changes compared to target branch</div>';
+    // Rebuild stacked diffs
+    const diffBody = panel.querySelector('.ship-it-right .diff-content-body');
+    if (diffBody) {
+      if (files.length > 0) {
+        diffBody.innerHTML = buildStackedDiffsHtml(files);
+      } else {
+        diffBody.innerHTML = '<div class="diff-empty-state">No changes compared to target branch</div>';
       }
+    }
+
+    // Re-wire sidebar navigation
+    wireSidebarNavigation(panel);
+
+    // Load all diffs for the new target
+    if (files.length > 0) {
+      const fetchDiff = buildFetchDiff(term, state);
+      await loadAllDiffs(panel, files, fetchDiff);
     }
   }
 }
@@ -750,7 +541,7 @@ function showCommitDialog(term: TheatreTerminal, panel: HTMLElement): void {
     await executeShip(term, panel, message);
   });
 
-  // Set up modal scope to prevent theatre hotkeys (like Escape) from firing
+  // Set up modal scope to prevent theatre hotkeys
   pushScope(Scopes.MODAL);
   registerHotkey('escape', Scopes.MODAL, closeDialog);
   registerHotkey(platformHotkey('mod+enter'), Scopes.MODAL, async () => {

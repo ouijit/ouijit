@@ -33,7 +33,6 @@ export const diffPanelTaskId = signal<number | null>(null);
 export const gitDropdownVisible = signal(false);
 export const launchDropdownVisible = signal(false);
 export const sandboxDropdownVisible = signal(false);
-export const diffFileDropdownVisible = signal(false);
 
 // Kanban board visibility
 export const kanbanVisible = signal(false);
@@ -64,7 +63,6 @@ export function resetSignals(): void {
   gitDropdownVisible.value = false;
   launchDropdownVisible.value = false;
   sandboxDropdownVisible.value = false;
-  diffFileDropdownVisible.value = false;
   kanbanVisible.value = false;
   taskVersion.value = 0;
 }
