@@ -370,9 +370,15 @@ function buildKanbanCard(task: TaskWithWorkspace, path: string, limaAvailable: b
     toggleExpand();
   });
 
-  card.addEventListener('click', () => {
+  card.addEventListener('click', (e) => {
     clearTimeout(clickTimer);
-    clickTimer = setTimeout(() => toggleExpand(), 200);
+    // Only delay for elements that support double-click editing
+    const target = e.target as HTMLElement;
+    if (target.closest('.kanban-card-name, .kanban-card-detail-value')) {
+      clickTimer = setTimeout(() => toggleExpand(), 200);
+    } else {
+      toggleExpand();
+    }
   });
 
   card.addEventListener('dblclick', () => {
