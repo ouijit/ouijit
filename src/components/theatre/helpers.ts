@@ -13,8 +13,8 @@ import { createIcons, icons } from 'lucide';
  * allowing other modules to call them without direct imports
  */
 interface TheatreRegistry {
-  // From worktreeDropdown
-  createNewAgentShell: (() => void) | null;
+  // From kanbanBoard
+  showKanbanAndFocusInput: (() => Promise<void>) | null;
   // From terminalCards
   addTheatreTerminal: ((runConfig?: unknown, options?: unknown) => Promise<boolean>) | null;
   closeTheatreTerminal: ((index: number) => void) | null;
@@ -31,7 +31,7 @@ interface TheatreRegistry {
 }
 
 export const theatreRegistry: TheatreRegistry = {
-  createNewAgentShell: null,
+  showKanbanAndFocusInput: null,
   toggleKanbanBoard: null,
   syncKanbanStatusDots: null,
   addTheatreTerminal: null,

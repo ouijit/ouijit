@@ -1118,6 +1118,16 @@ export async function refreshKanbanBoard(): Promise<void> {
   }
 }
 
+/**
+ * Show the kanban board and focus the new task input
+ */
+export async function showKanbanAndFocusInput(): Promise<void> {
+  await showKanbanBoard();
+  const input = document.querySelector('.kanban-add-input') as HTMLInputElement | null;
+  if (input) input.focus();
+}
+
 // Register in the theatre registry for cross-module access
+theatreRegistry.showKanbanAndFocusInput = showKanbanAndFocusInput;
 theatreRegistry.toggleKanbanBoard = toggleKanbanBoard;
 theatreRegistry.syncKanbanStatusDots = syncKanbanStatusDots;

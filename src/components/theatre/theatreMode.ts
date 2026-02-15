@@ -61,8 +61,7 @@ import {
   toggleLaunchDropdown,
   hideLaunchDropdown,
 } from './launchDropdown';
-import { createNewAgentShell } from './worktreeDropdown';
-import { hideKanbanBoard, showKanbanBoard, syncViewToggle } from './kanbanBoard';
+import { hideKanbanBoard, showKanbanBoard, showKanbanAndFocusInput, syncViewToggle } from './kanbanBoard';
 import { theatreRegistry } from './helpers';
 import { registerHotkey, unregisterHotkey, pushScope, popScope, Scopes, platformHotkey } from '../../utils/hotkeys';
 import { showNewProjectDialog } from '../newProjectDialog';
@@ -119,7 +118,7 @@ export async function enterTheatreMode(
     if (newTaskBtn) {
       newTaskBtn.addEventListener('click', (e) => {
         e.stopPropagation();
-        createNewAgentShell();
+        showKanbanAndFocusInput();
       });
     }
 
@@ -293,7 +292,7 @@ export async function enterTheatreMode(
   // 4. Set up keyboard shortcuts for theatre mode
   // Use platformHotkey() to convert 'mod+' to 'command+' on Mac or 'ctrl+' on Linux/Windows
   pushScope(Scopes.THEATRE);
-  registerHotkey(platformHotkey('mod+n'), Scopes.THEATRE, () => createNewAgentShell());
+  registerHotkey(platformHotkey('mod+n'), Scopes.THEATRE, () => showKanbanAndFocusInput());
   registerHotkey(platformHotkey('mod+b'), Scopes.THEATRE, () => theatreRegistry.toggleKanbanBoard?.());
   registerHotkey(platformHotkey('mod+t'), Scopes.THEATRE, () => theatreRegistry.toggleKanbanBoard?.());
   registerHotkey(platformHotkey('mod+i'), Scopes.THEATRE, () => addTheatreTerminal());
@@ -559,12 +558,12 @@ export async function restoreTheatreMode(
       });
     }
 
-    // Wire up new task button (opens task overlay)
+    // Wire up new task button (opens kanban board)
     const newTaskBtn = headerContent.querySelector('.theatre-newtask-btn');
     if (newTaskBtn) {
       newTaskBtn.addEventListener('click', (e) => {
         e.stopPropagation();
-        createNewAgentShell();
+        showKanbanAndFocusInput();
       });
     }
 
@@ -631,7 +630,7 @@ export async function restoreTheatreMode(
 
   // 4. Set up keyboard shortcuts
   pushScope(Scopes.THEATRE);
-  registerHotkey(platformHotkey('mod+n'), Scopes.THEATRE, () => createNewAgentShell());
+  registerHotkey(platformHotkey('mod+n'), Scopes.THEATRE, () => showKanbanAndFocusInput());
   registerHotkey(platformHotkey('mod+b'), Scopes.THEATRE, () => theatreRegistry.toggleKanbanBoard?.());
   registerHotkey(platformHotkey('mod+t'), Scopes.THEATRE, () => theatreRegistry.toggleKanbanBoard?.());
   registerHotkey(platformHotkey('mod+i'), Scopes.THEATRE, () => addTheatreTerminal());

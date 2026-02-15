@@ -115,7 +115,6 @@ export {
 
 // Worktree/task operations
 export {
-  createNewAgentShell,
   closeTask,
   reopenTask,
   deleteTask,

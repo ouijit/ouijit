@@ -3,93 +3,10 @@
  */
 
 import type { TaskWithWorkspace } from '../../types';
-import { MAX_THEATRE_TERMINALS } from './state';
 import { projectPath, terminals, invalidateTaskList } from './signals';
 import { showToast } from '../importDialog';
 import { theatreRegistry } from './helpers';
 import { registerHotkey, unregisterHotkey, pushScope, popScope, Scopes } from '../../utils/hotkeys';
-import { buildTaskFormHtml, setupTaskForm, type TaskFormValues } from './taskForm';
-
-/**
- * Show a simple prompt dialog for naming a worktree
- * Returns the task name and optional prompt, or null if cancelled
- */
-async function showWorktreeNamePrompt(): Promise<TaskFormValues | null> {
-  // Check lima availability
-  const currentProjectPath = projectPath.value;
-  let limaAvailable = false;
-  if (currentProjectPath) {
-    try {
-      const limaStatus = await window.api.lima.status(currentProjectPath);
-      limaAvailable = limaStatus.available;
-    } catch {
-      // Lima not available
-    }
-  }
-
-  return new Promise((resolve) => {
-    const overlay = document.createElement('div');
-    overlay.className = 'modal-overlay';
-
-    const dialog = document.createElement('div');
-    dialog.className = 'import-dialog new-task-dialog';
-
-    dialog.innerHTML = `
-      <form class="new-task-composer">
-        ${buildTaskFormHtml(limaAvailable)}
-      </form>
-    `;
-
-    overlay.appendChild(dialog);
-    document.body.appendChild(overlay);
-
-    const formHandle = setupTaskForm(dialog, currentProjectPath, limaAvailable);
-    const form = dialog.querySelector('.new-task-composer') as HTMLFormElement;
-
-    const cleanup = () => {
-      formHandle.cleanup();
-      unregisterHotkey('escape', Scopes.MODAL);
-      popScope();
-      dialog.classList.remove('import-dialog--visible');
-      overlay.classList.remove('modal-overlay--visible');
-      setTimeout(() => overlay.remove(), 150);
-    };
-
-    const handleCreate = () => {
-      if (!formHandle.isValid()) return;
-      const values = formHandle.getValues();
-      cleanup();
-      resolve(values);
-    };
-
-    const handleCancel = () => {
-      cleanup();
-      resolve(null);
-    };
-
-    // Form submission
-    form.addEventListener('submit', (e) => {
-      e.preventDefault();
-      handleCreate();
-    });
-
-    // Click outside to cancel
-    overlay.addEventListener('mousedown', (e) => {
-      if (e.target === overlay) handleCancel();
-    });
-
-    // Set up hotkey scope for modal
-    pushScope(Scopes.MODAL);
-    registerHotkey('escape', Scopes.MODAL, handleCancel);
-
-    // Animate in and focus
-    requestAnimationFrame(() => {
-      overlay.classList.add('modal-overlay--visible');
-      dialog.classList.add('import-dialog--visible');
-      formHandle.focus();
-    });
-  });
-}
 
 /**
  * Show a confirmation dialog for deleting a task
@@ -152,28 +69,6 @@ function showDeleteConfirmDialog(taskName: string): Promise<boolean> {
       dialog.classList.add('import-dialog--visible');
     });
   });
-}
-
-/**
- * Create a new agent shell (worktree) - can be called from keyboard shortcut
- */
-export async function createNewAgentShell(): Promise<void> {
-  // Check if at max terminals
-  if (terminals.value.length >= MAX_THEATRE_TERMINALS) {
-    showToast(`Maximum ${MAX_THEATRE_TERMINALS} terminals`, 'info');
-    return;
-  }
-
-  const result = await showWorktreeNamePrompt();
-  if (result !== null) {
-    await theatreRegistry.addTheatreTerminal?.(undefined, {
-      useWorktree: true,
-      worktreeName: result.name || undefined,
-      worktreePrompt: result.prompt || undefined,
-      worktreeBranchName: result.branchName || undefined,
-      sandboxed: result.sandboxed,
-    });
-  }
 }
 
 /**
@@ -256,5 +151,3 @@ export async function deleteTask(path: string, task: TaskWithWorkspace): Promise
   }
 }
 
-// Register functions in the theatre registry for cross-module access
-theatreRegistry.createNewAgentShell = createNewAgentShell;
