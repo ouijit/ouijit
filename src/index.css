@@ -588,7 +588,7 @@ textarea,
 }
 
 .import-actions {
-  @apply flex gap-2 justify-end;
+  @apply flex gap-2 justify-end mt-4 items-center;
 }
 
 /* ===================================
@@ -976,6 +976,10 @@ body.platform-darwin:not(.is-fullscreen) .theatre-header-content {
 
 .task-context-menu-item:hover {
   @apply bg-background-tertiary;
+}
+
+.task-context-menu-item--danger:hover {
+  @apply text-error;
 }
 
 .task-context-menu-separator {
@@ -2250,26 +2254,6 @@ body.kanban-open .theatre-stack {
   @apply border-accent;
 }
 
-.kanban-card-actions {
-  @apply flex gap-1 mt-1.5;
-}
-
-.kanban-card-action {
-  @apply flex items-center justify-center w-6 h-6 p-0 bg-transparent border-none rounded text-text-secondary transition-all duration-150 ease-out;
-  -webkit-app-region: no-drag;
-}
-
-.kanban-card-action:hover {
-  @apply bg-white/[0.08] text-text-primary;
-}
-
-.kanban-card-action--danger:hover {
-  @apply text-error;
-}
-
-.kanban-card-action svg {
-  @apply !w-3 !h-3;
-}
 
 /* ==========================================
    Ship-It Panel - Full-Width Takeover

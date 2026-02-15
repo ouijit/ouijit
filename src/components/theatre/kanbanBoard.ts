@@ -34,6 +34,9 @@ function showKanbanCardContextMenu(
   onSandbox: (() => void) | null,
   connectedTerminals: { terminal: TheatreTerminal; index: number }[],
   onSwitchTerminal: (index: number) => void,
+  onCloseOrReopen: () => void,
+  closeOrReopenLabel: string,
+  onDelete: () => void,
 ): void {
   event.preventDefault();
   event.stopPropagation();
@@ -92,6 +95,34 @@ function showKanbanCardContextMenu(
     menu.appendChild(sandboxItem);
   }
 
+  // Separator before task actions
+  const actionSeparator = document.createElement('div');
+  actionSeparator.className = 'task-context-menu-separator';
+  menu.appendChild(actionSeparator);
+
+  // Close/Reopen option
+  const closeReopenItem = document.createElement('button');
+  closeReopenItem.className = 'task-context-menu-item';
+  const closeReopenIcon = closeOrReopenLabel === 'Reopen' ? 'rotate-ccw' : 'archive';
+  closeReopenItem.innerHTML = `<i data-lucide="${closeReopenIcon}"></i> ${closeOrReopenLabel}`;
+  closeReopenItem.addEventListener('click', (e) => {
+    e.stopPropagation();
+    menu.remove();
+    onCloseOrReopen();
+  });
+  menu.appendChild(closeReopenItem);
+
+  // Delete option
+  const deleteItem = document.createElement('button');
+  deleteItem.className = 'task-context-menu-item task-context-menu-item--danger';
+  deleteItem.innerHTML = '<i data-lucide="trash-2"></i> Delete';
+  deleteItem.addEventListener('click', (e) => {
+    e.stopPropagation();
+    menu.remove();
+    onDelete();
+  });
+  menu.appendChild(deleteItem);
+
   document.body.appendChild(menu);
 
   // Render lucide icons
@@ -99,7 +130,9 @@ function showKanbanCardContextMenu(
 
   // Position at mouse, keeping within viewport
   const menuWidth = 200;
-  const menuHeight = 32 * (1 + (onSandbox ? 1 : 0) + connectedTerminals.length) + (connectedTerminals.length > 0 ? 9 : 0);
+  const itemCount = 1 + (onSandbox ? 1 : 0) + connectedTerminals.length + 2; // +2 for close/reopen and delete
+  const separatorCount = (connectedTerminals.length > 0 ? 1 : 0) + 1; // +1 for action separator
+  const menuHeight = 32 * itemCount + 9 * separatorCount;
   const x = Math.min(event.clientX, window.innerWidth - menuWidth);
   const y = Math.min(event.clientY, window.innerHeight - menuHeight);
   menu.style.left = `${x}px`;
@@ -314,46 +347,6 @@ function buildKanbanCard(task: TaskWithWorkspace, path: string, limaAvailable: b
   dateRow.innerHTML = `<span class="kanban-card-detail-label">Created</span><span class="kanban-card-detail-value">${date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>`;
   detail.appendChild(dateRow);
 
-  // Action buttons
-  const actions = document.createElement('div');
-  actions.className = 'kanban-card-actions';
-
-  if (task.status === 'done') {
-    const reopenBtn = document.createElement('button');
-    reopenBtn.className = 'kanban-card-action';
-    reopenBtn.title = 'Reopen task';
-    reopenBtn.innerHTML = '<i data-lucide="rotate-ccw"></i>';
-    reopenBtn.setAttribute('style', '-webkit-app-region: no-drag;');
-    reopenBtn.addEventListener('click', async (e) => {
-      e.stopPropagation();
-      await reopenTask(path, task);
-    });
-    actions.appendChild(reopenBtn);
-  } else {
-    const closeBtn = document.createElement('button');
-    closeBtn.className = 'kanban-card-action';
-    closeBtn.title = 'Close task';
-    closeBtn.innerHTML = '<i data-lucide="archive"></i>';
-    closeBtn.setAttribute('style', '-webkit-app-region: no-drag;');
-    closeBtn.addEventListener('click', async (e) => {
-      e.stopPropagation();
-      await closeTask(path, task);
-    });
-    actions.appendChild(closeBtn);
-  }
-
-  const delBtn = document.createElement('button');
-  delBtn.className = 'kanban-card-action kanban-card-action--danger';
-  delBtn.title = 'Delete task';
-  delBtn.innerHTML = '<i data-lucide="trash-2"></i>';
-  delBtn.setAttribute('style', '-webkit-app-region: no-drag;');
-  delBtn.addEventListener('click', async (e) => {
-    e.stopPropagation();
-    await deleteTask(path, task);
-  });
-  actions.appendChild(delBtn);
-
-  detail.appendChild(actions);
   card.appendChild(detail);
 
   // Click anywhere on card toggles expand/collapse
@@ -370,9 +363,15 @@ function buildKanbanCard(task: TaskWithWorkspace, path: string, limaAvailable: b
     toggleExpand();
   });
 
-  card.addEventListener('click', () => {
+  card.addEventListener('click', (e) => {
     clearTimeout(clickTimer);
-    clickTimer = setTimeout(() => toggleExpand(), 200);
+    // Only delay for elements that support double-click editing
+    const target = e.target as HTMLElement;
+    if (target.closest('.kanban-card-name, .kanban-card-detail-value')) {
+      clickTimer = setTimeout(() => toggleExpand(), 200);
+    } else {
+      toggleExpand();
+    }
   });
 
   card.addEventListener('dblclick', () => {
@@ -410,12 +409,15 @@ function buildKanbanCard(task: TaskWithWorkspace, path: string, limaAvailable: b
       if (!task.worktreePath) {
         const startResult = await window.api.task.start(path, task.taskNumber);
         if (!startResult.success || !startResult.worktreePath) return;
+        await window.api.task.setStatus(path, task.taskNumber, 'in_progress');
         invalidateTaskList();
         hideKanbanBoard();
         await theatreRegistry.addTheatreTerminal?.(undefined, {
           existingWorktree: {
             path: startResult.worktreePath,
             branch: startResult.task?.branch || '',
+            taskName: task.name,
+            prompt: task.prompt,
             createdAt: task.createdAt,
             sandboxed: task.sandboxed,
           },
@@ -442,6 +444,8 @@ function buildKanbanCard(task: TaskWithWorkspace, path: string, limaAvailable: b
         const worktreeOpts = {
           path: task.worktreePath!,
           branch: task.branch || '',
+          taskName: task.name,
+          prompt: task.prompt,
           createdAt: task.createdAt,
           sandboxed: task.sandboxed,
         };
@@ -458,12 +462,15 @@ function buildKanbanCard(task: TaskWithWorkspace, path: string, limaAvailable: b
       } else if (!task.worktreePath) {
         const startResult = await window.api.task.start(path, task.taskNumber);
         if (!startResult.success || !startResult.worktreePath) return;
+        await window.api.task.setStatus(path, task.taskNumber, 'in_progress');
         invalidateTaskList();
         hideKanbanBoard();
         await theatreRegistry.addTheatreTerminal?.(undefined, {
           existingWorktree: {
             path: startResult.worktreePath,
             branch: startResult.task?.branch || '',
+            taskName: task.name,
+            prompt: task.prompt,
             createdAt: task.createdAt,
             sandboxed: task.sandboxed,
           },
@@ -476,6 +483,8 @@ function buildKanbanCard(task: TaskWithWorkspace, path: string, limaAvailable: b
           existingWorktree: {
             path: task.worktreePath,
             branch: task.branch || '',
+            taskName: task.name,
+            prompt: task.prompt,
             createdAt: task.createdAt,
             sandboxed: task.sandboxed,
           },
@@ -492,7 +501,20 @@ function buildKanbanCard(task: TaskWithWorkspace, path: string, limaAvailable: b
       }
     };
 
-    showKanbanCardContextMenu(e, onOpenTerminal, onSandbox, connectedTerminals, onSwitchTerminal);
+    const onCloseOrReopen = async () => {
+      if (task.status === 'done') {
+        await reopenTask(path, task);
+      } else {
+        await closeTask(path, task);
+      }
+    };
+    const closeOrReopenLabel = task.status === 'done' ? 'Reopen' : 'Move to Done';
+
+    const onDelete = async () => {
+      await deleteTask(path, task);
+    };
+
+    showKanbanCardContextMenu(e, onOpenTerminal, onSandbox, connectedTerminals, onSwitchTerminal, onCloseOrReopen, closeOrReopenLabel, onDelete);
   });
 
   return card;
@@ -536,28 +558,47 @@ function setupColumnDropTargets(): void {
       const path = projectPath.value;
       if (!path) return;
 
-      // Dropping a todo task (no worktree) into in_progress — create worktree + show start command dialog
+      // Immediately move the card into the target column so there's no snap-back
+      const card = board!.querySelector(`.kanban-card[data-task-number="${taskNumber}"]`) as HTMLElement | null;
+      const originalBody = card?.parentElement;
+      const originalNext = card?.nextElementSibling || null;
+      if (card) body.appendChild(card);
+
+      // Dropping a task into in_progress — create worktree if needed + show start command dialog
       if (newStatus === 'in_progress') {
         const tasks = await window.api.task.getAll(path);
         const task = tasks.find(t => t.taskNumber === taskNumber);
 
-        if (task && !task.worktreePath) {
-          // Create the worktree first
-          const startResult = await window.api.task.start(path, taskNumber);
-          if (!startResult.success || !startResult.worktreePath) return;
+        if (task && task.status === 'todo') {
+          let worktreePath = task.worktreePath;
+          let branch = task.branch || '';
+
+          // Create worktree if task doesn't have one yet
+          if (!worktreePath) {
+            const startResult = await window.api.task.start(path, taskNumber);
+            if (!startResult.success || !startResult.worktreePath) {
+              if (card && originalBody) originalBody.insertBefore(card, originalNext);
+              return;
+            }
+            worktreePath = startResult.worktreePath;
+            branch = startResult.task?.branch || '';
+          }
+
+          await window.api.task.setStatus(path, taskNumber, 'in_progress');
           invalidateTaskList();
 
           // Show start command dialog
           const dialogResult = await showStartCommandDialog(path, task.name);
           if (dialogResult === null) {
-            // User cancelled — abort (worktree was created but that's fine)
+            // User cancelled — task stays in_progress but no terminal opened
             await populateKanbanBoard();
             return;
           }
 
           // Build runConfig if user chose to run a command
           let runConfig: RunConfig | undefined;
-          if (dialogResult !== 'skip' && dialogResult.command) {
+          const sandboxed = dialogResult.sandboxed;
+          if (dialogResult.command) {
             runConfig = {
               name: 'start',
               command: dialogResult.command,
@@ -568,13 +609,15 @@ function setupColumnDropTargets(): void {
 
           await theatreRegistry.addTheatreTerminal?.(runConfig, {
             existingWorktree: {
-              path: startResult.worktreePath,
-              branch: startResult.task?.branch || '',
+              path: worktreePath,
+              branch,
+              taskName: task.name,
+              prompt: task.prompt,
               createdAt: task.createdAt,
               sandboxed: task.sandboxed,
             },
             taskId: taskNumber,
-            sandboxed: false,
+            sandboxed,
           });
           await populateKanbanBoard();
           return;
@@ -595,6 +638,8 @@ function setupColumnDropTargets(): void {
       if (result.success) {
         invalidateTaskList();
         await populateKanbanBoard();
+      } else if (card && originalBody) {
+        originalBody.insertBefore(card, originalNext);
       }
     });
   });
@@ -694,17 +739,22 @@ function wireAddInput(board: Element): void {
  * Show a start command dialog before opening a terminal.
  * Returns { command: string } to run a command, 'skip' to open terminal with no command, or null to cancel.
  */
-async function showStartCommandDialog(path: string, taskName: string): Promise<{ command: string } | 'skip' | null> {
-  // Fetch start hook command before opening the dialog
+async function showStartCommandDialog(path: string, taskName: string): Promise<{ command: string; sandboxed: boolean } | null> {
+  // Fetch start hook command and lima status before opening the dialog
   let startCommand = '';
+  let limaAvailable = false;
   try {
-    const hooks = await window.api.hooks.get(path);
+    const [hooks, limaStatus] = await Promise.all([
+      window.api.hooks.get(path),
+      window.api.lima.status(path).then(s => s.available).catch(() => false),
+    ]);
     if (hooks.start?.command) startCommand = hooks.start.command;
+    limaAvailable = limaStatus;
   } catch { /* no hook configured */ }
 
   return new Promise((resolve) => {
     let resolved = false;
-    const finish = (result: { command: string } | 'skip' | null) => {
+    const finish = (result: { command: string; sandboxed: boolean } | null) => {
       if (resolved) return;
       resolved = true;
       cleanup();
@@ -744,16 +794,53 @@ async function showStartCommandDialog(path: string, taskName: string): Promise<{
 </ul>`;
     dialog.appendChild(envHint);
 
+    // Sandbox toggle (only if lima is available)
+    let sandboxed = false;
+    let toggleRow: HTMLDivElement | undefined;
+    if (limaAvailable) {
+      toggleRow = document.createElement('div');
+      toggleRow.className = 'task-form-sandbox-toggle';
+      toggleRow.setAttribute('style', '-webkit-app-region: no-drag;');
+
+      const toggle = document.createElement('div');
+      toggle.className = 'sandbox-toggle';
+      toggle.appendChild(document.createElement('div')).className = 'sandbox-toggle-knob';
+
+      const label = document.createElement('span');
+      label.className = 'task-form-sandbox-label';
+      label.textContent = 'Sandbox';
+
+      toggleRow.addEventListener('click', () => {
+        sandboxed = !sandboxed;
+        toggle.classList.toggle('sandbox-toggle--active', sandboxed);
+      });
+
+      toggleRow.appendChild(toggle);
+      toggleRow.appendChild(label);
+    }
+
     // Action buttons
     const actions = document.createElement('div');
     actions.className = 'import-actions';
+    actions.style.justifyContent = 'space-between';
+
+    if (limaAvailable) {
+      actions.appendChild(toggleRow!);
+    } else {
+      // Push buttons to the right when no toggle
+      const spacer = document.createElement('div');
+      actions.appendChild(spacer);
+    }
+
+    const btnGroup = document.createElement('div');
+    btnGroup.style.cssText = 'display: flex; gap: 8px;';
 
     const skipBtn = document.createElement('button');
     skipBtn.className = 'btn btn-secondary';
     skipBtn.textContent = 'Skip';
     skipBtn.setAttribute('style', '-webkit-app-region: no-drag;');
-    skipBtn.addEventListener('click', () => finish('skip'));
-    actions.appendChild(skipBtn);
+    skipBtn.addEventListener('click', () => finish({ command: '', sandboxed }));
+    btnGroup.appendChild(skipBtn);
 
     const runBtn = document.createElement('button');
     runBtn.className = 'btn btn-primary';
@@ -761,13 +848,10 @@ async function showStartCommandDialog(path: string, taskName: string): Promise<{
     runBtn.setAttribute('style', '-webkit-app-region: no-drag;');
     runBtn.addEventListener('click', () => {
       const cmd = textarea.value.trim();
-      if (cmd) {
-        finish({ command: cmd });
-      } else {
-        finish('skip');
-      }
+      finish({ command: cmd, sandboxed });
     });
-    actions.appendChild(runBtn);
+    btnGroup.appendChild(runBtn);
+    actions.appendChild(btnGroup);
 
     dialog.appendChild(actions);
     overlay.appendChild(dialog);

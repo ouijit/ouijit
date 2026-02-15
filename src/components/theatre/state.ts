@@ -29,6 +29,7 @@ export interface TheatreTerminal {
   lastOscTitle: string;  // Last seen OSC terminal title
   // Task support
   taskId: number | null;
+  taskPrompt?: string;
   worktreePath?: string;
   worktreeBranch?: string;
   // Per-terminal git status and diff panel state

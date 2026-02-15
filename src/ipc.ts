@@ -435,6 +435,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
             worktreePath: worktree.path,
             taskBranch: task.branch || '',
             taskName: task.name,
+            taskPrompt: task.prompt,
           });
 
           if (!hookResult.success) {
