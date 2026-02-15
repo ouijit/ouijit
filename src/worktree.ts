@@ -385,13 +385,10 @@ export async function createTaskWorktree(projectPath: string, name?: string, pro
  */
 export async function removeTaskWorktree(
   projectPath: string,
-  worktreePath: string
+  worktreePath: string,
+  taskNumber: number
 ): Promise<WorktreeRemoveResult> {
   try {
-    // Parse task number from directory name (e.g., "T-3" -> 3)
-    const dirName = path.basename(worktreePath);
-    const taskNumber = parseInt(dirName.slice(2), 10);
-
     // Get the task to find the branch name
     const task = await getTaskByNumber(projectPath, taskNumber);
     const branchName = task?.branch;
