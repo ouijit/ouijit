@@ -112,7 +112,6 @@ export async function reopenTask(path: string, task: TaskWithWorkspace): Promise
       existingWorktree: {
         path: taskPath,
         branch: task.branch || '',
-        taskName: task.name,
         createdAt: task.createdAt,
         prompt: task.prompt,
         sandboxed: task.sandboxed,

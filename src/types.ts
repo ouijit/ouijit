@@ -213,7 +213,6 @@ export interface TaskMetadata {
 export interface WorktreeInfo {
   path: string;
   branch: string;
-  taskName?: string;
   createdAt: string;
 }
 

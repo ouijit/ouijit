@@ -81,7 +81,7 @@ export function debouncedResize(ptyId: PtyId, terminal: Terminal, fitAddon: FitA
 /**
  * Format a branch name for display (hyphens to spaces)
  */
-function formatBranchNameForDisplay(branch: string): string {
+export function formatBranchNameForDisplay(branch: string): string {
   // Check if it's an old-style agent-timestamp branch
   const agentMatch = branch.match(/^agent-(\d+)$/);
   if (agentMatch) {
@@ -98,6 +98,18 @@ function formatBranchNameForDisplay(branch: string): string {
 
   // Fallback: just replace hyphens with spaces
   return branch.replace(/-/g, ' ');
+}
+
+/** Resolve the display label for a terminal card.
+ *  Priority: task name > formatted branch name > fallback */
+export function resolveTerminalLabel(
+  taskName: string | null | undefined,
+  worktreeBranch: string | undefined,
+  fallback?: string,
+): string {
+  if (taskName) return taskName;
+  if (worktreeBranch) return formatBranchNameForDisplay(worktreeBranch);
+  return fallback || 'Shell';
 }
 
 // Track pending summary updates (debounced)
@@ -1070,7 +1082,6 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
     worktreeInfo = {
       path: result.worktreePath,
       branch: result.task.branch || '',
-      taskName: result.task.name,
       createdAt: result.task.createdAt,
     };
     taskPrompt = options.worktreePrompt;
@@ -1089,9 +1100,13 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
     terminalCwd = worktreeInfo.path;
   }
 
-  const label = worktreeInfo
-    ? (worktreeInfo.taskName || formatBranchNameForDisplay(worktreeInfo.branch))
-    : (runConfig?.name || 'Shell');
+  // Look up current task name from API (single source of truth)
+  let taskName: string | undefined;
+  if (options?.taskId != null) {
+    const task = await window.api.task.getByNumber(currentProjectPath, options.taskId);
+    taskName = task?.name;
+  }
+  const label = resolveTerminalLabel(taskName, worktreeInfo?.branch, runConfig?.name);
   const command = runConfig?.command;
   const index = currentTerminals.length;
 
