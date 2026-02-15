@@ -808,6 +808,7 @@ export async function runDefaultInCard(term: TheatreTerminal): Promise<void> {
       ...(term.worktreePath && { OUIJIT_WORKTREE_PATH: term.worktreePath }),
       ...(term.worktreeBranch && { OUIJIT_TASK_BRANCH: term.worktreeBranch }),
       ...(term.label && { OUIJIT_TASK_NAME: term.label }),
+      ...(term.taskPrompt && { OUIJIT_TASK_PROMPT: term.taskPrompt }),
     },
   };
 
@@ -1199,6 +1200,7 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
       outputBuffer: '',
       lastOscTitle: '',
       taskId: options?.taskId ?? null,
+      taskPrompt,
       worktreePath: worktreeInfo?.path,
       worktreeBranch: worktreeInfo?.branch,
       gitStatus: null,
@@ -1405,6 +1407,7 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
       outputBuffer: '',
       lastOscTitle: '',
       taskId: options?.taskId ?? null,
+      taskPrompt,
       worktreePath: worktreeInfo?.path,
       worktreeBranch: worktreeInfo?.branch,
       // Per-terminal git status and diff panel state
