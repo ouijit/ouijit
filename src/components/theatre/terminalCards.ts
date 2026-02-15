@@ -12,7 +12,7 @@ import {
   MAX_THEATRE_TERMINALS,
   theatreState,
 } from './state';
-import { getTerminalGitPath, hideRunnerPanel, theatreRegistry, showTaskContextMenu } from './helpers';
+import { getTerminalGitPath, hideRunnerPanel, theatreRegistry } from './helpers';
 import {
   projectPath,
   projectData,
@@ -25,7 +25,6 @@ import { showHookConfigDialog } from '../hookConfigDialog';
 import { refreshTerminalGitStatus, buildCardGitBranchHtml, buildCardGitStatsHtml, scheduleTerminalGitStatusRefresh } from './gitStatus';
 import { toggleTerminalDiffPanel, hideTerminalDiffPanel } from './diffPanel';
 import { showShipItPanel } from './shipItPanel';
-import { buildTaskFormHtml, setupTaskForm } from './taskForm';
 import { setSandboxButtonStarting, refreshSandboxButton } from './theatreMode';
 
 // Platform detection for shortcuts display
@@ -997,41 +996,13 @@ export function switchToTheatreTerminal(index: number): void {
  * Select item at stack position (1-indexed)
  * Handles both terminal switching and opening tasks from empty state
  */
-export async function selectByStackPosition(position: number): Promise<void> {
+export function selectByStackPosition(position: number): void {
   const currentTerminals = terminals.value;
+  if (currentTerminals.length === 0) return;
 
-  // If there are terminals, try to switch to the one at this stack position
-  if (currentTerminals.length > 0) {
-    const targetIndex = getTerminalIndexByStackPosition(position);
-    if (targetIndex !== -1) {
-      switchToTheatreTerminal(targetIndex);
-    }
-    // If position doesn't exist in stack, just ignore
-    return;
-  }
-
-  // No terminals - open the task at this position from the empty state list
-  const path = projectPath.value;
-  if (!path) return;
-
-  const tasks = await window.api.task.getAll(path);
-  const openTasks = tasks.filter(t => t.status !== 'done' && t.worktreePath);
-  const taskIndex = position - 1;
-
-  if (taskIndex >= 0 && taskIndex < openTasks.length) {
-    const task = openTasks[taskIndex];
-    await addTheatreTerminal(undefined, {
-      existingWorktree: {
-        path: task.worktreePath || '',
-        branch: task.branch || '',
-        taskName: task.name,
-        createdAt: task.createdAt,
-        prompt: task.prompt,
-        sandboxed: task.sandboxed,
-      },
-      taskId: task.taskNumber,
-      sandboxed: false,
-    });
+  const targetIndex = getTerminalIndexByStackPosition(position);
+  if (targetIndex !== -1) {
+    switchToTheatreTerminal(targetIndex);
   }
 }
 
@@ -1601,22 +1572,12 @@ export function closeTheatreTerminal(index: number): void {
 /**
  * Build HTML for the empty state shown when no terminals are open
  */
-export function buildEmptyStateHtml(limaAvailable: boolean): string {
+export function buildEmptyStateHtml(): string {
   return `
     <div class="theatre-stack-empty">
-      <div class="theatre-stack-empty-open" style="display: none;">
-        <div class="theatre-stack-empty-section-label">Continue</div>
-        <div class="theatre-stack-empty-open-list"></div>
-      </div>
-      <div class="theatre-stack-empty-new">
-        <div class="theatre-stack-empty-section-label"><span class="theatre-stack-empty-section-shortcut">${isMac ? '⌘' : 'Ctrl+'}<span class="shortcut-number">N</span></span>New Task</div>
-        <form class="theatre-stack-empty-form">
-          <div class="theatre-stack-empty-composer">
-            ${buildTaskFormHtml(limaAvailable)}
-          </div>
-        </form>
-      </div>
+      <div class="theatre-stack-empty-message">No active terminals</div>
       <div class="theatre-stack-empty-hints">
+        <span class="theatre-stack-empty-hint"><span class="theatre-stack-empty-hint-shortcut">${isMac ? '⌘' : 'Ctrl+'}<span class="shortcut-number">N</span></span>New Task</span>
         <span class="theatre-stack-empty-hint"><span class="theatre-stack-empty-hint-shortcut">${isMac ? '⌘' : 'Ctrl+'}<span class="shortcut-number">B</span></span>Board</span>
       </div>
     </div>
@@ -1624,173 +1585,28 @@ export function buildEmptyStateHtml(limaAvailable: boolean): string {
 }
 
 /**
- * Populate the tasks lists in the empty state (only open tasks)
- */
-async function populatePreviousTasks(emptyState: HTMLElement): Promise<void> {
-  const path = projectPath.value;
-  if (!path) return;
-
-  const openSection = emptyState.querySelector('.theatre-stack-empty-open') as HTMLElement;
-  const openList = emptyState.querySelector('.theatre-stack-empty-open-list') as HTMLElement;
-
-  if (!openSection || !openList) return;
-
-  // Fetch tasks with metadata
-  const tasks = await window.api.task.getAll(path);
-  const openTasks = tasks.filter(t => t.status !== 'done' && t.worktreePath);
-
-  // Check lima availability for context menu
-  let limaAvailable = false;
-  try {
-    const limaStatus = await window.api.lima.status(path);
-    limaAvailable = limaStatus.available;
-  } catch { /* Lima not available */ }
-
-  // Populate open tasks
-  if (openTasks.length > 0) {
-    openSection.style.display = 'block';
-    openList.innerHTML = '';
-
-    openTasks.forEach((task, index) => {
-      const taskBtn = document.createElement('button');
-      taskBtn.className = 'theatre-stack-empty-task';
-      taskBtn.dataset.taskIndex = String(index);
-
-      // Add shortcut indicator for first 9 tasks
-      if (index < 9) {
-        const shortcut = document.createElement('kbd');
-        shortcut.className = 'theatre-stack-empty-task-shortcut';
-        shortcut.innerHTML = isMac
-          ? `⌘<span class="shortcut-number">${index + 1}</span>`
-          : `Ctrl+<span class="shortcut-number">${index + 1}</span>`;
-        taskBtn.appendChild(shortcut);
-      }
-
-      const nameSpan = document.createElement('span');
-      nameSpan.textContent = task.name;
-      taskBtn.appendChild(nameSpan);
-
-      const worktreeOpts = {
-        path: task.worktreePath || '',
-        branch: task.branch || '',
-        taskName: task.name,
-        createdAt: task.createdAt,
-        prompt: task.prompt,
-        sandboxed: task.sandboxed,
-      };
-      const taskNumber = task.taskNumber;
-
-      // Normal click: open without sandbox
-      taskBtn.addEventListener('click', async () => {
-        await addTheatreTerminal(undefined, {
-          existingWorktree: worktreeOpts,
-          taskId: taskNumber,
-          sandboxed: false,
-        });
-      });
-
-      // Right-click: offer "Open in Sandbox" (only if lima available)
-      if (limaAvailable) {
-        taskBtn.addEventListener('contextmenu', (e) => {
-          showTaskContextMenu(e, async () => {
-            await addTheatreTerminal(undefined, {
-              existingWorktree: worktreeOpts,
-              taskId: taskNumber,
-              sandboxed: true,
-            });
-          });
-        });
-      }
-
-      openList.appendChild(taskBtn);
-    });
-  } else {
-    openSection.style.display = 'none';
-  }
-}
-
-/**
  * Show the empty state in the theatre stack
  */
-export async function showStackEmptyState(): Promise<void> {
+export function showStackEmptyState(): void {
   const stack = document.querySelector('.theatre-stack');
   if (!stack) return;
 
   // Check if empty state already exists
   let emptyState = stack.querySelector('.theatre-stack-empty') as HTMLElement;
   if (emptyState) {
-    // Already exists, refresh previous tasks and make visible
-    await populatePreviousTasks(emptyState);
     requestAnimationFrame(() => {
       emptyState.classList.add('theatre-stack-empty--visible');
-      const input = emptyState.querySelector('.task-form-name') as HTMLInputElement;
-      if (input) input.focus();
     });
     return;
   }
 
-  // Check lima availability for sandbox toggle
-  const currentProjectPath = projectPath.value;
-  let limaAvailable = false;
-  if (currentProjectPath) {
-    try {
-      const limaStatus = await window.api.lima.status(currentProjectPath);
-      limaAvailable = limaStatus.available;
-    } catch {
-      // Lima not available
-    }
-  }
-
   // Create and insert empty state
-  stack.insertAdjacentHTML('beforeend', buildEmptyStateHtml(limaAvailable));
+  stack.insertAdjacentHTML('beforeend', buildEmptyStateHtml());
   emptyState = stack.querySelector('.theatre-stack-empty') as HTMLElement;
 
-  const formHandle = setupTaskForm(emptyState, currentProjectPath, limaAvailable);
-
-  // Note: ⌘1-9 hotkeys are already registered in enterTheatreMode for terminal switching.
-  // We don't register them again here to avoid duplicate handlers that cause double-firing
-  // when the task index scope is popped. Users can use Command+T to open the task index
-  // for keyboard-based task selection.
-
-  const form = emptyState.querySelector('.theatre-stack-empty-form') as HTMLFormElement;
-  if (form) {
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      if (!formHandle.isValid()) return;
-
-      const values = formHandle.getValues();
-      formHandle.disable();
-      formHandle.cleanup();
-
-      try {
-        const success = await addTheatreTerminal(undefined, {
-          useWorktree: true,
-          worktreeName: values.name || undefined,
-          worktreePrompt: values.prompt || undefined,
-          worktreeBranchName: values.branchName || undefined,
-          sandboxed: values.sandboxed,
-        });
-        if (!success) {
-          formHandle.enable();
-          formHandle.focus();
-        }
-        // If successful, the form will be hidden by the effect system
-      } catch (error) {
-        console.error('[theatre] Failed to create task:', error);
-        showToast('Failed to create task', 'error');
-        formHandle.enable();
-        formHandle.focus();
-      }
-    });
-  }
-
-  // Populate previous tasks
-  await populatePreviousTasks(emptyState);
-
-  // Animate in and focus input
+  // Animate in
   requestAnimationFrame(() => {
     emptyState.classList.add('theatre-stack-empty--visible');
-    formHandle.focus();
   });
 }
 
@@ -1827,16 +1643,6 @@ async function playOrToggleRunner(): Promise<void> {
     toggleRunnerPanel(activeTerm);
   } else {
     await runDefaultInCard(activeTerm);
-  }
-}
-
-/**
- * Refresh the empty state task list if it's currently visible
- */
-export function refreshEmptyStateTasks(): void {
-  const emptyState = document.querySelector('.theatre-stack-empty') as HTMLElement;
-  if (emptyState) {
-    populatePreviousTasks(emptyState);
   }
 }
 

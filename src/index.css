@@ -1892,35 +1892,20 @@ body > .diff-panel--visible {
    ========================================== */
 
 .theatre-stack-empty {
-  @apply absolute inset-0 flex flex-col items-center justify-center text-center bg-[rgba(26,26,26,0.75)] rounded-lg border border-dashed border-white/10 p-12 opacity-0;
+  @apply absolute inset-0 flex flex-col items-center justify-center text-center rounded-lg border border-dashed border-white/10 p-12 opacity-0;
+  background: var(--color-terminal-bg);
 }
 
 .theatre-stack-empty--visible {
   @apply opacity-100;
 }
 
-.theatre-stack-empty-title {
-  @apply text-lg font-semibold text-white/70 mb-2 tracking-tight;
-}
-
-.theatre-stack-empty-description {
-  @apply text-sm text-white/40 max-w-[280px] leading-relaxed mb-8;
-}
-
-.theatre-stack-empty-form {
-  @apply w-full max-w-[480px];
-}
-
-.theatre-stack-empty-composer {
-  @apply relative flex flex-col bg-white/[0.08] border border-white/[0.12] rounded-xl overflow-hidden transition-all duration-150 ease-out;
-}
-
-.theatre-stack-empty-composer:focus-within {
-  @apply border-accent bg-white/10 ring-3 ring-[rgba(0,122,255,0.15)];
+.theatre-stack-empty-message {
+  @apply text-sm text-white/30;
 }
 
 .theatre-stack-empty-hints {
-  @apply flex justify-center gap-6 mt-12;
+  @apply flex justify-center gap-6 mt-6;
 }
 
 .theatre-stack-empty-hint {
@@ -1937,43 +1922,6 @@ body > .diff-panel--visible {
   color: rgba(255, 255, 255, 0.25);
 }
 
-.theatre-stack-empty-new {
-  @apply w-full max-w-[480px] text-center;
-}
-
-.theatre-stack-empty-task {
-  @apply inline-flex items-center gap-1.5 px-3 py-1.5 font-sans text-xs font-normal text-white/55 bg-white/[0.06] border border-white/[0.08] rounded-full transition-all duration-150 ease-out;
-}
-
-.theatre-stack-empty-task-shortcut {
-  @apply inline-flex items-center font-mono text-base text-white/35;
-}
-
-.theatre-stack-empty-task:hover {
-  @apply text-white/85 bg-white/10 border-white/[0.12];
-}
-
-.theatre-stack-empty-task:active {
-  @apply bg-white/[0.08];
-}
-
-/* Open section styles */
-.theatre-stack-empty-open {
-  @apply w-full max-w-[480px] text-center mb-12;
-}
-
-.theatre-stack-empty-section-label {
-  @apply flex items-center justify-center gap-1.5 text-xs text-white/35 mb-2;
-}
-
-.theatre-stack-empty-section-shortcut {
-  @apply inline-flex items-center font-mono text-base text-white/25;
-}
-
-.theatre-stack-empty-open-list {
-  @apply flex flex-wrap gap-1 justify-center;
-}
-
 /* Smaller numbers in shortcut hints (e.g., ⌘1 where 1 is smaller) */
 .shortcut-number {
   @apply text-xs;
@@ -1981,8 +1929,6 @@ body > .diff-panel--visible {
 
 /* On non-Mac platforms, use smaller font for shortcut text since "Ctrl+" is longer than ⌘ */
 body.platform-other .theatre-stack-empty-hint-shortcut,
-body.platform-other .theatre-stack-empty-section-shortcut,
-body.platform-other .theatre-stack-empty-task-shortcut,
 body.platform-other .theatre-card-shortcut {
   @apply text-[11px];
 }

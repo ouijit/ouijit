@@ -13,7 +13,7 @@ import {
   kanbanVisible,
 } from './signals';
 // Direct imports - these modules import from signals.ts, not effects.ts, so no circular dep
-import { updateCardStack, showStackEmptyState, hideStackEmptyState, refreshEmptyStateTasks } from './terminalCards';
+import { updateCardStack, showStackEmptyState, hideStackEmptyState } from './terminalCards';
 import { syncDiffPanelToActiveTerminal } from './diffPanel';
 import { refreshKanbanBoard, syncKanbanStatusDots } from './kanbanBoard';
 
@@ -109,20 +109,6 @@ export function initializeEffects(): void {
         void _terminals.length;
         syncKanbanStatusDots();
       }
-    })
-  );
-
-  // Effect: Auto-refresh empty state task list when taskVersion bumps
-  let lastTaskVersionForEmpty = taskVersion.value;
-  cleanupFunctions.push(
-    effect(() => {
-      const ver = taskVersion.value;
-      const _terminals = terminals.value;
-      if (ver !== lastTaskVersionForEmpty && _terminals.length === 0) {
-        lastTaskVersionForEmpty = ver;
-        refreshEmptyStateTasks();
-      }
-      lastTaskVersionForEmpty = ver;
     })
   );
 
