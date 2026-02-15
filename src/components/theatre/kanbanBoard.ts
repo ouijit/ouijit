@@ -581,6 +581,16 @@ function setupColumnDropTargets(): void {
         }
       }
 
+      if (newStatus === 'done') {
+        const tasks = await window.api.task.getAll(path);
+        const task = tasks.find(t => t.taskNumber === taskNumber);
+        if (task) {
+          await closeTask(path, task);
+          await populateKanbanBoard();
+        }
+        return;
+      }
+
       const result = await window.api.task.setStatus(path, taskNumber, newStatus);
       if (result.success) {
         invalidateTaskList();
