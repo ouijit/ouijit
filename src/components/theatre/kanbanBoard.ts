@@ -409,6 +409,7 @@ function buildKanbanCard(task: TaskWithWorkspace, path: string, limaAvailable: b
       if (!task.worktreePath) {
         const startResult = await window.api.task.start(path, task.taskNumber);
         if (!startResult.success || !startResult.worktreePath) return;
+        await window.api.task.setStatus(path, task.taskNumber, 'in_progress');
         invalidateTaskList();
         hideKanbanBoard();
         await theatreRegistry.addTheatreTerminal?.(undefined, {
@@ -457,6 +458,7 @@ function buildKanbanCard(task: TaskWithWorkspace, path: string, limaAvailable: b
       } else if (!task.worktreePath) {
         const startResult = await window.api.task.start(path, task.taskNumber);
         if (!startResult.success || !startResult.worktreePath) return;
+        await window.api.task.setStatus(path, task.taskNumber, 'in_progress');
         invalidateTaskList();
         hideKanbanBoard();
         await theatreRegistry.addTheatreTerminal?.(undefined, {
@@ -548,15 +550,25 @@ function setupColumnDropTargets(): void {
       const path = projectPath.value;
       if (!path) return;
 
+      // Immediately move the card into the target column so there's no snap-back
+      const card = board!.querySelector(`.kanban-card[data-task-number="${taskNumber}"]`) as HTMLElement | null;
+      const originalBody = card?.parentElement;
+      const originalNext = card?.nextElementSibling || null;
+      if (card) body.appendChild(card);
+
       // Dropping a todo task (no worktree) into in_progress — create worktree + show start command dialog
       if (newStatus === 'in_progress') {
         const tasks = await window.api.task.getAll(path);
         const task = tasks.find(t => t.taskNumber === taskNumber);
 
         if (task && !task.worktreePath) {
-          // Create the worktree first
+          // Create the worktree and move to in_progress
           const startResult = await window.api.task.start(path, taskNumber);
-          if (!startResult.success || !startResult.worktreePath) return;
+          if (!startResult.success || !startResult.worktreePath) {
+            if (card && originalBody) originalBody.insertBefore(card, originalNext);
+            return;
+          }
+          await window.api.task.setStatus(path, taskNumber, 'in_progress');
           invalidateTaskList();
 
           // Show start command dialog
@@ -607,6 +619,8 @@ function setupColumnDropTargets(): void {
       if (result.success) {
         invalidateTaskList();
         await populateKanbanBoard();
+      } else if (card && originalBody) {
+        originalBody.insertBefore(card, originalNext);
       }
     });
   });
