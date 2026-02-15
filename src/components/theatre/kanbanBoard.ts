@@ -56,6 +56,7 @@ function showKanbanCardContextMenu(
       const dot = document.createElement('span');
       dot.className = 'kanban-card-status-dot';
       dot.setAttribute('data-status', terminal.summaryType);
+      dot.classList.toggle('kanban-card-status-dot--sandboxed', terminal.sandboxed);
       item.appendChild(dot);
       // Show distinguishing info instead of repeating the task title
       let menuLabel: string;
@@ -954,8 +955,7 @@ export function syncKanbanStatusDots(): void {
         const dot = document.createElement('span');
         dot.className = 'kanban-card-status-dot';
         dot.setAttribute('data-status', term.summaryType);
-        const isSandboxed = term.container.querySelector('.theatre-card-status-dot--sandboxed') !== null;
-        dot.classList.toggle('kanban-card-status-dot--sandboxed', isSandboxed);
+        dot.classList.toggle('kanban-card-status-dot--sandboxed', term.sandboxed);
         stack.appendChild(dot);
       }
     } else if (stack) {

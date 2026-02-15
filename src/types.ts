@@ -153,6 +153,8 @@ export interface ActiveSession {
   isRunner?: boolean;
   /** Parent PTY ID if this is a runner */
   parentPtyId?: PtyId;
+  /** Whether this terminal runs inside a sandbox */
+  sandboxed?: boolean;
 }
 
 /**

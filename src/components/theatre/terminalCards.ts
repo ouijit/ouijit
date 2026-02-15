@@ -179,6 +179,7 @@ export function updateTerminalCardLabel(term: TheatreTerminal): void {
   if (!dot) {
     dot = document.createElement('span');
     dot.className = 'theatre-card-status-dot';
+    if (term.sandboxed) dot.classList.add('theatre-card-status-dot--sandboxed');
     labelEl.insertBefore(dot, labelEl.firstChild);
   }
 
@@ -1203,6 +1204,7 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
       summaryType: 'idle',
       outputBuffer: '',
       lastOscTitle: '',
+      sandboxed: true,
       taskId: options?.taskId ?? null,
       taskPrompt,
       worktreePath: worktreeInfo?.path,
@@ -1410,6 +1412,7 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
       summaryType: 'idle',
       outputBuffer: '',
       lastOscTitle: '',
+      sandboxed: useSandbox,
       taskId: options?.taskId ?? null,
       taskPrompt,
       worktreePath: worktreeInfo?.path,

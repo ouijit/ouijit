@@ -28,6 +28,7 @@ export interface TheatreTerminal {
   outputBuffer: string;
   lastOscTitle: string;  // Last seen OSC terminal title
   // Task support
+  sandboxed: boolean;
   taskId: number | null;
   taskPrompt?: string;
   worktreePath?: string;

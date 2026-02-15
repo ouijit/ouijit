@@ -10,6 +10,7 @@ interface ManagedPty {
   label: string;
   taskId?: number;
   worktreePath?: string;
+  sandboxed: boolean;
   // Runner identification
   isRunner: boolean;
   parentPtyId?: PtyId;
@@ -28,6 +29,7 @@ export interface ActiveSession {
   worktreePath?: string;
   isRunner?: boolean;
   parentPtyId?: PtyId;
+  sandboxed?: boolean;
 }
 
 const activePtys = new Map<PtyId, ManagedPty>();
@@ -155,6 +157,7 @@ export async function spawnPty(
       label,
       taskId: options.taskId,
       worktreePath: options.worktreePath,
+      sandboxed: options.sandboxed || false,
       isRunner: options.isRunner || false,
       parentPtyId: options.parentPtyId,
       outputChunks: [],
@@ -219,6 +222,7 @@ export function getActiveSessions(): ActiveSession[] {
     worktreePath: managed.worktreePath,
     isRunner: managed.isRunner,
     parentPtyId: managed.parentPtyId,
+    sandboxed: managed.sandboxed,
   }));
 }
 

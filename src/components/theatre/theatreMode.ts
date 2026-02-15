@@ -809,6 +809,7 @@ async function reconnectTheatreTerminal(session: ActiveSession, worktreeBranch?:
     summaryType: 'idle',
     outputBuffer: '',
     lastOscTitle: '',
+    sandboxed: !!session.sandboxed,
     taskId: session.taskId ?? null,
     worktreePath: session.worktreePath,
     worktreeBranch,
@@ -880,6 +881,12 @@ async function reconnectTheatreTerminal(session: ActiveSession, worktreeBranch?:
 
   // Set up card action buttons (runner pill for all, close-task for worktrees)
   setupCardActions(theatreTerminal);
+
+  // Mark sandboxed terminals with a ring on the status dot
+  if (theatreTerminal.sandboxed) {
+    const dot = card.querySelector('.theatre-card-status-dot');
+    if (dot) dot.classList.add('theatre-card-status-dot--sandboxed');
+  }
 
   // Update card label
   updateTerminalCardLabel(theatreTerminal);
