@@ -339,17 +339,16 @@ export function stopAllInstances(): void {
   const env = getLimaEnv();
 
   try {
-    const stdout = execFileSync(limactl, ['list', '--json'], { env, timeout: 5_000, encoding: 'utf-8' });
+    const stdout = execFileSync(limactl, ['list', '--json'], { env, timeout: 5_000, encoding: 'utf-8', stdio: ['ignore', 'pipe', 'ignore'] });
     const lines = stdout.trim().split('\n').filter(Boolean);
     for (const line of lines) {
       try {
         const obj = JSON.parse(line);
         if (obj.name?.startsWith('ouijit-') && obj.status === 'Running') {
-          console.log(`Stopping Lima VM: ${obj.name}`);
-          execFileSync(limactl, ['stop', '--force', obj.name], { env, timeout: 15_000 });
+          execFileSync(limactl, ['stop', '--force', obj.name], { env, timeout: 15_000, stdio: 'ignore' });
         }
-      } catch (instanceError) {
-        console.warn('[Lima] Failed to stop instance:', instanceError instanceof Error ? instanceError.message : instanceError);
+      } catch {
+        // Best-effort during shutdown — ignore failures
       }
     }
   } catch {
