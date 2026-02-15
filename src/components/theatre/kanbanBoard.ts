@@ -416,6 +416,8 @@ function buildKanbanCard(task: TaskWithWorkspace, path: string, limaAvailable: b
           existingWorktree: {
             path: startResult.worktreePath,
             branch: startResult.task?.branch || '',
+            taskName: task.name,
+            prompt: task.prompt,
             createdAt: task.createdAt,
             sandboxed: task.sandboxed,
           },
@@ -442,6 +444,8 @@ function buildKanbanCard(task: TaskWithWorkspace, path: string, limaAvailable: b
         const worktreeOpts = {
           path: task.worktreePath!,
           branch: task.branch || '',
+          taskName: task.name,
+          prompt: task.prompt,
           createdAt: task.createdAt,
           sandboxed: task.sandboxed,
         };
@@ -465,6 +469,8 @@ function buildKanbanCard(task: TaskWithWorkspace, path: string, limaAvailable: b
           existingWorktree: {
             path: startResult.worktreePath,
             branch: startResult.task?.branch || '',
+            taskName: task.name,
+            prompt: task.prompt,
             createdAt: task.createdAt,
             sandboxed: task.sandboxed,
           },
@@ -477,6 +483,8 @@ function buildKanbanCard(task: TaskWithWorkspace, path: string, limaAvailable: b
           existingWorktree: {
             path: task.worktreePath,
             branch: task.branch || '',
+            taskName: task.name,
+            prompt: task.prompt,
             createdAt: task.createdAt,
             sandboxed: task.sandboxed,
           },
@@ -603,6 +611,8 @@ function setupColumnDropTargets(): void {
             existingWorktree: {
               path: worktreePath,
               branch,
+              taskName: task.name,
+              prompt: task.prompt,
               createdAt: task.createdAt,
               sandboxed: task.sandboxed,
             },

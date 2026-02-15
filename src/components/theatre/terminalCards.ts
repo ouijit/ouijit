@@ -1245,26 +1245,28 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
   let startCommand = runConfig?.command;
   let startEnv: Record<string, string> | undefined;
 
-  if (worktreeInfo && !runConfig) {
-    const hooks = await window.api.hooks.get(currentProjectPath);
-    // Use 'start' for new tasks, 'continue' for reopening existing tasks
+  if (worktreeInfo) {
+    // Always set task env vars when we have worktree info
     const isNewTask = options?.useWorktree && !options?.existingWorktree;
     const hookType = isNewTask ? 'start' : 'continue';
-    const hook = isNewTask ? hooks.start : hooks.continue;
 
-    if (hook) {
-      startCommand = hook.command;
-      // Build environment variables for the hook
-      // All values must be defined strings for proper env var passing
-      startEnv = {
-        OUIJIT_HOOK_TYPE: hookType,
-        OUIJIT_PROJECT_PATH: currentProjectPath,
-        OUIJIT_WORKTREE_PATH: worktreeInfo.path,
-        OUIJIT_TASK_BRANCH: worktreeInfo.branch,
-        OUIJIT_TASK_NAME: label,
-      };
-      if (taskPrompt) {
-        startEnv.OUIJIT_TASK_PROMPT = taskPrompt;
+    startEnv = {
+      OUIJIT_HOOK_TYPE: hookType,
+      OUIJIT_PROJECT_PATH: currentProjectPath,
+      OUIJIT_WORKTREE_PATH: worktreeInfo.path,
+      OUIJIT_TASK_BRANCH: worktreeInfo.branch,
+      OUIJIT_TASK_NAME: label,
+    };
+    if (taskPrompt) {
+      startEnv.OUIJIT_TASK_PROMPT = taskPrompt;
+    }
+
+    // Use start/continue hooks if no explicit command was provided
+    if (!runConfig) {
+      const hooks = await window.api.hooks.get(currentProjectPath);
+      const hook = isNewTask ? hooks.start : hooks.continue;
+      if (hook) {
+        startCommand = hook.command;
       }
     }
   }
