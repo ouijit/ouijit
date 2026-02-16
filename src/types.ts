@@ -207,6 +207,7 @@ export interface TaskMetadata {
   mergeTarget?: string;
   prompt?: string;
   sandboxed?: boolean;
+  order?: number;
 }
 
 /**
@@ -229,6 +230,7 @@ export interface TaskWithWorkspace {
   mergeTarget?: string;
   prompt?: string;
   sandboxed?: boolean;
+  order?: number;
 }
 
 export interface TaskCreateResult {
@@ -270,6 +272,7 @@ export interface TaskAPI {
   setSandboxed(projectPath: string, taskNumber: number, sandboxed: boolean): Promise<{ success: boolean; error?: string }>;
   setName(projectPath: string, taskNumber: number, name: string): Promise<{ success: boolean; error?: string }>;
   setDescription(projectPath: string, taskNumber: number, description: string): Promise<{ success: boolean; error?: string }>;
+  reorder(projectPath: string, taskNumber: number, newStatus: TaskStatus, targetIndex: number): Promise<{ success: boolean; error?: string }>;
 }
 
 /**

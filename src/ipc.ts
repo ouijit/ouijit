@@ -29,6 +29,7 @@ import {
   deleteTaskByNumber,
   getTask,
   getTaskByNumber,
+  reorderTask,
   type TaskStatus,
 } from './taskMetadata';
 import {
@@ -418,6 +419,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
         mergeTarget: task.mergeTarget,
         prompt: task.prompt,
         sandboxed: task.sandboxed,
+        order: task.order,
       };
     });
   });
@@ -438,6 +440,7 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
       mergeTarget: task.mergeTarget,
       prompt: task.prompt,
       sandboxed: task.sandboxed,
+      order: task.order,
     };
   });
 
@@ -505,6 +508,43 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
 
   ipcMain.handle('task:set-description', async (_event, projectPath: string, taskNumber: number, description: string): Promise<{ success: boolean; error?: string }> => {
     return setTaskDescription(projectPath, taskNumber, description);
+  });
+
+  ipcMain.handle('task:reorder', async (_event, projectPath: string, taskNumber: number, newStatus: TaskStatus, targetIndex: number): Promise<{ success: boolean; error?: string; hookWarning?: string }> => {
+    let hookWarning: string | undefined;
+
+    // Run cleanup hook when reordering into done (mirrors task:set-status behavior)
+    if (newStatus === 'done') {
+      const task = await getTaskByNumber(projectPath, taskNumber);
+      if (task && task.status !== 'done') {
+        const cleanupHook = await getHook(projectPath, 'cleanup');
+        if (cleanupHook) {
+          const worktrees = listWorktrees(projectPath);
+          const worktree = task.branch ? worktrees.find(wt => wt.branch === task.branch) : undefined;
+
+          if (worktree) {
+            const hookResult = await executeHook(cleanupHook, worktree.path, {
+              projectPath,
+              worktreePath: worktree.path,
+              taskBranch: task.branch || '',
+              taskName: task.name,
+              taskPrompt: task.prompt,
+            });
+
+            if (!hookResult.success) {
+              const warningMessage = hookResult.error || hookResult.output;
+              const truncatedMessage = warningMessage && warningMessage.length > 500
+                ? warningMessage.slice(0, 500) + '...'
+                : warningMessage;
+              hookWarning = truncatedMessage;
+            }
+          }
+        }
+      }
+    }
+
+    const result = await reorderTask(projectPath, taskNumber, newStatus, targetIndex);
+    return { ...result, hookWarning };
   });
 
   // Hook handlers

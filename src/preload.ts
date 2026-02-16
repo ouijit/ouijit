@@ -139,6 +139,9 @@ contextBridge.exposeInMainWorld('api', {
 
     setDescription: (projectPath: string, taskNumber: number, description: string): Promise<{ success: boolean; error?: string }> =>
       ipcRenderer.invoke('task:set-description', projectPath, taskNumber, description),
+
+    reorder: (projectPath: string, taskNumber: number, newStatus: TaskStatus, targetIndex: number): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke('task:reorder', projectPath, taskNumber, newStatus, targetIndex),
   },
 
   /**

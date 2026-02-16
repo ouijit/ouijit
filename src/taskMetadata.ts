@@ -22,6 +22,7 @@ export interface TaskMetadata {
   mergeTarget?: string;
   prompt?: string;
   sandboxed?: boolean;
+  order?: number;
 }
 
 interface ProjectData {
@@ -50,9 +51,10 @@ function getMetadataPath(): string {
 }
 
 function migrateStore(store: TaskStore): boolean {
-  if (store.__schemaVersion && store.__schemaVersion >= 2) return false;
+  const version = store.__schemaVersion ?? 0;
+  if (version >= 2) return false;
 
-  let migrated = false;
+  // v0/v1 → v2: status migration
   for (const key of Object.keys(store)) {
     if (key === '__schemaVersion') continue;
     const projectData = getProjectData(store, key);
@@ -62,13 +64,10 @@ function migrateStore(store: TaskStore): boolean {
       const old = task as TaskMetadata & { readyToShip?: boolean };
       if (old.status === 'closed' as string) {
         (task as TaskMetadata).status = 'done';
-        migrated = true;
       } else if (old.status === 'open' as string && old.readyToShip) {
         (task as TaskMetadata).status = 'in_review';
-        migrated = true;
       } else if (old.status === 'open' as string) {
         (task as TaskMetadata).status = 'in_progress';
-        migrated = true;
       }
       delete old.readyToShip;
     }
@@ -126,12 +125,14 @@ export async function getProjectTasks(projectPath: string): Promise<TaskMetadata
   }
 
   return [...projectData.tasks].sort((a, b) => {
-    const orderA = STATUS_ORDER[a.status];
-    const orderB = STATUS_ORDER[b.status];
+    const statusA = STATUS_ORDER[a.status];
+    const statusB = STATUS_ORDER[b.status];
+    if (statusA !== statusB) return statusA - statusB;
+    // Sort by order within same status (fallback to createdAt for legacy data)
+    const orderA = a.order ?? Number.MAX_SAFE_INTEGER;
+    const orderB = b.order ?? Number.MAX_SAFE_INTEGER;
     if (orderA !== orderB) return orderA - orderB;
-    const dateA = a.status === 'done' && a.closedAt ? a.closedAt : a.createdAt;
-    const dateB = b.status === 'done' && b.closedAt ? b.closedAt : b.createdAt;
-    return dateB.localeCompare(dateA);
+    return a.createdAt.localeCompare(b.createdAt);
   });
 }
 
@@ -232,10 +233,12 @@ export async function createTask(
     return existing;
   }
 
+  const status = options?.status ?? 'in_progress';
+
   const task: TaskMetadata = {
     taskNumber,
     name,
-    status: options?.status ?? 'in_progress',
+    status,
     createdAt: new Date().toISOString(),
     ...(options?.branch && { branch: options.branch }),
     ...(options?.worktreePath && { worktreePath: options.worktreePath }),
@@ -272,12 +275,36 @@ export async function setTaskStatus(
       return { success: false, error: 'Task not found' };
     }
 
+    const oldStatus = task.status;
     task.status = status;
     if (status === 'done') {
       task.closedAt = new Date().toISOString();
     } else {
       delete task.closedAt;
     }
+
+    // When moving to a different column, manage order values
+    if (oldStatus !== status) {
+      // Append to end of new column
+      const maxOrder = projectData.tasks
+        .filter(t => t.status === status && t.taskNumber !== taskNumber)
+        .reduce((max, t) => Math.max(max, t.order ?? -1), -1);
+      task.order = maxOrder + 1;
+
+      // Compact old column orders
+      const oldColumnTasks = projectData.tasks
+        .filter(t => t.status === oldStatus && t.taskNumber !== taskNumber)
+        .sort((a, b) => {
+          const orderA = a.order ?? Number.MAX_SAFE_INTEGER;
+          const orderB = b.order ?? Number.MAX_SAFE_INTEGER;
+          if (orderA !== orderB) return orderA - orderB;
+          return a.createdAt.localeCompare(b.createdAt);
+        });
+      for (let i = 0; i < oldColumnTasks.length; i++) {
+        oldColumnTasks[i].order = i;
+      }
+    }
+
     await saveStore(store);
     return { success: true };
   } catch (error) {
@@ -452,6 +479,71 @@ export async function setTaskDescription(
     return { success: true };
   } catch (error) {
     console.error('Failed to set task description:', error);
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+}
+
+/**
+ * Reorder a task within its column or move it to a new column at a specific position.
+ * Reassigns integer order values for the affected column(s).
+ */
+export async function reorderTask(
+  projectPath: string,
+  taskNumber: number,
+  newStatus: TaskStatus,
+  targetIndex: number
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const store = await loadStore();
+    const projectData = getProjectData(store, projectPath);
+
+    if (!projectData) {
+      return { success: false, error: 'Project not found' };
+    }
+
+    const task = projectData.tasks.find(t => t.taskNumber === taskNumber);
+    if (!task) {
+      return { success: false, error: 'Task not found' };
+    }
+
+    const oldStatus = task.status;
+
+    // Update status and closedAt
+    task.status = newStatus;
+    if (newStatus === 'done') {
+      task.closedAt = new Date().toISOString();
+    } else if (oldStatus === 'done') {
+      delete task.closedAt;
+    }
+
+    // Get tasks in the target column (excluding the moved task)
+    const columnTasks = projectData.tasks
+      .filter(t => t.status === newStatus && t.taskNumber !== taskNumber)
+      .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+
+    // Insert at the target position
+    const clampedIndex = Math.max(0, Math.min(targetIndex, columnTasks.length));
+    columnTasks.splice(clampedIndex, 0, task);
+
+    // Reassign order values for the target column
+    for (let i = 0; i < columnTasks.length; i++) {
+      columnTasks[i].order = i;
+    }
+
+    // If moving across columns, also reassign the old column's order values
+    if (oldStatus !== newStatus) {
+      const oldColumnTasks = projectData.tasks
+        .filter(t => t.status === oldStatus && t.taskNumber !== taskNumber)
+        .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+      for (let i = 0; i < oldColumnTasks.length; i++) {
+        oldColumnTasks[i].order = i;
+      }
+    }
+
+    await saveStore(store);
+    return { success: true };
+  } catch (error) {
+    console.error('Failed to reorder task:', error);
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
   }
 }

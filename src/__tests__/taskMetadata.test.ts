@@ -11,7 +11,9 @@ import {
   setTaskName,
   setTaskDescription,
   deleteTaskByNumber,
+  reorderTask,
 } from '../taskMetadata';
+
 
 describe('taskMetadata', () => {
   test('createTask and getProjectTasks round-trip', async () => {
@@ -121,7 +123,7 @@ describe('taskMetadata', () => {
     expect(task).toBeNull();
   });
 
-  test('getProjectTasks sorts by status then date', async () => {
+  test('getProjectTasks sorts by status then createdAt', async () => {
     const project = '/test/sort-order';
 
     await createTask(project, 1, 'In progress old');
@@ -137,12 +139,12 @@ describe('taskMetadata', () => {
     const tasks = await getProjectTasks(project);
     expect(tasks).toHaveLength(4);
 
-    // in_progress first (newest first)
-    expect(tasks[0].name).toBe('In progress new');
-    expect(tasks[1].name).toBe('In progress old');
-    // Then done (newest first)
-    expect(tasks[2].name).toBe('Done new');
-    expect(tasks[3].name).toBe('Done old');
+    // in_progress first (sorted by createdAt)
+    expect(tasks[0].name).toBe('In progress old');
+    expect(tasks[1].name).toBe('In progress new');
+    // Then done (sorted by order assigned via setTaskStatus)
+    expect(tasks[2].name).toBe('Done old');
+    expect(tasks[3].name).toBe('Done new');
   });
 
   test('multiple projects are isolated', async () => {
@@ -219,5 +221,137 @@ describe('taskMetadata', () => {
 
     expect(task.status).toBe('todo');
     expect(task.branch).toBeUndefined();
+  });
+
+  test('createTask does not assign order values', async () => {
+    const project = '/test/order-assignment';
+    const t1 = await createTask(project, 1, 'First', { status: 'todo' });
+    const t2 = await createTask(project, 2, 'Second', { status: 'todo' });
+    const t3 = await createTask(project, 3, 'Third', { status: 'in_progress' });
+
+    expect(t1.order).toBeUndefined();
+    expect(t2.order).toBeUndefined();
+    expect(t3.order).toBeUndefined();
+  });
+
+  test('reorderTask within same column', async () => {
+    const project = '/test/reorder-same';
+    await createTask(project, 1, 'A', { status: 'todo' });
+    await createTask(project, 2, 'B', { status: 'todo' });
+    await createTask(project, 3, 'C', { status: 'todo' });
+
+    // Move task 3 (index 2) to index 0
+    const result = await reorderTask(project, 3, 'todo', 0);
+    expect(result.success).toBe(true);
+
+    const tasks = await getProjectTasks(project);
+    const todoTasks = tasks.filter(t => t.status === 'todo');
+    expect(todoTasks.map(t => t.taskNumber)).toEqual([3, 1, 2]);
+  });
+
+  test('reorderTask across columns', async () => {
+    const project = '/test/reorder-across';
+    await createTask(project, 1, 'A', { status: 'todo' });
+    await createTask(project, 2, 'B', { status: 'todo' });
+    await createTask(project, 3, 'C', { status: 'in_progress' });
+    await createTask(project, 4, 'D', { status: 'in_progress' });
+
+    // Move task 1 from todo to in_progress at index 1
+    const result = await reorderTask(project, 1, 'in_progress', 1);
+    expect(result.success).toBe(true);
+
+    const tasks = await getProjectTasks(project);
+    const todoTasks = tasks.filter(t => t.status === 'todo');
+    const ipTasks = tasks.filter(t => t.status === 'in_progress');
+
+    expect(todoTasks.map(t => t.taskNumber)).toEqual([2]);
+    expect(ipTasks.map(t => t.taskNumber)).toEqual([3, 1, 4]);
+  });
+
+  test('reorderTask to done sets closedAt', async () => {
+    const project = '/test/reorder-done';
+    await createTask(project, 1, 'Task', { status: 'in_progress' });
+
+    await reorderTask(project, 1, 'done', 0);
+    const task = await getTaskByNumber(project, 1);
+    expect(task!.status).toBe('done');
+    expect(task!.closedAt).toBeTruthy();
+  });
+
+  test('reorderTask from done clears closedAt', async () => {
+    const project = '/test/reorder-from-done';
+    await createTask(project, 1, 'Task', { status: 'done' });
+    // Manually set closedAt via setTaskStatus first
+    await setTaskStatus(project, 1, 'done');
+
+    await reorderTask(project, 1, 'in_progress', 0);
+    const task = await getTaskByNumber(project, 1);
+    expect(task!.status).toBe('in_progress');
+    expect(task!.closedAt).toBeUndefined();
+  });
+
+  test('getProjectTasks sorts by order within same status', async () => {
+    const project = '/test/sort-by-order';
+    await createTask(project, 1, 'First', { status: 'todo' });
+    await createTask(project, 2, 'Second', { status: 'todo' });
+    await createTask(project, 3, 'Third', { status: 'todo' });
+
+    // Reverse the order: move task 3 to front, task 1 to end
+    await reorderTask(project, 3, 'todo', 0);
+
+    const tasks = await getProjectTasks(project);
+    const todoTasks = tasks.filter(t => t.status === 'todo');
+    expect(todoTasks.map(t => t.name)).toEqual(['Third', 'First', 'Second']);
+  });
+
+  test('setTaskStatus appends to end of target column', async () => {
+    const project = '/test/status-append';
+    await createTask(project, 1, 'A', { status: 'in_progress' });
+    await createTask(project, 2, 'B', { status: 'in_progress' });
+    // Give them explicit orders via reorder
+    await reorderTask(project, 1, 'in_progress', 0);
+    await reorderTask(project, 2, 'in_progress', 1);
+
+    // Create a task in todo and move it via setTaskStatus
+    await createTask(project, 3, 'C', { status: 'todo' });
+    await setTaskStatus(project, 3, 'in_progress');
+
+    const task3 = await getTaskByNumber(project, 3);
+    expect(task3!.order).toBe(2); // appended after 0, 1
+  });
+
+  test('setTaskStatus compacts old column orders', async () => {
+    const project = '/test/status-compact';
+    await createTask(project, 1, 'A', { status: 'todo' });
+    await createTask(project, 2, 'B', { status: 'todo' });
+    await createTask(project, 3, 'C', { status: 'todo' });
+    // Give them explicit orders
+    await reorderTask(project, 1, 'todo', 0);
+    await reorderTask(project, 2, 'todo', 1);
+    await reorderTask(project, 3, 'todo', 2);
+
+    // Move task 2 out of todo
+    await setTaskStatus(project, 2, 'in_progress');
+
+    // Remaining todo tasks should be compacted to 0, 1
+    const task1 = await getTaskByNumber(project, 1);
+    const task3 = await getTaskByNumber(project, 3);
+    expect(task1!.order).toBe(0);
+    expect(task3!.order).toBe(1);
+  });
+
+  test('setTaskStatus does not change order for same-status update', async () => {
+    const project = '/test/status-same';
+    await createTask(project, 1, 'A', { status: 'in_progress' });
+    await reorderTask(project, 1, 'in_progress', 0);
+
+    const before = await getTaskByNumber(project, 1);
+    const orderBefore = before!.order;
+
+    // Set same status
+    await setTaskStatus(project, 1, 'in_progress');
+
+    const after = await getTaskByNumber(project, 1);
+    expect(after!.order).toBe(orderBefore);
   });
 });
