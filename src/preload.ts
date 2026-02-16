@@ -1,10 +1,7 @@
 // See the Electron documentation for details on how to use preload scripts:
 // https://www.electronjs.org/docs/latest/tutorial/process-model#preload-scripts
 
-import { contextBridge, ipcRenderer, webFrame, webUtils } from 'electron';
-
-// Set default zoom level to one step up (~120%)
-webFrame.setZoomLevel(1);
+import { contextBridge, ipcRenderer, webUtils } from 'electron';
 import type { Project, PtySpawnOptions, PtySpawnResult, PtyId, ActiveSession, PtyReconnectResult, CreateProjectOptions, CreateProjectResult, GitStatus, CompactGitStatus, GitDropdownInfo, GitCheckoutResult, GitMergeResult, ChangedFile, FileDiff, ProjectSettings, TaskCreateResult, WorktreeRemoveResult, WorktreeInfo, WorktreeDiffSummary, TaskWithWorkspace, TaskStatus, ScriptHook, HookType, BranchInfo } from './types';
 
 // Expose protected methods that allow the renderer process to use
