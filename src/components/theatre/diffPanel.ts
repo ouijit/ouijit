@@ -16,6 +16,7 @@ import {
   diffPanelMode,
   diffPanelTaskId,
 } from './signals';
+import { createIcons, icons } from 'lucide';
 import { escapeHtml } from '../../utils/html';
 import { showToast } from '../importDialog';
 
@@ -275,7 +276,7 @@ export function buildDiffPanelHtml(files: ChangedFile[], showModeSelector: boole
 
   const modeLabel = mode === 'uncommitted' ? 'Uncommitted changes' : 'Branch changes';
   const modeSelectorHtml = showModeSelector
-    ? `<span class="compare-mode-selector" data-mode="${mode}">${modeLabel}</span>`
+    ? `<span class="compare-mode-selector" data-mode="${mode}">${modeLabel}<span class="compare-mode-target"></span></span><span class="compare-mode-info"><i data-lucide="info" class="compare-mode-info-icon"></i><div class="compare-mode-info-card"></div></span>`
     : '';
 
   return `
@@ -430,56 +431,51 @@ export async function showTerminalComparePanel(term: TheatreTerminal, mode: 'unc
   // Wire up panel interactions
   wireDiffPanel(panel, () => hideTerminalDiffPanel(term));
 
-  // Wire up mode selector — clickable on worktree terminals to switch comparison
-  const modeSelector = panel.querySelector('.compare-mode-selector');
-  if (modeSelector) {
-    modeSelector.addEventListener('click', async () => {
-      const currentMode = term.diffPanelMode;
-      const newMode = currentMode === 'uncommitted' ? 'worktree' : 'uncommitted';
-
-      // Prefetch the new mode's data before tearing down the current panel
-      if (newMode === 'uncommitted') {
-        const newFiles = await window.api.getChangedFiles(getTerminalGitPath(term));
-        if (!newFiles.length) {
-          showToast('No uncommitted changes', 'info');
-          return;
-        }
-      } else {
-        const bp = projectPath.value;
-        if (!bp || !term.worktreeBranch) return;
-        const diff = await window.api.worktree.getDiff(bp, term.worktreeBranch);
-        if (!diff || !diff.files.length) {
-          showToast('No branch changes', 'info');
-          return;
-        }
-      }
-
-      // Data exists — safe to switch
-      hideTerminalDiffPanel(term);
-      await new Promise(r => setTimeout(r, 50));
-      await showTerminalComparePanel(term, newMode);
-    });
-  }
-
-  // Update header info
-  const headerInfo = panel.querySelector('.diff-header-info');
-  if (headerInfo) {
+  // Populate info card with contextual details
+  const infoCard = panel.querySelector('.compare-mode-info-card');
+  if (infoCard) {
     if (mode === 'uncommitted') {
       const totalAdd = files.reduce((s, f) => s + f.additions, 0);
       const totalDel = files.reduce((s, f) => s + f.deletions, 0);
-      headerInfo.innerHTML = `${files.length} file${files.length !== 1 ? 's' : ''} ${formatDiffStats(totalAdd, totalDel)}`;
+      infoCard.innerHTML = `
+        <div class="compare-info-desc">Working directory changes not yet committed${term.worktreeBranch ? ` to <strong>${escapeHtml(term.worktreeBranch)}</strong>` : ''}.</div>
+        <div class="compare-info-stats">${files.length} file${files.length !== 1 ? 's' : ''} changed ${formatDiffStats(totalAdd, totalDel)}</div>
+        <div class="compare-info-hint">Commit changes to see full branch comparison.</div>
+      `;
     } else {
-      // Show clickable target branch selector
-      headerInfo.innerHTML = `vs <span class="compare-target-branch">${escapeHtml(resolvedTarget || 'main')}</span>`;
-      const targetEl = headerInfo.querySelector('.compare-target-branch');
+      infoCard.innerHTML = `
+        <div class="compare-info-desc">Committed changes on <strong>${escapeHtml(term.worktreeBranch || '')}</strong> compared to <strong>${escapeHtml(resolvedTarget || 'main')}</strong>.</div>
+        <div class="compare-info-stats">${files.length} file${files.length !== 1 ? 's' : ''} changed</div>
+        <div class="compare-info-hint">Click the target branch name to compare against a different branch.</div>
+      `;
+    }
+  }
+
+  // For worktree mode, put the clickable target branch inside the mode selector
+  if (mode === 'worktree') {
+    const modeTarget = panel.querySelector('.compare-mode-target');
+    if (modeTarget) {
+      modeTarget.innerHTML = `vs <span class="compare-target-branch">${escapeHtml(resolvedTarget || 'main')}</span>`;
+      const targetEl = modeTarget.querySelector('.compare-target-branch');
       if (targetEl) {
         targetEl.addEventListener('click', (e) => {
           e.stopPropagation();
-          showTargetBranchDropdown(term, panel as HTMLElement, headerInfo as HTMLElement, resolvedTarget || 'main');
+          showTargetBranchDropdown(term, panel as HTMLElement, modeTarget as HTMLElement, resolvedTarget || 'main');
         });
       }
     }
   }
+
+  // Update header info with file stats (both modes)
+  const headerInfo = panel.querySelector('.diff-header-info');
+  if (headerInfo) {
+    const totalAdd = files.reduce((s, f) => s + f.additions, 0);
+    const totalDel = files.reduce((s, f) => s + f.deletions, 0);
+    headerInfo.innerHTML = `${files.length} file${files.length !== 1 ? 's' : ''} ${formatDiffStats(totalAdd, totalDel)}`;
+  }
+
+  // Render lucide icons (info icon, sidebar icons, etc.)
+  createIcons({ icons, nameAttr: 'data-lucide', attrs: {}, nodes: [panel as HTMLElement] });
 
   // Animate panel in
   requestAnimationFrame(() => {
@@ -500,11 +496,11 @@ export async function showTerminalComparePanel(term: TheatreTerminal, mode: 'unc
 async function showTargetBranchDropdown(
   term: TheatreTerminal,
   panel: HTMLElement,
-  headerInfo: HTMLElement,
+  targetContainer: HTMLElement,
   currentTarget: string
 ): Promise<void> {
   // Don't open multiple dropdowns
-  if (panel.querySelector('.compare-branch-dropdown')) return;
+  if (document.querySelector('.compare-branch-dropdown')) return;
 
   const basePath = projectPath.value;
   if (!basePath || !term.worktreeBranch) return;
@@ -520,22 +516,25 @@ async function showTargetBranchDropdown(
       return a.name.localeCompare(b.name);
     });
 
-  const targetEl = headerInfo.querySelector('.compare-target-branch');
+  const targetEl = targetContainer.querySelector('.compare-target-branch');
   if (!targetEl) return;
 
-  // Build dropdown
-  const dropdownHtml = `<div class="compare-branch-dropdown">
-    ${filtered.map(branch => `
-      <div class="compare-branch-item${branch.name === currentTarget ? ' selected' : ''}" data-branch="${escapeHtml(branch.name)}">
-        <span class="compare-branch-name">${escapeHtml(branch.name)}</span>
-        ${branch.isMain ? '<span class="compare-branch-badge">main</span>' : ''}
-      </div>
-    `).join('')}
-  </div>`;
+  // Build dropdown and append to body to avoid overflow clipping
+  const dropdown = document.createElement('div');
+  dropdown.className = 'compare-branch-dropdown';
+  dropdown.innerHTML = filtered.map(branch => `
+    <div class="compare-branch-item${branch.name === currentTarget ? ' selected' : ''}" data-branch="${escapeHtml(branch.name)}">
+      <span class="compare-branch-name">${escapeHtml(branch.name)}</span>
+      ${branch.isMain ? '<span class="compare-branch-badge">main</span>' : ''}
+    </div>
+  `).join('');
 
-  targetEl.insertAdjacentHTML('afterend', dropdownHtml);
-  const dropdown = headerInfo.querySelector('.compare-branch-dropdown') as HTMLElement;
-  if (!dropdown) return;
+  document.body.appendChild(dropdown);
+
+  // Position below the target branch pill
+  const rect = targetEl.getBoundingClientRect();
+  dropdown.style.left = `${rect.left}px`;
+  dropdown.style.top = `${rect.bottom + 4}px`;
 
   // Animate in
   requestAnimationFrame(() => dropdown.classList.add('visible'));
@@ -602,17 +601,35 @@ async function swapCompareTarget(term: TheatreTerminal, panel: HTMLElement, newT
     diffBody.innerHTML = buildStackedDiffsHtml(files);
   }
 
-  // Update the target label in header
-  const headerInfo = panel.querySelector('.diff-header-info');
-  if (headerInfo) {
-    headerInfo.innerHTML = `vs <span class="compare-target-branch">${escapeHtml(newTarget)}</span>`;
-    const targetEl = headerInfo.querySelector('.compare-target-branch');
+  // Update the target label in the mode selector
+  const modeTarget = panel.querySelector('.compare-mode-target');
+  if (modeTarget) {
+    modeTarget.innerHTML = `vs <span class="compare-target-branch">${escapeHtml(newTarget)}</span>`;
+    const targetEl = modeTarget.querySelector('.compare-target-branch');
     if (targetEl) {
       targetEl.addEventListener('click', (e) => {
         e.stopPropagation();
-        showTargetBranchDropdown(term, panel, headerInfo as HTMLElement, newTarget);
+        showTargetBranchDropdown(term, panel, modeTarget as HTMLElement, newTarget);
       });
     }
+  }
+
+  // Update file stats in header
+  const headerInfo = panel.querySelector('.diff-header-info');
+  if (headerInfo) {
+    const totalAdd = files.reduce((s, f) => s + f.additions, 0);
+    const totalDel = files.reduce((s, f) => s + f.deletions, 0);
+    headerInfo.innerHTML = `${files.length} file${files.length !== 1 ? 's' : ''} ${formatDiffStats(totalAdd, totalDel)}`;
+  }
+
+  // Update info card with new target
+  const infoCard = panel.querySelector('.compare-mode-info-card');
+  if (infoCard) {
+    infoCard.innerHTML = `
+      <div class="compare-info-desc">Committed changes on <strong>${escapeHtml(term.worktreeBranch || '')}</strong> compared to <strong>${escapeHtml(newTarget)}</strong>.</div>
+      <div class="compare-info-stats">${files.length} file${files.length !== 1 ? 's' : ''} changed</div>
+      <div class="compare-info-hint">Click the target branch name to compare against a different branch.</div>
+    `;
   }
 
   // Re-wire sidebar navigation
