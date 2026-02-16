@@ -102,12 +102,5 @@ export function hideRunnerPanel(term: TheatreTerminal): void {
     panel.classList.remove('runner-panel--visible');
   }
 
-  term.container.classList.remove('runner-panel-open');
   term.runnerPanelOpen = false;
-
-  // Refit main terminal after animation
-  setTimeout(() => {
-    term.fitAddon.fit();
-    window.api.pty.resize(term.ptyId, term.terminal.cols, term.terminal.rows);
-  }, 250);
 }

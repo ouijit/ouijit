@@ -710,6 +710,9 @@ async function reconnectTheatreTerminal(session: ActiveSession, worktreeBranch?:
   if (!stack) return;
   stack.appendChild(card);
 
+  // Render lucide icons now that card is in the DOM
+  createIcons({ icons, nameAttr: 'data-lucide', attrs: {}, nodes: [card] });
+
   const xtermContainer = card.querySelector('.terminal-xterm-container') as HTMLElement;
 
   // Open terminal in container

@@ -1090,8 +1090,7 @@ body.platform-darwin:not(.is-fullscreen) .theatre-header-content {
 /* Hide non-essential elements on back cards, but keep close button */
 .theatre-card:not(.theatre-card--active) .theatre-card-git-branch-row,
 .theatre-card:not(.theatre-card--active) .theatre-card-git-stats-wrapper,
-.theatre-card:not(.theatre-card--active) .runner-pill,
-.theatre-card:not(.theatre-card--active) .theatre-card-close-task {
+.theatre-card:not(.theatre-card--active) .runner-btn {
   @apply hidden;
 }
 
@@ -1222,43 +1221,27 @@ body.platform-darwin:not(.is-fullscreen) .theatre-header-content {
   @apply w-4 h-4;
 }
 
-.theatre-card-close-task {
-  @apply w-7 h-7 flex items-center justify-center bg-transparent border-none rounded-md text-white/50 opacity-0 transition-all duration-150 ease-out;
+/* More actions (ellipsis) button — hidden until worktree setup adds --visible */
+.theatre-card-more {
+  @apply w-7 h-7 hidden items-center justify-center bg-transparent border-none rounded-md text-white/50 opacity-0 transition-all duration-150 ease-out;
 }
 
-.theatre-card-close-task svg {
+.theatre-card-more--visible {
+  @apply flex;
+}
+
+.theatre-card-more svg {
   @apply w-4 h-4;
 }
 
-.theatre-card--active .theatre-card-close-task {
+.theatre-card--active .theatre-card-more {
   @apply opacity-100;
 }
 
-.theatre-card-close-task:hover {
+.theatre-card-more:hover {
   @apply bg-white/10 text-white/90;
 }
 
-/* Worktree card action buttons - now siblings in label */
-.theatre-card-action {
-  @apply w-7 h-7 flex items-center justify-center bg-transparent border-none rounded-md text-white/50 transition-all duration-150 ease-out;
-}
-
-.theatre-card-action:hover {
-  @apply bg-white/10 text-white/90;
-}
-
-.theatre-card-action svg {
-  @apply w-4 h-4;
-}
-
-/* Worktree-specific action buttons */
-.theatre-card-action--worktree {
-  @apply opacity-0;
-}
-
-.theatre-card--active .theatre-card-action--worktree {
-  @apply opacity-100;
-}
 
 /* Card Git Status Display */
 .theatre-card-git-stats-wrapper {
@@ -1320,69 +1303,37 @@ body.platform-darwin:not(.is-fullscreen) .theatre-header-content {
   transition: flex 0.25s ease;
 }
 
-/* Runner Pill - expandable play button */
-.runner-pill {
-  @apply flex items-center gap-0 bg-transparent rounded-md overflow-hidden transition-colors duration-150 ease-out;
+/* Runner Button */
+.runner-btn {
+  @apply px-2.5 py-1 bg-white/[0.06] border-none text-[11px] font-medium text-white/60 transition-all duration-150 ease-out;
+  border-radius: 8px;
 }
 
-.runner-pill:hover,
-.runner-pill--expanded {
-  @apply bg-white/10;
+.runner-btn:hover {
+  @apply bg-white/[0.12] text-white/90;
 }
 
-.runner-pill-play {
-  @apply w-7 h-7 flex items-center justify-center p-0 bg-transparent border-none rounded-md text-white/60 transition-colors duration-150 ease-out;
+.runner-btn--running {
+  @apply text-[#74c0fc];
 }
 
-.runner-pill-play:hover {
-  @apply text-white/90;
+.runner-btn--success {
+  @apply text-[#69db7c];
 }
 
-.runner-pill-play svg {
-  @apply w-4 h-4;
+.runner-btn--error {
+  @apply text-[#ff6b6b];
 }
 
-.runner-pill-status {
-  @apply flex items-center gap-1.5 pr-0 max-w-0 overflow-hidden opacity-0 transition-all duration-200 ease-out;
-}
-
-.runner-pill--expanded .runner-pill-status {
-  @apply max-w-[150px] pr-2 opacity-100;
-}
-
-.runner-pill-light {
-  @apply w-1.5 h-1.5 rounded-full shrink-0 bg-[#69db7c];
-  box-shadow: 0 0 4px rgba(105, 219, 124, 0.5);
-}
-
-.runner-pill-light--running {
-  @apply bg-[#74c0fc];
-  box-shadow: 0 0 4px rgba(116, 192, 252, 0.5);
-  animation: terminal-status-pulse 1.5s ease-in-out infinite;
-}
-
-.runner-pill-light--success {
-  @apply bg-[#69db7c];
-  box-shadow: 0 0 4px rgba(105, 219, 124, 0.5);
-}
-
-.runner-pill-light--error {
-  @apply bg-[#ff6b6b];
-  box-shadow: 0 0 4px rgba(255, 107, 107, 0.5);
-}
-
-.runner-pill-label {
-  @apply text-[11px] truncate text-white/70;
-}
-
-/* Runner Panel - Right Slide-in (similar to diff panel) */
+/* Runner Panel - Full-width overlay (like diff panel) */
 .runner-panel {
-  @apply relative w-0 shrink-0 rounded-none border-l border-white/10 shadow-none z-[1] flex flex-col overflow-hidden opacity-0 transition-all duration-200 ease-out;
+  @apply absolute inset-0 rounded-none border-0 border-t border-solid border-white/10 shadow-none z-20 flex flex-col overflow-hidden opacity-0 pointer-events-none;
   background: var(--color-terminal-bg, #1a1a1a);
+  transition: opacity 0.15s ease;
 }
 
 .runner-panel--visible {
-  @apply w-1/2 opacity-100;
+  @apply opacity-100 pointer-events-auto;
 }
 
 .runner-panel-header {
@@ -1446,10 +1397,6 @@ body.platform-darwin:not(.is-fullscreen) .theatre-header-content {
   @apply bg-white/30;
 }
 
-/* Adjust terminal viewport when runner panel is open */
-.theatre-card.runner-panel-open .terminal-viewport {
-  @apply flex-1;
-}
 
 /* Theatre Launch Button & Dropdown */
 .theatre-launch-wrapper {
@@ -1886,23 +1833,5 @@ body.kanban-open .theatre-stack {
   @apply border-accent;
 }
 
-
-/* Editor button in card header */
-.theatre-card-editor-btn {
-  @apply w-7 h-7 flex items-center justify-center bg-transparent border-none rounded-md text-white/50 opacity-0 overflow-hidden;
-  transition: opacity 0.15s ease, background-color 0.2s ease, color 0.2s ease;
-}
-
-.theatre-card-editor-btn svg {
-  @apply w-4 h-4 shrink-0;
-}
-
-.theatre-card--active .theatre-card-editor-btn {
-  @apply opacity-100;
-}
-
-.theatre-card-editor-btn:hover {
-  @apply bg-white/10 text-white/90;
-}
 
 

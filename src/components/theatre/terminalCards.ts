@@ -25,6 +25,7 @@ import { showHookConfigDialog } from '../hookConfigDialog';
 import { refreshTerminalGitStatus, buildCardGitBranchHtml, buildCardGitStatsHtml, scheduleTerminalGitStatusRefresh } from './gitStatus';
 import { toggleTerminalDiffPanel, toggleTerminalWorktreeDiffPanel, hideTerminalDiffPanel } from './diffPanel';
 import { setSandboxButtonStarting, refreshSandboxButton } from './theatreMode';
+import { createIcons, icons } from 'lucide';
 
 // Platform detection for shortcuts display
 const isMac = navigator.platform.toLowerCase().includes('mac');
@@ -293,15 +294,8 @@ export function createTheatreCard(label: string, index: number): HTMLElement {
     </div>
     <div class="theatre-card-label-right">
       <div class="theatre-card-git-stats-wrapper"></div>
-      <div class="runner-pill" style="display: none;">
-        <button class="runner-pill-play" data-action="run" title="Run default command"><i data-lucide="play"></i></button>
-        <div class="runner-pill-status">
-          <span class="runner-pill-light"></span>
-          <span class="runner-pill-label"></span>
-        </div>
-      </div>
-      <button class="theatre-card-editor-btn theatre-card-action--worktree" style="display: none;" title="Open in editor"><i data-lucide="code"></i></button>
-      <button class="theatre-card-close-task theatre-card-action--worktree" style="display: none;" title="Close task"><i data-lucide="archive"></i></button>
+      <button class="runner-btn" data-action="run" style="display: none;">Run</button>
+      <button class="theatre-card-more" title="More actions"><i data-lucide="ellipsis"></i></button>
       <button class="theatre-card-close" title="Close terminal"><i data-lucide="x"></i></button>
     </div>
   `;
@@ -417,39 +411,32 @@ export function setupCardActions(term: TheatreTerminal): void {
   const labelEl = term.container.querySelector('.theatre-card-label');
   if (!labelEl) return;
 
-  // Show worktree-specific buttons for worktree terminals
+  // Show ellipsis menu for worktree terminals
   if (term.taskId != null) {
-    // Editor button — only shown if editor hook is configured
-    const editorBtn = labelEl.querySelector('.theatre-card-editor-btn') as HTMLElement;
-    if (editorBtn && term.worktreePath) {
-      const projPath = projectPath.value;
-      if (projPath) {
-        window.api.hooks.get(projPath).then(hooks => {
-          if (hooks.editor) {
-            editorBtn.style.display = 'flex';
-            editorBtn.addEventListener('click', (e) => {
-              e.stopPropagation();
-              window.api.openInEditor(projPath, term.worktreePath!);
-            });
-          }
-        }).catch(() => { /* no hooks configured */ });
-      }
-    }
+    const moreBtn = labelEl.querySelector('.theatre-card-more') as HTMLElement;
+    if (moreBtn) {
+      moreBtn.classList.add('theatre-card-more--visible');
 
-    // Close task button
-    const closeBtn = labelEl.querySelector('.theatre-card-close-task') as HTMLElement;
-    if (closeBtn) {
-      closeBtn.style.display = 'flex';
-      closeBtn.addEventListener('click', async (e) => {
+      // Resolve editor availability upfront
+      let hasEditor = false;
+      if (term.worktreePath) {
+        const projPath = projectPath.value;
+        if (projPath) {
+          window.api.hooks.get(projPath).then(hooks => {
+            hasEditor = !!hooks.editor;
+          }).catch(() => { /* no hooks configured */ });
+        }
+      }
+
+      moreBtn.addEventListener('click', (e) => {
         e.stopPropagation();
-        await closeTaskFromTerminal(term);
+        showCardMoreMenu(e as MouseEvent, term, hasEditor);
       });
     }
   }
 
-  // Wire up runner pill click handlers
-  const runBtn = labelEl.querySelector('.runner-pill-play');
-  const pillStatus = labelEl.querySelector('.runner-pill-status');
+  // Wire up runner button click handler
+  const runBtn = labelEl.querySelector('.runner-btn');
 
   if (runBtn) {
     runBtn.addEventListener('click', async (e) => {
@@ -462,58 +449,99 @@ export function setupCardActions(term: TheatreTerminal): void {
       }
     });
   }
-
-  // Clicking the status part of the pill also toggles the panel
-  if (pillStatus) {
-    pillStatus.addEventListener('click', (e) => {
-      e.stopPropagation();
-      if (term.runnerPtyId) {
-        toggleRunnerPanel(term);
-      }
-    });
-  }
 }
 
 /**
- * Update the runner pill appearance based on runner state
+ * Show the "more actions" dropdown menu from the ellipsis button
+ */
+function showCardMoreMenu(event: MouseEvent, term: TheatreTerminal, hasEditor: boolean): void {
+  // Capture button ref before any async work
+  const button = event.currentTarget as HTMLElement;
+
+  // Remove any existing menu
+  document.querySelector('.task-context-menu')?.remove();
+
+  const menu = document.createElement('div');
+  menu.className = 'task-context-menu';
+
+  // "Open in Editor" item (only if editor hook is configured)
+  if (hasEditor && term.worktreePath) {
+    const editorItem = document.createElement('button');
+    editorItem.className = 'task-context-menu-item';
+    editorItem.innerHTML = '<i data-lucide="code"></i> Open in Editor';
+    editorItem.addEventListener('click', (e) => {
+      e.stopPropagation();
+      menu.remove();
+      const projPath = projectPath.value;
+      if (projPath) {
+        window.api.openInEditor(projPath, term.worktreePath!);
+      }
+    });
+    menu.appendChild(editorItem);
+  }
+
+  // "Close Task" item
+  const closeItem = document.createElement('button');
+  closeItem.className = 'task-context-menu-item';
+  closeItem.innerHTML = '<i data-lucide="archive"></i> Close Task';
+  closeItem.addEventListener('click', (e) => {
+    e.stopPropagation();
+    menu.remove();
+    closeTaskFromTerminal(term);
+  });
+  menu.appendChild(closeItem);
+
+  document.body.appendChild(menu);
+  createIcons({ icons, nameAttr: 'data-lucide', attrs: {}, nodes: [menu] });
+
+  // Position below the button, right-aligned
+  const rect = button.getBoundingClientRect();
+  menu.style.left = `${rect.right}px`;
+  menu.style.top = `${rect.bottom + 4}px`;
+  menu.style.transform = 'translateX(-100%)';
+
+  requestAnimationFrame(() => menu.classList.add('task-context-menu--visible'));
+
+  // Dismiss on click outside
+  const dismiss = (e: MouseEvent) => {
+    if (menu.contains(e.target as Node)) return;
+    menu.classList.remove('task-context-menu--visible');
+    setTimeout(() => menu.remove(), 100);
+    document.removeEventListener('mousedown', dismiss);
+  };
+  setTimeout(() => document.addEventListener('mousedown', dismiss), 0);
+}
+
+/**
+ * Update the runner button appearance based on runner state
  */
 export function updateRunnerPill(term: TheatreTerminal): void {
-  const pill = term.container.querySelector('.runner-pill') as HTMLElement;
-  if (!pill) return;
+  const btn = term.container.querySelector('.runner-btn') as HTMLElement;
+  if (!btn) return;
 
-  const light = pill.querySelector('.runner-pill-light') as HTMLElement;
-  const label = pill.querySelector('.runner-pill-label') as HTMLElement;
+  // Reset status classes
+  btn.classList.remove('runner-btn--running', 'runner-btn--success', 'runner-btn--error');
 
   if (term.runnerPtyId) {
-    // Runner is active - expand the pill
-    pill.classList.add('runner-pill--expanded');
-
-    // Update label
-    if (label) {
-      label.textContent = term.runnerLabel || 'Running...';
-    }
-
-    // Update status light
-    if (light) {
-      light.className = 'runner-pill-light';
-      switch (term.runnerStatus) {
-        case 'running':
-          light.classList.add('runner-pill-light--running');
-          break;
-        case 'success':
-          light.classList.add('runner-pill-light--success');
-          break;
-        case 'error':
-          light.classList.add('runner-pill-light--error');
-          break;
-        default:
-          // idle - no extra class
-          break;
-      }
+    switch (term.runnerStatus) {
+      case 'running':
+        btn.textContent = 'Running';
+        btn.classList.add('runner-btn--running');
+        break;
+      case 'success':
+        btn.textContent = 'Done';
+        btn.classList.add('runner-btn--success');
+        break;
+      case 'error':
+        btn.textContent = 'Failed';
+        btn.classList.add('runner-btn--error');
+        break;
+      default:
+        btn.textContent = 'Run';
+        break;
     }
   } else {
-    // No runner - collapse the pill
-    pill.classList.remove('runner-pill--expanded');
+    btn.textContent = 'Run';
   }
 }
 
@@ -554,7 +582,7 @@ function buildRunnerPanelHtml(label: string): string {
       <div class="runner-panel-header">
         <span class="runner-panel-title">${label}</span>
         <button class="runner-panel-kill" title="Kill runner">Kill</button>
-        <button class="runner-panel-collapse" title="Collapse panel"><i data-lucide="chevron-right"></i></button>
+        <button class="runner-panel-collapse" title="Close panel"><i data-lucide="x"></i></button>
       </div>
       <div class="runner-panel-body">
         <div class="runner-xterm-container"></div>
@@ -652,25 +680,21 @@ export function showRunnerPanel(term: TheatreTerminal): void {
     }
   }
 
-  // Add class to card
-  term.container.classList.add('runner-panel-open');
   term.runnerPanelOpen = true;
 
-  // Animate panel in
+  // Show panel
   requestAnimationFrame(() => {
     panel.classList.add('runner-panel--visible');
   });
 
-  // Refit terminals after animation and focus runner
+  // Fit runner terminal after animation and focus it
   setTimeout(() => {
-    term.fitAddon.fit();
-    window.api.pty.resize(term.ptyId, term.terminal.cols, term.terminal.rows);
     if (term.runnerFitAddon && term.runnerPtyId) {
       term.runnerFitAddon.fit();
       window.api.pty.resize(term.runnerPtyId, term.runnerTerminal!.cols, term.runnerTerminal!.rows);
       term.runnerTerminal!.focus();
     }
-  }, 250);
+  }, 200);
 }
 
 
@@ -932,17 +956,17 @@ export function updateCardStack(): void {
   // Sort by diff descending (highest diff = bottom of stack = ⌘1)
   backPositions.sort((a, b) => b.diff - a.diff);
 
-  // Second pass: assign shortcuts and toggle runner pill visibility
+  // Second pass: assign shortcuts and toggle runner button visibility
   currentTerminals.forEach((term, index) => {
     const shortcutEl = term.container.querySelector('.theatre-card-shortcut') as HTMLElement;
-    const runnerPill = term.container.querySelector('.runner-pill') as HTMLElement;
+    const runnerBtn = term.container.querySelector('.runner-btn') as HTMLElement;
 
     if (index === currentActiveIndex) {
-      // Active card: hide shortcut, show runner pill
+      // Active card: hide shortcut, show runner button
       if (shortcutEl) shortcutEl.style.display = 'none';
-      if (runnerPill) runnerPill.style.display = 'flex';
+      if (runnerBtn) runnerBtn.style.display = '';
     } else {
-      // Back card: show shortcut, hide runner pill
+      // Back card: show shortcut, hide runner button
       if (shortcutEl) {
         const stackPosition = backPositions.findIndex(bp => bp.index === index);
         if (stackPosition !== -1 && stackPosition < 9) {
@@ -954,7 +978,7 @@ export function updateCardStack(): void {
           shortcutEl.style.display = 'none';
         }
       }
-      if (runnerPill) runnerPill.style.display = 'none';
+      if (runnerBtn) runnerBtn.style.display = 'none';
     }
   });
 }
@@ -1115,6 +1139,9 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
   // Create card element
   const card = createTheatreCard(label, index);
   stack.appendChild(card);
+
+  // Render lucide icons now that card is in the DOM
+  createIcons({ icons, nameAttr: 'data-lucide', attrs: {}, nodes: [card] });
 
   const xtermContainer = card.querySelector('.terminal-xterm-container') as HTMLElement;
   const closeBtn = card.querySelector('.theatre-card-close') as HTMLButtonElement;
