@@ -832,6 +832,10 @@ async function reconnectTheatreTerminal(session: ActiveSession, worktreeBranch?:
     runnerStatus: 'idle',
     runnerCleanupData: null,
     runnerCleanupExit: null,
+    runnerFullWidth: true,
+    runnerSplitRatio: 0.5,
+    runnerResizeObserver: null,
+    runnerResizeCleanup: null,
   };
 
   // Set up close button handler

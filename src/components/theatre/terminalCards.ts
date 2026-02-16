@@ -583,12 +583,16 @@ async function closeTaskFromTerminal(term: TheatreTerminal): Promise<void> {
 /**
  * Build HTML for the runner panel
  */
-function buildRunnerPanelHtml(label: string): string {
+function buildRunnerPanelHtml(label: string, fullWidth: boolean): string {
+  const icon = fullWidth ? 'maximize-2' : 'columns-2';
+  const title = fullWidth ? 'Split view' : 'Full width';
   return `
-    <div class="runner-panel">
+    <div class="runner-panel${fullWidth ? ' runner-panel--full' : ''}">
       <div class="runner-panel-header">
+        <button class="runner-panel-kill" title="Kill"><i data-lucide="circle-off"></i></button>
+        <button class="runner-panel-restart" title="Restart"><i data-lucide="rotate-ccw"></i></button>
         <span class="runner-panel-title">${label}</span>
-        <button class="runner-panel-kill" title="Kill runner">Kill</button>
+        <button class="runner-panel-split-toggle" title="${title}"><i data-lucide="${icon}"></i></button>
         <button class="runner-panel-collapse" title="Close panel"><i data-lucide="x"></i></button>
       </div>
       <div class="runner-panel-body">
@@ -596,6 +600,60 @@ function buildRunnerPanelHtml(label: string): string {
       </div>
     </div>
   `;
+}
+
+/**
+ * Set up drag interaction for the runner resize handle.
+ * Returns a cleanup function to remove listeners.
+ */
+function setupRunnerResizeHandle(term: TheatreTerminal, handle: HTMLElement, panel: HTMLElement): () => void {
+  const cardBody = term.container.querySelector('.theatre-card-body') as HTMLElement;
+  if (!cardBody) return () => {};
+
+  let dragging = false;
+
+  const onMouseDown = (e: MouseEvent) => {
+    e.preventDefault();
+    dragging = true;
+    // Disable CSS transition during drag for smooth tracking
+    panel.style.transition = 'none';
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  };
+
+  const onMouseMove = (e: MouseEvent) => {
+    if (!dragging) return;
+    const rect = cardBody.getBoundingClientRect();
+    const handleWidth = handle.offsetWidth;
+    // Mouse position relative to card body, accounting for handle
+    const totalWidth = rect.width - handleWidth;
+    const mouseX = e.clientX - rect.left;
+    // Runner is on the right, so runner ratio = 1 - (mouseX / totalWidth)
+    let ratio = 1 - (mouseX / totalWidth);
+    // Clamp to [0.15, 0.85]
+    ratio = Math.max(0.15, Math.min(0.85, ratio));
+    term.runnerSplitRatio = ratio;
+    panel.style.flexBasis = `${ratio * 100}%`;
+  };
+
+  const onMouseUp = () => {
+    if (!dragging) return;
+    dragging = false;
+    // Restore CSS transition
+    panel.style.transition = '';
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+  };
+
+  handle.addEventListener('mousedown', onMouseDown);
+  document.addEventListener('mousemove', onMouseMove);
+  document.addEventListener('mouseup', onMouseUp);
+
+  return () => {
+    handle.removeEventListener('mousedown', onMouseDown);
+    document.removeEventListener('mousemove', onMouseMove);
+    document.removeEventListener('mouseup', onMouseUp);
+  };
 }
 
 /**
@@ -609,16 +667,34 @@ export function showRunnerPanel(term: TheatreTerminal): void {
     hideTerminalDiffPanel(term);
   }
 
-  const cardBody = term.container.querySelector('.theatre-card-body');
+  const cardBody = term.container.querySelector('.theatre-card-body') as HTMLElement;
   if (!cardBody) return;
+
+  // Add runner-split class for min-width constraints
+  cardBody.classList.add('runner-split');
+  // Toggle full-width class on card body
+  cardBody.classList.toggle('runner-full', term.runnerFullWidth);
 
   // Check if panel already exists
   let panel = cardBody.querySelector('.runner-panel') as HTMLElement;
   if (!panel) {
+    // Create resize handle
+    const handle = document.createElement('div');
+    handle.className = 'runner-resize-handle';
+
+    // Insert handle before the runner panel position (after viewport)
+    const viewport = cardBody.querySelector('.terminal-viewport');
+    if (viewport) {
+      viewport.after(handle);
+    }
+
     // Create panel (insert at end so it appears on the right)
-    cardBody.insertAdjacentHTML('beforeend', buildRunnerPanelHtml(term.runnerCommand || term.runnerLabel || 'Runner'));
+    cardBody.insertAdjacentHTML('beforeend', buildRunnerPanelHtml(term.runnerCommand || term.runnerLabel || 'Runner', term.runnerFullWidth));
     panel = cardBody.querySelector('.runner-panel') as HTMLElement;
     if (!panel) return;
+
+    // Render lucide icons in the panel header
+    createIcons({ icons, nameAttr: 'data-lucide', attrs: {}, nodes: [panel] });
 
     // Wire up collapse button (hides panel but keeps runner alive)
     const collapseBtn = panel.querySelector('.runner-panel-collapse');
@@ -635,6 +711,24 @@ export function showRunnerPanel(term: TheatreTerminal): void {
       killBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         killRunner(term);
+      });
+    }
+
+    // Wire up restart button (re-runs the run script)
+    const restartBtn = panel.querySelector('.runner-panel-restart');
+    if (restartBtn) {
+      restartBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        restartRunner(term);
+      });
+    }
+
+    // Wire up split toggle button
+    const splitToggleBtn = panel.querySelector('.runner-panel-split-toggle');
+    if (splitToggleBtn) {
+      splitToggleBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        toggleRunnerFullWidth(term);
       });
     }
 
@@ -678,13 +772,18 @@ export function showRunnerPanel(term: TheatreTerminal): void {
           setupRunnerDragDrop(xtermContainer, term.runnerTerminal);
         }
 
-        if (term.runnerFitAddon) {
-          requestAnimationFrame(() => {
-            term.runnerFitAddon!.fit();
-          });
-        }
+        // Set up ResizeObserver on runner xterm container
+        term.runnerResizeObserver = new ResizeObserver(() => {
+          if (term.runnerPtyId && term.runnerTerminal && term.runnerFitAddon) {
+            debouncedResize(term.runnerPtyId, term.runnerTerminal, term.runnerFitAddon);
+          }
+        });
+        term.runnerResizeObserver.observe(xtermContainer);
       }
     }
+
+    // Set up resize handle drag interaction
+    term.runnerResizeCleanup = setupRunnerResizeHandle(term, handle, panel);
   }
 
   term.runnerPanelOpen = true;
@@ -693,19 +792,30 @@ export function showRunnerPanel(term: TheatreTerminal): void {
   const runBtn = term.container.querySelector('.card-tab-run');
   if (runBtn) runBtn.classList.add('card-tab--active');
 
-  // Show panel
+  // Animate open via flex-basis
   requestAnimationFrame(() => {
     panel.classList.add('runner-panel--visible');
+    if (term.runnerFullWidth) {
+      panel.style.flexBasis = '100%';
+    } else {
+      panel.style.flexBasis = `${term.runnerSplitRatio * 100}%`;
+    }
   });
 
-  // Fit runner terminal after animation and focus it
+  // Fit terminals after animation settles
   setTimeout(() => {
+    // Fit runner terminal
     if (term.runnerFitAddon && term.runnerPtyId) {
       term.runnerFitAddon.fit();
       window.api.pty.resize(term.runnerPtyId, term.runnerTerminal!.cols, term.runnerTerminal!.rows);
       term.runnerTerminal!.focus();
     }
-  }, 200);
+    // Fit main terminal only if in split mode (it shrank)
+    if (!term.runnerFullWidth) {
+      term.fitAddon.fit();
+      window.api.pty.resize(term.ptyId, term.terminal.cols, term.terminal.rows);
+    }
+  }, 250);
 }
 
 
@@ -721,13 +831,69 @@ export function toggleRunnerPanel(term: TheatreTerminal): void {
 }
 
 /**
+ * Toggle runner panel between full-width and split mode
+ */
+function toggleRunnerFullWidth(term: TheatreTerminal): void {
+  term.runnerFullWidth = !term.runnerFullWidth;
+
+  const panel = term.container.querySelector('.runner-panel') as HTMLElement;
+  if (!panel) return;
+
+  // Disable transition for instant swap
+  panel.style.transition = 'none';
+
+  // Toggle full-width class on card body
+  const cardBody = term.container.querySelector('.theatre-card-body');
+  if (cardBody) cardBody.classList.toggle('runner-full', term.runnerFullWidth);
+
+  // Update toggle button icon
+  const toggleBtn = panel.querySelector('.runner-panel-split-toggle') as HTMLElement;
+
+  if (term.runnerFullWidth) {
+    panel.classList.add('runner-panel--full');
+    panel.style.flexBasis = '100%';
+    if (toggleBtn) {
+      toggleBtn.innerHTML = '<i data-lucide="maximize-2"></i>';
+      toggleBtn.title = 'Split view';
+    }
+  } else {
+    panel.classList.remove('runner-panel--full');
+    panel.style.flexBasis = `${term.runnerSplitRatio * 100}%`;
+    if (toggleBtn) {
+      toggleBtn.innerHTML = '<i data-lucide="columns-2"></i>';
+      toggleBtn.title = 'Full width';
+    }
+  }
+
+  // Re-render lucide icons for the updated button
+  if (toggleBtn) {
+    createIcons({ icons, nameAttr: 'data-lucide', attrs: {}, nodes: [toggleBtn] });
+  }
+
+  // Force layout, then restore transition and fit terminals
+  requestAnimationFrame(() => {
+    panel.style.transition = '';
+    if (term.runnerFitAddon && term.runnerPtyId && term.runnerTerminal) {
+      term.runnerFitAddon.fit();
+      window.api.pty.resize(term.runnerPtyId, term.runnerTerminal.cols, term.runnerTerminal.rows);
+    }
+    if (!term.runnerFullWidth) {
+      term.fitAddon.fit();
+      window.api.pty.resize(term.ptyId, term.terminal.cols, term.terminal.rows);
+    }
+  });
+}
+
+/**
  * Kill the runner process and clean up resources
  */
 export function killRunner(term: TheatreTerminal): void {
   if (!term.runnerPtyId) return;
 
-  // Hide panel first
-  hideRunnerPanel(term);
+  // Mark panel closed and remove active state (skip hideRunnerPanel to avoid stale timeout)
+  term.runnerPanelOpen = false;
+  const runBtn = term.container.querySelector('.card-tab-run');
+  if (runBtn) runBtn.classList.remove('card-tab--active');
 
   // Kill PTY
   window.api.pty.kill(term.runnerPtyId);
@@ -736,16 +902,32 @@ export function killRunner(term: TheatreTerminal): void {
   if (term.runnerCleanupData) term.runnerCleanupData();
   if (term.runnerCleanupExit) term.runnerCleanupExit();
 
+  // Clean up resize observer and drag listeners
+  if (term.runnerResizeObserver) {
+    term.runnerResizeObserver.disconnect();
+    term.runnerResizeObserver = null;
+  }
+  if (term.runnerResizeCleanup) {
+    term.runnerResizeCleanup();
+    term.runnerResizeCleanup = null;
+  }
+
   // Dispose terminal
   if (term.runnerTerminal) {
     term.runnerTerminal.dispose();
   }
 
+  // Remove resize handle DOM
+  const handle = term.container.querySelector('.runner-resize-handle');
+  if (handle) handle.remove();
+
   // Remove panel DOM
   const panel = term.container.querySelector('.runner-panel');
-  if (panel) {
-    panel.remove();
-  }
+  if (panel) panel.remove();
+
+  // Remove runner-split class from card body
+  const cardBody = term.container.querySelector('.theatre-card-body');
+  if (cardBody) cardBody.classList.remove('runner-split', 'runner-full');
 
   // Reset state
   term.runnerPtyId = null;
@@ -756,9 +938,22 @@ export function killRunner(term: TheatreTerminal): void {
   term.runnerStatus = 'idle';
   term.runnerCleanupData = null;
   term.runnerCleanupExit = null;
+  term.runnerFullWidth = true;
 
   // Collapse the pill
   updateRunnerPill(term);
+}
+
+/**
+ * Restart the runner — kill current process and re-run the run script
+ */
+async function restartRunner(term: TheatreTerminal): Promise<void> {
+  const wasFullWidth = term.runnerFullWidth;
+  killRunner(term);
+  await runDefaultInCard(term);
+  // Restore full-width preference and show panel
+  term.runnerFullWidth = wasFullWidth;
+  showRunnerPanel(term);
 }
 
 /**
@@ -1257,6 +1452,10 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
       runnerStatus: 'idle',
       runnerCleanupData: null,
       runnerCleanupExit: null,
+      runnerFullWidth: true,
+      runnerSplitRatio: 0.5,
+      runnerResizeObserver: null,
+      runnerResizeCleanup: null,
     };
 
     // Set up close button and card click handlers
@@ -1467,6 +1666,10 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
       runnerStatus: 'idle',
       runnerCleanupData: null,
       runnerCleanupExit: null,
+      runnerFullWidth: true,
+      runnerSplitRatio: 0.5,
+      runnerResizeObserver: null,
+      runnerResizeCleanup: null,
     };
 
     // Set up resize observer with debouncing to prevent zsh artifacts during animations
@@ -1596,6 +1799,8 @@ export function closeTheatreTerminal(index: number): void {
     window.api.pty.kill(term.runnerPtyId);
     if (term.runnerCleanupData) term.runnerCleanupData();
     if (term.runnerCleanupExit) term.runnerCleanupExit();
+    if (term.runnerResizeObserver) term.runnerResizeObserver.disconnect();
+    if (term.runnerResizeCleanup) term.runnerResizeCleanup();
     if (term.runnerTerminal) term.runnerTerminal.dispose();
   }
 
