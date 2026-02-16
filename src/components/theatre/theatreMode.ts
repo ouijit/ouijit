@@ -471,6 +471,10 @@ export function exitTheatreMode(): void {
   // 8. Hide diff panel
   hideDiffPanel();
 
+  // 8.5. Remove pagination row
+  const paginationRow = document.querySelector('.theatre-stack-pagination');
+  if (paginationRow) paginationRow.remove();
+
   // 9. Hide kanban board
   hideKanbanBoard();
 

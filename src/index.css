@@ -709,6 +709,7 @@ body.theatre-mode .header-content {
   max-width: none;
   padding-left: 0;
   padding-right: 0;
+  padding-bottom: 8px;
 }
 
 /* Hide search/refresh area in header */
@@ -1677,15 +1678,20 @@ body.platform-other .shortcut-number {
   display: none !important;
 }
 
-/* Pagination row — compact bar above the topmost back card, positioned via JS */
+/* Pagination row — fixed below header, centered, only visible in stack view */
 .theatre-stack-pagination {
-  @apply absolute z-[200] flex items-center justify-center gap-2;
+  @apply fixed z-[150] flex items-center gap-1.5;
+  top: 58px;
   left: 50%;
   transform: translateX(-50%);
 }
 
+body.kanban-open .theatre-stack-pagination {
+  display: none !important;
+}
+
 .theatre-stack-page-arrow {
-  @apply w-5 h-5 flex items-center justify-center bg-transparent border-none rounded text-white/30 transition-colors duration-150 ease-out;
+  @apply w-6 h-6 flex items-center justify-center bg-transparent border-none rounded text-white/35 transition-colors duration-150 ease-out;
 }
 
 .theatre-stack-page-arrow:hover {
@@ -1693,7 +1699,7 @@ body.platform-other .shortcut-number {
 }
 
 .theatre-stack-page-indicator {
-  @apply text-[11px] font-mono text-white/30;
+  @apply text-xs font-mono text-white/35;
 }
 
 /* ==========================================
