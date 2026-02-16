@@ -49,6 +49,11 @@ export interface TheatreTerminal {
   runnerStatus: 'running' | 'success' | 'error' | 'idle';
   runnerCleanupData: (() => void) | null;
   runnerCleanupExit: (() => void) | null;
+  // Runner split layout state
+  runnerFullWidth: boolean;                     // true = full width (default), false = split
+  runnerSplitRatio: number;                    // 0-1, default 0.5
+  runnerResizeObserver: ResizeObserver | null;  // for runner xterm container
+  runnerResizeCleanup: (() => void) | null;     // cleanup for drag listeners
 }
 
 // Per-project session storage for preserving theatre mode across project switches

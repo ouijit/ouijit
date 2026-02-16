@@ -97,9 +97,19 @@ export function getTerminalGitPath(term: TheatreTerminal): string {
 export function hideRunnerPanel(term: TheatreTerminal): void {
   if (!term.runnerPanelOpen) return;
 
-  const panel = term.container.querySelector('.runner-panel');
+  const panel = term.container.querySelector('.runner-panel') as HTMLElement;
   if (panel) {
-    panel.classList.remove('runner-panel--visible');
+    panel.classList.remove('runner-panel--visible', 'runner-panel--full');
+    // Animate closed via flex-basis transition
+    panel.style.flexBasis = '0';
+    // After transition, remove runner-split class from card body
+    setTimeout(() => {
+      const cardBody = term.container.querySelector('.theatre-card-body');
+      if (cardBody) cardBody.classList.remove('runner-split', 'runner-full');
+      // Fit main terminal after it expands back to full width
+      term.fitAddon.fit();
+      window.api.pty.resize(term.ptyId, term.terminal.cols, term.terminal.rows);
+    }, 250);
   }
 
   // Remove active state from run button

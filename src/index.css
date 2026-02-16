@@ -1343,15 +1343,67 @@ body.platform-darwin:not(.is-fullscreen) .theatre-header-content {
   @apply text-[#ff6b6b];
 }
 
-/* Runner Panel - Full-width overlay (like diff panel) */
+/* Runner Panel - Side-by-side split layout */
 .runner-panel {
-  @apply absolute inset-0 rounded-none border-0 border-t border-solid border-white/10 shadow-none z-20 flex flex-col overflow-hidden opacity-0 pointer-events-none;
+  @apply rounded-none border-0 border-l border-t border-solid border-white/10 shadow-none flex flex-col overflow-hidden;
+  flex-basis: 0;
   background: var(--color-terminal-bg, #1a1a1a);
-  transition: opacity 0.15s ease;
+  transition: flex-basis 0.25s ease;
 }
 
 .runner-panel--visible {
-  @apply opacity-100 pointer-events-auto;
+  /* flex-basis is set dynamically via JS */
+}
+
+/* Full-width runner mode - runner covers the entire card body */
+.runner-panel--full {
+  flex: 1 0 100% !important;
+  border-left: none !important;
+  border-top: none;
+}
+
+/* Hide main terminal viewport and resize handle when runner is full-width */
+.runner-split.runner-full > .terminal-viewport {
+  display: none !important;
+}
+
+.runner-split.runner-full > .runner-resize-handle {
+  display: none !important;
+}
+
+/* Remove min-width in full mode to prevent layout conflict */
+.runner-split > .runner-panel.runner-panel--full {
+  min-width: 0;
+}
+
+/* Resize handle between terminal and runner panel */
+.runner-resize-handle {
+  @apply shrink-0 relative;
+  width: 4px;
+  cursor: col-resize;
+  background: transparent;
+  transition: background 0.15s ease;
+}
+
+.runner-resize-handle:hover,
+.runner-resize-handle:active {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.runner-resize-handle::after {
+  content: '';
+  @apply absolute top-0 bottom-0;
+  left: -8px;
+  right: -8px;
+}
+
+/* Min-width constraints when runner split is active */
+.runner-split > .terminal-viewport {
+  min-width: 200px;
+}
+
+.runner-split > .runner-panel {
+  min-width: 200px;
 }
 
 .runner-panel-header {
@@ -1363,11 +1415,39 @@ body.platform-darwin:not(.is-fullscreen) .theatre-header-content {
 }
 
 .runner-panel-kill {
-  @apply px-2 py-0.5 bg-white/5 border-none rounded text-[10px] font-medium text-white/40 transition-all duration-150 ease-out;
+  @apply w-7 h-7 flex items-center justify-center p-0 bg-transparent border-none rounded-md text-white/40 shrink-0 transition-all duration-150 ease-out;
 }
 
 .runner-panel-kill:hover {
   @apply bg-red-500/20 text-[#ff6b6b];
+}
+
+.runner-panel-kill svg {
+  @apply w-3.5 h-3.5;
+}
+
+.runner-panel-restart {
+  @apply w-7 h-7 flex items-center justify-center p-0 bg-transparent border-none rounded-md text-white/40 shrink-0 transition-all duration-150 ease-out;
+}
+
+.runner-panel-restart:hover {
+  @apply bg-white/10 text-white/90;
+}
+
+.runner-panel-restart svg {
+  @apply w-3.5 h-3.5;
+}
+
+.runner-panel-split-toggle {
+  @apply w-7 h-7 flex items-center justify-center p-0 bg-transparent border-none rounded-md text-white/60 shrink-0 transition-all duration-150 ease-out;
+}
+
+.runner-panel-split-toggle:hover {
+  @apply bg-white/10 text-white/90;
+}
+
+.runner-panel-split-toggle svg {
+  @apply w-3.5 h-3.5;
 }
 
 .runner-panel-collapse {
