@@ -32,6 +32,7 @@
     "@electron/notarize": "^3.1.1",
     "@tailwindcss/postcss": "^4.1.18",
     "@types/electron-squirrel-startup": "^1.0.2",
+    "@types/sortablejs": "^1.15.9",
     "@typescript-eslint/eslint-plugin": "^5.62.0",
     "@typescript-eslint/parser": "^5.62.0",
     "electron": "39.2.7",
@@ -53,7 +54,8 @@
     "hotkeys-js": "^4.0.0",
     "koffi": "^2.15.1",
     "lucide": "^0.562.0",
-    "node-pty": "^1.1.0"
+    "node-pty": "^1.1.0",
+    "sortablejs": "^1.15.7"
   },
   "overrides": {
     "tar": "^7.5.7",

@@ -12,6 +12,7 @@ import { switchToTheatreTerminal } from './terminalCards';
 import { escapeHtml } from '../../utils/html';
 import { registerHotkey, unregisterHotkey, pushScope, popScope, Scopes, platformHotkey } from '../../utils/hotkeys';
 import { createIcons, icons } from 'lucide';
+import Sortable from 'sortablejs';
 
 /**
  * Sync the view toggle buttons' active state with kanban visibility
@@ -221,7 +222,6 @@ function buildKanbanHtml(): string {
 function buildKanbanCard(task: TaskWithWorkspace, path: string, limaAvailable: boolean, editorConfigured: boolean): HTMLElement {
   const card = document.createElement('div');
   card.className = 'kanban-card' + (task.status === 'done' ? ' kanban-card--done' : '');
-  card.draggable = true;
   card.dataset.taskNumber = String(task.taskNumber);
   card.setAttribute('style', '-webkit-app-region: no-drag;');
 
@@ -381,22 +381,6 @@ function buildKanbanCard(task: TaskWithWorkspace, path: string, limaAvailable: b
     clearTimeout(clickTimer);
   });
 
-  // Drag handlers
-  card.addEventListener('dragstart', (e) => {
-    // Prevent drag when editing inline
-    if (card.querySelector('.kanban-card-name-input, .kanban-card-description-textarea')) {
-      e.preventDefault();
-      return;
-    }
-    card.classList.add('kanban-card--dragging');
-    e.dataTransfer?.setData('text/plain', String(task.taskNumber));
-    if (e.dataTransfer) e.dataTransfer.effectAllowed = 'move';
-  });
-
-  card.addEventListener('dragend', () => {
-    card.classList.remove('kanban-card--dragging');
-  });
-
   // Right-click context menu
   card.addEventListener('contextmenu', (e) => {
     const connectedTerminals = terminals.value
@@ -524,236 +508,129 @@ function buildKanbanCard(task: TaskWithWorkspace, path: string, limaAvailable: b
 }
 
 /**
- * Get visible cards in a column body, excluding the dragged card.
+ * Set up SortableJS instances for each kanban column body.
+ * Called after populateKanbanBoard rebuilds the DOM.
  */
-function getVisibleCards(body: HTMLElement, excludeTaskNumber: number): HTMLElement[] {
-  return (Array.from(body.querySelectorAll('.kanban-card:not(.kanban-card--dragging)')) as HTMLElement[])
-    .filter(c => c.dataset.taskNumber !== String(excludeTaskNumber));
-}
-
-/**
- * Get the drop index by comparing cursor Y against card midpoints.
- * Returns the index where the dragged card should be inserted.
- */
-function getDropPosition(body: HTMLElement, clientY: number, draggedTaskNumber: number): number {
-  const cards = getVisibleCards(body, draggedTaskNumber);
-  for (let i = 0; i < cards.length; i++) {
-    const rect = cards[i].getBoundingClientRect();
-    const midY = rect.top + rect.height / 2;
-    if (clientY < midY) return i;
-  }
-  return cards.length;
-}
-
-/**
- * Show or move the drop indicator line at the given index within a column body.
- */
-let lastIndicatorIndex = -1;
-let lastIndicatorBody: HTMLElement | null = null;
-
-function showDropIndicator(body: HTMLElement, index: number, draggedTaskNumber: number): void {
-  // Short-circuit when unchanged to reduce DOM thrash
-  if (body === lastIndicatorBody && index === lastIndicatorIndex) return;
-  lastIndicatorBody = body;
-  lastIndicatorIndex = index;
-
-  let indicator = body.querySelector('.kanban-drop-indicator') as HTMLElement | null;
-  if (!indicator) {
-    indicator = document.createElement('div');
-    indicator.className = 'kanban-drop-indicator';
-    body.appendChild(indicator);
-  }
-
-  const visibleCards = getVisibleCards(body, draggedTaskNumber);
-
-  if (visibleCards.length === 0 || index === 0) {
-    // Insert before the first card (or if empty, at start of body)
-    const firstCard = visibleCards[0] || body.querySelector('.kanban-add-input');
-    if (firstCard) {
-      body.insertBefore(indicator, firstCard);
-    }
-  } else if (index >= visibleCards.length) {
-    // Insert after the last card (before the add-input if present)
-    const addInput = body.querySelector('.kanban-add-input');
-    if (addInput) {
-      body.insertBefore(indicator, addInput);
-    } else {
-      body.appendChild(indicator);
-    }
-  } else {
-    body.insertBefore(indicator, visibleCards[index]);
-  }
-
-  indicator.classList.add('kanban-drop-indicator--visible');
-}
-
-/**
- * Remove all drop indicators from the board.
- */
-function removeDropIndicators(): void {
-  document.querySelectorAll('.kanban-drop-indicator').forEach(el => el.remove());
-  lastIndicatorIndex = -1;
-  lastIndicatorBody = null;
-}
-
-/**
- * Set up drag-and-drop targets on column bodies
- */
-function setupColumnDropTargets(): void {
+function setupSortable(): void {
   const board = document.querySelector('.kanban-board');
   if (!board) return;
 
-  // Track the dragged task number for drop position calculation
-  let draggedTaskNumber = -1;
+  const bodies = board.querySelectorAll('.kanban-column-body');
+  bodies.forEach(body => {
+    // Destroy any existing Sortable instance before creating a new one
+    const existing = Sortable.get(body as HTMLElement);
+    if (existing) existing.destroy();
 
-  board.addEventListener('dragstart', (e) => {
-    const card = (e.target as HTMLElement).closest('.kanban-card') as HTMLElement | null;
-    if (card) {
-      draggedTaskNumber = parseInt(card.dataset.taskNumber || '', 10);
-    }
-  });
-
-  board.addEventListener('dragend', () => {
-    draggedTaskNumber = -1;
-  });
-
-  const columns = board.querySelectorAll('.kanban-column');
-  columns.forEach(column => {
-    const body = column.querySelector('.kanban-column-body') as HTMLElement;
-    if (!body) return;
-
-    body.addEventListener('dragover', (e) => {
-      e.preventDefault();
-      if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
-      column.classList.add('kanban-column--drop-target');
-
-      const dropIndex = getDropPosition(body, e.clientY, draggedTaskNumber);
-      showDropIndicator(body, dropIndex, draggedTaskNumber);
+    Sortable.create(body as HTMLElement, {
+      group: 'kanban',
+      animation: 150,
+      draggable: '.kanban-card',
+      ghostClass: 'kanban-card--ghost',
+      filter: '.kanban-add-input, .kanban-card-name-input, .kanban-card-detail-value--editing',
+      preventOnFilter: false,
+      onEnd: (evt) => { handleSortableEnd(evt); },
     });
+  });
+}
 
-    body.addEventListener('dragleave', (e) => {
-      // Only remove if leaving the column body, not entering a child
-      if (!body.contains(e.relatedTarget as Node)) {
-        column.classList.remove('kanban-column--drop-target');
-        removeDropIndicators();
-      }
-    });
+/**
+ * Handle a SortableJS onEnd event — persist reorder and handle special status transitions.
+ */
+async function handleSortableEnd(evt: Sortable.SortableEvent): Promise<void> {
+  const item = evt.item as HTMLElement;
+  const taskNumber = parseInt(item.dataset.taskNumber || '', 10);
+  if (isNaN(taskNumber)) return;
 
-    body.addEventListener('drop', async (e) => {
-      e.preventDefault();
-      column.classList.remove('kanban-column--drop-target');
-      removeDropIndicators();
+  const toColumn = (evt.to as HTMLElement).closest('.kanban-column') as HTMLElement | null;
+  const newStatus = toColumn?.dataset.status as TaskStatus | undefined;
+  if (!newStatus) return;
 
-      const taskNumber = parseInt(e.dataTransfer?.getData('text/plain') || '', 10);
-      if (isNaN(taskNumber)) return;
+  const path = projectPath.value;
+  if (!path) return;
 
-      const newStatus = (column as HTMLElement).dataset.status as TaskStatus;
-      if (!newStatus) return;
+  const targetIndex = evt.newIndex ?? 0;
 
-      const path = projectPath.value;
-      if (!path) return;
+  // Dropping a task into in_progress — create worktree if needed + show start command dialog
+  if (newStatus === 'in_progress') {
+    const tasks = await window.api.task.getAll(path);
+    const task = tasks.find(t => t.taskNumber === taskNumber);
 
-      const targetIndex = getDropPosition(body, e.clientY, taskNumber);
+    if (task && task.status === 'todo') {
+      let worktreePath = task.worktreePath;
+      let branch = task.branch || '';
 
-      // Immediately move the card into the target column at the drop position so there's no snap-back
-      const card = board!.querySelector(`.kanban-card[data-task-number="${taskNumber}"]`) as HTMLElement | null;
-      const originalBody = card?.parentElement;
-      const originalNext = card?.nextElementSibling || null;
-      if (card) {
-        const visibleCards = getVisibleCards(body, taskNumber);
-        const refNode = visibleCards[targetIndex] || body.querySelector('.kanban-add-input') || null;
-        if (refNode) {
-          body.insertBefore(card, refNode);
-        } else {
-          body.appendChild(card);
-        }
-      }
-
-      // Dropping a task into in_progress — create worktree if needed + show start command dialog
-      if (newStatus === 'in_progress') {
-        const tasks = await window.api.task.getAll(path);
-        const task = tasks.find(t => t.taskNumber === taskNumber);
-
-        if (task && task.status === 'todo') {
-          let worktreePath = task.worktreePath;
-          let branch = task.branch || '';
-
-          // Create worktree if task doesn't have one yet
-          if (!worktreePath) {
-            const startResult = await window.api.task.start(path, taskNumber);
-            if (!startResult.success || !startResult.worktreePath) {
-              if (card && originalBody) originalBody.insertBefore(card, originalNext);
-              return;
-            }
-            worktreePath = startResult.worktreePath;
-            branch = startResult.task?.branch || '';
-          }
-
-          // Use reorder to set status + position
-          await window.api.task.reorder(path, taskNumber, 'in_progress', targetIndex);
-          invalidateTaskList();
-
-          // Show start command dialog
-          const dialogResult = await showStartCommandDialog(path, task.name);
-          if (dialogResult === null) {
-            // User cancelled — task stays in_progress but no terminal opened
-            await populateKanbanBoard();
-            return;
-          }
-
-          // Build runConfig if user chose to run a command
-          let runConfig: RunConfig | undefined;
-          const sandboxed = dialogResult.sandboxed;
-          if (dialogResult.command) {
-            runConfig = {
-              name: 'start',
-              command: dialogResult.command,
-              source: 'custom',
-              priority: 0,
-            };
-          }
-
-          await theatreRegistry.addTheatreTerminal?.(runConfig, {
-            existingWorktree: {
-              path: worktreePath,
-              branch,
-              prompt: task.prompt,
-              createdAt: task.createdAt,
-              sandboxed: task.sandboxed,
-            },
-            taskId: taskNumber,
-            sandboxed,
-          });
+      // Create worktree if task doesn't have one yet
+      if (!worktreePath) {
+        const startResult = await window.api.task.start(path, taskNumber);
+        if (!startResult.success || !startResult.worktreePath) {
           await populateKanbanBoard();
           return;
         }
+        worktreePath = startResult.worktreePath;
+        branch = startResult.task?.branch || '';
       }
 
-      if (newStatus === 'done') {
-        // Close any open terminals for this task
-        const currentTerminals = terminals.value;
-        for (let i = currentTerminals.length - 1; i >= 0; i--) {
-          if (currentTerminals[i].taskId === taskNumber) {
-            theatreRegistry.closeTheatreTerminal?.(i);
-          }
-        }
-        // Reorder handles status change, closedAt, and position in one write;
-        // the IPC handler also runs the cleanup hook.
-        await window.api.task.reorder(path, taskNumber, 'done', targetIndex);
-        invalidateTaskList();
+      // Use reorder to set status + position
+      await window.api.task.reorder(path, taskNumber, 'in_progress', targetIndex);
+      invalidateTaskList();
+
+      // Show start command dialog
+      const dialogResult = await showStartCommandDialog(path, task.name);
+      if (dialogResult === null) {
+        // User cancelled — task stays in_progress but no terminal opened
         await populateKanbanBoard();
         return;
       }
 
-      const result = await window.api.task.reorder(path, taskNumber, newStatus, targetIndex);
-      if (result.success) {
-        invalidateTaskList();
-        await populateKanbanBoard();
-      } else if (card && originalBody) {
-        originalBody.insertBefore(card, originalNext);
+      // Build runConfig if user chose to run a command
+      let runConfig: RunConfig | undefined;
+      const sandboxed = dialogResult.sandboxed;
+      if (dialogResult.command) {
+        runConfig = {
+          name: 'start',
+          command: dialogResult.command,
+          source: 'custom',
+          priority: 0,
+        };
       }
-    });
-  });
+
+      await theatreRegistry.addTheatreTerminal?.(runConfig, {
+        existingWorktree: {
+          path: worktreePath,
+          branch,
+          prompt: task.prompt,
+          createdAt: task.createdAt,
+          sandboxed: task.sandboxed,
+        },
+        taskId: taskNumber,
+        sandboxed,
+      });
+      await populateKanbanBoard();
+      return;
+    }
+  }
+
+  if (newStatus === 'done') {
+    // Close any open terminals for this task
+    const currentTerminals = terminals.value;
+    for (let i = currentTerminals.length - 1; i >= 0; i--) {
+      if (currentTerminals[i].taskId === taskNumber) {
+        theatreRegistry.closeTheatreTerminal?.(i);
+      }
+    }
+    // Reorder handles status change, closedAt, and position in one write;
+    // the IPC handler also runs the cleanup hook.
+    await window.api.task.reorder(path, taskNumber, 'done', targetIndex);
+    invalidateTaskList();
+    await populateKanbanBoard();
+    return;
+  }
+
+  const result = await window.api.task.reorder(path, taskNumber, newStatus, targetIndex);
+  if (result.success) {
+    invalidateTaskList();
+    await populateKanbanBoard();
+  }
 }
 
 /**
@@ -815,6 +692,9 @@ async function populateKanbanBoard(): Promise<void> {
 
   // Sync status dots with current terminal state
   syncKanbanStatusDots();
+
+  // Set up SortableJS drag-and-drop on each column
+  setupSortable();
 }
 
 /**
@@ -1067,10 +947,7 @@ export async function showKanbanBoard(): Promise<void> {
   // Wire up persistent add input in the todo column
   wireAddInput(board);
 
-  // Set up drop targets
-  setupColumnDropTargets();
-
-  // Populate with tasks
+  // Populate with tasks (also sets up SortableJS)
   await populateKanbanBoard();
 
   // Blur the active terminal so hotkeys (especially Escape) aren't captured by xterm

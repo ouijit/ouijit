@@ -1781,10 +1781,6 @@ body.kanban-open .theatre-stack {
   border-right: none;
 }
 
-.kanban-column--drop-target {
-  background: rgba(10, 132, 255, 0.05);
-}
-
 .kanban-column-header {
   @apply flex items-center gap-2 px-3 py-2.5 shrink-0;
 }
@@ -1839,22 +1835,13 @@ body.kanban-open .theatre-stack {
   @apply line-through text-text-secondary;
 }
 
-.kanban-card--dragging {
-  opacity: 0.4;
+.kanban-card--ghost {
+  background: rgba(10, 132, 255, 0.15);
+  border: 1px solid rgba(10, 132, 255, 0.4);
 }
 
-.kanban-drop-indicator {
-  height: 2px;
-  background: rgb(10, 132, 255);
-  border-radius: 1px;
-  margin: 0 8px;
+.kanban-card--ghost * {
   opacity: 0;
-  transition: opacity 0.1s ease;
-  flex-shrink: 0;
-}
-
-.kanban-drop-indicator--visible {
-  opacity: 1;
 }
 
 .kanban-card-header {
