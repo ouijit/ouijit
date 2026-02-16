@@ -140,8 +140,8 @@ export function buildCardGitStatsHtml(compactStatus: CompactGitStatus | null, is
     return `<span class="card-tab theatre-card-git-stats theatre-card-git-stats--clickable" title="View uncommitted changes">${parts.join(' ')}</span>`;
   }
 
-  // No uncommitted changes — show "Compare" for worktree terminals
-  if (isWorktree) {
+  // No uncommitted changes — show "Compare" for worktree terminals only if branch has changes vs main
+  if (isWorktree && compactStatus.branchDiffFileCount > 0) {
     return `<span class="card-tab theatre-card-git-stats theatre-card-git-stats--clickable theatre-card-git-stats--compare" title="Compare branch changes">Compare</span>`;
   }
 

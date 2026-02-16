@@ -1223,7 +1223,7 @@ body.platform-darwin:not(.is-fullscreen) .theatre-header-content {
 
 /* More actions (ellipsis) button — hidden until worktree setup adds --visible */
 .theatre-card-more {
-  @apply w-7 h-7 hidden items-center justify-center bg-transparent border-none text-white/50 opacity-0 transition-colors duration-150 ease-out;
+  @apply w-7 h-7 ml-1 hidden items-center justify-center bg-transparent border-none text-white/50 opacity-0 transition-colors duration-150 ease-out;
 }
 
 .theatre-card-more--visible {
@@ -1285,6 +1285,10 @@ body.platform-darwin:not(.is-fullscreen) .theatre-header-content {
 /* When clickable, override base stats styles to match card-tab */
 .theatre-card-git-stats--clickable {
   @apply px-2.5 py-1 text-[11px] font-medium text-white/60 bg-white/[0.06] rounded-full;
+}
+
+.theatre-card-git-stats--compare {
+  @apply font-sans;
 }
 
 .theatre-card-git-count {
