@@ -246,7 +246,7 @@ body > .diff-panel--visible {
 
 /* Header info */
 .diff-header-info {
-  @apply text-xs text-text-tertiary ml-auto;
+  @apply text-xs text-text-tertiary ml-auto relative;
 }
 
 /* ==========================================
@@ -269,5 +269,52 @@ body > .diff-panel--visible {
    ========================================== */
 
 .compare-mode-selector {
-  @apply text-xs bg-white/[0.06] rounded px-2 py-0.5 text-white/50;
+  @apply text-xs bg-white/[0.06] rounded px-2 py-0.5 text-white/50 transition-colors duration-150 ease-out;
+}
+
+.compare-mode-selector:hover {
+  @apply bg-white/[0.10] text-white/70;
+}
+
+/* ==========================================
+   Compare Target Branch Selector
+   ========================================== */
+
+.compare-target-branch {
+  @apply inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-white/[0.08] font-medium text-white/80 relative transition-colors duration-150 ease-out;
+}
+
+.compare-target-branch:hover {
+  @apply bg-white/[0.12] text-white/90;
+}
+
+.compare-branch-dropdown {
+  @apply absolute top-full right-0 mt-1 min-w-[180px] max-w-[280px] max-h-[300px] overflow-y-auto bg-surface border border-white/15 rounded-md shadow-lg z-[100] opacity-0 transition-all duration-150 ease-out;
+  transform: translateY(-4px);
+  -webkit-app-region: no-drag;
+}
+
+.compare-branch-dropdown.visible {
+  @apply opacity-100;
+  transform: translateY(0);
+}
+
+.compare-branch-item {
+  @apply flex items-center gap-2 px-3 py-2 text-xs text-white/80 transition-colors duration-100 ease-out;
+}
+
+.compare-branch-item:hover {
+  @apply bg-white/[0.08];
+}
+
+.compare-branch-item.selected {
+  @apply bg-white/10 text-white;
+}
+
+.compare-branch-name {
+  @apply flex-1 min-w-0 truncate;
+}
+
+.compare-branch-badge {
+  @apply shrink-0 text-[10px] px-1.5 py-px rounded bg-white/10 text-white/60;
 }

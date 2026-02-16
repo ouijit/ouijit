@@ -343,8 +343,9 @@ function wireDiffPanel(
 /**
  * Show the compare panel for a specific terminal
  * Unified function that handles both uncommitted and worktree modes
+ * @param targetBranch - For worktree mode, the branch to compare against (defaults to task merge target or main)
  */
-export async function showTerminalComparePanel(term: TheatreTerminal, mode: 'uncommitted' | 'worktree'): Promise<void> {
+export async function showTerminalComparePanel(term: TheatreTerminal, mode: 'uncommitted' | 'worktree', targetBranch?: string): Promise<void> {
   if (term.diffPanelOpen) return;
 
   // Worktree mode requires a worktree branch
@@ -358,6 +359,20 @@ export async function showTerminalComparePanel(term: TheatreTerminal, mode: 'unc
   const basePath = projectPath.value;
   const gitPath = getTerminalGitPath(term);
 
+  // Resolve target branch for worktree mode
+  let resolvedTarget = targetBranch;
+  if (mode === 'worktree' && !resolvedTarget && basePath) {
+    // Check task merge target first, fall back to main branch
+    if (term.taskId != null) {
+      const tasks = await window.api.task.getAll(basePath);
+      const task = tasks.find(t => t.taskNumber === term.taskId);
+      if (task?.mergeTarget) resolvedTarget = task.mergeTarget;
+    }
+    if (!resolvedTarget) {
+      resolvedTarget = await window.api.worktree.getMainBranch(basePath);
+    }
+  }
+
   // Fetch files based on mode
   let files: ChangedFile[];
   if (mode === 'uncommitted') {
@@ -368,7 +383,7 @@ export async function showTerminalComparePanel(term: TheatreTerminal, mode: 'unc
     }
   } else {
     if (!basePath) return;
-    const diffSummary = await window.api.worktree.getDiff(basePath, term.worktreeBranch!);
+    const diffSummary = await window.api.worktree.getDiff(basePath, term.worktreeBranch!, resolvedTarget);
     if (!diffSummary || !diffSummary.files.length) {
       showToast('No changes in worktree branch', 'info');
       return;
@@ -415,6 +430,37 @@ export async function showTerminalComparePanel(term: TheatreTerminal, mode: 'unc
   // Wire up panel interactions
   wireDiffPanel(panel, () => hideTerminalDiffPanel(term));
 
+  // Wire up mode selector — clickable on worktree terminals to switch comparison
+  const modeSelector = panel.querySelector('.compare-mode-selector');
+  if (modeSelector) {
+    modeSelector.addEventListener('click', async () => {
+      const currentMode = term.diffPanelMode;
+      const newMode = currentMode === 'uncommitted' ? 'worktree' : 'uncommitted';
+
+      // Prefetch the new mode's data before tearing down the current panel
+      if (newMode === 'uncommitted') {
+        const newFiles = await window.api.getChangedFiles(getTerminalGitPath(term));
+        if (!newFiles.length) {
+          showToast('No uncommitted changes', 'info');
+          return;
+        }
+      } else {
+        const bp = projectPath.value;
+        if (!bp || !term.worktreeBranch) return;
+        const diff = await window.api.worktree.getDiff(bp, term.worktreeBranch);
+        if (!diff || !diff.files.length) {
+          showToast('No branch changes', 'info');
+          return;
+        }
+      }
+
+      // Data exists — safe to switch
+      hideTerminalDiffPanel(term);
+      await new Promise(r => setTimeout(r, 50));
+      await showTerminalComparePanel(term, newMode);
+    });
+  }
+
   // Update header info
   const headerInfo = panel.querySelector('.diff-header-info');
   if (headerInfo) {
@@ -423,7 +469,15 @@ export async function showTerminalComparePanel(term: TheatreTerminal, mode: 'unc
       const totalDel = files.reduce((s, f) => s + f.deletions, 0);
       headerInfo.innerHTML = `${files.length} file${files.length !== 1 ? 's' : ''} ${formatDiffStats(totalAdd, totalDel)}`;
     } else {
-      headerInfo.textContent = 'vs main';
+      // Show clickable target branch selector
+      headerInfo.innerHTML = `vs <span class="compare-target-branch">${escapeHtml(resolvedTarget || 'main')}</span>`;
+      const targetEl = headerInfo.querySelector('.compare-target-branch');
+      if (targetEl) {
+        targetEl.addEventListener('click', (e) => {
+          e.stopPropagation();
+          showTargetBranchDropdown(term, panel as HTMLElement, headerInfo as HTMLElement, resolvedTarget || 'main');
+        });
+      }
     }
   }
 
@@ -435,9 +489,139 @@ export async function showTerminalComparePanel(term: TheatreTerminal, mode: 'unc
   // Load diffs using appropriate API
   const fetchDiff = mode === 'uncommitted'
     ? (filePath: string) => window.api.getFileDiff(gitPath, filePath)
-    : (filePath: string) => window.api.worktree.getFileDiff(basePath!, term.worktreeBranch!, filePath);
+    : (filePath: string) => window.api.worktree.getFileDiff(basePath!, term.worktreeBranch!, filePath, resolvedTarget);
 
   await loadAllDiffs(panel, files, fetchDiff);
+}
+
+/**
+ * Show target branch dropdown for switching the comparison target
+ */
+async function showTargetBranchDropdown(
+  term: TheatreTerminal,
+  panel: HTMLElement,
+  headerInfo: HTMLElement,
+  currentTarget: string
+): Promise<void> {
+  // Don't open multiple dropdowns
+  if (panel.querySelector('.compare-branch-dropdown')) return;
+
+  const basePath = projectPath.value;
+  if (!basePath || !term.worktreeBranch) return;
+
+  const branches = await window.api.worktree.listBranches(basePath);
+
+  // Filter out the worktree branch, sort main to top
+  const filtered = branches
+    .filter(b => b.name !== term.worktreeBranch)
+    .sort((a, b) => {
+      if (a.isMain && !b.isMain) return -1;
+      if (!a.isMain && b.isMain) return 1;
+      return a.name.localeCompare(b.name);
+    });
+
+  const targetEl = headerInfo.querySelector('.compare-target-branch');
+  if (!targetEl) return;
+
+  // Build dropdown
+  const dropdownHtml = `<div class="compare-branch-dropdown">
+    ${filtered.map(branch => `
+      <div class="compare-branch-item${branch.name === currentTarget ? ' selected' : ''}" data-branch="${escapeHtml(branch.name)}">
+        <span class="compare-branch-name">${escapeHtml(branch.name)}</span>
+        ${branch.isMain ? '<span class="compare-branch-badge">main</span>' : ''}
+      </div>
+    `).join('')}
+  </div>`;
+
+  targetEl.insertAdjacentHTML('afterend', dropdownHtml);
+  const dropdown = headerInfo.querySelector('.compare-branch-dropdown') as HTMLElement;
+  if (!dropdown) return;
+
+  // Animate in
+  requestAnimationFrame(() => dropdown.classList.add('visible'));
+
+  // Handle item clicks
+  dropdown.querySelectorAll('.compare-branch-item').forEach(item => {
+    item.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const branchName = (item as HTMLElement).dataset.branch;
+      if (!branchName || branchName === currentTarget) {
+        closeDropdown();
+        return;
+      }
+      closeDropdown();
+      // Swap content in-place — no teardown/rebuild
+      await swapCompareTarget(term, panel, branchName);
+    });
+  });
+
+  // Click-outside to dismiss
+  const handleClickOutside = (e: MouseEvent) => {
+    if (!dropdown.contains(e.target as Node) && e.target !== targetEl) {
+      closeDropdown();
+    }
+  };
+  setTimeout(() => document.addEventListener('click', handleClickOutside), 0);
+
+  function closeDropdown() {
+    document.removeEventListener('click', handleClickOutside);
+    dropdown.classList.remove('visible');
+    setTimeout(() => dropdown.remove(), 150);
+  }
+}
+
+/**
+ * Swap the compare target branch in-place without tearing down the panel
+ */
+async function swapCompareTarget(term: TheatreTerminal, panel: HTMLElement, newTarget: string): Promise<void> {
+  const basePath = projectPath.value;
+  if (!basePath || !term.worktreeBranch) return;
+
+  // Fetch new diff
+  const diffSummary = await window.api.worktree.getDiff(basePath, term.worktreeBranch, newTarget);
+  const files = diffSummary?.files || [];
+
+  if (!files.length) {
+    showToast('No changes compared to target branch', 'info');
+    return;
+  }
+
+  // Update terminal state
+  term.diffPanelFiles = files;
+  diffPanelFiles.value = files;
+
+  // Rebuild sidebar file list
+  const fileList = panel.querySelector('.diff-panel-file-list');
+  if (fileList) {
+    fileList.innerHTML = buildFileListHtml(files);
+  }
+
+  // Rebuild stacked diffs
+  const diffBody = panel.querySelector('.diff-content-body');
+  if (diffBody) {
+    diffBody.innerHTML = buildStackedDiffsHtml(files);
+  }
+
+  // Update the target label in header
+  const headerInfo = panel.querySelector('.diff-header-info');
+  if (headerInfo) {
+    headerInfo.innerHTML = `vs <span class="compare-target-branch">${escapeHtml(newTarget)}</span>`;
+    const targetEl = headerInfo.querySelector('.compare-target-branch');
+    if (targetEl) {
+      targetEl.addEventListener('click', (e) => {
+        e.stopPropagation();
+        showTargetBranchDropdown(term, panel, headerInfo as HTMLElement, newTarget);
+      });
+    }
+  }
+
+  // Re-wire sidebar navigation
+  wireSidebarNavigation(panel);
+
+  // Load all diffs for the new target
+  await loadAllDiffs(panel, files, (filePath) =>
+    window.api.worktree.getFileDiff(basePath, term.worktreeBranch!, filePath, newTarget)
+  );
 }
 
 /**
