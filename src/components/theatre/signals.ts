@@ -6,6 +6,7 @@
 import { signal, computed } from '@preact/signals-core';
 import type { Project, ChangedFile } from '../../types';
 import type { TheatreTerminal } from './state';
+import { STACK_PAGE_SIZE } from './state';
 
 // Core reactive state
 export const projectPath = signal<string | null>(null);
@@ -21,6 +22,10 @@ export const activeTerminal = computed(() =>
 export const isInTheatreMode = computed(() =>
   projectPath.value !== null
 );
+
+// Pagination: derived from activeIndex (no independent state to sync)
+export const activeStackPage = computed(() => Math.floor(activeIndex.value / STACK_PAGE_SIZE));
+export const totalStackPages = computed(() => Math.max(1, Math.ceil(terminals.value.length / STACK_PAGE_SIZE)));
 
 // Panel visibility
 export const diffPanelVisible = signal(false);

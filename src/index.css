@@ -1669,6 +1669,34 @@ body.platform-other .shortcut-number {
 }
 
 /* ==========================================
+   Card Stack Pagination
+   ========================================== */
+
+/* Hidden cards on other pages */
+.theatre-card--hidden {
+  display: none !important;
+}
+
+/* Pagination row — compact bar above the topmost back card, positioned via JS */
+.theatre-stack-pagination {
+  @apply absolute z-[200] flex items-center justify-center gap-2;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.theatre-stack-page-arrow {
+  @apply w-5 h-5 flex items-center justify-center bg-transparent border-none rounded text-white/30 transition-colors duration-150 ease-out;
+}
+
+.theatre-stack-page-arrow:hover {
+  @apply text-white/70;
+}
+
+.theatre-stack-page-indicator {
+  @apply text-[11px] font-mono text-white/30;
+}
+
+/* ==========================================
    View Toggle (Stack / Board)
    ========================================== */
 

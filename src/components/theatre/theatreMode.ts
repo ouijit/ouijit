@@ -53,6 +53,7 @@ import {
   createTheatreCard,
   updateTerminalCardLabel,
   updateRunnerPill,
+  navigateStackPage,
 } from './terminalCards';
 import {
   buildTheatreHeader,
@@ -318,6 +319,10 @@ export async function enterTheatreMode(
     });
   }
 
+  // Mod+Shift+Left/Right to navigate stack pages
+  registerHotkey(platformHotkey('mod+shift+left'), Scopes.THEATRE, () => navigateStackPage(-1));
+  registerHotkey(platformHotkey('mod+shift+right'), Scopes.THEATRE, () => navigateStackPage(1));
+
   // 5. Show kanban board by default (after THEATRE scope so KANBAN scope stacks on top)
   await showKanbanBoard();
 
@@ -440,6 +445,8 @@ export function exitTheatreMode(): void {
   for (let i = 1; i <= 9; i++) {
     unregisterHotkey(platformHotkey(`mod+${i}`), Scopes.THEATRE);
   }
+  unregisterHotkey(platformHotkey('mod+shift+left'), Scopes.THEATRE);
+  unregisterHotkey(platformHotkey('mod+shift+right'), Scopes.THEATRE);
   popScope();
 
   // 5. Clear git status timers
@@ -663,6 +670,10 @@ export async function restoreTheatreMode(
       selectByStackPosition(i);
     });
   }
+
+  // Mod+Shift+Left/Right to navigate stack pages
+  registerHotkey(platformHotkey('mod+shift+left'), Scopes.THEATRE, () => navigateStackPage(-1));
+  registerHotkey(platformHotkey('mod+shift+right'), Scopes.THEATRE, () => navigateStackPage(1));
 
   // 5. Show kanban board by default (after THEATRE scope so KANBAN scope stacks on top)
   await showKanbanBoard();

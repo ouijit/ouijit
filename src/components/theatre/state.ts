@@ -69,7 +69,7 @@ export interface StoredTheatreSession {
 }
 
 // Constants
-export const MAX_THEATRE_TERMINALS = 5;
+export const STACK_PAGE_SIZE = 5;
 export const HIDDEN_SESSIONS_CONTAINER_ID = 'hidden-theatre-sessions';
 export const GIT_STATUS_IDLE_DELAY = 2000;
 export const GIT_STATUS_PERIODIC_INTERVAL = 15000;
