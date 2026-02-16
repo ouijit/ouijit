@@ -295,10 +295,7 @@ export async function enterTheatreMode(
     }
   }
 
-  // 4. Show kanban board by default
-  await showKanbanBoard();
-
-  // 5. Set up keyboard shortcuts for theatre mode
+  // 4. Set up keyboard shortcuts for theatre mode
   // Use platformHotkey() to convert 'mod+' to 'command+' on Mac or 'ctrl+' on Linux/Windows
   pushScope(Scopes.THEATRE);
   registerHotkey(platformHotkey('mod+n'), Scopes.THEATRE, () => showKanbanAndFocusInput());
@@ -319,6 +316,9 @@ export async function enterTheatreMode(
       selectByStackPosition(i);
     });
   }
+
+  // 5. Show kanban board by default (after THEATRE scope so KANBAN scope stacks on top)
+  await showKanbanBoard();
 
   // 6. Start periodic git status refresh (for long-running commands)
   if (project.hasGit) {
@@ -641,10 +641,7 @@ export async function restoreTheatreMode(
     }
   }
 
-  // 4. Show kanban board by default
-  await showKanbanBoard();
-
-  // 5. Set up keyboard shortcuts
+  // 4. Set up keyboard shortcuts
   pushScope(Scopes.THEATRE);
   registerHotkey(platformHotkey('mod+n'), Scopes.THEATRE, () => showKanbanAndFocusInput());
   registerHotkey(platformHotkey('mod+b'), Scopes.THEATRE, () => theatreRegistry.toggleKanbanBoard?.());
@@ -664,6 +661,9 @@ export async function restoreTheatreMode(
       selectByStackPosition(i);
     });
   }
+
+  // 5. Show kanban board by default (after THEATRE scope so KANBAN scope stacks on top)
+  await showKanbanBoard();
 
   // 6. Refresh git status immediately and start periodic refresh
   if (project.hasGit) {
