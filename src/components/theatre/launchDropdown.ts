@@ -39,24 +39,24 @@ export function buildTheatreHeader(): string {
         <span class="theatre-project-name">${project.name}</span>
         <span class="theatre-project-path">${project.path}</span>
       </div>
-      <div class="theatre-sandbox-wrapper" style="display: none;">
-        <button class="theatre-sandbox-btn" title="Sandbox">
-          <i data-lucide="box"></i>
-          <i data-lucide="chevron-down" class="theatre-sandbox-caret"></i>
-        </button>
-      </div>
       <div class="theatre-view-toggle">
-        <button class="theatre-view-toggle-btn theatre-view-toggle-btn--active" data-view="stack" title="Terminal stack">
-          <i data-lucide="layers"></i>
-        </button>
-        <button class="theatre-view-toggle-btn" data-view="board" title="Board view">
+        <button class="theatre-view-toggle-btn theatre-view-toggle-btn--active" data-view="board" title="Board view">
           <i data-lucide="columns-3"></i>
+        </button>
+        <button class="theatre-view-toggle-btn" data-view="stack" title="Terminal stack">
+          <i data-lucide="layers"></i>
         </button>
       </div>
       <div class="theatre-launch-wrapper">
         <button class="theatre-scripts-btn" title="Configure scripts">
           <i data-lucide="code"></i>
           <i data-lucide="chevron-down" class="theatre-scripts-caret"></i>
+        </button>
+      </div>
+      <div class="theatre-sandbox-wrapper" style="display: none;">
+        <button class="theatre-sandbox-btn" title="Sandbox">
+          <i data-lucide="box"></i>
+          <i data-lucide="chevron-down" class="theatre-sandbox-caret"></i>
         </button>
       </div>
       <button class="theatre-terminal-btn" title="New terminal">
