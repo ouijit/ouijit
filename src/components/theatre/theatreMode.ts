@@ -694,7 +694,7 @@ async function reconnectTheatreTerminal(session: ActiveSession, worktreeBranch?:
     cursorBlink: true,
     cursorStyle: 'bar',
     fontSize: 13,
-    fontFamily: 'ui-monospace, "SF Mono", Menlo, Monaco, monospace',
+    fontFamily: 'Iosevka Term Extended, "SF Mono", Menlo, Monaco, monospace',
     lineHeight: 1.2,
     theme: getTerminalTheme(),
     allowTransparency: true,
@@ -911,7 +911,7 @@ async function reconnectRunnerToParent(
   // Create runner terminal (hidden until panel is opened)
   const runnerTerminal = new Terminal({
     theme: getTerminalTheme(),
-    fontFamily: 'SF Mono, Monaco, Menlo, monospace',
+    fontFamily: 'Iosevka Term Extended, SF Mono, Monaco, Menlo, monospace',
     fontSize: 13,
     lineHeight: 1.2,
     cursorBlink: false,

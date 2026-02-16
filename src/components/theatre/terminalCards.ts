@@ -830,7 +830,7 @@ export async function runDefaultInCard(term: TheatreTerminal): Promise<void> {
   // Create hidden terminal for runner output
   const runnerTerminal = new Terminal({
     theme: getTerminalTheme(),
-    fontFamily: 'SF Mono, Monaco, Menlo, monospace',
+    fontFamily: 'Iosevka Term Extended, SF Mono, Monaco, Menlo, monospace',
     fontSize: 13,
     lineHeight: 1.2,
     cursorBlink: false,
@@ -1160,7 +1160,7 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
   // Initialize xterm
   const terminal = new Terminal({
     theme: getTerminalTheme(),
-    fontFamily: 'SF Mono, Monaco, Menlo, monospace',
+    fontFamily: 'Iosevka Term Extended, SF Mono, Monaco, Menlo, monospace',
     fontSize: 13,
     lineHeight: 1.2,
     cursorBlink: true,
