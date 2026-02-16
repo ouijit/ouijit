@@ -1090,7 +1090,7 @@ body.platform-darwin:not(.is-fullscreen) .theatre-header-content {
 /* Hide non-essential elements on back cards, but keep close button */
 .theatre-card:not(.theatre-card--active) .theatre-card-git-branch-row,
 .theatre-card:not(.theatre-card--active) .theatre-card-git-stats-wrapper,
-.theatre-card:not(.theatre-card--active) .runner-btn {
+.theatre-card:not(.theatre-card--active) .card-tab-run {
   @apply hidden;
 }
 
@@ -1260,24 +1260,31 @@ body.platform-darwin:not(.is-fullscreen) .theatre-header-content {
   @apply w-3.5 h-3.5 shrink-0 text-white/40;
 }
 
+/* Shared card-tab base (Run button, Compare/stats pill) */
+.card-tab {
+  @apply px-2.5 py-1 bg-white/[0.06] border-none font-sans text-[11px] font-medium text-white/60 rounded-full transition-all duration-150 ease-out;
+}
+
+.card-tab:hover {
+  @apply bg-white/[0.12] text-white/90;
+}
+
+.card-tab:active {
+  @apply bg-white/[0.10] text-white/80;
+}
+
+.card-tab.card-tab--active,
+.card-tab.card-tab--active:hover {
+  @apply bg-accent text-white;
+}
+
 .theatre-card-git-stats {
   @apply flex items-center gap-1 px-1.5 py-0.5 rounded-sm font-mono text-[10px] text-white/70 bg-white/5;
 }
 
-.theatre-card-git-stats--compare {
-  @apply font-sans text-[11px] font-medium;
-}
-
+/* When clickable, override base stats styles to match card-tab */
 .theatre-card-git-stats--clickable {
-  @apply transition-colors duration-150 ease-out;
-}
-
-.theatre-card-git-stats--clickable:hover {
-  @apply bg-white/15;
-}
-
-.theatre-card-git-stats--clickable:active {
-  @apply bg-white/10;
+  @apply px-2.5 py-1 text-[11px] font-medium text-white/60 bg-white/[0.06] rounded-full;
 }
 
 .theatre-card-git-count {
@@ -1303,25 +1310,16 @@ body.platform-darwin:not(.is-fullscreen) .theatre-header-content {
   transition: flex 0.25s ease;
 }
 
-/* Runner Button */
-.runner-btn {
-  @apply px-2.5 py-1 bg-white/[0.06] border-none text-[11px] font-medium text-white/60 transition-all duration-150 ease-out;
-  border-radius: 8px;
-}
-
-.runner-btn:hover {
-  @apply bg-white/[0.12] text-white/90;
-}
-
-.runner-btn--running {
-  @apply text-[#74c0fc];
-}
-
-.runner-btn--success {
+/* Runner Button — status color overrides (base styles from .card-tab) */
+.card-tab-run--running {
   @apply text-[#69db7c];
 }
 
-.runner-btn--error {
+.card-tab-run--success {
+  @apply text-[#69db7c];
+}
+
+.card-tab-run--error {
   @apply text-[#ff6b6b];
 }
 

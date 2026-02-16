@@ -234,6 +234,9 @@ export function updateTerminalCardLabel(term: TheatreTerminal): void {
 
       const statsEl = statsWrapper.querySelector('.theatre-card-git-stats--clickable') as HTMLElement;
       if (statsEl) {
+        // Restore active state if diff panel is open
+        if (term.diffPanelOpen) statsEl.classList.add('card-tab--active');
+
         // "Compare" button (no uncommitted changes) opens worktree mode;
         // stats pill (has uncommitted changes) opens uncommitted mode
         const isCompareBtn = statsEl.classList.contains('theatre-card-git-stats--compare');
@@ -294,7 +297,7 @@ export function createTheatreCard(label: string, index: number): HTMLElement {
     </div>
     <div class="theatre-card-label-right">
       <div class="theatre-card-git-stats-wrapper"></div>
-      <button class="runner-btn" data-action="run" style="display: none;">Run</button>
+      <button class="card-tab card-tab-run" data-action="run" style="display: none;">Run</button>
       <button class="theatre-card-more" title="More actions"><i data-lucide="ellipsis"></i></button>
       <button class="theatre-card-close" title="Close terminal"><i data-lucide="x"></i></button>
     </div>
@@ -436,7 +439,7 @@ export function setupCardActions(term: TheatreTerminal): void {
   }
 
   // Wire up runner button click handler
-  const runBtn = labelEl.querySelector('.runner-btn');
+  const runBtn = labelEl.querySelector('.card-tab-run');
 
   if (runBtn) {
     runBtn.addEventListener('click', async (e) => {
@@ -516,25 +519,28 @@ function showCardMoreMenu(event: MouseEvent, term: TheatreTerminal, hasEditor: b
  * Update the runner button appearance based on runner state
  */
 export function updateRunnerPill(term: TheatreTerminal): void {
-  const btn = term.container.querySelector('.runner-btn') as HTMLElement;
+  const btn = term.container.querySelector('.card-tab-run') as HTMLElement;
   if (!btn) return;
 
   // Reset status classes
-  btn.classList.remove('runner-btn--running', 'runner-btn--success', 'runner-btn--error');
+  btn.classList.remove('card-tab-run--running', 'card-tab-run--success', 'card-tab-run--error');
 
   if (term.runnerPtyId) {
+    // Toggle active state based on panel visibility
+    btn.classList.toggle('card-tab--active', term.runnerPanelOpen);
+
     switch (term.runnerStatus) {
       case 'running':
         btn.textContent = 'Running';
-        btn.classList.add('runner-btn--running');
+        btn.classList.add('card-tab-run--running');
         break;
       case 'success':
         btn.textContent = 'Done';
-        btn.classList.add('runner-btn--success');
+        btn.classList.add('card-tab-run--success');
         break;
       case 'error':
         btn.textContent = 'Failed';
-        btn.classList.add('runner-btn--error');
+        btn.classList.add('card-tab-run--error');
         break;
       default:
         btn.textContent = 'Run';
@@ -542,6 +548,7 @@ export function updateRunnerPill(term: TheatreTerminal): void {
     }
   } else {
     btn.textContent = 'Run';
+    btn.classList.remove('card-tab--active');
   }
 }
 
@@ -681,6 +688,10 @@ export function showRunnerPanel(term: TheatreTerminal): void {
   }
 
   term.runnerPanelOpen = true;
+
+  // Mark run button as active
+  const runBtn = term.container.querySelector('.card-tab-run');
+  if (runBtn) runBtn.classList.add('card-tab--active');
 
   // Show panel
   requestAnimationFrame(() => {
@@ -959,7 +970,7 @@ export function updateCardStack(): void {
   // Second pass: assign shortcuts and toggle runner button visibility
   currentTerminals.forEach((term, index) => {
     const shortcutEl = term.container.querySelector('.theatre-card-shortcut') as HTMLElement;
-    const runnerBtn = term.container.querySelector('.runner-btn') as HTMLElement;
+    const runnerBtn = term.container.querySelector('.card-tab-run') as HTMLElement;
 
     if (index === currentActiveIndex) {
       // Active card: hide shortcut, show runner button

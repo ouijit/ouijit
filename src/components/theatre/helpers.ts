@@ -102,5 +102,9 @@ export function hideRunnerPanel(term: TheatreTerminal): void {
     panel.classList.remove('runner-panel--visible');
   }
 
+  // Remove active state from run button
+  const runBtn = term.container.querySelector('.card-tab-run');
+  if (runBtn) runBtn.classList.remove('card-tab--active');
+
   term.runnerPanelOpen = false;
 }

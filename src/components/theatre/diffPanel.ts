@@ -428,6 +428,10 @@ export async function showTerminalComparePanel(term: TheatreTerminal, mode: 'unc
   // Add class to card to indicate diff is open
   term.container.classList.add('diff-panel-open');
 
+  // Mark stats button as active
+  const statsEl = term.container.querySelector('.theatre-card-git-stats--clickable');
+  if (statsEl) statsEl.classList.add('card-tab--active');
+
   // Wire up panel interactions
   wireDiffPanel(panel, () => hideTerminalDiffPanel(term));
 
@@ -687,6 +691,10 @@ export function hideTerminalDiffPanel(term: TheatreTerminal): void {
 
   // Remove class from card
   term.container.classList.remove('diff-panel-open');
+
+  // Remove active state from stats button
+  const statsEl = term.container.querySelector('.theatre-card-git-stats--clickable');
+  if (statsEl) statsEl.classList.remove('card-tab--active');
 
   // Update terminal state
   term.diffPanelOpen = false;
