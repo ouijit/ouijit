@@ -125,6 +125,7 @@ export async function enterTheatreMode(
     if (terminalBtn) {
       terminalBtn.addEventListener('click', async (e) => {
         e.stopPropagation();
+        if (kanbanVisible.value) hideKanbanBoard();
         await addTheatreTerminal();
       });
     }
@@ -579,6 +580,7 @@ export async function restoreTheatreMode(
     if (terminalBtn) {
       terminalBtn.addEventListener('click', async (e) => {
         e.stopPropagation();
+        if (kanbanVisible.value) hideKanbanBoard();
         await addTheatreTerminal();
       });
     }

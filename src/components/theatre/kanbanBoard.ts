@@ -1026,12 +1026,18 @@ export async function showKanbanBoard(): Promise<void> {
     if (input) input.focus();
   });
 
+  registerHotkey(platformHotkey('mod+i'), Scopes.KANBAN, () => {
+    hideKanbanBoard();
+    theatreRegistry.addTheatreTerminal?.();
+  });
+
   theatreState.kanbanCleanup = () => {
     resizeObserver.disconnect();
     unregisterHotkey('escape', Scopes.KANBAN);
     unregisterHotkey(platformHotkey('mod+b'), Scopes.KANBAN);
     unregisterHotkey(platformHotkey('mod+t'), Scopes.KANBAN);
     unregisterHotkey(platformHotkey('mod+n'), Scopes.KANBAN);
+    unregisterHotkey(platformHotkey('mod+i'), Scopes.KANBAN);
     popScope();
   };
 
