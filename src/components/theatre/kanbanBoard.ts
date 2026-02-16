@@ -297,6 +297,52 @@ function buildKanbanCard(task: TaskWithWorkspace, path: string, limaAvailable: b
   const detail = document.createElement('div');
   detail.className = 'kanban-card-detail';
 
+  // Description row — always visible, with placeholder when empty
+  const promptRow = document.createElement('div');
+  promptRow.className = 'kanban-card-detail-row';
+
+  const promptValue = document.createElement('span');
+  promptValue.contentEditable = 'true';
+  promptValue.className = 'kanban-card-detail-value kanban-card-detail-value--editing' + (!task.prompt ? ' kanban-card-detail-value--placeholder' : '');
+  promptValue.textContent = task.prompt || 'Add description...';
+  promptValue.setAttribute('style', '-webkit-app-region: no-drag;');
+  promptRow.appendChild(promptValue);
+
+  // Clear placeholder on focus, restore on blur if empty
+  promptValue.addEventListener('focus', () => {
+    if (!task.prompt) {
+      promptValue.textContent = '';
+      promptValue.classList.remove('kanban-card-detail-value--placeholder');
+    }
+  });
+
+  promptValue.addEventListener('blur', async () => {
+    const newDesc = (promptValue.textContent || '').trim();
+    if (newDesc !== (task.prompt || '')) {
+      const result = await window.api.task.setDescription(path, task.taskNumber, newDesc);
+      if (result.success) {
+        task.prompt = newDesc || undefined;
+        invalidateTaskList();
+      }
+    }
+    if (!task.prompt) {
+      promptValue.textContent = 'Add description...';
+      promptValue.classList.add('kanban-card-detail-value--placeholder');
+    }
+  });
+
+  promptValue.addEventListener('keydown', (ke) => {
+    ke.stopPropagation();
+    if (ke.key === 'Enter' && !ke.shiftKey) { ke.preventDefault(); promptValue.blur(); }
+    if (ke.key === 'Escape') { ke.preventDefault(); promptValue.blur(); }
+  });
+
+  promptValue.addEventListener('click', (e) => {
+    e.stopPropagation();
+  });
+
+  detail.appendChild(promptRow);
+
   if (task.branch) {
     const branchRow = document.createElement('div');
     branchRow.className = 'kanban-card-branch';
@@ -304,80 +350,10 @@ function buildKanbanCard(task: TaskWithWorkspace, path: string, limaAvailable: b
     detail.appendChild(branchRow);
   }
 
-  // Description row — always visible, with placeholder when empty
-  const promptRow = document.createElement('div');
-  promptRow.className = 'kanban-card-detail-row';
-
-  const promptLabel = document.createElement('span');
-  promptLabel.className = 'kanban-card-detail-label';
-  promptLabel.textContent = 'Description';
-  promptRow.appendChild(promptLabel);
-
-  const promptValue = document.createElement('span');
-  promptValue.className = 'kanban-card-detail-value' + (task.prompt ? ' kanban-card-detail-value--clamp' : ' kanban-card-detail-value--placeholder');
-  promptValue.textContent = task.prompt || 'Add description...';
-  promptRow.appendChild(promptValue);
-
-  // Enter description edit mode
-  const startDescriptionEdit = () => {
-    const textarea = document.createElement('textarea');
-    textarea.className = 'kanban-card-description-textarea';
-    textarea.value = task.prompt || '';
-    textarea.setAttribute('style', '-webkit-app-region: no-drag;');
-    let cancelled = false;
-
-    const restorePromptValue = () => {
-      promptValue.textContent = task.prompt || 'Add description...';
-      promptValue.className = 'kanban-card-detail-value' + (task.prompt ? ' kanban-card-detail-value--clamp' : ' kanban-card-detail-value--placeholder');
-      promptRow.replaceChild(promptValue, textarea);
-    };
-
-    const commitDesc = async () => {
-      if (cancelled) return;
-      const newDesc = textarea.value.trim();
-      if (newDesc !== (task.prompt || '')) {
-        const result = await window.api.task.setDescription(path, task.taskNumber, newDesc);
-        if (result.success) {
-          task.prompt = newDesc || undefined;
-          invalidateTaskList();
-        }
-      }
-      restorePromptValue();
-    };
-
-    textarea.addEventListener('blur', () => commitDesc());
-    textarea.addEventListener('keydown', (ke) => {
-      ke.stopPropagation();
-      if (ke.key === 'Enter' && !ke.shiftKey) { ke.preventDefault(); textarea.blur(); }
-      if (ke.key === 'Escape') { ke.preventDefault(); cancelled = true; restorePromptValue(); }
-    });
-
-    promptRow.replaceChild(textarea, promptValue);
-    textarea.focus();
-  };
-
-  // Double-click to edit existing description
-  promptValue.addEventListener('dblclick', (e) => {
-    e.stopPropagation();
-    clearTimeout(clickTimer);
-    startDescriptionEdit();
-  });
-
-  // Single click on placeholder to start editing
-  promptValue.addEventListener('click', (e) => {
-    if (!task.prompt) {
-      e.stopPropagation();
-      clearTimeout(clickTimer);
-      startDescriptionEdit();
-    }
-  });
-
-  detail.appendChild(promptRow);
-
-  const dateRow = document.createElement('div');
-  dateRow.className = 'kanban-card-detail-row';
   const date = new Date(task.createdAt);
-  dateRow.innerHTML = `<span class="kanban-card-detail-label">Created</span><span class="kanban-card-detail-value">${date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>`;
+  const dateRow = document.createElement('div');
+  dateRow.className = 'kanban-card-branch';
+  dateRow.textContent = `Created ${date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
   detail.appendChild(dateRow);
 
   card.appendChild(detail);
@@ -391,23 +367,17 @@ function buildKanbanCard(task: TaskWithWorkspace, path: string, limaAvailable: b
     card.classList.toggle('kanban-card--expanded', isExpanded);
   };
 
-  expandBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    toggleExpand();
-  });
-
-  card.addEventListener('click', (e) => {
+  header.addEventListener('click', (e) => {
     clearTimeout(clickTimer);
-    // Only delay for elements that support double-click editing
     const target = e.target as HTMLElement;
-    if (target.closest('.kanban-card-name, .kanban-card-detail-value')) {
+    if (target.closest('.kanban-card-name')) {
       clickTimer = setTimeout(() => toggleExpand(), 200);
     } else {
       toggleExpand();
     }
   });
 
-  card.addEventListener('dblclick', () => {
+  header.addEventListener('dblclick', () => {
     clearTimeout(clickTimer);
   });
 
