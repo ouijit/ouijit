@@ -1,6 +1,6 @@
 /**
- * Diff panel for viewing uncommitted changes in theatre mode
- * Provides shared rendering functions used by both diff panel and ship-it panel
+ * Compare panel for viewing diffs in theatre mode
+ * Supports two modes: uncommitted changes and worktree branch vs main
  */
 
 import type { ChangedFile, FileDiff } from '../../types';
@@ -186,8 +186,8 @@ export function wireSidebarNavigation(panel: Element): void {
   if (!fileList) return;
 
   // Sidebar collapse toggle (button lives in the header bar)
-  const sidebar = fileList.closest('.diff-panel-sidebar, .ship-it-left');
-  const root = panel.closest('.diff-panel, .ship-it-panel') ?? panel;
+  const sidebar = fileList.closest('.diff-panel-sidebar');
+  const root = panel.closest('.diff-panel') ?? panel;
   const toggleBtn = root.querySelector('.diff-sidebar-toggle');
   if (sidebar && toggleBtn) {
     toggleBtn.addEventListener('click', () => {
@@ -265,10 +265,18 @@ export function renderDiffContentHtml(diff: FileDiff): string {
 
 /**
  * Build HTML for the diff panel with sidebar + stacked diffs
+ * @param files - The changed files to display
+ * @param showModeSelector - Whether to show the mode selector (worktree terminals)
+ * @param mode - Current comparison mode
  */
-export function buildDiffPanelHtml(files: ChangedFile[]): string {
+export function buildDiffPanelHtml(files: ChangedFile[], showModeSelector: boolean = false, mode: 'uncommitted' | 'worktree' = 'uncommitted'): string {
   const fileListHtml = buildFileListHtml(files);
   const stackedDiffsHtml = buildStackedDiffsHtml(files);
+
+  const modeLabel = mode === 'uncommitted' ? 'Uncommitted changes' : 'Branch changes';
+  const modeSelectorHtml = showModeSelector
+    ? `<span class="compare-mode-selector" data-mode="${mode}">${modeLabel}</span>`
+    : '';
 
   return `
     <div class="diff-panel">
@@ -282,6 +290,7 @@ export function buildDiffPanelHtml(files: ChangedFile[]): string {
           <button class="diff-sidebar-toggle" title="Toggle file list">
             <i data-lucide="chevron-left" class="diff-sidebar-toggle-icon"></i>
           </button>
+          ${modeSelectorHtml}
           <span class="diff-header-info"></span>
           <button class="diff-panel-close" title="Close diff panel"><i data-lucide="x"></i></button>
         </div>
@@ -332,82 +341,14 @@ function wireDiffPanel(
 // ==========================================
 
 /**
- * Show the diff panel for a specific terminal (uncommitted changes)
+ * Show the compare panel for a specific terminal
+ * Unified function that handles both uncommitted and worktree modes
  */
-export async function showTerminalDiffPanel(term: TheatreTerminal): Promise<void> {
+export async function showTerminalComparePanel(term: TheatreTerminal, mode: 'uncommitted' | 'worktree'): Promise<void> {
   if (term.diffPanelOpen) return;
 
-  // Close runner panel if open (mutual exclusivity)
-  if (term.runnerPanelOpen) {
-    hideRunnerPanel(term);
-  }
-
-  const gitPath = getTerminalGitPath(term);
-
-  // Fetch changed files for this terminal's git context
-  const files = await window.api.getChangedFiles(gitPath);
-  if (!files.length) {
-    showToast('No uncommitted changes', 'info');
-    return;
-  }
-
-  // Store state on the terminal
-  term.diffPanelOpen = true;
-  term.diffPanelFiles = files;
-  term.diffPanelMode = 'uncommitted';
-
-  // Also update global signals for compatibility
-  diffPanelFiles.value = files;
-  diffPanelVisible.value = true;
-  diffPanelMode.value = 'uncommitted';
-
-  // Find the card body to insert the diff panel
-  const cardBody = term.container.querySelector('.theatre-card-body');
-  if (!cardBody) return;
-
-  // Hide the terminal viewport (full width panel like ship panel)
-  const viewport = cardBody.querySelector('.terminal-viewport') as HTMLElement;
-  if (viewport) {
-    viewport.style.display = 'none';
-  }
-
-  // Create and insert panel inside the card body
-  const panelHtml = buildDiffPanelHtml(files);
-  cardBody.insertAdjacentHTML('beforeend', panelHtml);
-
-  const panel = cardBody.querySelector('.diff-panel');
-  if (!panel) return;
-
-  // Add class to card to indicate diff is open
-  term.container.classList.add('diff-panel-open');
-
-  // Wire up panel interactions
-  wireDiffPanel(panel, () => hideTerminalDiffPanel(term));
-
-  // Update header info
-  const headerInfo = panel.querySelector('.diff-header-info');
-  if (headerInfo) {
-    const totalAdd = files.reduce((s, f) => s + f.additions, 0);
-    const totalDel = files.reduce((s, f) => s + f.deletions, 0);
-    headerInfo.innerHTML = `${files.length} file${files.length !== 1 ? 's' : ''} ${formatDiffStats(totalAdd, totalDel)}`;
-  }
-
-  // Animate panel in
-  requestAnimationFrame(() => {
-    panel.classList.add('diff-panel--visible');
-  });
-
-  // Load all diffs
-  await loadAllDiffs(panel, files, (filePath) =>
-    window.api.getFileDiff(gitPath, filePath)
-  );
-}
-
-/**
- * Show the worktree diff panel for a specific terminal (branch vs main comparison)
- */
-export async function showTerminalWorktreeDiffPanel(term: TheatreTerminal): Promise<void> {
-  if (term.diffPanelOpen || term.taskId == null || !term.worktreeBranch) return;
+  // Worktree mode requires a worktree branch
+  if (mode === 'worktree' && (term.taskId == null || !term.worktreeBranch)) return;
 
   // Close runner panel if open (mutual exclusivity)
   if (term.runnerPanelOpen) {
@@ -415,25 +356,38 @@ export async function showTerminalWorktreeDiffPanel(term: TheatreTerminal): Prom
   }
 
   const basePath = projectPath.value;
-  if (!basePath) return;
+  const gitPath = getTerminalGitPath(term);
 
-  // Fetch worktree diff (branch vs main)
-  const diffSummary = await window.api.worktree.getDiff(basePath, term.worktreeBranch);
-  if (!diffSummary || !diffSummary.files.length) {
-    showToast('No changes in worktree branch', 'info');
-    return;
+  // Fetch files based on mode
+  let files: ChangedFile[];
+  if (mode === 'uncommitted') {
+    files = await window.api.getChangedFiles(gitPath);
+    if (!files.length) {
+      showToast('No uncommitted changes', 'info');
+      return;
+    }
+  } else {
+    if (!basePath) return;
+    const diffSummary = await window.api.worktree.getDiff(basePath, term.worktreeBranch!);
+    if (!diffSummary || !diffSummary.files.length) {
+      showToast('No changes in worktree branch', 'info');
+      return;
+    }
+    files = diffSummary.files;
   }
 
   // Store state on the terminal
   term.diffPanelOpen = true;
-  term.diffPanelFiles = diffSummary.files;
-  term.diffPanelMode = 'worktree';
+  term.diffPanelFiles = files;
+  term.diffPanelMode = mode;
 
-  // Also update global signals for compatibility
-  diffPanelFiles.value = diffSummary.files;
+  // Update global signals for compatibility
+  diffPanelFiles.value = files;
   diffPanelVisible.value = true;
-  diffPanelMode.value = 'worktree';
-  diffPanelTaskId.value = term.taskId;
+  diffPanelMode.value = mode;
+  if (mode === 'worktree') {
+    diffPanelTaskId.value = term.taskId;
+  }
 
   // Find the card body to insert the diff panel
   const cardBody = term.container.querySelector('.theatre-card-body');
@@ -445,8 +399,11 @@ export async function showTerminalWorktreeDiffPanel(term: TheatreTerminal): Prom
     viewport.style.display = 'none';
   }
 
+  // Show mode selector only for worktree terminals (they can switch between modes)
+  const isWorktreeTerminal = term.taskId != null && !!term.worktreeBranch;
+
   // Create and insert panel inside the card body
-  const panelHtml = buildDiffPanelHtml(diffSummary.files);
+  const panelHtml = buildDiffPanelHtml(files, isWorktreeTerminal, mode);
   cardBody.insertAdjacentHTML('beforeend', panelHtml);
 
   const panel = cardBody.querySelector('.diff-panel');
@@ -461,7 +418,13 @@ export async function showTerminalWorktreeDiffPanel(term: TheatreTerminal): Prom
   // Update header info
   const headerInfo = panel.querySelector('.diff-header-info');
   if (headerInfo) {
-    headerInfo.textContent = 'vs main';
+    if (mode === 'uncommitted') {
+      const totalAdd = files.reduce((s, f) => s + f.additions, 0);
+      const totalDel = files.reduce((s, f) => s + f.deletions, 0);
+      headerInfo.innerHTML = `${files.length} file${files.length !== 1 ? 's' : ''} ${formatDiffStats(totalAdd, totalDel)}`;
+    } else {
+      headerInfo.textContent = 'vs main';
+    }
   }
 
   // Animate panel in
@@ -469,10 +432,26 @@ export async function showTerminalWorktreeDiffPanel(term: TheatreTerminal): Prom
     panel.classList.add('diff-panel--visible');
   });
 
-  // Load all diffs using worktree API
-  await loadAllDiffs(panel, diffSummary.files, (filePath) =>
-    window.api.worktree.getFileDiff(basePath, term.worktreeBranch!, filePath)
-  );
+  // Load diffs using appropriate API
+  const fetchDiff = mode === 'uncommitted'
+    ? (filePath: string) => window.api.getFileDiff(gitPath, filePath)
+    : (filePath: string) => window.api.worktree.getFileDiff(basePath!, term.worktreeBranch!, filePath);
+
+  await loadAllDiffs(panel, files, fetchDiff);
+}
+
+/**
+ * Show the diff panel for a specific terminal (uncommitted changes)
+ */
+export async function showTerminalDiffPanel(term: TheatreTerminal): Promise<void> {
+  return showTerminalComparePanel(term, 'uncommitted');
+}
+
+/**
+ * Show the worktree diff panel for a specific terminal (branch vs main comparison)
+ */
+export async function showTerminalWorktreeDiffPanel(term: TheatreTerminal): Promise<void> {
+  return showTerminalComparePanel(term, 'worktree');
 }
 
 /**

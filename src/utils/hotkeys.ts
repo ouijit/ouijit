@@ -106,7 +106,7 @@ export function initHotkeys(): void {
     }
 
     // Check if we're in a modal context (dialogs that need Escape to close)
-    const isInModal = target.closest('.modal-overlay') || target.closest('.ship-it-commit-dialog');
+    const isInModal = target.closest('.modal-overlay');
 
     // Allow Escape and Enter through for modal dialogs
     if ((event.key === 'Escape' || event.key === 'Enter') && isInModal) {

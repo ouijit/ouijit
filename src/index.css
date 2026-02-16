@@ -1281,6 +1281,10 @@ body.platform-darwin:not(.is-fullscreen) .theatre-header-content {
   @apply flex items-center gap-1 px-1.5 py-0.5 rounded-sm font-mono text-[10px] text-white/70 bg-white/5;
 }
 
+.theatre-card-git-stats--compare {
+  @apply font-sans text-[11px] font-medium;
+}
+
 .theatre-card-git-stats--clickable {
   @apply transition-colors duration-150 ease-out;
 }
@@ -1901,44 +1905,4 @@ body.kanban-open .theatre-stack {
   @apply bg-white/10 text-white/90;
 }
 
-/* Ship button in card header */
-.theatre-card-ship-btn {
-  @apply w-7 h-7 flex items-center justify-center bg-transparent border-none rounded-md text-white/50 opacity-0 overflow-hidden;
-  transition: opacity 0.15s ease, background-color 0.2s ease, color 0.2s ease, width 0.2s ease;
-}
-
-.theatre-card-ship-btn svg {
-  @apply w-4 h-4 shrink-0;
-}
-
-.theatre-card--active .theatre-card-ship-btn {
-  @apply opacity-100;
-}
-
-.theatre-card-ship-btn:hover {
-  @apply bg-white/10 text-white/90;
-}
-
-/* Ship button text - hidden by default, animates open */
-.theatre-card-ship-btn span {
-  @apply max-w-0 overflow-hidden opacity-0 whitespace-nowrap;
-  transition: max-width 0.2s ease, opacity 0.2s ease, padding 0.2s ease;
-}
-
-/* Expanded ship button (CTA mode when panel is open) */
-.theatre-card-ship-btn--expanded {
-  @apply w-auto bg-accent text-white text-xs font-semibold gap-1.5 pl-2 pr-3;
-}
-
-.theatre-card-ship-btn--expanded:hover {
-  @apply bg-accent-hover text-white;
-}
-
-.theatre-card-ship-btn--expanded span {
-  @apply max-w-[100px] opacity-100;
-}
-
-.theatre-card-ship-btn--expanded .ship-it-loading {
-  @apply w-3 h-3 border-2;
-}
 

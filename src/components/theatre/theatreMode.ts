@@ -304,7 +304,6 @@ export async function enterTheatreMode(
   registerHotkey(platformHotkey('mod+i'), Scopes.THEATRE, () => addTheatreTerminal());
   registerHotkey(platformHotkey('mod+p'), Scopes.THEATRE, () => theatreRegistry.playOrToggleRunner?.());
   registerHotkey(platformHotkey('mod+d'), Scopes.THEATRE, () => theatreRegistry.toggleActiveDiffPanel?.());
-  registerHotkey(platformHotkey('mod+shift+s'), Scopes.THEATRE, () => theatreRegistry.toggleActiveShipItPanel?.());
   registerHotkey(platformHotkey('mod+w'), Scopes.THEATRE, () => {
     if (terminals.value.length > 0) {
       closeTheatreTerminal(activeIndex.value);
@@ -433,7 +432,6 @@ export function exitTheatreMode(): void {
   unregisterHotkey(platformHotkey('mod+i'), Scopes.THEATRE);
   unregisterHotkey(platformHotkey('mod+p'), Scopes.THEATRE);
   unregisterHotkey(platformHotkey('mod+d'), Scopes.THEATRE);
-  unregisterHotkey(platformHotkey('mod+shift+s'), Scopes.THEATRE);
   unregisterHotkey(platformHotkey('mod+w'), Scopes.THEATRE);
   for (let i = 1; i <= 9; i++) {
     unregisterHotkey(platformHotkey(`mod+${i}`), Scopes.THEATRE);
@@ -648,7 +646,6 @@ export async function restoreTheatreMode(
   registerHotkey(platformHotkey('mod+i'), Scopes.THEATRE, () => addTheatreTerminal());
   registerHotkey(platformHotkey('mod+p'), Scopes.THEATRE, () => theatreRegistry.playOrToggleRunner?.());
   registerHotkey(platformHotkey('mod+d'), Scopes.THEATRE, () => theatreRegistry.toggleActiveDiffPanel?.());
-  registerHotkey(platformHotkey('mod+shift+s'), Scopes.THEATRE, () => theatreRegistry.toggleActiveShipItPanel?.());
   registerHotkey(platformHotkey('mod+w'), Scopes.THEATRE, () => {
     if (terminals.value.length > 0) {
       closeTheatreTerminal(activeIndex.value);

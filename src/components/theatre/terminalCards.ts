@@ -23,8 +23,7 @@ import {
 import { showToast } from '../importDialog';
 import { showHookConfigDialog } from '../hookConfigDialog';
 import { refreshTerminalGitStatus, buildCardGitBranchHtml, buildCardGitStatsHtml, scheduleTerminalGitStatusRefresh } from './gitStatus';
-import { toggleTerminalDiffPanel, hideTerminalDiffPanel } from './diffPanel';
-import { showShipItPanel } from './shipItPanel';
+import { toggleTerminalDiffPanel, toggleTerminalWorktreeDiffPanel, hideTerminalDiffPanel } from './diffPanel';
 import { setSandboxButtonStarting, refreshSandboxButton } from './theatreMode';
 
 // Platform detection for shortcuts display
@@ -226,16 +225,24 @@ export function updateTerminalCardLabel(term: TheatreTerminal): void {
   // Update git stats display (in label-right)
   const statsWrapper = labelEl.querySelector('.theatre-card-git-stats-wrapper') as HTMLElement;
   if (statsWrapper) {
-    const statsHtml = buildCardGitStatsHtml(term.gitStatus);
+    const isWorktree = term.taskId != null && !!term.worktreeBranch;
+    const statsHtml = buildCardGitStatsHtml(term.gitStatus, isWorktree);
     if (statsWrapper.dataset.lastHtml !== statsHtml) {
       statsWrapper.dataset.lastHtml = statsHtml;
       statsWrapper.innerHTML = statsHtml;
 
       const statsEl = statsWrapper.querySelector('.theatre-card-git-stats--clickable') as HTMLElement;
       if (statsEl) {
+        // "Compare" button (no uncommitted changes) opens worktree mode;
+        // stats pill (has uncommitted changes) opens uncommitted mode
+        const isCompareBtn = statsEl.classList.contains('theatre-card-git-stats--compare');
         statsEl.addEventListener('click', (e) => {
           e.stopPropagation();
-          toggleTerminalDiffPanel(term);
+          if (isCompareBtn) {
+            toggleTerminalWorktreeDiffPanel(term);
+          } else {
+            toggleTerminalDiffPanel(term);
+          }
         });
       }
     }
@@ -294,7 +301,6 @@ export function createTheatreCard(label: string, index: number): HTMLElement {
         </div>
       </div>
       <button class="theatre-card-editor-btn theatre-card-action--worktree" style="display: none;" title="Open in editor"><i data-lucide="code"></i></button>
-      <button class="theatre-card-ship-btn theatre-card-action--worktree" style="display: none;" title="Ship changes to main"><i data-lucide="rocket"></i></button>
       <button class="theatre-card-close-task theatre-card-action--worktree" style="display: none;" title="Close task"><i data-lucide="archive"></i></button>
       <button class="theatre-card-close" title="Close terminal"><i data-lucide="x"></i></button>
     </div>
@@ -428,16 +434,6 @@ export function setupCardActions(term: TheatreTerminal): void {
           }
         }).catch(() => { /* no hooks configured */ });
       }
-    }
-
-    // Ship button
-    const shipBtn = labelEl.querySelector('.theatre-card-ship-btn') as HTMLElement;
-    if (shipBtn) {
-      shipBtn.style.display = 'flex';
-      shipBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        showShipItPanel(term);
-      });
     }
 
     // Close task button

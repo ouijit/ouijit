@@ -127,16 +127,23 @@ export function buildCardGitBranchHtml(compactStatus: CompactGitStatus | null): 
   `;
 }
 
-export function buildCardGitStatsHtml(compactStatus: CompactGitStatus | null): string {
+export function buildCardGitStatsHtml(compactStatus: CompactGitStatus | null, isWorktree: boolean = false): string {
   if (!compactStatus) return '';
 
   const { dirtyFileCount, insertions, deletions } = compactStatus;
   const hasChanges = dirtyFileCount > 0;
-  if (!hasChanges) return '';
 
-  const parts: string[] = [`<span class="theatre-card-git-count">${dirtyFileCount}</span>`];
-  if (insertions > 0) parts.push(`<span class="theatre-card-git-add">+${insertions}</span>`);
-  if (deletions > 0) parts.push(`<span class="theatre-card-git-del">-${deletions}</span>`);
+  if (hasChanges) {
+    const parts: string[] = [`<span class="theatre-card-git-count">${dirtyFileCount}</span>`];
+    if (insertions > 0) parts.push(`<span class="theatre-card-git-add">+${insertions}</span>`);
+    if (deletions > 0) parts.push(`<span class="theatre-card-git-del">-${deletions}</span>`);
+    return `<span class="theatre-card-git-stats theatre-card-git-stats--clickable" title="View uncommitted changes">${parts.join(' ')}</span>`;
+  }
 
-  return `<span class="theatre-card-git-stats theatre-card-git-stats--clickable" title="View uncommitted changes">${parts.join(' ')}</span>`;
+  // No uncommitted changes — show "Compare" for worktree terminals
+  if (isWorktree) {
+    return `<span class="theatre-card-git-stats theatre-card-git-stats--clickable theatre-card-git-stats--compare" title="Compare branch changes">Compare</span>`;
+  }
+
+  return '';
 }
