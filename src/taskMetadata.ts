@@ -235,10 +235,16 @@ export async function createTask(
 
   const status = options?.status ?? 'in_progress';
 
+  // Assign order at the end of the target column
+  const maxOrder = projectData.tasks
+    .filter(t => t.status === status)
+    .reduce((max, t) => Math.max(max, t.order ?? -1), -1);
+
   const task: TaskMetadata = {
     taskNumber,
     name,
     status,
+    order: maxOrder + 1,
     createdAt: new Date().toISOString(),
     ...(options?.branch && { branch: options.branch }),
     ...(options?.worktreePath && { worktreePath: options.worktreePath }),
