@@ -72,13 +72,13 @@
   /* Typography */
   --font-family: system-ui, -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif;
   --font-mono: 'Iosevka Extended', 'SF Mono', Monaco, Menlo, monospace;
-  --font-size-xs: 11px;
-  --font-size-sm: 13px;
-  --font-size-base: 15px;
-  --font-size-md: 15px;
-  --font-size-lg: 17px;
-  --font-size-xl: 22px;
-  --font-size-2xl: 28px;
+  --font-size-xs: 13px;
+  --font-size-sm: 16px;
+  --font-size-base: 18px;
+  --font-size-md: 18px;
+  --font-size-lg: 20px;
+  --font-size-xl: 26px;
+  --font-size-2xl: 34px;
   --font-weight-normal: 400;
   --font-weight-medium: 500;
   --font-weight-semibold: 600;
@@ -856,7 +856,7 @@ body.platform-darwin:not(.is-fullscreen) .theatre-header-content {
 }
 
 .sandbox-dropdown-header {
-  @apply text-[11px] text-text-tertiary px-3 pt-2 pb-1 uppercase tracking-wide;
+  @apply text-[13px] text-text-tertiary px-3 pt-2 pb-1 uppercase tracking-wide;
 }
 
 /* Task Context Menu (right-click "Open in Sandbox") */
@@ -986,11 +986,11 @@ body.platform-darwin:not(.is-fullscreen) .theatre-header-content {
 }
 
 .sandbox-dropdown-hint {
-  @apply text-[11px] text-text-tertiary leading-snug px-3 pb-2.5 pt-0.5;
+  @apply text-[13px] text-text-tertiary leading-snug px-3 pb-2.5 pt-0.5;
 }
 
 .sandbox-dropdown-vm-hint {
-  @apply text-[11px] text-text-tertiary leading-snug pt-0.5;
+  @apply text-[13px] text-text-tertiary leading-snug pt-0.5;
 }
 
 .sandbox-dropdown-select {
@@ -1170,7 +1170,7 @@ body.platform-darwin:not(.is-fullscreen) .theatre-header-content {
 }
 
 .theatre-card-osc-title {
-  @apply font-mono text-[11px] text-white/40 bg-white/5 rounded-full px-2 py-px truncate;
+  @apply font-mono text-[13px] text-white/40 bg-white/5 rounded-full px-2 py-px truncate;
 }
 
 .theatre-card--back-1 .theatre-card-osc-title,
@@ -1266,7 +1266,7 @@ body.platform-darwin:not(.is-fullscreen) .theatre-header-content {
 }
 
 .theatre-card-git-branch {
-  @apply flex items-center gap-1 font-mono text-[11px] text-white/50 min-w-0 overflow-hidden;
+  @apply flex items-center gap-1 font-mono text-[13px] text-white/50 min-w-0 overflow-hidden;
 }
 
 .theatre-card-git-branch-name {
@@ -1279,7 +1279,7 @@ body.platform-darwin:not(.is-fullscreen) .theatre-header-content {
 
 /* Shared card-tab base (Run button, Compare/stats pill) */
 .card-tab {
-  @apply px-2.5 py-1 bg-white/[0.06] border-none font-sans text-[11px] font-medium text-white/60 rounded-full transition-all duration-150 ease-out;
+  @apply px-2.5 py-1 bg-white/[0.06] border-none font-sans text-[13px] font-medium text-white/60 rounded-full transition-all duration-150 ease-out;
 }
 
 .card-tab:hover {
@@ -1296,12 +1296,12 @@ body.platform-darwin:not(.is-fullscreen) .theatre-header-content {
 }
 
 .theatre-card-git-stats {
-  @apply flex items-center gap-1 px-1.5 py-0.5 rounded-sm font-mono text-[10px] text-white/70 bg-white/5;
+  @apply flex items-center gap-1 px-1.5 py-0.5 rounded-sm font-mono text-[12px] text-white/70 bg-white/5;
 }
 
 /* When clickable, override base stats styles to match card-tab */
 .theatre-card-git-stats--clickable {
-  @apply px-2.5 py-1 text-[11px] font-medium text-white/60 bg-white/[0.06] rounded-full;
+  @apply px-2.5 py-1 text-[13px] font-medium text-white/60 bg-white/[0.06] rounded-full;
 }
 
 .theatre-card-git-stats--compare {
@@ -1412,7 +1412,7 @@ body.platform-darwin:not(.is-fullscreen) .theatre-header-content {
 }
 
 .runner-panel-title {
-  @apply text-[11px] text-white/50 truncate flex-1 font-mono;
+  @apply text-[13px] text-white/50 truncate flex-1 font-mono;
 }
 
 .runner-panel-kill {
@@ -1534,7 +1534,7 @@ body.platform-darwin:not(.is-fullscreen) .theatre-header-content {
 
 /* Hooks UI in launch dropdown */
 .launch-dropdown-header {
-  @apply text-[11px] text-text-tertiary px-3 pt-2 pb-1 uppercase tracking-wide;
+  @apply text-[13px] text-text-tertiary px-3 pt-2 pb-1 uppercase tracking-wide;
 }
 
 .hooks-container {
@@ -1586,7 +1586,7 @@ body.platform-darwin:not(.is-fullscreen) .theatre-header-content {
 }
 
 .hook-hint {
-  @apply text-[11px] text-text-tertiary leading-snug px-2 pb-1;
+  @apply text-[13px] text-text-tertiary leading-snug px-2 pb-1;
 }
 
 /* Hook config dialog */
@@ -1615,7 +1615,7 @@ body.platform-darwin:not(.is-fullscreen) .theatre-header-content {
 }
 
 .hook-env-vars code {
-  @apply font-mono text-[11px] bg-background-secondary px-1 py-0.5 rounded;
+  @apply font-mono text-[13px] bg-background-secondary px-1 py-0.5 rounded;
 }
 
 
@@ -1662,11 +1662,11 @@ body.platform-darwin:not(.is-fullscreen) .theatre-header-content {
 /* On non-Mac platforms, use smaller font for shortcut text since "Ctrl+" is longer than ⌘ */
 body.platform-other .theatre-stack-empty-hint-shortcut,
 body.platform-other .theatre-card-shortcut {
-  @apply text-[11px];
+  @apply text-[13px];
 }
 
 body.platform-other .shortcut-number {
-  @apply text-[11px];
+  @apply text-[13px];
 }
 
 /* ==========================================
@@ -1786,11 +1786,11 @@ body.kanban-open .theatre-stack {
 }
 
 .kanban-column-title {
-  @apply text-[11px] font-medium text-text-secondary uppercase tracking-wide flex-1;
+  @apply text-[13px] font-medium text-text-secondary uppercase tracking-wide flex-1;
 }
 
 .kanban-column-count {
-  @apply text-[11px] text-text-secondary opacity-50;
+  @apply text-[13px] text-text-secondary opacity-50;
 }
 
 /* Start command dialog textarea */
@@ -1910,7 +1910,7 @@ body.kanban-open .theatre-stack {
 }
 
 .kanban-card-branch {
-  @apply flex items-center gap-1 font-mono text-[11px] text-white/50 min-w-0 overflow-hidden;
+  @apply flex items-center gap-1 font-mono text-[13px] text-white/50 min-w-0 overflow-hidden;
 }
 
 .kanban-card-branch svg {

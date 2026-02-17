@@ -69,7 +69,7 @@ body > .diff-panel--visible {
 
 /* Tree: directory row */
 .diff-tree-dir-label {
-  @apply flex items-center gap-1.5 py-1 pr-3 text-[11px] text-white/50 transition-colors duration-150 ease-out;
+  @apply flex items-center gap-1.5 py-1 pr-3 text-[13px] text-white/50 transition-colors duration-150 ease-out;
 }
 
 .diff-tree-dir-label:hover {
@@ -90,7 +90,7 @@ body > .diff-panel--visible {
 
 /* Tree: file row */
 .diff-tree-file {
-  @apply flex items-center gap-1.5 py-1 pr-3 text-[11px] text-white/70 transition-colors duration-150 ease-out;
+  @apply flex items-center gap-1.5 py-1 pr-3 text-[13px] text-white/70 transition-colors duration-150 ease-out;
 }
 
 .diff-tree-file:hover {
@@ -102,7 +102,7 @@ body > .diff-panel--visible {
 }
 
 .diff-panel-file-stats {
-  @apply shrink-0 font-mono text-[11px];
+  @apply shrink-0 font-mono text-[13px];
 }
 
 /* ==========================================
@@ -134,7 +134,7 @@ body > .diff-panel--visible {
 }
 
 .diff-file-section-stats {
-  @apply shrink-0 font-mono text-[11px];
+  @apply shrink-0 font-mono text-[13px];
 }
 
 .diff-file-section-body {
@@ -307,7 +307,7 @@ body > .diff-panel--visible {
 
 /* Card content */
 .compare-info-desc {
-  @apply text-[11px] leading-relaxed text-white/70;
+  @apply text-[13px] leading-relaxed text-white/70;
 }
 
 .compare-info-desc strong {
@@ -315,11 +315,11 @@ body > .diff-panel--visible {
 }
 
 .compare-info-stats {
-  @apply text-[11px] text-white/40 mt-1.5;
+  @apply text-[13px] text-white/40 mt-1.5;
 }
 
 .compare-info-hint {
-  @apply text-[10px] text-white/30 mt-2 pt-2 border-t border-white/[0.06] italic;
+  @apply text-[12px] text-white/30 mt-2 pt-2 border-t border-white/[0.06] italic;
 }
 
 /* ==========================================
@@ -362,5 +362,5 @@ body > .diff-panel--visible {
 }
 
 .compare-branch-badge {
-  @apply shrink-0 text-[10px] px-1.5 py-px rounded bg-white/10 text-white/60;
+  @apply shrink-0 text-[12px] px-1.5 py-px rounded bg-white/10 text-white/60;
 }

@@ -1040,7 +1040,7 @@ export async function runDefaultInCard(term: TheatreTerminal): Promise<void> {
   const runnerTerminal = new Terminal({
     theme: getTerminalTheme(),
     fontFamily: 'Iosevka Term Extended, SF Mono, Monaco, Menlo, monospace',
-    fontSize: 13,
+    fontSize: 16,
     lineHeight: 1.2,
     cursorBlink: false,
     cursorStyle: 'bar',
@@ -1386,7 +1386,7 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
   const terminal = new Terminal({
     theme: getTerminalTheme(),
     fontFamily: 'Iosevka Term Extended, SF Mono, Monaco, Menlo, monospace',
-    fontSize: 13,
+    fontSize: 16,
     lineHeight: 1.2,
     cursorBlink: true,
     cursorStyle: 'bar',

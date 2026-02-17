@@ -84,7 +84,7 @@ export function createProjectRow(project: Project): HTMLElement {
   badgesContainer.className = 'flex flex-nowrap gap-1 justify-start max-md:hidden';
 
   // Base badge classes
-  const badgeBase = 'inline-flex items-center gap-1 px-2 py-1 text-[11px] font-medium rounded-full transition-all duration-150';
+  const badgeBase = 'inline-flex items-center gap-1 px-2 py-1 text-[13px] font-medium rounded-full transition-all duration-150';
 
   // Language badge (first for visual priority)
   if (project.language) {

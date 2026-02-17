@@ -710,7 +710,7 @@ async function reconnectTheatreTerminal(session: ActiveSession, worktreeBranch?:
   const terminal = new Terminal({
     cursorBlink: true,
     cursorStyle: 'bar',
-    fontSize: 13,
+    fontSize: 16,
     fontFamily: 'Iosevka Term Extended, "SF Mono", Menlo, Monaco, monospace',
     lineHeight: 1.2,
     theme: getTerminalTheme(),
@@ -933,7 +933,7 @@ async function reconnectRunnerToParent(
   const runnerTerminal = new Terminal({
     theme: getTerminalTheme(),
     fontFamily: 'Iosevka Term Extended, SF Mono, Monaco, Menlo, monospace',
-    fontSize: 13,
+    fontSize: 16,
     lineHeight: 1.2,
     cursorBlink: false,
     cursorStyle: 'bar',
