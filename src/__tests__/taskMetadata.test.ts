@@ -139,10 +139,10 @@ describe('taskMetadata', () => {
     const tasks = await getProjectTasks(project);
     expect(tasks).toHaveLength(4);
 
-    // in_progress first (sorted by createdAt)
+    // in_progress first (sorted by order)
     expect(tasks[0].name).toBe('In progress old');
     expect(tasks[1].name).toBe('In progress new');
-    // Then done (sorted by order assigned via setTaskStatus)
+    // Then done (sorted by order)
     expect(tasks[2].name).toBe('Done old');
     expect(tasks[3].name).toBe('Done new');
   });
@@ -223,15 +223,15 @@ describe('taskMetadata', () => {
     expect(task.branch).toBeUndefined();
   });
 
-  test('createTask does not assign order values', async () => {
+  test('createTask assigns sequential order values', async () => {
     const project = '/test/order-assignment';
     const t1 = await createTask(project, 1, 'First', { status: 'todo' });
     const t2 = await createTask(project, 2, 'Second', { status: 'todo' });
     const t3 = await createTask(project, 3, 'Third', { status: 'in_progress' });
 
-    expect(t1.order).toBeUndefined();
-    expect(t2.order).toBeUndefined();
-    expect(t3.order).toBeUndefined();
+    expect(t1.order).toBe(0);
+    expect(t2.order).toBe(1);
+    expect(t3.order).toBe(0); // different status column
   });
 
   test('reorderTask within same column', async () => {
