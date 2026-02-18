@@ -99,17 +99,34 @@ export function hideRunnerPanel(term: TheatreTerminal): void {
 
   const panel = term.container.querySelector('.runner-panel') as HTMLElement;
   if (panel) {
+    const wasFullWidth = term.runnerFullWidth;
     panel.classList.remove('runner-panel--visible', 'runner-panel--full');
-    // Animate closed via flex-basis transition
-    panel.style.flexBasis = '0';
-    // After transition, remove runner-split class from card body
-    setTimeout(() => {
+    // Hide the resize handle so it's not interactive while collapsed
+    const handle = term.container.querySelector('.runner-resize-handle') as HTMLElement;
+    if (handle) handle.style.display = 'none';
+
+    if (wasFullWidth) {
+      // Full-width: skip slide animation, close instantly
+      panel.style.transition = 'none';
+      panel.style.flexBasis = '0';
       const cardBody = term.container.querySelector('.theatre-card-body');
       if (cardBody) cardBody.classList.remove('runner-split', 'runner-full');
-      // Fit main terminal after it expands back to full width
-      term.fitAddon.fit();
-      window.api.pty.resize(term.ptyId, term.terminal.cols, term.terminal.rows);
-    }, 250);
+      // Restore transition and fit after layout
+      requestAnimationFrame(() => {
+        panel.style.transition = '';
+        term.fitAddon.fit();
+        window.api.pty.resize(term.ptyId, term.terminal.cols, term.terminal.rows);
+      });
+    } else {
+      // Split mode: animate closed via flex-basis transition
+      panel.style.flexBasis = '0';
+      setTimeout(() => {
+        const cardBody = term.container.querySelector('.theatre-card-body');
+        if (cardBody) cardBody.classList.remove('runner-split', 'runner-full');
+        term.fitAddon.fit();
+        window.api.pty.resize(term.ptyId, term.terminal.cols, term.terminal.rows);
+      }, 250);
+    }
   }
 
   // Remove active state from run button

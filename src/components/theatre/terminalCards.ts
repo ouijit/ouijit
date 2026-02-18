@@ -598,7 +598,7 @@ async function closeTaskFromTerminal(term: TheatreTerminal): Promise<void> {
  * Build HTML for the runner panel
  */
 function buildRunnerPanelHtml(label: string, fullWidth: boolean): string {
-  const icon = fullWidth ? 'maximize-2' : 'columns-2';
+  const icon = fullWidth ? 'columns-2' : 'maximize-2';
   const title = fullWidth ? 'Split view' : 'Full width';
   return `
     <div class="runner-panel${fullWidth ? ' runner-panel--full' : ''}">
@@ -798,6 +798,10 @@ export function showRunnerPanel(term: TheatreTerminal): void {
 
     // Set up resize handle drag interaction
     term.runnerResizeCleanup = setupRunnerResizeHandle(term, handle, panel);
+  } else {
+    // Re-opening existing panel — make sure resize handle is visible again
+    const handle = cardBody.querySelector('.runner-resize-handle') as HTMLElement;
+    if (handle) handle.style.display = '';
   }
 
   term.runnerPanelOpen = true;
@@ -806,30 +810,35 @@ export function showRunnerPanel(term: TheatreTerminal): void {
   const runBtn = term.container.querySelector('.card-tab-run');
   if (runBtn) runBtn.classList.add('card-tab--active');
 
-  // Animate open via flex-basis
-  requestAnimationFrame(() => {
+  if (term.runnerFullWidth) {
+    // Full-width: appear instantly, no slide animation
+    panel.style.transition = 'none';
     panel.classList.add('runner-panel--visible');
-    if (term.runnerFullWidth) {
-      panel.style.flexBasis = '100%';
-    } else {
+    panel.style.flexBasis = '100%';
+    requestAnimationFrame(() => {
+      panel.style.transition = '';
+      if (term.runnerFitAddon && term.runnerPtyId) {
+        term.runnerFitAddon.fit();
+        window.api.pty.resize(term.runnerPtyId, term.runnerTerminal!.cols, term.runnerTerminal!.rows);
+        term.runnerTerminal!.focus();
+      }
+    });
+  } else {
+    // Split mode: animate open via flex-basis transition
+    requestAnimationFrame(() => {
+      panel.classList.add('runner-panel--visible');
       panel.style.flexBasis = `${term.runnerSplitRatio * 100}%`;
-    }
-  });
-
-  // Fit terminals after animation settles
-  setTimeout(() => {
-    // Fit runner terminal
-    if (term.runnerFitAddon && term.runnerPtyId) {
-      term.runnerFitAddon.fit();
-      window.api.pty.resize(term.runnerPtyId, term.runnerTerminal!.cols, term.runnerTerminal!.rows);
-      term.runnerTerminal!.focus();
-    }
-    // Fit main terminal only if in split mode (it shrank)
-    if (!term.runnerFullWidth) {
+    });
+    setTimeout(() => {
+      if (term.runnerFitAddon && term.runnerPtyId) {
+        term.runnerFitAddon.fit();
+        window.api.pty.resize(term.runnerPtyId, term.runnerTerminal!.cols, term.runnerTerminal!.rows);
+        term.runnerTerminal!.focus();
+      }
       term.fitAddon.fit();
       window.api.pty.resize(term.ptyId, term.terminal.cols, term.terminal.rows);
-    }
-  }, 250);
+    }, 250);
+  }
 }
 
 
@@ -867,14 +876,14 @@ function toggleRunnerFullWidth(term: TheatreTerminal): void {
     panel.classList.add('runner-panel--full');
     panel.style.flexBasis = '100%';
     if (toggleBtn) {
-      toggleBtn.innerHTML = '<i data-lucide="maximize-2"></i>';
+      toggleBtn.innerHTML = '<i data-lucide="columns-2"></i>';
       toggleBtn.title = 'Split view';
     }
   } else {
     panel.classList.remove('runner-panel--full');
     panel.style.flexBasis = `${term.runnerSplitRatio * 100}%`;
     if (toggleBtn) {
-      toggleBtn.innerHTML = '<i data-lucide="columns-2"></i>';
+      toggleBtn.innerHTML = '<i data-lucide="maximize-2"></i>';
       toggleBtn.title = 'Full width';
     }
   }

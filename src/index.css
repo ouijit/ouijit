@@ -1360,7 +1360,6 @@ body.platform-darwin:not(.is-fullscreen) .theatre-header-content {
 .runner-panel--full {
   flex: 1 0 100% !important;
   border-left: none !important;
-  border-top: none;
 }
 
 /* Hide main terminal viewport and resize handle when runner is full-width */
