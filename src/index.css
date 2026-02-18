@@ -1170,7 +1170,7 @@ body.platform-darwin:not(.is-fullscreen) .theatre-header-content {
 }
 
 .theatre-card-osc-title {
-  @apply font-mono text-[13px] text-white/40 bg-white/5 rounded-full px-2 py-px truncate;
+  @apply font-mono text-[11px] text-white/40 bg-white/5 rounded-full px-2 py-px truncate;
 }
 
 .theatre-card--back-1 .theatre-card-osc-title,
