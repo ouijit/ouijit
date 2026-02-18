@@ -3,7 +3,7 @@ import { execSync, execFileSync, spawn } from 'node:child_process';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import * as os from 'node:os';
-import { startHookServer, stopHookServer, installHooks } from './hookServer';
+import { startHookServer, stopHookServer, installHooks, uninstallHooks } from './hookServer';
 import { scanForProjects, getAddedProjects, addProject, removeProject } from './scanner';
 import {
   spawnPty,
@@ -47,9 +47,9 @@ import type { PtySpawnOptions, CreateProjectOptions, CreateProjectResult, Projec
 /**
  * Registers all IPC handlers for the main process
  */
-export function registerIpcHandlers(mainWindow: BrowserWindow): void {
-  // Start hook API server and install Claude Code hooks
-  startHookServer(mainWindow);
+export async function registerIpcHandlers(mainWindow: BrowserWindow): Promise<void> {
+  // Start hook API server (must be ready before any PTY spawns)
+  await startHookServer(mainWindow);
   installHooks();
 
   // Handler to get all detected projects

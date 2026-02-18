@@ -1464,7 +1464,6 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
       resizeObserver: null,
       summary: '',
       summaryType: 'idle',
-
       lastOscTitle: '',
       sandboxed: true,
       taskId: options?.taskId ?? null,
@@ -1674,7 +1673,6 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
       resizeObserver: null,
       summary: '',
       summaryType: 'idle',
-
       lastOscTitle: '',
       sandboxed: useSandbox,
       taskId: options?.taskId ?? null,
