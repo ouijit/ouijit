@@ -2,6 +2,7 @@ import * as pty from 'node-pty';
 import { BrowserWindow } from 'electron';
 import type { PtyId, PtySpawnOptions, PtySpawnResult } from './types';
 import { generateId } from './utils/ids';
+import { getApiPort } from './hookServer';
 
 interface ManagedPty {
   process: pty.IPty;
@@ -118,6 +119,10 @@ export async function spawnPty(
         }
       }
     }
+
+    // Inject hook API env vars so Claude Code hooks can reach us
+    finalEnv['OUIJIT_PTY_ID'] = ptyId;
+    finalEnv['OUIJIT_API_URL'] = `http://127.0.0.1:${getApiPort()}`;
 
     // Expand environment variables in the command if provided
     let expandedCommand = options.command || '';

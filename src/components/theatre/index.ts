@@ -78,10 +78,7 @@ export {
 // Terminal cards
 export {
   getTerminalTheme,
-  stripAnsi,
-  analyzeTerminalOutput,
   updateTerminalCardLabel,
-  scheduleTerminalSummaryUpdate,
   createTheatreCard,
   updateCardStack,
   switchToTheatreTerminal,
@@ -92,6 +89,8 @@ export {
   showStackEmptyState,
   hideStackEmptyState,
   setupCardActions,
+  registerHookStatusListener,
+  unregisterHookStatusListener,
 } from './terminalCards';
 
 // Launch dropdown

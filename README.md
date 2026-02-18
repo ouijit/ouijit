@@ -5,7 +5,7 @@
 ## Features
 
 - **Isolated sessions** - Each task gets its own git worktree
-- **Status lights** - Green when a session needs input, purple when busy
+- **Status lights** - Green when a session needs input, purple when busy (uses [Claude Code hooks](https://docs.anthropic.com/en/docs/claude-code/hooks) for accurate status)
 - **Terminal card stack** - Quick switching between sessions
 - **Diff review** - View changes before merging
 - **Script hooks** - Run scripts on task creation, play, and cleanup

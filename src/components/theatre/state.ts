@@ -25,7 +25,6 @@ export interface TheatreTerminal {
   // Summary state for dynamic status display
   summary: string;
   summaryType: SummaryType;
-  outputBuffer: string;
   lastOscTitle: string;  // Last seen OSC terminal title
   // Task support
   sandboxed: boolean;

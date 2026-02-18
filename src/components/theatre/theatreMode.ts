@@ -54,6 +54,9 @@ import {
   updateTerminalCardLabel,
   updateRunnerPill,
   navigateStackPage,
+  registerHookStatusListener,
+  unregisterHookStatusListener,
+  resetIdleTimer,
 } from './terminalCards';
 import {
   buildTheatreHeader,
@@ -86,6 +89,9 @@ export async function enterTheatreMode(
 
   // Initialize reactive effects
   initializeEffects();
+
+  // Register global Claude hook status listener
+  registerHookStatusListener();
 
   // 1. Add class to body - CSS handles the rest
   document.body.classList.add('theatre-mode');
@@ -434,7 +440,10 @@ export function exitTheatreMode(): void {
     }
   }
 
-  // 4. Remove keyboard shortcuts and pop scope
+  // 4. Unregister Claude hook status listener
+  unregisterHookStatusListener();
+
+  // 5. Remove keyboard shortcuts and pop scope
   unregisterHotkey(platformHotkey('mod+n'), Scopes.THEATRE);
   unregisterHotkey(platformHotkey('mod+b'), Scopes.THEATRE);
   unregisterHotkey(platformHotkey('mod+t'), Scopes.THEATRE);
@@ -552,6 +561,9 @@ export async function restoreTheatreMode(
 
   // Initialize reactive effects
   initializeEffects();
+
+  // Register global Claude hook status listener
+  registerHookStatusListener();
 
   // 1. Add class to body
   document.body.classList.add('theatre-mode');
@@ -828,7 +840,6 @@ async function reconnectTheatreTerminal(session: ActiveSession, worktreeBranch?:
     resizeObserver,
     summary: '',
     summaryType: 'idle',
-    outputBuffer: '',
     lastOscTitle: '',
     sandboxed: !!session.sandboxed,
     taskId: session.taskId ?? null,
@@ -878,11 +889,7 @@ async function reconnectTheatreTerminal(session: ActiveSession, worktreeBranch?:
   // Set up data handler
   const cleanupData = window.api.pty.onData(session.ptyId, (data) => {
     terminal.write(data);
-    theatreTerminal.outputBuffer += data;
-    // Limit buffer size
-    if (theatreTerminal.outputBuffer.length > 50000) {
-      theatreTerminal.outputBuffer = theatreTerminal.outputBuffer.slice(-25000);
-    }
+    resetIdleTimer(session.ptyId);
   });
   theatreTerminal.cleanupData = cleanupData;
 
