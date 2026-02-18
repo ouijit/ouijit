@@ -450,6 +450,16 @@ export function setupCardActions(term: TheatreTerminal): void {
         showCardMoreMenu(e as MouseEvent, term, hasEditor);
       });
     }
+
+    // Right-click on label text shows context menu to spawn new terminal for this task
+    const labelText = labelEl.querySelector('.theatre-card-label-text');
+    if (labelText) {
+      labelText.addEventListener('contextmenu', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        showLabelContextMenu(e as MouseEvent, term);
+      });
+    }
   }
 
   // Wire up runner button click handler
@@ -516,6 +526,88 @@ function showCardMoreMenu(event: MouseEvent, term: TheatreTerminal, hasEditor: b
   menu.style.left = `${rect.right}px`;
   menu.style.top = `${rect.bottom + 4}px`;
   menu.style.transform = 'translateX(-100%)';
+
+  requestAnimationFrame(() => menu.classList.add('task-context-menu--visible'));
+
+  // Dismiss on click outside
+  const dismiss = (e: MouseEvent) => {
+    if (menu.contains(e.target as Node)) return;
+    menu.classList.remove('task-context-menu--visible');
+    setTimeout(() => menu.remove(), 100);
+    document.removeEventListener('mousedown', dismiss);
+  };
+  setTimeout(() => document.addEventListener('mousedown', dismiss), 0);
+}
+
+/**
+ * Show context menu when right-clicking the label text to spawn a new terminal for this task
+ */
+function showLabelContextMenu(event: MouseEvent, term: TheatreTerminal): void {
+  // Remove any existing menu
+  document.querySelector('.task-context-menu')?.remove();
+
+  const menu = document.createElement('div');
+  menu.className = 'task-context-menu';
+
+  // "New Terminal" — spawn another terminal for the same task
+  const newTermItem = document.createElement('button');
+  newTermItem.className = 'task-context-menu-item';
+  newTermItem.innerHTML = '<i data-lucide="terminal"></i> New Terminal';
+  newTermItem.addEventListener('click', (e) => {
+    e.stopPropagation();
+    menu.remove();
+    if (term.worktreePath && term.taskId != null) {
+      addTheatreTerminal(undefined, {
+        existingWorktree: {
+          path: term.worktreePath,
+          branch: term.worktreeBranch || '',
+          createdAt: '',
+          sandboxed: term.sandboxed,
+        },
+        taskId: term.taskId,
+        sandboxed: false,
+      });
+    }
+  });
+  menu.appendChild(newTermItem);
+
+  document.body.appendChild(menu);
+  createIcons({ icons, nameAttr: 'data-lucide', attrs: {}, nodes: [menu] });
+
+  // Async: add "New Sandbox Terminal" if lima is available
+  const projPath = projectPath.value;
+  if (projPath && term.worktreePath && term.taskId != null) {
+    window.api.lima.status(projPath).then(s => {
+      if (!s.available || !document.body.contains(menu)) return;
+      const sandboxItem = document.createElement('button');
+      sandboxItem.className = 'task-context-menu-item';
+      sandboxItem.innerHTML = '<i data-lucide="box"></i> New Sandbox Terminal';
+      sandboxItem.addEventListener('click', (e) => {
+        e.stopPropagation();
+        menu.remove();
+        addTheatreTerminal(undefined, {
+          existingWorktree: {
+            path: term.worktreePath!,
+            branch: term.worktreeBranch || '',
+            createdAt: '',
+            sandboxed: term.sandboxed,
+          },
+          taskId: term.taskId!,
+          sandboxed: true,
+        });
+      });
+      menu.appendChild(sandboxItem);
+      createIcons({ icons, nameAttr: 'data-lucide', attrs: {}, nodes: [sandboxItem] });
+    }).catch(() => { /* lima not available */ });
+  }
+
+  // Position at mouse, keeping within viewport
+  const menuWidth = 200;
+  const menuHeight = 40;
+  const x = Math.min(event.clientX, window.innerWidth - menuWidth);
+  const y = Math.min(event.clientY, window.innerHeight - menuHeight);
+  menu.style.left = `${x}px`;
+  menu.style.top = `${y}px`;
 
   requestAnimationFrame(() => menu.classList.add('task-context-menu--visible'));
 
