@@ -208,10 +208,15 @@ function versionFilePath(): string {
 
 /**
  * Install the ouijit-hook helper script and register hooks in
- * ~/.claude/settings.json. Skips if already up-to-date.
+ * ~/.claude/settings.json. Skips if Claude Code isn't installed
+ * (~/.claude/ doesn't exist) or hooks are already up-to-date.
  */
 export function installHooks(): void {
   try {
+    // Skip entirely if Claude Code isn't installed
+    const claudeDir = path.join(os.homedir(), '.claude');
+    if (!fs.existsSync(claudeDir)) return;
+
     // Check version marker — skip if already current
     const versionPath = versionFilePath();
     try {
@@ -228,8 +233,6 @@ export function installHooks(): void {
     fs.writeFileSync(scriptPath, HELPER_SCRIPT, { mode: 0o755 });
 
     // 2. Merge hooks into ~/.claude/settings.json
-    const claudeDir = path.join(os.homedir(), '.claude');
-    fs.mkdirSync(claudeDir, { recursive: true });
     const settingsPath = path.join(claudeDir, 'settings.json');
 
     let settings: ClaudeSettings = {};

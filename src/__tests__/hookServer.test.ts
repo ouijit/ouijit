@@ -302,10 +302,23 @@ describe('isOuijitHook', () => {
 describe('installHooks', () => {
   beforeEach(() => {
     _testHomedir = tmpHome;
+    // Simulate Claude Code being installed
+    fs.mkdirSync(path.join(tmpHome, '.claude'), { recursive: true });
   });
 
   afterEach(() => {
     _testHomedir = '';
+  });
+
+  test('skips if Claude Code is not installed', () => {
+    // Remove .claude dir to simulate no Claude Code
+    fs.rmSync(path.join(tmpHome, '.claude'), { recursive: true });
+
+    installHooks();
+
+    // Neither helper script nor version marker should be created
+    expect(fs.existsSync(path.join(tmpHome, '.config', 'Ouijit', 'bin', 'ouijit-hook'))).toBe(false);
+    expect(fs.existsSync(path.join(tmpHome, '.claude'))).toBe(false);
   });
 
   test('creates helper script and settings on first install', () => {
@@ -413,6 +426,7 @@ describe('installHooks', () => {
 describe('uninstallHooks', () => {
   beforeEach(() => {
     _testHomedir = tmpHome;
+    fs.mkdirSync(path.join(tmpHome, '.claude'), { recursive: true });
     installHooks();
   });
 
