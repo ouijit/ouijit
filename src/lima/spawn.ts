@@ -4,7 +4,7 @@ import type { PtySpawnOptions, PtySpawnResult, PtyId } from '../types';
 import { generateId } from '../utils/ids';
 import { ensureRunning, getLimactlPath, getLimaEnv } from './manager';
 import { getSandboxConfig } from '../projectSettings';
-import { getApiPort } from '../hookServer';
+import { getApiPort, installProjectHooks } from '../hookServer';
 
 interface ManagedSandboxPty {
   process: pty.IPty;
@@ -79,6 +79,11 @@ export async function spawnSandboxedPty(
     currentWindow = window;
     const projectPath = options.projectPath || options.cwd;
 
+    // Install project-level Claude hooks so they're visible inside the VM.
+    // Use cwd (not projectPath) — Claude Code's project dir is where it runs,
+    // which for worktrees differs from the main project root.
+    installProjectHooks(options.cwd);
+
     // Load per-project sandbox config for VM resource overrides
     const sandboxConfig = await getSandboxConfig(projectPath);
 
@@ -114,6 +119,12 @@ export async function spawnSandboxedPty(
         }
       }
     }
+
+    const ptyId = generateId('pty-sandbox');
+
+    // Inject hook API env vars into the VM shell (host.lima.internal resolves to host)
+    envExports += `export OUIJIT_PTY_ID='${ptyId}'\n`;
+    envExports += `export OUIJIT_API_URL='http://host.lima.internal:${getApiPort()}'\n`;
 
     // Build the command to run inside the VM
     let innerCmd: string;
@@ -163,12 +174,6 @@ export async function spawnSandboxedPty(
         }
       }
     }
-
-    const ptyId = generateId('pty-sandbox');
-
-    // Inject hook API env vars into the VM shell (host.lima.internal resolves to host)
-    envExports += `export OUIJIT_PTY_ID='${ptyId}'\n`;
-    envExports += `export OUIJIT_API_URL='http://host.lima.internal:${getApiPort()}'\n`;
 
     const ptyProcess = pty.spawn(getLimactlPath(), limactlArgs, {
       name: 'xterm-256color',

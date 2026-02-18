@@ -115,7 +115,7 @@ export function stopHookServer(): Promise<void> {
 // ── Hook installer ───────────────────────────────────────────────────
 
 // Bump this when HELPER_SCRIPT or OUIJIT_HOOKS change.
-export const HOOK_VERSION = 1;
+export const HOOK_VERSION = 4;
 
 // Safe pattern: alphanumeric, hyphens, dots, underscores
 const SAFE_VALUE = '[a-zA-Z0-9._-]+';
@@ -170,14 +170,14 @@ export interface ClaudeSettings {
 
 const OUIJIT_HOOKS: Record<string, ClaudeHookMatcher> = {
   UserPromptSubmit: {
-    hooks: [{ type: 'command', command: '~/.config/Ouijit/bin/ouijit-hook status status=thinking' }],
+    hooks: [{ type: 'command', command: '$HOME/.config/Ouijit/bin/ouijit-hook status status=thinking' }],
   },
   Stop: {
-    hooks: [{ type: 'command', command: '~/.config/Ouijit/bin/ouijit-hook status status=idle' }],
+    hooks: [{ type: 'command', command: '$HOME/.config/Ouijit/bin/ouijit-hook status status=idle' }],
   },
   Notification: {
     matcher: 'permission_prompt|idle_prompt',
-    hooks: [{ type: 'command', command: '~/.config/Ouijit/bin/ouijit-hook status status=idle' }],
+    hooks: [{ type: 'command', command: '$HOME/.config/Ouijit/bin/ouijit-hook status status=idle' }],
   },
 };
 
@@ -251,6 +251,89 @@ export function installHooks(): void {
     fs.writeFileSync(versionPath, String(HOOK_VERSION) + '\n', 'utf-8');
   } catch (err) {
     console.warn('[HookServer] Failed to install hooks:', err instanceof Error ? err.message : err);
+  }
+}
+
+// ── Project-level hook installer ─────────────────────────────────────
+// Sandboxed Lima VMs only mount the project directory, so the global
+// ~/.claude/settings.json and ~/.config/Ouijit/bin/ouijit-hook are NOT
+// accessible inside the VM. We install the hook script and settings at
+// the project level so Claude Code inside the VM can find them.
+
+const PROJECT_HOOK_CMD_PREFIX = '"$CLAUDE_PROJECT_DIR/.claude/hooks/ouijit-hook"';
+
+const PROJECT_HOOKS: Record<string, ClaudeHookMatcher> = {
+  UserPromptSubmit: {
+    hooks: [{ type: 'command', command: `${PROJECT_HOOK_CMD_PREFIX} status status=thinking` }],
+  },
+  Stop: {
+    hooks: [{ type: 'command', command: `${PROJECT_HOOK_CMD_PREFIX} status status=idle` }],
+  },
+  Notification: {
+    matcher: 'permission_prompt|idle_prompt',
+    hooks: [{ type: 'command', command: `${PROJECT_HOOK_CMD_PREFIX} status status=idle` }],
+  },
+};
+
+/** Version marker path scoped to a project. */
+function projectVersionFilePath(projectPath: string): string {
+  return path.join(projectPath, '.claude', 'hooks', '.ouijit-hooks-version');
+}
+
+/**
+ * Install hooks at the project level so they work inside Lima VMs.
+ * Writes the helper script to <project>/.claude/hooks/ouijit-hook and
+ * merges hook entries into <project>/.claude/settings.local.json.
+ */
+export function installProjectHooks(projectPath: string): void {
+  try {
+    const claudeDir = path.join(projectPath, '.claude');
+    const hooksDir = path.join(claudeDir, 'hooks');
+
+    // Check version marker — skip if already current
+    const versionPath = projectVersionFilePath(projectPath);
+    try {
+      const installed = fs.readFileSync(versionPath, 'utf-8').trim();
+      if (installed === String(HOOK_VERSION)) return;
+    } catch {
+      // File doesn't exist — proceed with install
+    }
+
+    // 1. Write helper script into project
+    fs.mkdirSync(hooksDir, { recursive: true });
+    const scriptPath = path.join(hooksDir, 'ouijit-hook');
+    fs.writeFileSync(scriptPath, HELPER_SCRIPT, { mode: 0o755 });
+
+    // 2. Merge hooks into .claude/settings.local.json (not committed to git)
+    const settingsPath = path.join(claudeDir, 'settings.local.json');
+
+    let settings: ClaudeSettings = {};
+    try {
+      const raw = fs.readFileSync(settingsPath, 'utf-8');
+      settings = JSON.parse(raw) as ClaudeSettings;
+    } catch {
+      // File doesn't exist or is invalid — start fresh
+    }
+
+    if (!settings.hooks) {
+      settings.hooks = {};
+    }
+
+    for (const [event, ouijitEntry] of Object.entries(PROJECT_HOOKS)) {
+      const existing = settings.hooks[event] || [];
+      const filtered = existing.filter(e => !isOuijitHook(e));
+      filtered.push(ouijitEntry);
+      settings.hooks[event] = filtered;
+    }
+
+    const tmpPath = settingsPath + '.tmp';
+    fs.writeFileSync(tmpPath, JSON.stringify(settings, null, 2) + '\n', 'utf-8');
+    fs.renameSync(tmpPath, settingsPath);
+
+    // 3. Write version marker
+    fs.writeFileSync(versionPath, String(HOOK_VERSION) + '\n', 'utf-8');
+  } catch (err) {
+    console.warn('[HookServer] Failed to install project hooks:', err instanceof Error ? err.message : err);
   }
 }
 
