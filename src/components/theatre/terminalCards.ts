@@ -306,7 +306,6 @@ export function createTheatreCard(label: string, index: number): HTMLElement {
     <div class="theatre-card-label-right">
       <div class="theatre-card-git-stats-wrapper"></div>
       <button class="card-tab card-tab-run" data-action="run" style="display: none;">Run</button>
-      <button class="theatre-card-more" title="More actions"><i data-lucide="ellipsis"></i></button>
       <button class="theatre-card-close" title="Close terminal"><i data-lucide="x"></i></button>
     </div>
   `;
@@ -428,28 +427,13 @@ export function setupCardActions(term: TheatreTerminal): void {
   const labelEl = term.container.querySelector('.theatre-card-label');
   if (!labelEl) return;
 
-  // Show ellipsis menu for worktree terminals
+  // Right-click context menu for task terminals
   if (term.taskId != null) {
-    const moreBtn = labelEl.querySelector('.theatre-card-more') as HTMLElement;
-    if (moreBtn) {
-      moreBtn.classList.add('theatre-card-more--visible');
-
-      // Resolve editor availability upfront
-      let hasEditor = false;
-      if (term.worktreePath) {
-        const projPath = projectPath.value;
-        if (projPath) {
-          window.api.hooks.get(projPath).then(hooks => {
-            hasEditor = !!hooks.editor;
-          }).catch(() => { /* no hooks configured */ });
-        }
-      }
-
-      moreBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        showCardMoreMenu(e as MouseEvent, term, hasEditor);
-      });
-    }
+    labelEl.addEventListener('contextmenu', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      showCardContextMenu(e as MouseEvent, term);
+    });
   }
 
   // Wire up runner button click handler
@@ -469,35 +453,86 @@ export function setupCardActions(term: TheatreTerminal): void {
 }
 
 /**
- * Show the "more actions" dropdown menu from the ellipsis button
+ * Show a right-click context menu on a theatre card header
  */
-function showCardMoreMenu(event: MouseEvent, term: TheatreTerminal, hasEditor: boolean): void {
-  // Capture button ref before any async work
-  const button = event.currentTarget as HTMLElement;
-
+async function showCardContextMenu(event: MouseEvent, term: TheatreTerminal): Promise<void> {
   // Remove any existing menu
   document.querySelector('.task-context-menu')?.remove();
 
   const menu = document.createElement('div');
   menu.className = 'task-context-menu';
 
-  // "Open in Editor" item (only if editor hook is configured)
-  if (hasEditor && term.worktreePath) {
-    const editorItem = document.createElement('button');
-    editorItem.className = 'task-context-menu-item';
-    editorItem.innerHTML = '<i data-lucide="code"></i> Open in Editor';
-    editorItem.addEventListener('click', (e) => {
+  const projPath = projectPath.value;
+
+  // "Open in Terminal" — open a new non-sandboxed terminal for this task
+  if (term.worktreePath && term.worktreeBranch) {
+    const terminalItem = document.createElement('button');
+    terminalItem.className = 'task-context-menu-item';
+    terminalItem.innerHTML = '<i data-lucide="terminal"></i> Open in Terminal';
+    terminalItem.addEventListener('click', (e) => {
       e.stopPropagation();
       menu.remove();
-      const projPath = projectPath.value;
-      if (projPath) {
-        window.api.openInEditor(projPath, term.worktreePath!);
-      }
+      addTheatreTerminal(undefined, {
+        existingWorktree: {
+          path: term.worktreePath!,
+          branch: term.worktreeBranch!,
+          createdAt: '',
+        },
+        taskId: term.taskId!,
+        sandboxed: false,
+      });
     });
-    menu.appendChild(editorItem);
+    menu.appendChild(terminalItem);
   }
 
-  // "Close Task" item
+  // "Open in Sandbox" — only if lima is available
+  if (term.worktreePath && term.worktreeBranch && projPath) {
+    const limaStatus = await window.api.lima.status(projPath);
+    if (limaStatus.available) {
+      const sandboxItem = document.createElement('button');
+      sandboxItem.className = 'task-context-menu-item';
+      sandboxItem.innerHTML = '<i data-lucide="box"></i> Open in Sandbox';
+      sandboxItem.addEventListener('click', (e) => {
+        e.stopPropagation();
+        menu.remove();
+        addTheatreTerminal(undefined, {
+          existingWorktree: {
+            path: term.worktreePath!,
+            branch: term.worktreeBranch!,
+            createdAt: '',
+          },
+          taskId: term.taskId!,
+          sandboxed: true,
+        });
+      });
+      menu.appendChild(sandboxItem);
+    }
+  }
+
+  // "Open in Editor" — only if editor hook is configured
+  if (term.worktreePath && projPath) {
+    try {
+      const hooks = await window.api.hooks.get(projPath);
+      if (hooks.editor) {
+        const editorItem = document.createElement('button');
+        editorItem.className = 'task-context-menu-item';
+        editorItem.innerHTML = '<i data-lucide="code"></i> Open in Editor';
+        editorItem.addEventListener('click', (e) => {
+          e.stopPropagation();
+          menu.remove();
+          window.api.openInEditor(projPath, term.worktreePath!);
+        });
+        menu.appendChild(editorItem);
+      }
+    } catch { /* no hooks configured */ }
+  }
+
+  // Separator before close
+  const separator = document.createElement('div');
+  separator.className = 'task-context-menu-separator';
+  menu.appendChild(separator);
+
+  // "Close Task"
   const closeItem = document.createElement('button');
   closeItem.className = 'task-context-menu-item';
   closeItem.innerHTML = '<i data-lucide="archive"></i> Close Task';
@@ -511,11 +546,15 @@ function showCardMoreMenu(event: MouseEvent, term: TheatreTerminal, hasEditor: b
   document.body.appendChild(menu);
   createIcons({ icons, nameAttr: 'data-lucide', attrs: {}, nodes: [menu] });
 
-  // Position below the button, right-aligned
-  const rect = button.getBoundingClientRect();
-  menu.style.left = `${rect.right}px`;
-  menu.style.top = `${rect.bottom + 4}px`;
-  menu.style.transform = 'translateX(-100%)';
+  // Position at mouse, keeping within viewport
+  const menuWidth = 200;
+  const itemCount = menu.querySelectorAll('.task-context-menu-item').length;
+  const separatorCount = menu.querySelectorAll('.task-context-menu-separator').length;
+  const menuHeight = 32 * itemCount + 9 * separatorCount;
+  const x = Math.min(event.clientX, window.innerWidth - menuWidth);
+  const y = Math.min(event.clientY, window.innerHeight - menuHeight);
+  menu.style.left = `${x}px`;
+  menu.style.top = `${y}px`;
 
   requestAnimationFrame(() => menu.classList.add('task-context-menu--visible'));
 
