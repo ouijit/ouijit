@@ -7,7 +7,6 @@
  */
 
 import * as http from 'node:http';
-import * as crypto from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
@@ -15,17 +14,11 @@ import { BrowserWindow } from 'electron';
 
 let server: http.Server | null = null;
 let apiPort = 0;
-let apiToken = '';
 let mainWindow: BrowserWindow | null = null;
 
 /** Get the port the hook server is listening on. */
 export function getApiPort(): number {
   return apiPort;
-}
-
-/** Get the auth token for hook requests. */
-export function getApiToken(): string {
-  return apiToken;
 }
 
 // ── Action handlers ──────────────────────────────────────────────────
@@ -54,20 +47,12 @@ const actionHandlers: Record<string, ActionHandler> = {
 export function startHookServer(window: BrowserWindow): Promise<void> {
   if (server) return Promise.resolve();
   mainWindow = window;
-  apiToken = crypto.randomBytes(16).toString('hex');
 
   return new Promise((resolve, reject) => {
     const s = http.createServer((req, res) => {
       // Only accept POST /hook
       if (req.method !== 'POST' || req.url !== '/hook') {
         res.writeHead(404);
-        res.end();
-        return;
-      }
-
-      // Validate auth token
-      if (req.headers.authorization !== apiToken) {
-        res.writeHead(401);
         res.end();
         return;
       }
@@ -155,14 +140,12 @@ const HELPER_SCRIPT = [
   '',
   'if [ -n "$OUIJIT_DEBUG" ]; then',
   '  status=$(curl -sf -o /dev/null -w \'%{http_code}\' -X POST "$OUIJIT_API_URL/hook" \\',
-  '    -H "Authorization: $OUIJIT_API_TOKEN" \\',
   '    -H "Content-Type: application/json" \\',
   '    -d "{$json}" 2>/dev/null)',
   '  [ "$status" != "200" ] && \\',
   '    echo "[ouijit-hook] $action -> HTTP $status" >> "${TMPDIR:-/tmp}/ouijit-hook.log"',
   'else',
   '  curl -sf -o /dev/null -X POST "$OUIJIT_API_URL/hook" \\',
-  '    -H "Authorization: $OUIJIT_API_TOKEN" \\',
   '    -H "Content-Type: application/json" \\',
   '    -d "{$json}" 2>/dev/null &',
   'fi',

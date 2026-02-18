@@ -4,7 +4,7 @@ import type { PtySpawnOptions, PtySpawnResult, PtyId } from '../types';
 import { generateId } from '../utils/ids';
 import { ensureRunning, getLimactlPath, getLimaEnv } from './manager';
 import { getSandboxConfig } from '../projectSettings';
-import { getApiPort, getApiToken } from '../hookServer';
+import { getApiPort } from '../hookServer';
 
 interface ManagedSandboxPty {
   process: pty.IPty;
@@ -167,11 +167,8 @@ export async function spawnSandboxedPty(
     const ptyId = generateId('pty-sandbox');
 
     // Inject hook API env vars into the VM shell (host.lima.internal resolves to host)
-    // Escape single quotes consistent with how options.env values are handled above
-    const escShell = (v: string) => v.replace(/'/g, "'\\''");
-    envExports += `export OUIJIT_PTY_ID='${escShell(ptyId)}'\n`;
+    envExports += `export OUIJIT_PTY_ID='${ptyId}'\n`;
     envExports += `export OUIJIT_API_URL='http://host.lima.internal:${getApiPort()}'\n`;
-    envExports += `export OUIJIT_API_TOKEN='${escShell(getApiToken())}'\n`;
 
     const ptyProcess = pty.spawn(getLimactlPath(), limactlArgs, {
       name: 'xterm-256color',

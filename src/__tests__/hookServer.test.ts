@@ -20,7 +20,6 @@ import {
   startHookServer,
   stopHookServer,
   getApiPort,
-  getApiToken,
   installHooks,
   uninstallHooks,
   isOuijitHook,
@@ -42,7 +41,6 @@ function createMockWindow(destroyed = false) {
 function post(
   port: number,
   body: unknown,
-  headers: Record<string, string> = {},
 ): Promise<{ status: number; body: string }> {
   return new Promise((resolve, reject) => {
     const data = JSON.stringify(body);
@@ -52,10 +50,7 @@ function post(
         port,
         path: '/hook',
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...headers,
-        },
+        headers: { 'Content-Type': 'application/json' },
       },
       (res) => {
         let body = '';
@@ -89,17 +84,14 @@ describe('startHookServer', () => {
     const win = createMockWindow();
     await startHookServer(win);
     expect(getApiPort()).toBeGreaterThan(0);
-    expect(getApiToken()).toHaveLength(32); // 16 bytes hex
   });
 
   test('calling twice is a no-op', async () => {
     const win = createMockWindow();
     await startHookServer(win);
     const port1 = getApiPort();
-    const token1 = getApiToken();
     await startHookServer(win);
     expect(getApiPort()).toBe(port1);
-    expect(getApiToken()).toBe(token1);
   });
 });
 
@@ -110,8 +102,8 @@ describe('stopHookServer', () => {
     const port = getApiPort();
     await stopHookServer();
 
-    // Port should still hold its last value but server is gone
-    await expect(post(port, {}, {})).rejects.toThrow();
+    // Server is gone — connection should fail
+    await expect(post(port, {})).rejects.toThrow();
   });
 
   test('calling when not started is a no-op', async () => {
@@ -123,12 +115,10 @@ describe('stopHookServer', () => {
 
 describe('HTTP server', () => {
   let port: number;
-  let token: string;
 
   beforeEach(async () => {
     await startHookServer(createMockWindow());
     port = getApiPort();
-    token = getApiToken();
   });
 
   test('returns 404 for non-POST or wrong path', async () => {
@@ -151,20 +141,8 @@ describe('HTTP server', () => {
     expect(res2).toBe(404);
   });
 
-  test('returns 401 for missing or wrong auth token', async () => {
-    const res1 = await post(port, { action: 'status' });
-    expect(res1.status).toBe(401);
-
-    const res2 = await post(port, { action: 'status' }, { Authorization: 'wrong' });
-    expect(res2.status).toBe(401);
-  });
-
   test('returns 200 for valid request', async () => {
-    const res = await post(
-      port,
-      { action: 'status', ptyId: 'pty-123', status: 'thinking' },
-      { Authorization: token },
-    );
+    const res = await post(port, { action: 'status', ptyId: 'pty-123', status: 'thinking' });
     expect(res.status).toBe(200);
   });
 
@@ -176,10 +154,7 @@ describe('HTTP server', () => {
           port,
           path: '/hook',
           method: 'POST',
-          headers: {
-            Authorization: token,
-            'Content-Type': 'application/json',
-          },
+          headers: { 'Content-Type': 'application/json' },
         },
         (res) => resolve(res.statusCode!),
       );
@@ -191,11 +166,7 @@ describe('HTTP server', () => {
   });
 
   test('returns 200 for unknown action (no-op)', async () => {
-    const res = await post(
-      port,
-      { action: 'unknown-action' },
-      { Authorization: token },
-    );
+    const res = await post(port, { action: 'unknown-action' });
     expect(res.status).toBe(200);
     expect(mockSend).not.toHaveBeenCalled();
   });
@@ -205,71 +176,43 @@ describe('HTTP server', () => {
 
 describe('status action', () => {
   let port: number;
-  let token: string;
 
   beforeEach(async () => {
     await startHookServer(createMockWindow());
     port = getApiPort();
-    token = getApiToken();
   });
 
   test('sends IPC for valid thinking status', async () => {
-    await post(
-      port,
-      { action: 'status', ptyId: 'pty-123', status: 'thinking' },
-      { Authorization: token },
-    );
+    await post(port, { action: 'status', ptyId: 'pty-123', status: 'thinking' });
     expect(mockSend).toHaveBeenCalledWith('claude-hook-status', 'pty-123', 'thinking');
   });
 
   test('sends IPC for valid idle status', async () => {
-    await post(
-      port,
-      { action: 'status', ptyId: 'pty-456', status: 'idle' },
-      { Authorization: token },
-    );
+    await post(port, { action: 'status', ptyId: 'pty-456', status: 'idle' });
     expect(mockSend).toHaveBeenCalledWith('claude-hook-status', 'pty-456', 'idle');
   });
 
   test('rejects invalid status values', async () => {
-    await post(
-      port,
-      { action: 'status', ptyId: 'pty-123', status: 'running' },
-      { Authorization: token },
-    );
+    await post(port, { action: 'status', ptyId: 'pty-123', status: 'running' });
     expect(mockSend).not.toHaveBeenCalled();
   });
 
   test('rejects missing ptyId', async () => {
-    await post(
-      port,
-      { action: 'status', status: 'thinking' },
-      { Authorization: token },
-    );
+    await post(port, { action: 'status', status: 'thinking' });
     expect(mockSend).not.toHaveBeenCalled();
   });
 
   test('rejects non-string ptyId or status', async () => {
-    await post(
-      port,
-      { action: 'status', ptyId: 123, status: 'thinking' },
-      { Authorization: token },
-    );
+    await post(port, { action: 'status', ptyId: 123, status: 'thinking' });
     expect(mockSend).not.toHaveBeenCalled();
   });
 
   test('does not send when window is destroyed', async () => {
-    // Stop and restart with a destroyed window
     await stopHookServer();
     await startHookServer(createMockWindow(true));
     port = getApiPort();
-    token = getApiToken();
 
-    await post(
-      port,
-      { action: 'status', ptyId: 'pty-123', status: 'thinking' },
-      { Authorization: token },
-    );
+    await post(port, { action: 'status', ptyId: 'pty-123', status: 'thinking' });
     expect(mockSend).not.toHaveBeenCalled();
   });
 });
@@ -332,6 +275,9 @@ describe('installHooks', () => {
     expect(script).toContain('OUIJIT_PTY_ID');
     // Input validation present
     expect(script).toContain('[a-zA-Z0-9._-]+');
+    // No auth token references
+    expect(script).not.toContain('Authorization');
+    expect(script).not.toContain('OUIJIT_API_TOKEN');
 
     // Settings file has hooks
     const settingsPath = path.join(tmpHome, '.claude', 'settings.json');
