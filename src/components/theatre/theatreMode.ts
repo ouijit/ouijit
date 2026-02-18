@@ -56,6 +56,7 @@ import {
   navigateStackPage,
   registerHookStatusListener,
   unregisterHookStatusListener,
+  resetIdleTimer,
 } from './terminalCards';
 import {
   buildTheatreHeader,
@@ -888,6 +889,7 @@ async function reconnectTheatreTerminal(session: ActiveSession, worktreeBranch?:
   // Set up data handler
   const cleanupData = window.api.pty.onData(session.ptyId, (data) => {
     terminal.write(data);
+    resetIdleTimer(session.ptyId);
   });
   theatreTerminal.cleanupData = cleanupData;
 

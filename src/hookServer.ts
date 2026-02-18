@@ -32,6 +32,7 @@ const actionHandlers: Record<string, ActionHandler> = {
     const { ptyId, status } = body;
     if (typeof ptyId !== 'string' || typeof status !== 'string') return;
     if (!VALID_STATUSES.has(status)) return;
+    console.log(`[hook] ${ptyId} → ${status}`);
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('claude-hook-status', ptyId, status);
     }

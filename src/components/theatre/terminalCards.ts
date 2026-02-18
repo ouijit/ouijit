@@ -1620,6 +1620,7 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
       // Set up data listener
       theatreTerminal.cleanupData = window.api.pty.onData(result.ptyId, (data) => {
         terminal.write(data);
+        resetIdleTimer(result.ptyId!);
 
         const oscMatches = data.matchAll(/\x1b\]0;([^\x07]*)\x07/g);
         for (const match of oscMatches) {
@@ -1710,6 +1711,7 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
     // Set up data listener
     theatreTerminal.cleanupData = window.api.pty.onData(result.ptyId, (data) => {
       terminal.write(data);
+      resetIdleTimer(result.ptyId!);
 
       // Extract OSC title sequences (e.g., \x1b]0;Title Here\x07)
       const oscMatches = data.matchAll(/\x1b\]0;([^\x07]*)\x07/g);
@@ -1811,6 +1813,7 @@ export function closeTheatreTerminal(index: number): void {
 
   // Kill main PTY
   window.api.pty.kill(term.ptyId);
+  clearIdleTimer(term.ptyId);
 
   // Clean up main terminal
   if (term.cleanupData) term.cleanupData();
@@ -2010,6 +2013,49 @@ async function playOrToggleRunner(): Promise<void> {
   }
 }
 
+// ── Idle fallback timer ─────────────────────────────────────────────
+// Claude Code's Stop hook doesn't fire on user interrupt (Escape/Ctrl+C).
+// As a fallback, reset status to idle when terminal output goes silent.
+
+const IDLE_FALLBACK_MS = 5000;
+const idleTimers = new Map<PtyId, ReturnType<typeof setTimeout>>();
+
+/**
+ * Reset (or start) the idle fallback timer for a terminal.
+ * Call on every terminal output event while status is "thinking".
+ */
+export function resetIdleTimer(ptyId: PtyId): void {
+  const existing = idleTimers.get(ptyId);
+  if (existing) clearTimeout(existing);
+
+  const term = terminals.value.find(t => t.ptyId === ptyId);
+  if (!term || term.summaryType !== 'thinking') return;
+
+  idleTimers.set(ptyId, setTimeout(() => {
+    idleTimers.delete(ptyId);
+    const t = terminals.value.find(t => t.ptyId === ptyId);
+    if (t && t.summaryType === 'thinking') {
+      t.summaryType = 'idle';
+      updateTerminalCardLabel(t);
+    }
+  }, IDLE_FALLBACK_MS));
+}
+
+function clearIdleTimer(ptyId: PtyId): void {
+  const existing = idleTimers.get(ptyId);
+  if (existing) {
+    clearTimeout(existing);
+    idleTimers.delete(ptyId);
+  }
+}
+
+function clearAllIdleTimers(): void {
+  for (const timer of idleTimers.values()) {
+    clearTimeout(timer);
+  }
+  idleTimers.clear();
+}
+
 // ── Global hook status listener ──────────────────────────────────────
 
 let hookStatusCleanup: (() => void) | null = null;
@@ -2031,6 +2077,12 @@ export function registerHookStatusListener(): void {
       term.summaryType = summaryType;
       updateTerminalCardLabel(term);
     }
+
+    if (summaryType === 'thinking') {
+      resetIdleTimer(ptyId);
+    } else {
+      clearIdleTimer(ptyId);
+    }
   });
 }
 
@@ -2042,6 +2094,7 @@ export function unregisterHookStatusListener(): void {
     hookStatusCleanup();
     hookStatusCleanup = null;
   }
+  clearAllIdleTimers();
 }
 
 // Register functions in the theatre registry for cross-module access
