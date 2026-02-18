@@ -8,7 +8,6 @@ import { WebLinksAddon } from '@xterm/addon-web-links';
 import type { PtyId, PtySpawnOptions, RunConfig, WorktreeInfo } from '../../types';
 import {
   TheatreTerminal,
-  SummaryType,
   STACK_PAGE_SIZE,
   theatreState,
 } from './state';
@@ -120,9 +119,6 @@ export function resolveTerminalLabel(
   return fallback || 'Shell';
 }
 
-// Track pending summary updates (debounced)
-const pendingSummaryUpdates = new Map<PtyId, ReturnType<typeof setTimeout>>();
-
 /**
  * Get terminal color theme (dark theme for terminal containers)
  */
@@ -150,29 +146,6 @@ export function getTerminalTheme(): Record<string, string> {
     brightCyan: '#99e9f2',
     brightWhite: '#ffffff',
   };
-}
-
-/**
- * Strip ANSI escape codes from terminal output for pattern matching
- */
-export function stripAnsi(str: string): string {
-  // eslint-disable-next-line no-control-regex
-  return str.replace(/\x1b\[[0-9;]*[a-zA-Z]/g, '');
-}
-
-/**
- * Analyze terminal output buffer and determine summary state
- */
-export function analyzeTerminalOutput(_buffer: string, lastOscTitle: string): { summary: string; type: SummaryType } {
-  // Check if the last OSC title contains spinner characters (Claude thinking indicator)
-  // Only braille dots are actual spinners - stars (✻✽✶✳) are static decorations
-  const spinnerChars = /[⠁⠂⠄⠈⠐⠠⡀⢀⠃⠅⠆⠉⠊⠌⠑⠒⠔⠘⠡⠢⠤⠨⠰⡁⡂⡄⡈⡐⡠⢁⢂⢄⢈⢐⢠⣀⠇⠋⠍⠎⠓⠕⠖⠙⠚⠜⠣⠥⠦⠩⠪⠬⠱⠲⠴⠸⡃⡅⡆⡉⡊⡌⡑⡒⡔⡘⡡⡢⡤⡨⡰⢃⢅⢆⢉⢊⢌⢑⢒⢔⢘⢡⢢⢤⢨⢰⣁⣂⣄⣈⣐⣠◐◓◑◒]/;
-
-  if (spinnerChars.test(lastOscTitle)) {
-    return { summary: '', type: 'thinking' };
-  }
-
-  return { summary: '', type: 'idle' };
 }
 
 /**
@@ -262,24 +235,6 @@ export function updateTerminalCardLabel(term: TheatreTerminal): void {
 
   // Sync kanban card status dot if the board is visible
   theatreRegistry.syncKanbanStatusDots?.();
-}
-
-/**
- * Schedule a throttled summary update for a theatre terminal
- */
-export function scheduleTerminalSummaryUpdate(term: TheatreTerminal): void {
-  const existing = pendingSummaryUpdates.get(term.ptyId);
-  if (existing) clearTimeout(existing);
-
-  pendingSummaryUpdates.set(term.ptyId, setTimeout(() => {
-    const { summary, type } = analyzeTerminalOutput(term.outputBuffer, term.lastOscTitle);
-    if (summary !== term.summary || type !== term.summaryType) {
-      term.summary = summary;
-      term.summaryType = type;
-      updateTerminalCardLabel(term);
-    }
-    pendingSummaryUpdates.delete(term.ptyId);
-  }, 150));
 }
 
 /**
@@ -1509,7 +1464,7 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
       resizeObserver: null,
       summary: '',
       summaryType: 'idle',
-      outputBuffer: '',
+
       lastOscTitle: '',
       sandboxed: true,
       taskId: options?.taskId ?? null,
@@ -1666,7 +1621,6 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
       // Set up data listener
       theatreTerminal.cleanupData = window.api.pty.onData(result.ptyId, (data) => {
         terminal.write(data);
-        theatreTerminal!.outputBuffer = (theatreTerminal!.outputBuffer + data).slice(-2000);
 
         const oscMatches = data.matchAll(/\x1b\]0;([^\x07]*)\x07/g);
         for (const match of oscMatches) {
@@ -1677,7 +1631,6 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
           }
         }
 
-        scheduleTerminalSummaryUpdate(theatreTerminal!);
         if (projectPath.value) {
           scheduleTerminalGitStatusRefresh(theatreTerminal!, updateTerminalCardLabel);
         }
@@ -1721,7 +1674,7 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
       resizeObserver: null,
       summary: '',
       summaryType: 'idle',
-      outputBuffer: '',
+
       lastOscTitle: '',
       sandboxed: useSandbox,
       taskId: options?.taskId ?? null,
@@ -1760,9 +1713,6 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
     theatreTerminal.cleanupData = window.api.pty.onData(result.ptyId, (data) => {
       terminal.write(data);
 
-      // Track output for summary analysis (rolling buffer of last 2000 chars)
-      theatreTerminal!.outputBuffer = (theatreTerminal!.outputBuffer + data).slice(-2000);
-
       // Extract OSC title sequences (e.g., \x1b]0;Title Here\x07)
       const oscMatches = data.matchAll(/\x1b\]0;([^\x07]*)\x07/g);
       for (const match of oscMatches) {
@@ -1772,8 +1722,6 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
           updateTerminalCardLabel(theatreTerminal!);
         }
       }
-
-      scheduleTerminalSummaryUpdate(theatreTerminal!);
 
       if (projectPath.value) {
         // Only schedule a refresh of this terminal's git status (not all terminals)
@@ -2061,6 +2009,40 @@ async function playOrToggleRunner(): Promise<void> {
     toggleRunnerPanel(activeTerm);
   } else {
     await runDefaultInCard(activeTerm);
+  }
+}
+
+// ── Global hook status listener ──────────────────────────────────────
+
+let hookStatusCleanup: (() => void) | null = null;
+
+/**
+ * Register a single global listener for Claude Code hook status events.
+ * Maps ptyId → TheatreTerminal and updates summaryType + card label.
+ * Call once when theatre mode initializes; clean up on exit.
+ */
+export function registerHookStatusListener(): void {
+  if (hookStatusCleanup) return; // Already registered
+
+  hookStatusCleanup = window.api.claudeHooks.onStatus((ptyId, status) => {
+    const term = terminals.value.find(t => t.ptyId === ptyId);
+    if (!term) return;
+
+    const summaryType = status === 'thinking' ? 'thinking' : 'idle';
+    if (summaryType !== term.summaryType) {
+      term.summaryType = summaryType;
+      updateTerminalCardLabel(term);
+    }
+  });
+}
+
+/**
+ * Unregister the global hook status listener.
+ */
+export function unregisterHookStatusListener(): void {
+  if (hookStatusCleanup) {
+    hookStatusCleanup();
+    hookStatusCleanup = null;
   }
 }
 

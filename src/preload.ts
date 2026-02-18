@@ -279,6 +279,17 @@ contextBridge.exposeInMainWorld('api', {
   },
 
   /**
+   * Claude Code hook events
+   */
+  claudeHooks: {
+    onStatus: (callback: (ptyId: PtyId, status: string) => void): (() => void) => {
+      const handler = (_event: Electron.IpcRendererEvent, ptyId: PtyId, status: string) => callback(ptyId, status);
+      ipcRenderer.on('claude-hook-status', handler);
+      return () => ipcRenderer.removeListener('claude-hook-status', handler);
+    },
+  },
+
+  /**
    * Get file path from a dropped File object
    */
   getPathForFile: (file: File): string => webUtils.getPathForFile(file),

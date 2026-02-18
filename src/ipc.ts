@@ -3,6 +3,7 @@ import { execSync, execFileSync, spawn } from 'node:child_process';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import * as os from 'node:os';
+import { startHookServer, stopHookServer, installHooks } from './hookServer';
 import { scanForProjects, getAddedProjects, addProject, removeProject } from './scanner';
 import {
   spawnPty,
@@ -47,6 +48,10 @@ import type { PtySpawnOptions, CreateProjectOptions, CreateProjectResult, Projec
  * Registers all IPC handlers for the main process
  */
 export function registerIpcHandlers(mainWindow: BrowserWindow): void {
+  // Start hook API server and install Claude Code hooks
+  startHookServer(mainWindow);
+  installHooks();
+
   // Handler to get all detected projects
   ipcMain.handle('get-projects', async () => {
     try {
@@ -572,4 +577,5 @@ export function registerIpcHandlers(mainWindow: BrowserWindow): void {
 export function cleanupIpc(): void {
   cleanupAllPtys();
   limaPlugin.cleanup();
+  stopHookServer();
 }
