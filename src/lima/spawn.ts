@@ -146,7 +146,6 @@ export async function spawnSandboxedPty(
     // Inject hook API env vars into the VM shell (host.lima.internal resolves to host)
     envExports += `export OUIJIT_PTY_ID='${ptyId}'\n`;
     envExports += `export OUIJIT_API_URL='http://host.lima.internal:${getApiPort()}'\n`;
-    envExports += `export OUIJIT_DEBUG='1'\n`;
 
     // Inject hook script + Claude settings into VM's ephemeral home dir
     const hookSetup = buildVmHookSetup();
