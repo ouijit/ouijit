@@ -189,11 +189,6 @@ describe('status action', () => {
     expect(mockSend).toHaveBeenCalledWith('claude-hook-status', 'pty-123', 'thinking');
   });
 
-  test('sends IPC for valid idle status', async () => {
-    await post(port, { action: 'status', ptyId: 'pty-456', status: 'idle' });
-    expect(mockSend).toHaveBeenCalledWith('claude-hook-status', 'pty-456', 'idle');
-  });
-
   test('sends IPC for valid ready status', async () => {
     await post(port, { action: 'status', ptyId: 'pty-789', status: 'ready' });
     expect(mockSend).toHaveBeenCalledWith('claude-hook-status', 'pty-789', 'ready');

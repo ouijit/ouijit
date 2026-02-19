@@ -25,7 +25,7 @@ export function getApiPort(): number {
 
 type ActionHandler = (body: Record<string, unknown>) => void;
 
-const VALID_STATUSES = new Set(['thinking', 'idle', 'ready']);
+const VALID_STATUSES = new Set(['thinking', 'ready']);
 
 const actionHandlers: Record<string, ActionHandler> = {
   status(body) {

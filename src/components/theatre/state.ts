@@ -8,7 +8,7 @@ import { FitAddon } from '@xterm/addon-fit';
 import type { PtyId, Project, ChangedFile, CompactGitStatus, ActiveSession } from '../../types';
 
 // Summary type for terminal status indication
-export type SummaryType = 'thinking' | 'idle' | 'ready';
+export type SummaryType = 'thinking' | 'ready';
 
 // Theatre terminal interface for multi-terminal support
 export interface TheatreTerminal {

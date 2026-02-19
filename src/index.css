@@ -1196,11 +1196,6 @@ body.platform-darwin:not(.is-fullscreen) .theatre-header-content {
   box-shadow: 0 0 4px rgba(105, 219, 124, 0.5);
 }
 
-.theatre-card-status-dot[data-status="idle"] {
-  @apply bg-[#ffd43b];
-  box-shadow: 0 0 4px rgba(255, 212, 59, 0.5);
-}
-
 .theatre-card-status-dot[data-status="thinking"] {
   @apply bg-[#da77f2];
   box-shadow: 0 0 4px rgba(218, 119, 242, 0.5);
@@ -1850,11 +1845,6 @@ body.kanban-open .theatre-stack {
 .kanban-card-status-dot[data-status="ready"] {
   @apply bg-[#69db7c];
   box-shadow: 0 0 4px rgba(105, 219, 124, 0.5);
-}
-
-.kanban-card-status-dot[data-status="idle"] {
-  @apply bg-[#ffd43b];
-  box-shadow: 0 0 4px rgba(255, 212, 59, 0.5);
 }
 
 .kanban-card-status-dot[data-status="thinking"] {

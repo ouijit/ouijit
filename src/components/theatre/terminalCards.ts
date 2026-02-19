@@ -2023,7 +2023,6 @@ async function playOrToggleRunner(): Promise<void> {
 // Stop / Notification hooks to signal idle.
 
 const IDLE_FALLBACK_MS = 3000;
-const IDLE_INDETERMINATE_MS = 15_000;
 const READY_DEFERRAL_MS = 5_000;
 const idleTimers = new Map<PtyId, ReturnType<typeof setTimeout>>();
 const readyDeferralTimers = new Map<PtyId, ReturnType<typeof setTimeout>>();
@@ -2055,33 +2054,17 @@ function clearReadyDeferral(ptyId: PtyId): void {
  * Reset (or start) the idle fallback timer for a terminal.
  * Call on every terminal output event while status is "thinking".
  *
- * When PostToolUse has fired (count > 1), the indeterminate timer
- * is only armed/reset by hook events — terminal output does NOT reset it,
- * since background agents can produce output for minutes while Claude
- * itself has gone silent.
+ * When PostToolUse has fired (count > 1), no timer is armed —
+ * we rely solely on Stop / Notification hooks (with deferral)
+ * to transition to green.
  */
-export function resetIdleTimer(ptyId: PtyId, fromHook = false): void {
+export function resetIdleTimer(ptyId: PtyId): void {
   const term = terminals.value.find(t => t.ptyId === ptyId);
   if (!term || term.summaryType !== 'thinking') return;
 
-  const count = hookThinkingCounts.get(ptyId) || 0;
-
-  if (count > 1) {
-    // Tools were used this turn → only re-arm timer on hook events.
-    // Terminal output from background agents should not reset the countdown.
-    if (!fromHook) return;
-    const existing = idleTimers.get(ptyId);
-    if (existing) clearTimeout(existing);
-    idleTimers.set(ptyId, setTimeout(() => {
-      idleTimers.delete(ptyId);
-      const t = terminals.value.find(t => t.ptyId === ptyId);
-      if (t && t.summaryType === 'thinking') {
-        t.summaryType = 'idle';
-        updateTerminalCardLabel(t);
-      }
-    }, IDLE_INDETERMINATE_MS));
-    return;
-  }
+  // Tools were used this turn → don't arm the idle timer.
+  // Trust Stop / Notification hooks (with deferral) to transition to green.
+  if ((hookThinkingCounts.get(ptyId) || 0) > 1) return;
 
   // No tools used (count ≤ 1) → 3s fallback to ready (green).
   // Reset on any terminal output (elicitation detection).
@@ -2132,8 +2115,7 @@ let hookStatusCleanup: (() => void) | null = null;
  * When tools were used (count > 1), Stop/Notification hooks don't
  * transition to green immediately — they arm a short deferral timer.
  * If PostToolUse fires within the deferral window, the transition is
- * canceled (Stop was premature — agents still running). This gives the
- * idle indeterminate timer (yellow) a chance to fire first.
+ * canceled (Stop was premature — agents still running).
  */
 export function registerHookStatusListener(): void {
   if (hookStatusCleanup) return; // Already registered
@@ -2154,7 +2136,7 @@ export function registerHookStatusListener(): void {
       }
 
       trackHookThinking(ptyId);
-      resetIdleTimer(ptyId, true);
+      resetIdleTimer(ptyId);
     } else {
       // Stop / Notification → ready
       const count = hookThinkingCounts.get(ptyId) || 0;
