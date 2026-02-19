@@ -2062,9 +2062,10 @@ export function resetIdleTimer(ptyId: PtyId): void {
   const term = terminals.value.find(t => t.ptyId === ptyId);
   if (!term || term.summaryType !== 'thinking') return;
 
-  // Tools were used this turn → don't arm the idle timer.
-  // Trust Stop / Notification hooks (with deferral) to transition to green.
-  if ((hookThinkingCounts.get(ptyId) || 0) > 1) return;
+  // Tools were used this turn → don't arm the idle timer UNLESS one is
+  // already running (post-deferral phase). In that case, re-arm it so
+  // terminal output keeps extending the silence window.
+  if ((hookThinkingCounts.get(ptyId) || 0) > 1 && !idleTimers.has(ptyId)) return;
 
   // No tools used (count ≤ 1) → 3s fallback to ready (green).
   // Reset on any terminal output (elicitation detection).
@@ -2112,10 +2113,10 @@ let hookStatusCleanup: (() => void) | null = null;
  * Maps ptyId → TheatreTerminal and updates summaryType + card label.
  * Call once when theatre mode initializes; clean up on exit.
  *
- * When tools were used (count > 1), Stop/Notification hooks don't
- * transition to green immediately — they arm a short deferral timer.
- * If PostToolUse fires within the deferral window, the transition is
- * canceled (Stop was premature — agents still running).
+ * When tools were used (count > 1), Stop/Notification hooks use a
+ * two-phase transition: first a deferral timer (5s) to catch premature
+ * Stop events, then an idle fallback timer (3s) to wait for terminal
+ * silence. PostToolUse during either phase cancels the transition.
  */
 export function registerHookStatusListener(): void {
   if (hookStatusCleanup) return; // Already registered
@@ -2127,6 +2128,13 @@ export function registerHookStatusListener(): void {
     if (status === 'thinking') {
       // PostToolUse / UserPromptSubmit → purple
       clearReadyDeferral(ptyId);
+      // Also clear any post-deferral idle timer — a new tool event
+      // means Claude is actively working; trust Stop to re-arm later.
+      const existingIdle = idleTimers.get(ptyId);
+      if (existingIdle) {
+        clearTimeout(existingIdle);
+        idleTimers.delete(ptyId);
+      }
 
       if (term.summaryType !== 'thinking') {
         // New thinking cycle — reset count
@@ -2155,11 +2163,22 @@ export function registerHookStatusListener(): void {
         readyDeferralTimers.set(ptyId, setTimeout(() => {
           readyDeferralTimers.delete(ptyId);
           const t = terminals.value.find(t => t.ptyId === ptyId);
-          if (t && t.summaryType !== 'ready') {
-            t.summaryType = 'ready';
-            updateTerminalCardLabel(t);
-          }
-          clearIdleTimer(ptyId);
+          if (!t || t.summaryType !== 'thinking') return;
+          // Don't go green yet — arm the idle fallback timer to wait
+          // for terminal silence. This handles the case where Stop
+          // fired but Claude is still producing output (e.g., sub-agents
+          // running silently for extended periods).
+          const existingIdle = idleTimers.get(ptyId);
+          if (existingIdle) clearTimeout(existingIdle);
+          idleTimers.set(ptyId, setTimeout(() => {
+            idleTimers.delete(ptyId);
+            const t2 = terminals.value.find(t2 => t2.ptyId === ptyId);
+            if (t2 && t2.summaryType === 'thinking') {
+              t2.summaryType = 'ready';
+              updateTerminalCardLabel(t2);
+            }
+            clearHookThinking(ptyId);
+          }, IDLE_FALLBACK_MS));
         }, READY_DEFERRAL_MS));
         return;
       }
