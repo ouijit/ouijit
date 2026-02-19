@@ -134,7 +134,8 @@ export function buildCardGitStatsHtml(compactStatus: CompactGitStatus | null, is
   const hasChanges = dirtyFileCount > 0;
 
   if (hasChanges) {
-    const parts: string[] = [`<span class="theatre-card-git-count">${dirtyFileCount}</span>`];
+    const fileLabel = dirtyFileCount === 1 ? 'file' : 'files';
+    const parts: string[] = [`<span class="theatre-card-git-count">${dirtyFileCount} ${fileLabel}</span>`];
     if (insertions > 0) parts.push(`<span class="theatre-card-git-add">+${insertions}</span>`);
     if (deletions > 0) parts.push(`<span class="theatre-card-git-del">-${deletions}</span>`);
     return `<span class="card-tab theatre-card-git-stats theatre-card-git-stats--clickable" title="View uncommitted changes">${parts.join(' ')}</span>`;

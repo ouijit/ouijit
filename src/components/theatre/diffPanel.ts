@@ -30,6 +30,19 @@ export function formatDiffStats(additions: number, deletions: number): string {
   return parts.length > 0 ? parts.join(' ') : '';
 }
 
+/**
+ * Build the header info summary, e.g. "5 files (2 untracked) +47 -12"
+ */
+function buildHeaderInfoHtml(files: ChangedFile[]): string {
+  const tracked = files.filter(f => f.status !== '?');
+  const totalAdd = tracked.reduce((s, f) => s + f.additions, 0);
+  const totalDel = tracked.reduce((s, f) => s + f.deletions, 0);
+  const untrackedCount = files.length - tracked.length;
+  const fileLabel = files.length === 1 ? 'file' : 'files';
+  const untrackedNote = untrackedCount > 0 ? ` <span class="diff-header-untracked">(${untrackedCount} untracked)</span>` : '';
+  return `${files.length} ${fileLabel}${untrackedNote} ${formatDiffStats(totalAdd, totalDel)}`;
+}
+
 // ==========================================
 // Shared rendering functions
 // ==========================================
@@ -39,10 +52,21 @@ export function formatDiffStats(additions: number, deletions: number): string {
  */
 function fileStatusIcon(status: string): { icon: string; cls: string } {
   switch (status) {
-    case 'A': case '?': return { icon: 'file-plus', cls: 'diff-file-icon--added' };
+    case 'A': return { icon: 'file-plus', cls: 'diff-file-icon--added' };
+    case '?': return { icon: 'file-plus', cls: 'diff-file-icon--untracked' };
     case 'D': return { icon: 'file-minus', cls: 'diff-file-icon--deleted' };
     case 'R': return { icon: 'file-pen', cls: 'diff-file-icon--renamed' };
     default:  return { icon: 'file-diff', cls: 'diff-file-icon--modified' };
+  }
+}
+
+function fileStatusLabel(status: string): string {
+  switch (status) {
+    case '?': return 'untracked';
+    case 'A': return 'added';
+    case 'D': return 'deleted';
+    case 'R': return 'renamed';
+    default:  return 'modified';
   }
 }
 
@@ -106,9 +130,11 @@ export function buildFileListHtml(files: ChangedFile[]): string {
       if (child.file) {
         const { icon, cls } = fileStatusIcon(child.file.status);
         const stats = formatDiffStats(child.file.additions, child.file.deletions);
+        const badge = child.file.status === '?' ? '<span class="diff-file-badge diff-file-badge--untracked">untracked</span>' : '';
         return `<div class="diff-tree-file" data-path="${escapeHtml(child.file.path)}" style="padding-left:${12 + depth * 12}px">
           <i data-lucide="${icon}" class="diff-file-icon ${cls}"></i>
           <span class="diff-tree-name">${escapeHtml(child.name)}</span>
+          ${badge}
           <span class="diff-panel-file-stats">${stats}</span>
         </div>`;
       }
@@ -134,10 +160,13 @@ export function buildFileListHtml(files: ChangedFile[]): string {
 export function buildStackedDiffsHtml(files: ChangedFile[]): string {
   return files.map(file => {
     const stats = formatDiffStats(file.additions, file.deletions);
+    const label = fileStatusLabel(file.status);
+    const badgeCls = file.status === '?' ? 'diff-file-badge--untracked' : `diff-file-badge--${label}`;
     return `
       <div class="diff-file-section" data-path="${escapeHtml(file.path)}">
         <div class="diff-file-section-header">
           <span class="diff-file-section-name" title="${escapeHtml(file.path)}">${escapeHtml(file.path)}</span>
+          <span class="diff-file-badge ${badgeCls}">${label}</span>
           <span class="diff-file-section-stats">${stats}</span>
         </div>
         <div class="diff-file-section-body">
@@ -439,8 +468,9 @@ export async function showTerminalComparePanel(term: TheatreTerminal, mode: 'unc
   const infoCard = panel.querySelector('.compare-mode-info-card');
   if (infoCard) {
     if (mode === 'uncommitted') {
-      const totalAdd = files.reduce((s, f) => s + f.additions, 0);
-      const totalDel = files.reduce((s, f) => s + f.deletions, 0);
+      const tracked = files.filter(f => f.status !== '?');
+      const totalAdd = tracked.reduce((s, f) => s + f.additions, 0);
+      const totalDel = tracked.reduce((s, f) => s + f.deletions, 0);
       infoCard.innerHTML = `
         <div class="compare-info-desc">Working directory changes not yet committed${term.worktreeBranch ? ` to <strong>${escapeHtml(term.worktreeBranch)}</strong>` : ''}.</div>
         <div class="compare-info-stats">${files.length} file${files.length !== 1 ? 's' : ''} changed ${formatDiffStats(totalAdd, totalDel)}</div>
@@ -473,9 +503,7 @@ export async function showTerminalComparePanel(term: TheatreTerminal, mode: 'unc
   // Update header info with file stats (both modes)
   const headerInfo = panel.querySelector('.diff-header-info');
   if (headerInfo) {
-    const totalAdd = files.reduce((s, f) => s + f.additions, 0);
-    const totalDel = files.reduce((s, f) => s + f.deletions, 0);
-    headerInfo.innerHTML = `${files.length} file${files.length !== 1 ? 's' : ''} ${formatDiffStats(totalAdd, totalDel)}`;
+    headerInfo.innerHTML = buildHeaderInfoHtml(files);
   }
 
   // Render lucide icons (info icon, sidebar icons, etc.)
@@ -621,9 +649,7 @@ async function swapCompareTarget(term: TheatreTerminal, panel: HTMLElement, newT
   // Update file stats in header
   const headerInfo = panel.querySelector('.diff-header-info');
   if (headerInfo) {
-    const totalAdd = files.reduce((s, f) => s + f.additions, 0);
-    const totalDel = files.reduce((s, f) => s + f.deletions, 0);
-    headerInfo.innerHTML = `${files.length} file${files.length !== 1 ? 's' : ''} ${formatDiffStats(totalAdd, totalDel)}`;
+    headerInfo.innerHTML = buildHeaderInfoHtml(files);
   }
 
   // Update info card with new target

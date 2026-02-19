@@ -161,10 +161,11 @@ body > .diff-panel--visible {
   @apply w-[16px] h-[16px] shrink-0;
 }
 
-.diff-file-icon--modified { @apply text-white/50; }
-.diff-file-icon--added    { @apply text-[#34C759]; }
-.diff-file-icon--deleted  { @apply text-[#FF3B30]; }
-.diff-file-icon--renamed  { @apply text-[#5856D6]; }
+.diff-file-icon--modified  { @apply text-white/50; }
+.diff-file-icon--added     { @apply text-[#34C759]; }
+.diff-file-icon--untracked { @apply text-[#FF9F0A]; }
+.diff-file-icon--deleted   { @apply text-[#FF3B30]; }
+.diff-file-icon--renamed   { @apply text-[#5856D6]; }
 
 /* ==========================================
    Diff Content Area
@@ -244,9 +245,24 @@ body > .diff-panel--visible {
   @apply w-12 h-12 opacity-50;
 }
 
+/* File status badges */
+.diff-file-badge {
+  @apply shrink-0 text-[11px] px-1 py-px rounded font-medium;
+}
+
+.diff-file-badge--untracked { @apply bg-[#FF9F0A]/15 text-[#FF9F0A]; }
+.diff-file-badge--added     { @apply bg-[#34C759]/15 text-[#34C759]; }
+.diff-file-badge--deleted   { @apply bg-[#FF3B30]/15 text-[#FF3B30]; }
+.diff-file-badge--renamed   { @apply bg-[#5856D6]/15 text-[#5856D6]; }
+.diff-file-badge--modified  { @apply bg-white/[0.06] text-white/40; }
+
 /* Header info */
 .diff-header-info {
   @apply text-xs text-text-tertiary ml-auto relative;
+}
+
+.diff-header-untracked {
+  @apply text-[#FF9F0A]/70;
 }
 
 /* ==========================================
