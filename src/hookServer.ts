@@ -25,7 +25,7 @@ export function getApiPort(): number {
 
 type ActionHandler = (body: Record<string, unknown>) => void;
 
-const VALID_STATUSES = new Set(['thinking', 'idle']);
+const VALID_STATUSES = new Set(['thinking', 'idle', 'ready']);
 
 const actionHandlers: Record<string, ActionHandler> = {
   status(body) {
@@ -115,7 +115,7 @@ export function stopHookServer(): Promise<void> {
 // ── Hook installer ───────────────────────────────────────────────────
 
 // Bump this when HELPER_SCRIPT or OUIJIT_HOOKS change.
-export const HOOK_VERSION = 12;
+export const HOOK_VERSION = 13;
 
 // Safe pattern: alphanumeric, hyphens, dots, underscores
 const SAFE_VALUE = '[a-zA-Z0-9._-]+';
@@ -192,10 +192,10 @@ const OUIJIT_HOOKS: Record<string, ClaudeHookMatcher[]> = {
     { hooks: [{ type: 'command', command: '$HOME/.config/Ouijit/bin/ouijit-hook status status=thinking' }] },
   ],
   Stop: [
-    { hooks: [{ type: 'command', command: '$HOME/.config/Ouijit/bin/ouijit-hook status status=idle' }] },
+    { hooks: [{ type: 'command', command: '$HOME/.config/Ouijit/bin/ouijit-hook status status=ready' }] },
   ],
   Notification: [
-    { matcher: 'permission_prompt|idle_prompt', hooks: [{ type: 'command', command: '$HOME/.config/Ouijit/bin/ouijit-hook status status=idle' }] },
+    { matcher: 'permission_prompt|idle_prompt', hooks: [{ type: 'command', command: '$HOME/.config/Ouijit/bin/ouijit-hook status status=ready' }] },
   ],
 };
 
@@ -287,10 +287,10 @@ const VM_HOOKS: Record<string, ClaudeHookMatcher[]> = {
     { hooks: [{ type: 'command', command: `${VM_HOOK_CMD} status status=thinking` }] },
   ],
   Stop: [
-    { hooks: [{ type: 'command', command: `${VM_HOOK_CMD} status status=idle` }] },
+    { hooks: [{ type: 'command', command: `${VM_HOOK_CMD} status status=ready` }] },
   ],
   Notification: [
-    { matcher: 'permission_prompt|idle_prompt', hooks: [{ type: 'command', command: `${VM_HOOK_CMD} status status=idle` }] },
+    { matcher: 'permission_prompt|idle_prompt', hooks: [{ type: 'command', command: `${VM_HOOK_CMD} status status=ready` }] },
   ],
 };
 

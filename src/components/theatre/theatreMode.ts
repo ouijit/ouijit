@@ -839,7 +839,7 @@ async function reconnectTheatreTerminal(session: ActiveSession, worktreeBranch?:
     cleanupExit: null,
     resizeObserver,
     summary: '',
-    summaryType: 'idle',
+    summaryType: 'ready',
     lastOscTitle: '',
     sandboxed: !!session.sandboxed,
     taskId: session.taskId ?? null,

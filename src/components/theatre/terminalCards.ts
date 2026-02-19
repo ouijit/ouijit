@@ -252,7 +252,7 @@ export function createTheatreCard(label: string, index: number): HTMLElement {
   labelEl.innerHTML = `
     <div class="theatre-card-label-left">
       <div class="theatre-card-label-top">
-        <span class="theatre-card-status-dot" data-status="idle"></span>
+        <span class="theatre-card-status-dot" data-status="ready"></span>
         <kbd class="theatre-card-shortcut" style="display: none;"></kbd>
         <span class="theatre-card-label-text">${label}</span>
       </div>
@@ -1463,7 +1463,7 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
       cleanupExit: null,
       resizeObserver: null,
       summary: '',
-      summaryType: 'idle',
+      summaryType: 'ready',
       lastOscTitle: '',
       sandboxed: true,
       taskId: options?.taskId ?? null,
@@ -1642,7 +1642,7 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
         const exitColor = exitCode === 0 ? '32' : '31';
         terminal.writeln(`\x1b[${exitColor}m● Process exited with code ${exitCode}\x1b[0m`);
         theatreTerminal!.summary = exitCode === 0 ? 'Exited' : `Exit ${exitCode}`;
-        theatreTerminal!.summaryType = 'idle';
+        theatreTerminal!.summaryType = 'ready';
         updateTerminalCardLabel(theatreTerminal!);
       });
 
@@ -1673,7 +1673,7 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
       cleanupExit: null,
       resizeObserver: null,
       summary: '',
-      summaryType: 'idle',
+      summaryType: 'ready',
       lastOscTitle: '',
       sandboxed: useSandbox,
       taskId: options?.taskId ?? null,
@@ -1737,7 +1737,7 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
 
       // Update summary to show exit status
       theatreTerminal!.summary = exitCode === 0 ? 'Exited' : `Exit ${exitCode}`;
-      theatreTerminal!.summaryType = 'idle';
+      theatreTerminal!.summaryType = 'ready';
       updateTerminalCardLabel(theatreTerminal!);
     });
 
@@ -2023,7 +2023,10 @@ async function playOrToggleRunner(): Promise<void> {
 // Stop / Notification hooks to signal idle.
 
 const IDLE_FALLBACK_MS = 3000;
+const IDLE_INDETERMINATE_MS = 15_000;
+const READY_DEFERRAL_MS = 5_000;
 const idleTimers = new Map<PtyId, ReturnType<typeof setTimeout>>();
+const readyDeferralTimers = new Map<PtyId, ReturnType<typeof setTimeout>>();
 
 // Count of hook "thinking" signals since the last idle transition per ptyId.
 // 1 = only UserPromptSubmit fired (possible elicitation coming).
@@ -2040,29 +2043,55 @@ function clearHookThinking(ptyId: PtyId): void {
   hookThinkingCounts.delete(ptyId);
 }
 
+function clearReadyDeferral(ptyId: PtyId): void {
+  const existing = readyDeferralTimers.get(ptyId);
+  if (existing) {
+    clearTimeout(existing);
+    readyDeferralTimers.delete(ptyId);
+  }
+}
+
 /**
  * Reset (or start) the idle fallback timer for a terminal.
  * Call on every terminal output event while status is "thinking".
  *
- * When PostToolUse has fired (count > 1), the timer is NOT armed —
- * we rely solely on Stop / Notification hooks to signal idle.
+ * When PostToolUse has fired (count > 1), the indeterminate timer
+ * is only armed/reset by hook events — terminal output does NOT reset it,
+ * since background agents can produce output for minutes while Claude
+ * itself has gone silent.
  */
-export function resetIdleTimer(ptyId: PtyId): void {
-  const existing = idleTimers.get(ptyId);
-  if (existing) clearTimeout(existing);
-
+export function resetIdleTimer(ptyId: PtyId, fromHook = false): void {
   const term = terminals.value.find(t => t.ptyId === ptyId);
   if (!term || term.summaryType !== 'thinking') return;
 
-  // Tools were used this turn → don't arm the idle timer.
-  // Trust Stop / Notification hooks to transition to idle.
-  if ((hookThinkingCounts.get(ptyId) || 0) > 1) return;
+  const count = hookThinkingCounts.get(ptyId) || 0;
 
+  if (count > 1) {
+    // Tools were used this turn → only re-arm timer on hook events.
+    // Terminal output from background agents should not reset the countdown.
+    if (!fromHook) return;
+    const existing = idleTimers.get(ptyId);
+    if (existing) clearTimeout(existing);
+    idleTimers.set(ptyId, setTimeout(() => {
+      idleTimers.delete(ptyId);
+      const t = terminals.value.find(t => t.ptyId === ptyId);
+      if (t && t.summaryType === 'thinking') {
+        t.summaryType = 'idle';
+        updateTerminalCardLabel(t);
+      }
+    }, IDLE_INDETERMINATE_MS));
+    return;
+  }
+
+  // No tools used (count ≤ 1) → 3s fallback to ready (green).
+  // Reset on any terminal output (elicitation detection).
+  const existing = idleTimers.get(ptyId);
+  if (existing) clearTimeout(existing);
   idleTimers.set(ptyId, setTimeout(() => {
     idleTimers.delete(ptyId);
     const t = terminals.value.find(t => t.ptyId === ptyId);
     if (t && t.summaryType === 'thinking') {
-      t.summaryType = 'idle';
+      t.summaryType = 'ready';
       updateTerminalCardLabel(t);
     }
     clearHookThinking(ptyId);
@@ -2075,6 +2104,7 @@ function clearIdleTimer(ptyId: PtyId): void {
     clearTimeout(existing);
     idleTimers.delete(ptyId);
   }
+  clearReadyDeferral(ptyId);
   clearHookThinking(ptyId);
 }
 
@@ -2083,6 +2113,10 @@ function clearAllIdleTimers(): void {
     clearTimeout(timer);
   }
   idleTimers.clear();
+  for (const timer of readyDeferralTimers.values()) {
+    clearTimeout(timer);
+  }
+  readyDeferralTimers.clear();
   hookThinkingCounts.clear();
 }
 
@@ -2094,6 +2128,12 @@ let hookStatusCleanup: (() => void) | null = null;
  * Register a single global listener for Claude Code hook status events.
  * Maps ptyId → TheatreTerminal and updates summaryType + card label.
  * Call once when theatre mode initializes; clean up on exit.
+ *
+ * When tools were used (count > 1), Stop/Notification hooks don't
+ * transition to green immediately — they arm a short deferral timer.
+ * If PostToolUse fires within the deferral window, the transition is
+ * canceled (Stop was premature — agents still running). This gives the
+ * idle indeterminate timer (yellow) a chance to fire first.
  */
 export function registerHookStatusListener(): void {
   if (hookStatusCleanup) return; // Already registered
@@ -2102,16 +2142,51 @@ export function registerHookStatusListener(): void {
     const term = terminals.value.find(t => t.ptyId === ptyId);
     if (!term) return;
 
-    const summaryType = status === 'thinking' ? 'thinking' : 'idle';
-    if (summaryType !== term.summaryType) {
-      term.summaryType = summaryType;
-      updateTerminalCardLabel(term);
-    }
+    if (status === 'thinking') {
+      // PostToolUse / UserPromptSubmit → purple
+      clearReadyDeferral(ptyId);
 
-    if (summaryType === 'thinking') {
+      if (term.summaryType !== 'thinking') {
+        // New thinking cycle — reset count
+        clearHookThinking(ptyId);
+        term.summaryType = 'thinking';
+        updateTerminalCardLabel(term);
+      }
+
       trackHookThinking(ptyId);
-      resetIdleTimer(ptyId);
+      resetIdleTimer(ptyId, true);
     } else {
+      // Stop / Notification → ready
+      const count = hookThinkingCounts.get(ptyId) || 0;
+
+      if (count > 1 && term.summaryType === 'thinking') {
+        // Tools were used and we're actively thinking — Stop/Notification
+        // may be premature (main process done but agents still running).
+        // Defer the green transition; if PostToolUse fires within the
+        // deferral window, it cancels the transition and stays purple.
+        const existingIdle = idleTimers.get(ptyId);
+        if (existingIdle) {
+          clearTimeout(existingIdle);
+          idleTimers.delete(ptyId);
+        }
+        clearReadyDeferral(ptyId);
+        readyDeferralTimers.set(ptyId, setTimeout(() => {
+          readyDeferralTimers.delete(ptyId);
+          const t = terminals.value.find(t => t.ptyId === ptyId);
+          if (t && t.summaryType !== 'ready') {
+            t.summaryType = 'ready';
+            updateTerminalCardLabel(t);
+          }
+          clearIdleTimer(ptyId);
+        }, READY_DEFERRAL_MS));
+        return;
+      }
+
+      // Simple case (no tools used, or already in idle/ready): go green
+      if (term.summaryType !== 'ready') {
+        term.summaryType = 'ready';
+        updateTerminalCardLabel(term);
+      }
       clearIdleTimer(ptyId);
     }
   });
