@@ -23,6 +23,8 @@ import {
   installHooks,
   uninstallHooks,
   isOuijitHook,
+  buildVmHookSettings,
+  cleanupProjectHookArtifacts,
   HOOK_VERSION,
   type ClaudeHookMatcher,
   type ClaudeSettings,
@@ -284,6 +286,7 @@ describe('installHooks', () => {
     const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8')) as ClaudeSettings;
     expect(settings.hooks).toBeDefined();
     expect(settings.hooks!.UserPromptSubmit).toHaveLength(1);
+    expect(settings.hooks!.PostToolUse).toHaveLength(1);
     expect(settings.hooks!.Stop).toHaveLength(1);
     expect(settings.hooks!.Notification).toHaveLength(1);
     expect(settings.hooks!.Notification![0].matcher).toBe('permission_prompt|idle_prompt');
@@ -362,6 +365,7 @@ describe('installHooks', () => {
     const settingsPath = path.join(tmpHome, '.claude', 'settings.json');
     const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8')) as ClaudeSettings;
     expect(settings.hooks!.UserPromptSubmit).toHaveLength(1);
+    expect(settings.hooks!.PostToolUse).toHaveLength(1);
     expect(settings.hooks!.Stop).toHaveLength(1);
     expect(settings.hooks!.Notification).toHaveLength(1);
   });
@@ -434,5 +438,152 @@ describe('uninstallHooks', () => {
     const settingsPath = path.join(tmpHome, '.claude', 'settings.json');
     fs.unlinkSync(settingsPath);
     uninstallHooks(); // Should not throw
+  });
+});
+
+// ── buildVmHookSettings ──────────────────────────────────────────────
+
+describe('buildVmHookSettings', () => {
+  test('returns valid JSON', () => {
+    const json = buildVmHookSettings();
+    const settings = JSON.parse(json) as ClaudeSettings;
+    expect(settings).toBeDefined();
+    expect(typeof settings).toBe('object');
+  });
+
+  test('contains expected hook events', () => {
+    const settings = JSON.parse(buildVmHookSettings()) as ClaudeSettings;
+    expect(settings.hooks).toBeDefined();
+    expect(settings.hooks!.UserPromptSubmit).toHaveLength(1);
+    expect(settings.hooks!.PostToolUse).toHaveLength(1);
+    expect(settings.hooks!.Stop).toHaveLength(1);
+    expect(settings.hooks!.Notification).toHaveLength(1);
+    expect(settings.hooks!.Notification![0].matcher).toBe('permission_prompt|idle_prompt');
+  });
+
+  test('commands point to $HOME/ouijit-hook', () => {
+    const settings = JSON.parse(buildVmHookSettings()) as ClaudeSettings;
+    for (const event of ['UserPromptSubmit', 'PostToolUse', 'Stop', 'Notification']) {
+      const cmd = settings.hooks![event][0].hooks[0].command;
+      expect(cmd).toContain('$HOME/ouijit-hook');
+      // Should NOT reference project dir or global config path
+      expect(cmd).not.toContain('CLAUDE_PROJECT_DIR');
+      expect(cmd).not.toContain('.config/Ouijit');
+    }
+  });
+});
+
+// ── cleanupProjectHookArtifacts ──────────────────────────────────────
+
+describe('cleanupProjectHookArtifacts', () => {
+  let projectDir: string;
+
+  beforeEach(() => {
+    projectDir = fs.mkdtempSync(path.join(os.tmpdir(), 'cleanup-test-'));
+  });
+
+  afterEach(() => {
+    fs.rmSync(projectDir, { recursive: true, force: true });
+  });
+
+  test('removes hook script and version file', () => {
+    const hooksDir = path.join(projectDir, '.claude', 'hooks');
+    fs.mkdirSync(hooksDir, { recursive: true });
+    fs.writeFileSync(path.join(hooksDir, 'ouijit-hook'), '#!/bin/bash\n', { mode: 0o755 });
+    fs.writeFileSync(path.join(hooksDir, '.ouijit-hooks-version'), '4\n');
+
+    cleanupProjectHookArtifacts(projectDir);
+
+    expect(fs.existsSync(path.join(hooksDir, 'ouijit-hook'))).toBe(false);
+    expect(fs.existsSync(path.join(hooksDir, '.ouijit-hooks-version'))).toBe(false);
+  });
+
+  test('removes empty hooks directory', () => {
+    const hooksDir = path.join(projectDir, '.claude', 'hooks');
+    fs.mkdirSync(hooksDir, { recursive: true });
+    fs.writeFileSync(path.join(hooksDir, 'ouijit-hook'), '#!/bin/bash\n');
+
+    cleanupProjectHookArtifacts(projectDir);
+
+    expect(fs.existsSync(hooksDir)).toBe(false);
+  });
+
+  test('preserves hooks directory if it has other files', () => {
+    const hooksDir = path.join(projectDir, '.claude', 'hooks');
+    fs.mkdirSync(hooksDir, { recursive: true });
+    fs.writeFileSync(path.join(hooksDir, 'ouijit-hook'), '#!/bin/bash\n');
+    fs.writeFileSync(path.join(hooksDir, 'user-hook.sh'), '#!/bin/bash\necho hi\n');
+
+    cleanupProjectHookArtifacts(projectDir);
+
+    expect(fs.existsSync(path.join(hooksDir, 'ouijit-hook'))).toBe(false);
+    expect(fs.existsSync(path.join(hooksDir, 'user-hook.sh'))).toBe(true);
+    expect(fs.existsSync(hooksDir)).toBe(true);
+  });
+
+  test('strips ouijit hooks from settings.local.json', () => {
+    const claudeDir = path.join(projectDir, '.claude');
+    fs.mkdirSync(claudeDir, { recursive: true });
+    const settingsPath = path.join(claudeDir, 'settings.local.json');
+    const settings: ClaudeSettings = {
+      hooks: {
+        Stop: [
+          { hooks: [{ type: 'command', command: '/usr/local/bin/user-hook' }] },
+          { hooks: [{ type: 'command', command: '"$CLAUDE_PROJECT_DIR/.claude/hooks/ouijit-hook" status status=idle' }] },
+        ],
+        UserPromptSubmit: [
+          { hooks: [{ type: 'command', command: '"$CLAUDE_PROJECT_DIR/.claude/hooks/ouijit-hook" status status=thinking' }] },
+        ],
+      },
+      someOtherSetting: true,
+    };
+    fs.writeFileSync(settingsPath, JSON.stringify(settings), 'utf-8');
+
+    cleanupProjectHookArtifacts(projectDir);
+
+    const after = JSON.parse(fs.readFileSync(settingsPath, 'utf-8')) as ClaudeSettings;
+    // User hook preserved
+    expect(after.hooks!.Stop).toHaveLength(1);
+    expect(after.hooks!.Stop![0].hooks[0].command).toBe('/usr/local/bin/user-hook');
+    // Ouijit-only event removed
+    expect(after.hooks!.UserPromptSubmit).toBeUndefined();
+    // Other settings preserved
+    expect(after.someOtherSetting).toBe(true);
+  });
+
+  test('deletes settings.local.json when empty after cleanup', () => {
+    const claudeDir = path.join(projectDir, '.claude');
+    fs.mkdirSync(claudeDir, { recursive: true });
+    const settingsPath = path.join(claudeDir, 'settings.local.json');
+    const settings: ClaudeSettings = {
+      hooks: {
+        Stop: [
+          { hooks: [{ type: 'command', command: '"$CLAUDE_PROJECT_DIR/.claude/hooks/ouijit-hook" status status=idle' }] },
+        ],
+      },
+    };
+    fs.writeFileSync(settingsPath, JSON.stringify(settings), 'utf-8');
+
+    cleanupProjectHookArtifacts(projectDir);
+
+    expect(fs.existsSync(settingsPath)).toBe(false);
+  });
+
+  test('handles missing .claude directory gracefully', () => {
+    cleanupProjectHookArtifacts(projectDir); // Should not throw
+  });
+
+  test('handles missing settings.local.json gracefully', () => {
+    fs.mkdirSync(path.join(projectDir, '.claude'), { recursive: true });
+    cleanupProjectHookArtifacts(projectDir); // Should not throw
+  });
+
+  test('is idempotent', () => {
+    const hooksDir = path.join(projectDir, '.claude', 'hooks');
+    fs.mkdirSync(hooksDir, { recursive: true });
+    fs.writeFileSync(path.join(hooksDir, 'ouijit-hook'), '#!/bin/bash\n');
+
+    cleanupProjectHookArtifacts(projectDir);
+    cleanupProjectHookArtifacts(projectDir); // Should not throw
   });
 });

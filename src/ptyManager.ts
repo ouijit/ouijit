@@ -123,6 +123,7 @@ export async function spawnPty(
     // Inject hook API env vars so Claude Code hooks can reach us
     finalEnv['OUIJIT_PTY_ID'] = ptyId;
     finalEnv['OUIJIT_API_URL'] = `http://127.0.0.1:${getApiPort()}`;
+    finalEnv['OUIJIT_DEBUG'] = '1';
 
     // Expand environment variables in the command if provided
     let expandedCommand = options.command || '';

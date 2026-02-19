@@ -4,7 +4,7 @@ import type { PtySpawnOptions, PtySpawnResult, PtyId } from '../types';
 import { generateId } from '../utils/ids';
 import { ensureRunning, getLimactlPath, getLimaEnv } from './manager';
 import { getSandboxConfig } from '../projectSettings';
-import { getApiPort, installProjectHooks } from '../hookServer';
+import { getApiPort, HELPER_SCRIPT, buildVmHookSettings, cleanupProjectHookArtifacts } from '../hookServer';
 
 interface ManagedSandboxPty {
   process: pty.IPty;
@@ -67,6 +67,29 @@ function handleOutput(ptyId: PtyId, channel: string, data: string): void {
 }
 
 /**
+ * Build bash commands that inject the ouijit-hook script and Claude settings
+ * into the VM's ephemeral home directory. Runs once per shell spawn so hooks
+ * are always fresh (never stale).
+ */
+function buildVmHookSetup(): string {
+  const hookScript = HELPER_SCRIPT;
+  const hookSettings = buildVmHookSettings();
+  return [
+    // Write hook script using quoted heredoc (prevents $VAR expansion at write time)
+    `cat > ~/ouijit-hook <<'OUIJIT_HOOK_EOF'`,
+    hookScript,
+    'OUIJIT_HOOK_EOF',
+    'chmod +x ~/ouijit-hook',
+    // Write Claude settings
+    'mkdir -p ~/.claude',
+    `cat > ~/.claude/settings.json <<'OUIJIT_SETTINGS_EOF'`,
+    hookSettings,
+    'OUIJIT_SETTINGS_EOF',
+    '',
+  ].join('\n');
+}
+
+/**
  * Spawn a sandboxed PTY via `limactl shell`.
  * Worktree files are shared via writable mounts — no sync needed.
  */
@@ -79,10 +102,8 @@ export async function spawnSandboxedPty(
     currentWindow = window;
     const projectPath = options.projectPath || options.cwd;
 
-    // Install project-level Claude hooks so they're visible inside the VM.
-    // Use cwd (not projectPath) — Claude Code's project dir is where it runs,
-    // which for worktrees differs from the main project root.
-    installProjectHooks(options.cwd);
+    // Clean up legacy project-level hook artifacts (from earlier versions).
+    cleanupProjectHookArtifacts(options.cwd);
 
     // Load per-project sandbox config for VM resource overrides
     const sandboxConfig = await getSandboxConfig(projectPath);
@@ -125,6 +146,10 @@ export async function spawnSandboxedPty(
     // Inject hook API env vars into the VM shell (host.lima.internal resolves to host)
     envExports += `export OUIJIT_PTY_ID='${ptyId}'\n`;
     envExports += `export OUIJIT_API_URL='http://host.lima.internal:${getApiPort()}'\n`;
+    envExports += `export OUIJIT_DEBUG='1'\n`;
+
+    // Inject hook script + Claude settings into VM's ephemeral home dir
+    const hookSetup = buildVmHookSetup();
 
     // Build the command to run inside the VM
     let innerCmd: string;
@@ -142,9 +167,9 @@ export async function spawnSandboxedPty(
     if (options.command) {
       // Run command then drop to interactive bash
       const escapedCmd = options.command.replace(/'/g, "'\\''");
-      innerCmd = `${envExports}${setupPrefix}${escapedCmd}; exec bash`;
+      innerCmd = `${envExports}${hookSetup}${setupPrefix}${escapedCmd}; exec bash`;
     } else {
-      innerCmd = `${envExports}${setupPrefix}exec bash`;
+      innerCmd = `${envExports}${hookSetup}${setupPrefix}exec bash`;
     }
 
     // Build limactl shell args

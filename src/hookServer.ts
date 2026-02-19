@@ -115,15 +115,36 @@ export function stopHookServer(): Promise<void> {
 // ── Hook installer ───────────────────────────────────────────────────
 
 // Bump this when HELPER_SCRIPT or OUIJIT_HOOKS change.
-export const HOOK_VERSION = 4;
+export const HOOK_VERSION = 12;
 
 // Safe pattern: alphanumeric, hyphens, dots, underscores
 const SAFE_VALUE = '[a-zA-Z0-9._-]+';
 
-const HELPER_SCRIPT = [
+export const HELPER_SCRIPT = [
   '#!/bin/bash',
   '# Ouijit API client for Claude Code hooks',
   '# Usage: ouijit-hook <action> [key=value ...]',
+  '',
+  '# Read stdin (Claude Code sends JSON context to hooks via stdin)',
+  'STDIN_DATA=""',
+  'if ! [ -t 0 ]; then',
+  '  STDIN_DATA=$(cat)',
+  'fi',
+  '',
+  'LOGFILE="${TMPDIR:-/tmp}/ouijit-hook.log"',
+  '',
+  '# Log every invocation with stdin context',
+  '{',
+  '  echo "---"',
+  '  echo "[$(date +%H:%M:%S.%3N)] args: $@"',
+  '  echo "  ptyId=$OUIJIT_PTY_ID url=$OUIJIT_API_URL"',
+  '  if [ -n "$STDIN_DATA" ]; then',
+  '    hook_event=$(echo "$STDIN_DATA" | grep -o \'"hook_event_name":"[^"]*"\' | head -1)',
+  '    tool_name=$(echo "$STDIN_DATA" | grep -o \'"tool_name":"[^"]*"\' | head -1)',
+  '    echo "  stdin: $hook_event $tool_name"',
+  '  fi',
+  '} >> "$LOGFILE" 2>/dev/null',
+  '',
   '[ -z "$OUIJIT_API_URL" ] && exit 0',
   '',
   '# Validate inputs to prevent malformed JSON',
@@ -139,17 +160,9 @@ const HELPER_SCRIPT = [
   '  json="$json,\\"$key\\":\\"$val\\""',
   'done',
   '',
-  'if [ -n "$OUIJIT_DEBUG" ]; then',
-  '  status=$(curl -sf -o /dev/null -w \'%{http_code}\' -X POST "$OUIJIT_API_URL/hook" \\',
-  '    -H "Content-Type: application/json" \\',
-  '    -d "{$json}" 2>/dev/null)',
-  '  [ "$status" != "200" ] && \\',
-  '    echo "[ouijit-hook] $action -> HTTP $status" >> "${TMPDIR:-/tmp}/ouijit-hook.log"',
-  'else',
-  '  curl -sf -o /dev/null -X POST "$OUIJIT_API_URL/hook" \\',
-  '    -H "Content-Type: application/json" \\',
-  '    -d "{$json}" 2>/dev/null &',
-  'fi',
+  'curl -sf -o /dev/null -X POST "$OUIJIT_API_URL/hook" \\',
+  '  -H "Content-Type: application/json" \\',
+  '  -d "{$json}" 2>/dev/null &',
   '',
 ].join('\n');
 
@@ -168,17 +181,22 @@ export interface ClaudeSettings {
   [key: string]: unknown;
 }
 
-const OUIJIT_HOOKS: Record<string, ClaudeHookMatcher> = {
-  UserPromptSubmit: {
-    hooks: [{ type: 'command', command: '$HOME/.config/Ouijit/bin/ouijit-hook status status=thinking' }],
-  },
-  Stop: {
-    hooks: [{ type: 'command', command: '$HOME/.config/Ouijit/bin/ouijit-hook status status=idle' }],
-  },
-  Notification: {
-    matcher: 'permission_prompt|idle_prompt',
-    hooks: [{ type: 'command', command: '$HOME/.config/Ouijit/bin/ouijit-hook status status=idle' }],
-  },
+// NOTE: PreToolUse, PermissionRequest, and Notification (elicitation_dialog)
+// do NOT fire for AskUserQuestion. The idle fallback timer in the renderer
+// handles the transition to idle when Claude shows an elicitation.
+const OUIJIT_HOOKS: Record<string, ClaudeHookMatcher[]> = {
+  UserPromptSubmit: [
+    { hooks: [{ type: 'command', command: '$HOME/.config/Ouijit/bin/ouijit-hook status status=thinking' }] },
+  ],
+  PostToolUse: [
+    { hooks: [{ type: 'command', command: '$HOME/.config/Ouijit/bin/ouijit-hook status status=thinking' }] },
+  ],
+  Stop: [
+    { hooks: [{ type: 'command', command: '$HOME/.config/Ouijit/bin/ouijit-hook status status=idle' }] },
+  ],
+  Notification: [
+    { matcher: 'permission_prompt|idle_prompt', hooks: [{ type: 'command', command: '$HOME/.config/Ouijit/bin/ouijit-hook status status=idle' }] },
+  ],
 };
 
 export function isOuijitHook(entry: ClaudeHookMatcher): boolean {
@@ -231,14 +249,14 @@ export function installHooks(): void {
       settings.hooks = {};
     }
 
-    for (const [event, ouijitEntry] of Object.entries(OUIJIT_HOOKS)) {
+    for (const [event, ouijitEntries] of Object.entries(OUIJIT_HOOKS)) {
       const existing = settings.hooks[event] || [];
 
       // Remove any existing Ouijit hook entries for this event
       const filtered = existing.filter(e => !isOuijitHook(e));
 
-      // Append our entry
-      filtered.push(ouijitEntry);
+      // Append our entries
+      filtered.push(...ouijitEntries);
       settings.hooks[event] = filtered;
     }
 
@@ -254,86 +272,103 @@ export function installHooks(): void {
   }
 }
 
-// ── Project-level hook installer ─────────────────────────────────────
-// Sandboxed Lima VMs only mount the project directory, so the global
-// ~/.claude/settings.json and ~/.config/Ouijit/bin/ouijit-hook are NOT
-// accessible inside the VM. We install the hook script and settings at
-// the project level so Claude Code inside the VM can find them.
+// ── VM hook injection ────────────────────────────────────────────────
+// Sandboxed Lima VMs only mount the project directory. Instead of writing
+// hook files into the project (which pollutes git), we inject the hook
+// script and settings into the VM's ephemeral home directory at spawn time.
 
-const PROJECT_HOOK_CMD_PREFIX = '"$CLAUDE_PROJECT_DIR/.claude/hooks/ouijit-hook"';
+const VM_HOOK_CMD = '$HOME/ouijit-hook';
 
-const PROJECT_HOOKS: Record<string, ClaudeHookMatcher> = {
-  UserPromptSubmit: {
-    hooks: [{ type: 'command', command: `${PROJECT_HOOK_CMD_PREFIX} status status=thinking` }],
-  },
-  Stop: {
-    hooks: [{ type: 'command', command: `${PROJECT_HOOK_CMD_PREFIX} status status=idle` }],
-  },
-  Notification: {
-    matcher: 'permission_prompt|idle_prompt',
-    hooks: [{ type: 'command', command: `${PROJECT_HOOK_CMD_PREFIX} status status=idle` }],
-  },
+const VM_HOOKS: Record<string, ClaudeHookMatcher[]> = {
+  UserPromptSubmit: [
+    { hooks: [{ type: 'command', command: `${VM_HOOK_CMD} status status=thinking` }] },
+  ],
+  PostToolUse: [
+    { hooks: [{ type: 'command', command: `${VM_HOOK_CMD} status status=thinking` }] },
+  ],
+  Stop: [
+    { hooks: [{ type: 'command', command: `${VM_HOOK_CMD} status status=idle` }] },
+  ],
+  Notification: [
+    { matcher: 'permission_prompt|idle_prompt', hooks: [{ type: 'command', command: `${VM_HOOK_CMD} status status=idle` }] },
+  ],
 };
 
-/** Version marker path scoped to a project. */
-function projectVersionFilePath(projectPath: string): string {
-  return path.join(projectPath, '.claude', 'hooks', '.ouijit-hooks-version');
+/**
+ * Build the JSON content for the VM's ~/.claude/settings.json.
+ * Uses $HOME/ouijit-hook as the command path (script lives in the VM's home dir).
+ */
+export function buildVmHookSettings(): string {
+  const settings: ClaudeSettings = { hooks: {} };
+  for (const [event, entries] of Object.entries(VM_HOOKS)) {
+    settings.hooks![event] = entries;
+  }
+  return JSON.stringify(settings, null, 2);
 }
 
 /**
- * Install hooks at the project level so they work inside Lima VMs.
- * Writes the helper script to <project>/.claude/hooks/ouijit-hook and
- * merges hook entries into <project>/.claude/settings.local.json.
+ * Remove legacy project-level hook artifacts left by earlier versions.
+ * Cleans up: hooks/ouijit-hook, hooks/.ouijit-hooks-version, and
+ * Ouijit hook entries from settings.local.json.
  */
-export function installProjectHooks(projectPath: string): void {
+export function cleanupProjectHookArtifacts(projectPath: string): void {
   try {
     const claudeDir = path.join(projectPath, '.claude');
     const hooksDir = path.join(claudeDir, 'hooks');
 
-    // Check version marker — skip if already current
-    const versionPath = projectVersionFilePath(projectPath);
-    try {
-      const installed = fs.readFileSync(versionPath, 'utf-8').trim();
-      if (installed === String(HOOK_VERSION)) return;
-    } catch {
-      // File doesn't exist — proceed with install
+    // 1. Remove hook script and version marker
+    for (const file of ['ouijit-hook', '.ouijit-hooks-version']) {
+      try {
+        fs.unlinkSync(path.join(hooksDir, file));
+      } catch {
+        // Already gone
+      }
     }
 
-    // 1. Write helper script into project
-    fs.mkdirSync(hooksDir, { recursive: true });
-    const scriptPath = path.join(hooksDir, 'ouijit-hook');
-    fs.writeFileSync(scriptPath, HELPER_SCRIPT, { mode: 0o755 });
+    // 2. Remove hooks/ dir if empty
+    try {
+      fs.rmdirSync(hooksDir);
+    } catch {
+      // Not empty or doesn't exist — fine
+    }
 
-    // 2. Merge hooks into .claude/settings.local.json (not committed to git)
+    // 3. Strip Ouijit hook entries from settings.local.json
     const settingsPath = path.join(claudeDir, 'settings.local.json');
-
-    let settings: ClaudeSettings = {};
     try {
       const raw = fs.readFileSync(settingsPath, 'utf-8');
-      settings = JSON.parse(raw) as ClaudeSettings;
+      const settings = JSON.parse(raw) as ClaudeSettings;
+      if (settings.hooks) {
+        let changed = false;
+        for (const event of Object.keys(settings.hooks)) {
+          const filtered = settings.hooks[event].filter(e => !isOuijitHook(e));
+          if (filtered.length !== settings.hooks[event].length) {
+            changed = true;
+            if (filtered.length === 0) {
+              delete settings.hooks[event];
+            } else {
+              settings.hooks[event] = filtered;
+            }
+          }
+        }
+        if (Object.keys(settings.hooks).length === 0) {
+          delete settings.hooks;
+        }
+        if (changed) {
+          // If settings object is now empty, remove the file entirely
+          if (Object.keys(settings).length === 0) {
+            fs.unlinkSync(settingsPath);
+          } else {
+            const tmpPath = settingsPath + '.tmp';
+            fs.writeFileSync(tmpPath, JSON.stringify(settings, null, 2) + '\n', 'utf-8');
+            fs.renameSync(tmpPath, settingsPath);
+          }
+        }
+      }
     } catch {
-      // File doesn't exist or is invalid — start fresh
+      // File doesn't exist or is invalid — nothing to clean up
     }
-
-    if (!settings.hooks) {
-      settings.hooks = {};
-    }
-
-    for (const [event, ouijitEntry] of Object.entries(PROJECT_HOOKS)) {
-      const existing = settings.hooks[event] || [];
-      const filtered = existing.filter(e => !isOuijitHook(e));
-      filtered.push(ouijitEntry);
-      settings.hooks[event] = filtered;
-    }
-
-    const tmpPath = settingsPath + '.tmp';
-    fs.writeFileSync(tmpPath, JSON.stringify(settings, null, 2) + '\n', 'utf-8');
-    fs.renameSync(tmpPath, settingsPath);
-
-    // 3. Write version marker
-    fs.writeFileSync(versionPath, String(HOOK_VERSION) + '\n', 'utf-8');
   } catch (err) {
-    console.warn('[HookServer] Failed to install project hooks:', err instanceof Error ? err.message : err);
+    console.warn('[HookServer] Failed to clean up project hook artifacts:', err instanceof Error ? err.message : err);
   }
 }
 

@@ -2017,7 +2017,7 @@ async function playOrToggleRunner(): Promise<void> {
 // Claude Code's Stop hook doesn't fire on user interrupt (Escape/Ctrl+C).
 // As a fallback, reset status to idle when terminal output goes silent.
 
-const IDLE_FALLBACK_MS = 5000;
+const IDLE_FALLBACK_MS = 2000;
 const idleTimers = new Map<PtyId, ReturnType<typeof setTimeout>>();
 
 /**
