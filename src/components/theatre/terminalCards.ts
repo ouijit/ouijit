@@ -2014,15 +2014,38 @@ async function playOrToggleRunner(): Promise<void> {
 }
 
 // ── Idle fallback timer ─────────────────────────────────────────────
-// Claude Code's Stop hook doesn't fire on user interrupt (Escape/Ctrl+C).
-// As a fallback, reset status to idle when terminal output goes silent.
+// No Claude Code hook fires when Claude presents an elicitation
+// (AskUserQuestion). As a fallback, transition to idle when terminal
+// output goes silent for IDLE_FALLBACK_MS — but ONLY when no tool has
+// run this turn. If any PostToolUse fired (count > 1), Claude is
+// actively working (possibly with background agents that run silently
+// for minutes). In that case, skip the timer entirely and trust the
+// Stop / Notification hooks to signal idle.
 
-const IDLE_FALLBACK_MS = 2000;
+const IDLE_FALLBACK_MS = 3000;
 const idleTimers = new Map<PtyId, ReturnType<typeof setTimeout>>();
+
+// Count of hook "thinking" signals since the last idle transition per ptyId.
+// 1 = only UserPromptSubmit fired (possible elicitation coming).
+// >1 = PostToolUse fired (tools actively running — don't idle on silence).
+const hookThinkingCounts = new Map<PtyId, number>();
+
+/** Increment the thinking hook counter for a ptyId. */
+export function trackHookThinking(ptyId: PtyId): void {
+  hookThinkingCounts.set(ptyId, (hookThinkingCounts.get(ptyId) || 0) + 1);
+}
+
+/** Clear the thinking hook counter (call on idle transition). */
+function clearHookThinking(ptyId: PtyId): void {
+  hookThinkingCounts.delete(ptyId);
+}
 
 /**
  * Reset (or start) the idle fallback timer for a terminal.
  * Call on every terminal output event while status is "thinking".
+ *
+ * When PostToolUse has fired (count > 1), the timer is NOT armed —
+ * we rely solely on Stop / Notification hooks to signal idle.
  */
 export function resetIdleTimer(ptyId: PtyId): void {
   const existing = idleTimers.get(ptyId);
@@ -2031,6 +2054,10 @@ export function resetIdleTimer(ptyId: PtyId): void {
   const term = terminals.value.find(t => t.ptyId === ptyId);
   if (!term || term.summaryType !== 'thinking') return;
 
+  // Tools were used this turn → don't arm the idle timer.
+  // Trust Stop / Notification hooks to transition to idle.
+  if ((hookThinkingCounts.get(ptyId) || 0) > 1) return;
+
   idleTimers.set(ptyId, setTimeout(() => {
     idleTimers.delete(ptyId);
     const t = terminals.value.find(t => t.ptyId === ptyId);
@@ -2038,6 +2065,7 @@ export function resetIdleTimer(ptyId: PtyId): void {
       t.summaryType = 'idle';
       updateTerminalCardLabel(t);
     }
+    clearHookThinking(ptyId);
   }, IDLE_FALLBACK_MS));
 }
 
@@ -2047,6 +2075,7 @@ function clearIdleTimer(ptyId: PtyId): void {
     clearTimeout(existing);
     idleTimers.delete(ptyId);
   }
+  clearHookThinking(ptyId);
 }
 
 function clearAllIdleTimers(): void {
@@ -2054,6 +2083,7 @@ function clearAllIdleTimers(): void {
     clearTimeout(timer);
   }
   idleTimers.clear();
+  hookThinkingCounts.clear();
 }
 
 // ── Global hook status listener ──────────────────────────────────────
@@ -2079,6 +2109,7 @@ export function registerHookStatusListener(): void {
     }
 
     if (summaryType === 'thinking') {
+      trackHookThinking(ptyId);
       resetIdleTimer(ptyId);
     } else {
       clearIdleTimer(ptyId);
