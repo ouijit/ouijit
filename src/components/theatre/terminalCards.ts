@@ -597,11 +597,11 @@ function buildRunnerPanelHtml(label: string, fullWidth: boolean): string {
   return `
     <div class="runner-panel${fullWidth ? ' runner-panel--full' : ''}">
       <div class="runner-panel-header">
+        <span class="runner-panel-title">${label}</span>
         <button class="runner-panel-kill" title="Kill"><i data-lucide="circle-off"></i></button>
         <button class="runner-panel-restart" title="Restart"><i data-lucide="rotate-ccw"></i></button>
-        <span class="runner-panel-title">${label}</span>
         <button class="runner-panel-split-toggle" title="${title}"><i data-lucide="${icon}"></i></button>
-        <button class="runner-panel-collapse" title="Close panel"><i data-lucide="x"></i></button>
+        <button class="runner-panel-collapse" title="Minimize panel"><i data-lucide="minus"></i></button>
       </div>
       <div class="runner-panel-body">
         <div class="runner-xterm-container"></div>
