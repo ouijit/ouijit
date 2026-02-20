@@ -24,7 +24,7 @@ export function platformHotkey(keys: string): string {
 export const Scopes = {
   APP: 'app',
   PROJECT_LIST: 'project-list',
-  THEATRE: 'theatre',
+  PROJECT: 'project',
   KANBAN: 'kanban',
   MODAL: 'modal',
   DROPDOWN: 'dropdown',
@@ -32,7 +32,7 @@ export const Scopes = {
 
 type Scope = (typeof Scopes)[keyof typeof Scopes];
 
-// Scope stack for nested contexts (modal on top of theatre, etc.)
+// Scope stack for nested contexts (modal on top of project, etc.)
 const scopeStack: Scope[] = [Scopes.APP];
 
 /**

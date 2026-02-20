@@ -13,7 +13,7 @@ import { setupSearch } from './components/searchBar';
 import { showToast } from './components/importDialog';
 import { showNewProjectDialog } from './components/newProjectDialog';
 import { initHotkeys } from './utils/hotkeys';
-import { restoreTheatreMode, orphanedSessions } from './components/theatre';
+import { restoreProjectMode, orphanedSessions } from './components/project';
 
 // Declare the global window.api interface
 declare global {
@@ -68,7 +68,7 @@ async function refreshProjects(): Promise<void> {
   }
 }
 
-// Expose refreshProjects on window for theatre mode restoration
+// Expose refreshProjects on window for project mode restoration
 (window as any).refreshProjects = refreshProjects;
 
 /**
@@ -90,7 +90,7 @@ async function initialize(): Promise<void> {
       console.log('[Renderer] Found active PTY sessions:', activeSessions);
 
       // Group sessions by project path and store in orphanedSessions map
-      // This allows enterTheatreMode to restore them when opening any project
+      // This allows enterProjectMode to restore them when opening any project
       const sessionsByProject = new Map<string, ActiveSession[]>();
       for (const session of activeSessions) {
         const existing = sessionsByProject.get(session.projectPath) || [];
@@ -115,16 +115,16 @@ async function initialize(): Promise<void> {
         }
       }
 
-      // Get project data and restore theatre mode for the active project
+      // Get project data and restore project mode for the active project
       const projects = await window.api.getProjects();
       const project = projects.find(p => p.path === bestProjectPath);
 
       if (project) {
         // Remove from orphanedSessions since we're restoring it now
         orphanedSessions.delete(bestProjectPath);
-        await restoreTheatreMode(bestProjectPath, project, bestSessions);
-        // Continue to load projects in background - CSS hides them in theatre mode,
-        // but they'll be visible when user exits theatre mode
+        await restoreProjectMode(bestProjectPath, project, bestSessions);
+        // Continue to load projects in background - CSS hides them in project mode,
+        // but they'll be visible when user exits project mode
       }
     }
   } catch (error) {
@@ -218,7 +218,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   initialize();
 
-  // Listen for fullscreen state changes (for theatre mode layout)
+  // Listen for fullscreen state changes (for project mode layout)
   window.api.onFullscreenChange((isFullscreen) => {
     document.body.classList.toggle('is-fullscreen', isFullscreen);
   });

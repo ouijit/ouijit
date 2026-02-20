@@ -17,7 +17,7 @@ vi.mock('lucide', () => ({ createIcons: () => {}, icons: {} }));
 vi.mock('../components/importDialog', () => ({ showToast: () => {} }));
 vi.mock('../components/hookConfigDialog', () => ({ showHookConfigDialog: () => {} }));
 
-import { resolveTerminalLabel } from '../components/theatre/terminalCards';
+import { resolveTerminalLabel } from '../components/project/terminalCards';
 
 describe('resolveTerminalLabel', () => {
   test('priority: task name > branch > fallback > Shell', () => {

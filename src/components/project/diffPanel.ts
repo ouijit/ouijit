@@ -1,11 +1,11 @@
 /**
- * Compare panel for viewing diffs in theatre mode
+ * Compare panel for viewing diffs in project mode
  * Supports two modes: uncommitted changes and worktree branch vs main
  */
 
 import type { ChangedFile, FileDiff } from '../../types';
-import { TheatreTerminal } from './state';
-import { getTerminalGitPath, hideRunnerPanel, theatreRegistry } from './helpers';
+import { ProjectTerminal } from './state';
+import { getTerminalGitPath, hideRunnerPanel, projectRegistry } from './helpers';
 import {
   projectPath,
   terminals,
@@ -375,7 +375,7 @@ function wireDiffPanel(
  * Unified function that handles both uncommitted and worktree modes
  * @param targetBranch - For worktree mode, the branch to compare against (defaults to task merge target or main)
  */
-export async function showTerminalComparePanel(term: TheatreTerminal, mode: 'uncommitted' | 'worktree', targetBranch?: string): Promise<void> {
+export async function showTerminalComparePanel(term: ProjectTerminal, mode: 'uncommitted' | 'worktree', targetBranch?: string): Promise<void> {
   if (term.diffPanelOpen) return;
 
   // Worktree mode requires a worktree branch
@@ -435,7 +435,7 @@ export async function showTerminalComparePanel(term: TheatreTerminal, mode: 'unc
   }
 
   // Find the card body to insert the diff panel
-  const cardBody = term.container.querySelector('.theatre-card-body');
+  const cardBody = term.container.querySelector('.project-card-body');
   if (!cardBody) return;
 
   // Hide the terminal viewport
@@ -458,7 +458,7 @@ export async function showTerminalComparePanel(term: TheatreTerminal, mode: 'unc
   term.container.classList.add('diff-panel-open');
 
   // Mark stats button as active
-  const statsEl = term.container.querySelector('.theatre-card-git-stats--clickable');
+  const statsEl = term.container.querySelector('.project-card-git-stats--clickable');
   if (statsEl) statsEl.classList.add('card-tab--active');
 
   // Wire up panel interactions
@@ -526,7 +526,7 @@ export async function showTerminalComparePanel(term: TheatreTerminal, mode: 'unc
  * Show target branch dropdown for switching the comparison target
  */
 async function showTargetBranchDropdown(
-  term: TheatreTerminal,
+  term: ProjectTerminal,
   panel: HTMLElement,
   targetContainer: HTMLElement,
   currentTarget: string
@@ -604,7 +604,7 @@ async function showTargetBranchDropdown(
 /**
  * Swap the compare target branch in-place without tearing down the panel
  */
-async function swapCompareTarget(term: TheatreTerminal, panel: HTMLElement, newTarget: string): Promise<void> {
+async function swapCompareTarget(term: ProjectTerminal, panel: HTMLElement, newTarget: string): Promise<void> {
   const basePath = projectPath.value;
   if (!basePath || !term.worktreeBranch) return;
 
@@ -674,21 +674,21 @@ async function swapCompareTarget(term: TheatreTerminal, panel: HTMLElement, newT
 /**
  * Show the diff panel for a specific terminal (uncommitted changes)
  */
-export async function showTerminalDiffPanel(term: TheatreTerminal): Promise<void> {
+export async function showTerminalDiffPanel(term: ProjectTerminal): Promise<void> {
   return showTerminalComparePanel(term, 'uncommitted');
 }
 
 /**
  * Show the worktree diff panel for a specific terminal (branch vs main comparison)
  */
-export async function showTerminalWorktreeDiffPanel(term: TheatreTerminal): Promise<void> {
+export async function showTerminalWorktreeDiffPanel(term: ProjectTerminal): Promise<void> {
   return showTerminalComparePanel(term, 'worktree');
 }
 
 /**
  * Hide the diff panel for a specific terminal
  */
-export function hideTerminalDiffPanel(term: TheatreTerminal): void {
+export function hideTerminalDiffPanel(term: ProjectTerminal): void {
   if (!term.diffPanelOpen) return;
 
   // Find the panel inside the card
@@ -700,7 +700,7 @@ export function hideTerminalDiffPanel(term: TheatreTerminal): void {
       panel.remove();
 
       // Show the terminal viewport again
-      const cardBody = term.container.querySelector('.theatre-card-body');
+      const cardBody = term.container.querySelector('.project-card-body');
       const viewport = cardBody?.querySelector('.terminal-viewport') as HTMLElement;
       if (viewport) {
         viewport.style.display = '';
@@ -719,7 +719,7 @@ export function hideTerminalDiffPanel(term: TheatreTerminal): void {
   term.container.classList.remove('diff-panel-open');
 
   // Remove active state from stats button
-  const statsEl = term.container.querySelector('.theatre-card-git-stats--clickable');
+  const statsEl = term.container.querySelector('.project-card-git-stats--clickable');
   if (statsEl) statsEl.classList.remove('card-tab--active');
 
   // Update terminal state
@@ -739,7 +739,7 @@ export function hideTerminalDiffPanel(term: TheatreTerminal): void {
 /**
  * Toggle the diff panel for a specific terminal
  */
-export async function toggleTerminalDiffPanel(term: TheatreTerminal): Promise<void> {
+export async function toggleTerminalDiffPanel(term: ProjectTerminal): Promise<void> {
   if (term.diffPanelOpen) {
     hideTerminalDiffPanel(term);
   } else {
@@ -750,7 +750,7 @@ export async function toggleTerminalDiffPanel(term: TheatreTerminal): Promise<vo
 /**
  * Toggle the worktree diff panel for a specific terminal
  */
-export async function toggleTerminalWorktreeDiffPanel(term: TheatreTerminal): Promise<void> {
+export async function toggleTerminalWorktreeDiffPanel(term: ProjectTerminal): Promise<void> {
   if (term.diffPanelOpen) {
     hideTerminalDiffPanel(term);
   } else {
@@ -788,8 +788,8 @@ export async function showDiffPanel(): Promise<void> {
   // Wire up panel interactions
   wireDiffPanel(panel, () => hideDiffPanel());
 
-  // Add class to theatre stack to shrink it
-  const stack = document.querySelector('.theatre-stack');
+  // Add class to project stack to shrink it
+  const stack = document.querySelector('.project-stack');
   if (stack) {
     stack.classList.add('diff-panel-open');
   }
@@ -799,7 +799,7 @@ export async function showDiffPanel(): Promise<void> {
     panel.classList.add('diff-panel--visible');
   });
 
-  // Refit active theatre terminal after animation
+  // Refit active project terminal after animation
   setTimeout(() => refitActiveTerminal(), 250);
 
   // Load all diffs
@@ -821,13 +821,13 @@ export function hideDiffPanel(): void {
     setTimeout(() => panel.remove(), 250);
   }
 
-  // Remove class from theatre stack
-  const stack = document.querySelector('.theatre-stack');
+  // Remove class from project stack
+  const stack = document.querySelector('.project-stack');
   if (stack) {
     stack.classList.remove('diff-panel-open');
   }
 
-  // Refit active theatre terminal after animation
+  // Refit active project terminal after animation
   setTimeout(() => refitActiveTerminal(), 250);
 
   diffPanelVisible.value = false;
@@ -886,8 +886,8 @@ export async function showWorktreeDiffPanel(worktreeBranch: string): Promise<voi
     headerInfo.textContent = 'vs main';
   }
 
-  // Add class to theatre stack to shrink it
-  const stack = document.querySelector('.theatre-stack');
+  // Add class to project stack to shrink it
+  const stack = document.querySelector('.project-stack');
   if (stack) {
     stack.classList.add('diff-panel-open');
   }
@@ -897,7 +897,7 @@ export async function showWorktreeDiffPanel(worktreeBranch: string): Promise<voi
     panel.classList.add('diff-panel--visible');
   });
 
-  // Refit active theatre terminal after animation
+  // Refit active project terminal after animation
   setTimeout(() => refitActiveTerminal(), 250);
 
   // Load all diffs
@@ -956,5 +956,5 @@ async function toggleActiveDiffPanel(): Promise<void> {
   await toggleTerminalDiffPanel(activeTerm);
 }
 
-// Register in theatre registry for cross-module access
-theatreRegistry.toggleActiveDiffPanel = toggleActiveDiffPanel;
+// Register in project registry for cross-module access
+projectRegistry.toggleActiveDiffPanel = toggleActiveDiffPanel;

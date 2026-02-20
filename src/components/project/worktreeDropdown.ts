@@ -1,11 +1,11 @@
 /**
- * Worktree/task operations for theatre mode
+ * Worktree/task operations for project mode
  */
 
 import type { TaskWithWorkspace } from '../../types';
 import { projectPath, terminals, invalidateTaskList } from './signals';
 import { showToast } from '../importDialog';
-import { theatreRegistry } from './helpers';
+import { projectRegistry } from './helpers';
 import { registerHotkey, unregisterHotkey, pushScope, popScope, Scopes } from '../../utils/hotkeys';
 
 /**
@@ -83,7 +83,7 @@ export async function closeTask(path: string, task: TaskWithWorkspace): Promise<
     for (let i = currentTerminals.length - 1; i >= 0; i--) {
       const term = currentTerminals[i];
       if (term.taskId === task.taskNumber) {
-        theatreRegistry.closeTheatreTerminal?.(i);
+        projectRegistry.closeProjectTerminal?.(i);
       }
     }
     invalidateTaskList();
@@ -108,7 +108,7 @@ export async function reopenTask(path: string, task: TaskWithWorkspace): Promise
     invalidateTaskList();
     // Open terminal for the task (without sandbox by default)
     const taskPath = task.worktreePath || '';
-    await theatreRegistry.addTheatreTerminal?.(undefined, {
+    await projectRegistry.addProjectTerminal?.(undefined, {
       existingWorktree: {
         path: taskPath,
         branch: task.branch || '',
@@ -137,7 +137,7 @@ export async function deleteTask(path: string, task: TaskWithWorkspace): Promise
   for (let i = currentTerminals.length - 1; i >= 0; i--) {
     const term = currentTerminals[i];
     if (term.taskId === task.taskNumber) {
-      theatreRegistry.closeTheatreTerminal?.(i);
+      projectRegistry.closeProjectTerminal?.(i);
     }
   }
 

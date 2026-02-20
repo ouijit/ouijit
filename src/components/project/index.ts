@@ -1,11 +1,11 @@
 /**
- * Theatre mode barrel exports
- * Re-exports all theatre module functionality for external use
+ * Project mode barrel exports
+ * Re-exports all project module functionality for external use
  */
 
 // State (non-reactive)
 export {
-  theatreState,
+  projectState,
   projectSessions,
   orphanedSessions,
   ensureHiddenSessionsContainer,
@@ -13,8 +13,8 @@ export {
   HIDDEN_SESSIONS_CONTAINER_ID,
   GIT_STATUS_IDLE_DELAY,
   GIT_STATUS_PERIODIC_INTERVAL,
-  type TheatreTerminal,
-  type StoredTheatreSession,
+  type ProjectTerminal,
+  type StoredProjectSession,
   type SummaryType,
 } from './state';
 
@@ -22,7 +22,7 @@ export {
 export {
   getTerminalGitPath,
   hideRunnerPanel,
-  theatreRegistry,
+  projectRegistry,
 } from './helpers';
 
 // Signals (reactive state)
@@ -34,7 +34,7 @@ export {
   activeTerminal,
   activeStackPage,
   totalStackPages,
-  isInTheatreMode as isInTheatreModeSignal,
+  isInProjectMode as isInProjectModeSignal,
   diffPanelVisible,
   diffPanelFiles,
   diffPanelSelectedFile,
@@ -79,11 +79,11 @@ export {
 export {
   getTerminalTheme,
   updateTerminalCardLabel,
-  createTheatreCard,
+  createProjectCard,
   updateCardStack,
-  switchToTheatreTerminal,
-  addTheatreTerminal,
-  closeTheatreTerminal,
+  switchToProjectTerminal,
+  addProjectTerminal,
+  closeProjectTerminal,
   navigateStackPage,
   buildEmptyStateHtml,
   showStackEmptyState,
@@ -95,23 +95,23 @@ export {
 
 // Launch dropdown
 export {
-  buildTheatreHeader,
+  buildProjectHeader,
   buildLaunchDropdownContent,
   showLaunchDropdown,
   hideLaunchDropdown,
   toggleLaunchDropdown,
 } from './launchDropdown';
 
-// Theatre mode orchestration
+// Project mode orchestration
 export {
-  enterTheatreMode,
-  exitTheatreMode,
-  restoreTheatreMode,
-  destroyTheatreSessions,
+  enterProjectMode,
+  exitProjectMode,
+  restoreProjectMode,
+  destroyProjectSessions,
   getPreservedSessionPaths,
   hasPreservedSession,
-  isInTheatreMode,
-} from './theatreMode';
+  isInProjectMode,
+} from './projectMode';
 
 // Worktree/task operations
 export {

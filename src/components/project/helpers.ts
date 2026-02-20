@@ -1,10 +1,10 @@
 /**
- * Theatre mode helper functions
+ * Project mode helper functions
  * Separated from state.ts to maintain clean dependency hierarchy:
  *   state.ts (types/state) <- helpers.ts (utilities) <- other modules
  */
 
-import type { TheatreTerminal } from './state';
+import type { ProjectTerminal } from './state';
 import { createIcons, icons } from 'lucide';
 
 /**
@@ -12,12 +12,12 @@ import { createIcons, icons } from 'lucide';
  * Used to break circular dependencies - modules register their functions here,
  * allowing other modules to call them without direct imports
  */
-interface TheatreRegistry {
+interface ProjectRegistry {
   // From kanbanBoard
   showKanbanAndFocusInput: (() => Promise<void>) | null;
   // From terminalCards
-  addTheatreTerminal: ((runConfig?: unknown, options?: unknown) => Promise<boolean>) | null;
-  closeTheatreTerminal: ((index: number) => void) | null;
+  addProjectTerminal: ((runConfig?: unknown, options?: unknown) => Promise<boolean>) | null;
+  closeProjectTerminal: ((index: number) => void) | null;
   playOrToggleRunner: (() => Promise<void>) | null;
   // From kanbanBoard
   toggleKanbanBoard: (() => void) | null;
@@ -26,12 +26,12 @@ interface TheatreRegistry {
   toggleActiveDiffPanel: (() => Promise<void>) | null;
 }
 
-export const theatreRegistry: TheatreRegistry = {
+export const projectRegistry: ProjectRegistry = {
   showKanbanAndFocusInput: null,
   toggleKanbanBoard: null,
   syncKanbanStatusDots: null,
-  addTheatreTerminal: null,
-  closeTheatreTerminal: null,
+  addProjectTerminal: null,
+  closeProjectTerminal: null,
   playOrToggleRunner: null,
   toggleActiveDiffPanel: null,
 };
@@ -87,14 +87,14 @@ export function showTaskContextMenu(event: MouseEvent, onSandbox: () => void): v
 /**
  * Get the git path for a terminal (worktree path if it's a worktree, otherwise project path)
  */
-export function getTerminalGitPath(term: TheatreTerminal): string {
+export function getTerminalGitPath(term: ProjectTerminal): string {
   return term.worktreePath || term.projectPath;
 }
 
 /**
  * Hide the runner panel (does NOT kill the runner process)
  */
-export function hideRunnerPanel(term: TheatreTerminal): void {
+export function hideRunnerPanel(term: ProjectTerminal): void {
   if (!term.runnerPanelOpen) return;
 
   const panel = term.container.querySelector('.runner-panel') as HTMLElement;
@@ -109,7 +109,7 @@ export function hideRunnerPanel(term: TheatreTerminal): void {
       // Full-width: skip slide animation, close instantly
       panel.style.transition = 'none';
       panel.style.flexBasis = '0';
-      const cardBody = term.container.querySelector('.theatre-card-body');
+      const cardBody = term.container.querySelector('.project-card-body');
       if (cardBody) cardBody.classList.remove('runner-split', 'runner-full');
       // Restore transition and fit after layout
       requestAnimationFrame(() => {
@@ -121,7 +121,7 @@ export function hideRunnerPanel(term: TheatreTerminal): void {
       // Split mode: animate closed via flex-basis transition
       panel.style.flexBasis = '0';
       setTimeout(() => {
-        const cardBody = term.container.querySelector('.theatre-card-body');
+        const cardBody = term.container.querySelector('.project-card-body');
         if (cardBody) cardBody.classList.remove('runner-split', 'runner-full');
         term.fitAddon.fit();
         window.api.pty.resize(term.ptyId, term.terminal.cols, term.terminal.rows);

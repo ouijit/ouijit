@@ -1,5 +1,5 @@
 /**
- * Reactive effects for theatre mode
+ * Reactive effects for project mode
  * Automatically respond to signal changes without manual update calls
  */
 
@@ -24,8 +24,8 @@ let effectsInitialized = false;
 const cleanupFunctions: (() => void)[] = [];
 
 /**
- * Initialize all theatre mode effects
- * Should be called once when theatre mode is first entered
+ * Initialize all project mode effects
+ * Should be called once when project mode is first entered
  */
 export function initializeEffects(): void {
   if (effectsInitialized) return;
@@ -38,7 +38,7 @@ export function initializeEffects(): void {
       const _activeIndex = activeIndex.value;
       const _projectPath = projectPath.value;
 
-      // Only update if we're in theatre mode
+      // Only update if we're in project mode
       if (_projectPath) {
         if (_terminals.length > 0) {
           // Has terminals - hide empty state, update stack
@@ -74,7 +74,7 @@ export function initializeEffects(): void {
       const currentActiveIndex = activeIndex.value;
       const _projectPath = projectPath.value;
 
-      // Only sync if we're in theatre mode and the index actually changed
+      // Only sync if we're in project mode and the index actually changed
       if (_projectPath && _terminals.length > 0 && currentActiveIndex !== previousActiveIndex) {
         previousActiveIndex = currentActiveIndex;
         // Sync after a brief delay to allow terminal switch animation
@@ -144,7 +144,7 @@ export function initializeEffects(): void {
 
 /**
  * Clean up all effects
- * Should be called when completely shutting down theatre mode
+ * Should be called when completely shutting down project mode
  */
 export function cleanupEffects(): void {
   for (const cleanup of cleanupFunctions) {

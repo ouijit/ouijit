@@ -405,7 +405,7 @@ textarea,
   @apply scale-[0.98];
 }
 
-/* Launch Dropdown (used in theatre mode) */
+/* Launch Dropdown (used in project mode) */
 .launch-dropdown {
   @apply absolute top-full right-0 mt-1 min-w-[220px] max-w-[320px] bg-surface border border-border rounded-md shadow-lg z-[1000] opacity-0 invisible overflow-hidden transition-all duration-150 ease-out;
   transform: translateY(-8px);
@@ -530,7 +530,7 @@ textarea,
 }
 
 /* ===================================
-   Terminal Viewport Styles (shared with theatre mode)
+   Terminal Viewport Styles (shared with project mode)
    =================================== */
 
 .terminal-viewport {
@@ -687,25 +687,25 @@ textarea,
 }
 
 /* ===================================
-   Theatre Mode Styles
+   Project Mode Styles
    =================================== */
 
-/* Hide project rows in theatre mode - NOT main-content */
-body.theatre-mode .project-row {
+/* Hide project rows in project mode - NOT main-content */
+body.project-mode .project-row {
   display: none !important;
 }
 
-body.theatre-mode .main-content {
+body.project-mode .main-content {
   min-height: 0;
 }
 
-/* Remove max-width constraint from header in theatre mode */
-body.theatre-mode .header {
+/* Remove max-width constraint from header in project mode */
+body.project-mode .header {
   z-index: 10000;
   border-bottom: none;
 }
 
-body.theatre-mode .header-content {
+body.project-mode .header-content {
   max-width: none;
   padding-left: 0;
   padding-right: 0;
@@ -713,112 +713,112 @@ body.theatre-mode .header-content {
 }
 
 /* Hide search/refresh area in header */
-body.theatre-mode .search-container {
+body.project-mode .search-container {
   display: none !important;
 }
 
-body.theatre-mode #refresh-btn,
-body.theatre-mode #new-project-btn {
+body.project-mode #refresh-btn,
+body.project-mode #new-project-btn {
   display: none !important;
 }
 
 /* Hide project list header */
-body.theatre-mode .project-list-header {
+body.project-mode .project-list-header {
   display: none !important;
 }
 
-/* Theatre header content */
-.theatre-header-content {
+/* Project header content */
+.project-header-content {
   @apply flex items-center gap-3 flex-1 px-4;
 }
 
 /* Add extra padding for macOS traffic lights (except fullscreen) */
-body.platform-darwin:not(.is-fullscreen) .theatre-header-content {
+body.platform-darwin:not(.is-fullscreen) .project-header-content {
   @apply pl-24;
 }
 
-.theatre-project-icon {
+.project-header-icon {
   @apply w-8 h-8 rounded-md object-cover;
 }
 
-.theatre-project-icon--placeholder {
+.project-header-icon--placeholder {
   @apply flex items-center justify-center text-base font-bold text-white;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 
-.theatre-project-info {
+.project-header-info {
   @apply flex flex-col gap-0.5 flex-1 min-w-0;
 }
 
-.theatre-project-name {
+.project-header-name {
   @apply text-base font-semibold text-text-primary leading-tight;
 }
 
-.theatre-project-path {
+.project-header-path {
   @apply text-xs text-text-tertiary leading-tight truncate;
 }
 
-.theatre-terminal-btn {
+.project-terminal-btn {
   @apply w-8 h-8 flex items-center justify-center bg-background-secondary border border-border rounded-md text-text-secondary transition-all duration-150 ease-out ml-3;
   -webkit-app-region: no-drag;
 }
 
-.theatre-terminal-btn:hover {
+.project-terminal-btn:hover {
   @apply bg-background-tertiary text-text-primary;
 }
 
-.theatre-terminal-btn svg {
+.project-terminal-btn svg {
   @apply w-4 h-4;
 }
 
-.theatre-newtask-btn {
+.project-newtask-btn {
   @apply w-8 h-8 flex items-center justify-center bg-background-secondary border border-border rounded-md text-text-secondary transition-all duration-150 ease-out ml-3;
   -webkit-app-region: no-drag;
 }
 
-.theatre-newtask-btn:hover {
+.project-newtask-btn:hover {
   @apply bg-background-tertiary text-text-primary;
 }
 
-.theatre-newtask-btn svg {
+.project-newtask-btn svg {
   @apply w-4 h-4;
 }
 
 /* Sandbox wrapper */
-.theatre-sandbox-wrapper {
+.project-sandbox-wrapper {
   @apply relative flex ml-3;
   -webkit-app-region: no-drag;
 }
 
-.theatre-sandbox-btn {
+.project-sandbox-btn {
   @apply relative h-8 flex items-center justify-center gap-1.5 px-2 bg-background-secondary border border-border rounded-md text-text-secondary ease-out;
   transition: background-color 150ms ease-out, border-color 150ms ease-out, color 150ms ease-out;
 }
 
-.theatre-sandbox-btn:hover {
+.project-sandbox-btn:hover {
   @apply bg-background-tertiary text-text-primary;
 }
 
-.theatre-sandbox-btn svg:not(.sandbox-border-anim) {
+.project-sandbox-btn svg:not(.sandbox-border-anim) {
   @apply w-4 h-4;
 }
 
-.theatre-sandbox-caret {
+.project-sandbox-caret {
   @apply !w-3 !h-3 opacity-50;
 }
 
-.theatre-sandbox-btn--active {
+.project-sandbox-btn--active {
   background: rgba(10, 132, 255, 0.15);
   border-color: rgba(10, 132, 255, 0.4);
   color: #409CFF;
 }
 
-.theatre-sandbox-btn--active:hover {
+.project-sandbox-btn--active:hover {
   background: rgba(10, 132, 255, 0.25);
   color: #6AB4FF;
 }
 
-.theatre-sandbox-btn--starting {
+.project-sandbox-btn--starting {
   border-color: transparent;
   color: #409CFF;
 }
@@ -1042,210 +1042,210 @@ body.platform-darwin:not(.is-fullscreen) .theatre-header-content {
   transform: translateX(14px);
 }
 
-.theatre-exit-btn {
+.project-exit-btn {
   @apply w-7 h-7 flex items-center justify-center p-0 bg-transparent border-none rounded-md text-text-secondary opacity-70 transition-all duration-150 ease-out mr-2;
   -webkit-app-region: no-drag;
 }
 
-.theatre-exit-btn:hover {
+.project-exit-btn:hover {
   @apply bg-white/[0.08] text-text-primary opacity-100;
 }
 
-.theatre-exit-btn svg {
+.project-exit-btn svg {
   @apply w-3.5 h-3.5;
 }
 
 /* ==========================================
-   Theatre Mode Card Stack
+   Project Mode Card Stack
    ========================================== */
 
-.theatre-stack {
+.project-stack {
   @apply fixed top-[82px] left-4 right-4 bottom-4 z-[100] overflow-visible;
   transition: left 0.25s ease, right 0.25s ease, top 0.2s ease;
 }
 
-.theatre-card {
+.project-card {
   @apply absolute inset-0 rounded-lg border border-white/10 overflow-hidden flex flex-col;
   background: var(--color-terminal-bg, #1a1a1a);
   transition: translate 0.2s ease, scale 0.2s ease;
 }
 
-.theatre-card--active {
+.project-card--active {
   @apply z-10;
   transform: none;
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.05), 0 4px 12px rgba(0, 0, 0, 0.15), 0 20px 40px rgba(0, 0, 0, 0.2);
 }
 
-.theatre-card--back-1 {
+.project-card--back-1 {
   @apply z-[9] -translate-y-6 scale-x-[0.98];
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.1), 0 2px 8px rgba(0, 0, 0, 0.12);
   contain: layout style paint;
 }
 
-.theatre-card--back-2 {
+.project-card--back-2 {
   @apply z-[8] -translate-y-12 scale-x-[0.96];
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.1), 0 1px 4px rgba(0, 0, 0, 0.08);
   contain: layout style paint;
 }
 
-.theatre-card--back-3 {
+.project-card--back-3 {
   @apply z-[7] -translate-y-[72px] scale-x-[0.94];
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08);
   contain: layout style paint;
 }
 
-.theatre-card--back-4 {
+.project-card--back-4 {
   @apply z-[6] -translate-y-24 scale-x-[0.92];
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.06);
   contain: layout style paint;
 }
 
 /* Back card label positioning */
-.theatre-card--back-1 .theatre-card-label,
-.theatre-card--back-2 .theatre-card-label,
-.theatre-card--back-3 .theatre-card-label,
-.theatre-card--back-4 .theatre-card-label {
+.project-card--back-1 .project-card-label,
+.project-card--back-2 .project-card-label,
+.project-card--back-3 .project-card-label,
+.project-card--back-4 .project-card-label {
   @apply pt-0.5;
 }
 
 /* Hide non-essential elements on back cards, but keep close button */
-.theatre-card:not(.theatre-card--active) .theatre-card-git-branch-row,
-.theatre-card:not(.theatre-card--active) .theatre-card-git-stats-wrapper,
-.theatre-card:not(.theatre-card--active) .card-tab-run {
+.project-card:not(.project-card--active) .project-card-git-branch-row,
+.project-card:not(.project-card--active) .project-card-git-stats-wrapper,
+.project-card:not(.project-card--active) .card-tab-run {
   @apply hidden;
 }
 
 
 /* Hover effect on back cards */
-.theatre-card:not(.theatre-card--active):hover {
+.project-card:not(.project-card--active):hover {
   @apply border-accent;
 }
 
-.theatre-card--back-1:hover {
+.project-card--back-1:hover {
   @apply -translate-y-7 scale-x-[0.98];
 }
 
-.theatre-card--back-2:hover {
+.project-card--back-2:hover {
   @apply -translate-y-[52px] scale-x-[0.96];
 }
 
-.theatre-card--back-3:hover {
+.project-card--back-3:hover {
   @apply -translate-y-[76px] scale-x-[0.94];
 }
 
-.theatre-card--back-4:hover {
+.project-card--back-4:hover {
   @apply -translate-y-[100px] scale-x-[0.92];
 }
 
 /* Card label */
-.theatre-card-label {
+.project-card-label {
   @apply flex items-center justify-between pl-3 pr-3 py-2 min-h-9;
 }
 
-.theatre-card-label-left {
+.project-card-label-left {
   @apply flex flex-col min-w-0 shrink;
 }
 
-.theatre-card-label-top {
+.project-card-label-top {
   @apply flex items-center gap-2 min-w-0;
 }
 
-.theatre-card-git-branch-row {
+.project-card-git-branch-row {
   @apply min-w-0 overflow-hidden;
 }
 
-.theatre-card-label-right {
+.project-card-label-right {
   @apply flex items-center gap-1 shrink-0 justify-end;
 }
 
-.theatre-card-label-text {
+.project-card-label-text {
   @apply font-mono text-xs font-medium text-white/70 shrink-0;
 }
 
-.theatre-card-osc-title {
+.project-card-osc-title {
   @apply font-mono text-[11px] text-white/40 bg-white/5 rounded-full px-2 py-px truncate;
 }
 
-.theatre-card--back-1 .theatre-card-osc-title,
-.theatre-card--back-2 .theatre-card-osc-title,
-.theatre-card--back-3 .theatre-card-osc-title,
-.theatre-card--back-4 .theatre-card-osc-title {
+.project-card--back-1 .project-card-osc-title,
+.project-card--back-2 .project-card-osc-title,
+.project-card--back-3 .project-card-osc-title,
+.project-card--back-4 .project-card-osc-title {
   @apply hidden;
 }
 
 /* Keyboard shortcut hint for tab switching */
-.theatre-card-shortcut {
+.project-card-shortcut {
   @apply inline-flex items-center font-mono text-base text-white/40 shrink-0;
 }
 
 /* Status dot indicator for terminal summary */
-.theatre-card-status-dot {
+.project-card-status-dot {
   @apply w-1.5 h-1.5 rounded-full shrink-0 bg-[#69db7c] transition-all duration-200 ease-out;
   box-shadow: 0 0 4px rgba(105, 219, 124, 0.5);
 }
 
-.theatre-card-status-dot[data-status="ready"] {
+.project-card-status-dot[data-status="ready"] {
   @apply bg-[#69db7c];
   box-shadow: 0 0 4px rgba(105, 219, 124, 0.5);
 }
 
-.theatre-card-status-dot[data-status="thinking"] {
+.project-card-status-dot[data-status="thinking"] {
   @apply bg-[#da77f2];
   box-shadow: 0 0 4px rgba(218, 119, 242, 0.5);
   animation: terminal-status-pulse 1s ease-in-out infinite;
 }
 
 /* Sandboxed terminal ring on status dot */
-.theatre-card-status-dot--sandboxed {
+.project-card-status-dot--sandboxed {
   outline: 1.5px solid rgba(116, 192, 252, 0.6);
   outline-offset: 2px;
 }
 
 /* Loading card styles */
-.theatre-card--loading {
+.project-card--loading {
   @apply pointer-events-none;
 }
 
-.theatre-card-status-dot--loading {
+.project-card-status-dot--loading {
   @apply w-2 h-2 rounded-full bg-transparent border-[1.5px] border-white/30 border-t-white/80;
   animation: loading-dot-spin 0.8s linear infinite;
 }
 
-.theatre-card-loading-content {
+.project-card-loading-content {
   @apply flex-1 flex items-center justify-center;
 }
 
-.theatre-card-loading-text {
+.project-card-loading-text {
   @apply font-mono text-sm text-white/40;
 }
 
-.theatre-card-close {
+.project-card-close {
   @apply w-7 h-7 flex items-center justify-center bg-transparent border-none text-white/40 transition-colors duration-150 ease-out;
 }
 
-.theatre-card-close:hover {
+.project-card-close:hover {
   @apply text-white/90;
 }
 
-.theatre-card-close svg {
+.project-card-close svg {
   @apply w-4 h-4;
 }
 
 
 /* Card Git Status Display */
-.theatre-card-git-stats-wrapper {
+.project-card-git-stats-wrapper {
   @apply mr-2;
 }
 
-.theatre-card-git-branch {
+.project-card-git-branch {
   @apply flex items-center gap-1 font-mono text-[13px] text-white/50 min-w-0 overflow-hidden;
 }
 
-.theatre-card-git-branch-name {
+.project-card-git-branch-name {
   @apply truncate min-w-0;
 }
 
-.theatre-card-git-icon {
+.project-card-git-icon {
   @apply w-3.5 h-3.5 shrink-0 text-white/40;
 }
 
@@ -1267,38 +1267,38 @@ body.platform-darwin:not(.is-fullscreen) .theatre-header-content {
   @apply bg-accent text-white;
 }
 
-.theatre-card-git-stats {
+.project-card-git-stats {
   @apply flex items-center gap-1 px-1.5 py-0.5 rounded-sm font-mono text-[12px] text-white/70 bg-white/5;
 }
 
 /* When clickable, override base stats styles to match card-tab */
-.theatre-card-git-stats--clickable {
+.project-card-git-stats--clickable {
   @apply px-2.5 py-1 text-[13px] font-medium text-white/60 bg-white/[0.06] rounded-full;
 }
 
-.theatre-card-git-stats--compare {
+.project-card-git-stats--compare {
   @apply font-sans;
 }
 
-.theatre-card-git-count {
+.project-card-git-count {
   @apply font-medium;
 }
 
-.theatre-card-git-add {
+.project-card-git-add {
   @apply text-[#69db7c];
 }
 
-.theatre-card-git-del {
+.project-card-git-del {
   @apply text-[#ff6b6b];
 }
 
 /* Card body - flex container for terminal and diff panel */
-.theatre-card-body {
+.project-card-body {
   @apply relative flex-1 flex flex-row min-h-0 overflow-hidden;
 }
 
 /* Card viewport */
-.theatre-card .terminal-viewport {
+.project-card .terminal-viewport {
   @apply flex-1 min-h-0 min-w-0 h-auto rounded-none border-none;
   transition: flex 0.25s ease;
 }
@@ -1468,37 +1468,37 @@ body.platform-darwin:not(.is-fullscreen) .theatre-header-content {
 }
 
 
-/* Theatre Launch Button & Dropdown */
-.theatre-launch-wrapper {
+/* Project Launch Button & Dropdown */
+.project-launch-wrapper {
   @apply relative flex ml-3;
   -webkit-app-region: no-drag;
 }
 
-.theatre-scripts-btn {
+.project-scripts-btn {
   @apply relative h-8 flex items-center justify-center gap-1.5 px-2 bg-background-secondary border border-border rounded-md text-text-secondary ease-out;
   transition: background-color 150ms ease-out, border-color 150ms ease-out, color 150ms ease-out;
 }
 
-.theatre-scripts-btn:hover {
+.project-scripts-btn:hover {
   @apply bg-background-tertiary text-text-primary;
 }
 
-.theatre-scripts-btn svg {
+.project-scripts-btn svg {
   @apply w-4 h-4;
 }
 
-.theatre-scripts-caret {
+.project-scripts-caret {
   @apply !w-3 !h-3 opacity-50;
 }
 
 /* Launch dropdown - reuses .launch-dropdown pattern */
-.theatre-launch-dropdown {
+.project-launch-dropdown {
   @apply absolute top-full right-0 mt-1 min-w-[240px] max-w-[296px] bg-surface border border-border rounded-md shadow-lg z-[1000] opacity-0 invisible overflow-hidden transition-all duration-150 ease-out;
   transform: translateY(-8px);
   -webkit-app-region: no-drag;
 }
 
-.theatre-launch-dropdown.visible {
+.project-launch-dropdown.visible {
   @apply opacity-100 visible;
   transform: translateY(0);
 }
@@ -1591,33 +1591,33 @@ body.platform-darwin:not(.is-fullscreen) .theatre-header-content {
 
 
 /* ==========================================
-   Theatre Stack Empty State
+   Project Stack Empty State
    ========================================== */
 
-.theatre-stack-empty {
+.project-stack-empty {
   @apply absolute inset-0 flex flex-col items-center justify-center text-center rounded-lg border border-dashed border-white/10 p-12 opacity-0;
   background: var(--color-terminal-bg);
 }
 
-.theatre-stack-empty--visible {
+.project-stack-empty--visible {
   @apply opacity-100;
 }
 
-.theatre-stack-empty-message {
+.project-stack-empty-message {
   @apply text-sm text-white/30;
 }
 
-.theatre-stack-empty-hints {
+.project-stack-empty-hints {
   @apply flex justify-center gap-6 mt-6;
 }
 
-.theatre-stack-empty-hint {
+.project-stack-empty-hint {
   @apply flex items-center gap-1.5;
   font-size: var(--font-size-xs);
   color: rgba(255, 255, 255, 0.35);
 }
 
-.theatre-stack-empty-hint-shortcut {
+.project-stack-empty-hint-shortcut {
   display: inline-flex;
   align-items: center;
   font-family: 'Iosevka Extended', 'SF Mono', Monaco, Menlo, monospace;
@@ -1631,8 +1631,8 @@ body.platform-darwin:not(.is-fullscreen) .theatre-header-content {
 }
 
 /* On non-Mac platforms, use smaller font for shortcut text since "Ctrl+" is longer than ⌘ */
-body.platform-other .theatre-stack-empty-hint-shortcut,
-body.platform-other .theatre-card-shortcut {
+body.platform-other .project-stack-empty-hint-shortcut,
+body.platform-other .project-card-shortcut {
   @apply text-[13px];
 }
 
@@ -1645,31 +1645,31 @@ body.platform-other .shortcut-number {
    ========================================== */
 
 /* Hidden cards on other pages */
-.theatre-card--hidden {
+.project-card--hidden {
   display: none !important;
 }
 
 /* Pagination row — fixed below header, centered, only visible in stack view */
-.theatre-stack-pagination {
+.project-stack-pagination {
   @apply fixed z-[150] flex items-center gap-1.5;
   top: 58px;
   left: 50%;
   transform: translateX(-50%);
 }
 
-body.kanban-open .theatre-stack-pagination {
+body.kanban-open .project-stack-pagination {
   display: none !important;
 }
 
-.theatre-stack-page-arrow {
+.project-stack-page-arrow {
   @apply w-6 h-6 flex items-center justify-center bg-transparent border-none rounded text-white/35 transition-colors duration-150 ease-out;
 }
 
-.theatre-stack-page-arrow:hover {
+.project-stack-page-arrow:hover {
   @apply text-white/70;
 }
 
-.theatre-stack-page-indicator {
+.project-stack-page-indicator {
   @apply text-xs font-mono text-white/35;
 }
 
@@ -1677,24 +1677,24 @@ body.kanban-open .theatre-stack-pagination {
    View Toggle (Stack / Board)
    ========================================== */
 
-.theatre-view-toggle {
+.project-view-toggle {
   @apply flex items-center ml-3 bg-background-secondary border border-border rounded-md overflow-hidden;
   -webkit-app-region: no-drag;
 }
 
-.theatre-view-toggle-btn {
+.project-view-toggle-btn {
   @apply w-[30px] h-[30px] flex items-center justify-center text-text-secondary transition-all duration-150 ease-out;
 }
 
-.theatre-view-toggle-btn:hover {
+.project-view-toggle-btn:hover {
   @apply text-text-primary bg-background-tertiary;
 }
 
-.theatre-view-toggle-btn--active {
+.project-view-toggle-btn--active {
   @apply text-text-primary bg-background-tertiary;
 }
 
-.theatre-view-toggle-btn svg {
+.project-view-toggle-btn svg {
   @apply w-3.5 h-3.5;
 }
 
@@ -1703,7 +1703,7 @@ body.kanban-open .theatre-stack-pagination {
    ========================================== */
 
 /* Hide terminal stack when kanban is open (terminals keep running) */
-body.kanban-open .theatre-stack {
+body.kanban-open .project-stack {
   display: none;
 }
 

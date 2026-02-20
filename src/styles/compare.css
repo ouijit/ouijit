@@ -266,17 +266,17 @@ body > .diff-panel--visible {
 }
 
 /* ==========================================
-   Diff Panel inside Theatre Card
+   Diff Panel inside Project Card
    ========================================== */
 
 /* Diff panel inside card - full width like ship panel */
-.theatre-card .diff-panel {
+.project-card .diff-panel {
   @apply absolute inset-0 rounded-none border-0 border-t border-solid border-white/10 shadow-none z-20 flex overflow-hidden opacity-0 pointer-events-none;
   background: var(--color-terminal-bg, #1a1a1a);
   transition: opacity 0.15s ease;
 }
 
-.theatre-card .diff-panel--visible {
+.project-card .diff-panel--visible {
   @apply opacity-100 pointer-events-auto;
 }
 

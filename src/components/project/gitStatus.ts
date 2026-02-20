@@ -1,21 +1,21 @@
 /**
- * Git status display for theatre mode - per-terminal git status on card labels
+ * Git status display for project mode - per-terminal git status on card labels
  */
 
 import type { CompactGitStatus } from '../../types';
-import { theatreState, GIT_STATUS_IDLE_DELAY, TheatreTerminal } from './state';
+import { projectState, GIT_STATUS_IDLE_DELAY, ProjectTerminal } from './state';
 import { getTerminalGitPath } from './helpers';
 import { projectPath, terminals, gitDropdownVisible } from './signals';
 
 /**
- * Hide the git dropdown (cleanup for exitTheatreMode)
+ * Hide the git dropdown (cleanup for exitProjectMode)
  */
 export function hideGitDropdown(): void {
   if (!gitDropdownVisible.value) return;
 
-  if (theatreState.gitDropdownCleanup) {
-    theatreState.gitDropdownCleanup();
-    theatreState.gitDropdownCleanup = null;
+  if (projectState.gitDropdownCleanup) {
+    projectState.gitDropdownCleanup();
+    projectState.gitDropdownCleanup = null;
   }
 
   gitDropdownVisible.value = false;
@@ -34,15 +34,15 @@ export async function refreshGitStatus(): Promise<void> {
  */
 export function scheduleGitStatusRefresh(): void {
   // Clear any existing timeout
-  if (theatreState.gitStatusIdleTimeout) {
-    clearTimeout(theatreState.gitStatusIdleTimeout);
+  if (projectState.gitStatusIdleTimeout) {
+    clearTimeout(projectState.gitStatusIdleTimeout);
   }
 
   // Update last output time
-  theatreState.lastTerminalOutputTime = Date.now();
+  projectState.lastTerminalOutputTime = Date.now();
 
   // Schedule refresh after idle period
-  theatreState.gitStatusIdleTimeout = setTimeout(() => {
+  projectState.gitStatusIdleTimeout = setTimeout(() => {
     refreshGitStatus();
   }, GIT_STATUS_IDLE_DELAY);
 }
@@ -57,8 +57,8 @@ const pendingTerminalGitRefreshes = new Map<string, ReturnType<typeof setTimeout
  * @param onComplete - Optional callback to run after refresh (e.g., to update UI)
  */
 export function scheduleTerminalGitStatusRefresh(
-  term: TheatreTerminal,
-  onComplete?: (term: TheatreTerminal) => void
+  term: ProjectTerminal,
+  onComplete?: (term: ProjectTerminal) => void
 ): void {
   const key = term.ptyId;
   const existing = pendingTerminalGitRefreshes.get(key);
@@ -74,7 +74,7 @@ export function scheduleTerminalGitStatusRefresh(
 /**
  * Refresh git status for a specific terminal
  */
-export async function refreshTerminalGitStatus(term: TheatreTerminal): Promise<void> {
+export async function refreshTerminalGitStatus(term: ProjectTerminal): Promise<void> {
   const gitPath = getTerminalGitPath(term);
   const compactStatus = await window.api.getCompactGitStatus(gitPath);
   term.gitStatus = compactStatus;
@@ -89,7 +89,7 @@ export async function refreshAllTerminalGitStatus(): Promise<void> {
   if (currentTerminals.length === 0) return;
 
   // Group terminals by git path to avoid duplicate IPC calls
-  const pathToTerminals = new Map<string, TheatreTerminal[]>();
+  const pathToTerminals = new Map<string, ProjectTerminal[]>();
   for (const term of currentTerminals) {
     const gitPath = getTerminalGitPath(term);
     const group = pathToTerminals.get(gitPath);
@@ -120,9 +120,9 @@ export function buildCardGitBranchHtml(compactStatus: CompactGitStatus | null): 
 
   const { branch } = compactStatus;
   return `
-    <span class="theatre-card-git-branch" title="${branch}">
-      <i data-lucide="git-branch" class="theatre-card-git-icon"></i>
-      <span class="theatre-card-git-branch-name">${branch}</span>
+    <span class="project-card-git-branch" title="${branch}">
+      <i data-lucide="git-branch" class="project-card-git-icon"></i>
+      <span class="project-card-git-branch-name">${branch}</span>
     </span>
   `;
 }
@@ -135,15 +135,15 @@ export function buildCardGitStatsHtml(compactStatus: CompactGitStatus | null, is
 
   if (hasChanges) {
     const fileLabel = dirtyFileCount === 1 ? 'file' : 'files';
-    const parts: string[] = [`<span class="theatre-card-git-count">${dirtyFileCount} ${fileLabel}</span>`];
-    if (insertions > 0) parts.push(`<span class="theatre-card-git-add">+${insertions}</span>`);
-    if (deletions > 0) parts.push(`<span class="theatre-card-git-del">-${deletions}</span>`);
-    return `<span class="card-tab theatre-card-git-stats theatre-card-git-stats--clickable" title="View uncommitted changes">${parts.join(' ')}</span>`;
+    const parts: string[] = [`<span class="project-card-git-count">${dirtyFileCount} ${fileLabel}</span>`];
+    if (insertions > 0) parts.push(`<span class="project-card-git-add">+${insertions}</span>`);
+    if (deletions > 0) parts.push(`<span class="project-card-git-del">-${deletions}</span>`);
+    return `<span class="card-tab project-card-git-stats project-card-git-stats--clickable" title="View uncommitted changes">${parts.join(' ')}</span>`;
   }
 
   // No uncommitted changes — show "Compare" for worktree terminals only if branch has changes vs main
   if (isWorktree && compactStatus.branchDiffFileCount > 0) {
-    return `<span class="card-tab theatre-card-git-stats theatre-card-git-stats--clickable theatre-card-git-stats--compare" title="Compare branch changes">Compare</span>`;
+    return `<span class="card-tab project-card-git-stats project-card-git-stats--clickable project-card-git-stats--compare" title="Compare branch changes">Compare</span>`;
   }
 
   return '';

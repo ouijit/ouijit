@@ -1,5 +1,5 @@
 /**
- * Theatre mode orchestration - enter/exit, session management
+ * Project mode orchestration - enter/exit, session management
  */
 
 import { Terminal } from '@xterm/xterm';
@@ -8,12 +8,12 @@ import { WebLinksAddon } from '@xterm/addon-web-links';
 import { createIcons, icons } from 'lucide';
 import type { Project, ActiveSession } from '../../types';
 import {
-  theatreState,
+  projectState,
   projectSessions,
   orphanedSessions,
   ensureHiddenSessionsContainer,
   GIT_STATUS_PERIODIC_INTERVAL,
-  TheatreTerminal,
+  ProjectTerminal,
 } from './state';
 import {
   projectPath,
@@ -40,17 +40,17 @@ import {
   loadAllDiffs,
 } from './diffPanel';
 import {
-  addTheatreTerminal,
+  addProjectTerminal,
   updateCardStack,
   showStackEmptyState,
-  switchToTheatreTerminal,
+  switchToProjectTerminal,
   selectByStackPosition,
   setupCardActions,
   setupTerminalAppHotkeys,
   debouncedResize,
-  closeTheatreTerminal,
+  closeProjectTerminal,
   getTerminalTheme,
-  createTheatreCard,
+  createProjectCard,
   updateTerminalCardLabel,
   updateRunnerPill,
   navigateStackPage,
@@ -59,26 +59,26 @@ import {
   resetIdleTimer,
 } from './terminalCards';
 import {
-  buildTheatreHeader,
+  buildProjectHeader,
   toggleLaunchDropdown,
   hideLaunchDropdown,
 } from './launchDropdown';
 import { hideKanbanBoard, showKanbanBoard, showKanbanAndFocusInput, syncViewToggle } from './kanbanBoard';
-import { theatreRegistry } from './helpers';
+import { projectRegistry } from './helpers';
 import { registerHotkey, unregisterHotkey, pushScope, popScope, Scopes, platformHotkey } from '../../utils/hotkeys';
 import { showNewProjectDialog } from '../newProjectDialog';
 import { showToast } from '../importDialog';
 import { showHookConfigDialog } from '../hookConfigDialog';
 
 /**
- * Enter theatre mode for the specified project
+ * Enter project mode for the specified project
  * If a preserved session exists, it will be restored instead of creating a new one
  */
-export async function enterTheatreMode(
+export async function enterProjectMode(
   path: string,
   project: Project
 ): Promise<void> {
-  if (projectPath.value) return; // Already in theatre mode
+  if (projectPath.value) return; // Already in project mode
 
   // Check for preserved session
   const existingSession = projectSessions.get(path);
@@ -94,23 +94,23 @@ export async function enterTheatreMode(
   registerHookStatusListener();
 
   // 1. Add class to body - CSS handles the rest
-  document.body.classList.add('theatre-mode');
+  document.body.classList.add('project-mode');
 
   // 2. Update header content
   // Note: Git status is now displayed per-terminal on card labels, not in the header
   const headerContent = document.querySelector('.header-content');
   if (headerContent) {
-    theatreState.originalHeaderContent = headerContent.innerHTML;
-    headerContent.innerHTML = buildTheatreHeader();
+    projectState.originalHeaderContent = headerContent.innerHTML;
+    headerContent.innerHTML = buildProjectHeader();
 
     // Wire up exit button
-    const exitBtn = headerContent.querySelector('.theatre-exit-btn');
+    const exitBtn = headerContent.querySelector('.project-exit-btn');
     if (exitBtn) {
-      exitBtn.addEventListener('click', () => exitTheatreMode());
+      exitBtn.addEventListener('click', () => exitProjectMode());
     }
 
     // Wire up scripts button (opens dropdown)
-    const scriptsBtn = headerContent.querySelector('.theatre-scripts-btn');
+    const scriptsBtn = headerContent.querySelector('.project-scripts-btn');
     if (scriptsBtn) {
       scriptsBtn.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -119,7 +119,7 @@ export async function enterTheatreMode(
     }
 
     // Wire up new task button (opens task overlay)
-    const newTaskBtn = headerContent.querySelector('.theatre-newtask-btn');
+    const newTaskBtn = headerContent.querySelector('.project-newtask-btn');
     if (newTaskBtn) {
       newTaskBtn.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -128,17 +128,17 @@ export async function enterTheatreMode(
     }
 
     // Wire up terminal button (opens new shell)
-    const terminalBtn = headerContent.querySelector('.theatre-terminal-btn');
+    const terminalBtn = headerContent.querySelector('.project-terminal-btn');
     if (terminalBtn) {
       terminalBtn.addEventListener('click', async (e) => {
         e.stopPropagation();
         if (kanbanVisible.value) hideKanbanBoard();
-        await addTheatreTerminal();
+        await addProjectTerminal();
       });
     }
 
     // Wire up sandbox button (dropdown)
-    const sandboxWrapper = headerContent.querySelector('.theatre-sandbox-wrapper') as HTMLElement;
+    const sandboxWrapper = headerContent.querySelector('.project-sandbox-wrapper') as HTMLElement;
     if (sandboxWrapper) {
       wireSandboxButton(sandboxWrapper, path);
     }
@@ -196,7 +196,7 @@ export async function enterTheatreMode(
       for (const term of currentTerminals) {
         if (term.diffPanelOpen && term.diffPanelFiles.length > 0) {
           // Re-create the diff panel inside this terminal's card
-          const cardBody = term.container.querySelector('.theatre-card-body');
+          const cardBody = term.container.querySelector('.project-card-body');
           if (cardBody) {
             const panelHtml = buildDiffPanelHtml(term.diffPanelFiles);
             cardBody.insertAdjacentHTML('beforeend', panelHtml);
@@ -252,14 +252,14 @@ export async function enterTheatreMode(
       activeIndex.value = 0;
 
       const stack = document.createElement('div');
-      stack.className = 'theatre-stack';
+      stack.className = 'project-stack';
       mainContent.appendChild(stack);
 
       // Check for orphaned PTY sessions that survived an app refresh
       const orphaned = orphanedSessions.get(path);
       if (orphaned && orphaned.length > 0) {
         // Reconnect to orphaned sessions
-        console.log('[Theatre] Found orphaned PTY sessions, reconnecting:', orphaned);
+        console.log('[Project] Found orphaned PTY sessions, reconnecting:', orphaned);
         orphanedSessions.delete(path); // Consume them
         window.api.pty.setWindow();
 
@@ -277,7 +277,7 @@ export async function enterTheatreMode(
             const currentName = taskNameMap.get(session.taskId);
             if (currentName) session.label = currentName;
           }
-          await reconnectTheatreTerminal(session);
+          await reconnectProjectTerminal(session);
         }
 
         // Then reconnect runners to their parent terminals
@@ -287,7 +287,7 @@ export async function enterTheatreMode(
           if (parentTerminal) {
             await reconnectRunnerToParent(runnerSession, parentTerminal);
           } else {
-            console.warn('[Theatre] Could not find parent terminal for runner:', runnerSession.ptyId, 'parent:', runnerSession.parentPtyId);
+            console.warn('[Project] Could not find parent terminal for runner:', runnerSession.ptyId, 'parent:', runnerSession.parentPtyId);
           }
         }
 
@@ -303,38 +303,38 @@ export async function enterTheatreMode(
     }
   }
 
-  // 4. Set up keyboard shortcuts for theatre mode
+  // 4. Set up keyboard shortcuts for project mode
   // Use platformHotkey() to convert 'mod+' to 'command+' on Mac or 'ctrl+' on Linux/Windows
-  pushScope(Scopes.THEATRE);
-  registerHotkey(platformHotkey('mod+n'), Scopes.THEATRE, () => showKanbanAndFocusInput());
-  registerHotkey(platformHotkey('mod+b'), Scopes.THEATRE, () => theatreRegistry.toggleKanbanBoard?.());
-  registerHotkey(platformHotkey('mod+t'), Scopes.THEATRE, () => theatreRegistry.toggleKanbanBoard?.());
-  registerHotkey(platformHotkey('mod+i'), Scopes.THEATRE, () => addTheatreTerminal());
-  registerHotkey(platformHotkey('mod+p'), Scopes.THEATRE, () => theatreRegistry.playOrToggleRunner?.());
-  registerHotkey(platformHotkey('mod+d'), Scopes.THEATRE, () => theatreRegistry.toggleActiveDiffPanel?.());
-  registerHotkey(platformHotkey('mod+w'), Scopes.THEATRE, () => {
+  pushScope(Scopes.PROJECT);
+  registerHotkey(platformHotkey('mod+n'), Scopes.PROJECT, () => showKanbanAndFocusInput());
+  registerHotkey(platformHotkey('mod+b'), Scopes.PROJECT, () => projectRegistry.toggleKanbanBoard?.());
+  registerHotkey(platformHotkey('mod+t'), Scopes.PROJECT, () => projectRegistry.toggleKanbanBoard?.());
+  registerHotkey(platformHotkey('mod+i'), Scopes.PROJECT, () => addProjectTerminal());
+  registerHotkey(platformHotkey('mod+p'), Scopes.PROJECT, () => projectRegistry.playOrToggleRunner?.());
+  registerHotkey(platformHotkey('mod+d'), Scopes.PROJECT, () => projectRegistry.toggleActiveDiffPanel?.());
+  registerHotkey(platformHotkey('mod+w'), Scopes.PROJECT, () => {
     if (terminals.value.length > 0) {
-      closeTheatreTerminal(activeIndex.value);
+      closeProjectTerminal(activeIndex.value);
     }
   });
 
   // Mod+1-9 to select by stack position (terminals or tasks in empty state)
   for (let i = 1; i <= 9; i++) {
-    registerHotkey(platformHotkey(`mod+${i}`), Scopes.THEATRE, () => {
+    registerHotkey(platformHotkey(`mod+${i}`), Scopes.PROJECT, () => {
       selectByStackPosition(i);
     });
   }
 
   // Mod+Shift+Left/Right to navigate stack pages
-  registerHotkey(platformHotkey('mod+shift+left'), Scopes.THEATRE, () => navigateStackPage(-1));
-  registerHotkey(platformHotkey('mod+shift+right'), Scopes.THEATRE, () => navigateStackPage(1));
+  registerHotkey(platformHotkey('mod+shift+left'), Scopes.PROJECT, () => navigateStackPage(-1));
+  registerHotkey(platformHotkey('mod+shift+right'), Scopes.PROJECT, () => navigateStackPage(1));
 
-  // 5. Show kanban board by default (after THEATRE scope so KANBAN scope stacks on top)
+  // 5. Show kanban board by default (after PROJECT scope so KANBAN scope stacks on top)
   await showKanbanBoard();
 
   // 6. Start periodic git status refresh (for long-running commands)
   if (project.hasGit) {
-    theatreState.gitStatusPeriodicInterval = setInterval(() => {
+    projectState.gitStatusPeriodicInterval = setInterval(() => {
       refreshAllTerminalGitStatus().then(() => {
         for (const term of terminals.value) {
           updateTerminalCardLabel(term);
@@ -345,9 +345,9 @@ export async function enterTheatreMode(
 }
 
 /**
- * Exit theatre mode - preserves sessions for later restoration
+ * Exit project mode - preserves sessions for later restoration
  */
-export function exitTheatreMode(): void {
+export function exitProjectMode(): void {
   const currentProjectPath = projectPath.value;
   if (!currentProjectPath) return;
 
@@ -355,7 +355,7 @@ export function exitTheatreMode(): void {
   const currentProjectData = projectData.value;
 
   // 1. Handle session preservation or cleanup
-  const stack = document.querySelector('.theatre-stack') as HTMLElement;
+  const stack = document.querySelector('.project-stack') as HTMLElement;
   if (stack) {
     if (currentTerminals.length > 0 && currentProjectData) {
       // Store session for later restoration
@@ -387,12 +387,12 @@ export function exitTheatreMode(): void {
   }
 
   // 2. Remove class from body
-  document.body.classList.remove('theatre-mode');
+  document.body.classList.remove('project-mode');
 
   // 3. Restore header content
   const headerContent = document.querySelector('.header-content');
-  if (headerContent && theatreState.originalHeaderContent) {
-    headerContent.innerHTML = theatreState.originalHeaderContent;
+  if (headerContent && projectState.originalHeaderContent) {
+    headerContent.innerHTML = projectState.originalHeaderContent;
     // Re-attach refresh handler with full behavior
     const refreshBtn = headerContent.querySelector('#refresh-btn');
     if (refreshBtn) {
@@ -444,28 +444,28 @@ export function exitTheatreMode(): void {
   unregisterHookStatusListener();
 
   // 5. Remove keyboard shortcuts and pop scope
-  unregisterHotkey(platformHotkey('mod+n'), Scopes.THEATRE);
-  unregisterHotkey(platformHotkey('mod+b'), Scopes.THEATRE);
-  unregisterHotkey(platformHotkey('mod+t'), Scopes.THEATRE);
-  unregisterHotkey(platformHotkey('mod+i'), Scopes.THEATRE);
-  unregisterHotkey(platformHotkey('mod+p'), Scopes.THEATRE);
-  unregisterHotkey(platformHotkey('mod+d'), Scopes.THEATRE);
-  unregisterHotkey(platformHotkey('mod+w'), Scopes.THEATRE);
+  unregisterHotkey(platformHotkey('mod+n'), Scopes.PROJECT);
+  unregisterHotkey(platformHotkey('mod+b'), Scopes.PROJECT);
+  unregisterHotkey(platformHotkey('mod+t'), Scopes.PROJECT);
+  unregisterHotkey(platformHotkey('mod+i'), Scopes.PROJECT);
+  unregisterHotkey(platformHotkey('mod+p'), Scopes.PROJECT);
+  unregisterHotkey(platformHotkey('mod+d'), Scopes.PROJECT);
+  unregisterHotkey(platformHotkey('mod+w'), Scopes.PROJECT);
   for (let i = 1; i <= 9; i++) {
-    unregisterHotkey(platformHotkey(`mod+${i}`), Scopes.THEATRE);
+    unregisterHotkey(platformHotkey(`mod+${i}`), Scopes.PROJECT);
   }
-  unregisterHotkey(platformHotkey('mod+shift+left'), Scopes.THEATRE);
-  unregisterHotkey(platformHotkey('mod+shift+right'), Scopes.THEATRE);
+  unregisterHotkey(platformHotkey('mod+shift+left'), Scopes.PROJECT);
+  unregisterHotkey(platformHotkey('mod+shift+right'), Scopes.PROJECT);
   popScope();
 
   // 5. Clear git status timers
-  if (theatreState.gitStatusIdleTimeout) {
-    clearTimeout(theatreState.gitStatusIdleTimeout);
-    theatreState.gitStatusIdleTimeout = null;
+  if (projectState.gitStatusIdleTimeout) {
+    clearTimeout(projectState.gitStatusIdleTimeout);
+    projectState.gitStatusIdleTimeout = null;
   }
-  if (theatreState.gitStatusPeriodicInterval) {
-    clearInterval(theatreState.gitStatusPeriodicInterval);
-    theatreState.gitStatusPeriodicInterval = null;
+  if (projectState.gitStatusPeriodicInterval) {
+    clearInterval(projectState.gitStatusPeriodicInterval);
+    projectState.gitStatusPeriodicInterval = null;
   }
 
   // 6. Hide and cleanup git dropdown
@@ -481,23 +481,23 @@ export function exitTheatreMode(): void {
   hideDiffPanel();
 
   // 8.5. Remove pagination row
-  const paginationRow = document.querySelector('.theatre-stack-pagination');
+  const paginationRow = document.querySelector('.project-stack-pagination');
   if (paginationRow) paginationRow.remove();
 
   // 9. Hide kanban board
   hideKanbanBoard();
 
-  theatreState.originalHeaderContent = null;
+  projectState.originalHeaderContent = null;
 
   // Reset all signals to initial values
   resetSignals();
 }
 
 /**
- * Permanently destroy all theatre sessions for a project
+ * Permanently destroy all project sessions for a project
  * Call this when you want to truly close sessions, not just switch away
  */
-export function destroyTheatreSessions(projectPath: string): void {
+export function destroyProjectSessions(projectPath: string): void {
   const session = projectSessions.get(projectPath);
   if (!session) return;
 
@@ -519,38 +519,38 @@ export function destroyTheatreSessions(projectPath: string): void {
 }
 
 /**
- * Get list of projects with preserved theatre sessions
+ * Get list of projects with preserved project sessions
  */
 export function getPreservedSessionPaths(): string[] {
   return Array.from(projectSessions.keys());
 }
 
 /**
- * Check if a project has a preserved theatre session
+ * Check if a project has a preserved project session
  */
 export function hasPreservedSession(projectPath: string): boolean {
   return projectSessions.has(projectPath);
 }
 
 /**
- * Check if we're currently in theatre mode
+ * Check if we're currently in project mode
  */
-export function isInTheatreMode(): boolean {
+export function isInProjectMode(): boolean {
   return projectPath.value !== null;
 }
 
 /**
- * Restore theatre mode after renderer reload (e.g., after sleep/wake)
+ * Restore project mode after renderer reload (e.g., after sleep/wake)
  * Reconnects to existing PTY sessions in the main process
  */
-export async function restoreTheatreMode(
+export async function restoreProjectMode(
   path: string,
   project: Project,
   activeSessions: ActiveSession[]
 ): Promise<void> {
-  if (projectPath.value) return; // Already in theatre mode
+  if (projectPath.value) return; // Already in project mode
 
-  console.log('[Theatre] Restoring theatre mode for', path, 'with', activeSessions.length, 'sessions');
+  console.log('[Project] Restoring project mode for', path, 'with', activeSessions.length, 'sessions');
 
   // Update window reference in main process
   window.api.pty.setWindow();
@@ -566,22 +566,22 @@ export async function restoreTheatreMode(
   registerHookStatusListener();
 
   // 1. Add class to body
-  document.body.classList.add('theatre-mode');
+  document.body.classList.add('project-mode');
 
   // 2. Update header content
   const headerContent = document.querySelector('.header-content');
   if (headerContent) {
-    theatreState.originalHeaderContent = headerContent.innerHTML;
-    headerContent.innerHTML = buildTheatreHeader();
+    projectState.originalHeaderContent = headerContent.innerHTML;
+    headerContent.innerHTML = buildProjectHeader();
 
     // Wire up exit button
-    const exitBtn = headerContent.querySelector('.theatre-exit-btn');
+    const exitBtn = headerContent.querySelector('.project-exit-btn');
     if (exitBtn) {
-      exitBtn.addEventListener('click', () => exitTheatreMode());
+      exitBtn.addEventListener('click', () => exitProjectMode());
     }
 
     // Wire up scripts button (opens dropdown)
-    const scriptsBtn = headerContent.querySelector('.theatre-scripts-btn');
+    const scriptsBtn = headerContent.querySelector('.project-scripts-btn');
     if (scriptsBtn) {
       scriptsBtn.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -590,7 +590,7 @@ export async function restoreTheatreMode(
     }
 
     // Wire up new task button (opens kanban board)
-    const newTaskBtn = headerContent.querySelector('.theatre-newtask-btn');
+    const newTaskBtn = headerContent.querySelector('.project-newtask-btn');
     if (newTaskBtn) {
       newTaskBtn.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -599,17 +599,17 @@ export async function restoreTheatreMode(
     }
 
     // Wire up terminal button (opens new shell)
-    const terminalBtn = headerContent.querySelector('.theatre-terminal-btn');
+    const terminalBtn = headerContent.querySelector('.project-terminal-btn');
     if (terminalBtn) {
       terminalBtn.addEventListener('click', async (e) => {
         e.stopPropagation();
         if (kanbanVisible.value) hideKanbanBoard();
-        await addTheatreTerminal();
+        await addProjectTerminal();
       });
     }
 
     // Wire up sandbox button (dropdown)
-    const sandboxWrapper = headerContent.querySelector('.theatre-sandbox-wrapper') as HTMLElement;
+    const sandboxWrapper = headerContent.querySelector('.project-sandbox-wrapper') as HTMLElement;
     if (sandboxWrapper) {
       wireSandboxButton(sandboxWrapper, path);
     }
@@ -626,7 +626,7 @@ export async function restoreTheatreMode(
     activeIndex.value = 0;
 
     const stack = document.createElement('div');
-    stack.className = 'theatre-stack';
+    stack.className = 'project-stack';
     mainContent.appendChild(stack);
 
     // Separate main terminals from runners
@@ -646,7 +646,7 @@ export async function restoreTheatreMode(
         if (currentName) session.label = currentName;
       }
       const worktreeBranch = session.taskId != null ? taskBranchMap.get(session.taskId) : undefined;
-      await reconnectTheatreTerminal(session, worktreeBranch);
+      await reconnectProjectTerminal(session, worktreeBranch);
     }
 
     // Then reconnect runners to their parent terminals
@@ -655,7 +655,7 @@ export async function restoreTheatreMode(
       if (parentTerminal) {
         await reconnectRunnerToParent(runnerSession, parentTerminal);
       } else {
-        console.warn('[Theatre] Could not find parent terminal for runner:', runnerSession.ptyId, 'parent:', runnerSession.parentPtyId);
+        console.warn('[Project] Could not find parent terminal for runner:', runnerSession.ptyId, 'parent:', runnerSession.parentPtyId);
       }
     }
 
@@ -667,31 +667,31 @@ export async function restoreTheatreMode(
   }
 
   // 4. Set up keyboard shortcuts
-  pushScope(Scopes.THEATRE);
-  registerHotkey(platformHotkey('mod+n'), Scopes.THEATRE, () => showKanbanAndFocusInput());
-  registerHotkey(platformHotkey('mod+b'), Scopes.THEATRE, () => theatreRegistry.toggleKanbanBoard?.());
-  registerHotkey(platformHotkey('mod+t'), Scopes.THEATRE, () => theatreRegistry.toggleKanbanBoard?.());
-  registerHotkey(platformHotkey('mod+i'), Scopes.THEATRE, () => addTheatreTerminal());
-  registerHotkey(platformHotkey('mod+p'), Scopes.THEATRE, () => theatreRegistry.playOrToggleRunner?.());
-  registerHotkey(platformHotkey('mod+d'), Scopes.THEATRE, () => theatreRegistry.toggleActiveDiffPanel?.());
-  registerHotkey(platformHotkey('mod+w'), Scopes.THEATRE, () => {
+  pushScope(Scopes.PROJECT);
+  registerHotkey(platformHotkey('mod+n'), Scopes.PROJECT, () => showKanbanAndFocusInput());
+  registerHotkey(platformHotkey('mod+b'), Scopes.PROJECT, () => projectRegistry.toggleKanbanBoard?.());
+  registerHotkey(platformHotkey('mod+t'), Scopes.PROJECT, () => projectRegistry.toggleKanbanBoard?.());
+  registerHotkey(platformHotkey('mod+i'), Scopes.PROJECT, () => addProjectTerminal());
+  registerHotkey(platformHotkey('mod+p'), Scopes.PROJECT, () => projectRegistry.playOrToggleRunner?.());
+  registerHotkey(platformHotkey('mod+d'), Scopes.PROJECT, () => projectRegistry.toggleActiveDiffPanel?.());
+  registerHotkey(platformHotkey('mod+w'), Scopes.PROJECT, () => {
     if (terminals.value.length > 0) {
-      closeTheatreTerminal(activeIndex.value);
+      closeProjectTerminal(activeIndex.value);
     }
   });
 
   // Mod+1-9 to select by stack position (terminals or tasks in empty state)
   for (let i = 1; i <= 9; i++) {
-    registerHotkey(platformHotkey(`mod+${i}`), Scopes.THEATRE, () => {
+    registerHotkey(platformHotkey(`mod+${i}`), Scopes.PROJECT, () => {
       selectByStackPosition(i);
     });
   }
 
   // Mod+Shift+Left/Right to navigate stack pages
-  registerHotkey(platformHotkey('mod+shift+left'), Scopes.THEATRE, () => navigateStackPage(-1));
-  registerHotkey(platformHotkey('mod+shift+right'), Scopes.THEATRE, () => navigateStackPage(1));
+  registerHotkey(platformHotkey('mod+shift+left'), Scopes.PROJECT, () => navigateStackPage(-1));
+  registerHotkey(platformHotkey('mod+shift+right'), Scopes.PROJECT, () => navigateStackPage(1));
 
-  // 5. Show kanban board by default (after THEATRE scope so KANBAN scope stacks on top)
+  // 5. Show kanban board by default (after PROJECT scope so KANBAN scope stacks on top)
   await showKanbanBoard();
 
   // 6. Refresh git status immediately and start periodic refresh
@@ -704,7 +704,7 @@ export async function restoreTheatreMode(
     });
 
     // Periodic refresh for ongoing changes
-    theatreState.gitStatusPeriodicInterval = setInterval(() => {
+    projectState.gitStatusPeriodicInterval = setInterval(() => {
       refreshAllTerminalGitStatus().then(() => {
         for (const term of terminals.value) {
           updateTerminalCardLabel(term);
@@ -717,7 +717,7 @@ export async function restoreTheatreMode(
 /**
  * Reconnect to an existing PTY session and create a terminal card for it
  */
-async function reconnectTheatreTerminal(session: ActiveSession, worktreeBranch?: string): Promise<void> {
+async function reconnectProjectTerminal(session: ActiveSession, worktreeBranch?: string): Promise<void> {
 
   const terminal = new Terminal({
     cursorBlink: true,
@@ -738,10 +738,10 @@ async function reconnectTheatreTerminal(session: ActiveSession, worktreeBranch?:
 
   // Create the card UI
   const index = terminals.value.length;
-  const card = createTheatreCard(session.label, index);
+  const card = createProjectCard(session.label, index);
 
   // Add to DOM
-  const stack = document.querySelector('.theatre-stack');
+  const stack = document.querySelector('.project-stack');
   if (!stack) return;
   stack.appendChild(card);
 
@@ -793,7 +793,7 @@ async function reconnectTheatreTerminal(session: ActiveSession, worktreeBranch?:
   // Reconnect to existing PTY
   const result = await window.api.pty.reconnect(session.ptyId);
 
-  // Guard: theatre mode may have been exited during the async reconnect
+  // Guard: project mode may have been exited during the async reconnect
   if (!projectPath.value) {
     terminal.dispose();
     card.remove();
@@ -801,7 +801,7 @@ async function reconnectTheatreTerminal(session: ActiveSession, worktreeBranch?:
   }
 
   if (!result.success) {
-    console.error('[Theatre] Failed to reconnect to PTY:', session.ptyId, result.error);
+    console.error('[Project] Failed to reconnect to PTY:', session.ptyId, result.error);
     card.remove();
     terminal.dispose();
     return;
@@ -827,7 +827,7 @@ async function reconnectTheatreTerminal(session: ActiveSession, worktreeBranch?:
   }, 50);
 
   // Create terminal object
-  const theatreTerminal: TheatreTerminal = {
+  const projectTerminal: ProjectTerminal = {
     ptyId: session.ptyId,
     projectPath: session.projectPath,
     command: session.command,
@@ -867,22 +867,22 @@ async function reconnectTheatreTerminal(session: ActiveSession, worktreeBranch?:
   };
 
   // Set up close button handler
-  const closeBtn = card.querySelector('.theatre-card-close') as HTMLButtonElement;
+  const closeBtn = card.querySelector('.project-card-close') as HTMLButtonElement;
   if (closeBtn) {
     closeBtn.addEventListener('click', (e) => {
       e.stopPropagation();
-      const idx = terminals.value.indexOf(theatreTerminal);
+      const idx = terminals.value.indexOf(projectTerminal);
       if (idx !== -1) {
-        closeTheatreTerminal(idx);
+        closeProjectTerminal(idx);
       }
     });
   }
 
   // Card click handler (to bring to front)
   card.addEventListener('click', () => {
-    const idx = terminals.value.indexOf(theatreTerminal);
+    const idx = terminals.value.indexOf(projectTerminal);
     if (idx !== -1 && idx !== activeIndex.value) {
-      switchToTheatreTerminal(idx);
+      switchToProjectTerminal(idx);
     }
   });
 
@@ -891,17 +891,17 @@ async function reconnectTheatreTerminal(session: ActiveSession, worktreeBranch?:
     terminal.write(data);
     resetIdleTimer(session.ptyId);
   });
-  theatreTerminal.cleanupData = cleanupData;
+  projectTerminal.cleanupData = cleanupData;
 
   // Set up exit handler
   const cleanupExit = window.api.pty.onExit(session.ptyId, () => {
-    console.log('[Theatre] Terminal exited:', session.ptyId);
-    const idx = terminals.value.indexOf(theatreTerminal);
+    console.log('[Project] Terminal exited:', session.ptyId);
+    const idx = terminals.value.indexOf(projectTerminal);
     if (idx !== -1) {
-      closeTheatreTerminal(idx);
+      closeProjectTerminal(idx);
     }
   });
-  theatreTerminal.cleanupExit = cleanupExit;
+  projectTerminal.cleanupExit = cleanupExit;
 
   // Forward input to PTY
   terminal.onData((data) => {
@@ -909,19 +909,19 @@ async function reconnectTheatreTerminal(session: ActiveSession, worktreeBranch?:
   });
 
   // Add to terminals array
-  terminals.value = [...terminals.value, theatreTerminal];
+  terminals.value = [...terminals.value, projectTerminal];
 
   // Set up card action buttons (runner pill for all, close-task for worktrees)
-  setupCardActions(theatreTerminal);
+  setupCardActions(projectTerminal);
 
   // Mark sandboxed terminals with a ring on the status dot
-  if (theatreTerminal.sandboxed) {
-    const dot = card.querySelector('.theatre-card-status-dot');
-    if (dot) dot.classList.add('theatre-card-status-dot--sandboxed');
+  if (projectTerminal.sandboxed) {
+    const dot = card.querySelector('.project-card-status-dot');
+    if (dot) dot.classList.add('project-card-status-dot--sandboxed');
   }
 
   // Update card label
-  updateTerminalCardLabel(theatreTerminal);
+  updateTerminalCardLabel(projectTerminal);
 
   // Focus if this is the first terminal
   if (terminals.value.length === 1) {
@@ -934,7 +934,7 @@ async function reconnectTheatreTerminal(session: ActiveSession, worktreeBranch?:
  */
 async function reconnectRunnerToParent(
   session: ActiveSession,
-  parentTerminal: TheatreTerminal
+  parentTerminal: ProjectTerminal
 ): Promise<void> {
   // Create runner terminal (hidden until panel is opened)
   const runnerTerminal = new Terminal({
@@ -960,14 +960,14 @@ async function reconnectRunnerToParent(
   // Reconnect to existing PTY
   const result = await window.api.pty.reconnect(session.ptyId);
 
-  // Guard: theatre mode may have been exited or parent closed during async reconnect
+  // Guard: project mode may have been exited or parent closed during async reconnect
   if (!projectPath.value || !terminals.value.includes(parentTerminal)) {
     runnerTerminal.dispose();
     return;
   }
 
   if (!result.success) {
-    console.error('[Theatre] Failed to reconnect runner PTY:', session.ptyId, result.error);
+    console.error('[Project] Failed to reconnect runner PTY:', session.ptyId, result.error);
     runnerTerminal.dispose();
     return;
   }
@@ -1024,14 +1024,14 @@ async function reconnectRunnerToParent(
   // Update runner pill to show running state
   updateRunnerPill(parentTerminal);
 
-  console.log('[Theatre] Reconnected runner to parent terminal:', session.ptyId, '->', parentTerminal.ptyId);
+  console.log('[Project] Reconnected runner to parent terminal:', session.ptyId, '->', parentTerminal.ptyId);
 }
 
 /**
  * Wire up the view toggle buttons in the header
  */
 function wireViewToggle(headerContent: Element): void {
-  const toggleBtns = headerContent.querySelectorAll('.theatre-view-toggle-btn');
+  const toggleBtns = headerContent.querySelectorAll('.project-view-toggle-btn');
   toggleBtns.forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
@@ -1053,7 +1053,7 @@ function wireSandboxButton(wrapper: HTMLElement, path: string): void {
   if (wrapper.dataset.wired) return;
   wrapper.dataset.wired = '1';
 
-  const sandboxBtn = wrapper.querySelector('.theatre-sandbox-btn') as HTMLElement;
+  const sandboxBtn = wrapper.querySelector('.project-sandbox-btn') as HTMLElement;
   if (!sandboxBtn) return;
 
   // Remove native title — dropdown replaces it
@@ -1063,7 +1063,7 @@ function wireSandboxButton(wrapper: HTMLElement, path: string): void {
   window.api.lima.status(path).then((status) => {
     if (!status.available) return;
     wrapper.style.display = 'flex';
-    sandboxBtn.classList.toggle('theatre-sandbox-btn--active', status.vmStatus === 'Running');
+    sandboxBtn.classList.toggle('project-sandbox-btn--active', status.vmStatus === 'Running');
   });
 
   // Click handler opens/closes dropdown
@@ -1113,14 +1113,14 @@ async function showSandboxDropdown(wrapper: HTMLElement, path: string): Promise<
   const handleClickOutside = (e: MouseEvent) => {
     if (Date.now() - openedAt < 50) return; // Ignore the opening click
     const target = e.target as HTMLElement;
-    if (!target.closest('.theatre-sandbox-wrapper')) {
+    if (!target.closest('.project-sandbox-wrapper')) {
       hideSandboxDropdown();
     }
   };
 
   document.addEventListener('click', handleClickOutside);
 
-  theatreState.sandboxDropdownCleanup = () => {
+  projectState.sandboxDropdownCleanup = () => {
     document.removeEventListener('click', handleClickOutside);
   };
 }
@@ -1137,9 +1137,9 @@ export function hideSandboxDropdown(): void {
     setTimeout(() => dropdown.remove(), 150);
   }
 
-  if (theatreState.sandboxDropdownCleanup) {
-    theatreState.sandboxDropdownCleanup();
-    theatreState.sandboxDropdownCleanup = null;
+  if (projectState.sandboxDropdownCleanup) {
+    projectState.sandboxDropdownCleanup();
+    projectState.sandboxDropdownCleanup = null;
   }
 
   sandboxDropdownVisible.value = false;
@@ -1154,7 +1154,7 @@ let activeBorderAnim: SVGElement | null = null;
  * that traces around the border while the VM is starting up.
  */
 export function setSandboxButtonStarting(starting: boolean): void {
-  const btn = document.querySelector('.theatre-sandbox-btn') as HTMLElement | null;
+  const btn = document.querySelector('.project-sandbox-btn') as HTMLElement | null;
 
   if (!btn) return;
 
@@ -1164,7 +1164,7 @@ export function setSandboxButtonStarting(starting: boolean): void {
       activeBorderAnim.remove();
       activeBorderAnim = null;
     }
-    btn.classList.add('theatre-sandbox-btn--starting');
+    btn.classList.add('project-sandbox-btn--starting');
     const w = btn.offsetWidth + 4;
     const h = btn.offsetHeight + 4;
     const r = (parseFloat(getComputedStyle(btn).borderRadius) || 6) + 2;
@@ -1189,7 +1189,7 @@ export function setSandboxButtonStarting(starting: boolean): void {
     activeBorderAnim = svg;
 
   } else {
-    btn.classList.remove('theatre-sandbox-btn--starting');
+    btn.classList.remove('project-sandbox-btn--starting');
 
     if (activeBorderAnim) {
       activeBorderAnim.remove();
@@ -1212,9 +1212,9 @@ export async function refreshSandboxButton(path: string): Promise<void> {
   try {
     const status = await window.api.lima.status(path);
 
-    const btn = document.querySelector('.theatre-sandbox-btn');
+    const btn = document.querySelector('.project-sandbox-btn');
     if (btn) {
-      btn.classList.toggle('theatre-sandbox-btn--active', status.vmStatus === 'Running');
+      btn.classList.toggle('project-sandbox-btn--active', status.vmStatus === 'Running');
     }
   } catch (error) {
     console.warn('[Lima] refreshSandboxButton failed:', error instanceof Error ? error.message : error);
@@ -1237,7 +1237,7 @@ async function buildSandboxDropdownContent(
     window.api.lima.getConfig(path),
   ]);
 
-  const sandboxBtn = wrapper.querySelector('.theatre-sandbox-btn') as HTMLElement;
+  const sandboxBtn = wrapper.querySelector('.project-sandbox-btn') as HTMLElement;
   const setupHook = hooks['sandbox-setup'];
 
   // Header
@@ -1396,7 +1396,7 @@ async function buildSandboxDropdownContent(
     startBtn.addEventListener('click', async (e) => {
       e.stopPropagation();
       hideSandboxDropdown();
-      sandboxBtn.classList.remove('theatre-sandbox-btn--active');
+      sandboxBtn.classList.remove('project-sandbox-btn--active');
       setSandboxButtonStarting(true);
       window.api.lima.start(path).catch(() => {});
       // Poll until VM is running (timeout after 5 min)
@@ -1438,7 +1438,7 @@ async function buildSandboxDropdownContent(
   consoleBtn.addEventListener('click', async (e) => {
     e.stopPropagation();
     hideSandboxDropdown();
-    await theatreRegistry.addTheatreTerminal?.(
+    await projectRegistry.addProjectTerminal?.(
       { name: 'VM Console', command: '', source: 'custom', priority: 0 },
       { sandboxed: true },
     );
@@ -1455,7 +1455,7 @@ async function buildSandboxDropdownContent(
       recreateBtn.disabled = true;
       recreateBtn.textContent = 'Recreating...';
       hideSandboxDropdown();
-      sandboxBtn.classList.remove('theatre-sandbox-btn--active');
+      sandboxBtn.classList.remove('project-sandbox-btn--active');
       setSandboxButtonStarting(true);
       // Fire recreate — don't await, the IPC may never resolve
       window.api.lima.recreate(path).catch(() => {});

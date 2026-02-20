@@ -1,6 +1,6 @@
 /**
- * Shared state for theatre mode components
- * Centralizes state that needs to be accessed across multiple theatre modules
+ * Shared state for project mode components
+ * Centralizes state that needs to be accessed across multiple project modules
  */
 
 import { Terminal } from '@xterm/xterm';
@@ -10,8 +10,8 @@ import type { PtyId, Project, ChangedFile, CompactGitStatus, ActiveSession } fro
 // Summary type for terminal status indication
 export type SummaryType = 'thinking' | 'ready';
 
-// Theatre terminal interface for multi-terminal support
-export interface TheatreTerminal {
+// Project terminal interface for multi-terminal support
+export interface ProjectTerminal {
   ptyId: PtyId;
   projectPath: string;
   command: string | undefined;  // undefined = interactive shell
@@ -55,9 +55,9 @@ export interface TheatreTerminal {
   runnerResizeCleanup: (() => void) | null;     // cleanup for drag listeners
 }
 
-// Per-project session storage for preserving theatre mode across project switches
-export interface StoredTheatreSession {
-  terminals: TheatreTerminal[];
+// Per-project session storage for preserving project mode across project switches
+export interface StoredProjectSession {
+  terminals: ProjectTerminal[];
   activeIndex: number;
   projectData: Project;
   stackElement: HTMLElement;
@@ -69,16 +69,16 @@ export interface StoredTheatreSession {
 
 // Constants
 export const STACK_PAGE_SIZE = 5;
-export const HIDDEN_SESSIONS_CONTAINER_ID = 'hidden-theatre-sessions';
+export const HIDDEN_SESSIONS_CONTAINER_ID = 'hidden-project-sessions';
 export const GIT_STATUS_IDLE_DELAY = 2000;
 export const GIT_STATUS_PERIODIC_INTERVAL = 15000;
 
 /**
- * Non-reactive theatre mode state
+ * Non-reactive project mode state
  * Items that don't need reactive updates (handlers, timers, cleanup functions)
  * Reactive state is now in signals.ts
  */
-export const theatreState = {
+export const projectState = {
   // Header content for restoration on exit
   originalHeaderContent: null as string | null,
 
@@ -101,14 +101,14 @@ export const theatreState = {
 };
 
 // Session storage for preserved sessions (in-memory, survives project switching)
-export const projectSessions = new Map<string, StoredTheatreSession>();
+export const projectSessions = new Map<string, StoredProjectSession>();
 
 // Orphaned sessions storage (PTY sessions that survived an app refresh)
-// Populated on startup from main process, consumed by enterTheatreMode
+// Populated on startup from main process, consumed by enterProjectMode
 export const orphanedSessions = new Map<string, ActiveSession[]>();
 
 /**
- * Ensures the hidden container for storing detached theatre sessions exists
+ * Ensures the hidden container for storing detached project sessions exists
  */
 export function ensureHiddenSessionsContainer(): HTMLElement {
   let container = document.getElementById(HIDDEN_SESSIONS_CONTAINER_ID);

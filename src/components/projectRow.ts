@@ -1,7 +1,7 @@
 import type { Project } from '../types';
 import { stringToColor, getInitials } from '../utils/projectIcon';
 import { formatRelativeTime } from '../utils/formatDate';
-import { enterTheatreMode } from './theatre';
+import { enterProjectMode } from './project';
 
 /**
  * Creates a project icon element (image or placeholder)
@@ -121,9 +121,9 @@ export function createProjectRow(project: Project): HTMLElement {
   lastModified.textContent = formatRelativeTime(date);
   row.appendChild(lastModified);
 
-  // Click row to enter theatre mode
+  // Click row to enter project mode
   row.addEventListener('click', async () => {
-    await enterTheatreMode(project.path, project);
+    await enterProjectMode(project.path, project);
   });
 
   return row;

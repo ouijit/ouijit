@@ -15,7 +15,7 @@ Do NOT run `npm run start` or other dev server commands.
 - `src/preload.ts` - Preload script (IPC bridge)
 - `src/renderer.ts` - Renderer entry point
 - `src/components/` - UI components
-- `src/components/theatre/` - Theatre mode (terminal/task runner UI)
+- `src/components/project/` - Project mode (terminal/task runner UI)
 - `src/utils/` - Shared utilities
 - `src/ouijit/` - Core app logic (import/export, dependencies)
 - `src/lima/` - Lima VM sandbox integration
@@ -36,23 +36,23 @@ Do NOT run `npm run start` or other dev server commands.
 
 ## Code Rules
 
-- **No dynamic imports** — never use `import()` for lazy loading or code splitting. Always use static `import` at the top of the file. Vite handles circular dependencies fine for functions called inside handlers (not at module evaluation time). Use the `theatreRegistry` pattern only when true circular top-level access is needed.
+- **No dynamic imports** — never use `import()` for lazy loading or code splitting. Always use static `import` at the top of the file. Vite handles circular dependencies fine for functions called inside handlers (not at module evaluation time). Use the `projectRegistry` pattern only when true circular top-level access is needed.
 - Don't replace `innerHTML` on elements with event listeners (destroys handlers)
 - Use targeted DOM updates instead of full rebuilds
 - Clear intervals/timeouts on cleanup
 - Use `-webkit-app-region: no-drag;` for any UI elements (dropdowns, menus) originating in the titlebar area
 
-### Theatre Mode Hotkeys
+### Project Mode Hotkeys
 
-To add a new hotkey in theatre mode:
+To add a new hotkey in project mode:
 
-1. Add the handler function signature to `TheatreRegistry` interface in `helpers.ts`
-2. Add initial `null` value in the `theatreRegistry` object
+1. Add the handler function signature to `ProjectRegistry` interface in `helpers.ts`
+2. Add initial `null` value in the `projectRegistry` object
 3. Implement the handler in the appropriate module (e.g., `terminalCards.ts`, `diffPanel.ts`)
-4. Register it: `theatreRegistry.myHandler = myHandler;` at module load time
-5. In `theatreMode.ts`:
-   - Register hotkey in both `enterTheatreMode` and `restoreTheatreMode`
-   - Unregister in `exitTheatreMode`
-   - Call via registry with optional chaining: `theatreRegistry.myHandler?.()`
+4. Register it: `projectRegistry.myHandler = myHandler;` at module load time
+5. In `projectMode.ts`:
+   - Register hotkey in both `enterProjectMode` and `restoreProjectMode`
+   - Unregister in `exitProjectMode`
+   - Call via registry with optional chaining: `projectRegistry.myHandler?.()`
 
-This registry pattern avoids circular dependencies between theatre modules.
+This registry pattern avoids circular dependencies between project modules.

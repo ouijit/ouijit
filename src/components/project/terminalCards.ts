@@ -1,5 +1,5 @@
 /**
- * Theatre terminal card management - multi-terminal UI, output analysis, card stack
+ * Project terminal card management - multi-terminal UI, output analysis, card stack
  */
 
 import { Terminal } from '@xterm/xterm';
@@ -7,11 +7,11 @@ import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import type { PtyId, PtySpawnOptions, RunConfig, WorktreeInfo } from '../../types';
 import {
-  TheatreTerminal,
+  ProjectTerminal,
   STACK_PAGE_SIZE,
-  theatreState,
+  projectState,
 } from './state';
-import { getTerminalGitPath, hideRunnerPanel, theatreRegistry } from './helpers';
+import { getTerminalGitPath, hideRunnerPanel, projectRegistry } from './helpers';
 import {
   projectPath,
   projectData,
@@ -25,7 +25,7 @@ import { showToast } from '../importDialog';
 import { showHookConfigDialog } from '../hookConfigDialog';
 import { refreshTerminalGitStatus, buildCardGitBranchHtml, buildCardGitStatsHtml, scheduleTerminalGitStatusRefresh } from './gitStatus';
 import { toggleTerminalDiffPanel, toggleTerminalWorktreeDiffPanel, hideTerminalDiffPanel } from './diffPanel';
-import { setSandboxButtonStarting, refreshSandboxButton } from './theatreMode';
+import { setSandboxButtonStarting, refreshSandboxButton } from './projectMode';
 import { createIcons, icons } from 'lucide';
 
 // Platform detection for shortcuts display
@@ -151,16 +151,16 @@ export function getTerminalTheme(): Record<string, string> {
 /**
  * Update the terminal card label with current summary state
  */
-export function updateTerminalCardLabel(term: TheatreTerminal): void {
-  const labelEl = term.container.querySelector('.theatre-card-label');
+export function updateTerminalCardLabel(term: ProjectTerminal): void {
+  const labelEl = term.container.querySelector('.project-card-label');
   if (!labelEl) return;
 
   // Ensure status dot exists
-  let dot = labelEl.querySelector('.theatre-card-status-dot') as HTMLElement;
+  let dot = labelEl.querySelector('.project-card-status-dot') as HTMLElement;
   if (!dot) {
     dot = document.createElement('span');
-    dot.className = 'theatre-card-status-dot';
-    if (term.sandboxed) dot.classList.add('theatre-card-status-dot--sandboxed');
+    dot.className = 'project-card-status-dot';
+    if (term.sandboxed) dot.classList.add('project-card-status-dot--sandboxed');
     labelEl.insertBefore(dot, labelEl.firstChild);
   }
 
@@ -168,7 +168,7 @@ export function updateTerminalCardLabel(term: TheatreTerminal): void {
   dot.setAttribute('data-status', term.summaryType);
 
   // Update label text
-  const labelText = labelEl.querySelector('.theatre-card-label-text');
+  const labelText = labelEl.querySelector('.project-card-label-text');
   if (labelText) {
     let display = term.label;
     if (term.summary) {
@@ -178,13 +178,13 @@ export function updateTerminalCardLabel(term: TheatreTerminal): void {
   }
 
   // Update OSC title pill
-  const labelTop = labelEl.querySelector('.theatre-card-label-top');
+  const labelTop = labelEl.querySelector('.project-card-label-top');
   if (labelTop) {
-    let oscPill = labelTop.querySelector('.theatre-card-osc-title') as HTMLElement;
+    let oscPill = labelTop.querySelector('.project-card-osc-title') as HTMLElement;
     if (term.lastOscTitle) {
       if (!oscPill) {
         oscPill = document.createElement('span');
-        oscPill.className = 'theatre-card-osc-title';
+        oscPill.className = 'project-card-osc-title';
         labelTop.appendChild(oscPill);
       }
       oscPill.textContent = term.lastOscTitle;
@@ -195,7 +195,7 @@ export function updateTerminalCardLabel(term: TheatreTerminal): void {
   }
 
   // Update git branch display (second line under label)
-  const branchRow = labelEl.querySelector('.theatre-card-git-branch-row') as HTMLElement;
+  const branchRow = labelEl.querySelector('.project-card-git-branch-row') as HTMLElement;
   if (branchRow) {
     const branchHtml = buildCardGitBranchHtml(term.gitStatus);
     if (branchRow.dataset.lastHtml !== branchHtml) {
@@ -205,7 +205,7 @@ export function updateTerminalCardLabel(term: TheatreTerminal): void {
   }
 
   // Update git stats display (in label-right)
-  const statsWrapper = labelEl.querySelector('.theatre-card-git-stats-wrapper') as HTMLElement;
+  const statsWrapper = labelEl.querySelector('.project-card-git-stats-wrapper') as HTMLElement;
   if (statsWrapper) {
     const isWorktree = term.taskId != null && !!term.worktreeBranch;
     const statsHtml = buildCardGitStatsHtml(term.gitStatus, isWorktree);
@@ -213,14 +213,14 @@ export function updateTerminalCardLabel(term: TheatreTerminal): void {
       statsWrapper.dataset.lastHtml = statsHtml;
       statsWrapper.innerHTML = statsHtml;
 
-      const statsEl = statsWrapper.querySelector('.theatre-card-git-stats--clickable') as HTMLElement;
+      const statsEl = statsWrapper.querySelector('.project-card-git-stats--clickable') as HTMLElement;
       if (statsEl) {
         // Restore active state if diff panel is open
         if (term.diffPanelOpen) statsEl.classList.add('card-tab--active');
 
         // "Compare" button (no uncommitted changes) opens worktree mode;
         // stats pill (has uncommitted changes) opens uncommitted mode
-        const isCompareBtn = statsEl.classList.contains('theatre-card-git-stats--compare');
+        const isCompareBtn = statsEl.classList.contains('project-card-git-stats--compare');
         statsEl.addEventListener('click', (e) => {
           e.stopPropagation();
           if (isCompareBtn) {
@@ -234,41 +234,41 @@ export function updateTerminalCardLabel(term: TheatreTerminal): void {
   }
 
   // Sync kanban card status dot if the board is visible
-  theatreRegistry.syncKanbanStatusDots?.();
+  projectRegistry.syncKanbanStatusDots?.();
 }
 
 /**
- * Create a theatre terminal card element
+ * Create a project terminal card element
  */
-export function createTheatreCard(label: string, index: number): HTMLElement {
+export function createProjectCard(label: string, index: number): HTMLElement {
   const card = document.createElement('div');
-  card.className = 'theatre-card';
+  card.className = 'project-card';
   card.dataset.index = String(index);
 
   // Card label
   const labelEl = document.createElement('div');
-  labelEl.className = 'theatre-card-label';
+  labelEl.className = 'project-card-label';
 
   labelEl.innerHTML = `
-    <div class="theatre-card-label-left">
-      <div class="theatre-card-label-top">
-        <span class="theatre-card-status-dot" data-status="ready"></span>
-        <kbd class="theatre-card-shortcut" style="display: none;"></kbd>
-        <span class="theatre-card-label-text">${label}</span>
+    <div class="project-card-label-left">
+      <div class="project-card-label-top">
+        <span class="project-card-status-dot" data-status="ready"></span>
+        <kbd class="project-card-shortcut" style="display: none;"></kbd>
+        <span class="project-card-label-text">${label}</span>
       </div>
-      <div class="theatre-card-git-branch-row"></div>
+      <div class="project-card-git-branch-row"></div>
     </div>
-    <div class="theatre-card-label-right">
-      <div class="theatre-card-git-stats-wrapper"></div>
+    <div class="project-card-label-right">
+      <div class="project-card-git-stats-wrapper"></div>
       <button class="card-tab card-tab-run" data-action="run" style="display: none;">Run</button>
-      <button class="theatre-card-close" title="Close terminal"><i data-lucide="x"></i></button>
+      <button class="project-card-close" title="Close terminal"><i data-lucide="x"></i></button>
     </div>
   `;
   card.appendChild(labelEl);
 
   // Card body - flex container for terminal viewport and diff panel
   const cardBody = document.createElement('div');
-  cardBody.className = 'theatre-card-body';
+  cardBody.className = 'project-card-body';
 
   // Terminal viewport
   const viewport = document.createElement('div');
@@ -289,29 +289,29 @@ export function createTheatreCard(label: string, index: number): HTMLElement {
  */
 export function createLoadingCard(label: string): HTMLElement {
   const card = document.createElement('div');
-  card.className = 'theatre-card theatre-card--loading theatre-card--active';
+  card.className = 'project-card project-card--loading project-card--active';
 
   const labelEl = document.createElement('div');
-  labelEl.className = 'theatre-card-label';
+  labelEl.className = 'project-card-label';
 
   labelEl.innerHTML = `
-    <div class="theatre-card-label-left">
-      <div class="theatre-card-label-top">
-        <span class="theatre-card-status-dot theatre-card-status-dot--loading"></span>
-        <span class="theatre-card-label-text">${label || 'New task'}</span>
+    <div class="project-card-label-left">
+      <div class="project-card-label-top">
+        <span class="project-card-status-dot project-card-status-dot--loading"></span>
+        <span class="project-card-label-text">${label || 'New task'}</span>
       </div>
     </div>
-    <div class="theatre-card-label-right"></div>
+    <div class="project-card-label-right"></div>
   `;
   card.appendChild(labelEl);
 
   const cardBody = document.createElement('div');
-  cardBody.className = 'theatre-card-body';
+  cardBody.className = 'project-card-body';
 
   const loadingContent = document.createElement('div');
-  loadingContent.className = 'theatre-card-loading-content';
+  loadingContent.className = 'project-card-loading-content';
   loadingContent.innerHTML = `
-    <div class="theatre-card-loading-text">Setting up workspace...</div>
+    <div class="project-card-loading-text">Setting up workspace...</div>
   `;
 
   cardBody.appendChild(loadingContent);
@@ -324,8 +324,8 @@ export function createLoadingCard(label: string): HTMLElement {
  * Show a loading card and push existing terminals back in the stack
  */
 export function showLoadingCardInStack(label: string): HTMLElement {
-  const stack = document.querySelector('.theatre-stack') as HTMLElement;
-  if (!stack) throw new Error('Theatre stack not found');
+  const stack = document.querySelector('.project-stack') as HTMLElement;
+  if (!stack) throw new Error('Project stack not found');
 
   const currentTerminals = terminals.value;
   const currentActiveIndex = activeIndex.value;
@@ -335,13 +335,13 @@ export function showLoadingCardInStack(label: string): HTMLElement {
 
   // Push existing terminals on the current page back by one position
   currentTerminals.forEach((term, index) => {
-    term.container.classList.remove('theatre-card--active', 'theatre-card--back-1', 'theatre-card--back-2', 'theatre-card--back-3', 'theatre-card--back-4', 'theatre-card--hidden');
+    term.container.classList.remove('project-card--active', 'project-card--back-1', 'project-card--back-2', 'project-card--back-3', 'project-card--back-4', 'project-card--hidden');
 
     if (index < pageStart || index >= pageEnd) {
-      term.container.classList.add('theatre-card--hidden');
+      term.container.classList.add('project-card--hidden');
     } else if (index === currentActiveIndex) {
       // Active card becomes back-1
-      term.container.classList.add('theatre-card--back-1');
+      term.container.classList.add('project-card--back-1');
     } else {
       // Calculate current back position within page and increment it
       const diff = index < currentActiveIndex
@@ -349,7 +349,7 @@ export function showLoadingCardInStack(label: string): HTMLElement {
         : (pageEnd - pageStart) - (index - pageStart) + (currentActiveIndex - pageStart);
       // Add 1 to push it back further
       const newBackPosition = Math.min(diff + 1, 4);
-      term.container.classList.add(`theatre-card--back-${newBackPosition}`);
+      term.container.classList.add(`project-card--back-${newBackPosition}`);
     }
   });
 
@@ -378,8 +378,8 @@ export function removeLoadingCard(loadingCard: HTMLElement): void {
  * Set up card action buttons (runner pill for all terminals, close-task for worktrees)
  * Note: Runner pill visibility is controlled by updateCardStack (only shown on active card)
  */
-export function setupCardActions(term: TheatreTerminal): void {
-  const labelEl = term.container.querySelector('.theatre-card-label');
+export function setupCardActions(term: ProjectTerminal): void {
+  const labelEl = term.container.querySelector('.project-card-label');
   if (!labelEl) return;
 
   // Right-click context menu for task terminals
@@ -408,9 +408,9 @@ export function setupCardActions(term: TheatreTerminal): void {
 }
 
 /**
- * Show a right-click context menu on a theatre card header
+ * Show a right-click context menu on a project card header
  */
-async function showCardContextMenu(event: MouseEvent, term: TheatreTerminal): Promise<void> {
+async function showCardContextMenu(event: MouseEvent, term: ProjectTerminal): Promise<void> {
   // Remove any existing menu
   document.querySelector('.task-context-menu')?.remove();
 
@@ -427,7 +427,7 @@ async function showCardContextMenu(event: MouseEvent, term: TheatreTerminal): Pr
     terminalItem.addEventListener('click', (e) => {
       e.stopPropagation();
       menu.remove();
-      addTheatreTerminal(undefined, {
+      addProjectTerminal(undefined, {
         existingWorktree: {
           path: term.worktreePath!,
           branch: term.worktreeBranch!,
@@ -450,7 +450,7 @@ async function showCardContextMenu(event: MouseEvent, term: TheatreTerminal): Pr
       sandboxItem.addEventListener('click', (e) => {
         e.stopPropagation();
         menu.remove();
-        addTheatreTerminal(undefined, {
+        addProjectTerminal(undefined, {
           existingWorktree: {
             path: term.worktreePath!,
             branch: term.worktreeBranch!,
@@ -526,7 +526,7 @@ async function showCardContextMenu(event: MouseEvent, term: TheatreTerminal): Pr
 /**
  * Update the runner button appearance based on runner state
  */
-export function updateRunnerPill(term: TheatreTerminal): void {
+export function updateRunnerPill(term: ProjectTerminal): void {
   const btn = term.container.querySelector('.card-tab-run') as HTMLElement;
   if (!btn) return;
 
@@ -563,7 +563,7 @@ export function updateRunnerPill(term: TheatreTerminal): void {
 /**
  * Close a task from its terminal card
  */
-async function closeTaskFromTerminal(term: TheatreTerminal): Promise<void> {
+async function closeTaskFromTerminal(term: ProjectTerminal): Promise<void> {
   if (term.taskId == null) return;
 
   const path = projectPath.value;
@@ -574,7 +574,7 @@ async function closeTaskFromTerminal(term: TheatreTerminal): Promise<void> {
     // Close this terminal
     const idx = terminals.value.indexOf(term);
     if (idx !== -1) {
-      closeTheatreTerminal(idx);
+      closeProjectTerminal(idx);
     }
     // Show warning if cleanup hook failed
     if (result.hookWarning) {
@@ -614,8 +614,8 @@ function buildRunnerPanelHtml(label: string, fullWidth: boolean): string {
  * Set up drag interaction for the runner resize handle.
  * Returns a cleanup function to remove listeners.
  */
-function setupRunnerResizeHandle(term: TheatreTerminal, handle: HTMLElement, panel: HTMLElement): () => void {
-  const cardBody = term.container.querySelector('.theatre-card-body') as HTMLElement;
+function setupRunnerResizeHandle(term: ProjectTerminal, handle: HTMLElement, panel: HTMLElement): () => void {
+  const cardBody = term.container.querySelector('.project-card-body') as HTMLElement;
   if (!cardBody) return () => {};
 
   let dragging = false;
@@ -667,7 +667,7 @@ function setupRunnerResizeHandle(term: TheatreTerminal, handle: HTMLElement, pan
 /**
  * Show the runner panel for a terminal
  */
-export function showRunnerPanel(term: TheatreTerminal): void {
+export function showRunnerPanel(term: ProjectTerminal): void {
   if (term.runnerPanelOpen || !term.runnerPtyId) return;
 
   // Close diff panel if open (mutual exclusivity)
@@ -675,7 +675,7 @@ export function showRunnerPanel(term: TheatreTerminal): void {
     hideTerminalDiffPanel(term);
   }
 
-  const cardBody = term.container.querySelector('.theatre-card-body') as HTMLElement;
+  const cardBody = term.container.querySelector('.project-card-body') as HTMLElement;
   if (!cardBody) return;
 
   // Add runner-split class for min-width constraints
@@ -839,7 +839,7 @@ export function showRunnerPanel(term: TheatreTerminal): void {
 /**
  * Toggle the runner panel visibility
  */
-export function toggleRunnerPanel(term: TheatreTerminal): void {
+export function toggleRunnerPanel(term: ProjectTerminal): void {
   if (term.runnerPanelOpen) {
     hideRunnerPanel(term);
   } else {
@@ -850,7 +850,7 @@ export function toggleRunnerPanel(term: TheatreTerminal): void {
 /**
  * Toggle runner panel between full-width and split mode
  */
-function toggleRunnerFullWidth(term: TheatreTerminal): void {
+function toggleRunnerFullWidth(term: ProjectTerminal): void {
   term.runnerFullWidth = !term.runnerFullWidth;
 
   const panel = term.container.querySelector('.runner-panel') as HTMLElement;
@@ -860,7 +860,7 @@ function toggleRunnerFullWidth(term: TheatreTerminal): void {
   panel.style.transition = 'none';
 
   // Toggle full-width class on card body
-  const cardBody = term.container.querySelector('.theatre-card-body');
+  const cardBody = term.container.querySelector('.project-card-body');
   if (cardBody) cardBody.classList.toggle('runner-full', term.runnerFullWidth);
 
   // Update toggle button icon
@@ -904,7 +904,7 @@ function toggleRunnerFullWidth(term: TheatreTerminal): void {
 /**
  * Kill the runner process and clean up resources
  */
-export function killRunner(term: TheatreTerminal): void {
+export function killRunner(term: ProjectTerminal): void {
   if (!term.runnerPtyId) return;
 
   // Mark panel closed and remove active state (skip hideRunnerPanel to avoid stale timeout)
@@ -943,7 +943,7 @@ export function killRunner(term: TheatreTerminal): void {
   if (panel) panel.remove();
 
   // Remove runner-split class from card body
-  const cardBody = term.container.querySelector('.theatre-card-body');
+  const cardBody = term.container.querySelector('.project-card-body');
   if (cardBody) cardBody.classList.remove('runner-split', 'runner-full');
 
   // Reset state
@@ -964,7 +964,7 @@ export function killRunner(term: TheatreTerminal): void {
 /**
  * Restart the runner — kill current process and re-run the run script
  */
-async function restartRunner(term: TheatreTerminal): Promise<void> {
+async function restartRunner(term: ProjectTerminal): Promise<void> {
   const wasFullWidth = term.runnerFullWidth;
   killRunner(term);
   await runDefaultInCard(term);
@@ -990,7 +990,7 @@ export function killExistingCommandInstances(command: string): void {
   // Then, close any terminals running the same command (in reverse order to avoid index issues)
   for (let i = currentTerminals.length - 1; i >= 0; i--) {
     if (currentTerminals[i].command === command) {
-      closeTheatreTerminal(i);
+      closeProjectTerminal(i);
     }
   }
 }
@@ -999,7 +999,7 @@ export function killExistingCommandInstances(command: string): void {
 /**
  * Run the run hook as a hidden runner
  */
-export async function runDefaultInCard(term: TheatreTerminal): Promise<void> {
+export async function runDefaultInCard(term: ProjectTerminal): Promise<void> {
   const path = projectPath.value;
   if (!path) return;
 
@@ -1147,7 +1147,7 @@ export async function runDefaultInCard(term: TheatreTerminal): Promise<void> {
  * Update card stack visual positions (page-scoped)
  */
 export function updateCardStack(): void {
-  const stack = document.querySelector('.theatre-stack') as HTMLElement;
+  const stack = document.querySelector('.project-stack') as HTMLElement;
   if (!stack) return;
 
   const currentTerminals = terminals.value;
@@ -1167,17 +1167,17 @@ export function updateCardStack(): void {
   const backPositions: { index: number; diff: number }[] = [];
   currentTerminals.forEach((term, index) => {
     // Remove all position classes
-    term.container.classList.remove('theatre-card--active', 'theatre-card--back-1', 'theatre-card--back-2', 'theatre-card--back-3', 'theatre-card--back-4', 'theatre-card--hidden');
+    term.container.classList.remove('project-card--active', 'project-card--back-1', 'project-card--back-2', 'project-card--back-3', 'project-card--back-4', 'project-card--hidden');
 
     if (index < pageStart || index >= pageEnd) {
       // Card is on a different page — hide it
-      term.container.classList.add('theatre-card--hidden');
+      term.container.classList.add('project-card--hidden');
     } else if (index === currentActiveIndex) {
-      term.container.classList.add('theatre-card--active');
+      term.container.classList.add('project-card--active');
     } else {
       // Calculate back position relative to active within this page
       const diff = index < currentActiveIndex ? currentActiveIndex - index : pageSize - (index - pageStart) + (currentActiveIndex - pageStart);
-      const backClass = `theatre-card--back-${Math.min(diff, 4)}`;
+      const backClass = `project-card--back-${Math.min(diff, 4)}`;
       term.container.classList.add(backClass);
       backPositions.push({ index, diff });
     }
@@ -1188,7 +1188,7 @@ export function updateCardStack(): void {
 
   // Second pass: assign shortcuts and toggle runner button visibility
   currentTerminals.forEach((term, index) => {
-    const shortcutEl = term.container.querySelector('.theatre-card-shortcut') as HTMLElement;
+    const shortcutEl = term.container.querySelector('.project-card-shortcut') as HTMLElement;
     const runnerBtn = term.container.querySelector('.card-tab-run') as HTMLElement;
 
     if (index < pageStart || index >= pageEnd) {
@@ -1257,9 +1257,9 @@ export function getTerminalIndexByStackPosition(stackPosition: number): number {
 }
 
 /**
- * Switch to a specific theatre terminal
+ * Switch to a specific project terminal
  */
-export function switchToTheatreTerminal(index: number): void {
+export function switchToProjectTerminal(index: number): void {
   const currentTerminals = terminals.value;
   if (index < 0 || index >= currentTerminals.length || index === activeIndex.value) return;
 
@@ -1277,14 +1277,14 @@ export function selectByStackPosition(position: number): void {
 
   const targetIndex = getTerminalIndexByStackPosition(position);
   if (targetIndex !== -1) {
-    switchToTheatreTerminal(targetIndex);
+    switchToProjectTerminal(targetIndex);
   }
 }
 
 /**
- * Options for adding a theatre terminal
+ * Options for adding a project terminal
  */
-export interface AddTheatreTerminalOptions {
+export interface AddProjectTerminalOptions {
   useWorktree?: boolean;
   existingWorktree?: WorktreeInfo & { prompt?: string; sandboxed?: boolean };
   worktreeName?: string;
@@ -1295,9 +1295,9 @@ export interface AddTheatreTerminalOptions {
 }
 
 /**
- * Add a new theatre terminal
+ * Add a new project terminal
  */
-export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddTheatreTerminalOptions): Promise<boolean> {
+export async function addProjectTerminal(runConfig?: RunConfig, options?: AddProjectTerminalOptions): Promise<boolean> {
   const currentProjectPath = projectPath.value;
   const currentTerminals = terminals.value;
 
@@ -1305,7 +1305,7 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
     return false;
   }
 
-  const stack = document.querySelector('.theatre-stack');
+  const stack = document.querySelector('.project-stack');
   if (!stack) return false;
 
   let terminalCwd = currentProjectPath;
@@ -1318,9 +1318,9 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
     const loadingLabel = options.worktreeName || 'New task';
 
     // Hide empty state if visible
-    const emptyState = stack.querySelector('.theatre-stack-empty') as HTMLElement;
+    const emptyState = stack.querySelector('.project-stack-empty') as HTMLElement;
     if (emptyState) {
-      emptyState.classList.remove('theatre-stack-empty--visible');
+      emptyState.classList.remove('project-stack-empty--visible');
     }
 
     // Show loading card in the stack (pushes existing cards back)
@@ -1334,7 +1334,7 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
       updateCardStack();
       // Re-show empty state if no terminals
       if (terminals.value.length === 0 && emptyState) {
-        emptyState.classList.add('theatre-stack-empty--visible');
+        emptyState.classList.add('project-stack-empty--visible');
       }
       showToast(result.error || 'Failed to create task', 'error');
       return false;
@@ -1376,14 +1376,14 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
   }
 
   // Create card element
-  const card = createTheatreCard(label, index);
+  const card = createProjectCard(label, index);
   stack.appendChild(card);
 
   // Render lucide icons now that card is in the DOM
   createIcons({ icons, nameAttr: 'data-lucide', attrs: {}, nodes: [card] });
 
   const xtermContainer = card.querySelector('.terminal-xterm-container') as HTMLElement;
-  const closeBtn = card.querySelector('.theatre-card-close') as HTMLButtonElement;
+  const closeBtn = card.querySelector('.project-card-close') as HTMLButtonElement;
 
   // Initialize xterm
   const terminal = new Terminal({
@@ -1448,10 +1448,10 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
   // during the slow VM startup. The ptyId gets updated after spawn completes.
   const taskSandboxedEarly = options?.sandboxed ?? options?.existingWorktree?.sandboxed;
   const addedEarly = !loadingCard && taskSandboxedEarly;
-  let theatreTerminal: TheatreTerminal | null = null;
+  let projectTerminal: ProjectTerminal | null = null;
 
   if (addedEarly) {
-    theatreTerminal = {
+    projectTerminal = {
       ptyId: '' as PtyId,
       projectPath: currentProjectPath,
       command: undefined,
@@ -1493,21 +1493,21 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
     // Set up close button and card click handlers
     closeBtn.addEventListener('click', (e) => {
       e.stopPropagation();
-      const idx = terminals.value.indexOf(theatreTerminal!);
-      if (idx !== -1) closeTheatreTerminal(idx);
+      const idx = terminals.value.indexOf(projectTerminal!);
+      if (idx !== -1) closeProjectTerminal(idx);
     });
     card.addEventListener('click', () => {
-      const idx = terminals.value.indexOf(theatreTerminal!);
-      if (idx !== -1 && idx !== activeIndex.value) switchToTheatreTerminal(idx);
+      const idx = terminals.value.indexOf(projectTerminal!);
+      if (idx !== -1 && idx !== activeIndex.value) switchToProjectTerminal(idx);
     });
 
     // Set up card action buttons and sandbox dot
-    setupCardActions(theatreTerminal);
-    const dot = card.querySelector('.theatre-card-status-dot');
-    if (dot) dot.classList.add('theatre-card-status-dot--sandboxed');
+    setupCardActions(projectTerminal);
+    const dot = card.querySelector('.project-card-status-dot');
+    if (dot) dot.classList.add('project-card-status-dot--sandboxed');
 
     // Add to signals — effects handle updateCardStack, empty state, focus
-    terminals.value = [...terminals.value, theatreTerminal];
+    terminals.value = [...terminals.value, projectTerminal];
     activeIndex.value = terminals.value.length - 1;
     terminal.focus();
   }
@@ -1583,7 +1583,7 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
     }
 
     // If terminal was closed during loading (user clicked X), clean up and bail
-    if (addedEarly && !terminals.value.includes(theatreTerminal!)) {
+    if (addedEarly && !terminals.value.includes(projectTerminal!)) {
       if (result.success && result.ptyId) window.api.pty.kill(result.ptyId);
       return false;
     }
@@ -1591,11 +1591,11 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
     if (!result.success || !result.ptyId) {
       terminal.writeln(`\x1b[31mFailed to start terminal: ${result.error || 'Unknown error'}\x1b[0m`);
       terminal.writeln(`\x1b[90mThis card will close in 10 seconds.\x1b[0m`);
-      if (addedEarly && theatreTerminal) {
-        // Card is in signals — use closeTheatreTerminal for clean removal
+      if (addedEarly && projectTerminal) {
+        // Card is in signals — use closeProjectTerminal for clean removal
         setTimeout(() => {
-          const idx = terminals.value.indexOf(theatreTerminal!);
-          if (idx !== -1) closeTheatreTerminal(idx);
+          const idx = terminals.value.indexOf(projectTerminal!);
+          if (idx !== -1) closeProjectTerminal(idx);
         }, 10_000);
       } else {
         setTimeout(() => {
@@ -1606,44 +1606,44 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
       return false;
     }
 
-    // If added early, update the existing TheatreTerminal in-place
-    if (addedEarly && theatreTerminal) {
-      theatreTerminal.ptyId = result.ptyId;
-      theatreTerminal.command = startCommand;
+    // If added early, update the existing ProjectTerminal in-place
+    if (addedEarly && projectTerminal) {
+      projectTerminal.ptyId = result.ptyId;
+      projectTerminal.command = startCommand;
 
       // Set up resize observer
-      theatreTerminal.resizeObserver = new ResizeObserver(() => {
+      projectTerminal.resizeObserver = new ResizeObserver(() => {
         debouncedResize(result.ptyId!, terminal, fitAddon);
       });
-      theatreTerminal.resizeObserver.observe(xtermContainer);
+      projectTerminal.resizeObserver.observe(xtermContainer);
 
       // Set up data listener
-      theatreTerminal.cleanupData = window.api.pty.onData(result.ptyId, (data) => {
+      projectTerminal.cleanupData = window.api.pty.onData(result.ptyId, (data) => {
         terminal.write(data);
         resetIdleTimer(result.ptyId!);
 
         const oscMatches = data.matchAll(/\x1b\]0;([^\x07]*)\x07/g);
         for (const match of oscMatches) {
           const newTitle = match[1];
-          if (newTitle !== theatreTerminal!.lastOscTitle) {
-            theatreTerminal!.lastOscTitle = newTitle;
-            updateTerminalCardLabel(theatreTerminal!);
+          if (newTitle !== projectTerminal!.lastOscTitle) {
+            projectTerminal!.lastOscTitle = newTitle;
+            updateTerminalCardLabel(projectTerminal!);
           }
         }
 
         if (projectPath.value) {
-          scheduleTerminalGitStatusRefresh(theatreTerminal!, updateTerminalCardLabel);
+          scheduleTerminalGitStatusRefresh(projectTerminal!, updateTerminalCardLabel);
         }
       });
 
       // Set up exit listener
-      theatreTerminal.cleanupExit = window.api.pty.onExit(result.ptyId, (exitCode) => {
+      projectTerminal.cleanupExit = window.api.pty.onExit(result.ptyId, (exitCode) => {
         terminal.writeln('');
         const exitColor = exitCode === 0 ? '32' : '31';
         terminal.writeln(`\x1b[${exitColor}m● Process exited with code ${exitCode}\x1b[0m`);
-        theatreTerminal!.summary = exitCode === 0 ? 'Exited' : `Exit ${exitCode}`;
-        theatreTerminal!.summaryType = 'ready';
-        updateTerminalCardLabel(theatreTerminal!);
+        projectTerminal!.summary = exitCode === 0 ? 'Exited' : `Exit ${exitCode}`;
+        projectTerminal!.summaryType = 'ready';
+        updateTerminalCardLabel(projectTerminal!);
       });
 
       // Forward terminal input
@@ -1652,16 +1652,16 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
       });
 
       // Fetch initial git status
-      refreshTerminalGitStatus(theatreTerminal).then(() => {
-        updateTerminalCardLabel(theatreTerminal!);
+      refreshTerminalGitStatus(projectTerminal).then(() => {
+        updateTerminalCardLabel(projectTerminal!);
       });
 
       terminal.focus();
       return true;
     }
 
-    // Normal path: create TheatreTerminal after spawn
-    theatreTerminal = {
+    // Normal path: create ProjectTerminal after spawn
+    projectTerminal = {
       ptyId: result.ptyId,
       projectPath: currentProjectPath,
       command: startCommand,
@@ -1703,13 +1703,13 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
     };
 
     // Set up resize observer with debouncing to prevent zsh artifacts during animations
-    theatreTerminal.resizeObserver = new ResizeObserver(() => {
+    projectTerminal.resizeObserver = new ResizeObserver(() => {
       debouncedResize(result.ptyId!, terminal, fitAddon);
     });
-    theatreTerminal.resizeObserver.observe(xtermContainer);
+    projectTerminal.resizeObserver.observe(xtermContainer);
 
     // Set up data listener
-    theatreTerminal.cleanupData = window.api.pty.onData(result.ptyId, (data) => {
+    projectTerminal.cleanupData = window.api.pty.onData(result.ptyId, (data) => {
       terminal.write(data);
       resetIdleTimer(result.ptyId!);
 
@@ -1717,28 +1717,28 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
       const oscMatches = data.matchAll(/\x1b\]0;([^\x07]*)\x07/g);
       for (const match of oscMatches) {
         const newTitle = match[1];
-        if (newTitle !== theatreTerminal!.lastOscTitle) {
-          theatreTerminal!.lastOscTitle = newTitle;
-          updateTerminalCardLabel(theatreTerminal!);
+        if (newTitle !== projectTerminal!.lastOscTitle) {
+          projectTerminal!.lastOscTitle = newTitle;
+          updateTerminalCardLabel(projectTerminal!);
         }
       }
 
       if (projectPath.value) {
         // Only schedule a refresh of this terminal's git status (not all terminals)
-        scheduleTerminalGitStatusRefresh(theatreTerminal!, updateTerminalCardLabel);
+        scheduleTerminalGitStatusRefresh(projectTerminal!, updateTerminalCardLabel);
       }
     });
 
     // Set up exit listener
-    theatreTerminal.cleanupExit = window.api.pty.onExit(result.ptyId, (exitCode) => {
+    projectTerminal.cleanupExit = window.api.pty.onExit(result.ptyId, (exitCode) => {
       terminal.writeln('');
       const exitColor = exitCode === 0 ? '32' : '31';
       terminal.writeln(`\x1b[${exitColor}m● Process exited with code ${exitCode}\x1b[0m`);
 
       // Update summary to show exit status
-      theatreTerminal!.summary = exitCode === 0 ? 'Exited' : `Exit ${exitCode}`;
-      theatreTerminal!.summaryType = 'ready';
-      updateTerminalCardLabel(theatreTerminal!);
+      projectTerminal!.summary = exitCode === 0 ? 'Exited' : `Exit ${exitCode}`;
+      projectTerminal!.summaryType = 'ready';
+      updateTerminalCardLabel(projectTerminal!);
     });
 
     // Forward terminal input
@@ -1749,38 +1749,38 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
     // Close button handler
     closeBtn.addEventListener('click', (e) => {
       e.stopPropagation();
-      const idx = terminals.value.indexOf(theatreTerminal!);
+      const idx = terminals.value.indexOf(projectTerminal!);
       if (idx !== -1) {
-        closeTheatreTerminal(idx);
+        closeProjectTerminal(idx);
       }
     });
 
     // Card click handler (to bring to front)
     card.addEventListener('click', () => {
-      const idx = terminals.value.indexOf(theatreTerminal!);
+      const idx = terminals.value.indexOf(projectTerminal!);
       if (idx !== -1 && idx !== activeIndex.value) {
-        switchToTheatreTerminal(idx);
+        switchToProjectTerminal(idx);
       }
     });
 
     // Set up card action buttons (runner pill, close-task for worktrees)
-    setupCardActions(theatreTerminal);
+    setupCardActions(projectTerminal);
 
     // Mark sandboxed terminals with a ring on the status dot
     if (useSandbox) {
-      const dot = card.querySelector('.theatre-card-status-dot');
+      const dot = card.querySelector('.project-card-status-dot');
       if (dot) {
-        dot.classList.add('theatre-card-status-dot--sandboxed');
+        dot.classList.add('project-card-status-dot--sandboxed');
       }
     }
 
     // Fetch initial git status for this terminal
-    refreshTerminalGitStatus(theatreTerminal).then(() => {
-      updateTerminalCardLabel(theatreTerminal!);
+    refreshTerminalGitStatus(projectTerminal).then(() => {
+      updateTerminalCardLabel(projectTerminal!);
     });
 
     // Add terminal to list and set as active - effects will handle updateCardStack
-    terminals.value = [...terminals.value, theatreTerminal];
+    terminals.value = [...terminals.value, projectTerminal];
     activeIndex.value = terminals.value.length - 1;
 
     terminal.focus();
@@ -1790,10 +1790,10 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
       setSandboxButtonStarting(false);
     }
     terminal.writeln(`\x1b[31mError: ${error instanceof Error ? error.message : 'Unknown error'}\x1b[0m`);
-    if (addedEarly && theatreTerminal) {
-      // Card is in signals — remove via closeTheatreTerminal
-      const idx = terminals.value.indexOf(theatreTerminal);
-      if (idx !== -1) closeTheatreTerminal(idx);
+    if (addedEarly && projectTerminal) {
+      // Card is in signals — remove via closeProjectTerminal
+      const idx = terminals.value.indexOf(projectTerminal);
+      if (idx !== -1) closeProjectTerminal(idx);
     } else {
       card.remove();
       terminal.dispose();
@@ -1803,9 +1803,9 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
 }
 
 /**
- * Close a theatre terminal
+ * Close a project terminal
  */
-export function closeTheatreTerminal(index: number): void {
+export function closeProjectTerminal(index: number): void {
   const currentTerminals = terminals.value;
   if (index < 0 || index >= currentTerminals.length) return;
 
@@ -1858,50 +1858,50 @@ export function closeTheatreTerminal(index: number): void {
  */
 export function buildEmptyStateHtml(): string {
   return `
-    <div class="theatre-stack-empty">
-      <div class="theatre-stack-empty-message">No active terminals</div>
-      <div class="theatre-stack-empty-hints">
-        <span class="theatre-stack-empty-hint"><span class="theatre-stack-empty-hint-shortcut">${isMac ? '⌘' : 'Ctrl+'}<span class="shortcut-number">N</span></span>New Task</span>
-        <span class="theatre-stack-empty-hint"><span class="theatre-stack-empty-hint-shortcut">${isMac ? '⌘' : 'Ctrl+'}<span class="shortcut-number">B</span></span>Board</span>
+    <div class="project-stack-empty">
+      <div class="project-stack-empty-message">No active terminals</div>
+      <div class="project-stack-empty-hints">
+        <span class="project-stack-empty-hint"><span class="project-stack-empty-hint-shortcut">${isMac ? '⌘' : 'Ctrl+'}<span class="shortcut-number">N</span></span>New Task</span>
+        <span class="project-stack-empty-hint"><span class="project-stack-empty-hint-shortcut">${isMac ? '⌘' : 'Ctrl+'}<span class="shortcut-number">B</span></span>Board</span>
       </div>
     </div>
   `;
 }
 
 /**
- * Show the empty state in the theatre stack
+ * Show the empty state in the project stack
  */
 export function showStackEmptyState(): void {
-  const stack = document.querySelector('.theatre-stack');
+  const stack = document.querySelector('.project-stack');
   if (!stack) return;
 
   // Check if empty state already exists
-  let emptyState = stack.querySelector('.theatre-stack-empty') as HTMLElement;
+  let emptyState = stack.querySelector('.project-stack-empty') as HTMLElement;
   if (emptyState) {
     requestAnimationFrame(() => {
-      emptyState.classList.add('theatre-stack-empty--visible');
+      emptyState.classList.add('project-stack-empty--visible');
     });
     return;
   }
 
   // Create and insert empty state
   stack.insertAdjacentHTML('beforeend', buildEmptyStateHtml());
-  emptyState = stack.querySelector('.theatre-stack-empty') as HTMLElement;
+  emptyState = stack.querySelector('.project-stack-empty') as HTMLElement;
 
   // Animate in
   requestAnimationFrame(() => {
-    emptyState.classList.add('theatre-stack-empty--visible');
+    emptyState.classList.add('project-stack-empty--visible');
   });
 }
 
 /**
- * Hide the empty state from the theatre stack
+ * Hide the empty state from the project stack
  */
 export function hideStackEmptyState(): void {
-  const emptyState = document.querySelector('.theatre-stack-empty') as HTMLElement;
+  const emptyState = document.querySelector('.project-stack-empty') as HTMLElement;
   if (!emptyState) return;
 
-  emptyState.classList.remove('theatre-stack-empty--visible');
+  emptyState.classList.remove('project-stack-empty--visible');
 
   // Remove after animation
   setTimeout(() => {
@@ -1914,15 +1914,15 @@ export function hideStackEmptyState(): void {
  * Created once and reused; hidden/shown by updatePaginationArrows.
  */
 function ensurePaginationRow(): HTMLElement {
-  let row = document.querySelector('.theatre-stack-pagination') as HTMLElement;
+  let row = document.querySelector('.project-stack-pagination') as HTMLElement;
   if (row) return row;
 
   row = document.createElement('div');
-  row.className = 'theatre-stack-pagination';
+  row.className = 'project-stack-pagination';
   row.style.display = 'none';
 
   const leftBtn = document.createElement('button');
-  leftBtn.className = 'theatre-stack-page-arrow';
+  leftBtn.className = 'project-stack-page-arrow';
   leftBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>';
   leftBtn.addEventListener('click', (e) => {
     e.stopPropagation();
@@ -1930,10 +1930,10 @@ function ensurePaginationRow(): HTMLElement {
   });
 
   const indicator = document.createElement('span');
-  indicator.className = 'theatre-stack-page-indicator';
+  indicator.className = 'project-stack-page-indicator';
 
   const rightBtn = document.createElement('button');
-  rightBtn.className = 'theatre-stack-page-arrow';
+  rightBtn.className = 'project-stack-page-arrow';
   rightBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>';
   rightBtn.addEventListener('click', (e) => {
     e.stopPropagation();
@@ -1956,16 +1956,16 @@ function updatePaginationArrows(_stack: HTMLElement): void {
   const page = activeStackPage.value;
 
   if (pages <= 1) {
-    const row = document.querySelector('.theatre-stack-pagination') as HTMLElement;
+    const row = document.querySelector('.project-stack-pagination') as HTMLElement;
     if (row) row.style.display = 'none';
     return;
   }
 
   const row = ensurePaginationRow();
-  const buttons = row.querySelectorAll('.theatre-stack-page-arrow');
+  const buttons = row.querySelectorAll('.project-stack-page-arrow');
   const leftBtn = buttons[0] as HTMLElement;
   const rightBtn = buttons[1] as HTMLElement;
-  const indicator = row.querySelector('.theatre-stack-page-indicator') as HTMLElement;
+  const indicator = row.querySelector('.project-stack-page-indicator') as HTMLElement;
 
   row.style.display = '';
   if (leftBtn) leftBtn.style.visibility = page > 0 ? 'visible' : 'hidden';
@@ -2110,8 +2110,8 @@ let hookStatusCleanup: (() => void) | null = null;
 
 /**
  * Register a single global listener for Claude Code hook status events.
- * Maps ptyId → TheatreTerminal and updates summaryType + card label.
- * Call once when theatre mode initializes; clean up on exit.
+ * Maps ptyId → ProjectTerminal and updates summaryType + card label.
+ * Call once when project mode initializes; clean up on exit.
  *
  * When tools were used (count > 1), Stop/Notification hooks use a
  * two-phase transition: first a deferral timer (5s) to catch premature
@@ -2204,7 +2204,7 @@ export function unregisterHookStatusListener(): void {
   clearAllIdleTimers();
 }
 
-// Register functions in the theatre registry for cross-module access
-theatreRegistry.addTheatreTerminal = addTheatreTerminal;
-theatreRegistry.closeTheatreTerminal = closeTheatreTerminal;
-theatreRegistry.playOrToggleRunner = playOrToggleRunner;
+// Register functions in the project registry for cross-module access
+projectRegistry.addProjectTerminal = addProjectTerminal;
+projectRegistry.closeProjectTerminal = closeProjectTerminal;
+projectRegistry.playOrToggleRunner = playOrToggleRunner;

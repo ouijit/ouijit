@@ -1,6 +1,6 @@
 # Ouijit
 
-![Ouijit Theatre Mode](screenshot.png)
+![Ouijit Project Mode](screenshot.png)
 
 ## Features
 
@@ -87,7 +87,7 @@ src/main.ts          # Electron main process
 src/preload.ts       # Preload script (IPC bridge)
 src/renderer.ts      # Renderer entry point
 src/components/      # UI components
-src/components/theatre/  # Theatre mode (terminal/task runner UI)
+src/components/project/  # Project mode (terminal/task runner UI)
 src/utils/           # Shared utilities
 src/ouijit/          # Core app logic (import/export, dependencies)
 src/lima/            # Lima VM sandbox integration

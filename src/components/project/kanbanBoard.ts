@@ -3,12 +3,12 @@
  */
 
 import type { TaskWithWorkspace, TaskStatus, RunConfig } from '../../types';
-import type { TheatreTerminal } from './state';
-import { theatreState } from './state';
+import type { ProjectTerminal } from './state';
+import { projectState } from './state';
 import { projectPath, kanbanVisible, terminals, activeIndex, invalidateTaskList } from './signals';
-import { theatreRegistry } from './helpers';
+import { projectRegistry } from './helpers';
 import { reopenTask, deleteTask, closeTask } from './worktreeDropdown';
-import { switchToTheatreTerminal } from './terminalCards';
+import { switchToProjectTerminal } from './terminalCards';
 import { escapeHtml } from '../../utils/html';
 import { registerHotkey, unregisterHotkey, pushScope, popScope, Scopes, platformHotkey } from '../../utils/hotkeys';
 import { createIcons, icons } from 'lucide';
@@ -18,11 +18,11 @@ import Sortable from 'sortablejs';
  * Sync the view toggle buttons' active state with kanban visibility
  */
 export function syncViewToggle(): void {
-  const btns = document.querySelectorAll('.theatre-view-toggle-btn');
+  const btns = document.querySelectorAll('.project-view-toggle-btn');
   btns.forEach(btn => {
     const view = (btn as HTMLElement).dataset.view;
     const isBoard = view === 'board';
-    btn.classList.toggle('theatre-view-toggle-btn--active', isBoard === kanbanVisible.value);
+    btn.classList.toggle('project-view-toggle-btn--active', isBoard === kanbanVisible.value);
   });
 }
 
@@ -34,7 +34,7 @@ function showKanbanCardContextMenu(
   onOpenTerminal: () => void,
   onSandbox: (() => void) | null,
   onOpenInEditor: (() => void) | null,
-  connectedTerminals: { terminal: TheatreTerminal; index: number }[],
+  connectedTerminals: { terminal: ProjectTerminal; index: number }[],
   onSwitchTerminal: (index: number) => void,
   onCloseOrReopen: () => void,
   closeOrReopenLabel: string,
@@ -399,7 +399,7 @@ function buildKanbanCard(task: TaskWithWorkspace, path: string, limaAvailable: b
         await window.api.task.setStatus(path, task.taskNumber, 'in_progress');
         invalidateTaskList();
         hideKanbanBoard();
-        await theatreRegistry.addTheatreTerminal?.(undefined, {
+        await projectRegistry.addProjectTerminal?.(undefined, {
           existingWorktree: {
             path: startResult.worktreePath,
             branch: startResult.task?.branch || '',
@@ -413,7 +413,7 @@ function buildKanbanCard(task: TaskWithWorkspace, path: string, limaAvailable: b
         return;
       }
       hideKanbanBoard();
-      await theatreRegistry.addTheatreTerminal?.(undefined, {
+      await projectRegistry.addProjectTerminal?.(undefined, {
         existingWorktree: {
           path: task.worktreePath,
           branch: task.branch || '',
@@ -438,7 +438,7 @@ function buildKanbanCard(task: TaskWithWorkspace, path: string, limaAvailable: b
         if (result.success) {
           invalidateTaskList();
           hideKanbanBoard();
-          await theatreRegistry.addTheatreTerminal?.(undefined, {
+          await projectRegistry.addProjectTerminal?.(undefined, {
             existingWorktree: worktreeOpts,
             taskId: task.taskNumber,
             sandboxed: true,
@@ -450,7 +450,7 @@ function buildKanbanCard(task: TaskWithWorkspace, path: string, limaAvailable: b
         await window.api.task.setStatus(path, task.taskNumber, 'in_progress');
         invalidateTaskList();
         hideKanbanBoard();
-        await theatreRegistry.addTheatreTerminal?.(undefined, {
+        await projectRegistry.addProjectTerminal?.(undefined, {
           existingWorktree: {
             path: startResult.worktreePath,
             branch: startResult.task?.branch || '',
@@ -463,7 +463,7 @@ function buildKanbanCard(task: TaskWithWorkspace, path: string, limaAvailable: b
         });
       } else {
         hideKanbanBoard();
-        await theatreRegistry.addTheatreTerminal?.(undefined, {
+        await projectRegistry.addProjectTerminal?.(undefined, {
           existingWorktree: {
             path: task.worktreePath,
             branch: task.branch || '',
@@ -480,7 +480,7 @@ function buildKanbanCard(task: TaskWithWorkspace, path: string, limaAvailable: b
     const onSwitchTerminal = (idx: number) => {
       hideKanbanBoard();
       if (idx !== activeIndex.value) {
-        switchToTheatreTerminal(idx);
+        switchToProjectTerminal(idx);
       }
     };
 
@@ -594,7 +594,7 @@ async function handleSortableEnd(evt: Sortable.SortableEvent): Promise<void> {
         };
       }
 
-      await theatreRegistry.addTheatreTerminal?.(runConfig, {
+      await projectRegistry.addProjectTerminal?.(runConfig, {
         existingWorktree: {
           path: worktreePath,
           branch,
@@ -615,7 +615,7 @@ async function handleSortableEnd(evt: Sortable.SortableEvent): Promise<void> {
     const currentTerminals = terminals.value;
     for (let i = currentTerminals.length - 1; i >= 0; i--) {
       if (currentTerminals[i].taskId === taskNumber) {
-        theatreRegistry.closeTheatreTerminal?.(i);
+        projectRegistry.closeProjectTerminal?.(i);
       }
     }
     // Reorder handles status change, closedAt, and position in one write;
@@ -1014,10 +1014,10 @@ export async function showKanbanBoard(): Promise<void> {
 
   registerHotkey(platformHotkey('mod+i'), Scopes.KANBAN, () => {
     hideKanbanBoard();
-    theatreRegistry.addTheatreTerminal?.();
+    projectRegistry.addProjectTerminal?.();
   });
 
-  theatreState.kanbanCleanup = () => {
+  projectState.kanbanCleanup = () => {
     resizeObserver.disconnect();
     unregisterHotkey('escape', Scopes.KANBAN);
     unregisterHotkey(platformHotkey('mod+b'), Scopes.KANBAN);
@@ -1044,9 +1044,9 @@ export function hideKanbanBoard(): void {
 
   document.body.classList.remove('kanban-open');
 
-  if (theatreState.kanbanCleanup) {
-    theatreState.kanbanCleanup();
-    theatreState.kanbanCleanup = null;
+  if (projectState.kanbanCleanup) {
+    projectState.kanbanCleanup();
+    projectState.kanbanCleanup = null;
   }
 
   kanbanVisible.value = false;
@@ -1084,7 +1084,7 @@ export async function showKanbanAndFocusInput(): Promise<void> {
   if (input) input.focus();
 }
 
-// Register in the theatre registry for cross-module access
-theatreRegistry.showKanbanAndFocusInput = showKanbanAndFocusInput;
-theatreRegistry.toggleKanbanBoard = toggleKanbanBoard;
-theatreRegistry.syncKanbanStatusDots = syncKanbanStatusDots;
+// Register in the project registry for cross-module access
+projectRegistry.showKanbanAndFocusInput = showKanbanAndFocusInput;
+projectRegistry.toggleKanbanBoard = toggleKanbanBoard;
+projectRegistry.syncKanbanStatusDots = syncKanbanStatusDots;

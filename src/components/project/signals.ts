@@ -1,17 +1,17 @@
 /**
- * Reactive state management for theatre mode using Preact Signals
+ * Reactive state management for project mode using Preact Signals
  * Replaces manual update choreography and callback patterns
  */
 
 import { signal, computed } from '@preact/signals-core';
 import type { Project, ChangedFile } from '../../types';
-import type { TheatreTerminal } from './state';
+import type { ProjectTerminal } from './state';
 import { STACK_PAGE_SIZE } from './state';
 
 // Core reactive state
 export const projectPath = signal<string | null>(null);
 export const projectData = signal<Project | null>(null);
-export const terminals = signal<TheatreTerminal[]>([]);
+export const terminals = signal<ProjectTerminal[]>([]);
 export const activeIndex = signal(0);
 
 // Derived state (auto-updates when dependencies change)
@@ -19,7 +19,7 @@ export const activeTerminal = computed(() =>
   terminals.value[activeIndex.value] ?? null
 );
 
-export const isInTheatreMode = computed(() =>
+export const isInProjectMode = computed(() =>
   projectPath.value !== null
 );
 
@@ -53,7 +53,7 @@ export function invalidateTaskList(): void {
 
 /**
  * Reset all signals to initial values
- * Call this when exiting theatre mode
+ * Call this when exiting project mode
  */
 export function resetSignals(): void {
   projectPath.value = null;

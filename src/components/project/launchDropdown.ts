@@ -1,9 +1,9 @@
 /**
- * Launch dropdown for theatre mode - hooks configuration and project actions
+ * Launch dropdown for project mode - hooks configuration and project actions
  */
 
 import type { ScriptHook, HookType } from '../../types';
-import { theatreState } from './state';
+import { projectState } from './state';
 import { projectPath, projectData, launchDropdownVisible } from './signals';
 import { stringToColor, getInitials } from '../../utils/projectIcon';
 import { showToast } from '../importDialog';
@@ -18,51 +18,51 @@ const HOOK_HINTS: Record<string, string> = {
 };
 
 /**
- * Build the theatre mode header content
+ * Build the project mode header content
  * Note: Git status is now displayed per-terminal on card labels, not in the header
  */
-export function buildTheatreHeader(): string {
+export function buildProjectHeader(): string {
   const project = projectData.value;
   if (!project) return '';
 
   const icon = project.iconDataUrl
-    ? `<img src="${project.iconDataUrl}" alt="" class="theatre-project-icon" />`
-    : `<div class="theatre-project-icon theatre-project-icon--placeholder" style="background-color: ${stringToColor(project.name)}">${getInitials(project.name)}</div>`;
+    ? `<img src="${project.iconDataUrl}" alt="" class="project-header-icon" />`
+    : `<div class="project-header-icon project-header-icon--placeholder" style="background-color: ${stringToColor(project.name)}">${getInitials(project.name)}</div>`;
 
   return `
-    <div class="theatre-header-content">
-      <button class="theatre-exit-btn" title="Exit theatre mode">
+    <div class="project-header-content">
+      <button class="project-exit-btn" title="Exit project mode">
         <i data-lucide="arrow-left"></i>
       </button>
       ${icon}
-      <div class="theatre-project-info">
-        <span class="theatre-project-name">${project.name}</span>
-        <span class="theatre-project-path">${project.path}</span>
+      <div class="project-header-info">
+        <span class="project-header-name">${project.name}</span>
+        <span class="project-header-path">${project.path}</span>
       </div>
-      <div class="theatre-view-toggle">
-        <button class="theatre-view-toggle-btn theatre-view-toggle-btn--active" data-view="board" title="Board view">
+      <div class="project-view-toggle">
+        <button class="project-view-toggle-btn project-view-toggle-btn--active" data-view="board" title="Board view">
           <i data-lucide="columns-3"></i>
         </button>
-        <button class="theatre-view-toggle-btn" data-view="stack" title="Terminal stack">
+        <button class="project-view-toggle-btn" data-view="stack" title="Terminal stack">
           <i data-lucide="layers"></i>
         </button>
       </div>
-      <div class="theatre-launch-wrapper">
-        <button class="theatre-scripts-btn" title="Configure scripts">
+      <div class="project-launch-wrapper">
+        <button class="project-scripts-btn" title="Configure scripts">
           <i data-lucide="code"></i>
-          <i data-lucide="chevron-down" class="theatre-scripts-caret"></i>
+          <i data-lucide="chevron-down" class="project-scripts-caret"></i>
         </button>
       </div>
-      <div class="theatre-sandbox-wrapper" style="display: none;">
-        <button class="theatre-sandbox-btn" title="Sandbox">
+      <div class="project-sandbox-wrapper" style="display: none;">
+        <button class="project-sandbox-btn" title="Sandbox">
           <i data-lucide="box"></i>
-          <i data-lucide="chevron-down" class="theatre-sandbox-caret"></i>
+          <i data-lucide="chevron-down" class="project-sandbox-caret"></i>
         </button>
       </div>
-      <button class="theatre-terminal-btn" title="New terminal">
+      <button class="project-terminal-btn" title="New terminal">
         <i data-lucide="terminal"></i>
       </button>
-      <button class="theatre-newtask-btn" title="New task">
+      <button class="project-newtask-btn" title="New task">
         <i data-lucide="plus"></i>
       </button>
     </div>
@@ -184,14 +184,14 @@ export async function buildLaunchDropdownContent(dropdown: HTMLElement): Promise
 export async function showLaunchDropdown(): Promise<void> {
   if (launchDropdownVisible.value) return;
 
-  const wrapper = document.querySelector('.theatre-launch-wrapper');
+  const wrapper = document.querySelector('.project-launch-wrapper');
   if (!wrapper) return;
 
   // Create dropdown if it doesn't exist
-  let dropdown = wrapper.querySelector('.theatre-launch-dropdown') as HTMLElement;
+  let dropdown = wrapper.querySelector('.project-launch-dropdown') as HTMLElement;
   if (!dropdown) {
     dropdown = document.createElement('div');
-    dropdown.className = 'theatre-launch-dropdown';
+    dropdown.className = 'project-launch-dropdown';
     wrapper.appendChild(dropdown);
   }
 
@@ -206,7 +206,7 @@ export async function showLaunchDropdown(): Promise<void> {
   // Click outside handler
   const handleClickOutside = (e: MouseEvent) => {
     const target = e.target as HTMLElement;
-    if (!target.closest('.theatre-launch-wrapper')) {
+    if (!target.closest('.project-launch-wrapper')) {
       hideLaunchDropdown();
     }
   };
@@ -215,7 +215,7 @@ export async function showLaunchDropdown(): Promise<void> {
     document.addEventListener('click', handleClickOutside);
   }, 0);
 
-  theatreState.launchDropdownCleanup = () => {
+  projectState.launchDropdownCleanup = () => {
     document.removeEventListener('click', handleClickOutside);
   };
 }
@@ -226,15 +226,15 @@ export async function showLaunchDropdown(): Promise<void> {
 export function hideLaunchDropdown(): void {
   if (!launchDropdownVisible.value) return;
 
-  const dropdown = document.querySelector('.theatre-launch-dropdown');
+  const dropdown = document.querySelector('.project-launch-dropdown');
   if (dropdown) {
     dropdown.classList.remove('visible');
     setTimeout(() => dropdown.remove(), 150);
   }
 
-  if (theatreState.launchDropdownCleanup) {
-    theatreState.launchDropdownCleanup();
-    theatreState.launchDropdownCleanup = null;
+  if (projectState.launchDropdownCleanup) {
+    projectState.launchDropdownCleanup();
+    projectState.launchDropdownCleanup = null;
   }
 
   launchDropdownVisible.value = false;
