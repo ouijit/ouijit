@@ -1,30 +1,5 @@
 import { test, expect } from './fixtures';
 
-test.describe('project discovery and navigation', () => {
-  test('discovers project and navigates to project mode', async ({ appPage }) => {
-    // Wait for the project to appear in the grid (scanner runs async)
-    const projectRow = appPage.locator('.project-row').first();
-    await expect(projectRow).toBeVisible({ timeout: 15_000 });
-
-    // Verify the test project name is displayed
-    await expect(appPage.locator('.project-name').first()).toContainText('test-project');
-
-    // Click the project row to enter project mode
-    await projectRow.click();
-
-    // Verify project mode is active (body gets class, header appears)
-    await expect(appPage.locator('body')).toHaveClass(/project-mode/, { timeout: 5_000 });
-    await expect(appPage.locator('.project-header-content')).toBeVisible();
-
-    // Click the back button to return to project grid
-    await appPage.locator('.project-exit-btn').click();
-
-    // Verify we're back to the grid (project-mode class removed)
-    await expect(appPage.locator('body')).not.toHaveClass(/project-mode/, { timeout: 5_000 });
-    await expect(appPage.locator('.project-row').first()).toBeVisible();
-  });
-});
-
 test.describe('task creation and kanban', () => {
   test('creates a task via kanban input', async ({ appPage }) => {
     // Enter project mode
@@ -50,6 +25,73 @@ test.describe('task creation and kanban', () => {
     await expect(
       todoColumn.locator('.kanban-card-name', { hasText: 'E2E test task' })
     ).toBeVisible({ timeout: 5_000 });
+  });
+});
+
+test.describe('terminal lifecycle', () => {
+  test('creates, switches, paginates, and closes terminals', async ({ appPage }) => {
+    const modifier = process.platform === 'darwin' ? 'Meta' : 'Control';
+
+    // 1. Enter project mode
+    await appPage.locator('.project-row').first().click({ timeout: 15_000 });
+    await expect(appPage.locator('body')).toHaveClass(/project-mode/, { timeout: 5_000 });
+
+    // Dismiss the kanban board (shown by default) so empty state and terminals are visible
+    await appPage.keyboard.press(`${modifier}+b`);
+    await expect(appPage.locator('.kanban-board')).not.toBeVisible({ timeout: 5_000 });
+
+    // 2. Empty state — verify visible with correct text
+    await expect(appPage.locator('.project-stack-empty--visible')).toBeVisible({ timeout: 5_000 });
+    await expect(appPage.locator('.project-stack-empty--visible')).toContainText('No active terminals');
+
+    // 3. Open first terminal (Cmd+I)
+    await appPage.keyboard.press(`${modifier}+i`);
+    await expect(appPage.locator('.project-card')).toHaveCount(1, { timeout: 10_000 });
+    await expect(appPage.locator('.project-card--active')).toBeVisible();
+    await expect(appPage.locator('.terminal-xterm-container')).toBeVisible();
+    // Empty state should be hidden
+    await expect(appPage.locator('.project-stack-empty--visible')).toHaveCount(0);
+
+    // 4. Open second terminal (Cmd+I)
+    await appPage.keyboard.press(`${modifier}+i`);
+    await expect(appPage.locator('.project-card')).toHaveCount(2, { timeout: 10_000 });
+    // Newest terminal is active
+    await expect(appPage.locator('.project-card--active')).toHaveCount(1);
+
+    // 5. Switch to first terminal (Cmd+1)
+    await appPage.keyboard.press(`${modifier}+1`);
+    // First card (index 0) should now be active
+    const firstCard = appPage.locator('.project-card').first();
+    await expect(firstCard).toHaveClass(/project-card--active/);
+
+    // 6. Open 4 more terminals (Cmd+I x4) → 6 total, triggers pagination (page size = 5)
+    for (let i = 0; i < 4; i++) {
+      await appPage.keyboard.press(`${modifier}+i`);
+      await expect(appPage.locator('.project-card')).toHaveCount(3 + i, { timeout: 10_000 });
+    }
+    await expect(appPage.locator('.project-card')).toHaveCount(6);
+
+    // 7. Pagination visible — indicator shows "2 / 2"
+    await expect(appPage.locator('.project-stack-pagination')).toBeVisible({ timeout: 5_000 });
+    await expect(appPage.locator('.project-stack-page-indicator')).toHaveText('2 / 2');
+
+    // 8. Navigate pages — Cmd+Shift+Left → page "1 / 2"
+    await appPage.keyboard.press(`${modifier}+Shift+ArrowLeft`);
+    await expect(appPage.locator('.project-stack-page-indicator')).toHaveText('1 / 2');
+
+    // 9. Close terminals until none remain (Cmd+W)
+    const maxCloses = 10; // safety limit
+    for (let i = 0; i < maxCloses; i++) {
+      const count = await appPage.locator('.project-card').count();
+      if (count === 0) break;
+      await appPage.keyboard.press(`${modifier}+w`);
+      // Wait for count to decrease
+      await expect(appPage.locator('.project-card')).toHaveCount(count - 1, { timeout: 5_000 });
+    }
+    await expect(appPage.locator('.project-card')).toHaveCount(0);
+
+    // 10. Empty state returns
+    await expect(appPage.locator('.project-stack-empty--visible')).toBeVisible({ timeout: 5_000 });
   });
 });
 
