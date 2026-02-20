@@ -563,7 +563,7 @@ export function getChangedFiles(projectPath: string): ChangedFile[] {
 /**
  * Parses unified diff output into structured hunks
  */
-function parseDiff(diffOutput: string): DiffHunk[] {
+export function parseDiff(diffOutput: string): DiffHunk[] {
   const hunks: DiffHunk[] = [];
   const lines = diffOutput.split('\n');
   let currentHunk: DiffHunk | null = null;
@@ -667,7 +667,7 @@ async function gitAsync(args: string[], projectPath: string): Promise<string> {
 /**
  * Parse shortstat output ("3 files changed, 47 insertions(+), 12 deletions(-)")
  */
-function parseShortstat(shortstat: string): { files: number; insertions: number; deletions: number } {
+export function parseShortstat(shortstat: string): { files: number; insertions: number; deletions: number } {
   const filesMatch = shortstat.match(/(\d+) files? changed/);
   const insertionsMatch = shortstat.match(/(\d+) insertions?\(\+\)/);
   const deletionsMatch = shortstat.match(/(\d+) deletions?\(-\)/);

@@ -320,19 +320,27 @@ export async function scanForProjects(): Promise<Project[]> {
   const allProjects: Project[] = [];
   const seenPaths = new Set<string>();
 
+  // Allow tests to override scan directories for isolation
+  const testScanDirs = process.env.OUIJIT_TEST_SCAN_DIRS;
+  const scanDirs = testScanDirs
+    ? testScanDirs.split(':')
+    : PROJECT_DIRECTORIES;
+
   // First, add manually added projects (they take priority)
-  const addedPaths = await getAddedProjects();
-  for (const projectPath of addedPaths) {
-    if (await exists(projectPath) && !seenPaths.has(projectPath)) {
-      seenPaths.add(projectPath);
-      const project = await createProject(projectPath);
-      allProjects.push(project);
+  if (!testScanDirs) {
+    const addedPaths = await getAddedProjects();
+    for (const projectPath of addedPaths) {
+      if (await exists(projectPath) && !seenPaths.has(projectPath)) {
+        seenPaths.add(projectPath);
+        const project = await createProject(projectPath);
+        allProjects.push(project);
+      }
     }
   }
 
-  // Scan all predefined directories in parallel
+  // Scan all directories in parallel
   const scanResults = await Promise.all(
-    PROJECT_DIRECTORIES.map(async (dir) => {
+    scanDirs.map(async (dir) => {
       const expandedPath = expandTilde(dir);
       if (await exists(expandedPath)) {
         return scanDirectory(expandedPath);

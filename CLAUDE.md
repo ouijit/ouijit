@@ -1,6 +1,6 @@
 # Ouijit
 
-Native macOS desktop app for project management.
+Desktop app for project management with integrated terminal sessions, git worktree-based task isolation, and CLI agent support. Runs on macOS and Linux.
 
 ## Development
 
@@ -11,21 +11,61 @@ Native macOS desktop app for project management.
 Do NOT run `npm run start` or other dev server commands.
 
 ### Project Structure
-- `src/main.ts` - Electron main process
-- `src/preload.ts` - Preload script (IPC bridge)
-- `src/renderer.ts` - Renderer entry point
-- `src/components/` - UI components
-- `src/components/project/` - Project mode (terminal/task runner UI)
-- `src/utils/` - Shared utilities
-- `src/ouijit/` - Core app logic (import/export, dependencies)
-- `src/lima/` - Lima VM sandbox integration
+
+**Entry points:**
+- `src/main.ts` - Electron main process (window lifecycle, native module loading)
+- `src/preload.ts` - Preload script (IPC bridge, exposes `window.api`)
+- `src/renderer.ts` - Renderer entry point (project grid UI)
+
+**Core logic (main process):**
+- `src/ipc.ts` - All IPC handler registrations
+- `src/git.ts` - Git operations (status, diff, merge, branch management)
+- `src/worktree.ts` - Git worktree lifecycle (create, start, remove, CoW cloning)
+- `src/taskMetadata.ts` - Task state persistence (JSON file, schema migration)
+- `src/scanner.ts` - Project directory discovery
+- `src/ptyManager.ts` - PTY spawning, session management, output buffering
+- `src/projectSettings.ts` - Per-project settings persistence (hooks, sandbox config)
+- `src/hookServer.ts` - HTTP server for Claude Code hook status events
+- `src/hookRunner.ts` - Script hook execution with timeout/output capture
+- `src/types.ts` - Shared TypeScript interfaces
+
+**UI components (renderer process):**
+- `src/components/projectGrid.ts` - Project list grid view
+- `src/components/projectRow.ts` - Individual project card
+- `src/components/searchBar.ts` - Project search
+- `src/components/newProjectDialog.ts` - Create project dialog
+- `src/components/hookConfigDialog.ts` - Script hook configuration
+- `src/components/importDialog.ts` - Toast notifications
+- `src/components/project/` - Project mode (terminal card stack, kanban board, diff panel, git status, dropdowns)
+  - `projectMode.ts` - Enter/exit project mode orchestration
+  - `signals.ts` - Preact signals (reactive state)
+  - `state.ts` - Mutable session state
+  - `helpers.ts` - Registry pattern for cross-module calls
+  - `terminalCards.ts` - Terminal card stack UI
+  - `kanbanBoard.ts` - Task kanban board (4 columns: todo/in_progress/in_review/done)
+  - `diffPanel.ts` - Diff review panel
+  - `gitStatus.ts` - Per-terminal git status display
+
+**Lima VM sandbox:**
+- `src/lima/` - Lima VM integration (sandboxed terminal sessions)
+  - `manager.ts` - limactl CLI wrapper
+  - `spawn.ts` - Sandboxed PTY creation
+  - `config.ts` - Lima YAML config generation
+
+**Utilities:**
+- `src/utils/` - Shared utilities (hotkeys, DOM helpers, icons, IDs, dropdowns, toasts, date formatting)
 
 ### Tech Stack
 - Electron + Vite + TypeScript
-- No framework - vanilla DOM manipulation
+- No framework - vanilla DOM manipulation with targeted DOM updates
 - @preact/signals-core for reactivity
 - xterm.js for terminal emulation
 - node-pty for shell processes
+- koffi (FFI) for native Copy-on-Write file cloning
+- hotkeys-js for keyboard shortcuts
+- sortablejs for kanban drag-and-drop
+- Tailwind CSS for styling
+- Vitest for testing
 
 ## Design Rules
 

@@ -17,10 +17,12 @@ Configure shell scripts that run at key points in the task lifecycle:
 
 | Hook | When it runs | Example use |
 |------|--------------|-------------|
-| **init** | After worktree is created | `npm install` to set up dependencies |
+| **start** | After worktree is created | `npm install` to set up dependencies |
+| **continue** | When resuming an existing task | `git rebase main` to sync with upstream |
 | **run** | On-demand via launch menu | `npm run dev` to start dev server |
 | **cleanup** | Before worktree is removed | Clean up resources, stop services |
 | **sandbox-setup** | After sandbox VM is created | Install tools, configure the VM environment |
+| **editor** | Open task in code editor | `code $OUIJIT_WORKTREE_PATH` |
 
 Hooks receive environment variables:
 
@@ -28,7 +30,8 @@ Hooks receive environment variables:
 OUIJIT_PROJECT_PATH    # Main project directory
 OUIJIT_WORKTREE_PATH   # Task worktree directory
 OUIJIT_TASK_BRANCH     # Git branch name
-OUIJIT_TASK_NAME       # Task display name (e.g., "T-1")
+OUIJIT_TASK_NAME       # Task display name
+OUIJIT_TASK_PROMPT     # Task description/prompt (if set)
 OUIJIT_HOOK_TYPE       # Which hook is running
 ```
 
@@ -36,13 +39,14 @@ OUIJIT_HOOK_TYPE       # Which hook is running
 
 | Key | Action |
 |-----|--------|
+| ⌘N | Create new task (opens kanban, focuses input) |
+| ⌘B / ⌘T | Toggle kanban board |
+| ⌘I | New terminal |
+| ⌘P | Toggle runner terminal |
 | ⌘D | Toggle diff panel |
-| ⌘S | Open ship-it panel |
-| ⌘T | Show task index |
-| ⌘N | Create new task |
-| ⌘P | Open runner terminal |
 | ⌘W | Close current terminal |
-| ⌘[ / ⌘] | Switch terminal cards |
+| ⌘1–9 | Select terminal by position |
+| ⌘⇧← / ⌘⇧→ | Page through terminal cards |
 
 ## Development
 
@@ -83,14 +87,24 @@ npm run check
 ### Project structure
 
 ```
-src/main.ts          # Electron main process
-src/preload.ts       # Preload script (IPC bridge)
-src/renderer.ts      # Renderer entry point
-src/components/      # UI components
-src/components/project/  # Project mode (terminal/task runner UI)
-src/utils/           # Shared utilities
-src/ouijit/          # Core app logic (import/export, dependencies)
-src/lima/            # Lima VM sandbox integration
+src/main.ts              # Electron main process
+src/preload.ts           # Preload script (IPC bridge)
+src/renderer.ts          # Renderer entry point
+src/ipc.ts               # IPC handler registrations
+src/git.ts               # Git operations (status, diff, merge, branches)
+src/worktree.ts          # Git worktree lifecycle (create, remove, CoW cloning)
+src/taskMetadata.ts      # Task state persistence
+src/scanner.ts           # Project directory discovery
+src/ptyManager.ts        # PTY spawning and session management
+src/projectSettings.ts   # Per-project settings (hooks, sandbox config)
+src/hookServer.ts        # HTTP server for Claude Code hook events
+src/hookRunner.ts        # Script hook execution
+src/types.ts             # Shared TypeScript interfaces
+src/components/          # UI components (project grid, search, dialogs)
+src/components/project/  # Project mode (terminal cards, kanban, diff panel)
+src/utils/               # Shared utilities (hotkeys, DOM, icons, IDs)
+src/lima/                # Lima VM sandbox integration
+src/__tests__/           # Vitest unit & integration tests
 ```
 
 ### Native modules
@@ -138,13 +152,16 @@ See [docs/building-linux.md](docs/building-linux.md) for the full guide. In shor
 |--------|-------------|
 | `npm start` | Run in development mode |
 | `npm run check` | TypeScript type checking |
+| `npm test` | Run Vitest unit/integration tests |
+| `npm run test:watch` | Run tests in watch mode |
+| `npm run test:e2e` | Run Playwright E2E tests |
 | `npm run package` | Package app (no installer) |
 | `npm run make` | Package + create distributable |
 | `npm run make:linux` | Cross-compile Linux build from macOS |
 
 ## Tech Stack
 
-Electron, Vite, TypeScript, xterm.js, node-pty, @preact/signals-core, Lima
+Electron, Vite, TypeScript, xterm.js, node-pty, @preact/signals-core, koffi (FFI for CoW cloning), Tailwind CSS, Vitest, Lima
 
 ## Platforms
 

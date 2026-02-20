@@ -95,3 +95,10 @@ resources/share/
 
 # Electron-Forge
 out/
+
+# Playwright E2E test artifacts
+e2e/results/
+
+# Docs (generated/internal)
+docs/
+!docs/building-linux.md
