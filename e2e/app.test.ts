@@ -16,8 +16,8 @@ test.describe('project discovery and navigation', () => {
     await expect(appPage.locator('body')).toHaveClass(/project-mode/, { timeout: 5_000 });
     await expect(appPage.locator('.project-header-content')).toBeVisible();
 
-    // Press Escape to return to project grid
-    await appPage.keyboard.press('Escape');
+    // Click the back button to return to project grid
+    await appPage.locator('.project-exit-btn').click();
 
     // Verify we're back to the grid (project-mode class removed)
     await expect(appPage.locator('body')).not.toHaveClass(/project-mode/, { timeout: 5_000 });
