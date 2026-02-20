@@ -1115,17 +1115,6 @@ body.platform-darwin:not(.is-fullscreen) .theatre-header-content {
   @apply hidden;
 }
 
-/* Pause animations on non-visible cards to save GPU cycles */
-.theatre-card--back-1 .theatre-card-status-dot,
-.theatre-card--back-2 .theatre-card-status-dot,
-.theatre-card--back-3 .theatre-card-status-dot,
-.theatre-card--back-4 .theatre-card-status-dot,
-.theatre-card--back-1 .runner-pill-light,
-.theatre-card--back-2 .runner-pill-light,
-.theatre-card--back-3 .runner-pill-light,
-.theatre-card--back-4 .runner-pill-light {
-  animation: none;
-}
 
 /* Hover effect on back cards */
 .theatre-card:not(.theatre-card--active):hover {
