@@ -154,6 +154,7 @@ See [docs/building-linux.md](docs/building-linux.md) for the full guide. In shor
 | `npm run check` | TypeScript type checking |
 | `npm test` | Run Vitest unit/integration tests |
 | `npm run test:watch` | Run tests in watch mode |
+| `npm run test:e2e` | Run Playwright E2E tests |
 | `npm run package` | Package app (no installer) |
 | `npm run make` | Package + create distributable |
 | `npm run make:linux` | Cross-compile Linux build from macOS |
