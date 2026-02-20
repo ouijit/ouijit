@@ -101,3 +101,4 @@ e2e/results/
 
 # Docs (generated/internal)
 docs/
+!docs/building-linux.md
