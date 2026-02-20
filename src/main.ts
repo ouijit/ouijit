@@ -11,9 +11,12 @@ app.commandLine.appendSwitch('disable-features', 'Autofill,AutofillServerCommuni
 // This sources the user's shell PATH so npm/node are available in PTY
 fixPath();
 
-// Isolate dev state from production so dev builds don't corrupt
-// production task-metadata.json, project settings, etc.
-if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
+// Allow E2E tests to isolate userData per instance
+if (process.env.OUIJIT_TEST_USER_DATA) {
+  app.setPath('userData', process.env.OUIJIT_TEST_USER_DATA);
+} else if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
+  // Isolate dev state from production so dev builds don't corrupt
+  // production task-metadata.json, project settings, etc.
   app.setPath('userData', app.getPath('userData') + '-dev');
 }
 

@@ -15,6 +15,13 @@ interface SettingsStore {
 let settingsCache: SettingsStore | null = null;
 
 /**
+ * Reset the in-memory cache for testing isolation
+ */
+export function _resetCacheForTesting(): void {
+  settingsCache = null;
+}
+
+/**
  * Get the path to the settings file
  */
 function getSettingsPath(): string {
