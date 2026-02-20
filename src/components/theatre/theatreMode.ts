@@ -726,8 +726,8 @@ async function reconnectTheatreTerminal(session: ActiveSession, worktreeBranch?:
     fontFamily: 'Iosevka Term Extended, "SF Mono", Menlo, Monaco, monospace',
     lineHeight: 1.2,
     theme: getTerminalTheme(),
-    allowTransparency: true,
-    scrollback: 10000,
+    allowTransparency: false,
+    scrollback: 2000,
   });
 
   const fitAddon = new FitAddon();
@@ -944,8 +944,8 @@ async function reconnectRunnerToParent(
     lineHeight: 1.2,
     cursorBlink: false,
     cursorStyle: 'bar',
-    allowTransparency: true,
-    scrollback: 10000,
+    allowTransparency: false,
+    scrollback: 2000,
   });
 
   const runnerFitAddon = new FitAddon();

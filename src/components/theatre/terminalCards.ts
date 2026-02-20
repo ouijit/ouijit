@@ -1048,7 +1048,7 @@ export async function runDefaultInCard(term: TheatreTerminal): Promise<void> {
     cursorBlink: false,
     cursorStyle: 'bar',
     allowTransparency: false,
-    scrollback: 10000,
+    scrollback: 2000,
   });
 
   const runnerFitAddon = new FitAddon();
@@ -1394,7 +1394,7 @@ export async function addTheatreTerminal(runConfig?: RunConfig, options?: AddThe
     cursorBlink: true,
     cursorStyle: 'bar',
     allowTransparency: false,
-    scrollback: 10000,
+    scrollback: 2000,
   });
 
   const fitAddon = new FitAddon();
