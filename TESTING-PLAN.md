@@ -48,6 +48,8 @@ Realistic multi-step workflows through actual persistence.
 
 Highest confidence for refactoring, most expensive to maintain.
 
+**Platform requirement:** E2E tests must run on the native host (macOS) — not in a Lima VM or other sandbox where `node_modules` are shared from a different platform. Native modules (node-pty, koffi) and the Electron binary must match the running OS. On Linux CI, use `npm run test:e2e:ci` with xvfb after a fresh `npm install`.
+
 **Infrastructure:**
 - `e2e/playwright.config.ts` - Electron launch config
 - `e2e/fixtures.ts` - Shared fixtures (temp git repos, app launch, cleanup)

@@ -27,57 +27,12 @@ export function createTestRepo(name = 'test-project'): { repoPath: string; clean
   };
 }
 
-/**
- * Launches the Electron app with isolated test directories.
- * Each call gets its own userData and scan dirs.
- */
-async function launchApp(scanDirs: string[]): Promise<{ electronApp: ElectronApplication; page: Page }> {
-  const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ouijit-e2e-userdata-'));
-
-  // Resolve the electron binary
-  const electronBin = require.resolve('electron/index.js');
-  const mainScript = path.resolve(__dirname, '..', '.vite', 'build', 'main.js');
-
-  const electronApp = await _electron.launch({
-    args: [mainScript],
-    env: {
-      ...process.env,
-      OUIJIT_TEST_USER_DATA: userDataDir,
-      OUIJIT_TEST_SCAN_DIRS: scanDirs.join(':'),
-      // Disable DevTools in test mode
-      NODE_ENV: 'test',
-    },
-  });
-
-  // Get the first window
-  const page = await electronApp.firstWindow();
-
-  // Wait for the app to be ready (renderer loaded)
-  await page.waitForLoadState('domcontentloaded');
-
-  return { electronApp, page };
-}
-
-/**
- * Cleans up an Electron app instance and any orphaned processes.
- */
-async function cleanupApp(electronApp: ElectronApplication, userDataDir?: string): Promise<void> {
-  try {
-    await electronApp.close();
-  } catch {
-    // App may already be closed
-  }
-
-  if (userDataDir) {
-    fs.rmSync(userDataDir, { recursive: true, force: true });
-  }
-}
-
 // Extend Playwright test with Ouijit-specific fixtures
 type OuijitFixtures = {
   electronApp: ElectronApplication;
   appPage: Page;
   testRepo: { repoPath: string; cleanup: () => void };
+  userDataDir: string;
 };
 
 export const test = base.extend<OuijitFixtures>({
@@ -87,14 +42,37 @@ export const test = base.extend<OuijitFixtures>({
     repo.cleanup();
   },
 
-  electronApp: async ({ testRepo }, use) => {
-    const { electronApp } = await launchApp([path.dirname(testRepo.repoPath)]);
+  userDataDir: async ({}, use) => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ouijit-e2e-userdata-'));
+    await use(dir);
+    fs.rmSync(dir, { recursive: true, force: true });
+  },
+
+  electronApp: async ({ testRepo, userDataDir }, use) => {
+    const mainScript = path.resolve(__dirname, '..', '.vite', 'build', 'main.js');
+
+    const electronApp = await _electron.launch({
+      args: [mainScript, '--no-sandbox'],
+      env: {
+        ...process.env,
+        OUIJIT_TEST_USER_DATA: userDataDir,
+        OUIJIT_TEST_SCAN_DIRS: path.dirname(testRepo.repoPath),
+        NODE_ENV: 'test',
+      },
+    });
+
     await use(electronApp);
-    await cleanupApp(electronApp);
+
+    try {
+      await electronApp.close();
+    } catch {
+      // App may already be closed
+    }
   },
 
   appPage: async ({ electronApp }, use) => {
     const page = await electronApp.firstWindow();
+    await page.waitForLoadState('domcontentloaded');
     await use(page);
   },
 });
