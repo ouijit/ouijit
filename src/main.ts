@@ -3,6 +3,7 @@ import path from 'node:path';
 import started from 'electron-squirrel-startup';
 import fixPath from 'fix-path';
 import { registerIpcHandlers, cleanupIpc } from './ipc/register';
+import { typedPush } from './ipc/helpers';
 
 // Suppress Chromium/DevTools errors for features not available in Electron
 app.commandLine.appendSwitch('disable-features', 'Autofill,AutofillServerCommunication');
@@ -67,10 +68,10 @@ const createWindow = (): BrowserWindow => {
 
   // Notify renderer of fullscreen state changes
   window.on('enter-full-screen', () => {
-    window.webContents.send('fullscreen-change', true);
+    typedPush(window, 'fullscreen-change', true);
   });
   window.on('leave-full-screen', () => {
-    window.webContents.send('fullscreen-change', false);
+    typedPush(window, 'fullscreen-change', false);
   });
 
   return window;

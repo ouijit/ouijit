@@ -29,6 +29,9 @@ export function registerWorktreeHandlers(): void {
   typedHandle('worktree:remove', (projectPath, worktreePath) => {
     const dirName = path.basename(worktreePath);
     const taskNumber = parseInt(dirName.slice(2), 10);
+    if (isNaN(taskNumber)) {
+      return { success: false, error: 'Invalid worktree path: cannot extract task number' };
+    }
     return removeTaskWorktree(projectPath, worktreePath, taskNumber);
   });
 

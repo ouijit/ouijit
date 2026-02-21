@@ -3,10 +3,14 @@
  *
  * These wrappers ensure that handler functions receive only business args
  * (IpcMainInvokeEvent is stripped) and that their signatures match the contract.
+ *
+ * The `unknown[]` cast on `args` is the trust boundary between Electron's untyped IPC
+ * layer and our typed contract. The contract types guarantee correctness at call sites
+ * (preload.ts), so the cast here is safe as long as all callers go through the typed helpers.
  */
 
-import { ipcMain } from 'electron';
-import type { IpcInvokeContract, IpcSendContract } from './contract';
+import { BrowserWindow, ipcMain } from 'electron';
+import type { IpcInvokeContract, IpcSendContract, IpcPushContract } from './contract';
 
 /**
  * Register a type-safe ipcMain.handle() handler.
@@ -32,4 +36,18 @@ export function typedOn<C extends keyof IpcSendContract>(
   ipcMain.on(channel, (_event: Electron.IpcMainEvent, ...args: unknown[]) => {
     (handler as (...a: unknown[]) => void)(...args);
   });
+}
+
+/**
+ * Type-safe webContents.send() wrapper for main-to-renderer push channels.
+ * Checks the BrowserWindow is still alive before sending.
+ */
+export function typedPush<C extends keyof IpcPushContract>(
+  window: BrowserWindow,
+  channel: C,
+  ...args: IpcPushContract[C]['args']
+): void {
+  if (!window.isDestroyed()) {
+    window.webContents.send(channel, ...args);
+  }
 }

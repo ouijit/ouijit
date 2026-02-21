@@ -7,7 +7,7 @@
 import './index.css';
 import '@xterm/xterm/css/xterm.css';
 import { initIcons } from './utils/icons';
-import type { Project, ElectronAPI, ActiveSession } from './types';
+import type { Project, ActiveSession } from './types';
 import { renderProjects } from './components/projectGrid';
 import { setupSearch } from './components/searchBar';
 import { showToast } from './components/importDialog';

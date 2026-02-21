@@ -111,16 +111,6 @@ export interface GitMergeResult {
 }
 
 /**
- * Result of shipping (merging) a worktree branch
- */
-export interface ShipItResult {
-  success: boolean;
-  error?: string;
-  conflictFiles?: string[];
-  mergedBranch?: string;
-}
-
-/**
  * Unique identifier for a PTY session
  */
 export type PtyId = string;
@@ -241,7 +231,7 @@ export interface WorktreeAPI {
   getDiff(projectPath: string, worktreeBranch: string, targetBranch?: string): Promise<WorktreeDiffSummary | null>;
   getFileDiff(projectPath: string, worktreeBranch: string, filePath: string, targetBranch?: string): Promise<FileDiff | null>;
   merge(projectPath: string, worktreeBranch: string): Promise<GitMergeResult>;
-  ship(projectPath: string, worktreeBranch: string, commitMessage?: string): Promise<ShipItResult>;
+  ship(projectPath: string, worktreeBranch: string, commitMessage?: string): Promise<{ success: boolean; error?: string; conflictFiles?: string[]; mergedBranch?: string }>;
   listBranches(projectPath: string): Promise<BranchInfo[]>;
   getMainBranch(projectPath: string): Promise<string>;
 }

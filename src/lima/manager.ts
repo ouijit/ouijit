@@ -5,7 +5,7 @@ import * as fs from 'node:fs/promises';
 import * as fsSync from 'node:fs';
 import * as os from 'node:os';
 import { app } from 'electron';
-import type { LimaInstance } from './types';
+import type { LimaInstance, SandboxStatus } from './types';
 import { generateLimaYaml, buildLimaConfig } from './config';
 import { resetSetupTracking } from './spawn';
 
@@ -329,6 +329,98 @@ export async function ensureRunning(
   }
   resetSetupTracking(instanceName);
   return { success: true, instanceName };
+}
+
+/**
+ * Get the sandbox status for a project, mapping Lima instance status to UI-level SandboxStatus.
+ */
+export async function getLimaStatus(projectPath: string): Promise<SandboxStatus> {
+  const available = await isLimaInstalled();
+  if (!available) {
+    return { available: false, vmStatus: 'Unavailable' };
+  }
+
+  const instanceName = getInstanceName(projectPath);
+  const instance = await getInstance(instanceName);
+
+  let vmStatus: SandboxStatus['vmStatus'];
+  switch (instance.status) {
+    case 'Running': vmStatus = 'Running'; break;
+    case 'Stopped': vmStatus = 'Stopped'; break;
+    case 'Broken': vmStatus = 'Broken'; break;
+    case 'NotFound': vmStatus = 'NotCreated'; break;
+    default: vmStatus = 'Stopped'; break;
+  }
+
+  return {
+    available: true,
+    vmStatus,
+    instanceName,
+    ...(vmStatus !== 'NotCreated' && { memory: instance.memory, disk: instance.disk }),
+  };
+}
+
+/**
+ * Recreate a Lima instance: stop → delete → create → start.
+ */
+export async function recreateInstance(
+  projectPath: string,
+  overrides?: { memoryGiB?: number; diskGiB?: number },
+  onProgress?: (message: string) => void,
+): Promise<{ success: boolean; error?: string }> {
+  const progress = onProgress ?? (() => {});
+  const instanceName = getInstanceName(projectPath);
+
+  try {
+    const instance = await getInstance(instanceName);
+    if (instance.status === 'Running') {
+      progress('Stopping VM…');
+      const stopResult = await stopInstance(instanceName);
+      if (!stopResult.success) return { success: false, error: stopResult.error };
+    }
+
+    if (instance.status !== 'NotFound') {
+      progress('Deleting VM…');
+      const delResult = await deleteInstance(instanceName);
+      if (!delResult.success) return { success: false, error: delResult.error };
+    }
+
+    progress('Creating sandbox VM (this may take a few minutes)…');
+    const createResult = await createInstance(projectPath, overrides);
+    if (!createResult.success) return { success: false, error: createResult.error };
+
+    progress('Starting sandbox VM…');
+    const startResult = await startInstance(instanceName, progress);
+    if (!startResult.success) return { success: false, error: startResult.error };
+
+    resetSetupTracking(instanceName);
+    progress('VM recreated successfully');
+    return { success: true };
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : 'Unknown error';
+    return { success: false, error: msg };
+  }
+}
+
+/**
+ * Delete a Lima instance, stopping it first if running.
+ */
+export async function deleteWithCleanup(projectPath: string): Promise<{ success: boolean; error?: string }> {
+  const instanceName = getInstanceName(projectPath);
+  try {
+    const instance = await getInstance(instanceName);
+    if (instance.status === 'Running') {
+      const stopResult = await stopInstance(instanceName);
+      if (!stopResult.success) return { success: false, error: stopResult.error };
+    }
+    if (instance.status !== 'NotFound') {
+      return deleteInstance(instanceName);
+    }
+    return { success: true };
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : 'Unknown error';
+    return { success: false, error: msg };
+  }
 }
 
 /**

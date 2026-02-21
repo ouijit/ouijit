@@ -33,15 +33,8 @@ import type {
 } from '../types';
 import type { SandboxStatus } from '../lima/types';
 
-/** Hooks object shape returned by hooks:get */
-export type ProjectHooks = {
-  start?: ScriptHook;
-  continue?: ScriptHook;
-  run?: ScriptHook;
-  cleanup?: ScriptHook;
-  'sandbox-setup'?: ScriptHook;
-  editor?: ScriptHook;
-};
+/** Hooks object returned by hooks:get — derived from the canonical ProjectSettings type */
+export type ProjectHooks = NonNullable<ProjectSettings['hooks']>;
 
 /**
  * Invoke channels: renderer calls via ipcRenderer.invoke(), main responds via ipcMain.handle().
@@ -61,6 +54,7 @@ export interface IpcInvokeContract {
   'remove-project':               { args: [folderPath: string];                                             return: { success: boolean } };
   'get-added-projects':           { args: [];                                                               return: string[] };
   'get-project-settings':         { args: [projectPath: string];                                            return: ProjectSettings };
+  'settings:set-kill-existing-on-run': { args: [projectPath: string, kill: boolean];                        return: { success: boolean } };
 
   // ── Git ──────────────────────────────────────────────────────────────
   'get-git-status':               { args: [projectPath: string];                                            return: GitStatus | null };
@@ -107,7 +101,6 @@ export interface IpcInvokeContract {
   'hooks:get':                    { args: [projectPath: string];                                            return: ProjectHooks };
   'hooks:save':                   { args: [projectPath: string, hook: ScriptHook];                          return: { success: boolean } };
   'hooks:delete':                 { args: [projectPath: string, hookType: HookType];                        return: { success: boolean } };
-  'settings:set-kill-existing-on-run': { args: [projectPath: string, kill: boolean];                        return: { success: boolean } };
 
   // ── Lima ─────────────────────────────────────────────────────────────
   'lima:status':                  { args: [projectPath: string];                                            return: SandboxStatus };

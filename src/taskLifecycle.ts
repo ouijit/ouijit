@@ -33,7 +33,7 @@ async function runCleanupHookIfNeeded(
   const cleanupHook = await getHook(projectPath, 'cleanup');
   if (!cleanupHook) return undefined;
 
-  const worktrees = listWorktrees(projectPath);
+  const worktrees = await listWorktrees(projectPath);
   const worktree = task.branch ? worktrees.find(wt => wt.branch === task.branch) : undefined;
   if (!worktree) return undefined;
 
@@ -91,7 +91,7 @@ export async function deleteTaskWithWorktree(
 ): Promise<{ success: boolean; error?: string }> {
   const task = await getTaskByNumber(projectPath, taskNumber);
   if (task?.worktreePath || task?.branch) {
-    const worktrees = listWorktrees(projectPath);
+    const worktrees = await listWorktrees(projectPath);
     const wt = task.branch
       ? worktrees.find(w => w.branch === task.branch)
       : worktrees.find(w => w.path === task.worktreePath);
@@ -108,7 +108,7 @@ export async function deleteTaskWithWorktree(
  * Get all tasks with their resolved worktree paths.
  */
 export async function getTasksWithWorkspaces(projectPath: string): Promise<TaskWithWorkspace[]> {
-  const worktrees = listWorktrees(projectPath);
+  const worktrees = await listWorktrees(projectPath);
   const tasks = await getProjectTasks(projectPath);
   const worktreeMap = new Map(worktrees.map(wt => [wt.branch, wt]));
 
@@ -139,7 +139,7 @@ export async function getTaskWithWorkspace(
 ): Promise<TaskWithWorkspace | null> {
   const task = await getTaskByNumber(projectPath, taskNumber);
   if (!task) return null;
-  const worktrees = listWorktrees(projectPath);
+  const worktrees = await listWorktrees(projectPath);
   const wt = task.branch ? worktrees.find(w => w.branch === task.branch) : undefined;
   return {
     taskNumber: task.taskNumber,

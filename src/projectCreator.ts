@@ -13,6 +13,11 @@ export async function createProject(options: CreateProjectOptions): Promise<Crea
     const projectsDir = path.join(os.homedir(), 'Ouijit', 'projects');
     const projectPath = path.join(projectsDir, options.name);
 
+    // Validate name doesn't escape the projects directory (e.g. via ../)
+    if (!path.resolve(projectPath).startsWith(path.resolve(projectsDir) + path.sep)) {
+      return { success: false, error: 'Invalid project name' };
+    }
+
     // Check if project already exists
     try {
       await fs.access(projectPath);

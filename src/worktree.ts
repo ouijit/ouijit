@@ -3,7 +3,7 @@
  * Creates isolated worktrees for CLI agents to work without affecting the main branch
  */
 
-import { execSync, exec } from 'node:child_process';
+import { exec } from 'node:child_process';
 import { promisify } from 'node:util';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
@@ -13,8 +13,6 @@ import { getNextTaskNumber, createTask, getTask, getTaskByNumber, deleteTaskByNu
 import { mergeWorktreeBranch } from './git';
 
 const execAsync = promisify(exec);
-
-const MAX_ERROR_LENGTH = 500;
 
 // Native CoW clone support via koffi FFI
 // macOS: clonefile() clones files and directories atomically in one kernel call
@@ -428,12 +426,12 @@ export async function removeTaskWorktree(
 /**
  * List all worktrees for a project
  */
-export function listWorktrees(projectPath: string): WorktreeInfo[] {
+export async function listWorktrees(projectPath: string): Promise<WorktreeInfo[]> {
   try {
     const projectName = path.basename(projectPath);
     const baseDir = getWorktreeBaseDir(projectName);
 
-    const output = execSync('git worktree list --porcelain', {
+    const { stdout: output } = await execAsync('git worktree list --porcelain', {
       cwd: projectPath,
       encoding: 'utf8',
     });
@@ -483,12 +481,12 @@ export async function shipWorktree(
   commitMessage?: string,
 ): Promise<{ success: boolean; error?: string; conflictFiles?: string[]; mergedBranch?: string }> {
   // Check for uncommitted changes in the worktree
-  const worktrees = listWorktrees(projectPath);
+  const worktrees = await listWorktrees(projectPath);
   const worktree = worktrees.find(wt => wt.branch === worktreeBranch);
 
   if (worktree) {
     try {
-      const status = execSync('git status --porcelain', {
+      const { stdout: status } = await execAsync('git status --porcelain', {
         cwd: worktree.path,
         encoding: 'utf8',
       });
