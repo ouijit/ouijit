@@ -1,5 +1,5 @@
 import { BrowserWindow } from 'electron';
-import { startHookServer, stopHookServer, installHooks } from '../hookServer';
+import { startHookServer, stopHookServer, installWrapper, migrateFromSettingsHooks } from '../hookServer';
 import { cleanupAllPtys } from '../ptyManager';
 import { cleanup as limaCleanup } from '../lima';
 import { registerProjectHandlers } from './handlers/project';
@@ -18,7 +18,8 @@ import { registerLimaHandlers } from './handlers/lima';
 export async function registerIpcHandlers(mainWindow: BrowserWindow): Promise<void> {
   // Start hook API server (must be ready before any PTY spawns)
   await startHookServer(mainWindow);
-  installHooks();
+  installWrapper();
+  migrateFromSettingsHooks();
 
   registerProjectHandlers(mainWindow);
   registerGitHandlers();
