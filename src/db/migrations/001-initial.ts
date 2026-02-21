@@ -26,6 +26,7 @@ export function up(db: Database.Database): void {
       UNIQUE(project_path, task_number)
     );
     CREATE INDEX idx_tasks_project_status ON tasks(project_path, status);
+    CREATE INDEX idx_tasks_project_branch ON tasks(project_path, branch);
 
     CREATE TABLE project_counters (
       project_path TEXT PRIMARY KEY REFERENCES projects(path) ON DELETE CASCADE,
@@ -34,7 +35,7 @@ export function up(db: Database.Database): void {
 
     CREATE TABLE project_settings (
       project_path TEXT PRIMARY KEY REFERENCES projects(path) ON DELETE CASCADE,
-      kill_existing_on_run INTEGER NOT NULL DEFAULT 1,
+      kill_existing_on_run INTEGER NOT NULL DEFAULT 0,
       sandbox_memory_gib INTEGER,
       sandbox_disk_gib INTEGER
     );

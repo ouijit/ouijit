@@ -117,14 +117,39 @@ export async function importAll(
 
   const userData = app.getPath('userData');
 
-  // 1. Import projects from added-projects.json
+  // Read all JSON files before the transaction (async I/O)
+  let addedProjects: string[] = [];
   try {
     const addedProjectsPath = path.join(os.homedir(), 'Ouijit', 'added-projects.json');
     const raw = await fs.readFile(addedProjectsPath, 'utf-8');
     const data = JSON.parse(raw);
-    const projects: string[] = Array.isArray(data.projects) ? data.projects : [];
+    addedProjects = Array.isArray(data.projects) ? data.projects : [];
+  } catch {
+    // No added-projects.json — skip
+  }
 
-    for (const projectPath of projects) {
+  let taskStore: OldTaskStore | null = null;
+  try {
+    const taskMetaPath = path.join(userData, 'task-metadata.json');
+    const raw = await fs.readFile(taskMetaPath, 'utf-8');
+    taskStore = JSON.parse(raw) as OldTaskStore;
+  } catch {
+    // No task-metadata.json — skip
+  }
+
+  let settingsStore: OldSettingsStore | null = null;
+  try {
+    const settingsPath = path.join(userData, 'project-settings.json');
+    const raw = await fs.readFile(settingsPath, 'utf-8');
+    settingsStore = JSON.parse(raw) as OldSettingsStore;
+  } catch {
+    // No project-settings.json — skip
+  }
+
+  // Run all DB writes in a single transaction (better-sqlite3 is synchronous)
+  const doImport = db.transaction(() => {
+    // 1. Import projects from added-projects.json
+    for (const projectPath of addedProjects) {
       try {
         const name = path.basename(projectPath);
         projectRepo.add(projectPath, name);
@@ -133,76 +158,14 @@ export async function importAll(
         result.errors.push(`Project ${projectPath}: ${error instanceof Error ? error.message : 'unknown'}`);
       }
     }
-  } catch {
-    // No added-projects.json — skip
-  }
 
-  // 2. Import tasks from task-metadata.json
-  try {
-    const taskMetaPath = path.join(userData, 'task-metadata.json');
-    const raw = await fs.readFile(taskMetaPath, 'utf-8');
-    const store = JSON.parse(raw) as OldTaskStore;
+    // 2. Import tasks from task-metadata.json
+    if (taskStore) {
+      for (const [key, value] of Object.entries(taskStore)) {
+        if (key === '__schemaVersion' || typeof value !== 'object' || !value) continue;
+        const projectData = value as OldProjectData;
+        const projectPath = key;
 
-    for (const [key, value] of Object.entries(store)) {
-      if (key === '__schemaVersion' || typeof value !== 'object' || !value) continue;
-      const projectData = value as OldProjectData;
-      const projectPath = key;
-
-      // Ensure the project exists
-      if (!projectRepo.getByPath(projectPath)) {
-        const name = path.basename(projectPath);
-        projectRepo.add(projectPath, name);
-        result.projectsImported++;
-      }
-
-      // Update the counter to match the old store
-      if (projectData.nextTaskNumber > 1) {
-        db.prepare(
-          'UPDATE project_counters SET next_task_number = ? WHERE project_path = ?'
-        ).run(projectData.nextTaskNumber, projectPath);
-      }
-
-      for (const task of projectData.tasks) {
-        try {
-          const status = migrateTaskStatus(task);
-          taskRepo.create(projectPath, task.taskNumber, task.name, {
-            status,
-            branch: task.branch,
-            mergeTarget: task.mergeTarget,
-            prompt: task.prompt,
-            sandboxed: task.sandboxed,
-            worktreePath: task.worktreePath,
-          });
-          // If original had closedAt, preserve it
-          if (task.closedAt) {
-            db.prepare(
-              'UPDATE tasks SET closed_at = ? WHERE project_path = ? AND task_number = ?'
-            ).run(task.closedAt, projectPath, task.taskNumber);
-          }
-          // Preserve original order if present
-          if (task.order !== undefined) {
-            db.prepare(
-              'UPDATE tasks SET sort_order = ? WHERE project_path = ? AND task_number = ?'
-            ).run(task.order, projectPath, task.taskNumber);
-          }
-          result.tasksImported++;
-        } catch (error) {
-          result.errors.push(`Task ${task.name} in ${projectPath}: ${error instanceof Error ? error.message : 'unknown'}`);
-        }
-      }
-    }
-  } catch {
-    // No task-metadata.json — skip
-  }
-
-  // 3. Import settings and hooks from project-settings.json
-  try {
-    const settingsPath = path.join(userData, 'project-settings.json');
-    const raw = await fs.readFile(settingsPath, 'utf-8');
-    const store = JSON.parse(raw) as OldSettingsStore;
-
-    for (const [projectPath, settings] of Object.entries(store)) {
-      try {
         // Ensure the project exists
         if (!projectRepo.getByPath(projectPath)) {
           const name = path.basename(projectPath);
@@ -210,45 +173,96 @@ export async function importAll(
           result.projectsImported++;
         }
 
-        // Import sandbox settings
-        const updates: Record<string, unknown> = {};
-        if (settings.sandbox?.memoryGiB) updates.sandbox_memory_gib = settings.sandbox.memoryGiB;
-        if (settings.sandbox?.diskGiB) updates.sandbox_disk_gib = settings.sandbox.diskGiB;
-        if (settings.killExistingOnRun !== undefined) updates.kill_existing_on_run = settings.killExistingOnRun ? 1 : 0;
-
-        if (Object.keys(updates).length > 0) {
-          settingsRepo.update(projectPath, updates as any);
-          result.settingsImported++;
+        // Update the counter to match the old store
+        if (projectData.nextTaskNumber > 1) {
+          db.prepare(
+            'UPDATE project_counters SET next_task_number = ? WHERE project_path = ?'
+          ).run(projectData.nextTaskNumber, projectPath);
         }
 
-        // Import hooks
-        if (settings.hooks) {
-          for (const [hookType, hook] of Object.entries(settings.hooks)) {
-            try {
-              const validTypes: HookType[] = ['start', 'continue', 'run', 'cleanup', 'sandbox-setup', 'editor'];
-              if (validTypes.includes(hookType as HookType) && hook.command) {
-                hookRepo.save(
-                  projectPath,
-                  hookType as HookType,
-                  hook.name || hookType,
-                  hook.command,
-                  hook.id,
-                  hook.description,
-                );
-                result.hooksImported++;
-              }
-            } catch (error) {
-              result.errors.push(`Hook ${hookType} in ${projectPath}: ${error instanceof Error ? error.message : 'unknown'}`);
+        for (const task of projectData.tasks) {
+          try {
+            const status = migrateTaskStatus(task);
+            taskRepo.create(projectPath, task.taskNumber, task.name, {
+              status,
+              branch: task.branch,
+              mergeTarget: task.mergeTarget,
+              prompt: task.prompt,
+              sandboxed: task.sandboxed,
+              worktreePath: task.worktreePath,
+              createdAt: task.createdAt,
+            });
+            // If original had closedAt, preserve it
+            if (task.closedAt) {
+              db.prepare(
+                'UPDATE tasks SET closed_at = ? WHERE project_path = ? AND task_number = ?'
+              ).run(task.closedAt, projectPath, task.taskNumber);
             }
+            // Preserve original order if present
+            if (task.order !== undefined) {
+              db.prepare(
+                'UPDATE tasks SET sort_order = ? WHERE project_path = ? AND task_number = ?'
+              ).run(task.order, projectPath, task.taskNumber);
+            }
+            result.tasksImported++;
+          } catch (error) {
+            result.errors.push(`Task ${task.name} in ${projectPath}: ${error instanceof Error ? error.message : 'unknown'}`);
           }
         }
-      } catch (error) {
-        result.errors.push(`Settings for ${projectPath}: ${error instanceof Error ? error.message : 'unknown'}`);
       }
     }
-  } catch {
-    // No project-settings.json — skip
-  }
+
+    // 3. Import settings and hooks from project-settings.json
+    if (settingsStore) {
+      for (const [projectPath, settings] of Object.entries(settingsStore)) {
+        try {
+          // Ensure the project exists
+          if (!projectRepo.getByPath(projectPath)) {
+            const name = path.basename(projectPath);
+            projectRepo.add(projectPath, name);
+            result.projectsImported++;
+          }
+
+          // Import sandbox settings
+          const updates: Partial<{ kill_existing_on_run: number; sandbox_memory_gib: number; sandbox_disk_gib: number }> = {};
+          if (settings.sandbox?.memoryGiB) updates.sandbox_memory_gib = settings.sandbox.memoryGiB;
+          if (settings.sandbox?.diskGiB) updates.sandbox_disk_gib = settings.sandbox.diskGiB;
+          if (settings.killExistingOnRun !== undefined) updates.kill_existing_on_run = settings.killExistingOnRun ? 1 : 0;
+
+          if (Object.keys(updates).length > 0) {
+            settingsRepo.update(projectPath, updates);
+            result.settingsImported++;
+          }
+
+          // Import hooks
+          if (settings.hooks) {
+            for (const [hookType, hook] of Object.entries(settings.hooks)) {
+              try {
+                const validTypes: HookType[] = ['start', 'continue', 'run', 'cleanup', 'sandbox-setup', 'editor'];
+                if (validTypes.includes(hookType as HookType) && hook.command) {
+                  hookRepo.save(
+                    projectPath,
+                    hookType as HookType,
+                    hook.name || hookType,
+                    hook.command,
+                    hook.id,
+                    hook.description,
+                  );
+                  result.hooksImported++;
+                }
+              } catch (error) {
+                result.errors.push(`Hook ${hookType} in ${projectPath}: ${error instanceof Error ? error.message : 'unknown'}`);
+              }
+            }
+          }
+        } catch (error) {
+          result.errors.push(`Settings for ${projectPath}: ${error instanceof Error ? error.message : 'unknown'}`);
+        }
+      }
+    }
+  });
+
+  doImport();
 
   await markImported();
   return result;

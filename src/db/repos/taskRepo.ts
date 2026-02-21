@@ -27,10 +27,6 @@ export class TaskRepo {
     ).all(projectPath) as TaskRow[];
   }
 
-  getById(id: number): TaskRow | undefined {
-    return this.db.prepare('SELECT * FROM tasks WHERE id = ?').get(id) as TaskRow | undefined;
-  }
-
   getByBranch(projectPath: string, branch: string): TaskRow | undefined {
     return this.db.prepare(
       'SELECT * FROM tasks WHERE project_path = ? AND branch = ?'
@@ -61,6 +57,7 @@ export class TaskRepo {
       prompt?: string;
       sandboxed?: boolean;
       worktreePath?: string;
+      createdAt?: string;
     },
   ): TaskRow {
     return this.db.transaction(() => {
@@ -86,7 +83,7 @@ export class TaskRepo {
         options?.mergeTarget ?? null,
         options?.sandboxed ? 1 : 0,
         sortOrder,
-        new Date().toISOString(),
+        options?.createdAt ?? new Date().toISOString(),
       );
 
       // Bump counter if this task number matches or exceeds it
@@ -121,8 +118,9 @@ export class TaskRepo {
         const oldColumnTasks = this.db.prepare(
           'SELECT id FROM tasks WHERE project_path = ? AND status = ? AND task_number != ? ORDER BY sort_order, id'
         ).all(projectPath, oldStatus, taskNumber) as { id: number }[];
+        const updateOrder = this.db.prepare('UPDATE tasks SET sort_order = ? WHERE id = ?');
         for (let i = 0; i < oldColumnTasks.length; i++) {
-          this.db.prepare('UPDATE tasks SET sort_order = ? WHERE id = ?').run(i, oldColumnTasks[i].id);
+          updateOrder.run(i, oldColumnTasks[i].id);
         }
       } else {
         // Same status — just update closedAt if needed
@@ -188,9 +186,12 @@ export class TaskRepo {
       const clampedIndex = Math.max(0, Math.min(targetIndex, columnTasks.length));
       columnTasks.splice(clampedIndex, 0, { id: task.id, task_number: taskNumber });
 
+      // Prepare once, reuse in loop
+      const updateOrder = this.db.prepare('UPDATE tasks SET sort_order = ? WHERE id = ?');
+
       // Reassign order values for the target column
       for (let i = 0; i < columnTasks.length; i++) {
-        this.db.prepare('UPDATE tasks SET sort_order = ? WHERE id = ?').run(i, columnTasks[i].id);
+        updateOrder.run(i, columnTasks[i].id);
       }
 
       // Update status and closedAt
@@ -204,7 +205,7 @@ export class TaskRepo {
           'SELECT id FROM tasks WHERE project_path = ? AND status = ? AND task_number != ? ORDER BY sort_order, id'
         ).all(projectPath, oldStatus, taskNumber) as { id: number }[];
         for (let i = 0; i < oldColumnTasks.length; i++) {
-          this.db.prepare('UPDATE tasks SET sort_order = ? WHERE id = ?').run(i, oldColumnTasks[i].id);
+          updateOrder.run(i, oldColumnTasks[i].id);
         }
       }
     })();

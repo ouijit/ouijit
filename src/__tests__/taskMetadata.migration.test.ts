@@ -1,4 +1,4 @@
-import { describe, test, expect } from 'vitest';
+import { describe, test, expect, vi } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
@@ -9,6 +9,11 @@ import { TaskRepo } from '../db/repos/taskRepo';
 import { SettingsRepo } from '../db/repos/settingsRepo';
 import { HookRepo } from '../db/repos/hookRepo';
 import { importAll } from '../services/dataImportService';
+
+vi.mock('node:os', async (importOriginal) => {
+  const actual = await importOriginal<typeof os>();
+  return { ...actual, homedir: vi.fn(actual.homedir) };
+});
 
 describe('data import service', () => {
   function setupImport() {
@@ -148,18 +153,17 @@ describe('data import service', () => {
   test('imports added projects from added-projects.json', async () => {
     const { db, projectRepo, taskRepo, settingsRepo, hookRepo } = setupImport();
 
-    // Write a fake added-projects.json in ~/Ouijit/
-    const addedProjectsPath = path.join(os.homedir(), 'Ouijit', 'added-projects.json');
-    const addedProjectsExisted = fs.existsSync(addedProjectsPath);
-    let originalContent: string | null = null;
-
-    if (addedProjectsExisted) {
-      originalContent = fs.readFileSync(addedProjectsPath, 'utf-8');
-    }
+    // Use a temp directory instead of real home to avoid touching ~/Ouijit/
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ouijit-test-'));
+    vi.mocked(os.homedir).mockReturnValue(tmpDir);
 
     try {
-      fs.mkdirSync(path.dirname(addedProjectsPath), { recursive: true });
-      fs.writeFileSync(addedProjectsPath, JSON.stringify({ projects: ['/tmp/test-project-import'] }));
+      const addedProjectsDir = path.join(tmpDir, 'Ouijit');
+      fs.mkdirSync(addedProjectsDir, { recursive: true });
+      fs.writeFileSync(
+        path.join(addedProjectsDir, 'added-projects.json'),
+        JSON.stringify({ projects: ['/tmp/test-project-import'] })
+      );
 
       const result = await importAll(db, projectRepo, taskRepo, settingsRepo, hookRepo);
       expect(result.projectsImported).toBeGreaterThanOrEqual(1);
@@ -168,12 +172,9 @@ describe('data import service', () => {
       expect(project).toBeDefined();
       expect(project?.name).toBe('test-project-import');
     } finally {
-      // Restore original file
-      if (originalContent !== null) {
-        fs.writeFileSync(addedProjectsPath, originalContent);
-      } else if (!addedProjectsExisted) {
-        try { fs.unlinkSync(addedProjectsPath); } catch { /* ignore */ }
-      }
+      vi.mocked(os.homedir).mockRestore();
+      // Clean up temp dir
+      fs.rmSync(tmpDir, { recursive: true, force: true });
     }
   });
 });

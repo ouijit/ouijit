@@ -34,6 +34,7 @@ export class HookRepo {
       INSERT INTO hooks (id, project_path, type, name, command, description)
       VALUES (?, ?, ?, ?, ?, ?)
       ON CONFLICT(project_path, type) DO UPDATE SET
+        id = excluded.id,
         name = excluded.name,
         command = excluded.command,
         description = excluded.description

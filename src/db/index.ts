@@ -6,6 +6,8 @@
  * Callers just change their import path — no other code changes needed.
  */
 
+import * as fs from 'node:fs/promises';
+import * as path from 'node:path';
 import { getDatabase, _initTestDatabase } from './database';
 import { ProjectRepo } from './repos/projectRepo';
 import { TaskRepo, type TaskStatus, type TaskRow } from './repos/taskRepo';
@@ -434,12 +436,10 @@ export async function getAddedProjects(): Promise<string[]> {
 
 export async function addProject(folderPath: string): Promise<{ success: boolean; error?: string }> {
   try {
-    const fs = await import('node:fs/promises');
     const stat = await fs.stat(folderPath);
     if (!stat.isDirectory()) {
       return { success: false, error: 'Path is not a directory' };
     }
-    const path = await import('node:path');
     const name = path.basename(folderPath);
     const { projectRepo: pr } = repos();
     pr.add(folderPath, name);

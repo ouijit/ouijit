@@ -38,8 +38,4 @@ export class ProjectRepo {
     // CASCADE will clean up tasks, counters, settings, hooks
     this.db.prepare('DELETE FROM projects WHERE path = ?').run(path);
   }
-
-  updateIcon(path: string, iconDataUrl: string | null): void {
-    this.db.prepare('UPDATE projects SET icon_data_url = ? WHERE path = ?').run(iconDataUrl, path);
-  }
 }
