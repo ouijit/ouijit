@@ -171,7 +171,7 @@ export async function spawnPty(
 
       if (expandedCommand) {
         const escapedCmd = expandedCommand.replace(/'/g, "'\\''");
-        shellArgs = ['--rcfile', rcfile, '-ic', `${escapedCmd}; exec bash --rcfile ${rcfile}`];
+        shellArgs = ['-ic', `${escapedCmd}; exec bash --rcfile ${rcfile}`];
       } else {
         shellArgs = ['--init-file', rcfile];
       }
