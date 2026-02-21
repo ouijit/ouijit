@@ -1,4 +1,4 @@
-import { describe, test, expect, beforeEach } from 'vitest';
+import { describe, test, expect } from 'vitest';
 import {
   getProjectSettings,
   getHooks,
@@ -9,12 +9,9 @@ import {
   setSandboxConfig,
   setKillExistingOnRun,
   _resetCacheForTesting,
-} from '../projectSettings';
+} from '../db';
 
 describe('projectSettings', () => {
-  beforeEach(() => {
-    _resetCacheForTesting();
-  });
 
   test('full lifecycle: hooks, sandbox config, killExistingOnRun', async () => {
     const project = '/test/settings-lifecycle';
@@ -96,13 +93,17 @@ describe('projectSettings', () => {
       command: 'rm -rf tmp',
     });
 
-    // Reset cache to force reload from disk
+    // Verify it exists before reset
+    const hookBefore = await getHook(project, 'cleanup');
+    expect(hookBefore).toBeDefined();
+    expect(hookBefore!.command).toBe('rm -rf tmp');
+
+    // Reset creates a fresh in-memory DB — data from prior state is gone
     _resetCacheForTesting();
 
-    // Should still find the hook (persisted to disk)
-    const hook = await getHook(project, 'cleanup');
-    expect(hook).toBeDefined();
-    expect(hook!.command).toBe('rm -rf tmp');
+    // Should NOT find the hook (fresh database)
+    const hookAfter = await getHook(project, 'cleanup');
+    expect(hookAfter).toBeUndefined();
   });
 
   test('getSandboxConfig returns defaults for new project', async () => {

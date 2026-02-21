@@ -1,5 +1,5 @@
 import { describe, test, expect, vi } from 'vitest';
-import { createTask, getTaskByNumber } from '../taskMetadata';
+import { createTask, getTaskByNumber } from '../db';
 
 // Mock child_process so execAsync resolves without real git commands
 vi.mock('node:child_process', () => ({

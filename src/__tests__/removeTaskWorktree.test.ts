@@ -1,5 +1,5 @@
 import { describe, test, expect, vi } from 'vitest';
-import { createTask, getTaskByNumber } from '../taskMetadata';
+import { createTask, getTaskByNumber } from '../db';
 
 // Mock child_process so git commands don't actually run
 vi.mock('node:child_process', () => ({

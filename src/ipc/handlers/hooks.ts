@@ -1,5 +1,5 @@
 import { typedHandle } from '../helpers';
-import { getHooks, saveHook, deleteHook } from '../../projectSettings';
+import { getHooks, saveHook, deleteHook } from '../../db';
 
 export function registerHookHandlers(): void {
   typedHandle('hooks:get', (projectPath) => getHooks(projectPath));

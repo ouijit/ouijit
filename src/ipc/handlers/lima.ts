@@ -9,7 +9,7 @@ import {
   recreateInstance,
   deleteWithCleanup,
 } from '../../lima/manager';
-import { getSandboxConfig, setSandboxConfig } from '../../projectSettings';
+import { getSandboxConfig, setSandboxConfig } from '../../db';
 
 export function registerLimaHandlers(mainWindow: BrowserWindow): void {
   typedHandle('lima:status', (projectPath) => getLimaStatus(projectPath));

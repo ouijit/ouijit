@@ -5,7 +5,7 @@
 
 import { describe, test, expect, vi, beforeEach } from 'vitest';
 import * as os from 'node:os';
-import { createTask } from '../taskMetadata';
+import { createTask } from '../db';
 
 // ── Mocks (superset needed by all describe blocks) ──────────────────
 

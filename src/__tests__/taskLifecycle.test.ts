@@ -6,7 +6,7 @@ import {
   setTaskStatus,
   deleteTaskByNumber,
   reorderTask,
-} from '../taskMetadata';
+} from '../db';
 
 describe('task lifecycle integration', () => {
   test('multi-task workflow: create, reorder, status transitions, delete', async () => {

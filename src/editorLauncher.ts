@@ -4,7 +4,7 @@
  */
 
 import { execFileSync, spawn } from 'node:child_process';
-import { getHook } from './projectSettings';
+import { getHook } from './db';
 
 export async function openInEditor(projectPath: string, dirPath: string): Promise<{ success: boolean }> {
   const hook = await getHook(projectPath, 'editor');

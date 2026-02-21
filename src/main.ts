@@ -4,6 +4,12 @@ import started from 'electron-squirrel-startup';
 import fixPath from 'fix-path';
 import { registerIpcHandlers, cleanupIpc } from './ipc/register';
 import { typedPush } from './ipc/helpers';
+import { getDatabase, closeDatabase } from './db/database';
+import { ProjectRepo } from './db/repos/projectRepo';
+import { TaskRepo } from './db/repos/taskRepo';
+import { SettingsRepo } from './db/repos/settingsRepo';
+import { HookRepo } from './db/repos/hookRepo';
+import { importAll } from './services/dataImportService';
 
 // Suppress Chromium/DevTools errors for features not available in Electron
 app.commandLine.appendSwitch('disable-features', 'Autofill,AutofillServerCommunication');
@@ -81,12 +87,23 @@ const createWindow = (): BrowserWindow => {
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
 app.on('ready', async () => {
+  // Initialize SQLite and migrate any existing JSON data
+  const db = getDatabase();
+  await importAll(
+    db,
+    new ProjectRepo(db),
+    new TaskRepo(db),
+    new SettingsRepo(db),
+    new HookRepo(db),
+  );
+
   mainWindow = createWindow();
   await registerIpcHandlers(mainWindow);
 });
 
 app.on('before-quit', () => {
   cleanupIpc();
+  closeDatabase();
 });
 
 // Quit when all windows are closed, except on macOS. There, it's common

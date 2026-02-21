@@ -3,6 +3,7 @@ import * as path from 'node:path';
 import * as os from 'node:os';
 import { nativeImage } from 'electron';
 import type { Project } from './types';
+import { getAddedProjects } from './db';
 
 export type { Project };
 
@@ -16,65 +17,6 @@ const PROJECT_DIRECTORIES = [
   '~/Ouijit/imports',
   '~/Ouijit/projects',
 ];
-
-const ADDED_PROJECTS_FILE = path.join(os.homedir(), 'Ouijit', 'added-projects.json');
-
-/**
- * Get list of manually added project paths
- */
-export async function getAddedProjects(): Promise<string[]> {
-  try {
-    const content = await fs.readFile(ADDED_PROJECTS_FILE, 'utf-8');
-    const data = JSON.parse(content);
-    return Array.isArray(data.projects) ? data.projects : [];
-  } catch {
-    return [];
-  }
-}
-
-/**
- * Save list of manually added project paths
- */
-async function saveAddedProjects(projects: string[]): Promise<void> {
-  const dir = path.dirname(ADDED_PROJECTS_FILE);
-  await fs.mkdir(dir, { recursive: true });
-  await fs.writeFile(ADDED_PROJECTS_FILE, JSON.stringify({ projects }, null, 2), 'utf-8');
-}
-
-/**
- * Add a project folder to the persisted list
- */
-export async function addProject(folderPath: string): Promise<{ success: boolean; error?: string }> {
-  try {
-    // Verify the path exists
-    const stat = await fs.stat(folderPath);
-    if (!stat.isDirectory()) {
-      return { success: false, error: 'Path is not a directory' };
-    }
-
-    const projects = await getAddedProjects();
-    if (!projects.includes(folderPath)) {
-      projects.push(folderPath);
-      await saveAddedProjects(projects);
-    }
-    return { success: true };
-  } catch (error) {
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
-    };
-  }
-}
-
-/**
- * Remove a project folder from the persisted list
- */
-export async function removeProject(folderPath: string): Promise<{ success: boolean }> {
-  const projects = await getAddedProjects();
-  const filtered = projects.filter(p => p !== folderPath);
-  await saveAddedProjects(filtered);
-  return { success: true };
-}
 
 const MAX_SCAN_DEPTH = 2;
 

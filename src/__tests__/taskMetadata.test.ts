@@ -12,7 +12,7 @@ import {
   setTaskDescription,
   deleteTaskByNumber,
   reorderTask,
-} from '../taskMetadata';
+} from '../db';
 
 
 describe('taskMetadata', () => {

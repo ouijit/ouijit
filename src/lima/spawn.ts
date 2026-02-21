@@ -3,7 +3,7 @@ import { BrowserWindow } from 'electron';
 import type { PtySpawnOptions, PtySpawnResult, PtyId } from '../types';
 import { generateId } from '../utils/ids';
 import { ensureRunning, getLimactlPath, getLimaEnv } from './manager';
-import { getSandboxConfig } from '../projectSettings';
+import { getSandboxConfig } from '../db';
 import { getApiPort, HELPER_SCRIPT, buildVmHookSettings, cleanupProjectHookArtifacts } from '../hookServer';
 
 interface ManagedSandboxPty {

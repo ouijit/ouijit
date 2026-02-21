@@ -9,10 +9,10 @@ import {
   setTaskStatus,
   deleteTaskByNumber,
   reorderTask,
+  getHook,
   type TaskStatus,
-} from './taskMetadata';
+} from './db';
 import { listWorktrees, removeTaskWorktree } from './worktree';
-import { getHook } from './projectSettings';
 import { executeHook } from './hookRunner';
 import type { TaskWithWorkspace } from './types';
 

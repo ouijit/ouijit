@@ -1,103 +1,179 @@
-import { describe, test, expect, beforeEach } from 'vitest';
+import { describe, test, expect } from 'vitest';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import * as os from 'node:os';
 import { app } from 'electron';
-import { getProjectTasks, _resetCacheForTesting } from '../taskMetadata';
+import { _initTestDatabase } from '../db/database';
+import { ProjectRepo } from '../db/repos/projectRepo';
+import { TaskRepo } from '../db/repos/taskRepo';
+import { SettingsRepo } from '../db/repos/settingsRepo';
+import { HookRepo } from '../db/repos/hookRepo';
+import { importAll } from '../services/dataImportService';
 
-const METADATA_FILE = 'task-metadata.json';
+describe('data import service', () => {
+  function setupImport() {
+    const db = _initTestDatabase();
+    const projectRepo = new ProjectRepo(db);
+    const taskRepo = new TaskRepo(db);
+    const settingsRepo = new SettingsRepo(db);
+    const hookRepo = new HookRepo(db);
 
-function getMetadataPath(): string {
-  return path.join(app.getPath('userData'), METADATA_FILE);
-}
+    // Remove marker file if exists
+    const markerPath = path.join(app.getPath('userData'), 'data-imported');
+    try { fs.unlinkSync(markerPath); } catch { /* ignore */ }
 
-function writeV1Store(data: Record<string, unknown>): void {
-  fs.writeFileSync(getMetadataPath(), JSON.stringify(data, null, 2), 'utf-8');
-}
+    return { db, projectRepo, taskRepo, settingsRepo, hookRepo };
+  }
 
-describe('schema migration v1 → v2', () => {
-  beforeEach(() => {
-    _resetCacheForTesting();
-    try { fs.unlinkSync(getMetadataPath()); } catch { /* ignore */ }
+  test('imports tasks from task-metadata.json', async () => {
+    const { db, projectRepo, taskRepo, settingsRepo, hookRepo } = setupImport();
+    const userData = app.getPath('userData');
+
+    // Write a fake task-metadata.json
+    const taskStore = {
+      __schemaVersion: 2,
+      '/projects/myapp': {
+        nextTaskNumber: 3,
+        tasks: [
+          {
+            taskNumber: 1,
+            branch: 'feat/login',
+            name: 'Add login',
+            status: 'in_progress',
+            createdAt: '2024-01-01T00:00:00.000Z',
+            mergeTarget: 'main',
+            prompt: 'Build login page',
+          },
+          {
+            taskNumber: 2,
+            branch: 'feat/signup',
+            name: 'Add signup',
+            status: 'done',
+            createdAt: '2024-01-02T00:00:00.000Z',
+            closedAt: '2024-01-03T00:00:00.000Z',
+          },
+        ],
+      },
+    };
+    fs.writeFileSync(path.join(userData, 'task-metadata.json'), JSON.stringify(taskStore));
+
+    const result = await importAll(db, projectRepo, taskRepo, settingsRepo, hookRepo);
+
+    expect(result.projectsImported).toBeGreaterThanOrEqual(1);
+    expect(result.tasksImported).toBe(2);
+    expect(result.errors).toHaveLength(0);
+
+    // Verify tasks were imported
+    const tasks = taskRepo.getAllForProject('/projects/myapp');
+    expect(tasks).toHaveLength(2);
+    expect(tasks.find(t => t.task_number === 1)?.branch).toBe('feat/login');
+    expect(tasks.find(t => t.task_number === 2)?.status).toBe('done');
+    expect(tasks.find(t => t.task_number === 2)?.closed_at).toBe('2024-01-03T00:00:00.000Z');
+
+    // Verify counter was set
+    expect(taskRepo.getNextTaskNumber('/projects/myapp')).toBe(3);
   });
 
-  test('migrates open tasks to in_progress', async () => {
-    writeV1Store({
-      '/project': {
-        nextTaskNumber: 2,
-        tasks: [{ taskNumber: 1, branch: 'feat/a', name: 'Task A', status: 'open', createdAt: '2024-01-01T00:00:00.000Z' }],
-      },
-    });
+  test('migrates v1 statuses during import', async () => {
+    const { db, projectRepo, taskRepo, settingsRepo, hookRepo } = setupImport();
+    const userData = app.getPath('userData');
 
-    const tasks = await getProjectTasks('/project');
-    expect(tasks[0].status).toBe('in_progress');
+    const taskStore = {
+      '/projects/legacy': {
+        nextTaskNumber: 4,
+        tasks: [
+          { taskNumber: 1, name: 'Open task', status: 'open', createdAt: '2024-01-01T00:00:00.000Z' },
+          { taskNumber: 2, name: 'Ready task', status: 'open', readyToShip: true, createdAt: '2024-01-02T00:00:00.000Z' },
+          { taskNumber: 3, name: 'Closed task', status: 'closed', createdAt: '2024-01-03T00:00:00.000Z' },
+        ],
+      },
+    };
+    fs.writeFileSync(path.join(userData, 'task-metadata.json'), JSON.stringify(taskStore));
+
+    await importAll(db, projectRepo, taskRepo, settingsRepo, hookRepo);
+
+    const tasks = taskRepo.getAllForProject('/projects/legacy');
+    expect(tasks.find(t => t.task_number === 1)?.status).toBe('in_progress');
+    expect(tasks.find(t => t.task_number === 2)?.status).toBe('in_review');
+    expect(tasks.find(t => t.task_number === 3)?.status).toBe('done');
   });
 
-  test('migrates open+readyToShip to in_review', async () => {
-    writeV1Store({
-      '/project': {
-        nextTaskNumber: 2,
-        tasks: [{
-          taskNumber: 1, branch: 'feat/b', name: 'Task B',
-          status: 'open', readyToShip: true, createdAt: '2024-01-01T00:00:00.000Z',
-        }],
-      },
-    });
+  test('imports hooks from project-settings.json', async () => {
+    const { db, projectRepo, taskRepo, settingsRepo, hookRepo } = setupImport();
+    const userData = app.getPath('userData');
 
-    const tasks = await getProjectTasks('/project');
-    expect(tasks[0].status).toBe('in_review');
-    expect((tasks[0] as unknown as Record<string, unknown>).readyToShip).toBeUndefined();
+    const settingsStore = {
+      '/projects/hooked': {
+        hooks: {
+          start: { id: 'h1', type: 'start', name: 'Setup', command: 'npm install' },
+          cleanup: { id: 'h2', type: 'cleanup', name: 'Clean', command: 'rm -rf tmp' },
+        },
+        sandbox: { memoryGiB: 8 },
+        killExistingOnRun: true,
+      },
+    };
+    fs.writeFileSync(path.join(userData, 'project-settings.json'), JSON.stringify(settingsStore));
+
+    const result = await importAll(db, projectRepo, taskRepo, settingsRepo, hookRepo);
+
+    expect(result.hooksImported).toBe(2);
+    expect(result.settingsImported).toBe(1);
+
+    const hooks = hookRepo.getForProject('/projects/hooked');
+    expect(hooks).toHaveLength(2);
+    expect(hooks.find(h => h.type === 'start')?.command).toBe('npm install');
+
+    const settings = settingsRepo.get('/projects/hooked');
+    expect(settings?.sandbox_memory_gib).toBe(8);
+    expect(settings?.kill_existing_on_run).toBe(1);
   });
 
-  test('migrates closed to done', async () => {
-    writeV1Store({
-      '/project': {
-        nextTaskNumber: 2,
-        tasks: [{
-          taskNumber: 1, branch: 'feat/c', name: 'Task C',
-          status: 'closed', closedAt: '2024-06-15T12:00:00.000Z', createdAt: '2024-01-01T00:00:00.000Z',
-        }],
-      },
-    });
+  test('writes marker file and skips on subsequent runs', async () => {
+    const { db, projectRepo, taskRepo, settingsRepo, hookRepo } = setupImport();
 
-    const tasks = await getProjectTasks('/project');
-    expect(tasks[0].status).toBe('done');
-    expect(tasks[0].closedAt).toBe('2024-06-15T12:00:00.000Z');
+    // First run should succeed
+    const result1 = await importAll(db, projectRepo, taskRepo, settingsRepo, hookRepo);
+    expect(result1).toBeDefined();
+
+    // Marker file should exist
+    const markerPath = path.join(app.getPath('userData'), 'data-imported');
+    expect(fs.existsSync(markerPath)).toBe(true);
+
+    // Second run should be a no-op
+    const result2 = await importAll(db, projectRepo, taskRepo, settingsRepo, hookRepo);
+    expect(result2.projectsImported).toBe(0);
+    expect(result2.tasksImported).toBe(0);
   });
 
-  test('migration is idempotent', async () => {
-    writeV1Store({
-      '/project': {
-        nextTaskNumber: 2,
-        tasks: [{ taskNumber: 1, branch: 'feat/d', name: 'Task D', status: 'open', createdAt: '2024-01-01T00:00:00.000Z' }],
-      },
-    });
+  test('imports added projects from added-projects.json', async () => {
+    const { db, projectRepo, taskRepo, settingsRepo, hookRepo } = setupImport();
 
-    const tasks1 = await getProjectTasks('/project');
-    expect(tasks1[0].status).toBe('in_progress');
+    // Write a fake added-projects.json in ~/Ouijit/
+    const addedProjectsPath = path.join(os.homedir(), 'Ouijit', 'added-projects.json');
+    const addedProjectsExisted = fs.existsSync(addedProjectsPath);
+    let originalContent: string | null = null;
 
-    // Clear cache, reload from disk (which was saved after migration)
-    _resetCacheForTesting();
-    const tasks2 = await getProjectTasks('/project');
-    expect(tasks2[0].status).toBe('in_progress');
+    if (addedProjectsExisted) {
+      originalContent = fs.readFileSync(addedProjectsPath, 'utf-8');
+    }
 
-    // Verify no double-migration artifacts
-    const onDisk = JSON.parse(fs.readFileSync(getMetadataPath(), 'utf-8'));
-    expect(onDisk.__schemaVersion).toBe(2);
-    expect(onDisk['/project'].tasks[0].status).toBe('in_progress');
-    expect(onDisk['/project'].tasks[0].readyToShip).toBeUndefined();
-  });
+    try {
+      fs.mkdirSync(path.dirname(addedProjectsPath), { recursive: true });
+      fs.writeFileSync(addedProjectsPath, JSON.stringify({ projects: ['/tmp/test-project-import'] }));
 
-  test('sets schemaVersion on migrated store', async () => {
-    writeV1Store({
-      '/project': {
-        nextTaskNumber: 1,
-        tasks: [],
-      },
-    });
+      const result = await importAll(db, projectRepo, taskRepo, settingsRepo, hookRepo);
+      expect(result.projectsImported).toBeGreaterThanOrEqual(1);
 
-    await getProjectTasks('/project');
-
-    const onDisk = JSON.parse(fs.readFileSync(getMetadataPath(), 'utf-8'));
-    expect(onDisk.__schemaVersion).toBe(2);
+      const project = projectRepo.getByPath('/tmp/test-project-import');
+      expect(project).toBeDefined();
+      expect(project?.name).toBe('test-project-import');
+    } finally {
+      // Restore original file
+      if (originalContent !== null) {
+        fs.writeFileSync(addedProjectsPath, originalContent);
+      } else if (!addedProjectsExisted) {
+        try { fs.unlinkSync(addedProjectsPath); } catch { /* ignore */ }
+      }
+    }
   });
 });

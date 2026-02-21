@@ -5,7 +5,7 @@ import {
   setTaskSandboxed,
   setTaskName,
   setTaskDescription,
-} from '../../taskMetadata';
+} from '../../db';
 import {
   setTaskStatusWithHooks,
   reorderTaskWithHooks,

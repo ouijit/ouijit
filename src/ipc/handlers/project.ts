@@ -1,7 +1,7 @@
 import { shell, BrowserWindow, dialog } from 'electron';
 import { typedHandle } from '../helpers';
-import { scanForProjects, getAddedProjects, addProject, removeProject } from '../../scanner';
-import { getProjectSettings, setKillExistingOnRun } from '../../projectSettings';
+import { scanForProjects } from '../../scanner';
+import { getAddedProjects, addProject, removeProject, getProjectSettings, setKillExistingOnRun } from '../../db';
 import { createProject } from '../../projectCreator';
 import { openInEditor } from '../../editorLauncher';
 

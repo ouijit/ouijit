@@ -7,7 +7,7 @@ import {
   listWorktrees,
   shipWorktree,
 } from '../../worktree';
-import { getNextTaskNumber } from '../../taskMetadata';
+import { getNextTaskNumber } from '../../db';
 import {
   getWorktreeDiff,
   getWorktreeFileDiff,

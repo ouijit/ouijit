@@ -10,7 +10,7 @@ import {
   killPty,
 } from '../../ptyManager';
 import * as limaPlugin from '../../lima';
-import { getHook } from '../../projectSettings';
+import { getHook } from '../../db';
 
 export function registerPtyHandlers(mainWindow: BrowserWindow): void {
   typedHandle('pty:spawn', async (options) => {

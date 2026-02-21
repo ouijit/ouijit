@@ -1,4 +1,4 @@
-import { vi } from 'vitest';
+import { vi, beforeEach } from 'vitest';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import * as fs from 'node:fs';
@@ -18,3 +18,21 @@ vi.mock('electron', () => ({
     },
   },
 }));
+
+// Mock better-sqlite3 so it doesn't try to load the native binary in tests.
+// The db/index.ts module uses _resetCacheForTesting() which calls _initTestDatabase()
+// to create an in-memory DB — that bypasses this mock via the real import in database.ts.
+// But for tests that import db/index.ts, the mock ensures the initial lazy load
+// doesn't fail (it gets replaced by _resetCacheForTesting immediately anyway).
+vi.mock('better-sqlite3', async () => {
+  // Use the real module — vitest resolves native addons fine in test env
+  const actual = await vi.importActual('better-sqlite3');
+  return actual;
+});
+
+// Auto-reset DB for every test via the db layer's reset function
+import { _resetCacheForTesting } from '../db';
+
+beforeEach(() => {
+  _resetCacheForTesting();
+});

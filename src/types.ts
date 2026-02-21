@@ -2,8 +2,8 @@
 export type { GitStatus, GitDropdownInfo, ExtendedGitStatus, RecentBranch, UncommittedChanges, ChangedFile, DiffLine, DiffHunk, FileDiff, CompactGitStatus, WorktreeDiffSummary, BranchInfo } from './git';
 // Re-export worktree types from worktree.ts (single source of truth)
 export type { TaskWorktreeResult, WorktreeInfo, WorktreeRemoveResult } from './worktree';
-// Re-export task types from taskMetadata.ts (single source of truth)
-export type { TaskStatus, TaskMetadata } from './taskMetadata';
+// Re-export task types from db layer (single source of truth)
+export type { TaskStatus, TaskMetadata } from './db';
 // Re-export PTY session type from ptyManager.ts (single source of truth)
 export type { ActiveSession } from './ptyManager';
 // Re-export sandbox status from lima/types.ts (single source of truth)
@@ -12,7 +12,7 @@ export type { SandboxStatus } from './lima/types';
 // Import for local use within this file
 import type { GitStatus, CompactGitStatus, GitDropdownInfo, ChangedFile, FileDiff, WorktreeDiffSummary, BranchInfo } from './git';
 import type { TaskWorktreeResult, WorktreeInfo, WorktreeRemoveResult } from './worktree';
-import type { TaskStatus, TaskMetadata } from './taskMetadata';
+import type { TaskStatus, TaskMetadata } from './db';
 import type { ActiveSession } from './ptyManager';
 import type { SandboxStatus } from './lima/types';
 
