@@ -2,7 +2,7 @@ import { app, BrowserWindow, nativeTheme } from 'electron';
 import path from 'node:path';
 import started from 'electron-squirrel-startup';
 import fixPath from 'fix-path';
-import { registerIpcHandlers, cleanupIpc } from './ipc';
+import { registerIpcHandlers, cleanupIpc } from './ipc/register';
 
 // Suppress Chromium/DevTools errors for features not available in Electron
 app.commandLine.appendSwitch('disable-features', 'Autofill,AutofillServerCommunication');

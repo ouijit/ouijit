@@ -2,320 +2,137 @@
 // https://www.electronjs.org/docs/latest/tutorial/process-model#preload-scripts
 
 import { contextBridge, ipcRenderer, webUtils } from 'electron';
-import type { Project, PtySpawnOptions, PtySpawnResult, PtyId, ActiveSession, PtyReconnectResult, CreateProjectOptions, CreateProjectResult, GitStatus, CompactGitStatus, GitDropdownInfo, GitCheckoutResult, GitMergeResult, ChangedFile, FileDiff, ProjectSettings, TaskWorktreeResult, WorktreeRemoveResult, WorktreeInfo, WorktreeDiffSummary, TaskWithWorkspace, TaskStatus, ScriptHook, HookType, BranchInfo } from './types';
+import type { IpcInvokeContract, IpcSendContract, IpcPushContract } from './ipc/contract';
+import type { PtyId, PtySpawnOptions, CreateProjectOptions, TaskStatus, ScriptHook, HookType } from './types';
 
+// ── Typed IPC helpers ───────────────────────────────────────────────────────
+// These ensure channel names, argument types, and return types are all
+// checked against the IPC contract at compile time.
+
+function typedInvoke<C extends keyof IpcInvokeContract>(
+  channel: C,
+  ...args: IpcInvokeContract[C]['args']
+): Promise<IpcInvokeContract[C]['return']> {
+  return ipcRenderer.invoke(channel, ...args);
+}
+
+function typedSend<C extends keyof IpcSendContract>(
+  channel: C,
+  ...args: IpcSendContract[C]['args']
+): void {
+  ipcRenderer.send(channel, ...args);
+}
+
+function typedListen<C extends keyof IpcPushContract>(
+  channel: C,
+  callback: (...args: IpcPushContract[C]['args']) => void,
+): () => void {
+  const handler = (_event: Electron.IpcRendererEvent, ...args: unknown[]) =>
+    (callback as (...a: unknown[]) => void)(...args);
+  ipcRenderer.on(channel, handler);
+  return () => ipcRenderer.removeListener(channel, handler);
+}
+
+// ── Exposed API ─────────────────────────────────────────────────────────────
 // Expose protected methods that allow the renderer process to use
 // ipcRenderer without exposing the entire object
 contextBridge.exposeInMainWorld('api', {
-  /**
-   * Scans for projects in predefined directories
-   */
-  getProjects: (): Promise<Project[]> => ipcRenderer.invoke('get-projects'),
+  getProjects: () => typedInvoke('get-projects'),
+  openProject: (path: string) => typedInvoke('open-project', path),
+  openInFinder: (path: string) => typedInvoke('open-in-finder', path),
+  openInEditor: (projectPath: string, dirPath: string) => typedInvoke('open-in-editor', projectPath, dirPath),
+  openExternal: (url: string) => typedInvoke('open-external', url),
+  refreshProjects: () => typedInvoke('refresh-projects'),
+  createProject: (options: CreateProjectOptions) => typedInvoke('create-project', options),
+  showFolderPicker: () => typedInvoke('show-folder-picker'),
+  addProject: (folderPath: string) => typedInvoke('add-project', folderPath),
+  removeProject: (folderPath: string) => typedInvoke('remove-project', folderPath),
+  getProjectSettings: (projectPath: string) => typedInvoke('get-project-settings', projectPath),
+  setKillExistingOnRun: (projectPath: string, kill: boolean) => typedInvoke('settings:set-kill-existing-on-run', projectPath, kill),
 
-  /**
-   * Opens a project directory in the default file manager
-   */
-  openProject: (path: string): Promise<{ success: boolean }> =>
-    ipcRenderer.invoke('open-project', path),
+  getGitStatus: (projectPath: string) => typedInvoke('get-git-status', projectPath),
+  getCompactGitStatus: (projectPath: string) => typedInvoke('get-compact-git-status', projectPath),
+  getGitDropdownInfo: (projectPath: string) => typedInvoke('get-git-dropdown-info', projectPath),
+  gitCheckout: (projectPath: string, branchName: string) => typedInvoke('git-checkout', projectPath, branchName),
+  gitCreateBranch: (projectPath: string, branchName: string) => typedInvoke('git-create-branch', projectPath, branchName),
+  gitMergeIntoMain: (projectPath: string) => typedInvoke('git-merge-into-main', projectPath),
+  getChangedFiles: (projectPath: string) => typedInvoke('get-changed-files', projectPath),
+  getFileDiff: (projectPath: string, filePath: string) => typedInvoke('get-file-diff', projectPath, filePath),
 
-  /**
-   * Open project in Finder
-   */
-  openInFinder: (path: string): Promise<{ success: boolean }> =>
-    ipcRenderer.invoke('open-in-finder', path),
-
-  /**
-   * PTY management API
-   */
   pty: {
-    spawn: (options: PtySpawnOptions): Promise<PtySpawnResult> =>
-      ipcRenderer.invoke('pty:spawn', options),
+    spawn: (options: PtySpawnOptions) => typedInvoke('pty:spawn', options),
+    write: (ptyId: PtyId, data: string) => typedSend('pty:write', ptyId, data),
+    resize: (ptyId: PtyId, cols: number, rows: number) => typedSend('pty:resize', ptyId, cols, rows),
+    kill: (ptyId: PtyId) => typedSend('pty:kill', ptyId),
+    getActiveSessions: () => typedInvoke('pty:get-active-sessions'),
+    reconnect: (ptyId: PtyId) => typedInvoke('pty:reconnect', ptyId),
+    setWindow: () => typedSend('pty:set-window'),
 
-    write: (ptyId: PtyId, data: string): void => {
-      ipcRenderer.send('pty:write', ptyId, data);
-    },
-
-    resize: (ptyId: PtyId, cols: number, rows: number): void => {
-      ipcRenderer.send('pty:resize', ptyId, cols, rows);
-    },
-
-    kill: (ptyId: PtyId): void => {
-      ipcRenderer.send('pty:kill', ptyId);
-    },
-
+    // Dynamic per-PTY channels — not in the contract since names are constructed at runtime
     onData: (ptyId: PtyId, callback: (data: string) => void): (() => void) => {
       const channel = `pty:data:${ptyId}`;
       const handler = (_event: Electron.IpcRendererEvent, data: string) => callback(data);
       ipcRenderer.on(channel, handler);
       return () => ipcRenderer.removeListener(channel, handler);
     },
-
     onExit: (ptyId: PtyId, callback: (exitCode: number) => void): (() => void) => {
       const channel = `pty:exit:${ptyId}`;
       const handler = (_event: Electron.IpcRendererEvent, exitCode: number) => callback(exitCode);
       ipcRenderer.on(channel, handler);
       return () => ipcRenderer.removeListener(channel, handler);
     },
-
-    // Get active PTY sessions for reconnection after reload
-    getActiveSessions: (): Promise<ActiveSession[]> =>
-      ipcRenderer.invoke('pty:get-active-sessions'),
-
-    // Reconnect to an existing PTY after renderer reload
-    reconnect: (ptyId: PtyId): Promise<PtyReconnectResult> =>
-      ipcRenderer.invoke('pty:reconnect', ptyId),
-
-    // Update window reference after reconnection
-    setWindow: (): void => {
-      ipcRenderer.send('pty:set-window');
-    },
   },
 
-  /**
-   * Worktree management API (git plumbing only — task ops are on task namespace)
-   */
   worktree: {
-    validateBranchName: (projectPath: string, branchName: string): Promise<{ valid: boolean; error?: string }> =>
-      ipcRenderer.invoke('worktree:validate-branch-name', projectPath, branchName),
-
-    generateBranchName: (projectPath: string, name: string): Promise<string> =>
-      ipcRenderer.invoke('worktree:generate-branch-name', projectPath, name),
-
-    remove: (projectPath: string, worktreePath: string): Promise<WorktreeRemoveResult> =>
-      ipcRenderer.invoke('worktree:remove', projectPath, worktreePath),
-
-    list: (projectPath: string): Promise<WorktreeInfo[]> =>
-      ipcRenderer.invoke('worktree:list', projectPath),
-
-    getDiff: (projectPath: string, worktreeBranch: string, targetBranch?: string): Promise<WorktreeDiffSummary | null> =>
-      ipcRenderer.invoke('worktree:get-diff', projectPath, worktreeBranch, targetBranch),
-
-    getFileDiff: (projectPath: string, worktreeBranch: string, filePath: string, targetBranch?: string): Promise<FileDiff | null> =>
-      ipcRenderer.invoke('worktree:get-file-diff', projectPath, worktreeBranch, filePath, targetBranch),
-
-    merge: (projectPath: string, worktreeBranch: string): Promise<GitMergeResult> =>
-      ipcRenderer.invoke('worktree:merge', projectPath, worktreeBranch),
-
-    ship: (projectPath: string, worktreeBranch: string, commitMessage?: string): Promise<{ success: boolean; error?: string; conflictFiles?: string[]; mergedBranch?: string }> =>
-      ipcRenderer.invoke('worktree:ship', projectPath, worktreeBranch, commitMessage),
-
-    listBranches: (projectPath: string): Promise<BranchInfo[]> =>
-      ipcRenderer.invoke('worktree:list-branches', projectPath),
-
-    getMainBranch: (projectPath: string): Promise<string> =>
-      ipcRenderer.invoke('worktree:get-main-branch', projectPath),
+    validateBranchName: (projectPath: string, branchName: string) => typedInvoke('worktree:validate-branch-name', projectPath, branchName),
+    generateBranchName: (projectPath: string, name: string) => typedInvoke('worktree:generate-branch-name', projectPath, name),
+    remove: (projectPath: string, worktreePath: string) => typedInvoke('worktree:remove', projectPath, worktreePath),
+    list: (projectPath: string) => typedInvoke('worktree:list', projectPath),
+    getDiff: (projectPath: string, worktreeBranch: string, targetBranch?: string) => typedInvoke('worktree:get-diff', projectPath, worktreeBranch, targetBranch),
+    getFileDiff: (projectPath: string, worktreeBranch: string, filePath: string, targetBranch?: string) => typedInvoke('worktree:get-file-diff', projectPath, worktreeBranch, filePath, targetBranch),
+    merge: (projectPath: string, worktreeBranch: string) => typedInvoke('worktree:merge', projectPath, worktreeBranch),
+    ship: (projectPath: string, worktreeBranch: string, commitMessage?: string) => typedInvoke('worktree:ship', projectPath, worktreeBranch, commitMessage),
+    listBranches: (projectPath: string) => typedInvoke('worktree:list-branches', projectPath),
+    getMainBranch: (projectPath: string) => typedInvoke('worktree:get-main-branch', projectPath),
   },
 
   task: {
-    create: (projectPath: string, name?: string, prompt?: string): Promise<TaskWorktreeResult> =>
-      ipcRenderer.invoke('task:create', projectPath, name, prompt),
-
-    createAndStart: (projectPath: string, name?: string, prompt?: string, branchName?: string): Promise<TaskWorktreeResult> =>
-      ipcRenderer.invoke('task:create-and-start', projectPath, name, prompt, branchName),
-
-    start: (projectPath: string, taskNumber: number, branchName?: string): Promise<TaskWorktreeResult> =>
-      ipcRenderer.invoke('task:start', projectPath, taskNumber, branchName),
-
-    getAll: (projectPath: string): Promise<TaskWithWorkspace[]> =>
-      ipcRenderer.invoke('task:get-all', projectPath),
-
-    getByNumber: (projectPath: string, taskNumber: number): Promise<TaskWithWorkspace | null> =>
-      ipcRenderer.invoke('task:get-by-number', projectPath, taskNumber),
-
-    setStatus: (projectPath: string, taskNumber: number, status: TaskStatus): Promise<{ success: boolean; error?: string; hookWarning?: string }> =>
-      ipcRenderer.invoke('task:set-status', projectPath, taskNumber, status),
-
-    delete: (projectPath: string, taskNumber: number): Promise<{ success: boolean; error?: string }> =>
-      ipcRenderer.invoke('task:delete', projectPath, taskNumber),
-
-    setMergeTarget: (projectPath: string, taskNumber: number, mergeTarget: string): Promise<{ success: boolean; error?: string }> =>
-      ipcRenderer.invoke('task:set-merge-target', projectPath, taskNumber, mergeTarget),
-
-    setSandboxed: (projectPath: string, taskNumber: number, sandboxed: boolean): Promise<{ success: boolean; error?: string }> =>
-      ipcRenderer.invoke('task:set-sandboxed', projectPath, taskNumber, sandboxed),
-
-    setName: (projectPath: string, taskNumber: number, name: string): Promise<{ success: boolean; error?: string }> =>
-      ipcRenderer.invoke('task:set-name', projectPath, taskNumber, name),
-
-    setDescription: (projectPath: string, taskNumber: number, description: string): Promise<{ success: boolean; error?: string }> =>
-      ipcRenderer.invoke('task:set-description', projectPath, taskNumber, description),
-
-    reorder: (projectPath: string, taskNumber: number, newStatus: TaskStatus, targetIndex: number): Promise<{ success: boolean; error?: string; hookWarning?: string }> =>
-      ipcRenderer.invoke('task:reorder', projectPath, taskNumber, newStatus, targetIndex),
+    create: (projectPath: string, name?: string, prompt?: string) => typedInvoke('task:create', projectPath, name, prompt),
+    createAndStart: (projectPath: string, name?: string, prompt?: string, branchName?: string) => typedInvoke('task:create-and-start', projectPath, name, prompt, branchName),
+    start: (projectPath: string, taskNumber: number, branchName?: string) => typedInvoke('task:start', projectPath, taskNumber, branchName),
+    getAll: (projectPath: string) => typedInvoke('task:get-all', projectPath),
+    getByNumber: (projectPath: string, taskNumber: number) => typedInvoke('task:get-by-number', projectPath, taskNumber),
+    setStatus: (projectPath: string, taskNumber: number, status: TaskStatus) => typedInvoke('task:set-status', projectPath, taskNumber, status),
+    delete: (projectPath: string, taskNumber: number) => typedInvoke('task:delete', projectPath, taskNumber),
+    setMergeTarget: (projectPath: string, taskNumber: number, mergeTarget: string) => typedInvoke('task:set-merge-target', projectPath, taskNumber, mergeTarget),
+    setSandboxed: (projectPath: string, taskNumber: number, sandboxed: boolean) => typedInvoke('task:set-sandboxed', projectPath, taskNumber, sandboxed),
+    setName: (projectPath: string, taskNumber: number, name: string) => typedInvoke('task:set-name', projectPath, taskNumber, name),
+    setDescription: (projectPath: string, taskNumber: number, description: string) => typedInvoke('task:set-description', projectPath, taskNumber, description),
+    reorder: (projectPath: string, taskNumber: number, newStatus: TaskStatus, targetIndex: number) => typedInvoke('task:reorder', projectPath, taskNumber, newStatus, targetIndex),
   },
 
-  /**
-   * Open a directory in the user's configured code editor
-   */
-  openInEditor: (projectPath: string, dirPath: string): Promise<{ success: boolean }> =>
-    ipcRenderer.invoke('open-in-editor', projectPath, dirPath),
-
-  /**
-   * Open a URL in the default browser
-   */
-  openExternal: (url: string): Promise<void> =>
-    ipcRenderer.invoke('open-external', url),
-
-  /**
-   * Refresh the project list
-   */
-  refreshProjects: (): Promise<Project[]> =>
-    ipcRenderer.invoke('refresh-projects'),
-
-  /**
-   * Get git status (branch and dirty state) for a project
-   */
-  getGitStatus: (projectPath: string): Promise<GitStatus | null> =>
-    ipcRenderer.invoke('get-git-status', projectPath),
-
-  /**
-   * Get compact git status for at-a-glance display
-   */
-  getCompactGitStatus: (projectPath: string): Promise<CompactGitStatus | null> =>
-    ipcRenderer.invoke('get-compact-git-status', projectPath),
-
-  /**
-   * Get extended git dropdown info for a project
-   */
-  getGitDropdownInfo: (projectPath: string): Promise<GitDropdownInfo | null> =>
-    ipcRenderer.invoke('get-git-dropdown-info', projectPath),
-
-  /**
-   * Checkout a git branch
-   */
-  gitCheckout: (projectPath: string, branchName: string): Promise<GitCheckoutResult> =>
-    ipcRenderer.invoke('git-checkout', projectPath, branchName),
-
-  /**
-   * Create a new git branch
-   */
-  gitCreateBranch: (projectPath: string, branchName: string): Promise<GitCheckoutResult> =>
-    ipcRenderer.invoke('git-create-branch', projectPath, branchName),
-
-  /**
-   * Merge current branch into main
-   */
-  gitMergeIntoMain: (projectPath: string): Promise<GitMergeResult> =>
-    ipcRenderer.invoke('git-merge-into-main', projectPath),
-
-  /**
-   * Get list of changed files
-   */
-  getChangedFiles: (projectPath: string): Promise<ChangedFile[]> =>
-    ipcRenderer.invoke('get-changed-files', projectPath),
-
-  /**
-   * Get diff for a specific file
-   */
-  getFileDiff: (projectPath: string, filePath: string): Promise<FileDiff | null> =>
-    ipcRenderer.invoke('get-file-diff', projectPath, filePath),
-
-  /**
-   * Create a new project
-   */
-  createProject: (options: CreateProjectOptions): Promise<CreateProjectResult> =>
-    ipcRenderer.invoke('create-project', options),
-
-  /**
-   * Show native folder picker dialog
-   */
-  showFolderPicker: (): Promise<{ canceled: boolean; filePaths: string[] }> =>
-    ipcRenderer.invoke('show-folder-picker'),
-
-  /**
-   * Add a project folder to the app
-   */
-  addProject: (folderPath: string): Promise<{ success: boolean; error?: string }> =>
-    ipcRenderer.invoke('add-project', folderPath),
-
-  /**
-   * Remove a project folder from the app
-   */
-  removeProject: (folderPath: string): Promise<{ success: boolean }> =>
-    ipcRenderer.invoke('remove-project', folderPath),
-
-  /**
-   * Listen for fullscreen state changes
-   */
-  onFullscreenChange: (callback: (isFullscreen: boolean) => void): (() => void) => {
-    const handler = (_event: Electron.IpcRendererEvent, isFullscreen: boolean) => callback(isFullscreen);
-    ipcRenderer.on('fullscreen-change', handler);
-    return () => ipcRenderer.removeListener('fullscreen-change', handler);
-  },
-
-  /**
-   * Get project settings (custom commands, default command)
-   */
-  getProjectSettings: (projectPath: string): Promise<ProjectSettings> =>
-    ipcRenderer.invoke('get-project-settings', projectPath),
-
-  /**
-   * Set whether to kill existing command instances on run
-   */
-  setKillExistingOnRun: (projectPath: string, kill: boolean): Promise<{ success: boolean }> =>
-    ipcRenderer.invoke('settings:set-kill-existing-on-run', projectPath, kill),
-
-  /**
-   * Script hooks API
-   */
   hooks: {
-    /**
-     * Get all hooks for a project
-     */
-    get: (projectPath: string): Promise<{ start?: ScriptHook; continue?: ScriptHook; run?: ScriptHook; cleanup?: ScriptHook; editor?: ScriptHook }> =>
-      ipcRenderer.invoke('hooks:get', projectPath),
-
-    /**
-     * Save a hook for a project
-     */
-    save: (projectPath: string, hook: ScriptHook): Promise<{ success: boolean }> =>
-      ipcRenderer.invoke('hooks:save', projectPath, hook),
-
-    /**
-     * Delete a hook for a project
-     */
-    delete: (projectPath: string, hookType: HookType): Promise<{ success: boolean }> =>
-      ipcRenderer.invoke('hooks:delete', projectPath, hookType),
+    get: (projectPath: string) => typedInvoke('hooks:get', projectPath),
+    save: (projectPath: string, hook: ScriptHook) => typedInvoke('hooks:save', projectPath, hook),
+    delete: (projectPath: string, hookType: HookType) => typedInvoke('hooks:delete', projectPath, hookType),
   },
 
-  /**
-   * Claude Code hook events
-   */
+  onFullscreenChange: (callback: (isFullscreen: boolean) => void) => typedListen('fullscreen-change', callback),
+
   claudeHooks: {
-    onStatus: (callback: (ptyId: PtyId, status: string) => void): (() => void) => {
-      const handler = (_event: Electron.IpcRendererEvent, ptyId: PtyId, status: string) => callback(ptyId, status);
-      ipcRenderer.on('claude-hook-status', handler);
-      return () => ipcRenderer.removeListener('claude-hook-status', handler);
-    },
+    onStatus: (callback: (ptyId: string, status: string) => void) => typedListen('claude-hook-status', callback),
   },
 
-  /**
-   * Get file path from a dropped File object
-   */
   getPathForFile: (file: File): string => webUtils.getPathForFile(file),
 
-  /**
-   * Lima sandbox API
-   */
   lima: {
-    status: (projectPath: string): Promise<{ available: boolean; vmStatus: string; instanceName?: string; memory?: number; disk?: number }> =>
-      ipcRenderer.invoke('lima:status', projectPath),
-    start: (projectPath: string): Promise<{ success: boolean; error?: string }> =>
-      ipcRenderer.invoke('lima:start', projectPath),
-    stop: (projectPath: string): Promise<{ success: boolean; error?: string }> =>
-      ipcRenderer.invoke('lima:stop', projectPath),
-    getConfig: (projectPath: string): Promise<{ memoryGiB: number; diskGiB: number }> =>
-      ipcRenderer.invoke('lima:get-config', projectPath),
-    setConfig: (projectPath: string, config: { memoryGiB?: number; diskGiB?: number }): Promise<{ success: boolean }> =>
-      ipcRenderer.invoke('lima:set-config', projectPath, config),
-    recreate: (projectPath: string): Promise<{ success: boolean; error?: string }> =>
-      ipcRenderer.invoke('lima:recreate', projectPath),
-    delete: (projectPath: string): Promise<{ success: boolean; error?: string }> =>
-      ipcRenderer.invoke('lima:delete', projectPath),
-    onSpawnProgress: (callback: (message: string) => void): (() => void) => {
-      const handler = (_event: Electron.IpcRendererEvent, message: string) => callback(message);
-      ipcRenderer.on('lima:spawn-progress', handler);
-      return () => ipcRenderer.removeListener('lima:spawn-progress', handler);
-    },
+    status: (projectPath: string) => typedInvoke('lima:status', projectPath),
+    start: (projectPath: string) => typedInvoke('lima:start', projectPath),
+    stop: (projectPath: string) => typedInvoke('lima:stop', projectPath),
+    getConfig: (projectPath: string) => typedInvoke('lima:get-config', projectPath),
+    setConfig: (projectPath: string, config: { memoryGiB?: number; diskGiB?: number }) => typedInvoke('lima:set-config', projectPath, config),
+    recreate: (projectPath: string) => typedInvoke('lima:recreate', projectPath),
+    delete: (projectPath: string) => typedInvoke('lima:delete', projectPath),
+    onSpawnProgress: (callback: (message: string) => void) => typedListen('lima:spawn-progress', callback),
   },
 });
