@@ -21,10 +21,14 @@ Do NOT run `npm run start` or other dev server commands.
 - `src/ipc.ts` - All IPC handler registrations
 - `src/git.ts` - Git operations (status, diff, merge, branch management)
 - `src/worktree.ts` - Git worktree lifecycle (create, start, remove, CoW cloning)
-- `src/taskMetadata.ts` - Task state persistence (JSON file, schema migration)
+- `src/db/` - SQLite persistence layer (tasks, settings, hooks, projects)
+  - `database.ts` - Database singleton (WAL mode, migrations)
+  - `index.ts` - Public API barrel (async wrappers preserving IPC contract)
+  - `repos/` - Repository classes (taskRepo, hookRepo, projectRepo, settingsRepo)
+  - `migrations/` - Versioned schema migrations
+- `src/services/dataImportService.ts` - One-shot JSON→SQLite migration on first launch
 - `src/scanner.ts` - Project directory discovery
 - `src/ptyManager.ts` - PTY spawning, session management, output buffering
-- `src/projectSettings.ts` - Per-project settings persistence (hooks, sandbox config)
 - `src/hookServer.ts` - HTTP server for Claude Code hook status events
 - `src/hookRunner.ts` - Script hook execution with timeout/output capture
 - `src/types.ts` - Shared TypeScript interfaces
@@ -61,6 +65,7 @@ Do NOT run `npm run start` or other dev server commands.
 - @preact/signals-core for reactivity
 - xterm.js for terminal emulation
 - node-pty for shell processes
+- better-sqlite3 for local persistence (SQLite, WAL mode)
 - koffi (FFI) for native Copy-on-Write file cloning
 - hotkeys-js for keyboard shortcuts
 - sortablejs for kanban drag-and-drop

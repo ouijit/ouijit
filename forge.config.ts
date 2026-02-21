@@ -99,7 +99,10 @@ const config: ForgeConfig = {
       },
     ],
   },
-  rebuildConfig: {},
+  rebuildConfig: {
+    force: true,
+    onlyModules: ['better-sqlite3'],
+  },
   hooks: {
     postPackage: async (_config, options) => {
       // Only notarize macOS builds when not skipping
