@@ -1,5 +1,5 @@
 import { typedHandle } from '../helpers';
-import { createTaskWorktree, createTodoTask, startTask } from '../../worktree';
+import { createTaskWorktree, createTodoTask, startTask, checkTaskWorktree, recoverTaskWorktree } from '../../worktree';
 import {
   setTaskMergeTarget,
   setTaskSandboxed,
@@ -56,5 +56,13 @@ export function registerTaskHandlers(): void {
 
   typedHandle('task:reorder', (projectPath, taskNumber, newStatus, targetIndex) =>
     reorderTaskWithHooks(projectPath, taskNumber, newStatus, targetIndex),
+  );
+
+  typedHandle('task:check-worktree', (projectPath, taskNumber) =>
+    checkTaskWorktree(projectPath, taskNumber),
+  );
+
+  typedHandle('task:recover', (projectPath, taskNumber) =>
+    recoverTaskWorktree(projectPath, taskNumber),
   );
 }

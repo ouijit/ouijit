@@ -1,7 +1,7 @@
 // Re-export all git types from git.ts (single source of truth)
 export type { GitStatus, GitDropdownInfo, ExtendedGitStatus, RecentBranch, UncommittedChanges, ChangedFile, DiffLine, DiffHunk, FileDiff, CompactGitStatus, WorktreeDiffSummary, BranchInfo } from './git';
 // Re-export worktree types from worktree.ts (single source of truth)
-export type { TaskWorktreeResult, WorktreeInfo, WorktreeRemoveResult } from './worktree';
+export type { TaskWorktreeResult, WorktreeInfo, WorktreeRemoveResult, CheckWorktreeResult } from './worktree';
 // Re-export task types from taskMetadata.ts (single source of truth)
 export type { TaskStatus, TaskMetadata } from './taskMetadata';
 // Re-export PTY session type from ptyManager.ts (single source of truth)
@@ -11,7 +11,7 @@ export type { SandboxStatus } from './lima/types';
 
 // Import for local use within this file
 import type { GitStatus, CompactGitStatus, GitDropdownInfo, ChangedFile, FileDiff, WorktreeDiffSummary, BranchInfo } from './git';
-import type { TaskWorktreeResult, WorktreeInfo, WorktreeRemoveResult } from './worktree';
+import type { TaskWorktreeResult, WorktreeInfo, WorktreeRemoveResult, CheckWorktreeResult } from './worktree';
 import type { TaskStatus, TaskMetadata } from './taskMetadata';
 import type { ActiveSession } from './ptyManager';
 import type { SandboxStatus } from './lima/types';
@@ -218,6 +218,8 @@ export interface TaskAPI {
   setName(projectPath: string, taskNumber: number, name: string): Promise<{ success: boolean; error?: string }>;
   setDescription(projectPath: string, taskNumber: number, description: string): Promise<{ success: boolean; error?: string }>;
   reorder(projectPath: string, taskNumber: number, newStatus: TaskStatus, targetIndex: number): Promise<{ success: boolean; error?: string; hookWarning?: string }>;
+  checkWorktree(projectPath: string, taskNumber: number): Promise<CheckWorktreeResult>;
+  recover(projectPath: string, taskNumber: number): Promise<TaskWorktreeResult>;
 }
 
 /**

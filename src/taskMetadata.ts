@@ -124,7 +124,15 @@ export async function getProjectTasks(projectPath: string): Promise<TaskMetadata
     return [];
   }
 
-  return [...projectData.tasks].sort((a, b) => {
+  const valid = projectData.tasks.filter(t => {
+    if (t.taskNumber == null) {
+      console.error('[task] dropping task with missing taskNumber:', JSON.stringify(t));
+      return false;
+    }
+    return true;
+  });
+
+  return [...valid].sort((a, b) => {
     const statusA = STATUS_ORDER[a.status];
     const statusB = STATUS_ORDER[b.status];
     if (statusA !== statusB) return statusA - statusB;
@@ -282,6 +290,7 @@ export async function setTaskStatus(
     }
 
     const oldStatus = task.status;
+    console.info(`[task] #${taskNumber} status: ${oldStatus} → ${status}`);
     task.status = status;
     if (status === 'done') {
       task.closedAt = new Date().toISOString();
@@ -509,10 +518,12 @@ export async function reorderTask(
 
     const task = projectData.tasks.find(t => t.taskNumber === taskNumber);
     if (!task) {
+      console.error(`[task] reorder: task #${taskNumber} not found`);
       return { success: false, error: 'Task not found' };
     }
 
     const oldStatus = task.status;
+    console.info(`[task] #${taskNumber} reorder: ${oldStatus} → ${newStatus} at index ${targetIndex}`);
 
     // Update status and closedAt
     task.status = newStatus;

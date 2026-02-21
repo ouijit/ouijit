@@ -65,6 +65,9 @@ export async function setTaskStatusWithHooks(
 ): Promise<{ success: boolean; error?: string; hookWarning?: string }> {
   const hookWarning = await runCleanupHookIfNeeded(projectPath, taskNumber, status);
   const result = await setTaskStatus(projectPath, taskNumber, status);
+  if (!result.success) {
+    console.error(`[task] setStatusWithHooks failed for #${taskNumber} → ${status}: ${result.error}`);
+  }
   return { ...result, hookWarning };
 }
 
@@ -79,6 +82,9 @@ export async function reorderTaskWithHooks(
 ): Promise<{ success: boolean; error?: string; hookWarning?: string }> {
   const hookWarning = await runCleanupHookIfNeeded(projectPath, taskNumber, newStatus);
   const result = await reorderTask(projectPath, taskNumber, newStatus, targetIndex);
+  if (!result.success) {
+    console.error(`[task] reorderWithHooks failed for #${taskNumber} → ${newStatus}: ${result.error}`);
+  }
   return { ...result, hookWarning };
 }
 
@@ -96,10 +102,15 @@ export async function deleteTaskWithWorktree(
       ? worktrees.find(w => w.branch === task.branch)
       : worktrees.find(w => w.path === task.worktreePath);
     if (wt) {
+      console.info(`[task] deleting #${taskNumber} with worktree at ${wt.path}`);
       const removeResult = await removeTaskWorktree(projectPath, wt.path, taskNumber);
-      if (!removeResult.success) return removeResult;
+      if (!removeResult.success) {
+        console.error(`[task] worktree removal failed for #${taskNumber}: ${removeResult.error}`);
+        return removeResult;
+      }
       return { success: true };
     }
+    console.info(`[task] deleting #${taskNumber} (no live worktree found, metadata-only delete)`);
   }
   return deleteTaskByNumber(projectPath, taskNumber);
 }
