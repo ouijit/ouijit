@@ -4,7 +4,7 @@ import type { PtySpawnOptions, PtySpawnResult, PtyId } from '../types';
 import { generateId } from '../utils/ids';
 import { ensureRunning, getLimactlPath, getLimaEnv } from './manager';
 import { getSandboxConfig } from '../db';
-import { getApiPort, HELPER_SCRIPT, buildVmHookSettings, cleanupProjectHookArtifacts } from '../hookServer';
+import { getApiPort, HELPER_SCRIPT, buildVmHookSettings } from '../hookServer';
 
 interface ManagedSandboxPty {
   process: pty.IPty;
@@ -101,9 +101,6 @@ export async function spawnSandboxedPty(
   try {
     currentWindow = window;
     const projectPath = options.projectPath || options.cwd;
-
-    // Clean up legacy project-level hook artifacts (from earlier versions).
-    cleanupProjectHookArtifacts(options.cwd);
 
     // Load per-project sandbox config for VM resource overrides
     const sandboxConfig = await getSandboxConfig(projectPath);
