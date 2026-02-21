@@ -1,8 +1,9 @@
+import * as path from 'node:path';
 import * as pty from 'node-pty';
 import { BrowserWindow } from 'electron';
 import type { PtyId, PtySpawnOptions, PtySpawnResult } from './types';
 import { generateId } from './utils/ids';
-import { getApiPort, getWrapperBinDir } from './hookServer';
+import { getApiPort, getWrapperBinDir, getShellIntegrationDir } from './hookServer';
 
 interface ManagedPty {
   process: pty.IPty;
@@ -124,8 +125,14 @@ export async function spawnPty(
     finalEnv['OUIJIT_PTY_ID'] = ptyId;
     finalEnv['OUIJIT_API_URL'] = `http://127.0.0.1:${getApiPort()}`;
 
+    // Shell integration: wrapper dir + integration dir for PATH fix scripts
+    const wrapperBinDir = getWrapperBinDir();
+    const shellIntegrationDir = getShellIntegrationDir();
+    finalEnv['OUIJIT_WRAPPER_DIR'] = wrapperBinDir;
+    finalEnv['OUIJIT_SHELL_INTEGRATION_DIR'] = shellIntegrationDir;
+
     // Prepend wrapper bin dir so `claude` resolves to our wrapper first
-    finalEnv['PATH'] = `${getWrapperBinDir()}:${finalEnv['PATH'] || ''}`;
+    finalEnv['PATH'] = `${wrapperBinDir}:${finalEnv['PATH'] || ''}`;
 
     // Expand environment variables in the command if provided
     let expandedCommand = options.command || '';
@@ -142,8 +149,34 @@ export async function spawnPty(
     // If there's a command, run it via shell -c then exec into interactive shell
     // This avoids the double-echo issue from writing to stdin
     let shellArgs: string[] = [];
-    if (expandedCommand) {
-      // Escape single quotes in the command for shell -c
+
+    const isZsh = shell.endsWith('/zsh') || shell === 'zsh';
+    const isBash = shell.endsWith('/bash') || shell === 'bash';
+
+    if (isZsh) {
+      // ZDOTDIR trick: zsh sources $ZDOTDIR/.zshenv first. Our bootstrap
+      // restores the real ZDOTDIR, sources user's .zshenv, then registers
+      // precmd/preexec hooks that re-fix PATH after all init files run.
+      finalEnv['OUIJIT_ZSH_ZDOTDIR'] = finalEnv['ZDOTDIR'] || '';
+      finalEnv['ZDOTDIR'] = path.join(shellIntegrationDir, 'zsh');
+
+      if (expandedCommand) {
+        const escapedCmd = expandedCommand.replace(/'/g, "'\\''");
+        shellArgs = ['-ic', `${escapedCmd}; exec ${shell}`];
+      }
+    } else if (isBash) {
+      // --rcfile/--init-file: bash sources this instead of ~/.bashrc.
+      // Our integration script sources .bashrc first, then fixes PATH.
+      const rcfile = path.join(shellIntegrationDir, 'ouijit-bash-integration.bash');
+
+      if (expandedCommand) {
+        const escapedCmd = expandedCommand.replace(/'/g, "'\\''");
+        shellArgs = ['--rcfile', rcfile, '-ic', `${escapedCmd}; exec bash --rcfile ${rcfile}`];
+      } else {
+        shellArgs = ['--init-file', rcfile];
+      }
+    } else if (expandedCommand) {
+      // Fallback for other shells
       const escapedCmd = expandedCommand.replace(/'/g, "'\\''");
       shellArgs = ['-ic', `${escapedCmd}; exec ${shell}`];
     }

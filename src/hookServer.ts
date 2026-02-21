@@ -119,6 +119,11 @@ export function getWrapperBinDir(): string {
   return path.join(os.homedir(), '.config', 'Ouijit', 'bin');
 }
 
+/** Path where shell integration scripts live. */
+export function getShellIntegrationDir(): string {
+  return path.join(os.homedir(), '.config', 'Ouijit', 'shell-integration');
+}
+
 interface HookEntry { type: 'command'; command: string }
 interface HookMatcher { matcher?: string; hooks: HookEntry[] }
 
@@ -194,6 +199,65 @@ export const CLAUDE_WRAPPER = [
   '',
 ].join('\n');
 
+// ── Shell integration scripts ────────────────────────────────────────
+// These scripts ensure the wrapper dir stays first in PATH even after
+// shell init files (.zshrc, .bashrc) prepend other directories.
+
+/** zsh ZDOTDIR bootstrap — written to shell-integration/zsh/.zshenv */
+export const ZSH_ZSHENV = [
+  '# Ouijit zsh integration — ZDOTDIR bootstrap',
+  '# Restores original ZDOTDIR, sources user .zshenv, loads PATH fix.',
+  'ZDOTDIR="$OUIJIT_ZSH_ZDOTDIR"',
+  '[ -z "$ZDOTDIR" ] && unset ZDOTDIR',
+  '',
+  '# Source user .zshenv',
+  'if [ -f "${ZDOTDIR:-$HOME}/.zshenv" ]; then',
+  '  . "${ZDOTDIR:-$HOME}/.zshenv"',
+  'fi',
+  '',
+  '# For interactive shells, load PATH fix',
+  'if [[ -o interactive ]]; then',
+  '  . "$OUIJIT_SHELL_INTEGRATION_DIR/ouijit-zsh-integration.zsh"',
+  'fi',
+  '',
+].join('\n');
+
+/** zsh PATH fix — written to shell-integration/ouijit-zsh-integration.zsh */
+export const ZSH_INTEGRATION = [
+  '# Ouijit zsh integration — ensures wrapper dir stays first in PATH.',
+  '_ouijit_fix_path() {',
+  '  PATH=":$PATH:"',
+  '  PATH="${PATH//:$OUIJIT_WRAPPER_DIR:/:}"',
+  '  PATH="${PATH#:}"',
+  '  PATH="${PATH%:}"',
+  '  PATH="$OUIJIT_WRAPPER_DIR:$PATH"',
+  '  export PATH',
+  '  # Self-remove after first invocation',
+  '  precmd_functions=(${precmd_functions:#_ouijit_fix_path})',
+  '  preexec_functions=(${preexec_functions:#_ouijit_fix_path})',
+  '}',
+  'precmd_functions+=(_ouijit_fix_path)',
+  'preexec_functions+=(_ouijit_fix_path)',
+  '',
+].join('\n');
+
+/** bash rcfile replacement — written to shell-integration/ouijit-bash-integration.bash */
+export const BASH_INTEGRATION = [
+  '# Ouijit bash integration — sources .bashrc then fixes PATH.',
+  'if [ -f "$HOME/.bashrc" ]; then',
+  '  . "$HOME/.bashrc"',
+  'fi',
+  '',
+  '# Fix PATH: remove wrapper dir, re-prepend it',
+  'PATH=":$PATH:"',
+  'PATH="${PATH//:$OUIJIT_WRAPPER_DIR:/:}"',
+  'PATH="${PATH#:}"',
+  'PATH="${PATH%:}"',
+  'PATH="$OUIJIT_WRAPPER_DIR:$PATH"',
+  'export PATH',
+  '',
+].join('\n');
+
 /**
  * Install the ouijit-hook helper script and claude wrapper into
  * ~/.config/Ouijit/bin/. The wrapper injects hooks via --settings
@@ -209,6 +273,14 @@ export function installWrapper(): void {
 
     // Write claude wrapper script (shadows `claude` to inject --settings)
     fs.writeFileSync(path.join(binDir, 'claude'), CLAUDE_WRAPPER, { mode: 0o755 });
+
+    // Write shell integration scripts (re-fix PATH after shell init)
+    const integrationDir = getShellIntegrationDir();
+    const zshDir = path.join(integrationDir, 'zsh');
+    fs.mkdirSync(zshDir, { recursive: true });
+    fs.writeFileSync(path.join(zshDir, '.zshenv'), ZSH_ZSHENV, { mode: 0o644 });
+    fs.writeFileSync(path.join(integrationDir, 'ouijit-zsh-integration.zsh'), ZSH_INTEGRATION, { mode: 0o644 });
+    fs.writeFileSync(path.join(integrationDir, 'ouijit-bash-integration.bash'), BASH_INTEGRATION, { mode: 0o644 });
   } catch (err) {
     console.warn('[HookServer] Failed to install wrapper:', err instanceof Error ? err.message : err);
   }

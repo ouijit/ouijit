@@ -361,6 +361,201 @@ describe('CLAUDE_WRAPPER', () => {
   });
 });
 
+// ── ouijit-hook → hook server integration ────────────────────────────
+
+describe('ouijit-hook script → hook server integration', () => {
+  let port: number;
+  let scriptPath: string;
+
+  beforeEach(async () => {
+    _testHomedir = tmpHome;
+    await startHookServer(createMockWindow());
+    port = getApiPort();
+
+    // Install wrapper to get the helper script on disk
+    installWrapper();
+    scriptPath = path.join(tmpHome, '.config', 'Ouijit', 'bin', 'ouijit-hook');
+  });
+
+  afterEach(() => {
+    _testHomedir = '';
+  });
+
+  /** Poll until mockSend is called or timeout. */
+  async function waitForIpc(timeoutMs = 3000): Promise<void> {
+    const start = Date.now();
+    while (Date.now() - start < timeoutMs) {
+      if (mockSend.mock.calls.length > 0) return;
+      await new Promise(r => setTimeout(r, 50));
+    }
+  }
+
+  async function runHookScript(
+    action: string,
+    args: string[],
+    env: Record<string, string>,
+  ): Promise<void> {
+    const { execFile } = await import('node:child_process');
+    const { promisify } = await import('node:util');
+    const exec = promisify(execFile);
+    await exec('bash', [scriptPath, action, ...args], { env });
+  }
+
+  test('thinking status reaches hook server and triggers IPC', async () => {
+    await runHookScript('status', ['status=thinking'], {
+      OUIJIT_API_URL: `http://127.0.0.1:${port}`,
+      OUIJIT_PTY_ID: 'pty-integration-1',
+      PATH: process.env['PATH'] || '',
+    });
+
+    await waitForIpc();
+    expect(mockSend).toHaveBeenCalledWith('claude-hook-status', 'pty-integration-1', 'thinking');
+  });
+
+  test('ready status reaches hook server and triggers IPC', async () => {
+    await runHookScript('status', ['status=ready'], {
+      OUIJIT_API_URL: `http://127.0.0.1:${port}`,
+      OUIJIT_PTY_ID: 'pty-integration-2',
+      PATH: process.env['PATH'] || '',
+    });
+
+    await waitForIpc();
+    expect(mockSend).toHaveBeenCalledWith('claude-hook-status', 'pty-integration-2', 'ready');
+  });
+
+  test('script exits silently when OUIJIT_API_URL is unset', async () => {
+    await runHookScript('status', ['status=thinking'], {
+      OUIJIT_PTY_ID: 'pty-integration-3',
+      PATH: process.env['PATH'] || '',
+    });
+
+    await new Promise(r => setTimeout(r, 200));
+    expect(mockSend).not.toHaveBeenCalled();
+  });
+
+  test('script exits silently for invalid ptyId', async () => {
+    await runHookScript('status', ['status=thinking'], {
+      OUIJIT_API_URL: `http://127.0.0.1:${port}`,
+      OUIJIT_PTY_ID: 'pty with spaces',
+      PATH: process.env['PATH'] || '',
+    });
+
+    await new Promise(r => setTimeout(r, 200));
+    expect(mockSend).not.toHaveBeenCalled();
+  });
+});
+
+// ── wrapper → ouijit-hook → hook server (end-to-end) ─────────────────
+
+describe('wrapper → ouijit-hook → hook server (end-to-end)', () => {
+  let port: number;
+  let binDir: string;
+
+  beforeEach(async () => {
+    _testHomedir = tmpHome;
+    await startHookServer(createMockWindow());
+    port = getApiPort();
+    installWrapper();
+    binDir = path.join(tmpHome, '.config', 'Ouijit', 'bin');
+  });
+
+  afterEach(() => {
+    _testHomedir = '';
+  });
+
+  /** Poll until mockSend is called or timeout. */
+  async function waitForIpc(timeoutMs = 3000): Promise<void> {
+    const start = Date.now();
+    while (Date.now() - start < timeoutMs) {
+      if (mockSend.mock.calls.length > 0) return;
+      await new Promise(r => setTimeout(r, 50));
+    }
+  }
+
+  /** Create a mock claude that handles --settings by extracting and running hook commands. */
+  function writeMockClaude(dir: string): void {
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, 'claude'), [
+      '#!/bin/bash',
+      '# Mock claude: find --settings, extract hook command, run it',
+      'while [ $# -gt 0 ]; do',
+      '  if [ "$1" = "--settings" ]; then',
+      '    shift',
+      '    CMD=$(node -e "const s=JSON.parse(process.argv[1]); console.log(s.hooks.UserPromptSubmit[0].hooks[0].command)" "$1")',
+      '    eval "$CMD"',
+      '    sleep 0.2',
+      '    exit 0',
+      '  fi',
+      '  shift',
+      'done',
+      'echo "mock claude: --settings not received" >&2',
+      'exit 1',
+      '',
+    ].join('\n'), { mode: 0o755 });
+  }
+
+  test('wrapper passes --settings to claude, hook command triggers IPC', async () => {
+    const { execFile } = await import('node:child_process');
+    const { promisify } = await import('node:util');
+    const exec = promisify(execFile);
+
+    const mockBinDir = path.join(tmpHome, 'mock-bin');
+    writeMockClaude(mockBinDir);
+
+    // PATH: wrapper first (intercepted), then mock-bin (found after wrapper strips itself),
+    // then system PATH (for bash, curl, node).
+    await exec('/bin/bash', ['-c', 'claude'], {
+      env: {
+        PATH: `${binDir}:${mockBinDir}:${process.env['PATH'] || ''}`,
+        HOME: tmpHome,
+        OUIJIT_API_URL: `http://127.0.0.1:${port}`,
+        OUIJIT_PTY_ID: 'pty-e2e-1',
+      },
+    });
+
+    await waitForIpc();
+    expect(mockSend).toHaveBeenCalledWith('claude-hook-status', 'pty-e2e-1', 'thinking');
+  });
+
+  test('hooks fire even when shell init prepends paths before wrapper dir', async () => {
+    const { execFile } = await import('node:child_process');
+    const { promisify } = await import('node:util');
+    const exec = promisify(execFile);
+
+    // brew-bin simulates the real claude binary installed via brew/npm.
+    // It understands --settings (as the real claude does).
+    const brewBinDir = path.join(tmpHome, 'brew-bin');
+    writeMockClaude(brewBinDir);
+
+    // .bashrc prepends brew-bin (simulates `eval "$(brew shellenv)"`)
+    fs.writeFileSync(path.join(tmpHome, '.bashrc'), `export PATH="${brewBinDir}:$PATH"\n`);
+
+    // Shell integration: the rcfile sources .bashrc then re-fixes PATH.
+    // Without integration: .bashrc prepends brew-bin before wrapper →
+    //   brew claude found first, wrapper never invoked, no hooks.
+    // With integration: .bashrc runs, then PATH is re-fixed →
+    //   wrapper first, --settings injected, brew claude handles it.
+    const integrationDir = path.join(tmpHome, '.config', 'Ouijit', 'shell-integration');
+    const rcfile = path.join(integrationDir, 'ouijit-bash-integration.bash');
+
+    // Source the integration script (which sources .bashrc + fixes PATH)
+    // then run claude — verifies the PATH fix works end-to-end.
+    await exec('/bin/bash', ['-c', `source "${rcfile}" && claude`], {
+      env: {
+        PATH: `${binDir}:${process.env['PATH'] || ''}`,
+        HOME: tmpHome,
+        OUIJIT_API_URL: `http://127.0.0.1:${port}`,
+        OUIJIT_PTY_ID: 'pty-e2e-2',
+        OUIJIT_WRAPPER_DIR: binDir,
+        OUIJIT_SHELL_INTEGRATION_DIR: integrationDir,
+      },
+    });
+
+    await waitForIpc();
+    expect(mockSend).toHaveBeenCalledWith('claude-hook-status', 'pty-e2e-2', 'thinking');
+  });
+});
+
 // ── buildVmHookSettings ──────────────────────────────────────────────
 
 // ── migrateFromSettingsHooks ──────────────────────────────────────────
