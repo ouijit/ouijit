@@ -15,12 +15,6 @@ import { showNewProjectDialog } from './components/newProjectDialog';
 import { initHotkeys } from './utils/hotkeys';
 import { restoreProjectMode, orphanedSessions } from './components/project';
 
-// Declare the global window.api interface
-declare global {
-  interface Window {
-    api: ElectronAPI;
-  }
-}
 
 /**
  * Shows a loading state in the container

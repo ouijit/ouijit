@@ -1,7 +1,20 @@
 // Re-export all git types from git.ts (single source of truth)
 export type { GitStatus, GitDropdownInfo, ExtendedGitStatus, RecentBranch, UncommittedChanges, ChangedFile, DiffLine, DiffHunk, FileDiff, CompactGitStatus, WorktreeDiffSummary, BranchInfo } from './git';
+// Re-export worktree types from worktree.ts (single source of truth)
+export type { TaskWorktreeResult, WorktreeInfo, WorktreeRemoveResult } from './worktree';
+// Re-export task types from taskMetadata.ts (single source of truth)
+export type { TaskStatus, TaskMetadata } from './taskMetadata';
+// Re-export PTY session type from ptyManager.ts (single source of truth)
+export type { ActiveSession } from './ptyManager';
+// Re-export sandbox status from lima/types.ts (single source of truth)
+export type { SandboxStatus } from './lima/types';
+
 // Import for local use within this file
 import type { GitStatus, CompactGitStatus, GitDropdownInfo, ChangedFile, FileDiff, WorktreeDiffSummary, BranchInfo } from './git';
+import type { TaskWorktreeResult, WorktreeInfo, WorktreeRemoveResult } from './worktree';
+import type { TaskStatus, TaskMetadata } from './taskMetadata';
+import type { ActiveSession } from './ptyManager';
+import type { SandboxStatus } from './lima/types';
 
 /**
  * Represents a run configuration for launching a project
@@ -140,24 +153,6 @@ export interface PtySpawnOptions {
 }
 
 /**
- * Information about an active PTY session (for reconnection after reload)
- */
-export interface ActiveSession {
-  ptyId: PtyId;
-  projectPath: string;
-  command: string;
-  label: string;
-  taskId?: number;
-  worktreePath?: string;
-  /** Whether this is a runner PTY */
-  isRunner?: boolean;
-  /** Parent PTY ID if this is a runner */
-  parentPtyId?: PtyId;
-  /** Whether this terminal runs inside a sandbox */
-  sandboxed?: boolean;
-}
-
-/**
  * Result of spawning a PTY
  */
 export interface PtySpawnResult {
@@ -194,31 +189,6 @@ export interface PtyAPI {
   setWindow(): void;
 }
 
-export type TaskStatus = 'todo' | 'in_progress' | 'in_review' | 'done';
-
-export interface TaskMetadata {
-  taskNumber: number;
-  branch?: string;
-  name: string;
-  status: TaskStatus;
-  createdAt: string;
-  closedAt?: string;
-  worktreePath?: string;
-  mergeTarget?: string;
-  prompt?: string;
-  sandboxed?: boolean;
-  order?: number;
-}
-
-/**
- * Information about a git worktree
- */
-export interface WorktreeInfo {
-  path: string;
-  branch: string;
-  createdAt: string;
-}
-
 export interface TaskWithWorkspace {
   taskNumber: number;
   name: string;
@@ -231,21 +201,6 @@ export interface TaskWithWorkspace {
   prompt?: string;
   sandboxed?: boolean;
   order?: number;
-}
-
-export interface TaskCreateResult {
-  success: boolean;
-  task?: TaskMetadata;
-  worktreePath?: string;
-  error?: string;
-}
-
-/**
- * Result of removing a worktree
- */
-export interface WorktreeRemoveResult {
-  success: boolean;
-  error?: string;
 }
 
 /**
@@ -261,9 +216,9 @@ export interface HooksAPI {
 }
 
 export interface TaskAPI {
-  create(projectPath: string, name?: string, prompt?: string): Promise<TaskCreateResult>;
-  createAndStart(projectPath: string, name?: string, prompt?: string, branchName?: string): Promise<TaskCreateResult>;
-  start(projectPath: string, taskNumber: number, branchName?: string): Promise<TaskCreateResult>;
+  create(projectPath: string, name?: string, prompt?: string): Promise<TaskWorktreeResult>;
+  createAndStart(projectPath: string, name?: string, prompt?: string, branchName?: string): Promise<TaskWorktreeResult>;
+  start(projectPath: string, taskNumber: number, branchName?: string): Promise<TaskWorktreeResult>;
   getAll(projectPath: string): Promise<TaskWithWorkspace[]>;
   getByNumber(projectPath: string, taskNumber: number): Promise<TaskWithWorkspace | null>;
   setStatus(projectPath: string, taskNumber: number, status: TaskStatus): Promise<{ success: boolean; error?: string; hookWarning?: string }>;
@@ -272,7 +227,7 @@ export interface TaskAPI {
   setSandboxed(projectPath: string, taskNumber: number, sandboxed: boolean): Promise<{ success: boolean; error?: string }>;
   setName(projectPath: string, taskNumber: number, name: string): Promise<{ success: boolean; error?: string }>;
   setDescription(projectPath: string, taskNumber: number, description: string): Promise<{ success: boolean; error?: string }>;
-  reorder(projectPath: string, taskNumber: number, newStatus: TaskStatus, targetIndex: number): Promise<{ success: boolean; error?: string }>;
+  reorder(projectPath: string, taskNumber: number, newStatus: TaskStatus, targetIndex: number): Promise<{ success: boolean; error?: string; hookWarning?: string }>;
 }
 
 /**
@@ -376,7 +331,7 @@ export interface ClaudeHooksAPI {
  * Lima sandbox API exposed to the renderer
  */
 export interface LimaAPI {
-  status(projectPath: string): Promise<{ available: boolean; vmStatus: string; instanceName?: string; memory?: number; disk?: number }>;
+  status(projectPath: string): Promise<SandboxStatus>;
   start(projectPath: string): Promise<{ success: boolean; error?: string }>;
   stop(projectPath: string): Promise<{ success: boolean; error?: string }>;
   getConfig(projectPath: string): Promise<{ memoryGiB: number; diskGiB: number }>;

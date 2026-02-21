@@ -2,7 +2,7 @@
 // https://www.electronjs.org/docs/latest/tutorial/process-model#preload-scripts
 
 import { contextBridge, ipcRenderer, webUtils } from 'electron';
-import type { Project, PtySpawnOptions, PtySpawnResult, PtyId, ActiveSession, PtyReconnectResult, CreateProjectOptions, CreateProjectResult, GitStatus, CompactGitStatus, GitDropdownInfo, GitCheckoutResult, GitMergeResult, ChangedFile, FileDiff, ProjectSettings, TaskCreateResult, WorktreeRemoveResult, WorktreeInfo, WorktreeDiffSummary, TaskWithWorkspace, TaskStatus, ScriptHook, HookType, BranchInfo } from './types';
+import type { Project, PtySpawnOptions, PtySpawnResult, PtyId, ActiveSession, PtyReconnectResult, CreateProjectOptions, CreateProjectResult, GitStatus, CompactGitStatus, GitDropdownInfo, GitCheckoutResult, GitMergeResult, ChangedFile, FileDiff, ProjectSettings, TaskWorktreeResult, WorktreeRemoveResult, WorktreeInfo, WorktreeDiffSummary, TaskWithWorkspace, TaskStatus, ScriptHook, HookType, BranchInfo } from './types';
 
 // Expose protected methods that allow the renderer process to use
 // ipcRenderer without exposing the entire object
@@ -107,13 +107,13 @@ contextBridge.exposeInMainWorld('api', {
   },
 
   task: {
-    create: (projectPath: string, name?: string, prompt?: string): Promise<TaskCreateResult> =>
+    create: (projectPath: string, name?: string, prompt?: string): Promise<TaskWorktreeResult> =>
       ipcRenderer.invoke('task:create', projectPath, name, prompt),
 
-    createAndStart: (projectPath: string, name?: string, prompt?: string, branchName?: string): Promise<TaskCreateResult> =>
+    createAndStart: (projectPath: string, name?: string, prompt?: string, branchName?: string): Promise<TaskWorktreeResult> =>
       ipcRenderer.invoke('task:create-and-start', projectPath, name, prompt, branchName),
 
-    start: (projectPath: string, taskNumber: number, branchName?: string): Promise<TaskCreateResult> =>
+    start: (projectPath: string, taskNumber: number, branchName?: string): Promise<TaskWorktreeResult> =>
       ipcRenderer.invoke('task:start', projectPath, taskNumber, branchName),
 
     getAll: (projectPath: string): Promise<TaskWithWorkspace[]> =>
@@ -140,7 +140,7 @@ contextBridge.exposeInMainWorld('api', {
     setDescription: (projectPath: string, taskNumber: number, description: string): Promise<{ success: boolean; error?: string }> =>
       ipcRenderer.invoke('task:set-description', projectPath, taskNumber, description),
 
-    reorder: (projectPath: string, taskNumber: number, newStatus: TaskStatus, targetIndex: number): Promise<{ success: boolean; error?: string }> =>
+    reorder: (projectPath: string, taskNumber: number, newStatus: TaskStatus, targetIndex: number): Promise<{ success: boolean; error?: string; hookWarning?: string }> =>
       ipcRenderer.invoke('task:reorder', projectPath, taskNumber, newStatus, targetIndex),
   },
 
