@@ -5,7 +5,7 @@
 
 import { describe, test, expect, vi, beforeEach } from 'vitest';
 import * as os from 'node:os';
-import { createTask } from '../db';
+import { createTask, _resetCacheForTesting } from '../db';
 
 // ── Mocks (superset needed by all describe blocks) ──────────────────
 
@@ -231,6 +231,11 @@ describe('createProject path traversal', () => {
 // ── getTasksWithWorkspaces (await propagation) ──────────────────────
 
 describe('getTasksWithWorkspaces', () => {
+  beforeEach(() => {
+    vi.mocked(exec).mockReset();
+    _resetCacheForTesting();
+  });
+
   test('resolves worktree path from live git data, not stale metadata', async () => {
     const project = '/projects/myproject';
     const livePath = `${baseDir}/T-1`;

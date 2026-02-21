@@ -110,6 +110,8 @@ contextBridge.exposeInMainWorld('api', {
     setName: (projectPath: string, taskNumber: number, name: string) => typedInvoke('task:set-name', projectPath, taskNumber, name),
     setDescription: (projectPath: string, taskNumber: number, description: string) => typedInvoke('task:set-description', projectPath, taskNumber, description),
     reorder: (projectPath: string, taskNumber: number, newStatus: TaskStatus, targetIndex: number) => typedInvoke('task:reorder', projectPath, taskNumber, newStatus, targetIndex),
+    checkWorktree: (projectPath: string, taskNumber: number) => typedInvoke('task:check-worktree', projectPath, taskNumber),
+    recover: (projectPath: string, taskNumber: number) => typedInvoke('task:recover', projectPath, taskNumber),
   },
 
   hooks: {

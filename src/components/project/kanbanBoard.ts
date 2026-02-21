@@ -7,7 +7,8 @@ import type { ProjectTerminal } from './state';
 import { projectState } from './state';
 import { projectPath, kanbanVisible, terminals, activeIndex, invalidateTaskList } from './signals';
 import { projectRegistry } from './helpers';
-import { reopenTask, deleteTask, closeTask } from './worktreeDropdown';
+import { showToast } from '../importDialog';
+import { reopenTask, deleteTask, closeTask, showMissingWorktreeDialog } from './worktreeDropdown';
 import { switchToProjectTerminal } from './terminalCards';
 import { escapeHtml } from '../../utils/html';
 import { registerHotkey, unregisterHotkey, pushScope, popScope, Scopes, platformHotkey } from '../../utils/hotkeys';
@@ -217,9 +218,43 @@ function buildKanbanHtml(): string {
 }
 
 /**
+ * Check if a task's worktree exists, and if not, prompt the user to recover it.
+ * Returns the (possibly new) worktree path on success, or null if the user cancelled or recovery failed.
+ */
+async function ensureWorktreeExists(path: string, task: TaskWithWorkspace): Promise<string | null> {
+  if (!task.worktreePath) return null;
+  const check = await window.api.task.checkWorktree(path, task.taskNumber);
+  if (check.exists) return task.worktreePath;
+
+  console.warn(`[kanban] worktree missing for #${task.taskNumber} (branchExists=${check.branchExists})`);
+  const action = await showMissingWorktreeDialog(task, check.branchExists);
+  if (action !== 'recover') {
+    console.info(`[kanban] user cancelled worktree recovery for #${task.taskNumber}`);
+    return null;
+  }
+
+  const result = await window.api.task.recover(path, task.taskNumber);
+  if (!result.success || !result.worktreePath) {
+    console.error(`[kanban] worktree recovery failed for #${task.taskNumber}:`, result.error);
+    showToast(result.error || 'Failed to recover worktree', 'error');
+    return null;
+  }
+
+  console.info(`[kanban] worktree recovered for #${task.taskNumber} → ${result.worktreePath}`);
+  // Update the local task object with new data
+  task.worktreePath = result.worktreePath;
+  if (result.task?.branch) task.branch = result.task.branch;
+  invalidateTaskList();
+  return result.worktreePath;
+}
+
+/**
  * Build a kanban card DOM element for a task
  */
 function buildKanbanCard(task: TaskWithWorkspace, path: string, limaAvailable: boolean, editorConfigured: boolean): HTMLElement {
+  if (task.taskNumber == null) {
+    console.error('[kanban] task with missing taskNumber:', JSON.stringify(task));
+  }
   const card = document.createElement('div');
   card.className = 'kanban-card' + (task.status === 'done' ? ' kanban-card--done' : '');
   card.dataset.taskNumber = String(task.taskNumber);
@@ -388,14 +423,22 @@ function buildKanbanCard(task: TaskWithWorkspace, path: string, limaAvailable: b
       .filter(({ terminal: t }) => t.taskId === task.taskNumber);
 
     const onOpenTerminal = async () => {
+      console.info(`[kanban] openTerminal #${task.taskNumber} status=${task.status} hasWorktree=${!!task.worktreePath}`);
       if (task.status === 'done') {
+        if (task.worktreePath) {
+          const wtPath = await ensureWorktreeExists(path, task);
+          if (!wtPath) return;
+        }
         hideKanbanBoard();
         await reopenTask(path, task);
         return;
       }
       if (!task.worktreePath) {
         const startResult = await window.api.task.start(path, task.taskNumber);
-        if (!startResult.success || !startResult.worktreePath) return;
+        if (!startResult.success || !startResult.worktreePath) {
+          console.error(`[kanban] task.start failed for #${task.taskNumber}:`, startResult.error);
+          return;
+        }
         await window.api.task.setStatus(path, task.taskNumber, 'in_progress');
         invalidateTaskList();
         hideKanbanBoard();
@@ -412,10 +455,12 @@ function buildKanbanCard(task: TaskWithWorkspace, path: string, limaAvailable: b
         });
         return;
       }
+      const worktreePath = await ensureWorktreeExists(path, task);
+      if (!worktreePath) return;
       hideKanbanBoard();
       await projectRegistry.addProjectTerminal?.(undefined, {
         existingWorktree: {
-          path: task.worktreePath,
+          path: worktreePath,
           branch: task.branch || '',
           createdAt: task.createdAt,
           sandboxed: task.sandboxed,
@@ -427,6 +472,10 @@ function buildKanbanCard(task: TaskWithWorkspace, path: string, limaAvailable: b
 
     const onSandbox = limaAvailable ? async () => {
       if (task.status === 'done') {
+        if (task.worktreePath) {
+          const wtPath = await ensureWorktreeExists(path, task);
+          if (!wtPath) return;
+        }
         const worktreeOpts = {
           path: task.worktreePath!,
           branch: task.branch || '',
@@ -462,10 +511,12 @@ function buildKanbanCard(task: TaskWithWorkspace, path: string, limaAvailable: b
           sandboxed: true,
         });
       } else {
+        const worktreePath = await ensureWorktreeExists(path, task);
+        if (!worktreePath) return;
         hideKanbanBoard();
         await projectRegistry.addProjectTerminal?.(undefined, {
           existingWorktree: {
-            path: task.worktreePath,
+            path: worktreePath,
             branch: task.branch || '',
             prompt: task.prompt,
             createdAt: task.createdAt,
@@ -486,6 +537,10 @@ function buildKanbanCard(task: TaskWithWorkspace, path: string, limaAvailable: b
 
     const onCloseOrReopen = async () => {
       if (task.status === 'done') {
+        if (task.worktreePath) {
+          const wtPath = await ensureWorktreeExists(path, task);
+          if (!wtPath) return;
+        }
         await reopenTask(path, task);
       } else {
         await closeTask(path, task);
@@ -539,16 +594,26 @@ function setupSortable(): void {
 async function handleSortableEnd(evt: Sortable.SortableEvent): Promise<void> {
   const item = evt.item as HTMLElement;
   const taskNumber = parseInt(item.dataset.taskNumber || '', 10);
-  if (isNaN(taskNumber)) return;
+  if (isNaN(taskNumber)) {
+    console.error('[kanban] drag: no task number on dragged element', item.tagName, item.className, item.outerHTML.slice(0, 200));
+    return;
+  }
 
   const toColumn = (evt.to as HTMLElement).closest('.kanban-column') as HTMLElement | null;
   const newStatus = toColumn?.dataset.status as TaskStatus | undefined;
-  if (!newStatus) return;
+  if (!newStatus) {
+    console.error(`[kanban] drag #${taskNumber}: could not determine target column`);
+    return;
+  }
 
   const path = projectPath.value;
-  if (!path) return;
+  if (!path) {
+    console.error(`[kanban] drag #${taskNumber}: no project path`);
+    return;
+  }
 
   const targetIndex = evt.newIndex ?? 0;
+  console.info(`[kanban] drag #${taskNumber} → ${newStatus} at index ${targetIndex}`);
 
   // Dropping a task into in_progress — create worktree if needed + show start command dialog
   if (newStatus === 'in_progress') {
@@ -630,6 +695,8 @@ async function handleSortableEnd(evt: Sortable.SortableEvent): Promise<void> {
   if (result.success) {
     invalidateTaskList();
     await populateKanbanBoard();
+  } else {
+    console.error(`[kanban] reorder failed for #${taskNumber} → ${newStatus}:`, result.error);
   }
 }
 

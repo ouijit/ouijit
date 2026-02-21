@@ -267,6 +267,8 @@ export async function startTask(
     if (!task) return { success: false, error: 'Task not found' };
     if (task.status !== 'todo') return { success: false, error: 'Task is already started' };
 
+    console.info(`[worktree] starting task #${taskNumber} "${task.name}"`);
+
     const [hasHead, branchResult] = await Promise.all([
       execAsync('git rev-parse HEAD', { cwd: projectPath }).then(() => true, () => false),
       execAsync('git rev-parse --abbrev-ref HEAD', { cwd: projectPath })
@@ -310,9 +312,11 @@ export async function startTask(
       console.warn('[worktree] Background copy failed:', err);
     });
 
+    console.info(`[worktree] started task #${taskNumber} → ${worktreePath} branch=${branch}`);
     const updated = await getTaskByNumber(projectPath, taskNumber);
     return { success: true, task: updated || undefined, worktreePath };
   } catch (error) {
+    console.error(`[worktree] startTask #${taskNumber} failed:`, error instanceof Error ? error.message : error);
     return { success: false, error: error instanceof Error ? error.message : 'Failed to start task' };
   }
 }
@@ -469,6 +473,96 @@ export async function listWorktrees(projectPath: string): Promise<WorktreeInfo[]
     return worktrees;
   } catch {
     return [];
+  }
+}
+
+export interface CheckWorktreeResult {
+  exists: boolean;
+  branchExists: boolean;
+}
+
+/**
+ * Check if a task's worktree directory and branch still exist
+ */
+export async function checkTaskWorktree(
+  projectPath: string,
+  taskNumber: number,
+): Promise<CheckWorktreeResult> {
+  const task = await getTaskByNumber(projectPath, taskNumber);
+  if (!task || !task.worktreePath) {
+    console.info(`[worktree] check #${taskNumber}: no task or no worktreePath`);
+    return { exists: false, branchExists: false };
+  }
+
+  const [exists, branchExists] = await Promise.all([
+    fs.access(task.worktreePath).then(() => true, () => false),
+    task.branch
+      ? execAsync(`git rev-parse --verify refs/heads/${shellEscape(task.branch)}`, { cwd: projectPath })
+          .then(() => true, () => false)
+      : Promise.resolve(false),
+  ]);
+
+  console.info(`[worktree] check #${taskNumber}: exists=${exists} branchExists=${branchExists} path=${task.worktreePath}`);
+  return { exists, branchExists };
+}
+
+/**
+ * Recover a task whose worktree directory was deleted externally.
+ * Prunes stale worktrees, then re-creates from the existing branch.
+ */
+export async function recoverTaskWorktree(
+  projectPath: string,
+  taskNumber: number,
+): Promise<TaskWorktreeResult> {
+  try {
+    const task = await getTaskByNumber(projectPath, taskNumber);
+    if (!task) return { success: false, error: 'Task not found' };
+    if (!task.branch) return { success: false, error: 'Task has no branch' };
+
+    console.info(`[worktree] recovering #${taskNumber} branch=${task.branch} oldPath=${task.worktreePath}`);
+
+    // Prune stale worktree references so git doesn't complain about the old path
+    await execAsync('git worktree prune', { cwd: projectPath });
+
+    // Verify the branch still exists
+    try {
+      await execAsync(`git rev-parse --verify refs/heads/${shellEscape(task.branch)}`, { cwd: projectPath });
+    } catch {
+      return { success: false, error: 'Branch not found' };
+    }
+
+    // Find a new worktree directory path
+    const projectName = path.basename(projectPath);
+    const baseDir = getWorktreeBaseDir(projectName);
+    await fs.mkdir(baseDir, { recursive: true });
+
+    let worktreePath = path.join(baseDir, `T-${taskNumber}`);
+    let dirNum = taskNumber;
+    while (await fs.access(worktreePath).then(() => true, () => false)) {
+      dirNum++;
+      worktreePath = path.join(baseDir, `T-${dirNum}`);
+    }
+
+    // Re-create worktree from the existing branch (no -b flag)
+    const [, ignoredFiles] = await Promise.all([
+      execAsync(`git worktree add ${shellEscape(worktreePath)} ${shellEscape(task.branch)}`, { cwd: projectPath }),
+      fetchIgnoredFiles(projectPath),
+    ]);
+
+    // Update metadata with new path
+    await setTaskWorktreePath(projectPath, taskNumber, worktreePath);
+
+    // Fire-and-forget file copy
+    copyGitIgnoredFiles(projectPath, worktreePath, ignoredFiles).catch(err => {
+      console.warn('[worktree] Background copy failed:', err);
+    });
+
+    console.info(`[worktree] recovered #${taskNumber} → ${worktreePath}`);
+    const updated = await getTaskByNumber(projectPath, taskNumber);
+    return { success: true, task: updated || undefined, worktreePath };
+  } catch (error) {
+    console.error(`[worktree] recover #${taskNumber} failed:`, error instanceof Error ? error.message : error);
+    return { success: false, error: error instanceof Error ? error.message : 'Failed to recover worktree' };
   }
 }
 

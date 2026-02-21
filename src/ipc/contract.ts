@@ -25,6 +25,7 @@ import type {
   WorktreeInfo,
   WorktreeRemoveResult,
   TaskWorktreeResult,
+  CheckWorktreeResult,
   TaskWithWorkspace,
   TaskStatus,
   ScriptHook,
@@ -84,6 +85,8 @@ export interface IpcInvokeContract {
   'task:set-name':                { args: [projectPath: string, taskNumber: number, name: string];          return: { success: boolean; error?: string } };
   'task:set-description':         { args: [projectPath: string, taskNumber: number, description: string];   return: { success: boolean; error?: string } };
   'task:reorder':                 { args: [projectPath: string, taskNumber: number, newStatus: TaskStatus, targetIndex: number]; return: { success: boolean; error?: string; hookWarning?: string } };
+  'task:check-worktree':          { args: [projectPath: string, taskNumber: number];                        return: CheckWorktreeResult };
+  'task:recover':                 { args: [projectPath: string, taskNumber: number];                        return: TaskWorktreeResult };
 
   // ── Worktree ─────────────────────────────────────────────────────────
   'worktree:validate-branch-name': { args: [projectPath: string, branchName: string];                      return: { valid: boolean; error?: string } };

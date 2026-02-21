@@ -72,6 +72,72 @@ function showDeleteConfirmDialog(taskName: string): Promise<boolean> {
 }
 
 /**
+ * Show a dialog when a task's worktree directory is missing
+ * Returns 'recover' if user wants to recreate, or null if cancelled
+ */
+export function showMissingWorktreeDialog(task: TaskWithWorkspace, branchExists: boolean): Promise<'recover' | null> {
+  return new Promise((resolve) => {
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+
+    const dialog = document.createElement('div');
+    dialog.className = 'import-dialog';
+    dialog.style.maxWidth = '420px';
+
+    const branchHtml = task.branch
+      ? `<p class="import-dialog-text" style="margin-top: 4px; font-size: 12px; opacity: 0.7;">Branch: <code>${task.branch}</code></p>`
+      : '';
+
+    dialog.innerHTML = `
+      <h2 class="import-dialog-title">Worktree Not Found</h2>
+      <p class="import-dialog-text">
+        The worktree directory for "<strong>${task.name}</strong>" no longer exists on disk.
+      </p>
+      ${branchHtml}
+      <div class="import-actions">
+        <button class="btn btn-secondary" data-action="cancel">Cancel</button>
+        ${branchExists ? '<button class="btn btn-primary" data-action="recover">Recreate Worktree</button>' : ''}
+      </div>
+    `;
+
+    overlay.appendChild(dialog);
+    document.body.appendChild(overlay);
+
+    const cleanup = () => {
+      unregisterHotkey('escape', Scopes.MODAL);
+      popScope();
+      dialog.classList.remove('import-dialog--visible');
+      overlay.classList.remove('modal-overlay--visible');
+      setTimeout(() => overlay.remove(), 150);
+    };
+
+    const handleRecover = () => {
+      cleanup();
+      resolve('recover');
+    };
+
+    const handleCancel = () => {
+      cleanup();
+      resolve(null);
+    };
+
+    dialog.querySelector('[data-action="recover"]')?.addEventListener('click', handleRecover);
+    dialog.querySelector('[data-action="cancel"]')?.addEventListener('click', handleCancel);
+    overlay.addEventListener('mousedown', (e) => {
+      if (e.target === overlay) handleCancel();
+    });
+
+    pushScope(Scopes.MODAL);
+    registerHotkey('escape', Scopes.MODAL, handleCancel);
+
+    requestAnimationFrame(() => {
+      overlay.classList.add('modal-overlay--visible');
+      dialog.classList.add('import-dialog--visible');
+    });
+  });
+}
+
+/**
  * Close a task - marks as closed and closes any open terminals for it
  */
 export async function closeTask(path: string, task: TaskWithWorkspace): Promise<void> {
@@ -103,6 +169,7 @@ export async function closeTask(path: string, task: TaskWithWorkspace): Promise<
  */
 export async function reopenTask(path: string, task: TaskWithWorkspace): Promise<void> {
   if (task.taskNumber == null) return;
+  console.info(`[task] reopening #${task.taskNumber} worktreePath=${task.worktreePath || '(none)'}`);
   const result = await window.api.task.setStatus(path, task.taskNumber, 'in_progress');
   if (result.success) {
     invalidateTaskList();
@@ -120,6 +187,7 @@ export async function reopenTask(path: string, task: TaskWithWorkspace): Promise
       sandboxed: false,
     });
   } else {
+    console.error(`[task] reopen failed for #${task.taskNumber}:`, result.error);
     showToast(result.error || 'Failed to reopen task', 'error');
   }
 }
