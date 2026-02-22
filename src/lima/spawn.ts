@@ -1,6 +1,7 @@
 import * as pty from 'node-pty';
 import { BrowserWindow } from 'electron';
 import type { PtySpawnOptions, PtySpawnResult, PtyId } from '../types';
+import type { ActiveSession } from '../ptyManager';
 import { generateId } from '../utils/ids';
 import { ensureRunning, getLimactlPath, getLimaEnv } from './manager';
 import { getSandboxConfig } from '../db';
@@ -11,6 +12,7 @@ interface ManagedSandboxPty {
   projectPath: string;
   command: string;
   label: string;
+  taskId?: number;
   worktreePath?: string;
   isRunner: boolean;
   parentPtyId?: PtyId;
@@ -211,6 +213,7 @@ export async function spawnSandboxedPty(
       projectPath,
       command: options.command || '',
       label,
+      taskId: options.taskId,
       worktreePath: options.worktreePath,
       isRunner: options.isRunner || false,
       parentPtyId: options.parentPtyId,
@@ -288,6 +291,41 @@ export function killSandboxPty(ptyId: PtyId): void {
     }
   }
   activeSandboxPtys.delete(ptyId);
+}
+
+/**
+ * Get active sandbox sessions (for restoration after renderer reload)
+ */
+export function getActiveSandboxSessions(): ActiveSession[] {
+  return Array.from(activeSandboxPtys.entries()).map(([ptyId, managed]) => ({
+    ptyId,
+    projectPath: managed.projectPath,
+    command: managed.command,
+    label: managed.label,
+    taskId: managed.taskId,
+    worktreePath: managed.worktreePath,
+    isRunner: managed.isRunner,
+    parentPtyId: managed.parentPtyId,
+    sandboxed: true,
+  }));
+}
+
+/**
+ * Reconnect to an existing sandbox PTY after renderer reload.
+ * Updates the window reference and returns buffered output for replay.
+ */
+export function reconnectSandboxPty(
+  ptyId: PtyId,
+  window: BrowserWindow,
+): { success: boolean; bufferedOutput?: string; error?: string } {
+  const managed = activeSandboxPtys.get(ptyId);
+  if (!managed) {
+    return { success: false, error: `Sandbox PTY ${ptyId} not found` };
+  }
+
+  currentWindow = window;
+  const bufferedOutput = managed.outputChunks.join('');
+  return { success: true, bufferedOutput };
 }
 
 /**

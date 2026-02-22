@@ -15,7 +15,7 @@ import {
 // Direct imports - these modules import from signals.ts, not effects.ts, so no circular dep
 import { updateCardStack, showStackEmptyState, hideStackEmptyState, updateTerminalCardLabel } from './terminalCards';
 import { syncDiffPanelToActiveTerminal } from './diffPanel';
-import { refreshKanbanBoard, syncKanbanStatusDots } from './kanbanBoard';
+import { refreshKanbanBoard, syncKanbanStatusDots, showKanbanBoard } from './kanbanBoard';
 
 // Track whether effects are initialized
 let effectsInitialized = false;
@@ -45,8 +45,8 @@ export function initializeEffects(): void {
           hideStackEmptyState();
           updateCardStack();
         } else {
-          // No terminals - show empty state
-          showStackEmptyState();
+          // No terminals - go back to kanban board
+          showKanbanBoard();
         }
       }
     })

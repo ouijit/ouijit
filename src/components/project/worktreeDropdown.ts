@@ -6,6 +6,7 @@ import type { TaskWithWorkspace } from '../../types';
 import { projectPath, terminals, invalidateTaskList } from './signals';
 import { showToast } from '../importDialog';
 import { projectRegistry } from './helpers';
+import { setCardLoading } from './kanbanBoard';
 import { registerHotkey, unregisterHotkey, pushScope, popScope, Scopes } from '../../utils/hotkeys';
 
 /**
@@ -142,6 +143,7 @@ export function showMissingWorktreeDialog(task: TaskWithWorkspace, branchExists:
  */
 export async function closeTask(path: string, task: TaskWithWorkspace): Promise<void> {
   if (task.taskNumber == null) return;
+  setCardLoading(task.taskNumber, true);
   const result = await window.api.task.setStatus(path, task.taskNumber, 'done');
   if (result.success) {
     // Close any open terminals for this task
@@ -169,6 +171,7 @@ export async function closeTask(path: string, task: TaskWithWorkspace): Promise<
  */
 export async function reopenTask(path: string, task: TaskWithWorkspace): Promise<void> {
   if (task.taskNumber == null) return;
+  setCardLoading(task.taskNumber, true);
   console.info(`[task] reopening #${task.taskNumber} worktreePath=${task.worktreePath || '(none)'}`);
   const result = await window.api.task.setStatus(path, task.taskNumber, 'in_progress');
   if (result.success) {
@@ -199,6 +202,8 @@ export async function deleteTask(path: string, task: TaskWithWorkspace): Promise
   if (task.taskNumber == null) return;
   const confirmed = await showDeleteConfirmDialog(task.name);
   if (!confirmed) return;
+
+  setCardLoading(task.taskNumber, true);
 
   // Close any open terminals for this task first
   const currentTerminals = terminals.value;
