@@ -27,7 +27,7 @@ Do NOT run `npm run start` or other dev server commands.
   - `repos/` - Repository classes (taskRepo, hookRepo, projectRepo, settingsRepo)
   - `migrations/` - Versioned schema migrations
 - `src/services/dataImportService.ts` - One-shot JSON→SQLite migration on first launch
-- `src/scanner.ts` - Project directory discovery
+- `src/scanner.ts` - Project metadata enrichment (language, description, icon)
 - `src/ptyManager.ts` - PTY spawning, session management, output buffering
 - `src/hookServer.ts` - HTTP server for Claude Code hook status events
 - `src/hookRunner.ts` - Script hook execution with timeout/output capture

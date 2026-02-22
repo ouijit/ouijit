@@ -427,12 +427,7 @@ export async function setKillExistingOnRun(
   }
 }
 
-// ── Scanner functions (match scanner.ts signatures for added-projects) ─
-
-export async function getAddedProjects(): Promise<string[]> {
-  const { projectRepo: pr } = repos();
-  return pr.getAll().map(p => p.path);
-}
+// ── Project management functions ─────────────────────────────────────
 
 export async function addProject(folderPath: string): Promise<{ success: boolean; error?: string }> {
   try {
