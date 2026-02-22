@@ -45,6 +45,26 @@ export function setupTerminalAppHotkeys(terminal: Terminal): void {
     if (hasModifier && !event.altKey) {
       const key = event.key.toLowerCase();
 
+      // Linux: Ctrl+Shift+C/V for terminal copy/paste
+      // (on Mac, Cmd+C/V work natively without conflicting with Ctrl+C/SIGINT)
+      if (!isMac && event.shiftKey && event.type === 'keydown') {
+        if (key === 'c') {
+          const selection = terminal.getSelection();
+          if (selection) {
+            navigator.clipboard.writeText(selection);
+          }
+          return false;
+        }
+        if (key === 'v') {
+          navigator.clipboard.readText().then(text => {
+            if (text) {
+              terminal.paste(text);
+            }
+          });
+          return false;
+        }
+      }
+
       // Mod+Shift+Arrow for page navigation
       if (event.shiftKey && (key === 'arrowleft' || key === 'arrowright')) {
         return false; // Let it bubble up to app hotkey handler
