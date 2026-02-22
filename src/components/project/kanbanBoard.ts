@@ -288,6 +288,29 @@ async function ensureWorktreeExists(path: string, task: TaskWithWorkspace): Prom
 }
 
 /**
+ * Toggle loading state on a kanban card (dims card, disables interaction, shows spinner).
+ * No explicit cleanup needed — populateKanbanBoard() rebuilds all cards from scratch.
+ */
+export function setCardLoading(taskNumber: number, loading: boolean): void {
+  const card = document.querySelector(`.kanban-card[data-task-number="${taskNumber}"]`) as HTMLElement | null;
+  if (!card) return;
+
+  if (loading) {
+    card.classList.add('kanban-card--loading');
+    // Insert spinner in header (replacing the expand chevron visually via CSS)
+    const header = card.querySelector('.kanban-card-header');
+    if (header && !header.querySelector('.kanban-card-loading-spinner')) {
+      const spinner = document.createElement('div');
+      spinner.className = 'kanban-card-loading-spinner';
+      header.appendChild(spinner);
+    }
+  } else {
+    card.classList.remove('kanban-card--loading');
+    card.querySelector('.kanban-card-loading-spinner')?.remove();
+  }
+}
+
+/**
  * Build a kanban card DOM element for a task
  */
 function buildKanbanCard(task: TaskWithWorkspace, path: string, limaAvailable: boolean, editorConfigured: boolean): HTMLElement {
@@ -473,9 +496,11 @@ function buildKanbanCard(task: TaskWithWorkspace, path: string, limaAvailable: b
         return;
       }
       if (!task.worktreePath) {
+        setCardLoading(task.taskNumber, true);
         const startResult = await window.api.task.start(path, task.taskNumber);
         if (!startResult.success || !startResult.worktreePath) {
           console.error(`[kanban] task.start failed for #${task.taskNumber}:`, startResult.error);
+          setCardLoading(task.taskNumber, false);
           return;
         }
         await window.api.task.setStatus(path, task.taskNumber, 'in_progress');
@@ -533,8 +558,12 @@ function buildKanbanCard(task: TaskWithWorkspace, path: string, limaAvailable: b
           });
         }
       } else if (!task.worktreePath) {
+        setCardLoading(task.taskNumber, true);
         const startResult = await window.api.task.start(path, task.taskNumber);
-        if (!startResult.success || !startResult.worktreePath) return;
+        if (!startResult.success || !startResult.worktreePath) {
+          setCardLoading(task.taskNumber, false);
+          return;
+        }
         await window.api.task.setStatus(path, task.taskNumber, 'in_progress');
         invalidateTaskList();
         hideKanbanBoard();
@@ -575,10 +604,11 @@ function buildKanbanCard(task: TaskWithWorkspace, path: string, limaAvailable: b
     };
 
     const onCloseOrReopen = async () => {
+      setCardLoading(task.taskNumber, true);
       if (task.status === 'done') {
         if (task.worktreePath) {
           const wtPath = await ensureWorktreeExists(path, task);
-          if (!wtPath) return;
+          if (!wtPath) { setCardLoading(task.taskNumber, false); return; }
         }
         await reopenTask(path, task);
       } else {
@@ -588,6 +618,7 @@ function buildKanbanCard(task: TaskWithWorkspace, path: string, limaAvailable: b
     const closeOrReopenLabel = task.status === 'done' ? 'Reopen' : 'Move to Done';
 
     const onDelete = async () => {
+      setCardLoading(task.taskNumber, true);
       await deleteTask(path, task);
     };
 
@@ -660,6 +691,7 @@ async function handleSortableEnd(evt: Sortable.SortableEvent): Promise<void> {
     const task = tasks.find(t => t.taskNumber === taskNumber);
 
     if (task && task.status === 'todo') {
+      setCardLoading(taskNumber, true);
       let worktreePath = task.worktreePath;
       let branch = task.branch || '';
 
@@ -715,6 +747,7 @@ async function handleSortableEnd(evt: Sortable.SortableEvent): Promise<void> {
   }
 
   if (newStatus === 'done') {
+    setCardLoading(taskNumber, true);
     // Close any open terminals for this task
     const currentTerminals = terminals.value;
     for (let i = currentTerminals.length - 1; i >= 0; i--) {

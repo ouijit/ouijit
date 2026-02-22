@@ -1819,6 +1819,22 @@ body.kanban-open .project-stack {
   opacity: 0;
 }
 
+.kanban-card--loading {
+  pointer-events: none;
+  opacity: 0.45;
+  transition: opacity 0.15s ease-out;
+}
+
+.kanban-card--loading .kanban-card-expand {
+  display: none;
+}
+
+.kanban-card-loading-spinner {
+  @apply w-3.5 h-3.5 rounded-full bg-transparent border-[1.5px] border-white/20 border-t-white/60 shrink-0;
+  animation: loading-dot-spin 0.8s linear infinite;
+  margin-top: 2px;
+}
+
 .kanban-card-header {
   @apply flex items-start gap-2;
 }
