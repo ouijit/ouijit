@@ -1,4 +1,4 @@
-import { app, BrowserWindow, nativeTheme } from 'electron';
+import { app, BrowserWindow, nativeTheme, shell } from 'electron';
 import path from 'node:path';
 import started from 'electron-squirrel-startup';
 import fixPath from 'fix-path';
@@ -71,6 +71,22 @@ const createWindow = (): BrowserWindow => {
   if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
     window.webContents.openDevTools();
   }
+
+  // Prevent links from opening inside the Electron window.
+  // Intercept window.open() calls (e.g. target="_blank" links) and open in
+  // the system default browser instead of spawning an Electron popup.
+  window.webContents.setWindowOpenHandler(({ url }) => {
+    if (/^https?:\/\//i.test(url)) shell.openExternal(url);
+    return { action: 'deny' };
+  });
+
+  // Prevent the main window from navigating away to an external URL.
+  window.webContents.on('will-navigate', (event, url) => {
+    // Allow dev-server reloads but block everything else.
+    if (MAIN_WINDOW_VITE_DEV_SERVER_URL && url.startsWith(MAIN_WINDOW_VITE_DEV_SERVER_URL)) return;
+    event.preventDefault();
+    if (/^https?:\/\//i.test(url)) shell.openExternal(url);
+  });
 
   // Notify renderer of fullscreen state changes
   window.on('enter-full-screen', () => {
