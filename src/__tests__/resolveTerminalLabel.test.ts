@@ -14,6 +14,22 @@ vi.mock('@xterm/addon-fit', () => ({ FitAddon: class {} }));
 vi.mock('@xterm/addon-web-links', () => ({ WebLinksAddon: class {} }));
 vi.mock('hotkeys-js', () => ({ default: Object.assign(() => {}, { filter: true, setScope: () => {}, getScope: () => '', deleteScope: () => {}, unbind: () => {} }) }));
 vi.mock('lucide', () => ({ createIcons: () => {}, icons: {} }));
+vi.mock('electron-log/renderer', () => {
+  const logger = Object.assign(
+    (...args: unknown[]) => console.log(...args),
+    {
+      error: (...args: unknown[]) => console.error(...args),
+      warn: (...args: unknown[]) => console.warn(...args),
+      info: (...args: unknown[]) => console.info(...args),
+      verbose: (...args: unknown[]) => console.debug(...args),
+      debug: (...args: unknown[]) => console.debug(...args),
+      silly: (...args: unknown[]) => console.debug(...args),
+      log: (...args: unknown[]) => console.log(...args),
+      scope: () => logger,
+    },
+  );
+  return { default: logger };
+});
 vi.mock('../components/importDialog', () => ({ showToast: () => {} }));
 vi.mock('../components/hookConfigDialog', () => ({ showHookConfigDialog: () => {} }));
 

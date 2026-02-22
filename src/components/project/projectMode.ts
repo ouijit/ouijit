@@ -6,6 +6,7 @@ import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import { createIcons, icons } from 'lucide';
+import log from 'electron-log/renderer';
 import type { Project, ActiveSession } from '../../types';
 import {
   projectState,
@@ -69,6 +70,8 @@ import { registerHotkey, unregisterHotkey, pushScope, popScope, Scopes, platform
 import { showNewProjectDialog } from '../newProjectDialog';
 import { showToast } from '../importDialog';
 import { showHookConfigDialog } from '../hookConfigDialog';
+
+const projectLog = log.scope('project');
 
 /**
  * Enter project mode for the specified project
@@ -259,7 +262,7 @@ export async function enterProjectMode(
       const orphaned = orphanedSessions.get(path);
       if (orphaned && orphaned.length > 0) {
         // Reconnect to orphaned sessions
-        console.log('[Project] Found orphaned PTY sessions, reconnecting:', orphaned);
+        projectLog.info('found orphaned PTY sessions, reconnecting', { count: orphaned.length });
         orphanedSessions.delete(path); // Consume them
         window.api.pty.setWindow();
 
@@ -287,7 +290,7 @@ export async function enterProjectMode(
           if (parentTerminal) {
             await reconnectRunnerToParent(runnerSession, parentTerminal);
           } else {
-            console.warn('[Project] Could not find parent terminal for runner:', runnerSession.ptyId, 'parent:', runnerSession.parentPtyId);
+            projectLog.warn('could not find parent terminal for runner', { ptyId: runnerSession.ptyId, parentPtyId: runnerSession.parentPtyId });
           }
         }
 
@@ -550,7 +553,7 @@ export async function restoreProjectMode(
 ): Promise<void> {
   if (projectPath.value) return; // Already in project mode
 
-  console.log('[Project] Restoring project mode for', path, 'with', activeSessions.length, 'sessions');
+  projectLog.info('restoring project mode', { path, sessions: activeSessions.length });
 
   // Update window reference in main process
   window.api.pty.setWindow();
@@ -655,7 +658,7 @@ export async function restoreProjectMode(
       if (parentTerminal) {
         await reconnectRunnerToParent(runnerSession, parentTerminal);
       } else {
-        console.warn('[Project] Could not find parent terminal for runner:', runnerSession.ptyId, 'parent:', runnerSession.parentPtyId);
+        projectLog.warn('could not find parent terminal for runner', { ptyId: runnerSession.ptyId, parentPtyId: runnerSession.parentPtyId });
       }
     }
 
@@ -801,7 +804,7 @@ async function reconnectProjectTerminal(session: ActiveSession, worktreeBranch?:
   }
 
   if (!result.success) {
-    console.error('[Project] Failed to reconnect to PTY:', session.ptyId, result.error);
+    projectLog.error('failed to reconnect to PTY', { ptyId: session.ptyId, error: result.error });
     card.remove();
     terminal.dispose();
     return;
@@ -895,7 +898,7 @@ async function reconnectProjectTerminal(session: ActiveSession, worktreeBranch?:
 
   // Set up exit handler
   const cleanupExit = window.api.pty.onExit(session.ptyId, () => {
-    console.log('[Project] Terminal exited:', session.ptyId);
+    projectLog.info('terminal exited', { ptyId: session.ptyId });
     const idx = terminals.value.indexOf(projectTerminal);
     if (idx !== -1) {
       closeProjectTerminal(idx);
@@ -967,7 +970,7 @@ async function reconnectRunnerToParent(
   }
 
   if (!result.success) {
-    console.error('[Project] Failed to reconnect runner PTY:', session.ptyId, result.error);
+    projectLog.error('failed to reconnect runner PTY', { ptyId: session.ptyId, error: result.error });
     runnerTerminal.dispose();
     return;
   }
@@ -1024,7 +1027,7 @@ async function reconnectRunnerToParent(
   // Update runner pill to show running state
   updateRunnerPill(parentTerminal);
 
-  console.log('[Project] Reconnected runner to parent terminal:', session.ptyId, '->', parentTerminal.ptyId);
+  projectLog.info('reconnected runner to parent terminal', { runnerPtyId: session.ptyId, parentPtyId: parentTerminal.ptyId });
 }
 
 /**
@@ -1217,7 +1220,7 @@ export async function refreshSandboxButton(path: string): Promise<void> {
       btn.classList.toggle('project-sandbox-btn--active', status.vmStatus === 'Running');
     }
   } catch (error) {
-    console.warn('[Lima] refreshSandboxButton failed:', error instanceof Error ? error.message : error);
+    projectLog.warn('refreshSandboxButton failed', { error: error instanceof Error ? error.message : String(error) });
   }
 }
 
@@ -1356,7 +1359,7 @@ async function buildSandboxDropdownContent(
       const val = Number((e.target as HTMLSelectElement).value);
       config.memoryGiB = val;
       window.api.lima.setConfig(path, { memoryGiB: val }).catch((err: unknown) => {
-        console.warn('[Lima] Failed to save memory config:', err instanceof Error ? err.message : err);
+        projectLog.warn('failed to save memory config', { error: err instanceof Error ? err.message : String(err) });
       });
     });
     memRow.appendChild(memSelect);
@@ -1376,7 +1379,7 @@ async function buildSandboxDropdownContent(
       const val = Number((e.target as HTMLSelectElement).value);
       config.diskGiB = val;
       window.api.lima.setConfig(path, { diskGiB: val }).catch((err: unknown) => {
-        console.warn('[Lima] Failed to save disk config:', err instanceof Error ? err.message : err);
+        projectLog.warn('failed to save disk config', { error: err instanceof Error ? err.message : String(err) });
       });
     });
     diskRow.appendChild(diskSelect);

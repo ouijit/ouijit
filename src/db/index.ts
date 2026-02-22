@@ -14,6 +14,9 @@ import { TaskRepo, type TaskStatus, type TaskRow } from './repos/taskRepo';
 import { SettingsRepo } from './repos/settingsRepo';
 import { HookRepo, type HookType } from './repos/hookRepo';
 import type { ProjectSettings, ScriptHook } from '../types';
+import log from '../log';
+
+const dbLog = log.scope('db');
 
 // ── Re-exports ───────────────────────────────────────────────────────
 export type { TaskStatus } from './repos/taskRepo';
@@ -364,7 +367,7 @@ export async function saveHook(
     hr.save(projectPath, hook.type as HookType, hook.name, hook.command, hook.id, hook.description);
     return { success: true };
   } catch (error) {
-    console.error('Failed to save hook:', error);
+    dbLog.error('failed to save hook', { error: error instanceof Error ? error.message : String(error) });
     return { success: false };
   }
 }
@@ -378,7 +381,7 @@ export async function deleteHook(
     hr.deleteByType(projectPath, hookType);
     return { success: true };
   } catch (error) {
-    console.error('Failed to delete hook:', error);
+    dbLog.error('failed to delete hook', { error: error instanceof Error ? error.message : String(error) });
     return { success: false };
   }
 }
@@ -407,7 +410,7 @@ export async function setSandboxConfig(
     });
     return { success: true };
   } catch (error) {
-    console.error('Failed to set sandbox config:', error);
+    dbLog.error('failed to set sandbox config', { error: error instanceof Error ? error.message : String(error) });
     return { success: false };
   }
 }
@@ -422,7 +425,7 @@ export async function setKillExistingOnRun(
     sr.update(projectPath, { kill_existing_on_run: kill ? 1 : 0 });
     return { success: true };
   } catch (error) {
-    console.error('Failed to set killExistingOnRun:', error);
+    dbLog.error('failed to set killExistingOnRun', { error: error instanceof Error ? error.message : String(error) });
     return { success: false };
   }
 }

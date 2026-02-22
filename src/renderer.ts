@@ -6,6 +6,7 @@
 
 import './index.css';
 import '@xterm/xterm/css/xterm.css';
+import log from 'electron-log/renderer';
 import { initIcons } from './utils/icons';
 import type { Project, ActiveSession } from './types';
 import { renderProjects } from './components/projectGrid';
@@ -14,6 +15,8 @@ import { showToast } from './components/importDialog';
 import { showNewProjectDialog } from './components/newProjectDialog';
 import { initHotkeys } from './utils/hotkeys';
 import { restoreProjectMode, orphanedSessions } from './components/project';
+
+const rendererLog = log.scope('renderer');
 
 
 /**
@@ -58,7 +61,7 @@ async function refreshProjects(): Promise<void> {
       setupSearch(searchInput, projects, projectGrid);
     }
   } catch (error) {
-    console.error('Failed to refresh projects:', error);
+    rendererLog.error('failed to refresh projects', { error: error instanceof Error ? error.message : String(error) });
   }
 }
 
@@ -73,7 +76,7 @@ async function initialize(): Promise<void> {
   const searchInput = document.getElementById('search-input') as HTMLInputElement | null;
 
   if (!projectGrid) {
-    console.error('Project grid container not found');
+    rendererLog.error('project grid container not found');
     return;
   }
 
@@ -81,7 +84,7 @@ async function initialize(): Promise<void> {
   try {
     const activeSessions = await window.api.pty.getActiveSessions();
     if (activeSessions.length > 0) {
-      console.log('[Renderer] Found active PTY sessions:', activeSessions);
+      rendererLog.info('found active PTY sessions', { count: activeSessions.length });
 
       // Group sessions by project path and store in orphanedSessions map
       // This allows enterProjectMode to restore them when opening any project
@@ -95,7 +98,7 @@ async function initialize(): Promise<void> {
       // Populate orphanedSessions for ALL projects
       for (const [path, sessions] of sessionsByProject) {
         orphanedSessions.set(path, sessions);
-        console.log(`[Renderer] Stored ${sessions.length} orphaned sessions for project:`, path);
+        rendererLog.info('stored orphaned sessions for project', { path, count: sessions.length });
       }
 
       // Pick the project with the most sessions to restore immediately
@@ -122,7 +125,7 @@ async function initialize(): Promise<void> {
       }
     }
   } catch (error) {
-    console.error('Failed to check/restore sessions:', error);
+    rendererLog.error('failed to check/restore sessions', { error: error instanceof Error ? error.message : String(error) });
     // Continue to normal initialization
   }
 
@@ -141,7 +144,7 @@ async function initialize(): Promise<void> {
       setupSearch(searchInput, projects, projectGrid);
     }
   } catch (error) {
-    console.error('Failed to load projects:', error);
+    rendererLog.error('failed to load projects', { error: error instanceof Error ? error.message : String(error) });
     const message = error instanceof Error ? error.message : 'Unknown error occurred';
     showError(projectGrid, message);
   }

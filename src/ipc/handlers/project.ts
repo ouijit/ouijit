@@ -4,6 +4,9 @@ import { scanForProjects } from '../../scanner';
 import { getAddedProjects, addProject, removeProject, getProjectSettings, setKillExistingOnRun } from '../../db';
 import { createProject } from '../../projectCreator';
 import { openInEditor } from '../../editorLauncher';
+import log from '../../log';
+
+const ipcLog = log.scope('ipc');
 
 export function registerProjectHandlers(mainWindow: BrowserWindow): void {
   typedHandle('get-projects', () => scanForProjects());
@@ -42,7 +45,7 @@ export function registerProjectHandlers(mainWindow: BrowserWindow): void {
       });
       return { canceled: result.canceled, filePaths: result.filePaths };
     } catch (error) {
-      console.error('Error showing folder picker:', error);
+      ipcLog.error('folder picker failed', { error: error instanceof Error ? error.message : String(error) });
       return { canceled: true, filePaths: [] };
     }
   });

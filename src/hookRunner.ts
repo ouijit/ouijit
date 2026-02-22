@@ -5,6 +5,9 @@
 
 import { spawn } from 'node:child_process';
 import type { ScriptHook } from './types';
+import log from './log';
+
+const hookLog = log.scope('hookRunner');
 
 export interface HookResult {
   success: boolean;
@@ -38,6 +41,9 @@ export async function executeHook(
   env?: Partial<HookEnvironment>,
   timeout: number = DEFAULT_TIMEOUT
 ): Promise<HookResult> {
+  const startTime = Date.now();
+  hookLog.info('executing hook', { type: hook.type, command: hook.command, cwd });
+
   return new Promise((resolve) => {
     const outputChunks: string[] = [];
     let resolved = false;
@@ -88,6 +94,7 @@ export async function executeHook(
         }
       }, SIGKILL_GRACE);
 
+      hookLog.warn('hook timed out', { type: hook.type, command: hook.command, elapsed: Date.now() - startTime });
       resolve({
         success: false,
         error: `Hook timed out after ${timeout / 1000} seconds`,
@@ -110,6 +117,7 @@ export async function executeHook(
       if (resolved) return;
       resolved = true;
       clearTimeout(timeoutId);
+      hookLog.info('hook completed', { type: hook.type, command: hook.command, exitCode, elapsed: Date.now() - startTime });
       resolve({
         success: exitCode === 0,
         exitCode: exitCode ?? undefined,
@@ -122,6 +130,7 @@ export async function executeHook(
       if (resolved) return;
       resolved = true;
       clearTimeout(timeoutId);
+      hookLog.error('hook spawn error', { type: hook.type, command: hook.command, error: err.message });
       resolve({
         success: false,
         error: err.message,

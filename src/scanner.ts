@@ -4,6 +4,9 @@ import * as os from 'node:os';
 import { nativeImage } from 'electron';
 import type { Project } from './types';
 import { getAddedProjects } from './db';
+import log from './log';
+
+const scannerLog = log.scope('scanner');
 
 export type { Project };
 
@@ -174,7 +177,7 @@ async function getIconDataUrl(dirPath: string): Promise<string | undefined> {
           return resized.toDataURL();
         }
       } catch (error) {
-        console.warn(`Failed to load icon: ${iconPath}`, error);
+        scannerLog.warn('failed to load icon', { path: iconPath, error: error instanceof Error ? error.message : String(error) });
       }
     }
   }
@@ -249,7 +252,7 @@ async function scanDirectory(dirPath: string, depth: number = 0): Promise<Projec
     }
   } catch (error) {
     // Skip inaccessible directories
-    console.warn(`Unable to scan directory: ${dirPath}`, error);
+    scannerLog.warn('unable to scan directory', { path: dirPath, error: error instanceof Error ? error.message : String(error) });
   }
 
   return projects;
