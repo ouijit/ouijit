@@ -24,7 +24,6 @@ import {
   diffPanelFiles,
   diffPanelSelectedFile,
   sandboxDropdownVisible,
-  kanbanVisible,
   resetSignals,
 } from './signals';
 import { initializeEffects } from './effects';
@@ -132,7 +131,6 @@ export async function enterProjectMode(
     if (terminalBtn) {
       terminalBtn.addEventListener('click', async (e) => {
         e.stopPropagation();
-        if (kanbanVisible.value) hideKanbanBoard();
         await addProjectTerminal();
       });
     }
@@ -605,7 +603,6 @@ export async function restoreProjectMode(
     if (terminalBtn) {
       terminalBtn.addEventListener('click', async (e) => {
         e.stopPropagation();
-        if (kanbanVisible.value) hideKanbanBoard();
         await addProjectTerminal();
       });
     }

@@ -491,7 +491,6 @@ function buildKanbanCard(task: TaskWithWorkspace, path: string, limaAvailable: b
           const wtPath = await ensureWorktreeExists(path, task);
           if (!wtPath) return;
         }
-        hideKanbanBoard();
         await reopenTask(path, task);
         return;
       }
@@ -505,7 +504,6 @@ function buildKanbanCard(task: TaskWithWorkspace, path: string, limaAvailable: b
         }
         await window.api.task.setStatus(path, task.taskNumber, 'in_progress');
         invalidateTaskList();
-        hideKanbanBoard();
         await projectRegistry.addProjectTerminal?.(undefined, {
           existingWorktree: {
             path: startResult.worktreePath,
@@ -521,7 +519,6 @@ function buildKanbanCard(task: TaskWithWorkspace, path: string, limaAvailable: b
       }
       const worktreePath = await ensureWorktreeExists(path, task);
       if (!worktreePath) return;
-      hideKanbanBoard();
       await projectRegistry.addProjectTerminal?.(undefined, {
         existingWorktree: {
           path: worktreePath,
@@ -550,7 +547,6 @@ function buildKanbanCard(task: TaskWithWorkspace, path: string, limaAvailable: b
         const result = await window.api.task.setStatus(path, task.taskNumber, 'in_progress');
         if (result.success) {
           invalidateTaskList();
-          hideKanbanBoard();
           await projectRegistry.addProjectTerminal?.(undefined, {
             existingWorktree: worktreeOpts,
             taskId: task.taskNumber,
@@ -566,7 +562,6 @@ function buildKanbanCard(task: TaskWithWorkspace, path: string, limaAvailable: b
         }
         await window.api.task.setStatus(path, task.taskNumber, 'in_progress');
         invalidateTaskList();
-        hideKanbanBoard();
         await projectRegistry.addProjectTerminal?.(undefined, {
           existingWorktree: {
             path: startResult.worktreePath,
@@ -581,7 +576,6 @@ function buildKanbanCard(task: TaskWithWorkspace, path: string, limaAvailable: b
       } else {
         const worktreePath = await ensureWorktreeExists(path, task);
         if (!worktreePath) return;
-        hideKanbanBoard();
         await projectRegistry.addProjectTerminal?.(undefined, {
           existingWorktree: {
             path: worktreePath,
@@ -1213,7 +1207,6 @@ export async function showKanbanBoard(): Promise<void> {
   });
 
   registerHotkey(platformHotkey('mod+i'), Scopes.KANBAN, () => {
-    hideKanbanBoard();
     projectRegistry.addProjectTerminal?.();
   });
 
