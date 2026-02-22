@@ -21,9 +21,9 @@ vi.mock('electron', () => ({
   },
 }));
 
-// Mock electron-log/main — stubs Electron-specific transports but passes
+// Mock electron-log — stubs Electron-specific transports (file, IPC) but passes
 // log calls through to console so test output remains visible for debugging.
-vi.mock('electron-log/main', () => {
+function electronLogFactory() {
   const logger = Object.assign(
     (...args: unknown[]) => console.log(...args),
     {
@@ -41,4 +41,6 @@ vi.mock('electron-log/main', () => {
     },
   );
   return { default: logger };
-});
+}
+vi.mock('electron-log/main', electronLogFactory);
+vi.mock('electron-log/renderer', electronLogFactory);
