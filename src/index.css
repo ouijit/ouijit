@@ -1774,7 +1774,7 @@ body.kanban-open .project-stack {
 }
 
 .kanban-add-input {
-  @apply w-full font-mono text-xs font-medium text-text-primary bg-transparent px-3 py-3.5 outline-none transition-all duration-150 ease-out;
+  @apply w-full font-mono text-sm font-medium text-text-primary bg-transparent px-3 py-3.5 outline-none transition-all duration-150 ease-out;
   border: none;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
