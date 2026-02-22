@@ -45,8 +45,16 @@ export function registerPtyHandlers(mainWindow: BrowserWindow): void {
     }
   });
 
-  typedHandle('pty:get-active-sessions', () => getActiveSessions());
-  typedHandle('pty:reconnect', (ptyId) => reconnectPty(ptyId, mainWindow));
+  typedHandle('pty:get-active-sessions', () => [
+    ...getActiveSessions(),
+    ...limaPlugin.getActiveSandboxSessions(),
+  ]);
+  typedHandle('pty:reconnect', (ptyId) => {
+    if (limaPlugin.isSandboxPty(ptyId)) {
+      return limaPlugin.reconnectSandboxPty(ptyId, mainWindow);
+    }
+    return reconnectPty(ptyId, mainWindow);
+  });
 
   typedOn('pty:set-window', () => {
     setWindow(mainWindow);

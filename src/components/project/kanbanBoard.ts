@@ -957,6 +957,9 @@ async function showStartCommandDialog(path: string, taskName: string): Promise<{
  * Creates, updates, or removes dots as needed.
  */
 export function syncKanbanStatusDots(): void {
+  // Remove any stray tooltips from previous dots
+  document.querySelectorAll('.kanban-dot-tooltip').forEach(t => t.remove());
+
   const cards = document.querySelectorAll('.kanban-card[data-task-number]');
   const terminalList = terminals.value;
   cards.forEach(card => {
@@ -966,22 +969,71 @@ export function syncKanbanStatusDots(): void {
     const header = card.querySelector('.kanban-card-header');
     if (!header) return;
 
-    const matchingTerminals = terminalList.filter(t => t.taskId === taskNumber);
-    let stack = header.querySelector('.kanban-card-status-dots') as HTMLElement | null;
+    const matchingTerminals = terminalList
+      .map((t, i) => ({ terminal: t, index: i }))
+      .filter(({ terminal: t }) => t.taskId === taskNumber);
+    let stack = card.querySelector('.kanban-card-status-dots') as HTMLElement | null;
 
     if (matchingTerminals.length > 0) {
       if (!stack) {
-        stack = document.createElement('span');
+        stack = document.createElement('div');
         stack.className = 'kanban-card-status-dots';
-        header.insertBefore(stack, header.firstChild);
+        // Insert after header, before any detail section
+        header.after(stack);
       }
       // Rebuild dots to match current terminal list
       stack.innerHTML = '';
-      for (const term of matchingTerminals) {
+      for (const { terminal: term, index: termIndex } of matchingTerminals) {
         const dot = document.createElement('span');
         dot.className = 'kanban-card-status-dot';
         dot.setAttribute('data-status', term.summaryType);
         dot.classList.toggle('kanban-card-status-dot--sandboxed', term.sandboxed);
+
+        // Build tooltip matching context menu info
+        let label: string;
+        if (term.command) {
+          label = term.command.length > 40 ? term.command.slice(0, 40) + '…' : term.command;
+        } else if (term.lastOscTitle) {
+          const cleaned = term.lastOscTitle.replace(/\p{Extended_Pictographic}/gu, '').trim();
+          label = cleaned ? (cleaned.length > 40 ? cleaned.slice(0, 40) + '…' : cleaned) : 'Shell';
+        } else {
+          label = 'Shell';
+        }
+        if (term.sandboxed) label += ' (sandbox)';
+        if (term.summary) label += ' — ' + term.summary;
+
+        const removeTip = () => {
+          const tip = (dot as any)._kanbanTip as HTMLElement | undefined;
+          if (tip) {
+            tip.remove();
+            (dot as any)._kanbanTip = undefined;
+          }
+        };
+
+        dot.addEventListener('mouseenter', () => {
+          removeTip();
+          const rect = dot.getBoundingClientRect();
+          const tip = document.createElement('div');
+          tip.className = 'kanban-dot-tooltip';
+          tip.textContent = label;
+          document.body.appendChild(tip);
+          // Position centered below the dot
+          const tipRect = tip.getBoundingClientRect();
+          tip.style.left = `${rect.left + rect.width / 2 - tipRect.width / 2}px`;
+          tip.style.top = `${rect.bottom + 8}px`;
+          requestAnimationFrame(() => tip.classList.add('kanban-dot-tooltip--visible'));
+          (dot as any)._kanbanTip = tip;
+        });
+        dot.addEventListener('mouseleave', removeTip);
+
+        dot.addEventListener('click', (e) => {
+          e.stopPropagation();
+          removeTip();
+          hideKanbanBoard();
+          if (termIndex !== activeIndex.value) {
+            switchToProjectTerminal(termIndex);
+          }
+        });
         stack.appendChild(dot);
       }
     } else if (stack) {
