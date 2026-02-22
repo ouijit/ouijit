@@ -4,6 +4,9 @@ import { BrowserWindow } from 'electron';
 import type { PtyId, PtySpawnOptions, PtySpawnResult } from './types';
 import { generateId } from './utils/ids';
 import { getApiPort, getWrapperBinDir, getShellIntegrationDir } from './hookServer';
+import log from './log';
+
+const ptyLog = log.scope('pty');
 
 interface ManagedPty {
   process: pty.IPty;
@@ -207,12 +210,14 @@ export async function spawnPty(
     };
 
     activePtys.set(ptyId, managed);
+    ptyLog.info('spawned', { ptyId, shell, cwd: options.cwd, pid: ptyProcess.pid, label });
 
     ptyProcess.onData((data: string) => {
       handlePtyOutput(ptyId, `pty:data:${ptyId}`, data);
     });
 
     ptyProcess.onExit(({ exitCode }) => {
+      ptyLog.info('exited', { ptyId, exitCode });
       if (canSendToRenderer()) {
         currentWindow!.webContents.send(`pty:exit:${ptyId}`, exitCode);
       }
@@ -286,6 +291,7 @@ export function killPty(ptyId: PtyId): void {
   if (!managed) return;
 
   const pid = managed.process.pid;
+  ptyLog.info('killing', { ptyId, pid });
 
   // Kill the entire process group (negative PID) to ensure child processes
   // (dev servers, watchers, etc.) are terminated — not just the shell.

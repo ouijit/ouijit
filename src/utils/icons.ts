@@ -47,6 +47,9 @@ import {
   Upload,
   X,
 } from 'lucide';
+import log from 'electron-log/renderer';
+
+const iconsLog = log.scope('icons');
 
 // Re-export createElement for programmatic icon creation
 export { createElement };
@@ -140,7 +143,7 @@ function convertIcon(element: Element): void {
 
   const iconDef = iconMap[iconName];
   if (!iconDef) {
-    console.warn(`Unknown icon: ${iconName}`);
+    iconsLog.warn('unknown icon', { name: iconName });
     return;
   }
 

@@ -11,6 +11,9 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
 import { BrowserWindow } from 'electron';
+import log from './log';
+
+const hookServerLog = log.scope('hookServer');
 
 let server: http.Server | null = null;
 let apiPort = 0;
@@ -32,7 +35,7 @@ const actionHandlers: Record<string, ActionHandler> = {
     const { ptyId, status } = body;
     if (typeof ptyId !== 'string' || typeof status !== 'string') return;
     if (!VALID_STATUSES.has(status)) return;
-    console.log(`[hook] ${ptyId} → ${status}`);
+    hookServerLog.info('status update', { ptyId, status });
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('claude-hook-status', ptyId, status);
     }
@@ -282,7 +285,7 @@ export function installWrapper(): void {
     fs.writeFileSync(path.join(integrationDir, 'ouijit-zsh-integration.zsh'), ZSH_INTEGRATION, { mode: 0o644 });
     fs.writeFileSync(path.join(integrationDir, 'ouijit-bash-integration.bash'), BASH_INTEGRATION, { mode: 0o644 });
   } catch (err) {
-    console.warn('[HookServer] Failed to install wrapper:', err instanceof Error ? err.message : err);
+    hookServerLog.warn('failed to install wrapper', { error: err instanceof Error ? err.message : String(err) });
   }
 }
 
@@ -326,7 +329,7 @@ export function migrateFromSettingsHooks(): void {
           const tmpPath = settingsPath + '.tmp';
           fs.writeFileSync(tmpPath, JSON.stringify(settings, null, 2) + '\n', 'utf-8');
           fs.renameSync(tmpPath, settingsPath);
-          console.log('[HookServer] Migrated: removed old ouijit hooks from ~/.claude/settings.json');
+          hookServerLog.info('migrated: removed old ouijit hooks from ~/.claude/settings.json');
         }
       }
     } catch {
@@ -340,7 +343,7 @@ export function migrateFromSettingsHooks(): void {
     fs.mkdirSync(configDir, { recursive: true });
     fs.writeFileSync(sentinelPath, '', 'utf-8');
   } catch (err) {
-    console.warn('[HookServer] Migration failed:', err instanceof Error ? err.message : err);
+    hookServerLog.warn('migration failed', { error: err instanceof Error ? err.message : String(err) });
   }
 }
 

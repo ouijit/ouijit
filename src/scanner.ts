@@ -4,6 +4,9 @@ import { nativeImage } from 'electron';
 import type { Project } from './types';
 import { getDatabase } from './db/database';
 import { ProjectRepo } from './db/repos/projectRepo';
+import log from './log';
+
+const scannerLog = log.scope('scanner');
 
 export type { Project };
 
@@ -139,7 +142,7 @@ async function getIconDataUrl(dirPath: string): Promise<string | undefined> {
           return resized.toDataURL();
         }
       } catch (error) {
-        console.warn(`Failed to load icon: ${iconPath}`, error);
+        scannerLog.warn('failed to load icon', { path: iconPath, error: error instanceof Error ? error.message : String(error) });
       }
     }
   }

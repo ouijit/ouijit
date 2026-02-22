@@ -14,6 +14,9 @@ import { escapeHtml } from '../../utils/html';
 import { registerHotkey, unregisterHotkey, pushScope, popScope, Scopes, platformHotkey } from '../../utils/hotkeys';
 import { createIcons, icons } from 'lucide';
 import Sortable from 'sortablejs';
+import log from 'electron-log/renderer';
+
+const kanbanLog = log.scope('kanban');
 
 /**
  * Sync the view toggle buttons' active state with kanban visibility
@@ -226,21 +229,21 @@ async function ensureWorktreeExists(path: string, task: TaskWithWorkspace): Prom
   const check = await window.api.task.checkWorktree(path, task.taskNumber);
   if (check.exists) return task.worktreePath;
 
-  console.warn(`[kanban] worktree missing for #${task.taskNumber} (branchExists=${check.branchExists})`);
+  kanbanLog.warn('worktree missing', { taskNumber: task.taskNumber, branchExists: check.branchExists });
   const action = await showMissingWorktreeDialog(task, check.branchExists);
   if (action !== 'recover') {
-    console.info(`[kanban] user cancelled worktree recovery for #${task.taskNumber}`);
+    kanbanLog.info('user cancelled worktree recovery', { taskNumber: task.taskNumber });
     return null;
   }
 
   const result = await window.api.task.recover(path, task.taskNumber);
   if (!result.success || !result.worktreePath) {
-    console.error(`[kanban] worktree recovery failed for #${task.taskNumber}:`, result.error);
+    kanbanLog.error('worktree recovery failed', { taskNumber: task.taskNumber, error: result.error });
     showToast(result.error || 'Failed to recover worktree', 'error');
     return null;
   }
 
-  console.info(`[kanban] worktree recovered for #${task.taskNumber} → ${result.worktreePath}`);
+  kanbanLog.info('worktree recovered', { taskNumber: task.taskNumber, worktreePath: result.worktreePath });
   // Update the local task object with new data
   task.worktreePath = result.worktreePath;
   if (result.task?.branch) task.branch = result.task.branch;
@@ -275,7 +278,7 @@ export function setCardLoading(taskNumber: number, loading: boolean): void {
  */
 function buildKanbanCard(task: TaskWithWorkspace, path: string, limaAvailable: boolean, editorConfigured: boolean): HTMLElement {
   if (task.taskNumber == null) {
-    console.error('[kanban] task with missing taskNumber:', JSON.stringify(task));
+    kanbanLog.error('task with missing taskNumber', { task });
   }
   const card = document.createElement('div');
   card.className = 'kanban-card' + (task.status === 'done' ? ' kanban-card--done' : '');
@@ -445,7 +448,7 @@ function buildKanbanCard(task: TaskWithWorkspace, path: string, limaAvailable: b
       .filter(({ terminal: t }) => t.taskId === task.taskNumber);
 
     const onOpenTerminal = async () => {
-      console.info(`[kanban] openTerminal #${task.taskNumber} status=${task.status} hasWorktree=${!!task.worktreePath}`);
+      kanbanLog.info('openTerminal', { taskNumber: task.taskNumber, status: task.status, hasWorktree: !!task.worktreePath });
       if (task.status === 'done') {
         if (task.worktreePath) {
           const wtPath = await ensureWorktreeExists(path, task);
@@ -458,7 +461,7 @@ function buildKanbanCard(task: TaskWithWorkspace, path: string, limaAvailable: b
       if (!task.worktreePath) {
         const startResult = await window.api.task.start(path, task.taskNumber);
         if (!startResult.success || !startResult.worktreePath) {
-          console.error(`[kanban] task.start failed for #${task.taskNumber}:`, startResult.error);
+          kanbanLog.error('task.start failed', { taskNumber: task.taskNumber, error: startResult.error });
           return;
         }
         await window.api.task.setStatus(path, task.taskNumber, 'in_progress');
@@ -617,25 +620,25 @@ async function handleSortableEnd(evt: Sortable.SortableEvent): Promise<void> {
   const item = evt.item as HTMLElement;
   const taskNumber = parseInt(item.dataset.taskNumber || '', 10);
   if (isNaN(taskNumber)) {
-    console.error('[kanban] drag: no task number on dragged element', item.tagName, item.className, item.outerHTML.slice(0, 200));
+    kanbanLog.error('drag: no task number on dragged element', { tagName: item.tagName, className: item.className });
     return;
   }
 
   const toColumn = (evt.to as HTMLElement).closest('.kanban-column') as HTMLElement | null;
   const newStatus = toColumn?.dataset.status as TaskStatus | undefined;
   if (!newStatus) {
-    console.error(`[kanban] drag #${taskNumber}: could not determine target column`);
+    kanbanLog.error('drag: could not determine target column', { taskNumber });
     return;
   }
 
   const path = projectPath.value;
   if (!path) {
-    console.error(`[kanban] drag #${taskNumber}: no project path`);
+    kanbanLog.error('drag: no project path', { taskNumber });
     return;
   }
 
   const targetIndex = evt.newIndex ?? 0;
-  console.info(`[kanban] drag #${taskNumber} → ${newStatus} at index ${targetIndex}`);
+  kanbanLog.info('drag', { taskNumber, newStatus, targetIndex });
 
   // Dropping a task into in_progress — create worktree if needed + show start command dialog
   if (newStatus === 'in_progress') {
@@ -718,7 +721,7 @@ async function handleSortableEnd(evt: Sortable.SortableEvent): Promise<void> {
     invalidateTaskList();
     await populateKanbanBoard();
   } else {
-    console.error(`[kanban] reorder failed for #${taskNumber} → ${newStatus}:`, result.error);
+    kanbanLog.error('reorder failed', { taskNumber, newStatus, error: result.error });
   }
 }
 
