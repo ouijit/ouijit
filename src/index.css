@@ -1846,12 +1846,12 @@ body.kanban-open .project-stack {
 }
 
 .kanban-card-status-dots {
-  @apply flex flex-row gap-3.5 shrink-0;
-  padding: 6px 0 0;
+  @apply flex flex-row gap-2 shrink-0;
+  padding: 4px 0 0;
 }
 
 .kanban-card-status-dot {
-  @apply w-2.5 h-2.5 rounded-full shrink-0 bg-[#69db7c];
+  @apply w-2 h-2 rounded-full shrink-0 bg-[#69db7c];
 }
 
 .kanban-dot-tooltip {

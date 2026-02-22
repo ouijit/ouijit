@@ -24,6 +24,7 @@ import {
   diffPanelFiles,
   diffPanelSelectedFile,
   sandboxDropdownVisible,
+  kanbanVisible,
   resetSignals,
 } from './signals';
 import { initializeEffects } from './effects';
@@ -131,6 +132,7 @@ export async function enterProjectMode(
     if (terminalBtn) {
       terminalBtn.addEventListener('click', async (e) => {
         e.stopPropagation();
+        if (kanbanVisible.value) hideKanbanBoard();
         await addProjectTerminal();
       });
     }
@@ -327,10 +329,8 @@ export async function enterProjectMode(
   registerHotkey(platformHotkey('mod+shift+left'), Scopes.PROJECT, () => navigateStackPage(-1));
   registerHotkey(platformHotkey('mod+shift+right'), Scopes.PROJECT, () => navigateStackPage(1));
 
-  // 5. Show kanban board only if no active terminals (otherwise keep terminal stack as default view)
-  if (terminals.value.length === 0) {
-    await showKanbanBoard();
-  }
+  // 5. Show kanban board by default (after PROJECT scope so KANBAN scope stacks on top)
+  await showKanbanBoard();
 
   // 6. Start periodic git status refresh (for long-running commands)
   if (project.hasGit) {
@@ -603,6 +603,7 @@ export async function restoreProjectMode(
     if (terminalBtn) {
       terminalBtn.addEventListener('click', async (e) => {
         e.stopPropagation();
+        if (kanbanVisible.value) hideKanbanBoard();
         await addProjectTerminal();
       });
     }
@@ -690,10 +691,8 @@ export async function restoreProjectMode(
   registerHotkey(platformHotkey('mod+shift+left'), Scopes.PROJECT, () => navigateStackPage(-1));
   registerHotkey(platformHotkey('mod+shift+right'), Scopes.PROJECT, () => navigateStackPage(1));
 
-  // 5. Show kanban board only if no active terminals (otherwise keep terminal stack as default view)
-  if (terminals.value.length === 0) {
-    await showKanbanBoard();
-  }
+  // 5. Show kanban board by default (after PROJECT scope so KANBAN scope stacks on top)
+  await showKanbanBoard();
 
   // 6. Refresh git status immediately and start periodic refresh
   if (project.hasGit) {
@@ -1040,10 +1039,6 @@ function wireViewToggle(headerContent: Element): void {
       if (view === 'board') {
         showKanbanBoard();
       } else {
-        if (terminals.value.length === 0) {
-          showToast('No open terminals', 'info');
-          return;
-        }
         hideKanbanBoard();
       }
     });

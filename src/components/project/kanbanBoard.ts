@@ -20,49 +20,10 @@ import Sortable from 'sortablejs';
  */
 export function syncViewToggle(): void {
   const btns = document.querySelectorAll('.project-view-toggle-btn');
-  const hasTerminals = terminals.value.length > 0;
   btns.forEach(btn => {
     const view = (btn as HTMLElement).dataset.view;
     const isBoard = view === 'board';
     btn.classList.toggle('project-view-toggle-btn--active', isBoard === kanbanVisible.value);
-    // Disable stack button when there are no terminals
-    if (view === 'stack') {
-      const isDisabled = !hasTerminals;
-      (btn as HTMLButtonElement).disabled = isDisabled;
-      btn.classList.toggle('project-view-toggle-btn--disabled', isDisabled);
-
-      // Manage tooltip for disabled state
-      const el = btn as HTMLElement;
-      if (isDisabled && !(el as any)._stackTipListeners) {
-        const onEnter = () => {
-          const rect = el.getBoundingClientRect();
-          const tip = document.createElement('div');
-          tip.className = 'kanban-dot-tooltip';
-          tip.textContent = 'No open terminals';
-          document.body.appendChild(tip);
-          const tipRect = tip.getBoundingClientRect();
-          tip.style.left = `${rect.left + rect.width / 2 - tipRect.width / 2}px`;
-          tip.style.top = `${rect.bottom + 8}px`;
-          requestAnimationFrame(() => tip.classList.add('kanban-dot-tooltip--visible'));
-          (el as any)._stackTip = tip;
-        };
-        const onLeave = () => {
-          const tip = (el as any)._stackTip as HTMLElement | undefined;
-          if (tip) { tip.remove(); (el as any)._stackTip = undefined; }
-        };
-        el.addEventListener('mouseenter', onEnter);
-        el.addEventListener('mouseleave', onLeave);
-        (el as any)._stackTipListeners = { onEnter, onLeave };
-      } else if (!isDisabled && (el as any)._stackTipListeners) {
-        const { onEnter, onLeave } = (el as any)._stackTipListeners;
-        el.removeEventListener('mouseenter', onEnter);
-        el.removeEventListener('mouseleave', onLeave);
-        (el as any)._stackTipListeners = undefined;
-        // Remove any lingering tooltip
-        const tip = (el as any)._stackTip as HTMLElement | undefined;
-        if (tip) { tip.remove(); (el as any)._stackTip = undefined; }
-      }
-    }
   });
 }
 
@@ -297,7 +258,6 @@ export function setCardLoading(taskNumber: number, loading: boolean): void {
 
   if (loading) {
     card.classList.add('kanban-card--loading');
-    // Insert spinner in header (replacing the expand chevron visually via CSS)
     const header = card.querySelector('.kanban-card-header');
     if (header && !header.querySelector('.kanban-card-loading-spinner')) {
       const spinner = document.createElement('div');
@@ -491,19 +451,19 @@ function buildKanbanCard(task: TaskWithWorkspace, path: string, limaAvailable: b
           const wtPath = await ensureWorktreeExists(path, task);
           if (!wtPath) return;
         }
+        hideKanbanBoard();
         await reopenTask(path, task);
         return;
       }
       if (!task.worktreePath) {
-        setCardLoading(task.taskNumber, true);
         const startResult = await window.api.task.start(path, task.taskNumber);
         if (!startResult.success || !startResult.worktreePath) {
           console.error(`[kanban] task.start failed for #${task.taskNumber}:`, startResult.error);
-          setCardLoading(task.taskNumber, false);
           return;
         }
         await window.api.task.setStatus(path, task.taskNumber, 'in_progress');
         invalidateTaskList();
+        hideKanbanBoard();
         await projectRegistry.addProjectTerminal?.(undefined, {
           existingWorktree: {
             path: startResult.worktreePath,
@@ -519,6 +479,7 @@ function buildKanbanCard(task: TaskWithWorkspace, path: string, limaAvailable: b
       }
       const worktreePath = await ensureWorktreeExists(path, task);
       if (!worktreePath) return;
+      hideKanbanBoard();
       await projectRegistry.addProjectTerminal?.(undefined, {
         existingWorktree: {
           path: worktreePath,
@@ -547,6 +508,7 @@ function buildKanbanCard(task: TaskWithWorkspace, path: string, limaAvailable: b
         const result = await window.api.task.setStatus(path, task.taskNumber, 'in_progress');
         if (result.success) {
           invalidateTaskList();
+          hideKanbanBoard();
           await projectRegistry.addProjectTerminal?.(undefined, {
             existingWorktree: worktreeOpts,
             taskId: task.taskNumber,
@@ -554,14 +516,11 @@ function buildKanbanCard(task: TaskWithWorkspace, path: string, limaAvailable: b
           });
         }
       } else if (!task.worktreePath) {
-        setCardLoading(task.taskNumber, true);
         const startResult = await window.api.task.start(path, task.taskNumber);
-        if (!startResult.success || !startResult.worktreePath) {
-          setCardLoading(task.taskNumber, false);
-          return;
-        }
+        if (!startResult.success || !startResult.worktreePath) return;
         await window.api.task.setStatus(path, task.taskNumber, 'in_progress');
         invalidateTaskList();
+        hideKanbanBoard();
         await projectRegistry.addProjectTerminal?.(undefined, {
           existingWorktree: {
             path: startResult.worktreePath,
@@ -576,6 +535,7 @@ function buildKanbanCard(task: TaskWithWorkspace, path: string, limaAvailable: b
       } else {
         const worktreePath = await ensureWorktreeExists(path, task);
         if (!worktreePath) return;
+        hideKanbanBoard();
         await projectRegistry.addProjectTerminal?.(undefined, {
           existingWorktree: {
             path: worktreePath,
@@ -598,11 +558,10 @@ function buildKanbanCard(task: TaskWithWorkspace, path: string, limaAvailable: b
     };
 
     const onCloseOrReopen = async () => {
-      setCardLoading(task.taskNumber, true);
       if (task.status === 'done') {
         if (task.worktreePath) {
           const wtPath = await ensureWorktreeExists(path, task);
-          if (!wtPath) { setCardLoading(task.taskNumber, false); return; }
+          if (!wtPath) return;
         }
         await reopenTask(path, task);
       } else {
@@ -612,7 +571,6 @@ function buildKanbanCard(task: TaskWithWorkspace, path: string, limaAvailable: b
     const closeOrReopenLabel = task.status === 'done' ? 'Reopen' : 'Move to Done';
 
     const onDelete = async () => {
-      setCardLoading(task.taskNumber, true);
       await deleteTask(path, task);
     };
 
@@ -685,7 +643,6 @@ async function handleSortableEnd(evt: Sortable.SortableEvent): Promise<void> {
     const task = tasks.find(t => t.taskNumber === taskNumber);
 
     if (task && task.status === 'todo') {
-      setCardLoading(taskNumber, true);
       let worktreePath = task.worktreePath;
       let branch = task.branch || '';
 
@@ -741,7 +698,6 @@ async function handleSortableEnd(evt: Sortable.SortableEvent): Promise<void> {
   }
 
   if (newStatus === 'done') {
-    setCardLoading(taskNumber, true);
     // Close any open terminals for this task
     const currentTerminals = terminals.value;
     for (let i = currentTerminals.length - 1; i >= 0; i--) {
@@ -1055,7 +1011,7 @@ export function syncKanbanStatusDots(): void {
         dot.setAttribute('data-status', term.summaryType);
         dot.classList.toggle('kanban-card-status-dot--sandboxed', term.sandboxed);
 
-        // Build tooltip matching context menu info
+        // Build tooltip
         let label: string;
         if (term.command) {
           label = term.command.length > 40 ? term.command.slice(0, 40) + '…' : term.command;
@@ -1083,7 +1039,6 @@ export function syncKanbanStatusDots(): void {
           tip.className = 'kanban-dot-tooltip';
           tip.textContent = label;
           document.body.appendChild(tip);
-          // Position centered below the dot
           const tipRect = tip.getBoundingClientRect();
           tip.style.left = `${rect.left + rect.width / 2 - tipRect.width / 2}px`;
           tip.style.top = `${rect.bottom + 8}px`;
@@ -1181,23 +1136,14 @@ export async function showKanbanBoard(): Promise<void> {
   pushScope(Scopes.KANBAN);
 
   registerHotkey('escape', Scopes.KANBAN, () => {
-    if (terminals.value.length === 0) return;
     hideKanbanBoard();
   });
 
   registerHotkey(platformHotkey('mod+b'), Scopes.KANBAN, () => {
-    if (terminals.value.length === 0) {
-      showToast('No open terminals', 'info');
-      return;
-    }
     hideKanbanBoard();
   });
 
   registerHotkey(platformHotkey('mod+t'), Scopes.KANBAN, () => {
-    if (terminals.value.length === 0) {
-      showToast('No open terminals', 'info');
-      return;
-    }
     hideKanbanBoard();
   });
 
@@ -1207,6 +1153,7 @@ export async function showKanbanBoard(): Promise<void> {
   });
 
   registerHotkey(platformHotkey('mod+i'), Scopes.KANBAN, () => {
+    hideKanbanBoard();
     projectRegistry.addProjectTerminal?.();
   });
 
@@ -1253,10 +1200,6 @@ export function hideKanbanBoard(): void {
  */
 export function toggleKanbanBoard(): void {
   if (kanbanVisible.value) {
-    if (terminals.value.length === 0) {
-      showToast('No open terminals', 'info');
-      return;
-    }
     hideKanbanBoard();
   } else {
     showKanbanBoard();
