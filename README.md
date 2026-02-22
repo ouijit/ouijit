@@ -1,6 +1,6 @@
 # Ouijit
 
-Desktop project management with integrated terminal sessions and git worktree-based task isolation.
+Kanban terminal manager for CLI agent workflows.
 
 ![Ouijit Project Mode](board.gif)
 
