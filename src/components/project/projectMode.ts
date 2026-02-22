@@ -1043,6 +1043,10 @@ function wireViewToggle(headerContent: Element): void {
       if (view === 'board') {
         showKanbanBoard();
       } else {
+        if (terminals.value.length === 0) {
+          showToast('No open terminals', 'info');
+          return;
+        }
         hideKanbanBoard();
       }
     });

@@ -20,10 +20,49 @@ import Sortable from 'sortablejs';
  */
 export function syncViewToggle(): void {
   const btns = document.querySelectorAll('.project-view-toggle-btn');
+  const hasTerminals = terminals.value.length > 0;
   btns.forEach(btn => {
     const view = (btn as HTMLElement).dataset.view;
     const isBoard = view === 'board';
     btn.classList.toggle('project-view-toggle-btn--active', isBoard === kanbanVisible.value);
+    // Disable stack button when there are no terminals
+    if (view === 'stack') {
+      const isDisabled = !hasTerminals;
+      (btn as HTMLButtonElement).disabled = isDisabled;
+      btn.classList.toggle('project-view-toggle-btn--disabled', isDisabled);
+
+      // Manage tooltip for disabled state
+      const el = btn as HTMLElement;
+      if (isDisabled && !(el as any)._stackTipListeners) {
+        const onEnter = () => {
+          const rect = el.getBoundingClientRect();
+          const tip = document.createElement('div');
+          tip.className = 'kanban-dot-tooltip';
+          tip.textContent = 'No open terminals';
+          document.body.appendChild(tip);
+          const tipRect = tip.getBoundingClientRect();
+          tip.style.left = `${rect.left + rect.width / 2 - tipRect.width / 2}px`;
+          tip.style.top = `${rect.bottom + 8}px`;
+          requestAnimationFrame(() => tip.classList.add('kanban-dot-tooltip--visible'));
+          (el as any)._stackTip = tip;
+        };
+        const onLeave = () => {
+          const tip = (el as any)._stackTip as HTMLElement | undefined;
+          if (tip) { tip.remove(); (el as any)._stackTip = undefined; }
+        };
+        el.addEventListener('mouseenter', onEnter);
+        el.addEventListener('mouseleave', onLeave);
+        (el as any)._stackTipListeners = { onEnter, onLeave };
+      } else if (!isDisabled && (el as any)._stackTipListeners) {
+        const { onEnter, onLeave } = (el as any)._stackTipListeners;
+        el.removeEventListener('mouseenter', onEnter);
+        el.removeEventListener('mouseleave', onLeave);
+        (el as any)._stackTipListeners = undefined;
+        // Remove any lingering tooltip
+        const tip = (el as any)._stackTip as HTMLElement | undefined;
+        if (tip) { tip.remove(); (el as any)._stackTip = undefined; }
+      }
+    }
   });
 }
 
@@ -1115,14 +1154,23 @@ export async function showKanbanBoard(): Promise<void> {
   pushScope(Scopes.KANBAN);
 
   registerHotkey('escape', Scopes.KANBAN, () => {
+    if (terminals.value.length === 0) return;
     hideKanbanBoard();
   });
 
   registerHotkey(platformHotkey('mod+b'), Scopes.KANBAN, () => {
+    if (terminals.value.length === 0) {
+      showToast('No open terminals', 'info');
+      return;
+    }
     hideKanbanBoard();
   });
 
   registerHotkey(platformHotkey('mod+t'), Scopes.KANBAN, () => {
+    if (terminals.value.length === 0) {
+      showToast('No open terminals', 'info');
+      return;
+    }
     hideKanbanBoard();
   });
 
@@ -1179,6 +1227,10 @@ export function hideKanbanBoard(): void {
  */
 export function toggleKanbanBoard(): void {
   if (kanbanVisible.value) {
+    if (terminals.value.length === 0) {
+      showToast('No open terminals', 'info');
+      return;
+    }
     hideKanbanBoard();
   } else {
     showKanbanBoard();

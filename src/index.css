@@ -1694,6 +1694,10 @@ body.kanban-open .project-stack-pagination {
   @apply text-text-primary bg-background-tertiary;
 }
 
+.project-view-toggle-btn--disabled {
+  @apply opacity-30;
+}
+
 .project-view-toggle-btn svg {
   @apply w-3.5 h-3.5;
 }
@@ -1839,7 +1843,7 @@ body.kanban-open .project-stack {
   background: #2a2a2a;
   border: 1px solid rgba(255, 255, 255, 0.12);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
-  z-index: 200;
+  z-index: 10000;
   transform: translateY(-4px);
 }
 
