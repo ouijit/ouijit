@@ -14,6 +14,10 @@ import { importAll } from './services/dataImportService';
 // Suppress Chromium/DevTools errors for features not available in Electron
 app.commandLine.appendSwitch('disable-features', 'Autofill,AutofillServerCommunication');
 
+// Prevent EPIPE crashes when stdout/stderr aren't connected (packaged app launched from Finder/Dock)
+process.stdout?.on?.('error', () => {});
+process.stderr?.on?.('error', () => {});
+
 // Fix PATH for packaged apps launched from Finder/Dock
 // This sources the user's shell PATH so npm/node are available in PTY
 fixPath();

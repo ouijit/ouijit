@@ -12,12 +12,13 @@
     "publish": "electron-forge publish",
     "typecheck": "tsc --noEmit",
     "check": "tsc --noEmit",
+    "pretest": "npm rebuild better-sqlite3 --silent",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "node e2e/build.mjs && npx playwright test --config e2e/playwright.config.ts",
     "test:e2e:ci": "node e2e/build.mjs && xvfb-run npx playwright test --config e2e/playwright.config.ts",
     "test:full": "vitest run && node e2e/build.mjs && npx playwright test --config e2e/playwright.config.ts",
-    "postinstall": "./scripts/download-lima.sh"
+    "postinstall": "./scripts/download-lima.sh && chmod +x node_modules/node-pty/prebuilds/*/spawn-helper 2>/dev/null || true"
   },
   "keywords": [],
   "author": "pbjer",
