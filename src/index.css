@@ -1845,27 +1845,37 @@ body.kanban-open .project-stack {
   overflow-wrap: break-word;
 }
 
-.kanban-card-status-dots {
-  @apply flex flex-row gap-2 shrink-0;
-  padding: 4px 0 0;
+.kanban-card-status-tree {
+  @apply flex flex-col;
+  padding: 3px 0 0;
+}
+
+.kanban-card-status-row {
+  @apply flex flex-row items-center gap-1.5;
+  padding: 3px 2px;
+  border-radius: 3px;
+  transition: background 0.1s ease;
+}
+
+.kanban-card-status-row:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.kanban-card-status-row:active {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.kanban-card-status-elbow {
+  @apply font-mono text-sm leading-none text-text-secondary shrink-0 select-none;
+  opacity: 0.4;
 }
 
 .kanban-card-status-dot {
   @apply w-2 h-2 rounded-full shrink-0 bg-[#69db7c];
 }
 
-.kanban-dot-tooltip {
-  @apply fixed font-mono text-[10px] leading-tight text-text-primary px-2 py-1.5 rounded-md whitespace-nowrap pointer-events-none opacity-0 transition-all duration-150 ease-out;
-  background: #2a2a2a;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
-  z-index: 10000;
-  transform: translateY(-4px);
-}
-
-.kanban-dot-tooltip--visible {
-  @apply opacity-100;
-  transform: translateY(0);
+.kanban-card-status-label {
+  @apply font-mono text-[10px] leading-tight text-text-secondary truncate min-w-0;
 }
 
 .kanban-card-status-dot[data-status="ready"] {
@@ -1879,19 +1889,7 @@ body.kanban-open .project-stack {
 
 .kanban-card-status-dot--sandboxed {
   outline: 1.5px solid rgba(116, 192, 252, 0.6);
-  outline-offset: 2px;
-}
-
-.kanban-card:hover .kanban-card-status-dot {
-  transform: scale(1.2);
-}
-
-.kanban-card .kanban-card-status-dot:hover {
-  transform: scale(1.4);
-}
-
-.kanban-card-status-dot:active {
-  transform: scale(1.0);
+  outline-offset: 1.5px;
 }
 
 .kanban-card-expand {

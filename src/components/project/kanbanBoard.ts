@@ -994,68 +994,62 @@ export function syncKanbanStatusDots(): void {
     const matchingTerminals = terminalList
       .map((t, i) => ({ terminal: t, index: i }))
       .filter(({ terminal: t }) => t.taskId === taskNumber);
-    let stack = card.querySelector('.kanban-card-status-dots') as HTMLElement | null;
+    let stack = card.querySelector('.kanban-card-status-tree') as HTMLElement | null;
 
     if (matchingTerminals.length > 0) {
       if (!stack) {
         stack = document.createElement('div');
-        stack.className = 'kanban-card-status-dots';
+        stack.className = 'kanban-card-status-tree';
         // Insert after header, before any detail section
         header.after(stack);
       }
-      // Rebuild dots to match current terminal list
+      // Rebuild tree rows
       stack.innerHTML = '';
-      for (const { terminal: term, index: termIndex } of matchingTerminals) {
-        const dot = document.createElement('span');
-        dot.className = 'kanban-card-status-dot';
-        dot.setAttribute('data-status', term.summaryType);
-        dot.classList.toggle('kanban-card-status-dot--sandboxed', term.sandboxed);
+      const total = matchingTerminals.length;
+      for (let i = 0; i < total; i++) {
+        const { terminal: term, index: termIndex } = matchingTerminals[i];
+        const isLast = i === total - 1;
 
-        // Build tooltip
+        // Build label text
         let label: string;
-        if (term.command) {
-          label = term.command.length > 40 ? term.command.slice(0, 40) + '…' : term.command;
-        } else if (term.lastOscTitle) {
+        if (term.lastOscTitle) {
           const cleaned = term.lastOscTitle.replace(/\p{Extended_Pictographic}/gu, '').trim();
-          label = cleaned ? (cleaned.length > 40 ? cleaned.slice(0, 40) + '…' : cleaned) : 'Shell';
+          label = cleaned || 'Shell';
+        } else if (term.command) {
+          label = term.command;
         } else {
           label = 'Shell';
         }
         if (term.sandboxed) label += ' (sandbox)';
         if (term.summary) label += ' — ' + term.summary;
 
-        const removeTip = () => {
-          const tip = (dot as any)._kanbanTip as HTMLElement | undefined;
-          if (tip) {
-            tip.remove();
-            (dot as any)._kanbanTip = undefined;
-          }
-        };
+        const row = document.createElement('div');
+        row.className = 'kanban-card-status-row';
 
-        dot.addEventListener('mouseenter', () => {
-          removeTip();
-          const rect = dot.getBoundingClientRect();
-          const tip = document.createElement('div');
-          tip.className = 'kanban-dot-tooltip';
-          tip.textContent = label;
-          document.body.appendChild(tip);
-          const tipRect = tip.getBoundingClientRect();
-          tip.style.left = `${rect.left + rect.width / 2 - tipRect.width / 2}px`;
-          tip.style.top = `${rect.bottom + 8}px`;
-          requestAnimationFrame(() => tip.classList.add('kanban-dot-tooltip--visible'));
-          (dot as any)._kanbanTip = tip;
-        });
-        dot.addEventListener('mouseleave', removeTip);
+        const elbow = document.createElement('span');
+        elbow.className = 'kanban-card-status-elbow';
+        elbow.textContent = isLast ? '└─' : '├─';
+        row.appendChild(elbow);
 
-        dot.addEventListener('click', (e) => {
+        const dot = document.createElement('span');
+        dot.className = 'kanban-card-status-dot';
+        dot.setAttribute('data-status', term.summaryType);
+        dot.classList.toggle('kanban-card-status-dot--sandboxed', term.sandboxed);
+        row.appendChild(dot);
+
+        const text = document.createElement('span');
+        text.className = 'kanban-card-status-label';
+        text.textContent = label.length > 35 ? label.slice(0, 35) + '…' : label;
+        row.appendChild(text);
+
+        row.addEventListener('click', (e) => {
           e.stopPropagation();
-          removeTip();
           hideKanbanBoard();
           if (termIndex !== activeIndex.value) {
             switchToProjectTerminal(termIndex);
           }
         });
-        stack.appendChild(dot);
+        stack.appendChild(row);
       }
     } else if (stack) {
       stack.remove();
