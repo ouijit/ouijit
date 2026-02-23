@@ -1,34 +1,14 @@
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
-import * as os from 'node:os';
 import { nativeImage } from 'electron';
 import type { Project } from './types';
-import { getAddedProjects } from './db';
+import { getDatabase } from './db/database';
+import { ProjectRepo } from './db/repos/projectRepo';
+import log from './log';
+
+const scannerLog = log.scope('scanner');
 
 export type { Project };
-
-const PROJECT_DIRECTORIES = [
-  '~/Projects',
-  '~/Developer',
-  '~/dev',
-  '~/code',
-  '~/repos',
-  '~/workspace',
-  '~/Ouijit/imports',
-  '~/Ouijit/projects',
-];
-
-const MAX_SCAN_DEPTH = 2;
-
-/**
- * Expands ~ to the user's home directory
- */
-function expandTilde(filePath: string): string {
-  if (filePath.startsWith('~')) {
-    return path.join(os.homedir(), filePath.slice(1));
-  }
-  return filePath;
-}
 
 /**
  * Checks if a path exists
@@ -40,18 +20,6 @@ async function exists(filePath: string): Promise<boolean> {
   } catch {
     return false;
   }
-}
-
-/**
- * Checks if a directory is a project (contains .git, .claude, CLAUDE.md, or .ouijit-import.json)
- */
-async function isProject(dirPath: string): Promise<boolean> {
-  const hasGitDir = await exists(path.join(dirPath, '.git'));
-  const hasClaudeDir = await exists(path.join(dirPath, '.claude'));
-  const hasClaudeMd = await exists(path.join(dirPath, 'CLAUDE.md'));
-  const hasOuijitImport = await exists(path.join(dirPath, '.ouijit-import.json'));
-
-  return hasGitDir || hasClaudeDir || hasClaudeMd || hasOuijitImport;
 }
 
 /**
@@ -174,7 +142,7 @@ async function getIconDataUrl(dirPath: string): Promise<string | undefined> {
           return resized.toDataURL();
         }
       } catch (error) {
-        console.warn(`Failed to load icon: ${iconPath}`, error);
+        scannerLog.warn('failed to load icon', { path: iconPath, error: error instanceof Error ? error.message : String(error) });
       }
     }
   }
@@ -209,99 +177,25 @@ async function createProject(dirPath: string): Promise<Project> {
 }
 
 /**
- * Recursively scans a directory for projects
+ * Returns all manually-added projects enriched with metadata.
+ * Queries the DB for added project paths, filters to those still on disk,
+ * and builds full Project objects with language/description/icon metadata.
  */
-async function scanDirectory(dirPath: string, depth: number = 0): Promise<Project[]> {
+export async function getProjectList(): Promise<Project[]> {
+  const db = getDatabase();
+  const projectRepo = new ProjectRepo(db);
+  const addedPaths = projectRepo.getAll().map(p => p.path);
+
   const projects: Project[] = [];
-
-  if (depth > MAX_SCAN_DEPTH) {
-    return projects;
-  }
-
-  try {
-    // Check if current directory is a project
-    if (await isProject(dirPath)) {
-      const project = await createProject(dirPath);
+  for (const projectPath of addedPaths) {
+    if (await exists(projectPath)) {
+      const project = await createProject(projectPath);
       projects.push(project);
-      // Don't scan deeper into projects
-      return projects;
-    }
-
-    // If not a project and we can go deeper, scan subdirectories
-    const entries = await fs.readdir(dirPath, { withFileTypes: true });
-
-    for (const entry of entries) {
-      // Skip hidden directories and common non-project directories
-      if (entry.name.startsWith('.') ||
-          entry.name === 'node_modules' ||
-          entry.name === 'vendor' ||
-          entry.name === 'target' ||
-          entry.name === 'dist' ||
-          entry.name === 'build') {
-        continue;
-      }
-
-      if (entry.isDirectory()) {
-        const subDirPath = path.join(dirPath, entry.name);
-        const subProjects = await scanDirectory(subDirPath, depth + 1);
-        projects.push(...subProjects);
-      }
-    }
-  } catch (error) {
-    // Skip inaccessible directories
-    console.warn(`Unable to scan directory: ${dirPath}`, error);
-  }
-
-  return projects;
-}
-
-/**
- * Scans predefined directories for projects
- */
-export async function scanForProjects(): Promise<Project[]> {
-  const allProjects: Project[] = [];
-  const seenPaths = new Set<string>();
-
-  // Allow tests to override scan directories for isolation
-  const testScanDirs = process.env.OUIJIT_TEST_SCAN_DIRS;
-  const scanDirs = testScanDirs
-    ? testScanDirs.split(':')
-    : PROJECT_DIRECTORIES;
-
-  // First, add manually added projects (they take priority)
-  if (!testScanDirs) {
-    const addedPaths = await getAddedProjects();
-    for (const projectPath of addedPaths) {
-      if (await exists(projectPath) && !seenPaths.has(projectPath)) {
-        seenPaths.add(projectPath);
-        const project = await createProject(projectPath);
-        allProjects.push(project);
-      }
-    }
-  }
-
-  // Scan all directories in parallel
-  const scanResults = await Promise.all(
-    scanDirs.map(async (dir) => {
-      const expandedPath = expandTilde(dir);
-      if (await exists(expandedPath)) {
-        return scanDirectory(expandedPath);
-      }
-      return [];
-    })
-  );
-
-  for (const projects of scanResults) {
-    for (const project of projects) {
-      if (!seenPaths.has(project.path)) {
-        seenPaths.add(project.path);
-        allProjects.push(project);
-      }
     }
   }
 
   // Sort by last modified date (most recent first)
-  allProjects.sort((a, b) => b.lastModified.getTime() - a.lastModified.getTime());
+  projects.sort((a, b) => b.lastModified.getTime() - a.lastModified.getTime());
 
-  return allProjects;
+  return projects;
 }

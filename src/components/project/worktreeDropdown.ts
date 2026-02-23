@@ -8,6 +8,9 @@ import { showToast } from '../importDialog';
 import { projectRegistry } from './helpers';
 import { setCardLoading } from './kanbanBoard';
 import { registerHotkey, unregisterHotkey, pushScope, popScope, Scopes } from '../../utils/hotkeys';
+import log from 'electron-log/renderer';
+
+const worktreeDropdownLog = log.scope('worktreeDropdown');
 
 /**
  * Show a confirmation dialog for deleting a task
@@ -172,7 +175,7 @@ export async function closeTask(path: string, task: TaskWithWorkspace): Promise<
 export async function reopenTask(path: string, task: TaskWithWorkspace): Promise<void> {
   if (task.taskNumber == null) return;
   setCardLoading(task.taskNumber, true);
-  console.info(`[task] reopening #${task.taskNumber} worktreePath=${task.worktreePath || '(none)'}`);
+  worktreeDropdownLog.info('reopening task', { taskNumber: task.taskNumber, worktreePath: task.worktreePath || null });
   const result = await window.api.task.setStatus(path, task.taskNumber, 'in_progress');
   if (result.success) {
     invalidateTaskList();
@@ -190,7 +193,7 @@ export async function reopenTask(path: string, task: TaskWithWorkspace): Promise
       sandboxed: false,
     });
   } else {
-    console.error(`[task] reopen failed for #${task.taskNumber}:`, result.error);
+    worktreeDropdownLog.error('reopen failed', { taskNumber: task.taskNumber, error: result.error });
     showToast(result.error || 'Failed to reopen task', 'error');
   }
 }

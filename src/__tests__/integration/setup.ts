@@ -20,3 +20,27 @@ vi.mock('electron', () => ({
     },
   },
 }));
+
+// Mock electron-log — stubs Electron-specific transports (file, IPC) but passes
+// log calls through to console so test output remains visible for debugging.
+function electronLogFactory() {
+  const logger = Object.assign(
+    (...args: unknown[]) => console.log(...args),
+    {
+      error: (...args: unknown[]) => console.error(...args),
+      warn: (...args: unknown[]) => console.warn(...args),
+      info: (...args: unknown[]) => console.info(...args),
+      verbose: (...args: unknown[]) => console.debug(...args),
+      debug: (...args: unknown[]) => console.debug(...args),
+      silly: (...args: unknown[]) => console.debug(...args),
+      log: (...args: unknown[]) => console.log(...args),
+      scope: () => logger,
+      transports: { file: { format: null, maxSize: 0, fileName: '' }, console: {} },
+      errorHandler: { startCatching: () => {} },
+      initialize: () => {},
+    },
+  );
+  return { default: logger };
+}
+vi.mock('electron-log/main', electronLogFactory);
+vi.mock('electron-log/renderer', electronLogFactory);

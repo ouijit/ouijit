@@ -7,6 +7,9 @@ import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import * as os from 'node:os';
 import type { CreateProjectOptions, CreateProjectResult } from './types';
+import log from './log';
+
+const creatorLog = log.scope('projectCreator');
 
 export async function createProject(options: CreateProjectOptions): Promise<CreateProjectResult> {
   try {
@@ -36,7 +39,7 @@ export async function createProject(options: CreateProjectOptions): Promise<Crea
     try {
       execSync('git init', { cwd: projectPath, stdio: 'ignore' });
     } catch (gitError) {
-      console.warn('Failed to initialize git:', gitError);
+      creatorLog.warn('failed to initialize git', { error: gitError instanceof Error ? gitError.message : String(gitError) });
       // Continue anyway - git init failing shouldn't block project creation
     }
 
@@ -55,7 +58,7 @@ export async function createProject(options: CreateProjectOptions): Promise<Crea
 
     return { success: true, projectPath };
   } catch (error) {
-    console.error('Error creating project:', error);
+    creatorLog.error('failed to create project', { error: error instanceof Error ? error.message : String(error) });
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error occurred',

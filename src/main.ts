@@ -2,6 +2,7 @@ import { app, BrowserWindow, nativeTheme, shell } from 'electron';
 import path from 'node:path';
 import started from 'electron-squirrel-startup';
 import fixPath from 'fix-path';
+import log from './log';
 import { registerIpcHandlers, cleanupIpc } from './ipc/register';
 import { typedPush } from './ipc/helpers';
 import { getDatabase, closeDatabase } from './db/database';
@@ -10,6 +11,8 @@ import { TaskRepo } from './db/repos/taskRepo';
 import { SettingsRepo } from './db/repos/settingsRepo';
 import { HookRepo } from './db/repos/hookRepo';
 import { importAll } from './services/dataImportService';
+
+const appLog = log.scope('app');
 
 // Suppress Chromium/DevTools errors for features not available in Electron
 app.commandLine.appendSwitch('disable-features', 'Autofill,AutofillServerCommunication');
@@ -107,6 +110,9 @@ const createWindow = (): BrowserWindow => {
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
 app.on('ready', async () => {
+  log.initialize(); // Inject preload for renderer IPC bridge
+  appLog.info('app ready', { version: app.getVersion(), userData: app.getPath('userData') });
+
   // Initialize SQLite and migrate any existing JSON data
   const db = getDatabase();
   await importAll(
@@ -122,6 +128,7 @@ app.on('ready', async () => {
 });
 
 app.on('before-quit', () => {
+  appLog.info('app quitting');
   cleanupIpc();
   closeDatabase();
 });

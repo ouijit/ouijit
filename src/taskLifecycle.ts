@@ -15,6 +15,9 @@ import {
 import { listWorktrees, removeTaskWorktree } from './worktree';
 import { executeHook } from './hookRunner';
 import type { TaskWithWorkspace } from './types';
+import log from './log';
+
+const taskLog = log.scope('task');
 
 /**
  * Run the cleanup hook if transitioning to 'done' from a non-done state.
@@ -66,7 +69,7 @@ export async function setTaskStatusWithHooks(
   const hookWarning = await runCleanupHookIfNeeded(projectPath, taskNumber, status);
   const result = await setTaskStatus(projectPath, taskNumber, status);
   if (!result.success) {
-    console.error(`[task] setStatusWithHooks failed for #${taskNumber} → ${status}: ${result.error}`);
+    taskLog.error('setStatusWithHooks failed', { taskNumber, status, error: result.error });
   }
   return { ...result, hookWarning };
 }
@@ -83,7 +86,7 @@ export async function reorderTaskWithHooks(
   const hookWarning = await runCleanupHookIfNeeded(projectPath, taskNumber, newStatus);
   const result = await reorderTask(projectPath, taskNumber, newStatus, targetIndex);
   if (!result.success) {
-    console.error(`[task] reorderWithHooks failed for #${taskNumber} → ${newStatus}: ${result.error}`);
+    taskLog.error('reorderWithHooks failed', { taskNumber, status: newStatus, error: result.error });
   }
   return { ...result, hookWarning };
 }
@@ -102,15 +105,15 @@ export async function deleteTaskWithWorktree(
       ? worktrees.find(w => w.branch === task.branch)
       : worktrees.find(w => w.path === task.worktreePath);
     if (wt) {
-      console.info(`[task] deleting #${taskNumber} with worktree at ${wt.path}`);
+      taskLog.info('deleting task with worktree', { taskNumber, worktreePath: wt.path });
       const removeResult = await removeTaskWorktree(projectPath, wt.path, taskNumber);
       if (!removeResult.success) {
-        console.error(`[task] worktree removal failed for #${taskNumber}: ${removeResult.error}`);
+        taskLog.error('worktree removal failed', { taskNumber, error: removeResult.error });
         return removeResult;
       }
       return { success: true };
     }
-    console.info(`[task] deleting #${taskNumber} (no live worktree found, metadata-only delete)`);
+    taskLog.info('deleting task (metadata-only)', { taskNumber });
   }
   return deleteTaskByNumber(projectPath, taskNumber);
 }

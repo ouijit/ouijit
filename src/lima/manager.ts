@@ -9,6 +9,9 @@ import { app } from 'electron';
 import type { LimaInstance, SandboxStatus } from './types';
 import { generateLimaYaml, buildLimaConfig } from './config';
 import { resetSetupTracking } from './spawn';
+import log from '../log';
+
+const limaLog = log.scope('lima');
 
 const execFileAsync = promisify(execFile);
 
@@ -118,7 +121,7 @@ export async function getInstance(name: string): Promise<LimaInstance> {
       }
     }
   } catch (error) {
-    console.warn('[Lima] getInstance failed:', error instanceof Error ? error.message : error);
+    limaLog.warn('getInstance failed', { name, error: error instanceof Error ? error.message : String(error) });
   }
   return { name, status: 'NotFound', cpus: 0, memory: 0, disk: 0, mounts: [] };
 }

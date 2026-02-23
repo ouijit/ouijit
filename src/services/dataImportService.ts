@@ -13,6 +13,9 @@ import type { TaskRepo, TaskStatus } from '../db/repos/taskRepo';
 import type { SettingsRepo } from '../db/repos/settingsRepo';
 import type { HookRepo, HookType } from '../db/repos/hookRepo';
 import type Database from 'better-sqlite3';
+import log from '../log';
+
+const migrationLog = log.scope('migration');
 
 interface OldTaskMetadata {
   taskNumber: number;
@@ -263,6 +266,14 @@ export async function importAll(
   });
 
   doImport();
+
+  migrationLog.info('import completed', {
+    projects: result.projectsImported,
+    tasks: result.tasksImported,
+    hooks: result.hooksImported,
+    settings: result.settingsImported,
+    errors: result.errors.length,
+  });
 
   await markImported();
   return result;

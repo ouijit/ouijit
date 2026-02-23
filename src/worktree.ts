@@ -9,8 +9,11 @@ import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import * as os from 'node:os';
 import koffi from 'koffi';
+import log from './log';
 import { getNextTaskNumber, createTask, getTask, getTaskByNumber, deleteTaskByNumber, setTaskBranch, setTaskWorktreePath, setTaskMergeTarget, type TaskMetadata, type TaskStatus } from './db';
 import { mergeWorktreeBranch } from './git';
+
+const worktreeLog = log.scope('worktree');
 
 const execAsync = promisify(exec);
 
@@ -112,7 +115,7 @@ async function copyGitIgnoredFiles(sourcePath: string, worktreePath: string, pre
 
       // Validate paths don't escape their roots (prevents path traversal attacks)
       if (!isPathWithinBase(sourcePath, sourceItem) || !isPathWithinBase(worktreePath, destItem)) {
-        console.warn(`[worktree] Skipping suspicious path: ${cleanItem}`);
+        worktreeLog.warn('skipping suspicious path', { path: cleanItem });
         return;
       }
 
@@ -122,7 +125,7 @@ async function copyGitIgnoredFiles(sourcePath: string, worktreePath: string, pre
 
         // Skip symlinks to prevent following malicious symlinks to sensitive files
         if (stat.isSymbolicLink()) {
-          console.warn(`[worktree] Skipping symlink: ${cleanItem}`);
+          worktreeLog.warn('skipping symlink', { path: cleanItem });
           return;
         }
 
@@ -167,14 +170,14 @@ async function copyGitIgnoredFiles(sourcePath: string, worktreePath: string, pre
         }
       } catch (error) {
         // Log but don't fail - some files might be transient or locked
-        console.warn(`[worktree] Failed to copy ${cleanItem}:`, error instanceof Error ? error.message : error);
+        worktreeLog.warn('failed to copy item', { path: cleanItem, error: error instanceof Error ? error.message : String(error) });
       }
     });
 
     await Promise.all(copyPromises);
   } catch (error) {
     // Log but don't fail worktree creation if git ls-files fails
-    console.warn('[worktree] Failed to copy gitignored files:', error instanceof Error ? error.message : error);
+    worktreeLog.warn('failed to copy gitignored files', { error: error instanceof Error ? error.message : String(error) });
   }
 }
 
@@ -267,7 +270,7 @@ export async function startTask(
     if (!task) return { success: false, error: 'Task not found' };
     if (task.status !== 'todo') return { success: false, error: 'Task is already started' };
 
-    console.info(`[worktree] starting task #${taskNumber} "${task.name}"`);
+    worktreeLog.info('starting task', { taskNumber, name: task.name });
 
     const [hasHead, branchResult] = await Promise.all([
       execAsync('git rev-parse HEAD', { cwd: projectPath }).then(() => true, () => false),
@@ -309,14 +312,14 @@ export async function startTask(
     }
 
     copyGitIgnoredFiles(projectPath, worktreePath, ignoredFiles).catch(err => {
-      console.warn('[worktree] Background copy failed:', err);
+      worktreeLog.warn('background copy failed', { taskNumber, error: err instanceof Error ? err.message : String(err) });
     });
 
-    console.info(`[worktree] started task #${taskNumber} → ${worktreePath} branch=${branch}`);
+    worktreeLog.info('started task', { taskNumber, worktreePath, branch });
     const updated = await getTaskByNumber(projectPath, taskNumber);
     return { success: true, task: updated || undefined, worktreePath };
   } catch (error) {
-    console.error(`[worktree] startTask #${taskNumber} failed:`, error instanceof Error ? error.message : error);
+    worktreeLog.error('startTask failed', { taskNumber, error: error instanceof Error ? error.message : String(error) });
     return { success: false, error: error instanceof Error ? error.message : 'Failed to start task' };
   }
 }
@@ -366,7 +369,7 @@ export async function createTaskWorktree(projectPath: string, name?: string, pro
 
     // Fire-and-forget file copy with pre-fetched list
     copyGitIgnoredFiles(projectPath, worktreePath, ignoredFiles).catch(err => {
-      console.warn('[worktree] Background copy failed:', err);
+      worktreeLog.warn('background copy failed', { error: err instanceof Error ? err.message : String(err) });
     });
 
     return {
@@ -490,7 +493,7 @@ export async function checkTaskWorktree(
 ): Promise<CheckWorktreeResult> {
   const task = await getTaskByNumber(projectPath, taskNumber);
   if (!task || !task.worktreePath) {
-    console.info(`[worktree] check #${taskNumber}: no task or no worktreePath`);
+    worktreeLog.info('check: no task or no worktreePath', { taskNumber });
     return { exists: false, branchExists: false };
   }
 
@@ -502,7 +505,7 @@ export async function checkTaskWorktree(
       : Promise.resolve(false),
   ]);
 
-  console.info(`[worktree] check #${taskNumber}: exists=${exists} branchExists=${branchExists} path=${task.worktreePath}`);
+  worktreeLog.info('check', { taskNumber, exists, branchExists, path: task.worktreePath });
   return { exists, branchExists };
 }
 
@@ -519,7 +522,7 @@ export async function recoverTaskWorktree(
     if (!task) return { success: false, error: 'Task not found' };
     if (!task.branch) return { success: false, error: 'Task has no branch' };
 
-    console.info(`[worktree] recovering #${taskNumber} branch=${task.branch} oldPath=${task.worktreePath}`);
+    worktreeLog.info('recovering', { taskNumber, branch: task.branch, oldPath: task.worktreePath });
 
     // Prune stale worktree references so git doesn't complain about the old path
     await execAsync('git worktree prune', { cwd: projectPath });
@@ -554,14 +557,14 @@ export async function recoverTaskWorktree(
 
     // Fire-and-forget file copy
     copyGitIgnoredFiles(projectPath, worktreePath, ignoredFiles).catch(err => {
-      console.warn('[worktree] Background copy failed:', err);
+      worktreeLog.warn('background copy failed', { taskNumber, error: err instanceof Error ? err.message : String(err) });
     });
 
-    console.info(`[worktree] recovered #${taskNumber} → ${worktreePath}`);
+    worktreeLog.info('recovered', { taskNumber, worktreePath });
     const updated = await getTaskByNumber(projectPath, taskNumber);
     return { success: true, task: updated || undefined, worktreePath };
   } catch (error) {
-    console.error(`[worktree] recover #${taskNumber} failed:`, error instanceof Error ? error.message : error);
+    worktreeLog.error('recover failed', { taskNumber, error: error instanceof Error ? error.message : String(error) });
     return { success: false, error: error instanceof Error ? error.message : 'Failed to recover worktree' };
   }
 }

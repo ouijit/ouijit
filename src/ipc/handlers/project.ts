@@ -1,13 +1,16 @@
 import { shell, BrowserWindow, dialog } from 'electron';
 import { typedHandle } from '../helpers';
-import { scanForProjects } from '../../scanner';
-import { getAddedProjects, addProject, removeProject, getProjectSettings, setKillExistingOnRun } from '../../db';
+import { getProjectList } from '../../scanner';
+import { addProject, removeProject, getProjectSettings, setKillExistingOnRun } from '../../db';
 import { createProject } from '../../projectCreator';
 import { openInEditor } from '../../editorLauncher';
+import log from '../../log';
+
+const ipcLog = log.scope('ipc');
 
 export function registerProjectHandlers(mainWindow: BrowserWindow): void {
-  typedHandle('get-projects', () => scanForProjects());
-  typedHandle('refresh-projects', () => scanForProjects());
+  typedHandle('get-projects', () => getProjectList());
+  typedHandle('refresh-projects', () => getProjectList());
 
   // Both open-project and open-in-finder use shell.openPath — they share the same
   // implementation because Finder/file-manager is the correct handler for directories.
@@ -42,14 +45,13 @@ export function registerProjectHandlers(mainWindow: BrowserWindow): void {
       });
       return { canceled: result.canceled, filePaths: result.filePaths };
     } catch (error) {
-      console.error('Error showing folder picker:', error);
+      ipcLog.error('folder picker failed', { error: error instanceof Error ? error.message : String(error) });
       return { canceled: true, filePaths: [] };
     }
   });
 
   typedHandle('add-project', (folderPath) => addProject(folderPath));
   typedHandle('remove-project', (folderPath) => removeProject(folderPath));
-  typedHandle('get-added-projects', () => getAddedProjects());
   typedHandle('get-project-settings', (projectPath) => getProjectSettings(projectPath));
   typedHandle('settings:set-kill-existing-on-run', (projectPath, kill) => setKillExistingOnRun(projectPath, kill));
 }

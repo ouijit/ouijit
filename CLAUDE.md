@@ -27,7 +27,7 @@ Do NOT run `npm run start` or other dev server commands.
   - `repos/` - Repository classes (taskRepo, hookRepo, projectRepo, settingsRepo)
   - `migrations/` - Versioned schema migrations
 - `src/services/dataImportService.ts` - One-shot JSON→SQLite migration on first launch
-- `src/scanner.ts` - Project directory discovery
+- `src/scanner.ts` - Project metadata enrichment (language, description, icon)
 - `src/ptyManager.ts` - PTY spawning, session management, output buffering
 - `src/hookServer.ts` - HTTP server for Claude Code hook status events
 - `src/hookRunner.ts` - Script hook execution with timeout/output capture
@@ -78,6 +78,31 @@ Do NOT run `npm run start` or other dev server commands.
 - Use hover/active states for visual feedback, not cursor changes
 - Follow macOS HIG patterns
 - Respect system light/dark mode
+
+## Logging
+
+Use `electron-log` instead of `console.*`. Each module gets a scoped logger:
+
+```typescript
+// Main process files:
+import log from './log';              // or '../log' etc.
+const worktreeLog = log.scope('worktree');
+
+// Renderer process files:
+import log from 'electron-log/renderer';
+const kanbanLog = log.scope('kanban');
+```
+
+- **Variable naming:** `{module}Log` — e.g. `worktreeLog`, `hookServerLog`, `scannerLog`. Don't abbreviate.
+- **Scope names:** lowercase, match the module — e.g. `'worktree'`, `'hookServer'`, `'scanner'`
+- **Structured metadata:** pass context as a plain object in the last argument:
+  ```typescript
+  worktreeLog.info('started task', { taskNumber, worktreePath, branch });
+  worktreeLog.error('recovery failed', { taskNumber, error: error instanceof Error ? error.message : String(error) });
+  ```
+- **Error formatting:** always extract `.message` from Error objects — `JSON.stringify(error)` produces `'{}'`
+- **Log file:** writes JSON lines to `ouijit.log` (5MB rotation). Console transport kept for dev readability.
+- **Tests:** both `electron-log/main` and `electron-log/renderer` are globally mocked in test setup files with console passthrough — no per-test mocking needed.
 
 ## Code Rules
 
