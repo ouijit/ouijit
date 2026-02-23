@@ -56,9 +56,9 @@ export async function isLimaInstalled(): Promise<boolean> {
 
 /**
  * Derive a stable instance name from a project path.
- * Capped at 63 chars (standard hostname limit) to avoid Lima/QEMU
- * socket path failures. Long names are truncated with a hash suffix
- * for uniqueness.
+ * Capped at 32 chars to avoid Lima/QEMU UNIX socket path failures
+ * (macOS sun_path limit is 104 bytes). Long names are truncated
+ * with a hash suffix for uniqueness.
  */
 const MAX_VM_NAME_LENGTH = 32;
 export function getInstanceName(projectPath: string): string {
@@ -71,6 +71,13 @@ export function getInstanceName(projectPath: string): string {
     .toLowerCase();
 
   const prefix = 'ouijit-';
+
+  // Fallback to hash-only name when basename sanitizes to nothing
+  if (!sanitized) {
+    const hash = createHash('sha256').update(projectPath).digest('hex').slice(0, 16);
+    return `${prefix}${hash}`;
+  }
+
   const candidate = `${prefix}${sanitized}`;
 
   if (candidate.length <= MAX_VM_NAME_LENGTH) {
