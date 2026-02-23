@@ -165,7 +165,7 @@ export async function spawnPty(
 
       if (expandedCommand) {
         const escapedCmd = expandedCommand.replace(/'/g, "'\\''");
-        shellArgs = ['-ic', `${escapedCmd}; exec ${shell}`];
+        shellArgs = ['-ic', `export PATH="$OUIJIT_WRAPPER_DIR:$PATH"; ${escapedCmd}; exec ${shell}`];
       }
     } else if (isBash) {
       // --rcfile/--init-file: bash sources this instead of ~/.bashrc.
@@ -174,14 +174,14 @@ export async function spawnPty(
 
       if (expandedCommand) {
         const escapedCmd = expandedCommand.replace(/'/g, "'\\''");
-        shellArgs = ['-ic', `${escapedCmd}; exec bash --rcfile ${rcfile}`];
+        shellArgs = ['-ic', `export PATH="$OUIJIT_WRAPPER_DIR:$PATH"; ${escapedCmd}; exec bash --rcfile ${rcfile}`];
       } else {
         shellArgs = ['--init-file', rcfile];
       }
     } else if (expandedCommand) {
       // Fallback for other shells
       const escapedCmd = expandedCommand.replace(/'/g, "'\\''");
-      shellArgs = ['-ic', `${escapedCmd}; exec ${shell}`];
+      shellArgs = ['-ic', `export PATH="$OUIJIT_WRAPPER_DIR:$PATH"; ${escapedCmd}; exec ${shell}`];
     }
 
     const ptyProcess = pty.spawn(shell, shellArgs, {
