@@ -76,16 +76,17 @@ export function showHookConfigDialog(
     const dialog = document.createElement('div');
     dialog.className = 'import-dialog';
 
+    const envVarsList = [
+      '$OUIJIT_PROJECT_PATH',
+      '$OUIJIT_WORKTREE_PATH',
+      '$OUIJIT_TASK_BRANCH',
+      '$OUIJIT_TASK_NAME',
+      '$OUIJIT_TASK_PROMPT',
+    ];
     const envVarsHtml = labels.envVars ? `
-      <details class="hook-env-vars">
+      <details class="hook-env-vars" style="-webkit-app-region: no-drag;">
         <summary>Environment variables</summary>
-        <ul>
-          <li><code>$OUIJIT_PROJECT_PATH</code> - main project path</li>
-          <li><code>$OUIJIT_WORKTREE_PATH</code> - task worktree path</li>
-          <li><code>$OUIJIT_TASK_BRANCH</code> - git branch name</li>
-          <li><code>$OUIJIT_TASK_NAME</code> - task display name</li>
-          <li><code>$OUIJIT_TASK_PROMPT</code> - task description (start/continue hooks)</li>
-        </ul>
+        <ul>${envVarsList.map(v => `<li><code class="hook-env-var" data-var="${v}">${v}</code></li>`).join('')}</ul>
       </details>
     ` : '';
 
@@ -126,6 +127,21 @@ export function showHookConfigDialog(
 
     overlay.appendChild(dialog);
     document.body.appendChild(overlay);
+
+    // Wire up click-to-copy on env var codes
+    dialog.querySelectorAll('.hook-env-var').forEach(code => {
+      code.addEventListener('click', () => {
+        const varName = (code as HTMLElement).dataset.var!;
+        navigator.clipboard.writeText(varName);
+        code.classList.add('hook-env-var--copied');
+        const original = code.textContent;
+        code.textContent = 'Copied!';
+        setTimeout(() => {
+          code.textContent = original;
+          code.classList.remove('hook-env-var--copied');
+        }, 800);
+      });
+    });
 
     const commandInput = dialog.querySelector('#hook-command') as HTMLTextAreaElement;
     setupHighlightedTextarea(commandInput);

@@ -1618,8 +1618,21 @@ body.platform-darwin:not(.is-fullscreen) .project-header-content {
   @apply my-1;
 }
 
-.hook-env-vars code {
-  @apply font-mono text-[13px] bg-background-secondary px-1 py-0.5 rounded;
+.hook-env-var {
+  @apply font-mono text-[13px] px-1.5 py-0.5 rounded inline-block;
+  background: var(--color-background-secondary);
+  transition: background 100ms ease, color 100ms ease;
+}
+
+.hook-env-var:hover {
+  color: var(--color-text-primary);
+  background: var(--color-border-hover);
+}
+
+.hook-env-var--copied,
+.hook-env-var--copied:hover {
+  color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 15%, transparent);
 }
 
 
