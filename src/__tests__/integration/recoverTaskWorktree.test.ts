@@ -108,6 +108,29 @@ describe('recoverTaskWorktree', () => {
     expect(task!.worktreePath).toBe(result.worktreePath);
   });
 
+  test('reuses existing worktree when branch is already checked out', async () => {
+    // Create a worktree at path A, then record a stale path B in the task
+    const realWtPath = path.join(tmpDir, 'wt-real');
+    const staleWtPath = path.join(tmpDir, 'wt-stale');
+    execSync(`git worktree add -b feat-reuse "${realWtPath}"`, { cwd: repoDir });
+
+    await createTask(repoDir, 1, 'Stale path', {
+      branch: 'feat-reuse',
+      worktreePath: staleWtPath, // points to a path that doesn't exist
+    });
+
+    const result = await recoverTaskWorktree(repoDir, 1);
+    expect(result.success).toBe(true);
+    // Should reuse the existing worktree, not create a new one
+    // (git resolves symlinks, e.g. /var → /private/var on macOS)
+    const realResolved = await fs.realpath(realWtPath);
+    expect(result.worktreePath).toBe(realResolved);
+
+    // Task metadata should be updated to the real path
+    const task = await getTaskByNumber(repoDir, 1);
+    expect(task!.worktreePath).toBe(realResolved);
+  });
+
   test('fails when branch has been deleted', async () => {
     const wtPath = path.join(tmpDir, 'wt-no-branch');
     execSync(`git worktree add -b feat-gone "${wtPath}"`, { cwd: repoDir });
