@@ -10,10 +10,10 @@ import { showToast } from '../importDialog';
 import { showHookConfigDialog, type HookConfigDialogOptions } from '../hookConfigDialog';
 
 const HOOK_HINTS: Record<string, string> = {
-  start: 'Runs when a new task is created',
-  continue: 'Runs when reopening an existing task',
-  run: 'Runs when you click the play button',
-  cleanup: 'Runs before archiving a task',
+  start: 'Runs when a task moves from To Do to In Progress',
+  continue: 'Runs when reopening an In Progress task',
+  run: 'Runs when you click Run',
+  cleanup: 'Runs when a task moves to Done',
   editor: 'Opens the task worktree in your editor',
 };
 
@@ -48,9 +48,9 @@ export function buildProjectHeader(): string {
         </button>
       </div>
       <div class="project-launch-wrapper">
-        <button class="project-scripts-btn" title="Configure scripts">
-          <i data-lucide="code"></i>
-          <i data-lucide="chevron-down" class="project-scripts-caret"></i>
+        <button class="project-hooks-btn" title="Configure hooks">
+          <i data-lucide="fishing-hook"></i>
+          <i data-lucide="chevron-down" class="project-hooks-caret"></i>
         </button>
       </div>
       <div class="project-sandbox-wrapper" style="display: none;">
@@ -160,7 +160,7 @@ export async function buildLaunchDropdownContent(dropdown: HTMLElement): Promise
   // Section header
   const header = document.createElement('div');
   header.className = 'launch-dropdown-header';
-  header.textContent = 'Scripts';
+  header.textContent = 'Hooks';
   dropdown.appendChild(header);
 
   // Hook rows
@@ -172,7 +172,7 @@ export async function buildLaunchDropdownContent(dropdown: HTMLElement): Promise
   hooksContainer.appendChild(buildHookRow('run', 'Run', hooks.run, path, {
     killExistingOnRun: settings.killExistingOnRun,
   }));
-  hooksContainer.appendChild(buildHookRow('cleanup', 'Cleanup', hooks.cleanup, path));
+  hooksContainer.appendChild(buildHookRow('cleanup', 'Done', hooks.cleanup, path));
   hooksContainer.appendChild(buildHookRow('editor', 'Editor', hooks.editor, path));
 
   dropdown.appendChild(hooksContainer);

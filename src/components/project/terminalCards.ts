@@ -742,7 +742,7 @@ export function showRunnerPanel(term: ProjectTerminal): void {
       });
     }
 
-    // Wire up restart button (re-runs the run script)
+    // Wire up restart button (re-runs the run hook)
     const restartBtn = panel.querySelector('.runner-panel-restart');
     if (restartBtn) {
       restartBtn.addEventListener('click', (e) => {
@@ -982,7 +982,7 @@ export function killRunner(term: ProjectTerminal): void {
 }
 
 /**
- * Restart the runner — kill current process and re-run the run script
+ * Restart the runner — kill current process and re-run the run hook
  */
 async function restartRunner(term: ProjectTerminal): Promise<void> {
   const wasFullWidth = term.runnerFullWidth;
@@ -1040,7 +1040,7 @@ export async function runDefaultInCard(term: ProjectTerminal): Promise<void> {
       killExistingOnRun: settings.killExistingOnRun,
     });
     if (result?.saved && result.hook) {
-      showToast('Run script configured', 'success');
+      showToast('Run hook configured', 'success');
       // Run it now that it's configured
       await runDefaultInCard(term);
     }

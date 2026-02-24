@@ -112,10 +112,10 @@ export async function enterProjectMode(
       exitBtn.addEventListener('click', () => exitProjectMode());
     }
 
-    // Wire up scripts button (opens dropdown)
-    const scriptsBtn = headerContent.querySelector('.project-scripts-btn');
-    if (scriptsBtn) {
-      scriptsBtn.addEventListener('click', (e) => {
+    // Wire up hooks button (opens dropdown)
+    const hooksBtn = headerContent.querySelector('.project-hooks-btn');
+    if (hooksBtn) {
+      hooksBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         toggleLaunchDropdown();
       });
@@ -583,10 +583,10 @@ export async function restoreProjectMode(
       exitBtn.addEventListener('click', () => exitProjectMode());
     }
 
-    // Wire up scripts button (opens dropdown)
-    const scriptsBtn = headerContent.querySelector('.project-scripts-btn');
-    if (scriptsBtn) {
-      scriptsBtn.addEventListener('click', (e) => {
+    // Wire up hooks button (opens dropdown)
+    const hooksBtn = headerContent.querySelector('.project-hooks-btn');
+    if (hooksBtn) {
+      hooksBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         toggleLaunchDropdown();
       });

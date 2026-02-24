@@ -16,26 +16,26 @@ export interface HookConfigDialogOptions {
 
 const HOOK_LABELS: Record<HookType, { title: string; description: string; placeholder: string; envVars?: boolean }> = {
   start: {
-    title: 'Start Script',
-    description: 'Runs as the first command when a new task is created (e.g., install dependencies and start Claude)',
+    title: 'Start Hook',
+    description: 'Runs when a task moves from To Do to In Progress (e.g., install dependencies and start Claude)',
     placeholder: 'npm install && claude "$OUIJIT_TASK_PROMPT"',
     envVars: true,
   },
   continue: {
-    title: 'Continue Script',
-    description: 'Runs as the first command when reopening an existing task (e.g., resume Claude session)',
+    title: 'Continue Hook',
+    description: 'Runs when reopening a task that is already In Progress (e.g., resume Claude session)',
     placeholder: 'claude -c',
     envVars: true,
   },
   run: {
-    title: 'Run Script',
-    description: 'Runs when you click the play button (e.g., start dev server)',
+    title: 'Run Hook',
+    description: 'Runs when you click Run (e.g., start dev server)',
     placeholder: 'npm run dev',
     envVars: true,
   },
   cleanup: {
-    title: 'Cleanup Script',
-    description: 'Runs before archiving a task (e.g., push to remote)',
+    title: 'Cleanup Hook',
+    description: 'Runs when a task moves to Done (e.g., push to remote)',
     placeholder: 'git push origin HEAD',
     envVars: true,
   },
@@ -73,11 +73,11 @@ export function showHookConfigDialog(
       <details class="hook-env-vars">
         <summary>Environment variables</summary>
         <ul>
-          <li><code>OUIJIT_PROJECT_PATH</code> - main project path</li>
-          <li><code>OUIJIT_WORKTREE_PATH</code> - task worktree path</li>
-          <li><code>OUIJIT_TASK_BRANCH</code> - git branch name</li>
-          <li><code>OUIJIT_TASK_NAME</code> - task display name</li>
-          <li><code>OUIJIT_TASK_PROMPT</code> - task description (start/continue hooks)</li>
+          <li><code>$OUIJIT_PROJECT_PATH</code> - main project path</li>
+          <li><code>$OUIJIT_WORKTREE_PATH</code> - task worktree path</li>
+          <li><code>$OUIJIT_TASK_BRANCH</code> - git branch name</li>
+          <li><code>$OUIJIT_TASK_NAME</code> - task display name</li>
+          <li><code>$OUIJIT_TASK_PROMPT</code> - task description (start/continue hooks)</li>
         </ul>
       </details>
     ` : '';

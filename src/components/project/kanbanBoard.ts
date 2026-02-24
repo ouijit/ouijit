@@ -855,7 +855,7 @@ async function showStartCommandDialog(path: string, taskName: string): Promise<{
 
     const title = document.createElement('div');
     title.className = 'import-dialog-title';
-    title.textContent = 'Start Command';
+    title.textContent = 'Start Task';
     dialog.appendChild(title);
 
     // Textarea for the command
@@ -872,10 +872,10 @@ async function showStartCommandDialog(path: string, taskName: string): Promise<{
     envHint.className = 'hook-env-vars';
     envHint.innerHTML = `<summary>Available environment variables</summary>
 <ul>
-  <li><code>OUIJIT_TASK_NAME</code> — ${escapeHtml(taskName)}</li>
-  <li><code>OUIJIT_PROJECT_PATH</code></li>
-  <li><code>OUIJIT_WORKTREE_PATH</code></li>
-  <li><code>OUIJIT_BRANCH</code></li>
+  <li><code>$OUIJIT_TASK_NAME</code> — ${escapeHtml(taskName)}</li>
+  <li><code>$OUIJIT_PROJECT_PATH</code></li>
+  <li><code>$OUIJIT_WORKTREE_PATH</code></li>
+  <li><code>$OUIJIT_BRANCH</code></li>
 </ul>`;
     dialog.appendChild(envHint);
 

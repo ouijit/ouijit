@@ -1474,20 +1474,20 @@ body.platform-darwin:not(.is-fullscreen) .project-header-content {
   -webkit-app-region: no-drag;
 }
 
-.project-scripts-btn {
+.project-hooks-btn {
   @apply relative h-8 flex items-center justify-center gap-1.5 px-2 bg-background-secondary border border-border rounded-md text-text-secondary ease-out;
   transition: background-color 150ms ease-out, border-color 150ms ease-out, color 150ms ease-out;
 }
 
-.project-scripts-btn:hover {
+.project-hooks-btn:hover {
   @apply bg-background-tertiary text-text-primary;
 }
 
-.project-scripts-btn svg {
+.project-hooks-btn svg {
   @apply w-4 h-4;
 }
 
-.project-scripts-caret {
+.project-hooks-caret {
   @apply !w-3 !h-3 opacity-50;
 }
 
@@ -1509,11 +1509,11 @@ body.platform-darwin:not(.is-fullscreen) .project-header-content {
 }
 
 .hooks-container {
-  @apply flex flex-col gap-0.5 px-1 pb-1;
+  @apply flex flex-col pb-1;
 }
 
 .hook-row {
-  @apply flex items-center gap-2 px-2 py-1.5 rounded-md;
+  @apply flex items-center gap-2 px-3 py-1.5;
 }
 
 .hook-label {
@@ -1554,10 +1554,15 @@ body.platform-darwin:not(.is-fullscreen) .project-header-content {
 
 .hook-row-wrapper {
   @apply flex flex-col;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.hook-row-wrapper:last-child {
+  border-bottom: none;
 }
 
 .hook-hint {
-  @apply text-[13px] text-text-tertiary leading-snug px-2 pb-1;
+  @apply text-[13px] text-text-tertiary leading-snug px-3 pb-2;
 }
 
 /* Hook config dialog */
