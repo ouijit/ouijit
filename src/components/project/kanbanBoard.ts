@@ -489,18 +489,7 @@ function buildKanbanCard(task: TaskWithWorkspace, path: string, limaAvailable: b
           return;
         }
 
-        let runConfig: RunConfig | undefined;
-        if (dialogResult.command) {
-          runConfig = {
-            name: 'start',
-            command: dialogResult.command,
-            source: 'custom',
-            priority: 0,
-          };
-        }
-
-        hideKanbanBoard();
-        await projectRegistry.addProjectTerminal?.(runConfig, {
+        const termOpts = {
           existingWorktree: {
             path: startResult.worktreePath,
             branch: startResult.task?.branch || '',
@@ -511,7 +500,16 @@ function buildKanbanCard(task: TaskWithWorkspace, path: string, limaAvailable: b
           taskId: task.taskNumber,
           sandboxed: dialogResult.sandboxed,
           skipAutoHook: true,
-        });
+          background: !!dialogResult.command,
+        };
+
+        if (dialogResult.command) {
+          const runConfig: RunConfig = { name: 'start', command: dialogResult.command, source: 'custom', priority: 0 };
+          await projectRegistry.addProjectTerminal?.(runConfig, termOpts);
+        } else {
+          hideKanbanBoard();
+          await projectRegistry.addProjectTerminal?.(undefined, termOpts);
+        }
         return;
       }
       const worktreePath = await ensureWorktreeExists(path, task);
@@ -522,18 +520,7 @@ function buildKanbanCard(task: TaskWithWorkspace, path: string, limaAvailable: b
         const dialogResult = await showStartCommandDialog(path, 'continue', task);
         if (dialogResult === null) return; // cancelled
 
-        let runConfig: RunConfig | undefined;
-        if (dialogResult.command) {
-          runConfig = {
-            name: 'continue',
-            command: dialogResult.command,
-            source: 'custom',
-            priority: 0,
-          };
-        }
-
-        hideKanbanBoard();
-        await projectRegistry.addProjectTerminal?.(runConfig, {
+        const termOpts = {
           existingWorktree: {
             path: worktreePath,
             branch: task.branch || '',
@@ -543,7 +530,16 @@ function buildKanbanCard(task: TaskWithWorkspace, path: string, limaAvailable: b
           taskId: task.taskNumber,
           sandboxed: dialogResult.sandboxed,
           skipAutoHook: true,
-        });
+          background: !!dialogResult.command,
+        };
+
+        if (dialogResult.command) {
+          const runConfig: RunConfig = { name: 'continue', command: dialogResult.command, source: 'custom', priority: 0 };
+          await projectRegistry.addProjectTerminal?.(runConfig, termOpts);
+        } else {
+          hideKanbanBoard();
+          await projectRegistry.addProjectTerminal?.(undefined, termOpts);
+        }
         return;
       }
 
@@ -694,17 +690,9 @@ async function runTransitionHookInTerminal(
   if (!hookMap[hookType]) return; // no hook configured
 
   const dialogResult = await showStartCommandDialog(path, hookType, task);
-  if (dialogResult === null || !dialogResult.command) return; // cancelled or skipped
+  if (dialogResult === null) return; // cancelled
 
-  const runConfig: RunConfig = {
-    name: hookType,
-    command: dialogResult.command,
-    source: 'custom',
-    priority: 0,
-  };
-
-  hideKanbanBoard();
-  await projectRegistry.addProjectTerminal?.(runConfig, {
+  const termOpts = {
     existingWorktree: {
       path: task.worktreePath!,
       branch: task.branch || '',
@@ -714,7 +702,16 @@ async function runTransitionHookInTerminal(
     taskId: task.taskNumber,
     sandboxed: dialogResult.sandboxed,
     skipAutoHook: true,
-  });
+    background: !!dialogResult.command,
+  };
+
+  if (dialogResult.command) {
+    const runConfig: RunConfig = { name: hookType, command: dialogResult.command, source: 'custom', priority: 0 };
+    await projectRegistry.addProjectTerminal?.(runConfig, termOpts);
+  } else {
+    hideKanbanBoard();
+    await projectRegistry.addProjectTerminal?.(undefined, termOpts);
+  }
 }
 
 /**
@@ -753,8 +750,17 @@ async function handleSortableEnd(evt: Sortable.SortableEvent): Promise<void> {
       let worktreePath = task.worktreePath;
       let branch = task.branch || '';
 
-      // Create worktree if task doesn't have one yet
-      if (!worktreePath) {
+      if (worktreePath) {
+        // Worktree recorded — verify it still exists on disk
+        const verified = await ensureWorktreeExists(path, task);
+        if (!verified) {
+          await populateKanbanBoard();
+          return;
+        }
+        worktreePath = verified;
+        branch = task.branch || '';
+      } else {
+        // No worktree yet — create one
         const startResult = await window.api.task.start(path, taskNumber);
         if (!startResult.success || !startResult.worktreePath) {
           await populateKanbanBoard();
@@ -776,19 +782,7 @@ async function handleSortableEnd(evt: Sortable.SortableEvent): Promise<void> {
         return;
       }
 
-      // Build runConfig if user chose to run a command
-      let runConfig: RunConfig | undefined;
-      const sandboxed = dialogResult.sandboxed;
-      if (dialogResult.command) {
-        runConfig = {
-          name: 'start',
-          command: dialogResult.command,
-          source: 'custom',
-          priority: 0,
-        };
-      }
-
-      await projectRegistry.addProjectTerminal?.(runConfig, {
+      const termOpts = {
         existingWorktree: {
           path: worktreePath,
           branch,
@@ -797,9 +791,18 @@ async function handleSortableEnd(evt: Sortable.SortableEvent): Promise<void> {
           sandboxed: task.sandboxed,
         },
         taskId: taskNumber,
-        sandboxed,
+        sandboxed: dialogResult.sandboxed,
         skipAutoHook: true,
-      });
+        background: !!dialogResult.command,
+      };
+
+      if (dialogResult.command) {
+        const runConfig: RunConfig = { name: 'start', command: dialogResult.command, source: 'custom', priority: 0 };
+        await projectRegistry.addProjectTerminal?.(runConfig, termOpts);
+      } else {
+        hideKanbanBoard();
+        await projectRegistry.addProjectTerminal?.(undefined, termOpts);
+      }
       await populateKanbanBoard();
       return;
     }

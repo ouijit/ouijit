@@ -1309,6 +1309,8 @@ export interface AddProjectTerminalOptions {
   taskId?: number;
   /** Skip automatic start/continue hook lookup — caller handles hooks explicitly */
   skipAutoHook?: boolean;
+  /** Create terminal in background without navigating to it */
+  background?: boolean;
 }
 
 /**
@@ -1796,11 +1798,12 @@ export async function addProjectTerminal(runConfig?: RunConfig, options?: AddPro
       updateTerminalCardLabel(projectTerminal!);
     });
 
-    // Add terminal to list and set as active - effects will handle updateCardStack
+    // Add terminal to list - effects will handle updateCardStack
     terminals.value = [...terminals.value, projectTerminal];
-    activeIndex.value = terminals.value.length - 1;
-
-    terminal.focus();
+    if (!options?.background) {
+      activeIndex.value = terminals.value.length - 1;
+      terminal.focus();
+    }
     return true;
   } catch (error) {
     if (useSandbox) {
