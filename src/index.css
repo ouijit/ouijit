@@ -1584,6 +1584,7 @@ body.platform-darwin:not(.is-fullscreen) .project-header-content {
   @apply absolute inset-0 px-3 py-2 font-mono text-sm leading-snug whitespace-pre-wrap break-words overflow-hidden pointer-events-none bg-background rounded-md;
   color: var(--color-text-primary);
   border: 1px solid transparent;
+  background-clip: padding-box;
 }
 
 .hook-command-input {
