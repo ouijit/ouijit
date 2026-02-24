@@ -2,9 +2,11 @@ import Database from 'better-sqlite3';
 import path from 'node:path';
 import { app } from 'electron';
 import { up as migration001 } from './migrations/001-initial';
+import { up as migration002 } from './migrations/002-add-review-hook';
 
 const migrations = [
   { version: 1, up: migration001 },
+  { version: 2, up: migration002 },
 ];
 
 let db: Database.Database | null = null;

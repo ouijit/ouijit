@@ -52,7 +52,7 @@ export interface CustomCommand {
 /**
  * Hook type - when the script runs
  */
-export type HookType = 'start' | 'continue' | 'run' | 'cleanup' | 'sandbox-setup' | 'editor';
+export type HookType = 'start' | 'continue' | 'run' | 'review' | 'cleanup' | 'sandbox-setup' | 'editor';
 
 /**
  * Script hook configuration
@@ -83,6 +83,7 @@ export interface ProjectSettings {
     start?: ScriptHook;
     continue?: ScriptHook;
     run?: ScriptHook;
+    review?: ScriptHook;
     cleanup?: ScriptHook;
     'sandbox-setup'?: ScriptHook;
     editor?: ScriptHook;
@@ -198,7 +199,7 @@ export interface TaskWithWorkspace {
  */
 export interface HooksAPI {
   /** Get all hooks for a project */
-  get(projectPath: string): Promise<{ start?: ScriptHook; continue?: ScriptHook; run?: ScriptHook; cleanup?: ScriptHook; 'sandbox-setup'?: ScriptHook; editor?: ScriptHook }>;
+  get(projectPath: string): Promise<{ start?: ScriptHook; continue?: ScriptHook; run?: ScriptHook; review?: ScriptHook; cleanup?: ScriptHook; 'sandbox-setup'?: ScriptHook; editor?: ScriptHook }>;
   /** Save a hook for a project */
   save(projectPath: string, hook: ScriptHook): Promise<{ success: boolean }>;
   /** Delete a hook for a project */

@@ -34,6 +34,12 @@ const HOOK_LABELS: Record<HookType, { title: string; description: string; placeh
     placeholder: 'npm run dev',
     envVars: true,
   },
+  review: {
+    title: 'Review Hook',
+    description: 'Runs when a task moves to In Review (e.g., open a PR, run linting)',
+    placeholder: 'gh pr create --fill',
+    envVars: true,
+  },
   cleanup: {
     title: 'Cleanup Hook',
     description: 'Runs when a task moves to Done (e.g., push to remote)',

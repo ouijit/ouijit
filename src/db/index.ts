@@ -344,7 +344,7 @@ export async function getProjectSettings(projectPath: string): Promise<ProjectSe
 
 export async function getHooks(
   projectPath: string,
-): Promise<{ start?: ScriptHook; continue?: ScriptHook; run?: ScriptHook; cleanup?: ScriptHook; 'sandbox-setup'?: ScriptHook; editor?: ScriptHook }> {
+): Promise<{ start?: ScriptHook; continue?: ScriptHook; run?: ScriptHook; review?: ScriptHook; cleanup?: ScriptHook; 'sandbox-setup'?: ScriptHook; editor?: ScriptHook }> {
   const settings = await getProjectSettings(projectPath);
   return settings.hooks || {};
 }

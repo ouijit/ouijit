@@ -13,6 +13,7 @@ const HOOK_HINTS: Record<string, string> = {
   start: 'Runs when a task moves from To Do to In Progress',
   continue: 'Runs when reopening an In Progress task',
   run: 'Runs when you click Run',
+  review: 'Runs when a task moves to In Review',
   cleanup: 'Runs when a task moves to Done',
   editor: 'Opens the task worktree in your editor',
 };
@@ -172,6 +173,7 @@ export async function buildLaunchDropdownContent(dropdown: HTMLElement): Promise
   hooksContainer.appendChild(buildHookRow('run', 'Run', hooks.run, path, {
     killExistingOnRun: settings.killExistingOnRun,
   }));
+  hooksContainer.appendChild(buildHookRow('review', 'Review', hooks.review, path));
   hooksContainer.appendChild(buildHookRow('cleanup', 'Done', hooks.cleanup, path));
   hooksContainer.appendChild(buildHookRow('editor', 'Editor', hooks.editor, path));
 

@@ -20,27 +20,38 @@ import log from './log';
 const taskLog = log.scope('task');
 
 /**
- * Run the cleanup hook if transitioning to 'done' from a non-done state.
+ * Map of status transitions to their corresponding hook types.
+ * Only transitions listed here trigger a hook.
+ */
+const TRANSITION_HOOKS: Partial<Record<TaskStatus, { hookType: 'review' | 'cleanup'; skipIfAlready: TaskStatus }>> = {
+  in_review: { hookType: 'review', skipIfAlready: 'in_review' },
+  done: { hookType: 'cleanup', skipIfAlready: 'done' },
+};
+
+/**
+ * Run a transition hook (review or cleanup) if the task is moving into a
+ * status that has an associated hook configured.
  * Returns a warning message if the hook fails, undefined otherwise.
  */
-async function runCleanupHookIfNeeded(
+async function runTransitionHookIfNeeded(
   projectPath: string,
   taskNumber: number,
   targetStatus: TaskStatus,
 ): Promise<string | undefined> {
-  if (targetStatus !== 'done') return undefined;
+  const transition = TRANSITION_HOOKS[targetStatus];
+  if (!transition) return undefined;
 
   const task = await getTaskByNumber(projectPath, taskNumber);
-  if (!task || task.status === 'done') return undefined;
+  if (!task || task.status === transition.skipIfAlready) return undefined;
 
-  const cleanupHook = await getHook(projectPath, 'cleanup');
-  if (!cleanupHook) return undefined;
+  const hook = await getHook(projectPath, transition.hookType);
+  if (!hook) return undefined;
 
   const worktrees = await listWorktrees(projectPath);
   const worktree = task.branch ? worktrees.find(wt => wt.branch === task.branch) : undefined;
   if (!worktree) return undefined;
 
-  const hookResult = await executeHook(cleanupHook, worktree.path, {
+  const hookResult = await executeHook(hook, worktree.path, {
     projectPath,
     worktreePath: worktree.path,
     taskBranch: task.branch || '',
@@ -66,7 +77,7 @@ export async function setTaskStatusWithHooks(
   taskNumber: number,
   status: TaskStatus,
 ): Promise<{ success: boolean; error?: string; hookWarning?: string }> {
-  const hookWarning = await runCleanupHookIfNeeded(projectPath, taskNumber, status);
+  const hookWarning = await runTransitionHookIfNeeded(projectPath, taskNumber, status);
   const result = await setTaskStatus(projectPath, taskNumber, status);
   if (!result.success) {
     taskLog.error('setStatusWithHooks failed', { taskNumber, status, error: result.error });
@@ -75,7 +86,7 @@ export async function setTaskStatusWithHooks(
 }
 
 /**
- * Reorder task with cleanup hook execution when reordering into 'done'.
+ * Reorder task with hook execution when reordering into 'in_review' or 'done'.
  */
 export async function reorderTaskWithHooks(
   projectPath: string,
@@ -83,7 +94,7 @@ export async function reorderTaskWithHooks(
   newStatus: TaskStatus,
   targetIndex: number,
 ): Promise<{ success: boolean; error?: string; hookWarning?: string }> {
-  const hookWarning = await runCleanupHookIfNeeded(projectPath, taskNumber, newStatus);
+  const hookWarning = await runTransitionHookIfNeeded(projectPath, taskNumber, newStatus);
   const result = await reorderTask(projectPath, taskNumber, newStatus, targetIndex);
   if (!result.success) {
     taskLog.error('reorderWithHooks failed', { taskNumber, status: newStatus, error: result.error });
