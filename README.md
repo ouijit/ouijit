@@ -6,9 +6,14 @@ Kanban terminal manager for CLI agent workflows with automatic git worktree isol
 
 ## Setup
 
-Requires Node.js 20+, git, and C/C++ build tools (`xcode-select --install` on macOS).
+Requires Node.js 20+, git, and C/C++ build tools for native modules (better-sqlite3, node-pty, koffi):
+
+- **macOS:** `xcode-select --install`
+- **Linux:** `sudo apt install build-essential python3` (Debian/Ubuntu)
 
 ```bash
+git clone https://github.com/pbjer/ouijit.git
+cd ouijit
 npm install
 npm start
 ```
