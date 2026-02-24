@@ -1493,7 +1493,7 @@ body.platform-darwin:not(.is-fullscreen) .project-header-content {
 
 /* Launch dropdown - reuses .launch-dropdown pattern */
 .project-launch-dropdown {
-  @apply absolute top-full right-0 mt-1 min-w-[240px] max-w-[296px] bg-surface border border-border rounded-md shadow-lg z-[1000] opacity-0 invisible overflow-hidden transition-all duration-150 ease-out;
+  @apply absolute top-full right-0 mt-1 min-w-[240px] max-w-[272px] bg-surface border border-border rounded-md shadow-lg z-[1000] opacity-0 invisible overflow-hidden transition-all duration-150 ease-out;
   transform: translateY(-8px);
   -webkit-app-region: no-drag;
 }

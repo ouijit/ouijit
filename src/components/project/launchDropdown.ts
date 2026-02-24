@@ -49,8 +49,8 @@ export function buildProjectHeader(): string {
         </button>
       </div>
       <div class="project-launch-wrapper">
-        <button class="project-hooks-btn" title="Configure hooks">
-          <i data-lucide="fishing-hook"></i>
+        <button class="project-hooks-btn" title="Scripts">
+          <i data-lucide="code"></i>
           <i data-lucide="chevron-down" class="project-hooks-caret"></i>
         </button>
       </div>
@@ -161,7 +161,7 @@ export async function buildLaunchDropdownContent(dropdown: HTMLElement): Promise
   // Section header
   const header = document.createElement('div');
   header.className = 'launch-dropdown-header';
-  header.textContent = 'Hooks';
+  header.textContent = 'Scripts';
   dropdown.appendChild(header);
 
   // Hook rows
