@@ -481,46 +481,30 @@ function buildKanbanCard(task: TaskWithWorkspace, path: string, limaAvailable: b
         }
         await window.api.task.setStatus(path, task.taskNumber, 'in_progress');
         invalidateTaskList();
-
-        // Show start command dialog so user can edit/skip/cancel
-        const dialogResult = await showStartCommandDialog(path, 'start', task);
-        if (dialogResult === null) {
-          await populateKanbanBoard();
-          return;
-        }
-
-        await openTerminalFromDialog(dialogResult, 'start', {
-          path: startResult.worktreePath,
-          branch: startResult.task?.branch || '',
-          prompt: task.prompt,
-          createdAt: task.createdAt,
-          sandboxed: task.sandboxed,
-        }, task.taskNumber);
+        hideKanbanBoard();
+        await projectRegistry.addProjectTerminal?.(undefined, {
+          existingWorktree: {
+            path: startResult.worktreePath,
+            branch: startResult.task?.branch || '',
+            prompt: task.prompt,
+            createdAt: task.createdAt,
+            sandboxed: task.sandboxed,
+          },
+          taskId: task.taskNumber,
+          sandboxed: false,
+          skipAutoHook: true,
+        });
         return;
       }
       const worktreePath = await ensureWorktreeExists(path, task);
       if (!worktreePath) return;
 
-      if (task.status === 'in_progress') {
-        // Show continue command dialog so user can edit/skip/cancel
-        const dialogResult = await showStartCommandDialog(path, 'continue', task);
-        if (dialogResult === null) return; // cancelled
-
-        await openTerminalFromDialog(dialogResult, 'continue', {
-          path: worktreePath,
-          branch: task.branch || '',
-          createdAt: task.createdAt,
-          sandboxed: task.sandboxed,
-        }, task.taskNumber);
-        return;
-      }
-
-      // in_review or other status: open plain terminal, no hook
       hideKanbanBoard();
       await projectRegistry.addProjectTerminal?.(undefined, {
         existingWorktree: {
           path: worktreePath,
           branch: task.branch || '',
+          prompt: task.prompt,
           createdAt: task.createdAt,
           sandboxed: task.sandboxed,
         },
@@ -651,10 +635,10 @@ function setupSortable(): void {
 /**
  * Open a terminal based on a hook dialog result.
  * Run → background terminal with command, stay on kanban.
- * Skip → navigate to a plain terminal, hide kanban.
+ * Run & Open → run command (if any) AND navigate to the terminal, hide kanban.
  */
 async function openTerminalFromDialog(
-  dialogResult: { command: string; sandboxed: boolean; skipped: boolean },
+  dialogResult: { command: string; sandboxed: boolean; foreground: boolean },
   hookName: string,
   existingWorktree: { path: string; branch: string; prompt?: string; createdAt?: string; sandboxed?: boolean },
   taskId: number,
@@ -664,13 +648,12 @@ async function openTerminalFromDialog(
     taskId,
     sandboxed: dialogResult.sandboxed,
     skipAutoHook: true,
-    background: !dialogResult.skipped,
+    background: !dialogResult.foreground,
   };
 
-  if (dialogResult.skipped) {
-    hideKanbanBoard();
-    await projectRegistry.addProjectTerminal?.(undefined, termOpts);
-  } else if (dialogResult.command) {
+  if (dialogResult.foreground) hideKanbanBoard();
+
+  if (dialogResult.command) {
     const runConfig: RunConfig = { name: hookName, command: dialogResult.command, source: 'custom', priority: 0 };
     await projectRegistry.addProjectTerminal?.(runConfig, termOpts);
   } else {
@@ -680,7 +663,7 @@ async function openTerminalFromDialog(
 
 /**
  * Check if a hook is configured and run it in a terminal.
- * Shows a command dialog so the user can edit/skip/cancel before opening.
+ * Shows a command dialog so the user can run/open/cancel before opening.
  */
 async function runTransitionHookInTerminal(
   path: string,
@@ -962,7 +945,7 @@ function wireAddInput(board: Element): void {
 
 /**
  * Show a start command dialog before opening a terminal.
- * Returns { command: string } to run a command, 'skip' to open terminal with no command, or null to cancel.
+ * Returns { command, sandboxed, foreground } to run/open a terminal, or null to cancel.
  */
 const HOOK_DIALOG_TITLES: Record<string, string> = {
   start: 'Start Task',
@@ -971,7 +954,7 @@ const HOOK_DIALOG_TITLES: Record<string, string> = {
   cleanup: 'Done — Cleanup',
 };
 
-async function showStartCommandDialog(path: string, hookType: 'start' | 'continue' | 'review' | 'cleanup' = 'start', task?: TaskWithWorkspace): Promise<{ command: string; sandboxed: boolean; skipped: boolean } | null> {
+async function showStartCommandDialog(path: string, hookType: 'start' | 'continue' | 'review' | 'cleanup' = 'start', task?: TaskWithWorkspace): Promise<{ command: string; sandboxed: boolean; foreground: boolean } | null> {
   // Fetch hook command and lima status before opening the dialog
   let hookCommand = '';
   let limaAvailable = false;
@@ -993,7 +976,7 @@ async function showStartCommandDialog(path: string, hookType: 'start' | 'continu
 
   return new Promise((resolve) => {
     let resolved = false;
-    const finish = (result: { command: string; sandboxed: boolean; skipped: boolean } | null) => {
+    const finish = (result: { command: string; sandboxed: boolean; foreground: boolean } | null) => {
       if (resolved) return;
       resolved = true;
       cleanup();
@@ -1097,12 +1080,12 @@ async function showStartCommandDialog(path: string, hookType: 'start' | 'continu
     cancelBtn.addEventListener('click', () => finish(null));
     btnGroup.appendChild(cancelBtn);
 
-    const skipBtn = document.createElement('button');
-    skipBtn.className = 'btn btn-secondary';
-    skipBtn.textContent = 'Skip';
-    skipBtn.setAttribute('style', '-webkit-app-region: no-drag;');
-    skipBtn.addEventListener('click', () => finish({ command: '', sandboxed, skipped: true }));
-    btnGroup.appendChild(skipBtn);
+    const runOpenBtn = document.createElement('button');
+    runOpenBtn.className = 'btn btn-primary';
+    runOpenBtn.textContent = 'Run & Open';
+    runOpenBtn.setAttribute('style', '-webkit-app-region: no-drag; white-space: nowrap;');
+    runOpenBtn.addEventListener('click', () => finish({ command: textarea.value.trim(), sandboxed, foreground: true }));
+    btnGroup.appendChild(runOpenBtn);
 
     const runBtn = document.createElement('button');
     runBtn.className = 'btn btn-primary';
@@ -1110,7 +1093,7 @@ async function showStartCommandDialog(path: string, hookType: 'start' | 'continu
     runBtn.setAttribute('style', '-webkit-app-region: no-drag;');
     runBtn.addEventListener('click', () => {
       const cmd = textarea.value.trim();
-      finish({ command: cmd, sandboxed, skipped: false });
+      finish({ command: cmd, sandboxed, foreground: false });
     });
     btnGroup.appendChild(runBtn);
     actions.appendChild(btnGroup);

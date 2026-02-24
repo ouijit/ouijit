@@ -110,8 +110,8 @@ test('project mode: terminals, kanban, context menu, and task lifecycle', async 
   await expect(hookDialog).toBeVisible({ timeout: 10_000 });
   await expect(hookDialog.locator('.import-dialog-title')).toHaveText('Start Task');
 
-  // Click "Skip" to open a plain terminal and navigate to it
-  await hookDialog.locator('.btn-secondary', { hasText: 'Skip' }).click();
+  // Click "Run & Open" to open a plain terminal and navigate to it
+  await hookDialog.locator('.btn-primary', { hasText: 'Run & Open' }).click();
 
   // Kanban should hide and a terminal card should appear
   await expect(appPage.locator('.kanban-board')).not.toBeVisible({ timeout: 5_000 });
@@ -190,7 +190,7 @@ test('lifecycle hooks: configure, run, cancel, and drag transitions', async ({ a
   await expect(hookDialog.locator('textarea.start-command-textarea')).toHaveValue('echo starting');
 
   // Click "Run" — terminal created in background, kanban stays visible
-  await hookDialog.locator('.btn-primary', { hasText: 'Run' }).click();
+  await hookDialog.locator('.btn-primary', { hasText: /^Run$/ }).click();
   await expect(appPage.locator('.modal-overlay--visible')).not.toBeVisible({ timeout: 5_000 });
   await expect(appPage.locator('.kanban-board')).toBeVisible();
   await expect(appPage.locator('.project-card')).toHaveCount(1, { timeout: 15_000 });
@@ -232,7 +232,7 @@ test('lifecycle hooks: configure, run, cancel, and drag transitions', async ({ a
   await expect(hookDialog.locator('textarea.start-command-textarea')).toHaveValue('echo reviewing');
 
   // Click "Run" — terminal in background, kanban stays
-  await hookDialog.locator('.btn-primary', { hasText: 'Run' }).click();
+  await hookDialog.locator('.btn-primary', { hasText: /^Run$/ }).click();
   await expect(appPage.locator('.modal-overlay--visible')).not.toBeVisible({ timeout: 5_000 });
   await expect(appPage.locator('.kanban-board')).toBeVisible();
   await expect(appPage.locator('.project-card')).toHaveCount(2, { timeout: 15_000 });
@@ -263,7 +263,7 @@ test('lifecycle hooks: configure, run, cancel, and drag transitions', async ({ a
   await expect(hookDialog.locator('textarea.start-command-textarea')).toHaveValue('echo cleaning');
 
   // Click "Run" — terminal in background
-  await hookDialog.locator('.btn-primary', { hasText: 'Run' }).click();
+  await hookDialog.locator('.btn-primary', { hasText: /^Run$/ }).click();
   await expect(appPage.locator('.modal-overlay--visible')).not.toBeVisible({ timeout: 5_000 });
   await expect(appPage.locator('.kanban-board')).toBeVisible();
   await expect(doneColumn.locator('.kanban-card')).toHaveCount(1, { timeout: 5_000 });
