@@ -1,5 +1,6 @@
 import type { ScriptHook, HookType } from '../types';
 import { registerHotkey, unregisterHotkey, pushScope, popScope, Scopes } from '../utils/hotkeys';
+import { setupHighlightedTextarea } from '../utils/html';
 import { showToast } from './importDialog';
 import { generateId } from '../utils/ids';
 
@@ -95,7 +96,7 @@ export function showHookConfigDialog(
             placeholder="${labels.placeholder}"
             autocomplete="off"
             spellcheck="false"
-            rows="3"
+            rows="1"
           >${existingHook?.command || ''}</textarea>
         </div>
 
@@ -121,6 +122,7 @@ export function showHookConfigDialog(
     document.body.appendChild(overlay);
 
     const commandInput = dialog.querySelector('#hook-command') as HTMLTextAreaElement;
+    setupHighlightedTextarea(commandInput);
 
     requestAnimationFrame(() => {
       overlay.classList.add('modal-overlay--visible');

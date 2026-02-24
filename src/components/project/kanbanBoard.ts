@@ -10,7 +10,7 @@ import { projectRegistry } from './helpers';
 import { showToast } from '../importDialog';
 import { reopenTask, deleteTask, closeTask, showMissingWorktreeDialog } from './worktreeDropdown';
 import { switchToProjectTerminal } from './terminalCards';
-import { escapeHtml } from '../../utils/html';
+import { escapeHtml, setupHighlightedTextarea } from '../../utils/html';
 import { registerHotkey, unregisterHotkey, pushScope, popScope, Scopes, platformHotkey } from '../../utils/hotkeys';
 import { createIcons, icons } from 'lucide';
 import Sortable from 'sortablejs';
@@ -863,9 +863,10 @@ async function showStartCommandDialog(path: string, taskName: string): Promise<{
     textarea.className = 'form-input form-textarea start-command-textarea';
     textarea.value = startCommand;
     textarea.placeholder = 'e.g. npm run dev';
-    textarea.rows = 3;
+    textarea.rows = 1;
     textarea.setAttribute('style', '-webkit-app-region: no-drag;');
     dialog.appendChild(textarea);
+    setupHighlightedTextarea(textarea);
 
     // Environment variables hint
     const envHint = document.createElement('details');

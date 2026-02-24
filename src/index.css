@@ -1571,7 +1571,34 @@ body.platform-darwin:not(.is-fullscreen) .project-header-content {
 }
 
 .form-textarea {
-  @apply h-auto px-3 py-2 resize-y min-h-[76px] font-mono text-sm leading-snug;
+  @apply h-auto px-3 py-2 resize-none font-mono text-sm leading-snug overflow-hidden;
+  transition: border-color 150ms ease-out, box-shadow 150ms ease-out;
+}
+
+/* Highlight underlay for env-var coloring in hook textareas */
+.hook-command-wrap {
+  @apply relative;
+}
+
+.hook-command-backdrop {
+  @apply absolute inset-0 px-3 py-2 font-mono text-sm leading-snug whitespace-pre-wrap break-words overflow-hidden pointer-events-none bg-background rounded-md;
+  color: var(--color-text-primary);
+  border: 1px solid transparent;
+}
+
+.hook-command-input {
+  @apply relative bg-transparent block;
+  color: transparent;
+  caret-color: var(--color-text-primary);
+}
+
+.hook-command-input::selection {
+  background: rgba(10, 132, 255, 0.3);
+}
+
+.hook-env-highlight {
+  @apply bg-transparent;
+  color: var(--color-accent);
 }
 
 .hook-env-vars {
