@@ -2,8 +2,12 @@ import { test, expect } from './fixtures';
 
 const modifier = process.platform === 'darwin' ? 'Meta' : 'Control';
 
-test('project mode: terminals, kanban, context menu, and task lifecycle', async ({ appPage }) => {
-  // Enter project mode
+test('project mode: terminals, kanban, context menu, and task lifecycle', async ({ appPage, testRepo }) => {
+  // Add the test repo as a project via the API (no automatic discovery)
+  await appPage.evaluate(async (repoPath) => {
+    await window.api.addProject(repoPath);
+    await (window as any).refreshProjects();
+  }, testRepo.repoPath);
   await appPage.locator('.project-row').first().click({ timeout: 15_000 });
   await expect(appPage.locator('body')).toHaveClass(/project-mode/, { timeout: 5_000 });
 
@@ -98,8 +102,16 @@ test('project mode: terminals, kanban, context menu, and task lifecycle', async 
   await expect(contextMenu.locator('.task-context-menu-item', { hasText: 'Move to Done' })).toBeVisible();
   await expect(contextMenu.locator('.task-context-menu-item--danger', { hasText: 'Delete' })).toBeVisible();
 
-  // Click "Open in Terminal" — creates worktree and opens terminal
+  // Click "Open in Terminal" — creates worktree and shows hook confirmation dialog
   await contextMenu.locator('.task-context-menu-item', { hasText: 'Open in Terminal' }).click();
+
+  // Hook confirmation dialog should appear (no hooks configured, so textarea is empty)
+  const hookDialog = appPage.locator('.modal-overlay--visible .import-dialog');
+  await expect(hookDialog).toBeVisible({ timeout: 10_000 });
+  await expect(hookDialog.locator('.import-dialog-title')).toHaveText('Start Task');
+
+  // Click "Skip" to open a plain terminal and navigate to it
+  await hookDialog.locator('.btn-secondary', { hasText: 'Skip' }).click();
 
   // Kanban should hide and a terminal card should appear
   await expect(appPage.locator('.kanban-board')).not.toBeVisible({ timeout: 5_000 });

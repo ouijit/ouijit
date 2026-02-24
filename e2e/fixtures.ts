@@ -48,7 +48,7 @@ export const test = base.extend<OuijitFixtures>({
     fs.rmSync(dir, { recursive: true, force: true });
   },
 
-  electronApp: async ({ testRepo, userDataDir }, use) => {
+  electronApp: async ({ userDataDir }, use) => {
     const mainScript = path.resolve(__dirname, '..', '.vite', 'build', 'main.js');
 
     const electronApp = await _electron.launch({
@@ -56,7 +56,6 @@ export const test = base.extend<OuijitFixtures>({
       env: {
         ...process.env,
         OUIJIT_TEST_USER_DATA: userDataDir,
-        OUIJIT_TEST_SCAN_DIRS: path.dirname(testRepo.repoPath),
         NODE_ENV: 'test',
       },
     });

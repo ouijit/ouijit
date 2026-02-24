@@ -1527,8 +1527,10 @@ export async function addProjectTerminal(runConfig?: RunConfig, options?: AddPro
 
     // Add to signals — effects handle updateCardStack, empty state, focus
     terminals.value = [...terminals.value, projectTerminal];
-    activeIndex.value = terminals.value.length - 1;
-    terminal.focus();
+    if (!options?.background) {
+      activeIndex.value = terminals.value.length - 1;
+      terminal.focus();
+    }
   }
 
   // Determine command to run - use start/continue hooks for worktree terminals if configured

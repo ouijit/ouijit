@@ -489,27 +489,13 @@ function buildKanbanCard(task: TaskWithWorkspace, path: string, limaAvailable: b
           return;
         }
 
-        const termOpts = {
-          existingWorktree: {
-            path: startResult.worktreePath,
-            branch: startResult.task?.branch || '',
-            prompt: task.prompt,
-            createdAt: task.createdAt,
-            sandboxed: task.sandboxed,
-          },
-          taskId: task.taskNumber,
-          sandboxed: dialogResult.sandboxed,
-          skipAutoHook: true,
-          background: !!dialogResult.command,
-        };
-
-        if (dialogResult.command) {
-          const runConfig: RunConfig = { name: 'start', command: dialogResult.command, source: 'custom', priority: 0 };
-          await projectRegistry.addProjectTerminal?.(runConfig, termOpts);
-        } else {
-          hideKanbanBoard();
-          await projectRegistry.addProjectTerminal?.(undefined, termOpts);
-        }
+        await openTerminalFromDialog(dialogResult, 'start', {
+          path: startResult.worktreePath,
+          branch: startResult.task?.branch || '',
+          prompt: task.prompt,
+          createdAt: task.createdAt,
+          sandboxed: task.sandboxed,
+        }, task.taskNumber);
         return;
       }
       const worktreePath = await ensureWorktreeExists(path, task);
@@ -520,26 +506,12 @@ function buildKanbanCard(task: TaskWithWorkspace, path: string, limaAvailable: b
         const dialogResult = await showStartCommandDialog(path, 'continue', task);
         if (dialogResult === null) return; // cancelled
 
-        const termOpts = {
-          existingWorktree: {
-            path: worktreePath,
-            branch: task.branch || '',
-            createdAt: task.createdAt,
-            sandboxed: task.sandboxed,
-          },
-          taskId: task.taskNumber,
-          sandboxed: dialogResult.sandboxed,
-          skipAutoHook: true,
-          background: !!dialogResult.command,
-        };
-
-        if (dialogResult.command) {
-          const runConfig: RunConfig = { name: 'continue', command: dialogResult.command, source: 'custom', priority: 0 };
-          await projectRegistry.addProjectTerminal?.(runConfig, termOpts);
-        } else {
-          hideKanbanBoard();
-          await projectRegistry.addProjectTerminal?.(undefined, termOpts);
-        }
+        await openTerminalFromDialog(dialogResult, 'continue', {
+          path: worktreePath,
+          branch: task.branch || '',
+          createdAt: task.createdAt,
+          sandboxed: task.sandboxed,
+        }, task.taskNumber);
         return;
       }
 
@@ -677,6 +649,36 @@ function setupSortable(): void {
 }
 
 /**
+ * Open a terminal based on a hook dialog result.
+ * Run → background terminal with command, stay on kanban.
+ * Skip → navigate to a plain terminal, hide kanban.
+ */
+async function openTerminalFromDialog(
+  dialogResult: { command: string; sandboxed: boolean; skipped: boolean },
+  hookName: string,
+  existingWorktree: { path: string; branch: string; prompt?: string; createdAt?: string; sandboxed?: boolean },
+  taskId: number,
+): Promise<void> {
+  const termOpts = {
+    existingWorktree,
+    taskId,
+    sandboxed: dialogResult.sandboxed,
+    skipAutoHook: true,
+    background: !dialogResult.skipped,
+  };
+
+  if (dialogResult.skipped) {
+    hideKanbanBoard();
+    await projectRegistry.addProjectTerminal?.(undefined, termOpts);
+  } else if (dialogResult.command) {
+    const runConfig: RunConfig = { name: hookName, command: dialogResult.command, source: 'custom', priority: 0 };
+    await projectRegistry.addProjectTerminal?.(runConfig, termOpts);
+  } else {
+    await projectRegistry.addProjectTerminal?.(undefined, termOpts);
+  }
+}
+
+/**
  * Check if a hook is configured and run it in a terminal.
  * Shows a command dialog so the user can edit/skip/cancel before opening.
  */
@@ -692,26 +694,12 @@ async function runTransitionHookInTerminal(
   const dialogResult = await showStartCommandDialog(path, hookType, task);
   if (dialogResult === null) return; // cancelled
 
-  const termOpts = {
-    existingWorktree: {
-      path: task.worktreePath!,
-      branch: task.branch || '',
-      createdAt: task.createdAt,
-      sandboxed: task.sandboxed,
-    },
-    taskId: task.taskNumber,
-    sandboxed: dialogResult.sandboxed,
-    skipAutoHook: true,
-    background: !!dialogResult.command,
-  };
-
-  if (dialogResult.command) {
-    const runConfig: RunConfig = { name: hookType, command: dialogResult.command, source: 'custom', priority: 0 };
-    await projectRegistry.addProjectTerminal?.(runConfig, termOpts);
-  } else {
-    hideKanbanBoard();
-    await projectRegistry.addProjectTerminal?.(undefined, termOpts);
-  }
+  await openTerminalFromDialog(dialogResult, hookType, {
+    path: task.worktreePath!,
+    branch: task.branch || '',
+    createdAt: task.createdAt,
+    sandboxed: task.sandboxed,
+  }, task.taskNumber);
 }
 
 /**
@@ -782,27 +770,13 @@ async function handleSortableEnd(evt: Sortable.SortableEvent): Promise<void> {
         return;
       }
 
-      const termOpts = {
-        existingWorktree: {
-          path: worktreePath,
-          branch,
-          prompt: task.prompt,
-          createdAt: task.createdAt,
-          sandboxed: task.sandboxed,
-        },
-        taskId: taskNumber,
-        sandboxed: dialogResult.sandboxed,
-        skipAutoHook: true,
-        background: !!dialogResult.command,
-      };
-
-      if (dialogResult.command) {
-        const runConfig: RunConfig = { name: 'start', command: dialogResult.command, source: 'custom', priority: 0 };
-        await projectRegistry.addProjectTerminal?.(runConfig, termOpts);
-      } else {
-        hideKanbanBoard();
-        await projectRegistry.addProjectTerminal?.(undefined, termOpts);
-      }
+      await openTerminalFromDialog(dialogResult, 'start', {
+        path: worktreePath,
+        branch,
+        prompt: task.prompt,
+        createdAt: task.createdAt,
+        sandboxed: task.sandboxed,
+      }, taskNumber);
       await populateKanbanBoard();
       return;
     }
@@ -997,7 +971,7 @@ const HOOK_DIALOG_TITLES: Record<string, string> = {
   cleanup: 'Done — Cleanup',
 };
 
-async function showStartCommandDialog(path: string, hookType: 'start' | 'continue' | 'review' | 'cleanup' = 'start', task?: TaskWithWorkspace): Promise<{ command: string; sandboxed: boolean } | null> {
+async function showStartCommandDialog(path: string, hookType: 'start' | 'continue' | 'review' | 'cleanup' = 'start', task?: TaskWithWorkspace): Promise<{ command: string; sandboxed: boolean; skipped: boolean } | null> {
   // Fetch hook command and lima status before opening the dialog
   let hookCommand = '';
   let limaAvailable = false;
@@ -1019,7 +993,7 @@ async function showStartCommandDialog(path: string, hookType: 'start' | 'continu
 
   return new Promise((resolve) => {
     let resolved = false;
-    const finish = (result: { command: string; sandboxed: boolean } | null) => {
+    const finish = (result: { command: string; sandboxed: boolean; skipped: boolean } | null) => {
       if (resolved) return;
       resolved = true;
       cleanup();
@@ -1127,7 +1101,7 @@ async function showStartCommandDialog(path: string, hookType: 'start' | 'continu
     skipBtn.className = 'btn btn-secondary';
     skipBtn.textContent = 'Skip';
     skipBtn.setAttribute('style', '-webkit-app-region: no-drag;');
-    skipBtn.addEventListener('click', () => finish({ command: '', sandboxed }));
+    skipBtn.addEventListener('click', () => finish({ command: '', sandboxed, skipped: true }));
     btnGroup.appendChild(skipBtn);
 
     const runBtn = document.createElement('button');
@@ -1136,7 +1110,7 @@ async function showStartCommandDialog(path: string, hookType: 'start' | 'continu
     runBtn.setAttribute('style', '-webkit-app-region: no-drag;');
     runBtn.addEventListener('click', () => {
       const cmd = textarea.value.trim();
-      finish({ command: cmd, sandboxed });
+      finish({ command: cmd, sandboxed, skipped: false });
     });
     btnGroup.appendChild(runBtn);
     actions.appendChild(btnGroup);
