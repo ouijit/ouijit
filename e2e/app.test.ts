@@ -144,3 +144,145 @@ test('project mode: terminals, kanban, context menu, and task lifecycle', async 
   await expect(inProgressColumn.locator('.kanban-card')).toHaveCount(0, { timeout: 5_000 });
   await expect(todoColumn.locator('.kanban-card')).toHaveCount(0);
 });
+
+test('lifecycle hooks: configure, run, cancel, and drag transitions', async ({ appPage, testRepo }) => {
+  const repoPath = testRepo.repoPath;
+
+  // --- Setup: add project, enter project mode, configure hooks ---
+
+  await appPage.evaluate(async (rp) => {
+    await window.api.addProject(rp);
+    await (window as any).refreshProjects();
+  }, repoPath);
+  await appPage.locator('.project-row').first().click({ timeout: 15_000 });
+  await expect(appPage.locator('body')).toHaveClass(/project-mode/, { timeout: 5_000 });
+
+  // Configure start, review, and cleanup hooks via API
+  await appPage.evaluate(async (rp) => {
+    await window.api.hooks.save(rp, { id: 'hook-start', type: 'start', name: 'Start', command: 'echo starting' });
+    await window.api.hooks.save(rp, { id: 'hook-review', type: 'review', name: 'Review', command: 'echo reviewing' });
+    await window.api.hooks.save(rp, { id: 'hook-cleanup', type: 'cleanup', name: 'Cleanup', command: 'echo cleaning' });
+  }, repoPath);
+
+  // Open kanban and create task 1
+  await appPage.keyboard.press(`${modifier}+n`);
+  await expect(appPage.locator('.kanban-board')).toBeVisible({ timeout: 5_000 });
+  const input = appPage.locator('.kanban-add-input');
+  await input.fill('Hook task 1');
+  await input.press('Enter');
+
+  const todoColumn = appPage.locator('.kanban-column[data-status="todo"]');
+  const inProgressColumn = appPage.locator('.kanban-column[data-status="in_progress"]');
+  const inReviewColumn = appPage.locator('.kanban-column[data-status="in_review"]');
+  const doneColumn = appPage.locator('.kanban-column[data-status="done"]');
+  await expect(todoColumn.locator('.kanban-card')).toHaveCount(1, { timeout: 5_000 });
+
+  // --- Phase 1: Start hook + Run ---
+  // Right-click task 1 → "Open in Terminal" → dialog with pre-filled command → click "Run"
+
+  await todoColumn.locator('.kanban-card').first().click({ button: 'right' });
+  await expect(appPage.locator('.task-context-menu--visible')).toBeVisible({ timeout: 5_000 });
+  await appPage.locator('.task-context-menu-item', { hasText: 'Open in Terminal' }).click();
+
+  const hookDialog = appPage.locator('.modal-overlay--visible .import-dialog');
+  await expect(hookDialog).toBeVisible({ timeout: 15_000 });
+  await expect(hookDialog.locator('.import-dialog-title')).toHaveText('Start Task');
+  await expect(hookDialog.locator('textarea.start-command-textarea')).toHaveValue('echo starting');
+
+  // Click "Run" — terminal created in background, kanban stays visible
+  await hookDialog.locator('.btn-primary', { hasText: 'Run' }).click();
+  await expect(appPage.locator('.modal-overlay--visible')).not.toBeVisible({ timeout: 5_000 });
+  await expect(appPage.locator('.kanban-board')).toBeVisible();
+  await expect(appPage.locator('.project-card')).toHaveCount(1, { timeout: 15_000 });
+  await expect(inProgressColumn.locator('.kanban-card')).toHaveCount(1, { timeout: 5_000 });
+  await expect(todoColumn.locator('.kanban-card')).toHaveCount(0);
+
+  // --- Phase 2: Start hook + Cancel ---
+  // Create task 2 → "Open in Terminal" → dialog → click "Cancel" → no new terminal
+
+  await input.fill('Hook task 2');
+  await input.press('Enter');
+  await expect(todoColumn.locator('.kanban-card')).toHaveCount(1, { timeout: 5_000 });
+
+  await todoColumn.locator('.kanban-card').first().click({ button: 'right' });
+  await expect(appPage.locator('.task-context-menu--visible')).toBeVisible({ timeout: 5_000 });
+  await appPage.locator('.task-context-menu-item', { hasText: 'Open in Terminal' }).click();
+
+  await expect(hookDialog).toBeVisible({ timeout: 15_000 });
+  await expect(hookDialog.locator('.import-dialog-title')).toHaveText('Start Task');
+
+  // Click "Cancel" — no terminal created, task moves to in_progress (worktree was created before dialog)
+  await hookDialog.locator('.btn-secondary', { hasText: 'Cancel' }).click();
+  await expect(appPage.locator('.modal-overlay--visible')).not.toBeVisible({ timeout: 5_000 });
+  await expect(appPage.locator('.project-card')).toHaveCount(1); // still just 1 from Phase 1
+  await expect(appPage.locator('.kanban-board')).toBeVisible();
+  // Task 2 moved to in_progress (worktree created before dialog shown)
+  await expect(inProgressColumn.locator('.kanban-card')).toHaveCount(2, { timeout: 5_000 });
+  await expect(todoColumn.locator('.kanban-card')).toHaveCount(0);
+
+  // --- Phase 3: Review hook + Run via drag ---
+  // Drag task 1 from in_progress to in_review → review dialog → click "Run"
+
+  const inReviewBody = inReviewColumn.locator('.kanban-column-body');
+  await inProgressColumn.locator('.kanban-card').filter({ hasText: 'Hook task 1' }).dragTo(inReviewBody);
+
+  // Review dialog should appear with pre-filled command
+  await expect(hookDialog).toBeVisible({ timeout: 15_000 });
+  await expect(hookDialog.locator('.import-dialog-title')).toHaveText('Review Task');
+  await expect(hookDialog.locator('textarea.start-command-textarea')).toHaveValue('echo reviewing');
+
+  // Click "Run" — terminal in background, kanban stays
+  await hookDialog.locator('.btn-primary', { hasText: 'Run' }).click();
+  await expect(appPage.locator('.modal-overlay--visible')).not.toBeVisible({ timeout: 5_000 });
+  await expect(appPage.locator('.kanban-board')).toBeVisible();
+  await expect(appPage.locator('.project-card')).toHaveCount(2, { timeout: 15_000 });
+  await expect(inReviewColumn.locator('.kanban-card')).toHaveCount(1, { timeout: 5_000 });
+
+  // --- Phase 4: No dialog when hook not configured ---
+  // Drag task 1 from in_review back to in_progress — no continue hook → no dialog
+
+  const inProgressBody = inProgressColumn.locator('.kanban-column-body');
+  await inReviewColumn.locator('.kanban-card').filter({ hasText: 'Hook task 1' }).dragTo(inProgressBody);
+
+  // Wait briefly and verify no dialog appeared
+  await appPage.waitForTimeout(1_000);
+  await expect(appPage.locator('.modal-overlay--visible .import-dialog')).not.toBeVisible();
+  await expect(inProgressColumn.locator('.kanban-card')).toHaveCount(2, { timeout: 5_000 });
+  await expect(inReviewColumn.locator('.kanban-card')).toHaveCount(0);
+
+  // --- Phase 5: Cleanup hook + Run via drag ---
+  // Drag task 1 from in_progress to done → existing terminals closed → cleanup dialog → "Run"
+
+  const terminalsBefore = await appPage.locator('.project-card').count();
+  const doneBody = doneColumn.locator('.kanban-column-body');
+  await inProgressColumn.locator('.kanban-card').filter({ hasText: 'Hook task 1' }).dragTo(doneBody);
+
+  // Cleanup dialog should appear
+  await expect(hookDialog).toBeVisible({ timeout: 15_000 });
+  await expect(hookDialog.locator('.import-dialog-title')).toHaveText('Done — Cleanup');
+  await expect(hookDialog.locator('textarea.start-command-textarea')).toHaveValue('echo cleaning');
+
+  // Click "Run" — terminal in background
+  await hookDialog.locator('.btn-primary', { hasText: 'Run' }).click();
+  await expect(appPage.locator('.modal-overlay--visible')).not.toBeVisible({ timeout: 5_000 });
+  await expect(appPage.locator('.kanban-board')).toBeVisible();
+  await expect(doneColumn.locator('.kanban-card')).toHaveCount(1, { timeout: 5_000 });
+  // Task 1's old terminals (from Phase 1 + Phase 3) were closed, cleanup terminal was created
+  // Net: terminalsBefore - 2 (task1 terminals) + 1 (cleanup) = terminalsBefore - 1
+  await expect(appPage.locator('.project-card')).toHaveCount(terminalsBefore - 1, { timeout: 15_000 });
+
+  // --- Phase 6: No dialog after hook deleted ---
+  // Delete review hook → drag task 2 to in_review → no dialog
+
+  await appPage.evaluate(async (rp) => {
+    await window.api.hooks.delete(rp, 'review');
+  }, repoPath);
+
+  await inProgressColumn.locator('.kanban-card').filter({ hasText: 'Hook task 2' }).dragTo(inReviewBody);
+
+  // Wait briefly and verify no dialog appeared
+  await appPage.waitForTimeout(1_000);
+  await expect(appPage.locator('.modal-overlay--visible .import-dialog')).not.toBeVisible();
+  await expect(inReviewColumn.locator('.kanban-card')).toHaveCount(1, { timeout: 5_000 });
+  await expect(inProgressColumn.locator('.kanban-card')).toHaveCount(0);
+});
