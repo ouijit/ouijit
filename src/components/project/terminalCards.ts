@@ -596,12 +596,7 @@ async function closeTaskFromTerminal(term: ProjectTerminal): Promise<void> {
     if (idx !== -1) {
       closeProjectTerminal(idx);
     }
-    // Show warning if cleanup hook failed
-    if (result.hookWarning) {
-      showToast(`Task closed (cleanup hook failed)`, 'warning');
-    } else {
-      showToast('Task closed', 'success');
-    }
+    showToast('Task closed', 'success');
     invalidateTaskList();
   } else {
     showToast(result.error || 'Failed to close task', 'error');
@@ -1312,6 +1307,8 @@ export interface AddProjectTerminalOptions {
   worktreeBranchName?: string;
   sandboxed?: boolean;
   taskId?: number;
+  /** Skip automatic start/continue hook lookup — caller handles hooks explicitly */
+  skipAutoHook?: boolean;
 }
 
 /**
@@ -1555,7 +1552,7 @@ export async function addProjectTerminal(runConfig?: RunConfig, options?: AddPro
     }
 
     // Use start/continue hooks if no explicit command was provided
-    if (!runConfig) {
+    if (!runConfig && !options?.skipAutoHook) {
       const hooks = await window.api.hooks.get(currentProjectPath);
       const hook = isNewTask ? hooks.start : hooks.continue;
       if (hook) {

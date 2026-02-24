@@ -147,23 +147,18 @@ export function showMissingWorktreeDialog(task: TaskWithWorkspace, branchExists:
 export async function closeTask(path: string, task: TaskWithWorkspace): Promise<void> {
   if (task.taskNumber == null) return;
   setCardLoading(task.taskNumber, true);
+  // Close any open terminals for this task
+  const currentTerminals = terminals.value;
+  for (let i = currentTerminals.length - 1; i >= 0; i--) {
+    const term = currentTerminals[i];
+    if (term.taskId === task.taskNumber) {
+      projectRegistry.closeProjectTerminal?.(i);
+    }
+  }
   const result = await window.api.task.setStatus(path, task.taskNumber, 'done');
   if (result.success) {
-    // Close any open terminals for this task
-    const currentTerminals = terminals.value;
-    for (let i = currentTerminals.length - 1; i >= 0; i--) {
-      const term = currentTerminals[i];
-      if (term.taskId === task.taskNumber) {
-        projectRegistry.closeProjectTerminal?.(i);
-      }
-    }
     invalidateTaskList();
-    // Show warning if cleanup hook failed
-    if (result.hookWarning) {
-      showToast(`Task closed (cleanup hook failed)`, 'warning');
-    } else {
-      showToast('Task closed', 'success');
-    }
+    showToast('Task closed', 'success');
   } else {
     showToast(result.error || 'Failed to close task', 'error');
   }
