@@ -1,6 +1,6 @@
 # Ouijit
 
-Kanban terminal manager for CLI agent workflows.
+Kanban terminal manager for CLI agent workflows with automatic git worktree isolation per task and optional VM sandboxing for agents out of the box.
 
 ![Ouijit Project Mode](board.gif)
 
