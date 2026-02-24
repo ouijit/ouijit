@@ -1602,6 +1602,30 @@ body.platform-darwin:not(.is-fullscreen) .project-header-content {
   color: var(--color-accent);
 }
 
+.hook-env-highlight--empty {
+  text-decoration: line-through;
+}
+
+.hook-env-tooltip {
+  @apply fixed z-[3000] px-2.5 py-1.5 text-xs rounded-md shadow-lg opacity-0 pointer-events-none;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  max-width: 360px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: opacity 100ms ease;
+}
+
+.hook-env-tooltip--visible {
+  @apply opacity-100;
+}
+
+.hook-env-tooltip em {
+  @apply text-text-tertiary;
+}
+
 .hook-env-vars {
   @apply mt-3 text-xs text-text-secondary;
 }

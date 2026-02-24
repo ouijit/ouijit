@@ -483,7 +483,7 @@ function buildKanbanCard(task: TaskWithWorkspace, path: string, limaAvailable: b
         invalidateTaskList();
 
         // Show start command dialog so user can edit/skip/cancel
-        const dialogResult = await showStartCommandDialog(path, 'start');
+        const dialogResult = await showStartCommandDialog(path, 'start', task);
         if (dialogResult === null) {
           await populateKanbanBoard();
           return;
@@ -519,7 +519,7 @@ function buildKanbanCard(task: TaskWithWorkspace, path: string, limaAvailable: b
 
       if (task.status === 'in_progress') {
         // Show continue command dialog so user can edit/skip/cancel
-        const dialogResult = await showStartCommandDialog(path, 'continue');
+        const dialogResult = await showStartCommandDialog(path, 'continue', task);
         if (dialogResult === null) return; // cancelled
 
         let runConfig: RunConfig | undefined;
@@ -693,7 +693,7 @@ async function runTransitionHookInTerminal(
   const hookMap: Record<string, typeof hooks.review> = { continue: hooks.continue, review: hooks.review, cleanup: hooks.cleanup };
   if (!hookMap[hookType]) return; // no hook configured
 
-  const dialogResult = await showStartCommandDialog(path, hookType);
+  const dialogResult = await showStartCommandDialog(path, hookType, task);
   if (dialogResult === null || !dialogResult.command) return; // cancelled or skipped
 
   const runConfig: RunConfig = {
@@ -769,7 +769,7 @@ async function handleSortableEnd(evt: Sortable.SortableEvent): Promise<void> {
       invalidateTaskList();
 
       // Show start command dialog
-      const dialogResult = await showStartCommandDialog(path);
+      const dialogResult = await showStartCommandDialog(path, 'start', { ...task, worktreePath, branch });
       if (dialogResult === null) {
         // User cancelled — task stays in_progress but no terminal opened
         await populateKanbanBoard();
@@ -994,7 +994,7 @@ const HOOK_DIALOG_TITLES: Record<string, string> = {
   cleanup: 'Done — Cleanup',
 };
 
-async function showStartCommandDialog(path: string, hookType: 'start' | 'continue' | 'review' | 'cleanup' = 'start'): Promise<{ command: string; sandboxed: boolean } | null> {
+async function showStartCommandDialog(path: string, hookType: 'start' | 'continue' | 'review' | 'cleanup' = 'start', task?: TaskWithWorkspace): Promise<{ command: string; sandboxed: boolean } | null> {
   // Fetch hook command and lima status before opening the dialog
   let hookCommand = '';
   let limaAvailable = false;
@@ -1043,7 +1043,13 @@ async function showStartCommandDialog(path: string, hookType: 'start' | 'continu
     textarea.rows = 1;
     textarea.setAttribute('style', '-webkit-app-region: no-drag;');
     dialog.appendChild(textarea);
-    setupHighlightedTextarea(textarea);
+    const envVarValues = task ? {
+      '$OUIJIT_TASK_NAME': task.name || undefined,
+      '$OUIJIT_PROJECT_PATH': path || undefined,
+      '$OUIJIT_WORKTREE_PATH': task.worktreePath || undefined,
+      '$OUIJIT_BRANCH': task.branch || undefined,
+    } : undefined;
+    setupHighlightedTextarea(textarea, 240, envVarValues);
 
     // Environment variables hint
     const envVars = ['$OUIJIT_TASK_NAME', '$OUIJIT_PROJECT_PATH', '$OUIJIT_WORKTREE_PATH', '$OUIJIT_BRANCH'];
