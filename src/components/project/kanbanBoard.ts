@@ -217,9 +217,8 @@ function buildKanbanHtml(): string {
     return `
       <div class="kanban-column" data-status="${col.status}">
         <div class="kanban-column-header">
-          <span class="kanban-column-title">${col.label}</span>
+          <span class="kanban-column-title">${col.label} <span class="kanban-column-count">0</span></span>
           ${hookBtn}
-          <span class="kanban-column-count">0</span>
         </div>
         <div class="kanban-column-body">
           ${col.status === 'todo' ? '<input type="text" class="kanban-add-input" placeholder="New task..." style="-webkit-app-region: no-drag;" />' : ''}

@@ -1835,19 +1835,19 @@ body.kanban-open .project-stack {
 }
 
 .kanban-column-count {
-  @apply text-[13px] text-text-secondary opacity-50;
+  @apply text-text-secondary opacity-50 normal-case tracking-normal ml-1.5;
 }
 
 .kanban-column-hook-btn {
   @apply flex items-center justify-center border-none
          text-text-tertiary transition-all duration-150 ease-out rounded-md;
   padding: 4px 10px;
-  background: rgba(255, 255, 255, 0.06);
+  background: transparent;
 }
 
 .kanban-column-hook-btn:hover {
   @apply text-text-secondary;
-  background: rgba(255, 255, 255, 0.10);
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .kanban-column-hook-btn--active {
