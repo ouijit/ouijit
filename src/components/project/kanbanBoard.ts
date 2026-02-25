@@ -474,6 +474,7 @@ function buildKanbanCard(task: TaskWithWorkspace, path: string, limaAvailable: b
         return;
       }
       if (!task.worktreePath) {
+        setCardLoading(task.taskNumber, true);
         const startResult = await window.api.task.start(path, task.taskNumber);
         if (!startResult.success || !startResult.worktreePath) {
           kanbanLog.error('task.start failed', { taskNumber: task.taskNumber, error: startResult.error });
@@ -732,6 +733,7 @@ async function handleSortableEnd(evt: Sortable.SortableEvent): Promise<void> {
         branch = task.branch || '';
       } else {
         // No worktree yet — create one
+        setCardLoading(taskNumber, true);
         const startResult = await window.api.task.start(path, taskNumber);
         if (!startResult.success || !startResult.worktreePath) {
           await populateKanbanBoard();

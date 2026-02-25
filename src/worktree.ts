@@ -132,8 +132,9 @@ async function copyGitIgnoredFiles(sourcePath: string, worktreePath: string, pre
         // Ensure parent directory exists
         await fs.mkdir(path.dirname(destItem), { recursive: true });
 
-        // macOS: clonefile() handles both files and directories in one kernel call
-        if (clonefileFn) {
+        // macOS: clonefile() for individual files only — directories fall through
+        // to cp -c (child process) to avoid blocking the event loop on large trees
+        if (clonefileFn && stat.isFile()) {
           if (clonefileFn(sourceItem, destItem, 0) === 0) return;
           // Fall through to cp on failure (e.g. EEXIST from race with start script, non-APFS, cross-volume)
         }
