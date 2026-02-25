@@ -9,5 +9,13 @@
     <true/>
     <key>com.apple.security.cs.disable-library-validation</key>
     <true/>
+    <!-- Required for Lima VM (Virtualization.framework / vz driver) -->
+    <key>com.apple.security.virtualization</key>
+    <true/>
+    <!-- Required for Lima host agent (SSH to/from guest, image downloads, port forwarding) -->
+    <key>com.apple.security.network.client</key>
+    <true/>
+    <key>com.apple.security.network.server</key>
+    <true/>
   </dict>
 </plist>
