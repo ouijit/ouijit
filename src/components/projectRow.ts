@@ -2,6 +2,8 @@ import type { Project } from '../types';
 import { stringToColor, getInitials } from '../utils/projectIcon';
 import { formatRelativeTime } from '../utils/formatDate';
 import { enterProjectMode } from './project';
+import { showToast } from './importDialog';
+import { registerHotkey, unregisterHotkey, pushScope, popScope, Scopes } from '../utils/hotkeys';
 
 /**
  * Creates a project icon element (image or placeholder)
@@ -126,5 +128,126 @@ export function createProjectRow(project: Project): HTMLElement {
     await enterProjectMode(project.path, project);
   });
 
+  // Right-click context menu
+  row.addEventListener('contextmenu', (event) => {
+    showProjectContextMenu(event, project);
+  });
+
   return row;
+}
+
+/**
+ * Show a context menu for a project row
+ */
+function showProjectContextMenu(event: MouseEvent, project: Project): void {
+  event.preventDefault();
+  event.stopPropagation();
+
+  // Remove any existing context menu
+  document.querySelector('.task-context-menu')?.remove();
+
+  const menu = document.createElement('div');
+  menu.className = 'task-context-menu';
+
+  const removeItem = document.createElement('button');
+  removeItem.className = 'task-context-menu-item task-context-menu-item--danger';
+  removeItem.textContent = 'Remove';
+  removeItem.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    menu.remove();
+    const confirmed = await showRemoveConfirmDialog(project.name);
+    if (!confirmed) return;
+    const result = await window.api.removeProject(project.path);
+    if (result.success) {
+      (window as any).refreshProjects();
+      showToast(`Removed project: ${project.name}`, 'success');
+    } else {
+      showToast('Failed to remove project', 'error');
+    }
+  });
+  menu.appendChild(removeItem);
+
+  document.body.appendChild(menu);
+
+  // Position the menu
+  const menuRect = menu.getBoundingClientRect();
+  const x = Math.min(event.clientX, window.innerWidth - menuRect.width - 8);
+  const y = Math.min(event.clientY, window.innerHeight - menuRect.height - 8);
+  menu.style.left = `${x}px`;
+  menu.style.top = `${y}px`;
+
+  // Animate in
+  requestAnimationFrame(() => menu.classList.add('task-context-menu--visible'));
+
+  // Dismiss on click outside
+  const dismiss = (e: MouseEvent) => {
+    if (menu.contains(e.target as Node)) return;
+    menu.classList.remove('task-context-menu--visible');
+    setTimeout(() => menu.remove(), 100);
+    document.removeEventListener('mousedown', dismiss);
+  };
+  setTimeout(() => document.addEventListener('mousedown', dismiss), 0);
+}
+
+/**
+ * Show a confirmation dialog for removing a project
+ */
+function showRemoveConfirmDialog(projectName: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+
+    const dialog = document.createElement('div');
+    dialog.className = 'import-dialog';
+    dialog.style.maxWidth = '380px';
+
+    dialog.innerHTML = `
+      <h2 class="import-dialog-title">Remove Project?</h2>
+      <p class="import-dialog-text">
+        This will remove <strong>${projectName}</strong> from Ouijit. The project folder will not be deleted.
+      </p>
+      <div class="import-actions">
+        <button class="btn btn-secondary" data-action="cancel">Cancel</button>
+        <button class="btn btn-danger" data-action="remove">Remove</button>
+      </div>
+    `;
+
+    overlay.appendChild(dialog);
+    document.body.appendChild(overlay);
+
+    const cleanup = () => {
+      unregisterHotkey('escape', Scopes.MODAL);
+      popScope();
+      dialog.classList.remove('import-dialog--visible');
+      overlay.classList.remove('modal-overlay--visible');
+      setTimeout(() => overlay.remove(), 150);
+    };
+
+    const handleRemove = () => {
+      cleanup();
+      resolve(true);
+    };
+
+    const handleCancel = () => {
+      cleanup();
+      resolve(false);
+    };
+
+    // Event listeners
+    dialog.querySelector('[data-action="remove"]')?.addEventListener('click', handleRemove);
+    dialog.querySelector('[data-action="cancel"]')?.addEventListener('click', handleCancel);
+    overlay.addEventListener('mousedown', (e) => {
+      if (e.target === overlay) handleCancel();
+    });
+
+    // Set up hotkey scope for modal
+    pushScope(Scopes.MODAL);
+    registerHotkey('escape', Scopes.MODAL, handleCancel);
+
+    // Animate in
+    requestAnimationFrame(() => {
+      overlay.classList.add('modal-overlay--visible');
+      dialog.classList.add('import-dialog--visible');
+    });
+  });
 }
