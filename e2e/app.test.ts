@@ -102,18 +102,10 @@ test('project mode: terminals, kanban, context menu, and task lifecycle', async 
   await expect(contextMenu.locator('.task-context-menu-item', { hasText: 'Move to Done' })).toBeVisible();
   await expect(contextMenu.locator('.task-context-menu-item--danger', { hasText: 'Delete' })).toBeVisible();
 
-  // Click "Open in Terminal" — creates worktree and shows hook confirmation dialog
+  // Click "Open in Terminal" — creates worktree and opens terminal directly (no hooks configured)
   await contextMenu.locator('.task-context-menu-item', { hasText: 'Open in Terminal' }).click();
 
-  // Hook confirmation dialog should appear (no hooks configured, so textarea is empty)
-  const hookDialog = appPage.locator('.modal-overlay--visible .import-dialog');
-  await expect(hookDialog).toBeVisible({ timeout: 10_000 });
-  await expect(hookDialog.locator('.import-dialog-title')).toHaveText('Start Task');
-
-  // Click "Run & Open" to open a plain terminal and navigate to it
-  await hookDialog.locator('.btn-primary', { hasText: 'Run & Open' }).click();
-
-  // Kanban should hide and a terminal card should appear
+  // No dialog — kanban should hide and a terminal card should appear directly
   await expect(appPage.locator('.kanban-board')).not.toBeVisible({ timeout: 5_000 });
   await expect(appPage.locator('.project-card')).toHaveCount(1, { timeout: 15_000 });
   await expect(appPage.locator('.project-card--active')).toBeVisible();
@@ -143,6 +135,30 @@ test('project mode: terminals, kanban, context menu, and task lifecycle', async 
   // Task should be gone from the board
   await expect(inProgressColumn.locator('.kanban-card')).toHaveCount(0, { timeout: 5_000 });
   await expect(todoColumn.locator('.kanban-card')).toHaveCount(0);
+
+  // --- Drag todo → in_progress (no hooks): no dialog ---
+
+  // Create a new task
+  const input2 = appPage.locator('.kanban-add-input');
+  await input2.fill('Drag test task');
+  await input2.press('Enter');
+  await expect(todoColumn.locator('.kanban-card')).toHaveCount(1, { timeout: 5_000 });
+
+  // Drag the task from todo to in_progress column
+  const inProgressBody = inProgressColumn.locator('.kanban-column-body');
+  await todoColumn.locator('.kanban-card').first().dragTo(inProgressBody);
+
+  // No start hook configured — no dialog should appear
+  await appPage.waitForTimeout(1_000);
+  await expect(appPage.locator('.modal-overlay--visible .import-dialog')).not.toBeVisible();
+
+  // Task should be in in_progress column
+  await expect(inProgressColumn.locator('.kanban-card')).toHaveCount(1, { timeout: 5_000 });
+  await expect(todoColumn.locator('.kanban-card')).toHaveCount(0);
+
+  // A terminal should have been created in background (kanban stays visible)
+  await expect(appPage.locator('.kanban-board')).toBeVisible();
+  await expect(appPage.locator('.project-card')).toHaveCount(1, { timeout: 15_000 });
 });
 
 test('lifecycle hooks: configure, run, cancel, and drag transitions', async ({ appPage, testRepo }) => {
@@ -177,12 +193,11 @@ test('lifecycle hooks: configure, run, cancel, and drag transitions', async ({ a
   const doneColumn = appPage.locator('.kanban-column[data-status="done"]');
   await expect(todoColumn.locator('.kanban-card')).toHaveCount(1, { timeout: 5_000 });
 
-  // --- Phase 1: Start hook + Run ---
-  // Right-click task 1 → "Open in Terminal" → dialog with pre-filled command → click "Run"
+  // --- Phase 1: Start hook + Run via drag ---
+  // Drag task 1 from todo to in_progress → start dialog with pre-filled command → click "Run"
 
-  await todoColumn.locator('.kanban-card').first().click({ button: 'right' });
-  await expect(appPage.locator('.task-context-menu--visible')).toBeVisible({ timeout: 5_000 });
-  await appPage.locator('.task-context-menu-item', { hasText: 'Open in Terminal' }).click();
+  const inProgressBody = inProgressColumn.locator('.kanban-column-body');
+  await todoColumn.locator('.kanban-card').first().dragTo(inProgressBody);
 
   const hookDialog = appPage.locator('.modal-overlay--visible .import-dialog');
   await expect(hookDialog).toBeVisible({ timeout: 15_000 });
@@ -197,16 +212,14 @@ test('lifecycle hooks: configure, run, cancel, and drag transitions', async ({ a
   await expect(inProgressColumn.locator('.kanban-card')).toHaveCount(1, { timeout: 5_000 });
   await expect(todoColumn.locator('.kanban-card')).toHaveCount(0);
 
-  // --- Phase 2: Start hook + Cancel ---
-  // Create task 2 → "Open in Terminal" → dialog → click "Cancel" → no new terminal
+  // --- Phase 2: Start hook + Cancel via drag ---
+  // Create task 2 → drag to in_progress → dialog → click "Cancel" → no new terminal
 
   await input.fill('Hook task 2');
   await input.press('Enter');
   await expect(todoColumn.locator('.kanban-card')).toHaveCount(1, { timeout: 5_000 });
 
-  await todoColumn.locator('.kanban-card').first().click({ button: 'right' });
-  await expect(appPage.locator('.task-context-menu--visible')).toBeVisible({ timeout: 5_000 });
-  await appPage.locator('.task-context-menu-item', { hasText: 'Open in Terminal' }).click();
+  await todoColumn.locator('.kanban-card').first().dragTo(inProgressBody);
 
   await expect(hookDialog).toBeVisible({ timeout: 15_000 });
   await expect(hookDialog.locator('.import-dialog-title')).toHaveText('Start Task');
@@ -241,7 +254,6 @@ test('lifecycle hooks: configure, run, cancel, and drag transitions', async ({ a
   // --- Phase 4: No dialog when hook not configured ---
   // Drag task 1 from in_review back to in_progress — no continue hook → no dialog
 
-  const inProgressBody = inProgressColumn.locator('.kanban-column-body');
   await inReviewColumn.locator('.kanban-card').filter({ hasText: 'Hook task 1' }).dragTo(inProgressBody);
 
   // Wait briefly and verify no dialog appeared
@@ -285,4 +297,23 @@ test('lifecycle hooks: configure, run, cancel, and drag transitions', async ({ a
   await expect(appPage.locator('.modal-overlay--visible .import-dialog')).not.toBeVisible();
   await expect(inReviewColumn.locator('.kanban-card')).toHaveCount(1, { timeout: 5_000 });
   await expect(inProgressColumn.locator('.kanban-card')).toHaveCount(0);
+
+  // --- Phase 7: No start dialog after start hook deleted ---
+  // Delete start hook → create task 3 → drag todo → in_progress → no dialog
+
+  await appPage.evaluate(async (rp) => {
+    await window.api.hooks.delete(rp, 'start');
+  }, repoPath);
+
+  await input.fill('Hook task 3');
+  await input.press('Enter');
+  await expect(todoColumn.locator('.kanban-card')).toHaveCount(1, { timeout: 5_000 });
+
+  await todoColumn.locator('.kanban-card').first().dragTo(inProgressBody);
+
+  // No start hook — no dialog should appear
+  await appPage.waitForTimeout(1_000);
+  await expect(appPage.locator('.modal-overlay--visible .import-dialog')).not.toBeVisible();
+  await expect(inProgressColumn.locator('.kanban-card')).toHaveCount(1, { timeout: 5_000 });
+  await expect(todoColumn.locator('.kanban-card')).toHaveCount(0);
 });
