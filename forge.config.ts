@@ -190,7 +190,7 @@ const config: ForgeConfig = {
   publishers: [
     new PublisherGithub({
       repository: {
-        owner: 'pbjer',
+        owner: 'ouijit',
         name: 'ouijit',
       },
       draft: true,
