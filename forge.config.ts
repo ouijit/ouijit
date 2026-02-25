@@ -2,10 +2,10 @@ import type { ForgeConfig } from '@electron-forge/shared-types';
 import { MakerSquirrel } from '@electron-forge/maker-squirrel';
 import { MakerZIP } from '@electron-forge/maker-zip';
 import { MakerDeb } from '@electron-forge/maker-deb';
-import { MakerRpm } from '@electron-forge/maker-rpm';
 import { VitePlugin } from '@electron-forge/plugin-vite';
 import { FusesPlugin } from '@electron-forge/plugin-fuses';
 import { FuseV1Options, FuseVersion } from '@electron/fuses';
+import { PublisherGithub } from '@electron-forge/publisher-github';
 import { notarize } from '@electron/notarize';
 import { execFileSync } from 'child_process';
 import path from 'path';
@@ -158,10 +158,26 @@ const config: ForgeConfig = {
 
       console.log(`Notarizing ${appPath}...`);
 
-      await notarize({
-        appPath,
-        keychainProfile: 'ouijit-notarize',
-      });
+      if (process.env.APPLE_API_KEY_ID && process.env.APPLE_API_ISSUER) {
+        // CI: App Store Connect API key (written to disk by workflow)
+        const keyPath = path.join(
+          process.env.HOME!,
+          'private_keys',
+          `AuthKey_${process.env.APPLE_API_KEY_ID}.p8`,
+        );
+        await notarize({
+          appPath,
+          appleApiKey: keyPath,
+          appleApiKeyId: process.env.APPLE_API_KEY_ID,
+          appleApiIssuer: process.env.APPLE_API_ISSUER,
+        });
+      } else {
+        // Local: stored keychain profile
+        await notarize({
+          appPath,
+          keychainProfile: 'ouijit-notarize',
+        });
+      }
 
       console.log('Notarization complete!');
     },
@@ -169,8 +185,17 @@ const config: ForgeConfig = {
   makers: [
     new MakerSquirrel({}),
     new MakerZIP({}, ['darwin', 'linux']),
-    new MakerRpm({}),
     new MakerDeb({}),
+  ],
+  publishers: [
+    new PublisherGithub({
+      repository: {
+        owner: 'pbjer',
+        name: 'ouijit',
+      },
+      draft: true,
+      generateReleaseNotes: true,
+    }),
   ],
   plugins: [
     new VitePlugin({
