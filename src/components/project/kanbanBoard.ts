@@ -746,27 +746,49 @@ async function handleSortableEnd(evt: Sortable.SortableEvent): Promise<void> {
       await window.api.task.reorder(path, taskNumber, 'in_progress', targetIndex);
       invalidateTaskList();
 
-      // Show start command dialog
-      const dialogResult = await showStartCommandDialog(path, 'start', { ...task, worktreePath, branch });
-      if (dialogResult === null) {
-        // User cancelled — task stays in_progress but no terminal opened
-        await populateKanbanBoard();
-        return;
-      }
+      // Show start command dialog only if a start hook is configured
+      const hooks = await window.api.hooks.get(path);
+      if (hooks.start) {
+        const dialogResult = await showStartCommandDialog(path, 'start', { ...task, worktreePath, branch });
+        if (dialogResult === null) {
+          // User cancelled — task stays in_progress but no terminal opened
+          await populateKanbanBoard();
+          return;
+        }
 
-      await openTerminalFromDialog(dialogResult, 'start', {
-        path: worktreePath,
-        branch,
-        prompt: task.prompt,
-        createdAt: task.createdAt,
-        sandboxed: task.sandboxed,
-      }, taskNumber);
+        await openTerminalFromDialog(dialogResult, 'start', {
+          path: worktreePath,
+          branch,
+          prompt: task.prompt,
+          createdAt: task.createdAt,
+          sandboxed: task.sandboxed,
+        }, taskNumber);
+      } else {
+        // No hook — just open a terminal in the worktree
+        await projectRegistry.addProjectTerminal?.(undefined, {
+          existingWorktree: {
+            path: worktreePath,
+            branch,
+            createdAt: task.createdAt,
+            prompt: task.prompt,
+            sandboxed: task.sandboxed,
+          },
+          taskId: taskNumber,
+          sandboxed: false,
+          skipAutoHook: true,
+        });
+      }
       await populateKanbanBoard();
       return;
     }
 
     // Non-todo task dragged back to in_progress (e.g., from in_review/done)
     if (task && task.status !== 'todo' && task.worktreePath) {
+      const verified = await ensureWorktreeExists(path, task);
+      if (!verified) {
+        await populateKanbanBoard();
+        return;
+      }
       await window.api.task.reorder(path, taskNumber, 'in_progress', targetIndex);
       invalidateTaskList();
       await populateKanbanBoard();
