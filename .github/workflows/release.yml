@@ -19,7 +19,8 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run check
-      - run: npm test
+      - run: npm rebuild better-sqlite3 --silent
+      - run: npx vitest run --project unit
 
   publish:
     needs: test
