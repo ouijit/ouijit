@@ -54,7 +54,7 @@ jobs:
 
       # Set package.json version from the git tag (after npm ci to avoid lockfile mismatch)
       - name: Set version from tag
-        run: npm version "${GITHUB_REF#refs/tags/v}" --no-git-tag-version
+        run: npm version "${GITHUB_REF#refs/tags/v}" --no-git-tag-version --allow-same-version
 
       # -- macOS Code Signing ------------------------------------------------
       - name: Import Apple signing certificate
