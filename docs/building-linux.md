@@ -96,27 +96,11 @@ npm run make -- --targets=@electron-forge/maker-zip
 # Output: out/make/zip/linux/x64/ouijit-linux-x64-1.0.0.zip
 ```
 
-## Why not GitHub Actions?
+## GitHub Actions (Production Releases)
 
-GitHub Actions would be the most reliable option for production releases. Add a workflow:
+Production Linux builds are created automatically by the
+`.github/workflows/release.yml` workflow when a version tag is pushed.
+See the workflow file for details.
 
-```yaml
-# .github/workflows/build-linux.yml
-name: Build Linux
-on: [push, workflow_dispatch]
-
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-      - run: npm install
-      - run: npm run make -- --targets=@electron-forge/maker-zip
-      - uses: actions/upload-artifact@v4
-        with:
-          name: linux-x64
-          path: out/make/zip/linux/x64/*.zip
-```
+The cross-compilation script (`scripts/build-linux.sh`) remains available
+for local testing when you need a Linux build without pushing a tag.
