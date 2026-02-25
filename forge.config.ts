@@ -143,6 +143,25 @@ const config: ForgeConfig = {
     onlyModules: ['better-sqlite3'],
   },
   hooks: {
+    postMake: async (_config, makeResults) => {
+      // Strip version from artifact filenames so GitHub release asset URLs
+      // are stable across versions (enables /releases/latest/download/<name>)
+      for (const result of makeResults) {
+        result.artifacts = result.artifacts.map((artifact) => {
+          const dir = path.dirname(artifact);
+          const ext = path.extname(artifact);
+          const base = path.basename(artifact, ext);
+          // Match patterns like "ouijit-1.0.6-darwin-arm64" or "ouijit-darwin-arm64-1.0.6"
+          const stripped = base.replace(/-\d+\.\d+\.\d+/, '');
+          if (stripped === base) return artifact;
+          const newPath = path.join(dir, stripped + ext);
+          fs.renameSync(artifact, newPath);
+          console.log(`Renamed ${path.basename(artifact)} → ${stripped + ext}`);
+          return newPath;
+        });
+      }
+      return makeResults;
+    },
     postPackage: async (_config, options) => {
       // Only notarize macOS builds when not skipping
       if (options.platform !== 'darwin' || process.env.SKIP_NOTARIZE) {
