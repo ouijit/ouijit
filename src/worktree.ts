@@ -298,8 +298,18 @@ export async function startTask(
 
     const branch = branchName || generateBranchName(task.name, taskNumber);
 
+    // Prune stale worktree registrations so deleted directories can be reused
+    await execAsync('git worktree prune', { cwd: projectPath });
+
+    // Check if branch already exists (e.g. leftover from a previous failed attempt)
+    const branchExists = await execAsync(`git rev-parse --verify "${branch}"`, { cwd: projectPath })
+      .then(() => true, () => false);
+    const wtAddCmd = branchExists
+      ? `git worktree add "${worktreePath}" "${branch}"`
+      : `git worktree add -b "${branch}" "${worktreePath}"`;
+
     const [, ignoredFiles] = await Promise.all([
-      execAsync(`git worktree add -b "${branch}" "${worktreePath}"`, { cwd: projectPath }),
+      execAsync(wtAddCmd, { cwd: projectPath }),
       fetchIgnoredFiles(projectPath),
     ]);
 
@@ -359,10 +369,20 @@ export async function createTaskWorktree(projectPath: string, name?: string, pro
 
     const branch = branchName || generateBranchName(name, currentTaskNumber);
 
+    // Prune stale worktree registrations so deleted directories can be reused
+    await execAsync('git worktree prune', { cwd: projectPath });
+
+    // Check if branch already exists (e.g. leftover from a previous failed attempt)
+    const branchExists = await execAsync(`git rev-parse --verify "${branch}"`, { cwd: projectPath })
+      .then(() => true, () => false);
+    const wtAddCmd = branchExists
+      ? `git worktree add "${worktreePath}" "${branch}"`
+      : `git worktree add -b "${branch}" "${worktreePath}"`;
+
     // Start ls-files in parallel with git worktree add
     // ls-files reads from source dir, doesn't need the worktree to exist
     const [, ignoredFiles] = await Promise.all([
-      execAsync(`git worktree add -b "${branch}" "${worktreePath}"`, { cwd: projectPath }),
+      execAsync(wtAddCmd, { cwd: projectPath }),
       fetchIgnoredFiles(projectPath),
     ]);
 
