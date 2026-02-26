@@ -186,17 +186,22 @@ document.addEventListener('DOMContentLoaded', () => {
   const addFolderBtn = document.getElementById('add-folder-btn');
   if (addFolderBtn) {
     addFolderBtn.addEventListener('click', async () => {
-      const result = await window.api.showFolderPicker();
-      if (!result.canceled && result.filePaths.length > 0) {
-        const folderPath = result.filePaths[0];
-        const addResult = await window.api.addProject(folderPath);
-        if (addResult.success) {
-          await refreshProjects();
-          const folderName = folderPath.split('/').pop() || folderPath;
-          showToast(`Added project: ${folderName}`, 'success');
-        } else {
-          showToast(addResult.error || 'Failed to add project', 'error');
+      try {
+        const result = await window.api.showFolderPicker();
+        if (!result.canceled && result.filePaths.length > 0) {
+          const folderPath = result.filePaths[0];
+          const addResult = await window.api.addProject(folderPath);
+          if (addResult.success) {
+            await refreshProjects();
+            const folderName = folderPath.split('/').pop() || folderPath;
+            showToast(`Added project: ${folderName}`, 'success');
+          } else {
+            showToast(addResult.error || 'Failed to add project', 'error');
+          }
         }
+      } catch (error) {
+        rendererLog.error('failed to add project', { error: error instanceof Error ? error.message : String(error) });
+        showToast('Failed to add project', 'error');
       }
     });
   }
