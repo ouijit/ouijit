@@ -1860,7 +1860,8 @@ body.kanban-open .project-stack {
 }
 
 .kanban-card {
-  @apply px-3 py-3.5 transition-all duration-150 ease-out;
+  @apply px-3 py-3.5 ease-out;
+  transition: background 150ms ease-out, opacity 150ms ease-out;
   -webkit-app-region: no-drag;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
