@@ -575,7 +575,7 @@ textarea,
    =================================== */
 
 .modal-overlay {
-  @apply fixed inset-0 flex items-center justify-center z-[1000] opacity-0 transition-opacity duration-200 ease-out;
+  @apply fixed inset-0 flex justify-center z-[10001] opacity-0 transition-opacity duration-200 ease-out p-10 overflow-y-auto;
   background: rgba(0, 0, 0, 0.4);
   backdrop-filter: blur(4px);
   -webkit-backdrop-filter: blur(4px);
@@ -587,8 +587,11 @@ textarea,
 
 /* Dialog box styles (used by import dialog, hook config dialog, etc.) */
 .import-dialog {
-  @apply bg-surface rounded-[32px] shadow-lg max-w-[400px] w-[90%] p-6 opacity-0 transition-all duration-200 ease-out border border-border;
+  @apply bg-surface rounded-[32px] shadow-lg max-w-[400px] w-[90%] p-6 opacity-0 border border-border overflow-hidden shrink-0;
+  margin-top: auto;
+  margin-bottom: auto;
   transform: scale(0.95) translateY(10px);
+  transition: opacity 200ms ease-out, transform 200ms ease-out;
 }
 
 .import-dialog--visible {
@@ -1862,48 +1865,6 @@ body.kanban-open .project-stack {
   @apply w-[18px] h-[18px];
 }
 
-.column-hook-menu {
-  @apply fixed z-[2000] py-1 bg-surface border border-border rounded-md shadow-lg overflow-hidden opacity-0;
-  -webkit-app-region: no-drag;
-  transition: opacity 100ms ease;
-}
-
-.column-hook-menu--visible {
-  @apply opacity-100;
-}
-
-.column-hook-menu-item {
-  @apply flex items-start gap-2 px-3 py-2 text-text-primary bg-transparent border-none w-full text-left;
-}
-
-.column-hook-menu-item:hover {
-  background: rgba(255, 255, 255, 0.06);
-}
-
-.column-hook-menu-check {
-  @apply w-4 h-4 shrink-0 text-accent;
-  margin-top: 1px;
-}
-
-.column-hook-menu-check svg {
-  @apply w-4 h-4;
-}
-
-.column-hook-menu-check--unconfigured {
-  @apply text-text-tertiary;
-}
-
-.column-hook-menu-text {
-  @apply flex flex-col;
-}
-
-.column-hook-menu-label {
-  @apply text-[13px] font-medium;
-}
-
-.column-hook-menu-hint {
-  @apply text-[11px] text-text-tertiary;
-}
 
 /* Start command dialog textarea */
 .start-command-textarea {
