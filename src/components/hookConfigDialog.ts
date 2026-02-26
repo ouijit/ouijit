@@ -81,7 +81,7 @@ export function showCombinedHookConfigDialog(
     overlay.className = 'modal-overlay';
 
     const dialog = document.createElement('div');
-    dialog.className = 'import-dialog';
+    dialog.className = 'dialog';
 
     const envVarsList = [
       '$OUIJIT_PROJECT_PATH',
@@ -98,7 +98,7 @@ export function showCombinedHookConfigDialog(
     `;
 
     dialog.innerHTML = `
-      <h2 class="import-dialog-title">Start & Continue Hooks</h2>
+      <h2 class="dialog-title">Start & Continue Hooks</h2>
 
       <div class="new-project-form">
         <div class="form-group">
@@ -130,7 +130,7 @@ export function showCombinedHookConfigDialog(
         ${envVarsHtml}
       </div>
 
-      <div class="import-actions">
+      <div class="dialog-actions">
         <button class="btn btn-secondary" data-action="cancel">Cancel</button>
         <button class="btn btn-primary" data-action="save">Save</button>
       </div>
@@ -161,7 +161,7 @@ export function showCombinedHookConfigDialog(
 
     requestAnimationFrame(() => {
       overlay.classList.add('modal-overlay--visible');
-      dialog.classList.add('import-dialog--visible');
+      dialog.classList.add('dialog--visible');
       startInput.focus();
     });
 
@@ -169,7 +169,7 @@ export function showCombinedHookConfigDialog(
       unregisterHotkey('escape', Scopes.MODAL);
       popScope();
       overlay.classList.remove('modal-overlay--visible');
-      dialog.classList.remove('import-dialog--visible');
+      dialog.classList.remove('dialog--visible');
       setTimeout(() => overlay.remove(), 200);
     };
 
@@ -245,7 +245,7 @@ export function showHookConfigDialog(
     overlay.className = 'modal-overlay';
 
     const dialog = document.createElement('div');
-    dialog.className = 'import-dialog';
+    dialog.className = 'dialog';
 
     const envVarsList = [
       '$OUIJIT_PROJECT_PATH',
@@ -262,7 +262,7 @@ export function showHookConfigDialog(
     ` : '';
 
     dialog.innerHTML = `
-      <h2 class="import-dialog-title">${labels.title}</h2>
+      <h2 class="dialog-title">${labels.title}</h2>
       <p class="hook-description">${labels.description}</p>
 
       <div class="new-project-form">
@@ -290,7 +290,7 @@ export function showHookConfigDialog(
         ${envVarsHtml}
       </div>
 
-      <div class="import-actions">
+      <div class="dialog-actions">
         <button class="btn btn-secondary" data-action="cancel">Cancel</button>
         <button class="btn btn-primary" data-action="save">Save</button>
       </div>
@@ -319,7 +319,7 @@ export function showHookConfigDialog(
 
     requestAnimationFrame(() => {
       overlay.classList.add('modal-overlay--visible');
-      dialog.classList.add('import-dialog--visible');
+      dialog.classList.add('dialog--visible');
       commandInput.focus();
     });
 
@@ -327,7 +327,7 @@ export function showHookConfigDialog(
       unregisterHotkey('escape', Scopes.MODAL);
       popScope();
       overlay.classList.remove('modal-overlay--visible');
-      dialog.classList.remove('import-dialog--visible');
+      dialog.classList.remove('dialog--visible');
       setTimeout(() => overlay.remove(), 200);
     };
 

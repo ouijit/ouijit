@@ -1011,10 +1011,10 @@ async function showStartCommandDialog(path: string, hookType: 'start' | 'continu
     overlay.className = 'modal-overlay';
 
     const dialog = document.createElement('div');
-    dialog.className = 'import-dialog';
+    dialog.className = 'dialog';
 
     const title = document.createElement('div');
-    title.className = 'import-dialog-title';
+    title.className = 'dialog-title';
     title.textContent = HOOK_DIALOG_TITLES[hookType] || 'Run Command';
     dialog.appendChild(title);
 
@@ -1082,7 +1082,7 @@ async function showStartCommandDialog(path: string, hookType: 'start' | 'continu
 
     // Action buttons
     const actions = document.createElement('div');
-    actions.className = 'import-actions';
+    actions.className = 'dialog-actions';
     actions.style.justifyContent = 'space-between';
 
     if (limaAvailable) {
@@ -1131,7 +1131,7 @@ async function showStartCommandDialog(path: string, hookType: 'start' | 'continu
     const cleanup = () => {
       unregisterHotkey('escape', Scopes.MODAL);
       popScope();
-      dialog.classList.remove('import-dialog--visible');
+      dialog.classList.remove('dialog--visible');
       overlay.classList.remove('modal-overlay--visible');
       setTimeout(() => overlay.remove(), 150);
     };
@@ -1154,7 +1154,7 @@ async function showStartCommandDialog(path: string, hookType: 'start' | 'continu
     // Animate in
     requestAnimationFrame(() => {
       overlay.classList.add('modal-overlay--visible');
-      dialog.classList.add('import-dialog--visible');
+      dialog.classList.add('dialog--visible');
       textarea.focus();
     });
   });

@@ -24,10 +24,10 @@ export function showNewProjectDialog(): Promise<NewProjectDialogResult | null> {
     overlay.className = 'modal-overlay';
 
     const dialog = document.createElement('div');
-    dialog.className = 'import-dialog';
+    dialog.className = 'dialog';
 
     dialog.innerHTML = `
-      <h2 class="import-dialog-title">New Project</h2>
+      <h2 class="dialog-title">New Project</h2>
 
       <div class="new-project-form">
         <div class="form-group">
@@ -43,7 +43,7 @@ export function showNewProjectDialog(): Promise<NewProjectDialogResult | null> {
         </div>
       </div>
 
-      <div class="import-actions">
+      <div class="dialog-actions">
         <button class="btn btn-secondary" data-action="cancel">Cancel</button>
         <button class="btn btn-primary" data-action="create" disabled>Create</button>
       </div>
@@ -65,7 +65,7 @@ export function showNewProjectDialog(): Promise<NewProjectDialogResult | null> {
     // Animate in
     requestAnimationFrame(() => {
       overlay.classList.add('modal-overlay--visible');
-      dialog.classList.add('import-dialog--visible');
+      dialog.classList.add('dialog--visible');
       nameInput.focus();
     });
 
@@ -74,7 +74,7 @@ export function showNewProjectDialog(): Promise<NewProjectDialogResult | null> {
       unregisterHotkey('enter', Scopes.MODAL);
       popScope();
       overlay.classList.remove('modal-overlay--visible');
-      dialog.classList.remove('import-dialog--visible');
+      dialog.classList.remove('dialog--visible');
       setTimeout(() => overlay.remove(), 200);
     };
 

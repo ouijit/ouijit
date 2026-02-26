@@ -129,7 +129,7 @@ test('project mode: terminals, kanban, context menu, and task lifecycle', async 
   // Confirm deletion in the modal dialog
   const deleteDialog = appPage.locator('.modal-overlay--visible');
   await expect(deleteDialog).toBeVisible({ timeout: 5_000 });
-  await expect(deleteDialog.locator('.import-dialog-title')).toHaveText('Delete Task?');
+  await expect(deleteDialog.locator('.dialog-title')).toHaveText('Delete Task?');
   await deleteDialog.locator('[data-action="delete"]').click();
 
   // Task should be gone from the board
@@ -150,7 +150,7 @@ test('project mode: terminals, kanban, context menu, and task lifecycle', async 
 
   // No start hook configured — no dialog should appear
   await appPage.waitForTimeout(1_000);
-  await expect(appPage.locator('.modal-overlay--visible .import-dialog')).not.toBeVisible();
+  await expect(appPage.locator('.modal-overlay--visible .dialog')).not.toBeVisible();
 
   // Task should be in in_progress column
   await expect(inProgressColumn.locator('.kanban-card')).toHaveCount(1, { timeout: 5_000 });
@@ -199,9 +199,9 @@ test('lifecycle hooks: configure, run, cancel, and drag transitions', async ({ a
   const inProgressBody = inProgressColumn.locator('.kanban-column-body');
   await todoColumn.locator('.kanban-card').first().dragTo(inProgressBody);
 
-  const hookDialog = appPage.locator('.modal-overlay--visible .import-dialog');
+  const hookDialog = appPage.locator('.modal-overlay--visible .dialog');
   await expect(hookDialog).toBeVisible({ timeout: 15_000 });
-  await expect(hookDialog.locator('.import-dialog-title')).toHaveText('Start Task');
+  await expect(hookDialog.locator('.dialog-title')).toHaveText('Start Task');
   await expect(hookDialog.locator('textarea.start-command-textarea')).toHaveValue('echo starting');
 
   // Click "Run" — terminal created in background, kanban stays visible
@@ -222,7 +222,7 @@ test('lifecycle hooks: configure, run, cancel, and drag transitions', async ({ a
   await todoColumn.locator('.kanban-card').first().dragTo(inProgressBody);
 
   await expect(hookDialog).toBeVisible({ timeout: 15_000 });
-  await expect(hookDialog.locator('.import-dialog-title')).toHaveText('Start Task');
+  await expect(hookDialog.locator('.dialog-title')).toHaveText('Start Task');
 
   // Click "Cancel" — no terminal created, task moves to in_progress (worktree was created before dialog)
   await hookDialog.locator('.btn-secondary', { hasText: 'Cancel' }).click();
@@ -241,7 +241,7 @@ test('lifecycle hooks: configure, run, cancel, and drag transitions', async ({ a
 
   // Review dialog should appear with pre-filled command
   await expect(hookDialog).toBeVisible({ timeout: 15_000 });
-  await expect(hookDialog.locator('.import-dialog-title')).toHaveText('Review Task');
+  await expect(hookDialog.locator('.dialog-title')).toHaveText('Review Task');
   await expect(hookDialog.locator('textarea.start-command-textarea')).toHaveValue('echo reviewing');
 
   // Click "Run" — terminal in background, kanban stays
@@ -258,7 +258,7 @@ test('lifecycle hooks: configure, run, cancel, and drag transitions', async ({ a
 
   // Wait briefly and verify no dialog appeared
   await appPage.waitForTimeout(1_000);
-  await expect(appPage.locator('.modal-overlay--visible .import-dialog')).not.toBeVisible();
+  await expect(appPage.locator('.modal-overlay--visible .dialog')).not.toBeVisible();
   await expect(inProgressColumn.locator('.kanban-card')).toHaveCount(2, { timeout: 5_000 });
   await expect(inReviewColumn.locator('.kanban-card')).toHaveCount(0);
 
@@ -271,7 +271,7 @@ test('lifecycle hooks: configure, run, cancel, and drag transitions', async ({ a
 
   // Cleanup dialog should appear
   await expect(hookDialog).toBeVisible({ timeout: 15_000 });
-  await expect(hookDialog.locator('.import-dialog-title')).toHaveText('Done — Cleanup');
+  await expect(hookDialog.locator('.dialog-title')).toHaveText('Done — Cleanup');
   await expect(hookDialog.locator('textarea.start-command-textarea')).toHaveValue('echo cleaning');
 
   // Click "Run" — terminal in background
@@ -294,7 +294,7 @@ test('lifecycle hooks: configure, run, cancel, and drag transitions', async ({ a
 
   // Wait briefly and verify no dialog appeared
   await appPage.waitForTimeout(1_000);
-  await expect(appPage.locator('.modal-overlay--visible .import-dialog')).not.toBeVisible();
+  await expect(appPage.locator('.modal-overlay--visible .dialog')).not.toBeVisible();
   await expect(inReviewColumn.locator('.kanban-card')).toHaveCount(1, { timeout: 5_000 });
   await expect(inProgressColumn.locator('.kanban-card')).toHaveCount(0);
 
@@ -313,7 +313,7 @@ test('lifecycle hooks: configure, run, cancel, and drag transitions', async ({ a
 
   // No start hook — no dialog should appear
   await appPage.waitForTimeout(1_000);
-  await expect(appPage.locator('.modal-overlay--visible .import-dialog')).not.toBeVisible();
+  await expect(appPage.locator('.modal-overlay--visible .dialog')).not.toBeVisible();
   await expect(inProgressColumn.locator('.kanban-card')).toHaveCount(1, { timeout: 5_000 });
   await expect(todoColumn.locator('.kanban-card')).toHaveCount(0);
 });

@@ -21,15 +21,15 @@ function showDeleteConfirmDialog(taskName: string): Promise<boolean> {
     overlay.className = 'modal-overlay';
 
     const dialog = document.createElement('div');
-    dialog.className = 'import-dialog';
+    dialog.className = 'dialog';
     dialog.style.maxWidth = '380px';
 
     dialog.innerHTML = `
-      <h2 class="import-dialog-title">Delete Task?</h2>
-      <p class="import-dialog-text">
+      <h2 class="dialog-title">Delete Task?</h2>
+      <p class="dialog-text">
         This will permanently remove the worktree and branch for "<strong>${taskName}</strong>".
       </p>
-      <div class="import-actions">
+      <div class="dialog-actions">
         <button class="btn btn-secondary" data-action="cancel">Cancel</button>
         <button class="btn btn-danger" data-action="delete">Delete</button>
       </div>
@@ -41,7 +41,7 @@ function showDeleteConfirmDialog(taskName: string): Promise<boolean> {
     const cleanup = () => {
       unregisterHotkey('escape', Scopes.MODAL);
       popScope();
-      dialog.classList.remove('import-dialog--visible');
+      dialog.classList.remove('dialog--visible');
       overlay.classList.remove('modal-overlay--visible');
       setTimeout(() => overlay.remove(), 150);
     };
@@ -70,7 +70,7 @@ function showDeleteConfirmDialog(taskName: string): Promise<boolean> {
     // Animate in
     requestAnimationFrame(() => {
       overlay.classList.add('modal-overlay--visible');
-      dialog.classList.add('import-dialog--visible');
+      dialog.classList.add('dialog--visible');
     });
   });
 }
@@ -85,20 +85,20 @@ export function showMissingWorktreeDialog(task: TaskWithWorkspace, branchExists:
     overlay.className = 'modal-overlay';
 
     const dialog = document.createElement('div');
-    dialog.className = 'import-dialog';
+    dialog.className = 'dialog';
     dialog.style.maxWidth = '420px';
 
     const branchHtml = task.branch
-      ? `<p class="import-dialog-text" style="margin-top: 4px; font-size: 12px; opacity: 0.7;">Branch: <code>${task.branch}</code></p>`
+      ? `<p class="dialog-text" style="margin-top: 4px; font-size: 12px; opacity: 0.7;">Branch: <code>${task.branch}</code></p>`
       : '';
 
     dialog.innerHTML = `
-      <h2 class="import-dialog-title">Worktree Not Found</h2>
-      <p class="import-dialog-text">
+      <h2 class="dialog-title">Worktree Not Found</h2>
+      <p class="dialog-text">
         The worktree directory for "<strong>${task.name}</strong>" no longer exists on disk.
       </p>
       ${branchHtml}
-      <div class="import-actions">
+      <div class="dialog-actions">
         <button class="btn btn-secondary" data-action="cancel">Cancel</button>
         ${branchExists ? '<button class="btn btn-primary" data-action="recover">Recreate Worktree</button>' : ''}
       </div>
@@ -110,7 +110,7 @@ export function showMissingWorktreeDialog(task: TaskWithWorkspace, branchExists:
     const cleanup = () => {
       unregisterHotkey('escape', Scopes.MODAL);
       popScope();
-      dialog.classList.remove('import-dialog--visible');
+      dialog.classList.remove('dialog--visible');
       overlay.classList.remove('modal-overlay--visible');
       setTimeout(() => overlay.remove(), 150);
     };
@@ -136,7 +136,7 @@ export function showMissingWorktreeDialog(task: TaskWithWorkspace, branchExists:
 
     requestAnimationFrame(() => {
       overlay.classList.add('modal-overlay--visible');
-      dialog.classList.add('import-dialog--visible');
+      dialog.classList.add('dialog--visible');
     });
   });
 }

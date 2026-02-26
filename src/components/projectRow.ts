@@ -198,15 +198,15 @@ function showRemoveConfirmDialog(projectName: string): Promise<boolean> {
     overlay.className = 'modal-overlay';
 
     const dialog = document.createElement('div');
-    dialog.className = 'import-dialog';
+    dialog.className = 'dialog';
     dialog.style.maxWidth = '380px';
 
     dialog.innerHTML = `
-      <h2 class="import-dialog-title">Remove Project?</h2>
-      <p class="import-dialog-text">
+      <h2 class="dialog-title">Remove Project?</h2>
+      <p class="dialog-text">
         This will remove <strong>${projectName}</strong> from Ouijit. The project folder will not be deleted.
       </p>
-      <div class="import-actions">
+      <div class="dialog-actions">
         <button class="btn btn-secondary" data-action="cancel">Cancel</button>
         <button class="btn btn-danger" data-action="remove">Remove</button>
       </div>
@@ -218,7 +218,7 @@ function showRemoveConfirmDialog(projectName: string): Promise<boolean> {
     const cleanup = () => {
       unregisterHotkey('escape', Scopes.MODAL);
       popScope();
-      dialog.classList.remove('import-dialog--visible');
+      dialog.classList.remove('dialog--visible');
       overlay.classList.remove('modal-overlay--visible');
       setTimeout(() => overlay.remove(), 150);
     };
@@ -247,7 +247,7 @@ function showRemoveConfirmDialog(projectName: string): Promise<boolean> {
     // Animate in
     requestAnimationFrame(() => {
       overlay.classList.add('modal-overlay--visible');
-      dialog.classList.add('import-dialog--visible');
+      dialog.classList.add('dialog--visible');
     });
   });
 }
