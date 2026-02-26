@@ -10,6 +10,7 @@ import {
   setTaskStatusWithHooks,
   reorderTaskWithHooks,
   deleteTaskWithWorktree,
+  trashTaskWithWorktree,
   getTasksWithWorkspaces,
   getTaskWithWorkspace,
 } from '../../taskLifecycle';
@@ -36,6 +37,10 @@ export function registerTaskHandlers(): void {
 
   typedHandle('task:delete', (projectPath, taskNumber) =>
     deleteTaskWithWorktree(projectPath, taskNumber),
+  );
+
+  typedHandle('task:trash', (projectPath, taskNumber) =>
+    trashTaskWithWorktree(projectPath, taskNumber),
   );
 
   typedHandle('task:set-merge-target', (projectPath, taskNumber, mergeTarget) =>

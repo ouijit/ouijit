@@ -79,6 +79,7 @@ export interface IpcInvokeContract {
   'task:get-by-number':           { args: [projectPath: string, taskNumber: number];                        return: TaskWithWorkspace | null };
   'task:set-status':              { args: [projectPath: string, taskNumber: number, status: TaskStatus];    return: { success: boolean; error?: string; hookWarning?: string } };
   'task:delete':                  { args: [projectPath: string, taskNumber: number];                        return: { success: boolean; error?: string } };
+  'task:trash':                   { args: [projectPath: string, taskNumber: number];                        return: { success: boolean; error?: string; trashed?: boolean } };
   'task:set-merge-target':        { args: [projectPath: string, taskNumber: number, mergeTarget: string];   return: { success: boolean; error?: string } };
   'task:set-sandboxed':           { args: [projectPath: string, taskNumber: number, sandboxed: boolean];    return: { success: boolean; error?: string } };
   'task:set-name':                { args: [projectPath: string, taskNumber: number, name: string];          return: { success: boolean; error?: string } };
