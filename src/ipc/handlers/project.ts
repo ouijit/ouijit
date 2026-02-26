@@ -33,7 +33,13 @@ export function registerProjectHandlers(mainWindow: BrowserWindow): void {
     return shell.openExternal(url);
   });
 
-  typedHandle('create-project', (options) => createProject(options));
+  typedHandle('create-project', async (options) => {
+    const result = await createProject(options);
+    if (result.success && result.projectPath) {
+      await addProject(result.projectPath);
+    }
+    return result;
+  });
 
   typedHandle('show-folder-picker', async () => {
     try {

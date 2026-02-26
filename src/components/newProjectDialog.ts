@@ -93,18 +93,23 @@ export function showNewProjectDialog(): Promise<NewProjectDialogResult | null> {
       createBtn.disabled = true;
       createBtn.textContent = 'Creating...';
 
-      const options: CreateProjectOptions = { name };
-      const result: CreateProjectResult = await window.api.createProject(options);
+      try {
+        const options: CreateProjectOptions = { name };
+        const result: CreateProjectResult = await window.api.createProject(options);
 
-      cleanup();
+        cleanup();
 
-      if (result.success) {
-        resolve({
-          created: true,
-          projectName: name,
-          projectPath: result.projectPath,
-        });
-      } else {
+        if (result.success) {
+          resolve({
+            created: true,
+            projectName: name,
+            projectPath: result.projectPath,
+          });
+        } else {
+          resolve({ created: false });
+        }
+      } catch {
+        cleanup();
         resolve({ created: false });
       }
     });
