@@ -1,4 +1,5 @@
 import { execFile, execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { promisify } from 'node:util';
 import * as path from 'node:path';
 import * as fs from 'node:fs/promises';
@@ -57,13 +58,41 @@ export async function isLimaInstalled(): Promise<boolean> {
 }
 
 /**
- * Derive a stable instance name from a project path
+ * Derive a stable instance name from a project path.
+ * Capped at 32 chars to avoid Lima/QEMU UNIX socket path failures
+ * (macOS sun_path limit is 104 bytes). Long names are truncated
+ * with a hash suffix for uniqueness.
  */
+const MAX_VM_NAME_LENGTH = 32;
 export function getInstanceName(projectPath: string): string {
   const basename = path.basename(projectPath);
-  // Sanitize: only alphanumeric and hyphens
-  const sanitized = basename.replace(/[^a-zA-Z0-9-]/g, '-').toLowerCase();
-  return `ouijit-${sanitized}`;
+  // Sanitize: only alphanumeric and hyphens, collapse runs of hyphens
+  const sanitized = basename
+    .replace(/[^a-zA-Z0-9-]/g, '-')
+    .replace(/-{2,}/g, '-')
+    .replace(/^-|-$/g, '')
+    .toLowerCase();
+
+  const prefix = 'ouijit-';
+
+  // Fallback to hash-only name when basename sanitizes to nothing
+  if (!sanitized) {
+    const hash = createHash('sha256').update(projectPath).digest('hex').slice(0, 16);
+    return `${prefix}${hash}`;
+  }
+
+  const candidate = `${prefix}${sanitized}`;
+
+  if (candidate.length <= MAX_VM_NAME_LENGTH) {
+    return candidate;
+  }
+
+  // Truncate and append a short hash for uniqueness
+  const hash = createHash('sha256').update(projectPath).digest('hex').slice(0, 8);
+  const suffix = `-${hash}`;
+  const maxBase = MAX_VM_NAME_LENGTH - prefix.length - suffix.length;
+  const truncated = sanitized.slice(0, maxBase).replace(/-$/, '');
+  return `${prefix}${truncated}${suffix}`;
 }
 
 /**
