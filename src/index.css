@@ -96,7 +96,7 @@
   --content-padding: 24px;
 
   /* Terminal */
-  --color-terminal-bg: #1a1a1a;
+  --color-terminal-bg: #171717;
 }
 
 
@@ -542,13 +542,13 @@ body.platform-darwin:not(.is-fullscreen) .header-content {
 
 .terminal-viewport {
   @apply h-[280px] p-4 rounded-lg border border-white/10 overflow-hidden flex flex-col;
-  background: var(--color-terminal-bg, #1a1a1a);
+  background: var(--color-terminal-bg, #171717);
 }
 
 /* Inner container for xterm - no padding so FitAddon measures correctly */
 .terminal-xterm-container {
   @apply flex-1 min-h-0 min-w-0 overflow-hidden;
-  background: var(--color-terminal-bg, #1a1a1a);
+  background: var(--color-terminal-bg, #171717);
 }
 
 /* Override xterm.js styles */
@@ -1036,7 +1036,7 @@ body.project-mode .project-list-header {
 
 .project-card {
   @apply absolute inset-0 rounded-lg border border-white/10 overflow-hidden flex flex-col;
-  background: var(--color-terminal-bg, #1a1a1a);
+  background: var(--color-terminal-bg, #171717);
   transition: translate 0.2s ease, scale 0.2s ease;
 }
 
@@ -1290,7 +1290,7 @@ body.project-mode .project-list-header {
 .runner-panel {
   @apply rounded-none border-0 border-l border-t border-solid border-white/10 shadow-none flex flex-col overflow-hidden;
   flex-basis: 0;
-  background: var(--color-terminal-bg, #1a1a1a);
+  background: var(--color-terminal-bg, #171717);
   transition: flex-basis 0.25s ease;
 }
 
@@ -1754,7 +1754,7 @@ body.kanban-open .project-stack {
 .kanban-board {
   @apply fixed top-[82px] left-4 right-4 bottom-4 z-[140] flex flex-col opacity-0 transition-all duration-200 ease-out rounded-lg overflow-hidden border border-white/10;
   transform: translateY(6px);
-  background: var(--color-terminal-bg, #1a1a1a);
+  background: var(--color-terminal-bg, #171717);
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.05), 0 4px 12px rgba(0, 0, 0, 0.15), 0 20px 40px rgba(0, 0, 0, 0.2);
 }
 

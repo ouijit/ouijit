@@ -144,12 +144,12 @@ export function resolveTerminalLabel(
  */
 export function getTerminalTheme(): Record<string, string> {
   return {
-    background: '#1a1a1a',
+    background: '#171717',
     foreground: '#e4e4e4',
     cursor: '#e4e4e4',
-    cursorAccent: '#1a1a1a',
+    cursorAccent: '#171717',
     selectionBackground: 'rgba(255, 255, 255, 0.15)',
-    black: '#1a1a1a',
+    black: '#171717',
     red: '#ff6b6b',
     green: '#69db7c',
     yellow: '#ffd43b',
