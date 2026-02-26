@@ -607,6 +607,22 @@ function buildKanbanCard(task: TaskWithWorkspace, path: string, limaAvailable: b
 }
 
 /**
+ * Toggle .is-scrolling on kanban column bodies during scroll,
+ * so CSS can show the scrollbar thumb only while actively scrolling.
+ */
+function setupColumnScrollIndicators(): void {
+  const bodies = document.querySelectorAll('.kanban-column-body');
+  bodies.forEach(body => {
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    body.addEventListener('scroll', () => {
+      body.classList.add('is-scrolling');
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => body.classList.remove('is-scrolling'), 800);
+    }, { passive: true });
+  });
+}
+
+/**
  * Set up SortableJS instances for each kanban column body.
  * Called after populateKanbanBoard rebuilds the DOM.
  */
@@ -933,6 +949,9 @@ async function populateKanbanBoard(): Promise<void> {
 
   // Set up SortableJS drag-and-drop on each column
   setupSortable();
+
+  // Show scrollbar only while scrolling
+  setupColumnScrollIndicators();
 }
 
 /**

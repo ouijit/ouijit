@@ -109,10 +109,11 @@ html {
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
   color-scheme: dark;
+  overflow: hidden;
 }
 
 body {
-  @apply font-sans text-base leading-normal text-text-primary bg-background min-h-screen cursor-default;
+  @apply font-sans text-base leading-normal text-text-primary bg-background min-h-screen cursor-default overflow-hidden;
 }
 
 /* Allow text cursor on inputs and editable areas */
@@ -127,7 +128,7 @@ textarea,
    =================================== */
 
 ::-webkit-scrollbar {
-  @apply w-2 h-2;
+  @apply w-0 h-0;
 }
 
 ::-webkit-scrollbar-track {
@@ -135,11 +136,11 @@ textarea,
 }
 
 ::-webkit-scrollbar-thumb {
-  @apply bg-text-tertiary rounded-full;
+  @apply bg-transparent;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  @apply bg-text-secondary;
+  @apply bg-transparent;
 }
 
 /* ===================================
@@ -199,6 +200,11 @@ textarea,
 
 .header-content {
   @apply max-w-[var(--content-max-width)] mx-auto px-6 py-4 flex items-center justify-center gap-2;
+}
+
+/* Add extra left padding for macOS traffic lights (except fullscreen) */
+body.platform-darwin:not(.is-fullscreen) .header-content {
+  @apply pl-20;
 }
 
 .app-title {
@@ -700,10 +706,6 @@ body.project-mode .project-list-header {
   @apply flex items-center gap-3 flex-1 px-4;
 }
 
-/* Add extra padding for macOS traffic lights (except fullscreen) */
-body.platform-darwin:not(.is-fullscreen) .project-header-content {
-  @apply pl-24;
-}
 
 .project-header-icon {
   @apply w-8 h-8 rounded-md object-cover;
@@ -1849,6 +1851,12 @@ body.kanban-open .project-stack {
 .kanban-column-body {
   @apply flex flex-col overflow-y-auto flex-1 min-h-0;
   border-top: 1px solid rgba(255, 255, 255, 0.06);
+  scrollbar-color: transparent transparent;
+  transition: scrollbar-color 0.4s ease;
+}
+
+.kanban-column-body.is-scrolling {
+  scrollbar-color: var(--color-text-tertiary) transparent;
 }
 
 .kanban-card {
