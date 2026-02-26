@@ -3,6 +3,10 @@
  * Extracted from IPC handlers to keep handlers as thin one-liner delegations.
  */
 
+import { exec } from 'node:child_process';
+import { promisify } from 'node:util';
+import { existsSync } from 'node:fs';
+import { shell } from 'electron';
 import {
   getProjectTasks,
   getTaskByNumber,
@@ -14,6 +18,8 @@ import {
 import { listWorktrees, removeTaskWorktree } from './worktree';
 import type { TaskWithWorkspace } from './types';
 import log from './log';
+
+const execAsync = promisify(exec);
 
 const taskLog = log.scope('task');
 
@@ -72,6 +78,54 @@ export async function deleteTaskWithWorktree(
     }
     taskLog.info('deleting task (metadata-only)', { taskNumber });
   }
+  return deleteTaskByNumber(projectPath, taskNumber);
+}
+
+/**
+ * Delete a task, moving its worktree directory to the OS trash (recoverable)
+ * instead of permanently deleting it with `git worktree remove --force`.
+ */
+export async function trashTaskWithWorktree(
+  projectPath: string,
+  taskNumber: number,
+): Promise<{ success: boolean; error?: string; trashed?: boolean }> {
+  const task = await getTaskByNumber(projectPath, taskNumber);
+
+  // Resolve the worktree path — prefer the DB path, fall back to git worktree list
+  let worktreePath: string | undefined;
+  if (task?.worktreePath && existsSync(task.worktreePath)) {
+    worktreePath = task.worktreePath;
+  } else if (task?.branch) {
+    const worktrees = await listWorktrees(projectPath);
+    const wt = worktrees.find(w => w.branch === task.branch);
+    if (wt) worktreePath = wt.path;
+  }
+
+  if (worktreePath) {
+    taskLog.info('trashing task worktree', { taskNumber, worktreePath });
+    try {
+      await shell.trashItem(worktreePath);
+      await execAsync('git worktree prune', { cwd: projectPath, encoding: 'utf8' });
+    } catch (trashError) {
+      const msg = trashError instanceof Error ? trashError.message : String(trashError);
+      taskLog.error('trashItem failed', { taskNumber, error: msg });
+      return { success: false, error: `Failed to move worktree to trash: ${msg}` };
+    }
+
+    // Delete the branch
+    if (task?.branch) {
+      try {
+        await execAsync(`git branch -D "${task.branch}"`, { cwd: projectPath, encoding: 'utf8' });
+      } catch {
+        // Branch may already be deleted
+      }
+    }
+
+    const dbResult = await deleteTaskByNumber(projectPath, taskNumber);
+    return { ...dbResult, trashed: true };
+  }
+
+  taskLog.info('trashing task (metadata-only)', { taskNumber });
   return deleteTaskByNumber(projectPath, taskNumber);
 }
 

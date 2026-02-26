@@ -2054,5 +2054,39 @@ body.kanban-open .project-stack {
   line-height: 1.5;
 }
 
+/* Kanban Trash Drop Zone */
+.kanban-trash-zone {
+  @apply flex flex-col items-center justify-center gap-2 shrink-0 overflow-hidden;
+  width: 0;
+  opacity: 0;
+  transition: width 200ms ease-out, opacity 200ms ease-out, background 150ms ease;
+  border-left: 1px solid transparent;
+  color: var(--color-text-tertiary);
+}
+
+.kanban-trash-zone--visible {
+  width: 120px;
+  opacity: 1;
+  border-left-color: rgba(255, 255, 255, 0.06);
+}
+
+.kanban-trash-zone svg {
+  @apply w-5 h-5;
+}
+
+.kanban-trash-zone span {
+  @apply text-xs font-medium;
+}
+
+.kanban-trash-zone:has(.kanban-card) {
+  background: rgba(255, 69, 58, 0.12);
+  color: var(--color-error);
+  border-left-color: rgba(255, 69, 58, 0.3);
+}
+
+.kanban-trash-zone .kanban-card {
+  display: none;
+}
+
 
 

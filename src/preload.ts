@@ -104,6 +104,7 @@ contextBridge.exposeInMainWorld('api', {
     getByNumber: (projectPath: string, taskNumber: number) => typedInvoke('task:get-by-number', projectPath, taskNumber),
     setStatus: (projectPath: string, taskNumber: number, status: TaskStatus) => typedInvoke('task:set-status', projectPath, taskNumber, status),
     delete: (projectPath: string, taskNumber: number) => typedInvoke('task:delete', projectPath, taskNumber),
+    trash: (projectPath: string, taskNumber: number) => typedInvoke('task:trash', projectPath, taskNumber),
     setMergeTarget: (projectPath: string, taskNumber: number, mergeTarget: string) => typedInvoke('task:set-merge-target', projectPath, taskNumber, mergeTarget),
     setSandboxed: (projectPath: string, taskNumber: number, sandboxed: boolean) => typedInvoke('task:set-sandboxed', projectPath, taskNumber, sandboxed),
     setName: (projectPath: string, taskNumber: number, name: string) => typedInvoke('task:set-name', projectPath, taskNumber, name),

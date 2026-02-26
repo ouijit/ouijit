@@ -623,6 +623,102 @@ function setupColumnScrollIndicators(): void {
 }
 
 /**
+ * Show the trash drop zone on the right edge of the kanban board during drag.
+ */
+let trashSortable: Sortable | null = null;
+let trashZoneEl: HTMLElement | null = null;
+let trashDragListener: ((e: DragEvent) => void) | null = null;
+
+/**
+ * Create the trash zone element (hidden) and append it to the kanban columns.
+ * Called on drag start so it's in the DOM and ready to reveal.
+ */
+function initTrashZone(evt: Sortable.SortableEvent): void {
+  const columns = document.querySelector('.kanban-columns');
+  if (!columns || trashZoneEl) return;
+
+  const zone = document.createElement('div');
+  zone.className = 'kanban-trash-zone';
+  zone.innerHTML = '<i data-lucide="trash-2"></i><span>Delete</span>';
+  columns.appendChild(zone);
+  trashZoneEl = zone;
+
+  createIcons({ icons, nameAttr: 'data-lucide', attrs: {}, nodes: [zone] });
+
+  trashSortable = Sortable.create(zone, {
+    group: 'kanban',
+    draggable: '.kanban-card',
+    onAdd: (evt) => { handleTrashDrop(evt); },
+  });
+
+  // Track drag position — reveal when cursor reaches the Done column's left edge.
+  // HTML5 DnD suppresses mousemove; dragover fires instead.
+  const doneCol = columns.querySelector('.kanban-column[data-status="done"]') as HTMLElement | null;
+  const threshold = doneCol ? doneCol.getBoundingClientRect().left : window.innerWidth * 0.75;
+
+  trashDragListener = (e: DragEvent) => {
+    if (!trashZoneEl || e.clientX === 0) return; // clientX 0 = synthetic/end event
+    if (e.clientX >= threshold) {
+      trashZoneEl.classList.add('kanban-trash-zone--visible');
+    } else {
+      trashZoneEl.classList.remove('kanban-trash-zone--visible');
+    }
+  };
+  document.addEventListener('dragover', trashDragListener);
+
+  // If dragging from the Done column, the cursor is already past the threshold
+  const fromColumn = (evt.from as HTMLElement).closest('.kanban-column') as HTMLElement | null;
+  if (fromColumn?.dataset.status === 'done') {
+    requestAnimationFrame(() => zone.classList.add('kanban-trash-zone--visible'));
+  }
+}
+
+function teardownTrashZone(): void {
+  if (trashDragListener) {
+    document.removeEventListener('dragover', trashDragListener);
+    trashDragListener = null;
+  }
+  if (!trashZoneEl) return;
+  const zone = trashZoneEl;
+  zone.classList.remove('kanban-trash-zone--visible');
+  if (trashSortable) {
+    trashSortable.destroy();
+    trashSortable = null;
+  }
+  setTimeout(() => zone.remove(), 200);
+  trashZoneEl = null;
+}
+
+async function handleTrashDrop(evt: Sortable.SortableEvent): Promise<void> {
+  const item = evt.item as HTMLElement;
+  const taskNumber = parseInt(item.dataset.taskNumber || '', 10);
+  if (isNaN(taskNumber)) return;
+
+  item.remove();
+
+  const path = projectPath.value;
+  if (!path) return;
+
+  // Close any open terminals for this task
+  const currentTerminals = terminals.value;
+  for (let i = currentTerminals.length - 1; i >= 0; i--) {
+    if (currentTerminals[i].taskId === taskNumber) {
+      projectRegistry.closeProjectTerminal?.(i);
+    }
+  }
+
+  const result = await window.api.task.trash(path, taskNumber);
+  if (result.success) {
+    invalidateTaskList();
+    showToast(result.trashed ? 'Task moved to trash' : 'Task deleted', 'success');
+  } else {
+    showToast(result.error || 'Failed to delete task', 'error');
+  }
+
+  await populateKanbanBoard();
+}
+
+/**
  * Set up SortableJS instances for each kanban column body.
  * Called after populateKanbanBoard rebuilds the DOM.
  */
@@ -643,7 +739,8 @@ function setupSortable(): void {
       ghostClass: 'kanban-card--ghost',
       filter: '.kanban-add-input, .kanban-card-name-input, .kanban-card-detail-value--editing',
       preventOnFilter: false,
-      onEnd: (evt) => { handleSortableEnd(evt); },
+      onStart: (evt) => { initTrashZone(evt); },
+      onEnd: (evt) => { teardownTrashZone(); handleSortableEnd(evt); },
     });
   });
 }
@@ -705,6 +802,9 @@ async function runTransitionHookInTerminal(
  * Handle a SortableJS onEnd event — persist reorder and handle special status transitions.
  */
 async function handleSortableEnd(evt: Sortable.SortableEvent): Promise<void> {
+  // If the card was dropped on the trash zone, its onAdd handler takes care of deletion
+  if ((evt.to as HTMLElement).closest('.kanban-trash-zone')) return;
+
   const item = evt.item as HTMLElement;
   const taskNumber = parseInt(item.dataset.taskNumber || '', 10);
   if (isNaN(taskNumber)) {
