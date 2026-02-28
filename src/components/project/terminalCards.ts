@@ -27,6 +27,7 @@ import { refreshTerminalGitStatus, buildCardGitBranchHtml, buildCardGitStatsHtml
 import { toggleTerminalDiffPanel, toggleTerminalWorktreeDiffPanel, hideTerminalDiffPanel } from './diffPanel';
 import { setSandboxButtonStarting, refreshSandboxButton } from './projectMode';
 import { createIcons, icons } from 'lucide';
+import { notifyReady, notifyThinking, readyBody } from '../../utils/notifications';
 
 // Platform detection for shortcuts display
 const isMac = navigator.platform.toLowerCase().includes('mac');
@@ -2146,6 +2147,7 @@ export function registerHookStatusListener(): void {
   hookStatusCleanup = window.api.claudeHooks.onStatus((ptyId, status) => {
     const term = terminals.value.find(t => t.ptyId === ptyId);
     if (!term) return;
+    const projectName = projectData.value?.name ?? 'Ouijit';
 
     if (status === 'thinking') {
       // PostToolUse / UserPromptSubmit → purple
@@ -2163,6 +2165,7 @@ export function registerHookStatusListener(): void {
         clearHookThinking(ptyId);
         term.summaryType = 'thinking';
         updateTerminalCardLabel(term);
+        notifyThinking();
       }
 
       trackHookThinking(ptyId);
@@ -2198,6 +2201,7 @@ export function registerHookStatusListener(): void {
             if (t2 && t2.summaryType === 'thinking') {
               t2.summaryType = 'ready';
               updateTerminalCardLabel(t2);
+              notifyReady(projectName, readyBody(t2.label, t2.lastOscTitle));
             }
             clearHookThinking(ptyId);
           }, IDLE_FALLBACK_MS));
@@ -2209,6 +2213,7 @@ export function registerHookStatusListener(): void {
       if (term.summaryType !== 'ready') {
         term.summaryType = 'ready';
         updateTerminalCardLabel(term);
+        notifyReady(projectName, readyBody(term.label, term.lastOscTitle));
       }
       clearIdleTimer(ptyId);
     }
