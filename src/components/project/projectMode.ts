@@ -1441,6 +1441,7 @@ async function buildSandboxDropdownContent(
   consoleBtn.addEventListener('click', async (e) => {
     e.stopPropagation();
     hideSandboxDropdown();
+    if (kanbanVisible.value) hideKanbanBoard();
     await projectRegistry.addProjectTerminal?.(
       { name: 'VM Console', command: '', source: 'custom', priority: 0 },
       { sandboxed: true },
