@@ -57,6 +57,7 @@ export function setupTerminalAppHotkeys(terminal: Terminal): void {
           return false;
         }
         if (key === 'v') {
+          event.preventDefault();
           navigator.clipboard.readText().then(text => {
             if (text) {
               terminal.paste(text);
