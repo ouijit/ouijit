@@ -13,7 +13,7 @@ import { reopenTask, deleteTask, closeTask, showMissingWorktreeDialog } from './
 import { switchToProjectTerminal } from './terminalCards';
 import { escapeHtml, setupHighlightedTextarea } from '../../utils/html';
 import { registerHotkey, unregisterHotkey, pushScope, popScope, Scopes, platformHotkey } from '../../utils/hotkeys';
-import { createIcons, icons } from 'lucide';
+import { convertIconsIn } from '../../utils/icons';
 import Sortable from 'sortablejs';
 import log from 'electron-log/renderer';
 
@@ -100,7 +100,7 @@ function showKanbanCardContextMenu(
   // "Open in Terminal" option
   const terminalItem = document.createElement('button');
   terminalItem.className = 'task-context-menu-item';
-  terminalItem.innerHTML = '<i data-lucide="terminal"></i> Open in Terminal';
+  terminalItem.innerHTML = '<i data-icon="terminal"></i> Open in Terminal';
   terminalItem.addEventListener('click', (e) => {
     e.stopPropagation();
     menu.remove();
@@ -112,7 +112,7 @@ function showKanbanCardContextMenu(
   if (onSandbox) {
     const sandboxItem = document.createElement('button');
     sandboxItem.className = 'task-context-menu-item';
-    sandboxItem.innerHTML = '<i data-lucide="box"></i> Open in Sandbox';
+    sandboxItem.innerHTML = '<i data-icon="cube"></i> Open in Sandbox';
     sandboxItem.addEventListener('click', (e) => {
       e.stopPropagation();
       menu.remove();
@@ -125,7 +125,7 @@ function showKanbanCardContextMenu(
   if (onOpenInEditor) {
     const editorItem = document.createElement('button');
     editorItem.className = 'task-context-menu-item';
-    editorItem.innerHTML = '<i data-lucide="code"></i> Open in Editor';
+    editorItem.innerHTML = '<i data-icon="code"></i> Open in Editor';
     editorItem.addEventListener('click', (e) => {
       e.stopPropagation();
       menu.remove();
@@ -142,8 +142,8 @@ function showKanbanCardContextMenu(
   // Close/Reopen option
   const closeReopenItem = document.createElement('button');
   closeReopenItem.className = 'task-context-menu-item';
-  const closeReopenIcon = closeOrReopenLabel === 'Reopen' ? 'rotate-ccw' : 'archive';
-  closeReopenItem.innerHTML = `<i data-lucide="${closeReopenIcon}"></i> ${closeOrReopenLabel}`;
+  const closeReopenIcon = closeOrReopenLabel === 'Reopen' ? 'arrow-counter-clockwise' : 'archive';
+  closeReopenItem.innerHTML = `<i data-icon="${closeReopenIcon}"></i> ${closeOrReopenLabel}`;
   closeReopenItem.addEventListener('click', (e) => {
     e.stopPropagation();
     menu.remove();
@@ -154,7 +154,7 @@ function showKanbanCardContextMenu(
   // Delete option
   const deleteItem = document.createElement('button');
   deleteItem.className = 'task-context-menu-item task-context-menu-item--danger';
-  deleteItem.innerHTML = '<i data-lucide="trash-2"></i> Delete';
+  deleteItem.innerHTML = '<i data-icon="trash"></i> Delete';
   deleteItem.addEventListener('click', (e) => {
     e.stopPropagation();
     menu.remove();
@@ -164,8 +164,8 @@ function showKanbanCardContextMenu(
 
   document.body.appendChild(menu);
 
-  // Render lucide icons
-  createIcons({ icons, nameAttr: 'data-lucide', attrs: {}, nodes: [menu] });
+  // Render icons
+  convertIconsIn(menu);
 
   // Position at mouse, keeping within viewport
   const menuWidth = 200;
@@ -212,7 +212,7 @@ function buildKanbanHtml(): string {
   const columnsHtml = KANBAN_COLUMNS.map(col => {
     const hookInfo = COLUMN_HOOKS[col.status];
     const hookBtn = hookInfo
-      ? `<button class="kanban-column-hook-btn" data-hook-column="${col.status}" title="${hookInfo.tooltip}" style="-webkit-app-region: no-drag;"><i data-lucide="fishing-hook"></i></button>`
+      ? `<button class="kanban-column-hook-btn" data-hook-column="${col.status}" title="${hookInfo.tooltip}" style="-webkit-app-region: no-drag;"><i data-icon="webhooks-logo"></i></button>`
       : '';
     return `
       <div class="kanban-column" data-status="${col.status}">
@@ -361,7 +361,7 @@ function buildKanbanCard(task: TaskWithWorkspace, path: string, limaAvailable: b
 
   const expandBtn = document.createElement('button');
   expandBtn.className = 'kanban-card-expand';
-  expandBtn.innerHTML = '<i data-lucide="chevron-down"></i>';
+  expandBtn.innerHTML = '<i data-icon="caret-down"></i>';
   expandBtn.setAttribute('style', '-webkit-app-region: no-drag;');
   header.appendChild(expandBtn);
 
@@ -420,7 +420,7 @@ function buildKanbanCard(task: TaskWithWorkspace, path: string, limaAvailable: b
   if (task.branch) {
     const branchRow = document.createElement('div');
     branchRow.className = 'kanban-card-branch';
-    branchRow.innerHTML = `<i data-lucide="git-branch"></i><span class="kanban-card-branch-name">${escapeHtml(task.branch)}</span>`;
+    branchRow.innerHTML = `<i data-icon="git-branch"></i><span class="kanban-card-branch-name">${escapeHtml(task.branch)}</span>`;
     detail.appendChild(branchRow);
   }
 
@@ -639,11 +639,11 @@ function initTrashZone(evt: Sortable.SortableEvent): void {
 
   const zone = document.createElement('div');
   zone.className = 'kanban-trash-zone';
-  zone.innerHTML = '<i data-lucide="trash-2"></i><span>Delete</span>';
+  zone.innerHTML = '<i data-icon="trash"></i><span>Delete</span>';
   columns.appendChild(zone);
   trashZoneEl = zone;
 
-  createIcons({ icons, nameAttr: 'data-lucide', attrs: {}, nodes: [zone] });
+  convertIconsIn(zone);
 
   trashSortable = Sortable.create(zone, {
     group: 'kanban',
@@ -1041,8 +1041,8 @@ async function populateKanbanBoard(): Promise<void> {
     }
   }
 
-  // Render lucide icons
-  createIcons({ icons, nameAttr: 'data-lucide', attrs: {}, nodes: [board as HTMLElement] });
+  // Render icons
+  convertIconsIn(board as HTMLElement);
 
   // Sync status dots with current terminal state
   syncKanbanStatusDots();

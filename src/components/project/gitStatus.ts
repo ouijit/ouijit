@@ -121,7 +121,7 @@ export function buildCardGitBranchHtml(compactStatus: CompactGitStatus | null): 
   const { branch } = compactStatus;
   return `
     <span class="project-card-git-branch" title="${branch}">
-      <i data-lucide="git-branch" class="project-card-git-icon"></i>
+      <i data-icon="git-branch" class="project-card-git-icon"></i>
       <span class="project-card-git-branch-name">${branch}</span>
     </span>
   `;

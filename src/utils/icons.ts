@@ -1,162 +1,128 @@
 /**
- * Centralized icon management using Lucide icons with automatic DOM conversion.
+ * Centralized icon management using Phosphor icons with automatic DOM conversion.
  *
- * Usage: Just write `<i data-lucide="icon-name"></i>` in HTML and icons are
+ * Usage: Just write `<i data-icon="icon-name"></i>` in HTML and icons are
  * automatically converted to SVGs when added to the DOM.
- *
- * For programmatic icon creation, use: createElement(iconName)
  */
 
-import {
-  createElement,
-  // All icons used in the app
-  Archive,
-  ArrowLeft,
-  ArrowRight,
-  Bug,
-  ChevronDown,
-  ChevronLeft,
-  ChevronRight,
-  Columns3,
-  Download,
-  FileDiff,
-  FileMinus,
-  FilePen,
-  FilePlus,
-  FolderOpen,
-  FolderPlus,
-  GitBranch,
-  GitCompare,
-  GitMerge,
-  Layers,
-  ListTodo,
-  Maximize2,
-  Minimize2,
-  Play,
-  Plus,
-  RefreshCw,
-  Rocket,
-  RotateCcw,
-  Search,
-  Settings,
-  Box,
-  Code,
-  Star,
-  Terminal,
-  Trash2,
-  Upload,
-  X,
-} from 'lucide';
+import archive from '@phosphor-icons/core/assets/regular/archive.svg?raw';
+import arrowCounterClockwise from '@phosphor-icons/core/assets/regular/arrow-counter-clockwise.svg?raw';
+import arrowLeft from '@phosphor-icons/core/assets/regular/arrow-left.svg?raw';
+import arrowRight from '@phosphor-icons/core/assets/regular/arrow-right.svg?raw';
+import arrowsClockwise from '@phosphor-icons/core/assets/regular/arrows-clockwise.svg?raw';
+import arrowsIn from '@phosphor-icons/core/assets/regular/arrows-in.svg?raw';
+import arrowsOut from '@phosphor-icons/core/assets/regular/arrows-out.svg?raw';
+import bug from '@phosphor-icons/core/assets/regular/bug.svg?raw';
+import caretDown from '@phosphor-icons/core/assets/regular/caret-down.svg?raw';
+import caretLeft from '@phosphor-icons/core/assets/regular/caret-left.svg?raw';
+import caretRight from '@phosphor-icons/core/assets/regular/caret-right.svg?raw';
+import cardsThree from '@phosphor-icons/core/assets/regular/cards-three.svg?raw';
+import code from '@phosphor-icons/core/assets/regular/code.svg?raw';
+import cube from '@phosphor-icons/core/assets/regular/cube.svg?raw';
+import download from '@phosphor-icons/core/assets/regular/download.svg?raw';
+import fileDashed from '@phosphor-icons/core/assets/regular/file-dashed.svg?raw';
+import fileMinus from '@phosphor-icons/core/assets/regular/file-minus.svg?raw';
+import filePlus from '@phosphor-icons/core/assets/regular/file-plus.svg?raw';
+import fileText from '@phosphor-icons/core/assets/regular/file-text.svg?raw';
+import folderOpen from '@phosphor-icons/core/assets/regular/folder-open.svg?raw';
+import folderPlus from '@phosphor-icons/core/assets/regular/folder-plus.svg?raw';
+import gear from '@phosphor-icons/core/assets/regular/gear.svg?raw';
+import gitBranch from '@phosphor-icons/core/assets/regular/git-branch.svg?raw';
+import gitDiff from '@phosphor-icons/core/assets/regular/git-diff.svg?raw';
+import gitMerge from '@phosphor-icons/core/assets/regular/git-merge.svg?raw';
+import info from '@phosphor-icons/core/assets/regular/info.svg?raw';
+import kanban from '@phosphor-icons/core/assets/regular/kanban.svg?raw';
+import listChecks from '@phosphor-icons/core/assets/regular/list-checks.svg?raw';
+import magnifyingGlass from '@phosphor-icons/core/assets/regular/magnifying-glass.svg?raw';
+import minus from '@phosphor-icons/core/assets/regular/minus.svg?raw';
+import play from '@phosphor-icons/core/assets/regular/play.svg?raw';
+import plus from '@phosphor-icons/core/assets/regular/plus.svg?raw';
+import prohibit from '@phosphor-icons/core/assets/regular/prohibit.svg?raw';
+import rocket from '@phosphor-icons/core/assets/regular/rocket.svg?raw';
+import splitHorizontal from '@phosphor-icons/core/assets/regular/split-horizontal.svg?raw';
+import star from '@phosphor-icons/core/assets/regular/star.svg?raw';
+import terminal from '@phosphor-icons/core/assets/regular/terminal.svg?raw';
+import trash from '@phosphor-icons/core/assets/regular/trash.svg?raw';
+import upload from '@phosphor-icons/core/assets/regular/upload.svg?raw';
+import webhooksLogo from '@phosphor-icons/core/assets/regular/webhooks-logo.svg?raw';
+import x from '@phosphor-icons/core/assets/regular/x.svg?raw';
 import log from 'electron-log/renderer';
 
 const iconsLog = log.scope('icons');
 
-// Re-export createElement for programmatic icon creation
-export { createElement };
-
-// Re-export individual icons for createElement usage
-export {
-  Archive,
-  ArrowLeft,
-  ArrowRight,
-  Bug,
-  ChevronDown,
-  ChevronLeft,
-  ChevronRight,
-  Columns3,
-  Download,
-  FileDiff,
-  FileMinus,
-  FilePen,
-  FilePlus,
-  FolderOpen,
-  FolderPlus,
-  GitBranch,
-  GitCompare,
-  GitMerge,
-  Layers,
-  ListTodo,
-  Maximize2,
-  Minimize2,
-  Play,
-  Plus,
-  RefreshCw,
-  Rocket,
-  RotateCcw,
-  Search,
-  Settings,
-  Box,
-  Code,
-  Star,
-  Terminal,
-  Trash2,
-  Upload,
-  X,
-};
-
-// Map of icon names (kebab-case) to icon definitions
-const iconMap: Record<string, Parameters<typeof createElement>[0]> = {
-  'archive': Archive,
-  'arrow-left': ArrowLeft,
-  'arrow-right': ArrowRight,
-  'bug': Bug,
-  'chevron-down': ChevronDown,
-  'chevron-left': ChevronLeft,
-  'chevron-right': ChevronRight,
-  'columns-3': Columns3,
-  'download': Download,
-  'file-diff': FileDiff,
-  'file-minus': FileMinus,
-  'file-pen': FilePen,
-  'file-plus': FilePlus,
-  'folder-open': FolderOpen,
-  'folder-plus': FolderPlus,
-  'git-branch': GitBranch,
-  'git-compare': GitCompare,
-  'git-merge': GitMerge,
-  'layers': Layers,
-  'list-todo': ListTodo,
-  'maximize-2': Maximize2,
-  'minimize-2': Minimize2,
-  'play': Play,
-  'plus': Plus,
-  'refresh-cw': RefreshCw,
-  'rocket': Rocket,
-  'rotate-ccw': RotateCcw,
-  'search': Search,
-  'settings': Settings,
-  'box': Box,
-  'code': Code,
-  'star': Star,
-  'terminal': Terminal,
-  'trash-2': Trash2,
-  'upload': Upload,
-  'x': X,
+// Map of icon names (kebab-case) to SVG strings
+const iconMap: Record<string, string> = {
+  'archive': archive,
+  'arrow-counter-clockwise': arrowCounterClockwise,
+  'arrow-left': arrowLeft,
+  'arrow-right': arrowRight,
+  'arrows-clockwise': arrowsClockwise,
+  'arrows-in': arrowsIn,
+  'arrows-out': arrowsOut,
+  'bug': bug,
+  'caret-down': caretDown,
+  'caret-left': caretLeft,
+  'caret-right': caretRight,
+  'cards-three': cardsThree,
+  'code': code,
+  'cube': cube,
+  'download': download,
+  'file-dashed': fileDashed,
+  'file-minus': fileMinus,
+  'file-plus': filePlus,
+  'file-text': fileText,
+  'folder-open': folderOpen,
+  'folder-plus': folderPlus,
+  'gear': gear,
+  'git-branch': gitBranch,
+  'git-diff': gitDiff,
+  'git-merge': gitMerge,
+  'info': info,
+  'kanban': kanban,
+  'list-checks': listChecks,
+  'magnifying-glass': magnifyingGlass,
+  'minus': minus,
+  'play': play,
+  'plus': plus,
+  'prohibit': prohibit,
+  'rocket': rocket,
+  'split-horizontal': splitHorizontal,
+  'star': star,
+  'terminal': terminal,
+  'trash': trash,
+  'upload': upload,
+  'webhooks-logo': webhooksLogo,
+  'x': x,
 };
 
 /**
- * Convert an <i data-lucide="icon-name"> element to an SVG
+ * Convert an <i data-icon="icon-name"> element to an SVG
  */
 function convertIcon(element: Element): void {
-  const iconName = element.getAttribute('data-lucide');
+  const iconName = element.getAttribute('data-icon');
   if (!iconName) return;
 
-  const iconDef = iconMap[iconName];
-  if (!iconDef) {
+  const svgString = iconMap[iconName];
+  if (!svgString) {
     iconsLog.warn('unknown icon', { name: iconName });
     return;
   }
 
-  // Create the SVG element
-  const svg = createElement(iconDef);
+  const template = document.createElement('template');
+  template.innerHTML = svgString.trim();
+  const svg = template.content.firstElementChild as SVGElement;
+  if (!svg) return;
+
+  svg.setAttribute('width', '24');
+  svg.setAttribute('height', '24');
 
   // Copy over classes from the original element
   if (element.className) {
     svg.classList.add(...element.classList);
   }
 
-  // Copy the data-lucide attribute for identification
-  svg.setAttribute('data-lucide', iconName);
+  // Copy the data-icon attribute for identification
+  svg.setAttribute('data-icon', iconName);
 
   // Replace the placeholder with the SVG
   element.replaceWith(svg);
@@ -165,8 +131,8 @@ function convertIcon(element: Element): void {
 /**
  * Convert all icon placeholders within an element
  */
-function convertIconsIn(root: Element | Document): void {
-  const placeholders = root.querySelectorAll('i[data-lucide]');
+export function convertIconsIn(root: Element | Document): void {
+  const placeholders = root.querySelectorAll('i[data-icon]');
   for (const el of placeholders) {
     convertIcon(el);
   }
@@ -190,7 +156,7 @@ export function initIcons(): void {
       for (const node of mutation.addedNodes) {
         if (node instanceof Element) {
           // Check if the node itself is an icon placeholder
-          if (node.matches('i[data-lucide]')) {
+          if (node.matches('i[data-icon]')) {
             convertIcon(node);
           }
           // Check for icon placeholders within the node

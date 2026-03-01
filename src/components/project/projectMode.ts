@@ -5,7 +5,7 @@
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
-import { createIcons, icons } from 'lucide';
+import { convertIconsIn } from '../../utils/icons';
 import log from 'electron-log/renderer';
 import type { Project, ActiveSession } from '../../types';
 import {
@@ -748,8 +748,8 @@ async function reconnectProjectTerminal(session: ActiveSession, worktreeBranch?:
   if (!stack) return;
   stack.appendChild(card);
 
-  // Render lucide icons now that card is in the DOM
-  createIcons({ icons, nameAttr: 'data-lucide', attrs: {}, nodes: [card] });
+  // Render icons now that card is in the DOM
+  convertIconsIn(card);
 
   const xtermContainer = card.querySelector('.terminal-xterm-container') as HTMLElement;
 
@@ -1527,7 +1527,7 @@ async function buildSandboxDropdownContent(
 
     const editBtn = document.createElement('button');
     editBtn.className = 'sandbox-dropdown-hook-edit';
-    editBtn.innerHTML = '<i data-lucide="settings"></i>';
+    editBtn.innerHTML = '<i data-icon="gear"></i>';
     editBtn.title = 'Edit setup hook';
     editBtn.addEventListener('click', async (e) => {
       e.stopPropagation();
@@ -1556,6 +1556,6 @@ async function buildSandboxDropdownContent(
   hint.textContent = 'Runs once per VM session';
   dropdown.appendChild(hint);
 
-  // Render lucide icons in the dropdown
-  createIcons({ icons, nameAttr: 'data-lucide' });
+  // Render icons in the dropdown
+  convertIconsIn(document);
 }

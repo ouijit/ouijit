@@ -16,7 +16,7 @@ import {
   diffPanelMode,
   diffPanelTaskId,
 } from './signals';
-import { createIcons, icons } from 'lucide';
+import { convertIconsIn } from '../../utils/icons';
 import { escapeHtml } from '../../utils/html';
 import { showToast } from '../importDialog';
 
@@ -48,15 +48,15 @@ function buildHeaderInfoHtml(files: ChangedFile[]): string {
 // ==========================================
 
 /**
- * Get the Lucide icon name and CSS class for a file change status
+ * Get the Phosphor icon name and CSS class for a file change status
  */
 function fileStatusIcon(status: string): { icon: string; cls: string } {
   switch (status) {
     case 'A': return { icon: 'file-plus', cls: 'diff-file-icon--added' };
     case '?': return { icon: 'file-plus', cls: 'diff-file-icon--untracked' };
     case 'D': return { icon: 'file-minus', cls: 'diff-file-icon--deleted' };
-    case 'R': return { icon: 'file-pen', cls: 'diff-file-icon--renamed' };
-    default:  return { icon: 'file-diff', cls: 'diff-file-icon--modified' };
+    case 'R': return { icon: 'file-text', cls: 'diff-file-icon--renamed' };
+    default:  return { icon: 'file-dashed', cls: 'diff-file-icon--modified' };
   }
 }
 
@@ -132,7 +132,7 @@ export function buildFileListHtml(files: ChangedFile[]): string {
         const stats = formatDiffStats(child.file.additions, child.file.deletions);
         const badge = child.file.status === '?' ? '<span class="diff-file-badge diff-file-badge--untracked">untracked</span>' : '';
         return `<div class="diff-tree-file" data-path="${escapeHtml(child.file.path)}" style="padding-left:${12 + depth * 12}px">
-          <i data-lucide="${icon}" class="diff-file-icon ${cls}"></i>
+          <i data-icon="${icon}" class="diff-file-icon ${cls}"></i>
           <span class="diff-tree-name">${escapeHtml(child.name)}</span>
           ${badge}
           <span class="diff-panel-file-stats">${stats}</span>
@@ -142,7 +142,7 @@ export function buildFileListHtml(files: ChangedFile[]): string {
       const childrenHtml = renderNode(child, depth + 1);
       return `<div class="diff-tree-dir" data-expanded="true">
         <div class="diff-tree-dir-label" style="padding-left:${12 + depth * 12}px">
-          <i data-lucide="chevron-down" class="diff-tree-chevron"></i>
+          <i data-icon="caret-down" class="diff-tree-chevron"></i>
           <span class="diff-tree-name">${escapeHtml(child.name)}</span>
         </div>
         <div class="diff-tree-dir-children">${childrenHtml}</div>
@@ -305,7 +305,7 @@ export function buildDiffPanelHtml(files: ChangedFile[], showModeSelector: boole
 
   const modeLabel = mode === 'uncommitted' ? 'Uncommitted changes' : 'Branch changes';
   const modeSelectorHtml = showModeSelector
-    ? `<span class="compare-mode-selector" data-mode="${mode}">${modeLabel}<span class="compare-mode-target"></span></span><span class="compare-mode-info"><i data-lucide="info" class="compare-mode-info-icon"></i><div class="compare-mode-info-card"></div></span>`
+    ? `<span class="compare-mode-selector" data-mode="${mode}">${modeLabel}<span class="compare-mode-target"></span></span><span class="compare-mode-info"><i data-icon="info" class="compare-mode-info-icon"></i><div class="compare-mode-info-card"></div></span>`
     : '';
 
   return `
@@ -318,11 +318,11 @@ export function buildDiffPanelHtml(files: ChangedFile[], showModeSelector: boole
       <div class="diff-panel-main">
         <div class="diff-content-header">
           <button class="diff-sidebar-toggle" title="Toggle file list">
-            <i data-lucide="chevron-left" class="diff-sidebar-toggle-icon"></i>
+            <i data-icon="caret-left" class="diff-sidebar-toggle-icon"></i>
           </button>
           ${modeSelectorHtml}
           <span class="diff-header-info"></span>
-          <button class="diff-panel-close" title="Close diff panel"><i data-lucide="x"></i></button>
+          <button class="diff-panel-close" title="Close diff panel"><i data-icon="x"></i></button>
         </div>
         <div class="diff-content-body">
           ${stackedDiffsHtml}
@@ -506,8 +506,8 @@ export async function showTerminalComparePanel(term: ProjectTerminal, mode: 'unc
     headerInfo.innerHTML = buildHeaderInfoHtml(files);
   }
 
-  // Render lucide icons (info icon, sidebar icons, etc.)
-  createIcons({ icons, nameAttr: 'data-lucide', attrs: {}, nodes: [panel as HTMLElement] });
+  // Render icons (info icon, sidebar icons, etc.)
+  convertIconsIn(panel as HTMLElement);
 
   // Animate panel in
   requestAnimationFrame(() => {

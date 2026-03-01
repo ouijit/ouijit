@@ -33,7 +33,7 @@ export function buildProjectHeader(): string {
   return `
     <div class="project-header-content">
       <button class="project-exit-btn" title="Exit project mode">
-        <i data-lucide="arrow-left"></i>
+        <i data-icon="arrow-left"></i>
       </button>
       ${icon}
       <div class="project-header-info">
@@ -42,29 +42,29 @@ export function buildProjectHeader(): string {
       </div>
       <div class="project-view-toggle">
         <button class="project-view-toggle-btn project-view-toggle-btn--active" data-view="board" title="Board view">
-          <i data-lucide="columns-3"></i>
+          <i data-icon="kanban"></i>
         </button>
         <button class="project-view-toggle-btn" data-view="stack" title="Terminal stack">
-          <i data-lucide="layers"></i>
+          <i data-icon="cards-three"></i>
         </button>
       </div>
       <div class="project-launch-wrapper">
         <button class="project-hooks-btn" title="Scripts">
-          <i data-lucide="code"></i>
-          <i data-lucide="chevron-down" class="project-hooks-caret"></i>
+          <i data-icon="code"></i>
+          <i data-icon="caret-down" class="project-hooks-caret"></i>
         </button>
       </div>
       <div class="project-sandbox-wrapper" style="display: none;">
         <button class="project-sandbox-btn" title="Sandbox">
-          <i data-lucide="box"></i>
-          <i data-lucide="chevron-down" class="project-sandbox-caret"></i>
+          <i data-icon="cube"></i>
+          <i data-icon="caret-down" class="project-sandbox-caret"></i>
         </button>
       </div>
       <button class="project-terminal-btn" title="New terminal">
-        <i data-lucide="terminal"></i>
+        <i data-icon="terminal"></i>
       </button>
       <button class="project-newtask-btn" title="New task">
-        <i data-lucide="plus"></i>
+        <i data-icon="plus"></i>
       </button>
     </div>
   `;
@@ -103,7 +103,7 @@ function buildHookRow(
     const editBtn = document.createElement('button');
     editBtn.className = 'hook-action-btn';
     editBtn.title = `Edit ${label.toLowerCase()}`;
-    editBtn.innerHTML = '<i data-lucide="settings"></i>';
+    editBtn.innerHTML = '<i data-icon="gear"></i>';
     editBtn.addEventListener('click', async (e) => {
       e.stopPropagation();
       hideLaunchDropdown();

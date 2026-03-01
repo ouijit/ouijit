@@ -26,8 +26,8 @@ import { showHookConfigDialog } from '../hookConfigDialog';
 import { refreshTerminalGitStatus, buildCardGitBranchHtml, buildCardGitStatsHtml, scheduleTerminalGitStatusRefresh } from './gitStatus';
 import { toggleTerminalDiffPanel, toggleTerminalWorktreeDiffPanel, hideTerminalDiffPanel } from './diffPanel';
 import { setSandboxButtonStarting, refreshSandboxButton } from './projectMode';
-import { createIcons, icons } from 'lucide';
-import { notifyReady, notifyThinking, readyBody } from '../../utils/notifications';
+import { convertIconsIn } from '../../utils/icons';
+import { notifyReady, readyBody } from '../../utils/notifications';
 
 // Platform detection for shortcuts display
 const isMac = navigator.platform.toLowerCase().includes('mac');
@@ -282,7 +282,7 @@ export function createProjectCard(label: string, index: number): HTMLElement {
     <div class="project-card-label-right">
       <div class="project-card-git-stats-wrapper"></div>
       <button class="card-tab card-tab-run" data-action="run" style="display: none;">Run</button>
-      <button class="project-card-close" title="Close terminal"><i data-lucide="x"></i></button>
+      <button class="project-card-close" title="Close terminal"><i data-icon="x"></i></button>
     </div>
   `;
   card.appendChild(labelEl);
@@ -444,7 +444,7 @@ async function showCardContextMenu(event: MouseEvent, term: ProjectTerminal): Pr
   if (term.worktreePath && term.worktreeBranch) {
     const terminalItem = document.createElement('button');
     terminalItem.className = 'task-context-menu-item';
-    terminalItem.innerHTML = '<i data-lucide="terminal"></i> Open in Terminal';
+    terminalItem.innerHTML = '<i data-icon="terminal"></i> Open in Terminal';
     terminalItem.addEventListener('click', (e) => {
       e.stopPropagation();
       menu.remove();
@@ -467,7 +467,7 @@ async function showCardContextMenu(event: MouseEvent, term: ProjectTerminal): Pr
     if (limaStatus.available) {
       const sandboxItem = document.createElement('button');
       sandboxItem.className = 'task-context-menu-item';
-      sandboxItem.innerHTML = '<i data-lucide="box"></i> Open in Sandbox';
+      sandboxItem.innerHTML = '<i data-icon="cube"></i> Open in Sandbox';
       sandboxItem.addEventListener('click', (e) => {
         e.stopPropagation();
         menu.remove();
@@ -492,7 +492,7 @@ async function showCardContextMenu(event: MouseEvent, term: ProjectTerminal): Pr
       if (hooks.editor) {
         const editorItem = document.createElement('button');
         editorItem.className = 'task-context-menu-item';
-        editorItem.innerHTML = '<i data-lucide="code"></i> Open in Editor';
+        editorItem.innerHTML = '<i data-icon="code"></i> Open in Editor';
         editorItem.addEventListener('click', (e) => {
           e.stopPropagation();
           menu.remove();
@@ -511,7 +511,7 @@ async function showCardContextMenu(event: MouseEvent, term: ProjectTerminal): Pr
   // "Close Task"
   const closeItem = document.createElement('button');
   closeItem.className = 'task-context-menu-item';
-  closeItem.innerHTML = '<i data-lucide="archive"></i> Close Task';
+  closeItem.innerHTML = '<i data-icon="archive"></i> Close Task';
   closeItem.addEventListener('click', (e) => {
     e.stopPropagation();
     menu.remove();
@@ -520,7 +520,7 @@ async function showCardContextMenu(event: MouseEvent, term: ProjectTerminal): Pr
   menu.appendChild(closeItem);
 
   document.body.appendChild(menu);
-  createIcons({ icons, nameAttr: 'data-lucide', attrs: {}, nodes: [menu] });
+  convertIconsIn(menu);
 
   // Position at mouse, keeping within viewport
   const menuWidth = 200;
@@ -608,16 +608,16 @@ async function closeTaskFromTerminal(term: ProjectTerminal): Promise<void> {
  * Build HTML for the runner panel
  */
 function buildRunnerPanelHtml(label: string, fullWidth: boolean): string {
-  const icon = fullWidth ? 'columns-2' : 'maximize-2';
+  const icon = fullWidth ? 'split-horizontal' : 'arrows-out';
   const title = fullWidth ? 'Split view' : 'Full width';
   return `
     <div class="runner-panel${fullWidth ? ' runner-panel--full' : ''}">
       <div class="runner-panel-header">
         <span class="runner-panel-title">${label}</span>
-        <button class="runner-panel-kill" title="Kill"><i data-lucide="circle-off"></i></button>
-        <button class="runner-panel-restart" title="Restart"><i data-lucide="rotate-ccw"></i></button>
-        <button class="runner-panel-split-toggle" title="${title}"><i data-lucide="${icon}"></i></button>
-        <button class="runner-panel-collapse" title="Minimize panel"><i data-lucide="minus"></i></button>
+        <button class="runner-panel-kill" title="Kill"><i data-icon="prohibit"></i></button>
+        <button class="runner-panel-restart" title="Restart"><i data-icon="arrow-counter-clockwise"></i></button>
+        <button class="runner-panel-split-toggle" title="${title}"><i data-icon="${icon}"></i></button>
+        <button class="runner-panel-collapse" title="Minimize panel"><i data-icon="minus"></i></button>
       </div>
       <div class="runner-panel-body">
         <div class="runner-xterm-container"></div>
@@ -717,8 +717,8 @@ export function showRunnerPanel(term: ProjectTerminal): void {
     panel = cardBody.querySelector('.runner-panel') as HTMLElement;
     if (!panel) return;
 
-    // Render lucide icons in the panel header
-    createIcons({ icons, nameAttr: 'data-lucide', attrs: {}, nodes: [panel] });
+    // Render icons in the panel header
+    convertIconsIn(panel);
 
     // Wire up collapse button (hides panel but keeps runner alive)
     const collapseBtn = panel.querySelector('.runner-panel-collapse');
@@ -886,21 +886,21 @@ function toggleRunnerFullWidth(term: ProjectTerminal): void {
     panel.classList.add('runner-panel--full');
     panel.style.flexBasis = '100%';
     if (toggleBtn) {
-      toggleBtn.innerHTML = '<i data-lucide="columns-2"></i>';
+      toggleBtn.innerHTML = '<i data-icon="split-horizontal"></i>';
       toggleBtn.title = 'Split view';
     }
   } else {
     panel.classList.remove('runner-panel--full');
     panel.style.flexBasis = `${term.runnerSplitRatio * 100}%`;
     if (toggleBtn) {
-      toggleBtn.innerHTML = '<i data-lucide="maximize-2"></i>';
+      toggleBtn.innerHTML = '<i data-icon="arrows-out"></i>';
       toggleBtn.title = 'Full width';
     }
   }
 
-  // Re-render lucide icons for the updated button
+  // Re-render icons for the updated button
   if (toggleBtn) {
-    createIcons({ icons, nameAttr: 'data-lucide', attrs: {}, nodes: [toggleBtn] });
+    convertIconsIn(toggleBtn);
   }
 
   // Force layout, then restore transition and fit terminals
@@ -1399,8 +1399,8 @@ export async function addProjectTerminal(runConfig?: RunConfig, options?: AddPro
   const card = createProjectCard(label, index);
   stack.appendChild(card);
 
-  // Render lucide icons now that card is in the DOM
-  createIcons({ icons, nameAttr: 'data-lucide', attrs: {}, nodes: [card] });
+  // Render icons now that card is in the DOM
+  convertIconsIn(card);
 
   const xtermContainer = card.querySelector('.terminal-xterm-container') as HTMLElement;
   const closeBtn = card.querySelector('.project-card-close') as HTMLButtonElement;
@@ -2165,7 +2165,6 @@ export function registerHookStatusListener(): void {
         clearHookThinking(ptyId);
         term.summaryType = 'thinking';
         updateTerminalCardLabel(term);
-        notifyThinking();
       }
 
       trackHookThinking(ptyId);

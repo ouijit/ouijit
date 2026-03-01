@@ -244,7 +244,7 @@ body.platform-darwin:not(.is-fullscreen) .header-content {
 
 /* Header Icon Button */
 .btn-icon-header {
-  @apply flex items-center justify-center w-9 h-9 p-0 border-none rounded-md text-text-secondary transition-all duration-150 ease-out shrink-0;
+  @apply flex items-center justify-center w-10 h-10 p-0 border-none rounded-md text-text-secondary transition-all duration-150 ease-out shrink-0;
   -webkit-app-region: no-drag;
   background: rgba(0, 0, 0, 0.001);
 }
@@ -267,8 +267,8 @@ body.platform-darwin:not(.is-fullscreen) .header-content {
 }
 
 .btn-icon-header svg {
-  width: 18px;
-  height: 18px;
+  width: 22px;
+  height: 22px;
 }
 
 .btn-icon-header.spinning svg {
@@ -541,7 +541,7 @@ body.platform-darwin:not(.is-fullscreen) .header-content {
    =================================== */
 
 .terminal-viewport {
-  @apply h-[280px] p-4 rounded-lg border border-white/10 overflow-hidden flex flex-col;
+  @apply h-[280px] p-4 rounded-[14px] border border-white/10 overflow-hidden flex flex-col;
   background: var(--color-terminal-bg, #171717);
 }
 
@@ -729,7 +729,8 @@ body.project-mode .project-list-header {
 }
 
 .project-terminal-btn {
-  @apply w-8 h-8 flex items-center justify-center bg-background-secondary border border-border rounded-md text-text-secondary transition-all duration-150 ease-out ml-3;
+  @apply w-9 h-9 flex items-center justify-center bg-background-secondary border border-border rounded-[14px] text-text-secondary transition-all duration-150 ease-out ml-3 shadow-[0_1px_3px_rgba(0,0,0,0.25)];
+  border-top-color: rgba(255,255,255,0.12);
   -webkit-app-region: no-drag;
 }
 
@@ -738,11 +739,12 @@ body.project-mode .project-list-header {
 }
 
 .project-terminal-btn svg {
-  @apply w-4 h-4;
+  @apply w-5 h-5;
 }
 
 .project-newtask-btn {
-  @apply w-8 h-8 flex items-center justify-center bg-background-secondary border border-border rounded-md text-text-secondary transition-all duration-150 ease-out ml-3;
+  @apply w-9 h-9 flex items-center justify-center bg-background-secondary border border-border rounded-[14px] text-text-secondary transition-all duration-150 ease-out ml-3 shadow-[0_1px_3px_rgba(0,0,0,0.25)];
+  border-top-color: rgba(255,255,255,0.12);
   -webkit-app-region: no-drag;
 }
 
@@ -751,7 +753,7 @@ body.project-mode .project-list-header {
 }
 
 .project-newtask-btn svg {
-  @apply w-4 h-4;
+  @apply w-5 h-5;
 }
 
 /* Sandbox wrapper */
@@ -761,7 +763,8 @@ body.project-mode .project-list-header {
 }
 
 .project-sandbox-btn {
-  @apply relative h-8 flex items-center justify-center gap-1.5 px-2 bg-background-secondary border border-border rounded-md text-text-secondary ease-out;
+  @apply relative h-9 flex items-center justify-center gap-1.5 px-2.5 bg-background-secondary border border-border rounded-[14px] text-text-secondary ease-out shadow-[0_1px_3px_rgba(0,0,0,0.25)];
+  border-top-color: rgba(255,255,255,0.12);
   transition: background-color 150ms ease-out, border-color 150ms ease-out, color 150ms ease-out;
 }
 
@@ -770,7 +773,7 @@ body.project-mode .project-list-header {
 }
 
 .project-sandbox-btn svg:not(.sandbox-border-anim) {
-  @apply w-4 h-4;
+  @apply w-5 h-5;
 }
 
 .project-sandbox-caret {
@@ -1013,7 +1016,7 @@ body.project-mode .project-list-header {
 }
 
 .project-exit-btn {
-  @apply w-7 h-7 flex items-center justify-center p-0 bg-transparent border-none rounded-md text-text-secondary opacity-70 transition-all duration-150 ease-out mr-2;
+  @apply w-8 h-8 flex items-center justify-center p-0 bg-transparent border-none rounded-md text-text-secondary opacity-70 transition-all duration-150 ease-out mr-2;
   -webkit-app-region: no-drag;
 }
 
@@ -1022,7 +1025,7 @@ body.project-mode .project-list-header {
 }
 
 .project-exit-btn svg {
-  @apply w-3.5 h-3.5;
+  @apply w-[18px] h-[18px];
 }
 
 /* ==========================================
@@ -1035,7 +1038,7 @@ body.project-mode .project-list-header {
 }
 
 .project-card {
-  @apply absolute inset-0 rounded-lg border border-white/10 overflow-hidden flex flex-col;
+  @apply absolute inset-0 rounded-[14px] border border-white/10 overflow-hidden flex flex-col;
   background: var(--color-terminal-bg, #171717);
   transition: translate 0.2s ease, scale 0.2s ease;
 }
@@ -1445,7 +1448,8 @@ body.project-mode .project-list-header {
 }
 
 .project-hooks-btn {
-  @apply relative h-8 flex items-center justify-center gap-1.5 px-2 bg-background-secondary border border-border rounded-md text-text-secondary ease-out;
+  @apply relative h-9 flex items-center justify-center gap-1.5 px-2.5 bg-background-secondary border border-border rounded-[14px] text-text-secondary ease-out shadow-[0_1px_3px_rgba(0,0,0,0.25)];
+  border-top-color: rgba(255,255,255,0.12);
   transition: background-color 150ms ease-out, border-color 150ms ease-out, color 150ms ease-out;
 }
 
@@ -1454,7 +1458,7 @@ body.project-mode .project-list-header {
 }
 
 .project-hooks-btn svg {
-  @apply w-4 h-4;
+  @apply w-5 h-5;
 }
 
 .project-hooks-caret {
@@ -1635,7 +1639,7 @@ body.project-mode .project-list-header {
    ========================================== */
 
 .project-stack-empty {
-  @apply absolute inset-0 flex flex-col items-center justify-center text-center rounded-lg border border-dashed border-white/10 p-12 opacity-0;
+  @apply absolute inset-0 flex flex-col items-center justify-center text-center rounded-[14px] border border-dashed border-white/10 p-12 opacity-0;
   background: var(--color-terminal-bg);
 }
 
@@ -1718,12 +1722,13 @@ body.kanban-open .project-stack-pagination {
    ========================================== */
 
 .project-view-toggle {
-  @apply flex items-center ml-3 bg-background-secondary border border-border rounded-md overflow-hidden;
+  @apply flex items-center h-9 ml-3 bg-background-secondary border border-border rounded-[14px] overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,0.25)];
+  border-top-color: rgba(255,255,255,0.12);
   -webkit-app-region: no-drag;
 }
 
 .project-view-toggle-btn {
-  @apply w-[30px] h-[30px] flex items-center justify-center text-text-secondary transition-all duration-150 ease-out;
+  @apply w-9 h-full flex items-center justify-center text-text-secondary transition-all duration-150 ease-out;
 }
 
 .project-view-toggle-btn:hover {
@@ -1739,7 +1744,7 @@ body.kanban-open .project-stack-pagination {
 }
 
 .project-view-toggle-btn svg {
-  @apply w-3.5 h-3.5;
+  @apply w-5 h-5;
 }
 
 /* ==========================================
@@ -1752,7 +1757,7 @@ body.kanban-open .project-stack {
 }
 
 .kanban-board {
-  @apply fixed top-[82px] left-4 right-4 bottom-4 z-[140] flex flex-col opacity-0 transition-all duration-200 ease-out rounded-lg overflow-hidden border border-white/10;
+  @apply fixed top-[82px] left-4 right-4 bottom-4 z-[140] flex flex-col opacity-0 transition-all duration-200 ease-out rounded-[14px] overflow-hidden border border-white/10;
   transform: translateY(6px);
   background: var(--color-terminal-bg, #171717);
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.05), 0 4px 12px rgba(0, 0, 0, 0.15), 0 20px 40px rgba(0, 0, 0, 0.2);
