@@ -21,14 +21,17 @@
   </div>
 </section>
 
-<section class="screenshot-section">
-  <div class="screenshot-frame">
-    <div class="screenshot-titlebar">
-      <span class="screenshot-dot red"></span>
-      <span class="screenshot-dot yellow"></span>
-      <span class="screenshot-dot green"></span>
+<section class="demo-section">
+  <div id="app-demo">
+    <!-- rrweb player mounts here; falls back to GIF if no recording -->
+    <div class="screenshot-frame" id="demo-fallback">
+      <div class="screenshot-titlebar">
+        <span class="screenshot-dot red"></span>
+        <span class="screenshot-dot yellow"></span>
+        <span class="screenshot-dot green"></span>
+      </div>
+      <img src="assets/board.gif" alt="Ouijit project mode showing kanban board and terminal stack" loading="lazy">
     </div>
-    <img src="assets/board.gif" alt="Ouijit project mode showing kanban board and terminal stack" loading="lazy">
   </div>
 </section>
 
@@ -71,5 +74,6 @@
 <div id="site-footer"></div>
 
 <script src="js/main.js"></script>
+<script src="js/demo.js"></script>
 </body>
 </html>

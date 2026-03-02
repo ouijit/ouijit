@@ -183,7 +183,7 @@ h3 { font-size: 1.25rem; }
 }
 
 .hero h1 {
-  font-size: 3rem;
+  font-size: 2.5rem;
   font-weight: 400;
   letter-spacing: -0.02em;
   margin-bottom: 16px;
@@ -242,11 +242,25 @@ h3 { font-size: 1.25rem; }
 }
 
 
-/* --- Screenshot Frame --- */
-.screenshot-section {
+/* --- Demo / Screenshot --- */
+.demo-section {
   padding: 0 var(--content-padding) 80px;
   max-width: var(--content-max-width);
   margin: 0 auto;
+}
+
+/* rrweb player overrides */
+.demo-section #app-demo {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+}
+
+.demo-section .rr-player,
+.demo-section .rr-player__frame,
+.demo-section .replayer-wrapper {
+  background: transparent !important;
 }
 
 .screenshot-frame {
