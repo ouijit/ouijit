@@ -184,10 +184,11 @@ h3 { font-size: 1.25rem; }
 
 .hero h1 {
   font-size: 3rem;
-  font-weight: 700;
-  letter-spacing: -0.03em;
+  font-weight: 400;
+  letter-spacing: -0.02em;
   margin-bottom: 16px;
-  color: var(--color-text-primary);
+  color: #001B65;
+  font-family: Clarendon, 'Clarendon Text', Rockwell, 'Rockwell Nova', 'Zilla Slab', serif;
 }
 
 .hero .subtitle {
