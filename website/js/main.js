@@ -15,7 +15,7 @@
     navEl.innerHTML = `
       <nav class="site-nav">
         <div class="nav-inner">
-          <a class="nav-logo" href="${prefix}index.html">ouijit</a>
+          <a class="nav-logo" href="${prefix}index.html"><img src="${prefix}assets/ouijit-logo.svg" alt="ouijit" height="28"></a>
           <ul class="nav-links">
             <li><a href="${featuresHref}">Features</a></li>
             <li><a href="${docsHref}">Docs</a></li>
