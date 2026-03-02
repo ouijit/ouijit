@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Getting Started — Ouijit</title>
+  <meta name="description" content="Install Ouijit and start managing projects with integrated terminals and git worktree isolation.">
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+
+<div id="site-nav"></div>
+
+<div class="docs-layout">
+  <aside id="docs-sidebar"></aside>
+
+  <main class="docs-content">
+    <h1>Getting Started</h1>
+    <p class="lead">Install Ouijit and launch your first project in under a minute.</p>
+
+    <h2>Requirements</h2>
+    <ul>
+      <li><strong>macOS</strong> 13+ (Ventura) or <strong>Linux</strong> (x64)</li>
+      <li><strong>Git</strong> 2.20+</li>
+      <li>A code project with a git repository</li>
+    </ul>
+
+    <h2>Download &amp; Install</h2>
+    <p>Download the latest release for your platform:</p>
+    <ul>
+      <li><a href="https://github.com/ouijit/ouijit/releases/latest/download/ouijit-darwin-arm64.zip">macOS (Apple Silicon)</a></li>
+      <li><a href="https://github.com/ouijit/ouijit/releases/latest/download/ouijit-darwin-x64.zip">macOS (Intel)</a></li>
+      <li><a href="https://github.com/ouijit/ouijit/releases/latest/download/ouijit-linux-x64.zip">Linux (x64)</a></li>
+    </ul>
+    <p>Unzip the archive and move <strong>Ouijit.app</strong> to your Applications folder (macOS) or extract the binary to a location on your PATH (Linux).</p>
+
+    <h3>Building from source</h3>
+    <p>Requires Node.js 20+ and C/C++ build tools for native modules (better-sqlite3, node-pty, koffi):</p>
+    <ul>
+      <li><strong>macOS:</strong> <code>xcode-select --install</code></li>
+      <li><strong>Linux:</strong> <code>sudo apt install build-essential python3</code></li>
+    </ul>
+    <pre><code>git clone https://github.com/ouijit/ouijit.git
+cd ouijit
+npm install
+npm start</code></pre>
+
+    <h2>First Launch</h2>
+    <p>When you first open Ouijit you'll see the <strong>project grid</strong> &mdash; an empty canvas ready for your repositories.</p>
+
+    <h3>Adding a project</h3>
+    <ol>
+      <li>Click the <strong>+</strong> button or press <code>Cmd+N</code> (<code>Ctrl+N</code> on Linux).</li>
+      <li>Select a folder containing a git repository.</li>
+      <li>Ouijit scans the project for language, description, and sets up the database.</li>
+    </ol>
+
+    <h3>Opening a project</h3>
+    <p>Click any project card to enter <strong>project mode</strong>. You'll see the kanban board on the left and terminal card stack on the right.</p>
+
+    <h2>Quick Tour</h2>
+    <table>
+      <thead>
+        <tr><th>Area</th><th>What it does</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><strong>Kanban Board</strong></td><td>Organize tasks across four columns. Drag to reorder or change status.</td></tr>
+        <tr><td><strong>Terminal Stack</strong></td><td>Each task opens a terminal in its own git worktree. Stack multiple terminals.</td></tr>
+        <tr><td><strong>Diff Panel</strong></td><td>Review changes made in the worktree before merging back.</td></tr>
+        <tr><td><strong>Git Status</strong></td><td>See branch, changed files, and sync status at a glance.</td></tr>
+      </tbody>
+    </table>
+
+    <div class="callout">
+      <p><strong>Next:</strong> Learn how <a href="worktrees.html">worktree isolation</a> keeps each task in its own workspace.</p>
+    </div>
+  </main>
+</div>
+
+<div id="site-footer"></div>
+
+<script src="../js/main.js"></script>
+</body>
+</html>

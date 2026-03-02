@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hooks — Ouijit</title>
+  <meta name="description" content="Configure script hooks and Claude Code event integration for automated workflows in Ouijit.">
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+
+<div id="site-nav"></div>
+
+<div class="docs-layout">
+  <aside id="docs-sidebar"></aside>
+
+  <main class="docs-content">
+    <h1>Hooks</h1>
+    <p class="lead">Script hooks and Claude Code event integration for automating your workflow.</p>
+
+    <h2>Script hooks</h2>
+    <p>Hooks are shell scripts that Ouijit runs in response to events. They let you automate repetitive tasks like running linters, restarting dev servers, or sending notifications.</p>
+
+    <h3>Configuring hooks</h3>
+    <p>Open the hook configuration dialog from your project settings. Each hook has:</p>
+    <ul>
+      <li><strong>Event</strong> &mdash; when the hook runs</li>
+      <li><strong>Script</strong> &mdash; the shell command to execute</li>
+      <li><strong>Timeout</strong> &mdash; maximum execution time (default: 30 seconds)</li>
+    </ul>
+
+    <h3>Available events</h3>
+    <table>
+      <thead>
+        <tr><th>Event</th><th>When it fires</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><strong>task.start</strong></td><td>A task moves to In Progress and its worktree is created</td></tr>
+        <tr><td><strong>task.complete</strong></td><td>A task moves to Done</td></tr>
+        <tr><td><strong>terminal.open</strong></td><td>A new terminal session is opened</td></tr>
+        <tr><td><strong>terminal.close</strong></td><td>A terminal session is closed</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Environment variables</h3>
+    <p>Hooks receive context about the event via environment variables:</p>
+    <pre><code>OUIJIT_TASK_NUMBER=42
+OUIJIT_TASK_TITLE="Add user auth"
+OUIJIT_WORKTREE_PATH=/path/to/worktrees/my-project/T-42
+OUIJIT_BRANCH=T-42
+OUIJIT_PROJECT_PATH=/path/to/my-project</code></pre>
+
+    <h2>Claude Code integration</h2>
+    <p>Ouijit runs an HTTP server that receives status events from Claude Code's hook system. This powers the real-time agent status indicators in the UI.</p>
+
+    <h3>How it works</h3>
+    <ol>
+      <li>When a terminal opens, Ouijit injects Claude Code hook configuration pointing to its local HTTP server.</li>
+      <li>As Claude Code works, it sends status events (thinking, writing code, running commands) to Ouijit.</li>
+      <li>Ouijit displays these events in the terminal's status bar &mdash; you can see what the agent is doing without reading the full terminal output.</li>
+    </ol>
+
+    <h3>Supported events</h3>
+    <p>Ouijit listens for standard Claude Code hook events including tool use notifications and agent lifecycle events. The status display shows a summary of the agent's current action.</p>
+
+    <div class="callout">
+      <p><strong>That's it!</strong> Head back to the <a href="index.html">docs overview</a> or <a href="getting-started.html">getting started</a> guide.</p>
+    </div>
+  </main>
+</div>
+
+<div id="site-footer"></div>
+
+<script src="../js/main.js"></script>
+</body>
+</html>
