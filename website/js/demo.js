@@ -54,6 +54,9 @@
         showController: false,
         width: recW,
         height: recH,
+        insertStyleRules: [
+          'html, body, .replayer-wrapper { background: #1C1C1E !important; }',
+        ],
       },
     });
 

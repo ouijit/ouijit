@@ -258,9 +258,12 @@ h3 { font-size: 1.25rem; }
 }
 
 .demo-section .rr-player,
-.demo-section .rr-player__frame,
-.demo-section .replayer-wrapper {
+.demo-section .rr-player__frame {
   background: transparent !important;
+}
+
+.demo-section .replayer-wrapper {
+  background: #1C1C1E !important;
 }
 
 .screenshot-frame {
