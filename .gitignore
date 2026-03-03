@@ -101,5 +101,5 @@ e2e/results/
 test-results/
 
 # Docs (generated/internal)
-docs/
-!docs/building-linux.md
+/docs/
+!/docs/building-linux.md

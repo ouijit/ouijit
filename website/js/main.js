@@ -10,7 +10,7 @@
   // --- Nav ---
   const navEl = document.getElementById('site-nav');
   if (navEl) {
-    const docsHref = prefix + 'docs/';
+    const docsHref = prefix + 'docs/index.html';
     const featuresHref = inDocs ? prefix + 'index.html#features' : '#features';
     navEl.innerHTML = `
       <nav class="site-nav">
@@ -50,7 +50,7 @@
           <ul class="footer-links">
             <li><a href="https://github.com/ouijit/ouijit" target="_blank" rel="noopener">GitHub</a></li>
             <li><a href="https://github.com/ouijit/ouijit/releases" target="_blank" rel="noopener">Releases</a></li>
-            <li><a href="${prefix}docs/">Docs</a></li>
+            <li><a href="${prefix}docs/index.html">Docs</a></li>
           </ul>
         </div>
       </footer>
@@ -70,10 +70,12 @@
       { href: 'hooks.html', label: 'Hooks' },
     ];
 
-    const currentFile = window.location.pathname.split('/').pop() || 'index.html';
+    const pathEnd = window.location.pathname.split('/').pop() || '';
+    const current = pathEnd.replace(/\.html$/, '') || 'index';
     const links = pages
       .map((p) => {
-        const active = currentFile === p.href ? ' class="active"' : '';
+        const slug = p.href.replace(/\.html$/, '');
+        const active = current === slug || (current === 'docs' && slug === 'index') ? ' class="active"' : '';
         return `<li><a href="${p.href}"${active}>${p.label}</a></li>`;
       })
       .join('\n');
