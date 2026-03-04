@@ -205,6 +205,25 @@ h3 { font-size: 1.25rem; }
   flex-wrap: wrap;
 }
 
+.mobile-cta {
+  display: none;
+}
+
+.mobile-cta p {
+  color: var(--color-text-secondary);
+  font-size: 1rem;
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .download-buttons {
+    display: none;
+  }
+
+  .mobile-cta {
+    display: block;
+  }
+}
+
 .btn {
   display: inline-flex;
   align-items: center;
@@ -857,12 +876,10 @@ h3 { font-size: 1.25rem; }
 
   .download-buttons {
     flex-direction: column;
-    align-items: center;
   }
 
   .btn {
     width: 100%;
-    max-width: 280px;
     justify-content: center;
   }
 }
