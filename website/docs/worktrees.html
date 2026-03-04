@@ -20,17 +20,18 @@
 
     <h2>What are git worktrees?</h2>
     <p>Git worktrees let you check out multiple branches of the same repository into separate directories at the same time. Instead of stashing changes and switching branches, each worktree has its own working directory with its own checked-out branch.</p>
-    <p>Ouijit manages this automatically: when you start a task, it creates a worktree; when the task is done, it cleans up.</p>
+    <p>Ouijit creates a worktree when you start a task, so each piece of work gets its own directory and branch.</p>
 
     <h2>How Ouijit uses worktrees</h2>
     <h3>Task lifecycle</h3>
     <ol>
       <li><strong>Create task</strong> &mdash; A new branch is created from your main branch (e.g. <code>T-42</code>).</li>
-      <li><strong>Start task</strong> &mdash; Ouijit creates a git worktree in a <code>worktrees/</code> directory alongside your main repo. The terminal opens in this isolated directory.</li>
+      <li><strong>Start task</strong> &mdash; Ouijit creates a git worktree under <code>~/Ouijit/worktrees/</code>. The terminal opens in this isolated directory.</li>
       <li><strong>Work</strong> &mdash; All changes happen in the worktree. Your main branch stays clean.</li>
       <li><strong>Review</strong> &mdash; Use the diff panel to see what changed relative to main.</li>
-      <li><strong>Complete</strong> &mdash; Merge the branch back and remove the worktree.</li>
+      <li><strong>Complete</strong> &mdash; Merge locally, push for a PR, or whatever your workflow looks like.</li>
     </ol>
+    <p>Each of these transitions can trigger <a href="hooks.html">lifecycle hooks</a> &mdash; scripts that run automatically when a task changes status.</p>
 
     <h2>Copy-on-Write cloning</h2>
     <p>Creating a full copy of a large repository for each task would be slow and waste disk space. Ouijit uses <strong>Copy-on-Write (CoW) cloning</strong> via the native file system (APFS on macOS, reflinks on Linux with btrfs/XFS).</p>
@@ -38,16 +39,15 @@
     <ul>
       <li>Worktree creation is fast regardless of repo size</li>
       <li>Disk usage is proportional to your actual changes, not the full repo</li>
-      <li>The <code>node_modules/</code> directory is cloned too, so dependencies are ready immediately</li>
+      <li>Dependency directories and other git-ignored files are cloned too, so you're ready to work immediately</li>
     </ul>
 
     <h2>Directory structure</h2>
-    <pre><code>my-project/              # Main repo (main branch)
-worktrees/
+    <pre><code>~/Ouijit/worktrees/
   my-project/
     T-42/                # Worktree for task 42
     T-43/                # Worktree for task 43</code></pre>
-    <p>Worktree directories are siblings of your main repo in a shared parent <code>worktrees/</code> folder.</p>
+    <p>Worktrees live under <code>~/Ouijit/worktrees/</code>, organized by project name.</p>
 
     <h2>Manual worktree operations</h2>
     <p>Ouijit manages worktrees for you, but they're standard git worktrees. You can inspect them with regular git commands:</p>

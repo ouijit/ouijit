@@ -22,7 +22,6 @@
     <ul>
       <li><strong>macOS</strong> 13+ (Ventura) or <strong>Linux</strong> (x64)</li>
       <li><strong>Git</strong> 2.20+</li>
-      <li>A code project with a git repository</li>
     </ul>
 
     <h2>Download &amp; Install</h2>
@@ -46,30 +45,17 @@ npm install
 npm start</code></pre>
 
     <h2>First Launch</h2>
-    <p>When you first open Ouijit you'll see the <strong>project grid</strong> &mdash; an empty canvas ready for your repositories.</p>
+    <p>When you first open Ouijit you'll see the <strong>project list</strong>, where all your projects live.</p>
 
     <h3>Adding a project</h3>
     <ol>
       <li>Click the <strong>+</strong> button or press <code>Cmd+N</code> (<code>Ctrl+N</code> on Linux).</li>
       <li>Select a folder containing a git repository.</li>
-      <li>Ouijit scans the project for language, description, and sets up the database.</li>
+      <li>That's it &mdash; your project appears in the list.</li>
     </ol>
 
     <h3>Opening a project</h3>
-    <p>Click any project card to enter <strong>project mode</strong>. You'll see the kanban board on the left and terminal card stack on the right.</p>
-
-    <h2>Quick Tour</h2>
-    <table>
-      <thead>
-        <tr><th>Area</th><th>What it does</th></tr>
-      </thead>
-      <tbody>
-        <tr><td><strong>Kanban Board</strong></td><td>Organize tasks across four columns. Drag to reorder or change status.</td></tr>
-        <tr><td><strong>Terminal Stack</strong></td><td>Each task opens a terminal in its own git worktree. Stack multiple terminals.</td></tr>
-        <tr><td><strong>Diff Panel</strong></td><td>Review changes made in the worktree before merging back.</td></tr>
-        <tr><td><strong>Git Status</strong></td><td>See branch, changed files, and sync status at a glance.</td></tr>
-      </tbody>
-    </table>
+    <p>Click any project to open it. You'll start on the kanban board, and opening a task launches its terminal.</p>
 
     <div class="callout">
       <p><strong>Next:</strong> Learn how <a href="worktrees.html">worktree isolation</a> keeps each task in its own workspace.</p>

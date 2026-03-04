@@ -16,7 +16,7 @@
 
   <main class="docs-content">
     <h1>Kanban Board</h1>
-    <p class="lead">A four-column board for organizing tasks, with drag-and-drop and keyboard shortcuts.</p>
+    <p class="lead">A four-column board for organizing tasks with drag-and-drop.</p>
 
     <h2>Columns</h2>
     <p>The board has four fixed columns that map to a task's lifecycle:</p>
@@ -31,35 +31,25 @@
         <tr><td><strong>Done</strong></td><td>Completed. The branch can be merged and the worktree removed.</td></tr>
       </tbody>
     </table>
+    <p>Moving a task between columns triggers <a href="hooks.html">lifecycle hooks</a> &mdash; scripts that can do anything: run tests, open a PR, or kick off an agent.</p>
 
     <h2>Creating tasks</h2>
-    <p>Click the <strong>+</strong> button on any column header, or press <code>N</code> to create a new task in the To Do column. Give it a title and optional description.</p>
-    <p>Each task gets an auto-incrementing number (e.g. <code>T-1</code>, <code>T-2</code>) used for branch names and worktree directories.</p>
+    <p>Click the <strong>+</strong> button on any column header, or press <code>&#8984;N</code> (<code>Ctrl+N</code> on Linux) to create a new task. Give it a title and optional description.</p>
+    <p>Each task gets an auto-incrementing number (e.g. <code>T-1</code>, <code>T-2</code>) used for branch names and worktree directories. I am still questioning this decision.</p>
 
     <h2>Drag and drop</h2>
     <p>Drag task cards between columns to change their status. You can also reorder tasks within a column.</p>
     <p>When dragging a task from <strong>To Do</strong> to <strong>In Progress</strong>, Ouijit automatically creates a git worktree and branch for the task.</p>
 
     <h2>Task actions</h2>
-    <p>Right-click a task card or click the actions menu to access:</p>
+    <p>Right-click a task card to access its context menu:</p>
     <ul>
-      <li><strong>Start</strong> &mdash; Move to In Progress and create worktree</li>
-      <li><strong>Edit</strong> &mdash; Change title or description</li>
-      <li><strong>Delete</strong> &mdash; Remove the task (and its worktree if active)</li>
-      <li><strong>View diff</strong> &mdash; Open the diff panel showing changes vs. main</li>
+      <li><strong>Open in Terminal</strong> &mdash; Launch a terminal in the task's worktree</li>
+      <li><strong>Open in Sandbox</strong> &mdash; Launch a sandboxed terminal (if Lima is available)</li>
+      <li><strong>Open in Editor</strong> &mdash; Open the worktree in your editor</li>
+      <li><strong>Close / Reopen</strong> &mdash; Archive or reopen a task</li>
     </ul>
-
-    <h2>Keyboard shortcuts</h2>
-    <table>
-      <thead>
-        <tr><th>Shortcut</th><th>Action</th></tr>
-      </thead>
-      <tbody>
-        <tr><td><code>N</code></td><td>New task</td></tr>
-        <tr><td><code>Enter</code></td><td>Open selected task terminal</td></tr>
-        <tr><td><code>Backspace</code></td><td>Delete selected task</td></tr>
-      </tbody>
-    </table>
+    <p>If a task already has running terminals, they'll appear at the top of the menu so you can jump straight to them.</p>
 
     <div class="callout">
       <p><strong>Next:</strong> Learn about the <a href="terminals.html">terminal stack</a> where the real work happens.</p>

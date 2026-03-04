@@ -72,6 +72,7 @@
       { href: 'terminals.html', label: 'Terminal Sessions' },
       { href: 'vm-sandbox.html', label: 'VM Sandbox' },
       { href: 'hooks.html', label: 'Hooks' },
+      { href: 'claude-code.html', label: 'Claude Code' },
     ];
 
     const pathEnd = window.location.pathname.split('/').pop() || '';

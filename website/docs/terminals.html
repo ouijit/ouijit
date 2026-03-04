@@ -19,11 +19,11 @@
     <p class="lead">Integrated terminal sessions with a card stack UI for multi-terminal workflows.</p>
 
     <h2>Card stack</h2>
-    <p>Terminals are displayed as stacked cards on the right side of project mode. The active terminal is in front; background terminals peek out behind it so you can see what's running.</p>
+    <p>Terminals are displayed as stacked cards. The active terminal is in front; background terminals peek out behind it so you can see what's running.</p>
     <p>Each terminal is a full PTY session running your default shell, opened in the task's worktree directory.</p>
 
     <h2>Opening terminals</h2>
-    <p>When you start a task (move it to In Progress), a terminal opens automatically in the task's worktree. You can open additional terminals for the same task &mdash; useful for running a dev server in one terminal and editing in another.</p>
+    <p>When you start a task (move it to In Progress), a terminal opens automatically in the task's worktree. You can open additional terminals for the same task &mdash; useful for running a dev server in one and editing in another, or letting multiple AI agents fight to the death.</p>
 
     <h2>Switching terminals</h2>
     <p>Click on a background terminal card to bring it to the front, or use keyboard shortcuts:</p>
@@ -32,23 +32,17 @@
         <tr><th>Shortcut</th><th>Action</th></tr>
       </thead>
       <tbody>
-        <tr><td><code>Cmd+]</code> / <code>Ctrl+]</code></td><td>Next terminal</td></tr>
-        <tr><td><code>Cmd+[</code> / <code>Ctrl+[</code></td><td>Previous terminal</td></tr>
-        <tr><td><code>Cmd+T</code> / <code>Ctrl+T</code></td><td>New terminal</td></tr>
-        <tr><td><code>Cmd+W</code> / <code>Ctrl+W</code></td><td>Close terminal</td></tr>
+        <tr><td><code>&#8984;1</code>&ndash;<code>&#8984;9</code> / <code>Ctrl+1</code>&ndash;<code>Ctrl+9</code></td><td>Select terminal by position</td></tr>
+        <tr><td><code>&#8984;&#8679;&#8592;</code> / <code>Ctrl+Shift+Left</code></td><td>Previous stack page</td></tr>
+        <tr><td><code>&#8984;&#8679;&#8594;</code> / <code>Ctrl+Shift+Right</code></td><td>Next stack page</td></tr>
+        <tr><td><code>&#8984;I</code> / <code>Ctrl+I</code></td><td>New terminal</td></tr>
+        <tr><td><code>&#8984;W</code> / <code>Ctrl+W</code></td><td>Close terminal</td></tr>
       </tbody>
     </table>
-
-    <h2>Terminal features</h2>
-    <ul>
-      <li><strong>Full xterm.js emulation</strong> &mdash; colors, cursor positioning, alternate screen buffer, mouse events</li>
-      <li><strong>Output buffering</strong> &mdash; terminal output is buffered so you don't lose content when switching between terminals</li>
-      <li><strong>Auto-resize</strong> &mdash; terminal dimensions adjust when the window is resized</li>
-      <li><strong>Git status</strong> &mdash; each terminal shows the current branch and changed file count in a status bar</li>
-    </ul>
+    <p>I'd like to let you rebind these, but I haven't gotten around to it yet.</p>
 
     <h2>Working with CLI agents</h2>
-    <p>Ouijit's terminals work with any CLI tool. Launch Claude Code, Cursor, Aider, or any other agent directly in the terminal. The worktree isolation means each agent works in its own sandbox without interfering with other tasks.</p>
+    <p>Ouijit's terminals work with any CLI tool. Launch Claude Code, Cursor, Aider, or any other agent directly in the terminal. The worktree isolation means each agent works in its own sandbox without interfering with other tasks. Only <a href="claude-code.html">Claude Code gets fancy status lights</a> right now &mdash; I play favorites.</p>
 
     <div class="callout">
       <p><strong>Next:</strong> For extra isolation, run terminals in a <a href="vm-sandbox.html">VM sandbox</a>.</p>
