@@ -44,6 +44,7 @@
     function toggleMenu() {
       const open = mobileMenu.classList.toggle('open');
       overlay.style.display = open ? 'block' : 'none';
+      document.body.style.overflow = open ? 'hidden' : '';
     }
 
     if (hamburger && mobileMenu) {

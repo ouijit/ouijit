@@ -5,7 +5,6 @@
 /* --- CSS Variables (Design Tokens) --- */
 :root {
   --color-background: #0A84FF;
-  --color-background-deep: #0066D6;
   --color-surface: rgba(255, 255, 255, 0.1);
   --color-surface-hover: rgba(255, 255, 255, 0.15);
   --color-text-primary: #FFFFFF;
@@ -16,7 +15,6 @@
 
   --color-terminal-bg: #171717;
 
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.15);
   --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.2);
   --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.25);
   --shadow-hover: 0 12px 40px rgba(0, 0, 0, 0.3);
@@ -24,14 +22,12 @@
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 16px;
-  --radius-xl: 24px;
 
   --font-family: system-ui, -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif;
   --font-mono: 'SF Mono', Monaco, Menlo, 'Cascadia Code', 'Fira Code', monospace;
 
   --transition-fast: 150ms ease;
   --transition-normal: 200ms ease;
-  --transition-slow: 300ms ease;
 
   --header-height: 64px;
   --content-max-width: 1100px;
@@ -841,12 +837,6 @@ h3 { font-size: 1.25rem; }
 
 
 /* --- Responsive --- */
-@media (max-width: 1024px) {
-  .features-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
 @media (max-width: 768px) {
   .nav-links {
     display: none;
