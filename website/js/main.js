@@ -11,6 +11,7 @@
   const navEl = document.getElementById('site-nav');
   if (navEl) {
     const docsHref = prefix + 'docs/index.html';
+    const pricingHref = prefix + 'pricing.html';
     const featuresHref = inDocs ? prefix + 'index.html#features' : '#features';
     navEl.innerHTML = `
       <nav class="site-nav">
@@ -18,6 +19,7 @@
           <a class="nav-logo" href="${prefix}index.html"><img src="${prefix}assets/ouijit-logo.svg" alt="ouijit" height="28"></a>
           <ul class="nav-links">
             <li><a href="${featuresHref}">Features</a></li>
+            <li><a href="${pricingHref}">Pricing</a></li>
             <li><a href="${docsHref}">Docs</a></li>
             <li><a href="https://github.com/ouijit/ouijit" target="_blank" rel="noopener">GitHub</a></li>
           </ul>
@@ -25,6 +27,7 @@
         </div>
         <div class="nav-mobile" id="nav-mobile">
           <a href="${featuresHref}">Features</a>
+          <a href="${pricingHref}">Pricing</a>
           <a href="${docsHref}">Docs</a>
           <a href="https://github.com/ouijit/ouijit" target="_blank" rel="noopener">GitHub</a>
         </div>
