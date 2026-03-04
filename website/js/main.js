@@ -37,10 +37,18 @@
 
     const hamburger = navEl.querySelector('.nav-hamburger');
     const mobileMenu = navEl.querySelector('#nav-mobile');
+    const overlay = document.createElement('div');
+    overlay.className = 'nav-overlay';
+    document.body.appendChild(overlay);
+
+    function toggleMenu() {
+      const open = mobileMenu.classList.toggle('open');
+      overlay.style.display = open ? 'block' : 'none';
+    }
+
     if (hamburger && mobileMenu) {
-      hamburger.addEventListener('click', () => {
-        mobileMenu.classList.toggle('open');
-      });
+      hamburger.addEventListener('click', toggleMenu);
+      overlay.addEventListener('click', toggleMenu);
     }
   }
 

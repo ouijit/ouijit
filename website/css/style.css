@@ -95,6 +95,18 @@ h3 { font-size: 1.25rem; }
 
 
 /* --- Nav --- */
+#site-nav {
+  z-index: 100;
+}
+
+@media (max-width: 768px) {
+  #site-nav {
+    position: sticky;
+    top: 0;
+    background: var(--color-background);
+  }
+}
+
 .site-nav {
   height: var(--header-height);
 }
@@ -151,12 +163,16 @@ h3 { font-size: 1.25rem; }
 
 .nav-mobile {
   display: none;
-  padding: 0 var(--content-padding) 16px;
+  padding: 8px var(--content-padding) 16px;
+  background: var(--color-background);
+  position: relative;
+  z-index: 100;
 }
 
 .nav-mobile.open {
   display: block;
 }
+
 
 .nav-mobile a {
   display: block;
@@ -174,6 +190,17 @@ h3 { font-size: 1.25rem; }
 
 .nav-mobile a:hover {
   color: var(--color-text-primary);
+}
+
+.nav-overlay {
+  display: none;
+  position: fixed;
+  top: var(--header-height);
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 50;
 }
 
 
