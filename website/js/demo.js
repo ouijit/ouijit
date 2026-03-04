@@ -1,7 +1,6 @@
 /* Ouijit Website — rrweb demo player
  *
- * Tries to load assets/recording.json and play it back.
- * If the file doesn't exist, the GIF fallback stays visible.
+ * Loads assets/recording.json and plays it back.
  */
 
 (async function () {
@@ -10,8 +9,7 @@
   var PLAYER_JS = 'https://cdn.jsdelivr.net/npm/rrweb-player@2.0.0-alpha.20/dist/rrweb-player.umd.cjs';
 
   var container = document.getElementById('app-demo');
-  var fallback = document.getElementById('demo-fallback');
-  if (!container || !fallback) return;
+  if (!container) return;
 
   try {
     console.log('[demo] fetching recording...');
@@ -37,8 +35,6 @@
     console.log('[demo] player JS eval done, rrwebPlayer:', typeof window.rrwebPlayer, Object.keys(window.rrwebPlayer));
     var Player = window.rrwebPlayer.default || window.rrwebPlayer;
     console.log('[demo] Player constructor:', typeof Player);
-
-    fallback.style.display = 'none';
 
     // Override rrweb's default dot cursor with a macOS-style arrow
     var cursorSvg = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='22'%3E%3Cpath d='M1.5 1v17.3l4.2-4.2h2.2L5.4 20l3 1.1 2.6-6.3h4.5L1.5 1z' fill='%23fff' stroke='%23000' stroke-width='1.2' stroke-linejoin='round'/%3E%3C/svg%3E";
@@ -98,7 +94,5 @@
     });
   } catch (e) {
     console.error('[demo] error:', e);
-    // Show fallback again if it was hidden
-    if (fallback) fallback.style.display = '';
   }
 })();

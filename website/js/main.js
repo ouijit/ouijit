@@ -12,7 +12,8 @@
   if (navEl) {
     const docsHref = prefix + 'docs/index.html';
     const pricingHref = prefix + 'pricing.html';
-    const featuresHref = inDocs ? prefix + 'index.html#features' : '#features';
+    const isHome = window.location.pathname.endsWith('/') || window.location.pathname.endsWith('/index.html');
+    const featuresHref = isHome ? '#features' : prefix + 'index.html#features';
     navEl.innerHTML = `
       <nav class="site-nav">
         <div class="nav-inner">

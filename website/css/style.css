@@ -265,37 +265,6 @@ h3 { font-size: 1.25rem; }
   background: #1C1C1E !important;
 }
 
-.screenshot-frame {
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-  box-shadow: var(--shadow-lg);
-  background: #1C1C1E;
-}
-
-.screenshot-titlebar {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 12px 16px;
-  background: #2C2C2E;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.screenshot-dot {
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-}
-
-.screenshot-dot.red { background: #FF5F57; }
-.screenshot-dot.yellow { background: #FEBC2E; }
-.screenshot-dot.green { background: #28C840; }
-
-.screenshot-frame img {
-  width: 100%;
-  display: block;
-}
-
 
 /* --- Features Grid --- */
 .features-section {
