@@ -47,7 +47,7 @@
         }
 
         // Override rrweb's default dot cursor with a macOS-style arrow
-        var cursorSvg = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='22'%3E%3Cpath d='M1.5 1v17.3l4.2-4.2h2.2L5.4 20l3 1.1 2.6-6.3h4.5L1.5 1z' fill='%23fff' stroke='%23000' stroke-width='1.2' stroke-linejoin='round'/%3E%3C/svg%3E";
+        var cursorSvg = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='23'%3E%3Cpath d='M1.5 1.5l0 19 4.6-4.6 3 6.9 2.5-1-3-6.9H14.5L1.5 1.5z' fill='%23000' stroke='%23fff' stroke-width='1.5' stroke-linejoin='round'/%3E%3C/svg%3E";
         var cursorStyle = document.createElement('style');
         cursorStyle.textContent =
           '.replayer-mouse {' +
@@ -55,9 +55,9 @@
           '  border: none !important;' +
           '  border-radius: 0 !important;' +
           '  width: 16px !important;' +
-          '  height: 22px !important;' +
+          '  height: 23px !important;' +
           '  background-image: url("' + cursorSvg + '") !important;' +
-          '  background-size: 16px 22px !important;' +
+          '  background-size: 16px 23px !important;' +
           '  background-repeat: no-repeat !important;' +
           '}' +
           '.replayer-mouse::after { display: none !important; }';

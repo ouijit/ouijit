@@ -729,8 +729,10 @@ body.project-mode .project-list-header {
 }
 
 .project-terminal-btn {
-  @apply w-9 h-9 flex items-center justify-center bg-background-secondary border border-border rounded-[14px] text-text-secondary transition-all duration-150 ease-out ml-3 shadow-[0_1px_3px_rgba(0,0,0,0.25)];
-  border-top-color: rgba(255,255,255,0.12);
+  @apply w-9 h-9 flex items-center justify-center bg-background-secondary border border-border rounded-[14px] text-text-secondary transition-all duration-150 ease-out ml-3;
+  /* shadow + border-top highlight temporarily disabled for rrweb recording */
+  /* shadow-[0_1px_3px_rgba(0,0,0,0.25)] */
+  /* border-top-color: rgba(255,255,255,0.12); */
   -webkit-app-region: no-drag;
 }
 
@@ -743,8 +745,9 @@ body.project-mode .project-list-header {
 }
 
 .project-newtask-btn {
-  @apply w-9 h-9 flex items-center justify-center bg-background-secondary border border-border rounded-[14px] text-text-secondary transition-all duration-150 ease-out ml-3 shadow-[0_1px_3px_rgba(0,0,0,0.25)];
-  border-top-color: rgba(255,255,255,0.12);
+  @apply w-9 h-9 flex items-center justify-center bg-background-secondary border border-border rounded-[14px] text-text-secondary transition-all duration-150 ease-out ml-3;
+  /* shadow + border-top highlight temporarily disabled for rrweb recording */
+  /* border-top-color: rgba(255,255,255,0.12); */
   -webkit-app-region: no-drag;
 }
 
@@ -763,8 +766,9 @@ body.project-mode .project-list-header {
 }
 
 .project-sandbox-btn {
-  @apply relative h-9 flex items-center justify-center gap-1.5 px-2.5 bg-background-secondary border border-border rounded-[14px] text-text-secondary ease-out shadow-[0_1px_3px_rgba(0,0,0,0.25)];
-  border-top-color: rgba(255,255,255,0.12);
+  @apply relative h-9 flex items-center justify-center gap-1.5 px-2.5 bg-background-secondary border border-border rounded-[14px] text-text-secondary ease-out;
+  /* shadow + border-top highlight temporarily disabled for rrweb recording */
+  /* border-top-color: rgba(255,255,255,0.12); */
   transition: background-color 150ms ease-out, border-color 150ms ease-out, color 150ms ease-out;
 }
 
@@ -1448,8 +1452,9 @@ body.project-mode .project-list-header {
 }
 
 .project-hooks-btn {
-  @apply relative h-9 flex items-center justify-center gap-1.5 px-2.5 bg-background-secondary border border-border rounded-[14px] text-text-secondary ease-out shadow-[0_1px_3px_rgba(0,0,0,0.25)];
-  border-top-color: rgba(255,255,255,0.12);
+  @apply relative h-9 flex items-center justify-center gap-1.5 px-2.5 bg-background-secondary border border-border rounded-[14px] text-text-secondary ease-out;
+  /* shadow + border-top highlight temporarily disabled for rrweb recording */
+  /* border-top-color: rgba(255,255,255,0.12); */
   transition: background-color 150ms ease-out, border-color 150ms ease-out, color 150ms ease-out;
 }
 
@@ -1722,8 +1727,9 @@ body.kanban-open .project-stack-pagination {
    ========================================== */
 
 .project-view-toggle {
-  @apply flex items-center h-9 ml-3 bg-background-secondary border border-border rounded-[14px] overflow-hidden shadow-[0_1px_3px_rgba(0,0,0,0.25)];
-  border-top-color: rgba(255,255,255,0.12);
+  @apply flex items-center h-9 ml-3 bg-background-secondary border border-border rounded-[14px] overflow-hidden;
+  /* shadow + border-top highlight temporarily disabled for rrweb recording */
+  /* border-top-color: rgba(255,255,255,0.12); */
   -webkit-app-region: no-drag;
 }
 
