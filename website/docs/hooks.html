@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hooks — Ouijit</title>
+  <meta name="description" content="Configure script hooks and Claude Code event integration for automated workflows in Ouijit.">
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+
+<div id="site-nav"></div>
+
+<div class="docs-layout">
+  <aside id="docs-sidebar"></aside>
+
+  <main class="docs-content">
+    <h1>Hooks</h1>
+    <p class="lead">Shell commands that run at key moments in a task's lifecycle. Configure per project.</p>
+
+    <h2>Lifecycle hooks</h2>
+    <p>These fire when a task changes status. Configure them from the kanban column headers.</p>
+    <table>
+      <thead>
+        <tr><th>Hook</th><th>When it runs</th><th>Example</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><strong>Start</strong></td><td>Task moves from To Do to In Progress</td><td><code>npm install && claude "$OUIJIT_TASK_PROMPT"</code></td></tr>
+        <tr><td><strong>Continue</strong></td><td>Reopening a task already In Progress</td><td><code>claude -c</code></td></tr>
+        <tr><td><strong>Review</strong></td><td>Task moves to In Review</td><td><code>gh pr create --fill</code></td></tr>
+        <tr><td><strong>Cleanup</strong></td><td>Task moves to Done</td><td><code>git push origin HEAD</code></td></tr>
+      </tbody>
+    </table>
+
+    <h2>Other hooks</h2>
+    <p>These don't really fit the "lifecycle" concept. They live in various dropdowns in the header bar because I haven't built a better home for them yet.</p>
+    <table>
+      <thead>
+        <tr><th>Hook</th><th>What it does</th><th>Example</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><strong>Run</strong></td><td>Command for the Run button (dev server, etc.)</td><td><code>npm run dev</code></td></tr>
+        <tr><td><strong>Editor</strong></td><td>Runs a command in the worktree that I hope opens your editor</td><td><code>open -a "Visual Studio Code"</code></td></tr>
+        <tr><td><strong>Sandbox Setup</strong></td><td>Runs inside the VM before each terminal command</td><td><code>which claude || npm i -g @anthropic-ai/claude-code</code></td></tr>
+      </tbody>
+    </table>
+
+    <h2>Environment variables</h2>
+    <p>Hooks receive context via environment variables so your scripts can act on the current task:</p>
+    <pre><code>OUIJIT_PROJECT_PATH=/path/to/my-project
+OUIJIT_WORKTREE_PATH=~/Ouijit/worktrees/my-project/T-42
+OUIJIT_TASK_BRANCH=T-42
+OUIJIT_TASK_NAME="Add user auth"
+OUIJIT_TASK_PROMPT="implement oauth login"
+OUIJIT_HOOK_TYPE=start</code></pre>
+
+    <h2>Why this matters</h2>
+    <p>Hooks are just shell commands, which means they can do anything &mdash; install dependencies, launch agents, open PRs, run tests. The start hook is especially powerful: set it to <code>claude "$OUIJIT_TASK_PROMPT"</code> and every new task automatically kicks off an AI agent with the task description as its prompt.</p>
+
+    <div class="callout">
+      <p><strong>Next:</strong> See how <a href="claude-code.html">Claude Code integration</a> gives you live agent status.</p>
+    </div>
+  </main>
+</div>
+
+<div id="site-footer"></div>
+
+<script src="../js/main.js"></script>
+</body>
+</html>

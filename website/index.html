@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ouijit — Kanban Terminal Manager for CLI Agents</title>
+  <meta name="description" content="Project management with integrated terminals, git worktree isolation, and CLI agent support. macOS and Linux.">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/rrweb-player.css">
+</head>
+<body>
+
+<div id="site-nav"></div>
+
+<section class="hero">
+  <h1>Integrated Divination Environment</h1>
+  <p class="subtitle">Isolated workspaces for parallel agents, lifecycle hooks for automation, and built-in VM sandboxing.</p>
+  <div class="download-buttons">
+    <a href="https://github.com/ouijit/ouijit/releases/latest/download/ouijit-darwin-arm64.zip" class="btn btn-primary">Download for macOS (Apple Silicon)</a>
+    <a href="https://github.com/ouijit/ouijit/releases/latest/download/ouijit-darwin-x64.zip" class="btn btn-secondary">macOS (Intel)</a>
+    <a href="https://github.com/ouijit/ouijit/releases/latest/download/ouijit-linux-x64.zip" class="btn btn-secondary">Linux</a>
+  </div>
+  <div class="mobile-cta">
+    <p>You're on a phone. This is a desktop app.</p>
+    <a href="https://github.com/ouijit/ouijit" class="btn btn-primary">Here's the source code though</a>
+  </div>
+</section>
+
+<section class="demo-section">
+  <div id="app-demo">
+    <div class="demo-traffic-lights">
+      <span style="background: #ff5f57;"></span>
+      <span style="background: #febc2e;"></span>
+      <span style="background: #28c840;"></span>
+    </div>
+    <!-- rrweb player mounts here -->
+  </div>
+</section>
+
+<section class="features-section" id="features">
+  <h2>Stuff</h2>
+  <p class="subtitle">This combo should be SOTA for a few weeks.</p>
+  <div class="features-grid">
+    <div class="feature-card">
+      <span class="feature-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="currentColor"><path d="M216,48H40a8,8,0,0,0-8,8V208a16,16,0,0,0,16,16H88a16,16,0,0,0,16-16V160h48v16a16,16,0,0,0,16,16h40a16,16,0,0,0,16-16V56A8,8,0,0,0,216,48ZM88,208H48V128H88Zm0-96H48V64H88Zm64,32H104V64h48Zm56,32H168V128h40Zm0-64H168V64h40Z"/></svg></span>
+      <h3>Kanban Board</h3>
+      <p>Manage parallel work and see status at a glance. Task lifecycle transitions trigger hooks, so you can script workflows around key moments like starting or completing work.</p>
+    </div>
+    <div class="feature-card">
+      <span class="feature-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="currentColor"><path d="M208,88H48a16,16,0,0,0-16,16v96a16,16,0,0,0,16,16H208a16,16,0,0,0,16-16V104A16,16,0,0,0,208,88Zm0,112H48V104H208v96ZM48,64a8,8,0,0,1,8-8H200a8,8,0,0,1,0,16H56A8,8,0,0,1,48,64ZM64,32a8,8,0,0,1,8-8H184a8,8,0,0,1,0,16H72A8,8,0,0,1,64,32Z"/></svg></span>
+      <h3>Terminal Stack</h3>
+      <p>As many terminals as you need, all running in the task's worktree. Stack a dev server, an agent, and a manual shell.</p>
+    </div>
+    <div class="feature-card">
+      <span class="feature-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="currentColor"><path d="M232,64a32,32,0,1,0-40,31v17a8,8,0,0,1-8,8H96a23.84,23.84,0,0,0-8,1.38V95a32,32,0,1,0-16,0v66a32,32,0,1,0,16,0V144a8,8,0,0,1,8-8h88a24,24,0,0,0,24-24V95A32.06,32.06,0,0,0,232,64ZM64,64A16,16,0,1,1,80,80,16,16,0,0,1,64,64ZM96,192a16,16,0,1,1-16-16A16,16,0,0,1,96,192ZM200,80a16,16,0,1,1,16-16A16,16,0,0,1,200,80Z"/></svg></span>
+      <h3>Worktree Isolation</h3>
+      <p>Every task runs in its own git worktree &mdash; automatic branch creation, instant copy-on-write cloning, and clean merges back to main.</p>
+    </div>
+    <div class="feature-card">
+      <span class="feature-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="currentColor"><path d="M223.68,66.15,135.68,18h0a15.88,15.88,0,0,0-15.36,0l-88,48.17a16,16,0,0,0-8.32,14v95.64a16,16,0,0,0,8.32,14l88,48.17a15.88,15.88,0,0,0,15.36,0l88-48.17a16,16,0,0,0,8.32-14V80.18A16,16,0,0,0,223.68,66.15ZM128,32h0l80.34,44L128,120,47.66,76ZM40,90l80,43.78v85.79L40,175.82Zm96,129.57V133.82L216,90v85.78Z"/></svg></span>
+      <h3>VM Sandbox</h3>
+      <p>Terminal sessions can run inside a Linux VM, fully isolated from your host. Agents can't touch what they shouldn't.</p>
+    </div>
+    <div class="feature-card">
+      <span class="feature-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 50 50" fill="currentColor"><path d="M19.861,27.625v-0.716l-16.65-0.681L2.07,25.985 L1,24.575l0.11-0.703l0.959-0.645l17.95,1.345l0.11-0.314L5.716,14.365l-0.729-0.924l-0.314-2.016L5.985,9.98l2.214,0.24 l11.312,8.602l0.327-0.353L12.623,5.977c0,0-0.548-2.175-0.548-2.697l1.494-2.029l0.827-0.266l2.833,0.995l7.935,17.331h0.314 l1.348-14.819l0.752-1.822l1.494-0.985l1.167,0.557l0.959,1.374l-2.551,14.294h0.425l0.486-0.486l8.434-10.197l1.092-0.862h2.065 l1.52,2.259l-0.681,2.334l-7.996,11.108l0.146,0.217l0.376-0.036l12.479-2.405l1.666,0.778l0.182,0.791l-0.655,1.617l-15.435,3.523 l-0.084,0.062l0.097,0.12l13.711,0.814l1.578,1.044L49,29.868l-0.159,0.972l-2.431,1.238l-13.561-3.254h-0.363v0.217l11.218,10.427 l0.256,1.154l-0.645,0.911l-0.681-0.097l-9.967-8.058h-0.256v0.34l5.578,8.35l0.243,2.162l-0.34,0.703l-1.215,0.425l-1.335-0.243 l-7.863-12.083l-0.279,0.159l-1.348,14.524l-0.632,0.742l-1.459,0.558l-1.215-0.924L21.9,46.597l2.966-14.939l-0.023-0.084 l-0.279,0.036L13.881,45.138l-0.827,0.327l-1.433-0.742l0.133-1.326l0.801-1.18l9.52-12.019l-0.013-0.314h-0.11l-12.69,8.239 l-2.259,0.292L6.03,37.505l0.12-1.494l0.46-0.486L19.861,27.625z"/></svg></span>
+      <h3>Claude Code Integration</h3>
+      <p>Live status indicators show what Claude Code is doing in each terminal. Know at a glance which agents are thinking and which are idle.</p>
+    </div>
+    <div class="feature-card">
+      <span class="feature-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="currentColor"><path d="M224,48H32A16,16,0,0,0,16,64V192a16,16,0,0,0,16,16H224a16,16,0,0,0,16-16V64A16,16,0,0,0,224,48Zm0,144H32V64H224V192Zm-16-64a8,8,0,0,1-8,8H56a8,8,0,0,1,0-16H200A8,8,0,0,1,208,128Zm0-32a8,8,0,0,1-8,8H56a8,8,0,0,1,0-16H200A8,8,0,0,1,208,96ZM72,160a8,8,0,0,1-8,8H56a8,8,0,0,1,0-16h8A8,8,0,0,1,72,160Zm96,0a8,8,0,0,1-8,8H96a8,8,0,0,1,0-16h64A8,8,0,0,1,168,160Zm40,0a8,8,0,0,1-8,8h-8a8,8,0,0,1,0-16h8A8,8,0,0,1,208,160Z"/></svg></span>
+      <h3>Keyboard-Driven</h3>
+      <p>Navigate, create tasks, switch terminals, and manage workflows without leaving the keyboard.</p>
+    </div>
+  </div>
+</section>
+
+<div id="site-footer"></div>
+
+<script defer src="js/main.js"></script>
+<script defer src="js/rrweb-player.js"></script>
+<script defer src="js/demo.js"></script>
+</body>
+</html>

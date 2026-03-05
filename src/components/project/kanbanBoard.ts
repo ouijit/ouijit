@@ -627,7 +627,7 @@ function setupColumnScrollIndicators(): void {
  */
 let trashSortable: Sortable | null = null;
 let trashZoneEl: HTMLElement | null = null;
-let trashDragListener: ((e: DragEvent) => void) | null = null;
+let trashDragListener: ((e: MouseEvent) => void) | null = null;
 
 /**
  * Create the trash zone element (hidden) and append it to the kanban columns.
@@ -647,24 +647,24 @@ function initTrashZone(evt: Sortable.SortableEvent): void {
 
   trashSortable = Sortable.create(zone, {
     group: 'kanban',
+    forceFallback: true,
     draggable: '.kanban-card',
     onAdd: (evt) => { handleTrashDrop(evt); },
   });
 
   // Track drag position — reveal when cursor reaches the Done column's left edge.
-  // HTML5 DnD suppresses mousemove; dragover fires instead.
   const doneCol = columns.querySelector('.kanban-column[data-status="done"]') as HTMLElement | null;
   const threshold = doneCol ? doneCol.getBoundingClientRect().left : window.innerWidth * 0.75;
 
-  trashDragListener = (e: DragEvent) => {
-    if (!trashZoneEl || e.clientX === 0) return; // clientX 0 = synthetic/end event
+  trashDragListener = (e: MouseEvent) => {
+    if (!trashZoneEl || e.clientX === 0) return;
     if (e.clientX >= threshold) {
       trashZoneEl.classList.add('kanban-trash-zone--visible');
     } else {
       trashZoneEl.classList.remove('kanban-trash-zone--visible');
     }
   };
-  document.addEventListener('dragover', trashDragListener);
+  document.addEventListener('mousemove', trashDragListener);
 
   // If dragging from the Done column, the cursor is already past the threshold
   const fromColumn = (evt.from as HTMLElement).closest('.kanban-column') as HTMLElement | null;
@@ -675,7 +675,7 @@ function initTrashZone(evt: Sortable.SortableEvent): void {
 
 function teardownTrashZone(): void {
   if (trashDragListener) {
-    document.removeEventListener('dragover', trashDragListener);
+    document.removeEventListener('mousemove', trashDragListener);
     trashDragListener = null;
   }
   if (!trashZoneEl) return;
@@ -735,11 +735,17 @@ function setupSortable(): void {
     Sortable.create(body as HTMLElement, {
       group: 'kanban',
       animation: 150,
+      forceFallback: true,
       draggable: '.kanban-card',
       ghostClass: 'kanban-card--ghost',
       filter: '.kanban-add-input, .kanban-card-name-input, .kanban-card-detail-value--editing',
       preventOnFilter: false,
-      onStart: (evt) => { initTrashZone(evt); },
+      onStart: (evt) => {
+        // SortableJS hardcodes opacity 0.8 on the fallback clone; override it
+        const clone = document.querySelector('.sortable-fallback') as HTMLElement;
+        if (clone) clone.style.opacity = '1';
+        initTrashZone(evt);
+      },
       onEnd: (evt) => { teardownTrashZone(); handleSortableEnd(evt); },
     });
   });

@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kanban Board — Ouijit</title>
+  <meta name="description" content="Organize tasks with Ouijit's four-column kanban board — drag-and-drop, keyboard shortcuts, and automatic worktree creation.">
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+
+<div id="site-nav"></div>
+
+<div class="docs-layout">
+  <aside id="docs-sidebar"></aside>
+
+  <main class="docs-content">
+    <h1>Kanban Board</h1>
+    <p class="lead">A four-column board for organizing tasks with drag-and-drop.</p>
+
+    <h2>Columns</h2>
+    <p>The board has four fixed columns that map to a task's lifecycle:</p>
+    <table>
+      <thead>
+        <tr><th>Column</th><th>Meaning</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><strong>To Do</strong></td><td>Planned work. No worktree or branch created yet.</td></tr>
+        <tr><td><strong>In Progress</strong></td><td>Active work. A worktree and branch are created when a task moves here.</td></tr>
+        <tr><td><strong>In Review</strong></td><td>Work is done, ready for review. Worktree is still active.</td></tr>
+        <tr><td><strong>Done</strong></td><td>Completed. The branch can be merged and the worktree removed.</td></tr>
+      </tbody>
+    </table>
+    <p>Moving a task between columns triggers <a href="hooks.html">lifecycle hooks</a> &mdash; scripts that can do anything: run tests, open a PR, or kick off an agent.</p>
+
+    <h2>Creating tasks</h2>
+    <p>Click the <strong>+</strong> button on any column header, or press <code>&#8984;N</code> (<code>Ctrl+N</code> on Linux) to create a new task. Give it a title and optional description.</p>
+    <p>Each task gets an auto-incrementing number (e.g. <code>T-1</code>, <code>T-2</code>) used for branch names and worktree directories. I am still questioning this decision.</p>
+
+    <h2>Drag and drop</h2>
+    <p>Drag task cards between columns to change their status. You can also reorder tasks within a column.</p>
+    <p>When dragging a task from <strong>To Do</strong> to <strong>In Progress</strong>, Ouijit automatically creates a git worktree and branch for the task.</p>
+
+    <h2>Task actions</h2>
+    <p>Right-click a task card to access its context menu:</p>
+    <ul>
+      <li><strong>Open in Terminal</strong> &mdash; Launch a terminal in the task's worktree</li>
+      <li><strong>Open in Sandbox</strong> &mdash; Launch a sandboxed terminal (if Lima is available)</li>
+      <li><strong>Open in Editor</strong> &mdash; Open the worktree in your editor</li>
+      <li><strong>Close / Reopen</strong> &mdash; Archive or reopen a task</li>
+    </ul>
+    <p>If a task already has running terminals, they'll appear at the top of the menu so you can jump straight to them.</p>
+
+    <div class="callout">
+      <p><strong>Next:</strong> Learn about the <a href="terminals.html">terminal stack</a> where the real work happens.</p>
+    </div>
+  </main>
+</div>
+
+<div id="site-footer"></div>
+
+<script src="../js/main.js"></script>
+</body>
+</html>

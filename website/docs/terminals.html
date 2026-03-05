@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Terminal Sessions — Ouijit</title>
+  <meta name="description" content="Integrated terminal sessions with a card stack UI — open multiple terminals per task and switch with keyboard shortcuts.">
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+
+<div id="site-nav"></div>
+
+<div class="docs-layout">
+  <aside id="docs-sidebar"></aside>
+
+  <main class="docs-content">
+    <h1>Terminal Sessions</h1>
+    <p class="lead">Integrated terminal sessions with a card stack UI for multi-terminal workflows.</p>
+
+    <h2>Card stack</h2>
+    <p>Terminals are displayed as stacked cards. The active terminal is in front; background terminals peek out behind it so you can see what's running.</p>
+    <p>Each terminal is a full PTY session running your default shell, opened in the task's worktree directory.</p>
+
+    <h2>Opening terminals</h2>
+    <p>When you start a task (move it to In Progress), a terminal opens automatically in the task's worktree. You can open additional terminals for the same task &mdash; useful for running a dev server in one and editing in another, or letting multiple AI agents fight to the death.</p>
+
+    <h2>Switching terminals</h2>
+    <p>Click on a background terminal card to bring it to the front, or use keyboard shortcuts:</p>
+    <table>
+      <thead>
+        <tr><th>Shortcut</th><th>Action</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><code>&#8984;1</code>&ndash;<code>&#8984;9</code> / <code>Ctrl+1</code>&ndash;<code>Ctrl+9</code></td><td>Select terminal by position</td></tr>
+        <tr><td><code>&#8984;&#8679;&#8592;</code> / <code>Ctrl+Shift+Left</code></td><td>Previous stack page</td></tr>
+        <tr><td><code>&#8984;&#8679;&#8594;</code> / <code>Ctrl+Shift+Right</code></td><td>Next stack page</td></tr>
+        <tr><td><code>&#8984;I</code> / <code>Ctrl+I</code></td><td>New terminal</td></tr>
+        <tr><td><code>&#8984;W</code> / <code>Ctrl+W</code></td><td>Close terminal</td></tr>
+      </tbody>
+    </table>
+    <p>I'd like to let you rebind these, but I haven't gotten around to it yet.</p>
+
+    <h2>Working with CLI agents</h2>
+    <p>Ouijit's terminals work with any CLI tool. Launch Claude Code, Cursor, Aider, or any other agent directly in the terminal. The worktree isolation means each agent works in its own sandbox without interfering with other tasks. Only <a href="claude-code.html">Claude Code gets fancy status lights</a> right now &mdash; I play favorites.</p>
+
+    <div class="callout">
+      <p><strong>Next:</strong> For extra isolation, run terminals in a <a href="vm-sandbox.html">VM sandbox</a>.</p>
+    </div>
+  </main>
+</div>
+
+<div id="site-footer"></div>
+
+<script src="../js/main.js"></script>
+</body>
+</html>

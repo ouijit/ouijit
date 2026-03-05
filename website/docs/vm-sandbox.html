@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VM Sandbox — Ouijit</title>
+  <meta name="description" content="Run terminal sessions in a Lima VM sandbox for full isolation from your host machine.">
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+
+<div id="site-nav"></div>
+
+<div class="docs-layout">
+  <aside id="docs-sidebar"></aside>
+
+  <main class="docs-content">
+    <h1>VM Sandbox</h1>
+    <p class="lead">Run terminal sessions in a Lima virtual machine for full isolation from your host.</p>
+
+    <h2>Overview</h2>
+    <p>When working with CLI agents that execute arbitrary commands, you may want stronger isolation than git worktrees alone provide. Ouijit integrates with <a href="https://lima-vm.io" target="_blank" rel="noopener">Lima</a> to run terminal sessions inside a lightweight Linux VM.</p>
+    <p>The VM shares your project directory (read/write mount) but isolates the rest of your file system, network, and system processes.</p>
+
+    <h2>Setup</h2>
+    <h3>Install Lima</h3>
+    <pre><code># macOS (Homebrew)
+brew install lima
+
+# Linux
+# See https://lima-vm.io/docs/installation/</code></pre>
+
+    <h3>Enable in Ouijit</h3>
+    <p>Open your project settings and toggle <strong>VM Sandbox</strong> on. Ouijit will create and manage a Lima VM instance for the project.</p>
+
+    <h2>How it works</h2>
+    <ol>
+      <li>When VM sandbox is enabled, Ouijit generates a Lima YAML configuration for the project.</li>
+      <li>On first terminal open, the VM is started (this takes a few seconds on first boot).</li>
+      <li>Terminal sessions run inside the VM via <code>limactl shell</code>.</li>
+      <li>Your project worktree is mounted into the VM at the same path, so tools and relative paths work as expected.</li>
+    </ol>
+
+    <h2>When to use it</h2>
+    <ul>
+      <li><strong>Untrusted agents</strong> &mdash; if an agent might run destructive commands, the VM limits blast radius</li>
+      <li><strong>Dependency isolation</strong> &mdash; install project dependencies inside the VM without affecting your host</li>
+      <li><strong>Reproducible environments</strong> &mdash; consistent Linux environment regardless of host OS</li>
+    </ul>
+
+    <h2>Limitations</h2>
+    <ul>
+      <li>VM startup adds a few seconds to the first terminal open</li>
+      <li>GPU passthrough is not supported</li>
+      <li>Docker-in-VM requires additional Lima configuration</li>
+      <li>macOS-specific tooling (Xcode, Swift) is not available inside the Linux VM</li>
+    </ul>
+
+    <div class="callout">
+      <p><strong>Next:</strong> Set up <a href="hooks.html">hooks</a> to integrate with Claude Code events.</p>
+    </div>
+  </main>
+</div>
+
+<div id="site-footer"></div>
+
+<script src="../js/main.js"></script>
+</body>
+</html>

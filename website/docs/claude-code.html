@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Claude Code Integration — Ouijit</title>
+  <meta name="description" content="Live agent status indicators for Claude Code terminals in Ouijit.">
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+
+<div id="site-nav"></div>
+
+<div class="docs-layout">
+  <aside id="docs-sidebar"></aside>
+
+  <main class="docs-content">
+    <h1>Claude Code Integration</h1>
+    <p class="lead">Live status lights so you know which agents are thinking and which are waiting. I boiled several oceans to make these little dots change color.</p>
+
+    <h2>What you get</h2>
+    <p>When Claude Code is running in an Ouijit terminal, the terminal card shows a live status indicator &mdash; thinking or idle. That's it. It's a colored dot. You'd be surprised how useful it is when you have 5+ agents running(?) at once.</p>
+
+    <h2>How it works</h2>
+    <p>Ouijit installs a thin wrapper that shadows the <code>claude</code> command inside its terminals. When you launch Claude Code, the wrapper automatically injects hook settings that report status back to Ouijit. No configuration needed on your end &mdash; just type <code>claude</code> and it's wired up.</p>
+
+    <h2>Notifications</h2>
+    <p>When an agent finishes, you'll hear a sound. If the window isn't focused, you also get an OS notification. Alt-tab guilt-free while Claude does the work.</p>
+
+    <h2>What about other agents?</h2>
+    <p>Ouijit's terminals work with any CLI agent &mdash; Cursor, Aider, Codex, whatever. They just won't get the fancy status lights. Yet. I play favorites for now.</p>
+    <p>If your favorite agent has a hook or plugin system, <a href="https://github.com/ouijit/ouijit/issues" target="_blank" rel="noopener">open an issue</a> and I'll see what I can do.</p>
+
+    <div class="callout">
+      <p><strong>That's it!</strong> Head back to the <a href="index.html">docs overview</a> or <a href="getting-started.html">getting started</a> guide.</p>
+    </div>
+  </main>
+</div>
+
+<div id="site-footer"></div>
+
+<script src="../js/main.js"></script>
+</body>
+</html>
