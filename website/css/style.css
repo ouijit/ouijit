@@ -294,8 +294,26 @@ h3 { font-size: 1.25rem; }
 .demo-section #app-demo {
   position: relative;
   overflow: hidden;
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-lg);
+  border-radius: 10px;
+  border: 1px solid #4a4a4a;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5), 0 10px 30px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.demo-traffic-lights {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: flex;
+  gap: 8px;
+  z-index: 2;
+  pointer-events: none;
+  transform-origin: top left;
+}
+
+.demo-traffic-lights span {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
 }
 
 .demo-section .rr-player,

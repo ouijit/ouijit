@@ -95,6 +95,7 @@
         });
 
         // Scale to fit container and set correct height
+        var trafficLights = container.querySelector('.demo-traffic-lights');
         function scalePlayer() {
           var rr = container.querySelector('.rr-player');
           if (!rr) return;
@@ -102,6 +103,9 @@
           rr.style.transformOrigin = 'top left';
           rr.style.transform = 'scale(' + scale + ')';
           container.style.height = Math.round(recH * scale) + 'px';
+          if (trafficLights) {
+            trafficLights.style.transform = 'scale(' + scale + ') translate(18px, 18px)';
+          }
         }
         scalePlayer();
 
