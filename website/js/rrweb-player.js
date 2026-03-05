@@ -1,3 +1,4 @@
+/* rrweb-player v2.0.0-alpha.20 — vendored from npm */
 (function (g, f) {
     if ("object" == typeof exports && "object" == typeof module) {
       module.exports = f();
@@ -15074,4 +15075,3 @@ if (typeof module.exports == "object" && typeof exports == "object") {
 }
 return module.exports;
 }))
-//# sourceMappingURL=rrweb-player.umd.cjs.map

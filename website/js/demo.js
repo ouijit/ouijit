@@ -7,11 +7,11 @@
   // Skip on mobile — no point loading a 3MB desktop demo on a phone
   if (window.matchMedia('(hover: none) and (pointer: coarse)').matches) return;
 
-  var container = document.getElementById('app-demo');
+  const container = document.getElementById('app-demo');
   if (!container) return;
 
   // Lazy-load: only fetch recording when demo section is near viewport
-  var observer = new IntersectionObserver(function (entries) {
+  const observer = new IntersectionObserver((entries) => {
     if (entries[0].isIntersecting) {
       observer.disconnect();
       loadDemo();
@@ -21,16 +21,16 @@
 
   function loadDemo() {
     fetch('assets/recording.json')
-      .then(function (r) {
+      .then((r) => {
         if (!r.ok) throw new Error('Recording fetch failed: ' + r.status);
         return r.json();
       })
-      .then(function (events) {
+      .then((events) => {
         if (!events || !events.length) return;
 
         // Extract native dimensions from metadata event
-        var recW = 1088, recH = 989;
-        for (var i = 0; i < events.length; i++) {
+        let recW = 1088, recH = 989;
+        for (let i = 0; i < events.length; i++) {
           if (events[i].type === 4 && events[i].data && events[i].data.width) {
             recW = events[i].data.width;
             recH = events[i].data.height;
@@ -38,7 +38,7 @@
           }
         }
 
-        var Player = window.rrwebPlayer && window.rrwebPlayer.default
+        const Player = window.rrwebPlayer && window.rrwebPlayer.default
           ? window.rrwebPlayer.default
           : (typeof rrwebPlayer !== 'undefined' ? rrwebPlayer : null);
         if (!Player) {
@@ -47,8 +47,8 @@
         }
 
         // Override rrweb's default dot cursor with a macOS-style arrow
-        var cursorSvg = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='23'%3E%3Cpath d='M1.5 1.5l0 19 4.6-4.6 3 6.9 2.5-1-3-6.9H14.5L1.5 1.5z' fill='%23000' stroke='%23fff' stroke-width='1.5' stroke-linejoin='round'/%3E%3C/svg%3E";
-        var cursorStyle = document.createElement('style');
+        const cursorSvg = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='23'%3E%3Cpath d='M1.5 1.5l0 19 4.6-4.6 3 6.9 2.5-1-3-6.9H14.5L1.5 1.5z' fill='%23000' stroke='%23fff' stroke-width='1.5' stroke-linejoin='round'/%3E%3C/svg%3E";
+        const cursorStyle = document.createElement('style');
         cursorStyle.textContent =
           '.replayer-mouse {' +
           '  background: none !important;' +
@@ -79,7 +79,7 @@
         document.head.appendChild(cursorStyle);
 
         // Render at native size, CSS transform scales it down
-        var player = new Player({
+        const player = new Player({
           target: container,
           props: {
             events: events,
@@ -95,11 +95,11 @@
         });
 
         // Scale to fit container and set correct height
-        var trafficLights = container.querySelector('.demo-traffic-lights');
+        const trafficLights = container.querySelector('.demo-traffic-lights');
         function scalePlayer() {
-          var rr = container.querySelector('.rr-player');
+          const rr = container.querySelector('.rr-player');
           if (!rr) return;
-          var scale = container.offsetWidth / recW;
+          const scale = container.offsetWidth / recW;
           rr.style.transformOrigin = 'top left';
           rr.style.transform = 'scale(' + scale + ')';
           container.style.height = Math.round(recH * scale) + 'px';
@@ -109,16 +109,16 @@
         }
         scalePlayer();
 
-        var resizeRaf = 0;
-        window.addEventListener('resize', function () {
+        let resizeRaf = 0;
+        window.addEventListener('resize', () => {
           cancelAnimationFrame(resizeRaf);
           resizeRaf = requestAnimationFrame(scalePlayer);
         });
 
         // Show cursor once it first moves away from (0,0)
-        var mouseEl = container.querySelector('.replayer-mouse');
+        const mouseEl = container.querySelector('.replayer-mouse');
         if (mouseEl) {
-          var showObserver = new MutationObserver(function () {
+          const showObserver = new MutationObserver(() => {
             if (parseFloat(mouseEl.style.left) > 0 || parseFloat(mouseEl.style.top) > 0) {
               mouseEl.style.opacity = '1';
               showObserver.disconnect();
@@ -128,29 +128,29 @@
         }
 
         // Click pulse: watch for mouse click class changes on the cursor
-        var wrapper = container.querySelector('.replayer-wrapper');
+        const wrapper = container.querySelector('.replayer-wrapper');
         if (wrapper && mouseEl) {
-          var clickObserver = new MutationObserver(function () {
+          const clickObserver = new MutationObserver(() => {
             if (mouseEl.classList.contains('active')) {
-              var pulse = document.createElement('div');
+              const pulse = document.createElement('div');
               pulse.className = 'click-pulse';
               pulse.style.left = mouseEl.style.left;
               pulse.style.top = mouseEl.style.top;
               wrapper.appendChild(pulse);
-              pulse.addEventListener('animationend', function () { pulse.remove(); });
+              pulse.addEventListener('animationend', () => { pulse.remove(); });
             }
           });
           clickObserver.observe(mouseEl, { attributes: true, attributeFilter: ['class'] });
         }
 
         // Loop: restart when finished (dedup guard)
-        var restartTimer = null;
-        player.addEventListener('finish', function () {
+        let restartTimer = null;
+        player.addEventListener('finish', () => {
           clearTimeout(restartTimer);
-          restartTimer = setTimeout(function () { player.goto(0, true); }, 1000);
+          restartTimer = setTimeout(() => { player.goto(0, true); }, 1000);
         });
       })
-      .catch(function (err) {
+      .catch((err) => {
         console.error('[demo] failed to load:', err);
       });
   }

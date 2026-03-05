@@ -356,7 +356,7 @@ h3 { font-size: 1.25rem; }
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   padding: 28px;
-  transition: all var(--transition-normal);
+  transition: background var(--transition-normal), border-color var(--transition-normal);
 }
 
 .feature-card:hover {
@@ -471,7 +471,7 @@ h3 { font-size: 1.25rem; }
   display: flex;
   flex-direction: column;
   position: relative;
-  transition: all var(--transition-normal);
+  transition: background var(--transition-normal), border-color var(--transition-normal);
 }
 
 .pricing-card:hover {

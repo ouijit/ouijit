@@ -2,7 +2,6 @@
 
 (function () {
   // Determine path prefix based on page depth
-  const depth = window.location.pathname.split('/').filter(Boolean).length;
   const inDocs = window.location.pathname.includes('/docs/');
   // In docs/ pages, assets are one level up; in root pages, same level
   const prefix = inDocs ? '../' : './';
@@ -50,6 +49,9 @@
     if (hamburger && mobileMenu) {
       hamburger.addEventListener('click', toggleMenu);
       overlay.addEventListener('click', toggleMenu);
+      mobileMenu.addEventListener('click', function (e) {
+        if (e.target.tagName === 'A') toggleMenu();
+      });
     }
   }
 
