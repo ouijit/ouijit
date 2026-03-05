@@ -10,7 +10,7 @@
   // --- Nav ---
   const navEl = document.getElementById('site-nav');
   if (navEl) {
-    const docsHref = prefix + 'docs/index.html';
+    const docsHref = prefix + 'docs/';
     const pricingHref = prefix + 'pricing.html';
     const isHome = window.location.pathname.endsWith('/') || window.location.pathname.endsWith('/index.html');
     const featuresHref = isHome ? '#features' : prefix + 'index.html#features';
@@ -63,7 +63,7 @@
           <ul class="footer-links">
             <li><a href="https://github.com/ouijit/ouijit" target="_blank" rel="noopener">GitHub</a></li>
             <li><a href="https://github.com/ouijit/ouijit/releases" target="_blank" rel="noopener">Releases</a></li>
-            <li><a href="${prefix}docs/index.html">Docs</a></li>
+            <li><a href="${prefix}docs/">Docs</a></li>
           </ul>
         </div>
       </footer>
