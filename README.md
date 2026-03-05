@@ -1,5 +1,6 @@
 
-<div align=center><img width="93" height="16" alt="ouijit" src="https://github.com/user-attachments/assets/311f50f6-910a-4f99-8879-1cb81b42527f" /></div>
+<div align=center><img width="200" height="63" alt="ouijit" src="https://github.com/user-attachments/assets/4f19561c-e1d7-451f-9c83-d2e62221716c" />
+</div>
 
   <p align="center">
     Kanban terminal manager for CLI agent workflows with automatic git worktree isolation and VM sandbox support included.
