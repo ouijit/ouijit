@@ -32,7 +32,7 @@
       recordCanvas: true,
       sampling: {
         canvas: 4,
-        mousemove: false,
+        mousemove: 50,
         mouseInteraction: true,
       },
     });

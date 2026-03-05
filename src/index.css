@@ -1872,6 +1872,7 @@ body.kanban-open .project-stack {
 
 .kanban-card {
   @apply px-3 py-3.5 ease-out;
+  background: var(--color-terminal-bg);
   transition: background 150ms ease-out, opacity 150ms ease-out;
   -webkit-app-region: no-drag;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
@@ -1900,6 +1901,13 @@ body.kanban-open .project-stack {
 
 .kanban-card--ghost * {
   opacity: 0;
+}
+
+/* SortableJS fallback clone (the card following the cursor during drag) */
+.sortable-fallback {
+  opacity: 1 !important;
+  background: #111111 !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
 }
 
 .kanban-card--loading {

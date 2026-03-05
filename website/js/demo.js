@@ -59,8 +59,22 @@
           '  background-image: url("' + cursorSvg + '") !important;' +
           '  background-size: 16px 23px !important;' +
           '  background-repeat: no-repeat !important;' +
+          '  transition: left 100ms linear, top 100ms linear !important;' +
           '}' +
-          '.replayer-mouse::after { display: none !important; }';
+          '.replayer-mouse::after { display: none !important; }' +
+          '.click-pulse {' +
+          '  position: absolute;' +
+          '  width: 16px; height: 16px;' +
+          '  margin-left: -8px; margin-top: -8px;' +
+          '  border-radius: 50%;' +
+          '  border: 2px solid rgba(255, 255, 255, 0.6);' +
+          '  pointer-events: none;' +
+          '  animation: click-pulse-anim 0.4s ease-out forwards;' +
+          '}' +
+          '@keyframes click-pulse-anim {' +
+          '  0% { transform: scale(0.5); opacity: 1; }' +
+          '  100% { transform: scale(2); opacity: 0; }' +
+          '}';
         document.head.appendChild(cursorStyle);
 
         // Render at native size, CSS transform scales it down
@@ -95,6 +109,23 @@
           cancelAnimationFrame(resizeRaf);
           resizeRaf = requestAnimationFrame(scalePlayer);
         });
+
+        // Click pulse: watch for mouse click class changes on the cursor
+        var wrapper = container.querySelector('.replayer-wrapper');
+        var mouseEl = container.querySelector('.replayer-mouse');
+        if (wrapper && mouseEl) {
+          var clickObserver = new MutationObserver(function () {
+            if (mouseEl.classList.contains('active')) {
+              var pulse = document.createElement('div');
+              pulse.className = 'click-pulse';
+              pulse.style.left = mouseEl.style.left;
+              pulse.style.top = mouseEl.style.top;
+              wrapper.appendChild(pulse);
+              pulse.addEventListener('animationend', function () { pulse.remove(); });
+            }
+          });
+          clickObserver.observe(mouseEl, { attributes: true, attributeFilter: ['class'] });
+        }
 
         // Loop: restart when finished (dedup guard)
         var restartTimer = null;
