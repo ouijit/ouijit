@@ -59,7 +59,8 @@
           '  background-image: url("' + cursorSvg + '") !important;' +
           '  background-size: 16px 23px !important;' +
           '  background-repeat: no-repeat !important;' +
-          '  transition: left 100ms linear, top 100ms linear !important;' +
+          '  transition: left 100ms linear, top 100ms linear, opacity 0.15s ease !important;' +
+          '  opacity: 0;' +
           '}' +
           '.replayer-mouse::after { display: none !important; }' +
           '.click-pulse {' +
@@ -110,9 +111,20 @@
           resizeRaf = requestAnimationFrame(scalePlayer);
         });
 
+        // Show cursor once it first moves away from (0,0)
+        var mouseEl = container.querySelector('.replayer-mouse');
+        if (mouseEl) {
+          var showObserver = new MutationObserver(function () {
+            if (parseFloat(mouseEl.style.left) > 0 || parseFloat(mouseEl.style.top) > 0) {
+              mouseEl.style.opacity = '1';
+              showObserver.disconnect();
+            }
+          });
+          showObserver.observe(mouseEl, { attributes: true, attributeFilter: ['style'] });
+        }
+
         // Click pulse: watch for mouse click class changes on the cursor
         var wrapper = container.querySelector('.replayer-wrapper');
-        var mouseEl = container.querySelector('.replayer-mouse');
         if (wrapper && mouseEl) {
           var clickObserver = new MutationObserver(function () {
             if (mouseEl.classList.contains('active')) {
