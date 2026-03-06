@@ -292,39 +292,38 @@ h3 { font-size: 1.25rem; }
   margin: 0 auto;
 }
 
-/* rrweb player overrides */
 .demo-section #app-demo {
   position: relative;
   overflow: hidden;
   border-radius: 10px;
   border: 1px solid #4a4a4a;
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.5), 0 10px 30px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.3);
+  background: #1C1C1E;
+  width: 100%;
+  container-type: inline-size;
+}
+
+.demo-section #app-demo video {
+  display: block;
+  width: 100%;
+  height: auto;
+  object-fit: contain;
 }
 
 .demo-traffic-lights {
   position: absolute;
-  top: 0;
-  left: 0;
+  top: 1.71cqi;
+  left: 1.71cqi;
   display: flex;
-  gap: 8px;
+  gap: 0.76cqi;
   z-index: 2;
   pointer-events: none;
-  transform-origin: top left;
 }
 
 .demo-traffic-lights span {
-  width: 12px;
-  height: 12px;
+  width: 1.14cqi;
+  height: 1.14cqi;
   border-radius: 50%;
-}
-
-.demo-section .rr-player,
-.demo-section .rr-player__frame {
-  background: transparent !important;
-}
-
-.demo-section .replayer-wrapper {
-  background: #1C1C1E !important;
 }
 
 
