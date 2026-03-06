@@ -69,7 +69,7 @@ describe('projectSettings', () => {
     // 9. Get sandbox config — verify defaults merged with override
     const sandboxConfig = await getSandboxConfig(project);
     expect(sandboxConfig.memoryGiB).toBe(8);
-    expect(sandboxConfig.diskGiB).toBe(100); // default
+    expect(sandboxConfig.diskGiB).toBe(10); // default
 
     // 10. Set killExistingOnRun
     const killResult = await setKillExistingOnRun(project, true);
@@ -108,7 +108,7 @@ describe('projectSettings', () => {
 
   test('getSandboxConfig returns defaults for new project', async () => {
     const config = await getSandboxConfig('/test/settings-new-project');
-    expect(config).toEqual({ memoryGiB: 4, diskGiB: 100 });
+    expect(config).toEqual({ memoryGiB: 4, diskGiB: 10 });
   });
 
   test('deleteHook succeeds even when no hooks exist', async () => {

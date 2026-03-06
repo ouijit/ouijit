@@ -16,48 +16,73 @@
 
   <main class="docs-content">
     <h1>VM Sandbox</h1>
-    <p class="lead">Run terminal sessions in a Lima virtual machine for full isolation from your host.</p>
+    <p class="lead">Run terminal sessions inside a lightweight Linux VM so agents can't touch what they shouldn't.</p>
 
-    <h2>Overview</h2>
-    <p>When working with CLI agents that execute arbitrary commands, you may want stronger isolation than git worktrees alone provide. Ouijit integrates with <a href="https://lima-vm.io" target="_blank" rel="noopener">Lima</a> to run terminal sessions inside a lightweight Linux VM.</p>
-    <p>The VM shares your project directory (read/write mount) but isolates the rest of your file system, network, and system processes.</p>
-
-    <h2>Setup</h2>
-    <h3>Install Lima</h3>
-    <pre><code># macOS (Homebrew)
-brew install lima
-
-# Linux
-# See https://lima-vm.io/docs/installation/</code></pre>
-
-    <h3>Enable in Ouijit</h3>
-    <p>Open your project settings and toggle <strong>VM Sandbox</strong> on. Ouijit will create and manage a Lima VM instance for the project.</p>
+    <h2>Why sandbox?</h2>
+    <p>Git worktrees isolate your code, but a terminal session still has full access to your host &mdash; your home directory, credentials, system binaries, network. When CLI agents run arbitrary commands, that's a lot of trust.</p>
+    <p>The VM sandbox wraps each terminal in a <a href="https://lima-vm.io" target="_blank" rel="noopener">Lima</a> virtual machine. Your project worktree is mounted into the VM (read-write), but the rest of your filesystem is walled off. The agent can install packages, run builds, and execute code without risk to your host.</p>
 
     <h2>How it works</h2>
     <ol>
-      <li>When VM sandbox is enabled, Ouijit generates a Lima YAML configuration for the project.</li>
-      <li>On first terminal open, the VM is started (this takes a few seconds on first boot).</li>
-      <li>Terminal sessions run inside the VM via <code>limactl shell</code>.</li>
-      <li>Your project worktree is mounted into the VM at the same path, so tools and relative paths work as expected.</li>
+      <li><strong>Enable sandbox</strong> &mdash; Click the cube icon in the terminal toolbar to open the sandbox dropdown. Toggle it on.</li>
+      <li><strong>First terminal</strong> &mdash; Ouijit creates an Ubuntu 24.04 VM via Lima, starts it, and waits for SSH. This takes a minute or two on first boot; subsequent starts are faster.</li>
+      <li><strong>Shell sessions</strong> &mdash; Terminals run inside the VM via <code>limactl shell</code>. Your worktree is mounted at the same path as on the host, so relative paths and git operations work normally.</li>
+      <li><strong>VM lifecycle</strong> &mdash; The sandbox dropdown gives you direct control: Start, Stop, Recreate, or Delete the VM. When you open a sandboxed terminal, Ouijit starts the VM if it's stopped, or creates one if it doesn't exist yet.</li>
     </ol>
 
-    <h2>When to use it</h2>
+    <h2>What's isolated</h2>
+    <table>
+      <thead>
+        <tr><th>Resource</th><th>Host terminal</th><th>Sandboxed terminal</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Project worktree</td><td>Read/write</td><td>Read/write (mounted)</td></tr>
+        <tr><td>Main repo</td><td>Read/write</td><td>Read-only (mounted)</td></tr>
+        <tr><td>Home directory</td><td>Full access</td><td>Ephemeral VM home</td></tr>
+        <tr><td>System files</td><td>Full access</td><td>Isolated (Ubuntu guest)</td></tr>
+        <tr><td>Network</td><td>Host network</td><td>NAT (macOS) or user-mode (Linux)</td></tr>
+        <tr><td>Processes</td><td>Can see/kill all</td><td>VM processes only</td></tr>
+      </tbody>
+    </table>
+
+    <h2>Setup hook</h2>
+    <p>VMs start from a clean Ubuntu image with <code>bash</code>, <code>git</code>, <code>curl</code>, <code>nodejs</code>, <code>npm</code>, <code>python3</code>, and <code>build-essential</code> pre-installed. If your project needs more, use the <strong>sandbox-setup</strong> hook.</p>
+    <p>The setup hook runs once per VM session (not per terminal). If you edit the hook script, it re-runs automatically on the next terminal open.</p>
+    <p>Configure it from the sandbox dropdown &mdash; click the gear icon next to "Setup Hook", or create a new one if none exists.</p>
+    <pre><code># Example: install project dependencies inside the VM
+cd /path/to/your/worktree
+npm install</code></pre>
+
+    <h2>Resource configuration</h2>
+    <p>Each project's VM can be configured with custom resource limits from the sandbox dropdown:</p>
     <ul>
-      <li><strong>Untrusted agents</strong> &mdash; if an agent might run destructive commands, the VM limits blast radius</li>
-      <li><strong>Dependency isolation</strong> &mdash; install project dependencies inside the VM without affecting your host</li>
-      <li><strong>Reproducible environments</strong> &mdash; consistent Linux environment regardless of host OS</li>
+      <li><strong>Memory</strong> &mdash; default 4 GiB</li>
+      <li><strong>Disk</strong> &mdash; default 10 GiB</li>
+      <li><strong>CPUs</strong> &mdash; default 2</li>
     </ul>
+    <p>Changes to resources require recreating the VM (the dropdown has a "Recreate VM" option for this).</p>
+
+    <h2>Claude Code integration</h2>
+    <p>Ouijit automatically injects its hook helper script and Claude Code settings into each sandboxed shell. This means Claude Code's hook status events (thinking, tool use, idle) work inside the VM just like they do on the host &mdash; the VM shell communicates back to Ouijit via <code>host.lima.internal</code>.</p>
+
+    <h2>Requirements</h2>
+    <ul>
+      <li><strong>macOS</strong> &mdash; Uses Apple's Virtualization.framework (vz) with vzNAT networking. No extra installation needed if Lima is available.</li>
+      <li><strong>Linux</strong> &mdash; Uses QEMU with user-mode networking.</li>
+    </ul>
+    <p>Ouijit bundles <code>limactl</code>, so there's nothing extra to install.</p>
 
     <h2>Limitations</h2>
     <ul>
-      <li>VM startup adds a few seconds to the first terminal open</li>
+      <li>First boot downloads an Ubuntu cloud image and provisions packages &mdash; requires internet and takes 1-2 minutes</li>
       <li>GPU passthrough is not supported</li>
-      <li>Docker-in-VM requires additional Lima configuration</li>
       <li>macOS-specific tooling (Xcode, Swift) is not available inside the Linux VM</li>
+      <li>Docker-in-VM requires additional Lima configuration</li>
+      <li>The VM home directory is ephemeral &mdash; anything outside mounted directories is lost on recreate</li>
     </ul>
 
     <div class="callout">
-      <p><strong>Next:</strong> Set up <a href="hooks.html">hooks</a> to integrate with Claude Code events.</p>
+      <p><strong>Next:</strong> Set up <a href="hooks.html">hooks</a> to automate task lifecycle events.</p>
     </div>
   </main>
 </div>

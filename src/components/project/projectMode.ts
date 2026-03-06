@@ -1373,7 +1373,7 @@ async function buildSandboxDropdownContent(
     diskLabel.textContent = 'Disk';
     diskRow.appendChild(diskLabel);
 
-    const diskSelect = createSelect([20, 50, 100, 200], config.diskGiB, 'GiB');
+    const diskSelect = createSelect([10, 20, 50, 100], config.diskGiB, 'GiB');
     diskSelect.addEventListener('change', (e) => {
       e.stopPropagation();
       const val = Number((e.target as HTMLSelectElement).value);

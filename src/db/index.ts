@@ -393,7 +393,7 @@ export async function getSandboxConfig(
   const settings = sr.get(projectPath);
   return {
     memoryGiB: settings?.sandbox_memory_gib ?? 4,
-    diskGiB: settings?.sandbox_disk_gib ?? 100,
+    diskGiB: settings?.sandbox_disk_gib ?? 10,
   };
 }
 

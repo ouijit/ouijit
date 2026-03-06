@@ -100,7 +100,7 @@ export function buildLimaConfig(
     name: instanceName,
     cpus: overrides?.cpus ?? 2,
     memoryGiB: overrides?.memoryGiB ?? 4,
-    diskGiB: overrides?.diskGiB ?? 100,
+    diskGiB: overrides?.diskGiB ?? 10,
     mounts: buildProjectMounts(projectPath),
     provisionScript: defaultProvisionPackages(),
     networkMode: overrides?.networkMode ?? defaultNetworkMode,
