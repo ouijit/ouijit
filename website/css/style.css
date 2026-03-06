@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Montagu+Slab:opsz,wght@16..144,400;16..144,500;16..144,600;16..144,700&display=swap');
+
 /* ===================================
    Ouijit Website — Blue Primary Design
    =================================== */
@@ -80,7 +82,7 @@ img {
 h1, h2, h3, h4 {
   line-height: 1.25;
   font-weight: 400;
-  font-family: Clarendon, 'Clarendon Text', Rockwell, 'Rockwell Nova', 'Zilla Slab', serif;
+  font-family: Clarendon, 'Clarendon Text', 'Montagu Slab', Rockwell, 'Rockwell Nova', 'Zilla Slab', serif;
   color: #001B65;
   letter-spacing: -0.02em;
 }
