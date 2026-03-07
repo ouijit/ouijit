@@ -212,6 +212,30 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // Sidebar auto-hide: reveal on left edge hover, hide on mouse leave
+  const sidebar = document.getElementById('project-sidebar');
+  const trigger = document.getElementById('sidebar-trigger');
+  if (sidebar && trigger) {
+    let hideTimeout: ReturnType<typeof setTimeout> | null = null;
+
+    const showSidebar = () => {
+      if (hideTimeout) { clearTimeout(hideTimeout); hideTimeout = null; }
+      sidebar.classList.add('sidebar--visible');
+      document.documentElement.style.setProperty('--sidebar-offset', 'var(--sidebar-width)');
+    };
+
+    const hideSidebar = () => {
+      hideTimeout = setTimeout(() => {
+        sidebar.classList.remove('sidebar--visible');
+        document.documentElement.style.setProperty('--sidebar-offset', '0px');
+      }, 300);
+    };
+
+    trigger.addEventListener('mouseenter', showSidebar);
+    sidebar.addEventListener('mouseenter', showSidebar);
+    sidebar.addEventListener('mouseleave', hideSidebar);
+  }
+
   initialize();
 
   // Listen for fullscreen state changes

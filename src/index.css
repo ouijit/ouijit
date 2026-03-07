@@ -205,8 +205,23 @@ textarea,
    =================================== */
 
 .sidebar {
-  @apply flex flex-col shrink-0;
+  @apply flex flex-col shrink-0 overflow-hidden;
+  width: 0;
+  transition: width 200ms ease-out;
+}
+
+.sidebar--visible {
   width: var(--sidebar-width);
+}
+
+/* Invisible trigger zone on left edge to reveal sidebar */
+.sidebar-trigger {
+  @apply fixed top-0 bottom-0 left-0 z-[10000];
+  width: 16px;
+}
+
+.sidebar--visible ~ .sidebar-trigger {
+  display: none;
 }
 
 .sidebar-drag-region {
@@ -339,7 +354,15 @@ body.platform-darwin:not(.is-fullscreen) .sidebar-drag-region {
   @apply max-w-[var(--content-max-width)] mx-auto px-6 py-4 flex items-center justify-center gap-2;
 }
 
-/* Traffic lights are now in the sidebar, not the header */
+/* Traffic light padding: when sidebar is hidden, header needs left padding */
+body.platform-darwin:not(.is-fullscreen) .header-content {
+  @apply pl-20;
+  transition: padding-left 200ms ease-out;
+}
+
+body.platform-darwin:not(.is-fullscreen) .sidebar--visible ~ .app-main .header-content {
+  @apply pl-4;
+}
 
 .app-title {
   @apply text-2xl font-bold text-text-primary tracking-tight shrink-0;
@@ -1103,8 +1126,8 @@ body.project-mode #welcome-state {
 
 .project-stack {
   @apply fixed top-[82px] right-4 bottom-4 z-[100] overflow-visible;
-  left: calc(var(--sidebar-width) + 16px);
-  transition: left 0.25s ease, right 0.25s ease, top 0.2s ease;
+  left: calc(var(--sidebar-offset, 0px) + 16px);
+  transition: left 0.2s ease-out, right 0.25s ease, top 0.2s ease;
 }
 
 .project-card {
@@ -1768,8 +1791,7 @@ body.platform-other .shortcut-number {
 .project-stack-pagination {
   @apply fixed z-[150] flex items-center gap-1.5;
   top: 58px;
-  /* Center within the main area (right of sidebar) */
-  left: calc(var(--sidebar-width) + (100% - var(--sidebar-width)) / 2);
+  left: calc(var(--sidebar-offset, 0px) + (100% - var(--sidebar-offset, 0px)) / 2);
   transform: translateX(-50%);
 }
 
@@ -1831,7 +1853,7 @@ body.kanban-open .project-stack {
 
 .kanban-board {
   @apply fixed top-[82px] right-4 bottom-4 z-[140] flex flex-col opacity-0 transition-all duration-200 ease-out rounded-[14px] overflow-hidden border border-white/10;
-  left: calc(var(--sidebar-width) + 16px);
+  left: calc(var(--sidebar-offset, 0px) + 16px);
   transform: translateY(6px);
   background: var(--color-terminal-bg, #171717);
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.05), 0 4px 12px rgba(0, 0, 0, 0.15), 0 20px 40px rgba(0, 0, 0, 0.2);
