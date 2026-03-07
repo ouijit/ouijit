@@ -329,8 +329,12 @@ export async function enterProjectMode(
   registerHotkey(platformHotkey('mod+shift+left'), Scopes.PROJECT, () => navigateStackPage(-1));
   registerHotkey(platformHotkey('mod+shift+right'), Scopes.PROJECT, () => navigateStackPage(1));
 
-  // 5. Show kanban board by default (after PROJECT scope so KANBAN scope stacks on top)
-  await showKanbanBoard();
+  // 5. Restore view: kanban if previously visible (or first entry), otherwise terminal stack
+  if (!existingSession || existingSession.kanbanWasVisible) {
+    await showKanbanBoard();
+  } else {
+    syncViewToggle();
+  }
 
   // 6. Start periodic git status refresh (for long-running commands)
   if (project.hasGit) {
@@ -370,12 +374,13 @@ export function exitProjectMode(): void {
       const hiddenContainer = ensureHiddenSessionsContainer();
       hiddenContainer.appendChild(stack);
 
-      // Store session data including diff panel state
+      // Store session data including view and diff panel state
       projectSessions.set(currentProjectPath, {
         terminals: [...currentTerminals],
         activeIndex: activeIndex.value,
         projectData: currentProjectData,
         stackElement: stack,
+        kanbanWasVisible: kanbanVisible.value,
         diffPanelWasOpen: diffPanelVisible.value,
         diffSelectedFile: diffPanelSelectedFile.value,
         diffFiles: [...diffPanelFiles.value],

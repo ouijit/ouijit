@@ -61,6 +61,8 @@ export interface StoredProjectSession {
   activeIndex: number;
   projectData: Project;
   stackElement: HTMLElement;
+  // View state
+  kanbanWasVisible: boolean;
   // Diff panel state
   diffPanelWasOpen: boolean;
   diffSelectedFile: string | null;
