@@ -205,9 +205,8 @@ textarea,
    =================================== */
 
 .sidebar {
-  @apply flex flex-col shrink-0 border-r border-border;
+  @apply flex flex-col shrink-0;
   width: var(--sidebar-width);
-  background: rgba(20, 20, 22, 0.97);
 }
 
 .sidebar-drag-region {
@@ -281,11 +280,7 @@ body.platform-darwin:not(.is-fullscreen) .sidebar-drag-region {
   right: 10px;
   width: 8px;
   height: 8px;
-  border: 2px solid rgba(20, 20, 22, 0.97);
-}
-
-.sidebar-actions {
-  @apply flex flex-col items-center gap-2 py-3 border-t border-border;
+  border: 2px solid var(--color-background);
 }
 
 .sidebar-action-btn {

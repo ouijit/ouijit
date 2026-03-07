@@ -15,12 +15,20 @@ export function renderSidebar(
   container: HTMLElement,
   projects: Project[]
 ): void {
-  container.innerHTML = '';
+  // Remove existing project items but keep the add button
+  const addBtn = container.querySelector('#sidebar-add-btn');
+  container.querySelectorAll('.sidebar-item').forEach(el => el.remove());
+
   projectMap = new Map(projects.map(p => [p.path, p]));
 
   for (const project of projects) {
     const item = createSidebarIcon(project);
-    container.appendChild(item);
+    // Insert before the add button so it stays at the end
+    if (addBtn) {
+      container.insertBefore(item, addBtn);
+    } else {
+      container.appendChild(item);
+    }
   }
 
   updateSidebarActiveState();

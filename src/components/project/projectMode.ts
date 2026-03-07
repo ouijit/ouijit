@@ -149,6 +149,12 @@ export async function enterProjectMode(
   }
 
   // 3. Handle stack - restore existing or create new
+  // Pre-hide stack if kanban will be shown, to avoid a flash of terminals
+  const willShowKanban = !existingSession || existingSession.kanbanWasVisible;
+  if (willShowKanban) {
+    document.body.classList.add('kanban-open');
+  }
+
   const mainContent = document.querySelector('.main-content');
   if (mainContent) {
     if (existingSession) {
