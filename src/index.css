@@ -252,15 +252,7 @@ body.platform-darwin:not(.is-fullscreen) .sidebar-drag-region {
 }
 
 .sidebar-icon {
-  @apply w-12 h-12 rounded-full overflow-hidden transition-all duration-200 ease-out;
-}
-
-.sidebar-item:hover .sidebar-icon {
-  @apply rounded-2xl;
-}
-
-.sidebar-item--active .sidebar-icon {
-  @apply rounded-2xl;
+  @apply w-10 h-10 overflow-hidden rounded-md;
 }
 
 .sidebar-icon-image {
@@ -284,16 +276,35 @@ body.platform-darwin:not(.is-fullscreen) .sidebar-drag-region {
 }
 
 .sidebar-action-btn {
-  @apply w-12 h-12 flex items-center justify-center rounded-full bg-background-secondary border border-border/50 text-text-secondary transition-all duration-150 ease-out;
+  @apply w-10 h-10 flex items-center justify-center rounded-md bg-background-secondary border border-border/50 text-text-secondary transition-colors duration-200 ease-out;
   -webkit-app-region: no-drag;
 }
 
 .sidebar-action-btn:hover {
-  @apply bg-background-tertiary text-text-primary rounded-2xl;
+  @apply bg-background-tertiary text-text-primary;
 }
 
 .sidebar-action-btn svg {
   @apply w-5 h-5;
+}
+
+/* Sidebar add menu */
+.sidebar-add-menu {
+  @apply fixed z-[2000] py-1 bg-surface border border-border rounded-md shadow-lg overflow-hidden opacity-0;
+  min-width: 180px;
+  transition: opacity 100ms ease;
+}
+
+.sidebar-add-menu--visible {
+  @apply opacity-100;
+}
+
+.sidebar-add-menu-item {
+  @apply w-full px-3 py-1.5 text-xs text-text-primary bg-transparent border-none text-left transition-colors duration-100 ease-out;
+}
+
+.sidebar-add-menu-item:hover {
+  @apply bg-background-tertiary;
 }
 
 /* Welcome state (no project selected) */

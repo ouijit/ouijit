@@ -126,6 +126,67 @@ async function initialize(): Promise<void> {
   }
 }
 
+/**
+ * Show the sidebar add menu (add existing / create new)
+ */
+function showSidebarAddMenu(anchor: HTMLElement): void {
+  // Remove any existing menu
+  document.querySelector('.sidebar-add-menu')?.remove();
+
+  const menu = document.createElement('div');
+  menu.className = 'sidebar-add-menu';
+
+  const addExisting = document.createElement('button');
+  addExisting.className = 'sidebar-add-menu-item';
+  addExisting.textContent = 'Add existing folder';
+  addExisting.addEventListener('click', async () => {
+    menu.remove();
+    const result = await window.api.showFolderPicker();
+    if (!result.canceled && result.filePaths.length > 0) {
+      const folderPath = result.filePaths[0];
+      const addResult = await window.api.addProject(folderPath);
+      if (addResult.success) {
+        await refreshProjects();
+        const folderName = folderPath.split('/').pop() || folderPath;
+        showToast(`Added project: ${folderName}`, 'success');
+      } else {
+        showToast(addResult.error || 'Failed to add project', 'error');
+      }
+    }
+  });
+
+  const createNew = document.createElement('button');
+  createNew.className = 'sidebar-add-menu-item';
+  createNew.textContent = 'Create new project';
+  createNew.addEventListener('click', async () => {
+    menu.remove();
+    const result = await showNewProjectDialog();
+    if (result?.created) {
+      await refreshProjects();
+      showToast(`Created project: ${result.projectName}`, 'success');
+    }
+  });
+
+  menu.appendChild(addExisting);
+  menu.appendChild(createNew);
+  document.body.appendChild(menu);
+
+  // Position to the right of the anchor
+  const rect = anchor.getBoundingClientRect();
+  menu.style.left = `${rect.right + 8}px`;
+  menu.style.top = `${rect.top}px`;
+
+  requestAnimationFrame(() => menu.classList.add('sidebar-add-menu--visible'));
+
+  const dismiss = (ev: MouseEvent) => {
+    if (menu.contains(ev.target as Node)) return;
+    menu.classList.remove('sidebar-add-menu--visible');
+    setTimeout(() => menu.remove(), 100);
+    document.removeEventListener('mousedown', dismiss);
+  };
+  setTimeout(() => document.addEventListener('mousedown', dismiss), 0);
+}
+
 // Prevent Electron's default drag/drop behavior (navigation)
 document.addEventListener('dragover', (e) => e.preventDefault());
 document.addEventListener('drop', (e) => e.preventDefault());
@@ -142,22 +203,12 @@ document.addEventListener('DOMContentLoaded', () => {
   // Initialize automatic icon conversion
   initIcons();
 
-  // Set up sidebar add button
+  // Set up sidebar add button (shows menu with add/new options)
   const addBtn = document.getElementById('sidebar-add-btn');
   if (addBtn) {
-    addBtn.addEventListener('click', async () => {
-      const result = await window.api.showFolderPicker();
-      if (!result.canceled && result.filePaths.length > 0) {
-        const folderPath = result.filePaths[0];
-        const addResult = await window.api.addProject(folderPath);
-        if (addResult.success) {
-          await refreshProjects();
-          const folderName = folderPath.split('/').pop() || folderPath;
-          showToast(`Added project: ${folderName}`, 'success');
-        } else {
-          showToast(addResult.error || 'Failed to add project', 'error');
-        }
-      }
+    addBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      showSidebarAddMenu(addBtn);
     });
   }
 
