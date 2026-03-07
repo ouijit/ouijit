@@ -79,9 +79,6 @@ export const GIT_STATUS_PERIODIC_INTERVAL = 15000;
  * Reactive state is now in signals.ts
  */
 export const projectState = {
-  // Header content for restoration on exit
-  originalHeaderContent: null as string | null,
-
   // Keyboard handler reference
   escapeKeyHandler: null as ((e: KeyboardEvent) => void) | null,
 

@@ -32,9 +32,6 @@ export function buildProjectHeader(): string {
 
   return `
     <div class="project-header-content">
-      <button class="project-exit-btn" title="Exit project mode">
-        <i data-icon="arrow-left"></i>
-      </button>
       ${icon}
       <div class="project-header-info">
         <span class="project-header-name">${project.name}</span>

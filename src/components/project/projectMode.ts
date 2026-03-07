@@ -67,11 +67,53 @@ import {
 import { hideKanbanBoard, showKanbanBoard, showKanbanAndFocusInput, syncViewToggle } from './kanbanBoard';
 import { projectRegistry } from './helpers';
 import { registerHotkey, unregisterHotkey, pushScope, popScope, Scopes, platformHotkey } from '../../utils/hotkeys';
-import { showNewProjectDialog } from '../newProjectDialog';
-import { showToast } from '../importDialog';
 import { showHookConfigDialog } from '../hookConfigDialog';
 
 const projectLog = log.scope('project');
+
+/**
+ * Wire up event listeners on the project header buttons
+ */
+function wireProjectHeader(headerContent: Element, path: string): void {
+  convertIconsIn(headerContent as HTMLElement);
+
+  // Wire up hooks button (opens dropdown)
+  const hooksBtn = headerContent.querySelector('.project-hooks-btn');
+  if (hooksBtn) {
+    hooksBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleLaunchDropdown();
+    });
+  }
+
+  // Wire up new task button (opens task overlay)
+  const newTaskBtn = headerContent.querySelector('.project-newtask-btn');
+  if (newTaskBtn) {
+    newTaskBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      showKanbanAndFocusInput();
+    });
+  }
+
+  // Wire up terminal button (opens new shell)
+  const terminalBtn = headerContent.querySelector('.project-terminal-btn');
+  if (terminalBtn) {
+    terminalBtn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      if (kanbanVisible.value) hideKanbanBoard();
+      await addProjectTerminal();
+    });
+  }
+
+  // Wire up sandbox button (dropdown)
+  const sandboxWrapper = headerContent.querySelector('.project-sandbox-wrapper') as HTMLElement;
+  if (sandboxWrapper) {
+    wireSandboxButton(sandboxWrapper, path);
+  }
+
+  // Wire up view toggle buttons
+  wireViewToggle(headerContent);
+}
 
 /**
  * Enter project mode for the specified project
@@ -100,55 +142,10 @@ export async function enterProjectMode(
   document.body.classList.add('project-mode');
 
   // 2. Update header content
-  // Note: Git status is now displayed per-terminal on card labels, not in the header
   const headerContent = document.querySelector('.header-content');
   if (headerContent) {
-    projectState.originalHeaderContent = headerContent.innerHTML;
     headerContent.innerHTML = buildProjectHeader();
-
-    // Wire up exit button
-    const exitBtn = headerContent.querySelector('.project-exit-btn');
-    if (exitBtn) {
-      exitBtn.addEventListener('click', () => exitProjectMode());
-    }
-
-    // Wire up hooks button (opens dropdown)
-    const hooksBtn = headerContent.querySelector('.project-hooks-btn');
-    if (hooksBtn) {
-      hooksBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        toggleLaunchDropdown();
-      });
-    }
-
-    // Wire up new task button (opens task overlay)
-    const newTaskBtn = headerContent.querySelector('.project-newtask-btn');
-    if (newTaskBtn) {
-      newTaskBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        showKanbanAndFocusInput();
-      });
-    }
-
-    // Wire up terminal button (opens new shell)
-    const terminalBtn = headerContent.querySelector('.project-terminal-btn');
-    if (terminalBtn) {
-      terminalBtn.addEventListener('click', async (e) => {
-        e.stopPropagation();
-        if (kanbanVisible.value) hideKanbanBoard();
-        await addProjectTerminal();
-      });
-    }
-
-    // Wire up sandbox button (dropdown)
-    const sandboxWrapper = headerContent.querySelector('.project-sandbox-wrapper') as HTMLElement;
-    if (sandboxWrapper) {
-      wireSandboxButton(sandboxWrapper, path);
-    }
-
-    // Wire up view toggle buttons
-    wireViewToggle(headerContent);
-
+    wireProjectHeader(headerContent, path);
   }
 
   // 3. Handle stack - restore existing or create new
@@ -392,55 +389,10 @@ export function exitProjectMode(): void {
   // 2. Remove class from body
   document.body.classList.remove('project-mode');
 
-  // 3. Restore header content
+  // 3. Clear header content (sidebar handles project navigation now)
   const headerContent = document.querySelector('.header-content');
-  if (headerContent && projectState.originalHeaderContent) {
-    headerContent.innerHTML = projectState.originalHeaderContent;
-    // Re-attach refresh handler with full behavior
-    const refreshBtn = headerContent.querySelector('#refresh-btn');
-    if (refreshBtn) {
-      refreshBtn.addEventListener('click', async () => {
-        refreshBtn.classList.add('spinning');
-        refreshBtn.setAttribute('disabled', 'true');
-        try {
-          await (window as any).refreshProjects?.();
-        } finally {
-          refreshBtn.classList.remove('spinning');
-          refreshBtn.removeAttribute('disabled');
-        }
-      });
-    }
-    // Re-attach new project handler
-    const newProjectBtn = headerContent.querySelector('#new-project-btn');
-    if (newProjectBtn) {
-      newProjectBtn.addEventListener('click', async () => {
-        const result = await showNewProjectDialog();
-        if (result?.created) {
-          await (window as any).refreshProjects?.();
-          showToast(`Created project: ${result.projectName}`, 'success');
-        }
-      });
-    }
-    // Re-attach add folder handler
-    const addFolderBtn = headerContent.querySelector('#add-folder-btn');
-    if (addFolderBtn) {
-      addFolderBtn.addEventListener('click', async () => {
-        const result = await window.api.showFolderPicker();
-        if (!result.canceled && result.filePaths.length > 0) {
-          const folderPath = result.filePaths[0];
-          const addResult = await window.api.addProject(folderPath);
-          if (addResult.success) {
-            await (window as any).refreshProjects?.();
-            const folderName = folderPath.split('/').pop() || folderPath;
-            const { showToast } = await import('../importDialog');
-            showToast(`Added project: ${folderName}`, 'success');
-          } else {
-            const { showToast } = await import('../importDialog');
-            showToast(addResult.error || 'Failed to add project', 'error');
-          }
-        }
-      });
-    }
+  if (headerContent) {
+    headerContent.innerHTML = '';
   }
 
   // 4. Unregister Claude hook status listener
@@ -489,8 +441,6 @@ export function exitProjectMode(): void {
 
   // 9. Hide kanban board
   hideKanbanBoard();
-
-  projectState.originalHeaderContent = null;
 
   // Reset all signals to initial values
   resetSignals();
@@ -574,52 +524,8 @@ export async function restoreProjectMode(
   // 2. Update header content
   const headerContent = document.querySelector('.header-content');
   if (headerContent) {
-    projectState.originalHeaderContent = headerContent.innerHTML;
     headerContent.innerHTML = buildProjectHeader();
-
-    // Wire up exit button
-    const exitBtn = headerContent.querySelector('.project-exit-btn');
-    if (exitBtn) {
-      exitBtn.addEventListener('click', () => exitProjectMode());
-    }
-
-    // Wire up hooks button (opens dropdown)
-    const hooksBtn = headerContent.querySelector('.project-hooks-btn');
-    if (hooksBtn) {
-      hooksBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        toggleLaunchDropdown();
-      });
-    }
-
-    // Wire up new task button (opens kanban board)
-    const newTaskBtn = headerContent.querySelector('.project-newtask-btn');
-    if (newTaskBtn) {
-      newTaskBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        showKanbanAndFocusInput();
-      });
-    }
-
-    // Wire up terminal button (opens new shell)
-    const terminalBtn = headerContent.querySelector('.project-terminal-btn');
-    if (terminalBtn) {
-      terminalBtn.addEventListener('click', async (e) => {
-        e.stopPropagation();
-        if (kanbanVisible.value) hideKanbanBoard();
-        await addProjectTerminal();
-      });
-    }
-
-    // Wire up sandbox button (dropdown)
-    const sandboxWrapper = headerContent.querySelector('.project-sandbox-wrapper') as HTMLElement;
-    if (sandboxWrapper) {
-      wireSandboxButton(sandboxWrapper, path);
-    }
-
-    // Wire up view toggle buttons
-    wireViewToggle(headerContent);
-
+    wireProjectHeader(headerContent, path);
   }
 
   // 3. Create stack and restore terminals

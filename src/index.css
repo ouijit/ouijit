@@ -92,6 +92,7 @@
 
   /* Layout */
   --header-height: 72px;
+  --sidebar-width: 72px;
   --content-max-width: 1200px;
   --content-padding: 24px;
 
@@ -188,6 +189,136 @@ textarea,
 }
 
 /* ===================================
+   App Layout (sidebar + main)
+   =================================== */
+
+.app-layout {
+  @apply flex h-screen overflow-hidden;
+}
+
+.app-main {
+  @apply flex-1 flex flex-col min-w-0 overflow-hidden;
+}
+
+/* ===================================
+   Sidebar
+   =================================== */
+
+.sidebar {
+  @apply flex flex-col shrink-0 border-r border-border;
+  width: var(--sidebar-width);
+  background: rgba(20, 20, 22, 0.97);
+}
+
+.sidebar-drag-region {
+  -webkit-app-region: drag;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+body.platform-darwin:not(.is-fullscreen) .sidebar-drag-region {
+  height: 52px;
+}
+
+.sidebar-projects {
+  @apply flex-1 flex flex-col items-center gap-2 py-2 overflow-y-auto overflow-x-hidden;
+  scrollbar-width: none;
+}
+
+.sidebar-projects::-webkit-scrollbar {
+  @apply w-0 h-0;
+}
+
+.sidebar-item {
+  @apply relative flex items-center justify-center shrink-0;
+  width: var(--sidebar-width);
+  height: 48px;
+  -webkit-app-region: no-drag;
+}
+
+.sidebar-pill {
+  @apply absolute left-0 w-1 rounded-r-sm bg-white transition-all duration-200 ease-out;
+  height: 0;
+  opacity: 0;
+}
+
+.sidebar-item:hover .sidebar-pill {
+  height: 20px;
+  opacity: 0.5;
+}
+
+.sidebar-item--active .sidebar-pill {
+  height: 36px;
+  opacity: 1;
+}
+
+.sidebar-icon {
+  @apply w-12 h-12 rounded-full overflow-hidden transition-all duration-200 ease-out;
+}
+
+.sidebar-item:hover .sidebar-icon {
+  @apply rounded-2xl;
+}
+
+.sidebar-item--active .sidebar-icon {
+  @apply rounded-2xl;
+}
+
+.sidebar-icon-image {
+  @apply w-full h-full object-cover;
+}
+
+.sidebar-icon-placeholder {
+  @apply w-full h-full flex items-center justify-center text-sm font-bold text-white;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+/* Session indicator dot */
+.sidebar-item--has-session::after {
+  content: '';
+  @apply absolute rounded-full bg-success;
+  bottom: 2px;
+  right: 10px;
+  width: 8px;
+  height: 8px;
+  border: 2px solid rgba(20, 20, 22, 0.97);
+}
+
+.sidebar-actions {
+  @apply flex flex-col items-center gap-2 py-3 border-t border-border;
+}
+
+.sidebar-action-btn {
+  @apply w-12 h-12 flex items-center justify-center rounded-full bg-background-secondary border border-border/50 text-text-secondary transition-all duration-150 ease-out;
+  -webkit-app-region: no-drag;
+}
+
+.sidebar-action-btn:hover {
+  @apply bg-background-tertiary text-text-primary rounded-2xl;
+}
+
+.sidebar-action-btn svg {
+  @apply w-5 h-5;
+}
+
+/* Welcome state (no project selected) */
+.welcome-state {
+  @apply flex flex-col items-center justify-center text-center h-full;
+}
+
+.welcome-state-icon {
+  @apply w-12 h-12 text-text-tertiary mb-4;
+}
+
+.welcome-state-title {
+  @apply text-xl font-semibold text-text-secondary mb-1;
+}
+
+.welcome-state-description {
+  @apply text-sm text-text-tertiary;
+}
+
+/* ===================================
    Header - App Region Drag
    =================================== */
 
@@ -202,10 +333,7 @@ textarea,
   @apply max-w-[var(--content-max-width)] mx-auto px-6 py-4 flex items-center justify-center gap-2;
 }
 
-/* Add extra left padding for macOS traffic lights (except fullscreen) */
-body.platform-darwin:not(.is-fullscreen) .header-content {
-  @apply pl-20;
-}
+/* Traffic lights are now in the sidebar, not the header */
 
 .app-title {
   @apply text-2xl font-bold text-text-primary tracking-tight shrink-0;
@@ -277,8 +405,8 @@ body.platform-darwin:not(.is-fullscreen) .header-content {
 
 /* Main Content */
 .main-content {
-  @apply max-w-[var(--content-max-width)] mx-auto min-h-[calc(100vh-var(--header-height))];
-  padding: var(--spacing-xl) var(--content-padding) var(--spacing-2xl);
+  @apply flex-1 min-h-0;
+  padding: var(--spacing-md) var(--content-padding);
 }
 
 /* Project List Header */
@@ -461,24 +589,6 @@ body.platform-darwin:not(.is-fullscreen) .header-content {
 }
 
 /* Responsive Adjustments */
-@media (max-width: 900px) {
-  .project-list-header {
-    grid-template-columns: 40px 1fr 150px 120px;
-  }
-
-  .project-list-header span:nth-child(3) {
-    display: none;
-  }
-
-  .project-row {
-    grid-template-columns: 40px 1fr 150px 120px;
-  }
-
-  .project-description {
-    display: none;
-  }
-}
-
 @media (max-width: 768px) {
   :root {
     --content-padding: 16px;
@@ -487,41 +597,6 @@ body.platform-darwin:not(.is-fullscreen) .header-content {
 
   .header-content {
     padding: var(--spacing-md) var(--content-padding);
-  }
-
-  .app-title {
-    font-size: var(--font-size-xl);
-  }
-
-  .search-container {
-    max-width: 100%;
-  }
-
-  .project-list-header {
-    grid-template-columns: 40px 1fr 120px;
-  }
-
-  .project-list-header span:nth-child(4) {
-    display: none;
-  }
-
-  .project-row {
-    grid-template-columns: 40px 1fr 120px;
-  }
-}
-
-@media (max-width: 480px) {
-  .project-list-header {
-    display: none;
-  }
-
-  .project-row {
-    grid-template-columns: 40px 1fr;
-    padding: var(--spacing-sm) var(--spacing-md);
-  }
-
-  .last-modified {
-    display: none;
   }
 }
 
@@ -664,16 +739,7 @@ body.platform-darwin:not(.is-fullscreen) .header-content {
    Project Mode Styles
    =================================== */
 
-/* Hide project rows in project mode - NOT main-content */
-body.project-mode .project-row {
-  display: none !important;
-}
-
-body.project-mode .main-content {
-  min-height: 0;
-}
-
-/* Remove max-width constraint from header in project mode */
+/* Project mode: active project shown in main area */
 body.project-mode .header {
   z-index: 10000;
   border-bottom: none;
@@ -686,19 +752,12 @@ body.project-mode .header-content {
   padding-bottom: 8px;
 }
 
-/* Hide search/refresh area in header */
-body.project-mode .search-container {
-  display: none !important;
+body.project-mode .main-content {
+  padding: 0;
 }
 
-body.project-mode #refresh-btn,
-body.project-mode #new-project-btn {
-  display: none !important;
-}
-
-/* Hide project list header */
-body.project-mode .project-list-header {
-  display: none !important;
+body.project-mode #welcome-state {
+  display: none;
 }
 
 /* Project header content */
@@ -1037,7 +1096,8 @@ body.project-mode .project-list-header {
    ========================================== */
 
 .project-stack {
-  @apply fixed top-[82px] left-4 right-4 bottom-4 z-[100] overflow-visible;
+  @apply fixed top-[82px] right-4 bottom-4 z-[100] overflow-visible;
+  left: calc(var(--sidebar-width) + 16px);
   transition: left 0.25s ease, right 0.25s ease, top 0.2s ease;
 }
 
@@ -1702,7 +1762,8 @@ body.platform-other .shortcut-number {
 .project-stack-pagination {
   @apply fixed z-[150] flex items-center gap-1.5;
   top: 58px;
-  left: 50%;
+  /* Center within the main area (right of sidebar) */
+  left: calc(var(--sidebar-width) + (100% - var(--sidebar-width)) / 2);
   transform: translateX(-50%);
 }
 
@@ -1763,7 +1824,8 @@ body.kanban-open .project-stack {
 }
 
 .kanban-board {
-  @apply fixed top-[82px] left-4 right-4 bottom-4 z-[140] flex flex-col opacity-0 transition-all duration-200 ease-out rounded-[14px] overflow-hidden border border-white/10;
+  @apply fixed top-[82px] right-4 bottom-4 z-[140] flex flex-col opacity-0 transition-all duration-200 ease-out rounded-[14px] overflow-hidden border border-white/10;
+  left: calc(var(--sidebar-width) + 16px);
   transform: translateY(6px);
   background: var(--color-terminal-bg, #171717);
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.05), 0 4px 12px rgba(0, 0, 0, 0.15), 0 20px 40px rgba(0, 0, 0, 0.2);

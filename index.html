@@ -7,53 +7,35 @@
     <link rel="stylesheet" href="/src/index.css" />
   </head>
   <body>
-    <header class="header">
-      <div class="header-content">
-        <button id="refresh-btn" class="btn-icon-header" title="Refresh projects">
-          <i data-icon="arrows-clockwise"></i>
-        </button>
-        <div class="search-container">
-<i data-icon="magnifying-glass" class="search-icon"></i>
-          <input
-            type="text"
-            id="search-input"
-            class="search-input"
-            placeholder="Search projects..."
-            autocomplete="off"
-          />
+    <div class="app-layout">
+      <!-- Sidebar: always visible, project icons stacked vertically -->
+      <aside id="project-sidebar" class="sidebar">
+        <div class="sidebar-drag-region"></div>
+        <div id="sidebar-projects" class="sidebar-projects"></div>
+        <div class="sidebar-actions">
+          <button id="sidebar-add-btn" class="sidebar-action-btn" title="Add project">
+            <i data-icon="plus"></i>
+          </button>
         </div>
-        <button id="add-folder-btn" class="btn-icon-header btn-icon-header--after" title="Add existing folder">
-          <i data-icon="folder-plus"></i>
-        </button>
-        <button id="new-project-btn" class="btn-icon-header btn-icon-header--after" title="New project">
-          <i data-icon="plus"></i>
-        </button>
-      </div>
-    </header>
+      </aside>
 
-    <main class="main-content">
-      <div class="project-list-header">
-        <span></span>
-        <span>Name</span>
-        <span>Description</span>
-        <span>Tags</span>
-        <span class="text-right">Modified</span>
-      </div>
-      <div id="project-grid" class="project-grid--minimal">
-        <!-- Project cards will be rendered here -->
-      </div>
+      <!-- Main area: header + content -->
+      <div class="app-main">
+        <header class="header">
+          <div class="header-content">
+            <!-- Populated dynamically: project header when active, empty when not -->
+          </div>
+        </header>
 
-      <div id="empty-state" class="empty-state" style="display: none;">
-<i data-icon="folder-open" class="empty-state-icon"></i>
-        <h2 class="empty-state-title">No projects found</h2>
-        <p class="empty-state-description">Try adjusting your search or add some projects to get started.</p>
+        <main class="main-content">
+          <div id="welcome-state" class="welcome-state">
+            <i data-icon="cursor-click" class="welcome-state-icon"></i>
+            <h2 class="welcome-state-title">Select a project</h2>
+            <p class="welcome-state-description">Choose a project from the sidebar to get started.</p>
+          </div>
+        </main>
       </div>
-
-      <div id="loading-state" class="loading-state" style="display: none;">
-        <div class="loading-spinner"></div>
-        <p class="loading-text">Loading projects...</p>
-      </div>
-    </main>
+    </div>
 
     <script type="module" src="/src/renderer.ts"></script>
   </body>
