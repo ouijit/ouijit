@@ -18,7 +18,7 @@ import { homeViewActive, projectPath } from './project/signals';
 import { exitProjectMode } from './project/projectMode';
 import { getTerminalTheme, setupTerminalAppHotkeys, updateTerminalCardLabel, createProjectCard, debouncedResize, reconnectTerminal } from './project/terminalCards';
 import { convertIconsIn } from '../utils/icons';
-import { stringToColor } from '../utils/projectIcon';
+import { stringToColor, getInitials } from '../utils/projectIcon';
 import { Scopes, pushScope, popScope, registerHotkey, unregisterHotkey, platformHotkey } from '../utils/hotkeys';
 import { showToast } from './importDialog';
 import { updateSidebarActiveState } from './sidebar';
@@ -343,10 +343,19 @@ function createHomeFolderDivider(path: string, depth: number): HTMLElement {
 
   const label = document.createElement('div');
   label.className = 'project-card-label';
+
+  // Build mini icon matching sidebar style
+  let iconHtml: string;
+  if (project?.iconDataUrl) {
+    iconHtml = `<img class="home-folder-icon" src="${project.iconDataUrl}" alt="${name}" draggable="false">`;
+  } else {
+    iconHtml = `<span class="home-folder-icon home-folder-icon-placeholder" style="background-color: ${stringToColor(name)}">${getInitials(name)}</span>`;
+  }
+
   label.innerHTML = `
     <div class="project-card-label-left">
       <div class="project-card-label-top">
-        <span class="home-folder-dot" style="background: ${stringToColor(name)};"></span>
+        ${iconHtml}
         <span class="home-folder-name">${name}</span>
       </div>
     </div>
