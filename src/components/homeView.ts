@@ -362,7 +362,7 @@ function updateHomeCardStack(): void {
 
     if (index === homeActiveIndex) {
       if (shortcutEl) shortcutEl.style.display = 'none';
-      if (runnerBtn) runnerBtn.style.display = '';
+      if (runnerBtn) runnerBtn.style.display = term.taskId != null ? '' : 'none';
     } else {
       const stackPosition = shortcutOrder.indexOf(index);
       if (shortcutEl) {
