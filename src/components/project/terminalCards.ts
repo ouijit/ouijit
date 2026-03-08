@@ -86,10 +86,13 @@ export function setupTerminalAppHotkeys(terminal: Terminal): void {
 
 // Track pending resize timeouts per PTY (debounce rapid resize events)
 const pendingResizes = new Map<PtyId, ReturnType<typeof setTimeout>>();
+// Track pending rAF per PTY to deduplicate fit() calls
+const pendingResizeFrames = new Map<PtyId, number>();
 
 /**
  * Debounced resize handler to avoid rapid SIGWINCH signals that cause
  * text wrapping artifacts in shells like zsh during panel animations.
+ * Uses rAF to avoid layout thrashing inside ResizeObserver callbacks.
  */
 export function debouncedResize(ptyId: PtyId, terminal: Terminal, fitAddon: FitAddon): void {
   // Clear any pending resize for this terminal
@@ -98,8 +101,15 @@ export function debouncedResize(ptyId: PtyId, terminal: Terminal, fitAddon: FitA
     clearTimeout(pending);
   }
 
-  // Preserve scroll position across fit() — xterm.js resets viewport on reflow
-  scrollSafeFit(terminal, fitAddon);
+  // Cancel pending rAF for this terminal
+  const pendingFrame = pendingResizeFrames.get(ptyId);
+  if (pendingFrame) cancelAnimationFrame(pendingFrame);
+
+  // Preserve scroll position across fit() — defer to rAF to avoid layout thrashing
+  pendingResizeFrames.set(ptyId, requestAnimationFrame(() => {
+    pendingResizeFrames.delete(ptyId);
+    scrollSafeFit(terminal, fitAddon);
+  }));
 
   // Debounce the PTY resize signal (50ms delay for animation settling)
   pendingResizes.set(ptyId, setTimeout(() => {
@@ -313,7 +323,7 @@ export function createProjectCard(label: string, index: number): HTMLElement {
       <div class="project-card-label-top">
         <span class="project-card-status-dot" data-status="ready"></span>
         <kbd class="project-card-shortcut" style="display: none;"></kbd>
-        <span class="project-card-label-text">${label}</span>
+        <span class="project-card-label-text">${escapeHtml(label)}</span>
         <button class="project-card-tag-btn" title="Tags"><i data-icon="tag"></i></button>
         <span class="project-card-tags-row"></span>
       </div>
@@ -359,7 +369,7 @@ export function createLoadingCard(label: string): HTMLElement {
     <div class="project-card-label-left">
       <div class="project-card-label-top">
         <span class="project-card-status-dot project-card-status-dot--loading"></span>
-        <span class="project-card-label-text">${label || 'New task'}</span>
+        <span class="project-card-label-text">${escapeHtml(label || 'New task')}</span>
       </div>
     </div>
     <div class="project-card-label-right"></div>
@@ -1906,6 +1916,9 @@ export function closeProjectTerminal(index: number): void {
 
   const term = currentTerminals[index];
 
+  // Collapse tag input to clean up click-outside listener
+  collapseTagInput(term);
+
   // Kill main PTY
   window.api.pty.kill(term.ptyId);
   clearIdleTimer(term.ptyId);
@@ -2456,6 +2469,27 @@ export async function reconnectTerminal(
   return projectTerminal;
 }
 
+// ── Tag autocomplete cache ───────────────────────────────────────────
+
+let tagCacheData: import('../../types').TagRow[] = [];
+let tagCacheTime = 0;
+const TAG_CACHE_TTL = 5000; // 5 seconds
+
+async function getCachedTags(): Promise<import('../../types').TagRow[]> {
+  const now = Date.now();
+  if (now - tagCacheTime < TAG_CACHE_TTL && tagCacheData.length > 0) {
+    return tagCacheData;
+  }
+  tagCacheData = await window.api.tags.getAll();
+  tagCacheTime = now;
+  return tagCacheData;
+}
+
+/** Invalidate tag cache (call after adding/removing tags) */
+function invalidateTagCache(): void {
+  tagCacheTime = 0;
+}
+
 // ── Tag input ────────────────────────────────────────────────────────
 
 function toggleTagInput(term: ProjectTerminal): void {
@@ -2508,7 +2542,7 @@ function expandTagInput(term: ProjectTerminal): void {
       return;
     }
     try {
-      const allTags = await window.api.tags.getAll();
+      const allTags = await getCachedTags();
       const existing = new Set(term.tags.map(t => t.toLowerCase()));
       const matches = allTags
         .filter(t => t.name.toLowerCase().includes(value.toLowerCase()) && !existing.has(t.name.toLowerCase()))
@@ -2623,6 +2657,7 @@ async function addTag(term: ProjectTerminal, tagName: string, container: HTMLEle
     } catch { /* DB not ready or task gone — still set in-memory */ }
   }
   term.tags = [normalized];
+  invalidateTagCache();
 
   // Replace all chips with the new one
   container.querySelectorAll('.tag-chip').forEach(c => c.remove());
@@ -2643,6 +2678,7 @@ async function removeTag(term: ProjectTerminal, tagName: string, container: HTML
     } catch { /* DB not ready or task gone */ }
   }
   term.tags = term.tags.filter(t => t.toLowerCase() !== tagName.toLowerCase());
+  invalidateTagCache();
 
   // Remove the chip from DOM
   const chips = container.querySelectorAll('.tag-chip');

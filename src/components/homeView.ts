@@ -18,6 +18,7 @@ import { homeViewActive, projectPath } from './project/signals';
 import { exitProjectMode } from './project/projectMode';
 import { getTerminalTheme, setupTerminalAppHotkeys, updateTerminalCardLabel, createProjectCard, debouncedResize, reconnectTerminal, collapseTagInput, setupCardActions, scrollSafeFit } from './project/terminalCards';
 import { convertIconsIn } from '../utils/icons';
+import { escapeHtml } from '../utils/html';
 import { stringToColor, getInitials } from '../utils/projectIcon';
 import { Scopes, pushScope, popScope, registerHotkey, unregisterHotkey, platformHotkey } from '../utils/hotkeys';
 import { showToast } from './importDialog';
@@ -454,75 +455,59 @@ function buildTagGroupedStack(activeTerminal: ProjectTerminal): StackItem[] {
   return items;
 }
 
-/**
- * Create a folder divider element — a card-like element with transparent body,
- * only the tab is visible (project name + color dot).
- */
-function createHomeFolderDivider(path: string, depth: number): HTMLElement {
-  const project = projectDataCache.get(path);
-  const name = project?.name || 'shell';
+/** Shared SVG tab shape for home dividers */
+const DIVIDER_TAB_SVG = `
+  <svg viewBox="0 0 234 28" width="234" height="28">
+    <path d="M 14 0.5 H 205.5 Q 219.5 0.5 219.5 14.5 L 219.5 13.5 Q 219.5 27.5 233.5 27.5 L 0.5 27.5 L 0.5 14 Q 0.5 0.5 14 0.5 Z"
+          fill="#252528"/>
+    <path d="M 0.5 27.5 L 0.5 14 Q 0.5 0.5 14 0.5 H 205.5 Q 219.5 0.5 219.5 14.5 L 219.5 13.5 Q 219.5 27.5 233.5 27.5"
+          fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+  </svg>`;
 
+/**
+ * Create a home divider element — a card-like element with transparent body,
+ * only the tab is visible. Used for both project and tag grouping.
+ */
+function createHomeDivider(iconHtml: string, label: string, depth: number, dataset: Record<string, string>): HTMLElement {
   const divider = document.createElement('div');
   divider.className = 'project-card home-folder-divider';
-  divider.dataset.dividerProject = path;
+  Object.assign(divider.dataset, dataset);
   applyDepthStyle(divider, depth);
 
-  // Build mini icon matching sidebar style — use tilde icon for non-project shells
-  let iconHtml: string;
-  if (project?.iconDataUrl) {
-    iconHtml = `<img class="home-folder-icon" src="${project.iconDataUrl}" alt="${name}" draggable="false">`;
-  } else if (project) {
-    iconHtml = `<span class="home-folder-icon home-folder-icon-placeholder" style="background-color: ${stringToColor(name)}">${getInitials(name)}</span>`;
-  } else {
-    iconHtml = `<i data-icon="terminal" class="home-folder-icon home-folder-shell-icon"></i>`;
-  }
-
-  // SVG tab shape: flat top, smooth curve into 45° diagonal, smooth curve back to horizontal
   const tab = document.createElement('div');
   tab.className = 'home-folder-tab';
-  tab.innerHTML = `
-    <svg viewBox="0 0 234 28" width="234" height="28">
-      <path d="M 14 0.5 H 205.5 Q 219.5 0.5 219.5 14.5 L 219.5 13.5 Q 219.5 27.5 233.5 27.5 L 0.5 27.5 L 0.5 14 Q 0.5 0.5 14 0.5 Z"
-            fill="#252528"/>
-      <path d="M 0.5 27.5 L 0.5 14 Q 0.5 0.5 14 0.5 H 205.5 Q 219.5 0.5 219.5 14.5 L 219.5 13.5 Q 219.5 27.5 233.5 27.5"
-            fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
-    </svg>
+  tab.innerHTML = `${DIVIDER_TAB_SVG}
     <div class="home-folder-tab-content">
       ${iconHtml}
-      <span class="home-folder-name">${name}</span>
-    </div>
-  `;
+      <span class="home-folder-name">${escapeHtml(label)}</span>
+    </div>`;
   divider.appendChild(tab);
+  convertIconsIn(divider);
 
   return divider;
 }
 
-/**
- * Create a tag divider element — similar to folder divider but shows tag icon + tag name.
- */
+function createHomeFolderDivider(path: string, depth: number): HTMLElement {
+  const project = projectDataCache.get(path);
+  const name = project?.name || 'shell';
+
+  let iconHtml: string;
+  if (project?.iconDataUrl) {
+    iconHtml = `<img class="home-folder-icon" src="${project.iconDataUrl}" alt="${escapeHtml(name)}" draggable="false">`;
+  } else if (project) {
+    iconHtml = `<span class="home-folder-icon home-folder-icon-placeholder" style="background-color: ${stringToColor(name)}">${escapeHtml(getInitials(name))}</span>`;
+  } else {
+    iconHtml = `<i data-icon="terminal" class="home-folder-icon home-folder-shell-icon"></i>`;
+  }
+
+  return createHomeDivider(iconHtml, name, depth, { dividerProject: path });
+}
+
 function createHomeTagDivider(tagName: string, depth: number): HTMLElement {
-  const divider = document.createElement('div');
-  divider.className = 'project-card home-folder-divider';
-  divider.dataset.dividerTag = tagName;
-  applyDepthStyle(divider, depth);
-
-  const tab = document.createElement('div');
-  tab.className = 'home-folder-tab';
-  tab.innerHTML = `
-    <svg viewBox="0 0 234 28" width="234" height="28">
-      <path d="M 14 0.5 H 205.5 Q 219.5 0.5 219.5 14.5 L 219.5 13.5 Q 219.5 27.5 233.5 27.5 L 0.5 27.5 L 0.5 14 Q 0.5 0.5 14 0.5 Z"
-            fill="#252528"/>
-      <path d="M 0.5 27.5 L 0.5 14 Q 0.5 0.5 14 0.5 H 205.5 Q 219.5 0.5 219.5 14.5 L 219.5 13.5 Q 219.5 27.5 233.5 27.5"
-            fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
-    </svg>
-    <div class="home-folder-tab-content">
-      <i data-icon="tag" class="home-tag-icon"></i>
-      <span class="home-folder-name">${tagName}</span>
-    </div>
-  `;
-  divider.appendChild(tab);
-
-  return divider;
+  return createHomeDivider(
+    `<i data-icon="tag" class="home-tag-icon"></i>`,
+    tagName, depth, { dividerTag: tagName },
+  );
 }
 
 /** Remove all folder divider elements from the stack */
@@ -610,6 +595,9 @@ function closeHomeTerminal(index: number): void {
 
   const term = homeTerminals[index];
   const path = term.projectPath;
+
+  // Collapse tag input to clean up click-outside listener
+  collapseTagInput(term);
 
   // Kill PTY and clean up
   window.api.pty.kill(term.ptyId);

@@ -6,6 +6,7 @@ import type { Project } from '../types';
 import { stringToColor, getInitials } from '../utils/projectIcon';
 import { projectPath, homeViewActive, terminals } from './project/signals';
 import { projectSessions } from './project/state';
+import { showToast } from './importDialog';
 
 // Mutable project lookup - updated whenever sidebar is re-rendered
 let projectMap = new Map<string, Project>();
@@ -168,10 +169,8 @@ function showSidebarContextMenu(e: Event, project: Project): void {
     const result = await window.api.removeProject(project.path);
     if (result.success) {
       removeProjectFromSidebar(project.path);
-      const { showToast } = await import('./importDialog');
       showToast(`Removed project: ${project.name}`, 'success');
     } else {
-      const { showToast } = await import('./importDialog');
       showToast('Failed to remove project', 'error');
     }
   });
