@@ -856,14 +856,14 @@ body.home-mode .header-content {
 
 .home-header-tilde {
   @apply text-white/40;
-  width: 28px;
-  height: 28px;
+  width: 20px;
+  height: 20px;
   margin-left: 4px;
 }
 
 .home-header-tilde svg {
-  width: 28px;
-  height: 28px;
+  width: 20px;
+  height: 20px;
 }
 
 /* Home empty state */
