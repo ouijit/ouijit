@@ -10,6 +10,7 @@ import {
   ProjectTerminal,
   STACK_PAGE_SIZE,
   projectState,
+  projectSessions,
 } from './state';
 import { getTerminalGitPath, hideRunnerPanel, projectRegistry } from './helpers';
 import {
@@ -2469,25 +2470,20 @@ export async function reconnectTerminal(
   return projectTerminal;
 }
 
-// ── Tag autocomplete cache ───────────────────────────────────────────
+// ── Tag autocomplete from active sessions ────────────────────────────
 
-let tagCacheData: import('../../types').TagRow[] = [];
-let tagCacheTime = 0;
-const TAG_CACHE_TTL = 5000; // 5 seconds
-
-async function getCachedTags(): Promise<import('../../types').TagRow[]> {
-  const now = Date.now();
-  if (now - tagCacheTime < TAG_CACHE_TTL && tagCacheData.length > 0) {
-    return tagCacheData;
+/** Collect unique tags from all active terminal sessions */
+function getActiveSessionTags(): { name: string }[] {
+  const seen = new Map<string, string>(); // lowercase → original
+  for (const [, session] of projectSessions) {
+    for (const term of session.terminals) {
+      for (const tag of term.tags) {
+        const key = tag.toLowerCase();
+        if (!seen.has(key)) seen.set(key, tag);
+      }
+    }
   }
-  tagCacheData = await window.api.tags.getAll();
-  tagCacheTime = now;
-  return tagCacheData;
-}
-
-/** Invalidate tag cache (call after adding/removing tags) */
-function invalidateTagCache(): void {
-  tagCacheTime = 0;
+  return Array.from(seen.values()).map(name => ({ name }));
 }
 
 // ── Tag input ────────────────────────────────────────────────────────
@@ -2542,7 +2538,7 @@ function expandTagInput(term: ProjectTerminal): void {
       return;
     }
     try {
-      const allTags = await getCachedTags();
+      const allTags = getActiveSessionTags();
       const existing = new Set(term.tags.map(t => t.toLowerCase()));
       const matches = allTags
         .filter(t => t.name.toLowerCase().includes(value.toLowerCase()) && !existing.has(t.name.toLowerCase()))
@@ -2657,7 +2653,7 @@ async function addTag(term: ProjectTerminal, tagName: string, container: HTMLEle
     } catch { /* DB not ready or task gone — still set in-memory */ }
   }
   term.tags = [normalized];
-  invalidateTagCache();
+
 
   // Replace all chips with the new one
   container.querySelectorAll('.tag-chip').forEach(c => c.remove());
@@ -2678,7 +2674,7 @@ async function removeTag(term: ProjectTerminal, tagName: string, container: HTML
     } catch { /* DB not ready or task gone */ }
   }
   term.tags = term.tags.filter(t => t.toLowerCase() !== tagName.toLowerCase());
-  invalidateTagCache();
+
 
   // Remove the chip from DOM
   const chips = container.querySelectorAll('.tag-chip');
