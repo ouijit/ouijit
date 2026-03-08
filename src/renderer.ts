@@ -261,6 +261,12 @@ document.addEventListener('DOMContentLoaded', () => {
     trigger.addEventListener('mouseenter', showSidebar);
     sidebar.addEventListener('mouseenter', showSidebar);
     sidebar.addEventListener('mouseleave', hideSidebar);
+
+    // Back arrow button to reveal sidebar
+    const revealBtn = document.getElementById('sidebar-reveal-btn');
+    if (revealBtn) {
+      revealBtn.addEventListener('click', showSidebar);
+    }
   }
 
   initialize();

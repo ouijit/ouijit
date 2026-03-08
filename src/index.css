@@ -224,6 +224,29 @@ textarea,
   display: none;
 }
 
+/* Small back arrow hint when sidebar is collapsed — straddles header/content boundary */
+.sidebar-reveal-btn {
+  @apply absolute z-[101] flex items-center justify-center border-none bg-transparent text-white/20 transition-opacity duration-150 ease-out;
+  bottom: -12px;
+  left: 16px;
+  width: 24px;
+  height: 24px;
+  -webkit-app-region: no-drag;
+}
+
+.sidebar-reveal-btn:hover {
+  @apply text-white/50;
+}
+
+.sidebar-reveal-btn svg {
+  @apply w-4 h-4;
+}
+
+/* Hide when sidebar is visible */
+.sidebar--visible ~ .app-main .sidebar-reveal-btn {
+  @apply opacity-0 pointer-events-none;
+}
+
 .sidebar-drag-region {
   -webkit-app-region: drag;
   height: 16px;
