@@ -43,7 +43,6 @@ import splitHorizontal from '@phosphor-icons/core/assets/regular/split-horizonta
 import star from '@phosphor-icons/core/assets/regular/star.svg?raw';
 import tag from '@phosphor-icons/core/assets/regular/tag.svg?raw';
 import terminal from '@phosphor-icons/core/assets/regular/terminal.svg?raw';
-import tilde from '@phosphor-icons/core/assets/regular/tilde.svg?raw';
 import trash from '@phosphor-icons/core/assets/regular/trash.svg?raw';
 import upload from '@phosphor-icons/core/assets/regular/upload.svg?raw';
 import webhooksLogo from '@phosphor-icons/core/assets/regular/webhooks-logo.svg?raw';
@@ -92,7 +91,6 @@ const iconMap: Record<string, string> = {
   'star': star,
   'tag': tag,
   'terminal': terminal,
-  'tilde': tilde,
   'trash': trash,
   'upload': upload,
   'webhooks-logo': webhooksLogo,

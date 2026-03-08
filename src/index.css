@@ -356,8 +356,7 @@ body.platform-darwin:not(.is-fullscreen) .sidebar-drag-region {
 }
 
 .sidebar-home .sidebar-icon {
-  background-color: var(--color-background-secondary);
-  transition: background-color 150ms ease-out;
+  background-color: transparent;
 }
 
 
@@ -377,7 +376,7 @@ body.platform-darwin:not(.is-fullscreen) .sidebar-drag-region {
 }
 
 .sidebar-home--active .sidebar-home-logo {
-  background-color: white;
+  background-color: var(--color-accent);
 }
 
 .sidebar-home .sidebar-pill {
@@ -747,16 +746,8 @@ body.home-mode .header-content {
   justify-content: flex-start;
 }
 
-.home-header-tilde {
-  @apply text-white/40;
-  width: 20px;
-  height: 20px;
-  margin-left: 4px;
-}
-
-.home-header-tilde svg {
-  width: 20px;
-  height: 20px;
+.home-header-label {
+  @apply text-sm font-semibold text-text-secondary tracking-tight;
 }
 
 /* Home empty state */

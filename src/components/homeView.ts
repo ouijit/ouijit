@@ -82,7 +82,7 @@ export async function enterHomeView(): Promise<void> {
   const headerContent = document.querySelector('.header-content');
   if (headerContent) {
     headerContent.innerHTML = `<div class="project-header-content">
-      <i data-icon="tilde" class="home-header-tilde"></i>
+      <span class="home-header-label">Sessions</span>
       <div style="flex: 1;"></div>
       <div class="project-view-toggle">
         <button class="project-view-toggle-btn${homeGroupMode === 'project' ? ' project-view-toggle-btn--active' : ''}" data-mode="project" title="Group by project">
