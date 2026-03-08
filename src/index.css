@@ -403,6 +403,37 @@ body.platform-darwin:not(.is-fullscreen) .sidebar-drag-region {
   flex-shrink: 0;
 }
 
+/* ===================================
+   Tooltips (positioned by Floating UI)
+   =================================== */
+
+.tooltip {
+  @apply fixed z-[9999] px-3 py-1.5 font-medium text-text-primary rounded-md pointer-events-none;
+  font-size: 13px;
+  width: max-content;
+  top: 0;
+  left: 0;
+  background: rgba(50, 50, 54, 0.95);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4), 0 1px 4px rgba(0, 0, 0, 0.3);
+  opacity: 0;
+  transform: scale(0.92);
+  animation: none;
+}
+
+.tooltip--visible {
+  opacity: 1;
+  animation: tooltip-pop 80ms ease-out forwards;
+}
+
+@keyframes tooltip-pop {
+  0%   { transform: scale(0.92); opacity: 0; }
+  60%  { transform: scale(1.05); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
 
 /* ===================================
    Header - App Region Drag

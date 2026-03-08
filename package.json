@@ -53,6 +53,7 @@
     "vitest": "^4.0.18"
   },
   "dependencies": {
+    "@floating-ui/dom": "^1.7.6",
     "@phosphor-icons/core": "^2.1.1",
     "@preact/signals-core": "^1.12.1",
     "@xterm/addon-fit": "^0.11.0",

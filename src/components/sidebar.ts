@@ -4,12 +4,16 @@
 
 import type { Project } from '../types';
 import { stringToColor, getInitials } from '../utils/projectIcon';
+import { addTooltip } from '../utils/tooltip';
 import { projectPath, homeViewActive, terminals } from './project/signals';
 import { projectSessions } from './project/state';
 import { showToast } from './importDialog';
 
 // Mutable project lookup - updated whenever sidebar is re-rendered
 let projectMap = new Map<string, Project>();
+
+// Tooltip cleanup functions keyed by project path
+const tooltipCleanups = new Map<string, () => void>();
 
 /** Render all project icons into the sidebar container */
 export function renderSidebar(
@@ -40,7 +44,6 @@ function createSidebarIcon(project: Project): HTMLElement {
   const wrapper = document.createElement('div');
   wrapper.className = 'sidebar-item';
   wrapper.dataset.projectPath = project.path;
-  wrapper.title = project.name;
 
   // Active indicator pill (left edge)
   const pill = document.createElement('div');
@@ -49,6 +52,10 @@ function createSidebarIcon(project: Project): HTMLElement {
 
   const icon = document.createElement('div');
   icon.className = 'sidebar-icon';
+
+  // Attach tooltip to the icon element so it anchors to the visual
+  tooltipCleanups.get(project.path)?.();
+  tooltipCleanups.set(project.path, addTooltip(icon, { text: project.name }));
 
   if (project.iconDataUrl) {
     const img = document.createElement('img');
@@ -120,6 +127,8 @@ export function removeProjectFromSidebar(path: string): void {
   const item = container.querySelector(`[data-project-path="${CSS.escape(path)}"]`);
   if (item) item.remove();
   projectMap.delete(path);
+  tooltipCleanups.get(path)?.();
+  tooltipCleanups.delete(path);
 }
 
 /**

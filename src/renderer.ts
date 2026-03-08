@@ -17,6 +17,7 @@ import { projectSessions } from './components/project/state';
 import { renderSidebar, wireSidebarClicks, updateSidebarActiveState } from './components/sidebar';
 import { enterHomeView, exitHomeView } from './components/homeView';
 import { notifyReady, readyBody } from './utils/notifications';
+import { addTooltip } from './utils/tooltip';
 
 const rendererLog = log.scope('renderer');
 
@@ -306,6 +307,8 @@ document.addEventListener('DOMContentLoaded', () => {
   // Set up sidebar home button
   const homeBtn = document.getElementById('sidebar-home-btn');
   if (homeBtn) {
+    const homeIcon = homeBtn.querySelector('.sidebar-icon') as HTMLElement;
+    if (homeIcon) addTooltip(homeIcon, { text: 'Sessions' });
     homeBtn.addEventListener('click', () => {
       handleHomeSelect();
     });
