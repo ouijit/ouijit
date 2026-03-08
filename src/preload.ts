@@ -132,6 +132,7 @@ contextBridge.exposeInMainWorld('api', {
 
   claudeHooks: {
     onStatus: (callback: (ptyId: string, status: string) => void) => typedListen('claude-hook-status', callback),
+    getStatus: (ptyId: string) => typedInvoke('hooks:get-status', ptyId),
   },
 
   globalSettings: {

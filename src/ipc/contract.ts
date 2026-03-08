@@ -104,6 +104,7 @@ export interface IpcInvokeContract {
 
   // ── Hooks ────────────────────────────────────────────────────────────
   'hooks:get':                    { args: [projectPath: string];                                            return: ProjectHooks };
+  'hooks:get-status':             { args: [ptyId: string];                                                  return: { status: string; thinkingCount: number } | null };
   'hooks:save':                   { args: [projectPath: string, hook: ScriptHook];                          return: { success: boolean } };
   'hooks:delete':                 { args: [projectPath: string, hookType: HookType];                        return: { success: boolean } };
 

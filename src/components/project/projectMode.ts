@@ -187,6 +187,15 @@ export async function enterProjectMode(
         });
       }
 
+      // Seed hook status from main process (may have changed while viewing another project)
+      for (const term of terminals.value) {
+        const hookStatus = await window.api.claudeHooks.getStatus(term.ptyId);
+        if (hookStatus) {
+          term.summaryType = hookStatus.status === 'thinking' ? 'thinking' : 'ready';
+          updateTerminalCardLabel(term);
+        }
+      }
+
       // Focus the active terminal (effect will handle this too, but ensure immediate focus)
       const currentTerminals = terminals.value;
       const currentActiveIndex = activeIndex.value;
@@ -650,9 +659,14 @@ async function reconnectProjectTerminal(session: ActiveSession, worktreeBranch?:
   const stack = document.querySelector('.project-stack');
   if (!stack) return;
 
+  // Query main-process hook status for correct initial state
+  const hookStatus = await window.api.claudeHooks.getStatus(session.ptyId);
+  const initialStatus = hookStatus?.status === 'thinking' ? 'thinking' as const : 'ready' as const;
+
   const projectTerminal = await reconnectTerminal(session, stack as HTMLElement, {
     worktreeBranch,
     onData: (ptyId) => resetIdleTimer(ptyId),
+    initialStatus,
   });
 
   // Guard: project mode may have been exited during the async reconnect

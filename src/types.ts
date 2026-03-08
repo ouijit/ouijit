@@ -336,6 +336,7 @@ export interface ElectronAPI {
  */
 export interface ClaudeHooksAPI {
   onStatus(callback: (ptyId: PtyId, status: string) => void): () => void;
+  getStatus(ptyId: PtyId): Promise<{ status: string; thinkingCount: number } | null>;
 }
 
 /**

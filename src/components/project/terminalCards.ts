@@ -8,6 +8,7 @@ import { WebLinksAddon } from '@xterm/addon-web-links';
 import type { PtyId, PtySpawnOptions, RunConfig, WorktreeInfo, ActiveSession } from '../../types';
 import {
   ProjectTerminal,
+  SummaryType,
   STACK_PAGE_SIZE,
   projectState,
   projectSessions,
@@ -2363,7 +2364,7 @@ export function unregisterHookStatusListener(): void {
 export async function reconnectTerminal(
   session: ActiveSession,
   container: HTMLElement,
-  opts: { worktreeBranch?: string; onData?: (ptyId: PtyId, data: string) => void } = {},
+  opts: { worktreeBranch?: string; onData?: (ptyId: PtyId, data: string) => void; initialStatus?: SummaryType } = {},
 ): Promise<ProjectTerminal | null> {
   const terminal = new Terminal({
     cursorBlink: true,
@@ -2454,7 +2455,7 @@ export async function reconnectTerminal(
     cleanupExit: null,
     resizeObserver,
     summary: '',
-    summaryType: 'ready',
+    summaryType: opts.initialStatus ?? 'ready',
     lastOscTitle: '',
     sandboxed: !!session.sandboxed,
     taskId: session.taskId ?? null,

@@ -3,7 +3,7 @@ import * as pty from 'node-pty';
 import { BrowserWindow } from 'electron';
 import type { PtyId, PtySpawnOptions, PtySpawnResult } from './types';
 import { generateId } from './utils/ids';
-import { getApiPort, getWrapperBinDir, getShellIntegrationDir } from './hookServer';
+import { getApiPort, getWrapperBinDir, getShellIntegrationDir, clearHookStatus } from './hookServer';
 import log from './log';
 
 const ptyLog = log.scope('pty');
@@ -222,6 +222,7 @@ export async function spawnPty(
         currentWindow!.webContents.send(`pty:exit:${ptyId}`, exitCode);
       }
       activePtys.delete(ptyId);
+      clearHookStatus(ptyId);
     });
 
     return { success: true, ptyId };
@@ -317,6 +318,7 @@ export function killPty(ptyId: PtyId): void {
   }, SIGKILL_GRACE);
 
   activePtys.delete(ptyId);
+  clearHookStatus(ptyId);
 }
 
 export function cleanupAllPtys(): void {
