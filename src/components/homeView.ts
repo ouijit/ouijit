@@ -353,10 +353,10 @@ function createHomeFolderDivider(path: string, depth: number): HTMLElement {
   const tab = document.createElement('div');
   tab.className = 'home-folder-tab';
   tab.innerHTML = `
-    <svg viewBox="0 0 234 26" width="234" height="26">
-      <path d="M 14 0.5 H 205.5 Q 219.5 0.5 219.5 14.5 L 219.5 11.5 Q 219.5 25.5 233.5 25.5 L 0.5 25.5 L 0.5 14 Q 0.5 0.5 14 0.5 Z"
+    <svg viewBox="0 0 234 28" width="234" height="28">
+      <path d="M 14 0.5 H 205.5 Q 219.5 0.5 219.5 14.5 L 219.5 13.5 Q 219.5 27.5 233.5 27.5 L 0.5 27.5 L 0.5 14 Q 0.5 0.5 14 0.5 Z"
             fill="#252528"/>
-      <path d="M 0.5 25.5 L 0.5 14 Q 0.5 0.5 14 0.5 H 205.5 Q 219.5 0.5 219.5 14.5 L 219.5 11.5 Q 219.5 25.5 233.5 25.5"
+      <path d="M 0.5 27.5 L 0.5 14 Q 0.5 0.5 14 0.5 H 205.5 Q 219.5 0.5 219.5 14.5 L 219.5 13.5 Q 219.5 27.5 233.5 27.5"
             fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
     </svg>
     <div class="home-folder-tab-content">

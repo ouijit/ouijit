@@ -291,7 +291,7 @@ body.platform-darwin:not(.is-fullscreen) .sidebar-drag-region {
 }
 
 .sidebar-action-btn {
-  @apply w-10 h-10 flex items-center justify-center rounded-md bg-background-secondary border border-border/50 text-text-secondary transition-colors duration-200 ease-out;
+  @apply w-10 h-10 flex items-center justify-center rounded-md bg-background-secondary border border-border/50 text-text-secondary transition-colors duration-200 ease-out mt-2;
   -webkit-app-region: no-drag;
 }
 
@@ -880,7 +880,8 @@ body.home-mode .home-folder-divider.project-card {
   top: 0;
   left: 0;
   width: 234px;
-  height: 26px;
+  height: 28px;
+  pointer-events: auto;
 }
 
 .home-folder-tab svg {
