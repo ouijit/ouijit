@@ -341,9 +341,6 @@ function createHomeFolderDivider(path: string, depth: number): HTMLElement {
   const divider = document.createElement('div');
   divider.className = `project-card home-folder-divider project-card--back-${depth}`;
 
-  const label = document.createElement('div');
-  label.className = 'project-card-label';
-
   // Build mini icon matching sidebar style
   let iconHtml: string;
   if (project?.iconDataUrl) {
@@ -352,15 +349,22 @@ function createHomeFolderDivider(path: string, depth: number): HTMLElement {
     iconHtml = `<span class="home-folder-icon home-folder-icon-placeholder" style="background-color: ${stringToColor(name)}">${getInitials(name)}</span>`;
   }
 
-  label.innerHTML = `
-    <div class="project-card-label-left">
-      <div class="project-card-label-top">
-        ${iconHtml}
-        <span class="home-folder-name">${name}</span>
-      </div>
+  // SVG tab shape: flat top, smooth curve into 45° diagonal, smooth curve back to horizontal
+  const tab = document.createElement('div');
+  tab.className = 'home-folder-tab';
+  tab.innerHTML = `
+    <svg viewBox="0 0 255 32" preserveAspectRatio="none">
+      <path d="M 8 0.5 H 210 C 218 0.5, 219 2.5, 222 5.5 L 244 27.5 C 246 29.5, 247 31.5, 252 31.5 L 0.5 31.5 L 0.5 8 Q 0.5 0.5 8 0.5 Z"
+            fill="#252528"/>
+      <path d="M 0.5 31.5 L 0.5 8 Q 0.5 0.5 8 0.5 H 210 C 218 0.5, 219 2.5, 222 5.5 L 244 27.5 C 246 29.5, 247 31.5, 252 31.5"
+            fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+    </svg>
+    <div class="home-folder-tab-content">
+      ${iconHtml}
+      <span class="home-folder-name">${name}</span>
     </div>
   `;
-  divider.appendChild(label);
+  divider.appendChild(tab);
 
   return divider;
 }
