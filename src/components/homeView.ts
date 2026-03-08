@@ -242,18 +242,25 @@ function updateHomeCardStack(): void {
     }
   });
 
-  // Build combined depth list: same-project terminals, then [divider + terminals] per other project
+  // Build combined depth list: each group's terminals followed by a divider tab behind them.
+  // This ensures the deepest item in the stack is always a divider.
   type StackItem = { type: 'terminal'; index: number } | { type: 'divider'; projectPath: string };
   const stackItems: StackItem[] = [];
 
-  for (const idx of sameProject) {
-    stackItems.push({ type: 'terminal', index: idx });
+  // Active project's extra terminals, then its divider as separator
+  if (sameProject.length > 0) {
+    for (const idx of sameProject) {
+      stackItems.push({ type: 'terminal', index: idx });
+    }
+    stackItems.push({ type: 'divider', projectPath: activeProject });
   }
+
+  // Each other project: terminals then divider
   for (const [path, indices] of otherProjectGroups) {
-    stackItems.push({ type: 'divider', projectPath: path });
     for (const idx of indices) {
       stackItems.push({ type: 'terminal', index: idx });
     }
+    stackItems.push({ type: 'divider', projectPath: path });
   }
 
   // Assign depth levels and track terminal depth order for shortcuts
