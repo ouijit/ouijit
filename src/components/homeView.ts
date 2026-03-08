@@ -45,6 +45,16 @@ let homeDividerElements: HTMLElement[] = [];
 // Used by selectByHomeStackPosition for consistent Cmd+N mapping
 let homeDepthOrder: number[] = [];
 
+// Grouping mode for home view: by project or by tag
+type HomeGroupMode = 'project' | 'tag';
+let homeGroupMode: HomeGroupMode = 'project';
+
+// Stack item union for depth ordering
+type StackItem =
+  | { type: 'terminal'; index: number }
+  | { type: 'project-divider'; projectPath: string }
+  | { type: 'tag-divider'; tagName: string };
+
 // Project data cache
 let projectDataCache = new Map<string, Project>();
 
@@ -66,10 +76,33 @@ export async function enterHomeView(): Promise<void> {
   homeViewActive.value = true;
   document.body.classList.add('home-mode');
 
-  // Set up home header
+  // Set up home header with grouping toggle
   const headerContent = document.querySelector('.header-content');
   if (headerContent) {
-    headerContent.innerHTML = `<div class="project-header-content"><span class="project-header-name" style="font-size: 14px; font-weight: 600; color: var(--color-text-secondary);">Home</span></div>`;
+    headerContent.innerHTML = `<div class="project-header-content">
+      <span class="project-header-name" style="font-size: 14px; font-weight: 600; color: var(--color-text-secondary);">Home</span>
+      <div class="home-group-toggle">
+        <button class="home-group-btn${homeGroupMode === 'project' ? ' home-group-btn--active' : ''}" data-mode="project" title="Group by project">
+          <i data-icon="folder-open"></i>
+        </button>
+        <button class="home-group-btn${homeGroupMode === 'tag' ? ' home-group-btn--active' : ''}" data-mode="tag" title="Group by tag">
+          <i data-icon="tag"></i>
+        </button>
+      </div>
+    </div>`;
+
+    // Wire toggle clicks
+    headerContent.querySelectorAll('.home-group-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const mode = (btn as HTMLElement).dataset.mode as HomeGroupMode;
+        if (mode === homeGroupMode) return;
+        homeGroupMode = mode;
+        headerContent.querySelectorAll('.home-group-btn').forEach(b =>
+          b.classList.toggle('home-group-btn--active', (b as HTMLElement).dataset.mode === mode)
+        );
+        updateHomeCardStack();
+      });
+    });
   }
 
   // Populate project data cache
@@ -218,7 +251,6 @@ function updateHomeCardStack(): void {
   if (homeTerminals.length === 0) return;
 
   const activeTerminal = homeTerminals[homeActiveIndex];
-  const activeProject = activeTerminal.projectPath;
 
   // Clear all positioning and dividers
   homeTerminals.forEach(term => stripStackClasses(term.container));
@@ -227,41 +259,10 @@ function updateHomeCardStack(): void {
   // Mark active
   activeTerminal.container.classList.add('project-card--active');
 
-  // Group non-active terminals by project
-  const sameProject: number[] = [];
-  const otherProjectGroups = new Map<string, number[]>();
-
-  homeTerminals.forEach((term, index) => {
-    if (index === homeActiveIndex) return;
-    if (term.projectPath === activeProject) {
-      sameProject.push(index);
-    } else {
-      const group = otherProjectGroups.get(term.projectPath) || [];
-      group.push(index);
-      otherProjectGroups.set(term.projectPath, group);
-    }
-  });
-
-  // Build combined depth list: each group's terminals followed by a divider tab behind them.
-  // This ensures the deepest item in the stack is always a divider.
-  type StackItem = { type: 'terminal'; index: number } | { type: 'divider'; projectPath: string };
-  const stackItems: StackItem[] = [];
-
-  // Active project's extra terminals, then its divider as separator
-  if (sameProject.length > 0) {
-    for (const idx of sameProject) {
-      stackItems.push({ type: 'terminal', index: idx });
-    }
-    stackItems.push({ type: 'divider', projectPath: activeProject });
-  }
-
-  // Each other project: terminals then divider
-  for (const [path, indices] of otherProjectGroups) {
-    for (const idx of indices) {
-      stackItems.push({ type: 'terminal', index: idx });
-    }
-    stackItems.push({ type: 'divider', projectPath: path });
-  }
+  // Build stack items based on grouping mode
+  const stackItems = homeGroupMode === 'tag'
+    ? buildTagGroupedStack(activeTerminal)
+    : buildProjectGroupedStack(activeTerminal);
 
   // Assign depth levels and track terminal depth order for shortcuts
   homeDepthOrder = [];
@@ -283,8 +284,12 @@ function updateHomeCardStack(): void {
     if (item.type === 'terminal') {
       homeTerminals[item.index].container.classList.add(`project-card--back-${depth}`);
       homeDepthOrder.push(item.index);
-    } else {
+    } else if (item.type === 'project-divider') {
       const divider = createHomeFolderDivider(item.projectPath, depth);
+      homeStack.appendChild(divider);
+      homeDividerElements.push(divider);
+    } else {
+      const divider = createHomeTagDivider(item.tagName, depth);
       homeStack.appendChild(divider);
       homeDividerElements.push(divider);
     }
@@ -330,6 +335,97 @@ function updateHomeCardStack(): void {
   });
 }
 
+/** Build stack items grouped by project (default mode) */
+function buildProjectGroupedStack(activeTerminal: ProjectTerminal): StackItem[] {
+  const activeProject = activeTerminal.projectPath;
+  const sameProject: number[] = [];
+  const otherProjectGroups = new Map<string, number[]>();
+
+  homeTerminals.forEach((term, index) => {
+    if (index === homeActiveIndex) return;
+    if (term.projectPath === activeProject) {
+      sameProject.push(index);
+    } else {
+      const group = otherProjectGroups.get(term.projectPath) || [];
+      group.push(index);
+      otherProjectGroups.set(term.projectPath, group);
+    }
+  });
+
+  const items: StackItem[] = [];
+
+  if (sameProject.length > 0) {
+    for (const idx of sameProject) {
+      items.push({ type: 'terminal', index: idx });
+    }
+    items.push({ type: 'project-divider', projectPath: activeProject });
+  }
+
+  for (const [path, indices] of otherProjectGroups) {
+    for (const idx of indices) {
+      items.push({ type: 'terminal', index: idx });
+    }
+    items.push({ type: 'project-divider', projectPath: path });
+  }
+
+  return items;
+}
+
+/** Build stack items grouped by tag */
+function buildTagGroupedStack(activeTerminal: ProjectTerminal): StackItem[] {
+  const activeTag = activeTerminal.tags.length > 0 ? activeTerminal.tags[0].toLowerCase() : null;
+
+  const sameGroup: number[] = [];
+  const tagGroups = new Map<string, { displayName: string; indices: number[] }>();
+  const untagged: number[] = [];
+
+  homeTerminals.forEach((term, index) => {
+    if (index === homeActiveIndex) return;
+    const firstTag = term.tags.length > 0 ? term.tags[0] : null;
+    const firstTagLower = firstTag?.toLowerCase() ?? null;
+
+    if (firstTagLower === activeTag) {
+      sameGroup.push(index);
+    } else if (firstTag === null) {
+      untagged.push(index);
+    } else {
+      let group = tagGroups.get(firstTagLower!);
+      if (!group) {
+        group = { displayName: firstTag!, indices: [] };
+        tagGroups.set(firstTagLower!, group);
+      }
+      group.indices.push(index);
+    }
+  });
+
+  const items: StackItem[] = [];
+
+  // Active group's extra terminals + divider
+  if (sameGroup.length > 0) {
+    for (const idx of sameGroup) {
+      items.push({ type: 'terminal', index: idx });
+    }
+    if (activeTag) {
+      items.push({ type: 'tag-divider', tagName: activeTerminal.tags[0] });
+    }
+  }
+
+  // Other tag groups
+  for (const [, group] of tagGroups) {
+    for (const idx of group.indices) {
+      items.push({ type: 'terminal', index: idx });
+    }
+    items.push({ type: 'tag-divider', tagName: group.displayName });
+  }
+
+  // Untagged terminals at the back
+  for (const idx of untagged) {
+    items.push({ type: 'terminal', index: idx });
+  }
+
+  return items;
+}
+
 /**
  * Create a folder divider element — a card-like element with transparent body,
  * only the tab is visible (project name + color dot).
@@ -362,6 +458,32 @@ function createHomeFolderDivider(path: string, depth: number): HTMLElement {
     <div class="home-folder-tab-content">
       ${iconHtml}
       <span class="home-folder-name">${name}</span>
+    </div>
+  `;
+  divider.appendChild(tab);
+
+  return divider;
+}
+
+/**
+ * Create a tag divider element — similar to folder divider but shows tag icon + tag name.
+ */
+function createHomeTagDivider(tagName: string, depth: number): HTMLElement {
+  const divider = document.createElement('div');
+  divider.className = `project-card home-folder-divider project-card--back-${depth}`;
+
+  const tab = document.createElement('div');
+  tab.className = 'home-folder-tab';
+  tab.innerHTML = `
+    <svg viewBox="0 0 234 28" width="234" height="28">
+      <path d="M 14 0.5 H 205.5 Q 219.5 0.5 219.5 14.5 L 219.5 13.5 Q 219.5 27.5 233.5 27.5 L 0.5 27.5 L 0.5 14 Q 0.5 0.5 14 0.5 Z"
+            fill="#252528"/>
+      <path d="M 0.5 27.5 L 0.5 14 Q 0.5 0.5 14 0.5 H 205.5 Q 219.5 0.5 219.5 14.5 L 219.5 13.5 Q 219.5 27.5 233.5 27.5"
+            fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+    </svg>
+    <div class="home-folder-tab-content">
+      <i data-icon="tag" class="home-tag-icon"></i>
+      <span class="home-folder-name">${tagName}</span>
     </div>
   `;
   divider.appendChild(tab);

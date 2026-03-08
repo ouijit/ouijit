@@ -870,6 +870,28 @@ body.home-mode .header-content {
   @apply text-sm text-text-tertiary;
 }
 
+/* Home view grouping toggle */
+.home-group-toggle {
+  @apply inline-flex gap-0.5 bg-white/[0.06] rounded-md p-0.5 ml-2;
+  -webkit-app-region: no-drag;
+}
+
+.home-group-btn {
+  @apply flex items-center justify-center w-6 h-5 rounded border-none bg-transparent text-white/30;
+}
+
+.home-group-btn:hover {
+  @apply text-white/50;
+}
+
+.home-group-btn--active {
+  @apply bg-white/10 text-white/70;
+}
+
+.home-group-btn svg {
+  @apply w-3.5 h-3.5;
+}
+
 /* Home view folder dividers — card-like elements where only the tab label is visible */
 body.home-mode .home-folder-divider.project-card {
   background: transparent;
@@ -935,6 +957,14 @@ body.home-mode .home-folder-divider.project-card {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.home-tag-icon {
+  width: 14px;
+  height: 14px;
+  min-width: 14px;
+  color: rgba(255, 255, 255, 0.4);
+  flex-shrink: 0;
 }
 
 /* Project header content */
