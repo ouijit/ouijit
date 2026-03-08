@@ -221,6 +221,10 @@ export async function enterHomeView(): Promise<void> {
   // Register hook status listener
   registerHomeHookStatusListener();
 
+  // Seed hook status from main process so dots reflect current state
+  // (background terminals may have transitioned while viewing a project)
+  seedHomeHookStatus();
+
   updateSidebarActiveState();
 }
 
@@ -1016,6 +1020,27 @@ function showHomeEmptyState(): void {
   });
 
   homeStack.appendChild(el);
+}
+
+/**
+ * Seed hook status for all home terminals from main process.
+ * Catches up on transitions that happened while viewing a different project.
+ */
+async function seedHomeHookStatus(): Promise<void> {
+  const seeds = homeTerminals.map(async (term) => {
+    try {
+      const hookStatus = await window.api.claudeHooks.getStatus(term.ptyId);
+      if (!homeViewActive.value) return; // exited during async query
+      if (hookStatus) {
+        term.summaryType = hookStatus.status === 'thinking' ? 'thinking' : 'ready';
+        const dot = term.container.querySelector('.project-card-status-dot') as HTMLElement;
+        if (dot) dot.dataset.status = term.summaryType;
+      }
+    } catch {
+      // Ignore — terminal may have exited
+    }
+  });
+  await Promise.all(seeds);
 }
 
 /**

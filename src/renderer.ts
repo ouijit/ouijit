@@ -158,9 +158,12 @@ async function initialize(): Promise<void> {
 
 /**
  * Global hook status listener for background project notifications.
- * Registered once at startup, never unregistered. Fires notifyReady()
- * for terminals NOT in the active project (those are handled by the
- * project-mode listener with full deferral logic).
+ * Registered once at startup, never unregistered.
+ *
+ * Two responsibilities:
+ * 1. Keep `summaryType` in sync for background terminals so home view
+ *    always shows the correct status dot when entered.
+ * 2. Fire notifyReady() for terminals NOT in the active project.
  */
 function registerGlobalHookStatusListener(): void {
   window.api.claudeHooks.onStatus(async (ptyId, status) => {
@@ -170,7 +173,16 @@ function registerGlobalHookStatusListener(): void {
     // Skip if this ptyId belongs to the active project — project-mode listener handles those
     if (terminals.value.some(t => t.ptyId === ptyId)) return;
 
-    // Only interested in ready transitions
+    // Keep summaryType in sync for background terminals (all status transitions)
+    for (const [, session] of projectSessions) {
+      const term = session.terminals.find(t => t.ptyId === ptyId);
+      if (term) {
+        term.summaryType = status === 'thinking' ? 'thinking' : 'ready';
+        break;
+      }
+    }
+
+    // Only fire notifications for ready transitions
     if (status !== 'ready') return;
 
     // Confirm Claude was actually working (thinkingCount > 0, not a plain shell)
