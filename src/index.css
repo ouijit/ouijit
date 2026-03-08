@@ -384,22 +384,6 @@ body.platform-darwin:not(.is-fullscreen) .sidebar-drag-region {
   flex-shrink: 0;
 }
 
-/* Welcome state (no project selected) */
-.welcome-state {
-  @apply flex flex-col items-center justify-center text-center h-full;
-}
-
-.welcome-state-icon {
-  @apply w-12 h-12 text-text-tertiary mb-4;
-}
-
-.welcome-state-title {
-  @apply text-xl font-semibold text-text-secondary mb-1;
-}
-
-.welcome-state-description {
-  @apply text-sm text-text-tertiary;
-}
 
 /* ===================================
    Header - App Region Drag
@@ -847,17 +831,11 @@ body.project-mode .main-content {
   padding: 0;
 }
 
-body.project-mode #welcome-state {
-  display: none;
-}
 
 /* ===================================
    Home view: cross-project terminals
    =================================== */
 
-body.home-mode #welcome-state {
-  display: none;
-}
 
 body.home-mode .main-content {
   padding: 0;
@@ -874,6 +852,18 @@ body.home-mode .header-content {
   padding-right: 0;
   padding-bottom: 8px;
   justify-content: flex-start;
+}
+
+.home-header-tilde {
+  @apply text-white/40;
+  width: 28px;
+  height: 28px;
+  margin-left: 4px;
+}
+
+.home-header-tilde svg {
+  width: 28px;
+  height: 28px;
 }
 
 /* Home empty state */
@@ -932,6 +922,15 @@ body.home-mode .home-folder-divider.project-card {
   font-weight: 700;
   color: white;
   text-shadow: 0 1px 1px rgba(0, 0, 0, 0.2);
+}
+
+.home-folder-shell-icon {
+  @apply text-white/50;
+}
+
+.home-folder-shell-icon svg {
+  width: 16px;
+  height: 16px;
 }
 
 .home-folder-name {

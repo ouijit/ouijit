@@ -80,6 +80,7 @@ export async function enterHomeView(): Promise<void> {
   const headerContent = document.querySelector('.header-content');
   if (headerContent) {
     headerContent.innerHTML = `<div class="project-header-content">
+      <i data-icon="tilde" class="home-header-tilde"></i>
       <div style="flex: 1;"></div>
       <div class="project-view-toggle">
         <button class="project-view-toggle-btn${homeGroupMode === 'project' ? ' project-view-toggle-btn--active' : ''}" data-mode="project" title="Group by project">
@@ -369,12 +370,11 @@ function buildProjectGroupedStack(activeTerminal: ProjectTerminal): StackItem[] 
 
   const items: StackItem[] = [];
 
-  if (sameProject.length > 0) {
-    for (const idx of sameProject) {
-      items.push({ type: 'terminal', index: idx });
-    }
-    items.push({ type: 'project-divider', projectPath: activeProject });
+  // Active group — always emit divider even if only the active terminal is in it
+  for (const idx of sameProject) {
+    items.push({ type: 'terminal', index: idx });
   }
+  items.push({ type: 'project-divider', projectPath: activeProject });
 
   for (const [path, indices] of otherProjectGroups) {
     for (const idx of indices) {
@@ -460,19 +460,21 @@ function buildTagGroupedStack(activeTerminal: ProjectTerminal): StackItem[] {
  */
 function createHomeFolderDivider(path: string, depth: number): HTMLElement {
   const project = projectDataCache.get(path);
-  const name = project?.name || path.split('/').pop() || path;
+  const name = project?.name || 'shell';
 
   const divider = document.createElement('div');
   divider.className = 'project-card home-folder-divider';
   divider.dataset.dividerProject = path;
   applyDepthStyle(divider, depth);
 
-  // Build mini icon matching sidebar style
+  // Build mini icon matching sidebar style — use tilde icon for non-project shells
   let iconHtml: string;
   if (project?.iconDataUrl) {
     iconHtml = `<img class="home-folder-icon" src="${project.iconDataUrl}" alt="${name}" draggable="false">`;
-  } else {
+  } else if (project) {
     iconHtml = `<span class="home-folder-icon home-folder-icon-placeholder" style="background-color: ${stringToColor(name)}">${getInitials(name)}</span>`;
+  } else {
+    iconHtml = `<i data-icon="terminal" class="home-folder-icon home-folder-shell-icon"></i>`;
   }
 
   // SVG tab shape: flat top, smooth curve into 45° diagonal, smooth curve back to horizontal

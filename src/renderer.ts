@@ -143,6 +143,9 @@ async function initialize(): Promise<void> {
   } catch (error) {
     rendererLog.error('failed to load projects', { error: error instanceof Error ? error.message : String(error) });
   }
+
+  // Default to home view
+  enterHomeView();
 }
 
 /**
