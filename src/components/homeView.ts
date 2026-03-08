@@ -12,13 +12,13 @@ import {
   projectSessions,
   orphanedSessions,
   ensureHiddenSessionsContainer,
-  STACK_PAGE_SIZE,
   type ProjectTerminal,
 } from './project/state';
 import { homeViewActive, projectPath } from './project/signals';
 import { exitProjectMode } from './project/projectMode';
 import { getTerminalTheme, setupTerminalAppHotkeys, updateTerminalCardLabel, createProjectCard, debouncedResize, reconnectTerminal } from './project/terminalCards';
 import { convertIconsIn } from '../utils/icons';
+import { stringToColor } from '../utils/projectIcon';
 import { Scopes, pushScope, popScope, registerHotkey, unregisterHotkey, platformHotkey } from '../utils/hotkeys';
 import { showToast } from './importDialog';
 import { updateSidebarActiveState } from './sidebar';
@@ -38,8 +38,18 @@ let hookStatusCleanup: (() => void) | null = null;
 // Track home view stack element
 let homeStack: HTMLElement | null = null;
 
+// Folder divider elements (one per non-active project group)
+let homeDividerElements: HTMLElement[] = [];
+
+// Depth-ordered terminal indices (rebuilt each updateHomeCardStack call)
+// Used by selectByHomeStackPosition for consistent Cmd+N mapping
+let homeDepthOrder: number[] = [];
+
 // Project data cache
 let projectDataCache = new Map<string, Project>();
+
+// Max back-card depth levels in home view (extended beyond project mode's 4)
+const HOME_MAX_DEPTH = 8;
 
 /**
  * Enter the home view, showing all terminals in a single card stack
@@ -174,10 +184,12 @@ export function exitHomeView(): void {
   }
 
   // Clean up
+  clearHomeDividers();
   homeStack?.remove();
   homeStack = null;
   homeTerminals = [];
   homeActiveIndex = 0;
+  homeDepthOrder = [];
 
   document.body.classList.remove('home-mode');
   homeViewActive.value = false;
@@ -197,56 +209,106 @@ export function exitHomeView(): void {
 }
 
 /**
- * Update the card stack visual positions (mirrors updateCardStack from terminalCards.ts)
+ * Update the home card stack with project-grouped depth ordering.
+ * Active project's terminals are closest, then other projects each preceded by a folder divider.
+ * Dividers are full card-like elements that consume a depth slot (transparent body, only tab visible).
  */
 function updateHomeCardStack(): void {
   if (!homeStack) return;
+  if (homeTerminals.length === 0) return;
 
-  const page = Math.floor(homeActiveIndex / STACK_PAGE_SIZE);
-  const pageStart = page * STACK_PAGE_SIZE;
-  const pageEnd = Math.min(pageStart + STACK_PAGE_SIZE, homeTerminals.length);
-  const pageSize = pageEnd - pageStart;
+  const activeTerminal = homeTerminals[homeActiveIndex];
+  const activeProject = activeTerminal.projectPath;
 
-  const backCardCount = Math.max(Math.min(pageSize - 1, 4), 0);
-  const tabSpace = backCardCount * 24;
-  homeStack.style.top = `${82 + tabSpace}px`;
+  // Clear all positioning and dividers
+  homeTerminals.forEach(term => stripStackClasses(term.container));
+  clearHomeDividers();
 
-  const backPositions: { index: number; diff: number }[] = [];
+  // Mark active
+  activeTerminal.container.classList.add('project-card--active');
+
+  // Group non-active terminals by project
+  const sameProject: number[] = [];
+  const otherProjectGroups = new Map<string, number[]>();
 
   homeTerminals.forEach((term, index) => {
-    stripStackClasses(term.container);
-
-    if (index < pageStart || index >= pageEnd) {
-      term.container.classList.add('project-card--hidden');
-    } else if (index === homeActiveIndex) {
-      term.container.classList.add('project-card--active');
+    if (index === homeActiveIndex) return;
+    if (term.projectPath === activeProject) {
+      sameProject.push(index);
     } else {
-      const diff = index < homeActiveIndex
-        ? homeActiveIndex - index
-        : pageSize - (index - pageStart) + (homeActiveIndex - pageStart);
-      const backClass = `project-card--back-${Math.min(diff, 4)}`;
-      term.container.classList.add(backClass);
-      backPositions.push({ index, diff });
+      const group = otherProjectGroups.get(term.projectPath) || [];
+      group.push(index);
+      otherProjectGroups.set(term.projectPath, group);
     }
   });
 
-  // Sort by diff descending (highest diff = bottom of stack = ⌘1)
-  backPositions.sort((a, b) => b.diff - a.diff);
+  // Build combined depth list: same-project terminals, then [divider + terminals] per other project
+  type StackItem = { type: 'terminal'; index: number } | { type: 'divider'; projectPath: string };
+  const stackItems: StackItem[] = [];
 
-  // Assign shortcut labels on back card tabs
+  for (const idx of sameProject) {
+    stackItems.push({ type: 'terminal', index: idx });
+  }
+  for (const [path, indices] of otherProjectGroups) {
+    stackItems.push({ type: 'divider', projectPath: path });
+    for (const idx of indices) {
+      stackItems.push({ type: 'terminal', index: idx });
+    }
+  }
+
+  // Assign depth levels and track terminal depth order for shortcuts
+  homeDepthOrder = [];
+  let maxUsedDepth = 0;
+
+  for (let i = 0; i < stackItems.length; i++) {
+    const depth = i + 1;
+    const item = stackItems[i];
+
+    if (depth > HOME_MAX_DEPTH) {
+      if (item.type === 'terminal') {
+        homeTerminals[item.index].container.classList.add('project-card--hidden');
+      }
+      continue;
+    }
+
+    maxUsedDepth = depth;
+
+    if (item.type === 'terminal') {
+      homeTerminals[item.index].container.classList.add(`project-card--back-${depth}`);
+      homeDepthOrder.push(item.index);
+    } else {
+      const divider = createHomeFolderDivider(item.projectPath, depth);
+      homeStack.appendChild(divider);
+      homeDividerElements.push(divider);
+    }
+  }
+
+  // Hide terminals not in the depth ordering and not active
+  const visibleSet = new Set(homeDepthOrder);
+  homeTerminals.forEach((term, index) => {
+    if (index === homeActiveIndex || visibleSet.has(index)) return;
+    if (!term.container.classList.contains('project-card--hidden')) {
+      term.container.classList.add('project-card--hidden');
+    }
+  });
+
+  // Stack top offset
+  const tabSpace = maxUsedDepth * 24;
+  homeStack.style.top = `${82 + tabSpace}px`;
+
+  // Assign shortcut labels (⌘1 = deepest/topmost, descending toward active)
+  const shortcutOrder = [...homeDepthOrder].reverse();
+
   homeTerminals.forEach((term, index) => {
     const shortcutEl = term.container.querySelector('.project-card-shortcut') as HTMLElement;
     const runnerBtn = term.container.querySelector('.card-tab-run') as HTMLElement;
 
-    if (index < pageStart || index >= pageEnd) {
-      if (shortcutEl) shortcutEl.style.display = 'none';
-      if (runnerBtn) runnerBtn.style.display = 'none';
-    } else if (index === homeActiveIndex) {
+    if (index === homeActiveIndex) {
       if (shortcutEl) shortcutEl.style.display = 'none';
       if (runnerBtn) runnerBtn.style.display = '';
     } else {
+      const stackPosition = shortcutOrder.indexOf(index);
       if (shortcutEl) {
-        const stackPosition = backPositions.findIndex(bp => bp.index === index);
         if (stackPosition !== -1 && stackPosition < 9) {
           shortcutEl.innerHTML = isMac
             ? `⌘<span class="shortcut-number">${stackPosition + 1}</span>`
@@ -259,6 +321,38 @@ function updateHomeCardStack(): void {
       if (runnerBtn) runnerBtn.style.display = 'none';
     }
   });
+}
+
+/**
+ * Create a folder divider element — a card-like element with transparent body,
+ * only the tab is visible (project name + color dot).
+ */
+function createHomeFolderDivider(path: string, depth: number): HTMLElement {
+  const project = projectDataCache.get(path);
+  const name = project?.name || path.split('/').pop() || path;
+
+  const divider = document.createElement('div');
+  divider.className = `project-card home-folder-divider project-card--back-${depth}`;
+
+  const label = document.createElement('div');
+  label.className = 'project-card-label';
+  label.innerHTML = `
+    <div class="project-card-label-left">
+      <div class="project-card-label-top">
+        <span class="home-folder-dot" style="background: ${stringToColor(name)};"></span>
+        <span class="home-folder-name">${name}</span>
+      </div>
+    </div>
+  `;
+  divider.appendChild(label);
+
+  return divider;
+}
+
+/** Remove all folder divider elements from the stack */
+function clearHomeDividers(): void {
+  for (const el of homeDividerElements) el.remove();
+  homeDividerElements = [];
 }
 
 /**
@@ -294,30 +388,18 @@ function switchToHomeTerminal(index: number): void {
 }
 
 /**
- * Select terminal by stack position (1-indexed, like Cmd+1-9)
+ * Select terminal by stack position (1-indexed, like Cmd+1-9).
+ * Uses the project-grouped depth ordering (⌘1 = topmost/deepest).
  */
 function selectByHomeStackPosition(position: number): void {
-  if (homeTerminals.length === 0) return;
+  if (homeTerminals.length === 0 || homeDepthOrder.length === 0) return;
 
-  const page = Math.floor(homeActiveIndex / STACK_PAGE_SIZE);
-  const pageStart = page * STACK_PAGE_SIZE;
-  const pageEnd = Math.min(pageStart + STACK_PAGE_SIZE, homeTerminals.length);
-  const pageSize = pageEnd - pageStart;
-
-  const backPositions: { index: number; diff: number }[] = [];
-  for (let i = pageStart; i < pageEnd; i++) {
-    if (i !== homeActiveIndex) {
-      const diff = i < homeActiveIndex
-        ? homeActiveIndex - i
-        : pageSize - (i - pageStart) + (homeActiveIndex - pageStart);
-      backPositions.push({ index: i, diff });
-    }
-  }
-  backPositions.sort((a, b) => b.diff - a.diff);
+  // Visible terminals in shortcut order (deepest first)
+  const shortcutOrder = [...homeDepthOrder].reverse();
 
   const arrayIndex = position - 1;
-  if (arrayIndex >= 0 && arrayIndex < backPositions.length) {
-    switchToHomeTerminal(backPositions[arrayIndex].index);
+  if (arrayIndex >= 0 && arrayIndex < shortcutOrder.length) {
+    switchToHomeTerminal(shortcutOrder[arrayIndex]);
   }
 }
 
@@ -625,6 +707,10 @@ function stripStackClasses(card: HTMLElement): void {
     'project-card--back-2',
     'project-card--back-3',
     'project-card--back-4',
+    'project-card--back-5',
+    'project-card--back-6',
+    'project-card--back-7',
+    'project-card--back-8',
     'project-card--hidden',
   );
 }

@@ -863,6 +863,40 @@ body.home-mode .header-content {
   @apply text-sm text-text-tertiary;
 }
 
+/* Home view folder dividers — card-like elements where only the tab label is visible */
+body.home-mode .home-folder-divider.project-card {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  contain: unset;
+  pointer-events: none;
+}
+
+body.home-mode .home-folder-divider .project-card-label {
+  background: #252528;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: none;
+  border-radius: 10px 10px 0 0;
+}
+
+.home-folder-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.home-folder-name {
+  font-size: 10px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.45);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* Project header content */
 .project-header-content {
   @apply flex items-center gap-3 flex-1 px-4;
@@ -1240,11 +1274,40 @@ body.home-mode .header-content {
   contain: layout style paint;
 }
 
+/* Extended depth levels for home mode (back-5 through back-8) */
+body.home-mode .project-card--back-5 {
+  @apply z-[5] -translate-y-[120px] scale-x-[0.90];
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.05);
+  contain: layout style paint;
+}
+
+body.home-mode .project-card--back-6 {
+  @apply z-[4] -translate-y-[144px] scale-x-[0.88];
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.04);
+  contain: layout style paint;
+}
+
+body.home-mode .project-card--back-7 {
+  @apply z-[3] -translate-y-[168px] scale-x-[0.86];
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.03);
+  contain: layout style paint;
+}
+
+body.home-mode .project-card--back-8 {
+  @apply z-[2] -translate-y-[192px] scale-x-[0.84];
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.02);
+  contain: layout style paint;
+}
+
 /* Back card label positioning */
 .project-card--back-1 .project-card-label,
 .project-card--back-2 .project-card-label,
 .project-card--back-3 .project-card-label,
-.project-card--back-4 .project-card-label {
+.project-card--back-4 .project-card-label,
+.project-card--back-5 .project-card-label,
+.project-card--back-6 .project-card-label,
+.project-card--back-7 .project-card-label,
+.project-card--back-8 .project-card-label {
   @apply pt-0.5;
 }
 
@@ -1275,6 +1338,22 @@ body.home-mode .header-content {
 
 .project-card--back-4:hover {
   @apply -translate-y-[100px] scale-x-[0.92];
+}
+
+body.home-mode .project-card--back-5:hover {
+  @apply -translate-y-[124px] scale-x-[0.90];
+}
+
+body.home-mode .project-card--back-6:hover {
+  @apply -translate-y-[148px] scale-x-[0.88];
+}
+
+body.home-mode .project-card--back-7:hover {
+  @apply -translate-y-[172px] scale-x-[0.86];
+}
+
+body.home-mode .project-card--back-8:hover {
+  @apply -translate-y-[196px] scale-x-[0.84];
 }
 
 /* Card label */
@@ -1309,7 +1388,11 @@ body.home-mode .header-content {
 .project-card--back-1 .project-card-osc-title,
 .project-card--back-2 .project-card-osc-title,
 .project-card--back-3 .project-card-osc-title,
-.project-card--back-4 .project-card-osc-title {
+.project-card--back-4 .project-card-osc-title,
+.project-card--back-5 .project-card-osc-title,
+.project-card--back-6 .project-card-osc-title,
+.project-card--back-7 .project-card-osc-title,
+.project-card--back-8 .project-card-osc-title {
   @apply hidden;
 }
 
