@@ -1931,6 +1931,26 @@ body.home-mode .project-card--back-8:hover {
   @apply text-sm text-white/30;
 }
 
+.home-empty-hint {
+  @apply text-xs text-white/25 mt-4;
+}
+
+.home-empty-actions {
+  @apply flex gap-3 mt-3;
+}
+
+.home-empty-action {
+  @apply flex items-center gap-2 px-4 py-2 text-sm text-white/50 bg-white/5 border border-white/10 rounded-lg transition-colors duration-150;
+}
+
+.home-empty-action:hover {
+  @apply text-white/80 bg-white/10 border-white/20;
+}
+
+.home-empty-action svg {
+  @apply w-4 h-4;
+}
+
 .project-stack-empty-hints {
   @apply flex justify-center gap-6 mt-6;
 }

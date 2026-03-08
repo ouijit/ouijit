@@ -22,6 +22,7 @@ import { escapeHtml } from '../utils/html';
 import { stringToColor, getInitials } from '../utils/projectIcon';
 import { Scopes, pushScope, popScope, registerHotkey, unregisterHotkey, platformHotkey } from '../utils/hotkeys';
 import { showToast } from './importDialog';
+import { showNewProjectDialog } from './newProjectDialog';
 import { updateSidebarActiveState } from './sidebar';
 
 const homeLog = log.scope('homeView');
@@ -202,6 +203,14 @@ export async function enterHomeView(): Promise<void> {
       closeHomeTerminal(homeActiveIndex);
     }
   });
+  registerHotkey(platformHotkey('mod+i'), Scopes.HOME, async () => {
+    try {
+      const homePath = await window.api.homePath();
+      await addHomeTerminal(homePath);
+    } catch (err) {
+      homeLog.error('failed to open new terminal', { error: err instanceof Error ? err.message : String(err) });
+    }
+  });
   for (let i = 1; i <= 9; i++) {
     registerHotkey(platformHotkey(`mod+${i}`), Scopes.HOME, () => {
       selectByHomeStackPosition(i);
@@ -252,6 +261,7 @@ export function exitHomeView(): void {
 
   // Unregister hotkeys
   unregisterHotkey(platformHotkey('mod+w'), Scopes.HOME);
+  unregisterHotkey(platformHotkey('mod+i'), Scopes.HOME);
   for (let i = 1; i <= 9; i++) {
     unregisterHotkey(platformHotkey(`mod+${i}`), Scopes.HOME);
   }
@@ -954,10 +964,43 @@ function showHomeEmptyState(): void {
   el.className = 'project-stack-empty project-stack-empty--visible';
   el.innerHTML = `
     <div class="project-stack-empty-message">No active terminals</div>
-    <div class="project-stack-empty-hints">
-      <span class="project-stack-empty-hint">Select a project from the sidebar to get started</span>
+    ${projectDataCache.size > 0 ? '<div class="home-empty-hint">Select a project from the sidebar, or</div>' : ''}
+    <div class="home-empty-actions">
+      <button class="home-empty-action" data-action="add-existing">
+        <i data-icon="folder-open"></i>
+        <span>Add existing folder</span>
+      </button>
+      <button class="home-empty-action" data-action="create-new">
+        <i data-icon="plus"></i>
+        <span>Create new project</span>
+      </button>
     </div>
   `;
+  convertIconsIn(el);
+
+  el.querySelector('[data-action="add-existing"]')!.addEventListener('click', async () => {
+    const result = await window.api.showFolderPicker();
+    if (!result.canceled && result.filePaths.length > 0) {
+      const folderPath = result.filePaths[0];
+      const addResult = await window.api.addProject(folderPath);
+      if (addResult.success) {
+        await (window as any).refreshProjects();
+        const folderName = folderPath.split('/').pop() || folderPath;
+        showToast(`Added project: ${folderName}`, 'success');
+      } else {
+        showToast(addResult.error || 'Failed to add project', 'error');
+      }
+    }
+  });
+
+  el.querySelector('[data-action="create-new"]')!.addEventListener('click', async () => {
+    const result = await showNewProjectDialog();
+    if (result?.created) {
+      await (window as any).refreshProjects();
+      showToast(`Created project: ${result.projectName}`, 'success');
+    }
+  });
+
   homeStack.appendChild(el);
 }
 
