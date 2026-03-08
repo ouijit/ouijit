@@ -12,7 +12,7 @@ import type { Project, ActiveSession } from './types';
 import { showToast } from './components/importDialog';
 import { showNewProjectDialog } from './components/newProjectDialog';
 import { initHotkeys } from './utils/hotkeys';
-import { enterProjectMode, exitProjectMode, restoreProjectMode, orphanedSessions, homeViewActive } from './components/project';
+import { enterProjectMode, exitProjectMode, restoreProjectMode, orphanedSessions, homeViewActive, projectRegistry } from './components/project';
 import { renderSidebar, wireSidebarClicks, updateSidebarActiveState } from './components/sidebar';
 import { enterHomeView, exitHomeView } from './components/homeView';
 
@@ -43,9 +43,12 @@ async function refreshProjects(): Promise<void> {
  * Switch to a project from the sidebar
  */
 async function handleProjectSelect(path: string, project: Project): Promise<void> {
-  // If clicking the already-active project, do nothing
+  // If clicking the already-active project, toggle between kanban and terminals
   const { projectPath } = await import('./components/project');
-  if (projectPath.value === path) return;
+  if (projectPath.value === path) {
+    projectRegistry.toggleKanbanBoard?.();
+    return;
+  }
 
   // If in home view, exit it first (returns terminals to hidden containers)
   if (homeViewActive.value) {

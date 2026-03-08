@@ -279,15 +279,21 @@ body.platform-darwin:not(.is-fullscreen) .sidebar-drag-region {
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 
-/* Session indicator dot */
-.sidebar-item--has-session::after {
-  content: '';
-  @apply absolute rounded-full bg-success;
-  bottom: 2px;
-  right: 10px;
-  width: 8px;
-  height: 8px;
+/* Session count badge */
+.sidebar-session-badge {
+  @apply absolute text-white font-bold leading-none;
+  bottom: 0px;
+  right: 8px;
+  min-width: 16px;
+  height: 16px;
+  font-size: 10px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--color-accent);
   border: 2px solid var(--color-background);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .sidebar-action-btn {
