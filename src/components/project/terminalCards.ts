@@ -2588,23 +2588,24 @@ async function addTag(term: ProjectTerminal, tagName: string, container: HTMLEle
   const normalized = tagName.trim();
   if (!normalized) return;
 
-  // Check for duplicate (case-insensitive)
-  if (term.tags.some(t => t.toLowerCase() === normalized.toLowerCase())) {
+  // Same tag already — no-op
+  if (term.tags.length === 1 && term.tags[0].toLowerCase() === normalized.toLowerCase()) {
     input.value = '';
     const dropdown = container.querySelector('.tag-autocomplete-dropdown') as HTMLElement;
     if (dropdown) dropdown.style.display = 'none';
     return;
   }
 
-  // Persist for task terminals, in-memory only for non-task
+  // Single tag only — replace existing
   if (term.taskId != null) {
     try {
-      await window.api.tags.addToTask(term.projectPath, term.taskId, normalized);
-    } catch { /* DB not ready or task gone — still add in-memory */ }
+      await window.api.tags.setTaskTags(term.projectPath, term.taskId, [normalized]);
+    } catch { /* DB not ready or task gone — still set in-memory */ }
   }
-  term.tags = [...term.tags, normalized];
+  term.tags = [normalized];
 
-  // Add chip before input
+  // Replace all chips with the new one
+  container.querySelectorAll('.tag-chip').forEach(c => c.remove());
   const chip = createTagChip(normalized, term);
   container.insertBefore(chip, input);
 
