@@ -802,13 +802,28 @@ async function addHomeTerminal(path: string): Promise<void> {
     // Add to home list and session
     homeTerminals.push(projectTerminal);
 
-    // Add to the project session (create one if needed)
+    // Add to the project session (create one if needed for persistence across view switches)
     let session = projectSessions.get(path);
     if (session) {
       session.terminals.push(projectTerminal);
+    } else {
+      const hiddenContainer = ensureHiddenSessionsContainer();
+      const stackElement = document.createElement('div');
+      stackElement.className = 'project-stack';
+      hiddenContainer.appendChild(stackElement);
+      stackElement.appendChild(card);
+
+      projectSessions.set(path, {
+        terminals: [projectTerminal],
+        activeIndex: 0,
+        projectData: { name: 'shell', path, hasGit: false, hasClaude: false, lastModified: new Date() },
+        stackElement,
+        kanbanWasVisible: false,
+        diffPanelWasOpen: false,
+        diffSelectedFile: null,
+        diffFiles: [],
+      });
     }
-    // If no session exists, we can't properly create one without a stackElement.
-    // The terminal will still work in home view but won't transfer to project view.
 
     // Switch to the new terminal
     homeActiveIndex = homeTerminals.length - 1;
