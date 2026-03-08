@@ -12,8 +12,9 @@ import type { Project, ActiveSession } from './types';
 import { showToast } from './components/importDialog';
 import { showNewProjectDialog } from './components/newProjectDialog';
 import { initHotkeys } from './utils/hotkeys';
-import { enterProjectMode, exitProjectMode, restoreProjectMode, orphanedSessions } from './components/project';
+import { enterProjectMode, exitProjectMode, restoreProjectMode, orphanedSessions, homeViewActive } from './components/project';
 import { renderSidebar, wireSidebarClicks, updateSidebarActiveState } from './components/sidebar';
+import { enterHomeView, exitHomeView } from './components/homeView';
 
 const rendererLog = log.scope('renderer');
 
@@ -46,6 +47,11 @@ async function handleProjectSelect(path: string, project: Project): Promise<void
   const { projectPath } = await import('./components/project');
   if (projectPath.value === path) return;
 
+  // If in home view, exit it first (returns terminals to hidden containers)
+  if (homeViewActive.value) {
+    exitHomeView();
+  }
+
   // If another project is active, exit it first (preserves sessions)
   if (projectPath.value !== null) {
     exitProjectMode();
@@ -56,6 +62,16 @@ async function handleProjectSelect(path: string, project: Project): Promise<void
 
   // Update sidebar active indicator
   updateSidebarActiveState();
+}
+
+/**
+ * Switch to home view from the sidebar
+ */
+function handleHomeSelect(): void {
+  // If already in home view, do nothing
+  if (homeViewActive.value) return;
+
+  enterHomeView();
 }
 
 /**
@@ -202,6 +218,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Initialize automatic icon conversion
   initIcons();
+
+  // Set up sidebar home button
+  const homeBtn = document.getElementById('sidebar-home-btn');
+  if (homeBtn) {
+    homeBtn.addEventListener('click', () => {
+      handleHomeSelect();
+    });
+  }
+
+  // Listen for home-navigate-project events from home view
+  document.addEventListener('home-navigate-project', async (e) => {
+    const { path } = (e as CustomEvent).detail;
+    const project = allProjects.find(p => p.path === path);
+    if (project) {
+      await handleProjectSelect(path, project);
+    }
+  });
 
   // Set up sidebar add button (shows menu with add/new options)
   const addBtn = document.getElementById('sidebar-add-btn');

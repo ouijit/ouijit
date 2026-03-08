@@ -40,6 +40,7 @@ export {
   diffPanelSelectedFile,
   gitDropdownVisible,
   launchDropdownVisible,
+  homeViewActive,
   resetSignals,
 } from './signals';
 

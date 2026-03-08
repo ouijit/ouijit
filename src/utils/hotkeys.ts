@@ -27,6 +27,7 @@ export const Scopes = {
   PROJECT: 'project',
   KANBAN: 'kanban',
   MODAL: 'modal',
+  HOME: 'home',
   DROPDOWN: 'dropdown',
 } as const;
 

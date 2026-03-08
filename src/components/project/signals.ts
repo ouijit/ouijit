@@ -42,6 +42,9 @@ export const sandboxDropdownVisible = signal(false);
 // Kanban board visibility
 export const kanbanVisible = signal(false);
 
+// Home view state
+export const homeViewActive = signal(false);
+
 // Task list invalidation (effects watch this to auto-refresh views)
 const taskVersion = signal(0);
 export { taskVersion };
@@ -69,5 +72,6 @@ export function resetSignals(): void {
   launchDropdownVisible.value = false;
   sandboxDropdownVisible.value = false;
   kanbanVisible.value = false;
+  homeViewActive.value = false;
   taskVersion.value = 0;
 }

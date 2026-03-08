@@ -322,6 +322,38 @@ body.platform-darwin:not(.is-fullscreen) .sidebar-drag-region {
   @apply bg-background-tertiary;
 }
 
+/* Sidebar home icon */
+.sidebar-home {
+  @apply relative flex items-center justify-center shrink-0;
+  width: var(--sidebar-width);
+  height: 48px;
+  -webkit-app-region: no-drag;
+}
+
+.sidebar-home .sidebar-pill {
+  @apply absolute left-0 w-1 rounded-r-sm bg-white transition-all duration-200 ease-out;
+  height: 0;
+  opacity: 0;
+}
+
+.sidebar-home:hover .sidebar-pill {
+  height: 20px;
+  opacity: 0.5;
+}
+
+.sidebar-home--active .sidebar-pill {
+  height: 36px;
+  opacity: 1;
+}
+
+.sidebar-divider {
+  @apply mx-auto my-1;
+  width: 32px;
+  height: 1px;
+  background: var(--color-border);
+  flex-shrink: 0;
+}
+
 /* Welcome state (no project selected) */
 .welcome-state {
   @apply flex flex-col items-center justify-center text-center h-full;
@@ -787,6 +819,117 @@ body.project-mode .main-content {
 
 body.project-mode #welcome-state {
   display: none;
+}
+
+/* ===================================
+   Home view: cross-project terminals
+   =================================== */
+
+body.home-mode #welcome-state {
+  display: none;
+}
+
+body.home-mode .main-content {
+  padding: 0;
+}
+
+body.home-mode .header {
+  border-bottom: none;
+}
+
+.home-view {
+  @apply absolute inset-0 overflow-y-auto;
+  padding: 16px;
+  padding-top: 8px;
+}
+
+.home-group {
+  @apply mb-6;
+}
+
+.home-group-header {
+  @apply flex items-center gap-2 px-2 py-2 mb-2;
+}
+
+.home-group-icon {
+  @apply w-6 h-6 rounded overflow-hidden flex-shrink-0;
+}
+
+.home-group-icon-image {
+  @apply w-full h-full object-cover;
+}
+
+.home-group-icon-placeholder {
+  @apply w-full h-full flex items-center justify-center text-[10px] font-bold text-white rounded;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.2);
+}
+
+.home-group-name {
+  @apply text-sm font-medium text-text-primary flex-1 min-w-0 truncate;
+}
+
+.home-group-count {
+  @apply text-xs text-text-tertiary tabular-nums;
+}
+
+.home-group-actions {
+  @apply flex items-center gap-1 ml-auto;
+}
+
+.home-group-btn {
+  @apply w-6 h-6 flex items-center justify-center rounded text-text-tertiary bg-transparent border-none transition-colors duration-100;
+  -webkit-app-region: no-drag;
+}
+
+.home-group-btn:hover {
+  @apply text-text-primary bg-background-tertiary;
+}
+
+.home-group-btn svg {
+  @apply w-3.5 h-3.5;
+}
+
+.home-group-terminals {
+  @apply flex flex-col gap-2;
+}
+
+/* Override card styles inside home view: no fixed positioning, full width, visible */
+.home-view .project-card {
+  position: relative;
+  inset: auto;
+  width: 100%;
+  opacity: 1;
+  transform: none;
+  pointer-events: auto;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+}
+
+.home-view .project-card .project-card-body {
+  height: 300px;
+}
+
+.home-view .project-card .terminal-viewport {
+  @apply flex-1 min-h-0;
+}
+
+/* Home empty state */
+.home-empty {
+  @apply flex flex-col items-center justify-center text-center h-full;
+}
+
+.home-empty-icon {
+  @apply w-12 h-12 text-text-tertiary mb-4;
+}
+
+.home-empty-title {
+  @apply text-xl font-semibold text-text-secondary mb-1;
+}
+
+.home-empty-description {
+  @apply text-sm text-text-tertiary;
 }
 
 /* Project header content */

@@ -4,7 +4,7 @@
 
 import type { Project } from '../types';
 import { stringToColor, getInitials } from '../utils/projectIcon';
-import { projectPath } from './project';
+import { projectPath, homeViewActive } from './project';
 import { projectSessions } from './project/state';
 
 // Mutable project lookup - updated whenever sidebar is re-rendered
@@ -82,9 +82,17 @@ export function updateSidebarActiveState(): void {
   if (!container) return;
 
   const activePath = projectPath.value;
+  const isHome = homeViewActive.value;
+
+  // Update home icon active state
+  const homeBtn = document.getElementById('sidebar-home-btn');
+  if (homeBtn) {
+    homeBtn.classList.toggle('sidebar-home--active', isHome && activePath === null);
+  }
+
   for (const item of container.children) {
     const el = item as HTMLElement;
-    const isActive = el.dataset.projectPath === activePath;
+    const isActive = !isHome && el.dataset.projectPath === activePath;
     el.classList.toggle('sidebar-item--active', isActive);
 
     // Session indicator: show dot if project has a preserved session (and is not active)
