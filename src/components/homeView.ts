@@ -791,6 +791,8 @@ async function addHomeTerminal(path: string): Promise<void> {
     homeTerminals.push(projectTerminal);
 
     // Add to the project session (create one if needed for persistence across view switches)
+    // Note: don't move the card to stackElement here — it's already in homeStack.
+    // exitHomeView handles moving cards to their session stackElements.
     let session = projectSessions.get(path);
     if (session) {
       session.terminals.push(projectTerminal);
@@ -799,7 +801,6 @@ async function addHomeTerminal(path: string): Promise<void> {
       const stackElement = document.createElement('div');
       stackElement.className = 'project-stack';
       hiddenContainer.appendChild(stackElement);
-      stackElement.appendChild(card);
 
       projectSessions.set(path, {
         terminals: [projectTerminal],
