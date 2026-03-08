@@ -55,10 +55,10 @@ export async function enterHomeView(): Promise<void> {
   homeViewActive.value = true;
   document.body.classList.add('home-mode');
 
-  // Clear header
+  // Set up home header
   const headerContent = document.querySelector('.header-content');
   if (headerContent) {
-    headerContent.innerHTML = '';
+    headerContent.innerHTML = `<div class="project-header-content"><span class="project-header-name" style="font-size: 14px; font-weight: 600; color: var(--color-text-secondary);">Home</span></div>`;
   }
 
   // Create home view container
@@ -246,6 +246,8 @@ function createProjectGroup(path: string, project: Project, session: StoredProje
 
   // Extract cards from the stored stack element and append here
   for (const term of session.terminals) {
+    // Strip stack-specific classes so home view CSS overrides apply cleanly
+    stripStackClasses(term.container);
     terminalsEl.appendChild(term.container);
 
     // Reconnect resize observer
@@ -262,6 +264,21 @@ function createProjectGroup(path: string, project: Project, session: StoredProje
 
   group.appendChild(terminalsEl);
   return group;
+}
+
+/**
+ * Strip stack-specific positioning classes from a card element
+ * so home view CSS overrides apply cleanly
+ */
+function stripStackClasses(card: HTMLElement): void {
+  card.classList.remove(
+    'project-card--active',
+    'project-card--back-1',
+    'project-card--back-2',
+    'project-card--back-3',
+    'project-card--back-4',
+    'project-card--hidden',
+  );
 }
 
 /**

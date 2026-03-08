@@ -834,11 +834,20 @@ body.home-mode .main-content {
 }
 
 body.home-mode .header {
+  z-index: 10000;
   border-bottom: none;
 }
 
+body.home-mode .header-content {
+  max-width: none;
+  padding-left: 0;
+  padding-right: 0;
+  padding-bottom: 8px;
+  justify-content: flex-start;
+}
+
 .home-view {
-  @apply absolute inset-0 overflow-y-auto;
+  @apply flex-1 overflow-y-auto;
   padding: 16px;
   padding-top: 8px;
 }
@@ -893,26 +902,34 @@ body.home-mode .header {
   @apply flex flex-col gap-2;
 }
 
-/* Override card styles inside home view: no fixed positioning, full width, visible */
+/* Override card styles inside home view: match active card look, no stack positioning */
 .home-view .project-card {
-  position: relative;
-  inset: auto;
+  position: relative !important;
+  inset: auto !important;
+  display: flex !important;
   width: 100%;
-  opacity: 1;
-  transform: none;
+  height: 400px;
+  opacity: 1 !important;
+  transform: none !important;
+  scale: none !important;
+  translate: none !important;
   pointer-events: auto;
-  border-radius: 12px;
-  overflow: hidden;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
+  z-index: auto;
+  contain: unset;
+  @apply rounded-[14px] border border-white/10 overflow-hidden flex-col;
+  background: var(--color-terminal-bg, #171717);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.05), 0 4px 12px rgba(0, 0, 0, 0.15), 0 20px 40px rgba(0, 0, 0, 0.2);
 }
 
-.home-view .project-card .project-card-body {
-  height: 300px;
+/* Show all card details in home view (git branch, stats, run button) */
+.home-view .project-card .project-card-git-branch-row,
+.home-view .project-card .project-card-git-stats-wrapper,
+.home-view .project-card .card-tab-run {
+  display: flex !important;
 }
 
-.home-view .project-card .terminal-viewport {
-  @apply flex-1 min-h-0;
+.home-view .project-card .project-card-label {
+  padding-top: revert;
 }
 
 /* Home empty state */
