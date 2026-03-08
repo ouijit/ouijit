@@ -16,7 +16,7 @@ import {
 } from './project/state';
 import { homeViewActive, projectPath } from './project/signals';
 import { exitProjectMode } from './project/projectMode';
-import { getTerminalTheme, setupTerminalAppHotkeys, updateTerminalCardLabel, createProjectCard, debouncedResize, reconnectTerminal, collapseTagInput } from './project/terminalCards';
+import { getTerminalTheme, setupTerminalAppHotkeys, updateTerminalCardLabel, createProjectCard, debouncedResize, reconnectTerminal, collapseTagInput, setupCardActions } from './project/terminalCards';
 import { convertIconsIn } from '../utils/icons';
 import { stringToColor, getInitials } from '../utils/projectIcon';
 import { Scopes, pushScope, popScope, registerHotkey, unregisterHotkey, platformHotkey } from '../utils/hotkeys';
@@ -796,6 +796,9 @@ async function addHomeTerminal(path: string): Promise<void> {
       if (idx !== -1) closeHomeTerminal(idx);
     });
 
+    // Wire tag button and other card actions
+    setupCardActions(projectTerminal);
+
     // Add to home list and session
     homeTerminals.push(projectTerminal);
 
@@ -882,6 +885,9 @@ async function reconnectSingleTerminal(
     homeLog.error('failed to reconnect orphaned PTY', { ptyId: session.ptyId });
     return null;
   }
+
+  // Wire tag button and other card actions
+  setupCardActions(pt);
 
   // Wire home-view exit handler (display exit message instead of auto-close)
   pt.cleanupExit = window.api.pty.onExit(session.ptyId, (exitCode) => {
