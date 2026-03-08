@@ -1,6 +1,6 @@
 /**
  * Home view — cross-project terminal multiplexer
- * Shows all active terminals grouped by project
+ * Shows all active terminals in a single card stack, organized by project
  */
 
 import log from 'electron-log/renderer';
@@ -10,15 +10,13 @@ import { WebLinksAddon } from '@xterm/addon-web-links';
 import type { Project, PtyId, PtySpawnOptions } from '../types';
 import {
   projectSessions,
-  orphanedSessions,
   ensureHiddenSessionsContainer,
+  STACK_PAGE_SIZE,
   type ProjectTerminal,
-  type StoredProjectSession,
 } from './project/state';
 import { homeViewActive, projectPath } from './project/signals';
 import { exitProjectMode } from './project/projectMode';
 import { getTerminalTheme, setupTerminalAppHotkeys, updateTerminalCardLabel, createProjectCard } from './project/terminalCards';
-import { stringToColor, getInitials } from '../utils/projectIcon';
 import { convertIconsIn } from '../utils/icons';
 import { Scopes, pushScope, popScope, registerHotkey, unregisterHotkey, platformHotkey } from '../utils/hotkeys';
 import { showToast } from './importDialog';
@@ -26,26 +24,28 @@ import { updateSidebarActiveState } from './sidebar';
 
 const homeLog = log.scope('homeView');
 
-// Track which terminal is focused in home view
-let focusedTerminal: ProjectTerminal | null = null;
+// Platform detection for shortcut display
+const isMac = navigator.platform.toLowerCase().includes('mac');
+
+// Flat list of all terminals displayed in the home view stack
+let homeTerminals: ProjectTerminal[] = [];
+let homeActiveIndex = 0;
 
 // Hook status cleanup
 let hookStatusCleanup: (() => void) | null = null;
 
-// Track home view container
-let homeContainer: HTMLElement | null = null;
+// Track home view stack element
+let homeStack: HTMLElement | null = null;
 
-// Project data cache (populated from sidebar or API)
+// Project data cache
 let projectDataCache = new Map<string, Project>();
 
 /**
- * Enter the home view, showing all terminals across all projects
+ * Enter the home view, showing all terminals in a single card stack
  */
 export async function enterHomeView(): Promise<void> {
-  // Guard: already in home view
   if (homeViewActive.value) return;
 
-  // If in project mode, exit first (preserves sessions)
   if (projectPath.value !== null) {
     exitProjectMode();
   }
@@ -61,13 +61,6 @@ export async function enterHomeView(): Promise<void> {
     headerContent.innerHTML = `<div class="project-header-content"><span class="project-header-name" style="font-size: 14px; font-weight: 600; color: var(--color-text-secondary);">Home</span></div>`;
   }
 
-  // Create home view container
-  const mainContent = document.querySelector('.main-content');
-  if (!mainContent) return;
-
-  homeContainer = document.createElement('div');
-  homeContainer.className = 'home-view';
-
   // Populate project data cache
   try {
     const projects = await window.api.getProjects();
@@ -76,44 +69,65 @@ export async function enterHomeView(): Promise<void> {
     // Fall back to data from sessions
   }
 
-  // Render terminal groups from preserved sessions
-  let hasTerminals = false;
-  for (const [path, session] of projectSessions) {
-    if (session.terminals.length === 0) continue;
-    hasTerminals = true;
-    const project = projectDataCache.get(path) || session.projectData;
-    const group = createProjectGroup(path, project, session);
-    homeContainer.appendChild(group);
-  }
+  // Create the card stack (same as project mode)
+  const mainContent = document.querySelector('.main-content');
+  if (!mainContent) return;
 
-  if (!hasTerminals) {
-    homeContainer.appendChild(createEmptyState());
-  }
+  homeStack = document.createElement('div');
+  homeStack.className = 'project-stack';
+  mainContent.appendChild(homeStack);
 
-  mainContent.appendChild(homeContainer);
+  // Build flat terminal list from all sessions, grouped by project
+  homeTerminals = [];
+  for (const [, session] of projectSessions) {
+    for (const term of session.terminals) {
+      homeTerminals.push(term);
+      stripStackClasses(term.container);
+      homeStack.appendChild(term.container);
 
-  // Fit all terminals after they're in the DOM
-  requestAnimationFrame(() => {
-    for (const [, session] of projectSessions) {
-      for (const term of session.terminals) {
-        try {
-          term.fitAddon.fit();
-        } catch {
-          // Terminal may not be attached yet
+      // Reconnect resize observer
+      if (term.resizeObserver) {
+        const xtermContainer = term.container.querySelector('.terminal-xterm-container');
+        if (xtermContainer) {
+          term.resizeObserver.observe(xtermContainer);
         }
       }
     }
-  });
+  }
+
+  homeActiveIndex = 0;
+
+  if (homeTerminals.length === 0) {
+    showHomeEmptyState();
+  } else {
+    updateHomeCardStack();
+    // Fit the active terminal after layout
+    requestAnimationFrame(() => {
+      const active = homeTerminals[homeActiveIndex];
+      if (active) {
+        try { active.fitAddon.fit(); } catch { /* noop */ }
+        active.terminal.focus();
+      }
+    });
+  }
+
+  // Wire card click handlers for switching
+  wireHomeCardClicks();
 
   // Register hotkeys
   pushScope(Scopes.HOME);
   registerHotkey(platformHotkey('mod+w'), Scopes.HOME, () => {
-    if (focusedTerminal) {
-      closeHomeTerminal(focusedTerminal);
+    if (homeTerminals.length > 0) {
+      closeHomeTerminal(homeActiveIndex);
     }
   });
+  for (let i = 1; i <= 9; i++) {
+    registerHotkey(platformHotkey(`mod+${i}`), Scopes.HOME, () => {
+      selectByHomeStackPosition(i);
+    });
+  }
 
-  // Register hook status listener for all terminals in home view
+  // Register hook status listener
   registerHomeHookStatusListener();
 
   updateSidebarActiveState();
@@ -128,202 +142,246 @@ export function exitHomeView(): void {
   homeLog.info('exiting home view');
 
   // Return all terminal cards to their stored stack elements
-  for (const [path, session] of projectSessions) {
-    const group = homeContainer?.querySelector(`[data-project-path="${CSS.escape(path)}"]`);
-    if (!group) continue;
-
-    const terminalsContainer = group.querySelector('.home-group-terminals');
-    if (!terminalsContainer) continue;
-
-    // Move cards back to the stored stack element
-    const cards = terminalsContainer.querySelectorAll('.project-card');
-    for (const card of cards) {
-      session.stackElement.appendChild(card);
-    }
-
-    // Disconnect resize observers while hidden
+  for (const [, session] of projectSessions) {
     for (const term of session.terminals) {
+      stripStackClasses(term.container);
+      session.stackElement.appendChild(term.container);
       if (term.resizeObserver) {
         term.resizeObserver.disconnect();
       }
     }
-
-    // Move stack back to hidden container
     const hiddenContainer = ensureHiddenSessionsContainer();
     hiddenContainer.appendChild(session.stackElement);
   }
 
   // Clean up
-  homeContainer?.remove();
-  homeContainer = null;
-  focusedTerminal = null;
+  homeStack?.remove();
+  homeStack = null;
+  homeTerminals = [];
+  homeActiveIndex = 0;
 
   document.body.classList.remove('home-mode');
   homeViewActive.value = false;
 
+  // Clear header
+  const headerContent = document.querySelector('.header-content');
+  if (headerContent) headerContent.innerHTML = '';
+
   // Unregister hotkeys
   unregisterHotkey(platformHotkey('mod+w'), Scopes.HOME);
+  for (let i = 1; i <= 9; i++) {
+    unregisterHotkey(platformHotkey(`mod+${i}`), Scopes.HOME);
+  }
   popScope();
 
-  // Unregister hook status listener
   unregisterHomeHookStatusListener();
 }
 
 /**
- * Create a project group element with header and terminal cards
+ * Update the card stack visual positions (mirrors updateCardStack from terminalCards.ts)
  */
-function createProjectGroup(path: string, project: Project, session: StoredProjectSession): HTMLElement {
-  const group = document.createElement('div');
-  group.className = 'home-group';
-  group.dataset.projectPath = path;
+function updateHomeCardStack(): void {
+  if (!homeStack) return;
 
-  // Group header
-  const header = document.createElement('div');
-  header.className = 'home-group-header';
+  const page = Math.floor(homeActiveIndex / STACK_PAGE_SIZE);
+  const pageStart = page * STACK_PAGE_SIZE;
+  const pageEnd = Math.min(pageStart + STACK_PAGE_SIZE, homeTerminals.length);
+  const pageSize = pageEnd - pageStart;
 
-  // Project icon
-  const iconEl = document.createElement('div');
-  iconEl.className = 'home-group-icon';
-  if (project.iconDataUrl) {
-    const img = document.createElement('img');
-    img.src = project.iconDataUrl;
-    img.alt = project.name;
-    img.className = 'home-group-icon-image';
-    img.draggable = false;
-    iconEl.appendChild(img);
-  } else {
-    const placeholder = document.createElement('div');
-    placeholder.className = 'home-group-icon-placeholder';
-    placeholder.style.backgroundColor = stringToColor(project.name);
-    placeholder.textContent = getInitials(project.name);
-    iconEl.appendChild(placeholder);
-  }
-  header.appendChild(iconEl);
+  const backCardCount = Math.max(Math.min(pageSize - 1, 4), 0);
+  const tabSpace = backCardCount * 24;
+  homeStack.style.top = `${82 + tabSpace}px`;
 
-  // Project name
-  const nameEl = document.createElement('span');
-  nameEl.className = 'home-group-name';
-  nameEl.textContent = project.name;
-  header.appendChild(nameEl);
+  const backPositions: { index: number; diff: number }[] = [];
 
-  // Terminal count
-  const countEl = document.createElement('span');
-  countEl.className = 'home-group-count';
-  countEl.textContent = `${session.terminals.length}`;
-  header.appendChild(countEl);
-
-  // Action buttons
-  const actions = document.createElement('div');
-  actions.className = 'home-group-actions';
-
-  const addBtn = document.createElement('button');
-  addBtn.className = 'home-group-btn';
-  addBtn.title = 'New terminal';
-  addBtn.innerHTML = '<i data-icon="plus"></i>';
-  addBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    addHomeTerminal(path, project);
-  });
-  actions.appendChild(addBtn);
-
-  const navBtn = document.createElement('button');
-  navBtn.className = 'home-group-btn';
-  navBtn.title = 'Open project';
-  navBtn.innerHTML = '<i data-icon="arrow-right"></i>';
-  navBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    navigateToProject(path);
-  });
-  actions.appendChild(navBtn);
-
-  header.appendChild(actions);
-  convertIconsIn(header);
-  group.appendChild(header);
-
-  // Terminal cards container
-  const terminalsEl = document.createElement('div');
-  terminalsEl.className = 'home-group-terminals';
-
-  // Extract cards from the stored stack element and append here
-  for (const term of session.terminals) {
-    // Strip stack-specific classes so home view CSS overrides apply cleanly
+  homeTerminals.forEach((term, index) => {
     stripStackClasses(term.container);
-    terminalsEl.appendChild(term.container);
 
-    // Reconnect resize observer
-    if (term.resizeObserver) {
-      const xtermContainer = term.container.querySelector('.terminal-xterm-container');
-      if (xtermContainer) {
-        term.resizeObserver.observe(xtermContainer);
-      }
+    if (index < pageStart || index >= pageEnd) {
+      term.container.classList.add('project-card--hidden');
+    } else if (index === homeActiveIndex) {
+      term.container.classList.add('project-card--active');
+    } else {
+      const diff = index < homeActiveIndex
+        ? homeActiveIndex - index
+        : pageSize - (index - pageStart) + (homeActiveIndex - pageStart);
+      const backClass = `project-card--back-${Math.min(diff, 4)}`;
+      term.container.classList.add(backClass);
+      backPositions.push({ index, diff });
     }
+  });
 
-    // Wire click-to-focus
-    wireCardFocus(term);
+  // Sort by diff descending (highest diff = bottom of stack = ⌘1)
+  backPositions.sort((a, b) => b.diff - a.diff);
+
+  // Assign shortcut labels on back card tabs
+  homeTerminals.forEach((term, index) => {
+    const shortcutEl = term.container.querySelector('.project-card-shortcut') as HTMLElement;
+    const runnerBtn = term.container.querySelector('.card-tab-run') as HTMLElement;
+
+    if (index < pageStart || index >= pageEnd) {
+      if (shortcutEl) shortcutEl.style.display = 'none';
+      if (runnerBtn) runnerBtn.style.display = 'none';
+    } else if (index === homeActiveIndex) {
+      if (shortcutEl) shortcutEl.style.display = 'none';
+      if (runnerBtn) runnerBtn.style.display = '';
+    } else {
+      if (shortcutEl) {
+        const stackPosition = backPositions.findIndex(bp => bp.index === index);
+        if (stackPosition !== -1 && stackPosition < 9) {
+          shortcutEl.innerHTML = isMac
+            ? `⌘<span class="shortcut-number">${stackPosition + 1}</span>`
+            : `Ctrl+<span class="shortcut-number">${stackPosition + 1}</span>`;
+          shortcutEl.style.display = '';
+        } else {
+          shortcutEl.style.display = 'none';
+        }
+      }
+      if (runnerBtn) runnerBtn.style.display = 'none';
+    }
+  });
+}
+
+/**
+ * Wire click handlers on cards for switching in home view
+ */
+function wireHomeCardClicks(): void {
+  if (!homeStack) return;
+  homeStack.addEventListener('click', (e) => {
+    const card = (e.target as HTMLElement).closest('.project-card') as HTMLElement | null;
+    if (!card) return;
+
+    const index = homeTerminals.findIndex(t => t.container === card);
+    if (index !== -1 && index !== homeActiveIndex) {
+      switchToHomeTerminal(index);
+    }
+  });
+}
+
+/**
+ * Switch to a specific terminal in the home stack
+ */
+function switchToHomeTerminal(index: number): void {
+  if (index < 0 || index >= homeTerminals.length || index === homeActiveIndex) return;
+  homeActiveIndex = index;
+  updateHomeCardStack();
+  requestAnimationFrame(() => {
+    const term = homeTerminals[homeActiveIndex];
+    if (term) {
+      try { term.fitAddon.fit(); } catch { /* noop */ }
+      term.terminal.focus();
+    }
+  });
+}
+
+/**
+ * Select terminal by stack position (1-indexed, like Cmd+1-9)
+ */
+function selectByHomeStackPosition(position: number): void {
+  if (homeTerminals.length === 0) return;
+
+  const page = Math.floor(homeActiveIndex / STACK_PAGE_SIZE);
+  const pageStart = page * STACK_PAGE_SIZE;
+  const pageEnd = Math.min(pageStart + STACK_PAGE_SIZE, homeTerminals.length);
+  const pageSize = pageEnd - pageStart;
+
+  const backPositions: { index: number; diff: number }[] = [];
+  for (let i = pageStart; i < pageEnd; i++) {
+    if (i !== homeActiveIndex) {
+      const diff = i < homeActiveIndex
+        ? homeActiveIndex - i
+        : pageSize - (i - pageStart) + (homeActiveIndex - pageStart);
+      backPositions.push({ index: i, diff });
+    }
+  }
+  backPositions.sort((a, b) => b.diff - a.diff);
+
+  const arrayIndex = position - 1;
+  if (arrayIndex >= 0 && arrayIndex < backPositions.length) {
+    switchToHomeTerminal(backPositions[arrayIndex].index);
+  }
+}
+
+/**
+ * Close a terminal in the home view
+ */
+function closeHomeTerminal(index: number): void {
+  if (index < 0 || index >= homeTerminals.length) return;
+
+  const term = homeTerminals[index];
+  const path = term.projectPath;
+
+  // Kill PTY and clean up
+  window.api.pty.kill(term.ptyId);
+  if (term.cleanupData) term.cleanupData();
+  if (term.cleanupExit) term.cleanupExit();
+  if (term.resizeObserver) term.resizeObserver.disconnect();
+  term.terminal.dispose();
+
+  // Clean up runner if active
+  if (term.runnerPtyId) {
+    window.api.pty.kill(term.runnerPtyId);
+    if (term.runnerCleanupData) term.runnerCleanupData();
+    if (term.runnerCleanupExit) term.runnerCleanupExit();
+    if (term.runnerResizeObserver) term.runnerResizeObserver.disconnect();
+    if (term.runnerResizeCleanup) term.runnerResizeCleanup();
+    if (term.runnerTerminal) term.runnerTerminal.dispose();
   }
 
-  group.appendChild(terminalsEl);
-  return group;
-}
+  term.container.remove();
 
-/**
- * Strip stack-specific positioning classes from a card element
- * so home view CSS overrides apply cleanly
- */
-function stripStackClasses(card: HTMLElement): void {
-  card.classList.remove(
-    'project-card--active',
-    'project-card--back-1',
-    'project-card--back-2',
-    'project-card--back-3',
-    'project-card--back-4',
-    'project-card--hidden',
-  );
-}
+  // Remove from home list
+  homeTerminals = homeTerminals.filter((_, i) => i !== index);
 
-/**
- * Wire click-to-focus behavior on a terminal card in home view
- */
-function wireCardFocus(term: ProjectTerminal): void {
-  const handler = () => {
-    focusedTerminal = term;
-    term.terminal.focus();
-  };
-  // Use mousedown so focus happens before xterm captures the click
-  term.container.addEventListener('mousedown', handler, { capture: true });
-}
+  // Remove from session
+  const session = projectSessions.get(path);
+  if (session) {
+    session.terminals = session.terminals.filter(t => t !== term);
+    if (session.terminals.length === 0) {
+      session.stackElement.remove();
+      projectSessions.delete(path);
+      updateSidebarActiveState();
+    }
+  }
 
-/**
- * Navigate from home view to a specific project
- */
-function navigateToProject(path: string): void {
-  // This will be wired by the renderer — dispatch a custom event
-  const event = new CustomEvent('home-navigate-project', { detail: { path } });
-  document.dispatchEvent(event);
+  if (homeTerminals.length === 0) {
+    homeActiveIndex = 0;
+    showHomeEmptyState();
+    return;
+  }
+
+  // Adjust active index
+  if (homeActiveIndex >= homeTerminals.length) {
+    homeActiveIndex = homeTerminals.length - 1;
+  } else if (index < homeActiveIndex) {
+    homeActiveIndex--;
+  }
+
+  updateHomeCardStack();
+  requestAnimationFrame(() => {
+    const active = homeTerminals[homeActiveIndex];
+    if (active) {
+      try { active.fitAddon.fit(); } catch { /* noop */ }
+      active.terminal.focus();
+    }
+  });
 }
 
 /**
  * Add a new terminal for a project from the home view
  */
-async function addHomeTerminal(path: string, project: Project): Promise<void> {
+async function addHomeTerminal(path: string): Promise<void> {
   homeLog.info('adding terminal from home view', { path });
 
-  // Create a card element
-  const session = projectSessions.get(path);
-  if (!session) {
-    homeLog.error('no session found for project', { path });
-    return;
-  }
+  if (!homeStack) return;
 
-  const index = session.terminals.length;
   const label = 'shell';
-  const card = createProjectCard(label, index);
+  const card = createProjectCard(label, homeTerminals.length);
   convertIconsIn(card);
 
   const xtermContainer = card.querySelector('.terminal-xterm-container') as HTMLElement;
   const closeBtn = card.querySelector('.project-card-close') as HTMLButtonElement;
 
-  // Initialize xterm
   const terminal = new Terminal({
     theme: getTerminalTheme(),
     fontFamily: 'Iosevka Term Extended, SF Mono, Monaco, Menlo, monospace',
@@ -341,20 +399,17 @@ async function addHomeTerminal(path: string, project: Project): Promise<void> {
     window.api.openExternal(uri);
   }));
 
-  // Add card to the group's terminals container
-  const group = homeContainer?.querySelector(`[data-project-path="${CSS.escape(path)}"]`);
-  const terminalsEl = group?.querySelector('.home-group-terminals');
-  if (terminalsEl) {
-    terminalsEl.appendChild(card);
-  }
+  // Remove empty state if showing
+  homeStack.querySelector('.project-stack-empty')?.remove();
+  homeStack.querySelector('.home-empty')?.remove();
 
+  homeStack.appendChild(card);
   terminal.open(xtermContainer);
   setupTerminalAppHotkeys(terminal);
 
   await new Promise(resolve => requestAnimationFrame(resolve));
   fitAddon.fit();
 
-  // Spawn PTY
   const spawnOptions: PtySpawnOptions = {
     cwd: path,
     projectPath: path,
@@ -367,10 +422,7 @@ async function addHomeTerminal(path: string, project: Project): Promise<void> {
     const result = await window.api.pty.spawn(spawnOptions);
     if (!result.success || !result.ptyId) {
       terminal.writeln(`\x1b[31mFailed to start terminal: ${result.error || 'Unknown error'}\x1b[0m`);
-      setTimeout(() => {
-        card.remove();
-        terminal.dispose();
-      }, 5000);
+      setTimeout(() => { card.remove(); terminal.dispose(); }, 5000);
       return;
     }
 
@@ -412,7 +464,6 @@ async function addHomeTerminal(path: string, project: Project): Promise<void> {
       runnerResizeCleanup: null,
     };
 
-    // Resize observer
     projectTerminal.resizeObserver = new ResizeObserver(() => {
       fitAddon.fit();
       if (terminal.cols && terminal.rows) {
@@ -421,12 +472,10 @@ async function addHomeTerminal(path: string, project: Project): Promise<void> {
     });
     projectTerminal.resizeObserver.observe(xtermContainer);
 
-    // Data listener
     projectTerminal.cleanupData = window.api.pty.onData(result.ptyId, (data) => {
       terminal.write(data);
     });
 
-    // Exit listener
     projectTerminal.cleanupExit = window.api.pty.onExit(result.ptyId, (exitCode) => {
       terminal.writeln('');
       const exitColor = exitCode === 0 ? '32' : '31';
@@ -436,28 +485,30 @@ async function addHomeTerminal(path: string, project: Project): Promise<void> {
       updateTerminalCardLabel(projectTerminal);
     });
 
-    // Forward input
     terminal.onData((data) => {
       window.api.pty.write(result.ptyId!, data);
     });
 
-    // Close button
     closeBtn.addEventListener('click', (e) => {
       e.stopPropagation();
-      closeHomeTerminal(projectTerminal);
+      const idx = homeTerminals.indexOf(projectTerminal);
+      if (idx !== -1) closeHomeTerminal(idx);
     });
 
-    // Click to focus
-    wireCardFocus(projectTerminal);
+    // Add to home list and session
+    homeTerminals.push(projectTerminal);
 
-    // Add to session
-    session.terminals.push(projectTerminal);
+    // Add to the project session (create one if needed)
+    let session = projectSessions.get(path);
+    if (session) {
+      session.terminals.push(projectTerminal);
+    }
+    // If no session exists, we can't properly create one without a stackElement.
+    // The terminal will still work in home view but won't transfer to project view.
 
-    // Update count
-    updateGroupCount(path);
-
-    // Focus the new terminal
-    focusedTerminal = projectTerminal;
+    // Switch to the new terminal
+    homeActiveIndex = homeTerminals.length - 1;
+    updateHomeCardStack();
     terminal.focus();
 
     homeLog.info('terminal added from home view', { path, ptyId: result.ptyId });
@@ -470,85 +521,24 @@ async function addHomeTerminal(path: string, project: Project): Promise<void> {
 }
 
 /**
- * Close a terminal in the home view
+ * Strip stack-specific positioning classes from a card element
  */
-function closeHomeTerminal(term: ProjectTerminal): void {
-  const path = term.projectPath;
-
-  // Kill PTY and clean up
-  window.api.pty.kill(term.ptyId);
-  if (term.cleanupData) term.cleanupData();
-  if (term.cleanupExit) term.cleanupExit();
-  if (term.resizeObserver) term.resizeObserver.disconnect();
-  term.terminal.dispose();
-
-  // Clean up runner if active
-  if (term.runnerPtyId) {
-    window.api.pty.kill(term.runnerPtyId);
-    if (term.runnerCleanupData) term.runnerCleanupData();
-    if (term.runnerCleanupExit) term.runnerCleanupExit();
-    if (term.runnerResizeObserver) term.runnerResizeObserver.disconnect();
-    if (term.runnerResizeCleanup) term.runnerResizeCleanup();
-    if (term.runnerTerminal) term.runnerTerminal.dispose();
-  }
-
-  term.container.remove();
-
-  // Remove from session
-  const session = projectSessions.get(path);
-  if (session) {
-    session.terminals = session.terminals.filter(t => t !== term);
-    updateGroupCount(path);
-
-    // If no terminals left in this group, remove the group and session
-    if (session.terminals.length === 0) {
-      const group = homeContainer?.querySelector(`[data-project-path="${CSS.escape(path)}"]`);
-      group?.remove();
-      session.stackElement.remove();
-      projectSessions.delete(path);
-      updateSidebarActiveState();
-
-      // If no groups left, show empty state
-      if (projectSessions.size === 0 || !hasAnyTerminals()) {
-        const existing = homeContainer?.querySelector('.home-empty');
-        if (!existing && homeContainer) {
-          homeContainer.appendChild(createEmptyState());
-        }
-      }
-    }
-  }
-
-  if (focusedTerminal === term) {
-    focusedTerminal = null;
-  }
+function stripStackClasses(card: HTMLElement): void {
+  card.classList.remove(
+    'project-card--active',
+    'project-card--back-1',
+    'project-card--back-2',
+    'project-card--back-3',
+    'project-card--back-4',
+    'project-card--hidden',
+  );
 }
 
 /**
- * Update the terminal count badge for a project group
+ * Show empty state in the home stack
  */
-function updateGroupCount(path: string): void {
-  const group = homeContainer?.querySelector(`[data-project-path="${CSS.escape(path)}"]`);
-  const countEl = group?.querySelector('.home-group-count');
-  const session = projectSessions.get(path);
-  if (countEl && session) {
-    countEl.textContent = `${session.terminals.length}`;
-  }
-}
-
-/**
- * Check if there are any terminals across all sessions
- */
-function hasAnyTerminals(): boolean {
-  for (const [, session] of projectSessions) {
-    if (session.terminals.length > 0) return true;
-  }
-  return false;
-}
-
-/**
- * Create the empty state element for home view
- */
-function createEmptyState(): HTMLElement {
+function showHomeEmptyState(): void {
+  if (!homeStack) return;
   const el = document.createElement('div');
   el.className = 'home-empty';
   el.innerHTML = `
@@ -557,7 +547,7 @@ function createEmptyState(): HTMLElement {
     <p class="home-empty-description">Select a project from the sidebar to get started.</p>
   `;
   convertIconsIn(el);
-  return el;
+  homeStack.appendChild(el);
 }
 
 /**
@@ -567,22 +557,18 @@ function registerHomeHookStatusListener(): void {
   if (hookStatusCleanup) return;
 
   hookStatusCleanup = window.api.claudeHooks.onStatus((ptyId: PtyId, status: string) => {
-    // Find the terminal across all sessions
-    for (const [, session] of projectSessions) {
-      const term = session.terminals.find(t => t.ptyId === ptyId);
-      if (!term) continue;
+    const term = homeTerminals.find(t => t.ptyId === ptyId);
+    if (!term) return;
 
-      const dot = term.container.querySelector('.project-card-status-dot') as HTMLElement;
-      if (!dot) return;
+    const dot = term.container.querySelector('.project-card-status-dot') as HTMLElement;
+    if (!dot) return;
 
-      if (status === 'thinking') {
-        dot.dataset.status = 'thinking';
-        term.summaryType = 'thinking';
-      } else {
-        dot.dataset.status = 'ready';
-        term.summaryType = 'ready';
-      }
-      break;
+    if (status === 'thinking') {
+      dot.dataset.status = 'thinking';
+      term.summaryType = 'thinking';
+    } else {
+      dot.dataset.status = 'ready';
+      term.summaryType = 'ready';
     }
   });
 }

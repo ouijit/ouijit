@@ -227,15 +227,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Listen for home-navigate-project events from home view
-  document.addEventListener('home-navigate-project', async (e) => {
-    const { path } = (e as CustomEvent).detail;
-    const project = allProjects.find(p => p.path === path);
-    if (project) {
-      await handleProjectSelect(path, project);
-    }
-  });
-
   // Set up sidebar add button (shows menu with add/new options)
   const addBtn = document.getElementById('sidebar-add-btn');
   if (addBtn) {
