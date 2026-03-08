@@ -2551,7 +2551,7 @@ function expandTagInput(term: ProjectTerminal): void {
   (container as any)._cleanupClickOutside = onClickOutside;
 }
 
-function collapseTagInput(term: ProjectTerminal): void {
+export function collapseTagInput(term: ProjectTerminal): void {
   const tagsRow = term.container.querySelector('.project-card-tags-row') as HTMLElement;
   if (!tagsRow) return;
 

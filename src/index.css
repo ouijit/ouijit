@@ -912,7 +912,7 @@ body.home-mode .home-folder-divider.project-card {
   pointer-events: auto;
 }
 
-.home-folder-tab svg {
+.home-folder-tab > svg {
   position: absolute;
   inset: 0;
   width: 100%;
@@ -960,9 +960,9 @@ body.home-mode .home-folder-divider.project-card {
 }
 
 .home-tag-icon {
-  width: 14px;
-  height: 14px;
-  min-width: 14px;
+  width: 16px;
+  height: 16px;
+  min-width: 16px;
   color: rgba(255, 255, 255, 0.4);
   flex-shrink: 0;
 }

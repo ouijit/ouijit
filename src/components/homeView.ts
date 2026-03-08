@@ -16,7 +16,7 @@ import {
 } from './project/state';
 import { homeViewActive, projectPath } from './project/signals';
 import { exitProjectMode } from './project/projectMode';
-import { getTerminalTheme, setupTerminalAppHotkeys, updateTerminalCardLabel, createProjectCard, debouncedResize, reconnectTerminal } from './project/terminalCards';
+import { getTerminalTheme, setupTerminalAppHotkeys, updateTerminalCardLabel, createProjectCard, debouncedResize, reconnectTerminal, collapseTagInput } from './project/terminalCards';
 import { convertIconsIn } from '../utils/icons';
 import { stringToColor, getInitials } from '../utils/projectIcon';
 import { Scopes, pushScope, popScope, registerHotkey, unregisterHotkey, platformHotkey } from '../utils/hotkeys';
@@ -295,6 +295,11 @@ function updateHomeCardStack(): void {
     }
   }
 
+  // Sync tag visibility class for all terminals
+  homeTerminals.forEach(term => {
+    term.container.classList.toggle('project-card--has-tags', term.tags.length > 0);
+  });
+
   // Hide terminals not in the depth ordering and not active
   const visibleSet = new Set(homeDepthOrder);
   homeTerminals.forEach((term, index) => {
@@ -400,27 +405,40 @@ function buildTagGroupedStack(activeTerminal: ProjectTerminal): StackItem[] {
 
   const items: StackItem[] = [];
 
-  // Active group's extra terminals + divider
-  if (sameGroup.length > 0) {
+  if (activeTag) {
+    // Active terminal is tagged: same tag closest, other tags next, untagged at back
+    // Always emit divider for active group so stack depth stays consistent
     for (const idx of sameGroup) {
       items.push({ type: 'terminal', index: idx });
     }
-    if (activeTag) {
-      items.push({ type: 'tag-divider', tagName: activeTerminal.tags[0] });
-    }
-  }
+    items.push({ type: 'tag-divider', tagName: activeTerminal.tags[0] });
 
-  // Other tag groups
-  for (const [, group] of tagGroups) {
-    for (const idx of group.indices) {
+    for (const [, group] of tagGroups) {
+      for (const idx of group.indices) {
+        items.push({ type: 'terminal', index: idx });
+      }
+      items.push({ type: 'tag-divider', tagName: group.displayName });
+    }
+
+    if (untagged.length > 0) {
+      for (const idx of untagged) {
+        items.push({ type: 'terminal', index: idx });
+      }
+      items.push({ type: 'tag-divider', tagName: 'Untagged' });
+    }
+  } else {
+    // Active terminal is untagged: untagged group closest, tag groups at back
+    for (const idx of sameGroup) {
       items.push({ type: 'terminal', index: idx });
     }
-    items.push({ type: 'tag-divider', tagName: group.displayName });
-  }
+    items.push({ type: 'tag-divider', tagName: 'Untagged' });
 
-  // Untagged terminals at the back
-  for (const idx of untagged) {
-    items.push({ type: 'terminal', index: idx });
+    for (const [, group] of tagGroups) {
+      for (const idx of group.indices) {
+        items.push({ type: 'terminal', index: idx });
+      }
+      items.push({ type: 'tag-divider', tagName: group.displayName });
+    }
   }
 
   return items;
@@ -436,6 +454,7 @@ function createHomeFolderDivider(path: string, depth: number): HTMLElement {
 
   const divider = document.createElement('div');
   divider.className = `project-card home-folder-divider project-card--back-${depth}`;
+  divider.dataset.dividerProject = path;
 
   // Build mini icon matching sidebar style
   let iconHtml: string;
@@ -471,6 +490,7 @@ function createHomeFolderDivider(path: string, depth: number): HTMLElement {
 function createHomeTagDivider(tagName: string, depth: number): HTMLElement {
   const divider = document.createElement('div');
   divider.className = `project-card home-folder-divider project-card--back-${depth}`;
+  divider.dataset.dividerTag = tagName;
 
   const tab = document.createElement('div');
   tab.className = 'home-folder-tab';
@@ -506,9 +526,30 @@ function wireHomeCardClicks(): void {
     const card = (e.target as HTMLElement).closest('.project-card') as HTMLElement | null;
     if (!card) return;
 
+    // Terminal card click
     const index = homeTerminals.findIndex(t => t.container === card);
     if (index !== -1 && index !== homeActiveIndex) {
       switchToHomeTerminal(index);
+      return;
+    }
+
+    // Divider click — bring that group to front
+    if (card.classList.contains('home-folder-divider')) {
+      const tagGroup = card.dataset.dividerTag;
+      const projectGroup = card.dataset.dividerProject;
+      let target = -1;
+
+      if (tagGroup !== undefined) {
+        target = tagGroup === 'Untagged'
+          ? homeTerminals.findIndex(t => t.tags.length === 0)
+          : homeTerminals.findIndex(t => t.tags.length > 0 && t.tags[0].toLowerCase() === tagGroup.toLowerCase());
+      } else if (projectGroup) {
+        target = homeTerminals.findIndex(t => t.projectPath === projectGroup);
+      }
+
+      if (target !== -1 && target !== homeActiveIndex) {
+        switchToHomeTerminal(target);
+      }
     }
   });
 }
@@ -518,6 +559,8 @@ function wireHomeCardClicks(): void {
  */
 function switchToHomeTerminal(index: number): void {
   if (index < 0 || index >= homeTerminals.length || index === homeActiveIndex) return;
+  const prev = homeTerminals[homeActiveIndex];
+  if (prev) collapseTagInput(prev);
   homeActiveIndex = index;
   updateHomeCardStack();
   requestAnimationFrame(() => {
