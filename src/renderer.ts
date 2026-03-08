@@ -12,9 +12,11 @@ import type { Project, ActiveSession } from './types';
 import { showToast } from './components/importDialog';
 import { showNewProjectDialog } from './components/newProjectDialog';
 import { initHotkeys } from './utils/hotkeys';
-import { enterProjectMode, exitProjectMode, restoreProjectMode, orphanedSessions, homeViewActive, projectRegistry } from './components/project';
+import { enterProjectMode, exitProjectMode, restoreProjectMode, orphanedSessions, homeViewActive, projectRegistry, terminals } from './components/project';
+import { projectSessions } from './components/project/state';
 import { renderSidebar, wireSidebarClicks, updateSidebarActiveState } from './components/sidebar';
 import { enterHomeView, exitHomeView } from './components/homeView';
+import { notifyReady, readyBody } from './utils/notifications';
 
 const rendererLog = log.scope('renderer');
 
@@ -152,6 +154,59 @@ async function initialize(): Promise<void> {
 }
 
 /**
+ * Global hook status listener for background project notifications.
+ * Registered once at startup, never unregistered. Fires notifyReady()
+ * for terminals NOT in the active project (those are handled by the
+ * project-mode listener with full deferral logic).
+ */
+function registerGlobalHookStatusListener(): void {
+  window.api.claudeHooks.onStatus(async (ptyId, status) => {
+    // Skip if this ptyId belongs to the active project — project-mode listener handles those
+    if (terminals.value.some(t => t.ptyId === ptyId)) return;
+
+    // Only interested in ready transitions
+    if (status !== 'ready') return;
+
+    // Confirm Claude was actually working (thinkingCount > 0, not a plain shell)
+    try {
+      const hookStatus = await window.api.claudeHooks.getStatus(ptyId);
+      if (!hookStatus || hookStatus.thinkingCount === 0) return;
+
+      // Find terminal info from preserved project sessions
+      let termLabel = 'Shell';
+      let projectName = 'Ouijit';
+      let oscTitle = '';
+
+      for (const [, session] of projectSessions) {
+        const term = session.terminals.find(t => t.ptyId === ptyId);
+        if (term) {
+          termLabel = term.label;
+          projectName = session.projectData.name;
+          oscTitle = term.lastOscTitle;
+          break;
+        }
+      }
+
+      // Also check orphanedSessions (sessions not yet reconnected to a project)
+      if (termLabel === 'Shell') {
+        for (const [projectPath, sessions] of orphanedSessions) {
+          const session = sessions.find(s => s.ptyId === ptyId);
+          if (session) {
+            termLabel = session.label;
+            projectName = allProjects.find(p => p.path === projectPath)?.name ?? projectPath.split('/').pop() ?? 'Ouijit';
+            break;
+          }
+        }
+      }
+
+      notifyReady(projectName, readyBody(termLabel, oscTitle));
+    } catch (error) {
+      rendererLog.error('background hook status check failed', { ptyId, error: error instanceof Error ? error.message : String(error) });
+    }
+  });
+}
+
+/**
  * Show the sidebar add menu (add existing / create new)
  */
 function showSidebarAddMenu(anchor: HTMLElement): void {
@@ -274,6 +329,9 @@ document.addEventListener('DOMContentLoaded', () => {
       revealBtn.addEventListener('click', showSidebar);
     }
   }
+
+  // Register global hook status listener for background project notifications
+  registerGlobalHookStatusListener();
 
   initialize();
 
