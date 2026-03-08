@@ -10,13 +10,14 @@ import { WebLinksAddon } from '@xterm/addon-web-links';
 import type { Project, PtyId, PtySpawnOptions } from '../types';
 import {
   projectSessions,
+  orphanedSessions,
   ensureHiddenSessionsContainer,
   STACK_PAGE_SIZE,
   type ProjectTerminal,
 } from './project/state';
 import { homeViewActive, projectPath } from './project/signals';
 import { exitProjectMode } from './project/projectMode';
-import { getTerminalTheme, setupTerminalAppHotkeys, updateTerminalCardLabel, createProjectCard } from './project/terminalCards';
+import { getTerminalTheme, setupTerminalAppHotkeys, updateTerminalCardLabel, createProjectCard, debouncedResize, reconnectTerminal } from './project/terminalCards';
 import { convertIconsIn } from '../utils/icons';
 import { Scopes, pushScope, popScope, registerHotkey, unregisterHotkey, platformHotkey } from '../utils/hotkeys';
 import { showToast } from './importDialog';
@@ -50,7 +51,7 @@ export async function enterHomeView(): Promise<void> {
     exitProjectMode();
   }
 
-  homeLog.info('entering home view', { sessionCount: projectSessions.size });
+  homeLog.info('entering home view', { sessionCount: projectSessions.size, orphanedCount: orphanedSessions.size });
 
   homeViewActive.value = true;
   document.body.classList.add('home-mode');
@@ -77,6 +78,11 @@ export async function enterHomeView(): Promise<void> {
   homeStack.className = 'project-stack';
   mainContent.appendChild(homeStack);
 
+  // Reconnect any orphaned PTY sessions (from app restart) into projectSessions
+  if (orphanedSessions.size > 0) {
+    await reconnectOrphanedForHome();
+  }
+
   // Build flat terminal list from all sessions, grouped by project
   homeTerminals = [];
   for (const [, session] of projectSessions) {
@@ -86,11 +92,24 @@ export async function enterHomeView(): Promise<void> {
       homeStack.appendChild(term.container);
 
       // Reconnect resize observer
-      if (term.resizeObserver) {
-        const xtermContainer = term.container.querySelector('.terminal-xterm-container');
-        if (xtermContainer) {
-          term.resizeObserver.observe(xtermContainer);
-        }
+      const xtermContainer = term.container.querySelector('.terminal-xterm-container');
+      if (xtermContainer) {
+        term.resizeObserver = new ResizeObserver(() => {
+          debouncedResize(term.ptyId, term.terminal, term.fitAddon);
+        });
+        term.resizeObserver.observe(xtermContainer);
+      }
+
+      // Re-wire close button for home view context
+      const closeBtn = term.container.querySelector('.project-card-close') as HTMLButtonElement;
+      if (closeBtn) {
+        const newBtn = closeBtn.cloneNode(true) as HTMLButtonElement;
+        closeBtn.replaceWith(newBtn);
+        newBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const idx = homeTerminals.indexOf(term);
+          if (idx !== -1) closeHomeTerminal(idx);
+        });
       }
     }
   }
@@ -518,6 +537,82 @@ async function addHomeTerminal(path: string): Promise<void> {
     terminal.dispose();
     showToast('Failed to start terminal', 'error');
   }
+}
+
+/**
+ * Reconnect orphaned PTY sessions (from app restart) and store them in projectSessions
+ * so the main enterHomeView loop can pick them up.
+ */
+async function reconnectOrphanedForHome(): Promise<void> {
+  homeLog.info('reconnecting orphaned sessions for home view', { count: orphanedSessions.size });
+
+  // Tell main process we're ready to receive PTY data
+  window.api.pty.setWindow();
+
+  for (const [path, sessions] of orphanedSessions) {
+    const mainSessions = sessions.filter(s => !s.isRunner);
+
+    // Create a hidden stack element to store these terminals for later project-mode use
+    const stackElement = document.createElement('div');
+    stackElement.className = 'project-stack';
+
+    const reconnectedTerminals: ProjectTerminal[] = [];
+
+    for (const session of mainSessions) {
+      const pt = await reconnectSingleTerminal(session, stackElement);
+      if (pt) reconnectedTerminals.push(pt);
+    }
+
+    if (reconnectedTerminals.length > 0) {
+      const project = projectDataCache.get(path) || {
+        name: path.split('/').pop() || path,
+        path,
+        hasGit: false,
+      } as Project;
+
+      projectSessions.set(path, {
+        terminals: reconnectedTerminals,
+        activeIndex: 0,
+        projectData: project,
+        stackElement,
+        kanbanWasVisible: true,
+        diffPanelWasOpen: false,
+        diffSelectedFile: null,
+        diffFiles: [],
+      });
+    }
+  }
+
+  orphanedSessions.clear();
+  updateSidebarActiveState();
+}
+
+/**
+ * Reconnect a single orphaned PTY session using the shared reconnectTerminal utility.
+ * Wires a home-view-appropriate exit handler (show exit message rather than auto-close).
+ */
+async function reconnectSingleTerminal(
+  session: import('../types').ActiveSession,
+  stackElement: HTMLElement
+): Promise<ProjectTerminal | null> {
+  const pt = await reconnectTerminal(session, stackElement);
+  if (!pt) {
+    homeLog.error('failed to reconnect orphaned PTY', { ptyId: session.ptyId });
+    return null;
+  }
+
+  // Wire home-view exit handler (display exit message instead of auto-close)
+  pt.cleanupExit = window.api.pty.onExit(session.ptyId, (exitCode) => {
+    pt.terminal.writeln('');
+    const exitColor = exitCode === 0 ? '32' : '31';
+    pt.terminal.writeln(`\x1b[${exitColor}m● Process exited with code ${exitCode}\x1b[0m`);
+    pt.summary = exitCode === 0 ? 'Exited' : `Exit ${exitCode}`;
+    pt.summaryType = 'ready';
+    updateTerminalCardLabel(pt);
+  });
+
+  homeLog.info('reconnected orphaned terminal', { ptyId: session.ptyId, projectPath: session.projectPath });
+  return pt;
 }
 
 /**

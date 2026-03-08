@@ -5,7 +5,7 @@
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
-import type { PtyId, PtySpawnOptions, RunConfig, WorktreeInfo } from '../../types';
+import type { PtyId, PtySpawnOptions, RunConfig, WorktreeInfo, ActiveSession } from '../../types';
 import {
   ProjectTerminal,
   STACK_PAGE_SIZE,
@@ -2229,6 +2229,151 @@ export function unregisterHookStatusListener(): void {
     hookStatusCleanup = null;
   }
   clearAllIdleTimers();
+}
+
+/**
+ * Shared terminal reconnection — creates Terminal + card, reconnects PTY, replays buffer.
+ * Returns a ProjectTerminal with data forwarding wired. Callers add their own
+ * close-button, card-click, and exit handlers.
+ *
+ * @param session  - ActiveSession from the main process
+ * @param container - DOM element to append the card to
+ * @param opts.worktreeBranch - optional branch name for worktree terminals
+ * @param opts.onData - optional extra callback when PTY emits data
+ */
+export async function reconnectTerminal(
+  session: ActiveSession,
+  container: HTMLElement,
+  opts: { worktreeBranch?: string; onData?: (ptyId: PtyId, data: string) => void } = {},
+): Promise<ProjectTerminal | null> {
+  const terminal = new Terminal({
+    cursorBlink: true,
+    cursorStyle: 'bar',
+    fontSize: 14,
+    fontFamily: 'Iosevka Term Extended, "SF Mono", Menlo, Monaco, monospace',
+    lineHeight: 1.2,
+    theme: getTerminalTheme(),
+    allowTransparency: false,
+    scrollback: 2000,
+  });
+
+  const fitAddon = new FitAddon();
+  terminal.loadAddon(fitAddon);
+  terminal.loadAddon(new WebLinksAddon((_event, uri) => {
+    window.api.openExternal(uri);
+  }));
+
+  const card = createProjectCard(session.label, 0);
+  container.appendChild(card);
+  convertIconsIn(card);
+
+  const xtermContainer = card.querySelector('.terminal-xterm-container') as HTMLElement;
+  terminal.open(xtermContainer);
+  setupTerminalAppHotkeys(terminal);
+
+  // Enable native drag/drop on the terminal
+  const screen = xtermContainer.querySelector('.xterm-screen');
+  const dragTarget = screen || xtermContainer;
+  dragTarget.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if ((e as DragEvent).dataTransfer) {
+      (e as DragEvent).dataTransfer!.dropEffect = 'copy';
+    }
+  });
+  dragTarget.addEventListener('drop', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const dt = (e as DragEvent).dataTransfer;
+    if (dt?.files.length) {
+      const paths = Array.from(dt.files)
+        .map(f => window.api.getPathForFile(f))
+        .filter((p): p is string => !!p)
+        .map(p => p.includes(' ') ? `"${p}"` : p)
+        .join(' ');
+      if (paths) terminal.paste(paths);
+    }
+  });
+
+  await new Promise(resolve => requestAnimationFrame(resolve));
+  fitAddon.fit();
+
+  // Reconnect to existing PTY
+  const result = await window.api.pty.reconnect(session.ptyId);
+  if (!result.success) {
+    card.remove();
+    terminal.dispose();
+    return null;
+  }
+
+  // Replay buffered output
+  if (result.bufferedOutput) {
+    terminal.reset();
+    terminal.write(result.bufferedOutput);
+  }
+
+  // Resize observer
+  const resizeObserver = new ResizeObserver(() => {
+    debouncedResize(session.ptyId, terminal, fitAddon);
+  });
+  resizeObserver.observe(xtermContainer);
+
+  // Trigger resize to sync terminal size
+  setTimeout(() => {
+    debouncedResize(session.ptyId, terminal, fitAddon);
+  }, 50);
+
+  const projectTerminal: ProjectTerminal = {
+    ptyId: session.ptyId,
+    projectPath: session.projectPath,
+    command: session.command,
+    label: session.label,
+    terminal,
+    fitAddon,
+    container: card,
+    cleanupData: null,
+    cleanupExit: null,
+    resizeObserver,
+    summary: '',
+    summaryType: 'ready',
+    lastOscTitle: '',
+    sandboxed: !!session.sandboxed,
+    taskId: session.taskId ?? null,
+    worktreePath: session.worktreePath,
+    worktreeBranch: opts.worktreeBranch,
+    gitStatus: null,
+    diffPanelOpen: false,
+    diffPanelFiles: [],
+    diffPanelSelectedFile: null,
+    diffPanelMode: (session.taskId != null) ? 'worktree' : 'uncommitted',
+    runnerPanelOpen: false,
+    runnerPtyId: null,
+    runnerTerminal: null,
+    runnerFitAddon: null,
+    runnerLabel: '',
+    runnerCommand: null,
+    runnerStatus: 'idle',
+    runnerCleanupData: null,
+    runnerCleanupExit: null,
+    runnerFullWidth: true,
+    runnerSplitRatio: 0.5,
+    runnerResizeObserver: null,
+    runnerResizeCleanup: null,
+  };
+
+  // Wire PTY → terminal data flow
+  projectTerminal.cleanupData = window.api.pty.onData(session.ptyId, (data) => {
+    terminal.write(data);
+    opts.onData?.(session.ptyId, data);
+  });
+
+  // Wire terminal → PTY input forwarding
+  terminal.onData((data) => {
+    window.api.pty.write(session.ptyId, data);
+  });
+
+  updateTerminalCardLabel(projectTerminal);
+  return projectTerminal;
 }
 
 // Register functions in the project registry for cross-module access

@@ -92,6 +92,7 @@ export {
   setupCardActions,
   registerHookStatusListener,
   unregisterHookStatusListener,
+  reconnectTerminal,
 } from './terminalCards';
 
 // Launch dropdown

@@ -58,6 +58,7 @@ import {
   registerHookStatusListener,
   unregisterHookStatusListener,
   resetIdleTimer,
+  reconnectTerminal,
 } from './terminalCards';
 import {
   buildProjectHeader,
@@ -638,194 +639,44 @@ export async function restoreProjectMode(
  * Reconnect to an existing PTY session and create a terminal card for it
  */
 async function reconnectProjectTerminal(session: ActiveSession, worktreeBranch?: string): Promise<void> {
-
-  const terminal = new Terminal({
-    cursorBlink: true,
-    cursorStyle: 'bar',
-    fontSize: 14,
-    fontFamily: 'Iosevka Term Extended, "SF Mono", Menlo, Monaco, monospace',
-    lineHeight: 1.2,
-    theme: getTerminalTheme(),
-    allowTransparency: false,
-    scrollback: 2000,
-  });
-
-  const fitAddon = new FitAddon();
-  terminal.loadAddon(fitAddon);
-  terminal.loadAddon(new WebLinksAddon((_event, uri) => {
-    window.api.openExternal(uri);
-  }));
-
-  // Create the card UI
-  const index = terminals.value.length;
-  const card = createProjectCard(session.label, index);
-
-  // Add to DOM
   const stack = document.querySelector('.project-stack');
   if (!stack) return;
-  stack.appendChild(card);
 
-  // Render icons now that card is in the DOM
-  convertIconsIn(card);
-
-  const xtermContainer = card.querySelector('.terminal-xterm-container') as HTMLElement;
-
-  // Open terminal in container
-  terminal.open(xtermContainer);
-
-  // Let app hotkeys pass through xterm (needed for Linux where Ctrl+key combos are captured)
-  setupTerminalAppHotkeys(terminal);
-
-  // Enable native drag/drop on the terminal
-  // xterm.js creates a .xterm-screen element that captures all mouse events
-  const screen = xtermContainer.querySelector('.xterm-screen');
-  const dragTarget = screen || xtermContainer;
-
-  dragTarget.addEventListener('dragover', (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if ((e as DragEvent).dataTransfer) {
-      (e as DragEvent).dataTransfer!.dropEffect = 'copy';
-    }
+  const projectTerminal = await reconnectTerminal(session, stack as HTMLElement, {
+    worktreeBranch,
+    onData: (ptyId) => resetIdleTimer(ptyId),
   });
-
-  dragTarget.addEventListener('drop', (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    const dt = (e as DragEvent).dataTransfer;
-    if (dt?.files.length) {
-      const paths = Array.from(dt.files)
-        .map(f => window.api.getPathForFile(f))
-        .filter((p): p is string => !!p)
-        .map(p => p.includes(' ') ? `"${p}"` : p)
-        .join(' ');
-      if (paths) {
-        terminal.paste(paths);
-      }
-    }
-  });
-
-  // Fit after opening
-  requestAnimationFrame(() => {
-    fitAddon.fit();
-  });
-
-  // Reconnect to existing PTY
-  const result = await window.api.pty.reconnect(session.ptyId);
 
   // Guard: project mode may have been exited during the async reconnect
-  if (!projectPath.value) {
-    terminal.dispose();
-    card.remove();
+  if (!projectTerminal || !projectPath.value) {
+    if (projectTerminal) {
+      projectTerminal.terminal.dispose();
+      projectTerminal.container.remove();
+    }
     return;
   }
 
-  if (!result.success) {
-    projectLog.error('failed to reconnect to PTY', { ptyId: session.ptyId, error: result.error });
-    card.remove();
-    terminal.dispose();
-    return;
-  }
-
-  // Replay buffered output (scroll history)
-  if (result.bufferedOutput) {
-    // Reset terminal state first
-    terminal.reset();
-    // Write the full buffered history
-    terminal.write(result.bufferedOutput);
-  }
-
-  // Set up resize observer with debouncing to prevent zsh artifacts during animations
-  const resizeObserver = new ResizeObserver(() => {
-    debouncedResize(session.ptyId, terminal, fitAddon);
-  });
-  resizeObserver.observe(xtermContainer);
-
-  // Trigger resize to sync terminal size and force TUI apps to redraw
-  setTimeout(() => {
-    debouncedResize(session.ptyId, terminal, fitAddon);
-  }, 50);
-
-  // Create terminal object
-  const projectTerminal: ProjectTerminal = {
-    ptyId: session.ptyId,
-    projectPath: session.projectPath,
-    command: session.command,
-    label: session.label,
-    terminal,
-    fitAddon,
-    container: card,
-    cleanupData: null,
-    cleanupExit: null,
-    resizeObserver,
-    summary: '',
-    summaryType: 'ready',
-    lastOscTitle: '',
-    sandboxed: !!session.sandboxed,
-    taskId: session.taskId ?? null,
-    worktreePath: session.worktreePath,
-    worktreeBranch,
-    gitStatus: null,
-    diffPanelOpen: false,
-    diffPanelFiles: [],
-    diffPanelSelectedFile: null,
-    diffPanelMode: (session.taskId != null) ? 'worktree' : 'uncommitted',
-    // Runner panel state
-    runnerPanelOpen: false,
-    runnerPtyId: null,
-    runnerTerminal: null,
-    runnerFitAddon: null,
-    runnerLabel: '',
-    runnerCommand: null,
-    runnerStatus: 'idle',
-    runnerCleanupData: null,
-    runnerCleanupExit: null,
-    runnerFullWidth: true,
-    runnerSplitRatio: 0.5,
-    runnerResizeObserver: null,
-    runnerResizeCleanup: null,
-  };
-
-  // Set up close button handler
-  const closeBtn = card.querySelector('.project-card-close') as HTMLButtonElement;
+  // Wire project-mode-specific handlers
+  const closeBtn = projectTerminal.container.querySelector('.project-card-close') as HTMLButtonElement;
   if (closeBtn) {
     closeBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       const idx = terminals.value.indexOf(projectTerminal);
-      if (idx !== -1) {
-        closeProjectTerminal(idx);
-      }
+      if (idx !== -1) closeProjectTerminal(idx);
     });
   }
 
-  // Card click handler (to bring to front)
-  card.addEventListener('click', () => {
+  projectTerminal.container.addEventListener('click', () => {
     const idx = terminals.value.indexOf(projectTerminal);
     if (idx !== -1 && idx !== activeIndex.value) {
       switchToProjectTerminal(idx);
     }
   });
 
-  // Set up data handler
-  const cleanupData = window.api.pty.onData(session.ptyId, (data) => {
-    terminal.write(data);
-    resetIdleTimer(session.ptyId);
-  });
-  projectTerminal.cleanupData = cleanupData;
-
-  // Set up exit handler
-  const cleanupExit = window.api.pty.onExit(session.ptyId, () => {
+  projectTerminal.cleanupExit = window.api.pty.onExit(session.ptyId, () => {
     projectLog.info('terminal exited', { ptyId: session.ptyId });
     const idx = terminals.value.indexOf(projectTerminal);
-    if (idx !== -1) {
-      closeProjectTerminal(idx);
-    }
-  });
-  projectTerminal.cleanupExit = cleanupExit;
-
-  // Forward input to PTY
-  terminal.onData((data) => {
-    window.api.pty.write(session.ptyId, data);
+    if (idx !== -1) closeProjectTerminal(idx);
   });
 
   // Add to terminals array
@@ -834,18 +685,15 @@ async function reconnectProjectTerminal(session: ActiveSession, worktreeBranch?:
   // Set up card action buttons (runner pill for all, close-task for worktrees)
   setupCardActions(projectTerminal);
 
-  // Mark sandboxed terminals with a ring on the status dot
+  // Mark sandboxed terminals
   if (projectTerminal.sandboxed) {
-    const dot = card.querySelector('.project-card-status-dot');
+    const dot = projectTerminal.container.querySelector('.project-card-status-dot');
     if (dot) dot.classList.add('project-card-status-dot--sandboxed');
   }
 
-  // Update card label
-  updateTerminalCardLabel(projectTerminal);
-
   // Focus if this is the first terminal
   if (terminals.value.length === 1) {
-    terminal.focus();
+    projectTerminal.terminal.focus();
   }
 }
 
