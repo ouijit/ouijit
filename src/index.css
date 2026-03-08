@@ -854,21 +854,6 @@ body.home-mode .header-content {
 }
 
 /* Home empty state */
-.home-empty {
-  @apply flex flex-col items-center justify-center text-center h-full;
-}
-
-.home-empty-icon {
-  @apply w-12 h-12 text-text-tertiary mb-4;
-}
-
-.home-empty-title {
-  @apply text-xl font-semibold text-text-secondary mb-1;
-}
-
-.home-empty-description {
-  @apply text-sm text-text-tertiary;
-}
 
 /* Home view folder dividers — card-like elements where only the tab label is visible */
 body.home-mode .home-folder-divider.project-card {

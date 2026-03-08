@@ -700,7 +700,6 @@ async function addHomeTerminal(path: string): Promise<void> {
 
   // Remove empty state if showing
   homeStack.querySelector('.project-stack-empty')?.remove();
-  homeStack.querySelector('.home-empty')?.remove();
 
   homeStack.appendChild(card);
   terminal.open(xtermContainer);
@@ -940,13 +939,13 @@ function stripStackClasses(card: HTMLElement): void {
 function showHomeEmptyState(): void {
   if (!homeStack) return;
   const el = document.createElement('div');
-  el.className = 'home-empty';
+  el.className = 'project-stack-empty project-stack-empty--visible';
   el.innerHTML = `
-    <i data-icon="terminal" class="home-empty-icon"></i>
-    <h2 class="home-empty-title">No active terminals</h2>
-    <p class="home-empty-description">Select a project from the sidebar to get started.</p>
+    <div class="project-stack-empty-message">No active terminals</div>
+    <div class="project-stack-empty-hints">
+      <span class="project-stack-empty-hint">Select a project from the sidebar to get started</span>
+    </div>
   `;
-  convertIconsIn(el);
   homeStack.appendChild(el);
 }
 
