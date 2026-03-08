@@ -1487,10 +1487,6 @@ export async function showKanbanBoard(): Promise<void> {
     hideKanbanBoard();
   });
 
-  registerHotkey(platformHotkey('mod+b'), Scopes.KANBAN, () => {
-    hideKanbanBoard();
-  });
-
   registerHotkey(platformHotkey('mod+t'), Scopes.KANBAN, () => {
     hideKanbanBoard();
   });
@@ -1508,7 +1504,6 @@ export async function showKanbanBoard(): Promise<void> {
   projectState.kanbanCleanup = () => {
     resizeObserver.disconnect();
     unregisterHotkey('escape', Scopes.KANBAN);
-    unregisterHotkey(platformHotkey('mod+b'), Scopes.KANBAN);
     unregisterHotkey(platformHotkey('mod+t'), Scopes.KANBAN);
     unregisterHotkey(platformHotkey('mod+n'), Scopes.KANBAN);
     unregisterHotkey(platformHotkey('mod+i'), Scopes.KANBAN);

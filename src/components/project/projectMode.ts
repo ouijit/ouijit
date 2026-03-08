@@ -314,7 +314,6 @@ export async function enterProjectMode(
   // Use platformHotkey() to convert 'mod+' to 'command+' on Mac or 'ctrl+' on Linux/Windows
   pushScope(Scopes.PROJECT);
   registerHotkey(platformHotkey('mod+n'), Scopes.PROJECT, () => showKanbanAndFocusInput());
-  registerHotkey(platformHotkey('mod+b'), Scopes.PROJECT, () => projectRegistry.toggleKanbanBoard?.());
   registerHotkey(platformHotkey('mod+t'), Scopes.PROJECT, () => projectRegistry.toggleKanbanBoard?.());
   registerHotkey(platformHotkey('mod+i'), Scopes.PROJECT, () => addProjectTerminal());
   registerHotkey(platformHotkey('mod+p'), Scopes.PROJECT, () => projectRegistry.playOrToggleRunner?.());
@@ -412,7 +411,6 @@ export function exitProjectMode(): void {
 
   // 5. Remove keyboard shortcuts and pop scope
   unregisterHotkey(platformHotkey('mod+n'), Scopes.PROJECT);
-  unregisterHotkey(platformHotkey('mod+b'), Scopes.PROJECT);
   unregisterHotkey(platformHotkey('mod+t'), Scopes.PROJECT);
   unregisterHotkey(platformHotkey('mod+i'), Scopes.PROJECT);
   unregisterHotkey(platformHotkey('mod+p'), Scopes.PROJECT);
@@ -590,7 +588,6 @@ export async function restoreProjectMode(
   // 4. Set up keyboard shortcuts
   pushScope(Scopes.PROJECT);
   registerHotkey(platformHotkey('mod+n'), Scopes.PROJECT, () => showKanbanAndFocusInput());
-  registerHotkey(platformHotkey('mod+b'), Scopes.PROJECT, () => projectRegistry.toggleKanbanBoard?.());
   registerHotkey(platformHotkey('mod+t'), Scopes.PROJECT, () => projectRegistry.toggleKanbanBoard?.());
   registerHotkey(platformHotkey('mod+i'), Scopes.PROJECT, () => addProjectTerminal());
   registerHotkey(platformHotkey('mod+p'), Scopes.PROJECT, () => projectRegistry.playOrToggleRunner?.());

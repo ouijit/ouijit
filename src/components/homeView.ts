@@ -115,12 +115,7 @@ export async function enterHomeView(): Promise<void> {
     headerContent.querySelectorAll('.project-view-toggle-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         const mode = (btn as HTMLElement).dataset.mode as HomeGroupMode;
-        if (mode === homeGroupMode) return;
-        homeGroupMode = mode;
-        headerContent.querySelectorAll('.project-view-toggle-btn').forEach(b =>
-          b.classList.toggle('project-view-toggle-btn--active', (b as HTMLElement).dataset.mode === mode)
-        );
-        updateHomeCardStack();
+        if (mode !== homeGroupMode) toggleHomeGroupMode(mode);
       });
     });
   }
@@ -203,6 +198,9 @@ export async function enterHomeView(): Promise<void> {
       closeHomeTerminal(homeActiveIndex);
     }
   });
+  registerHotkey(platformHotkey('mod+t'), Scopes.HOME, () => {
+    toggleHomeGroupMode(homeGroupMode === 'project' ? 'tag' : 'project');
+  });
   registerHotkey(platformHotkey('mod+i'), Scopes.HOME, async () => {
     try {
       const homePath = await window.api.homePath();
@@ -261,6 +259,7 @@ export function exitHomeView(): void {
 
   // Unregister hotkeys
   unregisterHotkey(platformHotkey('mod+w'), Scopes.HOME);
+  unregisterHotkey(platformHotkey('mod+t'), Scopes.HOME);
   unregisterHotkey(platformHotkey('mod+i'), Scopes.HOME);
   for (let i = 1; i <= 9; i++) {
     unregisterHotkey(platformHotkey(`mod+${i}`), Scopes.HOME);
@@ -268,6 +267,18 @@ export function exitHomeView(): void {
   popScope();
 
   unregisterHomeHookStatusListener();
+}
+
+/** Toggle home grouping mode and update UI */
+function toggleHomeGroupMode(mode: HomeGroupMode): void {
+  homeGroupMode = mode;
+  const headerContent = document.querySelector('.header-content');
+  if (headerContent) {
+    headerContent.querySelectorAll('.project-view-toggle-btn').forEach(b =>
+      b.classList.toggle('project-view-toggle-btn--active', (b as HTMLElement).dataset.mode === mode)
+    );
+  }
+  updateHomeCardStack();
 }
 
 /**
