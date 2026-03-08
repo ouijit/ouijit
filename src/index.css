@@ -360,9 +360,6 @@ body.platform-darwin:not(.is-fullscreen) .sidebar-drag-region {
   transition: background-color 150ms ease-out;
 }
 
-.sidebar-home--active .sidebar-icon {
-  background-color: var(--color-accent);
-}
 
 .sidebar-home-logo {
   width: 100%;
@@ -380,7 +377,7 @@ body.platform-darwin:not(.is-fullscreen) .sidebar-drag-region {
 }
 
 .sidebar-home--active .sidebar-home-logo {
-  background-color: #001B65;
+  background-color: white;
 }
 
 .sidebar-home .sidebar-pill {
