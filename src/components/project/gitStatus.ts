@@ -62,6 +62,23 @@ export function shouldSkipPeriodicRefresh(): boolean {
 }
 
 /**
+ * Clear all pending per-terminal git refresh timers (call on project exit)
+ */
+export function clearAllPendingGitRefreshes(): void {
+  for (const timer of pendingTerminalGitRefreshes.values()) {
+    clearTimeout(timer);
+  }
+  pendingTerminalGitRefreshes.clear();
+}
+
+/**
+ * Reset the data-driven refresh timestamp (call on project exit to avoid stale cooldown)
+ */
+export function resetDataDrivenRefreshTimestamp(): void {
+  lastDataDrivenRefresh = 0;
+}
+
+/**
  * Schedule a debounced git status refresh for a specific terminal
  * @param term - The terminal to refresh
  * @param onComplete - Optional callback to run after refresh (e.g., to update UI)

@@ -123,6 +123,12 @@ function throttledDataSideEffects(
 }
 
 function fireDataSideEffects(ptyId: PtyId, term: ProjectTerminal): void {
+  // Skip expensive side-effects for preserved (background) projects
+  if (projectPath.value !== term.projectPath) {
+    pendingDataChunks.set(ptyId, []);
+    return;
+  }
+
   resetIdleTimer(ptyId);
 
   const chunks = pendingDataChunks.get(ptyId) || [];

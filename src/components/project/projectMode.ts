@@ -33,6 +33,8 @@ import {
   hideGitDropdown,
   refreshAllTerminalGitStatus,
   shouldSkipPeriodicRefresh,
+  clearAllPendingGitRefreshes,
+  resetDataDrivenRefreshTimestamp,
 } from './gitStatus';
 import {
   hideDiffPanel,
@@ -51,6 +53,7 @@ import {
   setupTerminalAppHotkeys,
   debouncedResize,
   closeProjectTerminal,
+  clearDataThrottle,
   getTerminalTheme,
   createProjectCard,
   updateTerminalCardLabel,
@@ -190,6 +193,7 @@ export async function enterProjectMode(
       // Seed hook status from main process (may have changed while viewing another project)
       for (const term of terminals.value) {
         const hookStatus = await window.api.claudeHooks.getStatus(term.ptyId);
+        if (!projectPath.value) return; // exited during async hook status query
         if (hookStatus) {
           term.summaryType = hookStatus.status === 'thinking' ? 'thinking' : 'ready';
           updateTerminalCardLabel(term);
@@ -391,6 +395,11 @@ export function exitProjectMode(): void {
         }
       }
 
+      // Clear trailing-edge data throttle timers for preserved terminals
+      for (const term of currentTerminals) {
+        clearDataThrottle(term.ptyId);
+      }
+
       // Move stack to hidden container
       const hiddenContainer = ensureHiddenSessionsContainer();
       hiddenContainer.appendChild(stack);
@@ -447,6 +456,8 @@ export function exitProjectMode(): void {
     clearInterval(projectState.gitStatusPeriodicInterval);
     projectState.gitStatusPeriodicInterval = null;
   }
+  clearAllPendingGitRefreshes();
+  resetDataDrivenRefreshTimestamp();
 
   // 6. Hide and cleanup git dropdown
   hideGitDropdown();

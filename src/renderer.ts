@@ -22,6 +22,7 @@ const rendererLog = log.scope('renderer');
 
 // Store projects for sidebar interactions
 let allProjects: Project[] = [];
+let appInitialized = false;
 
 /**
  * Refreshes the project list and re-renders the sidebar
@@ -140,6 +141,7 @@ async function initialize(): Promise<void> {
             await enterProjectMode(lastView.path, project);
           }
           updateSidebarActiveState();
+          appInitialized = true;
           return;
         }
         rendererLog.info('last active project not found, falling back to home', { path: lastView.path });
@@ -151,6 +153,7 @@ async function initialize(): Promise<void> {
 
   // Default to home view
   enterHomeView();
+  appInitialized = true;
 }
 
 /**
@@ -161,6 +164,9 @@ async function initialize(): Promise<void> {
  */
 function registerGlobalHookStatusListener(): void {
   window.api.claudeHooks.onStatus(async (ptyId, status) => {
+    // Skip until initialization is complete (sessions not yet populated)
+    if (!appInitialized) return;
+
     // Skip if this ptyId belongs to the active project — project-mode listener handles those
     if (terminals.value.some(t => t.ptyId === ptyId)) return;
 
@@ -172,10 +178,11 @@ function registerGlobalHookStatusListener(): void {
       const hookStatus = await window.api.claudeHooks.getStatus(ptyId);
       if (!hookStatus || hookStatus.thinkingCount === 0) return;
 
-      // Find terminal info from preserved project sessions
+      // Find terminal info from preserved project sessions or orphaned sessions
       let termLabel = 'Shell';
       let projectName = 'Ouijit';
       let oscTitle = '';
+      let found = false;
 
       for (const [, session] of projectSessions) {
         const term = session.terminals.find(t => t.ptyId === ptyId);
@@ -183,12 +190,13 @@ function registerGlobalHookStatusListener(): void {
           termLabel = term.label;
           projectName = session.projectData.name;
           oscTitle = term.lastOscTitle;
+          found = true;
           break;
         }
       }
 
       // Also check orphanedSessions (sessions not yet reconnected to a project)
-      if (termLabel === 'Shell') {
+      if (!found) {
         for (const [projectPath, sessions] of orphanedSessions) {
           const session = sessions.find(s => s.ptyId === ptyId);
           if (session) {
