@@ -14,6 +14,7 @@ import { switchToProjectTerminal } from './terminalCards';
 import { escapeHtml, setupHighlightedTextarea } from '../../utils/html';
 import { registerHotkey, unregisterHotkey, pushScope, popScope, Scopes, platformHotkey } from '../../utils/hotkeys';
 import { convertIconsIn } from '../../utils/icons';
+import { convertTitlesIn } from '../../utils/tooltip';
 import Sortable from 'sortablejs';
 import log from 'electron-log/renderer';
 
@@ -1428,6 +1429,8 @@ export async function showKanbanBoard(): Promise<void> {
     kanbanVisible.value = false;
     return;
   }
+
+  convertTitlesIn(board, 'bottom');
 
   // Wire up persistent add input in the todo column
   wireAddInput(board);

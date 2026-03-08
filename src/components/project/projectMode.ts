@@ -73,6 +73,7 @@ import { hideKanbanBoard, showKanbanBoard, showKanbanAndFocusInput, syncViewTogg
 import { projectRegistry } from './helpers';
 import { registerHotkey, unregisterHotkey, pushScope, popScope, Scopes, platformHotkey } from '../../utils/hotkeys';
 import { showHookConfigDialog } from '../hookConfigDialog';
+import { addTooltip, convertTitlesIn } from '../../utils/tooltip';
 
 const projectLog = log.scope('project');
 
@@ -81,6 +82,7 @@ const projectLog = log.scope('project');
  */
 function wireProjectHeader(headerContent: Element, path: string): void {
   convertIconsIn(headerContent as HTMLElement);
+  convertTitlesIn(headerContent, 'bottom');
 
   // Wire up hooks button (opens dropdown)
   const hooksBtn = headerContent.querySelector('.project-hooks-btn');
@@ -1322,13 +1324,13 @@ async function buildSandboxDropdownContent(
     const commandEl = document.createElement('span');
     commandEl.className = 'sandbox-dropdown-hook-command';
     commandEl.textContent = setupHook.command;
-    commandEl.title = setupHook.command;
+    addTooltip(commandEl, { text: setupHook.command });
     hookRight.appendChild(commandEl);
 
     const editBtn = document.createElement('button');
     editBtn.className = 'sandbox-dropdown-hook-edit';
     editBtn.innerHTML = '<i data-icon="gear"></i>';
-    editBtn.title = 'Edit setup hook';
+    addTooltip(editBtn, { text: 'Edit setup hook' });
     editBtn.addEventListener('click', async (e) => {
       e.stopPropagation();
       hideSandboxDropdown();

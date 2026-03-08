@@ -317,6 +317,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Set up sidebar add button (shows menu with add/new options)
   const addBtn = document.getElementById('sidebar-add-btn');
   if (addBtn) {
+    addTooltip(addBtn, { text: 'Add project' });
     addBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       showSidebarAddMenu(addBtn);
@@ -349,6 +350,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Back arrow button to reveal sidebar
     const revealBtn = document.getElementById('sidebar-reveal-btn');
     if (revealBtn) {
+      addTooltip(revealBtn, { text: 'Show sidebar', placement: 'bottom' });
       revealBtn.addEventListener('click', showSidebar);
     }
   }

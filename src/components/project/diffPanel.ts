@@ -18,6 +18,7 @@ import {
 } from './signals';
 import { convertIconsIn } from '../../utils/icons';
 import { escapeHtml } from '../../utils/html';
+import { convertTitlesIn } from '../../utils/tooltip';
 import { showToast } from '../importDialog';
 
 /**
@@ -356,6 +357,8 @@ function wireDiffPanel(
   panel: Element,
   onClose: () => void
 ): void {
+  convertTitlesIn(panel);
+
   // Wire close button
   const closeBtn = panel.querySelector('.diff-panel-close');
   if (closeBtn) {

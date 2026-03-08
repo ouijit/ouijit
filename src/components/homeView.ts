@@ -23,6 +23,7 @@ import { stringToColor, getInitials } from '../utils/projectIcon';
 import { Scopes, pushScope, popScope, registerHotkey, unregisterHotkey, platformHotkey } from '../utils/hotkeys';
 import { showToast } from './importDialog';
 import { showNewProjectDialog } from './newProjectDialog';
+import { convertTitlesIn } from '../utils/tooltip';
 import { updateSidebarActiveState } from './sidebar';
 
 const homeLog = log.scope('homeView');
@@ -100,6 +101,7 @@ export async function enterHomeView(): Promise<void> {
       </button>
     </div>`;
     convertIconsIn(headerContent);
+    convertTitlesIn(headerContent, 'bottom');
 
     // Wire new terminal button
     const newTermBtn = headerContent.querySelector('.home-new-terminal-btn');

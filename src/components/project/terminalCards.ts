@@ -31,6 +31,7 @@ import { setSandboxButtonStarting, refreshSandboxButton } from './projectMode';
 import { convertIconsIn } from '../../utils/icons';
 import { escapeHtml } from '../../utils/html';
 import { notifyReady, readyBody } from '../../utils/notifications';
+import { addTooltip, convertTitlesIn } from '../../utils/tooltip';
 
 // Platform detection for shortcuts display
 const isMac = navigator.platform.toLowerCase().includes('mac');
@@ -315,7 +316,7 @@ export function updateTerminalCardLabel(term: ProjectTerminal): void {
         }
       }
       oscPill.textContent = term.lastOscTitle;
-      oscPill.title = term.lastOscTitle;
+      addTooltip(oscPill, { text: term.lastOscTitle });
     } else if (oscPill) {
       oscPill.remove();
     }
@@ -339,6 +340,7 @@ export function updateTerminalCardLabel(term: ProjectTerminal): void {
     if (branchRow.dataset.lastHtml !== branchHtml) {
       branchRow.dataset.lastHtml = branchHtml;
       branchRow.innerHTML = branchHtml;
+      convertTitlesIn(branchRow);
     }
   }
 
@@ -350,6 +352,7 @@ export function updateTerminalCardLabel(term: ProjectTerminal): void {
     if (statsWrapper.dataset.lastHtml !== statsHtml) {
       statsWrapper.dataset.lastHtml = statsHtml;
       statsWrapper.innerHTML = statsHtml;
+      convertTitlesIn(statsWrapper);
 
       const statsEl = statsWrapper.querySelector('.project-card-git-stats--clickable') as HTMLElement;
       if (statsEl) {
@@ -405,6 +408,7 @@ export function createProjectCard(label: string, index: number): HTMLElement {
     </div>
   `;
   card.appendChild(labelEl);
+  convertTitlesIn(labelEl);
 
   // Card body - flex container for terminal viewport and diff panel
   const cardBody = document.createElement('div');
@@ -846,8 +850,9 @@ export function showRunnerPanel(term: ProjectTerminal): void {
     panel = cardBody.querySelector('.runner-panel') as HTMLElement;
     if (!panel) return;
 
-    // Render icons in the panel header
+    // Render icons and tooltips in the panel header
     convertIconsIn(panel);
+    convertTitlesIn(panel);
 
     // Wire up collapse button (hides panel but keeps runner alive)
     const collapseBtn = panel.querySelector('.runner-panel-collapse');
@@ -1016,14 +1021,14 @@ function toggleRunnerFullWidth(term: ProjectTerminal): void {
     panel.style.flexBasis = '100%';
     if (toggleBtn) {
       toggleBtn.innerHTML = '<i data-icon="split-horizontal"></i>';
-      toggleBtn.title = 'Split view';
+      addTooltip(toggleBtn, { text: 'Split view' });
     }
   } else {
     panel.classList.remove('runner-panel--full');
     panel.style.flexBasis = `${term.runnerSplitRatio * 100}%`;
     if (toggleBtn) {
       toggleBtn.innerHTML = '<i data-icon="arrows-out"></i>';
-      toggleBtn.title = 'Full width';
+      addTooltip(toggleBtn, { text: 'Full width' });
     }
   }
 
@@ -2705,7 +2710,7 @@ export function collapseTagInput(term: ProjectTerminal): void {
 function createTagChip(tagName: string, term: ProjectTerminal): HTMLElement {
   const chip = document.createElement('span');
   chip.className = 'tag-chip';
-  chip.innerHTML = `${escapeHtml(tagName)}<button class="tag-chip-remove" title="Remove tag">&times;</button>`;
+  chip.innerHTML = `${escapeHtml(tagName)}<button class="tag-chip-remove">&times;</button>`;
 
   const removeBtn = chip.querySelector('.tag-chip-remove')!;
   removeBtn.addEventListener('click', (e) => {

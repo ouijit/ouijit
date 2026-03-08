@@ -8,6 +8,7 @@ import { projectPath, projectData, launchDropdownVisible } from './signals';
 import { stringToColor, getInitials } from '../../utils/projectIcon';
 import { showToast } from '../importDialog';
 import { showHookConfigDialog, type HookConfigDialogOptions } from '../hookConfigDialog';
+import { addTooltip } from '../../utils/tooltip';
 
 const HOOK_HINTS: Record<string, string> = {
   start: 'Runs when a task moves from To Do to In Progress',
@@ -94,12 +95,12 @@ function buildHookRow(
     commandEl.textContent = hook.command.length > 30
       ? hook.command.substring(0, 27) + '...'
       : hook.command;
-    commandEl.title = hook.command;
+    addTooltip(commandEl, { text: hook.command, placement: 'top' });
     rightSection.appendChild(commandEl);
 
     const editBtn = document.createElement('button');
     editBtn.className = 'hook-action-btn';
-    editBtn.title = `Edit ${label.toLowerCase()}`;
+    addTooltip(editBtn, { text: `Edit ${label.toLowerCase()}`, placement: 'top' });
     editBtn.innerHTML = '<i data-icon="gear"></i>';
     editBtn.addEventListener('click', async (e) => {
       e.stopPropagation();

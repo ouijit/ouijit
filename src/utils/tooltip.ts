@@ -9,6 +9,7 @@ interface TooltipOptions {
   text: string;
   placement?: Placement;
   delay?: number;
+  gap?: number;
 }
 
 let activeTooltip: HTMLElement | null = null;
@@ -31,7 +32,7 @@ function hideActive(): void {
   }
 }
 
-async function show(trigger: HTMLElement, text: string, placement: Placement): Promise<void> {
+async function show(trigger: HTMLElement, text: string, placement: Placement, gap: number): Promise<void> {
   hideActive();
 
   const tip = document.createElement('div');
@@ -45,7 +46,7 @@ async function show(trigger: HTMLElement, text: string, placement: Placement): P
   const { x, y } = await computePosition(trigger, tip, {
     placement,
     middleware: [
-      offset(6),
+      offset(gap),
       flip(),
       shift({ padding: 8 }),
     ],
@@ -64,13 +65,13 @@ async function show(trigger: HTMLElement, text: string, placement: Placement): P
  * Removes any native `title` attribute to prevent double tooltips.
  */
 export function addTooltip(el: HTMLElement, options: TooltipOptions): () => void {
-  const { text, placement = 'right', delay = 50 } = options;
+  const { text, placement = 'right', delay = 50, gap = 6 } = options;
 
   el.removeAttribute('title');
 
   const onEnter = () => {
     clearPending();
-    showTimeout = setTimeout(() => show(el, text, placement), delay);
+    showTimeout = setTimeout(() => show(el, text, placement, gap), delay);
   };
 
   const onLeave = () => {
@@ -87,4 +88,15 @@ export function addTooltip(el: HTMLElement, options: TooltipOptions): () => void
     el.removeEventListener('mousedown', onLeave);
     hideActive();
   };
+}
+
+/**
+ * Convert all `[title]` attributes within a container into styled tooltips.
+ * Mirrors the `convertIconsIn` pattern — call after setting innerHTML.
+ */
+export function convertTitlesIn(container: Element, placement: Placement = 'top', gap?: number): void {
+  for (const el of container.querySelectorAll<HTMLElement>('[title]')) {
+    const text = el.getAttribute('title');
+    if (text) addTooltip(el, { text, placement, gap });
+  }
 }
