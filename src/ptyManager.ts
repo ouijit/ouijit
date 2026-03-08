@@ -3,7 +3,7 @@ import * as pty from 'node-pty';
 import { BrowserWindow } from 'electron';
 import type { PtyId, PtySpawnOptions, PtySpawnResult } from './types';
 import { generateId } from './utils/ids';
-import { getApiPort, getWrapperBinDir, getShellIntegrationDir, clearHookStatus } from './hookServer';
+import { getApiPort, getWrapperBinDir, getShellIntegrationDir, clearHookStatus, clearAllHookStatuses } from './hookServer';
 import log from './log';
 
 const ptyLog = log.scope('pty');
@@ -273,6 +273,11 @@ export function getActiveSessions(): ActiveSession[] {
   }));
 }
 
+/** Check if a PTY is currently active */
+export function isPtyActive(ptyId: PtyId): boolean {
+  return activePtys.has(ptyId);
+}
+
 export function writeToPty(ptyId: PtyId, data: string): void {
   const managed = activePtys.get(ptyId);
   if (managed) {
@@ -334,4 +339,5 @@ export function cleanupAllPtys(): void {
     }
   }
   activePtys.clear();
+  clearAllHookStatuses();
 }

@@ -8,7 +8,7 @@ import './index.css';
 import '@xterm/xterm/css/xterm.css';
 import log from 'electron-log/renderer';
 import { initIcons } from './utils/icons';
-import type { Project, ActiveSession } from './types';
+import type { Project, ActiveSession, LastActiveView, HookStatus } from './types';
 import { showToast } from './components/importDialog';
 import { showNewProjectDialog } from './components/newProjectDialog';
 import { initHotkeys } from './utils/hotkeys';
@@ -129,7 +129,7 @@ async function initialize(): Promise<void> {
   try {
     const lastViewJson = await window.api.globalSettings.get('lastActiveView');
     if (lastViewJson) {
-      const lastView = JSON.parse(lastViewJson) as { type: string; path?: string };
+      const lastView = JSON.parse(lastViewJson) as LastActiveView;
       if (lastView.type === 'project' && lastView.path) {
         const project = allProjects.find(p => p.path === lastView.path);
         if (project) {

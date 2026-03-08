@@ -2432,10 +2432,17 @@ export async function reconnectTerminal(
     return null;
   }
 
-  // Replay buffered output
+  // Replay buffered output and extract last OSC title
+  let lastOscTitle = '';
   if (result.bufferedOutput) {
     terminal.reset();
     terminal.write(result.bufferedOutput);
+
+    // Extract the last OSC title from the buffer so the card label is correct
+    const oscMatches = result.bufferedOutput.matchAll(/\x1b\]0;([^\x07]*)\x07/g);
+    for (const match of oscMatches) {
+      lastOscTitle = match[1];
+    }
   }
 
   // Resize observer
@@ -2462,7 +2469,7 @@ export async function reconnectTerminal(
     resizeObserver,
     summary: '',
     summaryType: opts.initialStatus ?? 'ready',
-    lastOscTitle: '',
+    lastOscTitle,
     sandboxed: !!session.sandboxed,
     taskId: session.taskId ?? null,
     tags: [],
@@ -2506,6 +2513,11 @@ export async function reconnectTerminal(
       updateTerminalCardLabel(projectTerminal!);
     }).catch(() => {});
   }
+
+  // Kick off initial git status so the card shows branch/changes immediately
+  refreshTerminalGitStatus(projectTerminal).then(() => {
+    updateTerminalCardLabel(projectTerminal);
+  }).catch(() => {});
 
   updateTerminalCardLabel(projectTerminal);
   return projectTerminal;

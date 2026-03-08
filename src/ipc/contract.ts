@@ -34,6 +34,7 @@ import type {
   TagRow,
 } from '../types';
 import type { SandboxStatus } from '../lima/types';
+import type { HookStatusEntry } from '../hookServer';
 
 /** Hooks object returned by hooks:get — derived from the canonical ProjectSettings type */
 export type ProjectHooks = NonNullable<ProjectSettings['hooks']>;
@@ -104,7 +105,7 @@ export interface IpcInvokeContract {
 
   // ── Hooks ────────────────────────────────────────────────────────────
   'hooks:get':                    { args: [projectPath: string];                                            return: ProjectHooks };
-  'hooks:get-status':             { args: [ptyId: string];                                                  return: { status: string; thinkingCount: number } | null };
+  'hooks:get-status':             { args: [ptyId: string];                                                  return: HookStatusEntry | null };
   'hooks:save':                   { args: [projectPath: string, hook: ScriptHook];                          return: { success: boolean } };
   'hooks:delete':                 { args: [projectPath: string, hookType: HookType];                        return: { success: boolean } };
 
@@ -149,6 +150,6 @@ export interface IpcSendContract {
  */
 export interface IpcPushContract {
   'fullscreen-change':            { args: [isFullscreen: boolean] };
-  'claude-hook-status':           { args: [ptyId: string, status: string] };
+  'claude-hook-status':           { args: [ptyId: string, status: import('../hookServer').HookStatus] };
   'lima:spawn-progress':          { args: [message: string] };
 }

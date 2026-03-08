@@ -10,6 +10,8 @@ export type { TagRow } from './db';
 export type { ActiveSession } from './ptyManager';
 // Re-export sandbox status from lima/types.ts (single source of truth)
 export type { SandboxStatus } from './lima/types';
+// Re-export hook status types from hookServer.ts (single source of truth)
+export type { HookStatus, HookStatusEntry } from './hookServer';
 
 // Import for local use within this file
 import type { GitStatus, CompactGitStatus, GitDropdownInfo, ChangedFile, FileDiff, WorktreeDiffSummary, BranchInfo } from './git';
@@ -18,6 +20,14 @@ import type { TaskStatus, TaskMetadata } from './db';
 import type { TagRow } from './db';
 import type { ActiveSession } from './ptyManager';
 import type { SandboxStatus } from './lima/types';
+import type { HookStatus, HookStatusEntry } from './hookServer';
+
+/**
+ * Persisted last active view for session recovery
+ */
+export type LastActiveView =
+  | { type: 'home' }
+  | { type: 'project'; path: string };
 
 /**
  * Represents a run configuration for launching a project
@@ -335,8 +345,8 @@ export interface ElectronAPI {
  * Claude Code hook events API exposed to the renderer
  */
 export interface ClaudeHooksAPI {
-  onStatus(callback: (ptyId: PtyId, status: string) => void): () => void;
-  getStatus(ptyId: PtyId): Promise<{ status: string; thinkingCount: number } | null>;
+  onStatus(callback: (ptyId: PtyId, status: HookStatus) => void): () => void;
+  getStatus(ptyId: PtyId): Promise<HookStatusEntry | null>;
 }
 
 /**

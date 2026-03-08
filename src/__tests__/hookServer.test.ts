@@ -16,6 +16,10 @@ vi.mock('node:os', async (importOriginal) => {
   };
 });
 
+vi.mock('../ptyManager', () => ({
+  isPtyActive: () => true,
+}));
+
 import {
   startHookServer,
   stopHookServer,

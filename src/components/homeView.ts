@@ -7,7 +7,7 @@ import log from 'electron-log/renderer';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
-import type { Project, PtyId, PtySpawnOptions } from '../types';
+import type { Project, PtyId, PtySpawnOptions, HookStatus } from '../types';
 import {
   projectSessions,
   orphanedSessions,
@@ -1024,7 +1024,7 @@ function showHomeEmptyState(): void {
 function registerHomeHookStatusListener(): void {
   if (hookStatusCleanup) return;
 
-  hookStatusCleanup = window.api.claudeHooks.onStatus((ptyId: PtyId, status: string) => {
+  hookStatusCleanup = window.api.claudeHooks.onStatus((ptyId: PtyId, status: HookStatus) => {
     const term = homeTerminals.find(t => t.ptyId === ptyId);
     if (!term) return;
 

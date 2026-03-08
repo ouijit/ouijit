@@ -191,14 +191,15 @@ export async function enterProjectMode(
       }
 
       // Seed hook status from main process (may have changed while viewing another project)
-      for (const term of terminals.value) {
+      const hookSeeds = terminals.value.map(async (term) => {
         const hookStatus = await window.api.claudeHooks.getStatus(term.ptyId);
-        if (!projectPath.value) return; // exited during async hook status query
         if (hookStatus) {
           term.summaryType = hookStatus.status === 'thinking' ? 'thinking' : 'ready';
           updateTerminalCardLabel(term);
         }
-      }
+      });
+      await Promise.all(hookSeeds);
+      if (!projectPath.value) return; // exited during async hook status queries
 
       // Focus the active terminal (effect will handle this too, but ensure immediate focus)
       const currentTerminals = terminals.value;

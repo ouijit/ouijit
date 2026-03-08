@@ -11,6 +11,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
 import { BrowserWindow } from 'electron';
+import { isPtyActive } from './ptyManager';
 import log from './log';
 
 const hookServerLog = log.scope('hookServer');
@@ -26,8 +27,10 @@ export function getApiPort(): number {
 
 // ── Hook status state (main-process, survives renderer reloads) ──────
 
+export type HookStatus = 'thinking' | 'ready';
+
 export interface HookStatusEntry {
-  status: string;
+  status: HookStatus;
   thinkingCount: number;
 }
 
@@ -43,17 +46,23 @@ export function clearHookStatus(ptyId: string): void {
   hookStatusMap.delete(ptyId);
 }
 
+/** Clear all hook statuses (call on app cleanup). */
+export function clearAllHookStatuses(): void {
+  hookStatusMap.clear();
+}
+
 // ── Action handlers ──────────────────────────────────────────────────
 
 type ActionHandler = (body: Record<string, unknown>) => void;
 
-const VALID_STATUSES = new Set(['thinking', 'ready']);
+const VALID_STATUSES = new Set<HookStatus>(['thinking', 'ready']);
 
 const actionHandlers: Record<string, ActionHandler> = {
   status(body) {
     const { ptyId, status } = body;
     if (typeof ptyId !== 'string' || typeof status !== 'string') return;
-    if (!VALID_STATUSES.has(status)) return;
+    if (!VALID_STATUSES.has(status as HookStatus)) return;
+    if (!isPtyActive(ptyId)) return;
     hookServerLog.info('status update', { ptyId, status });
 
     // Update main-process state map
