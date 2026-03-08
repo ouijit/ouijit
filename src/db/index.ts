@@ -13,6 +13,7 @@ import { ProjectRepo } from './repos/projectRepo';
 import { TaskRepo, type TaskStatus, type TaskRow } from './repos/taskRepo';
 import { SettingsRepo } from './repos/settingsRepo';
 import { HookRepo, type HookType } from './repos/hookRepo';
+import { TagRepo, type TagRow } from './repos/tagRepo';
 import type { ProjectSettings, ScriptHook } from '../types';
 import log from '../log';
 
@@ -21,6 +22,7 @@ const dbLog = log.scope('db');
 // ── Re-exports ───────────────────────────────────────────────────────
 export type { TaskStatus } from './repos/taskRepo';
 export type { HookType } from './repos/hookRepo';
+export type { TagRow } from './repos/tagRepo';
 
 export interface TaskMetadata {
   taskNumber: number;
@@ -42,6 +44,7 @@ let projectRepo: ProjectRepo | null = null;
 let taskRepo: TaskRepo | null = null;
 let settingsRepo: SettingsRepo | null = null;
 let hookRepo: HookRepo | null = null;
+let tagRepo: TagRepo | null = null;
 
 function repos() {
   if (!taskRepo) {
@@ -50,8 +53,9 @@ function repos() {
     taskRepo = new TaskRepo(db);
     settingsRepo = new SettingsRepo(db);
     hookRepo = new HookRepo(db);
+    tagRepo = new TagRepo(db);
   }
-  return { projectRepo: projectRepo!, taskRepo: taskRepo!, settingsRepo: settingsRepo!, hookRepo: hookRepo! };
+  return { projectRepo: projectRepo!, taskRepo: taskRepo!, settingsRepo: settingsRepo!, hookRepo: hookRepo!, tagRepo: tagRepo! };
 }
 
 // ── Test helpers ─────────────────────────────────────────────────────
@@ -62,6 +66,7 @@ export function _resetCacheForTesting(): void {
   taskRepo = new TaskRepo(db);
   settingsRepo = new SettingsRepo(db);
   hookRepo = new HookRepo(db);
+  tagRepo = new TagRepo(db);
 }
 
 // ── Row → TaskMetadata conversion ────────────────────────────────────
@@ -451,4 +456,31 @@ export async function removeProject(folderPath: string): Promise<{ success: bool
   const { projectRepo: pr } = repos();
   pr.remove(folderPath);
   return { success: true };
+}
+
+// ── Tag functions ────────────────────────────────────────────────────
+
+export async function getAllTags(): Promise<TagRow[]> {
+  const { tagRepo: tr } = repos();
+  return tr.getAll();
+}
+
+export async function getTaskTags(projectPath: string, taskNumber: number): Promise<TagRow[]> {
+  const { tagRepo: tr } = repos();
+  return tr.getForTask(projectPath, taskNumber);
+}
+
+export async function addTagToTask(projectPath: string, taskNumber: number, tagName: string): Promise<TagRow> {
+  const { tagRepo: tr } = repos();
+  return tr.addToTask(projectPath, taskNumber, tagName);
+}
+
+export async function removeTagFromTask(projectPath: string, taskNumber: number, tagName: string): Promise<void> {
+  const { tagRepo: tr } = repos();
+  tr.removeFromTask(projectPath, taskNumber, tagName);
+}
+
+export async function setTaskTags(projectPath: string, taskNumber: number, tagNames: string[]): Promise<TagRow[]> {
+  const { tagRepo: tr } = repos();
+  return tr.setTaskTags(projectPath, taskNumber, tagNames);
 }

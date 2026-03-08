@@ -563,6 +563,7 @@ async function addHomeTerminal(path: string): Promise<void> {
       lastOscTitle: '',
       sandboxed: false,
       taskId: null,
+      tags: [],
       worktreePath: undefined,
       worktreeBranch: undefined,
       gitStatus: null,

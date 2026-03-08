@@ -27,6 +27,7 @@ import { refreshTerminalGitStatus, buildCardGitBranchHtml, buildCardGitStatsHtml
 import { toggleTerminalDiffPanel, toggleTerminalWorktreeDiffPanel, hideTerminalDiffPanel } from './diffPanel';
 import { setSandboxButtonStarting, refreshSandboxButton } from './projectMode';
 import { convertIconsIn } from '../../utils/icons';
+import { escapeHtml } from '../../utils/html';
 import { notifyReady, readyBody } from '../../utils/notifications';
 
 // Platform detection for shortcuts display
@@ -207,7 +208,12 @@ export function updateTerminalCardLabel(term: ProjectTerminal): void {
       if (!oscPill) {
         oscPill = document.createElement('span');
         oscPill.className = 'project-card-osc-title';
-        labelTop.appendChild(oscPill);
+        const tagsAnchor = labelTop.querySelector('.project-card-tags-row');
+        if (tagsAnchor) {
+          labelTop.insertBefore(oscPill, tagsAnchor);
+        } else {
+          labelTop.appendChild(oscPill);
+        }
       }
       oscPill.textContent = term.lastOscTitle;
       oscPill.title = term.lastOscTitle;
@@ -215,6 +221,17 @@ export function updateTerminalCardLabel(term: ProjectTerminal): void {
       oscPill.remove();
     }
   }
+
+  // Update tag pills display
+  const tagsRow = labelEl.querySelector('.project-card-tags-row') as HTMLElement;
+  if (tagsRow && !tagsRow.querySelector('.tag-input-container')) {
+    const tagsHtml = term.tags.map(t => `<span class="project-card-tag-pill">${escapeHtml(t)}</span>`).join('');
+    if (tagsRow.dataset.lastHtml !== tagsHtml) {
+      tagsRow.dataset.lastHtml = tagsHtml;
+      tagsRow.innerHTML = tagsHtml;
+    }
+  }
+  term.container.classList.toggle('project-card--has-tags', term.tags.length > 0);
 
   // Update git branch display (second line under label)
   const branchRow = labelEl.querySelector('.project-card-git-branch-row') as HTMLElement;
@@ -277,6 +294,8 @@ export function createProjectCard(label: string, index: number): HTMLElement {
         <span class="project-card-status-dot" data-status="ready"></span>
         <kbd class="project-card-shortcut" style="display: none;"></kbd>
         <span class="project-card-label-text">${label}</span>
+        <button class="project-card-tag-btn" title="Tags"><i data-icon="tag"></i></button>
+        <span class="project-card-tags-row"></span>
       </div>
       <div class="project-card-git-branch-row"></div>
     </div>
@@ -410,6 +429,16 @@ export function setupCardActions(term: ProjectTerminal): void {
       e.preventDefault();
       e.stopPropagation();
       showCardContextMenu(e as MouseEvent, term);
+    });
+  }
+
+  // Tag button — works for all terminals (task tags persist, non-task are session-only)
+  const tagBtn = labelEl.querySelector('.project-card-tag-btn') as HTMLElement;
+  if (tagBtn) {
+    tagBtn.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      toggleTagInput(term);
     });
   }
 
@@ -1280,6 +1309,10 @@ export function switchToProjectTerminal(index: number): void {
   const currentTerminals = terminals.value;
   if (index < 0 || index >= currentTerminals.length || index === activeIndex.value) return;
 
+  // Collapse any open tag input on the previous active card
+  const prev = currentTerminals[activeIndex.value];
+  if (prev) collapseTagInput(prev);
+
   // Set the new active index - effects will handle updateCardStack, focus, and resize
   activeIndex.value = index;
 }
@@ -1489,6 +1522,7 @@ export async function addProjectTerminal(runConfig?: RunConfig, options?: AddPro
       sandboxed: true,
       taskId: options?.taskId ?? null,
       taskPrompt,
+      tags: [],
       worktreePath: worktreeInfo?.path,
       worktreeBranch: worktreeInfo?.branch,
       gitStatus: null,
@@ -1679,6 +1713,14 @@ export async function addProjectTerminal(runConfig?: RunConfig, options?: AddPro
         updateTerminalCardLabel(projectTerminal!);
       });
 
+      // Load tags for task terminals
+      if (projectTerminal.taskId != null) {
+        window.api.tags.getForTask(currentProjectPath, projectTerminal.taskId).then((tags) => {
+          projectTerminal!.tags = tags.map(t => t.name);
+          updateTerminalCardLabel(projectTerminal!);
+        }).catch(() => {});
+      }
+
       terminal.focus();
       return true;
     }
@@ -1701,6 +1743,7 @@ export async function addProjectTerminal(runConfig?: RunConfig, options?: AddPro
       sandboxed: useSandbox,
       taskId: options?.taskId ?? null,
       taskPrompt,
+      tags: [],
       worktreePath: worktreeInfo?.path,
       worktreeBranch: worktreeInfo?.branch,
       // Per-terminal git status and diff panel state
@@ -1801,6 +1844,14 @@ export async function addProjectTerminal(runConfig?: RunConfig, options?: AddPro
     refreshTerminalGitStatus(projectTerminal).then(() => {
       updateTerminalCardLabel(projectTerminal!);
     });
+
+    // Load tags for task terminals
+    if (projectTerminal.taskId != null) {
+      window.api.tags.getForTask(currentProjectPath, projectTerminal.taskId).then((tags) => {
+        projectTerminal!.tags = tags.map(t => t.name);
+        updateTerminalCardLabel(projectTerminal!);
+      });
+    }
 
     // Add terminal to list - effects will handle updateCardStack
     terminals.value = [...terminals.value, projectTerminal];
@@ -2339,6 +2390,7 @@ export async function reconnectTerminal(
     lastOscTitle: '',
     sandboxed: !!session.sandboxed,
     taskId: session.taskId ?? null,
+    tags: [],
     worktreePath: session.worktreePath,
     worktreeBranch: opts.worktreeBranch,
     gitStatus: null,
@@ -2372,8 +2424,220 @@ export async function reconnectTerminal(
     window.api.pty.write(session.ptyId, data);
   });
 
+  // Load tags for task terminals
+  if (projectTerminal.taskId != null) {
+    window.api.tags.getForTask(session.projectPath, projectTerminal.taskId).then((tags) => {
+      projectTerminal!.tags = tags.map(t => t.name);
+      updateTerminalCardLabel(projectTerminal!);
+    }).catch(() => {});
+  }
+
   updateTerminalCardLabel(projectTerminal);
   return projectTerminal;
+}
+
+// ── Tag input ────────────────────────────────────────────────────────
+
+function toggleTagInput(term: ProjectTerminal): void {
+  const tagsRow = term.container.querySelector('.project-card-tags-row') as HTMLElement;
+  if (!tagsRow) return;
+
+  if (tagsRow.querySelector('.tag-input-container')) {
+    collapseTagInput(term);
+  } else {
+    expandTagInput(term);
+  }
+}
+
+function expandTagInput(term: ProjectTerminal): void {
+  const tagsRow = term.container.querySelector('.project-card-tags-row') as HTMLElement;
+  if (!tagsRow || tagsRow.querySelector('.tag-input-container')) return;
+
+  const container = document.createElement('div');
+  container.className = 'tag-input-container';
+
+  // Render existing tags as removable chips
+  for (const t of term.tags) {
+    container.appendChild(createTagChip(t, term));
+  }
+
+  // Text input
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'tag-input-field';
+  input.placeholder = term.tags.length ? '' : 'Add tag…';
+  container.appendChild(input);
+
+  // Autocomplete dropdown
+  const dropdown = document.createElement('div');
+  dropdown.className = 'tag-autocomplete-dropdown';
+  dropdown.style.display = 'none';
+  container.appendChild(dropdown);
+
+  tagsRow.innerHTML = '';
+  delete tagsRow.dataset.lastHtml;
+  tagsRow.appendChild(container);
+
+  input.focus();
+
+  // Input event handler for autocomplete
+  input.addEventListener('input', async () => {
+    const value = input.value.trim();
+    if (!value) {
+      dropdown.style.display = 'none';
+      return;
+    }
+    try {
+      const allTags = await window.api.tags.getAll();
+      const existing = new Set(term.tags.map(t => t.toLowerCase()));
+      const matches = allTags
+        .filter(t => t.name.toLowerCase().includes(value.toLowerCase()) && !existing.has(t.name.toLowerCase()))
+        .slice(0, 8);
+
+      if (matches.length === 0) {
+        dropdown.style.display = 'none';
+        return;
+      }
+
+      dropdown.innerHTML = '';
+      for (const match of matches) {
+        const item = document.createElement('div');
+        item.className = 'tag-autocomplete-item';
+        item.textContent = match.name;
+        item.addEventListener('mousedown', (e) => {
+          e.preventDefault(); // prevent input blur
+          addTag(term, match.name, container, input);
+        });
+        dropdown.appendChild(item);
+      }
+      dropdown.style.display = 'block';
+    } catch {
+      dropdown.style.display = 'none';
+    }
+  });
+
+  // Key handlers
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const value = input.value.trim();
+      if (value) {
+        addTag(term, value, container, input);
+      }
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      collapseTagInput(term);
+    } else if (e.key === 'Backspace' && !input.value && term.tags.length > 0) {
+      e.preventDefault();
+      const lastTag = term.tags[term.tags.length - 1];
+      removeTag(term, lastTag, container);
+    }
+  });
+
+  // Click outside to collapse (tag button handled by toggleTagInput, so exclude it)
+  const tagBtn = term.container.querySelector('.project-card-tag-btn');
+  const onClickOutside = (e: MouseEvent) => {
+    if (!container.contains(e.target as Node) && !tagBtn?.contains(e.target as Node)) {
+      collapseTagInput(term);
+      document.removeEventListener('mousedown', onClickOutside);
+    }
+  };
+  // Delay attaching to avoid immediate trigger
+  requestAnimationFrame(() => {
+    document.addEventListener('mousedown', onClickOutside);
+  });
+
+  // Store cleanup reference on the container element
+  (container as any)._cleanupClickOutside = onClickOutside;
+}
+
+function collapseTagInput(term: ProjectTerminal): void {
+  const tagsRow = term.container.querySelector('.project-card-tags-row') as HTMLElement;
+  if (!tagsRow) return;
+
+  const container = tagsRow.querySelector('.tag-input-container');
+  if (!container) return;
+
+  const cleanup = (container as any)._cleanupClickOutside;
+  if (cleanup) document.removeEventListener('mousedown', cleanup);
+
+  // Remove input container so updateTerminalCardLabel can re-render pills
+  container.remove();
+  delete tagsRow.dataset.lastHtml;
+  updateTerminalCardLabel(term);
+}
+
+function createTagChip(tagName: string, term: ProjectTerminal): HTMLElement {
+  const chip = document.createElement('span');
+  chip.className = 'tag-chip';
+  chip.innerHTML = `${escapeHtml(tagName)}<button class="tag-chip-remove" title="Remove tag">&times;</button>`;
+
+  const removeBtn = chip.querySelector('.tag-chip-remove')!;
+  removeBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const container = chip.closest('.tag-input-container') as HTMLElement;
+    if (container) {
+      removeTag(term, tagName, container);
+    }
+  });
+
+  return chip;
+}
+
+async function addTag(term: ProjectTerminal, tagName: string, container: HTMLElement, input: HTMLInputElement): Promise<void> {
+  const normalized = tagName.trim();
+  if (!normalized) return;
+
+  // Check for duplicate (case-insensitive)
+  if (term.tags.some(t => t.toLowerCase() === normalized.toLowerCase())) {
+    input.value = '';
+    const dropdown = container.querySelector('.tag-autocomplete-dropdown') as HTMLElement;
+    if (dropdown) dropdown.style.display = 'none';
+    return;
+  }
+
+  // Persist for task terminals, in-memory only for non-task
+  if (term.taskId != null) {
+    try {
+      await window.api.tags.addToTask(term.projectPath, term.taskId, normalized);
+    } catch { /* DB not ready or task gone — still add in-memory */ }
+  }
+  term.tags = [...term.tags, normalized];
+
+  // Add chip before input
+  const chip = createTagChip(normalized, term);
+  container.insertBefore(chip, input);
+
+  input.value = '';
+  input.placeholder = '';
+  const dropdown = container.querySelector('.tag-autocomplete-dropdown') as HTMLElement;
+  if (dropdown) dropdown.style.display = 'none';
+}
+
+async function removeTag(term: ProjectTerminal, tagName: string, container: HTMLElement): Promise<void> {
+  // Persist for task terminals, in-memory only for non-task
+  if (term.taskId != null) {
+    try {
+      await window.api.tags.removeFromTask(term.projectPath, term.taskId, tagName);
+    } catch { /* DB not ready or task gone */ }
+  }
+  term.tags = term.tags.filter(t => t.toLowerCase() !== tagName.toLowerCase());
+
+  // Remove the chip from DOM
+  const chips = container.querySelectorAll('.tag-chip');
+  for (const chip of chips) {
+    const text = chip.childNodes[0]?.textContent?.trim();
+    if (text?.toLowerCase() === tagName.toLowerCase()) {
+      chip.remove();
+      break;
+    }
+  }
+
+  // Update placeholder
+  const input = container.querySelector('.tag-input-field') as HTMLInputElement;
+  if (input && term.tags.length === 0) {
+    input.placeholder = 'Add tag…';
+  }
 }
 
 // Register functions in the project registry for cross-module access

@@ -31,6 +31,7 @@ import type {
   ScriptHook,
   HookType,
   BranchInfo,
+  TagRow,
 } from '../types';
 import type { SandboxStatus } from '../lima/types';
 
@@ -104,6 +105,13 @@ export interface IpcInvokeContract {
   'hooks:get':                    { args: [projectPath: string];                                            return: ProjectHooks };
   'hooks:save':                   { args: [projectPath: string, hook: ScriptHook];                          return: { success: boolean } };
   'hooks:delete':                 { args: [projectPath: string, hookType: HookType];                        return: { success: boolean } };
+
+  // ── Tags ─────────────────────────────────────────────────────────────
+  'tags:get-all':                 { args: [];                                                               return: TagRow[] };
+  'tags:get-for-task':            { args: [projectPath: string, taskNumber: number];                        return: TagRow[] };
+  'tags:add-to-task':             { args: [projectPath: string, taskNumber: number, tagName: string];       return: TagRow };
+  'tags:remove-from-task':        { args: [projectPath: string, taskNumber: number, tagName: string];       return: void };
+  'tags:set-task-tags':           { args: [projectPath: string, taskNumber: number, tagNames: string[]];    return: TagRow[] };
 
   // ── Lima ─────────────────────────────────────────────────────────────
   'lima:status':                  { args: [projectPath: string];                                            return: SandboxStatus };

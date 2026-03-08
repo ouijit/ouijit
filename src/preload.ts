@@ -120,6 +120,14 @@ contextBridge.exposeInMainWorld('api', {
     delete: (projectPath: string, hookType: HookType) => typedInvoke('hooks:delete', projectPath, hookType),
   },
 
+  tags: {
+    getAll: () => typedInvoke('tags:get-all'),
+    getForTask: (projectPath: string, taskNumber: number) => typedInvoke('tags:get-for-task', projectPath, taskNumber),
+    addToTask: (projectPath: string, taskNumber: number, tagName: string) => typedInvoke('tags:add-to-task', projectPath, taskNumber, tagName),
+    removeFromTask: (projectPath: string, taskNumber: number, tagName: string) => typedInvoke('tags:remove-from-task', projectPath, taskNumber, tagName),
+    setTaskTags: (projectPath: string, taskNumber: number, tagNames: string[]) => typedInvoke('tags:set-task-tags', projectPath, taskNumber, tagNames),
+  },
+
   onFullscreenChange: (callback: (isFullscreen: boolean) => void) => typedListen('fullscreen-change', callback),
 
   claudeHooks: {

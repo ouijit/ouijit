@@ -1366,6 +1366,16 @@ body.home-mode .project-card--back-8 {
   @apply hidden;
 }
 
+/* Hide tag button + tags on back cards unless card has tags */
+.project-card:not(.project-card--active) .project-card-tag-btn,
+.project-card:not(.project-card--active) .project-card-tags-row {
+  display: none;
+}
+.project-card--has-tags:not(.project-card--active) .project-card-tag-btn,
+.project-card--has-tags:not(.project-card--active) .project-card-tags-row {
+  display: inline-flex;
+}
+
 
 /* Hover effect on back cards */
 .project-card:not(.project-card--active):hover {
@@ -1414,11 +1424,73 @@ body.home-mode .project-card--back-8:hover {
 }
 
 .project-card-label-top {
-  @apply flex items-center gap-2 min-w-0;
+  @apply flex items-center gap-2 min-w-0 flex-wrap;
 }
 
 .project-card-git-branch-row {
   @apply min-w-0 overflow-hidden;
+}
+
+/* Tag pills & tag input */
+.project-card-tags-row {
+  @apply inline-flex items-center gap-1 min-w-0;
+}
+
+.project-card-tag-pill {
+  @apply font-mono text-[11px] text-white/50 bg-white/[0.06] rounded-full px-2 py-px shrink-0;
+}
+
+.project-card-tag-btn {
+  @apply flex items-center justify-center w-5 h-5 rounded text-white/30 bg-transparent border-none shrink-0;
+}
+
+.project-card-tag-btn:hover {
+  @apply text-white/60;
+}
+
+.project-card-tag-btn svg {
+  @apply w-3.5 h-3.5;
+}
+
+.tag-input-container {
+  @apply inline-flex flex-wrap items-center gap-1 relative;
+  -webkit-app-region: no-drag;
+}
+
+.tag-chip {
+  @apply inline-flex items-center gap-0.5 font-mono text-[11px] text-white/50 bg-white/[0.06] rounded-full px-2 py-px shrink-0;
+}
+
+.tag-chip-remove {
+  @apply inline-flex items-center justify-center w-3 h-3 text-white/30 bg-transparent border-none text-xs leading-none;
+}
+
+.tag-chip-remove:hover {
+  @apply text-white/60;
+}
+
+.tag-input-field {
+  @apply bg-transparent border-none outline-none font-mono text-[11px] text-white/70 min-w-[60px] py-px;
+  width: 60px;
+}
+
+.tag-input-field::placeholder {
+  @apply text-white/25;
+}
+
+.tag-autocomplete-dropdown {
+  @apply absolute left-0 bg-surface border border-white/10 rounded-lg shadow-lg z-50 max-h-48 overflow-y-auto;
+  top: 100%;
+  margin-top: 4px;
+  min-width: 120px;
+}
+
+.tag-autocomplete-item {
+  @apply block w-full text-left font-mono text-[11px] text-white/60 px-3 py-1.5 bg-transparent border-none;
+}
+
+.tag-autocomplete-item:hover {
+  @apply bg-white/[0.08] text-white/80;
 }
 
 .project-card-label-right {

@@ -32,6 +32,8 @@ export interface ProjectTerminal {
   taskPrompt?: string;
   worktreePath?: string;
   worktreeBranch?: string;
+  // Tags
+  tags: string[];
   // Per-terminal git status and diff panel state
   gitStatus: CompactGitStatus | null;
   diffPanelOpen: boolean;

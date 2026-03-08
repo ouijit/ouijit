@@ -41,6 +41,7 @@ import prohibit from '@phosphor-icons/core/assets/regular/prohibit.svg?raw';
 import rocket from '@phosphor-icons/core/assets/regular/rocket.svg?raw';
 import splitHorizontal from '@phosphor-icons/core/assets/regular/split-horizontal.svg?raw';
 import star from '@phosphor-icons/core/assets/regular/star.svg?raw';
+import tag from '@phosphor-icons/core/assets/regular/tag.svg?raw';
 import terminal from '@phosphor-icons/core/assets/regular/terminal.svg?raw';
 import trash from '@phosphor-icons/core/assets/regular/trash.svg?raw';
 import upload from '@phosphor-icons/core/assets/regular/upload.svg?raw';
@@ -88,6 +89,7 @@ const iconMap: Record<string, string> = {
   'rocket': rocket,
   'split-horizontal': splitHorizontal,
   'star': star,
+  'tag': tag,
   'terminal': terminal,
   'trash': trash,
   'upload': upload,

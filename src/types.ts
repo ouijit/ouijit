@@ -4,6 +4,8 @@ export type { GitStatus, GitDropdownInfo, ExtendedGitStatus, RecentBranch, Uncom
 export type { TaskWorktreeResult, WorktreeInfo, WorktreeRemoveResult, CheckWorktreeResult } from './worktree';
 // Re-export task types from db layer (single source of truth)
 export type { TaskStatus, TaskMetadata } from './db';
+// Re-export tag types from db layer (single source of truth)
+export type { TagRow } from './db';
 // Re-export PTY session type from ptyManager.ts (single source of truth)
 export type { ActiveSession } from './ptyManager';
 // Re-export sandbox status from lima/types.ts (single source of truth)
@@ -13,6 +15,7 @@ export type { SandboxStatus } from './lima/types';
 import type { GitStatus, CompactGitStatus, GitDropdownInfo, ChangedFile, FileDiff, WorktreeDiffSummary, BranchInfo } from './git';
 import type { TaskWorktreeResult, WorktreeInfo, WorktreeRemoveResult, CheckWorktreeResult } from './worktree';
 import type { TaskStatus, TaskMetadata } from './db';
+import type { TagRow } from './db';
 import type { ActiveSession } from './ptyManager';
 import type { SandboxStatus } from './lima/types';
 
@@ -206,6 +209,14 @@ export interface HooksAPI {
   delete(projectPath: string, hookType: HookType): Promise<{ success: boolean }>;
 }
 
+export interface TagsAPI {
+  getAll(): Promise<TagRow[]>;
+  getForTask(projectPath: string, taskNumber: number): Promise<TagRow[]>;
+  addToTask(projectPath: string, taskNumber: number, tagName: string): Promise<TagRow>;
+  removeFromTask(projectPath: string, taskNumber: number, tagName: string): Promise<void>;
+  setTaskTags(projectPath: string, taskNumber: number, tagNames: string[]): Promise<TagRow[]>;
+}
+
 export interface TaskAPI {
   create(projectPath: string, name?: string, prompt?: string): Promise<TaskWorktreeResult>;
   createAndStart(projectPath: string, name?: string, prompt?: string, branchName?: string): Promise<TaskWorktreeResult>;
@@ -306,6 +317,8 @@ export interface ElectronAPI {
   setKillExistingOnRun(projectPath: string, kill: boolean): Promise<{ success: boolean }>;
   /** Script hooks API */
   hooks: HooksAPI;
+  /** Tags API */
+  tags: TagsAPI;
   /** Claude Code hook events */
   claudeHooks: ClaudeHooksAPI;
   /** Get file path from a dropped File object */
