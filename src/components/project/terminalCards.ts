@@ -90,6 +90,67 @@ const pendingResizes = new Map<PtyId, ReturnType<typeof setTimeout>>();
 // Track pending rAF per PTY to deduplicate fit() calls
 const pendingResizeFrames = new Map<PtyId, number>();
 
+// ── Throttled data handler side-effects ───────────────────────────────
+// Per-chunk side-effects (idle timer, OSC title, git status) are throttled
+// to fire at most once per 250ms per terminal to reduce CPU overhead.
+const SIDE_EFFECT_THROTTLE_MS = 250;
+const sideEffectTimers = new Map<PtyId, ReturnType<typeof setTimeout>>();
+const pendingDataChunks = new Map<PtyId, string[]>();
+
+function throttledDataSideEffects(
+  ptyId: PtyId,
+  data: string,
+  term: ProjectTerminal,
+): void {
+  let chunks = pendingDataChunks.get(ptyId);
+  if (!chunks) { chunks = []; pendingDataChunks.set(ptyId, chunks); }
+  chunks.push(data);
+
+  if (sideEffectTimers.has(ptyId)) return; // Already scheduled, data accumulated
+
+  // Fire immediately (leading edge)
+  fireDataSideEffects(ptyId, term);
+
+  // Schedule trailing edge
+  sideEffectTimers.set(ptyId, setTimeout(() => {
+    sideEffectTimers.delete(ptyId);
+    const remaining = pendingDataChunks.get(ptyId);
+    if (remaining && remaining.length > 0) {
+      fireDataSideEffects(ptyId, term);
+    }
+  }, SIDE_EFFECT_THROTTLE_MS));
+}
+
+function fireDataSideEffects(ptyId: PtyId, term: ProjectTerminal): void {
+  resetIdleTimer(ptyId);
+
+  const chunks = pendingDataChunks.get(ptyId) || [];
+  const batch = chunks.join('');
+  pendingDataChunks.set(ptyId, []);
+
+  // OSC title extraction on batched data
+  const oscMatches = batch.matchAll(/\x1b\]0;([^\x07]*)\x07/g);
+  for (const match of oscMatches) {
+    const newTitle = match[1];
+    if (newTitle !== term.lastOscTitle) {
+      term.lastOscTitle = newTitle;
+      updateTerminalCardLabel(term);
+    }
+  }
+
+  if (projectPath.value) {
+    scheduleTerminalGitStatusRefresh(term, updateTerminalCardLabel);
+  }
+}
+
+/** Clean up throttle state for a terminal (call on terminal close) */
+export function clearDataThrottle(ptyId: PtyId): void {
+  const timer = sideEffectTimers.get(ptyId);
+  if (timer) clearTimeout(timer);
+  sideEffectTimers.delete(ptyId);
+  pendingDataChunks.delete(ptyId);
+}
+
 /**
  * Debounced resize handler to avoid rapid SIGWINCH signals that cause
  * text wrapping artifacts in shells like zsh during panel animations.
@@ -1705,23 +1766,10 @@ export async function addProjectTerminal(runConfig?: RunConfig, options?: AddPro
       });
       projectTerminal.resizeObserver.observe(xtermContainer);
 
-      // Set up data listener
+      // Set up data listener (terminal.write is unthrottled, side-effects are throttled)
       projectTerminal.cleanupData = window.api.pty.onData(result.ptyId, (data) => {
         terminal.write(data);
-        resetIdleTimer(result.ptyId!);
-
-        const oscMatches = data.matchAll(/\x1b\]0;([^\x07]*)\x07/g);
-        for (const match of oscMatches) {
-          const newTitle = match[1];
-          if (newTitle !== projectTerminal!.lastOscTitle) {
-            projectTerminal!.lastOscTitle = newTitle;
-            updateTerminalCardLabel(projectTerminal!);
-          }
-        }
-
-        if (projectPath.value) {
-          scheduleTerminalGitStatusRefresh(projectTerminal!, updateTerminalCardLabel);
-        }
+        throttledDataSideEffects(result.ptyId!, data, projectTerminal!);
       });
 
       // Set up exit listener
@@ -1805,25 +1853,10 @@ export async function addProjectTerminal(runConfig?: RunConfig, options?: AddPro
     });
     projectTerminal.resizeObserver.observe(xtermContainer);
 
-    // Set up data listener
+    // Set up data listener (terminal.write is unthrottled, side-effects are throttled)
     projectTerminal.cleanupData = window.api.pty.onData(result.ptyId, (data) => {
       terminal.write(data);
-      resetIdleTimer(result.ptyId!);
-
-      // Extract OSC title sequences (e.g., \x1b]0;Title Here\x07)
-      const oscMatches = data.matchAll(/\x1b\]0;([^\x07]*)\x07/g);
-      for (const match of oscMatches) {
-        const newTitle = match[1];
-        if (newTitle !== projectTerminal!.lastOscTitle) {
-          projectTerminal!.lastOscTitle = newTitle;
-          updateTerminalCardLabel(projectTerminal!);
-        }
-      }
-
-      if (projectPath.value) {
-        // Only schedule a refresh of this terminal's git status (not all terminals)
-        scheduleTerminalGitStatusRefresh(projectTerminal!, updateTerminalCardLabel);
-      }
+      throttledDataSideEffects(result.ptyId!, data, projectTerminal!);
     });
 
     // Set up exit listener
@@ -1923,6 +1956,7 @@ export function closeProjectTerminal(index: number): void {
   // Kill main PTY
   window.api.pty.kill(term.ptyId);
   clearIdleTimer(term.ptyId);
+  clearDataThrottle(term.ptyId);
 
   // Clean up main terminal
   if (term.cleanupData) term.cleanupData();

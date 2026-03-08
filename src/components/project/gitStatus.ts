@@ -50,6 +50,16 @@ export function scheduleGitStatusRefresh(): void {
 // Map of pending per-terminal git status refreshes
 const pendingTerminalGitRefreshes = new Map<string, ReturnType<typeof setTimeout>>();
 
+// Timestamp of the last data-driven git status refresh (used to skip redundant periodic refreshes)
+let lastDataDrivenRefresh = 0;
+const DATA_DRIVEN_REFRESH_COOLDOWN = 10000;
+
+/**
+ * Check if a periodic refresh should be skipped because a data-driven refresh ran recently
+ */
+export function shouldSkipPeriodicRefresh(): boolean {
+  return Date.now() - lastDataDrivenRefresh < DATA_DRIVEN_REFRESH_COOLDOWN;
+}
 
 /**
  * Schedule a debounced git status refresh for a specific terminal
@@ -66,6 +76,7 @@ export function scheduleTerminalGitStatusRefresh(
 
   pendingTerminalGitRefreshes.set(key, setTimeout(async () => {
     await refreshTerminalGitStatus(term);
+    lastDataDrivenRefresh = Date.now();
     onComplete?.(term);
     pendingTerminalGitRefreshes.delete(key);
   }, GIT_STATUS_IDLE_DELAY));

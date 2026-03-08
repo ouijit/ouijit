@@ -32,6 +32,7 @@ import { initializeEffects } from './effects';
 import {
   hideGitDropdown,
   refreshAllTerminalGitStatus,
+  shouldSkipPeriodicRefresh,
 } from './gitStatus';
 import {
   hideDiffPanel,
@@ -347,7 +348,9 @@ export async function enterProjectMode(
 
   // 6. Start periodic git status refresh (for long-running commands)
   if (project.hasGit) {
+    if (projectState.gitStatusPeriodicInterval) clearInterval(projectState.gitStatusPeriodicInterval);
     projectState.gitStatusPeriodicInterval = setInterval(() => {
+      if (shouldSkipPeriodicRefresh()) return;
       refreshAllTerminalGitStatus().then(() => {
         for (const term of terminals.value) {
           updateTerminalCardLabel(term);
@@ -628,7 +631,9 @@ export async function restoreProjectMode(
     });
 
     // Periodic refresh for ongoing changes
+    if (projectState.gitStatusPeriodicInterval) clearInterval(projectState.gitStatusPeriodicInterval);
     projectState.gitStatusPeriodicInterval = setInterval(() => {
+      if (shouldSkipPeriodicRefresh()) return;
       refreshAllTerminalGitStatus().then(() => {
         for (const term of terminals.value) {
           updateTerminalCardLabel(term);
