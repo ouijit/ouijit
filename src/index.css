@@ -871,14 +871,15 @@ body.home-mode .home-folder-divider.project-card {
   contain: unset;
   pointer-events: none;
   overflow: visible;
+  margin-top: -1px;
 }
 
 .home-folder-tab {
   position: absolute;
   top: 0;
   left: 0;
-  width: 255px;
-  height: 32px;
+  width: 234px;
+  height: 26px;
 }
 
 .home-folder-tab svg {
@@ -894,7 +895,7 @@ body.home-mode .home-folder-divider.project-card {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 0 12px;
+  padding: 4px 12px 0 8px;
 }
 
 .home-folder-icon {
