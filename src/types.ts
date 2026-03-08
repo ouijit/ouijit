@@ -323,6 +323,8 @@ export interface ElectronAPI {
   claudeHooks: ClaudeHooksAPI;
   /** Get file path from a dropped File object */
   getPathForFile(file: File): string;
+  /** User's home directory */
+  homePath(): Promise<string>;
   /** Lima sandbox API */
   lima: LimaAPI;
 }

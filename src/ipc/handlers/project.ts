@@ -1,3 +1,4 @@
+import os from 'os';
 import { shell, BrowserWindow, dialog } from 'electron';
 import { typedHandle } from '../helpers';
 import { getProjectList } from '../../scanner';
@@ -10,6 +11,7 @@ const ipcLog = log.scope('ipc');
 
 export function registerProjectHandlers(mainWindow: BrowserWindow): void {
   typedHandle('get-projects', () => getProjectList());
+  typedHandle('get-home-path', () => os.homedir());
   typedHandle('refresh-projects', () => getProjectList());
 
   // Both open-project and open-in-finder use shell.openPath — they share the same

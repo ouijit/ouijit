@@ -56,6 +56,7 @@ export interface IpcInvokeContract {
   'remove-project':               { args: [folderPath: string];                                             return: { success: boolean } };
   'get-project-settings':         { args: [projectPath: string];                                            return: ProjectSettings };
   'settings:set-kill-existing-on-run': { args: [projectPath: string, kill: boolean];                        return: { success: boolean } };
+  'get-home-path':                { args: [];                                                               return: string };
 
   // ── Git ──────────────────────────────────────────────────────────────
   'get-git-status':               { args: [projectPath: string];                                            return: GitStatus | null };

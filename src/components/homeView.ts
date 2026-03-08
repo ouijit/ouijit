@@ -58,8 +58,8 @@ type StackItem =
 // Project data cache
 let projectDataCache = new Map<string, Project>();
 
-// Max back-card depth levels in home view (extended beyond project mode's 4)
-const HOME_MAX_DEPTH = 8;
+// Max depth level with a predefined CSS class (back-1 through back-8)
+const CSS_MAX_DEPTH = 8;
 
 /**
  * Enter the home view, showing all terminals in a single card stack
@@ -80,25 +80,42 @@ export async function enterHomeView(): Promise<void> {
   const headerContent = document.querySelector('.header-content');
   if (headerContent) {
     headerContent.innerHTML = `<div class="project-header-content">
-      <span class="project-header-name" style="font-size: 14px; font-weight: 600; color: var(--color-text-secondary);">Home</span>
-      <div class="home-group-toggle">
-        <button class="home-group-btn${homeGroupMode === 'project' ? ' home-group-btn--active' : ''}" data-mode="project" title="Group by project">
+      <div style="flex: 1;"></div>
+      <div class="project-view-toggle">
+        <button class="project-view-toggle-btn${homeGroupMode === 'project' ? ' project-view-toggle-btn--active' : ''}" data-mode="project" title="Group by project">
           <i data-icon="folder-open"></i>
         </button>
-        <button class="home-group-btn${homeGroupMode === 'tag' ? ' home-group-btn--active' : ''}" data-mode="tag" title="Group by tag">
+        <button class="project-view-toggle-btn${homeGroupMode === 'tag' ? ' project-view-toggle-btn--active' : ''}" data-mode="tag" title="Group by tag">
           <i data-icon="tag"></i>
         </button>
       </div>
+      <button class="project-terminal-btn home-new-terminal-btn" title="New terminal">
+        <i data-icon="terminal"></i>
+      </button>
     </div>`;
+    convertIconsIn(headerContent);
+
+    // Wire new terminal button
+    const newTermBtn = headerContent.querySelector('.home-new-terminal-btn');
+    if (newTermBtn) {
+      newTermBtn.addEventListener('click', async () => {
+        try {
+          const homePath = await window.api.homePath();
+          await addHomeTerminal(homePath);
+        } catch (err) {
+          homeLog.error('failed to open new terminal', { error: err instanceof Error ? err.message : String(err) });
+        }
+      });
+    }
 
     // Wire toggle clicks
-    headerContent.querySelectorAll('.home-group-btn').forEach(btn => {
+    headerContent.querySelectorAll('.project-view-toggle-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         const mode = (btn as HTMLElement).dataset.mode as HomeGroupMode;
         if (mode === homeGroupMode) return;
         homeGroupMode = mode;
-        headerContent.querySelectorAll('.home-group-btn').forEach(b =>
-          b.classList.toggle('home-group-btn--active', (b as HTMLElement).dataset.mode === mode)
+        headerContent.querySelectorAll('.project-view-toggle-btn').forEach(b =>
+          b.classList.toggle('project-view-toggle-btn--active', (b as HTMLElement).dataset.mode === mode)
         );
         updateHomeCardStack();
       });
@@ -272,17 +289,10 @@ function updateHomeCardStack(): void {
     const depth = i + 1;
     const item = stackItems[i];
 
-    if (depth > HOME_MAX_DEPTH) {
-      if (item.type === 'terminal') {
-        homeTerminals[item.index].container.classList.add('project-card--hidden');
-      }
-      continue;
-    }
-
     maxUsedDepth = depth;
 
     if (item.type === 'terminal') {
-      homeTerminals[item.index].container.classList.add(`project-card--back-${depth}`);
+      applyDepthStyle(homeTerminals[item.index].container, depth);
       homeDepthOrder.push(item.index);
     } else if (item.type === 'project-divider') {
       const divider = createHomeFolderDivider(item.projectPath, depth);
@@ -453,8 +463,9 @@ function createHomeFolderDivider(path: string, depth: number): HTMLElement {
   const name = project?.name || path.split('/').pop() || path;
 
   const divider = document.createElement('div');
-  divider.className = `project-card home-folder-divider project-card--back-${depth}`;
+  divider.className = 'project-card home-folder-divider';
   divider.dataset.dividerProject = path;
+  applyDepthStyle(divider, depth);
 
   // Build mini icon matching sidebar style
   let iconHtml: string;
@@ -489,8 +500,9 @@ function createHomeFolderDivider(path: string, depth: number): HTMLElement {
  */
 function createHomeTagDivider(tagName: string, depth: number): HTMLElement {
   const divider = document.createElement('div');
-  divider.className = `project-card home-folder-divider project-card--back-${depth}`;
+  divider.className = 'project-card home-folder-divider';
   divider.dataset.dividerTag = tagName;
+  applyDepthStyle(divider, depth);
 
   const tab = document.createElement('div');
   tab.className = 'home-folder-tab';
@@ -632,6 +644,7 @@ function closeHomeTerminal(index: number): void {
 
   if (homeTerminals.length === 0) {
     homeActiveIndex = 0;
+    clearHomeDividers();
     showHomeEmptyState();
     return;
   }
@@ -884,6 +897,21 @@ async function reconnectSingleTerminal(
 }
 
 /**
+ * Apply depth positioning to a card or divider element.
+ * Uses CSS classes for depths 1-8, inline styles for deeper levels.
+ */
+function applyDepthStyle(el: HTMLElement, depth: number): void {
+  if (depth <= CSS_MAX_DEPTH) {
+    el.classList.add(`project-card--back-${depth}`);
+  } else {
+    el.style.zIndex = String(10 - depth);
+    el.style.transform = `translateY(-${depth * 24}px)`;
+    el.style.left = `${depth}%`;
+    el.style.right = `${depth}%`;
+  }
+}
+
+/**
  * Strip stack-specific positioning classes from a card element
  */
 function stripStackClasses(card: HTMLElement): void {
@@ -899,6 +927,11 @@ function stripStackClasses(card: HTMLElement): void {
     'project-card--back-8',
     'project-card--hidden',
   );
+  // Clear inline positioning from dynamic depth styles
+  card.style.removeProperty('z-index');
+  card.style.removeProperty('transform');
+  card.style.removeProperty('left');
+  card.style.removeProperty('right');
 }
 
 /**
