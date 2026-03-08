@@ -98,14 +98,34 @@ export function debouncedResize(ptyId: PtyId, terminal: Terminal, fitAddon: FitA
     clearTimeout(pending);
   }
 
-  // Fit immediately (updates xterm.js display)
-  fitAddon.fit();
+  // Preserve scroll position across fit() — xterm.js resets viewport on reflow
+  scrollSafeFit(terminal, fitAddon);
 
   // Debounce the PTY resize signal (50ms delay for animation settling)
   pendingResizes.set(ptyId, setTimeout(() => {
     pendingResizes.delete(ptyId);
     window.api.pty.resize(ptyId, terminal.cols, terminal.rows);
   }, 50));
+}
+
+/**
+ * Call fitAddon.fit() while preserving the terminal's scroll position.
+ * xterm.js resets the viewport to the bottom on reflow; this saves and
+ * restores the scroll offset when the user was reading scrollback.
+ */
+export function scrollSafeFit(terminal: Terminal, fitAddon: FitAddon): void {
+  const buf = terminal.buffer.active;
+  const atBottom = buf.viewportY >= buf.baseY;
+  const savedY = buf.viewportY;
+
+  fitAddon.fit();
+
+  // Only restore if the user had scrolled up — if at bottom, let it follow output
+  if (!atBottom) {
+    // baseY may have changed after fit, clamp to valid range
+    const newY = Math.min(savedY, terminal.buffer.active.baseY);
+    terminal.scrollToLine(newY);
+  }
 }
 
 /**

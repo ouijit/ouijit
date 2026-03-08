@@ -13,7 +13,7 @@ import {
   kanbanVisible,
 } from './signals';
 // Direct imports - these modules import from signals.ts, not effects.ts, so no circular dep
-import { updateCardStack, showStackEmptyState, hideStackEmptyState, updateTerminalCardLabel } from './terminalCards';
+import { updateCardStack, showStackEmptyState, hideStackEmptyState, updateTerminalCardLabel, scrollSafeFit } from './terminalCards';
 import { syncDiffPanelToActiveTerminal } from './diffPanel';
 import { refreshKanbanBoard, syncKanbanStatusDots } from './kanbanBoard';
 
@@ -58,7 +58,7 @@ export function initializeEffects(): void {
       const term = activeTerminal.value;
       if (term) {
         requestAnimationFrame(() => {
-          term.fitAddon.fit();
+          scrollSafeFit(term.terminal, term.fitAddon);
           term.terminal.focus();
         });
       }

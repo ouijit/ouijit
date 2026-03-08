@@ -16,7 +16,7 @@ import {
 } from './project/state';
 import { homeViewActive, projectPath } from './project/signals';
 import { exitProjectMode } from './project/projectMode';
-import { getTerminalTheme, setupTerminalAppHotkeys, updateTerminalCardLabel, createProjectCard, debouncedResize, reconnectTerminal, collapseTagInput, setupCardActions } from './project/terminalCards';
+import { getTerminalTheme, setupTerminalAppHotkeys, updateTerminalCardLabel, createProjectCard, debouncedResize, reconnectTerminal, collapseTagInput, setupCardActions, scrollSafeFit } from './project/terminalCards';
 import { convertIconsIn } from '../utils/icons';
 import { stringToColor, getInitials } from '../utils/projectIcon';
 import { Scopes, pushScope, popScope, registerHotkey, unregisterHotkey, platformHotkey } from '../utils/hotkeys';
@@ -185,7 +185,7 @@ export async function enterHomeView(): Promise<void> {
     requestAnimationFrame(() => {
       const active = homeTerminals[homeActiveIndex];
       if (active) {
-        try { active.fitAddon.fit(); } catch { /* noop */ }
+        try { scrollSafeFit(active.terminal, active.fitAddon); } catch { /* noop */ }
         active.terminal.focus();
       }
     });
@@ -580,7 +580,7 @@ function switchToHomeTerminal(index: number): void {
   requestAnimationFrame(() => {
     const term = homeTerminals[homeActiveIndex];
     if (term) {
-      try { term.fitAddon.fit(); } catch { /* noop */ }
+      try { scrollSafeFit(term.terminal, term.fitAddon); } catch { /* noop */ }
       term.terminal.focus();
     }
   });
@@ -662,7 +662,7 @@ function closeHomeTerminal(index: number): void {
   requestAnimationFrame(() => {
     const active = homeTerminals[homeActiveIndex];
     if (active) {
-      try { active.fitAddon.fit(); } catch { /* noop */ }
+      try { scrollSafeFit(active.terminal, active.fitAddon); } catch { /* noop */ }
       active.terminal.focus();
     }
   });
@@ -766,7 +766,7 @@ async function addHomeTerminal(path: string): Promise<void> {
     };
 
     projectTerminal.resizeObserver = new ResizeObserver(() => {
-      fitAddon.fit();
+      scrollSafeFit(terminal, fitAddon);
       if (terminal.cols && terminal.rows) {
         window.api.pty.resize(result.ptyId!, terminal.cols, terminal.rows);
       }
