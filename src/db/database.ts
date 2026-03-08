@@ -4,11 +4,13 @@ import { app } from 'electron';
 import { up as migration001 } from './migrations/001-initial';
 import { up as migration002 } from './migrations/002-add-review-hook';
 import { up as migration003 } from './migrations/003-add-tags';
+import { up as migration004 } from './migrations/004-global-settings';
 
 const migrations = [
   { version: 1, up: migration001 },
   { version: 2, up: migration002 },
   { version: 3, up: migration003 },
+  { version: 4, up: migration004 },
 ];
 
 let db: Database.Database | null = null;

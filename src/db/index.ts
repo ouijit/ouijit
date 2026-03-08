@@ -14,6 +14,7 @@ import { TaskRepo, type TaskStatus, type TaskRow } from './repos/taskRepo';
 import { SettingsRepo } from './repos/settingsRepo';
 import { HookRepo, type HookType } from './repos/hookRepo';
 import { TagRepo, type TagRow } from './repos/tagRepo';
+import { GlobalSettingsRepo } from './repos/globalSettingsRepo';
 import type { ProjectSettings, ScriptHook } from '../types';
 import log from '../log';
 
@@ -45,6 +46,7 @@ let taskRepo: TaskRepo | null = null;
 let settingsRepo: SettingsRepo | null = null;
 let hookRepo: HookRepo | null = null;
 let tagRepo: TagRepo | null = null;
+let globalSettingsRepo: GlobalSettingsRepo | null = null;
 
 function repos() {
   if (!taskRepo) {
@@ -54,8 +56,9 @@ function repos() {
     settingsRepo = new SettingsRepo(db);
     hookRepo = new HookRepo(db);
     tagRepo = new TagRepo(db);
+    globalSettingsRepo = new GlobalSettingsRepo(db);
   }
-  return { projectRepo: projectRepo!, taskRepo: taskRepo!, settingsRepo: settingsRepo!, hookRepo: hookRepo!, tagRepo: tagRepo! };
+  return { projectRepo: projectRepo!, taskRepo: taskRepo!, settingsRepo: settingsRepo!, hookRepo: hookRepo!, tagRepo: tagRepo!, globalSettingsRepo: globalSettingsRepo! };
 }
 
 // ── Test helpers ─────────────────────────────────────────────────────
@@ -67,6 +70,7 @@ export function _resetCacheForTesting(): void {
   settingsRepo = new SettingsRepo(db);
   hookRepo = new HookRepo(db);
   tagRepo = new TagRepo(db);
+  globalSettingsRepo = new GlobalSettingsRepo(db);
 }
 
 // ── Row → TaskMetadata conversion ────────────────────────────────────
@@ -483,4 +487,22 @@ export async function removeTagFromTask(projectPath: string, taskNumber: number,
 export async function setTaskTags(projectPath: string, taskNumber: number, tagNames: string[]): Promise<TagRow[]> {
   const { tagRepo: tr } = repos();
   return tr.setTaskTags(projectPath, taskNumber, tagNames);
+}
+
+// ── Global settings functions ────────────────────────────────────────
+
+export async function getGlobalSetting(key: string): Promise<string | undefined> {
+  const { globalSettingsRepo: gr } = repos();
+  return gr.get(key);
+}
+
+export async function setGlobalSetting(key: string, value: string): Promise<{ success: boolean }> {
+  try {
+    const { globalSettingsRepo: gr } = repos();
+    gr.set(key, value);
+    return { success: true };
+  } catch (error) {
+    dbLog.error('failed to set global setting', { key, error: error instanceof Error ? error.message : String(error) });
+    return { success: false };
+  }
 }

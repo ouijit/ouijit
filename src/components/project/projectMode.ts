@@ -133,6 +133,9 @@ export async function enterProjectMode(
   projectPath.value = path;
   projectData.value = existingSession?.projectData || project;
 
+  // Persist last active view for session recovery
+  window.api.globalSettings.set('lastActiveView', JSON.stringify({ type: 'project', path }));
+
   // Initialize reactive effects
   initializeEffects();
 
@@ -521,6 +524,9 @@ export async function restoreProjectMode(
   // Store project data
   projectPath.value = path;
   projectData.value = project;
+
+  // Persist last active view for session recovery
+  window.api.globalSettings.set('lastActiveView', JSON.stringify({ type: 'project', path }));
 
   // Initialize reactive effects
   initializeEffects();

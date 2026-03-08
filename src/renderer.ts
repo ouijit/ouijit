@@ -109,39 +109,42 @@ async function initialize(): Promise<void> {
         orphanedSessions.set(path, sessions);
         rendererLog.info('stored orphaned sessions for project', { path, count: sessions.length });
       }
-
-      // Pick the project with the most sessions to restore immediately
-      let bestProjectPath = '';
-      let bestSessions: ActiveSession[] = [];
-      for (const [path, sessions] of sessionsByProject) {
-        if (sessions.length > bestSessions.length) {
-          bestProjectPath = path;
-          bestSessions = sessions;
-        }
-      }
-
-      // Get project data and restore project mode for the active project
-      const projects = await window.api.getProjects();
-      const project = projects.find(p => p.path === bestProjectPath);
-
-      if (project) {
-        orphanedSessions.delete(bestProjectPath);
-        allProjects = projects;
-        renderSidebar(sidebarContainer, allProjects);
-        await restoreProjectMode(bestProjectPath, project, bestSessions);
-        updateSidebarActiveState();
-        return;
-      }
     }
   } catch (error) {
     rendererLog.error('failed to check/restore sessions', { error: error instanceof Error ? error.message : String(error) });
   }
 
+  // Load projects and render sidebar
   try {
     allProjects = await window.api.getProjects();
     renderSidebar(sidebarContainer, allProjects);
   } catch (error) {
     rendererLog.error('failed to load projects', { error: error instanceof Error ? error.message : String(error) });
+  }
+
+  // Restore last active view from persisted state
+  try {
+    const lastViewJson = await window.api.globalSettings.get('lastActiveView');
+    if (lastViewJson) {
+      const lastView = JSON.parse(lastViewJson) as { type: string; path?: string };
+      if (lastView.type === 'project' && lastView.path) {
+        const project = allProjects.find(p => p.path === lastView.path);
+        if (project) {
+          const sessions = orphanedSessions.get(lastView.path);
+          if (sessions) {
+            orphanedSessions.delete(lastView.path);
+            await restoreProjectMode(lastView.path, project, sessions);
+          } else {
+            await enterProjectMode(lastView.path, project);
+          }
+          updateSidebarActiveState();
+          return;
+        }
+        rendererLog.info('last active project not found, falling back to home', { path: lastView.path });
+      }
+    }
+  } catch (error) {
+    rendererLog.error('failed to restore last active view', { error: error instanceof Error ? error.message : String(error) });
   }
 
   // Default to home view

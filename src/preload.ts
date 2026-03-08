@@ -134,6 +134,11 @@ contextBridge.exposeInMainWorld('api', {
     onStatus: (callback: (ptyId: string, status: string) => void) => typedListen('claude-hook-status', callback),
   },
 
+  globalSettings: {
+    get: (key: string) => typedInvoke('settings:get-global', key),
+    set: (key: string, value: string) => typedInvoke('settings:set-global', key, value),
+  },
+
   getPathForFile: (file: File): string => webUtils.getPathForFile(file),
   homePath: (): Promise<string> => typedInvoke('get-home-path'),
 

@@ -75,6 +75,9 @@ export async function enterHomeView(): Promise<void> {
 
   homeLog.info('entering home view', { sessionCount: projectSessions.size, orphanedCount: orphanedSessions.size });
 
+  // Persist last active view for session recovery
+  window.api.globalSettings.set('lastActiveView', JSON.stringify({ type: 'home' }));
+
   homeViewActive.value = true;
   document.body.classList.add('home-mode');
 

@@ -114,6 +114,10 @@ export interface IpcInvokeContract {
   'tags:remove-from-task':        { args: [projectPath: string, taskNumber: number, tagName: string];       return: void };
   'tags:set-task-tags':           { args: [projectPath: string, taskNumber: number, tagNames: string[]];    return: TagRow[] };
 
+  // ── Global Settings ──────────────────────────────────────────────────
+  'settings:get-global':          { args: [key: string];                                                    return: string | undefined };
+  'settings:set-global':          { args: [key: string, value: string];                                     return: { success: boolean } };
+
   // ── Lima ─────────────────────────────────────────────────────────────
   'lima:status':                  { args: [projectPath: string];                                            return: SandboxStatus };
   'lima:start':                   { args: [projectPath: string];                                            return: { success: boolean; error?: string } };

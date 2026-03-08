@@ -327,6 +327,8 @@ export interface ElectronAPI {
   homePath(): Promise<string>;
   /** Lima sandbox API */
   lima: LimaAPI;
+  /** Global settings API */
+  globalSettings: GlobalSettingsAPI;
 }
 
 /**
@@ -348,6 +350,14 @@ export interface LimaAPI {
   recreate(projectPath: string): Promise<{ success: boolean; error?: string }>;
   delete(projectPath: string): Promise<{ success: boolean; error?: string }>;
   onSpawnProgress(callback: (message: string) => void): () => void;
+}
+
+/**
+ * Global settings API exposed to the renderer
+ */
+export interface GlobalSettingsAPI {
+  get(key: string): Promise<string | undefined>;
+  set(key: string, value: string): Promise<{ success: boolean }>;
 }
 
 /**
