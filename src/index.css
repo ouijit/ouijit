@@ -328,6 +328,7 @@ body.platform-darwin:not(.is-fullscreen) .sidebar-drag-region {
   width: var(--sidebar-width);
   height: 48px;
   -webkit-app-region: no-drag;
+  align-self: center;
 }
 
 .sidebar-home .sidebar-pill {
@@ -347,7 +348,7 @@ body.platform-darwin:not(.is-fullscreen) .sidebar-drag-region {
 }
 
 .sidebar-divider {
-  @apply mx-auto my-1;
+  @apply mx-auto mb-1 mt-2;
   width: 32px;
   height: 1px;
   background: var(--color-border);
