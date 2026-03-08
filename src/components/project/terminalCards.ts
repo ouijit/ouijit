@@ -2435,8 +2435,26 @@ export async function reconnectTerminal(
   // Replay buffered output and extract last OSC title
   let lastOscTitle = '';
   if (result.bufferedOutput) {
-    terminal.reset();
+    // Replay at original terminal width to avoid zsh PROMPT_EOL_MARK artifacts,
+    // then resize to current dimensions after replay completes
+    const currentCols = terminal.cols;
+    const currentRows = terminal.rows;
+    if (result.lastCols && result.lastCols !== currentCols) {
+      terminal.resize(result.lastCols, currentRows);
+    }
+
+    // If PTY is in alternate screen mode, enter it before replay so TUI content
+    // renders on the alt screen (the enter sequence may have been trimmed from buffer)
+    if (result.isAltScreen) {
+      terminal.write('\x1b[?1049h');
+    }
+
     terminal.write(result.bufferedOutput);
+
+    // Restore current dimensions (the upcoming resize event will sync the PTY)
+    if (result.lastCols && result.lastCols !== currentCols) {
+      terminal.resize(currentCols, currentRows);
+    }
 
     // Extract the last OSC title from the buffer so the card label is correct
     const oscMatches = result.bufferedOutput.matchAll(/\x1b\]0;([^\x07]*)\x07/g);

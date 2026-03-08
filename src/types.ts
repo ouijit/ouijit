@@ -172,6 +172,10 @@ export interface PtyReconnectResult {
   success: boolean;
   /** Buffered output that was missed during disconnection */
   bufferedOutput?: string;
+  /** Whether the PTY is currently in alternate screen mode (TUI) */
+  isAltScreen?: boolean;
+  /** Terminal cols at time of last resize (for accurate buffer replay) */
+  lastCols?: number;
   error?: string;
 }
 
