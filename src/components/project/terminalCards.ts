@@ -2435,7 +2435,15 @@ export async function reconnectTerminal(
   // Replay buffered output and extract last OSC title
   let lastOscTitle = '';
   if (result.bufferedOutput) {
-    // Replay at original terminal width to avoid zsh PROMPT_EOL_MARK artifacts,
+    let buffer = result.bufferedOutput;
+
+    // Strip zsh PROMPT_EOL_MARK artifact from start of buffer.
+    // zsh outputs: SGR escapes + mark char (% or #) + SGR escapes + padding spaces + CR space CR.
+    // The erasure sequence doesn't reliably self-erase during bulk replay into a fresh xterm.js
+    // terminal, leaving a stray "%" on the first line.
+    buffer = buffer.replace(/^(?:\x1b\[[0-9;]*m)*[%#](?:\x1b\[[0-9;]*m)* +\r \r/, '');
+
+    // Replay at original terminal width so content wraps correctly,
     // then resize to current dimensions after replay completes
     const currentCols = terminal.cols;
     const currentRows = terminal.rows;
@@ -2449,7 +2457,7 @@ export async function reconnectTerminal(
       terminal.write('\x1b[?1049h');
     }
 
-    terminal.write(result.bufferedOutput);
+    terminal.write(buffer);
 
     // Restore current dimensions (the upcoming resize event will sync the PTY)
     if (result.lastCols && result.lastCols !== currentCols) {
@@ -2457,7 +2465,7 @@ export async function reconnectTerminal(
     }
 
     // Extract the last OSC title from the buffer so the card label is correct
-    const oscMatches = result.bufferedOutput.matchAll(/\x1b\]0;([^\x07]*)\x07/g);
+    const oscMatches = buffer.matchAll(/\x1b\]0;([^\x07]*)\x07/g);
     for (const match of oscMatches) {
       lastOscTitle = match[1];
     }
@@ -2523,6 +2531,12 @@ export async function reconnectTerminal(
   terminal.onData((data) => {
     window.api.pty.write(session.ptyId, data);
   });
+
+  // Force SIGWINCH so shell/TUI redraws at correct dimensions.
+  // node-pty may skip SIGWINCH if dimensions haven't changed, so bump cols
+  // by 1 then immediately restore to guarantee the signal fires.
+  window.api.pty.resize(session.ptyId, terminal.cols + 1, terminal.rows);
+  window.api.pty.resize(session.ptyId, terminal.cols, terminal.rows);
 
   // Load tags for task terminals
   if (projectTerminal.taskId != null) {
