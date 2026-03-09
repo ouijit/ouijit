@@ -20,7 +20,9 @@ export async function openInEditor(projectPath: string, dirPath: string): Promis
       timeout: 5000,
     }).trim();
     if (resolved) userPath = resolved;
-  } catch { /* keep process.env.PATH */ }
+  } catch {
+    /* keep process.env.PATH */
+  }
 
   const env = { ...process.env, PATH: userPath };
   spawn(hook.command, [dirPath], { detached: true, stdio: 'ignore', shell: true, env }).unref();

@@ -13,46 +13,52 @@ export class TagRepo {
   }
 
   getForTask(projectPath: string, taskNumber: number): TagRow[] {
-    return this.db.prepare(`
+    return this.db
+      .prepare(
+        `
       SELECT t.id, t.name FROM tags t
       JOIN task_tags tt ON tt.tag_id = t.id
       JOIN tasks tk ON tk.id = tt.task_id
       WHERE tk.project_path = ? AND tk.task_number = ?
       ORDER BY t.name COLLATE NOCASE
-    `).all(projectPath, taskNumber) as TagRow[];
+    `,
+      )
+      .all(projectPath, taskNumber) as TagRow[];
   }
 
   addToTask(projectPath: string, taskNumber: number, tagName: string): TagRow {
     return this.db.transaction(() => {
       const tag = this.findOrCreate(tagName);
-      const task = this.db.prepare(
-        'SELECT id FROM tasks WHERE project_path = ? AND task_number = ?'
-      ).get(projectPath, taskNumber) as { id: number } | undefined;
+      const task = this.db
+        .prepare('SELECT id FROM tasks WHERE project_path = ? AND task_number = ?')
+        .get(projectPath, taskNumber) as { id: number } | undefined;
       if (!task) throw new Error('Task not found');
 
-      this.db.prepare(
-        'INSERT OR IGNORE INTO task_tags (task_id, tag_id) VALUES (?, ?)'
-      ).run(task.id, tag.id);
+      this.db.prepare('INSERT OR IGNORE INTO task_tags (task_id, tag_id) VALUES (?, ?)').run(task.id, tag.id);
 
       return tag;
     })();
   }
 
   removeFromTask(projectPath: string, taskNumber: number, tagName: string): void {
-    this.db.prepare(`
+    this.db
+      .prepare(
+        `
       DELETE FROM task_tags WHERE task_id = (
         SELECT id FROM tasks WHERE project_path = ? AND task_number = ?
       ) AND tag_id = (
         SELECT id FROM tags WHERE name = ? COLLATE NOCASE
       )
-    `).run(projectPath, taskNumber, tagName);
+    `,
+      )
+      .run(projectPath, taskNumber, tagName);
   }
 
   setTaskTags(projectPath: string, taskNumber: number, tagNames: string[]): TagRow[] {
     return this.db.transaction(() => {
-      const task = this.db.prepare(
-        'SELECT id FROM tasks WHERE project_path = ? AND task_number = ?'
-      ).get(projectPath, taskNumber) as { id: number } | undefined;
+      const task = this.db
+        .prepare('SELECT id FROM tasks WHERE project_path = ? AND task_number = ?')
+        .get(projectPath, taskNumber) as { id: number } | undefined;
       if (!task) throw new Error('Task not found');
 
       // Delete all existing tags for this task
@@ -62,9 +68,7 @@ export class TagRepo {
       const tags: TagRow[] = [];
       for (const name of tagNames) {
         const tag = this.findOrCreate(name);
-        this.db.prepare(
-          'INSERT OR IGNORE INTO task_tags (task_id, tag_id) VALUES (?, ?)'
-        ).run(task.id, tag.id);
+        this.db.prepare('INSERT OR IGNORE INTO task_tags (task_id, tag_id) VALUES (?, ?)').run(task.id, tag.id);
         tags.push(tag);
       }
 
@@ -78,9 +82,13 @@ export class TagRepo {
   }
 
   pruneOrphans(): number {
-    const result = this.db.prepare(`
+    const result = this.db
+      .prepare(
+        `
       DELETE FROM tags WHERE id NOT IN (SELECT DISTINCT tag_id FROM task_tags)
-    `).run();
+    `,
+      )
+      .run();
     return result.changes;
   }
 }

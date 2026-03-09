@@ -45,10 +45,7 @@ function createMockWindow(destroyed = false) {
   } as unknown as BrowserWindow;
 }
 
-function post(
-  port: number,
-  body: unknown,
-): Promise<{ status: number; body: string }> {
+function post(port: number, body: unknown): Promise<{ status: number; body: string }> {
   return new Promise((resolve, reject) => {
     const data = JSON.stringify(body);
     const req = http.request(
@@ -131,16 +128,14 @@ describe('HTTP server', () => {
   test('returns 404 for non-POST or wrong path', async () => {
     // GET request
     const res = await new Promise<number>((resolve, reject) => {
-      http.get(`http://127.0.0.1:${port}/hook`, (res) => resolve(res.statusCode!))
-        .on('error', reject);
+      http.get(`http://127.0.0.1:${port}/hook`, (res) => resolve(res.statusCode!)).on('error', reject);
     });
     expect(res).toBe(404);
 
     // POST to wrong path
     const res2 = await new Promise<number>((resolve, reject) => {
-      const req = http.request(
-        { hostname: '127.0.0.1', port, path: '/other', method: 'POST' },
-        (res) => resolve(res.statusCode!),
+      const req = http.request({ hostname: '127.0.0.1', port, path: '/other', method: 'POST' }, (res) =>
+        resolve(res.statusCode!),
       );
       req.on('error', reject);
       req.end();
@@ -333,15 +328,18 @@ describe('CLAUDE_WRAPPER', () => {
     const exec = promisify(execFile);
 
     // Extract just the PATH manipulation lines from the wrapper
-    const result = await exec('bash', ['-c', [
-      'WRAPPER_DIR="/home/user/.config/Ouijit/bin"',
-      'PATH="/usr/bin:/home/user/.config/Ouijit/bin:/usr/local/bin"',
-      'PATH=":$PATH:"',
-      'PATH="${PATH//:$WRAPPER_DIR:/:}"',
-      'PATH="${PATH#:}"',
-      'PATH="${PATH%:}"',
-      'echo "$PATH"',
-    ].join('\n')]);
+    const result = await exec('bash', [
+      '-c',
+      [
+        'WRAPPER_DIR="/home/user/.config/Ouijit/bin"',
+        'PATH="/usr/bin:/home/user/.config/Ouijit/bin:/usr/local/bin"',
+        'PATH=":$PATH:"',
+        'PATH="${PATH//:$WRAPPER_DIR:/:}"',
+        'PATH="${PATH#:}"',
+        'PATH="${PATH%:}"',
+        'echo "$PATH"',
+      ].join('\n'),
+    ]);
 
     expect(result.stdout.trim()).toBe('/usr/bin:/usr/local/bin');
   });
@@ -351,15 +349,18 @@ describe('CLAUDE_WRAPPER', () => {
     const { promisify } = await import('node:util');
     const exec = promisify(execFile);
 
-    const result = await exec('bash', ['-c', [
-      'WRAPPER_DIR="/home/user/.config/Ouijit/bin"',
-      'PATH="/home/user/.config/Ouijit/bin:/usr/bin:/home/user/.config/Ouijit/bin:/usr/local/bin"',
-      'PATH=":$PATH:"',
-      'PATH="${PATH//:$WRAPPER_DIR:/:}"',
-      'PATH="${PATH#:}"',
-      'PATH="${PATH%:}"',
-      'echo "$PATH"',
-    ].join('\n')]);
+    const result = await exec('bash', [
+      '-c',
+      [
+        'WRAPPER_DIR="/home/user/.config/Ouijit/bin"',
+        'PATH="/home/user/.config/Ouijit/bin:/usr/bin:/home/user/.config/Ouijit/bin:/usr/local/bin"',
+        'PATH=":$PATH:"',
+        'PATH="${PATH//:$WRAPPER_DIR:/:}"',
+        'PATH="${PATH#:}"',
+        'PATH="${PATH%:}"',
+        'echo "$PATH"',
+      ].join('\n'),
+    ]);
 
     expect(result.stdout.trim()).toBe('/usr/bin:/usr/local/bin');
   });
@@ -390,15 +391,11 @@ describe('ouijit-hook script → hook server integration', () => {
     const start = Date.now();
     while (Date.now() - start < timeoutMs) {
       if (mockSend.mock.calls.length > 0) return;
-      await new Promise(r => setTimeout(r, 50));
+      await new Promise((r) => setTimeout(r, 50));
     }
   }
 
-  async function runHookScript(
-    action: string,
-    args: string[],
-    env: Record<string, string>,
-  ): Promise<void> {
+  async function runHookScript(action: string, args: string[], env: Record<string, string>): Promise<void> {
     const { execFile } = await import('node:child_process');
     const { promisify } = await import('node:util');
     const exec = promisify(execFile);
@@ -433,7 +430,7 @@ describe('ouijit-hook script → hook server integration', () => {
       PATH: process.env['PATH'] || '',
     });
 
-    await new Promise(r => setTimeout(r, 200));
+    await new Promise((r) => setTimeout(r, 200));
     expect(mockSend).not.toHaveBeenCalled();
   });
 
@@ -444,7 +441,7 @@ describe('ouijit-hook script → hook server integration', () => {
       PATH: process.env['PATH'] || '',
     });
 
-    await new Promise(r => setTimeout(r, 200));
+    await new Promise((r) => setTimeout(r, 200));
     expect(mockSend).not.toHaveBeenCalled();
   });
 });
@@ -472,30 +469,34 @@ describe('wrapper → ouijit-hook → hook server (end-to-end)', () => {
     const start = Date.now();
     while (Date.now() - start < timeoutMs) {
       if (mockSend.mock.calls.length > 0) return;
-      await new Promise(r => setTimeout(r, 50));
+      await new Promise((r) => setTimeout(r, 50));
     }
   }
 
   /** Create a mock claude that handles --settings by extracting and running hook commands. */
   function writeMockClaude(dir: string): void {
     fs.mkdirSync(dir, { recursive: true });
-    fs.writeFileSync(path.join(dir, 'claude'), [
-      '#!/bin/bash',
-      '# Mock claude: find --settings, extract hook command, run it',
-      'while [ $# -gt 0 ]; do',
-      '  if [ "$1" = "--settings" ]; then',
-      '    shift',
-      '    CMD=$(node -e "const s=JSON.parse(process.argv[1]); console.log(s.hooks.UserPromptSubmit[0].hooks[0].command)" "$1")',
-      '    eval "$CMD"',
-      '    sleep 0.2',
-      '    exit 0',
-      '  fi',
-      '  shift',
-      'done',
-      'echo "mock claude: --settings not received" >&2',
-      'exit 1',
-      '',
-    ].join('\n'), { mode: 0o755 });
+    fs.writeFileSync(
+      path.join(dir, 'claude'),
+      [
+        '#!/bin/bash',
+        '# Mock claude: find --settings, extract hook command, run it',
+        'while [ $# -gt 0 ]; do',
+        '  if [ "$1" = "--settings" ]; then',
+        '    shift',
+        '    CMD=$(node -e "const s=JSON.parse(process.argv[1]); console.log(s.hooks.UserPromptSubmit[0].hooks[0].command)" "$1")',
+        '    eval "$CMD"',
+        '    sleep 0.2',
+        '    exit 0',
+        '  fi',
+        '  shift',
+        'done',
+        'echo "mock claude: --settings not received" >&2',
+        'exit 1',
+        '',
+      ].join('\n'),
+      { mode: 0o755 },
+    );
   }
 
   test('wrapper passes --settings to claude, hook command triggers IPC', async () => {
@@ -618,9 +619,7 @@ describe('migrateFromSettingsHooks', () => {
     const settingsPath = path.join(claudeDir, 'settings.json');
     const settings = {
       hooks: {
-        Stop: [
-          { hooks: [{ type: 'command', command: '$HOME/.config/Ouijit/bin/ouijit-hook status status=ready' }] },
-        ],
+        Stop: [{ hooks: [{ type: 'command', command: '$HOME/.config/Ouijit/bin/ouijit-hook status status=ready' }] }],
       },
     };
     fs.writeFileSync(settingsPath, JSON.stringify(settings), 'utf-8');
@@ -655,9 +654,7 @@ describe('migrateFromSettingsHooks', () => {
     const settingsPath = path.join(claudeDir, 'settings.json');
     const settings = {
       hooks: {
-        Stop: [
-          { hooks: [{ type: 'command', command: '$HOME/.config/Ouijit/bin/ouijit-hook status status=ready' }] },
-        ],
+        Stop: [{ hooks: [{ type: 'command', command: '$HOME/.config/Ouijit/bin/ouijit-hook status status=ready' }] }],
         UserPromptSubmit: [
           { hooks: [{ type: 'command', command: '$HOME/.config/Ouijit/bin/ouijit-hook status status=thinking' }] },
         ],

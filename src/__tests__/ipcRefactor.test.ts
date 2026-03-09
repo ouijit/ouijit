@@ -25,7 +25,9 @@ vi.mock('node:fs/promises', async (importOriginal) => {
   return {
     ...actual,
     mkdir: vi.fn(async () => undefined),
-    access: vi.fn(async () => { throw new Error('ENOENT'); }),
+    access: vi.fn(async () => {
+      throw new Error('ENOENT');
+    }),
     writeFile: vi.fn(async () => undefined),
   };
 });
@@ -51,18 +53,16 @@ const homedir = os.homedir();
 const baseDir = `${homedir}/Ouijit/worktrees/myproject`;
 
 function mockExec(handler: (cmd: string) => { stdout: string; stderr: string } | Error) {
-  vi.mocked(exec).mockImplementation(
-    ((...args: unknown[]) => {
-      const cmd = args[0] as string;
-      const cb = args[2] as (err: Error | null, result: { stdout: string; stderr: string }) => void;
-      const result = handler(cmd);
-      if (result instanceof Error) {
-        cb(result, { stdout: '', stderr: '' });
-      } else {
-        cb(null, result);
-      }
-    }) as typeof exec,
-  );
+  vi.mocked(exec).mockImplementation(((...args: unknown[]) => {
+    const cmd = args[0] as string;
+    const cb = args[2] as (err: Error | null, result: { stdout: string; stderr: string }) => void;
+    const result = handler(cmd);
+    if (result instanceof Error) {
+      cb(result, { stdout: '', stderr: '' });
+    } else {
+      cb(null, result);
+    }
+  }) as typeof exec);
 }
 
 // ── listWorktrees ───────────────────────────────────────────────────
@@ -114,11 +114,7 @@ describe('listWorktrees (async)', () => {
   });
 
   test('returns empty array when no managed worktrees exist', async () => {
-    const porcelain = [
-      `worktree /projects/myproject`,
-      `HEAD abc123`,
-      `branch refs/heads/main`,
-    ].join('\n');
+    const porcelain = [`worktree /projects/myproject`, `HEAD abc123`, `branch refs/heads/main`].join('\n');
 
     mockExec(() => ({ stdout: porcelain, stderr: '' }));
     const worktrees = await listWorktrees('/projects/myproject');
@@ -150,11 +146,8 @@ describe('shipWorktree (async)', () => {
     vi.mocked(exec).mockReset();
   });
 
-  const worktreePorcelain = (branch: string) => [
-    `worktree ${baseDir}/T-1`,
-    `HEAD def456`,
-    `branch refs/heads/${branch}`,
-  ].join('\n');
+  const worktreePorcelain = (branch: string) =>
+    [`worktree ${baseDir}/T-1`, `HEAD def456`, `branch refs/heads/${branch}`].join('\n');
 
   test('detects uncommitted changes and returns error', async () => {
     const branch = 'dirty-branch';

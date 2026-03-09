@@ -16,10 +16,7 @@ function typedInvoke<C extends keyof IpcInvokeContract>(
   return ipcRenderer.invoke(channel, ...args);
 }
 
-function typedSend<C extends keyof IpcSendContract>(
-  channel: C,
-  ...args: IpcSendContract[C]['args']
-): void {
+function typedSend<C extends keyof IpcSendContract>(channel: C, ...args: IpcSendContract[C]['args']): void {
   ipcRenderer.send(channel, ...args);
 }
 
@@ -48,13 +45,15 @@ contextBridge.exposeInMainWorld('api', {
   addProject: (folderPath: string) => typedInvoke('add-project', folderPath),
   removeProject: (folderPath: string) => typedInvoke('remove-project', folderPath),
   getProjectSettings: (projectPath: string) => typedInvoke('get-project-settings', projectPath),
-  setKillExistingOnRun: (projectPath: string, kill: boolean) => typedInvoke('settings:set-kill-existing-on-run', projectPath, kill),
+  setKillExistingOnRun: (projectPath: string, kill: boolean) =>
+    typedInvoke('settings:set-kill-existing-on-run', projectPath, kill),
 
   getGitStatus: (projectPath: string) => typedInvoke('get-git-status', projectPath),
   getCompactGitStatus: (projectPath: string) => typedInvoke('get-compact-git-status', projectPath),
   getGitDropdownInfo: (projectPath: string) => typedInvoke('get-git-dropdown-info', projectPath),
   gitCheckout: (projectPath: string, branchName: string) => typedInvoke('git-checkout', projectPath, branchName),
-  gitCreateBranch: (projectPath: string, branchName: string) => typedInvoke('git-create-branch', projectPath, branchName),
+  gitCreateBranch: (projectPath: string, branchName: string) =>
+    typedInvoke('git-create-branch', projectPath, branchName),
   gitMergeIntoMain: (projectPath: string) => typedInvoke('git-merge-into-main', projectPath),
   getChangedFiles: (projectPath: string) => typedInvoke('get-changed-files', projectPath),
   getFileDiff: (projectPath: string, filePath: string) => typedInvoke('get-file-diff', projectPath, filePath),
@@ -84,33 +83,49 @@ contextBridge.exposeInMainWorld('api', {
   },
 
   worktree: {
-    validateBranchName: (projectPath: string, branchName: string) => typedInvoke('worktree:validate-branch-name', projectPath, branchName),
-    generateBranchName: (projectPath: string, name: string) => typedInvoke('worktree:generate-branch-name', projectPath, name),
+    validateBranchName: (projectPath: string, branchName: string) =>
+      typedInvoke('worktree:validate-branch-name', projectPath, branchName),
+    generateBranchName: (projectPath: string, name: string) =>
+      typedInvoke('worktree:generate-branch-name', projectPath, name),
     remove: (projectPath: string, worktreePath: string) => typedInvoke('worktree:remove', projectPath, worktreePath),
     list: (projectPath: string) => typedInvoke('worktree:list', projectPath),
-    getDiff: (projectPath: string, worktreeBranch: string, targetBranch?: string) => typedInvoke('worktree:get-diff', projectPath, worktreeBranch, targetBranch),
-    getFileDiff: (projectPath: string, worktreeBranch: string, filePath: string, targetBranch?: string) => typedInvoke('worktree:get-file-diff', projectPath, worktreeBranch, filePath, targetBranch),
+    getDiff: (projectPath: string, worktreeBranch: string, targetBranch?: string) =>
+      typedInvoke('worktree:get-diff', projectPath, worktreeBranch, targetBranch),
+    getFileDiff: (projectPath: string, worktreeBranch: string, filePath: string, targetBranch?: string) =>
+      typedInvoke('worktree:get-file-diff', projectPath, worktreeBranch, filePath, targetBranch),
     merge: (projectPath: string, worktreeBranch: string) => typedInvoke('worktree:merge', projectPath, worktreeBranch),
-    ship: (projectPath: string, worktreeBranch: string, commitMessage?: string) => typedInvoke('worktree:ship', projectPath, worktreeBranch, commitMessage),
+    ship: (projectPath: string, worktreeBranch: string, commitMessage?: string) =>
+      typedInvoke('worktree:ship', projectPath, worktreeBranch, commitMessage),
     listBranches: (projectPath: string) => typedInvoke('worktree:list-branches', projectPath),
     getMainBranch: (projectPath: string) => typedInvoke('worktree:get-main-branch', projectPath),
   },
 
   task: {
-    create: (projectPath: string, name?: string, prompt?: string) => typedInvoke('task:create', projectPath, name, prompt),
-    createAndStart: (projectPath: string, name?: string, prompt?: string, branchName?: string) => typedInvoke('task:create-and-start', projectPath, name, prompt, branchName),
-    start: (projectPath: string, taskNumber: number, branchName?: string) => typedInvoke('task:start', projectPath, taskNumber, branchName),
+    create: (projectPath: string, name?: string, prompt?: string) =>
+      typedInvoke('task:create', projectPath, name, prompt),
+    createAndStart: (projectPath: string, name?: string, prompt?: string, branchName?: string) =>
+      typedInvoke('task:create-and-start', projectPath, name, prompt, branchName),
+    start: (projectPath: string, taskNumber: number, branchName?: string) =>
+      typedInvoke('task:start', projectPath, taskNumber, branchName),
     getAll: (projectPath: string) => typedInvoke('task:get-all', projectPath),
-    getByNumber: (projectPath: string, taskNumber: number) => typedInvoke('task:get-by-number', projectPath, taskNumber),
-    setStatus: (projectPath: string, taskNumber: number, status: TaskStatus) => typedInvoke('task:set-status', projectPath, taskNumber, status),
+    getByNumber: (projectPath: string, taskNumber: number) =>
+      typedInvoke('task:get-by-number', projectPath, taskNumber),
+    setStatus: (projectPath: string, taskNumber: number, status: TaskStatus) =>
+      typedInvoke('task:set-status', projectPath, taskNumber, status),
     delete: (projectPath: string, taskNumber: number) => typedInvoke('task:delete', projectPath, taskNumber),
     trash: (projectPath: string, taskNumber: number) => typedInvoke('task:trash', projectPath, taskNumber),
-    setMergeTarget: (projectPath: string, taskNumber: number, mergeTarget: string) => typedInvoke('task:set-merge-target', projectPath, taskNumber, mergeTarget),
-    setSandboxed: (projectPath: string, taskNumber: number, sandboxed: boolean) => typedInvoke('task:set-sandboxed', projectPath, taskNumber, sandboxed),
-    setName: (projectPath: string, taskNumber: number, name: string) => typedInvoke('task:set-name', projectPath, taskNumber, name),
-    setDescription: (projectPath: string, taskNumber: number, description: string) => typedInvoke('task:set-description', projectPath, taskNumber, description),
-    reorder: (projectPath: string, taskNumber: number, newStatus: TaskStatus, targetIndex: number) => typedInvoke('task:reorder', projectPath, taskNumber, newStatus, targetIndex),
-    checkWorktree: (projectPath: string, taskNumber: number) => typedInvoke('task:check-worktree', projectPath, taskNumber),
+    setMergeTarget: (projectPath: string, taskNumber: number, mergeTarget: string) =>
+      typedInvoke('task:set-merge-target', projectPath, taskNumber, mergeTarget),
+    setSandboxed: (projectPath: string, taskNumber: number, sandboxed: boolean) =>
+      typedInvoke('task:set-sandboxed', projectPath, taskNumber, sandboxed),
+    setName: (projectPath: string, taskNumber: number, name: string) =>
+      typedInvoke('task:set-name', projectPath, taskNumber, name),
+    setDescription: (projectPath: string, taskNumber: number, description: string) =>
+      typedInvoke('task:set-description', projectPath, taskNumber, description),
+    reorder: (projectPath: string, taskNumber: number, newStatus: TaskStatus, targetIndex: number) =>
+      typedInvoke('task:reorder', projectPath, taskNumber, newStatus, targetIndex),
+    checkWorktree: (projectPath: string, taskNumber: number) =>
+      typedInvoke('task:check-worktree', projectPath, taskNumber),
     recover: (projectPath: string, taskNumber: number) => typedInvoke('task:recover', projectPath, taskNumber),
   },
 
@@ -123,9 +138,12 @@ contextBridge.exposeInMainWorld('api', {
   tags: {
     getAll: () => typedInvoke('tags:get-all'),
     getForTask: (projectPath: string, taskNumber: number) => typedInvoke('tags:get-for-task', projectPath, taskNumber),
-    addToTask: (projectPath: string, taskNumber: number, tagName: string) => typedInvoke('tags:add-to-task', projectPath, taskNumber, tagName),
-    removeFromTask: (projectPath: string, taskNumber: number, tagName: string) => typedInvoke('tags:remove-from-task', projectPath, taskNumber, tagName),
-    setTaskTags: (projectPath: string, taskNumber: number, tagNames: string[]) => typedInvoke('tags:set-task-tags', projectPath, taskNumber, tagNames),
+    addToTask: (projectPath: string, taskNumber: number, tagName: string) =>
+      typedInvoke('tags:add-to-task', projectPath, taskNumber, tagName),
+    removeFromTask: (projectPath: string, taskNumber: number, tagName: string) =>
+      typedInvoke('tags:remove-from-task', projectPath, taskNumber, tagName),
+    setTaskTags: (projectPath: string, taskNumber: number, tagNames: string[]) =>
+      typedInvoke('tags:set-task-tags', projectPath, taskNumber, tagNames),
   },
 
   onFullscreenChange: (callback: (isFullscreen: boolean) => void) => typedListen('fullscreen-change', callback),
@@ -148,7 +166,8 @@ contextBridge.exposeInMainWorld('api', {
     start: (projectPath: string) => typedInvoke('lima:start', projectPath),
     stop: (projectPath: string) => typedInvoke('lima:stop', projectPath),
     getConfig: (projectPath: string) => typedInvoke('lima:get-config', projectPath),
-    setConfig: (projectPath: string, config: { memoryGiB?: number; diskGiB?: number }) => typedInvoke('lima:set-config', projectPath, config),
+    setConfig: (projectPath: string, config: { memoryGiB?: number; diskGiB?: number }) =>
+      typedInvoke('lima:set-config', projectPath, config),
     recreate: (projectPath: string) => typedInvoke('lima:recreate', projectPath),
     delete: (projectPath: string) => typedInvoke('lima:delete', projectPath),
     onSpawnProgress: (callback: (message: string) => void) => typedListen('lima:spawn-progress', callback),

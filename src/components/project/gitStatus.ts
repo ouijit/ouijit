@@ -87,18 +87,21 @@ export function resetDataDrivenRefreshTimestamp(): void {
  */
 export function scheduleTerminalGitStatusRefresh(
   term: OuijitTerminal,
-  onComplete?: (term: OuijitTerminal) => void
+  onComplete?: (term: OuijitTerminal) => void,
 ): void {
   const key = term.ptyId;
   const existing = pendingTerminalGitRefreshes.get(key);
   if (existing) clearTimeout(existing);
 
-  pendingTerminalGitRefreshes.set(key, setTimeout(async () => {
-    await refreshTerminalGitStatus(term);
-    lastDataDrivenRefresh = Date.now();
-    onComplete?.(term);
-    pendingTerminalGitRefreshes.delete(key);
-  }, GIT_STATUS_IDLE_DELAY));
+  pendingTerminalGitRefreshes.set(
+    key,
+    setTimeout(async () => {
+      await refreshTerminalGitStatus(term);
+      lastDataDrivenRefresh = Date.now();
+      onComplete?.(term);
+      pendingTerminalGitRefreshes.delete(key);
+    }, GIT_STATUS_IDLE_DELAY),
+  );
 }
 
 /**
@@ -138,7 +141,7 @@ export async function refreshAllTerminalGitStatus(): Promise<void> {
       for (const term of terms) {
         term.gitStatus.value = compactStatus;
       }
-    })
+    }),
   );
 }
 

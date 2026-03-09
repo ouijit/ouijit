@@ -45,11 +45,7 @@ async function show(trigger: HTMLElement, text: string, placement: Placement, ga
 
   const { x, y } = await computePosition(trigger, tip, {
     placement,
-    middleware: [
-      offset(gap),
-      flip(),
-      shift({ padding: 8 }),
-    ],
+    middleware: [offset(gap), flip(), shift({ padding: 8 })],
   });
 
   Object.assign(tip.style, {

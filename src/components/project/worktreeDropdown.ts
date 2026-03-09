@@ -221,4 +221,3 @@ export async function deleteTask(path: string, task: TaskWithWorkspace): Promise
     showToast(result.error || 'Failed to delete task', 'error');
   }
 }
-

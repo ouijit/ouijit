@@ -8,7 +8,7 @@ import type { Project, PtySpawnOptions } from '../types';
 import { homeViewActive, projectPath } from './project/signals';
 import { ensureHiddenSessionsContainer } from './project/state';
 import { exitProjectMode } from './project/projectMode';
-import { OuijitTerminal, scrollSafeFit, resolveTerminalLabel, getManager  } from './terminal';
+import { OuijitTerminal, scrollSafeFit, resolveTerminalLabel, getManager } from './terminal';
 import { setupCardActions, reconnectTerminal, collapseTagInput } from './project/terminalCards';
 import { convertIconsIn } from '../utils/icons';
 import { escapeHtml } from '../utils/html';
@@ -69,7 +69,10 @@ export async function enterHomeView(): Promise<void> {
 
   const manager = getManager();
 
-  homeLog.info('entering home view', { sessionCount: manager.sessions.size, orphanedCount: manager.orphanedSessions.size });
+  homeLog.info('entering home view', {
+    sessionCount: manager.sessions.size,
+    orphanedCount: manager.orphanedSessions.size,
+  });
 
   // Persist last active view for session recovery
   window.api.globalSettings.set('lastActiveView', JSON.stringify({ type: 'home' }));
@@ -112,7 +115,7 @@ export async function enterHomeView(): Promise<void> {
     }
 
     // Wire toggle clicks
-    headerContent.querySelectorAll('.project-view-toggle-btn').forEach(btn => {
+    headerContent.querySelectorAll('.project-view-toggle-btn').forEach((btn) => {
       btn.addEventListener('click', () => {
         const mode = (btn as HTMLElement).dataset.mode as HomeGroupMode;
         if (mode !== homeGroupMode) toggleHomeGroupMode(mode);
@@ -123,7 +126,7 @@ export async function enterHomeView(): Promise<void> {
   // Populate project data cache
   try {
     const projects = await window.api.getProjects();
-    projectDataCache = new Map(projects.map(p => [p.path, p]));
+    projectDataCache = new Map(projects.map((p) => [p.path, p]));
   } catch {
     // Fall back to data from sessions
   }
@@ -170,7 +173,11 @@ export async function enterHomeView(): Promise<void> {
     requestAnimationFrame(() => {
       const active = homeTerminals[homeActiveIndex];
       if (active) {
-        try { scrollSafeFit(active.xterm, active.fitAddon); } catch { /* noop */ }
+        try {
+          scrollSafeFit(active.xterm, active.fitAddon);
+        } catch {
+          /* noop */
+        }
         active.xterm.focus();
       }
     });
@@ -262,15 +269,14 @@ export function exitHomeView(): void {
   unregisterHomeHookStatusListener();
 }
 
-
 /** Toggle home grouping mode and update UI */
 function toggleHomeGroupMode(mode: HomeGroupMode): void {
   homeGroupMode = mode;
   const headerContent = document.querySelector('.header-content');
   if (headerContent) {
-    headerContent.querySelectorAll('.project-view-toggle-btn').forEach(b =>
-      b.classList.toggle('project-view-toggle-btn--active', (b as HTMLElement).dataset.mode === mode)
-    );
+    headerContent
+      .querySelectorAll('.project-view-toggle-btn')
+      .forEach((b) => b.classList.toggle('project-view-toggle-btn--active', (b as HTMLElement).dataset.mode === mode));
   }
   updateHomeCardStack();
 }
@@ -287,16 +293,15 @@ function updateHomeCardStack(): void {
   const activeTerminal = homeTerminals[homeActiveIndex];
 
   // Clear all positioning and dividers
-  homeTerminals.forEach(term => stripStackClasses(term.container));
+  homeTerminals.forEach((term) => stripStackClasses(term.container));
   clearHomeDividers();
 
   // Mark active
   activeTerminal.container.classList.add('project-card--active');
 
   // Build stack items based on grouping mode
-  const stackItems = homeGroupMode === 'tag'
-    ? buildTagGroupedStack(activeTerminal)
-    : buildProjectGroupedStack(activeTerminal);
+  const stackItems =
+    homeGroupMode === 'tag' ? buildTagGroupedStack(activeTerminal) : buildProjectGroupedStack(activeTerminal);
 
   // Assign depth levels and track terminal depth order for shortcuts
   homeDepthOrder = [];
@@ -323,7 +328,7 @@ function updateHomeCardStack(): void {
   }
 
   // Sync tag visibility class for all terminals
-  homeTerminals.forEach(term => {
+  homeTerminals.forEach((term) => {
     term.container.classList.toggle('project-card--has-tags', term.tags.value.length > 0);
   });
 
@@ -483,7 +488,12 @@ const DIVIDER_TAB_SVG = `
  * Create a home divider element — a card-like element with transparent body,
  * only the tab is visible. Used for both project and tag grouping.
  */
-function createHomeDivider(iconHtml: string, label: string, depth: number, dataset: Record<string, string>): HTMLElement {
+function createHomeDivider(
+  iconHtml: string,
+  label: string,
+  depth: number,
+  dataset: Record<string, string>,
+): HTMLElement {
   const divider = document.createElement('div');
   divider.className = 'project-card home-folder-divider';
   Object.assign(divider.dataset, dataset);
@@ -519,10 +529,7 @@ function createHomeFolderDivider(path: string, depth: number): HTMLElement {
 }
 
 function createHomeTagDivider(tagName: string, depth: number): HTMLElement {
-  return createHomeDivider(
-    `<i data-icon="tag" class="home-tag-icon"></i>`,
-    tagName, depth, { dividerTag: tagName },
-  );
+  return createHomeDivider(`<i data-icon="tag" class="home-tag-icon"></i>`, tagName, depth, { dividerTag: tagName });
 }
 
 /** Remove all folder divider elements from the stack */
@@ -541,7 +548,7 @@ function wireHomeCardClicks(): void {
     if (!card) return;
 
     // Terminal card click
-    const index = homeTerminals.findIndex(t => t.container === card);
+    const index = homeTerminals.findIndex((t) => t.container === card);
     if (index !== -1 && index !== homeActiveIndex) {
       switchToHomeTerminal(index);
       return;
@@ -554,11 +561,14 @@ function wireHomeCardClicks(): void {
       let target = -1;
 
       if (tagGroup !== undefined) {
-        target = tagGroup === 'Untagged'
-          ? homeTerminals.findIndex(t => t.tags.value.length === 0)
-          : homeTerminals.findIndex(t => t.tags.value.length > 0 && t.tags.value[0].toLowerCase() === tagGroup.toLowerCase());
+        target =
+          tagGroup === 'Untagged'
+            ? homeTerminals.findIndex((t) => t.tags.value.length === 0)
+            : homeTerminals.findIndex(
+                (t) => t.tags.value.length > 0 && t.tags.value[0].toLowerCase() === tagGroup.toLowerCase(),
+              );
       } else if (projectGroup) {
-        target = homeTerminals.findIndex(t => t.projectPath === projectGroup);
+        target = homeTerminals.findIndex((t) => t.projectPath === projectGroup);
       }
 
       if (target !== -1 && target !== homeActiveIndex) {
@@ -580,7 +590,11 @@ function switchToHomeTerminal(index: number): void {
   requestAnimationFrame(() => {
     const term = homeTerminals[homeActiveIndex];
     if (term) {
-      try { scrollSafeFit(term.xterm, term.fitAddon); } catch { /* noop */ }
+      try {
+        scrollSafeFit(term.xterm, term.fitAddon);
+      } catch {
+        /* noop */
+      }
       term.xterm.focus();
     }
   });
@@ -624,7 +638,7 @@ function closeHomeTerminal(index: number): void {
   const manager = getManager();
   const session = manager.sessions.get(path);
   if (session) {
-    session.terminals = session.terminals.filter(t => t !== term);
+    session.terminals = session.terminals.filter((t) => t !== term);
     if (session.terminals.length === 0) {
       session.stackElement.remove();
       manager.sessions.delete(path);
@@ -652,7 +666,11 @@ function closeHomeTerminal(index: number): void {
   requestAnimationFrame(() => {
     const active = homeTerminals[homeActiveIndex];
     if (active) {
-      try { scrollSafeFit(active.xterm, active.fitAddon); } catch { /* noop */ }
+      try {
+        scrollSafeFit(active.xterm, active.fitAddon);
+      } catch {
+        /* noop */
+      }
       active.xterm.focus();
     }
   });
@@ -696,7 +714,7 @@ async function addHomeTerminal(path: string, opts?: HomeTerminalOptions): Promis
   homeStack.appendChild(term.container);
   term.openTerminal();
 
-  await new Promise(resolve => requestAnimationFrame(resolve));
+  await new Promise((resolve) => requestAnimationFrame(resolve));
   term.fitAddon.fit();
 
   // Resolve start command from hooks for worktree terminals
@@ -713,7 +731,9 @@ async function addHomeTerminal(path: string, opts?: HomeTerminalOptions): Promis
     try {
       const hooks = await window.api.hooks.get(path);
       if (hooks.continue) startCommand = hooks.continue.command;
-    } catch { /* no hooks */ }
+    } catch {
+      /* no hooks */
+    }
   }
 
   const spawnOptions: PtySpawnOptions = {
@@ -775,7 +795,10 @@ async function addHomeTerminal(path: string, opts?: HomeTerminalOptions): Promis
 
     homeLog.info('terminal added from home view', { path, ptyId });
   } catch (error) {
-    homeLog.error('failed to spawn terminal from home view', { path, error: error instanceof Error ? error.message : String(error) });
+    homeLog.error('failed to spawn terminal from home view', {
+      path,
+      error: error instanceof Error ? error.message : String(error),
+    });
     const idx = homeTerminals.indexOf(term);
     if (idx !== -1) closeHomeTerminal(idx);
     showToast('Failed to start terminal', 'error');
@@ -799,7 +822,7 @@ async function reconnectOrphanedForHome(): Promise<void> {
   window.api.pty.setWindow();
 
   for (const [path, sessions] of manager.orphanedSessions) {
-    const mainSessions = sessions.filter(s => !s.isRunner);
+    const mainSessions = sessions.filter((s) => !s.isRunner);
 
     // Create a hidden stack element to store these terminals for later project-mode use
     const stackElement = document.createElement('div');
@@ -813,11 +836,13 @@ async function reconnectOrphanedForHome(): Promise<void> {
     }
 
     if (reconnectedTerminals.length > 0) {
-      const project = projectDataCache.get(path) || {
-        name: path.split('/').pop() || path,
-        path,
-        hasGit: false,
-      } as Project;
+      const project =
+        projectDataCache.get(path) ||
+        ({
+          name: path.split('/').pop() || path,
+          path,
+          hasGit: false,
+        } as Project);
 
       manager.sessions.set(path, {
         terminals: reconnectedTerminals,
@@ -842,7 +867,7 @@ async function reconnectOrphanedForHome(): Promise<void> {
  */
 async function reconnectSingleTerminal(
   session: import('../types').ActiveSession,
-  stackElement: HTMLElement
+  stackElement: HTMLElement,
 ): Promise<OuijitTerminal | null> {
   const pt = await reconnectTerminal(session, stackElement);
   if (!pt) {
@@ -980,7 +1005,7 @@ function registerHomeHookStatusListener(): void {
   if (hookStatusCleanup) return;
 
   hookStatusCleanup = window.api.claudeHooks.onStatus((ptyId, status) => {
-    const term = homeTerminals.find(t => t.ptyId === ptyId);
+    const term = homeTerminals.find((t) => t.ptyId === ptyId);
     if (!term) return;
     term.handleHookStatus(status === 'thinking' ? 'thinking' : 'ready');
   });

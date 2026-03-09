@@ -67,8 +67,8 @@ export interface GitDropdownInfo {
  */
 export interface ChangedFile {
   path: string;
-  status: 'M' | 'A' | 'D' | 'R' | '?';  // Modified, Added, Deleted, Renamed, Untracked
-  oldPath?: string;  // For renamed files
+  status: 'M' | 'A' | 'D' | 'R' | '?'; // Modified, Added, Deleted, Renamed, Untracked
+  oldPath?: string; // For renamed files
   additions: number;
   deletions: number;
 }
@@ -133,16 +133,16 @@ export function listBranches(projectPath: string): BranchInfo[] {
     const mainBranch = getMainBranch(projectPath);
 
     // Get all local branches sorted by most recent commit
-    const result = execSync(
-      "git for-each-ref --sort=-committerdate --format='%(refname:short)' refs/heads/",
-      opts
-    ).toString().trim();
+    const result = execSync("git for-each-ref --sort=-committerdate --format='%(refname:short)' refs/heads/", opts)
+      .toString()
+      .trim();
 
     if (!result) return [];
 
-    return result.split('\n')
-      .filter(name => name.trim())
-      .map(name => ({
+    return result
+      .split('\n')
+      .filter((name) => name.trim())
+      .map((name) => ({
         name: name.trim(),
         isMain: name.trim() === mainBranch,
       }));
@@ -195,7 +195,7 @@ export function getMainBranch(projectPath: string): string {
     const result = execFileSync('git', ['branch', '--list', 'main', 'master'], opts).toString().trim();
     if (!result) return 'main';
     // Each line is "  branchname" or "* branchname" - check if 'main' exists
-    const branches = result.split('\n').map(b => b.replace(/^\*?\s+/, '').trim());
+    const branches = result.split('\n').map((b) => b.replace(/^\*?\s+/, '').trim());
     if (branches.includes('main')) return 'main';
     if (branches.includes('master')) return 'master';
     return 'main';
@@ -247,7 +247,6 @@ function getUncommittedChanges(projectPath: string): UncommittedChanges | null {
   }
 }
 
-
 /**
  * Gets recent branches with their commit info
  */
@@ -255,7 +254,7 @@ function getRecentBranches(
   projectPath: string,
   currentBranch: string,
   mainBranch: string,
-  limit: number = 5
+  limit: number = 5,
 ): RecentBranch[] {
   const opts = gitExecOpts(projectPath);
 
@@ -266,20 +265,28 @@ function getRecentBranches(
     let useAheadBehind = true;
 
     try {
-      result = execFileSync('git', [
-        'for-each-ref',
-        '--sort=-committerdate',
-        `--format=%(refname:short)|%(committerdate:unix)|%(ahead-behind:${mainBranch})`,
-        'refs/heads/',
-        `--count=${limit + 2}`,
-      ], opts).toString().trim();
+      result = execFileSync(
+        'git',
+        [
+          'for-each-ref',
+          '--sort=-committerdate',
+          `--format=%(refname:short)|%(committerdate:unix)|%(ahead-behind:${mainBranch})`,
+          'refs/heads/',
+          `--count=${limit + 2}`,
+        ],
+        opts,
+      )
+        .toString()
+        .trim();
     } catch {
       // Fallback for older Git versions without %(ahead-behind)
       useAheadBehind = false;
       result = execSync(
         `git for-each-ref --sort=-committerdate --format='%(refname:short)|%(committerdate:unix)' refs/heads/ --count=${limit + 2}`,
-        opts
-      ).toString().trim();
+        opts,
+      )
+        .toString()
+        .trim();
     }
 
     if (!result) return [];
@@ -304,7 +311,9 @@ function getRecentBranches(
         commitsAhead = parseInt(ahead, 10) || 0;
       } else if (!useAheadBehind) {
         try {
-          const countResult = execFileSync('git', ['rev-list', '--count', `${mainBranch}..${name}`], opts).toString().trim();
+          const countResult = execFileSync('git', ['rev-list', '--count', `${mainBranch}..${name}`], opts)
+            .toString()
+            .trim();
           commitsAhead = parseInt(countResult, 10) || 0;
         } catch {
           commitsAhead = 0;
@@ -375,7 +384,7 @@ export function checkoutBranch(projectPath: string, branchName: string): { succe
     if (errorMsg.includes('Your local changes')) {
       return {
         success: false,
-        error: 'Uncommitted changes would be overwritten. Commit or stash first.'
+        error: 'Uncommitted changes would be overwritten. Commit or stash first.',
       };
     }
     if (errorMsg.includes('did not match any')) {
@@ -405,7 +414,7 @@ export function createBranch(projectPath: string, branchName: string): { success
     if (errorMsg.includes('Your local changes')) {
       return {
         success: false,
-        error: 'Uncommitted changes would be overwritten. Commit or stash first.'
+        error: 'Uncommitted changes would be overwritten. Commit or stash first.',
       };
     }
     if (errorMsg.includes('is not a valid branch name')) {
@@ -626,7 +635,10 @@ export function getFileDiff(projectPath: string, filePath: string): FileDiff | n
     if (isUntracked) {
       // For untracked files, show the entire file as additions
       try {
-        diffOutput = execFileSync('git', ['diff', '--no-index', '/dev/null', filePath], { ...opts, stdio: ['pipe', 'pipe', 'ignore'] }).toString();
+        diffOutput = execFileSync('git', ['diff', '--no-index', '/dev/null', filePath], {
+          ...opts,
+          stdio: ['pipe', 'pipe', 'ignore'],
+        }).toString();
       } catch (error) {
         // git diff --no-index returns exit code 1 when files differ, which is expected
         if (error && typeof error === 'object' && 'stdout' in error) {
@@ -708,7 +720,9 @@ export async function getCompactGitStatus(projectPath: string): Promise<CompactG
     ]);
 
     // Parse tracked changes
-    let trackedCount = 0, insertions = 0, deletions = 0;
+    let trackedCount = 0,
+      insertions = 0,
+      deletions = 0;
     if (shortstatResult.status === 'fulfilled' && shortstatResult.value) {
       const parsed = parseShortstat(shortstatResult.value);
       trackedCount = parsed.files;
@@ -719,7 +733,7 @@ export async function getCompactGitStatus(projectPath: string): Promise<CompactG
     // Parse untracked count
     let untrackedCount = 0;
     if (untrackedResult.status === 'fulfilled' && untrackedResult.value) {
-      untrackedCount = untrackedResult.value.split('\n').filter(line => line.length > 0).length;
+      untrackedCount = untrackedResult.value.split('\n').filter((line) => line.length > 0).length;
     }
 
     // Parse commits ahead
@@ -729,7 +743,9 @@ export async function getCompactGitStatus(projectPath: string): Promise<CompactG
     }
 
     // Parse branch diff
-    let branchDiffFileCount = 0, branchDiffInsertions = 0, branchDiffDeletions = 0;
+    let branchDiffFileCount = 0,
+      branchDiffInsertions = 0,
+      branchDiffDeletions = 0;
     if (branchDiffResult.status === 'fulfilled' && branchDiffResult.value) {
       const parsed = parseShortstat(branchDiffResult.value);
       branchDiffFileCount = parsed.files;
@@ -769,7 +785,7 @@ export interface WorktreeDiffSummary {
 export function getWorktreeDiff(
   projectPath: string,
   worktreeBranch: string,
-  targetBranch?: string
+  targetBranch?: string,
 ): WorktreeDiffSummary | null {
   const opts = gitExecOpts(projectPath);
   const baseBranch = targetBranch || getMainBranch(projectPath);
@@ -783,10 +799,9 @@ export function getWorktreeDiff(
     let totalDeletions = 0;
 
     try {
-      const numstat = execFileSync(
-        'git', ['diff', '--numstat', `${baseBranch}...${worktreeBranch}`],
-        opts
-      ).toString().trim();
+      const numstat = execFileSync('git', ['diff', '--numstat', `${baseBranch}...${worktreeBranch}`], opts)
+        .toString()
+        .trim();
 
       if (numstat) {
         for (const line of numstat.split('\n')) {
@@ -805,10 +820,9 @@ export function getWorktreeDiff(
     }
 
     // Get file status (modified, added, deleted)
-    const nameStatus = execFileSync(
-      'git', ['diff', '--name-status', `${baseBranch}...${worktreeBranch}`],
-      opts
-    ).toString().trim();
+    const nameStatus = execFileSync('git', ['diff', '--name-status', `${baseBranch}...${worktreeBranch}`], opts)
+      .toString()
+      .trim();
 
     if (nameStatus) {
       for (const line of nameStatus.split('\n')) {
@@ -845,15 +859,16 @@ export function getWorktreeFileDiff(
   projectPath: string,
   worktreeBranch: string,
   filePath: string,
-  targetBranch?: string
+  targetBranch?: string,
 ): FileDiff | null {
   const opts = { ...gitExecOpts(projectPath), maxBuffer: 10 * 1024 * 1024 };
   const baseBranch = targetBranch || getMainBranch(projectPath);
 
   try {
     const diffOutput = execFileSync(
-      'git', ['diff', `${baseBranch}...${worktreeBranch}`, '--', filePath],
-      opts
+      'git',
+      ['diff', `${baseBranch}...${worktreeBranch}`, '--', filePath],
+      opts,
     ).toString();
 
     if (!diffOutput.trim()) {
@@ -876,7 +891,7 @@ export function mergeWorktreeBranch(
   projectPath: string,
   branchToMerge: string,
   commitMessage?: string,
-  targetBranch?: string
+  targetBranch?: string,
 ): { success: boolean; error?: string; mergedBranch?: string } {
   const opts = gitExecOpts(projectPath);
 

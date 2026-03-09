@@ -18,7 +18,9 @@ import type { IpcInvokeContract, IpcSendContract, IpcPushContract } from './cont
  */
 export function typedHandle<C extends keyof IpcInvokeContract>(
   channel: C,
-  handler: (...args: IpcInvokeContract[C]['args']) => Promise<IpcInvokeContract[C]['return']> | IpcInvokeContract[C]['return']
+  handler: (
+    ...args: IpcInvokeContract[C]['args']
+  ) => Promise<IpcInvokeContract[C]['return']> | IpcInvokeContract[C]['return'],
 ): void {
   ipcMain.handle(channel, (_event: Electron.IpcMainInvokeEvent, ...args: unknown[]) =>
     (handler as (...a: unknown[]) => unknown)(...args),
@@ -31,7 +33,7 @@ export function typedHandle<C extends keyof IpcInvokeContract>(
  */
 export function typedOn<C extends keyof IpcSendContract>(
   channel: C,
-  handler: (...args: IpcSendContract[C]['args']) => void
+  handler: (...args: IpcSendContract[C]['args']) => void,
 ): void {
   ipcMain.on(channel, (_event: Electron.IpcMainEvent, ...args: unknown[]) => {
     (handler as (...a: unknown[]) => void)(...args);

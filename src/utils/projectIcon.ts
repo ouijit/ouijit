@@ -3,10 +3,26 @@
  */
 export function stringToColor(str: string): string {
   const colors = [
-    '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7',
-    '#DDA0DD', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E9',
-    '#F8B500', '#FF8C00', '#00CED1', '#9370DB', '#3CB371',
-    '#FF69B4', '#20B2AA', '#778899', '#B8860B', '#5F9EA0',
+    '#FF6B6B',
+    '#4ECDC4',
+    '#45B7D1',
+    '#96CEB4',
+    '#FFEAA7',
+    '#DDA0DD',
+    '#98D8C8',
+    '#F7DC6F',
+    '#BB8FCE',
+    '#85C1E9',
+    '#F8B500',
+    '#FF8C00',
+    '#00CED1',
+    '#9370DB',
+    '#3CB371',
+    '#FF69B4',
+    '#20B2AA',
+    '#778899',
+    '#B8860B',
+    '#5F9EA0',
   ];
 
   let hash = 0;

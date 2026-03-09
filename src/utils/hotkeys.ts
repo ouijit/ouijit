@@ -64,11 +64,7 @@ export function getCurrentScope(): Scope {
 /**
  * Register a hotkey for a specific scope
  */
-export function registerHotkey(
-  keys: string,
-  scope: Scope,
-  callback: (event: KeyboardEvent) => void
-): void {
+export function registerHotkey(keys: string, scope: Scope, callback: (event: KeyboardEvent) => void): void {
   hotkeys(keys, { scope }, (event) => {
     event.preventDefault();
     callback(event);
@@ -91,13 +87,10 @@ export function initHotkeys(): void {
   hotkeys.filter = (event) => {
     const target = event.target as HTMLElement;
     const tagName = target.tagName;
-    const isInput =
-      tagName === 'INPUT' || tagName === 'TEXTAREA' || tagName === 'SELECT';
+    const isInput = tagName === 'INPUT' || tagName === 'TEXTAREA' || tagName === 'SELECT';
 
     // Check if we have a modifier key (⌘ on Mac, Ctrl on Linux/Windows)
-    const hasModifier = isMac
-      ? event.metaKey && !event.ctrlKey
-      : event.ctrlKey && !event.metaKey;
+    const hasModifier = isMac ? event.metaKey && !event.ctrlKey : event.ctrlKey && !event.metaKey;
 
     // Terminal handling: allow modifier shortcuts, but let raw keys pass to the shell
     const isTerminal = target.closest('.xterm');

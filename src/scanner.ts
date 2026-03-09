@@ -33,7 +33,7 @@ async function detectLanguage(dirPath: string): Promise<string | undefined> {
   if (await exists(path.join(dirPath, 'go.mod'))) {
     return 'Go';
   }
-  if (await exists(path.join(dirPath, 'pyproject.toml')) || await exists(path.join(dirPath, 'setup.py'))) {
+  if ((await exists(path.join(dirPath, 'pyproject.toml'))) || (await exists(path.join(dirPath, 'setup.py')))) {
     return 'Python';
   }
   if (await exists(path.join(dirPath, 'package.json'))) {
@@ -142,7 +142,10 @@ async function getIconDataUrl(dirPath: string): Promise<string | undefined> {
           return resized.toDataURL();
         }
       } catch (error) {
-        scannerLog.warn('failed to load icon', { path: iconPath, error: error instanceof Error ? error.message : String(error) });
+        scannerLog.warn('failed to load icon', {
+          path: iconPath,
+          error: error instanceof Error ? error.message : String(error),
+        });
       }
     }
   }
@@ -184,7 +187,7 @@ async function createProject(dirPath: string): Promise<Project> {
 export async function getProjectList(): Promise<Project[]> {
   const db = getDatabase();
   const projectRepo = new ProjectRepo(db);
-  const addedPaths = projectRepo.getAll().map(p => p.path);
+  const addedPaths = projectRepo.getAll().map((p) => p.path);
 
   const projects: Project[] = [];
   for (const projectPath of addedPaths) {

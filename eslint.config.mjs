@@ -1,5 +1,6 @@
 import tseslint from 'typescript-eslint';
 import importX from 'eslint-plugin-import-x';
+import prettier from 'eslint-config-prettier';
 
 export default tseslint.config(
   {
@@ -41,4 +42,5 @@ export default tseslint.config(
       },
     },
   },
+  prettier,
 );

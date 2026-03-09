@@ -7,9 +7,11 @@ vi.mock('node:child_process', () => ({
   exec: vi.fn((_cmd: string, _opts: unknown, cb: (err: null, result: { stdout: string; stderr: string }) => void) => {
     cb(null, { stdout: '', stderr: '' });
   }),
-  execFile: vi.fn((_file: string, _args: string[], _opts: unknown, cb: (err: null, stdout: string, stderr: string) => void) => {
-    cb(null, '', '');
-  }),
+  execFile: vi.fn(
+    (_file: string, _args: string[], _opts: unknown, cb: (err: null, stdout: string, stderr: string) => void) => {
+      cb(null, '', '');
+    },
+  ),
 }));
 
 // Mock fs/promises — keep real readFile/writeFile for taskMetadata, stub the rest
@@ -18,7 +20,9 @@ vi.mock('node:fs/promises', async (importOriginal) => {
   return {
     ...actual,
     mkdir: vi.fn(async () => undefined),
-    access: vi.fn(async () => { throw new Error('ENOENT'); }),
+    access: vi.fn(async () => {
+      throw new Error('ENOENT');
+    }),
     cp: vi.fn(async () => undefined),
   };
 });

@@ -18,7 +18,9 @@
   margin-top: auto;
   margin-bottom: auto;
   transform: scale(0.95) translateY(10px);
-  transition: opacity 200ms ease-out, transform 200ms ease-out;
+  transition:
+    opacity 200ms ease-out,
+    transform 200ms ease-out;
 }
 
 .dialog--visible {

@@ -17,7 +17,7 @@ import type { SummaryType } from './state';
 import { STACK_PAGE_SIZE } from './state';
 import { hideRunnerPanel, projectRegistry } from './helpers';
 import { projectPath, invalidateTaskList, homeViewActive } from './signals';
-import { OuijitTerminal, scrollSafeFit, resolveTerminalLabel, getManager  } from '../terminal';
+import { OuijitTerminal, scrollSafeFit, resolveTerminalLabel, getManager } from '../terminal';
 import { showToast } from '../importDialog';
 import { showHookConfigDialog } from '../hookConfigDialog';
 import { hideTerminalDiffPanel } from './diffPanel';
@@ -84,16 +84,24 @@ export function showLoadingCardInStack(label: string): HTMLElement {
 
   // Push existing terminals on the current page back by one position
   currentTerminals.forEach((term, index) => {
-    term.container.classList.remove('project-card--active', 'project-card--back-1', 'project-card--back-2', 'project-card--back-3', 'project-card--back-4', 'project-card--hidden');
+    term.container.classList.remove(
+      'project-card--active',
+      'project-card--back-1',
+      'project-card--back-2',
+      'project-card--back-3',
+      'project-card--back-4',
+      'project-card--hidden',
+    );
 
     if (index < pageStart || index >= pageEnd) {
       term.container.classList.add('project-card--hidden');
     } else if (index === currentActiveIndex) {
       term.container.classList.add('project-card--back-1');
     } else {
-      const diff = index < currentActiveIndex
-        ? currentActiveIndex - index
-        : (pageEnd - pageStart) - (index - pageStart) + (currentActiveIndex - pageStart);
+      const diff =
+        index < currentActiveIndex
+          ? currentActiveIndex - index
+          : pageEnd - pageStart - (index - pageStart) + (currentActiveIndex - pageStart);
       const newBackPosition = Math.min(diff + 1, 4);
       term.container.classList.add(`project-card--back-${newBackPosition}`);
     }
@@ -252,7 +260,9 @@ async function showCardContextMenu(event: MouseEvent, term: OuijitTerminal): Pro
         });
         menu.appendChild(editorItem);
       }
-    } catch { /* no hooks configured */ }
+    } catch {
+      /* no hooks configured */
+    }
   }
 
   // Separator before close
@@ -361,7 +371,7 @@ function setupRunnerResizeHandle(term: OuijitTerminal, handle: HTMLElement, pane
     const handleWidth = handle.offsetWidth;
     const totalWidth = rect.width - handleWidth;
     const mouseX = e.clientX - rect.left;
-    let ratio = 1 - (mouseX / totalWidth);
+    let ratio = 1 - mouseX / totalWidth;
     ratio = Math.max(0.15, Math.min(0.85, ratio));
     term.runnerSplitRatio = ratio;
     panel.style.flexBasis = `${ratio * 100}%`;
@@ -412,7 +422,10 @@ export function showRunnerPanel(term: OuijitTerminal): void {
     if (viewport) viewport.after(handle);
 
     // Create panel
-    cardBody.insertAdjacentHTML('beforeend', buildRunnerPanelHtml(term.runnerCommand || 'Runner', term.runnerFullWidth));
+    cardBody.insertAdjacentHTML(
+      'beforeend',
+      buildRunnerPanelHtml(term.runnerCommand || 'Runner', term.runnerFullWidth),
+    );
     panel = cardBody.querySelector('.runner-panel') as HTMLElement;
     if (!panel) return;
 
@@ -480,9 +493,9 @@ export function showRunnerPanel(term: OuijitTerminal): void {
             const dt = (e as DragEvent).dataTransfer;
             if (dt?.files.length) {
               const paths = Array.from(dt.files)
-                .map(f => window.api.getPathForFile(f))
+                .map((f) => window.api.getPathForFile(f))
                 .filter((p): p is string => !!p)
-                .map(p => p.includes(' ') ? `"${p}"` : p)
+                .map((p) => (p.includes(' ') ? `"${p}"` : p))
                 .join(' ');
               if (paths && term.runner) {
                 term.runner.xterm.paste(paths);
@@ -656,10 +669,7 @@ export async function runDefaultInCard(term: OuijitTerminal): Promise<void> {
     term.killRunner();
   }
 
-  const [hooks, settings] = await Promise.all([
-    window.api.hooks.get(path),
-    window.api.getProjectSettings(path),
-  ]);
+  const [hooks, settings] = await Promise.all([window.api.hooks.get(path), window.api.getProjectSettings(path)]);
 
   if (!hooks.run) {
     const result = await showHookConfigDialog(path, 'run', undefined, {
@@ -745,7 +755,6 @@ export async function runDefaultInCard(term: OuijitTerminal): Promise<void> {
 
     term.setRunner(runner);
     term.updateRunnerPill();
-
   } catch (error) {
     runner.xterm.writeln(`\x1b[31mError: ${error instanceof Error ? error.message : 'Unknown error'}\x1b[0m`);
     term.runnerStatus = 'error';
@@ -792,14 +801,24 @@ export function updateCardStack(): void {
   // Calculate back positions
   const backPositions: { index: number; diff: number }[] = [];
   currentTerminals.forEach((term, index) => {
-    term.container.classList.remove('project-card--active', 'project-card--back-1', 'project-card--back-2', 'project-card--back-3', 'project-card--back-4', 'project-card--hidden');
+    term.container.classList.remove(
+      'project-card--active',
+      'project-card--back-1',
+      'project-card--back-2',
+      'project-card--back-3',
+      'project-card--back-4',
+      'project-card--hidden',
+    );
 
     if (index < pageStart || index >= pageEnd) {
       term.container.classList.add('project-card--hidden');
     } else if (index === currentActiveIndex) {
       term.container.classList.add('project-card--active');
     } else {
-      const diff = index < currentActiveIndex ? currentActiveIndex - index : pageSize - (index - pageStart) + (currentActiveIndex - pageStart);
+      const diff =
+        index < currentActiveIndex
+          ? currentActiveIndex - index
+          : pageSize - (index - pageStart) + (currentActiveIndex - pageStart);
       const backClass = `project-card--back-${Math.min(diff, 4)}`;
       term.container.classList.add(backClass);
       backPositions.push({ index, diff });
@@ -822,7 +841,7 @@ export function updateCardStack(): void {
       if (runnerBtn) runnerBtn.style.display = '';
     } else {
       if (shortcutEl) {
-        const stackPosition = backPositions.findIndex(bp => bp.index === index);
+        const stackPosition = backPositions.findIndex((bp) => bp.index === index);
         if (stackPosition !== -1 && stackPosition < 9) {
           shortcutEl.innerHTML = isMac
             ? `⌘<span class="shortcut-number">${stackPosition + 1}</span>`
@@ -853,7 +872,8 @@ function ensurePaginationRow(): HTMLElement {
 
   const leftBtn = document.createElement('button');
   leftBtn.className = 'project-stack-page-arrow';
-  leftBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>';
+  leftBtn.innerHTML =
+    '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>';
   leftBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     manager.navigateStackPage(-1);
@@ -864,7 +884,8 @@ function ensurePaginationRow(): HTMLElement {
 
   const rightBtn = document.createElement('button');
   rightBtn.className = 'project-stack-page-arrow';
-  rightBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>';
+  rightBtn.innerHTML =
+    '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>';
   rightBtn.addEventListener('click', (e) => {
     e.stopPropagation();
     manager.navigateStackPage(1);
@@ -989,7 +1010,12 @@ export async function addProjectTerminal(runConfig?: RunConfig, options?: AddPro
 
     loadingCard = showLoadingCardInStack(loadingLabel);
 
-    const result = await window.api.task.createAndStart(currentProjectPath, options.worktreeName, options.worktreePrompt, options.worktreeBranchName);
+    const result = await window.api.task.createAndStart(
+      currentProjectPath,
+      options.worktreeName,
+      options.worktreePrompt,
+      options.worktreeBranchName,
+    );
     if (!result.success || !result.task || !result.worktreePath) {
       removeLoadingCard(loadingCard);
       updateCardStack();
@@ -1079,7 +1105,7 @@ export async function addProjectTerminal(runConfig?: RunConfig, options?: AddPro
   stack.appendChild(term.container);
   term.openTerminal();
 
-  await new Promise(resolve => requestAnimationFrame(resolve));
+  await new Promise((resolve) => requestAnimationFrame(resolve));
   term.fitAddon.fit();
 
   // For sandbox: add to manager early (before spawn)
@@ -1124,7 +1150,10 @@ export async function addProjectTerminal(runConfig?: RunConfig, options?: AddPro
       if (addedEarly) {
         setTimeout(() => manager.remove(term), 10_000);
       } else {
-        setTimeout(() => { term.container.remove(); term.xterm.dispose(); }, 10_000);
+        setTimeout(() => {
+          term.container.remove();
+          term.xterm.dispose();
+        }, 10_000);
       }
       return false;
     }
@@ -1202,7 +1231,7 @@ export async function reconnectTerminal(
   container.appendChild(term.container);
   term.openTerminal();
 
-  await new Promise(resolve => requestAnimationFrame(resolve));
+  await new Promise((resolve) => requestAnimationFrame(resolve));
   term.fitAddon.fit();
 
   // Reconnect to existing PTY
@@ -1254,7 +1283,7 @@ function getActiveSessionTags(): { name: string }[] {
     }
   }
 
-  return Array.from(seen.values()).map(name => ({ name }));
+  return Array.from(seen.values()).map((name) => ({ name }));
 }
 
 function toggleTagInput(term: OuijitTerminal): void {
@@ -1308,9 +1337,9 @@ function expandTagInput(term: OuijitTerminal): void {
     }
     try {
       const allTags = getActiveSessionTags();
-      const existing = new Set(term.tags.value.map(t => t.toLowerCase()));
+      const existing = new Set(term.tags.value.map((t) => t.toLowerCase()));
       const matches = allTags
-        .filter(t => t.name.toLowerCase().includes(value.toLowerCase()) && !existing.has(t.name.toLowerCase()))
+        .filter((t) => t.name.toLowerCase().includes(value.toLowerCase()) && !existing.has(t.name.toLowerCase()))
         .slice(0, 8);
 
       if (matches.length === 0) {
@@ -1400,7 +1429,12 @@ function createTagChip(tagName: string, term: OuijitTerminal): HTMLElement {
   return chip;
 }
 
-async function addTag(term: OuijitTerminal, tagName: string, container: HTMLElement, input: HTMLInputElement): Promise<void> {
+async function addTag(
+  term: OuijitTerminal,
+  tagName: string,
+  container: HTMLElement,
+  input: HTMLInputElement,
+): Promise<void> {
   const normalized = tagName.trim();
   if (!normalized) return;
 
@@ -1416,12 +1450,14 @@ async function addTag(term: OuijitTerminal, tagName: string, container: HTMLElem
   if (term.taskId != null) {
     try {
       await window.api.tags.setTaskTags(term.projectPath, term.taskId, [normalized]);
-    } catch { /* DB not ready or task gone */ }
+    } catch {
+      /* DB not ready or task gone */
+    }
   }
   term.tags.value = [normalized];
 
   // Replace all chips with the new one
-  container.querySelectorAll('.tag-chip').forEach(c => c.remove());
+  container.querySelectorAll('.tag-chip').forEach((c) => c.remove());
   const chip = createTagChip(normalized, term);
   container.insertBefore(chip, input);
 
@@ -1435,9 +1471,11 @@ async function removeTag(term: OuijitTerminal, tagName: string, container: HTMLE
   if (term.taskId != null) {
     try {
       await window.api.tags.removeFromTask(term.projectPath, term.taskId, tagName);
-    } catch { /* DB not ready or task gone */ }
+    } catch {
+      /* DB not ready or task gone */
+    }
   }
-  term.tags.value = term.tags.value.filter(t => t.toLowerCase() !== tagName.toLowerCase());
+  term.tags.value = term.tags.value.filter((t) => t.toLowerCase() !== tagName.toLowerCase());
 
   // Remove the chip from DOM
   const chips = container.querySelectorAll('.tag-chip');

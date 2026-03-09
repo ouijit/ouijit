@@ -1,5 +1,18 @@
 // Re-export all git types from git.ts (single source of truth)
-export type { GitStatus, GitDropdownInfo, ExtendedGitStatus, RecentBranch, UncommittedChanges, ChangedFile, DiffLine, DiffHunk, FileDiff, CompactGitStatus, WorktreeDiffSummary, BranchInfo } from './git';
+export type {
+  GitStatus,
+  GitDropdownInfo,
+  ExtendedGitStatus,
+  RecentBranch,
+  UncommittedChanges,
+  ChangedFile,
+  DiffLine,
+  DiffHunk,
+  FileDiff,
+  CompactGitStatus,
+  WorktreeDiffSummary,
+  BranchInfo,
+} from './git';
 // Re-export worktree types from worktree.ts (single source of truth)
 export type { TaskWorktreeResult, WorktreeInfo, WorktreeRemoveResult, CheckWorktreeResult } from './worktree';
 // Re-export task types from db layer (single source of truth)
@@ -14,9 +27,17 @@ export type { SandboxStatus } from './lima/types';
 export type { HookStatus, HookStatusEntry } from './hookServer';
 
 // Import for local use within this file
-import type { GitStatus, CompactGitStatus, GitDropdownInfo, ChangedFile, FileDiff, WorktreeDiffSummary, BranchInfo } from './git';
+import type {
+  GitStatus,
+  CompactGitStatus,
+  GitDropdownInfo,
+  ChangedFile,
+  FileDiff,
+  WorktreeDiffSummary,
+  BranchInfo,
+} from './git';
 import type { TaskWorktreeResult, WorktreeInfo, WorktreeRemoveResult, CheckWorktreeResult } from './worktree';
-import type { TaskStatus, TagRow  } from './db';
+import type { TaskStatus, TagRow } from './db';
 import type { ActiveSession } from './ptyManager';
 import type { SandboxStatus } from './lima/types';
 import type { HookStatus, HookStatusEntry } from './hookServer';
@@ -24,9 +45,7 @@ import type { HookStatus, HookStatusEntry } from './hookServer';
 /**
  * Persisted last active view for session recovery
  */
-export type LastActiveView =
-  | { type: 'home' }
-  | { type: 'project'; path: string };
+export type LastActiveView = { type: 'home' } | { type: 'project'; path: string };
 
 /**
  * Represents a run configuration for launching a project
@@ -215,7 +234,15 @@ export interface TaskWithWorkspace {
  */
 export interface HooksAPI {
   /** Get all hooks for a project */
-  get(projectPath: string): Promise<{ start?: ScriptHook; continue?: ScriptHook; run?: ScriptHook; review?: ScriptHook; cleanup?: ScriptHook; 'sandbox-setup'?: ScriptHook; editor?: ScriptHook }>;
+  get(projectPath: string): Promise<{
+    start?: ScriptHook;
+    continue?: ScriptHook;
+    run?: ScriptHook;
+    review?: ScriptHook;
+    cleanup?: ScriptHook;
+    'sandbox-setup'?: ScriptHook;
+    editor?: ScriptHook;
+  }>;
   /** Save a hook for a project */
   save(projectPath: string, hook: ScriptHook): Promise<{ success: boolean }>;
   /** Delete a hook for a project */
@@ -236,14 +263,35 @@ export interface TaskAPI {
   start(projectPath: string, taskNumber: number, branchName?: string): Promise<TaskWorktreeResult>;
   getAll(projectPath: string): Promise<TaskWithWorkspace[]>;
   getByNumber(projectPath: string, taskNumber: number): Promise<TaskWithWorkspace | null>;
-  setStatus(projectPath: string, taskNumber: number, status: TaskStatus): Promise<{ success: boolean; error?: string; hookWarning?: string }>;
+  setStatus(
+    projectPath: string,
+    taskNumber: number,
+    status: TaskStatus,
+  ): Promise<{ success: boolean; error?: string; hookWarning?: string }>;
   delete(projectPath: string, taskNumber: number): Promise<{ success: boolean; error?: string }>;
   trash(projectPath: string, taskNumber: number): Promise<{ success: boolean; error?: string; trashed?: boolean }>;
-  setMergeTarget(projectPath: string, taskNumber: number, mergeTarget: string): Promise<{ success: boolean; error?: string }>;
-  setSandboxed(projectPath: string, taskNumber: number, sandboxed: boolean): Promise<{ success: boolean; error?: string }>;
+  setMergeTarget(
+    projectPath: string,
+    taskNumber: number,
+    mergeTarget: string,
+  ): Promise<{ success: boolean; error?: string }>;
+  setSandboxed(
+    projectPath: string,
+    taskNumber: number,
+    sandboxed: boolean,
+  ): Promise<{ success: boolean; error?: string }>;
   setName(projectPath: string, taskNumber: number, name: string): Promise<{ success: boolean; error?: string }>;
-  setDescription(projectPath: string, taskNumber: number, description: string): Promise<{ success: boolean; error?: string }>;
-  reorder(projectPath: string, taskNumber: number, newStatus: TaskStatus, targetIndex: number): Promise<{ success: boolean; error?: string; hookWarning?: string }>;
+  setDescription(
+    projectPath: string,
+    taskNumber: number,
+    description: string,
+  ): Promise<{ success: boolean; error?: string }>;
+  reorder(
+    projectPath: string,
+    taskNumber: number,
+    newStatus: TaskStatus,
+    targetIndex: number,
+  ): Promise<{ success: boolean; error?: string; hookWarning?: string }>;
   checkWorktree(projectPath: string, taskNumber: number): Promise<CheckWorktreeResult>;
   recover(projectPath: string, taskNumber: number): Promise<TaskWorktreeResult>;
 }
@@ -257,9 +305,18 @@ export interface WorktreeAPI {
   remove(projectPath: string, worktreePath: string): Promise<WorktreeRemoveResult>;
   list(projectPath: string): Promise<WorktreeInfo[]>;
   getDiff(projectPath: string, worktreeBranch: string, targetBranch?: string): Promise<WorktreeDiffSummary | null>;
-  getFileDiff(projectPath: string, worktreeBranch: string, filePath: string, targetBranch?: string): Promise<FileDiff | null>;
+  getFileDiff(
+    projectPath: string,
+    worktreeBranch: string,
+    filePath: string,
+    targetBranch?: string,
+  ): Promise<FileDiff | null>;
   merge(projectPath: string, worktreeBranch: string): Promise<GitMergeResult>;
-  ship(projectPath: string, worktreeBranch: string, commitMessage?: string): Promise<{ success: boolean; error?: string; conflictFiles?: string[]; mergedBranch?: string }>;
+  ship(
+    projectPath: string,
+    worktreeBranch: string,
+    commitMessage?: string,
+  ): Promise<{ success: boolean; error?: string; conflictFiles?: string[]; mergedBranch?: string }>;
   listBranches(projectPath: string): Promise<BranchInfo[]>;
   getMainBranch(projectPath: string): Promise<string>;
 }

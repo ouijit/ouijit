@@ -9,7 +9,6 @@ import {
   deleteTaskByNumber,
 } from '../db';
 
-
 describe('tagMetadata', () => {
   test('addTagToTask creates tag and associates with task', async () => {
     const project = '/test/tag-add';
@@ -79,11 +78,11 @@ describe('tagMetadata', () => {
     const result = await setTaskTags(project, 1, ['new-tag-a', 'new-tag-b']);
 
     expect(result).toHaveLength(2);
-    expect(result.map(t => t.name).sort()).toEqual(['new-tag-a', 'new-tag-b']);
+    expect(result.map((t) => t.name).sort()).toEqual(['new-tag-a', 'new-tag-b']);
 
     const tags = await getTaskTags(project, 1);
     expect(tags).toHaveLength(2);
-    expect(tags.map(t => t.name).sort()).toEqual(['new-tag-a', 'new-tag-b']);
+    expect(tags.map((t) => t.name).sort()).toEqual(['new-tag-a', 'new-tag-b']);
   });
 
   test('setTaskTags with empty array clears all tags', async () => {
@@ -106,7 +105,7 @@ describe('tagMetadata', () => {
     await addTagToTask(project, 2, 'beta');
 
     const allTags = await getAllTags();
-    const names = allTags.map(t => t.name);
+    const names = allTags.map((t) => t.name);
     expect(names).toContain('alpha');
     expect(names).toContain('beta');
   });
@@ -143,7 +142,7 @@ describe('tagMetadata', () => {
 
     // The tag itself still exists (orphaned)
     const allTags = await getAllTags();
-    expect(allTags.some(t => t.name === 'ephemeral')).toBe(true);
+    expect(allTags.some((t) => t.name === 'ephemeral')).toBe(true);
   });
 
   test('pruneOrphans removes tags with no task associations', async () => {
@@ -164,7 +163,7 @@ describe('tagMetadata', () => {
     expect(pruned).toBeGreaterThanOrEqual(1);
 
     const allTags = await getAllTags();
-    expect(allTags.some(t => t.name === 'orphan-tag')).toBe(false);
+    expect(allTags.some((t) => t.name === 'orphan-tag')).toBe(false);
   });
 
   test('getTaskTags returns empty for non-existent task', async () => {
@@ -187,6 +186,6 @@ describe('tagMetadata', () => {
     const tags = await getTaskTags(project, 1);
     expect(tags).toHaveLength(3);
     // Sorted by name
-    expect(tags.map(t => t.name)).toEqual(['deploy', 'frontend', 'monitoring']);
+    expect(tags.map((t) => t.name)).toEqual(['deploy', 'frontend', 'monitoring']);
   });
 });

@@ -178,9 +178,10 @@ export async function importAll(
 
         // Update the counter to match the old store
         if (projectData.nextTaskNumber > 1) {
-          db.prepare(
-            'UPDATE project_counters SET next_task_number = ? WHERE project_path = ?'
-          ).run(projectData.nextTaskNumber, projectPath);
+          db.prepare('UPDATE project_counters SET next_task_number = ? WHERE project_path = ?').run(
+            projectData.nextTaskNumber,
+            projectPath,
+          );
         }
 
         for (const task of projectData.tasks) {
@@ -197,19 +198,25 @@ export async function importAll(
             });
             // If original had closedAt, preserve it
             if (task.closedAt) {
-              db.prepare(
-                'UPDATE tasks SET closed_at = ? WHERE project_path = ? AND task_number = ?'
-              ).run(task.closedAt, projectPath, task.taskNumber);
+              db.prepare('UPDATE tasks SET closed_at = ? WHERE project_path = ? AND task_number = ?').run(
+                task.closedAt,
+                projectPath,
+                task.taskNumber,
+              );
             }
             // Preserve original order if present
             if (task.order !== undefined) {
-              db.prepare(
-                'UPDATE tasks SET sort_order = ? WHERE project_path = ? AND task_number = ?'
-              ).run(task.order, projectPath, task.taskNumber);
+              db.prepare('UPDATE tasks SET sort_order = ? WHERE project_path = ? AND task_number = ?').run(
+                task.order,
+                projectPath,
+                task.taskNumber,
+              );
             }
             result.tasksImported++;
           } catch (error) {
-            result.errors.push(`Task ${task.name} in ${projectPath}: ${error instanceof Error ? error.message : 'unknown'}`);
+            result.errors.push(
+              `Task ${task.name} in ${projectPath}: ${error instanceof Error ? error.message : 'unknown'}`,
+            );
           }
         }
       }
@@ -227,10 +234,15 @@ export async function importAll(
           }
 
           // Import sandbox settings
-          const updates: Partial<{ kill_existing_on_run: number; sandbox_memory_gib: number; sandbox_disk_gib: number }> = {};
+          const updates: Partial<{
+            kill_existing_on_run: number;
+            sandbox_memory_gib: number;
+            sandbox_disk_gib: number;
+          }> = {};
           if (settings.sandbox?.memoryGiB) updates.sandbox_memory_gib = settings.sandbox.memoryGiB;
           if (settings.sandbox?.diskGiB) updates.sandbox_disk_gib = settings.sandbox.diskGiB;
-          if (settings.killExistingOnRun !== undefined) updates.kill_existing_on_run = settings.killExistingOnRun ? 1 : 0;
+          if (settings.killExistingOnRun !== undefined)
+            updates.kill_existing_on_run = settings.killExistingOnRun ? 1 : 0;
 
           if (Object.keys(updates).length > 0) {
             settingsRepo.update(projectPath, updates);
@@ -254,7 +266,9 @@ export async function importAll(
                   result.hooksImported++;
                 }
               } catch (error) {
-                result.errors.push(`Hook ${hookType} in ${projectPath}: ${error instanceof Error ? error.message : 'unknown'}`);
+                result.errors.push(
+                  `Hook ${hookType} in ${projectPath}: ${error instanceof Error ? error.message : 'unknown'}`,
+                );
               }
             }
           }

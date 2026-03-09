@@ -25,7 +25,7 @@ const kanbanLog = log.scope('kanban');
  */
 export function syncViewToggle(): void {
   const btns = document.querySelectorAll('.project-view-toggle-btn');
-  btns.forEach(btn => {
+  btns.forEach((btn) => {
     const view = (btn as HTMLElement).dataset.view;
     const isBoard = view === 'board';
     btn.classList.toggle('project-view-toggle-btn--active', isBoard === kanbanVisible.value);
@@ -68,9 +68,7 @@ function showKanbanCardContextMenu(
       // Show distinguishing info instead of repeating the task title
       let menuLabel: string;
       if (terminal.command) {
-        menuLabel = terminal.command.length > 40
-          ? terminal.command.slice(0, 40) + '…'
-          : terminal.command;
+        menuLabel = terminal.command.length > 40 ? terminal.command.slice(0, 40) + '…' : terminal.command;
       } else if (terminal.lastOscTitle.value) {
         const cleaned = terminal.lastOscTitle.value.replace(/\p{Extended_Pictographic}/gu, '').trim();
         if (cleaned) {
@@ -210,7 +208,7 @@ const COLUMN_HOOKS: Partial<Record<TaskStatus, { hooks: HookType[]; tooltip: str
  * Build the kanban board HTML shell
  */
 function buildKanbanHtml(): string {
-  const columnsHtml = KANBAN_COLUMNS.map(col => {
+  const columnsHtml = KANBAN_COLUMNS.map((col) => {
     const hookInfo = COLUMN_HOOKS[col.status];
     const hookBtn = hookInfo
       ? `<button class="kanban-column-hook-btn" data-hook-column="${col.status}" title="${hookInfo.tooltip}" style="-webkit-app-region: no-drag;"><i data-icon="webhooks-logo"></i></button>`
@@ -291,7 +289,12 @@ export function setCardLoading(taskNumber: number, loading: boolean): void {
 /**
  * Build a kanban card DOM element for a task
  */
-function buildKanbanCard(task: TaskWithWorkspace, path: string, limaAvailable: boolean, editorConfigured: boolean): HTMLElement {
+function buildKanbanCard(
+  task: TaskWithWorkspace,
+  path: string,
+  limaAvailable: boolean,
+  editorConfigured: boolean,
+): HTMLElement {
   if (task.taskNumber == null) {
     kanbanLog.error('task with missing taskNumber', { task });
   }
@@ -348,8 +351,15 @@ function buildKanbanCard(task: TaskWithWorkspace, path: string, limaAvailable: b
     input.addEventListener('blur', () => commit());
     input.addEventListener('keydown', (ke) => {
       ke.stopPropagation();
-      if (ke.key === 'Enter') { ke.preventDefault(); input.blur(); }
-      if (ke.key === 'Escape') { ke.preventDefault(); cancelled = true; restoreName(); }
+      if (ke.key === 'Enter') {
+        ke.preventDefault();
+        input.blur();
+      }
+      if (ke.key === 'Escape') {
+        ke.preventDefault();
+        cancelled = true;
+        restoreName();
+      }
     });
 
     header.replaceChild(input, name);
@@ -378,7 +388,9 @@ function buildKanbanCard(task: TaskWithWorkspace, path: string, limaAvailable: b
 
   const promptValue = document.createElement('span');
   promptValue.contentEditable = 'true';
-  promptValue.className = 'kanban-card-detail-value kanban-card-detail-value--editing' + (!task.prompt ? ' kanban-card-detail-value--placeholder' : '');
+  promptValue.className =
+    'kanban-card-detail-value kanban-card-detail-value--editing' +
+    (!task.prompt ? ' kanban-card-detail-value--placeholder' : '');
   promptValue.textContent = task.prompt || 'Add description...';
   promptValue.setAttribute('style', '-webkit-app-region: no-drag;');
   promptRow.appendChild(promptValue);
@@ -408,8 +420,14 @@ function buildKanbanCard(task: TaskWithWorkspace, path: string, limaAvailable: b
 
   promptValue.addEventListener('keydown', (ke) => {
     ke.stopPropagation();
-    if (ke.key === 'Enter' && !ke.shiftKey) { ke.preventDefault(); promptValue.blur(); }
-    if (ke.key === 'Escape') { ke.preventDefault(); promptValue.blur(); }
+    if (ke.key === 'Enter' && !ke.shiftKey) {
+      ke.preventDefault();
+      promptValue.blur();
+    }
+    if (ke.key === 'Escape') {
+      ke.preventDefault();
+      promptValue.blur();
+    }
   });
 
   promptValue.addEventListener('click', (e) => {
@@ -458,12 +476,16 @@ function buildKanbanCard(task: TaskWithWorkspace, path: string, limaAvailable: b
 
   // Right-click context menu
   card.addEventListener('contextmenu', (e) => {
-    const connectedTerminals = getManager().terminals.value
-      .map((t, i) => ({ terminal: t, index: i }))
+    const connectedTerminals = getManager()
+      .terminals.value.map((t, i) => ({ terminal: t, index: i }))
       .filter(({ terminal: t }) => t.taskId === task.taskNumber);
 
     const onOpenTerminal = async () => {
-      kanbanLog.info('openTerminal', { taskNumber: task.taskNumber, status: task.status, hasWorktree: !!task.worktreePath });
+      kanbanLog.info('openTerminal', {
+        taskNumber: task.taskNumber,
+        status: task.status,
+        hasWorktree: !!task.worktreePath,
+      });
       if (task.status === 'done') {
         if (task.worktreePath) {
           const wtPath = await ensureWorktreeExists(path, task);
@@ -515,63 +537,65 @@ function buildKanbanCard(task: TaskWithWorkspace, path: string, limaAvailable: b
       });
     };
 
-    const onSandbox = limaAvailable ? async () => {
-      if (task.status === 'done') {
-        if (task.worktreePath) {
-          const wtPath = await ensureWorktreeExists(path, task);
-          if (!wtPath) return;
+    const onSandbox = limaAvailable
+      ? async () => {
+          if (task.status === 'done') {
+            if (task.worktreePath) {
+              const wtPath = await ensureWorktreeExists(path, task);
+              if (!wtPath) return;
+            }
+            const worktreeOpts = {
+              path: task.worktreePath!,
+              branch: task.branch || '',
+              prompt: task.prompt,
+              createdAt: task.createdAt,
+              sandboxed: task.sandboxed,
+            };
+            const result = await window.api.task.setStatus(path, task.taskNumber, 'in_progress');
+            if (result.success) {
+              invalidateTaskList();
+              hideKanbanBoard();
+              await projectRegistry.addProjectTerminal?.(undefined, {
+                existingWorktree: worktreeOpts,
+                taskId: task.taskNumber,
+                sandboxed: true,
+              });
+            }
+          } else if (!task.worktreePath) {
+            const startResult = await window.api.task.start(path, task.taskNumber);
+            if (!startResult.success || !startResult.worktreePath) return;
+            await window.api.task.setStatus(path, task.taskNumber, 'in_progress');
+            invalidateTaskList();
+            hideKanbanBoard();
+            await projectRegistry.addProjectTerminal?.(undefined, {
+              existingWorktree: {
+                path: startResult.worktreePath,
+                branch: startResult.task?.branch || '',
+                prompt: task.prompt,
+                createdAt: task.createdAt,
+                sandboxed: task.sandboxed,
+              },
+              taskId: task.taskNumber,
+              sandboxed: true,
+            });
+          } else {
+            const worktreePath = await ensureWorktreeExists(path, task);
+            if (!worktreePath) return;
+            hideKanbanBoard();
+            await projectRegistry.addProjectTerminal?.(undefined, {
+              existingWorktree: {
+                path: worktreePath,
+                branch: task.branch || '',
+                prompt: task.prompt,
+                createdAt: task.createdAt,
+                sandboxed: task.sandboxed,
+              },
+              taskId: task.taskNumber,
+              sandboxed: true,
+            });
+          }
         }
-        const worktreeOpts = {
-          path: task.worktreePath!,
-          branch: task.branch || '',
-          prompt: task.prompt,
-          createdAt: task.createdAt,
-          sandboxed: task.sandboxed,
-        };
-        const result = await window.api.task.setStatus(path, task.taskNumber, 'in_progress');
-        if (result.success) {
-          invalidateTaskList();
-          hideKanbanBoard();
-          await projectRegistry.addProjectTerminal?.(undefined, {
-            existingWorktree: worktreeOpts,
-            taskId: task.taskNumber,
-            sandboxed: true,
-          });
-        }
-      } else if (!task.worktreePath) {
-        const startResult = await window.api.task.start(path, task.taskNumber);
-        if (!startResult.success || !startResult.worktreePath) return;
-        await window.api.task.setStatus(path, task.taskNumber, 'in_progress');
-        invalidateTaskList();
-        hideKanbanBoard();
-        await projectRegistry.addProjectTerminal?.(undefined, {
-          existingWorktree: {
-            path: startResult.worktreePath,
-            branch: startResult.task?.branch || '',
-            prompt: task.prompt,
-            createdAt: task.createdAt,
-            sandboxed: task.sandboxed,
-          },
-          taskId: task.taskNumber,
-          sandboxed: true,
-        });
-      } else {
-        const worktreePath = await ensureWorktreeExists(path, task);
-        if (!worktreePath) return;
-        hideKanbanBoard();
-        await projectRegistry.addProjectTerminal?.(undefined, {
-          existingWorktree: {
-            path: worktreePath,
-            branch: task.branch || '',
-            prompt: task.prompt,
-            createdAt: task.createdAt,
-            sandboxed: task.sandboxed,
-          },
-          taskId: task.taskNumber,
-          sandboxed: true,
-        });
-      }
-    } : null;
+      : null;
 
     const onSwitchTerminal = (idx: number) => {
       hideKanbanBoard();
@@ -597,11 +621,24 @@ function buildKanbanCard(task: TaskWithWorkspace, path: string, limaAvailable: b
       await deleteTask(path, task);
     };
 
-    const onOpenInEditor = (editorConfigured && task.worktreePath) ? () => {
-      window.api.openInEditor(path, task.worktreePath!);
-    } : null;
+    const onOpenInEditor =
+      editorConfigured && task.worktreePath
+        ? () => {
+            window.api.openInEditor(path, task.worktreePath!);
+          }
+        : null;
 
-    showKanbanCardContextMenu(e, onOpenTerminal, onSandbox, onOpenInEditor, connectedTerminals, onSwitchTerminal, onCloseOrReopen, closeOrReopenLabel, onDelete);
+    showKanbanCardContextMenu(
+      e,
+      onOpenTerminal,
+      onSandbox,
+      onOpenInEditor,
+      connectedTerminals,
+      onSwitchTerminal,
+      onCloseOrReopen,
+      closeOrReopenLabel,
+      onDelete,
+    );
   });
 
   return card;
@@ -613,13 +650,17 @@ function buildKanbanCard(task: TaskWithWorkspace, path: string, limaAvailable: b
  */
 function setupColumnScrollIndicators(): void {
   const bodies = document.querySelectorAll('.kanban-column-body');
-  bodies.forEach(body => {
+  bodies.forEach((body) => {
     let timer: ReturnType<typeof setTimeout> | null = null;
-    body.addEventListener('scroll', () => {
-      body.classList.add('is-scrolling');
-      if (timer) clearTimeout(timer);
-      timer = setTimeout(() => body.classList.remove('is-scrolling'), 800);
-    }, { passive: true });
+    body.addEventListener(
+      'scroll',
+      () => {
+        body.classList.add('is-scrolling');
+        if (timer) clearTimeout(timer);
+        timer = setTimeout(() => body.classList.remove('is-scrolling'), 800);
+      },
+      { passive: true },
+    );
   });
 }
 
@@ -650,7 +691,9 @@ function initTrashZone(evt: Sortable.SortableEvent): void {
     group: 'kanban',
     forceFallback: true,
     draggable: '.kanban-card',
-    onAdd: (evt) => { handleTrashDrop(evt); },
+    onAdd: (evt) => {
+      handleTrashDrop(evt);
+    },
   });
 
   // Track drag position — reveal when cursor reaches the Done column's left edge.
@@ -728,7 +771,7 @@ function setupSortable(): void {
   if (!board) return;
 
   const bodies = board.querySelectorAll('.kanban-column-body');
-  bodies.forEach(body => {
+  bodies.forEach((body) => {
     // Destroy any existing Sortable instance before creating a new one
     const existing = Sortable.get(body as HTMLElement);
     if (existing) existing.destroy();
@@ -747,7 +790,10 @@ function setupSortable(): void {
         if (clone) clone.style.opacity = '1';
         initTrashZone(evt);
       },
-      onEnd: (evt) => { teardownTrashZone(); handleSortableEnd(evt); },
+      onEnd: (evt) => {
+        teardownTrashZone();
+        handleSortableEnd(evt);
+      },
     });
   });
 }
@@ -791,18 +837,27 @@ async function runTransitionHookInTerminal(
   hookType: 'continue' | 'review' | 'cleanup',
 ): Promise<void> {
   const hooks = await window.api.hooks.get(path);
-  const hookMap: Record<string, typeof hooks.review> = { continue: hooks.continue, review: hooks.review, cleanup: hooks.cleanup };
+  const hookMap: Record<string, typeof hooks.review> = {
+    continue: hooks.continue,
+    review: hooks.review,
+    cleanup: hooks.cleanup,
+  };
   if (!hookMap[hookType]) return; // no hook configured
 
   const dialogResult = await showStartCommandDialog(path, hookType, task);
   if (dialogResult === null) return; // cancelled
 
-  await openTerminalFromDialog(dialogResult, hookType, {
-    path: task.worktreePath!,
-    branch: task.branch || '',
-    createdAt: task.createdAt,
-    sandboxed: task.sandboxed,
-  }, task.taskNumber);
+  await openTerminalFromDialog(
+    dialogResult,
+    hookType,
+    {
+      path: task.worktreePath!,
+      branch: task.branch || '',
+      createdAt: task.createdAt,
+      sandboxed: task.sandboxed,
+    },
+    task.taskNumber,
+  );
 }
 
 /**
@@ -838,7 +893,7 @@ async function handleSortableEnd(evt: Sortable.SortableEvent): Promise<void> {
   // Dropping a task into in_progress — create worktree if needed + show start command dialog
   if (newStatus === 'in_progress') {
     const tasks = await window.api.task.getAll(path);
-    const task = tasks.find(t => t.taskNumber === taskNumber);
+    const task = tasks.find((t) => t.taskNumber === taskNumber);
 
     if (task && task.status === 'todo') {
       let worktreePath = task.worktreePath;
@@ -879,13 +934,18 @@ async function handleSortableEnd(evt: Sortable.SortableEvent): Promise<void> {
           return;
         }
 
-        await openTerminalFromDialog(dialogResult, 'start', {
-          path: worktreePath,
-          branch,
-          prompt: task.prompt,
-          createdAt: task.createdAt,
-          sandboxed: task.sandboxed,
-        }, taskNumber);
+        await openTerminalFromDialog(
+          dialogResult,
+          'start',
+          {
+            path: worktreePath,
+            branch,
+            prompt: task.prompt,
+            createdAt: task.createdAt,
+            sandboxed: task.sandboxed,
+          },
+          taskNumber,
+        );
       } else {
         // No hook — just open a terminal in the worktree
         await projectRegistry.addProjectTerminal?.(undefined, {
@@ -934,7 +994,7 @@ async function handleSortableEnd(evt: Sortable.SortableEvent): Promise<void> {
 
     // Run cleanup hook in a terminal if configured
     const tasks = await window.api.task.getAll(path);
-    const task = tasks.find(t => t.taskNumber === taskNumber);
+    const task = tasks.find((t) => t.taskNumber === taskNumber);
     if (task?.worktreePath) {
       await runTransitionHookInTerminal(path, task, 'cleanup');
     }
@@ -948,7 +1008,7 @@ async function handleSortableEnd(evt: Sortable.SortableEvent): Promise<void> {
 
     // Run review hook in a terminal if configured
     const tasks = await window.api.task.getAll(path);
-    const task = tasks.find(t => t.taskNumber === taskNumber);
+    const task = tasks.find((t) => t.taskNumber === taskNumber);
     if (task?.worktreePath) {
       await runTransitionHookInTerminal(path, task, 'review');
     }
@@ -987,7 +1047,7 @@ async function refreshColumnHookIcons(): Promise<void> {
   if (!path) return;
   const board = document.querySelector('.kanban-board');
   if (!board) return;
-  const hooks = await window.api.hooks.get(path).catch(() => ({} as Awaited<ReturnType<typeof window.api.hooks.get>>));
+  const hooks = await window.api.hooks.get(path).catch(() => ({}) as Awaited<ReturnType<typeof window.api.hooks.get>>);
   updateColumnHookIcons(board, hooks);
 }
 
@@ -1003,8 +1063,11 @@ async function populateKanbanBoard(): Promise<void> {
 
   const [tasks, limaAvailable, hooks] = await Promise.all([
     window.api.task.getAll(path),
-    window.api.lima.status(path).then(s => s.available).catch(() => false),
-    window.api.hooks.get(path).catch(() => ({} as Awaited<ReturnType<typeof window.api.hooks.get>>)),
+    window.api.lima
+      .status(path)
+      .then((s) => s.available)
+      .catch(() => false),
+    window.api.hooks.get(path).catch(() => ({}) as Awaited<ReturnType<typeof window.api.hooks.get>>),
   ]);
   const editorConfigured = !!hooks.editor;
 
@@ -1023,8 +1086,7 @@ async function populateKanbanBoard(): Promise<void> {
     // Preserve the persistent input if present
     const persistentInput = body.querySelector('.kanban-add-input') as HTMLInputElement | null;
     body.innerHTML = '';
-    const columnTasks = tasks.filter(t => t.status === col.status)
-      .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+    const columnTasks = tasks.filter((t) => t.status === col.status).sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
     if (count) count.textContent = String(columnTasks.length);
 
@@ -1103,14 +1165,21 @@ const HOOK_DIALOG_TITLES: Record<string, string> = {
   cleanup: 'Done — Cleanup',
 };
 
-async function showStartCommandDialog(path: string, hookType: 'start' | 'continue' | 'review' | 'cleanup' = 'start', task?: TaskWithWorkspace): Promise<{ command: string; sandboxed: boolean; foreground: boolean } | null> {
+async function showStartCommandDialog(
+  path: string,
+  hookType: 'start' | 'continue' | 'review' | 'cleanup' = 'start',
+  task?: TaskWithWorkspace,
+): Promise<{ command: string; sandboxed: boolean; foreground: boolean } | null> {
   // Fetch hook command and lima status before opening the dialog
   let hookCommand = '';
   let limaAvailable = false;
   try {
     const [hooks, limaStatus] = await Promise.all([
       window.api.hooks.get(path),
-      window.api.lima.status(path).then(s => s.available).catch(() => false),
+      window.api.lima
+        .status(path)
+        .then((s) => s.available)
+        .catch(() => false),
     ]);
     const hookMap: Record<string, typeof hooks.start> = {
       start: hooks.start,
@@ -1121,7 +1190,9 @@ async function showStartCommandDialog(path: string, hookType: 'start' | 'continu
     const hook = hookMap[hookType];
     if (hook?.command) hookCommand = hook.command;
     limaAvailable = limaStatus;
-  } catch { /* no hook configured */ }
+  } catch {
+    /* no hook configured */
+  }
 
   return new Promise((resolve) => {
     let resolved = false;
@@ -1152,12 +1223,14 @@ async function showStartCommandDialog(path: string, hookType: 'start' | 'continu
     textarea.rows = 1;
     textarea.setAttribute('style', '-webkit-app-region: no-drag;');
     dialog.appendChild(textarea);
-    const envVarValues = task ? {
-      '$OUIJIT_TASK_NAME': task.name || undefined,
-      '$OUIJIT_PROJECT_PATH': path || undefined,
-      '$OUIJIT_WORKTREE_PATH': task.worktreePath || undefined,
-      '$OUIJIT_BRANCH': task.branch || undefined,
-    } : undefined;
+    const envVarValues = task
+      ? {
+          $OUIJIT_TASK_NAME: task.name || undefined,
+          $OUIJIT_PROJECT_PATH: path || undefined,
+          $OUIJIT_WORKTREE_PATH: task.worktreePath || undefined,
+          $OUIJIT_BRANCH: task.branch || undefined,
+        }
+      : undefined;
     setupHighlightedTextarea(textarea, 240, envVarValues);
 
     // Environment variables hint
@@ -1165,8 +1238,8 @@ async function showStartCommandDialog(path: string, hookType: 'start' | 'continu
     const envHint = document.createElement('details');
     envHint.className = 'hook-env-vars';
     envHint.setAttribute('style', '-webkit-app-region: no-drag;');
-    envHint.innerHTML = `<summary>Available environment variables</summary><ul>${envVars.map(v => `<li><code class="hook-env-var" data-var="${v}">${v}</code></li>`).join('')}</ul>`;
-    envHint.querySelectorAll('.hook-env-var').forEach(code => {
+    envHint.innerHTML = `<summary>Available environment variables</summary><ul>${envVars.map((v) => `<li><code class="hook-env-var" data-var="${v}">${v}</code></li>`).join('')}</ul>`;
+    envHint.querySelectorAll('.hook-env-var').forEach((code) => {
       code.addEventListener('click', () => {
         const varName = (code as HTMLElement).dataset.var!;
         navigator.clipboard.writeText(varName);
@@ -1292,11 +1365,11 @@ async function showStartCommandDialog(path: string, hookType: 'start' | 'continu
  */
 export function syncKanbanStatusDots(): void {
   // Remove any stray tooltips from previous dots
-  document.querySelectorAll('.kanban-dot-tooltip').forEach(t => t.remove());
+  document.querySelectorAll('.kanban-dot-tooltip').forEach((t) => t.remove());
 
   const cards = document.querySelectorAll('.kanban-card[data-task-number]');
   const terminalList = getManager().terminals.value;
-  cards.forEach(card => {
+  cards.forEach((card) => {
     const taskNumber = parseInt((card as HTMLElement).dataset.taskNumber || '', 10);
     if (isNaN(taskNumber)) return;
 

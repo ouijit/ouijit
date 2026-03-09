@@ -25,7 +25,11 @@ describe('data import service', () => {
 
     // Remove marker file if exists
     const markerPath = path.join(app.getPath('userData'), 'data-imported');
-    try { fs.unlinkSync(markerPath); } catch { /* ignore */ }
+    try {
+      fs.unlinkSync(markerPath);
+    } catch {
+      /* ignore */
+    }
 
     return { db, projectRepo, taskRepo, settingsRepo, hookRepo };
   }
@@ -71,9 +75,9 @@ describe('data import service', () => {
     // Verify tasks were imported
     const tasks = taskRepo.getAllForProject('/projects/myapp');
     expect(tasks).toHaveLength(2);
-    expect(tasks.find(t => t.task_number === 1)?.branch).toBe('feat/login');
-    expect(tasks.find(t => t.task_number === 2)?.status).toBe('done');
-    expect(tasks.find(t => t.task_number === 2)?.closed_at).toBe('2024-01-03T00:00:00.000Z');
+    expect(tasks.find((t) => t.task_number === 1)?.branch).toBe('feat/login');
+    expect(tasks.find((t) => t.task_number === 2)?.status).toBe('done');
+    expect(tasks.find((t) => t.task_number === 2)?.closed_at).toBe('2024-01-03T00:00:00.000Z');
 
     // Verify counter was set
     expect(taskRepo.getNextTaskNumber('/projects/myapp')).toBe(3);
@@ -88,7 +92,13 @@ describe('data import service', () => {
         nextTaskNumber: 4,
         tasks: [
           { taskNumber: 1, name: 'Open task', status: 'open', createdAt: '2024-01-01T00:00:00.000Z' },
-          { taskNumber: 2, name: 'Ready task', status: 'open', readyToShip: true, createdAt: '2024-01-02T00:00:00.000Z' },
+          {
+            taskNumber: 2,
+            name: 'Ready task',
+            status: 'open',
+            readyToShip: true,
+            createdAt: '2024-01-02T00:00:00.000Z',
+          },
           { taskNumber: 3, name: 'Closed task', status: 'closed', createdAt: '2024-01-03T00:00:00.000Z' },
         ],
       },
@@ -98,9 +108,9 @@ describe('data import service', () => {
     await importAll(db, projectRepo, taskRepo, settingsRepo, hookRepo);
 
     const tasks = taskRepo.getAllForProject('/projects/legacy');
-    expect(tasks.find(t => t.task_number === 1)?.status).toBe('in_progress');
-    expect(tasks.find(t => t.task_number === 2)?.status).toBe('in_review');
-    expect(tasks.find(t => t.task_number === 3)?.status).toBe('done');
+    expect(tasks.find((t) => t.task_number === 1)?.status).toBe('in_progress');
+    expect(tasks.find((t) => t.task_number === 2)?.status).toBe('in_review');
+    expect(tasks.find((t) => t.task_number === 3)?.status).toBe('done');
   });
 
   test('imports hooks from project-settings.json', async () => {
@@ -126,7 +136,7 @@ describe('data import service', () => {
 
     const hooks = hookRepo.getForProject('/projects/hooked');
     expect(hooks).toHaveLength(2);
-    expect(hooks.find(h => h.type === 'start')?.command).toBe('npm install');
+    expect(hooks.find((h) => h.type === 'start')?.command).toBe('npm install');
 
     const settings = settingsRepo.get('/projects/hooked');
     expect(settings?.sandbox_memory_gib).toBe(8);
@@ -153,7 +163,11 @@ describe('data import service', () => {
   test('full round-trip: all three JSON files imported and readable through public API', async () => {
     const userData = app.getPath('userData');
     const markerPath = path.join(userData, 'data-imported');
-    try { fs.unlinkSync(markerPath); } catch { /* ignore */ }
+    try {
+      fs.unlinkSync(markerPath);
+    } catch {
+      /* ignore */
+    }
 
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ouijit-test-'));
     vi.mocked(os.homedir).mockReturnValue(tmpDir);
@@ -181,18 +195,30 @@ describe('data import service', () => {
           nextTaskNumber: 4,
           tasks: [
             {
-              taskNumber: 1, branch: 'feat/login', name: 'Add login',
-              status: 'open', createdAt: '2024-01-01T00:00:00.000Z',
-              mergeTarget: 'main', prompt: 'Build login page',
-              worktreePath: '/worktrees/login', sandboxed: true, order: 5,
+              taskNumber: 1,
+              branch: 'feat/login',
+              name: 'Add login',
+              status: 'open',
+              createdAt: '2024-01-01T00:00:00.000Z',
+              mergeTarget: 'main',
+              prompt: 'Build login page',
+              worktreePath: '/worktrees/login',
+              sandboxed: true,
+              order: 5,
             },
             {
-              taskNumber: 2, branch: 'feat/signup', name: 'Add signup',
-              status: 'open', readyToShip: true,
-              createdAt: '2024-01-02T00:00:00.000Z', order: 3,
+              taskNumber: 2,
+              branch: 'feat/signup',
+              name: 'Add signup',
+              status: 'open',
+              readyToShip: true,
+              createdAt: '2024-01-02T00:00:00.000Z',
+              order: 3,
             },
             {
-              taskNumber: 3, name: 'Old closed task', status: 'closed',
+              taskNumber: 3,
+              name: 'Old closed task',
+              status: 'closed',
               createdAt: '2024-01-03T00:00:00.000Z',
               closedAt: '2024-01-04T00:00:00.000Z',
             },
@@ -218,13 +244,7 @@ describe('data import service', () => {
       // ── Run import using the barrel's DB ────────────────────────────
 
       const db = getDatabase();
-      const result = await importAll(
-        db,
-        new ProjectRepo(db),
-        new TaskRepo(db),
-        new SettingsRepo(db),
-        new HookRepo(db),
-      );
+      const result = await importAll(db, new ProjectRepo(db), new TaskRepo(db), new SettingsRepo(db), new HookRepo(db));
 
       expect(result.errors).toHaveLength(0);
       expect(result.tasksImported).toBe(3);
@@ -238,12 +258,12 @@ describe('data import service', () => {
       expect(tasks).toHaveLength(3);
 
       // v1 status migration
-      const task1 = tasks.find(t => t.taskNumber === 1)!;
-      expect(task1.status).toBe('in_progress');   // open → in_progress
-      const task2 = tasks.find(t => t.taskNumber === 2)!;
-      expect(task2.status).toBe('in_review');      // open+readyToShip → in_review
-      const task3 = tasks.find(t => t.taskNumber === 3)!;
-      expect(task3.status).toBe('done');           // closed → done
+      const task1 = tasks.find((t) => t.taskNumber === 1)!;
+      expect(task1.status).toBe('in_progress'); // open → in_progress
+      const task2 = tasks.find((t) => t.taskNumber === 2)!;
+      expect(task2.status).toBe('in_review'); // open+readyToShip → in_review
+      const task3 = tasks.find((t) => t.taskNumber === 3)!;
+      expect(task3.status).toBe('done'); // closed → done
 
       // All optional fields preserved
       expect(task1.branch).toBe('feat/login');
@@ -281,7 +301,7 @@ describe('data import service', () => {
       // but should exist as one project row
       const projectRepo = new ProjectRepo(db);
       const allProjects = projectRepo.getAll();
-      const myappCount = allProjects.filter(p => p.path === '/projects/myapp').length;
+      const myappCount = allProjects.filter((p) => p.path === '/projects/myapp').length;
       expect(myappCount).toBe(1);
 
       // /projects/extra from added-projects.json also imported
@@ -304,7 +324,7 @@ describe('data import service', () => {
       fs.mkdirSync(addedProjectsDir, { recursive: true });
       fs.writeFileSync(
         path.join(addedProjectsDir, 'added-projects.json'),
-        JSON.stringify({ projects: ['/tmp/test-project-import'] })
+        JSON.stringify({ projects: ['/tmp/test-project-import'] }),
       );
 
       const result = await importAll(db, projectRepo, taskRepo, settingsRepo, hookRepo);

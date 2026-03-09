@@ -92,9 +92,7 @@ function buildHookRow(
   if (hook) {
     const commandEl = document.createElement('span');
     commandEl.className = 'hook-command';
-    commandEl.textContent = hook.command.length > 30
-      ? hook.command.substring(0, 27) + '...'
-      : hook.command;
+    commandEl.textContent = hook.command.length > 30 ? hook.command.substring(0, 27) + '...' : hook.command;
     addTooltip(commandEl, { text: hook.command, placement: 'top' });
     rightSection.appendChild(commandEl);
 
@@ -151,10 +149,7 @@ export async function buildLaunchDropdownContent(dropdown: HTMLElement): Promise
   dropdown.innerHTML = '';
 
   // Fetch hooks and settings
-  const [hooks, settings] = await Promise.all([
-    window.api.hooks.get(path),
-    window.api.getProjectSettings(path),
-  ]);
+  const [hooks, settings] = await Promise.all([window.api.hooks.get(path), window.api.getProjectSettings(path)]);
 
   // Section header
   const header = document.createElement('div');
@@ -166,9 +161,11 @@ export async function buildLaunchDropdownContent(dropdown: HTMLElement): Promise
   const hooksContainer = document.createElement('div');
   hooksContainer.className = 'hooks-container';
 
-  hooksContainer.appendChild(buildHookRow('run', 'Run', hooks.run, path, {
-    killExistingOnRun: settings.killExistingOnRun,
-  }));
+  hooksContainer.appendChild(
+    buildHookRow('run', 'Run', hooks.run, path, {
+      killExistingOnRun: settings.killExistingOnRun,
+    }),
+  );
   hooksContainer.appendChild(buildHookRow('editor', 'Editor', hooks.editor, path));
 
   dropdown.appendChild(hooksContainer);
@@ -246,4 +243,3 @@ export function toggleLaunchDropdown(): void {
     showLaunchDropdown();
   }
 }
-

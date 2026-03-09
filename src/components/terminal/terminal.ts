@@ -15,7 +15,12 @@ import type { SummaryType } from '../project/state';
 import { convertIconsIn } from '../../utils/icons';
 import { escapeHtml } from '../../utils/html';
 import { addTooltip, convertTitlesIn } from '../../utils/tooltip';
-import { refreshTerminalGitStatus, buildCardGitBranchHtml, buildCardGitStatsHtml, scheduleTerminalGitStatusRefresh } from '../project/gitStatus';
+import {
+  refreshTerminalGitStatus,
+  buildCardGitBranchHtml,
+  buildCardGitStatsHtml,
+  scheduleTerminalGitStatusRefresh,
+} from '../project/gitStatus';
 import { toggleTerminalDiffPanel, toggleTerminalWorktreeDiffPanel } from '../project/diffPanel';
 import { notifyReady, readyBody } from '../../utils/notifications';
 import log from 'electron-log/renderer';
@@ -83,9 +88,7 @@ function getTerminalTheme(): Record<string, string> {
  */
 function setupTerminalAppHotkeys(terminal: XTerminal): void {
   terminal.attachCustomKeyEventHandler((event) => {
-    const hasModifier = isMac
-      ? event.metaKey && !event.ctrlKey
-      : event.ctrlKey && !event.metaKey;
+    const hasModifier = isMac ? event.metaKey && !event.ctrlKey : event.ctrlKey && !event.metaKey;
 
     if (hasModifier && !event.altKey) {
       const key = event.key.toLowerCase();
@@ -99,7 +102,7 @@ function setupTerminalAppHotkeys(terminal: XTerminal): void {
         }
         if (key === 'v') {
           event.preventDefault();
-          navigator.clipboard.readText().then(text => {
+          navigator.clipboard.readText().then((text) => {
             if (text) terminal.paste(text);
           });
           return false;
@@ -152,15 +155,21 @@ function debouncedResize(ptyId: PtyId, terminal: XTerminal, fitAddon: FitAddon):
   const pendingFrame = pendingResizeFrames.get(ptyId);
   if (pendingFrame) cancelAnimationFrame(pendingFrame);
 
-  pendingResizeFrames.set(ptyId, requestAnimationFrame(() => {
-    pendingResizeFrames.delete(ptyId);
-    scrollSafeFit(terminal, fitAddon);
-  }));
+  pendingResizeFrames.set(
+    ptyId,
+    requestAnimationFrame(() => {
+      pendingResizeFrames.delete(ptyId);
+      scrollSafeFit(terminal, fitAddon);
+    }),
+  );
 
-  pendingResizes.set(ptyId, setTimeout(() => {
-    pendingResizes.delete(ptyId);
-    window.api.pty.resize(ptyId, terminal.cols, terminal.rows);
-  }, 50));
+  pendingResizes.set(
+    ptyId,
+    setTimeout(() => {
+      pendingResizes.delete(ptyId);
+      window.api.pty.resize(ptyId, terminal.cols, terminal.rows);
+    }, 50),
+  );
 }
 
 /**
@@ -297,9 +306,11 @@ export class OuijitTerminal {
 
     this.fitAddon = new FitAddon();
     this.xterm.loadAddon(this.fitAddon);
-    this.xterm.loadAddon(new WebLinksAddon((_event, uri) => {
-      window.api.openExternal(uri);
-    }));
+    this.xterm.loadAddon(
+      new WebLinksAddon((_event, uri) => {
+        window.api.openExternal(uri);
+      }),
+    );
 
     setupTerminalAppHotkeys(this.xterm);
 
@@ -420,7 +431,7 @@ export class OuijitTerminal {
    */
   openTerminal(): void {
     const xtermContainer = this.container.querySelector(
-      this.isRunner ? '.runner-xterm-container' : '.terminal-xterm-container'
+      this.isRunner ? '.runner-xterm-container' : '.terminal-xterm-container',
     ) as HTMLElement;
     if (!xtermContainer) return;
 
@@ -442,7 +453,10 @@ export class OuijitTerminal {
    * Bind to a PTY — wire data, exit, input, and resize handlers.
    * For sandbox terminals, this is called after VM boot completes.
    */
-  bind(ptyId: PtyId, opts?: { onData?: (data: string) => void; onExit?: (exitCode: number) => void; skipSideEffects?: boolean }): void {
+  bind(
+    ptyId: PtyId,
+    opts?: { onData?: (data: string) => void; onExit?: (exitCode: number) => void; skipSideEffects?: boolean },
+  ): void {
     if (this.disposed) return;
     this.ptyId = ptyId;
     this.bound = true;
@@ -537,7 +551,7 @@ export class OuijitTerminal {
     if (!this.ptyId || this.disposed) return;
 
     const xtermContainer = this.container.querySelector(
-      this.isRunner ? '.runner-xterm-container' : '.terminal-xterm-container'
+      this.isRunner ? '.runner-xterm-container' : '.terminal-xterm-container',
     ) as HTMLElement;
     if (!xtermContainer) return;
 
@@ -779,7 +793,7 @@ export class OuijitTerminal {
 
   private wireResizeObserver(): void {
     const xtermContainer = this.container.querySelector(
-      this.isRunner ? '.runner-xterm-container' : '.terminal-xterm-container'
+      this.isRunner ? '.runner-xterm-container' : '.terminal-xterm-container',
     ) as HTMLElement;
     if (!xtermContainer) return;
 
@@ -807,9 +821,9 @@ export class OuijitTerminal {
       const dt = (e as DragEvent).dataTransfer;
       if (dt?.files.length) {
         const paths = Array.from(dt.files)
-          .map(f => window.api.getPathForFile(f))
+          .map((f) => window.api.getPathForFile(f))
           .filter((p): p is string => !!p)
-          .map(p => p.includes(' ') ? `"${p}"` : p)
+          .map((p) => (p.includes(' ') ? `"${p}"` : p))
           .join(' ');
         if (paths) this.xterm.paste(paths);
       }
@@ -909,7 +923,7 @@ export class OuijitTerminal {
         const _tags = this.tags.value;
         const _label = this.label.value;
         this.updateLabel();
-      })
+      }),
     );
   }
 
@@ -966,7 +980,9 @@ export class OuijitTerminal {
     // Tag pills
     const tagsRow = labelEl.querySelector('.project-card-tags-row') as HTMLElement;
     if (tagsRow && !tagsRow.querySelector('.tag-input-container')) {
-      const tagsHtml = this.tags.value.map(t => `<span class="project-card-tag-pill">${escapeHtml(t)}</span>`).join('');
+      const tagsHtml = this.tags.value
+        .map((t) => `<span class="project-card-tag-pill">${escapeHtml(t)}</span>`)
+        .join('');
       if (tagsRow.dataset.lastHtml !== tagsHtml) {
         tagsRow.dataset.lastHtml = tagsHtml;
         tagsRow.innerHTML = tagsHtml;
@@ -1010,7 +1026,6 @@ export class OuijitTerminal {
         }
       }
     }
-
   }
 
   // ── Git status refresh ──────────────────────────────────────────────
@@ -1025,8 +1040,10 @@ export class OuijitTerminal {
     if (this.taskId == null) return;
     try {
       const tags = await window.api.tags.getForTask(this.projectPath, this.taskId);
-      this.tags.value = tags.map(t => t.name);
-    } catch { /* DB not ready or task gone */ }
+      this.tags.value = tags.map((t) => t.name);
+    } catch {
+      /* DB not ready or task gone */
+    }
   }
 
   /**

@@ -1,14 +1,6 @@
 import { BrowserWindow } from 'electron';
 import { typedHandle, typedOn } from '../helpers';
-import {
-  spawnPty,
-  reconnectPty,
-  getActiveSessions,
-  setWindow,
-  writeToPty,
-  resizePty,
-  killPty,
-} from '../../ptyManager';
+import { spawnPty, reconnectPty, getActiveSessions, setWindow, writeToPty, resizePty, killPty } from '../../ptyManager';
 import * as limaPlugin from '../../lima';
 import { getHook } from '../../db';
 
@@ -45,10 +37,7 @@ export function registerPtyHandlers(mainWindow: BrowserWindow): void {
     }
   });
 
-  typedHandle('pty:get-active-sessions', () => [
-    ...getActiveSessions(),
-    ...limaPlugin.getActiveSandboxSessions(),
-  ]);
+  typedHandle('pty:get-active-sessions', () => [...getActiveSessions(), ...limaPlugin.getActiveSandboxSessions()]);
   typedHandle('pty:reconnect', (ptyId) => {
     if (limaPlugin.isSandboxPty(ptyId)) {
       return limaPlugin.reconnectSandboxPty(ptyId, mainWindow);

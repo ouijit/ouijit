@@ -1,6 +1,6 @@
-@import "tailwindcss";
-@import "./styles/compare.css";
-@import "./styles/dialog.css";
+@import 'tailwindcss';
+@import './styles/compare.css';
+@import './styles/dialog.css';
 
 @font-face {
   font-family: 'Iosevka Extended';
@@ -25,29 +25,29 @@
 
 @theme {
   /* Colors - Dark Mode Only */
-  --color-background: #1C1C1E;
+  --color-background: #1c1c1e;
   --color-background-secondary: rgba(255, 255, 255, 0.06);
   --color-background-tertiary: rgba(255, 255, 255, 0.12);
-  --color-surface: #2C2C2E;
-  --color-text-primary: #F5F5F7;
-  --color-text-secondary: #98989D;
+  --color-surface: #2c2c2e;
+  --color-text-primary: #f5f5f7;
+  --color-text-secondary: #98989d;
   --color-text-tertiary: #636366;
   --color-border: rgba(255, 255, 255, 0.1);
   --color-border-hover: rgba(255, 255, 255, 0.15);
 
   /* Accent Colors */
-  --color-accent: #0A84FF;
-  --color-accent-hover: #409CFF;
+  --color-accent: #0a84ff;
+  --color-accent-hover: #409cff;
   --color-accent-light: rgba(10, 132, 255, 0.2);
 
   /* Status Colors */
-  --color-git: #FF6B4A;
+  --color-git: #ff6b4a;
   --color-git-light: rgba(255, 107, 74, 0.15);
-  --color-claude: #F59E0B;
+  --color-claude: #f59e0b;
   --color-claude-light: rgba(245, 158, 11, 0.15);
-  --color-success: #30D158;
+  --color-success: #30d158;
   --color-success-subtle: rgba(48, 209, 88, 0.15);
-  --color-error: #FF453A;
+  --color-error: #ff453a;
 
   /* Shadows */
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
@@ -71,7 +71,8 @@
   --radius-full: 9999px;
 
   /* Typography */
-  --font-family: system-ui, -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif;
+  --font-family:
+    system-ui, -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif;
   --font-mono: 'Iosevka Extended', 'SF Mono', Monaco, Menlo, monospace;
   --font-size-xs: 13px;
   --font-size-sm: 16px;
@@ -100,7 +101,6 @@
   --color-terminal-bg: #171717;
 }
 
-
 /* ===================================
    Base Styles & Reset
    =================================== */
@@ -120,7 +120,7 @@ body {
 /* Allow text cursor on inputs and editable areas */
 input,
 textarea,
-[contenteditable="true"] {
+[contenteditable='true'] {
   @apply cursor-text;
 }
 
@@ -161,17 +161,28 @@ textarea,
    =================================== */
 
 @keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 @keyframes terminal-status-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
 }
 
 @keyframes loading-dot-spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* ===================================
@@ -359,7 +370,6 @@ body.platform-darwin:not(.is-fullscreen) .sidebar-drag-region {
   background-color: transparent;
 }
 
-
 .sidebar-home-logo {
   width: 100%;
   height: 100%;
@@ -417,7 +427,9 @@ body.platform-darwin:not(.is-fullscreen) .sidebar-drag-region {
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4), 0 1px 4px rgba(0, 0, 0, 0.3);
+  box-shadow:
+    0 4px 16px rgba(0, 0, 0, 0.4),
+    0 1px 4px rgba(0, 0, 0, 0.3);
   opacity: 0;
   transform: scale(0.92);
   animation: none;
@@ -429,11 +441,19 @@ body.platform-darwin:not(.is-fullscreen) .sidebar-drag-region {
 }
 
 @keyframes tooltip-pop {
-  0%   { transform: scale(0.92); opacity: 0; }
-  60%  { transform: scale(1.05); opacity: 1; }
-  100% { transform: scale(1); opacity: 1; }
+  0% {
+    transform: scale(0.92);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.05);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
-
 
 /* ===================================
    Header - App Region Drag
@@ -650,7 +670,6 @@ body.platform-darwin:not(.is-fullscreen) .sidebar--visible ~ .app-main .header-c
   @apply bg-white/30;
 }
 
-
 /* ===================================
    New Project Dialog Form
    =================================== */
@@ -692,7 +711,7 @@ body.platform-darwin:not(.is-fullscreen) .sidebar--visible ~ .app-main .header-c
   @apply flex items-center gap-2;
 }
 
-.custom-checkbox input[type="checkbox"] {
+.custom-checkbox input[type='checkbox'] {
   @apply w-4 h-4 accent-accent;
 }
 
@@ -754,11 +773,9 @@ body.project-mode .main-content {
   padding: 0;
 }
 
-
 /* ===================================
    Home view: cross-project terminals
    =================================== */
-
 
 body.home-mode .main-content {
   padding: 0;
@@ -872,7 +889,6 @@ body.home-mode .home-folder-divider.project-card {
   @apply flex items-center gap-3 flex-1 px-4;
 }
 
-
 .project-header-icon {
   @apply w-8 h-8 rounded-md object-cover;
 }
@@ -935,7 +951,10 @@ body.home-mode .home-folder-divider.project-card {
   @apply relative h-9 flex items-center justify-center gap-1.5 px-2.5 bg-background-secondary border border-border rounded-[14px] text-text-secondary ease-out;
   /* shadow + border-top highlight temporarily disabled for rrweb recording */
   /* border-top-color: rgba(255,255,255,0.12); */
-  transition: background-color 150ms ease-out, border-color 150ms ease-out, color 150ms ease-out;
+  transition:
+    background-color 150ms ease-out,
+    border-color 150ms ease-out,
+    color 150ms ease-out;
 }
 
 .project-sandbox-btn:hover {
@@ -953,17 +972,17 @@ body.home-mode .home-folder-divider.project-card {
 .project-sandbox-btn--active {
   background: rgba(10, 132, 255, 0.15);
   border-color: rgba(10, 132, 255, 0.4);
-  color: #409CFF;
+  color: #409cff;
 }
 
 .project-sandbox-btn--active:hover {
   background: rgba(10, 132, 255, 0.25);
-  color: #6AB4FF;
+  color: #6ab4ff;
 }
 
 .project-sandbox-btn--starting {
   border-color: transparent;
-  color: #409CFF;
+  color: #409cff;
 }
 
 /* SVG border trace animation overlay */
@@ -981,14 +1000,19 @@ body.home-mode .home-folder-divider.project-card {
 }
 
 @keyframes sandbox-border-trace {
-  to { stroke-dashoffset: -100; }
+  to {
+    stroke-dashoffset: -100;
+  }
 }
 
 /* Sandbox Dropdown */
 .sandbox-dropdown {
   @apply absolute top-full right-0 mt-1 min-w-[240px] max-w-[280px] bg-surface border border-border
          rounded-md shadow-lg z-[1000] opacity-0 invisible overflow-hidden;
-  transition: opacity 150ms ease-out, transform 150ms ease-out, visibility 150ms ease-out;
+  transition:
+    opacity 150ms ease-out,
+    transform 150ms ease-out,
+    visibility 150ms ease-out;
   transform: translateY(-8px);
   -webkit-app-region: no-drag;
 }
@@ -1085,7 +1109,7 @@ body.home-mode .home-folder-divider.project-card {
 }
 
 .sandbox-dropdown-detail-value--running {
-  color: #0A84FF;
+  color: #0a84ff;
 }
 
 .sandbox-dropdown-detail-value--mono {
@@ -1166,7 +1190,7 @@ body.home-mode .home-folder-divider.project-card {
 }
 
 .sandbox-toggle--active {
-  background: #0A84FF;
+  background: #0a84ff;
 }
 
 .sandbox-toggle-knob {
@@ -1205,45 +1229,62 @@ body.home-mode .home-folder-divider.project-card {
 .project-stack {
   @apply fixed top-[82px] right-4 bottom-4 z-[100] overflow-visible;
   left: calc(var(--sidebar-offset, 0px) + 16px);
-  transition: left 0.2s ease-out, right 0.25s ease, top 0.2s ease;
+  transition:
+    left 0.2s ease-out,
+    right 0.25s ease,
+    top 0.2s ease;
 }
 
 .project-card {
   @apply absolute inset-0 rounded-[14px] border border-white/10 overflow-hidden flex flex-col;
   background: var(--color-terminal-bg, #171717);
-  transition: translate 0.2s ease, left 0.2s ease, right 0.2s ease;
+  transition:
+    translate 0.2s ease,
+    left 0.2s ease,
+    right 0.2s ease;
 }
 
 .project-card--active {
   @apply z-10;
   transform: none;
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.05), 0 4px 12px rgba(0, 0, 0, 0.15), 0 20px 40px rgba(0, 0, 0, 0.2);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.05),
+    0 4px 12px rgba(0, 0, 0, 0.15),
+    0 20px 40px rgba(0, 0, 0, 0.2);
 }
 
 .project-card--back-1 {
   @apply z-[9] -translate-y-6;
-  left: 1%; right: 1%;
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.1), 0 2px 8px rgba(0, 0, 0, 0.12);
+  left: 1%;
+  right: 1%;
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.1),
+    0 2px 8px rgba(0, 0, 0, 0.12);
   contain: layout style paint;
 }
 
 .project-card--back-2 {
   @apply z-[8] -translate-y-12;
-  left: 2%; right: 2%;
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.1), 0 1px 4px rgba(0, 0, 0, 0.08);
+  left: 2%;
+  right: 2%;
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.1),
+    0 1px 4px rgba(0, 0, 0, 0.08);
   contain: layout style paint;
 }
 
 .project-card--back-3 {
   @apply z-[7] -translate-y-[72px];
-  left: 3%; right: 3%;
+  left: 3%;
+  right: 3%;
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08);
   contain: layout style paint;
 }
 
 .project-card--back-4 {
   @apply z-[6] -translate-y-24;
-  left: 4%; right: 4%;
+  left: 4%;
+  right: 4%;
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.06);
   contain: layout style paint;
 }
@@ -1251,28 +1292,32 @@ body.home-mode .home-folder-divider.project-card {
 /* Extended depth levels for home mode (back-5 through back-8) */
 body.home-mode .project-card--back-5 {
   @apply z-[5] -translate-y-[120px];
-  left: 5%; right: 5%;
+  left: 5%;
+  right: 5%;
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.05);
   contain: layout style paint;
 }
 
 body.home-mode .project-card--back-6 {
   @apply z-[4] -translate-y-[144px];
-  left: 6%; right: 6%;
+  left: 6%;
+  right: 6%;
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.04);
   contain: layout style paint;
 }
 
 body.home-mode .project-card--back-7 {
   @apply z-[3] -translate-y-[168px];
-  left: 7%; right: 7%;
+  left: 7%;
+  right: 7%;
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.03);
   contain: layout style paint;
 }
 
 body.home-mode .project-card--back-8 {
   @apply z-[2] -translate-y-[192px];
-  left: 8%; right: 8%;
+  left: 8%;
+  right: 8%;
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.02);
   contain: layout style paint;
 }
@@ -1305,7 +1350,6 @@ body.home-mode .project-card--back-8 {
 .project-card--has-tags:not(.project-card--active) .project-card-tags-row {
   display: inline-flex;
 }
-
 
 /* Hover effect on back cards */
 .project-card:not(.project-card--active):hover {
@@ -1458,12 +1502,12 @@ body.home-mode .project-card--back-8:hover {
   box-shadow: 0 0 4px rgba(105, 219, 124, 0.5);
 }
 
-.project-card-status-dot[data-status="ready"] {
+.project-card-status-dot[data-status='ready'] {
   @apply bg-[#69db7c];
   box-shadow: 0 0 4px rgba(105, 219, 124, 0.5);
 }
 
-.project-card-status-dot[data-status="thinking"] {
+.project-card-status-dot[data-status='thinking'] {
   @apply bg-[#da77f2];
   box-shadow: 0 0 4px rgba(218, 119, 242, 0.5);
   animation: terminal-status-pulse 1s ease-in-out infinite;
@@ -1504,7 +1548,6 @@ body.home-mode .project-card--back-8:hover {
 .project-card-close svg {
   @apply w-4 h-4;
 }
-
 
 /* Card Git Status Display */
 .project-card-git-stats-wrapper {
@@ -1741,7 +1784,6 @@ body.home-mode .project-card--back-8:hover {
   @apply bg-white/30;
 }
 
-
 /* Project Launch Button & Dropdown */
 .project-launch-wrapper {
   @apply relative flex ml-3;
@@ -1752,7 +1794,10 @@ body.home-mode .project-card--back-8:hover {
   @apply relative h-9 flex items-center justify-center gap-1.5 px-2.5 bg-background-secondary border border-border rounded-[14px] text-text-secondary ease-out;
   /* shadow + border-top highlight temporarily disabled for rrweb recording */
   /* border-top-color: rgba(255,255,255,0.12); */
-  transition: background-color 150ms ease-out, border-color 150ms ease-out, color 150ms ease-out;
+  transition:
+    background-color 150ms ease-out,
+    border-color 150ms ease-out,
+    color 150ms ease-out;
 }
 
 .project-hooks-btn:hover {
@@ -1848,7 +1893,9 @@ body.home-mode .project-card--back-8:hover {
 
 .form-textarea {
   @apply h-auto px-3 py-2 resize-none font-mono text-sm leading-snug overflow-hidden;
-  transition: border-color 150ms ease-out, box-shadow 150ms ease-out;
+  transition:
+    border-color 150ms ease-out,
+    box-shadow 150ms ease-out;
 }
 
 /* Highlight underlay for env-var coloring in hook textareas */
@@ -1921,7 +1968,9 @@ body.home-mode .project-card--back-8:hover {
 .hook-env-var {
   @apply font-mono text-[13px] px-1.5 py-0.5 rounded inline-block;
   background: var(--color-background-secondary);
-  transition: background 100ms ease, color 100ms ease;
+  transition:
+    background 100ms ease,
+    color 100ms ease;
 }
 
 .hook-env-var:hover {
@@ -1934,7 +1983,6 @@ body.home-mode .project-card--back-8:hover {
   color: var(--color-accent);
   background: color-mix(in srgb, var(--color-accent) 15%, transparent);
 }
-
 
 /* ==========================================
    Project Stack Empty State
@@ -2084,7 +2132,10 @@ body.kanban-open .project-stack {
   left: calc(var(--sidebar-offset, 0px) + 16px);
   transform: translateY(6px);
   background: var(--color-terminal-bg, #171717);
-  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.05), 0 4px 12px rgba(0, 0, 0, 0.15), 0 20px 40px rgba(0, 0, 0, 0.2);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.05),
+    0 4px 12px rgba(0, 0, 0, 0.15),
+    0 20px 40px rgba(0, 0, 0, 0.2);
 }
 
 .kanban-board--visible {
@@ -2100,12 +2151,26 @@ body.kanban-open .project-stack {
 
 .kanban-scroll-shadow--left {
   left: 0;
-  background: linear-gradient(to left, transparent 0%, rgba(0,0,0,0.03) 30%, rgba(0,0,0,0.1) 60%, rgba(0,0,0,0.25) 85%, rgba(0,0,0,0.35) 100%);
+  background: linear-gradient(
+    to left,
+    transparent 0%,
+    rgba(0, 0, 0, 0.03) 30%,
+    rgba(0, 0, 0, 0.1) 60%,
+    rgba(0, 0, 0, 0.25) 85%,
+    rgba(0, 0, 0, 0.35) 100%
+  );
 }
 
 .kanban-scroll-shadow--right {
   right: 0;
-  background: linear-gradient(to right, transparent 0%, rgba(0,0,0,0.03) 30%, rgba(0,0,0,0.1) 60%, rgba(0,0,0,0.25) 85%, rgba(0,0,0,0.35) 100%);
+  background: linear-gradient(
+    to right,
+    transparent 0%,
+    rgba(0, 0, 0, 0.03) 30%,
+    rgba(0, 0, 0, 0.1) 60%,
+    rgba(0, 0, 0, 0.25) 85%,
+    rgba(0, 0, 0, 0.35) 100%
+  );
 }
 
 .kanban-columns {
@@ -2161,7 +2226,6 @@ body.kanban-open .project-stack {
   @apply w-[18px] h-[18px];
 }
 
-
 /* Start command dialog textarea */
 .start-command-textarea {
   @apply mb-2 font-mono;
@@ -2191,7 +2255,9 @@ body.kanban-open .project-stack {
 .kanban-card {
   @apply px-3 py-3.5 ease-out;
   background: var(--color-terminal-bg);
-  transition: background 150ms ease-out, opacity 150ms ease-out;
+  transition:
+    background 150ms ease-out,
+    opacity 150ms ease-out;
   -webkit-app-region: no-drag;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
@@ -2288,11 +2354,11 @@ body.kanban-open .project-stack {
   @apply font-mono text-[10px] leading-tight text-text-secondary truncate min-w-0;
 }
 
-.kanban-card-status-dot[data-status="ready"] {
+.kanban-card-status-dot[data-status='ready'] {
   @apply bg-[#69db7c];
 }
 
-.kanban-card-status-dot[data-status="thinking"] {
+.kanban-card-status-dot[data-status='thinking'] {
   @apply bg-[#da77f2];
   animation: terminal-status-pulse 1s ease-in-out infinite;
 }
@@ -2397,7 +2463,10 @@ body.kanban-open .project-stack {
   @apply flex flex-col items-center justify-center gap-2 shrink-0 overflow-hidden;
   width: 0;
   opacity: 0;
-  transition: width 200ms ease-out, opacity 200ms ease-out, background 150ms ease;
+  transition:
+    width 200ms ease-out,
+    opacity 200ms ease-out,
+    background 150ms ease;
   border-left: 1px solid transparent;
   color: var(--color-text-tertiary);
 }
@@ -2425,6 +2494,3 @@ body.kanban-open .project-stack {
 .kanban-trash-zone .kanban-card {
   display: none;
 }
-
-
-

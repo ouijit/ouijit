@@ -12,7 +12,15 @@ if (typeof globalThis.navigator?.userAgent === 'undefined') {
 vi.mock('@xterm/xterm', () => ({ Terminal: class {} }));
 vi.mock('@xterm/addon-fit', () => ({ FitAddon: class {} }));
 vi.mock('@xterm/addon-web-links', () => ({ WebLinksAddon: class {} }));
-vi.mock('hotkeys-js', () => ({ default: Object.assign(() => {}, { filter: true, setScope: () => {}, getScope: () => '', deleteScope: () => {}, unbind: () => {} }) }));
+vi.mock('hotkeys-js', () => ({
+  default: Object.assign(() => {}, {
+    filter: true,
+    setScope: () => {},
+    getScope: () => '',
+    deleteScope: () => {},
+    unbind: () => {},
+  }),
+}));
 vi.mock('../utils/icons', () => ({ convertIconsIn: () => {} }));
 vi.mock('../components/importDialog', () => ({ showToast: () => {} }));
 vi.mock('../components/hookConfigDialog', () => ({ showHookConfigDialog: () => {} }));

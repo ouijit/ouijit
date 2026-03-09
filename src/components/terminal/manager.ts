@@ -7,7 +7,7 @@
 import { signal, computed, effect } from '@preact/signals-core';
 import type { ReadonlySignal } from '@preact/signals-core';
 import type { Project, ChangedFile, ActiveSession } from '../../types';
-import { OuijitTerminal, scrollSafeFit  } from './terminal';
+import { OuijitTerminal, scrollSafeFit } from './terminal';
 import { STACK_PAGE_SIZE, ensureHiddenSessionsContainer } from '../project/state';
 import {
   projectPath,
@@ -60,15 +60,9 @@ class TerminalManager {
   private effectCleanups: (() => void)[] = [];
 
   private constructor() {
-    this.activeTerminal = computed(() =>
-      this.terminals.value[this.activeIndex.value] ?? null
-    );
-    this.activeStackPage = computed(() =>
-      Math.floor(this.activeIndex.value / STACK_PAGE_SIZE)
-    );
-    this.totalStackPages = computed(() =>
-      Math.max(1, Math.ceil(this.terminals.value.length / STACK_PAGE_SIZE))
-    );
+    this.activeTerminal = computed(() => this.terminals.value[this.activeIndex.value] ?? null);
+    this.activeStackPage = computed(() => Math.floor(this.activeIndex.value / STACK_PAGE_SIZE));
+    this.totalStackPages = computed(() => Math.max(1, Math.ceil(this.terminals.value.length / STACK_PAGE_SIZE)));
   }
 
   static getInstance(): TerminalManager {
@@ -152,7 +146,7 @@ class TerminalManager {
    * Find a terminal by its PTY ID
    */
   findByPtyId(ptyId: string): OuijitTerminal | undefined {
-    return this.terminals.value.find(t => t.ptyId === ptyId);
+    return this.terminals.value.find((t) => t.ptyId === ptyId);
   }
 
   // ── Session preservation ────────────────────────────────────────────
@@ -162,7 +156,7 @@ class TerminalManager {
    * Detaches all terminals and moves them to a hidden container.
    */
   preserveSession(path: string): void {
-    const projectTerminals = this.terminals.value.filter(t => t.projectPath === path);
+    const projectTerminals = this.terminals.value.filter((t) => t.projectPath === path);
     if (projectTerminals.length === 0 || !projectData.value) return;
 
     // Detach all terminals (disconnects resize observers, clears throttles)
@@ -189,9 +183,7 @@ class TerminalManager {
     });
 
     // Remove project terminals from active collection
-    this.terminals.value = this.terminals.value.filter(
-      t => t.projectPath !== path
-    );
+    this.terminals.value = this.terminals.value.filter((t) => t.projectPath !== path);
     this.activeIndex.value = 0;
   }
 
@@ -282,7 +274,7 @@ class TerminalManager {
             showStackEmptyState();
           }
         }
-      })
+      }),
     );
 
     // Effect: Focus active terminal when it changes
@@ -295,7 +287,7 @@ class TerminalManager {
             term.xterm.focus();
           });
         }
-      })
+      }),
     );
 
     // Effect: Sync diff panel visibility when active terminal changes
@@ -312,7 +304,7 @@ class TerminalManager {
             syncDiffPanelToActiveTerminal();
           });
         }
-      })
+      }),
     );
 
     // Effect: Auto-refresh kanban board when taskVersion bumps
@@ -326,7 +318,7 @@ class TerminalManager {
           refreshKanbanBoard();
         }
         lastTaskVersionForKanban = ver;
-      })
+      }),
     );
 
     // Effect: Sync kanban status dots when terminals are added/removed
@@ -338,7 +330,7 @@ class TerminalManager {
           void _terminals.length;
           syncKanbanStatusDots();
         }
-      })
+      }),
     );
 
     // Effect: Sync terminal card labels when taskVersion bumps (e.g. task renamed)
@@ -350,10 +342,10 @@ class TerminalManager {
         const currentTerminals = this.terminals.value;
         if (ver !== lastTaskVersionForLabels && path) {
           lastTaskVersionForLabels = ver;
-          const taskTerminals = currentTerminals.filter(t => t.taskId != null);
+          const taskTerminals = currentTerminals.filter((t) => t.taskId != null);
           if (taskTerminals.length > 0) {
-            window.api.task.getAll(path).then(tasks => {
-              const taskMap = new Map(tasks.map(t => [t.taskNumber, t]));
+            window.api.task.getAll(path).then((tasks) => {
+              const taskMap = new Map(tasks.map((t) => [t.taskNumber, t]));
               for (const term of taskTerminals) {
                 const task = taskMap.get(term.taskId!);
                 if (task && task.name !== term.label.value) {
@@ -365,9 +357,8 @@ class TerminalManager {
           }
         }
         lastTaskVersionForLabels = ver;
-      })
+      }),
     );
-
   }
 
   /**
@@ -431,9 +422,10 @@ class TerminalManager {
     const backPositions: { index: number; diff: number }[] = [];
     for (let index = pageStart; index < pageEnd; index++) {
       if (index !== currentActiveIndex) {
-        const diff = index < currentActiveIndex
-          ? currentActiveIndex - index
-          : pageSize - (index - pageStart) + (currentActiveIndex - pageStart);
+        const diff =
+          index < currentActiveIndex
+            ? currentActiveIndex - index
+            : pageSize - (index - pageStart) + (currentActiveIndex - pageStart);
         backPositions.push({ index, diff });
       }
     }

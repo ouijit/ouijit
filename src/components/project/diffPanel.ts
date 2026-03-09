@@ -34,12 +34,13 @@ export function formatDiffStats(additions: number, deletions: number): string {
  * Build the header info summary, e.g. "5 files (2 untracked) +47 -12"
  */
 function buildHeaderInfoHtml(files: ChangedFile[]): string {
-  const tracked = files.filter(f => f.status !== '?');
+  const tracked = files.filter((f) => f.status !== '?');
   const totalAdd = tracked.reduce((s, f) => s + f.additions, 0);
   const totalDel = tracked.reduce((s, f) => s + f.deletions, 0);
   const untrackedCount = files.length - tracked.length;
   const fileLabel = files.length === 1 ? 'file' : 'files';
-  const untrackedNote = untrackedCount > 0 ? ` <span class="diff-header-untracked">(${untrackedCount} untracked)</span>` : '';
+  const untrackedNote =
+    untrackedCount > 0 ? ` <span class="diff-header-untracked">(${untrackedCount} untracked)</span>` : '';
   return `${files.length} ${fileLabel}${untrackedNote} ${formatDiffStats(totalAdd, totalDel)}`;
 }
 
@@ -52,21 +53,31 @@ function buildHeaderInfoHtml(files: ChangedFile[]): string {
  */
 function fileStatusIcon(status: string): { icon: string; cls: string } {
   switch (status) {
-    case 'A': return { icon: 'file-plus', cls: 'diff-file-icon--added' };
-    case '?': return { icon: 'file-plus', cls: 'diff-file-icon--untracked' };
-    case 'D': return { icon: 'file-minus', cls: 'diff-file-icon--deleted' };
-    case 'R': return { icon: 'file-text', cls: 'diff-file-icon--renamed' };
-    default:  return { icon: 'file-dashed', cls: 'diff-file-icon--modified' };
+    case 'A':
+      return { icon: 'file-plus', cls: 'diff-file-icon--added' };
+    case '?':
+      return { icon: 'file-plus', cls: 'diff-file-icon--untracked' };
+    case 'D':
+      return { icon: 'file-minus', cls: 'diff-file-icon--deleted' };
+    case 'R':
+      return { icon: 'file-text', cls: 'diff-file-icon--renamed' };
+    default:
+      return { icon: 'file-dashed', cls: 'diff-file-icon--modified' };
   }
 }
 
 function fileStatusLabel(status: string): string {
   switch (status) {
-    case '?': return 'untracked';
-    case 'A': return 'added';
-    case 'D': return 'deleted';
-    case 'R': return 'renamed';
-    default:  return 'modified';
+    case '?':
+      return 'untracked';
+    case 'A':
+      return 'added';
+    case 'D':
+      return 'deleted';
+    case 'R':
+      return 'renamed';
+    default:
+      return 'modified';
   }
 }
 
@@ -126,28 +137,33 @@ export function buildFileListHtml(files: ChangedFile[]): string {
       return a.name.localeCompare(b.name);
     });
 
-    return entries.map(child => {
-      if (child.file) {
-        const { icon, cls } = fileStatusIcon(child.file.status);
-        const stats = formatDiffStats(child.file.additions, child.file.deletions);
-        const badge = child.file.status === '?' ? '<span class="diff-file-badge diff-file-badge--untracked">untracked</span>' : '';
-        return `<div class="diff-tree-file" data-path="${escapeHtml(child.file.path)}" style="padding-left:${12 + depth * 12}px">
+    return entries
+      .map((child) => {
+        if (child.file) {
+          const { icon, cls } = fileStatusIcon(child.file.status);
+          const stats = formatDiffStats(child.file.additions, child.file.deletions);
+          const badge =
+            child.file.status === '?'
+              ? '<span class="diff-file-badge diff-file-badge--untracked">untracked</span>'
+              : '';
+          return `<div class="diff-tree-file" data-path="${escapeHtml(child.file.path)}" style="padding-left:${12 + depth * 12}px">
           <i data-icon="${icon}" class="diff-file-icon ${cls}"></i>
           <span class="diff-tree-name">${escapeHtml(child.name)}</span>
           ${badge}
           <span class="diff-panel-file-stats">${stats}</span>
         </div>`;
-      }
-      // Directory node
-      const childrenHtml = renderNode(child, depth + 1);
-      return `<div class="diff-tree-dir" data-expanded="true">
+        }
+        // Directory node
+        const childrenHtml = renderNode(child, depth + 1);
+        return `<div class="diff-tree-dir" data-expanded="true">
         <div class="diff-tree-dir-label" style="padding-left:${12 + depth * 12}px">
           <i data-icon="caret-down" class="diff-tree-chevron"></i>
           <span class="diff-tree-name">${escapeHtml(child.name)}</span>
         </div>
         <div class="diff-tree-dir-children">${childrenHtml}</div>
       </div>`;
-    }).join('');
+      })
+      .join('');
   }
 
   return renderNode(root, 0);
@@ -158,11 +174,12 @@ export function buildFileListHtml(files: ChangedFile[]): string {
  * Each section starts with a loading placeholder that gets replaced by loadAllDiffs
  */
 export function buildStackedDiffsHtml(files: ChangedFile[]): string {
-  return files.map(file => {
-    const stats = formatDiffStats(file.additions, file.deletions);
-    const label = fileStatusLabel(file.status);
-    const badgeCls = file.status === '?' ? 'diff-file-badge--untracked' : `diff-file-badge--${label}`;
-    return `
+  return files
+    .map((file) => {
+      const stats = formatDiffStats(file.additions, file.deletions);
+      const label = fileStatusLabel(file.status);
+      const badgeCls = file.status === '?' ? 'diff-file-badge--untracked' : `diff-file-badge--${label}`;
+      return `
       <div class="diff-file-section" data-path="${escapeHtml(file.path)}">
         <div class="diff-file-section-header">
           <span class="diff-file-section-name" title="${escapeHtml(file.path)}">${escapeHtml(file.path)}</span>
@@ -174,7 +191,8 @@ export function buildStackedDiffsHtml(files: ChangedFile[]): string {
         </div>
       </div>
     `;
-  }).join('');
+    })
+    .join('');
 }
 
 /**
@@ -186,7 +204,7 @@ export function buildStackedDiffsHtml(files: ChangedFile[]): string {
 export async function loadAllDiffs(
   panel: Element,
   files: ChangedFile[],
-  fetchDiff: (filePath: string) => Promise<FileDiff | null>
+  fetchDiff: (filePath: string) => Promise<FileDiff | null>,
 ): Promise<void> {
   const promises = files.map(async (file) => {
     const section = panel.querySelector(`.diff-file-section[data-path="${CSS.escape(file.path)}"]`);
@@ -227,7 +245,7 @@ export function wireSidebarNavigation(panel: Element): void {
   }
 
   // Directory toggle
-  fileList.querySelectorAll('.diff-tree-dir-label').forEach(label => {
+  fileList.querySelectorAll('.diff-tree-dir-label').forEach((label) => {
     label.addEventListener('click', () => {
       const dir = label.closest('.diff-tree-dir');
       if (!dir) return;
@@ -237,7 +255,7 @@ export function wireSidebarNavigation(panel: Element): void {
   });
 
   // File click -> scroll to section
-  fileList.querySelectorAll('.diff-tree-file').forEach(item => {
+  fileList.querySelectorAll('.diff-tree-file').forEach((item) => {
     item.addEventListener('click', () => {
       const path = (item as HTMLElement).dataset.path;
       if (!path) return;
@@ -249,7 +267,6 @@ export function wireSidebarNavigation(panel: Element): void {
     });
   });
 }
-
 
 // ==========================================
 // Diff content rendering
@@ -263,11 +280,13 @@ export function renderDiffContentHtml(diff: FileDiff): string {
     return '<div class="diff-empty-state">No changes to display</div>';
   }
 
-  const hunksHtml = diff.hunks.map(hunk => {
-    const linesHtml = hunk.lines.map(line => {
-      const oldNum = line.oldLineNo !== undefined ? line.oldLineNo : '';
-      const newNum = line.newLineNo !== undefined ? line.newLineNo : '';
-      return `
+  const hunksHtml = diff.hunks
+    .map((hunk) => {
+      const linesHtml = hunk.lines
+        .map((line) => {
+          const oldNum = line.oldLineNo !== undefined ? line.oldLineNo : '';
+          const newNum = line.newLineNo !== undefined ? line.newLineNo : '';
+          return `
         <div class="diff-line diff-line--${line.type}">
           <div class="diff-line-numbers">
             <span class="diff-line-number">${oldNum}</span>
@@ -276,15 +295,17 @@ export function renderDiffContentHtml(diff: FileDiff): string {
           <span class="diff-line-content">${escapeHtml(line.content)}</span>
         </div>
       `;
-    }).join('');
+        })
+        .join('');
 
-    return `
+      return `
       <div class="diff-hunk">
         <div class="diff-hunk-header">${escapeHtml(hunk.header)}</div>
         ${linesHtml}
       </div>
     `;
-  }).join('');
+    })
+    .join('');
 
   return `<div class="diff-hunks-wrapper">${hunksHtml}</div>`;
 }
@@ -299,7 +320,11 @@ export function renderDiffContentHtml(diff: FileDiff): string {
  * @param showModeSelector - Whether to show the mode selector (worktree terminals)
  * @param mode - Current comparison mode
  */
-export function buildDiffPanelHtml(files: ChangedFile[], showModeSelector: boolean = false, mode: 'uncommitted' | 'worktree' = 'uncommitted'): string {
+export function buildDiffPanelHtml(
+  files: ChangedFile[],
+  showModeSelector: boolean = false,
+  mode: 'uncommitted' | 'worktree' = 'uncommitted',
+): string {
   const fileListHtml = buildFileListHtml(files);
   const stackedDiffsHtml = buildStackedDiffsHtml(files);
 
@@ -351,10 +376,7 @@ function refitActiveTerminal(): void {
 /**
  * Wire up a diff panel's close button and sidebar navigation
  */
-function wireDiffPanel(
-  panel: Element,
-  onClose: () => void
-): void {
+function wireDiffPanel(panel: Element, onClose: () => void): void {
   convertTitlesIn(panel);
 
   // Wire close button
@@ -376,7 +398,11 @@ function wireDiffPanel(
  * Unified function that handles both uncommitted and worktree modes
  * @param targetBranch - For worktree mode, the branch to compare against (defaults to task merge target or main)
  */
-export async function showTerminalComparePanel(term: OuijitTerminal, mode: 'uncommitted' | 'worktree', targetBranch?: string): Promise<void> {
+export async function showTerminalComparePanel(
+  term: OuijitTerminal,
+  mode: 'uncommitted' | 'worktree',
+  targetBranch?: string,
+): Promise<void> {
   if (term.diffPanelOpen) return;
 
   // Worktree mode requires a worktree branch
@@ -396,7 +422,7 @@ export async function showTerminalComparePanel(term: OuijitTerminal, mode: 'unco
     // Check task merge target first, fall back to main branch
     if (term.taskId != null) {
       const tasks = await window.api.task.getAll(basePath);
-      const task = tasks.find(t => t.taskNumber === term.taskId);
+      const task = tasks.find((t) => t.taskNumber === term.taskId);
       if (task?.mergeTarget) resolvedTarget = task.mergeTarget;
     }
     if (!resolvedTarget) {
@@ -469,7 +495,7 @@ export async function showTerminalComparePanel(term: OuijitTerminal, mode: 'unco
   const infoCard = panel.querySelector('.compare-mode-info-card');
   if (infoCard) {
     if (mode === 'uncommitted') {
-      const tracked = files.filter(f => f.status !== '?');
+      const tracked = files.filter((f) => f.status !== '?');
       const totalAdd = tracked.reduce((s, f) => s + f.additions, 0);
       const totalDel = tracked.reduce((s, f) => s + f.deletions, 0);
       infoCard.innerHTML = `
@@ -516,9 +542,11 @@ export async function showTerminalComparePanel(term: OuijitTerminal, mode: 'unco
   });
 
   // Load diffs using appropriate API
-  const fetchDiff = mode === 'uncommitted'
-    ? (filePath: string) => window.api.getFileDiff(gitPath, filePath)
-    : (filePath: string) => window.api.worktree.getFileDiff(basePath!, term.worktreeBranch!, filePath, resolvedTarget);
+  const fetchDiff =
+    mode === 'uncommitted'
+      ? (filePath: string) => window.api.getFileDiff(gitPath, filePath)
+      : (filePath: string) =>
+          window.api.worktree.getFileDiff(basePath!, term.worktreeBranch!, filePath, resolvedTarget);
 
   await loadAllDiffs(panel, files, fetchDiff);
 }
@@ -530,7 +558,7 @@ async function showTargetBranchDropdown(
   term: OuijitTerminal,
   panel: HTMLElement,
   targetContainer: HTMLElement,
-  currentTarget: string
+  currentTarget: string,
 ): Promise<void> {
   // Don't open multiple dropdowns
   if (document.querySelector('.compare-branch-dropdown')) return;
@@ -542,7 +570,7 @@ async function showTargetBranchDropdown(
 
   // Filter out the worktree branch, sort main to top
   const filtered = branches
-    .filter(b => b.name !== term.worktreeBranch)
+    .filter((b) => b.name !== term.worktreeBranch)
     .sort((a, b) => {
       if (a.isMain && !b.isMain) return -1;
       if (!a.isMain && b.isMain) return 1;
@@ -555,12 +583,16 @@ async function showTargetBranchDropdown(
   // Build dropdown and append to body to avoid overflow clipping
   const dropdown = document.createElement('div');
   dropdown.className = 'compare-branch-dropdown';
-  dropdown.innerHTML = filtered.map(branch => `
+  dropdown.innerHTML = filtered
+    .map(
+      (branch) => `
     <div class="compare-branch-item${branch.name === currentTarget ? ' selected' : ''}" data-branch="${escapeHtml(branch.name)}">
       <span class="compare-branch-name">${escapeHtml(branch.name)}</span>
       ${branch.isMain ? '<span class="compare-branch-badge">main</span>' : ''}
     </div>
-  `).join('');
+  `,
+    )
+    .join('');
 
   document.body.appendChild(dropdown);
 
@@ -573,7 +605,7 @@ async function showTargetBranchDropdown(
   requestAnimationFrame(() => dropdown.classList.add('visible'));
 
   // Handle item clicks
-  dropdown.querySelectorAll('.compare-branch-item').forEach(item => {
+  dropdown.querySelectorAll('.compare-branch-item').forEach((item) => {
     item.addEventListener('click', async (e) => {
       e.stopPropagation();
       const branchName = (item as HTMLElement).dataset.branch;
@@ -668,7 +700,7 @@ async function swapCompareTarget(term: OuijitTerminal, panel: HTMLElement, newTa
 
   // Load all diffs for the new target
   await loadAllDiffs(panel, files, (filePath) =>
-    window.api.worktree.getFileDiff(basePath, term.worktreeBranch!, filePath, newTarget)
+    window.api.worktree.getFileDiff(basePath, term.worktreeBranch!, filePath, newTarget),
   );
 }
 
@@ -804,9 +836,7 @@ export async function showDiffPanel(): Promise<void> {
   setTimeout(() => refitActiveTerminal(), 250);
 
   // Load all diffs
-  await loadAllDiffs(panel, files, (filePath) =>
-    window.api.getFileDiff(projectPath.value!, filePath)
-  );
+  await loadAllDiffs(panel, files, (filePath) => window.api.getFileDiff(projectPath.value!, filePath));
 }
 
 /**
@@ -866,7 +896,7 @@ export async function showWorktreeDiffPanel(worktreeBranch: string): Promise<voi
   // Set mode before showing panel
   diffPanelMode.value = 'worktree';
   const allTasks = await window.api.task.getAll(projectPath.value);
-  const matchedTask = allTasks.find(t => t.branch === worktreeBranch);
+  const matchedTask = allTasks.find((t) => t.branch === worktreeBranch);
   diffPanelTaskId.value = matchedTask?.taskNumber ?? null;
   diffPanelFiles.value = diffSummary.files;
   diffPanelVisible.value = true;
@@ -904,7 +934,7 @@ export async function showWorktreeDiffPanel(worktreeBranch: string): Promise<voi
   // Load all diffs
   const basePath = projectPath.value;
   await loadAllDiffs(panel, diffSummary.files, (filePath) =>
-    window.api.worktree.getFileDiff(basePath, worktreeBranch, filePath)
+    window.api.worktree.getFileDiff(basePath, worktreeBranch, filePath),
   );
 }
 

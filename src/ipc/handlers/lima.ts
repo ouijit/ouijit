@@ -29,7 +29,11 @@ export function registerLimaHandlers(mainWindow: BrowserWindow): void {
   typedHandle('lima:start', async (projectPath) => {
     const sandboxConfig = await getSandboxConfig(projectPath);
     const sendProgress = (msg: string) => typedPush(mainWindow, 'lima:spawn-progress', msg);
-    const result = await ensureRunning(projectPath, { memoryGiB: sandboxConfig.memoryGiB, diskGiB: sandboxConfig.diskGiB }, sendProgress);
+    const result = await ensureRunning(
+      projectPath,
+      { memoryGiB: sandboxConfig.memoryGiB, diskGiB: sandboxConfig.diskGiB },
+      sendProgress,
+    );
     return { success: result.success, error: result.error };
   });
 

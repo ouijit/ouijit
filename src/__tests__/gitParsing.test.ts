@@ -28,7 +28,12 @@ describe('parseDiff', () => {
     // First hunk
     expect(hunks[0].header).toBe('@@ -1,5 +1,6 @@');
     expect(hunks[0].lines).toHaveLength(6);
-    expect(hunks[0].lines[0]).toEqual({ type: 'context', content: 'import foo from "foo";', oldLineNo: 1, newLineNo: 1 });
+    expect(hunks[0].lines[0]).toEqual({
+      type: 'context',
+      content: 'import foo from "foo";',
+      oldLineNo: 1,
+      newLineNo: 1,
+    });
     expect(hunks[0].lines[1]).toEqual({ type: 'deletion', content: 'import bar from "bar";', oldLineNo: 2 });
     expect(hunks[0].lines[2]).toEqual({ type: 'addition', content: 'import bar from "baz";', newLineNo: 2 });
     expect(hunks[0].lines[3]).toEqual({ type: 'addition', content: 'import qux from "qux";', newLineNo: 3 });
@@ -44,11 +49,7 @@ describe('parseDiff', () => {
   });
 
   it('handles a single-line change', () => {
-    const diff = [
-      '@@ -1,1 +1,1 @@',
-      '-old line',
-      '+new line',
-    ].join('\n');
+    const diff = ['@@ -1,1 +1,1 @@', '-old line', '+new line'].join('\n');
 
     const hunks = parseDiff(diff);
     expect(hunks).toHaveLength(1);
@@ -62,23 +63,14 @@ describe('parseDiff', () => {
   });
 
   it('returns empty hunks for binary file diff', () => {
-    const diff = [
-      'diff --git a/image.png b/image.png',
-      'Binary files a/image.png and b/image.png differ',
-    ].join('\n');
+    const diff = ['diff --git a/image.png b/image.png', 'Binary files a/image.png and b/image.png differ'].join('\n');
 
     // No @@ headers means no hunks are created
     expect(parseDiff(diff)).toEqual([]);
   });
 
   it('skips --- and +++ header lines', () => {
-    const diff = [
-      '--- a/file.ts',
-      '+++ b/file.ts',
-      '@@ -1,1 +1,1 @@',
-      '-old',
-      '+new',
-    ].join('\n');
+    const diff = ['--- a/file.ts', '+++ b/file.ts', '@@ -1,1 +1,1 @@', '-old', '+new'].join('\n');
 
     const hunks = parseDiff(diff);
     expect(hunks).toHaveLength(1);
@@ -90,11 +82,7 @@ describe('parseDiff', () => {
 
   it('handles hunk header without line count (single line)', () => {
     // git omits the count when it's 1: @@ -1 +1 @@
-    const diff = [
-      '@@ -1 +1 @@',
-      '-old',
-      '+new',
-    ].join('\n');
+    const diff = ['@@ -1 +1 @@', '-old', '+new'].join('\n');
 
     const hunks = parseDiff(diff);
     expect(hunks).toHaveLength(1);

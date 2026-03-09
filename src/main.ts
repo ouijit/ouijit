@@ -69,9 +69,7 @@ const createWindow = (): BrowserWindow => {
   if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
     window.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
   } else {
-    window.loadFile(
-      path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`),
-    );
+    window.loadFile(path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`));
   }
 
   // Open the DevTools in development mode only
@@ -115,13 +113,7 @@ app.on('ready', async () => {
 
   // Initialize SQLite and migrate any existing JSON data
   const db = getDatabase();
-  await importAll(
-    db,
-    new ProjectRepo(db),
-    new TaskRepo(db),
-    new SettingsRepo(db),
-    new HookRepo(db),
-  );
+  await importAll(db, new ProjectRepo(db), new TaskRepo(db), new SettingsRepo(db), new HookRepo(db));
 
   mainWindow = createWindow();
   await registerIpcHandlers(mainWindow);
