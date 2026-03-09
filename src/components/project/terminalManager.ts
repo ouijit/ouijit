@@ -218,8 +218,10 @@ class TerminalManager {
     const session = this.sessions.get(path);
     if (!session) return undefined;
 
-    // Add terminals back to active collection
-    this.terminals.value = [...this.terminals.value, ...session.terminals];
+    // Add terminals back to active collection (wires close/click/name handlers)
+    for (const term of session.terminals) {
+      this.add(term);
+    }
     this.activeIndex.value = session.activeIndex;
 
     // Reattach terminals (reconnects resize observers)

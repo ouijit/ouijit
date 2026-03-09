@@ -380,6 +380,7 @@ export class OuijitTerminal {
 
     // Wire card click (bring to front)
     card.addEventListener('click', () => {
+      terminalLog.info('card clicked', { label: this.label, hasClickHandler: !!this.onClickHandler });
       this.onClickHandler?.();
     });
 
