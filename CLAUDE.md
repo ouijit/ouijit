@@ -131,3 +131,7 @@ To add a new hotkey in project mode:
    - Call via registry with optional chaining: `projectRegistry.myHandler?.()`
 
 This registry pattern avoids circular dependencies between project modules.
+
+## Pull Requests
+
+PR descriptions should only contain a `## Summary` section with bullet points. No test plans, checklists, or generated-by credits.
