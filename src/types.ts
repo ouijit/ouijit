@@ -16,8 +16,7 @@ export type { HookStatus, HookStatusEntry } from './hookServer';
 // Import for local use within this file
 import type { GitStatus, CompactGitStatus, GitDropdownInfo, ChangedFile, FileDiff, WorktreeDiffSummary, BranchInfo } from './git';
 import type { TaskWorktreeResult, WorktreeInfo, WorktreeRemoveResult, CheckWorktreeResult } from './worktree';
-import type { TaskStatus, TaskMetadata } from './db';
-import type { TagRow } from './db';
+import type { TaskStatus, TagRow  } from './db';
 import type { ActiveSession } from './ptyManager';
 import type { SandboxStatus } from './lima/types';
 import type { HookStatus, HookStatusEntry } from './hookServer';

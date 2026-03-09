@@ -8,7 +8,7 @@ import './index.css';
 import '@xterm/xterm/css/xterm.css';
 import log from 'electron-log/renderer';
 import { initIcons } from './utils/icons';
-import type { Project, ActiveSession, LastActiveView, HookStatus } from './types';
+import type { Project, ActiveSession, LastActiveView } from './types';
 import { showToast } from './components/importDialog';
 import { showNewProjectDialog } from './components/newProjectDialog';
 import { initHotkeys } from './utils/hotkeys';

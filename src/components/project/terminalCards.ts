@@ -12,17 +12,15 @@
  *   - Card context menu
  */
 
-import type { PtyId, PtySpawnOptions, RunConfig, WorktreeInfo, ActiveSession } from '../../types';
+import type { PtySpawnOptions, RunConfig, WorktreeInfo, ActiveSession } from '../../types';
 import type { SummaryType } from './state';
-import { STACK_PAGE_SIZE, projectState } from './state';
+import { STACK_PAGE_SIZE } from './state';
 import { hideRunnerPanel, projectRegistry } from './helpers';
-import { projectPath, projectData, invalidateTaskList, homeViewActive } from './signals';
-import { OuijitTerminal, scrollSafeFit, resolveTerminalLabel } from '../terminal';
-import { getManager } from '../terminal';
+import { projectPath, invalidateTaskList, homeViewActive } from './signals';
+import { OuijitTerminal, scrollSafeFit, resolveTerminalLabel, getManager  } from '../terminal';
 import { showToast } from '../importDialog';
 import { showHookConfigDialog } from '../hookConfigDialog';
-import { refreshTerminalGitStatus } from './gitStatus';
-import { toggleTerminalDiffPanel, toggleTerminalWorktreeDiffPanel, hideTerminalDiffPanel } from './diffPanel';
+import { hideTerminalDiffPanel } from './diffPanel';
 import { setSandboxButtonStarting, refreshSandboxButton } from './projectMode';
 import { addTerminalInHomeView } from '../homeView';
 import { convertIconsIn } from '../../utils/icons';

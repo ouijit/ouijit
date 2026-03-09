@@ -8,8 +8,7 @@ import type { Project, PtySpawnOptions } from '../types';
 import { homeViewActive, projectPath } from './project/signals';
 import { ensureHiddenSessionsContainer } from './project/state';
 import { exitProjectMode } from './project/projectMode';
-import { OuijitTerminal, scrollSafeFit, resolveTerminalLabel } from './terminal';
-import { getManager } from './terminal';
+import { OuijitTerminal, scrollSafeFit, resolveTerminalLabel, getManager  } from './terminal';
 import { setupCardActions, reconnectTerminal, collapseTagInput } from './project/terminalCards';
 import { convertIconsIn } from '../utils/icons';
 import { escapeHtml } from '../utils/html';
@@ -750,7 +749,7 @@ async function addHomeTerminal(path: string, opts?: HomeTerminalOptions): Promis
 
     // Add to the project session (create one if needed for persistence across view switches)
     const manager = getManager();
-    let session = manager.sessions.get(path);
+    const session = manager.sessions.get(path);
     if (session) {
       session.terminals.push(term);
     } else {

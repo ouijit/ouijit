@@ -487,7 +487,7 @@ export class OuijitTerminal {
     if (!bufferedOutput) return;
 
     // Strip zsh PROMPT_EOL_MARK artifact
-    let buffer = bufferedOutput.replace(/^(?:\x1b\[[0-9;]*m)*[%#](?:\x1b\[[0-9;]*m)* +\r \r/, '');
+    const buffer = bufferedOutput.replace(/^(?:\x1b\[[0-9;]*m)*[%#](?:\x1b\[[0-9;]*m)* +\r \r/, '');
 
     const currentCols = this.xterm.cols;
     const currentRows = this.xterm.rows;
