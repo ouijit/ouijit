@@ -8,7 +8,7 @@ import type { Project, PtySpawnOptions } from '../types';
 import { homeViewActive, projectPath } from './project/signals';
 import { ensureHiddenSessionsContainer } from './project/state';
 import { exitProjectMode } from './project/projectMode';
-import { OuijitTerminal, scrollSafeFit } from './project/terminal';
+import { OuijitTerminal, scrollSafeFit, resolveTerminalLabel } from './project/terminal';
 import { getManager } from './project/terminalManager';
 import { setupCardActions, reconnectTerminal, collapseTagInput } from './project/terminalCards';
 import { convertIconsIn } from '../utils/icons';
@@ -666,17 +666,36 @@ function closeHomeTerminal(index: number): void {
 /**
  * Add a new terminal for a project from the home view
  */
-async function addHomeTerminal(path: string): Promise<void> {
-  homeLog.info('adding terminal from home view', { path });
+/** Options for adding a terminal in home view with worktree/task context */
+export interface HomeTerminalOptions {
+  worktreePath?: string;
+  worktreeBranch?: string;
+  taskId?: number;
+  sandboxed?: boolean;
+}
+
+async function addHomeTerminal(path: string, opts?: HomeTerminalOptions): Promise<void> {
+  homeLog.info('adding terminal from home view', { path, opts });
 
   if (!homeStack) return;
 
   // Remove empty state if showing
   homeStack.querySelector('.project-stack-empty')?.remove();
 
+  const cwd = opts?.worktreePath || path;
+  let label = 'shell';
+  if (opts?.taskId != null) {
+    const task = await window.api.task.getByNumber(path, opts.taskId);
+    label = resolveTerminalLabel(task?.name, opts?.worktreeBranch);
+  }
+
   const term = new OuijitTerminal({
     projectPath: path,
-    label: 'shell',
+    label,
+    taskId: opts?.taskId ?? null,
+    worktreePath: opts?.worktreePath,
+    worktreeBranch: opts?.worktreeBranch,
+    sandboxed: opts?.sandboxed,
   });
 
   homeStack.appendChild(term.container);
@@ -685,12 +704,34 @@ async function addHomeTerminal(path: string): Promise<void> {
   await new Promise(resolve => requestAnimationFrame(resolve));
   term.fitAddon.fit();
 
+  // Resolve start command from hooks for worktree terminals
+  let startCommand: string | undefined;
+  let startEnv: Record<string, string> | undefined;
+  if (opts?.worktreePath && opts?.worktreeBranch) {
+    startEnv = {
+      OUIJIT_HOOK_TYPE: 'continue',
+      OUIJIT_PROJECT_PATH: path,
+      OUIJIT_WORKTREE_PATH: opts.worktreePath,
+      OUIJIT_TASK_BRANCH: opts.worktreeBranch,
+      OUIJIT_TASK_NAME: label,
+    };
+    try {
+      const hooks = await window.api.hooks.get(path);
+      if (hooks.continue) startCommand = hooks.continue.command;
+    } catch { /* no hooks */ }
+  }
+
   const spawnOptions: PtySpawnOptions = {
-    cwd: path,
+    cwd,
     projectPath: path,
+    command: startCommand,
     cols: term.xterm.cols,
     rows: term.xterm.rows,
-    label: 'shell',
+    label,
+    taskId: opts?.taskId,
+    worktreePath: opts?.worktreePath,
+    env: startEnv,
+    sandboxed: opts?.sandboxed,
   };
 
   try {
@@ -747,6 +788,10 @@ async function addHomeTerminal(path: string): Promise<void> {
       });
     }
 
+    // Fetch git status and tags for task terminals
+    term.refreshGitStatus();
+    term.loadTags();
+
     // Switch to the new terminal
     homeActiveIndex = homeTerminals.length - 1;
     updateHomeCardStack();
@@ -759,6 +804,11 @@ async function addHomeTerminal(path: string): Promise<void> {
     term.xterm.dispose();
     showToast('Failed to start terminal', 'error');
   }
+}
+
+/** Public entry point for adding a terminal from outside homeView (e.g. context menus) */
+export async function addTerminalInHomeView(path: string, opts?: HomeTerminalOptions): Promise<void> {
+  return addHomeTerminal(path, opts);
 }
 
 /**

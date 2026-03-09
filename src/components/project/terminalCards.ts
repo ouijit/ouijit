@@ -16,7 +16,7 @@ import type { PtyId, PtySpawnOptions, RunConfig, WorktreeInfo, ActiveSession } f
 import type { SummaryType } from './state';
 import { STACK_PAGE_SIZE, projectState } from './state';
 import { hideRunnerPanel, projectRegistry } from './helpers';
-import { projectPath, projectData, invalidateTaskList } from './signals';
+import { projectPath, projectData, invalidateTaskList, homeViewActive } from './signals';
 import { OuijitTerminal, scrollSafeFit, resolveTerminalLabel } from './terminal';
 import { getManager } from './terminalManager';
 import { showToast } from '../importDialog';
@@ -24,6 +24,7 @@ import { showHookConfigDialog } from '../hookConfigDialog';
 import { refreshTerminalGitStatus } from './gitStatus';
 import { toggleTerminalDiffPanel, toggleTerminalWorktreeDiffPanel, hideTerminalDiffPanel } from './diffPanel';
 import { setSandboxButtonStarting, refreshSandboxButton } from './projectMode';
+import { addTerminalInHomeView } from '../homeView';
 import { convertIconsIn } from '../../utils/icons';
 import { escapeHtml } from '../../utils/html';
 import { addTooltip, convertTitlesIn } from '../../utils/tooltip';
@@ -181,29 +182,14 @@ async function showCardContextMenu(event: MouseEvent, term: OuijitTerminal): Pro
     terminalItem.addEventListener('click', (e) => {
       e.stopPropagation();
       menu.remove();
-      addProjectTerminal(undefined, {
-        existingWorktree: {
-          path: term.worktreePath!,
-          branch: term.worktreeBranch!,
-          createdAt: '',
-        },
-        taskId: term.taskId!,
-        sandboxed: false,
-      });
-    });
-    menu.appendChild(terminalItem);
-  }
-
-  // "Open in Sandbox"
-  if (term.worktreePath && term.worktreeBranch && projPath) {
-    const limaStatus = await window.api.lima.status(projPath);
-    if (limaStatus.available) {
-      const sandboxItem = document.createElement('button');
-      sandboxItem.className = 'task-context-menu-item';
-      sandboxItem.innerHTML = '<i data-icon="cube"></i> Open in Sandbox';
-      sandboxItem.addEventListener('click', (e) => {
-        e.stopPropagation();
-        menu.remove();
+      if (homeViewActive.value) {
+        addTerminalInHomeView(term.projectPath, {
+          worktreePath: term.worktreePath!,
+          worktreeBranch: term.worktreeBranch!,
+          taskId: term.taskId!,
+          sandboxed: false,
+        });
+      } else {
         addProjectTerminal(undefined, {
           existingWorktree: {
             path: term.worktreePath!,
@@ -211,17 +197,52 @@ async function showCardContextMenu(event: MouseEvent, term: OuijitTerminal): Pro
             createdAt: '',
           },
           taskId: term.taskId!,
-          sandboxed: true,
+          sandboxed: false,
         });
+      }
+    });
+    menu.appendChild(terminalItem);
+  }
+
+  // "Open in Sandbox"
+  const sandboxProjPath = projPath || term.projectPath;
+  if (term.worktreePath && term.worktreeBranch && sandboxProjPath) {
+    const limaStatus = await window.api.lima.status(sandboxProjPath);
+    if (limaStatus.available) {
+      const sandboxItem = document.createElement('button');
+      sandboxItem.className = 'task-context-menu-item';
+      sandboxItem.innerHTML = '<i data-icon="cube"></i> Open in Sandbox';
+      sandboxItem.addEventListener('click', (e) => {
+        e.stopPropagation();
+        menu.remove();
+        if (homeViewActive.value) {
+          addTerminalInHomeView(term.projectPath, {
+            worktreePath: term.worktreePath!,
+            worktreeBranch: term.worktreeBranch!,
+            taskId: term.taskId!,
+            sandboxed: true,
+          });
+        } else {
+          addProjectTerminal(undefined, {
+            existingWorktree: {
+              path: term.worktreePath!,
+              branch: term.worktreeBranch!,
+              createdAt: '',
+            },
+            taskId: term.taskId!,
+            sandboxed: true,
+          });
+        }
       });
       menu.appendChild(sandboxItem);
     }
   }
 
   // "Open in Editor"
-  if (term.worktreePath && projPath) {
+  const editorProjPath = projPath || term.projectPath;
+  if (term.worktreePath && editorProjPath) {
     try {
-      const hooks = await window.api.hooks.get(projPath);
+      const hooks = await window.api.hooks.get(editorProjPath);
       if (hooks.editor) {
         const editorItem = document.createElement('button');
         editorItem.className = 'task-context-menu-item';
@@ -229,7 +250,7 @@ async function showCardContextMenu(event: MouseEvent, term: OuijitTerminal): Pro
         editorItem.addEventListener('click', (e) => {
           e.stopPropagation();
           menu.remove();
-          window.api.openInEditor(projPath, term.worktreePath!);
+          window.api.openInEditor(editorProjPath, term.worktreePath!);
         });
         menu.appendChild(editorItem);
       }
