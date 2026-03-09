@@ -1,7 +1,7 @@
 /**
- * TerminalManager — singleton that owns the unified terminal collection.
- * Replaces the `terminals` signal, `homeTerminals` array, `projectSessions`
- * Map, `orphanedSessions` Map, and the effects from effects.ts.
+ * TerminalManager — singleton that owns the project-mode terminal collection.
+ * Replaces the `terminals` signal, `projectSessions` Map,
+ * `orphanedSessions` Map, and the effects from effects.ts.
  */
 
 import { signal, computed, effect } from '@preact/signals-core';
@@ -9,7 +9,6 @@ import type { ReadonlySignal } from '@preact/signals-core';
 import type { Project, ChangedFile, ActiveSession } from '../../types';
 import { OuijitTerminal } from './terminal';
 import { STACK_PAGE_SIZE, ensureHiddenSessionsContainer } from './state';
-import type { SummaryType } from './state';
 import {
   projectPath,
   projectData,
@@ -22,10 +21,8 @@ import {
 } from './signals';
 import { syncDiffPanelToActiveTerminal } from './diffPanel';
 import { refreshKanbanBoard, syncKanbanStatusDots } from './kanbanBoard';
+import { updateCardStack, showStackEmptyState, hideStackEmptyState } from './terminalCards';
 import { scrollSafeFit } from './terminal';
-import log from 'electron-log/renderer';
-
-const managerLog = log.scope('terminalManager');
 
 /**
  * Stored session for preserving project state across project switches
@@ -62,13 +59,6 @@ class TerminalManager {
 
   // ── Effects cleanup ─────────────────────────────────────────────────
   private effectCleanups: (() => void)[] = [];
-  private effectsInitialized = false;
-
-  // ── View rendering callbacks ────────────────────────────────────────
-  private renderProjectStackFn: (() => void) | null = null;
-  private renderHomeStackFn: (() => void) | null = null;
-  private showEmptyStateFn: (() => void) | null = null;
-  private hideEmptyStateFn: (() => void) | null = null;
 
   private constructor() {
     this.activeTerminal = computed(() =>
@@ -87,32 +77,6 @@ class TerminalManager {
       TerminalManager.instance = new TerminalManager();
     }
     return TerminalManager.instance;
-  }
-
-  /** Reset singleton for testing */
-  static resetInstance(): void {
-    if (TerminalManager.instance) {
-      TerminalManager.instance.cleanupEffects();
-    }
-    TerminalManager.instance = null;
-  }
-
-  // ── View rendering registration ─────────────────────────────────────
-
-  /** Register the project stack rendering function */
-  setProjectStackRenderer(fn: () => void): void {
-    this.renderProjectStackFn = fn;
-  }
-
-  /** Register the home stack rendering function */
-  setHomeStackRenderer(fn: () => void): void {
-    this.renderHomeStackFn = fn;
-  }
-
-  /** Register empty state show/hide functions */
-  setEmptyStateHandlers(show: () => void, hide: () => void): void {
-    this.showEmptyStateFn = show;
-    this.hideEmptyStateFn = hide;
   }
 
   // ── Collection management ───────────────────────────────────────────
@@ -157,26 +121,6 @@ class TerminalManager {
   }
 
   /**
-   * Remove a terminal from the collection and clean up from its session too.
-   * Used in home view where terminals must also be removed from projectSessions.
-   */
-  removeWithSessionCleanup(terminal: OuijitTerminal): void {
-    const path = terminal.projectPath;
-
-    this.remove(terminal);
-
-    // Clean up from session
-    const session = this.sessions.get(path);
-    if (session) {
-      session.terminals = session.terminals.filter(t => t !== terminal);
-      if (session.terminals.length === 0) {
-        session.stackElement.remove();
-        this.sessions.delete(path);
-      }
-    }
-  }
-
-  /**
    * Switch to a specific terminal
    */
   switchTo(terminal: OuijitTerminal): void {
@@ -206,20 +150,6 @@ class TerminalManager {
   }
 
   /**
-   * Get all terminals for a specific project path
-   */
-  getForProject(projectPath: string): OuijitTerminal[] {
-    return this.terminals.value.filter(t => t.projectPath === projectPath);
-  }
-
-  /**
-   * Get all terminals
-   */
-  getAll(): OuijitTerminal[] {
-    return this.terminals.value;
-  }
-
-  /**
    * Find a terminal by its PTY ID
    */
   findByPtyId(ptyId: string): OuijitTerminal | undefined {
@@ -233,7 +163,7 @@ class TerminalManager {
    * Detaches all terminals and moves them to a hidden container.
    */
   preserveSession(path: string): void {
-    const projectTerminals = this.getForProject(path);
+    const projectTerminals = this.terminals.value.filter(t => t.projectPath === path);
     if (projectTerminals.length === 0 || !projectData.value) return;
 
     // Detach all terminals (disconnects resize observers, clears throttles)
@@ -331,7 +261,8 @@ class TerminalManager {
    * Call once when project mode is first entered.
    */
   initializeEffects(): void {
-    if (this.effectsInitialized) return;
+    // Clean up any existing effects before re-initializing
+    this.cleanupEffects();
 
     // Effect: Auto-update card stack when terminals or activeIndex changes
     this.effectCleanups.push(
@@ -341,16 +272,13 @@ class TerminalManager {
         const _projectPath = projectPath.value;
         const _homeView = homeViewActive.value;
 
-        if (_homeView) {
+        // Home view manages its own rendering; only handle project mode here
+        if (!_homeView && _projectPath) {
           if (_terminals.length > 0) {
-            this.renderHomeStackFn?.();
-          }
-        } else if (_projectPath) {
-          if (_terminals.length > 0) {
-            this.hideEmptyStateFn?.();
-            this.renderProjectStackFn?.();
+            hideStackEmptyState();
+            updateCardStack();
           } else {
-            this.showEmptyStateFn?.();
+            showStackEmptyState();
           }
         }
       })
@@ -439,7 +367,6 @@ class TerminalManager {
       })
     );
 
-    this.effectsInitialized = true;
   }
 
   /**
@@ -450,7 +377,6 @@ class TerminalManager {
       cleanup();
     }
     this.effectCleanups.length = 0;
-    this.effectsInitialized = false;
   }
 
   // ── Hook status listener ────────────────────────────────────────────

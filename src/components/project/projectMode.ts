@@ -360,7 +360,8 @@ export function exitProjectMode(): void {
     headerContent.innerHTML = '';
   }
 
-  // 4. Unregister Claude hook status listener
+  // 4. Clean up reactive effects and hook status listener
+  manager.cleanupEffects();
   manager.unregisterHookStatusListener();
 
   // 5. Remove keyboard shortcuts and pop scope
@@ -598,7 +599,8 @@ async function reconnectProjectTerminal(session: ActiveSession, worktreeBranch?:
   // Add to manager (wires close/click handlers automatically)
   manager.add(term);
 
-  // Wire exit handler for project mode (auto-close on exit)
+  // Replace default exit handler with project-mode auto-close
+  term.cleanupExit?.();
   term.cleanupExit = window.api.pty.onExit(session.ptyId, () => {
     projectLog.info('terminal exited', { ptyId: session.ptyId });
     closeProjectTerminal(term);

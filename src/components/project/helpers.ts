@@ -17,7 +17,7 @@ interface ProjectRegistry {
   showKanbanAndFocusInput: (() => Promise<void>) | null;
   // From terminalCards
   addProjectTerminal: ((runConfig?: unknown, options?: unknown) => Promise<boolean>) | null;
-  closeProjectTerminal: ((index: number) => void) | null;
+  closeProjectTerminal: ((termOrIndex: OuijitTerminal | number) => void) | null;
   playOrToggleRunner: (() => Promise<void>) | null;
   // From kanbanBoard
   toggleKanbanBoard: (() => void) | null;

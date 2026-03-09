@@ -6,6 +6,7 @@
 import log from 'electron-log/renderer';
 import type { Project, PtySpawnOptions } from '../types';
 import { homeViewActive, projectPath } from './project/signals';
+import { ensureHiddenSessionsContainer } from './project/state';
 import { exitProjectMode } from './project/projectMode';
 import { OuijitTerminal, scrollSafeFit } from './project/terminal';
 import { getManager } from './project/terminalManager';
@@ -268,23 +269,6 @@ export function exitHomeView(): void {
   unregisterHomeHookStatusListener();
 }
 
-/** Ensure hidden sessions container exists */
-function ensureHiddenSessionsContainer(): HTMLElement {
-  const id = 'hidden-project-sessions';
-  let container = document.getElementById(id);
-  if (!container) {
-    container = document.createElement('div');
-    container.id = id;
-    container.style.display = 'none';
-    container.style.position = 'absolute';
-    container.style.left = '-9999px';
-    container.style.width = '0';
-    container.style.height = '0';
-    container.style.overflow = 'hidden';
-    document.body.appendChild(container);
-  }
-  return container;
-}
 
 /** Toggle home grouping mode and update UI */
 function toggleHomeGroupMode(mode: HomeGroupMode): void {
@@ -843,7 +827,8 @@ async function reconnectSingleTerminal(
   // Wire tag button and other card actions
   setupCardActions(pt);
 
-  // Wire home-view exit handler (display exit message instead of auto-close)
+  // Replace default exit handler with home-view version (display exit message)
+  pt.cleanupExit?.();
   pt.cleanupExit = window.api.pty.onExit(session.ptyId, (exitCode) => {
     pt.xterm.writeln('');
     const exitColor = exitCode === 0 ? '32' : '31';

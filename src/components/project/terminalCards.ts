@@ -17,7 +17,7 @@ import type { SummaryType } from './state';
 import { STACK_PAGE_SIZE, projectState } from './state';
 import { hideRunnerPanel, projectRegistry } from './helpers';
 import { projectPath, projectData, invalidateTaskList } from './signals';
-import { OuijitTerminal, scrollSafeFit } from './terminal';
+import { OuijitTerminal, scrollSafeFit, resolveTerminalLabel } from './terminal';
 import { getManager } from './terminalManager';
 import { showToast } from '../importDialog';
 import { showHookConfigDialog } from '../hookConfigDialog';
@@ -1005,7 +1005,6 @@ export async function addProjectTerminal(runConfig?: RunConfig, options?: AddPro
     taskName = task?.name;
   }
 
-  const { resolveTerminalLabel } = await import('./terminal');
   const label = resolveTerminalLabel(taskName, worktreeInfo?.branch, runConfig?.name);
   const command = runConfig?.command;
 

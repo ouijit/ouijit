@@ -12,7 +12,6 @@ import { signal, effect } from '@preact/signals-core';
 import type { Signal } from '@preact/signals-core';
 import type { PtyId, ChangedFile, CompactGitStatus } from '../../types';
 import type { SummaryType } from './state';
-import { projectRegistry } from './helpers';
 import { convertIconsIn } from '../../utils/icons';
 import { escapeHtml } from '../../utils/html';
 import { addTooltip, convertTitlesIn } from '../../utils/tooltip';
@@ -412,11 +411,6 @@ export class OuijitTerminal {
   /** Set project name getter for notifications */
   setProjectNameGetter(getter: () => string): void {
     this.getProjectName = getter;
-  }
-
-  /** Get the git path (worktree path if task-based, otherwise project path) */
-  getGitPath(): string {
-    return this.worktreePath || this.projectPath;
   }
 
   /**
@@ -989,8 +983,6 @@ export class OuijitTerminal {
       }
     }
 
-    // Sync kanban status dots
-    projectRegistry.syncKanbanStatusDots?.();
   }
 
   // ── Git status refresh ──────────────────────────────────────────────
