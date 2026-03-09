@@ -1110,44 +1110,26 @@ export async function addProjectTerminal(runConfig?: RunConfig, options?: AddPro
   };
 
   try {
-    let cleanupProgress: (() => void) | null = null;
-    if (useSandbox) {
-      setSandboxButtonStarting(true);
-      term.xterm.writeln(`\x1b[90m● Connecting to sandbox…\x1b[0m`);
-      cleanupProgress = window.api.lima.onSpawnProgress((msg) => {
-        term.xterm.writeln(`\x1b[90m● ${msg}\x1b[0m`);
-      });
-    }
+    if (useSandbox) setSandboxButtonStarting(true);
 
-    const result = await window.api.pty.spawn(spawnOptions);
-    cleanupProgress?.();
+    const ptyId = await term.spawnPty(spawnOptions);
 
-    if (useSandbox) {
-      await refreshSandboxButton(currentProjectPath);
-    }
+    if (useSandbox) await refreshSandboxButton(currentProjectPath);
 
     // If terminal was closed during loading, clean up
     if (addedEarly && !manager.terminals.value.includes(term)) {
-      if (result.success && result.ptyId) window.api.pty.kill(result.ptyId);
+      if (ptyId) window.api.pty.kill(ptyId);
       return false;
     }
 
-    if (!result.success || !result.ptyId) {
-      term.xterm.writeln(`\x1b[31mFailed to start terminal: ${result.error || 'Unknown error'}\x1b[0m`);
-      term.xterm.writeln(`\x1b[90mThis card will close in 10 seconds.\x1b[0m`);
+    if (!ptyId) {
       if (addedEarly) {
         setTimeout(() => manager.remove(term), 10_000);
       } else {
-        setTimeout(() => {
-          term.container.remove();
-          term.xterm.dispose();
-        }, 10_000);
+        setTimeout(() => { term.container.remove(); term.xterm.dispose(); }, 10_000);
       }
       return false;
     }
-
-    // Bind to PTY
-    term.bind(result.ptyId);
 
     // If not added early, add now
     if (!addedEarly) {
@@ -1165,9 +1147,7 @@ export async function addProjectTerminal(runConfig?: RunConfig, options?: AddPro
 
     return true;
   } catch (error) {
-    if (useSandbox) {
-      setSandboxButtonStarting(false);
-    }
+    if (useSandbox) setSandboxButtonStarting(false);
     term.xterm.writeln(`\x1b[31mError: ${error instanceof Error ? error.message : 'Unknown error'}\x1b[0m`);
     if (addedEarly) {
       manager.remove(term);

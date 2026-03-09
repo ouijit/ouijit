@@ -730,38 +730,25 @@ async function addHomeTerminal(path: string, opts?: HomeTerminalOptions): Promis
     sandboxed: opts?.sandboxed,
   };
 
+  // Show card immediately so sandbox progress is visible
+  setupCardActions(term);
+  term.setCloseHandler(() => {
+    const idx = homeTerminals.indexOf(term);
+    if (idx !== -1) closeHomeTerminal(idx);
+  });
+  homeTerminals.push(term);
+  homeActiveIndex = homeTerminals.length - 1;
+  updateHomeCardStack();
+  term.xterm.focus();
+
   try {
-    const result = await window.api.pty.spawn(spawnOptions);
-    if (!result.success || !result.ptyId) {
-      term.xterm.writeln(`\x1b[31mFailed to start terminal: ${result.error || 'Unknown error'}\x1b[0m`);
-      setTimeout(() => { term.container.remove(); term.xterm.dispose(); }, 5000);
+    const ptyId = await term.spawnPty(spawnOptions);
+    if (!ptyId) {
+      setTimeout(() => closeHomeTerminal(homeTerminals.indexOf(term)), 10_000);
       return;
     }
 
-    // Bind to PTY (wires data, exit, input, resize)
-    term.bind(result.ptyId);
-
-    // Wire tag button and other card actions
-    setupCardActions(term);
-
-    // Wire close button for home view context
-    const closeBtn = term.container.querySelector('.project-card-close') as HTMLButtonElement;
-    if (closeBtn) {
-      const newBtn = closeBtn.cloneNode(true) as HTMLButtonElement;
-      closeBtn.replaceWith(newBtn);
-      newBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const idx = homeTerminals.indexOf(term);
-        if (idx !== -1) closeHomeTerminal(idx);
-      });
-    }
-
-    // Add to home list and session
-    homeTerminals.push(term);
-
     // Add to the project session (create one if needed for persistence across view switches)
-    // Note: don't move the card to stackElement here — it's already in homeStack.
-    // exitHomeView handles moving cards to their session stackElements.
     const manager = getManager();
     let session = manager.sessions.get(path);
     if (session) {
@@ -784,20 +771,14 @@ async function addHomeTerminal(path: string, opts?: HomeTerminalOptions): Promis
       });
     }
 
-    // Fetch git status and tags for task terminals
     term.refreshGitStatus();
     term.loadTags();
 
-    // Switch to the new terminal
-    homeActiveIndex = homeTerminals.length - 1;
-    updateHomeCardStack();
-    term.xterm.focus();
-
-    homeLog.info('terminal added from home view', { path, ptyId: result.ptyId });
+    homeLog.info('terminal added from home view', { path, ptyId });
   } catch (error) {
     homeLog.error('failed to spawn terminal from home view', { path, error: error instanceof Error ? error.message : String(error) });
-    term.container.remove();
-    term.xterm.dispose();
+    const idx = homeTerminals.indexOf(term);
+    if (idx !== -1) closeHomeTerminal(idx);
     showToast('Failed to start terminal', 'error');
   }
 }

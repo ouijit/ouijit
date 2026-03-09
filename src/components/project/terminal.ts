@@ -10,7 +10,7 @@ import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import { signal, effect } from '@preact/signals-core';
 import type { Signal } from '@preact/signals-core';
-import type { PtyId, ChangedFile, CompactGitStatus } from '../../types';
+import type { PtyId, PtySpawnOptions, ChangedFile, CompactGitStatus } from '../../types';
 import type { SummaryType } from './state';
 import { convertIconsIn } from '../../utils/icons';
 import { escapeHtml } from '../../utils/html';
@@ -451,6 +451,33 @@ export class OuijitTerminal {
     this.wireExitHandler(opts?.onExit);
     this.wireInputForwarding();
     this.wireResizeObserver();
+  }
+
+  /**
+   * Spawn a PTY, showing sandbox progress if sandboxed.
+   * On success, binds to the PTY and returns the ptyId.
+   * On failure, writes the error to xterm and returns null.
+   */
+  async spawnPty(options: PtySpawnOptions): Promise<PtyId | null> {
+    let cleanupProgress: (() => void) | null = null;
+    if (options.sandboxed) {
+      this.xterm.writeln(`\x1b[90m● Connecting to sandbox…\x1b[0m`);
+      cleanupProgress = window.api.lima.onSpawnProgress((msg) => {
+        this.xterm.writeln(`\x1b[90m● ${msg}\x1b[0m`);
+      });
+    }
+
+    const result = await window.api.pty.spawn(options);
+    cleanupProgress?.();
+
+    if (!result.success || !result.ptyId) {
+      this.xterm.writeln(`\x1b[31mFailed to start terminal: ${result.error || 'Unknown error'}\x1b[0m`);
+      this.xterm.writeln(`\x1b[90mThis card will close in 10 seconds.\x1b[0m`);
+      return null;
+    }
+
+    this.bind(result.ptyId);
+    return result.ptyId;
   }
 
   /**
