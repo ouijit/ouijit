@@ -13,9 +13,9 @@ import type { Signal } from '@preact/signals-core';
 import type { PtyId, ChangedFile, CompactGitStatus } from '../../types';
 import type { SummaryType } from './state';
 import { projectRegistry } from './helpers';
+import { convertIconsIn } from '../../utils/icons';
 import { escapeHtml } from '../../utils/html';
 import { addTooltip, convertTitlesIn } from '../../utils/tooltip';
-import { convertIconsIn } from '../../utils/icons';
 import { refreshTerminalGitStatus, buildCardGitBranchHtml, buildCardGitStatsHtml, scheduleTerminalGitStatusRefresh } from './gitStatus';
 import { toggleTerminalDiffPanel, toggleTerminalWorktreeDiffPanel } from './diffPanel';
 import { notifyReady, readyBody } from '../../utils/notifications';
@@ -208,7 +208,7 @@ export class OuijitTerminal {
 
   // ── PTY cleanup ─────────────────────────────────────────────────────
   private cleanupData: (() => void) | null = null;
-  private cleanupExit: (() => void) | null = null;
+  cleanupExit: (() => void) | null = null;
   private resizeObserver: ResizeObserver | null = null;
 
   // ── Signal-based display state (auto-updates DOM) ───────────────────
@@ -361,6 +361,9 @@ export class OuijitTerminal {
     cardBody.appendChild(viewport);
     card.appendChild(cardBody);
 
+    // Convert icons in the card
+    convertIconsIn(card);
+
     // Mark sandboxed terminals
     if (this.sandboxed) {
       const dot = card.querySelector('.project-card-status-dot');
@@ -444,12 +447,12 @@ export class OuijitTerminal {
    * Bind to a PTY — wire data, exit, input, and resize handlers.
    * For sandbox terminals, this is called after VM boot completes.
    */
-  bind(ptyId: PtyId, opts?: { onExit?: (exitCode: number) => void; skipSideEffects?: boolean }): void {
+  bind(ptyId: PtyId, opts?: { onData?: (data: string) => void; onExit?: (exitCode: number) => void; skipSideEffects?: boolean }): void {
     if (this.disposed) return;
     this.ptyId = ptyId;
     this.bound = true;
 
-    this.wireDataHandler(opts?.skipSideEffects);
+    this.wireDataHandler(opts?.skipSideEffects, opts?.onData);
     this.wireExitHandler(opts?.onExit);
     this.wireInputForwarding();
     this.wireResizeObserver();
@@ -721,9 +724,10 @@ export class OuijitTerminal {
 
   // ── Internal: PTY wiring ────────────────────────────────────────────
 
-  private wireDataHandler(skipSideEffects?: boolean): void {
+  private wireDataHandler(skipSideEffects?: boolean, onData?: (data: string) => void): void {
     this.cleanupData = window.api.pty.onData(this.ptyId, (data) => {
       this.xterm.write(data);
+      onData?.(data);
       if (!skipSideEffects) {
         this.throttledDataSideEffects(data);
       }
@@ -824,12 +828,8 @@ export class OuijitTerminal {
       }
     }
 
-    // Schedule git status refresh
-    scheduleTerminalGitStatusRefresh(this as any, (t: any) => {
-      // Git status is now a signal — the label effect will auto-update.
-      // We just need to trigger the refresh. The gitStatus signal is set
-      // inside refreshTerminalGitStatus via the term object.
-    });
+    // Schedule git status refresh (label auto-updates via signal effect)
+    scheduleTerminalGitStatusRefresh(this);
   }
 
   clearDataThrottle(): void {
@@ -980,9 +980,9 @@ export class OuijitTerminal {
           statsEl.addEventListener('click', (e) => {
             e.stopPropagation();
             if (isCompareBtn) {
-              toggleTerminalWorktreeDiffPanel(this as any);
+              toggleTerminalWorktreeDiffPanel(this);
             } else {
-              toggleTerminalDiffPanel(this as any);
+              toggleTerminalDiffPanel(this);
             }
           });
         }
@@ -997,7 +997,7 @@ export class OuijitTerminal {
 
   /** Kick off an initial git status fetch and update signals */
   async refreshGitStatus(): Promise<void> {
-    await refreshTerminalGitStatus(this as any);
+    await refreshTerminalGitStatus(this);
   }
 
   /** Load tags from the database for task terminals */

@@ -12,8 +12,7 @@ import type { Project, ActiveSession, LastActiveView, HookStatus } from './types
 import { showToast } from './components/importDialog';
 import { showNewProjectDialog } from './components/newProjectDialog';
 import { initHotkeys } from './utils/hotkeys';
-import { enterProjectMode, exitProjectMode, restoreProjectMode, orphanedSessions, homeViewActive, projectRegistry, terminals } from './components/project';
-import { projectSessions } from './components/project/state';
+import { enterProjectMode, exitProjectMode, restoreProjectMode, homeViewActive, projectRegistry, getManager } from './components/project';
 import { renderSidebar, wireSidebarClicks, updateSidebarActiveState } from './components/sidebar';
 import { enterHomeView, exitHomeView } from './components/homeView';
 import { notifyReady, readyBody } from './utils/notifications';
@@ -100,7 +99,8 @@ async function initialize(): Promise<void> {
     if (activeSessions.length > 0) {
       rendererLog.info('found active PTY sessions', { count: activeSessions.length });
 
-      // Group sessions by project path and store in orphanedSessions map
+      // Group sessions by project path and store in manager's orphanedSessions map
+      const manager = getManager();
       const sessionsByProject = new Map<string, ActiveSession[]>();
       for (const session of activeSessions) {
         const existing = sessionsByProject.get(session.projectPath) || [];
@@ -110,7 +110,7 @@ async function initialize(): Promise<void> {
 
       // Populate orphanedSessions for ALL projects
       for (const [path, sessions] of sessionsByProject) {
-        orphanedSessions.set(path, sessions);
+        manager.orphanedSessions.set(path, sessions);
         rendererLog.info('stored orphaned sessions for project', { path, count: sessions.length });
       }
     }
@@ -134,9 +134,9 @@ async function initialize(): Promise<void> {
       if (lastView.type === 'project' && lastView.path) {
         const project = allProjects.find(p => p.path === lastView.path);
         if (project) {
-          const sessions = orphanedSessions.get(lastView.path);
+          const sessions = getManager().orphanedSessions.get(lastView.path);
           if (sessions) {
-            orphanedSessions.delete(lastView.path);
+            getManager().orphanedSessions.delete(lastView.path);
             await restoreProjectMode(lastView.path, project, sessions);
           } else {
             await enterProjectMode(lastView.path, project);
@@ -171,14 +171,16 @@ function registerGlobalHookStatusListener(): void {
     // Skip until initialization is complete (sessions not yet populated)
     if (!appInitialized) return;
 
+    const manager = getManager();
+
     // Skip if this ptyId belongs to the active project — project-mode listener handles those
-    if (terminals.value.some(t => t.ptyId === ptyId)) return;
+    if (manager.terminals.value.some(t => t.ptyId === ptyId)) return;
 
     // Keep summaryType in sync for background terminals (all status transitions)
-    for (const [, session] of projectSessions) {
+    for (const [, session] of manager.sessions) {
       const term = session.terminals.find(t => t.ptyId === ptyId);
       if (term) {
-        term.summaryType = status === 'thinking' ? 'thinking' : 'ready';
+        term.summaryType.value = status === 'thinking' ? 'thinking' : 'ready';
         break;
       }
     }
@@ -197,12 +199,12 @@ function registerGlobalHookStatusListener(): void {
       let oscTitle = '';
       let found = false;
 
-      for (const [, session] of projectSessions) {
+      for (const [, session] of manager.sessions) {
         const term = session.terminals.find(t => t.ptyId === ptyId);
         if (term) {
-          termLabel = term.label;
+          termLabel = term.label.value;
           projectName = session.projectData.name;
-          oscTitle = term.lastOscTitle;
+          oscTitle = term.lastOscTitle.value;
           found = true;
           break;
         }
@@ -210,11 +212,11 @@ function registerGlobalHookStatusListener(): void {
 
       // Also check orphanedSessions (sessions not yet reconnected to a project)
       if (!found) {
-        for (const [projectPath, sessions] of orphanedSessions) {
-          const session = sessions.find(s => s.ptyId === ptyId);
+        for (const [projPath, sessions] of manager.orphanedSessions) {
+          const session = sessions.find((s: ActiveSession) => s.ptyId === ptyId);
           if (session) {
             termLabel = session.label;
-            projectName = allProjects.find(p => p.path === projectPath)?.name ?? projectPath.split('/').pop() ?? 'Ouijit';
+            projectName = allProjects.find(p => p.path === projPath)?.name ?? projPath.split('/').pop() ?? 'Ouijit';
             break;
           }
         }

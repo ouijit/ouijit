@@ -3,9 +3,11 @@
  */
 
 import type { CompactGitStatus } from '../../types';
-import { projectState, GIT_STATUS_IDLE_DELAY, ProjectTerminal } from './state';
+import type { OuijitTerminal } from './terminal';
+import { projectState, GIT_STATUS_IDLE_DELAY } from './state';
 import { getTerminalGitPath } from './helpers';
-import { projectPath, terminals, gitDropdownVisible } from './signals';
+import { projectPath, gitDropdownVisible } from './signals';
+import { getManager } from './terminalManager';
 
 /**
  * Hide the git dropdown (cleanup for exitProjectMode)
@@ -84,8 +86,8 @@ export function resetDataDrivenRefreshTimestamp(): void {
  * @param onComplete - Optional callback to run after refresh (e.g., to update UI)
  */
 export function scheduleTerminalGitStatusRefresh(
-  term: ProjectTerminal,
-  onComplete?: (term: ProjectTerminal) => void
+  term: OuijitTerminal,
+  onComplete?: (term: OuijitTerminal) => void
 ): void {
   const key = term.ptyId;
   const existing = pendingTerminalGitRefreshes.get(key);
@@ -102,10 +104,10 @@ export function scheduleTerminalGitStatusRefresh(
 /**
  * Refresh git status for a specific terminal
  */
-export async function refreshTerminalGitStatus(term: ProjectTerminal): Promise<void> {
+export async function refreshTerminalGitStatus(term: OuijitTerminal): Promise<void> {
   const gitPath = getTerminalGitPath(term);
   const compactStatus = await window.api.getCompactGitStatus(gitPath);
-  term.gitStatus = compactStatus;
+  term.gitStatus.value = compactStatus;
 }
 
 /**
@@ -113,11 +115,12 @@ export async function refreshTerminalGitStatus(term: ProjectTerminal): Promise<v
  * Terminals sharing the same project path only trigger one IPC call
  */
 export async function refreshAllTerminalGitStatus(): Promise<void> {
-  const currentTerminals = terminals.value;
+  const manager = getManager();
+  const currentTerminals = manager.terminals.value;
   if (currentTerminals.length === 0) return;
 
   // Group terminals by git path to avoid duplicate IPC calls
-  const pathToTerminals = new Map<string, ProjectTerminal[]>();
+  const pathToTerminals = new Map<string, OuijitTerminal[]>();
   for (const term of currentTerminals) {
     const gitPath = getTerminalGitPath(term);
     const group = pathToTerminals.get(gitPath);
@@ -133,7 +136,7 @@ export async function refreshAllTerminalGitStatus(): Promise<void> {
     Array.from(pathToTerminals.entries()).map(async ([gitPath, terms]) => {
       const compactStatus = await window.api.getCompactGitStatus(gitPath);
       for (const term of terms) {
-        term.gitStatus = compactStatus;
+        term.gitStatus.value = compactStatus;
       }
     })
   );

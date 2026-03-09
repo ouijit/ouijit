@@ -3,7 +3,8 @@
  */
 
 import type { TaskWithWorkspace } from '../../types';
-import { projectPath, terminals, invalidateTaskList } from './signals';
+import { projectPath, invalidateTaskList } from './signals';
+import { getManager } from './terminalManager';
 import { showToast } from '../importDialog';
 import { projectRegistry } from './helpers';
 import { setCardLoading } from './kanbanBoard';
@@ -148,7 +149,7 @@ export async function closeTask(path: string, task: TaskWithWorkspace): Promise<
   if (task.taskNumber == null) return;
   setCardLoading(task.taskNumber, true);
   // Close any open terminals for this task
-  const currentTerminals = terminals.value;
+  const currentTerminals = getManager().terminals.value;
   for (let i = currentTerminals.length - 1; i >= 0; i--) {
     const term = currentTerminals[i];
     if (term.taskId === task.taskNumber) {
@@ -204,7 +205,7 @@ export async function deleteTask(path: string, task: TaskWithWorkspace): Promise
   setCardLoading(task.taskNumber, true);
 
   // Close any open terminals for this task first
-  const currentTerminals = terminals.value;
+  const currentTerminals = getManager().terminals.value;
   for (let i = currentTerminals.length - 1; i >= 0; i--) {
     const term = currentTerminals[i];
     if (term.taskId === task.taskNumber) {

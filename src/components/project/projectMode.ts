@@ -2,25 +2,15 @@
  * Project mode orchestration - enter/exit, session management
  */
 
-import { Terminal } from '@xterm/xterm';
-import { FitAddon } from '@xterm/addon-fit';
-import { WebLinksAddon } from '@xterm/addon-web-links';
-import { convertIconsIn } from '../../utils/icons';
 import log from 'electron-log/renderer';
 import type { Project, ActiveSession } from '../../types';
 import {
   projectState,
-  projectSessions,
-  orphanedSessions,
-  ensureHiddenSessionsContainer,
   GIT_STATUS_PERIODIC_INTERVAL,
-  ProjectTerminal,
 } from './state';
 import {
   projectPath,
   projectData,
-  terminals,
-  activeIndex,
   diffPanelVisible,
   diffPanelFiles,
   diffPanelSelectedFile,
@@ -28,7 +18,6 @@ import {
   kanbanVisible,
   resetSignals,
 } from './signals';
-import { initializeEffects } from './effects';
 import {
   hideGitDropdown,
   refreshAllTerminalGitStatus,
@@ -47,21 +36,8 @@ import {
   addProjectTerminal,
   updateCardStack,
   showStackEmptyState,
-  switchToProjectTerminal,
-  selectByStackPosition,
-  setupCardActions,
-  setupTerminalAppHotkeys,
-  debouncedResize,
   closeProjectTerminal,
-  clearDataThrottle,
-  getTerminalTheme,
-  createProjectCard,
-  updateTerminalCardLabel,
-  updateRunnerPill,
-  navigateStackPage,
-  registerHookStatusListener,
-  unregisterHookStatusListener,
-  resetIdleTimer,
+  setupCardActions,
   reconnectTerminal,
 } from './terminalCards';
 import {
@@ -71,7 +47,10 @@ import {
 } from './launchDropdown';
 import { hideKanbanBoard, showKanbanBoard, showKanbanAndFocusInput, syncViewToggle } from './kanbanBoard';
 import { projectRegistry } from './helpers';
+import { OuijitTerminal } from './terminal';
+import { getManager } from './terminalManager';
 import { registerHotkey, unregisterHotkey, pushScope, popScope, Scopes, platformHotkey } from '../../utils/hotkeys';
+import { convertIconsIn } from '../../utils/icons';
 import { showHookConfigDialog } from '../hookConfigDialog';
 import { addTooltip, convertTitlesIn } from '../../utils/tooltip';
 
@@ -132,8 +111,10 @@ export async function enterProjectMode(
 ): Promise<void> {
   if (projectPath.value) return; // Already in project mode
 
+  const manager = getManager();
+
   // Check for preserved session
-  const existingSession = projectSessions.get(path);
+  const existingSession = manager.getSession(path);
 
   // Store project data for later use in signals
   projectPath.value = path;
@@ -143,10 +124,10 @@ export async function enterProjectMode(
   window.api.globalSettings.set('lastActiveView', JSON.stringify({ type: 'project', path }));
 
   // Initialize reactive effects
-  initializeEffects();
+  manager.initializeEffects();
 
   // Register global Claude hook status listener
-  registerHookStatusListener();
+  manager.registerHookStatusListener();
 
   // 1. Add class to body - CSS handles the rest
   document.body.classList.add('project-mode');
@@ -168,59 +149,42 @@ export async function enterProjectMode(
   const mainContent = document.querySelector('.main-content');
   if (mainContent) {
     if (existingSession) {
-      // Restore existing session into signals
-      terminals.value = existingSession.terminals;
-      activeIndex.value = existingSession.activeIndex;
+      // Restore existing session — adds terminals back to manager, reattaches
+      const session = manager.restoreSession(path)!;
 
       // Move stack from hidden container back to main content
-      mainContent.appendChild(existingSession.stackElement);
+      mainContent.appendChild(session.stackElement);
 
-      // Reconnect resize observers and refit terminals
-      for (const term of terminals.value) {
-        const xtermContainer = term.container.querySelector('.terminal-xterm-container') as HTMLElement;
-        if (xtermContainer) {
-          term.resizeObserver = new ResizeObserver(() => {
-            debouncedResize(term.ptyId, term.terminal, term.fitAddon);
-          });
-          term.resizeObserver.observe(xtermContainer);
-        }
-
-        // Refit after DOM reattachment
+      // Refit terminals after DOM reattachment
+      for (const term of manager.terminals.value) {
         requestAnimationFrame(() => {
-          term.fitAddon.fit();
-          window.api.pty.resize(term.ptyId, term.terminal.cols, term.terminal.rows);
+          term.fit();
         });
       }
 
       // Seed hook status from main process (may have changed while viewing another project)
-      const hookSeeds = terminals.value.map(async (term) => {
+      const hookSeeds = manager.terminals.value.map(async (term) => {
         const hookStatus = await window.api.claudeHooks.getStatus(term.ptyId);
         if (hookStatus) {
-          term.summaryType = hookStatus.status === 'thinking' ? 'thinking' : 'ready';
-          updateTerminalCardLabel(term);
+          term.handleHookStatus(hookStatus.status === 'thinking' ? 'thinking' : 'ready');
         }
       });
       await Promise.all(hookSeeds);
       if (!projectPath.value) return; // exited during async hook status queries
 
-      // Focus the active terminal (effect will handle this too, but ensure immediate focus)
-      const currentTerminals = terminals.value;
-      const currentActiveIndex = activeIndex.value;
-      if (currentTerminals.length > 0) {
+      // Focus the active terminal
+      const activeTerm = manager.activeTerminal.value;
+      if (activeTerm) {
         requestAnimationFrame(() => {
-          currentTerminals[currentActiveIndex].terminal.focus();
+          activeTerm.xterm.focus();
         });
       }
-
-      // Remove from preserved sessions (now active)
-      projectSessions.delete(path);
 
       // Update card stack positions (effect handles this, but call for immediate update)
       updateCardStack();
 
       // Restore diff panels for terminals that had them open
-      // Diff panels are now inside each card, so we rebuild them
-      for (const term of currentTerminals) {
+      for (const term of manager.terminals.value) {
         if (term.diffPanelOpen && term.diffPanelFiles.length > 0) {
           // Re-create the diff panel inside this terminal's card
           const cardBody = term.container.querySelector('.project-card-body');
@@ -267,27 +231,24 @@ export async function enterProjectMode(
       }
 
       // Update global signals for active terminal
-      const activeTerm = currentTerminals[currentActiveIndex];
-      if (activeTerm?.diffPanelOpen) {
-        diffPanelFiles.value = activeTerm.diffPanelFiles;
-        diffPanelSelectedFile.value = activeTerm.diffPanelSelectedFile;
+      const currentActive = manager.activeTerminal.value;
+      if (currentActive?.diffPanelOpen) {
+        diffPanelFiles.value = currentActive.diffPanelFiles;
+        diffPanelSelectedFile.value = currentActive.diffPanelSelectedFile;
         diffPanelVisible.value = true;
       }
     } else {
-      // Create new session - signals start with empty arrays
-      terminals.value = [];
-      activeIndex.value = 0;
-
+      // Create new session
       const stack = document.createElement('div');
       stack.className = 'project-stack';
       mainContent.appendChild(stack);
 
       // Check for orphaned PTY sessions that survived an app refresh
-      const orphaned = orphanedSessions.get(path);
+      const orphaned = manager.orphanedSessions.get(path);
       if (orphaned && orphaned.length > 0) {
         // Reconnect to orphaned sessions
         projectLog.info('found orphaned PTY sessions, reconnecting', { count: orphaned.length });
-        orphanedSessions.delete(path); // Consume them
+        manager.orphanedSessions.delete(path); // Consume them
         window.api.pty.setWindow();
 
         // Separate main terminals from runners
@@ -310,7 +271,7 @@ export async function enterProjectMode(
         // Then reconnect runners to their parent terminals
         for (const runnerSession of runnerSessions) {
           // Find parent terminal by matching parentPtyId
-          const parentTerminal = terminals.value.find(t => t.ptyId === runnerSession.parentPtyId);
+          const parentTerminal = manager.findByPtyId(runnerSession.parentPtyId!);
           if (parentTerminal) {
             await reconnectRunnerToParent(runnerSession, parentTerminal);
           } else {
@@ -318,7 +279,7 @@ export async function enterProjectMode(
           }
         }
 
-        if (terminals.value.length > 0) {
+        if (manager.terminals.value.length > 0) {
           updateCardStack();
         } else {
           showStackEmptyState();
@@ -331,7 +292,6 @@ export async function enterProjectMode(
   }
 
   // 4. Set up keyboard shortcuts for project mode
-  // Use platformHotkey() to convert 'mod+' to 'command+' on Mac or 'ctrl+' on Linux/Windows
   pushScope(Scopes.PROJECT);
   registerHotkey(platformHotkey('mod+n'), Scopes.PROJECT, () => showKanbanAndFocusInput());
   registerHotkey(platformHotkey('mod+t'), Scopes.PROJECT, () => projectRegistry.toggleKanbanBoard?.());
@@ -339,21 +299,22 @@ export async function enterProjectMode(
   registerHotkey(platformHotkey('mod+p'), Scopes.PROJECT, () => projectRegistry.playOrToggleRunner?.());
   registerHotkey(platformHotkey('mod+d'), Scopes.PROJECT, () => projectRegistry.toggleActiveDiffPanel?.());
   registerHotkey(platformHotkey('mod+w'), Scopes.PROJECT, () => {
-    if (terminals.value.length > 0) {
-      closeProjectTerminal(activeIndex.value);
+    const activeTerm = manager.activeTerminal.value;
+    if (activeTerm) {
+      closeProjectTerminal(activeTerm);
     }
   });
 
   // Mod+1-9 to select by stack position (terminals or tasks in empty state)
   for (let i = 1; i <= 9; i++) {
     registerHotkey(platformHotkey(`mod+${i}`), Scopes.PROJECT, () => {
-      selectByStackPosition(i);
+      manager.selectByStackPosition(i);
     });
   }
 
   // Mod+Shift+Left/Right to navigate stack pages
-  registerHotkey(platformHotkey('mod+shift+left'), Scopes.PROJECT, () => navigateStackPage(-1));
-  registerHotkey(platformHotkey('mod+shift+right'), Scopes.PROJECT, () => navigateStackPage(1));
+  registerHotkey(platformHotkey('mod+shift+left'), Scopes.PROJECT, () => manager.navigateStackPage(-1));
+  registerHotkey(platformHotkey('mod+shift+right'), Scopes.PROJECT, () => manager.navigateStackPage(1));
 
   // 5. Restore view: kanban if previously visible (or first entry), otherwise terminal stack
   if (!existingSession || existingSession.kanbanWasVisible) {
@@ -367,11 +328,7 @@ export async function enterProjectMode(
     if (projectState.gitStatusPeriodicInterval) clearInterval(projectState.gitStatusPeriodicInterval);
     projectState.gitStatusPeriodicInterval = setInterval(() => {
       if (shouldSkipPeriodicRefresh()) return;
-      refreshAllTerminalGitStatus().then(() => {
-        for (const term of terminals.value) {
-          updateTerminalCardLabel(term);
-        }
-      });
+      refreshAllTerminalGitStatus();
     }, GIT_STATUS_PERIODIC_INTERVAL);
   }
 }
@@ -383,45 +340,15 @@ export function exitProjectMode(): void {
   const currentProjectPath = projectPath.value;
   if (!currentProjectPath) return;
 
-  const currentTerminals = terminals.value;
-  const currentProjectData = projectData.value;
+  const manager = getManager();
 
   // 1. Handle session preservation or cleanup
-  const stack = document.querySelector('.project-stack') as HTMLElement;
-  if (stack) {
-    if (currentTerminals.length > 0 && currentProjectData) {
-      // Store session for later restoration
-      // Disconnect resize observers while hidden (will reconnect on restore)
-      for (const term of currentTerminals) {
-        if (term.resizeObserver) {
-          term.resizeObserver.disconnect();
-        }
-      }
-
-      // Clear trailing-edge data throttle timers for preserved terminals
-      for (const term of currentTerminals) {
-        clearDataThrottle(term.ptyId);
-      }
-
-      // Move stack to hidden container
-      const hiddenContainer = ensureHiddenSessionsContainer();
-      hiddenContainer.appendChild(stack);
-
-      // Store session data including view and diff panel state
-      projectSessions.set(currentProjectPath, {
-        terminals: [...currentTerminals],
-        activeIndex: activeIndex.value,
-        projectData: currentProjectData,
-        stackElement: stack,
-        kanbanWasVisible: kanbanVisible.value,
-        diffPanelWasOpen: diffPanelVisible.value,
-        diffSelectedFile: diffPanelSelectedFile.value,
-        diffFiles: [...diffPanelFiles.value],
-      });
-    } else {
-      // No terminals to preserve - just remove the stack
-      stack.remove();
-    }
+  if (manager.terminals.value.length > 0 && projectData.value) {
+    manager.preserveSession(currentProjectPath);
+  } else {
+    // No terminals to preserve - just remove the stack
+    const stack = document.querySelector('.project-stack') as HTMLElement;
+    if (stack) stack.remove();
   }
 
   // 2. Remove class from body
@@ -434,7 +361,7 @@ export function exitProjectMode(): void {
   }
 
   // 4. Unregister Claude hook status listener
-  unregisterHookStatusListener();
+  manager.unregisterHookStatusListener();
 
   // 5. Remove keyboard shortcuts and pop scope
   unregisterHotkey(platformHotkey('mod+n'), Scopes.PROJECT);
@@ -489,39 +416,22 @@ export function exitProjectMode(): void {
  * Permanently destroy all project sessions for a project
  * Call this when you want to truly close sessions, not just switch away
  */
-export function destroyProjectSessions(projectPath: string): void {
-  const session = projectSessions.get(projectPath);
-  if (!session) return;
-
-  // Kill all PTYs and clean up
-  for (const term of session.terminals) {
-    window.api.pty.kill(term.ptyId);
-    if (term.cleanupData) term.cleanupData();
-    if (term.cleanupExit) term.cleanupExit();
-    if (term.resizeObserver) term.resizeObserver.disconnect();
-    term.terminal.dispose();
-    term.container.remove();
-  }
-
-  // Remove stack element
-  session.stackElement.remove();
-
-  // Remove from storage
-  projectSessions.delete(projectPath);
+export function destroyProjectSessions(path: string): void {
+  getManager().destroySession(path);
 }
 
 /**
  * Get list of projects with preserved project sessions
  */
 export function getPreservedSessionPaths(): string[] {
-  return Array.from(projectSessions.keys());
+  return getManager().getPreservedSessionPaths();
 }
 
 /**
  * Check if a project has a preserved project session
  */
-export function hasPreservedSession(projectPath: string): boolean {
-  return projectSessions.has(projectPath);
+export function hasPreservedSession(path: string): boolean {
+  return getManager().hasSession(path);
 }
 
 /**
@@ -544,6 +454,8 @@ export async function restoreProjectMode(
 
   projectLog.info('restoring project mode', { path, sessions: activeSessions.length });
 
+  const manager = getManager();
+
   // Update window reference in main process
   window.api.pty.setWindow();
 
@@ -555,10 +467,10 @@ export async function restoreProjectMode(
   window.api.globalSettings.set('lastActiveView', JSON.stringify({ type: 'project', path }));
 
   // Initialize reactive effects
-  initializeEffects();
+  manager.initializeEffects();
 
   // Register global Claude hook status listener
-  registerHookStatusListener();
+  manager.registerHookStatusListener();
 
   // 1. Add class to body
   document.body.classList.add('project-mode');
@@ -573,9 +485,6 @@ export async function restoreProjectMode(
   // 3. Create stack and restore terminals
   const mainContent = document.querySelector('.main-content');
   if (mainContent) {
-    terminals.value = [];
-    activeIndex.value = 0;
-
     const stack = document.createElement('div');
     stack.className = 'project-stack';
     mainContent.appendChild(stack);
@@ -602,7 +511,7 @@ export async function restoreProjectMode(
 
     // Then reconnect runners to their parent terminals
     for (const runnerSession of runnerSessions) {
-      const parentTerminal = terminals.value.find(t => t.ptyId === runnerSession.parentPtyId);
+      const parentTerminal = manager.findByPtyId(runnerSession.parentPtyId!);
       if (parentTerminal) {
         await reconnectRunnerToParent(runnerSession, parentTerminal);
       } else {
@@ -610,7 +519,7 @@ export async function restoreProjectMode(
       }
     }
 
-    if (terminals.value.length > 0) {
+    if (manager.terminals.value.length > 0) {
       updateCardStack();
     } else {
       showStackEmptyState();
@@ -625,21 +534,22 @@ export async function restoreProjectMode(
   registerHotkey(platformHotkey('mod+p'), Scopes.PROJECT, () => projectRegistry.playOrToggleRunner?.());
   registerHotkey(platformHotkey('mod+d'), Scopes.PROJECT, () => projectRegistry.toggleActiveDiffPanel?.());
   registerHotkey(platformHotkey('mod+w'), Scopes.PROJECT, () => {
-    if (terminals.value.length > 0) {
-      closeProjectTerminal(activeIndex.value);
+    const activeTerm = manager.activeTerminal.value;
+    if (activeTerm) {
+      closeProjectTerminal(activeTerm);
     }
   });
 
   // Mod+1-9 to select by stack position (terminals or tasks in empty state)
   for (let i = 1; i <= 9; i++) {
     registerHotkey(platformHotkey(`mod+${i}`), Scopes.PROJECT, () => {
-      selectByStackPosition(i);
+      manager.selectByStackPosition(i);
     });
   }
 
   // Mod+Shift+Left/Right to navigate stack pages
-  registerHotkey(platformHotkey('mod+shift+left'), Scopes.PROJECT, () => navigateStackPage(-1));
-  registerHotkey(platformHotkey('mod+shift+right'), Scopes.PROJECT, () => navigateStackPage(1));
+  registerHotkey(platformHotkey('mod+shift+left'), Scopes.PROJECT, () => manager.navigateStackPage(-1));
+  registerHotkey(platformHotkey('mod+shift+right'), Scopes.PROJECT, () => manager.navigateStackPage(1));
 
   // 5. Show kanban board by default (after PROJECT scope so KANBAN scope stacks on top)
   await showKanbanBoard();
@@ -647,21 +557,13 @@ export async function restoreProjectMode(
   // 6. Refresh git status immediately and start periodic refresh
   if (project.hasGit) {
     // Immediate refresh so git info shows right away
-    refreshAllTerminalGitStatus().then(() => {
-      for (const term of terminals.value) {
-        updateTerminalCardLabel(term);
-      }
-    });
+    refreshAllTerminalGitStatus();
 
     // Periodic refresh for ongoing changes
     if (projectState.gitStatusPeriodicInterval) clearInterval(projectState.gitStatusPeriodicInterval);
     projectState.gitStatusPeriodicInterval = setInterval(() => {
       if (shouldSkipPeriodicRefresh()) return;
-      refreshAllTerminalGitStatus().then(() => {
-        for (const term of terminals.value) {
-          updateTerminalCardLabel(term);
-        }
-      });
+      refreshAllTerminalGitStatus();
     }, GIT_STATUS_PERIODIC_INTERVAL);
   }
 }
@@ -673,63 +575,47 @@ async function reconnectProjectTerminal(session: ActiveSession, worktreeBranch?:
   const stack = document.querySelector('.project-stack');
   if (!stack) return;
 
+  const manager = getManager();
+
   // Query main-process hook status for correct initial state
   const hookStatus = await window.api.claudeHooks.getStatus(session.ptyId);
   const initialStatus = hookStatus?.status === 'thinking' ? 'thinking' as const : 'ready' as const;
 
-  const projectTerminal = await reconnectTerminal(session, stack as HTMLElement, {
+  const term = await reconnectTerminal(session, stack as HTMLElement, {
     worktreeBranch,
-    onData: (ptyId) => resetIdleTimer(ptyId),
     initialStatus,
   });
 
   // Guard: project mode may have been exited during the async reconnect
-  if (!projectTerminal || !projectPath.value) {
-    if (projectTerminal) {
-      projectTerminal.terminal.dispose();
-      projectTerminal.container.remove();
+  if (!term || !projectPath.value) {
+    if (term) {
+      term.xterm.dispose();
+      term.container.remove();
     }
     return;
   }
 
-  // Wire project-mode-specific handlers
-  const closeBtn = projectTerminal.container.querySelector('.project-card-close') as HTMLButtonElement;
-  if (closeBtn) {
-    closeBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const idx = terminals.value.indexOf(projectTerminal);
-      if (idx !== -1) closeProjectTerminal(idx);
-    });
-  }
+  // Add to manager (wires close/click handlers automatically)
+  manager.add(term);
 
-  projectTerminal.container.addEventListener('click', () => {
-    const idx = terminals.value.indexOf(projectTerminal);
-    if (idx !== -1 && idx !== activeIndex.value) {
-      switchToProjectTerminal(idx);
-    }
-  });
-
-  projectTerminal.cleanupExit = window.api.pty.onExit(session.ptyId, () => {
+  // Wire exit handler for project mode (auto-close on exit)
+  term.cleanupExit = window.api.pty.onExit(session.ptyId, () => {
     projectLog.info('terminal exited', { ptyId: session.ptyId });
-    const idx = terminals.value.indexOf(projectTerminal);
-    if (idx !== -1) closeProjectTerminal(idx);
+    closeProjectTerminal(term);
   });
-
-  // Add to terminals array
-  terminals.value = [...terminals.value, projectTerminal];
 
   // Set up card action buttons (runner pill for all, close-task for worktrees)
-  setupCardActions(projectTerminal);
+  setupCardActions(term);
 
   // Mark sandboxed terminals
-  if (projectTerminal.sandboxed) {
-    const dot = projectTerminal.container.querySelector('.project-card-status-dot');
+  if (term.sandboxed) {
+    const dot = term.container.querySelector('.project-card-status-dot');
     if (dot) dot.classList.add('project-card-status-dot--sandboxed');
   }
 
   // Focus if this is the first terminal
-  if (terminals.value.length === 1) {
-    projectTerminal.terminal.focus();
+  if (manager.terminals.value.length === 1) {
+    term.xterm.focus();
   }
 }
 
@@ -738,95 +624,76 @@ async function reconnectProjectTerminal(session: ActiveSession, worktreeBranch?:
  */
 async function reconnectRunnerToParent(
   session: ActiveSession,
-  parentTerminal: ProjectTerminal
+  parentTerminal: OuijitTerminal
 ): Promise<void> {
   // Create runner terminal (hidden until panel is opened)
-  const runnerTerminal = new Terminal({
-    theme: getTerminalTheme(),
-    fontFamily: 'Iosevka Term Extended, SF Mono, Monaco, Menlo, monospace',
-    fontSize: 14,
-    lineHeight: 1.2,
-    cursorBlink: false,
-    cursorStyle: 'bar',
-    allowTransparency: false,
-    scrollback: 2000,
+  const runner = new OuijitTerminal({
+    ptyId: session.ptyId,
+    projectPath: session.projectPath,
+    command: session.command,
+    label: session.label,
+    isRunner: true,
   });
 
-  const runnerFitAddon = new FitAddon();
-  runnerTerminal.loadAddon(runnerFitAddon);
-  runnerTerminal.loadAddon(new WebLinksAddon((_event, uri) => {
-    window.api.openExternal(uri);
-  }));
-
-  // Let app hotkeys pass through xterm
-  setupTerminalAppHotkeys(runnerTerminal);
+  // Open xterm but don't add to DOM — it will be opened into panel when showRunnerPanel is called
+  // We need the xterm instance alive so we can receive and buffer PTY data
+  const tempContainer = document.createElement('div');
+  tempContainer.style.display = 'none';
+  document.body.appendChild(tempContainer);
+  tempContainer.appendChild(runner.container);
+  runner.openTerminal();
 
   // Reconnect to existing PTY
   const result = await window.api.pty.reconnect(session.ptyId);
 
   // Guard: project mode may have been exited or parent closed during async reconnect
-  if (!projectPath.value || !terminals.value.includes(parentTerminal)) {
-    runnerTerminal.dispose();
+  if (!projectPath.value || !getManager().terminals.value.includes(parentTerminal)) {
+    runner.xterm.dispose();
+    runner.container.remove();
+    tempContainer.remove();
     return;
   }
 
   if (!result.success) {
     projectLog.error('failed to reconnect runner PTY', { ptyId: session.ptyId, error: result.error });
-    runnerTerminal.dispose();
+    runner.xterm.dispose();
+    runner.container.remove();
+    tempContainer.remove();
     return;
   }
 
-  // Set up parent terminal's runner state
-  parentTerminal.runnerPtyId = session.ptyId;
-  parentTerminal.runnerTerminal = runnerTerminal;
-  parentTerminal.runnerFitAddon = runnerFitAddon;
-  parentTerminal.runnerLabel = session.label;
-  parentTerminal.runnerStatus = 'running'; // Assume running since it's being restored
-
   // Replay buffered output
-  if (result.bufferedOutput) {
-    runnerTerminal.reset();
-    runnerTerminal.write(result.bufferedOutput);
-  }
+  runner.replayBuffer(result.bufferedOutput, result.lastCols, result.isAltScreen);
 
-  // Set up data handler
-  parentTerminal.runnerCleanupData = window.api.pty.onData(session.ptyId, (data) => {
-    runnerTerminal.write(data);
-
-    // Extract OSC title sequences to update runner label
-    const oscMatches = data.matchAll(/\x1b\]0;([^\x07]*)\x07/g);
-    for (const match of oscMatches) {
-      if (match[1]) {
-        parentTerminal.runnerLabel = match[1];
-        updateRunnerPill(parentTerminal);
-        // Update panel title if visible
-        const panelTitle = parentTerminal.container.querySelector('.runner-panel-title');
-        if (panelTitle) {
-          panelTitle.textContent = match[1];
+  // Bind with runner-specific handlers
+  runner.bind(session.ptyId, {
+    skipSideEffects: true,
+    onData: (data) => {
+      // Extract OSC title sequences to update runner label
+      const oscMatches = data.matchAll(/\x1b\]0;([^\x07]*)\x07/g);
+      for (const match of oscMatches) {
+        if (match[1]) {
+          parentTerminal.runnerCommand = match[1];
+          parentTerminal.updateRunnerPill();
+          const panelTitle = parentTerminal.container.querySelector('.runner-panel-title');
+          if (panelTitle) panelTitle.textContent = match[1];
         }
       }
-    }
+    },
+    onExit: (exitCode) => {
+      parentTerminal.runnerStatus = exitCode === 0 ? 'success' : 'error';
+      parentTerminal.updateRunnerPill();
+    },
   });
 
-  // Set up exit handler
-  parentTerminal.runnerCleanupExit = window.api.pty.onExit(session.ptyId, (exitCode) => {
-    runnerTerminal.writeln('');
-    const exitColor = exitCode === 0 ? '32' : '31';
-    runnerTerminal.writeln(`\x1b[${exitColor}m● Process exited with code ${exitCode}\x1b[0m`);
+  // Set runner status to running (it's being restored from a live process)
+  parentTerminal.runnerStatus = 'running';
 
-    parentTerminal.runnerStatus = exitCode === 0 ? 'success' : 'error';
-    updateRunnerPill(parentTerminal);
-  });
+  // Attach runner to parent
+  parentTerminal.setRunner(runner);
 
-  // Forward terminal input to PTY
-  runnerTerminal.onData((data) => {
-    if (parentTerminal.runnerPtyId) {
-      window.api.pty.write(parentTerminal.runnerPtyId, data);
-    }
-  });
-
-  // Update runner pill to show running state
-  updateRunnerPill(parentTerminal);
+  // Clean up temp container (runner DOM is now owned by parent via setRunner)
+  tempContainer.remove();
 
   projectLog.info('reconnected runner to parent terminal', { runnerPtyId: session.ptyId, parentPtyId: parentTerminal.ptyId });
 }
@@ -1155,14 +1022,6 @@ async function buildSandboxDropdownContent(
     memRow.appendChild(memLabel);
 
     const memSelect = createSelect([2, 4, 8, 16], config.memoryGiB, 'GiB');
-    memSelect.addEventListener('change', (e) => {
-      e.stopPropagation();
-      const val = Number((e.target as HTMLSelectElement).value);
-      config.memoryGiB = val;
-      window.api.lima.setConfig(path, { memoryGiB: val }).catch((err: unknown) => {
-        projectLog.warn('failed to save memory config', { error: err instanceof Error ? err.message : String(err) });
-      });
-    });
     memRow.appendChild(memSelect);
     detailsContainer.appendChild(memRow);
 
@@ -1174,139 +1033,43 @@ async function buildSandboxDropdownContent(
     diskLabel.textContent = 'Disk';
     diskRow.appendChild(diskLabel);
 
-    const diskSelect = createSelect([10, 20, 50, 100], config.diskGiB, 'GiB');
-    diskSelect.addEventListener('change', (e) => {
-      e.stopPropagation();
-      const val = Number((e.target as HTMLSelectElement).value);
-      config.diskGiB = val;
-      window.api.lima.setConfig(path, { diskGiB: val }).catch((err: unknown) => {
-        projectLog.warn('failed to save disk config', { error: err instanceof Error ? err.message : String(err) });
-      });
-    });
+    const diskSelect = createSelect([50, 100, 200], config.diskGiB, 'GiB');
     diskRow.appendChild(diskSelect);
     detailsContainer.appendChild(diskRow);
-  }
 
-  updateDetailRows(status);
-
-  // Action buttons container
-  const vmExists = status.vmStatus === 'Running' || status.vmStatus === 'Stopped' || status.vmStatus === 'Broken';
-
-  // Start VM button (when stopped or not created)
-  if (status.vmStatus === 'Stopped' || status.vmStatus === 'Broken' || status.vmStatus === 'NotCreated') {
-    const startBtn = document.createElement('button');
-    startBtn.className = 'sandbox-dropdown-stop-btn';
-    startBtn.textContent = 'Start VM';
-    startBtn.addEventListener('click', async (e) => {
-      e.stopPropagation();
-      hideSandboxDropdown();
-      sandboxBtn.classList.remove('project-sandbox-btn--active');
-      setSandboxButtonStarting(true);
-      window.api.lima.start(path).catch(() => {});
-      // Poll until VM is running (timeout after 5 min)
-      const poll = setInterval(async () => {
-        try {
-          const s = await window.api.lima.status(path);
-          if (s.vmStatus === 'Running') {
-            clearInterval(poll);
-            await refreshSandboxButton(path);
-          }
-        } catch { /* ignore */ }
-      }, 3000);
-      setTimeout(() => { clearInterval(poll); refreshSandboxButton(path); }, 300_000);
+    // Wire config change handlers
+    memSelect.addEventListener('change', async () => {
+      const newMem = parseInt(memSelect.value, 10);
+      await window.api.lima.setConfig(path, { memoryGiB: newMem, diskGiB: config.diskGiB });
+      config.memoryGiB = newMem;
     });
-    dropdown.appendChild(startBtn);
-  }
 
-  // Stop VM button (only when running)
-  if (status.vmStatus === 'Running') {
-    const stopBtn = document.createElement('button');
-    stopBtn.className = 'sandbox-dropdown-stop-btn';
-    stopBtn.textContent = 'Stop VM';
-    stopBtn.addEventListener('click', async (e) => {
-      e.stopPropagation();
-      stopBtn.disabled = true;
-      stopBtn.textContent = 'Stopping...';
-      await window.api.lima.stop(path);
-      await refreshSandboxButton(path);
-      await buildSandboxDropdownContent(dropdown, wrapper, path);
+    diskSelect.addEventListener('change', async () => {
+      const newDisk = parseInt(diskSelect.value, 10);
+      await window.api.lima.setConfig(path, { memoryGiB: config.memoryGiB, diskGiB: newDisk });
+      config.diskGiB = newDisk;
     });
-    dropdown.appendChild(stopBtn);
 
-  }
+    // Usage row (only show when running and we have disk info)
+    if (s.vmStatus === 'Running' && s.disk != null) {
+      const usageRow = document.createElement('div');
+      usageRow.className = 'sandbox-dropdown-detail-row';
 
-  // VM Console — open a plain shell in the sandbox (creates/starts VM if needed)
-  const consoleBtn = document.createElement('button');
-  consoleBtn.className = 'sandbox-dropdown-stop-btn';
-  consoleBtn.textContent = 'VM Console';
-  consoleBtn.addEventListener('click', async (e) => {
-    e.stopPropagation();
-    hideSandboxDropdown();
-    if (kanbanVisible.value) hideKanbanBoard();
-    await projectRegistry.addProjectTerminal?.(
-      { name: 'VM Console', command: '', source: 'custom', priority: 0 },
-      { sandboxed: true },
-    );
-  });
-  dropdown.appendChild(consoleBtn);
+      const usageLabel = document.createElement('span');
+      usageLabel.className = 'sandbox-dropdown-detail-label';
+      usageLabel.textContent = 'Usage';
+      usageRow.appendChild(usageLabel);
 
-  // Recreate VM button (when VM exists)
-  if (vmExists) {
-    const recreateBtn = document.createElement('button');
-    recreateBtn.className = 'sandbox-dropdown-stop-btn';
-    recreateBtn.textContent = 'Recreate VM';
-    recreateBtn.addEventListener('click', async (e) => {
-      e.stopPropagation();
-      recreateBtn.disabled = true;
-      recreateBtn.textContent = 'Recreating...';
-      hideSandboxDropdown();
-      sandboxBtn.classList.remove('project-sandbox-btn--active');
-      setSandboxButtonStarting(true);
-      // Fire recreate — don't await, the IPC may never resolve
-      window.api.lima.recreate(path).catch(() => {});
-      // Poll lima status until VM is running (timeout after 5 min)
-      const poll = setInterval(async () => {
-        try {
-          const s = await window.api.lima.status(path);
+      const usageValue = document.createElement('span');
+      usageValue.className = 'sandbox-dropdown-detail-value';
+      usageValue.textContent = formatBytes(s.disk);
+      usageRow.appendChild(usageValue);
 
-          if (s.vmStatus === 'Running') {
-            clearInterval(poll);
-            await refreshSandboxButton(path);
-          }
-        } catch { /* ignore */ }
-      }, 3000);
-      setTimeout(() => { clearInterval(poll); refreshSandboxButton(path); }, 300_000);
-    });
-    dropdown.appendChild(recreateBtn);
-
-    // Delete VM button (when stopped or broken, with confirmation)
-    if (status.vmStatus === 'Stopped' || status.vmStatus === 'Broken') {
-      const deleteBtn = document.createElement('button');
-      deleteBtn.className = 'sandbox-dropdown-delete-btn';
-      deleteBtn.textContent = 'Delete VM';
-      let confirmPending = false;
-      deleteBtn.addEventListener('click', async (e) => {
-        e.stopPropagation();
-        if (!confirmPending) {
-          confirmPending = true;
-          deleteBtn.textContent = 'Confirm Delete';
-          deleteBtn.classList.add('sandbox-dropdown-delete-btn--confirm');
-          return;
-        }
-        deleteBtn.disabled = true;
-        deleteBtn.textContent = 'Deleting...';
-        await window.api.lima.delete(path);
-        await refreshSandboxButton(path);
-        await buildSandboxDropdownContent(dropdown, wrapper, path);
-      });
-      dropdown.appendChild(deleteBtn);
+      detailsContainer.appendChild(usageRow);
     }
   }
 
-  // Divider
-  const divider = document.createElement('div');
-  divider.className = 'sandbox-dropdown-divider';
-  dropdown.appendChild(divider);
+  updateDetailRows(status);
 
   // Setup hook row
   const hookRow = document.createElement('div');
@@ -1314,50 +1077,73 @@ async function buildSandboxDropdownContent(
 
   const hookLabel = document.createElement('span');
   hookLabel.className = 'sandbox-dropdown-detail-label';
-  hookLabel.textContent = 'Setup';
+  hookLabel.textContent = 'Setup hook';
   hookRow.appendChild(hookLabel);
 
-  const hookRight = document.createElement('div');
-  hookRight.className = 'sandbox-dropdown-hook-right';
-
-  if (setupHook?.command) {
-    const commandEl = document.createElement('span');
-    commandEl.className = 'sandbox-dropdown-hook-command';
-    commandEl.textContent = setupHook.command;
-    addTooltip(commandEl, { text: setupHook.command });
-    hookRight.appendChild(commandEl);
-
-    const editBtn = document.createElement('button');
-    editBtn.className = 'sandbox-dropdown-hook-edit';
-    editBtn.innerHTML = '<i data-icon="gear"></i>';
-    addTooltip(editBtn, { text: 'Edit setup hook' });
-    editBtn.addEventListener('click', async (e) => {
-      e.stopPropagation();
-      hideSandboxDropdown();
-      await showHookConfigDialog(path, 'sandbox-setup', setupHook);
-    });
-    hookRight.appendChild(editBtn);
+  const hookStatus = document.createElement('span');
+  hookStatus.className = 'sandbox-dropdown-detail-value';
+  if (setupHook) {
+    hookStatus.textContent = 'Configured';
+    hookStatus.classList.add('sandbox-dropdown-detail-value--running');
   } else {
-    const configureBtn = document.createElement('button');
-    configureBtn.className = 'sandbox-dropdown-hook-configure';
-    configureBtn.textContent = '+ Configure';
-    configureBtn.addEventListener('click', async (e) => {
-      e.stopPropagation();
-      hideSandboxDropdown();
-      await showHookConfigDialog(path, 'sandbox-setup', undefined);
-    });
-    hookRight.appendChild(configureBtn);
+    hookStatus.textContent = 'None';
   }
+  hookRow.appendChild(hookStatus);
 
-  hookRow.appendChild(hookRight);
+  hookRow.addEventListener('click', () => {
+    hideSandboxDropdown();
+    showHookConfigDialog(path, 'sandbox-setup');
+  });
+  addTooltip(hookRow, { text: 'Configure sandbox-setup hook', placement: 'bottom' });
+
   dropdown.appendChild(hookRow);
 
-  // Hint
-  const hint = document.createElement('div');
-  hint.className = 'sandbox-dropdown-hint';
-  hint.textContent = 'Runs once per VM session';
-  dropdown.appendChild(hint);
+  // Action buttons
+  const actionsContainer = document.createElement('div');
+  actionsContainer.className = 'sandbox-dropdown-actions';
 
-  // Render icons in the dropdown
-  convertIconsIn(document);
+  if (status.vmStatus === 'Running') {
+    // Stop button
+    const stopBtn = document.createElement('button');
+    stopBtn.className = 'btn btn-secondary btn-sm';
+    stopBtn.innerHTML = '<i data-icon="square"></i> Stop VM';
+    stopBtn.addEventListener('click', async () => {
+      stopBtn.disabled = true;
+      stopBtn.textContent = 'Stopping…';
+      try {
+        await window.api.lima.stop(path);
+        if (sandboxBtn) sandboxBtn.classList.remove('project-sandbox-btn--active');
+        const newStatus = await window.api.lima.status(path);
+        updateDetailRows(newStatus);
+      } finally {
+        hideSandboxDropdown();
+      }
+    });
+    actionsContainer.appendChild(stopBtn);
+  }
+
+  if (status.vmStatus === 'Broken' || status.vmStatus === 'Stopped') {
+    // Recreate button
+    const recreateBtn = document.createElement('button');
+    recreateBtn.className = 'btn btn-secondary btn-sm';
+    recreateBtn.innerHTML = '<i data-icon="refresh-cw"></i> Recreate VM';
+    recreateBtn.addEventListener('click', async () => {
+      recreateBtn.disabled = true;
+      recreateBtn.textContent = 'Recreating…';
+      try {
+        await window.api.lima.recreate(path);
+        if (sandboxBtn) sandboxBtn.classList.remove('project-sandbox-btn--active');
+        const newStatus = await window.api.lima.status(path);
+        updateDetailRows(newStatus);
+      } finally {
+        hideSandboxDropdown();
+      }
+    });
+    actionsContainer.appendChild(recreateBtn);
+  }
+
+  if (actionsContainer.children.length > 0) {
+    dropdown.appendChild(actionsContainer);
+    convertIconsIn(actionsContainer);
+  }
 }

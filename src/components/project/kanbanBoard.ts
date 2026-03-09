@@ -3,14 +3,14 @@
  */
 
 import type { TaskWithWorkspace, TaskStatus, RunConfig, HookType } from '../../types';
-import type { ProjectTerminal } from './state';
+import type { OuijitTerminal } from './terminal';
 import { projectState } from './state';
-import { projectPath, kanbanVisible, terminals, activeIndex, invalidateTaskList } from './signals';
+import { projectPath, kanbanVisible, invalidateTaskList } from './signals';
+import { getManager } from './terminalManager';
 import { projectRegistry } from './helpers';
 import { showToast } from '../importDialog';
 import { showHookConfigDialog, showCombinedHookConfigDialog } from '../hookConfigDialog';
 import { reopenTask, deleteTask, closeTask, showMissingWorktreeDialog } from './worktreeDropdown';
-import { switchToProjectTerminal } from './terminalCards';
 import { escapeHtml, setupHighlightedTextarea } from '../../utils/html';
 import { registerHotkey, unregisterHotkey, pushScope, popScope, Scopes, platformHotkey } from '../../utils/hotkeys';
 import { convertIconsIn } from '../../utils/icons';
@@ -40,7 +40,7 @@ function showKanbanCardContextMenu(
   onOpenTerminal: () => void,
   onSandbox: (() => void) | null,
   onOpenInEditor: (() => void) | null,
-  connectedTerminals: { terminal: ProjectTerminal; index: number }[],
+  connectedTerminals: { terminal: OuijitTerminal; index: number }[],
   onSwitchTerminal: (index: number) => void,
   onCloseOrReopen: () => void,
   closeOrReopenLabel: string,
@@ -62,7 +62,7 @@ function showKanbanCardContextMenu(
       item.className = 'task-context-menu-item';
       const dot = document.createElement('span');
       dot.className = 'kanban-card-status-dot';
-      dot.setAttribute('data-status', terminal.summaryType);
+      dot.setAttribute('data-status', terminal.summaryType.value);
       dot.classList.toggle('kanban-card-status-dot--sandboxed', terminal.sandboxed);
       item.appendChild(dot);
       // Show distinguishing info instead of repeating the task title
@@ -71,8 +71,8 @@ function showKanbanCardContextMenu(
         menuLabel = terminal.command.length > 40
           ? terminal.command.slice(0, 40) + '…'
           : terminal.command;
-      } else if (terminal.lastOscTitle) {
-        const cleaned = terminal.lastOscTitle.replace(/\p{Extended_Pictographic}/gu, '').trim();
+      } else if (terminal.lastOscTitle.value) {
+        const cleaned = terminal.lastOscTitle.value.replace(/\p{Extended_Pictographic}/gu, '').trim();
         if (cleaned) {
           menuLabel = cleaned.length > 40 ? cleaned.slice(0, 40) + '…' : cleaned;
         } else {
@@ -81,8 +81,8 @@ function showKanbanCardContextMenu(
       } else {
         menuLabel = 'Shell';
       }
-      if (terminal.summary) {
-        menuLabel += ` — ${terminal.summary}`;
+      if (terminal.summary.value) {
+        menuLabel += ` — ${terminal.summary.value}`;
       }
       item.appendChild(document.createTextNode(menuLabel));
       item.addEventListener('click', (e) => {
@@ -458,7 +458,7 @@ function buildKanbanCard(task: TaskWithWorkspace, path: string, limaAvailable: b
 
   // Right-click context menu
   card.addEventListener('contextmenu', (e) => {
-    const connectedTerminals = terminals.value
+    const connectedTerminals = getManager().terminals.value
       .map((t, i) => ({ terminal: t, index: i }))
       .filter(({ terminal: t }) => t.taskId === task.taskNumber);
 
@@ -575,8 +575,8 @@ function buildKanbanCard(task: TaskWithWorkspace, path: string, limaAvailable: b
 
     const onSwitchTerminal = (idx: number) => {
       hideKanbanBoard();
-      if (idx !== activeIndex.value) {
-        switchToProjectTerminal(idx);
+      if (idx !== getManager().activeIndex.value) {
+        getManager().switchToIndex(idx);
       }
     };
 
@@ -701,7 +701,7 @@ async function handleTrashDrop(evt: Sortable.SortableEvent): Promise<void> {
   if (!path) return;
 
   // Close any open terminals for this task
-  const currentTerminals = terminals.value;
+  const currentTerminals = getManager().terminals.value;
   for (let i = currentTerminals.length - 1; i >= 0; i--) {
     if (currentTerminals[i].taskId === taskNumber) {
       projectRegistry.closeProjectTerminal?.(i);
@@ -922,7 +922,7 @@ async function handleSortableEnd(evt: Sortable.SortableEvent): Promise<void> {
 
   if (newStatus === 'done') {
     // Close any open terminals for this task
-    const currentTerminals = terminals.value;
+    const currentTerminals = getManager().terminals.value;
     for (let i = currentTerminals.length - 1; i >= 0; i--) {
       if (currentTerminals[i].taskId === taskNumber) {
         projectRegistry.closeProjectTerminal?.(i);
@@ -1295,7 +1295,7 @@ export function syncKanbanStatusDots(): void {
   document.querySelectorAll('.kanban-dot-tooltip').forEach(t => t.remove());
 
   const cards = document.querySelectorAll('.kanban-card[data-task-number]');
-  const terminalList = terminals.value;
+  const terminalList = getManager().terminals.value;
   cards.forEach(card => {
     const taskNumber = parseInt((card as HTMLElement).dataset.taskNumber || '', 10);
     if (isNaN(taskNumber)) return;
@@ -1324,8 +1324,8 @@ export function syncKanbanStatusDots(): void {
 
         // Build label text
         let label: string;
-        if (term.lastOscTitle) {
-          const cleaned = term.lastOscTitle.replace(/\p{Extended_Pictographic}/gu, '').trim();
+        if (term.lastOscTitle.value) {
+          const cleaned = term.lastOscTitle.value.replace(/\p{Extended_Pictographic}/gu, '').trim();
           label = cleaned || 'Shell';
         } else if (term.command) {
           label = term.command;
@@ -1345,7 +1345,7 @@ export function syncKanbanStatusDots(): void {
 
         const dot = document.createElement('span');
         dot.className = 'kanban-card-status-dot';
-        dot.setAttribute('data-status', term.summaryType);
+        dot.setAttribute('data-status', term.summaryType.value);
         dot.classList.toggle('kanban-card-status-dot--sandboxed', term.sandboxed);
         row.appendChild(dot);
 
@@ -1357,8 +1357,8 @@ export function syncKanbanStatusDots(): void {
         row.addEventListener('click', (e) => {
           e.stopPropagation();
           hideKanbanBoard();
-          if (termIndex !== activeIndex.value) {
-            switchToProjectTerminal(termIndex);
+          if (termIndex !== getManager().activeIndex.value) {
+            getManager().switchToIndex(termIndex);
           }
         });
         stack.appendChild(row);

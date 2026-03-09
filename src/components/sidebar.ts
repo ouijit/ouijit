@@ -5,8 +5,8 @@
 import type { Project } from '../types';
 import { stringToColor, getInitials } from '../utils/projectIcon';
 import { addTooltip } from '../utils/tooltip';
-import { projectPath, homeViewActive, terminals } from './project/signals';
-import { projectSessions } from './project/state';
+import { projectPath, homeViewActive } from './project/signals';
+import { getManager } from './project/terminalManager';
 import { showToast } from './importDialog';
 
 // Mutable project lookup - updated whenever sidebar is re-rendered
@@ -104,8 +104,9 @@ export function updateSidebarActiveState(): void {
     el.classList.toggle('sidebar-item--active', isActive);
 
     // Session count badge: always show terminal count
-    const session = projectSessions.get(el.dataset.projectPath!);
-    const count = isActive ? terminals.value.length : (session ? session.terminals.length : 0);
+    const manager = getManager();
+    const session = manager.sessions.get(el.dataset.projectPath!);
+    const count = isActive ? manager.terminals.value.length : (session ? session.terminals.length : 0);
     let badge = el.querySelector('.sidebar-session-badge') as HTMLElement | null;
     if (count > 0) {
       if (!badge) {

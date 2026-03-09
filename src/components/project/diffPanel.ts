@@ -4,18 +4,17 @@
  */
 
 import type { ChangedFile, FileDiff } from '../../types';
-import { ProjectTerminal } from './state';
+import type { OuijitTerminal } from './terminal';
 import { getTerminalGitPath, hideRunnerPanel, projectRegistry } from './helpers';
 import {
   projectPath,
-  terminals,
-  activeIndex,
   diffPanelVisible,
   diffPanelFiles,
   diffPanelSelectedFile,
   diffPanelMode,
   diffPanelTaskId,
 } from './signals';
+import { getManager } from './terminalManager';
 import { convertIconsIn } from '../../utils/icons';
 import { escapeHtml } from '../../utils/html';
 import { convertTitlesIn } from '../../utils/tooltip';
@@ -341,12 +340,11 @@ export function buildDiffPanelHtml(files: ChangedFile[], showModeSelector: boole
  * Refit the active terminal after panel animation
  */
 function refitActiveTerminal(): void {
-  const currentTerminals = terminals.value;
-  const currentActiveIndex = activeIndex.value;
-  if (currentTerminals.length > 0 && currentActiveIndex < currentTerminals.length) {
-    const active = currentTerminals[currentActiveIndex];
+  const manager = getManager();
+  const active = manager.activeTerminal.value;
+  if (active) {
     active.fitAddon.fit();
-    window.api.pty.resize(active.ptyId, active.terminal.cols, active.terminal.rows);
+    window.api.pty.resize(active.ptyId, active.xterm.cols, active.xterm.rows);
   }
 }
 
@@ -378,7 +376,7 @@ function wireDiffPanel(
  * Unified function that handles both uncommitted and worktree modes
  * @param targetBranch - For worktree mode, the branch to compare against (defaults to task merge target or main)
  */
-export async function showTerminalComparePanel(term: ProjectTerminal, mode: 'uncommitted' | 'worktree', targetBranch?: string): Promise<void> {
+export async function showTerminalComparePanel(term: OuijitTerminal, mode: 'uncommitted' | 'worktree', targetBranch?: string): Promise<void> {
   if (term.diffPanelOpen) return;
 
   // Worktree mode requires a worktree branch
@@ -529,7 +527,7 @@ export async function showTerminalComparePanel(term: ProjectTerminal, mode: 'unc
  * Show target branch dropdown for switching the comparison target
  */
 async function showTargetBranchDropdown(
-  term: ProjectTerminal,
+  term: OuijitTerminal,
   panel: HTMLElement,
   targetContainer: HTMLElement,
   currentTarget: string
@@ -607,7 +605,7 @@ async function showTargetBranchDropdown(
 /**
  * Swap the compare target branch in-place without tearing down the panel
  */
-async function swapCompareTarget(term: ProjectTerminal, panel: HTMLElement, newTarget: string): Promise<void> {
+async function swapCompareTarget(term: OuijitTerminal, panel: HTMLElement, newTarget: string): Promise<void> {
   const basePath = projectPath.value;
   if (!basePath || !term.worktreeBranch) return;
 
@@ -677,21 +675,21 @@ async function swapCompareTarget(term: ProjectTerminal, panel: HTMLElement, newT
 /**
  * Show the diff panel for a specific terminal (uncommitted changes)
  */
-export async function showTerminalDiffPanel(term: ProjectTerminal): Promise<void> {
+export async function showTerminalDiffPanel(term: OuijitTerminal): Promise<void> {
   return showTerminalComparePanel(term, 'uncommitted');
 }
 
 /**
  * Show the worktree diff panel for a specific terminal (branch vs main comparison)
  */
-export async function showTerminalWorktreeDiffPanel(term: ProjectTerminal): Promise<void> {
+export async function showTerminalWorktreeDiffPanel(term: OuijitTerminal): Promise<void> {
   return showTerminalComparePanel(term, 'worktree');
 }
 
 /**
  * Hide the diff panel for a specific terminal
  */
-export function hideTerminalDiffPanel(term: ProjectTerminal): void {
+export function hideTerminalDiffPanel(term: OuijitTerminal): void {
   if (!term.diffPanelOpen) return;
 
   // Find the panel inside the card
@@ -712,8 +710,8 @@ export function hideTerminalDiffPanel(term: ProjectTerminal): void {
       // Refit terminal
       requestAnimationFrame(() => {
         term.fitAddon.fit();
-        window.api.pty.resize(term.ptyId, term.terminal.cols, term.terminal.rows);
-        term.terminal.focus();
+        window.api.pty.resize(term.ptyId, term.xterm.cols, term.xterm.rows);
+        term.xterm.focus();
       });
     }, 250);
   }
@@ -742,7 +740,7 @@ export function hideTerminalDiffPanel(term: ProjectTerminal): void {
 /**
  * Toggle the diff panel for a specific terminal
  */
-export async function toggleTerminalDiffPanel(term: ProjectTerminal): Promise<void> {
+export async function toggleTerminalDiffPanel(term: OuijitTerminal): Promise<void> {
   if (term.diffPanelOpen) {
     hideTerminalDiffPanel(term);
   } else {
@@ -753,7 +751,7 @@ export async function toggleTerminalDiffPanel(term: ProjectTerminal): Promise<vo
 /**
  * Toggle the worktree diff panel for a specific terminal
  */
-export async function toggleTerminalWorktreeDiffPanel(term: ProjectTerminal): Promise<void> {
+export async function toggleTerminalWorktreeDiffPanel(term: OuijitTerminal): Promise<void> {
   if (term.diffPanelOpen) {
     hideTerminalDiffPanel(term);
   } else {
@@ -918,14 +916,10 @@ export async function showWorktreeDiffPanel(worktreeBranch: string): Promise<voi
  * Sync the diff panel visibility based on the active terminal's state
  */
 export function syncDiffPanelToActiveTerminal(): void {
-  const currentTerminals = terminals.value;
-  const currentActiveIndex = activeIndex.value;
+  const manager = getManager();
+  const activeTerm = manager.activeTerminal.value;
 
-  if (currentTerminals.length === 0 || currentActiveIndex >= currentTerminals.length) {
-    return;
-  }
-
-  const activeTerm = currentTerminals[currentActiveIndex];
+  if (!activeTerm) return;
 
   // Update global signals to match active terminal's state
   if (activeTerm.diffPanelOpen) {
@@ -948,14 +942,9 @@ export function syncDiffPanelToActiveTerminal(): void {
  * Toggle diff panel for the active terminal (hotkey handler)
  */
 async function toggleActiveDiffPanel(): Promise<void> {
-  const currentTerminals = terminals.value;
-  const currentActiveIndex = activeIndex.value;
-
-  if (currentTerminals.length === 0 || currentActiveIndex >= currentTerminals.length) {
-    return;
-  }
-
-  const activeTerm = currentTerminals[currentActiveIndex];
+  const manager = getManager();
+  const activeTerm = manager.activeTerminal.value;
+  if (!activeTerm) return;
   await toggleTerminalDiffPanel(activeTerm);
 }
 

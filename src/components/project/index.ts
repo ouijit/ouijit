@@ -6,17 +6,19 @@
 // State (non-reactive)
 export {
   projectState,
-  projectSessions,
-  orphanedSessions,
   ensureHiddenSessionsContainer,
   STACK_PAGE_SIZE,
   HIDDEN_SESSIONS_CONTAINER_ID,
   GIT_STATUS_IDLE_DELAY,
   GIT_STATUS_PERIODIC_INTERVAL,
-  type ProjectTerminal,
-  type StoredProjectSession,
   type SummaryType,
 } from './state';
+
+// Terminal class
+export { OuijitTerminal, scrollSafeFit } from './terminal';
+
+// Terminal manager singleton
+export { getManager, type StoredSession } from './terminalManager';
 
 // Helpers (utility functions and cross-module registry)
 export {
@@ -29,11 +31,6 @@ export {
 export {
   projectPath,
   projectData,
-  terminals,
-  activeIndex,
-  activeTerminal,
-  activeStackPage,
-  totalStackPages,
   isInProjectMode as isInProjectModeSignal,
   diffPanelVisible,
   diffPanelFiles,
@@ -43,12 +40,6 @@ export {
   homeViewActive,
   resetSignals,
 } from './signals';
-
-// Effects
-export {
-  initializeEffects,
-  cleanupEffects,
-} from './effects';
 
 // Git status (per-terminal)
 export {
@@ -78,20 +69,13 @@ export {
 
 // Terminal cards
 export {
-  getTerminalTheme,
-  updateTerminalCardLabel,
-  createProjectCard,
   updateCardStack,
-  switchToProjectTerminal,
   addProjectTerminal,
   closeProjectTerminal,
-  navigateStackPage,
   buildEmptyStateHtml,
   showStackEmptyState,
   hideStackEmptyState,
   setupCardActions,
-  registerHookStatusListener,
-  unregisterHookStatusListener,
   reconnectTerminal,
 } from './terminalCards';
 

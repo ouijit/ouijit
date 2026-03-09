@@ -4,7 +4,7 @@
  *   state.ts (types/state) <- helpers.ts (utilities) <- other modules
  */
 
-import type { ProjectTerminal } from './state';
+import type { OuijitTerminal } from './terminal';
 import { convertIconsIn } from '../../utils/icons';
 
 /**
@@ -87,14 +87,14 @@ export function showTaskContextMenu(event: MouseEvent, onSandbox: () => void): v
 /**
  * Get the git path for a terminal (worktree path if it's a worktree, otherwise project path)
  */
-export function getTerminalGitPath(term: ProjectTerminal): string {
+export function getTerminalGitPath(term: OuijitTerminal): string {
   return term.worktreePath || term.projectPath;
 }
 
 /**
  * Hide the runner panel (does NOT kill the runner process)
  */
-export function hideRunnerPanel(term: ProjectTerminal): void {
+export function hideRunnerPanel(term: OuijitTerminal): void {
   if (!term.runnerPanelOpen) return;
 
   const panel = term.container.querySelector('.runner-panel') as HTMLElement;
@@ -115,7 +115,7 @@ export function hideRunnerPanel(term: ProjectTerminal): void {
       requestAnimationFrame(() => {
         panel.style.transition = '';
         term.fitAddon.fit();
-        window.api.pty.resize(term.ptyId, term.terminal.cols, term.terminal.rows);
+        window.api.pty.resize(term.ptyId, term.xterm.cols, term.xterm.rows);
       });
     } else {
       // Split mode: animate closed via flex-basis transition
@@ -124,7 +124,7 @@ export function hideRunnerPanel(term: ProjectTerminal): void {
         const cardBody = term.container.querySelector('.project-card-body');
         if (cardBody) cardBody.classList.remove('runner-split', 'runner-full');
         term.fitAddon.fit();
-        window.api.pty.resize(term.ptyId, term.terminal.cols, term.terminal.rows);
+        window.api.pty.resize(term.ptyId, term.xterm.cols, term.xterm.rows);
       }, 250);
     }
   }
