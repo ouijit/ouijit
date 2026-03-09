@@ -153,17 +153,11 @@ export async function enterHomeView(): Promise<void> {
       // Reattach terminal (reconnects resize observers)
       term.reattach();
 
-      // Re-wire close button for home view context
-      const closeBtn = term.container.querySelector('.project-card-close') as HTMLButtonElement;
-      if (closeBtn) {
-        const newBtn = closeBtn.cloneNode(true) as HTMLButtonElement;
-        closeBtn.replaceWith(newBtn);
-        newBtn.addEventListener('click', (e) => {
-          e.stopPropagation();
-          const idx = homeTerminals.indexOf(term);
-          if (idx !== -1) closeHomeTerminal(idx);
-        });
-      }
+      // Point close handler to home view context
+      term.setCloseHandler(() => {
+        const idx = homeTerminals.indexOf(term);
+        if (idx !== -1) closeHomeTerminal(idx);
+      });
     }
   }
 
@@ -636,6 +630,8 @@ function closeHomeTerminal(index: number): void {
       session.stackElement.remove();
       manager.sessions.delete(path);
       updateSidebarActiveState();
+    } else if (session.activeIndex >= session.terminals.length) {
+      session.activeIndex = session.terminals.length - 1;
     }
   }
 
