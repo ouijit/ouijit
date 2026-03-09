@@ -8,7 +8,7 @@ import { signal, computed, effect } from '@preact/signals-core';
 import type { ReadonlySignal } from '@preact/signals-core';
 import type { Project, ChangedFile, ActiveSession } from '../../types';
 import { OuijitTerminal } from './terminal';
-import { STACK_PAGE_SIZE, ensureHiddenSessionsContainer } from './state';
+import { STACK_PAGE_SIZE, ensureHiddenSessionsContainer } from '../project/state';
 import {
   projectPath,
   projectData,
@@ -18,10 +18,10 @@ import {
   diffPanelFiles,
   diffPanelSelectedFile,
   homeViewActive,
-} from './signals';
-import { syncDiffPanelToActiveTerminal } from './diffPanel';
-import { refreshKanbanBoard, syncKanbanStatusDots } from './kanbanBoard';
-import { updateCardStack, showStackEmptyState, hideStackEmptyState } from './terminalCards';
+} from '../project/signals';
+import { syncDiffPanelToActiveTerminal } from '../project/diffPanel';
+import { refreshKanbanBoard, syncKanbanStatusDots } from '../project/kanbanBoard';
+import { updateCardStack, showStackEmptyState, hideStackEmptyState } from '../project/terminalCards';
 import { scrollSafeFit } from './terminal';
 
 /**

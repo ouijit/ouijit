@@ -4,7 +4,7 @@
 
 import type { TaskWithWorkspace } from '../../types';
 import { projectPath, invalidateTaskList } from './signals';
-import { getManager } from './terminalManager';
+import { getManager } from '../terminal';
 import { showToast } from '../importDialog';
 import { projectRegistry } from './helpers';
 import { setCardLoading } from './kanbanBoard';

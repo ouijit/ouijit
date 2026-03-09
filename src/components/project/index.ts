@@ -15,10 +15,10 @@ export {
 } from './state';
 
 // Terminal class
-export { OuijitTerminal, scrollSafeFit } from './terminal';
+export { OuijitTerminal, scrollSafeFit } from '../terminal';
 
 // Terminal manager singleton
-export { getManager, type StoredSession } from './terminalManager';
+export { getManager, type StoredSession } from '../terminal';
 
 // Helpers (utility functions and cross-module registry)
 export {

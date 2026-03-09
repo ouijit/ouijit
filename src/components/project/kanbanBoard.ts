@@ -3,10 +3,10 @@
  */
 
 import type { TaskWithWorkspace, TaskStatus, RunConfig, HookType } from '../../types';
-import type { OuijitTerminal } from './terminal';
+import type { OuijitTerminal } from '../terminal';
 import { projectState } from './state';
 import { projectPath, kanbanVisible, invalidateTaskList } from './signals';
-import { getManager } from './terminalManager';
+import { getManager } from '../terminal';
 import { projectRegistry } from './helpers';
 import { showToast } from '../importDialog';
 import { showHookConfigDialog, showCombinedHookConfigDialog } from '../hookConfigDialog';

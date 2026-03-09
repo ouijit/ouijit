@@ -3,11 +3,11 @@
  */
 
 import type { CompactGitStatus } from '../../types';
-import type { OuijitTerminal } from './terminal';
+import type { OuijitTerminal } from '../terminal';
 import { projectState, GIT_STATUS_IDLE_DELAY } from './state';
 import { getTerminalGitPath } from './helpers';
 import { projectPath, gitDropdownVisible } from './signals';
-import { getManager } from './terminalManager';
+import { getManager } from '../terminal';
 
 /**
  * Hide the git dropdown (cleanup for exitProjectMode)

@@ -6,7 +6,7 @@ Desktop app for project management with integrated terminal sessions, git worktr
 
 ### Commands for Claude
 - `npm run check` - Type check (run this to verify changes)
-- `npm test` - Run unit/integration tests (validates data layer changes)
+- `npm test` - Run unit/integration tests (rebuilds better-sqlite3 silently as a pretest step)
 - `npm run test:e2e` - Run Playwright e2e tests (builds app first, tests UI flows)
 
 Do NOT run `npm run start` or other dev server commands.

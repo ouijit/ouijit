@@ -4,7 +4,7 @@
  *   state.ts (types/state) <- helpers.ts (utilities) <- other modules
  */
 
-import type { OuijitTerminal } from './terminal';
+import type { OuijitTerminal } from '../terminal';
 import { convertIconsIn } from '../../utils/icons';
 
 /**

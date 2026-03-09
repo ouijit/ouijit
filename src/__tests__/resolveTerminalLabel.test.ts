@@ -17,7 +17,7 @@ vi.mock('../utils/icons', () => ({ convertIconsIn: () => {} }));
 vi.mock('../components/importDialog', () => ({ showToast: () => {} }));
 vi.mock('../components/hookConfigDialog', () => ({ showHookConfigDialog: () => {} }));
 
-import { resolveTerminalLabel } from '../components/project/terminal';
+import { resolveTerminalLabel } from '../components/terminal/terminal';
 
 describe('resolveTerminalLabel', () => {
   test('priority: task name > branch > fallback > Shell', () => {

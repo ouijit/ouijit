@@ -47,8 +47,8 @@ import {
 } from './launchDropdown';
 import { hideKanbanBoard, showKanbanBoard, showKanbanAndFocusInput, syncViewToggle } from './kanbanBoard';
 import { projectRegistry } from './helpers';
-import { OuijitTerminal } from './terminal';
-import { getManager } from './terminalManager';
+import { OuijitTerminal } from '../terminal';
+import { getManager } from '../terminal';
 import { registerHotkey, unregisterHotkey, pushScope, popScope, Scopes, platformHotkey } from '../../utils/hotkeys';
 import { convertIconsIn } from '../../utils/icons';
 import { showHookConfigDialog } from '../hookConfigDialog';

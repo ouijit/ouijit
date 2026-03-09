@@ -6,7 +6,7 @@ import type { Project } from '../types';
 import { stringToColor, getInitials } from '../utils/projectIcon';
 import { addTooltip } from '../utils/tooltip';
 import { projectPath, homeViewActive } from './project/signals';
-import { getManager } from './project/terminalManager';
+import { getManager } from './terminal';
 import { showToast } from './importDialog';
 
 // Mutable project lookup - updated whenever sidebar is re-rendered

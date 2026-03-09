@@ -11,12 +11,12 @@ import { WebLinksAddon } from '@xterm/addon-web-links';
 import { signal, effect } from '@preact/signals-core';
 import type { Signal } from '@preact/signals-core';
 import type { PtyId, PtySpawnOptions, ChangedFile, CompactGitStatus } from '../../types';
-import type { SummaryType } from './state';
+import type { SummaryType } from '../project/state';
 import { convertIconsIn } from '../../utils/icons';
 import { escapeHtml } from '../../utils/html';
 import { addTooltip, convertTitlesIn } from '../../utils/tooltip';
-import { refreshTerminalGitStatus, buildCardGitBranchHtml, buildCardGitStatsHtml, scheduleTerminalGitStatusRefresh } from './gitStatus';
-import { toggleTerminalDiffPanel, toggleTerminalWorktreeDiffPanel } from './diffPanel';
+import { refreshTerminalGitStatus, buildCardGitBranchHtml, buildCardGitStatsHtml, scheduleTerminalGitStatusRefresh } from '../project/gitStatus';
+import { toggleTerminalDiffPanel, toggleTerminalWorktreeDiffPanel } from '../project/diffPanel';
 import { notifyReady, readyBody } from '../../utils/notifications';
 import log from 'electron-log/renderer';
 

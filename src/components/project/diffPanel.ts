@@ -4,7 +4,7 @@
  */
 
 import type { ChangedFile, FileDiff } from '../../types';
-import type { OuijitTerminal } from './terminal';
+import type { OuijitTerminal } from '../terminal';
 import { getTerminalGitPath, hideRunnerPanel, projectRegistry } from './helpers';
 import {
   projectPath,
@@ -14,7 +14,7 @@ import {
   diffPanelMode,
   diffPanelTaskId,
 } from './signals';
-import { getManager } from './terminalManager';
+import { getManager } from '../terminal';
 import { convertIconsIn } from '../../utils/icons';
 import { escapeHtml } from '../../utils/html';
 import { convertTitlesIn } from '../../utils/tooltip';
