@@ -9,6 +9,7 @@ import { stringToColor, getInitials } from '../../utils/projectIcon';
 import { showToast } from '../importDialog';
 import { showHookConfigDialog, type HookConfigDialogOptions } from '../hookConfigDialog';
 import { addTooltip } from '../../utils/tooltip';
+import { terminalLayout, buildLayoutToggle } from '../terminalLayout';
 
 const HOOK_HINTS: Record<string, string> = {
   start: 'Runs when a task moves from To Do to In Progress',
@@ -46,6 +47,7 @@ export function buildProjectHeader(): string {
           <i data-icon="cards-three"></i>
         </button>
       </div>
+      ${buildLayoutToggle(terminalLayout.value)}
       <div class="project-launch-wrapper">
         <button class="project-hooks-btn" title="Scripts">
           <i data-icon="code"></i>

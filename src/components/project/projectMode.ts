@@ -53,6 +53,14 @@ import { registerHotkey, unregisterHotkey, pushScope, popScope, Scopes, platform
 import { convertIconsIn } from '../../utils/icons';
 import { showHookConfigDialog } from '../hookConfigDialog';
 import { addTooltip, convertTitlesIn } from '../../utils/tooltip';
+import {
+  terminalLayout,
+  setLayoutMode,
+  wireLayoutToggle,
+  syncLayoutToggle,
+  cycleLayout,
+  cleanupLayout,
+} from '../terminalLayout';
 
 const projectLog = log.scope('project');
 
@@ -99,6 +107,14 @@ function wireProjectHeader(headerContent: Element, path: string): void {
 
   // Wire up view toggle buttons
   wireViewToggle(headerContent);
+
+  // Wire up terminal layout toggle
+  wireLayoutToggle(headerContent, (mode) => {
+    const stack = document.querySelector('.project-stack') as HTMLElement;
+    if (stack) cleanupLayout(stack);
+    setLayoutMode(mode);
+    updateCardStack();
+  });
 }
 
 /**
@@ -305,6 +321,16 @@ export async function enterProjectMode(
     }
   });
 
+  // Mod+L to cycle terminal layout modes
+  registerHotkey(platformHotkey('mod+l'), Scopes.PROJECT, () => {
+    const stack = document.querySelector('.project-stack') as HTMLElement;
+    if (stack) cleanupLayout(stack);
+    setLayoutMode(cycleLayout());
+    updateCardStack();
+    const headerContent = document.querySelector('.header-content');
+    if (headerContent) syncLayoutToggle(headerContent);
+  });
+
   // Mod+1-9 to select by stack position (terminals or tasks in empty state)
   for (let i = 1; i <= 9; i++) {
     registerHotkey(platformHotkey(`mod+${i}`), Scopes.PROJECT, () => {
@@ -342,12 +368,15 @@ export function exitProjectMode(): void {
 
   const manager = getManager();
 
+  // 0. Clean up layout artifacts before preserving session
+  const stack = document.querySelector('.project-stack') as HTMLElement;
+  if (stack) cleanupLayout(stack);
+
   // 1. Handle session preservation or cleanup
   if (manager.terminals.value.length > 0 && projectData.value) {
     manager.preserveSession(currentProjectPath);
   } else {
     // No terminals to preserve - just remove the stack
-    const stack = document.querySelector('.project-stack') as HTMLElement;
     if (stack) stack.remove();
   }
 
@@ -371,6 +400,7 @@ export function exitProjectMode(): void {
   unregisterHotkey(platformHotkey('mod+p'), Scopes.PROJECT);
   unregisterHotkey(platformHotkey('mod+d'), Scopes.PROJECT);
   unregisterHotkey(platformHotkey('mod+w'), Scopes.PROJECT);
+  unregisterHotkey(platformHotkey('mod+l'), Scopes.PROJECT);
   for (let i = 1; i <= 9; i++) {
     unregisterHotkey(platformHotkey(`mod+${i}`), Scopes.PROJECT);
   }
@@ -541,6 +571,16 @@ export async function restoreProjectMode(
     }
   });
 
+  // Mod+L to cycle terminal layout modes
+  registerHotkey(platformHotkey('mod+l'), Scopes.PROJECT, () => {
+    const stack = document.querySelector('.project-stack') as HTMLElement;
+    if (stack) cleanupLayout(stack);
+    setLayoutMode(cycleLayout());
+    updateCardStack();
+    const headerContent = document.querySelector('.header-content');
+    if (headerContent) syncLayoutToggle(headerContent);
+  });
+
   // Mod+1-9 to select by stack position (terminals or tasks in empty state)
   for (let i = 1; i <= 9; i++) {
     registerHotkey(platformHotkey(`mod+${i}`), Scopes.PROJECT, () => {
@@ -704,8 +744,7 @@ async function reconnectRunnerToParent(
  * Wire up the view toggle buttons in the header
  */
 function wireViewToggle(headerContent: Element): void {
-  const toggleBtns = headerContent.querySelectorAll('.project-view-toggle-btn');
-  toggleBtns.forEach(btn => {
+  headerContent.querySelectorAll('.project-view-toggle-btn[data-view]').forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       const view = (btn as HTMLElement).dataset.view;

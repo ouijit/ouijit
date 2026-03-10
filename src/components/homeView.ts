@@ -19,6 +19,16 @@ import { showToast } from './importDialog';
 import { showNewProjectDialog } from './newProjectDialog';
 import { convertTitlesIn } from '../utils/tooltip';
 import { updateSidebarActiveState } from './sidebar';
+import {
+  terminalLayout,
+  buildLayoutToggle,
+  wireLayoutToggle,
+  syncLayoutToggle,
+  setLayoutMode,
+  cycleLayout,
+  cleanupLayout,
+  applyNonStackLayout,
+} from './terminalLayout';
 
 const homeLog = log.scope('homeView');
 
@@ -92,6 +102,7 @@ export async function enterHomeView(): Promise<void> {
           <i data-icon="tag"></i>
         </button>
       </div>
+      ${buildLayoutToggle(terminalLayout.value)}
       <button class="project-terminal-btn home-new-terminal-btn" title="New terminal">
         <i data-icon="terminal"></i>
       </button>
@@ -112,12 +123,19 @@ export async function enterHomeView(): Promise<void> {
       });
     }
 
-    // Wire toggle clicks
-    headerContent.querySelectorAll('.project-view-toggle-btn').forEach(btn => {
+    // Wire toggle clicks (only group-mode buttons, not layout toggle buttons)
+    headerContent.querySelectorAll('.project-view-toggle-btn[data-mode]').forEach(btn => {
       btn.addEventListener('click', () => {
         const mode = (btn as HTMLElement).dataset.mode as HomeGroupMode;
-        if (mode !== homeGroupMode) toggleHomeGroupMode(mode);
+        if (mode && mode !== homeGroupMode) toggleHomeGroupMode(mode);
       });
+    });
+
+    // Wire layout toggle
+    wireLayoutToggle(headerContent, (mode) => {
+      if (homeStack) cleanupLayout(homeStack);
+      setLayoutMode(mode);
+      updateHomeCardStack();
     });
   }
 
@@ -198,6 +216,13 @@ export async function enterHomeView(): Promise<void> {
       homeLog.error('failed to open new terminal', { error: err instanceof Error ? err.message : String(err) });
     }
   });
+  registerHotkey(platformHotkey('mod+l'), Scopes.HOME, () => {
+    if (homeStack) cleanupLayout(homeStack);
+    setLayoutMode(cycleLayout());
+    updateHomeCardStack();
+    const headerContent = document.querySelector('.header-content');
+    if (headerContent) syncLayoutToggle(headerContent);
+  });
   for (let i = 1; i <= 9; i++) {
     registerHotkey(platformHotkey(`mod+${i}`), Scopes.HOME, () => {
       selectByHomeStackPosition(i);
@@ -236,7 +261,8 @@ export function exitHomeView(): void {
     hiddenContainer.appendChild(session.stackElement);
   }
 
-  // Clean up
+  // Clean up layout artifacts before removing
+  if (homeStack) cleanupLayout(homeStack);
   clearHomeDividers();
   homeStack?.remove();
   homeStack = null;
@@ -255,6 +281,7 @@ export function exitHomeView(): void {
   unregisterHotkey(platformHotkey('mod+w'), Scopes.HOME);
   unregisterHotkey(platformHotkey('mod+t'), Scopes.HOME);
   unregisterHotkey(platformHotkey('mod+i'), Scopes.HOME);
+  unregisterHotkey(platformHotkey('mod+l'), Scopes.HOME);
   for (let i = 1; i <= 9; i++) {
     unregisterHotkey(platformHotkey(`mod+${i}`), Scopes.HOME);
   }
@@ -284,6 +311,19 @@ function toggleHomeGroupMode(mode: HomeGroupMode): void {
 function updateHomeCardStack(): void {
   if (!homeStack) return;
   if (homeTerminals.length === 0) return;
+
+  const mode = terminalLayout.value;
+  if (mode !== 'stack') {
+    // Non-stack layouts: hide dividers, delegate to layout module
+    clearHomeDividers();
+    applyNonStackLayout(homeStack, homeTerminals, homeActiveIndex, mode);
+    return;
+  }
+
+  // Stack mode: clean up any grid/focus artifacts from a previous mode
+  if (homeStack.classList.contains('layout-grid') || homeStack.classList.contains('layout-focus')) {
+    cleanupLayout(homeStack);
+  }
 
   const activeTerminal = homeTerminals[homeActiveIndex];
 

@@ -2071,6 +2071,98 @@ body.kanban-open .project-stack-pagination {
 }
 
 /* ==========================================
+   Terminal Layout Modes
+   ========================================== */
+
+/* Grid layout */
+.project-stack.layout-grid {
+  display: grid;
+  gap: 4px;
+  top: 82px;
+}
+.project-stack.layout-grid .project-card {
+  position: relative;
+  inset: auto;
+  transform: none;
+  left: auto;
+  right: auto;
+  contain: none;
+  border-radius: 8px;
+}
+.project-stack.layout-grid .project-card--active {
+  box-shadow: inset 0 0 0 2px var(--color-accent);
+}
+.project-stack.layout-grid .project-card-shortcut {
+  display: none;
+}
+
+/* Focus layout */
+.project-stack.layout-focus {
+  display: flex;
+  flex-direction: row;
+  gap: 4px;
+  top: 82px;
+}
+.project-stack.layout-focus .project-card {
+  position: relative;
+  inset: auto;
+  transform: none;
+  left: auto;
+  right: auto;
+  contain: none;
+}
+.project-stack.layout-focus .project-card.focus-primary {
+  flex: 1;
+  min-width: 0;
+}
+.focus-sidebar {
+  width: 200px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow-y: auto;
+  flex-shrink: 0;
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 4px;
+}
+.focus-sidebar .project-card {
+  height: 120px;
+  flex-shrink: 0;
+  border-radius: 8px;
+}
+.focus-sidebar .project-card-shortcut {
+  display: none;
+}
+
+/* Grid resize handles (absolute overlays at cell boundaries) */
+.grid-resize-handle-h {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 6px;
+  background: transparent;
+  transition: background 0.15s;
+  z-index: 20;
+  cursor: row-resize;
+}
+.grid-resize-handle-h:hover {
+  background: var(--color-accent);
+}
+.grid-resize-handle-v {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  background: transparent;
+  transition: background 0.15s;
+  z-index: 20;
+  cursor: col-resize;
+}
+.grid-resize-handle-v:hover {
+  background: var(--color-accent);
+}
+
+/* ==========================================
    Kanban Board
    ========================================== */
 

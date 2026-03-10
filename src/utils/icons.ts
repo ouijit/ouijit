@@ -28,6 +28,7 @@ import folderOpen from '@phosphor-icons/core/assets/regular/folder-open.svg?raw'
 import folderPlus from '@phosphor-icons/core/assets/regular/folder-plus.svg?raw';
 import gear from '@phosphor-icons/core/assets/regular/gear.svg?raw';
 import gitBranch from '@phosphor-icons/core/assets/regular/git-branch.svg?raw';
+import gridFour from '@phosphor-icons/core/assets/regular/grid-four.svg?raw';
 import gitDiff from '@phosphor-icons/core/assets/regular/git-diff.svg?raw';
 import gitMerge from '@phosphor-icons/core/assets/regular/git-merge.svg?raw';
 import info from '@phosphor-icons/core/assets/regular/info.svg?raw';
@@ -39,6 +40,7 @@ import play from '@phosphor-icons/core/assets/regular/play.svg?raw';
 import plus from '@phosphor-icons/core/assets/regular/plus.svg?raw';
 import prohibit from '@phosphor-icons/core/assets/regular/prohibit.svg?raw';
 import rocket from '@phosphor-icons/core/assets/regular/rocket.svg?raw';
+import sidebar from '@phosphor-icons/core/assets/regular/sidebar.svg?raw';
 import splitHorizontal from '@phosphor-icons/core/assets/regular/split-horizontal.svg?raw';
 import star from '@phosphor-icons/core/assets/regular/star.svg?raw';
 import tag from '@phosphor-icons/core/assets/regular/tag.svg?raw';
@@ -77,6 +79,7 @@ const iconMap: Record<string, string> = {
   'gear': gear,
   'git-branch': gitBranch,
   'git-diff': gitDiff,
+  'grid-four': gridFour,
   'git-merge': gitMerge,
   'info': info,
   'kanban': kanban,
@@ -87,6 +90,7 @@ const iconMap: Record<string, string> = {
   'plus': plus,
   'prohibit': prohibit,
   'rocket': rocket,
+  'sidebar': sidebar,
   'split-horizontal': splitHorizontal,
   'star': star,
   'tag': tag,

@@ -28,6 +28,7 @@ import { addTerminalInHomeView } from '../homeView';
 import { convertIconsIn } from '../../utils/icons';
 import { escapeHtml } from '../../utils/html';
 import { addTooltip, convertTitlesIn } from '../../utils/tooltip';
+import { terminalLayout, applyNonStackLayout, cleanupLayout } from '../terminalLayout';
 
 // Platform detection for shortcuts display
 const isMac = navigator.platform.toLowerCase().includes('mac');
@@ -782,6 +783,22 @@ export function updateCardStack(): void {
   const manager = getManager();
   const currentTerminals = manager.terminals.value;
   const currentActiveIndex = manager.activeIndex.value;
+
+  // Non-stack layouts: delegate and return early
+  const mode = terminalLayout.value;
+  if (mode !== 'stack') {
+    applyNonStackLayout(stack, currentTerminals, currentActiveIndex, mode);
+    // Hide pagination in non-stack modes
+    const paginationRow = document.querySelector('.project-stack-pagination') as HTMLElement;
+    if (paginationRow) paginationRow.style.display = 'none';
+    return;
+  }
+
+  // Stack mode: clean up any grid/focus artifacts from a previous mode
+  if (stack.classList.contains('layout-grid') || stack.classList.contains('layout-focus')) {
+    cleanupLayout(stack);
+  }
+
   const page = manager.activeStackPage.value;
   const pageStart = page * STACK_PAGE_SIZE;
   const pageEnd = Math.min(pageStart + STACK_PAGE_SIZE, currentTerminals.length);

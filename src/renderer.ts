@@ -17,6 +17,7 @@ import { renderSidebar, wireSidebarClicks, updateSidebarActiveState } from './co
 import { enterHomeView, exitHomeView } from './components/homeView';
 import { notifyReady, readyBody } from './utils/notifications';
 import { addTooltip } from './utils/tooltip';
+import { loadLayoutPreference } from './components/terminalLayout';
 
 const rendererLog = log.scope('renderer');
 
@@ -125,6 +126,9 @@ async function initialize(): Promise<void> {
   } catch (error) {
     rendererLog.error('failed to load projects', { error: error instanceof Error ? error.message : String(error) });
   }
+
+  // Load persisted terminal layout preference
+  await loadLayoutPreference();
 
   // Restore last active view from persisted state
   try {
