@@ -1432,6 +1432,18 @@ body.home-mode .project-card--back-8:hover {
   @apply font-mono text-xs font-medium text-white/70 shrink-0;
 }
 
+.project-card-label-input {
+  @apply font-mono text-xs font-medium text-white/70 bg-transparent border-0 outline-none w-full;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.3);
+  padding: 0;
+  margin: 0;
+  line-height: inherit;
+}
+
+.project-card-label-input:focus {
+  border-bottom-color: var(--color-accent);
+}
+
 .project-card-osc-title {
   @apply font-mono text-[11px] text-white/40 bg-white/5 rounded-full px-2 py-px truncate;
 }
@@ -1650,6 +1662,57 @@ body.home-mode .project-card--back-8:hover {
 
 .runner-split > .runner-panel {
   min-width: 200px;
+}
+
+/* ── Split pane styles ───────────────────────────────────────────── */
+
+.split-resize-handle {
+  @apply shrink-0 relative;
+  background: transparent;
+  transition: background 0.15s ease;
+}
+
+.split-resize-handle:hover,
+.split-resize-handle:active {
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.split-resize-handle-v {
+  width: 4px;
+  cursor: col-resize;
+}
+
+.split-resize-handle-v::after {
+  content: '';
+  @apply absolute top-0 bottom-0;
+  left: -8px;
+  right: -8px;
+}
+
+.split-resize-handle-h {
+  height: 4px;
+  cursor: row-resize;
+}
+
+.split-resize-handle-h::after {
+  content: '';
+  @apply absolute left-0 right-0;
+  top: -8px;
+  bottom: -8px;
+}
+
+.split-panel {
+  @apply flex overflow-hidden;
+  flex-grow: 0;
+  flex-shrink: 0;
+  min-width: 200px;
+  min-height: 100px;
+}
+
+.split-xterm-container {
+  @apply flex-1;
+  min-width: 0;
+  min-height: 0;
 }
 
 .runner-panel-header {
@@ -2518,5 +2581,79 @@ body.kanban-open .project-stack {
   display: none;
 }
 
+/* ── Command Palette (Cmd+K) ─────────────────────────────────────── */
 
+.command-palette-overlay {
+  @apply fixed inset-0 flex items-start justify-center;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 9999;
+  padding-top: 15vh;
+}
+
+.command-palette {
+  @apply flex flex-col overflow-hidden;
+  background: #2C2C2E;
+  border-radius: 12px;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.08);
+  width: 560px;
+  max-height: 420px;
+}
+
+.command-palette-input {
+  @apply w-full bg-transparent text-text-primary outline-none;
+  font-size: 15px;
+  padding: 12px 16px;
+  border: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.command-palette-input::placeholder {
+  @apply text-text-tertiary;
+}
+
+.command-palette-results {
+  @apply flex-1 overflow-y-auto;
+}
+
+.command-palette-result {
+  @apply flex items-center gap-3;
+  padding: 8px 16px;
+  transition: background 0.1s ease;
+}
+
+.command-palette-result:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.command-palette-result--selected {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.command-palette-result .project-card-status-dot {
+  @apply shrink-0;
+}
+
+.command-palette-project-badge {
+  @apply text-xs text-text-secondary shrink-0;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+.command-palette-label {
+  @apply text-sm text-text-primary truncate;
+}
+
+.command-palette-branch {
+  @apply text-xs text-text-tertiary truncate;
+}
+
+.command-palette-tags {
+  @apply text-xs text-text-tertiary truncate;
+}
+
+.command-palette-empty {
+  @apply text-text-tertiary text-sm text-center;
+  padding: 24px 16px;
+}
 

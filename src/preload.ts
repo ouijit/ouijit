@@ -140,6 +140,13 @@ contextBridge.exposeInMainWorld('api', {
     set: (key: string, value: string) => typedInvoke('settings:set-global', key, value),
   },
 
+  projectSettings: {
+    getLayout: (projectPath: string) => typedInvoke('settings:get-project-layout', projectPath),
+    setLayout: (projectPath: string, layout: string) => typedInvoke('settings:set-project-layout', projectPath, layout),
+    getGridRatios: (projectPath: string) => typedInvoke('settings:get-project-grid-ratios', projectPath),
+    setGridRatios: (projectPath: string, ratios: string) => typedInvoke('settings:set-project-grid-ratios', projectPath, ratios),
+  },
+
   getPathForFile: (file: File): string => webUtils.getPathForFile(file),
   homePath: (): Promise<string> => typedInvoke('get-home-path'),
 

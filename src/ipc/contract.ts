@@ -120,6 +120,12 @@ export interface IpcInvokeContract {
   'settings:get-global':          { args: [key: string];                                                    return: string | undefined };
   'settings:set-global':          { args: [key: string, value: string];                                     return: { success: boolean } };
 
+  // ── Per-Project Settings ───────────────────────────────────────────
+  'settings:get-project-layout':      { args: [projectPath: string];                                        return: string | null };
+  'settings:set-project-layout':      { args: [projectPath: string, layout: string];                        return: { success: boolean } };
+  'settings:get-project-grid-ratios': { args: [projectPath: string];                                        return: string | null };
+  'settings:set-project-grid-ratios': { args: [projectPath: string, ratios: string];                        return: { success: boolean } };
+
   // ── Lima ─────────────────────────────────────────────────────────────
   'lima:status':                  { args: [projectPath: string];                                            return: SandboxStatus };
   'lima:start':                   { args: [projectPath: string];                                            return: { success: boolean; error?: string } };

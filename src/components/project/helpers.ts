@@ -24,6 +24,9 @@ interface ProjectRegistry {
   syncKanbanStatusDots: (() => void) | null;
   // From diffPanel
   toggleActiveDiffPanel: (() => Promise<void>) | null;
+  // From terminal split
+  splitVertical: (() => void) | null;
+  splitHorizontal: (() => void) | null;
 }
 
 export const projectRegistry: ProjectRegistry = {
@@ -34,6 +37,8 @@ export const projectRegistry: ProjectRegistry = {
   closeProjectTerminal: null,
   playOrToggleRunner: null,
   toggleActiveDiffPanel: null,
+  splitVertical: null,
+  splitHorizontal: null,
 };
 
 /**

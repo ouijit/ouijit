@@ -343,6 +343,8 @@ export interface ElectronAPI {
   lima: LimaAPI;
   /** Global settings API */
   globalSettings: GlobalSettingsAPI;
+  /** Per-project settings API */
+  projectSettings: ProjectSettingsAPI;
 }
 
 /**
@@ -373,6 +375,16 @@ export interface LimaAPI {
 export interface GlobalSettingsAPI {
   get(key: string): Promise<string | undefined>;
   set(key: string, value: string): Promise<{ success: boolean }>;
+}
+
+/**
+ * Per-project settings API exposed to the renderer
+ */
+export interface ProjectSettingsAPI {
+  getLayout(projectPath: string): Promise<string | null>;
+  setLayout(projectPath: string, layout: string): Promise<{ success: boolean }>;
+  getGridRatios(projectPath: string): Promise<string | null>;
+  setGridRatios(projectPath: string, ratios: string): Promise<{ success: boolean }>;
 }
 
 /**

@@ -489,6 +489,44 @@ export async function setTaskTags(projectPath: string, taskNumber: number, tagNa
   return tr.setTaskTags(projectPath, taskNumber, tagNames);
 }
 
+// ── Per-project layout functions ─────────────────────────────────────
+
+export async function getProjectLayout(projectPath: string): Promise<string | null> {
+  const { settingsRepo: sr } = repos();
+  const settings = sr.get(projectPath);
+  return settings?.terminal_layout ?? null;
+}
+
+export async function setProjectLayout(projectPath: string, layout: string): Promise<{ success: boolean }> {
+  try {
+    ensureProject(projectPath);
+    const { settingsRepo: sr } = repos();
+    sr.update(projectPath, { terminal_layout: layout });
+    return { success: true };
+  } catch (error) {
+    dbLog.error('failed to set project layout', { error: error instanceof Error ? error.message : String(error) });
+    return { success: false };
+  }
+}
+
+export async function getProjectGridRatios(projectPath: string): Promise<string | null> {
+  const { settingsRepo: sr } = repos();
+  const settings = sr.get(projectPath);
+  return settings?.grid_ratios ?? null;
+}
+
+export async function setProjectGridRatios(projectPath: string, ratios: string): Promise<{ success: boolean }> {
+  try {
+    ensureProject(projectPath);
+    const { settingsRepo: sr } = repos();
+    sr.update(projectPath, { grid_ratios: ratios });
+    return { success: true };
+  } catch (error) {
+    dbLog.error('failed to set project grid ratios', { error: error instanceof Error ? error.message : String(error) });
+    return { success: false };
+  }
+}
+
 // ── Global settings functions ────────────────────────────────────────
 
 export async function getGlobalSetting(key: string): Promise<string | undefined> {

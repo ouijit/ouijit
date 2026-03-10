@@ -112,7 +112,7 @@ function setupTerminalAppHotkeys(terminal: XTerminal): void {
       }
 
       // App hotkeys that should pass through to hotkeys-js
-      const appHotkeys = ['n', 't', 'b', 'i', 'p', 'd', 's', 'w', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
+      const appHotkeys = ['n', 't', 'b', 'i', 'p', 'd', 's', 'w', 'k', 'l', '\\', '-', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
       if (appHotkeys.includes(key)) {
         return false;
       }
@@ -225,11 +225,23 @@ export class OuijitTerminal {
   worktreePath?: string;
   worktreeBranch?: string;
 
+  // ── Custom label (session-scoped, set via double-click rename) ──────
+  customLabel: string | null = null;
+
   // ── Per-terminal diff panel state ───────────────────────────────────
   diffPanelOpen = false;
   diffPanelFiles: ChangedFile[] = [];
   diffPanelSelectedFile: string | null = null;
   diffPanelMode: 'uncommitted' | 'worktree' = 'uncommitted';
+
+  // ── Split pane ─────────────────────────────────────────────────────
+  splitPane: OuijitTerminal | null = null;
+  splitDirection: 'vertical' | 'horizontal' | null = null;
+  splitRatio = 0.5;
+  isSplitPane = false;
+  parentTerminal: OuijitTerminal | null = null;
+  private splitResizeCleanup: (() => void) | null = null;
+  private splitting = false;
 
   // ── Runner (child Terminal) ─────────────────────────────────────────
   runner: OuijitTerminal | null = null;
@@ -375,6 +387,15 @@ export class OuijitTerminal {
       closeBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         this.onCloseHandler?.();
+      });
+    }
+
+    // Wire double-click on label text to enter rename mode
+    const labelTextEl = labelEl.querySelector('.project-card-label-text');
+    if (labelTextEl) {
+      labelTextEl.addEventListener('dblclick', (e) => {
+        e.stopPropagation();
+        this.enterLabelEditMode();
       });
     }
 
@@ -527,6 +548,8 @@ export class OuijitTerminal {
   detach(): void {
     this.resizeObserver?.disconnect();
     this.clearDataThrottle();
+    // Detach split pane if present
+    this.splitPane?.detach();
   }
 
   /**
@@ -547,6 +570,23 @@ export class OuijitTerminal {
       debouncedResize(this.ptyId, this.xterm, this.fitAddon);
     });
     this.resizeObserver.observe(xtermContainer);
+
+    // Reattach split pane if it has one
+    // Note: can't delegate to splitPane.reattach() because the split pane's
+    // xterm lives in parent's .split-xterm-container, not in splitPane.container
+    if (this.splitPane?.ptyId) {
+      this.splitPane.clearDataThrottle();
+      const splitContainer = this.container.querySelector('.split-xterm-container') as HTMLElement;
+      if (splitContainer) {
+        this.splitPane.resizeObserver?.disconnect();
+        this.splitPane.resizeObserver = new ResizeObserver(() => {
+          if (this.splitPane?.ptyId) {
+            debouncedResize(this.splitPane.ptyId, this.splitPane.xterm, this.splitPane.fitAddon);
+          }
+        });
+        this.splitPane.resizeObserver.observe(splitContainer);
+      }
+    }
 
     // Reattach runner if it has one
     if (this.runner?.ptyId) {
@@ -571,6 +611,9 @@ export class OuijitTerminal {
   dispose(): void {
     if (this.disposed) return;
     this.disposed = true;
+
+    // Close split pane first
+    this.closeSplit();
 
     // Kill runner first
     this.killRunner();
@@ -934,11 +977,18 @@ export class OuijitTerminal {
     // Label text
     const labelText = labelEl.querySelector('.project-card-label-text');
     if (labelText) {
-      let display = this.label.value;
+      const baseLabel = this.customLabel ?? this.label.value;
+      let display = baseLabel;
       if (this.summary.value) {
         display += ` — ${this.summary.value}`;
       }
       labelText.textContent = display;
+      // Show original resolved label as tooltip when custom label is set
+      if (this.customLabel) {
+        labelText.setAttribute('title', this.label.value);
+      } else {
+        labelText.removeAttribute('title');
+      }
     }
 
     // OSC title pill
@@ -1011,6 +1061,256 @@ export class OuijitTerminal {
       }
     }
 
+  }
+
+  // ── Inline label editing ────────────────────────────────────────────
+
+  /** Enter inline edit mode for the terminal label (double-click) */
+  enterLabelEditMode(): void {
+    const labelText = this.container.querySelector('.project-card-label-text') as HTMLElement;
+    if (!labelText) return;
+
+    // Don't re-enter if already editing
+    if (labelText.querySelector('.project-card-label-input')) return;
+
+    const currentDisplay = this.customLabel ?? this.label.value;
+    const originalText = labelText.textContent;
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'project-card-label-input';
+    input.value = currentDisplay;
+
+    // Replace text content with input
+    labelText.textContent = '';
+    labelText.appendChild(input);
+    input.focus();
+    input.select();
+
+    const confirm = () => {
+      const newLabel = input.value.trim();
+      this.customLabel = newLabel || null;
+      input.remove();
+      this.updateLabel();
+    };
+
+    const cancel = () => {
+      input.remove();
+      labelText.textContent = originalText;
+    };
+
+    input.addEventListener('keydown', (e) => {
+      e.stopPropagation(); // Prevent hotkeys from firing
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        confirm();
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        cancel();
+      }
+    });
+
+    input.addEventListener('blur', () => {
+      // Only confirm if input is still in DOM (not already handled by Enter/Escape)
+      if (input.parentElement) confirm();
+    });
+  }
+
+  // ── Split pane management ───────────────────────────────────────────
+
+  /**
+   * Split this terminal card into two panes.
+   * Returns the new split pane terminal, or null if split is not possible.
+   */
+  async split(direction: 'vertical' | 'horizontal'): Promise<OuijitTerminal | null> {
+    // Guard: no nested splits, no runner splits, no concurrent splits
+    if (this.splitPane || this.isRunner || this.isSplitPane || this.splitting) return null;
+    this.splitting = true;
+
+    const cardBody = this.container.querySelector('.project-card-body') as HTMLElement;
+    if (!cardBody) return null;
+
+    this.splitDirection = direction;
+    cardBody.style.flexDirection = direction === 'vertical' ? 'row' : 'column';
+
+    // Create resize handle
+    const handle = document.createElement('div');
+    handle.className = direction === 'vertical'
+      ? 'split-resize-handle split-resize-handle-v'
+      : 'split-resize-handle split-resize-handle-h';
+
+    // Create split panel container
+    const panel = document.createElement('div');
+    panel.className = 'split-panel';
+    const xtermContainer = document.createElement('div');
+    xtermContainer.className = 'split-xterm-container';
+    panel.appendChild(xtermContainer);
+
+    // Insert after the terminal viewport
+    const viewport = cardBody.querySelector('.terminal-viewport') as HTMLElement;
+    if (!viewport) return null;
+
+    viewport.style.flexBasis = '50%';
+    viewport.style.flexGrow = '0';
+    viewport.style.flexShrink = '0';
+
+    cardBody.appendChild(handle);
+    cardBody.appendChild(panel);
+
+    // Animate panel in
+    panel.style.flexBasis = '0';
+    requestAnimationFrame(() => {
+      panel.style.transition = 'flex-basis 0.2s ease';
+      panel.style.flexBasis = '50%';
+      setTimeout(() => { panel.style.transition = ''; }, 200);
+    });
+
+    // Create child terminal
+    const child = new OuijitTerminal({
+      projectPath: this.projectPath,
+      label: 'Split',
+      worktreePath: this.worktreePath,
+      worktreeBranch: this.worktreeBranch,
+    });
+    child.isSplitPane = true;
+    child.parentTerminal = this;
+
+    // Open xterm in split container
+    const childXterm = child.xterm;
+    childXterm.open(xtermContainer);
+
+    // Spawn PTY with same cwd
+    const cwd = this.worktreePath || this.projectPath;
+    const result = await child.spawnPty({
+      cwd,
+      projectPath: this.projectPath,
+      cols: childXterm.cols,
+      rows: childXterm.rows,
+      worktreePath: this.worktreePath,
+    });
+
+    if (!result) {
+      // Spawn failed — clean up
+      panel.remove();
+      handle.remove();
+      viewport.style.flexBasis = '';
+      viewport.style.flexGrow = '';
+      viewport.style.flexShrink = '';
+      cardBody.style.flexDirection = '';
+      this.splitDirection = null;
+      child.xterm.dispose();
+      this.splitting = false;
+      return null;
+    }
+
+    this.splitPane = child;
+    this.splitting = false;
+
+    // Wire drag resize
+    this.splitResizeCleanup = this.wireSplitResize(handle, viewport, panel, direction);
+
+    // Refit main terminal
+    requestAnimationFrame(() => {
+      this.fit();
+      child.fit();
+    });
+
+    return child;
+  }
+
+  /** Wire drag-to-resize on split handle */
+  private wireSplitResize(
+    handle: HTMLElement,
+    viewport: HTMLElement,
+    panel: HTMLElement,
+    direction: 'vertical' | 'horizontal',
+  ): () => void {
+    let dragging = false;
+
+    const onMouseDown = (e: MouseEvent) => {
+      e.preventDefault();
+      dragging = true;
+      document.body.style.cursor = direction === 'vertical' ? 'col-resize' : 'row-resize';
+      document.body.style.userSelect = 'none';
+    };
+
+    const onMouseMove = (e: MouseEvent) => {
+      if (!dragging) return;
+      const cardBody = this.container.querySelector('.project-card-body') as HTMLElement;
+      if (!cardBody) return;
+      const rect = cardBody.getBoundingClientRect();
+
+      let ratio: number;
+      if (direction === 'vertical') {
+        ratio = (e.clientX - rect.left) / rect.width;
+      } else {
+        ratio = (e.clientY - rect.top) / rect.height;
+      }
+      ratio = Math.max(0.15, Math.min(0.85, ratio));
+      this.splitRatio = ratio;
+
+      const pct = ratio * 100;
+      viewport.style.flexBasis = `${pct}%`;
+      panel.style.flexBasis = `${100 - pct}%`;
+    };
+
+    const onMouseUp = () => {
+      if (!dragging) return;
+      dragging = false;
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+      this.fit();
+      this.splitPane?.fit();
+    };
+
+    handle.addEventListener('mousedown', onMouseDown);
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+
+    return () => {
+      handle.removeEventListener('mousedown', onMouseDown);
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+    };
+  }
+
+  /** Close the split pane, restoring the terminal to full size */
+  closeSplit(): void {
+    if (!this.splitPane) return;
+
+    // Dispose split pane
+    this.splitPane.dispose();
+    this.splitPane = null;
+
+    // Clean up resize handler and reset any stuck drag state
+    if (this.splitResizeCleanup) {
+      this.splitResizeCleanup();
+      this.splitResizeCleanup = null;
+    }
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+
+    // Remove DOM elements
+    const handle = this.container.querySelector('.split-resize-handle');
+    if (handle) handle.remove();
+    const panel = this.container.querySelector('.split-panel');
+    if (panel) panel.remove();
+
+    // Reset flex direction and viewport sizing
+    const cardBody = this.container.querySelector('.project-card-body') as HTMLElement;
+    if (cardBody) cardBody.style.flexDirection = '';
+    const viewport = this.container.querySelector('.terminal-viewport') as HTMLElement;
+    if (viewport) {
+      viewport.style.flexBasis = '';
+      viewport.style.flexGrow = '';
+      viewport.style.flexShrink = '';
+    }
+
+    this.splitDirection = null;
+    this.splitRatio = 0.5;
+
+    // Refit main terminal
+    requestAnimationFrame(() => this.fit());
   }
 
   // ── Git status refresh ──────────────────────────────────────────────

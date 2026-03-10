@@ -28,7 +28,10 @@ import {
   cycleLayout,
   cleanupLayout,
   applyNonStackLayout,
+  setLayoutProjectPath,
+  loadGridRatios,
 } from './terminalLayout';
+import { toggleCommandPalette, hideCommandPalette } from './commandPalette';
 
 const homeLog = log.scope('homeView');
 
@@ -87,6 +90,10 @@ export async function enterHomeView(): Promise<void> {
 
   homeViewActive.value = true;
   document.body.classList.add('home-mode');
+
+  // Reset layout to global context
+  setLayoutProjectPath(null);
+  await loadGridRatios(null);
 
   // Set up home header with grouping toggle
   const headerContent = document.querySelector('.header-content');
@@ -216,6 +223,7 @@ export async function enterHomeView(): Promise<void> {
       homeLog.error('failed to open new terminal', { error: err instanceof Error ? err.message : String(err) });
     }
   });
+  registerHotkey(platformHotkey('mod+k'), Scopes.HOME, () => toggleCommandPalette());
   registerHotkey(platformHotkey('mod+l'), Scopes.HOME, () => {
     if (homeStack) cleanupLayout(homeStack);
     setLayoutMode(cycleLayout());
@@ -244,6 +252,9 @@ export async function enterHomeView(): Promise<void> {
  */
 export function exitHomeView(): void {
   if (!homeViewActive.value) return;
+
+  // Dismiss command palette if open (before popping scope)
+  hideCommandPalette();
 
   homeLog.info('exiting home view');
 
@@ -281,6 +292,7 @@ export function exitHomeView(): void {
   unregisterHotkey(platformHotkey('mod+w'), Scopes.HOME);
   unregisterHotkey(platformHotkey('mod+t'), Scopes.HOME);
   unregisterHotkey(platformHotkey('mod+i'), Scopes.HOME);
+  unregisterHotkey(platformHotkey('mod+k'), Scopes.HOME);
   unregisterHotkey(platformHotkey('mod+l'), Scopes.HOME);
   for (let i = 1; i <= 9; i++) {
     unregisterHotkey(platformHotkey(`mod+${i}`), Scopes.HOME);

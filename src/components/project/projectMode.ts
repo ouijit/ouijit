@@ -60,7 +60,12 @@ import {
   syncLayoutToggle,
   cycleLayout,
   cleanupLayout,
+  loadProjectLayoutPreference,
+  loadLayoutPreference,
+  setLayoutProjectPath,
+  loadGridRatios,
 } from '../terminalLayout';
+import { toggleCommandPalette, hideCommandPalette } from '../commandPalette';
 
 const projectLog = log.scope('project');
 
@@ -112,7 +117,7 @@ function wireProjectHeader(headerContent: Element, path: string): void {
   wireLayoutToggle(headerContent, (mode) => {
     const stack = document.querySelector('.project-stack') as HTMLElement;
     if (stack) cleanupLayout(stack);
-    setLayoutMode(mode);
+    setLayoutMode(mode, projectPath.value ?? undefined);
     updateCardStack();
   });
 }
@@ -144,6 +149,11 @@ export async function enterProjectMode(
 
   // Register global Claude hook status listener
   manager.registerHookStatusListener();
+
+  // Load per-project layout preference and grid ratios
+  setLayoutProjectPath(path);
+  await loadProjectLayoutPreference(path);
+  await loadGridRatios(path);
 
   // 1. Add class to body - CSS handles the rest
   document.body.classList.add('project-mode');
@@ -314,18 +324,33 @@ export async function enterProjectMode(
   registerHotkey(platformHotkey('mod+i'), Scopes.PROJECT, () => addProjectTerminal());
   registerHotkey(platformHotkey('mod+p'), Scopes.PROJECT, () => projectRegistry.playOrToggleRunner?.());
   registerHotkey(platformHotkey('mod+d'), Scopes.PROJECT, () => projectRegistry.toggleActiveDiffPanel?.());
+  registerHotkey(platformHotkey('mod+k'), Scopes.PROJECT, () => toggleCommandPalette());
   registerHotkey(platformHotkey('mod+w'), Scopes.PROJECT, () => {
     const activeTerm = manager.activeTerminal.value;
     if (activeTerm) {
-      closeProjectTerminal(activeTerm);
+      if (activeTerm.splitPane) {
+        activeTerm.closeSplit();
+      } else {
+        closeProjectTerminal(activeTerm);
+      }
     }
+  });
+
+  // Mod+\ to split vertically, Mod+- to split horizontally
+  registerHotkey(platformHotkey('mod+\\'), Scopes.PROJECT, () => {
+    const activeTerm = manager.activeTerminal.value;
+    if (activeTerm) activeTerm.split('vertical');
+  });
+  registerHotkey(platformHotkey('mod+-'), Scopes.PROJECT, () => {
+    const activeTerm = manager.activeTerminal.value;
+    if (activeTerm) activeTerm.split('horizontal');
   });
 
   // Mod+L to cycle terminal layout modes
   registerHotkey(platformHotkey('mod+l'), Scopes.PROJECT, () => {
     const stack = document.querySelector('.project-stack') as HTMLElement;
     if (stack) cleanupLayout(stack);
-    setLayoutMode(cycleLayout());
+    setLayoutMode(cycleLayout(), projectPath.value ?? undefined);
     updateCardStack();
     const headerContent = document.querySelector('.header-content');
     if (headerContent) syncLayoutToggle(headerContent);
@@ -368,7 +393,10 @@ export function exitProjectMode(): void {
 
   const manager = getManager();
 
-  // 0. Clean up layout artifacts before preserving session
+  // 0. Dismiss command palette if open (before popping scope)
+  hideCommandPalette();
+
+  // 0a. Clean up layout artifacts before preserving session
   const stack = document.querySelector('.project-stack') as HTMLElement;
   if (stack) cleanupLayout(stack);
 
@@ -399,7 +427,10 @@ export function exitProjectMode(): void {
   unregisterHotkey(platformHotkey('mod+i'), Scopes.PROJECT);
   unregisterHotkey(platformHotkey('mod+p'), Scopes.PROJECT);
   unregisterHotkey(platformHotkey('mod+d'), Scopes.PROJECT);
+  unregisterHotkey(platformHotkey('mod+k'), Scopes.PROJECT);
   unregisterHotkey(platformHotkey('mod+w'), Scopes.PROJECT);
+  unregisterHotkey(platformHotkey('mod+\\'), Scopes.PROJECT);
+  unregisterHotkey(platformHotkey('mod+-'), Scopes.PROJECT);
   unregisterHotkey(platformHotkey('mod+l'), Scopes.PROJECT);
   for (let i = 1; i <= 9; i++) {
     unregisterHotkey(platformHotkey(`mod+${i}`), Scopes.PROJECT);
@@ -438,6 +469,9 @@ export function exitProjectMode(): void {
 
   // 9. Hide kanban board
   hideKanbanBoard();
+
+  // Reset layout to global default (sync — just resets the signal, no race)
+  setLayoutProjectPath(null);
 
   // Reset all signals to initial values
   resetSignals();
@@ -503,6 +537,11 @@ export async function restoreProjectMode(
   // Register global Claude hook status listener
   manager.registerHookStatusListener();
 
+  // Load per-project layout preference and grid ratios
+  setLayoutProjectPath(path);
+  await loadProjectLayoutPreference(path);
+  await loadGridRatios(path);
+
   // 1. Add class to body
   document.body.classList.add('project-mode');
 
@@ -564,18 +603,33 @@ export async function restoreProjectMode(
   registerHotkey(platformHotkey('mod+i'), Scopes.PROJECT, () => addProjectTerminal());
   registerHotkey(platformHotkey('mod+p'), Scopes.PROJECT, () => projectRegistry.playOrToggleRunner?.());
   registerHotkey(platformHotkey('mod+d'), Scopes.PROJECT, () => projectRegistry.toggleActiveDiffPanel?.());
+  registerHotkey(platformHotkey('mod+k'), Scopes.PROJECT, () => toggleCommandPalette());
   registerHotkey(platformHotkey('mod+w'), Scopes.PROJECT, () => {
     const activeTerm = manager.activeTerminal.value;
     if (activeTerm) {
-      closeProjectTerminal(activeTerm);
+      if (activeTerm.splitPane) {
+        activeTerm.closeSplit();
+      } else {
+        closeProjectTerminal(activeTerm);
+      }
     }
+  });
+
+  // Mod+\ to split vertically, Mod+- to split horizontally
+  registerHotkey(platformHotkey('mod+\\'), Scopes.PROJECT, () => {
+    const activeTerm = manager.activeTerminal.value;
+    if (activeTerm) activeTerm.split('vertical');
+  });
+  registerHotkey(platformHotkey('mod+-'), Scopes.PROJECT, () => {
+    const activeTerm = manager.activeTerminal.value;
+    if (activeTerm) activeTerm.split('horizontal');
   });
 
   // Mod+L to cycle terminal layout modes
   registerHotkey(platformHotkey('mod+l'), Scopes.PROJECT, () => {
     const stack = document.querySelector('.project-stack') as HTMLElement;
     if (stack) cleanupLayout(stack);
-    setLayoutMode(cycleLayout());
+    setLayoutMode(cycleLayout(), projectPath.value ?? undefined);
     updateCardStack();
     const headerContent = document.querySelector('.header-content');
     if (headerContent) syncLayoutToggle(headerContent);

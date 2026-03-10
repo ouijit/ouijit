@@ -14,6 +14,14 @@ export type TerminalLayout = 'stack' | 'grid' | 'focus';
 
 export const terminalLayout = signal<TerminalLayout>('stack');
 
+// ── Per-project tracking ────────────────────────────────────────────
+
+let currentProjectPath: string | null = null;
+
+export function setLayoutProjectPath(path: string | null): void {
+  currentProjectPath = path;
+}
+
 // ── Persistence ─────────────────────────────────────────────────────
 
 export async function loadLayoutPreference(): Promise<void> {
@@ -25,9 +33,25 @@ export async function loadLayoutPreference(): Promise<void> {
   }
 }
 
-export function setLayoutMode(mode: TerminalLayout): void {
+export async function loadProjectLayoutPreference(projectPath: string): Promise<void> {
+  try {
+    const saved = await window.api.projectSettings.getLayout(projectPath);
+    if (saved === 'stack' || saved === 'grid' || saved === 'focus') {
+      terminalLayout.value = saved;
+    }
+    // If null, keep current global default (already loaded)
+  } catch {
+    // Keep global default
+  }
+}
+
+export function setLayoutMode(mode: TerminalLayout, projectPath?: string): void {
   terminalLayout.value = mode;
-  window.api.globalSettings.set('terminalLayout', mode);
+  if (projectPath) {
+    window.api.projectSettings.setLayout(projectPath, mode);
+  } else {
+    window.api.globalSettings.set('terminalLayout', mode);
+  }
 }
 
 // ── Toggle UI ───────────────────────────────────────────────────────
@@ -196,6 +220,8 @@ function setupGridDrag(
     document.body.style.userSelect = '';
     // Refit all terminals after resize
     fitAllTerminals(terminals);
+    // Persist grid ratios
+    saveGridRatios();
   };
 
   handle.addEventListener('mousedown', onMouseDown);
@@ -213,6 +239,71 @@ function removeGridResizeHandles(stack: HTMLElement): void {
   for (const cleanup of gridDragCleanups) cleanup();
   gridDragCleanups = [];
   stack.querySelectorAll('.grid-resize-handle-h, .grid-resize-handle-v').forEach(el => el.remove());
+}
+
+// ── Grid ratio persistence ──────────────────────────────────────────
+
+function saveGridRatios(): void {
+  const json = JSON.stringify({ cols: gridColRatios, rows: gridRowRatios });
+  if (currentProjectPath) {
+    window.api.projectSettings.setGridRatios(currentProjectPath, json);
+  } else {
+    window.api.globalSettings.set('gridRatios', json);
+  }
+}
+
+export async function loadGridRatios(projectPath: string | null): Promise<void> {
+  try {
+    const json = projectPath
+      ? await window.api.projectSettings.getGridRatios(projectPath)
+      : await window.api.globalSettings.get('gridRatios');
+    if (!json) return;
+    const data = JSON.parse(json);
+    if (Array.isArray(data.cols) && Array.isArray(data.rows)) {
+      gridColRatios = data.cols;
+      gridRowRatios = data.rows;
+      gridTerminalCount = -1; // Force dimension check in applyGridLayout
+    }
+  } catch {
+    // Invalid JSON or missing — use defaults
+  }
+}
+
+/**
+ * Redistribute ratios when terminal count changes.
+ * Splits the largest ratio when growing, merges smallest adjacent when shrinking.
+ */
+export function redistributeRatios(old: number[], newCount: number): number[] {
+  if (old.length === 0 || newCount === 0) return Array(newCount).fill(1);
+  if (old.length === newCount) return [...old];
+
+  const result = [...old];
+
+  while (result.length < newCount) {
+    // Find largest ratio and split it
+    let maxIdx = 0;
+    for (let i = 1; i < result.length; i++) {
+      if (result[i] > result[maxIdx]) maxIdx = i;
+    }
+    const half = result[maxIdx] / 2;
+    result.splice(maxIdx, 1, half, half);
+  }
+
+  while (result.length > newCount) {
+    // Find smallest adjacent pair and merge
+    let minSum = Infinity;
+    let minIdx = 0;
+    for (let i = 0; i < result.length - 1; i++) {
+      const sum = result[i] + result[i + 1];
+      if (sum < minSum) {
+        minSum = sum;
+        minIdx = i;
+      }
+    }
+    result.splice(minIdx, 2, result[minIdx] + result[minIdx + 1]);
+  }
+
+  return result;
 }
 
 // ── Layout apply functions ──────────────────────────────────────────
@@ -235,10 +326,18 @@ export function applyGridLayout(
   const cols = Math.ceil(Math.sqrt(count));
   const rows = Math.ceil(count / cols);
 
-  // Reset ratios when terminal count changes
+  // Handle ratio updates when terminal count changes
   if (count !== gridTerminalCount) {
-    gridColRatios = Array(cols).fill(1);
-    gridRowRatios = Array(rows).fill(1);
+    if (gridColRatios.length === cols && gridRowRatios.length === rows) {
+      // Ratios already match current dimensions (loaded from persistence or unchanged)
+    } else if (gridColRatios.length > 0) {
+      // Redistribute existing ratios proportionally
+      gridColRatios = redistributeRatios(gridColRatios, cols);
+      gridRowRatios = redistributeRatios(gridRowRatios, rows);
+    } else {
+      gridColRatios = Array(cols).fill(1);
+      gridRowRatios = Array(rows).fill(1);
+    }
     gridTerminalCount = count;
   }
 

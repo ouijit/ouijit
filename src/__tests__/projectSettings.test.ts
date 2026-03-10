@@ -8,6 +8,10 @@ import {
   getSandboxConfig,
   setSandboxConfig,
   setKillExistingOnRun,
+  getProjectLayout,
+  setProjectLayout,
+  getProjectGridRatios,
+  setProjectGridRatios,
   _resetCacheForTesting,
 } from '../db';
 
@@ -114,5 +118,70 @@ describe('projectSettings', () => {
   test('deleteHook succeeds even when no hooks exist', async () => {
     const result = await deleteHook('/test/settings-no-hooks', 'start');
     expect(result.success).toBe(true);
+  });
+
+  test('per-project layout: get returns null for new project', async () => {
+    const layout = await getProjectLayout('/test/layout-new');
+    expect(layout).toBeNull();
+  });
+
+  test('per-project layout: set and get round-trip', async () => {
+    const project = '/test/layout-roundtrip';
+
+    const setResult = await setProjectLayout(project, 'grid');
+    expect(setResult.success).toBe(true);
+
+    const layout = await getProjectLayout(project);
+    expect(layout).toBe('grid');
+  });
+
+  test('per-project layout: overwrite existing value', async () => {
+    const project = '/test/layout-overwrite';
+
+    await setProjectLayout(project, 'grid');
+    await setProjectLayout(project, 'focus');
+
+    const layout = await getProjectLayout(project);
+    expect(layout).toBe('focus');
+  });
+
+  test('per-project layout: different projects are independent', async () => {
+    await setProjectLayout('/test/layout-a', 'grid');
+    await setProjectLayout('/test/layout-b', 'focus');
+
+    expect(await getProjectLayout('/test/layout-a')).toBe('grid');
+    expect(await getProjectLayout('/test/layout-b')).toBe('focus');
+  });
+
+  test('per-project grid ratios: get returns null for new project', async () => {
+    const ratios = await getProjectGridRatios('/test/ratios-new');
+    expect(ratios).toBeNull();
+  });
+
+  test('per-project grid ratios: set and get round-trip', async () => {
+    const project = '/test/ratios-roundtrip';
+    const json = JSON.stringify({ cols: [1, 2, 1], rows: [1, 1] });
+
+    const setResult = await setProjectGridRatios(project, json);
+    expect(setResult.success).toBe(true);
+
+    const ratios = await getProjectGridRatios(project);
+    expect(ratios).toBe(json);
+
+    // Verify JSON parses back correctly
+    const parsed = JSON.parse(ratios!);
+    expect(parsed.cols).toEqual([1, 2, 1]);
+    expect(parsed.rows).toEqual([1, 1]);
+  });
+
+  test('layout and grid ratios coexist on same project', async () => {
+    const project = '/test/layout-and-ratios';
+    const json = JSON.stringify({ cols: [1, 1], rows: [1] });
+
+    await setProjectLayout(project, 'grid');
+    await setProjectGridRatios(project, json);
+
+    expect(await getProjectLayout(project)).toBe('grid');
+    expect(await getProjectGridRatios(project)).toBe(json);
   });
 });
