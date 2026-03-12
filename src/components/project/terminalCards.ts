@@ -178,8 +178,6 @@ async function showCardContextMenu(event: MouseEvent, term: OuijitTerminal): Pro
   const menu = document.createElement('div');
   menu.className = 'task-context-menu';
 
-  const projPath = projectPath.value;
-
   // "Open in Terminal"
   if (term.worktreePath && term.worktreeBranch) {
     const terminalItem = document.createElement('button');
@@ -211,9 +209,8 @@ async function showCardContextMenu(event: MouseEvent, term: OuijitTerminal): Pro
   }
 
   // "Open in Sandbox"
-  const sandboxProjPath = projPath || term.projectPath;
-  if (term.worktreePath && term.worktreeBranch && sandboxProjPath) {
-    const limaStatus = await window.api.lima.status(sandboxProjPath);
+  if (term.worktreePath && term.worktreeBranch && term.projectPath) {
+    const limaStatus = await window.api.lima.status(term.projectPath);
     if (limaStatus.available) {
       const sandboxItem = document.createElement('button');
       sandboxItem.className = 'task-context-menu-item';
@@ -245,10 +242,9 @@ async function showCardContextMenu(event: MouseEvent, term: OuijitTerminal): Pro
   }
 
   // "Open in Editor"
-  const editorProjPath = projPath || term.projectPath;
-  if (term.worktreePath && editorProjPath) {
+  if (term.worktreePath && term.projectPath) {
     try {
-      const hooks = await window.api.hooks.get(editorProjPath);
+      const hooks = await window.api.hooks.get(term.projectPath);
       if (hooks.editor) {
         const editorItem = document.createElement('button');
         editorItem.className = 'task-context-menu-item';
@@ -256,7 +252,7 @@ async function showCardContextMenu(event: MouseEvent, term: OuijitTerminal): Pro
         editorItem.addEventListener('click', (e) => {
           e.stopPropagation();
           menu.remove();
-          window.api.openInEditor(editorProjPath, term.worktreePath!);
+          window.api.openInEditor(term.projectPath, term.worktreePath!);
         });
         menu.appendChild(editorItem);
       }
@@ -311,10 +307,7 @@ async function showCardContextMenu(event: MouseEvent, term: OuijitTerminal): Pro
 async function closeTaskFromTerminal(term: OuijitTerminal): Promise<void> {
   if (term.taskId == null) return;
 
-  const path = projectPath.value;
-  if (!path) return;
-
-  const result = await window.api.task.setStatus(path, term.taskId, 'done');
+  const result = await window.api.task.setStatus(term.projectPath, term.taskId, 'done');
   if (result.success) {
     closeProjectTerminal(term);
     showToast('Task closed', 'success');
@@ -661,7 +654,7 @@ async function restartRunner(term: OuijitTerminal): Promise<void> {
  * Run the run hook as a hidden runner
  */
 export async function runDefaultInCard(term: OuijitTerminal): Promise<void> {
-  const path = projectPath.value;
+  const path = term.projectPath;
   if (!path) return;
 
   // Kill existing runner first
