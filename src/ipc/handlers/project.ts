@@ -2,7 +2,7 @@ import os from 'os';
 import { shell, BrowserWindow, dialog } from 'electron';
 import { typedHandle } from '../helpers';
 import { getProjectList } from '../../scanner';
-import { addProject, removeProject, getProjectSettings, setKillExistingOnRun } from '../../db';
+import { addProject, removeProject, reorderProjects, getProjectSettings, setKillExistingOnRun } from '../../db';
 import { createProject } from '../../projectCreator';
 import { openInEditor } from '../../editorLauncher';
 import log from '../../log';
@@ -60,6 +60,7 @@ export function registerProjectHandlers(mainWindow: BrowserWindow): void {
 
   typedHandle('add-project', (folderPath) => addProject(folderPath));
   typedHandle('remove-project', (folderPath) => removeProject(folderPath));
+  typedHandle('reorder-projects', (paths) => reorderProjects(paths));
   typedHandle('get-project-settings', (projectPath) => getProjectSettings(projectPath));
   typedHandle('settings:set-kill-existing-on-run', (projectPath, kill) => setKillExistingOnRun(projectPath, kill));
 }

@@ -197,8 +197,5 @@ export async function getProjectList(): Promise<Project[]> {
     }
   }
 
-  // Sort by last modified date (most recent first)
-  projects.sort((a, b) => b.lastModified.getTime() - a.lastModified.getTime());
-
   return projects;
 }

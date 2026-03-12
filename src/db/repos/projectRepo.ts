@@ -5,13 +5,14 @@ export interface ProjectRow {
   name: string;
   added_at: string;
   icon_data_url: string | null;
+  sort_order: number;
 }
 
 export class ProjectRepo {
   constructor(private db: Database.Database) {}
 
   getAll(): ProjectRow[] {
-    return this.db.prepare('SELECT * FROM projects ORDER BY name COLLATE NOCASE').all() as ProjectRow[];
+    return this.db.prepare('SELECT * FROM projects ORDER BY sort_order, name COLLATE NOCASE').all() as ProjectRow[];
   }
 
   getByPath(path: string): ProjectRow | undefined {
@@ -33,5 +34,15 @@ export class ProjectRepo {
   remove(path: string): void {
     // CASCADE will clean up tasks, counters, settings, hooks
     this.db.prepare('DELETE FROM projects WHERE path = ?').run(path);
+  }
+
+  /** Reorder projects by setting sort_order based on the given path order */
+  reorder(paths: string[]): void {
+    const stmt = this.db.prepare('UPDATE projects SET sort_order = ? WHERE path = ?');
+    this.db.transaction(() => {
+      for (let i = 0; i < paths.length; i++) {
+        stmt.run(i, paths[i]);
+      }
+    })();
   }
 }

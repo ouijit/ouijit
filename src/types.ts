@@ -379,6 +379,8 @@ export interface ElectronAPI {
   addProject(folderPath: string): Promise<{ success: boolean; error?: string }>;
   /** Remove a project folder from the app */
   removeProject(folderPath: string): Promise<{ success: boolean }>;
+  /** Reorder projects in the sidebar */
+  reorderProjects(paths: string[]): Promise<{ success: boolean }>;
   /** Listen for fullscreen state changes */
   onFullscreenChange(callback: (isFullscreen: boolean) => void): () => void;
   /** Get project settings */

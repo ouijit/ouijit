@@ -55,6 +55,7 @@ export interface IpcInvokeContract {
   'show-folder-picker': { args: []; return: { canceled: boolean; filePaths: string[] } };
   'add-project': { args: [folderPath: string]; return: { success: boolean; error?: string } };
   'remove-project': { args: [folderPath: string]; return: { success: boolean } };
+  'reorder-projects': { args: [paths: string[]]; return: { success: boolean } };
   'get-project-settings': { args: [projectPath: string]; return: ProjectSettings };
   'settings:set-kill-existing-on-run': { args: [projectPath: string, kill: boolean]; return: { success: boolean } };
   'get-home-path': { args: []; return: string };

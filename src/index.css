@@ -308,6 +308,10 @@ body.platform-darwin:not(.is-fullscreen) .sidebar-drag-region {
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 
+.sidebar-item--dragging {
+  @apply opacity-80 z-[10001];
+}
+
 /* Session count badge */
 .sidebar-session-badge {
   @apply absolute text-white font-bold leading-none;
@@ -654,20 +658,15 @@ body.platform-darwin:not(.is-fullscreen) .sidebar--visible ~ .app-main .header-c
   background-color: transparent !important;
 }
 
-.terminal-xterm-container .xterm-viewport::-webkit-scrollbar {
-  @apply w-1.5;
+/* Narrow rounded macOS-style scrollbar for xterm's custom scrollbar */
+.terminal-xterm-container .xterm .xterm-scrollable-element > .scrollbar.vertical {
+  width: 10px !important;
 }
 
-.terminal-xterm-container .xterm-viewport::-webkit-scrollbar-track {
-  @apply bg-transparent;
-}
-
-.terminal-xterm-container .xterm-viewport::-webkit-scrollbar-thumb {
-  @apply bg-white/20 rounded-full;
-}
-
-.terminal-xterm-container .xterm-viewport::-webkit-scrollbar-thumb:hover {
-  @apply bg-white/30;
+.terminal-xterm-container .xterm .xterm-scrollable-element > .scrollbar.vertical > .slider {
+  border-radius: 5px !important;
+  left: 2px !important;
+  width: 6px !important;
 }
 
 /* ===================================
@@ -1768,20 +1767,14 @@ body.home-mode .project-card--back-8:hover {
   background-color: transparent !important;
 }
 
-.runner-xterm-container .xterm-viewport::-webkit-scrollbar {
-  @apply w-1.5;
+.runner-xterm-container .xterm .xterm-scrollable-element > .scrollbar.vertical {
+  width: 10px !important;
 }
 
-.runner-xterm-container .xterm-viewport::-webkit-scrollbar-track {
-  @apply bg-transparent;
-}
-
-.runner-xterm-container .xterm-viewport::-webkit-scrollbar-thumb {
-  @apply bg-white/20 rounded-full;
-}
-
-.runner-xterm-container .xterm-viewport::-webkit-scrollbar-thumb:hover {
-  @apply bg-white/30;
+.runner-xterm-container .xterm .xterm-scrollable-element > .scrollbar.vertical > .slider {
+  border-radius: 5px !important;
+  left: 2px !important;
+  width: 6px !important;
 }
 
 /* Project Launch Button & Dropdown */
