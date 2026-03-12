@@ -2,6 +2,7 @@
  * Discord-style project sidebar - vertically stacked project icons
  */
 
+import Sortable from 'sortablejs';
 import type { Project } from '../types';
 import { stringToColor, getInitials } from '../utils/projectIcon';
 import { addTooltip } from '../utils/tooltip';
@@ -14,6 +15,9 @@ let projectMap = new Map<string, Project>();
 
 // Tooltip cleanup functions keyed by project path
 const tooltipCleanups = new Map<string, () => void>();
+
+// SortableJS instance for drag reordering
+let sidebarSortable: Sortable | null = null;
 
 /** Render all project icons into the sidebar container */
 export function renderSidebar(container: HTMLElement, projects: Project[]): void {
@@ -34,6 +38,27 @@ export function renderSidebar(container: HTMLElement, projects: Project[]): void
   }
 
   updateSidebarActiveState();
+  setupSidebarSortable(container);
+}
+
+/** Set up or reinitialize drag-to-reorder on sidebar project icons */
+function setupSidebarSortable(container: HTMLElement): void {
+  sidebarSortable?.destroy();
+  sidebarSortable = Sortable.create(container, {
+    animation: 150,
+    draggable: '.sidebar-item',
+    direction: 'vertical',
+    forceFallback: true,
+    fallbackClass: 'sidebar-item--dragging',
+    onEnd: () => {
+      const paths: string[] = [];
+      container.querySelectorAll('.sidebar-item').forEach((el) => {
+        const path = (el as HTMLElement).dataset.projectPath;
+        if (path) paths.push(path);
+      });
+      window.api.reorderProjects(paths);
+    },
+  });
 }
 
 /** Create a single sidebar icon element */

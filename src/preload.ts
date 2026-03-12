@@ -44,6 +44,7 @@ contextBridge.exposeInMainWorld('api', {
   showFolderPicker: () => typedInvoke('show-folder-picker'),
   addProject: (folderPath: string) => typedInvoke('add-project', folderPath),
   removeProject: (folderPath: string) => typedInvoke('remove-project', folderPath),
+  reorderProjects: (paths: string[]) => typedInvoke('reorder-projects', paths),
   getProjectSettings: (projectPath: string) => typedInvoke('get-project-settings', projectPath),
   setKillExistingOnRun: (projectPath: string, kill: boolean) =>
     typedInvoke('settings:set-kill-existing-on-run', projectPath, kill),

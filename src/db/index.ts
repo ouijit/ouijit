@@ -459,6 +459,17 @@ export async function removeProject(folderPath: string): Promise<{ success: bool
   return { success: true };
 }
 
+export async function reorderProjects(paths: string[]): Promise<{ success: boolean }> {
+  try {
+    const { projectRepo: pr } = repos();
+    pr.reorder(paths);
+    return { success: true };
+  } catch (error) {
+    dbLog.error('failed to reorder projects', { error: error instanceof Error ? error.message : String(error) });
+    return { success: false };
+  }
+}
+
 // ── Tag functions ────────────────────────────────────────────────────
 
 export async function getAllTags(): Promise<TagRow[]> {
