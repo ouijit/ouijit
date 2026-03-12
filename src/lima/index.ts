@@ -1,7 +1,15 @@
 import { stopAllInstances } from './manager';
 import { cleanupSandboxPtys } from './spawn';
 
-export { spawnSandboxedPty, isSandboxPty, writeSandboxPty, resizeSandboxPty, killSandboxPty, getActiveSandboxSessions, reconnectSandboxPty } from './spawn';
+export {
+  spawnSandboxedPty,
+  isSandboxPty,
+  writeSandboxPty,
+  resizeSandboxPty,
+  killSandboxPty,
+  getActiveSandboxSessions,
+  reconnectSandboxPty,
+} from './spawn';
 
 /**
  * Clean up: kill sandboxed PTYs and stop all running ouijit VMs.

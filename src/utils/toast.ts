@@ -10,7 +10,7 @@ export type ToastType = 'success' | 'error' | 'info' | 'warning';
  */
 export function showToast(message: string, type: ToastType = 'success'): void {
   // Remove any existing toasts
-  document.querySelectorAll('.toast').forEach(t => t.remove());
+  document.querySelectorAll('.toast').forEach((t) => t.remove());
 
   const toast = document.createElement('div');
   toast.className = `toast toast--${type}`;

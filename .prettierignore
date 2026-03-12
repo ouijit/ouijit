@@ -1,0 +1,5 @@
+dist/
+out/
+.vite/
+node_modules/
+package-lock.json

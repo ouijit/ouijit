@@ -10,17 +10,11 @@ export function generateLimaYaml(config: LimaConfig): string {
   const vmType = isMac ? 'vz' : 'qemu';
 
   const mountsYaml = config.mounts
-    .map(
-      (m) =>
-        `  - location: "${m.hostPath}"\n    mountPoint: "${m.guestPath}"\n    writable: ${m.writable}`
-    )
+    .map((m) => `  - location: "${m.hostPath}"\n    mountPoint: "${m.guestPath}"\n    writable: ${m.writable}`)
     .join('\n');
 
   // vzNAT requires macOS Virtualization.framework; on Linux, Lima QEMU uses user-mode (slirp) networking by default
-  const networkYaml =
-    config.networkMode === 'vzNAT'
-      ? 'networks:\n  - vzNAT: true'
-      : 'networks: []';
+  const networkYaml = config.networkMode === 'vzNAT' ? 'networks:\n  - vzNAT: true' : 'networks: []';
 
   return `# Ouijit Sandbox VM Configuration
 # Auto-generated - do not edit directly
@@ -92,7 +86,7 @@ export function buildProjectMounts(projectPath: string): LimaMount[] {
 export function buildLimaConfig(
   instanceName: string,
   projectPath: string,
-  overrides?: { cpus?: number; memoryGiB?: number; diskGiB?: number; networkMode?: 'vzNAT' | 'none' }
+  overrides?: { cpus?: number; memoryGiB?: number; diskGiB?: number; networkMode?: 'vzNAT' | 'none' },
 ): LimaConfig {
   // vzNAT requires macOS Virtualization.framework; on Linux, QEMU provides user-mode networking by default
   const defaultNetworkMode = os.platform() === 'darwin' ? 'vzNAT' : 'none';

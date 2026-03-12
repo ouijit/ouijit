@@ -14,7 +14,6 @@ import {
   reorderTask,
 } from '../db';
 
-
 describe('taskMetadata', () => {
   test('createTask and getProjectTasks round-trip', async () => {
     const project = '/test/create-roundtrip';
@@ -127,12 +126,12 @@ describe('taskMetadata', () => {
     const project = '/test/sort-order';
 
     await createTask(project, 1, 'In progress old');
-    await new Promise(r => setTimeout(r, 10));
+    await new Promise((r) => setTimeout(r, 10));
     await createTask(project, 2, 'In progress new');
-    await new Promise(r => setTimeout(r, 10));
+    await new Promise((r) => setTimeout(r, 10));
     await createTask(project, 3, 'Done old');
     await setTaskStatus(project, 3, 'done');
-    await new Promise(r => setTimeout(r, 10));
+    await new Promise((r) => setTimeout(r, 10));
     await createTask(project, 4, 'Done new');
     await setTaskStatus(project, 4, 'done');
 
@@ -245,8 +244,8 @@ describe('taskMetadata', () => {
     expect(result.success).toBe(true);
 
     const tasks = await getProjectTasks(project);
-    const todoTasks = tasks.filter(t => t.status === 'todo');
-    expect(todoTasks.map(t => t.taskNumber)).toEqual([3, 1, 2]);
+    const todoTasks = tasks.filter((t) => t.status === 'todo');
+    expect(todoTasks.map((t) => t.taskNumber)).toEqual([3, 1, 2]);
   });
 
   test('reorderTask across columns', async () => {
@@ -261,11 +260,11 @@ describe('taskMetadata', () => {
     expect(result.success).toBe(true);
 
     const tasks = await getProjectTasks(project);
-    const todoTasks = tasks.filter(t => t.status === 'todo');
-    const ipTasks = tasks.filter(t => t.status === 'in_progress');
+    const todoTasks = tasks.filter((t) => t.status === 'todo');
+    const ipTasks = tasks.filter((t) => t.status === 'in_progress');
 
-    expect(todoTasks.map(t => t.taskNumber)).toEqual([2]);
-    expect(ipTasks.map(t => t.taskNumber)).toEqual([3, 1, 4]);
+    expect(todoTasks.map((t) => t.taskNumber)).toEqual([2]);
+    expect(ipTasks.map((t) => t.taskNumber)).toEqual([3, 1, 4]);
   });
 
   test('reorderTask to done sets closedAt', async () => {
@@ -300,8 +299,8 @@ describe('taskMetadata', () => {
     await reorderTask(project, 3, 'todo', 0);
 
     const tasks = await getProjectTasks(project);
-    const todoTasks = tasks.filter(t => t.status === 'todo');
-    expect(todoTasks.map(t => t.name)).toEqual(['Third', 'First', 'Second']);
+    const todoTasks = tasks.filter((t) => t.status === 'todo');
+    expect(todoTasks.map((t) => t.name)).toEqual(['Third', 'First', 'Second']);
   });
 
   test('setTaskStatus appends to end of target column', async () => {

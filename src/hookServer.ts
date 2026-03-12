@@ -171,24 +171,27 @@ export function getShellIntegrationDir(): string {
   return path.join(os.homedir(), '.config', 'Ouijit', 'shell-integration');
 }
 
-interface HookEntry { type: 'command'; command: string }
-interface HookMatcher { matcher?: string; hooks: HookEntry[] }
+interface HookEntry {
+  type: 'command';
+  command: string;
+}
+interface HookMatcher {
+  matcher?: string;
+  hooks: HookEntry[];
+}
 
 /** Build hook settings for a given ouijit-hook command path. */
 function buildHookSettings(hookCmd: string): { hooks: Record<string, HookMatcher[]> } {
   return {
     hooks: {
-      UserPromptSubmit: [
-        { hooks: [{ type: 'command', command: `${hookCmd} status status=thinking` }] },
-      ],
-      PostToolUse: [
-        { hooks: [{ type: 'command', command: `${hookCmd} status status=thinking` }] },
-      ],
-      Stop: [
-        { hooks: [{ type: 'command', command: `${hookCmd} status status=ready` }] },
-      ],
+      UserPromptSubmit: [{ hooks: [{ type: 'command', command: `${hookCmd} status status=thinking` }] }],
+      PostToolUse: [{ hooks: [{ type: 'command', command: `${hookCmd} status status=thinking` }] }],
+      Stop: [{ hooks: [{ type: 'command', command: `${hookCmd} status status=ready` }] }],
       Notification: [
-        { matcher: 'permission_prompt|idle_prompt', hooks: [{ type: 'command', command: `${hookCmd} status status=ready` }] },
+        {
+          matcher: 'permission_prompt|idle_prompt',
+          hooks: [{ type: 'command', command: `${hookCmd} status status=ready` }],
+        },
       ],
     },
   };
@@ -355,7 +358,7 @@ export function migrateFromSettingsHooks(): void {
         let changed = false;
         for (const event of Object.keys(hooks)) {
           const filtered = hooks[event].filter(
-            entry => !entry.hooks?.some(h => h.command?.includes('ouijit-hook')),
+            (entry) => !entry.hooks?.some((h) => h.command?.includes('ouijit-hook')),
           );
           if (filtered.length !== hooks[event].length) {
             changed = true;
@@ -381,7 +384,11 @@ export function migrateFromSettingsHooks(): void {
     }
 
     // Also remove stale version marker from old approach
-    try { fs.unlinkSync(path.join(configDir, 'hooks-version')); } catch { /* already gone */ }
+    try {
+      fs.unlinkSync(path.join(configDir, 'hooks-version'));
+    } catch {
+      /* already gone */
+    }
 
     // Write sentinel so we don't run this again
     fs.mkdirSync(configDir, { recursive: true });

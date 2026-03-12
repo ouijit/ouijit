@@ -22,11 +22,7 @@ describe('formatLogEntry', () => {
   });
 
   test('spreads metadata from last plain object argument', () => {
-    const result = formatLogEntry(
-      ['starting task', { taskNumber: 5, branch: 'feature-5' }],
-      'info',
-      'worktree',
-    );
+    const result = formatLogEntry(['starting task', { taskNumber: 5, branch: 'feature-5' }], 'info', 'worktree');
     const parsed = JSON.parse(result);
     expect(parsed.msg).toBe('starting task');
     expect(parsed.taskNumber).toBe(5);

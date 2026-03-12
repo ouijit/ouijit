@@ -20,17 +20,13 @@ export class ProjectRepo {
 
   add(path: string, name: string, iconDataUrl?: string): void {
     this.db.transaction(() => {
-      this.db.prepare(
-        'INSERT OR IGNORE INTO projects (path, name, icon_data_url) VALUES (?, ?, ?)'
-      ).run(path, name, iconDataUrl ?? null);
+      this.db
+        .prepare('INSERT OR IGNORE INTO projects (path, name, icon_data_url) VALUES (?, ?, ?)')
+        .run(path, name, iconDataUrl ?? null);
 
-      this.db.prepare(
-        'INSERT OR IGNORE INTO project_counters (project_path) VALUES (?)'
-      ).run(path);
+      this.db.prepare('INSERT OR IGNORE INTO project_counters (project_path) VALUES (?)').run(path);
 
-      this.db.prepare(
-        'INSERT OR IGNORE INTO project_settings (project_path) VALUES (?)'
-      ).run(path);
+      this.db.prepare('INSERT OR IGNORE INTO project_settings (project_path) VALUES (?)').run(path);
     })();
   }
 

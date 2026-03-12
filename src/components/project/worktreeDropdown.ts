@@ -3,7 +3,7 @@
  */
 
 import type { TaskWithWorkspace } from '../../types';
-import { projectPath, invalidateTaskList } from './signals';
+import { invalidateTaskList } from './signals';
 import { getManager } from '../terminal';
 import { showToast } from '../importDialog';
 import { projectRegistry } from './helpers';
@@ -221,4 +221,3 @@ export async function deleteTask(path: string, task: TaskWithWorkspace): Promise
     showToast(result.error || 'Failed to delete task', 'error');
   }
 }
-

@@ -12,7 +12,6 @@ import {
 } from '../db';
 
 describe('projectSettings', () => {
-
   test('full lifecycle: hooks, sandbox config, killExistingOnRun', async () => {
     const project = '/test/settings-lifecycle';
 

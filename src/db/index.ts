@@ -58,7 +58,14 @@ function repos() {
     tagRepo = new TagRepo(db);
     globalSettingsRepo = new GlobalSettingsRepo(db);
   }
-  return { projectRepo: projectRepo!, taskRepo: taskRepo!, settingsRepo: settingsRepo!, hookRepo: hookRepo!, tagRepo: tagRepo!, globalSettingsRepo: globalSettingsRepo! };
+  return {
+    projectRepo: projectRepo!,
+    taskRepo: taskRepo!,
+    settingsRepo: settingsRepo!,
+    hookRepo: hookRepo!,
+    tagRepo: tagRepo!,
+    globalSettingsRepo: globalSettingsRepo!,
+  };
 }
 
 // ── Test helpers ─────────────────────────────────────────────────────
@@ -113,17 +120,15 @@ function ensureProject(projectPath: string): void {
 export async function getProjectTasks(projectPath: string): Promise<TaskMetadata[]> {
   const { taskRepo: tr } = repos();
   const rows = tr.getAllForProject(projectPath);
-  return rows
-    .map(rowToTask)
-    .sort((a, b) => {
-      const statusA = STATUS_ORDER[a.status];
-      const statusB = STATUS_ORDER[b.status];
-      if (statusA !== statusB) return statusA - statusB;
-      const orderA = a.order ?? Number.MAX_SAFE_INTEGER;
-      const orderB = b.order ?? Number.MAX_SAFE_INTEGER;
-      if (orderA !== orderB) return orderA - orderB;
-      return a.createdAt.localeCompare(b.createdAt);
-    });
+  return rows.map(rowToTask).sort((a, b) => {
+    const statusA = STATUS_ORDER[a.status];
+    const statusB = STATUS_ORDER[b.status];
+    if (statusA !== statusB) return statusA - statusB;
+    const orderA = a.order ?? Number.MAX_SAFE_INTEGER;
+    const orderB = b.order ?? Number.MAX_SAFE_INTEGER;
+    if (orderA !== orderB) return orderA - orderB;
+    return a.createdAt.localeCompare(b.createdAt);
+  });
 }
 
 export async function getTask(projectPath: string, branch: string): Promise<TaskMetadata | null> {
@@ -351,25 +356,25 @@ export async function getProjectSettings(projectPath: string): Promise<ProjectSe
   };
 }
 
-export async function getHooks(
-  projectPath: string,
-): Promise<{ start?: ScriptHook; continue?: ScriptHook; run?: ScriptHook; review?: ScriptHook; cleanup?: ScriptHook; 'sandbox-setup'?: ScriptHook; editor?: ScriptHook }> {
+export async function getHooks(projectPath: string): Promise<{
+  start?: ScriptHook;
+  continue?: ScriptHook;
+  run?: ScriptHook;
+  review?: ScriptHook;
+  cleanup?: ScriptHook;
+  'sandbox-setup'?: ScriptHook;
+  editor?: ScriptHook;
+}> {
   const settings = await getProjectSettings(projectPath);
   return settings.hooks || {};
 }
 
-export async function getHook(
-  projectPath: string,
-  hookType: HookType,
-): Promise<ScriptHook | undefined> {
+export async function getHook(projectPath: string, hookType: HookType): Promise<ScriptHook | undefined> {
   const hooks = await getHooks(projectPath);
   return hooks[hookType];
 }
 
-export async function saveHook(
-  projectPath: string,
-  hook: ScriptHook,
-): Promise<{ success: boolean }> {
+export async function saveHook(projectPath: string, hook: ScriptHook): Promise<{ success: boolean }> {
   try {
     ensureProject(projectPath);
     const { hookRepo: hr } = repos();
@@ -381,10 +386,7 @@ export async function saveHook(
   }
 }
 
-export async function deleteHook(
-  projectPath: string,
-  hookType: HookType,
-): Promise<{ success: boolean }> {
+export async function deleteHook(projectPath: string, hookType: HookType): Promise<{ success: boolean }> {
   try {
     const { hookRepo: hr } = repos();
     hr.deleteByType(projectPath, hookType);
@@ -395,9 +397,7 @@ export async function deleteHook(
   }
 }
 
-export async function getSandboxConfig(
-  projectPath: string,
-): Promise<{ memoryGiB: number; diskGiB: number }> {
+export async function getSandboxConfig(projectPath: string): Promise<{ memoryGiB: number; diskGiB: number }> {
   const { settingsRepo: sr } = repos();
   const settings = sr.get(projectPath);
   return {
@@ -424,10 +424,7 @@ export async function setSandboxConfig(
   }
 }
 
-export async function setKillExistingOnRun(
-  projectPath: string,
-  kill: boolean,
-): Promise<{ success: boolean }> {
+export async function setKillExistingOnRun(projectPath: string, kill: boolean): Promise<{ success: boolean }> {
   try {
     ensureProject(projectPath);
     const { settingsRepo: sr } = repos();

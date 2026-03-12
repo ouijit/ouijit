@@ -14,7 +14,9 @@ body > .diff-panel {
     0 0 0 1px rgba(0, 0, 0, 0.05),
     0 4px 12px rgba(0, 0, 0, 0.15),
     0 20px 40px rgba(0, 0, 0, 0.2);
-  transition: width 0.25s ease, opacity 0.15s ease;
+  transition:
+    width 0.25s ease,
+    opacity 0.15s ease;
 }
 
 body > .diff-panel--visible {
@@ -80,11 +82,11 @@ body > .diff-panel--visible {
   @apply w-3 h-3 shrink-0 transition-transform duration-150 ease-out;
 }
 
-.diff-tree-dir[data-expanded="false"] .diff-tree-chevron {
+.diff-tree-dir[data-expanded='false'] .diff-tree-chevron {
   transform: rotate(-90deg);
 }
 
-.diff-tree-dir[data-expanded="false"] > .diff-tree-dir-children {
+.diff-tree-dir[data-expanded='false'] > .diff-tree-dir-children {
   @apply hidden;
 }
 
@@ -161,11 +163,21 @@ body > .diff-panel--visible {
   @apply w-[16px] h-[16px] shrink-0;
 }
 
-.diff-file-icon--modified  { @apply text-white/50; }
-.diff-file-icon--added     { @apply text-[#34C759]; }
-.diff-file-icon--untracked { @apply text-[#FF9F0A]; }
-.diff-file-icon--deleted   { @apply text-[#FF3B30]; }
-.diff-file-icon--renamed   { @apply text-[#5856D6]; }
+.diff-file-icon--modified {
+  @apply text-white/50;
+}
+.diff-file-icon--added {
+  @apply text-[#34C759];
+}
+.diff-file-icon--untracked {
+  @apply text-[#FF9F0A];
+}
+.diff-file-icon--deleted {
+  @apply text-[#FF3B30];
+}
+.diff-file-icon--renamed {
+  @apply text-[#5856D6];
+}
 
 /* ==========================================
    Diff Content Area
@@ -250,11 +262,21 @@ body > .diff-panel--visible {
   @apply shrink-0 text-[11px] px-1 py-px rounded font-medium;
 }
 
-.diff-file-badge--untracked { @apply bg-[#FF9F0A]/15 text-[#FF9F0A]; }
-.diff-file-badge--added     { @apply bg-[#34C759]/15 text-[#34C759]; }
-.diff-file-badge--deleted   { @apply bg-[#FF3B30]/15 text-[#FF3B30]; }
-.diff-file-badge--renamed   { @apply bg-[#5856D6]/15 text-[#5856D6]; }
-.diff-file-badge--modified  { @apply bg-white/[0.06] text-white/40; }
+.diff-file-badge--untracked {
+  @apply bg-[#FF9F0A]/15 text-[#FF9F0A];
+}
+.diff-file-badge--added {
+  @apply bg-[#34C759]/15 text-[#34C759];
+}
+.diff-file-badge--deleted {
+  @apply bg-[#FF3B30]/15 text-[#FF3B30];
+}
+.diff-file-badge--renamed {
+  @apply bg-[#5856D6]/15 text-[#5856D6];
+}
+.diff-file-badge--modified {
+  @apply bg-white/[0.06] text-white/40;
+}
 
 /* Header info */
 .diff-header-info {
@@ -312,8 +334,12 @@ body > .diff-panel--visible {
   top: calc(100% + 8px);
   transform: translateX(-50%) translateY(-4px);
   background: #2a2a2e;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(0, 0, 0, 0.1);
-  transition: opacity 0.15s ease, transform 0.15s ease;
+  box-shadow:
+    0 4px 20px rgba(0, 0, 0, 0.35),
+    0 0 0 1px rgba(0, 0, 0, 0.1);
+  transition:
+    opacity 0.15s ease,
+    transform 0.15s ease;
 }
 
 .compare-mode-info:hover .compare-mode-info-card {

@@ -39,7 +39,7 @@ export async function executeHook(
   hook: ScriptHook,
   cwd: string,
   env?: Partial<HookEnvironment>,
-  timeout: number = DEFAULT_TIMEOUT
+  timeout: number = DEFAULT_TIMEOUT,
 ): Promise<HookResult> {
   const startTime = Date.now();
   hookLog.info('executing hook', { type: hook.type, command: hook.command, cwd });
@@ -117,7 +117,12 @@ export async function executeHook(
       if (resolved) return;
       resolved = true;
       clearTimeout(timeoutId);
-      hookLog.info('hook completed', { type: hook.type, command: hook.command, exitCode, elapsed: Date.now() - startTime });
+      hookLog.info('hook completed', {
+        type: hook.type,
+        command: hook.command,
+        exitCode,
+        elapsed: Date.now() - startTime,
+      });
       resolve({
         success: exitCode === 0,
         exitCode: exitCode ?? undefined,

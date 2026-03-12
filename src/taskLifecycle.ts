@@ -65,8 +65,8 @@ export async function deleteTaskWithWorktree(
   if (task?.worktreePath || task?.branch) {
     const worktrees = await listWorktrees(projectPath);
     const wt = task.branch
-      ? worktrees.find(w => w.branch === task.branch)
-      : worktrees.find(w => w.path === task.worktreePath);
+      ? worktrees.find((w) => w.branch === task.branch)
+      : worktrees.find((w) => w.path === task.worktreePath);
     if (wt) {
       taskLog.info('deleting task with worktree', { taskNumber, worktreePath: wt.path });
       const removeResult = await removeTaskWorktree(projectPath, wt.path, taskNumber);
@@ -97,7 +97,7 @@ export async function trashTaskWithWorktree(
     worktreePath = task.worktreePath;
   } else if (task?.branch) {
     const worktrees = await listWorktrees(projectPath);
-    const wt = worktrees.find(w => w.branch === task.branch);
+    const wt = worktrees.find((w) => w.branch === task.branch);
     if (wt) worktreePath = wt.path;
   }
 
@@ -135,9 +135,9 @@ export async function trashTaskWithWorktree(
 export async function getTasksWithWorkspaces(projectPath: string): Promise<TaskWithWorkspace[]> {
   const worktrees = await listWorktrees(projectPath);
   const tasks = await getProjectTasks(projectPath);
-  const worktreeMap = new Map(worktrees.map(wt => [wt.branch, wt]));
+  const worktreeMap = new Map(worktrees.map((wt) => [wt.branch, wt]));
 
-  return tasks.map(task => {
+  return tasks.map((task) => {
     const wt = task.branch ? worktreeMap.get(task.branch) : undefined;
     return {
       taskNumber: task.taskNumber,
@@ -158,14 +158,11 @@ export async function getTasksWithWorkspaces(projectPath: string): Promise<TaskW
 /**
  * Get a single task with its resolved worktree path.
  */
-export async function getTaskWithWorkspace(
-  projectPath: string,
-  taskNumber: number,
-): Promise<TaskWithWorkspace | null> {
+export async function getTaskWithWorkspace(projectPath: string, taskNumber: number): Promise<TaskWithWorkspace | null> {
   const task = await getTaskByNumber(projectPath, taskNumber);
   if (!task) return null;
   const worktrees = await listWorktrees(projectPath);
-  const wt = task.branch ? worktrees.find(w => w.branch === task.branch) : undefined;
+  const wt = task.branch ? worktrees.find((w) => w.branch === task.branch) : undefined;
   return {
     taskNumber: task.taskNumber,
     name: task.name,

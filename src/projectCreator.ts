@@ -39,7 +39,9 @@ export async function createProject(options: CreateProjectOptions): Promise<Crea
     try {
       execSync('git init', { cwd: projectPath, stdio: 'ignore' });
     } catch (gitError) {
-      creatorLog.warn('failed to initialize git', { error: gitError instanceof Error ? gitError.message : String(gitError) });
+      creatorLog.warn('failed to initialize git', {
+        error: gitError instanceof Error ? gitError.message : String(gitError),
+      });
       // Continue anyway - git init failing shouldn't block project creation
     }
 

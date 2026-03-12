@@ -3,7 +3,13 @@ import * as pty from 'node-pty';
 import { BrowserWindow } from 'electron';
 import type { PtyId, PtySpawnOptions, PtySpawnResult } from './types';
 import { generateId } from './utils/ids';
-import { getApiPort, getWrapperBinDir, getShellIntegrationDir, clearHookStatus, clearAllHookStatuses } from './hookServer';
+import {
+  getApiPort,
+  getWrapperBinDir,
+  getShellIntegrationDir,
+  clearHookStatus,
+  clearAllHookStatuses,
+} from './hookServer';
 import log from './log';
 
 const ptyLog = log.scope('pty');
@@ -103,10 +109,7 @@ function handlePtyOutput(ptyId: PtyId, channel: string, data: string): void {
 /**
  * Spawn a new PTY with the user's shell
  */
-export async function spawnPty(
-  options: PtySpawnOptions,
-  window: BrowserWindow
-): Promise<PtySpawnResult> {
+export async function spawnPty(options: PtySpawnOptions, window: BrowserWindow): Promise<PtySpawnResult> {
   try {
     const ptyId = generateId('pty');
     const shell = getDefaultShell();
@@ -153,10 +156,7 @@ export async function spawnPty(
     if (options.command && options.env) {
       for (const [key, value] of Object.entries(options.env)) {
         // Replace $VAR and ${VAR} patterns
-        expandedCommand = expandedCommand.replace(
-          new RegExp(`\\$\\{${key}\\}|\\$${key}\\b`, 'g'),
-          value
-        );
+        expandedCommand = expandedCommand.replace(new RegExp(`\\$\\{${key}\\}|\\$${key}\\b`, 'g'), value);
       }
     }
 
@@ -253,7 +253,7 @@ export async function spawnPty(
  */
 export function reconnectPty(
   ptyId: PtyId,
-  window: BrowserWindow
+  window: BrowserWindow,
 ): { success: boolean; bufferedOutput?: string; isAltScreen?: boolean; lastCols?: number; error?: string } {
   const managed = activePtys.get(ptyId);
   if (!managed) {

@@ -14,9 +14,7 @@ export const projectPath = signal<string | null>(null);
 export const projectData = signal<Project | null>(null);
 
 // Derived state
-export const isInProjectMode = computed(() =>
-  projectPath.value !== null
-);
+export const isInProjectMode = computed(() => projectPath.value !== null);
 
 // Panel visibility
 export const diffPanelVisible = signal(false);

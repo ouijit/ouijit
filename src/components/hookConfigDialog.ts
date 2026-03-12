@@ -58,7 +58,6 @@ const HOOK_LABELS: Record<HookType, { title: string; description: string; placeh
   },
 };
 
-
 export interface CombinedHookConfigDialogResult {
   saved: boolean;
   startHook?: ScriptHook;
@@ -93,7 +92,7 @@ export function showCombinedHookConfigDialog(
     const envVarsHtml = `
       <details class="hook-env-vars" style="-webkit-app-region: no-drag;">
         <summary>Environment variables</summary>
-        <ul>${envVarsList.map(v => `<li><code class="hook-env-var" data-var="${v}">${v}</code></li>`).join('')}</ul>
+        <ul>${envVarsList.map((v) => `<li><code class="hook-env-var" data-var="${v}">${v}</code></li>`).join('')}</ul>
       </details>
     `;
 
@@ -140,7 +139,7 @@ export function showCombinedHookConfigDialog(
     document.body.appendChild(overlay);
 
     // Wire up click-to-copy on env var codes
-    dialog.querySelectorAll('.hook-env-var').forEach(code => {
+    dialog.querySelectorAll('.hook-env-var').forEach((code) => {
       code.addEventListener('click', () => {
         const varName = (code as HTMLElement).dataset.var!;
         navigator.clipboard.writeText(varName);
@@ -234,7 +233,7 @@ export function showHookConfigDialog(
   projectPath: string,
   hookType: HookType,
   existingHook?: ScriptHook,
-  options?: HookConfigDialogOptions
+  options?: HookConfigDialogOptions,
 ): Promise<HookConfigDialogResult | null> {
   return new Promise((resolve) => {
     const labels = HOOK_LABELS[hookType];
@@ -254,12 +253,14 @@ export function showHookConfigDialog(
       '$OUIJIT_TASK_NAME',
       '$OUIJIT_TASK_PROMPT',
     ];
-    const envVarsHtml = labels.envVars ? `
+    const envVarsHtml = labels.envVars
+      ? `
       <details class="hook-env-vars" style="-webkit-app-region: no-drag;">
         <summary>Environment variables</summary>
-        <ul>${envVarsList.map(v => `<li><code class="hook-env-var" data-var="${v}">${v}</code></li>`).join('')}</ul>
+        <ul>${envVarsList.map((v) => `<li><code class="hook-env-var" data-var="${v}">${v}</code></li>`).join('')}</ul>
       </details>
-    ` : '';
+    `
+      : '';
 
     dialog.innerHTML = `
       <h2 class="dialog-title">${labels.title}</h2>
@@ -278,14 +279,18 @@ export function showHookConfigDialog(
           >${existingHook?.command || ''}</textarea>
         </div>
 
-        ${isRunHook ? `
+        ${
+          isRunHook
+            ? `
         <div class="form-group" style="margin-top: 12px;">
           <label class="custom-checkbox">
             <input type="checkbox" id="kill-existing" ${killExistingChecked ? 'checked' : ''} />
             <span class="custom-checkbox-label">Stop existing processes before starting</span>
           </label>
         </div>
-        ` : ''}
+        `
+            : ''
+        }
 
         ${envVarsHtml}
       </div>
@@ -300,7 +305,7 @@ export function showHookConfigDialog(
     document.body.appendChild(overlay);
 
     // Wire up click-to-copy on env var codes
-    dialog.querySelectorAll('.hook-env-var').forEach(code => {
+    dialog.querySelectorAll('.hook-env-var').forEach((code) => {
       code.addEventListener('click', () => {
         const varName = (code as HTMLElement).dataset.var!;
         navigator.clipboard.writeText(varName);

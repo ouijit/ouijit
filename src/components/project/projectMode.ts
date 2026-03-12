@@ -4,10 +4,7 @@
 
 import log from 'electron-log/renderer';
 import type { Project, ActiveSession } from '../../types';
-import {
-  projectState,
-  GIT_STATUS_PERIODIC_INTERVAL,
-} from './state';
+import { projectState, GIT_STATUS_PERIODIC_INTERVAL } from './state';
 import {
   projectPath,
   projectData,
@@ -40,15 +37,10 @@ import {
   setupCardActions,
   reconnectTerminal,
 } from './terminalCards';
-import {
-  buildProjectHeader,
-  toggleLaunchDropdown,
-  hideLaunchDropdown,
-} from './launchDropdown';
+import { buildProjectHeader, toggleLaunchDropdown, hideLaunchDropdown } from './launchDropdown';
 import { hideKanbanBoard, showKanbanBoard, showKanbanAndFocusInput, syncViewToggle } from './kanbanBoard';
 import { projectRegistry } from './helpers';
-import { OuijitTerminal } from '../terminal';
-import { getManager } from '../terminal';
+import { OuijitTerminal, getManager } from '../terminal';
 import { registerHotkey, unregisterHotkey, pushScope, popScope, Scopes, platformHotkey } from '../../utils/hotkeys';
 import { convertIconsIn } from '../../utils/icons';
 import { showHookConfigDialog } from '../hookConfigDialog';
@@ -105,10 +97,7 @@ function wireProjectHeader(headerContent: Element, path: string): void {
  * Enter project mode for the specified project
  * If a preserved session exists, it will be restored instead of creating a new one
  */
-export async function enterProjectMode(
-  path: string,
-  project: Project
-): Promise<void> {
+export async function enterProjectMode(path: string, project: Project): Promise<void> {
   if (projectPath.value) return; // Already in project mode
 
   const manager = getManager();
@@ -252,12 +241,12 @@ export async function enterProjectMode(
         window.api.pty.setWindow();
 
         // Separate main terminals from runners
-        const mainSessions = orphaned.filter(s => !s.isRunner);
-        const runnerSessions = orphaned.filter(s => s.isRunner);
+        const mainSessions = orphaned.filter((s) => !s.isRunner);
+        const runnerSessions = orphaned.filter((s) => s.isRunner);
 
         // Override stale labels with current task names
         const allTasks = await window.api.task.getAll(path);
-        const taskNameMap = new Map(allTasks.map(t => [t.taskNumber, t.name]));
+        const taskNameMap = new Map(allTasks.map((t) => [t.taskNumber, t.name]));
 
         // First reconnect main terminals
         for (const session of mainSessions) {
@@ -275,7 +264,10 @@ export async function enterProjectMode(
           if (parentTerminal) {
             await reconnectRunnerToParent(runnerSession, parentTerminal);
           } else {
-            projectLog.warn('could not find parent terminal for runner', { ptyId: runnerSession.ptyId, parentPtyId: runnerSession.parentPtyId });
+            projectLog.warn('could not find parent terminal for runner', {
+              ptyId: runnerSession.ptyId,
+              parentPtyId: runnerSession.parentPtyId,
+            });
           }
         }
 
@@ -449,7 +441,7 @@ export function isInProjectMode(): boolean {
 export async function restoreProjectMode(
   path: string,
   project: Project,
-  activeSessions: ActiveSession[]
+  activeSessions: ActiveSession[],
 ): Promise<void> {
   if (projectPath.value) return; // Already in project mode
 
@@ -491,13 +483,13 @@ export async function restoreProjectMode(
     mainContent.appendChild(stack);
 
     // Separate main terminals from runners
-    const mainSessions = activeSessions.filter(s => !s.isRunner);
-    const runnerSessions = activeSessions.filter(s => s.isRunner);
+    const mainSessions = activeSessions.filter((s) => !s.isRunner);
+    const runnerSessions = activeSessions.filter((s) => s.isRunner);
 
     // Fetch task data for branch lookup and label override during restoration
     const allTasks = await window.api.task.getAll(path);
-    const taskBranchMap = new Map(allTasks.filter(t => t.branch).map(t => [t.taskNumber, t.branch!]));
-    const taskNameMap = new Map(allTasks.map(t => [t.taskNumber, t.name]));
+    const taskBranchMap = new Map(allTasks.filter((t) => t.branch).map((t) => [t.taskNumber, t.branch!]));
+    const taskNameMap = new Map(allTasks.map((t) => [t.taskNumber, t.name]));
 
     // First reconnect main terminals
     for (const session of mainSessions) {
@@ -516,7 +508,10 @@ export async function restoreProjectMode(
       if (parentTerminal) {
         await reconnectRunnerToParent(runnerSession, parentTerminal);
       } else {
-        projectLog.warn('could not find parent terminal for runner', { ptyId: runnerSession.ptyId, parentPtyId: runnerSession.parentPtyId });
+        projectLog.warn('could not find parent terminal for runner', {
+          ptyId: runnerSession.ptyId,
+          parentPtyId: runnerSession.parentPtyId,
+        });
       }
     }
 
@@ -580,7 +575,7 @@ async function reconnectProjectTerminal(session: ActiveSession, worktreeBranch?:
 
   // Query main-process hook status for correct initial state
   const hookStatus = await window.api.claudeHooks.getStatus(session.ptyId);
-  const initialStatus = hookStatus?.status === 'thinking' ? 'thinking' as const : 'ready' as const;
+  const initialStatus = hookStatus?.status === 'thinking' ? ('thinking' as const) : ('ready' as const);
 
   const term = await reconnectTerminal(session, stack as HTMLElement, {
     worktreeBranch,
@@ -624,10 +619,7 @@ async function reconnectProjectTerminal(session: ActiveSession, worktreeBranch?:
 /**
  * Reconnect a runner PTY to its parent terminal
  */
-async function reconnectRunnerToParent(
-  session: ActiveSession,
-  parentTerminal: OuijitTerminal
-): Promise<void> {
+async function reconnectRunnerToParent(session: ActiveSession, parentTerminal: OuijitTerminal): Promise<void> {
   // Create runner terminal (hidden until panel is opened)
   const runner = new OuijitTerminal({
     ptyId: session.ptyId,
@@ -697,7 +689,10 @@ async function reconnectRunnerToParent(
   // Clean up temp container (runner DOM is now owned by parent via setRunner)
   tempContainer.remove();
 
-  projectLog.info('reconnected runner to parent terminal', { runnerPtyId: session.ptyId, parentPtyId: parentTerminal.ptyId });
+  projectLog.info('reconnected runner to parent terminal', {
+    runnerPtyId: session.ptyId,
+    parentPtyId: parentTerminal.ptyId,
+  });
 }
 
 /**
@@ -705,7 +700,7 @@ async function reconnectRunnerToParent(
  */
 function wireViewToggle(headerContent: Element): void {
   const toggleBtns = headerContent.querySelectorAll('.project-view-toggle-btn');
-  toggleBtns.forEach(btn => {
+  toggleBtns.forEach((btn) => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       const view = (btn as HTMLElement).dataset.view;
@@ -860,7 +855,6 @@ export function setSandboxButtonStarting(starting: boolean): void {
     svg.appendChild(rect);
     btn.appendChild(svg);
     activeBorderAnim = svg;
-
   } else {
     btn.classList.remove('project-sandbox-btn--starting');
 
@@ -869,7 +863,7 @@ export function setSandboxButtonStarting(starting: boolean): void {
       activeBorderAnim = null;
     }
     // Belt-and-suspenders: remove any orphaned animation SVGs
-    btn.querySelectorAll('.sandbox-border-anim').forEach(el => el.remove());
+    btn.querySelectorAll('.sandbox-border-anim').forEach((el) => el.remove());
   }
 }
 
@@ -879,7 +873,6 @@ export function setSandboxButtonStarting(starting: boolean): void {
  * based on actual VM status.
  */
 export async function refreshSandboxButton(path: string): Promise<void> {
-
   // Clear animation immediately — don't wait for the status query
   setSandboxButtonStarting(false);
   try {
@@ -897,11 +890,7 @@ export async function refreshSandboxButton(path: string): Promise<void> {
 /**
  * Build the sandbox dropdown content
  */
-async function buildSandboxDropdownContent(
-  dropdown: HTMLElement,
-  wrapper: HTMLElement,
-  path: string,
-): Promise<void> {
+async function buildSandboxDropdownContent(dropdown: HTMLElement, wrapper: HTMLElement, path: string): Promise<void> {
   dropdown.innerHTML = '';
 
   const [status, hooks, config] = await Promise.all([
@@ -925,11 +914,11 @@ async function buildSandboxDropdownContent(
   dropdown.appendChild(detailsContainer);
 
   const vmStatusMap: Record<string, string> = {
-    'Running': 'Running',
-    'Stopped': 'Stopped',
-    'Broken': 'Broken',
-    'NotCreated': 'Not created',
-    'Unavailable': 'Unavailable',
+    Running: 'Running',
+    Stopped: 'Stopped',
+    Broken: 'Broken',
+    NotCreated: 'Not created',
+    Unavailable: 'Unavailable',
   };
 
   function formatBytes(bytes: number): string {

@@ -8,13 +8,7 @@ import {
   shipWorktree,
 } from '../../worktree';
 import { getNextTaskNumber } from '../../db';
-import {
-  getWorktreeDiff,
-  getWorktreeFileDiff,
-  mergeWorktreeBranch,
-  listBranches,
-  getMainBranch,
-} from '../../git';
+import { getWorktreeDiff, getWorktreeFileDiff, mergeWorktreeBranch, listBranches, getMainBranch } from '../../git';
 
 export function registerWorktreeHandlers(): void {
   typedHandle('worktree:validate-branch-name', (projectPath, branchName) =>
@@ -45,9 +39,7 @@ export function registerWorktreeHandlers(): void {
     getWorktreeFileDiff(projectPath, worktreeBranch, filePath, targetBranch),
   );
 
-  typedHandle('worktree:merge', (projectPath, worktreeBranch) =>
-    mergeWorktreeBranch(projectPath, worktreeBranch),
-  );
+  typedHandle('worktree:merge', (projectPath, worktreeBranch) => mergeWorktreeBranch(projectPath, worktreeBranch));
 
   typedHandle('worktree:ship', (projectPath, worktreeBranch, commitMessage) =>
     shipWorktree(projectPath, worktreeBranch, commitMessage),

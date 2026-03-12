@@ -5,7 +5,9 @@ Desktop app for project management with integrated terminal sessions, git worktr
 ## Development
 
 ### Commands for Claude
-- `npm run check` - Type check (run this to verify changes)
+- `npm run check` - Type check + lint + format check (run this to verify changes)
+- `npm run lint` - ESLint only
+- `npm run format` - Auto-format with Prettier
 - `npm test` - Run unit/integration tests (rebuilds better-sqlite3 silently as a pretest step)
 - `npm run test:e2e` - Run Playwright e2e tests (builds app first, tests UI flows)
 
@@ -72,6 +74,8 @@ Do NOT run `npm run start` or other dev server commands.
 - sortablejs for kanban drag-and-drop
 - Tailwind CSS for styling
 - Vitest for testing
+- ESLint 9 + typescript-eslint for linting (circular dependency detection via `import-x/no-cycle`)
+- Prettier for formatting (single quotes, 120 char width)
 
 ## Design Rules
 
@@ -127,3 +131,7 @@ To add a new hotkey in project mode:
    - Call via registry with optional chaining: `projectRegistry.myHandler?.()`
 
 This registry pattern avoids circular dependencies between project modules.
+
+## Pull Requests
+
+PR descriptions should only contain a `## Summary` section with bullet points. No test plans, checklists, or generated-by credits.

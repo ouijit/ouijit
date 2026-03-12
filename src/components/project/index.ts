@@ -21,11 +21,7 @@ export { OuijitTerminal, scrollSafeFit } from '../terminal';
 export { getManager, type StoredSession } from '../terminal';
 
 // Helpers (utility functions and cross-module registry)
-export {
-  getTerminalGitPath,
-  hideRunnerPanel,
-  projectRegistry,
-} from './helpers';
+export { getTerminalGitPath, hideRunnerPanel, projectRegistry } from './helpers';
 
 // Signals (reactive state)
 export {
@@ -100,8 +96,4 @@ export {
 } from './projectMode';
 
 // Worktree/task operations
-export {
-  closeTask,
-  reopenTask,
-  deleteTask,
-} from './worktreeDropdown';
+export { closeTask, reopenTask, deleteTask } from './worktreeDropdown';

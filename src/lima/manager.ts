@@ -103,7 +103,7 @@ export async function getInstance(name: string): Promise<LimaInstance> {
  */
 export async function createInstance(
   projectPath: string,
-  overrides?: { cpus?: number; memoryGiB?: number; diskGiB?: number; networkMode?: 'vzNAT' | 'none' }
+  overrides?: { cpus?: number; memoryGiB?: number; diskGiB?: number; networkMode?: 'vzNAT' | 'none' },
 ): Promise<{ success: boolean; error?: string }> {
   const instanceName = getInstanceName(projectPath);
   const config = buildLimaConfig(instanceName, projectPath, overrides);
@@ -116,7 +116,8 @@ export async function createInstance(
 
   try {
     await execFileAsync(getLimactlPath(), ['create', '--name', instanceName, yamlPath], {
-      timeout: 300_000, env: getLimaEnv(),
+      timeout: 300_000,
+      env: getLimaEnv(),
     });
     return { success: true };
   } catch (error) {
@@ -124,7 +125,8 @@ export async function createInstance(
     // Clean up partially-created VM so we don't leave it in a broken state
     try {
       await execFileAsync(getLimactlPath(), ['delete', '--force', instanceName], {
-        timeout: 30_000, env: getLimaEnv(),
+        timeout: 30_000,
+        env: getLimaEnv(),
       });
     } catch {
       // Ignore — VM may not have been created at all
@@ -197,11 +199,15 @@ function tailHostAgentLog(instanceName: string, onMessage: (msg: string) => void
 /**
  * Start a Lima instance
  */
-export async function startInstance(name: string, onProgress?: (message: string) => void): Promise<{ success: boolean; error?: string }> {
+export async function startInstance(
+  name: string,
+  onProgress?: (message: string) => void,
+): Promise<{ success: boolean; error?: string }> {
   const stopTailing = onProgress ? tailHostAgentLog(name, onProgress) : undefined;
   try {
     await execFileAsync(getLimactlPath(), ['start', name], {
-      timeout: 300_000, env: getLimaEnv(),
+      timeout: 300_000,
+      env: getLimaEnv(),
     });
     return { success: true };
   } catch (error) {
@@ -218,7 +224,8 @@ export async function startInstance(name: string, onProgress?: (message: string)
 export async function stopInstance(name: string): Promise<{ success: boolean; error?: string }> {
   try {
     await execFileAsync(getLimactlPath(), ['stop', name], {
-      timeout: 30_000, env: getLimaEnv(),
+      timeout: 30_000,
+      env: getLimaEnv(),
     });
     return { success: true };
   } catch (error) {
@@ -233,7 +240,8 @@ export async function stopInstance(name: string): Promise<{ success: boolean; er
 export async function deleteInstance(name: string): Promise<{ success: boolean; error?: string }> {
   try {
     await execFileAsync(getLimactlPath(), ['delete', '--force', name], {
-      timeout: 30_000, env: getLimaEnv(),
+      timeout: 30_000,
+      env: getLimaEnv(),
     });
     return { success: true };
   } catch (error) {
@@ -256,13 +264,14 @@ async function waitForSsh(
     onProgress?.(`Waiting for SSH (attempt ${i + 1}/${maxRetries})…`);
     try {
       await execFileAsync(getLimactlPath(), ['shell', instanceName, '--', 'echo', 'ok'], {
-        timeout: 10_000, env: getLimaEnv(),
+        timeout: 10_000,
+        env: getLimaEnv(),
       });
       return true;
     } catch {
       if (i < maxRetries - 1) {
         const delay = Math.min(1000 * Math.pow(2, i), 10_000);
-        await new Promise(r => setTimeout(r, delay));
+        await new Promise((r) => setTimeout(r, delay));
       }
     }
   }
@@ -285,8 +294,12 @@ export async function ensureRunning(
 
   if (instance.status === 'Running') {
     progress('Waiting for SSH…');
-    if (!await waitForSsh(instanceName, 10, progress)) {
-      return { success: false, instanceName, error: 'VM is running but SSH is not responding after multiple attempts. The VM may need to be recreated.' };
+    if (!(await waitForSsh(instanceName, 10, progress))) {
+      return {
+        success: false,
+        instanceName,
+        error: 'VM is running but SSH is not responding after multiple attempts. The VM may need to be recreated.',
+      };
     }
     return { success: true, instanceName };
   }
@@ -320,7 +333,11 @@ export async function ensureRunning(
   progress('Recreating sandbox VM…');
   const deleteResult = await deleteInstance(instanceName);
   if (!deleteResult.success) {
-    return { success: false, instanceName, error: `Cannot recreate VM: failed to delete broken instance. ${deleteResult.error}` };
+    return {
+      success: false,
+      instanceName,
+      error: `Cannot recreate VM: failed to delete broken instance. ${deleteResult.error}`,
+    };
   }
   const createResult = await createInstance(projectPath, overrides);
   if (!createResult.success) {
@@ -349,11 +366,21 @@ export async function getLimaStatus(projectPath: string): Promise<SandboxStatus>
 
   let vmStatus: SandboxStatus['vmStatus'];
   switch (instance.status) {
-    case 'Running': vmStatus = 'Running'; break;
-    case 'Stopped': vmStatus = 'Stopped'; break;
-    case 'Broken': vmStatus = 'Broken'; break;
-    case 'NotFound': vmStatus = 'NotCreated'; break;
-    default: vmStatus = 'Stopped'; break;
+    case 'Running':
+      vmStatus = 'Running';
+      break;
+    case 'Stopped':
+      vmStatus = 'Stopped';
+      break;
+    case 'Broken':
+      vmStatus = 'Broken';
+      break;
+    case 'NotFound':
+      vmStatus = 'NotCreated';
+      break;
+    default:
+      vmStatus = 'Stopped';
+      break;
   }
 
   return {
@@ -435,7 +462,12 @@ export function stopAllInstances(): void {
   const env = getLimaEnv();
 
   try {
-    const stdout = execFileSync(limactl, ['list', '--json'], { env, timeout: 5_000, encoding: 'utf-8', stdio: ['ignore', 'pipe', 'ignore'] });
+    const stdout = execFileSync(limactl, ['list', '--json'], {
+      env,
+      timeout: 5_000,
+      encoding: 'utf-8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
     const lines = stdout.trim().split('\n').filter(Boolean);
     for (const line of lines) {
       try {

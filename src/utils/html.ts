@@ -22,7 +22,11 @@ export interface EnvVarValues {
  *
  * @returns cleanup-free — all listeners are on elements that get removed with the dialog.
  */
-export function setupHighlightedTextarea(textarea: HTMLTextAreaElement, maxHeight = 240, envVarValues?: EnvVarValues): void {
+export function setupHighlightedTextarea(
+  textarea: HTMLTextAreaElement,
+  maxHeight = 240,
+  envVarValues?: EnvVarValues,
+): void {
   // Wrap textarea in container with backdrop
   const wrap = document.createElement('div');
   wrap.className = 'hook-command-wrap';
@@ -60,7 +64,9 @@ export function setupHighlightedTextarea(textarea: HTMLTextAreaElement, maxHeigh
   };
 
   textarea.addEventListener('input', sync);
-  textarea.addEventListener('scroll', () => { backdrop.scrollTop = textarea.scrollTop; });
+  textarea.addEventListener('scroll', () => {
+    backdrop.scrollTop = textarea.scrollTop;
+  });
 
   // Env var hover tooltips
   if (envVarValues) {
@@ -105,7 +111,7 @@ export function setupHighlightedTextarea(textarea: HTMLTextAreaElement, maxHeigh
       backdrop.style.pointerEvents = 'auto';
       const els = document.elementsFromPoint(e.clientX, e.clientY);
       backdrop.style.pointerEvents = '';
-      const mark = els.find(el => el.classList.contains('hook-env-highlight'));
+      const mark = els.find((el) => el.classList.contains('hook-env-highlight'));
       if (mark) {
         showTooltip(mark, e.clientX, e.clientY);
       } else {

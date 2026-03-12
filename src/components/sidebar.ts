@@ -16,15 +16,12 @@ let projectMap = new Map<string, Project>();
 const tooltipCleanups = new Map<string, () => void>();
 
 /** Render all project icons into the sidebar container */
-export function renderSidebar(
-  container: HTMLElement,
-  projects: Project[]
-): void {
+export function renderSidebar(container: HTMLElement, projects: Project[]): void {
   // Remove existing project items but keep the add button
   const addBtn = container.querySelector('#sidebar-add-btn');
-  container.querySelectorAll('.sidebar-item').forEach(el => el.remove());
+  container.querySelectorAll('.sidebar-item').forEach((el) => el.remove());
 
-  projectMap = new Map(projects.map(p => [p.path, p]));
+  projectMap = new Map(projects.map((p) => [p.path, p]));
 
   for (const project of projects) {
     const item = createSidebarIcon(project);
@@ -106,7 +103,7 @@ export function updateSidebarActiveState(): void {
     // Session count badge: always show terminal count
     const manager = getManager();
     const session = manager.sessions.get(el.dataset.projectPath!);
-    const count = isActive ? manager.terminals.value.length : (session ? session.terminals.length : 0);
+    const count = isActive ? manager.terminals.value.length : session ? session.terminals.length : 0;
     let badge = el.querySelector('.sidebar-session-badge') as HTMLElement | null;
     if (count > 0) {
       if (!badge) {
@@ -136,10 +133,7 @@ export function removeProjectFromSidebar(path: string): void {
  * Wire click handlers on sidebar items (event delegation).
  * Call once — handlers survive re-renders since they're on the container.
  */
-export function wireSidebarClicks(
-  container: HTMLElement,
-  onSelect: (path: string, project: Project) => void
-): void {
+export function wireSidebarClicks(container: HTMLElement, onSelect: (path: string, project: Project) => void): void {
   container.addEventListener('click', (e) => {
     const item = (e.target as HTMLElement).closest('.sidebar-item') as HTMLElement | null;
     if (!item) return;

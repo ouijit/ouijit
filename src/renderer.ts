@@ -8,11 +8,18 @@ import './index.css';
 import '@xterm/xterm/css/xterm.css';
 import log from 'electron-log/renderer';
 import { initIcons } from './utils/icons';
-import type { Project, ActiveSession, LastActiveView, HookStatus } from './types';
+import type { Project, ActiveSession, LastActiveView } from './types';
 import { showToast } from './components/importDialog';
 import { showNewProjectDialog } from './components/newProjectDialog';
 import { initHotkeys } from './utils/hotkeys';
-import { enterProjectMode, exitProjectMode, restoreProjectMode, homeViewActive, projectRegistry, getManager } from './components/project';
+import {
+  enterProjectMode,
+  exitProjectMode,
+  restoreProjectMode,
+  homeViewActive,
+  projectRegistry,
+  getManager,
+} from './components/project';
 import { renderSidebar, wireSidebarClicks, updateSidebarActiveState } from './components/sidebar';
 import { enterHomeView, exitHomeView } from './components/homeView';
 import { notifyReady, readyBody } from './utils/notifications';
@@ -115,7 +122,9 @@ async function initialize(): Promise<void> {
       }
     }
   } catch (error) {
-    rendererLog.error('failed to check/restore sessions', { error: error instanceof Error ? error.message : String(error) });
+    rendererLog.error('failed to check/restore sessions', {
+      error: error instanceof Error ? error.message : String(error),
+    });
   }
 
   // Load projects and render sidebar
@@ -132,7 +141,7 @@ async function initialize(): Promise<void> {
     if (lastViewJson) {
       const lastView = JSON.parse(lastViewJson) as LastActiveView;
       if (lastView.type === 'project' && lastView.path) {
-        const project = allProjects.find(p => p.path === lastView.path);
+        const project = allProjects.find((p) => p.path === lastView.path);
         if (project) {
           const sessions = getManager().orphanedSessions.get(lastView.path);
           if (sessions) {
@@ -149,7 +158,9 @@ async function initialize(): Promise<void> {
       }
     }
   } catch (error) {
-    rendererLog.error('failed to restore last active view', { error: error instanceof Error ? error.message : String(error) });
+    rendererLog.error('failed to restore last active view', {
+      error: error instanceof Error ? error.message : String(error),
+    });
   }
 
   // Default to home view
@@ -174,11 +185,11 @@ function registerGlobalHookStatusListener(): void {
     const manager = getManager();
 
     // Skip if this ptyId belongs to the active project — project-mode listener handles those
-    if (manager.terminals.value.some(t => t.ptyId === ptyId)) return;
+    if (manager.terminals.value.some((t) => t.ptyId === ptyId)) return;
 
     // Keep summaryType in sync for background terminals (all status transitions)
     for (const [, session] of manager.sessions) {
-      const term = session.terminals.find(t => t.ptyId === ptyId);
+      const term = session.terminals.find((t) => t.ptyId === ptyId);
       if (term) {
         term.summaryType.value = status === 'thinking' ? 'thinking' : 'ready';
         break;
@@ -200,7 +211,7 @@ function registerGlobalHookStatusListener(): void {
       let found = false;
 
       for (const [, session] of manager.sessions) {
-        const term = session.terminals.find(t => t.ptyId === ptyId);
+        const term = session.terminals.find((t) => t.ptyId === ptyId);
         if (term) {
           termLabel = term.label.value;
           projectName = session.projectData.name;
@@ -216,7 +227,7 @@ function registerGlobalHookStatusListener(): void {
           const session = sessions.find((s: ActiveSession) => s.ptyId === ptyId);
           if (session) {
             termLabel = session.label;
-            projectName = allProjects.find(p => p.path === projPath)?.name ?? projPath.split('/').pop() ?? 'Ouijit';
+            projectName = allProjects.find((p) => p.path === projPath)?.name ?? projPath.split('/').pop() ?? 'Ouijit';
             break;
           }
         }
@@ -224,7 +235,10 @@ function registerGlobalHookStatusListener(): void {
 
       notifyReady(projectName, readyBody(termLabel, oscTitle));
     } catch (error) {
-      rendererLog.error('background hook status check failed', { ptyId, error: error instanceof Error ? error.message : String(error) });
+      rendererLog.error('background hook status check failed', {
+        ptyId,
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
   });
 }
@@ -333,7 +347,10 @@ document.addEventListener('DOMContentLoaded', () => {
     let hideTimeout: ReturnType<typeof setTimeout> | null = null;
 
     const showSidebar = () => {
-      if (hideTimeout) { clearTimeout(hideTimeout); hideTimeout = null; }
+      if (hideTimeout) {
+        clearTimeout(hideTimeout);
+        hideTimeout = null;
+      }
       sidebar.classList.add('sidebar--visible');
       document.documentElement.style.setProperty('--sidebar-offset', 'var(--sidebar-width)');
     };

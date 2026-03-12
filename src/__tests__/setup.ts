@@ -24,22 +24,19 @@ vi.mock('electron', () => ({
 // Both main and renderer entry points are mocked so any test that transitively
 // imports either side won't hang waiting for Electron APIs.
 function electronLogFactory() {
-  const logger = Object.assign(
-    (...args: unknown[]) => console.log(...args),
-    {
-      error: (...args: unknown[]) => console.error(...args),
-      warn: (...args: unknown[]) => console.warn(...args),
-      info: (...args: unknown[]) => console.info(...args),
-      verbose: (...args: unknown[]) => console.debug(...args),
-      debug: (...args: unknown[]) => console.debug(...args),
-      silly: (...args: unknown[]) => console.debug(...args),
-      log: (...args: unknown[]) => console.log(...args),
-      scope: () => logger,
-      transports: { file: { format: null, maxSize: 0, fileName: '' }, console: {} },
-      errorHandler: { startCatching: () => {} },
-      initialize: () => {},
-    },
-  );
+  const logger = Object.assign((...args: unknown[]) => console.log(...args), {
+    error: (...args: unknown[]) => console.error(...args),
+    warn: (...args: unknown[]) => console.warn(...args),
+    info: (...args: unknown[]) => console.info(...args),
+    verbose: (...args: unknown[]) => console.debug(...args),
+    debug: (...args: unknown[]) => console.debug(...args),
+    silly: (...args: unknown[]) => console.debug(...args),
+    log: (...args: unknown[]) => console.log(...args),
+    scope: () => logger,
+    transports: { file: { format: null, maxSize: 0, fileName: '' }, console: {} },
+    errorHandler: { startCatching: () => {} },
+    initialize: () => {},
+  });
   return { default: logger };
 }
 vi.mock('electron-log/main', electronLogFactory);

@@ -108,11 +108,15 @@ export async function spawnSandboxedPty(
     const sandboxConfig = await getSandboxConfig(projectPath);
 
     // Ensure VM is running, forwarding progress to the renderer
-    const vmResult = await ensureRunning(projectPath, { memoryGiB: sandboxConfig.memoryGiB, diskGiB: sandboxConfig.diskGiB }, (msg) => {
-      if (window && !window.isDestroyed()) {
-        window.webContents.send('lima:spawn-progress', msg);
-      }
-    });
+    const vmResult = await ensureRunning(
+      projectPath,
+      { memoryGiB: sandboxConfig.memoryGiB, diskGiB: sandboxConfig.diskGiB },
+      (msg) => {
+        if (window && !window.isDestroyed()) {
+          window.webContents.send('lima:spawn-progress', msg);
+        }
+      },
+    );
     if (!vmResult.success) {
       return { success: false, error: vmResult.error || 'Failed to start sandbox VM' };
     }
@@ -171,13 +175,7 @@ export async function spawnSandboxedPty(
     }
 
     // Build limactl shell args
-    const limactlArgs = [
-      'shell',
-      '--workdir', guestCwd,
-      instanceName,
-      '--',
-      'bash', '-c', innerCmd,
-    ];
+    const limactlArgs = ['shell', '--workdir', guestCwd, instanceName, '--', 'bash', '-c', innerCmd];
 
     // Build environment: pass through env vars via limactl's environment
     const baseEnv: Record<string, string> = {};
