@@ -765,7 +765,16 @@ export class OuijitTerminal {
 
   private wireDataHandler(skipSideEffects?: boolean, onData?: (data: string) => void): void {
     this.cleanupData = window.api.pty.onData(this.ptyId, (data) => {
-      this.xterm.write(data);
+      const buf = this.xterm.buffer.active;
+      const atBottom = buf.viewportY >= buf.baseY;
+      const savedY = buf.viewportY;
+
+      this.xterm.write(data, () => {
+        if (!atBottom) {
+          const newY = Math.min(savedY, this.xterm.buffer.active.baseY);
+          this.xterm.scrollToLine(newY);
+        }
+      });
       onData?.(data);
       if (!skipSideEffects) {
         this.throttledDataSideEffects(data);
