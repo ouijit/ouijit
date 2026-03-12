@@ -345,8 +345,13 @@ document.addEventListener('DOMContentLoaded', () => {
   const trigger = document.getElementById('sidebar-trigger');
   if (sidebar && trigger) {
     let hideTimeout: ReturnType<typeof setTimeout> | null = null;
+    let showTimeout: ReturnType<typeof setTimeout> | null = null;
 
     const showSidebar = () => {
+      if (showTimeout) {
+        clearTimeout(showTimeout);
+        showTimeout = null;
+      }
       if (hideTimeout) {
         clearTimeout(hideTimeout);
         hideTimeout = null;
@@ -356,13 +361,28 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const hideSidebar = () => {
+      if (showTimeout) {
+        clearTimeout(showTimeout);
+        showTimeout = null;
+      }
       hideTimeout = setTimeout(() => {
         sidebar.classList.remove('sidebar--visible');
         document.documentElement.style.setProperty('--sidebar-offset', '0px');
       }, 300);
     };
 
-    trigger.addEventListener('mouseenter', showSidebar);
+    // Require cursor to dwell in trigger zone before opening;
+    // suppress when a mouse button is held (e.g. text selection drag)
+    trigger.addEventListener('mouseenter', (e: MouseEvent) => {
+      if (e.buttons !== 0) return;
+      showTimeout = setTimeout(showSidebar, 200);
+    });
+    trigger.addEventListener('mouseleave', () => {
+      if (showTimeout) {
+        clearTimeout(showTimeout);
+        showTimeout = null;
+      }
+    });
     sidebar.addEventListener('mouseenter', showSidebar);
     sidebar.addEventListener('mouseleave', hideSidebar);
 
