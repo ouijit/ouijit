@@ -1085,6 +1085,7 @@ async function populateKanbanBoard(): Promise<void> {
 
     // Preserve the persistent input if present
     const persistentInput = body.querySelector('.kanban-add-input') as HTMLInputElement | null;
+    const inputHadFocus = persistentInput != null && document.activeElement === persistentInput;
     body.innerHTML = '';
     const columnTasks = tasks.filter((t) => t.status === col.status).sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
@@ -1099,6 +1100,7 @@ async function populateKanbanBoard(): Promise<void> {
     if (col.status === 'todo') {
       if (persistentInput) {
         body.appendChild(persistentInput);
+        if (inputHadFocus) persistentInput.focus();
       } else {
         const input = document.createElement('input');
         input.type = 'text';
