@@ -30,6 +30,7 @@ const rendererLog = log.scope('renderer');
 // Store projects for sidebar interactions
 let allProjects: Project[] = [];
 let appInitialized = false;
+let projectTransitioning = false;
 
 /**
  * Refreshes the project list and re-renders the sidebar
@@ -60,21 +61,29 @@ async function handleProjectSelect(path: string, project: Project): Promise<void
     return;
   }
 
-  // If in home view, exit it first (returns terminals to hidden containers)
-  if (homeViewActive.value) {
-    exitHomeView();
+  // Prevent concurrent transitions — drop clicks while switching
+  if (projectTransitioning) return;
+  projectTransitioning = true;
+
+  try {
+    // If in home view, exit it first (returns terminals to hidden containers)
+    if (homeViewActive.value) {
+      exitHomeView();
+    }
+
+    // If another project is active, exit it first (preserves sessions)
+    if (projectPath.value !== null) {
+      exitProjectMode();
+    }
+
+    // Enter the new project
+    await enterProjectMode(path, project);
+
+    // Update sidebar active indicator
+    updateSidebarActiveState();
+  } finally {
+    projectTransitioning = false;
   }
-
-  // If another project is active, exit it first (preserves sessions)
-  if (projectPath.value !== null) {
-    exitProjectMode();
-  }
-
-  // Enter the new project
-  await enterProjectMode(path, project);
-
-  // Update sidebar active indicator
-  updateSidebarActiveState();
 }
 
 /**
