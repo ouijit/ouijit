@@ -9,19 +9,27 @@ import { Icon } from './terminal/Icon';
 import { stringToColor, getInitials } from '../utils/projectIcon';
 import type { Project } from '../types';
 
-const CSS_MAX_DEPTH = 8;
+/** Inline depth positioning for home view cards — no CSS class dependency */
+function getDepthStyle(depth: number): React.CSSProperties {
+  return {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    left: `${depth}%`,
+    right: `${depth}%`,
+    zIndex: 10 - depth,
+    transform: `translateY(-${depth * 24}px)`,
+    contain: 'layout style paint',
+    transition: 'transform 200ms ease-out, left 200ms ease-out, right 200ms ease-out',
+  };
+}
 
-/**
- * Home view — cross-project terminal session multiplexer.
- * Shows all active terminals from all projects in a single card stack,
- * grouped by project with folder dividers between groups.
- */
 export function HomeView() {
   const [projects, setProjects] = useState<Map<string, Project>>(new Map());
   const terminalsByProject = useTerminalStore((s) => s.terminalsByProject);
   const displayStates = useTerminalStore((s) => s.displayStates);
+  const homeGroupMode = useUIStore((s) => s.homeGroupMode);
 
-  // Flat list of all ptyIds across all projects
   const allPtyIds = useMemo(() => {
     const ids: string[] = [];
     for (const ptyIds of Object.values(terminalsByProject)) {
@@ -31,27 +39,24 @@ export function HomeView() {
   }, [terminalsByProject]);
 
   const [homeActiveIndex, setHomeActiveIndex] = useState(0);
-
   const reconnectedRef = useRef(false);
 
-  // Clamp active index
   useEffect(() => {
     if (homeActiveIndex >= allPtyIds.length && allPtyIds.length > 0) {
       setHomeActiveIndex(allPtyIds.length - 1);
     }
   }, [allPtyIds.length, homeActiveIndex]);
 
-  // Load project data for divider labels
   useEffect(() => {
     window.api.getProjects().then((projs) => {
       setProjects(new Map(projs.map((p) => [p.path, p])));
     });
   }, []);
 
-  // Reconnect all orphaned PTY sessions on mount
+  // Reconnect orphaned sessions
   useEffect(() => {
     if (reconnectedRef.current) return;
-    if (allPtyIds.length > 0) return; // Already have terminals
+    if (allPtyIds.length > 0) return;
     reconnectedRef.current = true;
 
     (async () => {
@@ -64,35 +69,27 @@ export function HomeView() {
       if (sessions.length === 0) return;
 
       for (const session of sessions) {
-        // Check if already reconnected (e.g. by ProjectView)
         if (terminalInstances.has(session.ptyId)) continue;
-
         let worktreeBranch: string | undefined;
         if (session.taskId != null) {
           const task = await window.api.task.getByNumber(session.projectPath, session.taskId);
           worktreeBranch = task?.branch;
         }
-
         const hookStatus = await window.api.claudeHooks.getStatus(session.ptyId);
         const initialStatus = hookStatus?.status === 'thinking' ? ('thinking' as const) : ('ready' as const);
-
         await reconnectTerminal(session, { worktreeBranch, initialStatus });
       }
     })();
   }, [allPtyIds.length]);
 
-  const homeGroupMode = useUIStore((s) => s.homeGroupMode);
-
   const activePtyId = allPtyIds[homeActiveIndex];
   const activeDisplay = activePtyId ? displayStates[activePtyId] : null;
 
-  // Group terminals and build stack items based on mode
   type StackItem =
     | { type: 'terminal'; ptyId: string; depth: number; globalIndex: number }
     | { type: 'divider'; label: string; icon: 'project' | 'tag'; projectPath?: string; depth: number };
 
   const { stackItems, orderedGroups } = useMemo(() => {
-    // Build groups based on mode
     type Group = { key: string; label: string; icon: 'project' | 'tag'; projectPath?: string; ptyIds: string[] };
     const groups: Group[] = [];
     const seen = new Map<string, number>();
@@ -127,7 +124,6 @@ export function HomeView() {
       }
     }
 
-    // Reorder: active terminal's group first
     let activeGroupKey: string | null = null;
     if (activeDisplay) {
       if (homeGroupMode === 'tag') {
@@ -142,7 +138,6 @@ export function HomeView() {
       ? [...groups.filter((g) => g.key === activeGroupKey), ...groups.filter((g) => g.key !== activeGroupKey)]
       : groups;
 
-    // Build stack items with depth — terminals first, then divider after each group
     const items: StackItem[] = [];
     let depth = 0;
     for (const group of ordered) {
@@ -160,9 +155,9 @@ export function HomeView() {
   }, [allPtyIds, displayStates, homeGroupMode, activeDisplay, homeActiveIndex]);
 
   const maxDepth = stackItems.length > 0 ? stackItems[stackItems.length - 1].depth : 0;
-  const stackTop = 82 + Math.min(maxDepth, CSS_MAX_DEPTH) * 24;
 
-  // Focus active terminal
+  const stackTop = 82 + maxDepth * 24;
+
   useEffect(() => {
     if (!activePtyId) return;
     const instance = terminalInstances.get(activePtyId);
@@ -174,7 +169,6 @@ export function HomeView() {
     }
   }, [activePtyId]);
 
-  // Keyboard shortcuts
   useEffect(() => {
     const isMac = navigator.platform.toLowerCase().includes('mac');
     const handler = (e: KeyboardEvent) => {
@@ -210,6 +204,27 @@ export function HomeView() {
     return () => document.removeEventListener('keydown', handler, true);
   }, [activePtyId, stackItems]);
 
+  // Build depth map: ptyId → depth (active = 0, others from stackItems)
+  const depthMap = useMemo(() => {
+    const map = new Map<string, number>();
+    if (activePtyId) map.set(activePtyId, 0);
+    for (const item of stackItems) {
+      if (item.type === 'terminal') {
+        map.set(item.ptyId, item.depth);
+      }
+    }
+    return map;
+  }, [activePtyId, stackItems]);
+
+  // Dividers extracted from stackItems
+  const dividers = useMemo(
+    () =>
+      stackItems.filter((i) => i.type === 'divider') as Array<
+        Extract<(typeof stackItems)[number], { type: 'divider' }>
+      >,
+    [stackItems],
+  );
+
   if (allPtyIds.length === 0) {
     return (
       <div className="flex items-center justify-center h-full text-text-secondary text-sm">No active sessions</div>
@@ -224,176 +239,89 @@ export function HomeView() {
 
   return (
     <div className="project-stack" style={{ top: `${stackTop}px` }}>
-      {/* Active terminal */}
-      {activePtyId && (
-        <div className="project-card project-card--active">
-          <TerminalHeader ptyId={activePtyId} isActive={true} onClose={() => handleClose(activePtyId)} />
-          <div className="project-card-body">
-            <XTermContainer ptyId={activePtyId} />
-          </div>
-        </div>
-      )}
-
-      {/* Stacked terminals + dividers */}
-      {stackItems.map((item) => {
-        if (item.type === 'terminal') {
-          const depthClass = item.depth <= CSS_MAX_DEPTH ? `project-card--back-${item.depth}` : 'project-card--hidden';
-          return (
-            <div
-              key={item.ptyId}
-              className={`project-card ${depthClass}`}
-              onClick={() => setHomeActiveIndex(item.globalIndex)}
-            >
-              <TerminalHeader ptyId={item.ptyId} isActive={false} onClose={() => handleClose(item.ptyId)} />
-              <div className="project-card-body">
-                <XTermContainer ptyId={item.ptyId} />
-              </div>
-            </div>
-          );
-        }
-
-        const project = item.projectPath ? projects.get(item.projectPath) : undefined;
-        const dividerLabel = item.icon === 'project' ? project?.name || 'shell' : item.label;
-        const hidden = item.depth > CSS_MAX_DEPTH;
+      {/* All terminals — stable keys, depth changes animate via transition */}
+      {allPtyIds.map((ptyId, globalIndex) => {
+        const depth = depthMap.get(ptyId) ?? 0;
+        const isActive = globalIndex === homeActiveIndex;
         return (
-          <HomeDivider
+          <div
+            key={ptyId}
+            className={`project-card${isActive ? ' project-card--active' : ''}`}
+            style={getDepthStyle(depth)}
+            onClick={() => !isActive && setHomeActiveIndex(globalIndex)}
+          >
+            <TerminalHeader ptyId={ptyId} isActive={isActive} onClose={() => handleClose(ptyId)} />
+            <div className="project-card-body">
+              <XTermContainer ptyId={ptyId} />
+            </div>
+          </div>
+        );
+      })}
+
+      {/* Dividers */}
+      {dividers.map((item) => {
+        const project = item.projectPath ? projects.get(item.projectPath) : undefined;
+        const isRegisteredProject = item.icon === 'project' && project != null;
+        const name = item.icon === 'project' ? project?.name || 'Shell' : item.label;
+
+        return (
+          <div
             key={`divider-${item.label}`}
-            label={dividerLabel}
-            icon={item.icon}
-            project={item.icon === 'project' ? project : undefined}
-            depth={item.depth}
-            hidden={hidden}
+            className="project-card home-folder-divider"
+            style={getDepthStyle(item.depth)}
             onClick={() => {
               const group = orderedGroups.find((g) => g.label === item.label || g.projectPath === item.projectPath);
               if (group && group.ptyIds.length > 0) {
                 setHomeActiveIndex(allPtyIds.indexOf(group.ptyIds[0]));
               }
             }}
-          />
+          >
+            <div className="home-folder-tab">
+              <svg viewBox="0 0 234 28" width="234" height="28">
+                <path
+                  d="M 14 0.5 H 205.5 Q 219.5 0.5 219.5 14.5 L 219.5 13.5 Q 219.5 27.5 233.5 27.5 L 0.5 27.5 L 0.5 14 Q 0.5 0.5 14 0.5 Z"
+                  fill="#252528"
+                />
+                <path
+                  d="M 0.5 27.5 L 0.5 14 Q 0.5 0.5 14 0.5 H 205.5 Q 219.5 0.5 219.5 14.5 L 219.5 13.5 Q 219.5 27.5 233.5 27.5"
+                  fill="none"
+                  stroke="rgba(255,255,255,0.08)"
+                  strokeWidth="1"
+                />
+              </svg>
+              <div className="home-folder-tab-content">
+                {item.icon === 'tag' ? (
+                  <span
+                    className="home-folder-icon"
+                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                  >
+                    <Icon name="tag" />
+                  </span>
+                ) : isRegisteredProject ? (
+                  project?.iconDataUrl ? (
+                    <img className="home-folder-icon" src={project.iconDataUrl} alt={name} draggable={false} />
+                  ) : (
+                    <span
+                      className="home-folder-icon home-folder-icon-placeholder"
+                      style={{ backgroundColor: stringToColor(name) }}
+                    >
+                      {getInitials(name)}
+                    </span>
+                  )
+                ) : (
+                  <span
+                    className="home-folder-icon"
+                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                  >
+                    <Icon name="terminal" />
+                  </span>
+                )}
+                <span className="home-folder-name">{name}</span>
+              </div>
+            </div>
+          </div>
         );
       })}
-    </div>
-  );
-}
-
-// ── Divider (project or tag) ─────────────────────────────────────────
-
-function HomeDivider({
-  label,
-  icon,
-  project,
-  depth,
-  hidden,
-  onClick,
-}: {
-  label: string;
-  icon: 'project' | 'tag';
-  project?: Project;
-  depth: number;
-  hidden: boolean;
-  onClick: () => void;
-}) {
-  if (hidden) return null;
-
-  // Position inline — no reliance on back-N CSS classes
-  const translateY = -(depth * 24);
-  const inset = `${depth}%`;
-  const zIndex = 10 - depth + 1; // +1 so divider sits above the terminal at depth-1
-
-  return (
-    <div
-      style={{
-        position: 'absolute',
-        top: 0,
-        bottom: 0,
-        left: inset,
-        right: inset,
-        transform: `translateY(${translateY}px)`,
-        zIndex,
-        background: 'transparent',
-        border: '1px solid transparent',
-        boxShadow: 'none',
-        overflow: 'visible',
-        pointerEvents: 'none',
-        borderRadius: 14,
-      }}
-      onClick={onClick}
-    >
-      {/* Tab shape */}
-      <div
-        style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          width: 234,
-          height: 28,
-          pointerEvents: 'auto',
-        }}
-      >
-        <svg
-          viewBox="0 0 234 28"
-          width="234"
-          height="28"
-          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}
-        >
-          <path
-            d="M 14 0.5 H 205.5 Q 219.5 0.5 219.5 14.5 L 219.5 13.5 Q 219.5 27.5 233.5 27.5 L 0.5 27.5 L 0.5 14 Q 0.5 0.5 14 0.5 Z"
-            fill="#252528"
-          />
-          <path
-            d="M 0.5 27.5 L 0.5 14 Q 0.5 0.5 14 0.5 H 205.5 Q 219.5 0.5 219.5 14.5 L 219.5 13.5 Q 219.5 27.5 233.5 27.5"
-            fill="none"
-            stroke="rgba(255,255,255,0.08)"
-            strokeWidth="1"
-          />
-        </svg>
-        {/* Tab content */}
-        <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6,
-            padding: '4px 12px 0 8px',
-          }}
-        >
-          {icon === 'project' ? (
-            project?.iconDataUrl ? (
-              <img
-                src={project.iconDataUrl}
-                alt={label}
-                draggable={false}
-                style={{ width: 16, height: 16, borderRadius: 3, objectFit: 'cover', flexShrink: 0 }}
-              />
-            ) : (
-              <span
-                style={{
-                  width: 16,
-                  minWidth: 16,
-                  height: 16,
-                  borderRadius: 3,
-                  backgroundColor: stringToColor(label),
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontSize: 8,
-                  fontWeight: 700,
-                  color: 'white',
-                  flexShrink: 0,
-                }}
-              >
-                {getInitials(label)}
-              </span>
-            )
-          ) : (
-            <Icon name="tag" />
-          )}
-          <span style={{ fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,0.45)', whiteSpace: 'nowrap' }}>
-            {label}
-          </span>
-        </div>
-      </div>
     </div>
   );
 }

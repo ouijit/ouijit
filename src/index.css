@@ -770,17 +770,6 @@ body.home-mode .home-folder-divider.project-card {
   margin-top: -1px;
 }
 
-/* Divider tabs must render above the terminal card in front of them.
-   Each back-N divider gets z-index bumped by 1 to sit above the same-depth terminal. */
-body.home-mode .home-folder-divider.project-card--back-1 { z-index: 10; }
-body.home-mode .home-folder-divider.project-card--back-2 { z-index: 9; }
-body.home-mode .home-folder-divider.project-card--back-3 { z-index: 8; }
-body.home-mode .home-folder-divider.project-card--back-4 { z-index: 7; }
-body.home-mode .home-folder-divider.project-card--back-5 { z-index: 6; }
-body.home-mode .home-folder-divider.project-card--back-6 { z-index: 5; }
-body.home-mode .home-folder-divider.project-card--back-7 { z-index: 4; }
-body.home-mode .home-folder-divider.project-card--back-8 { z-index: 3; }
-
 .home-folder-tab {
   position: absolute;
   top: 0;
