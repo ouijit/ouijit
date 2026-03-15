@@ -21,6 +21,7 @@ import { KanbanColumn } from './KanbanColumn';
 import { focusKanbanAddInput } from './KanbanAddInput';
 import { HookConfigDialog } from '../dialogs/HookConfigDialog';
 import { CombinedHookConfigDialog } from '../dialogs/CombinedHookConfigDialog';
+import { RunHookDialog, type RunHookResult } from '../dialogs/RunHookDialog';
 
 const COLUMNS: { status: TaskStatus; label: string }[] = [
   { status: 'todo', label: 'To Do' },
@@ -51,6 +52,12 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
   const storeTasks = useProjectStore((s) => s.tasks);
   const [activeTask, setActiveTask] = useState<TaskWithWorkspace | null>(null);
   const [configuredHooks, setConfiguredHooks] = useState<Record<string, boolean>>({});
+  const [runHookDialog, setRunHookDialog] = useState<{
+    hookType: HookType;
+    hook: any;
+    task: TaskWithWorkspace;
+    newStatus: TaskStatus;
+  } | null>(null);
   const [hookDialog, setHookDialog] = useState<
     | { mode: 'single'; hookType: HookType; existingHook?: any }
     | { mode: 'combined'; start?: any; continue?: any }
@@ -224,7 +231,28 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
 
       // Handle lifecycle transitions
       if (origStatus && origStatus !== finalContainer) {
-        await handleColumnTransition(projectPath, draggedTask, finalContainer as TaskStatus, onHide);
+        const hooks = await window.api.hooks.get(projectPath);
+        const newStatus = finalContainer as TaskStatus;
+
+        // Only show dialog if a hook is configured for this transition
+        let hookType: HookType | null = null;
+        let hook = null;
+
+        if (newStatus === 'in_progress') {
+          hookType = origStatus === 'todo' ? 'start' : 'continue';
+          hook = (hooks as any)[hookType] || null;
+        } else if (newStatus === 'in_review') {
+          hookType = 'review';
+          hook = (hooks as any).review || null;
+        } else if (newStatus === 'done') {
+          hookType = 'cleanup';
+          hook = (hooks as any).cleanup || null;
+        }
+
+        if (hook && hookType) {
+          setRunHookDialog({ hookType, hook, task: draggedTask, newStatus });
+        }
+        // No hook configured — just move the task, no terminal opened
       }
     },
     [activeTask, items, findContainer, projectPath, onHide],
@@ -281,6 +309,20 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
     [projectPath, onHide],
   );
 
+  const handleRunHookClose = useCallback(
+    async (result: RunHookResult | null) => {
+      const dialog = runHookDialog;
+      setRunHookDialog(null);
+      if (!dialog) return;
+
+      if (result) {
+        await executeTransition(projectPath, dialog.task, dialog.newStatus, result, onHide);
+      }
+      // Cancelled — do nothing, task already moved in the board
+    },
+    [runHookDialog, projectPath, onHide],
+  );
+
   const handleConfigureHook = useCallback(
     async (hookTypes: HookType[]) => {
       const hooks = await window.api.hooks.get(projectPath);
@@ -313,6 +355,14 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
 
   return (
     <div className="kanban-board kanban-board--visible">
+      {runHookDialog && (
+        <RunHookDialog
+          hookType={runHookDialog.hookType}
+          hook={runHookDialog.hook}
+          taskName={runHookDialog.task.name}
+          onClose={handleRunHookClose}
+        />
+      )}
       {hookDialog?.mode === 'single' && (
         <HookConfigDialog
           projectPath={projectPath}
@@ -386,55 +436,60 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
 
 // ── Column transition lifecycle ──────────────────────────────────────
 
-async function handleColumnTransition(
+async function executeTransition(
   projectPath: string,
   task: TaskWithWorkspace,
   newStatus: TaskStatus,
+  hookResult: RunHookResult | undefined,
   onHide: () => void,
 ): Promise<void> {
-  const hooks = await window.api.hooks.get(projectPath);
-
-  if (newStatus === 'in_progress') {
+  if (newStatus === 'in_progress' && hookResult) {
+    const runConfig = { name: 'Start', command: hookResult.command, source: 'custom' as const, priority: 0 };
     if (!task.worktreePath) {
-      await addProjectTerminal(projectPath, undefined, {
+      await addProjectTerminal(projectPath, runConfig, {
         useWorktree: true,
         worktreeName: task.name,
         taskId: task.taskNumber,
+        sandboxed: hookResult.sandboxed,
       });
     } else {
-      await addProjectTerminal(projectPath, undefined, {
+      await addProjectTerminal(projectPath, runConfig, {
         existingWorktree: { path: task.worktreePath, branch: task.branch || '', createdAt: task.createdAt },
         taskId: task.taskNumber,
+        sandboxed: hookResult.sandboxed,
+        skipAutoHook: true,
       });
     }
-    onHide();
+    if (hookResult.foreground) onHide();
   } else if (newStatus === 'in_review') {
-    // Run review hook if configured
-    if ((hooks as any).review && task.worktreePath) {
+    if (hookResult && task.worktreePath) {
       await addProjectTerminal(
         projectPath,
-        { name: 'Review', command: (hooks as any).review.command, source: 'custom', priority: 0 },
+        { name: 'Review', command: hookResult.command, source: 'custom', priority: 0 },
         {
           existingWorktree: { path: task.worktreePath, branch: task.branch || '', createdAt: task.createdAt },
           taskId: task.taskNumber,
           skipAutoHook: true,
+          sandboxed: hookResult.sandboxed,
+          background: !hookResult.foreground,
         },
       );
-      onHide();
+      if (hookResult.foreground) onHide();
     }
   } else if (newStatus === 'done') {
-    // Run cleanup hook if configured
-    if ((hooks as any).cleanup && task.worktreePath) {
+    if (hookResult && task.worktreePath) {
       await addProjectTerminal(
         projectPath,
-        { name: 'Cleanup', command: (hooks as any).cleanup.command, source: 'custom', priority: 0 },
+        { name: 'Cleanup', command: hookResult.command, source: 'custom', priority: 0 },
         {
           existingWorktree: { path: task.worktreePath, branch: task.branch || '', createdAt: task.createdAt },
           taskId: task.taskNumber,
           skipAutoHook: true,
-          background: true,
+          sandboxed: hookResult.sandboxed,
+          background: !hookResult.foreground,
         },
       );
+      if (hookResult.foreground) onHide();
     }
     // Close all terminals for this task
     const store = useTerminalStore.getState();
