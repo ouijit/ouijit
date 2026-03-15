@@ -203,14 +203,12 @@ export const TerminalHeader = memo(function TerminalHeader({
         {isActive && (
           <RunnerPill runnerStatus={runnerStatus} runnerPanelOpen={runnerPanelOpen} onClick={handleRunnerClick} />
         )}
-        <Tooltip text="Close terminal">
-          <button
-            className="w-7 h-7 flex items-center justify-center bg-transparent border-none text-white/40 hover:text-white/90 transition-colors duration-150"
-            onClick={handleCloseClick}
-          >
-            <Icon name="x" />
-          </button>
-        </Tooltip>
+        <button
+          className="w-7 h-7 flex items-center justify-center bg-transparent border-none text-white/40 hover:text-white/90 transition-colors duration-150 ml-1 [&_svg]:w-4 [&_svg]:h-4"
+          onClick={handleCloseClick}
+        >
+          <Icon name="x" />
+        </button>
       </div>
     </div>
   );
