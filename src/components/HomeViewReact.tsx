@@ -226,8 +226,22 @@ export function HomeView() {
   );
 
   if (allPtyIds.length === 0) {
+    const isMac = navigator.platform.toLowerCase().includes('mac');
     return (
-      <div className="flex items-center justify-center h-full text-text-secondary text-sm">No active sessions</div>
+      <div className="project-stack" style={{ top: '82px' }}>
+        <div className="project-stack-empty project-stack-empty--visible">
+          <div className="project-stack-empty-message">No active sessions</div>
+          <div className="project-stack-empty-hints">
+            <span className="project-stack-empty-hint">
+              <span className="project-stack-empty-hint-shortcut">
+                {isMac ? '\u2318' : 'Ctrl+'}
+                <span className="shortcut-number">I</span>
+              </span>
+              New Terminal
+            </span>
+          </div>
+        </div>
+      </div>
     );
   }
 
