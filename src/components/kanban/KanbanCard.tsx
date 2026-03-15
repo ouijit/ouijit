@@ -160,10 +160,21 @@ export const KanbanCard = memo(function KanbanCard({
           <div className="kanban-card-detail-row">
             <span
               ref={descInputRef}
-              className={`kanban-card-detail-value${editingDesc ? ' kanban-card-detail-value--editing' : ''}${!task.prompt ? ' kanban-card-detail-value--placeholder' : ''}`}
+              className={`kanban-card-detail-value${editingDesc ? ' kanban-card-detail-value--editing' : ''}${!task.prompt && !editingDesc ? ' kanban-card-detail-value--placeholder' : ''}`}
               contentEditable={editingDesc}
               suppressContentEditableWarning
-              onClick={() => !editingDesc && setEditingDesc(true)}
+              onClick={() => {
+                if (!editingDesc) {
+                  setEditingDesc(true);
+                  // Clear placeholder text and focus
+                  requestAnimationFrame(() => {
+                    if (descInputRef.current && !task.prompt) {
+                      descInputRef.current.textContent = '';
+                    }
+                    descInputRef.current?.focus();
+                  });
+                }
+              }}
               onBlur={commitDescription}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
@@ -172,7 +183,7 @@ export const KanbanCard = memo(function KanbanCard({
                 }
               }}
             >
-              {task.prompt || 'Add description\u2026'}
+              {task.prompt || (editingDesc ? '' : 'Add description\u2026')}
             </span>
           </div>
           {task.branch && (

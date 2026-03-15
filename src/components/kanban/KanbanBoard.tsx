@@ -1,14 +1,18 @@
-import { useEffect, useCallback, useMemo, useState } from 'react';
+import { useEffect, useCallback, useState, useRef } from 'react';
 import {
   DndContext,
   DragOverlay,
-  closestCorners,
+  pointerWithin,
+  rectIntersection,
   PointerSensor,
   useSensor,
   useSensors,
   type DragStartEvent,
   type DragEndEvent,
+  type DragOverEvent,
+  type CollisionDetection,
 } from '@dnd-kit/core';
+import { arrayMove } from '@dnd-kit/sortable';
 import { useProjectStore } from '../../stores/projectStore';
 import { useTerminalStore } from '../../stores/terminalStore';
 import type { TaskWithWorkspace, TaskStatus } from '../../types';
@@ -22,8 +26,19 @@ const COLUMNS: { status: TaskStatus; label: string }[] = [
   { status: 'in_review', label: 'In Review' },
   { status: 'done', label: 'Done' },
 ];
+const COLUMN_IDS: Set<string> = new Set(COLUMNS.map((c) => c.status));
 
 const isMac = navigator.platform.toLowerCase().includes('mac');
+
+/**
+ * Custom collision detection: try pointerWithin first (works for empty containers),
+ * fall back to rectIntersection (works for sortable items within columns).
+ */
+const customCollision: CollisionDetection = (args) => {
+  const pointerCollisions = pointerWithin(args);
+  if (pointerCollisions.length > 0) return pointerCollisions;
+  return rectIntersection(args);
+};
 
 interface KanbanBoardProps {
   projectPath: string;
@@ -31,15 +46,33 @@ interface KanbanBoardProps {
 }
 
 export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
-  const tasks = useProjectStore((s) => s.tasks);
+  const storeTasks = useProjectStore((s) => s.tasks);
   const [activeTask, setActiveTask] = useState<TaskWithWorkspace | null>(null);
+
+  // Local task state for drag preview — synced from store, mutated during drag
+  const [items, setItems] = useState<Record<string, TaskWithWorkspace[]>>({});
+  const originalStatusRef = useRef<string | null>(null);
+
+  // Sync from store when not dragging
+  useEffect(() => {
+    if (activeTask) return; // Don't clobber during drag
+    const grouped: Record<string, TaskWithWorkspace[]> = {};
+    for (const col of COLUMNS) grouped[col.status] = [];
+    for (const task of storeTasks) {
+      if (grouped[task.status]) grouped[task.status].push(task);
+    }
+    for (const status of Object.keys(grouped)) {
+      grouped[status].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+    }
+    setItems(grouped);
+  }, [storeTasks, activeTask]);
 
   // Load tasks on mount
   useEffect(() => {
     useProjectStore.getState().loadTasks(projectPath);
   }, [projectPath]);
 
-  // Hotkeys: Escape to hide, Cmd+N to focus input
+  // Hotkeys
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -57,89 +90,128 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
     return () => document.removeEventListener('keydown', handler, true);
   }, [onHide]);
 
-  // Group tasks by status
-  const tasksByStatus = useMemo(() => {
-    const groups: Record<string, TaskWithWorkspace[]> = {};
-    for (const col of COLUMNS) {
-      groups[col.status] = [];
-    }
-    for (const task of tasks) {
-      if (groups[task.status]) {
-        groups[task.status].push(task);
-      }
-    }
-    for (const status of Object.keys(groups)) {
-      groups[status].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
-    }
-    return groups;
-  }, [tasks]);
-
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: { distance: 8 },
     }),
   );
 
+  const findContainer = useCallback(
+    (id: string): TaskStatus | null => {
+      if (COLUMN_IDS.has(id)) return id as TaskStatus;
+      const taskNum = parseInt(id.replace('task-', ''), 10);
+      for (const [status, tasks] of Object.entries(items)) {
+        if (tasks.some((t) => t.taskNumber === taskNum)) return status as TaskStatus;
+      }
+      return null;
+    },
+    [items],
+  );
+
   const handleDragStart = useCallback((event: DragStartEvent) => {
     const task = event.active.data.current?.task as TaskWithWorkspace | undefined;
     setActiveTask(task ?? null);
+    if (task) originalStatusRef.current = task.status;
   }, []);
+
+  const handleDragOver = useCallback(
+    (event: DragOverEvent) => {
+      const { active, over } = event;
+      if (!over) return;
+
+      const activeId = active.id as string;
+      const overId = over.id as string;
+      const activeContainer = findContainer(activeId);
+      const overContainer = findContainer(overId);
+
+      if (!activeContainer || !overContainer || activeContainer === overContainer) return;
+
+      const activeTaskNum = parseInt(activeId.replace('task-', ''), 10);
+
+      setItems((prev) => {
+        const sourceItems = [...(prev[activeContainer] ?? [])];
+        const destItems = [...(prev[overContainer] ?? [])];
+
+        const activeIndex = sourceItems.findIndex((t) => t.taskNumber === activeTaskNum);
+        if (activeIndex === -1) return prev;
+
+        const [movedTask] = sourceItems.splice(activeIndex, 1);
+        const updatedTask = { ...movedTask, status: overContainer as TaskStatus };
+
+        // Determine insertion index
+        let overIndex = destItems.length;
+        if (!COLUMN_IDS.has(overId)) {
+          const overTaskNum = parseInt(overId.replace('task-', ''), 10);
+          const idx = destItems.findIndex((t) => t.taskNumber === overTaskNum);
+          if (idx !== -1) overIndex = idx;
+        }
+
+        destItems.splice(overIndex, 0, updatedTask);
+
+        return {
+          ...prev,
+          [activeContainer]: sourceItems,
+          [overContainer]: destItems,
+        };
+      });
+    },
+    [findContainer],
+  );
 
   const handleDragEnd = useCallback(
     async (event: DragEndEvent) => {
       const draggedTask = activeTask;
+      const origStatus = originalStatusRef.current;
       setActiveTask(null);
+      originalStatusRef.current = null;
 
-      const { over } = event;
+      const { active, over } = event;
       if (!over || !draggedTask) return;
 
+      const activeId = active.id as string;
       const overId = over.id as string;
+      const activeContainer = findContainer(activeId);
+      const overContainer = findContainer(overId);
+      if (!activeContainer) return;
 
-      // Determine target column
-      let targetStatus: TaskStatus;
-      let targetIndex = 0;
+      const finalContainer = overContainer || activeContainer;
+      const activeTaskNum = parseInt(activeId.replace('task-', ''), 10);
 
-      if (COLUMNS.some((c) => c.status === overId)) {
-        // Dropped on a column directly (empty area)
-        targetStatus = overId as TaskStatus;
-        targetIndex = (tasksByStatus[targetStatus] ?? []).length;
-      } else {
-        // Dropped on a task — use that task's column and position
+      // Handle reorder within same column
+      let finalItems = items;
+      if (activeContainer === finalContainer && !COLUMN_IDS.has(overId)) {
+        const columnItems = items[activeContainer] ?? [];
+        const activeIndex = columnItems.findIndex((t) => t.taskNumber === activeTaskNum);
         const overTaskNum = parseInt(overId.replace('task-', ''), 10);
-        const overTask = tasks.find((t) => t.taskNumber === overTaskNum);
-        if (!overTask) return;
-        targetStatus = overTask.status as TaskStatus;
-        const columnTasks = tasksByStatus[targetStatus] ?? [];
-        targetIndex = columnTasks.findIndex((t) => t.taskNumber === overTaskNum);
-        if (targetIndex === -1) targetIndex = columnTasks.length;
+        const overIndex = columnItems.findIndex((t) => t.taskNumber === overTaskNum);
+
+        if (overIndex !== -1 && activeIndex !== -1 && activeIndex !== overIndex) {
+          const reordered = arrayMove(columnItems, activeIndex, overIndex);
+          finalItems = { ...items, [activeContainer]: reordered };
+          setItems(finalItems);
+        }
       }
 
-      // No-op if same position
-      if (draggedTask.status === targetStatus) {
-        const columnTasks = tasksByStatus[targetStatus] ?? [];
-        const currentIndex = columnTasks.findIndex((t) => t.taskNumber === draggedTask.taskNumber);
-        if (currentIndex === targetIndex) return;
-      }
+      // Calculate target index from the final local state
+      const targetColumn = finalItems[finalContainer] ?? [];
+      const targetIndex = Math.max(
+        0,
+        targetColumn.findIndex((t) => t.taskNumber === activeTaskNum),
+      );
 
-      const originalStatus = draggedTask.status;
-
-      // Persist to backend (optimistic update happens in store)
-      await useProjectStore
-        .getState()
-        .moveTask(projectPath, draggedTask.taskNumber, targetStatus, Math.max(0, targetIndex));
-
-      // Reload tasks to get fresh state
+      // Persist to backend
+      await useProjectStore.getState().moveTask(projectPath, activeTaskNum, finalContainer, targetIndex);
       await useProjectStore.getState().loadTasks(projectPath);
 
-      // Handle lifecycle for column transitions
-      if (originalStatus !== targetStatus) {
-        await handleColumnTransition(projectPath, draggedTask, targetStatus, onHide);
+      // Handle lifecycle transitions
+      if (origStatus && origStatus !== finalContainer) {
+        await handleColumnTransition(projectPath, draggedTask, finalContainer as TaskStatus, onHide);
       }
     },
-    [activeTask, tasks, tasksByStatus, projectPath, onHide],
+    [activeTask, items, findContainer, projectPath, onHide],
   );
 
-  // Task CRUD handlers
+  // Task CRUD
   const handleAddTask = useCallback(
     async (name: string) => {
       await window.api.task.create(projectPath, name);
@@ -194,8 +266,9 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
     <div className="kanban-board kanban-board--visible">
       <DndContext
         sensors={sensors}
-        collisionDetection={closestCorners}
+        collisionDetection={customCollision}
         onDragStart={handleDragStart}
+        onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}
       >
         <div className="kanban-columns">
@@ -204,7 +277,7 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
               key={col.status}
               status={col.status}
               label={col.label}
-              tasks={tasksByStatus[col.status] ?? []}
+              tasks={items[col.status] ?? []}
               projectPath={projectPath}
               onAddTask={col.status === 'todo' ? handleAddTask : undefined}
               onRenameTask={handleRenameTask}
@@ -215,9 +288,17 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
           ))}
         </div>
 
-        <DragOverlay>
+        <DragOverlay dropAnimation={null}>
           {activeTask && (
-            <div className="kanban-card" style={{ opacity: 0.8, width: 280 }}>
+            <div
+              className="kanban-card"
+              style={{
+                background: '#111111',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                boxShadow: '0 8px 24px rgba(0, 0, 0, 0.5)',
+                borderRadius: 0,
+              }}
+            >
               <div className="kanban-card-header">
                 <span className="kanban-card-name">{activeTask.name}</span>
               </div>
@@ -250,7 +331,6 @@ async function handleColumnTransition(
         taskId: task.taskNumber,
       });
     }
-    // Switch to terminal view so user sees the new terminal
     onHide();
   } else if (newStatus === 'done') {
     const store = useTerminalStore.getState();

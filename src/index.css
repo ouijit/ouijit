@@ -2133,7 +2133,7 @@ body.kanban-open .project-stack {
 
 .kanban-board--visible {
   @apply opacity-100;
-  transform: translateY(0);
+  transform: none;
 }
 
 .kanban-scroll-shadow {

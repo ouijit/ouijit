@@ -29,7 +29,7 @@ export function KanbanColumn({
   onOpenTerminal,
   onSwitchToTerminal,
 }: KanbanColumnProps) {
-  const { setNodeRef } = useDroppable({ id: status });
+  const { setNodeRef, isOver } = useDroppable({ id: status });
   const taskIds = useMemo(() => tasks.map((t) => `task-${t.taskNumber}`), [tasks]);
 
   return (
@@ -40,7 +40,15 @@ export function KanbanColumn({
           <span className="kanban-column-count">{tasks.length}</span>
         </span>
       </div>
-      <div ref={setNodeRef} className="kanban-column-body">
+      <div
+        ref={setNodeRef}
+        className="kanban-column-body"
+        style={{
+          minHeight: 80,
+          background: isOver && tasks.length === 0 ? 'rgba(10, 132, 255, 0.08)' : undefined,
+          transition: 'background 150ms ease',
+        }}
+      >
         <SortableContext items={taskIds} strategy={verticalListSortingStrategy}>
           {tasks.map((task) => (
             <SortableCard
@@ -82,11 +90,23 @@ function SortableCard({
     data: { task },
   });
 
-  const style = {
+  const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
     transition,
-    opacity: isDragging ? 0.5 : undefined,
   };
+
+  // When dragging, show the ghost placeholder (blue highlight, content hidden)
+  if (isDragging) {
+    return (
+      <div ref={setNodeRef} style={style} {...attributes} {...listeners} className="kanban-card--ghost">
+        <div className="kanban-card">
+          <div className="kanban-card-header">
+            <span className="kanban-card-name">{task.name}</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
