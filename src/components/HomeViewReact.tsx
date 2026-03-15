@@ -146,14 +146,16 @@ export function HomeView() {
     const items: StackItem[] = [];
     let depth = 0;
     for (const group of ordered) {
+      // Divider comes FIRST (at deeper depth), then terminals in the group
+      // This way the divider tab peeks above the group's terminals
+      depth++;
+      items.push({ type: 'divider', label: group.label, icon: group.icon, projectPath: group.projectPath, depth });
       for (const ptyId of group.ptyIds) {
         const globalIndex = allPtyIds.indexOf(ptyId);
         if (globalIndex === homeActiveIndex) continue;
         depth++;
         items.push({ type: 'terminal', ptyId, depth, globalIndex });
       }
-      depth++;
-      items.push({ type: 'divider', label: group.label, icon: group.icon, projectPath: group.projectPath, depth });
     }
 
     return { stackItems: items, orderedGroups: ordered };
