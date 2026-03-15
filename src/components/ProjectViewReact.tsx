@@ -36,6 +36,7 @@ export function ProjectView() {
         e.preventDefault();
         e.stopPropagation();
         addProjectTerminal(projectPath);
+        useProjectStore.getState().setKanbanVisible(false);
         return;
       }
 
