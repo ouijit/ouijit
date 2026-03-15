@@ -2,9 +2,18 @@ import { useMemo } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import type { TaskWithWorkspace } from '../../types';
+import type { TaskWithWorkspace, HookType } from '../../types';
 import { KanbanCard } from './KanbanCard';
 import { KanbanAddInput } from './KanbanAddInput';
+import { Icon } from '../terminal/Icon';
+
+/** Map column status to the hook type its config button should open */
+const COLUMN_HOOK_TYPE: Record<string, HookType | null> = {
+  todo: null,
+  in_progress: 'start',
+  in_review: 'review',
+  done: 'cleanup',
+};
 
 interface KanbanColumnProps {
   status: string;
@@ -16,6 +25,7 @@ interface KanbanColumnProps {
   onUpdateDescription: (taskNumber: number, description: string) => void;
   onOpenTerminal: (task: TaskWithWorkspace, sandboxed?: boolean) => void;
   onSwitchToTerminal: (ptyId: string) => void;
+  onConfigureHook?: (hookType: HookType) => void;
 }
 
 export function KanbanColumn({
@@ -28,9 +38,11 @@ export function KanbanColumn({
   onUpdateDescription,
   onOpenTerminal,
   onSwitchToTerminal,
+  onConfigureHook,
 }: KanbanColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id: status });
   const taskIds = useMemo(() => tasks.map((t) => `task-${t.taskNumber}`), [tasks]);
+  const hookType = COLUMN_HOOK_TYPE[status];
 
   return (
     <div className="kanban-column" data-status={status}>
@@ -39,6 +51,11 @@ export function KanbanColumn({
           {label}
           <span className="kanban-column-count">{tasks.length}</span>
         </span>
+        {hookType && onConfigureHook && (
+          <button className="kanban-column-hook-btn" title="Configure hook" onClick={() => onConfigureHook(hookType)}>
+            <Icon name="code" />
+          </button>
+        )}
       </div>
       <div
         ref={setNodeRef}

@@ -15,10 +15,11 @@ import {
 import { arrayMove } from '@dnd-kit/sortable';
 import { useProjectStore } from '../../stores/projectStore';
 import { useTerminalStore } from '../../stores/terminalStore';
-import type { TaskWithWorkspace, TaskStatus } from '../../types';
+import type { TaskWithWorkspace, TaskStatus, HookType } from '../../types';
 import { addProjectTerminal, closeProjectTerminal } from '../terminal/terminalActions';
 import { KanbanColumn } from './KanbanColumn';
 import { focusKanbanAddInput } from './KanbanAddInput';
+import { HookConfigDialog } from '../dialogs/HookConfigDialog';
 
 const COLUMNS: { status: TaskStatus; label: string }[] = [
   { status: 'todo', label: 'To Do' },
@@ -48,6 +49,7 @@ interface KanbanBoardProps {
 export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
   const storeTasks = useProjectStore((s) => s.tasks);
   const [activeTask, setActiveTask] = useState<TaskWithWorkspace | null>(null);
+  const [hookDialog, setHookDialog] = useState<{ hookType: HookType; existingHook?: any } | null>(null);
 
   // Local task state for drag preview — synced from store, mutated during drag
   const [items, setItems] = useState<Record<string, TaskWithWorkspace[]>>({});
@@ -262,8 +264,29 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
     [projectPath, onHide],
   );
 
+  const handleConfigureHook = useCallback(
+    async (hookType: HookType) => {
+      const hooks = await window.api.hooks.get(projectPath);
+      const existing = hooks[hookType as keyof typeof hooks] as any;
+      setHookDialog({ hookType, existingHook: existing || undefined });
+    },
+    [projectPath],
+  );
+
+  const handleHookDialogClose = useCallback(() => {
+    setHookDialog(null);
+  }, []);
+
   return (
     <div className="kanban-board kanban-board--visible">
+      {hookDialog && (
+        <HookConfigDialog
+          projectPath={projectPath}
+          hookType={hookDialog.hookType}
+          existingHook={hookDialog.existingHook}
+          onClose={handleHookDialogClose}
+        />
+      )}
       <DndContext
         sensors={sensors}
         collisionDetection={customCollision}
@@ -284,6 +307,7 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
               onUpdateDescription={handleUpdateDescription}
               onOpenTerminal={handleOpenTerminal}
               onSwitchToTerminal={handleSwitchToTerminal}
+              onConfigureHook={handleConfigureHook}
             />
           ))}
         </div>
