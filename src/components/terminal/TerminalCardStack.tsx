@@ -58,7 +58,7 @@ function EmptyState() {
         <span className="project-stack-empty-hint">
           <span className="project-stack-empty-hint-shortcut">
             {isMac ? '\u2318' : 'Ctrl+'}
-            <span className="shortcut-number">B</span>
+            <span className="shortcut-number">T</span>
           </span>
           Board
         </span>
