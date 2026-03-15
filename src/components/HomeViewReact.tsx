@@ -1,7 +1,8 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { useTerminalStore } from '../stores/terminalStore';
 import { useUIStore } from '../stores/uiStore';
 import { terminalInstances } from './terminal/terminalReact';
+import { reconnectTerminal } from './terminal/terminalActions';
 import { TerminalHeader } from './terminal/TerminalHeader';
 import { XTermContainer } from './terminal/XTermContainer';
 import { Icon } from './terminal/Icon';
@@ -31,6 +32,8 @@ export function HomeView() {
 
   const [homeActiveIndex, setHomeActiveIndex] = useState(0);
 
+  const reconnectedRef = useRef(false);
+
   // Clamp active index
   useEffect(() => {
     if (homeActiveIndex >= allPtyIds.length && allPtyIds.length > 0) {
@@ -44,6 +47,39 @@ export function HomeView() {
       setProjects(new Map(projs.map((p) => [p.path, p])));
     });
   }, []);
+
+  // Reconnect all orphaned PTY sessions on mount
+  useEffect(() => {
+    if (reconnectedRef.current) return;
+    if (allPtyIds.length > 0) return; // Already have terminals
+    reconnectedRef.current = true;
+
+    (async () => {
+      let sessions;
+      try {
+        sessions = await window.api.pty.getActiveSessions();
+      } catch {
+        return;
+      }
+      if (sessions.length === 0) return;
+
+      for (const session of sessions) {
+        // Check if already reconnected (e.g. by ProjectView)
+        if (terminalInstances.has(session.ptyId)) continue;
+
+        let worktreeBranch: string | undefined;
+        if (session.taskId != null) {
+          const task = await window.api.task.getByNumber(session.projectPath, session.taskId);
+          worktreeBranch = task?.branch;
+        }
+
+        const hookStatus = await window.api.claudeHooks.getStatus(session.ptyId);
+        const initialStatus = hookStatus?.status === 'thinking' ? ('thinking' as const) : ('ready' as const);
+
+        await reconnectTerminal(session, { worktreeBranch, initialStatus });
+      }
+    })();
+  }, [allPtyIds.length]);
 
   const homeGroupMode = useUIStore((s) => s.homeGroupMode);
 
