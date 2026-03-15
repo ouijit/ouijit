@@ -53,7 +53,7 @@ export function KanbanColumn({
         </span>
         {hookType && onConfigureHook && (
           <button className="kanban-column-hook-btn" title="Configure hook" onClick={() => onConfigureHook(hookType)}>
-            <Icon name="code" />
+            <Icon name="webhooks-logo" />
           </button>
         )}
       </div>
