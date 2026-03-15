@@ -50,6 +50,7 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
   const storeTasks = useProjectStore((s) => s.tasks);
   const [activeTask, setActiveTask] = useState<TaskWithWorkspace | null>(null);
   const [hookDialog, setHookDialog] = useState<{ hookType: HookType; existingHook?: any } | null>(null);
+  const pendingHookTypesRef = useRef<HookType[]>([]);
 
   // Local task state for drag preview — synced from store, mutated during drag
   const [items, setItems] = useState<Record<string, TaskWithWorkspace[]>>({});
@@ -264,18 +265,36 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
     [projectPath, onHide],
   );
 
-  const handleConfigureHook = useCallback(
-    async (hookType: HookType) => {
+  const showNextHookDialog = useCallback(
+    async (hookTypes: HookType[]) => {
+      if (hookTypes.length === 0) {
+        setHookDialog(null);
+        return;
+      }
+      const [next, ...rest] = hookTypes;
+      pendingHookTypesRef.current = rest;
       const hooks = await window.api.hooks.get(projectPath);
-      const existing = hooks[hookType as keyof typeof hooks] as any;
-      setHookDialog({ hookType, existingHook: existing || undefined });
+      const existing = hooks[next as keyof typeof hooks] as any;
+      setHookDialog({ hookType: next, existingHook: existing || undefined });
     },
     [projectPath],
   );
 
+  const handleConfigureHook = useCallback(
+    (hookTypes: HookType[]) => {
+      showNextHookDialog(hookTypes);
+    },
+    [showNextHookDialog],
+  );
+
   const handleHookDialogClose = useCallback(() => {
-    setHookDialog(null);
-  }, []);
+    const remaining = pendingHookTypesRef.current;
+    if (remaining.length > 0) {
+      showNextHookDialog(remaining);
+    } else {
+      setHookDialog(null);
+    }
+  }, [showNextHookDialog]);
 
   return (
     <div className="kanban-board kanban-board--visible">

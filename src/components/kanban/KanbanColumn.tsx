@@ -7,12 +7,12 @@ import { KanbanCard } from './KanbanCard';
 import { KanbanAddInput } from './KanbanAddInput';
 import { Icon } from '../terminal/Icon';
 
-/** Map column status to the hook type its config button should open */
-const COLUMN_HOOK_TYPE: Record<string, HookType | null> = {
-  todo: null,
-  in_progress: 'start',
-  in_review: 'review',
-  done: 'cleanup',
+/** Map column status to the hook type(s) its config button should open */
+const COLUMN_HOOK_TYPES: Record<string, HookType[]> = {
+  todo: [],
+  in_progress: ['start', 'continue'],
+  in_review: ['review'],
+  done: ['cleanup'],
 };
 
 interface KanbanColumnProps {
@@ -25,7 +25,7 @@ interface KanbanColumnProps {
   onUpdateDescription: (taskNumber: number, description: string) => void;
   onOpenTerminal: (task: TaskWithWorkspace, sandboxed?: boolean) => void;
   onSwitchToTerminal: (ptyId: string) => void;
-  onConfigureHook?: (hookType: HookType) => void;
+  onConfigureHook?: (hookTypes: HookType[]) => void;
 }
 
 export function KanbanColumn({
@@ -42,7 +42,7 @@ export function KanbanColumn({
 }: KanbanColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id: status });
   const taskIds = useMemo(() => tasks.map((t) => `task-${t.taskNumber}`), [tasks]);
-  const hookType = COLUMN_HOOK_TYPE[status];
+  const hookTypes = COLUMN_HOOK_TYPES[status] ?? [];
 
   return (
     <div className="kanban-column" data-status={status}>
@@ -51,8 +51,12 @@ export function KanbanColumn({
           {label}
           <span className="kanban-column-count">{tasks.length}</span>
         </span>
-        {hookType && onConfigureHook && (
-          <button className="kanban-column-hook-btn" title="Configure hook" onClick={() => onConfigureHook(hookType)}>
+        {hookTypes.length > 0 && onConfigureHook && (
+          <button
+            className="kanban-column-hook-btn"
+            title="Configure hook"
+            onClick={() => onConfigureHook(hookTypes)}
+          >
             <Icon name="webhooks-logo" />
           </button>
         )}
