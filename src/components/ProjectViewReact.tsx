@@ -4,10 +4,8 @@ import { useProjectStore } from '../stores/projectStore';
 import { useTerminalStore, getTerminalIndexByStackPosition, STACK_PAGE_SIZE } from '../stores/terminalStore';
 import { TerminalCardStack } from './terminal/TerminalCardStack';
 import { KanbanBoard } from './kanban/KanbanBoard';
-import { ProjectHeader } from './ProjectHeader';
 import { addProjectTerminal, closeProjectTerminal, reconnectOrphanedSessions } from './terminal/terminalActions';
 import { terminalInstances, refreshAllTerminalGitStatus } from './terminal/terminalReact';
-import { focusKanbanAddInput } from './kanban/KanbanAddInput';
 
 const isMac = navigator.platform.toLowerCase().includes('mac');
 const GIT_STATUS_PERIODIC_INTERVAL = 30000;
@@ -176,19 +174,12 @@ export function ProjectView() {
     useProjectStore.getState().setKanbanVisible(false);
   }, []);
 
-  const handleNewTask = useCallback(() => {
-    useProjectStore.getState().setKanbanVisible(true);
-    // Focus the add input after kanban renders
-    requestAnimationFrame(() => focusKanbanAddInput());
-  }, []);
-
   if (!projectPath || !projectData) {
     return <div className="project-view-empty">No project selected</div>;
   }
 
   return (
     <div className="project-view">
-      <ProjectHeader onNewTask={handleNewTask} />
       {kanbanVisible && <KanbanBoard projectPath={projectPath} onHide={handleHideKanban} />}
       {!kanbanVisible && <TerminalCardStack projectPath={projectPath} />}
     </div>
