@@ -4,6 +4,7 @@ import { useProjectStore } from '../stores/projectStore';
 import { useTerminalStore, getTerminalIndexByStackPosition, STACK_PAGE_SIZE } from '../stores/terminalStore';
 import { TerminalCardStack } from './terminal/TerminalCardStack';
 import { KanbanBoard } from './kanban/KanbanBoard';
+import { focusKanbanAddInput } from './kanban/KanbanAddInput';
 import { addProjectTerminal, closeProjectTerminal, reconnectOrphanedSessions } from './terminal/terminalActions';
 import { terminalInstances, refreshAllTerminalGitStatus } from './terminal/terminalReact';
 
@@ -52,8 +53,17 @@ export function ProjectView() {
         return;
       }
 
-      // Cmd+B — toggle kanban board
-      if (key === 'b') {
+      // Cmd+N — show kanban board and focus new task input
+      if (key === 'n') {
+        e.preventDefault();
+        e.stopPropagation();
+        useProjectStore.getState().setKanbanVisible(true);
+        requestAnimationFrame(() => focusKanbanAddInput());
+        return;
+      }
+
+      // Cmd+T — toggle kanban board / terminal stack
+      if (key === 't') {
         e.preventDefault();
         e.stopPropagation();
         useProjectStore.getState().toggleKanban();

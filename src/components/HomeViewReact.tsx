@@ -185,6 +185,15 @@ export function HomeView() {
         return;
       }
 
+      // Cmd+T — toggle grouping mode
+      if (key === 't') {
+        e.preventDefault();
+        e.stopPropagation();
+        const current = useUIStore.getState().homeGroupMode;
+        useUIStore.getState().setHomeGroupMode(current === 'project' ? 'tag' : 'project');
+        return;
+      }
+
       if (key === 'w' && activePtyId) {
         e.preventDefault();
         e.stopPropagation();
