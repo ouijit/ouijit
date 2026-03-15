@@ -86,10 +86,23 @@ export function TitleBar() {
               </button>
             </Tooltip>
           </div>
-        ) : (
-          activeView === 'project' &&
-          activeProjectData && <span className="header-project-name">{activeProjectData.name}</span>
-        )}
+        ) : activeView === 'home' ? (
+          <div className="project-header-content">
+            <span className="home-header-label">Sessions</span>
+            <div style={{ flex: 1 }} />
+            <Tooltip text="New terminal" placement="bottom">
+              <button
+                className="project-terminal-btn"
+                onClick={async () => {
+                  const homePath = await window.api.homePath();
+                  addProjectTerminal(homePath);
+                }}
+              >
+                <Icon name="terminal" />
+              </button>
+            </Tooltip>
+          </div>
+        ) : null}
       </div>
     </header>
   );
