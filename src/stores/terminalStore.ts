@@ -44,6 +44,8 @@ export const DEFAULT_DISPLAY_STATE: Omit<TerminalDisplayState, 'ptyId' | 'projec
   exited: false,
 };
 
+export const STACK_PAGE_SIZE = 5;
+
 interface TerminalStoreState {
   /** Per-terminal renderable state keyed by ptyId */
   displayStates: Record<string, TerminalDisplayState>;
@@ -51,6 +53,8 @@ interface TerminalStoreState {
   terminalsByProject: Record<string, string[]>;
   /** Active terminal index per project path */
   activeIndices: Record<string, number>;
+  /** Loading card label (shown during worktree creation) */
+  loadingLabel: string | null;
 }
 
 interface TerminalStoreActions {
@@ -58,7 +62,9 @@ interface TerminalStoreActions {
   removeTerminal: (ptyId: string) => void;
   updateDisplay: (ptyId: string, patch: Partial<TerminalDisplayState>) => void;
   setActiveIndex: (projectPath: string, index: number) => void;
+  activateLast: (projectPath: string) => void;
   clearProject: (projectPath: string) => void;
+  setLoadingLabel: (label: string | null) => void;
 }
 
 type TerminalStore = TerminalStoreState & TerminalStoreActions;
@@ -67,6 +73,7 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
   displayStates: {},
   terminalsByProject: {},
   activeIndices: {},
+  loadingLabel: null,
 
   addTerminal: (projectPath, ptyId, initial) => {
     const state = get();
@@ -96,12 +103,28 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
     const { [ptyId]: _, ...remainingDisplays } = state.displayStates;
     const projectPath = display.projectPath;
     const projectTerminals = (state.terminalsByProject[projectPath] ?? []).filter((id) => id !== ptyId);
+    const removedIndex = (state.terminalsByProject[projectPath] ?? []).indexOf(ptyId);
+
+    // Adjust active index for this project
+    const currentActive = state.activeIndices[projectPath] ?? 0;
+    let newActive = currentActive;
+    if (projectTerminals.length === 0) {
+      newActive = 0;
+    } else if (currentActive >= projectTerminals.length) {
+      newActive = projectTerminals.length - 1;
+    } else if (removedIndex < currentActive) {
+      newActive = currentActive - 1;
+    }
 
     set({
       displayStates: remainingDisplays,
       terminalsByProject: {
         ...state.terminalsByProject,
         [projectPath]: projectTerminals,
+      },
+      activeIndices: {
+        ...state.activeIndices,
+        [projectPath]: newActive,
       },
     });
   },
@@ -128,6 +151,18 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
     });
   },
 
+  activateLast: (projectPath) => {
+    const terminals = get().terminalsByProject[projectPath] ?? [];
+    if (terminals.length > 0) {
+      set({
+        activeIndices: {
+          ...get().activeIndices,
+          [projectPath]: terminals.length - 1,
+        },
+      });
+    }
+  },
+
   clearProject: (projectPath) => {
     const state = get();
     const ptyIds = state.terminalsByProject[projectPath] ?? [];
@@ -144,4 +179,67 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
       activeIndices: remainingIndices,
     });
   },
+
+  setLoadingLabel: (label) => set({ loadingLabel: label }),
 }));
+
+// ── Derived selectors ────────────────────────────────────────────────
+
+/** Get the active ptyId for a project */
+export function getActivePtyId(projectPath: string): string | undefined {
+  const state = useTerminalStore.getState();
+  const terminals = state.terminalsByProject[projectPath];
+  if (!terminals || terminals.length === 0) return undefined;
+  const index = state.activeIndices[projectPath] ?? 0;
+  return terminals[index];
+}
+
+/** Get current stack page for a project */
+export function getStackPage(projectPath: string): number {
+  const state = useTerminalStore.getState();
+  const index = state.activeIndices[projectPath] ?? 0;
+  return Math.floor(index / STACK_PAGE_SIZE);
+}
+
+/** Get total stack pages for a project */
+export function getTotalStackPages(projectPath: string): number {
+  const state = useTerminalStore.getState();
+  const terminals = state.terminalsByProject[projectPath] ?? [];
+  return Math.max(1, Math.ceil(terminals.length / STACK_PAGE_SIZE));
+}
+
+/**
+ * Get the terminal index for a given stack position (1-indexed).
+ * Only considers terminals on the current page.
+ */
+export function getTerminalIndexByStackPosition(projectPath: string, stackPosition: number): number {
+  const state = useTerminalStore.getState();
+  const terminals = state.terminalsByProject[projectPath] ?? [];
+  const currentActiveIndex = state.activeIndices[projectPath] ?? 0;
+  const page = Math.floor(currentActiveIndex / STACK_PAGE_SIZE);
+  const pageStart = page * STACK_PAGE_SIZE;
+  const pageEnd = Math.min(pageStart + STACK_PAGE_SIZE, terminals.length);
+  const pageSize = pageEnd - pageStart;
+
+  if (terminals.length === 0) return -1;
+
+  const backPositions: { index: number; diff: number }[] = [];
+  for (let index = pageStart; index < pageEnd; index++) {
+    if (index !== currentActiveIndex) {
+      const diff =
+        index < currentActiveIndex
+          ? currentActiveIndex - index
+          : pageSize - (index - pageStart) + (currentActiveIndex - pageStart);
+      backPositions.push({ index, diff });
+    }
+  }
+
+  backPositions.sort((a, b) => b.diff - a.diff);
+
+  const arrayIndex = stackPosition - 1;
+  if (arrayIndex >= 0 && arrayIndex < backPositions.length) {
+    return backPositions[arrayIndex].index;
+  }
+
+  return -1;
+}

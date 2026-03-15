@@ -40,10 +40,26 @@ export function App() {
     };
   }, []);
 
-  // Load projects on mount
+  // Load projects on mount and restore last active view
   useEffect(() => {
-    window.api.getProjects().then((projects) => {
+    window.api.getProjects().then(async (projects) => {
       useAppStore.getState().setProjects(projects);
+
+      // Restore last active view
+      const lastView = await window.api.globalSettings.get('lastActiveView');
+      if (lastView) {
+        try {
+          const parsed = JSON.parse(lastView);
+          if (parsed.type === 'project' && parsed.path) {
+            const project = projects.find((p) => p.path === parsed.path);
+            if (project) {
+              useAppStore.getState().navigateToProject(parsed.path, project);
+            }
+          }
+        } catch {
+          /* invalid JSON, stay on home */
+        }
+      }
     });
   }, []);
 

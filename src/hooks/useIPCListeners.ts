@@ -7,6 +7,9 @@ import { useAppStore } from '../stores/appStore';
  *
  * Per-terminal listeners (pty:data, pty:exit) remain in OuijitTerminal.bind()
  * and are NOT registered here — they are imperative, not React-managed.
+ *
+ * Claude hook status listener is registered in useHookStatusListener()
+ * to avoid pulling in terminal module at top-level.
  */
 export function useIPCListeners() {
   useEffect(() => {
@@ -18,10 +21,6 @@ export function useIPCListeners() {
         useAppStore.getState().setFullscreen(isFullscreen);
       }),
     );
-
-    // Note: claude-hook-status and lima:spawn-progress listeners
-    // will be wired to terminal instances in later phases.
-    // For now, only the global fullscreen listener is needed.
 
     return () => {
       for (const cleanup of cleanups) {
