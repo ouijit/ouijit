@@ -142,20 +142,18 @@ export function HomeView() {
       ? [...groups.filter((g) => g.key === activeGroupKey), ...groups.filter((g) => g.key !== activeGroupKey)]
       : groups;
 
-    // Build stack items with depth
+    // Build stack items with depth — terminals first, then divider after each group
     const items: StackItem[] = [];
     let depth = 0;
     for (const group of ordered) {
-      // Divider comes FIRST (at deeper depth), then terminals in the group
-      // This way the divider tab peeks above the group's terminals
-      depth++;
-      items.push({ type: 'divider', label: group.label, icon: group.icon, projectPath: group.projectPath, depth });
       for (const ptyId of group.ptyIds) {
         const globalIndex = allPtyIds.indexOf(ptyId);
         if (globalIndex === homeActiveIndex) continue;
         depth++;
         items.push({ type: 'terminal', ptyId, depth, globalIndex });
       }
+      depth++;
+      items.push({ type: 'divider', label: group.label, icon: group.icon, projectPath: group.projectPath, depth });
     }
 
     return { stackItems: items, orderedGroups: ordered };
@@ -279,8 +277,6 @@ export function HomeView() {
 
 // ── Divider (project or tag) ─────────────────────────────────────────
 
-const DIVIDER_TAB_SVG = `<svg viewBox="0 0 234 28" width="234" height="28"><path d="M 14 0.5 H 205.5 Q 219.5 0.5 219.5 14.5 L 219.5 13.5 Q 219.5 27.5 233.5 27.5 L 0.5 27.5 L 0.5 14 Q 0.5 0.5 14 0.5 Z" fill="#252528"/><path d="M 0.5 27.5 L 0.5 14 Q 0.5 0.5 14 0.5 H 205.5 Q 219.5 0.5 219.5 14.5 L 219.5 13.5 Q 219.5 27.5 233.5 27.5" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="1"/></svg>`;
-
 function HomeDivider({
   label,
   icon,
@@ -297,7 +293,18 @@ function HomeDivider({
   return (
     <div className={`project-card home-folder-divider ${className}`} onClick={onClick}>
       <div className="home-folder-tab">
-        <span dangerouslySetInnerHTML={{ __html: DIVIDER_TAB_SVG }} />
+        <svg viewBox="0 0 234 28" width="234" height="28">
+          <path
+            d="M 14 0.5 H 205.5 Q 219.5 0.5 219.5 14.5 L 219.5 13.5 Q 219.5 27.5 233.5 27.5 L 0.5 27.5 L 0.5 14 Q 0.5 0.5 14 0.5 Z"
+            fill="#252528"
+          />
+          <path
+            d="M 0.5 27.5 L 0.5 14 Q 0.5 0.5 14 0.5 H 205.5 Q 219.5 0.5 219.5 14.5 L 219.5 13.5 Q 219.5 27.5 233.5 27.5"
+            fill="none"
+            stroke="rgba(255,255,255,0.08)"
+            strokeWidth="1"
+          />
+        </svg>
         <div className="home-folder-tab-content">
           {icon === 'project' ? (
             project?.iconDataUrl ? (
