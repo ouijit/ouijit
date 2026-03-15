@@ -1,10 +1,12 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useIPCListeners } from './hooks/useIPCListeners';
 import { useAppStore } from './stores/appStore';
 import { TitleBar } from './components/TitleBarReact';
 import { Sidebar } from './components/SidebarReact';
 import { HomeView } from './components/HomeViewReact';
 import { ProjectView } from './components/ProjectViewReact';
+import { ToastContainer } from './components/ui/ToastContainer';
+import { NewProjectDialog } from './components/dialogs/NewProjectDialog';
 import type { Project } from './types';
 
 export function App() {
@@ -12,6 +14,7 @@ export function App() {
 
   const activeView = useAppStore((s) => s.activeView);
   const fullscreen = useAppStore((s) => s.fullscreen);
+  const [showNewProject, setShowNewProject] = useState(false);
 
   // Platform and fullscreen body class syncing
   useEffect(() => {
@@ -66,10 +69,8 @@ export function App() {
   // Sidebar callbacks
   const handleProjectSelect = useCallback((path: string, project: Project) => {
     const state = useAppStore.getState();
-    // If clicking the already-active project, ignore for now (kanban toggle comes in Phase 4)
     if (state.activeProjectPath === path) return;
     state.navigateToProject(path, project);
-    // Persist last active view
     window.api.globalSettings.set('lastActiveView', JSON.stringify({ type: 'project', path }));
   }, []);
 
@@ -91,9 +92,25 @@ export function App() {
     }
   }, []);
 
-  const handleCreateNew = useCallback(async () => {
-    // TODO: showNewProjectDialog in Phase 5
+  const handleCreateNew = useCallback(() => {
+    setShowNewProject(true);
   }, []);
+
+  const handleNewProjectClose = useCallback(
+    async (result: { created: boolean; projectName?: string; projectPath?: string } | null) => {
+      setShowNewProject(false);
+      if (result?.created && result.projectPath) {
+        const projects = await window.api.refreshProjects();
+        useAppStore.getState().setProjects(projects);
+        // Navigate to the new project
+        const project = projects.find((p) => p.path === result.projectPath);
+        if (project) {
+          useAppStore.getState().navigateToProject(result.projectPath, project);
+        }
+      }
+    },
+    [],
+  );
 
   return (
     <div className="app-layout">
@@ -110,6 +127,8 @@ export function App() {
           {activeView === 'project' && <ProjectView />}
         </main>
       </div>
+      <ToastContainer />
+      {showNewProject && <NewProjectDialog onClose={handleNewProjectClose} />}
     </div>
   );
 }
