@@ -1,4 +1,5 @@
 import { useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import {
   useFloating,
   useHover,
@@ -10,7 +11,6 @@ import {
   offset,
   flip,
   shift,
-  FloatingPortal,
   type Placement,
 } from '@floating-ui/react';
 
@@ -21,13 +21,14 @@ interface TooltipProps {
   children: ReactNode;
 }
 
-export function Tooltip({ text, placement = 'top', delay = 100, children }: TooltipProps) {
+export function Tooltip({ text, placement = 'bottom', delay = 100, children }: TooltipProps) {
   const [isOpen, setIsOpen] = useState(false);
 
   const { refs, floatingStyles, context } = useFloating({
     open: isOpen,
     onOpenChange: setIsOpen,
     placement,
+    strategy: 'fixed',
     middleware: [offset(6), flip({ fallbackAxisSideDirection: 'start' }), shift({ padding: 8 })],
     whileElementsMounted: autoUpdate,
   });
@@ -41,33 +42,21 @@ export function Tooltip({ text, placement = 'top', delay = 100, children }: Tool
 
   return (
     <>
-      <span ref={refs.setReference} {...getReferenceProps()} style={{ display: 'inline-flex' }}>
+      <div ref={refs.setReference} {...getReferenceProps()} className="inline-flex">
         {children}
-      </span>
-      <FloatingPortal>
-        {isOpen && (
+      </div>
+      {isOpen &&
+        createPortal(
           <div
             ref={refs.setFloating}
-            style={{
-              ...floatingStyles,
-              zIndex: 9999,
-              padding: '6px 12px',
-              fontSize: '13px',
-              fontWeight: 500,
-              color: 'var(--color-text-primary)',
-              background: 'var(--color-surface, #2c2c2e)',
-              borderRadius: '6px',
-              border: '1px solid rgba(255, 255, 255, 0.08)',
-              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
-              pointerEvents: 'none',
-              whiteSpace: 'nowrap',
-            }}
+            className="fixed z-[10000] px-3 py-1.5 text-[13px] font-medium text-white bg-neutral-800 border border-white/10 rounded-md shadow-lg pointer-events-none whitespace-nowrap"
+            style={floatingStyles}
             {...getFloatingProps()}
           >
             {text}
-          </div>
+          </div>,
+          document.body,
         )}
-      </FloatingPortal>
     </>
   );
 }

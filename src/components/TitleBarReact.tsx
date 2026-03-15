@@ -49,27 +49,25 @@ export function TitleBar() {
               <span className="project-header-path">{activeProjectPath}</span>
             </div>
             <div className="project-view-toggle">
-              <Tooltip text="Board view">
-                <button
-                  className={`project-view-toggle-btn${kanbanVisible ? ' project-view-toggle-btn--active' : ''}`}
-                  data-view="board"
-                  onClick={() => handleToggleView('board')}
-                >
-                  <Icon name="kanban" />
-                </button>
-              </Tooltip>
-              <Tooltip text="Terminal stack">
-                <button
-                  className={`project-view-toggle-btn${!kanbanVisible ? ' project-view-toggle-btn--active' : ''}`}
-                  data-view="stack"
-                  onClick={() => handleToggleView('stack')}
-                >
-                  <Icon name="cards-three" />
-                </button>
-              </Tooltip>
+              <button
+                className={`project-view-toggle-btn${kanbanVisible ? ' project-view-toggle-btn--active' : ''}`}
+                data-view="board"
+                title="Board view"
+                onClick={() => handleToggleView('board')}
+              >
+                <Icon name="kanban" />
+              </button>
+              <button
+                className={`project-view-toggle-btn${!kanbanVisible ? ' project-view-toggle-btn--active' : ''}`}
+                data-view="stack"
+                title="Terminal stack"
+                onClick={() => handleToggleView('stack')}
+              >
+                <Icon name="cards-three" />
+              </button>
             </div>
             <div className="project-launch-wrapper">
-              <Tooltip text="Scripts">
+              <Tooltip text="Scripts" placement="bottom">
                 <button ref={hooksBtnRef} className="project-hooks-btn" onClick={() => setLaunchOpen(!launchOpen)}>
                   <Icon name="code" />
                   <Icon name="caret-down" className="project-hooks-caret" />
@@ -77,12 +75,12 @@ export function TitleBar() {
               </Tooltip>
               {launchOpen && <LaunchDropdown anchorRef={hooksBtnRef} onClose={() => setLaunchOpen(false)} />}
             </div>
-            <Tooltip text="New terminal">
+            <Tooltip text="New terminal" placement="bottom">
               <button className="project-terminal-btn" onClick={handleNewTerminal}>
                 <Icon name="terminal" />
               </button>
             </Tooltip>
-            <Tooltip text="New task">
+            <Tooltip text="New task" placement="bottom">
               <button className="project-newtask-btn" onClick={handleNewTask}>
                 <Icon name="plus" />
               </button>
