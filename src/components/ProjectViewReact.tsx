@@ -129,9 +129,19 @@ export function ProjectView() {
     return () => clearInterval(interval);
   }, [projectPath]);
 
-  // Seed hook status for existing terminals
+  // Hook status: register ongoing listener + seed existing terminals
   useEffect(() => {
     if (!projectPath) return;
+
+    // Ongoing listener for hook status events
+    const cleanup = window.api.claudeHooks.onStatus((ptyId, status) => {
+      const instance = terminalInstances.get(ptyId);
+      if (instance) {
+        instance.handleHookStatus(status as 'thinking' | 'ready');
+      }
+    });
+
+    // Seed existing terminals with current hook status
     const terms = useTerminalStore.getState().terminalsByProject[projectPath] ?? [];
     for (const ptyId of terms) {
       const instance = terminalInstances.get(ptyId);
@@ -142,6 +152,8 @@ export function ProjectView() {
         }
       });
     }
+
+    return cleanup;
   }, [projectPath]);
 
   // Focus active terminal when active index changes
