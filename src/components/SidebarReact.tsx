@@ -275,8 +275,8 @@ function SortableProjectIcon({ project, isActive, onClick, onContextMenu }: Sort
         }}
         style={style}
         {...attributes}
-        {...listeners}
         {...getTipRefProps()}
+        {...listeners}
         className={`sidebar-item ${isActive ? 'sidebar-item--active' : ''}`}
         data-project-path={project.path}
         onClick={onClick}
