@@ -20,6 +20,7 @@ import { addProjectTerminal, closeProjectTerminal } from '../terminal/terminalAc
 import { KanbanColumn } from './KanbanColumn';
 import { focusKanbanAddInput } from './KanbanAddInput';
 import { HookConfigDialog } from '../dialogs/HookConfigDialog';
+import { CombinedHookConfigDialog } from '../dialogs/CombinedHookConfigDialog';
 
 const COLUMNS: { status: TaskStatus; label: string }[] = [
   { status: 'todo', label: 'To Do' },
@@ -49,8 +50,11 @@ interface KanbanBoardProps {
 export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
   const storeTasks = useProjectStore((s) => s.tasks);
   const [activeTask, setActiveTask] = useState<TaskWithWorkspace | null>(null);
-  const [hookDialog, setHookDialog] = useState<{ hookType: HookType; existingHook?: any } | null>(null);
-  const pendingHookTypesRef = useRef<HookType[]>([]);
+  const [hookDialog, setHookDialog] = useState<
+    | { mode: 'single'; hookType: HookType; existingHook?: any }
+    | { mode: 'combined'; start?: any; continue?: any }
+    | null
+  >(null);
 
   // Local task state for drag preview — synced from store, mutated during drag
   const [items, setItems] = useState<Record<string, TaskWithWorkspace[]>>({});
@@ -265,44 +269,43 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
     [projectPath, onHide],
   );
 
-  const showNextHookDialog = useCallback(
+  const handleConfigureHook = useCallback(
     async (hookTypes: HookType[]) => {
-      if (hookTypes.length === 0) {
-        setHookDialog(null);
-        return;
-      }
-      const [next, ...rest] = hookTypes;
-      pendingHookTypesRef.current = rest;
       const hooks = await window.api.hooks.get(projectPath);
-      const existing = hooks[next as keyof typeof hooks] as any;
-      setHookDialog({ hookType: next, existingHook: existing || undefined });
+      if (hookTypes.length === 2 && hookTypes.includes('start') && hookTypes.includes('continue')) {
+        setHookDialog({
+          mode: 'combined',
+          start: (hooks as any).start || undefined,
+          continue: (hooks as any).continue || undefined,
+        });
+      } else {
+        const hookType = hookTypes[0];
+        const existing = (hooks as any)[hookType] || undefined;
+        setHookDialog({ mode: 'single', hookType, existingHook: existing });
+      }
     },
     [projectPath],
   );
 
-  const handleConfigureHook = useCallback(
-    (hookTypes: HookType[]) => {
-      showNextHookDialog(hookTypes);
-    },
-    [showNextHookDialog],
-  );
-
   const handleHookDialogClose = useCallback(() => {
-    const remaining = pendingHookTypesRef.current;
-    if (remaining.length > 0) {
-      showNextHookDialog(remaining);
-    } else {
-      setHookDialog(null);
-    }
-  }, [showNextHookDialog]);
+    setHookDialog(null);
+  }, []);
 
   return (
     <div className="kanban-board kanban-board--visible">
-      {hookDialog && (
+      {hookDialog?.mode === 'single' && (
         <HookConfigDialog
           projectPath={projectPath}
           hookType={hookDialog.hookType}
           existingHook={hookDialog.existingHook}
+          onClose={handleHookDialogClose}
+        />
+      )}
+      {hookDialog?.mode === 'combined' && (
+        <CombinedHookConfigDialog
+          projectPath={projectPath}
+          existingStart={hookDialog.start}
+          existingContinue={hookDialog.continue}
           onClose={handleHookDialogClose}
         />
       )}

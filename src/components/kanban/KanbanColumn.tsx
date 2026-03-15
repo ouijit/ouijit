@@ -52,11 +52,7 @@ export function KanbanColumn({
           <span className="kanban-column-count">{tasks.length}</span>
         </span>
         {hookTypes.length > 0 && onConfigureHook && (
-          <button
-            className="kanban-column-hook-btn"
-            title="Configure hook"
-            onClick={() => onConfigureHook(hookTypes)}
-          >
+          <button className="kanban-column-hook-btn" title="Configure hook" onClick={() => onConfigureHook(hookTypes)}>
             <Icon name="webhooks-logo" />
           </button>
         )}
