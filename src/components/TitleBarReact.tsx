@@ -82,11 +82,9 @@ export function TitleBar() {
                 <Icon name="terminal" />
               </button>
             </Tooltip>
-            <Tooltip text="New task" placement="bottom">
-              <button className="project-newtask-btn" onClick={handleNewTask}>
-                <Icon name="plus" />
-              </button>
-            </Tooltip>
+            <button className="project-newtask-btn" title="New task" onClick={handleNewTask}>
+              <Icon name="plus" />
+            </button>
           </div>
         ) : activeView === 'home' ? (
           <div className="project-header-content">
