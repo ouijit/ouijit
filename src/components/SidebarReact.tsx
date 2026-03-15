@@ -17,7 +17,6 @@ import { createPortal } from 'react-dom';
 import type { Project } from '../types';
 import { useAppStore } from '../stores/appStore';
 import { stringToColor, getInitials } from '../utils/projectIcon';
-import { Tooltip } from './ui/Tooltip';
 
 interface SidebarProps {
   onProjectSelect: (path: string, project: Project) => void;
@@ -146,14 +145,16 @@ export function Sidebar({ onProjectSelect, onHomeSelect, onAddExisting, onCreate
         <div className="sidebar-drag-region" />
 
         {/* Home button */}
-        <Tooltip text="Sessions" placement="right">
-          <div className={`sidebar-home ${activeView === 'home' ? 'sidebar-home--active' : ''}`} onClick={onHomeSelect}>
-            <div className="sidebar-pill" />
-            <div className="sidebar-icon">
-              <div className="sidebar-home-logo" />
-            </div>
+        <div
+          className={`sidebar-home ${activeView === 'home' ? 'sidebar-home--active' : ''}`}
+          onClick={onHomeSelect}
+          title="Sessions"
+        >
+          <div className="sidebar-pill" />
+          <div className="sidebar-icon">
+            <div className="sidebar-home-logo" />
           </div>
-        </Tooltip>
+        </div>
 
         <div className="sidebar-divider" />
 
@@ -181,19 +182,18 @@ export function Sidebar({ onProjectSelect, onHomeSelect, onAddExisting, onCreate
           </DndContext>
 
           {/* Add button */}
-          <Tooltip text="Add project" placement="right">
-            <button
-              className="sidebar-action-btn"
-              onClick={(e) => {
-                e.stopPropagation();
-                setAddMenuOpen(!addMenuOpen);
-              }}
-            >
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-                <path d="M8 2a.75.75 0 0 1 .75.75v4.5h4.5a.75.75 0 0 1 0 1.5h-4.5v4.5a.75.75 0 0 1-1.5 0v-4.5h-4.5a.75.75 0 0 1 0-1.5h4.5v-4.5A.75.75 0 0 1 8 2Z" />
-              </svg>
-            </button>
-          </Tooltip>
+          <button
+            className="sidebar-action-btn"
+            title="Add project"
+            onClick={(e) => {
+              e.stopPropagation();
+              setAddMenuOpen(!addMenuOpen);
+            }}
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+              <path d="M8 2a.75.75 0 0 1 .75.75v4.5h4.5a.75.75 0 0 1 0 1.5h-4.5v4.5a.75.75 0 0 1-1.5 0v-4.5h-4.5a.75.75 0 0 1 0-1.5h4.5v-4.5A.75.75 0 0 1 8 2Z" />
+            </svg>
+          </button>
         </div>
       </aside>
 
@@ -248,7 +248,7 @@ function SortableProjectIcon({ project, isActive, onClick, onContextMenu }: Sort
     onOpenChange: setTipOpen,
     placement: 'right',
     strategy: 'fixed',
-    middleware: [offset(6), flip(), shift({ padding: 8 })],
+    middleware: [offset(-4), flip(), shift({ padding: 8 })],
     whileElementsMounted: autoUpdate,
   });
   const tipHover = useHover(tipContext, { move: false, delay: { open: 100 } });
