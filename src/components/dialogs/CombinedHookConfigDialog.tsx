@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import type { ScriptHook } from '../../types';
 import { useProjectStore } from '../../stores/projectStore';
+import { useAutoResize } from '../../hooks/useAutoResize';
 
 const ENV_VARS = [
   '$OUIJIT_PROJECT_PATH',
@@ -29,10 +30,15 @@ export function CombinedHookConfigDialog({
   const [visible, setVisible] = useState(false);
   const [copiedVar, setCopiedVar] = useState<string | null>(null);
   const startRef = useRef<HTMLTextAreaElement>(null);
+  const autoResize = useAutoResize();
 
   useEffect(() => {
     requestAnimationFrame(() => setVisible(true));
-    startRef.current?.focus();
+    if (startRef.current) {
+      startRef.current.focus();
+      startRef.current.style.height = 'auto';
+      startRef.current.style.height = `${startRef.current.scrollHeight}px`;
+    }
   }, []);
 
   const dismiss = useCallback(
@@ -111,8 +117,12 @@ export function CombinedHookConfigDialog({
               className="form-input form-textarea"
               placeholder='npm install && claude "$OUIJIT_TASK_PROMPT"'
               value={startCommand}
-              onChange={(e) => setStartCommand(e.target.value)}
+              onChange={(e) => {
+                setStartCommand(e.target.value);
+                autoResize(e);
+              }}
               rows={1}
+              style={{ overflow: 'hidden', resize: 'none' }}
             />
           </div>
 
@@ -126,8 +136,12 @@ export function CombinedHookConfigDialog({
               className="form-input form-textarea"
               placeholder="claude -c"
               value={continueCommand}
-              onChange={(e) => setContinueCommand(e.target.value)}
+              onChange={(e) => {
+                setContinueCommand(e.target.value);
+                autoResize(e);
+              }}
               rows={1}
+              style={{ overflow: 'hidden', resize: 'none' }}
             />
           </div>
 

@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import type { ScriptHook, HookType } from '../../types';
 import { useProjectStore } from '../../stores/projectStore';
+import { useAutoResize } from '../../hooks/useAutoResize';
 
 const HOOK_LABELS: Record<HookType, { title: string; description: string; placeholder: string; envVars?: boolean }> = {
   start: {
@@ -77,10 +78,15 @@ export function HookConfigDialog({
   const [visible, setVisible] = useState(false);
   const [copiedVar, setCopiedVar] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const autoResize = useAutoResize();
 
   useEffect(() => {
     requestAnimationFrame(() => setVisible(true));
-    textareaRef.current?.focus();
+    if (textareaRef.current) {
+      textareaRef.current.focus();
+      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
+    }
   }, []);
 
   const dismiss = useCallback(
@@ -156,8 +162,12 @@ export function HookConfigDialog({
               className="form-input form-textarea"
               placeholder={labels.placeholder}
               value={command}
-              onChange={(e) => setCommand(e.target.value)}
-              rows={3}
+              onChange={(e) => {
+                setCommand(e.target.value);
+                autoResize(e);
+              }}
+              rows={1}
+              style={{ overflow: 'hidden', resize: 'none' }}
             />
           </div>
 
