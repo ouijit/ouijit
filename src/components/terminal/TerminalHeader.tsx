@@ -16,6 +16,7 @@ const isMac = navigator.platform.toLowerCase().includes('mac');
 interface TerminalHeaderProps {
   ptyId: string;
   isActive: boolean;
+  compact?: boolean;
   stackPosition?: number;
   onClose: () => void;
   onToggleDiffPanel?: () => void;
@@ -25,6 +26,7 @@ interface TerminalHeaderProps {
 export const TerminalHeader = memo(function TerminalHeader({
   ptyId,
   isActive,
+  compact,
   stackPosition,
   onClose,
   onToggleDiffPanel,
@@ -130,7 +132,10 @@ export const TerminalHeader = memo(function TerminalHeader({
   const isWorktree = taskId != null && !!worktreeBranch;
 
   return (
-    <div className="project-card-label" onContextMenu={handleContextMenu}>
+    <div
+      className={`flex items-center justify-between pl-3 pr-3 ${compact ? 'pt-0.5 pb-1' : 'py-2'} min-h-9`}
+      onContextMenu={handleContextMenu}
+    >
       {contextMenu && (
         <ContextMenu
           x={contextMenu.x}
@@ -139,20 +144,23 @@ export const TerminalHeader = memo(function TerminalHeader({
           onClose={() => setContextMenu(null)}
         />
       )}
-      <div className="project-card-label-left">
-        <div className="project-card-label-top">
+      <div className="flex flex-col min-w-0 shrink">
+        <div className="flex items-center gap-2 min-w-0 flex-wrap">
           <span
             className={`project-card-status-dot${sandboxed ? ' project-card-status-dot--sandboxed' : ''}`}
             data-status={summaryType}
           />
           {!isActive && stackPosition != null && stackPosition <= 9 && (
-            <kbd className="project-card-shortcut">
+            <kbd className="inline-flex items-center font-mono text-base text-white/40 shrink-0">
               {isMac ? '\u2318' : 'Ctrl+'}
-              <span className="shortcut-number">{stackPosition}</span>
+              <span className="text-xs">{stackPosition}</span>
             </kbd>
           )}
-          <span className="project-card-label-text">{displayText}</span>
-          <button className="project-card-tag-btn" onMouseDown={handleTagButtonClick}>
+          <span className="font-mono text-xs font-medium text-white/70 shrink-0">{displayText}</span>
+          <button
+            className="flex items-center justify-center w-5 h-5 rounded text-white/30 bg-transparent border-none shrink-0"
+            onMouseDown={handleTagButtonClick}
+          >
             <Icon name="tag" />
           </button>
           <span className="project-card-tags-row">
@@ -160,36 +168,46 @@ export const TerminalHeader = memo(function TerminalHeader({
               <TagInput ptyId={ptyId} onClose={() => setTagInputOpen(false)} />
             ) : (
               tags.map((tag) => (
-                <span key={tag} className="project-card-tag-pill">
+                <span
+                  key={tag}
+                  className="font-mono text-[11px] text-white/50 bg-white/[0.06] rounded-full px-2 py-px shrink-0"
+                >
                   {tag}
                 </span>
               ))
             )}
           </span>
-          {lastOscTitle && (
-            <span className="project-card-osc-title" title={lastOscTitle}>
+          {!compact && lastOscTitle && (
+            <span className="font-mono text-[11px] text-white/40 bg-white/5 rounded-full px-2 py-px truncate">
               {lastOscTitle}
             </span>
           )}
         </div>
-        <div className="project-card-git-branch-row">
-          <GitBranch gitStatus={gitStatus} />
-        </div>
+        {!compact && (
+          <div className="project-card-git-branch-row">
+            <GitBranch gitStatus={gitStatus} />
+          </div>
+        )}
       </div>
-      <div className="project-card-label-right">
-        <div className="project-card-git-stats-wrapper">
-          <GitStats
-            gitStatus={gitStatus}
-            isWorktree={isWorktree}
-            diffPanelOpen={diffPanelOpen}
-            onClick={handleDiffClick}
-          />
-        </div>
+      <div className="flex items-center gap-1 shrink-0 justify-end">
+        {!compact && (
+          <div className="project-card-git-stats-wrapper">
+            <GitStats
+              gitStatus={gitStatus}
+              isWorktree={isWorktree}
+              diffPanelOpen={diffPanelOpen}
+              onClick={handleDiffClick}
+            />
+          </div>
+        )}
         {isActive && (
           <RunnerPill runnerStatus={runnerStatus} runnerPanelOpen={runnerPanelOpen} onClick={handleRunnerClick} />
         )}
         <Tooltip text="Close terminal">
-          <button className="project-card-close" onClick={handleCloseClick}>
+          <button
+            className="w-7 h-7 flex items-center justify-center bg-transparent border-none text-white/40 hover:text-white/90 transition-colors duration-150"
+            onClick={handleCloseClick}
+          >
             <Icon name="x" />
           </button>
         </Tooltip>

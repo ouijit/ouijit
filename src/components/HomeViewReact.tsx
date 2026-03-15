@@ -272,7 +272,7 @@ export function HomeView() {
             style={getDepthStyle(depth)}
             onClick={() => !isActive && setHomeActiveIndex(globalIndex)}
           >
-            <TerminalHeader ptyId={ptyId} isActive={isActive} onClose={() => handleClose(ptyId)} />
+            <TerminalHeader ptyId={ptyId} isActive={isActive} compact={!isActive} onClose={() => handleClose(ptyId)} />
             <div className="project-card-body">
               <XTermContainer ptyId={ptyId} />
             </div>
