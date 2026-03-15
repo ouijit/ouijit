@@ -2,9 +2,22 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, useSortable, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import {
+  useFloating,
+  useHover,
+  useDismiss,
+  useRole,
+  useInteractions,
+  autoUpdate,
+  offset,
+  flip,
+  shift,
+} from '@floating-ui/react';
+import { createPortal } from 'react-dom';
 import type { Project } from '../types';
 import { useAppStore } from '../stores/appStore';
 import { stringToColor, getInitials } from '../utils/projectIcon';
+import { Tooltip } from './ui/Tooltip';
 
 interface SidebarProps {
   onProjectSelect: (path: string, project: Project) => void;
@@ -133,16 +146,14 @@ export function Sidebar({ onProjectSelect, onHomeSelect, onAddExisting, onCreate
         <div className="sidebar-drag-region" />
 
         {/* Home button */}
-        <div
-          className={`sidebar-home ${activeView === 'home' ? 'sidebar-home--active' : ''}`}
-          onClick={onHomeSelect}
-          title="Sessions"
-        >
-          <div className="sidebar-pill" />
-          <div className="sidebar-icon">
-            <div className="sidebar-home-logo" />
+        <Tooltip text="Sessions" placement="right">
+          <div className={`sidebar-home ${activeView === 'home' ? 'sidebar-home--active' : ''}`} onClick={onHomeSelect}>
+            <div className="sidebar-pill" />
+            <div className="sidebar-icon">
+              <div className="sidebar-home-logo" />
+            </div>
           </div>
-        </div>
+        </Tooltip>
 
         <div className="sidebar-divider" />
 
@@ -170,18 +181,19 @@ export function Sidebar({ onProjectSelect, onHomeSelect, onAddExisting, onCreate
           </DndContext>
 
           {/* Add button */}
-          <button
-            className="sidebar-action-btn"
-            title="Add project"
-            onClick={(e) => {
-              e.stopPropagation();
-              setAddMenuOpen(!addMenuOpen);
-            }}
-          >
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
-              <path d="M8 2a.75.75 0 0 1 .75.75v4.5h4.5a.75.75 0 0 1 0 1.5h-4.5v4.5a.75.75 0 0 1-1.5 0v-4.5h-4.5a.75.75 0 0 1 0-1.5h4.5v-4.5A.75.75 0 0 1 8 2Z" />
-            </svg>
-          </button>
+          <Tooltip text="Add project" placement="right">
+            <button
+              className="sidebar-action-btn"
+              onClick={(e) => {
+                e.stopPropagation();
+                setAddMenuOpen(!addMenuOpen);
+              }}
+            >
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M8 2a.75.75 0 0 1 .75.75v4.5h4.5a.75.75 0 0 1 0 1.5h-4.5v4.5a.75.75 0 0 1-1.5 0v-4.5h-4.5a.75.75 0 0 1 0-1.5h4.5v-4.5A.75.75 0 0 1 8 2Z" />
+              </svg>
+            </button>
+          </Tooltip>
         </div>
       </aside>
 
@@ -225,6 +237,29 @@ function SortableProjectIcon({ project, isActive, onClick, onContextMenu }: Sort
     id: project.path,
   });
 
+  // Tooltip via floating-ui hooks (no wrapper element needed)
+  const [tipOpen, setTipOpen] = useState(false);
+  const {
+    refs: tipRefs,
+    floatingStyles: tipStyles,
+    context: tipContext,
+  } = useFloating({
+    open: tipOpen,
+    onOpenChange: setTipOpen,
+    placement: 'right',
+    strategy: 'fixed',
+    middleware: [offset(6), flip(), shift({ padding: 8 })],
+    whileElementsMounted: autoUpdate,
+  });
+  const tipHover = useHover(tipContext, { move: false, delay: { open: 100 } });
+  const tipDismiss = useDismiss(tipContext);
+  const tipRole = useRole(tipContext, { role: 'tooltip' });
+  const { getReferenceProps: getTipRefProps, getFloatingProps: getTipFloatProps } = useInteractions([
+    tipHover,
+    tipDismiss,
+    tipRole,
+  ]);
+
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
@@ -232,28 +267,46 @@ function SortableProjectIcon({ project, isActive, onClick, onContextMenu }: Sort
   };
 
   return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      {...attributes}
-      {...listeners}
-      className={`sidebar-item ${isActive ? 'sidebar-item--active' : ''}`}
-      data-project-path={project.path}
-      onClick={onClick}
-      onContextMenu={onContextMenu}
-      title={project.name}
-    >
-      <div className="sidebar-pill" />
-      <div className="sidebar-icon">
-        {project.iconDataUrl ? (
-          <img src={project.iconDataUrl} alt={project.name} className="sidebar-icon-image" draggable={false} />
-        ) : (
-          <div className="sidebar-icon-placeholder" style={{ backgroundColor: stringToColor(project.name) }}>
-            {getInitials(project.name)}
-          </div>
-        )}
+    <>
+      <div
+        ref={(node) => {
+          setNodeRef(node);
+          tipRefs.setReference(node);
+        }}
+        style={style}
+        {...attributes}
+        {...listeners}
+        {...getTipRefProps()}
+        className={`sidebar-item ${isActive ? 'sidebar-item--active' : ''}`}
+        data-project-path={project.path}
+        onClick={onClick}
+        onContextMenu={onContextMenu}
+      >
+        <div className="sidebar-pill" />
+        <div className="sidebar-icon">
+          {project.iconDataUrl ? (
+            <img src={project.iconDataUrl} alt={project.name} className="sidebar-icon-image" draggable={false} />
+          ) : (
+            <div className="sidebar-icon-placeholder" style={{ backgroundColor: stringToColor(project.name) }}>
+              {getInitials(project.name)}
+            </div>
+          )}
+        </div>
       </div>
-    </div>
+      {tipOpen &&
+        !isDragging &&
+        createPortal(
+          <div
+            ref={tipRefs.setFloating}
+            className="fixed z-[10000] px-3 py-1.5 text-[13px] font-medium text-white bg-neutral-800 border border-white/10 rounded-md shadow-lg pointer-events-none whitespace-nowrap"
+            style={tipStyles}
+            {...getTipFloatProps()}
+          >
+            {project.name}
+          </div>,
+          document.body,
+        )}
+    </>
   );
 }
 
