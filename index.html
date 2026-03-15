@@ -3,46 +3,15 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self' 'unsafe-eval'; style-src 'self' 'unsafe-inline'"
+    />
     <title>ouijit</title>
     <link rel="stylesheet" href="/src/index.css" />
   </head>
   <body>
-    <div class="app-layout">
-      <!-- Thin trigger zone on left edge to reveal sidebar -->
-      <div id="sidebar-trigger" class="sidebar-trigger"></div>
-      <!-- Sidebar: hidden until mouse reaches left edge -->
-      <aside id="project-sidebar" class="sidebar">
-        <div class="sidebar-drag-region"></div>
-        <div id="sidebar-home-btn" class="sidebar-home sidebar-home--active">
-          <div class="sidebar-pill"></div>
-          <div class="sidebar-icon">
-            <div class="sidebar-home-logo"></div>
-          </div>
-        </div>
-        <div class="sidebar-divider"></div>
-        <div id="sidebar-projects" class="sidebar-projects">
-          <!-- Project icons rendered here, add button appended after them -->
-          <button id="sidebar-add-btn" class="sidebar-action-btn">
-            <i data-icon="plus"></i>
-          </button>
-        </div>
-      </aside>
-
-      <!-- Main area: header + content -->
-      <div class="app-main">
-        <header class="header">
-          <div class="header-content">
-            <!-- Populated dynamically: project header when active, empty when not -->
-          </div>
-          <button id="sidebar-reveal-btn" class="sidebar-reveal-btn">
-            <i data-icon="arrow-left"></i>
-          </button>
-        </header>
-
-        <main class="main-content"></main>
-      </div>
-    </div>
-
-    <script type="module" src="/src/renderer.ts"></script>
+    <div id="root"></div>
+    <script type="module" src="/src/renderer.tsx"></script>
   </body>
 </html>

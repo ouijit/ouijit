@@ -21,6 +21,16 @@ export default defineConfig({
           isolate: true,
         },
       },
+      {
+        test: {
+          name: 'renderer',
+          environment: 'jsdom',
+          setupFiles: ['./src/__tests__/renderer/setup.ts'],
+          include: ['src/__tests__/renderer/**/*.test.tsx'],
+          exclude: ['e2e/**', 'node_modules/**'],
+          isolate: true,
+        },
+      },
     ],
   },
 });

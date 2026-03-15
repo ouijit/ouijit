@@ -1,10 +1,12 @@
 import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react-swc';
 
 export default defineConfig({
+  plugins: [react()],
   build: {
-    minify: false
+    minify: false,
   },
   optimizeDeps: {
-    exclude: ['xterm']
-  }
+    exclude: ['xterm'],
+  },
 });

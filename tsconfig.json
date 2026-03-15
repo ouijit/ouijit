@@ -5,6 +5,7 @@
     "allowJs": true,
     "skipLibCheck": true,
     "esModuleInterop": true,
+    "jsx": "react-jsx",
     "noImplicitAny": true,
     "sourceMap": true,
     "baseUrl": ".",
