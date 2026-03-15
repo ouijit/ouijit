@@ -26,6 +26,7 @@ interface KanbanColumnProps {
   onOpenTerminal: (task: TaskWithWorkspace, sandboxed?: boolean) => void;
   onSwitchToTerminal: (ptyId: string) => void;
   onConfigureHook?: (hookTypes: HookType[]) => void;
+  hasConfiguredHook?: boolean;
 }
 
 export function KanbanColumn({
@@ -39,6 +40,7 @@ export function KanbanColumn({
   onOpenTerminal,
   onSwitchToTerminal,
   onConfigureHook,
+  hasConfiguredHook,
 }: KanbanColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id: status });
   const taskIds = useMemo(() => tasks.map((t) => `task-${t.taskNumber}`), [tasks]);
@@ -52,7 +54,10 @@ export function KanbanColumn({
           <span className="kanban-column-count">{tasks.length}</span>
         </span>
         {hookTypes.length > 0 && onConfigureHook && (
-          <button className="kanban-column-hook-btn" title="Configure hook" onClick={() => onConfigureHook(hookTypes)}>
+          <button
+            className={`kanban-column-hook-btn${hasConfiguredHook ? ' kanban-column-hook-btn--active' : ''}`}
+            onClick={() => onConfigureHook(hookTypes)}
+          >
             <Icon name="webhooks-logo" />
           </button>
         )}

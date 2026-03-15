@@ -50,11 +50,23 @@ interface KanbanBoardProps {
 export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
   const storeTasks = useProjectStore((s) => s.tasks);
   const [activeTask, setActiveTask] = useState<TaskWithWorkspace | null>(null);
+  const [configuredHooks, setConfiguredHooks] = useState<Record<string, boolean>>({});
   const [hookDialog, setHookDialog] = useState<
     | { mode: 'single'; hookType: HookType; existingHook?: any }
     | { mode: 'combined'; start?: any; continue?: any }
     | null
   >(null);
+
+  // Load which hooks are configured
+  useEffect(() => {
+    window.api.hooks.get(projectPath).then((hooks) => {
+      const configured: Record<string, boolean> = {};
+      for (const key of Object.keys(hooks)) {
+        if ((hooks as any)[key]) configured[key] = true;
+      }
+      setConfiguredHooks(configured);
+    });
+  }, [projectPath]);
 
   // Local task state for drag preview — synced from store, mutated during drag
   const [items, setItems] = useState<Record<string, TaskWithWorkspace[]>>({});
@@ -289,7 +301,15 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
 
   const handleHookDialogClose = useCallback(() => {
     setHookDialog(null);
-  }, []);
+    // Refresh configured hooks
+    window.api.hooks.get(projectPath).then((hooks) => {
+      const configured: Record<string, boolean> = {};
+      for (const key of Object.keys(hooks)) {
+        if ((hooks as any)[key]) configured[key] = true;
+      }
+      setConfiguredHooks(configured);
+    });
+  }, [projectPath]);
 
   return (
     <div className="kanban-board kanban-board--visible">
@@ -317,21 +337,29 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
         onDragEnd={handleDragEnd}
       >
         <div className="kanban-columns">
-          {COLUMNS.map((col) => (
-            <KanbanColumn
-              key={col.status}
-              status={col.status}
-              label={col.label}
-              tasks={items[col.status] ?? []}
-              projectPath={projectPath}
-              onAddTask={col.status === 'todo' ? handleAddTask : undefined}
-              onRenameTask={handleRenameTask}
-              onUpdateDescription={handleUpdateDescription}
-              onOpenTerminal={handleOpenTerminal}
-              onSwitchToTerminal={handleSwitchToTerminal}
-              onConfigureHook={handleConfigureHook}
-            />
-          ))}
+          {COLUMNS.map((col) => {
+            const hookActive =
+              (col.status === 'in_progress' && !!(configuredHooks.start || configuredHooks.continue)) ||
+              (col.status === 'in_review' && !!configuredHooks.review) ||
+              (col.status === 'done' && !!configuredHooks.cleanup);
+
+            return (
+              <KanbanColumn
+                key={col.status}
+                status={col.status}
+                label={col.label}
+                tasks={items[col.status] ?? []}
+                projectPath={projectPath}
+                onAddTask={col.status === 'todo' ? handleAddTask : undefined}
+                onRenameTask={handleRenameTask}
+                onUpdateDescription={handleUpdateDescription}
+                onOpenTerminal={handleOpenTerminal}
+                onSwitchToTerminal={handleSwitchToTerminal}
+                onConfigureHook={handleConfigureHook}
+                hasConfiguredHook={hookActive}
+              />
+            );
+          })}
         </div>
 
         <DragOverlay dropAnimation={null}>
@@ -364,6 +392,8 @@ async function handleColumnTransition(
   newStatus: TaskStatus,
   onHide: () => void,
 ): Promise<void> {
+  const hooks = await window.api.hooks.get(projectPath);
+
   if (newStatus === 'in_progress') {
     if (!task.worktreePath) {
       await addProjectTerminal(projectPath, undefined, {
@@ -378,7 +408,35 @@ async function handleColumnTransition(
       });
     }
     onHide();
+  } else if (newStatus === 'in_review') {
+    // Run review hook if configured
+    if ((hooks as any).review && task.worktreePath) {
+      await addProjectTerminal(
+        projectPath,
+        { name: 'Review', command: (hooks as any).review.command, source: 'custom', priority: 0 },
+        {
+          existingWorktree: { path: task.worktreePath, branch: task.branch || '', createdAt: task.createdAt },
+          taskId: task.taskNumber,
+          skipAutoHook: true,
+        },
+      );
+      onHide();
+    }
   } else if (newStatus === 'done') {
+    // Run cleanup hook if configured
+    if ((hooks as any).cleanup && task.worktreePath) {
+      await addProjectTerminal(
+        projectPath,
+        { name: 'Cleanup', command: (hooks as any).cleanup.command, source: 'custom', priority: 0 },
+        {
+          existingWorktree: { path: task.worktreePath, branch: task.branch || '', createdAt: task.createdAt },
+          taskId: task.taskNumber,
+          skipAutoHook: true,
+          background: true,
+        },
+      );
+    }
+    // Close all terminals for this task
     const store = useTerminalStore.getState();
     const ptyIds = store.terminalsByProject[projectPath] ?? [];
     for (const ptyId of [...ptyIds]) {
