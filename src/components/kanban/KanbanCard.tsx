@@ -1,7 +1,6 @@
-import { memo, useState, useCallback, useRef, useEffect } from 'react';
+import { memo, useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import type { TaskWithWorkspace } from '../../types';
-import { useTerminalStore } from '../../stores/terminalStore';
-import { terminalInstances } from '../terminal/terminalReact';
+import { useTerminalStore, type TerminalDisplayState } from '../../stores/terminalStore';
 import { Icon } from '../terminal/Icon';
 
 interface KanbanCardProps {
@@ -29,12 +28,20 @@ export const KanbanCard = memo(function KanbanCard({
 
   const isDone = task.status === 'done';
 
-  // Find connected terminals for this task
-  const terminalsByProject = useTerminalStore((s) => s.terminalsByProject[projectPath]) ?? [];
-  const connectedTerminals = terminalsByProject.filter((ptyId) => {
-    const display = useTerminalStore.getState().displayStates[ptyId];
-    return display?.taskId === task.taskNumber;
-  });
+  // Find connected terminals for this task (reactive — re-renders when display states change)
+  const displayStates = useTerminalStore((s) => s.displayStates);
+  const terminalPtyIds = useTerminalStore((s) => s.terminalsByProject[projectPath]);
+  const connectedDisplays = useMemo(() => {
+    const result: TerminalDisplayState[] = [];
+    const ids = terminalPtyIds ?? [];
+    for (const ptyId of ids) {
+      const display = displayStates[ptyId];
+      if (display?.taskId === task.taskNumber) {
+        result.push(display);
+      }
+    }
+    return result;
+  }, [displayStates, terminalPtyIds, task.taskNumber]);
 
   // Handle inline name editing
   const startEditing = useCallback(() => {
@@ -116,33 +123,30 @@ export const KanbanCard = memo(function KanbanCard({
       </div>
 
       {/* Connected terminal status dots */}
-      {connectedTerminals.length > 0 && (
+      {connectedDisplays.length > 0 && (
         <div className="kanban-card-status-tree">
-          {connectedTerminals.map((ptyId, i) => {
-            const display = useTerminalStore.getState().displayStates[ptyId];
-            const instance = terminalInstances.get(ptyId);
-            const isLast = i === connectedTerminals.length - 1;
-            const label = display?.lastOscTitle || instance?.command || display?.label || 'Shell';
-            const truncated = label.length > 35 ? label.slice(0, 35) + '\u2026' : label;
-            const isSandboxed = display?.sandboxed;
+          {connectedDisplays.map((display, i) => {
+            const isLast = i === connectedDisplays.length - 1;
+            const dotLabel = display.lastOscTitle || display.label || 'Shell';
+            const truncated = dotLabel.length > 35 ? dotLabel.slice(0, 35) + '\u2026' : dotLabel;
 
             return (
               <div
-                key={ptyId}
+                key={display.ptyId}
                 className="kanban-card-status-row"
                 onClick={(e) => {
                   e.stopPropagation();
-                  onSwitchToTerminal(ptyId);
+                  onSwitchToTerminal(display.ptyId);
                 }}
               >
                 <span className="kanban-card-status-elbow">{isLast ? '\u2514\u2500' : '\u251C\u2500'}</span>
                 <span
-                  className={`kanban-card-status-dot${isSandboxed ? ' kanban-card-status-dot--sandboxed' : ''}`}
-                  data-status={display?.summaryType ?? 'ready'}
+                  className={`kanban-card-status-dot${display.sandboxed ? ' kanban-card-status-dot--sandboxed' : ''}`}
+                  data-status={display.summaryType}
                 />
                 <span className="kanban-card-status-label">
                   {truncated}
-                  {isSandboxed ? ' (sandbox)' : ''}
+                  {display.sandboxed ? ' (sandbox)' : ''}
                 </span>
               </div>
             );

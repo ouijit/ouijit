@@ -8,7 +8,6 @@ import {
   useSensors,
   type DragStartEvent,
   type DragEndEvent,
-  type DragOverEvent,
 } from '@dnd-kit/core';
 import { useProjectStore } from '../../stores/projectStore';
 import { useTerminalStore } from '../../stores/terminalStore';
@@ -34,12 +33,6 @@ interface KanbanBoardProps {
 export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
   const tasks = useProjectStore((s) => s.tasks);
   const [activeTask, setActiveTask] = useState<TaskWithWorkspace | null>(null);
-  const [localTasks, setLocalTasks] = useState<TaskWithWorkspace[]>(tasks);
-
-  // Sync localTasks when store tasks change (from IPC)
-  useEffect(() => {
-    setLocalTasks(tasks);
-  }, [tasks]);
 
   // Load tasks on mount
   useEffect(() => {
@@ -70,22 +63,20 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
     for (const col of COLUMNS) {
       groups[col.status] = [];
     }
-    for (const task of localTasks) {
+    for (const task of tasks) {
       if (groups[task.status]) {
         groups[task.status].push(task);
       }
     }
-    // Sort by order within each column
     for (const status of Object.keys(groups)) {
       groups[status].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
     }
     return groups;
-  }, [localTasks]);
+  }, [tasks]);
 
-  // DnD sensors
   const sensors = useSensors(
     useSensor(PointerSensor, {
-      activationConstraint: { distance: 5 },
+      activationConstraint: { distance: 8 },
     }),
   );
 
@@ -94,82 +85,58 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
     setActiveTask(task ?? null);
   }, []);
 
-  const handleDragOver = useCallback(
-    (event: DragOverEvent) => {
-      const { active, over } = event;
-      if (!over) return;
-
-      const activeId = active.id as string;
-      const overId = over.id as string;
-
-      // Find source and destination columns
-      const activeTaskNum = parseInt(activeId.replace('task-', ''), 10);
-      const activeTaskData = localTasks.find((t) => t.taskNumber === activeTaskNum);
-      if (!activeTaskData) return;
-
-      // Determine target column: either a column id directly or from a task's column
-      let targetStatus: string;
-      if (COLUMNS.some((c) => c.status === overId)) {
-        targetStatus = overId;
-      } else {
-        const overTaskNum = parseInt(overId.replace('task-', ''), 10);
-        const overTask = localTasks.find((t) => t.taskNumber === overTaskNum);
-        if (!overTask) return;
-        targetStatus = overTask.status;
-      }
-
-      if (activeTaskData.status !== targetStatus) {
-        // Move task to new column optimistically
-        setLocalTasks((prev) => {
-          const updated = prev.map((t) =>
-            t.taskNumber === activeTaskNum ? { ...t, status: targetStatus as TaskStatus } : t,
-          );
-          return updated;
-        });
-      }
-    },
-    [localTasks],
-  );
-
   const handleDragEnd = useCallback(
     async (event: DragEndEvent) => {
+      const draggedTask = activeTask;
       setActiveTask(null);
-      const { active, over } = event;
-      if (!over) return;
 
-      const activeId = active.id as string;
+      const { over } = event;
+      if (!over || !draggedTask) return;
+
       const overId = over.id as string;
-      const activeTaskNum = parseInt(activeId.replace('task-', ''), 10);
 
-      // Find the task in localTasks (may have been moved to new column in handleDragOver)
-      const task = localTasks.find((t) => t.taskNumber === activeTaskNum);
-      if (!task) return;
+      // Determine target column
+      let targetStatus: TaskStatus;
+      let targetIndex = 0;
 
-      const targetStatus = task.status;
-
-      // Calculate target index within the column
-      const columnTasks = localTasks.filter((t) => t.status === targetStatus);
-      let targetIndex = columnTasks.findIndex((t) => t.taskNumber === activeTaskNum);
-
-      if (overId !== activeId && !COLUMNS.some((c) => c.status === overId)) {
-        // Dropped on another task — reorder within column
+      if (COLUMNS.some((c) => c.status === overId)) {
+        // Dropped on a column directly (empty area)
+        targetStatus = overId as TaskStatus;
+        targetIndex = (tasksByStatus[targetStatus] ?? []).length;
+      } else {
+        // Dropped on a task — use that task's column and position
         const overTaskNum = parseInt(overId.replace('task-', ''), 10);
-        const overIndex = columnTasks.findIndex((t) => t.taskNumber === overTaskNum);
-        if (overIndex !== -1) {
-          targetIndex = overIndex;
-        }
+        const overTask = tasks.find((t) => t.taskNumber === overTaskNum);
+        if (!overTask) return;
+        targetStatus = overTask.status as TaskStatus;
+        const columnTasks = tasksByStatus[targetStatus] ?? [];
+        targetIndex = columnTasks.findIndex((t) => t.taskNumber === overTaskNum);
+        if (targetIndex === -1) targetIndex = columnTasks.length;
       }
 
-      // Persist to backend
-      useProjectStore.getState().moveTask(projectPath, activeTaskNum, targetStatus, Math.max(0, targetIndex));
+      // No-op if same position
+      if (draggedTask.status === targetStatus) {
+        const columnTasks = tasksByStatus[targetStatus] ?? [];
+        const currentIndex = columnTasks.findIndex((t) => t.taskNumber === draggedTask.taskNumber);
+        if (currentIndex === targetIndex) return;
+      }
 
-      // Handle lifecycle hooks for column transitions
-      const originalTask = tasks.find((t) => t.taskNumber === activeTaskNum);
-      if (originalTask && originalTask.status !== targetStatus) {
-        await handleColumnTransition(projectPath, originalTask, targetStatus as TaskStatus);
+      const originalStatus = draggedTask.status;
+
+      // Persist to backend (optimistic update happens in store)
+      await useProjectStore
+        .getState()
+        .moveTask(projectPath, draggedTask.taskNumber, targetStatus, Math.max(0, targetIndex));
+
+      // Reload tasks to get fresh state
+      await useProjectStore.getState().loadTasks(projectPath);
+
+      // Handle lifecycle for column transitions
+      if (originalStatus !== targetStatus) {
+        await handleColumnTransition(projectPath, draggedTask, targetStatus, onHide);
       }
     },
-    [localTasks, tasks, projectPath],
+    [activeTask, tasks, tasksByStatus, projectPath, onHide],
   );
 
   // Task CRUD handlers
@@ -229,7 +196,6 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
         sensors={sensors}
         collisionDetection={closestCorners}
         onDragStart={handleDragStart}
-        onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}
       >
         <div className="kanban-columns">
@@ -251,7 +217,7 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
 
         <DragOverlay>
           {activeTask && (
-            <div className="kanban-card" style={{ opacity: 0.8 }}>
+            <div className="kanban-card" style={{ opacity: 0.8, width: 280 }}>
               <div className="kanban-card-header">
                 <span className="kanban-card-name">{activeTask.name}</span>
               </div>
@@ -269,9 +235,9 @@ async function handleColumnTransition(
   projectPath: string,
   task: TaskWithWorkspace,
   newStatus: TaskStatus,
+  onHide: () => void,
 ): Promise<void> {
   if (newStatus === 'in_progress') {
-    // Create worktree if needed and open terminal
     if (!task.worktreePath) {
       await addProjectTerminal(projectPath, undefined, {
         useWorktree: true,
@@ -284,8 +250,9 @@ async function handleColumnTransition(
         taskId: task.taskNumber,
       });
     }
+    // Switch to terminal view so user sees the new terminal
+    onHide();
   } else if (newStatus === 'done') {
-    // Close all terminals for this task
     const store = useTerminalStore.getState();
     const ptyIds = store.terminalsByProject[projectPath] ?? [];
     for (const ptyId of [...ptyIds]) {

@@ -4,7 +4,6 @@ import { useProjectStore } from '../stores/projectStore';
 import { useTerminalStore, getTerminalIndexByStackPosition, STACK_PAGE_SIZE } from '../stores/terminalStore';
 import { TerminalCardStack } from './terminal/TerminalCardStack';
 import { KanbanBoard } from './kanban/KanbanBoard';
-import { DiffPanel } from './diff/DiffPanel';
 import { addProjectTerminal, closeProjectTerminal, reconnectOrphanedSessions } from './terminal/terminalActions';
 import { terminalInstances, refreshAllTerminalGitStatus } from './terminal/terminalReact';
 
@@ -17,14 +16,9 @@ export function ProjectView() {
   const projectData = useAppStore((s) => s.activeProjectData);
   const kanbanVisible = useProjectStore((s) => s.kanbanVisible);
 
-  // Get active terminal's diff panel state
   const activeIndex = useTerminalStore((s) => (projectPath ? (s.activeIndices[projectPath] ?? 0) : 0));
   const terminalList = useTerminalStore((s) => (projectPath ? s.terminalsByProject[projectPath] : undefined));
   const terminals = terminalList ?? EMPTY;
-  const activePtyId = terminals[activeIndex];
-  const diffPanelOpen = useTerminalStore((s) =>
-    activePtyId ? (s.displayStates[activePtyId]?.diffPanelOpen ?? false) : false,
-  );
 
   // Keyboard shortcuts for project mode
   useEffect(() => {
@@ -152,7 +146,7 @@ export function ProjectView() {
 
   // Focus active terminal when active index changes
   useEffect(() => {
-    if (!projectPath || terminals.length === 0 || kanbanVisible || diffPanelOpen) return;
+    if (!projectPath || terminals.length === 0 || kanbanVisible) return;
     const ptyId = terminals[activeIndex];
     if (!ptyId) return;
     const instance = terminalInstances.get(ptyId);
@@ -162,19 +156,11 @@ export function ProjectView() {
         instance.xterm.focus();
       });
     }
-  }, [activeIndex, terminals, projectPath, kanbanVisible, diffPanelOpen]);
+  }, [activeIndex, terminals, projectPath, kanbanVisible]);
 
   const handleHideKanban = useCallback(() => {
     useProjectStore.getState().setKanbanVisible(false);
   }, []);
-
-  const handleCloseDiff = useCallback(() => {
-    if (!activePtyId) return;
-    const instance = terminalInstances.get(activePtyId);
-    if (!instance) return;
-    instance.diffPanelOpen = false;
-    instance.pushDisplayState({ diffPanelOpen: false });
-  }, [activePtyId]);
 
   if (!projectPath || !projectData) {
     return <div className="project-view-empty">No project selected</div>;
@@ -183,10 +169,7 @@ export function ProjectView() {
   return (
     <div className="project-view">
       {kanbanVisible && <KanbanBoard projectPath={projectPath} onHide={handleHideKanban} />}
-      {diffPanelOpen && activePtyId && (
-        <DiffPanel ptyId={activePtyId} projectPath={projectPath} onClose={handleCloseDiff} />
-      )}
-      {!kanbanVisible && !diffPanelOpen && <TerminalCardStack projectPath={projectPath} />}
+      {!kanbanVisible && <TerminalCardStack projectPath={projectPath} />}
     </div>
   );
 }

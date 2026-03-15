@@ -4,6 +4,7 @@ import { terminalInstances } from './terminalReact';
 import { TerminalHeader } from './TerminalHeader';
 import { XTermContainer } from './XTermContainer';
 import { RunnerPanel } from './RunnerPanel';
+import { DiffPanel } from '../diff/DiffPanel';
 
 const EMPTY: string[] = [];
 
@@ -16,6 +17,7 @@ export const TerminalCard = memo(function TerminalCard({ ptyId, projectPath }: T
   const terminals = useTerminalStore((s) => s.terminalsByProject[projectPath]) ?? EMPTY;
   const activeIndex = useTerminalStore((s) => s.activeIndices[projectPath] ?? 0);
   const runnerPanelOpen = useTerminalStore((s) => s.displayStates[ptyId]?.runnerPanelOpen ?? false);
+  const diffPanelOpen = useTerminalStore((s) => s.displayStates[ptyId]?.diffPanelOpen ?? false);
 
   const index = terminals.indexOf(ptyId);
   const page = Math.floor(activeIndex / STACK_PAGE_SIZE);
@@ -24,17 +26,19 @@ export const TerminalCard = memo(function TerminalCard({ ptyId, projectPath }: T
   const pageSize = pageEnd - pageStart;
   const isActive = index === activeIndex;
 
-  // Calculate stack position class
   const cardClass = useMemo(() => {
-    if (index < pageStart || index >= pageEnd) return 'project-card project-card--hidden';
-    if (isActive) return 'project-card project-card--active';
+    let cls = 'project-card';
+    if (index < pageStart || index >= pageEnd) return `${cls} project-card--hidden`;
+    if (isActive) cls += ' project-card--active';
+    else {
+      const diff =
+        index < activeIndex ? activeIndex - index : pageSize - (index - pageStart) + (activeIndex - pageStart);
+      cls += ` project-card--back-${Math.min(diff, 4)}`;
+    }
+    if (diffPanelOpen) cls += ' diff-panel-open';
+    return cls;
+  }, [index, activeIndex, pageStart, pageEnd, pageSize, isActive, diffPanelOpen]);
 
-    const diff = index < activeIndex ? activeIndex - index : pageSize - (index - pageStart) + (activeIndex - pageStart);
-    const backClass = `project-card--back-${Math.min(diff, 4)}`;
-    return `project-card ${backClass}`;
-  }, [index, activeIndex, pageStart, pageEnd, pageSize, isActive]);
-
-  // Calculate stack position number for keyboard shortcut display
   const stackPosition = useMemo(() => {
     if (isActive || index < pageStart || index >= pageEnd) return undefined;
 
@@ -68,7 +72,25 @@ export const TerminalCard = memo(function TerminalCard({ ptyId, projectPath }: T
     const instance = terminalInstances.get(ptyId);
     if (!instance) return;
     instance.diffPanelOpen = !instance.diffPanelOpen;
-    instance.pushDisplayState({ diffPanelOpen: instance.diffPanelOpen });
+    // Close runner panel if opening diff (mutual exclusivity)
+    if (instance.diffPanelOpen && instance.runnerPanelOpen) {
+      instance.runnerPanelOpen = false;
+      instance.pushDisplayState({ diffPanelOpen: true, runnerPanelOpen: false });
+    } else {
+      instance.pushDisplayState({ diffPanelOpen: instance.diffPanelOpen });
+    }
+    // Refit terminal after diff panel closes
+    if (!instance.diffPanelOpen) {
+      requestAnimationFrame(() => instance.fit());
+    }
+  }, [ptyId]);
+
+  const handleCloseDiffPanel = useCallback(() => {
+    const instance = terminalInstances.get(ptyId);
+    if (!instance) return;
+    instance.diffPanelOpen = false;
+    instance.pushDisplayState({ diffPanelOpen: false });
+    requestAnimationFrame(() => instance.fit());
   }, [ptyId]);
 
   const handleToggleRunner = useCallback(() => {
@@ -77,9 +99,14 @@ export const TerminalCard = memo(function TerminalCard({ ptyId, projectPath }: T
 
     if (instance.runner?.ptyId) {
       instance.runnerPanelOpen = !instance.runnerPanelOpen;
-      instance.pushDisplayState({ runnerPanelOpen: instance.runnerPanelOpen });
+      // Close diff panel if opening runner (mutual exclusivity)
+      if (instance.runnerPanelOpen && instance.diffPanelOpen) {
+        instance.diffPanelOpen = false;
+        instance.pushDisplayState({ runnerPanelOpen: true, diffPanelOpen: false });
+      } else {
+        instance.pushDisplayState({ runnerPanelOpen: instance.runnerPanelOpen });
+      }
     }
-    // If no runner exists, the parent (ProjectView) handles spawning via runDefaultInCard
   }, [ptyId]);
 
   const handleCollapseRunner = useCallback(() => {
@@ -97,11 +124,9 @@ export const TerminalCard = memo(function TerminalCard({ ptyId, projectPath }: T
   }, [ptyId]);
 
   const handleRestartRunner = useCallback(() => {
-    // Restart handled by parent — this component just signals intent
     const instance = terminalInstances.get(ptyId);
     if (!instance) return;
     instance.killRunner();
-    // Parent will re-trigger runDefaultInCard
   }, [ptyId]);
 
   const bodyClass = useMemo(() => {
@@ -125,14 +150,20 @@ export const TerminalCard = memo(function TerminalCard({ ptyId, projectPath }: T
         onToggleRunner={handleToggleRunner}
       />
       <div className={bodyClass}>
-        <XTermContainer ptyId={ptyId} />
-        {runnerPanelOpen && (
-          <RunnerPanel
-            ptyId={ptyId}
-            onCollapse={handleCollapseRunner}
-            onKill={handleKillRunner}
-            onRestart={handleRestartRunner}
-          />
+        {diffPanelOpen ? (
+          <DiffPanel ptyId={ptyId} projectPath={projectPath} onClose={handleCloseDiffPanel} />
+        ) : (
+          <>
+            <XTermContainer ptyId={ptyId} />
+            {runnerPanelOpen && (
+              <RunnerPanel
+                ptyId={ptyId}
+                onCollapse={handleCollapseRunner}
+                onKill={handleKillRunner}
+                onRestart={handleRestartRunner}
+              />
+            )}
+          </>
         )}
       </div>
     </div>
