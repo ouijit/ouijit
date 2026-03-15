@@ -1,10 +1,13 @@
 import { create } from 'zustand';
 
+export type HomeGroupMode = 'project' | 'tag';
+
 interface UIStoreState {
   sidebarVisible: boolean;
   gitDropdownVisible: boolean;
   launchDropdownVisible: boolean;
   sandboxDropdownVisible: boolean;
+  homeGroupMode: HomeGroupMode;
 }
 
 interface UIStoreActions {
@@ -14,6 +17,7 @@ interface UIStoreActions {
   setLaunchDropdownVisible: (visible: boolean) => void;
   setSandboxDropdownVisible: (visible: boolean) => void;
   closeAllDropdowns: () => void;
+  setHomeGroupMode: (mode: HomeGroupMode) => void;
 }
 
 type UIStore = UIStoreState & UIStoreActions;
@@ -23,6 +27,7 @@ export const useUIStore = create<UIStore>()((set) => ({
   gitDropdownVisible: false,
   launchDropdownVisible: false,
   sandboxDropdownVisible: false,
+  homeGroupMode: 'project',
 
   setSidebarVisible: (visible) => set({ sidebarVisible: visible }),
 
@@ -40,4 +45,6 @@ export const useUIStore = create<UIStore>()((set) => ({
       launchDropdownVisible: false,
       sandboxDropdownVisible: false,
     }),
+
+  setHomeGroupMode: (mode) => set({ homeGroupMode: mode }),
 }));

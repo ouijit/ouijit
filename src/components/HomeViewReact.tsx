@@ -1,8 +1,10 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useTerminalStore } from '../stores/terminalStore';
+import { useUIStore } from '../stores/uiStore';
 import { terminalInstances } from './terminal/terminalReact';
 import { TerminalHeader } from './terminal/TerminalHeader';
 import { XTermContainer } from './terminal/XTermContainer';
+import { Icon } from './terminal/Icon';
 import { stringToColor, getInitials } from '../utils/projectIcon';
 import type { Project } from '../types';
 
@@ -43,46 +45,71 @@ export function HomeView() {
     });
   }, []);
 
-  // Group terminals by project path
-  const grouped = useMemo(() => {
-    const groups: { projectPath: string; ptyIds: string[] }[] = [];
+  const homeGroupMode = useUIStore((s) => s.homeGroupMode);
+
+  const activePtyId = allPtyIds[homeActiveIndex];
+  const activeDisplay = activePtyId ? displayStates[activePtyId] : null;
+
+  // Group terminals and build stack items based on mode
+  type StackItem =
+    | { type: 'terminal'; ptyId: string; depth: number; globalIndex: number }
+    | { type: 'divider'; label: string; icon: 'project' | 'tag'; projectPath?: string; depth: number };
+
+  const { stackItems, orderedGroups } = useMemo(() => {
+    // Build groups based on mode
+    type Group = { key: string; label: string; icon: 'project' | 'tag'; projectPath?: string; ptyIds: string[] };
+    const groups: Group[] = [];
     const seen = new Map<string, number>();
 
     for (const ptyId of allPtyIds) {
       const display = displayStates[ptyId];
       if (!display) continue;
-      const pp = display.projectPath;
-      const idx = seen.get(pp);
+
+      let groupKey: string;
+      let groupLabel: string;
+      let groupIcon: 'project' | 'tag';
+      let projectPath: string | undefined;
+
+      if (homeGroupMode === 'tag') {
+        const tag = display.tags.length > 0 ? display.tags[0] : null;
+        groupKey = tag ? `tag:${tag.toLowerCase()}` : 'tag:__untagged__';
+        groupLabel = tag ?? 'Untagged';
+        groupIcon = 'tag';
+      } else {
+        groupKey = `project:${display.projectPath}`;
+        groupLabel = display.projectPath;
+        groupIcon = 'project';
+        projectPath = display.projectPath;
+      }
+
+      const idx = seen.get(groupKey);
       if (idx !== undefined) {
         groups[idx].ptyIds.push(ptyId);
       } else {
-        seen.set(pp, groups.length);
-        groups.push({ projectPath: pp, ptyIds: [ptyId] });
+        seen.set(groupKey, groups.length);
+        groups.push({ key: groupKey, label: groupLabel, icon: groupIcon, projectPath, ptyIds: [ptyId] });
       }
     }
-    return groups;
-  }, [allPtyIds, displayStates]);
 
-  const activePtyId = allPtyIds[homeActiveIndex];
-  const activeProjectPath = activePtyId ? displayStates[activePtyId]?.projectPath : null;
+    // Reorder: active terminal's group first
+    let activeGroupKey: string | null = null;
+    if (activeDisplay) {
+      if (homeGroupMode === 'tag') {
+        const tag = activeDisplay.tags.length > 0 ? activeDisplay.tags[0] : null;
+        activeGroupKey = tag ? `tag:${tag.toLowerCase()}` : 'tag:__untagged__';
+      } else {
+        activeGroupKey = `project:${activeDisplay.projectPath}`;
+      }
+    }
 
-  // Reorder so active project group is first
-  const orderedGroups = useMemo(() => {
-    if (!activeProjectPath) return grouped;
-    const activeGroup = grouped.find((g) => g.projectPath === activeProjectPath);
-    const rest = grouped.filter((g) => g.projectPath !== activeProjectPath);
-    return activeGroup ? [activeGroup, ...rest] : grouped;
-  }, [grouped, activeProjectPath]);
+    const ordered = activeGroupKey
+      ? [...groups.filter((g) => g.key === activeGroupKey), ...groups.filter((g) => g.key !== activeGroupKey)]
+      : groups;
 
-  // Build depth-ordered stack items
-  const stackItems = useMemo(() => {
-    const items: Array<
-      | { type: 'terminal'; ptyId: string; depth: number; globalIndex: number }
-      | { type: 'divider'; projectPath: string; depth: number }
-    > = [];
+    // Build stack items with depth
+    const items: StackItem[] = [];
     let depth = 0;
-
-    for (const group of orderedGroups) {
+    for (const group of ordered) {
       for (const ptyId of group.ptyIds) {
         const globalIndex = allPtyIds.indexOf(ptyId);
         if (globalIndex === homeActiveIndex) continue;
@@ -90,10 +117,11 @@ export function HomeView() {
         items.push({ type: 'terminal', ptyId, depth, globalIndex });
       }
       depth++;
-      items.push({ type: 'divider', projectPath: group.projectPath, depth });
+      items.push({ type: 'divider', label: group.label, icon: group.icon, projectPath: group.projectPath, depth });
     }
-    return items;
-  }, [orderedGroups, allPtyIds, homeActiveIndex]);
+
+    return { stackItems: items, orderedGroups: ordered };
+  }, [allPtyIds, displayStates, homeGroupMode, activeDisplay, homeActiveIndex]);
 
   const maxDepth = stackItems.length > 0 ? stackItems[stackItems.length - 1].depth : 0;
   const stackTop = 82 + Math.min(maxDepth, CSS_MAX_DEPTH) * 24;
@@ -188,16 +216,18 @@ export function HomeView() {
           );
         }
 
-        const project = projects.get(item.projectPath);
         const depthClass = item.depth <= CSS_MAX_DEPTH ? `project-card--back-${item.depth}` : 'project-card--hidden';
+        const project = item.projectPath ? projects.get(item.projectPath) : undefined;
+        const dividerLabel = item.icon === 'project' ? project?.name || 'shell' : item.label;
         return (
-          <HomeFolderDivider
-            key={`divider-${item.projectPath}`}
-            project={project}
-            projectPath={item.projectPath}
+          <HomeDivider
+            key={`divider-${item.label}`}
+            label={dividerLabel}
+            icon={item.icon}
+            project={item.icon === 'project' ? project : undefined}
             className={depthClass}
             onClick={() => {
-              const group = orderedGroups.find((g) => g.projectPath === item.projectPath);
+              const group = orderedGroups.find((g) => g.label === item.label || g.projectPath === item.projectPath);
               if (group && group.ptyIds.length > 0) {
                 setHomeActiveIndex(allPtyIds.indexOf(group.ptyIds[0]));
               }
@@ -209,39 +239,43 @@ export function HomeView() {
   );
 }
 
-// ── Folder divider ───────────────────────────────────────────────────
+// ── Divider (project or tag) ─────────────────────────────────────────
 
 const DIVIDER_TAB_SVG = `<svg viewBox="0 0 234 28" width="234" height="28"><path d="M 14 0.5 H 205.5 Q 219.5 0.5 219.5 14.5 L 219.5 13.5 Q 219.5 27.5 233.5 27.5 L 0.5 27.5 L 0.5 14 Q 0.5 0.5 14 0.5 Z" fill="#252528"/><path d="M 0.5 27.5 L 0.5 14 Q 0.5 0.5 14 0.5 H 205.5 Q 219.5 0.5 219.5 14.5 L 219.5 13.5 Q 219.5 27.5 233.5 27.5" fill="none" stroke="rgba(255,255,255,0.08)" stroke-width="1"/></svg>`;
 
-function HomeFolderDivider({
+function HomeDivider({
+  label,
+  icon,
   project,
-  projectPath: _projectPath,
   className,
   onClick,
 }: {
+  label: string;
+  icon: 'project' | 'tag';
   project?: Project;
-  projectPath: string;
   className: string;
   onClick: () => void;
 }) {
-  const name = project?.name || 'shell';
-
   return (
     <div className={`project-card home-folder-divider ${className}`} onClick={onClick}>
       <div className="home-folder-tab">
         <span dangerouslySetInnerHTML={{ __html: DIVIDER_TAB_SVG }} />
         <div className="home-folder-tab-content">
-          {project?.iconDataUrl ? (
-            <img className="home-folder-icon" src={project.iconDataUrl} alt={name} draggable={false} />
+          {icon === 'project' ? (
+            project?.iconDataUrl ? (
+              <img className="home-folder-icon" src={project.iconDataUrl} alt={label} draggable={false} />
+            ) : (
+              <span
+                className="home-folder-icon home-folder-icon-placeholder"
+                style={{ backgroundColor: stringToColor(label) }}
+              >
+                {getInitials(label)}
+              </span>
+            )
           ) : (
-            <span
-              className="home-folder-icon home-folder-icon-placeholder"
-              style={{ backgroundColor: stringToColor(name) }}
-            >
-              {getInitials(name)}
-            </span>
+            <Icon name="tag" className="home-tag-icon" />
           )}
-          <span className="home-folder-name">{name}</span>
+          <span className="home-folder-name">{label}</span>
         </div>
       </div>
     </div>

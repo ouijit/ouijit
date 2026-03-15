@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from 'react';
 import { useAppStore } from '../stores/appStore';
 import { useProjectStore } from '../stores/projectStore';
+import { useUIStore } from '../stores/uiStore';
 import { stringToColor, getInitials } from '../utils/projectIcon';
 import { Icon } from './terminal/Icon';
 import { addProjectTerminal } from './terminal/terminalActions';
@@ -13,6 +14,7 @@ export function TitleBar() {
   const activeProjectPath = useAppStore((s) => s.activeProjectPath);
   const activeView = useAppStore((s) => s.activeView);
   const kanbanVisible = useProjectStore((s) => s.kanbanVisible);
+  const homeGroupMode = useUIStore((s) => s.homeGroupMode);
   const [launchOpen, setLaunchOpen] = useState(false);
   const hooksBtnRef = useRef<HTMLButtonElement>(null);
 
@@ -90,6 +92,22 @@ export function TitleBar() {
           <div className="project-header-content">
             <span className="home-header-label">Sessions</span>
             <div style={{ flex: 1 }} />
+            <div className="project-view-toggle">
+              <button
+                className={`project-view-toggle-btn${homeGroupMode === 'project' ? ' project-view-toggle-btn--active' : ''}`}
+                title="Group by project"
+                onClick={() => useUIStore.getState().setHomeGroupMode('project')}
+              >
+                <Icon name="folder-open" />
+              </button>
+              <button
+                className={`project-view-toggle-btn${homeGroupMode === 'tag' ? ' project-view-toggle-btn--active' : ''}`}
+                title="Group by tag"
+                onClick={() => useUIStore.getState().setHomeGroupMode('tag')}
+              >
+                <Icon name="tag" />
+              </button>
+            </div>
             <Tooltip text="New terminal" placement="bottom">
               <button
                 className="project-terminal-btn"
