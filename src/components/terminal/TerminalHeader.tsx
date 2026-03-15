@@ -8,6 +8,7 @@ const EMPTY_TAGS: string[] = [];
 import type { CompactGitStatus } from '../../types';
 import { Icon } from './Icon';
 import { TagInput } from './TagInput';
+import { Tooltip } from '../ui/Tooltip';
 import { ContextMenu, type ContextMenuEntry } from '../ui/ContextMenu';
 
 const isMac = navigator.platform.toLowerCase().includes('mac');
@@ -151,7 +152,7 @@ export const TerminalHeader = memo(function TerminalHeader({
             </kbd>
           )}
           <span className="project-card-label-text">{displayText}</span>
-          <button className="project-card-tag-btn" title="Tags" onMouseDown={handleTagButtonClick}>
+          <button className="project-card-tag-btn" onMouseDown={handleTagButtonClick}>
             <Icon name="tag" />
           </button>
           <span className="project-card-tags-row">
@@ -187,9 +188,11 @@ export const TerminalHeader = memo(function TerminalHeader({
         {isActive && (
           <RunnerPill runnerStatus={runnerStatus} runnerPanelOpen={runnerPanelOpen} onClick={handleRunnerClick} />
         )}
-        <button className="project-card-close" title="Close terminal" onClick={handleCloseClick}>
-          <Icon name="x" />
-        </button>
+        <Tooltip text="Close terminal">
+          <button className="project-card-close" onClick={handleCloseClick}>
+            <Icon name="x" />
+          </button>
+        </Tooltip>
       </div>
     </div>
   );

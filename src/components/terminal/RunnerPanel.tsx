@@ -2,6 +2,7 @@ import { useRef, useCallback, useEffect, useState } from 'react';
 import { terminalInstances } from './terminalReact';
 import { XTermContainer } from './XTermContainer';
 import { Icon } from './Icon';
+import { Tooltip } from '../ui/Tooltip';
 
 interface RunnerPanelProps {
   ptyId: string;
@@ -129,39 +130,44 @@ export function RunnerPanel({ ptyId, onCollapse, onKill, onRestart }: RunnerPane
       <div ref={panelRef} className={`runner-panel runner-panel--visible${fullWidth ? ' runner-panel--full' : ''}`}>
         <div className="runner-panel-header">
           <span className="runner-panel-title">{panelTitle}</span>
-          <button
-            className="runner-panel-kill"
-            title="Kill"
-            onClick={(e) => {
-              e.stopPropagation();
-              onKill();
-            }}
-          >
-            <Icon name="prohibit" />
-          </button>
-          <button
-            className="runner-panel-restart"
-            title="Restart"
-            onClick={(e) => {
-              e.stopPropagation();
-              onRestart();
-            }}
-          >
-            <Icon name="arrow-counter-clockwise" />
-          </button>
-          <button className="runner-panel-split-toggle" title={splitTitle} onClick={toggleFullWidth}>
-            <Icon name={splitIcon} />
-          </button>
-          <button
-            className="runner-panel-collapse"
-            title="Minimize panel"
-            onClick={(e) => {
-              e.stopPropagation();
-              onCollapse();
-            }}
-          >
-            <Icon name="minus" />
-          </button>
+          <Tooltip text="Kill">
+            <button
+              className="runner-panel-kill"
+              onClick={(e) => {
+                e.stopPropagation();
+                onKill();
+              }}
+            >
+              <Icon name="prohibit" />
+            </button>
+          </Tooltip>
+          <Tooltip text="Restart">
+            <button
+              className="runner-panel-restart"
+              onClick={(e) => {
+                e.stopPropagation();
+                onRestart();
+              }}
+            >
+              <Icon name="arrow-counter-clockwise" />
+            </button>
+          </Tooltip>
+          <Tooltip text={splitTitle}>
+            <button className="runner-panel-split-toggle" onClick={toggleFullWidth}>
+              <Icon name={splitIcon} />
+            </button>
+          </Tooltip>
+          <Tooltip text="Minimize panel">
+            <button
+              className="runner-panel-collapse"
+              onClick={(e) => {
+                e.stopPropagation();
+                onCollapse();
+              }}
+            >
+              <Icon name="minus" />
+            </button>
+          </Tooltip>
         </div>
         <div className="runner-panel-body">
           <XTermContainer ptyId={runnerPtyId} className="runner-xterm-container" />

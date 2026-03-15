@@ -6,6 +6,7 @@ import { Icon } from './terminal/Icon';
 import { addProjectTerminal } from './terminal/terminalActions';
 import { focusKanbanAddInput } from './kanban/KanbanAddInput';
 import { LaunchDropdown } from './dropdowns/LaunchDropdown';
+import { Tooltip } from './ui/Tooltip';
 
 export function TitleBar() {
   const activeProjectData = useAppStore((s) => s.activeProjectData);
@@ -48,41 +49,44 @@ export function TitleBar() {
               <span className="project-header-path">{activeProjectPath}</span>
             </div>
             <div className="project-view-toggle">
-              <button
-                className={`project-view-toggle-btn${kanbanVisible ? ' project-view-toggle-btn--active' : ''}`}
-                data-view="board"
-                title="Board view"
-                onClick={() => handleToggleView('board')}
-              >
-                <Icon name="kanban" />
-              </button>
-              <button
-                className={`project-view-toggle-btn${!kanbanVisible ? ' project-view-toggle-btn--active' : ''}`}
-                data-view="stack"
-                title="Terminal stack"
-                onClick={() => handleToggleView('stack')}
-              >
-                <Icon name="cards-three" />
-              </button>
+              <Tooltip text="Board view">
+                <button
+                  className={`project-view-toggle-btn${kanbanVisible ? ' project-view-toggle-btn--active' : ''}`}
+                  data-view="board"
+                  onClick={() => handleToggleView('board')}
+                >
+                  <Icon name="kanban" />
+                </button>
+              </Tooltip>
+              <Tooltip text="Terminal stack">
+                <button
+                  className={`project-view-toggle-btn${!kanbanVisible ? ' project-view-toggle-btn--active' : ''}`}
+                  data-view="stack"
+                  onClick={() => handleToggleView('stack')}
+                >
+                  <Icon name="cards-three" />
+                </button>
+              </Tooltip>
             </div>
             <div className="project-launch-wrapper">
-              <button
-                ref={hooksBtnRef}
-                className="project-hooks-btn"
-                title="Scripts"
-                onClick={() => setLaunchOpen(!launchOpen)}
-              >
-                <Icon name="code" />
-                <Icon name="caret-down" className="project-hooks-caret" />
-              </button>
+              <Tooltip text="Scripts">
+                <button ref={hooksBtnRef} className="project-hooks-btn" onClick={() => setLaunchOpen(!launchOpen)}>
+                  <Icon name="code" />
+                  <Icon name="caret-down" className="project-hooks-caret" />
+                </button>
+              </Tooltip>
               {launchOpen && <LaunchDropdown anchorRef={hooksBtnRef} onClose={() => setLaunchOpen(false)} />}
             </div>
-            <button className="project-terminal-btn" title="New terminal" onClick={handleNewTerminal}>
-              <Icon name="terminal" />
-            </button>
-            <button className="project-newtask-btn" title="New task" onClick={handleNewTask}>
-              <Icon name="plus" />
-            </button>
+            <Tooltip text="New terminal">
+              <button className="project-terminal-btn" onClick={handleNewTerminal}>
+                <Icon name="terminal" />
+              </button>
+            </Tooltip>
+            <Tooltip text="New task">
+              <button className="project-newtask-btn" onClick={handleNewTask}>
+                <Icon name="plus" />
+              </button>
+            </Tooltip>
           </div>
         ) : (
           activeView === 'project' &&
