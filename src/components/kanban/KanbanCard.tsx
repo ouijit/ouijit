@@ -1,7 +1,9 @@
 import { memo, useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import type { TaskWithWorkspace } from '../../types';
 import { useTerminalStore, type TerminalDisplayState } from '../../stores/terminalStore';
+import { useProjectStore } from '../../stores/projectStore';
 import { Icon } from '../terminal/Icon';
+import { ContextMenu, type ContextMenuEntry } from '../ui/ContextMenu';
 
 interface KanbanCardProps {
   task: TaskWithWorkspace;
@@ -17,12 +19,13 @@ export const KanbanCard = memo(function KanbanCard({
   projectPath,
   onRename,
   onUpdateDescription,
-  onOpenTerminal: _onOpenTerminal,
+  onOpenTerminal,
   onSwitchToTerminal,
 }: KanbanCardProps) {
   const [expanded, setExpanded] = useState(false);
   const [editing, setEditing] = useState(false);
   const [editingDesc, setEditingDesc] = useState(false);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
   const nameInputRef = useRef<HTMLTextAreaElement>(null);
   const descInputRef = useRef<HTMLSpanElement>(null);
 
@@ -92,11 +95,86 @@ export const KanbanCard = memo(function KanbanCard({
     ? new Date(task.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
     : '';
 
+  // Build context menu items
+  const contextMenuItems = useMemo((): ContextMenuEntry[] => {
+    const items: ContextMenuEntry[] = [];
+
+    // Connected terminals
+    for (const display of connectedDisplays) {
+      items.push({
+        label: display.lastOscTitle || display.label || 'Shell',
+        onClick: () => onSwitchToTerminal(display.ptyId),
+      });
+    }
+    if (connectedDisplays.length > 0) {
+      items.push({ separator: true });
+    }
+
+    // Open in terminal
+    if (task.worktreePath && task.branch) {
+      items.push({
+        label: 'Open in Terminal',
+        icon: 'terminal',
+        onClick: () => onOpenTerminal(task),
+      });
+    }
+
+    items.push({ separator: true });
+
+    // Close/Reopen
+    if (isDone) {
+      items.push({
+        label: 'Reopen',
+        icon: 'arrow-counter-clockwise',
+        onClick: async () => {
+          await window.api.task.setStatus(projectPath, task.taskNumber, 'in_progress');
+          useProjectStore.getState().loadTasks(projectPath);
+        },
+      });
+    } else {
+      items.push({
+        label: 'Move to Done',
+        icon: 'archive',
+        onClick: async () => {
+          await window.api.task.setStatus(projectPath, task.taskNumber, 'done');
+          useProjectStore.getState().loadTasks(projectPath);
+        },
+      });
+    }
+
+    // Delete
+    items.push({
+      label: 'Delete',
+      icon: 'trash',
+      danger: true,
+      onClick: async () => {
+        await window.api.task.trash(projectPath, task.taskNumber);
+        useProjectStore.getState().loadTasks(projectPath);
+        useProjectStore.getState().addToast('Task deleted', 'success');
+      },
+    });
+
+    return items;
+  }, [connectedDisplays, task, projectPath, isDone, onSwitchToTerminal, onOpenTerminal]);
+
   return (
     <div
       className={`kanban-card${isDone ? ' kanban-card--done' : ''}${expanded ? ' kanban-card--expanded' : ''}`}
       data-task-number={task.taskNumber}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setContextMenu({ x: e.clientX, y: e.clientY });
+      }}
     >
+      {contextMenu && (
+        <ContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          items={contextMenuItems}
+          onClose={() => setContextMenu(null)}
+        />
+      )}
       <div className="kanban-card-header">
         {editing ? (
           <textarea

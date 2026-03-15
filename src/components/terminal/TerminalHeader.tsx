@@ -1,10 +1,14 @@
-import { memo, useState, useCallback } from 'react';
+import { memo, useState, useCallback, useMemo } from 'react';
 import { useTerminalStore } from '../../stores/terminalStore';
+import { useProjectStore } from '../../stores/projectStore';
+import { terminalInstances } from './terminalReact';
+import { addProjectTerminal } from './terminalActions';
 
 const EMPTY_TAGS: string[] = [];
 import type { CompactGitStatus } from '../../types';
 import { Icon } from './Icon';
 import { TagInput } from './TagInput';
+import { ContextMenu, type ContextMenuEntry } from '../ui/ContextMenu';
 
 const isMac = navigator.platform.toLowerCase().includes('mac');
 
@@ -39,6 +43,57 @@ export const TerminalHeader = memo(function TerminalHeader({
   const worktreeBranch = useTerminalStore((s) => s.displayStates[ptyId]?.worktreeBranch ?? null);
 
   const [tagInputOpen, setTagInputOpen] = useState(false);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
+
+  const instance = terminalInstances.get(ptyId);
+  const projectPath = instance?.projectPath ?? '';
+  const isTaskTerminal = taskId != null;
+
+  const contextMenuItems = useMemo((): ContextMenuEntry[] => {
+    if (!isTaskTerminal || !instance) return [];
+    const items: ContextMenuEntry[] = [];
+
+    if (instance.worktreePath && instance.worktreeBranch) {
+      items.push({
+        label: 'Open in Terminal',
+        icon: 'terminal',
+        onClick: () => {
+          addProjectTerminal(projectPath, undefined, {
+            existingWorktree: {
+              path: instance.worktreePath!,
+              branch: instance.worktreeBranch!,
+              createdAt: '',
+            },
+            taskId: taskId!,
+          });
+        },
+      });
+    }
+
+    items.push({ separator: true });
+    items.push({
+      label: 'Close Task',
+      icon: 'archive',
+      onClick: async () => {
+        await window.api.task.setStatus(projectPath, taskId!, 'done');
+        onClose();
+        useProjectStore.getState().invalidateTaskList();
+        useProjectStore.getState().addToast('Task closed', 'success');
+      },
+    });
+
+    return items;
+  }, [isTaskTerminal, instance, projectPath, taskId, onClose]);
+
+  const handleContextMenu = useCallback(
+    (e: React.MouseEvent) => {
+      if (!isTaskTerminal) return;
+      e.preventDefault();
+      e.stopPropagation();
+      setContextMenu({ x: e.clientX, y: e.clientY });
+    },
+    [isTaskTerminal],
+  );
 
   const handleCloseClick = useCallback(
     (e: React.MouseEvent) => {
@@ -74,7 +129,15 @@ export const TerminalHeader = memo(function TerminalHeader({
   const isWorktree = taskId != null && !!worktreeBranch;
 
   return (
-    <div className="project-card-label">
+    <div className="project-card-label" onContextMenu={handleContextMenu}>
+      {contextMenu && (
+        <ContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          items={contextMenuItems}
+          onClose={() => setContextMenu(null)}
+        />
+      )}
       <div className="project-card-label-left">
         <div className="project-card-label-top">
           <span

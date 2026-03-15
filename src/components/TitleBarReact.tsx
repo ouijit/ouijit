@@ -1,16 +1,19 @@
-import { useCallback } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import { useAppStore } from '../stores/appStore';
 import { useProjectStore } from '../stores/projectStore';
 import { stringToColor, getInitials } from '../utils/projectIcon';
 import { Icon } from './terminal/Icon';
 import { addProjectTerminal } from './terminal/terminalActions';
 import { focusKanbanAddInput } from './kanban/KanbanAddInput';
+import { LaunchDropdown } from './dropdowns/LaunchDropdown';
 
 export function TitleBar() {
   const activeProjectData = useAppStore((s) => s.activeProjectData);
   const activeProjectPath = useAppStore((s) => s.activeProjectPath);
   const activeView = useAppStore((s) => s.activeView);
   const kanbanVisible = useProjectStore((s) => s.kanbanVisible);
+  const [launchOpen, setLaunchOpen] = useState(false);
+  const hooksBtnRef = useRef<HTMLButtonElement>(null);
 
   const handleToggleView = useCallback((view: 'board' | 'stack') => {
     useProjectStore.getState().setKanbanVisible(view === 'board');
@@ -61,6 +64,18 @@ export function TitleBar() {
               >
                 <Icon name="cards-three" />
               </button>
+            </div>
+            <div className="project-launch-wrapper">
+              <button
+                ref={hooksBtnRef}
+                className="project-hooks-btn"
+                title="Scripts"
+                onClick={() => setLaunchOpen(!launchOpen)}
+              >
+                <Icon name="code" />
+                <Icon name="caret-down" className="project-hooks-caret" />
+              </button>
+              {launchOpen && <LaunchDropdown anchorRef={hooksBtnRef} onClose={() => setLaunchOpen(false)} />}
             </div>
             <button className="project-terminal-btn" title="New terminal" onClick={handleNewTerminal}>
               <Icon name="terminal" />
