@@ -8,6 +8,7 @@ import { addProjectTerminal } from './terminal/terminalActions';
 import { focusKanbanAddInput } from './kanban/KanbanAddInput';
 import { LaunchDropdown } from './dropdowns/LaunchDropdown';
 import { Tooltip } from './ui/Tooltip';
+import { TooltipButton } from './ui/TooltipButton';
 
 export function TitleBar() {
   const activeProjectData = useAppStore((s) => s.activeProjectData);
@@ -51,22 +52,20 @@ export function TitleBar() {
               <span className="project-header-path">{activeProjectPath}</span>
             </div>
             <div className="project-view-toggle">
-              <button
+              <TooltipButton
+                text="Board view"
                 className={`project-view-toggle-btn${kanbanVisible ? ' project-view-toggle-btn--active' : ''}`}
-                data-view="board"
-                title="Board view"
                 onClick={() => handleToggleView('board')}
               >
                 <Icon name="kanban" />
-              </button>
-              <button
+              </TooltipButton>
+              <TooltipButton
+                text="Terminal stack"
                 className={`project-view-toggle-btn${!kanbanVisible ? ' project-view-toggle-btn--active' : ''}`}
-                data-view="stack"
-                title="Terminal stack"
                 onClick={() => handleToggleView('stack')}
               >
                 <Icon name="cards-three" />
-              </button>
+              </TooltipButton>
             </div>
             <div className="project-launch-wrapper">
               <Tooltip text="Scripts" placement="bottom">
@@ -93,20 +92,20 @@ export function TitleBar() {
             <span className="home-header-label">Sessions</span>
             <div style={{ flex: 1 }} />
             <div className="project-view-toggle">
-              <button
+              <TooltipButton
+                text="Group by project"
                 className={`project-view-toggle-btn${homeGroupMode === 'project' ? ' project-view-toggle-btn--active' : ''}`}
-                title="Group by project"
                 onClick={() => useUIStore.getState().setHomeGroupMode('project')}
               >
                 <Icon name="folder-open" />
-              </button>
-              <button
+              </TooltipButton>
+              <TooltipButton
+                text="Group by tag"
                 className={`project-view-toggle-btn${homeGroupMode === 'tag' ? ' project-view-toggle-btn--active' : ''}`}
-                title="Group by tag"
                 onClick={() => useUIStore.getState().setHomeGroupMode('tag')}
               >
                 <Icon name="tag" />
-              </button>
+              </TooltipButton>
             </div>
             <Tooltip text="New terminal" placement="bottom">
               <button
