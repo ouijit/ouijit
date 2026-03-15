@@ -1,7 +1,10 @@
-import { useEffect } from 'react';
+import { useEffect, useCallback } from 'react';
 import { useAppStore } from '../stores/appStore';
+import { useProjectStore } from '../stores/projectStore';
 import { useTerminalStore, getTerminalIndexByStackPosition, STACK_PAGE_SIZE } from '../stores/terminalStore';
 import { TerminalCardStack } from './terminal/TerminalCardStack';
+import { KanbanBoard } from './kanban/KanbanBoard';
+import { DiffPanel } from './diff/DiffPanel';
 import { addProjectTerminal, closeProjectTerminal, reconnectOrphanedSessions } from './terminal/terminalActions';
 import { terminalInstances, refreshAllTerminalGitStatus } from './terminal/terminalReact';
 
@@ -12,6 +15,16 @@ const EMPTY: string[] = [];
 export function ProjectView() {
   const projectPath = useAppStore((s) => s.activeProjectPath);
   const projectData = useAppStore((s) => s.activeProjectData);
+  const kanbanVisible = useProjectStore((s) => s.kanbanVisible);
+
+  // Get active terminal's diff panel state
+  const activeIndex = useTerminalStore((s) => (projectPath ? (s.activeIndices[projectPath] ?? 0) : 0));
+  const terminalList = useTerminalStore((s) => (projectPath ? s.terminalsByProject[projectPath] : undefined));
+  const terminals = terminalList ?? EMPTY;
+  const activePtyId = terminals[activeIndex];
+  const diffPanelOpen = useTerminalStore((s) =>
+    activePtyId ? (s.displayStates[activePtyId]?.diffPanelOpen ?? false) : false,
+  );
 
   // Keyboard shortcuts for project mode
   useEffect(() => {
@@ -35,11 +48,39 @@ export function ProjectView() {
       // Cmd+W — close active terminal
       if (key === 'w') {
         e.preventDefault();
+        e.stopPropagation();
         const store = useTerminalStore.getState();
-        const terminals = store.terminalsByProject[projectPath] ?? [];
+        const terms = store.terminalsByProject[projectPath] ?? [];
         const activeIdx = store.activeIndices[projectPath] ?? 0;
-        const activePtyId = terminals[activeIdx];
-        if (activePtyId) closeProjectTerminal(activePtyId);
+        const ptyId = terms[activeIdx];
+        if (ptyId) closeProjectTerminal(ptyId);
+        return;
+      }
+
+      // Cmd+B — toggle kanban board
+      if (key === 'b') {
+        e.preventDefault();
+        e.stopPropagation();
+        useProjectStore.getState().toggleKanban();
+        return;
+      }
+
+      // Cmd+D — toggle diff panel for active terminal
+      if (key === 'd') {
+        e.preventDefault();
+        e.stopPropagation();
+        const tStore = useTerminalStore.getState();
+        const tTerms = tStore.terminalsByProject[projectPath] ?? [];
+        const tIdx = tStore.activeIndices[projectPath] ?? 0;
+        const tPtyId = tTerms[tIdx];
+        if (tPtyId) {
+          const inst = terminalInstances.get(tPtyId);
+          if (inst) {
+            inst.diffPanelOpen = !inst.diffPanelOpen;
+            inst.pushDisplayState({ diffPanelOpen: inst.diffPanelOpen });
+            if (inst.diffPanelOpen) useProjectStore.getState().setKanbanVisible(false);
+          }
+        }
         return;
       }
 
@@ -47,6 +88,7 @@ export function ProjectView() {
       const num = parseInt(key, 10);
       if (num >= 1 && num <= 9) {
         e.preventDefault();
+        e.stopPropagation();
         const targetIndex = getTerminalIndexByStackPosition(projectPath, num);
         if (targetIndex !== -1) {
           useTerminalStore.getState().setActiveIndex(projectPath, targetIndex);
@@ -57,11 +99,12 @@ export function ProjectView() {
       // Cmd+Shift+Left/Right — page navigation
       if (e.shiftKey && (key === 'arrowleft' || key === 'arrowright')) {
         e.preventDefault();
+        e.stopPropagation();
         const store = useTerminalStore.getState();
-        const terminals = store.terminalsByProject[projectPath] ?? [];
+        const terms = store.terminalsByProject[projectPath] ?? [];
         const currentIndex = store.activeIndices[projectPath] ?? 0;
         const currentPage = Math.floor(currentIndex / STACK_PAGE_SIZE);
-        const totalPages = Math.max(1, Math.ceil(terminals.length / STACK_PAGE_SIZE));
+        const totalPages = Math.max(1, Math.ceil(terms.length / STACK_PAGE_SIZE));
         const direction = key === 'arrowleft' ? -1 : 1;
         const targetPage = currentPage + direction;
         if (targetPage >= 0 && targetPage < totalPages) {
@@ -77,8 +120,6 @@ export function ProjectView() {
   // Reconnect orphaned sessions on mount
   useEffect(() => {
     if (!projectPath) return;
-
-    // Only reconnect if no terminals exist for this project yet
     const existing = useTerminalStore.getState().terminalsByProject[projectPath];
     if (!existing || existing.length === 0) {
       reconnectOrphanedSessions(projectPath);
@@ -88,23 +129,19 @@ export function ProjectView() {
   // Periodic git status refresh
   useEffect(() => {
     if (!projectPath) return;
-
     const interval = setInterval(() => {
       refreshAllTerminalGitStatus(projectPath);
     }, GIT_STATUS_PERIODIC_INTERVAL);
-
     return () => clearInterval(interval);
   }, [projectPath]);
 
   // Seed hook status for existing terminals
   useEffect(() => {
     if (!projectPath) return;
-
-    const terminals = useTerminalStore.getState().terminalsByProject[projectPath] ?? [];
-    for (const ptyId of terminals) {
+    const terms = useTerminalStore.getState().terminalsByProject[projectPath] ?? [];
+    for (const ptyId of terms) {
       const instance = terminalInstances.get(ptyId);
       if (!instance) continue;
-
       window.api.claudeHooks.getStatus(ptyId).then((hookStatus) => {
         if (hookStatus?.status === 'thinking' && hookStatus.thinkingCount > 0) {
           instance.handleHookStatus('thinking');
@@ -113,24 +150,31 @@ export function ProjectView() {
     }
   }, [projectPath]);
 
-  // Focus active terminal when view mounts or active index changes
-  const activeIndex = useTerminalStore((s) => (projectPath ? (s.activeIndices[projectPath] ?? 0) : 0));
-  const terminalList = useTerminalStore((s) => (projectPath ? s.terminalsByProject[projectPath] : undefined));
-  const terminals = terminalList ?? EMPTY;
-
+  // Focus active terminal when active index changes
   useEffect(() => {
-    if (!projectPath || terminals.length === 0) return;
-    const activePtyId = terminals[activeIndex];
-    if (!activePtyId) return;
-
-    const instance = terminalInstances.get(activePtyId);
+    if (!projectPath || terminals.length === 0 || kanbanVisible || diffPanelOpen) return;
+    const ptyId = terminals[activeIndex];
+    if (!ptyId) return;
+    const instance = terminalInstances.get(ptyId);
     if (instance) {
       requestAnimationFrame(() => {
         instance.fit();
         instance.xterm.focus();
       });
     }
-  }, [activeIndex, terminals, projectPath]);
+  }, [activeIndex, terminals, projectPath, kanbanVisible, diffPanelOpen]);
+
+  const handleHideKanban = useCallback(() => {
+    useProjectStore.getState().setKanbanVisible(false);
+  }, []);
+
+  const handleCloseDiff = useCallback(() => {
+    if (!activePtyId) return;
+    const instance = terminalInstances.get(activePtyId);
+    if (!instance) return;
+    instance.diffPanelOpen = false;
+    instance.pushDisplayState({ diffPanelOpen: false });
+  }, [activePtyId]);
 
   if (!projectPath || !projectData) {
     return <div className="project-view-empty">No project selected</div>;
@@ -138,7 +182,11 @@ export function ProjectView() {
 
   return (
     <div className="project-view">
-      <TerminalCardStack projectPath={projectPath} />
+      {kanbanVisible && <KanbanBoard projectPath={projectPath} onHide={handleHideKanban} />}
+      {diffPanelOpen && activePtyId && (
+        <DiffPanel ptyId={activePtyId} projectPath={projectPath} onClose={handleCloseDiff} />
+      )}
+      {!kanbanVisible && !diffPanelOpen && <TerminalCardStack projectPath={projectPath} />}
     </div>
   );
 }
