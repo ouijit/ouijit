@@ -252,16 +252,17 @@ export function HomeView() {
           );
         }
 
-        const depthClass = item.depth <= CSS_MAX_DEPTH ? `project-card--back-${item.depth}` : 'project-card--hidden';
         const project = item.projectPath ? projects.get(item.projectPath) : undefined;
         const dividerLabel = item.icon === 'project' ? project?.name || 'shell' : item.label;
+        const hidden = item.depth > CSS_MAX_DEPTH;
         return (
           <HomeDivider
             key={`divider-${item.label}`}
             label={dividerLabel}
             icon={item.icon}
             project={item.icon === 'project' ? project : undefined}
-            className={depthClass}
+            depth={item.depth}
+            hidden={hidden}
             onClick={() => {
               const group = orderedGroups.find((g) => g.label === item.label || g.projectPath === item.projectPath);
               if (group && group.ptyIds.length > 0) {
@@ -281,19 +282,60 @@ function HomeDivider({
   label,
   icon,
   project,
-  className,
+  depth,
+  hidden,
   onClick,
 }: {
   label: string;
   icon: 'project' | 'tag';
   project?: Project;
-  className: string;
+  depth: number;
+  hidden: boolean;
   onClick: () => void;
 }) {
+  if (hidden) return null;
+
+  // Position inline — no reliance on back-N CSS classes
+  const translateY = -(depth * 24);
+  const inset = `${depth}%`;
+  const zIndex = 10 - depth + 1; // +1 so divider sits above the terminal at depth-1
+
   return (
-    <div className={`project-card home-folder-divider ${className}`} onClick={onClick}>
-      <div className="home-folder-tab">
-        <svg viewBox="0 0 234 28" width="234" height="28">
+    <div
+      style={{
+        position: 'absolute',
+        top: 0,
+        bottom: 0,
+        left: inset,
+        right: inset,
+        transform: `translateY(${translateY}px)`,
+        zIndex,
+        background: 'transparent',
+        border: '1px solid transparent',
+        boxShadow: 'none',
+        overflow: 'visible',
+        pointerEvents: 'none',
+        borderRadius: 14,
+      }}
+      onClick={onClick}
+    >
+      {/* Tab shape */}
+      <div
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          width: 234,
+          height: 28,
+          pointerEvents: 'auto',
+        }}
+      >
+        <svg
+          viewBox="0 0 234 28"
+          width="234"
+          height="28"
+          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}
+        >
           <path
             d="M 14 0.5 H 205.5 Q 219.5 0.5 219.5 14.5 L 219.5 13.5 Q 219.5 27.5 233.5 27.5 L 0.5 27.5 L 0.5 14 Q 0.5 0.5 14 0.5 Z"
             fill="#252528"
@@ -305,22 +347,51 @@ function HomeDivider({
             strokeWidth="1"
           />
         </svg>
-        <div className="home-folder-tab-content">
+        {/* Tab content */}
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            padding: '4px 12px 0 8px',
+          }}
+        >
           {icon === 'project' ? (
             project?.iconDataUrl ? (
-              <img className="home-folder-icon" src={project.iconDataUrl} alt={label} draggable={false} />
+              <img
+                src={project.iconDataUrl}
+                alt={label}
+                draggable={false}
+                style={{ width: 16, height: 16, borderRadius: 3, objectFit: 'cover', flexShrink: 0 }}
+              />
             ) : (
               <span
-                className="home-folder-icon home-folder-icon-placeholder"
-                style={{ backgroundColor: stringToColor(label) }}
+                style={{
+                  width: 16,
+                  minWidth: 16,
+                  height: 16,
+                  borderRadius: 3,
+                  backgroundColor: stringToColor(label),
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: 8,
+                  fontWeight: 700,
+                  color: 'white',
+                  flexShrink: 0,
+                }}
               >
                 {getInitials(label)}
               </span>
             )
           ) : (
-            <Icon name="tag" className="home-tag-icon" />
+            <Icon name="tag" />
           )}
-          <span className="home-folder-name">{label}</span>
+          <span style={{ fontSize: 10, fontWeight: 600, color: 'rgba(255,255,255,0.45)', whiteSpace: 'nowrap' }}>
+            {label}
+          </span>
         </div>
       </div>
     </div>
