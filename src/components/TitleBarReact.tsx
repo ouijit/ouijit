@@ -35,7 +35,7 @@ export function TitleBar() {
     <header className="header">
       <div className="header-content">
         {activeView === 'project' && activeProjectData && activeProjectPath ? (
-          <div className="project-header-content">
+          <div key="project-header" className="project-header-content">
             {activeProjectData.iconDataUrl ? (
               <img src={activeProjectData.iconDataUrl} alt="" className="project-header-icon" />
             ) : (
@@ -82,12 +82,14 @@ export function TitleBar() {
                 <Icon name="terminal" />
               </button>
             </Tooltip>
-            <button className="project-newtask-btn" title="New task" onClick={handleNewTask}>
-              <Icon name="plus" />
-            </button>
+            <Tooltip text="New task" placement="bottom-end">
+              <button className="project-newtask-btn" onClick={handleNewTask}>
+                <Icon name="plus" />
+              </button>
+            </Tooltip>
           </div>
         ) : activeView === 'home' ? (
-          <div className="project-header-content">
+          <div key="home-header" className="project-header-content">
             <span className="home-header-label">Sessions</span>
             <div style={{ flex: 1 }} />
             <div className="project-view-toggle">
