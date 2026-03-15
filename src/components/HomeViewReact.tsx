@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo, useRef } from 'react';
 import { useTerminalStore } from '../stores/terminalStore';
 import { useUIStore } from '../stores/uiStore';
 import { terminalInstances } from './terminal/terminalReact';
-import { reconnectTerminal } from './terminal/terminalActions';
+import { reconnectTerminal, addProjectTerminal } from './terminal/terminalActions';
 import { TerminalHeader } from './terminal/TerminalHeader';
 import { XTermContainer } from './terminal/XTermContainer';
 import { Icon } from './terminal/Icon';
@@ -176,6 +176,14 @@ export function HomeView() {
       const mod = isMac ? e.metaKey : e.ctrlKey;
       if (!mod) return;
       const key = e.key.toLowerCase();
+
+      // Cmd+I — new terminal
+      if (key === 'i') {
+        e.preventDefault();
+        e.stopPropagation();
+        window.api.homePath().then((homePath) => addProjectTerminal(homePath));
+        return;
+      }
 
       if (key === 'w' && activePtyId) {
         e.preventDefault();
