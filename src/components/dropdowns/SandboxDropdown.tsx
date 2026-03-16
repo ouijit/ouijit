@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useAppStore } from '../../stores/appStore';
 import { useProjectStore } from '../../stores/projectStore';
+import { addProjectTerminal } from '../terminal/terminalActions';
 import { HookConfigDialog } from '../dialogs/HookConfigDialog';
 
 const VM_STATUS_LABELS: Record<string, string> = {
@@ -83,6 +84,30 @@ export function SandboxDropdown({ anchorRef, onClose }: SandboxDropdownProps) {
     return () => document.removeEventListener('mousedown', handler);
   }, [onClose, anchorRef]);
 
+  const handleStart = useCallback(async () => {
+    if (!projectPath) return;
+    setLoading(true);
+    onClose();
+    window.api.lima.start(projectPath).catch(() => {});
+    // Poll until running (timeout 5 min)
+    const poll = setInterval(async () => {
+      try {
+        const s = await window.api.lima.status(projectPath);
+        if (s.vmStatus === 'Running') {
+          clearInterval(poll);
+          setVmStatus('Running');
+          setLoading(false);
+        }
+      } catch {
+        /* ignore */
+      }
+    }, 3000);
+    setTimeout(() => {
+      clearInterval(poll);
+      setLoading(false);
+    }, 300_000);
+  }, [projectPath, onClose]);
+
   const handleStop = useCallback(async () => {
     if (!projectPath) return;
     setLoading(true);
@@ -90,7 +115,8 @@ export function SandboxDropdown({ anchorRef, onClose }: SandboxDropdownProps) {
     const status = await window.api.lima.status(projectPath);
     setVmStatus(status.vmStatus);
     setLoading(false);
-  }, [projectPath]);
+    onClose();
+  }, [projectPath, onClose]);
 
   const handleRecreate = useCallback(async () => {
     if (!projectPath) return;
@@ -99,7 +125,18 @@ export function SandboxDropdown({ anchorRef, onClose }: SandboxDropdownProps) {
     const status = await window.api.lima.status(projectPath);
     setVmStatus(status.vmStatus);
     setLoading(false);
-  }, [projectPath]);
+    onClose();
+  }, [projectPath, onClose]);
+
+  const handleConsole = useCallback(() => {
+    if (!projectPath) return;
+    onClose();
+    addProjectTerminal(
+      projectPath,
+      { name: 'VM Console', command: '', source: 'custom', priority: 0 },
+      { sandboxed: true },
+    );
+  }, [projectPath, onClose]);
 
   const handleMemoryChange = useCallback(
     async (val: number) => {
@@ -204,20 +241,26 @@ export function SandboxDropdown({ anchorRef, onClose }: SandboxDropdownProps) {
               {hasSetupHook ? 'Configured' : 'None'}
             </span>
           </div>
-          {(vmStatus === 'Running' || vmStatus === 'Stopped' || vmStatus === 'Broken') && (
-            <div className="sandbox-dropdown-actions">
-              {vmStatus === 'Running' && (
-                <button className="btn btn-secondary" onClick={handleStop} disabled={loading}>
-                  {loading ? 'Stopping\u2026' : 'Stop VM'}
-                </button>
-              )}
-              {(vmStatus === 'Stopped' || vmStatus === 'Broken') && (
-                <button className="btn btn-secondary" onClick={handleRecreate} disabled={loading}>
-                  {loading ? 'Recreating\u2026' : 'Recreate VM'}
-                </button>
-              )}
-            </div>
-          )}
+          <div className="flex flex-wrap gap-2 px-3 py-2.5 border-t border-white/[0.06]">
+            {(vmStatus === 'Stopped' || vmStatus === 'Broken' || vmStatus === 'NotCreated') && (
+              <button className="btn btn-secondary btn-sm" onClick={handleStart} disabled={loading}>
+                {loading ? 'Starting\u2026' : 'Start VM'}
+              </button>
+            )}
+            {vmStatus === 'Running' && (
+              <button className="btn btn-secondary btn-sm" onClick={handleStop} disabled={loading}>
+                {loading ? 'Stopping\u2026' : 'Stop VM'}
+              </button>
+            )}
+            <button className="btn btn-secondary btn-sm" onClick={handleConsole}>
+              VM Console
+            </button>
+            {(vmStatus === 'Running' || vmStatus === 'Stopped' || vmStatus === 'Broken') && (
+              <button className="btn btn-secondary btn-sm" onClick={handleRecreate} disabled={loading}>
+                {loading ? 'Recreating\u2026' : 'Recreate VM'}
+              </button>
+            )}
+          </div>
         </div>,
         document.body,
       )}

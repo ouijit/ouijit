@@ -6,11 +6,7 @@ import { HookConfigDialog } from '../dialogs/HookConfigDialog';
 import { Icon } from '../terminal/Icon';
 
 const HOOK_ORDER: { type: HookType; label: string; hint: string }[] = [
-  { type: 'start', label: 'Start', hint: 'Runs when a task moves from To Do to In Progress' },
-  { type: 'continue', label: 'Continue', hint: 'Runs when reopening an In Progress task' },
   { type: 'run', label: 'Run', hint: 'Runs when you click Run' },
-  { type: 'review', label: 'Review', hint: 'Runs when a task moves to In Review' },
-  { type: 'cleanup', label: 'Cleanup', hint: 'Runs when a task moves to Done' },
   { type: 'editor', label: 'Editor', hint: 'Opens the task worktree in your editor' },
 ];
 
