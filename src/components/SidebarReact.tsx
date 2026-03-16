@@ -35,6 +35,7 @@ export function Sidebar({ onProjectSelect, onHomeSelect, onAddExisting, onCreate
   const hideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const showTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const addBtnRef = useRef<HTMLButtonElement>(null);
   const [addMenuOpen, setAddMenuOpen] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; project: Project } | null>(null);
 
@@ -73,6 +74,7 @@ export function Sidebar({ onProjectSelect, onHomeSelect, onAddExisting, onCreate
   }, []);
 
   const hideSidebar = useCallback(() => {
+    if (addMenuOpen) return;
     if (showTimeoutRef.current) {
       clearTimeout(showTimeoutRef.current);
       showTimeoutRef.current = null;
@@ -81,7 +83,7 @@ export function Sidebar({ onProjectSelect, onHomeSelect, onAddExisting, onCreate
       sidebarRef.current?.classList.remove('sidebar--visible');
       document.documentElement.style.setProperty('--sidebar-offset', '0px');
     }, 300);
-  }, []);
+  }, [addMenuOpen]);
 
   // Context menu dismiss
   useEffect(() => {
@@ -183,6 +185,7 @@ export function Sidebar({ onProjectSelect, onHomeSelect, onAddExisting, onCreate
 
           {/* Add button */}
           <button
+            ref={addBtnRef}
             className="sidebar-action-btn"
             title="Add project"
             onClick={(e) => {
@@ -199,7 +202,12 @@ export function Sidebar({ onProjectSelect, onHomeSelect, onAddExisting, onCreate
 
       {/* Add menu (portal-like, absolute positioned) */}
       {addMenuOpen && (
-        <AddMenu onAddExisting={onAddExisting} onCreateNew={onCreateNew} onClose={() => setAddMenuOpen(false)} />
+        <AddMenu
+          anchorRef={addBtnRef}
+          onAddExisting={onAddExisting}
+          onCreateNew={onCreateNew}
+          onClose={() => setAddMenuOpen(false)}
+        />
       )}
 
       {/* Context menu */}
@@ -313,20 +321,37 @@ function SortableProjectIcon({ project, isActive, onClick, onContextMenu }: Sort
 // ── Add menu ─────────────────────────────────────────────────────────
 
 interface AddMenuProps {
+  anchorRef: React.RefObject<HTMLButtonElement | null>;
   onAddExisting: () => void;
   onCreateNew: () => void;
   onClose: () => void;
 }
 
-function AddMenu({ onAddExisting, onCreateNew, onClose }: AddMenuProps) {
+function AddMenu({ anchorRef, onAddExisting, onCreateNew, onClose }: AddMenuProps) {
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     requestAnimationFrame(() => ref.current?.classList.add('sidebar-add-menu--visible'));
-  }, []);
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node) && !anchorRef.current?.contains(e.target as Node)) {
+        onClose();
+      }
+    };
+    setTimeout(() => document.addEventListener('mousedown', handler), 0);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [onClose, anchorRef]);
 
-  return (
-    <div ref={ref} className="sidebar-add-menu sidebar-add-menu-react" style={{ left: 76, top: 'auto', bottom: 16 }}>
+  // Position relative to anchor button
+  const rect = anchorRef.current?.getBoundingClientRect();
+  const left = (rect?.right ?? 76) + 8;
+  const bottom = rect ? window.innerHeight - rect.bottom : 16;
+
+  return createPortal(
+    <div
+      ref={ref}
+      className="sidebar-add-menu sidebar-add-menu-react"
+      style={{ position: 'fixed', left, bottom, top: 'auto' }}
+    >
       <button
         className="sidebar-add-menu-item"
         onClick={() => {
@@ -345,6 +370,7 @@ function AddMenu({ onAddExisting, onCreateNew, onClose }: AddMenuProps) {
       >
         Create new project
       </button>
-    </div>
+    </div>,
+    document.body,
   );
 }
