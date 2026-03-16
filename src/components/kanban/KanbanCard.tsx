@@ -96,8 +96,10 @@ export const KanbanCard = memo(function KanbanCard({
     : '';
 
   const [sandboxAvailable, setSandboxAvailable] = useState(false);
+  const [hasEditorHook, setHasEditorHook] = useState(false);
   useEffect(() => {
     window.api.lima.status(projectPath).then((s) => setSandboxAvailable(s.available));
+    window.api.hooks.get(projectPath).then((hooks) => setHasEditorHook(!!(hooks as any).editor));
   }, [projectPath]);
 
   // Build context menu items
@@ -133,8 +135,8 @@ export const KanbanCard = memo(function KanbanCard({
       }
     }
 
-    // Open in editor
-    if (task.worktreePath) {
+    // Open in editor (only when editor hook is configured)
+    if (task.worktreePath && hasEditorHook) {
       items.push({
         label: 'Open in Editor',
         icon: 'code',
@@ -180,7 +182,16 @@ export const KanbanCard = memo(function KanbanCard({
     });
 
     return items;
-  }, [connectedDisplays, task, projectPath, isDone, sandboxAvailable, onSwitchToTerminal, onOpenTerminal]);
+  }, [
+    connectedDisplays,
+    task,
+    projectPath,
+    isDone,
+    sandboxAvailable,
+    hasEditorHook,
+    onSwitchToTerminal,
+    onOpenTerminal,
+  ]);
 
   return (
     <div
