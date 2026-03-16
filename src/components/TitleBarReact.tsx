@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAppStore } from '../stores/appStore';
 import { useProjectStore } from '../stores/projectStore';
 import { useUIStore } from '../stores/uiStore';
@@ -17,7 +17,12 @@ export function TitleBar() {
   const kanbanVisible = useProjectStore((s) => s.kanbanVisible);
   const homeGroupMode = useUIStore((s) => s.homeGroupMode);
   const [launchOpen, setLaunchOpen] = useState(false);
+  const [username, setUsername] = useState('');
   const hooksBtnRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    window.api.homePath().then((p) => setUsername(p.split('/').pop() || 'Home'));
+  }, []);
 
   const handleToggleView = useCallback((view: 'board' | 'stack') => {
     useProjectStore.getState().setKanbanVisible(view === 'board');
@@ -89,7 +94,10 @@ export function TitleBar() {
           </div>
         ) : activeView === 'home' ? (
           <div key="home-header" className="project-header-content">
-            <span className="home-header-label">Sessions</span>
+            <div className="project-header-info">
+              <span className="project-header-name">{username}</span>
+              <span className="project-header-path">~</span>
+            </div>
             <div style={{ flex: 1 }} />
             <div className="project-view-toggle">
               <TooltipButton
