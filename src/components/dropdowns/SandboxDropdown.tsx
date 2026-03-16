@@ -43,6 +43,7 @@ export function SandboxDropdown({ anchorRef, onClose }: SandboxDropdownProps) {
   const [hasSetupHook, setHasSetupHook] = useState(false);
   const [hookDialog, setHookDialog] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [ready, setReady] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Floating UI positioning
@@ -75,6 +76,7 @@ export function SandboxDropdown({ anchorRef, onClose }: SandboxDropdownProps) {
       setMemoryGiB(config.memoryGiB);
       setDiskGiB(config.diskGiB);
       setHasSetupHook(!!(hooks as any)['sandbox-setup']);
+      requestAnimationFrame(() => setReady(true));
     })();
   }, [projectPath]);
 
@@ -176,8 +178,11 @@ export function SandboxDropdown({ anchorRef, onClose }: SandboxDropdownProps) {
             (dropdownRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
             refs.setFloating(node);
           }}
-          className="min-w-[240px] max-w-[280px] bg-surface border border-border rounded-md shadow-lg z-[1000] overflow-hidden"
-          style={floatingStyles}
+          className="min-w-[240px] max-w-[280px] bg-surface border border-border rounded-md shadow-lg z-[1000] overflow-hidden transition-opacity duration-150 ease-out"
+          style={{
+            ...floatingStyles,
+            opacity: ready ? 1 : 0,
+          }}
         >
           <div className="text-[13px] text-text-tertiary px-3 pt-2 pb-1 uppercase tracking-wide">Lima Sandbox</div>
           <div className="flex flex-col gap-0.5 px-3 py-1">

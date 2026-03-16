@@ -15,6 +15,8 @@ export function TitleBar() {
   const activeProjectData = useAppStore((s) => s.activeProjectData);
   const activeProjectPath = useAppStore((s) => s.activeProjectPath);
   const activeView = useAppStore((s) => s.activeView);
+  const fullscreen = useAppStore((s) => s.fullscreen);
+  const platform = useAppStore((s) => s.platform);
   const kanbanVisible = useProjectStore((s) => s.kanbanVisible);
   const homeGroupMode = useUIStore((s) => s.homeGroupMode);
   const [launchOpen, setLaunchOpen] = useState(false);
@@ -88,7 +90,10 @@ export function TitleBar() {
         } as React.CSSProperties
       }
     >
-      <div className="flex items-center justify-center gap-2 px-6 py-4">
+      <div
+        className="flex items-center justify-center gap-2 pr-6 py-4 transition-[padding-left] duration-200"
+        style={{ paddingLeft: platform === 'darwin' && !fullscreen ? 80 : 24 }}
+      >
         {activeView === 'project' && activeProjectData && activeProjectPath ? (
           <div key="project-header" className="project-header-content">
             {activeProjectData.iconDataUrl ? (

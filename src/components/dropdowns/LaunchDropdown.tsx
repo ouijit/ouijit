@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { useFloating, offset, flip, shift, autoUpdate } from '@floating-ui/react';
 import type { HookType, ScriptHook } from '../../types';
 import { useAppStore } from '../../stores/appStore';
 import { HookConfigDialog } from '../dialogs/HookConfigDialog';
@@ -19,21 +20,28 @@ export function LaunchDropdown({ anchorRef, onClose }: LaunchDropdownProps) {
   const projectPath = useAppStore((s) => s.activeProjectPath);
   const [hooks, setHooks] = useState<Record<string, ScriptHook | undefined>>({});
   const [hookDialog, setHookDialog] = useState<{ hookType: HookType; existing?: ScriptHook } | null>(null);
-  const [visible, setVisible] = useState(false);
+  const [ready, setReady] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const { refs, floatingStyles } = useFloating({
+    placement: 'bottom-end',
+    strategy: 'fixed',
+    middleware: [offset(8), flip(), shift({ padding: 8 })],
+    whileElementsMounted: autoUpdate,
+  });
+
+  useEffect(() => {
+    if (anchorRef.current) refs.setReference(anchorRef.current);
+  }, [anchorRef, refs]);
 
   // Load hooks
   useEffect(() => {
     if (!projectPath) return;
     window.api.hooks.get(projectPath).then((h) => {
       setHooks(h as Record<string, ScriptHook | undefined>);
+      requestAnimationFrame(() => setReady(true));
     });
   }, [projectPath]);
-
-  // Animate in
-  useEffect(() => {
-    requestAnimationFrame(() => setVisible(true));
-  }, []);
 
   // Click outside
   useEffect(() => {
@@ -44,18 +52,12 @@ export function LaunchDropdown({ anchorRef, onClose }: LaunchDropdownProps) {
         anchorRef.current &&
         !anchorRef.current.contains(e.target as Node)
       ) {
-        setVisible(false);
-        setTimeout(onClose, 150);
+        onClose();
       }
     };
     setTimeout(() => document.addEventListener('mousedown', handler), 0);
     return () => document.removeEventListener('mousedown', handler);
   }, [onClose, anchorRef]);
-
-  // Position below anchor
-  const anchorRect = anchorRef.current?.getBoundingClientRect();
-  const top = (anchorRect?.bottom ?? 0) + 4;
-  const right = window.innerWidth - (anchorRect?.right ?? 0);
 
   const handleConfigure = useCallback(
     (hookType: HookType) => {
@@ -69,7 +71,6 @@ export function LaunchDropdown({ anchorRef, onClose }: LaunchDropdownProps) {
     (result: { saved: boolean } | null) => {
       setHookDialog(null);
       if (result?.saved && projectPath) {
-        // Reload hooks
         window.api.hooks.get(projectPath).then((h) => {
           setHooks(h as Record<string, ScriptHook | undefined>);
         });
@@ -84,34 +85,38 @@ export function LaunchDropdown({ anchorRef, onClose }: LaunchDropdownProps) {
     <>
       {createPortal(
         <div
-          ref={dropdownRef}
-          className={`project-launch-dropdown${visible ? ' visible' : ''}`}
-          style={{ position: 'fixed', top, right }}
+          ref={(node) => {
+            (dropdownRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
+            refs.setFloating(node);
+          }}
+          className="min-w-[200px] max-w-[280px] bg-surface border border-border rounded-md shadow-lg z-[1000] overflow-hidden transition-opacity duration-150 ease-out"
+          style={{
+            ...floatingStyles,
+            opacity: ready ? 1 : 0,
+          }}
         >
-          <div className="launch-dropdown-header">Scripts</div>
-          <div className="hooks-container">
+          <div className="text-[13px] text-text-tertiary px-3 pt-2 pb-1 uppercase tracking-wide">Scripts</div>
+          <div className="flex flex-col">
             {HOOK_ORDER.map(({ type, label, hint }) => {
               const hook = hooks[type];
               return (
-                <div key={type} className="hook-row-wrapper">
-                  <div className="hook-row">
-                    <div className="hook-row-left">
-                      <span className="hook-name">{label}</span>
-                      {hook && <span className="hook-command-preview">{hook.command}</span>}
+                <div key={type} className="px-3 py-1.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-xs font-medium text-text-primary">{label}</span>
+                      {hook && <span className="text-xs font-mono text-text-tertiary truncate">{hook.command}</span>}
                     </div>
-                    <div className="hook-row-right">
-                      <button
-                        className="hook-configure-btn"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleConfigure(type);
-                        }}
-                      >
-                        {hook ? <Icon name="gear" /> : '+ Configure'}
-                      </button>
-                    </div>
+                    <button
+                      className="text-xs text-text-tertiary hover:text-accent transition-colors shrink-0"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleConfigure(type);
+                      }}
+                    >
+                      {hook ? <Icon name="gear" /> : '+ Configure'}
+                    </button>
                   </div>
-                  <div className="hook-hint">{hint}</div>
+                  <div className="text-[11px] text-text-tertiary mt-0.5">{hint}</div>
                 </div>
               );
             })}
