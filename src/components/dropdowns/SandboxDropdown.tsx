@@ -49,7 +49,7 @@ export function SandboxDropdown({ anchorRef, onClose }: SandboxDropdownProps) {
   const { refs, floatingStyles } = useFloating({
     placement: 'bottom-end',
     strategy: 'fixed',
-    middleware: [offset(4), flip(), shift({ padding: 8 })],
+    middleware: [offset(8), flip(), shift({ padding: 8 })],
     whileElementsMounted: autoUpdate,
   });
 

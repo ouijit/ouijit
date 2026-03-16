@@ -78,8 +78,17 @@ export function TitleBar() {
   }, []);
 
   return (
-    <header className="header">
-      <div className="header-content">
+    <header
+      className=""
+      style={
+        {
+          background: 'rgba(28, 28, 30, 0.97)',
+          WebkitAppRegion: 'drag',
+          paddingTop: 'env(titlebar-area-height, 0px)',
+        } as React.CSSProperties
+      }
+    >
+      <div className="flex items-center justify-center gap-2 px-6 py-4">
         {activeView === 'project' && activeProjectData && activeProjectPath ? (
           <div key="project-header" className="project-header-content">
             {activeProjectData.iconDataUrl ? (
