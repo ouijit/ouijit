@@ -331,7 +331,6 @@ function AddMenu({ anchorRef, onAddExisting, onCreateNew, onClose }: AddMenuProp
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    requestAnimationFrame(() => ref.current?.classList.add('sidebar-add-menu--visible'));
     const handler = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node) && !anchorRef.current?.contains(e.target as Node)) {
         onClose();
@@ -349,8 +348,8 @@ function AddMenu({ anchorRef, onAddExisting, onCreateNew, onClose }: AddMenuProp
   return createPortal(
     <div
       ref={ref}
-      className="sidebar-add-menu sidebar-add-menu-react"
-      style={{ position: 'fixed', left, bottom, top: 'auto' }}
+      className="fixed z-[2000] py-1 bg-surface border border-border rounded-md shadow-lg overflow-hidden"
+      style={{ left, bottom, top: 'auto' }}
     >
       <button
         className="sidebar-add-menu-item"
