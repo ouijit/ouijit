@@ -18,10 +18,11 @@ interface TooltipProps {
   text: string;
   placement?: Placement;
   delay?: number;
+  disabled?: boolean;
   children: ReactNode;
 }
 
-export function Tooltip({ text, placement = 'bottom', delay = 100, children }: TooltipProps) {
+export function Tooltip({ text, placement = 'bottom', delay = 100, disabled, children }: TooltipProps) {
   const [isOpen, setIsOpen] = useState(false);
 
   const { refs, floatingStyles, context } = useFloating({
@@ -46,6 +47,7 @@ export function Tooltip({ text, placement = 'bottom', delay = 100, children }: T
         {children}
       </div>
       {isOpen &&
+        !disabled &&
         createPortal(
           <div
             ref={refs.setFloating}

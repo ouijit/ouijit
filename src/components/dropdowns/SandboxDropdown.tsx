@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { useFloating, offset, flip, shift, autoUpdate } from '@floating-ui/react';
 import { useAppStore } from '../../stores/appStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { addProjectTerminal } from '../terminal/terminalActions';
@@ -41,9 +42,23 @@ export function SandboxDropdown({ anchorRef, onClose }: SandboxDropdownProps) {
   const [diskGiB, setDiskGiB] = useState(100);
   const [hasSetupHook, setHasSetupHook] = useState(false);
   const [hookDialog, setHookDialog] = useState(false);
-  const [visible, setVisible] = useState(false);
   const [loading, setLoading] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Floating UI positioning
+  const { refs, floatingStyles } = useFloating({
+    placement: 'bottom-end',
+    strategy: 'fixed',
+    middleware: [offset(4), flip(), shift({ padding: 8 })],
+    whileElementsMounted: autoUpdate,
+  });
+
+  // Set anchor as reference
+  useEffect(() => {
+    if (anchorRef.current) {
+      refs.setReference(anchorRef.current);
+    }
+  }, [anchorRef, refs]);
 
   // Load status
   useEffect(() => {
@@ -63,10 +78,6 @@ export function SandboxDropdown({ anchorRef, onClose }: SandboxDropdownProps) {
     })();
   }, [projectPath]);
 
-  useEffect(() => {
-    requestAnimationFrame(() => setVisible(true));
-  }, []);
-
   // Click outside
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -76,8 +87,7 @@ export function SandboxDropdown({ anchorRef, onClose }: SandboxDropdownProps) {
         anchorRef.current &&
         !anchorRef.current.contains(e.target as Node)
       ) {
-        setVisible(false);
-        setTimeout(onClose, 150);
+        onClose();
       }
     };
     setTimeout(() => document.addEventListener('mousedown', handler), 0);
@@ -156,43 +166,40 @@ export function SandboxDropdown({ anchorRef, onClose }: SandboxDropdownProps) {
     [projectPath, memoryGiB],
   );
 
-  const anchorRect = anchorRef.current?.getBoundingClientRect();
-  const top = (anchorRect?.bottom ?? 0) + 4;
-  const right = window.innerWidth - (anchorRect?.right ?? 0);
-
   if (!projectPath) return null;
 
   return (
     <>
       {createPortal(
         <div
-          ref={dropdownRef}
-          className={`sandbox-dropdown${visible ? ' visible' : ''}`}
-          style={{ position: 'fixed', top, right }}
+          ref={(node) => {
+            (dropdownRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
+            refs.setFloating(node);
+          }}
+          className="min-w-[240px] max-w-[280px] bg-surface border border-border rounded-md shadow-lg z-[1000] overflow-hidden"
+          style={floatingStyles}
         >
-          <div className="sandbox-dropdown-header">Lima Sandbox</div>
-          <div className="sandbox-dropdown-details">
-            <div className="sandbox-dropdown-detail-row">
-              <span className="sandbox-dropdown-detail-label">VM</span>
-              <span
-                className={`sandbox-dropdown-detail-value${vmStatus === 'Running' ? ' sandbox-dropdown-detail-value--running' : ''}`}
-              >
+          <div className="text-[13px] text-text-tertiary px-3 pt-2 pb-1 uppercase tracking-wide">Lima Sandbox</div>
+          <div className="flex flex-col gap-0.5 px-3 py-1">
+            <div className="flex items-center justify-between text-xs py-0.5">
+              <span className="font-medium text-text-secondary">VM</span>
+              <span className={vmStatus === 'Running' ? 'text-[#0a84ff]' : 'text-text-secondary'}>
                 {VM_STATUS_LABELS[vmStatus] || vmStatus}
               </span>
             </div>
-            {VM_HINTS[vmStatus] && <div className="sandbox-dropdown-vm-hint">{VM_HINTS[vmStatus]}</div>}
+            {VM_HINTS[vmStatus] && (
+              <div className="text-[13px] text-text-tertiary leading-snug pt-0.5">{VM_HINTS[vmStatus]}</div>
+            )}
             {instanceName && (
-              <div className="sandbox-dropdown-detail-row">
-                <span className="sandbox-dropdown-detail-label">Name</span>
-                <span className="sandbox-dropdown-detail-value sandbox-dropdown-detail-value--mono">
-                  {instanceName}
-                </span>
+              <div className="flex items-center justify-between text-xs py-0.5">
+                <span className="font-medium text-text-secondary">Name</span>
+                <span className="text-text-secondary font-mono">{instanceName}</span>
               </div>
             )}
-            <div className="sandbox-dropdown-detail-row">
-              <span className="sandbox-dropdown-detail-label">Memory</span>
+            <div className="flex items-center justify-between text-xs py-0.5">
+              <span className="font-medium text-text-secondary">Memory</span>
               <select
-                className="sandbox-dropdown-select"
+                className="text-xs text-text-primary bg-background-secondary border border-border rounded px-1.5 py-0.5 outline-none"
                 value={memoryGiB}
                 onChange={(e) => handleMemoryChange(parseInt(e.target.value, 10))}
               >
@@ -203,10 +210,10 @@ export function SandboxDropdown({ anchorRef, onClose }: SandboxDropdownProps) {
                 ))}
               </select>
             </div>
-            <div className="sandbox-dropdown-detail-row">
-              <span className="sandbox-dropdown-detail-label">Disk</span>
+            <div className="flex items-center justify-between text-xs py-0.5">
+              <span className="font-medium text-text-secondary">Disk</span>
               <select
-                className="sandbox-dropdown-select"
+                className="text-xs text-text-primary bg-background-secondary border border-border rounded px-1.5 py-0.5 outline-none"
                 value={diskGiB}
                 onChange={(e) => handleDiskChange(parseInt(e.target.value, 10))}
               >
@@ -218,45 +225,55 @@ export function SandboxDropdown({ anchorRef, onClose }: SandboxDropdownProps) {
               </select>
             </div>
             {vmStatus === 'Running' && diskUsage != null && (
-              <div className="sandbox-dropdown-detail-row">
-                <span className="sandbox-dropdown-detail-label">Usage</span>
-                <span className="sandbox-dropdown-detail-value">{formatBytes(diskUsage)}</span>
+              <div className="flex items-center justify-between text-xs py-0.5">
+                <span className="font-medium text-text-secondary">Usage</span>
+                <span className="text-text-secondary">{formatBytes(diskUsage)}</span>
               </div>
             )}
           </div>
           <div
-            className="sandbox-dropdown-hook-row"
+            className="flex items-center justify-between gap-2 px-3 py-1.5 hover:bg-white/[0.04] transition-colors"
             onClick={() => {
-              setVisible(false);
-              setTimeout(() => {
-                onClose();
-                setHookDialog(true);
-              }, 150);
+              onClose();
+              setHookDialog(true);
             }}
           >
-            <span className="sandbox-dropdown-detail-label">Setup hook</span>
-            <span
-              className={`sandbox-dropdown-detail-value${hasSetupHook ? ' sandbox-dropdown-detail-value--running' : ''}`}
-            >
+            <span className="text-xs font-medium text-text-secondary">Setup hook</span>
+            <span className={`text-xs ${hasSetupHook ? 'text-[#0a84ff]' : 'text-text-secondary'}`}>
               {hasSetupHook ? 'Configured' : 'None'}
             </span>
           </div>
           <div className="flex flex-wrap gap-2 px-3 py-2.5 border-t border-white/[0.06]">
             {(vmStatus === 'Stopped' || vmStatus === 'Broken' || vmStatus === 'NotCreated') && (
-              <button className="btn btn-secondary btn-sm" onClick={handleStart} disabled={loading}>
+              <button
+                className="px-3 py-1.5 text-xs font-medium text-text-secondary bg-background-secondary border border-border rounded-md hover:bg-background-tertiary hover:text-text-primary transition-all disabled:opacity-50"
+                onClick={handleStart}
+                disabled={loading}
+              >
                 {loading ? 'Starting\u2026' : 'Start VM'}
               </button>
             )}
             {vmStatus === 'Running' && (
-              <button className="btn btn-secondary btn-sm" onClick={handleStop} disabled={loading}>
+              <button
+                className="px-3 py-1.5 text-xs font-medium text-text-secondary bg-background-secondary border border-border rounded-md hover:bg-background-tertiary hover:text-text-primary transition-all disabled:opacity-50"
+                onClick={handleStop}
+                disabled={loading}
+              >
                 {loading ? 'Stopping\u2026' : 'Stop VM'}
               </button>
             )}
-            <button className="btn btn-secondary btn-sm" onClick={handleConsole}>
+            <button
+              className="px-3 py-1.5 text-xs font-medium text-text-secondary bg-background-secondary border border-border rounded-md hover:bg-background-tertiary hover:text-text-primary transition-all"
+              onClick={handleConsole}
+            >
               VM Console
             </button>
             {(vmStatus === 'Running' || vmStatus === 'Stopped' || vmStatus === 'Broken') && (
-              <button className="btn btn-secondary btn-sm" onClick={handleRecreate} disabled={loading}>
+              <button
+                className="px-3 py-1.5 text-xs font-medium text-text-secondary bg-background-secondary border border-border rounded-md hover:bg-background-tertiary hover:text-text-primary transition-all disabled:opacity-50"
+                onClick={handleRecreate}
+                disabled={loading}
+              >
                 {loading ? 'Recreating\u2026' : 'Recreate VM'}
               </button>
             )}
