@@ -7,6 +7,7 @@ import { Icon } from './terminal/Icon';
 import { addProjectTerminal } from './terminal/terminalActions';
 import { focusKanbanAddInput } from './kanban/KanbanAddInput';
 import { LaunchDropdown } from './dropdowns/LaunchDropdown';
+import { SandboxDropdown } from './dropdowns/SandboxDropdown';
 import { Tooltip } from './ui/Tooltip';
 import { TooltipButton } from './ui/TooltipButton';
 
@@ -17,12 +18,26 @@ export function TitleBar() {
   const kanbanVisible = useProjectStore((s) => s.kanbanVisible);
   const homeGroupMode = useUIStore((s) => s.homeGroupMode);
   const [launchOpen, setLaunchOpen] = useState(false);
+  const [sandboxOpen, setSandboxOpen] = useState(false);
+  const [sandboxAvailable, setSandboxAvailable] = useState(false);
   const [username, setUsername] = useState('');
   const hooksBtnRef = useRef<HTMLButtonElement>(null);
+  const sandboxBtnRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     window.api.homePath().then((p) => setUsername(p.split('/').pop() || 'Home'));
   }, []);
+
+  // Check sandbox availability for the active project
+  useEffect(() => {
+    if (!activeProjectPath) {
+      setSandboxAvailable(false);
+      return;
+    }
+    window.api.lima.status(activeProjectPath).then((s) => {
+      setSandboxAvailable(s.available);
+    });
+  }, [activeProjectPath]);
 
   const handleToggleView = useCallback((view: 'board' | 'stack') => {
     useProjectStore.getState().setKanbanVisible(view === 'board');
@@ -81,6 +96,21 @@ export function TitleBar() {
               </Tooltip>
               {launchOpen && <LaunchDropdown anchorRef={hooksBtnRef} onClose={() => setLaunchOpen(false)} />}
             </div>
+            {sandboxAvailable && (
+              <div className="project-sandbox-wrapper">
+                <Tooltip text="Sandbox" placement="bottom">
+                  <button
+                    ref={sandboxBtnRef}
+                    className="project-sandbox-btn"
+                    onClick={() => setSandboxOpen(!sandboxOpen)}
+                  >
+                    <Icon name="cube" />
+                    <Icon name="caret-down" className="project-sandbox-caret" />
+                  </button>
+                </Tooltip>
+                {sandboxOpen && <SandboxDropdown anchorRef={sandboxBtnRef} onClose={() => setSandboxOpen(false)} />}
+              </div>
+            )}
             <Tooltip text="New terminal" placement="bottom">
               <button className="project-terminal-btn" onClick={handleNewTerminal}>
                 <Icon name="terminal" />
