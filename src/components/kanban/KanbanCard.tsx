@@ -95,6 +95,11 @@ export const KanbanCard = memo(function KanbanCard({
     ? new Date(task.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
     : '';
 
+  const [sandboxAvailable, setSandboxAvailable] = useState(false);
+  useEffect(() => {
+    window.api.lima.status(projectPath).then((s) => setSandboxAvailable(s.available));
+  }, [projectPath]);
+
   // Build context menu items
   const contextMenuItems = useMemo((): ContextMenuEntry[] => {
     const items: ContextMenuEntry[] = [];
@@ -116,6 +121,26 @@ export const KanbanCard = memo(function KanbanCard({
         label: 'Open in Terminal',
         icon: 'terminal',
         onClick: () => onOpenTerminal(task),
+      });
+
+      // Open in sandbox
+      if (sandboxAvailable) {
+        items.push({
+          label: 'Open in Sandbox',
+          icon: 'cube',
+          onClick: () => onOpenTerminal(task, true),
+        });
+      }
+    }
+
+    // Open in editor
+    if (task.worktreePath) {
+      items.push({
+        label: 'Open in Editor',
+        icon: 'code',
+        onClick: () => {
+          window.api.openInEditor(projectPath, task.worktreePath!);
+        },
       });
     }
 
@@ -155,7 +180,7 @@ export const KanbanCard = memo(function KanbanCard({
     });
 
     return items;
-  }, [connectedDisplays, task, projectPath, isDone, onSwitchToTerminal, onOpenTerminal]);
+  }, [connectedDisplays, task, projectPath, isDone, sandboxAvailable, onSwitchToTerminal, onOpenTerminal]);
 
   return (
     <div
