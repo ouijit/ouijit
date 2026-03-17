@@ -225,16 +225,23 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
         targetColumn.findIndex((t) => t.taskNumber === activeTaskNum),
       );
 
-      // Persist to backend
+      const newStatus = finalContainer as TaskStatus;
+
+      // Create worktree BEFORE moving (while task is still todo)
+      if (newStatus === 'in_progress' && !draggedTask.worktreePath) {
+        const startResult = await window.api.task.start(projectPath, draggedTask.taskNumber);
+        if (!startResult.success) {
+          useProjectStore.getState().addToast(startResult.error || 'Failed to create worktree', 'error');
+        }
+      }
+
+      // Persist status + position to backend
       await useProjectStore.getState().moveTask(projectPath, activeTaskNum, finalContainer, targetIndex);
       await useProjectStore.getState().loadTasks(projectPath);
 
-      // Handle lifecycle transitions
+      // Show hook dialog if configured for this transition
       if (origStatus && origStatus !== finalContainer) {
         const hooks = await window.api.hooks.get(projectPath);
-        const newStatus = finalContainer as TaskStatus;
-
-        // Only show dialog if a hook is configured for this transition
         let hookType: HookType | null = null;
         let hook = null;
 
@@ -247,15 +254,6 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
         } else if (newStatus === 'done') {
           hookType = 'cleanup';
           hook = (hooks as any).cleanup || null;
-        }
-
-        // Create worktree when moving to in_progress if task doesn't have one
-        if (newStatus === 'in_progress' && !draggedTask.worktreePath) {
-          const startResult = await window.api.task.start(projectPath, draggedTask.taskNumber);
-          if (!startResult.success) {
-            useProjectStore.getState().addToast(startResult.error || 'Failed to create worktree', 'error');
-          }
-          await useProjectStore.getState().loadTasks(projectPath);
         }
 
         if (hook && hookType) {
