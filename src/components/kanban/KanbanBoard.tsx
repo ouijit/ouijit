@@ -249,10 +249,18 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
           hook = (hooks as any).cleanup || null;
         }
 
+        // Create worktree when moving to in_progress if task doesn't have one
+        if (newStatus === 'in_progress' && !draggedTask.worktreePath) {
+          const startResult = await window.api.task.start(projectPath, draggedTask.taskNumber);
+          if (!startResult.success) {
+            useProjectStore.getState().addToast(startResult.error || 'Failed to create worktree', 'error');
+          }
+          await useProjectStore.getState().loadTasks(projectPath);
+        }
+
         if (hook && hookType) {
           setRunHookDialog({ hookType, hook, task: draggedTask, newStatus });
         }
-        // No hook configured — just move the task, no terminal opened
       }
     },
     [activeTask, items, findContainer, projectPath, onHide],
