@@ -290,6 +290,14 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
           taskId: task.taskNumber,
           sandboxed,
         });
+      } else {
+        // No worktree yet — create one
+        const startResult = await window.api.task.start(projectPath, task.taskNumber);
+        if (!startResult.success || !startResult.worktreePath) {
+          useProjectStore.getState().addToast(startResult.error || 'Failed to start task', 'error');
+          return;
+        }
+        useProjectStore.getState().loadTasks(projectPath);
       }
       onHide();
     },

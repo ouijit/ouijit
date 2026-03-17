@@ -1,4 +1,4 @@
-import { memo, useState, useCallback, useMemo } from 'react';
+import { memo, useState, useCallback, useEffect, useMemo } from 'react';
 import { useTerminalStore } from '../../stores/terminalStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { terminalInstances } from './terminalReact';
@@ -52,6 +52,13 @@ export const TerminalHeader = memo(function TerminalHeader({
   const projectPath = instance?.projectPath ?? '';
   const isTaskTerminal = taskId != null;
 
+  const [sandboxAvailable, setSandboxAvailable] = useState(false);
+  useEffect(() => {
+    if (projectPath) {
+      window.api.lima.status(projectPath).then((s) => setSandboxAvailable(s.available));
+    }
+  }, [projectPath]);
+
   const contextMenuItems = useMemo((): ContextMenuEntry[] => {
     if (!isTaskTerminal || !instance) return [];
     const items: ContextMenuEntry[] = [];
@@ -71,6 +78,24 @@ export const TerminalHeader = memo(function TerminalHeader({
           });
         },
       });
+
+      if (sandboxAvailable) {
+        items.push({
+          label: 'Open in Sandbox',
+          icon: 'cube',
+          onClick: () => {
+            addProjectTerminal(projectPath, undefined, {
+              existingWorktree: {
+                path: instance.worktreePath!,
+                branch: instance.worktreeBranch!,
+                createdAt: '',
+              },
+              taskId: taskId!,
+              sandboxed: true,
+            });
+          },
+        });
+      }
     }
 
     items.push({ separator: true });
@@ -86,7 +111,7 @@ export const TerminalHeader = memo(function TerminalHeader({
     });
 
     return items;
-  }, [isTaskTerminal, instance, projectPath, taskId, onClose]);
+  }, [isTaskTerminal, instance, projectPath, taskId, sandboxAvailable, onClose]);
 
   const handleContextMenu = useCallback(
     (e: React.MouseEvent) => {
