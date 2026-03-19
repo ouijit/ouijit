@@ -348,7 +348,7 @@ function AddMenu({ anchorRef, onAddExisting, onCreateNew, onClose }: AddMenuProp
   return createPortal(
     <div
       ref={ref}
-      className="fixed z-[2000] py-1 bg-surface border border-border rounded-md shadow-lg overflow-hidden"
+      className="sidebar-add-menu-react fixed z-[2000] py-1 bg-surface border border-border rounded-md shadow-lg overflow-hidden"
       style={{ left, bottom, top: 'auto' }}
     >
       <button

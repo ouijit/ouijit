@@ -288,6 +288,11 @@ export async function startTask(
   try {
     const task = await getTaskByNumber(projectPath, taskNumber);
     if (!task) return { success: false, error: 'Task not found' };
+
+    // Idempotent: if already started with a worktree, return success
+    if (task.worktreePath) {
+      return { success: true, task, worktreePath: task.worktreePath };
+    }
     if (task.status !== 'todo') return { success: false, error: 'Task is already started' };
 
     worktreeLog.info('starting task', { taskNumber, name: task.name });
