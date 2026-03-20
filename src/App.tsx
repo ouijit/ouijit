@@ -15,6 +15,7 @@ export function App() {
   const activeView = useAppStore((s) => s.activeView);
   const fullscreen = useAppStore((s) => s.fullscreen);
   const [showNewProject, setShowNewProject] = useState(false);
+  const [initialized, setInitialized] = useState(false);
 
   // Platform and fullscreen body class syncing
   useEffect(() => {
@@ -28,9 +29,10 @@ export function App() {
   }, [fullscreen]);
 
   useEffect(() => {
+    if (!initialized) return;
     document.body.classList.toggle('project-mode', activeView === 'project');
     document.body.classList.toggle('home-mode', activeView === 'home');
-  }, [activeView]);
+  }, [activeView, initialized]);
 
   // Prevent Electron drag/drop navigation
   useEffect(() => {
@@ -43,12 +45,11 @@ export function App() {
     };
   }, []);
 
-  // Load projects on mount and restore last active view
+  // Load projects and restore last active view before rendering content
   useEffect(() => {
     window.api.getProjects().then(async (projects) => {
       useAppStore.getState().setProjects(projects);
 
-      // Restore last active view
       const lastView = await window.api.globalSettings.get('lastActiveView');
       if (lastView) {
         try {
@@ -63,6 +64,8 @@ export function App() {
           /* invalid JSON, stay on home */
         }
       }
+
+      setInitialized(true);
     });
   }, []);
 
@@ -123,8 +126,8 @@ export function App() {
       <div className="app-main">
         <TitleBar />
         <main className="main-content">
-          {activeView === 'home' && <HomeView />}
-          {activeView === 'project' && <ProjectView />}
+          {initialized && activeView === 'home' && <HomeView />}
+          {initialized && activeView === 'project' && <ProjectView />}
         </main>
       </div>
       <ToastContainer />

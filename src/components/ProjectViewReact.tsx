@@ -5,7 +5,7 @@ import { useTerminalStore, getTerminalIndexByStackPosition, STACK_PAGE_SIZE } fr
 import { TerminalCardStack } from './terminal/TerminalCardStack';
 import { KanbanBoard } from './kanban/KanbanBoard';
 import { focusKanbanAddInput } from './kanban/KanbanAddInput';
-import { addProjectTerminal, closeProjectTerminal, reconnectOrphanedSessions } from './terminal/terminalActions';
+import { addProjectTerminal, closeProjectTerminal, reconnectOrphanedSessions, spawnRunner } from './terminal/terminalActions';
 import { terminalInstances, refreshAllTerminalGitStatus } from './terminal/terminalReact';
 
 const isMac = navigator.platform.toLowerCase().includes('mac');
@@ -67,6 +67,34 @@ export function ProjectView() {
         e.preventDefault();
         e.stopPropagation();
         useProjectStore.getState().toggleKanban();
+        return;
+      }
+
+      // Cmd+P — play or toggle runner for active terminal
+      if (key === 'p') {
+        e.preventDefault();
+        e.stopPropagation();
+        const pStore = useTerminalStore.getState();
+        const pTerms = pStore.terminalsByProject[projectPath] ?? [];
+        const pIdx = pStore.activeIndices[projectPath] ?? 0;
+        const pPtyId = pTerms[pIdx];
+        if (pPtyId) {
+          const inst = terminalInstances.get(pPtyId);
+          if (inst) {
+            if (inst.runner?.ptyId) {
+              inst.runnerPanelOpen = !inst.runnerPanelOpen;
+              if (inst.runnerPanelOpen && inst.diffPanelOpen) {
+                inst.diffPanelOpen = false;
+                inst.pushDisplayState({ runnerPanelOpen: true, diffPanelOpen: false });
+              } else {
+                inst.pushDisplayState({ runnerPanelOpen: inst.runnerPanelOpen });
+              }
+            } else {
+              spawnRunner(pPtyId);
+            }
+            useProjectStore.getState().setKanbanVisible(false);
+          }
+        }
         return;
       }
 

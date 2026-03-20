@@ -13,6 +13,7 @@ export interface TerminalDisplayState {
   hookStatus: 'thinking' | 'ready' | null;
   runnerStatus: 'running' | 'success' | 'error' | 'idle';
   runnerPanelOpen: boolean;
+  runnerFullWidth: boolean;
   diffPanelOpen: boolean;
   diffPanelFiles: ChangedFile[];
   diffPanelSelectedFile: string | null;
@@ -34,6 +35,7 @@ export const DEFAULT_DISPLAY_STATE: Omit<TerminalDisplayState, 'ptyId' | 'projec
   hookStatus: null,
   runnerStatus: 'idle',
   runnerPanelOpen: false,
+  runnerFullWidth: true,
   diffPanelOpen: false,
   diffPanelFiles: [],
   diffPanelSelectedFile: null,

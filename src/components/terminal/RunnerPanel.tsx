@@ -32,18 +32,12 @@ export function RunnerPanel({ ptyId, onCollapse, onKill, onRestart }: RunnerPane
       const newFullWidth = !fullWidth;
       instance.runnerFullWidth = newFullWidth;
       setFullWidth(newFullWidth);
+      instance.pushDisplayState({ runnerFullWidth: newFullWidth });
 
-      if (!newFullWidth) {
-        // When going to split, ensure both terminals refit
-        requestAnimationFrame(() => {
-          instance.fit();
-          runner?.fit();
-        });
-      } else {
-        requestAnimationFrame(() => {
-          runner?.fit();
-        });
-      }
+      requestAnimationFrame(() => {
+        instance.fit();
+        runner?.fit();
+      });
     },
     [fullWidth, instance, runner],
   );
@@ -97,7 +91,7 @@ export function RunnerPanel({ ptyId, onCollapse, onKill, onRestart }: RunnerPane
       document.removeEventListener('mousemove', onMouseMove);
       document.removeEventListener('mouseup', onMouseUp);
     };
-  }, [instance]);
+  }, [instance, fullWidth]);
 
   // Set initial flex-basis
   useEffect(() => {

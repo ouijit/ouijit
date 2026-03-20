@@ -317,7 +317,7 @@ export async function reconnectTerminal(
 
 // ── Run hook as runner terminal ──────────────────────────────────────
 
-export async function runDefaultInCard(ptyId: string): Promise<void> {
+export async function spawnRunner(ptyId: string): Promise<void> {
   const instance = terminalInstances.get(ptyId);
   if (!instance) return;
 
@@ -413,6 +413,7 @@ export async function runDefaultInCard(ptyId: string): Promise<void> {
     instance.pushDisplayState({
       runnerStatus: 'running',
       runnerPanelOpen: true,
+      runnerFullWidth: true,
     });
   } catch (error) {
     runner.xterm.writeln(`\x1b[31mError: ${error instanceof Error ? error.message : 'Unknown error'}\x1b[0m`);

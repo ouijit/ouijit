@@ -1,6 +1,7 @@
 import { memo, useCallback, useMemo } from 'react';
 import { useTerminalStore, STACK_PAGE_SIZE } from '../../stores/terminalStore';
 import { terminalInstances } from './terminalReact';
+import { spawnRunner } from './terminalActions';
 import { TerminalHeader } from './TerminalHeader';
 import { XTermContainer } from './XTermContainer';
 import { RunnerPanel } from './RunnerPanel';
@@ -17,6 +18,7 @@ export const TerminalCard = memo(function TerminalCard({ ptyId, projectPath }: T
   const terminals = useTerminalStore((s) => s.terminalsByProject[projectPath]) ?? EMPTY;
   const activeIndex = useTerminalStore((s) => s.activeIndices[projectPath] ?? 0);
   const runnerPanelOpen = useTerminalStore((s) => s.displayStates[ptyId]?.runnerPanelOpen ?? false);
+  const runnerFullWidth = useTerminalStore((s) => s.displayStates[ptyId]?.runnerFullWidth ?? true);
   const diffPanelOpen = useTerminalStore((s) => s.displayStates[ptyId]?.diffPanelOpen ?? false);
 
   const index = terminals.indexOf(ptyId);
@@ -99,13 +101,14 @@ export const TerminalCard = memo(function TerminalCard({ ptyId, projectPath }: T
 
     if (instance.runner?.ptyId) {
       instance.runnerPanelOpen = !instance.runnerPanelOpen;
-      // Close diff panel if opening runner (mutual exclusivity)
       if (instance.runnerPanelOpen && instance.diffPanelOpen) {
         instance.diffPanelOpen = false;
         instance.pushDisplayState({ runnerPanelOpen: true, diffPanelOpen: false });
       } else {
         instance.pushDisplayState({ runnerPanelOpen: instance.runnerPanelOpen });
       }
+    } else {
+      spawnRunner(ptyId);
     }
   }, [ptyId]);
 
@@ -133,11 +136,10 @@ export const TerminalCard = memo(function TerminalCard({ ptyId, projectPath }: T
     const classes = ['project-card-body'];
     if (runnerPanelOpen) {
       classes.push('runner-split');
-      const instance = terminalInstances.get(ptyId);
-      if (instance?.runnerFullWidth) classes.push('runner-full');
+      if (runnerFullWidth) classes.push('runner-full');
     }
     return classes.join(' ');
-  }, [runnerPanelOpen, ptyId]);
+  }, [runnerPanelOpen, runnerFullWidth]);
 
   return (
     <div className={cardClass} data-pty-id={ptyId} onClick={handleClick}>
