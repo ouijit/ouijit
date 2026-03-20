@@ -17,8 +17,6 @@ import { createPortal } from 'react-dom';
 import type { Project } from '../types';
 import { useAppStore } from '../stores/appStore';
 import { stringToColor, getInitials } from '../utils/projectIcon';
-import logomarkSvg from '../assets/ouijit-logomark.svg';
-
 const isMac = navigator.platform.toLowerCase().includes('mac');
 
 interface SidebarProps {
@@ -178,19 +176,10 @@ export function Sidebar({ onProjectSelect, onHomeSelect, onAddExisting, onCreate
               activeView === 'home' ? 'h-9 opacity-100' : 'h-0 opacity-0 group-hover:h-5 group-hover:opacity-50'
             }`}
           />
-          <div className="w-10 h-10 overflow-hidden rounded-md" style={{ backgroundColor: 'transparent' }}>
+          <div className="w-10 h-10 overflow-hidden rounded-md bg-transparent">
             <div
+              className="sidebar-home-logo-mask w-full h-full"
               style={{
-                width: '100%',
-                height: '100%',
-                WebkitMaskImage: `url('${logomarkSvg}')`,
-                maskImage: `url('${logomarkSvg}')`,
-                WebkitMaskSize: 'contain',
-                maskSize: 'contain',
-                WebkitMaskRepeat: 'no-repeat',
-                maskRepeat: 'no-repeat',
-                WebkitMaskPosition: 'center',
-                maskPosition: 'center',
                 backgroundColor: activeView === 'home' ? 'var(--color-accent)' : 'var(--color-text-secondary)',
                 transition: 'background-color 150ms ease-out',
               }}
