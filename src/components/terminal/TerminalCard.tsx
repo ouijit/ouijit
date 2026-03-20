@@ -1,4 +1,4 @@
-import { memo, useCallback, useMemo } from 'react';
+import { memo, useCallback, useMemo, useState } from 'react';
 import { useTerminalStore, STACK_PAGE_SIZE } from '../../stores/terminalStore';
 import { terminalInstances } from './terminalReact';
 import { spawnRunner } from './terminalActions';
@@ -42,13 +42,6 @@ const DEPTH_STYLES: Record<number, React.CSSProperties> = {
     boxShadow: '0 0 0 1px rgba(0, 0, 0, 0.06)',
     contain: 'layout style paint',
   },
-};
-
-const HOVER_LIFT: Record<number, string> = {
-  1: 'hover:-translate-y-7',
-  2: 'hover:-translate-y-[52px]',
-  3: 'hover:-translate-y-[76px]',
-  4: 'hover:-translate-y-[100px]',
 };
 
 interface TerminalCardProps {
@@ -169,26 +162,34 @@ export const TerminalCard = memo(function TerminalCard({ ptyId, projectPath }: T
     instance.killRunner();
   }, [ptyId]);
 
+  const [hovered, setHovered] = useState(false);
+
   if (isHidden) return null;
+
+  const depthBase = DEPTH_STYLES[backDepth];
+  const liftPx = !isActive && hovered && depthBase ? backDepth * 24 + 4 : 0;
 
   const cardStyle: React.CSSProperties = {
     background: 'var(--color-terminal-bg, #171717)',
-    transition: 'translate 0.2s ease, left 0.2s ease, right 0.2s ease',
+    transition: 'transform 0.2s ease, left 0.2s ease, right 0.2s ease',
     ...(isActive
       ? {
           zIndex: 10,
           transform: 'none',
           boxShadow: '0 0 0 1px rgba(0, 0, 0, 0.05), 0 4px 12px rgba(0, 0, 0, 0.15), 0 20px 40px rgba(0, 0, 0, 0.2)',
         }
-      : (DEPTH_STYLES[backDepth] ?? {})),
+      : {
+          ...depthBase,
+          ...(liftPx ? { transform: `translateY(-${liftPx}px)` } : {}),
+        }),
   };
-
-  const hoverClass = !isActive ? `hover:border-accent ${HOVER_LIFT[backDepth] ?? ''}` : '';
 
   return (
     <div
-      className={`absolute inset-0 rounded-[14px] border border-white/10 overflow-hidden flex flex-col ${hoverClass}`}
+      className={`absolute inset-0 rounded-[14px] border border-white/10 overflow-hidden flex flex-col ${!isActive ? 'hover:border-accent' : ''}`}
       style={cardStyle}
+      onMouseEnter={() => !isActive && setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
       data-pty-id={ptyId}
       onClick={handleClick}
     >
