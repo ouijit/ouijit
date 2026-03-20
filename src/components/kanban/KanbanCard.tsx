@@ -117,22 +117,20 @@ export const KanbanCard = memo(function KanbanCard({
       items.push({ separator: true });
     }
 
-    // Open in terminal
-    if (task.worktreePath && task.branch) {
-      items.push({
-        label: 'Open in Terminal',
-        icon: 'terminal',
-        onClick: () => onOpenTerminal(task),
-      });
+    // Open in terminal (always available — creates worktree if needed)
+    items.push({
+      label: 'Open in Terminal',
+      icon: 'terminal',
+      onClick: () => onOpenTerminal(task),
+    });
 
-      // Open in sandbox
-      if (sandboxAvailable) {
-        items.push({
-          label: 'Open in Sandbox',
-          icon: 'cube',
-          onClick: () => onOpenTerminal(task, true),
-        });
-      }
+    // Open in sandbox (only when worktree exists and lima available)
+    if (task.worktreePath && task.branch && sandboxAvailable) {
+      items.push({
+        label: 'Open in Sandbox',
+        icon: 'cube',
+        onClick: () => onOpenTerminal(task, true),
+      });
     }
 
     // Open in editor (only when editor hook is configured)
@@ -195,7 +193,7 @@ export const KanbanCard = memo(function KanbanCard({
 
   return (
     <div
-      className="group px-3 py-3.5 ease-out [-webkit-app-region:no-drag] hover:bg-black/10 active:bg-black/[0.12]"
+      className="kanban-card group px-3 py-3.5 ease-out [-webkit-app-region:no-drag] hover:bg-black/10 active:bg-black/[0.12]"
       style={{
         background: expanded ? 'rgba(0, 0, 0, 0.15)' : 'var(--color-terminal-bg)',
         transition: 'background 150ms ease-out, opacity 150ms ease-out',
@@ -227,7 +225,7 @@ export const KanbanCard = memo(function KanbanCard({
           />
         ) : (
           <span
-            className={`flex-1 font-mono text-sm font-medium min-w-0 break-words ${isDone ? 'line-through text-text-secondary' : 'text-text-primary'}`}
+            className={`kanban-card-name flex-1 font-mono text-sm font-medium min-w-0 break-words ${isDone ? 'line-through text-text-secondary' : 'text-text-primary'}`}
             onDoubleClick={startEditing}
           >
             {task.name}

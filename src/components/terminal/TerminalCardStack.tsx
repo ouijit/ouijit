@@ -53,7 +53,7 @@ export function TerminalCardStack({ projectPath }: TerminalCardStackProps) {
 function EmptyState() {
   return (
     <div
-      className="absolute inset-0 flex flex-col items-center justify-center text-center rounded-[14px] border border-dashed border-white/10 p-12 opacity-100"
+      className="project-stack-empty project-stack-empty--visible absolute inset-0 flex flex-col items-center justify-center text-center rounded-[14px] border border-dashed border-white/10 p-12 opacity-100"
       style={{ background: 'var(--color-terminal-bg)' }}
     >
       <div className="text-sm text-white/30">No active terminals</div>
@@ -133,7 +133,7 @@ function Pagination({ page, totalPages, projectPath }: { page: number; totalPage
 
   return (
     <div
-      className="fixed z-[150] flex items-center gap-1.5"
+      className="project-stack-pagination fixed z-[150] flex items-center gap-1.5"
       style={{
         top: 58,
         left: 'calc(var(--sidebar-offset, 0px) + (100% - var(--sidebar-offset, 0px)) / 2)',
@@ -162,7 +162,7 @@ function Pagination({ page, totalPages, projectPath }: { page: number; totalPage
           <polyline points="15 18 9 12 15 6" />
         </svg>
       </button>
-      <span className="text-xs font-mono text-white/35">
+      <span className="project-stack-page-indicator text-xs font-mono text-white/35">
         {page + 1} / {totalPages}
       </span>
       <button

@@ -186,7 +186,7 @@ export const TerminalCard = memo(function TerminalCard({ ptyId, projectPath }: T
 
   return (
     <div
-      className={`absolute inset-0 rounded-[14px] border border-white/10 overflow-hidden flex flex-col ${!isActive ? 'hover:border-accent' : ''}`}
+      className={`project-card absolute inset-0 rounded-[14px] border border-white/10 overflow-hidden flex flex-col ${isActive ? 'project-card--active' : 'hover:border-accent'}`}
       style={cardStyle}
       onMouseEnter={() => !isActive && setHovered(true)}
       onMouseLeave={() => setHovered(false)}

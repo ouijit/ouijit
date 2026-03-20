@@ -48,14 +48,16 @@ export function KanbanColumn({
 
   return (
     <div
-      className="flex flex-col transition-all duration-150 ease-out shrink-0 last:border-r-0"
+      className="kanban-column flex flex-col transition-all duration-150 ease-out shrink-0 last:border-r-0"
       style={{ minWidth: 240, flex: '1 0 240px', borderRight: '1px solid rgba(255, 255, 255, 0.06)' }}
       data-status={status}
     >
       <div className="flex items-center gap-2 px-3 py-2.5 shrink-0">
         <span className="text-[13px] font-medium text-text-secondary uppercase tracking-wide flex-1">
           {label}
-          <span className="text-text-secondary opacity-50 normal-case tracking-normal ml-1.5">{tasks.length}</span>
+          <span className="kanban-column-count text-text-secondary opacity-50 normal-case tracking-normal ml-1.5">
+            {tasks.length}
+          </span>
         </span>
         {hookTypes.length > 0 && onConfigureHook && (
           <button
@@ -69,7 +71,7 @@ export function KanbanColumn({
       </div>
       <div
         ref={setNodeRef}
-        className="flex flex-col overflow-y-auto flex-1 min-h-0"
+        className="kanban-column-body flex flex-col overflow-y-auto flex-1 min-h-0"
         style={{
           borderTop: '1px solid rgba(255, 255, 255, 0.06)',
           scrollbarColor: 'transparent transparent',

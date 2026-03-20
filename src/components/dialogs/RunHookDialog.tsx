@@ -79,20 +79,20 @@ export function RunHookDialog({ hookType, hook, projectPath, onClose }: RunHookD
 
   return createPortal(
     <div
-      className={`fixed inset-0 flex justify-center z-[10001] p-10 overflow-y-auto bg-black/40 backdrop-blur-[4px] transition-opacity duration-200 ease-out ${visible ? 'opacity-100' : 'opacity-0'}`}
+      className={`modal-overlay fixed inset-0 flex justify-center z-[10001] p-10 overflow-y-auto bg-black/40 backdrop-blur-[4px] transition-opacity duration-200 ease-out ${visible ? 'modal-overlay--visible opacity-100' : 'opacity-0'}`}
       onClick={(e) => {
         if (e.target === e.currentTarget) dismiss(null);
       }}
       onKeyDown={handleKeyDown}
     >
       <div
-        className={`bg-surface rounded-[32px] shadow-lg max-w-[420px] w-[90%] p-6 border border-border overflow-hidden shrink-0 my-auto transition-all duration-200 ease-out ${visible ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 translate-y-2.5'}`}
+        className={`dialog bg-surface rounded-[32px] shadow-lg max-w-[420px] w-[90%] p-6 border border-border overflow-hidden shrink-0 my-auto transition-all duration-200 ease-out ${visible ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 translate-y-2.5'}`}
       >
-        <h2 className="text-lg font-semibold text-text-primary mb-4 text-center">{title}</h2>
+        <h2 className="dialog-title text-lg font-semibold text-text-primary mb-4 text-center">{title}</h2>
 
         <textarea
           ref={textareaRef}
-          className="w-full px-3 py-2 mb-2 font-mono text-sm leading-snug text-text-primary bg-background border border-border rounded-md outline-none resize-none overflow-hidden transition-all duration-150 ease-out focus:border-accent focus:ring-3 focus:ring-accent-light"
+          className="start-command-textarea w-full px-3 py-2 mb-2 font-mono text-sm leading-snug text-text-primary bg-background border border-border rounded-md outline-none resize-none overflow-hidden transition-all duration-150 ease-out focus:border-accent focus:ring-3 focus:ring-accent-light"
           value={command}
           onChange={(e) => {
             setCommand(e.target.value);
@@ -135,20 +135,20 @@ export function RunHookDialog({ hookType, hook, projectPath, onClose }: RunHookD
           )}
           <div className="flex gap-2">
             <button
-              className="inline-flex items-center justify-center gap-2 px-4 py-1.5 font-sans text-sm font-medium no-underline border-none rounded-full outline-none transition-all duration-150 ease-out [-webkit-app-region:no-drag] focus-visible:ring-3 focus-visible:ring-accent-light text-accent bg-accent-light hover:bg-[rgba(0,122,255,0.15)]"
+              className="btn-secondary inline-flex items-center justify-center gap-2 px-4 py-1.5 font-sans text-sm font-medium no-underline border-none rounded-full outline-none transition-all duration-150 ease-out [-webkit-app-region:no-drag] focus-visible:ring-3 focus-visible:ring-accent-light text-accent bg-accent-light hover:bg-[rgba(0,122,255,0.15)]"
               onClick={() => dismiss(null)}
             >
               Cancel
             </button>
             <button
-              className="inline-flex items-center justify-center gap-2 px-4 py-1.5 font-sans text-sm font-medium no-underline border-none rounded-full outline-none transition-all duration-150 ease-out [-webkit-app-region:no-drag] focus-visible:ring-3 focus-visible:ring-accent-light text-white bg-accent hover:bg-accent-hover active:scale-[0.98] whitespace-nowrap"
+              className="btn-primary inline-flex items-center justify-center gap-2 px-4 py-1.5 font-sans text-sm font-medium no-underline border-none rounded-full outline-none transition-all duration-150 ease-out [-webkit-app-region:no-drag] focus-visible:ring-3 focus-visible:ring-accent-light text-white bg-accent hover:bg-accent-hover active:scale-[0.98] whitespace-nowrap"
               onClick={() => dismiss({ command: command.trim(), sandboxed, foreground: true })}
               disabled={!command.trim()}
             >
               Run & Open
             </button>
             <button
-              className="inline-flex items-center justify-center gap-2 px-4 py-1.5 font-sans text-sm font-medium no-underline border-none rounded-full outline-none transition-all duration-150 ease-out [-webkit-app-region:no-drag] focus-visible:ring-3 focus-visible:ring-accent-light text-white bg-accent hover:bg-accent-hover active:scale-[0.98]"
+              className="btn-primary inline-flex items-center justify-center gap-2 px-4 py-1.5 font-sans text-sm font-medium no-underline border-none rounded-full outline-none transition-all duration-150 ease-out [-webkit-app-region:no-drag] focus-visible:ring-3 focus-visible:ring-accent-light text-white bg-accent hover:bg-accent-hover active:scale-[0.98]"
               onClick={() => dismiss({ command: command.trim(), sandboxed, foreground: false })}
               disabled={!command.trim()}
             >

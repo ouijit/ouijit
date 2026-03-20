@@ -155,11 +155,12 @@ export function ProjectView() {
     return () => document.removeEventListener('keydown', handler, true);
   }, [projectPath]);
 
-  // Reconnect orphaned sessions on mount
+  // Show kanban on first entry (no existing terminals), matching original UX
   useEffect(() => {
     if (!projectPath) return;
     const existing = useTerminalStore.getState().terminalsByProject[projectPath];
     if (!existing || existing.length === 0) {
+      useProjectStore.getState().setKanbanVisible(true);
       reconnectOrphanedSessions(projectPath);
     }
   }, [projectPath]);

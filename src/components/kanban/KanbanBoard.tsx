@@ -186,7 +186,7 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
 
   const handleDragEnd = useCallback(
     async (event: DragEndEvent) => {
-      const draggedTask = activeTask;
+      let draggedTask = activeTask;
       const origStatus = originalStatusRef.current;
       setActiveTask(null);
       originalStatusRef.current = null;
@@ -232,6 +232,13 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
         const startResult = await window.api.task.start(projectPath, draggedTask.taskNumber);
         if (!startResult.success) {
           useProjectStore.getState().addToast(startResult.error || 'Failed to create worktree', 'error');
+        } else if (startResult.worktreePath) {
+          // Update the captured task so executeTransition uses the existing worktree
+          draggedTask = {
+            ...draggedTask,
+            worktreePath: startResult.worktreePath,
+            branch: startResult.task?.branch || draggedTask.branch,
+          };
         }
       }
 
@@ -297,13 +304,23 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
           sandboxed,
         });
       } else {
-        // No worktree yet — create one
+        // No worktree yet — create one, move to in_progress, then open terminal
         const startResult = await window.api.task.start(projectPath, task.taskNumber);
         if (!startResult.success || !startResult.worktreePath) {
           useProjectStore.getState().addToast(startResult.error || 'Failed to start task', 'error');
           return;
         }
+        await window.api.task.setStatus(projectPath, task.taskNumber, 'in_progress');
         useProjectStore.getState().loadTasks(projectPath);
+        await addProjectTerminal(projectPath, undefined, {
+          existingWorktree: {
+            path: startResult.worktreePath,
+            branch: startResult.task?.branch || '',
+            createdAt: task.createdAt,
+          },
+          taskId: task.taskNumber,
+          skipAutoHook: true,
+        });
       }
       onHide();
     },
@@ -369,7 +386,7 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
 
   return (
     <div
-      className="fixed top-[82px] right-4 bottom-4 z-[140] flex flex-col opacity-100 rounded-[14px] overflow-hidden border border-white/10"
+      className="kanban-board fixed top-[82px] right-4 bottom-4 z-[140] flex flex-col opacity-100 rounded-[14px] overflow-hidden border border-white/10"
       style={{
         left: 'calc(var(--sidebar-offset, 0px) + 16px)',
         transition: 'left 0.2s ease-out',
