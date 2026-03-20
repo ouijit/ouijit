@@ -245,14 +245,26 @@ export function HomeView() {
   if (allPtyIds.length === 0) {
     const isMac = navigator.platform.toLowerCase().includes('mac');
     return (
-      <div className="project-stack" style={{ top: '82px' }}>
-        <div className="project-stack-empty project-stack-empty--visible">
-          <div className="project-stack-empty-message">No active sessions</div>
-          <div className="project-stack-empty-hints">
-            <span className="project-stack-empty-hint">
-              <span className="project-stack-empty-hint-shortcut">
+      <div
+        className="fixed top-[82px] right-4 bottom-4 z-[100] overflow-visible"
+        style={{
+          left: 'calc(var(--sidebar-offset, 0px) + 16px)',
+          transition: 'left 0.2s ease-out, right 0.25s ease, top 0.2s ease',
+        }}
+      >
+        <div
+          className="absolute inset-0 flex flex-col items-center justify-center text-center rounded-[14px] border border-dashed border-white/10 p-12 opacity-100"
+          style={{ background: 'var(--color-terminal-bg)' }}
+        >
+          <div className="text-sm text-white/30">No active sessions</div>
+          <div className="flex justify-center gap-6 mt-6">
+            <span className="flex items-center gap-1.5 text-[13px]" style={{ color: 'rgba(255, 255, 255, 0.35)' }}>
+              <span
+                className="inline-flex items-center font-mono"
+                style={{ fontSize: isMac ? 16 : 13, color: 'rgba(255, 255, 255, 0.25)' }}
+              >
                 {isMac ? '\u2318' : 'Ctrl+'}
-                <span className="shortcut-number">I</span>
+                <span className={isMac ? 'text-xs' : 'text-[13px]'}>I</span>
               </span>
               New Terminal
             </span>
@@ -269,7 +281,14 @@ export function HomeView() {
   };
 
   return (
-    <div className="project-stack" style={{ top: `${stackTop}px` }}>
+    <div
+      className="project-stack fixed top-[82px] right-4 bottom-4 z-[100] overflow-visible"
+      style={{
+        top: `${stackTop}px`,
+        left: 'calc(var(--sidebar-offset, 0px) + 16px)',
+        transition: 'left 0.2s ease-out, right 0.25s ease, top 0.2s ease',
+      }}
+    >
       {/* All terminals — stable keys, depth changes animate via transition */}
       {allPtyIds.map((ptyId, globalIndex) => {
         const depth = depthMap.get(ptyId) ?? 0;
@@ -277,12 +296,21 @@ export function HomeView() {
         return (
           <div
             key={ptyId}
-            className={`project-card${isActive ? ' project-card--active' : ''}`}
-            style={getDepthStyle(depth)}
+            className={`absolute inset-0 rounded-[14px] border border-white/10 overflow-hidden flex flex-col${!isActive ? ' hover:border-accent' : ''}`}
+            style={{
+              ...getDepthStyle(depth),
+              background: 'var(--color-terminal-bg, #171717)',
+              ...(isActive
+                ? {
+                    boxShadow:
+                      '0 0 0 1px rgba(0, 0, 0, 0.05), 0 4px 12px rgba(0, 0, 0, 0.15), 0 20px 40px rgba(0, 0, 0, 0.2)',
+                  }
+                : {}),
+            }}
             onClick={() => !isActive && setHomeActiveIndex(globalIndex)}
           >
             <TerminalHeader ptyId={ptyId} isActive={isActive} compact={!isActive} onClose={() => handleClose(ptyId)} />
-            <div className="project-card-body">
+            <div className="relative flex-1 flex flex-row min-h-0 overflow-hidden">
               <XTermContainer ptyId={ptyId} />
             </div>
           </div>
@@ -298,8 +326,16 @@ export function HomeView() {
         return (
           <div
             key={`divider-${item.label}`}
-            className="project-card home-folder-divider"
-            style={getDepthStyle(item.depth)}
+            className="absolute inset-0 rounded-[14px] overflow-visible flex flex-col"
+            style={{
+              ...getDepthStyle(item.depth),
+              background: 'transparent',
+              borderColor: 'transparent',
+              boxShadow: 'none',
+              contain: 'unset',
+              pointerEvents: 'none',
+              marginTop: -1,
+            }}
             onClick={() => {
               const group = orderedGroups.find((g) => g.label === item.label || g.projectPath === item.projectPath);
               if (group && group.ptyIds.length > 0) {
@@ -307,8 +343,11 @@ export function HomeView() {
               }
             }}
           >
-            <div className="home-folder-tab">
-              <svg viewBox="0 0 234 28" width="234" height="28">
+            <div
+              className="home-folder-tab absolute top-0 left-0 pointer-events-auto"
+              style={{ width: 234, height: 28 }}
+            >
+              <svg viewBox="0 0 234 28" width="234" height="28" className="absolute inset-0 w-full h-full">
                 <path
                   d="M 14 0.5 H 205.5 Q 219.5 0.5 219.5 14.5 L 219.5 13.5 Q 219.5 27.5 233.5 27.5 L 0.5 27.5 L 0.5 14 Q 0.5 0.5 14 0.5 Z"
                   fill="#252528"
@@ -320,34 +359,63 @@ export function HomeView() {
                   strokeWidth="1"
                 />
               </svg>
-              <div className="home-folder-tab-content">
+              <div className="absolute inset-0 flex items-center" style={{ gap: 6, padding: '4px 12px 0 8px' }}>
                 {item.icon === 'tag' ? (
                   <span
-                    className="home-folder-icon"
-                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                    className="shrink-0 object-cover flex items-center justify-center"
+                    style={{ width: 16, minWidth: 16, height: 16, borderRadius: 4, aspectRatio: '1' }}
                   >
                     <Icon name="tag" />
                   </span>
                 ) : isRegisteredProject ? (
                   project?.iconDataUrl ? (
-                    <img className="home-folder-icon" src={project.iconDataUrl} alt={name} draggable={false} />
+                    <img
+                      className="shrink-0 object-cover"
+                      style={{ width: 16, minWidth: 16, height: 16, borderRadius: 4, aspectRatio: '1' }}
+                      src={project.iconDataUrl}
+                      alt={name}
+                      draggable={false}
+                    />
                   ) : (
                     <span
-                      className="home-folder-icon home-folder-icon-placeholder"
-                      style={{ backgroundColor: stringToColor(name) }}
+                      className="shrink-0 object-cover flex items-center justify-center text-white"
+                      style={{
+                        width: 16,
+                        minWidth: 16,
+                        height: 16,
+                        borderRadius: 4,
+                        aspectRatio: '1',
+                        backgroundColor: stringToColor(name),
+                        fontSize: 7,
+                        fontWeight: 700,
+                        textShadow: '0 1px 1px rgba(0, 0, 0, 0.2)',
+                      }}
                     >
                       {getInitials(name)}
                     </span>
                   )
                 ) : (
                   <span
-                    className="home-folder-icon"
-                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                    className="shrink-0 object-cover flex items-center justify-center"
+                    style={{ width: 16, minWidth: 16, height: 16, borderRadius: 4, aspectRatio: '1' }}
                   >
                     <Icon name="terminal" />
                   </span>
                 )}
-                <span className="home-folder-name">{name}</span>
+                <span
+                  style={{
+                    fontSize: 10,
+                    fontWeight: 600,
+                    color: 'rgba(255, 255, 255, 0.45)',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                  }}
+                >
+                  {name}
+                </span>
               </div>
             </div>
           </div>

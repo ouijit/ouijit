@@ -9,6 +9,48 @@ import { DiffPanel } from '../diff/DiffPanel';
 
 const EMPTY: string[] = [];
 
+const DEPTH_STYLES: Record<number, React.CSSProperties> = {
+  1: {
+    zIndex: 9,
+    transform: 'translateY(-24px)',
+    left: '1%',
+    right: '1%',
+    boxShadow: '0 0 0 1px rgba(0, 0, 0, 0.1), 0 2px 8px rgba(0, 0, 0, 0.12)',
+    contain: 'layout style paint',
+  },
+  2: {
+    zIndex: 8,
+    transform: 'translateY(-48px)',
+    left: '2%',
+    right: '2%',
+    boxShadow: '0 0 0 1px rgba(0, 0, 0, 0.1), 0 1px 4px rgba(0, 0, 0, 0.08)',
+    contain: 'layout style paint',
+  },
+  3: {
+    zIndex: 7,
+    transform: 'translateY(-72px)',
+    left: '3%',
+    right: '3%',
+    boxShadow: '0 0 0 1px rgba(0, 0, 0, 0.08)',
+    contain: 'layout style paint',
+  },
+  4: {
+    zIndex: 6,
+    transform: 'translateY(-96px)',
+    left: '4%',
+    right: '4%',
+    boxShadow: '0 0 0 1px rgba(0, 0, 0, 0.06)',
+    contain: 'layout style paint',
+  },
+};
+
+const HOVER_LIFT: Record<number, string> = {
+  1: 'hover:-translate-y-7',
+  2: 'hover:-translate-y-[52px]',
+  3: 'hover:-translate-y-[76px]',
+  4: 'hover:-translate-y-[100px]',
+};
+
 interface TerminalCardProps {
   ptyId: string;
   projectPath: string;
@@ -28,18 +70,13 @@ export const TerminalCard = memo(function TerminalCard({ ptyId, projectPath }: T
   const pageSize = pageEnd - pageStart;
   const isActive = index === activeIndex;
 
-  const cardClass = useMemo(() => {
-    let cls = 'project-card';
-    if (index < pageStart || index >= pageEnd) return `${cls} project-card--hidden`;
-    if (isActive) cls += ' project-card--active';
-    else {
-      const diff =
-        index < activeIndex ? activeIndex - index : pageSize - (index - pageStart) + (activeIndex - pageStart);
-      cls += ` project-card--back-${Math.min(diff, 4)}`;
-    }
-    if (diffPanelOpen) cls += ' diff-panel-open';
-    return cls;
-  }, [index, activeIndex, pageStart, pageEnd, pageSize, isActive, diffPanelOpen]);
+  const isHidden = index < pageStart || index >= pageEnd;
+
+  const backDepth = useMemo(() => {
+    if (isActive || isHidden) return 0;
+    const diff = index < activeIndex ? activeIndex - index : pageSize - (index - pageStart) + (activeIndex - pageStart);
+    return Math.min(diff, 4);
+  }, [index, activeIndex, pageStart, pageSize, isActive, isHidden]);
 
   const stackPosition = useMemo(() => {
     if (isActive || index < pageStart || index >= pageEnd) return undefined;
@@ -132,31 +169,54 @@ export const TerminalCard = memo(function TerminalCard({ ptyId, projectPath }: T
     instance.killRunner();
   }, [ptyId]);
 
-  const bodyClass = useMemo(() => {
-    const classes = ['project-card-body'];
-    if (runnerPanelOpen) {
-      classes.push('runner-split');
-      if (runnerFullWidth) classes.push('runner-full');
-    }
-    return classes.join(' ');
-  }, [runnerPanelOpen, runnerFullWidth]);
+  if (isHidden) return null;
+
+  const cardStyle: React.CSSProperties = {
+    background: 'var(--color-terminal-bg, #171717)',
+    transition: 'translate 0.2s ease, left 0.2s ease, right 0.2s ease',
+    ...(isActive
+      ? {
+          zIndex: 10,
+          transform: 'none',
+          boxShadow: '0 0 0 1px rgba(0, 0, 0, 0.05), 0 4px 12px rgba(0, 0, 0, 0.15), 0 20px 40px rgba(0, 0, 0, 0.2)',
+        }
+      : (DEPTH_STYLES[backDepth] ?? {})),
+  };
+
+  const hoverClass = !isActive ? `hover:border-accent ${HOVER_LIFT[backDepth] ?? ''}` : '';
 
   return (
-    <div className={cardClass} data-pty-id={ptyId} onClick={handleClick}>
+    <div
+      className={`absolute inset-0 rounded-[14px] border border-white/10 overflow-hidden flex flex-col ${hoverClass}`}
+      style={cardStyle}
+      data-pty-id={ptyId}
+      onClick={handleClick}
+    >
       <TerminalHeader
         ptyId={ptyId}
         isActive={isActive}
+        isBackCard={!isActive}
         stackPosition={stackPosition}
         onClose={handleClose}
         onToggleDiffPanel={handleToggleDiffPanel}
         onToggleRunner={handleToggleRunner}
       />
-      <div className={bodyClass}>
+      <div className="relative flex-1 flex flex-row min-h-0 overflow-hidden">
         {diffPanelOpen ? (
           <DiffPanel ptyId={ptyId} projectPath={projectPath} onClose={handleCloseDiffPanel} />
         ) : (
           <>
-            <XTermContainer ptyId={ptyId} />
+            {!(runnerPanelOpen && runnerFullWidth) && (
+              <XTermContainer
+                ptyId={ptyId}
+                className="terminal-xterm-container flex-1 min-h-0 min-w-0 h-auto rounded-none border-none"
+                style={{
+                  transition: 'flex 0.25s ease',
+                  ...(runnerPanelOpen && !runnerFullWidth ? { minWidth: 200 } : {}),
+                  background: 'var(--color-terminal-bg, #171717)',
+                }}
+              />
+            )}
             {runnerPanelOpen && (
               <RunnerPanel
                 ptyId={ptyId}

@@ -88,7 +88,10 @@ export function DiffPanel({ ptyId, projectPath, onClose }: DiffPanelProps) {
   const modeLabel = mode === 'worktree' ? 'Branch changes' : 'Uncommitted changes';
 
   return (
-    <div className="diff-panel diff-panel--visible">
+    <div
+      className="absolute inset-0 rounded-none border-0 border-t border-solid border-white/10 shadow-none z-20 flex overflow-hidden opacity-100 pointer-events-auto"
+      style={{ background: 'var(--color-terminal-bg, #171717)', transition: 'opacity 0.15s ease' }}
+    >
       <div
         className={
           sidebarCollapsed

@@ -13,26 +13,9 @@ export function App() {
   useIPCListeners();
 
   const activeView = useAppStore((s) => s.activeView);
-  const fullscreen = useAppStore((s) => s.fullscreen);
   const [showNewProject, setShowNewProject] = useState(false);
   const [initialized, setInitialized] = useState(false);
-
-  // Platform and fullscreen body class syncing
-  useEffect(() => {
-    document.body.classList.add(
-      navigator.platform.toLowerCase().includes('mac') ? 'platform-darwin' : 'platform-other',
-    );
-  }, []);
-
-  useEffect(() => {
-    document.body.classList.toggle('is-fullscreen', fullscreen);
-  }, [fullscreen]);
-
-  useEffect(() => {
-    if (!initialized) return;
-    document.body.classList.toggle('project-mode', activeView === 'project');
-    document.body.classList.toggle('home-mode', activeView === 'home');
-  }, [activeView, initialized]);
+  const [sidebarVisible, setSidebarVisible] = useState(false);
 
   // Prevent Electron drag/drop navigation
   useEffect(() => {
@@ -119,20 +102,28 @@ export function App() {
   );
 
   if (!initialized) {
-    return <div className="app-layout" style={{ visibility: 'hidden' }} />;
+    return <div className="flex h-screen overflow-hidden" style={{ visibility: 'hidden' }} />;
   }
 
   return (
-    <div className="app-layout">
+    <div className="flex h-screen overflow-hidden">
       <Sidebar
         onProjectSelect={handleProjectSelect}
         onHomeSelect={handleHomeSelect}
         onAddExisting={handleAddExisting}
         onCreateNew={handleCreateNew}
+        onVisibilityChange={setSidebarVisible}
       />
-      <div className="app-main">
-        <TitleBar />
-        <main className="main-content">
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        <TitleBar mode={activeView} sidebarVisible={sidebarVisible} />
+        <main
+          className="flex-1 min-h-0"
+          style={
+            activeView === 'project' || activeView === 'home'
+              ? { padding: 0 }
+              : { padding: 'var(--spacing-md) var(--content-padding)' }
+          }
+        >
           {activeView === 'home' && <HomeView />}
           {activeView === 'project' && <ProjectView />}
         </main>

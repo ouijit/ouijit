@@ -11,12 +11,18 @@ import { SandboxDropdown } from './dropdowns/SandboxDropdown';
 import { Tooltip } from './ui/Tooltip';
 import { TooltipButton } from './ui/TooltipButton';
 
-export function TitleBar() {
+const isMac = navigator.platform.toLowerCase().includes('mac');
+
+interface TitleBarProps {
+  mode: string;
+  sidebarVisible: boolean;
+}
+
+export function TitleBar({ mode, sidebarVisible }: TitleBarProps) {
   const activeProjectData = useAppStore((s) => s.activeProjectData);
   const activeProjectPath = useAppStore((s) => s.activeProjectPath);
   const activeView = useAppStore((s) => s.activeView);
   const fullscreen = useAppStore((s) => s.fullscreen);
-  const platform = useAppStore((s) => s.platform);
   const kanbanVisible = useProjectStore((s) => s.kanbanVisible);
   const homeGroupMode = useUIStore((s) => s.homeGroupMode);
   const sandboxAvailable = useAppStore((s) => s.sandboxAvailable);
@@ -76,9 +82,12 @@ export function TitleBar() {
     requestAnimationFrame(() => focusKanbanAddInput());
   }, []);
 
+  const isProjectOrHome = mode === 'project' || mode === 'home';
+  const needsTrafficLightPad = isMac && !fullscreen && !sidebarVisible;
+
   return (
     <header
-      className=""
+      className={`sticky top-0 [-webkit-app-region:drag] ${isProjectOrHome ? 'z-[10000] border-b-0' : 'z-[100] border-b border-border'}`}
       style={
         {
           background: 'rgba(28, 28, 30, 0.97)',
@@ -88,46 +97,60 @@ export function TitleBar() {
       }
     >
       <div
-        className="flex items-center justify-center gap-2 py-4 transition-[padding-left] duration-200"
-        style={{ paddingLeft: platform === 'darwin' && !fullscreen ? 80 : 24 }}
+        className={`mx-auto flex items-center gap-2 transition-[padding-left] duration-200 ${
+          isProjectOrHome
+            ? `max-w-none px-0 pb-2 ${mode === 'home' ? 'justify-start' : 'justify-center'}`
+            : 'max-w-[var(--content-max-width)] px-6 py-4 justify-center'
+        }`}
+        style={{ paddingLeft: needsTrafficLightPad ? 80 : sidebarVisible ? 16 : 24 }}
       >
         {activeView === 'project' && activeProjectData && activeProjectPath ? (
-          <div key="project-header" className="project-header-content">
+          <div key="project-header" className="flex items-center gap-3 flex-1 px-4">
             {activeProjectData.iconDataUrl ? (
-              <img src={activeProjectData.iconDataUrl} alt="" className="project-header-icon" />
+              <img src={activeProjectData.iconDataUrl} alt="" className="w-8 h-8 rounded-md object-cover" />
             ) : (
               <div
-                className="project-header-icon project-header-icon--placeholder"
-                style={{ backgroundColor: stringToColor(activeProjectData.name) }}
+                className="w-8 h-8 rounded-md object-cover flex items-center justify-center text-base font-bold text-white"
+                style={{
+                  backgroundColor: stringToColor(activeProjectData.name),
+                  textShadow: '0 1px 2px rgba(0, 0, 0, 0.2)',
+                }}
               >
                 {getInitials(activeProjectData.name)}
               </div>
             )}
-            <div className="project-header-info">
-              <span className="project-header-name">{activeProjectData.name}</span>
-              <span className="project-header-path">{activeProjectPath}</span>
+            <div className="flex flex-col gap-0.5 flex-1 min-w-0">
+              <span className="text-base font-semibold text-text-primary leading-tight">{activeProjectData.name}</span>
+              <span className="text-xs text-text-tertiary leading-tight truncate">{activeProjectPath}</span>
             </div>
-            <div className="project-view-toggle">
+            <div className="flex items-center h-9 ml-3 bg-background-secondary border border-border rounded-[14px] overflow-hidden [-webkit-app-region:no-drag]">
               <TooltipButton
                 text="Board view"
-                className={`project-view-toggle-btn${kanbanVisible ? ' project-view-toggle-btn--active' : ''}`}
+                className={`w-9 h-full flex items-center justify-center text-text-secondary transition-all duration-150 ease-out hover:text-text-primary hover:bg-background-tertiary [&>svg]:w-5 [&>svg]:h-5${kanbanVisible ? ' text-text-primary bg-background-tertiary' : ''}`}
                 onClick={() => handleToggleView('board')}
               >
                 <Icon name="kanban" />
               </TooltipButton>
               <TooltipButton
                 text="Terminal stack"
-                className={`project-view-toggle-btn${!kanbanVisible ? ' project-view-toggle-btn--active' : ''}`}
+                className={`w-9 h-full flex items-center justify-center text-text-secondary transition-all duration-150 ease-out hover:text-text-primary hover:bg-background-tertiary [&>svg]:w-5 [&>svg]:h-5${!kanbanVisible ? ' text-text-primary bg-background-tertiary' : ''}`}
                 onClick={() => handleToggleView('stack')}
               >
                 <Icon name="cards-three" />
               </TooltipButton>
             </div>
-            <div className="project-launch-wrapper">
+            <div className="relative flex ml-3 [-webkit-app-region:no-drag]">
               <Tooltip text="Scripts" placement="bottom" disabled={launchOpen}>
-                <button ref={hooksBtnRef} className="project-hooks-btn" onClick={() => setLaunchOpen(!launchOpen)}>
+                <button
+                  ref={hooksBtnRef}
+                  className="relative h-9 flex items-center justify-center gap-1.5 px-2.5 bg-background-secondary border border-border rounded-[14px] text-text-secondary [-webkit-app-region:no-drag] hover:bg-background-tertiary hover:text-text-primary [&>svg]:w-5 [&>svg]:h-5"
+                  style={{
+                    transition: 'background-color 150ms ease-out, border-color 150ms ease-out, color 150ms ease-out',
+                  }}
+                  onClick={() => setLaunchOpen(!launchOpen)}
+                >
                   <Icon name="code" />
-                  <Icon name="caret-down" className="project-hooks-caret" />
+                  <Icon name="caret-down" className="!w-3 !h-3 opacity-50" />
                 </button>
               </Tooltip>
               {launchOpen && <LaunchDropdown anchorRef={hooksBtnRef} onClose={() => setLaunchOpen(false)} />}
@@ -171,34 +194,40 @@ export function TitleBar() {
               </div>
             )}
             <Tooltip text="New terminal" placement="bottom">
-              <button className="project-terminal-btn" onClick={handleNewTerminal}>
+              <button
+                className="w-9 h-9 flex items-center justify-center bg-background-secondary border border-border rounded-[14px] text-text-secondary transition-all duration-150 ease-out ml-3 [-webkit-app-region:no-drag] hover:bg-background-tertiary hover:text-text-primary [&>svg]:w-5 [&>svg]:h-5"
+                onClick={handleNewTerminal}
+              >
                 <Icon name="terminal" />
               </button>
             </Tooltip>
             <Tooltip text="New task" placement="bottom-end">
-              <button className="project-newtask-btn" onClick={handleNewTask}>
+              <button
+                className="w-9 h-9 flex items-center justify-center bg-background-secondary border border-border rounded-[14px] text-text-secondary transition-all duration-150 ease-out ml-3 [-webkit-app-region:no-drag] hover:bg-background-tertiary hover:text-text-primary [&>svg]:w-5 [&>svg]:h-5"
+                onClick={handleNewTask}
+              >
                 <Icon name="plus" />
               </button>
             </Tooltip>
           </div>
         ) : activeView === 'home' ? (
-          <div key="home-header" className="project-header-content">
-            <div className="project-header-info">
-              <span className="project-header-name">{username}</span>
-              <span className="project-header-path">~</span>
+          <div key="home-header" className="flex items-center gap-3 flex-1 px-4">
+            <div className="flex flex-col gap-0.5 flex-1 min-w-0">
+              <span className="text-base font-semibold text-text-primary leading-tight">{username}</span>
+              <span className="text-xs text-text-tertiary leading-tight truncate">~</span>
             </div>
             <div style={{ flex: 1 }} />
-            <div className="project-view-toggle">
+            <div className="flex items-center h-9 ml-3 bg-background-secondary border border-border rounded-[14px] overflow-hidden [-webkit-app-region:no-drag]">
               <TooltipButton
                 text="Group by project"
-                className={`project-view-toggle-btn${homeGroupMode === 'project' ? ' project-view-toggle-btn--active' : ''}`}
+                className={`w-9 h-full flex items-center justify-center text-text-secondary transition-all duration-150 ease-out hover:text-text-primary hover:bg-background-tertiary [&>svg]:w-5 [&>svg]:h-5${homeGroupMode === 'project' ? ' text-text-primary bg-background-tertiary' : ''}`}
                 onClick={() => useUIStore.getState().setHomeGroupMode('project')}
               >
                 <Icon name="folder-open" />
               </TooltipButton>
               <TooltipButton
                 text="Group by tag"
-                className={`project-view-toggle-btn${homeGroupMode === 'tag' ? ' project-view-toggle-btn--active' : ''}`}
+                className={`w-9 h-full flex items-center justify-center text-text-secondary transition-all duration-150 ease-out hover:text-text-primary hover:bg-background-tertiary [&>svg]:w-5 [&>svg]:h-5${homeGroupMode === 'tag' ? ' text-text-primary bg-background-tertiary' : ''}`}
                 onClick={() => useUIStore.getState().setHomeGroupMode('tag')}
               >
                 <Icon name="tag" />
@@ -206,7 +235,7 @@ export function TitleBar() {
             </div>
             <Tooltip text="New terminal" placement="bottom">
               <button
-                className="project-terminal-btn"
+                className="w-9 h-9 flex items-center justify-center bg-background-secondary border border-border rounded-[14px] text-text-secondary transition-all duration-150 ease-out ml-3 [-webkit-app-region:no-drag] hover:bg-background-tertiary hover:text-text-primary [&>svg]:w-5 [&>svg]:h-5"
                 onClick={async () => {
                   const homePath = await window.api.homePath();
                   addProjectTerminal(homePath);

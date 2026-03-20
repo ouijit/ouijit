@@ -15,6 +15,7 @@ const isMac = navigator.platform.toLowerCase().includes('mac');
 interface TerminalHeaderProps {
   ptyId: string;
   isActive: boolean;
+  isBackCard?: boolean;
   compact?: boolean;
   stackPosition?: number;
   onClose: () => void;
@@ -25,6 +26,7 @@ interface TerminalHeaderProps {
 export const TerminalHeader = memo(function TerminalHeader({
   ptyId,
   isActive,
+  isBackCard,
   compact,
   stackPosition,
   onClose,
@@ -169,7 +171,7 @@ export const TerminalHeader = memo(function TerminalHeader({
 
   return (
     <div
-      className={`flex items-center justify-between pl-3 pr-3 ${compact ? 'pt-0.5 pb-1' : 'py-2'} min-h-9`}
+      className={`flex items-center justify-between pl-3 pr-3 ${compact || isBackCard ? 'pt-0.5 pb-1' : 'py-2'} min-h-9`}
       onContextMenu={handleContextMenu}
     >
       {contextMenu && (
@@ -225,8 +227,8 @@ export const TerminalHeader = memo(function TerminalHeader({
             </span>
           )}
         </div>
-        {!compact && (
-          <div className="project-card-git-branch-row">
+        {!compact && isActive && (
+          <div className="min-w-0 overflow-hidden">
             <GitBranch gitStatus={gitStatus} />
           </div>
         )}

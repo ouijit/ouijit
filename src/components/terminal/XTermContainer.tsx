@@ -4,6 +4,7 @@ import { terminalInstances } from './terminalReact';
 interface XTermContainerProps {
   ptyId: string;
   className?: string;
+  style?: React.CSSProperties;
 }
 
 /**
@@ -11,7 +12,7 @@ interface XTermContainerProps {
  * The Terminal object lives outside React — this component just reparents
  * its viewport element on mount and detaches on unmount.
  */
-export function XTermContainer({ ptyId, className }: XTermContainerProps) {
+export function XTermContainer({ ptyId, className, style }: XTermContainerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -33,5 +34,11 @@ export function XTermContainer({ ptyId, className }: XTermContainerProps) {
     };
   }, [ptyId]);
 
-  return <div ref={containerRef} className={className ?? 'terminal-viewport'} />;
+  return (
+    <div
+      ref={containerRef}
+      className={className ?? 'terminal-xterm-container flex-1 min-h-0 min-w-0 overflow-hidden'}
+      style={{ background: 'var(--color-terminal-bg, #171717)', ...style }}
+    />
+  );
 }

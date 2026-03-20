@@ -18,22 +18,33 @@ import type { Project } from '../types';
 import { useAppStore } from '../stores/appStore';
 import { stringToColor, getInitials } from '../utils/projectIcon';
 
+const isMac = navigator.platform.toLowerCase().includes('mac');
+
 interface SidebarProps {
   onProjectSelect: (path: string, project: Project) => void;
   onHomeSelect: () => void;
   onAddExisting: () => void;
   onCreateNew: () => void;
+  onVisibilityChange: (visible: boolean) => void;
 }
 
-export function Sidebar({ onProjectSelect, onHomeSelect, onAddExisting, onCreateNew }: SidebarProps) {
+export function Sidebar({
+  onProjectSelect,
+  onHomeSelect,
+  onAddExisting,
+  onCreateNew,
+  onVisibilityChange,
+}: SidebarProps) {
   const projects = useAppStore((s) => s.projects);
   const activeView = useAppStore((s) => s.activeView);
   const activeProjectPath = useAppStore((s) => s.activeProjectPath);
+  const fullscreen = useAppStore((s) => s.fullscreen);
 
   const sidebarRef = useRef<HTMLElement>(null);
   const triggerRef = useRef<HTMLDivElement>(null);
   const hideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const showTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [visible, setVisible] = useState(false);
 
   const addBtnRef = useRef<HTMLButtonElement>(null);
   const [addMenuOpen, setAddMenuOpen] = useState(false);
@@ -69,9 +80,10 @@ export function Sidebar({ onProjectSelect, onHomeSelect, onAddExisting, onCreate
     if (hideTimeoutRef.current) clearTimeout(hideTimeoutRef.current);
     showTimeoutRef.current = null;
     hideTimeoutRef.current = null;
-    sidebarRef.current?.classList.add('sidebar--visible');
+    setVisible(true);
+    onVisibilityChange(true);
     document.documentElement.style.setProperty('--sidebar-offset', 'var(--sidebar-width)');
-  }, []);
+  }, [onVisibilityChange]);
 
   const hideSidebar = useCallback(() => {
     if (addMenuOpen) return;
@@ -80,10 +92,11 @@ export function Sidebar({ onProjectSelect, onHomeSelect, onAddExisting, onCreate
       showTimeoutRef.current = null;
     }
     hideTimeoutRef.current = setTimeout(() => {
-      sidebarRef.current?.classList.remove('sidebar--visible');
+      setVisible(false);
+      onVisibilityChange(false);
       document.documentElement.style.setProperty('--sidebar-offset', '0px');
     }, 300);
-  }, [addMenuOpen]);
+  }, [addMenuOpen, onVisibilityChange]);
 
   // Context menu dismiss
   useEffect(() => {
@@ -126,42 +139,74 @@ export function Sidebar({ onProjectSelect, onHomeSelect, onAddExisting, onCreate
 
   return (
     <>
-      {/* Trigger zone */}
-      <div
-        ref={triggerRef}
-        className="sidebar-trigger"
-        onMouseEnter={(e) => {
-          if (e.buttons !== 0) return;
-          showTimeoutRef.current = setTimeout(showSidebar, 200);
-        }}
-        onMouseLeave={() => {
-          if (showTimeoutRef.current) {
-            clearTimeout(showTimeoutRef.current);
-            showTimeoutRef.current = null;
-          }
-        }}
-      />
+      {/* Trigger zone — hidden when sidebar is visible */}
+      {!visible && (
+        <div
+          ref={triggerRef}
+          className="fixed top-0 bottom-0 left-0 z-[10000]"
+          style={{ width: 16 }}
+          onMouseEnter={(e) => {
+            if (e.buttons !== 0) return;
+            showTimeoutRef.current = setTimeout(showSidebar, 200);
+          }}
+          onMouseLeave={() => {
+            if (showTimeoutRef.current) {
+              clearTimeout(showTimeoutRef.current);
+              showTimeoutRef.current = null;
+            }
+          }}
+        />
+      )}
 
       {/* Sidebar */}
-      <aside ref={sidebarRef} className="sidebar" onMouseEnter={showSidebar} onMouseLeave={hideSidebar}>
-        <div className="sidebar-drag-region" />
+      <aside
+        ref={sidebarRef}
+        className="flex flex-col shrink-0 overflow-hidden"
+        style={{ width: visible ? 'var(--sidebar-width)' : 0, transition: 'width 200ms ease-out' }}
+        onMouseEnter={showSidebar}
+        onMouseLeave={hideSidebar}
+      >
+        <div className="shrink-0 [-webkit-app-region:drag]" style={{ height: isMac && !fullscreen ? 52 : 16 }} />
 
         {/* Home button */}
         <div
-          className={`sidebar-home ${activeView === 'home' ? 'sidebar-home--active' : ''}`}
+          className="group relative flex items-center justify-center shrink-0 [-webkit-app-region:no-drag] self-center"
+          style={{ width: 'var(--sidebar-width)', height: 48 }}
           onClick={onHomeSelect}
           title="Sessions"
         >
-          <div className="sidebar-pill" />
-          <div className="sidebar-icon">
-            <div className="sidebar-home-logo" />
+          <div
+            className={`absolute left-0 w-1 rounded-r-sm bg-white transition-all duration-200 ease-out ${
+              activeView === 'home' ? 'h-9 opacity-100' : 'h-0 opacity-0 group-hover:h-5 group-hover:opacity-50'
+            }`}
+          />
+          <div className="w-10 h-10 overflow-hidden rounded-md" style={{ backgroundColor: 'transparent' }}>
+            <div
+              style={{
+                width: '100%',
+                height: '100%',
+                WebkitMaskImage: "url('./assets/ouijit-logomark.svg')",
+                maskImage: "url('./assets/ouijit-logomark.svg')",
+                WebkitMaskSize: 'contain',
+                maskSize: 'contain',
+                WebkitMaskRepeat: 'no-repeat',
+                maskRepeat: 'no-repeat',
+                WebkitMaskPosition: 'center',
+                maskPosition: 'center',
+                backgroundColor: activeView === 'home' ? 'var(--color-accent)' : 'var(--color-text-secondary)',
+                transition: 'background-color 150ms ease-out',
+              }}
+            />
           </div>
         </div>
 
-        <div className="sidebar-divider" />
+        <div
+          className="mx-auto mb-1 mt-2 shrink-0"
+          style={{ width: 32, height: 1, background: 'var(--color-border)' }}
+        />
 
         {/* Project list with drag-to-reorder */}
-        <div className="sidebar-projects">
+        <div className="flex-1 flex flex-col items-center gap-2 py-2 overflow-y-auto overflow-x-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:w-0 [&::-webkit-scrollbar]:h-0">
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
             <SortableContext items={orderedPaths} strategy={verticalListSortingStrategy}>
               {orderedPaths.map((path) => {
@@ -186,7 +231,7 @@ export function Sidebar({ onProjectSelect, onHomeSelect, onAddExisting, onCreate
           {/* Add button */}
           <button
             ref={addBtnRef}
-            className="sidebar-action-btn"
+            className="w-10 h-10 flex items-center justify-center rounded-md bg-background-secondary border border-border/50 text-text-secondary transition-colors duration-200 ease-out mt-2 [-webkit-app-region:no-drag] hover:bg-background-tertiary hover:text-text-primary [&>svg]:w-5 [&>svg]:h-5"
             title="Add project"
             onClick={(e) => {
               e.stopPropagation();
@@ -281,21 +326,33 @@ function SortableProjectIcon({ project, isActive, onClick, onContextMenu }: Sort
           setNodeRef(node);
           tipRefs.setReference(node);
         }}
-        style={style}
         {...attributes}
         {...getTipRefProps()}
         {...listeners}
-        className={`sidebar-item ${isActive ? 'sidebar-item--active' : ''}`}
+        className="group relative flex items-center justify-center shrink-0 [-webkit-app-region:no-drag]"
+        style={{ ...style, width: 'var(--sidebar-width)', height: 48 }}
         data-project-path={project.path}
         onClick={onClick}
         onContextMenu={onContextMenu}
       >
-        <div className="sidebar-pill" />
-        <div className="sidebar-icon">
+        <div
+          className={`absolute left-0 w-1 rounded-r-sm bg-white transition-all duration-200 ease-out ${
+            isActive ? 'h-9 opacity-100' : 'h-0 opacity-0 group-hover:h-5 group-hover:opacity-50'
+          }`}
+        />
+        <div className="w-10 h-10 overflow-hidden rounded-md">
           {project.iconDataUrl ? (
-            <img src={project.iconDataUrl} alt={project.name} className="sidebar-icon-image" draggable={false} />
+            <img
+              src={project.iconDataUrl}
+              alt={project.name}
+              className="w-full h-full object-cover"
+              draggable={false}
+            />
           ) : (
-            <div className="sidebar-icon-placeholder" style={{ backgroundColor: stringToColor(project.name) }}>
+            <div
+              className="w-full h-full flex items-center justify-center text-sm font-bold text-white"
+              style={{ backgroundColor: stringToColor(project.name), textShadow: '0 1px 2px rgba(0, 0, 0, 0.2)' }}
+            >
               {getInitials(project.name)}
             </div>
           )}

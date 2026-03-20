@@ -120,8 +120,23 @@ export function RunnerPanel({ ptyId, onCollapse, onKill, onRestart }: RunnerPane
 
   return (
     <>
-      {!fullWidth && <div ref={handleRef} className="runner-resize-handle" />}
-      <div ref={panelRef} className={`runner-panel runner-panel--visible${fullWidth ? ' runner-panel--full' : ''}`}>
+      {!fullWidth && (
+        <div
+          ref={handleRef}
+          className="shrink-0 relative hover:bg-white/15 active:bg-white/15 after:content-[''] after:absolute after:top-0 after:bottom-0 after:-left-2 after:-right-2"
+          style={{ width: 4, cursor: 'col-resize', background: 'transparent', transition: 'background 0.15s ease' }}
+        />
+      )}
+      <div
+        ref={panelRef}
+        className="rounded-none border-0 border-l border-t border-solid border-white/10 shadow-none flex flex-col overflow-hidden"
+        style={{
+          flexBasis: 0,
+          background: 'var(--color-terminal-bg, #171717)',
+          transition: 'flex-basis 0.25s ease',
+          ...(fullWidth ? { flex: '1 0 100%', borderLeft: 'none' } : { minWidth: 200 }),
+        }}
+      >
         <div className="flex items-center gap-2 px-3 py-1.5 bg-white/[0.03] border-b border-white/10 shrink-0">
           <span className="text-[13px] text-white/50 truncate flex-1 font-mono">{panelTitle}</span>
           <Tooltip text="Kill">
@@ -167,7 +182,7 @@ export function RunnerPanel({ ptyId, onCollapse, onKill, onRestart }: RunnerPane
           </Tooltip>
         </div>
         <div className="flex-1 overflow-hidden min-h-0 p-4">
-          <XTermContainer ptyId={runnerPtyId} className="runner-xterm-container" />
+          <XTermContainer ptyId={runnerPtyId} className="runner-xterm-container w-full h-full overflow-hidden" />
         </div>
       </div>
     </>
