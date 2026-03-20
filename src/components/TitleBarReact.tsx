@@ -140,9 +140,9 @@ export function TitleBar() {
                 <Tooltip text="Sandbox" placement="bottom" disabled={sandboxOpen}>
                   <button
                     ref={sandboxBtnRef}
-                    className={`relative h-9 flex items-center justify-center gap-1.5 px-2.5 border rounded-[14px] transition-[background-color,color] duration-150 [&>svg]:w-5 [&>svg]:h-5 ${
+                    className={`relative h-9 flex items-center justify-center gap-1.5 px-2.5 border rounded-[14px] transition-[background-color,color,border-color] duration-150 [&>svg]:w-5 [&>svg]:h-5 ${
                       sandboxVmStatus === 'Running'
-                        ? 'bg-[rgba(10,132,255,0.15)] border-transparent text-[#409cff] hover:bg-[rgba(10,132,255,0.25)]'
+                        ? 'bg-[rgba(10,132,255,0.15)] border-[rgba(10,132,255,0.4)] text-[#409cff] hover:bg-[rgba(10,132,255,0.25)]'
                         : 'bg-background-secondary border-border text-text-secondary hover:bg-background-tertiary hover:text-text-primary'
                     }`}
                     style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
