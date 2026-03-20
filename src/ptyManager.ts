@@ -32,6 +32,7 @@ interface ManagedPty {
   // Terminal state tracking for accurate reconnection replay
   isAltScreen: boolean;
   lastCols: number;
+  lastRows: number;
 }
 
 export interface ActiveSession {
@@ -220,6 +221,7 @@ export async function spawnPty(options: PtySpawnOptions, window: BrowserWindow):
       maxBufferSize: MAX_BUFFER_SIZE,
       isAltScreen: false,
       lastCols: options.cols || 80,
+      lastRows: options.rows || 24,
     };
 
     activePtys.set(ptyId, managed);
@@ -254,7 +256,7 @@ export async function spawnPty(options: PtySpawnOptions, window: BrowserWindow):
 export function reconnectPty(
   ptyId: PtyId,
   window: BrowserWindow,
-): { success: boolean; bufferedOutput?: string; isAltScreen?: boolean; lastCols?: number; error?: string } {
+): { success: boolean; bufferedOutput?: string; isAltScreen?: boolean; lastCols?: number; lastRows?: number; error?: string } {
   const managed = activePtys.get(ptyId);
   if (!managed) {
     return { success: false, error: `PTY ${ptyId} not found` };
@@ -271,6 +273,7 @@ export function reconnectPty(
     bufferedOutput,
     isAltScreen: managed.isAltScreen,
     lastCols: managed.lastCols,
+    lastRows: managed.lastRows,
   };
 }
 
@@ -308,6 +311,7 @@ export function resizePty(ptyId: PtyId, cols: number, rows: number): void {
   if (managed) {
     managed.process.resize(cols, rows);
     managed.lastCols = cols;
+    managed.lastRows = rows;
   }
 }
 

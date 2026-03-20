@@ -143,8 +143,11 @@ function debouncedResize(ptyId: PtyId, terminal: XTerminal, fitAddon: FitAddon):
     ptyId,
     setTimeout(() => {
       pendingResizes.delete(ptyId);
-      window.api.pty.resize(ptyId, terminal.cols, terminal.rows);
-    }, 50),
+      const instance = terminalInstances.get(ptyId);
+      if (instance) {
+        instance.syncPtySize();
+      }
+    }, 150),
   );
 }
 
@@ -307,6 +310,9 @@ export class OuijitTerminal {
   // ── Lifecycle ───────────────────────────────────────────────────────
   private disposed = false;
   private bound = false;
+  private lastSentCols = 0;
+  private lastSentRows = 0;
+  private resizeSuppressed = false;
 
   // ── Project name callback (for notifications) ──────────────────────
   private getProjectName: (() => string) | null = null;
@@ -390,12 +396,31 @@ export class OuijitTerminal {
     this.wireDragDrop(this.viewportElement);
   }
 
-  /** Fit the terminal and optionally sync PTY dimensions. */
+  /** Fit the terminal to its container. Does NOT sync PTY dimensions —
+   *  that's handled by debouncedResize (via ResizeObserver) which coalesces
+   *  rapid layout changes and avoids spurious SIGWINCH to the shell. */
   fit(): void {
     scrollSafeFit(this.xterm, this.fitAddon);
-    if (this.ptyId) {
-      window.api.pty.resize(this.ptyId, this.xterm.cols, this.xterm.rows);
-    }
+  }
+
+  /** Suppress PTY resizes during reconnection until layout settles. */
+  suppressResizeDuring(ms: number): void {
+    this.resizeSuppressed = true;
+    setTimeout(() => {
+      this.resizeSuppressed = false;
+      // Sync once after layout has settled
+      this.syncPtySize();
+    }, ms);
+  }
+
+  /** Send a PTY resize only when dimensions have actually changed. */
+  syncPtySize(): void {
+    if (!this.ptyId || this.resizeSuppressed) return;
+    const { cols, rows } = this.xterm;
+    if (cols === this.lastSentCols && rows === this.lastSentRows) return;
+    this.lastSentCols = cols;
+    this.lastSentRows = rows;
+    window.api.pty.resize(this.ptyId, cols, rows);
   }
 
   /** Bind to a PTY — wire data, exit, input, and resize handlers. */
@@ -433,6 +458,8 @@ export class OuijitTerminal {
     }
 
     this.bind(result.ptyId);
+    // Suppress resize while layout settles to avoid SIGWINCH → zsh % artifacts
+    this.suppressResizeDuring(500);
     return result.ptyId;
   }
 
@@ -440,7 +467,8 @@ export class OuijitTerminal {
   replayBuffer(bufferedOutput: string | undefined, lastCols?: number, isAltScreen?: boolean): void {
     if (!bufferedOutput) return;
 
-    const buffer = bufferedOutput.replace(/^(?:\x1b\[[0-9;]*m)*[%#](?:\x1b\[[0-9;]*m)* +\r \r/, '');
+    // Strip zsh PROMPT_EOL_MARK artifacts: '%' or '#' padded with spaces, followed by CR-space-CR
+    const buffer = bufferedOutput.replace(/(?:\x1b\[[0-9;]*m)*[%#](?:\x1b\[[0-9;]*m)* +\r \r/g, '');
 
     const currentCols = this.xterm.cols;
     const currentRows = this.xterm.rows;
@@ -627,12 +655,6 @@ export class OuijitTerminal {
     } catch {
       /* DB not ready or task gone */
     }
-  }
-
-  forceSigwinch(): void {
-    if (!this.ptyId) return;
-    window.api.pty.resize(this.ptyId, this.xterm.cols + 1, this.xterm.rows);
-    window.api.pty.resize(this.ptyId, this.xterm.cols, this.xterm.rows);
   }
 
   // ── Internal: PTY wiring ────────────────────────────────────────────

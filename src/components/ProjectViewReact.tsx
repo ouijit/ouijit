@@ -155,14 +155,19 @@ export function ProjectView() {
     return () => document.removeEventListener('keydown', handler, true);
   }, [projectPath]);
 
-  // Show kanban on first entry (no existing terminals), matching original UX
+  // Reconnect orphaned sessions, or show kanban if none exist
   useEffect(() => {
     if (!projectPath) return;
     const existing = useTerminalStore.getState().terminalsByProject[projectPath];
-    if (!existing || existing.length === 0) {
-      useProjectStore.getState().setKanbanVisible(true);
-      reconnectOrphanedSessions(projectPath);
-    }
+    if (existing && existing.length > 0) return;
+
+    reconnectOrphanedSessions(projectPath).then(() => {
+      // Only show kanban if reconnection didn't restore any terminals
+      const reconnected = useTerminalStore.getState().terminalsByProject[projectPath];
+      if (!reconnected || reconnected.length === 0) {
+        useProjectStore.getState().setKanbanVisible(true);
+      }
+    });
   }, [projectPath]);
 
   // Periodic git status refresh

@@ -293,11 +293,11 @@ export async function reconnectTerminal(
   // Replay buffered output
   term.replayBuffer(result.bufferedOutput, result.lastCols, result.isAltScreen);
 
+  // Suppress PTY resizes while layout settles to avoid SIGWINCH → zsh % artifacts
+  term.suppressResizeDuring(500);
+
   // Bind to PTY (wires data, input, exit, resize)
   term.bind(session.ptyId);
-
-  // Force SIGWINCH
-  term.forceSigwinch();
 
   // Register in store
   registerTerminal(term, session.projectPath, {

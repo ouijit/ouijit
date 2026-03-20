@@ -194,6 +194,8 @@ export interface PtyReconnectResult {
   isAltScreen?: boolean;
   /** Terminal cols at time of last resize (for accurate buffer replay) */
   lastCols?: number;
+  /** Terminal rows at time of last resize */
+  lastRows?: number;
   error?: string;
 }
 

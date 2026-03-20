@@ -176,6 +176,50 @@ test('project mode: terminals, kanban, context menu, and task lifecycle', async 
   await expect(todoColumn.locator('.kanban-card')).toHaveCount(0);
 });
 
+test('terminal reconnect after reload does not produce % artifacts', async ({ appPage, testRepo }) => {
+  await enterProject(appPage, testRepo.repoPath);
+  await dismissKanban(appPage);
+
+  // Open a terminal
+  await appPage.keyboard.press(`${modifier}+i`);
+  await expect(appPage.locator('.project-card--active')).toHaveCount(1, { timeout: 10_000 });
+  await expect(appPage.locator('.terminal-xterm-container').first()).toBeAttached({ timeout: 5_000 });
+
+  // Wait for shell to initialize
+  await appPage.waitForTimeout(2_000);
+
+  // Type a marker command so we can identify terminal content
+  await appPage.keyboard.type('echo RECONNECT_MARKER');
+  await appPage.keyboard.press('Enter');
+  await appPage.waitForTimeout(1_000);
+
+  // Reload the renderer
+  await appPage.reload();
+  await appPage.waitForLoadState('domcontentloaded');
+
+  // Wait for terminal reconnection — project view should restore
+  await expect(appPage.locator('.project-card--active')).toHaveCount(1, { timeout: 15_000 });
+  await expect(appPage.locator('.terminal-xterm-container').first()).toBeAttached({ timeout: 5_000 });
+
+  // Wait for reconnection and any resize events to settle
+  await appPage.waitForTimeout(3_000);
+
+  // Read the terminal's visible text content
+  // xterm renders rows in .xterm-rows; text is accessible via textContent
+  const terminalText = await appPage.evaluate(() => {
+    const rows = document.querySelector('.terminal-xterm-container .xterm-rows');
+    return rows?.textContent ?? '';
+  });
+
+  // The marker should be present (reconnection replayed the buffer)
+  expect(terminalText).toContain('RECONNECT_MARKER');
+
+  // Count '%' characters that appear as PROMPT_EOL_MARK (full-width-padded lines)
+  // These appear as '%' followed by spaces filling the rest of the line
+  const percentArtifacts = (terminalText.match(/%\s{10,}/g) || []).length;
+  expect(percentArtifacts, `Found ${percentArtifacts} PROMPT_EOL_MARK artifacts after reload`).toBe(0);
+});
+
 test('lifecycle hooks: start hook via drag shows dialog', async ({ appPage, testRepo }) => {
   const repoPath = testRepo.repoPath;
 
