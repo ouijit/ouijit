@@ -1,9 +1,10 @@
-import { useEffect, useCallback, useState, useRef } from 'react';
+import { useEffect, useCallback, useState, useRef, forwardRef } from 'react';
 import {
   DndContext,
   DragOverlay,
   pointerWithin,
   rectIntersection,
+  useDroppable,
   PointerSensor,
   useSensor,
   useSensors,
@@ -22,6 +23,7 @@ import { focusKanbanAddInput } from './KanbanAddInput';
 import { HookConfigDialog } from '../dialogs/HookConfigDialog';
 import { CombinedHookConfigDialog } from '../dialogs/CombinedHookConfigDialog';
 import { RunHookDialog, type RunHookResult } from '../dialogs/RunHookDialog';
+import { Icon } from '../terminal/Icon';
 
 const COLUMNS: { status: TaskStatus; label: string }[] = [
   { status: 'todo', label: 'To Do' },
@@ -30,6 +32,7 @@ const COLUMNS: { status: TaskStatus; label: string }[] = [
   { status: 'done', label: 'Done' },
 ];
 const COLUMN_IDS: Set<string> = new Set(COLUMNS.map((c) => c.status));
+const TRASH_ID = 'trash-zone';
 
 const isMac = navigator.platform.toLowerCase().includes('mac');
 
@@ -39,7 +42,12 @@ const isMac = navigator.platform.toLowerCase().includes('mac');
  */
 const customCollision: CollisionDetection = (args) => {
   const pointerCollisions = pointerWithin(args);
-  if (pointerCollisions.length > 0) return pointerCollisions;
+  if (pointerCollisions.length > 0) {
+    // Prioritise trash zone so it always wins when the pointer is inside it
+    const trash = pointerCollisions.find((c) => c.id === TRASH_ID);
+    if (trash) return [trash];
+    return pointerCollisions;
+  }
   return rectIntersection(args);
 };
 
@@ -134,6 +142,36 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
     [items],
   );
 
+  const [showTrash, setShowTrash] = useState(false);
+  const [overTrash, setOverTrash] = useState(false);
+  const trashRef = useRef<HTMLDivElement>(null);
+
+  // Track pointer proximity to right edge during drag, and whether pointer is over the trash zone
+  useEffect(() => {
+    if (!activeTask) {
+      setShowTrash(false);
+      setOverTrash(false);
+      return;
+    }
+    const threshold = 200;
+    const onMove = (e: PointerEvent) => {
+      const distFromRight = window.innerWidth - e.clientX;
+      setShowTrash(distFromRight < threshold);
+
+      const el = trashRef.current;
+      if (el) {
+        const rect = el.getBoundingClientRect();
+        setOverTrash(
+          e.clientX >= rect.left && e.clientX <= rect.right && e.clientY >= rect.top && e.clientY <= rect.bottom,
+        );
+      } else {
+        setOverTrash(false);
+      }
+    };
+    window.addEventListener('pointermove', onMove);
+    return () => window.removeEventListener('pointermove', onMove);
+  }, [activeTask]);
+
   const handleDragStart = useCallback((event: DragStartEvent) => {
     const task = event.active.data.current?.task as TaskWithWorkspace | undefined;
     setActiveTask(task ?? null);
@@ -188,13 +226,26 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
     async (event: DragEndEvent) => {
       let draggedTask = activeTask;
       const origStatus = originalStatusRef.current;
+      const droppedOnTrash = overTrash;
       setActiveTask(null);
       originalStatusRef.current = null;
 
       const { active, over } = event;
-      if (!over || !draggedTask) return;
+      if (!draggedTask) return;
 
       const activeId = active.id as string;
+
+      // Handle trash drop — use pointer-based hit test for consistency with visual state
+      if (droppedOnTrash) {
+        const taskNum = parseInt(activeId.replace('task-', ''), 10);
+        await window.api.task.trash(projectPath, taskNum);
+        useProjectStore.getState().loadTasks(projectPath);
+        useProjectStore.getState().addToast('Task deleted', 'success');
+        return;
+      }
+
+      if (!over) return;
+
       const overId = over.id as string;
       const activeContainer = findContainer(activeId);
       const overContainer = findContainer(overId);
@@ -268,7 +319,7 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
         }
       }
     },
-    [activeTask, items, findContainer, projectPath],
+    [activeTask, overTrash, items, findContainer, projectPath],
   );
 
   // Task CRUD
@@ -385,46 +436,48 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
   }, [projectPath]);
 
   return (
-    <div
-      className="kanban-board fixed top-[82px] right-4 bottom-4 z-[140] flex flex-col opacity-100 rounded-[14px] overflow-hidden border border-white/10"
-      style={{
-        left: 'calc(var(--sidebar-offset, 0px) + 16px)',
-        transition: 'left 0.2s ease-out',
-        background: 'var(--color-terminal-bg, #171717)',
-        boxShadow: '0 0 0 1px rgba(0, 0, 0, 0.05), 0 4px 12px rgba(0, 0, 0, 0.15), 0 20px 40px rgba(0, 0, 0, 0.2)',
-      }}
+    <DndContext
+      sensors={sensors}
+      collisionDetection={customCollision}
+      onDragStart={handleDragStart}
+      onDragOver={handleDragOver}
+      onDragEnd={handleDragEnd}
     >
-      {runHookDialog && (
-        <RunHookDialog
-          hookType={runHookDialog.hookType}
-          hook={runHookDialog.hook}
-          projectPath={projectPath}
-          onClose={handleRunHookClose}
-        />
-      )}
-      {hookDialog?.mode === 'single' && (
-        <HookConfigDialog
-          projectPath={projectPath}
-          hookType={hookDialog.hookType}
-          existingHook={hookDialog.existingHook}
-          onClose={handleHookDialogClose}
-        />
-      )}
-      {hookDialog?.mode === 'combined' && (
-        <CombinedHookConfigDialog
-          projectPath={projectPath}
-          existingStart={hookDialog.start}
-          existingContinue={hookDialog.continue}
-          onClose={handleHookDialogClose}
-        />
-      )}
-      <DndContext
-        sensors={sensors}
-        collisionDetection={customCollision}
-        onDragStart={handleDragStart}
-        onDragOver={handleDragOver}
-        onDragEnd={handleDragEnd}
+      <div
+        className="kanban-board fixed top-[82px] bottom-4 z-[140] flex flex-col opacity-100 rounded-[14px] overflow-hidden border border-white/10"
+        style={{
+          left: 'calc(var(--sidebar-offset, 0px) + 16px)',
+          right: showTrash ? 144 : 16,
+          transition: 'left 0.2s ease-out, right 0.2s ease-out',
+          background: 'var(--color-terminal-bg, #171717)',
+          boxShadow:
+            '0 0 0 1px rgba(0, 0, 0, 0.05), 0 4px 12px rgba(0, 0, 0, 0.15), 0 20px 40px rgba(0, 0, 0, 0.2)',
+        }}
       >
+        {runHookDialog && (
+          <RunHookDialog
+            hookType={runHookDialog.hookType}
+            hook={runHookDialog.hook}
+            projectPath={projectPath}
+            onClose={handleRunHookClose}
+          />
+        )}
+        {hookDialog?.mode === 'single' && (
+          <HookConfigDialog
+            projectPath={projectPath}
+            hookType={hookDialog.hookType}
+            existingHook={hookDialog.existingHook}
+            onClose={handleHookDialogClose}
+          />
+        )}
+        {hookDialog?.mode === 'combined' && (
+          <CombinedHookConfigDialog
+            projectPath={projectPath}
+            existingStart={hookDialog.start}
+            existingContinue={hookDialog.continue}
+            onClose={handleHookDialogClose}
+          />
+        )}
         <div className="flex flex-1 min-h-0" style={{ overflowX: 'auto', overflowY: 'hidden' }}>
           {COLUMNS.map((col) => {
             const hookActive =
@@ -450,30 +503,65 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
             );
           })}
         </div>
+      </div>
 
-        <DragOverlay dropAnimation={null}>
-          {activeTask && (
-            <div
-              className="px-3 py-3.5"
-              style={{
-                background: '#111111',
-                border: '1px solid rgba(255, 255, 255, 0.1)',
-                boxShadow: '0 8px 24px rgba(0, 0, 0, 0.5)',
-                borderRadius: 0,
-              }}
-            >
-              <div className="flex items-start gap-2">
-                <span className="flex-1 font-mono text-sm font-medium text-text-primary min-w-0 break-words">
-                  {activeTask.name}
-                </span>
-              </div>
+      <KanbanTrashZone ref={trashRef} visible={showTrash} isOver={overTrash} />
+
+      <DragOverlay dropAnimation={null}>
+        {activeTask && (
+          <div
+            className="px-3 py-3.5"
+            style={{
+              background: '#111111',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
+              boxShadow: '0 8px 24px rgba(0, 0, 0, 0.5)',
+              borderRadius: 0,
+            }}
+          >
+            <div className="flex items-start gap-2">
+              <span className="flex-1 font-mono text-sm font-medium text-text-primary min-w-0 break-words">
+                {activeTask.name}
+              </span>
             </div>
-          )}
-        </DragOverlay>
-      </DndContext>
-    </div>
+          </div>
+        )}
+      </DragOverlay>
+    </DndContext>
   );
 }
+
+// ── Trash drop zone ──────────────────────────────────────────────────
+
+const KanbanTrashZone = forwardRef<HTMLDivElement, { visible: boolean; isOver: boolean }>(function KanbanTrashZone(
+  { visible, isOver },
+  ref,
+) {
+  const { setNodeRef } = useDroppable({ id: TRASH_ID });
+
+  return (
+    <div
+      ref={(node) => {
+        setNodeRef(node);
+        if (typeof ref === 'function') ref(node);
+        else if (ref) ref.current = node;
+      }}
+      className="fixed top-[82px] right-4 bottom-4 z-[140] flex flex-col items-center justify-center gap-2 overflow-hidden rounded-[14px]"
+      style={{
+        width: visible ? 120 : 0,
+        opacity: visible ? 1 : 0,
+        transition: 'width 0.2s ease-out, opacity 0.2s ease-out, background 150ms ease, color 150ms ease',
+
+        background: isOver ? 'rgba(255, 69, 58, 0.12)' : 'var(--color-background)',
+        color: isOver ? 'var(--color-error, #ff453a)' : 'var(--color-text-tertiary)',
+      }}
+    >
+      <div className="[&>svg]:w-6 [&>svg]:h-6">
+        <Icon name="trash" />
+      </div>
+      <span className="text-xs font-medium whitespace-nowrap">Delete</span>
+    </div>
+  );
+});
 
 // ── Column transition lifecycle ──────────────────────────────────────
 
