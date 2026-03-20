@@ -25,16 +25,9 @@ interface SidebarProps {
   onHomeSelect: () => void;
   onAddExisting: () => void;
   onCreateNew: () => void;
-  onVisibilityChange: (visible: boolean) => void;
 }
 
-export function Sidebar({
-  onProjectSelect,
-  onHomeSelect,
-  onAddExisting,
-  onCreateNew,
-  onVisibilityChange,
-}: SidebarProps) {
+export function Sidebar({ onProjectSelect, onHomeSelect, onAddExisting, onCreateNew }: SidebarProps) {
   const projects = useAppStore((s) => s.projects);
   const activeView = useAppStore((s) => s.activeView);
   const activeProjectPath = useAppStore((s) => s.activeProjectPath);
@@ -81,9 +74,9 @@ export function Sidebar({
     showTimeoutRef.current = null;
     hideTimeoutRef.current = null;
     setVisible(true);
-    onVisibilityChange(true);
+
     document.documentElement.style.setProperty('--sidebar-offset', 'var(--sidebar-width)');
-  }, [onVisibilityChange]);
+  }, []);
 
   const hideSidebar = useCallback(() => {
     if (addMenuOpen) return;
@@ -93,10 +86,10 @@ export function Sidebar({
     }
     hideTimeoutRef.current = setTimeout(() => {
       setVisible(false);
-      onVisibilityChange(false);
+
       document.documentElement.style.setProperty('--sidebar-offset', '0px');
     }, 300);
-  }, [addMenuOpen, onVisibilityChange]);
+  }, [addMenuOpen]);
 
   // Context menu dismiss
   useEffect(() => {
@@ -161,8 +154,12 @@ export function Sidebar({
       {/* Sidebar */}
       <aside
         ref={sidebarRef}
-        className="flex flex-col shrink-0 overflow-hidden"
-        style={{ width: visible ? 'var(--sidebar-width)' : 0, transition: 'width 200ms ease-out' }}
+        className="fixed top-0 bottom-0 left-0 z-[10001] flex flex-col overflow-hidden"
+        style={{
+          width: visible ? 'var(--sidebar-width)' : 0,
+          transition: 'width 200ms ease-out',
+          background: 'var(--color-background)',
+        }}
         onMouseEnter={showSidebar}
         onMouseLeave={hideSidebar}
       >

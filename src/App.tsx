@@ -15,7 +15,6 @@ export function App() {
   const activeView = useAppStore((s) => s.activeView);
   const [showNewProject, setShowNewProject] = useState(false);
   const [initialized, setInitialized] = useState(false);
-  const [sidebarVisible, setSidebarVisible] = useState(false);
 
   // Prevent Electron drag/drop navigation
   useEffect(() => {
@@ -112,10 +111,9 @@ export function App() {
         onHomeSelect={handleHomeSelect}
         onAddExisting={handleAddExisting}
         onCreateNew={handleCreateNew}
-        onVisibilityChange={setSidebarVisible}
       />
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <TitleBar mode={activeView} sidebarVisible={sidebarVisible} />
+        <TitleBar mode={activeView} />
         <main
           className="flex-1 min-h-0"
           style={

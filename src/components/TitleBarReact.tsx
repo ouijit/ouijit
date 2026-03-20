@@ -15,10 +15,9 @@ const isMac = navigator.platform.toLowerCase().includes('mac');
 
 interface TitleBarProps {
   mode: string;
-  sidebarVisible: boolean;
 }
 
-export function TitleBar({ mode, sidebarVisible }: TitleBarProps) {
+export function TitleBar({ mode }: TitleBarProps) {
   const activeProjectData = useAppStore((s) => s.activeProjectData);
   const activeProjectPath = useAppStore((s) => s.activeProjectPath);
   const activeView = useAppStore((s) => s.activeView);
@@ -83,7 +82,7 @@ export function TitleBar({ mode, sidebarVisible }: TitleBarProps) {
   }, []);
 
   const isProjectOrHome = mode === 'project' || mode === 'home';
-  const needsTrafficLightPad = isMac && !fullscreen && !sidebarVisible;
+  const needsTrafficLightPad = isMac && !fullscreen;
 
   return (
     <header
@@ -102,7 +101,7 @@ export function TitleBar({ mode, sidebarVisible }: TitleBarProps) {
             ? `max-w-none px-0 pt-4 pb-2 ${mode === 'home' ? 'justify-start' : 'justify-center'}`
             : 'max-w-[var(--content-max-width)] px-6 py-4 justify-center'
         }`}
-        style={{ paddingLeft: needsTrafficLightPad ? 80 : sidebarVisible ? 16 : 24 }}
+        style={{ paddingLeft: needsTrafficLightPad ? 80 : 24 }}
       >
         {activeView === 'project' && activeProjectData && activeProjectPath ? (
           <div key="project-header" className="flex items-center gap-3 flex-1 px-4">
