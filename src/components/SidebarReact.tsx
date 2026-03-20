@@ -245,7 +245,7 @@ export function Sidebar({ onProjectSelect, onHomeSelect, onAddExisting, onCreate
       {/* Context menu */}
       {contextMenu && (
         <div
-          className="sidebar-context-menu-react fixed z-[2000] py-1 bg-surface border border-border rounded-md shadow-lg overflow-hidden opacity-100"
+          className="sidebar-context-menu-react fixed z-[10002] py-1 bg-surface border border-border rounded-md shadow-lg overflow-hidden opacity-100"
           style={{
             left: Math.min(contextMenu.x, window.innerWidth - 120),
             top: Math.min(contextMenu.y, window.innerHeight - 40),
@@ -392,7 +392,7 @@ function AddMenu({ anchorRef, onAddExisting, onCreateNew, onClose }: AddMenuProp
   return createPortal(
     <div
       ref={ref}
-      className="sidebar-add-menu-react fixed z-[2000] py-1 bg-surface border border-border rounded-md shadow-lg overflow-hidden"
+      className="sidebar-add-menu-react fixed z-[10002] py-1 bg-surface border border-border rounded-md shadow-lg overflow-hidden"
       style={{ left, bottom, top: 'auto' }}
     >
       <button
