@@ -213,14 +213,14 @@ export function Sidebar({ onProjectSelect, onHomeSelect, onAddExisting, onCreate
       {/* Context menu */}
       {contextMenu && (
         <div
-          className="task-context-menu task-context-menu--visible sidebar-context-menu-react"
+          className="sidebar-context-menu-react fixed z-[2000] py-1 bg-surface border border-border rounded-md shadow-lg overflow-hidden opacity-100"
           style={{
             left: Math.min(contextMenu.x, window.innerWidth - 120),
             top: Math.min(contextMenu.y, window.innerHeight - 40),
           }}
         >
           <button
-            className="task-context-menu-item task-context-menu-item--danger"
+            className="w-full px-3 py-1.5 text-xs text-text-primary bg-transparent border-none text-left transition-colors duration-100 ease-out hover:bg-background-tertiary hover:text-error"
             onClick={() => handleRemoveProject(contextMenu.project)}
           >
             Remove
@@ -352,7 +352,7 @@ function AddMenu({ anchorRef, onAddExisting, onCreateNew, onClose }: AddMenuProp
       style={{ left, bottom, top: 'auto' }}
     >
       <button
-        className="sidebar-add-menu-item"
+        className="w-full px-3 py-1.5 text-xs text-text-primary bg-transparent border-none text-left transition-colors duration-100 ease-out hover:bg-background-tertiary"
         onClick={() => {
           onClose();
           onAddExisting();
@@ -361,7 +361,7 @@ function AddMenu({ anchorRef, onAddExisting, onCreateNew, onClose }: AddMenuProp
         Add existing folder
       </button>
       <button
-        className="sidebar-add-menu-item"
+        className="w-full px-3 py-1.5 text-xs text-text-primary bg-transparent border-none text-left transition-colors duration-100 ease-out hover:bg-background-tertiary"
         onClick={() => {
           onClose();
           onCreateNew();
