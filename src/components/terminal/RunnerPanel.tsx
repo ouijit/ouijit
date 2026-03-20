@@ -122,11 +122,11 @@ export function RunnerPanel({ ptyId, onCollapse, onKill, onRestart }: RunnerPane
     <>
       {!fullWidth && <div ref={handleRef} className="runner-resize-handle" />}
       <div ref={panelRef} className={`runner-panel runner-panel--visible${fullWidth ? ' runner-panel--full' : ''}`}>
-        <div className="runner-panel-header">
-          <span className="runner-panel-title">{panelTitle}</span>
+        <div className="flex items-center gap-2 px-3 py-1.5 bg-white/[0.03] border-b border-white/10 shrink-0">
+          <span className="text-[13px] text-white/50 truncate flex-1 font-mono">{panelTitle}</span>
           <Tooltip text="Kill">
             <button
-              className="runner-panel-kill"
+              className="w-7 h-7 flex items-center justify-center p-0 bg-transparent border-none rounded-md text-white/40 shrink-0 transition-all duration-150 ease-out hover:bg-red-500/20 hover:text-[#ff6b6b] [&>svg]:w-3.5 [&>svg]:h-3.5"
               onClick={(e) => {
                 e.stopPropagation();
                 onKill();
@@ -137,7 +137,7 @@ export function RunnerPanel({ ptyId, onCollapse, onKill, onRestart }: RunnerPane
           </Tooltip>
           <Tooltip text="Restart">
             <button
-              className="runner-panel-restart"
+              className="w-7 h-7 flex items-center justify-center p-0 bg-transparent border-none rounded-md text-white/40 shrink-0 transition-all duration-150 ease-out hover:bg-white/10 hover:text-white/90 [&>svg]:w-3.5 [&>svg]:h-3.5"
               onClick={(e) => {
                 e.stopPropagation();
                 onRestart();
@@ -147,13 +147,16 @@ export function RunnerPanel({ ptyId, onCollapse, onKill, onRestart }: RunnerPane
             </button>
           </Tooltip>
           <Tooltip text={splitTitle}>
-            <button className="runner-panel-split-toggle" onClick={toggleFullWidth}>
+            <button
+              className="w-7 h-7 flex items-center justify-center p-0 bg-transparent border-none rounded-md text-white/60 shrink-0 transition-all duration-150 ease-out hover:bg-white/10 hover:text-white/90 [&>svg]:w-3.5 [&>svg]:h-3.5"
+              onClick={toggleFullWidth}
+            >
               <Icon name={splitIcon} />
             </button>
           </Tooltip>
           <Tooltip text="Minimize panel">
             <button
-              className="runner-panel-collapse"
+              className="w-7 h-7 flex items-center justify-center p-0 bg-transparent border-none rounded-md text-white/60 shrink-0 transition-all duration-150 ease-out hover:bg-white/10 hover:text-white/90 [&>svg]:w-4 [&>svg]:h-4"
               onClick={(e) => {
                 e.stopPropagation();
                 onCollapse();
@@ -163,7 +166,7 @@ export function RunnerPanel({ ptyId, onCollapse, onKill, onRestart }: RunnerPane
             </button>
           </Tooltip>
         </div>
-        <div className="runner-panel-body">
+        <div className="flex-1 overflow-hidden min-h-0 p-4">
           <XTermContainer ptyId={runnerPtyId} className="runner-xterm-container" />
         </div>
       </div>

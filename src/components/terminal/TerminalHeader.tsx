@@ -183,8 +183,14 @@ export const TerminalHeader = memo(function TerminalHeader({
       <div className="flex flex-col min-w-0 shrink">
         <div className="flex items-center gap-2 min-w-0 flex-wrap">
           <span
-            className={`project-card-status-dot${sandboxed ? ' project-card-status-dot--sandboxed' : ''}`}
+            className={`w-1.5 h-1.5 rounded-full shrink-0 transition-all duration-200 ease-out ${summaryType === 'thinking' ? 'bg-[#da77f2]' : 'bg-[#69db7c]'}`}
             data-status={summaryType}
+            style={{
+              boxShadow:
+                summaryType === 'thinking' ? '0 0 4px rgba(218, 119, 242, 0.5)' : '0 0 4px rgba(105, 219, 124, 0.5)',
+              ...(summaryType === 'thinking' ? { animation: 'terminal-status-pulse 1s ease-in-out infinite' } : {}),
+              ...(sandboxed ? { outline: '1.5px solid rgba(116, 192, 252, 0.6)', outlineOffset: '2px' } : {}),
+            }}
           />
           {!isActive && stackPosition != null && stackPosition <= 9 && (
             <kbd className="inline-flex items-center font-mono text-base text-white/40 shrink-0">
@@ -199,7 +205,7 @@ export const TerminalHeader = memo(function TerminalHeader({
           >
             <Icon name="tag" className="w-3.5 h-3.5" />
           </button>
-          <span className="project-card-tags-row">
+          <span className="inline-flex items-center gap-1 min-w-0">
             {tagInputOpen ? (
               <TagInput ptyId={ptyId} onClose={() => setTagInputOpen(false)} />
             ) : (
@@ -227,7 +233,7 @@ export const TerminalHeader = memo(function TerminalHeader({
       </div>
       <div className="flex items-center gap-1 shrink-0 justify-end">
         {!compact && (
-          <div className="project-card-git-stats-wrapper">
+          <div className="mr-2">
             <GitStats
               gitStatus={gitStatus}
               isWorktree={isWorktree}
@@ -256,9 +262,9 @@ function GitBranch({ gitStatus }: { gitStatus: CompactGitStatus | null }) {
   if (!gitStatus) return null;
 
   return (
-    <span className="project-card-git-branch">
-      <Icon name="git-branch" className="project-card-git-icon" />
-      <span className="project-card-git-branch-name">{gitStatus.branch}</span>
+    <span className="flex items-center gap-1 font-mono text-[13px] text-white/50 min-w-0 overflow-hidden">
+      <Icon name="git-branch" className="w-3.5 h-3.5 shrink-0 text-white/40" />
+      <span className="truncate min-w-0">{gitStatus.branch}</span>
     </span>
   );
 }
@@ -283,15 +289,15 @@ function GitStats({
     const fileLabel = dirtyFileCount === 1 ? 'file' : 'files';
     return (
       <span
-        className={`card-tab project-card-git-stats project-card-git-stats--clickable${diffPanelOpen ? ' card-tab--active' : ''}`}
+        className={`flex items-center gap-1 px-2.5 py-1 rounded-full font-mono text-[13px] font-medium text-white/60 bg-white/[0.06] transition-all duration-150 ease-out hover:bg-white/[0.12] hover:text-white/90 active:bg-white/[0.10] active:text-white/80 ${diffPanelOpen ? '!bg-accent !text-white' : ''}`}
         title="View uncommitted changes"
         onClick={onClick}
       >
-        <span className="project-card-git-count">
+        <span className="font-medium">
           {dirtyFileCount} {fileLabel}
         </span>
-        {insertions > 0 && <span className="project-card-git-add">+{insertions}</span>}
-        {deletions > 0 && <span className="project-card-git-del">-{deletions}</span>}
+        {insertions > 0 && <span className="text-[#69db7c]">+{insertions}</span>}
+        {deletions > 0 && <span className="text-[#ff6b6b]">-{deletions}</span>}
       </span>
     );
   }
@@ -299,7 +305,7 @@ function GitStats({
   if (isWorktree && gitStatus.branchDiffFileCount > 0) {
     return (
       <span
-        className={`card-tab project-card-git-stats project-card-git-stats--clickable project-card-git-stats--compare${diffPanelOpen ? ' card-tab--active' : ''}`}
+        className={`px-2.5 py-1 bg-white/[0.06] border-none font-sans text-[13px] font-medium text-white/60 rounded-full transition-all duration-150 ease-out hover:bg-white/[0.12] hover:text-white/90 active:bg-white/[0.10] active:text-white/80 ${diffPanelOpen ? '!bg-accent !text-white' : ''}`}
         title="Compare branch changes"
         onClick={onClick}
       >
@@ -321,26 +327,30 @@ function RunnerPill({
   onClick: (e: React.MouseEvent) => void;
 }) {
   let text = 'Run';
-  let statusClass = '';
 
   switch (runnerStatus) {
     case 'running':
       text = 'Running';
-      statusClass = 'card-tab-run--running';
       break;
     case 'success':
       text = 'Done';
-      statusClass = 'card-tab-run--success';
       break;
     case 'error':
       text = 'Failed';
-      statusClass = 'card-tab-run--error';
       break;
   }
 
   return (
     <button
-      className={`card-tab card-tab-run ${statusClass}${runnerPanelOpen ? ' card-tab--active' : ''}`}
+      className={`px-2.5 py-1 bg-white/[0.06] border-none font-sans text-[13px] font-medium rounded-full transition-all duration-150 ease-out hover:bg-white/[0.12] hover:text-white/90 active:bg-white/[0.10] active:text-white/80 ${
+        runnerPanelOpen ? '!bg-accent !text-white' : ''
+      } ${
+        runnerStatus === 'running' || runnerStatus === 'success'
+          ? 'text-[#69db7c]'
+          : runnerStatus === 'error'
+            ? 'text-[#ff6b6b]'
+            : 'text-white/60'
+      }`}
       data-action="run"
       onClick={onClick}
     >

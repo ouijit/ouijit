@@ -1018,28 +1018,6 @@ body.home-mode .project-card--back-8:hover {
   @apply min-w-0 overflow-hidden;
 }
 
-/* Tag pills & tag input */
-.project-card-tags-row {
-  @apply inline-flex items-center gap-1 min-w-0;
-}
-
-.project-card-tag-pill {
-  @apply font-mono text-[11px] text-white/50 bg-white/[0.06] rounded-full px-2 py-px shrink-0;
-}
-
-.project-card-tag-btn {
-  @apply flex items-center justify-center w-5 h-5 rounded text-white/30 bg-transparent border-none shrink-0;
-  -webkit-app-region: no-drag;
-}
-
-.project-card-tag-btn:hover {
-  @apply text-white/60;
-}
-
-.project-card-tag-btn svg {
-  @apply w-3.5 h-3.5;
-}
-
 .project-card-label-right {
   @apply flex items-center gap-1 shrink-0 justify-end;
 }
@@ -1121,58 +1099,6 @@ body.home-mode .project-card--back-8:hover {
   @apply w-4 h-4;
 }
 
-/* Card Git Status Display */
-.project-card-git-stats-wrapper {
-  @apply mr-2;
-}
-
-.project-card-git-branch {
-  @apply flex items-center gap-1 font-mono text-[13px] text-white/50 min-w-0 overflow-hidden;
-}
-
-.project-card-git-branch-name {
-  @apply truncate min-w-0;
-}
-
-.project-card-git-icon {
-  @apply w-3.5 h-3.5 shrink-0 text-white/40;
-}
-
-/* Shared card-tab base (Run button, Compare/stats pill) */
-.card-tab {
-  @apply px-2.5 py-1 bg-white/[0.06] border-none font-sans text-[13px] font-medium text-white/60 rounded-full transition-all duration-150 ease-out;
-}
-
-.card-tab:hover {
-  @apply bg-white/[0.12] text-white/90;
-}
-
-.card-tab:active {
-  @apply bg-white/[0.10] text-white/80;
-}
-
-.card-tab.card-tab--active,
-.card-tab.card-tab--active:hover {
-  @apply bg-accent text-white;
-}
-
-.project-card-git-stats {
-  @apply flex items-center gap-1 px-1.5 py-0.5 rounded-sm font-mono text-[12px] text-white/70 bg-white/5;
-}
-
-/* When clickable, override base stats styles to match card-tab */
-.project-card-git-stats--clickable {
-  @apply px-2.5 py-1 text-[13px] font-medium text-white/60 bg-white/[0.06] rounded-full;
-}
-
-.project-card-git-stats--compare {
-  @apply font-sans;
-}
-
-.project-card-git-count {
-  @apply font-medium;
-}
-
 .project-card-git-add {
   @apply text-[#69db7c];
 }
@@ -1190,19 +1116,6 @@ body.home-mode .project-card--back-8:hover {
 .project-card .terminal-viewport {
   @apply flex-1 min-h-0 min-w-0 h-auto rounded-none border-none;
   transition: flex 0.25s ease;
-}
-
-/* Runner Button — status color overrides (base styles from .card-tab) */
-.card-tab-run--running {
-  @apply text-[#69db7c];
-}
-
-.card-tab-run--success {
-  @apply text-[#69db7c];
-}
-
-.card-tab-run--error {
-  @apply text-[#ff6b6b];
 }
 
 /* Runner Panel - Side-by-side split layout */
@@ -1265,66 +1178,6 @@ body.home-mode .project-card--back-8:hover {
 
 .runner-split > .runner-panel {
   min-width: 200px;
-}
-
-.runner-panel-header {
-  @apply flex items-center gap-2 px-3 py-1.5 bg-white/[0.03] border-b border-white/10 shrink-0;
-}
-
-.runner-panel-title {
-  @apply text-[13px] text-white/50 truncate flex-1 font-mono;
-}
-
-.runner-panel-kill {
-  @apply w-7 h-7 flex items-center justify-center p-0 bg-transparent border-none rounded-md text-white/40 shrink-0 transition-all duration-150 ease-out;
-}
-
-.runner-panel-kill:hover {
-  @apply bg-red-500/20 text-[#ff6b6b];
-}
-
-.runner-panel-kill svg {
-  @apply w-3.5 h-3.5;
-}
-
-.runner-panel-restart {
-  @apply w-7 h-7 flex items-center justify-center p-0 bg-transparent border-none rounded-md text-white/40 shrink-0 transition-all duration-150 ease-out;
-}
-
-.runner-panel-restart:hover {
-  @apply bg-white/10 text-white/90;
-}
-
-.runner-panel-restart svg {
-  @apply w-3.5 h-3.5;
-}
-
-.runner-panel-split-toggle {
-  @apply w-7 h-7 flex items-center justify-center p-0 bg-transparent border-none rounded-md text-white/60 shrink-0 transition-all duration-150 ease-out;
-}
-
-.runner-panel-split-toggle:hover {
-  @apply bg-white/10 text-white/90;
-}
-
-.runner-panel-split-toggle svg {
-  @apply w-3.5 h-3.5;
-}
-
-.runner-panel-collapse {
-  @apply w-7 h-7 flex items-center justify-center p-0 bg-transparent border-none rounded-md text-white/60 shrink-0 transition-all duration-150 ease-out;
-}
-
-.runner-panel-collapse:hover {
-  @apply bg-white/10 text-white/90;
-}
-
-.runner-panel-collapse svg {
-  @apply w-4 h-4;
-}
-
-.runner-panel-body {
-  @apply flex-1 overflow-hidden min-h-0 p-4;
 }
 
 .runner-xterm-container {
