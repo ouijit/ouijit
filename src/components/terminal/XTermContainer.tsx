@@ -37,7 +37,7 @@ export function XTermContainer({ ptyId, className, style }: XTermContainerProps)
   return (
     <div
       ref={containerRef}
-      className={className ?? 'terminal-xterm-container flex-1 min-h-0 min-w-0 overflow-hidden'}
+      className={className ?? 'terminal-xterm-container flex-1 min-h-0 min-w-0 overflow-hidden p-4'}
       style={{ background: 'var(--color-terminal-bg, #171717)', ...style }}
     />
   );
