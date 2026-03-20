@@ -1,31 +1,6 @@
-import { describe, test, expect, vi } from 'vitest';
+import { describe, test, expect } from 'vitest';
 
-// Provide browser globals that transitive imports reference at load time
-if (typeof globalThis.document === 'undefined') {
-  (globalThis as any).document = { addEventListener: () => {} };
-}
-if (typeof globalThis.navigator?.userAgent === 'undefined') {
-  (globalThis as any).navigator = { ...globalThis.navigator, userAgent: '', platform: 'MacIntel' };
-}
-
-// Mock browser-only modules that terminalCards.ts imports at load time
-vi.mock('@xterm/xterm', () => ({ Terminal: class {} }));
-vi.mock('@xterm/addon-fit', () => ({ FitAddon: class {} }));
-vi.mock('@xterm/addon-web-links', () => ({ WebLinksAddon: class {} }));
-vi.mock('hotkeys-js', () => ({
-  default: Object.assign(() => {}, {
-    filter: true,
-    setScope: () => {},
-    getScope: () => '',
-    deleteScope: () => {},
-    unbind: () => {},
-  }),
-}));
-vi.mock('../utils/icons', () => ({ convertIconsIn: () => {} }));
-vi.mock('../components/importDialog', () => ({ showToast: () => {} }));
-vi.mock('../components/hookConfigDialog', () => ({ showHookConfigDialog: () => {} }));
-
-import { resolveTerminalLabel } from '../components/terminal/terminal';
+import { resolveTerminalLabel } from '../components/terminal/terminalReact';
 
 describe('resolveTerminalLabel', () => {
   test('priority: task name > branch > fallback > Shell', () => {

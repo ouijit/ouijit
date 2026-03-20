@@ -50,7 +50,6 @@
     "@types/electron-squirrel-startup": "^1.0.2",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
-    "@types/sortablejs": "^1.15.9",
     "@vitejs/plugin-react-swc": "^4.3.0",
     "electron": "39.2.7",
     "eslint": "^9.39.4",
@@ -71,7 +70,6 @@
   "dependencies": {
     "@floating-ui/dom": "^1.7.6",
     "@phosphor-icons/core": "^2.1.1",
-    "@preact/signals-core": "^1.12.1",
     "@xterm/addon-fit": "^0.11.0",
     "@xterm/addon-web-links": "^0.12.0",
     "@xterm/xterm": "^6.0.0",
@@ -84,7 +82,6 @@
     "node-pty": "^1.1.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
-    "sortablejs": "^1.15.7",
     "zustand": "^5.0.11"
   },
   "overrides": {
