@@ -54,17 +54,17 @@ export function ContextMenu({ x, y, items, onClose }: ContextMenuProps) {
   return createPortal(
     <div
       ref={menuRef}
-      className={`task-context-menu${visible ? ' task-context-menu--visible' : ''}`}
-      style={{ left: posX, top: posY }}
+      className={`fixed z-[2000] py-1 bg-surface border border-border rounded-md shadow-lg overflow-hidden ${visible ? 'opacity-100' : 'opacity-0'}`}
+      style={{ left: posX, top: posY, transition: 'opacity 100ms ease' }}
     >
       {items.map((item, i) => {
         if ('separator' in item) {
-          return <div key={`sep-${i}`} className="task-context-menu-separator" />;
+          return <div key={`sep-${i}`} className="border-t border-border my-1" />;
         }
         return (
           <button
             key={i}
-            className={`task-context-menu-item${item.danger ? ' task-context-menu-item--danger' : ''}`}
+            className={`w-full px-3 py-1.5 text-xs text-text-primary bg-transparent border-none text-left transition-colors duration-100 ease-out flex items-center gap-1.5 whitespace-nowrap hover:bg-background-tertiary [&>svg]:w-3 [&>svg]:h-3 [&>svg]:opacity-60 ${item.danger ? 'hover:text-error' : ''}`}
             onClick={() => {
               setVisible(false);
               setTimeout(() => {

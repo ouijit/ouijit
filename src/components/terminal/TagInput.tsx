@@ -132,12 +132,15 @@ export function TagInput({ ptyId, onClose }: TagInputProps) {
   };
 
   return (
-    <div ref={containerRef} className="tag-input-container">
+    <div ref={containerRef} className="inline-flex flex-wrap items-center gap-1 relative [-webkit-app-region:no-drag]">
       {tags.map((tag) => (
-        <span key={tag} className="tag-chip">
+        <span
+          key={tag}
+          className="inline-flex items-center gap-0.5 font-mono text-[11px] text-white/50 bg-white/[0.06] rounded-full px-2 py-px shrink-0"
+        >
           {tag}
           <button
-            className="tag-chip-remove"
+            className="inline-flex items-center justify-center w-3 h-3 text-white/30 bg-transparent border-none text-xs leading-none hover:text-white/60"
             onClick={(e) => {
               e.stopPropagation();
               removeTag(tag);
@@ -150,18 +153,22 @@ export function TagInput({ ptyId, onClose }: TagInputProps) {
       <input
         ref={inputRef}
         type="text"
-        className="tag-input-field"
+        className="bg-transparent border-none outline-none font-mono text-[11px] text-white/70 min-w-[60px] py-px placeholder:text-white/25"
+        style={{ width: 60 }}
         placeholder={tags.length ? '' : 'Add tag\u2026'}
         value={inputValue}
         onChange={(e) => handleInput(e.target.value)}
         onKeyDown={handleKeyDown}
       />
       {suggestions.length > 0 && (
-        <div className="tag-autocomplete-dropdown" style={{ display: 'block' }}>
+        <div
+          className="absolute left-0 bg-surface border border-white/10 rounded-lg shadow-lg z-50 max-h-48 overflow-y-auto"
+          style={{ top: '100%', marginTop: 4, minWidth: 120, display: 'block' }}
+        >
           {suggestions.map((s) => (
             <div
               key={s}
-              className="tag-autocomplete-item"
+              className="block w-full text-left font-mono text-[11px] text-white/60 px-3 py-1.5 bg-transparent border-none hover:bg-white/[0.08] hover:text-white/80"
               onMouseDown={(e) => {
                 e.preventDefault();
                 addTag(s);

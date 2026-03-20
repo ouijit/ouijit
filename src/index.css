@@ -677,7 +677,6 @@ body.platform-darwin:not(.is-fullscreen) .sidebar--visible ~ .app-main .header-c
   @apply text-xs text-white/40;
 }
 
-
 /* Custom Checkbox */
 .custom-checkbox {
   @apply flex items-center gap-2;
@@ -694,35 +693,6 @@ body.platform-darwin:not(.is-fullscreen) .sidebar--visible ~ .app-main .header-c
 /* ===================================
    Toast Notification Styles
    =================================== */
-
-.toast {
-  @apply fixed bottom-6 left-1/2 text-text-primary px-4 py-2 rounded-md border border-border shadow-lg text-sm font-medium z-[1001] opacity-0 flex items-center gap-2 transition-all duration-200 ease-out;
-  background: rgba(44, 44, 46, 0.9);
-  transform: translateX(-50%) translateY(20px);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-}
-
-.toast--visible {
-  @apply opacity-100;
-  transform: translateX(-50%) translateY(0);
-}
-
-.toast--success {
-  @apply border-[rgba(48,209,88,0.4)] bg-[rgba(48,209,88,0.12)];
-}
-
-.toast--success::before {
-  @apply content-[''] w-1.5 h-1.5 rounded-full shrink-0 bg-[#30D158];
-}
-
-.toast--error {
-  @apply border-[rgba(255,69,58,0.4)] bg-[rgba(255,69,58,0.12)];
-}
-
-.toast--error::before {
-  @apply content-[''] w-1.5 h-1.5 rounded-full shrink-0 bg-[#FF453A];
-}
 
 /* ===================================
    Project Mode Styles
@@ -1159,47 +1129,6 @@ body.home-mode .project-card--back-8:hover {
 
 .project-card-tag-btn svg {
   @apply w-3.5 h-3.5;
-}
-
-.tag-input-container {
-  @apply inline-flex flex-wrap items-center gap-1 relative;
-  -webkit-app-region: no-drag;
-}
-
-.tag-chip {
-  @apply inline-flex items-center gap-0.5 font-mono text-[11px] text-white/50 bg-white/[0.06] rounded-full px-2 py-px shrink-0;
-}
-
-.tag-chip-remove {
-  @apply inline-flex items-center justify-center w-3 h-3 text-white/30 bg-transparent border-none text-xs leading-none;
-}
-
-.tag-chip-remove:hover {
-  @apply text-white/60;
-}
-
-.tag-input-field {
-  @apply bg-transparent border-none outline-none font-mono text-[11px] text-white/70 min-w-[60px] py-px;
-  width: 60px;
-}
-
-.tag-input-field::placeholder {
-  @apply text-white/25;
-}
-
-.tag-autocomplete-dropdown {
-  @apply absolute left-0 bg-surface border border-white/10 rounded-lg shadow-lg z-50 max-h-48 overflow-y-auto;
-  top: 100%;
-  margin-top: 4px;
-  min-width: 120px;
-}
-
-.tag-autocomplete-item {
-  @apply block w-full text-left font-mono text-[11px] text-white/60 px-3 py-1.5 bg-transparent border-none;
-}
-
-.tag-autocomplete-item:hover {
-  @apply bg-white/[0.08] text-white/80;
 }
 
 .project-card-label-right {

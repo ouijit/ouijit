@@ -5,7 +5,12 @@ import { useTerminalStore, getTerminalIndexByStackPosition, STACK_PAGE_SIZE } fr
 import { TerminalCardStack } from './terminal/TerminalCardStack';
 import { KanbanBoard } from './kanban/KanbanBoard';
 import { focusKanbanAddInput } from './kanban/KanbanAddInput';
-import { addProjectTerminal, closeProjectTerminal, reconnectOrphanedSessions, spawnRunner } from './terminal/terminalActions';
+import {
+  addProjectTerminal,
+  closeProjectTerminal,
+  reconnectOrphanedSessions,
+  spawnRunner,
+} from './terminal/terminalActions';
 import { terminalInstances, refreshAllTerminalGitStatus } from './terminal/terminalReact';
 
 const isMac = navigator.platform.toLowerCase().includes('mac');
