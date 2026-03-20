@@ -814,8 +814,6 @@ export function hideSandboxDropdown(): void {
 }
 
 /** Active border animation SVG — stored so cleanup is reliable */
-let activeBorderAnim: SVGElement | null = null;
-
 /**
  * Add or remove the animated SVG border on the sandbox button.
  * Creates an SVG rect overlay sized to the button with a dashed stroke
@@ -827,43 +825,9 @@ export function setSandboxButtonStarting(starting: boolean): void {
   if (!btn) return;
 
   if (starting) {
-    // Remove any stale animation first
-    if (activeBorderAnim) {
-      activeBorderAnim.remove();
-      activeBorderAnim = null;
-    }
     btn.classList.add('project-sandbox-btn--starting');
-    const w = btn.offsetWidth + 4;
-    const h = btn.offsetHeight + 4;
-    const r = (parseFloat(getComputedStyle(btn).borderRadius) || 6) + 2;
-    const ns = 'http://www.w3.org/2000/svg';
-    const svg = document.createElementNS(ns, 'svg');
-    svg.classList.add('sandbox-border-anim');
-    svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
-    const rect = document.createElementNS(ns, 'rect');
-    rect.setAttribute('x', '0.5');
-    rect.setAttribute('y', '0.5');
-    rect.setAttribute('width', String(w - 1));
-    rect.setAttribute('height', String(h - 1));
-    rect.setAttribute('rx', String(r - 0.5));
-    rect.setAttribute('fill', 'none');
-    rect.setAttribute('stroke', '#0A84FF');
-    rect.setAttribute('stroke-width', '1');
-    rect.setAttribute('pathLength', '100');
-    rect.setAttribute('stroke-dasharray', '25 75');
-    rect.setAttribute('stroke-linecap', 'round');
-    svg.appendChild(rect);
-    btn.appendChild(svg);
-    activeBorderAnim = svg;
   } else {
     btn.classList.remove('project-sandbox-btn--starting');
-
-    if (activeBorderAnim) {
-      activeBorderAnim.remove();
-      activeBorderAnim = null;
-    }
-    // Belt-and-suspenders: remove any orphaned animation SVGs
-    btn.querySelectorAll('.sandbox-border-anim').forEach((el) => el.remove());
   }
 }
 

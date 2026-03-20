@@ -901,36 +901,8 @@ body.home-mode .home-folder-divider.project-card {
 }
 
 /* Sandbox wrapper */
-.project-sandbox-wrapper {
-  @apply relative flex ml-3;
-  -webkit-app-region: no-drag;
-}
-
-.project-sandbox-btn {
-  @apply relative h-9 flex items-center justify-center gap-1.5 px-2.5 bg-background-secondary border border-border rounded-[14px] text-text-secondary ease-out;
-  /* shadow + border-top highlight temporarily disabled for rrweb recording */
-  /* border-top-color: rgba(255,255,255,0.12); */
-  transition:
-    background-color 150ms ease-out,
-    border-color 150ms ease-out,
-    color 150ms ease-out;
-}
-
-.project-sandbox-btn:hover {
-  @apply bg-background-tertiary text-text-primary;
-}
-
-.project-sandbox-btn svg:not(.sandbox-border-anim) {
-  @apply w-5 h-5;
-}
-
-.project-sandbox-caret {
-  @apply !w-3 !h-3 opacity-50;
-}
-
 .project-sandbox-btn--active {
   background: rgba(10, 132, 255, 0.15);
-  border-color: rgba(10, 132, 255, 0.4);
   color: #409cff;
 }
 
@@ -939,28 +911,19 @@ body.home-mode .home-folder-divider.project-card {
   color: #6ab4ff;
 }
 
-.project-sandbox-btn--starting {
-  border-color: transparent;
-  color: #409cff;
+.project-sandbox-btn--starting svg:first-child {
+  animation: sandbox-icon-pulse 1.5s ease-in-out infinite;
 }
 
-/* SVG border trace animation overlay */
-.sandbox-border-anim {
-  position: absolute;
-  inset: -2px;
-  width: calc(100% + 4px);
-  height: calc(100% + 4px);
-  pointer-events: none;
-  overflow: visible;
-}
-
-.sandbox-border-anim rect {
-  animation: sandbox-border-trace 1.5s linear infinite;
-}
-
-@keyframes sandbox-border-trace {
-  to {
-    stroke-dashoffset: -100;
+@keyframes sandbox-icon-pulse {
+  0%,
+  100% {
+    color: #409cff;
+    opacity: 0.4;
+  }
+  50% {
+    color: #409cff;
+    opacity: 1;
   }
 }
 

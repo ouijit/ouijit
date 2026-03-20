@@ -261,7 +261,7 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
         }
       }
     },
-    [activeTask, items, findContainer, projectPath, onHide],
+    [activeTask, items, findContainer, projectPath],
   );
 
   // Task CRUD

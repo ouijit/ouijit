@@ -8,7 +8,6 @@ const EMPTY_TAGS: string[] = [];
 import type { CompactGitStatus } from '../../types';
 import { Icon } from './Icon';
 import { TagInput } from './TagInput';
-import { Tooltip } from '../ui/Tooltip';
 import { ContextMenu, type ContextMenuEntry } from '../ui/ContextMenu';
 
 const isMac = navigator.platform.toLowerCase().includes('mac');

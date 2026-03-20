@@ -109,6 +109,10 @@ const kanbanLog = log.scope('kanban');
 - **Log file:** writes JSON lines to `ouijit.log` (5MB rotation). Console transport kept for dev readability.
 - **Tests:** both `electron-log/main` and `electron-log/renderer` are globally mocked in test setup files with console passthrough — no per-test mocking needed.
 
+## Broken Windows
+
+Never leave broken windows. If you encounter lint errors, type errors, or warnings in code you're touching — fix them, even if they're pre-existing. A clean `npm run check` is a requirement, not a nice-to-have.
+
 ## Code Rules
 
 - **No dynamic imports** — never use `import()` for lazy loading or code splitting. Always use static `import` at the top of the file. Vite handles circular dependencies fine for functions called inside handlers (not at module evaluation time). Use the `projectRegistry` pattern only when true circular top-level access is needed.
