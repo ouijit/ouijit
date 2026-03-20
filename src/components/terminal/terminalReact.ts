@@ -307,6 +307,10 @@ export class OuijitTerminal {
   private readyDeferralTimer: ReturnType<typeof setTimeout> | null = null;
   private hookThinkingCount = 0;
 
+  // ── Scroll preservation ─────────────────────────────────────────────
+  private _scrollRestoreY: number | null = null;
+  private _scrollRestoreRaf: number | null = null;
+
   // ── Lifecycle ───────────────────────────────────────────────────────
   private disposed = false;
   private bound = false;
@@ -548,6 +552,12 @@ export class OuijitTerminal {
     this.cleanupData?.();
     this.cleanupExit?.();
 
+    // Cancel pending scroll restore
+    if (this._scrollRestoreRaf !== null) {
+      cancelAnimationFrame(this._scrollRestoreRaf);
+      this._scrollRestoreRaf = null;
+    }
+
     // Disconnect observers
     this.resizeObserver?.disconnect();
 
@@ -663,14 +673,27 @@ export class OuijitTerminal {
     this.cleanupData = window.api.pty.onData(this.ptyId, (data) => {
       const buf = this.xterm.buffer.active;
       const atBottom = buf.viewportY >= buf.baseY;
-      const savedY = buf.viewportY;
 
-      this.xterm.write(data, () => {
-        if (!atBottom) {
-          const newY = Math.min(savedY, this.xterm.buffer.active.baseY);
-          this.xterm.scrollToLine(newY);
-        }
-      });
+      // Capture scroll position on the first write of a batch (while value is still trustworthy)
+      if (!atBottom && this._scrollRestoreY === null) {
+        this._scrollRestoreY = buf.viewportY;
+      } else if (atBottom) {
+        this._scrollRestoreY = null;
+      }
+
+      this.xterm.write(data);
+
+      // Coalesce into a single rAF so the restore runs after xterm's render pass
+      if (this._scrollRestoreY !== null && this._scrollRestoreRaf === null) {
+        const targetY = this._scrollRestoreY;
+        this._scrollRestoreRaf = requestAnimationFrame(() => {
+          this._scrollRestoreRaf = null;
+          this._scrollRestoreY = null;
+          const maxY = this.xterm.buffer.active.baseY;
+          this.xterm.scrollToLine(Math.min(targetY, maxY));
+        });
+      }
+
       onData?.(data);
       if (!skipSideEffects) {
         this.throttledDataSideEffects(data);
