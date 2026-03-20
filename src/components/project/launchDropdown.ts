@@ -52,13 +52,7 @@ export function buildProjectHeader(): string {
           <i data-icon="caret-down" class="project-hooks-caret"></i>
         </button>
       </div>
-      <div class="project-sandbox-wrapper relative flex ml-3 [-webkit-app-region:no-drag]" style="display: none;">
-        <button class="project-sandbox-btn relative h-9 flex items-center justify-center gap-1.5 px-2.5 bg-background-secondary border border-border rounded-[14px] text-text-secondary transition-[background-color,color] duration-150 ease-out hover:bg-background-tertiary hover:text-text-primary" title="Sandbox">
-          <i data-icon="cube" class="w-5 h-5"></i>
-          <i data-icon="caret-down" class="!w-3 !h-3 opacity-50"></i>
-        </button>
-      </div>
-      <button class="project-terminal-btn" title="New terminal">
+<button class="project-terminal-btn" title="New terminal">
         <i data-icon="terminal"></i>
       </button>
       <button class="project-newtask-btn" title="New task">

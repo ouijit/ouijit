@@ -21,7 +21,6 @@ import { OuijitTerminal, scrollSafeFit, resolveTerminalLabel, getManager } from 
 import { showToast } from '../importDialog';
 import { showHookConfigDialog } from '../hookConfigDialog';
 import { hideTerminalDiffPanel } from './diffPanel';
-import { setSandboxButtonStarting, refreshSandboxButton } from './projectMode';
 import { addTerminalInHomeView } from '../homeView';
 import { convertIconsIn } from '../../utils/icons';
 import { escapeHtml } from '../../utils/html';
@@ -1127,11 +1126,7 @@ export async function addProjectTerminal(runConfig?: RunConfig, options?: AddPro
   };
 
   try {
-    if (useSandbox) setSandboxButtonStarting(true);
-
     const ptyId = await term.spawnPty(spawnOptions);
-
-    if (useSandbox) await refreshSandboxButton(currentProjectPath);
 
     // If terminal was closed during loading, clean up
     if (addedEarly && !manager.terminals.value.includes(term)) {
@@ -1167,7 +1162,6 @@ export async function addProjectTerminal(runConfig?: RunConfig, options?: AddPro
 
     return true;
   } catch (error) {
-    if (useSandbox) setSandboxButtonStarting(false);
     term.xterm.writeln(`\x1b[31mError: ${error instanceof Error ? error.message : 'Unknown error'}\x1b[0m`);
     if (addedEarly) {
       manager.remove(term);

@@ -30,8 +30,6 @@ export const projectState = {
   gitDropdownCleanup: null as (() => void) | null,
   diffFileDropdownCleanup: null as (() => void) | null,
   launchDropdownCleanup: null as (() => void) | null,
-  sandboxDropdownCleanup: null as (() => void) | null,
-
   // Cleanup function for kanban board
   kanbanCleanup: null as (() => void) | null,
 };

@@ -11,7 +11,6 @@ import {
   diffPanelVisible,
   diffPanelFiles,
   diffPanelSelectedFile,
-  sandboxDropdownVisible,
   kanbanVisible,
   resetSignals,
 } from './signals';
@@ -43,15 +42,14 @@ import { projectRegistry } from './helpers';
 import { OuijitTerminal, getManager } from '../terminal';
 import { registerHotkey, unregisterHotkey, pushScope, popScope, Scopes, platformHotkey } from '../../utils/hotkeys';
 import { convertIconsIn } from '../../utils/icons';
-import { showHookConfigDialog } from '../hookConfigDialog';
-import { addTooltip, convertTitlesIn } from '../../utils/tooltip';
+import { convertTitlesIn } from '../../utils/tooltip';
 
 const projectLog = log.scope('project');
 
 /**
  * Wire up event listeners on the project header buttons
  */
-function wireProjectHeader(headerContent: Element, path: string): void {
+function wireProjectHeader(headerContent: Element): void {
   convertIconsIn(headerContent as HTMLElement);
   convertTitlesIn(headerContent, 'bottom');
 
@@ -81,12 +79,6 @@ function wireProjectHeader(headerContent: Element, path: string): void {
       if (kanbanVisible.value) hideKanbanBoard();
       await addProjectTerminal();
     });
-  }
-
-  // Wire up sandbox button (dropdown)
-  const sandboxWrapper = headerContent.querySelector('.project-sandbox-wrapper') as HTMLElement;
-  if (sandboxWrapper) {
-    wireSandboxButton(sandboxWrapper, path);
   }
 
   // Wire up view toggle buttons
@@ -125,7 +117,7 @@ export async function enterProjectMode(path: string, project: Project): Promise<
   const headerContent = document.querySelector('.header-content');
   if (headerContent) {
     headerContent.innerHTML = buildProjectHeader();
-    wireProjectHeader(headerContent, path);
+    wireProjectHeader(headerContent);
   }
 
   // 3. Handle stack - restore existing or create new
@@ -388,9 +380,6 @@ export function exitProjectMode(): void {
   // 7. Hide launch dropdown
   hideLaunchDropdown();
 
-  // 7.5. Hide sandbox dropdown
-  hideSandboxDropdown();
-
   // 8. Hide diff panel
   hideDiffPanel();
 
@@ -472,7 +461,7 @@ export async function restoreProjectMode(
   const headerContent = document.querySelector('.header-content');
   if (headerContent) {
     headerContent.innerHTML = buildProjectHeader();
-    wireProjectHeader(headerContent, path);
+    wireProjectHeader(headerContent);
   }
 
   // 3. Create stack and restore terminals
@@ -711,394 +700,4 @@ function wireViewToggle(headerContent: Element): void {
       }
     });
   });
-}
-
-/**
- * Wire up the sandbox button to open a dropdown
- */
-function wireSandboxButton(wrapper: HTMLElement, path: string): void {
-  // Guard against double-wiring
-  if (wrapper.dataset.wired) return;
-  wrapper.dataset.wired = '1';
-
-  const sandboxBtn = wrapper.querySelector('.project-sandbox-btn') as HTMLElement;
-  if (!sandboxBtn) return;
-
-  // Remove native title — dropdown replaces it
-  sandboxBtn.removeAttribute('title');
-
-  // Check initial status and show button if Lima is available
-  window.api.lima.status(path).then((status) => {
-    if (!status.available) return;
-    wrapper.style.display = 'flex';
-    sandboxBtn.classList.toggle('project-sandbox-btn--active', status.vmStatus === 'Running');
-  });
-
-  // Click handler opens/closes dropdown
-  sandboxBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    toggleSandboxDropdown(wrapper, path);
-  });
-}
-
-/**
- * Toggle sandbox dropdown visibility
- */
-function toggleSandboxDropdown(wrapper: HTMLElement, path: string): void {
-  if (sandboxDropdownVisible.value) {
-    hideSandboxDropdown();
-  } else {
-    showSandboxDropdown(wrapper, path);
-  }
-}
-
-/**
- * Show the sandbox dropdown
- */
-async function showSandboxDropdown(wrapper: HTMLElement, path: string): Promise<void> {
-  if (sandboxDropdownVisible.value) return;
-
-  // Create dropdown
-  let dropdown = wrapper.querySelector('.sandbox-dropdown') as HTMLElement;
-  if (!dropdown) {
-    dropdown = document.createElement('div');
-    dropdown.className = 'sandbox-dropdown';
-    wrapper.appendChild(dropdown);
-  }
-
-  await buildSandboxDropdownContent(dropdown, wrapper, path);
-
-  requestAnimationFrame(() => {
-    dropdown.classList.add('visible');
-  });
-
-  sandboxDropdownVisible.value = true;
-
-  // Click outside handler — use capture phase and skip clicks from the
-  // same event loop tick (the click that opened the dropdown) by recording
-  // the opening timestamp.
-  const openedAt = Date.now();
-  const handleClickOutside = (e: MouseEvent) => {
-    if (Date.now() - openedAt < 50) return; // Ignore the opening click
-    const target = e.target as HTMLElement;
-    if (!target.closest('.project-sandbox-wrapper')) {
-      hideSandboxDropdown();
-    }
-  };
-
-  document.addEventListener('click', handleClickOutside);
-
-  projectState.sandboxDropdownCleanup = () => {
-    document.removeEventListener('click', handleClickOutside);
-  };
-}
-
-/**
- * Hide the sandbox dropdown
- */
-export function hideSandboxDropdown(): void {
-  if (!sandboxDropdownVisible.value) return;
-
-  const dropdown = document.querySelector('.sandbox-dropdown');
-  if (dropdown) {
-    dropdown.classList.remove('visible');
-    setTimeout(() => dropdown.remove(), 150);
-  }
-
-  if (projectState.sandboxDropdownCleanup) {
-    projectState.sandboxDropdownCleanup();
-    projectState.sandboxDropdownCleanup = null;
-  }
-
-  sandboxDropdownVisible.value = false;
-}
-
-/** Active border animation SVG — stored so cleanup is reliable */
-/**
- * Add or remove the animated SVG border on the sandbox button.
- * Creates an SVG rect overlay sized to the button with a dashed stroke
- * that traces around the border while the VM is starting up.
- */
-export function setSandboxButtonStarting(starting: boolean): void {
-  const btn = document.querySelector('.project-sandbox-btn') as HTMLElement | null;
-
-  if (!btn) return;
-
-  if (starting) {
-    btn.classList.add('project-sandbox-btn--starting');
-  } else {
-    btn.classList.remove('project-sandbox-btn--starting');
-  }
-}
-
-/**
- * Query Lima VM status and update the sandbox button appearance.
- * Always clears the starting animation first, then sets active/inactive
- * based on actual VM status.
- */
-export async function refreshSandboxButton(path: string): Promise<void> {
-  // Clear animation immediately — don't wait for the status query
-  setSandboxButtonStarting(false);
-  try {
-    const status = await window.api.lima.status(path);
-
-    const btn = document.querySelector('.project-sandbox-btn');
-    if (btn) {
-      btn.classList.toggle('project-sandbox-btn--active', status.vmStatus === 'Running');
-    }
-  } catch (error) {
-    projectLog.warn('refreshSandboxButton failed', { error: error instanceof Error ? error.message : String(error) });
-  }
-}
-
-/**
- * Build the sandbox dropdown content
- */
-async function buildSandboxDropdownContent(dropdown: HTMLElement, wrapper: HTMLElement, path: string): Promise<void> {
-  dropdown.innerHTML = '';
-
-  const [status, hooks, config] = await Promise.all([
-    window.api.lima.status(path),
-    window.api.hooks.get(path),
-    window.api.lima.getConfig(path),
-  ]);
-
-  const sandboxBtn = wrapper.querySelector('.project-sandbox-btn') as HTMLElement;
-  const setupHook = hooks['sandbox-setup'];
-
-  // Header
-  const header = document.createElement('div');
-  header.className = 'sandbox-dropdown-header';
-  header.textContent = 'Lima Sandbox';
-  dropdown.appendChild(header);
-
-  // Detail rows container
-  const detailsContainer = document.createElement('div');
-  detailsContainer.className = 'sandbox-dropdown-details';
-  dropdown.appendChild(detailsContainer);
-
-  const vmStatusMap: Record<string, string> = {
-    Running: 'Running',
-    Stopped: 'Stopped',
-    Broken: 'Broken',
-    NotCreated: 'Not created',
-    Unavailable: 'Unavailable',
-  };
-
-  function formatBytes(bytes: number): string {
-    if (bytes === 0) return '0 B';
-    const units = ['B', 'KB', 'MB', 'GB', 'TB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(1024));
-    const value = bytes / Math.pow(1024, i);
-    return `${Math.round(value * 10) / 10} ${units[i]}`;
-  }
-
-  function createSelect(options: number[], selected: number, suffix: string): HTMLSelectElement {
-    const select = document.createElement('select');
-    select.className = 'sandbox-dropdown-select';
-    for (const val of options) {
-      const opt = document.createElement('option');
-      opt.value = String(val);
-      opt.textContent = `${val} ${suffix}`;
-      if (val === selected) opt.selected = true;
-      select.appendChild(opt);
-    }
-    return select;
-  }
-
-  function updateDetailRows(s: { vmStatus: string; instanceName?: string; memory?: number; disk?: number }) {
-    detailsContainer.innerHTML = '';
-
-    // VM row
-    const vmRow = document.createElement('div');
-    vmRow.className = 'sandbox-dropdown-detail-row';
-
-    const vmLabel = document.createElement('span');
-    vmLabel.className = 'sandbox-dropdown-detail-label';
-    vmLabel.textContent = 'VM';
-    vmRow.appendChild(vmLabel);
-
-    const vmValue = document.createElement('span');
-    vmValue.className = 'sandbox-dropdown-detail-value';
-    if (s.vmStatus === 'Running') vmValue.classList.add('sandbox-dropdown-detail-value--running');
-    const vmText = vmStatusMap[s.vmStatus] || s.vmStatus;
-    vmValue.textContent = vmText;
-    vmRow.appendChild(vmValue);
-
-    detailsContainer.appendChild(vmRow);
-
-    // VM lifecycle hints
-    if (s.vmStatus === 'NotCreated') {
-      const vmHint = document.createElement('div');
-      vmHint.className = 'sandbox-dropdown-vm-hint';
-      vmHint.textContent = 'Created automatically when you open a sandbox terminal';
-      detailsContainer.appendChild(vmHint);
-    } else if (s.vmStatus === 'Stopped') {
-      const vmHint = document.createElement('div');
-      vmHint.className = 'sandbox-dropdown-vm-hint';
-      vmHint.textContent = 'Started automatically when you open a sandbox terminal';
-      detailsContainer.appendChild(vmHint);
-    } else if (s.vmStatus === 'Broken') {
-      const vmHint = document.createElement('div');
-      vmHint.className = 'sandbox-dropdown-vm-hint';
-      vmHint.textContent = 'VM is in a broken state. Recreate to fix.';
-      detailsContainer.appendChild(vmHint);
-    } else if (s.vmStatus === 'Running') {
-      const vmHint = document.createElement('div');
-      vmHint.className = 'sandbox-dropdown-vm-hint';
-      vmHint.textContent = 'Stopped automatically when you quit Ouijit';
-      detailsContainer.appendChild(vmHint);
-    }
-
-    // Instance name row (if available)
-    if (s.instanceName) {
-      const nameRow = document.createElement('div');
-      nameRow.className = 'sandbox-dropdown-detail-row';
-
-      const nameLabel = document.createElement('span');
-      nameLabel.className = 'sandbox-dropdown-detail-label';
-      nameLabel.textContent = 'Name';
-      nameRow.appendChild(nameLabel);
-
-      const nameValue = document.createElement('span');
-      nameValue.className = 'sandbox-dropdown-detail-value sandbox-dropdown-detail-value--mono';
-      nameValue.textContent = s.instanceName;
-      nameRow.appendChild(nameValue);
-
-      detailsContainer.appendChild(nameRow);
-    }
-
-    // Memory select row
-    const memRow = document.createElement('div');
-    memRow.className = 'sandbox-dropdown-detail-row';
-    const memLabel = document.createElement('span');
-    memLabel.className = 'sandbox-dropdown-detail-label';
-    memLabel.textContent = 'Memory';
-    memRow.appendChild(memLabel);
-
-    const memSelect = createSelect([2, 4, 8, 16], config.memoryGiB, 'GiB');
-    memRow.appendChild(memSelect);
-    detailsContainer.appendChild(memRow);
-
-    // Disk select row
-    const diskRow = document.createElement('div');
-    diskRow.className = 'sandbox-dropdown-detail-row';
-    const diskLabel = document.createElement('span');
-    diskLabel.className = 'sandbox-dropdown-detail-label';
-    diskLabel.textContent = 'Disk';
-    diskRow.appendChild(diskLabel);
-
-    const diskSelect = createSelect([50, 100, 200], config.diskGiB, 'GiB');
-    diskRow.appendChild(diskSelect);
-    detailsContainer.appendChild(diskRow);
-
-    // Wire config change handlers
-    memSelect.addEventListener('change', async () => {
-      const newMem = parseInt(memSelect.value, 10);
-      await window.api.lima.setConfig(path, { memoryGiB: newMem, diskGiB: config.diskGiB });
-      config.memoryGiB = newMem;
-    });
-
-    diskSelect.addEventListener('change', async () => {
-      const newDisk = parseInt(diskSelect.value, 10);
-      await window.api.lima.setConfig(path, { memoryGiB: config.memoryGiB, diskGiB: newDisk });
-      config.diskGiB = newDisk;
-    });
-
-    // Usage row (only show when running and we have disk info)
-    if (s.vmStatus === 'Running' && s.disk != null) {
-      const usageRow = document.createElement('div');
-      usageRow.className = 'sandbox-dropdown-detail-row';
-
-      const usageLabel = document.createElement('span');
-      usageLabel.className = 'sandbox-dropdown-detail-label';
-      usageLabel.textContent = 'Usage';
-      usageRow.appendChild(usageLabel);
-
-      const usageValue = document.createElement('span');
-      usageValue.className = 'sandbox-dropdown-detail-value';
-      usageValue.textContent = formatBytes(s.disk);
-      usageRow.appendChild(usageValue);
-
-      detailsContainer.appendChild(usageRow);
-    }
-  }
-
-  updateDetailRows(status);
-
-  // Setup hook row
-  const hookRow = document.createElement('div');
-  hookRow.className = 'sandbox-dropdown-hook-row';
-
-  const hookLabel = document.createElement('span');
-  hookLabel.className = 'sandbox-dropdown-detail-label';
-  hookLabel.textContent = 'Setup hook';
-  hookRow.appendChild(hookLabel);
-
-  const hookStatus = document.createElement('span');
-  hookStatus.className = 'sandbox-dropdown-detail-value';
-  if (setupHook) {
-    hookStatus.textContent = 'Configured';
-    hookStatus.classList.add('sandbox-dropdown-detail-value--running');
-  } else {
-    hookStatus.textContent = 'None';
-  }
-  hookRow.appendChild(hookStatus);
-
-  hookRow.addEventListener('click', () => {
-    hideSandboxDropdown();
-    showHookConfigDialog(path, 'sandbox-setup');
-  });
-  addTooltip(hookRow, { text: 'Configure sandbox-setup hook', placement: 'bottom' });
-
-  dropdown.appendChild(hookRow);
-
-  // Action buttons
-  const actionsContainer = document.createElement('div');
-  actionsContainer.className = 'sandbox-dropdown-actions';
-
-  if (status.vmStatus === 'Running') {
-    // Stop button
-    const stopBtn = document.createElement('button');
-    stopBtn.className = 'btn btn-secondary btn-sm';
-    stopBtn.innerHTML = '<i data-icon="square"></i> Stop VM';
-    stopBtn.addEventListener('click', async () => {
-      stopBtn.disabled = true;
-      stopBtn.textContent = 'Stopping…';
-      try {
-        await window.api.lima.stop(path);
-        if (sandboxBtn) sandboxBtn.classList.remove('project-sandbox-btn--active');
-        const newStatus = await window.api.lima.status(path);
-        updateDetailRows(newStatus);
-      } finally {
-        hideSandboxDropdown();
-      }
-    });
-    actionsContainer.appendChild(stopBtn);
-  }
-
-  if (status.vmStatus === 'Broken' || status.vmStatus === 'Stopped') {
-    // Recreate button
-    const recreateBtn = document.createElement('button');
-    recreateBtn.className = 'btn btn-secondary btn-sm';
-    recreateBtn.innerHTML = '<i data-icon="refresh-cw"></i> Recreate VM';
-    recreateBtn.addEventListener('click', async () => {
-      recreateBtn.disabled = true;
-      recreateBtn.textContent = 'Recreating…';
-      try {
-        await window.api.lima.recreate(path);
-        if (sandboxBtn) sandboxBtn.classList.remove('project-sandbox-btn--active');
-        const newStatus = await window.api.lima.status(path);
-        updateDetailRows(newStatus);
-      } finally {
-        hideSandboxDropdown();
-      }
-    });
-    actionsContainer.appendChild(recreateBtn);
-  }
-
-  if (actionsContainer.children.length > 0) {
-    dropdown.appendChild(actionsContainer);
-    convertIconsIn(actionsContainer);
-  }
 }

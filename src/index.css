@@ -185,6 +185,18 @@ textarea,
   }
 }
 
+@keyframes sandbox-icon-pulse {
+  0%,
+  100% {
+    color: #409cff;
+    opacity: 0.4;
+  }
+  50% {
+    color: #409cff;
+    opacity: 1;
+  }
+}
+
 /* ===================================
    Utility Classes
    =================================== */
@@ -900,55 +912,7 @@ body.home-mode .home-folder-divider.project-card {
   @apply w-5 h-5;
 }
 
-/* Sandbox wrapper */
-.project-sandbox-btn--active {
-  background: rgba(10, 132, 255, 0.15);
-  color: #409cff;
-}
-
-.project-sandbox-btn--active:hover {
-  background: rgba(10, 132, 255, 0.25);
-  color: #6ab4ff;
-}
-
-.project-sandbox-btn--starting svg:first-child {
-  animation: sandbox-icon-pulse 1.5s ease-in-out infinite;
-}
-
-@keyframes sandbox-icon-pulse {
-  0%,
-  100% {
-    color: #409cff;
-    opacity: 0.4;
-  }
-  50% {
-    color: #409cff;
-    opacity: 1;
-  }
-}
-
-/* Sandbox Dropdown */
-.sandbox-dropdown {
-  @apply absolute top-full right-0 mt-1 min-w-[240px] max-w-[280px] bg-surface border border-border
-         rounded-md shadow-lg z-[1000] opacity-0 invisible overflow-hidden;
-  transition:
-    opacity 150ms ease-out,
-    transform 150ms ease-out,
-    visibility 150ms ease-out;
-  transform: translateY(-8px);
-  -webkit-app-region: no-drag;
-}
-
-.sandbox-dropdown.visible {
-  @apply opacity-100 visible;
-  transform: translateY(0);
-}
-
-.sandbox-dropdown-header {
-  @apply text-[13px] text-text-tertiary px-3 pt-2 pb-1 uppercase tracking-wide;
-}
-
-/* Task Context Menu (right-click "Open in Sandbox") */
+/* Task Context Menu */
 .task-context-menu {
   @apply fixed z-[2000] py-1 bg-surface border border-border rounded-md shadow-lg overflow-hidden opacity-0;
   transition: opacity 100ms ease;
@@ -976,159 +940,6 @@ body.home-mode .home-folder-divider.project-card {
 
 .task-context-menu-separator {
   @apply border-t border-border my-1;
-}
-
-.sandbox-dropdown-stop-btn {
-  @apply w-[calc(100%-24px)] mx-3 my-1.5 px-3 py-1.5 text-xs font-medium text-text-secondary bg-background-secondary border border-border rounded-md transition-all duration-150 ease-out;
-}
-
-.sandbox-dropdown-stop-btn:hover {
-  @apply bg-background-tertiary text-text-primary;
-}
-
-.sandbox-dropdown-stop-btn:disabled {
-  @apply opacity-50;
-}
-
-.sandbox-dropdown-delete-btn {
-  @apply w-[calc(100%-24px)] mx-3 my-1.5 px-3 py-1.5 text-xs font-medium text-text-tertiary bg-transparent border border-transparent rounded-md transition-all duration-150 ease-out;
-}
-
-.sandbox-dropdown-delete-btn:hover {
-  @apply text-error/80;
-}
-
-.sandbox-dropdown-delete-btn--confirm {
-  @apply text-error bg-error/10 border-error/30;
-}
-
-.sandbox-dropdown-delete-btn--confirm:hover {
-  @apply bg-error/20 text-error;
-}
-
-.sandbox-dropdown-delete-btn:disabled {
-  @apply opacity-50;
-}
-
-.sandbox-dropdown-divider {
-  @apply h-px bg-border my-1;
-}
-
-.sandbox-dropdown-details {
-  @apply flex flex-col gap-0.5 px-3 py-1;
-}
-
-.sandbox-dropdown-detail-row {
-  @apply flex items-center justify-between text-xs py-0.5;
-}
-
-.sandbox-dropdown-detail-label {
-  @apply text-xs font-medium text-text-secondary;
-}
-
-.sandbox-dropdown-detail-value {
-  @apply text-text-secondary;
-}
-
-.sandbox-dropdown-detail-value--running {
-  color: #0a84ff;
-}
-
-.sandbox-dropdown-detail-value--mono {
-  @apply font-mono;
-}
-
-.sandbox-dropdown-hook-row {
-  @apply flex items-center justify-between gap-2 px-3 py-1.5;
-}
-
-.sandbox-dropdown-hook-right {
-  @apply flex items-center gap-1 min-w-0 overflow-hidden;
-}
-
-.sandbox-dropdown-hook-command {
-  @apply text-xs font-mono text-text-primary truncate;
-}
-
-.sandbox-dropdown-hook-edit {
-  @apply shrink-0 w-0 h-6 overflow-hidden opacity-0 bg-transparent border-none rounded-md flex items-center justify-center text-text-tertiary transition-all duration-150 ease-out;
-}
-
-.sandbox-dropdown-hook-row:hover .sandbox-dropdown-hook-edit {
-  @apply w-6 opacity-100;
-}
-
-.sandbox-dropdown-hook-edit:hover {
-  @apply text-text-primary;
-}
-
-.sandbox-dropdown-hook-edit svg {
-  @apply w-3.5 h-3.5;
-}
-
-.sandbox-dropdown-hook-configure {
-  @apply bg-transparent border-none text-xs text-text-tertiary p-0 transition-colors duration-150 ease-out;
-}
-
-.sandbox-dropdown-hook-configure:hover {
-  @apply text-accent;
-}
-
-.sandbox-dropdown-hint {
-  @apply text-[13px] text-text-tertiary leading-snug px-3 pb-2.5 pt-0.5;
-}
-
-.sandbox-dropdown-vm-hint {
-  @apply text-[13px] text-text-tertiary leading-snug pt-0.5;
-}
-
-.sandbox-dropdown-select {
-  @apply text-xs text-text-primary bg-background-secondary border border-border rounded px-1.5 py-0.5 outline-none transition-colors duration-150 ease-out;
-  -webkit-appearance: none;
-  appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg width='8' height='5' viewBox='0 0 8 5' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L4 4L7 1' stroke='%2398989D' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 4px center;
-  padding-right: 16px;
-}
-
-.sandbox-dropdown-select:hover {
-  @apply border-border-hover bg-background-tertiary;
-}
-
-.sandbox-dropdown-select:focus {
-  @apply border-accent;
-}
-
-/* Sandbox Toggle Switch */
-.sandbox-toggle {
-  position: relative;
-  width: 34px;
-  height: 20px;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.15);
-  transition: background 200ms ease;
-  flex-shrink: 0;
-}
-
-.sandbox-toggle--active {
-  background: #0a84ff;
-}
-
-.sandbox-toggle-knob {
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: white;
-  transition: transform 200ms ease;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
-}
-
-.sandbox-toggle--active .sandbox-toggle-knob {
-  transform: translateX(14px);
 }
 
 .project-exit-btn {

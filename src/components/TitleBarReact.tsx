@@ -140,21 +140,21 @@ export function TitleBar() {
                 <Tooltip text="Sandbox" placement="bottom" disabled={sandboxOpen}>
                   <button
                     ref={sandboxBtnRef}
-                    className={`relative h-9 flex items-center justify-center gap-1.5 px-2.5 border rounded-[14px] transition-all duration-150 [&>svg]:w-5 [&>svg]:h-5 ${
+                    className={`relative h-9 flex items-center justify-center gap-1.5 px-2.5 border rounded-[14px] transition-[background-color,color] duration-150 [&>svg]:w-5 [&>svg]:h-5 ${
                       sandboxVmStatus === 'Running'
-                        ? 'bg-[rgba(10,132,255,0.15)] border-[rgba(10,132,255,0.4)] text-[#409cff] hover:bg-[rgba(10,132,255,0.25)]'
-                        : sandboxStarting
-                          ? 'bg-background-secondary border-transparent text-[#409cff]'
-                          : 'bg-background-secondary border-border text-text-secondary hover:bg-background-tertiary hover:text-text-primary'
+                        ? 'bg-[rgba(10,132,255,0.15)] border-transparent text-[#409cff] hover:bg-[rgba(10,132,255,0.25)]'
+                        : 'bg-background-secondary border-border text-text-secondary hover:bg-background-tertiary hover:text-text-primary'
                     }`}
                     style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
                     onClick={() => setSandboxOpen(!sandboxOpen)}
                   >
-                    <Icon name="cube" />
+                    <Icon
+                      name="cube"
+                      className={sandboxStarting ? 'animate-[sandbox-icon-pulse_1.5s_ease-in-out_infinite]' : ''}
+                    />
                     <span className="[&_svg]:!w-3 [&_svg]:!h-3 opacity-50">
                       <Icon name="caret-down" />
                     </span>
-                    {sandboxStarting && <SandboxBorderAnim />}
                   </button>
                 </Tooltip>
                 {sandboxOpen && (
@@ -222,46 +222,5 @@ export function TitleBar() {
         ) : null}
       </div>
     </header>
-  );
-}
-
-/** Animated dashed border that traces around the sandbox button while VM is starting */
-function SandboxBorderAnim() {
-  const ref = useRef<SVGSVGElement>(null);
-  const [dims, setDims] = useState({ w: 0, h: 0 });
-
-  useEffect(() => {
-    const btn = ref.current?.parentElement;
-    if (btn) {
-      setDims({ w: btn.offsetWidth + 4, h: btn.offsetHeight + 4 });
-    }
-  }, []);
-
-  if (dims.w === 0) return <svg ref={ref} className="absolute" style={{ width: 0, height: 0 }} />;
-
-  const r = 16; // matches rounded-[14px] + 2px inset
-
-  return (
-    <svg
-      ref={ref}
-      className="absolute pointer-events-none overflow-visible"
-      style={{ inset: -2, width: dims.w, height: dims.h }}
-      viewBox={`0 0 ${dims.w} ${dims.h}`}
-    >
-      <rect
-        x="0.5"
-        y="0.5"
-        width={dims.w - 1}
-        height={dims.h - 1}
-        rx={r}
-        fill="none"
-        stroke="#0A84FF"
-        strokeWidth="1"
-        pathLength="100"
-        strokeDasharray="25 75"
-        strokeLinecap="round"
-        style={{ animation: 'sandbox-border-trace 1.5s linear infinite' }}
-      />
-    </svg>
   );
 }
