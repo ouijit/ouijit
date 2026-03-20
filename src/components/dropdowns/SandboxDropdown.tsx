@@ -5,6 +5,7 @@ import { useAppStore } from '../../stores/appStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { addProjectTerminal } from '../terminal/terminalActions';
 import { HookConfigDialog } from '../dialogs/HookConfigDialog';
+import type { ScriptHook } from '../../types';
 
 const VM_STATUS_LABELS: Record<string, string> = {
   Running: 'Running',
@@ -40,7 +41,7 @@ export function SandboxDropdown({ anchorRef, onClose }: SandboxDropdownProps) {
   const [diskUsage, setDiskUsage] = useState<number | null>(null);
   const [memoryGiB, setMemoryGiB] = useState(4);
   const [diskGiB, setDiskGiB] = useState(100);
-  const [hasSetupHook, setHasSetupHook] = useState(false);
+  const [setupHook, setSetupHook] = useState<ScriptHook | undefined>();
   const [hookDialog, setHookDialog] = useState(false);
   const [loading, setLoading] = useState(false);
   const [ready, setReady] = useState(false);
@@ -75,7 +76,7 @@ export function SandboxDropdown({ anchorRef, onClose }: SandboxDropdownProps) {
       setDiskUsage(status.disk ?? null);
       setMemoryGiB(config.memoryGiB);
       setDiskGiB(config.diskGiB);
-      setHasSetupHook(!!(hooks as any)['sandbox-setup']);
+      setSetupHook((hooks as any)['sandbox-setup'] || undefined);
       requestAnimationFrame(() => setReady(true));
     })();
   }, [projectPath]);
@@ -242,8 +243,8 @@ export function SandboxDropdown({ anchorRef, onClose }: SandboxDropdownProps) {
             onClick={() => setHookDialog(true)}
           >
             <span className="text-xs font-medium text-text-secondary">Setup hook</span>
-            <span className={`text-xs ${hasSetupHook ? 'text-[#0a84ff]' : 'text-text-secondary'}`}>
-              {hasSetupHook ? 'Configured' : 'None'}
+            <span className={`text-xs ${setupHook ? 'text-[#0a84ff]' : 'text-text-secondary'}`}>
+              {setupHook ? 'Configured' : 'None'}
             </span>
           </div>
           <div className="flex flex-wrap gap-2 px-3 py-2.5 border-t border-white/[0.06]">
@@ -288,10 +289,11 @@ export function SandboxDropdown({ anchorRef, onClose }: SandboxDropdownProps) {
         <HookConfigDialog
           projectPath={projectPath}
           hookType="sandbox-setup"
+          existingHook={setupHook}
           onClose={(result) => {
             setHookDialog(false);
             if (result?.saved) {
-              setHasSetupHook(!!result.hook);
+              setSetupHook(result.hook || undefined);
               useProjectStore.getState().addToast('Sandbox setup hook saved', 'success');
             }
             onClose();
