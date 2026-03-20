@@ -458,18 +458,66 @@ export async function reconnectOrphanedSessions(projectPath: string): Promise<vo
   const projectSessions = sessions.filter((s) => s.projectPath === projectPath);
   if (projectSessions.length === 0) return;
 
-  for (const session of projectSessions) {
-    // Look up worktree branch if this is a task terminal
+  const mainSessions = projectSessions.filter((s) => !s.isRunner);
+  const runnerSessions = projectSessions.filter((s) => s.isRunner);
+
+  // Reconnect main terminals first
+  for (const session of mainSessions) {
     let worktreeBranch: string | undefined;
     if (session.taskId != null) {
       const task = await window.api.task.getByNumber(projectPath, session.taskId);
       worktreeBranch = task?.branch;
     }
 
-    // Check if terminal is running Claude (has hooks) — show as thinking
     const hookStatus = await window.api.claudeHooks.getStatus(session.ptyId);
     const initialStatus: SummaryType = hookStatus?.status === 'thinking' ? 'thinking' : 'ready';
 
     await reconnectTerminal(session, { worktreeBranch, initialStatus });
+  }
+
+  // Reconnect runners to their parent terminals
+  for (const session of runnerSessions) {
+    const parentTerminal = terminalInstances.get(session.parentPtyId!);
+    if (!parentTerminal) {
+      actionsLog.warn('could not find parent for runner', { ptyId: session.ptyId, parentPtyId: session.parentPtyId });
+      continue;
+    }
+
+    const runner = new OuijitTerminal({
+      projectPath: session.projectPath,
+      label: session.label,
+      isRunner: true,
+      ptyId: session.ptyId,
+    });
+    runner.openTerminal();
+
+    const result = await window.api.pty.reconnect(session.ptyId);
+    if (!result.success) {
+      runner.dispose();
+      continue;
+    }
+
+    runner.replayBuffer(result.bufferedOutput, result.lastCols, result.isAltScreen);
+    terminalInstances.set(session.ptyId, runner);
+    runner.bind(session.ptyId, {
+      skipSideEffects: true,
+      onData: (data) => {
+        const oscMatches = data.matchAll(/\x1b\]0;([^\x07]*)\x07/g);
+        for (const match of oscMatches) {
+          if (match[1]) {
+            parentTerminal.runnerCommand = match[1];
+            parentTerminal.pushDisplayState({ runnerStatus: parentTerminal.runnerStatus });
+          }
+        }
+      },
+      onExit: (exitCode) => {
+        parentTerminal.runnerStatus = exitCode === 0 ? 'success' : 'error';
+        parentTerminal.pushDisplayState({ runnerStatus: parentTerminal.runnerStatus });
+      },
+    });
+
+    parentTerminal.runnerStatus = 'running';
+    parentTerminal.setRunner(runner);
+    parentTerminal.pushDisplayState({ runnerStatus: 'running' });
   }
 }

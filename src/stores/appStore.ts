@@ -9,6 +9,8 @@ interface AppStoreState {
   platform: 'darwin' | 'other';
   projects: Project[];
   sidebarSearch: string;
+  sandboxAvailable: boolean;
+  sandboxVmStatus: string;
   _version: number;
 }
 
@@ -16,6 +18,7 @@ interface AppStoreActions {
   setProjects: (projects: Project[]) => void;
   setFullscreen: (fullscreen: boolean) => void;
   setSidebarSearch: (search: string) => void;
+  setSandboxStatus: (available: boolean, vmStatus: string) => void;
   navigateToProject: (path: string, project: Project) => void;
   navigateHome: () => void;
   resetProjectState: () => void;
@@ -31,6 +34,8 @@ export const useAppStore = create<AppStore>()((set, get) => ({
   platform: navigator.platform.toLowerCase().includes('mac') ? 'darwin' : 'other',
   projects: [],
   sidebarSearch: '',
+  sandboxAvailable: false,
+  sandboxVmStatus: '',
   _version: 0,
 
   setProjects: (projects) => set({ projects }),
@@ -38,6 +43,8 @@ export const useAppStore = create<AppStore>()((set, get) => ({
   setFullscreen: (fullscreen) => set({ fullscreen }),
 
   setSidebarSearch: (search) => set({ sidebarSearch: search }),
+
+  setSandboxStatus: (available, vmStatus) => set({ sandboxAvailable: available, sandboxVmStatus: vmStatus }),
 
   navigateToProject: (path, project) => {
     const version = get()._version + 1;

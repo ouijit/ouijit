@@ -57,6 +57,9 @@ export function App() {
           if (parsed.type === 'project' && parsed.path) {
             const project = projects.find((p) => p.path === parsed.path);
             if (project) {
+              // Fetch sandbox status before navigating so button renders instantly
+              const limaStatus = await window.api.lima.status(parsed.path);
+              useAppStore.getState().setSandboxStatus(limaStatus.available, limaStatus.vmStatus);
               useAppStore.getState().navigateToProject(parsed.path, project);
             }
           }
@@ -115,6 +118,10 @@ export function App() {
     [],
   );
 
+  if (!initialized) {
+    return <div className="app-layout" style={{ visibility: 'hidden' }} />;
+  }
+
   return (
     <div className="app-layout">
       <Sidebar
@@ -126,8 +133,8 @@ export function App() {
       <div className="app-main">
         <TitleBar />
         <main className="main-content">
-          {initialized && activeView === 'home' && <HomeView />}
-          {initialized && activeView === 'project' && <ProjectView />}
+          {activeView === 'home' && <HomeView />}
+          {activeView === 'project' && <ProjectView />}
         </main>
       </div>
       <ToastContainer />

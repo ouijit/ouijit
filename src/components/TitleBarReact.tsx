@@ -19,10 +19,10 @@ export function TitleBar() {
   const platform = useAppStore((s) => s.platform);
   const kanbanVisible = useProjectStore((s) => s.kanbanVisible);
   const homeGroupMode = useUIStore((s) => s.homeGroupMode);
+  const sandboxAvailable = useAppStore((s) => s.sandboxAvailable);
+  const sandboxVmStatus = useAppStore((s) => s.sandboxVmStatus);
   const [launchOpen, setLaunchOpen] = useState(false);
   const [sandboxOpen, setSandboxOpen] = useState(false);
-  const [sandboxAvailable, setSandboxAvailable] = useState(false);
-  const [sandboxVmStatus, setSandboxVmStatus] = useState('');
   const [sandboxStarting, setSandboxStarting] = useState(false);
   const [username, setUsername] = useState('');
   const hooksBtnRef = useRef<HTMLButtonElement>(null);
@@ -32,27 +32,24 @@ export function TitleBar() {
     window.api.homePath().then((p) => setUsername(p.split('/').pop() || 'Home'));
   }, []);
 
-  // Check sandbox availability for the active project
+  // Fetch sandbox status when switching projects + poll for VM status changes
   useEffect(() => {
     if (!activeProjectPath) {
-      setSandboxAvailable(false);
+      useAppStore.getState().setSandboxStatus(false, '');
       return;
     }
     window.api.lima.status(activeProjectPath).then((s) => {
-      setSandboxAvailable(s.available);
-      setSandboxVmStatus(s.vmStatus);
+      useAppStore.getState().setSandboxStatus(s.available, s.vmStatus);
     });
 
-    // Listen for sandbox spawn progress to show starting animation
     const cleanup = window.api.lima.onSpawnProgress(() => {
       setSandboxStarting(true);
     });
 
-    // Poll to detect when VM finishes starting
     const poll = setInterval(async () => {
       try {
         const s = await window.api.lima.status(activeProjectPath);
-        setSandboxVmStatus(s.vmStatus);
+        useAppStore.getState().setSandboxStatus(s.available, s.vmStatus);
         if (s.vmStatus === 'Running') setSandboxStarting(false);
       } catch {
         /* ignore */
@@ -164,7 +161,7 @@ export function TitleBar() {
                       setSandboxOpen(false);
                       if (activeProjectPath) {
                         window.api.lima.status(activeProjectPath).then((s) => {
-                          setSandboxVmStatus(s.vmStatus);
+                          useAppStore.getState().setSandboxStatus(s.available, s.vmStatus);
                           if (s.vmStatus === 'Running') setSandboxStarting(false);
                         });
                       }

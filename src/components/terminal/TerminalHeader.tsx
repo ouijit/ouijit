@@ -52,9 +52,11 @@ export const TerminalHeader = memo(function TerminalHeader({
   const isTaskTerminal = taskId != null;
 
   const [sandboxAvailable, setSandboxAvailable] = useState(false);
+  const [hasEditorHook, setHasEditorHook] = useState(false);
   useEffect(() => {
     if (projectPath) {
       window.api.lima.status(projectPath).then((s) => setSandboxAvailable(s.available));
+      window.api.hooks.get(projectPath).then((h) => setHasEditorHook(!!h.editor));
     }
   }, [projectPath]);
 
@@ -97,6 +99,16 @@ export const TerminalHeader = memo(function TerminalHeader({
       }
     }
 
+    if (hasEditorHook && instance.worktreePath) {
+      items.push({
+        label: 'Open in Editor',
+        icon: 'code',
+        onClick: () => {
+          window.api.openInEditor(projectPath, instance.worktreePath!);
+        },
+      });
+    }
+
     items.push({ separator: true });
     items.push({
       label: 'Close Task',
@@ -110,7 +122,7 @@ export const TerminalHeader = memo(function TerminalHeader({
     });
 
     return items;
-  }, [isTaskTerminal, instance, projectPath, taskId, sandboxAvailable, onClose]);
+  }, [isTaskTerminal, instance, projectPath, taskId, sandboxAvailable, hasEditorHook, onClose]);
 
   const handleContextMenu = useCallback(
     (e: React.MouseEvent) => {
