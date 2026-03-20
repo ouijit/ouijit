@@ -210,7 +210,7 @@ export const TerminalCard = memo(function TerminalCard({ ptyId, projectPath }: T
             {!(runnerPanelOpen && runnerFullWidth) && (
               <XTermContainer
                 ptyId={ptyId}
-                className="terminal-xterm-container flex-1 min-h-0 min-w-0 rounded-none border-none p-4 overflow-hidden"
+                className="terminal-xterm-container flex-1 min-h-0 min-w-0 rounded-none border-none pt-4 pl-4 pr-2 pb-2 overflow-hidden"
                 style={{
                   transition: 'flex 0.25s ease',
                   ...(runnerPanelOpen && !runnerFullWidth ? { minWidth: 200 } : {}),

@@ -215,18 +215,7 @@ textarea,
 }
 
 .terminal-xterm-container .xterm-viewport {
-  @apply overflow-y-auto rounded-md;
   background-color: transparent !important;
-}
-
-.terminal-xterm-container .xterm .xterm-scrollable-element > .scrollbar.vertical {
-  width: 10px !important;
-}
-
-.terminal-xterm-container .xterm .xterm-scrollable-element > .scrollbar.vertical > .slider {
-  border-radius: 5px !important;
-  left: 2px !important;
-  width: 6px !important;
 }
 
 .runner-xterm-container .xterm {
@@ -234,18 +223,7 @@ textarea,
 }
 
 .runner-xterm-container .xterm-viewport {
-  @apply overflow-y-auto rounded-md;
   background-color: transparent !important;
-}
-
-.runner-xterm-container .xterm .xterm-scrollable-element > .scrollbar.vertical {
-  width: 10px !important;
-}
-
-.runner-xterm-container .xterm .xterm-scrollable-element > .scrollbar.vertical > .slider {
-  border-radius: 5px !important;
-  left: 2px !important;
-  width: 6px !important;
 }
 
 /* Responsive Adjustments */

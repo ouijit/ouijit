@@ -354,7 +354,7 @@ export class OuijitTerminal {
 
     // Create viewport element (minimal — React owns card chrome)
     this.viewportElement = document.createElement('div');
-    this.viewportElement.className = 'terminal-xterm-container w-full h-full overflow-hidden';
+    this.viewportElement.className = 'w-full h-full';
 
     // Bind immediately if ptyId was provided
     if (opts.ptyId) {
