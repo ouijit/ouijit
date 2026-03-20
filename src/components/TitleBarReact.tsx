@@ -99,7 +99,7 @@ export function TitleBar({ mode, sidebarVisible }: TitleBarProps) {
       <div
         className={`mx-auto flex items-center gap-2 transition-[padding-left] duration-200 ${
           isProjectOrHome
-            ? `max-w-none px-0 pb-2 ${mode === 'home' ? 'justify-start' : 'justify-center'}`
+            ? `max-w-none px-0 pt-4 pb-2 ${mode === 'home' ? 'justify-start' : 'justify-center'}`
             : 'max-w-[var(--content-max-width)] px-6 py-4 justify-center'
         }`}
         style={{ paddingLeft: needsTrafficLightPad ? 80 : sidebarVisible ? 16 : 24 }}
