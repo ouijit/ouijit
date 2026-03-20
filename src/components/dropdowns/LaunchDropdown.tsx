@@ -43,8 +43,9 @@ export function LaunchDropdown({ anchorRef, onClose }: LaunchDropdownProps) {
     });
   }, [projectPath]);
 
-  // Click outside
+  // Click outside (disabled while hook dialog is open)
   useEffect(() => {
+    if (hookDialog) return;
     const handler = (e: MouseEvent) => {
       if (
         dropdownRef.current &&
@@ -57,7 +58,7 @@ export function LaunchDropdown({ anchorRef, onClose }: LaunchDropdownProps) {
     };
     setTimeout(() => document.addEventListener('mousedown', handler), 0);
     return () => document.removeEventListener('mousedown', handler);
-  }, [onClose, anchorRef]);
+  }, [onClose, anchorRef, hookDialog]);
 
   const handleConfigure = useCallback(
     (hookType: HookType) => {
@@ -89,7 +90,7 @@ export function LaunchDropdown({ anchorRef, onClose }: LaunchDropdownProps) {
             (dropdownRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
             refs.setFloating(node);
           }}
-          className="min-w-[200px] max-w-[280px] bg-surface border border-border rounded-md shadow-lg z-[1000] overflow-hidden transition-opacity duration-150 ease-out"
+          className="w-[220px] bg-surface border border-border rounded-md shadow-lg z-[1000] overflow-hidden transition-opacity duration-150 ease-out"
           style={{
             ...floatingStyles,
             opacity: ready ? 1 : 0,
@@ -100,10 +101,10 @@ export function LaunchDropdown({ anchorRef, onClose }: LaunchDropdownProps) {
             {HOOK_ORDER.map(({ type, label, hint }) => {
               const hook = hooks[type];
               return (
-                <div key={type} className="px-3 py-1.5">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="text-xs font-medium text-text-primary">{label}</span>
+                <div key={type} className="px-3 py-1.5 min-w-0">
+                  <div className="flex items-center justify-between gap-2 min-w-0">
+                    <div className="flex items-center gap-2 min-w-0 overflow-hidden">
+                      <span className="text-xs font-medium text-text-primary shrink-0">{label}</span>
                       {hook && <span className="text-xs font-mono text-text-tertiary truncate">{hook.command}</span>}
                     </div>
                     <button
@@ -113,7 +114,7 @@ export function LaunchDropdown({ anchorRef, onClose }: LaunchDropdownProps) {
                         handleConfigure(type);
                       }}
                     >
-                      {hook ? <Icon name="gear" /> : '+ Configure'}
+                      {hook ? <Icon name="gear" className="w-3.5 h-3.5" /> : '+ Configure'}
                     </button>
                   </div>
                   <div className="text-[11px] text-text-tertiary mt-0.5">{hint}</div>

@@ -80,8 +80,9 @@ export function SandboxDropdown({ anchorRef, onClose }: SandboxDropdownProps) {
     })();
   }, [projectPath]);
 
-  // Click outside
+  // Click outside (disabled while hook dialog is open)
   useEffect(() => {
+    if (hookDialog) return;
     const handler = (e: MouseEvent) => {
       if (
         dropdownRef.current &&
@@ -94,7 +95,7 @@ export function SandboxDropdown({ anchorRef, onClose }: SandboxDropdownProps) {
     };
     setTimeout(() => document.addEventListener('mousedown', handler), 0);
     return () => document.removeEventListener('mousedown', handler);
-  }, [onClose, anchorRef]);
+  }, [onClose, anchorRef, hookDialog]);
 
   const handleStart = useCallback(async () => {
     if (!projectPath) return;
@@ -238,10 +239,7 @@ export function SandboxDropdown({ anchorRef, onClose }: SandboxDropdownProps) {
           </div>
           <div
             className="flex items-center justify-between gap-2 px-3 py-1.5 hover:bg-white/[0.04] transition-colors"
-            onClick={() => {
-              onClose();
-              setHookDialog(true);
-            }}
+            onClick={() => setHookDialog(true)}
           >
             <span className="text-xs font-medium text-text-secondary">Setup hook</span>
             <span className={`text-xs ${hasSetupHook ? 'text-[#0a84ff]' : 'text-text-secondary'}`}>
@@ -296,6 +294,7 @@ export function SandboxDropdown({ anchorRef, onClose }: SandboxDropdownProps) {
               setHasSetupHook(!!result.hook);
               useProjectStore.getState().addToast('Sandbox setup hook saved', 'success');
             }
+            onClose();
           }}
         />
       )}
