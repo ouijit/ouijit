@@ -47,15 +47,20 @@ export function KanbanColumn({
   const hookTypes = COLUMN_HOOK_TYPES[status] ?? [];
 
   return (
-    <div className="kanban-column" data-status={status}>
-      <div className="kanban-column-header">
-        <span className="kanban-column-title">
+    <div
+      className="flex flex-col transition-all duration-150 ease-out shrink-0 last:border-r-0"
+      style={{ minWidth: 240, flex: '1 0 240px', borderRight: '1px solid rgba(255, 255, 255, 0.06)' }}
+      data-status={status}
+    >
+      <div className="flex items-center gap-2 px-3 py-2.5 shrink-0">
+        <span className="text-[13px] font-medium text-text-secondary uppercase tracking-wide flex-1">
           {label}
-          <span className="kanban-column-count">{tasks.length}</span>
+          <span className="text-text-secondary opacity-50 normal-case tracking-normal ml-1.5">{tasks.length}</span>
         </span>
         {hookTypes.length > 0 && onConfigureHook && (
           <button
-            className={`kanban-column-hook-btn${hasConfiguredHook ? ' kanban-column-hook-btn--active' : ''}`}
+            className={`flex items-center justify-center border-none text-text-tertiary transition-all duration-150 ease-out rounded-md hover:text-text-secondary hover:bg-white/[0.08] [&>svg]:w-[18px] [&>svg]:h-[18px]${hasConfiguredHook ? ' !text-accent hover:!text-accent-hover' : ''}`}
+            style={{ padding: '4px 10px', background: 'transparent' }}
             onClick={() => onConfigureHook(hookTypes)}
           >
             <Icon name="webhooks-logo" />
@@ -64,11 +69,13 @@ export function KanbanColumn({
       </div>
       <div
         ref={setNodeRef}
-        className="kanban-column-body"
+        className="flex flex-col overflow-y-auto flex-1 min-h-0"
         style={{
+          borderTop: '1px solid rgba(255, 255, 255, 0.06)',
+          scrollbarColor: 'transparent transparent',
+          transition: 'background 150ms ease',
           minHeight: 80,
           background: isOver && tasks.length === 0 ? 'rgba(10, 132, 255, 0.08)' : undefined,
-          transition: 'background 150ms ease',
         }}
       >
         <SortableContext items={taskIds} strategy={verticalListSortingStrategy}>
@@ -120,10 +127,18 @@ function SortableCard({
   // When dragging, show the ghost placeholder (blue highlight, content hidden)
   if (isDragging) {
     return (
-      <div ref={setNodeRef} style={style} {...attributes} {...listeners} className="kanban-card--ghost">
-        <div className="kanban-card">
-          <div className="kanban-card-header">
-            <span className="kanban-card-name">{task.name}</span>
+      <div
+        ref={setNodeRef}
+        style={{ ...style, background: 'rgba(10, 132, 255, 0.15)', border: '1px solid rgba(10, 132, 255, 0.4)' }}
+        {...attributes}
+        {...listeners}
+        className="[&>*]:opacity-0"
+      >
+        <div className="px-3 py-3.5" style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.06)' }}>
+          <div className="flex items-start gap-2">
+            <span className="flex-1 font-mono text-sm font-medium text-text-primary min-w-0 break-words">
+              {task.name}
+            </span>
           </div>
         </div>
       </div>

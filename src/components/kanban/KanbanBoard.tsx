@@ -368,7 +368,14 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
   }, [projectPath]);
 
   return (
-    <div className="kanban-board kanban-board--visible">
+    <div
+      className="fixed top-[82px] right-4 bottom-4 z-[140] flex flex-col opacity-100 rounded-[14px] overflow-hidden border border-white/10"
+      style={{
+        left: 'calc(var(--sidebar-offset, 0px) + 16px)',
+        background: 'var(--color-terminal-bg, #171717)',
+        boxShadow: '0 0 0 1px rgba(0, 0, 0, 0.05), 0 4px 12px rgba(0, 0, 0, 0.15), 0 20px 40px rgba(0, 0, 0, 0.2)',
+      }}
+    >
       {runHookDialog && (
         <RunHookDialog
           hookType={runHookDialog.hookType}
@@ -400,7 +407,7 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
         onDragOver={handleDragOver}
         onDragEnd={handleDragEnd}
       >
-        <div className="kanban-columns">
+        <div className="flex flex-1 min-h-0" style={{ overflowX: 'auto', overflowY: 'hidden' }}>
           {COLUMNS.map((col) => {
             const hookActive =
               (col.status === 'in_progress' && !!(configuredHooks.start || configuredHooks.continue)) ||
@@ -429,7 +436,7 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
         <DragOverlay dropAnimation={null}>
           {activeTask && (
             <div
-              className="kanban-card"
+              className="px-3 py-3.5"
               style={{
                 background: '#111111',
                 border: '1px solid rgba(255, 255, 255, 0.1)',
@@ -437,8 +444,10 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
                 borderRadius: 0,
               }}
             >
-              <div className="kanban-card-header">
-                <span className="kanban-card-name">{activeTask.name}</span>
+              <div className="flex items-start gap-2">
+                <span className="flex-1 font-mono text-sm font-medium text-text-primary min-w-0 break-words">
+                  {activeTask.name}
+                </span>
               </div>
             </div>
           )}

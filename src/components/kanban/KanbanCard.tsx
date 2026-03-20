@@ -195,7 +195,12 @@ export const KanbanCard = memo(function KanbanCard({
 
   return (
     <div
-      className={`kanban-card${isDone ? ' kanban-card--done' : ''}${expanded ? ' kanban-card--expanded' : ''}`}
+      className="group px-3 py-3.5 ease-out [-webkit-app-region:no-drag] hover:bg-black/10 active:bg-black/[0.12]"
+      style={{
+        background: expanded ? 'rgba(0, 0, 0, 0.15)' : 'var(--color-terminal-bg)',
+        transition: 'background 150ms ease-out, opacity 150ms ease-out',
+        borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
+      }}
       data-task-number={task.taskNumber}
       onContextMenu={(e) => {
         e.preventDefault();
@@ -211,22 +216,25 @@ export const KanbanCard = memo(function KanbanCard({
           onClose={() => setContextMenu(null)}
         />
       )}
-      <div className="kanban-card-header">
+      <div className="flex items-start gap-2">
         {editing ? (
           <textarea
             ref={nameInputRef}
-            className="kanban-card-name-input"
+            className="flex-1 font-mono text-sm font-medium text-text-primary bg-transparent border-0 border-b border-accent p-0 outline-none min-w-0 resize-none overflow-hidden [-webkit-app-region:no-drag] break-words"
             onBlur={commitRename}
             onKeyDown={handleNameKeyDown}
             rows={1}
           />
         ) : (
-          <span className="kanban-card-name" onDoubleClick={startEditing}>
+          <span
+            className={`flex-1 font-mono text-sm font-medium min-w-0 break-words ${isDone ? 'line-through text-text-secondary' : 'text-text-primary'}`}
+            onDoubleClick={startEditing}
+          >
             {task.name}
           </span>
         )}
         <button
-          className={`kanban-card-expand${expanded ? ' kanban-card-expand--open' : ''}`}
+          className={`flex items-center justify-center w-5 h-5 p-0 bg-transparent border-none rounded text-text-secondary opacity-0 transition-all duration-150 ease-out shrink-0 [-webkit-app-region:no-drag] group-hover:opacity-60 hover:!opacity-100 [&>svg]:w-3 [&>svg]:h-3 [&>svg]:transition-transform [&>svg]:duration-150 [&>svg]:ease-out${expanded ? ' [&>svg]:rotate-180' : ''}`}
           onClick={(e) => {
             e.stopPropagation();
             setExpanded(!expanded);
@@ -238,7 +246,7 @@ export const KanbanCard = memo(function KanbanCard({
 
       {/* Connected terminal status dots */}
       {connectedDisplays.length > 0 && (
-        <div className="kanban-card-status-tree">
+        <div className="flex flex-col" style={{ paddingTop: 3 }}>
           {connectedDisplays.map((display, i) => {
             const isLast = i === connectedDisplays.length - 1;
             const dotLabel = display.lastOscTitle || display.label || 'Shell';
@@ -247,18 +255,28 @@ export const KanbanCard = memo(function KanbanCard({
             return (
               <div
                 key={display.ptyId}
-                className="kanban-card-status-row"
+                className="flex flex-row items-center gap-1.5 hover:bg-white/[0.06] active:bg-white/[0.03]"
+                style={{ padding: '3px 2px', borderRadius: 3, transition: 'background 0.1s ease' }}
                 onClick={(e) => {
                   e.stopPropagation();
                   onSwitchToTerminal(display.ptyId);
                 }}
               >
-                <span className="kanban-card-status-elbow">{isLast ? '\u2514\u2500' : '\u251C\u2500'}</span>
+                <span className="font-mono text-sm leading-none text-text-secondary shrink-0 select-none opacity-40">
+                  {isLast ? '\u2514\u2500' : '\u251C\u2500'}
+                </span>
                 <span
-                  className={`kanban-card-status-dot${display.sandboxed ? ' kanban-card-status-dot--sandboxed' : ''}`}
-                  data-status={display.summaryType}
+                  className={`w-2 h-2 rounded-full shrink-0 ${display.summaryType === 'thinking' ? 'bg-[#da77f2]' : 'bg-[#69db7c]'}`}
+                  style={{
+                    ...(display.summaryType === 'thinking'
+                      ? { animation: 'terminal-status-pulse 1s ease-in-out infinite' }
+                      : {}),
+                    ...(display.sandboxed
+                      ? { outline: '1.5px solid rgba(116, 192, 252, 0.6)', outlineOffset: '1.5px' }
+                      : {}),
+                  }}
                 />
-                <span className="kanban-card-status-label">
+                <span className="font-mono text-[10px] leading-tight text-text-secondary truncate min-w-0">
                   {truncated}
                   {display.sandboxed ? ' (sandbox)' : ''}
                 </span>
@@ -270,11 +288,12 @@ export const KanbanCard = memo(function KanbanCard({
 
       {/* Detail section */}
       {expanded && (
-        <div className="kanban-card-detail kanban-card-detail--visible">
-          <div className="kanban-card-detail-row">
+        <div className="grid mt-2 pt-2 border-t border-white/[0.04] gap-2">
+          <div className="flex flex-col gap-1 text-sm">
             <span
               ref={descInputRef}
-              className={`kanban-card-detail-value${editingDesc ? ' kanban-card-detail-value--editing' : ''}${!task.prompt && !editingDesc ? ' kanban-card-detail-value--placeholder' : ''}`}
+              className={`text-text-secondary truncate cursor-text${editingDesc ? ' outline-none' : ''}${!task.prompt && !editingDesc ? ' text-text-tertiary italic transition-colors duration-150 ease-out hover:text-text-secondary' : ''}`}
+              style={editingDesc ? { whiteSpace: 'pre-wrap', wordWrap: 'break-word', lineHeight: 1.5 } : undefined}
               contentEditable={editingDesc}
               suppressContentEditableWarning
               onClick={() => {
@@ -301,12 +320,12 @@ export const KanbanCard = memo(function KanbanCard({
             </span>
           </div>
           {task.branch && (
-            <div className="kanban-card-branch">
+            <div className="flex items-center gap-1 font-mono text-[13px] text-white/50 min-w-0 overflow-hidden [&>svg]:w-3 [&>svg]:h-3 [&>svg]:shrink-0">
               <Icon name="git-branch" />
-              <span className="kanban-card-branch-name">{task.branch}</span>
+              <span className="truncate min-w-0">{task.branch}</span>
             </div>
           )}
-          {formattedDate && <div className="kanban-card-detail-row">Created {formattedDate}</div>}
+          {formattedDate && <div className="flex flex-col gap-1 text-sm">Created {formattedDate}</div>}
         </div>
       )}
     </div>
