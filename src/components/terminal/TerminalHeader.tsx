@@ -185,7 +185,7 @@ export const TerminalHeader = memo(function TerminalHeader({
             className="flex items-center justify-center w-5 h-5 rounded text-white/30 bg-transparent border-none shrink-0"
             onMouseDown={handleTagButtonClick}
           >
-            <Icon name="tag" />
+            <Icon name="tag" className="w-3.5 h-3.5" />
           </button>
           <span className="project-card-tags-row">
             {tagInputOpen ? (
