@@ -234,7 +234,7 @@ export const TerminalHeader = memo(function TerminalHeader({
         )}
       </div>
       <div className="flex items-center gap-1 shrink-0 justify-end">
-        {!compact && (
+        {!compact && isActive && (
           <div className="mr-2">
             <GitStats
               gitStatus={gitStatus}
