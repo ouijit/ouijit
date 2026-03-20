@@ -88,7 +88,7 @@ export function TitleBar() {
       }
     >
       <div
-        className="flex items-center justify-center gap-2 pr-6 py-4 transition-[padding-left] duration-200"
+        className="flex items-center justify-center gap-2 py-4 transition-[padding-left] duration-200"
         style={{ paddingLeft: platform === 'darwin' && !fullscreen ? 80 : 24 }}
       >
         {activeView === 'project' && activeProjectData && activeProjectPath ? (
