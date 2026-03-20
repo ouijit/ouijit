@@ -24,13 +24,17 @@ export function XTermContainer({ ptyId, className, style }: XTermContainerProps)
 
     const viewport = instance.getViewportElement();
     containerRef.current.appendChild(viewport);
-    instance.fitAddon.fit();
+    instance.reattach();
+
+    // Defer fit to next frame — container may not have layout dimensions yet
+    const raf = requestAnimationFrame(() => {
+      instance.fit();
+    });
 
     return () => {
-      // Detach: remove from DOM but keep Terminal alive
-      if (viewport.parentElement) {
-        viewport.parentElement.removeChild(viewport);
-      }
+      cancelAnimationFrame(raf);
+      instance.detach();
+      viewport.remove();
     };
   }, [ptyId]);
 

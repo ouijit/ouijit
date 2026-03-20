@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { Component, useCallback, useEffect, useState, type ErrorInfo, type ReactNode } from 'react';
 import { useIPCListeners } from './hooks/useIPCListeners';
 import { useAppStore } from './stores/appStore';
 import { TitleBar } from './components/TitleBarReact';
@@ -7,7 +7,46 @@ import { HomeView } from './components/HomeViewReact';
 import { ProjectView } from './components/ProjectViewReact';
 import { ToastContainer } from './components/ui/ToastContainer';
 import { NewProjectDialog } from './components/dialogs/NewProjectDialog';
+import log from 'electron-log/renderer';
 import type { Project } from './types';
+
+const appLog = log.scope('app');
+
+class ViewErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
+  state: { error: Error | null } = { error: null };
+
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    appLog.error('view render crashed', {
+      error: error.message,
+      stack: error.stack,
+      componentStack: info.componentStack,
+    });
+  }
+
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="flex-1 flex items-center justify-center p-8">
+          <div className="text-center">
+            <div className="text-sm text-red-400 font-mono mb-2">View crashed</div>
+            <div className="text-xs text-white/50 font-mono max-w-md break-all">{this.state.error.message}</div>
+            <button
+              className="mt-4 px-3 py-1.5 text-xs bg-white/10 rounded border border-white/20 text-white/70 hover:bg-white/20"
+              onClick={() => this.setState({ error: null })}
+            >
+              Retry
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 export function App() {
   useIPCListeners();
@@ -122,8 +161,10 @@ export function App() {
               : { padding: 'var(--spacing-md) var(--content-padding)' }
           }
         >
-          {activeView === 'home' && <HomeView />}
-          {activeView === 'project' && <ProjectView />}
+          <ViewErrorBoundary>
+            {activeView === 'home' && <HomeView />}
+            {activeView === 'project' && <ProjectView />}
+          </ViewErrorBoundary>
         </main>
       </div>
       <ToastContainer />

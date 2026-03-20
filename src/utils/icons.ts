@@ -52,7 +52,7 @@ import log from 'electron-log/renderer';
 const iconsLog = log.scope('icons');
 
 // Map of icon names (kebab-case) to SVG strings
-const iconMap: Record<string, string> = {
+export const iconMap: Record<string, string> = {
   archive: archive,
   'arrow-counter-clockwise': arrowCounterClockwise,
   'arrow-left': arrowLeft,
