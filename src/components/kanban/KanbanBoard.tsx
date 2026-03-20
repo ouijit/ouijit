@@ -372,6 +372,7 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
       className="fixed top-[82px] right-4 bottom-4 z-[140] flex flex-col opacity-100 rounded-[14px] overflow-hidden border border-white/10"
       style={{
         left: 'calc(var(--sidebar-offset, 0px) + 16px)',
+        transition: 'left 0.2s ease-out',
         background: 'var(--color-terminal-bg, #171717)',
         boxShadow: '0 0 0 1px rgba(0, 0, 0, 0.05), 0 4px 12px rgba(0, 0, 0, 0.15), 0 20px 40px rgba(0, 0, 0, 0.2)',
       }}

@@ -137,6 +137,7 @@ function Pagination({ page, totalPages, projectPath }: { page: number; totalPage
       style={{
         top: 58,
         left: 'calc(var(--sidebar-offset, 0px) + (100% - var(--sidebar-offset, 0px)) / 2)',
+        transition: 'left 0.2s ease-out',
         transform: 'translateX(-50%)',
       }}
     >
