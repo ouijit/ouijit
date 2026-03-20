@@ -1,6 +1,4 @@
 @import 'tailwindcss';
-@import './styles/compare.css';
-
 @font-face {
   font-family: 'Iosevka Extended';
   font-style: normal;
@@ -1099,14 +1097,6 @@ body.home-mode .project-card--back-8:hover {
   @apply w-4 h-4;
 }
 
-.project-card-git-add {
-  @apply text-[#69db7c];
-}
-
-.project-card-git-del {
-  @apply text-[#ff6b6b];
-}
-
 /* Card body - flex container for terminal and diff panel */
 .project-card-body {
   @apply relative flex-1 flex flex-row min-h-0 overflow-hidden;
@@ -1116,6 +1106,17 @@ body.home-mode .project-card--back-8:hover {
 .project-card .terminal-viewport {
   @apply flex-1 min-h-0 min-w-0 h-auto rounded-none border-none;
   transition: flex 0.25s ease;
+}
+
+/* Diff panel inside project card */
+.project-card .diff-panel {
+  @apply absolute inset-0 rounded-none border-0 border-t border-solid border-white/10 shadow-none z-20 flex overflow-hidden opacity-0 pointer-events-none;
+  background: var(--color-terminal-bg, #171717);
+  transition: opacity 0.15s ease;
+}
+
+.project-card .diff-panel--visible {
+  @apply opacity-100 pointer-events-auto;
 }
 
 /* Runner Panel - Side-by-side split layout */
