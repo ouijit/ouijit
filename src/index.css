@@ -317,10 +317,6 @@ body.platform-darwin:not(.is-fullscreen) .sidebar-drag-region {
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 
-.sidebar-item--dragging {
-  @apply opacity-80 z-[10001];
-}
-
 /* Session count badge */
 .sidebar-session-badge {
   @apply absolute text-white font-bold leading-none;
@@ -349,17 +345,6 @@ body.platform-darwin:not(.is-fullscreen) .sidebar-drag-region {
 
 .sidebar-action-btn svg {
   @apply w-5 h-5;
-}
-
-/* Sidebar add menu */
-.sidebar-add-menu {
-  @apply fixed z-[2000] py-1 bg-surface border border-border rounded-md shadow-lg overflow-hidden opacity-0;
-  min-width: 180px;
-  transition: opacity 100ms ease;
-}
-
-.sidebar-add-menu--visible {
-  @apply opacity-100;
 }
 
 /* Sidebar home icon */
@@ -443,74 +428,6 @@ body.platform-darwin:not(.is-fullscreen) .header-content {
 
 body.platform-darwin:not(.is-fullscreen) .sidebar--visible ~ .app-main .header-content {
   @apply pl-4;
-}
-
-.app-title {
-  @apply text-2xl font-bold text-text-primary tracking-tight shrink-0;
-}
-
-/* Search */
-.search-container {
-  @apply relative max-w-[480px] w-full;
-}
-
-.search-icon {
-  @apply absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-text-tertiary pointer-events-none transition-colors duration-150 ease-out;
-}
-
-.search-input {
-  @apply w-full h-9 pr-4 pl-11 font-sans text-sm text-text-primary bg-surface border border-border rounded-md outline-none transition-all duration-150 ease-out;
-  -webkit-app-region: no-drag;
-}
-
-.search-input::placeholder {
-  @apply text-text-tertiary;
-}
-
-.search-input:hover {
-  @apply border-border-hover;
-}
-
-.search-input:focus {
-  @apply border-accent ring-3 ring-accent-light;
-}
-
-.search-input:focus + .search-icon,
-.search-container:focus-within .search-icon {
-  @apply text-accent;
-}
-
-/* Header Icon Button */
-.btn-icon-header {
-  @apply flex items-center justify-center w-10 h-10 p-0 border-none rounded-md text-text-secondary transition-all duration-150 ease-out shrink-0;
-  -webkit-app-region: no-drag;
-  background: rgba(0, 0, 0, 0.001);
-}
-
-.btn-icon-header:hover {
-  @apply bg-surface text-text-primary;
-}
-
-.btn-icon-header:active {
-  @apply scale-95;
-}
-
-.btn-icon-header:disabled {
-  @apply opacity-50 cursor-not-allowed;
-}
-
-.btn-icon-header:disabled:hover {
-  background: transparent;
-  color: var(--color-text-secondary);
-}
-
-.btn-icon-header svg {
-  width: 22px;
-  height: 22px;
-}
-
-.btn-icon-header.spinning svg {
-  animation: spin 0.8s linear infinite;
 }
 
 /* Main Content */
@@ -783,19 +700,6 @@ body.home-mode .home-folder-divider.project-card {
 }
 
 /* Task Context Menu */
-.project-exit-btn {
-  @apply w-8 h-8 flex items-center justify-center p-0 bg-transparent border-none rounded-md text-text-secondary opacity-70 transition-all duration-150 ease-out mr-2;
-  -webkit-app-region: no-drag;
-}
-
-.project-exit-btn:hover {
-  @apply bg-white/[0.08] text-text-primary opacity-100;
-}
-
-.project-exit-btn svg {
-  @apply w-[18px] h-[18px];
-}
-
 /* ==========================================
    Project Mode Card Stack
    ========================================== */
@@ -1393,10 +1297,6 @@ body.kanban-open .project-stack-pagination {
 
 .project-view-toggle-btn--active {
   @apply text-text-primary bg-background-tertiary;
-}
-
-.project-view-toggle-btn--disabled {
-  @apply opacity-30;
 }
 
 .project-view-toggle-btn svg {
