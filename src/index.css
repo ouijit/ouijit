@@ -1,6 +1,5 @@
 @import 'tailwindcss';
 @import './styles/compare.css';
-@import './styles/dialog.css';
 
 @font-face {
   font-family: 'Iosevka Extended';
@@ -530,47 +529,6 @@ body.platform-darwin:not(.is-fullscreen) .sidebar--visible ~ .app-main .header-c
   padding: var(--spacing-md) var(--content-padding);
 }
 
-.btn {
-  @apply inline-flex items-center justify-center gap-2 px-4 py-1.5 font-sans text-sm font-medium no-underline border-none rounded-full outline-none transition-all duration-150 ease-out;
-  -webkit-app-region: no-drag;
-}
-
-.btn:focus-visible {
-  @apply ring-3 ring-accent-light;
-}
-
-.btn-primary {
-  @apply text-white bg-accent;
-}
-
-.btn-primary:hover {
-  @apply bg-accent-hover;
-}
-
-.btn-primary:active {
-  @apply scale-[0.98];
-}
-
-.btn-secondary {
-  @apply text-accent bg-accent-light;
-}
-
-.btn-secondary:hover {
-  @apply bg-[rgba(0,122,255,0.15)];
-}
-
-.btn-danger {
-  @apply text-white bg-[#FF453A];
-}
-
-.btn-danger:hover {
-  @apply bg-[#FF6961];
-}
-
-.btn-danger:active {
-  @apply scale-[0.98];
-}
-
 /* Launch Dropdown (used in project mode) */
 .launch-dropdown {
   @apply absolute top-full right-0 mt-1 min-w-[220px] max-w-[320px] bg-surface border border-border rounded-md shadow-lg z-[1000] opacity-0 invisible overflow-hidden transition-all duration-150 ease-out;
@@ -643,55 +601,6 @@ body.platform-darwin:not(.is-fullscreen) .sidebar--visible ~ .app-main .header-c
 
 /* ===================================
    New Project Dialog Form
-   =================================== */
-
-.new-project-form {
-  @apply mb-6;
-}
-
-.form-group {
-  @apply flex flex-col gap-1;
-}
-
-.form-label {
-  @apply text-sm font-medium text-text-secondary;
-}
-
-.form-input {
-  @apply w-full h-9 px-4 font-sans text-sm text-text-primary bg-background border border-border rounded-md outline-none transition-all duration-150 ease-out;
-}
-
-.form-input:focus {
-  @apply border-accent ring-3 ring-accent-light;
-}
-
-.form-input::placeholder {
-  @apply text-text-tertiary;
-}
-
-.task-form-sandbox-toggle {
-  @apply flex items-center gap-2;
-}
-
-.task-form-sandbox-label {
-  @apply text-xs text-white/40;
-}
-
-/* Custom Checkbox */
-.custom-checkbox {
-  @apply flex items-center gap-2;
-}
-
-.custom-checkbox input[type='checkbox'] {
-  @apply w-4 h-4 accent-accent;
-}
-
-.custom-checkbox-label {
-  @apply text-sm text-text-secondary;
-}
-
-/* ===================================
-   Toast Notification Styles
    =================================== */
 
 /* ===================================
@@ -1541,104 +1450,6 @@ body.home-mode .project-card--back-8:hover {
 
 .hook-hint {
   @apply text-[13px] text-text-tertiary leading-snug px-3 pb-2;
-}
-
-/* Hook config dialog */
-.hook-description {
-  @apply text-sm text-text-secondary leading-snug -mt-2 mb-4;
-}
-
-.form-textarea {
-  @apply h-auto px-3 py-2 resize-none font-mono text-sm leading-snug overflow-hidden;
-  transition:
-    border-color 150ms ease-out,
-    box-shadow 150ms ease-out;
-}
-
-/* Highlight underlay for env-var coloring in hook textareas */
-.hook-command-wrap {
-  @apply relative;
-}
-
-.hook-command-backdrop {
-  @apply absolute inset-0 px-3 py-2 font-mono text-sm leading-snug whitespace-pre-wrap break-words overflow-hidden pointer-events-none bg-background rounded-md;
-  color: var(--color-text-primary);
-  border: 1px solid transparent;
-  background-clip: padding-box;
-}
-
-.hook-command-input {
-  @apply relative bg-transparent block;
-  color: transparent;
-  caret-color: var(--color-text-primary);
-}
-
-.hook-command-input::selection {
-  background: rgba(10, 132, 255, 0.3);
-}
-
-.hook-env-highlight {
-  @apply bg-transparent;
-  color: var(--color-accent);
-}
-
-.hook-env-highlight--empty {
-  text-decoration: line-through;
-}
-
-.hook-env-tooltip {
-  @apply fixed z-[3000] px-2.5 py-1.5 text-xs rounded-md shadow-lg opacity-0 pointer-events-none;
-  background: var(--color-surface);
-  border: 1px solid var(--color-border);
-  color: var(--color-text-secondary);
-  max-width: 360px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  transition: opacity 100ms ease;
-}
-
-.hook-env-tooltip--visible {
-  @apply opacity-100;
-}
-
-.hook-env-tooltip em {
-  @apply text-text-tertiary;
-}
-
-.hook-env-vars {
-  @apply mt-3 text-xs text-text-secondary;
-}
-
-.hook-env-vars summary {
-  @apply cursor-default select-none;
-}
-
-.hook-env-vars ul {
-  @apply mt-2 mb-0 pl-5;
-}
-
-.hook-env-vars li {
-  @apply my-1;
-}
-
-.hook-env-var {
-  @apply font-mono text-[13px] px-1.5 py-0.5 rounded inline-block;
-  background: var(--color-background-secondary);
-  transition:
-    background 100ms ease,
-    color 100ms ease;
-}
-
-.hook-env-var:hover {
-  color: var(--color-text-primary);
-  background: var(--color-border-hover);
-}
-
-.hook-env-var--copied,
-.hook-env-var--copied:hover {
-  color: var(--color-accent);
-  background: color-mix(in srgb, var(--color-accent) 15%, transparent);
 }
 
 /* ==========================================

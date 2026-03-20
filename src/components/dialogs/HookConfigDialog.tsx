@@ -141,25 +141,30 @@ export function HookConfigDialog({
 
   return createPortal(
     <div
-      className={`modal-overlay${visible ? ' modal-overlay--visible' : ''}`}
+      className={`fixed inset-0 flex justify-center z-[10001] p-10 overflow-y-auto transition-opacity duration-200 ease-out ${visible ? 'opacity-100' : 'opacity-0'}`}
+      style={{ background: 'rgba(0, 0, 0, 0.4)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)' }}
       onClick={(e) => {
         if (e.target === e.currentTarget) dismiss(null);
       }}
       onKeyDown={handleKeyDown}
     >
-      <div className={`dialog${visible ? ' dialog--visible' : ''}`}>
-        <h2 className="dialog-title">{labels.title}</h2>
-        <p className="hook-description">{labels.description}</p>
+      <div
+        className={`bg-surface rounded-[32px] shadow-lg max-w-[400px] w-[90%] p-6 border border-border overflow-hidden shrink-0 my-auto ${visible ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 translate-y-2.5'}`}
+        style={{ transition: 'opacity 200ms ease-out, transform 200ms ease-out' }}
+      >
+        <h2 className="text-lg font-semibold text-text-primary mb-4 text-center">{labels.title}</h2>
+        <p className="text-sm text-text-secondary leading-snug -mt-2 mb-4">{labels.description}</p>
 
-        <div className="new-project-form">
-          <div className="form-group">
-            <label className="form-label" htmlFor="hook-command">
+        <div className="mb-6">
+          <div className="flex flex-col gap-1">
+            <label className="text-sm font-medium text-text-secondary" htmlFor="hook-command">
               Command
             </label>
             <textarea
               ref={textareaRef}
               id="hook-command"
-              className="form-input form-textarea"
+              className="w-full px-3 py-2 font-mono text-sm leading-snug text-text-primary bg-background border border-border rounded-md outline-none resize-none overflow-hidden focus:border-accent focus:ring-3 focus:ring-accent-light placeholder:text-text-tertiary"
+              style={{ transition: 'border-color 150ms ease-out, box-shadow 150ms ease-out' }}
               placeholder={labels.placeholder}
               value={command}
               onChange={(e) => {
@@ -167,27 +172,32 @@ export function HookConfigDialog({
                 autoResize(e);
               }}
               rows={1}
-              style={{ overflow: 'hidden', resize: 'none' }}
             />
           </div>
 
           {isRunHook && (
-            <div className="form-group">
-              <label className="custom-checkbox">
-                <input type="checkbox" checked={killExisting} onChange={(e) => setKillExisting(e.target.checked)} />
-                <span className="custom-checkbox-label">Kill existing instances before running</span>
+            <div className="flex flex-col gap-1">
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  className="w-4 h-4 accent-accent"
+                  checked={killExisting}
+                  onChange={(e) => setKillExisting(e.target.checked)}
+                />
+                <span className="text-sm text-text-secondary">Kill existing instances before running</span>
               </label>
             </div>
           )}
 
           {labels.envVars && (
-            <details className="hook-env-vars">
+            <details className="mt-3 text-xs text-text-secondary [&>summary]:cursor-default [&>summary]:select-none [&_ul]:mt-2 [&_ul]:mb-0 [&_ul]:pl-5 [&_li]:my-1">
               <summary>Environment variables</summary>
               <ul>
                 {ENV_VARS.map((v) => (
                   <li key={v}>
                     <code
-                      className={`hook-env-var${copiedVar === v ? ' hook-env-var--copied' : ''}`}
+                      className={`font-mono text-[13px] px-1.5 py-0.5 rounded inline-block bg-background-secondary hover:text-text-primary hover:bg-border-hover ${copiedVar === v ? 'text-accent !bg-[color-mix(in_srgb,var(--color-accent)_15%,transparent)]' : ''}`}
+                      style={{ transition: 'background 100ms ease, color 100ms ease' }}
                       onClick={() => copyVar(v)}
                     >
                       {copiedVar === v ? 'Copied!' : v}
@@ -199,11 +209,17 @@ export function HookConfigDialog({
           )}
         </div>
 
-        <div className="dialog-actions">
-          <button className="btn btn-secondary" onClick={() => dismiss(null)}>
+        <div className="flex gap-2 justify-end mt-4 items-center">
+          <button
+            className="inline-flex items-center justify-center gap-2 px-4 py-1.5 font-sans text-sm font-medium no-underline border-none rounded-full outline-none transition-all duration-150 ease-out [-webkit-app-region:no-drag] focus-visible:ring-3 focus-visible:ring-accent-light text-accent bg-accent-light hover:bg-[rgba(0,122,255,0.15)]"
+            onClick={() => dismiss(null)}
+          >
             Cancel
           </button>
-          <button className="btn btn-primary" onClick={handleSave}>
+          <button
+            className="inline-flex items-center justify-center gap-2 px-4 py-1.5 font-sans text-sm font-medium no-underline border-none rounded-full outline-none transition-all duration-150 ease-out [-webkit-app-region:no-drag] focus-visible:ring-3 focus-visible:ring-accent-light text-white bg-accent hover:bg-accent-hover active:scale-[0.98]"
+            onClick={handleSave}
+          >
             Save
           </button>
         </div>

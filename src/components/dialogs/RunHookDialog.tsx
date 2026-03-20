@@ -101,13 +101,14 @@ export function RunHookDialog({ hookType, hook, projectPath, onClose }: RunHookD
           rows={1}
         />
 
-        <details className="hook-env-vars">
+        <details className="mt-3 text-xs text-text-secondary [&>summary]:cursor-default [&>summary]:select-none [&_ul]:mt-2 [&_ul]:mb-0 [&_ul]:pl-5 [&_li]:my-1">
           <summary>Environment variables</summary>
           <ul>
             {ENV_VARS.map((v) => (
               <li key={v}>
                 <code
-                  className={`hook-env-var${copiedVar === v ? ' hook-env-var--copied' : ''}`}
+                  className={`font-mono text-[13px] px-1.5 py-0.5 rounded inline-block bg-background-secondary hover:text-text-primary hover:bg-border-hover ${copiedVar === v ? 'text-accent !bg-[color-mix(in_srgb,var(--color-accent)_15%,transparent)]' : ''}`}
+                  style={{ transition: 'background 100ms ease, color 100ms ease' }}
                   onClick={() => copyVar(v)}
                 >
                   {copiedVar === v ? 'Copied!' : v}
@@ -133,18 +134,21 @@ export function RunHookDialog({ hookType, hook, projectPath, onClose }: RunHookD
             <div />
           )}
           <div className="flex gap-2">
-            <button className="btn btn-secondary" onClick={() => dismiss(null)}>
+            <button
+              className="inline-flex items-center justify-center gap-2 px-4 py-1.5 font-sans text-sm font-medium no-underline border-none rounded-full outline-none transition-all duration-150 ease-out [-webkit-app-region:no-drag] focus-visible:ring-3 focus-visible:ring-accent-light text-accent bg-accent-light hover:bg-[rgba(0,122,255,0.15)]"
+              onClick={() => dismiss(null)}
+            >
               Cancel
             </button>
             <button
-              className="btn btn-primary whitespace-nowrap"
+              className="inline-flex items-center justify-center gap-2 px-4 py-1.5 font-sans text-sm font-medium no-underline border-none rounded-full outline-none transition-all duration-150 ease-out [-webkit-app-region:no-drag] focus-visible:ring-3 focus-visible:ring-accent-light text-white bg-accent hover:bg-accent-hover active:scale-[0.98] whitespace-nowrap"
               onClick={() => dismiss({ command: command.trim(), sandboxed, foreground: true })}
               disabled={!command.trim()}
             >
               Run & Open
             </button>
             <button
-              className="btn btn-primary"
+              className="inline-flex items-center justify-center gap-2 px-4 py-1.5 font-sans text-sm font-medium no-underline border-none rounded-full outline-none transition-all duration-150 ease-out [-webkit-app-region:no-drag] focus-visible:ring-3 focus-visible:ring-accent-light text-white bg-accent hover:bg-accent-hover active:scale-[0.98]"
               onClick={() => dismiss({ command: command.trim(), sandboxed, foreground: false })}
               disabled={!command.trim()}
             >
