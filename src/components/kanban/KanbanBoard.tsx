@@ -373,7 +373,7 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
         <RunHookDialog
           hookType={runHookDialog.hookType}
           hook={runHookDialog.hook}
-          taskName={runHookDialog.task.name}
+          projectPath={projectPath}
           onClose={handleRunHookClose}
         />
       )}

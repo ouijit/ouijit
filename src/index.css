@@ -677,6 +677,7 @@ body.platform-darwin:not(.is-fullscreen) .sidebar--visible ~ .app-main .header-c
   @apply text-xs text-white/40;
 }
 
+
 /* Custom Checkbox */
 .custom-checkbox {
   @apply flex items-center gap-2;
