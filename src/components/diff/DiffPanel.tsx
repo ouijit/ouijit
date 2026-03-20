@@ -198,34 +198,23 @@ function DiffFileTree({ files, onFileClick }: { files: ChangedFile[]; onFileClic
   return (
     <div className="flex-1 overflow-y-auto py-2">
       {tree.map((node) => (
-        <TreeNodeView key={node.fullPath} node={node} onFileClick={onFileClick} depth={0} />
+        <TreeNodeView key={node.fullPath} node={node} onFileClick={onFileClick} />
       ))}
     </div>
   );
 }
 
-function TreeNodeView({
-  node,
-  onFileClick,
-  depth,
-}: {
-  node: TreeNode;
-  onFileClick: (path: string) => void;
-  depth: number;
-}) {
+function TreeNodeView({ node, onFileClick }: { node: TreeNode; onFileClick: (path: string) => void }) {
   const [expanded, setExpanded] = useState(true);
 
   if (node.isFile && node.file) {
     return (
       <div
-        className="flex items-center gap-1.5 py-1 pr-3 text-[13px] text-white/70 transition-colors duration-150 ease-out hover:bg-white/5"
+        className="flex items-center gap-1.5 py-1 pl-3 pr-3 text-[13px] text-white/70 transition-colors duration-150 ease-out hover:bg-white/5"
         data-path={node.file.path}
-        style={{ paddingLeft: `${12 * depth}px` }}
         onClick={() => onFileClick(node.file!.path)}
       >
-        <span className={`w-4 h-4 shrink-0 ${statusColorClass(node.file.status)}`}>
-          <Icon name={statusIcon(node.file.status)} />
-        </span>
+        <Icon name={statusIcon(node.file.status)} className={statusColorClass(node.file.status)} />
         <span className="flex-1 min-w-0 truncate">{node.name}</span>
         {node.file.status === '?' && (
           <span className={`shrink-0 text-[11px] px-1 py-px rounded font-medium ${badgeColorClass('?')}`}>
@@ -247,19 +236,16 @@ function TreeNodeView({
   return (
     <div data-expanded={expanded}>
       <div
-        className="flex items-center gap-1.5 py-1 pr-3 text-[13px] text-white/50 transition-colors duration-150 ease-out hover:bg-white/5 hover:text-white/70"
-        style={{ paddingLeft: `${12 * depth}px` }}
+        className="flex items-center gap-1.5 py-1 pl-3 pr-3 text-[13px] text-white/50 transition-colors duration-150 ease-out hover:bg-white/5 hover:text-white/70"
         onClick={() => setExpanded(!expanded)}
       >
-        <span className="w-3 h-3 shrink-0">
-          <Icon name={expanded ? 'caret-down' : 'caret-right'} />
-        </span>
+        <Icon name={expanded ? 'caret-down' : 'caret-right'} className="!w-3 !h-3" />
         <span className="flex-1 min-w-0 truncate">{node.name}</span>
       </div>
       {expanded && (
-        <div>
+        <div className="pl-3">
           {sortTreeNodes(node.children).map((child) => (
-            <TreeNodeView key={child.fullPath} node={child} onFileClick={onFileClick} depth={depth + 1} />
+            <TreeNodeView key={child.fullPath} node={child} onFileClick={onFileClick} />
           ))}
         </div>
       )}
