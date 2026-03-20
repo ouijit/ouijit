@@ -17,6 +17,7 @@ import { createPortal } from 'react-dom';
 import type { Project } from '../types';
 import { useAppStore } from '../stores/appStore';
 import { stringToColor, getInitials } from '../utils/projectIcon';
+import logomarkSvg from '../assets/ouijit-logomark.svg';
 
 const isMac = navigator.platform.toLowerCase().includes('mac');
 
@@ -182,8 +183,8 @@ export function Sidebar({ onProjectSelect, onHomeSelect, onAddExisting, onCreate
               style={{
                 width: '100%',
                 height: '100%',
-                WebkitMaskImage: "url('./assets/ouijit-logomark.svg')",
-                maskImage: "url('./assets/ouijit-logomark.svg')",
+                WebkitMaskImage: `url('${logomarkSvg}')`,
+                maskImage: `url('${logomarkSvg}')`,
                 WebkitMaskSize: 'contain',
                 maskSize: 'contain',
                 WebkitMaskRepeat: 'no-repeat',
