@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { createPortal } from 'react-dom';
 import type { TaskWithWorkspace } from '../../types';
+import { DialogOverlay } from './DialogOverlay';
 
 interface MissingWorktreeDialogProps {
   task: TaskWithWorkspace;
@@ -23,47 +23,27 @@ export function MissingWorktreeDialog({ task, branchExists, onClose }: MissingWo
     [onClose],
   );
 
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        e.stopPropagation();
-        dismiss(null);
-      }
-    };
-    document.addEventListener('keydown', handler, true);
-    return () => document.removeEventListener('keydown', handler, true);
-  }, [dismiss]);
-
-  return createPortal(
-    <div
-      className={`modal-overlay ${visible ? 'modal-overlay--visible' : ''}`}
-      onMouseDown={(e) => {
-        if (e.target === e.currentTarget) dismiss(null);
-      }}
-    >
-      <div className={`dialog ${visible ? 'dialog--visible' : ''}`} style={{ maxWidth: 420 }}>
-        <h2 className="dialog-title">Worktree Not Found</h2>
-        <p className="dialog-text">
-          The worktree directory for &ldquo;<strong>{task.name}</strong>&rdquo; no longer exists on disk.
+  return (
+    <DialogOverlay visible={visible} onDismiss={() => dismiss(null)} maxWidth={420}>
+      <h2 className="dialog-title">Worktree Not Found</h2>
+      <p className="dialog-text">
+        The worktree directory for &ldquo;<strong>{task.name}</strong>&rdquo; no longer exists on disk.
+      </p>
+      {task.branch && (
+        <p className="dialog-text" style={{ marginTop: 4, fontSize: 12, opacity: 0.7 }}>
+          Branch: <code>{task.branch}</code>
         </p>
-        {task.branch && (
-          <p className="dialog-text" style={{ marginTop: 4, fontSize: 12, opacity: 0.7 }}>
-            Branch: <code>{task.branch}</code>
-          </p>
-        )}
-        <div className="dialog-actions">
-          <button className="btn btn-secondary" onClick={() => dismiss(null)}>
-            Cancel
+      )}
+      <div className="dialog-actions">
+        <button className="btn btn-secondary" onClick={() => dismiss(null)}>
+          Cancel
+        </button>
+        {branchExists && (
+          <button className="btn btn-primary" onClick={() => dismiss('recover')}>
+            Recreate Worktree
           </button>
-          {branchExists && (
-            <button className="btn btn-primary" onClick={() => dismiss('recover')}>
-              Recreate Worktree
-            </button>
-          )}
-        </div>
+        )}
       </div>
-    </div>,
-    document.body,
+    </DialogOverlay>
   );
 }
