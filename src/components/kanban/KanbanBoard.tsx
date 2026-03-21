@@ -22,8 +22,12 @@ import { KanbanColumn } from './KanbanColumn';
 import { focusKanbanAddInput } from './KanbanAddInput';
 import { HookConfigDialog } from '../dialogs/HookConfigDialog';
 import { CombinedHookConfigDialog } from '../dialogs/CombinedHookConfigDialog';
+import { MissingWorktreeDialog } from '../dialogs/MissingWorktreeDialog';
 import { RunHookDialog, type RunHookResult } from '../dialogs/RunHookDialog';
 import { Icon } from '../terminal/Icon';
+import log from 'electron-log/renderer';
+
+const kanbanLog = log.scope('kanban');
 
 const COLUMNS: { status: TaskStatus; label: string }[] = [
   { status: 'todo', label: 'To Do' },
@@ -71,6 +75,52 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
     | { mode: 'combined'; start?: any; continue?: any }
     | null
   >(null);
+  const [missingWorktreeDialog, setMissingWorktreeDialog] = useState<{
+    task: TaskWithWorkspace;
+    branchExists: boolean;
+    resolve: (action: 'recover' | null) => void;
+  } | null>(null);
+
+  /**
+   * Check if a task's worktree exists on disk. If missing, prompt the user to recover it.
+   * Returns the (possibly new) worktree path on success, or null if cancelled/failed.
+   */
+  const ensureWorktreeExists = useCallback(
+    async (task: TaskWithWorkspace): Promise<string | null> => {
+      if (!task.worktreePath) return null;
+      const check = await window.api.task.checkWorktree(projectPath, task.taskNumber);
+      if (check.exists) return task.worktreePath;
+
+      kanbanLog.warn('worktree missing', { taskNumber: task.taskNumber, branchExists: check.branchExists });
+
+      const action = await new Promise<'recover' | null>((resolve) => {
+        setMissingWorktreeDialog({ task, branchExists: check.branchExists, resolve });
+      });
+      setMissingWorktreeDialog(null);
+
+      if (action !== 'recover') {
+        kanbanLog.info('user cancelled worktree recovery', { taskNumber: task.taskNumber });
+        return null;
+      }
+
+      const result = await window.api.task.recover(projectPath, task.taskNumber);
+      if (!result.success || !result.worktreePath) {
+        kanbanLog.error('worktree recovery failed', {
+          taskNumber: task.taskNumber,
+          error: result.error,
+        });
+        useProjectStore.getState().addToast(result.error || 'Failed to recover worktree', 'error');
+        return null;
+      }
+
+      kanbanLog.info('worktree recovered', { taskNumber: task.taskNumber, worktreePath: result.worktreePath });
+      if (result.task?.branch) task.branch = result.task.branch;
+      task.worktreePath = result.worktreePath;
+      useProjectStore.getState().loadTasks(projectPath);
+      return result.worktreePath;
+    },
+    [projectPath],
+  );
 
   // Load which hooks are configured
   useEffect(() => {
@@ -293,6 +343,13 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
         }
       }
 
+      // Verify existing worktree is still on disk; offer recovery if missing
+      if (draggedTask.worktreePath) {
+        const wtPath = await ensureWorktreeExists(draggedTask);
+        if (!wtPath) return;
+        draggedTask = { ...draggedTask, worktreePath: wtPath };
+      }
+
       // Persist status + position to backend
       await useProjectStore.getState().moveTask(projectPath, activeTaskNum, finalContainer, targetIndex);
       await useProjectStore.getState().loadTasks(projectPath);
@@ -319,7 +376,7 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
         }
       }
     },
-    [activeTask, overTrash, items, findContainer, projectPath],
+    [activeTask, overTrash, items, findContainer, projectPath, ensureWorktreeExists],
   );
 
   // Task CRUD
@@ -349,8 +406,10 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
   const handleOpenTerminal = useCallback(
     async (task: TaskWithWorkspace, sandboxed?: boolean) => {
       if (task.worktreePath && task.branch) {
+        const wtPath = await ensureWorktreeExists(task);
+        if (!wtPath) return;
         await addProjectTerminal(projectPath, undefined, {
-          existingWorktree: { path: task.worktreePath, branch: task.branch, createdAt: task.createdAt },
+          existingWorktree: { path: wtPath, branch: task.branch, createdAt: task.createdAt },
           taskId: task.taskNumber,
           sandboxed,
         });
@@ -375,7 +434,7 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
       }
       onHide();
     },
-    [projectPath, onHide],
+    [projectPath, onHide, ensureWorktreeExists],
   );
 
   const handleSwitchToTerminal = useCallback(
@@ -454,6 +513,13 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
             '0 0 0 1px rgba(0, 0, 0, 0.05), 0 4px 12px rgba(0, 0, 0, 0.15), 0 20px 40px rgba(0, 0, 0, 0.2)',
         }}
       >
+        {missingWorktreeDialog && (
+          <MissingWorktreeDialog
+            task={missingWorktreeDialog.task}
+            branchExists={missingWorktreeDialog.branchExists}
+            onClose={missingWorktreeDialog.resolve}
+          />
+        )}
         {runHookDialog && (
           <RunHookDialog
             hookType={runHookDialog.hookType}

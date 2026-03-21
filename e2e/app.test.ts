@@ -1,5 +1,6 @@
 import { test, expect } from './fixtures';
 import type { Page, Locator } from '@playwright/test';
+import * as fs from 'node:fs';
 
 const modifier = process.platform === 'darwin' ? 'Meta' : 'Control';
 
@@ -299,4 +300,71 @@ test('lifecycle hooks: start hook via drag shows dialog', async ({ appPage, test
   await expect(appPage.locator('.modal-overlay--visible .dialog')).not.toBeVisible();
   await expect(inProgressColumn.locator('.kanban-card')).toHaveCount(3, { timeout: 5_000 });
   await expect(todoColumn.locator('.kanban-card')).toHaveCount(0);
+});
+
+test('missing worktree: recovery dialog recreates worktree on open', async ({ appPage, testRepo }) => {
+  const repoPath = testRepo.repoPath;
+  await enterProject(appPage, repoPath);
+
+  // Create a task and open it in terminal (creates worktree, moves to in_progress)
+  const input = appPage.locator('.kanban-add-input');
+  await input.fill('Recovery task');
+  await input.press('Enter');
+
+  const todoColumn = appPage.locator('.kanban-column[data-status="todo"]');
+  await expect(todoColumn.locator('.kanban-card')).toHaveCount(1, { timeout: 5_000 });
+
+  // Open in terminal via context menu
+  const kanbanCard = todoColumn.locator('.kanban-card').first();
+  await kanbanCard.click({ button: 'right' });
+  await appPage.locator('.context-menu--visible .context-menu-item', { hasText: 'Open in Terminal' }).click();
+  await expect(appPage.locator('.project-card')).toHaveCount(1, { timeout: 15_000 });
+
+  // Get the worktree path from the task data
+  const worktreePath = await appPage.evaluate(async (rp: string) => {
+    const tasks = await window.api.task.getAll(rp);
+    return tasks.find((t: any) => t.name === 'Recovery task')?.worktreePath;
+  }, repoPath);
+  expect(worktreePath).toBeTruthy();
+
+  // Delete the worktree directory to simulate external deletion
+  fs.rmSync(worktreePath, { recursive: true, force: true });
+  expect(fs.existsSync(worktreePath)).toBe(false);
+
+  // Close the terminal so we can reopen from kanban
+  await appPage.keyboard.press(`${modifier}+w`);
+  await expect(appPage.locator('.project-card')).toHaveCount(0, { timeout: 5_000 });
+
+  // Open kanban
+  await appPage.keyboard.press(`${modifier}+t`);
+  await expect(appPage.locator('.kanban-board')).toBeVisible({ timeout: 5_000 });
+
+  const inProgressColumn = appPage.locator('.kanban-column[data-status="in_progress"]');
+  const ipCard = inProgressColumn.locator('.kanban-card').first();
+  await expect(ipCard).toBeVisible({ timeout: 5_000 });
+
+  // Try to open the task again — should show recovery dialog
+  await ipCard.click({ button: 'right' });
+  await appPage.locator('.context-menu--visible .context-menu-item', { hasText: 'Open in Terminal' }).click();
+
+  // Recovery dialog should appear
+  const recoveryDialog = appPage.locator('.modal-overlay--visible .dialog');
+  await expect(recoveryDialog).toBeVisible({ timeout: 10_000 });
+  await expect(recoveryDialog.locator('.dialog-title')).toHaveText('Worktree Not Found');
+  await expect(recoveryDialog).toContainText('Recovery task');
+
+  // Click "Recreate Worktree"
+  await recoveryDialog.locator('.btn-primary', { hasText: 'Recreate Worktree' }).click();
+  await expect(recoveryDialog).not.toBeVisible({ timeout: 5_000 });
+
+  // Terminal should open successfully with recovered worktree
+  await expect(appPage.locator('.project-card')).toHaveCount(1, { timeout: 15_000 });
+
+  // Verify the worktree directory was recreated
+  const newWorktreePath = await appPage.evaluate(async (rp: string) => {
+    const tasks = await window.api.task.getAll(rp);
+    return tasks.find((t: any) => t.name === 'Recovery task')?.worktreePath;
+  }, repoPath);
+  expect(newWorktreePath).toBeTruthy();
+  expect(fs.existsSync(newWorktreePath)).toBe(true);
 });
