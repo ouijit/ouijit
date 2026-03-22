@@ -212,7 +212,7 @@ function buildKanbanHtml(): string {
     const hookInfo = COLUMN_HOOKS[col.status];
     const hookBtn = hookInfo
       ? `<button class="kanban-column-hook-btn" data-hook-column="${col.status}" title="${hookInfo.tooltip}" style="-webkit-app-region: no-drag;"><i data-icon="webhooks-logo"></i></button>`
-      : '';
+      : '<div class="kanban-column-hook-btn" style="visibility: hidden;"><i data-icon="webhooks-logo"></i></div>';
     return `
       <div class="kanban-column" data-status="${col.status}">
         <div class="kanban-column-header">
