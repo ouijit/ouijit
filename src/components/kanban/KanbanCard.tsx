@@ -28,6 +28,9 @@ export const KanbanCard = memo(function KanbanCard({
   const [editingDesc, setEditingDesc] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
   const [editorHookDialog, setEditorHookDialog] = useState(false);
+  const [terminalContextMenu, setTerminalContextMenu] = useState<{ x: number; y: number; ptyId: string } | null>(null);
+  const [renamingTerminalId, setRenamingTerminalId] = useState<string | null>(null);
+  const terminalRenameRef = useRef<HTMLInputElement>(null);
   const nameInputRef = useRef<HTMLTextAreaElement>(null);
   const descInputRef = useRef<HTMLSpanElement>(null);
 
@@ -92,6 +95,34 @@ export const KanbanCard = memo(function KanbanCard({
     onUpdateDescription(task.taskNumber, desc);
     setEditingDesc(false);
   }, [task.taskNumber, onUpdateDescription]);
+
+  const commitTerminalRename = useCallback(() => {
+    const value = terminalRenameRef.current?.value.trim();
+    if (value && renamingTerminalId) {
+      useTerminalStore.getState().updateDisplay(renamingTerminalId, { label: value });
+    }
+    setRenamingTerminalId(null);
+  }, [renamingTerminalId]);
+
+  useEffect(() => {
+    if (renamingTerminalId && terminalRenameRef.current) {
+      const display = useTerminalStore.getState().displayStates[renamingTerminalId];
+      terminalRenameRef.current.value = display?.label ?? '';
+      terminalRenameRef.current.focus();
+      terminalRenameRef.current.select();
+    }
+  }, [renamingTerminalId]);
+
+  const terminalContextMenuItems = useMemo((): ContextMenuEntry[] => {
+    if (!terminalContextMenu) return [];
+    return [
+      {
+        label: 'Rename',
+        icon: 'pencil-simple',
+        onClick: () => setRenamingTerminalId(terminalContextMenu.ptyId),
+      },
+    ];
+  }, [terminalContextMenu]);
 
   const formattedDate = task.createdAt
     ? new Date(task.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
@@ -269,6 +300,7 @@ export const KanbanCard = memo(function KanbanCard({
         <div className="flex flex-col" style={{ paddingTop: 3 }}>
           {connectedDisplays.map((display, i) => {
             const isLast = i === connectedDisplays.length - 1;
+            const isRenaming = renamingTerminalId === display.ptyId;
             const dotLabel = display.lastOscTitle || display.label || 'Shell';
             const truncated = dotLabel.length > 35 ? dotLabel.slice(0, 35) + '\u2026' : dotLabel;
 
@@ -280,6 +312,11 @@ export const KanbanCard = memo(function KanbanCard({
                 onClick={(e) => {
                   e.stopPropagation();
                   onSwitchToTerminal(display.ptyId);
+                }}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setTerminalContextMenu({ x: e.clientX, y: e.clientY, ptyId: display.ptyId });
                 }}
               >
                 <span className="font-mono text-sm leading-none text-text-secondary shrink-0 select-none opacity-40">
@@ -296,14 +333,35 @@ export const KanbanCard = memo(function KanbanCard({
                       : {}),
                   }}
                 />
-                <span className="font-mono text-[10px] leading-tight text-text-secondary truncate min-w-0">
-                  {truncated}
-                  {display.sandboxed ? ' (sandbox)' : ''}
-                </span>
+                {isRenaming ? (
+                  <input
+                    ref={terminalRenameRef}
+                    className="font-mono text-[10px] leading-tight text-text-secondary bg-transparent border-0 border-b border-accent p-0 outline-none min-w-0 [-webkit-app-region:no-drag]"
+                    onClick={(e) => e.stopPropagation()}
+                    onBlur={commitTerminalRename}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') commitTerminalRename();
+                      if (e.key === 'Escape') setRenamingTerminalId(null);
+                    }}
+                  />
+                ) : (
+                  <span className="font-mono text-[10px] leading-tight text-text-secondary truncate min-w-0">
+                    {truncated}
+                    {display.sandboxed ? ' (sandbox)' : ''}
+                  </span>
+                )}
               </div>
             );
           })}
         </div>
+      )}
+      {terminalContextMenu && (
+        <ContextMenu
+          x={terminalContextMenu.x}
+          y={terminalContextMenu.y}
+          items={terminalContextMenuItems}
+          onClose={() => setTerminalContextMenu(null)}
+        />
       )}
 
       {/* Detail section */}

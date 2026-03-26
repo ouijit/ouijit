@@ -1,4 +1,4 @@
-import { memo, useState, useCallback, useEffect, useMemo } from 'react';
+import { memo, useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useTerminalStore } from '../../stores/terminalStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { terminalInstances } from './terminalReact';
@@ -50,6 +50,8 @@ export const TerminalHeader = memo(function TerminalHeader({
   const [tagInputOpen, setTagInputOpen] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
   const [editorHookDialog, setEditorHookDialog] = useState(false);
+  const [renaming, setRenaming] = useState(false);
+  const renameInputRef = useRef<HTMLInputElement>(null);
 
   const instance = terminalInstances.get(ptyId);
   const projectPath = instance?.projectPath ?? '';
@@ -65,10 +67,10 @@ export const TerminalHeader = memo(function TerminalHeader({
   }, [projectPath]);
 
   const contextMenuItems = useMemo((): ContextMenuEntry[] => {
-    if (!isTaskTerminal || !instance) return [];
+    if (!instance) return [];
     const items: ContextMenuEntry[] = [];
 
-    if (instance.worktreePath && instance.worktreeBranch) {
+    if (isTaskTerminal && instance.worktreePath && instance.worktreeBranch) {
       items.push({
         label: 'Open in Terminal',
         icon: 'terminal',
@@ -101,45 +103,49 @@ export const TerminalHeader = memo(function TerminalHeader({
           },
         });
       }
+
+      // Open in editor (always visible — prompts config dialog if not set up)
+      items.push({
+        label: 'Open in Editor',
+        icon: 'code',
+        onClick: () => {
+          if (hasEditorHook && instance.worktreePath) {
+            window.api.openInEditor(projectPath, instance.worktreePath!);
+          } else {
+            setEditorHookDialog(true);
+          }
+        },
+      });
     }
 
-    // Open in editor (always visible — prompts config dialog if not set up)
     items.push({
-      label: 'Open in Editor',
-      icon: 'code',
-      onClick: () => {
-        if (hasEditorHook && instance.worktreePath) {
-          window.api.openInEditor(projectPath, instance.worktreePath!);
-        } else {
-          setEditorHookDialog(true);
-        }
-      },
+      label: 'Rename',
+      icon: 'pencil-simple',
+      onClick: () => setRenaming(true),
     });
 
-    items.push({ separator: true });
-    items.push({
-      label: 'Close Task',
-      icon: 'archive',
-      onClick: async () => {
-        await window.api.task.setStatus(projectPath, taskId!, 'done');
-        onClose();
-        useProjectStore.getState().invalidateTaskList();
-        useProjectStore.getState().addToast('Task closed', 'success');
-      },
-    });
+    if (isTaskTerminal) {
+      items.push({ separator: true });
+      items.push({
+        label: 'Close Task',
+        icon: 'archive',
+        onClick: async () => {
+          await window.api.task.setStatus(projectPath, taskId!, 'done');
+          onClose();
+          useProjectStore.getState().invalidateTaskList();
+          useProjectStore.getState().addToast('Task closed', 'success');
+        },
+      });
+    }
 
     return items;
   }, [isTaskTerminal, instance, projectPath, taskId, sandboxAvailable, hasEditorHook, onClose]);
 
-  const handleContextMenu = useCallback(
-    (e: React.MouseEvent) => {
-      if (!isTaskTerminal) return;
-      e.preventDefault();
-      e.stopPropagation();
-      setContextMenu({ x: e.clientX, y: e.clientY });
-    },
-    [isTaskTerminal],
-  );
+  const handleContextMenu = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setContextMenu({ x: e.clientX, y: e.clientY });
+  }, []);
 
   const handleCloseClick = useCallback(
     (e: React.MouseEvent) => {
@@ -148,6 +154,22 @@ export const TerminalHeader = memo(function TerminalHeader({
     },
     [onClose],
   );
+
+  const commitRename = useCallback(() => {
+    const value = renameInputRef.current?.value.trim();
+    if (value) {
+      useTerminalStore.getState().updateDisplay(ptyId, { label: value });
+    }
+    setRenaming(false);
+  }, [ptyId]);
+
+  useEffect(() => {
+    if (renaming && renameInputRef.current) {
+      renameInputRef.current.value = label;
+      renameInputRef.current.focus();
+      renameInputRef.current.select();
+    }
+  }, [renaming, label]);
 
   const handleTagButtonClick = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -215,7 +237,19 @@ export const TerminalHeader = memo(function TerminalHeader({
               <span className="text-xs">{stackPosition}</span>
             </kbd>
           )}
-          <span className="font-mono text-xs font-medium text-white/70 shrink-0">{displayText}</span>
+          {renaming ? (
+            <input
+              ref={renameInputRef}
+              className="font-mono text-xs font-medium text-white/70 bg-transparent border-0 border-b border-accent p-0 outline-none min-w-0 shrink-0 [-webkit-app-region:no-drag]"
+              onBlur={commitRename}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') commitRename();
+                if (e.key === 'Escape') setRenaming(false);
+              }}
+            />
+          ) : (
+            <span className="font-mono text-xs font-medium text-white/70 shrink-0">{displayText}</span>
+          )}
           <button
             className="flex items-center justify-center w-5 h-5 rounded text-white/30 bg-transparent border-none shrink-0"
             onMouseDown={handleTagButtonClick}
