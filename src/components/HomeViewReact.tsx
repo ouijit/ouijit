@@ -348,6 +348,19 @@ export function HomeView() {
               marginTop: -1,
             }}
           >
+            {/* Card body below the tab */}
+            <div
+              className="absolute border border-white/10"
+              style={{
+                top: 27,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                background: '#252528',
+                borderRadius: '0 14px 14px 14px',
+                borderTop: 'none',
+              }}
+            />
             <div
               className="home-folder-tab absolute top-0 left-0 pointer-events-auto"
               style={{
