@@ -94,6 +94,9 @@
   --content-max-width: 1200px;
   --content-padding: 24px;
 
+  /* Animations */
+  --animate-tooltip-pop: tooltip-pop 80ms ease-out forwards;
+
   /* Terminal */
   --color-terminal-bg: #171717;
 }
@@ -179,6 +182,21 @@ textarea,
 @keyframes loading-dot-spin {
   to {
     transform: rotate(360deg);
+  }
+}
+
+@keyframes tooltip-pop {
+  0% {
+    transform: scale(0.92);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.05);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
   }
 }
 

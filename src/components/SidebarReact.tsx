@@ -371,11 +371,13 @@ function SortableProjectIcon({ project, isActive, onClick, onContextMenu }: Sort
         createPortal(
           <div
             ref={tipRefs.setFloating}
-            className="fixed z-[10002] px-3 py-1.5 text-[13px] font-medium text-white bg-neutral-800 border border-white/10 rounded-md shadow-lg pointer-events-none whitespace-nowrap"
+            className="fixed z-[10002] pointer-events-none"
             style={tipStyles}
             {...getTipFloatProps()}
           >
-            {project.name}
+            <div className="px-3 py-1.5 text-[13px] font-medium text-white bg-neutral-800 border border-white/10 rounded-md shadow-lg whitespace-nowrap animate-tooltip-pop">
+              {project.name}
+            </div>
           </div>,
           document.body,
         )}

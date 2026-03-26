@@ -30,7 +30,7 @@ export function Tooltip({ text, placement = 'bottom', delay = 100, disabled, chi
     onOpenChange: setIsOpen,
     placement,
     strategy: 'fixed',
-    middleware: [offset(6), flip({ fallbackAxisSideDirection: 'start' }), shift({ padding: 8 })],
+    middleware: [offset(6), flip(), shift({ padding: 8 })],
     whileElementsMounted: autoUpdate,
   });
 
@@ -51,11 +51,13 @@ export function Tooltip({ text, placement = 'bottom', delay = 100, disabled, chi
         createPortal(
           <div
             ref={refs.setFloating}
-            className="fixed z-[10000] px-3 py-1.5 text-[13px] font-medium text-white bg-neutral-800 border border-white/10 rounded-md shadow-lg pointer-events-none whitespace-nowrap"
+            className="fixed z-[10000] pointer-events-none"
             style={floatingStyles}
             {...getFloatingProps()}
           >
-            {text}
+            <div className="px-3 py-1.5 text-[13px] font-medium text-white bg-neutral-800 border border-white/10 rounded-md shadow-lg whitespace-nowrap animate-tooltip-pop">
+              {text}
+            </div>
           </div>,
           document.body,
         )}
