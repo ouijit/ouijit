@@ -29,8 +29,16 @@ export function MissingWorktreeDialog({ task, branchExists, onClose }: MissingWo
         Worktree Not Found
       </h2>
       <p className="text-sm text-text-secondary text-center">
-        The worktree directory for &ldquo;<strong className="text-text-primary">{task.name}</strong>&rdquo; no longer
-        exists on disk.
+        {task.worktreePath ? (
+          <>
+            The worktree directory for &ldquo;<strong className="text-text-primary">{task.name}</strong>&rdquo; no
+            longer exists on disk.
+          </>
+        ) : (
+          <>
+            No worktree has been created for &ldquo;<strong className="text-text-primary">{task.name}</strong>&rdquo;.
+          </>
+        )}
       </p>
       {task.branch && (
         <p className="text-xs text-text-secondary/70 text-center mt-1">
@@ -45,15 +53,13 @@ export function MissingWorktreeDialog({ task, branchExists, onClose }: MissingWo
         >
           Cancel
         </button>
-        {branchExists && (
-          <button
-            data-testid="dialog-recover"
-            className="inline-flex items-center justify-center gap-2 px-4 py-1.5 font-sans text-sm font-medium no-underline border-none rounded-full outline-none transition-all duration-150 ease-out [-webkit-app-region:no-drag] focus-visible:ring-3 focus-visible:ring-accent-light text-white bg-accent hover:bg-accent-hover active:scale-[0.98]"
-            onClick={() => dismiss('recover')}
-          >
-            Recreate Worktree
-          </button>
-        )}
+        <button
+          data-testid="dialog-recover"
+          className="inline-flex items-center justify-center gap-2 px-4 py-1.5 font-sans text-sm font-medium no-underline border-none rounded-full outline-none transition-all duration-150 ease-out [-webkit-app-region:no-drag] focus-visible:ring-3 focus-visible:ring-accent-light text-white bg-accent hover:bg-accent-hover active:scale-[0.98]"
+          onClick={() => dismiss('recover')}
+        >
+          {branchExists ? 'Recreate Worktree' : 'Create Worktree'}
+        </button>
       </div>
     </DialogOverlay>
   );

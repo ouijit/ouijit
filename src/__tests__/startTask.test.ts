@@ -58,13 +58,13 @@ describe('startTask', () => {
     expect(result.worktreePath).toBeTruthy();
   });
 
-  test('rejects starting a non-todo task', async () => {
-    const project = '/test/start-reject-nontodo';
+  test('creates worktree for a non-todo task without one', async () => {
+    const project = '/test/start-nontodo';
     await createTask(project, 1, 'In progress task'); // defaults to in_progress
 
     const result = await startTask(project, 1);
-    expect(result.success).toBe(false);
-    expect(result.error).toBe('Task is already started');
+    expect(result.success).toBe(true);
+    expect(result.worktreePath).toBeTruthy();
   });
 
   test('returns error for non-existent task', async () => {

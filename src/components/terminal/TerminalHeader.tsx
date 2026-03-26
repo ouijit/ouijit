@@ -370,7 +370,7 @@ function GitStats({
   if (hasChanges) {
     const fileLabel = dirtyFileCount === 1 ? 'file' : 'files';
     return (
-      <span
+      <button
         className={`flex items-center gap-1 px-2.5 py-1 rounded-full font-mono text-[13px] font-medium text-white/60 bg-white/[0.06] transition-all duration-150 ease-out hover:bg-white/[0.12] hover:text-white/90 active:bg-white/[0.10] active:text-white/80 ${diffPanelOpen ? '!bg-accent !text-white' : ''}`}
         title="View uncommitted changes"
         onClick={onClick}
@@ -380,19 +380,19 @@ function GitStats({
         </span>
         {insertions > 0 && <span className="text-[#69db7c]">+{insertions}</span>}
         {deletions > 0 && <span className="text-[#ff6b6b]">-{deletions}</span>}
-      </span>
+      </button>
     );
   }
 
   if (isWorktree && gitStatus.branchDiffFileCount > 0) {
     return (
-      <span
+      <button
         className={`px-2.5 py-1 bg-white/[0.06] border-none font-sans text-[13px] font-medium text-white/60 rounded-full transition-all duration-150 ease-out hover:bg-white/[0.12] hover:text-white/90 active:bg-white/[0.10] active:text-white/80 ${diffPanelOpen ? '!bg-accent !text-white' : ''}`}
         title="Compare branch changes"
         onClick={onClick}
       >
         Compare
-      </span>
+      </button>
     );
   }
 

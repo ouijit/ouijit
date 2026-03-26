@@ -87,9 +87,8 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
    */
   const ensureWorktreeExists = useCallback(
     async (task: TaskWithWorkspace): Promise<string | null> => {
-      if (!task.worktreePath) return null;
       const check = await window.api.task.checkWorktree(projectPath, task.taskNumber);
-      if (check.exists) return task.worktreePath;
+      if (check.exists && task.worktreePath) return task.worktreePath;
 
       kanbanLog.warn('worktree missing', { taskNumber: task.taskNumber, branchExists: check.branchExists });
 
@@ -415,8 +414,17 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
           taskId: task.taskNumber,
           sandboxed,
         });
+      } else if (task.branch) {
+        // Has a branch but lost its worktree — recover via dialog
+        const wtPath = await ensureWorktreeExists(task);
+        if (!wtPath) return;
+        await addProjectTerminal(projectPath, undefined, {
+          existingWorktree: { path: wtPath, branch: task.branch, createdAt: task.createdAt },
+          taskId: task.taskNumber,
+          sandboxed,
+        });
       } else {
-        // No worktree yet — create one, move to in_progress, then open terminal
+        // No worktree or branch yet — create one via startTask
         const startResult = await window.api.task.start(projectPath, task.taskNumber);
         if (!startResult.success || !startResult.worktreePath) {
           useProjectStore.getState().addToast(startResult.error || 'Failed to start task', 'error');

@@ -293,7 +293,6 @@ export async function startTask(
     if (task.worktreePath) {
       return { success: true, task, worktreePath: task.worktreePath };
     }
-    if (task.status !== 'todo') return { success: false, error: 'Task is already started' };
 
     worktreeLog.info('starting task', { taskNumber, name: task.name });
 
