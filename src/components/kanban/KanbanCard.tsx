@@ -4,6 +4,7 @@ import { useTerminalStore, type TerminalDisplayState } from '../../stores/termin
 import { useProjectStore } from '../../stores/projectStore';
 import { Icon } from '../terminal/Icon';
 import { ContextMenu, type ContextMenuEntry } from '../ui/ContextMenu';
+import { HookConfigDialog } from '../dialogs/HookConfigDialog';
 
 interface KanbanCardProps {
   task: TaskWithWorkspace;
@@ -26,6 +27,7 @@ export const KanbanCard = memo(function KanbanCard({
   const [editing, setEditing] = useState(false);
   const [editingDesc, setEditingDesc] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
+  const [editorHookDialog, setEditorHookDialog] = useState(false);
   const nameInputRef = useRef<HTMLTextAreaElement>(null);
   const descInputRef = useRef<HTMLSpanElement>(null);
 
@@ -133,16 +135,18 @@ export const KanbanCard = memo(function KanbanCard({
       });
     }
 
-    // Open in editor (only when editor hook is configured)
-    if (task.worktreePath && hasEditorHook) {
-      items.push({
-        label: 'Open in Editor',
-        icon: 'code',
-        onClick: () => {
-          window.api.openInEditor(projectPath, task.worktreePath!);
-        },
-      });
-    }
+    // Open in editor (always visible — prompts config dialog if not set up)
+    items.push({
+      label: 'Open in Editor',
+      icon: 'code',
+      onClick: () => {
+        if (hasEditorHook && task.worktreePath) {
+          window.api.openInEditor(projectPath, task.worktreePath);
+        } else {
+          setEditorHookDialog(true);
+        }
+      },
+    });
 
     items.push({ separator: true });
 
@@ -212,6 +216,16 @@ export const KanbanCard = memo(function KanbanCard({
           y={contextMenu.y}
           items={contextMenuItems}
           onClose={() => setContextMenu(null)}
+        />
+      )}
+      {editorHookDialog && (
+        <HookConfigDialog
+          projectPath={projectPath}
+          hookType="editor"
+          onClose={(result) => {
+            setEditorHookDialog(false);
+            if (result?.saved) setHasEditorHook(true);
+          }}
         />
       )}
       <div className="flex items-start gap-2">

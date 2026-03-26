@@ -9,6 +9,7 @@ import type { CompactGitStatus } from '../../types';
 import { Icon } from './Icon';
 import { TagInput } from './TagInput';
 import { ContextMenu, type ContextMenuEntry } from '../ui/ContextMenu';
+import { HookConfigDialog } from '../dialogs/HookConfigDialog';
 
 const isMac = navigator.platform.toLowerCase().includes('mac');
 
@@ -48,6 +49,7 @@ export const TerminalHeader = memo(function TerminalHeader({
 
   const [tagInputOpen, setTagInputOpen] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
+  const [editorHookDialog, setEditorHookDialog] = useState(false);
 
   const instance = terminalInstances.get(ptyId);
   const projectPath = instance?.projectPath ?? '';
@@ -101,15 +103,18 @@ export const TerminalHeader = memo(function TerminalHeader({
       }
     }
 
-    if (hasEditorHook && instance.worktreePath) {
-      items.push({
-        label: 'Open in Editor',
-        icon: 'code',
-        onClick: () => {
+    // Open in editor (always visible — prompts config dialog if not set up)
+    items.push({
+      label: 'Open in Editor',
+      icon: 'code',
+      onClick: () => {
+        if (hasEditorHook && instance.worktreePath) {
           window.api.openInEditor(projectPath, instance.worktreePath!);
-        },
-      });
-    }
+        } else {
+          setEditorHookDialog(true);
+        }
+      },
+    });
 
     items.push({ separator: true });
     items.push({
@@ -180,6 +185,16 @@ export const TerminalHeader = memo(function TerminalHeader({
           y={contextMenu.y}
           items={contextMenuItems}
           onClose={() => setContextMenu(null)}
+        />
+      )}
+      {editorHookDialog && (
+        <HookConfigDialog
+          projectPath={projectPath}
+          hookType="editor"
+          onClose={(result) => {
+            setEditorHookDialog(false);
+            if (result?.saved) setHasEditorHook(true);
+          }}
         />
       )}
       <div className="flex flex-col min-w-0 shrink">
