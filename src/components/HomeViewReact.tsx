@@ -4,7 +4,9 @@ import { useUIStore } from '../stores/uiStore';
 import { terminalInstances } from './terminal/terminalReact';
 import { reconnectTerminal, addProjectTerminal } from './terminal/terminalActions';
 import { TerminalHeader } from './terminal/TerminalHeader';
+import { TerminalBody } from './terminal/TerminalBody';
 import { XTermContainer } from './terminal/XTermContainer';
+import { useTerminalPanels } from './terminal/useTerminalPanels';
 import { Icon } from './terminal/Icon';
 import { stringToColor, getInitials } from '../utils/projectIcon';
 import type { Project } from '../types';
@@ -253,6 +255,15 @@ export function HomeView() {
     [stackItems],
   );
 
+  const handleClose = (ptyId: string) => {
+    const instance = terminalInstances.get(ptyId);
+    if (instance) instance.dispose();
+    useTerminalStore.getState().removeTerminal(ptyId);
+  };
+
+  const { toggleDiffPanel, closeDiffPanel, toggleRunner, collapseRunner, killRunner, restartRunner } =
+    useTerminalPanels(activePtyId);
+
   if (allPtyIds.length === 0) {
     const isMac = navigator.platform.toLowerCase().includes('mac');
     return (
@@ -285,12 +296,6 @@ export function HomeView() {
     );
   }
 
-  const handleClose = (ptyId: string) => {
-    const instance = terminalInstances.get(ptyId);
-    if (instance) instance.dispose();
-    useTerminalStore.getState().removeTerminal(ptyId);
-  };
-
   return (
     <div
       className="project-stack fixed top-[82px] right-4 bottom-4 z-[100] overflow-visible"
@@ -320,10 +325,28 @@ export function HomeView() {
             }}
             onClick={() => !isActive && setActivePtyId(ptyId)}
           >
-            <TerminalHeader ptyId={ptyId} isActive={isActive} compact={!isActive} onClose={() => handleClose(ptyId)} />
-            <div className="relative flex-1 flex flex-row min-h-0 overflow-hidden">
-              <XTermContainer ptyId={ptyId} />
-            </div>
+            <TerminalHeader
+              ptyId={ptyId}
+              isActive={isActive}
+              compact={!isActive}
+              onClose={() => handleClose(ptyId)}
+              onToggleDiffPanel={isActive ? toggleDiffPanel : undefined}
+              onToggleRunner={isActive ? toggleRunner : undefined}
+            />
+            {isActive ? (
+              <TerminalBody
+                ptyId={ptyId}
+                projectPath={activeDisplay?.projectPath ?? ''}
+                onCloseDiffPanel={closeDiffPanel}
+                onCollapseRunner={collapseRunner}
+                onKillRunner={killRunner}
+                onRestartRunner={restartRunner}
+              />
+            ) : (
+              <div className="relative flex-1 flex flex-row min-h-0 overflow-hidden">
+                <XTermContainer ptyId={ptyId} />
+              </div>
+            )}
           </div>
         );
       })}

@@ -331,7 +331,6 @@ export async function spawnRunner(ptyId: string): Promise<void> {
   const [hooks, settings] = await Promise.all([window.api.hooks.get(path), window.api.getProjectSettings(path)]);
 
   if (!hooks.run) {
-    // TODO: Show hook config dialog (Phase 5)
     return;
   }
 

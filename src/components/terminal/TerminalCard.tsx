@@ -1,11 +1,9 @@
 import { memo, useCallback, useMemo, useState } from 'react';
 import { useTerminalStore, STACK_PAGE_SIZE } from '../../stores/terminalStore';
 import { terminalInstances } from './terminalReact';
-import { spawnRunner } from './terminalActions';
 import { TerminalHeader } from './TerminalHeader';
-import { XTermContainer } from './XTermContainer';
-import { RunnerPanel } from './RunnerPanel';
-import { DiffPanel } from '../diff/DiffPanel';
+import { TerminalBody } from './TerminalBody';
+import { useTerminalPanels } from './useTerminalPanels';
 
 const EMPTY: string[] = [];
 
@@ -52,9 +50,6 @@ interface TerminalCardProps {
 export const TerminalCard = memo(function TerminalCard({ ptyId, projectPath }: TerminalCardProps) {
   const terminals = useTerminalStore((s) => s.terminalsByProject[projectPath]) ?? EMPTY;
   const activeIndex = useTerminalStore((s) => s.activeIndices[projectPath] ?? 0);
-  const runnerPanelOpen = useTerminalStore((s) => s.displayStates[ptyId]?.runnerPanelOpen ?? false);
-  const runnerFullWidth = useTerminalStore((s) => s.displayStates[ptyId]?.runnerFullWidth ?? true);
-  const diffPanelOpen = useTerminalStore((s) => s.displayStates[ptyId]?.diffPanelOpen ?? false);
 
   const index = terminals.indexOf(ptyId);
   const page = Math.floor(activeIndex / STACK_PAGE_SIZE);
@@ -64,6 +59,9 @@ export const TerminalCard = memo(function TerminalCard({ ptyId, projectPath }: T
   const isActive = index === activeIndex;
 
   const isHidden = index < pageStart || index >= pageEnd;
+
+  const { toggleDiffPanel, closeDiffPanel, toggleRunner, collapseRunner, killRunner, restartRunner } =
+    useTerminalPanels(ptyId);
 
   const backDepth = useMemo(() => {
     if (isActive || isHidden) return 0;
@@ -98,68 +96,6 @@ export const TerminalCard = memo(function TerminalCard({ ptyId, projectPath }: T
       instance.dispose();
     }
     useTerminalStore.getState().removeTerminal(ptyId);
-  }, [ptyId]);
-
-  const handleToggleDiffPanel = useCallback(() => {
-    const instance = terminalInstances.get(ptyId);
-    if (!instance) return;
-    instance.diffPanelOpen = !instance.diffPanelOpen;
-    // Close runner panel if opening diff (mutual exclusivity)
-    if (instance.diffPanelOpen && instance.runnerPanelOpen) {
-      instance.runnerPanelOpen = false;
-      instance.pushDisplayState({ diffPanelOpen: true, runnerPanelOpen: false });
-    } else {
-      instance.pushDisplayState({ diffPanelOpen: instance.diffPanelOpen });
-    }
-    // Refit terminal after diff panel closes
-    if (!instance.diffPanelOpen) {
-      requestAnimationFrame(() => instance.fit());
-    }
-  }, [ptyId]);
-
-  const handleCloseDiffPanel = useCallback(() => {
-    const instance = terminalInstances.get(ptyId);
-    if (!instance) return;
-    instance.diffPanelOpen = false;
-    instance.pushDisplayState({ diffPanelOpen: false });
-    requestAnimationFrame(() => instance.fit());
-  }, [ptyId]);
-
-  const handleToggleRunner = useCallback(() => {
-    const instance = terminalInstances.get(ptyId);
-    if (!instance) return;
-
-    if (instance.runner?.ptyId) {
-      instance.runnerPanelOpen = !instance.runnerPanelOpen;
-      if (instance.runnerPanelOpen && instance.diffPanelOpen) {
-        instance.diffPanelOpen = false;
-        instance.pushDisplayState({ runnerPanelOpen: true, diffPanelOpen: false });
-      } else {
-        instance.pushDisplayState({ runnerPanelOpen: instance.runnerPanelOpen });
-      }
-    } else {
-      spawnRunner(ptyId);
-    }
-  }, [ptyId]);
-
-  const handleCollapseRunner = useCallback(() => {
-    const instance = terminalInstances.get(ptyId);
-    if (!instance) return;
-    instance.runnerPanelOpen = false;
-    instance.pushDisplayState({ runnerPanelOpen: false });
-  }, [ptyId]);
-
-  const handleKillRunner = useCallback(() => {
-    const instance = terminalInstances.get(ptyId);
-    if (!instance) return;
-    instance.killRunner();
-    requestAnimationFrame(() => instance.fit());
-  }, [ptyId]);
-
-  const handleRestartRunner = useCallback(() => {
-    const instance = terminalInstances.get(ptyId);
-    if (!instance) return;
-    instance.killRunner();
   }, [ptyId]);
 
   const [hovered, setHovered] = useState(false);
@@ -199,36 +135,17 @@ export const TerminalCard = memo(function TerminalCard({ ptyId, projectPath }: T
         isBackCard={!isActive}
         stackPosition={stackPosition}
         onClose={handleClose}
-        onToggleDiffPanel={handleToggleDiffPanel}
-        onToggleRunner={handleToggleRunner}
+        onToggleDiffPanel={toggleDiffPanel}
+        onToggleRunner={toggleRunner}
       />
-      <div className="relative flex-1 flex flex-row min-h-0 overflow-hidden">
-        {diffPanelOpen ? (
-          <DiffPanel ptyId={ptyId} projectPath={projectPath} onClose={handleCloseDiffPanel} />
-        ) : (
-          <>
-            {!(runnerPanelOpen && runnerFullWidth) && (
-              <XTermContainer
-                ptyId={ptyId}
-                className="terminal-xterm-container flex-1 min-h-0 min-w-0 rounded-none border-none pt-4 pl-4 pr-2 pb-2 overflow-hidden"
-                style={{
-                  transition: 'flex 0.25s ease',
-                  ...(runnerPanelOpen && !runnerFullWidth ? { minWidth: 200 } : {}),
-                  background: 'var(--color-terminal-bg, #171717)',
-                }}
-              />
-            )}
-            {runnerPanelOpen && (
-              <RunnerPanel
-                ptyId={ptyId}
-                onCollapse={handleCollapseRunner}
-                onKill={handleKillRunner}
-                onRestart={handleRestartRunner}
-              />
-            )}
-          </>
-        )}
-      </div>
+      <TerminalBody
+        ptyId={ptyId}
+        projectPath={projectPath}
+        onCloseDiffPanel={closeDiffPanel}
+        onCollapseRunner={collapseRunner}
+        onKillRunner={killRunner}
+        onRestartRunner={restartRunner}
+      />
     </div>
   );
 });

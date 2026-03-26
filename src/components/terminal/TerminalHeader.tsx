@@ -50,6 +50,7 @@ export const TerminalHeader = memo(function TerminalHeader({
   const [tagInputOpen, setTagInputOpen] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
   const [editorHookDialog, setEditorHookDialog] = useState(false);
+  const [runHookDialog, setRunHookDialog] = useState<{ killExistingOnRun?: boolean } | null>(null);
   const [renaming, setRenaming] = useState(false);
   const renameInputRef = useRef<HTMLInputElement>(null);
 
@@ -178,11 +179,28 @@ export const TerminalHeader = memo(function TerminalHeader({
   }, []);
 
   const handleRunnerClick = useCallback(
-    (e: React.MouseEvent) => {
+    async (e: React.MouseEvent) => {
       e.stopPropagation();
-      onToggleRunner?.();
+      if (!onToggleRunner) return;
+      // If runner already exists, just toggle the panel
+      const inst = terminalInstances.get(ptyId);
+      if (inst?.runner?.ptyId) {
+        onToggleRunner();
+        return;
+      }
+      // Check if run hook is configured
+      if (!projectPath) return;
+      const [hooks, settings] = await Promise.all([
+        window.api.hooks.get(projectPath),
+        window.api.getProjectSettings(projectPath),
+      ]);
+      if (hooks.run) {
+        onToggleRunner();
+      } else {
+        setRunHookDialog({ killExistingOnRun: settings.killExistingOnRun });
+      }
     },
-    [onToggleRunner],
+    [onToggleRunner, ptyId, projectPath],
   );
 
   const handleDiffClick = useCallback(
@@ -216,6 +234,19 @@ export const TerminalHeader = memo(function TerminalHeader({
           onClose={(result) => {
             setEditorHookDialog(false);
             if (result?.saved) setHasEditorHook(true);
+          }}
+        />
+      )}
+      {runHookDialog && (
+        <HookConfigDialog
+          projectPath={projectPath}
+          hookType="run"
+          killExistingOnRun={runHookDialog.killExistingOnRun}
+          onClose={(result) => {
+            setRunHookDialog(null);
+            if (result?.saved && result.hook) {
+              onToggleRunner?.();
+            }
           }}
         />
       )}

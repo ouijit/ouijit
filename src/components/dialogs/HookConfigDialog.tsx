@@ -156,11 +156,11 @@ export function HookConfigDialog({
         </div>
 
         {isRunHook && (
-          <div className="flex flex-col gap-1">
-            <label className="flex items-center gap-2">
+          <div className="flex flex-col gap-1 mt-3">
+            <label className="flex items-center gap-2 cursor-default">
               <input
                 type="checkbox"
-                className="w-4 h-4 accent-accent"
+                className="w-4 h-4 accent-accent !cursor-default"
                 checked={killExisting}
                 onChange={(e) => setKillExisting(e.target.checked)}
               />
