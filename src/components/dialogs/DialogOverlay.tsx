@@ -25,6 +25,8 @@ export function DialogOverlay({ visible, onDismiss, maxWidth = 400, children }: 
 
   return createPortal(
     <div
+      data-testid="dialog-overlay"
+      data-visible={visible}
       className={`fixed inset-0 flex justify-center z-[10001] p-10 overflow-y-auto transition-opacity duration-200 ease-out ${visible ? 'opacity-100' : 'opacity-0'}`}
       style={{ background: 'rgba(0, 0, 0, 0.4)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)' }}
       onMouseDown={(e) => {
@@ -35,6 +37,7 @@ export function DialogOverlay({ visible, onDismiss, maxWidth = 400, children }: 
       }}
     >
       <div
+        data-testid="dialog"
         className={`bg-surface rounded-[32px] shadow-lg w-[90%] p-6 border border-border overflow-hidden shrink-0 my-auto ${visible ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 translate-y-2.5'}`}
         style={{ maxWidth, transition: 'opacity 200ms ease-out, transform 200ms ease-out' }}
       >

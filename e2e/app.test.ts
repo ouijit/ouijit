@@ -246,14 +246,14 @@ test('lifecycle hooks: start hook via drag shows dialog', async ({ appPage, test
   const inProgressBody = inProgressColumn.locator('.kanban-column-body');
   await dragCard(appPage, todoColumn.locator('.kanban-card').first(), inProgressBody);
 
-  const hookDialog = appPage.locator('.modal-overlay--visible .dialog');
+  const hookDialog = appPage.locator('[data-testid="dialog-overlay"][data-visible="true"] [data-testid="dialog"]');
   await expect(hookDialog).toBeVisible({ timeout: 15_000 });
-  await expect(hookDialog.locator('.dialog-title')).toHaveText('Start Task');
-  await expect(hookDialog.locator('textarea.start-command-textarea')).toHaveValue('echo starting');
+  await expect(hookDialog.locator('[data-testid="dialog-title"]')).toHaveText('Start Task');
+  await expect(hookDialog.locator('[data-testid="hook-command-textarea"]')).toHaveValue('echo starting');
 
   // Click "Run" — terminal created in background, task moves to in_progress
-  await hookDialog.locator('.btn-primary', { hasText: /^Run$/ }).click();
-  await expect(appPage.locator('.modal-overlay--visible')).not.toBeVisible({ timeout: 5_000 });
+  await hookDialog.locator('[data-testid="dialog-run"]').click();
+  await expect(appPage.locator('[data-testid="dialog-overlay"][data-visible="true"]')).not.toBeVisible({ timeout: 5_000 });
   // Kanban stays visible for background run — verify task moved
   await expect(inProgressColumn.locator('.kanban-card')).toHaveCount(1, { timeout: 5_000 });
   await expect(todoColumn.locator('.kanban-card')).toHaveCount(0);
@@ -272,11 +272,11 @@ test('lifecycle hooks: start hook via drag shows dialog', async ({ appPage, test
   await dragCard(appPage, todoColumn.locator('.kanban-card').first(), inProgressBody);
 
   await expect(hookDialog).toBeVisible({ timeout: 15_000 });
-  await expect(hookDialog.locator('.dialog-title')).toHaveText('Start Task');
+  await expect(hookDialog.locator('[data-testid="dialog-title"]')).toHaveText('Start Task');
 
   // Click "Cancel" — no terminal, task still moves to in_progress (worktree already created)
-  await hookDialog.locator('.btn-secondary', { hasText: 'Cancel' }).click();
-  await expect(appPage.locator('.modal-overlay--visible')).not.toBeVisible({ timeout: 5_000 });
+  await hookDialog.locator('[data-testid="dialog-cancel"]').click();
+  await expect(appPage.locator('[data-testid="dialog-overlay"][data-visible="true"]')).not.toBeVisible({ timeout: 5_000 });
   await expect(inProgressColumn.locator('.kanban-card')).toHaveCount(2, { timeout: 5_000 });
   await expect(todoColumn.locator('.kanban-card')).toHaveCount(0);
   // Verify no new terminal was created (still just 1 from earlier)
@@ -297,7 +297,7 @@ test('lifecycle hooks: start hook via drag shows dialog', async ({ appPage, test
   await dragCard(appPage, todoColumn.locator('.kanban-card').first(), inProgressBody);
 
   await appPage.waitForTimeout(1_000);
-  await expect(appPage.locator('.modal-overlay--visible .dialog')).not.toBeVisible();
+  await expect(appPage.locator('[data-testid="dialog-overlay"][data-visible="true"] [data-testid="dialog"]')).not.toBeVisible();
   await expect(inProgressColumn.locator('.kanban-card')).toHaveCount(3, { timeout: 5_000 });
   await expect(todoColumn.locator('.kanban-card')).toHaveCount(0);
 });
@@ -348,13 +348,13 @@ test('missing worktree: recovery dialog recreates worktree on open', async ({ ap
   await appPage.locator('.context-menu--visible .context-menu-item', { hasText: 'Open in Terminal' }).click();
 
   // Recovery dialog should appear
-  const recoveryDialog = appPage.locator('.modal-overlay--visible .dialog');
+  const recoveryDialog = appPage.locator('[data-testid="dialog-overlay"][data-visible="true"] [data-testid="dialog"]');
   await expect(recoveryDialog).toBeVisible({ timeout: 10_000 });
-  await expect(recoveryDialog.locator('.dialog-title')).toHaveText('Worktree Not Found');
+  await expect(recoveryDialog.locator('[data-testid="dialog-title"]')).toHaveText('Worktree Not Found');
   await expect(recoveryDialog).toContainText('Recovery task');
 
   // Click "Recreate Worktree"
-  await recoveryDialog.locator('.btn-primary', { hasText: 'Recreate Worktree' }).click();
+  await recoveryDialog.locator('[data-testid="dialog-recover"]').click();
   await expect(recoveryDialog).not.toBeVisible({ timeout: 5_000 });
 
   // Terminal should open successfully with recovered worktree

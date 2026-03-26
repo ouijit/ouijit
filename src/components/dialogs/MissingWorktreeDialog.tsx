@@ -25,7 +25,9 @@ export function MissingWorktreeDialog({ task, branchExists, onClose }: MissingWo
 
   return (
     <DialogOverlay visible={visible} onDismiss={() => dismiss(null)} maxWidth={420}>
-      <h2 className="dialog-title">Worktree Not Found</h2>
+      <h2 data-testid="dialog-title" className="dialog-title">
+        Worktree Not Found
+      </h2>
       <p className="dialog-text">
         The worktree directory for &ldquo;<strong>{task.name}</strong>&rdquo; no longer exists on disk.
       </p>
@@ -35,11 +37,11 @@ export function MissingWorktreeDialog({ task, branchExists, onClose }: MissingWo
         </p>
       )}
       <div className="dialog-actions">
-        <button className="btn btn-secondary" onClick={() => dismiss(null)}>
+        <button data-testid="dialog-cancel" className="btn btn-secondary" onClick={() => dismiss(null)}>
           Cancel
         </button>
         {branchExists && (
-          <button className="btn btn-primary" onClick={() => dismiss('recover')}>
+          <button data-testid="dialog-recover" className="btn btn-primary" onClick={() => dismiss('recover')}>
             Recreate Worktree
           </button>
         )}

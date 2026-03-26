@@ -156,7 +156,7 @@ app.on('before-quit', (e) => {
   }
 
   const count = getActiveSessionCount();
-  if (count === 0) {
+  if (count === 0 || process.env.NODE_ENV === 'test') {
     appLog.info('app quitting');
     cleanupIpc();
     closeDatabase();

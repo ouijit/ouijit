@@ -256,7 +256,14 @@ export async function spawnPty(options: PtySpawnOptions, window: BrowserWindow):
 export function reconnectPty(
   ptyId: PtyId,
   window: BrowserWindow,
-): { success: boolean; bufferedOutput?: string; isAltScreen?: boolean; lastCols?: number; lastRows?: number; error?: string } {
+): {
+  success: boolean;
+  bufferedOutput?: string;
+  isAltScreen?: boolean;
+  lastCols?: number;
+  lastRows?: number;
+  error?: string;
+} {
   const managed = activePtys.get(ptyId);
   if (!managed) {
     return { success: false, error: `PTY ${ptyId} not found` };

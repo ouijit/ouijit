@@ -72,10 +72,13 @@ export function RunHookDialog({ hookType, hook, projectPath, onClose }: RunHookD
 
   return (
     <DialogOverlay visible={visible} onDismiss={() => dismiss(null)} maxWidth={420}>
-      <h2 className="dialog-title text-lg font-semibold text-text-primary mb-4 text-center">{title}</h2>
+      <h2 data-testid="dialog-title" className="dialog-title text-lg font-semibold text-text-primary mb-4 text-center">
+        {title}
+      </h2>
 
       <textarea
         ref={textareaRef}
+        data-testid="hook-command-textarea"
         className="start-command-textarea w-full px-3 py-2 mb-2 font-mono text-sm leading-snug text-text-primary bg-background border border-border rounded-md outline-none resize-none overflow-hidden transition-all duration-150 ease-out focus:border-accent focus:ring-3 focus:ring-accent-light"
         value={command}
         onChange={(e) => {
@@ -119,12 +122,14 @@ export function RunHookDialog({ hookType, hook, projectPath, onClose }: RunHookD
         )}
         <div className="flex gap-2">
           <button
+            data-testid="dialog-cancel"
             className="btn-secondary inline-flex items-center justify-center gap-2 px-4 py-1.5 font-sans text-sm font-medium no-underline border-none rounded-full outline-none transition-all duration-150 ease-out [-webkit-app-region:no-drag] focus-visible:ring-3 focus-visible:ring-accent-light text-accent bg-accent-light hover:bg-[rgba(0,122,255,0.15)]"
             onClick={() => dismiss(null)}
           >
             Cancel
           </button>
           <button
+            data-testid="dialog-run-open"
             className="btn-primary inline-flex items-center justify-center gap-2 px-4 py-1.5 font-sans text-sm font-medium no-underline border-none rounded-full outline-none transition-all duration-150 ease-out [-webkit-app-region:no-drag] focus-visible:ring-3 focus-visible:ring-accent-light text-white bg-accent hover:bg-accent-hover active:scale-[0.98] whitespace-nowrap"
             onClick={() => dismiss({ command: command.trim(), sandboxed, foreground: true })}
             disabled={!command.trim()}
@@ -132,6 +137,7 @@ export function RunHookDialog({ hookType, hook, projectPath, onClose }: RunHookD
             Run & Open
           </button>
           <button
+            data-testid="dialog-run"
             className="btn-primary inline-flex items-center justify-center gap-2 px-4 py-1.5 font-sans text-sm font-medium no-underline border-none rounded-full outline-none transition-all duration-150 ease-out [-webkit-app-region:no-drag] focus-visible:ring-3 focus-visible:ring-accent-light text-white bg-accent hover:bg-accent-hover active:scale-[0.98]"
             onClick={() => dismiss({ command: command.trim(), sandboxed, foreground: false })}
             disabled={!command.trim()}

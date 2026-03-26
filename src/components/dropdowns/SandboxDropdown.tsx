@@ -232,8 +232,10 @@ export function SandboxDropdown({ anchorRef, onClose }: SandboxDropdownProps) {
             <div className="flex flex-col px-3 py-1.5">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-medium text-text-secondary">VM</span>
-                <span className={`text-xs ${vmStatus === 'Running' && !sandboxStarting ? 'text-[#0a84ff]' : 'text-text-primary'}`}>
-                  {sandboxStarting ? 'Starting\u2026' : (VM_STATUS_LABELS[vmStatus] || vmStatus)}
+                <span
+                  className={`text-xs ${vmStatus === 'Running' && !sandboxStarting ? 'text-[#0a84ff]' : 'text-text-primary'}`}
+                >
+                  {sandboxStarting ? 'Starting\u2026' : VM_STATUS_LABELS[vmStatus] || vmStatus}
                 </span>
               </div>
               {VM_HINTS[vmStatus] && (
