@@ -90,34 +90,51 @@ export function LaunchDropdown({ anchorRef, onClose }: LaunchDropdownProps) {
             (dropdownRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
             refs.setFloating(node);
           }}
-          className="w-[220px] bg-surface border border-border rounded-md shadow-lg z-[1000] overflow-hidden transition-opacity duration-150 ease-out"
+          className="min-w-[240px] max-w-[272px] bg-surface border border-border rounded-md shadow-lg z-[1000] overflow-hidden transition-opacity duration-150 ease-out"
           style={{
             ...floatingStyles,
             opacity: ready ? 1 : 0,
           }}
         >
           <div className="text-[13px] text-text-tertiary px-3 pt-2 pb-1 uppercase tracking-wide">Scripts</div>
-          <div className="flex flex-col">
-            {HOOK_ORDER.map(({ type, label, hint }) => {
+          <div className="flex flex-col pb-1">
+            {HOOK_ORDER.map(({ type, label, hint }, i) => {
               const hook = hooks[type];
+              const isLast = i === HOOK_ORDER.length - 1;
               return (
-                <div key={type} className="px-3 py-1.5 min-w-0">
-                  <div className="flex items-center justify-between gap-2 min-w-0">
-                    <div className="flex items-center gap-2 min-w-0 overflow-hidden">
-                      <span className="text-xs font-medium text-text-primary shrink-0">{label}</span>
-                      {hook && <span className="text-xs font-mono text-text-tertiary truncate">{hook.command}</span>}
+                <div
+                  key={type}
+                  className="flex flex-col"
+                  style={{ borderBottom: isLast ? 'none' : '1px solid rgba(255, 255, 255, 0.06)' }}
+                >
+                  <div className="group flex items-center gap-2 px-3 py-1.5">
+                    <span className="shrink-0 w-[52px] text-xs font-medium text-text-secondary">{label}</span>
+                    <div className="flex-1 flex items-center justify-end gap-1 min-w-0">
+                      {hook && <span className="text-xs font-mono text-text-primary truncate">{hook.command}</span>}
+                      {hook ? (
+                        <button
+                          className="shrink-0 w-0 h-6 overflow-hidden opacity-0 bg-transparent border-none rounded-md flex items-center justify-center text-text-tertiary transition-all duration-150 ease-out group-hover:w-6 group-hover:opacity-100 hover:!text-text-primary [&>svg]:w-3.5 [&>svg]:h-3.5"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleConfigure(type);
+                          }}
+                        >
+                          <Icon name="gear" />
+                        </button>
+                      ) : (
+                        <button
+                          className="bg-transparent border-none text-xs text-text-tertiary text-right p-0 transition-colors duration-150 ease-out hover:text-accent"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleConfigure(type);
+                          }}
+                        >
+                          + Configure
+                        </button>
+                      )}
                     </div>
-                    <button
-                      className="text-xs text-text-tertiary hover:text-accent transition-colors shrink-0"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleConfigure(type);
-                      }}
-                    >
-                      {hook ? <Icon name="gear" className="w-3.5 h-3.5" /> : '+ Configure'}
-                    </button>
                   </div>
-                  <div className="text-[11px] text-text-tertiary mt-0.5">{hint}</div>
+                  <div className="text-[13px] text-text-tertiary leading-snug px-3 pb-2">{hint}</div>
                 </div>
               );
             })}
