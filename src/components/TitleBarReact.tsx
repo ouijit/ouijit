@@ -28,7 +28,7 @@ export function TitleBar({ mode }: TitleBarProps) {
   const sandboxVmStatus = useAppStore((s) => s.sandboxVmStatus);
   const [launchOpen, setLaunchOpen] = useState(false);
   const [sandboxOpen, setSandboxOpen] = useState(false);
-  const [sandboxStarting, setSandboxStarting] = useState(false);
+  const sandboxStarting = useAppStore((s) => s.sandboxStarting);
   const [username, setUsername] = useState('');
   const hooksBtnRef = useRef<HTMLButtonElement>(null);
   const sandboxBtnRef = useRef<HTMLButtonElement>(null);
@@ -48,14 +48,23 @@ export function TitleBar({ mode }: TitleBarProps) {
     });
 
     const cleanup = window.api.lima.onSpawnProgress(() => {
-      setSandboxStarting(true);
+      useAppStore.getState().setSandboxStarting(true);
     });
 
     const poll = setInterval(async () => {
       try {
         const s = await window.api.lima.status(activeProjectPath);
-        useAppStore.getState().setSandboxStatus(s.available, s.vmStatus);
-        if (s.vmStatus === 'Running') setSandboxStarting(false);
+        const { sandboxStarting: starting } = useAppStore.getState();
+        // While the VM is starting, Lima can report transient states (e.g. Broken).
+        // Only update the store once it reaches Running; ignore intermediate states.
+        if (starting) {
+          if (s.vmStatus === 'Running') {
+            useAppStore.getState().setSandboxStarting(false);
+            useAppStore.getState().setSandboxStatus(s.available, s.vmStatus);
+          }
+        } else {
+          useAppStore.getState().setSandboxStatus(s.available, s.vmStatus);
+        }
       } catch {
         /* ignore */
       }
@@ -64,7 +73,7 @@ export function TitleBar({ mode }: TitleBarProps) {
     return () => {
       cleanup();
       clearInterval(poll);
-      setSandboxStarting(false);
+      useAppStore.getState().setSandboxStarting(false);
     };
   }, [activeProjectPath]);
 
@@ -187,7 +196,7 @@ export function TitleBar({ mode }: TitleBarProps) {
                       if (activeProjectPath) {
                         window.api.lima.status(activeProjectPath).then((s) => {
                           useAppStore.getState().setSandboxStatus(s.available, s.vmStatus);
-                          if (s.vmStatus === 'Running') setSandboxStarting(false);
+                          if (s.vmStatus === 'Running') useAppStore.getState().setSandboxStarting(false);
                         });
                       }
                     }}

@@ -14,7 +14,6 @@ const VM_STATUS_LABELS: Record<string, string> = {
   Stopped: 'Stopped',
   Broken: 'Broken',
   NotCreated: 'Not created',
-  Unavailable: 'Unavailable',
 };
 
 const VM_HINTS: Record<string, string> = {
@@ -38,6 +37,7 @@ interface SandboxDropdownProps {
 
 export function SandboxDropdown({ anchorRef, onClose }: SandboxDropdownProps) {
   const projectPath = useAppStore((s) => s.activeProjectPath);
+  const sandboxStarting = useAppStore((s) => s.sandboxStarting);
   const [vmStatus, setVmStatus] = useState('');
   const [instanceName, setInstanceName] = useState('');
   const [diskUsage, setDiskUsage] = useState<number | null>(null);
@@ -45,7 +45,7 @@ export function SandboxDropdown({ anchorRef, onClose }: SandboxDropdownProps) {
   const [diskGiB, setDiskGiB] = useState(100);
   const [setupHook, setSetupHook] = useState<ScriptHook | undefined>();
   const [hookDialog, setHookDialog] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [activeAction, setActiveAction] = useState<'starting' | 'stopping' | 'recreating' | null>(null);
   const [ready, setReady] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -83,6 +83,21 @@ export function SandboxDropdown({ anchorRef, onClose }: SandboxDropdownProps) {
     })();
   }, [projectPath]);
 
+  // Keep vmStatus in sync while the dropdown is open
+  useEffect(() => {
+    if (!projectPath) return;
+    const poll = setInterval(async () => {
+      try {
+        const s = await window.api.lima.status(projectPath);
+        setVmStatus(s.vmStatus);
+        if (s.disk != null) setDiskUsage(s.disk);
+      } catch {
+        /* ignore */
+      }
+    }, 3000);
+    return () => clearInterval(poll);
+  }, [projectPath]);
+
   // Click outside (disabled while hook dialog is open)
   useEffect(() => {
     if (hookDialog) return;
@@ -102,7 +117,8 @@ export function SandboxDropdown({ anchorRef, onClose }: SandboxDropdownProps) {
 
   const handleStart = useCallback(async () => {
     if (!projectPath) return;
-    setLoading(true);
+    setActiveAction('starting');
+    useAppStore.getState().setSandboxStarting(true);
     onClose();
     window.api.lima.start(projectPath).catch(() => {});
     // Poll until running (timeout 5 min)
@@ -112,7 +128,7 @@ export function SandboxDropdown({ anchorRef, onClose }: SandboxDropdownProps) {
         if (s.vmStatus === 'Running') {
           clearInterval(poll);
           setVmStatus('Running');
-          setLoading(false);
+          setActiveAction(null);
         }
       } catch {
         /* ignore */
@@ -120,29 +136,37 @@ export function SandboxDropdown({ anchorRef, onClose }: SandboxDropdownProps) {
     }, 3000);
     setTimeout(() => {
       clearInterval(poll);
-      setLoading(false);
+      setActiveAction(null);
     }, 300_000);
   }, [projectPath, onClose]);
 
   const handleStop = useCallback(async () => {
     if (!projectPath) return;
-    setLoading(true);
+    setActiveAction('stopping');
     await window.api.lima.stop(projectPath);
     const status = await window.api.lima.status(projectPath);
     setVmStatus(status.vmStatus);
-    setLoading(false);
+    setActiveAction(null);
     onClose();
   }, [projectPath, onClose]);
 
   const handleRecreate = useCallback(async () => {
     if (!projectPath) return;
-    setLoading(true);
+    setActiveAction('recreating');
+    useAppStore.getState().setSandboxStarting(true);
     await window.api.lima.recreate(projectPath);
     const status = await window.api.lima.status(projectPath);
     setVmStatus(status.vmStatus);
-    setLoading(false);
+    setActiveAction(null);
     onClose();
   }, [projectPath, onClose]);
+
+  const handleRecreateWithConfirm = useCallback(() => {
+    if (!projectPath) return;
+    if (confirm('This will delete the current VM and all its data, then create a fresh one.')) {
+      handleRecreate();
+    }
+  }, [projectPath, handleRecreate]);
 
   const handleConsole = useCallback(() => {
     if (!projectPath) return;
@@ -208,8 +232,8 @@ export function SandboxDropdown({ anchorRef, onClose }: SandboxDropdownProps) {
             <div className="flex flex-col px-3 py-1.5">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-medium text-text-secondary">VM</span>
-                <span className={`text-xs ${vmStatus === 'Running' ? 'text-[#0a84ff]' : 'text-text-primary'}`}>
-                  {VM_STATUS_LABELS[vmStatus] || vmStatus}
+                <span className={`text-xs ${vmStatus === 'Running' && !sandboxStarting ? 'text-[#0a84ff]' : 'text-text-primary'}`}>
+                  {sandboxStarting ? 'Starting\u2026' : (VM_STATUS_LABELS[vmStatus] || vmStatus)}
                 </span>
               </div>
               {VM_HINTS[vmStatus] && (
@@ -295,37 +319,47 @@ export function SandboxDropdown({ anchorRef, onClose }: SandboxDropdownProps) {
 
           {/* VM action buttons */}
           <div className="flex flex-wrap gap-2 px-3 py-2.5 border-t border-white/[0.06]">
-            {(vmStatus === 'Stopped' || vmStatus === 'Broken' || vmStatus === 'NotCreated') && (
+            {vmStatus === 'NotCreated' && (
               <button
                 className="px-3 py-1.5 text-xs font-medium text-text-secondary bg-background-secondary border border-border rounded-md hover:bg-background-tertiary hover:text-text-primary transition-all disabled:opacity-50"
                 onClick={handleStart}
-                disabled={loading}
+                disabled={!!activeAction}
               >
-                {loading ? 'Starting\u2026' : 'Start VM'}
+                {activeAction === 'starting' ? 'Creating\u2026' : 'Create VM'}
+              </button>
+            )}
+            {vmStatus === 'Stopped' && (
+              <button
+                className="px-3 py-1.5 text-xs font-medium text-text-secondary bg-background-secondary border border-border rounded-md hover:bg-background-tertiary hover:text-text-primary transition-all disabled:opacity-50"
+                onClick={handleStart}
+                disabled={!!activeAction}
+              >
+                {activeAction === 'starting' ? 'Starting\u2026' : 'Start VM'}
               </button>
             )}
             {vmStatus === 'Running' && (
               <button
                 className="px-3 py-1.5 text-xs font-medium text-text-secondary bg-background-secondary border border-border rounded-md hover:bg-background-tertiary hover:text-text-primary transition-all disabled:opacity-50"
                 onClick={handleStop}
-                disabled={loading}
+                disabled={!!activeAction}
               >
-                {loading ? 'Stopping\u2026' : 'Stop VM'}
+                {activeAction === 'stopping' ? 'Stopping\u2026' : 'Stop VM'}
               </button>
             )}
             <button
-              className="px-3 py-1.5 text-xs font-medium text-text-secondary bg-background-secondary border border-border rounded-md hover:bg-background-tertiary hover:text-text-primary transition-all"
+              className="px-3 py-1.5 text-xs font-medium text-text-secondary bg-background-secondary border border-border rounded-md hover:bg-background-tertiary hover:text-text-primary transition-all disabled:opacity-50"
               onClick={handleConsole}
+              disabled={!!activeAction}
             >
               VM Console
             </button>
             {(vmStatus === 'Running' || vmStatus === 'Stopped' || vmStatus === 'Broken') && (
               <button
                 className="px-3 py-1.5 text-xs font-medium text-text-secondary bg-background-secondary border border-border rounded-md hover:bg-background-tertiary hover:text-text-primary transition-all disabled:opacity-50"
-                onClick={handleRecreate}
-                disabled={loading}
+                onClick={vmStatus === 'Stopped' ? handleRecreateWithConfirm : handleRecreate}
+                disabled={!!activeAction}
               >
-                {loading ? 'Recreating\u2026' : 'Recreate VM'}
+                {activeAction === 'recreating' ? 'Recreating\u2026' : 'Recreate VM'}
               </button>
             )}
           </div>
