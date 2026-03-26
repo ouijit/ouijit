@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { useFloating, offset, flip, shift, autoUpdate } from '@floating-ui/react';
 import { useAppStore } from '../../stores/appStore';
 import { useProjectStore } from '../../stores/projectStore';
+import { useTerminalStore } from '../../stores/terminalStore';
 import { addProjectTerminal } from '../terminal/terminalActions';
 import { HookConfigDialog } from '../dialogs/HookConfigDialog';
 import { Icon } from '../terminal/Icon';
@@ -146,11 +147,24 @@ export function SandboxDropdown({ anchorRef, onClose }: SandboxDropdownProps) {
   const handleConsole = useCallback(() => {
     if (!projectPath) return;
     onClose();
-    addProjectTerminal(
-      projectPath,
-      { name: 'VM Console', command: '', source: 'custom', priority: 0 },
-      { sandboxed: true },
-    );
+
+    // If a VM console already exists, switch to it
+    const termStore = useTerminalStore.getState();
+    const ptyIds = termStore.terminalsByProject[projectPath] ?? [];
+    const existingIndex = ptyIds.findIndex((id) => {
+      const display = termStore.displayStates[id];
+      return display?.sandboxed && display?.label === 'VM Console';
+    });
+    if (existingIndex !== -1) {
+      termStore.setActiveIndex(projectPath, existingIndex);
+    } else {
+      addProjectTerminal(
+        projectPath,
+        { name: 'VM Console', command: '', source: 'custom', priority: 0 },
+        { sandboxed: true },
+      );
+    }
+    useProjectStore.getState().setKanbanVisible(false);
   }, [projectPath, onClose]);
 
   const handleMemoryChange = useCallback(
