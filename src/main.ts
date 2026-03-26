@@ -1,9 +1,10 @@
-import { app, BrowserWindow, nativeTheme, shell } from 'electron';
+import { app, BrowserWindow, dialog, nativeTheme, shell } from 'electron';
 import path from 'node:path';
 import started from 'electron-squirrel-startup';
 import fixPath from 'fix-path';
 import log from './log';
 import { registerIpcHandlers, cleanupIpc } from './ipc/register';
+import { getActiveSessionCount } from './ptyManager';
 import { typedPush } from './ipc/helpers';
 import { getDatabase, closeDatabase } from './db/database';
 import { ProjectRepo } from './db/repos/projectRepo';
@@ -35,6 +36,7 @@ if (process.env.OUIJIT_TEST_USER_DATA) {
 }
 
 let mainWindow: BrowserWindow | null = null;
+let quitConfirmed = false;
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (started) {
@@ -101,6 +103,32 @@ const createWindow = (): BrowserWindow => {
     typedPush(window, 'fullscreen-change', false);
   });
 
+  // Confirm before closing via window close button if terminal sessions are active
+  window.on('close', (e) => {
+    if (quitConfirmed) return;
+
+    const count = getActiveSessionCount();
+    if (count === 0) return;
+
+    e.preventDefault();
+    const s = count === 1 ? 'session' : 'sessions';
+    dialog
+      .showMessageBox(window, {
+        type: 'question',
+        buttons: ['Quit', 'Cancel'],
+        defaultId: 1,
+        cancelId: 1,
+        message: 'Quit Ouijit?',
+        detail: `You have ${count} active terminal ${s} that will be terminated.`,
+      })
+      .then(({ response }) => {
+        if (response === 0) {
+          quitConfirmed = true;
+          app.quit();
+        }
+      });
+  });
+
   return window;
 };
 
@@ -119,10 +147,39 @@ app.on('ready', async () => {
   await registerIpcHandlers(mainWindow);
 });
 
-app.on('before-quit', () => {
-  appLog.info('app quitting');
-  cleanupIpc();
-  closeDatabase();
+app.on('before-quit', (e) => {
+  if (quitConfirmed) {
+    appLog.info('app quitting');
+    cleanupIpc();
+    closeDatabase();
+    return;
+  }
+
+  const count = getActiveSessionCount();
+  if (count === 0) {
+    appLog.info('app quitting');
+    cleanupIpc();
+    closeDatabase();
+    return;
+  }
+
+  e.preventDefault();
+  const s = count === 1 ? 'session' : 'sessions';
+  dialog
+    .showMessageBox({
+      type: 'question',
+      buttons: ['Quit', 'Cancel'],
+      defaultId: 1,
+      cancelId: 1,
+      message: 'Quit Ouijit?',
+      detail: `You have ${count} active terminal ${s} that will be terminated.`,
+    })
+    .then(({ response }) => {
+      if (response === 0) {
+        quitConfirmed = true;
+        app.quit();
+      }
+    });
 });
 
 // Quit when all windows are closed, except on macOS. There, it's common

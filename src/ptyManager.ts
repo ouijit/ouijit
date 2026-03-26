@@ -294,6 +294,11 @@ export function getActiveSessions(): ActiveSession[] {
   }));
 }
 
+/** Get the number of active PTY sessions */
+export function getActiveSessionCount(): number {
+  return activePtys.size;
+}
+
 /** Check if a PTY is currently active */
 export function isPtyActive(ptyId: PtyId): boolean {
   return activePtys.has(ptyId);
