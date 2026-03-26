@@ -38,14 +38,19 @@ export function HomeView() {
     return ids;
   }, [terminalsByProject]);
 
-  const [homeActiveIndex, setHomeActiveIndex] = useState(0);
+  const [activePtyId, setActivePtyId] = useState<string | null>(null);
   const reconnectedRef = useRef(false);
 
+  // Keep activePtyId valid: if the active terminal was removed, fall back
   useEffect(() => {
-    if (homeActiveIndex >= allPtyIds.length && allPtyIds.length > 0) {
-      setHomeActiveIndex(allPtyIds.length - 1);
+    if (allPtyIds.length === 0) {
+      if (activePtyId !== null) setActivePtyId(null);
+      return;
     }
-  }, [allPtyIds.length, homeActiveIndex]);
+    if (activePtyId === null || !allPtyIds.includes(activePtyId)) {
+      setActivePtyId(allPtyIds[allPtyIds.length - 1]);
+    }
+  }, [allPtyIds, activePtyId]);
 
   useEffect(() => {
     window.api.getProjects().then((projs) => {
@@ -82,11 +87,10 @@ export function HomeView() {
     })();
   }, [allPtyIds.length]);
 
-  const activePtyId = allPtyIds[homeActiveIndex];
   const activeDisplay = activePtyId ? displayStates[activePtyId] : null;
 
   type StackItem =
-    | { type: 'terminal'; ptyId: string; depth: number; globalIndex: number }
+    | { type: 'terminal'; ptyId: string; depth: number }
     | { type: 'divider'; label: string; icon: 'project' | 'tag'; projectPath?: string; depth: number };
 
   const { stackItems, orderedGroups } = useMemo(() => {
@@ -142,17 +146,16 @@ export function HomeView() {
     let depth = 0;
     for (const group of ordered) {
       for (const ptyId of group.ptyIds) {
-        const globalIndex = allPtyIds.indexOf(ptyId);
-        if (globalIndex === homeActiveIndex) continue;
+        if (ptyId === activePtyId) continue;
         depth++;
-        items.push({ type: 'terminal', ptyId, depth, globalIndex });
+        items.push({ type: 'terminal', ptyId, depth });
       }
       depth++;
       items.push({ type: 'divider', label: group.label, icon: group.icon, projectPath: group.projectPath, depth });
     }
 
     return { stackItems: items, orderedGroups: ordered };
-  }, [allPtyIds, displayStates, homeGroupMode, activeDisplay, homeActiveIndex]);
+  }, [allPtyIds, displayStates, homeGroupMode, activeDisplay, activePtyId]);
 
   const maxDepth = stackItems.length > 0 ? stackItems[stackItems.length - 1].depth : 0;
 
@@ -207,13 +210,12 @@ export function HomeView() {
       if (num >= 1 && num <= 9) {
         e.preventDefault();
         e.stopPropagation();
-        const termItems = stackItems.filter((i) => i.type === 'terminal') as Array<{
-          type: 'terminal';
-          globalIndex: number;
-        }>;
+        const termItems = stackItems.filter(
+          (i): i is Extract<StackItem, { type: 'terminal' }> => i.type === 'terminal',
+        );
         const reversed = [...termItems].reverse();
         if (num <= reversed.length) {
-          setHomeActiveIndex(reversed[num - 1].globalIndex);
+          setActivePtyId(reversed[num - 1].ptyId);
         }
       }
     };
@@ -290,9 +292,9 @@ export function HomeView() {
       }}
     >
       {/* All terminals — stable keys, depth changes animate via transition */}
-      {allPtyIds.map((ptyId, globalIndex) => {
+      {allPtyIds.map((ptyId) => {
         const depth = depthMap.get(ptyId) ?? 0;
-        const isActive = globalIndex === homeActiveIndex;
+        const isActive = ptyId === activePtyId;
         return (
           <div
             key={ptyId}
@@ -307,7 +309,7 @@ export function HomeView() {
                   }
                 : {}),
             }}
-            onClick={() => !isActive && setHomeActiveIndex(globalIndex)}
+            onClick={() => !isActive && setActivePtyId(ptyId)}
           >
             <TerminalHeader ptyId={ptyId} isActive={isActive} compact={!isActive} onClose={() => handleClose(ptyId)} />
             <div className="relative flex-1 flex flex-row min-h-0 overflow-hidden">
@@ -339,7 +341,7 @@ export function HomeView() {
             onClick={() => {
               const group = orderedGroups.find((g) => g.label === item.label || g.projectPath === item.projectPath);
               if (group && group.ptyIds.length > 0) {
-                setHomeActiveIndex(allPtyIds.indexOf(group.ptyIds[0]));
+                setActivePtyId(group.ptyIds[0]);
               }
             }}
           >
