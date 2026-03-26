@@ -150,6 +150,13 @@ export const KanbanCard = memo(function KanbanCard({
 
     items.push({ separator: true });
 
+    // Rename
+    items.push({
+      label: 'Rename',
+      icon: 'pencil-simple',
+      onClick: () => startEditing(),
+    });
+
     // Close/Reopen
     if (isDone) {
       items.push({
@@ -191,6 +198,7 @@ export const KanbanCard = memo(function KanbanCard({
     isDone,
     sandboxAvailable,
     hasEditorHook,
+    startEditing,
     onSwitchToTerminal,
     onOpenTerminal,
   ]);
