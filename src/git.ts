@@ -547,10 +547,12 @@ export function getChangedFiles(projectPath: string): ChangedFile[] {
     // Get untracked files (count lines for stats)
     const untracked = execSync('git ls-files --others --exclude-standard', opts).toString().trim();
     if (untracked) {
-      for (const filePath of untracked.split('\n')) {
-        if (filePath) {
-          // For untracked files, count lines as additions using Node.js fs
-          let additions = 0;
+      const untrackedPaths = untracked.split('\n').filter(Boolean);
+      // Skip expensive per-file line counting when there are many untracked files
+      const skipLineCounting = untrackedPaths.length > 200;
+      for (const filePath of untrackedPaths) {
+        let additions = 0;
+        if (!skipLineCounting) {
           try {
             const fullPath = path.join(projectPath, filePath);
             const content = fs.readFileSync(fullPath, 'utf8');
@@ -558,8 +560,8 @@ export function getChangedFiles(projectPath: string): ChangedFile[] {
           } catch {
             // Can't count lines (binary file or other error), leave as 0
           }
-          files.push({ path: filePath, status: '?', additions, deletions: 0 });
         }
+        files.push({ path: filePath, status: '?', additions, deletions: 0 });
       }
     }
 

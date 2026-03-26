@@ -10,9 +10,13 @@ interface DiffPanelProps {
   onClose: () => void;
 }
 
+const MAX_DIFF_FILES = 300;
+const DIFF_BATCH_SIZE = 10;
+
 export function DiffPanel({ ptyId, projectPath, onClose }: DiffPanelProps) {
   const mode = useTerminalStore((s) => s.displayStates[ptyId]?.diffPanelMode ?? 'uncommitted');
   const [files, setFiles] = useState<ChangedFile[]>([]);
+  const [totalFileCount, setTotalFileCount] = useState(0);
   const [diffs, setDiffs] = useState<Map<string, FileDiff | null>>(new Map());
   const [loading, setLoading] = useState(true);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -23,6 +27,7 @@ export function DiffPanel({ ptyId, projectPath, onClose }: DiffPanelProps) {
 
   // Load changed files
   useEffect(() => {
+    let cancelled = false;
     setLoading(true);
     setDiffs(new Map());
 
@@ -34,6 +39,15 @@ export function DiffPanel({ ptyId, projectPath, onClose }: DiffPanelProps) {
       } else {
         changedFiles = await window.api.getChangedFiles(gitPath);
       }
+      if (cancelled) return;
+
+      const total = changedFiles.length;
+      setTotalFileCount(total);
+
+      // Cap displayed files to avoid overwhelming the renderer
+      if (changedFiles.length > MAX_DIFF_FILES) {
+        changedFiles = changedFiles.slice(0, MAX_DIFF_FILES);
+      }
       setFiles(changedFiles);
       setLoading(false);
 
@@ -42,28 +56,36 @@ export function DiffPanel({ ptyId, projectPath, onClose }: DiffPanelProps) {
         diffPanelFiles: changedFiles,
       });
 
-      // Load all diffs concurrently
-      const results = new Map<string, FileDiff | null>();
-      await Promise.all(
-        changedFiles.map(async (file) => {
-          try {
-            let diff: FileDiff | null;
-            if (mode === 'worktree' && instance?.worktreeBranch) {
-              diff = await window.api.worktree.getFileDiff(projectPath, instance.worktreeBranch, file.path);
-            } else {
-              diff = await window.api.getFileDiff(gitPath, file.path);
+      // Load diffs in batches to avoid flooding the IPC channel
+      for (let i = 0; i < changedFiles.length; i += DIFF_BATCH_SIZE) {
+        if (cancelled) return;
+        const batch = changedFiles.slice(i, i + DIFF_BATCH_SIZE);
+        await Promise.all(
+          batch.map(async (file) => {
+            try {
+              let diff: FileDiff | null;
+              if (mode === 'worktree' && instance?.worktreeBranch) {
+                diff = await window.api.worktree.getFileDiff(projectPath, instance.worktreeBranch, file.path);
+              } else {
+                diff = await window.api.getFileDiff(gitPath, file.path);
+              }
+              if (!cancelled) {
+                setDiffs((prev) => new Map(prev).set(file.path, diff));
+              }
+            } catch {
+              if (!cancelled) {
+                setDiffs((prev) => new Map(prev).set(file.path, null));
+              }
             }
-            results.set(file.path, diff);
-            // Update incrementally
-            setDiffs((prev) => new Map(prev).set(file.path, diff));
-          } catch {
-            results.set(file.path, null);
-          }
-        }),
-      );
+          }),
+        );
+      }
     };
 
     load();
+    return () => {
+      cancelled = true;
+    };
   }, [ptyId, mode, gitPath, projectPath, instance?.worktreeBranch]);
 
   const scrollToFile = useCallback((path: string) => {
@@ -71,19 +93,21 @@ export function DiffPanel({ ptyId, projectPath, onClose }: DiffPanelProps) {
     section?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }, []);
 
+  const truncated = totalFileCount > MAX_DIFF_FILES;
+
   // Header stats
   const stats = useMemo(() => {
-    const total = files.length;
+    const displayed = files.length;
     const untracked = files.filter((f) => f.status === '?').length;
     const additions = files.reduce((s, f) => s + f.additions, 0);
     const deletions = files.reduce((s, f) => s + f.deletions, 0);
 
-    let text = `${total} file${total !== 1 ? 's' : ''}`;
+    let text = truncated ? `${displayed} of ${totalFileCount} files` : `${displayed} file${displayed !== 1 ? 's' : ''}`;
     if (untracked > 0) text += ` (${untracked} untracked)`;
     if (additions > 0) text += ` +${additions}`;
     if (deletions > 0) text += ` -${deletions}`;
     return text;
-  }, [files]);
+  }, [files, truncated, totalFileCount]);
 
   const modeLabel = mode === 'worktree' ? 'Branch changes' : 'Uncommitted changes';
 
@@ -137,6 +161,11 @@ export function DiffPanel({ ptyId, projectPath, onClose }: DiffPanelProps) {
           )}
           {!loading &&
             files.map((file) => <DiffFileSection key={file.path} file={file} diff={diffs.get(file.path) ?? null} />)}
+          {!loading && truncated && (
+            <div className="px-4 py-3 text-xs text-white/40 text-center border-t border-white/[0.06]">
+              Showing {files.length} of {totalFileCount} changed files
+            </div>
+          )}
         </div>
       </div>
     </div>
