@@ -242,12 +242,14 @@ export function HomeView() {
     return map;
   }, [activePtyId, stackItems]);
 
-  // Dividers extracted from stackItems
+  // Dividers extracted from stackItems — sorted by key for stable DOM order so CSS transitions fire
   const dividers = useMemo(
     () =>
-      stackItems.filter((i) => i.type === 'divider') as Array<
-        Extract<(typeof stackItems)[number], { type: 'divider' }>
-      >,
+      (
+        stackItems.filter((i) => i.type === 'divider') as Array<
+          Extract<(typeof stackItems)[number], { type: 'divider' }>
+        >
+      ).sort((a, b) => a.key.localeCompare(b.key)),
     [stackItems],
   );
 
@@ -348,7 +350,13 @@ export function HomeView() {
           >
             <div
               className="home-folder-tab absolute top-0 left-0 pointer-events-auto"
-              style={{ width: 234, height: 28 }}
+              style={{
+                width: 234,
+                height: 28,
+                transform: `scale(${Math.max(0.92, 1 - item.depth * 0.015)})`,
+                transformOrigin: 'bottom left',
+                transition: 'transform 200ms ease-out',
+              }}
               onClick={() => {
                 const group = orderedGroups.find((g) => g.key === item.key);
                 if (group && group.ptyIds.length > 0) {
