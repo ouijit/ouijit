@@ -157,9 +157,11 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
   }, [projectPath]);
 
   // Hotkeys
+  const hasOpenDialog = !!(runHookDialog || hookDialog || missingWorktreeDialog);
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
+        if (hasOpenDialog) return; // Let the dialog handle Escape
         e.preventDefault();
         onHide();
         return;
@@ -172,7 +174,7 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
     };
     document.addEventListener('keydown', handler, true);
     return () => document.removeEventListener('keydown', handler, true);
-  }, [onHide]);
+  }, [onHide, hasOpenDialog]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -509,8 +511,7 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
           right: showTrash ? 144 : 16,
           transition: 'left 0.2s ease-out, right 0.2s ease-out',
           background: 'var(--color-terminal-bg, #171717)',
-          boxShadow:
-            '0 0 0 1px rgba(0, 0, 0, 0.05), 0 4px 12px rgba(0, 0, 0, 0.15), 0 20px 40px rgba(0, 0, 0, 0.2)',
+          boxShadow: '0 0 0 1px rgba(0, 0, 0, 0.05), 0 4px 12px rgba(0, 0, 0, 0.15), 0 20px 40px rgba(0, 0, 0, 0.2)',
         }}
       >
         {missingWorktreeDialog && (
