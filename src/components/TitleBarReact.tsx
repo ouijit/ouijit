@@ -73,7 +73,10 @@ export function TitleBar({ mode }: TitleBarProps) {
   }, []);
 
   const handleNewTerminal = useCallback(() => {
-    if (activeProjectPath) addProjectTerminal(activeProjectPath);
+    if (activeProjectPath) {
+      addProjectTerminal(activeProjectPath);
+      useProjectStore.getState().setKanbanVisible(false);
+    }
   }, [activeProjectPath]);
 
   const handleNewTask = useCallback(() => {
