@@ -91,7 +91,7 @@ export function HomeView() {
 
   type StackItem =
     | { type: 'terminal'; ptyId: string; depth: number }
-    | { type: 'divider'; label: string; icon: 'project' | 'tag'; projectPath?: string; depth: number };
+    | { type: 'divider'; key: string; label: string; icon: 'project' | 'tag'; projectPath?: string; depth: number };
 
   const { stackItems, orderedGroups } = useMemo(() => {
     type Group = { key: string; label: string; icon: 'project' | 'tag'; projectPath?: string; ptyIds: string[] };
@@ -151,7 +151,14 @@ export function HomeView() {
         items.push({ type: 'terminal', ptyId, depth });
       }
       depth++;
-      items.push({ type: 'divider', label: group.label, icon: group.icon, projectPath: group.projectPath, depth });
+      items.push({
+        type: 'divider',
+        key: group.key,
+        label: group.label,
+        icon: group.icon,
+        projectPath: group.projectPath,
+        depth,
+      });
     }
 
     return { stackItems: items, orderedGroups: ordered };
@@ -327,7 +334,7 @@ export function HomeView() {
 
         return (
           <div
-            key={`divider-${item.label}`}
+            key={`divider-${item.key}`}
             className="absolute inset-0 rounded-[14px] overflow-visible flex flex-col"
             style={{
               ...getDepthStyle(item.depth),
@@ -338,16 +345,16 @@ export function HomeView() {
               pointerEvents: 'none',
               marginTop: -1,
             }}
-            onClick={() => {
-              const group = orderedGroups.find((g) => g.label === item.label || g.projectPath === item.projectPath);
-              if (group && group.ptyIds.length > 0) {
-                setActivePtyId(group.ptyIds[0]);
-              }
-            }}
           >
             <div
               className="home-folder-tab absolute top-0 left-0 pointer-events-auto"
               style={{ width: 234, height: 28 }}
+              onClick={() => {
+                const group = orderedGroups.find((g) => g.key === item.key);
+                if (group && group.ptyIds.length > 0) {
+                  setActivePtyId(group.ptyIds[0]);
+                }
+              }}
             >
               <svg viewBox="0 0 234 28" width="234" height="28" className="absolute inset-0 w-full h-full">
                 <path
