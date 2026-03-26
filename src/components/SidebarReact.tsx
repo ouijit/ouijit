@@ -16,6 +16,7 @@ import {
 import { createPortal } from 'react-dom';
 import type { Project } from '../types';
 import { useAppStore } from '../stores/appStore';
+import { useTerminalStore } from '../stores/terminalStore';
 import { stringToColor, getInitials } from '../utils/projectIcon';
 const isMac = navigator.platform.toLowerCase().includes('mac');
 
@@ -273,6 +274,9 @@ interface SortableProjectIconProps {
 }
 
 function SortableProjectIcon({ project, isActive, onClick, onContextMenu }: SortableProjectIconProps) {
+  const terminalCount = useTerminalStore(
+    (s) => (s.terminalsByProject[project.path] ?? []).length,
+  );
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: project.path,
   });
@@ -344,6 +348,23 @@ function SortableProjectIcon({ project, isActive, onClick, onContextMenu }: Sort
             </div>
           )}
         </div>
+        {terminalCount > 0 && (
+          <span
+            className="absolute bottom-0 right-2 flex items-center justify-center text-white font-bold"
+            style={{
+              minWidth: 16,
+              height: 16,
+              fontSize: 10,
+              lineHeight: 1,
+              padding: '0 4px',
+              borderRadius: 8,
+              background: 'var(--color-accent)',
+              border: '2px solid var(--color-background)',
+            }}
+          >
+            {terminalCount}
+          </span>
+        )}
       </div>
       {tipOpen &&
         !isDragging &&
