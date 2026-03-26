@@ -52,7 +52,7 @@ export function KanbanColumn({
       style={{ minWidth: 240, flex: '1 0 240px', borderRight: '1px solid rgba(255, 255, 255, 0.06)' }}
       data-status={status}
     >
-      <div className="flex items-center gap-2 px-3 py-2.5 shrink-0">
+      <div className="flex items-center gap-2 px-3 py-2.5 shrink-0 h-[46px]">
         <span className="text-[13px] font-medium text-text-secondary uppercase tracking-wide flex-1">
           {label}
           <span className="kanban-column-count text-text-secondary opacity-50 normal-case tracking-normal ml-1.5">
