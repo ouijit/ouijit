@@ -5,6 +5,7 @@ import { useAppStore } from '../../stores/appStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { addProjectTerminal } from '../terminal/terminalActions';
 import { HookConfigDialog } from '../dialogs/HookConfigDialog';
+import { Icon } from '../terminal/Icon';
 import type { ScriptHook } from '../../types';
 
 const VM_STATUS_LABELS: Record<string, string> = {
@@ -180,31 +181,37 @@ export function SandboxDropdown({ anchorRef, onClose }: SandboxDropdownProps) {
             (dropdownRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
             refs.setFloating(node);
           }}
-          className="min-w-[240px] max-w-[280px] bg-surface border border-border rounded-md shadow-lg z-[1000] overflow-hidden transition-opacity duration-150 ease-out"
+          className="min-w-[240px] max-w-[272px] bg-surface border border-border rounded-md shadow-lg z-[1000] overflow-hidden transition-opacity duration-150 ease-out"
           style={{
             ...floatingStyles,
             opacity: ready ? 1 : 0,
           }}
         >
           <div className="text-[13px] text-text-tertiary px-3 pt-2 pb-1 uppercase tracking-wide">Lima Sandbox</div>
-          <div className="flex flex-col gap-0.5 px-3 py-1">
-            <div className="flex items-center justify-between text-xs py-0.5">
-              <span className="font-medium text-text-secondary">VM</span>
-              <span className={vmStatus === 'Running' ? 'text-[#0a84ff]' : 'text-text-secondary'}>
-                {VM_STATUS_LABELS[vmStatus] || vmStatus}
-              </span>
+
+          {/* VM info rows */}
+          <div className="flex flex-col pb-1">
+            <div className="flex flex-col px-3 py-1.5">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-text-secondary">VM</span>
+                <span className={`text-xs ${vmStatus === 'Running' ? 'text-[#0a84ff]' : 'text-text-primary'}`}>
+                  {VM_STATUS_LABELS[vmStatus] || vmStatus}
+                </span>
+              </div>
+              {VM_HINTS[vmStatus] && (
+                <div className="text-[13px] text-text-tertiary leading-snug pt-1 pb-0.5">{VM_HINTS[vmStatus]}</div>
+              )}
             </div>
-            {VM_HINTS[vmStatus] && (
-              <div className="text-[13px] text-text-tertiary leading-snug pt-0.5">{VM_HINTS[vmStatus]}</div>
-            )}
+
             {instanceName && (
-              <div className="flex items-center justify-between text-xs py-0.5">
-                <span className="font-medium text-text-secondary">Name</span>
-                <span className="text-text-secondary font-mono">{instanceName}</span>
+              <div className="flex items-center justify-between px-3 py-1.5">
+                <span className="text-xs font-medium text-text-secondary">Name</span>
+                <span className="text-xs font-mono text-text-primary">{instanceName}</span>
               </div>
             )}
-            <div className="flex items-center justify-between text-xs py-0.5">
-              <span className="font-medium text-text-secondary">Memory</span>
+
+            <div className="flex items-center justify-between px-3 py-1.5">
+              <span className="text-xs font-medium text-text-secondary">Memory</span>
               <select
                 className="text-xs text-text-primary bg-background-secondary border border-border rounded px-1.5 py-0.5 outline-none"
                 value={memoryGiB}
@@ -217,8 +224,9 @@ export function SandboxDropdown({ anchorRef, onClose }: SandboxDropdownProps) {
                 ))}
               </select>
             </div>
-            <div className="flex items-center justify-between text-xs py-0.5">
-              <span className="font-medium text-text-secondary">Disk</span>
+
+            <div className="flex items-center justify-between px-3 py-1.5">
+              <span className="text-xs font-medium text-text-secondary">Disk</span>
               <select
                 className="text-xs text-text-primary bg-background-secondary border border-border rounded px-1.5 py-0.5 outline-none"
                 value={diskGiB}
@@ -231,22 +239,47 @@ export function SandboxDropdown({ anchorRef, onClose }: SandboxDropdownProps) {
                 ))}
               </select>
             </div>
+
             {vmStatus === 'Running' && diskUsage != null && (
-              <div className="flex items-center justify-between text-xs py-0.5">
-                <span className="font-medium text-text-secondary">Usage</span>
-                <span className="text-text-secondary">{formatBytes(diskUsage)}</span>
+              <div className="flex items-center justify-between px-3 py-1.5">
+                <span className="text-xs font-medium text-text-secondary">Usage</span>
+                <span className="text-xs text-text-primary">{formatBytes(diskUsage)}</span>
               </div>
             )}
+
+            {/* Setup hook row */}
+            <div className="group flex items-center gap-2 px-3 py-1.5">
+              <span className="shrink-0 text-xs font-medium text-text-secondary">Setup</span>
+              <div className="flex-1 flex items-center justify-end gap-1 min-w-0">
+                {setupHook ? (
+                  <>
+                    <span className="text-xs font-mono text-text-primary truncate">{setupHook.command}</span>
+                    <button
+                      className="shrink-0 w-0 h-6 overflow-hidden opacity-0 bg-transparent border-none rounded-md flex items-center justify-center text-text-tertiary transition-all duration-150 ease-out group-hover:w-6 group-hover:opacity-100 hover:!text-text-primary [&>svg]:w-3.5 [&>svg]:h-3.5"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setHookDialog(true);
+                      }}
+                    >
+                      <Icon name="gear" />
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    className="bg-transparent border-none text-xs text-text-tertiary text-right p-0 transition-colors duration-150 ease-out hover:text-accent"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setHookDialog(true);
+                    }}
+                  >
+                    + Configure
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
-          <div
-            className="flex items-center justify-between gap-2 px-3 py-1.5 hover:bg-white/[0.04] transition-colors"
-            onClick={() => setHookDialog(true)}
-          >
-            <span className="text-xs font-medium text-text-secondary">Setup hook</span>
-            <span className={`text-xs ${setupHook ? 'text-[#0a84ff]' : 'text-text-secondary'}`}>
-              {setupHook ? 'Configured' : 'None'}
-            </span>
-          </div>
+
+          {/* VM action buttons */}
           <div className="flex flex-wrap gap-2 px-3 py-2.5 border-t border-white/[0.06]">
             {(vmStatus === 'Stopped' || vmStatus === 'Broken' || vmStatus === 'NotCreated') && (
               <button
