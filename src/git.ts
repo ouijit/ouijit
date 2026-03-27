@@ -105,10 +105,12 @@ export interface GitFileStatus {
   branch: string;
   mainBranch: string;
   commitsAheadOfMain: number;
-  /** Working tree changes vs HEAD (tracked + untracked) */
+  /** Tracked working tree changes vs HEAD */
   uncommittedFiles: ChangedFile[];
   /** Branch changes vs main (empty when on main) */
   branchDiffFiles: ChangedFile[];
+  /** Untracked files not in .gitignore (paths only, no diff data) */
+  untrackedFiles: string[];
 }
 
 /**
@@ -662,12 +664,14 @@ export async function getGitFileStatus(projectPath: string): Promise<GitFileStat
     const [
       uncommittedNumstatResult,
       uncommittedNameStatusResult,
+      untrackedResult,
       commitsAheadResult,
       branchNumstatResult,
       branchNameStatusResult,
     ] = await Promise.allSettled([
       gitAsync(['diff', '--numstat', 'HEAD'], projectPath),
       gitAsync(['diff', '--name-status', 'HEAD'], projectPath),
+      gitAsync(['ls-files', '--others', '--exclude-standard'], projectPath),
       isOnMain ? Promise.resolve('') : gitAsync(['rev-list', '--count', `${mainBranch}..HEAD`], projectPath),
       isOnMain ? Promise.resolve('') : gitAsync(['diff', '--numstat', `${mainBranch}...HEAD`], projectPath),
       isOnMain ? Promise.resolve('') : gitAsync(['diff', '--name-status', `${mainBranch}...HEAD`], projectPath),
@@ -679,6 +683,12 @@ export async function getGitFileStatus(projectPath: string): Promise<GitFileStat
     const uncommittedFiles =
       uncommittedNameStatusResult.status === 'fulfilled'
         ? parseNameStatus(uncommittedNameStatusResult.value, uncommittedStatsMap)
+        : [];
+
+    // Parse untracked file paths
+    const untrackedFiles =
+      untrackedResult.status === 'fulfilled' && untrackedResult.value
+        ? untrackedResult.value.split('\n').filter(Boolean)
         : [];
 
     // Build branch diff files
@@ -695,7 +705,7 @@ export async function getGitFileStatus(projectPath: string): Promise<GitFileStat
         ? parseInt(commitsAheadResult.value, 10) || 0
         : 0;
 
-    return { branch, mainBranch, commitsAheadOfMain, uncommittedFiles, branchDiffFiles };
+    return { branch, mainBranch, commitsAheadOfMain, uncommittedFiles, branchDiffFiles, untrackedFiles };
   } catch {
     return null;
   }

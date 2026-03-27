@@ -18,7 +18,9 @@ export function DiffPanel({ ptyId, projectPath, onClose }: DiffPanelProps) {
   const gitFileStatus = useTerminalStore((s) => s.displayStates[ptyId]?.gitFileStatus ?? null);
   const [diffs, setDiffs] = useState<Map<string, FileDiff | null>>(new Map());
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarWidth, setSidebarWidth] = useState(220);
   const contentRef = useRef<HTMLDivElement>(null);
+  const draggingRef = useRef(false);
 
   const instance = terminalInstances.get(ptyId);
   const gitPath = instance?.worktreePath || projectPath;
@@ -41,6 +43,7 @@ export function DiffPanel({ ptyId, projectPath, onClose }: DiffPanelProps) {
   const files = useMemo(() => storeFiles.slice(0, MAX_DIFF_FILES), [storeFiles]);
   const truncated = totalFileCount > MAX_DIFF_FILES;
   const loading = gitFileStatus === null;
+  const untrackedFiles = gitFileStatus?.untrackedFiles ?? [];
 
   // Stable fingerprint — only changes when the actual file list changes.
   // Prevents hunk-loading from restarting on no-op 3s git status refreshes.
@@ -100,6 +103,28 @@ export function DiffPanel({ ptyId, projectPath, onClose }: DiffPanelProps) {
     section?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }, []);
 
+  const handleSidebarDragStart = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      draggingRef.current = true;
+      const startX = e.clientX;
+      const startWidth = sidebarWidth;
+
+      const onMouseMove = (ev: MouseEvent) => {
+        const newWidth = Math.max(120, Math.min(500, startWidth + ev.clientX - startX));
+        setSidebarWidth(newWidth);
+      };
+      const onMouseUp = () => {
+        draggingRef.current = false;
+        document.removeEventListener('mousemove', onMouseMove);
+        document.removeEventListener('mouseup', onMouseUp);
+      };
+      document.addEventListener('mousemove', onMouseMove);
+      document.addEventListener('mouseup', onMouseUp);
+    },
+    [sidebarWidth],
+  );
+
   // Header stats
   const stats = useMemo(() => {
     const displayed = files.length;
@@ -125,12 +150,19 @@ export function DiffPanel({ ptyId, projectPath, onClose }: DiffPanelProps) {
         className={
           sidebarCollapsed
             ? 'w-0 overflow-hidden border-r-0 shrink-0 flex flex-col'
-            : 'w-[220px] shrink-0 border-r border-white/10 overflow-hidden flex flex-col'
+            : 'shrink-0 overflow-hidden flex flex-col'
         }
-        style={{ transition: 'width 0.2s ease' }}
+        style={sidebarCollapsed ? { transition: 'width 0.2s ease' } : { width: sidebarWidth }}
       >
-        <DiffFileTree files={files} onFileClick={scrollToFile} />
+        <DiffFileTree files={files} untrackedFiles={untrackedFiles} onFileClick={scrollToFile} />
       </div>
+      {!sidebarCollapsed && (
+        <div
+          className="w-[3px] shrink-0 bg-white/10 hover:bg-accent/60 active:bg-accent transition-colors duration-100"
+          style={{ cursor: 'col-resize' }}
+          onMouseDown={handleSidebarDragStart}
+        />
+      )}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <div className="px-3 py-2 bg-[#252525] border-b border-white/10 text-sm text-white/70 flex items-center gap-2">
           <button
@@ -161,7 +193,7 @@ export function DiffPanel({ ptyId, projectPath, onClose }: DiffPanelProps) {
               Loading changes...
             </div>
           )}
-          {!loading && files.length === 0 && (
+          {!loading && files.length === 0 && untrackedFiles.length === 0 && (
             <div className="flex-1 flex flex-col items-center justify-center text-text-tertiary gap-2">No changes</div>
           )}
           {!loading &&
@@ -171,8 +203,39 @@ export function DiffPanel({ ptyId, projectPath, onClose }: DiffPanelProps) {
               Showing {files.length} of {totalFileCount} changed files
             </div>
           )}
+          {!loading && untrackedFiles.length > 0 && <UntrackedFilesSection files={untrackedFiles} />}
         </div>
       </div>
+    </div>
+  );
+}
+
+// ── Untracked files section ──────────────────────────────────────────
+
+function UntrackedFilesSection({ files }: { files: string[] }) {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <div className="border-t border-white/[0.08]">
+      <div
+        className="flex items-center gap-2 px-4 py-2 bg-[#252525] border-b border-white/[0.06] text-sm text-white/50 hover:text-white/70 transition-colors duration-150"
+        onClick={() => setExpanded(!expanded)}
+      >
+        <Icon name={expanded ? 'caret-down' : 'caret-right'} className="!w-3 !h-3" />
+        <Icon name="file-plus" className="w-3.5 h-3.5 text-[#FF9F0A]" />
+        <span>
+          {files.length} untracked {files.length === 1 ? 'file' : 'files'}
+        </span>
+      </div>
+      {expanded && (
+        <div className="bg-[#1a1a1a]">
+          {files.map((filePath) => (
+            <div key={filePath} className="flex items-center gap-2 px-4 py-1 text-sm text-white/50 font-mono">
+              <span className="truncate">{filePath}</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -226,14 +289,41 @@ function buildTree(files: ChangedFile[]): TreeNode[] {
   return collapse(root);
 }
 
-function DiffFileTree({ files, onFileClick }: { files: ChangedFile[]; onFileClick: (path: string) => void }) {
+function DiffFileTree({
+  files,
+  untrackedFiles,
+  onFileClick,
+}: {
+  files: ChangedFile[];
+  untrackedFiles: string[];
+  onFileClick: (path: string) => void;
+}) {
   const tree = useMemo(() => buildTree(files), [files]);
+  const [untrackedExpanded, setUntrackedExpanded] = useState(false);
 
   return (
     <div className="flex-1 overflow-y-auto py-2">
       {tree.map((node) => (
         <TreeNodeView key={node.fullPath} node={node} onFileClick={onFileClick} />
       ))}
+      {untrackedFiles.length > 0 && (
+        <>
+          <div
+            className="flex items-center gap-1.5 py-1 pl-3 pr-3 mt-1 border-t border-white/[0.06] text-[13px] text-white/40 transition-colors duration-150 ease-out hover:bg-white/5 hover:text-white/60"
+            onClick={() => setUntrackedExpanded(!untrackedExpanded)}
+          >
+            <Icon name={untrackedExpanded ? 'caret-down' : 'caret-right'} className="!w-3 !h-3" />
+            <span>{untrackedFiles.length} untracked</span>
+          </div>
+          {untrackedExpanded &&
+            untrackedFiles.map((filePath) => (
+              <div key={filePath} className="flex items-center gap-1.5 py-1 pl-6 pr-3 text-[13px] text-white/40">
+                <Icon name="file-plus" className="text-[#FF9F0A]" />
+                <span className="flex-1 min-w-0 truncate">{filePath}</span>
+              </div>
+            ))}
+        </>
+      )}
     </div>
   );
 }
