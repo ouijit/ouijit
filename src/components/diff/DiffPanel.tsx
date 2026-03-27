@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import type { ChangedFile, FileDiff, DiffHunk, DiffLine } from '../../types';
 import { useTerminalStore } from '../../stores/terminalStore';
-import { terminalInstances } from '../terminal/terminalReact';
+import { terminalInstances, refreshTerminalGitStatus } from '../terminal/terminalReact';
 import { Icon } from '../terminal/Icon';
 
 interface DiffPanelProps {
@@ -15,56 +15,62 @@ const DIFF_BATCH_SIZE = 10;
 
 export function DiffPanel({ ptyId, projectPath, onClose }: DiffPanelProps) {
   const mode = useTerminalStore((s) => s.displayStates[ptyId]?.diffPanelMode ?? 'uncommitted');
-  const [files, setFiles] = useState<ChangedFile[]>([]);
-  const [totalFileCount, setTotalFileCount] = useState(0);
+  const gitFileStatus = useTerminalStore((s) => s.displayStates[ptyId]?.gitFileStatus ?? null);
   const [diffs, setDiffs] = useState<Map<string, FileDiff | null>>(new Map());
-  const [loading, setLoading] = useState(true);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
 
   const instance = terminalInstances.get(ptyId);
   const gitPath = instance?.worktreePath || projectPath;
 
-  // Load changed files
+  // Derive effective mode to match the GitStats button logic:
+  // the button shows uncommitted changes when they exist, falling back to branch diff.
+  // The panel must follow the same logic so they always agree.
+  const effectiveMode = useMemo(() => {
+    if (mode !== 'worktree' || !gitFileStatus) return mode;
+    return gitFileStatus.uncommittedFiles.length > 0 ? 'uncommitted' : 'worktree';
+  }, [mode, gitFileStatus]);
+
+  // Derive file list from the store (same data the GitStats button uses)
+  const storeFiles = useMemo(() => {
+    if (!gitFileStatus) return [];
+    return effectiveMode === 'worktree' ? gitFileStatus.branchDiffFiles : gitFileStatus.uncommittedFiles;
+  }, [gitFileStatus, effectiveMode]);
+
+  const totalFileCount = storeFiles.length;
+  const files = useMemo(() => storeFiles.slice(0, MAX_DIFF_FILES), [storeFiles]);
+  const truncated = totalFileCount > MAX_DIFF_FILES;
+  const loading = gitFileStatus === null;
+
+  // Stable fingerprint — only changes when the actual file list changes.
+  // Prevents hunk-loading from restarting on no-op 3s git status refreshes.
+  const filesFingerprint = useMemo(
+    () => files.map((f) => `${f.status}:${f.path}:${f.additions}:${f.deletions}`).join('\n'),
+    [files],
+  );
+
+  // Trigger an immediate git status refresh when panel opens for fresh data
+  useEffect(() => {
+    const inst = terminalInstances.get(ptyId);
+    if (inst) refreshTerminalGitStatus(inst);
+  }, [ptyId]);
+
+  // Load per-file diffs in batches when the file list changes
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
     setDiffs(new Map());
 
-    const load = async () => {
-      let changedFiles: ChangedFile[];
-      if (mode === 'worktree' && instance?.worktreeBranch) {
-        const result = await window.api.worktree.getDiff(projectPath, instance.worktreeBranch);
-        changedFiles = result?.files ?? [];
-      } else {
-        changedFiles = await window.api.getChangedFiles(gitPath);
-      }
-      if (cancelled) return;
+    if (files.length === 0) return;
 
-      const total = changedFiles.length;
-      setTotalFileCount(total);
-
-      // Cap displayed files to avoid overwhelming the renderer
-      if (changedFiles.length > MAX_DIFF_FILES) {
-        changedFiles = changedFiles.slice(0, MAX_DIFF_FILES);
-      }
-      setFiles(changedFiles);
-      setLoading(false);
-
-      // Update store
-      useTerminalStore.getState().updateDisplay(ptyId, {
-        diffPanelFiles: changedFiles,
-      });
-
-      // Load diffs in batches to avoid flooding the IPC channel
-      for (let i = 0; i < changedFiles.length; i += DIFF_BATCH_SIZE) {
+    const loadDiffs = async () => {
+      for (let i = 0; i < files.length; i += DIFF_BATCH_SIZE) {
         if (cancelled) return;
-        const batch = changedFiles.slice(i, i + DIFF_BATCH_SIZE);
+        const batch = files.slice(i, i + DIFF_BATCH_SIZE);
         await Promise.all(
           batch.map(async (file) => {
             try {
               let diff: FileDiff | null;
-              if (mode === 'worktree' && instance?.worktreeBranch) {
+              if (effectiveMode === 'worktree' && instance?.worktreeBranch) {
                 diff = await window.api.worktree.getFileDiff(projectPath, instance.worktreeBranch, file.path);
               } else {
                 diff = await window.api.getFileDiff(gitPath, file.path);
@@ -82,18 +88,17 @@ export function DiffPanel({ ptyId, projectPath, onClose }: DiffPanelProps) {
       }
     };
 
-    load();
+    loadDiffs();
     return () => {
       cancelled = true;
     };
-  }, [ptyId, mode, gitPath, projectPath, instance?.worktreeBranch]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- filesFingerprint is the stable proxy for files
+  }, [filesFingerprint, effectiveMode, gitPath, projectPath, instance?.worktreeBranch]);
 
   const scrollToFile = useCallback((path: string) => {
     const section = contentRef.current?.querySelector(`[data-path="${CSS.escape(path)}"]`);
     section?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }, []);
-
-  const truncated = totalFileCount > MAX_DIFF_FILES;
 
   // Header stats
   const stats = useMemo(() => {
@@ -109,7 +114,7 @@ export function DiffPanel({ ptyId, projectPath, onClose }: DiffPanelProps) {
     return text;
   }, [files, truncated, totalFileCount]);
 
-  const modeLabel = mode === 'worktree' ? 'Branch changes' : 'Uncommitted changes';
+  const modeLabel = effectiveMode === 'worktree' ? 'Branch changes' : 'Uncommitted changes';
 
   return (
     <div
@@ -252,9 +257,9 @@ function TreeNodeView({ node, onFileClick }: { node: TreeNode; onFileClick: (pat
         )}
         {(node.file.additions > 0 || node.file.deletions > 0) && (
           <span className="shrink-0 font-mono text-[13px]">
-            {node.file.additions > 0 && `+${node.file.additions}`}
+            {node.file.additions > 0 && <span className="text-[#69db7c]">+{node.file.additions}</span>}
             {node.file.additions > 0 && node.file.deletions > 0 && ' '}
-            {node.file.deletions > 0 && `-${node.file.deletions}`}
+            {node.file.deletions > 0 && <span className="text-[#ff6b6b]">-{node.file.deletions}</span>}
           </span>
         )}
       </div>

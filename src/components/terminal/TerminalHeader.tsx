@@ -5,7 +5,7 @@ import { terminalInstances } from './terminalReact';
 import { addProjectTerminal } from './terminalActions';
 
 const EMPTY_TAGS: string[] = [];
-import type { CompactGitStatus } from '../../types';
+import type { GitFileStatus } from '../../types';
 import { Icon } from './Icon';
 import { TagInput } from './TagInput';
 import { ContextMenu, type ContextMenuEntry } from '../ui/ContextMenu';
@@ -37,7 +37,7 @@ export const TerminalHeader = memo(function TerminalHeader({
   const label = useTerminalStore((s) => s.displayStates[ptyId]?.label ?? '');
   const summary = useTerminalStore((s) => s.displayStates[ptyId]?.summary ?? '');
   const summaryType = useTerminalStore((s) => s.displayStates[ptyId]?.summaryType ?? 'ready');
-  const gitStatus = useTerminalStore((s) => s.displayStates[ptyId]?.gitStatus ?? null);
+  const gitFileStatus = useTerminalStore((s) => s.displayStates[ptyId]?.gitFileStatus ?? null);
   const lastOscTitle = useTerminalStore((s) => s.displayStates[ptyId]?.lastOscTitle ?? '');
   const tags = useTerminalStore((s) => s.displayStates[ptyId]?.tags) ?? EMPTY_TAGS;
   const sandboxed = useTerminalStore((s) => s.displayStates[ptyId]?.sandboxed ?? false);
@@ -309,7 +309,7 @@ export const TerminalHeader = memo(function TerminalHeader({
         </div>
         {!compact && isActive && (
           <div className="min-w-0 overflow-hidden">
-            <GitBranch gitStatus={gitStatus} />
+            <GitBranch gitFileStatus={gitFileStatus} />
           </div>
         )}
       </div>
@@ -317,7 +317,7 @@ export const TerminalHeader = memo(function TerminalHeader({
         {!compact && isActive && (
           <div className="mr-2">
             <GitStats
-              gitStatus={gitStatus}
+              gitFileStatus={gitFileStatus}
               isWorktree={isWorktree}
               diffPanelOpen={diffPanelOpen}
               onClick={handleDiffClick}
@@ -340,31 +340,34 @@ export const TerminalHeader = memo(function TerminalHeader({
 
 // ── Sub-components ───────────────────────────────────────────────────
 
-function GitBranch({ gitStatus }: { gitStatus: CompactGitStatus | null }) {
-  if (!gitStatus) return null;
+function GitBranch({ gitFileStatus }: { gitFileStatus: GitFileStatus | null }) {
+  if (!gitFileStatus) return null;
 
   return (
     <span className="flex items-center gap-1 font-mono text-[13px] text-white/50 min-w-0 overflow-hidden">
       <Icon name="git-branch" className="w-3.5 h-3.5 shrink-0 text-white/40" />
-      <span className="truncate min-w-0">{gitStatus.branch}</span>
+      <span className="truncate min-w-0">{gitFileStatus.branch}</span>
     </span>
   );
 }
 
 function GitStats({
-  gitStatus,
+  gitFileStatus,
   isWorktree,
   diffPanelOpen,
   onClick,
 }: {
-  gitStatus: CompactGitStatus | null;
+  gitFileStatus: GitFileStatus | null;
   isWorktree: boolean;
   diffPanelOpen: boolean;
   onClick: (e: React.MouseEvent) => void;
 }) {
-  if (!gitStatus) return null;
+  if (!gitFileStatus) return null;
 
-  const { dirtyFileCount, insertions, deletions } = gitStatus;
+  const { uncommittedFiles, branchDiffFiles } = gitFileStatus;
+  const dirtyFileCount = uncommittedFiles.length;
+  const insertions = uncommittedFiles.reduce((s, f) => s + f.additions, 0);
+  const deletions = uncommittedFiles.reduce((s, f) => s + f.deletions, 0);
   const hasChanges = dirtyFileCount > 0;
 
   if (hasChanges) {
@@ -384,7 +387,7 @@ function GitStats({
     );
   }
 
-  if (isWorktree && gitStatus.branchDiffFileCount > 0) {
+  if (isWorktree && branchDiffFiles.length > 0) {
     return (
       <button
         className={`px-2.5 py-1 bg-white/[0.06] border-none font-sans text-[13px] font-medium text-white/60 rounded-full transition-all duration-150 ease-out hover:bg-white/[0.12] hover:text-white/90 active:bg-white/[0.10] active:text-white/80 ${diffPanelOpen ? '!bg-accent !text-white' : ''}`}

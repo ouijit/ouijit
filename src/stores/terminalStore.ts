@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { CompactGitStatus, ChangedFile } from '../types';
+import type { GitFileStatus } from '../types';
 
 /** Renderable state pushed from OuijitTerminal class to React */
 export interface TerminalDisplayState {
@@ -7,7 +7,7 @@ export interface TerminalDisplayState {
   label: string;
   summary: string;
   summaryType: 'thinking' | 'ready';
-  gitStatus: CompactGitStatus | null;
+  gitFileStatus: GitFileStatus | null;
   lastOscTitle: string;
   tags: string[];
   hookStatus: 'thinking' | 'ready' | null;
@@ -15,7 +15,6 @@ export interface TerminalDisplayState {
   runnerPanelOpen: boolean;
   runnerFullWidth: boolean;
   diffPanelOpen: boolean;
-  diffPanelFiles: ChangedFile[];
   diffPanelSelectedFile: string | null;
   diffPanelMode: 'uncommitted' | 'worktree';
   sandboxed: boolean;
@@ -29,7 +28,7 @@ export const DEFAULT_DISPLAY_STATE: Omit<TerminalDisplayState, 'ptyId' | 'projec
   label: '',
   summary: '',
   summaryType: 'ready',
-  gitStatus: null,
+  gitFileStatus: null,
   lastOscTitle: '',
   tags: [],
   hookStatus: null,
@@ -37,7 +36,6 @@ export const DEFAULT_DISPLAY_STATE: Omit<TerminalDisplayState, 'ptyId' | 'projec
   runnerPanelOpen: false,
   runnerFullWidth: true,
   diffPanelOpen: false,
-  diffPanelFiles: [],
   diffPanelSelectedFile: null,
   diffPanelMode: 'uncommitted',
   sandboxed: false,

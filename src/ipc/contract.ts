@@ -15,11 +15,10 @@ import type {
   CreateProjectResult,
   ProjectSettings,
   GitStatus,
-  CompactGitStatus,
+  GitFileStatus,
   GitDropdownInfo,
   GitCheckoutResult,
   GitMergeResult,
-  ChangedFile,
   FileDiff,
   WorktreeDiffSummary,
   WorktreeInfo,
@@ -62,12 +61,11 @@ export interface IpcInvokeContract {
 
   // ── Git ──────────────────────────────────────────────────────────────
   'get-git-status': { args: [projectPath: string]; return: GitStatus | null };
-  'get-compact-git-status': { args: [projectPath: string]; return: CompactGitStatus | null };
+  'get-git-file-status': { args: [projectPath: string]; return: GitFileStatus | null };
   'get-git-dropdown-info': { args: [projectPath: string]; return: GitDropdownInfo | null };
   'git-checkout': { args: [projectPath: string, branchName: string]; return: GitCheckoutResult };
   'git-create-branch': { args: [projectPath: string, branchName: string]; return: GitCheckoutResult };
   'git-merge-into-main': { args: [projectPath: string]; return: GitMergeResult };
-  'get-changed-files': { args: [projectPath: string]; return: ChangedFile[] };
   'get-file-diff': { args: [projectPath: string, filePath: string]; return: FileDiff | null };
 
   // ── PTY ──────────────────────────────────────────────────────────────

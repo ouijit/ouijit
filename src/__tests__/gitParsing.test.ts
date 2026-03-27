@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseDiff, parseShortstat } from '../git';
+import { parseDiff } from '../git';
 
 describe('parseDiff', () => {
   it('parses a multi-hunk diff with additions, deletions, and context', () => {
@@ -87,47 +87,5 @@ describe('parseDiff', () => {
     const hunks = parseDiff(diff);
     expect(hunks).toHaveLength(1);
     expect(hunks[0].lines).toHaveLength(2);
-  });
-});
-
-describe('parseShortstat', () => {
-  it('parses normal shortstat with all fields', () => {
-    expect(parseShortstat('3 files changed, 47 insertions(+), 12 deletions(-)')).toEqual({
-      files: 3,
-      insertions: 47,
-      deletions: 12,
-    });
-  });
-
-  it('parses insertions only', () => {
-    expect(parseShortstat('1 file changed, 5 insertions(+)')).toEqual({
-      files: 1,
-      insertions: 5,
-      deletions: 0,
-    });
-  });
-
-  it('parses deletions only', () => {
-    expect(parseShortstat('2 files changed, 10 deletions(-)')).toEqual({
-      files: 2,
-      insertions: 0,
-      deletions: 10,
-    });
-  });
-
-  it('returns zeros for empty string', () => {
-    expect(parseShortstat('')).toEqual({
-      files: 0,
-      insertions: 0,
-      deletions: 0,
-    });
-  });
-
-  it('handles singular "file" and "insertion" and "deletion"', () => {
-    expect(parseShortstat('1 file changed, 1 insertion(+), 1 deletion(-)')).toEqual({
-      files: 1,
-      insertions: 1,
-      deletions: 1,
-    });
   });
 });

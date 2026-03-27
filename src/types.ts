@@ -9,7 +9,7 @@ export type {
   DiffLine,
   DiffHunk,
   FileDiff,
-  CompactGitStatus,
+  GitFileStatus,
   WorktreeDiffSummary,
   BranchInfo,
 } from './git';
@@ -27,15 +27,7 @@ export type { SandboxStatus } from './lima/types';
 export type { HookStatus, HookStatusEntry } from './hookServer';
 
 // Import for local use within this file
-import type {
-  GitStatus,
-  CompactGitStatus,
-  GitDropdownInfo,
-  ChangedFile,
-  FileDiff,
-  WorktreeDiffSummary,
-  BranchInfo,
-} from './git';
+import type { GitStatus, GitFileStatus, GitDropdownInfo, FileDiff, WorktreeDiffSummary, BranchInfo } from './git';
 import type { TaskWorktreeResult, WorktreeInfo, WorktreeRemoveResult, CheckWorktreeResult } from './worktree';
 import type { TaskStatus, TagRow } from './db';
 import type { ActiveSession } from './ptyManager';
@@ -359,8 +351,8 @@ export interface ElectronAPI {
   refreshProjects(): Promise<Project[]>;
   /** Get git status (branch and dirty state) for a project */
   getGitStatus(projectPath: string): Promise<GitStatus | null>;
-  /** Get compact git status for at-a-glance display */
-  getCompactGitStatus(projectPath: string): Promise<CompactGitStatus | null>;
+  /** Get detailed file-level git status (single source of truth for button + diff panel) */
+  getGitFileStatus(projectPath: string): Promise<GitFileStatus | null>;
   /** Get extended git dropdown info for a project */
   getGitDropdownInfo(projectPath: string): Promise<GitDropdownInfo | null>;
   /** Checkout a git branch */
@@ -369,8 +361,6 @@ export interface ElectronAPI {
   gitCreateBranch(projectPath: string, branchName: string): Promise<GitCheckoutResult>;
   /** Merge current branch into main */
   gitMergeIntoMain(projectPath: string): Promise<GitMergeResult>;
-  /** Get list of changed files */
-  getChangedFiles(projectPath: string): Promise<ChangedFile[]>;
   /** Get diff for a specific file */
   getFileDiff(projectPath: string, filePath: string): Promise<FileDiff | null>;
   /** Create a new project */

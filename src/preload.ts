@@ -50,13 +50,12 @@ contextBridge.exposeInMainWorld('api', {
     typedInvoke('settings:set-kill-existing-on-run', projectPath, kill),
 
   getGitStatus: (projectPath: string) => typedInvoke('get-git-status', projectPath),
-  getCompactGitStatus: (projectPath: string) => typedInvoke('get-compact-git-status', projectPath),
+  getGitFileStatus: (projectPath: string) => typedInvoke('get-git-file-status', projectPath),
   getGitDropdownInfo: (projectPath: string) => typedInvoke('get-git-dropdown-info', projectPath),
   gitCheckout: (projectPath: string, branchName: string) => typedInvoke('git-checkout', projectPath, branchName),
   gitCreateBranch: (projectPath: string, branchName: string) =>
     typedInvoke('git-create-branch', projectPath, branchName),
   gitMergeIntoMain: (projectPath: string) => typedInvoke('git-merge-into-main', projectPath),
-  getChangedFiles: (projectPath: string) => typedInvoke('get-changed-files', projectPath),
   getFileDiff: (projectPath: string, filePath: string) => typedInvoke('get-file-diff', projectPath, filePath),
 
   pty: {

@@ -1,7 +1,5 @@
 import { execSync, execFileSync, execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import * as fs from 'node:fs';
-import * as path from 'node:path';
 import { formatAge } from './utils/formatDate';
 
 const execFileAsync = promisify(execFile);
@@ -100,19 +98,17 @@ export interface FileDiff {
 }
 
 /**
- * Compact git status for at-a-glance display
+ * Detailed git file status — single source of truth for both the GitStats button
+ * and the DiffPanel. Contains per-file ChangedFile arrays instead of aggregate counts.
  */
-export interface CompactGitStatus {
+export interface GitFileStatus {
   branch: string;
   mainBranch: string;
   commitsAheadOfMain: number;
-  dirtyFileCount: number;
-  insertions: number;
-  deletions: number;
-  // Branch vs main comparison (total changes in this branch compared to main)
-  branchDiffFileCount: number;
-  branchDiffInsertions: number;
-  branchDiffDeletions: number;
+  /** Working tree changes vs HEAD (tracked + untracked) */
+  uncommittedFiles: ChangedFile[];
+  /** Branch changes vs main (empty when on main) */
+  branchDiffFiles: ChangedFile[];
 }
 
 /**
@@ -498,80 +494,6 @@ export function mergeIntoMain(projectPath: string): { success: boolean; error?: 
 }
 
 /**
- * Gets list of changed files with their status and line stats
- */
-export function getChangedFiles(projectPath: string): ChangedFile[] {
-  const opts = gitExecOpts(projectPath);
-  const files: ChangedFile[] = [];
-
-  try {
-    // Get numstat for additions/deletions per file
-    const statsMap = new Map<string, { additions: number; deletions: number }>();
-    try {
-      const numstat = execSync('git diff --numstat HEAD', opts).toString().trim();
-      if (numstat) {
-        for (const line of numstat.split('\n')) {
-          const parts = line.split('\t');
-          if (parts.length >= 3) {
-            // Format: additions<tab>deletions<tab>filename
-            // Binary files show as '-' for additions/deletions
-            const additions = parts[0] === '-' ? 0 : parseInt(parts[0], 10) || 0;
-            const deletions = parts[1] === '-' ? 0 : parseInt(parts[1], 10) || 0;
-            statsMap.set(parts[2], { additions, deletions });
-          }
-        }
-      }
-    } catch {
-      // Stats are optional, continue without them
-    }
-
-    // Get tracked file changes (modified, deleted, renamed)
-    const tracked = execSync('git diff --name-status HEAD', opts).toString().trim();
-    if (tracked) {
-      for (const line of tracked.split('\n')) {
-        const parts = line.split('\t');
-        if (parts.length >= 2) {
-          const statusChar = parts[0][0] as ChangedFile['status'];
-          const filePath = statusChar === 'R' && parts.length >= 3 ? parts[2] : parts[1];
-          const stats = statsMap.get(filePath) || { additions: 0, deletions: 0 };
-
-          if (statusChar === 'R' && parts.length >= 3) {
-            files.push({ path: parts[2], status: 'R', oldPath: parts[1], ...stats });
-          } else {
-            files.push({ path: parts[1], status: statusChar, ...stats });
-          }
-        }
-      }
-    }
-
-    // Get untracked files (count lines for stats)
-    const untracked = execSync('git ls-files --others --exclude-standard', opts).toString().trim();
-    if (untracked) {
-      const untrackedPaths = untracked.split('\n').filter(Boolean);
-      // Skip expensive per-file line counting when there are many untracked files
-      const skipLineCounting = untrackedPaths.length > 200;
-      for (const filePath of untrackedPaths) {
-        let additions = 0;
-        if (!skipLineCounting) {
-          try {
-            const fullPath = path.join(projectPath, filePath);
-            const content = fs.readFileSync(fullPath, 'utf8');
-            additions = content.split('\n').length;
-          } catch {
-            // Can't count lines (binary file or other error), leave as 0
-          }
-        }
-        files.push({ path: filePath, status: '?', additions, deletions: 0 });
-      }
-    }
-
-    return files;
-  } catch {
-    return [];
-  }
-}
-
-/**
  * Parses unified diff output into structured hunks
  */
 export function parseDiff(diffOutput: string): DiffHunk[] {
@@ -678,27 +600,54 @@ async function gitAsync(args: string[], projectPath: string): Promise<string> {
   return stdout.trim();
 }
 
-/**
- * Parse shortstat output ("3 files changed, 47 insertions(+), 12 deletions(-)")
- */
-export function parseShortstat(shortstat: string): { files: number; insertions: number; deletions: number } {
-  const filesMatch = shortstat.match(/(\d+) files? changed/);
-  const insertionsMatch = shortstat.match(/(\d+) insertions?\(\+\)/);
-  const deletionsMatch = shortstat.match(/(\d+) deletions?\(-\)/);
-  return {
-    files: filesMatch ? parseInt(filesMatch[1], 10) : 0,
-    insertions: insertionsMatch ? parseInt(insertionsMatch[1], 10) : 0,
-    deletions: deletionsMatch ? parseInt(deletionsMatch[1], 10) : 0,
-  };
+// ── Shared diff parsing helpers ──────────────────────────────────────
+
+/** Parse `git diff --numstat` output into a per-file stats map */
+function parseNumstat(output: string): Map<string, { additions: number; deletions: number }> {
+  const map = new Map<string, { additions: number; deletions: number }>();
+  if (!output) return map;
+  for (const line of output.split('\n')) {
+    const parts = line.split('\t');
+    if (parts.length >= 3) {
+      const additions = parts[0] === '-' ? 0 : parseInt(parts[0], 10) || 0;
+      const deletions = parts[1] === '-' ? 0 : parseInt(parts[1], 10) || 0;
+      map.set(parts[2], { additions, deletions });
+    }
+  }
+  return map;
 }
 
+/** Parse `git diff --name-status` output, enriched with numstat data */
+function parseNameStatus(
+  output: string,
+  statsMap: Map<string, { additions: number; deletions: number }>,
+): ChangedFile[] {
+  const files: ChangedFile[] = [];
+  if (!output) return files;
+  for (const line of output.split('\n')) {
+    const parts = line.split('\t');
+    if (parts.length >= 2) {
+      const statusChar = parts[0][0] as ChangedFile['status'];
+      const filePath = statusChar === 'R' && parts.length >= 3 ? parts[2] : parts[1];
+      const stats = statsMap.get(filePath) || { additions: 0, deletions: 0 };
+      if (statusChar === 'R' && parts.length >= 3) {
+        files.push({ path: parts[2], status: 'R', oldPath: parts[1], ...stats });
+      } else {
+        files.push({ path: parts[1], status: statusChar, ...stats });
+      }
+    }
+  }
+  return files;
+}
+
+// ── Unified git file status ─────────────────────────────────────────
+
 /**
- * Gets compact git status for at-a-glance display in the UI
- * Fully async — runs git commands in parallel without blocking the main thread
+ * Gets detailed git file status — single source of truth for both the GitStats
+ * button and the DiffPanel. Fully async to avoid blocking the main thread.
  */
-export async function getCompactGitStatus(projectPath: string): Promise<CompactGitStatus | null> {
+export async function getGitFileStatus(projectPath: string): Promise<GitFileStatus | null> {
   try {
-    // Get branch and main branch first (needed to decide which parallel commands to run)
     let branch: string;
     try {
       branch = await gitAsync(['rev-parse', '--abbrev-ref', 'HEAD'], projectPath);
@@ -710,62 +659,43 @@ export async function getCompactGitStatus(projectPath: string): Promise<CompactG
     const isOnMain = branch === mainBranch;
 
     // Run all independent git commands in parallel
-    const [shortstatResult, untrackedResult, commitsAheadResult, branchDiffResult] = await Promise.allSettled([
-      // Tracked file changes
-      gitAsync(['diff', '--shortstat', 'HEAD'], projectPath),
-      // Untracked file count
-      gitAsync(['ls-files', '--others', '--exclude-standard'], projectPath),
-      // Commits ahead of main (skip if on main)
+    const [
+      uncommittedNumstatResult,
+      uncommittedNameStatusResult,
+      commitsAheadResult,
+      branchNumstatResult,
+      branchNameStatusResult,
+    ] = await Promise.allSettled([
+      gitAsync(['diff', '--numstat', 'HEAD'], projectPath),
+      gitAsync(['diff', '--name-status', 'HEAD'], projectPath),
       isOnMain ? Promise.resolve('') : gitAsync(['rev-list', '--count', `${mainBranch}..HEAD`], projectPath),
-      // Branch vs main diff (skip if on main)
-      isOnMain ? Promise.resolve('') : gitAsync(['diff', '--shortstat', `${mainBranch}...HEAD`], projectPath),
+      isOnMain ? Promise.resolve('') : gitAsync(['diff', '--numstat', `${mainBranch}...HEAD`], projectPath),
+      isOnMain ? Promise.resolve('') : gitAsync(['diff', '--name-status', `${mainBranch}...HEAD`], projectPath),
     ]);
 
-    // Parse tracked changes
-    let trackedCount = 0,
-      insertions = 0,
-      deletions = 0;
-    if (shortstatResult.status === 'fulfilled' && shortstatResult.value) {
-      const parsed = parseShortstat(shortstatResult.value);
-      trackedCount = parsed.files;
-      insertions = parsed.insertions;
-      deletions = parsed.deletions;
-    }
+    // Build uncommitted tracked files
+    const uncommittedStatsMap =
+      uncommittedNumstatResult.status === 'fulfilled' ? parseNumstat(uncommittedNumstatResult.value) : new Map();
+    const uncommittedFiles =
+      uncommittedNameStatusResult.status === 'fulfilled'
+        ? parseNameStatus(uncommittedNameStatusResult.value, uncommittedStatsMap)
+        : [];
 
-    // Parse untracked count
-    let untrackedCount = 0;
-    if (untrackedResult.status === 'fulfilled' && untrackedResult.value) {
-      untrackedCount = untrackedResult.value.split('\n').filter((line) => line.length > 0).length;
-    }
+    // Build branch diff files
+    const branchStatsMap =
+      branchNumstatResult.status === 'fulfilled' ? parseNumstat(branchNumstatResult.value) : new Map();
+    const branchDiffFiles =
+      branchNameStatusResult.status === 'fulfilled'
+        ? parseNameStatus(branchNameStatusResult.value, branchStatsMap)
+        : [];
 
     // Parse commits ahead
-    let commitsAheadOfMain = 0;
-    if (commitsAheadResult.status === 'fulfilled' && commitsAheadResult.value) {
-      commitsAheadOfMain = parseInt(commitsAheadResult.value, 10) || 0;
-    }
+    const commitsAheadOfMain =
+      commitsAheadResult.status === 'fulfilled' && commitsAheadResult.value
+        ? parseInt(commitsAheadResult.value, 10) || 0
+        : 0;
 
-    // Parse branch diff
-    let branchDiffFileCount = 0,
-      branchDiffInsertions = 0,
-      branchDiffDeletions = 0;
-    if (branchDiffResult.status === 'fulfilled' && branchDiffResult.value) {
-      const parsed = parseShortstat(branchDiffResult.value);
-      branchDiffFileCount = parsed.files;
-      branchDiffInsertions = parsed.insertions;
-      branchDiffDeletions = parsed.deletions;
-    }
-
-    return {
-      branch,
-      mainBranch,
-      commitsAheadOfMain,
-      dirtyFileCount: trackedCount + untrackedCount,
-      insertions,
-      deletions,
-      branchDiffFileCount,
-      branchDiffInsertions,
-      branchDiffDeletions,
-    };
+    return { branch, mainBranch, commitsAheadOfMain, uncommittedFiles, branchDiffFiles };
   } catch {
     return null;
   }

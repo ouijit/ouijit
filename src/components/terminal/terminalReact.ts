@@ -9,7 +9,7 @@
 import { Terminal as XTerminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
-import type { PtyId, PtySpawnOptions, CompactGitStatus } from '../../types';
+import type { PtyId, PtySpawnOptions, GitFileStatus } from '../../types';
 import { notifyReady, readyBody } from '../../utils/notifications';
 import { useTerminalStore } from '../../stores/terminalStore';
 
@@ -218,9 +218,9 @@ function scheduleTerminalGitStatusRefresh(term: OuijitTerminal): void {
 
 export async function refreshTerminalGitStatus(term: OuijitTerminal): Promise<void> {
   const gitPath = term.worktreePath || term.projectPath;
-  const compactStatus = await window.api.getCompactGitStatus(gitPath);
-  term.gitStatus = compactStatus;
-  term.pushDisplayState({ gitStatus: compactStatus });
+  const fileStatus = await window.api.getGitFileStatus(gitPath);
+  term.gitFileStatus = fileStatus;
+  term.pushDisplayState({ gitFileStatus: fileStatus });
 }
 
 export async function refreshAllTerminalGitStatus(projectPath: string): Promise<void> {
@@ -243,10 +243,10 @@ export async function refreshAllTerminalGitStatus(projectPath: string): Promise<
 
   await Promise.all(
     Array.from(pathToTerminals.entries()).map(async ([gitPath, terms]) => {
-      const compactStatus = await window.api.getCompactGitStatus(gitPath);
+      const fileStatus = await window.api.getGitFileStatus(gitPath);
       for (const t of terms) {
-        t.gitStatus = compactStatus;
-        t.pushDisplayState({ gitStatus: compactStatus });
+        t.gitFileStatus = fileStatus;
+        t.pushDisplayState({ gitFileStatus: fileStatus });
       }
     }),
   );
@@ -275,7 +275,7 @@ export class OuijitTerminal {
   label: string;
   summary = '';
   summaryType: SummaryType;
-  gitStatus: CompactGitStatus | null = null;
+  gitFileStatus: GitFileStatus | null = null;
   lastOscTitle = '';
   tags: string[];
 
