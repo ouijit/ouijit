@@ -3,7 +3,17 @@ import * as http from 'node:http';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
+import { execFileSync } from 'node:child_process';
 import type { BrowserWindow } from 'electron';
+
+const hasZsh = (() => {
+  try {
+    execFileSync('which', ['zsh'], { stdio: 'ignore' });
+    return true;
+  } catch {
+    return false;
+  }
+})();
 
 // Mutable homedir for install tests — must be declared before vi.mock
 let _testHomedir = '';
@@ -560,7 +570,7 @@ describe('wrapper → ouijit-hook → hook server (end-to-end)', () => {
     expect(mockSend).toHaveBeenCalledWith('claude-hook-status', 'pty-e2e-2', 'thinking');
   });
 
-  test('hooks fire in zsh after start hook runs and exec drops into interactive shell', async () => {
+  test.skipIf(!hasZsh)('hooks fire in zsh after start hook runs and exec drops into interactive shell', async () => {
     const { execFile } = await import('node:child_process');
     const { promisify } = await import('node:util');
     const exec = promisify(execFile);
