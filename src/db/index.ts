@@ -543,10 +543,7 @@ export async function getScripts(projectPath: string): Promise<Script[]> {
   return sr.getAll(projectPath).map(rowToScript);
 }
 
-export async function saveScript(
-  projectPath: string,
-  script: Script,
-): Promise<{ success: boolean; script?: Script }> {
+export async function saveScript(projectPath: string, script: Script): Promise<{ success: boolean; script?: Script }> {
   try {
     ensureProject(projectPath);
     const { scriptRepo: sr } = repos();
@@ -558,10 +555,7 @@ export async function saveScript(
   }
 }
 
-export async function deleteScript(
-  projectPath: string,
-  scriptId: string,
-): Promise<{ success: boolean }> {
+export async function deleteScript(projectPath: string, scriptId: string): Promise<{ success: boolean }> {
   try {
     const { scriptRepo: sr } = repos();
     sr.delete(projectPath, scriptId);
@@ -572,10 +566,7 @@ export async function deleteScript(
   }
 }
 
-export async function reorderScripts(
-  projectPath: string,
-  scriptIds: string[],
-): Promise<{ success: boolean }> {
+export async function reorderScripts(projectPath: string, scriptIds: string[]): Promise<{ success: boolean }> {
   try {
     const { scriptRepo: sr } = repos();
     sr.reorder(projectPath, scriptIds);

@@ -67,7 +67,10 @@ export const TerminalHeader = memo(function TerminalHeader({
   const [sandboxAvailable, setSandboxAvailable] = useState(false);
   const [hasEditorHook, setHasEditorHook] = useState(false);
   const [hasRunHook, setHasRunHook] = useState(false);
-  const [hasScripts, setHasScripts] = useState(false);
+  // Subscribe to scripts from projectStore for live updates
+  const storeScripts = useProjectStore((s) => s.scripts);
+  const hasScripts = storeScripts.length > 0;
+
   useEffect(() => {
     if (projectPath) {
       window.api.lima.status(projectPath).then((s) => setSandboxAvailable(s.available));
@@ -75,9 +78,12 @@ export const TerminalHeader = memo(function TerminalHeader({
         setHasEditorHook(!!h.editor);
         setHasRunHook(!!h.run);
       });
-      window.api.scripts.getAll(projectPath).then((s) => setHasScripts(s.length > 0));
+      // Also load scripts into store if not already loaded
+      if (storeScripts.length === 0) {
+        useProjectStore.getState().loadScripts(projectPath);
+      }
     }
-  }, [projectPath]);
+  }, [projectPath, storeScripts.length]);
 
   const contextMenuItems = useMemo((): ContextMenuEntry[] => {
     if (!instance) return [];

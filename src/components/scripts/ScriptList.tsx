@@ -2,14 +2,7 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { useProjectStore } from '../../stores/projectStore';
 import type { Script } from '../../types';
 import { Icon } from '../terminal/Icon';
-import {
-  DndContext,
-  closestCenter,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
-} from '@dnd-kit/core';
+import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, useSortable, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 
@@ -38,7 +31,10 @@ export function ScriptList({ projectPath }: ScriptListProps) {
       const reordered = arrayMove(scripts, oldIndex, newIndex);
       // Optimistic update
       useProjectStore.setState({ scripts: reordered });
-      await window.api.scripts.reorder(projectPath, reordered.map((s) => s.id));
+      await window.api.scripts.reorder(
+        projectPath,
+        reordered.map((s) => s.id),
+      );
       reload();
     },
     [scripts, projectPath, reload],
@@ -73,13 +69,10 @@ export function ScriptList({ projectPath }: ScriptListProps) {
     setAddingNew(false);
   }, []);
 
-  const handleToggleExpand = useCallback(
-    (id: string) => {
-      setExpandedId((prev) => (prev === id ? null : id));
-      setAddingNew(false);
-    },
-    [],
-  );
+  const handleToggleExpand = useCallback((id: string) => {
+    setExpandedId((prev) => (prev === id ? null : id));
+    setAddingNew(false);
+  }, []);
 
   return (
     <div>
@@ -97,9 +90,7 @@ export function ScriptList({ projectPath }: ScriptListProps) {
               />
             ))}
             {scripts.length === 0 && !addingNew && (
-              <div className="px-4 py-6 text-center text-xs text-text-tertiary">
-                No scripts yet. Add one below.
-              </div>
+              <div className="px-4 py-6 text-center text-xs text-text-tertiary">No scripts yet. Add one below.</div>
             )}
           </div>
         </SortableContext>
@@ -163,14 +154,7 @@ function SortableScriptRow({
         <span className="text-[11px] text-text-tertiary truncate ml-auto font-mono">{script.command}</span>
         <Icon name={expanded ? 'caret-down' : 'caret-right'} className="w-3 h-3 text-text-tertiary shrink-0" />
       </div>
-      {expanded && (
-        <ScriptForm
-          initial={script}
-          onSave={onSave}
-          onCancel={onToggle}
-          onDelete={onDelete}
-        />
-      )}
+      {expanded && <ScriptForm initial={script} onSave={onSave} onCancel={onToggle} onDelete={onDelete} />}
     </div>
   );
 }
@@ -265,9 +249,7 @@ function ScriptForm({
         </button>
         <button
           className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors duration-150 ${
-            isValid
-              ? 'text-white bg-accent hover:bg-accent-hover'
-              : 'text-text-tertiary bg-background-tertiary'
+            isValid ? 'text-white bg-accent hover:bg-accent-hover' : 'text-text-tertiary bg-background-tertiary'
           }`}
           disabled={!isValid}
           onClick={handleSubmit}
