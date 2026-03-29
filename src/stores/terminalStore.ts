@@ -12,6 +12,7 @@ export interface TerminalDisplayState {
   tags: string[];
   hookStatus: 'thinking' | 'ready' | null;
   runnerStatus: 'running' | 'success' | 'error' | 'idle';
+  runnerScriptName: string | null;
   runnerPanelOpen: boolean;
   runnerFullWidth: boolean;
   diffPanelOpen: boolean;
@@ -33,6 +34,7 @@ export const DEFAULT_DISPLAY_STATE: Omit<TerminalDisplayState, 'ptyId' | 'projec
   tags: [],
   hookStatus: null,
   runnerStatus: 'idle',
+  runnerScriptName: null,
   runnerPanelOpen: false,
   runnerFullWidth: true,
   diffPanelOpen: false,

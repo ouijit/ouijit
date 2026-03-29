@@ -296,7 +296,9 @@ export class OuijitTerminal {
   runnerFullWidth = true;
   runnerSplitRatio = 0.5;
   runnerCommand: string | null = null;
+  runnerScript: { name: string; command: string } | null = null;
   runnerStatus: 'running' | 'success' | 'error' | 'idle' = 'idle';
+  _runnerSpawning = false;
 
   // ── Data side-effect throttling ─────────────────────────────────────
   private sideEffectTimer: ReturnType<typeof setTimeout> | null = null;
@@ -588,12 +590,14 @@ export class OuijitTerminal {
     this.runner = null;
 
     this.runnerCommand = null;
+    this.runnerScript = null;
     this.runnerStatus = 'idle';
     this.runnerFullWidth = true;
 
     this.pushDisplayState({
       runnerPanelOpen: false,
       runnerStatus: 'idle',
+      runnerScriptName: null,
     });
   }
 

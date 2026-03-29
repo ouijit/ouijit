@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import { terminalInstances } from './terminalReact';
 import { spawnRunner } from './terminalActions';
+import type { RunnerScript } from '../../types';
 
 export function useTerminalPanels(ptyId: string | null) {
   const toggleDiffPanel = useCallback(() => {
@@ -28,22 +29,25 @@ export function useTerminalPanels(ptyId: string | null) {
     requestAnimationFrame(() => instance.fit());
   }, [ptyId]);
 
-  const toggleRunner = useCallback(() => {
-    if (!ptyId) return;
-    const instance = terminalInstances.get(ptyId);
-    if (!instance) return;
-    if (instance.runner?.ptyId) {
-      instance.runnerPanelOpen = !instance.runnerPanelOpen;
-      if (instance.runnerPanelOpen && instance.diffPanelOpen) {
-        instance.diffPanelOpen = false;
-        instance.pushDisplayState({ runnerPanelOpen: true, diffPanelOpen: false });
+  const toggleRunner = useCallback(
+    (script?: RunnerScript) => {
+      if (!ptyId) return;
+      const instance = terminalInstances.get(ptyId);
+      if (!instance) return;
+      if (instance.runner?.ptyId && !script) {
+        instance.runnerPanelOpen = !instance.runnerPanelOpen;
+        if (instance.runnerPanelOpen && instance.diffPanelOpen) {
+          instance.diffPanelOpen = false;
+          instance.pushDisplayState({ runnerPanelOpen: true, diffPanelOpen: false });
+        } else {
+          instance.pushDisplayState({ runnerPanelOpen: instance.runnerPanelOpen });
+        }
       } else {
-        instance.pushDisplayState({ runnerPanelOpen: instance.runnerPanelOpen });
+        spawnRunner(ptyId, script);
       }
-    } else {
-      spawnRunner(ptyId);
-    }
-  }, [ptyId]);
+    },
+    [ptyId],
+  );
 
   const collapseRunner = useCallback(() => {
     if (!ptyId) return;
@@ -65,7 +69,10 @@ export function useTerminalPanels(ptyId: string | null) {
     if (!ptyId) return;
     const instance = terminalInstances.get(ptyId);
     if (!instance) return;
+    const script = instance.runnerScript;
     instance.killRunner();
+    // Re-run whatever was last run (ad-hoc script or run hook)
+    spawnRunner(ptyId, script ?? undefined);
   }, [ptyId]);
 
   return { toggleDiffPanel, closeDiffPanel, toggleRunner, collapseRunner, killRunner, restartRunner };

@@ -4,7 +4,7 @@
  * and register them in both the instance registry and the Zustand store.
  */
 
-import type { PtySpawnOptions, RunConfig, WorktreeInfo, ActiveSession } from '../../types';
+import type { PtySpawnOptions, RunConfig, WorktreeInfo, ActiveSession, RunnerScript } from '../../types';
 import { useTerminalStore, type TerminalDisplayState } from '../../stores/terminalStore';
 import { useAppStore, staleGuard } from '../../stores/appStore';
 import { useProjectStore } from '../../stores/projectStore';
@@ -315,12 +315,24 @@ export async function reconnectTerminal(
   return term;
 }
 
-// ── Run hook as runner terminal ──────────────────────────────────────
+// ── Run hook or ad-hoc script as runner terminal ────────────────────
 
-export async function spawnRunner(ptyId: string): Promise<void> {
+export async function spawnRunner(ptyId: string, script?: RunnerScript): Promise<void> {
   const instance = terminalInstances.get(ptyId);
   if (!instance) return;
 
+  // Double-spawn guard
+  if (instance._runnerSpawning) return;
+  instance._runnerSpawning = true;
+
+  try {
+    await _spawnRunnerInner(instance, script);
+  } finally {
+    instance._runnerSpawning = false;
+  }
+}
+
+async function _spawnRunnerInner(instance: OuijitTerminal, script?: RunnerScript): Promise<void> {
   const path = instance.projectPath;
 
   // Kill existing runner first
@@ -328,27 +340,45 @@ export async function spawnRunner(ptyId: string): Promise<void> {
     instance.killRunner();
   }
 
-  const [hooks, settings] = await Promise.all([window.api.hooks.get(path), window.api.getProjectSettings(path)]);
+  // Determine command source: explicit script, or fall back to run hook
+  let commandName: string;
+  let commandStr: string;
+  let hookType: string;
 
-  if (!hooks.run) {
-    return;
+  if (script) {
+    commandName = script.name;
+    commandStr = script.command;
+    hookType = 'script';
+  } else {
+    const [hooks, settings] = await Promise.all([window.api.hooks.get(path), window.api.getProjectSettings(path)]);
+    if (!hooks.run) return;
+    commandName = hooks.run.name;
+    commandStr = hooks.run.command;
+    hookType = 'run';
+
+    // Kill existing instances with same command
+    if (settings.killExistingOnRun !== false) {
+      killExistingCommandInstances(path, commandStr);
+    }
   }
 
-  const runHook = hooks.run;
-
-  // Kill existing instances with same command
-  if (settings.killExistingOnRun !== false) {
-    killExistingCommandInstances(path, runHook.command);
+  // For scripts, also check killExistingOnRun
+  if (script) {
+    const settings = await window.api.getProjectSettings(path);
+    if (settings.killExistingOnRun !== false) {
+      killExistingCommandInstances(path, commandStr);
+    }
   }
 
   // Set runner state on parent
-  instance.runnerCommand = runHook.command;
+  instance.runnerCommand = commandStr;
+  instance.runnerScript = script ?? null;
   instance.runnerStatus = 'running';
 
   // Create runner terminal
   const runner = new OuijitTerminal({
     projectPath: path,
-    label: runHook.name,
+    label: commandName,
     isRunner: true,
   });
 
@@ -359,15 +389,15 @@ export async function spawnRunner(ptyId: string): Promise<void> {
   const spawnOptions: PtySpawnOptions = {
     cwd,
     projectPath: path,
-    command: runHook.command,
+    command: commandStr,
     cols: 80,
     rows: 24,
-    label: runHook.name,
+    label: commandName,
     worktreePath: instance.worktreePath,
     isRunner: true,
     parentPtyId: instance.ptyId,
     env: {
-      OUIJIT_HOOK_TYPE: 'run',
+      OUIJIT_HOOK_TYPE: hookType,
       OUIJIT_PROJECT_PATH: path,
       ...(instance.worktreePath && { OUIJIT_WORKTREE_PATH: instance.worktreePath }),
       ...(instance.worktreeBranch && { OUIJIT_TASK_BRANCH: instance.worktreeBranch }),
@@ -382,7 +412,7 @@ export async function spawnRunner(ptyId: string): Promise<void> {
     if (!result.success || !result.ptyId) {
       runner.xterm.writeln(`\x1b[31mFailed to start runner: ${result.error || 'Unknown error'}\x1b[0m`);
       instance.runnerStatus = 'error';
-      instance.pushDisplayState({ runnerStatus: 'error' });
+      instance.pushDisplayState({ runnerStatus: 'error', runnerScriptName: script?.name ?? null });
       return;
     }
 
@@ -411,13 +441,14 @@ export async function spawnRunner(ptyId: string): Promise<void> {
     instance.runnerPanelOpen = true;
     instance.pushDisplayState({
       runnerStatus: 'running',
+      runnerScriptName: script?.name ?? null,
       runnerPanelOpen: true,
       runnerFullWidth: true,
     });
   } catch (error) {
     runner.xterm.writeln(`\x1b[31mError: ${error instanceof Error ? error.message : 'Unknown error'}\x1b[0m`);
     instance.runnerStatus = 'error';
-    instance.pushDisplayState({ runnerStatus: 'error' });
+    instance.pushDisplayState({ runnerStatus: 'error', runnerScriptName: script?.name ?? null });
   }
 }
 

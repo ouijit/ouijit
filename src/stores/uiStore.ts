@@ -7,6 +7,9 @@ interface UIStoreState {
   gitDropdownVisible: boolean;
   launchDropdownVisible: boolean;
   sandboxDropdownVisible: boolean;
+  scriptDropdownVisible: boolean;
+  /** ptyId of the terminal whose script dropdown is open */
+  scriptDropdownPtyId: string | null;
   homeGroupMode: HomeGroupMode;
 }
 
@@ -16,6 +19,7 @@ interface UIStoreActions {
   setGitDropdownVisible: (visible: boolean) => void;
   setLaunchDropdownVisible: (visible: boolean) => void;
   setSandboxDropdownVisible: (visible: boolean) => void;
+  setScriptDropdownVisible: (visible: boolean, ptyId?: string | null) => void;
   closeAllDropdowns: () => void;
   setHomeGroupMode: (mode: HomeGroupMode) => void;
 }
@@ -27,6 +31,8 @@ export const useUIStore = create<UIStore>()((set) => ({
   gitDropdownVisible: false,
   launchDropdownVisible: false,
   sandboxDropdownVisible: false,
+  scriptDropdownVisible: false,
+  scriptDropdownPtyId: null,
   homeGroupMode: 'project',
 
   setSidebarVisible: (visible) => set({ sidebarVisible: visible }),
@@ -39,11 +45,16 @@ export const useUIStore = create<UIStore>()((set) => ({
 
   setSandboxDropdownVisible: (visible) => set({ sandboxDropdownVisible: visible }),
 
+  setScriptDropdownVisible: (visible, ptyId) =>
+    set({ scriptDropdownVisible: visible, scriptDropdownPtyId: visible ? (ptyId ?? null) : null }),
+
   closeAllDropdowns: () =>
     set({
       gitDropdownVisible: false,
       launchDropdownVisible: false,
       sandboxDropdownVisible: false,
+      scriptDropdownVisible: false,
+      scriptDropdownPtyId: null,
     }),
 
   setHomeGroupMode: (mode) => set({ homeGroupMode: mode }),
