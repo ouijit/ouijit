@@ -28,21 +28,36 @@
     <h2>Opening terminals</h2>
     <p>When you start a task (move it to In Progress), a terminal opens automatically in the task's worktree. You can open additional terminals for the same task &mdash; useful for running a dev server in one and editing in another, or letting multiple AI agents fight to the death.</p>
 
-    <h2>Switching terminals</h2>
+    <h2>Keyboard shortcuts</h2>
     <p>Click on a background terminal card to bring it to the front, or use keyboard shortcuts:</p>
     <table>
       <thead>
         <tr><th>Shortcut</th><th>Action</th></tr>
       </thead>
       <tbody>
+        <tr><td><code>&#8984;I</code> / <code>Ctrl+I</code></td><td>New terminal</td></tr>
+        <tr><td><code>&#8984;W</code> / <code>Ctrl+W</code></td><td>Close terminal</td></tr>
         <tr><td><code>&#8984;1</code>&ndash;<code>&#8984;9</code> / <code>Ctrl+1</code>&ndash;<code>Ctrl+9</code></td><td>Select terminal by position</td></tr>
         <tr><td><code>&#8984;&#8679;&#8592;</code> / <code>Ctrl+Shift+Left</code></td><td>Previous stack page</td></tr>
         <tr><td><code>&#8984;&#8679;&#8594;</code> / <code>Ctrl+Shift+Right</code></td><td>Next stack page</td></tr>
-        <tr><td><code>&#8984;I</code> / <code>Ctrl+I</code></td><td>New terminal</td></tr>
-        <tr><td><code>&#8984;W</code> / <code>Ctrl+W</code></td><td>Close terminal</td></tr>
+        <tr><td><code>&#8984;T</code> / <code>Ctrl+T</code></td><td>Toggle between kanban board and terminal stack</td></tr>
+        <tr><td><code>&#8984;N</code> / <code>Ctrl+N</code></td><td>Show kanban board and focus new task input</td></tr>
+        <tr><td><code>&#8984;P</code> / <code>Ctrl+P</code></td><td>Toggle runner panel</td></tr>
+        <tr><td><code>&#8984;D</code> / <code>Ctrl+D</code></td><td>Toggle diff panel</td></tr>
       </tbody>
     </table>
     <p>I'd like to let you rebind these, but I haven't gotten around to it yet.</p>
+
+    <h2>Runner panel</h2>
+    <p>The runner panel is a secondary terminal that sits alongside your main terminal stack. It's meant for long-running processes like dev servers &mdash; things you want visible but out of the way.</p>
+    <p>Toggle it with <code>&#8984;P</code> (<code>Ctrl+P</code> on Linux), or use the Run button in the toolbar. The runner executes the project's <strong>run</strong> <a href="hooks.html">hook</a> (e.g. <code>npm run dev</code>), so you can start your dev server with one click or keypress.</p>
+
+    <h2>Diff panel</h2>
+    <p>The diff panel shows what changed in the current worktree relative to the target branch. Toggle it with <code>&#8984;D</code> (<code>Ctrl+D</code> on Linux).</p>
+    <p>It lists changed files with per-file diffs organized by hunk &mdash; additions, deletions, and context lines. Useful for a quick review before moving a task to In Review or merging.</p>
+
+    <h2>Tags</h2>
+    <p>You can tag terminals to organize them &mdash; especially useful in the home view when you have many terminals across projects. Tags appear on terminal cards and you can group the home view by tag.</p>
 
     <h2>Working with CLI agents</h2>
     <p>Ouijit's terminals work with any CLI tool. Launch Claude Code, Cursor, Aider, or any other agent directly in the terminal. The worktree isolation means each agent works in its own sandbox without interfering with other tasks. Only <a href="claude-code.html">Claude Code gets fancy status lights</a> right now &mdash; I play favorites.</p>
