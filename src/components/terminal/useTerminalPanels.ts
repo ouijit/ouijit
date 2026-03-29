@@ -61,11 +61,18 @@ export function useTerminalPanels(ptyId: string | null) {
     requestAnimationFrame(() => instance.fit());
   }, [ptyId]);
 
-  const restartRunner = useCallback(() => {
+  const restartRunner = useCallback(async () => {
     if (!ptyId) return;
     const instance = terminalInstances.get(ptyId);
     if (!instance) return;
     instance.killRunner();
+    await spawnRunner(ptyId);
+    // Re-open panel since restart is triggered from within the open panel
+    if (instance.runner?.ptyId) {
+      instance.runnerPanelOpen = true;
+      instance.runnerFullWidth = true;
+      instance.pushDisplayState({ runnerPanelOpen: true, runnerFullWidth: true });
+    }
   }, [ptyId]);
 
   return { toggleDiffPanel, closeDiffPanel, toggleRunner, collapseRunner, killRunner, restartRunner };
