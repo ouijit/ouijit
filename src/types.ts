@@ -375,6 +375,8 @@ export interface ElectronAPI {
   reorderProjects(paths: string[]): Promise<{ success: boolean }>;
   /** Listen for fullscreen state changes */
   onFullscreenChange(callback: (isFullscreen: boolean) => void): () => void;
+  /** Listen for app update availability (Linux only) */
+  onUpdateAvailable(callback: (info: { version: string; url: string }) => void): () => void;
   /** Get project settings */
   getProjectSettings(projectPath: string): Promise<ProjectSettings>;
   /** Set whether to kill existing command instances on run */

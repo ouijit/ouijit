@@ -6,7 +6,14 @@ interface ProjectStoreState {
   kanbanVisible: boolean;
   taskVersion: number;
   activeModal: string | null;
-  toasts: Array<{ id: string; message: string; type: 'info' | 'error' | 'success' }>;
+  toasts: Array<{
+    id: string;
+    message: string;
+    type: 'info' | 'error' | 'success';
+    persistent?: boolean;
+    actionLabel?: string;
+    onAction?: () => void;
+  }>;
   _version: number;
 }
 
@@ -17,7 +24,17 @@ interface ProjectStoreActions {
   toggleKanban: () => void;
   showModal: (modal: string) => void;
   hideModal: () => void;
-  addToast: (message: string, type?: 'info' | 'error' | 'success') => void;
+  addToast: (
+    message: string,
+    typeOrOptions?:
+      | ('info' | 'error' | 'success')
+      | {
+          type?: 'info' | 'error' | 'success';
+          persistent?: boolean;
+          actionLabel?: string;
+          onAction?: () => void;
+        },
+  ) => void;
   removeToast: (id: string) => void;
   resetForProject: () => void;
 
@@ -51,12 +68,19 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
 
   hideModal: () => set({ activeModal: null }),
 
-  addToast: (message, type = 'info') => {
+  addToast: (message, typeOrOptions = 'info') => {
     const id = `toast-${++toastCounter}`;
+    const opts = typeof typeOrOptions === 'string' ? { type: typeOrOptions } : typeOrOptions;
+    const type = opts.type ?? 'info';
     set((s) => ({
-      toasts: [...s.toasts, { id, message, type }],
+      toasts: [
+        ...s.toasts,
+        { id, message, type, persistent: opts.persistent, actionLabel: opts.actionLabel, onAction: opts.onAction },
+      ],
     }));
-    setTimeout(() => get().removeToast(id), 4000);
+    if (!opts.persistent) {
+      setTimeout(() => get().removeToast(id), 4000);
+    }
   },
 
   removeToast: (id) => {
