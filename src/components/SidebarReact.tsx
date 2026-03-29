@@ -136,11 +136,11 @@ export function Sidebar({ onProjectSelect, onHomeSelect, onAddExisting, onCreate
       {!visible && (
         <div
           ref={triggerRef}
-          className="fixed top-0 bottom-0 left-0 z-[10000]"
-          style={{ width: 16 }}
+          className="fixed top-0 bottom-0 left-0 z-[9999]"
+          style={{ width: 24 }}
           onMouseEnter={(e) => {
             if (e.buttons !== 0) return;
-            showTimeoutRef.current = setTimeout(showSidebar, 200);
+            showTimeoutRef.current = setTimeout(showSidebar, 120);
           }}
           onMouseLeave={() => {
             if (showTimeoutRef.current) {
@@ -154,7 +154,7 @@ export function Sidebar({ onProjectSelect, onHomeSelect, onAddExisting, onCreate
       {/* Sidebar */}
       <aside
         ref={sidebarRef}
-        className="fixed top-0 bottom-0 left-0 z-[10001] flex flex-col overflow-hidden"
+        className="fixed top-0 bottom-0 left-0 z-[9999] flex flex-col overflow-hidden"
         style={{
           width: visible ? 'var(--sidebar-width)' : 0,
           transition: 'width 200ms ease-out',
