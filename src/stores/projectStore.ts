@@ -1,9 +1,11 @@
 import { create } from 'zustand';
-import type { TaskWithWorkspace } from '../types';
+import type { TaskWithWorkspace, Script } from '../types';
 
 interface ProjectStoreState {
   tasks: TaskWithWorkspace[];
   kanbanVisible: boolean;
+  activePanel: 'terminals' | 'settings';
+  scripts: Script[];
   taskVersion: number;
   activeModal: string | null;
   toasts: Array<{ id: string; message: string; type: 'info' | 'error' | 'success' }>;
@@ -19,10 +21,13 @@ interface ProjectStoreActions {
   hideModal: () => void;
   addToast: (message: string, type?: 'info' | 'error' | 'success') => void;
   removeToast: (id: string) => void;
+  setActivePanel: (panel: 'terminals' | 'settings') => void;
   resetForProject: () => void;
 
   /** Load tasks from IPC with staleness check */
   loadTasks: (projectPath: string) => Promise<void>;
+  /** Load scripts from IPC */
+  loadScripts: (projectPath: string) => Promise<void>;
   /** Move a task with optimistic update and rollback */
   moveTask: (projectPath: string, taskNumber: number, newStatus: string, targetIndex: number) => Promise<void>;
 }
@@ -34,6 +39,8 @@ let toastCounter = 0;
 export const useProjectStore = create<ProjectStore>()((set, get) => ({
   tasks: [],
   kanbanVisible: false,
+  activePanel: 'terminals',
+  scripts: [],
   taskVersion: 0,
   activeModal: null,
   toasts: [],
@@ -46,6 +53,8 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
   setKanbanVisible: (visible) => set({ kanbanVisible: visible }),
 
   toggleKanban: () => set((s) => ({ kanbanVisible: !s.kanbanVisible })),
+
+  setActivePanel: (panel) => set({ activePanel: panel }),
 
   showModal: (modal) => set({ activeModal: modal }),
 
@@ -69,6 +78,8 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
     set({
       tasks: [],
       kanbanVisible: false,
+      activePanel: 'terminals',
+      scripts: [],
       taskVersion: 0,
       activeModal: null,
       _version: 0,
@@ -84,6 +95,15 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
     } catch (err) {
       if (get()._version !== version) return;
       get().addToast(`Failed to load tasks: ${err instanceof Error ? err.message : String(err)}`, 'error');
+    }
+  },
+
+  loadScripts: async (projectPath) => {
+    try {
+      const scripts = await window.api.scripts.getAll(projectPath);
+      set({ scripts });
+    } catch (err) {
+      get().addToast(`Failed to load scripts: ${err instanceof Error ? err.message : String(err)}`, 'error');
     }
   },
 

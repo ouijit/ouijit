@@ -23,6 +23,7 @@ export function TitleBar({ mode }: TitleBarProps) {
   const activeView = useAppStore((s) => s.activeView);
   const fullscreen = useAppStore((s) => s.fullscreen);
   const kanbanVisible = useProjectStore((s) => s.kanbanVisible);
+  const activePanel = useProjectStore((s) => s.activePanel);
   const homeGroupMode = useUIStore((s) => s.homeGroupMode);
   const sandboxAvailable = useAppStore((s) => s.sandboxAvailable);
   const sandboxVmStatus = useAppStore((s) => s.sandboxVmStatus);
@@ -91,6 +92,11 @@ export function TitleBar({ mode }: TitleBarProps) {
   const handleNewTask = useCallback(() => {
     useProjectStore.getState().setKanbanVisible(true);
     requestAnimationFrame(() => focusKanbanAddInput());
+  }, []);
+
+  const handleToggleSettings = useCallback(() => {
+    const store = useProjectStore.getState();
+    store.setActivePanel(store.activePanel === 'settings' ? 'terminals' : 'settings');
   }, []);
 
   const isProjectOrHome = mode === 'project' || mode === 'home';
@@ -204,6 +210,14 @@ export function TitleBar({ mode }: TitleBarProps) {
                 )}
               </div>
             )}
+            <Tooltip text="Settings" placement="bottom">
+              <button
+                className={`w-9 h-9 flex items-center justify-center bg-background-secondary border border-border rounded-[14px] text-text-secondary transition-all duration-150 ease-out ml-3 [-webkit-app-region:no-drag] hover:bg-background-tertiary hover:text-text-primary [&>svg]:w-5 [&>svg]:h-5${activePanel === 'settings' ? ' !text-text-primary !bg-background-tertiary' : ''}`}
+                onClick={handleToggleSettings}
+              >
+                <Icon name="gear" />
+              </button>
+            </Tooltip>
             <Tooltip text="New terminal" placement="bottom">
               <button
                 className="w-9 h-9 flex items-center justify-center bg-background-secondary border border-border rounded-[14px] text-text-secondary transition-all duration-150 ease-out ml-3 [-webkit-app-region:no-drag] hover:bg-background-tertiary hover:text-text-primary [&>svg]:w-5 [&>svg]:h-5"
