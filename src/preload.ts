@@ -3,7 +3,7 @@
 
 import { contextBridge, ipcRenderer, webUtils } from 'electron';
 import type { IpcInvokeContract, IpcSendContract, IpcPushContract } from './ipc/contract';
-import type { PtyId, PtySpawnOptions, CreateProjectOptions, TaskStatus, ScriptHook, HookType } from './types';
+import type { PtyId, PtySpawnOptions, CreateProjectOptions, TaskStatus, ScriptHook, HookType, Script } from './types';
 
 // ── Typed IPC helpers ───────────────────────────────────────────────────────
 // These ensure channel names, argument types, and return types are all
@@ -133,6 +133,13 @@ contextBridge.exposeInMainWorld('api', {
     get: (projectPath: string) => typedInvoke('hooks:get', projectPath),
     save: (projectPath: string, hook: ScriptHook) => typedInvoke('hooks:save', projectPath, hook),
     delete: (projectPath: string, hookType: HookType) => typedInvoke('hooks:delete', projectPath, hookType),
+  },
+
+  scripts: {
+    getAll: (projectPath: string) => typedInvoke('scripts:get-all', projectPath),
+    save: (projectPath: string, script: Script) => typedInvoke('scripts:save', projectPath, script),
+    delete: (projectPath: string, scriptId: string) => typedInvoke('scripts:delete', projectPath, scriptId),
+    reorder: (projectPath: string, scriptIds: string[]) => typedInvoke('scripts:reorder', projectPath, scriptIds),
   },
 
   tags: {

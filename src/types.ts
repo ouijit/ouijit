@@ -94,6 +94,24 @@ export interface ScriptHook {
 }
 
 /**
+ * Ad-hoc script configuration (user-defined, project-scoped)
+ */
+export interface Script {
+  id: string;
+  name: string;
+  command: string;
+  sortOrder: number;
+}
+
+/**
+ * Minimal script reference for runner execution (no persistence concern)
+ */
+export interface RunnerScript {
+  name: string;
+  command: string;
+}
+
+/**
  * Project-specific settings stored by the app
  */
 export interface ProjectSettings {
@@ -251,6 +269,20 @@ export interface TagsAPI {
   setTaskTags(projectPath: string, taskNumber: number, tagNames: string[]): Promise<TagRow[]>;
 }
 
+/**
+ * Scripts API exposed to the renderer
+ */
+export interface ScriptsAPI {
+  /** Get all scripts for a project, ordered by sort_order */
+  getAll(projectPath: string): Promise<Script[]>;
+  /** Save (create or update) a script */
+  save(projectPath: string, script: Script): Promise<{ success: boolean; script?: Script }>;
+  /** Delete a script by ID */
+  delete(projectPath: string, scriptId: string): Promise<{ success: boolean }>;
+  /** Reorder scripts by setting sort_order from array position */
+  reorder(projectPath: string, scriptIds: string[]): Promise<{ success: boolean }>;
+}
+
 export interface TaskAPI {
   create(projectPath: string, name?: string, prompt?: string): Promise<TaskWorktreeResult>;
   createAndStart(projectPath: string, name?: string, prompt?: string, branchName?: string): Promise<TaskWorktreeResult>;
@@ -383,6 +415,8 @@ export interface ElectronAPI {
   hooks: HooksAPI;
   /** Tags API */
   tags: TagsAPI;
+  /** Ad-hoc scripts API */
+  scripts: ScriptsAPI;
   /** Claude Code hook events */
   claudeHooks: ClaudeHooksAPI;
   /** Get file path from a dropped File object */

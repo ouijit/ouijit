@@ -11,6 +11,7 @@ import { registerHookHandlers } from './handlers/hooks';
 import { registerTagHandlers } from './handlers/tags';
 import { registerLimaHandlers } from './handlers/lima';
 import { registerSettingsHandlers } from './handlers/settings';
+import { registerScriptHandlers } from './handlers/scripts';
 
 /**
  * Registers all IPC handlers for the main process.
@@ -32,6 +33,7 @@ export async function registerIpcHandlers(mainWindow: BrowserWindow): Promise<vo
   registerTagHandlers();
   registerLimaHandlers(mainWindow);
   registerSettingsHandlers();
+  registerScriptHandlers();
 }
 
 /**

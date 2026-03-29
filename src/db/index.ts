@@ -15,6 +15,7 @@ import { SettingsRepo } from './repos/settingsRepo';
 import { HookRepo, type HookType } from './repos/hookRepo';
 import { TagRepo, type TagRow } from './repos/tagRepo';
 import { GlobalSettingsRepo } from './repos/globalSettingsRepo';
+import { ScriptRepo, type ScriptRow } from './repos/scriptRepo';
 import type { ProjectSettings, ScriptHook } from '../types';
 import log from '../log';
 
@@ -47,6 +48,7 @@ let settingsRepo: SettingsRepo | null = null;
 let hookRepo: HookRepo | null = null;
 let tagRepo: TagRepo | null = null;
 let globalSettingsRepo: GlobalSettingsRepo | null = null;
+let scriptRepo: ScriptRepo | null = null;
 
 function repos() {
   if (!taskRepo) {
@@ -57,6 +59,7 @@ function repos() {
     hookRepo = new HookRepo(db);
     tagRepo = new TagRepo(db);
     globalSettingsRepo = new GlobalSettingsRepo(db);
+    scriptRepo = new ScriptRepo(db);
   }
   return {
     projectRepo: projectRepo!,
@@ -65,6 +68,7 @@ function repos() {
     hookRepo: hookRepo!,
     tagRepo: tagRepo!,
     globalSettingsRepo: globalSettingsRepo!,
+    scriptRepo: scriptRepo!,
   };
 }
 
@@ -78,6 +82,7 @@ export function _resetCacheForTesting(): void {
   hookRepo = new HookRepo(db);
   tagRepo = new TagRepo(db);
   globalSettingsRepo = new GlobalSettingsRepo(db);
+  scriptRepo = new ScriptRepo(db);
 }
 
 // ── Row → TaskMetadata conversion ────────────────────────────────────
@@ -511,6 +516,72 @@ export async function setGlobalSetting(key: string, value: string): Promise<{ su
     return { success: true };
   } catch (error) {
     dbLog.error('failed to set global setting', { key, error: error instanceof Error ? error.message : String(error) });
+    return { success: false };
+  }
+}
+
+// ── Script functions ────────────────────────────────────────────────
+
+export interface Script {
+  id: string;
+  name: string;
+  command: string;
+  sortOrder: number;
+}
+
+function rowToScript(row: ScriptRow): Script {
+  return {
+    id: row.id,
+    name: row.name,
+    command: row.command,
+    sortOrder: row.sort_order,
+  };
+}
+
+export async function getScripts(projectPath: string): Promise<Script[]> {
+  const { scriptRepo: sr } = repos();
+  return sr.getAll(projectPath).map(rowToScript);
+}
+
+export async function saveScript(
+  projectPath: string,
+  script: Script,
+): Promise<{ success: boolean; script?: Script }> {
+  try {
+    ensureProject(projectPath);
+    const { scriptRepo: sr } = repos();
+    const row = sr.save(projectPath, script.name, script.command, script.id);
+    return { success: true, script: rowToScript(row) };
+  } catch (error) {
+    dbLog.error('failed to save script', { error: error instanceof Error ? error.message : String(error) });
+    return { success: false };
+  }
+}
+
+export async function deleteScript(
+  projectPath: string,
+  scriptId: string,
+): Promise<{ success: boolean }> {
+  try {
+    const { scriptRepo: sr } = repos();
+    sr.delete(projectPath, scriptId);
+    return { success: true };
+  } catch (error) {
+    dbLog.error('failed to delete script', { error: error instanceof Error ? error.message : String(error) });
+    return { success: false };
+  }
+}
+
+export async function reorderScripts(
+  projectPath: string,
+  scriptIds: string[],
+): Promise<{ success: boolean }> {
+  try {
+    const { scriptRepo: sr } = repos();
+    sr.reorder(projectPath, scriptIds);
+    return { success: true };
+  } catch (error) {
+    dbLog.error('failed to reorder scripts', { error: error instanceof Error ? error.message : String(error) });
     return { success: false };
   }
 }

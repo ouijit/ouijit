@@ -31,6 +31,7 @@ import type {
   HookType,
   BranchInfo,
   TagRow,
+  Script,
 } from '../types';
 import type { SandboxStatus } from '../lima/types';
 import type { HookStatusEntry } from '../hookServer';
@@ -143,6 +144,12 @@ export interface IpcInvokeContract {
   'hooks:get-status': { args: [ptyId: string]; return: HookStatusEntry | null };
   'hooks:save': { args: [projectPath: string, hook: ScriptHook]; return: { success: boolean } };
   'hooks:delete': { args: [projectPath: string, hookType: HookType]; return: { success: boolean } };
+
+  // ── Scripts ──────────────────────────────────────────────────────────
+  'scripts:get-all': { args: [projectPath: string]; return: Script[] };
+  'scripts:save': { args: [projectPath: string, script: Script]; return: { success: boolean; script?: Script } };
+  'scripts:delete': { args: [projectPath: string, scriptId: string]; return: { success: boolean } };
+  'scripts:reorder': { args: [projectPath: string, scriptIds: string[]]; return: { success: boolean } };
 
   // ── Tags ─────────────────────────────────────────────────────────────
   'tags:get-all': { args: []; return: TagRow[] };
