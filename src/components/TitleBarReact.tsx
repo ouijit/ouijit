@@ -113,7 +113,7 @@ export function TitleBar({ mode }: TitleBarProps) {
             ? `max-w-none px-0 pt-4 pb-2 ${mode === 'home' ? 'justify-start' : 'justify-center'}`
             : 'max-w-[var(--content-max-width)] px-6 py-4 justify-center'
         }`}
-        style={{ paddingLeft: needsTrafficLightPad ? 80 : 24 }}
+        style={{ paddingLeft: needsTrafficLightPad ? 80 : 16 }}
       >
         {activeView === 'project' && activeProjectData && activeProjectPath ? (
           <div key="project-header" className="flex items-center gap-3 flex-1 px-4">
