@@ -1,6 +1,10 @@
 import type Database from 'better-sqlite3';
 
 export function up(db: Database.Database): void {
+  // Check if table already exists (idempotent for re-runs)
+  const tables = db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='scripts'").all();
+  if (tables.length > 0) return;
+
   db.exec(`
     CREATE TABLE scripts (
       id TEXT PRIMARY KEY,
