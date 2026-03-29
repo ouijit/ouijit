@@ -377,6 +377,8 @@ export interface ElectronAPI {
   onFullscreenChange(callback: (isFullscreen: boolean) => void): () => void;
   /** Listen for app update availability (Linux only) */
   onUpdateAvailable(callback: (info: { version: string; url: string }) => void): () => void;
+  /** Listen for "What's New" on first launch after update */
+  onWhatsNew(callback: (info: { version: string; notes: string }) => void): () => void;
   /** Get project settings */
   getProjectSettings(projectPath: string): Promise<ProjectSettings>;
   /** Set whether to kill existing command instances on run */

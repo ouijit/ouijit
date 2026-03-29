@@ -161,6 +161,8 @@ contextBridge.exposeInMainWorld('api', {
   onUpdateAvailable: (callback: (info: { version: string; url: string }) => void) =>
     typedListen('update-available', callback),
 
+  onWhatsNew: (callback: (info: { version: string; notes: string }) => void) => typedListen('whats-new', callback),
+
   getPathForFile: (file: File): string => webUtils.getPathForFile(file),
   homePath: (): Promise<string> => typedInvoke('get-home-path'),
 

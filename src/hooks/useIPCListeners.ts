@@ -35,6 +35,13 @@ export function useIPCListeners() {
       }),
     );
 
+    // "What's New" on first launch after update
+    cleanups.push(
+      window.api.onWhatsNew((info) => {
+        useAppStore.getState().setWhatsNew(info);
+      }),
+    );
+
     return () => {
       for (const cleanup of cleanups) {
         cleanup();

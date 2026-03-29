@@ -2,6 +2,7 @@ import { app, BrowserWindow, net } from 'electron';
 import { updateElectronApp, UpdateSourceType } from 'update-electron-app';
 import log from './log';
 import { typedPush } from './ipc/helpers';
+import { getGlobalSetting, setGlobalSetting } from './db';
 
 const updaterLog = log.scope('updater');
 
@@ -9,7 +10,7 @@ const REPO = 'ouijit/ouijit';
 const CHECK_INTERVAL = 60 * 60 * 1000; // 1 hour
 
 /** Compare two semver strings (X.Y.Z). Returns true if a > b. */
-function semverGt(a: string, b: string): boolean {
+export function semverGt(a: string, b: string): boolean {
   const pa = a.split('.').map(Number);
   const pb = b.split('.').map(Number);
   for (let i = 0; i < 3; i++) {
@@ -33,7 +34,7 @@ function initMacUpdater(): void {
 
 let lastNotifiedVersion: string | null = null;
 
-async function checkForLinuxUpdate(mainWindow: BrowserWindow): Promise<void> {
+export async function checkForLinuxUpdate(mainWindow: BrowserWindow): Promise<void> {
   try {
     const response = await net.fetch(`https://api.github.com/repos/${REPO}/releases/latest`, {
       headers: { Accept: 'application/vnd.github.v3+json' },
@@ -67,6 +68,48 @@ function initLinuxUpdater(mainWindow: BrowserWindow): void {
   updaterLog.info('Linux update checker initialized');
 }
 
+export async function checkWhatsNew(mainWindow: BrowserWindow): Promise<void> {
+  try {
+    const currentVersion = app.getVersion();
+    const lastSeen = await getGlobalSetting('lastSeenVersion');
+
+    if (lastSeen === currentVersion) return;
+
+    // Update immediately so we only show once, even if the fetch fails
+    await setGlobalSetting('lastSeenVersion', currentVersion);
+
+    // Don't show on first launch (no previous version recorded)
+    if (!lastSeen) return;
+
+    // Only show when the version actually increased (not a downgrade)
+    if (!semverGt(currentVersion, lastSeen)) return;
+
+    const response = await net.fetch(`https://api.github.com/repos/${REPO}/releases/tags/v${currentVersion}`, {
+      headers: { Accept: 'application/vnd.github.v3+json' },
+    });
+
+    if (!response.ok) {
+      updaterLog.warn('failed to fetch release notes', { status: response.status });
+      return;
+    }
+
+    const release = (await response.json()) as { body: string | null };
+    const notes = release.body?.trim();
+    if (!notes) return;
+
+    typedPush(mainWindow, 'whats-new', { version: currentVersion, notes });
+    updaterLog.info('showing whats new', { version: currentVersion });
+  } catch (error) {
+    updaterLog.warn('whats new check failed', {
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
+
+export function _resetForTesting(): void {
+  lastNotifiedVersion = null;
+}
+
 export function initUpdater(mainWindow: BrowserWindow): void {
   if (!app.isPackaged) {
     updaterLog.info('skipping updates in dev mode');
@@ -78,4 +121,6 @@ export function initUpdater(mainWindow: BrowserWindow): void {
   } else if (process.platform === 'linux') {
     initLinuxUpdater(mainWindow);
   }
+
+  checkWhatsNew(mainWindow);
 }
