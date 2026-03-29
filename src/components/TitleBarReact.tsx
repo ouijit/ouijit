@@ -98,7 +98,7 @@ export function TitleBar({ mode }: TitleBarProps) {
 
   return (
     <header
-      className={`sticky top-0 [-webkit-app-region:drag] ${isProjectOrHome ? 'z-[10000] border-b-0' : 'z-[100] border-b border-border'}`}
+      className={`sticky top-0 relative [-webkit-app-region:drag] ${isProjectOrHome ? 'z-[10000] border-b-0' : 'z-[100] border-b border-border'}`}
       style={
         {
           background: 'rgba(28, 28, 30, 0.97)',
@@ -115,6 +115,17 @@ export function TitleBar({ mode }: TitleBarProps) {
         }`}
         style={{ paddingLeft: needsTrafficLightPad ? 80 : 16 }}
       >
+        {/* Sidebar toggle — in header flow on Linux/fullscreen, absolute below traffic lights on macOS */}
+        {isProjectOrHome && !needsTrafficLightPad && (
+          <button
+            className="flex items-center justify-center text-white/25 transition-colors duration-150 hover:text-white/50 [-webkit-app-region:no-drag] [&>svg]:w-[18px] [&>svg]:h-[18px]"
+            style={{ width: 28, height: 28 }}
+            onClick={() => document.dispatchEvent(new CustomEvent('show-sidebar'))}
+          >
+            <Icon name="arrow-left" />
+          </button>
+        )}
+
         {activeView === 'project' && activeProjectData && activeProjectPath ? (
           <div key="project-header" className="flex items-center gap-3 flex-1 px-4">
             {activeProjectData.iconDataUrl ? (
@@ -258,6 +269,16 @@ export function TitleBar({ mode }: TitleBarProps) {
           </div>
         ) : null}
       </div>
+      {/* Sidebar toggle below traffic lights — absolute so it doesn't affect header flow */}
+      {isProjectOrHome && needsTrafficLightPad && (
+        <button
+          className="absolute flex items-center justify-center text-white/25 transition-colors duration-150 hover:text-white/50 [-webkit-app-region:no-drag] [&>svg]:w-[18px] [&>svg]:h-[18px]"
+          style={{ left: 24, bottom: -14, width: 28, height: 28 }}
+          onClick={() => document.dispatchEvent(new CustomEvent('show-sidebar'))}
+        >
+          <Icon name="arrow-left" />
+        </button>
+      )}
     </header>
   );
 }
