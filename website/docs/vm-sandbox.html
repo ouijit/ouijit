@@ -49,7 +49,7 @@
     </table>
 
     <h2>Setup hook</h2>
-    <p>VMs start from a clean Ubuntu image with <code>bash</code>, <code>git</code>, <code>curl</code>, <code>nodejs</code>, <code>npm</code>, <code>python3</code>, and <code>build-essential</code> pre-installed. If your project needs more, use the <strong>sandbox-setup</strong> hook.</p>
+    <p>VMs start from a clean Ubuntu image with <code>bash</code>, <code>git</code>, <code>curl</code>, <code>wget</code>, <code>nodejs</code>, <code>npm</code>, <code>python3</code>, and <code>build-essential</code> pre-installed. If your project needs more, use the <strong>sandbox-setup</strong> hook.</p>
     <p>The setup hook runs once per VM session (not per terminal). If you edit the hook script, it re-runs automatically on the next terminal open.</p>
     <p>Configure it from the sandbox dropdown &mdash; click the gear icon next to "Setup Hook", or create a new one if none exists.</p>
     <pre><code># Example: install project dependencies inside the VM
