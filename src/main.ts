@@ -12,6 +12,7 @@ import { TaskRepo } from './db/repos/taskRepo';
 import { SettingsRepo } from './db/repos/settingsRepo';
 import { HookRepo } from './db/repos/hookRepo';
 import { importAll } from './services/dataImportService';
+import { initUpdater, cleanupUpdater } from './updater';
 
 const appLog = log.scope('app');
 
@@ -145,11 +146,13 @@ app.on('ready', async () => {
 
   mainWindow = createWindow();
   await registerIpcHandlers(mainWindow);
+  initUpdater(mainWindow);
 });
 
 app.on('before-quit', (e) => {
   if (quitConfirmed) {
     appLog.info('app quitting');
+    cleanupUpdater();
     cleanupIpc();
     closeDatabase();
     return;
@@ -158,6 +161,7 @@ app.on('before-quit', (e) => {
   const count = getActiveSessionCount();
   if (count === 0 || process.env.NODE_ENV === 'test') {
     appLog.info('app quitting');
+    cleanupUpdater();
     cleanupIpc();
     closeDatabase();
     return;

@@ -158,6 +158,11 @@ contextBridge.exposeInMainWorld('api', {
     set: (key: string, value: string) => typedInvoke('settings:set-global', key, value),
   },
 
+  onUpdateAvailable: (callback: (info: { version: string; url: string }) => void) =>
+    typedListen('update-available', callback),
+
+  onWhatsNew: (callback: (info: { version: string; notes: string }) => void) => typedListen('whats-new', callback),
+
   getPathForFile: (file: File): string => webUtils.getPathForFile(file),
   homePath: (): Promise<string> => typedInvoke('get-home-path'),
 
