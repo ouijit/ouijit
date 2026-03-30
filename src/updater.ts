@@ -61,10 +61,12 @@ export async function checkForLinuxUpdate(mainWindow: BrowserWindow): Promise<vo
   }
 }
 
+let updateIntervalId: ReturnType<typeof setInterval> | null = null;
+
 function initLinuxUpdater(mainWindow: BrowserWindow): void {
   const check = () => checkForLinuxUpdate(mainWindow);
   check();
-  setInterval(check, CHECK_INTERVAL);
+  updateIntervalId = setInterval(check, CHECK_INTERVAL);
   updaterLog.info('Linux update checker initialized');
 }
 
@@ -103,6 +105,13 @@ export async function checkWhatsNew(mainWindow: BrowserWindow): Promise<void> {
     updaterLog.warn('whats new check failed', {
       error: error instanceof Error ? error.message : String(error),
     });
+  }
+}
+
+export function cleanupUpdater(): void {
+  if (updateIntervalId) {
+    clearInterval(updateIntervalId);
+    updateIntervalId = null;
   }
 }
 
