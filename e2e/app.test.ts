@@ -1,5 +1,5 @@
 import { test, expect } from './fixtures';
-import type { Page, Locator } from '@playwright/test';
+import type { Page, Locator, ElectronApplication } from '@playwright/test';
 import * as fs from 'node:fs';
 
 const modifier = process.platform === 'darwin' ? 'Meta' : 'Control';
@@ -367,4 +367,74 @@ test('missing worktree: recovery dialog recreates worktree on open', async ({ ap
   }, repoPath);
   expect(newWorktreePath).toBeTruthy();
   expect(fs.existsSync(newWorktreePath)).toBe(true);
+});
+
+test('whats new: modal appears and dismisses', async ({ appPage }) => {
+  // Trigger the What's New modal via store (same as the IPC listener does)
+  await appPage.evaluate(() => {
+    (window as any).__appStore.getState().setWhatsNew({
+      version: '1.1.0',
+      notes: '## Improvements\n- **Faster startup** with lazy loading\n- Fixed `bug #42` in terminal\n\n## Bug Fixes\n- Resolved crash on exit',
+    });
+  });
+
+  // Modal should appear
+  const dialog = appPage.locator('[data-testid="dialog-overlay"][data-visible="true"] [data-testid="dialog"]');
+  await expect(dialog).toBeVisible({ timeout: 5_000 });
+  await expect(dialog).toContainText("What's New");
+  await expect(dialog).toContainText('v1.1.0');
+  await expect(dialog).toContainText('Faster startup');
+  await expect(dialog).toContainText('Bug Fixes');
+
+  // Click "Got it" to dismiss
+  await dialog.locator('button', { hasText: 'Got it' }).click();
+  await expect(dialog).not.toBeVisible({ timeout: 3_000 });
+
+  // Store should be cleared (after 200ms dismiss animation)
+  await appPage.waitForFunction(() => (window as any).__appStore.getState().whatsNew === null, null, { timeout: 3_000 });
+});
+
+test('whats new: modal dismisses on Escape', async ({ appPage }) => {
+  await appPage.evaluate(() => {
+    (window as any).__appStore.getState().setWhatsNew({
+      version: '2.0.0',
+      notes: '- Major update',
+    });
+  });
+
+  const dialog = appPage.locator('[data-testid="dialog-overlay"][data-visible="true"] [data-testid="dialog"]');
+  await expect(dialog).toBeVisible({ timeout: 5_000 });
+
+  await appPage.keyboard.press('Escape');
+  await expect(dialog).not.toBeVisible({ timeout: 3_000 });
+});
+
+test('update available: persistent toast with download action', async ({ appPage }) => {
+  // Trigger the update-available toast via store (same as the IPC listener does)
+  await appPage.evaluate(() => {
+    (window as any).__projectStore.getState().addToast('Version 1.1.0 is available', {
+      type: 'info',
+      persistent: true,
+      actionLabel: 'Download',
+      onAction: () => {},
+    });
+  });
+
+  // Toast should appear with action button
+  const toast = appPage.locator('.fixed.bottom-6');
+  await expect(toast).toBeVisible({ timeout: 5_000 });
+  await expect(toast).toContainText('Version 1.1.0 is available');
+
+  const downloadBtn = toast.locator('button', { hasText: 'Download' });
+  await expect(downloadBtn).toBeVisible();
+
+  // Toast should NOT auto-dismiss (persistent) — wait past the 4s timeout
+  await appPage.waitForTimeout(5_000);
+  await expect(toast).toBeVisible();
+
+  // Dismiss via close button
+  const closeBtn = toast.locator('button', { hasText: '✕' });
+  await expect(closeBtn).toBeVisible();
+  await closeBtn.click();
+  await expect(toast).not.toBeVisible({ timeout: 3_000 });
 });
