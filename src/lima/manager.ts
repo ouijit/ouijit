@@ -277,6 +277,34 @@ async function waitForSsh(
 }
 
 /**
+ * Wait for cloud-init provisioning to complete inside the VM.
+ * Lima's provision scripts run via cloud-init, which writes a sentinel
+ * file when all modules (including user scripts) have finished.
+ */
+async function waitForProvisioning(
+  instanceName: string,
+  maxRetries = 60,
+  onProgress?: (message: string) => void,
+): Promise<boolean> {
+  for (let i = 0; i < maxRetries; i++) {
+    onProgress?.('Waiting for provisioning to complete…');
+    try {
+      await execFileAsync(
+        getLimactlPath(),
+        ['shell', instanceName, '--', 'test', '-f', '/var/lib/cloud/instance/boot-finished'],
+        { timeout: 5_000, env: getLimaEnv() },
+      );
+      return true;
+    } catch {
+      if (i < maxRetries - 1) {
+        await new Promise((r) => setTimeout(r, 2_000));
+      }
+    }
+  }
+  return false;
+}
+
+/**
  * Ensure an instance is running. Creates if missing, starts if stopped.
  */
 export async function ensureRunning(
@@ -298,6 +326,7 @@ export async function ensureRunning(
         error: 'VM is running but SSH is not responding after multiple attempts. The VM may need to be recreated.',
       };
     }
+    await waitForProvisioning(instanceName, 60, progress);
     return { success: true, instanceName };
   }
 
@@ -312,6 +341,7 @@ export async function ensureRunning(
     if (!startResult.success) {
       return { success: false, instanceName, error: startResult.error };
     }
+    await waitForProvisioning(instanceName, 60, progress);
     return { success: true, instanceName };
   }
 
@@ -343,6 +373,7 @@ export async function ensureRunning(
   if (!startResult.success) {
     return { success: false, instanceName, error: startResult.error };
   }
+  await waitForProvisioning(instanceName, 60, progress);
   return { success: true, instanceName };
 }
 
@@ -417,6 +448,7 @@ export async function recreateInstance(
     const startResult = await startInstance(instanceName, progress);
     if (!startResult.success) return { success: false, error: startResult.error };
 
+    await waitForProvisioning(instanceName, 60, progress);
     progress('VM recreated successfully');
     return { success: true };
   } catch (error) {
