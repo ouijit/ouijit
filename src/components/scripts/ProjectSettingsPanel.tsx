@@ -24,7 +24,10 @@ export function ProjectSettingsPanel({ projectPath }: ProjectSettingsPanelProps)
   }, []);
 
   return (
-    <div className="flex flex-col h-full overflow-y-auto">
+    <div
+      className="flex flex-col h-full overflow-y-auto transition-[margin-left] duration-200 ease-out"
+      style={{ marginLeft: 'var(--sidebar-offset, 0px)' }}
+    >
       <div className="flex items-center gap-3 px-6 pt-4 pb-2">
         <h1 className="text-base font-semibold text-text-primary">Project Settings</h1>
       </div>
