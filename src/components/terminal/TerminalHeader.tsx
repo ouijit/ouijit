@@ -529,7 +529,7 @@ function RunnerPill({
       >
         {text}
       </button>
-      <div className="w-px self-stretch bg-white/10" />
+      <div className="w-px self-stretch bg-white/[0.04]" />
       <button
         ref={chevronRef}
         className={`flex items-center justify-center px-2 border-none transition-all duration-150 ease-out hover:bg-white/[0.06] active:bg-white/[0.04] ${baseColors}`}
@@ -537,7 +537,7 @@ function RunnerPill({
         aria-label="More run options"
         onClick={onChevronClick}
       >
-        <Icon name="caret-down" className="w-3 h-3" />
+        <Icon name="caret-down" className="w-2.5 h-2.5" />
       </button>
     </div>
   );

@@ -19,7 +19,7 @@ export function Icon({ name, className }: { name: string; className?: string }) 
     <svg
       viewBox={viewBox}
       fill="currentColor"
-      className={`w-4 h-4 shrink-0${className ? ` ${className}` : ''}`}
+      className={className ? `shrink-0 ${className}` : 'w-4 h-4 shrink-0'}
       dangerouslySetInnerHTML={{ __html: inner }}
     />
   );

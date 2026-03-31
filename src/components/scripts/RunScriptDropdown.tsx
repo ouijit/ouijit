@@ -54,17 +54,17 @@ export function RunScriptDropdown({
 
   // Click-outside handler
   useEffect(() => {
-    const timer = setTimeout(() => {
-      const handler = (e: MouseEvent) => {
-        const target = e.target as Node;
-        if (dropdownRef.current?.contains(target)) return;
-        if (anchorRef.current?.contains(target)) return;
-        onClose();
-      };
-      document.addEventListener('mousedown', handler);
-      return () => document.removeEventListener('mousedown', handler);
-    }, 0);
-    return () => clearTimeout(timer);
+    const handler = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (dropdownRef.current?.contains(target)) return;
+      if (anchorRef.current?.contains(target)) return;
+      onClose();
+    };
+    const timer = setTimeout(() => document.addEventListener('mousedown', handler), 0);
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener('mousedown', handler);
+    };
   }, [anchorRef, onClose]);
 
   // Escape key
@@ -88,27 +88,30 @@ export function RunScriptDropdown({
       className={`min-w-[180px] max-w-[280px] bg-surface border border-border rounded-md shadow-lg z-[1000] overflow-hidden py-1 transition-opacity duration-100 ${ready ? 'opacity-100' : 'opacity-0'}`}
     >
       {hasRunHook && (
-        <>
-          <button
-            role="menuitem"
-            className="block w-full text-left px-3 py-1.5 text-xs text-text-primary bg-transparent hover:bg-background-tertiary transition-colors duration-100 ease-out"
-            onClick={onSelectRunHook}
-          >
-            <span className="flex items-center gap-2">
-              <Icon name="play" className="w-3.5 h-3.5 text-text-secondary" />
-              <span>Run</span>
-              <span className="ml-auto text-text-tertiary text-[11px]">default</span>
-            </span>
-          </button>
-          {scripts.length > 0 && <div className="h-px bg-border mx-2 my-1" />}
-        </>
+        <button
+          role="menuitem"
+          className="block w-full text-left px-3 py-1.5 text-xs text-text-primary bg-transparent hover:bg-background-tertiary transition-colors duration-100 ease-out"
+          onMouseDown={(e) => {
+            e.stopPropagation();
+            onSelectRunHook();
+          }}
+        >
+          <span className="flex items-center gap-2">
+            <Icon name="play" className="w-3.5 h-3.5 text-text-secondary" />
+            <span>Run</span>
+            <span className="ml-auto text-text-tertiary text-[11px]">default</span>
+          </span>
+        </button>
       )}
       {scripts.map((script) => (
         <button
           key={script.id}
           role="menuitem"
           className="block w-full text-left px-3 py-1.5 text-xs text-text-primary bg-transparent hover:bg-background-tertiary transition-colors duration-100 ease-out"
-          onClick={() => onSelectScript({ name: script.name, command: script.command })}
+          onMouseDown={(e) => {
+            e.stopPropagation();
+            onSelectScript({ name: script.name, command: script.command });
+          }}
         >
           <span className="flex items-center gap-2">
             <Icon name="terminal" className="w-3.5 h-3.5 text-text-secondary" />
