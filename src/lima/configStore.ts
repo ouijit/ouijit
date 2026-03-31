@@ -150,18 +150,32 @@ export function mergeConfig(userYaml: string, projectPath: string): string {
  * Shows user fields + Ouijit-managed fields with comments.
  */
 export async function getMergedConfigForDisplay(projectPath: string): Promise<string> {
+  const isMac = os.platform() === 'darwin';
   const userYaml = await ensureConfig(projectPath);
-  const merged = mergeConfig(userYaml, projectPath);
+  const userDoc = (parse(userYaml) as Record<string, unknown>) ?? {};
 
-  // Prepend a comment block explaining the managed fields
-  const managedComment = [
-    '# ── Ouijit-managed fields (read-only) ──────────────────────────',
-    '# vmType and project mounts are injected automatically.',
-    '# Edit the fields below to customize your sandbox.',
+  // Serialize user fields as-is
+  const userSection = stringify(userDoc);
+
+  // Build the managed fields section
+  const projectMounts = buildProjectMounts(projectPath).map((m) => ({
+    location: m.hostPath,
+    mountPoint: m.guestPath,
+    writable: m.writable,
+  }));
+  const managedDoc: Record<string, unknown> = {
+    vmType: isMac ? 'vz' : 'qemu',
+    mounts: [...(Array.isArray(userDoc.mounts) ? (userDoc.mounts as Record<string, unknown>[]) : []), ...projectMounts],
+  };
+  const managedSection = stringify(managedDoc);
+
+  return [
+    userSection.trimEnd(),
+    '',
+    '# ── Ouijit-managed (injected at VM creation) ──',
+    managedSection.trimEnd(),
     '',
   ].join('\n');
-
-  return managedComment + merged;
 }
 
 /**
