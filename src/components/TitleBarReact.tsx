@@ -75,8 +75,14 @@ export function TitleBar({ mode }: TitleBarProps) {
     };
   }, [activeProjectPath]);
 
-  const handleToggleView = useCallback((view: 'board' | 'stack') => {
-    useProjectStore.getState().setKanbanVisible(view === 'board');
+  const handleToggleView = useCallback((view: 'board' | 'stack' | 'settings') => {
+    const store = useProjectStore.getState();
+    if (view === 'settings') {
+      store.setActivePanel('settings');
+    } else {
+      store.setActivePanel('terminals');
+      store.setKanbanVisible(view === 'board');
+    }
   }, []);
 
   const handleNewTerminal = useCallback(() => {
@@ -89,11 +95,6 @@ export function TitleBar({ mode }: TitleBarProps) {
   const handleNewTask = useCallback(() => {
     useProjectStore.getState().setKanbanVisible(true);
     requestAnimationFrame(() => focusKanbanAddInput());
-  }, []);
-
-  const handleToggleSettings = useCallback(() => {
-    const store = useProjectStore.getState();
-    store.setActivePanel(store.activePanel === 'settings' ? 'terminals' : 'settings');
   }, []);
 
   const isProjectOrHome = mode === 'project' || mode === 'home';
@@ -140,17 +141,24 @@ export function TitleBar({ mode }: TitleBarProps) {
             <div className="flex items-center h-9 ml-3 bg-background-secondary border border-border rounded-[14px] overflow-hidden [-webkit-app-region:no-drag]">
               <TooltipButton
                 text="Board view"
-                className={`w-9 h-full flex items-center justify-center text-text-secondary transition-all duration-150 ease-out hover:text-text-primary hover:bg-background-tertiary [&>svg]:w-5 [&>svg]:h-5${kanbanVisible ? ' text-text-primary bg-background-tertiary' : ''}`}
+                className={`w-9 h-full flex items-center justify-center text-text-secondary transition-all duration-150 ease-out hover:text-text-primary hover:bg-background-tertiary [&>svg]:w-5 [&>svg]:h-5${activePanel !== 'settings' && kanbanVisible ? ' text-text-primary bg-background-tertiary' : ''}`}
                 onClick={() => handleToggleView('board')}
               >
                 <Icon name="kanban" />
               </TooltipButton>
               <TooltipButton
                 text="Terminal stack"
-                className={`w-9 h-full flex items-center justify-center text-text-secondary transition-all duration-150 ease-out hover:text-text-primary hover:bg-background-tertiary [&>svg]:w-5 [&>svg]:h-5${!kanbanVisible ? ' text-text-primary bg-background-tertiary' : ''}`}
+                className={`w-9 h-full flex items-center justify-center text-text-secondary transition-all duration-150 ease-out hover:text-text-primary hover:bg-background-tertiary [&>svg]:w-5 [&>svg]:h-5${activePanel !== 'settings' && !kanbanVisible ? ' text-text-primary bg-background-tertiary' : ''}`}
                 onClick={() => handleToggleView('stack')}
               >
                 <Icon name="cards-three" />
+              </TooltipButton>
+              <TooltipButton
+                text="Settings"
+                className={`w-9 h-full flex items-center justify-center text-text-secondary transition-all duration-150 ease-out hover:text-text-primary hover:bg-background-tertiary [&>svg]:w-5 [&>svg]:h-5${activePanel === 'settings' ? ' text-text-primary bg-background-tertiary' : ''}`}
+                onClick={() => handleToggleView('settings')}
+              >
+                <Icon name="gear" />
               </TooltipButton>
             </div>
             {sandboxAvailable && (
@@ -191,14 +199,6 @@ export function TitleBar({ mode }: TitleBarProps) {
                 )}
               </div>
             )}
-            <Tooltip text="Settings" placement="bottom">
-              <button
-                className={`w-9 h-9 flex items-center justify-center bg-background-secondary border border-border rounded-[14px] text-text-secondary transition-all duration-150 ease-out ml-3 [-webkit-app-region:no-drag] hover:bg-background-tertiary hover:text-text-primary [&>svg]:w-5 [&>svg]:h-5${activePanel === 'settings' ? ' !text-text-primary !bg-background-tertiary' : ''}`}
-                onClick={handleToggleSettings}
-              >
-                <Icon name="gear" />
-              </button>
-            </Tooltip>
             <Tooltip text="New terminal" placement="bottom">
               <button
                 className="w-9 h-9 flex items-center justify-center bg-background-secondary border border-border rounded-[14px] text-text-secondary transition-all duration-150 ease-out ml-3 [-webkit-app-region:no-drag] hover:bg-background-tertiary hover:text-text-primary [&>svg]:w-5 [&>svg]:h-5"
