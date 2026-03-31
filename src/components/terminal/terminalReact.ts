@@ -462,28 +462,28 @@ export class OuijitTerminal {
       // Write initial spinner line
       this.xterm.write(`\x1b[90m${spinner[0]} ${activeLabel}\x1b[0m`);
 
-      // Spinner animation: only ever touches the current (last) line
+      // Spinner animation: overwrite in place, then clear trailing chars (no full line clear to avoid flicker)
       const interval = setInterval(() => {
         frame = (frame + 1) % spinner.length;
-        this.xterm.write(`\r\x1b[2K\x1b[90m${spinner[frame]} ${truncate(activeLabel)}\x1b[0m`);
+        this.xterm.write(`\r\x1b[90m${spinner[frame]} ${truncate(activeLabel)}\x1b[0m\x1b[K`);
       }, 80);
 
       const unlistenProgress = window.api.lima.onSpawnProgress((step) => {
         if (step.id === activeId) {
           activeLabel = step.label;
           if (step.status === 'done') {
-            this.xterm.write(`\r\x1b[2K\x1b[90m✓ ${truncate(step.label)}\x1b[0m\r\n`);
+            this.xterm.write(`\r\x1b[90m✓ ${truncate(step.label)}\x1b[0m\x1b[K\r\n`);
             activeLabel = '';
             activeId = '';
           }
         } else {
           if (activeId) {
-            this.xterm.write(`\r\x1b[2K\x1b[90m✓ ${truncate(activeLabel)}\x1b[0m\r\n`);
+            this.xterm.write(`\r\x1b[90m✓ ${truncate(activeLabel)}\x1b[0m\x1b[K\r\n`);
           }
           activeId = step.id;
           activeLabel = step.label;
           if (step.status === 'done') {
-            this.xterm.write(`\x1b[90m✓ ${truncate(step.label)}\x1b[0m\r\n`);
+            this.xterm.write(`\x1b[90m✓ ${truncate(step.label)}\x1b[0m\x1b[K\r\n`);
             activeLabel = '';
             activeId = '';
           }
