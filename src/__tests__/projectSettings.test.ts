@@ -5,14 +5,12 @@ import {
   getHook,
   saveHook,
   deleteHook,
-  getSandboxConfig,
-  setSandboxConfig,
   setKillExistingOnRun,
   _resetCacheForTesting,
 } from '../db';
 
 describe('projectSettings', () => {
-  test('full lifecycle: hooks, sandbox config, killExistingOnRun', async () => {
+  test('full lifecycle: hooks, killExistingOnRun', async () => {
     const project = '/test/settings-lifecycle';
 
     // 1. New project returns defaults
@@ -61,23 +59,13 @@ describe('projectSettings', () => {
     expect(hooksAfterDelete.start).toBeUndefined();
     expect(hooksAfterDelete.run).toBeDefined();
 
-    // 8. Set sandbox config
-    const sandboxResult = await setSandboxConfig(project, { memoryGiB: 8 });
-    expect(sandboxResult.success).toBe(true);
-
-    // 9. Get sandbox config — verify defaults merged with override
-    const sandboxConfig = await getSandboxConfig(project);
-    expect(sandboxConfig.memoryGiB).toBe(8);
-    expect(sandboxConfig.diskGiB).toBe(10); // default
-
-    // 10. Set killExistingOnRun
+    // 8. Set killExistingOnRun
     const killResult = await setKillExistingOnRun(project, true);
     expect(killResult.success).toBe(true);
 
-    // 11. Verify full settings
+    // 9. Verify full settings
     const finalSettings = await getProjectSettings(project);
     expect(finalSettings.hooks?.run?.command).toBe('npm run lint');
-    expect(finalSettings.sandbox?.memoryGiB).toBe(8);
     expect(finalSettings.killExistingOnRun).toBe(true);
   });
 
@@ -103,11 +91,6 @@ describe('projectSettings', () => {
     // Should NOT find the hook (fresh database)
     const hookAfter = await getHook(project, 'cleanup');
     expect(hookAfter).toBeUndefined();
-  });
-
-  test('getSandboxConfig returns defaults for new project', async () => {
-    const config = await getSandboxConfig('/test/settings-new-project');
-    expect(config).toEqual({ memoryGiB: 4, diskGiB: 10 });
   });
 
   test('deleteHook succeeds even when no hooks exist', async () => {

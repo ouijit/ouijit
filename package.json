@@ -83,6 +83,7 @@
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
     "update-electron-app": "^3.1.2",
+    "yaml": "^2.8.3",
     "zustand": "^5.0.11"
   },
   "overrides": {

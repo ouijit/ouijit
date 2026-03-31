@@ -350,14 +350,6 @@ export async function getProjectSettings(projectPath: string): Promise<ProjectSe
     customCommands: [],
     hooks,
     killExistingOnRun: settings ? settings.kill_existing_on_run === 1 : undefined,
-    ...(settings?.sandbox_memory_gib || settings?.sandbox_disk_gib
-      ? {
-          sandbox: {
-            ...(settings.sandbox_memory_gib && { memoryGiB: settings.sandbox_memory_gib }),
-            ...(settings.sandbox_disk_gib && { diskGiB: settings.sandbox_disk_gib }),
-          },
-        }
-      : {}),
   };
 }
 
@@ -367,7 +359,6 @@ export async function getHooks(projectPath: string): Promise<{
   run?: ScriptHook;
   review?: ScriptHook;
   cleanup?: ScriptHook;
-  'sandbox-setup'?: ScriptHook;
   editor?: ScriptHook;
 }> {
   const settings = await getProjectSettings(projectPath);
@@ -398,33 +389,6 @@ export async function deleteHook(projectPath: string, hookType: HookType): Promi
     return { success: true };
   } catch (error) {
     dbLog.error('failed to delete hook', { error: error instanceof Error ? error.message : String(error) });
-    return { success: false };
-  }
-}
-
-export async function getSandboxConfig(projectPath: string): Promise<{ memoryGiB: number; diskGiB: number }> {
-  const { settingsRepo: sr } = repos();
-  const settings = sr.get(projectPath);
-  return {
-    memoryGiB: settings?.sandbox_memory_gib ?? 4,
-    diskGiB: settings?.sandbox_disk_gib ?? 10,
-  };
-}
-
-export async function setSandboxConfig(
-  projectPath: string,
-  config: { memoryGiB?: number; diskGiB?: number },
-): Promise<{ success: boolean }> {
-  try {
-    ensureProject(projectPath);
-    const { settingsRepo: sr } = repos();
-    sr.update(projectPath, {
-      ...(config.memoryGiB !== undefined && { sandbox_memory_gib: config.memoryGiB }),
-      ...(config.diskGiB !== undefined && { sandbox_disk_gib: config.diskGiB }),
-    });
-    return { success: true };
-  } catch (error) {
-    dbLog.error('failed to set sandbox config', { error: error instanceof Error ? error.message : String(error) });
     return { success: false };
   }
 }

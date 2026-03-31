@@ -35,11 +35,6 @@ const HOOK_LABELS: Record<HookType, { title: string; description: string; placeh
     placeholder: 'git push origin HEAD',
     envVars: true,
   },
-  'sandbox-setup': {
-    title: 'Sandbox Setup',
-    description: 'Runs inside the VM before each terminal command',
-    placeholder: 'which claude || npm i -g @anthropic-ai/claude-code',
-  },
   editor: {
     title: 'Editor',
     description: 'Opens the task worktree in your preferred code editor',

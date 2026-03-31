@@ -233,14 +233,10 @@ export async function importAll(
             result.projectsImported++;
           }
 
-          // Import sandbox settings
+          // Import settings
           const updates: Partial<{
             kill_existing_on_run: number;
-            sandbox_memory_gib: number;
-            sandbox_disk_gib: number;
           }> = {};
-          if (settings.sandbox?.memoryGiB) updates.sandbox_memory_gib = settings.sandbox.memoryGiB;
-          if (settings.sandbox?.diskGiB) updates.sandbox_disk_gib = settings.sandbox.diskGiB;
           if (settings.killExistingOnRun !== undefined)
             updates.kill_existing_on_run = settings.killExistingOnRun ? 1 : 0;
 
@@ -253,7 +249,7 @@ export async function importAll(
           if (settings.hooks) {
             for (const [hookType, hook] of Object.entries(settings.hooks)) {
               try {
-                const validTypes: HookType[] = ['start', 'continue', 'run', 'cleanup', 'sandbox-setup', 'editor'];
+                const validTypes: HookType[] = ['start', 'continue', 'run', 'cleanup', 'editor'];
                 if (validTypes.includes(hookType as HookType) && hook.command) {
                   hookRepo.save(
                     projectPath,

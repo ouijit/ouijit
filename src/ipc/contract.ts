@@ -166,11 +166,9 @@ export interface IpcInvokeContract {
   'lima:status': { args: [projectPath: string]; return: SandboxStatus };
   'lima:start': { args: [projectPath: string]; return: { success: boolean; error?: string } };
   'lima:stop': { args: [projectPath: string]; return: { success: boolean; error?: string } };
-  'lima:get-config': { args: [projectPath: string]; return: { memoryGiB: number; diskGiB: number } };
-  'lima:set-config': {
-    args: [projectPath: string, config: { memoryGiB?: number; diskGiB?: number }];
-    return: { success: boolean };
-  };
+  'lima:get-yaml': { args: [projectPath: string]; return: string };
+  'lima:set-yaml': { args: [projectPath: string, yaml: string]; return: { success: boolean; error?: string } };
+  'lima:get-merged-yaml': { args: [projectPath: string]; return: string };
   'lima:recreate': { args: [projectPath: string]; return: { success: boolean; error?: string } };
   'lima:delete': { args: [projectPath: string]; return: { success: boolean; error?: string } };
 }

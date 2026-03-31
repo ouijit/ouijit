@@ -13,16 +13,6 @@ export interface LimaMount {
   writable: boolean;
 }
 
-export interface LimaConfig {
-  name: string;
-  cpus: number;
-  memoryGiB: number;
-  diskGiB: number;
-  mounts: LimaMount[];
-  provisionScript: string;
-  networkMode: 'vzNAT' | 'none';
-}
-
 export interface SandboxStatus {
   available: boolean;
   vmStatus: 'Running' | 'Stopped' | 'Broken' | 'NotCreated' | 'Unavailable';

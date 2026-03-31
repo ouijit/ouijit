@@ -75,7 +75,7 @@ export interface CustomCommand {
 /**
  * Hook type - when the script runs
  */
-export type HookType = 'start' | 'continue' | 'run' | 'review' | 'cleanup' | 'sandbox-setup' | 'editor';
+export type HookType = 'start' | 'continue' | 'run' | 'review' | 'cleanup' | 'editor';
 
 /**
  * Script hook configuration
@@ -126,13 +126,10 @@ export interface ProjectSettings {
     run?: ScriptHook;
     review?: ScriptHook;
     cleanup?: ScriptHook;
-    'sandbox-setup'?: ScriptHook;
     editor?: ScriptHook;
   };
   /** If true, kill existing instances of a command before starting a new one (default: true) */
   killExistingOnRun?: boolean;
-  /** Sandbox VM resource configuration */
-  sandbox?: { memoryGiB?: number; diskGiB?: number };
 }
 
 /**
@@ -252,7 +249,6 @@ export interface HooksAPI {
     run?: ScriptHook;
     review?: ScriptHook;
     cleanup?: ScriptHook;
-    'sandbox-setup'?: ScriptHook;
     editor?: ScriptHook;
   }>;
   /** Save a hook for a project */
@@ -448,8 +444,9 @@ export interface LimaAPI {
   status(projectPath: string): Promise<SandboxStatus>;
   start(projectPath: string): Promise<{ success: boolean; error?: string }>;
   stop(projectPath: string): Promise<{ success: boolean; error?: string }>;
-  getConfig(projectPath: string): Promise<{ memoryGiB: number; diskGiB: number }>;
-  setConfig(projectPath: string, config: { memoryGiB?: number; diskGiB?: number }): Promise<{ success: boolean }>;
+  getYaml(projectPath: string): Promise<string>;
+  setYaml(projectPath: string, yaml: string): Promise<{ success: boolean; error?: string }>;
+  getMergedYaml(projectPath: string): Promise<string>;
   recreate(projectPath: string): Promise<{ success: boolean; error?: string }>;
   delete(projectPath: string): Promise<{ success: boolean; error?: string }>;
   onSpawnProgress(callback: (message: string) => void): () => void;

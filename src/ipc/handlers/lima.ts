@@ -9,7 +9,13 @@ import {
   recreateInstance,
   deleteWithCleanup,
 } from '../../lima/manager';
-import { getSandboxConfig, setSandboxConfig } from '../../db';
+import {
+  ensureConfig,
+  writeUserConfig,
+  getMergedConfigForDisplay,
+  validateYaml,
+  deleteConfig,
+} from '../../lima/configStore';
 
 export function registerLimaHandlers(mainWindow: BrowserWindow): void {
   typedHandle('lima:status', (projectPath) => getLimaStatus(projectPath));
@@ -23,25 +29,35 @@ export function registerLimaHandlers(mainWindow: BrowserWindow): void {
     return { success: true };
   });
 
-  typedHandle('lima:get-config', (projectPath) => getSandboxConfig(projectPath));
-  typedHandle('lima:set-config', (projectPath, config) => setSandboxConfig(projectPath, config));
+  typedHandle('lima:get-yaml', (projectPath) => ensureConfig(projectPath));
+
+  typedHandle('lima:set-yaml', async (projectPath, yaml) => {
+    const error = validateYaml(yaml);
+    if (error) {
+      return { success: false, error: `Invalid YAML: ${error}` };
+    }
+    await writeUserConfig(projectPath, yaml);
+    return { success: true };
+  });
+
+  typedHandle('lima:get-merged-yaml', (projectPath) => getMergedConfigForDisplay(projectPath));
 
   typedHandle('lima:start', async (projectPath) => {
-    const sandboxConfig = await getSandboxConfig(projectPath);
     const sendProgress = (msg: string) => typedPush(mainWindow, 'lima:spawn-progress', msg);
-    const result = await ensureRunning(
-      projectPath,
-      { memoryGiB: sandboxConfig.memoryGiB, diskGiB: sandboxConfig.diskGiB },
-      sendProgress,
-    );
+    const result = await ensureRunning(projectPath, sendProgress);
     return { success: result.success, error: result.error };
   });
 
   typedHandle('lima:recreate', async (projectPath) => {
-    const config = await getSandboxConfig(projectPath);
     const sendProgress = (msg: string) => typedPush(mainWindow, 'lima:spawn-progress', msg);
-    return recreateInstance(projectPath, { memoryGiB: config.memoryGiB, diskGiB: config.diskGiB }, sendProgress);
+    return recreateInstance(projectPath, sendProgress);
   });
 
-  typedHandle('lima:delete', (projectPath) => deleteWithCleanup(projectPath));
+  typedHandle('lima:delete', async (projectPath) => {
+    const result = await deleteWithCleanup(projectPath);
+    if (result.success) {
+      await deleteConfig(projectPath);
+    }
+    return result;
+  });
 }

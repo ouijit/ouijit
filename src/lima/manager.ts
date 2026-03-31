@@ -7,8 +7,7 @@ import * as fsSync from 'node:fs';
 import * as os from 'node:os';
 import { app } from 'electron';
 import type { LimaInstance, SandboxStatus } from './types';
-import { generateLimaYaml, buildLimaConfig } from './config';
-import { resetSetupTracking } from './spawn';
+import { buildFinalConfig } from './configStore';
 import log from '../log';
 
 const limaLog = log.scope('lima');
@@ -99,15 +98,14 @@ export async function getInstance(name: string): Promise<LimaInstance> {
 }
 
 /**
- * Create a new Lima instance from a config
+ * Create a new Lima instance from the project's YAML config.
+ * Merges user config with Ouijit-managed fields and resolves env vars.
  */
 export async function createInstance(
   projectPath: string,
-  overrides?: { cpus?: number; memoryGiB?: number; diskGiB?: number; networkMode?: 'vzNAT' | 'none' },
-): Promise<{ success: boolean; error?: string }> {
+): Promise<{ success: boolean; error?: string; warnings?: string[] }> {
   const instanceName = getInstanceName(projectPath);
-  const config = buildLimaConfig(instanceName, projectPath, overrides);
-  const yaml = generateLimaYaml(config);
+  const { yaml, warnings } = await buildFinalConfig(projectPath);
 
   // Write YAML to a temp file
   const tmpDir = os.tmpdir();
@@ -119,7 +117,7 @@ export async function createInstance(
       timeout: 300_000,
       env: getLimaEnv(),
     });
-    return { success: true };
+    return { success: true, warnings };
   } catch (error) {
     const msg = error instanceof Error ? error.message : 'Unknown error';
     // Clean up partially-created VM so we don't leave it in a broken state
@@ -283,7 +281,6 @@ async function waitForSsh(
  */
 export async function ensureRunning(
   projectPath: string,
-  overrides?: { cpus?: number; memoryGiB?: number; diskGiB?: number; networkMode?: 'vzNAT' | 'none' },
   onProgress?: (message: string) => void,
 ): Promise<{ success: boolean; instanceName: string; error?: string }> {
   const progress = onProgress ?? (() => {});
@@ -306,7 +303,7 @@ export async function ensureRunning(
 
   if (instance.status === 'NotFound') {
     progress('Creating sandbox VM (this may take a few minutes)…');
-    const createResult = await createInstance(projectPath, overrides);
+    const createResult = await createInstance(projectPath);
     if (!createResult.success) {
       return { success: false, instanceName, error: createResult.error };
     }
@@ -315,7 +312,6 @@ export async function ensureRunning(
     if (!startResult.success) {
       return { success: false, instanceName, error: startResult.error };
     }
-    resetSetupTracking(instanceName);
     return { success: true, instanceName };
   }
 
@@ -325,7 +321,6 @@ export async function ensureRunning(
     if (!startResult.success) {
       return { success: false, instanceName, error: startResult.error };
     }
-    resetSetupTracking(instanceName);
     return { success: true, instanceName };
   }
 
@@ -339,7 +334,7 @@ export async function ensureRunning(
       error: `Cannot recreate VM: failed to delete broken instance. ${deleteResult.error}`,
     };
   }
-  const createResult = await createInstance(projectPath, overrides);
+  const createResult = await createInstance(projectPath);
   if (!createResult.success) {
     return { success: false, instanceName, error: createResult.error };
   }
@@ -348,7 +343,6 @@ export async function ensureRunning(
   if (!startResult.success) {
     return { success: false, instanceName, error: startResult.error };
   }
-  resetSetupTracking(instanceName);
   return { success: true, instanceName };
 }
 
@@ -396,7 +390,6 @@ export async function getLimaStatus(projectPath: string): Promise<SandboxStatus>
  */
 export async function recreateInstance(
   projectPath: string,
-  overrides?: { memoryGiB?: number; diskGiB?: number },
   onProgress?: (message: string) => void,
 ): Promise<{ success: boolean; error?: string }> {
   const progress = onProgress ?? (() => {});
@@ -417,14 +410,13 @@ export async function recreateInstance(
     }
 
     progress('Creating sandbox VM (this may take a few minutes)…');
-    const createResult = await createInstance(projectPath, overrides);
+    const createResult = await createInstance(projectPath);
     if (!createResult.success) return { success: false, error: createResult.error };
 
     progress('Starting sandbox VM…');
     const startResult = await startInstance(instanceName, progress);
     if (!startResult.success) return { success: false, error: startResult.error };
 
-    resetSetupTracking(instanceName);
     progress('VM recreated successfully');
     return { success: true };
   } catch (error) {

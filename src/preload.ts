@@ -177,9 +177,9 @@ contextBridge.exposeInMainWorld('api', {
     status: (projectPath: string) => typedInvoke('lima:status', projectPath),
     start: (projectPath: string) => typedInvoke('lima:start', projectPath),
     stop: (projectPath: string) => typedInvoke('lima:stop', projectPath),
-    getConfig: (projectPath: string) => typedInvoke('lima:get-config', projectPath),
-    setConfig: (projectPath: string, config: { memoryGiB?: number; diskGiB?: number }) =>
-      typedInvoke('lima:set-config', projectPath, config),
+    getYaml: (projectPath: string) => typedInvoke('lima:get-yaml', projectPath),
+    setYaml: (projectPath: string, yaml: string) => typedInvoke('lima:set-yaml', projectPath, yaml),
+    getMergedYaml: (projectPath: string) => typedInvoke('lima:get-merged-yaml', projectPath),
     recreate: (projectPath: string) => typedInvoke('lima:recreate', projectPath),
     delete: (projectPath: string) => typedInvoke('lima:delete', projectPath),
     onSpawnProgress: (callback: (message: string) => void) => typedListen('lima:spawn-progress', callback),

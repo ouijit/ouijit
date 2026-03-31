@@ -2,13 +2,11 @@ import { BrowserWindow } from 'electron';
 import { typedHandle, typedOn } from '../helpers';
 import { spawnPty, reconnectPty, getActiveSessions, setWindow, writeToPty, resizePty, killPty } from '../../ptyManager';
 import * as limaPlugin from '../../lima';
-import { getHook } from '../../db';
 
 export function registerPtyHandlers(mainWindow: BrowserWindow): void {
   typedHandle('pty:spawn', async (options) => {
     if (options.sandboxed) {
-      const hook = await getHook(options.projectPath || options.cwd, 'sandbox-setup');
-      return await limaPlugin.spawnSandboxedPty(options, mainWindow, hook?.command);
+      return await limaPlugin.spawnSandboxedPty(options, mainWindow);
     }
     return await spawnPty(options, mainWindow);
   });
