@@ -55,7 +55,7 @@ export function ProjectSettingsPanel({ projectPath }: ProjectSettingsPanelProps)
         <div className="flex items-center gap-3 px-6 pt-4 pb-2">
           <h1 className="text-base font-semibold text-text-primary">Project Settings</h1>
         </div>
-        <div className="px-6 py-4 min-w-full max-w-2xl space-y-8">
+        <div className="px-6 pt-4 pb-16 min-w-full max-w-2xl space-y-8">
           <section>
             <h2 className="text-sm font-semibold text-text-primary mb-2">Lifecycle Hooks</h2>
             <p className="text-xs text-text-tertiary mb-4">
