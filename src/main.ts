@@ -109,7 +109,7 @@ const createWindow = (): BrowserWindow => {
     if (quitConfirmed) return;
 
     const count = getActiveSessionCount();
-    if (count === 0) return;
+    if (count === 0 || process.env.OUIJIT_E2E === '1') return;
 
     e.preventDefault();
     const s = count === 1 ? 'session' : 'sessions';
@@ -153,7 +153,7 @@ app.on('before-quit', (e) => {
   if (quitConfirmed) return;
 
   const count = getActiveSessionCount();
-  if (count === 0 || process.env.NODE_ENV === 'test') return;
+  if (count === 0 || process.env.OUIJIT_E2E === '1') return;
 
   e.preventDefault();
   const s = count === 1 ? 'session' : 'sessions';

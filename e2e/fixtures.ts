@@ -56,7 +56,7 @@ export const test = base.extend<OuijitFixtures>({
       env: {
         ...process.env,
         OUIJIT_TEST_USER_DATA: userDataDir,
-        NODE_ENV: 'test',
+        OUIJIT_E2E: '1',
       },
     });
 
