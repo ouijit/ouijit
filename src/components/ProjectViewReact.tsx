@@ -44,7 +44,9 @@ export function ProjectView() {
         e.preventDefault();
         e.stopPropagation();
         addProjectTerminal(projectPath);
-        useProjectStore.getState().setKanbanVisible(false);
+        const store = useProjectStore.getState();
+        store.setActivePanel('terminals');
+        store.setKanbanVisible(false);
         return;
       }
 
@@ -64,7 +66,9 @@ export function ProjectView() {
       if (key === 'n') {
         e.preventDefault();
         e.stopPropagation();
-        useProjectStore.getState().setKanbanVisible(true);
+        const store = useProjectStore.getState();
+        store.setActivePanel('terminals');
+        store.setKanbanVisible(true);
         requestAnimationFrame(() => focusKanbanAddInput());
         return;
       }

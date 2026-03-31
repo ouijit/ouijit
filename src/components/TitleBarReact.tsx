@@ -53,12 +53,16 @@ export function TitleBar({ mode }: TitleBarProps) {
   const handleNewTerminal = useCallback(() => {
     if (activeProjectPath) {
       addProjectTerminal(activeProjectPath);
-      useProjectStore.getState().setKanbanVisible(false);
+      const store = useProjectStore.getState();
+      store.setActivePanel('terminals');
+      store.setKanbanVisible(false);
     }
   }, [activeProjectPath]);
 
   const handleNewTask = useCallback(() => {
-    useProjectStore.getState().setKanbanVisible(true);
+    const store = useProjectStore.getState();
+    store.setActivePanel('terminals');
+    store.setKanbanVisible(true);
     requestAnimationFrame(() => focusKanbanAddInput());
   }, []);
 
