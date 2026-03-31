@@ -1,14 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useAppStore } from '../../stores/appStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { useTerminalStore } from '../../stores/terminalStore';
 import { addProjectTerminal } from '../terminal/terminalActions';
-import { HookList } from './HookList';
-import type { HookEntry } from './HookList';
-
-const SANDBOX_HOOK: HookEntry[] = [
-  { type: 'sandbox-setup', label: 'Setup', description: 'Runs inside the VM before each command' },
-];
 
 const VM_STATUS_LABELS: Record<string, string> = {
   Running: 'Running',
@@ -16,13 +10,6 @@ const VM_STATUS_LABELS: Record<string, string> = {
   Broken: 'Broken',
   NotCreated: 'Not created',
 };
-
-function formatBytes(bytes: number): string {
-  if (bytes === 0) return '0 B';
-  const units = ['B', 'KB', 'MB', 'GB', 'TB'];
-  const i = Math.floor(Math.log(bytes) / Math.log(1024));
-  return `${Math.round((bytes / Math.pow(1024, i)) * 10) / 10} ${units[i]}`;
-}
 
 interface SandboxSectionProps {
   projectPath: string;
@@ -32,23 +19,30 @@ export function SandboxSection({ projectPath }: SandboxSectionProps) {
   const sandboxStarting = useAppStore((s) => s.sandboxStarting);
   const [vmStatus, setVmStatus] = useState('');
   const [instanceName, setInstanceName] = useState('');
-  const [diskUsage, setDiskUsage] = useState<number | null>(null);
-  const [memoryGiB, setMemoryGiB] = useState(4);
-  const [diskGiB, setDiskGiB] = useState(100);
   const [activeAction, setActiveAction] = useState<'starting' | 'stopping' | 'recreating' | null>(null);
+
+  // YAML editor state
+  const [mergedYaml, setMergedYaml] = useState('');
+  const [userYaml, setUserYaml] = useState('');
+  const [editorValue, setEditorValue] = useState('');
+  const [isDirty, setIsDirty] = useState(false);
+  const [yamlError, setYamlError] = useState<string | null>(null);
+  const [showRecreatePrompt, setShowRecreatePrompt] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Load status + config
   useEffect(() => {
     (async () => {
-      const [status, config] = await Promise.all([
+      const [status, merged, raw] = await Promise.all([
         window.api.lima.status(projectPath),
-        window.api.lima.getConfig(projectPath),
+        window.api.lima.getMergedYaml(projectPath),
+        window.api.lima.getYaml(projectPath),
       ]);
       setVmStatus(status.vmStatus);
       setInstanceName(status.instanceName || '');
-      setDiskUsage(status.disk ?? null);
-      setMemoryGiB(config.memoryGiB);
-      setDiskGiB(config.diskGiB);
+      setMergedYaml(merged);
+      setUserYaml(raw);
+      setEditorValue(raw);
     })();
   }, [projectPath]);
 
@@ -58,7 +52,6 @@ export function SandboxSection({ projectPath }: SandboxSectionProps) {
       try {
         const s = await window.api.lima.status(projectPath);
         setVmStatus(s.vmStatus);
-        if (s.disk != null) setDiskUsage(s.disk);
         if (s.vmStatus === 'Running') useAppStore.getState().setSandboxStarting(false);
       } catch {
         /* ignore */
@@ -66,6 +59,35 @@ export function SandboxSection({ projectPath }: SandboxSectionProps) {
     }, 3000);
     return () => clearInterval(poll);
   }, [projectPath]);
+
+  const handleEditorChange = useCallback(
+    (value: string) => {
+      setEditorValue(value);
+      setIsDirty(value !== userYaml);
+      setYamlError(null);
+    },
+    [userYaml],
+  );
+
+  const handleSave = useCallback(async () => {
+    const result = await window.api.lima.setYaml(projectPath, editorValue);
+    if (!result.success) {
+      setYamlError(result.error || 'Failed to save');
+      return;
+    }
+    setUserYaml(editorValue);
+    setIsDirty(false);
+    setYamlError(null);
+
+    // Refresh merged view
+    const merged = await window.api.lima.getMergedYaml(projectPath);
+    setMergedYaml(merged);
+
+    // Prompt to recreate if VM exists
+    if (vmStatus === 'Running' || vmStatus === 'Stopped') {
+      setShowRecreatePrompt(true);
+    }
+  }, [projectPath, editorValue, vmStatus]);
 
   const handleStart = useCallback(async () => {
     setActiveAction('starting');
@@ -98,6 +120,7 @@ export function SandboxSection({ projectPath }: SandboxSectionProps) {
   }, [projectPath]);
 
   const handleRecreate = useCallback(async () => {
+    setShowRecreatePrompt(false);
     setActiveAction('recreating');
     useAppStore.getState().setSandboxStarting(true);
     await window.api.lima.recreate(projectPath);
@@ -105,12 +128,6 @@ export function SandboxSection({ projectPath }: SandboxSectionProps) {
     setVmStatus(status.vmStatus);
     setActiveAction(null);
   }, [projectPath]);
-
-  const handleRecreateWithConfirm = useCallback(() => {
-    if (confirm('This will delete the current VM and all its data, then create a fresh one.')) {
-      handleRecreate();
-    }
-  }, [handleRecreate]);
 
   const handleConsole = useCallback(() => {
     const termStore = useTerminalStore.getState();
@@ -132,22 +149,67 @@ export function SandboxSection({ projectPath }: SandboxSectionProps) {
     useProjectStore.getState().setActivePanel('terminals');
   }, [projectPath]);
 
-  const handleMemoryChange = useCallback(
-    async (val: number) => {
-      setMemoryGiB(val);
-      await window.api.lima.setConfig(projectPath, { memoryGiB: val, diskGiB });
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      if (e.key === 'Tab') {
+        e.preventDefault();
+        const textarea = e.currentTarget;
+        const start = textarea.selectionStart;
+        const end = textarea.selectionEnd;
+        const value = textarea.value;
+
+        if (e.shiftKey) {
+          // Shift+Tab: dedent current line(s)
+          const lineStart = value.lastIndexOf('\n', start - 1) + 1;
+          const before = value.substring(0, lineStart);
+          const line = value.substring(lineStart);
+          if (line.startsWith('  ')) {
+            const newValue = before + line.substring(2);
+            handleEditorChange(newValue);
+            requestAnimationFrame(() => {
+              textarea.selectionStart = Math.max(start - 2, lineStart);
+              textarea.selectionEnd = Math.max(end - 2, lineStart);
+            });
+          }
+        } else {
+          // Tab: insert 2 spaces (YAML standard)
+          const newValue = value.substring(0, start) + '  ' + value.substring(end);
+          handleEditorChange(newValue);
+          requestAnimationFrame(() => {
+            textarea.selectionStart = start + 2;
+            textarea.selectionEnd = start + 2;
+          });
+        }
+      } else if (e.key === 's' && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        if (isDirty) handleSave();
+      }
     },
-    [projectPath, diskGiB],
+    [handleEditorChange, isDirty, handleSave],
   );
 
-  const handleDiskChange = useCallback(
-    async (val: number) => {
-      setDiskGiB(val);
-      await window.api.lima.setConfig(projectPath, { memoryGiB, diskGiB: val });
+  const autoSize = useCallback((el: HTMLTextAreaElement | null) => {
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight}px`;
+  }, []);
+
+  const mergedRef = useCallback(
+    (el: HTMLTextAreaElement | null) => {
+      autoSize(el);
     },
-    [projectPath, memoryGiB],
+    [mergedYaml, autoSize],
   );
 
+  const editRef = useCallback(
+    (el: HTMLTextAreaElement | null) => {
+      (textareaRef as React.MutableRefObject<HTMLTextAreaElement | null>).current = el;
+      autoSize(el);
+    },
+    [editorValue, autoSize],
+  );
+
+  const [showMerged, setShowMerged] = useState(false);
   const statusLabel = sandboxStarting ? 'Starting\u2026' : VM_STATUS_LABELS[vmStatus] || vmStatus;
   const statusColor = vmStatus === 'Running' && !sandboxStarting ? 'text-[#0a84ff]' : 'text-text-primary';
 
@@ -164,43 +226,79 @@ export function SandboxSection({ projectPath }: SandboxSectionProps) {
             <span className="text-xs font-mono text-text-primary">{instanceName}</span>
           </>
         )}
-
-        <span className="text-xs font-medium text-text-secondary">Memory</span>
-        <select
-          className="text-xs text-text-primary bg-white/[0.06] border border-white/10 rounded px-1.5 py-0.5 outline-none w-fit"
-          value={memoryGiB}
-          onChange={(e) => handleMemoryChange(parseInt(e.target.value, 10))}
-        >
-          {[2, 4, 8, 16].map((v) => (
-            <option key={v} value={v}>
-              {v} GiB
-            </option>
-          ))}
-        </select>
-
-        <span className="text-xs font-medium text-text-secondary">Disk</span>
-        <select
-          className="text-xs text-text-primary bg-white/[0.06] border border-white/10 rounded px-1.5 py-0.5 outline-none w-fit"
-          value={diskGiB}
-          onChange={(e) => handleDiskChange(parseInt(e.target.value, 10))}
-        >
-          {[50, 100, 200].map((v) => (
-            <option key={v} value={v}>
-              {v} GiB
-            </option>
-          ))}
-        </select>
-
-        {vmStatus === 'Running' && diskUsage != null && (
-          <>
-            <span className="text-xs font-medium text-text-secondary">Disk Usage</span>
-            <span className="text-xs text-text-primary">{formatBytes(diskUsage)}</span>
-          </>
-        )}
       </div>
 
-      {/* Setup hook — dark card */}
-      <HookList projectPath={projectPath} hooks={SANDBOX_HOOK} />
+      {/* YAML config editor */}
+      <div
+        className="border border-white/10 rounded-[14px] overflow-hidden"
+        style={{
+          background: 'var(--color-terminal-bg, #171717)',
+          boxShadow: '0 0 0 1px rgba(0, 0, 0, 0.05), 0 4px 12px rgba(0, 0, 0, 0.15), 0 20px 40px rgba(0, 0, 0, 0.2)',
+        }}
+      >
+        <div className="flex items-center justify-between px-3 py-2">
+          <span className="text-xs font-medium text-text-secondary">Configuration</span>
+          <div className="flex items-center gap-2">
+            <button
+              className={`text-[10px] px-1.5 py-0.5 rounded ${showMerged ? 'bg-white/10 text-text-primary' : 'text-text-secondary hover:text-text-primary'}`}
+              onClick={() => setShowMerged(!showMerged)}
+            >
+              {showMerged ? 'Edit' : 'Merged'}
+            </button>
+            {isDirty && (
+              <button
+                className="text-[10px] px-2 py-0.5 rounded bg-[#0a84ff]/20 text-[#0a84ff] hover:bg-[#0a84ff]/30 transition-colors"
+                onClick={handleSave}
+              >
+                Save
+              </button>
+            )}
+          </div>
+        </div>
+
+        {showMerged ? (
+          <textarea
+            ref={mergedRef}
+            className="w-full max-h-[80vh] overflow-y-auto text-[13px] leading-5 font-mono bg-transparent border-t border-white/[0.06] p-4 text-text-secondary resize-none outline-none tabular-nums"
+            value={mergedYaml}
+            readOnly
+            spellCheck={false}
+          />
+        ) : (
+          <textarea
+            ref={editRef}
+            className="w-full max-h-[80vh] overflow-y-auto text-[13px] leading-5 font-mono bg-transparent border-t border-white/[0.06] p-4 text-text-primary resize-none outline-none tabular-nums"
+            value={editorValue}
+            onChange={(e) => handleEditorChange(e.target.value)}
+            onKeyDown={handleKeyDown}
+            spellCheck={false}
+            autoCapitalize="off"
+            autoCorrect="off"
+            placeholder="Loading configuration..."
+          />
+        )}
+
+        {yamlError && <p className="text-[11px] text-red-400 px-3 pb-2">{yamlError}</p>}
+      </div>
+
+      {/* Recreate prompt */}
+      {showRecreatePrompt && (
+        <div className="flex items-center gap-2 px-1">
+          <span className="text-xs text-text-secondary">Config changed. Recreate VM now?</span>
+          <button
+            className="text-[10px] px-2 py-0.5 rounded bg-[#0a84ff]/20 text-[#0a84ff] hover:bg-[#0a84ff]/30"
+            onClick={handleRecreate}
+          >
+            Yes
+          </button>
+          <button
+            className="text-[10px] px-2 py-0.5 rounded text-text-secondary hover:text-text-primary"
+            onClick={() => setShowRecreatePrompt(false)}
+          >
+            Later
+          </button>
+        </div>
+      )}
 
       {/* VM action buttons */}
       <div className="flex flex-wrap gap-2 mt-3">
@@ -232,16 +330,19 @@ export function SandboxSection({ projectPath }: SandboxSectionProps) {
           </button>
         )}
         <button
-          className="px-3 py-1.5 text-xs font-medium text-text-secondary bg-white/[0.06] border border-white/10 rounded-md hover:bg-white/[0.1] hover:text-text-primary transition-all disabled:opacity-50"
+          className="px-3 py-1.5 text-xs font-medium text-text-secondary bg-white/[0.06] border border-white/10 rounded-md hover:bg-white/[0.1] hover:text-text-primary transition-all"
           onClick={handleConsole}
-          disabled={!!activeAction}
         >
           VM Console
         </button>
         {(vmStatus === 'Running' || vmStatus === 'Stopped' || vmStatus === 'Broken') && (
           <button
             className="px-3 py-1.5 text-xs font-medium text-text-secondary bg-white/[0.06] border border-white/10 rounded-md hover:bg-white/[0.1] hover:text-text-primary transition-all disabled:opacity-50"
-            onClick={vmStatus === 'Stopped' ? handleRecreateWithConfirm : handleRecreate}
+            onClick={() => {
+              if (confirm('This will delete the current VM and all its data, then create a fresh one.')) {
+                handleRecreate();
+              }
+            }}
             disabled={!!activeAction}
           >
             {activeAction === 'recreating' ? 'Recreating\u2026' : 'Recreate VM'}

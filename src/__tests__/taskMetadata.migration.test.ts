@@ -123,7 +123,6 @@ describe('data import service', () => {
           start: { id: 'h1', type: 'start', name: 'Setup', command: 'npm install' },
           cleanup: { id: 'h2', type: 'cleanup', name: 'Clean', command: 'rm -rf tmp' },
         },
-        sandbox: { memoryGiB: 8 },
         killExistingOnRun: true,
       },
     };
@@ -139,7 +138,6 @@ describe('data import service', () => {
     expect(hooks.find((h) => h.type === 'start')?.command).toBe('npm install');
 
     const settings = settingsRepo.get('/projects/hooked');
-    expect(settings?.sandbox_memory_gib).toBe(8);
     expect(settings?.kill_existing_on_run).toBe(1);
   });
 
@@ -235,7 +233,6 @@ describe('data import service', () => {
             start: { id: 'h1', type: 'start', name: 'Setup', command: 'npm install' },
             cleanup: { id: 'h2', type: 'cleanup', name: 'Clean', command: 'rm -rf tmp', description: 'Tidy up' },
           },
-          sandbox: { memoryGiB: 8, diskGiB: 200 },
           killExistingOnRun: true,
         },
       };
@@ -288,8 +285,6 @@ describe('data import service', () => {
       expect(settings.hooks?.start?.command).toBe('npm install');
       expect(settings.hooks?.cleanup?.command).toBe('rm -rf tmp');
       expect(settings.hooks?.cleanup?.description).toBe('Tidy up');
-      expect(settings.sandbox?.memoryGiB).toBe(8);
-      expect(settings.sandbox?.diskGiB).toBe(200);
       expect(settings.killExistingOnRun).toBe(true);
 
       // Hook lookup by type

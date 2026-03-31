@@ -4,7 +4,6 @@ import type { PtySpawnOptions, PtySpawnResult, PtyId } from '../types';
 import type { ActiveSession } from '../ptyManager';
 import { generateId } from '../utils/ids';
 import { ensureRunning, getLimactlPath, getLimaEnv } from './manager';
-import { getSandboxConfig } from '../db';
 import { getApiPort, HELPER_SCRIPT, buildVmHookSettings } from '../hookServer';
 
 interface ManagedSandboxPty {
@@ -25,31 +24,6 @@ const activeSandboxPtys = new Map<PtyId, ManagedSandboxPty>();
 let currentWindow: BrowserWindow | null = null;
 
 const MAX_BUFFER_SIZE = 100 * 1024;
-
-/**
- * Track which setup scripts have already run for each VM session.
- * Key: `${instanceName}:${scriptHash}`, Value: true if completed.
- * Editing the hook changes the hash, so the script re-runs automatically.
- */
-const completedSetups = new Map<string, boolean>();
-
-/** djb2 string hash */
-function djb2Hash(str: string): string {
-  let hash = 5381;
-  for (let i = 0; i < str.length; i++) {
-    hash = ((hash << 5) + hash + str.charCodeAt(i)) | 0;
-  }
-  return (hash >>> 0).toString(36);
-}
-
-/** Reset setup tracking for a VM instance (call after VM start/recreate) */
-export function resetSetupTracking(instanceName: string): void {
-  for (const key of completedSetups.keys()) {
-    if (key.startsWith(`${instanceName}:`)) {
-      completedSetups.delete(key);
-    }
-  }
-}
 
 function handleOutput(ptyId: PtyId, channel: string, data: string): void {
   const managed = activeSandboxPtys.get(ptyId);
@@ -95,40 +69,24 @@ function buildVmHookSetup(): string {
  * Spawn a sandboxed PTY via `limactl shell`.
  * Worktree files are shared via writable mounts — no sync needed.
  */
-export async function spawnSandboxedPty(
-  options: PtySpawnOptions,
-  window: BrowserWindow,
-  setupScript?: string,
-): Promise<PtySpawnResult> {
+export async function spawnSandboxedPty(options: PtySpawnOptions, window: BrowserWindow): Promise<PtySpawnResult> {
   try {
     currentWindow = window;
     const projectPath = options.projectPath || options.cwd;
 
-    // Load per-project sandbox config for VM resource overrides
-    const sandboxConfig = await getSandboxConfig(projectPath);
-
     // Ensure VM is running, forwarding progress to the renderer
-    const vmResult = await ensureRunning(
-      projectPath,
-      { memoryGiB: sandboxConfig.memoryGiB, diskGiB: sandboxConfig.diskGiB },
-      (msg) => {
-        if (window && !window.isDestroyed()) {
-          window.webContents.send('lima:spawn-progress', msg);
-        }
-      },
-    );
+    const sendStep = (step: { id: string; label: string; status: 'active' | 'done' }) => {
+      if (window && !window.isDestroyed()) {
+        window.webContents.send('lima:spawn-progress', step);
+      }
+    };
+    const vmResult = await ensureRunning(projectPath, sendStep);
     if (!vmResult.success) {
       return { success: false, error: vmResult.error || 'Failed to start sandbox VM' };
     }
 
     const instanceName = vmResult.instanceName;
-    const sendProgress = (msg: string) => {
-      if (window && !window.isDestroyed()) {
-        window.webContents.send('lima:spawn-progress', msg);
-      }
-    };
-
-    sendProgress('Launching shell…');
+    sendStep({ id: 'shell', label: 'Launching shell…', status: 'active' });
 
     // Use host cwd directly — mounts match host paths
     const guestCwd = options.cwd;
@@ -155,23 +113,12 @@ export async function spawnSandboxedPty(
 
     // Build the command to run inside the VM
     let innerCmd: string;
-    let setupPrefix = '';
-    if (setupScript?.trim()) {
-      const scriptHash = djb2Hash(setupScript.trim());
-      const trackingKey = `${instanceName}:${scriptHash}`;
-      if (completedSetups.has(trackingKey)) {
-        setupPrefix = '';
-      } else {
-        completedSetups.set(trackingKey, true);
-        setupPrefix = `if ! ( ${setupScript.trim()} ); then\n  echo -e '\\033[31m● sandbox-setup hook failed\\033[0m' >&2\n  echo -e '\\033[90mEdit the setup hook in the sandbox dropdown to fix.\\033[0m' >&2\nfi\n`;
-      }
-    }
     if (options.command) {
       // Run command then drop to interactive bash
       const escapedCmd = options.command.replace(/'/g, "'\\''");
-      innerCmd = `${envExports}${hookSetup}${setupPrefix}${escapedCmd}; exec bash`;
+      innerCmd = `${envExports}${hookSetup}${escapedCmd}; exec bash`;
     } else {
-      innerCmd = `${envExports}${hookSetup}${setupPrefix}exec bash`;
+      innerCmd = `${envExports}${hookSetup}exec bash`;
     }
 
     // Build limactl shell args

@@ -5,6 +5,8 @@ import { getProjectList } from '../../scanner';
 import { addProject, removeProject, reorderProjects, getProjectSettings, setKillExistingOnRun } from '../../db';
 import { createProject } from '../../projectCreator';
 import { openInEditor } from '../../editorLauncher';
+import { deleteWithCleanup } from '../../lima/manager';
+import { deleteConfig } from '../../lima/configStore';
 import log from '../../log';
 
 const ipcLog = log.scope('ipc');
@@ -59,7 +61,12 @@ export function registerProjectHandlers(mainWindow: BrowserWindow): void {
   });
 
   typedHandle('add-project', (folderPath) => addProject(folderPath));
-  typedHandle('remove-project', (folderPath) => removeProject(folderPath));
+  typedHandle('remove-project', async (folderPath) => {
+    // Clean up sandbox config and VM before removing from DB
+    await deleteWithCleanup(folderPath).catch(() => {});
+    await deleteConfig(folderPath).catch(() => {});
+    return removeProject(folderPath);
+  });
   typedHandle('reorder-projects', (paths) => reorderProjects(paths));
   typedHandle('get-project-settings', (projectPath) => getProjectSettings(projectPath));
   typedHandle('settings:set-kill-existing-on-run', (projectPath, kill) => setKillExistingOnRun(projectPath, kill));

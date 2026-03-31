@@ -7,6 +7,7 @@ import { up as migration003 } from './migrations/003-add-tags';
 import { up as migration004 } from './migrations/004-global-settings';
 import { up as migration005 } from './migrations/005-project-sort-order';
 import { up as migration006 } from './migrations/006-add-scripts';
+import { up as migration007 } from './migrations/007-remove-sandbox-config';
 
 const migrations = [
   { version: 1, up: migration001 },
@@ -15,6 +16,7 @@ const migrations = [
   { version: 4, up: migration004 },
   { version: 5, up: migration005 },
   { version: 6, up: migration006 },
+  { version: 7, up: migration007 },
 ];
 
 let db: Database.Database | null = null;
