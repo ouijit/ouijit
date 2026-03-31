@@ -194,7 +194,7 @@ export interface IpcSendContract {
 export interface IpcPushContract {
   'fullscreen-change': { args: [isFullscreen: boolean] };
   'claude-hook-status': { args: [ptyId: string, status: import('../hookServer').HookStatus] };
-  'lima:spawn-progress': { args: [message: string] };
+  'lima:spawn-progress': { args: [step: { id: string; label: string; status: 'active' | 'done' }] };
   'update-available': { args: [info: { version: string; url: string }] };
   'whats-new': { args: [info: { version: string; notes: string }] };
 }

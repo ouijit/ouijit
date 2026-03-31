@@ -182,6 +182,7 @@ contextBridge.exposeInMainWorld('api', {
     getMergedYaml: (projectPath: string) => typedInvoke('lima:get-merged-yaml', projectPath),
     recreate: (projectPath: string) => typedInvoke('lima:recreate', projectPath),
     delete: (projectPath: string) => typedInvoke('lima:delete', projectPath),
-    onSpawnProgress: (callback: (message: string) => void) => typedListen('lima:spawn-progress', callback),
+    onSpawnProgress: (callback: (step: { id: string; label: string; status: 'active' | 'done' }) => void) =>
+      typedListen('lima:spawn-progress', callback),
   },
 });

@@ -75,23 +75,18 @@ export async function spawnSandboxedPty(options: PtySpawnOptions, window: Browse
     const projectPath = options.projectPath || options.cwd;
 
     // Ensure VM is running, forwarding progress to the renderer
-    const vmResult = await ensureRunning(projectPath, (msg) => {
+    const sendStep = (step: { id: string; label: string; status: 'active' | 'done' }) => {
       if (window && !window.isDestroyed()) {
-        window.webContents.send('lima:spawn-progress', msg);
+        window.webContents.send('lima:spawn-progress', step);
       }
-    });
+    };
+    const vmResult = await ensureRunning(projectPath, sendStep);
     if (!vmResult.success) {
       return { success: false, error: vmResult.error || 'Failed to start sandbox VM' };
     }
 
     const instanceName = vmResult.instanceName;
-    const sendProgress = (msg: string) => {
-      if (window && !window.isDestroyed()) {
-        window.webContents.send('lima:spawn-progress', msg);
-      }
-    };
-
-    sendProgress('Launching shell…');
+    sendStep({ id: 'shell', label: 'Launching shell…', status: 'active' });
 
     // Use host cwd directly — mounts match host paths
     const guestCwd = options.cwd;

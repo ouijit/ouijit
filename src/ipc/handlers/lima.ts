@@ -43,14 +43,16 @@ export function registerLimaHandlers(mainWindow: BrowserWindow): void {
   typedHandle('lima:get-merged-yaml', (projectPath) => getMergedConfigForDisplay(projectPath));
 
   typedHandle('lima:start', async (projectPath) => {
-    const sendProgress = (msg: string) => typedPush(mainWindow, 'lima:spawn-progress', msg);
-    const result = await ensureRunning(projectPath, sendProgress);
+    const sendStep = (step: { id: string; label: string; status: 'active' | 'done' }) =>
+      typedPush(mainWindow, 'lima:spawn-progress', step);
+    const result = await ensureRunning(projectPath, sendStep);
     return { success: result.success, error: result.error };
   });
 
   typedHandle('lima:recreate', async (projectPath) => {
-    const sendProgress = (msg: string) => typedPush(mainWindow, 'lima:spawn-progress', msg);
-    return recreateInstance(projectPath, sendProgress);
+    const sendStep = (step: { id: string; label: string; status: 'active' | 'done' }) =>
+      typedPush(mainWindow, 'lima:spawn-progress', step);
+    return recreateInstance(projectPath, sendStep);
   });
 
   typedHandle('lima:delete', async (projectPath) => {

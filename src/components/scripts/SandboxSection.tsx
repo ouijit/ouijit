@@ -330,9 +330,8 @@ export function SandboxSection({ projectPath }: SandboxSectionProps) {
           </button>
         )}
         <button
-          className="px-3 py-1.5 text-xs font-medium text-text-secondary bg-white/[0.06] border border-white/10 rounded-md hover:bg-white/[0.1] hover:text-text-primary transition-all disabled:opacity-50"
+          className="px-3 py-1.5 text-xs font-medium text-text-secondary bg-white/[0.06] border border-white/10 rounded-md hover:bg-white/[0.1] hover:text-text-primary transition-all"
           onClick={handleConsole}
-          disabled={!!activeAction}
         >
           VM Console
         </button>

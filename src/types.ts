@@ -449,7 +449,7 @@ export interface LimaAPI {
   getMergedYaml(projectPath: string): Promise<string>;
   recreate(projectPath: string): Promise<{ success: boolean; error?: string }>;
   delete(projectPath: string): Promise<{ success: boolean; error?: string }>;
-  onSpawnProgress(callback: (message: string) => void): () => void;
+  onSpawnProgress(callback: (step: { id: string; label: string; status: 'active' | 'done' }) => void): () => void;
 }
 
 /**

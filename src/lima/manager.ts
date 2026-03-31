@@ -14,6 +14,14 @@ const limaLog = log.scope('lima');
 
 const execFileAsync = promisify(execFile);
 
+export interface ProgressStep {
+  id: string;
+  label: string;
+  status: 'active' | 'done';
+}
+
+export type ProgressCallback = (step: ProgressStep) => void;
+
 /** Add actionable context to common Lima error messages */
 function contextualizeError(msg: string): string {
   const lower = msg.toLowerCase();
@@ -176,8 +184,10 @@ function tailHostAgentLog(instanceName: string, onMessage: (msg: string) => void
           const entry = JSON.parse(line);
           if (entry.level !== 'info') continue;
           const msg: string = entry.msg;
-          // Skip noisy port-forwarding chatter
+          // Skip noisy/long log messages
           if (msg.startsWith('Not forwarding') || msg.startsWith('Forwarding')) continue;
+          if (msg.includes('(hint:')) continue;
+          if (msg.startsWith('[VZ]')) continue;
           onMessage(msg);
         } catch {
           // Not valid JSON — skip
@@ -199,9 +209,11 @@ function tailHostAgentLog(instanceName: string, onMessage: (msg: string) => void
  */
 export async function startInstance(
   name: string,
-  onProgress?: (message: string) => void,
+  onProgress?: ProgressCallback,
 ): Promise<{ success: boolean; error?: string }> {
-  const stopTailing = onProgress ? tailHostAgentLog(name, onProgress) : undefined;
+  const stopTailing = onProgress
+    ? tailHostAgentLog(name, (msg) => onProgress({ id: 'start', label: msg, status: 'active' }))
+    : undefined;
   try {
     await execFileAsync(getLimactlPath(), ['start', name], {
       timeout: 300_000,
@@ -253,13 +265,9 @@ export async function deleteInstance(name: string): Promise<{ success: boolean; 
  * Lima may report "Running" before SSH is fully accepting connections.
  * Uses exponential backoff: 1s, 2s, 4s, 8s, 10s, 10s, ... (~60s total)
  */
-async function waitForSsh(
-  instanceName: string,
-  maxRetries = 10,
-  onProgress?: (message: string) => void,
-): Promise<boolean> {
+async function waitForSsh(instanceName: string, maxRetries = 10, onProgress?: ProgressCallback): Promise<boolean> {
   for (let i = 0; i < maxRetries; i++) {
-    onProgress?.(`Waiting for SSH (attempt ${i + 1}/${maxRetries})…`);
+    onProgress?.({ id: 'ssh', label: `Connecting via SSH… (${i + 1}/${maxRetries})`, status: 'active' });
     try {
       await execFileAsync(getLimactlPath(), ['shell', instanceName, '--', 'echo', 'ok'], {
         timeout: 10_000,
@@ -284,10 +292,12 @@ async function waitForSsh(
 async function waitForProvisioning(
   instanceName: string,
   maxRetries = 60,
-  onProgress?: (message: string) => void,
+  onProgress?: ProgressCallback,
 ): Promise<boolean> {
+  const start = Date.now();
   for (let i = 0; i < maxRetries; i++) {
-    onProgress?.('Waiting for provisioning to complete…');
+    const elapsed = Math.round((Date.now() - start) / 1000);
+    onProgress?.({ id: 'provision', label: `Installing packages & provisioning… ${elapsed}s`, status: 'active' });
     try {
       await execFileAsync(
         getLimactlPath(),
@@ -309,16 +319,16 @@ async function waitForProvisioning(
  */
 export async function ensureRunning(
   projectPath: string,
-  onProgress?: (message: string) => void,
+  onProgress?: ProgressCallback,
 ): Promise<{ success: boolean; instanceName: string; error?: string }> {
   const progress = onProgress ?? (() => {});
   const instanceName = getInstanceName(projectPath);
 
-  progress('Checking VM status…');
+  progress({ id: 'status', label: 'Checking VM status…', status: 'active' });
   const instance = await getInstance(instanceName);
+  progress({ id: 'status', label: 'Checking VM status…', status: 'done' });
 
   if (instance.status === 'Running') {
-    progress('Waiting for SSH…');
     if (!(await waitForSsh(instanceName, 10, progress))) {
       return {
         success: false,
@@ -326,36 +336,43 @@ export async function ensureRunning(
         error: 'VM is running but SSH is not responding after multiple attempts. The VM may need to be recreated.',
       };
     }
+    progress({ id: 'ssh', label: 'SSH connected', status: 'done' });
     await waitForProvisioning(instanceName, 60, progress);
+    progress({ id: 'provision', label: 'Provisioning complete', status: 'done' });
     return { success: true, instanceName };
   }
 
   if (instance.status === 'NotFound') {
-    progress('Creating sandbox VM (this may take a few minutes)…');
+    // limactl create both creates and starts the VM
+    progress({ id: 'create', label: 'Creating and starting sandbox VM…', status: 'active' });
     const createResult = await createInstance(projectPath);
     if (!createResult.success) {
       return { success: false, instanceName, error: createResult.error };
     }
-    progress('Starting sandbox VM…');
-    const startResult = await startInstance(instanceName, progress);
-    if (!startResult.success) {
-      return { success: false, instanceName, error: startResult.error };
+    progress({ id: 'create', label: 'VM created and started', status: 'done' });
+
+    if (!(await waitForSsh(instanceName, 10, progress))) {
+      return { success: false, instanceName, error: 'SSH not responding after VM start.' };
     }
+    progress({ id: 'ssh', label: 'SSH connected', status: 'done' });
+
     await waitForProvisioning(instanceName, 60, progress);
+    progress({ id: 'provision', label: 'Provisioning complete', status: 'done' });
     return { success: true, instanceName };
   }
 
   if (instance.status === 'Stopped') {
-    progress('Starting sandbox VM…');
+    progress({ id: 'start', label: 'Starting sandbox VM…', status: 'active' });
     const startResult = await startInstance(instanceName, progress);
     if (!startResult.success) {
       return { success: false, instanceName, error: startResult.error };
     }
+    progress({ id: 'start', label: 'VM started', status: 'done' });
     return { success: true, instanceName };
   }
 
   // Broken — delete and recreate
-  progress('Recreating sandbox VM…');
+  progress({ id: 'cleanup', label: 'Removing broken VM…', status: 'active' });
   const deleteResult = await deleteInstance(instanceName);
   if (!deleteResult.success) {
     return {
@@ -364,16 +381,22 @@ export async function ensureRunning(
       error: `Cannot recreate VM: failed to delete broken instance. ${deleteResult.error}`,
     };
   }
-  const createResult = await createInstance(projectPath);
-  if (!createResult.success) {
-    return { success: false, instanceName, error: createResult.error };
+  progress({ id: 'cleanup', label: 'Broken VM removed', status: 'done' });
+
+  progress({ id: 'create', label: 'Creating and starting sandbox VM…', status: 'active' });
+  const createResult2 = await createInstance(projectPath);
+  if (!createResult2.success) {
+    return { success: false, instanceName, error: createResult2.error };
   }
-  progress('Starting sandbox VM…');
-  const startResult = await startInstance(instanceName, progress);
-  if (!startResult.success) {
-    return { success: false, instanceName, error: startResult.error };
+  progress({ id: 'create', label: 'VM created and started', status: 'done' });
+
+  if (!(await waitForSsh(instanceName, 10, progress))) {
+    return { success: false, instanceName, error: 'SSH not responding after VM start.' };
   }
+  progress({ id: 'ssh', label: 'SSH connected', status: 'done' });
+
   await waitForProvisioning(instanceName, 60, progress);
+  progress({ id: 'provision', label: 'Provisioning complete', status: 'done' });
   return { success: true, instanceName };
 }
 
@@ -421,7 +444,7 @@ export async function getLimaStatus(projectPath: string): Promise<SandboxStatus>
  */
 export async function recreateInstance(
   projectPath: string,
-  onProgress?: (message: string) => void,
+  onProgress?: ProgressCallback,
 ): Promise<{ success: boolean; error?: string }> {
   const progress = onProgress ?? (() => {});
   const instanceName = getInstanceName(projectPath);
@@ -429,27 +452,31 @@ export async function recreateInstance(
   try {
     const instance = await getInstance(instanceName);
     if (instance.status === 'Running') {
-      progress('Stopping VM…');
+      progress({ id: 'stop', label: 'Stopping VM…', status: 'active' });
       const stopResult = await stopInstance(instanceName);
       if (!stopResult.success) return { success: false, error: stopResult.error };
+      progress({ id: 'stop', label: 'VM stopped', status: 'done' });
     }
 
     if (instance.status !== 'NotFound') {
-      progress('Deleting VM…');
+      progress({ id: 'delete', label: 'Deleting VM…', status: 'active' });
       const delResult = await deleteInstance(instanceName);
       if (!delResult.success) return { success: false, error: delResult.error };
+      progress({ id: 'delete', label: 'VM deleted', status: 'done' });
     }
 
-    progress('Creating sandbox VM (this may take a few minutes)…');
+    progress({ id: 'create', label: 'Creating and starting sandbox VM…', status: 'active' });
     const createResult = await createInstance(projectPath);
     if (!createResult.success) return { success: false, error: createResult.error };
+    progress({ id: 'create', label: 'VM created and started', status: 'done' });
 
-    progress('Starting sandbox VM…');
-    const startResult = await startInstance(instanceName, progress);
-    if (!startResult.success) return { success: false, error: startResult.error };
+    if (!(await waitForSsh(instanceName, 10, progress))) {
+      return { success: false, error: 'SSH not responding after VM start.' };
+    }
+    progress({ id: 'ssh', label: 'SSH connected', status: 'done' });
 
     await waitForProvisioning(instanceName, 60, progress);
-    progress('VM recreated successfully');
+    progress({ id: 'provision', label: 'Provisioning complete', status: 'done' });
     return { success: true };
   } catch (error) {
     const msg = error instanceof Error ? error.message : 'Unknown error';
