@@ -1,8 +1,10 @@
 import { useEffect } from 'react';
+import { useAppStore } from '../../stores/appStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { ScriptList } from './ScriptList';
 import { HookList } from './HookList';
 import type { HookEntry } from './HookList';
+import { SandboxSection } from './SandboxSection';
 
 const LIFECYCLE_HOOKS: HookEntry[] = [
   { type: 'start', label: 'Start', description: 'Runs when a task moves to In Progress' },
@@ -17,15 +19,13 @@ const EDITOR_HOOK: HookEntry[] = [
   { type: 'editor', label: 'Editor', description: 'Opens the task worktree in your editor' },
 ];
 
-const SANDBOX_HOOK: HookEntry[] = [
-  { type: 'sandbox-setup', label: 'Setup', description: 'Runs inside the VM before each command' },
-];
-
 interface ProjectSettingsPanelProps {
   projectPath: string;
 }
 
 export function ProjectSettingsPanel({ projectPath }: ProjectSettingsPanelProps) {
+  const sandboxAvailable = useAppStore((s) => s.sandboxAvailable);
+
   useEffect(() => {
     useProjectStore.getState().loadScripts(projectPath);
   }, [projectPath]);
@@ -75,11 +75,13 @@ export function ProjectSettingsPanel({ projectPath }: ProjectSettingsPanelProps)
           <p className="text-xs text-text-tertiary mb-4">Command to open task worktrees in your editor.</p>
           <HookList projectPath={projectPath} hooks={EDITOR_HOOK} />
         </section>
-        <section>
-          <h2 className="text-sm font-semibold text-text-primary mb-2">Sandbox</h2>
-          <p className="text-xs text-text-tertiary mb-4">Configuration for sandboxed terminal sessions.</p>
-          <HookList projectPath={projectPath} hooks={SANDBOX_HOOK} />
-        </section>
+        {sandboxAvailable && (
+          <section>
+            <h2 className="text-sm font-semibold text-text-primary mb-2">Sandbox</h2>
+            <p className="text-xs text-text-tertiary mb-4">Lima VM for sandboxed terminal sessions.</p>
+            <SandboxSection projectPath={projectPath} />
+          </section>
+        )}
       </div>
     </div>
   );
