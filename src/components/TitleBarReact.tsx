@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useAppStore } from '../stores/appStore';
 import { useProjectStore } from '../stores/projectStore';
 import { useUIStore } from '../stores/uiStore';
@@ -6,7 +6,6 @@ import { stringToColor, getInitials } from '../utils/projectIcon';
 import { Icon } from './terminal/Icon';
 import { addProjectTerminal } from './terminal/terminalActions';
 import { focusKanbanAddInput } from './kanban/KanbanAddInput';
-import { SandboxDropdown } from './dropdowns/SandboxDropdown';
 import { Tooltip } from './ui/Tooltip';
 import { TooltipButton } from './ui/TooltipButton';
 
@@ -24,18 +23,13 @@ export function TitleBar({ mode }: TitleBarProps) {
   const kanbanVisible = useProjectStore((s) => s.kanbanVisible);
   const activePanel = useProjectStore((s) => s.activePanel);
   const homeGroupMode = useUIStore((s) => s.homeGroupMode);
-  const sandboxAvailable = useAppStore((s) => s.sandboxAvailable);
-  const sandboxVmStatus = useAppStore((s) => s.sandboxVmStatus);
-  const [sandboxOpen, setSandboxOpen] = useState(false);
-  const sandboxStarting = useAppStore((s) => s.sandboxStarting);
   const [username, setUsername] = useState('');
-  const sandboxBtnRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     window.api.homePath().then((p) => setUsername(p.split('/').pop() || 'Home'));
   }, []);
 
-  // Fetch sandbox status when switching projects + poll for VM status changes
+  // Fetch sandbox availability when switching projects
   useEffect(() => {
     if (!activeProjectPath) {
       useAppStore.getState().setSandboxStatus(false, '');
@@ -44,35 +38,6 @@ export function TitleBar({ mode }: TitleBarProps) {
     window.api.lima.status(activeProjectPath).then((s) => {
       useAppStore.getState().setSandboxStatus(s.available, s.vmStatus);
     });
-
-    const cleanup = window.api.lima.onSpawnProgress(() => {
-      useAppStore.getState().setSandboxStarting(true);
-    });
-
-    const poll = setInterval(async () => {
-      try {
-        const s = await window.api.lima.status(activeProjectPath);
-        const { sandboxStarting: starting } = useAppStore.getState();
-        // While the VM is starting, Lima can report transient states (e.g. Broken).
-        // Only update the store once it reaches Running; ignore intermediate states.
-        if (starting) {
-          if (s.vmStatus === 'Running') {
-            useAppStore.getState().setSandboxStarting(false);
-            useAppStore.getState().setSandboxStatus(s.available, s.vmStatus);
-          }
-        } else {
-          useAppStore.getState().setSandboxStatus(s.available, s.vmStatus);
-        }
-      } catch {
-        /* ignore */
-      }
-    }, 5000);
-
-    return () => {
-      cleanup();
-      clearInterval(poll);
-      useAppStore.getState().setSandboxStarting(false);
-    };
   }, [activeProjectPath]);
 
   const handleToggleView = useCallback((view: 'board' | 'stack' | 'settings') => {
@@ -161,44 +126,6 @@ export function TitleBar({ mode }: TitleBarProps) {
                 <Icon name="gear" />
               </TooltipButton>
             </div>
-            {sandboxAvailable && (
-              <div className="relative flex ml-3">
-                <Tooltip text="Sandbox" placement="bottom" disabled={sandboxOpen}>
-                  <button
-                    ref={sandboxBtnRef}
-                    className={`relative h-9 flex items-center justify-center gap-1.5 px-2.5 border rounded-[14px] transition-[background-color,color,border-color] duration-150 [&>svg]:w-5 [&>svg]:h-5 ${
-                      sandboxVmStatus === 'Running'
-                        ? 'bg-[rgba(10,132,255,0.15)] border-[rgba(10,132,255,0.4)] text-[#409cff] hover:bg-[rgba(10,132,255,0.25)]'
-                        : 'bg-background-secondary border-border text-text-secondary hover:bg-background-tertiary hover:text-text-primary'
-                    }`}
-                    style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
-                    onClick={() => setSandboxOpen(!sandboxOpen)}
-                  >
-                    <Icon
-                      name="cube"
-                      className={sandboxStarting ? 'animate-[sandbox-icon-pulse_1.5s_ease-in-out_infinite]' : ''}
-                    />
-                    <span className="[&_svg]:!w-3 [&_svg]:!h-3 opacity-50">
-                      <Icon name="caret-down" />
-                    </span>
-                  </button>
-                </Tooltip>
-                {sandboxOpen && (
-                  <SandboxDropdown
-                    anchorRef={sandboxBtnRef}
-                    onClose={() => {
-                      setSandboxOpen(false);
-                      if (activeProjectPath) {
-                        window.api.lima.status(activeProjectPath).then((s) => {
-                          useAppStore.getState().setSandboxStatus(s.available, s.vmStatus);
-                          if (s.vmStatus === 'Running') useAppStore.getState().setSandboxStarting(false);
-                        });
-                      }
-                    }}
-                  />
-                )}
-              </div>
-            )}
             <Tooltip text="New terminal" placement="bottom">
               <button
                 className="w-9 h-9 flex items-center justify-center bg-background-secondary border border-border rounded-[14px] text-text-secondary transition-all duration-150 ease-out ml-3 [-webkit-app-region:no-drag] hover:bg-background-tertiary hover:text-text-primary [&>svg]:w-5 [&>svg]:h-5"
