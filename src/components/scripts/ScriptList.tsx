@@ -8,9 +8,11 @@ import { CSS } from '@dnd-kit/utilities';
 
 interface ScriptListProps {
   projectPath: string;
+  /** Render rows without the card wrapper (for embedding in a shared card) */
+  bare?: boolean;
 }
 
-export function ScriptList({ projectPath }: ScriptListProps) {
+export function ScriptList({ projectPath, bare }: ScriptListProps) {
   const scripts = useProjectStore((s) => s.scripts);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [addingNew, setAddingNew] = useState(false);
@@ -74,45 +76,60 @@ export function ScriptList({ projectPath }: ScriptListProps) {
     setAddingNew(false);
   }, []);
 
-  return (
-    <div>
-      {scripts.length === 0 && !addingNew && (
-        <div className="border border-border rounded-md px-4 py-6 text-center text-xs text-text-tertiary">
-          No scripts yet. Add one below.
-        </div>
-      )}
-      {scripts.length > 0 && (
-        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-          <SortableContext items={scripts.map((s) => s.id)} strategy={verticalListSortingStrategy}>
-            <div className="border border-border rounded-md overflow-hidden divide-y divide-border">
-              {scripts.map((script) => (
-                <SortableScriptRow
-                  key={script.id}
-                  script={script}
-                  expanded={expandedId === script.id}
-                  onToggle={() => handleToggleExpand(script.id)}
-                  onSave={handleSave}
-                  onDelete={() => handleDelete(script.id)}
-                />
-              ))}
-            </div>
-          </SortableContext>
-        </DndContext>
-      )}
+  const scriptRows = scripts.map((script) => (
+    <SortableScriptRow
+      key={script.id}
+      script={script}
+      expanded={expandedId === script.id}
+      onToggle={() => handleToggleExpand(script.id)}
+      onSave={handleSave}
+      onDelete={() => handleDelete(script.id)}
+    />
+  ));
 
-      {addingNew && (
-        <div className="mt-2 border border-border rounded-md overflow-hidden">
-          <ScriptForm onSave={handleSave} onCancel={handleCancelAdd} />
-        </div>
-      )}
-
-      <button
-        className="mt-3 flex items-center gap-2 px-3 py-1.5 text-xs text-text-secondary bg-transparent border border-border rounded-md hover:bg-background-tertiary hover:text-text-primary transition-colors duration-150"
-        onClick={handleAddNew}
-      >
+  const addButton = (
+    <div className="px-3 py-2 hover:bg-white/[0.04] transition-colors duration-100" onClick={handleAddNew}>
+      <span className="flex items-center gap-2 text-xs text-text-tertiary hover:text-text-primary transition-colors duration-150">
         <Icon name="plus" className="w-3.5 h-3.5" />
         Add Script
-      </button>
+      </span>
+    </div>
+  );
+
+  const content = (
+    <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+      <SortableContext items={scripts.map((s) => s.id)} strategy={verticalListSortingStrategy}>
+        {scriptRows}
+      </SortableContext>
+    </DndContext>
+  );
+
+  if (bare) {
+    return (
+      <>
+        {scripts.length > 0 && content}
+        {addingNew && <ScriptForm onSave={handleSave} onCancel={handleCancelAdd} />}
+        {!addingNew && addButton}
+      </>
+    );
+  }
+
+  return (
+    <div>
+      <div
+        className="border border-white/10 rounded-[14px] overflow-hidden divide-y divide-white/[0.06]"
+        style={{
+          background: 'var(--color-terminal-bg, #171717)',
+          boxShadow: '0 0 0 1px rgba(0, 0, 0, 0.05), 0 4px 12px rgba(0, 0, 0, 0.15), 0 20px 40px rgba(0, 0, 0, 0.2)',
+        }}
+      >
+        {scripts.length === 0 && !addingNew && (
+          <div className="px-4 py-6 text-center text-xs text-text-tertiary">No scripts yet. Add one below.</div>
+        )}
+        {scripts.length > 0 && content}
+        {addingNew && <ScriptForm onSave={handleSave} onCancel={handleCancelAdd} />}
+        {!addingNew && addButton}
+      </div>
     </div>
   );
 }
@@ -143,7 +160,7 @@ function SortableScriptRow({
   return (
     <div ref={setNodeRef} style={style}>
       <div
-        className="flex items-center gap-2 px-3 py-2 bg-background-secondary hover:bg-background-tertiary transition-colors duration-100"
+        className="flex items-center gap-2 px-3 py-2 hover:bg-white/[0.04] transition-colors duration-100"
         onClick={onToggle}
       >
         <button
@@ -213,7 +230,7 @@ function ScriptForm({
   const isValid = name.trim() && command.trim();
 
   return (
-    <div className="px-4 py-3 bg-background-secondary space-y-3" onClick={(e) => e.stopPropagation()}>
+    <div className="px-4 py-3 space-y-3" onClick={(e) => e.stopPropagation()}>
       <div>
         <label className="block text-[11px] text-text-tertiary mb-1">Name</label>
         <input

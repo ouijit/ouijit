@@ -2,6 +2,24 @@ import { useEffect } from 'react';
 import { useProjectStore } from '../../stores/projectStore';
 import { ScriptList } from './ScriptList';
 import { HookList } from './HookList';
+import type { HookEntry } from './HookList';
+
+const LIFECYCLE_HOOKS: HookEntry[] = [
+  { type: 'start', label: 'Start', description: 'Runs when a task moves to In Progress' },
+  { type: 'continue', label: 'Continue', description: 'Runs when reopening an In Progress task' },
+  { type: 'review', label: 'Review', description: 'Runs when a task moves to In Review' },
+  { type: 'cleanup', label: 'Cleanup', description: 'Runs when a task moves to Done' },
+];
+
+const RUN_HOOK: HookEntry[] = [{ type: 'run', label: 'Run', description: 'Runs when you click Run' }];
+
+const EDITOR_HOOK: HookEntry[] = [
+  { type: 'editor', label: 'Editor', description: 'Opens the task worktree in your editor' },
+];
+
+const SANDBOX_HOOK: HookEntry[] = [
+  { type: 'sandbox-setup', label: 'Setup', description: 'Runs inside the VM before each command' },
+];
 
 interface ProjectSettingsPanelProps {
   projectPath: string;
@@ -33,16 +51,34 @@ export function ProjectSettingsPanel({ projectPath }: ProjectSettingsPanelProps)
       </div>
       <div className="flex-1 px-6 py-4 min-w-full max-w-2xl space-y-8">
         <section>
-          <h2 className="text-sm font-semibold text-text-primary mb-2">Hooks</h2>
+          <h2 className="text-sm font-semibold text-text-primary mb-2">Lifecycle Hooks</h2>
           <p className="text-xs text-text-tertiary mb-4">Commands that run automatically during the task lifecycle.</p>
-          <HookList projectPath={projectPath} />
+          <HookList projectPath={projectPath} hooks={LIFECYCLE_HOOKS} />
         </section>
         <section>
-          <h2 className="text-sm font-semibold text-text-primary mb-2">Scripts</h2>
-          <p className="text-xs text-text-tertiary mb-4">
-            Custom commands available from the terminal run button dropdown.
-          </p>
-          <ScriptList projectPath={projectPath} />
+          <h2 className="text-sm font-semibold text-text-primary mb-2">Run Scripts</h2>
+          <p className="text-xs text-text-tertiary mb-4">Commands available from the terminal run button dropdown.</p>
+          <div
+            className="border border-white/10 rounded-[14px] overflow-hidden divide-y divide-white/[0.06]"
+            style={{
+              background: 'var(--color-terminal-bg, #171717)',
+              boxShadow:
+                '0 0 0 1px rgba(0, 0, 0, 0.05), 0 4px 12px rgba(0, 0, 0, 0.15), 0 20px 40px rgba(0, 0, 0, 0.2)',
+            }}
+          >
+            <HookList projectPath={projectPath} hooks={RUN_HOOK} bare />
+            <ScriptList projectPath={projectPath} bare />
+          </div>
+        </section>
+        <section>
+          <h2 className="text-sm font-semibold text-text-primary mb-2">Editor</h2>
+          <p className="text-xs text-text-tertiary mb-4">Command to open task worktrees in your editor.</p>
+          <HookList projectPath={projectPath} hooks={EDITOR_HOOK} />
+        </section>
+        <section>
+          <h2 className="text-sm font-semibold text-text-primary mb-2">Sandbox</h2>
+          <p className="text-xs text-text-tertiary mb-4">Configuration for sandboxed terminal sessions.</p>
+          <HookList projectPath={projectPath} hooks={SANDBOX_HOOK} />
         </section>
       </div>
     </div>
