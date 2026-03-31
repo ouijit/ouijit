@@ -231,7 +231,7 @@ export function ProjectView() {
   }
 
   return (
-    <div className="project-view">
+    <div className="project-view h-full">
       {activePanel === 'settings' ? (
         <ProjectSettingsPanel projectPath={projectPath} />
       ) : (

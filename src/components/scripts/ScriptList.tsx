@@ -76,25 +76,29 @@ export function ScriptList({ projectPath }: ScriptListProps) {
 
   return (
     <div>
-      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-        <SortableContext items={scripts.map((s) => s.id)} strategy={verticalListSortingStrategy}>
-          <div className="border border-border rounded-md overflow-hidden divide-y divide-border">
-            {scripts.map((script) => (
-              <SortableScriptRow
-                key={script.id}
-                script={script}
-                expanded={expandedId === script.id}
-                onToggle={() => handleToggleExpand(script.id)}
-                onSave={handleSave}
-                onDelete={() => handleDelete(script.id)}
-              />
-            ))}
-            {scripts.length === 0 && !addingNew && (
-              <div className="px-4 py-6 text-center text-xs text-text-tertiary">No scripts yet. Add one below.</div>
-            )}
-          </div>
-        </SortableContext>
-      </DndContext>
+      {scripts.length === 0 && !addingNew && (
+        <div className="border border-border rounded-md px-4 py-6 text-center text-xs text-text-tertiary">
+          No scripts yet. Add one below.
+        </div>
+      )}
+      {scripts.length > 0 && (
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <SortableContext items={scripts.map((s) => s.id)} strategy={verticalListSortingStrategy}>
+            <div className="border border-border rounded-md overflow-hidden divide-y divide-border">
+              {scripts.map((script) => (
+                <SortableScriptRow
+                  key={script.id}
+                  script={script}
+                  expanded={expandedId === script.id}
+                  onToggle={() => handleToggleExpand(script.id)}
+                  onSave={handleSave}
+                  onDelete={() => handleDelete(script.id)}
+                />
+              ))}
+            </div>
+          </SortableContext>
+        </DndContext>
+      )}
 
       {addingNew && (
         <div className="mt-2 border border-border rounded-md overflow-hidden">
@@ -209,7 +213,7 @@ function ScriptForm({
   const isValid = name.trim() && command.trim();
 
   return (
-    <div className="px-4 py-3 bg-background-primary space-y-3" onClick={(e) => e.stopPropagation()}>
+    <div className="px-4 py-3 bg-background-secondary space-y-3" onClick={(e) => e.stopPropagation()}>
       <div>
         <label className="block text-[11px] text-text-tertiary mb-1">Name</label>
         <input

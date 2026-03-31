@@ -517,23 +517,27 @@ function RunnerPill({
 
   // Split button: primary action + chevron dropdown
   return (
-    <div role="group" aria-label="Run options" className="inline-flex items-center rounded-full overflow-hidden">
+    <div
+      role="group"
+      aria-label="Run options"
+      className={`inline-flex items-stretch rounded-full overflow-hidden bg-white/[0.06] ${activeHighlight}`}
+    >
       <button
-        className={`px-2.5 py-1 bg-white/[0.06] border-none font-sans text-[13px] font-medium transition-all duration-150 ease-out hover:bg-white/[0.12] hover:text-white/90 active:bg-white/[0.10] active:text-white/80 ${activeHighlight} ${baseColors}`}
+        className={`px-2.5 py-1 border-none font-sans text-[13px] font-medium transition-all duration-150 ease-out hover:bg-white/[0.06] hover:text-white/90 active:bg-white/[0.04] active:text-white/80 ${baseColors}`}
         data-action="run"
         onClick={onPrimaryClick}
       >
         {text}
       </button>
-      <div className="w-px self-stretch bg-white/20" />
+      <div className="w-px self-stretch bg-white/10" />
       <button
         ref={chevronRef}
-        className={`px-1 py-1 bg-white/[0.06] border-none transition-all duration-150 ease-out hover:bg-white/[0.12] active:bg-white/[0.10] ${activeHighlight} ${baseColors} [&_svg]:w-3 [&_svg]:h-3`}
+        className={`flex items-center justify-center px-2 border-none transition-all duration-150 ease-out hover:bg-white/[0.06] active:bg-white/[0.04] ${baseColors}`}
         aria-haspopup="menu"
         aria-label="More run options"
         onClick={onChevronClick}
       >
-        <Icon name="caret-down" />
+        <Icon name="caret-down" className="w-3 h-3" />
       </button>
     </div>
   );

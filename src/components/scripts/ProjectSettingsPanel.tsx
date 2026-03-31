@@ -1,6 +1,7 @@
 import { useEffect, useCallback } from 'react';
 import { useProjectStore } from '../../stores/projectStore';
 import { ScriptList } from './ScriptList';
+import { HookList } from './HookList';
 import { Icon } from '../terminal/Icon';
 
 interface ProjectSettingsPanelProps {
@@ -38,12 +39,21 @@ export function ProjectSettingsPanel({ projectPath }: ProjectSettingsPanelProps)
         </button>
         <h1 className="text-base font-semibold text-text-primary">Project Settings</h1>
       </div>
-      <div className="flex-1 px-6 py-6 max-w-2xl">
-        <h2 className="text-sm font-semibold text-text-primary mb-4">Scripts</h2>
-        <p className="text-xs text-text-tertiary mb-4">
-          Define commands that can be run from the terminal run button dropdown.
-        </p>
-        <ScriptList projectPath={projectPath} />
+      <div className="flex-1 px-6 py-6 min-w-full max-w-2xl space-y-8">
+        <section>
+          <h2 className="text-sm font-semibold text-text-primary mb-2">Hooks</h2>
+          <p className="text-xs text-text-tertiary mb-4">
+            Commands that run automatically during the task lifecycle.
+          </p>
+          <HookList projectPath={projectPath} />
+        </section>
+        <section>
+          <h2 className="text-sm font-semibold text-text-primary mb-2">Scripts</h2>
+          <p className="text-xs text-text-tertiary mb-4">
+            Custom commands available from the terminal run button dropdown.
+          </p>
+          <ScriptList projectPath={projectPath} />
+        </section>
       </div>
     </div>
   );
