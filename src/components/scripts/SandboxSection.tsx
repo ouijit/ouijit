@@ -188,6 +188,27 @@ export function SandboxSection({ projectPath }: SandboxSectionProps) {
     [handleEditorChange, isDirty, handleSave],
   );
 
+  const autoSize = useCallback((el: HTMLTextAreaElement | null) => {
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight}px`;
+  }, []);
+
+  const mergedRef = useCallback(
+    (el: HTMLTextAreaElement | null) => {
+      autoSize(el);
+    },
+    [mergedYaml, autoSize],
+  );
+
+  const editRef = useCallback(
+    (el: HTMLTextAreaElement | null) => {
+      (textareaRef as React.MutableRefObject<HTMLTextAreaElement | null>).current = el;
+      autoSize(el);
+    },
+    [editorValue, autoSize],
+  );
+
   const [showMerged, setShowMerged] = useState(false);
   const statusLabel = sandboxStarting ? 'Starting\u2026' : VM_STATUS_LABELS[vmStatus] || vmStatus;
   const statusColor = vmStatus === 'Running' && !sandboxStarting ? 'text-[#0a84ff]' : 'text-text-primary';
@@ -208,8 +229,14 @@ export function SandboxSection({ projectPath }: SandboxSectionProps) {
       </div>
 
       {/* YAML config editor */}
-      <div className="space-y-2">
-        <div className="flex items-center justify-between px-1">
+      <div
+        className="border border-white/10 rounded-[14px] overflow-hidden"
+        style={{
+          background: 'var(--color-terminal-bg, #171717)',
+          boxShadow: '0 0 0 1px rgba(0, 0, 0, 0.05), 0 4px 12px rgba(0, 0, 0, 0.15), 0 20px 40px rgba(0, 0, 0, 0.2)',
+        }}
+      >
+        <div className="flex items-center justify-between px-3 py-2">
           <span className="text-xs font-medium text-text-secondary">Configuration</span>
           <div className="flex items-center gap-2">
             <button
@@ -231,15 +258,16 @@ export function SandboxSection({ projectPath }: SandboxSectionProps) {
 
         {showMerged ? (
           <textarea
-            className="w-full min-h-[400px] text-[13px] leading-5 font-mono bg-black/30 border border-white/10 rounded-md p-4 text-text-secondary resize-y outline-none tabular-nums"
+            ref={mergedRef}
+            className="w-full max-h-[80vh] overflow-y-auto text-[13px] leading-5 font-mono bg-transparent border-t border-white/[0.06] p-4 text-text-secondary resize-none outline-none tabular-nums"
             value={mergedYaml}
             readOnly
             spellCheck={false}
           />
         ) : (
           <textarea
-            ref={textareaRef}
-            className="w-full min-h-[400px] text-[13px] leading-5 font-mono bg-black/30 border border-white/10 rounded-md p-4 text-text-primary resize-y outline-none focus:border-white/20 tabular-nums"
+            ref={editRef}
+            className="w-full max-h-[80vh] overflow-y-auto text-[13px] leading-5 font-mono bg-transparent border-t border-white/[0.06] p-4 text-text-primary resize-none outline-none tabular-nums"
             value={editorValue}
             onChange={(e) => handleEditorChange(e.target.value)}
             onKeyDown={handleKeyDown}
@@ -250,7 +278,7 @@ export function SandboxSection({ projectPath }: SandboxSectionProps) {
           />
         )}
 
-        {yamlError && <p className="text-[11px] text-red-400 px-1">{yamlError}</p>}
+        {yamlError && <p className="text-[11px] text-red-400 px-3 pb-2">{yamlError}</p>}
       </div>
 
       {/* Recreate prompt */}
