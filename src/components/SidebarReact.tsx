@@ -91,6 +91,13 @@ export function Sidebar({ onProjectSelect, onHomeSelect, onAddExisting, onCreate
     }, 300);
   }, [addMenuOpen]);
 
+  // Listen for show-sidebar events from the header toggle button
+  useEffect(() => {
+    const handler = () => showSidebar();
+    document.addEventListener('show-sidebar', handler);
+    return () => document.removeEventListener('show-sidebar', handler);
+  }, [showSidebar]);
+
   // Context menu dismiss
   useEffect(() => {
     if (!contextMenu) return;
@@ -137,10 +144,10 @@ export function Sidebar({ onProjectSelect, onHomeSelect, onAddExisting, onCreate
         <div
           ref={triggerRef}
           className="fixed top-0 bottom-0 left-0 z-[10000]"
-          style={{ width: 16 }}
+          style={{ width: 24 }}
           onMouseEnter={(e) => {
             if (e.buttons !== 0) return;
-            showTimeoutRef.current = setTimeout(showSidebar, 200);
+            showTimeoutRef.current = setTimeout(showSidebar, 120);
           }}
           onMouseLeave={() => {
             if (showTimeoutRef.current) {
@@ -154,8 +161,9 @@ export function Sidebar({ onProjectSelect, onHomeSelect, onAddExisting, onCreate
       {/* Sidebar */}
       <aside
         ref={sidebarRef}
-        className="fixed top-0 bottom-0 left-0 z-[10001] flex flex-col overflow-hidden"
+        className="fixed bottom-0 left-0 z-[10001] flex flex-col overflow-hidden"
         style={{
+          top: isMac && !fullscreen ? 0 : 60,
           width: visible ? 'var(--sidebar-width)' : 0,
           transition: 'width 200ms ease-out',
           background: 'var(--color-background)',

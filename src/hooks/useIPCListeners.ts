@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useAppStore } from '../stores/appStore';
+import { useProjectStore } from '../stores/projectStore';
 
 /**
  * Registers global IPC push event listeners.
@@ -19,6 +20,25 @@ export function useIPCListeners() {
     cleanups.push(
       window.api.onFullscreenChange((isFullscreen) => {
         useAppStore.getState().setFullscreen(isFullscreen);
+      }),
+    );
+
+    // App update available (Linux — macOS uses native Squirrel dialog)
+    cleanups.push(
+      window.api.onUpdateAvailable((info) => {
+        useProjectStore.getState().addToast(`Version ${info.version} is available`, {
+          type: 'info',
+          persistent: true,
+          actionLabel: 'Download',
+          onAction: () => window.api.openExternal(info.url),
+        });
+      }),
+    );
+
+    // "What's New" on first launch after update
+    cleanups.push(
+      window.api.onWhatsNew((info) => {
+        useAppStore.getState().setWhatsNew(info);
       }),
     );
 

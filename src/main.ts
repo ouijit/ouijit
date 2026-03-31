@@ -12,6 +12,7 @@ import { TaskRepo } from './db/repos/taskRepo';
 import { SettingsRepo } from './db/repos/settingsRepo';
 import { HookRepo } from './db/repos/hookRepo';
 import { importAll } from './services/dataImportService';
+import { initUpdater, cleanupUpdater } from './updater';
 
 const appLog = log.scope('app');
 
@@ -145,41 +146,39 @@ app.on('ready', async () => {
 
   mainWindow = createWindow();
   await registerIpcHandlers(mainWindow);
+  initUpdater(mainWindow);
 });
 
 app.on('before-quit', (e) => {
-  if (quitConfirmed) {
-    appLog.info('app quitting');
-    cleanupIpc();
-    closeDatabase();
-    return;
-  }
+  if (quitConfirmed) return;
 
   const count = getActiveSessionCount();
-  if (count === 0 || process.env.NODE_ENV === 'test') {
-    appLog.info('app quitting');
-    cleanupIpc();
-    closeDatabase();
-    return;
-  }
+  if (count === 0 || process.env.NODE_ENV === 'test') return;
 
   e.preventDefault();
   const s = count === 1 ? 'session' : 'sessions';
-  dialog
-    .showMessageBox({
-      type: 'question',
-      buttons: ['Quit', 'Cancel'],
-      defaultId: 1,
-      cancelId: 1,
-      message: 'Quit Ouijit?',
-      detail: `You have ${count} active terminal ${s} that will be terminated.`,
-    })
-    .then(({ response }) => {
-      if (response === 0) {
-        quitConfirmed = true;
-        app.quit();
-      }
-    });
+  const parent = mainWindow && !mainWindow.isDestroyed() ? mainWindow : undefined;
+  const opts = {
+    type: 'question' as const,
+    buttons: ['Quit', 'Cancel'],
+    defaultId: 1,
+    cancelId: 1,
+    message: 'Quit Ouijit?',
+    detail: `You have ${count} active terminal ${s} that will be terminated.`,
+  };
+  (parent ? dialog.showMessageBox(parent, opts) : dialog.showMessageBox(opts)).then(({ response }) => {
+    if (response === 0) {
+      quitConfirmed = true;
+      app.quit();
+    }
+  });
+});
+
+app.on('will-quit', () => {
+  appLog.info('app quitting');
+  cleanupUpdater();
+  cleanupIpc();
+  closeDatabase();
 });
 
 // Quit when all windows are closed, except on macOS. There, it's common

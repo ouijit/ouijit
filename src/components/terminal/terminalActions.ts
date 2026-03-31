@@ -438,7 +438,6 @@ async function _spawnRunnerInner(instance: OuijitTerminal, script?: RunnerScript
     });
 
     instance.setRunner(runner);
-    instance.runnerPanelOpen = true;
     instance.pushDisplayState({
       runnerStatus: 'running',
       runnerScriptName: script?.name ?? null,

@@ -65,14 +65,20 @@ export function useTerminalPanels(ptyId: string | null) {
     requestAnimationFrame(() => instance.fit());
   }, [ptyId]);
 
-  const restartRunner = useCallback(() => {
+  const restartRunner = useCallback(async () => {
     if (!ptyId) return;
     const instance = terminalInstances.get(ptyId);
     if (!instance) return;
     const script = instance.runnerScript;
     instance.killRunner();
     // Re-run whatever was last run (ad-hoc script or run hook)
-    spawnRunner(ptyId, script ?? undefined);
+    await spawnRunner(ptyId, script ?? undefined);
+    // Re-open panel since restart is triggered from within the open panel
+    if (instance.runner?.ptyId) {
+      instance.runnerPanelOpen = true;
+      instance.runnerFullWidth = true;
+      instance.pushDisplayState({ runnerPanelOpen: true, runnerFullWidth: true });
+    }
   }, [ptyId]);
 
   return { toggleDiffPanel, closeDiffPanel, toggleRunner, collapseRunner, killRunner, restartRunner };

@@ -177,7 +177,10 @@ export async function spawnPty(options: PtySpawnOptions, window: BrowserWindow):
 
       if (expandedCommand) {
         const escapedCmd = expandedCommand.replace(/'/g, "'\\''");
-        shellArgs = ['-ic', `export PATH="$OUIJIT_WRAPPER_DIR:$PATH"; ${escapedCmd}; exec ${shell}`];
+        shellArgs = [
+          '-ic',
+          `export PATH="$OUIJIT_WRAPPER_DIR:$PATH"; ${escapedCmd}; ZDOTDIR="$OUIJIT_SHELL_INTEGRATION_DIR/zsh" exec ${shell}`,
+        ];
       }
     } else if (isBash) {
       // --rcfile/--init-file: bash sources this instead of ~/.bashrc.

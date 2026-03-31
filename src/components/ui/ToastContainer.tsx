@@ -3,6 +3,7 @@ import { useProjectStore } from '../../stores/projectStore';
 
 export function ToastContainer() {
   const toasts = useProjectStore((s) => s.toasts);
+  const removeToast = useProjectStore((s) => s.removeToast);
 
   if (toasts.length === 0) return null;
 
@@ -26,6 +27,25 @@ export function ToastContainer() {
           }}
         >
           {toast.message}
+          {toast.actionLabel && toast.onAction && (
+            <button
+              className="ml-1 px-2 py-0.5 text-xs rounded bg-white/15 hover:bg-white/25 active:bg-white/10 transition-colors"
+              onClick={() => {
+                toast.onAction?.();
+                removeToast(toast.id);
+              }}
+            >
+              {toast.actionLabel}
+            </button>
+          )}
+          {toast.persistent && (
+            <button
+              className="ml-1 text-white/40 hover:text-white/70 active:text-white/30 transition-colors text-base leading-none"
+              onClick={() => removeToast(toast.id)}
+            >
+              ✕
+            </button>
+          )}
         </div>
       ))}
     </>,

@@ -12,6 +12,7 @@ interface AppStoreState {
   sandboxAvailable: boolean;
   sandboxVmStatus: string;
   sandboxStarting: boolean;
+  whatsNew: { version: string; notes: string } | null;
   _version: number;
 }
 
@@ -21,6 +22,7 @@ interface AppStoreActions {
   setSidebarSearch: (search: string) => void;
   setSandboxStatus: (available: boolean, vmStatus: string) => void;
   setSandboxStarting: (starting: boolean) => void;
+  setWhatsNew: (info: { version: string; notes: string } | null) => void;
   navigateToProject: (path: string, project: Project) => void;
   navigateHome: () => void;
   resetProjectState: () => void;
@@ -39,6 +41,7 @@ export const useAppStore = create<AppStore>()((set, get) => ({
   sandboxAvailable: false,
   sandboxVmStatus: '',
   sandboxStarting: false,
+  whatsNew: null,
   _version: 0,
 
   setProjects: (projects) => set({ projects }),
@@ -50,6 +53,8 @@ export const useAppStore = create<AppStore>()((set, get) => ({
   setSandboxStatus: (available, vmStatus) => set({ sandboxAvailable: available, sandboxVmStatus: vmStatus }),
 
   setSandboxStarting: (starting) => set({ sandboxStarting: starting }),
+
+  setWhatsNew: (info) => set({ whatsNew: info }),
 
   navigateToProject: (path, project) => {
     const version = get()._version + 1;

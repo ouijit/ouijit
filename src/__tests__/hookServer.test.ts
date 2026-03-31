@@ -3,7 +3,17 @@ import * as http from 'node:http';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
+import { execFileSync } from 'node:child_process';
 import type { BrowserWindow } from 'electron';
+
+const hasZsh = (() => {
+  try {
+    execFileSync('which', ['zsh'], { stdio: 'ignore' });
+    return true;
+  } catch {
+    return false;
+  }
+})();
 
 // Mutable homedir for install tests — must be declared before vi.mock
 let _testHomedir = '';
@@ -558,6 +568,64 @@ describe('wrapper → ouijit-hook → hook server (end-to-end)', () => {
 
     await waitForIpc();
     expect(mockSend).toHaveBeenCalledWith('claude-hook-status', 'pty-e2e-2', 'thinking');
+  });
+
+  test.skipIf(!hasZsh)('hooks fire in zsh after start hook runs and exec drops into interactive shell', async () => {
+    const { execFile } = await import('node:child_process');
+    const { promisify } = await import('node:util');
+    const exec = promisify(execFile);
+
+    // npm-bin simulates the real claude binary (e.g. installed via npm -g).
+    const npmBinDir = path.join(tmpHome, 'npm-bin');
+    writeMockClaude(npmBinDir);
+
+    // .zshrc that prepends npm-bin (clobbers wrapper position in PATH).
+    fs.writeFileSync(path.join(tmpHome, '.zshrc'), `export PATH="${npmBinDir}:$PATH"\n`);
+
+    const integrationDir = path.join(tmpHome, '.config', 'Ouijit', 'shell-integration');
+
+    // Reproduce the real flow when a start hook is configured:
+    //   1. zsh -ic 'export PATH=...; <hook_cmd>; exec zsh'
+    //   2. The hook command runs (e.g. git fetch && git merge)
+    //   3. exec zsh drops into a fresh interactive shell
+    //   4. User types `claude` in the new shell
+    //
+    // The bug: `exec zsh` without ZDOTDIR re-sets means the new zsh
+    // doesn't go through the ZDOTDIR trick. The user's .zshrc clobbers
+    // PATH and the wrapper is never first. Fix: re-set ZDOTDIR on exec.
+    //
+    // We simulate `exec zsh` with `zsh -ic '...'` since we can't exec
+    // in a test. The inner zsh sources .zshrc (clobbers PATH), then we
+    // manually fire precmd (simulating the interactive prompt) and run claude.
+    await exec(
+      '/bin/zsh',
+      [
+        '-ic',
+        [
+          // Outer shell: run the hook command, then "exec" into a new zsh
+          'echo "hook: simulating git fetch"',
+          // Re-set ZDOTDIR for the inner shell (the fix under test).
+          // In production this is: ZDOTDIR="$OUIJIT_SHELL_INTEGRATION_DIR/zsh" exec zsh
+          // In test we simulate with a nested zsh -ic + manual precmd.
+          `ZDOTDIR="$OUIJIT_SHELL_INTEGRATION_DIR/zsh" /bin/zsh -ic 'for fn in $precmd_functions; do $fn; done && claude'`,
+        ].join(' && '),
+      ],
+      {
+        env: {
+          PATH: `${binDir}:${process.env['PATH'] || ''}`,
+          HOME: tmpHome,
+          ZDOTDIR: path.join(integrationDir, 'zsh'),
+          OUIJIT_API_URL: `http://127.0.0.1:${port}`,
+          OUIJIT_PTY_ID: 'pty-e2e-zsh-hook',
+          OUIJIT_WRAPPER_DIR: binDir,
+          OUIJIT_SHELL_INTEGRATION_DIR: integrationDir,
+          OUIJIT_ZSH_ZDOTDIR: '',
+        },
+      },
+    );
+
+    await waitForIpc();
+    expect(mockSend).toHaveBeenCalledWith('claude-hook-status', 'pty-e2e-zsh-hook', 'thinking');
   });
 });
 
