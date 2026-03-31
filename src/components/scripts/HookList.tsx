@@ -1,7 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import type { HookType, ScriptHook } from '../../types';
 import { HookConfigDialog } from '../dialogs/HookConfigDialog';
-import { Icon } from '../terminal/Icon';
 
 const HOOKS: { type: HookType; label: string; description: string }[] = [
   { type: 'run', label: 'Run', description: 'Runs when you click Run' },

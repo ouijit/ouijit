@@ -6,7 +6,6 @@ import { stringToColor, getInitials } from '../utils/projectIcon';
 import { Icon } from './terminal/Icon';
 import { addProjectTerminal } from './terminal/terminalActions';
 import { focusKanbanAddInput } from './kanban/KanbanAddInput';
-import { LaunchDropdown } from './dropdowns/LaunchDropdown';
 import { SandboxDropdown } from './dropdowns/SandboxDropdown';
 import { Tooltip } from './ui/Tooltip';
 import { TooltipButton } from './ui/TooltipButton';
@@ -27,11 +26,9 @@ export function TitleBar({ mode }: TitleBarProps) {
   const homeGroupMode = useUIStore((s) => s.homeGroupMode);
   const sandboxAvailable = useAppStore((s) => s.sandboxAvailable);
   const sandboxVmStatus = useAppStore((s) => s.sandboxVmStatus);
-  const [launchOpen, setLaunchOpen] = useState(false);
   const [sandboxOpen, setSandboxOpen] = useState(false);
   const sandboxStarting = useAppStore((s) => s.sandboxStarting);
   const [username, setUsername] = useState('');
-  const hooksBtnRef = useRef<HTMLButtonElement>(null);
   const sandboxBtnRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -155,22 +152,6 @@ export function TitleBar({ mode }: TitleBarProps) {
               >
                 <Icon name="cards-three" />
               </TooltipButton>
-            </div>
-            <div className="relative flex ml-3 [-webkit-app-region:no-drag]">
-              <Tooltip text="Scripts" placement="bottom" disabled={launchOpen}>
-                <button
-                  ref={hooksBtnRef}
-                  className="relative h-9 flex items-center justify-center gap-1.5 px-2.5 bg-background-secondary border border-border rounded-[14px] text-text-secondary [-webkit-app-region:no-drag] hover:bg-background-tertiary hover:text-text-primary [&>svg]:w-5 [&>svg]:h-5"
-                  style={{
-                    transition: 'background-color 150ms ease-out, border-color 150ms ease-out, color 150ms ease-out',
-                  }}
-                  onClick={() => setLaunchOpen(!launchOpen)}
-                >
-                  <Icon name="code" />
-                  <Icon name="caret-down" className="!w-3 !h-3 opacity-50" />
-                </button>
-              </Tooltip>
-              {launchOpen && <LaunchDropdown anchorRef={hooksBtnRef} onClose={() => setLaunchOpen(false)} />}
             </div>
             {sandboxAvailable && (
               <div className="relative flex ml-3">

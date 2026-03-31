@@ -42,9 +42,7 @@ export function ProjectSettingsPanel({ projectPath }: ProjectSettingsPanelProps)
       <div className="flex-1 px-6 py-6 min-w-full max-w-2xl space-y-8">
         <section>
           <h2 className="text-sm font-semibold text-text-primary mb-2">Hooks</h2>
-          <p className="text-xs text-text-tertiary mb-4">
-            Commands that run automatically during the task lifecycle.
-          </p>
+          <p className="text-xs text-text-tertiary mb-4">Commands that run automatically during the task lifecycle.</p>
           <HookList projectPath={projectPath} />
         </section>
         <section>
