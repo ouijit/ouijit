@@ -254,7 +254,7 @@ export const TerminalHeader = memo(function TerminalHeader({
 
   const displayText = summary ? `${label} \u2014 ${summary}` : label;
   const isWorktree = taskId != null && !!worktreeBranch;
-  const showChevron = hasRunHook || hasScripts;
+  const showChevron = runnerStatus === 'idle' && (hasRunHook || hasScripts);
 
   return (
     <div
