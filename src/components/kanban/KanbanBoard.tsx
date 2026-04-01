@@ -278,16 +278,19 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
       let draggedTask = activeTask;
       const origStatus = originalStatusRef.current;
       const droppedOnTrash = overTrash;
-      setActiveTask(null);
       originalStatusRef.current = null;
 
       const { active, over } = event;
-      if (!draggedTask) return;
+      if (!draggedTask) {
+        setActiveTask(null);
+        return;
+      }
 
       const activeId = active.id as string;
 
       // Handle trash drop — use pointer-based hit test for consistency with visual state
       if (droppedOnTrash) {
+        setActiveTask(null);
         const taskNum = parseInt(activeId.replace('task-', ''), 10);
         await window.api.task.trash(projectPath, taskNum);
         useProjectStore.getState().loadTasks(projectPath);
@@ -295,12 +298,18 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
         return;
       }
 
-      if (!over) return;
+      if (!over) {
+        setActiveTask(null);
+        return;
+      }
 
       const overId = over.id as string;
       const activeContainer = findContainer(activeId);
       const overContainer = findContainer(overId);
-      if (!activeContainer) return;
+      if (!activeContainer) {
+        setActiveTask(null);
+        return;
+      }
 
       const finalContainer = overContainer || activeContainer;
       const activeTaskNum = parseInt(activeId.replace('task-', ''), 10);
@@ -329,6 +338,11 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
 
       const newStatus = finalContainer as TaskStatus;
 
+      // Persist status + position optimistically BEFORE async work (worktree creation, etc.)
+      // This updates the store so that when we clear activeTask the effect re-syncs to the new position.
+      await useProjectStore.getState().moveTask(projectPath, activeTaskNum, finalContainer, targetIndex);
+      setActiveTask(null);
+
       // Create worktree BEFORE moving (while task is still todo)
       if (newStatus === 'in_progress' && !draggedTask.worktreePath) {
         const startResult = await window.api.task.start(projectPath, draggedTask.taskNumber);
@@ -351,8 +365,6 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
         draggedTask = { ...draggedTask, worktreePath: wtPath };
       }
 
-      // Persist status + position to backend
-      await useProjectStore.getState().moveTask(projectPath, activeTaskNum, finalContainer, targetIndex);
       await useProjectStore.getState().loadTasks(projectPath);
 
       // Show hook dialog if configured for this transition
