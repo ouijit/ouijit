@@ -194,11 +194,14 @@ export function SandboxSection({ projectPath }: SandboxSectionProps) {
     el.style.height = `${el.scrollHeight}px`;
   }, []);
 
+  const mergedTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+
   const mergedRef = useCallback(
     (el: HTMLTextAreaElement | null) => {
+      mergedTextareaRef.current = el;
       autoSize(el);
     },
-    [mergedYaml, autoSize],
+    [autoSize],
   );
 
   const editRef = useCallback(
@@ -206,8 +209,16 @@ export function SandboxSection({ projectPath }: SandboxSectionProps) {
       (textareaRef as React.MutableRefObject<HTMLTextAreaElement | null>).current = el;
       autoSize(el);
     },
-    [editorValue, autoSize],
+    [autoSize],
   );
+
+  useEffect(() => {
+    autoSize(mergedTextareaRef.current);
+  }, [mergedYaml, autoSize]);
+
+  useEffect(() => {
+    autoSize(textareaRef.current);
+  }, [editorValue, autoSize]);
 
   const [showMerged, setShowMerged] = useState(false);
   const statusLabel = sandboxStarting ? 'Starting\u2026' : VM_STATUS_LABELS[vmStatus] || vmStatus;
