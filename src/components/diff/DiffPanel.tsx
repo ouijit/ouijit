@@ -318,7 +318,7 @@ function DiffFileTree({
           {untrackedExpanded &&
             untrackedFiles.map((filePath) => (
               <div key={filePath} className="flex items-center gap-1.5 py-1 pl-6 pr-3 text-[13px] text-white/40">
-                <Icon name="file-plus" className="text-[#FF9F0A]" />
+                <Icon name="file-plus" className="w-4 h-4 text-[#FF9F0A]" />
                 <span className="flex-1 min-w-0 truncate">{filePath}</span>
               </div>
             ))}
@@ -338,7 +338,7 @@ function TreeNodeView({ node, onFileClick }: { node: TreeNode; onFileClick: (pat
         data-path={node.file.path}
         onClick={() => onFileClick(node.file!.path)}
       >
-        <Icon name={statusIcon(node.file.status)} className={statusColorClass(node.file.status)} />
+        <Icon name={statusIcon(node.file.status)} className={`w-4 h-4 ${statusColorClass(node.file.status)}`} />
         <span className="flex-1 min-w-0 truncate">{node.name}</span>
         {node.file.status === '?' && (
           <span className={`shrink-0 text-[11px] px-1 py-px rounded font-medium ${badgeColorClass('?')}`}>
