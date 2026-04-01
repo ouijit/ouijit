@@ -412,6 +412,7 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
   const handleUpdateDescription = useCallback(
     async (taskNumber: number, description: string) => {
       await window.api.task.setDescription(projectPath, taskNumber, description);
+      useProjectStore.getState().loadTasks(projectPath);
     },
     [projectPath],
   );
