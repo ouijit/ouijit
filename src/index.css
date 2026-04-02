@@ -351,6 +351,15 @@ textarea,
   @apply mr-1.5;
 }
 
+/* Shiki highlighted code blocks */
+.plan-markdown .shiki {
+  @apply my-3 p-3 rounded-lg overflow-x-auto text-[13px] leading-relaxed;
+}
+
+.plan-markdown .shiki code {
+  @apply p-0 bg-transparent;
+}
+
 /* Responsive Adjustments */
 @media (max-width: 768px) {
   :root {

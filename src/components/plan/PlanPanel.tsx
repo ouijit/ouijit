@@ -1,11 +1,51 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { marked } from 'marked';
+import { createHighlighter, bundledLanguages } from 'shiki';
+import type { HighlighterGeneric } from '@shikijs/types';
+import type { BundledLanguage } from 'shiki';
 import { Icon } from '../terminal/Icon';
 
 interface PlanPanelProps {
   ptyId: string;
   planPath: string;
   onClose: () => void;
+}
+
+// ── Shiki highlighter (shared singleton) ─────────────────────────────
+
+const THEME = 'github-dark';
+
+const PRELOADED_LANGS: BundledLanguage[] = [
+  'typescript',
+  'javascript',
+  'tsx',
+  'jsx',
+  'json',
+  'css',
+  'html',
+  'markdown',
+  'python',
+  'rust',
+  'go',
+  'yaml',
+  'toml',
+  'bash',
+  'sql',
+  'ruby',
+  'swift',
+  'c',
+  'cpp',
+  'java',
+  'diff',
+];
+
+let highlighterPromise: Promise<HighlighterGeneric<any, any>> | null = null;
+
+function getHighlighter() {
+  if (!highlighterPromise) {
+    highlighterPromise = createHighlighter({ themes: [THEME], langs: PRELOADED_LANGS });
+  }
+  return highlighterPromise;
 }
 
 export function PlanPanel({ ptyId: _ptyId, planPath, onClose }: PlanPanelProps) {
@@ -42,6 +82,62 @@ export function PlanPanel({ ptyId: _ptyId, planPath, onClose }: PlanPanelProps) 
       window.api.plan.unwatch(planPath);
     };
   }, [planPath]);
+
+  // Syntax-highlight code blocks after render
+  useEffect(() => {
+    const container = contentRef.current;
+    if (!container || !content) return;
+
+    let cancelled = false;
+
+    async function highlightCodeBlocks() {
+      const blocks = container!.querySelectorAll<HTMLElement>('pre code[class*="language-"]');
+      if (blocks.length === 0) return;
+
+      const hl = await getHighlighter();
+      if (cancelled) return;
+
+      for (const block of blocks) {
+        const langClass = [...block.classList].find((c) => c.startsWith('language-'));
+        const lang = langClass?.slice('language-'.length);
+        if (!lang) continue;
+
+        // Ensure language is loaded
+        const loaded = hl.getLoadedLanguages();
+        if (!loaded.includes(lang)) {
+          if (lang in bundledLanguages) {
+            try {
+              await hl.loadLanguage(lang as BundledLanguage);
+            } catch {
+              continue;
+            }
+          } else {
+            continue;
+          }
+        }
+        if (cancelled) return;
+
+        const code = block.textContent ?? '';
+        const html = hl.codeToHtml(code, { lang, theme: THEME });
+
+        // Replace the <pre> wrapper with shiki's highlighted output
+        const pre = block.parentElement;
+        if (pre?.tagName === 'PRE') {
+          const wrapper = document.createElement('div');
+          wrapper.innerHTML = html;
+          const shikiPre = wrapper.firstElementChild;
+          if (shikiPre) {
+            pre.replaceWith(shikiPre);
+          }
+        }
+      }
+    }
+
+    highlightCodeBlocks();
+    return () => {
+      cancelled = true;
+    };
+  }, [content]);
 
   const handleClick = useCallback((e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
