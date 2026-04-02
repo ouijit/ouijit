@@ -14,46 +14,48 @@ const watchers = new Map<string, { watcher: fs.FSWatcher; timer: ReturnType<type
 
 export function registerPlanHandlers(mainWindow: BrowserWindow): void {
   typedHandle('plan:read', (planPath) => {
-    // Validate path is under ~/.claude/plans/
-    if (!planPath.startsWith(PLANS_DIR + path.sep)) return null;
+    // Validate resolved path is under ~/.claude/plans/ (prevents .. traversal)
+    const resolved = path.resolve(planPath);
+    if (!resolved.startsWith(PLANS_DIR + path.sep)) return null;
     try {
-      return fs.readFileSync(planPath, 'utf-8');
+      return fs.readFileSync(resolved, 'utf-8');
     } catch {
       return null;
     }
   });
 
   typedHandle('plan:watch', (planPath) => {
-    if (!planPath.startsWith(PLANS_DIR + path.sep)) return { success: false };
-    if (watchers.has(planPath)) return { success: true };
+    const resolved = path.resolve(planPath);
+    if (!resolved.startsWith(PLANS_DIR + path.sep)) return { success: false };
+    if (watchers.has(resolved)) return { success: true };
 
     try {
-      const watcher = fs.watch(planPath, () => {
+      const watcher = fs.watch(resolved, () => {
         // Debounce: fs.watch can fire multiple times per write
-        const entry = watchers.get(planPath);
+        const entry = watchers.get(resolved);
         if (!entry) return;
         if (entry.timer) clearTimeout(entry.timer);
-        entry.timer = setTimeout(() => {
+        entry.timer = setTimeout(async () => {
           entry.timer = null;
           try {
-            const content = fs.readFileSync(planPath, 'utf-8');
+            const content = await fs.promises.readFile(resolved, 'utf-8');
             if (mainWindow && !mainWindow.isDestroyed()) {
               mainWindow.webContents.send('plan:content-changed', planPath, content);
             }
           } catch (err) {
             planLog.warn('failed to read plan file on change', {
-              planPath,
+              planPath: resolved,
               error: err instanceof Error ? err.message : String(err),
             });
           }
         }, 200);
       });
 
-      watchers.set(planPath, { watcher, timer: null });
+      watchers.set(resolved, { watcher, timer: null });
       return { success: true };
     } catch (err) {
       planLog.warn('failed to watch plan file', {
-        planPath,
+        planPath: resolved,
         error: err instanceof Error ? err.message : String(err),
       });
       return { success: false };
@@ -61,11 +63,12 @@ export function registerPlanHandlers(mainWindow: BrowserWindow): void {
   });
 
   typedHandle('plan:unwatch', (planPath) => {
-    const entry = watchers.get(planPath);
+    const resolved = path.resolve(planPath);
+    const entry = watchers.get(resolved);
     if (entry) {
       if (entry.timer) clearTimeout(entry.timer);
       entry.watcher.close();
-      watchers.delete(planPath);
+      watchers.delete(resolved);
     }
   });
 

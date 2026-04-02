@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { marked, type Tokens } from 'marked';
-import { createHighlighter, bundledLanguages } from 'shiki';
-import type { HighlighterGeneric } from '@shikijs/types';
+import DOMPurify from 'dompurify';
+import { createHighlighter } from 'shiki';
 import type { BundledLanguage } from 'shiki';
 import { terminalInstances } from '../terminal/terminalReact';
 import { Icon } from '../terminal/Icon';
@@ -41,11 +41,14 @@ const PRELOADED_LANGS: BundledLanguage[] = [
   'diff',
 ];
 
-let highlighterPromise: Promise<HighlighterGeneric<any, any>> | null = null;
+let highlighterPromise: ReturnType<typeof createHighlighter> | null = null;
 
 function getHighlighter() {
   if (!highlighterPromise) {
-    highlighterPromise = createHighlighter({ themes: [THEME], langs: PRELOADED_LANGS });
+    highlighterPromise = createHighlighter({ themes: [THEME], langs: PRELOADED_LANGS }).catch((err) => {
+      highlighterPromise = null;
+      throw err;
+    });
   }
   return highlighterPromise;
 }
@@ -57,25 +60,19 @@ async function renderPlanMarkdown(md: string): Promise<string> {
 
   const renderer = new marked.Renderer();
   renderer.code = ({ text, lang }: Tokens.Code) => {
-    if (lang) {
-      const loaded = hl.getLoadedLanguages();
-      if (loaded.includes(lang) || lang in bundledLanguages) {
-        try {
-          if (!loaded.includes(lang)) {
-            // Can't await in synchronous renderer — fall through to plain if not preloaded
-          } else {
-            return hl.codeToHtml(text, { lang, theme: THEME });
-          }
-        } catch {
-          // Fall through to plain code block
-        }
+    if (lang && hl.getLoadedLanguages().includes(lang)) {
+      try {
+        return hl.codeToHtml(text, { lang, theme: THEME });
+      } catch {
+        // Fall through to plain code block
       }
     }
     const escaped = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     return `<pre><code>${escaped}</code></pre>`;
   };
 
-  return marked.parse(md, { gfm: true, renderer }) as string;
+  const rawHtml = marked.parse(md, { gfm: true, renderer }) as string;
+  return DOMPurify.sanitize(rawHtml);
 }
 
 export function PlanPanel({ ptyId, planPath, onClose }: PlanPanelProps) {
@@ -98,12 +95,18 @@ export function PlanPanel({ ptyId, planPath, onClose }: PlanPanelProps) {
     let cancelled = false;
 
     async function init() {
+      // Start watching first so no changes are missed between read and watch
+      await window.api.plan.watch(planPath);
+      if (cancelled) {
+        // Component unmounted while awaiting — clean up the watcher we just created
+        window.api.plan.unwatch(planPath);
+        return;
+      }
       const text = await window.api.plan.read(planPath);
       if (!cancelled) {
         setContent(text);
         setLoading(false);
       }
-      await window.api.plan.watch(planPath);
     }
 
     init();
@@ -121,7 +124,9 @@ export function PlanPanel({ ptyId, planPath, onClose }: PlanPanelProps) {
     };
   }, [planPath]);
 
-  // Render markdown with syntax highlighting whenever content changes
+  const contentRef = useRef<HTMLDivElement>(null);
+
+  // Render markdown with syntax highlighting whenever content changes (debounced)
   useEffect(() => {
     if (!content) {
       setRenderedHtml('');
@@ -129,11 +134,23 @@ export function PlanPanel({ ptyId, planPath, onClose }: PlanPanelProps) {
     }
 
     let cancelled = false;
-    renderPlanMarkdown(content).then((html) => {
-      if (!cancelled) setRenderedHtml(html);
-    });
+    const timer = setTimeout(() => {
+      renderPlanMarkdown(content).then((html) => {
+        if (cancelled) return;
+        // Preserve scroll position across innerHTML replacement
+        const scrollEl = contentRef.current?.parentElement;
+        const scrollTop = scrollEl?.scrollTop ?? 0;
+        setRenderedHtml(html);
+        if (scrollEl) {
+          requestAnimationFrame(() => {
+            scrollEl.scrollTop = scrollTop;
+          });
+        }
+      });
+    }, 150);
     return () => {
       cancelled = true;
+      clearTimeout(timer);
     };
   }, [content]);
 
@@ -202,6 +219,9 @@ export function PlanPanel({ ptyId, planPath, onClose }: PlanPanelProps) {
       handle.removeEventListener('mousedown', onMouseDown);
       document.removeEventListener('mousemove', onMouseMove);
       document.removeEventListener('mouseup', onMouseUp);
+      // Reset body styles in case we unmounted mid-drag
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
     };
   }, [instance, fullWidth]);
 
@@ -231,11 +251,20 @@ export function PlanPanel({ ptyId, planPath, onClose }: PlanPanelProps) {
     }
   }, []);
 
+  const copyTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+  useEffect(() => {
+    return () => {
+      if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
+    };
+  }, []);
+
   const handleCopy = useCallback(() => {
     if (!content) return;
     navigator.clipboard.writeText(content);
     setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
+    if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
+    copyTimerRef.current = setTimeout(() => setCopied(false), 1500);
   }, [content]);
 
   const splitIcon = fullWidth ? 'square-split-horizontal' : 'arrows-out-line-horizontal';
@@ -297,7 +326,7 @@ export function PlanPanel({ ptyId, planPath, onClose }: PlanPanelProps) {
           ) : content === null ? (
             <div className="text-sm text-white/40">Plan file not found</div>
           ) : (
-            <div className="plan-markdown" dangerouslySetInnerHTML={{ __html: renderedHtml }} />
+            <div ref={contentRef} className="plan-markdown" dangerouslySetInnerHTML={{ __html: renderedHtml }} />
           )}
         </div>
       </div>
