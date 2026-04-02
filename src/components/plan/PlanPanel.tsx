@@ -1,5 +1,5 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
-import { marked } from 'marked';
+import { useEffect, useState, useCallback } from 'react';
+import { marked, type Tokens } from 'marked';
 import { createHighlighter, bundledLanguages } from 'shiki';
 import type { HighlighterGeneric } from '@shikijs/types';
 import type { BundledLanguage } from 'shiki';
@@ -49,10 +49,39 @@ function getHighlighter() {
   return highlighterPromise;
 }
 
+// ── Markdown rendering with inline syntax highlighting ───────────────
+
+async function renderPlanMarkdown(md: string): Promise<string> {
+  const hl = await getHighlighter();
+
+  const renderer = new marked.Renderer();
+  renderer.code = ({ text, lang }: Tokens.Code) => {
+    if (lang) {
+      const loaded = hl.getLoadedLanguages();
+      if (loaded.includes(lang) || lang in bundledLanguages) {
+        try {
+          if (!loaded.includes(lang)) {
+            // Can't await in synchronous renderer — fall through to plain if not preloaded
+          } else {
+            return hl.codeToHtml(text, { lang, theme: THEME });
+          }
+        } catch {
+          // Fall through to plain code block
+        }
+      }
+    }
+    const escaped = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    return `<pre><code>${escaped}</code></pre>`;
+  };
+
+  return marked.parse(md, { gfm: true, renderer }) as string;
+}
+
 export function PlanPanel({ ptyId: _ptyId, planPath, onClose }: PlanPanelProps) {
   const [content, setContent] = useState<string | null>(null);
+  const [renderedHtml, setRenderedHtml] = useState<string>('');
   const [loading, setLoading] = useState(true);
-  const contentRef = useRef<HTMLDivElement>(null);
+  const [copied, setCopied] = useState(false);
 
   const filename = planPath.split('/').pop() ?? 'plan.md';
 
@@ -84,57 +113,17 @@ export function PlanPanel({ ptyId: _ptyId, planPath, onClose }: PlanPanelProps) 
     };
   }, [planPath]);
 
-  // Syntax-highlight code blocks after render
+  // Render markdown with syntax highlighting whenever content changes
   useEffect(() => {
-    const container = contentRef.current;
-    if (!container || !content) return;
-
-    let cancelled = false;
-
-    async function highlightCodeBlocks() {
-      const blocks = container!.querySelectorAll<HTMLElement>('pre code[class*="language-"]');
-      if (blocks.length === 0) return;
-
-      const hl = await getHighlighter();
-      if (cancelled) return;
-
-      for (const block of blocks) {
-        const langClass = [...block.classList].find((c) => c.startsWith('language-'));
-        const lang = langClass?.slice('language-'.length);
-        if (!lang) continue;
-
-        // Ensure language is loaded
-        const loaded = hl.getLoadedLanguages();
-        if (!loaded.includes(lang)) {
-          if (lang in bundledLanguages) {
-            try {
-              await hl.loadLanguage(lang as BundledLanguage);
-            } catch {
-              continue;
-            }
-          } else {
-            continue;
-          }
-        }
-        if (cancelled) return;
-
-        const code = block.textContent ?? '';
-        const html = hl.codeToHtml(code, { lang, theme: THEME });
-
-        // Replace the <pre> wrapper with shiki's highlighted output
-        const pre = block.parentElement;
-        if (pre?.tagName === 'PRE') {
-          const wrapper = document.createElement('div');
-          wrapper.innerHTML = html;
-          const shikiPre = wrapper.firstElementChild;
-          if (shikiPre) {
-            pre.replaceWith(shikiPre);
-          }
-        }
-      }
+    if (!content) {
+      setRenderedHtml('');
+      return;
     }
 
-    highlightCodeBlocks();
+    let cancelled = false;
+    renderPlanMarkdown(content).then((html) => {
+      if (!cancelled) setRenderedHtml(html);
+    });
     return () => {
       cancelled = true;
     };
@@ -150,16 +139,12 @@ export function PlanPanel({ ptyId: _ptyId, planPath, onClose }: PlanPanelProps) 
     }
   }, []);
 
-  const [copied, setCopied] = useState(false);
-
   const handleCopy = useCallback(() => {
     if (!content) return;
     navigator.clipboard.writeText(content);
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
   }, [content]);
-
-  const renderedHtml = content ? renderPlanMarkdown(content) : '';
 
   return (
     <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
@@ -189,7 +174,7 @@ export function PlanPanel({ ptyId: _ptyId, planPath, onClose }: PlanPanelProps) 
       </div>
 
       {/* Content */}
-      <div ref={contentRef} className="flex-1 overflow-y-auto px-6 py-4" onClick={handleClick}>
+      <div className="flex-1 overflow-y-auto px-6 py-4" onClick={handleClick}>
         {loading ? (
           <div className="text-sm text-white/40">Loading plan...</div>
         ) : content === null ? (
@@ -200,14 +185,4 @@ export function PlanPanel({ ptyId: _ptyId, planPath, onClose }: PlanPanelProps) 
       </div>
     </div>
   );
-}
-
-// ── Markdown rendering ────────────────────────────────────────────────
-
-function renderPlanMarkdown(md: string): string {
-  marked.setOptions({
-    gfm: true,
-    breaks: false,
-  });
-  return marked.parse(md) as string;
 }
