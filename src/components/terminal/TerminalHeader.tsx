@@ -368,7 +368,7 @@ export const TerminalHeader = memo(function TerminalHeader({
           </div>
         )}
       </div>
-      <div className="flex items-center gap-1 shrink-0 justify-end">
+      <div className="flex items-center gap-2 shrink-0 justify-end">
         {!compact && isActive && planPath && (
           <button
             className={`flex items-center gap-1 px-2.5 py-1 rounded-full font-mono text-[13px] font-medium text-white/60 bg-white/[0.06] transition-all duration-150 ease-out hover:bg-white/[0.12] hover:text-white/90 active:bg-white/[0.10] active:text-white/80 ${planPanelOpen ? '!bg-accent !text-white' : ''}`}
@@ -380,7 +380,7 @@ export const TerminalHeader = memo(function TerminalHeader({
           </button>
         )}
         {!compact && isActive && (
-          <div className="mr-2">
+          <div>
             <GitStats
               gitFileStatus={gitFileStatus}
               isWorktree={isWorktree}
