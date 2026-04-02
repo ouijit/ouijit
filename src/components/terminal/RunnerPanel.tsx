@@ -115,7 +115,7 @@ export function RunnerPanel({ ptyId, onCollapse, onKill, onRestart }: RunnerPane
 
   if (!runnerPtyId) return null;
 
-  const splitIcon = fullWidth ? 'split-horizontal' : 'arrows-out';
+  const splitIcon = fullWidth ? 'square-split-horizontal' : 'arrows-out-line-horizontal';
   const splitTitle = fullWidth ? 'Split view' : 'Full width';
 
   return (
@@ -169,7 +169,7 @@ export function RunnerPanel({ ptyId, onCollapse, onKill, onRestart }: RunnerPane
               <Icon name={splitIcon} />
             </button>
           </Tooltip>
-          <Tooltip text="Minimize panel">
+          <Tooltip text="Minimize">
             <button
               className="w-7 h-7 flex items-center justify-center p-0 bg-transparent border-none rounded-md text-white/60 shrink-0 transition-all duration-150 ease-out hover:bg-white/10 hover:text-white/90 [&>svg]:w-4 [&>svg]:h-4"
               onClick={(e) => {

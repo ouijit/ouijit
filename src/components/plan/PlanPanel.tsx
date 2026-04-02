@@ -1,8 +1,9 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { marked, type Tokens } from 'marked';
 import { createHighlighter, bundledLanguages } from 'shiki';
 import type { HighlighterGeneric } from '@shikijs/types';
 import type { BundledLanguage } from 'shiki';
+import { terminalInstances } from '../terminal/terminalReact';
 import { Icon } from '../terminal/Icon';
 import { TooltipButton } from '../ui/TooltipButton';
 
@@ -77,11 +78,18 @@ async function renderPlanMarkdown(md: string): Promise<string> {
   return marked.parse(md, { gfm: true, renderer }) as string;
 }
 
-export function PlanPanel({ ptyId: _ptyId, planPath, onClose }: PlanPanelProps) {
+export function PlanPanel({ ptyId, planPath, onClose }: PlanPanelProps) {
   const [content, setContent] = useState<string | null>(null);
   const [renderedHtml, setRenderedHtml] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
+
+  const instance = terminalInstances.get(ptyId);
+  const [fullWidth, setFullWidth] = useState(instance?.planFullWidth ?? true);
+  const [splitRatio, setSplitRatio] = useState(instance?.planSplitRatio ?? 0.5);
+
+  const panelRef = useRef<HTMLDivElement>(null);
+  const handleRef = useRef<HTMLDivElement>(null);
 
   const filename = planPath.split('/').pop() ?? 'plan.md';
 
@@ -129,6 +137,90 @@ export function PlanPanel({ ptyId: _ptyId, planPath, onClose }: PlanPanelProps) 
     };
   }, [content]);
 
+  // Toggle full-width vs split
+  const toggleFullWidth = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      if (!instance) return;
+      const newFullWidth = !fullWidth;
+      instance.planFullWidth = newFullWidth;
+      setFullWidth(newFullWidth);
+      instance.pushDisplayState({ planFullWidth: newFullWidth });
+
+      requestAnimationFrame(() => {
+        if (!newFullWidth) instance.fit();
+      });
+    },
+    [fullWidth, instance],
+  );
+
+  // Resize handle drag
+  useEffect(() => {
+    const handle = handleRef.current;
+    const panel = panelRef.current;
+    if (!handle || !panel || !instance) return;
+
+    const cardBody = panel.parentElement;
+    if (!cardBody) return;
+
+    let dragging = false;
+
+    const onMouseDown = (e: MouseEvent) => {
+      e.preventDefault();
+      dragging = true;
+      panel.style.transition = 'none';
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+    };
+
+    const onMouseMove = (e: MouseEvent) => {
+      if (!dragging) return;
+      const rect = cardBody.getBoundingClientRect();
+      const handleWidth = handle.offsetWidth;
+      const totalWidth = rect.width - handleWidth;
+      const mouseX = e.clientX - rect.left;
+      let ratio = 1 - mouseX / totalWidth;
+      ratio = Math.max(0.15, Math.min(0.85, ratio));
+      instance.planSplitRatio = ratio;
+      setSplitRatio(ratio);
+      panel.style.flexBasis = `${ratio * 100}%`;
+    };
+
+    const onMouseUp = () => {
+      if (!dragging) return;
+      dragging = false;
+      panel.style.transition = '';
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+
+    handle.addEventListener('mousedown', onMouseDown);
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+
+    return () => {
+      handle.removeEventListener('mousedown', onMouseDown);
+      document.removeEventListener('mousemove', onMouseMove);
+      document.removeEventListener('mouseup', onMouseUp);
+    };
+  }, [instance, fullWidth]);
+
+  // Set initial flex-basis
+  useEffect(() => {
+    const panel = panelRef.current;
+    if (!panel) return;
+
+    if (fullWidth) {
+      panel.style.flexBasis = '100%';
+    } else {
+      panel.style.flexBasis = `${splitRatio * 100}%`;
+    }
+
+    requestAnimationFrame(() => {
+      if (!fullWidth) instance?.fit();
+    });
+  }, [fullWidth, splitRatio, instance]);
+
   const handleClick = useCallback((e: React.MouseEvent) => {
     const target = e.target as HTMLElement;
     const anchor = target.closest('a[href]');
@@ -146,16 +238,32 @@ export function PlanPanel({ ptyId: _ptyId, planPath, onClose }: PlanPanelProps) 
     setTimeout(() => setCopied(false), 1500);
   }, [content]);
 
+  const splitIcon = fullWidth ? 'square-split-horizontal' : 'arrows-out-line-horizontal';
+  const splitTitle = fullWidth ? 'Split view' : 'Full width';
+
   return (
-    <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
-      {/* Header */}
-      <div className="flex items-center justify-between px-3 py-1.5 bg-white/[0.03] border-y border-white/10 shrink-0">
-        <div className="flex items-center gap-2 min-w-0">
-          <Icon name="list-checks" className="w-4 h-4 text-white/50 shrink-0" />
-          <span className="font-mono text-xs font-medium text-white/70">Plan</span>
-          <span className="font-mono text-[11px] text-white/40 truncate">{filename}</span>
-        </div>
-        <div className="flex items-center gap-1">
+    <>
+      {!fullWidth && (
+        <div
+          ref={handleRef}
+          className="shrink-0 relative hover:bg-white/15 active:bg-white/15 after:content-[''] after:absolute after:top-0 after:bottom-0 after:-left-2 after:-right-2"
+          style={{ width: 4, cursor: 'col-resize', background: 'transparent', transition: 'background 0.15s ease' }}
+        />
+      )}
+      <div
+        ref={panelRef}
+        className="rounded-none border-0 border-l border-t border-solid border-white/10 shadow-none flex flex-col overflow-hidden"
+        style={{
+          flexBasis: 0,
+          background: 'var(--color-terminal-bg, #171717)',
+          transition: 'flex-basis 0.25s ease',
+          ...(fullWidth ? { flex: '1 0 100%', borderLeft: 'none' } : { minWidth: 200 }),
+        }}
+      >
+        {/* Header */}
+        <div className="flex items-center gap-2 px-3 py-1.5 bg-white/[0.03] border-b border-white/10 shrink-0">
+          <Icon name="list-checks" className="w-3.5 h-3.5 text-white/50 shrink-0" />
+          <span className="text-[13px] text-white/50 truncate flex-1 font-mono">{filename}</span>
           <TooltipButton
             text={copied ? 'Copied!' : 'Copy to clipboard'}
             placement="bottom"
@@ -165,26 +273,34 @@ export function PlanPanel({ ptyId: _ptyId, planPath, onClose }: PlanPanelProps) 
             <Icon name={copied ? 'check' : 'clipboard-text'} className={copied ? 'text-[#69db7c]' : ''} />
           </TooltipButton>
           <TooltipButton
-            text="Close"
+            text={splitTitle}
             placement="bottom"
-            className="w-7 h-7 flex items-center justify-center p-0 bg-transparent border-none rounded-md text-white/40 shrink-0 transition-all duration-150 ease-out hover:bg-white/10 hover:text-white/90 [&>svg]:w-4 [&>svg]:h-4"
+            className="w-7 h-7 flex items-center justify-center p-0 bg-transparent border-none rounded-md text-white/60 shrink-0 transition-all duration-150 ease-out hover:bg-white/10 hover:text-white/90 [&>svg]:w-3.5 [&>svg]:h-3.5"
+            onClick={toggleFullWidth}
+          >
+            <Icon name={splitIcon} />
+          </TooltipButton>
+          <TooltipButton
+            text="Minimize"
+            placement="bottom"
+            className="w-7 h-7 flex items-center justify-center p-0 bg-transparent border-none rounded-md text-white/60 shrink-0 transition-all duration-150 ease-out hover:bg-white/10 hover:text-white/90 [&>svg]:w-4 [&>svg]:h-4"
             onClick={onClose}
           >
-            <Icon name="x" />
+            <Icon name="minus" />
           </TooltipButton>
         </div>
-      </div>
 
-      {/* Content */}
-      <div className="flex-1 overflow-y-auto px-6 py-4" onClick={handleClick}>
-        {loading ? (
-          <div className="text-sm text-white/40">Loading plan...</div>
-        ) : content === null ? (
-          <div className="text-sm text-white/40">Plan file not found</div>
-        ) : (
-          <div className="plan-markdown" dangerouslySetInnerHTML={{ __html: renderedHtml }} />
-        )}
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto px-6 py-4" onClick={handleClick}>
+          {loading ? (
+            <div className="text-sm text-white/40">Loading plan...</div>
+          ) : content === null ? (
+            <div className="text-sm text-white/40">Plan file not found</div>
+          ) : (
+            <div className="plan-markdown" dangerouslySetInnerHTML={{ __html: renderedHtml }} />
+          )}
+        </div>
       </div>
-    </div>
+    </>
   );
 }
