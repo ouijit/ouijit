@@ -548,8 +548,9 @@ export function parseDiff(diffOutput: string): DiffHunk[] {
 /**
  * Gets the diff for a specific file
  */
-export function getFileDiff(projectPath: string, filePath: string): FileDiff | null {
+export function getFileDiff(projectPath: string, filePath: string, contextLines?: number): FileDiff | null {
   const opts = { ...gitExecOpts(projectPath), maxBuffer: 10 * 1024 * 1024 };
+  const contextArg = contextLines != null ? `-U${contextLines}` : undefined;
 
   try {
     let diffOutput: string;
@@ -561,7 +562,8 @@ export function getFileDiff(projectPath: string, filePath: string): FileDiff | n
     if (isUntracked) {
       // For untracked files, show the entire file as additions
       try {
-        diffOutput = execFileSync('git', ['diff', '--no-index', '/dev/null', filePath], {
+        const args = ['diff', '--no-index', ...(contextArg ? [contextArg] : []), '/dev/null', filePath];
+        diffOutput = execFileSync('git', args, {
           ...opts,
           stdio: ['pipe', 'pipe', 'ignore'],
         }).toString();
@@ -575,7 +577,8 @@ export function getFileDiff(projectPath: string, filePath: string): FileDiff | n
       }
     } else {
       // For tracked files, get the diff against HEAD
-      diffOutput = execFileSync('git', ['diff', 'HEAD', '--', filePath], opts).toString();
+      const args = ['diff', ...(contextArg ? [contextArg] : []), 'HEAD', '--', filePath];
+      diffOutput = execFileSync('git', args, opts).toString();
     }
 
     if (!diffOutput.trim()) {
@@ -802,16 +805,15 @@ export function getWorktreeFileDiff(
   worktreeBranch: string,
   filePath: string,
   targetBranch?: string,
+  contextLines?: number,
 ): FileDiff | null {
   const opts = { ...gitExecOpts(projectPath), maxBuffer: 10 * 1024 * 1024 };
   const baseBranch = targetBranch || getMainBranch(projectPath);
+  const contextArg = contextLines != null ? `-U${contextLines}` : undefined;
 
   try {
-    const diffOutput = execFileSync(
-      'git',
-      ['diff', `${baseBranch}...${worktreeBranch}`, '--', filePath],
-      opts,
-    ).toString();
+    const args = ['diff', ...(contextArg ? [contextArg] : []), `${baseBranch}...${worktreeBranch}`, '--', filePath];
+    const diffOutput = execFileSync('git', args, opts).toString();
 
     if (!diffOutput.trim()) {
       return null;

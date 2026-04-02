@@ -16,5 +16,7 @@ export function registerGitHandlers(): void {
   typedHandle('git-checkout', (projectPath, branchName) => checkoutBranch(projectPath, branchName));
   typedHandle('git-create-branch', (projectPath, branchName) => createBranch(projectPath, branchName));
   typedHandle('git-merge-into-main', (projectPath) => mergeIntoMain(projectPath));
-  typedHandle('get-file-diff', (projectPath, filePath) => getFileDiff(projectPath, filePath));
+  typedHandle('get-file-diff', (projectPath, filePath, contextLines) =>
+    getFileDiff(projectPath, filePath, contextLines),
+  );
 }

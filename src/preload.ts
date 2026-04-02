@@ -56,7 +56,8 @@ contextBridge.exposeInMainWorld('api', {
   gitCreateBranch: (projectPath: string, branchName: string) =>
     typedInvoke('git-create-branch', projectPath, branchName),
   gitMergeIntoMain: (projectPath: string) => typedInvoke('git-merge-into-main', projectPath),
-  getFileDiff: (projectPath: string, filePath: string) => typedInvoke('get-file-diff', projectPath, filePath),
+  getFileDiff: (projectPath: string, filePath: string, contextLines?: number) =>
+    typedInvoke('get-file-diff', projectPath, filePath, contextLines),
 
   pty: {
     spawn: (options: PtySpawnOptions) => typedInvoke('pty:spawn', options),
@@ -91,8 +92,13 @@ contextBridge.exposeInMainWorld('api', {
     list: (projectPath: string) => typedInvoke('worktree:list', projectPath),
     getDiff: (projectPath: string, worktreeBranch: string, targetBranch?: string) =>
       typedInvoke('worktree:get-diff', projectPath, worktreeBranch, targetBranch),
-    getFileDiff: (projectPath: string, worktreeBranch: string, filePath: string, targetBranch?: string) =>
-      typedInvoke('worktree:get-file-diff', projectPath, worktreeBranch, filePath, targetBranch),
+    getFileDiff: (
+      projectPath: string,
+      worktreeBranch: string,
+      filePath: string,
+      targetBranch?: string,
+      contextLines?: number,
+    ) => typedInvoke('worktree:get-file-diff', projectPath, worktreeBranch, filePath, targetBranch, contextLines),
     merge: (projectPath: string, worktreeBranch: string) => typedInvoke('worktree:merge', projectPath, worktreeBranch),
     ship: (projectPath: string, worktreeBranch: string, commitMessage?: string) =>
       typedInvoke('worktree:ship', projectPath, worktreeBranch, commitMessage),

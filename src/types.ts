@@ -332,6 +332,7 @@ export interface WorktreeAPI {
     worktreeBranch: string,
     filePath: string,
     targetBranch?: string,
+    contextLines?: number,
   ): Promise<FileDiff | null>;
   merge(projectPath: string, worktreeBranch: string): Promise<GitMergeResult>;
   ship(
@@ -390,7 +391,7 @@ export interface ElectronAPI {
   /** Merge current branch into main */
   gitMergeIntoMain(projectPath: string): Promise<GitMergeResult>;
   /** Get diff for a specific file */
-  getFileDiff(projectPath: string, filePath: string): Promise<FileDiff | null>;
+  getFileDiff(projectPath: string, filePath: string, contextLines?: number): Promise<FileDiff | null>;
   /** Create a new project */
   createProject(options: CreateProjectOptions): Promise<CreateProjectResult>;
   /** Show native folder picker dialog */

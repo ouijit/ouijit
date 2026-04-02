@@ -67,7 +67,7 @@ export interface IpcInvokeContract {
   'git-checkout': { args: [projectPath: string, branchName: string]; return: GitCheckoutResult };
   'git-create-branch': { args: [projectPath: string, branchName: string]; return: GitCheckoutResult };
   'git-merge-into-main': { args: [projectPath: string]; return: GitMergeResult };
-  'get-file-diff': { args: [projectPath: string, filePath: string]; return: FileDiff | null };
+  'get-file-diff': { args: [projectPath: string, filePath: string, contextLines?: number]; return: FileDiff | null };
 
   // ── PTY ──────────────────────────────────────────────────────────────
   'pty:spawn': { args: [options: PtySpawnOptions]; return: PtySpawnResult };
@@ -128,7 +128,7 @@ export interface IpcInvokeContract {
     return: WorktreeDiffSummary | null;
   };
   'worktree:get-file-diff': {
-    args: [projectPath: string, worktreeBranch: string, filePath: string, targetBranch?: string];
+    args: [projectPath: string, worktreeBranch: string, filePath: string, targetBranch?: string, contextLines?: number];
     return: FileDiff | null;
   };
   'worktree:merge': { args: [projectPath: string, worktreeBranch: string]; return: GitMergeResult };
