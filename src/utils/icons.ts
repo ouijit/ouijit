@@ -18,6 +18,8 @@ import dotsSixVertical from '@phosphor-icons/core/assets/regular/dots-six-vertic
 import caretLeft from '@phosphor-icons/core/assets/regular/caret-left.svg?raw';
 import caretRight from '@phosphor-icons/core/assets/regular/caret-right.svg?raw';
 import cardsThree from '@phosphor-icons/core/assets/regular/cards-three.svg?raw';
+import check from '@phosphor-icons/core/assets/regular/check.svg?raw';
+import clipboardText from '@phosphor-icons/core/assets/regular/clipboard-text.svg?raw';
 import code from '@phosphor-icons/core/assets/regular/code.svg?raw';
 import cube from '@phosphor-icons/core/assets/regular/cube.svg?raw';
 import download from '@phosphor-icons/core/assets/regular/download.svg?raw';
@@ -69,6 +71,8 @@ export const iconMap: Record<string, string> = {
   'caret-left': caretLeft,
   'caret-right': caretRight,
   'cards-three': cardsThree,
+  check: check,
+  'clipboard-text': clipboardText,
   code: code,
   cube: cube,
   download: download,

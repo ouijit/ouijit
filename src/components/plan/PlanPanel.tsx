@@ -4,6 +4,7 @@ import { createHighlighter, bundledLanguages } from 'shiki';
 import type { HighlighterGeneric } from '@shikijs/types';
 import type { BundledLanguage } from 'shiki';
 import { Icon } from '../terminal/Icon';
+import { TooltipButton } from '../ui/TooltipButton';
 
 interface PlanPanelProps {
   ptyId: string;
@@ -149,6 +150,15 @@ export function PlanPanel({ ptyId: _ptyId, planPath, onClose }: PlanPanelProps) 
     }
   }, []);
 
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = useCallback(() => {
+    if (!content) return;
+    navigator.clipboard.writeText(content);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  }, [content]);
+
   const renderedHtml = content ? renderPlanMarkdown(content) : '';
 
   return (
@@ -160,12 +170,22 @@ export function PlanPanel({ ptyId: _ptyId, planPath, onClose }: PlanPanelProps) 
           <span className="font-mono text-xs font-medium text-white/70">Plan</span>
           <span className="font-mono text-[11px] text-white/40 truncate">{filename}</span>
         </div>
-        <button
-          className="w-7 h-7 flex items-center justify-center bg-transparent border-none text-white/40 hover:text-white/90 transition-colors duration-150"
-          onClick={onClose}
-        >
-          <Icon name="x" className="w-4 h-4" />
-        </button>
+        <div className="flex items-center">
+          <TooltipButton
+            text={copied ? 'Copied!' : 'Copy to clipboard'}
+            placement="bottom"
+            className="w-7 h-7 flex items-center justify-center bg-transparent border-none text-white/40 hover:text-white/90 transition-colors duration-150"
+            onClick={handleCopy}
+          >
+            <Icon name={copied ? 'check' : 'clipboard-text'} className={`w-4 h-4 ${copied ? 'text-[#69db7c]' : ''}`} />
+          </TooltipButton>
+          <button
+            className="w-7 h-7 flex items-center justify-center bg-transparent border-none text-white/40 hover:text-white/90 transition-colors duration-150"
+            onClick={onClose}
+          >
+            <Icon name="x" className="w-4 h-4" />
+          </button>
+        </div>
       </div>
 
       {/* Content */}
