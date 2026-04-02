@@ -1,8 +1,10 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import type { ChangedFile, FileDiff, DiffHunk, DiffLine } from '../../types';
+import type { ThemedToken, HunkTokens } from '../../utils/syntaxHighlight';
 import { useTerminalStore } from '../../stores/terminalStore';
 import { terminalInstances, refreshTerminalGitStatus } from '../terminal/terminalReact';
 import { Icon } from '../terminal/Icon';
+import { useSyntaxHighlight } from './useSyntaxHighlight';
 
 interface DiffPanelProps {
   ptyId: string;
@@ -347,9 +349,9 @@ function TreeNodeView({ node, onFileClick }: { node: TreeNode; onFileClick: (pat
         )}
         {(node.file.additions > 0 || node.file.deletions > 0) && (
           <span className="shrink-0 font-mono text-[13px]">
-            {node.file.additions > 0 && <span className="text-[#69db7c]">+{node.file.additions}</span>}
+            {node.file.additions > 0 && <span className="text-[#3fb950]">+{node.file.additions}</span>}
             {node.file.additions > 0 && node.file.deletions > 0 && ' '}
-            {node.file.deletions > 0 && <span className="text-[#ff6b6b]">-{node.file.deletions}</span>}
+            {node.file.deletions > 0 && <span className="text-[#f85149]">-{node.file.deletions}</span>}
           </span>
         )}
       </div>
@@ -431,6 +433,8 @@ function badgeColorClass(status: string): string {
 // ── Diff file section ────────────────────────────────────────────────
 
 function DiffFileSection({ file, diff }: { file: ChangedFile; diff: FileDiff | null }) {
+  const tokens = useSyntaxHighlight(diff, file.path);
+
   const badgeLabel =
     file.status === '?'
       ? 'untracked'
@@ -453,8 +457,8 @@ function DiffFileSection({ file, diff }: { file: ChangedFile; diff: FileDiff | n
         </span>
         {(file.additions > 0 || file.deletions > 0) && (
           <span className="shrink-0 font-mono text-[13px]">
-            {file.additions > 0 && <span className="text-[#69db7c]">+{file.additions}</span>}
-            {file.deletions > 0 && <span className="text-[#ff6b6b]">-{file.deletions}</span>}
+            {file.additions > 0 && <span className="text-[#3fb950]">+{file.additions}</span>}
+            {file.deletions > 0 && <span className="text-[#f85149]">-{file.deletions}</span>}
           </span>
         )}
       </div>
@@ -468,7 +472,7 @@ function DiffFileSection({ file, diff }: { file: ChangedFile; diff: FileDiff | n
         ) : (
           <div className="min-w-full">
             {diff.hunks.map((hunk, i) => (
-              <DiffHunkView key={i} hunk={hunk} />
+              <DiffHunkView key={i} hunk={hunk} hunkTokens={tokens?.[i] ?? null} />
             ))}
           </div>
         )}
@@ -477,46 +481,61 @@ function DiffFileSection({ file, diff }: { file: ChangedFile; diff: FileDiff | n
   );
 }
 
-function DiffHunkView({ hunk }: { hunk: DiffHunk }) {
+function DiffHunkView({ hunk, hunkTokens }: { hunk: DiffHunk; hunkTokens: HunkTokens | null }) {
   return (
     <div className="mb-4 last:mb-0">
       <div
-        className="py-1 pr-4 bg-[rgba(88,86,214,0.2)] text-[#a0a0ff] font-mono text-xs"
+        className="py-1 pr-4 bg-[rgba(88,86,214,0.15)] text-[#8b8bcd] font-mono text-xs"
         style={{ paddingLeft: '106px' }}
       >
         {hunk.header}
       </div>
       {hunk.lines.map((line, i) => (
-        <DiffLineView key={i} line={line} />
+        <DiffLineView key={i} line={line} tokens={hunkTokens?.[i] ?? null} />
       ))}
     </div>
   );
 }
 
-function DiffLineView({ line }: { line: DiffLine }) {
+function DiffLineView({ line, tokens }: { line: DiffLine; tokens: ThemedToken[] | null }) {
   const lineBg =
     line.type === 'addition'
-      ? 'bg-[rgba(52,199,89,0.15)]'
+      ? 'bg-[rgba(63,185,80,0.10)]'
       : line.type === 'deletion'
-        ? 'bg-[rgba(255,59,48,0.15)]'
+        ? 'bg-[rgba(248,81,73,0.08)]'
         : '';
-  const contentColor =
-    line.type === 'addition' ? 'text-[#69db7c]' : line.type === 'deletion' ? 'text-[#ff6b6b]' : 'text-[#e4e4e4]';
-  const prefix = line.type === 'addition' ? '+' : line.type === 'deletion' ? '-' : ' ';
+  const gutterBg =
+    line.type === 'addition'
+      ? 'bg-[rgba(63,185,80,0.12)]'
+      : line.type === 'deletion'
+        ? 'bg-[rgba(248,81,73,0.10)]'
+        : 'bg-[#141414]';
+  const prefixColor =
+    line.type === 'addition' ? 'text-[#3fb950]' : line.type === 'deletion' ? 'text-[#f85149]' : 'text-transparent';
 
   return (
     <div className={`flex font-mono text-sm leading-normal ${lineBg}`}>
       <span className="flex shrink-0 select-none sticky left-0 z-[1]">
-        <span className="w-[45px] px-2 text-right text-white/25 bg-[#141414] border-r border-white/5">
+        <span className={`w-[45px] px-2 text-right text-white/25 ${gutterBg} border-r border-white/5`}>
           {line.oldLineNo ?? ''}
         </span>
-        <span className="w-[45px] px-2 text-right text-white/25 bg-[#141414] border-r border-white/5">
+        <span className={`w-[45px] px-2 text-right text-white/25 ${gutterBg} border-r border-white/5`}>
           {line.newLineNo ?? ''}
         </span>
       </span>
-      <span className={`flex-1 pl-4 pr-12 whitespace-pre-wrap break-words ${contentColor}`}>
-        {prefix}
-        {line.content}
+      <span className="flex-1 pl-2 pr-12 whitespace-pre-wrap break-words">
+        <span className={`inline-block w-4 select-none ${prefixColor}`}>
+          {line.type === 'context' ? ' ' : line.type === 'addition' ? '+' : '-'}
+        </span>
+        {tokens ? (
+          tokens.map((token, i) => (
+            <span key={i} style={token.color ? { color: token.color } : undefined}>
+              {token.content}
+            </span>
+          ))
+        ) : (
+          <span className="text-[#e6edf3]">{line.content}</span>
+        )}
       </span>
     </div>
   );
