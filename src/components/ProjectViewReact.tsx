@@ -212,6 +212,49 @@ export function ProjectView() {
     return cleanup;
   }, [projectPath]);
 
+  // Plan detection: register listeners + seed existing terminals
+  useEffect(() => {
+    if (!projectPath) return;
+
+    // Plan file path captured (Write/Edit to .claude/plans/)
+    const cleanupDetected = window.api.plan.onDetected((ptyId, planPath) => {
+      const instance = terminalInstances.get(ptyId);
+      if (instance) {
+        instance.planPath = planPath;
+        instance.pushDisplayState({ planPath });
+      }
+    });
+
+    // Plan finalized (ExitPlanMode fired) — auto-open the plan panel
+    const cleanupReady = window.api.plan.onReady((ptyId) => {
+      const instance = terminalInstances.get(ptyId);
+      if (instance?.planPath && !instance.planPanelOpen) {
+        instance.planPanelOpen = true;
+        instance.diffPanelOpen = false;
+        instance.runnerPanelOpen = false;
+        instance.pushDisplayState({ planPanelOpen: true, diffPanelOpen: false, runnerPanelOpen: false });
+      }
+    });
+
+    // Seed existing terminals with plan paths (survives renderer reload)
+    const terms = useTerminalStore.getState().terminalsByProject[projectPath] ?? [];
+    for (const ptyId of terms) {
+      const instance = terminalInstances.get(ptyId);
+      if (!instance) continue;
+      window.api.plan.getForPty(ptyId).then((planPath) => {
+        if (planPath) {
+          instance.planPath = planPath;
+          instance.pushDisplayState({ planPath });
+        }
+      });
+    }
+
+    return () => {
+      cleanupDetected();
+      cleanupReady();
+    };
+  }, [projectPath]);
+
   // Focus active terminal when active index changes
   useEffect(() => {
     if (!projectPath || terminals.length === 0 || kanbanVisible) return;

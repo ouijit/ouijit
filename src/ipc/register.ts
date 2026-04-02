@@ -12,6 +12,7 @@ import { registerTagHandlers } from './handlers/tags';
 import { registerLimaHandlers } from './handlers/lima';
 import { registerSettingsHandlers } from './handlers/settings';
 import { registerScriptHandlers } from './handlers/scripts';
+import { registerPlanHandlers, cleanupPlanWatchers } from './handlers/plan';
 
 /**
  * Registers all IPC handlers for the main process.
@@ -34,6 +35,7 @@ export async function registerIpcHandlers(mainWindow: BrowserWindow): Promise<vo
   registerLimaHandlers(mainWindow);
   registerSettingsHandlers();
   registerScriptHandlers();
+  registerPlanHandlers(mainWindow);
 }
 
 /**
@@ -42,5 +44,6 @@ export async function registerIpcHandlers(mainWindow: BrowserWindow): Promise<vo
 export function cleanupIpc(): void {
   cleanupAllPtys();
   limaCleanup();
+  cleanupPlanWatchers();
   stopHookServer();
 }

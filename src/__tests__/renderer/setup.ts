@@ -91,6 +91,15 @@ const mockApi = {
     onStatus: vi.fn().mockReturnValue(() => {}),
     getStatus: vi.fn().mockResolvedValue(null),
   },
+  plan: {
+    read: vi.fn().mockResolvedValue(null),
+    watch: vi.fn().mockResolvedValue({ success: true }),
+    unwatch: vi.fn().mockResolvedValue(undefined),
+    getForPty: vi.fn().mockResolvedValue(null),
+    onDetected: vi.fn().mockReturnValue(() => {}),
+    onReady: vi.fn().mockReturnValue(() => {}),
+    onContentChanged: vi.fn().mockReturnValue(() => {}),
+  },
   lima: {
     status: vi.fn().mockResolvedValue('stopped'),
     start: vi.fn().mockResolvedValue({ success: true }),

@@ -23,6 +23,7 @@ interface TerminalHeaderProps {
   stackPosition?: number;
   onClose: () => void;
   onToggleDiffPanel?: () => void;
+  onTogglePlanPanel?: () => void;
   onToggleRunner?: (script?: RunnerScript) => void;
 }
 
@@ -34,6 +35,7 @@ export const TerminalHeader = memo(function TerminalHeader({
   stackPosition,
   onClose,
   onToggleDiffPanel,
+  onTogglePlanPanel,
   onToggleRunner,
 }: TerminalHeaderProps) {
   const label = useTerminalStore((s) => s.displayStates[ptyId]?.label ?? '');
@@ -47,6 +49,8 @@ export const TerminalHeader = memo(function TerminalHeader({
   const runnerScriptName = useTerminalStore((s) => s.displayStates[ptyId]?.runnerScriptName ?? null);
   const runnerPanelOpen = useTerminalStore((s) => s.displayStates[ptyId]?.runnerPanelOpen ?? false);
   const diffPanelOpen = useTerminalStore((s) => s.displayStates[ptyId]?.diffPanelOpen ?? false);
+  const planPath = useTerminalStore((s) => s.displayStates[ptyId]?.planPath ?? null);
+  const planPanelOpen = useTerminalStore((s) => s.displayStates[ptyId]?.planPanelOpen ?? false);
   const taskId = useTerminalStore((s) => s.displayStates[ptyId]?.taskId ?? null);
   const worktreeBranch = useTerminalStore((s) => s.displayStates[ptyId]?.worktreeBranch ?? null);
 
@@ -252,6 +256,14 @@ export const TerminalHeader = memo(function TerminalHeader({
     [onToggleDiffPanel],
   );
 
+  const handlePlanClick = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      onTogglePlanPanel?.();
+    },
+    [onTogglePlanPanel],
+  );
+
   const displayText = summary ? `${label} \u2014 ${summary}` : label;
   const isWorktree = taskId != null && !!worktreeBranch;
   const showChevron = runnerStatus === 'idle' && (hasRunHook || hasScripts);
@@ -357,6 +369,16 @@ export const TerminalHeader = memo(function TerminalHeader({
         )}
       </div>
       <div className="flex items-center gap-1 shrink-0 justify-end">
+        {!compact && isActive && planPath && (
+          <button
+            className={`flex items-center gap-1 px-2.5 py-1 rounded-full font-mono text-[13px] font-medium text-white/60 bg-white/[0.06] transition-all duration-150 ease-out hover:bg-white/[0.12] hover:text-white/90 active:bg-white/[0.10] active:text-white/80 ${planPanelOpen ? '!bg-accent !text-white' : ''}`}
+            title="View plan"
+            onClick={handlePlanClick}
+          >
+            <Icon name="list-checks" className="w-3.5 h-3.5" />
+            <span>Plan</span>
+          </button>
+        )}
         {!compact && isActive && (
           <div className="mr-2">
             <GitStats

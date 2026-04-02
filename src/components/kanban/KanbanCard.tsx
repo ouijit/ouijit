@@ -2,6 +2,7 @@ import { memo, useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import type { TaskWithWorkspace } from '../../types';
 import { useTerminalStore, type TerminalDisplayState } from '../../stores/terminalStore';
 import { useProjectStore } from '../../stores/projectStore';
+import { terminalInstances } from '../terminal/terminalReact';
 import { Icon } from '../terminal/Icon';
 import { ContextMenu, type ContextMenuEntry } from '../ui/ContextMenu';
 import { HookConfigDialog } from '../dialogs/HookConfigDialog';
@@ -178,6 +179,26 @@ export const KanbanCard = memo(function KanbanCard({
         }
       },
     });
+
+    // View Plan (if any connected terminal has a plan)
+    const planDisplay = connectedDisplays.find((d) => d.planPath);
+    if (planDisplay) {
+      items.push({
+        label: 'View Plan',
+        icon: 'list-checks',
+        onClick: () => {
+          // Switch to the terminal and open its plan panel
+          onSwitchToTerminal(planDisplay.ptyId);
+          const inst = terminalInstances.get(planDisplay.ptyId);
+          if (inst && !inst.planPanelOpen) {
+            inst.planPanelOpen = true;
+            inst.diffPanelOpen = false;
+            inst.runnerPanelOpen = false;
+            inst.pushDisplayState({ planPanelOpen: true, diffPanelOpen: false, runnerPanelOpen: false });
+          }
+        },
+      });
+    }
 
     items.push({ separator: true });
 

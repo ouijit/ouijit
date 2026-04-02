@@ -261,7 +261,7 @@ export function HomeView() {
     useTerminalStore.getState().removeTerminal(ptyId);
   };
 
-  const { toggleDiffPanel, closeDiffPanel, toggleRunner, collapseRunner, killRunner, restartRunner } =
+  const { toggleDiffPanel, closeDiffPanel, toggleRunner, collapseRunner, killRunner, restartRunner, closePlanPanel } =
     useTerminalPanels(activePtyId);
 
   if (allPtyIds.length === 0) {
@@ -338,6 +338,7 @@ export function HomeView() {
                 ptyId={ptyId}
                 projectPath={activeDisplay?.projectPath ?? ''}
                 onCloseDiffPanel={closeDiffPanel}
+                onClosePlanPanel={closePlanPanel}
                 onCollapseRunner={collapseRunner}
                 onKillRunner={killRunner}
                 onRestartRunner={restartRunner}

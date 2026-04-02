@@ -35,20 +35,28 @@ export interface HookStatusEntry {
 }
 
 const hookStatusMap = new Map<string, HookStatusEntry>();
+const planPathMap = new Map<string, string>();
 
 /** Get the current hook status for a ptyId. Returns null if no hook activity. */
 export function getHookStatus(ptyId: string): HookStatusEntry | null {
   return hookStatusMap.get(ptyId) ?? null;
 }
 
+/** Get the plan file path for a ptyId. Returns null if no plan detected. */
+export function getPlanPath(ptyId: string): string | null {
+  return planPathMap.get(ptyId) ?? null;
+}
+
 /** Clear hook status for a ptyId (call on PTY exit). */
 export function clearHookStatus(ptyId: string): void {
   hookStatusMap.delete(ptyId);
+  planPathMap.delete(ptyId);
 }
 
 /** Clear all hook statuses (call on app cleanup). */
 export function clearAllHookStatuses(): void {
   hookStatusMap.clear();
+  planPathMap.clear();
 }
 
 // ── Action handlers ──────────────────────────────────────────────────
@@ -82,6 +90,32 @@ const actionHandlers: Record<string, ActionHandler> = {
     // Forward to renderer for real-time UI updates
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send('claude-hook-status', ptyId, status);
+    }
+  },
+
+  plan(body) {
+    const { ptyId, filename } = body;
+    if (typeof ptyId !== 'string' || typeof filename !== 'string') return;
+    if (!isPtyActive(ptyId)) return;
+
+    const planPath = path.join(os.homedir(), '.claude', 'plans', filename);
+    planPathMap.set(ptyId, planPath);
+    hookServerLog.info('plan detected', { ptyId, planPath });
+
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('claude-plan-detected', ptyId, planPath);
+    }
+  },
+
+  'plan-ready'(body) {
+    const { ptyId } = body;
+    if (typeof ptyId !== 'string') return;
+    if (!isPtyActive(ptyId)) return;
+
+    hookServerLog.info('plan ready', { ptyId });
+
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('claude-plan-ready', ptyId);
     }
   },
 };
@@ -181,11 +215,15 @@ interface HookMatcher {
 }
 
 /** Build hook settings for a given ouijit-hook command path. */
-function buildHookSettings(hookCmd: string): { hooks: Record<string, HookMatcher[]> } {
+function buildHookSettings(hookCmd: string, planHookCmd: string): { hooks: Record<string, HookMatcher[]> } {
   return {
     hooks: {
       UserPromptSubmit: [{ hooks: [{ type: 'command', command: `${hookCmd} status status=thinking` }] }],
-      PostToolUse: [{ hooks: [{ type: 'command', command: `${hookCmd} status status=thinking` }] }],
+      PostToolUse: [
+        { hooks: [{ type: 'command', command: `${hookCmd} status status=thinking` }] },
+        { matcher: 'Write|Edit', hooks: [{ type: 'command', command: planHookCmd }] },
+        { matcher: 'ExitPlanMode', hooks: [{ type: 'command', command: `${hookCmd} plan-ready` }] },
+      ],
       Stop: [{ hooks: [{ type: 'command', command: `${hookCmd} status status=ready` }] }],
       Notification: [
         {
@@ -201,6 +239,26 @@ function buildHookSettings(hookCmd: string): { hooks: Record<string, HookMatcher
 
 // Safe pattern: alphanumeric, hyphens, dots, underscores
 const SAFE_VALUE = '[a-zA-Z0-9._-]+';
+
+export const PLAN_HOOK_SCRIPT = [
+  '#!/bin/bash',
+  '# Ouijit plan detection hook for PostToolUse (Write|Edit)',
+  '# Reads stdin JSON, checks if a plan file was written, notifies the server.',
+  '[ -z "$OUIJIT_API_URL" ] && exit 0',
+  '[[ "$OUIJIT_PTY_ID" =~ ^[a-zA-Z0-9._-]+$ ]] || exit 0',
+  '',
+  '# Stream stdin through grep to find plan file path (avoids buffering full content)',
+  'plan_file=$(grep -o \'"[^"]*/.claude/plans/[^"]*\\.md"\' | head -1 | tr -d \'"\')',
+  '[ -z "$plan_file" ] && exit 0',
+  '',
+  'filename=$(basename "$plan_file")',
+  '[[ "$filename" =~ ^[a-zA-Z0-9._-]+$ ]] || exit 0',
+  '',
+  'curl -sf -o /dev/null -X POST "$OUIJIT_API_URL/hook" \\',
+  '  -H "Content-Type: application/json" \\',
+  '  -d "{\\"ptyId\\":\\"$OUIJIT_PTY_ID\\",\\"action\\":\\"plan\\",\\"filename\\":\\"$filename\\"}" 2>/dev/null &',
+  '',
+].join('\n');
 
 export const HELPER_SCRIPT = [
   '#!/bin/bash',
@@ -245,7 +303,7 @@ export const CLAUDE_WRAPPER = [
   'fi',
   '',
   '# Inject ouijit hooks via --settings (merges with user settings at runtime)',
-  `exec claude --settings '${JSON.stringify(buildHookSettings('$HOME/.config/Ouijit/bin/ouijit-hook'))}' "$@"`,
+  `exec claude --settings '${JSON.stringify(buildHookSettings('$HOME/.config/Ouijit/bin/ouijit-hook', '$HOME/.config/Ouijit/bin/ouijit-plan-hook'))}' "$@"`,
   '',
 ].join('\n');
 
@@ -320,6 +378,9 @@ export function installWrapper(): void {
 
     // Write ouijit-hook helper script (curl client invoked by hooks)
     fs.writeFileSync(path.join(binDir, 'ouijit-hook'), HELPER_SCRIPT, { mode: 0o755 });
+
+    // Write ouijit-plan-hook script (detects plan file writes from PostToolUse stdin)
+    fs.writeFileSync(path.join(binDir, 'ouijit-plan-hook'), PLAN_HOOK_SCRIPT, { mode: 0o755 });
 
     // Write claude wrapper script (shadows `claude` to inject --settings)
     fs.writeFileSync(path.join(binDir, 'claude'), CLAUDE_WRAPPER, { mode: 0o755 });
@@ -408,5 +469,5 @@ export function migrateFromSettingsHooks(): void {
  * Uses $HOME/ouijit-hook as the command path (script lives in the VM's home dir).
  */
 export function buildVmHookSettings(): string {
-  return JSON.stringify(buildHookSettings('$HOME/ouijit-hook'), null, 2);
+  return JSON.stringify(buildHookSettings('$HOME/ouijit-hook', '$HOME/ouijit-plan-hook'), null, 2);
 }

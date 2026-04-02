@@ -257,6 +257,100 @@ textarea,
   background-color: transparent !important;
 }
 
+/* ===================================
+   Plan panel markdown styles
+   =================================== */
+
+.plan-markdown {
+  @apply text-sm text-white/80 leading-relaxed;
+}
+
+.plan-markdown h1 {
+  @apply text-lg font-semibold text-white mt-0 mb-3 pb-2 border-b border-white/10;
+}
+
+.plan-markdown h2 {
+  @apply text-base font-semibold text-white mt-6 mb-2 pb-1 border-b border-white/10;
+}
+
+.plan-markdown h3 {
+  @apply text-sm font-semibold text-white mt-4 mb-1;
+}
+
+.plan-markdown h4 {
+  @apply text-sm font-medium text-white/90 mt-3 mb-1;
+}
+
+.plan-markdown p {
+  @apply my-2;
+}
+
+.plan-markdown ul,
+.plan-markdown ol {
+  @apply my-2 pl-5;
+}
+
+.plan-markdown ul {
+  list-style-type: disc;
+}
+
+.plan-markdown ol {
+  list-style-type: decimal;
+}
+
+.plan-markdown li {
+  @apply my-0.5;
+}
+
+.plan-markdown li > ul,
+.plan-markdown li > ol {
+  @apply my-0;
+}
+
+.plan-markdown code {
+  @apply px-1 py-0.5 rounded bg-white/[0.08] text-[13px] font-mono text-white/70;
+}
+
+.plan-markdown pre {
+  @apply my-3 p-3 rounded-lg bg-white/[0.06] overflow-x-auto;
+}
+
+.plan-markdown pre code {
+  @apply p-0 bg-transparent text-white/70;
+}
+
+.plan-markdown blockquote {
+  @apply my-2 pl-3 border-l-2 border-white/20 text-white/60;
+}
+
+.plan-markdown a {
+  @apply text-accent hover:underline;
+}
+
+.plan-markdown strong {
+  @apply text-white font-medium;
+}
+
+.plan-markdown hr {
+  @apply my-4 border-white/10;
+}
+
+.plan-markdown table {
+  @apply my-3 w-full border-collapse;
+}
+
+.plan-markdown th {
+  @apply px-3 py-1.5 text-left text-xs font-medium text-white/60 border-b border-white/10;
+}
+
+.plan-markdown td {
+  @apply px-3 py-1.5 text-sm border-b border-white/[0.06];
+}
+
+.plan-markdown input[type='checkbox'] {
+  @apply mr-1.5;
+}
+
 /* Responsive Adjustments */
 @media (max-width: 768px) {
   :root {

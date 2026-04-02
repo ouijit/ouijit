@@ -420,6 +420,8 @@ export interface ElectronAPI {
   scripts: ScriptsAPI;
   /** Claude Code hook events */
   claudeHooks: ClaudeHooksAPI;
+  /** Plan file detection and viewing */
+  plan: PlanAPI;
   /** Get file path from a dropped File object */
   getPathForFile(file: File): string;
   /** User's home directory */
@@ -436,6 +438,19 @@ export interface ElectronAPI {
 export interface ClaudeHooksAPI {
   onStatus(callback: (ptyId: PtyId, status: HookStatus) => void): () => void;
   getStatus(ptyId: PtyId): Promise<HookStatusEntry | null>;
+}
+
+/**
+ * Plan file detection and viewing API exposed to the renderer
+ */
+export interface PlanAPI {
+  read(planPath: string): Promise<string | null>;
+  watch(planPath: string): Promise<{ success: boolean }>;
+  unwatch(planPath: string): Promise<void>;
+  getForPty(ptyId: PtyId): Promise<string | null>;
+  onDetected(callback: (ptyId: PtyId, planPath: string) => void): () => void;
+  onReady(callback: (ptyId: PtyId) => void): () => void;
+  onContentChanged(callback: (planPath: string, content: string) => void): () => void;
 }
 
 /**
