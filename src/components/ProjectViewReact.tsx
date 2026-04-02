@@ -236,19 +236,6 @@ export function ProjectView() {
       }
     });
 
-    // Seed existing terminals with plan paths (survives renderer reload)
-    const terms = useTerminalStore.getState().terminalsByProject[projectPath] ?? [];
-    for (const ptyId of terms) {
-      const instance = terminalInstances.get(ptyId);
-      if (!instance) continue;
-      window.api.plan.getForPty(ptyId).then((planPath) => {
-        if (planPath) {
-          instance.planPath = planPath;
-          instance.pushDisplayState({ planPath });
-        }
-      });
-    }
-
     return () => {
       cleanupDetected();
       cleanupReady();
