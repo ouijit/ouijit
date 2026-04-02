@@ -149,27 +149,29 @@ export function PlanPanel({ ptyId: _ptyId, planPath, onClose }: PlanPanelProps) 
   return (
     <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-2 border-b border-white/10 shrink-0">
+      <div className="flex items-center justify-between px-3 py-1.5 bg-white/[0.03] border-y border-white/10 shrink-0">
         <div className="flex items-center gap-2 min-w-0">
           <Icon name="list-checks" className="w-4 h-4 text-white/50 shrink-0" />
           <span className="font-mono text-xs font-medium text-white/70">Plan</span>
           <span className="font-mono text-[11px] text-white/40 truncate">{filename}</span>
         </div>
-        <div className="flex items-center">
+        <div className="flex items-center gap-1">
           <TooltipButton
             text={copied ? 'Copied!' : 'Copy to clipboard'}
             placement="bottom"
-            className="w-7 h-7 flex items-center justify-center bg-transparent border-none text-white/40 hover:text-white/90 transition-colors duration-150"
+            className="w-7 h-7 flex items-center justify-center p-0 bg-transparent border-none rounded-md text-white/40 shrink-0 transition-all duration-150 ease-out hover:bg-white/10 hover:text-white/90 [&>svg]:w-3.5 [&>svg]:h-3.5"
             onClick={handleCopy}
           >
-            <Icon name={copied ? 'check' : 'clipboard-text'} className={`w-4 h-4 ${copied ? 'text-[#69db7c]' : ''}`} />
+            <Icon name={copied ? 'check' : 'clipboard-text'} className={copied ? 'text-[#69db7c]' : ''} />
           </TooltipButton>
-          <button
-            className="w-7 h-7 flex items-center justify-center bg-transparent border-none text-white/40 hover:text-white/90 transition-colors duration-150"
+          <TooltipButton
+            text="Close"
+            placement="bottom"
+            className="w-7 h-7 flex items-center justify-center p-0 bg-transparent border-none rounded-md text-white/40 shrink-0 transition-all duration-150 ease-out hover:bg-white/10 hover:text-white/90 [&>svg]:w-4 [&>svg]:h-4"
             onClick={onClose}
           >
-            <Icon name="x" className="w-4 h-4" />
-          </button>
+            <Icon name="x" />
+          </TooltipButton>
         </div>
       </div>
 
