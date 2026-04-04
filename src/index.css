@@ -394,7 +394,10 @@ textarea,
   background-size: 14px 14px;
 }
 
-/* File missing — stays muted */
+/* File missing — stays muted, not clickable */
+.plan-markdown a.file-ref[data-file-exists='false'] {
+  cursor: default;
+}
 .plan-markdown a.file-ref[data-file-exists='false']::after {
   content: 'File not found';
 }
