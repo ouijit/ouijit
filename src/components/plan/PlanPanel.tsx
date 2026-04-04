@@ -57,6 +57,18 @@ function getHighlighter() {
   return highlighterPromise;
 }
 
+// ── File existence helpers ───────────────────────────────────────────
+
+function applyFileExistence(container: HTMLElement, existence: Record<string, boolean>): void {
+  const anchors = container.querySelectorAll<HTMLAnchorElement>('a[data-file-ref]');
+  anchors.forEach((a) => {
+    const ref = a.getAttribute('data-file-ref');
+    if (ref && ref in existence) {
+      a.setAttribute('data-file-exists', String(existence[ref]));
+    }
+  });
+}
+
 // ── Markdown rendering with inline syntax highlighting ───────────────
 
 async function renderPlanMarkdown(md: string): Promise<string> {
@@ -159,7 +171,9 @@ export function PlanPanel({ ptyId, planPath, onClose, onChangePlanFile }: PlanPa
     };
   }, [content]);
 
-  // Fetch file existence and apply attributes to DOM after each render of new HTML
+  // Fetch file existence when rendered HTML changes, cache results for re-application
+  const fileExistenceRef = useRef<Record<string, boolean>>({});
+
   useEffect(() => {
     const container = contentRef.current;
     if (!container) return;
@@ -179,20 +193,29 @@ export function PlanPanel({ ptyId, planPath, onClose, onChangePlanFile }: PlanPa
 
     let cancelled = false;
 
+    // Apply cached results immediately (covers innerHTML replacements with same content)
+    if (Object.keys(fileExistenceRef.current).length > 0) {
+      applyFileExistence(container, fileExistenceRef.current);
+    }
+
+    // Fetch fresh results in background
     window.api.plan.checkFilesExist(workspaceRoot, Array.from(pathSet)).then((results) => {
       if (cancelled) return;
-      anchors.forEach((a) => {
-        const ref = a.getAttribute('data-file-ref');
-        if (ref && ref in results) {
-          a.setAttribute('data-file-exists', String(results[ref]));
-        }
-      });
+      fileExistenceRef.current = results;
+      applyFileExistence(container, results);
     });
 
     return () => {
       cancelled = true;
     };
   }, [renderedHtml, ptyId]);
+
+  // Re-apply cached file existence after layout changes (split toggle, resize end)
+  useEffect(() => {
+    const container = contentRef.current;
+    if (!container || Object.keys(fileExistenceRef.current).length === 0) return;
+    applyFileExistence(container, fileExistenceRef.current);
+  }, [fullWidth, splitRatio]);
 
   // Toggle full-width vs split
   const toggleFullWidth = useCallback(
