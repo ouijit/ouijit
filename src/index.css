@@ -345,6 +345,7 @@ textarea,
   left: 50%;
   transform: translateX(-50%) scale(0.92);
   padding: 4px 10px;
+  font-family: var(--font-family);
   font-size: 13px;
   font-weight: 500;
   color: white;
@@ -386,6 +387,11 @@ textarea,
 }
 .plan-markdown a.file-ref[data-file-exists='true']::after {
   content: 'Open in editor';
+  padding-right: 28px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256' fill='white'%3E%3Cpath d='M224,104a8,8,0,0,1-16,0V59.32l-66.33,66.34a8,8,0,0,1-11.32-11.32L196.68,48H152a8,8,0,0,1,0-16h64a8,8,0,0,1,8,8Zm-40,24a8,8,0,0,0-8,8v72H48V80h72a8,8,0,0,0,0-16H48A16,16,0,0,0,32,80V208a16,16,0,0,0,16,16H176a16,16,0,0,0,16-16V136A8,8,0,0,0,184,128Z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  background-size: 14px 14px;
 }
 
 /* File missing — stays muted */
