@@ -9,11 +9,12 @@ export function useTerminalPanels(ptyId: string | null) {
     const instance = terminalInstances.get(ptyId);
     if (!instance) return;
     instance.diffPanelOpen = !instance.diffPanelOpen;
-    if (instance.diffPanelOpen && instance.runnerPanelOpen) {
+    if (instance.diffPanelOpen) {
       instance.runnerPanelOpen = false;
-      instance.pushDisplayState({ diffPanelOpen: true, runnerPanelOpen: false });
+      instance.planPanelOpen = false;
+      instance.pushDisplayState({ diffPanelOpen: true, runnerPanelOpen: false, planPanelOpen: false });
     } else {
-      instance.pushDisplayState({ diffPanelOpen: instance.diffPanelOpen });
+      instance.pushDisplayState({ diffPanelOpen: false });
     }
     if (!instance.diffPanelOpen) {
       requestAnimationFrame(() => instance.fit());
@@ -36,11 +37,12 @@ export function useTerminalPanels(ptyId: string | null) {
       if (!instance) return;
       if (instance.runner?.ptyId && !script) {
         instance.runnerPanelOpen = !instance.runnerPanelOpen;
-        if (instance.runnerPanelOpen && instance.diffPanelOpen) {
+        if (instance.runnerPanelOpen) {
           instance.diffPanelOpen = false;
-          instance.pushDisplayState({ runnerPanelOpen: true, diffPanelOpen: false });
+          instance.planPanelOpen = false;
+          instance.pushDisplayState({ runnerPanelOpen: true, diffPanelOpen: false, planPanelOpen: false });
         } else {
-          instance.pushDisplayState({ runnerPanelOpen: instance.runnerPanelOpen });
+          instance.pushDisplayState({ runnerPanelOpen: false });
         }
       } else {
         spawnRunner(ptyId, script);
@@ -81,5 +83,50 @@ export function useTerminalPanels(ptyId: string | null) {
     }
   }, [ptyId]);
 
-  return { toggleDiffPanel, closeDiffPanel, toggleRunner, collapseRunner, killRunner, restartRunner };
+  const togglePlanPanel = useCallback(() => {
+    if (!ptyId) return;
+    const instance = terminalInstances.get(ptyId);
+    if (!instance) return;
+    instance.planPanelOpen = !instance.planPanelOpen;
+    if (instance.planPanelOpen) {
+      instance.diffPanelOpen = false;
+      instance.runnerPanelOpen = false;
+      instance.pushDisplayState({ planPanelOpen: true, diffPanelOpen: false, runnerPanelOpen: false });
+    } else {
+      instance.pushDisplayState({ planPanelOpen: false });
+      requestAnimationFrame(() => instance.fit());
+    }
+  }, [ptyId]);
+
+  const closePlanPanel = useCallback(() => {
+    if (!ptyId) return;
+    const instance = terminalInstances.get(ptyId);
+    if (!instance) return;
+    instance.planPanelOpen = false;
+    instance.pushDisplayState({ planPanelOpen: false });
+    requestAnimationFrame(() => instance.fit());
+  }, [ptyId]);
+
+  const changePlanFile = useCallback(
+    (newPath: string) => {
+      if (!ptyId) return;
+      const instance = terminalInstances.get(ptyId);
+      if (!instance) return;
+      instance.planPath = newPath;
+      instance.pushDisplayState({ planPath: newPath });
+    },
+    [ptyId],
+  );
+
+  return {
+    toggleDiffPanel,
+    closeDiffPanel,
+    toggleRunner,
+    collapseRunner,
+    killRunner,
+    restartRunner,
+    togglePlanPanel,
+    closePlanPanel,
+    changePlanFile,
+  };
 }

@@ -212,6 +212,44 @@ export function ProjectView() {
     return cleanup;
   }, [projectPath]);
 
+  // Plan detection: register listeners + seed existing terminals
+  useEffect(() => {
+    if (!projectPath) return;
+
+    // Plan file path captured (Write/Edit to .claude/plans/)
+    const cleanupDetected = window.api.plan.onDetected((ptyId, planPath) => {
+      const apply = () => {
+        const instance = terminalInstances.get(ptyId);
+        if (instance) {
+          instance.planPath = planPath;
+          instance.pushDisplayState({ planPath });
+        }
+      };
+      // Instance may not exist yet if reconnection is in progress
+      if (terminalInstances.has(ptyId)) {
+        apply();
+      } else {
+        setTimeout(apply, 500);
+      }
+    });
+
+    // Plan finalized (ExitPlanMode fired) — auto-open the plan panel
+    const cleanupReady = window.api.plan.onReady((ptyId) => {
+      const instance = terminalInstances.get(ptyId);
+      if (instance?.planPath && !instance.planPanelOpen) {
+        instance.planPanelOpen = true;
+        instance.diffPanelOpen = false;
+        instance.runnerPanelOpen = false;
+        instance.pushDisplayState({ planPanelOpen: true, diffPanelOpen: false, runnerPanelOpen: false });
+      }
+    });
+
+    return () => {
+      cleanupDetected();
+      cleanupReady();
+    };
+  }, [projectPath]);
+
   // Focus active terminal when active index changes
   useEffect(() => {
     if (!projectPath || terminals.length === 0 || kanbanVisible) return;

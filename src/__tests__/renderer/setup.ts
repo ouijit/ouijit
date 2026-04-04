@@ -16,6 +16,7 @@ const mockApi = {
   openProject: vi.fn().mockResolvedValue({ success: true }),
   openInFinder: vi.fn().mockResolvedValue({ success: true }),
   openInEditor: vi.fn().mockResolvedValue({ success: true }),
+  openFileInEditor: vi.fn().mockResolvedValue({ success: true }),
   openExternal: vi.fn().mockResolvedValue(undefined),
   refreshProjects: vi.fn().mockResolvedValue([]),
   getGitStatus: vi.fn().mockResolvedValue(null),
@@ -90,6 +91,16 @@ const mockApi = {
   claudeHooks: {
     onStatus: vi.fn().mockReturnValue(() => {}),
     getStatus: vi.fn().mockResolvedValue(null),
+  },
+  plan: {
+    read: vi.fn().mockResolvedValue(null),
+    watch: vi.fn().mockResolvedValue({ success: true }),
+    unwatch: vi.fn().mockResolvedValue(undefined),
+    getForPty: vi.fn().mockResolvedValue(null),
+    onDetected: vi.fn().mockReturnValue(() => {}),
+    onReady: vi.fn().mockReturnValue(() => {}),
+    onContentChanged: vi.fn().mockReturnValue(() => {}),
+    checkFilesExist: vi.fn().mockResolvedValue({}),
   },
   lima: {
     status: vi.fn().mockResolvedValue('stopped'),

@@ -18,6 +18,9 @@ export interface TerminalDisplayState {
   diffPanelOpen: boolean;
   diffPanelSelectedFile: string | null;
   diffPanelMode: 'uncommitted' | 'worktree';
+  planPath: string | null;
+  planPanelOpen: boolean;
+  planFullWidth: boolean;
   sandboxed: boolean;
   taskId: number | null;
   worktreeBranch: string | null;
@@ -40,6 +43,9 @@ export const DEFAULT_DISPLAY_STATE: Omit<TerminalDisplayState, 'ptyId' | 'projec
   diffPanelOpen: false,
   diffPanelSelectedFile: null,
   diffPanelMode: 'uncommitted',
+  planPath: null,
+  planPanelOpen: false,
+  planFullWidth: true,
   sandboxed: false,
   taskId: null,
   worktreeBranch: null,

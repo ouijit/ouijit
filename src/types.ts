@@ -368,6 +368,13 @@ export interface ElectronAPI {
   openInFinder(path: string): Promise<{ success: boolean }>;
   /** Open a directory in the user's configured code editor */
   openInEditor(projectPath: string, dirPath: string): Promise<{ success: boolean }>;
+  /** Open a file at a specific line in the user's editor (auto-detects, falls back to hook) */
+  openFileInEditor(
+    projectPath: string,
+    workspaceRoot: string,
+    filePath: string,
+    line?: number,
+  ): Promise<{ success: boolean; error?: string }>;
   /** Open a URL in the default browser */
   openExternal(url: string): Promise<void>;
   /** PTY management API */
@@ -420,6 +427,8 @@ export interface ElectronAPI {
   scripts: ScriptsAPI;
   /** Claude Code hook events */
   claudeHooks: ClaudeHooksAPI;
+  /** Plan file detection and viewing */
+  plan: PlanAPI;
   /** Get file path from a dropped File object */
   getPathForFile(file: File): string;
   /** User's home directory */
@@ -436,6 +445,21 @@ export interface ElectronAPI {
 export interface ClaudeHooksAPI {
   onStatus(callback: (ptyId: PtyId, status: HookStatus) => void): () => void;
   getStatus(ptyId: PtyId): Promise<HookStatusEntry | null>;
+}
+
+/**
+ * Plan file detection and viewing API exposed to the renderer
+ */
+export interface PlanAPI {
+  read(planPath: string): Promise<string | null>;
+  watch(planPath: string): Promise<{ success: boolean }>;
+  unwatch(planPath: string): Promise<void>;
+  getForPty(ptyId: PtyId): Promise<string | null>;
+  onDetected(callback: (ptyId: PtyId, planPath: string) => void): () => void;
+  onReady(callback: (ptyId: PtyId) => void): () => void;
+  onContentChanged(callback: (planPath: string, content: string) => void): () => void;
+  checkFilesExist(workspaceRoot: string, filePaths: string[]): Promise<Record<string, boolean>>;
+  pickFile(defaultPath?: string): Promise<{ canceled: boolean; filePath: string | null }>;
 }
 
 /**

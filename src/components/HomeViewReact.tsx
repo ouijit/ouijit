@@ -82,9 +82,16 @@ export function HomeView() {
           const task = await window.api.task.getByNumber(session.projectPath, session.taskId);
           worktreeBranch = task?.branch;
         }
-        const hookStatus = await window.api.claudeHooks.getStatus(session.ptyId);
+        const [hookStatus, planPath] = await Promise.all([
+          window.api.claudeHooks.getStatus(session.ptyId),
+          window.api.plan.getForPty(session.ptyId),
+        ]);
         const initialStatus = hookStatus?.status === 'thinking' ? ('thinking' as const) : ('ready' as const);
-        await reconnectTerminal(session, { worktreeBranch, initialStatus });
+        const term = await reconnectTerminal(session, { worktreeBranch, initialStatus });
+        if (term && planPath) {
+          term.planPath = planPath;
+          term.pushDisplayState({ planPath });
+        }
       }
     })();
   }, [allPtyIds.length]);
@@ -261,8 +268,16 @@ export function HomeView() {
     useTerminalStore.getState().removeTerminal(ptyId);
   };
 
-  const { toggleDiffPanel, closeDiffPanel, toggleRunner, collapseRunner, killRunner, restartRunner } =
-    useTerminalPanels(activePtyId);
+  const {
+    toggleDiffPanel,
+    closeDiffPanel,
+    toggleRunner,
+    collapseRunner,
+    killRunner,
+    restartRunner,
+    closePlanPanel,
+    changePlanFile,
+  } = useTerminalPanels(activePtyId);
 
   if (allPtyIds.length === 0) {
     const isMac = navigator.platform.toLowerCase().includes('mac');
@@ -338,6 +353,8 @@ export function HomeView() {
                 ptyId={ptyId}
                 projectPath={activeDisplay?.projectPath ?? ''}
                 onCloseDiffPanel={closeDiffPanel}
+                onClosePlanPanel={closePlanPanel}
+                onChangePlanFile={changePlanFile}
                 onCollapseRunner={collapseRunner}
                 onKillRunner={killRunner}
                 onRestartRunner={restartRunner}

@@ -498,10 +498,17 @@ export async function reconnectOrphanedSessions(projectPath: string): Promise<vo
       worktreeBranch = task?.branch;
     }
 
-    const hookStatus = await window.api.claudeHooks.getStatus(session.ptyId);
+    const [hookStatus, planPath] = await Promise.all([
+      window.api.claudeHooks.getStatus(session.ptyId),
+      window.api.plan.getForPty(session.ptyId),
+    ]);
     const initialStatus: SummaryType = hookStatus?.status === 'thinking' ? 'thinking' : 'ready';
 
-    await reconnectTerminal(session, { worktreeBranch, initialStatus });
+    const term = await reconnectTerminal(session, { worktreeBranch, initialStatus });
+    if (term && planPath) {
+      term.planPath = planPath;
+      term.pushDisplayState({ planPath });
+    }
   }
 
   // Reconnect runners to their parent terminals

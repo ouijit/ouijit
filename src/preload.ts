@@ -38,6 +38,8 @@ contextBridge.exposeInMainWorld('api', {
   openProject: (path: string) => typedInvoke('open-project', path),
   openInFinder: (path: string) => typedInvoke('open-in-finder', path),
   openInEditor: (projectPath: string, dirPath: string) => typedInvoke('open-in-editor', projectPath, dirPath),
+  openFileInEditor: (projectPath: string, workspaceRoot: string, filePath: string, line?: number) =>
+    typedInvoke('open-file-in-editor', projectPath, workspaceRoot, filePath, line),
   openExternal: (url: string) => typedInvoke('open-external', url),
   refreshProjects: () => typedInvoke('refresh-projects'),
   createProject: (options: CreateProjectOptions) => typedInvoke('create-project', options),
@@ -164,6 +166,20 @@ contextBridge.exposeInMainWorld('api', {
   claudeHooks: {
     onStatus: (callback: (ptyId: string, status: string) => void) => typedListen('claude-hook-status', callback),
     getStatus: (ptyId: string) => typedInvoke('hooks:get-status', ptyId),
+  },
+
+  plan: {
+    read: (planPath: string) => typedInvoke('plan:read', planPath),
+    watch: (planPath: string) => typedInvoke('plan:watch', planPath),
+    unwatch: (planPath: string) => typedInvoke('plan:unwatch', planPath),
+    getForPty: (ptyId: string) => typedInvoke('plan:get-for-pty', ptyId),
+    onDetected: (callback: (ptyId: string, planPath: string) => void) => typedListen('claude-plan-detected', callback),
+    onReady: (callback: (ptyId: string) => void) => typedListen('claude-plan-ready', callback),
+    onContentChanged: (callback: (planPath: string, content: string) => void) =>
+      typedListen('plan:content-changed', callback),
+    checkFilesExist: (workspaceRoot: string, filePaths: string[]) =>
+      typedInvoke('plan:check-files-exist', workspaceRoot, filePaths),
+    pickFile: (defaultPath?: string) => typedInvoke('plan:pick-file', defaultPath),
   },
 
   globalSettings: {

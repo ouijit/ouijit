@@ -12,12 +12,15 @@ import arrowRight from '@phosphor-icons/core/assets/regular/arrow-right.svg?raw'
 import arrowsClockwise from '@phosphor-icons/core/assets/regular/arrows-clockwise.svg?raw';
 import arrowsIn from '@phosphor-icons/core/assets/regular/arrows-in.svg?raw';
 import arrowsOut from '@phosphor-icons/core/assets/regular/arrows-out.svg?raw';
+import arrowsOutLineHorizontal from '@phosphor-icons/core/assets/regular/arrows-out-line-horizontal.svg?raw';
 import bug from '@phosphor-icons/core/assets/regular/bug.svg?raw';
 import caretDown from '@phosphor-icons/core/assets/regular/caret-down.svg?raw';
 import dotsSixVertical from '@phosphor-icons/core/assets/regular/dots-six-vertical.svg?raw';
 import caretLeft from '@phosphor-icons/core/assets/regular/caret-left.svg?raw';
 import caretRight from '@phosphor-icons/core/assets/regular/caret-right.svg?raw';
 import cardsThree from '@phosphor-icons/core/assets/regular/cards-three.svg?raw';
+import check from '@phosphor-icons/core/assets/regular/check.svg?raw';
+import clipboardText from '@phosphor-icons/core/assets/regular/clipboard-text.svg?raw';
 import code from '@phosphor-icons/core/assets/regular/code.svg?raw';
 import cube from '@phosphor-icons/core/assets/regular/cube.svg?raw';
 import download from '@phosphor-icons/core/assets/regular/download.svg?raw';
@@ -43,6 +46,7 @@ import prohibit from '@phosphor-icons/core/assets/regular/prohibit.svg?raw';
 import rocket from '@phosphor-icons/core/assets/regular/rocket.svg?raw';
 import sidebarSimple from '@phosphor-icons/core/assets/regular/sidebar-simple.svg?raw';
 import splitHorizontal from '@phosphor-icons/core/assets/regular/split-horizontal.svg?raw';
+import squareSplitHorizontal from '@phosphor-icons/core/assets/regular/square-split-horizontal.svg?raw';
 import star from '@phosphor-icons/core/assets/regular/star.svg?raw';
 import tag from '@phosphor-icons/core/assets/regular/tag.svg?raw';
 import terminal from '@phosphor-icons/core/assets/regular/terminal.svg?raw';
@@ -63,12 +67,15 @@ export const iconMap: Record<string, string> = {
   'arrows-clockwise': arrowsClockwise,
   'arrows-in': arrowsIn,
   'arrows-out': arrowsOut,
+  'arrows-out-line-horizontal': arrowsOutLineHorizontal,
   bug: bug,
   'caret-down': caretDown,
   'dots-six-vertical': dotsSixVertical,
   'caret-left': caretLeft,
   'caret-right': caretRight,
   'cards-three': cardsThree,
+  check: check,
+  'clipboard-text': clipboardText,
   code: code,
   cube: cube,
   download: download,
@@ -94,6 +101,7 @@ export const iconMap: Record<string, string> = {
   rocket: rocket,
   'sidebar-simple': sidebarSimple,
   'split-horizontal': splitHorizontal,
+  'square-split-horizontal': squareSplitHorizontal,
   star: star,
   tag: tag,
   terminal: terminal,

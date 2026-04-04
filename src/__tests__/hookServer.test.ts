@@ -283,7 +283,9 @@ describe('installWrapper', () => {
 
     expect(settings.hooks).toBeDefined();
     expect(settings.hooks!.UserPromptSubmit).toHaveLength(1);
-    expect(settings.hooks!.PostToolUse).toHaveLength(1);
+    expect(settings.hooks!.PostToolUse).toHaveLength(3); // status + plan detection + ExitPlanMode
+    expect(settings.hooks!.PostToolUse![1].matcher).toBe('Write|Edit');
+    expect(settings.hooks!.PostToolUse![2].matcher).toBe('ExitPlanMode');
     expect(settings.hooks!.Stop).toHaveLength(1);
     expect(settings.hooks!.Notification).toHaveLength(1);
     expect(settings.hooks!.Notification![0].matcher).toBe('permission_prompt|idle_prompt');
@@ -753,7 +755,9 @@ describe('buildVmHookSettings', () => {
     const settings = JSON.parse(buildVmHookSettings()) as HookSettings;
     expect(settings.hooks).toBeDefined();
     expect(settings.hooks!.UserPromptSubmit).toHaveLength(1);
-    expect(settings.hooks!.PostToolUse).toHaveLength(1);
+    expect(settings.hooks!.PostToolUse).toHaveLength(3); // status + plan detection + ExitPlanMode
+    expect(settings.hooks!.PostToolUse![1].matcher).toBe('Write|Edit');
+    expect(settings.hooks!.PostToolUse![2].matcher).toBe('ExitPlanMode');
     expect(settings.hooks!.Stop).toHaveLength(1);
     expect(settings.hooks!.Notification).toHaveLength(1);
     expect(settings.hooks!.Notification![0].matcher).toBe('permission_prompt|idle_prompt');

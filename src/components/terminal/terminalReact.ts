@@ -290,6 +290,12 @@ export class OuijitTerminal {
   diffPanelOpen = false;
   diffPanelMode: 'uncommitted' | 'worktree' = 'uncommitted';
 
+  // ── Per-terminal plan panel state ──────────────────────────────────
+  planPath: string | null = null;
+  planPanelOpen = false;
+  planFullWidth = true;
+  planSplitRatio = 0.5;
+
   // ── Runner (child OuijitTerminal) ──────────────────────────────────
   runner: OuijitTerminal | null = null;
   runnerPanelOpen = false;

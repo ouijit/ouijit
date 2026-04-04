@@ -49,6 +49,10 @@ export interface IpcInvokeContract {
   'open-project': { args: [projectPath: string]; return: { success: boolean } };
   'open-in-finder': { args: [projectPath: string]; return: { success: boolean } };
   'open-in-editor': { args: [projectPath: string, dirPath: string]; return: { success: boolean } };
+  'open-file-in-editor': {
+    args: [projectPath: string, workspaceRoot: string, filePath: string, line?: number];
+    return: { success: boolean; error?: string };
+  };
   'open-external': { args: [url: string]; return: void };
   'refresh-projects': { args: []; return: Project[] };
   'create-project': { args: [options: CreateProjectOptions]; return: CreateProjectResult };
@@ -145,6 +149,14 @@ export interface IpcInvokeContract {
   'hooks:save': { args: [projectPath: string, hook: ScriptHook]; return: { success: boolean } };
   'hooks:delete': { args: [projectPath: string, hookType: HookType]; return: { success: boolean } };
 
+  // ── Plan ─────────────────────────────────────────────────────────────
+  'plan:read': { args: [planPath: string]; return: string | null };
+  'plan:watch': { args: [planPath: string]; return: { success: boolean } };
+  'plan:unwatch': { args: [planPath: string]; return: void };
+  'plan:get-for-pty': { args: [ptyId: string]; return: string | null };
+  'plan:check-files-exist': { args: [workspaceRoot: string, filePaths: string[]]; return: Record<string, boolean> };
+  'plan:pick-file': { args: [defaultPath?: string]; return: { canceled: boolean; filePath: string | null } };
+
   // ── Scripts ──────────────────────────────────────────────────────────
   'scripts:get-all': { args: [projectPath: string]; return: Script[] };
   'scripts:save': { args: [projectPath: string, script: Script]; return: { success: boolean; script?: Script } };
@@ -194,6 +206,9 @@ export interface IpcSendContract {
 export interface IpcPushContract {
   'fullscreen-change': { args: [isFullscreen: boolean] };
   'claude-hook-status': { args: [ptyId: string, status: import('../hookServer').HookStatus] };
+  'claude-plan-detected': { args: [ptyId: string, planPath: string] };
+  'claude-plan-ready': { args: [ptyId: string] };
+  'plan:content-changed': { args: [planPath: string, content: string] };
   'lima:spawn-progress': { args: [step: { id: string; label: string; status: 'active' | 'done' }] };
   'update-available': { args: [info: { version: string; url: string }] };
   'whats-new': { args: [info: { version: string; notes: string }] };

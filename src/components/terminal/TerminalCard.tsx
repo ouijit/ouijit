@@ -60,8 +60,17 @@ export const TerminalCard = memo(function TerminalCard({ ptyId, projectPath }: T
 
   const isHidden = index < pageStart || index >= pageEnd;
 
-  const { toggleDiffPanel, closeDiffPanel, toggleRunner, collapseRunner, killRunner, restartRunner } =
-    useTerminalPanels(ptyId);
+  const {
+    toggleDiffPanel,
+    closeDiffPanel,
+    toggleRunner,
+    collapseRunner,
+    killRunner,
+    restartRunner,
+    togglePlanPanel,
+    closePlanPanel,
+    changePlanFile,
+  } = useTerminalPanels(ptyId);
 
   const backDepth = useMemo(() => {
     if (isActive || isHidden) return 0;
@@ -136,12 +145,15 @@ export const TerminalCard = memo(function TerminalCard({ ptyId, projectPath }: T
         stackPosition={stackPosition}
         onClose={handleClose}
         onToggleDiffPanel={toggleDiffPanel}
+        onTogglePlanPanel={togglePlanPanel}
         onToggleRunner={toggleRunner}
       />
       <TerminalBody
         ptyId={ptyId}
         projectPath={projectPath}
         onCloseDiffPanel={closeDiffPanel}
+        onClosePlanPanel={closePlanPanel}
+        onChangePlanFile={changePlanFile}
         onCollapseRunner={collapseRunner}
         onKillRunner={killRunner}
         onRestartRunner={restartRunner}
