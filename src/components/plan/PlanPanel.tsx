@@ -4,8 +4,10 @@ import DOMPurify from 'dompurify';
 import { createHighlighter } from 'shiki';
 import type { BundledLanguage } from 'shiki';
 import { terminalInstances } from '../terminal/terminalReact';
+import { useProjectStore } from '../../stores/projectStore';
 import { Icon } from '../terminal/Icon';
 import { TooltipButton } from '../ui/TooltipButton';
+import { HookConfigDialog } from '../dialogs/HookConfigDialog';
 
 interface PlanPanelProps {
   ptyId: string;
@@ -53,6 +55,54 @@ function getHighlighter() {
   return highlighterPromise;
 }
 
+// ── File path linkification ──────────────────────────────────────────
+
+const TAG_RE = /<\/?[^>]+>/g;
+// Matches file paths with at least one "/" and a file extension, plus optional :line or :line-line suffix.
+// Negative lookbehind prevents matching inside URLs or longer dot-separated paths.
+const FILE_RE = /(?<![\/\w.])(?:\.\/)?([a-zA-Z_][\w.\-]*(?:\/[\w.\-]+)+\.\w{1,10})(?::(\d+)(?:-(\d+))?)?/g;
+
+/**
+ * Wraps file-path-like text in HTML with clickable anchors.
+ * Operates on raw HTML — only modifies text outside of tags and existing <a> elements.
+ */
+export function linkifyFilePaths(html: string): string {
+  let result = '';
+  let lastIndex = 0;
+  let insideAnchor = false;
+
+  TAG_RE.lastIndex = 0;
+  let match: RegExpExecArray | null;
+  while ((match = TAG_RE.exec(html)) !== null) {
+    const textSegment = html.slice(lastIndex, match.index);
+    result += insideAnchor ? textSegment : linkifyText(textSegment);
+
+    const tag = match[0];
+    if (/<a[\s>]/i.test(tag)) insideAnchor = true;
+    if (/<\/a>/i.test(tag)) insideAnchor = false;
+    result += tag;
+    lastIndex = match.index + match[0].length;
+  }
+
+  const remaining = html.slice(lastIndex);
+  result += insideAnchor ? remaining : linkifyText(remaining);
+  return result;
+}
+
+function linkifyText(text: string): string {
+  if (!text) return text;
+  return text.replace(FILE_RE, (full, filePath: string, line?: string, endLine?: string) => {
+    const attrs = [
+      `data-file-ref="${filePath}"`,
+      line ? `data-line="${line}"` : '',
+      endLine ? `data-end-line="${endLine}"` : '',
+    ]
+      .filter(Boolean)
+      .join(' ');
+    return `<a href="#" ${attrs} class="file-ref">${full}</a>`;
+  });
+}
+
 // ── Markdown rendering with inline syntax highlighting ───────────────
 
 async function renderPlanMarkdown(md: string): Promise<string> {
@@ -72,7 +122,8 @@ async function renderPlanMarkdown(md: string): Promise<string> {
   };
 
   const rawHtml = marked.parse(md, { gfm: true, renderer }) as string;
-  return DOMPurify.sanitize(rawHtml);
+  const linkedHtml = linkifyFilePaths(rawHtml);
+  return DOMPurify.sanitize(linkedHtml);
 }
 
 export function PlanPanel({ ptyId, planPath, onClose }: PlanPanelProps) {
@@ -241,15 +292,50 @@ export function PlanPanel({ ptyId, planPath, onClose }: PlanPanelProps) {
     });
   }, [fullWidth, splitRatio, instance]);
 
-  const handleClick = useCallback((e: React.MouseEvent) => {
-    const target = e.target as HTMLElement;
-    const anchor = target.closest('a[href]');
-    if (anchor) {
+  const [editorHookDialog, setEditorHookDialog] = useState(false);
+  const pendingFileRef = useRef<{ filePath: string; line?: number } | null>(null);
+
+  const openFile = useCallback(
+    (filePath: string, line?: number) => {
+      const inst = terminalInstances.get(ptyId);
+      if (!inst) return;
+      const workspaceRoot = inst.worktreePath || inst.projectPath;
+      window.api.openFileInEditor(inst.projectPath, workspaceRoot, filePath, line).then((result) => {
+        if (!result.success) {
+          if (result.error === 'no-editor') {
+            pendingFileRef.current = { filePath, line };
+            setEditorHookDialog(true);
+          } else if (result.error) {
+            useProjectStore.getState().addToast(result.error, 'error');
+          }
+        }
+      });
+    },
+    [ptyId],
+  );
+
+  const handleClick = useCallback(
+    (e: React.MouseEvent) => {
+      const target = e.target as HTMLElement;
+      const anchor = target.closest('a[href]');
+      if (!anchor) return;
+
       e.preventDefault();
+
+      // File reference click — open in editor
+      const fileRef = anchor.getAttribute('data-file-ref');
+      if (fileRef) {
+        const line = anchor.getAttribute('data-line');
+        openFile(fileRef, line ? parseInt(line, 10) : undefined);
+        return;
+      }
+
+      // External link (existing behavior)
       const href = anchor.getAttribute('href');
-      if (href) window.api.openExternal(href);
-    }
-  }, []);
+      if (href && href !== '#') window.api.openExternal(href);
+    },
+    [openFile],
+  );
 
   const copyTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
@@ -330,6 +416,21 @@ export function PlanPanel({ ptyId, planPath, onClose }: PlanPanelProps) {
           )}
         </div>
       </div>
+      {editorHookDialog && (
+        <HookConfigDialog
+          projectPath={terminalInstances.get(ptyId)?.projectPath ?? ''}
+          hookType="editor"
+          onClose={(result) => {
+            setEditorHookDialog(false);
+            if (result?.saved && pendingFileRef.current) {
+              // Retry the file open now that an editor is configured
+              const { filePath, line } = pendingFileRef.current;
+              pendingFileRef.current = null;
+              openFile(filePath, line);
+            }
+          }}
+        />
+      )}
     </>
   );
 }

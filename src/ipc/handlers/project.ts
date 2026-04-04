@@ -4,7 +4,7 @@ import { typedHandle } from '../helpers';
 import { getProjectList } from '../../scanner';
 import { addProject, removeProject, reorderProjects, getProjectSettings, setKillExistingOnRun } from '../../db';
 import { createProject } from '../../projectCreator';
-import { openInEditor } from '../../editorLauncher';
+import { openInEditor, openFileInEditor } from '../../editorLauncher';
 import { deleteWithCleanup } from '../../lima/manager';
 import { deleteConfig } from '../../lima/configStore';
 import log from '../../log';
@@ -29,6 +29,10 @@ export function registerProjectHandlers(mainWindow: BrowserWindow): void {
   });
 
   typedHandle('open-in-editor', (projectPath, dirPath) => openInEditor(projectPath, dirPath));
+
+  typedHandle('open-file-in-editor', (projectPath, workspaceRoot, filePath, line, column) =>
+    openFileInEditor(projectPath, workspaceRoot, filePath, line, column),
+  );
 
   typedHandle('open-external', (url) => {
     if (!/^https?:\/\//i.test(url)) {

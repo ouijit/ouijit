@@ -49,6 +49,10 @@ export interface IpcInvokeContract {
   'open-project': { args: [projectPath: string]; return: { success: boolean } };
   'open-in-finder': { args: [projectPath: string]; return: { success: boolean } };
   'open-in-editor': { args: [projectPath: string, dirPath: string]; return: { success: boolean } };
+  'open-file-in-editor': {
+    args: [projectPath: string, workspaceRoot: string, filePath: string, line?: number, column?: number];
+    return: { success: boolean; error?: string };
+  };
   'open-external': { args: [url: string]; return: void };
   'refresh-projects': { args: []; return: Project[] };
   'create-project': { args: [options: CreateProjectOptions]; return: CreateProjectResult };

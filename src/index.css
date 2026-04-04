@@ -327,6 +327,15 @@ textarea,
   @apply text-accent hover:underline;
 }
 
+.plan-markdown a.file-ref {
+  @apply text-accent/80 no-underline;
+  transition: color 0.1s ease;
+}
+
+.plan-markdown a.file-ref:hover {
+  @apply text-accent underline;
+}
+
 .plan-markdown strong {
   @apply text-white font-medium;
 }
