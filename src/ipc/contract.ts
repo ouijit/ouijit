@@ -155,6 +155,7 @@ export interface IpcInvokeContract {
   'plan:unwatch': { args: [planPath: string]; return: void };
   'plan:get-for-pty': { args: [ptyId: string]; return: string | null };
   'plan:check-files-exist': { args: [workspaceRoot: string, filePaths: string[]]; return: Record<string, boolean> };
+  'plan:pick-file': { args: [defaultPath?: string]; return: { canceled: boolean; filePath: string | null } };
 
   // ── Scripts ──────────────────────────────────────────────────────────
   'scripts:get-all': { args: [projectPath: string]; return: Script[] };

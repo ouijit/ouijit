@@ -9,6 +9,7 @@ interface TerminalBodyProps {
   projectPath: string;
   onCloseDiffPanel: () => void;
   onClosePlanPanel: () => void;
+  onChangePlanFile: (newPath: string) => void;
   onCollapseRunner: () => void;
   onKillRunner: () => void;
   onRestartRunner: () => void;
@@ -19,6 +20,7 @@ export function TerminalBody({
   projectPath,
   onCloseDiffPanel,
   onClosePlanPanel,
+  onChangePlanFile,
   onCollapseRunner,
   onKillRunner,
   onRestartRunner,
@@ -45,7 +47,7 @@ export function TerminalBody({
               }}
             />
           )}
-          <PlanPanel ptyId={ptyId} planPath={planPath} onClose={onClosePlanPanel} />
+          <PlanPanel ptyId={ptyId} planPath={planPath} onClose={onClosePlanPanel} onChangePlanFile={onChangePlanFile} />
         </>
       ) : diffPanelOpen ? (
         <DiffPanel ptyId={ptyId} projectPath={projectPath} onClose={onCloseDiffPanel} />

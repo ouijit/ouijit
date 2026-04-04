@@ -1,22 +1,22 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import * as os from 'node:os';
-import { BrowserWindow } from 'electron';
+import { BrowserWindow, dialog } from 'electron';
 import { typedHandle } from '../helpers';
 import { getPlanPath } from '../../hookServer';
 import log from '../../log';
 
 const planLog = log.scope('plan');
 
-const PLANS_DIR = path.join(os.homedir(), '.claude', 'plans');
+function isMarkdownFile(filePath: string): boolean {
+  return path.extname(filePath).toLowerCase() === '.md';
+}
 
 const watchers = new Map<string, { watcher: fs.FSWatcher; timer: ReturnType<typeof setTimeout> | null }>();
 
 export function registerPlanHandlers(mainWindow: BrowserWindow): void {
   typedHandle('plan:read', (planPath) => {
-    // Validate resolved path is under ~/.claude/plans/ (prevents .. traversal)
     const resolved = path.resolve(planPath);
-    if (!resolved.startsWith(PLANS_DIR + path.sep)) return null;
+    if (!isMarkdownFile(resolved)) return null;
     try {
       return fs.readFileSync(resolved, 'utf-8');
     } catch {
@@ -26,7 +26,7 @@ export function registerPlanHandlers(mainWindow: BrowserWindow): void {
 
   typedHandle('plan:watch', (planPath) => {
     const resolved = path.resolve(planPath);
-    if (!resolved.startsWith(PLANS_DIR + path.sep)) return { success: false };
+    if (!isMarkdownFile(resolved)) return { success: false };
     if (watchers.has(resolved)) return { success: true };
 
     try {
@@ -92,6 +92,21 @@ export function registerPlanHandlers(mainWindow: BrowserWindow): void {
       }),
     );
     return result;
+  });
+
+  typedHandle('plan:pick-file', async (defaultPath) => {
+    const targetWindow = BrowserWindow.getFocusedWindow() ?? mainWindow;
+    const result = await dialog.showOpenDialog(targetWindow, {
+      properties: ['openFile', 'showHiddenFiles'],
+      filters: [{ name: 'Markdown', extensions: ['md'] }],
+      defaultPath: defaultPath ?? undefined,
+      title: 'Select Plan File',
+      buttonLabel: 'Open Plan',
+    });
+    return {
+      canceled: result.canceled,
+      filePath: result.filePaths[0] ?? null,
+    };
   });
 }
 

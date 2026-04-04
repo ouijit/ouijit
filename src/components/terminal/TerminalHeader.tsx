@@ -257,11 +257,28 @@ export const TerminalHeader = memo(function TerminalHeader({
   );
 
   const handlePlanClick = useCallback(
-    (e: React.MouseEvent) => {
+    async (e: React.MouseEvent) => {
       e.stopPropagation();
-      onTogglePlanPanel?.();
+      if (planPath) {
+        onTogglePlanPanel?.();
+      } else {
+        const inst = terminalInstances.get(ptyId);
+        if (!inst) return;
+        const result = await window.api.plan.pickFile(inst.worktreePath || inst.projectPath);
+        if (result.canceled || !result.filePath) return;
+        inst.planPath = result.filePath;
+        inst.planPanelOpen = true;
+        inst.diffPanelOpen = false;
+        inst.runnerPanelOpen = false;
+        inst.pushDisplayState({
+          planPath: result.filePath,
+          planPanelOpen: true,
+          diffPanelOpen: false,
+          runnerPanelOpen: false,
+        });
+      }
     },
-    [onTogglePlanPanel],
+    [ptyId, planPath, onTogglePlanPanel],
   );
 
   const displayText = summary ? `${label} \u2014 ${summary}` : label;
@@ -369,10 +386,10 @@ export const TerminalHeader = memo(function TerminalHeader({
         )}
       </div>
       <div className="flex items-center gap-2 shrink-0 justify-end">
-        {!compact && isActive && planPath && (
+        {!compact && isActive && (
           <button
             className={`flex items-center gap-1 px-2.5 py-1 rounded-full font-mono text-[13px] font-medium text-white/60 bg-white/[0.06] transition-all duration-150 ease-out hover:bg-white/[0.12] hover:text-white/90 active:bg-white/[0.10] active:text-white/80 ${planPanelOpen ? '!bg-accent !text-white' : ''}`}
-            title="View plan"
+            title={planPath ? 'View plan' : 'Open plan file'}
             onClick={handlePlanClick}
           >
             <Icon name="list-checks" className="w-3.5 h-3.5" />

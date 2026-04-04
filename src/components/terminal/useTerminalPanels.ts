@@ -107,6 +107,17 @@ export function useTerminalPanels(ptyId: string | null) {
     requestAnimationFrame(() => instance.fit());
   }, [ptyId]);
 
+  const changePlanFile = useCallback(
+    (newPath: string) => {
+      if (!ptyId) return;
+      const instance = terminalInstances.get(ptyId);
+      if (!instance) return;
+      instance.planPath = newPath;
+      instance.pushDisplayState({ planPath: newPath });
+    },
+    [ptyId],
+  );
+
   return {
     toggleDiffPanel,
     closeDiffPanel,
@@ -116,5 +127,6 @@ export function useTerminalPanels(ptyId: string | null) {
     restartRunner,
     togglePlanPanel,
     closePlanPanel,
+    changePlanFile,
   };
 }

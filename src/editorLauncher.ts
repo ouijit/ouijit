@@ -10,7 +10,12 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { execFileSync, spawn } from 'node:child_process';
 import launchEditor from 'launch-editor';
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const guessEditor = require('launch-editor/guess') as (specifiedEditor?: string) => string[];
 import { getHook } from './db';
+import log from './log';
+
+const editorLog = log.scope('editor');
 
 // ── PATH resolution ─────────────────────────────────────────────────
 
@@ -101,6 +106,8 @@ export async function openFileInEditor(
   spawn(hook.command, [fullPath], { detached: true, stdio: 'ignore', shell: true }).unref();
 
   // 2. Use launch-editor to open file at the correct line
+  const [detectedEditor] = guessEditor();
+  editorLog.info('opening file', { filePath, line, detectedEditor });
   const target = line ? `${fullPath}:${line}${column ? ':' + column : ''}` : fullPath;
   await tryLaunchEditor(target);
 
@@ -119,12 +126,21 @@ function tryLaunchEditor(target: string): Promise<string | null> {
     const origLog = console.log;
     console.log = () => {};
 
+    // Patch spawn so launch-editor never uses stdio: 'inherit' (which hijacks the parent TTY).
+    // launch-editor uses require('child_process'), so patch that CJS module object.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const cp = require('node:child_process');
+    const origSpawn = cp.spawn;
+    cp.spawn = (cmd: string, args: string[], opts: { stdio?: unknown }) =>
+      origSpawn(cmd, args, { ...opts, stdio: 'ignore' });
+
     try {
       launchEditor(target, undefined, (_fileName, msg) => {
         errorMsg = msg ?? 'No editor detected';
       });
     } finally {
       console.log = origLog;
+      cp.spawn = origSpawn;
     }
 
     // launch-editor calls the error callback synchronously when no editor is found,

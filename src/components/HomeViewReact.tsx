@@ -268,8 +268,16 @@ export function HomeView() {
     useTerminalStore.getState().removeTerminal(ptyId);
   };
 
-  const { toggleDiffPanel, closeDiffPanel, toggleRunner, collapseRunner, killRunner, restartRunner, closePlanPanel } =
-    useTerminalPanels(activePtyId);
+  const {
+    toggleDiffPanel,
+    closeDiffPanel,
+    toggleRunner,
+    collapseRunner,
+    killRunner,
+    restartRunner,
+    closePlanPanel,
+    changePlanFile,
+  } = useTerminalPanels(activePtyId);
 
   if (allPtyIds.length === 0) {
     const isMac = navigator.platform.toLowerCase().includes('mac');
@@ -346,6 +354,7 @@ export function HomeView() {
                 projectPath={activeDisplay?.projectPath ?? ''}
                 onCloseDiffPanel={closeDiffPanel}
                 onClosePlanPanel={closePlanPanel}
+                onChangePlanFile={changePlanFile}
                 onCollapseRunner={collapseRunner}
                 onKillRunner={killRunner}
                 onRestartRunner={restartRunner}

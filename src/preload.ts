@@ -179,6 +179,7 @@ contextBridge.exposeInMainWorld('api', {
       typedListen('plan:content-changed', callback),
     checkFilesExist: (workspaceRoot: string, filePaths: string[]) =>
       typedInvoke('plan:check-files-exist', workspaceRoot, filePaths),
+    pickFile: (defaultPath?: string) => typedInvoke('plan:pick-file', defaultPath),
   },
 
   globalSettings: {

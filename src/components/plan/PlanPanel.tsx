@@ -13,6 +13,7 @@ interface PlanPanelProps {
   ptyId: string;
   planPath: string;
   onClose: () => void;
+  onChangePlanFile: (newPath: string) => void;
 }
 
 // ── Shiki highlighter (shared singleton) ─────────────────────────────
@@ -126,7 +127,7 @@ async function renderPlanMarkdown(md: string): Promise<string> {
   return DOMPurify.sanitize(linkedHtml);
 }
 
-export function PlanPanel({ ptyId, planPath, onClose }: PlanPanelProps) {
+export function PlanPanel({ ptyId, planPath, onClose, onChangePlanFile }: PlanPanelProps) {
   const [content, setContent] = useState<string | null>(null);
   const [renderedHtml, setRenderedHtml] = useState<string>('');
   const [loading, setLoading] = useState(true);
@@ -427,7 +428,20 @@ export function PlanPanel({ ptyId, planPath, onClose }: PlanPanelProps) {
         {/* Header */}
         <div className="flex items-center gap-2 px-3 py-1.5 bg-white/[0.03] border-b border-white/10 shrink-0">
           <Icon name="list-checks" className="w-3.5 h-3.5 text-white/50 shrink-0" />
-          <span className="text-[13px] text-white/50 truncate flex-1 font-mono">{filename}</span>
+          <button
+            className="text-[13px] text-white/50 truncate flex-1 font-mono bg-transparent border-none p-0 text-left transition-colors duration-150 hover:text-white/80"
+            title={planPath}
+            onClick={async () => {
+              const inst = terminalInstances.get(ptyId);
+              const defaultDir = inst?.worktreePath || inst?.projectPath;
+              const result = await window.api.plan.pickFile(defaultDir);
+              if (!result.canceled && result.filePath) {
+                onChangePlanFile(result.filePath);
+              }
+            }}
+          >
+            {filename}
+          </button>
           <TooltipButton
             text={copied ? 'Copied!' : 'Copy to clipboard'}
             placement="bottom"
