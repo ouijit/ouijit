@@ -142,6 +142,27 @@ export const TerminalHeader = memo(function TerminalHeader({
     }
 
     items.push({
+      label: 'Open Plan File',
+      icon: 'list-checks',
+      onClick: async () => {
+        const defaultDir = instance.worktreePath || instance.projectPath;
+        const result = await window.api.plan.pickFile(defaultDir);
+        if (!result.canceled && result.filePath) {
+          instance.planPath = result.filePath;
+          instance.planPanelOpen = true;
+          instance.diffPanelOpen = false;
+          instance.runnerPanelOpen = false;
+          instance.pushDisplayState({
+            planPath: result.filePath,
+            planPanelOpen: true,
+            diffPanelOpen: false,
+            runnerPanelOpen: false,
+          });
+        }
+      },
+    });
+
+    items.push({
       label: 'Rename',
       icon: 'pencil-simple',
       onClick: () => setRenaming(true),
@@ -257,28 +278,11 @@ export const TerminalHeader = memo(function TerminalHeader({
   );
 
   const handlePlanClick = useCallback(
-    async (e: React.MouseEvent) => {
+    (e: React.MouseEvent) => {
       e.stopPropagation();
-      if (planPath) {
-        onTogglePlanPanel?.();
-      } else {
-        const inst = terminalInstances.get(ptyId);
-        if (!inst) return;
-        const result = await window.api.plan.pickFile(inst.worktreePath || inst.projectPath);
-        if (result.canceled || !result.filePath) return;
-        inst.planPath = result.filePath;
-        inst.planPanelOpen = true;
-        inst.diffPanelOpen = false;
-        inst.runnerPanelOpen = false;
-        inst.pushDisplayState({
-          planPath: result.filePath,
-          planPanelOpen: true,
-          diffPanelOpen: false,
-          runnerPanelOpen: false,
-        });
-      }
+      onTogglePlanPanel?.();
     },
-    [ptyId, planPath, onTogglePlanPanel],
+    [onTogglePlanPanel],
   );
 
   const displayText = summary ? `${label} \u2014 ${summary}` : label;
@@ -386,10 +390,10 @@ export const TerminalHeader = memo(function TerminalHeader({
         )}
       </div>
       <div className="flex items-center gap-2 shrink-0 justify-end">
-        {!compact && isActive && (
+        {!compact && isActive && planPath && (
           <button
             className={`flex items-center gap-1 px-2.5 py-1 rounded-full font-mono text-[13px] font-medium text-white/60 bg-white/[0.06] transition-all duration-150 ease-out hover:bg-white/[0.12] hover:text-white/90 active:bg-white/[0.10] active:text-white/80 ${planPanelOpen ? '!bg-accent !text-white' : ''}`}
-            title={planPath ? 'View plan' : 'Open plan file'}
+            title="View plan"
             onClick={handlePlanClick}
           >
             <Icon name="list-checks" className="w-3.5 h-3.5" />
