@@ -459,6 +459,7 @@ export interface PlanAPI {
   onDetected(callback: (ptyId: PtyId, planPath: string) => void): () => void;
   onReady(callback: (ptyId: PtyId) => void): () => void;
   onContentChanged(callback: (planPath: string, content: string) => void): () => void;
+  checkFilesExist(workspaceRoot: string, filePaths: string[]): Promise<Record<string, boolean>>;
 }
 
 /**

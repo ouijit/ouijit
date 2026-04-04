@@ -205,6 +205,41 @@ export function PlanPanel({ ptyId, planPath, onClose }: PlanPanelProps) {
     };
   }, [content]);
 
+  // Check file existence after markdown renders
+  useEffect(() => {
+    const container = contentRef.current;
+    if (!container) return;
+
+    const inst = terminalInstances.get(ptyId);
+    if (!inst) return;
+    const workspaceRoot = inst.worktreePath || inst.projectPath;
+
+    const anchors = container.querySelectorAll<HTMLAnchorElement>('a[data-file-ref]');
+    if (anchors.length === 0) return;
+
+    const pathSet = new Set<string>();
+    anchors.forEach((a) => {
+      const ref = a.getAttribute('data-file-ref');
+      if (ref) pathSet.add(ref);
+    });
+
+    let cancelled = false;
+
+    window.api.plan.checkFilesExist(workspaceRoot, Array.from(pathSet)).then((results) => {
+      if (cancelled) return;
+      anchors.forEach((a) => {
+        const ref = a.getAttribute('data-file-ref');
+        if (ref && ref in results) {
+          a.setAttribute('data-file-exists', String(results[ref]));
+        }
+      });
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [renderedHtml, ptyId]);
+
   // Toggle full-width vs split
   const toggleFullWidth = useCallback(
     (e: React.MouseEvent) => {
@@ -322,9 +357,10 @@ export function PlanPanel({ ptyId, planPath, onClose }: PlanPanelProps) {
 
       e.preventDefault();
 
-      // File reference click — open in editor
+      // File reference click — open in editor (skip if file doesn't exist)
       const fileRef = anchor.getAttribute('data-file-ref');
       if (fileRef) {
+        if (anchor.getAttribute('data-file-exists') === 'false') return;
         const line = anchor.getAttribute('data-line');
         openFile(fileRef, line ? parseInt(line, 10) : undefined);
         return;

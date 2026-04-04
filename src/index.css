@@ -327,13 +327,70 @@ textarea,
   @apply text-accent hover:underline;
 }
 
+/* File ref — muted by default, transitions when existence is resolved */
 .plan-markdown a.file-ref {
-  @apply text-accent/80 no-underline;
-  transition: color 0.1s ease;
+  @apply no-underline;
+  color: rgba(255, 255, 255, 0.4);
+  transition: color 0.4s ease;
 }
 
-.plan-markdown a.file-ref:hover {
+/* Shared tooltip for resolved file refs */
+.plan-markdown a.file-ref[data-file-exists] {
+  position: relative;
+}
+.plan-markdown a.file-ref[data-file-exists]::after {
+  position: absolute;
+  z-index: 10;
+  top: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%) scale(0.92);
+  padding: 4px 10px;
+  font-size: 13px;
+  font-weight: 500;
+  color: white;
+  background: #262626;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  box-shadow:
+    0 4px 6px -1px rgba(0, 0, 0, 0.1),
+    0 2px 4px -2px rgba(0, 0, 0, 0.1);
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+}
+.plan-markdown a.file-ref[data-file-exists]:hover::after {
+  animation: file-ref-tooltip-pop 80ms ease-out forwards;
+}
+
+@keyframes file-ref-tooltip-pop {
+  0% {
+    transform: translateX(-50%) scale(0.92);
+    opacity: 0;
+  }
+  60% {
+    transform: translateX(-50%) scale(1.05);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(-50%) scale(1);
+    opacity: 1;
+  }
+}
+
+/* File exists — accent color, clickable */
+.plan-markdown a.file-ref[data-file-exists='true'] {
+  @apply text-accent/80;
+}
+.plan-markdown a.file-ref[data-file-exists='true']:hover {
   @apply text-accent underline;
+}
+.plan-markdown a.file-ref[data-file-exists='true']::after {
+  content: 'Open in editor';
+}
+
+/* File missing — stays muted */
+.plan-markdown a.file-ref[data-file-exists='false']::after {
+  content: 'File not found';
 }
 
 .plan-markdown strong {

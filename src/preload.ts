@@ -177,6 +177,8 @@ contextBridge.exposeInMainWorld('api', {
     onReady: (callback: (ptyId: string) => void) => typedListen('claude-plan-ready', callback),
     onContentChanged: (callback: (planPath: string, content: string) => void) =>
       typedListen('plan:content-changed', callback),
+    checkFilesExist: (workspaceRoot: string, filePaths: string[]) =>
+      typedInvoke('plan:check-files-exist', workspaceRoot, filePaths),
   },
 
   globalSettings: {

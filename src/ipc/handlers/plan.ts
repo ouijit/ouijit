@@ -73,6 +73,26 @@ export function registerPlanHandlers(mainWindow: BrowserWindow): void {
   });
 
   typedHandle('plan:get-for-pty', (ptyId) => getPlanPath(ptyId));
+
+  typedHandle('plan:check-files-exist', async (workspaceRoot, filePaths) => {
+    const result: Record<string, boolean> = {};
+    await Promise.all(
+      filePaths.map(async (fp) => {
+        const resolved = path.resolve(workspaceRoot, fp);
+        if (!resolved.startsWith(workspaceRoot + path.sep) && resolved !== workspaceRoot) {
+          result[fp] = false;
+          return;
+        }
+        try {
+          await fs.promises.access(resolved);
+          result[fp] = true;
+        } catch {
+          result[fp] = false;
+        }
+      }),
+    );
+    return result;
+  });
 }
 
 /** Clean up all file watchers (call on app quit). */

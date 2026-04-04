@@ -100,6 +100,7 @@ const mockApi = {
     onDetected: vi.fn().mockReturnValue(() => {}),
     onReady: vi.fn().mockReturnValue(() => {}),
     onContentChanged: vi.fn().mockReturnValue(() => {}),
+    checkFilesExist: vi.fn().mockResolvedValue({}),
   },
   lima: {
     status: vi.fn().mockResolvedValue('stopped'),
