@@ -93,7 +93,6 @@ export async function openFileInEditor(
   workspaceRoot: string,
   filePath: string,
   line?: number,
-  column?: number,
 ): Promise<{ success: boolean; error?: string }> {
   ensureEditorPath();
 
@@ -108,7 +107,7 @@ export async function openFileInEditor(
   // 2. Use launch-editor to open file at the correct line
   const [detectedEditor] = guessEditor();
   editorLog.info('opening file', { filePath, line, detectedEditor });
-  const target = line ? `${fullPath}:${line}${column ? ':' + column : ''}` : fullPath;
+  const target = line ? `${fullPath}:${line}` : fullPath;
   await tryLaunchEditor(target);
 
   return { success: true };

@@ -374,7 +374,6 @@ export interface ElectronAPI {
     workspaceRoot: string,
     filePath: string,
     line?: number,
-    column?: number,
   ): Promise<{ success: boolean; error?: string }>;
   /** Open a URL in the default browser */
   openExternal(url: string): Promise<void>;

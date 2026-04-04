@@ -3,6 +3,7 @@ import { marked, type Tokens } from 'marked';
 import DOMPurify from 'dompurify';
 import { createHighlighter } from 'shiki';
 import type { BundledLanguage } from 'shiki';
+import { linkifyFilePaths } from '../../utils/linkifyFilePaths';
 import { terminalInstances } from '../terminal/terminalReact';
 import { useProjectStore } from '../../stores/projectStore';
 import { Icon } from '../terminal/Icon';
@@ -56,54 +57,6 @@ function getHighlighter() {
   return highlighterPromise;
 }
 
-// ── File path linkification ──────────────────────────────────────────
-
-const TAG_RE = /<\/?[^>]+>/g;
-// Matches file paths with at least one "/" and a file extension, plus optional :line or :line-line suffix.
-// Negative lookbehind prevents matching inside URLs or longer dot-separated paths.
-const FILE_RE = /(?<![\/\w.])(?:\.\/)?([a-zA-Z_][\w.\-]*(?:\/[\w.\-]+)+\.\w{1,10})(?::(\d+)(?:-(\d+))?)?/g;
-
-/**
- * Wraps file-path-like text in HTML with clickable anchors.
- * Operates on raw HTML — only modifies text outside of tags and existing <a> elements.
- */
-export function linkifyFilePaths(html: string): string {
-  let result = '';
-  let lastIndex = 0;
-  let insideAnchor = false;
-
-  TAG_RE.lastIndex = 0;
-  let match: RegExpExecArray | null;
-  while ((match = TAG_RE.exec(html)) !== null) {
-    const textSegment = html.slice(lastIndex, match.index);
-    result += insideAnchor ? textSegment : linkifyText(textSegment);
-
-    const tag = match[0];
-    if (/<a[\s>]/i.test(tag)) insideAnchor = true;
-    if (/<\/a>/i.test(tag)) insideAnchor = false;
-    result += tag;
-    lastIndex = match.index + match[0].length;
-  }
-
-  const remaining = html.slice(lastIndex);
-  result += insideAnchor ? remaining : linkifyText(remaining);
-  return result;
-}
-
-function linkifyText(text: string): string {
-  if (!text) return text;
-  return text.replace(FILE_RE, (full, filePath: string, line?: string, endLine?: string) => {
-    const attrs = [
-      `data-file-ref="${filePath}"`,
-      line ? `data-line="${line}"` : '',
-      endLine ? `data-end-line="${endLine}"` : '',
-    ]
-      .filter(Boolean)
-      .join(' ');
-    return `<a href="#" ${attrs} class="file-ref">${full}</a>`;
-  });
-}
-
 // ── Markdown rendering with inline syntax highlighting ───────────────
 
 async function renderPlanMarkdown(md: string): Promise<string> {
@@ -139,6 +92,7 @@ export function PlanPanel({ ptyId, planPath, onClose, onChangePlanFile }: PlanPa
 
   const panelRef = useRef<HTMLDivElement>(null);
   const handleRef = useRef<HTMLDivElement>(null);
+  const renderGenRef = useRef(0);
 
   const filename = planPath.split('/').pop() ?? 'plan.md';
 
@@ -185,10 +139,10 @@ export function PlanPanel({ ptyId, planPath, onClose, onChangePlanFile }: PlanPa
       return;
     }
 
-    let cancelled = false;
+    const generation = ++renderGenRef.current;
     const timer = setTimeout(() => {
       renderPlanMarkdown(content).then((html) => {
-        if (cancelled) return;
+        if (renderGenRef.current !== generation) return;
         // Preserve scroll position across innerHTML replacement
         const scrollEl = contentRef.current?.parentElement;
         const scrollTop = scrollEl?.scrollTop ?? 0;
@@ -201,14 +155,11 @@ export function PlanPanel({ ptyId, planPath, onClose, onChangePlanFile }: PlanPa
       });
     }, 150);
     return () => {
-      cancelled = true;
       clearTimeout(timer);
     };
   }, [content]);
 
-  // Fetch file existence when rendered content changes
-  const [fileExistence, setFileExistence] = useState<Record<string, boolean>>({});
-
+  // Fetch file existence and apply attributes to DOM after each render of new HTML
   useEffect(() => {
     const container = contentRef.current;
     if (!container) return;
@@ -218,10 +169,7 @@ export function PlanPanel({ ptyId, planPath, onClose, onChangePlanFile }: PlanPa
     const workspaceRoot = inst.worktreePath || inst.projectPath;
 
     const anchors = container.querySelectorAll<HTMLAnchorElement>('a[data-file-ref]');
-    if (anchors.length === 0) {
-      setFileExistence({});
-      return;
-    }
+    if (anchors.length === 0) return;
 
     const pathSet = new Set<string>();
     anchors.forEach((a) => {
@@ -232,27 +180,19 @@ export function PlanPanel({ ptyId, planPath, onClose, onChangePlanFile }: PlanPa
     let cancelled = false;
 
     window.api.plan.checkFilesExist(workspaceRoot, Array.from(pathSet)).then((results) => {
-      if (!cancelled) setFileExistence(results);
+      if (cancelled) return;
+      anchors.forEach((a) => {
+        const ref = a.getAttribute('data-file-ref');
+        if (ref && ref in results) {
+          a.setAttribute('data-file-exists', String(results[ref]));
+        }
+      });
     });
 
     return () => {
       cancelled = true;
     };
   }, [renderedHtml, ptyId]);
-
-  // Apply file existence attributes to DOM (re-runs after any render that touches innerHTML)
-  useEffect(() => {
-    const container = contentRef.current;
-    if (!container || Object.keys(fileExistence).length === 0) return;
-
-    const anchors = container.querySelectorAll<HTMLAnchorElement>('a[data-file-ref]');
-    anchors.forEach((a) => {
-      const ref = a.getAttribute('data-file-ref');
-      if (ref && ref in fileExistence) {
-        a.setAttribute('data-file-exists', String(fileExistence[ref]));
-      }
-    });
-  });
 
   // Toggle full-width vs split
   const toggleFullWidth = useCallback(
@@ -299,13 +239,13 @@ export function PlanPanel({ ptyId, planPath, onClose, onChangePlanFile }: PlanPa
       let ratio = 1 - mouseX / totalWidth;
       ratio = Math.max(0.15, Math.min(0.85, ratio));
       instance.planSplitRatio = ratio;
-      setSplitRatio(ratio);
       panel.style.flexBasis = `${ratio * 100}%`;
     };
 
     const onMouseUp = () => {
       if (!dragging) return;
       dragging = false;
+      setSplitRatio(instance.planSplitRatio ?? 0.5);
       panel.style.transition = '';
       document.body.style.cursor = '';
       document.body.style.userSelect = '';

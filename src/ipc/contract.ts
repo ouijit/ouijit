@@ -50,7 +50,7 @@ export interface IpcInvokeContract {
   'open-in-finder': { args: [projectPath: string]; return: { success: boolean } };
   'open-in-editor': { args: [projectPath: string, dirPath: string]; return: { success: boolean } };
   'open-file-in-editor': {
-    args: [projectPath: string, workspaceRoot: string, filePath: string, line?: number, column?: number];
+    args: [projectPath: string, workspaceRoot: string, filePath: string, line?: number];
     return: { success: boolean; error?: string };
   };
   'open-external': { args: [url: string]; return: void };

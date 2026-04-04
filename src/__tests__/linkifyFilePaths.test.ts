@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { linkifyFilePaths } from '../components/plan/PlanPanel';
+import { linkifyFilePaths } from '../utils/linkifyFilePaths';
 
 describe('linkifyFilePaths', () => {
   // ── Detection ───────────────────────────────────────────────────────

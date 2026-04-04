@@ -96,6 +96,7 @@ const actionHandlers: Record<string, ActionHandler> = {
   plan(body) {
     const { ptyId, filename } = body;
     if (typeof ptyId !== 'string' || typeof filename !== 'string') return;
+    if (!/^[a-zA-Z0-9._-]+$/.test(filename)) return;
     if (!isPtyActive(ptyId)) return;
 
     const planPath = path.join(os.homedir(), '.claude', 'plans', filename);

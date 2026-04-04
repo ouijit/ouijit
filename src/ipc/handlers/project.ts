@@ -30,8 +30,8 @@ export function registerProjectHandlers(mainWindow: BrowserWindow): void {
 
   typedHandle('open-in-editor', (projectPath, dirPath) => openInEditor(projectPath, dirPath));
 
-  typedHandle('open-file-in-editor', (projectPath, workspaceRoot, filePath, line, column) =>
-    openFileInEditor(projectPath, workspaceRoot, filePath, line, column),
+  typedHandle('open-file-in-editor', (projectPath, workspaceRoot, filePath, line) =>
+    openFileInEditor(projectPath, workspaceRoot, filePath, line),
   );
 
   typedHandle('open-external', (url) => {

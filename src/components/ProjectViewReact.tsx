@@ -218,10 +218,18 @@ export function ProjectView() {
 
     // Plan file path captured (Write/Edit to .claude/plans/)
     const cleanupDetected = window.api.plan.onDetected((ptyId, planPath) => {
-      const instance = terminalInstances.get(ptyId);
-      if (instance) {
-        instance.planPath = planPath;
-        instance.pushDisplayState({ planPath });
+      const apply = () => {
+        const instance = terminalInstances.get(ptyId);
+        if (instance) {
+          instance.planPath = planPath;
+          instance.pushDisplayState({ planPath });
+        }
+      };
+      // Instance may not exist yet if reconnection is in progress
+      if (terminalInstances.has(ptyId)) {
+        apply();
+      } else {
+        setTimeout(apply, 500);
       }
     });
 

@@ -14,11 +14,11 @@ function isMarkdownFile(filePath: string): boolean {
 const watchers = new Map<string, { watcher: fs.FSWatcher; timer: ReturnType<typeof setTimeout> | null }>();
 
 export function registerPlanHandlers(mainWindow: BrowserWindow): void {
-  typedHandle('plan:read', (planPath) => {
+  typedHandle('plan:read', async (planPath) => {
     const resolved = path.resolve(planPath);
     if (!isMarkdownFile(resolved)) return null;
     try {
-      return fs.readFileSync(resolved, 'utf-8');
+      return await fs.promises.readFile(resolved, 'utf-8');
     } catch {
       return null;
     }
