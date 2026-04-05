@@ -25,7 +25,6 @@ Resources:
 
 Global flags:
   --project <path>   Override project path detection
-  --dev              Use dev database
   --help             Show this help
 
 All commands output JSON to stdout.
