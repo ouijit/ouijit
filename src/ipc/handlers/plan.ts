@@ -3,9 +3,9 @@ import * as path from 'node:path';
 import { BrowserWindow, dialog } from 'electron';
 import { typedHandle } from '../helpers';
 import { getPlanPath } from '../../hookServer';
-import log from '../../log';
+import { getLogger } from '../../logger';
 
-const planLog = log.scope('plan');
+const planLog = getLogger().scope('plan');
 
 function isMarkdownFile(filePath: string): boolean {
   return path.extname(filePath).toLowerCase() === '.md';

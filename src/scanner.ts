@@ -4,9 +4,9 @@ import { nativeImage } from 'electron';
 import type { Project } from './types';
 import { getDatabase } from './db/database';
 import { ProjectRepo } from './db/repos/projectRepo';
-import log from './log';
+import { getLogger } from './logger';
 
-const scannerLog = log.scope('scanner');
+const scannerLog = getLogger().scope('scanner');
 
 export type { Project };
 

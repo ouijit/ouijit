@@ -41,3 +41,7 @@ function electronLogFactory() {
 }
 vi.mock('electron-log/main', electronLogFactory);
 vi.mock('electron-log/renderer', electronLogFactory);
+
+// Sync paths.ts with the mocked Electron userData path
+import { setUserDataPath } from '../../paths';
+setUserDataPath(testDataDir);

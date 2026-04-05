@@ -1,6 +1,4 @@
 import Database from 'better-sqlite3';
-import path from 'node:path';
-import { app } from 'electron';
 import { up as migration001 } from './migrations/001-initial';
 import { up as migration002 } from './migrations/002-add-review-hook';
 import { up as migration003 } from './migrations/003-add-tags';
@@ -21,19 +19,19 @@ const migrations = [
 
 let db: Database.Database | null = null;
 
-export function getDatabase(): Database.Database {
+export function initDatabase(dbPath: string): Database.Database {
   if (db) return db;
 
-  const dbPath = path.join(app.getPath('userData'), 'ouijit.db');
   db = new Database(dbPath);
-
-  // Enable WAL mode for better concurrent read performance
   db.pragma('journal_mode = WAL');
-  // Enable foreign keys
   db.pragma('foreign_keys = ON');
-
   runMigrations(db);
 
+  return db;
+}
+
+export function getDatabase(): Database.Database {
+  if (!db) throw new Error('Database not initialized — call initDatabase() first');
   return db;
 }
 

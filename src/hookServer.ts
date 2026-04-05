@@ -12,9 +12,9 @@ import * as path from 'node:path';
 import * as os from 'node:os';
 import { BrowserWindow } from 'electron';
 import { isPtyActive } from './ptyManager';
-import log from './log';
+import { getLogger } from './logger';
 
-const hookServerLog = log.scope('hookServer');
+const hookServerLog = getLogger().scope('hookServer');
 
 let server: http.Server | null = null;
 let apiPort = 0;

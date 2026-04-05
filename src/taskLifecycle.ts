@@ -6,7 +6,7 @@
 import { exec } from 'node:child_process';
 import { promisify } from 'node:util';
 import { existsSync } from 'node:fs';
-import { shell } from 'electron';
+import { trashItem } from './platform';
 import {
   getProjectTasks,
   getTaskByNumber,
@@ -17,11 +17,11 @@ import {
 } from './db';
 import { listWorktrees, removeTaskWorktree } from './worktree';
 import type { TaskWithWorkspace } from './types';
-import log from './log';
+import { getLogger } from './logger';
 
 const execAsync = promisify(exec);
 
-const taskLog = log.scope('task');
+const taskLog = getLogger().scope('task');
 
 /**
  * Set task status. Hooks are handled by the renderer (shown in a terminal).
@@ -104,7 +104,7 @@ export async function trashTaskWithWorktree(
   if (worktreePath) {
     taskLog.info('trashing task worktree', { taskNumber, worktreePath });
     try {
-      await shell.trashItem(worktreePath);
+      await trashItem(worktreePath);
       await execAsync('git worktree prune', { cwd: projectPath, encoding: 'utf8' });
     } catch (trashError) {
       const msg = trashError instanceof Error ? trashError.message : String(trashError);

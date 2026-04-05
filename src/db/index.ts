@@ -17,9 +17,9 @@ import { TagRepo, type TagRow } from './repos/tagRepo';
 import { GlobalSettingsRepo } from './repos/globalSettingsRepo';
 import { ScriptRepo, type ScriptRow } from './repos/scriptRepo';
 import type { ProjectSettings, ScriptHook } from '../types';
-import log from '../log';
+import { getLogger } from '../logger';
 
-const dbLog = log.scope('db');
+const dbLog = getLogger().scope('db');
 
 // ── Re-exports ───────────────────────────────────────────────────────
 export type { TaskStatus } from './repos/taskRepo';
@@ -406,6 +406,11 @@ export async function setKillExistingOnRun(projectPath: string, kill: boolean): 
 }
 
 // ── Project management functions ─────────────────────────────────────
+
+export async function getAllProjects(): Promise<{ path: string; name: string; addedAt: string }[]> {
+  const { projectRepo: pr } = repos();
+  return pr.getAll().map((row) => ({ path: row.path, name: row.name, addedAt: row.added_at }));
+}
 
 export async function addProject(folderPath: string): Promise<{ success: boolean; error?: string }> {
   try {

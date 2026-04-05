@@ -212,4 +212,5 @@ export interface IpcPushContract {
   'lima:spawn-progress': { args: [step: { id: string; label: string; status: 'active' | 'done' }] };
   'update-available': { args: [info: { version: string; url: string }] };
   'whats-new': { args: [info: { version: string; notes: string }] };
+  'cli-change': { args: [payload: { project: string; action: string; ts: number }] };
 }

@@ -2,17 +2,40 @@ import { app, BrowserWindow, dialog, nativeTheme, shell } from 'electron';
 import path from 'node:path';
 import started from 'electron-squirrel-startup';
 import fixPath from 'fix-path';
+import * as fs from 'node:fs';
 import log from './log';
+import { setLogger, type Logger } from './logger';
+import { setUserDataPath, getDbPath, getUserDataPath } from './paths';
+import { setTrashItem } from './platform';
 import { registerIpcHandlers, cleanupIpc } from './ipc/register';
 import { getActiveSessionCount } from './ptyManager';
 import { typedPush } from './ipc/helpers';
-import { getDatabase, closeDatabase } from './db/database';
+import { initDatabase, closeDatabase } from './db/database';
 import { ProjectRepo } from './db/repos/projectRepo';
 import { TaskRepo } from './db/repos/taskRepo';
 import { SettingsRepo } from './db/repos/settingsRepo';
 import { HookRepo } from './db/repos/hookRepo';
 import { importAll } from './services/dataImportService';
 import { initUpdater, cleanupUpdater } from './updater';
+
+/** Wraps electron-log to the Logger interface */
+function createElectronLogAdapter(electronLog: typeof log): Logger {
+  return {
+    info: (msg, meta?) => (meta ? electronLog.info(msg, meta) : electronLog.info(msg)),
+    warn: (msg, meta?) => (meta ? electronLog.warn(msg, meta) : electronLog.warn(msg)),
+    error: (msg, meta?) => (meta ? electronLog.error(msg, meta) : electronLog.error(msg)),
+    scope: (name) => {
+      const scoped = electronLog.scope(name);
+      const scopedLogger: Logger = {
+        info: (msg, meta?) => (meta ? scoped.info(msg, meta) : scoped.info(msg)),
+        warn: (msg, meta?) => (meta ? scoped.warn(msg, meta) : scoped.warn(msg)),
+        error: (msg, meta?) => (meta ? scoped.error(msg, meta) : scoped.error(msg)),
+        scope: (subName) => createElectronLogAdapter(electronLog).scope(`${name}:${subName}`),
+      };
+      return scopedLogger;
+    },
+  };
+}
 
 const appLog = log.scope('app');
 
@@ -30,10 +53,15 @@ fixPath();
 // Allow E2E tests to isolate userData per instance
 if (process.env.OUIJIT_TEST_USER_DATA) {
   app.setPath('userData', process.env.OUIJIT_TEST_USER_DATA);
+  setUserDataPath(process.env.OUIJIT_TEST_USER_DATA);
 } else if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
   // Isolate dev state from production so dev builds don't corrupt
   // production task-metadata.json, project settings, etc.
-  app.setPath('userData', app.getPath('userData') + '-dev');
+  const devPath = app.getPath('userData') + '-dev';
+  app.setPath('userData', devPath);
+  setUserDataPath(devPath);
+} else {
+  setUserDataPath(app.getPath('userData'));
 }
 
 let mainWindow: BrowserWindow | null = null;
@@ -138,15 +166,35 @@ const createWindow = (): BrowserWindow => {
 // Some APIs can only be used after this event occurs.
 app.on('ready', async () => {
   log.initialize(); // Inject preload for renderer IPC bridge
+  setLogger(createElectronLogAdapter(log));
+  setTrashItem((p) => shell.trashItem(p));
   appLog.info('app ready', { version: app.getVersion(), userData: app.getPath('userData') });
 
   // Initialize SQLite and migrate any existing JSON data
-  const db = getDatabase();
+  const db = initDatabase(getDbPath());
   await importAll(db, new ProjectRepo(db), new TaskRepo(db), new SettingsRepo(db), new HookRepo(db));
 
   mainWindow = createWindow();
   await registerIpcHandlers(mainWindow);
   initUpdater(mainWindow);
+
+  // Watch for CLI changes (sentinel file written by `ouijit` CLI after writes)
+  const sentinelPath = path.join(getUserDataPath(), 'cli-notify.json');
+  try {
+    fs.watch(sentinelPath, { persistent: false }, () => {
+      try {
+        const raw = fs.readFileSync(sentinelPath, 'utf-8');
+        const payload = JSON.parse(raw) as { project: string; action: string; ts: number };
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          typedPush(mainWindow, 'cli-change', payload);
+        }
+      } catch {
+        // File may be mid-write or invalid — ignore
+      }
+    });
+  } catch {
+    // Sentinel file doesn't exist yet — that's fine, it'll be created on first CLI write
+  }
 });
 
 app.on('before-quit', (e) => {

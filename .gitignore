@@ -93,6 +93,9 @@ resources/bin/*
 !resources/bin/.gitkeep
 resources/share/
 
+# CLI build output
+dist-cli/
+
 # Electron-Forge
 out/
 

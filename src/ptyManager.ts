@@ -10,9 +10,9 @@ import {
   clearHookStatus,
   clearAllHookStatuses,
 } from './hookServer';
-import log from './log';
+import { getLogger } from './logger';
 
-const ptyLog = log.scope('pty');
+const ptyLog = getLogger().scope('pty');
 
 interface ManagedPty {
   process: pty.IPty;

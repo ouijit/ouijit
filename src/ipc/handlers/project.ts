@@ -7,9 +7,9 @@ import { createProject } from '../../projectCreator';
 import { openInEditor, openFileInEditor } from '../../editorLauncher';
 import { deleteWithCleanup } from '../../lima/manager';
 import { deleteConfig } from '../../lima/configStore';
-import log from '../../log';
+import { getLogger } from '../../logger';
 
-const ipcLog = log.scope('ipc');
+const ipcLog = getLogger().scope('ipc');
 
 export function registerProjectHandlers(mainWindow: BrowserWindow): void {
   typedHandle('get-projects', () => getProjectList());

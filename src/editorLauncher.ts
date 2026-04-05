@@ -12,9 +12,9 @@ import { execFileSync, spawn } from 'node:child_process';
 import launchEditor from 'launch-editor';
 import guessEditor from 'launch-editor/guess';
 import { getHook } from './db';
-import log from './log';
+import { getLogger } from './logger';
 
-const editorLog = log.scope('editor');
+const editorLog = getLogger().scope('editor');
 
 // ── PATH resolution ─────────────────────────────────────────────────
 
