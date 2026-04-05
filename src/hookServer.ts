@@ -386,6 +386,22 @@ export function installWrapper(): void {
     // Write claude wrapper script (shadows `claude` to inject --settings)
     fs.writeFileSync(path.join(binDir, 'claude'), CLAUDE_WRAPPER, { mode: 0o755 });
 
+    // Write ouijit CLI wrapper (delegates to the bundled CLI JS via env vars set by PTY manager)
+    fs.writeFileSync(
+      path.join(binDir, 'ouijit'),
+      [
+        '#!/bin/bash',
+        '# Ouijit CLI — auto-installed by the Ouijit app',
+        'if [ -z "$OUIJIT_CLI_PATH" ] || [ ! -f "$OUIJIT_CLI_PATH" ]; then',
+        '  echo "ouijit: CLI not available (run from an Ouijit terminal)" >&2',
+        '  exit 1',
+        'fi',
+        'exec node "$OUIJIT_CLI_PATH" "$@"',
+        '',
+      ].join('\n'),
+      { mode: 0o755 },
+    );
+
     // Write shell integration scripts (re-fix PATH after shell init)
     const integrationDir = getShellIntegrationDir();
     const zshDir = path.join(integrationDir, 'zsh');

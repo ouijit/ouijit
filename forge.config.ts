@@ -128,6 +128,15 @@ const config: ForgeConfig = {
             }
           }
 
+          // 7. Copy bundled CLI
+          const cliSrc = path.join(__dirname, 'dist-cli', 'ouijit.js');
+          if (fs.existsSync(cliSrc)) {
+            const cliDest = path.join(buildPath, 'cli', 'ouijit.js');
+            fs.mkdirSync(path.dirname(cliDest), { recursive: true });
+            fs.copyFileSync(cliSrc, cliDest);
+            console.log(`Copied CLI bundle`);
+          }
+
           callback();
         } catch (err) {
           callback(err as Error);

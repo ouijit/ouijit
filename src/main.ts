@@ -5,7 +5,7 @@ import fixPath from 'fix-path';
 import * as fs from 'node:fs';
 import log from './log';
 import { setLogger, type Logger } from './logger';
-import { setUserDataPath, getDbPath, getUserDataPath } from './paths';
+import { setUserDataPath, getDbPath, getUserDataPath, setCliPath } from './paths';
 import { setTrashItem } from './platform';
 import { registerIpcHandlers, cleanupIpc } from './ipc/register';
 import { getActiveSessionCount } from './ptyManager';
@@ -62,6 +62,13 @@ if (process.env.OUIJIT_TEST_USER_DATA) {
   setUserDataPath(devPath);
 } else {
   setUserDataPath(app.getPath('userData'));
+}
+
+// Set CLI path so PTY sessions can find the bundled ouijit CLI
+if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
+  setCliPath(path.join(app.getAppPath(), 'dist-cli', 'ouijit.js'));
+} else {
+  setCliPath(path.join(app.getAppPath(), 'cli', 'ouijit.js'));
 }
 
 let mainWindow: BrowserWindow | null = null;

@@ -9,6 +9,7 @@ import * as path from 'node:path';
 import * as os from 'node:os';
 
 let _userDataPath: string | null = null;
+let _cliPath: string | null = null;
 
 function defaultUserDataPath(): string {
   if (process.platform === 'darwin') {
@@ -25,9 +26,20 @@ export function setUserDataPath(p: string): void {
 
 export function getUserDataPath(): string {
   if (_userDataPath) return _userDataPath;
+  // CLI inherits this from the PTY environment — no --dev flag needed
+  if (process.env.OUIJIT_USER_DATA) return process.env.OUIJIT_USER_DATA;
   return defaultUserDataPath();
 }
 
 export function getDbPath(): string {
   return path.join(getUserDataPath(), 'ouijit.db');
+}
+
+export function setCliPath(p: string): void {
+  _cliPath = p;
+}
+
+export function getCliPath(): string {
+  if (_cliPath) return _cliPath;
+  return '';
 }
