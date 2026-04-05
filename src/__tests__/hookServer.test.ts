@@ -256,7 +256,7 @@ describe('installWrapper', () => {
     const wrapper = fs.readFileSync(wrapperPath, 'utf-8');
     expect(wrapper).toContain('#!/bin/bash');
     expect(wrapper).toContain('WRAPPER_DIR');
-    expect(wrapper).toContain('exec claude --settings');
+    expect(wrapper).toContain('exec "$REAL_CLAUDE" --settings');
     expect(wrapper).toContain('ouijit-hook');
   });
 
@@ -265,9 +265,9 @@ describe('installWrapper', () => {
 
     const wrapperPath = path.join(tmpHome, '.config', 'Ouijit', 'bin', 'claude');
     const wrapper = fs.readFileSync(wrapperPath, 'utf-8');
-    // Contains the fallthrough: exec claude "$@" without --settings
+    // Contains the fallthrough: exec real claude without --settings
     expect(wrapper).toContain('if [ -z "$OUIJIT_API_URL" ]; then');
-    expect(wrapper).toContain('exec claude "$@"');
+    expect(wrapper).toContain('exec "$REAL_CLAUDE" "$@"');
   });
 
   test('wrapper injects all 4 hook events via --settings', () => {
@@ -323,9 +323,10 @@ describe('installWrapper', () => {
 // ── CLAUDE_WRAPPER constant ──────────────────────────────────────────
 
 describe('CLAUDE_WRAPPER', () => {
-  test('removes its own directory from PATH', () => {
+  test('resolves real claude and re-exports wrapper dir on PATH', () => {
     expect(CLAUDE_WRAPPER).toContain('WRAPPER_DIR=');
-    expect(CLAUDE_WRAPPER).toContain('PATH="${PATH//:$WRAPPER_DIR:/:}"');
+    expect(CLAUDE_WRAPPER).toContain('REAL_CLAUDE=');
+    expect(CLAUDE_WRAPPER).toContain('export PATH="$WRAPPER_DIR:$CLEAN_PATH"');
   });
 
   test('contains valid embedded JSON', () => {
