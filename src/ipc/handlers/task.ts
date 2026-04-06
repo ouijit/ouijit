@@ -1,7 +1,8 @@
 import { typedHandle } from '../helpers';
-import { createTaskWorktree, createTodoTask, startTask, checkTaskWorktree, recoverTaskWorktree } from '../../worktree';
+import { createTaskWorktree, createTodoTask, checkTaskWorktree, recoverTaskWorktree } from '../../worktree';
 import { setTaskMergeTarget, setTaskSandboxed, setTaskName, setTaskDescription } from '../../db';
 import {
+  beginTask,
   setTaskStatusWithHooks,
   reorderTaskWithHooks,
   deleteTaskWithWorktree,
@@ -17,7 +18,7 @@ export function registerTaskHandlers(): void {
     createTaskWorktree(projectPath, name, prompt, branchName),
   );
 
-  typedHandle('task:start', (projectPath, taskNumber, branchName) => startTask(projectPath, taskNumber, branchName));
+  typedHandle('task:start', (projectPath, taskNumber, branchName) => beginTask(projectPath, taskNumber, branchName));
 
   typedHandle('task:get-all', (projectPath) => getTasksWithWorkspaces(projectPath));
   typedHandle('task:get-by-number', (projectPath, taskNumber) => getTaskWithWorkspace(projectPath, taskNumber));

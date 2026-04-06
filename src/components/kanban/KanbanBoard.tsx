@@ -437,13 +437,12 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
           sandboxed,
         });
       } else {
-        // No worktree or branch yet — create one via startTask
+        // No worktree or branch yet — beginTask creates worktree + sets in_progress
         const startResult = await window.api.task.start(projectPath, task.taskNumber);
         if (!startResult.success || !startResult.worktreePath) {
           useProjectStore.getState().addToast(startResult.error || 'Failed to start task', 'error');
           return;
         }
-        await window.api.task.setStatus(projectPath, task.taskNumber, 'in_progress');
         useProjectStore.getState().loadTasks(projectPath);
         await addProjectTerminal(projectPath, undefined, {
           existingWorktree: {

@@ -265,9 +265,9 @@ describe('installWrapper', () => {
 
     const wrapperPath = path.join(tmpHome, '.config', 'Ouijit', 'bin', 'claude');
     const wrapper = fs.readFileSync(wrapperPath, 'utf-8');
-    // Contains the fallthrough: exec real claude without --settings
+    // Contains the fallthrough: exec real claude without --settings but with system prompt
     expect(wrapper).toContain('if [ -z "$OUIJIT_API_URL" ]; then');
-    expect(wrapper).toContain('exec "$REAL_CLAUDE" "$@"');
+    expect(wrapper).toContain('exec "$REAL_CLAUDE" --append-system-prompt "$OUIJIT_PROMPT" "$@"');
   });
 
   test('wrapper injects all 4 hook events via --settings', () => {

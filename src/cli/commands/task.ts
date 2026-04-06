@@ -13,8 +13,8 @@ import {
   getHook,
   type TaskStatus,
 } from '../../db';
-import { createTodoTask, startTask, createTaskWorktree } from '../../worktree';
-import { deleteTaskWithWorktree } from '../../taskLifecycle';
+import { createTodoTask, createTaskWorktree } from '../../worktree';
+import { beginTask, deleteTaskWithWorktree } from '../../taskLifecycle';
 import { executeHook } from '../../hookRunner';
 import type { HookType } from '../../db/repos/hookRepo';
 import { printJson, printError } from '../output';
@@ -97,7 +97,7 @@ Examples:
       const project = requireProject();
       const num = parseInt(number, 10);
       if (isNaN(num)) printError('Task number must be an integer');
-      const result = await startTask(project, num, opts.branch);
+      const result = await beginTask(project, num, opts.branch);
       if (!result.success) printError(result.error || 'Failed to start task');
       notify(project, 'task:start', `Task #${num} started`);
       printJson(result);
