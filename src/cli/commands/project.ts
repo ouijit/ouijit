@@ -2,30 +2,18 @@
  * CLI project commands.
  */
 
+import type { Command } from 'commander';
 import { getAllProjects } from '../../db';
-import { printJson, printError } from '../output';
+import { printJson } from '../output';
 
-export async function handleProjectCommand(action: string | undefined): Promise<void> {
-  switch (action) {
-    case 'list': {
+export function registerProjectCommands(parent: Command) {
+  const project = parent.command('project').description('Manage projects');
+
+  project
+    .command('list')
+    .description('List all registered projects')
+    .action(async () => {
       const projects = await getAllProjects();
       printJson(projects);
-      break;
-    }
-
-    case 'help':
-      process.stderr.write(`ouijit project — manage projects
-
-Actions:
-  list    List all registered projects
-
-Examples:
-  ouijit project list
-`);
-      process.exit(0);
-      break;
-
-    default:
-      printError('Usage: ouijit project <list>\nRun "ouijit project --help" for details.');
-  }
+    });
 }

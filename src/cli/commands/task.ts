@@ -2,6 +2,7 @@
  * CLI task commands — full task lifecycle.
  */
 
+import type { Command } from 'commander';
 import {
   getProjectTasks,
   getTaskByNumber,
@@ -21,18 +22,12 @@ import { notify } from '../notify';
 
 const VALID_STATUSES: TaskStatus[] = ['todo', 'in_progress', 'in_review', 'done'];
 
-/** Extract positional args from rest, skipping --flag value pairs. */
-function positionalArgs(args: string[]): string[] {
-  const result: string[] = [];
-  for (let i = 0; i < args.length; i++) {
-    if (args[i].startsWith('--')) {
-      i++; // skip the flag's value
-    } else {
-      result.push(args[i]);
-    }
-  }
-  return result;
-}
+const STATUS_LABELS: Record<string, string> = {
+  todo: 'Todo',
+  in_progress: 'In Progress',
+  in_review: 'In Review',
+  done: 'Done',
+};
 
 function statusToHookType(status: TaskStatus, hasWorktree: boolean): HookType | null {
   if (status === 'in_progress') return hasWorktree ? 'continue' : 'start';
@@ -41,182 +36,184 @@ function statusToHookType(status: TaskStatus, hasWorktree: boolean): HookType | 
   return null;
 }
 
-export async function handleTaskCommand(
-  action: string | undefined,
-  rest: string[],
-  flags: Record<string, string>,
-  requireProject: () => string,
-): Promise<void> {
-  switch (action) {
-    case 'list': {
+export function registerTaskCommands(parent: Command, requireProject: () => string) {
+  const task = parent
+    .command('task')
+    .description('Manage tasks')
+    .addHelpText(
+      'after',
+      `
+Examples:
+  ouijit task create "Fix login bug"
+  ouijit task create "Refactor auth" --prompt "Extract auth middleware"
+  ouijit task list
+  ouijit task start 5
+  ouijit task set-status 5 in_review
+  ouijit task set-name 5 "Better name"
+  ouijit task delete 5`,
+    );
+
+  task
+    .command('list')
+    .description('List all tasks (JSON array)')
+    .action(async () => {
       const project = requireProject();
       const tasks = await getProjectTasks(project);
       printJson(tasks);
-      break;
-    }
+    });
 
-    case 'get': {
+  task
+    .command('get')
+    .description('Get task by number')
+    .argument('<number>', 'task number')
+    .action(async (number: string) => {
       const project = requireProject();
-      const num = parseInt(rest[0], 10);
-      if (isNaN(num)) printError('Usage: ouijit task get <number>');
-      const task = await getTaskByNumber(project, num);
-      if (!task) printError(`Task ${num} not found`);
-      printJson(task);
-      break;
-    }
+      const num = parseInt(number, 10);
+      if (isNaN(num)) printError('Task number must be an integer');
+      const t = await getTaskByNumber(project, num);
+      if (!t) printError(`Task ${num} not found`);
+      printJson(t);
+    });
 
-    case 'create': {
+  task
+    .command('create')
+    .description('Create a todo task')
+    .argument('<name>', 'task name')
+    .option('--prompt <text>', 'task prompt/description')
+    .action(async (name: string, opts: { prompt?: string }) => {
       const project = requireProject();
-      const name = flags.name || positionalArgs(rest).join(' ') || undefined;
-      const result = await createTodoTask(project, name, flags.prompt);
+      const result = await createTodoTask(project, name, opts.prompt);
       if (!result.success) printError(result.error || 'Failed to create task');
-      notify(project, 'task:create', `Task created: ${name || 'Untitled'}`);
+      notify(project, 'task:create', `Task created: ${name}`);
       printJson(result);
-      break;
-    }
+    });
 
-    case 'start': {
+  task
+    .command('start')
+    .description('Start task (creates worktree)')
+    .argument('<number>', 'task number')
+    .option('--branch <name>', 'custom branch name')
+    .action(async (number: string, opts: { branch?: string }) => {
       const project = requireProject();
-      const num = parseInt(rest[0], 10);
-      if (isNaN(num)) printError('Usage: ouijit task start <number> [--branch <name>]');
-      const result = await startTask(project, num, flags.branch);
+      const num = parseInt(number, 10);
+      if (isNaN(num)) printError('Task number must be an integer');
+      const result = await startTask(project, num, opts.branch);
       if (!result.success) printError(result.error || 'Failed to start task');
       notify(project, 'task:start', `Task #${num} started`);
       printJson(result);
-      break;
-    }
+    });
 
-    case 'create-and-start': {
+  task
+    .command('create-and-start')
+    .description('Create + start in one step')
+    .argument('<name>', 'task name')
+    .option('--prompt <text>', 'task prompt/description')
+    .option('--branch <name>', 'custom branch name')
+    .action(async (name: string, opts: { prompt?: string; branch?: string }) => {
       const project = requireProject();
-      const name = flags.name || positionalArgs(rest).join(' ') || undefined;
-      const result = await createTaskWorktree(project, name, flags.prompt, flags.branch);
+      const result = await createTaskWorktree(project, name, opts.prompt, opts.branch);
       if (!result.success) printError(result.error || 'Failed to create and start task');
-      notify(project, 'task:create-and-start', `Task created and started: ${name || 'Untitled'}`);
+      notify(project, 'task:create-and-start', `Task created and started: ${name}`);
       printJson(result);
-      break;
-    }
+    });
 
-    case 'set-status': {
+  task
+    .command('set-status')
+    .description('Set task status')
+    .argument('<number>', 'task number')
+    .argument('<status>', 'new status (todo|in_progress|in_review|done)')
+    .action(async (number: string, status: string) => {
       const project = requireProject();
-      const num = parseInt(rest[0], 10);
-      const status = rest[1] as TaskStatus;
-      if (isNaN(num) || !VALID_STATUSES.includes(status)) {
-        printError('Usage: ouijit task set-status <number> <todo|in_progress|in_review|done>');
+      const num = parseInt(number, 10);
+      if (isNaN(num)) printError('Task number must be an integer');
+      if (!VALID_STATUSES.includes(status as TaskStatus)) {
+        printError(`Invalid status: ${status}. Must be one of: ${VALID_STATUSES.join(', ')}`);
       }
-      const statusResult = await setTaskStatus(project, num, status);
+      const s = status as TaskStatus;
+      const statusResult = await setTaskStatus(project, num, s);
       if (!statusResult.success) printError(statusResult.error || 'Failed to set status');
 
       // Execute hook if applicable
-      const task = await getTaskByNumber(project, num);
-      const hookType = statusToHookType(status, !!task?.worktreePath);
+      const t = await getTaskByNumber(project, num);
+      const hookType = statusToHookType(s, !!t?.worktreePath);
       let hookResult: { ran: boolean; type?: string; exitCode?: number; output?: string } = { ran: false };
 
-      if (hookType && task?.worktreePath) {
+      if (hookType && t?.worktreePath) {
         const hook = await getHook(project, hookType);
         if (hook) {
-          const result = await executeHook(hook, task.worktreePath, {
+          const result = await executeHook(hook, t.worktreePath, {
             projectPath: project,
-            worktreePath: task.worktreePath,
-            taskBranch: task.branch || '',
-            taskName: task.name,
-            taskPrompt: task.prompt,
+            worktreePath: t.worktreePath,
+            taskBranch: t.branch || '',
+            taskName: t.name,
+            taskPrompt: t.prompt,
           });
           hookResult = { ran: true, type: hookType, exitCode: result.exitCode, output: result.output };
         }
       }
 
-      const statusLabels: Record<string, string> = {
-        todo: 'Todo',
-        in_progress: 'In Progress',
-        in_review: 'In Review',
-        done: 'Done',
-      };
-      notify(project, 'task:set-status', `Task #${num} → ${statusLabels[status] || status}`);
-      printJson({ success: true, task, hook: hookResult });
-      break;
-    }
+      notify(project, 'task:set-status', `Task #${num} → ${STATUS_LABELS[s] || s}`);
+      printJson({ success: true, task: t, hook: hookResult });
+    });
 
-    case 'set-name': {
+  task
+    .command('set-name')
+    .description('Rename a task')
+    .argument('<number>', 'task number')
+    .argument('<name...>', 'new name')
+    .action(async (number: string, nameParts: string[]) => {
       const project = requireProject();
-      const num = parseInt(rest[0], 10);
-      const name = rest
-        .slice(1)
-        .filter((s) => !s.startsWith('--'))
-        .join(' ');
+      const num = parseInt(number, 10);
+      const name = nameParts.join(' ');
       if (isNaN(num) || !name) printError('Usage: ouijit task set-name <number> <name>');
       const result = await setTaskName(project, num, name);
       if (!result.success) printError(result.error || 'Failed to set name');
       notify(project, 'task:set-name', `Task #${num} renamed to "${name}"`);
       printJson(result);
-      break;
-    }
+    });
 
-    case 'set-description': {
+  task
+    .command('set-description')
+    .description('Set task description')
+    .argument('<number>', 'task number')
+    .argument('<text...>', 'description text')
+    .action(async (number: string, textParts: string[]) => {
       const project = requireProject();
-      const num = parseInt(rest[0], 10);
-      const desc = rest
-        .slice(1)
-        .filter((s) => !s.startsWith('--'))
-        .join(' ');
-      if (isNaN(num) || !desc) printError('Usage: ouijit task set-description <number> <description>');
+      const num = parseInt(number, 10);
+      const desc = textParts.join(' ');
+      if (isNaN(num) || !desc) printError('Usage: ouijit task set-description <number> <text>');
       const result = await setTaskDescription(project, num, desc);
       if (!result.success) printError(result.error || 'Failed to set description');
       notify(project, 'task:set-description', `Task #${num} description updated`);
       printJson(result);
-      break;
-    }
+    });
 
-    case 'set-merge-target': {
+  task
+    .command('set-merge-target')
+    .description('Set merge target branch')
+    .argument('<number>', 'task number')
+    .argument('<branch>', 'target branch')
+    .action(async (number: string, branch: string) => {
       const project = requireProject();
-      const num = parseInt(rest[0], 10);
-      const branch = rest[1];
-      if (isNaN(num) || !branch) printError('Usage: ouijit task set-merge-target <number> <branch>');
+      const num = parseInt(number, 10);
+      if (isNaN(num)) printError('Task number must be an integer');
       const result = await setTaskMergeTarget(project, num, branch);
       if (!result.success) printError(result.error || 'Failed to set merge target');
       notify(project, 'task:set-merge-target', `Task #${num} merge target → ${branch}`);
       printJson(result);
-      break;
-    }
+    });
 
-    case 'delete': {
+  task
+    .command('delete')
+    .description('Delete task and its worktree')
+    .argument('<number>', 'task number')
+    .action(async (number: string) => {
       const project = requireProject();
-      const num = parseInt(rest[0], 10);
-      if (isNaN(num)) printError('Usage: ouijit task delete <number>');
+      const num = parseInt(number, 10);
+      if (isNaN(num)) printError('Task number must be an integer');
       const result = await deleteTaskWithWorktree(project, num);
       if (!result.success) printError(result.error || 'Failed to delete task');
       notify(project, 'task:delete', `Task #${num} deleted`);
       printJson(result);
-      break;
-    }
-
-    case 'help':
-      process.stderr.write(`ouijit task — manage tasks
-
-Actions:
-  list                                       List all tasks (JSON array)
-  get <number>                               Get task by number
-  create <name> [--prompt <text>]            Create a todo task
-  start <number> [--branch <name>]           Start task (creates worktree)
-  create-and-start <name> [--prompt <text>]  Create + start in one step
-  set-status <number> <status>               Set status (todo|in_progress|in_review|done)
-  set-name <number> <name>                   Rename a task
-  set-description <number> <text>            Set task description
-  set-merge-target <number> <branch>         Set merge target branch
-  delete <number>                            Delete task and its worktree
-
-Examples:
-  ouijit task create "Fix login bug"
-  ouijit task create "Refactor auth" --prompt "Extract auth middleware"
-  ouijit task start 5
-  ouijit task set-status 5 in_review
-  ouijit task list
-`);
-      process.exit(0);
-      break;
-
-    default:
-      printError(
-        'Usage: ouijit task <list|get|create|start|create-and-start|set-status|set-name|set-description|set-merge-target|delete>\nRun "ouijit task --help" for details.',
-      );
-  }
+    });
 }

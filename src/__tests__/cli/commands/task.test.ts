@@ -1,6 +1,7 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest';
-import { _resetCacheForTesting, getProjectTasks, getTaskByNumber, addProject, saveHook, createTask } from '../../../db';
-import { handleTaskCommand } from '../../../cli/commands/task';
+import { Command } from 'commander';
+import { _resetCacheForTesting, getProjectTasks, getTaskByNumber, addProject, createTask } from '../../../db';
+import { registerTaskCommands } from '../../../cli/commands/task';
 
 // Capture stdout output
 function captureOutput() {
@@ -20,6 +21,13 @@ function captureOutput() {
 
 const PROJECT = '/test/project';
 
+function createProgram() {
+  const program = new Command();
+  program.exitOverride(); // throw instead of process.exit
+  registerTaskCommands(program, () => PROJECT);
+  return program;
+}
+
 describe('task commands', () => {
   beforeEach(async () => {
     _resetCacheForTesting();
@@ -28,14 +36,14 @@ describe('task commands', () => {
 
   test('list returns empty array for new project', async () => {
     const output = captureOutput();
-    await handleTaskCommand('list', [], {}, () => PROJECT);
+    await createProgram().parseAsync(['task', 'list'], { from: 'user' });
     const result = output.getJson();
     expect(result).toEqual([]);
   });
 
   test('create creates a task in DB', async () => {
     const output = captureOutput();
-    await handleTaskCommand('create', [], { name: 'Test task', prompt: 'Do stuff' }, () => PROJECT);
+    await createProgram().parseAsync(['task', 'create', 'Test task', '--prompt', 'Do stuff'], { from: 'user' });
     const result = output.getJson();
     expect(result.success).toBe(true);
     expect(result.task.name).toBe('Test task');
@@ -49,7 +57,7 @@ describe('task commands', () => {
   test('get retrieves a task by number', async () => {
     await createTask(PROJECT, 1, 'My task');
     const output = captureOutput();
-    await handleTaskCommand('get', ['1'], {}, () => PROJECT);
+    await createProgram().parseAsync(['task', 'get', '1'], { from: 'user' });
     const result = output.getJson();
     expect(result.taskNumber).toBe(1);
     expect(result.name).toBe('My task');
@@ -60,7 +68,7 @@ describe('task commands', () => {
     await createTask(PROJECT, 2, 'Task B');
 
     const output = captureOutput();
-    await handleTaskCommand('list', [], {}, () => PROJECT);
+    await createProgram().parseAsync(['task', 'list'], { from: 'user' });
     const result = output.getJson();
     expect(result).toHaveLength(2);
     expect(result.map((t: { name: string }) => t.name)).toEqual(['Task A', 'Task B']);
@@ -69,7 +77,7 @@ describe('task commands', () => {
   test('set-status updates task status', async () => {
     await createTask(PROJECT, 1, 'Task', { status: 'todo' });
     const output = captureOutput();
-    await handleTaskCommand('set-status', ['1', 'in_progress'], {}, () => PROJECT);
+    await createProgram().parseAsync(['task', 'set-status', '1', 'in_progress'], { from: 'user' });
     const result = output.getJson();
     expect(result.success).toBe(true);
 
@@ -80,7 +88,7 @@ describe('task commands', () => {
   test('set-name updates task name', async () => {
     await createTask(PROJECT, 1, 'Old name');
     const output = captureOutput();
-    await handleTaskCommand('set-name', ['1', 'New', 'name'], {}, () => PROJECT);
+    await createProgram().parseAsync(['task', 'set-name', '1', 'New', 'name'], { from: 'user' });
     const result = output.getJson();
     expect(result.success).toBe(true);
 
@@ -91,7 +99,7 @@ describe('task commands', () => {
   test('delete removes task from DB', async () => {
     await createTask(PROJECT, 1, 'Doomed');
     const output = captureOutput();
-    await handleTaskCommand('delete', ['1'], {}, () => PROJECT);
+    await createProgram().parseAsync(['task', 'delete', '1'], { from: 'user' });
     const result = output.getJson();
     expect(result.success).toBe(true);
 

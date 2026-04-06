@@ -5,102 +5,51 @@
  * All commands output JSON to stdout. Errors go to stderr with non-zero exit.
  */
 
+import { Command, Option } from 'commander';
 import { setUserDataPath, getDbPath, getUserDataPath } from '../paths';
 import { initDatabase } from '../db/database';
 import { detectProject } from './detect';
 import { printError } from './output';
-import { handleTaskCommand } from './commands/task';
-import { handleHookCommand } from './commands/hook';
-import { handleTagCommand } from './commands/tag';
-import { handleProjectCommand } from './commands/project';
+import { registerTaskCommands } from './commands/task';
+import { registerHookCommands } from './commands/hook';
+import { registerTagCommands } from './commands/tag';
+import { registerProjectCommands } from './commands/project';
 
-function printUsage(exitCode = 1): never {
-  const out = exitCode === 0 ? process.stdout : process.stderr;
-  out.write(`Usage: ouijit <resource> <action> [args] [flags]
+const program = new Command();
 
-Resources:
-  task       Manage tasks (list, get, create, start, set-status, delete, ...)
-  hook       Manage hooks (list, get, set, delete)
-  tag        Manage tags (list, add, remove, set)
-  project    Manage projects (list)
-
-Global flags:
-  --project <path>   Override project path detection
-  --help             Show help (use "ouijit <resource> --help" for details)
-
-All commands output JSON to stdout.
-`);
-  process.exit(exitCode);
-}
-
-// ── Parse global flags ──────────────────────────────────────────────
-
-const args = process.argv.slice(2);
-let explicitProject: string | undefined;
-let devMode = false;
-
-// Extract global flags before dispatching
-const positional: string[] = [];
-let helpRequested = false;
-for (let i = 0; i < args.length; i++) {
-  if (args[i] === '--project' && i + 1 < args.length) {
-    explicitProject = args[++i];
-  } else if (args[i] === '--dev') {
-    devMode = true;
-  } else if (args[i] === '--help' || args[i] === '-h') {
-    helpRequested = true;
-  } else {
-    positional.push(args[i]);
-  }
-}
-
-const resource = positional[0];
-const action = helpRequested ? 'help' : positional[1];
-const rest = positional.slice(helpRequested ? 1 : 2);
-
-if (!resource) printUsage();
-
-// ── Initialize ──────────────────────────────────────────────────────
-
-if (devMode) {
-  setUserDataPath(getUserDataPath() + '-dev');
-}
-
-initDatabase(getDbPath());
-
-// ── Detect project (for commands that need it) ──────────────────────
+program
+  .name('ouijit')
+  .description('Manage tasks, hooks, tags, and projects from the command line.\nAll commands output JSON to stdout.')
+  .option('--project <path>', 'override project path detection')
+  .addOption(new Option('--dev').default(false).hideHelp())
+  .addHelpText(
+    'after',
+    `
+Examples:
+  ouijit task create "Fix login bug"
+  ouijit task list
+  ouijit task set-status 5 in_review
+  ouijit hook set start --name "Install" --command "npm install"
+  ouijit tag add 5 bug`,
+  )
+  .hook('preAction', () => {
+    const opts = program.opts();
+    if (opts.dev) {
+      setUserDataPath(getUserDataPath() + '-dev');
+    }
+    initDatabase(getDbPath());
+  });
 
 function requireProject(): string {
-  const project = detectProject(explicitProject);
+  const opts = program.opts();
+  const project = detectProject(opts.project);
   if (!project) printError('Could not detect project. Use --project <path> or run from within a git repo.');
   return project;
 }
 
-// ── Dispatch ────────────────────────────────────────────────────────
+registerTaskCommands(program, requireProject);
+registerHookCommands(program, requireProject);
+registerTagCommands(program, requireProject);
+registerProjectCommands(program);
 
-function parseFlags(args: string[]): Record<string, string> {
-  const flags: Record<string, string> = {};
-  for (let i = 0; i < args.length; i++) {
-    if (args[i].startsWith('--') && i + 1 < args.length) {
-      flags[args[i].slice(2)] = args[++i];
-    }
-  }
-  return flags;
-}
-
-switch (resource) {
-  case 'task':
-    handleTaskCommand(action, rest, parseFlags(rest), requireProject);
-    break;
-  case 'hook':
-    handleHookCommand(action, rest, parseFlags(rest), requireProject);
-    break;
-  case 'tag':
-    handleTagCommand(action, rest, parseFlags(rest), requireProject);
-    break;
-  case 'project':
-    handleProjectCommand(action);
-    break;
-  default:
-    printError(`Unknown resource: ${resource}`);
-}
+program.parse();
