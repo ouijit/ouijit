@@ -43,7 +43,7 @@ Examples:
 function requireProject(): string {
   const opts = program.opts();
   const project = detectProject(opts.project);
-  if (!project) printError('Could not detect project. Use --project <path> or run from within a git repo.');
+  if (!project) return printError('Could not detect project. Use --project <path> or run from within a git repo.');
   return project;
 }
 

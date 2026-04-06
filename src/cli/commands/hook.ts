@@ -13,7 +13,7 @@ const VALID_HOOK_TYPES: HookType[] = ['start', 'continue', 'run', 'review', 'cle
 
 function validateHookType(type: string): HookType {
   if (!VALID_HOOK_TYPES.includes(type as HookType)) {
-    printError(`Invalid hook type: ${type}. Must be one of: ${VALID_HOOK_TYPES.join(', ')}`);
+    return printError(`Invalid hook type: ${type}. Must be one of: ${VALID_HOOK_TYPES.join(', ')}`);
   }
   return type as HookType;
 }

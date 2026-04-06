@@ -69,9 +69,9 @@ Examples:
     .action(async (number: string) => {
       const project = requireProject();
       const num = parseInt(number, 10);
-      if (isNaN(num)) printError('Task number must be an integer');
+      if (isNaN(num)) return printError('Task number must be an integer');
       const t = await getTaskByNumber(project, num);
-      if (!t) printError(`Task ${num} not found`);
+      if (!t) return printError(`Task ${num} not found`);
       printJson(t);
     });
 
@@ -83,7 +83,7 @@ Examples:
     .action(async (name: string, opts: { prompt?: string }) => {
       const project = requireProject();
       const result = await createTodoTask(project, name, opts.prompt);
-      if (!result.success) printError(result.error || 'Failed to create task');
+      if (!result.success) return printError(result.error || 'Failed to create task');
       notify(project, 'task:create', `Task created: ${name}`);
       printJson(result);
     });
@@ -96,9 +96,9 @@ Examples:
     .action(async (number: string, opts: { branch?: string }) => {
       const project = requireProject();
       const num = parseInt(number, 10);
-      if (isNaN(num)) printError('Task number must be an integer');
+      if (isNaN(num)) return printError('Task number must be an integer');
       const result = await beginTask(project, num, opts.branch);
-      if (!result.success) printError(result.error || 'Failed to start task');
+      if (!result.success) return printError(result.error || 'Failed to start task');
       notify(project, 'task:start', `Task #${num} started`);
       printJson(result);
     });
@@ -112,7 +112,7 @@ Examples:
     .action(async (name: string, opts: { prompt?: string; branch?: string }) => {
       const project = requireProject();
       const result = await createTaskWorktree(project, name, opts.prompt, opts.branch);
-      if (!result.success) printError(result.error || 'Failed to create and start task');
+      if (!result.success) return printError(result.error || 'Failed to create and start task');
       notify(project, 'task:create-and-start', `Task created and started: ${name}`);
       printJson(result);
     });
@@ -125,13 +125,13 @@ Examples:
     .action(async (number: string, status: string) => {
       const project = requireProject();
       const num = parseInt(number, 10);
-      if (isNaN(num)) printError('Task number must be an integer');
+      if (isNaN(num)) return printError('Task number must be an integer');
       if (!VALID_STATUSES.includes(status as TaskStatus)) {
-        printError(`Invalid status: ${status}. Must be one of: ${VALID_STATUSES.join(', ')}`);
+        return printError(`Invalid status: ${status}. Must be one of: ${VALID_STATUSES.join(', ')}`);
       }
       const s = status as TaskStatus;
       const statusResult = await setTaskStatus(project, num, s);
-      if (!statusResult.success) printError(statusResult.error || 'Failed to set status');
+      if (!statusResult.success) return printError(statusResult.error || 'Failed to set status');
 
       // Execute hook if applicable
       const t = await getTaskByNumber(project, num);
@@ -165,9 +165,9 @@ Examples:
       const project = requireProject();
       const num = parseInt(number, 10);
       const name = nameParts.join(' ');
-      if (isNaN(num) || !name) printError('Usage: ouijit task set-name <number> <name>');
+      if (isNaN(num) || !name) return printError('Usage: ouijit task set-name <number> <name>');
       const result = await setTaskName(project, num, name);
-      if (!result.success) printError(result.error || 'Failed to set name');
+      if (!result.success) return printError(result.error || 'Failed to set name');
       notify(project, 'task:set-name', `Task #${num} renamed to "${name}"`);
       printJson(result);
     });
@@ -181,9 +181,9 @@ Examples:
       const project = requireProject();
       const num = parseInt(number, 10);
       const desc = textParts.join(' ');
-      if (isNaN(num) || !desc) printError('Usage: ouijit task set-description <number> <text>');
+      if (isNaN(num) || !desc) return printError('Usage: ouijit task set-description <number> <text>');
       const result = await setTaskDescription(project, num, desc);
-      if (!result.success) printError(result.error || 'Failed to set description');
+      if (!result.success) return printError(result.error || 'Failed to set description');
       notify(project, 'task:set-description', `Task #${num} description updated`);
       printJson(result);
     });
@@ -196,9 +196,9 @@ Examples:
     .action(async (number: string, branch: string) => {
       const project = requireProject();
       const num = parseInt(number, 10);
-      if (isNaN(num)) printError('Task number must be an integer');
+      if (isNaN(num)) return printError('Task number must be an integer');
       const result = await setTaskMergeTarget(project, num, branch);
-      if (!result.success) printError(result.error || 'Failed to set merge target');
+      if (!result.success) return printError(result.error || 'Failed to set merge target');
       notify(project, 'task:set-merge-target', `Task #${num} merge target → ${branch}`);
       printJson(result);
     });
@@ -210,9 +210,9 @@ Examples:
     .action(async (number: string) => {
       const project = requireProject();
       const num = parseInt(number, 10);
-      if (isNaN(num)) printError('Task number must be an integer');
+      if (isNaN(num)) return printError('Task number must be an integer');
       const result = await deleteTaskWithWorktree(project, num);
-      if (!result.success) printError(result.error || 'Failed to delete task');
+      if (!result.success) return printError(result.error || 'Failed to delete task');
       notify(project, 'task:delete', `Task #${num} deleted`);
       printJson(result);
     });

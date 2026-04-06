@@ -43,8 +43,28 @@ export function setLogger(logger: Logger): void {
   _logger = logger;
 }
 
+/**
+ * Returns a lazy proxy that always delegates to the current `_logger`.
+ * This ensures modules that call `getLogger().scope('x')` at import time
+ * pick up the real logger even if `setLogger()` runs later (e.g. in Electron's
+ * `app.on('ready')` callback).
+ */
 export function getLogger(): Logger {
-  return _logger;
+  return {
+    info: (msg, meta?) => _logger.info(msg, meta),
+    warn: (msg, meta?) => _logger.warn(msg, meta),
+    error: (msg, meta?) => _logger.error(msg, meta),
+    scope: (name) => {
+      let cached: Logger | undefined;
+      const get = () => (cached ??= _logger.scope(name));
+      return {
+        info: (msg, meta?) => get().info(msg, meta),
+        warn: (msg, meta?) => get().warn(msg, meta),
+        error: (msg, meta?) => get().error(msg, meta),
+        scope: (sub) => getLogger().scope(`${name}:${sub}`),
+      };
+    },
+  };
 }
 
 /**

@@ -29,7 +29,7 @@ Examples:
       if (opts.task) {
         const project = requireProject();
         const taskNumber = parseInt(opts.task, 10);
-        if (isNaN(taskNumber)) printError('--task must be a number');
+        if (isNaN(taskNumber)) return printError('--task must be a number');
         const tags = await getTaskTags(project, taskNumber);
         printJson(tags);
       } else {
@@ -46,7 +46,7 @@ Examples:
     .action(async (taskNumber: string, tagName: string) => {
       const project = requireProject();
       const num = parseInt(taskNumber, 10);
-      if (isNaN(num)) printError('Task number must be an integer');
+      if (isNaN(num)) return printError('Task number must be an integer');
       const t = await addTagToTask(project, num, tagName);
       notify(project, 'tag:add', `Tag "${tagName}" added to task #${num}`);
       printJson(t);
@@ -60,7 +60,7 @@ Examples:
     .action(async (taskNumber: string, tagName: string) => {
       const project = requireProject();
       const num = parseInt(taskNumber, 10);
-      if (isNaN(num)) printError('Task number must be an integer');
+      if (isNaN(num)) return printError('Task number must be an integer');
       await removeTagFromTask(project, num, tagName);
       notify(project, 'tag:remove', `Tag "${tagName}" removed from task #${num}`);
       printJson({ success: true });
@@ -74,7 +74,7 @@ Examples:
     .action(async (taskNumber: string, tagNames: string[]) => {
       const project = requireProject();
       const num = parseInt(taskNumber, 10);
-      if (isNaN(num)) printError('Task number must be an integer');
+      if (isNaN(num)) return printError('Task number must be an integer');
       const tags = await setTaskTags(project, num, tagNames);
       notify(project, 'tag:set', `Tags updated on task #${num}`);
       printJson(tags);
