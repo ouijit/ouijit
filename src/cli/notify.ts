@@ -8,8 +8,8 @@ import * as fs from 'node:fs';
 import { getUserDataPath } from '../paths';
 import * as path from 'node:path';
 
-export function notify(project: string, action: string): void {
-  const payload = { project, action, ts: Date.now() };
+export function notify(project: string, action: string, message?: string): void {
+  const payload = { project, action, message, ts: Date.now() };
   const filePath = path.join(getUserDataPath(), 'cli-notify.json');
   fs.writeFileSync(filePath, JSON.stringify(payload), 'utf-8');
 }

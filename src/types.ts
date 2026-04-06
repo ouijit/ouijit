@@ -416,7 +416,9 @@ export interface ElectronAPI {
   /** Listen for "What's New" on first launch after update */
   onWhatsNew(callback: (info: { version: string; notes: string }) => void): () => void;
   /** Listen for CLI changes (sentinel file written by ouijit CLI) */
-  onCliChange(callback: (payload: { project: string; action: string; ts: number }) => void): () => void;
+  onCliChange(
+    callback: (payload: { project: string; action: string; message?: string; ts: number }) => void,
+  ): () => void;
   /** Get project settings */
   getProjectSettings(projectPath: string): Promise<ProjectSettings>;
   /** Set whether to kill existing command instances on run */

@@ -52,6 +52,9 @@ export function useIPCListeners() {
         if (activeProject && payload.project === activeProject) {
           ipcLog.info('CLI change detected, refreshing tasks', { action: payload.action });
           useProjectStore.getState().loadTasks(activeProject);
+          if (payload.message) {
+            useProjectStore.getState().addToast(payload.message, 'info');
+          }
         }
       }),
     );

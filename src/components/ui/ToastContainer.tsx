@@ -12,7 +12,7 @@ export function ToastContainer() {
       {toasts.map((toast) => (
         <div
           key={toast.id}
-          className={`fixed bottom-6 left-1/2 text-text-primary px-4 py-2 rounded-md border shadow-lg text-sm font-medium z-[1001] flex items-center gap-2 transition-all duration-200 ease-out opacity-100 before:content-[''] before:w-1.5 before:h-1.5 before:rounded-full before:shrink-0 ${
+          className={`fixed bottom-6 left-1/2 w-fit max-w-[90vw] text-text-primary px-4 py-2 rounded-md border shadow-lg text-sm font-medium z-[1001] flex items-center gap-2 transition-all duration-200 ease-out opacity-100 before:content-[''] before:w-1.5 before:h-1.5 before:rounded-full before:shrink-0 ${
             toast.type === 'success'
               ? 'border-[rgba(48,209,88,0.4)] bg-[rgba(48,209,88,0.12)] before:bg-[#30D158]'
               : toast.type === 'error'

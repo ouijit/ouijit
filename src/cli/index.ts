@@ -14,8 +14,9 @@ import { handleHookCommand } from './commands/hook';
 import { handleTagCommand } from './commands/tag';
 import { handleProjectCommand } from './commands/project';
 
-function printUsage(): never {
-  process.stderr.write(`Usage: ouijit <resource> <action> [args] [flags]
+function printUsage(exitCode = 1): never {
+  const out = exitCode === 0 ? process.stdout : process.stderr;
+  out.write(`Usage: ouijit <resource> <action> [args] [flags]
 
 Resources:
   task       Manage tasks (list, get, create, start, set-status, delete, ...)
@@ -25,11 +26,11 @@ Resources:
 
 Global flags:
   --project <path>   Override project path detection
-  --help             Show this help
+  --help             Show help (use "ouijit <resource> --help" for details)
 
 All commands output JSON to stdout.
 `);
-  process.exit(1);
+  process.exit(exitCode);
 }
 
 // ── Parse global flags ──────────────────────────────────────────────
@@ -40,21 +41,22 @@ let devMode = false;
 
 // Extract global flags before dispatching
 const positional: string[] = [];
+let helpRequested = false;
 for (let i = 0; i < args.length; i++) {
   if (args[i] === '--project' && i + 1 < args.length) {
     explicitProject = args[++i];
   } else if (args[i] === '--dev') {
     devMode = true;
   } else if (args[i] === '--help' || args[i] === '-h') {
-    printUsage();
+    helpRequested = true;
   } else {
     positional.push(args[i]);
   }
 }
 
 const resource = positional[0];
-const action = positional[1];
-const rest = positional.slice(2);
+const action = helpRequested ? 'help' : positional[1];
+const rest = positional.slice(helpRequested ? 1 : 2);
 
 if (!resource) printUsage();
 

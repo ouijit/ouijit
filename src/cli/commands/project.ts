@@ -13,7 +13,19 @@ export async function handleProjectCommand(action: string | undefined): Promise<
       break;
     }
 
+    case 'help':
+      process.stderr.write(`ouijit project — manage projects
+
+Actions:
+  list    List all registered projects
+
+Examples:
+  ouijit project list
+`);
+      process.exit(0);
+      break;
+
     default:
-      printError('Usage: ouijit project <list>');
+      printError('Usage: ouijit project <list>\nRun "ouijit project --help" for details.');
   }
 }

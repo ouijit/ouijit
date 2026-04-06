@@ -33,7 +33,7 @@ export async function handleTagCommand(
       const tagName = rest[1];
       if (isNaN(taskNumber) || !tagName) printError('Usage: ouijit tag add <task-number> <tag-name>');
       const tag = await addTagToTask(project, taskNumber, tagName);
-      notify(project, 'tag:add');
+      notify(project, 'tag:add', `Tag "${tagName}" added to task #${taskNumber}`);
       printJson(tag);
       break;
     }
@@ -44,7 +44,7 @@ export async function handleTagCommand(
       const tagName = rest[1];
       if (isNaN(taskNumber) || !tagName) printError('Usage: ouijit tag remove <task-number> <tag-name>');
       await removeTagFromTask(project, taskNumber, tagName);
-      notify(project, 'tag:remove');
+      notify(project, 'tag:remove', `Tag "${tagName}" removed from task #${taskNumber}`);
       printJson({ success: true });
       break;
     }
@@ -57,12 +57,29 @@ export async function handleTagCommand(
         printError('Usage: ouijit tag set <task-number> <tag1> [tag2...]');
       }
       const tags = await setTaskTags(project, taskNumber, tagNames);
-      notify(project, 'tag:set');
+      notify(project, 'tag:set', `Tags updated on task #${taskNumber}`);
       printJson(tags);
       break;
     }
 
+    case 'help':
+      process.stderr.write(`ouijit tag — manage task tags
+
+Actions:
+  list [--task <number>]                List all tags, or tags for a specific task
+  add <task-number> <tag-name>          Add tag to task
+  remove <task-number> <tag-name>       Remove tag from task
+  set <task-number> <tag1> [tag2...]    Replace all tags on a task
+
+Examples:
+  ouijit tag list
+  ouijit tag add 5 bug
+  ouijit tag set 5 bug priority
+`);
+      process.exit(0);
+      break;
+
     default:
-      printError('Usage: ouijit tag <list|add|remove|set>');
+      printError('Usage: ouijit tag <list|add|remove|set>\nRun "ouijit tag --help" for details.');
   }
 }

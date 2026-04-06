@@ -8,9 +8,10 @@
     "ouijit": "./dist-cli/ouijit.js"
   },
   "scripts": {
+    "prestart": "node scripts/build-cli.mjs",
     "start": "electron-forge start",
-    "package": "electron-forge package",
-    "make": "electron-forge make",
+    "package": "npm run build:cli && electron-forge package",
+    "make": "npm run build:cli && electron-forge make",
     "make:linux": "./scripts/build-linux.sh",
     "publish": "electron-forge publish",
     "typecheck": "tsc --noEmit",

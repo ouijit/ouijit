@@ -185,13 +185,17 @@ app.on('ready', async () => {
   await registerIpcHandlers(mainWindow);
   initUpdater(mainWindow);
 
-  // Watch for CLI changes (sentinel file written by `ouijit` CLI after writes)
-  const sentinelPath = path.join(getUserDataPath(), 'cli-notify.json');
+  // Watch for CLI changes (sentinel file written by `ouijit` CLI after writes).
+  // Watch the directory (not the file) so the watcher works even before the
+  // sentinel file is created for the first time.
+  const sentinelDir = getUserDataPath();
+  const sentinelName = 'cli-notify.json';
   try {
-    fs.watch(sentinelPath, { persistent: false }, () => {
+    fs.watch(sentinelDir, { persistent: false }, (_event, filename) => {
+      if (filename !== sentinelName) return;
       try {
-        const raw = fs.readFileSync(sentinelPath, 'utf-8');
-        const payload = JSON.parse(raw) as { project: string; action: string; ts: number };
+        const raw = fs.readFileSync(path.join(sentinelDir, sentinelName), 'utf-8');
+        const payload = JSON.parse(raw) as { project: string; action: string; message?: string; ts: number };
         if (mainWindow && !mainWindow.isDestroyed()) {
           typedPush(mainWindow, 'cli-change', payload);
         }
@@ -200,7 +204,7 @@ app.on('ready', async () => {
       }
     });
   } catch {
-    // Sentinel file doesn't exist yet — that's fine, it'll be created on first CLI write
+    // Directory doesn't exist yet — unlikely but harmless
   }
 });
 

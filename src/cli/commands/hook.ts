@@ -51,7 +51,7 @@ export async function handleHookCommand(
         command: flags.command,
         ...(flags.description && { description: flags.description }),
       });
-      notify(project, 'hook:set');
+      notify(project, 'hook:set', `Hook saved: ${flags.name}`);
       printJson(result);
       break;
     }
@@ -63,12 +63,31 @@ export async function handleHookCommand(
         printError(`Usage: ouijit hook delete <${VALID_HOOK_TYPES.join('|')}>`);
       }
       const result = await deleteHook(project, type);
-      notify(project, 'hook:delete');
+      notify(project, 'hook:delete', `${type} hook deleted`);
       printJson(result);
       break;
     }
 
+    case 'help':
+      process.stderr.write(`ouijit hook — manage script hooks
+
+Actions:
+  list                                                  List all hooks
+  get <type>                                            Get hook by type
+  set <type> --name <name> --command <cmd> [--description <d>]  Create/update hook
+  delete <type>                                         Delete hook
+
+Hook types: start, continue, run, review, cleanup, editor
+
+Examples:
+  ouijit hook list
+  ouijit hook set start --name "Install deps" --command "npm install"
+  ouijit hook delete review
+`);
+      process.exit(0);
+      break;
+
     default:
-      printError('Usage: ouijit hook <list|get|set|delete>');
+      printError('Usage: ouijit hook <list|get|set|delete>\nRun "ouijit hook --help" for details.');
   }
 }

@@ -21,6 +21,19 @@ import { notify } from '../notify';
 
 const VALID_STATUSES: TaskStatus[] = ['todo', 'in_progress', 'in_review', 'done'];
 
+/** Extract positional args from rest, skipping --flag value pairs. */
+function positionalArgs(args: string[]): string[] {
+  const result: string[] = [];
+  for (let i = 0; i < args.length; i++) {
+    if (args[i].startsWith('--')) {
+      i++; // skip the flag's value
+    } else {
+      result.push(args[i]);
+    }
+  }
+  return result;
+}
+
 function statusToHookType(status: TaskStatus, hasWorktree: boolean): HookType | null {
   if (status === 'in_progress') return hasWorktree ? 'continue' : 'start';
   if (status === 'in_review') return 'review';
@@ -54,9 +67,10 @@ export async function handleTaskCommand(
 
     case 'create': {
       const project = requireProject();
-      const result = await createTodoTask(project, flags.name, flags.prompt);
+      const name = flags.name || positionalArgs(rest).join(' ') || undefined;
+      const result = await createTodoTask(project, name, flags.prompt);
       if (!result.success) printError(result.error || 'Failed to create task');
-      notify(project, 'task:create');
+      notify(project, 'task:create', `Task created: ${name || 'Untitled'}`);
       printJson(result);
       break;
     }
@@ -67,16 +81,17 @@ export async function handleTaskCommand(
       if (isNaN(num)) printError('Usage: ouijit task start <number> [--branch <name>]');
       const result = await startTask(project, num, flags.branch);
       if (!result.success) printError(result.error || 'Failed to start task');
-      notify(project, 'task:start');
+      notify(project, 'task:start', `Task #${num} started`);
       printJson(result);
       break;
     }
 
     case 'create-and-start': {
       const project = requireProject();
-      const result = await createTaskWorktree(project, flags.name, flags.prompt, flags.branch);
+      const name = flags.name || positionalArgs(rest).join(' ') || undefined;
+      const result = await createTaskWorktree(project, name, flags.prompt, flags.branch);
       if (!result.success) printError(result.error || 'Failed to create and start task');
-      notify(project, 'task:create-and-start');
+      notify(project, 'task:create-and-start', `Task created and started: ${name || 'Untitled'}`);
       printJson(result);
       break;
     }
@@ -110,7 +125,13 @@ export async function handleTaskCommand(
         }
       }
 
-      notify(project, 'task:set-status');
+      const statusLabels: Record<string, string> = {
+        todo: 'Todo',
+        in_progress: 'In Progress',
+        in_review: 'In Review',
+        done: 'Done',
+      };
+      notify(project, 'task:set-status', `Task #${num} → ${statusLabels[status] || status}`);
       printJson({ success: true, task, hook: hookResult });
       break;
     }
@@ -125,7 +146,7 @@ export async function handleTaskCommand(
       if (isNaN(num) || !name) printError('Usage: ouijit task set-name <number> <name>');
       const result = await setTaskName(project, num, name);
       if (!result.success) printError(result.error || 'Failed to set name');
-      notify(project, 'task:set-name');
+      notify(project, 'task:set-name', `Task #${num} renamed to "${name}"`);
       printJson(result);
       break;
     }
@@ -140,7 +161,7 @@ export async function handleTaskCommand(
       if (isNaN(num) || !desc) printError('Usage: ouijit task set-description <number> <description>');
       const result = await setTaskDescription(project, num, desc);
       if (!result.success) printError(result.error || 'Failed to set description');
-      notify(project, 'task:set-description');
+      notify(project, 'task:set-description', `Task #${num} description updated`);
       printJson(result);
       break;
     }
@@ -152,7 +173,7 @@ export async function handleTaskCommand(
       if (isNaN(num) || !branch) printError('Usage: ouijit task set-merge-target <number> <branch>');
       const result = await setTaskMergeTarget(project, num, branch);
       if (!result.success) printError(result.error || 'Failed to set merge target');
-      notify(project, 'task:set-merge-target');
+      notify(project, 'task:set-merge-target', `Task #${num} merge target → ${branch}`);
       printJson(result);
       break;
     }
@@ -163,14 +184,39 @@ export async function handleTaskCommand(
       if (isNaN(num)) printError('Usage: ouijit task delete <number>');
       const result = await deleteTaskWithWorktree(project, num);
       if (!result.success) printError(result.error || 'Failed to delete task');
-      notify(project, 'task:delete');
+      notify(project, 'task:delete', `Task #${num} deleted`);
       printJson(result);
       break;
     }
 
+    case 'help':
+      process.stderr.write(`ouijit task — manage tasks
+
+Actions:
+  list                                       List all tasks (JSON array)
+  get <number>                               Get task by number
+  create <name> [--prompt <text>]            Create a todo task
+  start <number> [--branch <name>]           Start task (creates worktree)
+  create-and-start <name> [--prompt <text>]  Create + start in one step
+  set-status <number> <status>               Set status (todo|in_progress|in_review|done)
+  set-name <number> <name>                   Rename a task
+  set-description <number> <text>            Set task description
+  set-merge-target <number> <branch>         Set merge target branch
+  delete <number>                            Delete task and its worktree
+
+Examples:
+  ouijit task create "Fix login bug"
+  ouijit task create "Refactor auth" --prompt "Extract auth middleware"
+  ouijit task start 5
+  ouijit task set-status 5 in_review
+  ouijit task list
+`);
+      process.exit(0);
+      break;
+
     default:
       printError(
-        'Usage: ouijit task <list|get|create|start|create-and-start|set-status|set-name|set-description|set-merge-target|delete>',
+        'Usage: ouijit task <list|get|create|start|create-and-start|set-status|set-name|set-description|set-merge-target|delete>\nRun "ouijit task --help" for details.',
       );
   }
 }
