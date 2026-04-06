@@ -14,6 +14,7 @@ import { registerTaskCommands } from './commands/task';
 import { registerHookCommands } from './commands/hook';
 import { registerTagCommands } from './commands/tag';
 import { registerProjectCommands } from './commands/project';
+import { registerScriptCommands } from './commands/script';
 
 const program = new Command();
 
@@ -51,5 +52,6 @@ registerTaskCommands(program, requireProject);
 registerHookCommands(program, requireProject);
 registerTagCommands(program, requireProject);
 registerProjectCommands(program);
+registerScriptCommands(program, requireProject);
 
 program.parse();

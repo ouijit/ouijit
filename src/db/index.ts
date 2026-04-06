@@ -516,7 +516,7 @@ export async function saveScript(projectPath: string, script: Script): Promise<{
   try {
     ensureProject(projectPath);
     const { scriptRepo: sr } = repos();
-    const row = sr.save(projectPath, script.name, script.command, script.id);
+    const row = sr.save(projectPath, script.name, script.command, script.id || undefined);
     return { success: true, script: rowToScript(row) };
   } catch (error) {
     dbLog.error('failed to save script', { error: error instanceof Error ? error.message : String(error) });
