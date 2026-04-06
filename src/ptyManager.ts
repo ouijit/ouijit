@@ -10,9 +10,10 @@ import {
   clearHookStatus,
   clearAllHookStatuses,
 } from './hookServer';
-import log from './log';
+import { getLogger } from './logger';
+import { getUserDataPath, getCliPath } from './paths';
 
-const ptyLog = log.scope('pty');
+const ptyLog = getLogger().scope('pty');
 
 interface ManagedPty {
   process: pty.IPty;
@@ -149,8 +150,13 @@ export async function spawnPty(options: PtySpawnOptions, window: BrowserWindow):
     finalEnv['OUIJIT_WRAPPER_DIR'] = wrapperBinDir;
     finalEnv['OUIJIT_SHELL_INTEGRATION_DIR'] = shellIntegrationDir;
 
-    // Prepend wrapper bin dir so `claude` resolves to our wrapper first
+    // Prepend wrapper bin dir so `claude` and `ouijit` resolve to our wrappers first
     finalEnv['PATH'] = `${wrapperBinDir}:${finalEnv['PATH'] || ''}`;
+
+    // Inject CLI env vars so the `ouijit` wrapper can find the bundled CLI
+    finalEnv['OUIJIT_USER_DATA'] = getUserDataPath();
+    const cliPath = getCliPath();
+    if (cliPath) finalEnv['OUIJIT_CLI_PATH'] = cliPath;
 
     // Expand environment variables in the command if provided
     let expandedCommand = options.command || '';

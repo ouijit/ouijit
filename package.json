@@ -4,10 +4,14 @@
   "version": "1.0.26",
   "description": "Discover and manage your local development projects",
   "main": ".vite/build/main.js",
+  "bin": {
+    "ouijit": "./dist-cli/ouijit.js"
+  },
   "scripts": {
+    "prestart": "node scripts/build-cli.mjs",
     "start": "electron-forge start",
-    "package": "electron-forge package",
-    "make": "electron-forge make",
+    "package": "npm run build:cli && electron-forge package",
+    "make": "npm run build:cli && electron-forge make",
     "make:linux": "./scripts/build-linux.sh",
     "publish": "electron-forge publish",
     "typecheck": "tsc --noEmit",
@@ -23,6 +27,7 @@
     "test:e2e": "node e2e/build.mjs && npx playwright test --config e2e/playwright.config.ts",
     "pretest:e2e:ci": "npx electron-rebuild -o better-sqlite3 --force 2>/dev/null || true",
     "test:e2e:ci": "node e2e/build.mjs && xvfb-run npx playwright test --config e2e/playwright.config.ts",
+    "build:cli": "node scripts/build-cli.mjs",
     "test:full": "vitest run && node e2e/build.mjs && npx playwright test --config e2e/playwright.config.ts",
     "postinstall": "./scripts/download-lima.sh && chmod +x node_modules/node-pty/prebuilds/*/spawn-helper 2>/dev/null || true",
     "db:reset": "./scripts/db-reset.sh"
@@ -53,6 +58,7 @@
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react-swc": "^4.3.0",
     "electron": "39.2.7",
+    "esbuild": "^0.25.12",
     "eslint": "^9.39.4",
     "eslint-config-prettier": "^10.1.8",
     "eslint-import-resolver-typescript": "^4.4.4",
@@ -75,6 +81,7 @@
     "@xterm/addon-web-links": "^0.12.0",
     "@xterm/xterm": "^6.0.0",
     "better-sqlite3": "^12.6.2",
+    "commander": "^14.0.3",
     "dompurify": "^3.3.3",
     "electron-log": "^5.4.3",
     "electron-squirrel-startup": "^1.0.1",

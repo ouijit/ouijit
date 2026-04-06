@@ -7,9 +7,9 @@ import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import * as os from 'node:os';
 import type { CreateProjectOptions, CreateProjectResult } from './types';
-import log from './log';
+import { getLogger } from './logger';
 
-const creatorLog = log.scope('projectCreator');
+const creatorLog = getLogger().scope('projectCreator');
 
 export async function createProject(options: CreateProjectOptions): Promise<CreateProjectResult> {
   try {

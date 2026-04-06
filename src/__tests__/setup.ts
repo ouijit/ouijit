@@ -53,6 +53,10 @@ vi.mock('better-sqlite3', async () => {
   return actual;
 });
 
+// Sync paths.ts with the mocked Electron userData path
+import { setUserDataPath } from '../paths';
+setUserDataPath(testDataDir);
+
 // Auto-reset DB for every test via the db layer's reset function
 import { _resetCacheForTesting } from '../db';
 

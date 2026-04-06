@@ -1,17 +1,17 @@
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import * as os from 'node:os';
-import { app } from 'electron';
 import { stringify, parse } from 'yaml';
 import { getInstanceName } from './manager';
 import { buildProjectMounts } from './config';
-import log from '../log';
+import { getLogger } from '../logger';
+import { getUserDataPath } from '../paths';
 
-const configLog = log.scope('limaConfig');
+const configLog = getLogger().scope('limaConfig');
 
 /** Directory within Electron userData where sandbox YAML configs are stored */
 function getConfigDir(): string {
-  return path.join(app.getPath('userData'), 'sandbox-configs');
+  return path.join(getUserDataPath(), 'sandbox-configs');
 }
 
 /** Get the YAML config file path for a project */

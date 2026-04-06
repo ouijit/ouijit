@@ -9,7 +9,7 @@ import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import * as os from 'node:os';
 import koffi from 'koffi';
-import log from './log';
+import { getLogger } from './logger';
 import {
   getNextTaskNumber,
   createTask,
@@ -23,7 +23,7 @@ import {
 } from './db';
 import { mergeWorktreeBranch } from './git';
 
-const worktreeLog = log.scope('worktree');
+const worktreeLog = getLogger().scope('worktree');
 
 const execAsync = promisify(exec);
 

@@ -6,7 +6,7 @@
 import { exec } from 'node:child_process';
 import { promisify } from 'node:util';
 import { existsSync } from 'node:fs';
-import { shell } from 'electron';
+import { trashItem } from './platform';
 import {
   getProjectTasks,
   getTaskByNumber,
@@ -15,13 +15,37 @@ import {
   reorderTask,
   type TaskStatus,
 } from './db';
-import { listWorktrees, removeTaskWorktree } from './worktree';
-import type { TaskWithWorkspace } from './types';
-import log from './log';
+import { listWorktrees, removeTaskWorktree, startTask } from './worktree';
+import type { TaskWithWorkspace, TaskWorktreeResult } from './types';
+import { getLogger } from './logger';
 
 const execAsync = promisify(exec);
 
-const taskLog = log.scope('task');
+const taskLog = getLogger().scope('task');
+
+/**
+ * Begin a task: create its worktree and move it to in_progress.
+ * Unified entry point for both UI (kanban drag) and CLI (task start).
+ */
+export async function beginTask(
+  projectPath: string,
+  taskNumber: number,
+  branchName?: string,
+): Promise<TaskWorktreeResult> {
+  const result = await startTask(projectPath, taskNumber, branchName);
+  if (!result.success) return result;
+
+  // Move to in_progress if currently todo
+  const task = await getTaskByNumber(projectPath, taskNumber);
+  if (task?.status === 'todo') {
+    const statusResult = await setTaskStatus(projectPath, taskNumber, 'in_progress');
+    if (!statusResult.success) {
+      taskLog.error('beginTask: failed to set status', { taskNumber, error: statusResult.error });
+    }
+  }
+
+  return result;
+}
 
 /**
  * Set task status. Hooks are handled by the renderer (shown in a terminal).
@@ -104,7 +128,7 @@ export async function trashTaskWithWorktree(
   if (worktreePath) {
     taskLog.info('trashing task worktree', { taskNumber, worktreePath });
     try {
-      await shell.trashItem(worktreePath);
+      await trashItem(worktreePath);
       await execAsync('git worktree prune', { cwd: projectPath, encoding: 'utf8' });
     } catch (trashError) {
       const msg = trashError instanceof Error ? trashError.message : String(trashError);

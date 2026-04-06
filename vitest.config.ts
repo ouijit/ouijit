@@ -7,7 +7,7 @@ export default defineConfig({
         test: {
           name: 'unit',
           setupFiles: ['./src/__tests__/setup.ts'],
-          include: ['src/__tests__/*.test.ts'],
+          include: ['src/__tests__/*.test.ts', 'src/__tests__/cli/**/*.test.ts'],
           exclude: ['e2e/**', 'node_modules/**'],
           isolate: true,
         },

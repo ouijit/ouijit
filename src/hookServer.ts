@@ -12,9 +12,9 @@ import * as path from 'node:path';
 import * as os from 'node:os';
 import { BrowserWindow } from 'electron';
 import { isPtyActive } from './ptyManager';
-import log from './log';
+import { getLogger } from './logger';
 
-const hookServerLog = log.scope('hookServer');
+const hookServerLog = getLogger().scope('hookServer');
 
 let server: http.Server | null = null;
 let apiPort = 0;
@@ -290,21 +290,34 @@ export const HELPER_SCRIPT = [
 export const CLAUDE_WRAPPER = [
   '#!/bin/bash',
   '# Ouijit claude wrapper — injects hook settings at invocation time.',
-  '# Removes its own directory from PATH to find the real claude binary.',
+  '# Removes its own directory from PATH to find the real claude binary,',
+  '# then re-exports it so ouijit CLI is available inside Claude Code.',
   'WRAPPER_DIR="$(cd "$(dirname "$0")" && pwd)"',
-  'PATH=":$PATH:"',
-  'PATH="${PATH//:$WRAPPER_DIR:/:}"',
-  'PATH="${PATH#:}"',
-  'PATH="${PATH%:}"',
-  'export PATH',
+  'CLEAN_PATH=":$PATH:"',
+  'CLEAN_PATH="${CLEAN_PATH//:$WRAPPER_DIR:/:}"',
+  'CLEAN_PATH="${CLEAN_PATH#:}"',
+  'CLEAN_PATH="${CLEAN_PATH%:}"',
   '',
-  '# If ouijit is not running, just exec the real claude without hooks',
+  '# Resolve the real claude binary from the clean PATH',
+  'REAL_CLAUDE="$(PATH="$CLEAN_PATH" command -v claude)"',
+  'if [ -z "$REAL_CLAUDE" ]; then',
+  '  echo "ouijit: claude not found on PATH" >&2',
+  '  exit 1',
+  'fi',
+  '',
+  '# Re-export PATH with wrapper dir so ouijit CLI works inside Claude Code',
+  'export PATH="$WRAPPER_DIR:$CLEAN_PATH"',
+  '',
+  '# System prompt telling Claude about the ouijit CLI',
+  `OUIJIT_PROMPT='You have access to the ouijit CLI for task management in this project. Run "ouijit --help" for commands. Use it to create tasks, update status, set descriptions, and manage hooks. Always prefer ouijit over editing task files directly.'`,
+  '',
+  '# If ouijit is not running, just exec the real claude with CLI awareness',
   'if [ -z "$OUIJIT_API_URL" ]; then',
-  '  exec claude "$@"',
+  '  exec "$REAL_CLAUDE" --append-system-prompt "$OUIJIT_PROMPT" "$@"',
   'fi',
   '',
   '# Inject ouijit hooks via --settings (merges with user settings at runtime)',
-  `exec claude --settings '${JSON.stringify(buildHookSettings('$HOME/.config/Ouijit/bin/ouijit-hook', '$HOME/.config/Ouijit/bin/ouijit-plan-hook'))}' "$@"`,
+  `exec "$REAL_CLAUDE" --settings '${JSON.stringify(buildHookSettings('$HOME/.config/Ouijit/bin/ouijit-hook', '$HOME/.config/Ouijit/bin/ouijit-plan-hook'))}' --append-system-prompt "$OUIJIT_PROMPT" "$@"`,
   '',
 ].join('\n');
 
@@ -385,6 +398,22 @@ export function installWrapper(): void {
 
     // Write claude wrapper script (shadows `claude` to inject --settings)
     fs.writeFileSync(path.join(binDir, 'claude'), CLAUDE_WRAPPER, { mode: 0o755 });
+
+    // Write ouijit CLI wrapper (delegates to the bundled CLI JS via env vars set by PTY manager)
+    fs.writeFileSync(
+      path.join(binDir, 'ouijit'),
+      [
+        '#!/bin/bash',
+        '# Ouijit CLI — auto-installed by the Ouijit app',
+        'if [ -z "$OUIJIT_CLI_PATH" ] || [ ! -f "$OUIJIT_CLI_PATH" ]; then',
+        '  echo "ouijit: CLI not available (run from an Ouijit terminal)" >&2',
+        '  exit 1',
+        'fi',
+        'exec node "$OUIJIT_CLI_PATH" "$@"',
+        '',
+      ].join('\n'),
+      { mode: 0o755 },
+    );
 
     // Write shell integration scripts (re-fix PATH after shell init)
     const integrationDir = getShellIntegrationDir();

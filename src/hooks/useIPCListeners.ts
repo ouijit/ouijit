@@ -1,6 +1,9 @@
 import { useEffect } from 'react';
 import { useAppStore } from '../stores/appStore';
 import { useProjectStore } from '../stores/projectStore';
+import log from 'electron-log/renderer';
+
+const ipcLog = log.scope('ipcListeners');
 
 /**
  * Registers global IPC push event listeners.
@@ -39,6 +42,20 @@ export function useIPCListeners() {
     cleanups.push(
       window.api.onWhatsNew((info) => {
         useAppStore.getState().setWhatsNew(info);
+      }),
+    );
+
+    // CLI changes — re-fetch tasks when CLI writes to the sentinel file
+    cleanups.push(
+      window.api.onCliChange((payload) => {
+        const activeProject = useAppStore.getState().activeProjectPath;
+        if (activeProject && payload.project === activeProject) {
+          ipcLog.info('CLI change detected, refreshing tasks', { action: payload.action });
+          useProjectStore.getState().loadTasks(activeProject);
+          if (payload.message) {
+            useProjectStore.getState().addToast(payload.message, 'info');
+          }
+        }
       }),
     );
 

@@ -391,7 +391,7 @@ export const KanbanCard = memo(function KanbanCard({
           <div className="flex flex-col gap-1 text-sm">
             <span
               ref={descInputRef}
-              className={`text-text-secondary truncate cursor-text${editingDesc ? ' outline-none' : ''}${!task.prompt && !editingDesc ? ' text-text-tertiary italic transition-colors duration-150 ease-out hover:text-text-secondary' : ''}`}
+              className={`text-text-secondary cursor-text break-words${editingDesc ? ' outline-none' : ' line-clamp-3'}${!task.prompt && !editingDesc ? ' text-text-tertiary italic transition-colors duration-150 ease-out hover:text-text-secondary' : ''}`}
               style={editingDesc ? { whiteSpace: 'pre-wrap', wordWrap: 'break-word', lineHeight: 1.5 } : undefined}
               contentEditable={editingDesc}
               suppressContentEditableWarning

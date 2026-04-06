@@ -7,15 +7,15 @@
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import * as os from 'node:os';
-import { app } from 'electron';
 import type { ProjectRepo } from '../db/repos/projectRepo';
 import type { TaskRepo, TaskStatus } from '../db/repos/taskRepo';
 import type { SettingsRepo } from '../db/repos/settingsRepo';
 import type { HookRepo, HookType } from '../db/repos/hookRepo';
 import type Database from 'better-sqlite3';
-import log from '../log';
+import { getLogger } from '../logger';
+import { getUserDataPath } from '../paths';
 
-const migrationLog = log.scope('migration');
+const migrationLog = getLogger().scope('migration');
 
 interface OldTaskMetadata {
   taskNumber: number;
@@ -72,7 +72,7 @@ export interface ImportResult {
 const IMPORT_MARKER = 'data-imported';
 
 function getMarkerPath(): string {
-  return path.join(app.getPath('userData'), IMPORT_MARKER);
+  return path.join(getUserDataPath(), IMPORT_MARKER);
 }
 
 async function hasAlreadyImported(): Promise<boolean> {
@@ -118,7 +118,7 @@ export async function importAll(
     return result;
   }
 
-  const userData = app.getPath('userData');
+  const userData = getUserDataPath();
 
   // Read all JSON files before the transaction (async I/O)
   let addedProjects: string[] = [];

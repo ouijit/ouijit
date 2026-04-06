@@ -1,10 +1,10 @@
 import { app, BrowserWindow, net } from 'electron';
 import { updateElectronApp, UpdateSourceType } from 'update-electron-app';
-import log from './log';
+import { getLogger } from './logger';
 import { typedPush } from './ipc/helpers';
 import { getGlobalSetting, setGlobalSetting } from './db';
 
-const updaterLog = log.scope('updater');
+const updaterLog = getLogger().scope('updater');
 
 const REPO = 'ouijit/ouijit';
 const CHECK_INTERVAL = 60 * 60 * 1000; // 1 hour
@@ -27,7 +27,7 @@ function initMacUpdater(): void {
       repo: REPO,
     },
     updateInterval: '1 hour',
-    logger: updaterLog,
+    logger: { ...updaterLog, log: updaterLog.info },
   });
   updaterLog.info('macOS auto-updater initialized');
 }

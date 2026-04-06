@@ -5,12 +5,12 @@ import * as path from 'node:path';
 import * as fs from 'node:fs/promises';
 import * as fsSync from 'node:fs';
 import * as os from 'node:os';
-import { app } from 'electron';
 import type { LimaInstance, SandboxStatus } from './types';
 import { buildFinalConfig } from './configStore';
-import log from '../log';
+import { getLogger } from '../logger';
+import { getUserDataPath } from '../paths';
 
-const limaLog = log.scope('lima');
+const limaLog = getLogger().scope('lima');
 
 const execFileAsync = promisify(execFile);
 
@@ -47,7 +47,7 @@ export function getLimactlPath(): string {
 
 /** Get env with LIMA_HOME set to Ouijit-specific directory */
 export function getLimaEnv(): Record<string, string> {
-  const limaHome = path.join(app.getPath('userData'), 'lima');
+  const limaHome = path.join(getUserDataPath(), 'lima');
   return { ...process.env, LIMA_HOME: limaHome } as Record<string, string>;
 }
 

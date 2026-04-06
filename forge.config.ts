@@ -128,6 +128,21 @@ const config: ForgeConfig = {
             }
           }
 
+          // 7. Copy bundled CLI + its native deps (compiled for system Node, not Electron)
+          const cliSrcDir = path.join(__dirname, 'dist-cli');
+          const cliSrcJs = path.join(cliSrcDir, 'ouijit.js');
+          if (fs.existsSync(cliSrcJs)) {
+            const cliDestDir = path.join(buildPath, 'cli');
+            fs.mkdirSync(cliDestDir, { recursive: true });
+            fs.copyFileSync(cliSrcJs, path.join(cliDestDir, 'ouijit.js'));
+            // Copy native deps (better-sqlite3, koffi) compiled for system Node
+            const cliNodeModules = path.join(cliSrcDir, 'node_modules');
+            if (fs.existsSync(cliNodeModules)) {
+              copyRecursive(cliNodeModules, path.join(cliDestDir, 'node_modules'));
+            }
+            console.log(`Copied CLI bundle + native deps`);
+          }
+
           callback();
         } catch (err) {
           callback(err as Error);
