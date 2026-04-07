@@ -46,6 +46,8 @@ describe('detectProject', () => {
     const mainRepo = path.join(tempDir, 'main-repo');
     fs.mkdirSync(mainRepo);
     execSync('git init', { cwd: mainRepo, stdio: 'ignore' });
+    execSync('git config user.email "test@test.com"', { cwd: mainRepo, stdio: 'ignore' });
+    execSync('git config user.name "Test"', { cwd: mainRepo, stdio: 'ignore' });
     execSync('git commit --allow-empty -m "init"', { cwd: mainRepo, stdio: 'ignore' });
 
     // Add project to DB (mainRepo is a real directory, so addProject validation passes)

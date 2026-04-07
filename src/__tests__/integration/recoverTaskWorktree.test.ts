@@ -22,6 +22,8 @@ beforeEach(async () => {
   await fs.mkdir(repoDir, { recursive: true });
 
   execSync('git init', { cwd: repoDir });
+  execSync('git config user.email "test@test.com"', { cwd: repoDir });
+  execSync('git config user.name "Test"', { cwd: repoDir });
   execSync('git commit --allow-empty -m "Initial commit"', { cwd: repoDir });
 });
 
