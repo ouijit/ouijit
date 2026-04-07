@@ -1,9 +1,9 @@
 /**
- * CLI project commands.
+ * CLI project commands via REST API.
  */
 
 import type { Command } from 'commander';
-import { getAllProjects } from '../../db';
+import { get } from '../api';
 import { printJson } from '../output';
 
 export function registerProjectCommands(parent: Command) {
@@ -13,7 +13,7 @@ export function registerProjectCommands(parent: Command) {
     .command('list')
     .description('List all registered projects')
     .action(async () => {
-      const projects = await getAllProjects();
+      const projects = await get('/api/projects');
       printJson(projects);
     });
 }

@@ -13,6 +13,7 @@ import * as os from 'node:os';
 import { BrowserWindow } from 'electron';
 import { isPtyActive } from './ptyManager';
 import { getLogger } from './logger';
+import { handleApiRequest } from './api/router';
 
 const hookServerLog = getLogger().scope('hookServer');
 
@@ -133,7 +134,13 @@ export function startHookServer(window: BrowserWindow): Promise<void> {
 
   return new Promise((resolve, reject) => {
     const s = http.createServer((req, res) => {
-      // Only accept POST /hook
+      // REST API for CLI
+      if (req.url?.startsWith('/api/')) {
+        handleApiRequest(req, res, window);
+        return;
+      }
+
+      // Hook endpoint for Claude Code lifecycle events
       if (req.method !== 'POST' || req.url !== '/hook') {
         res.writeHead(404);
         res.end();

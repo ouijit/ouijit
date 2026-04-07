@@ -1,11 +1,10 @@
 /**
- * CLI tag commands — CRUD for task tags.
+ * CLI tag commands — CRUD for task tags via REST API.
  */
 
 import type { Command } from 'commander';
-import { getAllTags, getTaskTags, addTagToTask, removeTagFromTask, setTaskTags } from '../../db';
+import { get, post, put, del, projectQuery } from '../api';
 import { printJson, printError } from '../output';
-import { notify } from '../notify';
 
 export function registerTagCommands(parent: Command, requireProject: () => string) {
   const tag = parent
@@ -30,10 +29,10 @@ Examples:
         const project = requireProject();
         const taskNumber = parseInt(opts.task, 10);
         if (isNaN(taskNumber)) return printError('--task must be a number');
-        const tags = await getTaskTags(project, taskNumber);
+        const tags = await get(`/api/tasks/${taskNumber}/tags${projectQuery(project)}`);
         printJson(tags);
       } else {
-        const tags = await getAllTags();
+        const tags = await get('/api/tags');
         printJson(tags);
       }
     });
@@ -44,11 +43,10 @@ Examples:
     .argument('<task-number>', 'task number')
     .argument('<tag-name>', 'tag name')
     .action(async (taskNumber: string, tagName: string) => {
-      const project = requireProject();
       const num = parseInt(taskNumber, 10);
       if (isNaN(num)) return printError('Task number must be an integer');
-      const t = await addTagToTask(project, num, tagName);
-      notify(project, 'tag:add', `Tag "${tagName}" added to task #${num}`);
+      const project = requireProject();
+      const t = await post(`/api/tasks/${num}/tags${projectQuery(project)}`, { name: tagName });
       printJson(t);
     });
 
@@ -58,11 +56,10 @@ Examples:
     .argument('<task-number>', 'task number')
     .argument('<tag-name>', 'tag name')
     .action(async (taskNumber: string, tagName: string) => {
-      const project = requireProject();
       const num = parseInt(taskNumber, 10);
       if (isNaN(num)) return printError('Task number must be an integer');
-      await removeTagFromTask(project, num, tagName);
-      notify(project, 'tag:remove', `Tag "${tagName}" removed from task #${num}`);
+      const project = requireProject();
+      await del(`/api/tasks/${num}/tags/${encodeURIComponent(tagName)}${projectQuery(project)}`);
       printJson({ success: true });
     });
 
@@ -72,11 +69,10 @@ Examples:
     .argument('<task-number>', 'task number')
     .argument('<tags...>', 'tag names')
     .action(async (taskNumber: string, tagNames: string[]) => {
-      const project = requireProject();
       const num = parseInt(taskNumber, 10);
       if (isNaN(num)) return printError('Task number must be an integer');
-      const tags = await setTaskTags(project, num, tagNames);
-      notify(project, 'tag:set', `Tags updated on task #${num}`);
+      const project = requireProject();
+      const tags = await put(`/api/tasks/${num}/tags${projectQuery(project)}`, { tags: tagNames });
       printJson(tags);
     });
 }

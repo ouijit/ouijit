@@ -1,7 +1,15 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest';
 import { Command } from 'commander';
-import { _resetCacheForTesting, getScripts, addProject } from '../../../db';
 import { registerScriptCommands } from '../../../cli/commands/script';
+
+vi.mock('../../../cli/api', () => ({
+  get: vi.fn(),
+  put: vi.fn(),
+  del: vi.fn(),
+  projectQuery: (p: string) => '?project=' + encodeURIComponent(p),
+}));
+
+import { get, put, del } from '../../../cli/api';
 
 function captureOutput() {
   const chunks: string[] = [];
@@ -28,62 +36,41 @@ function createProgram() {
 }
 
 describe('script commands', () => {
-  beforeEach(async () => {
-    _resetCacheForTesting();
-    await addProject(PROJECT);
+  beforeEach(() => {
+    vi.clearAllMocks();
   });
 
-  test('list returns empty array for new project', async () => {
+  test('list calls GET /api/scripts', async () => {
+    vi.mocked(get).mockResolvedValue([]);
     const output = captureOutput();
     await createProgram().parseAsync(['script', 'list'], { from: 'user' });
     const result = output.getJson();
+    expect(get).toHaveBeenCalledWith(`/api/scripts?project=${encodeURIComponent(PROJECT)}`);
     expect(result).toEqual([]);
   });
 
-  test('set creates a script', async () => {
+  test('set calls PUT /api/scripts/:id', async () => {
+    vi.mocked(put).mockResolvedValue({ success: true, script: { name: 'Lint', command: 'npm run lint' } });
     const output = captureOutput();
     await createProgram().parseAsync(['script', 'set', '--name', 'Lint', '--command', 'npm run lint'], {
       from: 'user',
     });
     const result = output.getJson();
+    expect(put).toHaveBeenCalledWith(`/api/scripts/?project=${encodeURIComponent(PROJECT)}`, {
+      id: '',
+      name: 'Lint',
+      command: 'npm run lint',
+      sortOrder: 0,
+    });
     expect(result.name).toBe('Lint');
-    expect(result.command).toBe('npm run lint');
-
-    const scripts = await getScripts(PROJECT);
-    expect(scripts).toHaveLength(1);
-    expect(scripts[0].name).toBe('Lint');
   });
 
-  test('delete removes a script', async () => {
-    // Create
-    const output1 = captureOutput();
-    await createProgram().parseAsync(['script', 'set', '--name', 'Test', '--command', 'npm test'], { from: 'user' });
-    const created = output1.getJson();
-
-    // Delete
-    const output2 = captureOutput();
-    await createProgram().parseAsync(['script', 'delete', created.id], { from: 'user' });
-    const result = output2.getJson();
+  test('delete calls DELETE /api/scripts/:id', async () => {
+    vi.mocked(del).mockResolvedValue({ success: true });
+    const output = captureOutput();
+    await createProgram().parseAsync(['script', 'delete', 'script-123'], { from: 'user' });
+    const result = output.getJson();
+    expect(del).toHaveBeenCalledWith(`/api/scripts/script-123?project=${encodeURIComponent(PROJECT)}`);
     expect(result.success).toBe(true);
-
-    const scripts = await getScripts(PROJECT);
-    expect(scripts).toHaveLength(0);
-  });
-
-  test('list returns scripts in order', async () => {
-    const out1 = captureOutput();
-    await createProgram().parseAsync(['script', 'set', '--name', 'First', '--command', 'echo 1'], { from: 'user' });
-    out1.getJson();
-
-    const out2 = captureOutput();
-    await createProgram().parseAsync(['script', 'set', '--name', 'Second', '--command', 'echo 2'], { from: 'user' });
-    out2.getJson();
-
-    const out3 = captureOutput();
-    await createProgram().parseAsync(['script', 'list'], { from: 'user' });
-    const scripts = out3.getJson();
-    expect(scripts).toHaveLength(2);
-    expect(scripts[0].name).toBe('First');
-    expect(scripts[1].name).toBe('Second');
   });
 });

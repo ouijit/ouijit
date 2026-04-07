@@ -1,12 +1,22 @@
 /**
- * CLI script commands — CRUD + execution for run scripts.
+ * CLI script commands — CRUD + execution for run scripts via REST API.
  */
 
 import type { Command } from 'commander';
-import { getScripts, saveScript, deleteScript, getTaskByNumber } from '../../db';
+import { get, put, del, projectQuery } from '../api';
 import { printJson, printError } from '../output';
-import { notify } from '../notify';
 import { spawn } from 'node:child_process';
+
+interface ScriptEntry {
+  id: string;
+  name: string;
+  command: string;
+  sortOrder: number;
+}
+
+interface TaskEntry {
+  worktreePath?: string;
+}
 
 export function registerScriptCommands(parent: Command, requireProject: () => string) {
   const script = parent
@@ -28,7 +38,7 @@ Examples:
     .description('List all scripts (JSON array)')
     .action(async () => {
       const project = requireProject();
-      const scripts = await getScripts(project);
+      const scripts = await get(`/api/scripts${projectQuery(project)}`);
       printJson(scripts);
     });
 
@@ -40,14 +50,11 @@ Examples:
     .option('--id <id>', 'script id (updates existing if provided)')
     .action(async (opts: { name: string; command: string; id?: string }) => {
       const project = requireProject();
-      const result = await saveScript(project, {
-        id: opts.id || '',
-        name: opts.name,
-        command: opts.command,
-        sortOrder: 0,
-      });
+      const result = await put<{ success: boolean; script?: ScriptEntry }>(
+        `/api/scripts/${encodeURIComponent(opts.id || '')}${projectQuery(project)}`,
+        { id: opts.id || '', name: opts.name, command: opts.command, sortOrder: 0 },
+      );
       if (!result.success) return printError('Failed to save script');
-      notify(project, 'script:set', `Script saved: ${opts.name}`);
       printJson(result.script);
     });
 
@@ -57,9 +64,8 @@ Examples:
     .argument('<id>', 'script id')
     .action(async (id: string) => {
       const project = requireProject();
-      const result = await deleteScript(project, id);
+      const result = await del<{ success: boolean }>(`/api/scripts/${encodeURIComponent(id)}${projectQuery(project)}`);
       if (!result.success) return printError('Failed to delete script');
-      notify(project, 'script:delete', 'Script deleted');
       printJson(result);
     });
 
@@ -72,7 +78,7 @@ Examples:
       const project = requireProject();
 
       // Resolve the script
-      const scripts = await getScripts(project);
+      const scripts = await get<ScriptEntry[]>(`/api/scripts${projectQuery(project)}`);
       const found = scripts.find((s) => s.id === idOrName || s.name === idOrName);
       if (!found) return printError(`Script not found: ${idOrName}`);
 
@@ -81,7 +87,7 @@ Examples:
       if (opts.task) {
         const num = parseInt(opts.task, 10);
         if (isNaN(num)) return printError('--task must be a number');
-        const task = await getTaskByNumber(project, num);
+        const task = await get<TaskEntry | null>(`/api/tasks/${num}${projectQuery(project)}`);
         if (!task) return printError(`Task ${num} not found`);
         if (task.worktreePath) cwd = task.worktreePath;
       }

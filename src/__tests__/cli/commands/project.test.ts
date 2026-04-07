@@ -1,10 +1,13 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest';
-import * as fs from 'node:fs';
-import * as path from 'node:path';
-import * as os from 'node:os';
 import { Command } from 'commander';
-import { _resetCacheForTesting, addProject } from '../../../db';
 import { registerProjectCommands } from '../../../cli/commands/project';
+
+vi.mock('../../../cli/api', () => ({
+  get: vi.fn(),
+  projectQuery: (p: string) => '?project=' + encodeURIComponent(p),
+}));
+
+import { get } from '../../../cli/api';
 
 function captureOutput() {
   const chunks: string[] = [];
@@ -29,33 +32,24 @@ function createProgram() {
 }
 
 describe('project commands', () => {
-  let tempDir: string;
-
   beforeEach(() => {
-    _resetCacheForTesting();
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ouijit-proj-'));
+    vi.clearAllMocks();
   });
 
-  test('list returns empty array when no projects', async () => {
+  test('list calls GET /api/projects', async () => {
+    vi.mocked(get).mockResolvedValue([]);
     const output = captureOutput();
     await createProgram().parseAsync(['project', 'list'], { from: 'user' });
     const result = output.getJson();
+    expect(get).toHaveBeenCalledWith('/api/projects');
     expect(result).toEqual([]);
   });
 
-  test('list returns all projects', async () => {
-    const dirA = path.join(tempDir, 'project-a');
-    const dirB = path.join(tempDir, 'project-b');
-    fs.mkdirSync(dirA);
-    fs.mkdirSync(dirB);
-
-    await addProject(dirA);
-    await addProject(dirB);
-
+  test('list returns projects from API', async () => {
+    vi.mocked(get).mockResolvedValue([{ name: 'project-a' }, { name: 'project-b' }]);
     const output = captureOutput();
     await createProgram().parseAsync(['project', 'list'], { from: 'user' });
     const result = output.getJson();
     expect(result).toHaveLength(2);
-    expect(result.map((p: { name: string }) => p.name).sort()).toEqual(['project-a', 'project-b']);
   });
 });

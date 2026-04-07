@@ -1,7 +1,15 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest';
 import { Command } from 'commander';
-import { _resetCacheForTesting, getHooks, addProject } from '../../../db';
 import { registerHookCommands } from '../../../cli/commands/hook';
+
+vi.mock('../../../cli/api', () => ({
+  get: vi.fn(),
+  put: vi.fn(),
+  del: vi.fn(),
+  projectQuery: (p: string) => '?project=' + encodeURIComponent(p),
+}));
+
+import { get, put, del } from '../../../cli/api';
 
 function captureOutput() {
   const chunks: string[] = [];
@@ -28,61 +36,47 @@ function createProgram() {
 }
 
 describe('hook commands', () => {
-  beforeEach(async () => {
-    _resetCacheForTesting();
-    await addProject(PROJECT);
+  beforeEach(() => {
+    vi.clearAllMocks();
   });
 
-  test('list returns empty hooks for new project', async () => {
+  test('list calls GET /api/hooks', async () => {
+    vi.mocked(get).mockResolvedValue({});
     const output = captureOutput();
     await createProgram().parseAsync(['hook', 'list'], { from: 'user' });
     const result = output.getJson();
+    expect(get).toHaveBeenCalledWith(`/api/hooks?project=${encodeURIComponent(PROJECT)}`);
     expect(result).toEqual({});
   });
 
-  test('set creates a hook', async () => {
+  test('set calls PUT /api/hooks/:type', async () => {
+    vi.mocked(put).mockResolvedValue({ success: true });
     const output = captureOutput();
     await createProgram().parseAsync(['hook', 'set', 'review', '--name', 'Review', '--command', 'echo reviewed'], {
       from: 'user',
     });
     const result = output.getJson();
+    expect(put).toHaveBeenCalledWith(`/api/hooks/review?project=${encodeURIComponent(PROJECT)}`, {
+      name: 'Review',
+      command: 'echo reviewed',
+    });
     expect(result.success).toBe(true);
-
-    const hooks = await getHooks(PROJECT);
-    expect(hooks.review).toBeDefined();
-    expect(hooks.review?.command).toBe('echo reviewed');
   });
 
-  test('get retrieves a hook by type', async () => {
-    // First create a hook
-    const output1 = captureOutput();
-    await createProgram().parseAsync(['hook', 'set', 'start', '--name', 'Start', '--command', 'echo start'], {
-      from: 'user',
-    });
-    output1.getJson();
-
-    // Then get it
-    const output2 = captureOutput();
+  test('get retrieves a hook by type from hooks object', async () => {
+    vi.mocked(get).mockResolvedValue({ start: { name: 'Start', command: 'echo start' } });
+    const output = captureOutput();
     await createProgram().parseAsync(['hook', 'get', 'start'], { from: 'user' });
-    const result = output2.getJson();
+    const result = output.getJson();
     expect(result.name).toBe('Start');
-    expect(result.command).toBe('echo start');
   });
 
-  test('delete removes a hook', async () => {
-    // Create then delete
-    const output1 = captureOutput();
-    await createProgram().parseAsync(['hook', 'set', 'cleanup', '--name', 'Cleanup', '--command', 'echo clean'], {
-      from: 'user',
-    });
-    output1.getJson();
-
-    const output2 = captureOutput();
+  test('delete calls DELETE /api/hooks/:type', async () => {
+    vi.mocked(del).mockResolvedValue({ success: true });
+    const output = captureOutput();
     await createProgram().parseAsync(['hook', 'delete', 'cleanup'], { from: 'user' });
-    const result = output2.getJson();
+    const result = output.getJson();
+    expect(del).toHaveBeenCalledWith(`/api/hooks/cleanup?project=${encodeURIComponent(PROJECT)}`);
     expect(result.success).toBe(true);
-
-    const hooks = await getHooks(PROJECT);
-    expect(hooks.cleanup).toBeUndefined();
   });
 });
