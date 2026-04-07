@@ -13,7 +13,7 @@
     "package": "npm run build:cli && electron-forge package",
     "make": "npm run build:cli && electron-forge make",
     "make:linux": "./scripts/build-linux.sh",
-    "publish": "electron-forge publish",
+    "publish": "npm run build:cli && electron-forge publish",
     "typecheck": "tsc --noEmit",
     "check": "tsc --noEmit && eslint src/ && prettier --check src/",
     "lint": "eslint src/",
