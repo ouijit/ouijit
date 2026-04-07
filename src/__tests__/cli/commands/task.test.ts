@@ -1,9 +1,17 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest';
 import { Command } from 'commander';
-import { _resetCacheForTesting, getProjectTasks, getTaskByNumber, addProject, createTask } from '../../../db';
 import { registerTaskCommands } from '../../../cli/commands/task';
 
-// Capture stdout output
+vi.mock('../../../cli/api', () => ({
+  get: vi.fn(),
+  post: vi.fn(),
+  patch: vi.fn(),
+  del: vi.fn(),
+  projectQuery: (p: string) => '?project=' + encodeURIComponent(p),
+}));
+
+import { get, post, patch, del } from '../../../cli/api';
+
 function captureOutput() {
   const chunks: string[] = [];
   const spy = vi.spyOn(process.stdout, 'write').mockImplementation((data) => {
@@ -23,87 +31,74 @@ const PROJECT = '/test/project';
 
 function createProgram() {
   const program = new Command();
-  program.exitOverride(); // throw instead of process.exit
+  program.exitOverride();
   registerTaskCommands(program, () => PROJECT);
   return program;
 }
 
 describe('task commands', () => {
-  beforeEach(async () => {
-    _resetCacheForTesting();
-    await addProject(PROJECT);
+  beforeEach(() => {
+    vi.clearAllMocks();
   });
 
-  test('list returns empty array for new project', async () => {
+  test('list calls GET /api/tasks', async () => {
+    vi.mocked(get).mockResolvedValue([{ taskNumber: 1, name: 'Task A' }]);
     const output = captureOutput();
     await createProgram().parseAsync(['task', 'list'], { from: 'user' });
     const result = output.getJson();
-    expect(result).toEqual([]);
+    expect(get).toHaveBeenCalledWith(`/api/tasks?project=${encodeURIComponent(PROJECT)}`);
+    expect(result).toEqual([{ taskNumber: 1, name: 'Task A' }]);
   });
 
-  test('create creates a task in DB', async () => {
-    const output = captureOutput();
-    await createProgram().parseAsync(['task', 'create', 'Test task', '--prompt', 'Do stuff'], { from: 'user' });
-    const result = output.getJson();
-    expect(result.success).toBe(true);
-    expect(result.task.name).toBe('Test task');
-
-    // Verify task is in DB
-    const tasks = await getProjectTasks(PROJECT);
-    expect(tasks).toHaveLength(1);
-    expect(tasks[0].name).toBe('Test task');
-  });
-
-  test('get retrieves a task by number', async () => {
-    await createTask(PROJECT, 1, 'My task');
+  test('get calls GET /api/tasks/:number', async () => {
+    vi.mocked(get).mockResolvedValue({ taskNumber: 1, name: 'My task' });
     const output = captureOutput();
     await createProgram().parseAsync(['task', 'get', '1'], { from: 'user' });
     const result = output.getJson();
-    expect(result.taskNumber).toBe(1);
+    expect(get).toHaveBeenCalledWith(`/api/tasks/1?project=${encodeURIComponent(PROJECT)}`);
     expect(result.name).toBe('My task');
   });
 
-  test('list shows created tasks', async () => {
-    await createTask(PROJECT, 1, 'Task A');
-    await createTask(PROJECT, 2, 'Task B');
-
+  test('create calls POST /api/tasks', async () => {
+    vi.mocked(post).mockResolvedValue({ success: true, task: { name: 'Test task' } });
     const output = captureOutput();
-    await createProgram().parseAsync(['task', 'list'], { from: 'user' });
+    await createProgram().parseAsync(['task', 'create', 'Test task', '--prompt', 'Do stuff'], { from: 'user' });
     const result = output.getJson();
-    expect(result).toHaveLength(2);
-    expect(result.map((t: { name: string }) => t.name)).toEqual(['Task A', 'Task B']);
+    expect(post).toHaveBeenCalledWith(`/api/tasks?project=${encodeURIComponent(PROJECT)}`, {
+      name: 'Test task',
+      prompt: 'Do stuff',
+    });
+    expect(result.success).toBe(true);
   });
 
-  test('set-status updates task status', async () => {
-    await createTask(PROJECT, 1, 'Task', { status: 'todo' });
+  test('set-status calls PATCH /api/tasks/:number/status', async () => {
+    vi.mocked(patch).mockResolvedValue({ success: true });
     const output = captureOutput();
     await createProgram().parseAsync(['task', 'set-status', '1', 'in_progress'], { from: 'user' });
     const result = output.getJson();
+    expect(patch).toHaveBeenCalledWith(`/api/tasks/1/status?project=${encodeURIComponent(PROJECT)}`, {
+      status: 'in_progress',
+    });
     expect(result.success).toBe(true);
-
-    const task = await getTaskByNumber(PROJECT, 1);
-    expect(task?.status).toBe('in_progress');
   });
 
-  test('set-name updates task name', async () => {
-    await createTask(PROJECT, 1, 'Old name');
+  test('set-name calls PATCH /api/tasks/:number/name', async () => {
+    vi.mocked(patch).mockResolvedValue({ success: true });
     const output = captureOutput();
     await createProgram().parseAsync(['task', 'set-name', '1', 'New', 'name'], { from: 'user' });
     const result = output.getJson();
+    expect(patch).toHaveBeenCalledWith(`/api/tasks/1/name?project=${encodeURIComponent(PROJECT)}`, {
+      name: 'New name',
+    });
     expect(result.success).toBe(true);
-
-    const task = await getTaskByNumber(PROJECT, 1);
-    expect(task?.name).toBe('New name');
   });
 
-  test('delete removes task from DB', async () => {
-    await createTask(PROJECT, 1, 'Doomed');
+  test('delete calls DELETE /api/tasks/:number', async () => {
+    vi.mocked(del).mockResolvedValue({ success: true });
     const output = captureOutput();
     await createProgram().parseAsync(['task', 'delete', '1'], { from: 'user' });
     const result = output.getJson();
+    expect(del).toHaveBeenCalledWith(`/api/tasks/1?project=${encodeURIComponent(PROJECT)}`);
     expect(result.success).toBe(true);
-
-    const task = await getTaskByNumber(PROJECT, 1);
-    expect(task).toBeNull();
   });
 });

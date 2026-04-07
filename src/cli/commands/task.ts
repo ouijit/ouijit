@@ -1,26 +1,12 @@
 /**
- * CLI task commands — full task lifecycle.
+ * CLI task commands — full task lifecycle via REST API.
  */
 
 import type { Command } from 'commander';
-import {
-  getProjectTasks,
-  getTaskByNumber,
-  setTaskStatus,
-  setTaskName,
-  setTaskDescription,
-  setTaskMergeTarget,
-  getHook,
-  type TaskStatus,
-} from '../../db';
-import { createTodoTask, createTaskWorktree } from '../../worktree';
-import { beginTask, deleteTaskWithWorktree } from '../../taskLifecycle';
-import { executeHook } from '../../hookRunner';
-import type { HookType } from '../../db/repos/hookRepo';
+import { get, post, patch, del, projectQuery } from '../api';
 import { printJson, printError } from '../output';
-import { notify } from '../notify';
 
-const VALID_STATUSES: TaskStatus[] = ['todo', 'in_progress', 'in_review', 'done'];
+const VALID_STATUSES = ['todo', 'in_progress', 'in_review', 'done'];
 
 const STATUS_LABELS: Record<string, string> = {
   todo: 'Todo',
@@ -28,13 +14,6 @@ const STATUS_LABELS: Record<string, string> = {
   in_review: 'In Review',
   done: 'Done',
 };
-
-function statusToHookType(status: TaskStatus, hasWorktree: boolean): HookType | null {
-  if (status === 'in_progress') return hasWorktree ? 'continue' : 'start';
-  if (status === 'in_review') return 'review';
-  if (status === 'done') return 'cleanup';
-  return null;
-}
 
 export function registerTaskCommands(parent: Command, requireProject: () => string) {
   const task = parent
@@ -58,7 +37,7 @@ Examples:
     .description('List all tasks (JSON array)')
     .action(async () => {
       const project = requireProject();
-      const tasks = await getProjectTasks(project);
+      const tasks = await get(`/api/tasks${projectQuery(project)}`);
       printJson(tasks);
     });
 
@@ -67,10 +46,10 @@ Examples:
     .description('Get task by number')
     .argument('<number>', 'task number')
     .action(async (number: string) => {
-      const project = requireProject();
       const num = parseInt(number, 10);
       if (isNaN(num)) return printError('Task number must be an integer');
-      const t = await getTaskByNumber(project, num);
+      const project = requireProject();
+      const t = await get(`/api/tasks/${num}${projectQuery(project)}`);
       if (!t) return printError(`Task ${num} not found`);
       printJson(t);
     });
@@ -82,9 +61,8 @@ Examples:
     .option('--prompt <text>', 'task prompt/description')
     .action(async (name: string, opts: { prompt?: string }) => {
       const project = requireProject();
-      const result = await createTodoTask(project, name, opts.prompt);
-      if (!result.success) return printError(result.error || 'Failed to create task');
-      notify(project, 'task:create', `Task created: ${name}`);
+      const result = await post(`/api/tasks${projectQuery(project)}`, { name, prompt: opts.prompt });
+      if (!(result as { success?: boolean }).success) return printError('Failed to create task');
       printJson(result);
     });
 
@@ -94,12 +72,13 @@ Examples:
     .argument('<number>', 'task number')
     .option('--branch <name>', 'custom branch name')
     .action(async (number: string, opts: { branch?: string }) => {
-      const project = requireProject();
       const num = parseInt(number, 10);
       if (isNaN(num)) return printError('Task number must be an integer');
-      const result = await beginTask(project, num, opts.branch);
-      if (!result.success) return printError(result.error || 'Failed to start task');
-      notify(project, 'task:start', `Task #${num} started`);
+      const project = requireProject();
+      const result = await post(`/api/tasks/${num}/start${projectQuery(project)}`, { branchName: opts.branch });
+      if (!(result as { success?: boolean }).success) {
+        return printError((result as { error?: string }).error || 'Failed to start task');
+      }
       printJson(result);
     });
 
@@ -111,9 +90,14 @@ Examples:
     .option('--branch <name>', 'custom branch name')
     .action(async (name: string, opts: { prompt?: string; branch?: string }) => {
       const project = requireProject();
-      const result = await createTaskWorktree(project, name, opts.prompt, opts.branch);
-      if (!result.success) return printError(result.error || 'Failed to create and start task');
-      notify(project, 'task:create-and-start', `Task created and started: ${name}`);
+      const result = await post(`/api/tasks/start${projectQuery(project)}`, {
+        name,
+        prompt: opts.prompt,
+        branchName: opts.branch,
+      });
+      if (!(result as { success?: boolean }).success) {
+        return printError((result as { error?: string }).error || 'Failed to create and start task');
+      }
       printJson(result);
     });
 
@@ -123,37 +107,18 @@ Examples:
     .argument('<number>', 'task number')
     .argument('<status>', 'new status (todo|in_progress|in_review|done)')
     .action(async (number: string, status: string) => {
-      const project = requireProject();
       const num = parseInt(number, 10);
       if (isNaN(num)) return printError('Task number must be an integer');
-      if (!VALID_STATUSES.includes(status as TaskStatus)) {
+      if (!VALID_STATUSES.includes(status)) {
         return printError(`Invalid status: ${status}. Must be one of: ${VALID_STATUSES.join(', ')}`);
       }
-      const s = status as TaskStatus;
-      const statusResult = await setTaskStatus(project, num, s);
-      if (!statusResult.success) return printError(statusResult.error || 'Failed to set status');
-
-      // Execute hook if applicable
-      const t = await getTaskByNumber(project, num);
-      const hookType = statusToHookType(s, !!t?.worktreePath);
-      let hookResult: { ran: boolean; type?: string; exitCode?: number; output?: string } = { ran: false };
-
-      if (hookType && t?.worktreePath) {
-        const hook = await getHook(project, hookType);
-        if (hook) {
-          const result = await executeHook(hook, t.worktreePath, {
-            projectPath: project,
-            worktreePath: t.worktreePath,
-            taskBranch: t.branch || '',
-            taskName: t.name,
-            taskPrompt: t.prompt,
-          });
-          hookResult = { ran: true, type: hookType, exitCode: result.exitCode, output: result.output };
-        }
-      }
-
-      notify(project, 'task:set-status', `Task #${num} → ${STATUS_LABELS[s] || s}`);
-      printJson({ success: true, task: t, hook: hookResult });
+      const project = requireProject();
+      const result = await patch<{ success: boolean; error?: string; hookWarning?: string }>(
+        `/api/tasks/${num}/status${projectQuery(project)}`,
+        { status },
+      );
+      if (!result.success) return printError(result.error || 'Failed to set status');
+      printJson({ success: true, status: STATUS_LABELS[status] || status, hookWarning: result.hookWarning });
     });
 
   task
@@ -162,13 +127,11 @@ Examples:
     .argument('<number>', 'task number')
     .argument('<name...>', 'new name')
     .action(async (number: string, nameParts: string[]) => {
-      const project = requireProject();
       const num = parseInt(number, 10);
       const name = nameParts.join(' ');
       if (isNaN(num) || !name) return printError('Usage: ouijit task set-name <number> <name>');
-      const result = await setTaskName(project, num, name);
-      if (!result.success) return printError(result.error || 'Failed to set name');
-      notify(project, 'task:set-name', `Task #${num} renamed to "${name}"`);
+      const project = requireProject();
+      const result = await patch(`/api/tasks/${num}/name${projectQuery(project)}`, { name });
       printJson(result);
     });
 
@@ -178,13 +141,11 @@ Examples:
     .argument('<number>', 'task number')
     .argument('<text...>', 'description text')
     .action(async (number: string, textParts: string[]) => {
-      const project = requireProject();
       const num = parseInt(number, 10);
       const desc = textParts.join(' ');
       if (isNaN(num) || !desc) return printError('Usage: ouijit task set-description <number> <text>');
-      const result = await setTaskDescription(project, num, desc);
-      if (!result.success) return printError(result.error || 'Failed to set description');
-      notify(project, 'task:set-description', `Task #${num} description updated`);
+      const project = requireProject();
+      const result = await patch(`/api/tasks/${num}/description${projectQuery(project)}`, { description: desc });
       printJson(result);
     });
 
@@ -194,12 +155,10 @@ Examples:
     .argument('<number>', 'task number')
     .argument('<branch>', 'target branch')
     .action(async (number: string, branch: string) => {
-      const project = requireProject();
       const num = parseInt(number, 10);
       if (isNaN(num)) return printError('Task number must be an integer');
-      const result = await setTaskMergeTarget(project, num, branch);
-      if (!result.success) return printError(result.error || 'Failed to set merge target');
-      notify(project, 'task:set-merge-target', `Task #${num} merge target → ${branch}`);
+      const project = requireProject();
+      const result = await patch(`/api/tasks/${num}/merge-target${projectQuery(project)}`, { mergeTarget: branch });
       printJson(result);
     });
 
@@ -208,12 +167,10 @@ Examples:
     .description('Delete task and its worktree')
     .argument('<number>', 'task number')
     .action(async (number: string) => {
-      const project = requireProject();
       const num = parseInt(number, 10);
       if (isNaN(num)) return printError('Task number must be an integer');
-      const result = await deleteTaskWithWorktree(project, num);
-      if (!result.success) return printError(result.error || 'Failed to delete task');
-      notify(project, 'task:delete', `Task #${num} deleted`);
+      const project = requireProject();
+      const result = await del(`/api/tasks/${num}${projectQuery(project)}`);
       printJson(result);
     });
 }

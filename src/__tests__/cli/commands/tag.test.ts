@@ -1,7 +1,16 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest';
 import { Command } from 'commander';
-import { _resetCacheForTesting, addProject, createTask, getTaskTags } from '../../../db';
 import { registerTagCommands } from '../../../cli/commands/tag';
+
+vi.mock('../../../cli/api', () => ({
+  get: vi.fn(),
+  post: vi.fn(),
+  put: vi.fn(),
+  del: vi.fn(),
+  projectQuery: (p: string) => '?project=' + encodeURIComponent(p),
+}));
+
+import { get, post, put, del } from '../../../cli/api';
 
 function captureOutput() {
   const chunks: string[] = [];
@@ -28,63 +37,54 @@ function createProgram() {
 }
 
 describe('tag commands', () => {
-  beforeEach(async () => {
-    _resetCacheForTesting();
-    await addProject(PROJECT);
-    await createTask(PROJECT, 1, 'Test task');
+  beforeEach(() => {
+    vi.clearAllMocks();
   });
 
-  test('list returns all tags', async () => {
+  test('list calls GET /api/tags', async () => {
+    vi.mocked(get).mockResolvedValue([]);
     const output = captureOutput();
     await createProgram().parseAsync(['tag', 'list'], { from: 'user' });
     const result = output.getJson();
-    expect(Array.isArray(result)).toBe(true);
+    expect(get).toHaveBeenCalledWith('/api/tags');
+    expect(result).toEqual([]);
   });
 
-  test('add creates a tag for a task', async () => {
+  test('list --task calls GET /api/tasks/:number/tags', async () => {
+    vi.mocked(get).mockResolvedValue([{ name: 'bug' }]);
+    const output = captureOutput();
+    await createProgram().parseAsync(['tag', 'list', '--task', '1'], { from: 'user' });
+    const result = output.getJson();
+    expect(get).toHaveBeenCalledWith(`/api/tasks/1/tags?project=${encodeURIComponent(PROJECT)}`);
+    expect(result).toEqual([{ name: 'bug' }]);
+  });
+
+  test('add calls POST /api/tasks/:number/tags', async () => {
+    vi.mocked(post).mockResolvedValue({ name: 'urgent' });
     const output = captureOutput();
     await createProgram().parseAsync(['tag', 'add', '1', 'urgent'], { from: 'user' });
     const result = output.getJson();
+    expect(post).toHaveBeenCalledWith(`/api/tasks/1/tags?project=${encodeURIComponent(PROJECT)}`, { name: 'urgent' });
     expect(result.name).toBe('urgent');
-
-    const tags = await getTaskTags(PROJECT, 1);
-    expect(tags.some((t) => t.name === 'urgent')).toBe(true);
   });
 
-  test('remove deletes a tag from a task', async () => {
-    // Add then remove
-    const output1 = captureOutput();
-    await createProgram().parseAsync(['tag', 'add', '1', 'temp'], { from: 'user' });
-    output1.getJson();
-
-    const output2 = captureOutput();
+  test('remove calls DELETE /api/tasks/:number/tags/:name', async () => {
+    vi.mocked(del).mockResolvedValue(undefined);
+    const output = captureOutput();
     await createProgram().parseAsync(['tag', 'remove', '1', 'temp'], { from: 'user' });
-    const result = output2.getJson();
+    const result = output.getJson();
+    expect(del).toHaveBeenCalledWith(`/api/tasks/1/tags/temp?project=${encodeURIComponent(PROJECT)}`);
     expect(result.success).toBe(true);
-
-    const tags = await getTaskTags(PROJECT, 1);
-    expect(tags.some((t) => t.name === 'temp')).toBe(false);
   });
 
-  test('set replaces all tags on a task', async () => {
+  test('set calls PUT /api/tasks/:number/tags', async () => {
+    vi.mocked(put).mockResolvedValue([{ name: 'alpha' }, { name: 'beta' }]);
     const output = captureOutput();
     await createProgram().parseAsync(['tag', 'set', '1', 'alpha', 'beta'], { from: 'user' });
     const result = output.getJson();
+    expect(put).toHaveBeenCalledWith(`/api/tasks/1/tags?project=${encodeURIComponent(PROJECT)}`, {
+      tags: ['alpha', 'beta'],
+    });
     expect(result).toHaveLength(2);
-
-    const tags = await getTaskTags(PROJECT, 1);
-    expect(tags.map((t) => t.name).sort()).toEqual(['alpha', 'beta']);
-  });
-
-  test('list --task filters tags for a specific task', async () => {
-    // Add a tag first
-    const output1 = captureOutput();
-    await createProgram().parseAsync(['tag', 'add', '1', 'filtered'], { from: 'user' });
-    output1.getJson();
-
-    const output2 = captureOutput();
-    await createProgram().parseAsync(['tag', 'list', '--task', '1'], { from: 'user' });
-    const result = output2.getJson();
-    expect(result.some((t: { name: string }) => t.name === 'filtered')).toBe(true);
   });
 });

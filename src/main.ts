@@ -2,10 +2,9 @@ import { app, BrowserWindow, dialog, nativeTheme, shell } from 'electron';
 import path from 'node:path';
 import started from 'electron-squirrel-startup';
 import fixPath from 'fix-path';
-import * as fs from 'node:fs';
 import log from './log';
 import { setLogger, type Logger } from './logger';
-import { setUserDataPath, getDbPath, getUserDataPath, setCliPath } from './paths';
+import { setUserDataPath, getDbPath, setCliPath } from './paths';
 import { setTrashItem } from './platform';
 import { registerIpcHandlers, cleanupIpc } from './ipc/register';
 import { getActiveSessionCount } from './ptyManager';
@@ -184,28 +183,6 @@ app.on('ready', async () => {
   mainWindow = createWindow();
   await registerIpcHandlers(mainWindow);
   initUpdater(mainWindow);
-
-  // Watch for CLI changes (sentinel file written by `ouijit` CLI after writes).
-  // Watch the directory (not the file) so the watcher works even before the
-  // sentinel file is created for the first time.
-  const sentinelDir = getUserDataPath();
-  const sentinelName = 'cli-notify.json';
-  try {
-    fs.watch(sentinelDir, { persistent: false }, (_event, filename) => {
-      if (filename !== sentinelName) return;
-      try {
-        const raw = fs.readFileSync(path.join(sentinelDir, sentinelName), 'utf-8');
-        const payload = JSON.parse(raw) as { project: string; action: string; message?: string; ts: number };
-        if (mainWindow && !mainWindow.isDestroyed()) {
-          typedPush(mainWindow, 'cli-change', payload);
-        }
-      } catch {
-        // File may be mid-write or invalid — ignore
-      }
-    });
-  } catch {
-    // Directory doesn't exist yet — unlikely but harmless
-  }
 });
 
 app.on('before-quit', (e) => {

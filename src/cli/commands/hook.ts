@@ -1,21 +1,18 @@
 /**
- * CLI hook commands — CRUD for script hooks.
+ * CLI hook commands — CRUD for script hooks via REST API.
  */
 
 import type { Command } from 'commander';
-import { getHooks, getHook, saveHook, deleteHook } from '../../db';
-import type { HookType } from '../../db/repos/hookRepo';
+import { get, put, del, projectQuery } from '../api';
 import { printJson, printError } from '../output';
-import { notify } from '../notify';
-import { generateId } from '../../utils/ids';
 
-const VALID_HOOK_TYPES: HookType[] = ['start', 'continue', 'run', 'review', 'cleanup', 'editor'];
+const VALID_HOOK_TYPES = ['start', 'continue', 'run', 'review', 'cleanup', 'editor'];
 
-function validateHookType(type: string): HookType {
-  if (!VALID_HOOK_TYPES.includes(type as HookType)) {
+function validateHookType(type: string): string {
+  if (!VALID_HOOK_TYPES.includes(type)) {
     return printError(`Invalid hook type: ${type}. Must be one of: ${VALID_HOOK_TYPES.join(', ')}`);
   }
-  return type as HookType;
+  return type;
 }
 
 export function registerHookCommands(parent: Command, requireProject: () => string) {
@@ -39,7 +36,7 @@ Examples:
     .description('List all hooks')
     .action(async () => {
       const project = requireProject();
-      const hooks = await getHooks(project);
+      const hooks = await get(`/api/hooks${projectQuery(project)}`);
       printJson(hooks);
     });
 
@@ -48,10 +45,10 @@ Examples:
     .description('Get hook by type')
     .argument('<type>', `hook type (${VALID_HOOK_TYPES.join('|')})`)
     .action(async (type: string) => {
-      const project = requireProject();
       const t = validateHookType(type);
-      const h = await getHook(project, t);
-      printJson(h || null);
+      const project = requireProject();
+      const hooks = await get<Record<string, unknown>>(`/api/hooks${projectQuery(project)}`);
+      printJson(hooks[t] || null);
     });
 
   hook
@@ -62,16 +59,13 @@ Examples:
     .requiredOption('--command <cmd>', 'hook command')
     .option('--description <desc>', 'hook description')
     .action(async (type: string, opts: { name: string; command: string; description?: string }) => {
-      const project = requireProject();
       const t = validateHookType(type);
-      const result = await saveHook(project, {
-        id: generateId('hook'),
-        type: t,
+      const project = requireProject();
+      const result = await put(`/api/hooks/${t}${projectQuery(project)}`, {
         name: opts.name,
         command: opts.command,
         ...(opts.description && { description: opts.description }),
       });
-      notify(project, 'hook:set', `Hook saved: ${opts.name}`);
       printJson(result);
     });
 
@@ -80,10 +74,9 @@ Examples:
     .description('Delete a hook')
     .argument('<type>', `hook type (${VALID_HOOK_TYPES.join('|')})`)
     .action(async (type: string) => {
-      const project = requireProject();
       const t = validateHookType(type);
-      const result = await deleteHook(project, t);
-      notify(project, 'hook:delete', `${t} hook deleted`);
+      const project = requireProject();
+      const result = await del(`/api/hooks/${t}${projectQuery(project)}`);
       printJson(result);
     });
 }

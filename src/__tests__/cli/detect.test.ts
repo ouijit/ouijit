@@ -3,14 +3,12 @@ import { execSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
-import { _resetCacheForTesting, addProject } from '../../db';
 import { detectProject } from '../../cli/detect';
 
 describe('detectProject', () => {
   let tempDir: string;
 
   beforeEach(() => {
-    _resetCacheForTesting();
     // Resolve symlinks (macOS /var → /private/var) so paths match git output
     tempDir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'ouijit-detect-')));
   });
@@ -41,7 +39,7 @@ describe('detectProject', () => {
     }
   });
 
-  test('resolves main repo root from worktree', async () => {
+  test('resolves main repo root from worktree', () => {
     // Create main repo with an initial commit
     const mainRepo = path.join(tempDir, 'main-repo');
     fs.mkdirSync(mainRepo);
@@ -49,9 +47,6 @@ describe('detectProject', () => {
     execSync('git config user.email "test@test.com"', { cwd: mainRepo, stdio: 'ignore' });
     execSync('git config user.name "Test"', { cwd: mainRepo, stdio: 'ignore' });
     execSync('git commit --allow-empty -m "init"', { cwd: mainRepo, stdio: 'ignore' });
-
-    // Add project to DB (mainRepo is a real directory, so addProject validation passes)
-    await addProject(mainRepo);
 
     // Create a worktree
     const wtPath = path.join(tempDir, 'wt-1');

@@ -2,14 +2,11 @@
  * Auto-detect the project path from CWD via git.
  *
  * Resolves the main repo root even if CWD is inside a git worktree.
- * Looks up the resolved path in the projects DB to confirm it's a known Ouijit project.
  */
 
 import { execSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { getDatabase } from '../db/database';
-import { ProjectRepo } from '../db/repos/projectRepo';
 
 /**
  * Resolve the main git repo root from a path.
@@ -65,15 +62,5 @@ export function detectProject(explicitPath?: string): string | null {
 
   const cwd = process.cwd();
   const gitRoot = resolveGitRoot(cwd);
-  if (!gitRoot) return null;
-
-  // Check if this is a known Ouijit project
-  const db = getDatabase();
-  const projectRepo = new ProjectRepo(db);
-  const project = projectRepo.getByPath(gitRoot);
-  if (project) return gitRoot;
-
-  // Not a known project — still return the git root so commands can work
-  // (they'll auto-create the project in the DB when needed)
-  return gitRoot;
+  return gitRoot ?? null;
 }
