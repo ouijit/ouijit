@@ -27,27 +27,33 @@ export function buildChainMap(tasks: TaskWithWorkspace[]): Map<number, TaskChain
     }
   }
 
-  // Compute root + depth for each task via parent walk
+  // Compute root + depth for each task via parent walk, memoizing as we go
   function resolve(taskNumber: number): { root: number; depth: number } {
     const cached = result.get(taskNumber);
     if (cached) return { root: cached.rootTaskNumber, depth: cached.depth };
 
     const task = byNumber.get(taskNumber);
     if (!task?.parentTaskNumber || !byNumber.has(task.parentTaskNumber)) {
+      result.set(taskNumber, {
+        rootTaskNumber: taskNumber,
+        depth: 0,
+        childTaskNumbers: childrenMap.get(taskNumber) ?? [],
+      });
       return { root: taskNumber, depth: 0 };
     }
 
     const parent = resolve(task.parentTaskNumber);
+    const info = {
+      rootTaskNumber: parent.root,
+      depth: parent.depth + 1,
+      childTaskNumbers: childrenMap.get(taskNumber) ?? [],
+    };
+    result.set(taskNumber, info);
     return { root: parent.root, depth: parent.depth + 1 };
   }
 
   for (const task of tasks) {
-    const { root, depth } = resolve(task.taskNumber);
-    result.set(task.taskNumber, {
-      rootTaskNumber: root,
-      depth,
-      childTaskNumbers: childrenMap.get(task.taskNumber) ?? [],
-    });
+    resolve(task.taskNumber);
   }
 
   return result;
@@ -80,12 +86,13 @@ export function isDescendantOf(
 ): boolean {
   const queue = [...(chainMap.get(ancestor)?.childTaskNumbers ?? [])];
   const visited = new Set<number>();
-  while (queue.length > 0) {
-    const current = queue.shift()!;
+  for (let i = 0; i < queue.length; i++) {
+    const current = queue[i];
     if (current === possibleDescendant) return true;
     if (visited.has(current)) continue;
     visited.add(current);
-    queue.push(...(chainMap.get(current)?.childTaskNumbers ?? []));
+    const children = chainMap.get(current)?.childTaskNumbers;
+    if (children) queue.push(...children);
   }
   return false;
 }

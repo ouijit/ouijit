@@ -10,6 +10,8 @@ interface ProjectStoreState {
   highlightedChainTask: number | null;
   detachHoverParent: number | null;
   optionKeyHeld: boolean;
+  activeBadgeDrag: number | null;
+  badgeDragOverTask: number | null;
   activeModal: string | null;
   toasts: Array<{
     id: string;
@@ -43,6 +45,9 @@ interface ProjectStoreActions {
   removeToast: (id: string) => void;
   setHighlightedChainTask: (taskNumber: number | null) => void;
   setDetachHoverParent: (taskNumber: number | null) => void;
+  setActiveBadgeDrag: (taskNumber: number | null) => void;
+  setBadgeDragOverTask: (taskNumber: number | null) => void;
+  clearChainHighlights: () => void;
   setActivePanel: (panel: 'terminals' | 'settings') => void;
   resetForProject: () => void;
 
@@ -67,6 +72,8 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
   highlightedChainTask: null,
   detachHoverParent: null,
   optionKeyHeld: false,
+  activeBadgeDrag: null,
+  badgeDragOverTask: null,
   activeModal: null,
   toasts: [],
   _version: 0,
@@ -82,6 +89,12 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
   setHighlightedChainTask: (taskNumber) => set({ highlightedChainTask: taskNumber }),
 
   setDetachHoverParent: (taskNumber) => set({ detachHoverParent: taskNumber }),
+
+  setActiveBadgeDrag: (taskNumber) => set({ activeBadgeDrag: taskNumber }),
+
+  setBadgeDragOverTask: (taskNumber) => set({ badgeDragOverTask: taskNumber }),
+
+  clearChainHighlights: () => set({ highlightedChainTask: null, detachHoverParent: null }),
 
   setActivePanel: (panel) => set({ activePanel: panel }),
 
@@ -120,6 +133,8 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
       highlightedChainTask: null,
       detachHoverParent: null,
       optionKeyHeld: false,
+      activeBadgeDrag: null,
+      badgeDragOverTask: null,
       activeModal: null,
       _version: 0,
     });

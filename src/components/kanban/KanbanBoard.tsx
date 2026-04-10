@@ -64,8 +64,7 @@ interface KanbanBoardProps {
 export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
   const storeTasks = useProjectStore((s) => s.tasks);
   const [activeTask, setActiveTask] = useState<TaskWithWorkspace | null>(null);
-  const [activeBadgeDrag, setActiveBadgeDrag] = useState<{ taskNumber: number } | null>(null);
-  const [badgeDragOverTask, setBadgeDragOverTask] = useState<number | null>(null);
+  const activeBadgeDrag = useProjectStore((s) => s.activeBadgeDrag);
   const [configuredHooks, setConfiguredHooks] = useState<Record<string, boolean>>({});
   const [runHookDialog, setRunHookDialog] = useState<{
     hookType: HookType;
@@ -249,12 +248,12 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
   const handleDragStart = useCallback((event: DragStartEvent) => {
     const data = event.active.data.current;
     if (data?.type === 'badge') {
-      setActiveBadgeDrag({ taskNumber: data.taskNumber as number });
+      useProjectStore.getState().setActiveBadgeDrag(data.taskNumber as number);
       setActiveTask(null);
     } else {
       const task = data?.task as TaskWithWorkspace | undefined;
       setActiveTask(task ?? null);
-      setActiveBadgeDrag(null);
+      useProjectStore.getState().setActiveBadgeDrag(null);
       if (task) originalStatusRef.current = task.status;
     }
   }, []);
@@ -268,7 +267,7 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
       if (active.data.current?.type === 'badge') {
         const overId = over.id as string;
         const overTaskNum = overId.startsWith('task-') ? parseInt(overId.replace('task-', ''), 10) : null;
-        setBadgeDragOverTask(overTaskNum);
+        useProjectStore.getState().setBadgeDragOverTask(overTaskNum);
         return;
       }
 
@@ -316,12 +315,12 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
       const { active, over } = event;
 
       // ── Badge drop: link tasks ──────────────────────────────────────
-      if (activeBadgeDrag) {
-        const sourceTaskNum = activeBadgeDrag.taskNumber;
-        setActiveBadgeDrag(null);
-        setBadgeDragOverTask(null);
-        useProjectStore.getState().setHighlightedChainTask(null);
-        useProjectStore.getState().setDetachHoverParent(null);
+      const badgeDrag = useProjectStore.getState().activeBadgeDrag;
+      if (badgeDrag != null) {
+        const sourceTaskNum = badgeDrag;
+        useProjectStore.getState().setActiveBadgeDrag(null);
+        useProjectStore.getState().setBadgeDragOverTask(null);
+        useProjectStore.getState().clearChainHighlights();
 
         const overId = over?.id as string | undefined;
         if (!overId) return;
@@ -454,17 +453,7 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
         }
       }
     },
-    [
-      activeTask,
-      activeBadgeDrag,
-      chainMap,
-      storeTasks,
-      overTrash,
-      items,
-      findContainer,
-      projectPath,
-      ensureWorktreeExists,
-    ],
+    [activeTask, chainMap, storeTasks, overTrash, items, findContainer, projectPath, ensureWorktreeExists],
   );
 
   // Task CRUD
@@ -600,11 +589,10 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
       onDragEnd={handleDragEnd}
       onDragCancel={() => {
         setActiveTask(null);
-        setActiveBadgeDrag(null);
-        setBadgeDragOverTask(null);
+        useProjectStore.getState().setActiveBadgeDrag(null);
+        useProjectStore.getState().setBadgeDragOverTask(null);
+        useProjectStore.getState().clearChainHighlights();
         originalStatusRef.current = null;
-        useProjectStore.getState().setHighlightedChainTask(null);
-        useProjectStore.getState().setDetachHoverParent(null);
       }}
     >
       <div
@@ -663,8 +651,6 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
                 tasks={items[col.status] ?? []}
                 projectPath={projectPath}
                 chainMap={chainMap}
-                activeBadgeDrag={activeBadgeDrag}
-                badgeDragOverTask={badgeDragOverTask}
                 onAddTask={col.status === 'todo' ? handleAddTask : undefined}
                 onRenameTask={handleRenameTask}
                 onUpdateDescription={handleUpdateDescription}
@@ -698,7 +684,7 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
             </div>
           </div>
         )}
-        {activeBadgeDrag && (
+        {activeBadgeDrag != null && (
           <span
             className="inline-flex items-center gap-0.5 font-mono text-[11px] leading-none px-2 py-1 rounded-full whitespace-nowrap"
             style={{
@@ -708,7 +694,7 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
             }}
           >
             <span className="opacity-50">#</span>
-            {activeBadgeDrag.taskNumber}
+            {activeBadgeDrag}
           </span>
         )}
       </DragOverlay>

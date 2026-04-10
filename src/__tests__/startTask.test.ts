@@ -35,6 +35,32 @@ vi.mock('koffi', () => ({
 import { startTask } from '../worktree';
 import { beginTask } from '../taskLifecycle';
 
+async function mockExecBranchNotFound() {
+  const { exec } = await import('node:child_process');
+  vi.mocked(exec).mockImplementation(((
+    cmd: string,
+    _opts: unknown,
+    cb: (err: Error | null, result: { stdout: string; stderr: string }) => void,
+  ) => {
+    if (typeof cmd === 'string' && cmd.includes('rev-parse --verify')) {
+      cb(new Error('not found'), { stdout: '', stderr: '' });
+    } else {
+      cb(null, { stdout: 'main\n', stderr: '' });
+    }
+  }) as typeof exec);
+}
+
+async function restoreExecMock() {
+  const { exec } = await import('node:child_process');
+  vi.mocked(exec).mockImplementation(((
+    _cmd: string,
+    _opts: unknown,
+    cb: (err: null, result: { stdout: string; stderr: string }) => void,
+  ) => {
+    cb(null, { stdout: 'main\n', stderr: '' });
+  }) as typeof exec);
+}
+
 describe('startTask', () => {
   test('does not change a todo task status to in_progress', async () => {
     const project = '/test/start-keeps-todo';
@@ -76,18 +102,7 @@ describe('startTask', () => {
 
   test('passes baseBranch as start point to git worktree add', async () => {
     const { exec } = await import('node:child_process');
-    // Override exec to make rev-parse --verify fail (branch doesn't exist yet)
-    vi.mocked(exec).mockImplementation(((
-      cmd: string,
-      _opts: unknown,
-      cb: (err: Error | null, result: { stdout: string; stderr: string }) => void,
-    ) => {
-      if (typeof cmd === 'string' && cmd.includes('rev-parse --verify')) {
-        cb(new Error('not found'), { stdout: '', stderr: '' });
-      } else {
-        cb(null, { stdout: 'main\n', stderr: '' });
-      }
-    }) as typeof exec);
+    await mockExecBranchNotFound();
 
     const project = '/test/start-with-base';
     await createTask(project, 1, 'Child task', { status: 'todo' });
@@ -99,14 +114,7 @@ describe('startTask', () => {
     expect(wtAddCall).toBeDefined();
     expect(wtAddCall![0]).toContain('feat/parent-branch');
 
-    // Restore default mock
-    vi.mocked(exec).mockImplementation(((
-      _cmd: string,
-      _opts: unknown,
-      cb: (err: null, result: { stdout: string; stderr: string }) => void,
-    ) => {
-      cb(null, { stdout: 'main\n', stderr: '' });
-    }) as typeof exec);
+    await restoreExecMock();
   });
 
   test('sets mergeTarget to baseBranch when provided', async () => {
@@ -133,17 +141,7 @@ describe('startTask', () => {
 
   test('beginTask passes parent branch as baseBranch', async () => {
     const { exec } = await import('node:child_process');
-    vi.mocked(exec).mockImplementation(((
-      cmd: string,
-      _opts: unknown,
-      cb: (err: Error | null, result: { stdout: string; stderr: string }) => void,
-    ) => {
-      if (typeof cmd === 'string' && cmd.includes('rev-parse --verify')) {
-        cb(new Error('not found'), { stdout: '', stderr: '' });
-      } else {
-        cb(null, { stdout: 'main\n', stderr: '' });
-      }
-    }) as typeof exec);
+    await mockExecBranchNotFound();
 
     const project = '/test/begin-with-parent';
     await createTask(project, 1, 'Parent', { branch: 'feat/parent', status: 'in_progress' });
@@ -156,13 +154,7 @@ describe('startTask', () => {
     expect(wtAddCall).toBeDefined();
     expect(wtAddCall![0]).toContain('feat/parent');
 
-    vi.mocked(exec).mockImplementation(((
-      _cmd: string,
-      _opts: unknown,
-      cb: (err: null, result: { stdout: string; stderr: string }) => void,
-    ) => {
-      cb(null, { stdout: 'main\n', stderr: '' });
-    }) as typeof exec);
+    await restoreExecMock();
   });
 
   test('beginTask falls back to HEAD when parent is missing', async () => {

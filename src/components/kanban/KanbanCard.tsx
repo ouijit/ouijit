@@ -17,8 +17,6 @@ interface KanbanCardProps {
   projectPath: string;
   chainInfo?: TaskChainInfo;
   chainMap?: Map<number, TaskChainInfo>;
-  activeBadgeDrag?: { taskNumber: number } | null;
-  badgeDragOverTask?: number | null;
   onRename: (taskNumber: number, newName: string) => void;
   onUpdateDescription: (taskNumber: number, description: string) => void;
   onOpenTerminal: (task: TaskWithWorkspace, sandboxed?: boolean) => void;
@@ -30,8 +28,6 @@ export const KanbanCard = memo(function KanbanCard({
   projectPath,
   chainInfo,
   chainMap,
-  activeBadgeDrag,
-  badgeDragOverTask,
   onRename,
   onUpdateDescription,
   onOpenTerminal,
@@ -66,17 +62,18 @@ export const KanbanCard = memo(function KanbanCard({
     ? getChainBgColor(chainInfo!.rootTaskNumber, chainInfo!.depth)
     : 'rgba(255, 255, 255, 0.04)';
 
-  // Badge drag visual feedback
+  // Badge drag visual feedback (read from store, not props)
+  const activeBadgeDrag = useProjectStore((s) => s.activeBadgeDrag);
+  const badgeDragOverTask = useProjectStore((s) => s.badgeDragOverTask);
+  const optionKeyHeld = useProjectStore((s) => s.optionKeyHeld);
   const isBadgeDragActive = activeBadgeDrag != null;
   const isValidBadgeTarget =
     isBadgeDragActive &&
-    activeBadgeDrag.taskNumber !== task.taskNumber &&
+    activeBadgeDrag !== task.taskNumber &&
     chainMap != null &&
-    !isDescendantOf(task.taskNumber, activeBadgeDrag.taskNumber, chainMap);
+    !isDescendantOf(task.taskNumber, activeBadgeDrag, chainMap);
   const isHoveredBadgeTarget = isValidBadgeTarget && badgeDragOverTask === task.taskNumber;
   const isInvalidBadgeTarget = isBadgeDragActive && !isValidBadgeTarget;
-
-  const optionKeyHeld = useProjectStore((s) => s.optionKeyHeld);
   const showBadge = isInChain || optionKeyHeld || isBadgeDragActive;
 
   // Find connected terminals for this task (reactive — re-renders when display states change)
@@ -604,8 +601,7 @@ function DraggableBadge({
             onClick={async (e) => {
               e.stopPropagation();
               setDetachHovered(false);
-              useProjectStore.getState().setDetachHoverParent(null);
-              useProjectStore.getState().setHighlightedChainTask(null);
+              useProjectStore.getState().clearChainHighlights();
               const mainBranch = await window.api.worktree.getMainBranch(projectPath);
               await window.api.task.setParent(projectPath, task.taskNumber, null, mainBranch);
               useProjectStore.getState().loadTasks(projectPath);

@@ -23,7 +23,6 @@ interface TooltipProps {
   referenceClassName?: string;
   referenceStyle?: React.CSSProperties;
   onHoverChange?: (hovering: boolean) => void;
-  onClick?: (e: React.MouseEvent) => void;
   children: ReactNode;
 }
 
@@ -36,7 +35,6 @@ export function Tooltip({
   referenceClassName,
   referenceStyle,
   onHoverChange,
-  onClick,
   children,
 }: TooltipProps) {
   const [isOpen, setIsOpen] = useState(false);
@@ -67,7 +65,6 @@ export function Tooltip({
         {...getReferenceProps()}
         className={referenceClassName ?? 'inline-flex'}
         style={referenceStyle}
-        onClick={onClick}
       >
         {children}
       </div>
