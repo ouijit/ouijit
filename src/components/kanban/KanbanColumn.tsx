@@ -159,6 +159,7 @@ function SortableCard({
         task={task}
         projectPath={projectPath}
         chainInfo={chainMap?.get(task.taskNumber)}
+        chainMap={chainMap}
         onRename={onRename}
         onUpdateDescription={onUpdateDescription}
         onOpenTerminal={onOpenTerminal}

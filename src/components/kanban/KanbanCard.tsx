@@ -15,6 +15,7 @@ interface KanbanCardProps {
   task: TaskWithWorkspace;
   projectPath: string;
   chainInfo?: TaskChainInfo;
+  chainMap?: Map<number, TaskChainInfo>;
   onRename: (taskNumber: number, newName: string) => void;
   onUpdateDescription: (taskNumber: number, description: string) => void;
   onOpenTerminal: (task: TaskWithWorkspace, sandboxed?: boolean) => void;
@@ -25,6 +26,7 @@ export const KanbanCard = memo(function KanbanCard({
   task,
   projectPath,
   chainInfo,
+  chainMap,
   onRename,
   onUpdateDescription,
   onOpenTerminal,
@@ -44,6 +46,13 @@ export const KanbanCard = memo(function KanbanCard({
 
   const isDone = task.status === 'done';
   const isInChain = chainInfo != null && (chainInfo.depth > 0 || chainInfo.childTaskNumbers.length > 0);
+  const highlightedChainTask = useProjectStore((s) => s.highlightedChainTask);
+  const hoveredChainRoot = highlightedChainTask != null ? chainMap?.get(highlightedChainTask)?.rootTaskNumber : null;
+  const shouldJitter =
+    isInChain &&
+    hoveredChainRoot != null &&
+    hoveredChainRoot === chainInfo!.rootTaskNumber &&
+    highlightedChainTask !== task.taskNumber;
 
   // Find connected terminals for this task (reactive — re-renders when display states change)
   const displayStates = useTerminalStore((s) => s.displayStates);
@@ -279,9 +288,6 @@ export const KanbanCard = memo(function KanbanCard({
         background: expanded ? 'rgba(0, 0, 0, 0.15)' : 'var(--color-terminal-bg)',
         transition: 'background 150ms ease-out, opacity 150ms ease-out',
         borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
-        ...(isInChain && {
-          borderLeft: `3px solid ${getChainColor(chainInfo!.rootTaskNumber, chainInfo!.depth)}`,
-        }),
       }}
       data-task-number={task.taskNumber}
       onContextMenu={(e) => {
@@ -362,18 +368,19 @@ export const KanbanCard = memo(function KanbanCard({
               </div>
             }
             placement="top"
+            referenceClassName="inline-flex items-center gap-0.5 shrink-0 font-mono text-[11px] leading-none px-2 py-1 rounded-full whitespace-nowrap"
+            referenceStyle={{
+              color: getChainColor(chainInfo!.rootTaskNumber, chainInfo!.depth),
+              background: getChainBgColor(chainInfo!.rootTaskNumber, chainInfo!.depth),
+              ...(shouldJitter && { animation: 'chain-badge-jitter 0.4s ease-out forwards' }),
+            }}
+            onHoverChange={(hovering) =>
+              useProjectStore.getState().setHighlightedChainTask(hovering ? task.taskNumber : null)
+            }
           >
-            <span
-              className="inline-flex items-center gap-0.5 shrink-0 font-mono text-[11px] leading-none px-2 py-1 rounded-full whitespace-nowrap"
-              style={{
-                color: getChainColor(chainInfo!.rootTaskNumber, chainInfo!.depth),
-                background: getChainBgColor(chainInfo!.rootTaskNumber, chainInfo!.depth),
-              }}
-            >
-              {chainInfo!.depth > 0 && <Icon name="git-merge" className="w-3 h-3" />}
-              <span className="opacity-50">#</span>
-              {task.taskNumber}
-            </span>
+            {chainInfo!.depth > 0 && <Icon name="git-merge" className="w-3 h-3" />}
+            <span className="opacity-50">#</span>
+            {task.taskNumber}
           </Tooltip>
         )}
         <button
