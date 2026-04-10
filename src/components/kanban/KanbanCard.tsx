@@ -324,7 +324,7 @@ export const KanbanCard = memo(function KanbanCard({
         </button>
       </div>
 
-      {isSettingUp && <div className="font-mono text-xs text-white/40 mt-1">Setting up workspace\u2026</div>}
+      {isSettingUp && <div className="font-mono text-xs text-white/40 mt-1">Setting up workspace{'\u2026'}</div>}
 
       {/* Connected terminal status dots */}
       {connectedDisplays.length > 0 && (
