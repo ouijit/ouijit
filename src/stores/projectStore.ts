@@ -142,7 +142,9 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
     const statusTasks = updated.filter((t) => t.status === newStatus);
     const otherTasks = updated.filter((t) => t.status !== newStatus);
     statusTasks.splice(targetIndex, 0, updatedTask);
-    set({ tasks: [...otherTasks, ...statusTasks] });
+    // Update order field so the kanban sort reflects the new positions
+    const orderedStatusTasks = statusTasks.map((t, i) => ({ ...t, order: i }));
+    set({ tasks: [...otherTasks, ...orderedStatusTasks] });
 
     try {
       const result = await window.api.task.reorder(projectPath, taskNumber, newStatus as any, targetIndex);
