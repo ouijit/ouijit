@@ -138,6 +138,8 @@ contextBridge.exposeInMainWorld('api', {
     recover: (projectPath: string, taskNumber: number) => typedInvoke('task:recover', projectPath, taskNumber),
     createFromTask: (projectPath: string, parentTaskNumber: number, name?: string) =>
       typedInvoke('task:create-from-task', projectPath, parentTaskNumber, name),
+    setParent: (projectPath: string, taskNumber: number, parentTaskNumber: number | null, mergeTarget?: string) =>
+      typedInvoke('task:set-parent', projectPath, taskNumber, parentTaskNumber, mergeTarget),
   },
 
   hooks: {

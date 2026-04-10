@@ -1,4 +1,5 @@
-import { memo, useState, useCallback, useRef, useEffect, useMemo } from 'react';
+import { memo, useState, useCallback, useRef, useEffect, useMemo, type ReactNode } from 'react';
+import { useDraggable } from '@dnd-kit/core';
 import type { TaskWithWorkspace } from '../../types';
 import { useTerminalStore, type TerminalDisplayState } from '../../stores/terminalStore';
 import { useProjectStore } from '../../stores/projectStore';
@@ -9,13 +10,15 @@ import { HookConfigDialog } from '../dialogs/HookConfigDialog';
 import { BranchFromTaskDialog } from '../dialogs/BranchFromTaskDialog';
 import { Tooltip } from '../ui/Tooltip';
 import type { TaskChainInfo } from '../../utils/taskChain';
-import { getChainColor, getChainBgColor } from '../../utils/taskChain';
+import { getChainColor, getChainBgColor, isDescendantOf } from '../../utils/taskChain';
 
 interface KanbanCardProps {
   task: TaskWithWorkspace;
   projectPath: string;
   chainInfo?: TaskChainInfo;
   chainMap?: Map<number, TaskChainInfo>;
+  activeBadgeDrag?: { taskNumber: number } | null;
+  badgeDragOverTask?: number | null;
   onRename: (taskNumber: number, newName: string) => void;
   onUpdateDescription: (taskNumber: number, description: string) => void;
   onOpenTerminal: (task: TaskWithWorkspace, sandboxed?: boolean) => void;
@@ -27,6 +30,8 @@ export const KanbanCard = memo(function KanbanCard({
   projectPath,
   chainInfo,
   chainMap,
+  activeBadgeDrag,
+  badgeDragOverTask,
   onRename,
   onUpdateDescription,
   onOpenTerminal,
@@ -53,6 +58,26 @@ export const KanbanCard = memo(function KanbanCard({
     hoveredChainRoot != null &&
     hoveredChainRoot === chainInfo!.rootTaskNumber &&
     highlightedChainTask !== task.taskNumber;
+
+  const badgeColor = isInChain
+    ? getChainColor(chainInfo!.rootTaskNumber, chainInfo!.depth)
+    : 'rgba(255, 255, 255, 0.2)';
+  const badgeBg = isInChain
+    ? getChainBgColor(chainInfo!.rootTaskNumber, chainInfo!.depth)
+    : 'rgba(255, 255, 255, 0.04)';
+
+  // Badge drag visual feedback
+  const isBadgeDragActive = activeBadgeDrag != null;
+  const isValidBadgeTarget =
+    isBadgeDragActive &&
+    activeBadgeDrag.taskNumber !== task.taskNumber &&
+    chainMap != null &&
+    !isDescendantOf(task.taskNumber, activeBadgeDrag.taskNumber, chainMap);
+  const isHoveredBadgeTarget = isValidBadgeTarget && badgeDragOverTask === task.taskNumber;
+  const isInvalidBadgeTarget = isBadgeDragActive && !isValidBadgeTarget;
+
+  const optionKeyHeld = useProjectStore((s) => s.optionKeyHeld);
+  const showBadge = isInChain || optionKeyHeld || isBadgeDragActive;
 
   // Find connected terminals for this task (reactive — re-renders when display states change)
   const displayStates = useTerminalStore((s) => s.displayStates);
@@ -285,9 +310,20 @@ export const KanbanCard = memo(function KanbanCard({
     <div
       className="kanban-card group px-3 py-3.5 ease-out [-webkit-app-region:no-drag] hover:bg-black/10 active:bg-black/[0.12]"
       style={{
-        background: expanded ? 'rgba(0, 0, 0, 0.15)' : 'var(--color-terminal-bg)',
-        transition: 'background 150ms ease-out, opacity 150ms ease-out',
+        background: isHoveredBadgeTarget
+          ? 'rgba(10, 132, 255, 0.08)'
+          : expanded
+            ? 'rgba(0, 0, 0, 0.15)'
+            : 'var(--color-terminal-bg)',
+        transition: 'background 150ms ease-out, opacity 150ms ease-out, outline-color 150ms ease-out',
         borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
+        outline: isHoveredBadgeTarget
+          ? '1px solid rgba(10, 132, 255, 0.6)'
+          : isValidBadgeTarget
+            ? '1px dashed rgba(10, 132, 255, 0.3)'
+            : 'none',
+        outlineOffset: -1,
+        ...(isInvalidBadgeTarget && { opacity: 0.4 }),
       }}
       data-task-number={task.taskNumber}
       onContextMenu={(e) => {
@@ -343,45 +379,16 @@ export const KanbanCard = memo(function KanbanCard({
             {task.name}
           </span>
         )}
-        {isInChain && (
-          <Tooltip
-            text={
-              <div className="flex flex-col gap-0.5">
-                {task.parentTaskNumber != null && (
-                  <span>
-                    Branches from <span className="opacity-50">#</span>
-                    {task.parentTaskNumber}
-                  </span>
-                )}
-                {chainInfo!.childTaskNumbers.length > 0 && (
-                  <span>
-                    Parent of{' '}
-                    {chainInfo!.childTaskNumbers.map((n, i) => (
-                      <span key={n}>
-                        {i > 0 && ', '}
-                        <span className="opacity-50">#</span>
-                        {n}
-                      </span>
-                    ))}
-                  </span>
-                )}
-              </div>
-            }
-            placement="top"
-            referenceClassName="inline-flex items-center gap-0.5 shrink-0 font-mono text-[11px] leading-none px-2 py-1 rounded-full whitespace-nowrap"
-            referenceStyle={{
-              color: getChainColor(chainInfo!.rootTaskNumber, chainInfo!.depth),
-              background: getChainBgColor(chainInfo!.rootTaskNumber, chainInfo!.depth),
-              ...(shouldJitter && { animation: 'chain-badge-jitter 0.4s ease-out forwards' }),
-            }}
-            onHoverChange={(hovering) =>
-              useProjectStore.getState().setHighlightedChainTask(hovering ? task.taskNumber : null)
-            }
-          >
-            {chainInfo!.depth > 0 && <Icon name="git-merge" className="w-3 h-3" />}
-            <span className="opacity-50">#</span>
-            {task.taskNumber}
-          </Tooltip>
+        {showBadge && (
+          <DraggableBadge
+            task={task}
+            projectPath={projectPath}
+            isInChain={isInChain}
+            chainInfo={chainInfo}
+            badgeColor={badgeColor}
+            badgeBg={badgeBg}
+            shouldJitter={shouldJitter}
+          />
         )}
         <button
           className={`flex items-center justify-center w-5 h-5 p-0 bg-transparent border-none rounded text-text-secondary opacity-0 transition-all duration-150 ease-out shrink-0 [-webkit-app-region:no-drag] group-hover:opacity-60 hover:!opacity-100 [&>svg]:w-3 [&>svg]:h-3 [&>svg]:transition-transform [&>svg]:duration-150 [&>svg]:ease-out${expanded ? ' [&>svg]:rotate-180' : ''}`}
@@ -508,3 +515,114 @@ export const KanbanCard = memo(function KanbanCard({
     </div>
   );
 });
+
+// ── Draggable badge with × unlink ───────────────────────────────────
+
+function DraggableBadge({
+  task,
+  projectPath,
+  isInChain,
+  chainInfo,
+  badgeColor,
+  badgeBg,
+  shouldJitter,
+}: {
+  task: TaskWithWorkspace;
+  projectPath: string;
+  isInChain: boolean;
+  chainInfo?: TaskChainInfo;
+  badgeColor: string;
+  badgeBg: string;
+  shouldJitter: boolean;
+}) {
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: `badge-${task.taskNumber}`,
+    data: { type: 'badge', taskNumber: task.taskNumber },
+  });
+
+  const [detachHovered, setDetachHovered] = useState(false);
+  const detachHoverParent = useProjectStore((s) => s.detachHoverParent);
+  const isDimmedByDetach = detachHoverParent === task.taskNumber;
+
+  const tooltipContent: ReactNode = isInChain ? (
+    <div className="flex flex-col gap-0.5">
+      {task.parentTaskNumber != null && (
+        <span>
+          Branches from <span className="opacity-50">#</span>
+          {task.parentTaskNumber}
+        </span>
+      )}
+      {chainInfo!.childTaskNumbers.length > 0 && (
+        <span>
+          Parent of{' '}
+          {chainInfo!.childTaskNumbers.map((n, i) => (
+            <span key={n}>
+              {i > 0 && ', '}
+              <span className="opacity-50">#</span>
+              {n}
+            </span>
+          ))}
+        </span>
+      )}
+    </div>
+  ) : (
+    <span>
+      Task <span className="opacity-50">#</span>
+      {task.taskNumber}
+    </span>
+  );
+
+  return (
+    <Tooltip
+      text={tooltipContent}
+      placement="top"
+      disabled={isDragging || detachHovered}
+      referenceClassName="group/badge inline-flex items-center gap-0.5 shrink-0 font-mono text-[11px] leading-none px-2 py-1 rounded-full whitespace-nowrap"
+      referenceStyle={{
+        color: badgeColor,
+        background: badgeBg,
+        ...(shouldJitter && { animation: 'chain-badge-jitter 0.4s ease-out forwards' }),
+        ...(isDragging && { opacity: 0.3 }),
+        ...(isDimmedByDetach && { opacity: 0.4 }),
+      }}
+      onHoverChange={
+        isInChain
+          ? (hovering) => useProjectStore.getState().setHighlightedChainTask(hovering ? task.taskNumber : null)
+          : undefined
+      }
+    >
+      <span ref={setNodeRef} {...listeners} {...attributes} className="inline-flex items-center gap-0.5">
+        {chainInfo && chainInfo.depth > 0 && <Icon name="git-merge" className="w-3 h-3" />}
+        <span className="opacity-50">#</span>
+        {task.taskNumber}
+      </span>
+      {task.parentTaskNumber != null && (
+        <Tooltip text={`Detach from #${task.parentTaskNumber}`} placement="top" delay={300}>
+          <button
+            className="w-0 overflow-hidden group-hover/badge:w-4 flex items-center justify-center border-none bg-transparent text-white/30 hover:text-red-400 transition-all duration-150 [-webkit-app-region:no-drag] [&>svg]:w-2.5 [&>svg]:h-2.5 shrink-0 p-0"
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={async (e) => {
+              e.stopPropagation();
+              setDetachHovered(false);
+              useProjectStore.getState().setDetachHoverParent(null);
+              useProjectStore.getState().setHighlightedChainTask(null);
+              const mainBranch = await window.api.worktree.getMainBranch(projectPath);
+              await window.api.task.setParent(projectPath, task.taskNumber, null, mainBranch);
+              useProjectStore.getState().loadTasks(projectPath);
+            }}
+            onMouseEnter={() => {
+              setDetachHovered(true);
+              useProjectStore.getState().setDetachHoverParent(task.parentTaskNumber!);
+            }}
+            onMouseLeave={() => {
+              setDetachHovered(false);
+              useProjectStore.getState().setDetachHoverParent(null);
+            }}
+          >
+            <Icon name="x" />
+          </button>
+        </Tooltip>
+      )}
+    </Tooltip>
+  );
+}

@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'vitest';
-import { buildChainMap, getChainColor, getChainBgColor, getChainHue } from '../utils/taskChain';
+import { buildChainMap, getChainColor, getChainBgColor, getChainHue, isDescendantOf } from '../utils/taskChain';
 import type { TaskWithWorkspace } from '../types';
 
 function task(num: number, parent?: number): TaskWithWorkspace {
@@ -81,5 +81,32 @@ describe('getChainColor / getChainBgColor', () => {
 
   test('different root task numbers produce different hues', () => {
     expect(getChainHue(1)).not.toBe(getChainHue(2));
+  });
+});
+
+describe('isDescendantOf', () => {
+  test('direct child is a descendant', () => {
+    const map = buildChainMap([task(1), task(2, 1)]);
+    expect(isDescendantOf(2, 1, map)).toBe(true);
+  });
+
+  test('grandchild is a descendant', () => {
+    const map = buildChainMap([task(1), task(2, 1), task(3, 2)]);
+    expect(isDescendantOf(3, 1, map)).toBe(true);
+  });
+
+  test('parent is not a descendant of child', () => {
+    const map = buildChainMap([task(1), task(2, 1)]);
+    expect(isDescendantOf(1, 2, map)).toBe(false);
+  });
+
+  test('unrelated tasks are not descendants', () => {
+    const map = buildChainMap([task(1), task(2)]);
+    expect(isDescendantOf(2, 1, map)).toBe(false);
+  });
+
+  test('task is not its own descendant', () => {
+    const map = buildChainMap([task(1)]);
+    expect(isDescendantOf(1, 1, map)).toBe(false);
   });
 });

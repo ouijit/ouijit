@@ -29,6 +29,8 @@ interface KanbanColumnProps {
   onConfigureHook?: (hookTypes: HookType[]) => void;
   hasConfiguredHook?: boolean;
   chainMap?: Map<number, TaskChainInfo>;
+  activeBadgeDrag?: { taskNumber: number } | null;
+  badgeDragOverTask?: number | null;
 }
 
 export function KanbanColumn({
@@ -44,6 +46,8 @@ export function KanbanColumn({
   onConfigureHook,
   hasConfiguredHook,
   chainMap,
+  activeBadgeDrag,
+  badgeDragOverTask,
 }: KanbanColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id: status });
   const taskIds = useMemo(() => tasks.map((t) => `task-${t.taskNumber}`), [tasks]);
@@ -90,6 +94,8 @@ export function KanbanColumn({
               task={task}
               projectPath={projectPath}
               chainMap={chainMap}
+              activeBadgeDrag={activeBadgeDrag}
+              badgeDragOverTask={badgeDragOverTask}
               onRename={onRenameTask}
               onUpdateDescription={onUpdateDescription}
               onOpenTerminal={onOpenTerminal}
@@ -109,6 +115,8 @@ function SortableCard({
   task,
   projectPath,
   chainMap,
+  activeBadgeDrag,
+  badgeDragOverTask,
   onRename,
   onUpdateDescription,
   onOpenTerminal,
@@ -117,6 +125,8 @@ function SortableCard({
   task: TaskWithWorkspace;
   projectPath: string;
   chainMap?: Map<number, TaskChainInfo>;
+  activeBadgeDrag?: { taskNumber: number } | null;
+  badgeDragOverTask?: number | null;
   onRename: (taskNumber: number, newName: string) => void;
   onUpdateDescription: (taskNumber: number, description: string) => void;
   onOpenTerminal: (task: TaskWithWorkspace, sandboxed?: boolean) => void;
@@ -124,7 +134,7 @@ function SortableCard({
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: `task-${task.taskNumber}`,
-    data: { task },
+    data: { task, type: 'card' },
   });
 
   const style: React.CSSProperties = {
@@ -160,6 +170,8 @@ function SortableCard({
         projectPath={projectPath}
         chainInfo={chainMap?.get(task.taskNumber)}
         chainMap={chainMap}
+        activeBadgeDrag={activeBadgeDrag}
+        badgeDragOverTask={badgeDragOverTask}
         onRename={onRename}
         onUpdateDescription={onUpdateDescription}
         onOpenTerminal={onOpenTerminal}

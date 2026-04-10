@@ -232,6 +232,27 @@ export async function setTaskMergeTarget(
   }
 }
 
+export async function setTaskParent(
+  projectPath: string,
+  taskNumber: number,
+  parentTaskNumber: number | null,
+  mergeTarget?: string,
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { taskRepo: tr } = repos();
+    const row = tr.getByTaskNumber(projectPath, taskNumber);
+    if (!row) return { success: false, error: 'Task not found' };
+
+    tr.updateParentTaskNumber(projectPath, taskNumber, parentTaskNumber);
+    if (mergeTarget !== undefined) {
+      tr.updateMergeTarget(projectPath, taskNumber, mergeTarget);
+    }
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+}
+
 export async function setTaskWorktreePath(
   projectPath: string,
   taskNumber: number,

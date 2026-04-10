@@ -8,6 +8,8 @@ interface ProjectStoreState {
   scripts: Script[];
   taskVersion: number;
   highlightedChainTask: number | null;
+  detachHoverParent: number | null;
+  optionKeyHeld: boolean;
   activeModal: string | null;
   toasts: Array<{
     id: string;
@@ -40,6 +42,7 @@ interface ProjectStoreActions {
   ) => void;
   removeToast: (id: string) => void;
   setHighlightedChainTask: (taskNumber: number | null) => void;
+  setDetachHoverParent: (taskNumber: number | null) => void;
   setActivePanel: (panel: 'terminals' | 'settings') => void;
   resetForProject: () => void;
 
@@ -62,6 +65,8 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
   scripts: [],
   taskVersion: 0,
   highlightedChainTask: null,
+  detachHoverParent: null,
+  optionKeyHeld: false,
   activeModal: null,
   toasts: [],
   _version: 0,
@@ -75,6 +80,8 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
   toggleKanban: () => set((s) => ({ kanbanVisible: !s.kanbanVisible })),
 
   setHighlightedChainTask: (taskNumber) => set({ highlightedChainTask: taskNumber }),
+
+  setDetachHoverParent: (taskNumber) => set({ detachHoverParent: taskNumber }),
 
   setActivePanel: (panel) => set({ activePanel: panel }),
 
@@ -111,6 +118,8 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
       scripts: [],
       taskVersion: 0,
       highlightedChainTask: null,
+      detachHoverParent: null,
+      optionKeyHeld: false,
       activeModal: null,
       _version: 0,
     });

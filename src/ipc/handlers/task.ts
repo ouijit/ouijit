@@ -1,6 +1,6 @@
 import { typedHandle } from '../helpers';
 import { createTaskWorktree, createTodoTask, checkTaskWorktree, recoverTaskWorktree } from '../../worktree';
-import { setTaskMergeTarget, setTaskSandboxed, setTaskName, setTaskDescription } from '../../db';
+import { setTaskMergeTarget, setTaskSandboxed, setTaskName, setTaskDescription, setTaskParent } from '../../db';
 import {
   beginTask,
   setTaskStatusWithHooks,
@@ -56,5 +56,9 @@ export function registerTaskHandlers(): void {
 
   typedHandle('task:create-from-task', (projectPath, parentTaskNumber, name) =>
     createBranchFromTask(projectPath, parentTaskNumber, name),
+  );
+
+  typedHandle('task:set-parent', (projectPath, taskNumber, parentTaskNumber, mergeTarget) =>
+    setTaskParent(projectPath, taskNumber, parentTaskNumber, mergeTarget),
   );
 }

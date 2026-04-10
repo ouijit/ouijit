@@ -318,6 +318,12 @@ export interface TaskAPI {
   checkWorktree(projectPath: string, taskNumber: number): Promise<CheckWorktreeResult>;
   recover(projectPath: string, taskNumber: number): Promise<TaskWorktreeResult>;
   createFromTask(projectPath: string, parentTaskNumber: number, name?: string): Promise<TaskWorktreeResult>;
+  setParent(
+    projectPath: string,
+    taskNumber: number,
+    parentTaskNumber: number | null,
+    mergeTarget?: string,
+  ): Promise<{ success: boolean; error?: string }>;
 }
 
 /**

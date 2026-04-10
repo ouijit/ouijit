@@ -122,6 +122,10 @@ export interface IpcInvokeContract {
     args: [projectPath: string, parentTaskNumber: number, name?: string];
     return: TaskWorktreeResult;
   };
+  'task:set-parent': {
+    args: [projectPath: string, taskNumber: number, parentTaskNumber: number | null, mergeTarget?: string];
+    return: { success: boolean; error?: string };
+  };
 
   // ── Worktree ─────────────────────────────────────────────────────────
   'worktree:validate-branch-name': {

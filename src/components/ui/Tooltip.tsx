@@ -19,9 +19,11 @@ interface TooltipProps {
   placement?: Placement;
   delay?: number;
   disabled?: boolean;
+  offsetPx?: number;
   referenceClassName?: string;
   referenceStyle?: React.CSSProperties;
   onHoverChange?: (hovering: boolean) => void;
+  onClick?: (e: React.MouseEvent) => void;
   children: ReactNode;
 }
 
@@ -30,9 +32,11 @@ export function Tooltip({
   placement = 'bottom',
   delay = 100,
   disabled,
+  offsetPx,
   referenceClassName,
   referenceStyle,
   onHoverChange,
+  onClick,
   children,
 }: TooltipProps) {
   const [isOpen, setIsOpen] = useState(false);
@@ -45,7 +49,7 @@ export function Tooltip({
     },
     placement,
     strategy: 'fixed',
-    middleware: [offset(6), flip(), shift({ padding: 8 })],
+    middleware: [offset(offsetPx ?? 6), flip(), shift({ padding: 8 })],
     whileElementsMounted: autoUpdate,
   });
 
@@ -63,6 +67,7 @@ export function Tooltip({
         {...getReferenceProps()}
         className={referenceClassName ?? 'inline-flex'}
         style={referenceStyle}
+        onClick={onClick}
       >
         {children}
       </div>

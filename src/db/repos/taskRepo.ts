@@ -158,6 +158,12 @@ export class TaskRepo {
       .run(mergeTarget, projectPath, taskNumber);
   }
 
+  updateParentTaskNumber(projectPath: string, taskNumber: number, parentTaskNumber: number | null): void {
+    this.db
+      .prepare('UPDATE tasks SET parent_task_number = ? WHERE project_path = ? AND task_number = ?')
+      .run(parentTaskNumber, projectPath, taskNumber);
+  }
+
   updateName(projectPath: string, taskNumber: number, name: string): void {
     this.db
       .prepare('UPDATE tasks SET name = ? WHERE project_path = ? AND task_number = ?')

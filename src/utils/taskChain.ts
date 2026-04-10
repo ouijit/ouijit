@@ -71,3 +71,21 @@ export function getChainBgColor(rootTaskNumber: number, depth: number): string {
   const lightness = Math.max(72 - depth * 14, 30);
   return `hsla(${hue}, 55%, ${lightness}%, 0.15)`;
 }
+
+/** Check if possibleDescendant is a descendant of ancestor in the chain map. */
+export function isDescendantOf(
+  possibleDescendant: number,
+  ancestor: number,
+  chainMap: Map<number, TaskChainInfo>,
+): boolean {
+  const queue = [...(chainMap.get(ancestor)?.childTaskNumbers ?? [])];
+  const visited = new Set<number>();
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    if (current === possibleDescendant) return true;
+    if (visited.has(current)) continue;
+    visited.add(current);
+    queue.push(...(chainMap.get(current)?.childTaskNumbers ?? []));
+  }
+  return false;
+}
