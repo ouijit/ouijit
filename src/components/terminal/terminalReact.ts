@@ -30,6 +30,7 @@ export interface TerminalOptions {
   taskPrompt?: string;
   worktreePath?: string;
   worktreeBranch?: string;
+  mergeTarget?: string;
   tags?: string[];
   isRunner?: boolean;
   initialSummaryType?: SummaryType;
@@ -218,7 +219,7 @@ function scheduleTerminalGitStatusRefresh(term: OuijitTerminal): void {
 
 export async function refreshTerminalGitStatus(term: OuijitTerminal): Promise<void> {
   const gitPath = term.worktreePath || term.projectPath;
-  const fileStatus = await window.api.getGitFileStatus(gitPath);
+  const fileStatus = await window.api.getGitFileStatus(gitPath, term.mergeTarget);
   term.gitFileStatus = fileStatus;
   term.pushDisplayState({ gitFileStatus: fileStatus });
 }
@@ -285,6 +286,7 @@ export class OuijitTerminal {
   readonly taskPrompt?: string;
   worktreePath?: string;
   worktreeBranch?: string;
+  mergeTarget?: string;
 
   // ── Per-terminal diff panel state ───────────────────────────────────
   diffPanelOpen = false;
@@ -338,6 +340,7 @@ export class OuijitTerminal {
     this.taskPrompt = opts.taskPrompt;
     this.worktreePath = opts.worktreePath;
     this.worktreeBranch = opts.worktreeBranch;
+    this.mergeTarget = opts.mergeTarget;
 
     if (opts.taskId != null) {
       this.diffPanelMode = 'worktree';

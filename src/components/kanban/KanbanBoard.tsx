@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useState, useRef, forwardRef } from 'react';
+import { useEffect, useCallback, useState, useMemo, useRef, forwardRef } from 'react';
 import {
   DndContext,
   DragOverlay,
@@ -25,6 +25,7 @@ import { CombinedHookConfigDialog } from '../dialogs/CombinedHookConfigDialog';
 import { MissingWorktreeDialog } from '../dialogs/MissingWorktreeDialog';
 import { RunHookDialog, type RunHookResult } from '../dialogs/RunHookDialog';
 import { Icon } from '../terminal/Icon';
+import { buildChainMap } from '../../utils/taskChain';
 import log from 'electron-log/renderer';
 
 const kanbanLog = log.scope('kanban');
@@ -133,6 +134,7 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
   }, [projectPath]);
 
   // Local task state for drag preview — synced from store, mutated during drag
+  const chainMap = useMemo(() => buildChainMap(storeTasks), [storeTasks]);
   const [items, setItems] = useState<Record<string, TaskWithWorkspace[]>>({});
   const originalStatusRef = useRef<string | null>(null);
 
@@ -579,6 +581,7 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
                 label={col.label}
                 tasks={items[col.status] ?? []}
                 projectPath={projectPath}
+                chainMap={chainMap}
                 onAddTask={col.status === 'todo' ? handleAddTask : undefined}
                 onRenameTask={handleRenameTask}
                 onUpdateDescription={handleUpdateDescription}

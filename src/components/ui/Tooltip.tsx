@@ -15,7 +15,7 @@ import {
 } from '@floating-ui/react';
 
 interface TooltipProps {
-  text: string;
+  text: ReactNode;
   placement?: Placement;
   delay?: number;
   disabled?: boolean;

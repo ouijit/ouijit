@@ -33,6 +33,7 @@ vi.mock('koffi', () => ({
 }));
 
 import { startTask } from '../worktree';
+import { beginTask } from '../taskLifecycle';
 
 describe('startTask', () => {
   test('does not change a todo task status to in_progress', async () => {
@@ -71,5 +72,104 @@ describe('startTask', () => {
     const result = await startTask('/test/start-missing', 99);
     expect(result.success).toBe(false);
     expect(result.error).toBe('Task not found');
+  });
+
+  test('passes baseBranch as start point to git worktree add', async () => {
+    const { exec } = await import('node:child_process');
+    // Override exec to make rev-parse --verify fail (branch doesn't exist yet)
+    vi.mocked(exec).mockImplementation(((
+      cmd: string,
+      _opts: unknown,
+      cb: (err: Error | null, result: { stdout: string; stderr: string }) => void,
+    ) => {
+      if (typeof cmd === 'string' && cmd.includes('rev-parse --verify')) {
+        cb(new Error('not found'), { stdout: '', stderr: '' });
+      } else {
+        cb(null, { stdout: 'main\n', stderr: '' });
+      }
+    }) as typeof exec);
+
+    const project = '/test/start-with-base';
+    await createTask(project, 1, 'Child task', { status: 'todo' });
+
+    await startTask(project, 1, undefined, 'feat/parent-branch');
+
+    const execCalls = vi.mocked(exec).mock.calls;
+    const wtAddCall = execCalls.find(([cmd]) => typeof cmd === 'string' && cmd.includes('git worktree add -b'));
+    expect(wtAddCall).toBeDefined();
+    expect(wtAddCall![0]).toContain('feat/parent-branch');
+
+    // Restore default mock
+    vi.mocked(exec).mockImplementation(((
+      _cmd: string,
+      _opts: unknown,
+      cb: (err: null, result: { stdout: string; stderr: string }) => void,
+    ) => {
+      cb(null, { stdout: 'main\n', stderr: '' });
+    }) as typeof exec);
+  });
+
+  test('sets mergeTarget to baseBranch when provided', async () => {
+    const project = '/test/start-merge-target';
+    await createTask(project, 1, 'Child task', { status: 'todo' });
+
+    const result = await startTask(project, 1, undefined, 'feat/parent-branch');
+    expect(result.success).toBe(true);
+
+    const task = await getTaskByNumber(project, 1);
+    expect(task!.mergeTarget).toBe('feat/parent-branch');
+  });
+
+  test('falls back to HEAD branch when no baseBranch provided', async () => {
+    const project = '/test/start-no-base';
+    await createTask(project, 1, 'Regular task', { status: 'todo' });
+
+    const result = await startTask(project, 1);
+    expect(result.success).toBe(true);
+
+    const task = await getTaskByNumber(project, 1);
+    expect(task!.mergeTarget).toBe('main');
+  });
+
+  test('beginTask passes parent branch as baseBranch', async () => {
+    const { exec } = await import('node:child_process');
+    vi.mocked(exec).mockImplementation(((
+      cmd: string,
+      _opts: unknown,
+      cb: (err: Error | null, result: { stdout: string; stderr: string }) => void,
+    ) => {
+      if (typeof cmd === 'string' && cmd.includes('rev-parse --verify')) {
+        cb(new Error('not found'), { stdout: '', stderr: '' });
+      } else {
+        cb(null, { stdout: 'main\n', stderr: '' });
+      }
+    }) as typeof exec);
+
+    const project = '/test/begin-with-parent';
+    await createTask(project, 1, 'Parent', { branch: 'feat/parent', status: 'in_progress' });
+    await createTask(project, 2, 'Child', { status: 'todo', parentTaskNumber: 1 });
+
+    await beginTask(project, 2);
+
+    const execCalls = vi.mocked(exec).mock.calls;
+    const wtAddCall = execCalls.find(([cmd]) => typeof cmd === 'string' && cmd.includes('git worktree add -b'));
+    expect(wtAddCall).toBeDefined();
+    expect(wtAddCall![0]).toContain('feat/parent');
+
+    vi.mocked(exec).mockImplementation(((
+      _cmd: string,
+      _opts: unknown,
+      cb: (err: null, result: { stdout: string; stderr: string }) => void,
+    ) => {
+      cb(null, { stdout: 'main\n', stderr: '' });
+    }) as typeof exec);
+  });
+
+  test('beginTask falls back to HEAD when parent is missing', async () => {
+    const project = '/test/begin-missing-parent';
+    await createTask(project, 5, 'Orphan child', { status: 'todo', parentTaskNumber: 99 });
+
+    const result = await beginTask(project, 5);
+    expect(result.success).toBe(true);
   });
 });

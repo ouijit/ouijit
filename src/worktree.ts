@@ -284,6 +284,7 @@ export async function startTask(
   projectPath: string,
   taskNumber: number,
   branchName?: string,
+  baseBranch?: string,
 ): Promise<TaskWorktreeResult> {
   try {
     const task = await getTaskByNumber(projectPath, taskNumber);
@@ -310,7 +311,7 @@ export async function startTask(
       await execAsync('git commit --allow-empty -m "Initial commit"', { cwd: projectPath });
     }
 
-    const mergeTarget = branchResult;
+    const mergeTarget = baseBranch || branchResult;
     const projectName = path.basename(projectPath);
     const baseDir = getWorktreeBaseDir(projectName);
     await fs.mkdir(baseDir, { recursive: true });
@@ -337,9 +338,10 @@ export async function startTask(
       () => true,
       () => false,
     );
+    const startPoint = baseBranch && !branchExists ? ` "${baseBranch}"` : '';
     const wtAddCmd = branchExists
       ? `git worktree add "${worktreePath}" "${branch}"`
-      : `git worktree add -b "${branch}" "${worktreePath}"`;
+      : `git worktree add -b "${branch}" "${worktreePath}"${startPoint}`;
 
     const [, ignoredFiles] = await Promise.all([
       execAsync(wtAddCmd, { cwd: projectPath }),

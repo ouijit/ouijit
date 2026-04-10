@@ -16,6 +16,7 @@ export interface TaskRow {
   sort_order: number;
   created_at: string;
   closed_at: string | null;
+  parent_task_number: number | null;
 }
 
 export class TaskRepo {
@@ -58,6 +59,7 @@ export class TaskRepo {
       sandboxed?: boolean;
       worktreePath?: string;
       createdAt?: string;
+      parentTaskNumber?: number;
     },
   ): TaskRow {
     return this.db.transaction(() => {
@@ -72,8 +74,8 @@ export class TaskRepo {
       this.db
         .prepare(
           `
-        INSERT INTO tasks (project_path, task_number, name, status, prompt, branch, worktree_path, merge_target, sandboxed, sort_order, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO tasks (project_path, task_number, name, status, prompt, branch, worktree_path, merge_target, sandboxed, sort_order, created_at, parent_task_number)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `,
         )
         .run(
@@ -88,6 +90,7 @@ export class TaskRepo {
           options?.sandboxed ? 1 : 0,
           sortOrder,
           options?.createdAt ?? new Date().toISOString(),
+          options?.parentTaskNumber ?? null,
         );
 
       // Bump counter if this task number matches or exceeds it

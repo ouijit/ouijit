@@ -78,7 +78,12 @@ export function DiffPanel({ ptyId, projectPath, onClose }: DiffPanelProps) {
             try {
               let diff: FileDiff | null;
               if (effectiveMode === 'worktree' && instance?.worktreeBranch) {
-                diff = await window.api.worktree.getFileDiff(projectPath, instance.worktreeBranch, file.path);
+                diff = await window.api.worktree.getFileDiff(
+                  projectPath,
+                  instance.worktreeBranch,
+                  file.path,
+                  instance.mergeTarget,
+                );
               } else {
                 diff = await window.api.getFileDiff(gitPath, file.path);
               }

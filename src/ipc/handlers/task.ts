@@ -9,6 +9,7 @@ import {
   trashTaskWithWorktree,
   getTasksWithWorkspaces,
   getTaskWithWorkspace,
+  createBranchFromTask,
 } from '../../taskLifecycle';
 
 export function registerTaskHandlers(): void {
@@ -52,4 +53,8 @@ export function registerTaskHandlers(): void {
   typedHandle('task:check-worktree', (projectPath, taskNumber) => checkTaskWorktree(projectPath, taskNumber));
 
   typedHandle('task:recover', (projectPath, taskNumber) => recoverTaskWorktree(projectPath, taskNumber));
+
+  typedHandle('task:create-from-task', (projectPath, parentTaskNumber, name) =>
+    createBranchFromTask(projectPath, parentTaskNumber, name),
+  );
 }

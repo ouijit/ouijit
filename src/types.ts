@@ -236,6 +236,7 @@ export interface TaskWithWorkspace {
   prompt?: string;
   sandboxed?: boolean;
   order?: number;
+  parentTaskNumber?: number;
 }
 
 /**
@@ -316,6 +317,7 @@ export interface TaskAPI {
   ): Promise<{ success: boolean; error?: string; hookWarning?: string }>;
   checkWorktree(projectPath: string, taskNumber: number): Promise<CheckWorktreeResult>;
   recover(projectPath: string, taskNumber: number): Promise<TaskWorktreeResult>;
+  createFromTask(projectPath: string, parentTaskNumber: number, name?: string): Promise<TaskWorktreeResult>;
 }
 
 /**
@@ -388,7 +390,7 @@ export interface ElectronAPI {
   /** Get git status (branch and dirty state) for a project */
   getGitStatus(projectPath: string): Promise<GitStatus | null>;
   /** Get detailed file-level git status (single source of truth for button + diff panel) */
-  getGitFileStatus(projectPath: string): Promise<GitFileStatus | null>;
+  getGitFileStatus(projectPath: string, diffBase?: string): Promise<GitFileStatus | null>;
   /** Get extended git dropdown info for a project */
   getGitDropdownInfo(projectPath: string): Promise<GitDropdownInfo | null>;
   /** Checkout a git branch */

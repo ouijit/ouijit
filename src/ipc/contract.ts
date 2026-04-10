@@ -66,7 +66,7 @@ export interface IpcInvokeContract {
 
   // ── Git ──────────────────────────────────────────────────────────────
   'get-git-status': { args: [projectPath: string]; return: GitStatus | null };
-  'get-git-file-status': { args: [projectPath: string]; return: GitFileStatus | null };
+  'get-git-file-status': { args: [projectPath: string, diffBase?: string]; return: GitFileStatus | null };
   'get-git-dropdown-info': { args: [projectPath: string]; return: GitDropdownInfo | null };
   'git-checkout': { args: [projectPath: string, branchName: string]; return: GitCheckoutResult };
   'git-create-branch': { args: [projectPath: string, branchName: string]; return: GitCheckoutResult };
@@ -118,6 +118,10 @@ export interface IpcInvokeContract {
   };
   'task:check-worktree': { args: [projectPath: string, taskNumber: number]; return: CheckWorktreeResult };
   'task:recover': { args: [projectPath: string, taskNumber: number]; return: TaskWorktreeResult };
+  'task:create-from-task': {
+    args: [projectPath: string, parentTaskNumber: number, name?: string];
+    return: TaskWorktreeResult;
+  };
 
   // ── Worktree ─────────────────────────────────────────────────────────
   'worktree:validate-branch-name': {

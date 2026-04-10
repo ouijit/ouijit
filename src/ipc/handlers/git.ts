@@ -11,7 +11,7 @@ import {
 
 export function registerGitHandlers(): void {
   typedHandle('get-git-status', (projectPath) => getGitStatus(projectPath));
-  typedHandle('get-git-file-status', (projectPath) => getGitFileStatus(projectPath));
+  typedHandle('get-git-file-status', (projectPath, diffBase) => getGitFileStatus(projectPath, diffBase));
   typedHandle('get-git-dropdown-info', (projectPath) => getGitDropdownInfo(projectPath));
   typedHandle('git-checkout', (projectPath, branchName) => checkoutBranch(projectPath, branchName));
   typedHandle('git-create-branch', (projectPath, branchName) => createBranch(projectPath, branchName));

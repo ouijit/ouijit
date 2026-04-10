@@ -6,10 +6,15 @@ import { terminalInstances } from '../terminal/terminalReact';
 import { Icon } from '../terminal/Icon';
 import { ContextMenu, type ContextMenuEntry } from '../ui/ContextMenu';
 import { HookConfigDialog } from '../dialogs/HookConfigDialog';
+import { BranchFromTaskDialog } from '../dialogs/BranchFromTaskDialog';
+import { Tooltip } from '../ui/Tooltip';
+import type { TaskChainInfo } from '../../utils/taskChain';
+import { getChainColor, getChainBgColor } from '../../utils/taskChain';
 
 interface KanbanCardProps {
   task: TaskWithWorkspace;
   projectPath: string;
+  chainInfo?: TaskChainInfo;
   onRename: (taskNumber: number, newName: string) => void;
   onUpdateDescription: (taskNumber: number, description: string) => void;
   onOpenTerminal: (task: TaskWithWorkspace, sandboxed?: boolean) => void;
@@ -19,6 +24,7 @@ interface KanbanCardProps {
 export const KanbanCard = memo(function KanbanCard({
   task,
   projectPath,
+  chainInfo,
   onRename,
   onUpdateDescription,
   onOpenTerminal,
@@ -29,6 +35,7 @@ export const KanbanCard = memo(function KanbanCard({
   const [editingDesc, setEditingDesc] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
   const [editorHookDialog, setEditorHookDialog] = useState(false);
+  const [branchFromDialog, setBranchFromDialog] = useState(false);
   const [terminalContextMenu, setTerminalContextMenu] = useState<{ x: number; y: number; ptyId: string } | null>(null);
   const [renamingTerminalId, setRenamingTerminalId] = useState<string | null>(null);
   const terminalRenameRef = useRef<HTMLInputElement>(null);
@@ -36,6 +43,7 @@ export const KanbanCard = memo(function KanbanCard({
   const descInputRef = useRef<HTMLSpanElement>(null);
 
   const isDone = task.status === 'done';
+  const isInChain = chainInfo != null && (chainInfo.depth > 0 || chainInfo.childTaskNumbers.length > 0);
 
   // Find connected terminals for this task (reactive — re-renders when display states change)
   const displayStates = useTerminalStore((s) => s.displayStates);
@@ -202,6 +210,15 @@ export const KanbanCard = memo(function KanbanCard({
 
     items.push({ separator: true });
 
+    // Branch from this task (only for started tasks with a branch)
+    if (task.branch && task.status !== 'done') {
+      items.push({
+        label: 'Branch from this task',
+        icon: 'git-branch',
+        onClick: () => setBranchFromDialog(true),
+      });
+    }
+
     // Rename
     items.push({
       label: 'Rename',
@@ -262,6 +279,9 @@ export const KanbanCard = memo(function KanbanCard({
         background: expanded ? 'rgba(0, 0, 0, 0.15)' : 'var(--color-terminal-bg)',
         transition: 'background 150ms ease-out, opacity 150ms ease-out',
         borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
+        ...(isInChain && {
+          borderLeft: `3px solid ${getChainColor(chainInfo!.rootTaskNumber, chainInfo!.depth)}`,
+        }),
       }}
       data-task-number={task.taskNumber}
       onContextMenu={(e) => {
@@ -288,6 +308,18 @@ export const KanbanCard = memo(function KanbanCard({
           }}
         />
       )}
+      {branchFromDialog && (
+        <BranchFromTaskDialog
+          projectPath={projectPath}
+          parentTask={task}
+          onClose={(created) => {
+            setBranchFromDialog(false);
+            if (created) {
+              useProjectStore.getState().loadTasks(projectPath);
+            }
+          }}
+        />
+      )}
       <div className="flex items-start gap-2">
         {editing ? (
           <textarea
@@ -304,6 +336,45 @@ export const KanbanCard = memo(function KanbanCard({
           >
             {task.name}
           </span>
+        )}
+        {isInChain && (
+          <Tooltip
+            text={
+              <div className="flex flex-col gap-0.5">
+                {task.parentTaskNumber != null && (
+                  <span>
+                    Branches from <span className="opacity-50">#</span>
+                    {task.parentTaskNumber}
+                  </span>
+                )}
+                {chainInfo!.childTaskNumbers.length > 0 && (
+                  <span>
+                    Parent of{' '}
+                    {chainInfo!.childTaskNumbers.map((n, i) => (
+                      <span key={n}>
+                        {i > 0 && ', '}
+                        <span className="opacity-50">#</span>
+                        {n}
+                      </span>
+                    ))}
+                  </span>
+                )}
+              </div>
+            }
+            placement="top"
+          >
+            <span
+              className="inline-flex items-center gap-0.5 shrink-0 font-mono text-[11px] leading-none px-2 py-1 rounded-full whitespace-nowrap"
+              style={{
+                color: getChainColor(chainInfo!.rootTaskNumber, chainInfo!.depth),
+                background: getChainBgColor(chainInfo!.rootTaskNumber, chainInfo!.depth),
+              }}
+            >
+              {chainInfo!.depth > 0 && <Icon name="git-merge" className="w-3 h-3" />}
+              <span className="opacity-50">#</span>
+              {task.taskNumber}
+            </span>
+          </Tooltip>
         )}
         <button
           className={`flex items-center justify-center w-5 h-5 p-0 bg-transparent border-none rounded text-text-secondary opacity-0 transition-all duration-150 ease-out shrink-0 [-webkit-app-region:no-drag] group-hover:opacity-60 hover:!opacity-100 [&>svg]:w-3 [&>svg]:h-3 [&>svg]:transition-transform [&>svg]:duration-150 [&>svg]:ease-out${expanded ? ' [&>svg]:rotate-180' : ''}`}

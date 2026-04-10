@@ -651,7 +651,7 @@ function parseNameStatus(
  * Gets detailed git file status — single source of truth for both the GitStats
  * button and the DiffPanel. Fully async to avoid blocking the main thread.
  */
-export async function getGitFileStatus(projectPath: string): Promise<GitFileStatus | null> {
+export async function getGitFileStatus(projectPath: string, diffBase?: string): Promise<GitFileStatus | null> {
   try {
     let branch: string;
     try {
@@ -661,7 +661,8 @@ export async function getGitFileStatus(projectPath: string): Promise<GitFileStat
     }
 
     const mainBranch = getMainBranch(projectPath);
-    const isOnMain = branch === mainBranch;
+    const base = diffBase || mainBranch;
+    const isOnBase = branch === base;
 
     // Run all independent git commands in parallel
     const [
@@ -675,9 +676,9 @@ export async function getGitFileStatus(projectPath: string): Promise<GitFileStat
       gitAsync(['diff', '--numstat', 'HEAD'], projectPath),
       gitAsync(['diff', '--name-status', 'HEAD'], projectPath),
       gitAsync(['ls-files', '--others', '--exclude-standard'], projectPath),
-      isOnMain ? Promise.resolve('') : gitAsync(['rev-list', '--count', `${mainBranch}..HEAD`], projectPath),
-      isOnMain ? Promise.resolve('') : gitAsync(['diff', '--numstat', `${mainBranch}...HEAD`], projectPath),
-      isOnMain ? Promise.resolve('') : gitAsync(['diff', '--name-status', `${mainBranch}...HEAD`], projectPath),
+      isOnBase ? Promise.resolve('') : gitAsync(['rev-list', '--count', `${base}..HEAD`], projectPath),
+      isOnBase ? Promise.resolve('') : gitAsync(['diff', '--numstat', `${base}...HEAD`], projectPath),
+      isOnBase ? Promise.resolve('') : gitAsync(['diff', '--name-status', `${base}...HEAD`], projectPath),
     ]);
 
     // Build uncommitted tracked files

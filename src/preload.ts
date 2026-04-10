@@ -52,7 +52,8 @@ contextBridge.exposeInMainWorld('api', {
     typedInvoke('settings:set-kill-existing-on-run', projectPath, kill),
 
   getGitStatus: (projectPath: string) => typedInvoke('get-git-status', projectPath),
-  getGitFileStatus: (projectPath: string) => typedInvoke('get-git-file-status', projectPath),
+  getGitFileStatus: (projectPath: string, diffBase?: string) =>
+    typedInvoke('get-git-file-status', projectPath, diffBase),
   getGitDropdownInfo: (projectPath: string) => typedInvoke('get-git-dropdown-info', projectPath),
   gitCheckout: (projectPath: string, branchName: string) => typedInvoke('git-checkout', projectPath, branchName),
   gitCreateBranch: (projectPath: string, branchName: string) =>
@@ -135,6 +136,8 @@ contextBridge.exposeInMainWorld('api', {
     checkWorktree: (projectPath: string, taskNumber: number) =>
       typedInvoke('task:check-worktree', projectPath, taskNumber),
     recover: (projectPath: string, taskNumber: number) => typedInvoke('task:recover', projectPath, taskNumber),
+    createFromTask: (projectPath: string, parentTaskNumber: number, name?: string) =>
+      typedInvoke('task:create-from-task', projectPath, parentTaskNumber, name),
   },
 
   hooks: {

@@ -10,6 +10,8 @@ import { trashItem } from './platform';
 import {
   getProjectTasks,
   getTaskByNumber,
+  getNextTaskNumber,
+  createTask,
   setTaskStatus,
   deleteTaskByNumber,
   reorderTask,
@@ -32,12 +34,27 @@ export async function beginTask(
   taskNumber: number,
   branchName?: string,
 ): Promise<TaskWorktreeResult> {
-  const result = await startTask(projectPath, taskNumber, branchName);
+  // Detect parent relationship to determine base branch
+  let baseBranch: string | undefined;
+  const task = await getTaskByNumber(projectPath, taskNumber);
+  if (task?.parentTaskNumber) {
+    const parent = await getTaskByNumber(projectPath, task.parentTaskNumber);
+    if (parent?.branch) {
+      baseBranch = parent.branch;
+    } else {
+      taskLog.warn('parent task or branch missing, falling back to HEAD', {
+        taskNumber,
+        parentTaskNumber: task.parentTaskNumber,
+      });
+    }
+  }
+
+  const result = await startTask(projectPath, taskNumber, branchName, baseBranch);
   if (!result.success) return result;
 
   // Move to in_progress if currently todo
-  const task = await getTaskByNumber(projectPath, taskNumber);
-  if (task?.status === 'todo') {
+  const updated = await getTaskByNumber(projectPath, taskNumber);
+  if (updated?.status === 'todo') {
     const statusResult = await setTaskStatus(projectPath, taskNumber, 'in_progress');
     if (!statusResult.success) {
       taskLog.error('beginTask: failed to set status', { taskNumber, error: statusResult.error });
@@ -45,6 +62,28 @@ export async function beginTask(
   }
 
   return result;
+}
+
+/**
+ * Create a new TODO task that will branch from an existing task's branch when started.
+ */
+export async function createBranchFromTask(
+  projectPath: string,
+  parentTaskNumber: number,
+  name?: string,
+): Promise<TaskWorktreeResult> {
+  const parent = await getTaskByNumber(projectPath, parentTaskNumber);
+  if (!parent) return { success: false, error: 'Parent task not found' };
+  if (!parent.branch) return { success: false, error: 'Parent task has no branch' };
+
+  const taskNumber = await getNextTaskNumber(projectPath);
+  const displayName = name || 'Untitled';
+  const task = await createTask(projectPath, taskNumber, displayName, {
+    status: 'todo',
+    parentTaskNumber,
+    mergeTarget: parent.branch,
+  });
+  return { success: true, task };
 }
 
 /**
@@ -175,6 +214,7 @@ export async function getTasksWithWorkspaces(projectPath: string): Promise<TaskW
       prompt: task.prompt,
       sandboxed: task.sandboxed,
       order: task.order,
+      parentTaskNumber: task.parentTaskNumber,
     };
   });
 }

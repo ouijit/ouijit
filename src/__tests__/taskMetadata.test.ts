@@ -353,4 +353,37 @@ describe('taskMetadata', () => {
     const after = await getTaskByNumber(project, 1);
     expect(after!.order).toBe(orderBefore);
   });
+
+  test('createTask with parentTaskNumber persists the relationship', async () => {
+    const project = '/test/parent-task';
+    await createTask(project, 1, 'Parent', { status: 'in_progress', branch: 'feat/parent' });
+    const child = await createTask(project, 2, 'Child', {
+      status: 'todo',
+      parentTaskNumber: 1,
+      mergeTarget: 'feat/parent',
+    });
+
+    expect(child.parentTaskNumber).toBe(1);
+    expect(child.mergeTarget).toBe('feat/parent');
+
+    const fetched = await getTaskByNumber(project, 2);
+    expect(fetched!.parentTaskNumber).toBe(1);
+  });
+
+  test('createTask without parentTaskNumber leaves it undefined', async () => {
+    const project = '/test/no-parent';
+    const task = await createTask(project, 1, 'Standalone', { status: 'todo' });
+
+    expect(task.parentTaskNumber).toBeUndefined();
+  });
+
+  test('parentTaskNumber is visible via getProjectTasks', async () => {
+    const project = '/test/parent-in-list';
+    await createTask(project, 1, 'Parent', { branch: 'feat/p' });
+    await createTask(project, 2, 'Child', { status: 'todo', parentTaskNumber: 1 });
+
+    const tasks = await getProjectTasks(project);
+    const child = tasks.find((t) => t.taskNumber === 2);
+    expect(child!.parentTaskNumber).toBe(1);
+  });
 });

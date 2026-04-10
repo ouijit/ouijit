@@ -38,6 +38,7 @@ export interface TaskMetadata {
   prompt?: string;
   sandboxed?: boolean;
   order?: number;
+  parentTaskNumber?: number;
 }
 
 // ── Lazy singleton repos ─────────────────────────────────────────────
@@ -107,6 +108,7 @@ function rowToTask(row: TaskRow): TaskMetadata {
     ...(row.merge_target && { mergeTarget: row.merge_target }),
     ...(row.prompt && { prompt: row.prompt }),
     ...(row.sandboxed === 1 && { sandboxed: true }),
+    ...(row.parent_task_number != null && { parentTaskNumber: row.parent_task_number }),
   };
 }
 
@@ -165,6 +167,7 @@ export async function createTask(
     prompt?: string;
     sandboxed?: boolean;
     worktreePath?: string;
+    parentTaskNumber?: number;
   },
 ): Promise<TaskMetadata> {
   ensureProject(projectPath);
