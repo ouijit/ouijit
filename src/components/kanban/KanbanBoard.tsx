@@ -80,6 +80,7 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
     branchExists: boolean;
     resolve: (action: 'recover' | null) => void;
   } | null>(null);
+  const [settingUpTaskNumber, setSettingUpTaskNumber] = useState<number | null>(null);
 
   /**
    * Check if a task's worktree exists on disk. If missing, prompt the user to recover it.
@@ -345,7 +346,9 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
 
       // Create worktree BEFORE moving (while task is still todo)
       if (newStatus === 'in_progress' && !draggedTask.worktreePath) {
+        setSettingUpTaskNumber(draggedTask.taskNumber);
         const startResult = await window.api.task.start(projectPath, draggedTask.taskNumber);
+        setSettingUpTaskNumber(null);
         if (!startResult.success) {
           useProjectStore.getState().addToast(startResult.error || 'Failed to create worktree', 'error');
         } else if (startResult.worktreePath) {
@@ -579,6 +582,7 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
                 label={col.label}
                 tasks={items[col.status] ?? []}
                 projectPath={projectPath}
+                settingUpTaskNumber={settingUpTaskNumber}
                 onAddTask={col.status === 'todo' ? handleAddTask : undefined}
                 onRenameTask={handleRenameTask}
                 onUpdateDescription={handleUpdateDescription}

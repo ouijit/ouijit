@@ -72,4 +72,26 @@ describe('startTask', () => {
     expect(result.success).toBe(false);
     expect(result.error).toBe('Task not found');
   });
+
+  test('awaits gitignored file copy before returning', async () => {
+    const project = '/test/start-awaits-copy';
+    await createTask(project, 1, 'Copy test', { status: 'todo' });
+
+    // Make lstat take measurable time so we can detect fire-and-forget vs await
+    let copyFinished = false;
+    const fs = await import('node:fs/promises');
+    const lstatSpy = vi.spyOn(fs, 'lstat').mockImplementation(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      copyFinished = true;
+      throw new Error('ENOENT');
+    });
+
+    const result = await startTask(project, 1);
+    expect(result.success).toBe(true);
+    // If copyGitIgnoredFiles were fire-and-forget, startTask would resolve
+    // before the 50ms delay elapses and copyFinished would still be false
+    expect(copyFinished).toBe(true);
+
+    lstatSpy.mockRestore();
+  });
 });
