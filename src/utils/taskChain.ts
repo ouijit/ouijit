@@ -49,7 +49,7 @@ export function buildChainMap(tasks: TaskWithWorkspace[]): Map<number, TaskChain
       childTaskNumbers: childrenMap.get(taskNumber) ?? [],
     };
     result.set(taskNumber, info);
-    return { root: parent.root, depth: parent.depth + 1 };
+    return { root: info.rootTaskNumber, depth: info.depth };
   }
 
   for (const task of tasks) {

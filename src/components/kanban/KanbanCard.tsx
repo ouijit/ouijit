@@ -62,17 +62,16 @@ export const KanbanCard = memo(function KanbanCard({
     ? getChainBgColor(chainInfo!.rootTaskNumber, chainInfo!.depth)
     : 'rgba(255, 255, 255, 0.04)';
 
-  // Badge drag visual feedback (read from store, not props)
-  const activeBadgeDrag = useProjectStore((s) => s.activeBadgeDrag);
-  const badgeDragOverTask = useProjectStore((s) => s.badgeDragOverTask);
+  // Badge drag visual feedback — derive per-card booleans in selectors to avoid O(N) re-renders
+  const activeBadgeDragSource = useProjectStore((s) => s.activeBadgeDrag);
+  const isHoveredByBadgeDrag = useProjectStore((s) => s.badgeDragOverTask === task.taskNumber);
   const optionKeyHeld = useProjectStore((s) => s.optionKeyHeld);
-  const isBadgeDragActive = activeBadgeDrag != null;
-  const isValidBadgeTarget =
-    isBadgeDragActive &&
-    activeBadgeDrag !== task.taskNumber &&
-    chainMap != null &&
-    !isDescendantOf(task.taskNumber, activeBadgeDrag, chainMap);
-  const isHoveredBadgeTarget = isValidBadgeTarget && badgeDragOverTask === task.taskNumber;
+  const isBadgeDragActive = activeBadgeDragSource != null;
+  const isValidBadgeTarget = useMemo(() => {
+    if (activeBadgeDragSource == null || activeBadgeDragSource === task.taskNumber || !chainMap) return false;
+    return !isDescendantOf(task.taskNumber, activeBadgeDragSource, chainMap);
+  }, [activeBadgeDragSource, task.taskNumber, chainMap]);
+  const isHoveredBadgeTarget = isValidBadgeTarget && isHoveredByBadgeDrag;
   const isInvalidBadgeTarget = isBadgeDragActive && !isValidBadgeTarget;
   const showBadge = isInChain || optionKeyHeld || isBadgeDragActive;
 

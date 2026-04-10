@@ -248,7 +248,7 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
   const handleDragStart = useCallback((event: DragStartEvent) => {
     const data = event.active.data.current;
     if (data?.type === 'badge') {
-      useProjectStore.getState().setActiveBadgeDrag(data.taskNumber as number);
+      if (typeof data.taskNumber === 'number') useProjectStore.getState().setActiveBadgeDrag(data.taskNumber);
       setActiveTask(null);
     } else {
       const task = data?.task as TaskWithWorkspace | undefined;
@@ -317,20 +317,17 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
       // ── Badge drop: link tasks ──────────────────────────────────────
       const badgeDrag = useProjectStore.getState().activeBadgeDrag;
       if (badgeDrag != null) {
-        const sourceTaskNum = badgeDrag;
-        useProjectStore.getState().setActiveBadgeDrag(null);
-        useProjectStore.getState().setBadgeDragOverTask(null);
-        useProjectStore.getState().clearChainHighlights();
+        useProjectStore.getState().resetBadgeDragState();
 
         const overId = over?.id as string | undefined;
         if (!overId) return;
 
         const targetTaskNum = overId.startsWith('task-') ? parseInt(overId.replace('task-', ''), 10) : null;
-        if (!targetTaskNum || targetTaskNum === sourceTaskNum) return;
-        if (isDescendantOf(targetTaskNum, sourceTaskNum, chainMap)) return;
+        if (!targetTaskNum || targetTaskNum === badgeDrag) return;
+        if (isDescendantOf(targetTaskNum, badgeDrag, chainMap)) return;
 
         const targetTask = storeTasks.find((t) => t.taskNumber === targetTaskNum);
-        const result = await window.api.task.setParent(projectPath, sourceTaskNum, targetTaskNum, targetTask?.branch);
+        const result = await window.api.task.setParent(projectPath, badgeDrag, targetTaskNum, targetTask?.branch);
         if (result.success) {
           useProjectStore.getState().loadTasks(projectPath);
         } else {
@@ -589,9 +586,7 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
       onDragEnd={handleDragEnd}
       onDragCancel={() => {
         setActiveTask(null);
-        useProjectStore.getState().setActiveBadgeDrag(null);
-        useProjectStore.getState().setBadgeDragOverTask(null);
-        useProjectStore.getState().clearChainHighlights();
+        useProjectStore.getState().resetBadgeDragState();
         originalStatusRef.current = null;
       }}
     >

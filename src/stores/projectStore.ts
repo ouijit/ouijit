@@ -48,6 +48,7 @@ interface ProjectStoreActions {
   setActiveBadgeDrag: (taskNumber: number | null) => void;
   setBadgeDragOverTask: (taskNumber: number | null) => void;
   clearChainHighlights: () => void;
+  resetBadgeDragState: () => void;
   setActivePanel: (panel: 'terminals' | 'settings') => void;
   resetForProject: () => void;
 
@@ -95,6 +96,9 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
   setBadgeDragOverTask: (taskNumber) => set({ badgeDragOverTask: taskNumber }),
 
   clearChainHighlights: () => set({ highlightedChainTask: null, detachHoverParent: null }),
+
+  resetBadgeDragState: () =>
+    set({ activeBadgeDrag: null, badgeDragOverTask: null, highlightedChainTask: null, detachHoverParent: null }),
 
   setActivePanel: (panel) => set({ activePanel: panel }),
 
