@@ -21,6 +21,7 @@ interface KanbanColumnProps {
   label: string;
   tasks: TaskWithWorkspace[];
   projectPath: string;
+  settingUpTaskNumber?: number | null;
   onAddTask?: (name: string) => void;
   onRenameTask: (taskNumber: number, newName: string) => void;
   onUpdateDescription: (taskNumber: number, description: string) => void;
@@ -36,6 +37,7 @@ export function KanbanColumn({
   label,
   tasks,
   projectPath,
+  settingUpTaskNumber,
   onAddTask,
   onRenameTask,
   onUpdateDescription,
@@ -90,6 +92,7 @@ export function KanbanColumn({
               task={task}
               projectPath={projectPath}
               chainMap={chainMap}
+              isSettingUp={settingUpTaskNumber === task.taskNumber}
               onRename={onRenameTask}
               onUpdateDescription={onUpdateDescription}
               onOpenTerminal={onOpenTerminal}
@@ -109,6 +112,7 @@ function SortableCard({
   task,
   projectPath,
   chainMap,
+  isSettingUp,
   onRename,
   onUpdateDescription,
   onOpenTerminal,
@@ -117,6 +121,7 @@ function SortableCard({
   task: TaskWithWorkspace;
   projectPath: string;
   chainMap?: Map<number, TaskChainInfo>;
+  isSettingUp?: boolean;
   onRename: (taskNumber: number, newName: string) => void;
   onUpdateDescription: (taskNumber: number, description: string) => void;
   onOpenTerminal: (task: TaskWithWorkspace, sandboxed?: boolean) => void;
@@ -160,6 +165,7 @@ function SortableCard({
         projectPath={projectPath}
         chainInfo={chainMap?.get(task.taskNumber)}
         chainMap={chainMap}
+        isSettingUp={isSettingUp}
         onRename={onRename}
         onUpdateDescription={onUpdateDescription}
         onOpenTerminal={onOpenTerminal}

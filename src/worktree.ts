@@ -357,12 +357,7 @@ export async function startTask(
       await setTaskMergeTarget(projectPath, taskNumber, mergeTarget);
     }
 
-    copyGitIgnoredFiles(projectPath, worktreePath, ignoredFiles).catch((err) => {
-      worktreeLog.warn('background copy failed', {
-        taskNumber,
-        error: err instanceof Error ? err.message : String(err),
-      });
-    });
+    await copyGitIgnoredFiles(projectPath, worktreePath, ignoredFiles);
 
     worktreeLog.info('started task', { taskNumber, worktreePath, branch });
     const updated = await getTaskByNumber(projectPath, taskNumber);
@@ -449,10 +444,7 @@ export async function createTaskWorktree(
       worktreePath,
     });
 
-    // Fire-and-forget file copy with pre-fetched list
-    copyGitIgnoredFiles(projectPath, worktreePath, ignoredFiles).catch((err) => {
-      worktreeLog.warn('background copy failed', { error: err instanceof Error ? err.message : String(err) });
-    });
+    await copyGitIgnoredFiles(projectPath, worktreePath, ignoredFiles);
 
     return {
       success: true,
@@ -662,13 +654,7 @@ export async function recoverTaskWorktree(projectPath: string, taskNumber: numbe
     // Update metadata with new path
     await setTaskWorktreePath(projectPath, taskNumber, worktreePath);
 
-    // Fire-and-forget file copy
-    copyGitIgnoredFiles(projectPath, worktreePath, ignoredFiles).catch((err) => {
-      worktreeLog.warn('background copy failed', {
-        taskNumber,
-        error: err instanceof Error ? err.message : String(err),
-      });
-    });
+    await copyGitIgnoredFiles(projectPath, worktreePath, ignoredFiles);
 
     worktreeLog.info('recovered', { taskNumber, worktreePath });
     const updated = await getTaskByNumber(projectPath, taskNumber);

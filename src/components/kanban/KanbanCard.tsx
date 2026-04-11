@@ -17,6 +17,7 @@ interface KanbanCardProps {
   projectPath: string;
   chainInfo?: TaskChainInfo;
   chainMap?: Map<number, TaskChainInfo>;
+  isSettingUp?: boolean;
   onRename: (taskNumber: number, newName: string) => void;
   onUpdateDescription: (taskNumber: number, description: string) => void;
   onOpenTerminal: (task: TaskWithWorkspace, sandboxed?: boolean) => void;
@@ -28,6 +29,7 @@ export const KanbanCard = memo(function KanbanCard({
   projectPath,
   chainInfo,
   chainMap,
+  isSettingUp,
   onRename,
   onUpdateDescription,
   onOpenTerminal,
@@ -345,6 +347,12 @@ export const KanbanCard = memo(function KanbanCard({
         />
       )}
       <div className="flex items-start gap-2">
+        {isSettingUp && (
+          <span
+            className="w-2 h-2 rounded-full bg-transparent border-[1.5px] border-white/30 border-t-white/80 shrink-0 mt-[5px]"
+            style={{ animation: 'loading-dot-spin 0.8s linear infinite' }}
+          />
+        )}
         {editing ? (
           <textarea
             ref={nameInputRef}
@@ -374,6 +382,8 @@ export const KanbanCard = memo(function KanbanCard({
           <Icon name="caret-down" />
         </button>
       </div>
+
+      {isSettingUp && <div className="font-mono text-xs text-white/40 mt-1">Setting up workspace{'\u2026'}</div>}
 
       {/* Connected terminal status dots */}
       {connectedDisplays.length > 0 && (
