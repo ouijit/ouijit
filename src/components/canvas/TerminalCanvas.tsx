@@ -227,8 +227,8 @@ function TerminalCanvasInner({ projectPath }: TerminalCanvasProps) {
               </button>
             </Panel>
           ))}
+        <SmartGuideOverlay guides={guides} />
       </ReactFlow>
-      <SmartGuideOverlay guides={guides} />
       <AlignMenu projectPath={projectPath} position={menuPos} onClose={handleCloseMenu} />
     </div>
   );
