@@ -4,7 +4,7 @@ import { useProjectStore } from '../stores/projectStore';
 import { useTerminalStore, getTerminalIndexByStackPosition, STACK_PAGE_SIZE } from '../stores/terminalStore';
 import { useCanvasStore, persistCanvas } from '../stores/canvasStore';
 import { TerminalCardStack } from './terminal/TerminalCardStack';
-import { TerminalCanvas } from './canvas/TerminalCanvas';
+import { TerminalCanvas, syncCanvasWithTerminals } from './canvas/TerminalCanvas';
 import { KanbanBoard } from './kanban/KanbanBoard';
 import { ProjectSettingsPanel } from './scripts/ProjectSettingsPanel';
 import { focusKanbanAddInput } from './kanban/KanbanAddInput';
@@ -227,9 +227,17 @@ export function ProjectView() {
   useEffect(() => {
     if (!projectPath) return;
     const existing = useTerminalStore.getState().terminalsByProject[projectPath];
-    if (existing && existing.length > 0) return;
+    if (existing && existing.length > 0) {
+      // Terminals already exist — sync canvas to prune any stale persisted nodes
+      syncCanvasWithTerminals(projectPath);
+      return;
+    }
 
     reconnectOrphanedSessions(projectPath).then(() => {
+      // Reconnection is done — terminal list is now final.
+      // Sync canvas to prune stale nodes from previous sessions.
+      syncCanvasWithTerminals(projectPath);
+
       // Only show kanban if reconnection didn't restore any terminals
       const reconnected = useTerminalStore.getState().terminalsByProject[projectPath];
       if (!reconnected || reconnected.length === 0) {

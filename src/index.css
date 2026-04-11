@@ -499,6 +499,13 @@ textarea,
   height: 100%;
 }
 
+/* Match the canvas background to the app background */
+.terminal-canvas .react-flow {
+  --xy-background-color-default: var(--color-background);
+  --xy-background-color: var(--color-background);
+  background-color: var(--color-background);
+}
+
 /* Remove default react-flow node styling — we own all node chrome */
 .terminal-canvas .react-flow__node-terminal {
   padding: 0;

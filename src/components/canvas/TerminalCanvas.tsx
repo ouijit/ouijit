@@ -28,6 +28,39 @@ import { useSmartGuides } from './useSmartGuides';
 import { getChainColor, buildChainMap } from '../../utils/taskChain';
 import { useProjectStore } from '../../stores/projectStore';
 
+/**
+ * Reconcile canvas nodes with the terminal store — add missing, remove stale.
+ * Treats missing terminal list as empty (all canvas nodes are stale).
+ */
+export function syncCanvasWithTerminals(projectPath: string): void {
+  const terminalPtyIds = useTerminalStore.getState().terminalsByProject[projectPath] ?? [];
+  const canvasState = useCanvasStore.getState().canvasByProject[projectPath];
+  if (!canvasState) return;
+
+  const terminalSet = new Set(terminalPtyIds);
+  const store = useCanvasStore.getState();
+
+  // Add canvas nodes for terminals that don't have one yet
+  const canvasNodeIds = new Set(canvasState.nodes.map((n) => n.id));
+  for (const ptyId of terminalPtyIds) {
+    if (!canvasNodeIds.has(ptyId)) {
+      store.addNode(projectPath, ptyId);
+    }
+  }
+
+  // Remove canvas nodes whose terminal no longer exists
+  let changed = false;
+  for (const node of canvasState.nodes) {
+    if (node.type === 'terminal' && !node.id.startsWith('group-') && !terminalSet.has(node.id)) {
+      store.removeNode(projectPath, node.id);
+      changed = true;
+    }
+  }
+  if (changed) {
+    persistCanvas(projectPath);
+  }
+}
+
 // Defined outside component to prevent re-renders
 const nodeTypes = { terminal: TerminalNode };
 const edgeTypes = { chain: ChainEdge };
@@ -79,7 +112,7 @@ function TerminalCanvasInner({ projectPath }: TerminalCanvasProps) {
     [tasks, displayStates],
   );
 
-  // Load persisted canvas state on mount
+  // Load persisted canvas state on mount (sync happens after reconnection in ProjectViewReact)
   useEffect(() => {
     useCanvasStore.getState().ensureProject(projectPath);
     loadPersistedCanvas(projectPath).then((saved) => {
@@ -88,21 +121,6 @@ function TerminalCanvasInner({ projectPath }: TerminalCanvasProps) {
       }
     });
   }, [projectPath]);
-
-  // Sync: ensure canvas nodes exist for all terminal ptyIds
-  const terminalPtyIds = useTerminalStore((s) => s.terminalsByProject[projectPath]);
-  useEffect(() => {
-    if (!terminalPtyIds) return;
-    const canvasState = useCanvasStore.getState().canvasByProject[projectPath];
-    if (!canvasState) return;
-
-    const canvasNodeIds = new Set(canvasState.nodes.map((n) => n.id));
-    for (const ptyId of terminalPtyIds) {
-      if (!canvasNodeIds.has(ptyId)) {
-        useCanvasStore.getState().addNode(projectPath, ptyId);
-      }
-    }
-  }, [terminalPtyIds, projectPath]);
 
   const onNodesChange = useCallback(
     (changes: NodeChange<TerminalNodeType>[]) => {
@@ -164,7 +182,7 @@ function TerminalCanvasInner({ projectPath }: TerminalCanvasProps) {
         fitView
         proOptions={proOptions}
       >
-        <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="rgba(255,255,255,0.06)" />
+        <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="rgba(255,255,255,0.15)" />
         <CanvasControls projectPath={projectPath} />
         {nodes.length >= 3 && (
           <MiniMap

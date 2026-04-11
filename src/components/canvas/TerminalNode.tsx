@@ -2,8 +2,7 @@ import { memo, useCallback } from 'react';
 import { NodeResizer, Handle, Position, type NodeProps } from '@xyflow/react';
 import type { TerminalNode as TerminalNodeType } from '../../stores/canvasStore';
 import { useTerminalPanels } from '../terminal/useTerminalPanels';
-import { terminalInstances } from '../terminal/terminalReact';
-import { useTerminalStore } from '../../stores/terminalStore';
+import { closeProjectTerminal } from '../terminal/terminalActions';
 import { TerminalHeader } from '../terminal/TerminalHeader';
 import { TerminalBody } from '../terminal/TerminalBody';
 
@@ -23,12 +22,12 @@ export const TerminalNode = memo(function TerminalNode({ data, selected }: NodeP
   } = useTerminalPanels(ptyId);
 
   const handleClose = useCallback(() => {
-    const instance = terminalInstances.get(ptyId);
-    if (instance) {
-      instance.dispose();
-    }
-    useTerminalStore.getState().removeTerminal(ptyId);
+    closeProjectTerminal(ptyId);
   }, [ptyId]);
+
+  // Only intercept canvas gestures when this node is selected.
+  // Unselected terminals let pan/zoom pass through to the canvas.
+  const bodyClasses = selected ? 'nodrag nowheel nopan flex-1 min-h-0' : 'flex-1 min-h-0';
 
   return (
     <div
@@ -56,7 +55,7 @@ export const TerminalNode = memo(function TerminalNode({ data, selected }: NodeP
       <div className="terminal-drag-handle">
         <TerminalHeader
           ptyId={ptyId}
-          isActive={!!selected}
+          isActive
           onClose={handleClose}
           onToggleDiffPanel={toggleDiffPanel}
           onTogglePlanPanel={togglePlanPanel}
@@ -64,7 +63,7 @@ export const TerminalNode = memo(function TerminalNode({ data, selected }: NodeP
         />
       </div>
 
-      <div className="nodrag nowheel nopan flex-1 min-h-0">
+      <div className={bodyClasses} style={selected ? undefined : { pointerEvents: 'none' }}>
         <TerminalBody
           ptyId={ptyId}
           projectPath={projectPath}
