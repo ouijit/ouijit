@@ -9,8 +9,8 @@ export interface GuideLine {
 }
 
 const SNAP_THRESHOLD = 8;
-const DEFAULT_W = 720;
-const DEFAULT_H = 480;
+const DEFAULT_W = 740;
+const DEFAULT_H = 556;
 
 function getW(node: { measured?: { width?: number }; style?: { width?: number | string } }): number {
   return node.measured?.width ?? (node.style?.width ? Number(node.style.width) : DEFAULT_W);

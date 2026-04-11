@@ -5,8 +5,8 @@ import { useTerminalStore } from '../../stores/terminalStore';
 import { useCanvasStore, persistCanvas, type TerminalNode } from '../../stores/canvasStore';
 import { buildChainMap, getChainColor } from '../../utils/taskChain';
 
-const DEFAULT_W = 720;
-const DEFAULT_H = 480;
+const DEFAULT_W = 740;
+const DEFAULT_H = 556;
 
 interface NodeRect {
   x: number;

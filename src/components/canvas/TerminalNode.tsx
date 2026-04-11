@@ -32,48 +32,44 @@ export const TerminalNode = memo(function TerminalNode({ data, selected }: NodeP
   // Only intercept canvas gestures when this node is selected.
   const bodyClasses = selected ? 'nodrag nowheel nopan flex-1 min-h-0' : 'flex-1 min-h-0';
 
+  // Insets: the card is inset within the node wrapper so the NodeResizer
+  // at the wrapper edges naturally wraps title + card + metadata.
+  const INSET_TOP = 40;
+  const INSET_SIDE = 10;
+  const INSET_BOTTOM = 36;
+
   return (
     <>
-      <NodeTitle ptyId={ptyId} />
+      <NodeResizer
+        minWidth={400}
+        minHeight={200}
+        maxWidth={2400}
+        maxHeight={1600}
+        isVisible={!!selected}
+        lineClassName="!border-accent/30"
+        handleClassName="!w-2.5 !h-2.5 !bg-accent/60 !border-accent/80 !rounded-none"
+      />
+      <Handle id="top" type="source" position={Position.Top} className="!bg-transparent !border-none !w-0 !h-0" />
+      <Handle id="top" type="target" position={Position.Top} className="!bg-transparent !border-none !w-0 !h-0" />
+      <Handle id="bottom" type="source" position={Position.Bottom} className="!bg-transparent !border-none !w-0 !h-0" />
+      <Handle id="bottom" type="target" position={Position.Bottom} className="!bg-transparent !border-none !w-0 !h-0" />
+      <Handle id="left" type="source" position={Position.Left} className="!bg-transparent !border-none !w-0 !h-0" />
+      <Handle id="left" type="target" position={Position.Left} className="!bg-transparent !border-none !w-0 !h-0" />
+      <Handle id="right" type="source" position={Position.Right} className="!bg-transparent !border-none !w-0 !h-0" />
+      <Handle id="right" type="target" position={Position.Right} className="!bg-transparent !border-none !w-0 !h-0" />
+
+      <NodeTitle ptyId={ptyId} style={{ top: 4, left: INSET_SIDE, right: INSET_SIDE }} />
       <div
-        className={`canvas-terminal-node rounded-[14px] border overflow-hidden flex flex-col ${
-          selected ? 'border-accent/40' : 'border-white/10'
-        }`}
+        className="canvas-terminal-node absolute rounded-[14px] border border-white/10 overflow-hidden flex flex-col"
         style={{
-          width: '100%',
-          height: '100%',
+          top: INSET_TOP,
+          left: INSET_SIDE,
+          right: INSET_SIDE,
+          bottom: INSET_BOTTOM,
           background: 'var(--color-terminal-bg, #171717)',
           boxShadow: '0 0 0 1px rgba(0, 0, 0, 0.05), 0 4px 12px rgba(0, 0, 0, 0.15), 0 20px 40px rgba(0, 0, 0, 0.2)',
         }}
       >
-        <NodeResizer
-          minWidth={400}
-          minHeight={200}
-          maxWidth={2400}
-          maxHeight={1600}
-          isVisible={!!selected}
-          lineClassName="!border-accent/30"
-          handleClassName="!w-2 !h-2 !bg-accent/50 !border-none !rounded-sm"
-        />
-        <Handle id="top" type="source" position={Position.Top} className="!bg-transparent !border-none !w-0 !h-0" />
-        <Handle id="top" type="target" position={Position.Top} className="!bg-transparent !border-none !w-0 !h-0" />
-        <Handle
-          id="bottom"
-          type="source"
-          position={Position.Bottom}
-          className="!bg-transparent !border-none !w-0 !h-0"
-        />
-        <Handle
-          id="bottom"
-          type="target"
-          position={Position.Bottom}
-          className="!bg-transparent !border-none !w-0 !h-0"
-        />
-        <Handle id="left" type="source" position={Position.Left} className="!bg-transparent !border-none !w-0 !h-0" />
-        <Handle id="left" type="target" position={Position.Left} className="!bg-transparent !border-none !w-0 !h-0" />
-        <Handle id="right" type="source" position={Position.Right} className="!bg-transparent !border-none !w-0 !h-0" />
-        <Handle id="right" type="target" position={Position.Right} className="!bg-transparent !border-none !w-0 !h-0" />
-
         <div className="terminal-drag-handle">
           <TerminalHeader
             ptyId={ptyId}
@@ -98,21 +94,21 @@ export const TerminalNode = memo(function TerminalNode({ data, selected }: NodeP
           />
         </div>
       </div>
-      <NodeMetadata ptyId={ptyId} />
+      <NodeMetadata ptyId={ptyId} style={{ bottom: 4, left: INSET_SIDE, right: INSET_SIDE }} />
     </>
   );
 });
 
 // ── Task name label above the card ──────────────────────────────────
 
-const NodeTitle = memo(function NodeTitle({ ptyId }: { ptyId: string }) {
+const NodeTitle = memo(function NodeTitle({ ptyId, style }: { ptyId: string; style: React.CSSProperties }) {
   const label = useTerminalStore((s) => s.displayStates[ptyId]?.label ?? '');
   const taskId = useTerminalStore((s) => s.displayStates[ptyId]?.taskId ?? null);
 
   if (!label) return null;
 
   return (
-    <div className="px-1 pb-2" style={{ marginTop: -40 }}>
+    <div className="absolute px-1" style={style}>
       <span className="inline-flex items-center gap-2 text-xl font-semibold text-white/80 truncate max-w-full">
         {taskId != null && <span className="text-white/30 font-mono text-base">T-{taskId}</span>}
         {label}
@@ -125,7 +121,7 @@ const NodeTitle = memo(function NodeTitle({ ptyId }: { ptyId: string }) {
 
 const EMPTY_TAGS: string[] = [];
 
-const NodeMetadata = memo(function NodeMetadata({ ptyId }: { ptyId: string }) {
+const NodeMetadata = memo(function NodeMetadata({ ptyId, style }: { ptyId: string; style: React.CSSProperties }) {
   const taskId = useTerminalStore((s) => s.displayStates[ptyId]?.taskId ?? null);
   const worktreeBranch = useTerminalStore((s) => s.displayStates[ptyId]?.worktreeBranch ?? null);
   const tags = useTerminalStore((s) => s.displayStates[ptyId]?.tags) ?? EMPTY_TAGS;
@@ -142,7 +138,7 @@ const NodeMetadata = memo(function NodeMetadata({ ptyId }: { ptyId: string }) {
   if (!hasPills) return null;
 
   return (
-    <div className="flex items-center gap-1.5 px-1 pt-2 pb-1 flex-wrap" style={{ maxWidth: '100%' }}>
+    <div className="absolute flex items-center gap-1.5 px-1 flex-wrap" style={style}>
       {/* Task number */}
       {taskId != null && (
         <Pill>

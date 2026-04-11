@@ -47,8 +47,8 @@ type CanvasStore = CanvasStoreState & CanvasStoreActions;
 
 // ── Constants ────────────────────────────────────────────────────────
 
-const DEFAULT_NODE_WIDTH = 720;
-const DEFAULT_NODE_HEIGHT = 480;
+const DEFAULT_NODE_WIDTH = 740;
+const DEFAULT_NODE_HEIGHT = 556;
 const NODE_SPACING = 60;
 
 function emptyProjectState(): CanvasProjectState {
