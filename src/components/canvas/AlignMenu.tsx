@@ -1,8 +1,9 @@
-import { memo, useCallback, useEffect } from 'react';
+import { memo, useCallback } from 'react';
 import { useCanvasStore, persistCanvas, type TerminalNode } from '../../stores/canvasStore';
 import { useTerminalStore } from '../../stores/terminalStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { buildChainMap, type TaskChainInfo } from '../../utils/taskChain';
+import { ContextMenu, type ContextMenuEntry } from '../ui/ContextMenu';
 
 interface AlignMenuProps {
   projectPath: string;
@@ -15,24 +16,6 @@ type DistributeType = 'horizontal' | 'vertical';
 
 /** Context menu for aligning and distributing selected nodes. */
 export const AlignMenu = memo(function AlignMenu({ projectPath, position, onClose }: AlignMenuProps) {
-  // Close on click outside or Escape
-  useEffect(() => {
-    if (!position) return;
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    const clickHandler = () => {
-      // Delay to allow menu item clicks to fire first
-      requestAnimationFrame(() => onClose());
-    };
-    document.addEventListener('keydown', handler);
-    document.addEventListener('mousedown', clickHandler);
-    return () => {
-      document.removeEventListener('keydown', handler);
-      document.removeEventListener('mousedown', clickHandler);
-    };
-  }, [position, onClose]);
-
   const handleAlign = useCallback(
     (type: AlignType) => {
       const canvas = useCanvasStore.getState().canvasByProject[projectPath];
@@ -303,61 +286,46 @@ export const AlignMenu = memo(function AlignMenu({ projectPath, position, onClos
     persistCanvas(projectPath);
   }, [projectPath, tasks, displayStates]);
 
+  const canvasNodes = useCanvasStore((s) => s.canvasByProject[projectPath]?.nodes);
+  const selectedCount = canvasNodes?.filter((n) => n.selected).length ?? 0;
+
   if (!position) return null;
 
-  return (
-    <div
-      className="fixed z-[200] rounded-lg border border-white/10 py-1 min-w-[160px]"
-      style={{
-        left: position.x,
-        top: position.y,
-        background: 'rgba(28, 28, 30, 0.95)',
-        backdropFilter: 'blur(12px)',
-        WebkitBackdropFilter: 'blur(12px)',
-      }}
-      onMouseDown={(e) => e.stopPropagation()}
-    >
-      <MenuLabel>Align</MenuLabel>
-      <MenuItem onClick={() => handleAlign('left')}>Left</MenuItem>
-      <MenuItem onClick={() => handleAlign('center-h')}>Center Horizontal</MenuItem>
-      <MenuItem onClick={() => handleAlign('right')}>Right</MenuItem>
-      <MenuDivider />
-      <MenuItem onClick={() => handleAlign('top')}>Top</MenuItem>
-      <MenuItem onClick={() => handleAlign('center-v')}>Center Vertical</MenuItem>
-      <MenuItem onClick={() => handleAlign('bottom')}>Bottom</MenuItem>
-      <MenuDivider />
-      <MenuLabel>Distribute</MenuLabel>
-      <MenuItem onClick={() => handleDistribute('horizontal')}>Horizontal Spacing</MenuItem>
-      <MenuItem onClick={() => handleDistribute('vertical')}>Vertical Spacing</MenuItem>
-      <MenuDivider />
-      <MenuLabel>Layout</MenuLabel>
-      <MenuItem onClick={handleGridLayout}>Grid</MenuItem>
-      <MenuItem onClick={handleChainLayout}>Chain Tree</MenuItem>
-    </div>
-  );
+  const items: ContextMenuEntry[] = [];
+
+  if (selectedCount >= 2) {
+    items.push(
+      { label: 'Align Left', icon: 'align-left', onClick: () => handleAlign('left') },
+      { label: 'Align Center', icon: 'align-center-horizontal', onClick: () => handleAlign('center-h') },
+      { label: 'Align Right', icon: 'align-right', onClick: () => handleAlign('right') },
+      { separator: true },
+      { label: 'Align Top', icon: 'align-top', onClick: () => handleAlign('top') },
+      { label: 'Align Middle', icon: 'align-center-vertical', onClick: () => handleAlign('center-v') },
+      { label: 'Align Bottom', icon: 'align-bottom', onClick: () => handleAlign('bottom') },
+    );
+  }
+
+  if (selectedCount >= 3) {
+    items.push(
+      { separator: true },
+      {
+        label: 'Distribute Horizontal',
+        icon: 'arrows-out-line-horizontal',
+        onClick: () => handleDistribute('horizontal'),
+      },
+      { label: 'Distribute Vertical', icon: 'arrows-out-line-vertical', onClick: () => handleDistribute('vertical') },
+    );
+  }
+
+  if (selectedCount >= 2) {
+    items.push({ separator: true }, { label: 'Grid Layout', icon: 'grid-four', onClick: handleGridLayout });
+  }
+
+  if (items.length > 0) items.push({ separator: true });
+  items.push({ label: 'Chain Tree Layout', icon: 'tree-structure', onClick: handleChainLayout });
+
+  return <ContextMenu x={position.x} y={position.y} items={items} onClose={onClose} />;
 });
-
-function MenuLabel({ children }: { children: React.ReactNode }) {
-  return <div className="px-3 py-1 text-xs font-medium text-white/30">{children}</div>;
-}
-
-function MenuItem({ children, onClick }: { children: React.ReactNode; onClick: () => void }) {
-  return (
-    <button
-      className="w-full text-left px-3 py-1.5 text-sm text-white/70 bg-transparent border-none hover:bg-white/5 hover:text-white/90 transition-colors duration-100"
-      onClick={(e) => {
-        e.stopPropagation();
-        onClick();
-      }}
-    >
-      {children}
-    </button>
-  );
-}
-
-function MenuDivider() {
-  return <div className="my-1 border-t border-white/5" />;
-}
 
 /** Estimate total height of a subtree without placing nodes. */
 function estimateSubtreeHeight(

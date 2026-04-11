@@ -5,6 +5,12 @@
  * automatically converted to SVGs when added to the DOM.
  */
 
+import alignBottom from '@phosphor-icons/core/assets/regular/align-bottom.svg?raw';
+import alignCenterHorizontal from '@phosphor-icons/core/assets/regular/align-center-horizontal.svg?raw';
+import alignCenterVertical from '@phosphor-icons/core/assets/regular/align-center-vertical.svg?raw';
+import alignLeft from '@phosphor-icons/core/assets/regular/align-left.svg?raw';
+import alignRight from '@phosphor-icons/core/assets/regular/align-right.svg?raw';
+import alignTop from '@phosphor-icons/core/assets/regular/align-top.svg?raw';
 import archive from '@phosphor-icons/core/assets/regular/archive.svg?raw';
 import arrowCounterClockwise from '@phosphor-icons/core/assets/regular/arrow-counter-clockwise.svg?raw';
 import arrowLeft from '@phosphor-icons/core/assets/regular/arrow-left.svg?raw';
@@ -13,6 +19,7 @@ import arrowsClockwise from '@phosphor-icons/core/assets/regular/arrows-clockwis
 import arrowsIn from '@phosphor-icons/core/assets/regular/arrows-in.svg?raw';
 import arrowsOut from '@phosphor-icons/core/assets/regular/arrows-out.svg?raw';
 import arrowsOutLineHorizontal from '@phosphor-icons/core/assets/regular/arrows-out-line-horizontal.svg?raw';
+import arrowsOutLineVertical from '@phosphor-icons/core/assets/regular/arrows-out-line-vertical.svg?raw';
 import bug from '@phosphor-icons/core/assets/regular/bug.svg?raw';
 import caretDown from '@phosphor-icons/core/assets/regular/caret-down.svg?raw';
 import dotsSixVertical from '@phosphor-icons/core/assets/regular/dots-six-vertical.svg?raw';
@@ -32,6 +39,7 @@ import folderOpen from '@phosphor-icons/core/assets/regular/folder-open.svg?raw'
 import folderPlus from '@phosphor-icons/core/assets/regular/folder-plus.svg?raw';
 import gear from '@phosphor-icons/core/assets/regular/gear.svg?raw';
 import gitBranch from '@phosphor-icons/core/assets/regular/git-branch.svg?raw';
+import gridFour from '@phosphor-icons/core/assets/regular/grid-four.svg?raw';
 import gitDiff from '@phosphor-icons/core/assets/regular/git-diff.svg?raw';
 import gitMerge from '@phosphor-icons/core/assets/regular/git-merge.svg?raw';
 import info from '@phosphor-icons/core/assets/regular/info.svg?raw';
@@ -51,6 +59,7 @@ import star from '@phosphor-icons/core/assets/regular/star.svg?raw';
 import tag from '@phosphor-icons/core/assets/regular/tag.svg?raw';
 import terminal from '@phosphor-icons/core/assets/regular/terminal.svg?raw';
 import trash from '@phosphor-icons/core/assets/regular/trash.svg?raw';
+import treeStructure from '@phosphor-icons/core/assets/regular/tree-structure.svg?raw';
 import upload from '@phosphor-icons/core/assets/regular/upload.svg?raw';
 import webhooksLogo from '@phosphor-icons/core/assets/regular/webhooks-logo.svg?raw';
 import x from '@phosphor-icons/core/assets/regular/x.svg?raw';
@@ -60,6 +69,12 @@ const iconsLog = log.scope('icons');
 
 // Map of icon names (kebab-case) to SVG strings
 export const iconMap: Record<string, string> = {
+  'align-bottom': alignBottom,
+  'align-center-horizontal': alignCenterHorizontal,
+  'align-center-vertical': alignCenterVertical,
+  'align-left': alignLeft,
+  'align-right': alignRight,
+  'align-top': alignTop,
   archive: archive,
   'arrow-counter-clockwise': arrowCounterClockwise,
   'arrow-left': arrowLeft,
@@ -68,6 +83,7 @@ export const iconMap: Record<string, string> = {
   'arrows-in': arrowsIn,
   'arrows-out': arrowsOut,
   'arrows-out-line-horizontal': arrowsOutLineHorizontal,
+  'arrows-out-line-vertical': arrowsOutLineVertical,
   bug: bug,
   'caret-down': caretDown,
   'dots-six-vertical': dotsSixVertical,
@@ -88,6 +104,7 @@ export const iconMap: Record<string, string> = {
   gear: gear,
   'git-branch': gitBranch,
   'git-diff': gitDiff,
+  'grid-four': gridFour,
   'git-merge': gitMerge,
   info: info,
   kanban: kanban,
@@ -106,6 +123,7 @@ export const iconMap: Record<string, string> = {
   tag: tag,
   terminal: terminal,
   trash: trash,
+  'tree-structure': treeStructure,
   upload: upload,
   'webhooks-logo': webhooksLogo,
   x: x,
