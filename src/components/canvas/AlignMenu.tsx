@@ -289,21 +289,17 @@ export const AlignMenu = memo(function AlignMenu({ projectPath, position, onClos
   const canvasNodes = useCanvasStore((s) => s.canvasByProject[projectPath]?.nodes);
   const selectedCount = canvasNodes?.filter((n) => n.selected).length ?? 0;
 
-  if (!position) return null;
+  if (!position || selectedCount < 2) return null;
 
-  const items: ContextMenuEntry[] = [];
-
-  if (selectedCount >= 2) {
-    items.push(
-      { label: 'Align Left', icon: 'align-left', onClick: () => handleAlign('left') },
-      { label: 'Align Center', icon: 'align-center-horizontal', onClick: () => handleAlign('center-h') },
-      { label: 'Align Right', icon: 'align-right', onClick: () => handleAlign('right') },
-      { separator: true },
-      { label: 'Align Top', icon: 'align-top', onClick: () => handleAlign('top') },
-      { label: 'Align Middle', icon: 'align-center-vertical', onClick: () => handleAlign('center-v') },
-      { label: 'Align Bottom', icon: 'align-bottom', onClick: () => handleAlign('bottom') },
-    );
-  }
+  const items: ContextMenuEntry[] = [
+    { label: 'Align Left', icon: 'align-left', onClick: () => handleAlign('left') },
+    { label: 'Align Center', icon: 'align-center-horizontal', onClick: () => handleAlign('center-h') },
+    { label: 'Align Right', icon: 'align-right', onClick: () => handleAlign('right') },
+    { separator: true },
+    { label: 'Align Top', icon: 'align-top', onClick: () => handleAlign('top') },
+    { label: 'Align Middle', icon: 'align-center-vertical', onClick: () => handleAlign('center-v') },
+    { label: 'Align Bottom', icon: 'align-bottom', onClick: () => handleAlign('bottom') },
+  ];
 
   if (selectedCount >= 3) {
     items.push(
@@ -317,11 +313,7 @@ export const AlignMenu = memo(function AlignMenu({ projectPath, position, onClos
     );
   }
 
-  if (selectedCount >= 2) {
-    items.push({ separator: true }, { label: 'Grid Layout', icon: 'grid-four', onClick: handleGridLayout });
-  }
-
-  if (items.length > 0) items.push({ separator: true });
+  items.push({ separator: true }, { label: 'Grid Layout', icon: 'grid-four', onClick: handleGridLayout });
   items.push({ label: 'Chain Tree Layout', icon: 'tree-structure', onClick: handleChainLayout });
 
   return <ContextMenu x={position.x} y={position.y} items={items} onClose={onClose} />;

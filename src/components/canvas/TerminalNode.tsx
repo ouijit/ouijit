@@ -32,7 +32,7 @@ export const TerminalNode = memo(function TerminalNode({ data, selected }: NodeP
     closeProjectTerminal(ptyId);
   }, [ptyId]);
 
-  const bodyClasses = selected ? 'nodrag nowheel nopan flex-1 min-h-0' : 'flex-1 min-h-0';
+  const bodyClasses = selected ? 'nodrag nowheel nopan flex flex-col flex-1 min-h-0' : 'flex flex-col flex-1 min-h-0';
 
   return (
     <>

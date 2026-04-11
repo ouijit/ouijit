@@ -99,6 +99,7 @@ function TerminalCanvasInner({ projectPath }: TerminalCanvasProps) {
     setMenuPos({ x: event.clientX, y: event.clientY });
   }, []);
   const handleCloseMenu = useCallback(() => setMenuPos(null), []);
+  const handlePaneClick = useCallback(() => setMenuPos(null), []);
 
   // Phase 3: minimap node color from chain info
   const tasks = useProjectStore((s) => s.tasks);
@@ -171,6 +172,8 @@ function TerminalCanvasInner({ projectPath }: TerminalCanvasProps) {
         onNodeDrag={onNodeDrag}
         onNodeDragStop={onNodeDragStop}
         onSelectionContextMenu={handleSelectionContextMenu}
+        onPaneClick={handlePaneClick}
+        onNodeClick={handlePaneClick}
         panOnScroll
         zoomOnScroll={false}
         zoomOnPinch
