@@ -13,6 +13,11 @@ vi.mock('node:child_process', () => ({
   exec: vi.fn((_cmd: string, _opts: unknown, cb: (err: null, result: { stdout: string; stderr: string }) => void) => {
     cb(null, { stdout: '', stderr: '' });
   }),
+  execFile: vi.fn(
+    (_file: string, _args: string[], _opts: unknown, cb: (err: null, stdout: string, stderr: string) => void) => {
+      cb(null, '', '');
+    },
+  ),
   execSync: vi.fn(),
 }));
 

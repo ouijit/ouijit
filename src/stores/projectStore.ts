@@ -7,6 +7,11 @@ interface ProjectStoreState {
   activePanel: 'terminals' | 'settings';
   scripts: Script[];
   taskVersion: number;
+  highlightedChainTask: number | null;
+  detachHoverParent: number | null;
+  optionKeyHeld: boolean;
+  activeBadgeDrag: number | null;
+  badgeDragOverTask: number | null;
   activeModal: string | null;
   toasts: Array<{
     id: string;
@@ -38,6 +43,12 @@ interface ProjectStoreActions {
         },
   ) => void;
   removeToast: (id: string) => void;
+  setHighlightedChainTask: (taskNumber: number | null) => void;
+  setDetachHoverParent: (taskNumber: number | null) => void;
+  setActiveBadgeDrag: (taskNumber: number | null) => void;
+  setBadgeDragOverTask: (taskNumber: number | null) => void;
+  clearChainHighlights: () => void;
+  resetBadgeDragState: () => void;
   setActivePanel: (panel: 'terminals' | 'settings') => void;
   resetForProject: () => void;
 
@@ -52,6 +63,7 @@ interface ProjectStoreActions {
 type ProjectStore = ProjectStoreState & ProjectStoreActions;
 
 let toastCounter = 0;
+let moveCounter = 0;
 
 export const useProjectStore = create<ProjectStore>()((set, get) => ({
   tasks: [],
@@ -59,6 +71,11 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
   activePanel: 'terminals',
   scripts: [],
   taskVersion: 0,
+  highlightedChainTask: null,
+  detachHoverParent: null,
+  optionKeyHeld: false,
+  activeBadgeDrag: null,
+  badgeDragOverTask: null,
   activeModal: null,
   toasts: [],
   _version: 0,
@@ -70,6 +87,27 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
   setKanbanVisible: (visible) => set({ kanbanVisible: visible }),
 
   toggleKanban: () => set((s) => ({ kanbanVisible: !s.kanbanVisible })),
+
+  setHighlightedChainTask: (taskNumber) => {
+    if (get().highlightedChainTask !== taskNumber) set({ highlightedChainTask: taskNumber });
+  },
+
+  setDetachHoverParent: (taskNumber) => {
+    if (get().detachHoverParent !== taskNumber) set({ detachHoverParent: taskNumber });
+  },
+
+  setActiveBadgeDrag: (taskNumber) => {
+    if (get().activeBadgeDrag !== taskNumber) set({ activeBadgeDrag: taskNumber });
+  },
+
+  setBadgeDragOverTask: (taskNumber) => {
+    if (get().badgeDragOverTask !== taskNumber) set({ badgeDragOverTask: taskNumber });
+  },
+
+  clearChainHighlights: () => set({ highlightedChainTask: null, detachHoverParent: null }),
+
+  resetBadgeDragState: () =>
+    set({ activeBadgeDrag: null, badgeDragOverTask: null, highlightedChainTask: null, detachHoverParent: null }),
 
   setActivePanel: (panel) => set({ activePanel: panel }),
 
@@ -105,6 +143,11 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
       activePanel: 'terminals',
       scripts: [],
       taskVersion: 0,
+      highlightedChainTask: null,
+      detachHoverParent: null,
+      optionKeyHeld: false,
+      activeBadgeDrag: null,
+      badgeDragOverTask: null,
       activeModal: null,
       _version: 0,
     });
@@ -133,6 +176,7 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
 
   moveTask: async (projectPath, taskNumber, newStatus, targetIndex) => {
     const prev = get().tasks;
+    const moveVersion = ++moveCounter;
     // Optimistic: reorder locally
     const task = prev.find((t) => t.taskNumber === taskNumber);
     if (!task) return;
@@ -146,15 +190,26 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
     const orderedStatusTasks = statusTasks.map((t, i) => ({ ...t, order: i }));
     set({ tasks: [...otherTasks, ...orderedStatusTasks] });
 
+    const rollbackOrReload = () => {
+      // Only rollback if no other move has happened since our snapshot
+      if (moveCounter === moveVersion) {
+        set({ tasks: prev });
+      } else {
+        get().loadTasks(projectPath);
+      }
+      get().addToast('Failed to move task', 'error');
+    };
+
     try {
       const result = await window.api.task.reorder(projectPath, taskNumber, newStatus as any, targetIndex);
       if (!result.success) {
-        set({ tasks: prev });
-        get().addToast('Failed to move task', 'error');
+        rollbackOrReload();
+      } else if (moveCounter !== moveVersion) {
+        // Another move happened while this one was in flight — reconcile with server
+        get().loadTasks(projectPath);
       }
     } catch {
-      set({ tasks: prev });
-      get().addToast('Failed to move task', 'error');
+      rollbackOrReload();
     }
   },
 }));

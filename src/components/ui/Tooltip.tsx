@@ -15,22 +15,39 @@ import {
 } from '@floating-ui/react';
 
 interface TooltipProps {
-  text: string;
+  text: ReactNode;
   placement?: Placement;
   delay?: number;
   disabled?: boolean;
+  offsetPx?: number;
+  referenceClassName?: string;
+  referenceStyle?: React.CSSProperties;
+  onHoverChange?: (hovering: boolean) => void;
   children: ReactNode;
 }
 
-export function Tooltip({ text, placement = 'bottom', delay = 100, disabled, children }: TooltipProps) {
+export function Tooltip({
+  text,
+  placement = 'bottom',
+  delay = 100,
+  disabled,
+  offsetPx,
+  referenceClassName,
+  referenceStyle,
+  onHoverChange,
+  children,
+}: TooltipProps) {
   const [isOpen, setIsOpen] = useState(false);
 
   const { refs, floatingStyles, context } = useFloating({
     open: isOpen,
-    onOpenChange: setIsOpen,
+    onOpenChange: (open) => {
+      setIsOpen(open);
+      onHoverChange?.(open);
+    },
     placement,
     strategy: 'fixed',
-    middleware: [offset(6), flip(), shift({ padding: 8 })],
+    middleware: [offset(offsetPx ?? 6), flip(), shift({ padding: 8 })],
     whileElementsMounted: autoUpdate,
   });
 
@@ -43,7 +60,12 @@ export function Tooltip({ text, placement = 'bottom', delay = 100, disabled, chi
 
   return (
     <>
-      <div ref={refs.setReference} {...getReferenceProps()} className="inline-flex">
+      <div
+        ref={refs.setReference}
+        {...getReferenceProps()}
+        className={referenceClassName ?? 'inline-flex'}
+        style={referenceStyle}
+      >
         {children}
       </div>
       {isOpen &&

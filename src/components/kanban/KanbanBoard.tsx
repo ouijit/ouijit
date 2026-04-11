@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useState, useRef, forwardRef } from 'react';
+import { useEffect, useCallback, useState, useMemo, useRef, forwardRef } from 'react';
 import {
   DndContext,
   DragOverlay,
@@ -25,6 +25,7 @@ import { CombinedHookConfigDialog } from '../dialogs/CombinedHookConfigDialog';
 import { MissingWorktreeDialog } from '../dialogs/MissingWorktreeDialog';
 import { RunHookDialog, type RunHookResult } from '../dialogs/RunHookDialog';
 import { Icon } from '../terminal/Icon';
+import { buildChainMap, isDescendantOf } from '../../utils/taskChain';
 import log from 'electron-log/renderer';
 
 const kanbanLog = log.scope('kanban');
@@ -63,6 +64,7 @@ interface KanbanBoardProps {
 export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
   const storeTasks = useProjectStore((s) => s.tasks);
   const [activeTask, setActiveTask] = useState<TaskWithWorkspace | null>(null);
+  const activeBadgeDrag = useProjectStore((s) => s.activeBadgeDrag);
   const [configuredHooks, setConfiguredHooks] = useState<Record<string, boolean>>({});
   const [runHookDialog, setRunHookDialog] = useState<{
     hookType: HookType;
@@ -81,6 +83,13 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
     resolve: (action: 'recover' | null) => void;
   } | null>(null);
   const [settingUpTaskNumber, setSettingUpTaskNumber] = useState<number | null>(null);
+  const mountedRef = useRef(true);
+  useEffect(
+    () => () => {
+      mountedRef.current = false;
+    },
+    [],
+  );
 
   /**
    * Check if a task's worktree exists on disk. If missing, prompt the user to recover it.
@@ -127,13 +136,14 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
     window.api.hooks.get(projectPath).then((hooks) => {
       const configured: Record<string, boolean> = {};
       for (const key of Object.keys(hooks)) {
-        if ((hooks as any)[key]) configured[key] = true;
+        if (hooks[key as HookType]) configured[key] = true;
       }
       setConfiguredHooks(configured);
     });
   }, [projectPath]);
 
   // Local task state for drag preview — synced from store, mutated during drag
+  const chainMap = useMemo(() => buildChainMap(storeTasks), [storeTasks]);
   const [items, setItems] = useState<Record<string, TaskWithWorkspace[]>>({});
   const originalStatusRef = useRef<string | null>(null);
 
@@ -176,6 +186,27 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
     return () => document.removeEventListener('keydown', handler, true);
   }, [onHide, hasOpenDialog]);
 
+  // Track Option/Alt key for showing standalone badges
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (useProjectStore.getState().optionKeyHeld !== e.altKey) {
+        useProjectStore.setState({ optionKeyHeld: e.altKey });
+      }
+    };
+    const onBlur = () => {
+      if (useProjectStore.getState().optionKeyHeld) useProjectStore.setState({ optionKeyHeld: false });
+    };
+    window.addEventListener('keydown', onKey);
+    window.addEventListener('keyup', onKey);
+    window.addEventListener('blur', onBlur);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('keyup', onKey);
+      window.removeEventListener('blur', onBlur);
+      useProjectStore.setState({ optionKeyHeld: false });
+    };
+  }, []);
+
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: { distance: 8 },
@@ -196,11 +227,12 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
 
   const [showTrash, setShowTrash] = useState(false);
   const [overTrash, setOverTrash] = useState(false);
+  const overTrashRef = useRef(false);
   const trashRef = useRef<HTMLDivElement>(null);
 
   // Track pointer proximity to right edge during drag, and whether pointer is over the trash zone
   useEffect(() => {
-    if (!activeTask) {
+    if (!activeTask || activeBadgeDrag) {
       setShowTrash(false);
       setOverTrash(false);
       return;
@@ -213,27 +245,44 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
       const el = trashRef.current;
       if (el) {
         const rect = el.getBoundingClientRect();
-        setOverTrash(
-          e.clientX >= rect.left && e.clientX <= rect.right && e.clientY >= rect.top && e.clientY <= rect.bottom,
-        );
+        const isOver =
+          e.clientX >= rect.left && e.clientX <= rect.right && e.clientY >= rect.top && e.clientY <= rect.bottom;
+        overTrashRef.current = isOver;
+        setOverTrash(isOver);
       } else {
+        overTrashRef.current = false;
         setOverTrash(false);
       }
     };
     window.addEventListener('pointermove', onMove);
     return () => window.removeEventListener('pointermove', onMove);
-  }, [activeTask]);
+  }, [activeTask, activeBadgeDrag]);
 
   const handleDragStart = useCallback((event: DragStartEvent) => {
-    const task = event.active.data.current?.task as TaskWithWorkspace | undefined;
-    setActiveTask(task ?? null);
-    if (task) originalStatusRef.current = task.status;
+    const data = event.active.data.current;
+    if (data?.type === 'badge') {
+      if (typeof data.taskNumber === 'number') useProjectStore.getState().setActiveBadgeDrag(data.taskNumber);
+      setActiveTask(null);
+    } else {
+      const task = data?.task as TaskWithWorkspace | undefined;
+      setActiveTask(task ?? null);
+      useProjectStore.getState().setActiveBadgeDrag(null);
+      if (task) originalStatusRef.current = task.status;
+    }
   }, []);
 
   const handleDragOver = useCallback(
     (event: DragOverEvent) => {
       const { active, over } = event;
       if (!over) return;
+
+      // Badge drags don't reorder cards — just track the hovered target
+      if (active.data.current?.type === 'badge') {
+        const overId = over.id as string;
+        const overTaskNum = overId.startsWith('task-') ? parseInt(overId.replace('task-', ''), 10) : null;
+        useProjectStore.getState().setBadgeDragOverTask(overTaskNum);
+        return;
+      }
 
       const activeId = active.id as string;
       const overId = over.id as string;
@@ -276,12 +325,36 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
 
   const handleDragEnd = useCallback(
     async (event: DragEndEvent) => {
+      const { active, over } = event;
+
+      // ── Badge drop: link tasks ──────────────────────────────────────
+      const badgeDrag = useProjectStore.getState().activeBadgeDrag;
+      if (badgeDrag != null) {
+        useProjectStore.getState().resetBadgeDragState();
+
+        const overId = over?.id as string | undefined;
+        if (!overId) return;
+
+        const targetTaskNum = overId.startsWith('task-') ? parseInt(overId.replace('task-', ''), 10) : null;
+        if (!targetTaskNum || targetTaskNum === badgeDrag) return;
+        if (isDescendantOf(targetTaskNum, badgeDrag, chainMap)) return;
+
+        const targetTask = storeTasks.find((t) => t.taskNumber === targetTaskNum);
+        const result = await window.api.task.setParent(projectPath, badgeDrag, targetTaskNum, targetTask?.branch);
+        if (result.success) {
+          useProjectStore.getState().loadTasks(projectPath);
+        } else {
+          useProjectStore.getState().addToast(result.error || 'Failed to link tasks', 'error');
+        }
+        return;
+      }
+
+      // ── Card drop: reorder / trash ──────────────────────────────────
       let draggedTask = activeTask;
       const origStatus = originalStatusRef.current;
-      const droppedOnTrash = overTrash;
+      const droppedOnTrash = overTrashRef.current;
       originalStatusRef.current = null;
 
-      const { active, over } = event;
       if (!draggedTask) {
         setActiveTask(null);
         return;
@@ -294,6 +367,7 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
         setActiveTask(null);
         const taskNum = parseInt(activeId.replace('task-', ''), 10);
         await window.api.task.trash(projectPath, taskNum);
+        if (!mountedRef.current) return;
         useProjectStore.getState().loadTasks(projectPath);
         useProjectStore.getState().addToast('Task deleted', 'success');
         return;
@@ -342,12 +416,14 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
       // Persist status + position optimistically BEFORE async work (worktree creation, etc.)
       // This updates the store so that when we clear activeTask the effect re-syncs to the new position.
       await useProjectStore.getState().moveTask(projectPath, activeTaskNum, finalContainer, targetIndex);
+      if (!mountedRef.current) return;
       setActiveTask(null);
 
       // Create worktree BEFORE moving (while task is still todo)
       if (newStatus === 'in_progress' && !draggedTask.worktreePath) {
         setSettingUpTaskNumber(draggedTask.taskNumber);
         const startResult = await window.api.task.start(projectPath, draggedTask.taskNumber);
+        if (!mountedRef.current) return;
         setSettingUpTaskNumber(null);
         if (!startResult.success) {
           useProjectStore.getState().addToast(startResult.error || 'Failed to create worktree', 'error');
@@ -364,27 +440,30 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
       // Verify existing worktree is still on disk; offer recovery if missing
       if (draggedTask.worktreePath) {
         const wtPath = await ensureWorktreeExists(draggedTask);
+        if (!mountedRef.current) return;
         if (!wtPath) return;
         draggedTask = { ...draggedTask, worktreePath: wtPath };
       }
 
       await useProjectStore.getState().loadTasks(projectPath);
+      if (!mountedRef.current) return;
 
       // Show hook dialog if configured for this transition
       if (origStatus && origStatus !== finalContainer) {
         const hooks = await window.api.hooks.get(projectPath);
+        if (!mountedRef.current) return;
         let hookType: HookType | null = null;
         let hook = null;
 
         if (newStatus === 'in_progress') {
           hookType = origStatus === 'todo' ? 'start' : 'continue';
-          hook = (hooks as any)[hookType] || null;
+          hook = hooks[hookType] ?? null;
         } else if (newStatus === 'in_review') {
           hookType = 'review';
-          hook = (hooks as any).review || null;
+          hook = hooks.review ?? null;
         } else if (newStatus === 'done') {
           hookType = 'cleanup';
-          hook = (hooks as any).cleanup || null;
+          hook = hooks.cleanup ?? null;
         }
 
         if (hook && hookType) {
@@ -392,7 +471,7 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
         }
       }
     },
-    [activeTask, overTrash, items, findContainer, projectPath, ensureWorktreeExists],
+    [activeTask, chainMap, storeTasks, items, findContainer, projectPath, ensureWorktreeExists],
   );
 
   // Task CRUD
@@ -495,12 +574,12 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
       if (hookTypes.length === 2 && hookTypes.includes('start') && hookTypes.includes('continue')) {
         setHookDialog({
           mode: 'combined',
-          start: (hooks as any).start || undefined,
-          continue: (hooks as any).continue || undefined,
+          start: hooks.start ?? undefined,
+          continue: hooks.continue ?? undefined,
         });
       } else {
         const hookType = hookTypes[0];
-        const existing = (hooks as any)[hookType] || undefined;
+        const existing = hooks[hookType] ?? undefined;
         setHookDialog({ mode: 'single', hookType, existingHook: existing });
       }
     },
@@ -513,7 +592,7 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
     window.api.hooks.get(projectPath).then((hooks) => {
       const configured: Record<string, boolean> = {};
       for (const key of Object.keys(hooks)) {
-        if ((hooks as any)[key]) configured[key] = true;
+        if (hooks[key as HookType]) configured[key] = true;
       }
       setConfiguredHooks(configured);
     });
@@ -526,6 +605,11 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
       onDragStart={handleDragStart}
       onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}
+      onDragCancel={() => {
+        setActiveTask(null);
+        useProjectStore.getState().resetBadgeDragState();
+        originalStatusRef.current = null;
+      }}
     >
       <div
         className="kanban-board fixed top-[82px] bottom-4 z-[140] flex flex-col opacity-100 rounded-[14px] overflow-hidden border border-white/10"
@@ -582,6 +666,7 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
                 label={col.label}
                 tasks={items[col.status] ?? []}
                 projectPath={projectPath}
+                chainMap={chainMap}
                 settingUpTaskNumber={settingUpTaskNumber}
                 onAddTask={col.status === 'todo' ? handleAddTask : undefined}
                 onRenameTask={handleRenameTask}
@@ -615,6 +700,19 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
               </span>
             </div>
           </div>
+        )}
+        {activeBadgeDrag != null && (
+          <span
+            className="inline-flex items-center gap-0.5 font-mono text-[11px] leading-none px-2 py-1 rounded-full whitespace-nowrap"
+            style={{
+              color: 'rgba(255, 255, 255, 0.7)',
+              background: 'rgba(255, 255, 255, 0.12)',
+              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.4)',
+            }}
+          >
+            <span className="opacity-50">#</span>
+            {activeBadgeDrag}
+          </span>
         )}
       </DragOverlay>
     </DndContext>

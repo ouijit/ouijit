@@ -10,6 +10,8 @@ import {
   setTaskSandboxed,
   setTaskName,
   setTaskDescription,
+  setTaskParent,
+  clearParentReferences,
   deleteTaskByNumber,
   reorderTask,
 } from '../db';
@@ -352,5 +354,128 @@ describe('taskMetadata', () => {
 
     const after = await getTaskByNumber(project, 1);
     expect(after!.order).toBe(orderBefore);
+  });
+
+  test('createTask with parentTaskNumber persists the relationship', async () => {
+    const project = '/test/parent-task';
+    await createTask(project, 1, 'Parent', { status: 'in_progress', branch: 'feat/parent' });
+    const child = await createTask(project, 2, 'Child', {
+      status: 'todo',
+      parentTaskNumber: 1,
+      mergeTarget: 'feat/parent',
+    });
+
+    expect(child.parentTaskNumber).toBe(1);
+    expect(child.mergeTarget).toBe('feat/parent');
+
+    const fetched = await getTaskByNumber(project, 2);
+    expect(fetched!.parentTaskNumber).toBe(1);
+  });
+
+  test('createTask without parentTaskNumber leaves it undefined', async () => {
+    const project = '/test/no-parent';
+    const task = await createTask(project, 1, 'Standalone', { status: 'todo' });
+
+    expect(task.parentTaskNumber).toBeUndefined();
+  });
+
+  test('parentTaskNumber is visible via getProjectTasks', async () => {
+    const project = '/test/parent-in-list';
+    await createTask(project, 1, 'Parent', { branch: 'feat/p' });
+    await createTask(project, 2, 'Child', { status: 'todo', parentTaskNumber: 1 });
+
+    const tasks = await getProjectTasks(project);
+    const child = tasks.find((t) => t.taskNumber === 2);
+    expect(child!.parentTaskNumber).toBe(1);
+  });
+
+  test('setTaskParent links tasks and updates mergeTarget', async () => {
+    const project = '/test/set-parent';
+    await createTask(project, 1, 'Parent', { branch: 'feat/parent', status: 'in_progress' });
+    await createTask(project, 2, 'Child', { status: 'todo' });
+
+    const result = await setTaskParent(project, 2, 1, 'feat/parent');
+    expect(result.success).toBe(true);
+
+    const child = await getTaskByNumber(project, 2);
+    expect(child!.parentTaskNumber).toBe(1);
+    expect(child!.mergeTarget).toBe('feat/parent');
+  });
+
+  test('setTaskParent rejects self-reference', async () => {
+    const project = '/test/self-parent';
+    await createTask(project, 1, 'Task', { status: 'todo' });
+
+    const result = await setTaskParent(project, 1, 1);
+    expect(result.success).toBe(false);
+    expect(result.error).toBe('Task cannot be its own parent');
+  });
+
+  test('setTaskParent rejects cycle (A→B→C, set C as parent of A)', async () => {
+    const project = '/test/cycle';
+    await createTask(project, 1, 'A', { status: 'todo' });
+    await createTask(project, 2, 'B', { status: 'todo', parentTaskNumber: 1 });
+    await createTask(project, 3, 'C', { status: 'todo', parentTaskNumber: 2 });
+
+    const result = await setTaskParent(project, 1, 3);
+    expect(result.success).toBe(false);
+    expect(result.error).toBe('Cannot create a cycle');
+  });
+
+  test('setTaskParent rejects direct cycle (A→B, set B as parent of A)', async () => {
+    const project = '/test/direct-cycle';
+    await createTask(project, 1, 'A', { status: 'todo' });
+    await createTask(project, 2, 'B', { status: 'todo', parentTaskNumber: 1 });
+
+    const result = await setTaskParent(project, 1, 2);
+    expect(result.success).toBe(false);
+    expect(result.error).toBe('Cannot create a cycle');
+  });
+
+  test('setTaskParent with null detaches child and clears mergeTarget', async () => {
+    const project = '/test/detach';
+    await createTask(project, 1, 'Parent', { branch: 'feat/parent', status: 'in_progress' });
+    await createTask(project, 2, 'Child', { status: 'todo', parentTaskNumber: 1, mergeTarget: 'feat/parent' });
+
+    const result = await setTaskParent(project, 2, null, 'main');
+    expect(result.success).toBe(true);
+
+    const child = await getTaskByNumber(project, 2);
+    expect(child!.parentTaskNumber).toBeUndefined();
+    expect(child!.mergeTarget).toBe('main');
+  });
+
+  test('clearParentReferences orphans all children of deleted parent', async () => {
+    const project = '/test/cascade';
+    await createTask(project, 1, 'Parent', { branch: 'feat/parent', status: 'in_progress' });
+    await createTask(project, 2, 'Child A', { status: 'todo', parentTaskNumber: 1, mergeTarget: 'feat/parent' });
+    await createTask(project, 3, 'Child B', { status: 'todo', parentTaskNumber: 1, mergeTarget: 'feat/parent' });
+
+    await clearParentReferences(project, 1);
+
+    const childA = await getTaskByNumber(project, 2);
+    const childB = await getTaskByNumber(project, 3);
+    expect(childA!.parentTaskNumber).toBeUndefined();
+    expect(childA!.mergeTarget).toBeUndefined();
+    expect(childB!.parentTaskNumber).toBeUndefined();
+    expect(childB!.mergeTarget).toBeUndefined();
+  });
+
+  test('clearParentReferences does not affect grandchildren', async () => {
+    const project = '/test/cascade-depth';
+    await createTask(project, 1, 'Grandparent', { branch: 'feat/gp', status: 'in_progress' });
+    await createTask(project, 2, 'Parent', { status: 'todo', parentTaskNumber: 1, mergeTarget: 'feat/gp' });
+    await createTask(project, 3, 'Child', { status: 'todo', parentTaskNumber: 2, mergeTarget: 'feat/parent' });
+
+    await clearParentReferences(project, 1);
+
+    // Direct child is orphaned
+    const parent = await getTaskByNumber(project, 2);
+    expect(parent!.parentTaskNumber).toBeUndefined();
+
+    // Grandchild still points to task 2
+    const child = await getTaskByNumber(project, 3);
+    expect(child!.parentTaskNumber).toBe(2);
+    expect(child!.mergeTarget).toBe('feat/parent');
   });
 });

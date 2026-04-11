@@ -3,6 +3,7 @@ import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import type { TaskWithWorkspace, HookType } from '../../types';
+import type { TaskChainInfo } from '../../utils/taskChain';
 import { KanbanCard } from './KanbanCard';
 import { KanbanAddInput } from './KanbanAddInput';
 import { Icon } from '../terminal/Icon';
@@ -28,6 +29,7 @@ interface KanbanColumnProps {
   onSwitchToTerminal: (ptyId: string) => void;
   onConfigureHook?: (hookTypes: HookType[]) => void;
   hasConfiguredHook?: boolean;
+  chainMap?: Map<number, TaskChainInfo>;
 }
 
 export function KanbanColumn({
@@ -43,6 +45,7 @@ export function KanbanColumn({
   onSwitchToTerminal,
   onConfigureHook,
   hasConfiguredHook,
+  chainMap,
 }: KanbanColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id: status });
   const taskIds = useMemo(() => tasks.map((t) => `task-${t.taskNumber}`), [tasks]);
@@ -88,6 +91,7 @@ export function KanbanColumn({
               key={task.taskNumber}
               task={task}
               projectPath={projectPath}
+              chainMap={chainMap}
               isSettingUp={settingUpTaskNumber === task.taskNumber}
               onRename={onRenameTask}
               onUpdateDescription={onUpdateDescription}
@@ -107,6 +111,7 @@ export function KanbanColumn({
 function SortableCard({
   task,
   projectPath,
+  chainMap,
   isSettingUp,
   onRename,
   onUpdateDescription,
@@ -115,6 +120,7 @@ function SortableCard({
 }: {
   task: TaskWithWorkspace;
   projectPath: string;
+  chainMap?: Map<number, TaskChainInfo>;
   isSettingUp?: boolean;
   onRename: (taskNumber: number, newName: string) => void;
   onUpdateDescription: (taskNumber: number, description: string) => void;
@@ -123,7 +129,7 @@ function SortableCard({
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: `task-${task.taskNumber}`,
-    data: { task },
+    data: { task, type: 'card' },
   });
 
   const style: React.CSSProperties = {
@@ -157,6 +163,8 @@ function SortableCard({
       <KanbanCard
         task={task}
         projectPath={projectPath}
+        chainInfo={chainMap?.get(task.taskNumber)}
+        chainMap={chainMap}
         isSettingUp={isSettingUp}
         onRename={onRename}
         onUpdateDescription={onUpdateDescription}

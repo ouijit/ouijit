@@ -16,6 +16,7 @@ export interface TaskRow {
   sort_order: number;
   created_at: string;
   closed_at: string | null;
+  parent_task_number: number | null;
 }
 
 export class TaskRepo {
@@ -58,6 +59,7 @@ export class TaskRepo {
       sandboxed?: boolean;
       worktreePath?: string;
       createdAt?: string;
+      parentTaskNumber?: number;
     },
   ): TaskRow {
     return this.db.transaction(() => {
@@ -72,8 +74,8 @@ export class TaskRepo {
       this.db
         .prepare(
           `
-        INSERT INTO tasks (project_path, task_number, name, status, prompt, branch, worktree_path, merge_target, sandboxed, sort_order, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO tasks (project_path, task_number, name, status, prompt, branch, worktree_path, merge_target, sandboxed, sort_order, created_at, parent_task_number)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `,
         )
         .run(
@@ -88,6 +90,7 @@ export class TaskRepo {
           options?.sandboxed ? 1 : 0,
           sortOrder,
           options?.createdAt ?? new Date().toISOString(),
+          options?.parentTaskNumber ?? null,
         );
 
       // Bump counter if this task number matches or exceeds it
@@ -149,10 +152,16 @@ export class TaskRepo {
       .run(worktreePath, projectPath, taskNumber);
   }
 
-  updateMergeTarget(projectPath: string, taskNumber: number, mergeTarget: string): void {
+  updateMergeTarget(projectPath: string, taskNumber: number, mergeTarget: string | null): void {
     this.db
       .prepare('UPDATE tasks SET merge_target = ? WHERE project_path = ? AND task_number = ?')
       .run(mergeTarget, projectPath, taskNumber);
+  }
+
+  updateParentTaskNumber(projectPath: string, taskNumber: number, parentTaskNumber: number | null): void {
+    this.db
+      .prepare('UPDATE tasks SET parent_task_number = ? WHERE project_path = ? AND task_number = ?')
+      .run(parentTaskNumber, projectPath, taskNumber);
   }
 
   updateName(projectPath: string, taskNumber: number, name: string): void {
@@ -215,6 +224,14 @@ export class TaskRepo {
         }
       }
     })();
+  }
+
+  clearParentReferences(projectPath: string, parentTaskNumber: number): void {
+    this.db
+      .prepare(
+        'UPDATE tasks SET parent_task_number = NULL, merge_target = NULL WHERE project_path = ? AND parent_task_number = ?',
+      )
+      .run(projectPath, parentTaskNumber);
   }
 
   delete(projectPath: string, taskNumber: number): void {

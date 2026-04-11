@@ -3,15 +3,18 @@
  * Extracted from IPC handlers to keep handlers as thin one-liner delegations.
  */
 
-import { exec } from 'node:child_process';
+import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { existsSync } from 'node:fs';
 import { trashItem } from './platform';
 import {
   getProjectTasks,
   getTaskByNumber,
+  getNextTaskNumber,
+  createTask,
   setTaskStatus,
   deleteTaskByNumber,
+  clearParentReferences,
   reorderTask,
   type TaskStatus,
 } from './db';
@@ -19,7 +22,7 @@ import { listWorktrees, removeTaskWorktree, startTask } from './worktree';
 import type { TaskWithWorkspace, TaskWorktreeResult } from './types';
 import { getLogger } from './logger';
 
-const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
 
 const taskLog = getLogger().scope('task');
 
@@ -32,11 +35,25 @@ export async function beginTask(
   taskNumber: number,
   branchName?: string,
 ): Promise<TaskWorktreeResult> {
-  const result = await startTask(projectPath, taskNumber, branchName);
+  // Detect parent relationship to determine base branch
+  let baseBranch: string | undefined;
+  const task = await getTaskByNumber(projectPath, taskNumber);
+  if (task?.parentTaskNumber) {
+    const parent = await getTaskByNumber(projectPath, task.parentTaskNumber);
+    if (parent?.branch) {
+      baseBranch = parent.branch;
+    } else {
+      taskLog.warn('parent task or branch missing, falling back to HEAD', {
+        taskNumber,
+        parentTaskNumber: task.parentTaskNumber,
+      });
+    }
+  }
+
+  const result = await startTask(projectPath, taskNumber, branchName, baseBranch);
   if (!result.success) return result;
 
-  // Move to in_progress if currently todo
-  const task = await getTaskByNumber(projectPath, taskNumber);
+  // Move to in_progress if currently todo (startTask doesn't change status)
   if (task?.status === 'todo') {
     const statusResult = await setTaskStatus(projectPath, taskNumber, 'in_progress');
     if (!statusResult.success) {
@@ -45,6 +62,28 @@ export async function beginTask(
   }
 
   return result;
+}
+
+/**
+ * Create a new TODO task that will branch from an existing task's branch when started.
+ */
+export async function createBranchFromTask(
+  projectPath: string,
+  parentTaskNumber: number,
+  name?: string,
+): Promise<TaskWorktreeResult> {
+  const parent = await getTaskByNumber(projectPath, parentTaskNumber);
+  if (!parent) return { success: false, error: 'Parent task not found' };
+  if (!parent.branch) return { success: false, error: 'Parent task has no branch' };
+
+  const taskNumber = await getNextTaskNumber(projectPath);
+  const displayName = name || 'Untitled';
+  const task = await createTask(projectPath, taskNumber, displayName, {
+    status: 'todo',
+    parentTaskNumber,
+    mergeTarget: parent.branch,
+  });
+  return { success: true, task };
 }
 
 /**
@@ -86,6 +125,10 @@ export async function deleteTaskWithWorktree(
   taskNumber: number,
 ): Promise<{ success: boolean; error?: string }> {
   const task = await getTaskByNumber(projectPath, taskNumber);
+
+  // Clear parent references on children before deleting
+  await clearParentReferences(projectPath, taskNumber);
+
   if (task?.worktreePath || task?.branch) {
     const worktrees = await listWorktrees(projectPath);
     const wt = task.branch
@@ -115,6 +158,9 @@ export async function trashTaskWithWorktree(
 ): Promise<{ success: boolean; error?: string; trashed?: boolean }> {
   const task = await getTaskByNumber(projectPath, taskNumber);
 
+  // Clear parent references on children before deleting
+  await clearParentReferences(projectPath, taskNumber);
+
   // Resolve the worktree path — prefer the DB path, fall back to git worktree list
   let worktreePath: string | undefined;
   if (task?.worktreePath && existsSync(task.worktreePath)) {
@@ -129,7 +175,7 @@ export async function trashTaskWithWorktree(
     taskLog.info('trashing task worktree', { taskNumber, worktreePath });
     try {
       await trashItem(worktreePath);
-      await execAsync('git worktree prune', { cwd: projectPath, encoding: 'utf8' });
+      await execFileAsync('git', ['worktree', 'prune'], { cwd: projectPath, encoding: 'utf8' });
     } catch (trashError) {
       const msg = trashError instanceof Error ? trashError.message : String(trashError);
       taskLog.error('trashItem failed', { taskNumber, error: msg });
@@ -139,7 +185,7 @@ export async function trashTaskWithWorktree(
     // Delete the branch
     if (task?.branch) {
       try {
-        await execAsync(`git branch -D "${task.branch}"`, { cwd: projectPath, encoding: 'utf8' });
+        await execFileAsync('git', ['branch', '-D', task.branch], { cwd: projectPath, encoding: 'utf8' });
       } catch {
         // Branch may already be deleted
       }
@@ -175,6 +221,7 @@ export async function getTasksWithWorkspaces(projectPath: string): Promise<TaskW
       prompt: task.prompt,
       sandboxed: task.sandboxed,
       order: task.order,
+      parentTaskNumber: task.parentTaskNumber,
     };
   });
 }
@@ -199,5 +246,6 @@ export async function getTaskWithWorkspace(projectPath: string, taskNumber: numb
     prompt: task.prompt,
     sandboxed: task.sandboxed,
     order: task.order,
+    parentTaskNumber: task.parentTaskNumber,
   };
 }

@@ -30,6 +30,7 @@ export interface TerminalOptions {
   taskPrompt?: string;
   worktreePath?: string;
   worktreeBranch?: string;
+  mergeTarget?: string;
   tags?: string[];
   isRunner?: boolean;
   initialSummaryType?: SummaryType;
@@ -218,7 +219,7 @@ function scheduleTerminalGitStatusRefresh(term: OuijitTerminal): void {
 
 export async function refreshTerminalGitStatus(term: OuijitTerminal): Promise<void> {
   const gitPath = term.worktreePath || term.projectPath;
-  const fileStatus = await window.api.getGitFileStatus(gitPath);
+  const fileStatus = await window.api.getGitFileStatus(gitPath, term.mergeTarget);
   term.gitFileStatus = fileStatus;
   term.pushDisplayState({ gitFileStatus: fileStatus });
 }
@@ -228,22 +229,26 @@ export async function refreshAllTerminalGitStatus(projectPath: string): Promise<
   const ptyIds = store.terminalsByProject[projectPath] ?? [];
   if (ptyIds.length === 0) return;
 
-  const pathToTerminals = new Map<string, OuijitTerminal[]>();
+  // Group by gitPath + mergeTarget so child-task terminals diff against their parent branch
+  const groupToTerminals = new Map<string, OuijitTerminal[]>();
   for (const ptyId of ptyIds) {
     const term = terminalInstances.get(ptyId);
     if (!term) continue;
     const gitPath = term.worktreePath || term.projectPath;
-    const group = pathToTerminals.get(gitPath);
+    const key = `${gitPath}\0${term.mergeTarget ?? ''}`;
+    const group = groupToTerminals.get(key);
     if (group) {
       group.push(term);
     } else {
-      pathToTerminals.set(gitPath, [term]);
+      groupToTerminals.set(key, [term]);
     }
   }
 
   await Promise.all(
-    Array.from(pathToTerminals.entries()).map(async ([gitPath, terms]) => {
-      const fileStatus = await window.api.getGitFileStatus(gitPath);
+    Array.from(groupToTerminals.entries()).map(async ([key, terms]) => {
+      const gitPath = key.split('\0')[0];
+      const mergeTarget = terms[0].mergeTarget;
+      const fileStatus = await window.api.getGitFileStatus(gitPath, mergeTarget);
       for (const t of terms) {
         t.gitFileStatus = fileStatus;
         t.pushDisplayState({ gitFileStatus: fileStatus });
@@ -285,6 +290,7 @@ export class OuijitTerminal {
   readonly taskPrompt?: string;
   worktreePath?: string;
   worktreeBranch?: string;
+  mergeTarget?: string;
 
   // ── Per-terminal diff panel state ───────────────────────────────────
   diffPanelOpen = false;
@@ -338,6 +344,7 @@ export class OuijitTerminal {
     this.taskPrompt = opts.taskPrompt;
     this.worktreePath = opts.worktreePath;
     this.worktreeBranch = opts.worktreeBranch;
+    this.mergeTarget = opts.mergeTarget;
 
     if (opts.taskId != null) {
       this.diffPanelMode = 'worktree';

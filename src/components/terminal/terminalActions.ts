@@ -106,11 +106,13 @@ export async function addProjectTerminal(
     terminalCwd = worktreeInfo.path;
   }
 
-  // Look up current task name
+  // Look up current task name and merge target
   let taskName: string | undefined;
+  let mergeTarget: string | undefined;
   if (options?.taskId != null) {
     const task = await window.api.task.getByNumber(projectPath, options.taskId);
     taskName = task?.name;
+    mergeTarget = task?.mergeTarget;
   }
 
   if (isStale()) return false;
@@ -163,6 +165,7 @@ export async function addProjectTerminal(
     taskPrompt,
     worktreePath: worktreeInfo?.path,
     worktreeBranch: worktreeInfo?.branch,
+    mergeTarget,
   });
 
   // Open xterm into viewport element (not yet in DOM — React will attach via XTermContainer)
@@ -267,7 +270,7 @@ export function closeProjectTerminal(ptyId: string): void {
 
 export async function reconnectTerminal(
   session: ActiveSession,
-  opts: { worktreeBranch?: string; initialStatus?: SummaryType } = {},
+  opts: { worktreeBranch?: string; mergeTarget?: string; initialStatus?: SummaryType } = {},
 ): Promise<OuijitTerminal | null> {
   const term = new OuijitTerminal({
     ptyId: session.ptyId,
@@ -278,6 +281,7 @@ export async function reconnectTerminal(
     taskId: session.taskId ?? null,
     worktreePath: session.worktreePath,
     worktreeBranch: opts.worktreeBranch,
+    mergeTarget: opts.mergeTarget,
     initialSummaryType: opts.initialStatus,
   });
 
@@ -493,9 +497,11 @@ export async function reconnectOrphanedSessions(projectPath: string): Promise<vo
   // Reconnect main terminals first
   for (const session of mainSessions) {
     let worktreeBranch: string | undefined;
+    let mergeTarget: string | undefined;
     if (session.taskId != null) {
       const task = await window.api.task.getByNumber(projectPath, session.taskId);
       worktreeBranch = task?.branch;
+      mergeTarget = task?.mergeTarget;
     }
 
     const [hookStatus, planPath] = await Promise.all([
@@ -504,7 +510,7 @@ export async function reconnectOrphanedSessions(projectPath: string): Promise<vo
     ]);
     const initialStatus: SummaryType = hookStatus?.status === 'thinking' ? 'thinking' : 'ready';
 
-    const term = await reconnectTerminal(session, { worktreeBranch, initialStatus });
+    const term = await reconnectTerminal(session, { worktreeBranch, mergeTarget, initialStatus });
     if (term && planPath) {
       term.planPath = planPath;
       term.pushDisplayState({ planPath });

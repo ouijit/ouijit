@@ -38,6 +38,7 @@ export interface TaskMetadata {
   prompt?: string;
   sandboxed?: boolean;
   order?: number;
+  parentTaskNumber?: number;
 }
 
 // ── Lazy singleton repos ─────────────────────────────────────────────
@@ -107,6 +108,7 @@ function rowToTask(row: TaskRow): TaskMetadata {
     ...(row.merge_target && { mergeTarget: row.merge_target }),
     ...(row.prompt && { prompt: row.prompt }),
     ...(row.sandboxed === 1 && { sandboxed: true }),
+    ...(row.parent_task_number != null && { parentTaskNumber: row.parent_task_number }),
   };
 }
 
@@ -165,6 +167,7 @@ export async function createTask(
     prompt?: string;
     sandboxed?: boolean;
     worktreePath?: string;
+    parentTaskNumber?: number;
   },
 ): Promise<TaskMetadata> {
   ensureProject(projectPath);
@@ -227,6 +230,47 @@ export async function setTaskMergeTarget(
   } catch (error) {
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
   }
+}
+
+export async function setTaskParent(
+  projectPath: string,
+  taskNumber: number,
+  parentTaskNumber: number | null,
+  mergeTarget?: string,
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { taskRepo: tr } = repos();
+    const row = tr.getByTaskNumber(projectPath, taskNumber);
+    if (!row) return { success: false, error: 'Task not found' };
+
+    // Prevent self-reference
+    if (parentTaskNumber === taskNumber) return { success: false, error: 'Task cannot be its own parent' };
+
+    // Prevent cycles: walk up from proposed parent to root
+    if (parentTaskNumber != null) {
+      let current: number | null = parentTaskNumber;
+      const visited = new Set<number>();
+      while (current != null) {
+        if (current === taskNumber) return { success: false, error: 'Cannot create a cycle' };
+        if (visited.has(current)) break;
+        visited.add(current);
+        const parentRow = tr.getByTaskNumber(projectPath, current);
+        current = parentRow?.parent_task_number ?? null;
+      }
+    }
+
+    tr.updateParentTaskNumber(projectPath, taskNumber, parentTaskNumber);
+    // Always update mergeTarget to prevent stale values from a previous parent
+    tr.updateMergeTarget(projectPath, taskNumber, mergeTarget ?? null);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+}
+
+export async function clearParentReferences(projectPath: string, parentTaskNumber: number): Promise<void> {
+  const { taskRepo: tr } = repos();
+  tr.clearParentReferences(projectPath, parentTaskNumber);
 }
 
 export async function setTaskWorktreePath(

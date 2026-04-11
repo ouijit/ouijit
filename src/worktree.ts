@@ -3,7 +3,7 @@
  * Creates isolated worktrees for CLI agents to work without affecting the main branch
  */
 
-import { exec } from 'node:child_process';
+import { exec, execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
@@ -26,6 +26,7 @@ import { mergeWorktreeBranch } from './git';
 const worktreeLog = getLogger().scope('worktree');
 
 const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
 
 // Native CoW clone support via koffi FFI
 // macOS: clonefile() clones files and directories atomically in one kernel call
@@ -284,6 +285,7 @@ export async function startTask(
   projectPath: string,
   taskNumber: number,
   branchName?: string,
+  baseBranch?: string,
 ): Promise<TaskWorktreeResult> {
   try {
     const task = await getTaskByNumber(projectPath, taskNumber);
@@ -310,7 +312,7 @@ export async function startTask(
       await execAsync('git commit --allow-empty -m "Initial commit"', { cwd: projectPath });
     }
 
-    const mergeTarget = branchResult;
+    const mergeTarget = baseBranch || branchResult;
     const projectName = path.basename(projectPath);
     const baseDir = getWorktreeBaseDir(projectName);
     await fs.mkdir(baseDir, { recursive: true });
@@ -333,16 +335,18 @@ export async function startTask(
     await execAsync('git worktree prune', { cwd: projectPath });
 
     // Check if branch already exists (e.g. leftover from a previous failed attempt)
-    const branchExists = await execAsync(`git rev-parse --verify "${branch}"`, { cwd: projectPath }).then(
+    const branchExists = await execFileAsync('git', ['rev-parse', '--verify', branch], { cwd: projectPath }).then(
       () => true,
       () => false,
     );
-    const wtAddCmd = branchExists
-      ? `git worktree add "${worktreePath}" "${branch}"`
-      : `git worktree add -b "${branch}" "${worktreePath}"`;
+    const wtAddArgs = branchExists
+      ? ['worktree', 'add', worktreePath, branch]
+      : baseBranch
+        ? ['worktree', 'add', '-b', branch, worktreePath, baseBranch]
+        : ['worktree', 'add', '-b', branch, worktreePath];
 
     const [, ignoredFiles] = await Promise.all([
-      execAsync(wtAddCmd, { cwd: projectPath }),
+      execFileAsync('git', wtAddArgs, { cwd: projectPath }),
       fetchIgnoredFiles(projectPath),
     ]);
 
@@ -417,21 +421,21 @@ export async function createTaskWorktree(
     const branch = branchName || generateBranchName(name, currentTaskNumber);
 
     // Prune stale worktree registrations so deleted directories can be reused
-    await execAsync('git worktree prune', { cwd: projectPath });
+    await execFileAsync('git', ['worktree', 'prune'], { cwd: projectPath });
 
     // Check if branch already exists (e.g. leftover from a previous failed attempt)
-    const branchExists = await execAsync(`git rev-parse --verify "${branch}"`, { cwd: projectPath }).then(
+    const branchExists = await execFileAsync('git', ['rev-parse', '--verify', branch], { cwd: projectPath }).then(
       () => true,
       () => false,
     );
-    const wtAddCmd = branchExists
-      ? `git worktree add "${worktreePath}" "${branch}"`
-      : `git worktree add -b "${branch}" "${worktreePath}"`;
+    const wtAddArgs = branchExists
+      ? ['worktree', 'add', worktreePath, branch]
+      : ['worktree', 'add', '-b', branch, worktreePath];
 
     // Start ls-files in parallel with git worktree add
     // ls-files reads from source dir, doesn't need the worktree to exist
     const [, ignoredFiles] = await Promise.all([
-      execAsync(wtAddCmd, { cwd: projectPath }),
+      execFileAsync('git', wtAddArgs, { cwd: projectPath }),
       fetchIgnoredFiles(projectPath),
     ]);
 
@@ -471,7 +475,7 @@ export async function removeTaskWorktree(
     const branchName = task?.branch;
 
     // Remove the worktree
-    await execAsync(`git worktree remove "${worktreePath}" --force`, {
+    await execFileAsync('git', ['worktree', 'remove', worktreePath, '--force'], {
       cwd: projectPath,
       encoding: 'utf8',
     });
@@ -479,7 +483,7 @@ export async function removeTaskWorktree(
     // Delete the branch
     if (branchName) {
       try {
-        await execAsync(`git branch -D "${branchName}"`, {
+        await execFileAsync('git', ['branch', '-D', branchName], {
           cwd: projectPath,
           encoding: 'utf8',
         });

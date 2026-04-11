@@ -1,4 +1,6 @@
-import { memo, useState, useCallback, useRef, useEffect, useMemo } from 'react';
+import { memo, useState, useCallback, useRef, useEffect, useMemo, type ReactNode } from 'react';
+import { useDraggable } from '@dnd-kit/core';
+import { useShallow } from 'zustand/react/shallow';
 import type { TaskWithWorkspace } from '../../types';
 import { useTerminalStore, type TerminalDisplayState } from '../../stores/terminalStore';
 import { useProjectStore } from '../../stores/projectStore';
@@ -6,10 +8,16 @@ import { terminalInstances } from '../terminal/terminalReact';
 import { Icon } from '../terminal/Icon';
 import { ContextMenu, type ContextMenuEntry } from '../ui/ContextMenu';
 import { HookConfigDialog } from '../dialogs/HookConfigDialog';
+import { BranchFromTaskDialog } from '../dialogs/BranchFromTaskDialog';
+import { Tooltip } from '../ui/Tooltip';
+import type { TaskChainInfo } from '../../utils/taskChain';
+import { getChainColor, getChainBgColor, isChainMember, isDescendantOf } from '../../utils/taskChain';
 
 interface KanbanCardProps {
   task: TaskWithWorkspace;
   projectPath: string;
+  chainInfo?: TaskChainInfo;
+  chainMap?: Map<number, TaskChainInfo>;
   isSettingUp?: boolean;
   onRename: (taskNumber: number, newName: string) => void;
   onUpdateDescription: (taskNumber: number, description: string) => void;
@@ -20,6 +28,8 @@ interface KanbanCardProps {
 export const KanbanCard = memo(function KanbanCard({
   task,
   projectPath,
+  chainInfo,
+  chainMap,
   isSettingUp,
   onRename,
   onUpdateDescription,
@@ -31,6 +41,7 @@ export const KanbanCard = memo(function KanbanCard({
   const [editingDesc, setEditingDesc] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
   const [editorHookDialog, setEditorHookDialog] = useState(false);
+  const [branchFromDialog, setBranchFromDialog] = useState(false);
   const [terminalContextMenu, setTerminalContextMenu] = useState<{ x: number; y: number; ptyId: string } | null>(null);
   const [renamingTerminalId, setRenamingTerminalId] = useState<string | null>(null);
   const terminalRenameRef = useRef<HTMLInputElement>(null);
@@ -38,21 +49,33 @@ export const KanbanCard = memo(function KanbanCard({
   const descInputRef = useRef<HTMLSpanElement>(null);
 
   const isDone = task.status === 'done';
+  const isInChain = isChainMember(chainInfo);
 
-  // Find connected terminals for this task (reactive — re-renders when display states change)
-  const displayStates = useTerminalStore((s) => s.displayStates);
-  const terminalPtyIds = useTerminalStore((s) => s.terminalsByProject[projectPath]);
-  const connectedDisplays = useMemo(() => {
-    const result: TerminalDisplayState[] = [];
-    const ids = terminalPtyIds ?? [];
-    for (const ptyId of ids) {
-      const display = displayStates[ptyId];
-      if (display?.taskId === task.taskNumber) {
-        result.push(display);
+  // Badge drag visual feedback — derive per-card booleans in selectors to avoid O(N) re-renders
+  const activeBadgeDragSource = useProjectStore((s) => s.activeBadgeDrag);
+  const isHoveredByBadgeDrag = useProjectStore((s) => s.badgeDragOverTask === task.taskNumber);
+  const optionKeyHeld = useProjectStore((s) => s.optionKeyHeld);
+  const isBadgeDragActive = activeBadgeDragSource != null;
+  const isValidBadgeTarget = useMemo(() => {
+    if (activeBadgeDragSource == null || activeBadgeDragSource === task.taskNumber || !chainMap) return false;
+    return !isDescendantOf(task.taskNumber, activeBadgeDragSource, chainMap);
+  }, [activeBadgeDragSource, task.taskNumber, chainMap]);
+  const isHoveredBadgeTarget = isValidBadgeTarget && isHoveredByBadgeDrag;
+  const isInvalidBadgeTarget = isBadgeDragActive && !isValidBadgeTarget;
+  const showBadge = isInChain || optionKeyHeld;
+
+  // Find connected terminals for this task — shallow compare avoids re-renders from unrelated terminal updates
+  const connectedDisplays = useTerminalStore(
+    useShallow((s) => {
+      const ids = s.terminalsByProject[projectPath] ?? [];
+      const result: TerminalDisplayState[] = [];
+      for (const ptyId of ids) {
+        const d = s.displayStates[ptyId];
+        if (d?.taskId === task.taskNumber) result.push(d);
       }
-    }
-    return result;
-  }, [displayStates, terminalPtyIds, task.taskNumber]);
+      return result;
+    }),
+  );
 
   // Handle inline name editing
   const startEditing = useCallback(() => {
@@ -135,7 +158,7 @@ export const KanbanCard = memo(function KanbanCard({
   const [hasEditorHook, setHasEditorHook] = useState(false);
   useEffect(() => {
     window.api.lima.status(projectPath).then((s) => setSandboxAvailable(s.available));
-    window.api.hooks.get(projectPath).then((hooks) => setHasEditorHook(!!(hooks as any).editor));
+    window.api.hooks.get(projectPath).then((hooks) => setHasEditorHook(!!hooks.editor));
   }, [projectPath]);
 
   // Build context menu items
@@ -204,6 +227,15 @@ export const KanbanCard = memo(function KanbanCard({
 
     items.push({ separator: true });
 
+    // Branch from this task (only for started tasks with a branch)
+    if (task.branch && task.status !== 'done') {
+      items.push({
+        label: 'Branch from this task',
+        icon: 'git-branch',
+        onClick: () => setBranchFromDialog(true),
+      });
+    }
+
     // Rename
     items.push({
       label: 'Rename',
@@ -261,9 +293,20 @@ export const KanbanCard = memo(function KanbanCard({
     <div
       className="kanban-card group px-3 py-3.5 ease-out [-webkit-app-region:no-drag] hover:bg-black/10 active:bg-black/[0.12]"
       style={{
-        background: expanded ? 'rgba(0, 0, 0, 0.15)' : 'var(--color-terminal-bg)',
-        transition: 'background 150ms ease-out, opacity 150ms ease-out',
+        background: isHoveredBadgeTarget
+          ? 'rgba(10, 132, 255, 0.08)'
+          : expanded
+            ? 'rgba(0, 0, 0, 0.15)'
+            : 'var(--color-terminal-bg)',
+        transition: 'background 150ms ease-out, opacity 150ms ease-out, outline-color 150ms ease-out',
         borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
+        outline: isHoveredBadgeTarget
+          ? '1px solid rgba(10, 132, 255, 0.6)'
+          : isValidBadgeTarget
+            ? '1px dashed rgba(10, 132, 255, 0.3)'
+            : 'none',
+        outlineOffset: -1,
+        ...(isInvalidBadgeTarget && { opacity: 0.4 }),
       }}
       data-task-number={task.taskNumber}
       onContextMenu={(e) => {
@@ -287,6 +330,18 @@ export const KanbanCard = memo(function KanbanCard({
           onClose={(result) => {
             setEditorHookDialog(false);
             if (result?.saved) setHasEditorHook(true);
+          }}
+        />
+      )}
+      {branchFromDialog && (
+        <BranchFromTaskDialog
+          projectPath={projectPath}
+          parentTask={task}
+          onClose={(created) => {
+            setBranchFromDialog(false);
+            if (created) {
+              useProjectStore.getState().loadTasks(projectPath);
+            }
           }}
         />
       )}
@@ -323,6 +378,11 @@ export const KanbanCard = memo(function KanbanCard({
           <Icon name="caret-down" />
         </button>
       </div>
+      {showBadge && (
+        <div className="mt-1">
+          <DraggableBadge task={task} projectPath={projectPath} chainInfo={chainInfo} chainMap={chainMap} />
+        </div>
+      )}
 
       {isSettingUp && <div className="font-mono text-xs text-white/40 mt-1">Setting up workspace{'\u2026'}</div>}
 
@@ -440,3 +500,141 @@ export const KanbanCard = memo(function KanbanCard({
     </div>
   );
 });
+
+// ── Draggable badge with × unlink ───────────────────────────────────
+
+function DraggableBadge({
+  task,
+  projectPath,
+  chainInfo,
+  chainMap,
+}: {
+  task: TaskWithWorkspace;
+  projectPath: string;
+  chainInfo?: TaskChainInfo;
+  chainMap?: Map<number, TaskChainInfo>;
+}) {
+  const isInChain = isChainMember(chainInfo);
+
+  const highlightedChainTask = useProjectStore((s) => s.highlightedChainTask);
+  const hoveredChainRoot = highlightedChainTask != null ? chainMap?.get(highlightedChainTask)?.rootTaskNumber : null;
+  const shouldJitter =
+    isInChain &&
+    chainInfo != null &&
+    hoveredChainRoot != null &&
+    hoveredChainRoot === chainInfo.rootTaskNumber &&
+    highlightedChainTask !== task.taskNumber;
+
+  const badgeColor =
+    isInChain && chainInfo ? getChainColor(chainInfo.rootTaskNumber, chainInfo.depth) : 'rgba(255, 255, 255, 0.2)';
+  const badgeBg =
+    isInChain && chainInfo ? getChainBgColor(chainInfo.rootTaskNumber, chainInfo.depth) : 'rgba(255, 255, 255, 0.04)';
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: `badge-${task.taskNumber}`,
+    data: { type: 'badge', taskNumber: task.taskNumber },
+  });
+
+  const [detachHovered, setDetachHovered] = useState(false);
+  const detachingRef = useRef(false);
+  const detachHoverParent = useProjectStore((s) => s.detachHoverParent);
+  const isDimmedByDetach = detachHoverParent === task.taskNumber;
+
+  // Clear detachHoverParent on unmount to prevent stuck dimmed state
+  useEffect(() => {
+    return () => {
+      if (useProjectStore.getState().detachHoverParent != null) {
+        useProjectStore.getState().setDetachHoverParent(null);
+      }
+    };
+  }, []);
+
+  const tooltipContent: ReactNode =
+    isInChain && chainInfo ? (
+      <div className="flex flex-col gap-0.5">
+        {task.parentTaskNumber != null && (
+          <span>
+            Branches from <span className="opacity-50">#</span>
+            {task.parentTaskNumber}
+          </span>
+        )}
+        {chainInfo.childTaskNumbers.length > 0 && (
+          <span>
+            Parent of{' '}
+            {chainInfo.childTaskNumbers.map((n, i) => (
+              <span key={n}>
+                {i > 0 && ', '}
+                <span className="opacity-50">#</span>
+                {n}
+              </span>
+            ))}
+          </span>
+        )}
+      </div>
+    ) : (
+      <span>
+        Task <span className="opacity-50">#</span>
+        {task.taskNumber}
+      </span>
+    );
+
+  return (
+    <Tooltip
+      text={tooltipContent}
+      placement="bottom"
+      disabled={isDragging || detachHovered}
+      referenceClassName="group/badge inline-flex items-center gap-0.5 shrink-0 font-mono text-[11px] leading-none px-2 py-1 rounded-full whitespace-nowrap"
+      referenceStyle={{
+        color: badgeColor,
+        background: badgeBg,
+        ...(shouldJitter && { animation: 'chain-badge-jitter 0.4s ease-out forwards' }),
+        ...(isDragging && { opacity: 0.3 }),
+        ...(isDimmedByDetach && { opacity: 0.4 }),
+      }}
+      onHoverChange={
+        isInChain
+          ? (hovering) => useProjectStore.getState().setHighlightedChainTask(hovering ? task.taskNumber : null)
+          : undefined
+      }
+    >
+      <span ref={setNodeRef} {...listeners} {...attributes} className="inline-flex items-center gap-0.5">
+        {chainInfo && chainInfo.depth > 0 && <Icon name="git-merge" className="w-3 h-3" />}
+        <span className="opacity-50">#</span>
+        {task.taskNumber}
+      </span>
+      {task.parentTaskNumber != null && (
+        <Tooltip text={`Detach from #${task.parentTaskNumber}`} placement="bottom" delay={300}>
+          <button
+            className="w-0 overflow-hidden group-hover/badge:w-4 flex items-center justify-center border-none bg-transparent text-white/30 hover:text-red-400 transition-all duration-150 [-webkit-app-region:no-drag] [&>svg]:w-2.5 [&>svg]:h-2.5 shrink-0 p-0"
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={async (e) => {
+              e.stopPropagation();
+              if (detachingRef.current) return;
+              detachingRef.current = true;
+              try {
+                setDetachHovered(false);
+                useProjectStore.getState().clearChainHighlights();
+                const mainBranch = await window.api.worktree.getMainBranch(projectPath);
+                await window.api.task.setParent(projectPath, task.taskNumber, null, mainBranch);
+                useProjectStore.getState().loadTasks(projectPath);
+              } finally {
+                detachingRef.current = false;
+              }
+            }}
+            onMouseEnter={() => {
+              setDetachHovered(true);
+              if (task.parentTaskNumber != null) {
+                useProjectStore.getState().setDetachHoverParent(task.parentTaskNumber);
+              }
+            }}
+            onMouseLeave={() => {
+              setDetachHovered(false);
+              useProjectStore.getState().setDetachHoverParent(null);
+            }}
+          >
+            <Icon name="x" />
+          </button>
+        </Tooltip>
+      )}
+    </Tooltip>
+  );
+}
