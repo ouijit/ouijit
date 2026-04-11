@@ -112,13 +112,15 @@ function TerminalCanvasInner({ projectPath }: TerminalCanvasProps) {
     [tasks, displayStates],
   );
 
-  // Load persisted canvas state on mount (sync happens after reconnection in ProjectViewReact)
+  // Load persisted canvas state on mount, then reconcile with current terminals
   useEffect(() => {
     useCanvasStore.getState().ensureProject(projectPath);
     loadPersistedCanvas(projectPath).then((saved) => {
       if (saved) {
         useCanvasStore.getState().loadCanvas(projectPath, saved);
       }
+      // Always sync after load to add terminals that exist but aren't in the saved state
+      syncCanvasWithTerminals(projectPath);
     });
   }, [projectPath]);
 
