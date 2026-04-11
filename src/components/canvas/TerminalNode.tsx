@@ -49,8 +49,15 @@ export const TerminalNode = memo(function TerminalNode({ data, selected }: NodeP
         lineClassName="!border-accent/30"
         handleClassName="!w-2 !h-2 !bg-accent/50 !border-none !rounded-sm"
       />
-      <Handle type="target" position={Position.Top} className="!bg-transparent !border-none !w-0 !h-0" />
-      <Handle type="source" position={Position.Bottom} className="!bg-transparent !border-none !w-0 !h-0" />
+      {/* Handles on all 4 sides for dynamic closest-side edge routing */}
+      <Handle id="top" type="source" position={Position.Top} className="!bg-transparent !border-none !w-0 !h-0" />
+      <Handle id="top" type="target" position={Position.Top} className="!bg-transparent !border-none !w-0 !h-0" />
+      <Handle id="bottom" type="source" position={Position.Bottom} className="!bg-transparent !border-none !w-0 !h-0" />
+      <Handle id="bottom" type="target" position={Position.Bottom} className="!bg-transparent !border-none !w-0 !h-0" />
+      <Handle id="left" type="source" position={Position.Left} className="!bg-transparent !border-none !w-0 !h-0" />
+      <Handle id="left" type="target" position={Position.Left} className="!bg-transparent !border-none !w-0 !h-0" />
+      <Handle id="right" type="source" position={Position.Right} className="!bg-transparent !border-none !w-0 !h-0" />
+      <Handle id="right" type="target" position={Position.Right} className="!bg-transparent !border-none !w-0 !h-0" />
 
       <div className="terminal-drag-handle">
         <TerminalHeader

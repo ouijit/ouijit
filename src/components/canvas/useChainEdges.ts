@@ -1,9 +1,72 @@
 import { useEffect } from 'react';
-import { MarkerType, type Edge } from '@xyflow/react';
+import { Position, type Edge } from '@xyflow/react';
 import { useProjectStore } from '../../stores/projectStore';
 import { useTerminalStore } from '../../stores/terminalStore';
-import { useCanvasStore, persistCanvas } from '../../stores/canvasStore';
+import { useCanvasStore, persistCanvas, type TerminalNode } from '../../stores/canvasStore';
 import { buildChainMap, getChainColor } from '../../utils/taskChain';
+
+const DEFAULT_W = 720;
+const DEFAULT_H = 480;
+
+interface NodeRect {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  cx: number;
+  cy: number;
+}
+
+function getNodeRect(node: TerminalNode): NodeRect {
+  const w = node.measured?.width ?? (node.style?.width ? Number(node.style.width) : DEFAULT_W);
+  const h = node.measured?.height ?? (node.style?.height ? Number(node.style.height) : DEFAULT_H);
+  return {
+    x: node.position.x,
+    y: node.position.y,
+    w,
+    h,
+    cx: node.position.x + w / 2,
+    cy: node.position.y + h / 2,
+  };
+}
+
+/** Determine which side of each node to connect, based on relative position. */
+function getClosestSides(
+  source: NodeRect,
+  target: NodeRect,
+): { sourceHandle: string; targetHandle: string; sourcePosition: Position; targetPosition: Position } {
+  const dx = target.cx - source.cx;
+  const dy = target.cy - source.cy;
+
+  // Use the axis with the greater distance to pick sides
+  if (Math.abs(dx) > Math.abs(dy)) {
+    // Horizontal relationship
+    if (dx > 0) {
+      return {
+        sourceHandle: 'right',
+        targetHandle: 'left',
+        sourcePosition: Position.Right,
+        targetPosition: Position.Left,
+      };
+    }
+    return {
+      sourceHandle: 'left',
+      targetHandle: 'right',
+      sourcePosition: Position.Left,
+      targetPosition: Position.Right,
+    };
+  }
+  // Vertical relationship
+  if (dy > 0) {
+    return {
+      sourceHandle: 'bottom',
+      targetHandle: 'top',
+      sourcePosition: Position.Bottom,
+      targetPosition: Position.Top,
+    };
+  }
+  return { sourceHandle: 'top', targetHandle: 'bottom', sourcePosition: Position.Top, targetPosition: Position.Bottom };
+}
 
 /**
  * Computes react-flow edges from task chain relationships
@@ -20,13 +83,13 @@ export function useChainEdges(projectPath: string): void {
     // Build task chain map
     const chainMap = buildChainMap(tasks);
 
-    // Build taskNumber -> ptyId lookup from terminals on canvas
-    const taskToPtyId = new Map<number, string>();
+    // Build taskNumber -> node lookup from terminals on canvas
+    const taskToNode = new Map<number, TerminalNode>();
     for (const node of canvasNodes) {
       const ptyId = node.data.ptyId;
       const display = displayStates[ptyId];
       if (display?.taskId != null) {
-        taskToPtyId.set(display.taskId, ptyId);
+        taskToNode.set(display.taskId, node);
       }
     }
 
@@ -35,30 +98,40 @@ export function useChainEdges(projectPath: string): void {
     for (const task of tasks) {
       if (task.parentTaskNumber == null) continue;
 
-      const childPtyId = taskToPtyId.get(task.taskNumber);
-      const parentPtyId = taskToPtyId.get(task.parentTaskNumber);
-      if (!childPtyId || !parentPtyId) continue;
+      const childNode = taskToNode.get(task.taskNumber);
+      const parentNode = taskToNode.get(task.parentTaskNumber);
+      if (!childNode || !parentNode) continue;
 
       const chainInfo = chainMap.get(task.taskNumber);
       if (!chainInfo) continue;
 
       const color = getChainColor(chainInfo.rootTaskNumber, chainInfo.depth);
+      const sourceRect = getNodeRect(parentNode);
+      const targetRect = getNodeRect(childNode);
+      const { sourceHandle, targetHandle, sourcePosition, targetPosition } = getClosestSides(sourceRect, targetRect);
 
       edges.push({
-        id: `chain-${parentPtyId}-${childPtyId}`,
-        source: parentPtyId,
-        target: childPtyId,
+        id: `chain-${parentNode.id}-${childNode.id}`,
+        source: parentNode.id,
+        target: childNode.id,
+        sourceHandle,
+        targetHandle,
         type: 'chain',
-        markerEnd: { type: MarkerType.ArrowClosed, color, width: 16, height: 16 },
-        style: { stroke: color, strokeWidth: 2 },
+        data: { sourcePosition, targetPosition },
+        style: { stroke: color, strokeWidth: 2, strokeLinecap: 'round' },
       });
     }
 
-    // Only update if edges actually changed (avoid infinite loops)
+    // Only update if edges actually changed
     const current = useCanvasStore.getState().canvasByProject[projectPath]?.edges ?? [];
     const changed =
       edges.length !== current.length ||
-      edges.some((e, i) => e.id !== current[i]?.id || e.style?.stroke !== (current[i]?.style as any)?.stroke);
+      edges.some(
+        (e, i) =>
+          e.id !== current[i]?.id ||
+          e.sourceHandle !== current[i]?.sourceHandle ||
+          e.targetHandle !== current[i]?.targetHandle,
+      );
 
     if (changed) {
       useCanvasStore.getState().setEdges(projectPath, edges);

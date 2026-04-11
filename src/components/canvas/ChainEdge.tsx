@@ -1,7 +1,7 @@
 import { memo } from 'react';
-import { BaseEdge, getBezierPath, type EdgeProps } from '@xyflow/react';
+import { BaseEdge, getBezierPath, type EdgeProps, type Position } from '@xyflow/react';
 
-/** Custom edge for task chain connections. Renders a bezier curve with chain-colored stroke and arrow. */
+/** Smooth bezier edge for task chain connections. */
 export const ChainEdge = memo(function ChainEdge({
   sourceX,
   sourceY,
@@ -9,17 +9,29 @@ export const ChainEdge = memo(function ChainEdge({
   targetY,
   sourcePosition,
   targetPosition,
-  markerEnd,
   style,
+  data,
 }: EdgeProps) {
+  const edgeData = data as { sourcePosition?: Position; targetPosition?: Position } | undefined;
+  const srcPos = edgeData?.sourcePosition ?? sourcePosition;
+  const tgtPos = edgeData?.targetPosition ?? targetPosition;
+  const strokeColor = (style as React.CSSProperties | undefined)?.stroke;
+
   const [edgePath] = getBezierPath({
     sourceX,
     sourceY,
     targetX,
     targetY,
-    sourcePosition,
-    targetPosition,
+    sourcePosition: srcPos,
+    targetPosition: tgtPos,
   });
 
-  return <BaseEdge path={edgePath} markerEnd={markerEnd} style={style} />;
+  return (
+    <>
+      {strokeColor && (
+        <path d={edgePath} fill="none" stroke={String(strokeColor)} strokeWidth={6} strokeOpacity={0.08} />
+      )}
+      <BaseEdge path={edgePath} style={style} />
+    </>
+  );
 });
