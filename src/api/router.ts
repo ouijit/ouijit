@@ -33,7 +33,7 @@ import {
   getTaskWithWorkspace,
 } from '../taskLifecycle';
 import { getProjectList } from '../scanner';
-import { getPlanPath, setPlanPath } from '../hookServer';
+import { getPlanPath, setPlanPath, clearPlanPath } from '../hookServer';
 import { isPtyActive } from '../ptyManager';
 import { typedPush } from '../ipc/helpers';
 import { getLogger } from '../logger';
@@ -368,6 +368,12 @@ const routes: Route[] = [
     const resolved = path.resolve(planPath);
     setPlanPath(ptyId, resolved);
     return { success: true, ptyId, planPath: resolved };
+  }),
+
+  route('DELETE', 'plan/:ptyId', (r) => {
+    const ptyId = r.segments[1];
+    clearPlanPath(ptyId);
+    return { success: true, ptyId };
   }),
 ];
 

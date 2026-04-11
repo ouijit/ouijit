@@ -44,6 +44,6 @@ registerHookCommands(program, requireProject);
 registerTagCommands(program, requireProject);
 registerProjectCommands(program);
 registerScriptCommands(program, requireProject);
-registerPlanCommands(program, requireProject);
+registerPlanCommands(program);
 
 program.parse();

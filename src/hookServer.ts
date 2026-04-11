@@ -74,6 +74,17 @@ export function setPlanPath(ptyId: string, planPath: string): boolean {
   return true;
 }
 
+/** Clear the plan file path for a pty and notify the renderer. */
+export function clearPlanPath(ptyId: string): boolean {
+  if (!planPathMap.has(ptyId)) return false;
+  planPathMap.delete(ptyId);
+  hookServerLog.info('plan cleared', { ptyId });
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('claude-plan-detected', ptyId, null);
+  }
+  return true;
+}
+
 // ── Action handlers ──────────────────────────────────────────────────
 
 type ActionHandler = (body: Record<string, unknown>) => void;
