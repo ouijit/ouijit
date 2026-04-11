@@ -243,14 +243,34 @@ export async function setTaskParent(
     const row = tr.getByTaskNumber(projectPath, taskNumber);
     if (!row) return { success: false, error: 'Task not found' };
 
-    tr.updateParentTaskNumber(projectPath, taskNumber, parentTaskNumber);
-    if (mergeTarget !== undefined) {
-      tr.updateMergeTarget(projectPath, taskNumber, mergeTarget);
+    // Prevent self-reference
+    if (parentTaskNumber === taskNumber) return { success: false, error: 'Task cannot be its own parent' };
+
+    // Prevent cycles: walk up from proposed parent to root
+    if (parentTaskNumber != null) {
+      let current = parentTaskNumber;
+      const visited = new Set<number>();
+      while (current != null) {
+        if (current === taskNumber) return { success: false, error: 'Cannot create a cycle' };
+        if (visited.has(current)) break;
+        visited.add(current);
+        const parentRow = tr.getByTaskNumber(projectPath, current);
+        current = parentRow?.parent_task_number as number;
+      }
     }
+
+    tr.updateParentTaskNumber(projectPath, taskNumber, parentTaskNumber);
+    // Always update mergeTarget to prevent stale values from a previous parent
+    tr.updateMergeTarget(projectPath, taskNumber, mergeTarget ?? null);
     return { success: true };
   } catch (error) {
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
   }
+}
+
+export async function clearParentReferences(projectPath: string, parentTaskNumber: number): Promise<void> {
+  const { taskRepo: tr } = repos();
+  tr.clearParentReferences(projectPath, parentTaskNumber);
 }
 
 export async function setTaskWorktreePath(

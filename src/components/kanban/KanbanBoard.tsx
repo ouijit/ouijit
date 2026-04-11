@@ -129,7 +129,7 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
     window.api.hooks.get(projectPath).then((hooks) => {
       const configured: Record<string, boolean> = {};
       for (const key of Object.keys(hooks)) {
-        if ((hooks as any)[key]) configured[key] = true;
+        if (hooks[key as HookType]) configured[key] = true;
       }
       setConfiguredHooks(configured);
     });
@@ -218,6 +218,7 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
 
   const [showTrash, setShowTrash] = useState(false);
   const [overTrash, setOverTrash] = useState(false);
+  const overTrashRef = useRef(false);
   const trashRef = useRef<HTMLDivElement>(null);
 
   // Track pointer proximity to right edge during drag, and whether pointer is over the trash zone
@@ -235,10 +236,12 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
       const el = trashRef.current;
       if (el) {
         const rect = el.getBoundingClientRect();
-        setOverTrash(
-          e.clientX >= rect.left && e.clientX <= rect.right && e.clientY >= rect.top && e.clientY <= rect.bottom,
-        );
+        const isOver =
+          e.clientX >= rect.left && e.clientX <= rect.right && e.clientY >= rect.top && e.clientY <= rect.bottom;
+        overTrashRef.current = isOver;
+        setOverTrash(isOver);
       } else {
+        overTrashRef.current = false;
         setOverTrash(false);
       }
     };
@@ -340,7 +343,7 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
       // ── Card drop: reorder / trash ──────────────────────────────────
       let draggedTask = activeTask;
       const origStatus = originalStatusRef.current;
-      const droppedOnTrash = overTrash;
+      const droppedOnTrash = overTrashRef.current;
       originalStatusRef.current = null;
 
       if (!draggedTask) {
@@ -439,13 +442,13 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
 
         if (newStatus === 'in_progress') {
           hookType = origStatus === 'todo' ? 'start' : 'continue';
-          hook = (hooks as any)[hookType] || null;
+          hook = hooks[hookType] ?? null;
         } else if (newStatus === 'in_review') {
           hookType = 'review';
-          hook = (hooks as any).review || null;
+          hook = hooks.review ?? null;
         } else if (newStatus === 'done') {
           hookType = 'cleanup';
-          hook = (hooks as any).cleanup || null;
+          hook = hooks.cleanup ?? null;
         }
 
         if (hook && hookType) {
@@ -453,7 +456,7 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
         }
       }
     },
-    [activeTask, chainMap, storeTasks, overTrash, items, findContainer, projectPath, ensureWorktreeExists],
+    [activeTask, chainMap, storeTasks, items, findContainer, projectPath, ensureWorktreeExists],
   );
 
   // Task CRUD
@@ -556,12 +559,12 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
       if (hookTypes.length === 2 && hookTypes.includes('start') && hookTypes.includes('continue')) {
         setHookDialog({
           mode: 'combined',
-          start: (hooks as any).start || undefined,
-          continue: (hooks as any).continue || undefined,
+          start: hooks.start ?? undefined,
+          continue: hooks.continue ?? undefined,
         });
       } else {
         const hookType = hookTypes[0];
-        const existing = (hooks as any)[hookType] || undefined;
+        const existing = hooks[hookType] ?? undefined;
         setHookDialog({ mode: 'single', hookType, existingHook: existing });
       }
     },
@@ -574,7 +577,7 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
     window.api.hooks.get(projectPath).then((hooks) => {
       const configured: Record<string, boolean> = {};
       for (const key of Object.keys(hooks)) {
-        if ((hooks as any)[key]) configured[key] = true;
+        if (hooks[key as HookType]) configured[key] = true;
       }
       setConfiguredHooks(configured);
     });

@@ -63,6 +63,7 @@ interface ProjectStoreActions {
 type ProjectStore = ProjectStoreState & ProjectStoreActions;
 
 let toastCounter = 0;
+let moveCounter = 0;
 
 export const useProjectStore = create<ProjectStore>()((set, get) => ({
   tasks: [],
@@ -175,6 +176,7 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
 
   moveTask: async (projectPath, taskNumber, newStatus, targetIndex) => {
     const prev = get().tasks;
+    const moveVersion = ++moveCounter;
     // Optimistic: reorder locally
     const task = prev.find((t) => t.taskNumber === taskNumber);
     if (!task) return;
@@ -188,15 +190,21 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
     const orderedStatusTasks = statusTasks.map((t, i) => ({ ...t, order: i }));
     set({ tasks: [...otherTasks, ...orderedStatusTasks] });
 
+    const rollbackOrReload = () => {
+      // Only rollback if no other move has happened since our snapshot
+      if (moveCounter === moveVersion) {
+        set({ tasks: prev });
+      } else {
+        get().loadTasks(projectPath);
+      }
+      get().addToast('Failed to move task', 'error');
+    };
+
     try {
       const result = await window.api.task.reorder(projectPath, taskNumber, newStatus as any, targetIndex);
-      if (!result.success) {
-        set({ tasks: prev });
-        get().addToast('Failed to move task', 'error');
-      }
+      if (!result.success) rollbackOrReload();
     } catch {
-      set({ tasks: prev });
-      get().addToast('Failed to move task', 'error');
+      rollbackOrReload();
     }
   },
 }));

@@ -8,8 +8,18 @@ vi.mock('node:child_process', () => ({
     cb(null, { stdout: 'main\n', stderr: '' });
   }),
   execFile: vi.fn(
-    (_file: string, _args: string[], _opts: unknown, cb: (err: null, stdout: string, stderr: string) => void) => {
-      cb(null, '', '');
+    (
+      _file: string,
+      args: string[],
+      _opts: unknown,
+      cb: (err: Error | null, stdout: string, stderr: string) => void,
+    ) => {
+      // Default: rev-parse --verify always fails (branch doesn't exist) so tests exercise the -b path
+      if (Array.isArray(args) && args.includes('--verify')) {
+        cb(new Error('not found'), '', '');
+      } else {
+        cb(null, '', '');
+      }
     },
   ),
 }));
@@ -34,32 +44,6 @@ vi.mock('koffi', () => ({
 
 import { startTask } from '../worktree';
 import { beginTask } from '../taskLifecycle';
-
-async function mockExecBranchNotFound() {
-  const { exec } = await import('node:child_process');
-  vi.mocked(exec).mockImplementation(((
-    cmd: string,
-    _opts: unknown,
-    cb: (err: Error | null, result: { stdout: string; stderr: string }) => void,
-  ) => {
-    if (typeof cmd === 'string' && cmd.includes('rev-parse --verify')) {
-      cb(new Error('not found'), { stdout: '', stderr: '' });
-    } else {
-      cb(null, { stdout: 'main\n', stderr: '' });
-    }
-  }) as typeof exec);
-}
-
-async function restoreExecMock() {
-  const { exec } = await import('node:child_process');
-  vi.mocked(exec).mockImplementation(((
-    _cmd: string,
-    _opts: unknown,
-    cb: (err: null, result: { stdout: string; stderr: string }) => void,
-  ) => {
-    cb(null, { stdout: 'main\n', stderr: '' });
-  }) as typeof exec);
-}
 
 describe('startTask', () => {
   test('does not change a todo task status to in_progress', async () => {
@@ -101,20 +85,22 @@ describe('startTask', () => {
   });
 
   test('passes baseBranch as start point to git worktree add', async () => {
-    const { exec } = await import('node:child_process');
-    await mockExecBranchNotFound();
+    const { execFile } = await import('node:child_process');
+    vi.mocked(execFile).mockClear();
 
     const project = '/test/start-with-base';
     await createTask(project, 1, 'Child task', { status: 'todo' });
 
     await startTask(project, 1, undefined, 'feat/parent-branch');
 
-    const execCalls = vi.mocked(exec).mock.calls;
-    const wtAddCall = execCalls.find(([cmd]) => typeof cmd === 'string' && cmd.includes('git worktree add -b'));
+    const execFileCalls = vi.mocked(execFile).mock.calls;
+    const wtAddCall = execFileCalls.find(
+      ([file, args]) => file === 'git' && Array.isArray(args) && args.includes('worktree'),
+    );
     expect(wtAddCall).toBeDefined();
-    expect(wtAddCall![0]).toContain('feat/parent-branch');
-
-    await restoreExecMock();
+    const args = wtAddCall![1] as string[];
+    expect(args).toContain('-b');
+    expect(args).toContain('feat/parent-branch');
   });
 
   test('sets mergeTarget to baseBranch when provided', async () => {
@@ -140,8 +126,8 @@ describe('startTask', () => {
   });
 
   test('beginTask passes parent branch as baseBranch', async () => {
-    const { exec } = await import('node:child_process');
-    await mockExecBranchNotFound();
+    const { execFile } = await import('node:child_process');
+    vi.mocked(execFile).mockClear();
 
     const project = '/test/begin-with-parent';
     await createTask(project, 1, 'Parent', { branch: 'feat/parent', status: 'in_progress' });
@@ -149,12 +135,14 @@ describe('startTask', () => {
 
     await beginTask(project, 2);
 
-    const execCalls = vi.mocked(exec).mock.calls;
-    const wtAddCall = execCalls.find(([cmd]) => typeof cmd === 'string' && cmd.includes('git worktree add -b'));
+    const execFileCalls = vi.mocked(execFile).mock.calls;
+    const wtAddCall = execFileCalls.find(
+      ([file, args]) => file === 'git' && Array.isArray(args) && args.includes('worktree'),
+    );
     expect(wtAddCall).toBeDefined();
-    expect(wtAddCall![0]).toContain('feat/parent');
-
-    await restoreExecMock();
+    const args = wtAddCall![1] as string[];
+    expect(args).toContain('-b');
+    expect(args).toContain('feat/parent');
   });
 
   test('beginTask falls back to HEAD when parent is missing', async () => {

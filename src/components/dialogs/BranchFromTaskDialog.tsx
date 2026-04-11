@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { TaskWithWorkspace } from '../../types';
+import { useProjectStore } from '../../stores/projectStore';
 import { DialogOverlay } from './DialogOverlay';
 
 interface BranchFromTaskDialogProps {
@@ -13,6 +14,7 @@ export function BranchFromTaskDialog({ projectPath, parentTask, onClose }: Branc
   const [name, setName] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   useEffect(() => {
     requestAnimationFrame(() => setVisible(true));
@@ -22,10 +24,13 @@ export function BranchFromTaskDialog({ projectPath, parentTask, onClose }: Branc
     if (visible) inputRef.current?.focus();
   }, [visible]);
 
+  // Clear dismiss timeout on unmount
+  useEffect(() => () => clearTimeout(timerRef.current), []);
+
   const dismiss = useCallback(
     (created: boolean) => {
       setVisible(false);
-      setTimeout(() => onClose(created), 200);
+      timerRef.current = setTimeout(() => onClose(created), 200);
     },
     [onClose],
   );
@@ -37,6 +42,8 @@ export function BranchFromTaskDialog({ projectPath, parentTask, onClose }: Branc
     setSubmitting(false);
     if (result.success) {
       dismiss(true);
+    } else {
+      useProjectStore.getState().addToast(result.error || 'Failed to create task', 'error');
     }
   }, [projectPath, parentTask.taskNumber, name, submitting, dismiss]);
 

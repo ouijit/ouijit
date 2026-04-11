@@ -152,7 +152,7 @@ export class TaskRepo {
       .run(worktreePath, projectPath, taskNumber);
   }
 
-  updateMergeTarget(projectPath: string, taskNumber: number, mergeTarget: string): void {
+  updateMergeTarget(projectPath: string, taskNumber: number, mergeTarget: string | null): void {
     this.db
       .prepare('UPDATE tasks SET merge_target = ? WHERE project_path = ? AND task_number = ?')
       .run(mergeTarget, projectPath, taskNumber);
@@ -224,6 +224,14 @@ export class TaskRepo {
         }
       }
     })();
+  }
+
+  clearParentReferences(projectPath: string, parentTaskNumber: number): void {
+    this.db
+      .prepare(
+        'UPDATE tasks SET parent_task_number = NULL, merge_target = NULL WHERE project_path = ? AND parent_task_number = ?',
+      )
+      .run(projectPath, parentTaskNumber);
   }
 
   delete(projectPath: string, taskNumber: number): void {

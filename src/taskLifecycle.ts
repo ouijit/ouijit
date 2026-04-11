@@ -14,6 +14,7 @@ import {
   createTask,
   setTaskStatus,
   deleteTaskByNumber,
+  clearParentReferences,
   reorderTask,
   type TaskStatus,
 } from './db';
@@ -124,6 +125,10 @@ export async function deleteTaskWithWorktree(
   taskNumber: number,
 ): Promise<{ success: boolean; error?: string }> {
   const task = await getTaskByNumber(projectPath, taskNumber);
+
+  // Clear parent references on children before deleting
+  await clearParentReferences(projectPath, taskNumber);
+
   if (task?.worktreePath || task?.branch) {
     const worktrees = await listWorktrees(projectPath);
     const wt = task.branch
@@ -152,6 +157,9 @@ export async function trashTaskWithWorktree(
   taskNumber: number,
 ): Promise<{ success: boolean; error?: string; trashed?: boolean }> {
   const task = await getTaskByNumber(projectPath, taskNumber);
+
+  // Clear parent references on children before deleting
+  await clearParentReferences(projectPath, taskNumber);
 
   // Resolve the worktree path — prefer the DB path, fall back to git worktree list
   let worktreePath: string | undefined;
