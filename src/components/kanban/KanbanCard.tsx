@@ -10,7 +10,7 @@ import { HookConfigDialog } from '../dialogs/HookConfigDialog';
 import { BranchFromTaskDialog } from '../dialogs/BranchFromTaskDialog';
 import { Tooltip } from '../ui/Tooltip';
 import type { TaskChainInfo } from '../../utils/taskChain';
-import { getChainColor, getChainBgColor, isDescendantOf } from '../../utils/taskChain';
+import { getChainColor, getChainBgColor, isChainMember, isDescendantOf } from '../../utils/taskChain';
 
 interface KanbanCardProps {
   task: TaskWithWorkspace;
@@ -46,7 +46,7 @@ export const KanbanCard = memo(function KanbanCard({
   const descInputRef = useRef<HTMLSpanElement>(null);
 
   const isDone = task.status === 'done';
-  const isInChain = chainInfo != null && (chainInfo.depth > 0 || chainInfo.childTaskNumbers.length > 0);
+  const isInChain = isChainMember(chainInfo);
 
   // Badge drag visual feedback — derive per-card booleans in selectors to avoid O(N) re-renders
   const activeBadgeDragSource = useProjectStore((s) => s.activeBadgeDrag);
@@ -503,7 +503,7 @@ function DraggableBadge({
   chainInfo?: TaskChainInfo;
   chainMap?: Map<number, TaskChainInfo>;
 }) {
-  const isInChain = chainInfo != null && (chainInfo.depth > 0 || chainInfo.childTaskNumbers.length > 0);
+  const isInChain = isChainMember(chainInfo);
 
   const highlightedChainTask = useProjectStore((s) => s.highlightedChainTask);
   const hoveredChainRoot = highlightedChainTask != null ? chainMap?.get(highlightedChainTask)?.rootTaskNumber : null;

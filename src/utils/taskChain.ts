@@ -6,6 +6,11 @@ export interface TaskChainInfo {
   childTaskNumbers: number[];
 }
 
+/** Whether a task is part of a parent-child chain (has a parent or children). */
+export function isChainMember(info: TaskChainInfo | undefined): boolean {
+  return info != null && (info.depth > 0 || info.childTaskNumbers.length > 0);
+}
+
 /**
  * Build a map of chain info for all tasks in a project.
  * Walks parent chains to compute root and depth for each task.

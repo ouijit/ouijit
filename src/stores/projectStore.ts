@@ -95,9 +95,13 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
     if (get().detachHoverParent !== taskNumber) set({ detachHoverParent: taskNumber });
   },
 
-  setActiveBadgeDrag: (taskNumber) => set({ activeBadgeDrag: taskNumber }),
+  setActiveBadgeDrag: (taskNumber) => {
+    if (get().activeBadgeDrag !== taskNumber) set({ activeBadgeDrag: taskNumber });
+  },
 
-  setBadgeDragOverTask: (taskNumber) => set({ badgeDragOverTask: taskNumber }),
+  setBadgeDragOverTask: (taskNumber) => {
+    if (get().badgeDragOverTask !== taskNumber) set({ badgeDragOverTask: taskNumber });
+  },
 
   clearChainHighlights: () => set({ highlightedChainTask: null, detachHoverParent: null }),
 
