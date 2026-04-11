@@ -1,9 +1,12 @@
 import { create } from 'zustand';
 import type { TaskWithWorkspace, Script } from '../types';
 
+export type TerminalLayout = 'stack' | 'canvas';
+
 interface ProjectStoreState {
   tasks: TaskWithWorkspace[];
   kanbanVisible: boolean;
+  terminalLayout: TerminalLayout;
   activePanel: 'terminals' | 'settings';
   scripts: Script[];
   taskVersion: number;
@@ -49,6 +52,8 @@ interface ProjectStoreActions {
   setBadgeDragOverTask: (taskNumber: number | null) => void;
   clearChainHighlights: () => void;
   resetBadgeDragState: () => void;
+  setTerminalLayout: (layout: TerminalLayout) => void;
+  toggleTerminalLayout: () => void;
   setActivePanel: (panel: 'terminals' | 'settings') => void;
   resetForProject: () => void;
 
@@ -68,6 +73,7 @@ let moveCounter = 0;
 export const useProjectStore = create<ProjectStore>()((set, get) => ({
   tasks: [],
   kanbanVisible: false,
+  terminalLayout: 'stack',
   activePanel: 'terminals',
   scripts: [],
   taskVersion: 0,
@@ -109,6 +115,10 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
   resetBadgeDragState: () =>
     set({ activeBadgeDrag: null, badgeDragOverTask: null, highlightedChainTask: null, detachHoverParent: null }),
 
+  setTerminalLayout: (layout) => set({ terminalLayout: layout }),
+
+  toggleTerminalLayout: () => set((s) => ({ terminalLayout: s.terminalLayout === 'stack' ? 'canvas' : 'stack' })),
+
   setActivePanel: (panel) => set({ activePanel: panel }),
 
   showModal: (modal) => set({ activeModal: modal }),
@@ -140,6 +150,7 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
     set({
       tasks: [],
       kanbanVisible: false,
+      terminalLayout: 'stack',
       activePanel: 'terminals',
       scripts: [],
       taskVersion: 0,

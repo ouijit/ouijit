@@ -6,6 +6,7 @@
 
 import type { PtySpawnOptions, RunConfig, WorktreeInfo, ActiveSession, RunnerScript } from '../../types';
 import { useTerminalStore, type TerminalDisplayState } from '../../stores/terminalStore';
+import { useCanvasStore, persistCanvas } from '../../stores/canvasStore';
 import { useAppStore, staleGuard } from '../../stores/appStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { OuijitTerminal, terminalInstances, resolveTerminalLabel, type SummaryType } from './terminalReact';
@@ -45,6 +46,11 @@ function registerTerminal(
 
   // Add to Zustand store
   useTerminalStore.getState().addTerminal(projectPath, ptyId, initial);
+
+  // Add to canvas
+  useCanvasStore.getState().ensureProject(projectPath);
+  useCanvasStore.getState().addNode(projectPath, ptyId);
+  persistCanvas(projectPath);
 
   // Activate last unless background
   if (!background) {
@@ -260,10 +266,17 @@ export async function addProjectTerminal(
 
 export function closeProjectTerminal(ptyId: string): void {
   const instance = terminalInstances.get(ptyId);
+  const projectPath = instance?.projectPath;
   if (instance) {
     instance.dispose();
   }
   useTerminalStore.getState().removeTerminal(ptyId);
+
+  // Remove from canvas
+  if (projectPath) {
+    useCanvasStore.getState().removeNode(projectPath, ptyId);
+    persistCanvas(projectPath);
+  }
 }
 
 // ── Reconnect to an orphaned PTY ─────────────────────────────────────
