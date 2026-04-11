@@ -1,28 +1,39 @@
 import { describe, test, expect, vi } from 'vitest';
 import { createTask, getTaskByNumber } from '../db';
 
-// Mock child_process so execAsync resolves without real git commands
-vi.mock('node:child_process', () => ({
-  execSync: vi.fn(),
-  exec: vi.fn((_cmd: string, _opts: unknown, cb: (err: null, result: { stdout: string; stderr: string }) => void) => {
-    cb(null, { stdout: 'main\n', stderr: '' });
-  }),
-  execFile: vi.fn(
+// Mock child_process so execFileAsync resolves without real git commands
+vi.mock('node:child_process', () => {
+  const execFileFn = vi.fn(
     (
       _file: string,
       args: string[],
       _opts: unknown,
       cb: (err: Error | null, stdout: string, stderr: string) => void,
     ) => {
-      // Default: rev-parse --verify always fails (branch doesn't exist) so tests exercise the -b path
+      // rev-parse --verify always fails (branch doesn't exist) so tests exercise the -b path
       if (Array.isArray(args) && args.includes('--verify')) {
         cb(new Error('not found'), '', '');
+      } else if (Array.isArray(args) && args.includes('--abbrev-ref')) {
+        cb(null, 'main\n', '');
+      } else if (Array.isArray(args) && args.includes('ls-files')) {
+        cb(null, 'node_modules/\n', '');
       } else {
         cb(null, '', '');
       }
     },
-  ),
-}));
+  );
+  // Replicate Node's custom promisify for execFile so promisify() returns { stdout, stderr }
+  (execFileFn as Record<symbol, unknown>)[Symbol.for('nodejs.util.promisify.custom')] = (
+    ...args: unknown[]
+  ): Promise<{ stdout: string; stderr: string }> =>
+    new Promise((resolve, reject) => {
+      execFileFn(...(args as Parameters<typeof execFileFn>), (err: Error | null, stdout: string, stderr: string) => {
+        if (err) reject(err);
+        else resolve({ stdout, stderr });
+      });
+    });
+  return { exec: vi.fn(), execSync: vi.fn(), execFile: execFileFn };
+});
 
 // Mock fs/promises — keep real readFile/writeFile for taskMetadata, stub mkdir/access/cp for worktree
 vi.mock('node:fs/promises', async (importOriginal) => {
@@ -95,7 +106,7 @@ describe('startTask', () => {
 
     const execFileCalls = vi.mocked(execFile).mock.calls;
     const wtAddCall = execFileCalls.find(
-      ([file, args]) => file === 'git' && Array.isArray(args) && args.includes('worktree'),
+      ([file, args]) => file === 'git' && Array.isArray(args) && args[0] === 'worktree' && args[1] === 'add',
     );
     expect(wtAddCall).toBeDefined();
     const args = wtAddCall![1] as string[];
@@ -137,7 +148,7 @@ describe('startTask', () => {
 
     const execFileCalls = vi.mocked(execFile).mock.calls;
     const wtAddCall = execFileCalls.find(
-      ([file, args]) => file === 'git' && Array.isArray(args) && args.includes('worktree'),
+      ([file, args]) => file === 'git' && Array.isArray(args) && args[0] === 'worktree' && args[1] === 'add',
     );
     expect(wtAddCall).toBeDefined();
     const args = wtAddCall![1] as string[];

@@ -9,17 +9,24 @@ import { createTask, _resetCacheForTesting } from '../db';
 
 // ── Mocks (superset needed by all describe blocks) ──────────────────
 
-vi.mock('node:child_process', () => ({
-  exec: vi.fn((_cmd: string, _opts: unknown, cb: (err: null, result: { stdout: string; stderr: string }) => void) => {
-    cb(null, { stdout: '', stderr: '' });
-  }),
-  execFile: vi.fn(
+vi.mock('node:child_process', () => {
+  const execFileFn = vi.fn(
     (_file: string, _args: string[], _opts: unknown, cb: (err: null, stdout: string, stderr: string) => void) => {
       cb(null, '', '');
     },
-  ),
-  execSync: vi.fn(),
-}));
+  );
+  // Replicate Node's custom promisify for execFile so promisify() returns { stdout, stderr }
+  (execFileFn as Record<symbol, unknown>)[Symbol.for('nodejs.util.promisify.custom')] = (
+    ...args: unknown[]
+  ): Promise<{ stdout: string; stderr: string }> =>
+    new Promise((resolve, reject) => {
+      execFileFn(...(args as Parameters<typeof execFileFn>), (err: Error | null, stdout: string, stderr: string) => {
+        if (err) reject(err);
+        else resolve({ stdout, stderr });
+      });
+    });
+  return { exec: vi.fn(), execSync: vi.fn(), execFile: execFileFn };
+});
 
 vi.mock('koffi', () => ({
   default: { load: vi.fn() },
@@ -47,7 +54,7 @@ vi.mock('../hookRunner', () => ({
 
 // ── Imports (after mocks) ───────────────────────────────────────────
 
-import { exec } from 'node:child_process';
+import { execFile } from 'node:child_process';
 import { listWorktrees, shipWorktree } from '../worktree';
 import { createProject } from '../projectCreator';
 import { getTasksWithWorkspaces } from '../taskLifecycle';
@@ -57,28 +64,30 @@ import { getTasksWithWorkspaces } from '../taskLifecycle';
 const homedir = os.homedir();
 const baseDir = `${homedir}/Ouijit/worktrees/myproject`;
 
-function mockExec(handler: (cmd: string) => { stdout: string; stderr: string } | Error) {
-  vi.mocked(exec).mockImplementation(((...args: unknown[]) => {
-    const cmd = args[0] as string;
-    const cb = args[2] as (err: Error | null, result: { stdout: string; stderr: string }) => void;
+function mockExecFile(handler: (cmd: string) => { stdout: string; stderr: string } | Error) {
+  vi.mocked(execFile).mockImplementation(((...args: unknown[]) => {
+    const file = args[0] as string;
+    const fileArgs = args[1] as string[];
+    const cb = args[args.length - 1] as (err: Error | null, stdout: string, stderr: string) => void;
+    const cmd = [file, ...fileArgs].join(' ');
     const result = handler(cmd);
     if (result instanceof Error) {
-      cb(result, { stdout: '', stderr: '' });
+      cb(result, '', '');
     } else {
-      cb(null, result);
+      cb(null, result.stdout, result.stderr);
     }
-  }) as typeof exec);
+  }) as typeof execFile);
 }
 
 // ── listWorktrees ───────────────────────────────────────────────────
 
 describe('listWorktrees (async)', () => {
   beforeEach(() => {
-    vi.mocked(exec).mockReset();
+    vi.mocked(execFile).mockReset();
   });
 
   test('returns a Promise (not a synchronous value)', () => {
-    mockExec(() => ({ stdout: '', stderr: '' }));
+    mockExecFile(() => ({ stdout: '', stderr: '' }));
     const result = listWorktrees('/projects/myproject');
     expect(result).toBeInstanceOf(Promise);
   });
@@ -102,7 +111,7 @@ describe('listWorktrees (async)', () => {
       `branch refs/heads/feature-2`,
     ].join('\n');
 
-    mockExec(() => ({ stdout: porcelain, stderr: '' }));
+    mockExecFile(() => ({ stdout: porcelain, stderr: '' }));
 
     const worktrees = await listWorktrees('/projects/myproject');
     expect(worktrees).toHaveLength(2);
@@ -113,7 +122,7 @@ describe('listWorktrees (async)', () => {
   });
 
   test('returns empty array when git command fails', async () => {
-    mockExec(() => new Error('fatal: not a git repository'));
+    mockExecFile(() => new Error('fatal: not a git repository'));
     const worktrees = await listWorktrees('/not-a-repo');
     expect(worktrees).toEqual([]);
   });
@@ -121,7 +130,7 @@ describe('listWorktrees (async)', () => {
   test('returns empty array when no managed worktrees exist', async () => {
     const porcelain = [`worktree /projects/myproject`, `HEAD abc123`, `branch refs/heads/main`].join('\n');
 
-    mockExec(() => ({ stdout: porcelain, stderr: '' }));
+    mockExecFile(() => ({ stdout: porcelain, stderr: '' }));
     const worktrees = await listWorktrees('/projects/myproject');
     expect(worktrees).toEqual([]);
   });
@@ -137,7 +146,7 @@ describe('listWorktrees (async)', () => {
       `branch refs/heads/newer-2000000000`,
     ].join('\n');
 
-    mockExec(() => ({ stdout: porcelain, stderr: '' }));
+    mockExecFile(() => ({ stdout: porcelain, stderr: '' }));
     const worktrees = await listWorktrees('/projects/myproject');
     expect(worktrees[0].branch).toBe('newer-2000000000');
     expect(worktrees[1].branch).toBe('older-1000000000');
@@ -148,7 +157,7 @@ describe('listWorktrees (async)', () => {
 
 describe('shipWorktree (async)', () => {
   beforeEach(() => {
-    vi.mocked(exec).mockReset();
+    vi.mocked(execFile).mockReset();
   });
 
   const worktreePorcelain = (branch: string) =>
@@ -156,7 +165,7 @@ describe('shipWorktree (async)', () => {
 
   test('detects uncommitted changes and returns error', async () => {
     const branch = 'dirty-branch';
-    mockExec((cmd) => {
+    mockExecFile((cmd) => {
       if (cmd.includes('git worktree list')) return { stdout: worktreePorcelain(branch), stderr: '' };
       if (cmd.includes('git status --porcelain')) return { stdout: ' M dirty-file.ts\n', stderr: '' };
       return { stdout: '', stderr: '' };
@@ -171,7 +180,7 @@ describe('shipWorktree (async)', () => {
 
   test('proceeds with merge when worktree is clean', async () => {
     const branch = 'clean-branch';
-    mockExec((cmd) => {
+    mockExecFile((cmd) => {
       if (cmd.includes('git worktree list')) return { stdout: worktreePorcelain(branch), stderr: '' };
       if (cmd.includes('git status --porcelain')) return { stdout: '', stderr: '' };
       return { stdout: '', stderr: '' };
@@ -184,7 +193,7 @@ describe('shipWorktree (async)', () => {
   });
 
   test('proceeds with merge when worktree is not found', async () => {
-    mockExec(() => ({ stdout: '', stderr: '' }));
+    mockExecFile(() => ({ stdout: '', stderr: '' }));
     await createTask('/projects/myproject', 3, 'Orphan task', { branch: 'orphan-branch', mergeTarget: 'main' });
 
     const result = await shipWorktree('/projects/myproject', 'orphan-branch');
@@ -230,7 +239,7 @@ describe('createProject path traversal', () => {
 
 describe('getTasksWithWorkspaces', () => {
   beforeEach(() => {
-    vi.mocked(exec).mockReset();
+    vi.mocked(execFile).mockReset();
     _resetCacheForTesting();
   });
 
@@ -239,7 +248,7 @@ describe('getTasksWithWorkspaces', () => {
     const livePath = `${baseDir}/T-1`;
 
     // Return a worktree list that maps feature-1 → livePath
-    mockExec(() => {
+    mockExecFile(() => {
       const porcelain = [
         `worktree /projects/myproject`,
         `HEAD abc123`,
