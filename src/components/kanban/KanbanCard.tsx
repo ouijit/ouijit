@@ -580,7 +580,7 @@ function DraggableBadge({
   return (
     <Tooltip
       text={tooltipContent}
-      placement="top"
+      placement="bottom"
       disabled={isDragging || detachHovered}
       referenceClassName="group/badge inline-flex items-center gap-0.5 shrink-0 font-mono text-[11px] leading-none px-2 py-1 rounded-full whitespace-nowrap"
       referenceStyle={{
@@ -602,7 +602,7 @@ function DraggableBadge({
         {task.taskNumber}
       </span>
       {task.parentTaskNumber != null && (
-        <Tooltip text={`Detach from #${task.parentTaskNumber}`} placement="top" delay={300}>
+        <Tooltip text={`Detach from #${task.parentTaskNumber}`} placement="bottom" delay={300}>
           <button
             className="w-0 overflow-hidden group-hover/badge:w-4 flex items-center justify-center border-none bg-transparent text-white/30 hover:text-red-400 transition-all duration-150 [-webkit-app-region:no-drag] [&>svg]:w-2.5 [&>svg]:h-2.5 shrink-0 p-0"
             onPointerDown={(e) => e.stopPropagation()}
