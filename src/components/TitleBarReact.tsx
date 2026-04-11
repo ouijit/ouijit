@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useAppStore } from '../stores/appStore';
-import { useProjectStore } from '../stores/projectStore';
+import { useProjectStore, type TerminalLayout } from '../stores/projectStore';
 import { useUIStore } from '../stores/uiStore';
 import { stringToColor, getInitials } from '../utils/projectIcon';
 import { Icon } from './terminal/Icon';
@@ -21,6 +21,7 @@ export function TitleBar({ mode }: TitleBarProps) {
   const activeView = useAppStore((s) => s.activeView);
   const fullscreen = useAppStore((s) => s.fullscreen);
   const kanbanVisible = useProjectStore((s) => s.kanbanVisible);
+  const terminalLayout = useProjectStore((s) => s.terminalLayout);
   const activePanel = useProjectStore((s) => s.activePanel);
   const homeGroupMode = useUIStore((s) => s.homeGroupMode);
   const [username, setUsername] = useState('');
@@ -40,13 +41,17 @@ export function TitleBar({ mode }: TitleBarProps) {
     });
   }, [activeProjectPath]);
 
-  const handleToggleView = useCallback((view: 'board' | 'stack' | 'settings') => {
+  const handleToggleView = useCallback((view: 'board' | 'stack' | 'canvas' | 'settings') => {
     const store = useProjectStore.getState();
     if (view === 'settings') {
       store.setActivePanel('settings');
+    } else if (view === 'board') {
+      store.setActivePanel('terminals');
+      store.setKanbanVisible(true);
     } else {
       store.setActivePanel('terminals');
-      store.setKanbanVisible(view === 'board');
+      store.setKanbanVisible(false);
+      store.setTerminalLayout(view as TerminalLayout);
     }
   }, []);
 
@@ -128,10 +133,17 @@ export function TitleBar({ mode }: TitleBarProps) {
               </TooltipButton>
               <TooltipButton
                 text="Terminal stack"
-                className={`w-9 h-full flex items-center justify-center text-text-secondary transition-all duration-150 ease-out hover:text-text-primary hover:bg-background-tertiary [&>svg]:w-5 [&>svg]:h-5${activePanel !== 'settings' && !kanbanVisible ? ' text-text-primary bg-background-tertiary' : ''}`}
+                className={`w-9 h-full flex items-center justify-center text-text-secondary transition-all duration-150 ease-out hover:text-text-primary hover:bg-background-tertiary [&>svg]:w-5 [&>svg]:h-5${activePanel !== 'settings' && !kanbanVisible && terminalLayout === 'stack' ? ' text-text-primary bg-background-tertiary' : ''}`}
                 onClick={() => handleToggleView('stack')}
               >
                 <Icon name="cards-three" />
+              </TooltipButton>
+              <TooltipButton
+                text="Canvas"
+                className={`w-9 h-full flex items-center justify-center text-text-secondary transition-all duration-150 ease-out hover:text-text-primary hover:bg-background-tertiary [&>svg]:w-5 [&>svg]:h-5${activePanel !== 'settings' && !kanbanVisible && terminalLayout === 'canvas' ? ' text-text-primary bg-background-tertiary' : ''}`}
+                onClick={() => handleToggleView('canvas')}
+              >
+                <CanvasIcon />
               </TooltipButton>
               <TooltipButton
                 text="Settings"
@@ -206,5 +218,17 @@ export function TitleBar({ mode }: TitleBarProps) {
         </button>
       )}
     </header>
+  );
+}
+
+/** Inline canvas/artboard icon — no Phosphor equivalent available. */
+function CanvasIcon() {
+  return (
+    <svg viewBox="0 0 256 256" fill="currentColor" className="w-5 h-5 shrink-0">
+      <rect x="40" y="40" width="72" height="72" rx="8" opacity="0.9" />
+      <rect x="144" y="40" width="72" height="52" rx="8" opacity="0.7" />
+      <rect x="40" y="144" width="72" height="52" rx="8" opacity="0.7" />
+      <rect x="144" y="124" width="72" height="72" rx="8" opacity="0.9" />
+    </svg>
   );
 }

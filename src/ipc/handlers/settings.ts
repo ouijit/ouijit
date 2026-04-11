@@ -1,19 +1,21 @@
 import { typedHandle } from '../helpers';
 import { getGlobalSetting, setGlobalSetting } from '../../db';
 
-/** Only these keys are permitted through the IPC boundary */
-const ALLOWED_KEYS = new Set(['lastActiveView']);
+/** Check if a settings key is allowed through the IPC boundary */
+function isAllowedKey(key: string): boolean {
+  return key === 'lastActiveView' || key.startsWith('canvas:');
+}
 
 /** Maximum value length (bytes) to prevent abuse */
-const MAX_VALUE_LENGTH = 4096;
+const MAX_VALUE_LENGTH = 65536;
 
 export function registerSettingsHandlers(): void {
   typedHandle('settings:get-global', (key) => {
-    if (!ALLOWED_KEYS.has(key)) return undefined;
+    if (!isAllowedKey(key)) return undefined;
     return getGlobalSetting(key);
   });
   typedHandle('settings:set-global', (key, value) => {
-    if (!ALLOWED_KEYS.has(key)) return { success: false };
+    if (!isAllowedKey(key)) return { success: false };
     if (value.length > MAX_VALUE_LENGTH) return { success: false };
     return setGlobalSetting(key, value);
   });

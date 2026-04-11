@@ -491,3 +491,46 @@ textarea,
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ── React Flow canvas overrides ──────────────────────────────────── */
+
+.terminal-canvas {
+  width: 100%;
+  height: 100%;
+}
+
+/* Match the canvas background to the app background */
+.terminal-canvas .react-flow {
+  --xy-background-color-default: var(--color-background);
+  --xy-background-color: var(--color-background);
+  background-color: var(--color-background);
+}
+
+/* Remove default react-flow node styling — we own all node chrome */
+.terminal-canvas .react-flow__node-terminal {
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+}
+
+/* Hide default edge/handle visibility — we use invisible handles */
+.terminal-canvas .react-flow__handle {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Selection box styling */
+.terminal-canvas .react-flow__selection {
+  border: 1px solid rgba(10, 132, 255, 0.3);
+  background: rgba(10, 132, 255, 0.05);
+}
+
+/* Minimap — styled to match controls bar */
+.terminal-canvas .react-flow__minimap {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
