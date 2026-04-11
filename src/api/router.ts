@@ -7,6 +7,7 @@
 
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { BrowserWindow } from 'electron';
+import * as path from 'node:path';
 import { createTodoTask, createTaskWorktree } from '../worktree';
 import {
   setTaskMergeTarget,
@@ -32,6 +33,8 @@ import {
   getTaskWithWorkspace,
 } from '../taskLifecycle';
 import { getProjectList } from '../scanner';
+import { getPlanPath, setPlanPath } from '../hookServer';
+import { isPtyActive } from '../ptyManager';
 import { typedPush } from '../ipc/helpers';
 import { getLogger } from '../logger';
 
@@ -343,6 +346,29 @@ const routes: Route[] = [
     },
     true,
   ),
+
+  // ── Plan ──────────────────────────────────────────────────────────
+  route('GET', 'plan/:ptyId', (r) => {
+    const ptyId = r.segments[1];
+    return { ptyId, planPath: getPlanPath(ptyId) };
+  }),
+
+  route('POST', 'plan/:ptyId', (r) => {
+    const ptyId = r.segments[1];
+    const planPath = r.body.path;
+    if (typeof planPath !== 'string' || !planPath) {
+      throw new HttpError(400, 'Missing path in body');
+    }
+    if (!planPath.endsWith('.md')) {
+      throw new HttpError(400, 'Plan path must be a .md file');
+    }
+    if (!isPtyActive(ptyId)) {
+      throw new HttpError(404, `PTY ${ptyId} not found or inactive`);
+    }
+    const resolved = path.resolve(planPath);
+    setPlanPath(ptyId, resolved);
+    return { success: true, ptyId, planPath: resolved };
+  }),
 ];
 
 // ── Main handler ─────────────────────────────────────────────────────

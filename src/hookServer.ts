@@ -60,6 +60,20 @@ export function clearAllHookStatuses(): void {
   planPathMap.clear();
 }
 
+/**
+ * Set the plan file path for a pty and notify the renderer.
+ * Called by both the hook action handler and the REST API route.
+ */
+export function setPlanPath(ptyId: string, planPath: string): boolean {
+  if (!isPtyActive(ptyId)) return false;
+  planPathMap.set(ptyId, planPath);
+  hookServerLog.info('plan set', { ptyId, planPath });
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('claude-plan-detected', ptyId, planPath);
+  }
+  return true;
+}
+
 // ── Action handlers ──────────────────────────────────────────────────
 
 type ActionHandler = (body: Record<string, unknown>) => void;
@@ -98,15 +112,9 @@ const actionHandlers: Record<string, ActionHandler> = {
     const { ptyId, filename } = body;
     if (typeof ptyId !== 'string' || typeof filename !== 'string') return;
     if (!/^[a-zA-Z0-9._-]+$/.test(filename)) return;
-    if (!isPtyActive(ptyId)) return;
 
     const planPath = path.join(os.homedir(), '.claude', 'plans', filename);
-    planPathMap.set(ptyId, planPath);
-    hookServerLog.info('plan detected', { ptyId, planPath });
-
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('claude-plan-detected', ptyId, planPath);
-    }
+    setPlanPath(ptyId, planPath);
   },
 
   'plan-ready'(body) {

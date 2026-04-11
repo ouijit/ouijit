@@ -13,6 +13,7 @@ import { registerHookCommands } from './commands/hook';
 import { registerTagCommands } from './commands/tag';
 import { registerProjectCommands } from './commands/project';
 import { registerScriptCommands } from './commands/script';
+import { registerPlanCommands } from './commands/plan';
 
 const program = new Command();
 
@@ -43,5 +44,6 @@ registerHookCommands(program, requireProject);
 registerTagCommands(program, requireProject);
 registerProjectCommands(program);
 registerScriptCommands(program, requireProject);
+registerPlanCommands(program, requireProject);
 
 program.parse();
