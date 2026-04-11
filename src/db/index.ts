@@ -248,14 +248,14 @@ export async function setTaskParent(
 
     // Prevent cycles: walk up from proposed parent to root
     if (parentTaskNumber != null) {
-      let current = parentTaskNumber;
+      let current: number | null = parentTaskNumber;
       const visited = new Set<number>();
       while (current != null) {
         if (current === taskNumber) return { success: false, error: 'Cannot create a cycle' };
         if (visited.has(current)) break;
         visited.add(current);
         const parentRow = tr.getByTaskNumber(projectPath, current);
-        current = parentRow?.parent_task_number as number;
+        current = parentRow?.parent_task_number ?? null;
       }
     }
 

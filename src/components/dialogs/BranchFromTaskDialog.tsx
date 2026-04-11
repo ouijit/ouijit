@@ -30,6 +30,7 @@ export function BranchFromTaskDialog({ projectPath, parentTask, onClose }: Branc
   const dismiss = useCallback(
     (created: boolean) => {
       setVisible(false);
+      clearTimeout(timerRef.current);
       timerRef.current = setTimeout(() => onClose(created), 200);
     },
     [onClose],

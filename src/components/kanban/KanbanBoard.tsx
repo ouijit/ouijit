@@ -83,6 +83,13 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
     resolve: (action: 'recover' | null) => void;
   } | null>(null);
   const [settingUpTaskNumber, setSettingUpTaskNumber] = useState<number | null>(null);
+  const mountedRef = useRef(true);
+  useEffect(
+    () => () => {
+      mountedRef.current = false;
+    },
+    [],
+  );
 
   /**
    * Check if a task's worktree exists on disk. If missing, prompt the user to recover it.
@@ -186,7 +193,9 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
         useProjectStore.setState({ optionKeyHeld: e.altKey });
       }
     };
-    const onBlur = () => useProjectStore.setState({ optionKeyHeld: false });
+    const onBlur = () => {
+      if (useProjectStore.getState().optionKeyHeld) useProjectStore.setState({ optionKeyHeld: false });
+    };
     window.addEventListener('keydown', onKey);
     window.addEventListener('keyup', onKey);
     window.addEventListener('blur', onBlur);
@@ -358,6 +367,7 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
         setActiveTask(null);
         const taskNum = parseInt(activeId.replace('task-', ''), 10);
         await window.api.task.trash(projectPath, taskNum);
+        if (!mountedRef.current) return;
         useProjectStore.getState().loadTasks(projectPath);
         useProjectStore.getState().addToast('Task deleted', 'success');
         return;
@@ -406,12 +416,14 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
       // Persist status + position optimistically BEFORE async work (worktree creation, etc.)
       // This updates the store so that when we clear activeTask the effect re-syncs to the new position.
       await useProjectStore.getState().moveTask(projectPath, activeTaskNum, finalContainer, targetIndex);
+      if (!mountedRef.current) return;
       setActiveTask(null);
 
       // Create worktree BEFORE moving (while task is still todo)
       if (newStatus === 'in_progress' && !draggedTask.worktreePath) {
         setSettingUpTaskNumber(draggedTask.taskNumber);
         const startResult = await window.api.task.start(projectPath, draggedTask.taskNumber);
+        if (!mountedRef.current) return;
         setSettingUpTaskNumber(null);
         if (!startResult.success) {
           useProjectStore.getState().addToast(startResult.error || 'Failed to create worktree', 'error');
@@ -428,15 +440,18 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
       // Verify existing worktree is still on disk; offer recovery if missing
       if (draggedTask.worktreePath) {
         const wtPath = await ensureWorktreeExists(draggedTask);
+        if (!mountedRef.current) return;
         if (!wtPath) return;
         draggedTask = { ...draggedTask, worktreePath: wtPath };
       }
 
       await useProjectStore.getState().loadTasks(projectPath);
+      if (!mountedRef.current) return;
 
       // Show hook dialog if configured for this transition
       if (origStatus && origStatus !== finalContainer) {
         const hooks = await window.api.hooks.get(projectPath);
+        if (!mountedRef.current) return;
         let hookType: HookType | null = null;
         let hook = null;
 

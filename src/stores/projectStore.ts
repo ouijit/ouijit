@@ -202,7 +202,12 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
 
     try {
       const result = await window.api.task.reorder(projectPath, taskNumber, newStatus as any, targetIndex);
-      if (!result.success) rollbackOrReload();
+      if (!result.success) {
+        rollbackOrReload();
+      } else if (moveCounter !== moveVersion) {
+        // Another move happened while this one was in flight — reconcile with server
+        get().loadTasks(projectPath);
+      }
     } catch {
       rollbackOrReload();
     }
