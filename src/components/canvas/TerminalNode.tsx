@@ -38,6 +38,7 @@ export const TerminalNode = memo(function TerminalNode({ data, selected }: NodeP
         width: '100%',
         height: '100%',
         background: 'var(--color-terminal-bg, #171717)',
+        boxShadow: '0 0 0 1px rgba(0, 0, 0, 0.05), 0 4px 12px rgba(0, 0, 0, 0.15), 0 20px 40px rgba(0, 0, 0, 0.2)',
       }}
     >
       <NodeResizer
