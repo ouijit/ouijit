@@ -54,19 +54,15 @@ export const TerminalNode = memo(function TerminalNode({ data, selected }: NodeP
       <Handle id="right" type="source" position={Position.Right} className="!bg-transparent !border-none !w-0 !h-0" />
       <Handle id="right" type="target" position={Position.Right} className="!bg-transparent !border-none !w-0 !h-0" />
 
-      {/* ── Periphery above card: title + pills + actions ────────── */}
-      <div
-        className="terminal-drag-handle absolute flex flex-col gap-1 px-1"
-        style={{ top: 2, left: INSET_SIDE, right: INSET_SIDE }}
-      >
-        <NodeTitleRow
+      {/* ── Periphery above card ────────────────────────────────── */}
+      <div className="terminal-drag-handle absolute px-1" style={{ top: 2, left: INSET_SIDE, right: INSET_SIDE }}>
+        <NodePeriphery
           ptyId={ptyId}
           onClose={handleClose}
           onToggleDiffPanel={toggleDiffPanel}
           onTogglePlanPanel={togglePlanPanel}
           onToggleRunner={toggleRunner}
         />
-        <NodeInfoRow ptyId={ptyId} />
       </div>
 
       {/* ── Card: terminal only ──────────────────────────────────── */}
@@ -98,9 +94,11 @@ export const TerminalNode = memo(function TerminalNode({ data, selected }: NodeP
   );
 });
 
-// ── Title row: label + action buttons ───────────────────────────────
+// ── Periphery: single row matching TerminalHeader layout ────────────
 
-interface TitleRowProps {
+const EMPTY_TAGS: string[] = [];
+
+interface PeripheryProps {
   ptyId: string;
   onClose: () => void;
   onToggleDiffPanel: () => void;
@@ -108,29 +106,38 @@ interface TitleRowProps {
   onToggleRunner: () => void;
 }
 
-const NodeTitleRow = memo(function NodeTitleRow({
+const NodePeriphery = memo(function NodePeriphery({
   ptyId,
   onClose,
   onToggleDiffPanel,
   onTogglePlanPanel,
   onToggleRunner,
-}: TitleRowProps) {
+}: PeripheryProps) {
   const label = useTerminalStore((s) => s.displayStates[ptyId]?.label ?? '');
+  const summary = useTerminalStore((s) => s.displayStates[ptyId]?.summary ?? '');
+  const summaryType = useTerminalStore((s) => s.displayStates[ptyId]?.summaryType ?? 'ready');
   const taskId = useTerminalStore((s) => s.displayStates[ptyId]?.taskId ?? null);
-  const planPath = useTerminalStore((s) => s.displayStates[ptyId]?.planPath ?? null);
-  const planPanelOpen = useTerminalStore((s) => s.displayStates[ptyId]?.planPanelOpen ?? false);
-  const diffPanelOpen = useTerminalStore((s) => s.displayStates[ptyId]?.diffPanelOpen ?? false);
   const gitFileStatus = useTerminalStore((s) => s.displayStates[ptyId]?.gitFileStatus ?? null);
+  const tags = useTerminalStore((s) => s.displayStates[ptyId]?.tags) ?? EMPTY_TAGS;
   const runnerStatus = useTerminalStore((s) => s.displayStates[ptyId]?.runnerStatus ?? 'idle');
   const runnerScriptName = useTerminalStore((s) => s.displayStates[ptyId]?.runnerScriptName ?? null);
   const runnerPanelOpen = useTerminalStore((s) => s.displayStates[ptyId]?.runnerPanelOpen ?? false);
+  const diffPanelOpen = useTerminalStore((s) => s.displayStates[ptyId]?.diffPanelOpen ?? false);
+  const planPath = useTerminalStore((s) => s.displayStates[ptyId]?.planPath ?? null);
+  const planPanelOpen = useTerminalStore((s) => s.displayStates[ptyId]?.planPanelOpen ?? false);
   const worktreeBranch = useTerminalStore((s) => s.displayStates[ptyId]?.worktreeBranch ?? null);
-  const isWorktree = taskId != null && !!worktreeBranch;
+  const tasks = useProjectStore((s) => s.tasks);
 
+  const isWorktree = taskId != null && !!worktreeBranch;
   const dirtyFileCount = gitFileStatus?.uncommittedFiles.length ?? 0;
   const branchDiffCount = gitFileStatus?.branchDiffFiles.length ?? 0;
   const showDiff = dirtyFileCount > 0 || (isWorktree && branchDiffCount > 0);
 
+  const chainMap = taskId != null ? buildChainMap(tasks) : null;
+  const chainInfo = taskId != null && chainMap ? chainMap.get(taskId) : null;
+  const hasChain = isChainMember(chainInfo);
+
+  // Runner text + color
   let runText = 'Run';
   if (runnerStatus === 'running') runText = runnerScriptName ?? 'Running';
   else if (runnerStatus === 'success') runText = 'Done';
@@ -141,135 +148,107 @@ const NodeTitleRow = memo(function NodeTitleRow({
       ? 'text-[#69db7c]'
       : runnerStatus === 'error'
         ? 'text-[#ff6b6b]'
-        : 'text-white/50';
+        : 'text-white/60';
+
+  // Display text: label — summary (matching TerminalHeader pattern)
+  const displayText = summary ? `${label} \u2014 ${summary}` : label || 'Shell';
 
   return (
-    <div className="flex items-center justify-between min-w-0">
-      <span className="inline-flex items-center gap-2 text-lg font-semibold text-white/80 truncate min-w-0">
-        {taskId != null && <span className="text-white/30 font-mono text-sm">T-{taskId}</span>}
-        {label || 'Shell'}
-      </span>
-      <div className="flex items-center gap-1.5 shrink-0 ml-3 nodrag">
-        {planPath && (
-          <ActionBtn active={planPanelOpen} onClick={onTogglePlanPanel} title="Plan">
-            <Icon name="list-checks" className="w-3 h-3" />
-          </ActionBtn>
-        )}
-        {showDiff && (
-          <ActionBtn
-            active={diffPanelOpen}
-            onClick={onToggleDiffPanel}
-            title={dirtyFileCount > 0 ? `${dirtyFileCount} files` : 'Compare'}
+    <div className="flex flex-col gap-0.5 py-1 min-w-0">
+      {/* Top row: status + label + actions */}
+      <div className="flex items-center justify-between min-w-0">
+        <div className="flex items-center gap-2 min-w-0">
+          <span
+            className={`w-3.5 h-3.5 rounded-full shrink-0 transition-all duration-200 ease-out ${summaryType === 'thinking' ? 'bg-[#da77f2]' : 'bg-[#69db7c]'}`}
+            data-status={summaryType}
+            style={{
+              boxShadow:
+                summaryType === 'thinking' ? '0 0 4px rgba(218, 119, 242, 0.5)' : '0 0 4px rgba(105, 219, 124, 0.5)',
+              ...(summaryType === 'thinking' ? { animation: 'terminal-status-pulse 1s ease-in-out infinite' } : {}),
+            }}
+          />
+          <span className="font-mono text-lg font-medium text-white/80 truncate min-w-0">{displayText}</span>
+        </div>
+
+        {/* Right: action buttons */}
+        <div className="flex items-center gap-2 shrink-0 ml-3 nodrag">
+          {planPath && (
+            <button
+              className={`flex items-center gap-1 px-2.5 py-1 rounded-full font-mono text-[13px] font-medium text-white/60 bg-white/[0.06] border-none transition-all duration-150 ease-out hover:bg-white/[0.12] hover:text-white/90 ${planPanelOpen ? '!bg-accent !text-white' : ''}`}
+              title="View plan"
+              onClick={(e) => {
+                e.stopPropagation();
+                onTogglePlanPanel();
+              }}
+            >
+              <Icon name="list-checks" className="w-3.5 h-3.5" />
+              <span>Plan</span>
+            </button>
+          )}
+          {showDiff && (
+            <button
+              className={`flex items-center gap-1 px-2.5 py-1 rounded-full font-mono text-[13px] font-medium text-white/60 bg-white/[0.06] border-none transition-all duration-150 ease-out hover:bg-white/[0.12] hover:text-white/90 ${diffPanelOpen ? '!bg-accent !text-white' : ''}`}
+              title="View changes"
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleDiffPanel();
+              }}
+            >
+              <span className="font-medium">
+                {dirtyFileCount > 0 ? `${dirtyFileCount} file${dirtyFileCount !== 1 ? 's' : ''}` : 'Compare'}
+              </span>
+            </button>
+          )}
+          <button
+            className={`px-2.5 py-1 bg-white/[0.06] border-none font-sans text-[13px] font-medium rounded-full transition-all duration-150 ease-out hover:bg-white/[0.12] hover:text-white/90 ${runnerPanelOpen ? '!bg-accent !text-white' : runColors}`}
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleRunner();
+            }}
           >
-            <span className="text-[11px] font-mono">{dirtyFileCount > 0 ? dirtyFileCount : '~'}</span>
-          </ActionBtn>
+            {runText}
+          </button>
+          <button
+            className="w-7 h-7 flex items-center justify-center bg-transparent border-none text-white/40 hover:text-white/90 transition-colors duration-150 ml-1 [&_svg]:w-4 [&_svg]:h-4"
+            onClick={(e) => {
+              e.stopPropagation();
+              onClose();
+            }}
+          >
+            <Icon name="x" />
+          </button>
+        </div>
+      </div>
+      {/* Bottom row: branch + pills */}
+      <div className="flex items-center gap-1.5 min-w-0 pl-[22px]">
+        {(worktreeBranch || gitFileStatus?.branch) && (
+          <span className="inline-flex items-center gap-1 font-mono text-[13px] text-white/50 min-w-0 overflow-hidden">
+            <Icon name="git-branch" className="w-3.5 h-3.5 shrink-0 text-white/40" />
+            <span className="truncate min-w-0">{worktreeBranch || gitFileStatus?.branch}</span>
+          </span>
         )}
-        <ActionBtn active={runnerPanelOpen} onClick={onToggleRunner} title={runText} className={runColors}>
-          <span className="text-[11px] font-medium">{runText}</span>
-        </ActionBtn>
-        <button
-          className="w-6 h-6 flex items-center justify-center bg-transparent border-none text-white/30 hover:text-white/70 transition-colors duration-150"
-          onClick={(e) => {
-            e.stopPropagation();
-            onClose();
-          }}
-        >
-          <Icon name="x" className="w-3.5 h-3.5" />
-        </button>
+        {hasChain && chainInfo && (
+          <span
+            className="inline-flex items-center gap-1 font-mono text-[11px] rounded-full px-2 py-px shrink-0"
+            style={{
+              color: getChainColor(chainInfo.rootTaskNumber, chainInfo.depth),
+              backgroundColor: getChainBgColor(chainInfo.rootTaskNumber, chainInfo.depth),
+            }}
+          >
+            {chainInfo.depth === 0
+              ? `root \u00b7 ${chainInfo.childTaskNumbers.length} child${chainInfo.childTaskNumbers.length !== 1 ? 'ren' : ''}`
+              : `depth ${chainInfo.depth}`}
+          </span>
+        )}
+        {tags.map((tag) => (
+          <span
+            key={tag}
+            className="font-mono text-[11px] text-white/50 bg-white/[0.06] rounded-full px-2 py-px shrink-0"
+          >
+            {tag}
+          </span>
+        ))}
       </div>
     </div>
   );
 });
-
-function ActionBtn({
-  children,
-  active,
-  onClick,
-  title,
-  className,
-}: {
-  children: React.ReactNode;
-  active?: boolean;
-  onClick: () => void;
-  title: string;
-  className?: string;
-}) {
-  return (
-    <button
-      className={`flex items-center gap-1 px-2 py-0.5 rounded-full font-mono text-[11px] bg-white/[0.06] border-none transition-colors duration-150 hover:bg-white/[0.12] ${active ? '!bg-accent !text-white' : (className ?? 'text-white/50')}`}
-      title={title}
-      onClick={(e) => {
-        e.stopPropagation();
-        onClick();
-      }}
-    >
-      {children}
-    </button>
-  );
-}
-
-// ── Info row: status + pills ────────────────────────────────────────
-
-const EMPTY_TAGS: string[] = [];
-
-const NodeInfoRow = memo(function NodeInfoRow({ ptyId }: { ptyId: string }) {
-  const summaryType = useTerminalStore((s) => s.displayStates[ptyId]?.summaryType ?? 'ready');
-  const summary = useTerminalStore((s) => s.displayStates[ptyId]?.summary ?? '');
-  const taskId = useTerminalStore((s) => s.displayStates[ptyId]?.taskId ?? null);
-  const worktreeBranch = useTerminalStore((s) => s.displayStates[ptyId]?.worktreeBranch ?? null);
-  const tags = useTerminalStore((s) => s.displayStates[ptyId]?.tags) ?? EMPTY_TAGS;
-  const tasks = useProjectStore((s) => s.tasks);
-
-  const chainMap = taskId != null ? buildChainMap(tasks) : null;
-  const chainInfo = taskId != null && chainMap ? chainMap.get(taskId) : null;
-  const hasChain = isChainMember(chainInfo);
-
-  return (
-    <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
-      <span
-        className={`w-1.5 h-1.5 rounded-full shrink-0 ${summaryType === 'thinking' ? 'bg-[#da77f2]' : 'bg-[#69db7c]'}`}
-        style={{
-          boxShadow:
-            summaryType === 'thinking' ? '0 0 4px rgba(218, 119, 242, 0.5)' : '0 0 4px rgba(105, 219, 124, 0.5)',
-          ...(summaryType === 'thinking' ? { animation: 'terminal-status-pulse 1s ease-in-out infinite' } : {}),
-        }}
-      />
-      {summary && <span className="font-mono text-[11px] text-white/40 truncate max-w-[200px]">{summary}</span>}
-      {worktreeBranch && (
-        <Pill>
-          <Icon name="git-branch" className="!w-3 !h-3 text-white/40" />
-          <span className="truncate max-w-[160px]">{worktreeBranch}</span>
-        </Pill>
-      )}
-      {hasChain && chainInfo && (
-        <Pill
-          style={{
-            color: getChainColor(chainInfo.rootTaskNumber, chainInfo.depth),
-            backgroundColor: getChainBgColor(chainInfo.rootTaskNumber, chainInfo.depth),
-          }}
-        >
-          {chainInfo.depth === 0
-            ? `root · ${chainInfo.childTaskNumbers.length} child${chainInfo.childTaskNumbers.length !== 1 ? 'ren' : ''}`
-            : `depth ${chainInfo.depth}`}
-        </Pill>
-      )}
-      {tags.map((tag) => (
-        <Pill key={tag}>
-          <Icon name="tag" className="!w-3 !h-3 text-white/30" />
-          {tag}
-        </Pill>
-      ))}
-    </div>
-  );
-});
-
-function Pill({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) {
-  return (
-    <span
-      className="inline-flex items-center gap-1 font-mono text-[11px] text-white/50 bg-white/[0.06] rounded-full px-2 py-0.5 shrink-0"
-      style={style}
-    >
-      {children}
-    </span>
-  );
-}
