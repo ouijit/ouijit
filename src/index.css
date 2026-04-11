@@ -527,9 +527,10 @@ textarea,
   background: rgba(10, 132, 255, 0.05);
 }
 
-/* Minimap dark mode */
+/* Minimap — styled to match controls bar */
 .terminal-canvas .react-flow__minimap {
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
   overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }

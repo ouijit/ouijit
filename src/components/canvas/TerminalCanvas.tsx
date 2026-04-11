@@ -5,6 +5,7 @@ import {
   Background,
   BackgroundVariant,
   MiniMap,
+  Panel,
   SelectionMode,
   type Viewport,
   type NodeChange,
@@ -86,6 +87,10 @@ function TerminalCanvasInner({ projectPath }: TerminalCanvasProps) {
 
   // Phase 3: smart guides
   const { guides, onNodeDrag, onNodeDragStop } = useSmartGuides(nodes);
+
+  // Minimap toggle
+  const [minimapOpen, setMinimapOpen] = useState(true);
+  const handleToggleMinimap = useCallback(() => setMinimapOpen((v) => !v), []);
 
   // Phase 3: align/distribute context menu
   const [menuPos, setMenuPos] = useState<{ x: number; y: number } | null>(null);
@@ -186,17 +191,42 @@ function TerminalCanvasInner({ projectPath }: TerminalCanvasProps) {
       >
         <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="rgba(255,255,255,0.15)" />
         <CanvasControls projectPath={projectPath} />
-        {nodes.length >= 3 && (
-          <MiniMap
-            pannable
-            zoomable
-            position="bottom-right"
-            nodeColor={minimapNodeColor as (node: any) => string}
-            maskColor="rgba(0, 0, 0, 0.7)"
-            bgColor="#1c1c1e"
-            nodeBorderRadius={8}
-          />
-        )}
+        {nodes.length >= 3 &&
+          (minimapOpen ? (
+            <MiniMap
+              pannable
+              zoomable
+              position="bottom-right"
+              nodeColor={minimapNodeColor as (node: any) => string}
+              maskColor="rgba(0, 0, 0, 0.25)"
+              bgColor="#1c1c1e"
+              nodeBorderRadius={16}
+              onClick={handleToggleMinimap}
+            />
+          ) : (
+            <Panel position="bottom-right">
+              <button
+                className="flex items-center justify-center w-8 h-8 rounded-lg border border-white/10 text-white/40 hover:text-white/70 transition-colors duration-150"
+                style={{ background: 'rgba(28, 28, 30, 0.8)', backdropFilter: 'blur(12px)' }}
+                onClick={handleToggleMinimap}
+                title="Show minimap"
+              >
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <rect x="3" y="3" width="18" height="18" rx="2" />
+                  <rect x="12" y="12" width="9" height="9" rx="1" />
+                </svg>
+              </button>
+            </Panel>
+          ))}
       </ReactFlow>
       <SmartGuideOverlay guides={guides} />
       <AlignMenu projectPath={projectPath} position={menuPos} onClose={handleCloseMenu} />
