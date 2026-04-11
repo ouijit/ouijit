@@ -47,20 +47,6 @@ export const KanbanCard = memo(function KanbanCard({
 
   const isDone = task.status === 'done';
   const isInChain = chainInfo != null && (chainInfo.depth > 0 || chainInfo.childTaskNumbers.length > 0);
-  const highlightedChainTask = useProjectStore((s) => s.highlightedChainTask);
-  const hoveredChainRoot = highlightedChainTask != null ? chainMap?.get(highlightedChainTask)?.rootTaskNumber : null;
-  const shouldJitter =
-    isInChain &&
-    hoveredChainRoot != null &&
-    hoveredChainRoot === chainInfo!.rootTaskNumber &&
-    highlightedChainTask !== task.taskNumber;
-
-  const badgeColor = isInChain
-    ? getChainColor(chainInfo!.rootTaskNumber, chainInfo!.depth)
-    : 'rgba(255, 255, 255, 0.2)';
-  const badgeBg = isInChain
-    ? getChainBgColor(chainInfo!.rootTaskNumber, chainInfo!.depth)
-    : 'rgba(255, 255, 255, 0.04)';
 
   // Badge drag visual feedback — derive per-card booleans in selectors to avoid O(N) re-renders
   const activeBadgeDragSource = useProjectStore((s) => s.activeBadgeDrag);
@@ -376,15 +362,7 @@ export const KanbanCard = memo(function KanbanCard({
           </span>
         )}
         {showBadge && (
-          <DraggableBadge
-            task={task}
-            projectPath={projectPath}
-            isInChain={isInChain}
-            chainInfo={chainInfo}
-            badgeColor={badgeColor}
-            badgeBg={badgeBg}
-            shouldJitter={shouldJitter}
-          />
+          <DraggableBadge task={task} projectPath={projectPath} chainInfo={chainInfo} chainMap={chainMap} />
         )}
         <button
           className={`flex items-center justify-center w-5 h-5 p-0 bg-transparent border-none rounded text-text-secondary opacity-0 transition-all duration-150 ease-out shrink-0 [-webkit-app-region:no-drag] group-hover:opacity-60 hover:!opacity-100 [&>svg]:w-3 [&>svg]:h-3 [&>svg]:transition-transform [&>svg]:duration-150 [&>svg]:ease-out${expanded ? ' [&>svg]:rotate-180' : ''}`}
@@ -517,20 +495,30 @@ export const KanbanCard = memo(function KanbanCard({
 function DraggableBadge({
   task,
   projectPath,
-  isInChain,
   chainInfo,
-  badgeColor,
-  badgeBg,
-  shouldJitter,
+  chainMap,
 }: {
   task: TaskWithWorkspace;
   projectPath: string;
-  isInChain: boolean;
   chainInfo?: TaskChainInfo;
-  badgeColor: string;
-  badgeBg: string;
-  shouldJitter: boolean;
+  chainMap?: Map<number, TaskChainInfo>;
 }) {
+  const isInChain = chainInfo != null && (chainInfo.depth > 0 || chainInfo.childTaskNumbers.length > 0);
+
+  const highlightedChainTask = useProjectStore((s) => s.highlightedChainTask);
+  const hoveredChainRoot = highlightedChainTask != null ? chainMap?.get(highlightedChainTask)?.rootTaskNumber : null;
+  const shouldJitter =
+    isInChain &&
+    hoveredChainRoot != null &&
+    hoveredChainRoot === chainInfo!.rootTaskNumber &&
+    highlightedChainTask !== task.taskNumber;
+
+  const badgeColor = isInChain
+    ? getChainColor(chainInfo!.rootTaskNumber, chainInfo!.depth)
+    : 'rgba(255, 255, 255, 0.2)';
+  const badgeBg = isInChain
+    ? getChainBgColor(chainInfo!.rootTaskNumber, chainInfo!.depth)
+    : 'rgba(255, 255, 255, 0.04)';
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `badge-${task.taskNumber}`,
     data: { type: 'badge', taskNumber: task.taskNumber },

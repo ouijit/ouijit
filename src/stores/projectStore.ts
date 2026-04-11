@@ -87,9 +87,13 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
 
   toggleKanban: () => set((s) => ({ kanbanVisible: !s.kanbanVisible })),
 
-  setHighlightedChainTask: (taskNumber) => set({ highlightedChainTask: taskNumber }),
+  setHighlightedChainTask: (taskNumber) => {
+    if (get().highlightedChainTask !== taskNumber) set({ highlightedChainTask: taskNumber });
+  },
 
-  setDetachHoverParent: (taskNumber) => set({ detachHoverParent: taskNumber }),
+  setDetachHoverParent: (taskNumber) => {
+    if (get().detachHoverParent !== taskNumber) set({ detachHoverParent: taskNumber });
+  },
 
   setActiveBadgeDrag: (taskNumber) => set({ activeBadgeDrag: taskNumber }),
 

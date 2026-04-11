@@ -52,9 +52,8 @@ export async function beginTask(
   const result = await startTask(projectPath, taskNumber, branchName, baseBranch);
   if (!result.success) return result;
 
-  // Move to in_progress if currently todo
-  const updated = await getTaskByNumber(projectPath, taskNumber);
-  if (updated?.status === 'todo') {
+  // Move to in_progress if currently todo (startTask doesn't change status)
+  if (task?.status === 'todo') {
     const statusResult = await setTaskStatus(projectPath, taskNumber, 'in_progress');
     if (!statusResult.success) {
       taskLog.error('beginTask: failed to set status', { taskNumber, error: statusResult.error });
@@ -239,5 +238,6 @@ export async function getTaskWithWorkspace(projectPath: string, taskNumber: numb
     prompt: task.prompt,
     sandboxed: task.sandboxed,
     order: task.order,
+    parentTaskNumber: task.parentTaskNumber,
   };
 }

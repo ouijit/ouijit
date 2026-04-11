@@ -28,12 +28,13 @@ export function buildChainMap(tasks: TaskWithWorkspace[]): Map<number, TaskChain
   }
 
   // Compute root + depth for each task via parent walk, memoizing as we go
+  const visiting = new Set<number>();
   function resolve(taskNumber: number): { root: number; depth: number } {
     const cached = result.get(taskNumber);
     if (cached) return { root: cached.rootTaskNumber, depth: cached.depth };
 
     const task = byNumber.get(taskNumber);
-    if (!task?.parentTaskNumber || !byNumber.has(task.parentTaskNumber)) {
+    if (!task?.parentTaskNumber || !byNumber.has(task.parentTaskNumber) || visiting.has(taskNumber)) {
       result.set(taskNumber, {
         rootTaskNumber: taskNumber,
         depth: 0,
@@ -42,7 +43,9 @@ export function buildChainMap(tasks: TaskWithWorkspace[]): Map<number, TaskChain
       return { root: taskNumber, depth: 0 };
     }
 
+    visiting.add(taskNumber);
     const parent = resolve(task.parentTaskNumber);
+    visiting.delete(taskNumber);
     const info = {
       rootTaskNumber: parent.root,
       depth: parent.depth + 1,
@@ -64,17 +67,19 @@ export function getChainHue(rootTaskNumber: number): number {
   return (rootTaskNumber * 137.508) % 360;
 }
 
+function getChainHsl(rootTaskNumber: number, depth: number): [number, number] {
+  return [getChainHue(rootTaskNumber), Math.max(72 - depth * 14, 30)];
+}
+
 /** HSL color string for a badge at a given depth within a chain. */
 export function getChainColor(rootTaskNumber: number, depth: number): string {
-  const hue = getChainHue(rootTaskNumber);
-  const lightness = Math.max(72 - depth * 14, 30);
+  const [hue, lightness] = getChainHsl(rootTaskNumber, depth);
   return `hsl(${hue}, 55%, ${lightness}%)`;
 }
 
 /** Semi-transparent background for badge. */
 export function getChainBgColor(rootTaskNumber: number, depth: number): string {
-  const hue = getChainHue(rootTaskNumber);
-  const lightness = Math.max(72 - depth * 14, 30);
+  const [hue, lightness] = getChainHsl(rootTaskNumber, depth);
   return `hsla(${hue}, 55%, ${lightness}%, 0.15)`;
 }
 
