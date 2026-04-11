@@ -46,10 +46,7 @@ function runMigrations(db: Database.Database): void {
   `);
 
   const applied = new Set(
-    db
-      .prepare('SELECT version FROM schema_migrations')
-      .all()
-      .map((row: { version: number }) => row.version),
+    (db.prepare('SELECT version FROM schema_migrations').all() as { version: number }[]).map((row) => row.version),
   );
 
   for (const migration of migrations) {
