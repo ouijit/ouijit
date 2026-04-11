@@ -39,6 +39,7 @@ import folderOpen from '@phosphor-icons/core/assets/regular/folder-open.svg?raw'
 import folderPlus from '@phosphor-icons/core/assets/regular/folder-plus.svg?raw';
 import gear from '@phosphor-icons/core/assets/regular/gear.svg?raw';
 import gitBranch from '@phosphor-icons/core/assets/regular/git-branch.svg?raw';
+import gitFork from '@phosphor-icons/core/assets/regular/git-fork.svg?raw';
 import gridFour from '@phosphor-icons/core/assets/regular/grid-four.svg?raw';
 import gitDiff from '@phosphor-icons/core/assets/regular/git-diff.svg?raw';
 import gitMerge from '@phosphor-icons/core/assets/regular/git-merge.svg?raw';
@@ -104,6 +105,7 @@ export const iconMap: Record<string, string> = {
   gear: gear,
   'git-branch': gitBranch,
   'git-diff': gitDiff,
+  'git-fork': gitFork,
   'grid-four': gridFour,
   'git-merge': gitMerge,
   info: info,

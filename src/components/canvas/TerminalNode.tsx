@@ -1,12 +1,13 @@
-import { memo, useCallback } from 'react';
+import { memo, useCallback, useState } from 'react';
 import { NodeResizer, Handle, Position, type NodeProps } from '@xyflow/react';
-import type { TerminalNode as TerminalNodeType } from '../../stores/canvasStore';
+import { useCanvasStore, persistCanvas, type TerminalNode as TerminalNodeType } from '../../stores/canvasStore';
 import { useTerminalStore } from '../../stores/terminalStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { useTerminalPanels } from '../terminal/useTerminalPanels';
-import { closeProjectTerminal } from '../terminal/terminalActions';
+import { addProjectTerminal, closeProjectTerminal } from '../terminal/terminalActions';
 import { TerminalBody } from '../terminal/TerminalBody';
 import { Icon } from '../terminal/Icon';
+import { BranchFromTaskDialog } from '../dialogs/BranchFromTaskDialog';
 import { buildChainMap, getChainColor, getChainBgColor, isChainMember } from '../../utils/taskChain';
 
 const INSET_TOP = 68;
@@ -14,6 +15,39 @@ const INSET_SIDE = 10;
 const INSET_BOTTOM = 8;
 
 export const TerminalNode = memo(function TerminalNode({ data, selected }: NodeProps<TerminalNodeType>) {
+  if (data.loading) return <LoadingNode label={data.loadingLabel} />;
+  return <ActiveTerminalNode data={data} selected={selected} />;
+});
+
+function LoadingNode({ label }: { label?: string }) {
+  return (
+    <div
+      className="canvas-terminal-node absolute rounded-[14px] border border-white/10 overflow-hidden flex flex-col items-center justify-center gap-3"
+      style={{
+        top: INSET_TOP,
+        left: INSET_SIDE,
+        right: INSET_SIDE,
+        bottom: INSET_BOTTOM,
+        background: 'var(--color-terminal-bg, #171717)',
+        boxShadow: '0 0 0 1px rgba(0, 0, 0, 0.05), 0 4px 12px rgba(0, 0, 0, 0.15), 0 20px 40px rgba(0, 0, 0, 0.2)',
+      }}
+    >
+      <div
+        className="w-5 h-5 rounded-full border-2 border-white/20 border-t-accent"
+        style={{ animation: 'spin 0.8s linear infinite' }}
+      />
+      <span className="font-mono text-sm text-white/40">{label || 'Setting up workspace\u2026'}</span>
+    </div>
+  );
+}
+
+const ActiveTerminalNode = memo(function ActiveTerminalNode({
+  data,
+  selected,
+}: {
+  data: TerminalNodeType['data'];
+  selected?: boolean;
+}) {
   const { ptyId, projectPath } = data;
 
   const {
@@ -58,6 +92,7 @@ export const TerminalNode = memo(function TerminalNode({ data, selected }: NodeP
       <div className="terminal-drag-handle absolute px-1" style={{ top: 2, left: INSET_SIDE, right: INSET_SIDE }}>
         <NodePeriphery
           ptyId={ptyId}
+          projectPath={projectPath}
           onClose={handleClose}
           onToggleDiffPanel={toggleDiffPanel}
           onTogglePlanPanel={togglePlanPanel}
@@ -100,6 +135,7 @@ const EMPTY_TAGS: string[] = [];
 
 interface PeripheryProps {
   ptyId: string;
+  projectPath: string;
   onClose: () => void;
   onToggleDiffPanel: () => void;
   onTogglePlanPanel: () => void;
@@ -108,6 +144,7 @@ interface PeripheryProps {
 
 const NodePeriphery = memo(function NodePeriphery({
   ptyId,
+  projectPath,
   onClose,
   onToggleDiffPanel,
   onTogglePlanPanel,
@@ -128,7 +165,11 @@ const NodePeriphery = memo(function NodePeriphery({
   const worktreeBranch = useTerminalStore((s) => s.displayStates[ptyId]?.worktreeBranch ?? null);
   const tasks = useProjectStore((s) => s.tasks);
 
+  const [forkDialogOpen, setForkDialogOpen] = useState(false);
+
   const isWorktree = taskId != null && !!worktreeBranch;
+  const task = taskId != null ? tasks.find((t) => t.taskNumber === taskId) : null;
+  const canFork = task != null && !!task.branch && task.status !== 'done';
   const dirtyFileCount = gitFileStatus?.uncommittedFiles.length ?? 0;
   const branchDiffCount = gitFileStatus?.branchDiffFiles.length ?? 0;
   const showDiff = dirtyFileCount > 0 || (isWorktree && branchDiffCount > 0);
@@ -208,6 +249,19 @@ const NodePeriphery = memo(function NodePeriphery({
           >
             {runText}
           </button>
+          {canFork && (
+            <button
+              className="flex items-center gap-1 px-2.5 py-1 rounded-full font-mono text-[13px] font-medium text-white/60 bg-white/[0.06] border-none transition-all duration-150 ease-out hover:bg-white/[0.12] hover:text-white/90"
+              title="Fork task"
+              onClick={(e) => {
+                e.stopPropagation();
+                setForkDialogOpen(true);
+              }}
+            >
+              <Icon name="git-fork" className="w-3.5 h-3.5" />
+              <span>Fork</span>
+            </button>
+          )}
           <button
             className="w-7 h-7 flex items-center justify-center bg-transparent border-none text-white/40 hover:text-white/90 transition-colors duration-150 ml-1 [&_svg]:w-4 [&_svg]:h-4"
             onClick={(e) => {
@@ -249,6 +303,76 @@ const NodePeriphery = memo(function NodePeriphery({
           </span>
         ))}
       </div>
+      {forkDialogOpen && task && (
+        <BranchFromTaskDialog
+          projectPath={projectPath}
+          parentTask={task}
+          onClose={async (created, taskNumber) => {
+            setForkDialogOpen(false);
+            if (!created || taskNumber == null) return;
+
+            // Show loading placeholder to the right of the parent node
+            const loadingId = `loading-${taskNumber}`;
+            const store = useCanvasStore.getState();
+            const parentNode = store.canvasByProject[projectPath]?.nodes.find((n) => n.id === ptyId);
+            const parentW = parentNode?.style?.width ? Number(parentNode.style.width) : 740;
+            const hintPos = parentNode
+              ? { x: parentNode.position.x + parentW + 60, y: parentNode.position.y }
+              : undefined;
+            store.addNode(projectPath, loadingId, hintPos, {
+              loading: true,
+              loadingLabel: `Starting T-${taskNumber}\u2026`,
+            });
+            persistCanvas(projectPath);
+
+            // Start the forked task (creates worktree, sets in_progress)
+            const result = await window.api.task.start(projectPath, taskNumber);
+
+            // Capture loading node position, then remove it
+            const loadingNode = useCanvasStore
+              .getState()
+              .canvasByProject[projectPath]?.nodes.find((n) => n.id === loadingId);
+            const forkPos = loadingNode ? { ...loadingNode.position } : undefined;
+            useCanvasStore.getState().removeNode(projectPath, loadingId);
+
+            // Reload tasks so chain edges hydrate
+            await useProjectStore.getState().loadTasks(projectPath);
+
+            if (!result.success || !result.task || !result.worktreePath) return;
+
+            // Track existing nodes so we can find the new one
+            const nodesBefore = new Set(
+              useCanvasStore.getState().canvasByProject[projectPath]?.nodes.map((n) => n.id) ?? [],
+            );
+
+            // Open a terminal for it on the canvas
+            await addProjectTerminal(projectPath, undefined, {
+              existingWorktree: {
+                path: result.worktreePath,
+                branch: result.task.branch || '',
+                createdAt: result.task.createdAt,
+              },
+              taskId: taskNumber,
+            });
+
+            // Move the new node to where the loading placeholder was
+            if (forkPos) {
+              const canvas = useCanvasStore.getState().canvasByProject[projectPath];
+              if (canvas) {
+                const newNode = canvas.nodes.find((n) => !nodesBefore.has(n.id));
+                if (newNode) {
+                  const updatedNodes = canvas.nodes.map((n) => (n.id === newNode.id ? { ...n, position: forkPos } : n));
+                  useCanvasStore.getState().loadCanvas(projectPath, {
+                    ...canvas,
+                    nodes: updatedNodes as TerminalNodeType[],
+                  });
+                  persistCanvas(projectPath);
+                }
+              }
+            }
+          }}
+        />
+      )}
     </div>
   );
 });

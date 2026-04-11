@@ -6,7 +6,7 @@ import { DialogOverlay } from './DialogOverlay';
 interface BranchFromTaskDialogProps {
   projectPath: string;
   parentTask: TaskWithWorkspace;
-  onClose: (created: boolean) => void;
+  onClose: (created: boolean, taskNumber?: number) => void;
 }
 
 export function BranchFromTaskDialog({ projectPath, parentTask, onClose }: BranchFromTaskDialogProps) {
@@ -28,10 +28,10 @@ export function BranchFromTaskDialog({ projectPath, parentTask, onClose }: Branc
   useEffect(() => () => clearTimeout(timerRef.current), []);
 
   const dismiss = useCallback(
-    (created: boolean) => {
+    (created: boolean, taskNumber?: number) => {
       setVisible(false);
       clearTimeout(timerRef.current);
-      timerRef.current = setTimeout(() => onClose(created), 200);
+      timerRef.current = setTimeout(() => onClose(created, taskNumber), 200);
     },
     [onClose],
   );
@@ -42,7 +42,7 @@ export function BranchFromTaskDialog({ projectPath, parentTask, onClose }: Branc
     const result = await window.api.task.createFromTask(projectPath, parentTask.taskNumber, name || undefined);
     setSubmitting(false);
     if (result.success) {
-      dismiss(true);
+      dismiss(true, result.task?.taskNumber);
     } else {
       useProjectStore.getState().addToast(result.error || 'Failed to create task', 'error');
     }

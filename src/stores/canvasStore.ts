@@ -14,6 +14,8 @@ import {
 export interface TerminalNodeData extends Record<string, unknown> {
   ptyId: string;
   projectPath: string;
+  loading?: boolean;
+  loadingLabel?: string;
 }
 
 export type TerminalNode = Node<TerminalNodeData, 'terminal'>;
@@ -32,7 +34,12 @@ interface CanvasStoreState {
 interface CanvasStoreActions {
   onNodesChange: (projectPath: string, changes: NodeChange<TerminalNode>[]) => void;
   onEdgesChange: (projectPath: string, changes: EdgeChange[]) => void;
-  addNode: (projectPath: string, ptyId: string, position?: { x: number; y: number }) => void;
+  addNode: (
+    projectPath: string,
+    ptyId: string,
+    position?: { x: number; y: number },
+    extraData?: Partial<TerminalNodeData>,
+  ) => void;
   removeNode: (projectPath: string, ptyId: string) => void;
   setViewport: (projectPath: string, viewport: Viewport) => void;
   setEdges: (projectPath: string, edges: Edge[]) => void;
@@ -153,7 +160,7 @@ export const useCanvasStore = create<CanvasStore>()((set, get) => ({
     });
   },
 
-  addNode: (projectPath, ptyId, position) => {
+  addNode: (projectPath, ptyId, position, extraData) => {
     const state = get();
     const project = state.canvasByProject[projectPath] ?? emptyProjectState();
 
@@ -166,7 +173,7 @@ export const useCanvasStore = create<CanvasStore>()((set, get) => ({
       id: ptyId,
       type: 'terminal',
       position: pos,
-      data: { ptyId, projectPath },
+      data: { ptyId, projectPath, ...extraData },
       dragHandle: '.terminal-drag-handle',
       style: { width: DEFAULT_NODE_WIDTH, height: DEFAULT_NODE_HEIGHT },
     };
