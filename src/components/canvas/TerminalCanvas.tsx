@@ -171,7 +171,7 @@ function TerminalCanvasInner({ projectPath }: TerminalCanvasProps) {
         zoomOnPinch
         panActivationKeyCode="Space"
         zoomActivationKeyCode="Meta"
-        minZoom={0.25}
+        minZoom={0.05}
         maxZoom={2}
         selectionKeyCode="Shift"
         multiSelectionKeyCode="Meta"
