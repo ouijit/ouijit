@@ -62,7 +62,7 @@ export const KanbanCard = memo(function KanbanCard({
   }, [activeBadgeDragSource, task.taskNumber, chainMap]);
   const isHoveredBadgeTarget = isValidBadgeTarget && isHoveredByBadgeDrag;
   const isInvalidBadgeTarget = isBadgeDragActive && !isValidBadgeTarget;
-  const showBadge = isInChain || optionKeyHeld || isBadgeDragActive;
+  const showBadge = isInChain || optionKeyHeld;
 
   // Find connected terminals for this task — shallow compare avoids re-renders from unrelated terminal updates
   const connectedDisplays = useTerminalStore(
@@ -368,9 +368,6 @@ export const KanbanCard = memo(function KanbanCard({
             {task.name}
           </span>
         )}
-        {showBadge && (
-          <DraggableBadge task={task} projectPath={projectPath} chainInfo={chainInfo} chainMap={chainMap} />
-        )}
         <button
           className={`flex items-center justify-center w-5 h-5 p-0 bg-transparent border-none rounded text-text-secondary opacity-0 transition-all duration-150 ease-out shrink-0 [-webkit-app-region:no-drag] group-hover:opacity-60 hover:!opacity-100 [&>svg]:w-3 [&>svg]:h-3 [&>svg]:transition-transform [&>svg]:duration-150 [&>svg]:ease-out${expanded ? ' [&>svg]:rotate-180' : ''}`}
           onClick={(e) => {
@@ -381,6 +378,11 @@ export const KanbanCard = memo(function KanbanCard({
           <Icon name="caret-down" />
         </button>
       </div>
+      {showBadge && (
+        <div className="mt-1">
+          <DraggableBadge task={task} projectPath={projectPath} chainInfo={chainInfo} chainMap={chainMap} />
+        </div>
+      )}
 
       {isSettingUp && <div className="font-mono text-xs text-white/40 mt-1">Setting up workspace{'\u2026'}</div>}
 
