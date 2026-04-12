@@ -5,7 +5,7 @@ import type { ActiveSession } from '../ptyManager';
 import { generateId } from '../utils/ids';
 import { ensureRunning, getLimactlPath, getLimaEnv } from './manager';
 import { getApiPort, HELPER_SCRIPT, buildVmHookSettings } from '../hookServer';
-import { listMaskedPaths, buildOverlayBindMountSetup } from './overlay';
+import { listMaskedPaths, buildOverlayBindMountSetup, buildSandboxNoMatchesBanner } from './overlay';
 import { getLogger } from '../logger';
 
 const spawnLog = getLogger().scope('limaSpawn');
@@ -121,33 +121,64 @@ export async function spawnSandboxedPty(options: PtySpawnOptions, window: Browse
     // gitignored files created inside the worktree (e.g. a .env.secrets the
     // user just dropped in) and any worktree-local .gitignore edits are
     // honored.
+    //
+    // Fail-closed: if we can't enumerate the mask list at all (git errored,
+    // path isn't a repo, etc.), refuse to spawn the PTY. A sandboxed task
+    // without working isolation is a broken sandbox; we'd rather the user
+    // see a spawn error and fix their setup than run an agent against an
+    // unmasked worktree. Failures that happen guest-side (no passwordless
+    // sudo, mount errors) are handled by buildOverlayBindMountSetup, which
+    // prints a red banner and exits the shell before `exec bash`.
+    //
+    // The one non-fatal path is "no gitignored files in this worktree" —
+    // that's a legitimate empty state, so we proceed with a yellow warning
+    // banner instead of failing.
     let overlaySetup = '';
     if (options.taskId != null && options.worktreePath) {
-      const masks = await listMaskedPaths(options.worktreePath);
-      if (masks.length === 0) {
-        spawnLog.warn('sandboxed task has no gitignored paths to mask', {
+      try {
+        const masks = await listMaskedPaths(options.worktreePath);
+        if (masks.length === 0) {
+          spawnLog.warn('sandboxed task has no gitignored paths to mask', {
+            taskId: options.taskId,
+            worktreePath: options.worktreePath,
+          });
+          sendStep({
+            id: 'mask',
+            label: 'No gitignored paths to isolate',
+            status: 'done',
+          });
+          overlaySetup = buildSandboxNoMatchesBanner();
+        } else {
+          const fileCount = masks.filter((m) => m.type === 'file').length;
+          const dirCount = masks.length - fileCount;
+          spawnLog.info('sandbox masking paths', {
+            taskId: options.taskId,
+            total: masks.length,
+            files: fileCount,
+            dirs: dirCount,
+          });
+          sendStep({
+            id: 'mask',
+            label: `Isolating ${masks.length} path${masks.length === 1 ? '' : 's'} (${dirCount} dir, ${fileCount} file)…`,
+            status: 'done',
+          });
+          overlaySetup = buildOverlayBindMountSetup({
+            worktreePath: options.worktreePath,
+            taskId: options.taskId,
+            masks,
+          });
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        spawnLog.error('listMaskedPaths failed — refusing to spawn sandboxed terminal', {
           taskId: options.taskId,
           worktreePath: options.worktreePath,
+          error: message,
         });
-      } else {
-        const fileCount = masks.filter((m) => m.type === 'file').length;
-        const dirCount = masks.length - fileCount;
-        spawnLog.info('sandbox masking paths', {
-          taskId: options.taskId,
-          total: masks.length,
-          files: fileCount,
-          dirs: dirCount,
-        });
-        sendStep({
-          id: 'mask',
-          label: `Isolating ${masks.length} path${masks.length === 1 ? '' : 's'} (${dirCount} dir, ${fileCount} file)…`,
-          status: 'done',
-        });
-        overlaySetup = buildOverlayBindMountSetup({
-          worktreePath: options.worktreePath,
-          taskId: options.taskId,
-          masks,
-        });
+        return {
+          success: false,
+          error: `Sandbox isolation could not be computed (${message}). Refusing to start a sandboxed terminal without gitignore-based masking.`,
+        };
       }
     }
 

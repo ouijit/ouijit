@@ -57,9 +57,13 @@ export interface MaskEntry {
  * null-delimits output so spaces and newlines in filenames are safe.
  *
  * Delegates all gitignore semantics — negations, nested `.gitignore`,
- * `core.excludesFile`, globs — to git itself. Returns [] on any failure
- * (missing git, not a repo, perms); the caller treats empty as "nothing
- * to mask" and logs a warning.
+ * `core.excludesFile`, globs — to git itself.
+ *
+ * **Throws on hard failures** (git missing, path not a repo, permissions,
+ * maxBuffer overflow). An empty return means git succeeded and found
+ * nothing to ignore — that's a legitimate state the caller should still
+ * surface loudly, but it's semantically different from "enumeration
+ * failed" and the caller needs to distinguish them.
  */
 export async function listMaskedPaths(projectPath: string): Promise<MaskEntry[]> {
   let stdout: string;
@@ -71,11 +75,9 @@ export async function listMaskedPaths(projectPath: string): Promise<MaskEntry[]>
     );
     stdout = result.stdout;
   } catch (error) {
-    overlayLog.warn('git ls-files failed — no sandbox masks applied', {
-      projectPath,
-      error: error instanceof Error ? error.message : String(error),
-    });
-    return [];
+    const message = error instanceof Error ? error.message : String(error);
+    overlayLog.error('git ls-files failed — sandbox masking cannot run', { projectPath, error: message });
+    throw new Error(`listMaskedPaths: git ls-files failed for ${projectPath}: ${message}`);
   }
 
   const masks: MaskEntry[] = [];
@@ -111,17 +113,29 @@ export function buildOverlayBindMountSetup(opts: { worktreePath: string; taskId:
   const task = shEscape(String(opts.taskId));
   // Single-char type prefix + space + path. Quoted heredoc disables expansion.
   const maskList = opts.masks.map((m) => `${m.type === 'directory' ? 'd' : 'f'} ${m.relPath}`).join('\n');
+  // Fail-closed: the function returns non-zero on any isolation failure, and
+  // the caller below checks the return and exits the shell before exec bash.
+  // A sandboxed terminal that can't actually isolate is refused, not
+  // silently degraded.
   return `_ouijit_overlay_setup() {
   local WORKTREE=${worktree}
   local TASK=${task}
   local OVERLAY_ROOT="/var/lib/ouijit/overlays/T-$TASK"
 
   if ! sudo -n true 2>/dev/null; then
-    echo "ouijit: sandbox overlay skipped (passwordless sudo unavailable)" >&2
-    return 0
+    printf '\\n\\033[1;97;41m  SANDBOX ISOLATION FAILED  \\033[0m\\n' >&2
+    printf '\\033[1;31m  ouijit: passwordless sudo is unavailable in this VM.\\n' >&2
+    printf '  ouijit: cannot create isolation mounts — refusing to start a\\n' >&2
+    printf '  ouijit: sandboxed terminal without gitignore-based isolation.\\033[0m\\n\\n' >&2
+    return 1
   fi
 
-  sudo mkdir -p "$OVERLAY_ROOT" || { echo "ouijit: overlay mkdir failed" >&2; return 0; }
+  sudo mkdir -p "$OVERLAY_ROOT" || {
+    printf '\\n\\033[1;97;41m  SANDBOX ISOLATION FAILED  \\033[0m\\n' >&2
+    printf '\\033[1;31m  ouijit: could not create overlay root %s.\\n' "$OVERLAY_ROOT" >&2
+    printf '  ouijit: refusing to start a sandboxed terminal.\\033[0m\\n\\n' >&2
+    return 1
+  }
 
   local MASKS
   MASKS=$(cat <<'OUIJIT_MASKS_EOF'
@@ -134,8 +148,10 @@ OUIJIT_MASKS_EOF
   printf '%s\\n' "$WORKTREE" | sudo tee "$OVERLAY_ROOT/.worktree" >/dev/null
   printf '%s\\n' "$MASKS" | awk '{ $1=""; sub(/^ /,""); print }' | sudo tee "$OVERLAY_ROOT/.paths" >/dev/null
 
+  local TOTAL=0 OK=0 FAIL=0
   while IFS= read -r line; do
     [ -z "$line" ] && continue
+    TOTAL=$((TOTAL+1))
     local type="\${line%% *}"
     local rel="\${line#* }"
     local overlay="$OVERLAY_ROOT/$rel"
@@ -144,6 +160,7 @@ OUIJIT_MASKS_EOF
     if [ "$type" = "d" ]; then
       sudo mkdir -p "$overlay" "$target" 2>/dev/null || {
         echo "ouijit: overlay mkdir $rel failed" >&2
+        FAIL=$((FAIL+1))
         continue
       }
     else
@@ -151,22 +168,78 @@ OUIJIT_MASKS_EOF
       # and empty target (Linux rejects mount --bind onto a non-existent target).
       sudo mkdir -p "$(dirname "$overlay")" "$(dirname "$target")" 2>/dev/null || {
         echo "ouijit: overlay parent mkdir $rel failed" >&2
+        FAIL=$((FAIL+1))
         continue
       }
       sudo touch "$overlay" "$target" 2>/dev/null || {
         echo "ouijit: overlay touch $rel failed" >&2
+        FAIL=$((FAIL+1))
         continue
       }
     fi
 
-    if ! mountpoint -q "$target"; then
-      sudo mount --bind "$overlay" "$target" 2>/dev/null || echo "ouijit: bind mount $rel failed" >&2
+    if mountpoint -q "$target"; then
+      OK=$((OK+1))
+    elif sudo mount --bind "$overlay" "$target" 2>/dev/null; then
+      OK=$((OK+1))
+    else
+      echo "ouijit: bind mount $rel failed" >&2
+      FAIL=$((FAIL+1))
     fi
   done <<< "$MASKS"
+
+  # Status banner + fail-closed return code.
+  # - Any failure (total or partial) → red/yellow banner + return 1 → shell refuses to start.
+  # - Full success → green banner + return 0 → shell proceeds.
+  if [ "$FAIL" -gt 0 ] || [ "$OK" -eq 0 ]; then
+    if [ "$OK" -eq 0 ]; then
+      printf '\\n\\033[1;97;41m  SANDBOX ISOLATION FAILED  \\033[0m\\n' >&2
+      printf '\\033[1;31m  ouijit: 0 of %d paths were masked.\\n' "$TOTAL" >&2
+      printf '  ouijit: refusing to start a sandboxed terminal without isolation.\\033[0m\\n\\n' >&2
+    else
+      printf '\\n\\033[1;97;41m  SANDBOX ISOLATION PARTIAL  \\033[0m\\n' >&2
+      printf '\\033[1;31m  ouijit: only %d of %d paths were masked (%d failed).\\n' "$OK" "$TOTAL" "$FAIL" >&2
+      printf '  ouijit: check stderr above for per-path errors.\\n' >&2
+      printf '  ouijit: refusing to start a partially-isolated sandboxed terminal.\\033[0m\\n\\n' >&2
+    fi
+    return 1
+  fi
+
+  printf '\\n\\033[1;97;42m  SANDBOX ISOLATION ACTIVE  \\033[0m  %d paths masked\\n\\n' "$OK" >&2
+  return 0
 }
 _ouijit_overlay_setup
+_OUIJIT_OVERLAY_RC=$?
 unset -f _ouijit_overlay_setup
+if [ "$_OUIJIT_OVERLAY_RC" -ne 0 ]; then
+  unset _OUIJIT_OVERLAY_RC
+  exit 1
+fi
+unset _OUIJIT_OVERLAY_RC
 `;
+}
+
+/**
+ * Build a yellow ANSI banner that prints to stderr when git ls-files
+ * succeeded but returned zero gitignored paths. This is the one
+ * proceed-with-warning state: the worktree has no secrets/artifacts to
+ * isolate, so running the sandbox shell is legitimate, but the user
+ * should see that nothing was masked in case their .gitignore is
+ * incomplete. Consumed by spawn.ts and prepended to the shell's
+ * innerCmd so the user sees the warning immediately at terminal start.
+ *
+ * Hard enumeration failures (git missing, not a repo, etc.) are
+ * handled in spawn.ts: the spawn returns {success: false} and the
+ * shell never starts. There's no banner for that case because there's
+ * no terminal to print it into.
+ */
+export function buildSandboxNoMatchesBanner(): string {
+  return [
+    `printf '\\n\\033[1;30;43m  SANDBOX NO PATHS TO ISOLATE  \\033[0m\\n' >&2`,
+    `printf '\\033[1;33m  ouijit: no gitignored paths were found in this worktree.\\n' >&2`,
+    `printf '  ouijit: verify your .gitignore covers the files you want hidden.\\033[0m\\n\\n' >&2`,
+    '',
+  ].join('\n');
 }
 
 /**

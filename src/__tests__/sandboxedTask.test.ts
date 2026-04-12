@@ -66,7 +66,12 @@ vi.mock('../lima/manager', () => ({
 
 import { createTaskWorktree, startTask, recoverTaskWorktree, removeTaskWorktree } from '../worktree';
 import { beginTask, createBranchFromTask } from '../taskLifecycle';
-import { listMaskedPaths, buildOverlayBindMountSetup, buildOverlayCleanup } from '../lima/overlay';
+import {
+  listMaskedPaths,
+  buildOverlayBindMountSetup,
+  buildOverlayCleanup,
+  buildSandboxNoMatchesBanner,
+} from '../lima/overlay';
 import { exec as execMockedRaw } from 'node:child_process';
 
 const execMocked = vi.mocked(execMockedRaw);
@@ -246,10 +251,10 @@ describe('listMaskedPaths', () => {
     return dir;
   }
 
-  test('returns [] for a non-repo directory', async () => {
+  test('throws for a non-repo directory (enumeration failure is not silent)', async () => {
     const dir = path.join(tmpRoot, 'not-a-repo');
     realFs.mkdirSync(dir, { recursive: true });
-    expect(await listMaskedPaths(dir)).toEqual([]);
+    await expect(listMaskedPaths(dir)).rejects.toThrow(/git ls-files failed/);
   });
 
   test('returns [] when .gitignore matches nothing on disk', async () => {
@@ -391,6 +396,50 @@ describe('buildOverlayBindMountSetup', () => {
     expect(script).not.toMatch(/^set -e/m);
   });
 
+  test('sudo-unavailable path emits a red ANSI banner and returns 1 (fail-closed)', () => {
+    const script = buildOverlayBindMountSetup({
+      worktreePath: '/w',
+      taskId: 1,
+      masks: [{ relPath: 'node_modules', type: 'directory' }],
+    });
+    // The gray stderr echo from the old silent-skip is gone.
+    expect(script).not.toContain('sandbox overlay skipped');
+    // Red background + white foreground + bold banner.
+    expect(script).toContain('\\033[1;97;41m  SANDBOX ISOLATION FAILED  \\033[0m');
+    // The sudo-missing branch returns 1 so the shell refuses to start.
+    expect(script).toMatch(/passwordless sudo is unavailable[\s\S]*?return 1/);
+    // Banner goes to stderr, not stdout which could be captured.
+    expect(script).toMatch(/SANDBOX ISOLATION FAILED.*\\033\[0m.*>&2/);
+  });
+
+  test('emits green ACTIVE banner on full success and red FAILED banners on total/partial failure', () => {
+    const script = buildOverlayBindMountSetup({
+      worktreePath: '/w',
+      taskId: 1,
+      masks: [{ relPath: 'node_modules', type: 'directory' }],
+    });
+    // Success is the only path that returns 0 + green banner.
+    expect(script).toContain('\\033[1;97;42m  SANDBOX ISOLATION ACTIVE  \\033[0m');
+    // Both total-failure and partial-failure use the red "FAILED" background.
+    expect(script).toContain('\\033[1;97;41m  SANDBOX ISOLATION FAILED  \\033[0m');
+    expect(script).toContain('\\033[1;97;41m  SANDBOX ISOLATION PARTIAL  \\033[0m');
+    // Counters that feed the banner.
+    expect(script).toContain('local TOTAL=0 OK=0 FAIL=0');
+    // Any failure returns 1 — fail-closed.
+    expect(script).toMatch(/refusing to start/);
+  });
+
+  test('caller checks the function return code and exits before exec bash (fail-closed)', () => {
+    const script = buildOverlayBindMountSetup({
+      worktreePath: '/w',
+      taskId: 1,
+      masks: [{ relPath: 'node_modules', type: 'directory' }],
+    });
+    // After calling the setup function, the script captures $? and exits if non-zero.
+    expect(script).toContain('_OUIJIT_OVERLAY_RC=$?');
+    expect(script).toMatch(/if \[ "\$_OUIJIT_OVERLAY_RC" -ne 0 \]; then[\s\S]*?exit 1/);
+  });
+
   test('script passes `bash -n` with mixed file + dir masks', async () => {
     const realCp = await vi.importActual<typeof import('node:child_process')>('node:child_process');
     const script = buildOverlayBindMountSetup({
@@ -405,6 +454,26 @@ describe('buildOverlayBindMountSetup', () => {
       ],
     });
     expect(() => realCp.execSync('bash -n', { input: script })).not.toThrow();
+  });
+});
+
+describe('buildSandboxNoMatchesBanner', () => {
+  test('emits a yellow warning banner to stderr', () => {
+    const banner = buildSandboxNoMatchesBanner();
+    expect(banner).toContain('\\033[1;30;43m  SANDBOX NO PATHS TO ISOLATE  \\033[0m');
+    expect(banner).toContain('no gitignored paths were found');
+    expect(banner).toContain('>&2');
+  });
+
+  test('does NOT return or exit non-zero — zero-matches is proceed-with-warning', () => {
+    const banner = buildSandboxNoMatchesBanner();
+    expect(banner).not.toMatch(/\breturn 1\b/);
+    expect(banner).not.toMatch(/\bexit 1\b/);
+  });
+
+  test('banner passes `bash -n`', async () => {
+    const realCp = await vi.importActual<typeof import('node:child_process')>('node:child_process');
+    expect(() => realCp.execSync('bash -n', { input: buildSandboxNoMatchesBanner() })).not.toThrow();
   });
 });
 
