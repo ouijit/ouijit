@@ -23,14 +23,15 @@
 
     <h2>Why sandbox?</h2>
     <p>Git worktrees isolate your code, but a terminal session still has full access to your host &mdash; your home directory, credentials, system binaries, network. When CLI agents run arbitrary commands, that's a lot of trust.</p>
-    <p>The VM sandbox wraps each terminal in a <a href="https://lima-vm.io" target="_blank" rel="noopener">Lima</a> virtual machine. Your project worktree is mounted into the VM (read-write), but the rest of your filesystem is walled off. The agent can install packages, run builds, and execute code without risk to your host.</p>
+    <p>The VM sandbox wraps each terminal in a <a href="https://lima-vm.io" target="_blank" rel="noopener">Lima</a> virtual machine. Your project worktree is mounted into the VM (read-write), but the rest of your filesystem is walled off. Inside the worktree, every path your <code>.gitignore</code> matches &mdash; <code>.env</code> files, <code>secrets/</code>, <code>node_modules</code>, build artifacts &mdash; is masked with an empty placeholder so the agent only sees what git would track. The agent can install packages, run builds, and execute code without risk to your host or your host-only secrets.</p>
 
     <h2>How it works</h2>
     <ol>
-      <li><strong>Enable sandbox</strong> &mdash; Click the cube icon in the terminal toolbar to open the sandbox dropdown. Toggle it on.</li>
-      <li><strong>First terminal</strong> &mdash; Ouijit creates an Ubuntu 24.04 VM via Lima, starts it, and waits for SSH. This takes a minute or two on first boot; subsequent starts are faster.</li>
+      <li><strong>Enable sandbox on a task</strong> &mdash; Sandboxing is per-task, not per-project. When you start or continue a task, the run dialog has a <strong>Sandbox</strong> toggle. Flip it on and the task's terminal will spawn inside the VM.</li>
+      <li><strong>First terminal</strong> &mdash; Ouijit lazily creates an Ubuntu 24.04 VM via Lima on the first sandboxed spawn for a project. One VM per project, shared across that project's sandboxed tasks. Subsequent terminals reuse the running VM.</li>
+      <li><strong>Spawn progress</strong> &mdash; The spawn dialog shows each step: checking VM status, creating / starting, SSH connect, provisioning, isolating gitignored paths, launching shell. First boot takes a minute or two; later spawns are fast.</li>
       <li><strong>Shell sessions</strong> &mdash; Terminals run inside the VM via <code>limactl shell</code>. Your worktree is mounted at the same path as on the host, so relative paths and git operations work normally.</li>
-      <li><strong>VM lifecycle</strong> &mdash; The sandbox dropdown gives you direct control: Start, Stop, Recreate, or Delete the VM. When you open a sandboxed terminal, Ouijit starts the VM if it's stopped, or creates one if it doesn't exist yet.</li>
+      <li><strong>VM lifecycle &amp; resources</strong> &mdash; Manage the VM from <strong>Project Settings &rarr; Sandbox</strong>. You can see the VM status (Running / Stopped / Broken / Not created), create, start, stop, or recreate it, open a VM console, and edit the merged Lima YAML config (memory, CPU, disk, mounts). Changing resources prompts you to recreate the VM.</li>
     </ol>
 
     <h2>What's isolated</h2>
@@ -48,22 +49,39 @@
       </tbody>
     </table>
 
-    <h2>Setup hook</h2>
-    <p>VMs start from a clean Ubuntu image with <code>bash</code>, <code>git</code>, <code>curl</code>, <code>wget</code>, <code>nodejs</code>, <code>npm</code>, <code>python3</code>, and <code>build-essential</code> pre-installed. If your project needs more, use the <strong>sandbox-setup</strong> hook.</p>
-    <p>The setup hook runs once per VM session (not per terminal). If you edit the hook script, it re-runs automatically on the next terminal open.</p>
-    <p>Configure it from the sandbox dropdown &mdash; click the gear icon next to "Setup Hook", or create a new one if none exists.</p>
-    <pre><code># Example: install project dependencies inside the VM
-cd /path/to/your/worktree
-npm install</code></pre>
+    <h2>Gitignored paths are masked</h2>
+    <p>When a sandboxed terminal starts, every path your <code>.gitignore</code> matches is replaced with an empty placeholder inside the VM. Host-only secrets like <code>.env</code> or <code>config/secrets.yml</code> aren't visible to the agent, and platform-specific artifacts like macOS <code>node_modules</code> don't leak into the Linux guest.</p>
+    <p>There's no config file or allowlist to maintain. Ouijit runs <code>git ls-files</code> against the worktree and honors whatever git says is ignored &mdash; negations (<code>!keep.env</code>), nested <code>.gitignore</code> files, globs, and <code>core.excludesFile</code> all work. The terminal startup banner reports what was hidden, e.g. <em>&ldquo;Isolating 12 paths (7 dir, 5 file)&rdquo;</em>.</p>
 
-    <h2>Resource configuration</h2>
-    <p>Each project's VM can be configured with custom resource limits from the sandbox dropdown:</p>
+    <h3>What this buys you</h3>
     <ul>
-      <li><strong>Memory</strong> &mdash; default 4 GiB</li>
-      <li><strong>Disk</strong> &mdash; default 10 GiB</li>
-      <li><strong>CPUs</strong> &mdash; default 2</li>
+      <li><strong>Secret isolation</strong> &mdash; gitignored <code>.env</code>, <code>.npmrc</code>, <code>secrets/</code>, and similar files stay on the host.</li>
+      <li><strong>No ABI mismatches</strong> &mdash; darwin-arm64 <code>node_modules</code>, Rust <code>target/</code>, and Python <code>.venv</code> never collide with the Linux guest's toolchain.</li>
+      <li><strong>Per-task isolation</strong> &mdash; two parallel sandboxed tasks on the same project can't stomp each other's installs.</li>
     </ul>
-    <p>Changes to resources require recreating the VM (the dropdown has a "Recreate VM" option for this).</p>
+
+    <h3>Caveats</h3>
+    <ul>
+      <li><strong>Committed files are always visible.</strong> <code>.gitignore</code> only affects files git considers untracked. If you committed a secret and then gitignored it, the agent still sees it &mdash; run <code>git rm --cached &lt;file&gt;</code> and rotate the secret. Don't commit what you don't want an agent to read.</li>
+      <li><strong>Masking is a snapshot at terminal start.</strong> New gitignored files created while a terminal is already open aren't masked in that terminal. Close and reopen to re-enumerate.</li>
+      <li><strong>Filenames aren't hidden, only contents.</strong> <code>ls</code> still shows <code>.env.secrets</code> as a 0-byte file. Don't rely on this to hide secret-sounding paths.</li>
+      <li><strong>The worktree is read-write.</strong> The VM has no git credentials, so a compromised agent can't push &mdash; but it can stage commits that a human on the host could unknowingly push later. Review diffs before pushing.</li>
+      <li><strong>Scope is the worktree.</strong> Files in the VM's own <code>$HOME</code> (e.g. <code>~/.netrc</code>, <code>~/.git-credentials</code>) aren't covered. Lima ships a clean home; don't copy host auth into it.</li>
+    </ul>
+
+    <h3>Startup banners</h3>
+    <p>Masking is fail-closed: if isolation can't be delivered, the terminal refuses to start. Every spawn resolves to one of three banners, printed to the terminal before the interactive shell:</p>
+    <ul>
+      <li><strong>SANDBOX ISOLATION ACTIVE</strong> &mdash; green. Masks applied. Shell starts.</li>
+      <li><strong>SANDBOX NO PATHS TO ISOLATE</strong> &mdash; yellow. Nothing was gitignored in the worktree. Shell still starts &mdash; double-check your <code>.gitignore</code> before running anything sensitive.</li>
+      <li><strong>SANDBOX ISOLATION FAILED</strong> &mdash; red. Enumeration error, missing sudo, mount failure, or any partial failure. The shell exits immediately; fix the cause and reopen. Partial failures are treated as total failures.</li>
+    </ul>
+    <p>Errors that happen before the VM side runs (e.g. <code>git ls-files</code> throws) come back as a failed terminal-open in Ouijit, not as a banner.</p>
+
+    <h2>Customizing the VM</h2>
+    <p>VMs start from a clean Ubuntu 24.04 image with <code>bash</code>, <code>git</code>, <code>curl</code>, <code>wget</code>, <code>nodejs</code>, <code>npm</code>, <code>python3</code>, and <code>build-essential</code> pre-installed. Defaults are 4 GiB memory, 2 CPUs, 10 GiB disk.</p>
+    <p>Everything else &mdash; resource limits, extra packages, additional mounts, provisioning scripts &mdash; is controlled by the Lima YAML config in <strong>Project Settings &rarr; Sandbox</strong>. The editor shows the merged effective config and lets you write overrides; Ouijit prompts you to recreate the VM when changes require it.</p>
+    <p>See the <a href="https://lima-vm.io/docs/config/" target="_blank" rel="noopener">Lima configuration reference</a> for the available keys.</p>
 
     <h2>Claude Code integration</h2>
     <p>Ouijit automatically injects its hook helper script and Claude Code settings into each sandboxed shell. This means Claude Code's hook status events (thinking, tool use, idle) work inside the VM just like they do on the host &mdash; the VM shell communicates back to Ouijit via <code>host.lima.internal</code>.</p>
