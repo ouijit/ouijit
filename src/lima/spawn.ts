@@ -117,14 +117,17 @@ export async function spawnSandboxedPty(options: PtySpawnOptions, window: Browse
 
     // Per-task bind-mount overlay for every gitignored path (files + dirs)
     // on the guest's local ext4. Runs before hookSetup so mounts are live
-    // for hooks.
+    // for hooks. Enumerate from the worktree — not the project — so that
+    // gitignored files created inside the worktree (e.g. a .env.secrets the
+    // user just dropped in) and any worktree-local .gitignore edits are
+    // honored.
     let overlaySetup = '';
     if (options.taskId != null && options.worktreePath) {
-      const masks = await listMaskedPaths(projectPath);
+      const masks = await listMaskedPaths(options.worktreePath);
       if (masks.length === 0) {
         spawnLog.warn('sandboxed task has no gitignored paths to mask', {
           taskId: options.taskId,
-          projectPath,
+          worktreePath: options.worktreePath,
         });
       } else {
         const fileCount = masks.filter((m) => m.type === 'file').length;
