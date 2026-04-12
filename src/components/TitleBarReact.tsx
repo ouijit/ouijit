@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useAppStore } from '../stores/appStore';
 import { useProjectStore, type TerminalLayout } from '../stores/projectStore';
+import { useExperimentalStore } from '../stores/experimentalStore';
 import { useUIStore } from '../stores/uiStore';
 import { stringToColor, getInitials } from '../utils/projectIcon';
 import { Icon } from './terminal/Icon';
@@ -23,6 +24,9 @@ export function TitleBar({ mode }: TitleBarProps) {
   const kanbanVisible = useProjectStore((s) => s.kanbanVisible);
   const terminalLayout = useProjectStore((s) => s.terminalLayout);
   const activePanel = useProjectStore((s) => s.activePanel);
+  const canvasEnabled = useExperimentalStore((s) =>
+    activeProjectPath ? (s.flagsByProject[activeProjectPath]?.canvas ?? false) : false,
+  );
   const homeGroupMode = useUIStore((s) => s.homeGroupMode);
   const [username, setUsername] = useState('');
 
@@ -138,13 +142,15 @@ export function TitleBar({ mode }: TitleBarProps) {
               >
                 <Icon name="cards-three" />
               </TooltipButton>
-              <TooltipButton
-                text="Canvas"
-                className={`w-9 h-full flex items-center justify-center text-text-secondary transition-all duration-150 ease-out hover:text-text-primary hover:bg-background-tertiary [&>svg]:w-5 [&>svg]:h-5${activePanel !== 'settings' && !kanbanVisible && terminalLayout === 'canvas' ? ' text-text-primary bg-background-tertiary' : ''}`}
-                onClick={() => handleToggleView('canvas')}
-              >
-                <CanvasIcon />
-              </TooltipButton>
+              {canvasEnabled && (
+                <TooltipButton
+                  text="Canvas"
+                  className={`w-9 h-full flex items-center justify-center text-text-secondary transition-all duration-150 ease-out hover:text-text-primary hover:bg-background-tertiary [&>svg]:w-5 [&>svg]:h-5${activePanel !== 'settings' && !kanbanVisible && terminalLayout === 'canvas' ? ' text-text-primary bg-background-tertiary' : ''}`}
+                  onClick={() => handleToggleView('canvas')}
+                >
+                  <CanvasIcon />
+                </TooltipButton>
+              )}
               <TooltipButton
                 text="Settings"
                 className={`w-9 h-full flex items-center justify-center text-text-secondary transition-all duration-150 ease-out hover:text-text-primary hover:bg-background-tertiary [&>svg]:w-5 [&>svg]:h-5${activePanel === 'settings' ? ' text-text-primary bg-background-tertiary' : ''}`}
