@@ -232,6 +232,11 @@ export function getShellIntegrationDir(): string {
   return path.join(os.homedir(), '.config', 'Ouijit', 'shell-integration');
 }
 
+/** Path to the CLI reference file loaded by Claude via --append-system-prompt-file. */
+export function getCliReferencePath(): string {
+  return path.join(os.homedir(), '.config', 'Ouijit', 'ouijit-cli-reference.md');
+}
+
 interface HookEntry {
   type: 'command';
   command: string;
@@ -312,6 +317,82 @@ export const HELPER_SCRIPT = [
   '',
 ].join('\n');
 
+/** CLI reference loaded by Claude Code via --append-system-prompt-file. */
+export const CLI_REFERENCE = `# Ouijit CLI Reference
+
+You are running inside an Ouijit terminal. The \`ouijit\` CLI manages tasks, tags, hooks, scripts, and plans for this project. All commands output JSON to stdout. The CLI is pre-configured via environment variables — no setup needed.
+
+## Environment (pre-set, do not modify)
+- OUIJIT_API_URL — REST API endpoint (already configured)
+- OUIJIT_PTY_ID — this terminal session's ID (used by plan commands)
+
+## Task Commands (most common)
+ouijit task list                              # → [{taskNumber, name, status, branch, worktreePath, prompt, ...}]
+ouijit task get <number>                      # → single task object
+ouijit task create "<name>"                   # → {success, task: {taskNumber, ...}}
+ouijit task create "<name>" --prompt "<text>" # set description at creation
+ouijit task start <number>                    # creates git worktree, sets in_progress
+ouijit task create-and-start "<name>"         # create + start in one step
+ouijit task set-status <number> <status>      # status: todo | in_progress | in_review | done
+ouijit task set-name <number> <new name>
+ouijit task set-description <number> <text>
+ouijit task set-merge-target <number> <branch>
+ouijit task delete <number>                   # removes task and its worktree
+
+## Tag Commands
+ouijit tag list                               # → all tags across projects
+ouijit tag list --task <number>               # → tags for one task
+ouijit tag add <task-number> <tag-name>
+ouijit tag remove <task-number> <tag-name>
+ouijit tag set <task-number> <tag1> <tag2>... # replace all tags
+
+## Hook Commands (project lifecycle scripts)
+Hook types: start, continue, run, review, cleanup, editor
+
+ouijit hook list                              # → {start?: {name, command}, ...}
+ouijit hook get <type>
+ouijit hook set <type> --name "<name>" --command "<cmd>"
+ouijit hook delete <type>
+
+## Script Commands (ad-hoc project scripts)
+ouijit script list                            # → [{id, name, command, sortOrder}]
+ouijit script set --name "<name>" --command "<cmd>"
+ouijit script run <id-or-name>                # executes and streams output
+ouijit script run <id-or-name> --task <number> # run in task's worktree dir
+
+## Plan Commands (terminal session plan files)
+ouijit plan set <path.md>                     # associate plan file with this terminal
+ouijit plan get                               # → {ptyId, planPath}
+ouijit plan unset                             # clear plan association
+
+## Project Commands
+ouijit project list                           # → all registered projects
+
+## Key Behaviors
+- All mutating commands notify the Ouijit app UI in real-time.
+- Task statuses: todo → in_progress → in_review → done (set any directly).
+- "start" creates a git worktree branch — the task gets its own isolated directory.
+- Project is auto-detected from the current git repo. Override with --project <path>.
+- Errors return JSON to stderr: {"error": "message"} with non-zero exit code.
+- Always prefer ouijit over editing task files directly.
+
+## Common Workflows
+# Check what tasks exist, then update yours:
+ouijit task list
+ouijit task set-status 5 in_review
+
+# Create a task and immediately start working:
+ouijit task create-and-start "Fix auth timeout" --prompt "Session expires too early"
+
+# Tag and describe a task:
+ouijit task set-description 3 "Refactor the auth middleware to use JWT refresh tokens"
+ouijit tag add 3 refactor
+ouijit tag add 3 auth
+
+# Set up a project run hook:
+ouijit hook set run --name "Dev server" --command "npm run dev"
+`;
+
 /** Bash wrapper that shadows `claude` and injects hook settings via --settings. */
 export const CLAUDE_WRAPPER = [
   '#!/bin/bash',
@@ -334,16 +415,16 @@ export const CLAUDE_WRAPPER = [
   '# Re-export PATH with wrapper dir so ouijit CLI works inside Claude Code',
   'export PATH="$WRAPPER_DIR:$CLEAN_PATH"',
   '',
-  '# System prompt telling Claude about the ouijit CLI',
-  `OUIJIT_PROMPT='You have access to the ouijit CLI for task management in this project. Run "ouijit --help" for commands. Use it to create tasks, update status, set descriptions, and manage hooks. Always prefer ouijit over editing task files directly.'`,
+  '# CLI reference file for Claude Code agents',
+  'REFERENCE_FILE="$HOME/.config/Ouijit/ouijit-cli-reference.md"',
   '',
   '# If ouijit is not running, just exec the real claude with CLI awareness',
   'if [ -z "$OUIJIT_API_URL" ]; then',
-  '  exec "$REAL_CLAUDE" --append-system-prompt "$OUIJIT_PROMPT" "$@"',
+  '  exec "$REAL_CLAUDE" --append-system-prompt-file "$REFERENCE_FILE" "$@"',
   'fi',
   '',
   '# Inject ouijit hooks via --settings (merges with user settings at runtime)',
-  `exec "$REAL_CLAUDE" --settings '${JSON.stringify(buildHookSettings('$HOME/.config/Ouijit/bin/ouijit-hook', '$HOME/.config/Ouijit/bin/ouijit-plan-hook'))}' --append-system-prompt "$OUIJIT_PROMPT" "$@"`,
+  `exec "$REAL_CLAUDE" --settings '${JSON.stringify(buildHookSettings('$HOME/.config/Ouijit/bin/ouijit-hook', '$HOME/.config/Ouijit/bin/ouijit-plan-hook'))}' --append-system-prompt-file "$REFERENCE_FILE" "$@"`,
   '',
 ].join('\n');
 
@@ -415,6 +496,9 @@ export function installWrapper(): void {
   try {
     const binDir = getWrapperBinDir();
     fs.mkdirSync(binDir, { recursive: true });
+
+    // Write CLI reference file (loaded by claude via --append-system-prompt-file)
+    fs.writeFileSync(getCliReferencePath(), CLI_REFERENCE, { mode: 0o644 });
 
     // Write ouijit-hook helper script (curl client invoked by hooks)
     fs.writeFileSync(path.join(binDir, 'ouijit-hook'), HELPER_SCRIPT, { mode: 0o755 });
