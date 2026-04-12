@@ -1,6 +1,7 @@
 import { Component, useCallback, useEffect, useState, type ErrorInfo, type ReactNode } from 'react';
 import { useIPCListeners } from './hooks/useIPCListeners';
 import { useAppStore } from './stores/appStore';
+import { useExperimentalStore } from './stores/experimentalStore';
 import { TitleBar } from './components/TitleBarReact';
 import { Sidebar } from './components/SidebarReact';
 import { HomeView } from './components/HomeViewReact';
@@ -53,9 +54,17 @@ export function App() {
   useIPCListeners();
 
   const activeView = useAppStore((s) => s.activeView);
+  const activeProjectPath = useAppStore((s) => s.activeProjectPath);
   const whatsNew = useAppStore((s) => s.whatsNew);
   const [showNewProject, setShowNewProject] = useState(false);
   const [initialized, setInitialized] = useState(false);
+
+  // Hydrate experimental flags whenever the active project changes
+  useEffect(() => {
+    if (activeProjectPath) {
+      useExperimentalStore.getState().loadFor(activeProjectPath);
+    }
+  }, [activeProjectPath]);
 
   // Prevent Electron drag/drop navigation
   useEffect(() => {

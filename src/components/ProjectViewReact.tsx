@@ -3,6 +3,7 @@ import { useAppStore } from '../stores/appStore';
 import { useProjectStore } from '../stores/projectStore';
 import { useTerminalStore, getTerminalIndexByStackPosition, STACK_PAGE_SIZE } from '../stores/terminalStore';
 import { useCanvasStore, persistCanvas } from '../stores/canvasStore';
+import { useExperimentalStore } from '../stores/experimentalStore';
 import { TerminalCardStack } from './terminal/TerminalCardStack';
 import { TerminalCanvas, syncCanvasWithTerminals } from './canvas/TerminalCanvas';
 import { KanbanBoard } from './kanban/KanbanBoard';
@@ -47,6 +48,9 @@ export function ProjectView() {
   const kanbanVisible = useProjectStore((s) => s.kanbanVisible);
   const activePanel = useProjectStore((s) => s.activePanel);
   const terminalLayout = useProjectStore((s) => s.terminalLayout);
+  const canvasEnabled = useExperimentalStore((s) =>
+    projectPath ? (s.flagsByProject[projectPath]?.canvas ?? false) : false,
+  );
 
   const activeIndex = useTerminalStore((s) => (projectPath ? (s.activeIndices[projectPath] ?? 0) : 0));
   const terminalList = useTerminalStore((s) => (projectPath ? s.terminalsByProject[projectPath] : undefined));
@@ -102,8 +106,8 @@ export function ProjectView() {
         return;
       }
 
-      // Cmd+L — toggle terminal layout (stack / canvas)
-      if (key === 'l') {
+      // Cmd+L — toggle terminal layout (stack / canvas) — only when canvas is enabled
+      if (key === 'l' && canvasEnabled) {
         e.preventDefault();
         e.stopPropagation();
         useProjectStore.getState().toggleTerminalLayout();
@@ -111,7 +115,7 @@ export function ProjectView() {
       }
 
       // Cmd+G / Cmd+Shift+G — group/ungroup (canvas mode only)
-      if (key === 'g' && useProjectStore.getState().terminalLayout === 'canvas') {
+      if (key === 'g' && canvasEnabled && useProjectStore.getState().terminalLayout === 'canvas') {
         e.preventDefault();
         e.stopPropagation();
         if (e.shiftKey) {
@@ -221,7 +225,14 @@ export function ProjectView() {
 
     document.addEventListener('keydown', handler, true);
     return () => document.removeEventListener('keydown', handler, true);
-  }, [projectPath]);
+  }, [projectPath, canvasEnabled]);
+
+  // Force layout back to stack if the canvas flag gets disabled while active
+  useEffect(() => {
+    if (!canvasEnabled && terminalLayout === 'canvas') {
+      useProjectStore.getState().setTerminalLayout('stack');
+    }
+  }, [canvasEnabled, terminalLayout]);
 
   // Reconnect orphaned sessions, or show kanban if none exist
   useEffect(() => {
@@ -343,7 +354,7 @@ export function ProjectView() {
   }
 
   const renderTerminals = () => {
-    if (terminalLayout === 'canvas') {
+    if (canvasEnabled && terminalLayout === 'canvas') {
       return <TerminalCanvas projectPath={projectPath} />;
     }
     return <TerminalCardStack projectPath={projectPath} />;
