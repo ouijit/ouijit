@@ -13,16 +13,20 @@ import { Tooltip } from '../ui/Tooltip';
 import type { TaskChainInfo } from '../../utils/taskChain';
 import { getChainColor, getChainBgColor, isChainMember, isDescendantOf } from '../../utils/taskChain';
 
+const isMac = navigator.platform.toLowerCase().includes('mac');
+
 interface KanbanCardProps {
   task: TaskWithWorkspace;
   projectPath: string;
   chainInfo?: TaskChainInfo;
   chainMap?: Map<number, TaskChainInfo>;
   isSettingUp?: boolean;
+  isSelected?: boolean;
   onRename: (taskNumber: number, newName: string) => void;
   onUpdateDescription: (taskNumber: number, description: string) => void;
   onOpenTerminal: (task: TaskWithWorkspace, sandboxed?: boolean) => void;
   onSwitchToTerminal: (ptyId: string) => void;
+  onSelect: (taskNumber: number, event: React.MouseEvent) => void;
 }
 
 export const KanbanCard = memo(function KanbanCard({
@@ -31,10 +35,12 @@ export const KanbanCard = memo(function KanbanCard({
   chainInfo,
   chainMap,
   isSettingUp,
+  isSelected,
   onRename,
   onUpdateDescription,
   onOpenTerminal,
   onSwitchToTerminal,
+  onSelect,
 }: KanbanCardProps) {
   const [expanded, setExpanded] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -162,7 +168,80 @@ export const KanbanCard = memo(function KanbanCard({
   }, [projectPath]);
 
   // Build context menu items
+  const selectedCount = useProjectStore((s) => s.selectedTaskNumbers.size);
   const contextMenuItems = useMemo((): ContextMenuEntry[] => {
+    // Bulk context menu when this card is part of a multi-selection
+    if (isSelected && selectedCount > 1) {
+      const items: ContextMenuEntry[] = [
+        {
+          label: 'Move to To Do',
+          onClick: async () => {
+            const selected = [...useProjectStore.getState().selectedTaskNumbers];
+            await Promise.allSettled(selected.map((n) => window.api.task.setStatus(projectPath, n, 'todo')));
+            useProjectStore.getState().loadTasks(projectPath);
+            useProjectStore.getState().clearSelection();
+            useProjectStore.getState().addToast(`Moved ${selected.length} tasks to To Do`, 'success');
+          },
+        },
+        {
+          label: 'Move to In Progress',
+          onClick: async () => {
+            const selected = [...useProjectStore.getState().selectedTaskNumbers];
+            await Promise.allSettled(selected.map((n) => window.api.task.setStatus(projectPath, n, 'in_progress')));
+            useProjectStore.getState().loadTasks(projectPath);
+            useProjectStore.getState().clearSelection();
+            useProjectStore.getState().addToast(`Moved ${selected.length} tasks to In Progress`, 'success');
+          },
+        },
+        {
+          label: 'Move to In Review',
+          onClick: async () => {
+            const selected = [...useProjectStore.getState().selectedTaskNumbers];
+            await Promise.allSettled(selected.map((n) => window.api.task.setStatus(projectPath, n, 'in_review')));
+            useProjectStore.getState().loadTasks(projectPath);
+            useProjectStore.getState().clearSelection();
+            useProjectStore.getState().addToast(`Moved ${selected.length} tasks to In Review`, 'success');
+          },
+        },
+        {
+          label: 'Move to Done',
+          onClick: async () => {
+            const selected = [...useProjectStore.getState().selectedTaskNumbers];
+            await Promise.allSettled(selected.map((n) => window.api.task.setStatus(projectPath, n, 'done')));
+            useProjectStore.getState().loadTasks(projectPath);
+            useProjectStore.getState().clearSelection();
+            useProjectStore.getState().addToast(`Moved ${selected.length} tasks to Done`, 'success');
+          },
+        },
+        { separator: true },
+        {
+          label: 'Open in Terminal',
+          icon: 'terminal',
+          onClick: () => {
+            const store = useProjectStore.getState();
+            const selected = [...store.selectedTaskNumbers];
+            const tasks = store.tasks.filter((t) => selected.includes(t.taskNumber));
+            for (const t of tasks) onOpenTerminal(t);
+            store.clearSelection();
+          },
+        },
+        { separator: true },
+        {
+          label: 'Delete',
+          icon: 'trash',
+          danger: true,
+          onClick: async () => {
+            const selected = [...useProjectStore.getState().selectedTaskNumbers];
+            await Promise.allSettled(selected.map((n) => window.api.task.trash(projectPath, n)));
+            useProjectStore.getState().loadTasks(projectPath);
+            useProjectStore.getState().clearSelection();
+            useProjectStore.getState().addToast(`Deleted ${selected.length} tasks`, 'success');
+          },
+        },
+      ];
+      return items;
+    }
+
     const items: ContextMenuEntry[] = [];
 
     // Connected terminals
@@ -284,6 +363,8 @@ export const KanbanCard = memo(function KanbanCard({
     isDone,
     sandboxAvailable,
     hasEditorHook,
+    isSelected,
+    selectedCount,
     startEditing,
     onSwitchToTerminal,
     onOpenTerminal,
@@ -293,12 +374,15 @@ export const KanbanCard = memo(function KanbanCard({
     <div
       className="kanban-card group px-3 py-3.5 ease-out [-webkit-app-region:no-drag] hover:bg-black/10 active:bg-black/[0.12]"
       style={{
-        background: isHoveredBadgeTarget
-          ? 'rgba(10, 132, 255, 0.08)'
-          : expanded
-            ? 'rgba(0, 0, 0, 0.15)'
-            : 'var(--color-terminal-bg)',
-        transition: 'background 150ms ease-out, opacity 150ms ease-out, outline-color 150ms ease-out',
+        background: isSelected
+          ? 'rgba(10, 132, 255, 0.06)'
+          : isHoveredBadgeTarget
+            ? 'rgba(10, 132, 255, 0.08)'
+            : expanded
+              ? 'rgba(0, 0, 0, 0.15)'
+              : 'var(--color-terminal-bg)',
+        transition:
+          'background 150ms ease-out, opacity 150ms ease-out, outline-color 150ms ease-out, box-shadow 150ms ease-out',
         borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
         outline: isHoveredBadgeTarget
           ? '1px solid rgba(10, 132, 255, 0.6)'
@@ -307,8 +391,25 @@ export const KanbanCard = memo(function KanbanCard({
             : 'none',
         outlineOffset: -1,
         ...(isInvalidBadgeTarget && { opacity: 0.4 }),
+        ...(isSelected && { boxShadow: 'inset 2px 0 0 0 #0A84FF' }),
       }}
       data-task-number={task.taskNumber}
+      onMouseDown={(e) => {
+        // Prevent browser text selection when shift-clicking to range-select
+        if (e.shiftKey) e.preventDefault();
+      }}
+      onClick={(e) => {
+        // Don't interfere with double-click (rename)
+        if (e.detail >= 2) return;
+        const mod = isMac ? e.metaKey : e.ctrlKey;
+        if (mod || e.shiftKey) {
+          e.stopPropagation();
+          onSelect(task.taskNumber, e);
+        } else if (useProjectStore.getState().selectedTaskNumbers.size > 0) {
+          // Plain click clears selection
+          useProjectStore.getState().clearSelection();
+        }
+      }}
       onContextMenu={(e) => {
         e.preventDefault();
         e.stopPropagation();

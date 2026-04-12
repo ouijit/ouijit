@@ -1,9 +1,10 @@
-import { useMemo } from 'react';
+import { useMemo, type MouseEvent } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import type { TaskWithWorkspace, HookType } from '../../types';
 import type { TaskChainInfo } from '../../utils/taskChain';
+import { useProjectStore } from '../../stores/projectStore';
 import { KanbanCard } from './KanbanCard';
 import { KanbanAddInput } from './KanbanAddInput';
 import { Icon } from '../terminal/Icon';
@@ -27,6 +28,7 @@ interface KanbanColumnProps {
   onUpdateDescription: (taskNumber: number, description: string) => void;
   onOpenTerminal: (task: TaskWithWorkspace, sandboxed?: boolean) => void;
   onSwitchToTerminal: (ptyId: string) => void;
+  onSelect: (taskNumber: number, event: MouseEvent) => void;
   onConfigureHook?: (hookTypes: HookType[]) => void;
   hasConfiguredHook?: boolean;
   chainMap?: Map<number, TaskChainInfo>;
@@ -43,6 +45,7 @@ export function KanbanColumn({
   onUpdateDescription,
   onOpenTerminal,
   onSwitchToTerminal,
+  onSelect,
   onConfigureHook,
   hasConfiguredHook,
   chainMap,
@@ -84,6 +87,9 @@ export function KanbanColumn({
           minHeight: 80,
           background: isOver && tasks.length === 0 ? 'rgba(10, 132, 255, 0.08)' : undefined,
         }}
+        onClick={(e) => {
+          if (e.target === e.currentTarget) useProjectStore.getState().clearSelection();
+        }}
       >
         <SortableContext items={taskIds} strategy={verticalListSortingStrategy}>
           {tasks.map((task) => (
@@ -97,6 +103,7 @@ export function KanbanColumn({
               onUpdateDescription={onUpdateDescription}
               onOpenTerminal={onOpenTerminal}
               onSwitchToTerminal={onSwitchToTerminal}
+              onSelect={onSelect}
             />
           ))}
         </SortableContext>
@@ -117,6 +124,7 @@ function SortableCard({
   onUpdateDescription,
   onOpenTerminal,
   onSwitchToTerminal,
+  onSelect,
 }: {
   task: TaskWithWorkspace;
   projectPath: string;
@@ -126,11 +134,13 @@ function SortableCard({
   onUpdateDescription: (taskNumber: number, description: string) => void;
   onOpenTerminal: (task: TaskWithWorkspace, sandboxed?: boolean) => void;
   onSwitchToTerminal: (ptyId: string) => void;
+  onSelect: (taskNumber: number, event: MouseEvent) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: `task-${task.taskNumber}`,
     data: { task, type: 'card' },
   });
+  const isSelected = useProjectStore((s) => s.selectedTaskNumbers.has(task.taskNumber));
 
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
@@ -166,10 +176,12 @@ function SortableCard({
         chainInfo={chainMap?.get(task.taskNumber)}
         chainMap={chainMap}
         isSettingUp={isSettingUp}
+        isSelected={isSelected}
         onRename={onRename}
         onUpdateDescription={onUpdateDescription}
         onOpenTerminal={onOpenTerminal}
         onSwitchToTerminal={onSwitchToTerminal}
+        onSelect={onSelect}
       />
     </div>
   );
