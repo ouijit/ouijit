@@ -163,6 +163,10 @@ OUIJIT_MASKS_EOF
         FAIL=$((FAIL+1))
         continue
       }
+      # Hand the overlay leaf to the invoking user so tools like npm can
+      # write into it through the bind mount. $target stays untouched —
+      # writes to it are redirected to $overlay by the kernel.
+      sudo chown "$(id -u):$(id -g)" "$overlay" 2>/dev/null
     else
       # File mask: ensure parent dirs exist, then create empty placeholder
       # and empty target (Linux rejects mount --bind onto a non-existent target).
@@ -176,6 +180,7 @@ OUIJIT_MASKS_EOF
         FAIL=$((FAIL+1))
         continue
       }
+      sudo chown "$(id -u):$(id -g)" "$overlay" 2>/dev/null
     fi
 
     if mountpoint -q "$target"; then

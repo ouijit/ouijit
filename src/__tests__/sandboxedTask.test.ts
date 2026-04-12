@@ -368,6 +368,19 @@ describe('buildOverlayBindMountSetup', () => {
     expect(script).toContain('sudo mkdir -p "$(dirname "$overlay")" "$(dirname "$target")"');
   });
 
+  test('chowns overlay leaves to the invoking user so guest tools can write through the bind mount', () => {
+    const script = buildOverlayBindMountSetup({
+      worktreePath: '/w',
+      taskId: 1,
+      masks: [
+        { relPath: 'node_modules', type: 'directory' },
+        { relPath: '.env', type: 'file' },
+      ],
+    });
+    const chownMatches = script.match(/sudo chown "\$\(id -u\):\$\(id -g\)" "\$overlay"/g) ?? [];
+    expect(chownMatches.length).toBe(2);
+  });
+
   test('writes .paths sidecar (not .dirs) for cleanup', () => {
     const script = buildOverlayBindMountSetup({
       worktreePath: '/w',
