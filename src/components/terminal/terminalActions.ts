@@ -82,6 +82,7 @@ export async function addProjectTerminal(
       options.worktreeName,
       options.worktreePrompt,
       options.worktreeBranchName,
+      options.sandboxed,
     );
 
     useTerminalStore.getState().setLoadingLabel(null);
@@ -100,9 +101,6 @@ export async function addProjectTerminal(
     };
     taskPrompt = options.worktreePrompt;
 
-    if (options?.sandboxed !== undefined) {
-      await window.api.task.setSandboxed(projectPath, result.task.taskNumber, options.sandboxed);
-    }
     if (!options) options = {};
     options.taskId = result.task.taskNumber;
     useProjectStore.getState().invalidateTaskList();

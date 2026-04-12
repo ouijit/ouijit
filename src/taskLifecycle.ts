@@ -50,7 +50,7 @@ export async function beginTask(
     }
   }
 
-  const result = await startTask(projectPath, taskNumber, branchName, baseBranch);
+  const result = await startTask(projectPath, taskNumber, branchName, baseBranch, task?.sandboxed ?? false);
   if (!result.success) return result;
 
   // Move to in_progress if currently todo (startTask doesn't change status)
@@ -82,6 +82,7 @@ export async function createBranchFromTask(
     status: 'todo',
     parentTaskNumber,
     mergeTarget: parent.branch,
+    sandboxed: parent.sandboxed,
   });
   return { success: true, task };
 }

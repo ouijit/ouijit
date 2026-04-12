@@ -282,7 +282,13 @@ export interface ScriptsAPI {
 
 export interface TaskAPI {
   create(projectPath: string, name?: string, prompt?: string): Promise<TaskWorktreeResult>;
-  createAndStart(projectPath: string, name?: string, prompt?: string, branchName?: string): Promise<TaskWorktreeResult>;
+  createAndStart(
+    projectPath: string,
+    name?: string,
+    prompt?: string,
+    branchName?: string,
+    sandboxed?: boolean,
+  ): Promise<TaskWorktreeResult>;
   start(projectPath: string, taskNumber: number, branchName?: string): Promise<TaskWorktreeResult>;
   getAll(projectPath: string): Promise<TaskWithWorkspace[]>;
   getByNumber(projectPath: string, taskNumber: number): Promise<TaskWithWorkspace | null>;

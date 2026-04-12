@@ -5,6 +5,7 @@ import type { ActiveSession } from '../ptyManager';
 import { generateId } from '../utils/ids';
 import { ensureRunning, getLimactlPath, getLimaEnv } from './manager';
 import { getApiPort, HELPER_SCRIPT, buildVmHookSettings } from '../hookServer';
+import { parseIgnoredDirs, buildOverlayBindMountSetup } from './overlay';
 
 interface ManagedSandboxPty {
   process: pty.IPty;
@@ -111,14 +112,27 @@ export async function spawnSandboxedPty(options: PtySpawnOptions, window: Browse
     // Inject hook script + Claude settings into VM's ephemeral home dir
     const hookSetup = buildVmHookSetup();
 
+    // Per-task bind-mount overlay for gitignored directories on the guest's
+    // local ext4. Only runs for sandboxed tasks whose .gitignore lists bare
+    // directory entries. Runs before hookSetup so mounts are live for hooks.
+    let overlaySetup = '';
+    if (options.taskId != null && options.worktreePath) {
+      const dirs = await parseIgnoredDirs(projectPath);
+      overlaySetup = buildOverlayBindMountSetup({
+        worktreePath: options.worktreePath,
+        taskId: options.taskId,
+        dirs,
+      });
+    }
+
     // Build the command to run inside the VM
     let innerCmd: string;
     if (options.command) {
       // Run command then drop to interactive bash
       const escapedCmd = options.command.replace(/'/g, "'\\''");
-      innerCmd = `${envExports}${hookSetup}${escapedCmd}; exec bash`;
+      innerCmd = `${envExports}${overlaySetup}${hookSetup}${escapedCmd}; exec bash`;
     } else {
-      innerCmd = `${envExports}${hookSetup}exec bash`;
+      innerCmd = `${envExports}${overlaySetup}${hookSetup}exec bash`;
     }
 
     // Build limactl shell args

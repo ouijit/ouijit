@@ -506,6 +506,19 @@ export async function deleteWithCleanup(projectPath: string): Promise<{ success:
 }
 
 /**
+ * Run a bash command inside a project's Lima VM via `limactl shell`.
+ * Used for best-effort maintenance operations (e.g. overlay cleanup on task delete).
+ * Callers should wrap in try/catch — the VM may not be running.
+ */
+export async function runInVm(projectPath: string, command: string): Promise<void> {
+  const instanceName = getInstanceName(projectPath);
+  await execFileAsync(getLimactlPath(), ['shell', instanceName, '--', 'bash', '-c', command], {
+    timeout: 15_000,
+    env: getLimaEnv(),
+  });
+}
+
+/**
  * Stop all running ouijit-* instances. Synchronous — safe to call during app quit.
  */
 export function stopAllInstances(): void {

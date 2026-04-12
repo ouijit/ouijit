@@ -112,8 +112,8 @@ contextBridge.exposeInMainWorld('api', {
   task: {
     create: (projectPath: string, name?: string, prompt?: string) =>
       typedInvoke('task:create', projectPath, name, prompt),
-    createAndStart: (projectPath: string, name?: string, prompt?: string, branchName?: string) =>
-      typedInvoke('task:create-and-start', projectPath, name, prompt, branchName),
+    createAndStart: (projectPath: string, name?: string, prompt?: string, branchName?: string, sandboxed?: boolean) =>
+      typedInvoke('task:create-and-start', projectPath, name, prompt, branchName, sandboxed),
     start: (projectPath: string, taskNumber: number, branchName?: string) =>
       typedInvoke('task:start', projectPath, taskNumber, branchName),
     getAll: (projectPath: string) => typedInvoke('task:get-all', projectPath),

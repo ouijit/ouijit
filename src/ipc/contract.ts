@@ -81,7 +81,7 @@ export interface IpcInvokeContract {
   // ── Task ─────────────────────────────────────────────────────────────
   'task:create': { args: [projectPath: string, name?: string, prompt?: string]; return: TaskWorktreeResult };
   'task:create-and-start': {
-    args: [projectPath: string, name?: string, prompt?: string, branchName?: string];
+    args: [projectPath: string, name?: string, prompt?: string, branchName?: string, sandboxed?: boolean];
     return: TaskWorktreeResult;
   };
   'task:start': { args: [projectPath: string, taskNumber: number, branchName?: string]; return: TaskWorktreeResult };

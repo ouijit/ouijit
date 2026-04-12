@@ -15,8 +15,8 @@ import {
 export function registerTaskHandlers(): void {
   typedHandle('task:create', (projectPath, name, prompt) => createTodoTask(projectPath, name, prompt));
 
-  typedHandle('task:create-and-start', (projectPath, name, prompt, branchName) =>
-    createTaskWorktree(projectPath, name, prompt, branchName),
+  typedHandle('task:create-and-start', (projectPath, name, prompt, branchName, sandboxed) =>
+    createTaskWorktree(projectPath, name, prompt, branchName, sandboxed),
   );
 
   typedHandle('task:start', (projectPath, taskNumber, branchName) => beginTask(projectPath, taskNumber, branchName));

@@ -166,6 +166,7 @@ const routes: Route[] = [
         r.body.name as string | undefined,
         r.body.prompt as string | undefined,
         r.body.branchName as string | undefined,
+        r.body.sandboxed as boolean | undefined,
       );
     },
     true,
