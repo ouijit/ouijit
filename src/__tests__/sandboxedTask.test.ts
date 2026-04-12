@@ -4,27 +4,43 @@ import * as path from 'node:path';
 import * as realFs from 'node:fs';
 import { createTask, getTaskByNumber } from '../db';
 
-// Mock child_process so git commands don't actually run.
-vi.mock('node:child_process', () => ({
-  execSync: vi.fn(),
-  exec: vi.fn((_cmd: string, _opts: unknown, cb: (err: null, result: { stdout: string; stderr: string }) => void) => {
-    cb(null, { stdout: 'main\n', stderr: '' });
-  }),
-  execFile: vi.fn(
-    (
-      _file: string,
-      args: string[],
-      _opts: unknown,
-      cb: (err: Error | null, stdout: string, stderr: string) => void,
-    ) => {
-      if (Array.isArray(args) && args.includes('--verify')) {
-        cb(new Error('not found'), '', '');
-      } else {
-        cb(null, '', '');
-      }
-    },
-  ),
-}));
+// Mock child_process so git commands don't actually run — except for
+// `git ls-files -o -i` calls from listMaskedPaths, which delegate to the
+// real execFile so tests can enumerate gitignored paths in real temp repos.
+vi.mock('node:child_process', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:child_process')>();
+  return {
+    ...actual,
+    execSync: vi.fn(),
+    exec: vi.fn((_cmd: string, _opts: unknown, cb: (err: null, result: { stdout: string; stderr: string }) => void) => {
+      cb(null, { stdout: 'main\n', stderr: '' });
+    }),
+    execFile: vi.fn(
+      (
+        file: string,
+        args: string[],
+        opts: unknown,
+        cb: (err: Error | null, stdout: string, stderr: string) => void,
+      ) => {
+        // Delegate listMaskedPaths' git ls-files call to the real binary.
+        if (
+          file === 'git' &&
+          Array.isArray(args) &&
+          args.includes('ls-files') &&
+          args.includes('-i') &&
+          args.includes('--exclude-standard')
+        ) {
+          return actual.execFile(file, args, opts as Parameters<typeof actual.execFile>[2], cb);
+        }
+        if (Array.isArray(args) && args.includes('--verify')) {
+          cb(new Error('not found'), '', '');
+        } else {
+          cb(null, '', '');
+        }
+      },
+    ),
+  };
+});
 
 vi.mock('node:fs/promises', async (importOriginal) => {
   const actual = await importOriginal<typeof import('node:fs/promises')>();
@@ -50,7 +66,7 @@ vi.mock('../lima/manager', () => ({
 
 import { createTaskWorktree, startTask, recoverTaskWorktree, removeTaskWorktree } from '../worktree';
 import { beginTask, createBranchFromTask } from '../taskLifecycle';
-import { parseIgnoredDirs, buildOverlayBindMountSetup, buildOverlayCleanup } from '../lima/overlay';
+import { listMaskedPaths, buildOverlayBindMountSetup, buildOverlayCleanup } from '../lima/overlay';
 import { exec as execMockedRaw } from 'node:child_process';
 
 const execMocked = vi.mocked(execMockedRaw);
@@ -208,87 +224,185 @@ describe('startTask sandbox flag', () => {
   });
 });
 
-describe('parseIgnoredDirs', () => {
-  const tmpRoot = realFs.mkdtempSync(path.join(os.tmpdir(), 'ouijit-parse-'));
+describe('listMaskedPaths', () => {
+  const tmpRoot = realFs.mkdtempSync(path.join(os.tmpdir(), 'ouijit-mask-'));
 
-  function writeGitignore(name: string, contents: string): string {
+  async function loadRealCp(): Promise<typeof import('node:child_process')> {
+    return await vi.importActual<typeof import('node:child_process')>('node:child_process');
+  }
+
+  async function initRepo(name: string, files: Record<string, string>): Promise<string> {
     const dir = path.join(tmpRoot, name);
     realFs.mkdirSync(dir, { recursive: true });
-    realFs.writeFileSync(path.join(dir, '.gitignore'), contents);
+    const realCp = await loadRealCp();
+    realCp.execSync('git init -q', { cwd: dir });
+    realCp.execSync('git config user.email test@test.example', { cwd: dir });
+    realCp.execSync('git config user.name test', { cwd: dir });
+    for (const [rel, contents] of Object.entries(files)) {
+      const full = path.join(dir, rel);
+      realFs.mkdirSync(path.dirname(full), { recursive: true });
+      realFs.writeFileSync(full, contents);
+    }
     return dir;
   }
 
-  test('returns [] when .gitignore is missing', async () => {
-    const dir = path.join(tmpRoot, 'no-gitignore');
+  test('returns [] for a non-repo directory', async () => {
+    const dir = path.join(tmpRoot, 'not-a-repo');
     realFs.mkdirSync(dir, { recursive: true });
-    expect(await parseIgnoredDirs(dir)).toEqual([]);
+    expect(await listMaskedPaths(dir)).toEqual([]);
   });
 
-  test('returns [] for an empty .gitignore', async () => {
-    const dir = writeGitignore('empty', '');
-    expect(await parseIgnoredDirs(dir)).toEqual([]);
+  test('returns [] when .gitignore matches nothing on disk', async () => {
+    const dir = await initRepo('empty-matches', { '.gitignore': 'node_modules\n' });
+    expect(await listMaskedPaths(dir)).toEqual([]);
   });
 
-  test('accepts common bare directories', async () => {
-    const dir = writeGitignore('common', ['node_modules', 'target', 'dist/', '/.venv', ''].join('\n'));
-    const result = await parseIgnoredDirs(dir);
-    expect(result).toEqual(['node_modules', 'target', 'dist', '.venv']);
+  test('collapses a populated ignored directory to a single dir entry', async () => {
+    const dir = await initRepo('dir-collapse', {
+      '.gitignore': 'node_modules\n',
+      'node_modules/a/index.js': '',
+      'node_modules/b/index.js': '',
+    });
+    expect(await listMaskedPaths(dir)).toEqual([{ relPath: 'node_modules', type: 'directory' }]);
   });
 
-  test('rejects globs, negations, nested paths, comments', async () => {
-    const dir = writeGitignore(
-      'unsupported',
-      ['# a comment', '', '*.log', 'build-*', '!keep', 'src/generated/', 'node_modules'].join('\n'),
-    );
-    expect(await parseIgnoredDirs(dir)).toEqual(['node_modules']);
+  test('detects a gitignored file at the repo root', async () => {
+    const dir = await initRepo('file-root', { '.gitignore': '.env\n', '.env': 'SECRET=1' });
+    expect(await listMaskedPaths(dir)).toEqual([{ relPath: '.env', type: 'file' }]);
   });
 
-  test('accepts **/<name> shorthand for a single bare dir', async () => {
-    const dir = writeGitignore('recursive', ['**/build', '**/node_modules', '**/nested/dir'].join('\n'));
-    expect(await parseIgnoredDirs(dir)).toEqual(['build', 'node_modules']);
+  test('detects a gitignored file at a nested path', async () => {
+    const dir = await initRepo('file-nested', {
+      '.gitignore': 'config/secrets.yml\n',
+      'config/secrets.yml': 'token: abc',
+      'config/keep.yml': 'ok: true',
+    });
+    const result = await listMaskedPaths(dir);
+    expect(result).toContainEqual({ relPath: 'config/secrets.yml', type: 'file' });
+    expect(result.find((m) => m.relPath === 'config/keep.yml')).toBeUndefined();
   });
 
-  test('dedupes across plain, trailing slash, and **/ forms', async () => {
-    const dir = writeGitignore('dedupe', ['node_modules', 'node_modules/', '**/node_modules'].join('\n'));
-    expect(await parseIgnoredDirs(dir)).toEqual(['node_modules']);
+  test('honors negations (!keep.env is excluded from masks)', async () => {
+    const dir = await initRepo('negation', {
+      '.gitignore': '*.env\n!keep.env\n',
+      'secret.env': 'x',
+      'keep.env': 'y',
+    });
+    const result = await listMaskedPaths(dir);
+    expect(result).toContainEqual({ relPath: 'secret.env', type: 'file' });
+    expect(result.find((m) => m.relPath === 'keep.env')).toBeUndefined();
+  });
+
+  test('honors nested .gitignore files', async () => {
+    const dir = await initRepo('nested-gitignore', {
+      '.gitignore': '',
+      'sub/.gitignore': 'local.log\n',
+      'sub/local.log': 'logs',
+    });
+    const result = await listMaskedPaths(dir);
+    expect(result).toContainEqual({ relPath: 'sub/local.log', type: 'file' });
+  });
+
+  test('expands globs (*.pem)', async () => {
+    const dir = await initRepo('glob', {
+      '.gitignore': '*.pem\n',
+      'a.pem': '',
+      'b.pem': '',
+    });
+    const result = await listMaskedPaths(dir);
+    const pems = result.filter((m) => m.relPath.endsWith('.pem'));
+    expect(pems.map((m) => m.relPath).sort()).toEqual(['a.pem', 'b.pem']);
+    expect(pems.every((m) => m.type === 'file')).toBe(true);
   });
 });
 
 describe('buildOverlayBindMountSetup', () => {
-  test('returns empty string when dirs is empty', () => {
-    expect(buildOverlayBindMountSetup({ worktreePath: '/w', taskId: 1, dirs: [] })).toBe('');
+  test('returns empty string when masks is empty', () => {
+    expect(buildOverlayBindMountSetup({ worktreePath: '/w', taskId: 1, masks: [] })).toBe('');
   });
 
   test('emits bash with taskId and worktree quoted', () => {
     const script = buildOverlayBindMountSetup({
       worktreePath: "/w with 'quote",
       taskId: 42,
-      dirs: ['node_modules', '.venv'],
+      masks: [
+        { relPath: 'node_modules', type: 'directory' },
+        { relPath: '.venv', type: 'directory' },
+      ],
     });
     expect(script).toContain("TASK='42'");
     expect(script).toContain("WORKTREE='/w with '\\''quote'");
-    expect(script).toContain('node_modules');
-    expect(script).toContain('.venv');
+    expect(script).toContain('d node_modules');
+    expect(script).toContain('d .venv');
     expect(script).toContain('mount --bind');
-    expect(script).toContain('OUIJIT_IGNORED_DIRS_EOF');
+    expect(script).toContain('OUIJIT_MASKS_EOF');
+  });
+
+  test('emits both d and f prefixes in the mask heredoc', () => {
+    const script = buildOverlayBindMountSetup({
+      worktreePath: '/w',
+      taskId: 1,
+      masks: [
+        { relPath: 'node_modules', type: 'directory' },
+        { relPath: '.env', type: 'file' },
+        { relPath: 'config/secrets.yml', type: 'file' },
+      ],
+    });
+    expect(script).toContain('d node_modules');
+    expect(script).toContain('f .env');
+    expect(script).toContain('f config/secrets.yml');
+  });
+
+  test('file-mask branch touches overlay and target placeholders', () => {
+    const script = buildOverlayBindMountSetup({
+      worktreePath: '/w',
+      taskId: 1,
+      masks: [{ relPath: '.env', type: 'file' }],
+    });
+    expect(script).toContain('sudo touch "$overlay" "$target"');
+    expect(script).toContain('sudo mkdir -p "$(dirname "$overlay")" "$(dirname "$target")"');
+  });
+
+  test('writes .paths sidecar (not .dirs) for cleanup', () => {
+    const script = buildOverlayBindMountSetup({
+      worktreePath: '/w',
+      taskId: 1,
+      masks: [{ relPath: 'node_modules', type: 'directory' }],
+    });
+    expect(script).toContain('"$OVERLAY_ROOT/.paths"');
+    expect(script).not.toContain('"$OVERLAY_ROOT/.dirs"');
   });
 
   test('does NOT use a trap (would not survive exec bash)', () => {
-    const script = buildOverlayBindMountSetup({ worktreePath: '/w', taskId: 1, dirs: ['node_modules'] });
+    const script = buildOverlayBindMountSetup({
+      worktreePath: '/w',
+      taskId: 1,
+      masks: [{ relPath: 'node_modules', type: 'directory' }],
+    });
     expect(script).not.toContain('trap ');
   });
 
   test('does NOT use set -e (overlay setup must be best-effort)', () => {
-    const script = buildOverlayBindMountSetup({ worktreePath: '/w', taskId: 1, dirs: ['node_modules'] });
+    const script = buildOverlayBindMountSetup({
+      worktreePath: '/w',
+      taskId: 1,
+      masks: [{ relPath: 'node_modules', type: 'directory' }],
+    });
     expect(script).not.toMatch(/^set -e/m);
   });
 
-  test('script passes `bash -n` syntax check', async () => {
+  test('script passes `bash -n` with mixed file + dir masks', async () => {
     const realCp = await vi.importActual<typeof import('node:child_process')>('node:child_process');
     const script = buildOverlayBindMountSetup({
       worktreePath: "/w with 'quote and $danger",
       taskId: 7,
-      dirs: ['node_modules', '.venv', 'target'],
+      masks: [
+        { relPath: 'node_modules', type: 'directory' },
+        { relPath: '.venv', type: 'directory' },
+        { relPath: 'target', type: 'directory' },
+        { relPath: '.env', type: 'file' },
+        { relPath: 'config/secrets.yml', type: 'file' },
+      ],
     });
     expect(() => realCp.execSync('bash -n', { input: script })).not.toThrow();
   });
@@ -303,10 +417,10 @@ describe('buildOverlayCleanup', () => {
     expect(script).toContain('rm -rf "$OVERLAY_ROOT"');
   });
 
-  test('reads stashed worktree path and dirs sidecar files', () => {
+  test('reads stashed worktree path and paths sidecar files', () => {
     const script = buildOverlayCleanup(13);
     expect(script).toContain('$OVERLAY_ROOT/.worktree');
-    expect(script).toContain('$OVERLAY_ROOT/.dirs');
+    expect(script).toContain('$OVERLAY_ROOT/.paths');
   });
 
   test('falls back to /proc/self/mountinfo for orphaned mounts', () => {

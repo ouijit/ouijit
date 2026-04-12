@@ -5,7 +5,7 @@ import type { ActiveSession } from '../ptyManager';
 import { generateId } from '../utils/ids';
 import { ensureRunning, getLimactlPath, getLimaEnv } from './manager';
 import { getApiPort, HELPER_SCRIPT, buildVmHookSettings } from '../hookServer';
-import { parseIgnoredDirs, buildOverlayBindMountSetup } from './overlay';
+import { listMaskedPaths, buildOverlayBindMountSetup } from './overlay';
 import { getLogger } from '../logger';
 
 const spawnLog = getLogger().scope('limaSpawn');
@@ -115,22 +115,35 @@ export async function spawnSandboxedPty(options: PtySpawnOptions, window: Browse
     // Inject hook script + Claude settings into VM's ephemeral home dir
     const hookSetup = buildVmHookSetup();
 
-    // Per-task bind-mount overlay for gitignored directories on the guest's
-    // local ext4. Only runs for sandboxed tasks whose .gitignore lists bare
-    // directory entries. Runs before hookSetup so mounts are live for hooks.
+    // Per-task bind-mount overlay for every gitignored path (files + dirs)
+    // on the guest's local ext4. Runs before hookSetup so mounts are live
+    // for hooks.
     let overlaySetup = '';
     if (options.taskId != null && options.worktreePath) {
-      const dirs = await parseIgnoredDirs(projectPath);
-      if (dirs.length === 0) {
-        spawnLog.warn('sandboxed task has no parsable .gitignore dirs to isolate', {
+      const masks = await listMaskedPaths(projectPath);
+      if (masks.length === 0) {
+        spawnLog.warn('sandboxed task has no gitignored paths to mask', {
           taskId: options.taskId,
           projectPath,
         });
       } else {
+        const fileCount = masks.filter((m) => m.type === 'file').length;
+        const dirCount = masks.length - fileCount;
+        spawnLog.info('sandbox masking paths', {
+          taskId: options.taskId,
+          total: masks.length,
+          files: fileCount,
+          dirs: dirCount,
+        });
+        sendStep({
+          id: 'mask',
+          label: `Isolating ${masks.length} path${masks.length === 1 ? '' : 's'} (${dirCount} dir, ${fileCount} file)…`,
+          status: 'done',
+        });
         overlaySetup = buildOverlayBindMountSetup({
           worktreePath: options.worktreePath,
           taskId: options.taskId,
-          dirs,
+          masks,
         });
       }
     }

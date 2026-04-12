@@ -1,71 +1,116 @@
 /**
  * Per-task bind-mount overlay for sandboxed Lima tasks.
  *
- * Parses the project's `.gitignore` to find bare directory entries and
+ * Enumerates every gitignored path in the project via `git ls-files` and
  * emits guest-side bash that creates an overlay directory on the VM's
- * local ext4 and bind-mounts each ignored directory onto an empty
- * overlay. This isolates darwin-arm64 host `node_modules` / `target` /
- * `.venv` from the linux guest, avoiding native-module ABI mismatches
- * and slow-start copies.
+ * local ext4 and bind-mounts an empty placeholder over each path. Both
+ * directory and file masks are supported — directories mask whole trees
+ * (darwin-arm64 `node_modules` / `target` / `.venv`), files mask secrets
+ * like `.env`, `.npmrc`, `config/secrets.yml`.
  */
-import * as fs from 'node:fs/promises';
-import * as path from 'node:path';
+import { execFile, type ExecFileOptions } from 'node:child_process';
+import { getLogger } from '../logger';
+
+const overlayLog = getLogger().scope('overlay');
+
+/**
+ * Promise wrapper around `execFile` that always resolves to
+ * `{ stdout, stderr }` strings. Written manually (rather than using
+ * `util.promisify`) so tests can mock `execFile` with a plain
+ * callback-style function without needing to preserve
+ * `util.promisify.custom`.
+ */
+function execFileAsync(
+  file: string,
+  args: string[],
+  opts: ExecFileOptions,
+): Promise<{ stdout: string; stderr: string }> {
+  return new Promise((resolve, reject) => {
+    execFile(file, args, opts, (err, stdout, stderr) => {
+      if (err) {
+        reject(err);
+        return;
+      }
+      resolve({
+        stdout: typeof stdout === 'string' ? stdout : stdout.toString('utf8'),
+        stderr: typeof stderr === 'string' ? stderr : stderr.toString('utf8'),
+      });
+    });
+  });
+}
 
 function shEscape(str: string): string {
   return `'${str.replace(/'/g, "'\\''")}'`;
 }
 
-/**
- * Parse the repo-root `.gitignore` and return the list of bare directory
- * names to bind-mount. Accepts plain entries (`node_modules`, `target/`,
- * `/.venv`) and recursive-glob shorthand for a single dir name
- * (`**​/node_modules`). Rejects negations, comments, other globs, and
- * nested paths. Order-preserving dedupe.
- */
-export async function parseIgnoredDirs(projectPath: string): Promise<string[]> {
-  const gitignorePath = path.join(projectPath, '.gitignore');
-  let contents: string;
-  try {
-    contents = await fs.readFile(gitignorePath, 'utf8');
-  } catch {
-    return [];
-  }
-  const dirs: string[] = [];
-  for (const rawLine of contents.split('\n')) {
-    const line = rawLine.trim();
-    if (!line) continue;
-    if (line.startsWith('#')) continue;
-    if (line.startsWith('!')) continue;
-    let entry = line.replace(/^\//, '').replace(/\/$/, '');
-    if (!entry) continue;
-    // Accept `**/<name>` as `<name>` (only meaningful glob form for a bare dir).
-    if (entry.startsWith('**/')) {
-      entry = entry.slice(3);
-    }
-    if (/[*?[\]]/.test(entry)) continue;
-    if (!entry || entry.includes('/')) continue;
-    dirs.push(entry);
-  }
-  return Array.from(new Set(dirs));
+export interface MaskEntry {
+  /** Repo-root-relative, forward-slash. Never starts with `/`, never contains `..`. */
+  relPath: string;
+  type: 'file' | 'directory';
 }
 
 /**
- * Build bash that creates a per-task overlay directory on the guest's
- * local ext4 and bind-mounts each gitignored directory from the worktree
- * onto it. Idempotent: re-running for an existing task is a no-op.
+ * Enumerate every gitignored path in the project using git's own matcher.
+ *
+ * `--directory` collapses fully-ignored directories to just the dir name
+ * (trailing slash) so we don't descend into `node_modules` etc. `-z`
+ * null-delimits output so spaces and newlines in filenames are safe.
+ *
+ * Delegates all gitignore semantics — negations, nested `.gitignore`,
+ * `core.excludesFile`, globs — to git itself. Returns [] on any failure
+ * (missing git, not a repo, perms); the caller treats empty as "nothing
+ * to mask" and logs a warning.
+ */
+export async function listMaskedPaths(projectPath: string): Promise<MaskEntry[]> {
+  let stdout: string;
+  try {
+    const result = await execFileAsync(
+      'git',
+      ['-C', projectPath, 'ls-files', '-o', '-i', '--exclude-standard', '--directory', '-z'],
+      { maxBuffer: 32 * 1024 * 1024 },
+    );
+    stdout = result.stdout;
+  } catch (error) {
+    overlayLog.warn('git ls-files failed — no sandbox masks applied', {
+      projectPath,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return [];
+  }
+
+  const masks: MaskEntry[] = [];
+  for (const raw of stdout.split('\0')) {
+    if (!raw) continue;
+    if (raw.startsWith('/') || raw.includes('..')) continue;
+
+    if (raw.endsWith('/')) {
+      masks.push({ relPath: raw.slice(0, -1), type: 'directory' });
+    } else {
+      masks.push({ relPath: raw, type: 'file' });
+    }
+  }
+  return masks;
+}
+
+/**
+ * Build bash that creates a per-task overlay on the guest's local ext4
+ * and bind-mounts an empty placeholder over each masked path in the
+ * worktree. Supports both directory masks (mkdir + bind) and file masks
+ * (touch empty placeholder + bind). Idempotent: re-running for an
+ * existing task is a no-op.
  *
  * Best-effort by design — any failure logs to stderr and continues so
  * the user still gets a working shell. Mounts persist for the life of
  * the task and are reclaimed by `buildOverlayCleanup` on task delete.
  *
- * Returns an empty string when there are no directories to isolate.
+ * Returns an empty string when there are no masks.
  */
-export function buildOverlayBindMountSetup(opts: { worktreePath: string; taskId: number; dirs: string[] }): string {
-  if (opts.dirs.length === 0) return '';
+export function buildOverlayBindMountSetup(opts: { worktreePath: string; taskId: number; masks: MaskEntry[] }): string {
+  if (opts.masks.length === 0) return '';
   const worktree = shEscape(opts.worktreePath);
   const task = shEscape(String(opts.taskId));
-  // Quoted heredoc disables shell expansion — entries are safe even with $, `, quotes.
-  const dirList = opts.dirs.join('\n');
+  // Single-char type prefix + space + path. Quoted heredoc disables expansion.
+  const maskList = opts.masks.map((m) => `${m.type === 'directory' ? 'd' : 'f'} ${m.relPath}`).join('\n');
   return `_ouijit_overlay_setup() {
   local WORKTREE=${worktree}
   local TASK=${task}
@@ -78,26 +123,46 @@ export function buildOverlayBindMountSetup(opts: { worktreePath: string; taskId:
 
   sudo mkdir -p "$OVERLAY_ROOT" || { echo "ouijit: overlay mkdir failed" >&2; return 0; }
 
-  local IGNORED_DIRS
-  IGNORED_DIRS=$(cat <<'OUIJIT_IGNORED_DIRS_EOF'
-${dirList}
-OUIJIT_IGNORED_DIRS_EOF
+  local MASKS
+  MASKS=$(cat <<'OUIJIT_MASKS_EOF'
+${maskList}
+OUIJIT_MASKS_EOF
 )
 
-  # Stash worktree path + dir list so cleanup on task delete can umount
-  # before rm -rf, even after the host worktree directory is gone.
+  # Sidecar files for cleanup on task delete — cleanup umounts then rm -rf.
+  # Store raw paths in .paths (strip type prefix); umount works on file and dir alike.
   printf '%s\\n' "$WORKTREE" | sudo tee "$OVERLAY_ROOT/.worktree" >/dev/null
-  printf '%s\\n' "$IGNORED_DIRS" | sudo tee "$OVERLAY_ROOT/.dirs" >/dev/null
+  printf '%s\\n' "$MASKS" | awk '{ $1=""; sub(/^ /,""); print }' | sudo tee "$OVERLAY_ROOT/.paths" >/dev/null
 
-  while IFS= read -r dir; do
-    [ -z "$dir" ] && continue
-    local overlay="$OVERLAY_ROOT/$dir"
-    local target="$WORKTREE/$dir"
-    sudo mkdir -p "$overlay" "$target" 2>/dev/null || { echo "ouijit: overlay mkdir $dir failed" >&2; continue; }
-    if ! mountpoint -q "$target"; then
-      sudo mount --bind "$overlay" "$target" 2>/dev/null || echo "ouijit: bind mount $dir failed" >&2
+  while IFS= read -r line; do
+    [ -z "$line" ] && continue
+    local type="\${line%% *}"
+    local rel="\${line#* }"
+    local overlay="$OVERLAY_ROOT/$rel"
+    local target="$WORKTREE/$rel"
+
+    if [ "$type" = "d" ]; then
+      sudo mkdir -p "$overlay" "$target" 2>/dev/null || {
+        echo "ouijit: overlay mkdir $rel failed" >&2
+        continue
+      }
+    else
+      # File mask: ensure parent dirs exist, then create empty placeholder
+      # and empty target (Linux rejects mount --bind onto a non-existent target).
+      sudo mkdir -p "$(dirname "$overlay")" "$(dirname "$target")" 2>/dev/null || {
+        echo "ouijit: overlay parent mkdir $rel failed" >&2
+        continue
+      }
+      sudo touch "$overlay" "$target" 2>/dev/null || {
+        echo "ouijit: overlay touch $rel failed" >&2
+        continue
+      }
     fi
-  done <<< "$IGNORED_DIRS"
+
+    if ! mountpoint -q "$target"; then
+      sudo mount --bind "$overlay" "$target" 2>/dev/null || echo "ouijit: bind mount $rel failed" >&2
+    fi
+  done <<< "$MASKS"
 }
 _ouijit_overlay_setup
 unset -f _ouijit_overlay_setup
@@ -106,7 +171,7 @@ unset -f _ouijit_overlay_setup
 
 /**
  * Build bash that umounts every bind mount belonging to a task overlay
- * and removes the overlay directory. Reads the worktree path and dir
+ * and removes the overlay directory. Reads the worktree path and path
  * list from sidecar files written by `buildOverlayBindMountSetup`, then
  * falls back to scanning `/proc/self/mountinfo` for any mounts whose
  * source still references the overlay (handles older overlays without
@@ -119,16 +184,16 @@ TASK=${task}
 OVERLAY_ROOT="/var/lib/ouijit/overlays/T-$TASK"
 [ -d "$OVERLAY_ROOT" ] || exit 0
 
-if [ -f "$OVERLAY_ROOT/.worktree" ] && [ -f "$OVERLAY_ROOT/.dirs" ]; then
+if [ -f "$OVERLAY_ROOT/.worktree" ] && [ -f "$OVERLAY_ROOT/.paths" ]; then
   WORKTREE=$(cat "$OVERLAY_ROOT/.worktree")
-  while IFS= read -r dir; do
-    [ -z "$dir" ] && continue
-    sudo umount "$WORKTREE/$dir" 2>/dev/null
-  done < "$OVERLAY_ROOT/.dirs"
+  while IFS= read -r rel; do
+    [ -z "$rel" ] && continue
+    sudo umount "$WORKTREE/$rel" 2>/dev/null
+  done < "$OVERLAY_ROOT/.paths"
 fi
 
 # Belt-and-suspenders: umount anything still pointing into this overlay.
-awk -v root="$OVERLAY_ROOT/" '$4 ~ "^"root {print $5}' /proc/self/mountinfo 2>/dev/null \
+awk -v root="$OVERLAY_ROOT/" '$4 ~ "^"root {print $5}' /proc/self/mountinfo 2>/dev/null \\
   | while IFS= read -r mp; do
       [ -n "$mp" ] && sudo umount "$mp" 2>/dev/null
     done
