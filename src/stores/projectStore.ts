@@ -16,6 +16,8 @@ interface ProjectStoreState {
   activeBadgeDrag: number | null;
   badgeDragOverTask: number | null;
   activeModal: string | null;
+  selectedTaskNumbers: Set<number>;
+  selectionAnchor: number | null;
   toasts: Array<{
     id: string;
     message: string;
@@ -57,6 +59,13 @@ interface ProjectStoreActions {
   setActivePanel: (panel: 'terminals' | 'settings') => void;
   resetForProject: () => void;
 
+  /** Toggle a single task's selection (Cmd/Ctrl+click) */
+  toggleTaskSelection: (taskNumber: number) => void;
+  /** Select a range of tasks from anchor to target (Shift+click) */
+  selectTaskRange: (taskNumber: number, orderedTaskNumbers: number[]) => void;
+  /** Clear all selection */
+  clearSelection: () => void;
+
   /** Load tasks from IPC with staleness check */
   loadTasks: (projectPath: string) => Promise<void>;
   /** Load scripts from IPC */
@@ -83,10 +92,23 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
   activeBadgeDrag: null,
   badgeDragOverTask: null,
   activeModal: null,
+  selectedTaskNumbers: new Set<number>(),
+  selectionAnchor: null,
   toasts: [],
   _version: 0,
 
-  setTasks: (tasks) => set({ tasks }),
+  setTasks: (tasks) => {
+    const { selectedTaskNumbers } = get();
+    if (selectedTaskNumbers.size > 0) {
+      const validNumbers = new Set(tasks.map((t) => t.taskNumber));
+      const pruned = new Set([...selectedTaskNumbers].filter((n) => validNumbers.has(n)));
+      if (pruned.size !== selectedTaskNumbers.size) {
+        set({ tasks, selectedTaskNumbers: pruned, selectionAnchor: pruned.size > 0 ? get().selectionAnchor : null });
+        return;
+      }
+    }
+    set({ tasks });
+  },
 
   invalidateTaskList: () => set((s) => ({ taskVersion: s.taskVersion + 1 })),
 
@@ -160,8 +182,44 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
       activeBadgeDrag: null,
       badgeDragOverTask: null,
       activeModal: null,
+      selectedTaskNumbers: new Set<number>(),
+      selectionAnchor: null,
       _version: 0,
     });
+  },
+
+  toggleTaskSelection: (taskNumber) => {
+    const prev = get().selectedTaskNumbers;
+    const next = new Set(prev);
+    if (next.has(taskNumber)) {
+      next.delete(taskNumber);
+    } else {
+      next.add(taskNumber);
+    }
+    set({ selectedTaskNumbers: next, selectionAnchor: taskNumber });
+  },
+
+  selectTaskRange: (taskNumber, orderedTaskNumbers) => {
+    const { selectionAnchor } = get();
+    if (selectionAnchor == null) {
+      // No anchor — treat as toggle
+      const next = new Set(get().selectedTaskNumbers);
+      next.add(taskNumber);
+      set({ selectedTaskNumbers: next, selectionAnchor: taskNumber });
+      return;
+    }
+    const anchorIdx = orderedTaskNumbers.indexOf(selectionAnchor);
+    const targetIdx = orderedTaskNumbers.indexOf(taskNumber);
+    if (anchorIdx === -1 || targetIdx === -1) return;
+    const start = Math.min(anchorIdx, targetIdx);
+    const end = Math.max(anchorIdx, targetIdx);
+    const rangeNumbers = orderedTaskNumbers.slice(start, end + 1);
+    const next = new Set([...get().selectedTaskNumbers, ...rangeNumbers]);
+    set({ selectedTaskNumbers: next });
+  },
+
+  clearSelection: () => {
+    set({ selectedTaskNumbers: new Set<number>(), selectionAnchor: null });
   },
 
   loadTasks: async (projectPath) => {

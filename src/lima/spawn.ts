@@ -4,7 +4,7 @@ import type { PtySpawnOptions, PtySpawnResult, PtyId } from '../types';
 import type { ActiveSession } from '../ptyManager';
 import { generateId } from '../utils/ids';
 import { ensureRunning, getLimactlPath, getLimaEnv } from './manager';
-import { getApiPort, HELPER_SCRIPT, buildVmHookSettings } from '../hookServer';
+import { getApiPort, HELPER_SCRIPT, CLI_REFERENCE, buildVmHookSettings } from '../hookServer';
 import { listMaskedPaths, buildOverlayBindMountSetup, buildSandboxNoMatchesBanner } from './overlay';
 import { getLogger } from '../logger';
 
@@ -65,6 +65,11 @@ function buildVmHookSetup(): string {
     `cat > ~/.claude/settings.json <<'OUIJIT_SETTINGS_EOF'`,
     hookSettings,
     'OUIJIT_SETTINGS_EOF',
+    // Write CLI reference file for --append-system-prompt-file
+    'mkdir -p ~/.config/Ouijit',
+    `cat > ~/.config/Ouijit/ouijit-cli-reference.md <<'OUIJIT_REF_EOF'`,
+    CLI_REFERENCE.trimEnd(),
+    'OUIJIT_REF_EOF',
     '',
   ].join('\n');
 }

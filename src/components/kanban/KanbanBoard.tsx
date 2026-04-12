@@ -19,6 +19,7 @@ import { useTerminalStore } from '../../stores/terminalStore';
 import type { TaskWithWorkspace, TaskStatus, HookType } from '../../types';
 import { addProjectTerminal, closeProjectTerminal } from '../terminal/terminalActions';
 import { KanbanColumn } from './KanbanColumn';
+import { BulkActionBar } from './BulkActionBar';
 import { focusKanbanAddInput } from './KanbanAddInput';
 import { HookConfigDialog } from '../dialogs/HookConfigDialog';
 import { CombinedHookConfigDialog } from '../dialogs/CombinedHookConfigDialog';
@@ -172,6 +173,12 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         if (hasOpenDialog) return; // Let the dialog handle Escape
+        const { selectedTaskNumbers, clearSelection } = useProjectStore.getState();
+        if (selectedTaskNumbers.size > 0) {
+          e.preventDefault();
+          clearSelection();
+          return; // First Escape deselects; second closes board
+        }
         e.preventDefault();
         onHide();
         return;
@@ -258,9 +265,13 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
     return () => window.removeEventListener('pointermove', onMove);
   }, [activeTask, activeBadgeDrag]);
 
+  // Track multi-drag: task numbers being dragged together (null = single drag)
+  const multiDragRef = useRef<number[] | null>(null);
+
   const handleDragStart = useCallback((event: DragStartEvent) => {
     const data = event.active.data.current;
     if (data?.type === 'badge') {
+      multiDragRef.current = null;
       if (typeof data.taskNumber === 'number') useProjectStore.getState().setActiveBadgeDrag(data.taskNumber);
       setActiveTask(null);
     } else {
@@ -268,6 +279,15 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
       setActiveTask(task ?? null);
       useProjectStore.getState().setActiveBadgeDrag(null);
       if (task) originalStatusRef.current = task.status;
+
+      // If dragged card is in the selection, enter multi-drag mode
+      const { selectedTaskNumbers } = useProjectStore.getState();
+      if (task && selectedTaskNumbers.has(task.taskNumber) && selectedTaskNumbers.size > 1) {
+        multiDragRef.current = [...selectedTaskNumbers];
+      } else {
+        multiDragRef.current = null;
+        if (selectedTaskNumbers.size > 0) useProjectStore.getState().clearSelection();
+      }
     }
   }, []);
 
@@ -353,7 +373,9 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
       let draggedTask = activeTask;
       const origStatus = originalStatusRef.current;
       const droppedOnTrash = overTrashRef.current;
+      const multiDragTasks = multiDragRef.current;
       originalStatusRef.current = null;
+      multiDragRef.current = null;
 
       if (!draggedTask) {
         setActiveTask(null);
@@ -365,11 +387,19 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
       // Handle trash drop — use pointer-based hit test for consistency with visual state
       if (droppedOnTrash) {
         setActiveTask(null);
-        const taskNum = parseInt(activeId.replace('task-', ''), 10);
-        await window.api.task.trash(projectPath, taskNum);
-        if (!mountedRef.current) return;
-        useProjectStore.getState().loadTasks(projectPath);
-        useProjectStore.getState().addToast('Task deleted', 'success');
+        if (multiDragTasks) {
+          await Promise.allSettled(multiDragTasks.map((n) => window.api.task.trash(projectPath, n)));
+          if (!mountedRef.current) return;
+          useProjectStore.getState().loadTasks(projectPath);
+          useProjectStore.getState().clearSelection();
+          useProjectStore.getState().addToast(`Deleted ${multiDragTasks.length} tasks`, 'success');
+        } else {
+          const taskNum = parseInt(activeId.replace('task-', ''), 10);
+          await window.api.task.trash(projectPath, taskNum);
+          if (!mountedRef.current) return;
+          useProjectStore.getState().loadTasks(projectPath);
+          useProjectStore.getState().addToast('Task deleted', 'success');
+        }
         return;
       }
 
@@ -388,6 +418,19 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
 
       const finalContainer = overContainer || activeContainer;
       const activeTaskNum = parseInt(activeId.replace('task-', ''), 10);
+
+      // ── Multi-drag: move all selected tasks to the target column ───
+      if (multiDragTasks && multiDragTasks.length > 1) {
+        setActiveTask(null);
+        const newStatus = finalContainer as TaskStatus;
+        await Promise.allSettled(multiDragTasks.map((n) => window.api.task.setStatus(projectPath, n, newStatus)));
+        if (!mountedRef.current) return;
+        useProjectStore.getState().loadTasks(projectPath);
+        useProjectStore.getState().clearSelection();
+        const label = { todo: 'To Do', in_progress: 'In Progress', in_review: 'In Review', done: 'Done' }[newStatus];
+        useProjectStore.getState().addToast(`Moved ${multiDragTasks.length} tasks to ${label}`, 'success');
+        return;
+      }
 
       // Handle reorder within same column
       let finalItems = items;
@@ -554,6 +597,22 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
     [projectPath, onHide],
   );
 
+  const handleCardSelect = useCallback(
+    (taskNumber: number, event: React.MouseEvent) => {
+      const mod = isMac ? event.metaKey : event.ctrlKey;
+      const store = useProjectStore.getState();
+      if (event.shiftKey && store.selectionAnchor != null) {
+        const allOrdered = COLUMNS.flatMap((col) => (items[col.status] ?? []).map((t) => t.taskNumber));
+        store.selectTaskRange(taskNumber, allOrdered);
+      } else if (mod || event.shiftKey) {
+        store.toggleTaskSelection(taskNumber);
+      }
+    },
+    [items],
+  );
+
+  const selectedTaskCount = useProjectStore((s) => s.selectedTaskNumbers.size);
+
   const handleRunHookClose = useCallback(
     async (result: RunHookResult | null) => {
       const dialog = runHookDialog;
@@ -609,6 +668,7 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
         setActiveTask(null);
         useProjectStore.getState().resetBadgeDragState();
         originalStatusRef.current = null;
+        multiDragRef.current = null;
       }}
     >
       <div
@@ -673,6 +733,7 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
                 onUpdateDescription={handleUpdateDescription}
                 onOpenTerminal={handleOpenTerminal}
                 onSwitchToTerminal={handleSwitchToTerminal}
+                onSelect={handleCardSelect}
                 onConfigureHook={handleConfigureHook}
                 hasConfiguredHook={hookActive}
               />
@@ -681,12 +742,14 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
         </div>
       </div>
 
+      {selectedTaskCount > 0 && <BulkActionBar projectPath={projectPath} onOpenTerminal={handleOpenTerminal} />}
+
       <KanbanTrashZone ref={trashRef} visible={showTrash} isOver={overTrash} />
 
       <DragOverlay dropAnimation={null}>
         {activeTask && (
           <div
-            className="px-3 py-3.5"
+            className="px-3 py-3.5 relative"
             style={{
               background: '#111111',
               border: '1px solid rgba(255, 255, 255, 0.1)',
@@ -699,6 +762,14 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
                 {activeTask.name}
               </span>
             </div>
+            {selectedTaskCount > 1 && (
+              <span
+                className="absolute -top-2 -right-2 flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-[11px] font-semibold text-white"
+                style={{ background: '#0A84FF' }}
+              >
+                {selectedTaskCount}
+              </span>
+            )}
           </div>
         )}
         {activeBadgeDrag != null && (

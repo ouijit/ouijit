@@ -265,9 +265,9 @@ describe('installWrapper', () => {
 
     const wrapperPath = path.join(tmpHome, '.config', 'Ouijit', 'bin', 'claude');
     const wrapper = fs.readFileSync(wrapperPath, 'utf-8');
-    // Contains the fallthrough: exec real claude without --settings but with system prompt
+    // Contains the fallthrough: exec real claude without --settings but with reference file
     expect(wrapper).toContain('if [ -z "$OUIJIT_API_URL" ]; then');
-    expect(wrapper).toContain('exec "$REAL_CLAUDE" --append-system-prompt "$OUIJIT_PROMPT" "$@"');
+    expect(wrapper).toContain('exec "$REAL_CLAUDE" --append-system-prompt-file "$REFERENCE_FILE" "$@"');
   });
 
   test('wrapper injects all 4 hook events via --settings', () => {
@@ -289,6 +289,24 @@ describe('installWrapper', () => {
     expect(settings.hooks!.Stop).toHaveLength(1);
     expect(settings.hooks!.Notification).toHaveLength(1);
     expect(settings.hooks!.Notification![0].matcher).toBe('permission_prompt|idle_prompt');
+  });
+
+  test('creates CLI reference file with command documentation', () => {
+    installWrapper();
+
+    const refPath = path.join(tmpHome, '.config', 'Ouijit', 'ouijit-cli-reference.md');
+    expect(fs.existsSync(refPath)).toBe(true);
+    const content = fs.readFileSync(refPath, 'utf-8');
+    // Contains all command groups
+    expect(content).toContain('ouijit task list');
+    expect(content).toContain('ouijit tag');
+    expect(content).toContain('ouijit hook');
+    expect(content).toContain('ouijit script');
+    expect(content).toContain('ouijit plan');
+    expect(content).toContain('ouijit project list');
+    // Contains env var documentation
+    expect(content).toContain('OUIJIT_API_URL');
+    expect(content).toContain('OUIJIT_PTY_ID');
   });
 
   test('does not require ~/.claude to exist', () => {

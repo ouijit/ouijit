@@ -5,6 +5,7 @@ import { ScriptList } from './ScriptList';
 import { HookList } from './HookList';
 import type { HookEntry } from './HookList';
 import { SandboxSection } from './SandboxSection';
+import { ExperimentalFeaturesSection } from './ExperimentalFeaturesSection';
 
 const LIFECYCLE_HOOKS: HookEntry[] = [
   { type: 'start', label: 'Start', description: 'Runs when a task moves to In Progress' },
@@ -90,6 +91,13 @@ export function ProjectSettingsPanel({ projectPath }: ProjectSettingsPanelProps)
               <SandboxSection projectPath={projectPath} />
             </section>
           )}
+          <section>
+            <h2 className="text-sm font-semibold text-text-primary mb-2">Experimental</h2>
+            <p className="text-xs text-text-tertiary mb-4">
+              Unstable features that may change or be removed in future releases.
+            </p>
+            <ExperimentalFeaturesSection projectPath={projectPath} />
+          </section>
         </div>
       </div>
     </div>
