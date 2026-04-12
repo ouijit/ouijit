@@ -4,7 +4,7 @@ import type { PtySpawnOptions, PtySpawnResult, PtyId } from '../types';
 import type { ActiveSession } from '../ptyManager';
 import { generateId } from '../utils/ids';
 import { ensureRunning, getLimactlPath, getLimaEnv } from './manager';
-import { getApiPort, HELPER_SCRIPT, CLI_REFERENCE, buildVmHookSettings } from '../hookServer';
+import { getApiPort, HELPER_SCRIPT, buildVmHookSettings } from '../hookServer';
 import { listMaskedPaths, buildOverlayBindMountSetup, buildSandboxNoMatchesBanner } from './overlay';
 import { getLogger } from '../logger';
 
@@ -50,6 +50,11 @@ function handleOutput(ptyId: PtyId, channel: string, data: string): void {
  * Build bash commands that inject the ouijit-hook script and Claude settings
  * into the VM's ephemeral home directory. Runs once per shell spawn so hooks
  * are always fresh (never stale).
+ *
+ * The ouijit CLI reference file is deliberately not written into the
+ * sandbox VM. The CLI would give an agent inside the VM task-management
+ * powers (create non-sandboxed tasks, install hooks, change merge
+ * targets) that amount to a lateral-movement path from VM to host.
  */
 function buildVmHookSetup(): string {
   const hookScript = HELPER_SCRIPT;
@@ -65,11 +70,6 @@ function buildVmHookSetup(): string {
     `cat > ~/.claude/settings.json <<'OUIJIT_SETTINGS_EOF'`,
     hookSettings,
     'OUIJIT_SETTINGS_EOF',
-    // Write CLI reference file for --append-system-prompt-file
-    'mkdir -p ~/.config/Ouijit',
-    `cat > ~/.config/Ouijit/ouijit-cli-reference.md <<'OUIJIT_REF_EOF'`,
-    CLI_REFERENCE.trimEnd(),
-    'OUIJIT_REF_EOF',
     '',
   ].join('\n');
 }
