@@ -23,6 +23,7 @@ import {
 } from './db';
 import { mergeWorktreeBranch } from './git';
 import { runInVm } from './lima/manager';
+import { buildOverlayCleanup } from './lima/overlay';
 
 const worktreeLog = getLogger().scope('worktree');
 
@@ -482,6 +483,20 @@ export async function removeTaskWorktree(
     const task = await getTaskByNumber(projectPath, taskNumber);
     const branchName = task?.branch;
 
+    // Best-effort: umount and reclaim the per-task overlay BEFORE removing
+    // the host worktree, while the bind mount targets still resolve.
+    // Swallow errors — the VM may not be running.
+    if (task?.sandboxed && !Number.isNaN(taskNumber)) {
+      try {
+        await runInVm(projectPath, buildOverlayCleanup(taskNumber));
+      } catch (error) {
+        worktreeLog.warn('overlay cleanup failed', {
+          taskNumber,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+
     // Remove the worktree
     await execFileAsync('git', ['worktree', 'remove', worktreePath, '--force'], {
       cwd: projectPath,
@@ -501,21 +516,8 @@ export async function removeTaskWorktree(
     }
 
     // Delete task metadata
-    if (!isNaN(taskNumber)) {
+    if (!Number.isNaN(taskNumber)) {
       await deleteTaskByNumber(projectPath, taskNumber);
-    }
-
-    // Best-effort: reclaim per-task overlay directory inside the sandbox VM.
-    // Swallow errors — the VM may not be running.
-    if (task?.sandboxed && !isNaN(taskNumber)) {
-      try {
-        await runInVm(projectPath, `rm -rf /var/lib/ouijit/overlays/T-${taskNumber}`);
-      } catch (error) {
-        worktreeLog.warn('overlay cleanup failed', {
-          taskNumber,
-          error: error instanceof Error ? error.message : String(error),
-        });
-      }
     }
 
     return { success: true };

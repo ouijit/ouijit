@@ -17,8 +17,10 @@ function shEscape(str: string): string {
 
 /**
  * Parse the repo-root `.gitignore` and return the list of bare directory
- * names to bind-mount. Rejects globs, negations, nested paths, and
- * comments. Order-preserving dedupe.
+ * names to bind-mount. Accepts plain entries (`node_modules`, `target/`,
+ * `/.venv`) and recursive-glob shorthand for a single dir name
+ * (`**​/node_modules`). Rejects negations, comments, other globs, and
+ * nested paths. Order-preserving dedupe.
  */
 export async function parseIgnoredDirs(projectPath: string): Promise<string[]> {
   const gitignorePath = path.join(projectPath, '.gitignore');
@@ -34,10 +36,14 @@ export async function parseIgnoredDirs(projectPath: string): Promise<string[]> {
     if (!line) continue;
     if (line.startsWith('#')) continue;
     if (line.startsWith('!')) continue;
-    if (/[*?[\]]/.test(line)) continue;
-    const entry = line.replace(/^\//, '').replace(/\/$/, '');
+    let entry = line.replace(/^\//, '').replace(/\/$/, '');
     if (!entry) continue;
-    if (entry.includes('/')) continue;
+    // Accept `**/<name>` as `<name>` (only meaningful glob form for a bare dir).
+    if (entry.startsWith('**/')) {
+      entry = entry.slice(3);
+    }
+    if (/[*?[\]]/.test(entry)) continue;
+    if (!entry || entry.includes('/')) continue;
     dirs.push(entry);
   }
   return Array.from(new Set(dirs));
@@ -45,9 +51,12 @@ export async function parseIgnoredDirs(projectPath: string): Promise<string[]> {
 
 /**
  * Build bash that creates a per-task overlay directory on the guest's
- * local ext4, bind-mounts each gitignored directory from the worktree
- * onto it, and installs a trap to unmount on shell exit. Refcount lives
- * under flock on the guest so concurrent PTYs share mounts.
+ * local ext4 and bind-mounts each gitignored directory from the worktree
+ * onto it. Idempotent: re-running for an existing task is a no-op.
+ *
+ * Best-effort by design — any failure logs to stderr and continues so
+ * the user still gets a working shell. Mounts persist for the life of
+ * the task and are reclaimed by `buildOverlayCleanup` on task delete.
  *
  * Returns an empty string when there are no directories to isolate.
  */
@@ -57,51 +66,73 @@ export function buildOverlayBindMountSetup(opts: { worktreePath: string; taskId:
   const task = shEscape(String(opts.taskId));
   // Quoted heredoc disables shell expansion — entries are safe even with $, `, quotes.
   const dirList = opts.dirs.join('\n');
-  return `set -e
-WORKTREE=${worktree}
-TASK=${task}
-OVERLAY_ROOT="/var/lib/ouijit/overlays/T-$TASK"
-LOCK="$OVERLAY_ROOT/.lock"
-COUNT="$OVERLAY_ROOT/.count"
+  return `_ouijit_overlay_setup() {
+  local WORKTREE=${worktree}
+  local TASK=${task}
+  local OVERLAY_ROOT="/var/lib/ouijit/overlays/T-$TASK"
 
-# Sudo must be non-interactive or the rest of this script would hang.
-sudo -n true 2>/dev/null || { echo "ouijit: sandbox requires passwordless sudo" >&2; exit 1; }
+  if ! sudo -n true 2>/dev/null; then
+    echo "ouijit: sandbox overlay skipped (passwordless sudo unavailable)" >&2
+    return 0
+  fi
 
-sudo mkdir -p "$OVERLAY_ROOT"
-sudo touch "$LOCK" "$COUNT"
+  sudo mkdir -p "$OVERLAY_ROOT" || { echo "ouijit: overlay mkdir failed" >&2; return 0; }
 
-IGNORED_DIRS=$(cat <<'OUIJIT_IGNORED_DIRS_EOF'
+  local IGNORED_DIRS
+  IGNORED_DIRS=$(cat <<'OUIJIT_IGNORED_DIRS_EOF'
 ${dirList}
 OUIJIT_IGNORED_DIRS_EOF
 )
 
-(
-  flock -x 9
-  N=$(cat "$COUNT" 2>/dev/null || echo 0)
-  echo $((N+1)) | sudo tee "$COUNT" >/dev/null
+  # Stash worktree path + dir list so cleanup on task delete can umount
+  # before rm -rf, even after the host worktree directory is gone.
+  printf '%s\\n' "$WORKTREE" | sudo tee "$OVERLAY_ROOT/.worktree" >/dev/null
+  printf '%s\\n' "$IGNORED_DIRS" | sudo tee "$OVERLAY_ROOT/.dirs" >/dev/null
+
   while IFS= read -r dir; do
     [ -z "$dir" ] && continue
-    overlay="$OVERLAY_ROOT/$dir"
-    target="$WORKTREE/$dir"
-    sudo mkdir -p "$overlay" "$target"
-    mountpoint -q "$target" || sudo mount --bind "$overlay" "$target"
-  done <<< "$IGNORED_DIRS"
-) 9<"$LOCK"
-
-_ouijit_overlay_cleanup() {
-  (
-    flock -x 9
-    N=$(cat "$COUNT" 2>/dev/null || echo 0)
-    N=$((N-1))
-    echo $N | sudo tee "$COUNT" >/dev/null
-    if [ "$N" -le 0 ]; then
-      while IFS= read -r dir; do
-        [ -z "$dir" ] && continue
-        sudo umount "$WORKTREE/$dir" 2>/dev/null || true
-      done <<< "$IGNORED_DIRS"
+    local overlay="$OVERLAY_ROOT/$dir"
+    local target="$WORKTREE/$dir"
+    sudo mkdir -p "$overlay" "$target" 2>/dev/null || { echo "ouijit: overlay mkdir $dir failed" >&2; continue; }
+    if ! mountpoint -q "$target"; then
+      sudo mount --bind "$overlay" "$target" 2>/dev/null || echo "ouijit: bind mount $dir failed" >&2
     fi
-  ) 9<"$LOCK"
+  done <<< "$IGNORED_DIRS"
 }
-trap _ouijit_overlay_cleanup EXIT
+_ouijit_overlay_setup
+unset -f _ouijit_overlay_setup
+`;
+}
+
+/**
+ * Build bash that umounts every bind mount belonging to a task overlay
+ * and removes the overlay directory. Reads the worktree path and dir
+ * list from sidecar files written by `buildOverlayBindMountSetup`, then
+ * falls back to scanning `/proc/self/mountinfo` for any mounts whose
+ * source still references the overlay (handles older overlays without
+ * sidecars or partial state).
+ */
+export function buildOverlayCleanup(taskId: number): string {
+  const task = shEscape(String(taskId));
+  return `set +e
+TASK=${task}
+OVERLAY_ROOT="/var/lib/ouijit/overlays/T-$TASK"
+[ -d "$OVERLAY_ROOT" ] || exit 0
+
+if [ -f "$OVERLAY_ROOT/.worktree" ] && [ -f "$OVERLAY_ROOT/.dirs" ]; then
+  WORKTREE=$(cat "$OVERLAY_ROOT/.worktree")
+  while IFS= read -r dir; do
+    [ -z "$dir" ] && continue
+    sudo umount "$WORKTREE/$dir" 2>/dev/null
+  done < "$OVERLAY_ROOT/.dirs"
+fi
+
+# Belt-and-suspenders: umount anything still pointing into this overlay.
+awk -v root="$OVERLAY_ROOT/" '$4 ~ "^"root {print $5}' /proc/self/mountinfo 2>/dev/null \
+  | while IFS= read -r mp; do
+      [ -n "$mp" ] && sudo umount "$mp" 2>/dev/null
+    done
+
+sudo rm -rf "$OVERLAY_ROOT"
 `;
 }

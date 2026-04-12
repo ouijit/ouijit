@@ -6,6 +6,9 @@ import { generateId } from '../utils/ids';
 import { ensureRunning, getLimactlPath, getLimaEnv } from './manager';
 import { getApiPort, HELPER_SCRIPT, buildVmHookSettings } from '../hookServer';
 import { parseIgnoredDirs, buildOverlayBindMountSetup } from './overlay';
+import { getLogger } from '../logger';
+
+const spawnLog = getLogger().scope('limaSpawn');
 
 interface ManagedSandboxPty {
   process: pty.IPty;
@@ -118,11 +121,18 @@ export async function spawnSandboxedPty(options: PtySpawnOptions, window: Browse
     let overlaySetup = '';
     if (options.taskId != null && options.worktreePath) {
       const dirs = await parseIgnoredDirs(projectPath);
-      overlaySetup = buildOverlayBindMountSetup({
-        worktreePath: options.worktreePath,
-        taskId: options.taskId,
-        dirs,
-      });
+      if (dirs.length === 0) {
+        spawnLog.warn('sandboxed task has no parsable .gitignore dirs to isolate', {
+          taskId: options.taskId,
+          projectPath,
+        });
+      } else {
+        overlaySetup = buildOverlayBindMountSetup({
+          worktreePath: options.worktreePath,
+          taskId: options.taskId,
+          dirs,
+        });
+      }
     }
 
     // Build the command to run inside the VM

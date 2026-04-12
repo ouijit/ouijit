@@ -50,7 +50,7 @@ vi.mock('../lima/manager', () => ({
 
 import { createTaskWorktree, startTask, recoverTaskWorktree, removeTaskWorktree } from '../worktree';
 import { beginTask, createBranchFromTask } from '../taskLifecycle';
-import { parseIgnoredDirs, buildOverlayBindMountSetup } from '../lima/overlay';
+import { parseIgnoredDirs, buildOverlayBindMountSetup, buildOverlayCleanup } from '../lima/overlay';
 import { exec as execMockedRaw } from 'node:child_process';
 
 const execMocked = vi.mocked(execMockedRaw);
@@ -151,7 +151,7 @@ describe('createBranchFromTask sandbox inheritance', () => {
 });
 
 describe('removeTaskWorktree overlay cleanup', () => {
-  test('calls runInVm with the expected overlay path when task is sandboxed', async () => {
+  test('runs the cleanup script in the VM when task is sandboxed', async () => {
     const project = '/test/sandbox-remove';
     await createTask(project, 4, 'Sandbox delete', {
       branch: 'feat/del',
@@ -164,7 +164,11 @@ describe('removeTaskWorktree overlay cleanup', () => {
     expect(runInVmMock).toHaveBeenCalledTimes(1);
     const [passedProject, passedCmd] = runInVmMock.mock.calls[0] as [string, string];
     expect(passedProject).toBe(project);
-    expect(passedCmd).toBe('rm -rf /var/lib/ouijit/overlays/T-4');
+    // Cleanup script must umount before rm -rf and target the right task overlay.
+    expect(passedCmd).toContain("TASK='4'");
+    expect(passedCmd).toContain('/var/lib/ouijit/overlays/T-$TASK');
+    expect(passedCmd).toContain('umount');
+    expect(passedCmd).toContain('rm -rf "$OVERLAY_ROOT"');
   });
 
   test('does not call runInVm when task is not sandboxed', async () => {
@@ -234,13 +238,18 @@ describe('parseIgnoredDirs', () => {
   test('rejects globs, negations, nested paths, comments', async () => {
     const dir = writeGitignore(
       'unsupported',
-      ['# a comment', '', '*.log', '**/build', 'build-*', '!keep', 'src/generated/', 'node_modules'].join('\n'),
+      ['# a comment', '', '*.log', 'build-*', '!keep', 'src/generated/', 'node_modules'].join('\n'),
     );
     expect(await parseIgnoredDirs(dir)).toEqual(['node_modules']);
   });
 
-  test('dedupes repeated entries (node_modules and node_modules/)', async () => {
-    const dir = writeGitignore('dedupe', ['node_modules', 'node_modules/'].join('\n'));
+  test('accepts **/<name> shorthand for a single bare dir', async () => {
+    const dir = writeGitignore('recursive', ['**/build', '**/node_modules', '**/nested/dir'].join('\n'));
+    expect(await parseIgnoredDirs(dir)).toEqual(['build', 'node_modules']);
+  });
+
+  test('dedupes across plain, trailing slash, and **/ forms', async () => {
+    const dir = writeGitignore('dedupe', ['node_modules', 'node_modules/', '**/node_modules'].join('\n'));
     expect(await parseIgnoredDirs(dir)).toEqual(['node_modules']);
   });
 });
@@ -261,7 +270,53 @@ describe('buildOverlayBindMountSetup', () => {
     expect(script).toContain('node_modules');
     expect(script).toContain('.venv');
     expect(script).toContain('mount --bind');
-    expect(script).toContain('trap _ouijit_overlay_cleanup EXIT');
     expect(script).toContain('OUIJIT_IGNORED_DIRS_EOF');
+  });
+
+  test('does NOT use a trap (would not survive exec bash)', () => {
+    const script = buildOverlayBindMountSetup({ worktreePath: '/w', taskId: 1, dirs: ['node_modules'] });
+    expect(script).not.toContain('trap ');
+  });
+
+  test('does NOT use set -e (overlay setup must be best-effort)', () => {
+    const script = buildOverlayBindMountSetup({ worktreePath: '/w', taskId: 1, dirs: ['node_modules'] });
+    expect(script).not.toMatch(/^set -e/m);
+  });
+
+  test('script passes `bash -n` syntax check', async () => {
+    const realCp = await vi.importActual<typeof import('node:child_process')>('node:child_process');
+    const script = buildOverlayBindMountSetup({
+      worktreePath: "/w with 'quote and $danger",
+      taskId: 7,
+      dirs: ['node_modules', '.venv', 'target'],
+    });
+    expect(() => realCp.execSync('bash -n', { input: script })).not.toThrow();
+  });
+});
+
+describe('buildOverlayCleanup', () => {
+  test('emits bash that removes the per-task overlay root', () => {
+    const script = buildOverlayCleanup(13);
+    expect(script).toContain("TASK='13'");
+    expect(script).toContain('/var/lib/ouijit/overlays/T-$TASK');
+    expect(script).toContain('umount');
+    expect(script).toContain('rm -rf "$OVERLAY_ROOT"');
+  });
+
+  test('reads stashed worktree path and dirs sidecar files', () => {
+    const script = buildOverlayCleanup(13);
+    expect(script).toContain('$OVERLAY_ROOT/.worktree');
+    expect(script).toContain('$OVERLAY_ROOT/.dirs');
+  });
+
+  test('falls back to /proc/self/mountinfo for orphaned mounts', () => {
+    const script = buildOverlayCleanup(13);
+    expect(script).toContain('/proc/self/mountinfo');
+  });
+
+  test('script passes `bash -n` syntax check', async () => {
+    const realCp = await vi.importActual<typeof import('node:child_process')>('node:child_process');
+    const script = buildOverlayCleanup(99);
+    expect(() => realCp.execSync('bash -n', { input: script })).not.toThrow();
   });
 });
