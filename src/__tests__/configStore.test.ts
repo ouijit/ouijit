@@ -136,8 +136,11 @@ describe('configStore', () => {
 
     test('appends project mounts', () => {
       const merged = mergeConfig('cpus: 2\n', '/test/project');
-      expect(merged).toContain('/test/project');
-      expect(merged).toContain('writable: false');
+      // Mounts the project's .git (for git metadata) and the sandbox-views
+      // base dir (for the per-task tracked-only worktrees). Both writable so
+      // the agent can commit and the VM can populate node_modules etc.
+      expect(merged).toContain('/test/project/.git');
+      expect(merged).toContain('sandbox-views');
       expect(merged).toContain('writable: true');
     });
 
