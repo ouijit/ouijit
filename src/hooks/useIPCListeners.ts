@@ -59,6 +59,21 @@ export function useIPCListeners() {
       }),
     );
 
+    // Sandbox branch diverged — agent commits can't fast-forward onto the
+    // user's task branch because the user committed in parallel. Surface a
+    // persistent toast so the user can reconcile manually in their IDE.
+    cleanups.push(
+      window.api.lima.onSandboxDiverged((event) => {
+        ipcLog.warn('sandbox branch diverged from user branch', event);
+        useProjectStore
+          .getState()
+          .addToast(`Task T-${event.taskNumber}: agent commits diverged from your branch. Merge manually to sync.`, {
+            type: 'error',
+            persistent: true,
+          });
+      }),
+    );
+
     return () => {
       for (const cleanup of cleanups) {
         cleanup();

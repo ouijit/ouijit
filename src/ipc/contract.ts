@@ -218,6 +218,9 @@ export interface IpcPushContract {
   'claude-plan-ready': { args: [ptyId: string] };
   'plan:content-changed': { args: [planPath: string, content: string] };
   'lima:spawn-progress': { args: [step: { id: string; label: string; status: 'active' | 'done' }] };
+  'sandbox:diverged': {
+    args: [event: { taskNumber: number; userWorktreePath: string; sandboxViewPath: string }];
+  };
   'update-available': { args: [info: { version: string; url: string }] };
   'whats-new': { args: [info: { version: string; notes: string }] };
   'cli-change': { args: [payload: { project: string; action: string; message?: string; ts: number }] };

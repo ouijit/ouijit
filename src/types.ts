@@ -493,6 +493,9 @@ export interface LimaAPI {
   recreate(projectPath: string): Promise<{ success: boolean; error?: string }>;
   delete(projectPath: string): Promise<{ success: boolean; error?: string }>;
   onSpawnProgress(callback: (step: { id: string; label: string; status: 'active' | 'done' }) => void): () => void;
+  onSandboxDiverged(
+    callback: (event: { taskNumber: number; userWorktreePath: string; sandboxViewPath: string }) => void,
+  ): () => void;
 }
 
 /**
