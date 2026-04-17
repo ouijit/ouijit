@@ -22,6 +22,7 @@ let prevHome: string | undefined;
 let repoDir: string;
 let userWt: string;
 const USER_BRANCH = 'feat-sync';
+const SANDBOX_BRANCH = `s/${USER_BRANCH}`;
 
 function git(cwd: string, ...args: string[]): string {
   return execSync(`git ${args.map((a) => `'${a.replace(/'/g, "'\\''")}'`).join(' ')}`, {
@@ -67,15 +68,15 @@ afterEach(async () => {
 });
 
 describe('startSandboxView', () => {
-  test('creates a worktree on the T-N-sandbox child branch', async () => {
+  test('creates a worktree on the s/<user-branch> child branch', async () => {
     const info = await startSandboxView(repoDir, 42, USER_BRANCH);
 
-    expect(info.branch).toBe('T-42-sandbox');
+    expect(info.branch).toBe(SANDBOX_BRANCH);
     expect(info.path).toBe(getSandboxViewPath(path.basename(repoDir), 42));
 
     // The worktree directory exists and is on the sandbox branch.
     const head = git(info.path, 'rev-parse', '--abbrev-ref', 'HEAD');
-    expect(head).toBe('T-42-sandbox');
+    expect(head).toBe(SANDBOX_BRANCH);
 
     // The sandbox branch was forked from the user branch tip.
     const userHead = git(userWt, 'rev-parse', 'HEAD');
@@ -94,7 +95,7 @@ describe('startSandboxView', () => {
 describe('stopSandboxView', () => {
   test('removes the worktree and deletes the branch', async () => {
     const info = await startSandboxView(repoDir, 7, USER_BRANCH);
-    await stopSandboxView(repoDir, 7);
+    await stopSandboxView(repoDir, 7, USER_BRANCH);
 
     const exists = await fs
       .access(info.path)
@@ -103,11 +104,11 @@ describe('stopSandboxView', () => {
     expect(exists).toBe(false);
 
     const branches = execSync('git branch', { cwd: repoDir, encoding: 'utf8' });
-    expect(branches).not.toMatch(/T-7-sandbox/);
+    expect(branches).not.toMatch(new RegExp(SANDBOX_BRANCH.replace('/', '\\/')));
   });
 
   test('is safe to call when nothing exists', async () => {
-    await expect(stopSandboxView(repoDir, 999)).resolves.toBeUndefined();
+    await expect(stopSandboxView(repoDir, 999, USER_BRANCH)).resolves.toBeUndefined();
   });
 });
 
@@ -116,7 +117,7 @@ describe('ffMergeSandboxToUser', () => {
     const sandbox = await startSandboxView(repoDir, 1, USER_BRANCH);
     await commitFile(sandbox.path, 'agent.txt', 'hello from agent\n', 'agent work');
 
-    const result = await ffMergeSandboxToUser(userWt, 1);
+    const result = await ffMergeSandboxToUser(userWt, USER_BRANCH);
     expect(result).toEqual({ ok: true, ffMerged: true });
 
     const userHead = git(userWt, 'rev-parse', 'HEAD');
@@ -137,7 +138,7 @@ describe('ffMergeSandboxToUser', () => {
     await commitFile(userWt, 'user.txt', 'user change\n', 'user commit');
 
     const beforeUserHead = git(userWt, 'rev-parse', 'HEAD');
-    const result = await ffMergeSandboxToUser(userWt, 2);
+    const result = await ffMergeSandboxToUser(userWt, USER_BRANCH);
 
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.reason).toBe('non-ff');
@@ -148,7 +149,7 @@ describe('ffMergeSandboxToUser', () => {
 
   test('is a no-op when both branches already point at the same commit', async () => {
     await startSandboxView(repoDir, 3, USER_BRANCH);
-    const result = await ffMergeSandboxToUser(userWt, 3);
+    const result = await ffMergeSandboxToUser(userWt, USER_BRANCH);
     expect(result).toEqual({ ok: true, ffMerged: false });
   });
 
@@ -158,7 +159,7 @@ describe('ffMergeSandboxToUser', () => {
     await commitFile(sandbox.path, 'b.txt', 'b\n', 'commit b');
 
     // First ff-merge picks up both commits.
-    const first = await ffMergeSandboxToUser(userWt, 4);
+    const first = await ffMergeSandboxToUser(userWt, USER_BRANCH);
     expect(first).toEqual({ ok: true, ffMerged: true });
 
     // Agent rewinds and then commits a different history — now divergent
@@ -167,7 +168,7 @@ describe('ffMergeSandboxToUser', () => {
     await commitFile(sandbox.path, 'c.txt', 'c\n', 'divergent commit');
 
     const beforeUserHead = git(userWt, 'rev-parse', 'HEAD');
-    const second = await ffMergeSandboxToUser(userWt, 4);
+    const second = await ffMergeSandboxToUser(userWt, USER_BRANCH);
     expect(second.ok).toBe(false);
     if (!second.ok) expect(second.reason).toBe('non-ff');
     expect(git(userWt, 'rev-parse', 'HEAD')).toBe(beforeUserHead);
@@ -179,7 +180,7 @@ describe('watchSandboxRef', () => {
     const sandbox = await startSandboxView(repoDir, 5, USER_BRANCH);
 
     const updates: number[] = [];
-    const dispose = watchSandboxRef(repoDir, 5, () => {
+    const dispose = watchSandboxRef(repoDir, USER_BRANCH, () => {
       updates.push(Date.now());
     });
 
@@ -199,9 +200,9 @@ describe('watchSandboxRef', () => {
 });
 
 describe('branch and path helpers', () => {
-  test('getSandboxBranchName is stable', () => {
-    expect(getSandboxBranchName(1)).toBe('T-1-sandbox');
-    expect(getSandboxBranchName(99)).toBe('T-99-sandbox');
+  test('getSandboxBranchName prefixes the user branch with s/', () => {
+    expect(getSandboxBranchName('feat-foo')).toBe('s/feat-foo');
+    expect(getSandboxBranchName('test-env-sandbox-1')).toBe('s/test-env-sandbox-1');
   });
 
   test('getSandboxViewPath lives under ~/Ouijit/sandbox-views/<project>/', () => {

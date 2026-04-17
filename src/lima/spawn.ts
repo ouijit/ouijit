@@ -143,6 +143,7 @@ export async function spawnSandboxedPty(options: PtySpawnOptions, window: Browse
     let guestCwd = options.cwd;
     let sandboxViewPath: string | undefined;
     let sandboxUserWorktreePath: string | undefined;
+    let sandboxUserBranch: string | undefined;
 
     if (options.taskId != null) {
       const task = await getTaskByNumber(projectPath, options.taskId);
@@ -156,6 +157,7 @@ export async function spawnSandboxedPty(options: PtySpawnOptions, window: Browse
         return { success: false, error: `Sandboxed task ${options.taskId} has no worktree path` };
       }
       sandboxUserWorktreePath = task.worktreePath;
+      sandboxUserBranch = task.branch;
       try {
         const view = await startSandboxView(projectPath, options.taskId, task.branch);
         sandboxViewPath = view.path;
@@ -244,12 +246,13 @@ export async function spawnSandboxedPty(options: PtySpawnOptions, window: Browse
     // Watch the sandbox branch ref so agent commits fast-forward onto the
     // user's branch. Fires per-PTY, not per-terminal-card; sharing the
     // watcher across PTYs would couple lifetimes unnecessarily.
-    if (options.taskId != null && sandboxUserWorktreePath && sandboxViewPath) {
+    if (options.taskId != null && sandboxUserWorktreePath && sandboxViewPath && sandboxUserBranch) {
       const taskNumber = options.taskId;
       const userWorktreePath = sandboxUserWorktreePath;
+      const userBranch = sandboxUserBranch;
       const watchProject = projectPath;
-      managed.disposeRefWatcher = watchSandboxRef(watchProject, taskNumber, () => {
-        void ffMergeSandboxToUser(userWorktreePath, taskNumber).then((result) => {
+      managed.disposeRefWatcher = watchSandboxRef(watchProject, userBranch, () => {
+        void ffMergeSandboxToUser(userWorktreePath, userBranch).then((result) => {
           if (result.ok === false && result.reason === 'non-ff') {
             if (currentWindow && !currentWindow.isDestroyed()) {
               currentWindow.webContents.send('sandbox:diverged', {

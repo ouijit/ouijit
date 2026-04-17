@@ -2,10 +2,10 @@
  * Sandbox-view worktree lifecycle and sync.
  *
  * A sandboxed task gets two git worktrees:
- *   - the user worktree (~/Ouijit/worktrees/<proj>/T-N on branch T-N),
- *     which holds the user's real .env, node_modules/, etc.
+ *   - the user worktree (~/Ouijit/worktrees/<proj>/T-N on the user's
+ *     branch), which holds the user's real .env, node_modules/, etc.
  *   - a sandbox-view worktree (~/Ouijit/sandbox-views/<proj>/T-N on
- *     child branch T-N-sandbox), which `git worktree add` populates
+ *     child branch s/<user-branch>), which `git worktree add` populates
  *     with tracked files only. No gitignored content ever lives here,
  *     so it's safe to mount into the Lima guest.
  *
@@ -35,8 +35,14 @@ export function getSandboxViewBaseDir(projectName: string): string {
   return path.join(os.homedir(), 'Ouijit', 'sandbox-views', projectName);
 }
 
-export function getSandboxBranchName(taskNumber: number): string {
-  return `T-${taskNumber}-sandbox`;
+/**
+ * The sandbox branch lives under the `s/` namespace prefixed by the
+ * user's branch name: `s/feat-foo`. Using `/` puts all sandbox
+ * branches in their own namespace in `git branch` output and avoids
+ * ref-name collisions with the user's branch.
+ */
+export function getSandboxBranchName(userBranch: string): string {
+  return `s/${userBranch}`;
 }
 
 export function getSandboxViewPath(projectName: string, taskNumber: number): string {
@@ -50,7 +56,7 @@ export interface SandboxViewInfo {
 
 /**
  * Create (or reuse) the sandbox-view worktree for a task.
- * Forks branch `T-N-sandbox` from the user's branch tip.
+ * Forks branch `s/<user-branch>` from the user's branch tip.
  */
 export async function startSandboxView(
   projectPath: string,
@@ -60,7 +66,7 @@ export async function startSandboxView(
   const projectName = path.basename(projectPath);
   const baseDir = getSandboxViewBaseDir(projectName);
   const viewPath = getSandboxViewPath(projectName, taskNumber);
-  const branch = getSandboxBranchName(taskNumber);
+  const branch = getSandboxBranchName(userWorktreeBranch);
 
   await fs.mkdir(baseDir, { recursive: true });
 
@@ -96,10 +102,14 @@ export async function startSandboxView(
  * Remove the sandbox-view worktree and delete its branch.
  * Best-effort — logs but does not throw on individual failures.
  */
-export async function stopSandboxView(projectPath: string, taskNumber: number): Promise<void> {
+export async function stopSandboxView(
+  projectPath: string,
+  taskNumber: number,
+  userWorktreeBranch: string,
+): Promise<void> {
   const projectName = path.basename(projectPath);
   const viewPath = getSandboxViewPath(projectName, taskNumber);
-  const branch = getSandboxBranchName(taskNumber);
+  const branch = getSandboxBranchName(userWorktreeBranch);
 
   try {
     await execFileAsync('git', ['worktree', 'remove', viewPath, '--force'], { cwd: projectPath });
@@ -131,8 +141,8 @@ export type MergeResult =
  * Fast-forward the user worktree to the sandbox branch.
  * Returns `{ ok: false, reason: 'non-ff' }` if divergence prevents it.
  */
-export async function ffMergeSandboxToUser(userWorktreePath: string, taskNumber: number): Promise<MergeResult> {
-  const sandboxBranch = getSandboxBranchName(taskNumber);
+export async function ffMergeSandboxToUser(userWorktreePath: string, userWorktreeBranch: string): Promise<MergeResult> {
+  const sandboxBranch = getSandboxBranchName(userWorktreeBranch);
 
   // Skip when nothing new exists on the sandbox branch. Saves a merge attempt
   // and avoids emitting divergence events on every ref-touch.
@@ -153,12 +163,16 @@ export async function ffMergeSandboxToUser(userWorktreePath: string, taskNumber:
 
   try {
     await execFileAsync('git', ['merge', '--ff-only', sandboxBranch], { cwd: userWorktreePath });
-    syncLog.info('ff-merged sandbox branch into user worktree', { taskNumber, from: userHead, to: sandboxHead });
+    syncLog.info('ff-merged sandbox branch into user worktree', {
+      userWorktreeBranch,
+      from: userHead,
+      to: sandboxHead,
+    });
     return { ok: true, ffMerged: true };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     if (/fast-forward|non-fast-forward|Not possible to fast-forward/i.test(message)) {
-      syncLog.warn('sandbox branch diverged from user branch', { taskNumber });
+      syncLog.warn('sandbox branch diverged from user branch', { userWorktreeBranch });
       return { ok: false, reason: 'non-ff', error: message };
     }
     return { ok: false, reason: 'other', error: message };
@@ -173,8 +187,8 @@ export async function ffMergeSandboxToUser(userWorktreePath: string, taskNumber:
  * (which happens after `git gc` or when the branch was just created as
  * a packed ref on first commit).
  */
-export function watchSandboxRef(projectPath: string, taskNumber: number, onUpdate: () => void): () => void {
-  const branch = getSandboxBranchName(taskNumber);
+export function watchSandboxRef(projectPath: string, userWorktreeBranch: string, onUpdate: () => void): () => void {
+  const branch = getSandboxBranchName(userWorktreeBranch);
   const looseRefPath = path.join(projectPath, '.git', 'refs', 'heads', branch);
   const packedRefsPath = path.join(projectPath, '.git', 'packed-refs');
 
@@ -187,7 +201,7 @@ export function watchSandboxRef(projectPath: string, taskNumber: number, onUpdat
         onUpdate();
       } catch (error) {
         syncLog.warn('sandbox ref update handler threw', {
-          taskNumber,
+          userWorktreeBranch,
           error: error instanceof Error ? error.message : String(error),
         });
       }
@@ -203,7 +217,7 @@ export function watchSandboxRef(projectPath: string, taskNumber: number, onUpdat
       });
       w.on('error', (error) => {
         syncLog.warn('sandbox ref watcher error', {
-          taskNumber,
+          userWorktreeBranch,
           target,
           error: error instanceof Error ? error.message : String(error),
         });

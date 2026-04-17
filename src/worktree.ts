@@ -482,12 +482,12 @@ export async function removeTaskWorktree(
     const task = await getTaskByNumber(projectPath, taskNumber);
     const branchName = task?.branch;
 
-    // Best-effort: remove the sandbox-view worktree and its T-N-sandbox
+    // Best-effort: remove the sandbox-view worktree and its s/<branch>
     // branch before touching the user worktree, so git's metadata stays
     // consistent. Swallow errors — the view may already be gone.
-    if (task?.sandboxed && !Number.isNaN(taskNumber)) {
+    if (task?.sandboxed && task.branch && !Number.isNaN(taskNumber)) {
       try {
-        await stopSandboxView(projectPath, taskNumber);
+        await stopSandboxView(projectPath, taskNumber, task.branch);
       } catch (error) {
         worktreeLog.warn('sandbox view cleanup failed', {
           taskNumber,

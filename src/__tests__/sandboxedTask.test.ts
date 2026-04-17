@@ -171,7 +171,7 @@ describe('removeTaskWorktree sandbox-view cleanup', () => {
     const result = await removeTaskWorktree(project, '/worktrees/T-4', 4);
     expect(result.success).toBe(true);
     expect(stopSandboxViewMock).toHaveBeenCalledTimes(1);
-    expect(stopSandboxViewMock).toHaveBeenCalledWith(project, 4);
+    expect(stopSandboxViewMock).toHaveBeenCalledWith(project, 4, 'feat/del');
   });
 
   test('does not call stopSandboxView when task is not sandboxed', async () => {
