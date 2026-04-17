@@ -70,6 +70,9 @@ export const TerminalCard = memo(function TerminalCard({ ptyId, projectPath }: T
     togglePlanPanel,
     closePlanPanel,
     changePlanFile,
+    toggleWebPreviewPanel,
+    closeWebPreviewPanel,
+    changeWebPreviewUrl,
   } = useTerminalPanels(ptyId);
 
   const backDepth = useMemo(() => {
@@ -146,6 +149,8 @@ export const TerminalCard = memo(function TerminalCard({ ptyId, projectPath }: T
         onClose={handleClose}
         onToggleDiffPanel={toggleDiffPanel}
         onTogglePlanPanel={togglePlanPanel}
+        onToggleWebPreviewPanel={toggleWebPreviewPanel}
+        onChangeWebPreviewUrl={changeWebPreviewUrl}
         onToggleRunner={toggleRunner}
       />
       <TerminalBody
@@ -154,6 +159,8 @@ export const TerminalCard = memo(function TerminalCard({ ptyId, projectPath }: T
         onCloseDiffPanel={closeDiffPanel}
         onClosePlanPanel={closePlanPanel}
         onChangePlanFile={changePlanFile}
+        onCloseWebPreviewPanel={closeWebPreviewPanel}
+        onChangeWebPreviewUrl={changeWebPreviewUrl}
         onCollapseRunner={collapseRunner}
         onKillRunner={killRunner}
         onRestartRunner={restartRunner}

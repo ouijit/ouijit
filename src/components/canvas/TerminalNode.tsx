@@ -60,6 +60,9 @@ const ActiveTerminalNode = memo(function ActiveTerminalNode({
     togglePlanPanel,
     closePlanPanel,
     changePlanFile,
+    toggleWebPreviewPanel,
+    closeWebPreviewPanel,
+    changeWebPreviewUrl,
   } = useTerminalPanels(ptyId);
 
   const handleClose = useCallback(() => {
@@ -96,6 +99,7 @@ const ActiveTerminalNode = memo(function ActiveTerminalNode({
           onClose={handleClose}
           onToggleDiffPanel={toggleDiffPanel}
           onTogglePlanPanel={togglePlanPanel}
+          onToggleWebPreviewPanel={toggleWebPreviewPanel}
           onToggleRunner={toggleRunner}
         />
       </div>
@@ -119,6 +123,8 @@ const ActiveTerminalNode = memo(function ActiveTerminalNode({
             onCloseDiffPanel={closeDiffPanel}
             onClosePlanPanel={closePlanPanel}
             onChangePlanFile={changePlanFile}
+            onCloseWebPreviewPanel={closeWebPreviewPanel}
+            onChangeWebPreviewUrl={changeWebPreviewUrl}
             onCollapseRunner={collapseRunner}
             onKillRunner={killRunner}
             onRestartRunner={restartRunner}
@@ -139,6 +145,7 @@ interface PeripheryProps {
   onClose: () => void;
   onToggleDiffPanel: () => void;
   onTogglePlanPanel: () => void;
+  onToggleWebPreviewPanel: () => void;
   onToggleRunner: () => void;
 }
 
@@ -148,6 +155,7 @@ const NodePeriphery = memo(function NodePeriphery({
   onClose,
   onToggleDiffPanel,
   onTogglePlanPanel,
+  onToggleWebPreviewPanel,
   onToggleRunner,
 }: PeripheryProps) {
   const label = useTerminalStore((s) => s.displayStates[ptyId]?.label ?? '');
@@ -162,6 +170,8 @@ const NodePeriphery = memo(function NodePeriphery({
   const diffPanelOpen = useTerminalStore((s) => s.displayStates[ptyId]?.diffPanelOpen ?? false);
   const planPath = useTerminalStore((s) => s.displayStates[ptyId]?.planPath ?? null);
   const planPanelOpen = useTerminalStore((s) => s.displayStates[ptyId]?.planPanelOpen ?? false);
+  const webPreviewUrl = useTerminalStore((s) => s.displayStates[ptyId]?.webPreviewUrl ?? null);
+  const webPreviewPanelOpen = useTerminalStore((s) => s.displayStates[ptyId]?.webPreviewPanelOpen ?? false);
   const worktreeBranch = useTerminalStore((s) => s.displayStates[ptyId]?.worktreeBranch ?? null);
   const tasks = useProjectStore((s) => s.tasks);
 
@@ -224,6 +234,19 @@ const NodePeriphery = memo(function NodePeriphery({
             >
               <Icon name="list-checks" className="w-3.5 h-3.5" />
               <span>Plan</span>
+            </button>
+          )}
+          {webPreviewUrl && (
+            <button
+              className={`flex items-center gap-1 px-2.5 py-1 rounded-full font-mono text-[13px] font-medium text-white/60 bg-white/[0.06] border-none transition-all duration-150 ease-out hover:bg-white/[0.12] hover:text-white/90 ${webPreviewPanelOpen ? '!bg-accent !text-white' : ''}`}
+              title={`Preview ${webPreviewUrl}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggleWebPreviewPanel();
+              }}
+            >
+              <Icon name="globe-simple" className="w-3.5 h-3.5" />
+              <span>Preview</span>
             </button>
           )}
           {showDiff && (

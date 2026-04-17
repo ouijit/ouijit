@@ -38,6 +38,7 @@ import fileText from '@phosphor-icons/core/assets/regular/file-text.svg?raw';
 import folderOpen from '@phosphor-icons/core/assets/regular/folder-open.svg?raw';
 import folderPlus from '@phosphor-icons/core/assets/regular/folder-plus.svg?raw';
 import gear from '@phosphor-icons/core/assets/regular/gear.svg?raw';
+import globeSimple from '@phosphor-icons/core/assets/regular/globe-simple.svg?raw';
 import gitBranch from '@phosphor-icons/core/assets/regular/git-branch.svg?raw';
 import gitFork from '@phosphor-icons/core/assets/regular/git-fork.svg?raw';
 import gridFour from '@phosphor-icons/core/assets/regular/grid-four.svg?raw';
@@ -103,6 +104,7 @@ export const iconMap: Record<string, string> = {
   'folder-open': folderOpen,
   'folder-plus': folderPlus,
   gear: gear,
+  'globe-simple': globeSimple,
   'git-branch': gitBranch,
   'git-diff': gitDiff,
   'git-fork': gitFork,

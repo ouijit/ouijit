@@ -302,6 +302,12 @@ export class OuijitTerminal {
   planFullWidth = true;
   planSplitRatio = 0.5;
 
+  // ── Per-terminal web preview panel state ──────────────────────────
+  webPreviewUrl: string | null = null;
+  webPreviewPanelOpen = false;
+  webPreviewFullWidth = true;
+  webPreviewSplitRatio = 0.5;
+
   // ── Runner (child OuijitTerminal) ──────────────────────────────────
   runner: OuijitTerminal | null = null;
   runnerPanelOpen = false;

@@ -99,6 +99,7 @@ const createWindow = (): BrowserWindow => {
     backgroundColor,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
+      webviewTag: true,
     },
   });
 
@@ -120,6 +121,21 @@ const createWindow = (): BrowserWindow => {
   window.webContents.setWindowOpenHandler(({ url }) => {
     if (/^https?:\/\//i.test(url)) shell.openExternal(url);
     return { action: 'deny' };
+  });
+
+  // Lock down <webview> elements used for web preview panels. We strip node
+  // integration, disable the preload script, and prevent new window spawns so
+  // an embedded dev server page can't escape the sandbox.
+  window.webContents.on('will-attach-webview', (_event, webPreferences, params) => {
+    delete webPreferences.preload;
+    webPreferences.nodeIntegration = false;
+    webPreferences.contextIsolation = true;
+    webPreferences.sandbox = true;
+
+    // Only allow http(s) URLs. A bad src attribute can't ship us to a file:// page.
+    if (!/^https?:\/\//i.test(params.src || '')) {
+      params.src = 'about:blank';
+    }
   });
 
   // Prevent the main window from navigating away to an external URL.
