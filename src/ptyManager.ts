@@ -12,6 +12,7 @@ import {
 } from './hookServer';
 import { getLogger } from './logger';
 import { getUserDataPath, getCliPath } from './paths';
+import { issueToken, revokeToken, revokeAllTokens } from './apiAuth';
 
 const ptyLog = getLogger().scope('pty');
 
@@ -143,6 +144,7 @@ export async function spawnPty(options: PtySpawnOptions, window: BrowserWindow):
     // Inject hook API env vars so Claude Code hooks can reach us
     finalEnv['OUIJIT_PTY_ID'] = ptyId;
     finalEnv['OUIJIT_API_URL'] = `http://127.0.0.1:${getApiPort()}`;
+    finalEnv['OUIJIT_API_TOKEN'] = issueToken(ptyId, 'host');
 
     // Shell integration: wrapper dir + integration dir for PATH fix scripts
     const wrapperBinDir = getWrapperBinDir();
@@ -247,6 +249,7 @@ export async function spawnPty(options: PtySpawnOptions, window: BrowserWindow):
       }
       activePtys.delete(ptyId);
       clearHookStatus(ptyId);
+      revokeToken(ptyId);
     });
 
     return { success: true, ptyId };
@@ -368,6 +371,7 @@ export function killPty(ptyId: PtyId): void {
 
   activePtys.delete(ptyId);
   clearHookStatus(ptyId);
+  revokeToken(ptyId);
 }
 
 export function cleanupAllPtys(): void {
@@ -384,4 +388,5 @@ export function cleanupAllPtys(): void {
   }
   activePtys.clear();
   clearAllHookStatuses();
+  revokeAllTokens();
 }

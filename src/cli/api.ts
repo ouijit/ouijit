@@ -26,8 +26,18 @@ function getBaseUrl(): string {
   return url;
 }
 
+function getApiToken(): string {
+  const token = process.env['OUIJIT_API_TOKEN'];
+  if (!token) {
+    console.error('ouijit: OUIJIT_API_TOKEN not set — run from an Ouijit terminal');
+    process.exit(1);
+  }
+  return token;
+}
+
 function request<T>(method: string, path: string, body?: Record<string, unknown>): Promise<T> {
   const base = getBaseUrl();
+  const token = getApiToken();
   const url = new URL(path, base);
 
   const payload = body ? JSON.stringify(body) : undefined;
@@ -37,6 +47,7 @@ function request<T>(method: string, path: string, body?: Record<string, unknown>
     port: url.port,
     path: url.pathname + url.search,
     headers: {
+      Authorization: `Bearer ${token}`,
       ...(payload ? { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) } : {}),
     },
   };

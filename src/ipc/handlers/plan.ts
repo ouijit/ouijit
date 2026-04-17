@@ -4,6 +4,7 @@ import { BrowserWindow, dialog } from 'electron';
 import { typedHandle } from '../helpers';
 import { getPlanPath } from '../../hookServer';
 import { getLogger } from '../../logger';
+import { resolveWithinBase, isSymlinkEscapeError } from '../../utils/pathSafety';
 
 const planLog = getLogger().scope('plan');
 
@@ -78,15 +79,22 @@ export function registerPlanHandlers(mainWindow: BrowserWindow): void {
     const result: Record<string, boolean> = {};
     await Promise.all(
       filePaths.map(async (fp) => {
-        const resolved = path.resolve(workspaceRoot, fp);
-        if (!resolved.startsWith(workspaceRoot + path.sep) && resolved !== workspaceRoot) {
-          result[fp] = false;
-          return;
-        }
         try {
+          // resolveWithinBase follows symlinks through to the real path
+          // and rejects anything that escapes the worktree — prevents
+          // a guest-planted symlink from leaking the existence of host
+          // files outside the worktree boundary.
+          const resolved = await resolveWithinBase(workspaceRoot, fp);
           await fs.promises.access(resolved);
           result[fp] = true;
-        } catch {
+        } catch (err) {
+          if (isSymlinkEscapeError(err)) {
+            planLog.warn('file check rejected symlink escape', {
+              workspaceRoot,
+              file: fp,
+              resolved: err.resolved,
+            });
+          }
           result[fp] = false;
         }
       }),

@@ -6,9 +6,43 @@ import { generateId } from '../utils/ids';
 import { ensureRunning, getLimactlPath, getLimaEnv } from './manager';
 import { getApiPort, HELPER_SCRIPT, buildVmHookSettings } from '../hookServer';
 import { listMaskedPaths, buildOverlayBindMountSetup, buildSandboxNoMatchesBanner } from './overlay';
+import { issueToken, revokeToken } from '../apiAuth';
 import { getLogger } from '../logger';
 
 const spawnLog = getLogger().scope('limaSpawn');
+
+/**
+ * Allowlist of host env vars forwarded to the `limactl shell` child process.
+ * limactl needs PATH to resolve ssh/socat, HOME for its SSH config, and locale
+ * vars so the guest SSH session doesn't fall back to POSIX. Everything else —
+ * API keys, cloud creds, shell history paths — is dropped so a process list or
+ * crash dump on the host cannot leak secrets through limactl.
+ *
+ * Guest-side env (options.env) is re-exported inside the VM by `envExports`;
+ * it does not need to ride on the host child.
+ */
+const LIMACTL_HOST_ENV_ALLOWLIST: readonly string[] = [
+  'PATH',
+  'HOME',
+  'USER',
+  'LOGNAME',
+  'SHELL',
+  'LANG',
+  'LC_ALL',
+  'LC_CTYPE',
+  'TMPDIR',
+  'SSH_AUTH_SOCK',
+];
+
+export function buildLimactlHostEnv(hostEnv: NodeJS.ProcessEnv): Record<string, string> {
+  const env: Record<string, string> = { TERM: 'xterm-256color' };
+  for (const key of LIMACTL_HOST_ENV_ALLOWLIST) {
+    const value = hostEnv[key];
+    if (value !== undefined) env[key] = value;
+  }
+  env.LIMA_HOME = getLimaEnv().LIMA_HOME;
+  return env;
+}
 
 interface ManagedSandboxPty {
   process: pty.IPty;
@@ -112,10 +146,12 @@ export async function spawnSandboxedPty(options: PtySpawnOptions, window: Browse
     }
 
     const ptyId = generateId('pty-sandbox');
+    const apiToken = issueToken(ptyId, 'sandbox');
 
     // Inject hook API env vars into the VM shell (host.lima.internal resolves to host)
     envExports += `export OUIJIT_PTY_ID='${ptyId}'\n`;
     envExports += `export OUIJIT_API_URL='http://host.lima.internal:${getApiPort()}'\n`;
+    envExports += `export OUIJIT_API_TOKEN='${apiToken}'\n`;
 
     // Inject hook script + Claude settings into VM's ephemeral home dir
     const hookSetup = buildVmHookSetup();
@@ -200,31 +236,17 @@ export async function spawnSandboxedPty(options: PtySpawnOptions, window: Browse
     // Build limactl shell args
     const limactlArgs = ['shell', '--workdir', guestCwd, instanceName, '--', 'bash', '-c', innerCmd];
 
-    // Build environment: pass through env vars via limactl's environment
-    const baseEnv: Record<string, string> = {};
-    for (const [key, value] of Object.entries(process.env)) {
-      if (value !== undefined) {
-        baseEnv[key] = value;
-      }
-    }
-    const finalEnv: Record<string, string> = {
-      ...baseEnv,
-      TERM: 'xterm-256color',
-    };
-    if (options.env) {
-      for (const [key, value] of Object.entries(options.env)) {
-        if (value !== undefined) {
-          finalEnv[key] = value;
-        }
-      }
-    }
-
+    // Build env for the host-side limactl child process. Only keys limactl
+    // and its SSH helper legitimately need — no blanket spread of
+    // process.env. Guest-bound variables (options.env) are already
+    // re-exported inside the VM via `envExports` above; they don't need
+    // to sit on the host child.
     const ptyProcess = pty.spawn(getLimactlPath(), limactlArgs, {
       name: 'xterm-256color',
       cols: options.cols || 80,
       rows: options.rows || 24,
       cwd: options.cwd,
-      env: { ...finalEnv, LIMA_HOME: getLimaEnv().LIMA_HOME },
+      env: buildLimactlHostEnv(process.env),
     });
 
     const label = options.label || options.command || 'Sandbox Shell';
@@ -256,6 +278,7 @@ export async function spawnSandboxedPty(options: PtySpawnOptions, window: Browse
         }
       } finally {
         activeSandboxPtys.delete(ptyId);
+        revokeToken(ptyId);
       }
     });
 
@@ -312,6 +335,7 @@ export function killSandboxPty(ptyId: PtyId): void {
     }
   }
   activeSandboxPtys.delete(ptyId);
+  revokeToken(ptyId);
 }
 
 /**
@@ -353,7 +377,7 @@ export function reconnectSandboxPty(
  * Clean up all sandboxed PTYs (called on app quit)
  */
 export function cleanupSandboxPtys(): void {
-  for (const [, managed] of activeSandboxPtys) {
+  for (const [ptyId, managed] of activeSandboxPtys) {
     try {
       process.kill(-managed.process.pid, 'SIGTERM');
     } catch {
@@ -363,6 +387,7 @@ export function cleanupSandboxPtys(): void {
         // Ignore errors during cleanup
       }
     }
+    revokeToken(ptyId);
   }
   activeSandboxPtys.clear();
 }
