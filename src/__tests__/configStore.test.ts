@@ -48,60 +48,16 @@ describe('configStore', () => {
       expect(yaml).toMatch(/visudo -cf "\$f"/);
     });
 
-    test('installs + enables the egress firewall systemd unit', () => {
+    test('does not install an egress firewall (host↔guest is the boundary, not guest↔internet)', () => {
       const yaml = generateDefaultConfig();
-      expect(yaml).toContain('/usr/local/sbin/ouijit-firewall');
-      expect(yaml).toContain('/etc/systemd/system/ouijit-firewall.service');
-      expect(yaml).toContain('systemctl enable ouijit-firewall.service');
+      expect(yaml).not.toContain('ouijit-firewall');
+      expect(yaml).not.toContain('/etc/ouijit/network-policy');
+      expect(yaml).not.toContain('iptables');
     });
 
-    test('defaults network policy to strict', () => {
+    test('does not disable IPv6 (no firewall to bypass)', () => {
       const yaml = generateDefaultConfig();
-      expect(yaml).toContain('/etc/ouijit/network-policy');
-      expect(yaml).toMatch(/echo strict > \/etc\/ouijit\/network-policy/);
-    });
-
-    test('firewall script drops outbound by default and permits host.lima.internal', () => {
-      const yaml = generateDefaultConfig();
-      expect(yaml).toContain('iptables -P OUTPUT DROP');
-      expect(yaml).toContain('host.lima.internal');
-      expect(yaml).toContain('iptables -A OUTPUT -o lo -j ACCEPT');
-    });
-
-    test('disables IPv6 kernel-wide via sysctl so dual-stack guests cannot bypass', () => {
-      const yaml = generateDefaultConfig();
-      // Preferred over an ip6tables mirror: no happy-eyeballs timeout
-      // and no dependency on ip6tables being present.
-      expect(yaml).toContain('/etc/sysctl.d/99-ouijit.conf');
-      expect(yaml).toContain('net.ipv6.conf.all.disable_ipv6 = 1');
-      expect(yaml).toContain('net.ipv6.conf.default.disable_ipv6 = 1');
-    });
-
-    test('firewall uses conntrack module (not legacy state) for iptables-nft compatibility', () => {
-      const yaml = generateDefaultConfig();
-      expect(yaml).toContain('-m conntrack --ctstate ESTABLISHED,RELATED');
-      expect(yaml).not.toContain('-m state --state');
-    });
-
-    test('gateway parse uses bash printf (not gawk strtonum)', () => {
-      const yaml = generateDefaultConfig();
-      // strtonum is a gawk extension; Ubuntu ships mawk. Confirm we
-      // do the hex → dotted-quad conversion in the shell instead.
-      expect(yaml).not.toContain('strtonum');
-      expect(yaml).toContain('GATEWAY_HEX');
-    });
-
-    test('firewall has a /proc/net/route fallback for the gateway', () => {
-      const yaml = generateDefaultConfig();
-      expect(yaml).toContain('/proc/net/route');
-      // Final fallback to the VZ default so the firewall never ends up fully open.
-      expect(yaml).toContain('192.168.5.2');
-    });
-
-    test('firewall honors a per-VM opt-out via /etc/ouijit/network-policy', () => {
-      const yaml = generateDefaultConfig();
-      expect(yaml).toContain('POLICY_FILE="/etc/ouijit/network-policy"');
-      expect(yaml).toContain('policy=open, leaving default networking');
+      expect(yaml).not.toContain('disable_ipv6');
     });
   });
 

@@ -186,89 +186,13 @@ fi
 exit 0
 `;
 
-/**
- * Firewall script installed at /usr/local/sbin/ouijit-firewall. Applies
- * default-deny outbound with a single allowlist entry: host.lima.internal
- * (the VM's gateway). The guest can still reach the Ouijit API and
- * nothing else — no apt, no npm, no LLM, no exfiltration endpoints.
- *
- * Runs after cloud-init so package installs during provisioning still
- * have open network. Gated by /etc/ouijit/network-policy which the host
- * can write as 'strict' (default) or 'open' for opt-in projects.
- */
-export const FIREWALL_SCRIPT = `#!/bin/bash
-# Ouijit egress firewall — default-deny outbound, allow host.lima.internal.
-# IPv6 is disabled kernel-wide by /etc/sysctl.d/99-ouijit.conf (installed
-# at provision), so this script only configures IPv4.
-set -u
-
-POLICY_FILE="/etc/ouijit/network-policy"
-POLICY="strict"
-[ -f "$POLICY_FILE" ] && POLICY=$(head -1 "$POLICY_FILE" | tr -d ' \\n')
-
-if [ "$POLICY" = "open" ]; then
-  echo "ouijit-firewall: policy=open, leaving default networking" >&2
-  exit 0
-fi
-
-# Resolve host.lima.internal → gateway IP. Three probes in order:
-#   1. DNS (host.lima.internal is injected by Lima's DNS)
-#   2. /proc/net/route default gateway (parsed with bash printf
-#      rather than awk math, which varies across gawk/mawk)
-#   3. Hardcoded 192.168.5.2 (Lima-VZ default on macOS)
-# Combined, this avoids the firewall-wide-open-on-DNS-failure footgun.
-GATEWAY=$(getent ahostsv4 host.lima.internal 2>/dev/null | awk 'NR==1 {print $1}')
-if [ -z "$GATEWAY" ]; then
-  GATEWAY_HEX=$(awk '$2 == "00000000" && $8 == "00000000" {print $3; exit}' /proc/net/route 2>/dev/null)
-  if [ -n "$GATEWAY_HEX" ] && [ "\${#GATEWAY_HEX}" = "8" ]; then
-    # /proc/net/route writes the gateway as little-endian hex; reverse
-    # the byte order and format as dotted-quad. printf "%d" "0xFF" is
-    # portable across bash/busybox without awk extensions.
-    GATEWAY=$(printf '%d.%d.%d.%d' \\
-      "0x\${GATEWAY_HEX:6:2}" \\
-      "0x\${GATEWAY_HEX:4:2}" \\
-      "0x\${GATEWAY_HEX:2:2}" \\
-      "0x\${GATEWAY_HEX:0:2}")
-  fi
-fi
-[ -z "$GATEWAY" ] && GATEWAY="192.168.5.2"
-
-iptables -F OUTPUT 2>/dev/null || true
-iptables -F INPUT 2>/dev/null || true
-iptables -P INPUT ACCEPT
-iptables -P OUTPUT DROP
-iptables -P FORWARD DROP
-iptables -A OUTPUT -o lo -j ACCEPT
-# conntrack replaces the legacy "state" module, which isn't reliably
-# present on iptables-nft setups.
-iptables -A OUTPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
-iptables -A OUTPUT -d "$GATEWAY" -j ACCEPT
-
-echo "ouijit-firewall: applied strict policy, gateway=$GATEWAY" >&2
-`;
-
-/** Systemd unit that runs the firewall script at boot. */
-export const FIREWALL_UNIT = `[Unit]
-Description=Ouijit egress firewall
-After=network-online.target
-Wants=network-online.target
-
-[Service]
-Type=oneshot
-ExecStart=/usr/local/sbin/ouijit-firewall
-RemainAfterExit=yes
-
-[Install]
-WantedBy=multi-user.target
-`;
-
 /** Provision script body — runs as root during cloud-init. */
 const PROVISION_SCRIPT = `#!/bin/bash
 set -eux -o pipefail
 
 # Base packages (unchanged from earlier image).
 apt-get update
-apt-get install -y bash git curl wget nodejs npm python3 build-essential iptables
+apt-get install -y bash git curl wget nodejs npm python3 build-essential
 
 # Scope sudo: Lima's default lima-sudoers grants NOPASSWD ALL. We
 # narrow it to the single overlay helper. Any other sudo the sandbox
@@ -276,12 +200,6 @@ apt-get install -y bash git curl wget nodejs npm python3 build-essential iptable
 # requires a password they don't have.
 install -o root -g root -m 0755 /dev/stdin /usr/local/sbin/ouijit-overlay-helper <<'OUIJIT_HELPER_EOF'
 ${OVERLAY_HELPER_SCRIPT}OUIJIT_HELPER_EOF
-
-install -o root -g root -m 0755 /dev/stdin /usr/local/sbin/ouijit-firewall <<'OUIJIT_FW_EOF'
-${FIREWALL_SCRIPT}OUIJIT_FW_EOF
-
-install -o root -g root -m 0644 /dev/stdin /etc/systemd/system/ouijit-firewall.service <<'OUIJIT_UNIT_EOF'
-${FIREWALL_UNIT}OUIJIT_UNIT_EOF
 
 # Replace Lima's sudoers grant. visudo -cf validates before install.
 cat > /tmp/99-ouijit.sudoers <<'OUIJIT_SUDO_EOF'
@@ -317,26 +235,6 @@ if visudo -cf /tmp/99-ouijit.sudoers >/dev/null 2>&1; then
   done
 fi
 rm -f /tmp/99-ouijit.sudoers
-
-# Disable IPv6 kernel-wide. Without this, dual-stack guests pay a
-# 3–10s happy-eyeballs timeout on every connection (curl/node/pip try
-# IPv6 first, fail, fall back to IPv4) because the firewall has no
-# IPv6 allowlist. Killing IPv6 outright is cleaner than an ip6tables
-# mirror — no timeouts, no module dependencies.
-cat > /etc/sysctl.d/99-ouijit.conf <<'OUIJIT_SYSCTL_EOF'
-net.ipv6.conf.all.disable_ipv6 = 1
-net.ipv6.conf.default.disable_ipv6 = 1
-net.ipv6.conf.lo.disable_ipv6 = 1
-OUIJIT_SYSCTL_EOF
-sysctl --system >/dev/null 2>&1 || true
-
-mkdir -p /etc/ouijit
-if [ ! -f /etc/ouijit/network-policy ]; then
-  echo strict > /etc/ouijit/network-policy
-fi
-
-systemctl enable ouijit-firewall.service
-systemctl start ouijit-firewall.service || true
 `;
 
 /** Generate a platform-appropriate default Lima YAML config */
