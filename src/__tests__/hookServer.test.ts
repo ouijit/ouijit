@@ -207,13 +207,12 @@ describe('HTTP server', () => {
     expect(res).toBe(401);
   });
 
-  test('rejects hook calls that spoof a different ptyId', async () => {
+  test('rejects hook calls that spoof a different ptyId with 403', async () => {
     // Token issued for pty-a, but the body claims pty-b. Must be rejected
     // so a compromised guest can't drive a sibling terminal's status.
     const tokenA = issueToken('pty-a', 'sandbox');
     const res = await post(port, { action: 'status', ptyId: 'pty-b', status: 'thinking' }, tokenA);
-    expect(res.status).toBe(200);
-    // But IPC must not fire for pty-b
+    expect(res.status).toBe(403);
     expect(mockSend).not.toHaveBeenCalled();
   });
 

@@ -132,16 +132,13 @@ export function buildOverlayBindMountSetup(opts: { worktreePath: string; taskId:
     return 1
   fi
 
-  if ! sudo -n "$HELPER" --self-check >/dev/null 2>&1; then
-    # Pre-check: the helper refuses --self-check (any non-numeric task
-    # id) but must be reachable via NOPASSWD sudo. A password prompt
-    # here means the sudoers rule isn't in place.
-    if ! sudo -n true 2>/dev/null; then
-      printf '\\n\\033[1;97;41m  SANDBOX ISOLATION FAILED  \\033[0m\\n' >&2
-      printf '\\033[1;31m  ouijit: sudo -n to the overlay helper is denied.\\n' >&2
-      printf '  ouijit: refusing to start a sandboxed terminal.\\033[0m\\n\\n' >&2
-      return 1
-    fi
+  # Reachability probe: prove sudo is available non-interactively.
+  # A password prompt here means the narrow sudoers rule isn't in place.
+  if ! sudo -n true 2>/dev/null; then
+    printf '\\n\\033[1;97;41m  SANDBOX ISOLATION FAILED  \\033[0m\\n' >&2
+    printf '\\033[1;31m  ouijit: passwordless sudo is unavailable in this VM.\\n' >&2
+    printf '  ouijit: refusing to start a sandboxed terminal.\\033[0m\\n\\n' >&2
+    return 1
   fi
 
   # Stage sidecar files via the helper's parent dir, which we need root

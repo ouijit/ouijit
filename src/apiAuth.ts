@@ -14,6 +14,9 @@
  */
 
 import { randomBytes, timingSafeEqual } from 'node:crypto';
+import { getLogger } from './logger';
+
+const authLog = getLogger().scope('apiAuth');
 
 export type ApiScope = 'host' | 'sandbox';
 
@@ -32,7 +35,13 @@ const ptyToToken = new Map<string, string>();
 
 export function issueToken(ptyId: string, scope: ApiScope): string {
   const existing = ptyToToken.get(ptyId);
-  if (existing) tokens.delete(existing);
+  if (existing) {
+    // PtyIds are generated per-spawn and should be unique. If we see a
+    // collision, something in the spawn lifecycle is off — log it so
+    // the bug is visible rather than silently clobbering the old token.
+    authLog.warn('re-issuing token for already-known ptyId', { ptyId });
+    tokens.delete(existing);
+  }
 
   const token = randomBytes(32).toString('hex');
   tokens.set(token, { ptyId, scope });
@@ -54,8 +63,13 @@ export function revokeAllTokens(): void {
 }
 
 /**
- * Validate a bearer token. Uses constant-time comparison to prevent
- * timing attacks. Returns the auth context on match, null otherwise.
+ * Validate a bearer token against every stored entry using a
+ * constant-time comparison. A direct Map.get lookup would be O(1) but
+ * V8's string equality can short-circuit on the first mismatched byte,
+ * which in principle leaks prefix information over HTTP timing. The
+ * token set is small (one per PTY, bounded to the user's active
+ * sessions) so the linear scan cost is not a concern; constant-time
+ * per-entry comparison is the property we need.
  */
 export function verifyToken(candidate: string): AuthContext | null {
   if (!candidate) return null;

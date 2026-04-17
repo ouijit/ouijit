@@ -45,7 +45,6 @@ export async function configExists(projectPath: string): Promise<boolean> {
 export const OVERLAY_HELPER_SCRIPT = `#!/bin/bash
 # Ouijit overlay helper — runs as root via /etc/sudoers.d/99-ouijit.
 # Sub-commands:
-#   --self-check                  fail fast; used to prove sudo reachability
 #   --install <task> <worktree>   create overlay root + write sidecars from stdin
 #   --cleanup <task>              umount everything for a task and remove overlay root
 #   <task>                        apply mounts from the staged sidecars
@@ -53,10 +52,6 @@ set -u
 umask 077
 
 OVERLAY_PARENT="/var/lib/ouijit/overlays"
-
-if [ "\${1:-}" = "--self-check" ]; then
-  exit 7
-fi
 
 if [ "\${1:-}" = "--cleanup" ]; then
   TASK="\${2:-}"
@@ -214,25 +209,48 @@ if [ "$POLICY" = "open" ]; then
   exit 0
 fi
 
-# Resolve host.lima.internal → gateway IP. Falls back to the default
-# Lima-VZ gateway if DNS fails, so a bad resolver doesn't leave the
-# firewall wide open.
+# Resolve host.lima.internal → gateway IP. Three probes in order:
+#   1. DNS (host.lima.internal is injected by Lima's DNS)
+#   2. /proc/net/route default gateway
+#   3. Hardcoded 192.168.5.2 (Lima-VZ default on macOS)
+# Combined, this avoids the firewall-wide-open-on-DNS-failure footgun.
 GATEWAY=$(getent ahostsv4 host.lima.internal 2>/dev/null | awk 'NR==1 {print $1}')
+if [ -z "$GATEWAY" ]; then
+  # Default route: destination 00000000, gateway in hex little-endian.
+  GATEWAY=$(awk '$2 == "00000000" && $8 == "00000000" {
+    g = $3
+    printf "%d.%d.%d.%d\\n",
+      strtonum("0x" substr(g, 7, 2)),
+      strtonum("0x" substr(g, 5, 2)),
+      strtonum("0x" substr(g, 3, 2)),
+      strtonum("0x" substr(g, 1, 2))
+    exit
+  }' /proc/net/route 2>/dev/null)
+fi
 [ -z "$GATEWAY" ] && GATEWAY="192.168.5.2"
 
 iptables -F OUTPUT 2>/dev/null || true
 iptables -F INPUT 2>/dev/null || true
-
 iptables -P INPUT ACCEPT
 iptables -P OUTPUT DROP
 iptables -P FORWARD DROP
-
 iptables -A OUTPUT -o lo -j ACCEPT
 iptables -A OUTPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
 iptables -A OUTPUT -d "$GATEWAY" -j ACCEPT
-# DNS via the gateway (systemd-resolved typically points here)
-iptables -A OUTPUT -p udp --dport 53 -d "$GATEWAY" -j ACCEPT
-iptables -A OUTPUT -p tcp --dport 53 -d "$GATEWAY" -j ACCEPT
+
+# ip6tables mirror. A dual-stack guest would otherwise reach the world
+# over IPv6 even with IPv4 locked down. DROP all v6 outbound; the
+# Ouijit API is reached via host.lima.internal on IPv4, so no v6
+# allowlist is needed.
+if command -v ip6tables >/dev/null 2>&1; then
+  ip6tables -F OUTPUT 2>/dev/null || true
+  ip6tables -F INPUT 2>/dev/null || true
+  ip6tables -P INPUT ACCEPT
+  ip6tables -P OUTPUT DROP
+  ip6tables -P FORWARD DROP
+  ip6tables -A OUTPUT -o lo -j ACCEPT
+  ip6tables -A OUTPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+fi
 
 echo "ouijit-firewall: applied strict policy, gateway=$GATEWAY" >&2
 `;
@@ -282,9 +300,21 @@ Defaults:%sudo !env_reset
 OUIJIT_SUDO_EOF
 if visudo -cf /tmp/99-ouijit.sudoers >/dev/null 2>&1; then
   install -o root -g root -m 0440 /tmp/99-ouijit.sudoers /etc/sudoers.d/99-ouijit
-  # Strip broader grants that other cloud-init / lima layers install.
-  for f in /etc/sudoers.d/90-cloud-init-users /etc/sudoers.d/99-sudo-user; do
-    [ -f "$f" ] && sed -i '/NOPASSWD:\\s*ALL/d' "$f"
+  # Strip any broader NOPASSWD:ALL grant from cloud-init / lima layers.
+  # Lima and cloud-init each install their own files under /etc/sudoers.d
+  # with unpredictable names; scan everything except our own rule, then
+  # re-validate with visudo so a botched edit doesn't lock sudo out.
+  for f in /etc/sudoers.d/*; do
+    [ -f "$f" ] || continue
+    case "$f" in */99-ouijit) continue;; esac
+    if grep -qE '^[^#]*NOPASSWD:[[:space:]]*ALL' "$f" 2>/dev/null; then
+      sed -i.ouijit-bak -E '/^[^#]*NOPASSWD:[[:space:]]*ALL/d' "$f"
+      if ! visudo -cf "$f" >/dev/null 2>&1; then
+        mv "$f.ouijit-bak" "$f"
+      else
+        rm -f "$f.ouijit-bak"
+      fi
+    fi
   done
 fi
 rm -f /tmp/99-ouijit.sudoers

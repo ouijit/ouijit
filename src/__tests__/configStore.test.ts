@@ -39,8 +39,12 @@ describe('configStore', () => {
       const yaml = generateDefaultConfig();
       expect(yaml).toContain('/etc/sudoers.d/99-ouijit');
       expect(yaml).toContain('NOPASSWD: /usr/local/sbin/ouijit-overlay-helper');
-      // Strip any broader NOPASSWD rule that Lima / cloud-init may install.
-      expect(yaml).toMatch(/NOPASSWD:\\s\*ALL/);
+      // Strip any broader NOPASSWD:ALL rule that Lima / cloud-init may install,
+      // scanning across all files in /etc/sudoers.d rather than a hardcoded list.
+      expect(yaml).toContain('/etc/sudoers.d/*');
+      expect(yaml).toContain('NOPASSWD:[[:space:]]*ALL');
+      // visudo validation after edit so a botched strip doesn't lock sudo out.
+      expect(yaml).toMatch(/visudo -cf "\$f"/);
     });
 
     test('installs + enables the egress firewall systemd unit', () => {
@@ -61,6 +65,19 @@ describe('configStore', () => {
       expect(yaml).toContain('iptables -P OUTPUT DROP');
       expect(yaml).toContain('host.lima.internal');
       expect(yaml).toContain('iptables -A OUTPUT -o lo -j ACCEPT');
+    });
+
+    test('firewall mirrors the DROP policy to IPv6 so dual-stack guests cannot bypass', () => {
+      const yaml = generateDefaultConfig();
+      expect(yaml).toContain('ip6tables -P OUTPUT DROP');
+      expect(yaml).toContain('ip6tables -A OUTPUT -o lo -j ACCEPT');
+    });
+
+    test('firewall has a /proc/net/route fallback for the gateway', () => {
+      const yaml = generateDefaultConfig();
+      expect(yaml).toContain('/proc/net/route');
+      // Final fallback to the VZ default so the firewall never ends up fully open.
+      expect(yaml).toContain('192.168.5.2');
     });
 
     test('firewall honors a per-VM opt-out via /etc/ouijit/network-policy', () => {

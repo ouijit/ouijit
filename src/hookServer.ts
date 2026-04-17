@@ -92,18 +92,8 @@ type ActionHandler = (body: Record<string, unknown>, auth: AuthContext) => void;
 
 const VALID_STATUSES = new Set<HookStatus>(['thinking', 'ready']);
 
-/**
- * Every hook action is scoped to the caller's own PTY. A sandbox-scoped
- * token for pty A must not be able to set status or plan on pty B.
- */
-function assertOwnPty(body: Record<string, unknown>, auth: AuthContext): boolean {
-  const { ptyId } = body;
-  return typeof ptyId === 'string' && ptyId === auth.ptyId;
-}
-
 const actionHandlers: Record<string, ActionHandler> = {
-  status(body, auth) {
-    if (!assertOwnPty(body, auth)) return;
+  status(body, _auth) {
     const { ptyId, status } = body;
     if (typeof ptyId !== 'string' || typeof status !== 'string') return;
     if (!VALID_STATUSES.has(status as HookStatus)) return;
@@ -130,8 +120,7 @@ const actionHandlers: Record<string, ActionHandler> = {
     }
   },
 
-  plan(body, auth) {
-    if (!assertOwnPty(body, auth)) return;
+  plan(body, _auth) {
     const { ptyId, filename } = body;
     if (typeof ptyId !== 'string' || typeof filename !== 'string') return;
     if (!/^[a-zA-Z0-9._-]+$/.test(filename)) return;
@@ -140,8 +129,7 @@ const actionHandlers: Record<string, ActionHandler> = {
     setPlanPath(ptyId, planPath);
   },
 
-  'plan-ready'(body, auth) {
-    if (!assertOwnPty(body, auth)) return;
+  'plan-ready'(body, _auth) {
     const { ptyId } = body;
     if (typeof ptyId !== 'string') return;
     if (!isPtyActive(ptyId)) return;
@@ -200,6 +188,15 @@ export function startHookServer(window: BrowserWindow): Promise<void> {
       req.on('end', () => {
         try {
           const body = JSON.parse(rawBody) as Record<string, unknown>;
+          // Every hook action is scoped to the caller's own PTY. A
+          // sandbox-scoped token for pty A must not be able to set
+          // status or plan state on pty B — reject loudly with 403 so
+          // misconfigured callers surface instead of silently no-oping.
+          if (typeof body.ptyId === 'string' && body.ptyId !== auth.ptyId) {
+            res.writeHead(403);
+            res.end();
+            return;
+          }
           const action = body.action;
           if (typeof action === 'string') {
             const handler = actionHandlers[action];
