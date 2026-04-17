@@ -39,6 +39,7 @@ import {
   buildVmHookSettings,
   CLAUDE_WRAPPER,
 } from '../hookServer';
+import { issueToken, revokeAllTokens } from '../apiAuth';
 
 // ── Test helpers ─────────────────────────────────────────────────────
 
@@ -55,16 +56,24 @@ function createMockWindow(destroyed = false) {
   } as unknown as BrowserWindow;
 }
 
-function post(port: number, body: unknown): Promise<{ status: number; body: string }> {
+/**
+ * Auth-aware POST helper. Infers the ptyId from the body and issues a
+ * matching token, so the scope check (ptyId === auth.ptyId) passes.
+ */
+function post(port: number, body: unknown, overrideToken?: string): Promise<{ status: number; body: string }> {
   return new Promise((resolve, reject) => {
     const data = JSON.stringify(body);
+    const bodyObj = body as { ptyId?: string };
+    const token =
+      overrideToken ??
+      (typeof bodyObj.ptyId === 'string' ? issueToken(bodyObj.ptyId, 'host') : issueToken('pty-test', 'host'));
     const req = http.request(
       {
         hostname: '127.0.0.1',
         port,
         path: '/hook',
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       },
       (res) => {
         let body = '';
@@ -88,6 +97,7 @@ beforeEach(() => {
 
 afterEach(async () => {
   await stopHookServer();
+  revokeAllTokens();
   fs.rmSync(tmpHome, { recursive: true, force: true });
 });
 
@@ -159,6 +169,26 @@ describe('HTTP server', () => {
   });
 
   test('returns 400 for invalid JSON', async () => {
+    const token = issueToken('pty-json-test', 'host');
+    const res = await new Promise<number>((resolve, reject) => {
+      const req = http.request(
+        {
+          hostname: '127.0.0.1',
+          port,
+          path: '/hook',
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        },
+        (res) => resolve(res.statusCode!),
+      );
+      req.on('error', reject);
+      req.write('not-json{{{');
+      req.end();
+    });
+    expect(res).toBe(400);
+  });
+
+  test('returns 401 without auth token', async () => {
     const res = await new Promise<number>((resolve, reject) => {
       const req = http.request(
         {
@@ -171,10 +201,20 @@ describe('HTTP server', () => {
         (res) => resolve(res.statusCode!),
       );
       req.on('error', reject);
-      req.write('not-json{{{');
+      req.write(JSON.stringify({ action: 'status', ptyId: 'pty-123', status: 'thinking' }));
       req.end();
     });
-    expect(res).toBe(400);
+    expect(res).toBe(401);
+  });
+
+  test('rejects hook calls that spoof a different ptyId', async () => {
+    // Token issued for pty-a, but the body claims pty-b. Must be rejected
+    // so a compromised guest can't drive a sibling terminal's status.
+    const tokenA = issueToken('pty-a', 'sandbox');
+    const res = await post(port, { action: 'status', ptyId: 'pty-b', status: 'thinking' }, tokenA);
+    expect(res.status).toBe(200);
+    // But IPC must not fire for pty-b
+    expect(mockSend).not.toHaveBeenCalled();
   });
 
   test('returns 200 for unknown action (no-op)', async () => {
@@ -437,6 +477,7 @@ describe('ouijit-hook script → hook server integration', () => {
     await runHookScript('status', ['status=thinking'], {
       OUIJIT_API_URL: `http://127.0.0.1:${port}`,
       OUIJIT_PTY_ID: 'pty-integration-1',
+      OUIJIT_API_TOKEN: issueToken('pty-integration-1', 'host'),
       PATH: process.env['PATH'] || '',
     });
 
@@ -448,6 +489,7 @@ describe('ouijit-hook script → hook server integration', () => {
     await runHookScript('status', ['status=ready'], {
       OUIJIT_API_URL: `http://127.0.0.1:${port}`,
       OUIJIT_PTY_ID: 'pty-integration-2',
+      OUIJIT_API_TOKEN: issueToken('pty-integration-2', 'host'),
       PATH: process.env['PATH'] || '',
     });
 
@@ -458,6 +500,18 @@ describe('ouijit-hook script → hook server integration', () => {
   test('script exits silently when OUIJIT_API_URL is unset', async () => {
     await runHookScript('status', ['status=thinking'], {
       OUIJIT_PTY_ID: 'pty-integration-3',
+      OUIJIT_API_TOKEN: issueToken('pty-integration-3', 'host'),
+      PATH: process.env['PATH'] || '',
+    });
+
+    await new Promise((r) => setTimeout(r, 200));
+    expect(mockSend).not.toHaveBeenCalled();
+  });
+
+  test('script exits silently when OUIJIT_API_TOKEN is unset', async () => {
+    await runHookScript('status', ['status=thinking'], {
+      OUIJIT_API_URL: `http://127.0.0.1:${port}`,
+      OUIJIT_PTY_ID: 'pty-integration-notoken',
       PATH: process.env['PATH'] || '',
     });
 
@@ -469,6 +523,7 @@ describe('ouijit-hook script → hook server integration', () => {
     await runHookScript('status', ['status=thinking'], {
       OUIJIT_API_URL: `http://127.0.0.1:${port}`,
       OUIJIT_PTY_ID: 'pty with spaces',
+      OUIJIT_API_TOKEN: 'some-token',
       PATH: process.env['PATH'] || '',
     });
 
@@ -546,6 +601,7 @@ describe('wrapper → ouijit-hook → hook server (end-to-end)', () => {
         HOME: tmpHome,
         OUIJIT_API_URL: `http://127.0.0.1:${port}`,
         OUIJIT_PTY_ID: 'pty-e2e-1',
+        OUIJIT_API_TOKEN: issueToken('pty-e2e-1', 'host'),
       },
     });
 
@@ -582,6 +638,7 @@ describe('wrapper → ouijit-hook → hook server (end-to-end)', () => {
         HOME: tmpHome,
         OUIJIT_API_URL: `http://127.0.0.1:${port}`,
         OUIJIT_PTY_ID: 'pty-e2e-2',
+        OUIJIT_API_TOKEN: issueToken('pty-e2e-2', 'host'),
         OUIJIT_WRAPPER_DIR: binDir,
         OUIJIT_SHELL_INTEGRATION_DIR: integrationDir,
       },
@@ -638,6 +695,7 @@ describe('wrapper → ouijit-hook → hook server (end-to-end)', () => {
           ZDOTDIR: path.join(integrationDir, 'zsh'),
           OUIJIT_API_URL: `http://127.0.0.1:${port}`,
           OUIJIT_PTY_ID: 'pty-e2e-zsh-hook',
+          OUIJIT_API_TOKEN: issueToken('pty-e2e-zsh-hook', 'host'),
           OUIJIT_WRAPPER_DIR: binDir,
           OUIJIT_SHELL_INTEGRATION_DIR: integrationDir,
           OUIJIT_ZSH_ZDOTDIR: '',

@@ -28,6 +28,46 @@ describe('configStore', () => {
       expect(yaml).toContain('provision');
       expect(yaml).toContain('apt-get install');
     });
+
+    test('installs the overlay helper at /usr/local/sbin/ouijit-overlay-helper', () => {
+      const yaml = generateDefaultConfig();
+      expect(yaml).toContain('/usr/local/sbin/ouijit-overlay-helper');
+      expect(yaml).toContain('OUIJIT_HELPER_EOF');
+    });
+
+    test('writes a narrow sudoers rule that only grants the overlay helper', () => {
+      const yaml = generateDefaultConfig();
+      expect(yaml).toContain('/etc/sudoers.d/99-ouijit');
+      expect(yaml).toContain('NOPASSWD: /usr/local/sbin/ouijit-overlay-helper');
+      // Strip any broader NOPASSWD rule that Lima / cloud-init may install.
+      expect(yaml).toMatch(/NOPASSWD:\\s\*ALL/);
+    });
+
+    test('installs + enables the egress firewall systemd unit', () => {
+      const yaml = generateDefaultConfig();
+      expect(yaml).toContain('/usr/local/sbin/ouijit-firewall');
+      expect(yaml).toContain('/etc/systemd/system/ouijit-firewall.service');
+      expect(yaml).toContain('systemctl enable ouijit-firewall.service');
+    });
+
+    test('defaults network policy to strict', () => {
+      const yaml = generateDefaultConfig();
+      expect(yaml).toContain('/etc/ouijit/network-policy');
+      expect(yaml).toMatch(/echo strict > \/etc\/ouijit\/network-policy/);
+    });
+
+    test('firewall script drops outbound by default and permits host.lima.internal', () => {
+      const yaml = generateDefaultConfig();
+      expect(yaml).toContain('iptables -P OUTPUT DROP');
+      expect(yaml).toContain('host.lima.internal');
+      expect(yaml).toContain('iptables -A OUTPUT -o lo -j ACCEPT');
+    });
+
+    test('firewall honors a per-VM opt-out via /etc/ouijit/network-policy', () => {
+      const yaml = generateDefaultConfig();
+      expect(yaml).toContain('POLICY_FILE="/etc/ouijit/network-policy"');
+      expect(yaml).toContain('policy=open, leaving default networking');
+    });
   });
 
   describe('resolveEnvVars', () => {

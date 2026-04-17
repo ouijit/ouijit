@@ -14,6 +14,7 @@ import { BrowserWindow } from 'electron';
 import { isPtyActive } from './ptyManager';
 import { getLogger } from './logger';
 import { handleApiRequest } from './api/router';
+import { authenticateRequest, type AuthContext } from './apiAuth';
 
 const hookServerLog = getLogger().scope('hookServer');
 
@@ -87,12 +88,22 @@ export function clearPlanPath(ptyId: string): boolean {
 
 // ── Action handlers ──────────────────────────────────────────────────
 
-type ActionHandler = (body: Record<string, unknown>) => void;
+type ActionHandler = (body: Record<string, unknown>, auth: AuthContext) => void;
 
 const VALID_STATUSES = new Set<HookStatus>(['thinking', 'ready']);
 
+/**
+ * Every hook action is scoped to the caller's own PTY. A sandbox-scoped
+ * token for pty A must not be able to set status or plan on pty B.
+ */
+function assertOwnPty(body: Record<string, unknown>, auth: AuthContext): boolean {
+  const { ptyId } = body;
+  return typeof ptyId === 'string' && ptyId === auth.ptyId;
+}
+
 const actionHandlers: Record<string, ActionHandler> = {
-  status(body) {
+  status(body, auth) {
+    if (!assertOwnPty(body, auth)) return;
     const { ptyId, status } = body;
     if (typeof ptyId !== 'string' || typeof status !== 'string') return;
     if (!VALID_STATUSES.has(status as HookStatus)) return;
@@ -119,7 +130,8 @@ const actionHandlers: Record<string, ActionHandler> = {
     }
   },
 
-  plan(body) {
+  plan(body, auth) {
+    if (!assertOwnPty(body, auth)) return;
     const { ptyId, filename } = body;
     if (typeof ptyId !== 'string' || typeof filename !== 'string') return;
     if (!/^[a-zA-Z0-9._-]+$/.test(filename)) return;
@@ -128,7 +140,8 @@ const actionHandlers: Record<string, ActionHandler> = {
     setPlanPath(ptyId, planPath);
   },
 
-  'plan-ready'(body) {
+  'plan-ready'(body, auth) {
+    if (!assertOwnPty(body, auth)) return;
     const { ptyId } = body;
     if (typeof ptyId !== 'string') return;
     if (!isPtyActive(ptyId)) return;
@@ -166,6 +179,16 @@ export function startHookServer(window: BrowserWindow): Promise<void> {
         return;
       }
 
+      // Any process on the host loopback (and every sandboxed VM via
+      // host.lima.internal) can reach this endpoint. Require a valid
+      // per-PTY bearer token so only legitimate hook scripts succeed.
+      const auth = authenticateRequest(req.headers['authorization']);
+      if (!auth) {
+        res.writeHead(401);
+        res.end();
+        return;
+      }
+
       let rawBody = '';
       req.on('data', (chunk: Buffer) => {
         rawBody += chunk.toString();
@@ -181,7 +204,7 @@ export function startHookServer(window: BrowserWindow): Promise<void> {
           if (typeof action === 'string') {
             const handler = actionHandlers[action];
             if (handler) {
-              handler(body);
+              handler(body, auth);
             }
           }
           res.writeHead(200);
@@ -277,6 +300,7 @@ export const PLAN_HOOK_SCRIPT = [
   '# Ouijit plan detection hook for PostToolUse (Write|Edit)',
   '# Reads stdin JSON, checks if a plan file was written, notifies the server.',
   '[ -z "$OUIJIT_API_URL" ] && exit 0',
+  '[ -z "$OUIJIT_API_TOKEN" ] && exit 0',
   '[[ "$OUIJIT_PTY_ID" =~ ^[a-zA-Z0-9._-]+$ ]] || exit 0',
   '',
   '# Stream stdin through grep to find plan file path (avoids buffering full content)',
@@ -288,6 +312,7 @@ export const PLAN_HOOK_SCRIPT = [
   '',
   'curl -sf -o /dev/null -X POST "$OUIJIT_API_URL/hook" \\',
   '  -H "Content-Type: application/json" \\',
+  '  -H "Authorization: Bearer $OUIJIT_API_TOKEN" \\',
   '  -d "{\\"ptyId\\":\\"$OUIJIT_PTY_ID\\",\\"action\\":\\"plan\\",\\"filename\\":\\"$filename\\"}" 2>/dev/null &',
   '',
 ].join('\n');
@@ -297,6 +322,7 @@ export const HELPER_SCRIPT = [
   '# Ouijit API client for Claude Code hooks',
   '# Usage: ouijit-hook <action> [key=value ...]',
   '[ -z "$OUIJIT_API_URL" ] && exit 0',
+  '[ -z "$OUIJIT_API_TOKEN" ] && exit 0',
   '',
   '# Validate inputs to prevent malformed JSON',
   `[[ "$OUIJIT_PTY_ID" =~ ^${SAFE_VALUE}$ ]] || exit 0`,
@@ -313,6 +339,7 @@ export const HELPER_SCRIPT = [
   '',
   'curl -sf -o /dev/null -X POST "$OUIJIT_API_URL/hook" \\',
   '  -H "Content-Type: application/json" \\',
+  '  -H "Authorization: Bearer $OUIJIT_API_TOKEN" \\',
   '  -d "{$json}" 2>/dev/null &',
   '',
 ].join('\n');

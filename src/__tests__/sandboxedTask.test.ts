@@ -185,11 +185,10 @@ describe('removeTaskWorktree overlay cleanup', () => {
     expect(runInVmMock).toHaveBeenCalledTimes(1);
     const [passedProject, passedCmd] = runInVmMock.mock.calls[0] as [string, string];
     expect(passedProject).toBe(project);
-    // Cleanup script must umount before rm -rf and target the right task overlay.
-    expect(passedCmd).toContain("TASK='4'");
-    expect(passedCmd).toContain('/var/lib/ouijit/overlays/T-$TASK');
-    expect(passedCmd).toContain('umount');
-    expect(passedCmd).toContain('rm -rf "$OVERLAY_ROOT"');
+    // Cleanup delegates to the privileged helper, which owns umount + rm -rf.
+    expect(passedCmd).toContain('/usr/local/sbin/ouijit-overlay-helper');
+    expect(passedCmd).toContain('--cleanup');
+    expect(passedCmd).toContain("'4'");
   });
 
   test('does not call runInVm when task is not sandboxed', async () => {
@@ -339,7 +338,6 @@ describe('buildOverlayBindMountSetup', () => {
     expect(script).toContain("WORKTREE='/w with '\\''quote'");
     expect(script).toContain('d node_modules');
     expect(script).toContain('d .venv');
-    expect(script).toContain('mount --bind');
     expect(script).toContain('OUIJIT_MASKS_EOF');
   });
 
@@ -358,37 +356,30 @@ describe('buildOverlayBindMountSetup', () => {
     expect(script).toContain('f config/secrets.yml');
   });
 
-  test('file-mask branch touches overlay and target placeholders', () => {
-    const script = buildOverlayBindMountSetup({
-      worktreePath: '/w',
-      taskId: 1,
-      masks: [{ relPath: '.env', type: 'file' }],
-    });
-    expect(script).toContain('sudo touch "$overlay" "$target"');
-    expect(script).toContain('sudo mkdir -p "$(dirname "$overlay")" "$(dirname "$target")"');
-  });
-
-  test('chowns overlay leaves to the invoking user so guest tools can write through the bind mount', () => {
-    const script = buildOverlayBindMountSetup({
-      worktreePath: '/w',
-      taskId: 1,
-      masks: [
-        { relPath: 'node_modules', type: 'directory' },
-        { relPath: '.env', type: 'file' },
-      ],
-    });
-    const chownMatches = script.match(/sudo chown "\$\(id -u\):\$\(id -g\)" "\$overlay"/g) ?? [];
-    expect(chownMatches.length).toBe(2);
-  });
-
-  test('writes .paths sidecar (not .dirs) for cleanup', () => {
+  test('delegates all privileged work to /usr/local/sbin/ouijit-overlay-helper', () => {
     const script = buildOverlayBindMountSetup({
       worktreePath: '/w',
       taskId: 1,
       masks: [{ relPath: 'node_modules', type: 'directory' }],
     });
-    expect(script).toContain('"$OVERLAY_ROOT/.paths"');
-    expect(script).not.toContain('"$OVERLAY_ROOT/.dirs"');
+    expect(script).toContain('/usr/local/sbin/ouijit-overlay-helper');
+    expect(script).toContain('--install');
+    // The old direct-mount path and unscoped sudo calls are gone —
+    // the sandbox user no longer has a blanket NOPASSWD rule.
+    expect(script).not.toContain('sudo mount --bind');
+    expect(script).not.toContain('sudo touch');
+    expect(script).not.toContain('sudo chown');
+  });
+
+  test('emits a fail-closed banner when the helper binary is missing', () => {
+    const script = buildOverlayBindMountSetup({
+      worktreePath: '/w',
+      taskId: 1,
+      masks: [{ relPath: 'node_modules', type: 'directory' }],
+    });
+    expect(script).toContain('\\033[1;97;41m  SANDBOX ISOLATION FAILED  \\033[0m');
+    expect(script).toContain('overlay helper is missing');
+    expect(script).toMatch(/SANDBOX ISOLATION FAILED.*\\033\[0m.*>&2/);
   });
 
   test('does NOT use a trap (would not survive exec bash)', () => {
@@ -409,36 +400,14 @@ describe('buildOverlayBindMountSetup', () => {
     expect(script).not.toMatch(/^set -e/m);
   });
 
-  test('sudo-unavailable path emits a red ANSI banner and returns 1 (fail-closed)', () => {
+  test('emits green ACTIVE banner on success', () => {
     const script = buildOverlayBindMountSetup({
       worktreePath: '/w',
       taskId: 1,
       masks: [{ relPath: 'node_modules', type: 'directory' }],
     });
-    // The gray stderr echo from the old silent-skip is gone.
-    expect(script).not.toContain('sandbox overlay skipped');
-    // Red background + white foreground + bold banner.
-    expect(script).toContain('\\033[1;97;41m  SANDBOX ISOLATION FAILED  \\033[0m');
-    // The sudo-missing branch returns 1 so the shell refuses to start.
-    expect(script).toMatch(/passwordless sudo is unavailable[\s\S]*?return 1/);
-    // Banner goes to stderr, not stdout which could be captured.
-    expect(script).toMatch(/SANDBOX ISOLATION FAILED.*\\033\[0m.*>&2/);
-  });
-
-  test('emits green ACTIVE banner on full success and red FAILED banners on total/partial failure', () => {
-    const script = buildOverlayBindMountSetup({
-      worktreePath: '/w',
-      taskId: 1,
-      masks: [{ relPath: 'node_modules', type: 'directory' }],
-    });
-    // Success is the only path that returns 0 + green banner.
     expect(script).toContain('\\033[1;97;42m  SANDBOX ISOLATION ACTIVE  \\033[0m');
-    // Both total-failure and partial-failure use the red "FAILED" background.
     expect(script).toContain('\\033[1;97;41m  SANDBOX ISOLATION FAILED  \\033[0m');
-    expect(script).toContain('\\033[1;97;41m  SANDBOX ISOLATION PARTIAL  \\033[0m');
-    // Counters that feed the banner.
-    expect(script).toContain('local TOTAL=0 OK=0 FAIL=0');
-    // Any failure returns 1 — fail-closed.
     expect(script).toMatch(/refusing to start/);
   });
 
@@ -448,7 +417,6 @@ describe('buildOverlayBindMountSetup', () => {
       taskId: 1,
       masks: [{ relPath: 'node_modules', type: 'directory' }],
     });
-    // After calling the setup function, the script captures $? and exits if non-zero.
     expect(script).toContain('_OUIJIT_OVERLAY_RC=$?');
     expect(script).toMatch(/if \[ "\$_OUIJIT_OVERLAY_RC" -ne 0 \]; then[\s\S]*?exit 1/);
   });
@@ -491,23 +459,22 @@ describe('buildSandboxNoMatchesBanner', () => {
 });
 
 describe('buildOverlayCleanup', () => {
-  test('emits bash that removes the per-task overlay root', () => {
+  test('delegates cleanup to the privileged helper with the task id', () => {
     const script = buildOverlayCleanup(13);
-    expect(script).toContain("TASK='13'");
-    expect(script).toContain('/var/lib/ouijit/overlays/T-$TASK');
-    expect(script).toContain('umount');
-    expect(script).toContain('rm -rf "$OVERLAY_ROOT"');
+    expect(script).toContain('/usr/local/sbin/ouijit-overlay-helper');
+    expect(script).toContain('--cleanup');
+    expect(script).toContain("'13'");
   });
 
-  test('reads stashed worktree path and paths sidecar files', () => {
+  test('no longer issues direct sudo umount / rm (helper owns both)', () => {
     const script = buildOverlayCleanup(13);
-    expect(script).toContain('$OVERLAY_ROOT/.worktree');
-    expect(script).toContain('$OVERLAY_ROOT/.paths');
+    expect(script).not.toContain('sudo umount');
+    expect(script).not.toContain('sudo rm -rf');
   });
 
-  test('falls back to /proc/self/mountinfo for orphaned mounts', () => {
+  test('is a no-op when the helper is missing (e.g. VM not yet recreated)', () => {
     const script = buildOverlayCleanup(13);
-    expect(script).toContain('/proc/self/mountinfo');
+    expect(script).toContain('if [ -x "$HELPER" ]');
   });
 
   test('script passes `bash -n` syntax check', async () => {

@@ -113,104 +113,75 @@ export function buildOverlayBindMountSetup(opts: { worktreePath: string; taskId:
   const task = shEscape(String(opts.taskId));
   // Single-char type prefix + space + path. Quoted heredoc disables expansion.
   const maskList = opts.masks.map((m) => `${m.type === 'directory' ? 'd' : 'f'} ${m.relPath}`).join('\n');
-  // Fail-closed: the function returns non-zero on any isolation failure, and
-  // the caller below checks the return and exits the shell before exec bash.
-  // A sandboxed terminal that can't actually isolate is refused, not
-  // silently degraded.
+  // The sandbox user has NO broad sudo — only NOPASSWD access to
+  // /usr/local/sbin/ouijit-overlay-helper. We stage the sidecar files
+  // via that helper (it runs as root, so it can write into
+  // /var/lib/ouijit). If the VM image wasn't rebuilt with the helper,
+  // sudo -n prompts/fails and we refuse to spawn — identical fail-closed
+  // behavior to the previous inline mount approach.
   return `_ouijit_overlay_setup() {
   local WORKTREE=${worktree}
   local TASK=${task}
   local OVERLAY_ROOT="/var/lib/ouijit/overlays/T-$TASK"
+  local HELPER="/usr/local/sbin/ouijit-overlay-helper"
 
-  if ! sudo -n true 2>/dev/null; then
+  if [ ! -x "$HELPER" ]; then
     printf '\\n\\033[1;97;41m  SANDBOX ISOLATION FAILED  \\033[0m\\n' >&2
-    printf '\\033[1;31m  ouijit: passwordless sudo is unavailable in this VM.\\n' >&2
-    printf '  ouijit: cannot create isolation mounts — refusing to start a\\n' >&2
-    printf '  ouijit: sandboxed terminal without gitignore-based isolation.\\033[0m\\n\\n' >&2
+    printf '\\033[1;31m  ouijit: overlay helper is missing (%s).\\n' "$HELPER" >&2
+    printf '  ouijit: recreate the sandbox VM so cloud-init installs it.\\033[0m\\n\\n' >&2
     return 1
   fi
 
-  sudo mkdir -p "$OVERLAY_ROOT" || {
-    printf '\\n\\033[1;97;41m  SANDBOX ISOLATION FAILED  \\033[0m\\n' >&2
-    printf '\\033[1;31m  ouijit: could not create overlay root %s.\\n' "$OVERLAY_ROOT" >&2
-    printf '  ouijit: refusing to start a sandboxed terminal.\\033[0m\\n\\n' >&2
-    return 1
-  }
+  if ! sudo -n "$HELPER" --self-check >/dev/null 2>&1; then
+    # Pre-check: the helper refuses --self-check (any non-numeric task
+    # id) but must be reachable via NOPASSWD sudo. A password prompt
+    # here means the sudoers rule isn't in place.
+    if ! sudo -n true 2>/dev/null; then
+      printf '\\n\\033[1;97;41m  SANDBOX ISOLATION FAILED  \\033[0m\\n' >&2
+      printf '\\033[1;31m  ouijit: sudo -n to the overlay helper is denied.\\n' >&2
+      printf '  ouijit: refusing to start a sandboxed terminal.\\033[0m\\n\\n' >&2
+      return 1
+    fi
+  fi
 
+  # Stage sidecar files via the helper's parent dir, which we need root
+  # to create. The helper bootstraps the root itself on first run by
+  # creating \${OVERLAY_ROOT} when missing.
   local MASKS
   MASKS=$(cat <<'OUIJIT_MASKS_EOF'
 ${maskList}
 OUIJIT_MASKS_EOF
 )
 
-  # Sidecar files for cleanup on task delete — cleanup umounts then rm -rf.
-  # Store raw paths in .paths (strip type prefix); umount works on file and dir alike.
-  printf '%s\\n' "$WORKTREE" | sudo tee "$OVERLAY_ROOT/.worktree" >/dev/null
-  printf '%s\\n' "$MASKS" | awk '{ $1=""; sub(/^ /,""); print }' | sudo tee "$OVERLAY_ROOT/.paths" >/dev/null
+  local tmp_spec
+  tmp_spec=$(mktemp) || {
+    printf '\\n\\033[1;97;41m  SANDBOX ISOLATION FAILED  \\033[0m\\n' >&2
+    return 1
+  }
+  printf '%s\\n' "$MASKS" > "$tmp_spec"
 
-  local TOTAL=0 OK=0 FAIL=0
-  while IFS= read -r line; do
-    [ -z "$line" ] && continue
-    TOTAL=$((TOTAL+1))
-    local type="\${line%% *}"
-    local rel="\${line#* }"
-    local overlay="$OVERLAY_ROOT/$rel"
-    local target="$WORKTREE/$rel"
+  # Helper writes overlay root + sidecars; we pipe worktree + spec via
+  # a short heredoc invocation that's explicit about what's being fed.
+  if ! sudo -n "$HELPER" --install "$TASK" "$WORKTREE" < "$tmp_spec"; then
+    rm -f "$tmp_spec"
+    printf '\\n\\033[1;97;41m  SANDBOX ISOLATION FAILED  \\033[0m\\n' >&2
+    printf '\\033[1;31m  ouijit: overlay helper refused to stage mounts.\\n' >&2
+    printf '  ouijit: refusing to start a sandboxed terminal.\\033[0m\\n\\n' >&2
+    return 1
+  fi
+  rm -f "$tmp_spec"
 
-    if [ "$type" = "d" ]; then
-      sudo mkdir -p "$overlay" "$target" 2>/dev/null || {
-        echo "ouijit: overlay mkdir $rel failed" >&2
-        FAIL=$((FAIL+1))
-        continue
-      }
-      # Hand the overlay leaf to the invoking user so tools like npm can
-      # write into it through the bind mount. $target stays untouched —
-      # writes to it are redirected to $overlay by the kernel.
-      sudo chown "$(id -u):$(id -g)" "$overlay" 2>/dev/null
-    else
-      # File mask: ensure parent dirs exist, then create empty placeholder
-      # and empty target (Linux rejects mount --bind onto a non-existent target).
-      sudo mkdir -p "$(dirname "$overlay")" "$(dirname "$target")" 2>/dev/null || {
-        echo "ouijit: overlay parent mkdir $rel failed" >&2
-        FAIL=$((FAIL+1))
-        continue
-      }
-      sudo touch "$overlay" "$target" 2>/dev/null || {
-        echo "ouijit: overlay touch $rel failed" >&2
-        FAIL=$((FAIL+1))
-        continue
-      }
-      sudo chown "$(id -u):$(id -g)" "$overlay" 2>/dev/null
-    fi
-
-    if mountpoint -q "$target"; then
-      OK=$((OK+1))
-    elif sudo mount --bind "$overlay" "$target" 2>/dev/null; then
-      OK=$((OK+1))
-    else
-      echo "ouijit: bind mount $rel failed" >&2
-      FAIL=$((FAIL+1))
-    fi
-  done <<< "$MASKS"
-
-  # Status banner + fail-closed return code.
-  # - Any failure (total or partial) → red/yellow banner + return 1 → shell refuses to start.
-  # - Full success → green banner + return 0 → shell proceeds.
-  if [ "$FAIL" -gt 0 ] || [ "$OK" -eq 0 ]; then
-    if [ "$OK" -eq 0 ]; then
-      printf '\\n\\033[1;97;41m  SANDBOX ISOLATION FAILED  \\033[0m\\n' >&2
-      printf '\\033[1;31m  ouijit: 0 of %d paths were masked.\\n' "$TOTAL" >&2
-      printf '  ouijit: refusing to start a sandboxed terminal without isolation.\\033[0m\\n\\n' >&2
-    else
-      printf '\\n\\033[1;97;41m  SANDBOX ISOLATION PARTIAL  \\033[0m\\n' >&2
-      printf '\\033[1;31m  ouijit: only %d of %d paths were masked (%d failed).\\n' "$OK" "$TOTAL" "$FAIL" >&2
-      printf '  ouijit: check stderr above for per-path errors.\\n' >&2
-      printf '  ouijit: refusing to start a partially-isolated sandboxed terminal.\\033[0m\\n\\n' >&2
-    fi
+  # Apply mounts from the staged spec.
+  if ! sudo -n "$HELPER" "$TASK"; then
+    printf '\\n\\033[1;97;41m  SANDBOX ISOLATION FAILED  \\033[0m\\n' >&2
+    printf '\\033[1;31m  ouijit: overlay helper failed to apply mounts.\\n' >&2
+    printf '  ouijit: refusing to start a partially-isolated sandboxed terminal.\\033[0m\\n\\n' >&2
     return 1
   fi
 
-  printf '\\n\\033[1;97;42m  SANDBOX ISOLATION ACTIVE  \\033[0m  %d paths masked\\n\\n' "$OK" >&2
+  local TOTAL
+  TOTAL=$(grep -c '^' < "$OVERLAY_ROOT/.spec" 2>/dev/null || echo 0)
+  printf '\\n\\033[1;97;42m  SANDBOX ISOLATION ACTIVE  \\033[0m  %d paths masked\\n\\n' "$TOTAL" >&2
   return 0
 }
 _ouijit_overlay_setup
@@ -257,25 +228,13 @@ export function buildSandboxNoMatchesBanner(): string {
  */
 export function buildOverlayCleanup(taskId: number): string {
   const task = shEscape(String(taskId));
+  // Delegate to the privileged helper. The sandbox user no longer has
+  // blanket sudo, so direct `sudo umount` would fail. The helper owns
+  // both unmount and rm-rf.
   return `set +e
-TASK=${task}
-OVERLAY_ROOT="/var/lib/ouijit/overlays/T-$TASK"
-[ -d "$OVERLAY_ROOT" ] || exit 0
-
-if [ -f "$OVERLAY_ROOT/.worktree" ] && [ -f "$OVERLAY_ROOT/.paths" ]; then
-  WORKTREE=$(cat "$OVERLAY_ROOT/.worktree")
-  while IFS= read -r rel; do
-    [ -z "$rel" ] && continue
-    sudo umount "$WORKTREE/$rel" 2>/dev/null
-  done < "$OVERLAY_ROOT/.paths"
+HELPER="/usr/local/sbin/ouijit-overlay-helper"
+if [ -x "$HELPER" ]; then
+  sudo -n "$HELPER" --cleanup ${task} 2>/dev/null
 fi
-
-# Belt-and-suspenders: umount anything still pointing into this overlay.
-awk -v root="$OVERLAY_ROOT/" '$4 ~ "^"root {print $5}' /proc/self/mountinfo 2>/dev/null \\
-  | while IFS= read -r mp; do
-      [ -n "$mp" ] && sudo umount "$mp" 2>/dev/null
-    done
-
-sudo rm -rf "$OVERLAY_ROOT"
 `;
 }
