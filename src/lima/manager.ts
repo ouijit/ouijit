@@ -7,6 +7,7 @@ import * as fsSync from 'node:fs';
 import * as os from 'node:os';
 import type { LimaInstance, SandboxStatus } from './types';
 import { buildFinalConfig } from './configStore';
+import { buildProjectMounts } from './config';
 import { getLogger } from '../logger';
 import { getUserDataPath } from '../paths';
 
@@ -114,6 +115,23 @@ export async function createInstance(
 ): Promise<{ success: boolean; error?: string; warnings?: string[] }> {
   const instanceName = getInstanceName(projectPath);
   const { yaml, warnings } = await buildFinalConfig(projectPath);
+
+  // Lima/virtiofs blocks guest boot indefinitely if any declared mount
+  // points at a nonexistent host path (the SSH ControlMaster step never
+  // completes because mounts are still pending in the guest). The
+  // sandbox-views dir is created on-demand by startSandboxView for each
+  // task, so at VM-create time it may not exist yet — pre-create any
+  // managed mount path here so the VM always boots cleanly.
+  for (const mount of buildProjectMounts(projectPath)) {
+    try {
+      await fs.mkdir(mount.hostPath, { recursive: true });
+    } catch (error) {
+      limaLog.warn('failed to pre-create mount host path', {
+        hostPath: mount.hostPath,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
 
   // Write YAML to a temp file
   const tmpDir = os.tmpdir();
