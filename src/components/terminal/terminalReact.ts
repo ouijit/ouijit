@@ -302,6 +302,13 @@ export class OuijitTerminal {
   planFullWidth = true;
   planSplitRatio = 0.5;
 
+  // ── Per-terminal web preview panel state ──────────────────────────
+  webPreviewUrl: string | null = null;
+  webPreviewUrlAutoDetected = false;
+  webPreviewPanelOpen = false;
+  webPreviewFullWidth = true;
+  webPreviewSplitRatio = 0.5;
+
   // ── Runner (child OuijitTerminal) ──────────────────────────────────
   runner: OuijitTerminal | null = null;
   runnerPanelOpen = false;
@@ -653,11 +660,23 @@ export class OuijitTerminal {
     this.runnerStatus = 'idle';
     this.runnerFullWidth = true;
 
-    this.pushDisplayState({
+    const patch: Record<string, unknown> = {
       runnerPanelOpen: false,
       runnerStatus: 'idle',
       runnerScriptName: null,
-    });
+    };
+
+    // Clear auto-detected preview URL so the next runner can publish a fresh one
+    // (e.g. Vite bumps ports when its default is busy). Manual URLs are preserved.
+    if (this.webPreviewUrlAutoDetected) {
+      this.webPreviewUrl = null;
+      this.webPreviewUrlAutoDetected = false;
+      this.webPreviewPanelOpen = false;
+      patch.webPreviewUrl = null;
+      patch.webPreviewPanelOpen = false;
+    }
+
+    this.pushDisplayState(patch);
   }
 
   // ── Hook status handling ────────────────────────────────────────────

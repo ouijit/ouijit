@@ -21,6 +21,9 @@ export interface TerminalDisplayState {
   planPath: string | null;
   planPanelOpen: boolean;
   planFullWidth: boolean;
+  webPreviewUrl: string | null;
+  webPreviewPanelOpen: boolean;
+  webPreviewFullWidth: boolean;
   sandboxed: boolean;
   taskId: number | null;
   worktreeBranch: string | null;
@@ -46,6 +49,9 @@ export const DEFAULT_DISPLAY_STATE: Omit<TerminalDisplayState, 'ptyId' | 'projec
   planPath: null,
   planPanelOpen: false,
   planFullWidth: true,
+  webPreviewUrl: null,
+  webPreviewPanelOpen: false,
+  webPreviewFullWidth: true,
   sandboxed: false,
   taskId: null,
   worktreeBranch: null,

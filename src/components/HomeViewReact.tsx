@@ -277,6 +277,8 @@ export function HomeView() {
     restartRunner,
     closePlanPanel,
     changePlanFile,
+    closeWebPreviewPanel,
+    changeWebPreviewUrl,
   } = useTerminalPanels(activePtyId);
 
   if (allPtyIds.length === 0) {
@@ -355,6 +357,8 @@ export function HomeView() {
                 onCloseDiffPanel={closeDiffPanel}
                 onClosePlanPanel={closePlanPanel}
                 onChangePlanFile={changePlanFile}
+                onCloseWebPreviewPanel={closeWebPreviewPanel}
+                onChangeWebPreviewUrl={changeWebPreviewUrl}
                 onCollapseRunner={collapseRunner}
                 onKillRunner={killRunner}
                 onRestartRunner={restartRunner}

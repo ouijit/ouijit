@@ -24,6 +24,7 @@ interface TerminalHeaderProps {
   onClose: () => void;
   onToggleDiffPanel?: () => void;
   onTogglePlanPanel?: () => void;
+  onToggleWebPreviewPanel?: () => void;
   onToggleRunner?: (script?: RunnerScript) => void;
 }
 
@@ -36,6 +37,7 @@ export const TerminalHeader = memo(function TerminalHeader({
   onClose,
   onToggleDiffPanel,
   onTogglePlanPanel,
+  onToggleWebPreviewPanel,
   onToggleRunner,
 }: TerminalHeaderProps) {
   const label = useTerminalStore((s) => s.displayStates[ptyId]?.label ?? '');
@@ -51,6 +53,8 @@ export const TerminalHeader = memo(function TerminalHeader({
   const diffPanelOpen = useTerminalStore((s) => s.displayStates[ptyId]?.diffPanelOpen ?? false);
   const planPath = useTerminalStore((s) => s.displayStates[ptyId]?.planPath ?? null);
   const planPanelOpen = useTerminalStore((s) => s.displayStates[ptyId]?.planPanelOpen ?? false);
+  const webPreviewUrl = useTerminalStore((s) => s.displayStates[ptyId]?.webPreviewUrl ?? null);
+  const webPreviewPanelOpen = useTerminalStore((s) => s.displayStates[ptyId]?.webPreviewPanelOpen ?? false);
   const taskId = useTerminalStore((s) => s.displayStates[ptyId]?.taskId ?? null);
   const worktreeBranch = useTerminalStore((s) => s.displayStates[ptyId]?.worktreeBranch ?? null);
 
@@ -152,13 +156,25 @@ export const TerminalHeader = memo(function TerminalHeader({
           instance.planPanelOpen = true;
           instance.diffPanelOpen = false;
           instance.runnerPanelOpen = false;
+          instance.webPreviewPanelOpen = false;
           instance.pushDisplayState({
             planPath: result.filePath,
             planPanelOpen: true,
             diffPanelOpen: false,
             runnerPanelOpen: false,
+            webPreviewPanelOpen: false,
           });
         }
+      },
+    });
+
+    items.push({
+      label: webPreviewUrl ? 'Open Web Preview' : 'Set Preview URL',
+      icon: 'globe-simple',
+      onClick: () => {
+        // Open the panel. When no URL is set yet, the panel auto-focuses its
+        // inline URL editor so the user can type one directly.
+        if (!webPreviewPanelOpen) onToggleWebPreviewPanel?.();
       },
     });
 
@@ -183,7 +199,18 @@ export const TerminalHeader = memo(function TerminalHeader({
     }
 
     return items;
-  }, [isTaskTerminal, instance, projectPath, taskId, sandboxAvailable, hasEditorHook, onClose]);
+  }, [
+    isTaskTerminal,
+    instance,
+    projectPath,
+    taskId,
+    sandboxAvailable,
+    hasEditorHook,
+    onClose,
+    webPreviewUrl,
+    webPreviewPanelOpen,
+    onToggleWebPreviewPanel,
+  ]);
 
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -283,6 +310,14 @@ export const TerminalHeader = memo(function TerminalHeader({
       onTogglePlanPanel?.();
     },
     [onTogglePlanPanel],
+  );
+
+  const handleWebPreviewClick = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      onToggleWebPreviewPanel?.();
+    },
+    [onToggleWebPreviewPanel],
   );
 
   const displayText = summary ? `${label} \u2014 ${summary}` : label;
@@ -398,6 +433,16 @@ export const TerminalHeader = memo(function TerminalHeader({
           >
             <Icon name="list-checks" className="w-3.5 h-3.5" />
             <span>Plan</span>
+          </button>
+        )}
+        {!compact && isActive && webPreviewUrl && (
+          <button
+            className={`flex items-center gap-1 px-2.5 py-1 rounded-full font-mono text-[13px] font-medium text-white/60 bg-white/[0.06] transition-all duration-150 ease-out hover:bg-white/[0.12] hover:text-white/90 active:bg-white/[0.10] active:text-white/80 ${webPreviewPanelOpen ? '!bg-accent !text-white' : ''}`}
+            title={`Preview ${webPreviewUrl}`}
+            onClick={handleWebPreviewClick}
+          >
+            <Icon name="globe-simple" className="w-3.5 h-3.5" />
+            <span>Preview</span>
           </button>
         )}
         {!compact && isActive && (

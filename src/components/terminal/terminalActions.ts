@@ -10,9 +10,22 @@ import { useCanvasStore, persistCanvas } from '../../stores/canvasStore';
 import { useAppStore, staleGuard } from '../../stores/appStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { OuijitTerminal, terminalInstances, resolveTerminalLabel, type SummaryType } from './terminalReact';
+import { detectDevServerUrl } from '../webPreview/urlHelpers';
 import log from 'electron-log/renderer';
 
 const actionsLog = log.scope('terminalActions');
+
+// ── Dev server URL detection ─────────────────────────────────────────
+
+function applyDetectedWebPreviewUrl(parent: OuijitTerminal, url: string): void {
+  // Respect manual edits: only overwrite if unset or the previous value was
+  // itself auto-detected (e.g. Vite bumped to a new port).
+  if (parent.webPreviewUrl && !parent.webPreviewUrlAutoDetected) return;
+  if (parent.webPreviewUrl === url) return;
+  parent.webPreviewUrl = url;
+  parent.webPreviewUrlAutoDetected = true;
+  parent.pushDisplayState({ webPreviewUrl: url });
+}
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -445,6 +458,8 @@ async function _spawnRunnerInner(instance: OuijitTerminal, script?: RunnerScript
             instance.pushDisplayState({ runnerStatus: instance.runnerStatus });
           }
         }
+        const detected = detectDevServerUrl(data);
+        if (detected) applyDetectedWebPreviewUrl(instance, detected);
       },
       onExit: (exitCode) => {
         instance.runnerStatus = exitCode === 0 ? 'success' : 'error';
@@ -562,6 +577,8 @@ export async function reconnectOrphanedSessions(projectPath: string): Promise<vo
             parentTerminal.pushDisplayState({ runnerStatus: parentTerminal.runnerStatus });
           }
         }
+        const detected = detectDevServerUrl(data);
+        if (detected) applyDetectedWebPreviewUrl(parentTerminal, detected);
       },
       onExit: (exitCode) => {
         parentTerminal.runnerStatus = exitCode === 0 ? 'success' : 'error';

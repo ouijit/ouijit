@@ -19,6 +19,7 @@ interface TooltipButtonProps {
   placement?: Placement;
   className?: string;
   onClick?: (e: React.MouseEvent) => void;
+  disabled?: boolean;
   children: ReactNode;
 }
 
@@ -26,7 +27,14 @@ interface TooltipButtonProps {
  * A button with a floating tooltip — no wrapper element.
  * Use this when the button must be a direct flex child (e.g. inside .project-view-toggle).
  */
-export function TooltipButton({ text, placement = 'bottom', className, onClick, children }: TooltipButtonProps) {
+export function TooltipButton({
+  text,
+  placement = 'bottom',
+  className,
+  onClick,
+  disabled,
+  children,
+}: TooltipButtonProps) {
   const [isOpen, setIsOpen] = useState(false);
 
   const { refs, floatingStyles, context } = useFloating({
@@ -47,7 +55,13 @@ export function TooltipButton({ text, placement = 'bottom', className, onClick, 
 
   return (
     <>
-      <button ref={refs.setReference} className={className} onClick={onClick} {...getReferenceProps()}>
+      <button
+        ref={refs.setReference}
+        className={className}
+        onClick={onClick}
+        disabled={disabled}
+        {...getReferenceProps()}
+      >
         {children}
       </button>
       {isOpen &&
