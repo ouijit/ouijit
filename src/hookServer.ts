@@ -188,22 +188,38 @@ export function startHookServer(window: BrowserWindow): Promise<void> {
       req.on('end', () => {
         try {
           const body = JSON.parse(rawBody) as Record<string, unknown>;
+          const action = body.action;
+          if (typeof action !== 'string') {
+            // Unknown / missing action is a valid no-op so older hook
+            // scripts don't fail against a newer server. Matches the
+            // 200-on-unknown-action contract.
+            res.writeHead(200);
+            res.end();
+            return;
+          }
+          const handler = actionHandlers[action];
+          if (!handler) {
+            res.writeHead(200);
+            res.end();
+            return;
+          }
+          // All registered actions require a ptyId. Reject a missing
+          // or non-string value with 400 so misconfigured callers
+          // notice rather than silently no-oping inside the handler.
+          if (typeof body.ptyId !== 'string') {
+            res.writeHead(400);
+            res.end();
+            return;
+          }
           // Every hook action is scoped to the caller's own PTY. A
           // sandbox-scoped token for pty A must not be able to set
-          // status or plan state on pty B — reject loudly with 403 so
-          // misconfigured callers surface instead of silently no-oping.
-          if (typeof body.ptyId === 'string' && body.ptyId !== auth.ptyId) {
+          // status or plan state on pty B — reject loudly with 403.
+          if (body.ptyId !== auth.ptyId) {
             res.writeHead(403);
             res.end();
             return;
           }
-          const action = body.action;
-          if (typeof action === 'string') {
-            const handler = actionHandlers[action];
-            if (handler) {
-              handler(body, auth);
-            }
-          }
+          handler(body, auth);
           res.writeHead(200);
           res.end();
         } catch {

@@ -198,6 +198,8 @@ exit 0
  */
 export const FIREWALL_SCRIPT = `#!/bin/bash
 # Ouijit egress firewall — default-deny outbound, allow host.lima.internal.
+# IPv6 is disabled kernel-wide by /etc/sysctl.d/99-ouijit.conf (installed
+# at provision), so this script only configures IPv4.
 set -u
 
 POLICY_FILE="/etc/ouijit/network-policy"
@@ -211,21 +213,23 @@ fi
 
 # Resolve host.lima.internal → gateway IP. Three probes in order:
 #   1. DNS (host.lima.internal is injected by Lima's DNS)
-#   2. /proc/net/route default gateway
+#   2. /proc/net/route default gateway (parsed with bash printf
+#      rather than awk math, which varies across gawk/mawk)
 #   3. Hardcoded 192.168.5.2 (Lima-VZ default on macOS)
 # Combined, this avoids the firewall-wide-open-on-DNS-failure footgun.
 GATEWAY=$(getent ahostsv4 host.lima.internal 2>/dev/null | awk 'NR==1 {print $1}')
 if [ -z "$GATEWAY" ]; then
-  # Default route: destination 00000000, gateway in hex little-endian.
-  GATEWAY=$(awk '$2 == "00000000" && $8 == "00000000" {
-    g = $3
-    printf "%d.%d.%d.%d\\n",
-      strtonum("0x" substr(g, 7, 2)),
-      strtonum("0x" substr(g, 5, 2)),
-      strtonum("0x" substr(g, 3, 2)),
-      strtonum("0x" substr(g, 1, 2))
-    exit
-  }' /proc/net/route 2>/dev/null)
+  GATEWAY_HEX=$(awk '$2 == "00000000" && $8 == "00000000" {print $3; exit}' /proc/net/route 2>/dev/null)
+  if [ -n "$GATEWAY_HEX" ] && [ "\${#GATEWAY_HEX}" = "8" ]; then
+    # /proc/net/route writes the gateway as little-endian hex; reverse
+    # the byte order and format as dotted-quad. printf "%d" "0xFF" is
+    # portable across bash/busybox without awk extensions.
+    GATEWAY=$(printf '%d.%d.%d.%d' \\
+      "0x\${GATEWAY_HEX:6:2}" \\
+      "0x\${GATEWAY_HEX:4:2}" \\
+      "0x\${GATEWAY_HEX:2:2}" \\
+      "0x\${GATEWAY_HEX:0:2}")
+  fi
 fi
 [ -z "$GATEWAY" ] && GATEWAY="192.168.5.2"
 
@@ -235,22 +239,10 @@ iptables -P INPUT ACCEPT
 iptables -P OUTPUT DROP
 iptables -P FORWARD DROP
 iptables -A OUTPUT -o lo -j ACCEPT
-iptables -A OUTPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+# conntrack replaces the legacy "state" module, which isn't reliably
+# present on iptables-nft setups.
+iptables -A OUTPUT -m conntrack --ctstate ESTABLISHED,RELATED -j ACCEPT
 iptables -A OUTPUT -d "$GATEWAY" -j ACCEPT
-
-# ip6tables mirror. A dual-stack guest would otherwise reach the world
-# over IPv6 even with IPv4 locked down. DROP all v6 outbound; the
-# Ouijit API is reached via host.lima.internal on IPv4, so no v6
-# allowlist is needed.
-if command -v ip6tables >/dev/null 2>&1; then
-  ip6tables -F OUTPUT 2>/dev/null || true
-  ip6tables -F INPUT 2>/dev/null || true
-  ip6tables -P INPUT ACCEPT
-  ip6tables -P OUTPUT DROP
-  ip6tables -P FORWARD DROP
-  ip6tables -A OUTPUT -o lo -j ACCEPT
-  ip6tables -A OUTPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
-fi
 
 echo "ouijit-firewall: applied strict policy, gateway=$GATEWAY" >&2
 `;
@@ -302,11 +294,18 @@ if visudo -cf /tmp/99-ouijit.sudoers >/dev/null 2>&1; then
   install -o root -g root -m 0440 /tmp/99-ouijit.sudoers /etc/sudoers.d/99-ouijit
   # Strip any broader NOPASSWD:ALL grant from cloud-init / lima layers.
   # Lima and cloud-init each install their own files under /etc/sudoers.d
-  # with unpredictable names; scan everything except our own rule, then
-  # re-validate with visudo so a botched edit doesn't lock sudo out.
+  # with unpredictable names; scan /etc/sudoers itself plus everything
+  # in /etc/sudoers.d except our rule, then re-validate with visudo so
+  # a botched edit doesn't lock sudo out.
+  strip_targets="/etc/sudoers"
   for f in /etc/sudoers.d/*; do
     [ -f "$f" ] || continue
+    # Skip our own file — we just installed it with exactly this suffix.
     case "$f" in */99-ouijit) continue;; esac
+    strip_targets="$strip_targets $f"
+  done
+  for f in $strip_targets; do
+    [ -f "$f" ] || continue
     if grep -qE '^[^#]*NOPASSWD:[[:space:]]*ALL' "$f" 2>/dev/null; then
       sed -i.ouijit-bak -E '/^[^#]*NOPASSWD:[[:space:]]*ALL/d' "$f"
       if ! visudo -cf "$f" >/dev/null 2>&1; then
@@ -318,6 +317,18 @@ if visudo -cf /tmp/99-ouijit.sudoers >/dev/null 2>&1; then
   done
 fi
 rm -f /tmp/99-ouijit.sudoers
+
+# Disable IPv6 kernel-wide. Without this, dual-stack guests pay a
+# 3–10s happy-eyeballs timeout on every connection (curl/node/pip try
+# IPv6 first, fail, fall back to IPv4) because the firewall has no
+# IPv6 allowlist. Killing IPv6 outright is cleaner than an ip6tables
+# mirror — no timeouts, no module dependencies.
+cat > /etc/sysctl.d/99-ouijit.conf <<'OUIJIT_SYSCTL_EOF'
+net.ipv6.conf.all.disable_ipv6 = 1
+net.ipv6.conf.default.disable_ipv6 = 1
+net.ipv6.conf.lo.disable_ipv6 = 1
+OUIJIT_SYSCTL_EOF
+sysctl --system >/dev/null 2>&1 || true
 
 mkdir -p /etc/ouijit
 if [ ! -f /etc/ouijit/network-policy ]; then

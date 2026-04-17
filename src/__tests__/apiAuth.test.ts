@@ -1,4 +1,4 @@
-import { describe, test, expect, beforeEach } from 'vitest';
+import { describe, test, expect, beforeEach, vi } from 'vitest';
 import { issueToken, revokeToken, revokeAllTokens, verifyToken, authenticateRequest } from '../apiAuth';
 
 describe('apiAuth', () => {
@@ -22,12 +22,23 @@ describe('apiAuth', () => {
     expect(verifyToken('')).toBeNull();
   });
 
-  test('re-issuing for the same ptyId invalidates the previous token', () => {
+  test('re-issuing for the same ptyId invalidates the previous token and warns', () => {
+    // Re-issue shouldn't happen in normal spawn flow (ptyIds are unique);
+    // if it does, the warning surfaces the lifecycle bug rather than
+    // silently swapping tokens. The logger falls back to console.warn
+    // in tests, so that's what we spy on.
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
     const oldToken = issueToken('pty-1', 'host');
+    warnSpy.mockClear();
     const newToken = issueToken('pty-1', 'host');
     expect(oldToken).not.toBe(newToken);
     expect(verifyToken(oldToken)).toBeNull();
     expect(verifyToken(newToken)).not.toBeNull();
+    expect(warnSpy).toHaveBeenCalled();
+    const combined = warnSpy.mock.calls.map((args) => args.join(' ')).join(' ');
+    expect(combined).toContain('re-issuing token');
+    expect(combined).toContain('pty-1');
+    warnSpy.mockRestore();
   });
 
   test('revokeToken removes the token', () => {
