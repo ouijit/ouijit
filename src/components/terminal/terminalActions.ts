@@ -10,29 +10,20 @@ import { useCanvasStore, persistCanvas } from '../../stores/canvasStore';
 import { useAppStore, staleGuard } from '../../stores/appStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { OuijitTerminal, terminalInstances, resolveTerminalLabel, type SummaryType } from './terminalReact';
+import { detectDevServerUrl } from '../webPreview/urlHelpers';
 import log from 'electron-log/renderer';
 
 const actionsLog = log.scope('terminalActions');
 
 // ── Dev server URL detection ─────────────────────────────────────────
 
-// Strip ANSI CSI and OSC sequences so URLs split by color codes still match.
-const ANSI_RE = /\x1b\[[0-9;]*[A-Za-z]|\x1b\][^\x07]*\x07/g;
-// Match http[s]://localhost or loopback IP with required port. Requiring a port
-// avoids false positives on documentation URLs that mention "localhost".
-const DEV_SERVER_URL_RE = /https?:\/\/(?:localhost|127\.0\.0\.1):\d+(?:\/[^\s]*)?/;
-
-function detectDevServerUrl(chunk: string): string | null {
-  const stripped = chunk.replace(ANSI_RE, '');
-  const match = DEV_SERVER_URL_RE.exec(stripped);
-  if (!match) return null;
-  // Trim common trailing punctuation printed by loggers.
-  return match[0].replace(/[.,;:!?)\]]+$/, '');
-}
-
-function setWebPreviewUrlIfUnset(parent: OuijitTerminal, url: string): void {
-  if (parent.webPreviewUrl) return;
+function applyDetectedWebPreviewUrl(parent: OuijitTerminal, url: string): void {
+  // Respect manual edits: only overwrite if unset or the previous value was
+  // itself auto-detected (e.g. Vite bumped to a new port).
+  if (parent.webPreviewUrl && !parent.webPreviewUrlAutoDetected) return;
+  if (parent.webPreviewUrl === url) return;
   parent.webPreviewUrl = url;
+  parent.webPreviewUrlAutoDetected = true;
   parent.pushDisplayState({ webPreviewUrl: url });
 }
 
@@ -468,7 +459,7 @@ async function _spawnRunnerInner(instance: OuijitTerminal, script?: RunnerScript
           }
         }
         const detected = detectDevServerUrl(data);
-        if (detected) setWebPreviewUrlIfUnset(instance, detected);
+        if (detected) applyDetectedWebPreviewUrl(instance, detected);
       },
       onExit: (exitCode) => {
         instance.runnerStatus = exitCode === 0 ? 'success' : 'error';
@@ -587,7 +578,7 @@ export async function reconnectOrphanedSessions(projectPath: string): Promise<vo
           }
         }
         const detected = detectDevServerUrl(data);
-        if (detected) setWebPreviewUrlIfUnset(parentTerminal, detected);
+        if (detected) applyDetectedWebPreviewUrl(parentTerminal, detected);
       },
       onExit: (exitCode) => {
         parentTerminal.runnerStatus = exitCode === 0 ? 'success' : 'error';

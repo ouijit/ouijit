@@ -150,7 +150,6 @@ export const TerminalCard = memo(function TerminalCard({ ptyId, projectPath }: T
         onToggleDiffPanel={toggleDiffPanel}
         onTogglePlanPanel={togglePlanPanel}
         onToggleWebPreviewPanel={toggleWebPreviewPanel}
-        onChangeWebPreviewUrl={changeWebPreviewUrl}
         onToggleRunner={toggleRunner}
       />
       <TerminalBody

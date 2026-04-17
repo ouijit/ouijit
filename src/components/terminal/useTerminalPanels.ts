@@ -1,7 +1,22 @@
 import { useCallback } from 'react';
-import { terminalInstances } from './terminalReact';
+import { terminalInstances, type OuijitTerminal } from './terminalReact';
 import { spawnRunner } from './terminalActions';
 import type { RunnerScript } from '../../types';
+
+type PanelKey = 'diffPanelOpen' | 'runnerPanelOpen' | 'planPanelOpen' | 'webPreviewPanelOpen';
+
+const ALL_PANELS: PanelKey[] = ['diffPanelOpen', 'runnerPanelOpen', 'planPanelOpen', 'webPreviewPanelOpen'];
+
+/** Close every panel except the one being opened, and push the patch to the store. */
+function closeOtherPanels(instance: OuijitTerminal, keep: PanelKey): void {
+  const patch: Record<string, boolean> = { [keep]: true };
+  for (const panel of ALL_PANELS) {
+    if (panel === keep) continue;
+    instance[panel] = false;
+    patch[panel] = false;
+  }
+  instance.pushDisplayState(patch);
+}
 
 export function useTerminalPanels(ptyId: string | null) {
   const toggleDiffPanel = useCallback(() => {
@@ -10,19 +25,9 @@ export function useTerminalPanels(ptyId: string | null) {
     if (!instance) return;
     instance.diffPanelOpen = !instance.diffPanelOpen;
     if (instance.diffPanelOpen) {
-      instance.runnerPanelOpen = false;
-      instance.planPanelOpen = false;
-      instance.webPreviewPanelOpen = false;
-      instance.pushDisplayState({
-        diffPanelOpen: true,
-        runnerPanelOpen: false,
-        planPanelOpen: false,
-        webPreviewPanelOpen: false,
-      });
+      closeOtherPanels(instance, 'diffPanelOpen');
     } else {
       instance.pushDisplayState({ diffPanelOpen: false });
-    }
-    if (!instance.diffPanelOpen) {
       requestAnimationFrame(() => instance.fit());
     }
   }, [ptyId]);
@@ -44,15 +49,7 @@ export function useTerminalPanels(ptyId: string | null) {
       if (instance.runner?.ptyId && !script) {
         instance.runnerPanelOpen = !instance.runnerPanelOpen;
         if (instance.runnerPanelOpen) {
-          instance.diffPanelOpen = false;
-          instance.planPanelOpen = false;
-          instance.webPreviewPanelOpen = false;
-          instance.pushDisplayState({
-            runnerPanelOpen: true,
-            diffPanelOpen: false,
-            planPanelOpen: false,
-            webPreviewPanelOpen: false,
-          });
+          closeOtherPanels(instance, 'runnerPanelOpen');
         } else {
           instance.pushDisplayState({ runnerPanelOpen: false });
         }
@@ -101,15 +98,7 @@ export function useTerminalPanels(ptyId: string | null) {
     if (!instance) return;
     instance.planPanelOpen = !instance.planPanelOpen;
     if (instance.planPanelOpen) {
-      instance.diffPanelOpen = false;
-      instance.runnerPanelOpen = false;
-      instance.webPreviewPanelOpen = false;
-      instance.pushDisplayState({
-        planPanelOpen: true,
-        diffPanelOpen: false,
-        runnerPanelOpen: false,
-        webPreviewPanelOpen: false,
-      });
+      closeOtherPanels(instance, 'planPanelOpen');
     } else {
       instance.pushDisplayState({ planPanelOpen: false });
       requestAnimationFrame(() => instance.fit());
@@ -142,15 +131,7 @@ export function useTerminalPanels(ptyId: string | null) {
     if (!instance) return;
     instance.webPreviewPanelOpen = !instance.webPreviewPanelOpen;
     if (instance.webPreviewPanelOpen) {
-      instance.diffPanelOpen = false;
-      instance.runnerPanelOpen = false;
-      instance.planPanelOpen = false;
-      instance.pushDisplayState({
-        webPreviewPanelOpen: true,
-        diffPanelOpen: false,
-        runnerPanelOpen: false,
-        planPanelOpen: false,
-      });
+      closeOtherPanels(instance, 'webPreviewPanelOpen');
     } else {
       instance.pushDisplayState({ webPreviewPanelOpen: false });
       requestAnimationFrame(() => instance.fit());
@@ -172,6 +153,8 @@ export function useTerminalPanels(ptyId: string | null) {
       const instance = terminalInstances.get(ptyId);
       if (!instance) return;
       instance.webPreviewUrl = newUrl;
+      // A manual edit locks out future auto-detections.
+      instance.webPreviewUrlAutoDetected = false;
       instance.pushDisplayState({ webPreviewUrl: newUrl });
     },
     [ptyId],

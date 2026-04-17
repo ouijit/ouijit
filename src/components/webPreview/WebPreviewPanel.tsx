@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { terminalInstances } from '../terminal/terminalReact';
 import { Icon } from '../terminal/Icon';
 import { TooltipButton } from '../ui/TooltipButton';
+import { normalizeUrl } from './urlHelpers';
 
 interface WebPreviewPanelProps {
   ptyId: string;
@@ -24,14 +25,6 @@ interface ElectronWebviewElement extends HTMLElement {
   openDevTools(): void;
 }
 
-function normalizeUrl(input: string): string {
-  const trimmed = input.trim();
-  if (!trimmed) return '';
-  if (/^https?:\/\//i.test(trimmed)) return trimmed;
-  // Bare host:port or host — assume http for dev servers
-  return `http://${trimmed}`;
-}
-
 export function WebPreviewPanel({ ptyId, url, onClose, onChangeUrl }: WebPreviewPanelProps) {
   const instance = terminalInstances.get(ptyId);
   const [fullWidth, setFullWidth] = useState(instance?.webPreviewFullWidth ?? true);
@@ -41,23 +34,34 @@ export function WebPreviewPanel({ ptyId, url, onClose, onChangeUrl }: WebPreview
   const [canGoBack, setCanGoBack] = useState(false);
   const [canGoForward, setCanGoForward] = useState(false);
   const [currentUrl, setCurrentUrl] = useState(url);
-  const [editingUrl, setEditingUrl] = useState(false);
+  // When opened without a URL, drop straight into the editor so users can type
+  // one instead of seeing a dead-end "No URL set" panel.
+  const [editingUrl, setEditingUrl] = useState(!url);
   const [urlDraft, setUrlDraft] = useState(url);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [dragging, setDragging] = useState(false);
 
   const panelRef = useRef<HTMLDivElement>(null);
   const handleRef = useRef<HTMLDivElement>(null);
   const webviewRef = useRef<ElectronWebviewElement | null>(null);
   const urlInputRef = useRef<HTMLInputElement>(null);
 
-  // Wire webview events
-  useEffect(() => {
-    const webview = webviewRef.current;
-    if (!webview) return;
+  // Attach webview event listeners via a callback ref so they rewire if the
+  // <webview> remounts (e.g. url cleared and set again).
+  const setWebviewNode = useCallback((node: ElectronWebviewElement | null) => {
+    // Tear down listeners on the previous node.
+    const prev = webviewRef.current;
+    if (prev && prev !== node) {
+      const cleanup = (prev as HTMLElement & { __ouijitCleanup?: () => void }).__ouijitCleanup;
+      cleanup?.();
+    }
+
+    webviewRef.current = node;
+    if (!node) return;
 
     // allowpopups is a boolean attribute Electron reads before attach; setting
     // it via React props fights the type defs, so set it imperatively.
-    webview.setAttribute('allowpopups', '');
+    node.setAttribute('allowpopups', '');
 
     const handleStart = () => {
       setLoading(true);
@@ -66,18 +70,18 @@ export function WebPreviewPanel({ ptyId, url, onClose, onChangeUrl }: WebPreview
     const handleStop = () => {
       setLoading(false);
       try {
-        setCanGoBack(webview.canGoBack());
-        setCanGoForward(webview.canGoForward());
+        setCanGoBack(node.canGoBack());
+        setCanGoForward(node.canGoForward());
       } catch {
-        // webview not yet attached
+        // not yet attached
       }
     };
     const handleNavigate = (e: Event) => {
       const navEvent = e as Event & { url?: string };
       if (navEvent.url) setCurrentUrl(navEvent.url);
       try {
-        setCanGoBack(webview.canGoBack());
-        setCanGoForward(webview.canGoForward());
+        setCanGoBack(node.canGoBack());
+        setCanGoForward(node.canGoForward());
       } catch {
         // ignore
       }
@@ -90,32 +94,37 @@ export function WebPreviewPanel({ ptyId, url, onClose, onChangeUrl }: WebPreview
       setLoadError(failEvent.errorDescription || 'Failed to load page');
     };
 
-    webview.addEventListener('did-start-loading', handleStart);
-    webview.addEventListener('did-stop-loading', handleStop);
-    webview.addEventListener('did-navigate', handleNavigate);
-    webview.addEventListener('did-navigate-in-page', handleNavigate);
-    webview.addEventListener('did-fail-load', handleFailLoad);
+    node.addEventListener('did-start-loading', handleStart);
+    node.addEventListener('did-stop-loading', handleStop);
+    node.addEventListener('did-navigate', handleNavigate);
+    node.addEventListener('did-navigate-in-page', handleNavigate);
+    node.addEventListener('did-fail-load', handleFailLoad);
 
-    return () => {
-      webview.removeEventListener('did-start-loading', handleStart);
-      webview.removeEventListener('did-stop-loading', handleStop);
-      webview.removeEventListener('did-navigate', handleNavigate);
-      webview.removeEventListener('did-navigate-in-page', handleNavigate);
-      webview.removeEventListener('did-fail-load', handleFailLoad);
+    (node as HTMLElement & { __ouijitCleanup?: () => void }).__ouijitCleanup = () => {
+      node.removeEventListener('did-start-loading', handleStart);
+      node.removeEventListener('did-stop-loading', handleStop);
+      node.removeEventListener('did-navigate', handleNavigate);
+      node.removeEventListener('did-navigate-in-page', handleNavigate);
+      node.removeEventListener('did-fail-load', handleFailLoad);
     };
   }, []);
 
-  // Sync external url prop changes into the webview (e.g. user edits URL)
+  // Sync external url prop changes into the webview. Skip the initial render
+  // because `src={url}` already loads it — otherwise we'd double-load.
+  const lastLoadedUrlRef = useRef<string>(url);
   useEffect(() => {
     const webview = webviewRef.current;
-    if (!webview) return;
+    if (!webview) {
+      lastLoadedUrlRef.current = url;
+      return;
+    }
     if (!url) return;
+    if (lastLoadedUrlRef.current === url) return;
+    lastLoadedUrlRef.current = url;
     try {
-      if (webview.getURL() !== url) {
-        webview.loadURL(url).catch(() => {
-          // Errors surface through did-fail-load
-        });
-      }
+      webview.loadURL(url).catch(() => {
+        // Errors surface through did-fail-load
+      });
     } catch {
       // Not yet attached — initial src attribute handles it
     }
@@ -156,6 +165,11 @@ export function WebPreviewPanel({ ptyId, url, onClose, onChangeUrl }: WebPreview
     });
   }, [currentUrl, url]);
 
+  // Focus the input when it auto-opens (panel opened without a URL).
+  useEffect(() => {
+    if (editingUrl) urlInputRef.current?.focus();
+  }, [editingUrl]);
+
   const toggleFullWidth = useCallback(
     (e: React.MouseEvent) => {
       e.stopPropagation();
@@ -172,7 +186,9 @@ export function WebPreviewPanel({ ptyId, url, onClose, onChangeUrl }: WebPreview
     [fullWidth, instance],
   );
 
-  // Resize handle drag
+  // Resize handle drag. The webview captures pointer events for its own
+  // webContents, so while dragging we flip pointer-events off on it and
+  // listen for mousemove on document to keep getting coordinates.
   useEffect(() => {
     const handle = handleRef.current;
     const panel = panelRef.current;
@@ -181,18 +197,19 @@ export function WebPreviewPanel({ ptyId, url, onClose, onChangeUrl }: WebPreview
     const cardBody = panel.parentElement;
     if (!cardBody) return;
 
-    let dragging = false;
+    let isDragging = false;
 
     const onMouseDown = (e: MouseEvent) => {
       e.preventDefault();
-      dragging = true;
+      isDragging = true;
+      setDragging(true);
       panel.style.transition = 'none';
       document.body.style.cursor = 'col-resize';
       document.body.style.userSelect = 'none';
     };
 
     const onMouseMove = (e: MouseEvent) => {
-      if (!dragging) return;
+      if (!isDragging) return;
       const rect = cardBody.getBoundingClientRect();
       const handleWidth = handle.offsetWidth;
       const totalWidth = rect.width - handleWidth;
@@ -204,8 +221,9 @@ export function WebPreviewPanel({ ptyId, url, onClose, onChangeUrl }: WebPreview
     };
 
     const onMouseUp = () => {
-      if (!dragging) return;
-      dragging = false;
+      if (!isDragging) return;
+      isDragging = false;
+      setDragging(false);
       setSplitRatio(instance.webPreviewSplitRatio ?? 0.5);
       panel.style.transition = '';
       document.body.style.cursor = '';
@@ -304,6 +322,7 @@ export function WebPreviewPanel({ ptyId, url, onClose, onChangeUrl }: WebPreview
                   setEditingUrl(false);
                 }
               }}
+              placeholder="http://localhost:3000"
               className="text-[13px] text-white/80 flex-1 min-w-0 font-mono bg-white/5 border border-white/10 rounded px-2 py-0.5 outline-none focus:border-accent [-webkit-app-region:no-drag]"
             />
           ) : (
@@ -337,13 +356,20 @@ export function WebPreviewPanel({ ptyId, url, onClose, onChangeUrl }: WebPreview
         <div className="flex-1 relative bg-white">
           {url ? (
             <webview
-              ref={webviewRef as unknown as React.Ref<HTMLWebViewElement>}
+              ref={setWebviewNode as unknown as React.Ref<HTMLWebViewElement>}
               src={url}
-              style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', border: 'none' }}
+              style={{
+                position: 'absolute',
+                inset: 0,
+                width: '100%',
+                height: '100%',
+                border: 'none',
+                pointerEvents: dragging ? 'none' : 'auto',
+              }}
             />
           ) : (
             <div className="absolute inset-0 flex items-center justify-center text-sm text-white/40 bg-[var(--color-terminal-bg,#171717)]">
-              No URL set
+              Enter a URL above to preview it
             </div>
           )}
           {loadError && (

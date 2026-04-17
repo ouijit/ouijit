@@ -25,7 +25,6 @@ interface TerminalHeaderProps {
   onToggleDiffPanel?: () => void;
   onTogglePlanPanel?: () => void;
   onToggleWebPreviewPanel?: () => void;
-  onChangeWebPreviewUrl?: (newUrl: string) => void;
   onToggleRunner?: (script?: RunnerScript) => void;
 }
 
@@ -39,7 +38,6 @@ export const TerminalHeader = memo(function TerminalHeader({
   onToggleDiffPanel,
   onTogglePlanPanel,
   onToggleWebPreviewPanel,
-  onChangeWebPreviewUrl,
   onToggleRunner,
 }: TerminalHeaderProps) {
   const label = useTerminalStore((s) => s.displayStates[ptyId]?.label ?? '');
@@ -171,17 +169,12 @@ export const TerminalHeader = memo(function TerminalHeader({
     });
 
     items.push({
-      label: webPreviewUrl ? 'Change Preview URL' : 'Set Preview URL',
+      label: webPreviewUrl ? 'Open Web Preview' : 'Set Preview URL',
       icon: 'globe-simple',
       onClick: () => {
-        const input = window.prompt('Web preview URL:', webPreviewUrl ?? 'http://localhost:3000');
-        if (input == null) return;
-        const trimmed = input.trim();
-        if (!trimmed) return;
-        const normalized = /^https?:\/\//i.test(trimmed) ? trimmed : `http://${trimmed}`;
-        onChangeWebPreviewUrl?.(normalized);
-        // Open the panel on first set
-        if (!webPreviewUrl) onToggleWebPreviewPanel?.();
+        // Open the panel. When no URL is set yet, the panel auto-focuses its
+        // inline URL editor so the user can type one directly.
+        if (!webPreviewPanelOpen) onToggleWebPreviewPanel?.();
       },
     });
 
@@ -215,7 +208,7 @@ export const TerminalHeader = memo(function TerminalHeader({
     hasEditorHook,
     onClose,
     webPreviewUrl,
-    onChangeWebPreviewUrl,
+    webPreviewPanelOpen,
     onToggleWebPreviewPanel,
   ]);
 

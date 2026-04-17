@@ -42,7 +42,7 @@ export function TerminalBody({
 
   return (
     <div className="relative flex-1 flex flex-row min-h-0 overflow-hidden">
-      {webPreviewPanelOpen && webPreviewUrl ? (
+      {webPreviewPanelOpen ? (
         <>
           {!webPreviewFullWidth && (
             <XTermContainer
@@ -57,7 +57,7 @@ export function TerminalBody({
           )}
           <WebPreviewPanel
             ptyId={ptyId}
-            url={webPreviewUrl}
+            url={webPreviewUrl ?? ''}
             onClose={onCloseWebPreviewPanel}
             onChangeUrl={onChangeWebPreviewUrl}
           />
