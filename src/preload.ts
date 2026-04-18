@@ -217,5 +217,15 @@ contextBridge.exposeInMainWorld('api', {
     onSandboxDiverged: (
       callback: (event: { taskNumber: number; userWorktreePath: string; sandboxViewPath: string }) => void,
     ) => typedListen('sandbox:diverged', callback),
+    onSandboxGitTampering: (
+      callback: (event: {
+        taskNumber: number;
+        projectPath: string;
+        delta: {
+          hooks?: { added: string[]; modified: string[]; removed: string[] };
+          config?: { addedLines: string[]; removedLines: string[] };
+        };
+      }) => void,
+    ) => typedListen('sandbox:git-tampering', callback),
   },
 });

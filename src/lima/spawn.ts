@@ -7,7 +7,13 @@ import { ensureRunning, getLimactlPath, getLimaEnv } from './manager';
 import { getApiPort, HELPER_SCRIPT, buildVmHookSettings } from '../hookServer';
 import { issueToken, revokeToken } from '../apiAuth';
 import { getTaskByNumber } from '../db';
-import { startSandboxView, watchSandboxRef, ffMergeSandboxToUser } from './sandboxSync';
+import {
+  startSandboxView,
+  watchSandboxRef,
+  ffMergeSandboxToUser,
+  snapshotGitIntegrity,
+  watchGitIntegrity,
+} from './sandboxSync';
 import { getLogger } from '../logger';
 
 const spawnLog = getLogger().scope('limaSpawn');
@@ -32,7 +38,6 @@ const LIMACTL_HOST_ENV_ALLOWLIST: readonly string[] = [
   'LC_ALL',
   'LC_CTYPE',
   'TMPDIR',
-  'SSH_AUTH_SOCK',
 ];
 
 export function buildLimactlHostEnv(hostEnv: NodeJS.ProcessEnv): Record<string, string> {
@@ -59,6 +64,8 @@ interface ManagedSandboxPty {
   maxBufferSize: number;
   /** Disposer for the sandbox-branch ref watcher, set for sandboxed tasks. */
   disposeRefWatcher?: () => void;
+  /** Disposer for the .git integrity watcher, set for sandboxed tasks. */
+  disposeIntegrityWatcher?: () => void;
 }
 
 const activeSandboxPtys = new Map<PtyId, ManagedSandboxPty>();
@@ -265,6 +272,27 @@ export async function spawnSandboxedPty(options: PtySpawnOptions, window: Browse
           }
         });
       });
+
+      // Integrity watcher: snapshot .git/hooks + .git/config at spawn time
+      // so any agent write to them surfaces as a host-UI warning.
+      try {
+        const baseline = await snapshotGitIntegrity(watchProject);
+        managed.disposeIntegrityWatcher = watchGitIntegrity(watchProject, baseline, (delta) => {
+          spawnLog.warn('sandbox git integrity delta', { taskNumber, delta });
+          if (currentWindow && !currentWindow.isDestroyed()) {
+            currentWindow.webContents.send('sandbox:git-tampering', {
+              taskNumber,
+              projectPath: watchProject,
+              delta,
+            });
+          }
+        });
+      } catch (error) {
+        spawnLog.warn('failed to start git integrity watcher', {
+          taskNumber,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
     }
 
     ptyProcess.onData((data: string) => {
@@ -279,6 +307,7 @@ export async function spawnSandboxedPty(options: PtySpawnOptions, window: Browse
       } finally {
         const m = activeSandboxPtys.get(ptyId);
         m?.disposeRefWatcher?.();
+        m?.disposeIntegrityWatcher?.();
         activeSandboxPtys.delete(ptyId);
         unregisterSandboxPtyId(ptyId);
         revokeToken(ptyId);
@@ -329,6 +358,7 @@ export function killSandboxPty(ptyId: PtyId): void {
   if (!managed) return;
 
   managed.disposeRefWatcher?.();
+  managed.disposeIntegrityWatcher?.();
   try {
     process.kill(-managed.process.pid, 'SIGTERM');
   } catch {
@@ -384,6 +414,7 @@ export function reconnectSandboxPty(
 export function cleanupSandboxPtys(): void {
   for (const [ptyId, managed] of activeSandboxPtys) {
     managed.disposeRefWatcher?.();
+    managed.disposeIntegrityWatcher?.();
     try {
       process.kill(-managed.process.pid, 'SIGTERM');
     } catch {

@@ -496,6 +496,16 @@ export interface LimaAPI {
   onSandboxDiverged(
     callback: (event: { taskNumber: number; userWorktreePath: string; sandboxViewPath: string }) => void,
   ): () => void;
+  onSandboxGitTampering(
+    callback: (event: {
+      taskNumber: number;
+      projectPath: string;
+      delta: {
+        hooks?: { added: string[]; modified: string[]; removed: string[] };
+        config?: { addedLines: string[]; removedLines: string[] };
+      };
+    }) => void,
+  ): () => void;
 }
 
 /**
