@@ -1,7 +1,7 @@
 import * as pty from 'node-pty';
 import { BrowserWindow } from 'electron';
 import type { PtySpawnOptions, PtySpawnResult, PtyId } from '../types';
-import type { ActiveSession } from '../ptyManager';
+import { registerSandboxPtyId, unregisterSandboxPtyId, type ActiveSession } from '../ptyManager';
 import { generateId } from '../utils/ids';
 import { ensureRunning, getLimactlPath, getLimaEnv } from './manager';
 import { getApiPort, HELPER_SCRIPT, buildVmHookSettings } from '../hookServer';
@@ -242,6 +242,7 @@ export async function spawnSandboxedPty(options: PtySpawnOptions, window: Browse
     };
 
     activeSandboxPtys.set(ptyId, managed);
+    registerSandboxPtyId(ptyId);
 
     // Watch the sandbox branch ref so agent commits fast-forward onto the
     // user's branch. Fires per-PTY, not per-terminal-card; sharing the
@@ -279,6 +280,7 @@ export async function spawnSandboxedPty(options: PtySpawnOptions, window: Browse
         const m = activeSandboxPtys.get(ptyId);
         m?.disposeRefWatcher?.();
         activeSandboxPtys.delete(ptyId);
+        unregisterSandboxPtyId(ptyId);
         revokeToken(ptyId);
       }
     });
@@ -337,6 +339,7 @@ export function killSandboxPty(ptyId: PtyId): void {
     }
   }
   activeSandboxPtys.delete(ptyId);
+  unregisterSandboxPtyId(ptyId);
   revokeToken(ptyId);
 }
 
@@ -390,6 +393,7 @@ export function cleanupSandboxPtys(): void {
         // Ignore errors during cleanup
       }
     }
+    unregisterSandboxPtyId(ptyId);
     revokeToken(ptyId);
   }
   activeSandboxPtys.clear();

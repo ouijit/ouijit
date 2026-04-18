@@ -318,9 +318,27 @@ export function getActiveSessionCount(): number {
   return activePtys.size;
 }
 
-/** Check if a PTY is currently active */
+/**
+ * Sandbox PTYs are tracked in src/lima/spawn.ts in their own map — they never
+ * enter `activePtys`. But hookServer / setPlanPath need a single source of
+ * truth for "is this ptyId live?" across both kinds. spawn.ts registers /
+ * unregisters ids here over its lifecycle; hookServer calls isPtyActive.
+ * Direct import would cycle (spawn already imports from hookServer), hence
+ * this narrow one-way hook.
+ */
+const sandboxPtyIds = new Set<PtyId>();
+
+export function registerSandboxPtyId(ptyId: PtyId): void {
+  sandboxPtyIds.add(ptyId);
+}
+
+export function unregisterSandboxPtyId(ptyId: PtyId): void {
+  sandboxPtyIds.delete(ptyId);
+}
+
+/** Check if a PTY is currently active — covers host and sandbox PTYs. */
 export function isPtyActive(ptyId: PtyId): boolean {
-  return activePtys.has(ptyId);
+  return activePtys.has(ptyId) || sandboxPtyIds.has(ptyId);
 }
 
 export function writeToPty(ptyId: PtyId, data: string): void {
