@@ -3,52 +3,14 @@ import { BrowserWindow } from 'electron';
 import type { PtySpawnOptions, PtySpawnResult, PtyId } from '../types';
 import { registerSandboxPtyId, unregisterSandboxPtyId, type ActiveSession } from '../ptyManager';
 import { generateId } from '../utils/ids';
-import { ensureRunning, getLimactlPath, getLimaEnv } from './manager';
+import { buildLimactlHostEnv, ensureRunning, getLimactlPath } from './manager';
 import { getApiPort, HELPER_SCRIPT, buildVmHookSettings } from '../hookServer';
 import { issueToken, revokeToken } from '../apiAuth';
 import { getTaskByNumber } from '../db';
-import {
-  startSandboxView,
-  watchSandboxRef,
-  ffMergeSandboxToUser,
-  snapshotGitIntegrity,
-  watchGitIntegrity,
-} from './sandboxSync';
+import { startSandboxView, watchSandboxRef, ffMergeSandboxToUser } from './sandboxSync';
 import { getLogger } from '../logger';
 
 const spawnLog = getLogger().scope('limaSpawn');
-
-/**
- * Allowlist of host env vars forwarded to the `limactl shell` child process.
- * limactl needs PATH to resolve ssh/socat, HOME for its SSH config, and locale
- * vars so the guest SSH session doesn't fall back to POSIX. Everything else —
- * API keys, cloud creds, shell history paths — is dropped so a process list or
- * crash dump on the host cannot leak secrets through limactl.
- *
- * Guest-side env (options.env) is re-exported inside the VM by `envExports`;
- * it does not need to ride on the host child.
- */
-const LIMACTL_HOST_ENV_ALLOWLIST: readonly string[] = [
-  'PATH',
-  'HOME',
-  'USER',
-  'LOGNAME',
-  'SHELL',
-  'LANG',
-  'LC_ALL',
-  'LC_CTYPE',
-  'TMPDIR',
-];
-
-export function buildLimactlHostEnv(hostEnv: NodeJS.ProcessEnv): Record<string, string> {
-  const env: Record<string, string> = { TERM: 'xterm-256color' };
-  for (const key of LIMACTL_HOST_ENV_ALLOWLIST) {
-    const value = hostEnv[key];
-    if (value !== undefined) env[key] = value;
-  }
-  env.LIMA_HOME = getLimaEnv().LIMA_HOME;
-  return env;
-}
 
 interface ManagedSandboxPty {
   process: pty.IPty;
@@ -64,8 +26,6 @@ interface ManagedSandboxPty {
   maxBufferSize: number;
   /** Disposer for the sandbox-branch ref watcher, set for sandboxed tasks. */
   disposeRefWatcher?: () => void;
-  /** Disposer for the .git integrity watcher, set for sandboxed tasks. */
-  disposeIntegrityWatcher?: () => void;
 }
 
 const activeSandboxPtys = new Map<PtyId, ManagedSandboxPty>();
@@ -272,27 +232,6 @@ export async function spawnSandboxedPty(options: PtySpawnOptions, window: Browse
           }
         });
       });
-
-      // Integrity watcher: snapshot .git/hooks + .git/config at spawn time
-      // so any agent write to them surfaces as a host-UI warning.
-      try {
-        const baseline = await snapshotGitIntegrity(watchProject);
-        managed.disposeIntegrityWatcher = watchGitIntegrity(watchProject, baseline, (delta) => {
-          spawnLog.warn('sandbox git integrity delta', { taskNumber, delta });
-          if (currentWindow && !currentWindow.isDestroyed()) {
-            currentWindow.webContents.send('sandbox:git-tampering', {
-              taskNumber,
-              projectPath: watchProject,
-              delta,
-            });
-          }
-        });
-      } catch (error) {
-        spawnLog.warn('failed to start git integrity watcher', {
-          taskNumber,
-          error: error instanceof Error ? error.message : String(error),
-        });
-      }
     }
 
     ptyProcess.onData((data: string) => {
@@ -307,7 +246,6 @@ export async function spawnSandboxedPty(options: PtySpawnOptions, window: Browse
       } finally {
         const m = activeSandboxPtys.get(ptyId);
         m?.disposeRefWatcher?.();
-        m?.disposeIntegrityWatcher?.();
         activeSandboxPtys.delete(ptyId);
         unregisterSandboxPtyId(ptyId);
         revokeToken(ptyId);
@@ -358,7 +296,6 @@ export function killSandboxPty(ptyId: PtyId): void {
   if (!managed) return;
 
   managed.disposeRefWatcher?.();
-  managed.disposeIntegrityWatcher?.();
   try {
     process.kill(-managed.process.pid, 'SIGTERM');
   } catch {
@@ -414,7 +351,6 @@ export function reconnectSandboxPty(
 export function cleanupSandboxPtys(): void {
   for (const [ptyId, managed] of activeSandboxPtys) {
     managed.disposeRefWatcher?.();
-    managed.disposeIntegrityWatcher?.();
     try {
       process.kill(-managed.process.pid, 'SIGTERM');
     } catch {

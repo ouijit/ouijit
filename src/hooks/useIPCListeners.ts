@@ -74,40 +74,6 @@ export function useIPCListeners() {
       }),
     );
 
-    // Sandbox .git tampering — agent wrote to .git/hooks or .git/config.
-    // Could be benign (agent setting user.email) or an escape attempt
-    // (core.hooksPath redirect, pre-commit injection). Show the user what
-    // changed and let them decide.
-    cleanups.push(
-      window.api.lima.onSandboxGitTampering((event) => {
-        ipcLog.warn('sandbox git tampering detected', event);
-        const parts: string[] = [];
-        if (event.delta.hooks) {
-          const { added, modified, removed } = event.delta.hooks;
-          const counts = [
-            added.length && `${added.length} hook${added.length === 1 ? '' : 's'} added`,
-            modified.length && `${modified.length} modified`,
-            removed.length && `${removed.length} removed`,
-          ].filter(Boolean);
-          if (counts.length) parts.push(counts.join(', '));
-        }
-        if (event.delta.config) {
-          const n = event.delta.config.addedLines.length + event.delta.config.removedLines.length;
-          parts.push(`${n} config line${n === 1 ? '' : 's'} changed`);
-        }
-        const summary = parts.length ? parts.join('; ') : 'unknown change';
-        useProjectStore
-          .getState()
-          .addToast(
-            `Task T-${event.taskNumber}: sandbox modified .git (${summary}). Review before running git on this repo.`,
-            {
-              type: 'error',
-              persistent: true,
-            },
-          );
-      }),
-    );
-
     return () => {
       for (const cleanup of cleanups) {
         cleanup();

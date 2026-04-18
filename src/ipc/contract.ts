@@ -221,18 +221,6 @@ export interface IpcPushContract {
   'sandbox:diverged': {
     args: [event: { taskNumber: number; userWorktreePath: string; sandboxViewPath: string }];
   };
-  'sandbox:git-tampering': {
-    args: [
-      event: {
-        taskNumber: number;
-        projectPath: string;
-        delta: {
-          hooks?: { added: string[]; modified: string[]; removed: string[] };
-          config?: { addedLines: string[]; removedLines: string[] };
-        };
-      },
-    ];
-  };
   'update-available': { args: [info: { version: string; url: string }] };
   'whats-new': { args: [info: { version: string; notes: string }] };
   'cli-change': { args: [payload: { project: string; action: string; message?: string; ts: number }] };

@@ -6,12 +6,27 @@ import { getSandboxViewBaseDir } from './sandboxSync';
 /**
  * Build mounts for a project's Lima VM.
  *
- * The VM is only used for sandboxed tasks, so the mount layout reflects
- * the dual-worktree model: the guest sees sandbox-view worktrees (which
- * git populates with tracked files only) plus enough of the project's
- * `.git` metadata for commits/fetches to work. The project source tree
- * and the user's regular worktrees are intentionally not mounted so
- * gitignored secrets on the host can't leak into the guest.
+ * The guest only ever runs sandboxed tasks. The mount layout isolates
+ * gitignored host content (never mounts the project source or the user's
+ * worktree) and denies guest-writable access to the bits of `.git` that
+ * would let an agent plant host-side RCE — specifically `.git/hooks/`
+ * and `.git/config`, which git executes during commands the user later
+ * runs on the host (`git status`, `git commit`, ff-merge, etc.).
+ *
+ * Layout:
+ *   RW sandbox-views/<proj>       — the dual worktree lives here
+ *   RO <project>/.git             — base mount; config/hooks/info read-only
+ *   RW <project>/.git/objects     — agent needs to write pack objects on commit
+ *   RW <project>/.git/refs        — loose ref updates (per-branch HEAD moves)
+ *   RW <project>/.git/logs        — common reflogs appended on every commit
+ *   RW <project>/.git/worktrees   — per-worktree HEAD/logs for the sandbox view
+ *
+ * Linux VFS resolves writes through the deepest mount point, so the RW
+ * subdirs act as writable overlays on top of the RO base. Everything
+ * not covered by an RW overlay (hooks/, config, info/, packed-refs,
+ * HEAD) stays RO and guest writes fail with EROFS. Reflogs under
+ * `.git/logs/` are append-only text with no code-execution path, so
+ * exposing them RW doesn't reintroduce the hooks/config RCE class.
  */
 export function buildProjectMounts(projectPath: string): LimaMount[] {
   const projectName = path.basename(projectPath);
@@ -19,22 +34,34 @@ export function buildProjectMounts(projectPath: string): LimaMount[] {
   const projectGitDir = path.join(projectPath, '.git');
 
   return [
-    // Writable: git worktrees store their index, HEAD, and ref under
-    // `<projectGitDir>/worktrees/<name>/` — the agent needs write access
-    // to commit. The `.git` tree does not contain any gitignored
-    // application content; exposing it is equivalent to exposing the
-    // tracked history (objects) which the agent can already read via
-    // the worktree.
-    {
-      hostPath: projectGitDir,
-      guestPath: projectGitDir,
-      writable: true,
-    },
-    // Writable: the sandbox-view worktree created per task. Created by
-    // `git worktree add`, so it only ever contains tracked files.
     {
       hostPath: sandboxViewsBaseDir,
       guestPath: sandboxViewsBaseDir,
+      writable: true,
+    },
+    {
+      hostPath: projectGitDir,
+      guestPath: projectGitDir,
+      writable: false,
+    },
+    {
+      hostPath: path.join(projectGitDir, 'objects'),
+      guestPath: path.join(projectGitDir, 'objects'),
+      writable: true,
+    },
+    {
+      hostPath: path.join(projectGitDir, 'refs'),
+      guestPath: path.join(projectGitDir, 'refs'),
+      writable: true,
+    },
+    {
+      hostPath: path.join(projectGitDir, 'logs'),
+      guestPath: path.join(projectGitDir, 'logs'),
+      writable: true,
+    },
+    {
+      hostPath: path.join(projectGitDir, 'worktrees'),
+      guestPath: path.join(projectGitDir, 'worktrees'),
       writable: true,
     },
   ];

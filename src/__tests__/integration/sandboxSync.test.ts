@@ -13,8 +13,6 @@ import {
   stopSandboxView,
   ffMergeSandboxToUser,
   watchSandboxRef,
-  snapshotGitIntegrity,
-  watchGitIntegrity,
   getSandboxBranchName,
   getSandboxViewPath,
 } from '../../lima/sandboxSync';
@@ -201,74 +199,32 @@ describe('watchSandboxRef', () => {
   });
 });
 
-describe('git integrity watcher', () => {
-  test('snapshot captures hooks and config baseline', async () => {
-    const snap = await snapshotGitIntegrity(repoDir);
-    expect(typeof snap.config).toBe('string');
-    expect(snap.config.length).toBeGreaterThan(0);
-    // git init drops a handful of .sample files in .git/hooks/.
-    const hookNames = Object.keys(snap.hooks);
-    expect(hookNames.length).toBeGreaterThan(0);
-    expect(hookNames.every((n) => n.endsWith('.sample'))).toBe(true);
-  });
-
-  test('fires on a new hook file and on .git/config changes', async () => {
-    const baseline = await snapshotGitIntegrity(repoDir);
-    const events: Array<Parameters<Parameters<typeof watchGitIntegrity>[2]>[0]> = [];
-    const dispose = watchGitIntegrity(repoDir, baseline, (d) => events.push(d));
-
-    try {
-      // Drop an agent-style malicious hook.
-      await fs.writeFile(path.join(repoDir, '.git', 'hooks', 'pre-commit'), '#!/bin/sh\nexit 1\n');
-      await fs.chmod(path.join(repoDir, '.git', 'hooks', 'pre-commit'), 0o755);
-
-      // Tamper with config too.
-      execSync('git config --local core.hooksPath /tmp/evil', { cwd: repoDir });
-
-      const deadline = Date.now() + 3000;
-      while (events.length === 0 && Date.now() < deadline) {
-        await new Promise((r) => setTimeout(r, 50));
-      }
-      // Wait a moment more for both deltas to coalesce.
-      await new Promise((r) => setTimeout(r, 300));
-
-      expect(events.length).toBeGreaterThan(0);
-      const merged = events.reduce<{ hookAdds: string[]; configAdds: string[] }>(
-        (acc, d) => {
-          if (d.hooks?.added) acc.hookAdds.push(...d.hooks.added);
-          if (d.config?.addedLines) acc.configAdds.push(...d.config.addedLines);
-          return acc;
-        },
-        { hookAdds: [], configAdds: [] },
-      );
-      expect(merged.hookAdds).toContain('pre-commit');
-      expect(merged.configAdds.some((l) => l.includes('/tmp/evil'))).toBe(true);
-    } finally {
-      dispose();
-    }
-  });
-
-  test('does not fire when nothing changes', async () => {
-    const baseline = await snapshotGitIntegrity(repoDir);
-    const events: unknown[] = [];
-    const dispose = watchGitIntegrity(repoDir, baseline, (d) => events.push(d));
-    try {
-      await new Promise((r) => setTimeout(r, 400));
-      expect(events.length).toBe(0);
-    } finally {
-      dispose();
-    }
-  });
-});
-
 describe('branch and path helpers', () => {
   test('getSandboxBranchName prefixes the user branch with s/', () => {
     expect(getSandboxBranchName('feat-foo')).toBe('s/feat-foo');
     expect(getSandboxBranchName('test-env-sandbox-1')).toBe('s/test-env-sandbox-1');
   });
 
-  test('getSandboxViewPath lives under ~/Ouijit/sandbox-views/<project>/', () => {
+  test('getSandboxViewPath suffixes -sandbox so the git worktree name is stable', () => {
     const p = getSandboxViewPath('my-proj', 8);
-    expect(p).toBe(path.join(tmpRoot, 'Ouijit', 'sandbox-views', 'my-proj', 'T-8'));
+    expect(p).toBe(path.join(tmpRoot, 'Ouijit', 'sandbox-views', 'my-proj', 'T-8-sandbox'));
+  });
+
+  test('sandbox-view basename does not collide with the user worktree basename', async () => {
+    // User worktree is created in beforeEach at $tmpRoot/user-wt with
+    // basename `user-wt`. If the sandbox view were also basenamed `T-N`
+    // (matching the user task worktree's `T-N` basename), git would
+    // auto-disambiguate the `.git/worktrees/` entry and the mount path
+    // would be unpredictable. Verify the sandbox view basename ends in
+    // `-sandbox` so the .git/worktrees entry name is deterministic.
+    const info = await startSandboxView(repoDir, 11, USER_BRANCH);
+    expect(path.basename(info.path)).toBe('T-11-sandbox');
+    // Git registers the per-worktree dir under its basename.
+    const gitWorktreeDir = path.join(repoDir, '.git', 'worktrees', 'T-11-sandbox');
+    const exists = await fs
+      .access(gitWorktreeDir)
+      .then(() => true)
+      .catch(() => false);
+    expect(exists).toBe(true);
   });
 });

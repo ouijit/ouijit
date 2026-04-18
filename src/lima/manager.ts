@@ -46,10 +46,54 @@ export function getLimactlPath(): string {
   }
 }
 
-/** Get env with LIMA_HOME set to Ouijit-specific directory */
+/**
+ * Allowlist of host env vars forwarded to every `limactl` child process
+ * (VM lifecycle commands and `limactl shell`). limactl needs PATH to
+ * resolve ssh/socat, HOME for its SSH config, and locale vars so the
+ * guest SSH session doesn't fall back to POSIX. Everything else — API
+ * keys, cloud creds, shell history paths, SSH_AUTH_SOCK — is dropped
+ * so a process list or crash dump on the host cannot leak secrets
+ * through limactl.
+ *
+ * Guest-side env (options.env in spawn.ts) is re-exported inside the VM
+ * by `envExports`; it does not need to ride on the host child.
+ */
+const LIMACTL_HOST_ENV_ALLOWLIST: readonly string[] = [
+  'PATH',
+  'HOME',
+  'USER',
+  'LOGNAME',
+  'SHELL',
+  'LANG',
+  'LC_ALL',
+  'LC_CTYPE',
+  'TMPDIR',
+];
+
+/** Path used as LIMA_HOME for all `limactl` invocations. */
+function getLimaHome(): string {
+  return path.join(getUserDataPath(), 'lima');
+}
+
+/**
+ * Build the env passed to any `limactl` child process.
+ * Applies the allowlist uniformly so VM lifecycle commands (list,
+ * create, start, stop, delete, shell) all run with the same narrowed
+ * env — no spread of `process.env`.
+ */
+export function buildLimactlHostEnv(hostEnv: NodeJS.ProcessEnv): Record<string, string> {
+  const env: Record<string, string> = { TERM: 'xterm-256color' };
+  for (const key of LIMACTL_HOST_ENV_ALLOWLIST) {
+    const value = hostEnv[key];
+    if (value !== undefined) env[key] = value;
+  }
+  env.LIMA_HOME = getLimaHome();
+  return env;
+}
+
+/** Shorthand for callers that need the ambient process env. */
 export function getLimaEnv(): Record<string, string> {
-  const limaHome = path.join(getUserDataPath(), 'lima');
-  return { ...process.env, LIMA_HOME: limaHome } as Record<string, string>;
+  return buildLimactlHostEnv(process.env);
 }
 
 /**

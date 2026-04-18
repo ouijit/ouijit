@@ -53,9 +53,9 @@ vi.mock('../lima/sandboxSync', () => ({
   startSandboxView: vi.fn(async () => ({ path: '/sandbox/T', branch: 'T-1-sandbox' })),
   watchSandboxRef: vi.fn(() => () => {}),
   ffMergeSandboxToUser: vi.fn(async () => ({ ok: true, ffMerged: false })),
-  getSandboxBranchName: (n: number) => `T-${n}-sandbox`,
+  getSandboxBranchName: (branch: string) => `s/${branch}`,
   getSandboxViewBaseDir: (name: string) => `/fake-home/Ouijit/sandbox-views/${name}`,
-  getSandboxViewPath: (name: string, n: number) => `/fake-home/Ouijit/sandbox-views/${name}/T-${n}`,
+  getSandboxViewPath: (name: string, n: number) => `/fake-home/Ouijit/sandbox-views/${name}/T-${n}-sandbox`,
 }));
 
 import { createTaskWorktree, startTask, recoverTaskWorktree, removeTaskWorktree } from '../worktree';
