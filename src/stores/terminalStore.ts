@@ -75,6 +75,13 @@ interface TerminalStoreActions {
   addTerminal: (projectPath: string, ptyId: string, initial: Partial<TerminalDisplayState>) => void;
   removeTerminal: (ptyId: string) => void;
   updateDisplay: (ptyId: string, patch: Partial<TerminalDisplayState>) => void;
+  /**
+   * Swap a terminal's key from a placeholder id to the real PTY id. Sandbox
+   * terminals register under an empty id before the VM finishes spawning so
+   * the loading card can render; once the PTY exists we re-key all per-pty
+   * state to the real id.
+   */
+  rekeyTerminal: (oldPtyId: string, newPtyId: string) => void;
   setActiveIndex: (projectPath: string, index: number) => void;
   activateLast: (projectPath: string) => void;
   clearProject: (projectPath: string) => void;
@@ -152,6 +159,29 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
       displayStates: {
         ...state.displayStates,
         [ptyId]: { ...existing, ...patch },
+      },
+    });
+  },
+
+  rekeyTerminal: (oldPtyId, newPtyId) => {
+    if (oldPtyId === newPtyId) return;
+    const state = get();
+    const existing = state.displayStates[oldPtyId];
+    if (!existing) return;
+
+    const nextDisplayStates = { ...state.displayStates };
+    delete nextDisplayStates[oldPtyId];
+    nextDisplayStates[newPtyId] = { ...existing, ptyId: newPtyId };
+
+    const projectPath = existing.projectPath;
+    const projectTerminals = state.terminalsByProject[projectPath] ?? [];
+    const nextProjectTerminals = projectTerminals.map((id) => (id === oldPtyId ? newPtyId : id));
+
+    set({
+      displayStates: nextDisplayStates,
+      terminalsByProject: {
+        ...state.terminalsByProject,
+        [projectPath]: nextProjectTerminals,
       },
     });
   },
