@@ -22,8 +22,7 @@ import {
   type TaskMetadata,
 } from './db';
 import { mergeWorktreeBranch } from './git';
-import { runInVm } from './lima/manager';
-import { buildOverlayCleanup } from './lima/overlay';
+import { stopSandboxView } from './lima/sandboxSync';
 
 const worktreeLog = getLogger().scope('worktree');
 
@@ -483,14 +482,14 @@ export async function removeTaskWorktree(
     const task = await getTaskByNumber(projectPath, taskNumber);
     const branchName = task?.branch;
 
-    // Best-effort: umount and reclaim the per-task overlay BEFORE removing
-    // the host worktree, while the bind mount targets still resolve.
-    // Swallow errors — the VM may not be running.
-    if (task?.sandboxed && !Number.isNaN(taskNumber)) {
+    // Best-effort: remove the sandbox-view worktree and its s/<branch>
+    // branch before touching the user worktree, so git's metadata stays
+    // consistent. Swallow errors — the view may already be gone.
+    if (task?.sandboxed && task.branch && !Number.isNaN(taskNumber)) {
       try {
-        await runInVm(projectPath, buildOverlayCleanup(taskNumber));
+        await stopSandboxView(projectPath, taskNumber, task.branch);
       } catch (error) {
-        worktreeLog.warn('overlay cleanup failed', {
+        worktreeLog.warn('sandbox view cleanup failed', {
           taskNumber,
           error: error instanceof Error ? error.message : String(error),
         });

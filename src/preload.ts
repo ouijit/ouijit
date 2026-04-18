@@ -214,5 +214,8 @@ contextBridge.exposeInMainWorld('api', {
     delete: (projectPath: string) => typedInvoke('lima:delete', projectPath),
     onSpawnProgress: (callback: (step: { id: string; label: string; status: 'active' | 'done' }) => void) =>
       typedListen('lima:spawn-progress', callback),
+    onSandboxDiverged: (
+      callback: (event: { taskNumber: number; userWorktreePath: string; sandboxViewPath: string }) => void,
+    ) => typedListen('sandbox:diverged', callback),
   },
 });

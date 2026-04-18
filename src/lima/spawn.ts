@@ -1,11 +1,13 @@
 import * as pty from 'node-pty';
 import { BrowserWindow } from 'electron';
 import type { PtySpawnOptions, PtySpawnResult, PtyId } from '../types';
-import type { ActiveSession } from '../ptyManager';
+import { registerSandboxPtyId, unregisterSandboxPtyId, type ActiveSession } from '../ptyManager';
 import { generateId } from '../utils/ids';
-import { ensureRunning, getLimactlPath, getLimaEnv } from './manager';
+import { buildLimactlHostEnv, ensureRunning, getLimactlPath } from './manager';
 import { getApiPort, HELPER_SCRIPT, buildVmHookSettings } from '../hookServer';
-import { listMaskedPaths, buildOverlayBindMountSetup, buildSandboxNoMatchesBanner } from './overlay';
+import { issueToken, revokeToken } from '../apiAuth';
+import { getTaskByNumber } from '../db';
+import { startSandboxView, watchSandboxRef, ffMergeSandboxToUser } from './sandboxSync';
 import { getLogger } from '../logger';
 
 const spawnLog = getLogger().scope('limaSpawn');
@@ -22,6 +24,8 @@ interface ManagedSandboxPty {
   outputChunks: string[];
   outputSize: number;
   maxBufferSize: number;
+  /** Disposer for the sandbox-branch ref watcher, set for sandboxed tasks. */
+  disposeRefWatcher?: () => void;
 }
 
 const activeSandboxPtys = new Map<PtyId, ManagedSandboxPty>();
@@ -97,8 +101,48 @@ export async function spawnSandboxedPty(options: PtySpawnOptions, window: Browse
     const instanceName = vmResult.instanceName;
     sendStep({ id: 'shell', label: 'Launching shell…', status: 'active' });
 
-    // Use host cwd directly — mounts match host paths
-    const guestCwd = options.cwd;
+    // Dual-worktree: if this terminal belongs to a sandboxed task, we don't
+    // expose the user's worktree to the VM. Instead we materialize a second,
+    // tracked-files-only worktree on a `T-N-sandbox` child branch under
+    // `~/Ouijit/sandbox-views/<proj>/T-N` (mounted into the guest) and swap
+    // the shell's cwd to it. The agent's commits ride on the sandbox branch;
+    // a host-side ref watcher ff-merges them back onto the user branch.
+    let guestCwd = options.cwd;
+    let sandboxViewPath: string | undefined;
+    let sandboxUserWorktreePath: string | undefined;
+    let sandboxUserBranch: string | undefined;
+
+    if (options.taskId != null) {
+      const task = await getTaskByNumber(projectPath, options.taskId);
+      if (!task) {
+        return { success: false, error: `Sandboxed task ${options.taskId} not found for project` };
+      }
+      if (!task.branch) {
+        return { success: false, error: `Sandboxed task ${options.taskId} has no branch` };
+      }
+      if (!task.worktreePath) {
+        return { success: false, error: `Sandboxed task ${options.taskId} has no worktree path` };
+      }
+      sandboxUserWorktreePath = task.worktreePath;
+      sandboxUserBranch = task.branch;
+      try {
+        const view = await startSandboxView(projectPath, options.taskId, task.branch);
+        sandboxViewPath = view.path;
+        guestCwd = view.path;
+        spawnLog.info('sandbox view ready', {
+          taskId: options.taskId,
+          viewPath: view.path,
+          branch: view.branch,
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        spawnLog.error('startSandboxView failed — refusing to spawn sandboxed terminal', {
+          taskId: options.taskId,
+          error: message,
+        });
+        return { success: false, error: `Failed to create sandbox-view worktree: ${message}` };
+      }
+    }
 
     // Export Ouijit env vars inside the VM since SSH doesn't forward them
     let envExports = '';
@@ -112,119 +156,40 @@ export async function spawnSandboxedPty(options: PtySpawnOptions, window: Browse
     }
 
     const ptyId = generateId('pty-sandbox');
+    const apiToken = issueToken(ptyId, 'sandbox');
 
     // Inject hook API env vars into the VM shell (host.lima.internal resolves to host)
     envExports += `export OUIJIT_PTY_ID='${ptyId}'\n`;
     envExports += `export OUIJIT_API_URL='http://host.lima.internal:${getApiPort()}'\n`;
+    envExports += `export OUIJIT_API_TOKEN='${apiToken}'\n`;
 
     // Inject hook script + Claude settings into VM's ephemeral home dir
     const hookSetup = buildVmHookSetup();
-
-    // Per-task bind-mount overlay for every gitignored path (files + dirs)
-    // on the guest's local ext4. Runs before hookSetup so mounts are live
-    // for hooks. Enumerate from the worktree — not the project — so that
-    // gitignored files created inside the worktree (e.g. a .env.secrets the
-    // user just dropped in) and any worktree-local .gitignore edits are
-    // honored.
-    //
-    // Fail-closed: if we can't enumerate the mask list at all (git errored,
-    // path isn't a repo, etc.), refuse to spawn the PTY. A sandboxed task
-    // without working isolation is a broken sandbox; we'd rather the user
-    // see a spawn error and fix their setup than run an agent against an
-    // unmasked worktree. Failures that happen guest-side (no passwordless
-    // sudo, mount errors) are handled by buildOverlayBindMountSetup, which
-    // prints a red banner and exits the shell before `exec bash`.
-    //
-    // The one non-fatal path is "no gitignored files in this worktree" —
-    // that's a legitimate empty state, so we proceed with a yellow warning
-    // banner instead of failing.
-    let overlaySetup = '';
-    if (options.taskId != null && options.worktreePath) {
-      try {
-        const masks = await listMaskedPaths(options.worktreePath);
-        if (masks.length === 0) {
-          spawnLog.warn('sandboxed task has no gitignored paths to mask', {
-            taskId: options.taskId,
-            worktreePath: options.worktreePath,
-          });
-          sendStep({
-            id: 'mask',
-            label: 'No gitignored paths to isolate',
-            status: 'done',
-          });
-          overlaySetup = buildSandboxNoMatchesBanner();
-        } else {
-          const fileCount = masks.filter((m) => m.type === 'file').length;
-          const dirCount = masks.length - fileCount;
-          spawnLog.info('sandbox masking paths', {
-            taskId: options.taskId,
-            total: masks.length,
-            files: fileCount,
-            dirs: dirCount,
-          });
-          sendStep({
-            id: 'mask',
-            label: `Isolating ${masks.length} path${masks.length === 1 ? '' : 's'} (${dirCount} dir, ${fileCount} file)…`,
-            status: 'done',
-          });
-          overlaySetup = buildOverlayBindMountSetup({
-            worktreePath: options.worktreePath,
-            taskId: options.taskId,
-            masks,
-          });
-        }
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        spawnLog.error('listMaskedPaths failed — refusing to spawn sandboxed terminal', {
-          taskId: options.taskId,
-          worktreePath: options.worktreePath,
-          error: message,
-        });
-        return {
-          success: false,
-          error: `Sandbox isolation could not be computed (${message}). Refusing to start a sandboxed terminal without gitignore-based masking.`,
-        };
-      }
-    }
 
     // Build the command to run inside the VM
     let innerCmd: string;
     if (options.command) {
       // Run command then drop to interactive bash
       const escapedCmd = options.command.replace(/'/g, "'\\''");
-      innerCmd = `${envExports}${overlaySetup}${hookSetup}${escapedCmd}; exec bash`;
+      innerCmd = `${envExports}${hookSetup}${escapedCmd}; exec bash`;
     } else {
-      innerCmd = `${envExports}${overlaySetup}${hookSetup}exec bash`;
+      innerCmd = `${envExports}${hookSetup}exec bash`;
     }
 
     // Build limactl shell args
     const limactlArgs = ['shell', '--workdir', guestCwd, instanceName, '--', 'bash', '-c', innerCmd];
 
-    // Build environment: pass through env vars via limactl's environment
-    const baseEnv: Record<string, string> = {};
-    for (const [key, value] of Object.entries(process.env)) {
-      if (value !== undefined) {
-        baseEnv[key] = value;
-      }
-    }
-    const finalEnv: Record<string, string> = {
-      ...baseEnv,
-      TERM: 'xterm-256color',
-    };
-    if (options.env) {
-      for (const [key, value] of Object.entries(options.env)) {
-        if (value !== undefined) {
-          finalEnv[key] = value;
-        }
-      }
-    }
-
+    // Build env for the host-side limactl child process. Only keys limactl
+    // and its SSH helper legitimately need — no blanket spread of
+    // process.env. Guest-bound variables (options.env) are already
+    // re-exported inside the VM via `envExports` above; they don't need
+    // to sit on the host child.
     const ptyProcess = pty.spawn(getLimactlPath(), limactlArgs, {
       name: 'xterm-256color',
       cols: options.cols || 80,
       rows: options.rows || 24,
       cwd: options.cwd,
-      env: { ...finalEnv, LIMA_HOME: getLimaEnv().LIMA_HOME },
+      env: buildLimactlHostEnv(process.env),
     });
 
     const label = options.label || options.command || 'Sandbox Shell';
@@ -244,6 +209,30 @@ export async function spawnSandboxedPty(options: PtySpawnOptions, window: Browse
     };
 
     activeSandboxPtys.set(ptyId, managed);
+    registerSandboxPtyId(ptyId);
+
+    // Watch the sandbox branch ref so agent commits fast-forward onto the
+    // user's branch. Fires per-PTY, not per-terminal-card; sharing the
+    // watcher across PTYs would couple lifetimes unnecessarily.
+    if (options.taskId != null && sandboxUserWorktreePath && sandboxViewPath && sandboxUserBranch) {
+      const taskNumber = options.taskId;
+      const userWorktreePath = sandboxUserWorktreePath;
+      const userBranch = sandboxUserBranch;
+      const watchProject = projectPath;
+      managed.disposeRefWatcher = watchSandboxRef(watchProject, userBranch, () => {
+        void ffMergeSandboxToUser(userWorktreePath, userBranch).then((result) => {
+          if (result.ok === false && result.reason === 'non-ff') {
+            if (currentWindow && !currentWindow.isDestroyed()) {
+              currentWindow.webContents.send('sandbox:diverged', {
+                taskNumber,
+                userWorktreePath,
+                sandboxViewPath,
+              });
+            }
+          }
+        });
+      });
+    }
 
     ptyProcess.onData((data: string) => {
       handleOutput(ptyId, `pty:data:${ptyId}`, data);
@@ -255,7 +244,11 @@ export async function spawnSandboxedPty(options: PtySpawnOptions, window: Browse
           currentWindow.webContents.send(`pty:exit:${ptyId}`, exitCode);
         }
       } finally {
+        const m = activeSandboxPtys.get(ptyId);
+        m?.disposeRefWatcher?.();
         activeSandboxPtys.delete(ptyId);
+        unregisterSandboxPtyId(ptyId);
+        revokeToken(ptyId);
       }
     });
 
@@ -302,6 +295,7 @@ export function killSandboxPty(ptyId: PtyId): void {
   const managed = activeSandboxPtys.get(ptyId);
   if (!managed) return;
 
+  managed.disposeRefWatcher?.();
   try {
     process.kill(-managed.process.pid, 'SIGTERM');
   } catch {
@@ -312,6 +306,8 @@ export function killSandboxPty(ptyId: PtyId): void {
     }
   }
   activeSandboxPtys.delete(ptyId);
+  unregisterSandboxPtyId(ptyId);
+  revokeToken(ptyId);
 }
 
 /**
@@ -353,7 +349,8 @@ export function reconnectSandboxPty(
  * Clean up all sandboxed PTYs (called on app quit)
  */
 export function cleanupSandboxPtys(): void {
-  for (const [, managed] of activeSandboxPtys) {
+  for (const [ptyId, managed] of activeSandboxPtys) {
+    managed.disposeRefWatcher?.();
     try {
       process.kill(-managed.process.pid, 'SIGTERM');
     } catch {
@@ -363,6 +360,8 @@ export function cleanupSandboxPtys(): void {
         // Ignore errors during cleanup
       }
     }
+    unregisterSandboxPtyId(ptyId);
+    revokeToken(ptyId);
   }
   activeSandboxPtys.clear();
 }

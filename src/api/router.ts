@@ -37,6 +37,7 @@ import { getPlanPath, setPlanPath, clearPlanPath } from '../hookServer';
 import { isPtyActive } from '../ptyManager';
 import { typedPush } from '../ipc/helpers';
 import { getLogger } from '../logger';
+import { authenticateRequest, type AuthContext, type ApiScope } from '../apiAuth';
 
 const apiLog = getLogger().scope('api');
 
@@ -49,6 +50,7 @@ interface ParsedRequest {
   segments: string[]; // URL path segments after /api/
   query: URLSearchParams;
   body: Record<string, unknown>;
+  auth: AuthContext;
 }
 
 function readBody(req: IncomingMessage): Promise<string> {
@@ -103,6 +105,12 @@ interface Route {
   pattern: string[];
   handler: RouteHandler;
   mutating: boolean;
+  /**
+   * Minimum scope required to hit this route. Defaults to 'host' so
+   * sandbox-scoped callers (anything reaching us from inside a guest VM
+   * via host.lima.internal) cannot hit privileged endpoints by default.
+   */
+  minScope: ApiScope;
 }
 
 function matchRoute(
@@ -130,8 +138,14 @@ function matchRoute(
 
 // ── Routes ───────────────────────────────────────────────────────────
 
-function route(method: string, pattern: string, handler: RouteHandler, mutating = false): Route {
-  return { method, pattern: pattern.split('/').filter(Boolean), handler, mutating };
+function route(
+  method: string,
+  pattern: string,
+  handler: RouteHandler,
+  mutating = false,
+  minScope: ApiScope = 'host',
+): Route {
+  return { method, pattern: pattern.split('/').filter(Boolean), handler, mutating, minScope };
 }
 
 const routes: Route[] = [
@@ -161,6 +175,12 @@ const routes: Route[] = [
     'tasks/start',
     (r) => {
       const project = requireProject(r.query);
+      // Sandbox scope can't reach this route (default minScope is 'host'),
+      // but double-check the intent: an unsandboxed task must never be
+      // created from a sandbox-scoped caller.
+      if (r.auth.scope === 'sandbox' && r.body.sandboxed === false) {
+        throw new HttpError(403, 'Sandboxed sessions cannot create unsandboxed tasks');
+      }
       return createTaskWorktree(
         project,
         r.body.name as string | undefined,
@@ -349,33 +369,47 @@ const routes: Route[] = [
   ),
 
   // ── Plan ──────────────────────────────────────────────────────────
+  // These routes are host-only: the guest shouldn't be able to steer
+  // the host renderer to read arbitrary .md files outside the worktree
+  // by setting a plan path. Inside the guest, plans flow through the
+  // `/hook` action:plan path which server-joins under ~/.claude/plans.
   route('GET', 'plan/:ptyId', (r) => {
     const ptyId = r.segments[1];
     return { ptyId, planPath: getPlanPath(ptyId) };
   }),
 
-  route('POST', 'plan/:ptyId', (r) => {
-    const ptyId = r.segments[1];
-    const planPath = r.body.path;
-    if (typeof planPath !== 'string' || !planPath) {
-      throw new HttpError(400, 'Missing path in body');
-    }
-    if (!planPath.endsWith('.md')) {
-      throw new HttpError(400, 'Plan path must be a .md file');
-    }
-    if (!isPtyActive(ptyId)) {
-      throw new HttpError(404, `PTY ${ptyId} not found or inactive`);
-    }
-    const resolved = path.resolve(planPath);
-    setPlanPath(ptyId, resolved);
-    return { success: true, ptyId, planPath: resolved };
-  }),
+  route(
+    'POST',
+    'plan/:ptyId',
+    (r) => {
+      const ptyId = r.segments[1];
+      const planPath = r.body.path;
+      if (typeof planPath !== 'string' || !planPath) {
+        throw new HttpError(400, 'Missing path in body');
+      }
+      if (!planPath.endsWith('.md')) {
+        throw new HttpError(400, 'Plan path must be a .md file');
+      }
+      if (!isPtyActive(ptyId)) {
+        throw new HttpError(404, `PTY ${ptyId} not found or inactive`);
+      }
+      const resolved = path.resolve(planPath);
+      setPlanPath(ptyId, resolved);
+      return { success: true, ptyId, planPath: resolved };
+    },
+    true,
+  ),
 
-  route('DELETE', 'plan/:ptyId', (r) => {
-    const ptyId = r.segments[1];
-    clearPlanPath(ptyId);
-    return { success: true, ptyId };
-  }),
+  route(
+    'DELETE',
+    'plan/:ptyId',
+    (r) => {
+      const ptyId = r.segments[1];
+      clearPlanPath(ptyId);
+      return { success: true, ptyId };
+    },
+    true,
+  ),
 ];
 
 // ── Main handler ─────────────────────────────────────────────────────
@@ -395,9 +429,23 @@ async function handleAsync(req: IncomingMessage, res: ServerResponse, window: Br
   const apiPath = url.pathname.replace(/^\/api\//, '');
   const segments = apiPath.split('/').filter(Boolean);
 
+  // Every route requires a valid per-PTY bearer token. Sandboxed VMs
+  // reach us via host.lima.internal — we can't rely on loopback
+  // reachability as a security boundary.
+  const auth = authenticateRequest(req.headers['authorization']);
+  if (!auth) {
+    json(res, 401, { error: 'Unauthorized' });
+    return;
+  }
+
   const matched = matchRoute(routes, method, segments);
   if (!matched) {
     json(res, 404, { error: `No route for ${method} /api/${apiPath}` });
+    return;
+  }
+
+  if (matched.route.minScope === 'host' && auth.scope !== 'host') {
+    json(res, 403, { error: 'Forbidden' });
     return;
   }
 
@@ -413,7 +461,7 @@ async function handleAsync(req: IncomingMessage, res: ServerResponse, window: Br
   }
 
   try {
-    const result = await matched.route.handler({ method, segments, query: url.searchParams, body });
+    const result = await matched.route.handler({ method, segments, query: url.searchParams, body, auth });
     json(res, 200, { data: result });
 
     // Notify renderer after mutating operations

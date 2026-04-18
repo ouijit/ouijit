@@ -455,7 +455,22 @@ export class OuijitTerminal {
     opts?: { onData?: (data: string) => void; onExit?: (exitCode: number) => void; skipSideEffects?: boolean },
   ): void {
     if (this.disposed) return;
+    // Sandbox terminals register under an empty ptyId before the real
+    // one is known (so the loading card can render while the VM spawns).
+    // Re-key the registry and Zustand store to the real id so downstream
+    // lookups — hook status updates, plan events, git-status refresh —
+    // can find us.
+    const prevPtyId = this.ptyId;
+    if (prevPtyId !== ptyId) {
+      if (terminalInstances.get(prevPtyId) === this) {
+        terminalInstances.delete(prevPtyId);
+      }
+      useTerminalStore.getState().rekeyTerminal(prevPtyId, ptyId);
+    }
     this.ptyId = ptyId;
+    if (terminalInstances.get(ptyId) !== this) {
+      terminalInstances.set(ptyId, this);
+    }
     this.bound = true;
 
     this.wireDataHandler(opts?.skipSideEffects, opts?.onData);
