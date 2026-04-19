@@ -14,6 +14,7 @@ import { ProjectRepo } from '../db/repos/projectRepo';
 import { TaskRepo } from '../db/repos/taskRepo';
 import { HookRepo } from '../db/repos/hookRepo';
 import { ScriptRepo } from '../db/repos/scriptRepo';
+import { GlobalSettingsRepo } from '../db/repos/globalSettingsRepo';
 import { getLogger } from '../logger';
 
 const captureFixtureLog = getLogger().scope('captureFixture');
@@ -180,6 +181,8 @@ export function seedCaptureFixture(
   scriptRepo.save(projectPath, 'Reset DB', 'npm run db:reset');
   scriptRepo.save(projectPath, 'Build CLI', 'npm run build:cli');
   scriptRepo.save(projectPath, 'Run tests', 'npm test');
+
+  new GlobalSettingsRepo(db).set(`experimental:${projectPath}`, JSON.stringify({ canvas: true }));
 
   captureFixtureLog.info('fixture seeded', { projectPath, tasks: TASK_SEEDS.length });
 

@@ -134,9 +134,30 @@ function buildTerminalSeeds() {
   ];
 }
 
+function buildCanvasSeeds() {
+  const positionsByPtyId = {
+    'capture-pty-1a': { x: 0, y: 0 },
+    'capture-pty-1b': { x: 800, y: 0 },
+    'capture-pty-2': { x: 1600, y: 0 },
+    'capture-pty-3': { x: 400, y: 620 },
+    'capture-pty-4': { x: 1200, y: 620 },
+  };
+  return buildTerminalSeeds().map((seed) => ({
+    ...seed,
+    canvasPosition: positionsByPtyId[seed.ptyId],
+  }));
+}
+
 const SCENES = [
   { scene: 'kanban', file: 'kanban.png', needsProject: true, seeds: buildTerminalSeeds() },
   { scene: 'terminal-stack', file: 'terminal-stack.png', needsProject: true },
+  {
+    scene: 'canvas',
+    file: 'canvas.png',
+    needsProject: true,
+    seeds: buildCanvasSeeds(),
+    canvasViewport: { x: 120, y: 140, zoom: 0.4 },
+  },
   { scene: 'settings', file: 'settings.png', needsProject: true },
 ];
 
@@ -268,6 +289,7 @@ async function main() {
       const payload = { scene: scene.scene };
       if (scene.needsProject) payload.projectPath = projectPath;
       if (scene.seeds) payload.terminalSeeds = scene.seeds;
+      if (scene.canvasViewport) payload.canvasViewport = scene.canvasViewport;
 
       console.log(`→ ${scene.scene}`);
       const outPath = path.join(OUT_DIR, scene.file);

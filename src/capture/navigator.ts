@@ -11,6 +11,7 @@ import log from 'electron-log/renderer';
 import { useAppStore } from '../stores/appStore';
 import { useProjectStore } from '../stores/projectStore';
 import { useTerminalStore, DEFAULT_DISPLAY_STATE } from '../stores/terminalStore';
+import { useCanvasStore } from '../stores/canvasStore';
 import { OuijitTerminal, terminalInstances } from '../components/terminal/terminalReact';
 import type { CaptureNavigatePayload, CaptureTerminalSeed } from './types';
 
@@ -96,10 +97,25 @@ export function installCaptureNavigator(): void {
       case 'terminal-stack':
         projectStore.setActivePanel('terminals');
         projectStore.setKanbanVisible(false);
+        projectStore.setTerminalLayout('stack');
         break;
       case 'settings':
         projectStore.setActivePanel('settings');
         projectStore.setKanbanVisible(false);
+        break;
+      case 'canvas':
+        projectStore.setActivePanel('terminals');
+        projectStore.setKanbanVisible(false);
+        projectStore.setTerminalLayout('canvas');
+        if (payload.terminalSeeds) {
+          const canvas = useCanvasStore.getState();
+          for (const seed of payload.terminalSeeds) {
+            canvas.addNode(payload.projectPath, seed.ptyId, seed.canvasPosition);
+          }
+          if (payload.canvasViewport) {
+            canvas.setViewport(payload.projectPath, payload.canvasViewport);
+          }
+        }
         break;
     }
   });
