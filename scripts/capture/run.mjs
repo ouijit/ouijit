@@ -43,12 +43,37 @@ const captureToken = randomBytes(32).toString('hex');
 const PROJECT_NAME = 'Ouijit Demo';
 const projectPath = path.join(workRoot, 'ouijit-demo');
 
-const SCENES = [
-  { scene: 'kanban', file: 'kanban.png', needsProject: true, seeds: buildTerminalSeeds() },
-  { scene: 'terminal-stack', file: 'terminal-stack.png', needsProject: true },
-  { scene: 'settings', file: 'settings.png', needsProject: true },
-  { scene: 'home', file: 'home.png', needsProject: false },
-];
+const CLAUDE_SCREEN = [
+  '\x1b[38;5;245m> \x1b[0m\x1b[38;5;252mThe snapshot API reuses the existing navigate push event then captures the\r\n',
+  '  window via webContents.capturePage. That keeps scenes in lock-step without\r\n',
+  '  shelling out to screencapture from the renderer.\x1b[0m\r\n\r\n',
+  '\x1b[38;5;245m⏺\x1b[0m \x1b[1mEdit(src/capture/captureRoutes.ts)\x1b[0m\r\n',
+  '\x1b[38;5;244m  ⎿\x1b[0m  Updated handler to resolve mediaSourceId at capture time and fall\r\n',
+  '      back to content mode when screen-recording permission is missing.\r\n\r\n',
+  '\x1b[38;5;245m⏺\x1b[0m \x1b[1mBash(npm run check)\x1b[0m\r\n',
+  '\x1b[38;5;244m  ⎿\x1b[0m  \x1b[38;5;108m✓\x1b[0m All matched files use Prettier code style\r\n\r\n',
+  '\x1b[38;5;212m✦\x1b[0m \x1b[2mThinking…\x1b[0m\r\n',
+].join('');
+
+const VITE_SCREEN = [
+  '\r\n',
+  '  \x1b[1mVITE v6.4.2\x1b[0m  ready in \x1b[1m412\x1b[0m ms\r\n\r\n',
+  '  \x1b[38;5;108m➜\x1b[0m  \x1b[1mLocal\x1b[0m:   \x1b[38;5;75mhttp://localhost:5173/\x1b[0m\r\n',
+  '  \x1b[38;5;108m➜\x1b[0m  \x1b[1mNetwork\x1b[0m: use --host to expose\r\n',
+  '  \x1b[38;5;108m➜\x1b[0m  press \x1b[1mh + enter\x1b[0m to show help\r\n\r\n',
+  '\x1b[38;5;244m11:52:18 AM\x1b[0m [vite] hmr update \x1b[38;5;108m/src/components/kanban/KanbanCard.tsx\x1b[0m\r\n',
+  '\x1b[38;5;244m11:52:19 AM\x1b[0m [vite] page reload \x1b[38;5;108msrc/stores/projectStore.ts\x1b[0m\r\n',
+].join('');
+
+const SANDBOX_SCREEN = [
+  '\x1b[38;5;75m╭─ ouijit\x1b[0m \x1b[2m(sandbox)\x1b[0m \x1b[38;5;75m────────────────────────────────╮\x1b[0m\r\n',
+  '\x1b[38;5;75m│\x1b[0m sandbox:~/project$ npm run check\r\n',
+  '\x1b[38;5;75m│\x1b[0m \x1b[38;5;108m✓\x1b[0m tsc --noEmit\r\n',
+  '\x1b[38;5;75m│\x1b[0m \x1b[38;5;108m✓\x1b[0m eslint src/\r\n',
+  '\x1b[38;5;75m│\x1b[0m \x1b[38;5;108m✓\x1b[0m prettier --check src/\r\n',
+  '\x1b[38;5;75m│\x1b[0m sandbox:~/project$ \x1b[5m▋\x1b[0m\r\n',
+  '\x1b[38;5;75m╰──────────────────────────────────────────────╯\x1b[0m\r\n',
+].join('');
 
 function buildTerminalSeeds() {
   return [
@@ -59,6 +84,7 @@ function buildTerminalSeeds() {
       summary: 'Editing capture driver\u2026',
       summaryType: 'thinking',
       worktreeBranch: 'automate-marketing-screenshots-324',
+      content: CLAUDE_SCREEN,
     },
     {
       ptyId: 'capture-pty-1b',
@@ -67,6 +93,7 @@ function buildTerminalSeeds() {
       summary: 'Vite dev server',
       summaryType: 'ready',
       worktreeBranch: 'automate-marketing-screenshots-324',
+      content: VITE_SCREEN,
     },
     {
       ptyId: 'capture-pty-2',
@@ -75,6 +102,7 @@ function buildTerminalSeeds() {
       summary: 'Wiring sandbox view worktree',
       summaryType: 'thinking',
       worktreeBranch: 'sandbox-dual-worktree-320',
+      content: CLAUDE_SCREEN,
     },
     {
       ptyId: 'capture-pty-3',
@@ -83,6 +111,7 @@ function buildTerminalSeeds() {
       summary: 'Handle hover polished',
       summaryType: 'ready',
       worktreeBranch: 'kanban-drag-handle-325',
+      content: CLAUDE_SCREEN,
     },
     {
       ptyId: 'capture-pty-4',
@@ -92,9 +121,17 @@ function buildTerminalSeeds() {
       summaryType: 'thinking',
       worktreeBranch: 'kanban-drag-handle-hover-326',
       sandboxed: true,
+      content: SANDBOX_SCREEN,
     },
   ];
 }
+
+const SCENES = [
+  { scene: 'kanban', file: 'kanban.png', needsProject: true, seeds: buildTerminalSeeds() },
+  { scene: 'terminal-stack', file: 'terminal-stack.png', needsProject: true },
+  { scene: 'settings', file: 'settings.png', needsProject: true },
+  { scene: 'home', file: 'home.png', needsProject: false },
+];
 
 async function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));

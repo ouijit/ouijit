@@ -11,6 +11,7 @@ import log from 'electron-log/renderer';
 import { useAppStore } from '../stores/appStore';
 import { useProjectStore } from '../stores/projectStore';
 import { useTerminalStore, DEFAULT_DISPLAY_STATE } from '../stores/terminalStore';
+import { OuijitTerminal, terminalInstances } from '../components/terminal/terminalReact';
 import type { CaptureNavigatePayload, CaptureTerminalSeed } from './types';
 
 const captureLog = log.scope('capture');
@@ -28,6 +29,22 @@ function seedTerminal(projectPath: string, seed: CaptureTerminalSeed): void {
     worktreeBranch: seed.worktreeBranch ?? null,
     sandboxed: seed.sandboxed ?? false,
   });
+
+  const term = new OuijitTerminal({
+    projectPath,
+    label: seed.label,
+    taskId: seed.taskId,
+    sandboxed: seed.sandboxed ?? false,
+    worktreeBranch: seed.worktreeBranch,
+    ptyId: seed.ptyId,
+    initialSummaryType: seed.summaryType ?? 'ready',
+  });
+  term.openTerminal();
+  terminalInstances.set(seed.ptyId, term);
+
+  if (seed.content) {
+    term.xterm.write(seed.content);
+  }
 }
 
 async function waitForProject(projectPath: string, timeoutMs = 10_000): Promise<boolean> {

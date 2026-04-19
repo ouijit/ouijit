@@ -10,6 +10,8 @@ export interface CaptureTerminalSeed {
   summaryType?: TerminalDisplayState['summaryType'];
   worktreeBranch?: string;
   sandboxed?: boolean;
+  /** Optional canned ANSI content to write into the xterm on seed */
+  content?: string;
 }
 
 export interface CaptureNavigatePayload {
