@@ -1,5 +1,12 @@
 import { describe, test, expect, beforeEach, vi } from 'vitest';
-import { issueToken, revokeToken, revokeAllTokens, verifyToken, authenticateRequest } from '../apiAuth';
+import {
+  issueToken,
+  registerStaticToken,
+  revokeToken,
+  revokeAllTokens,
+  verifyToken,
+  authenticateRequest,
+} from '../apiAuth';
 
 describe('apiAuth', () => {
   beforeEach(() => {
@@ -68,5 +75,17 @@ describe('apiAuth', () => {
   test('verifyToken does not match a prefix of a stored token', () => {
     const token = issueToken('pty-x', 'host');
     expect(verifyToken(token.slice(0, 32))).toBeNull();
+  });
+
+  test('registerStaticToken lets an external caller pick the token string', () => {
+    registerStaticToken('abc-123', 'capture-driver', 'host');
+    expect(verifyToken('abc-123')).toEqual({ ptyId: 'capture-driver', scope: 'host' });
+  });
+
+  test('registerStaticToken replaces any existing token for the same ptyId', () => {
+    const originalToken = issueToken('capture-driver', 'host');
+    registerStaticToken('replacement', 'capture-driver', 'host');
+    expect(verifyToken(originalToken)).toBeNull();
+    expect(verifyToken('replacement')).not.toBeNull();
   });
 });

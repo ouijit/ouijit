@@ -455,6 +455,15 @@ export interface ElectronAPI {
   lima: LimaAPI;
   /** Global settings API */
   globalSettings: GlobalSettingsAPI;
+  /** Capture-mode API (only populated when OUIJIT_CAPTURE_MODE=1) */
+  capture: CaptureAPI;
+}
+
+/**
+ * Capture-mode API for the screenshot driver.
+ */
+export interface CaptureAPI {
+  onNavigate(callback: (payload: import('./capture/types').CaptureNavigatePayload) => void): () => void;
 }
 
 /**

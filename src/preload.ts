@@ -200,6 +200,11 @@ contextBridge.exposeInMainWorld('api', {
   onCliChange: (callback: (payload: { project: string; action: string; message?: string; ts: number }) => void) =>
     typedListen('cli-change', callback),
 
+  capture: {
+    onNavigate: (callback: (payload: import('./capture/types').CaptureNavigatePayload) => void) =>
+      typedListen('capture:navigate', callback),
+  },
+
   getPathForFile: (file: File): string => webUtils.getPathForFile(file),
   homePath: (): Promise<string> => typedInvoke('get-home-path'),
 

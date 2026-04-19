@@ -224,4 +224,5 @@ export interface IpcPushContract {
   'update-available': { args: [info: { version: string; url: string }] };
   'whats-new': { args: [info: { version: string; notes: string }] };
   'cli-change': { args: [payload: { project: string; action: string; message?: string; ts: number }] };
+  'capture:navigate': { args: [payload: import('../capture/types').CaptureNavigatePayload] };
 }

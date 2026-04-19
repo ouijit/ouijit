@@ -38,6 +38,8 @@ import { isPtyActive } from '../ptyManager';
 import { typedPush } from '../ipc/helpers';
 import { getLogger } from '../logger';
 import { authenticateRequest, type AuthContext, type ApiScope } from '../apiAuth';
+import { isCaptureMode } from '../capture/captureMode';
+import { handleCaptureNavigate, handleCaptureSnapshot } from '../capture/captureRoutes';
 
 const apiLog = getLogger().scope('api');
 
@@ -435,6 +437,35 @@ async function handleAsync(req: IncomingMessage, res: ServerResponse, window: Br
   const auth = authenticateRequest(req.headers['authorization']);
   if (!auth) {
     json(res, 401, { error: 'Unauthorized' });
+    return;
+  }
+
+  // Capture-only routes: gated on OUIJIT_CAPTURE_MODE at runtime so they
+  // simply don't exist in production builds. Auth is already required
+  // (driver uses OUIJIT_CAPTURE_TOKEN registered via registerStaticToken).
+  if (isCaptureMode() && method === 'POST' && segments[0] === 'capture') {
+    let body: Record<string, unknown> = {};
+    try {
+      const raw = await readBody(req);
+      body = raw ? (JSON.parse(raw) as Record<string, unknown>) : {};
+    } catch {
+      json(res, 400, { error: 'Invalid JSON body' });
+      return;
+    }
+    try {
+      let result: unknown;
+      if (segments[1] === 'navigate') {
+        result = handleCaptureNavigate({ window, body });
+      } else if (segments[1] === 'snapshot') {
+        result = await handleCaptureSnapshot({ window, body });
+      } else {
+        json(res, 404, { error: `No capture route /api/capture/${segments[1] ?? ''}` });
+        return;
+      }
+      json(res, 200, { data: result });
+    } catch (err) {
+      json(res, 400, { error: err instanceof Error ? err.message : 'Capture error' });
+    }
     return;
   }
 

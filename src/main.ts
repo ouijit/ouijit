@@ -7,8 +7,10 @@ import { setLogger, type Logger } from './logger';
 import { setUserDataPath, getDbPath, setCliPath } from './paths';
 import { setTrashItem } from './platform';
 import { registerIpcHandlers, cleanupIpc } from './ipc/register';
+import { getApiPort } from './hookServer';
 import { getActiveSessionCount } from './ptyManager';
 import { typedPush } from './ipc/helpers';
+import * as fs from 'node:fs';
 import { initDatabase, closeDatabase } from './db/database';
 import { ProjectRepo } from './db/repos/projectRepo';
 import { TaskRepo } from './db/repos/taskRepo';
@@ -16,6 +18,15 @@ import { SettingsRepo } from './db/repos/settingsRepo';
 import { HookRepo } from './db/repos/hookRepo';
 import { importAll } from './services/dataImportService';
 import { initUpdater, cleanupUpdater } from './updater';
+import {
+  CAPTURE_READY_SENTINEL,
+  CAPTURE_WINDOW_HEIGHT,
+  CAPTURE_WINDOW_WIDTH,
+  getCaptureToken,
+  isCaptureMode,
+} from './capture/captureMode';
+import { seedCaptureFixture } from './capture/fixture';
+import { registerStaticToken } from './apiAuth';
 
 /** Wraps electron-log to the Logger interface */
 function createElectronLogAdapter(electronLog: typeof log): Logger {
@@ -86,11 +97,16 @@ const createWindow = (): BrowserWindow => {
   // Create the browser window.
   const isMac = process.platform === 'darwin';
   const isLinux = process.platform === 'linux';
+  const captureMode = isCaptureMode();
+  const width = captureMode ? CAPTURE_WINDOW_WIDTH : 1200;
+  const height = captureMode ? CAPTURE_WINDOW_HEIGHT : 800;
   const window = new BrowserWindow({
-    width: 1200,
-    height: 800,
-    minWidth: 600,
-    minHeight: 400,
+    width,
+    height,
+    minWidth: captureMode ? width : 600,
+    minHeight: captureMode ? height : 400,
+    resizable: !captureMode,
+    useContentSize: captureMode,
     // macOS: hidden title bar with inset traffic lights
     // Linux/Windows: use default frame (has native window controls)
     ...(isMac && { titleBarStyle: 'hiddenInset', trafficLightPosition: { x: 16, y: 16 } }),
@@ -110,9 +126,23 @@ const createWindow = (): BrowserWindow => {
     window.loadFile(path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`));
   }
 
-  // Open the DevTools in development mode only
-  if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
+  // Open the DevTools in development mode only — capture mode keeps them closed
+  // so screenshots aren't polluted by the detached debugger window.
+  if (MAIN_WINDOW_VITE_DEV_SERVER_URL && !captureMode) {
     window.webContents.openDevTools();
+  }
+
+  // Capture mode: pin the window to a known position so the driver can use
+  // screencapture -R with fixed coordinates (pid → window-id resolution via
+  // System Events is fragile). Also emit a sentinel so logs still show the
+  // load marker.
+  if (captureMode) {
+    window.setPosition(100, 50);
+    window.webContents.once('did-finish-load', () => {
+      setTimeout(() => {
+        process.stdout.write(`${CAPTURE_READY_SENTINEL}\n`);
+      }, 250);
+    });
   }
 
   // Prevent links from opening inside the Electron window.
@@ -192,13 +222,76 @@ app.on('ready', async () => {
   setTrashItem((p) => shell.trashItem(p));
   appLog.info('app ready', { version: app.getVersion(), userData: app.getPath('userData') });
 
-  // Initialize SQLite and migrate any existing JSON data
+  // Initialize SQLite. In capture mode we skip the legacy-JSON import so
+  // the user's real projects (read from ~/Ouijit/added-projects.json) don't
+  // end up in the temp DB and displace the fixture.
   const db = initDatabase(getDbPath());
-  await importAll(db, new ProjectRepo(db), new TaskRepo(db), new SettingsRepo(db), new HookRepo(db));
+  if (!isCaptureMode()) {
+    await importAll(db, new ProjectRepo(db), new TaskRepo(db), new SettingsRepo(db), new HookRepo(db));
+  }
+
+  // Capture mode: register the driver's pre-shared token so it can hit the
+  // REST API without needing to spawn a PTY first, and seed fixture data
+  // into the temp DB.
+  if (isCaptureMode()) {
+    const token = getCaptureToken();
+    if (token) registerStaticToken(token, 'capture-driver', 'host');
+
+    const tempRoot = process.env.OUIJIT_CAPTURE_TEMP_ROOT || app.getPath('userData');
+    try {
+      seedCaptureFixture(db, tempRoot);
+    } catch (err) {
+      appLog.error('capture fixture seed failed', {
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
 
   mainWindow = createWindow();
   await registerIpcHandlers(mainWindow);
-  initUpdater(mainWindow);
+
+  if (isCaptureMode()) {
+    // Write the hook server port + actual window bounds to a well-known
+    // file after the renderer finishes first paint, so the driver has
+    // ground-truth coordinates for `screencapture -R`.
+    const writeInfo = () => {
+      try {
+        if (!mainWindow) return;
+        mainWindow.show();
+        mainWindow.focus();
+        const bounds = mainWindow.getContentBounds();
+        // getMediaSourceId returns "window:<cgwindowid>:0" on macOS — this is
+        // the id `screencapture -l` expects (AXWindow ids from System Events
+        // do NOT work).
+        const mediaSourceId = mainWindow.getMediaSourceId();
+        const match = /^window:(\d+):/.exec(mediaSourceId);
+        const cgWindowId = match ? match[1] : null;
+        const infoPath = path.join(app.getPath('userData'), 'capture-info.json');
+        fs.writeFileSync(
+          infoPath,
+          JSON.stringify({
+            port: getApiPort(),
+            pid: process.pid,
+            bounds,
+            cgWindowId,
+            mediaSourceId,
+          }),
+        );
+        appLog.info('capture info written', { bounds, cgWindowId });
+      } catch (err) {
+        appLog.error('capture info write failed', {
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    };
+    if (mainWindow.webContents.isLoading()) {
+      mainWindow.webContents.once('did-finish-load', () => setTimeout(writeInfo, 400));
+    } else {
+      setTimeout(writeInfo, 400);
+    }
+  } else {
+    initUpdater(mainWindow);
+  }
 });
 
 app.on('before-quit', (e) => {

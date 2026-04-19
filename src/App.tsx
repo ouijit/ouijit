@@ -9,6 +9,7 @@ import { ProjectView } from './components/ProjectViewReact';
 import { ToastContainer } from './components/ui/ToastContainer';
 import { NewProjectDialog } from './components/dialogs/NewProjectDialog';
 import { WhatsNewDialog } from './components/dialogs/WhatsNewDialog';
+import { installCaptureNavigator } from './capture/navigator';
 import log from 'electron-log/renderer';
 import type { Project } from './types';
 
@@ -75,6 +76,11 @@ export function App() {
       document.removeEventListener('dragover', prevent);
       document.removeEventListener('drop', prevent);
     };
+  }, []);
+
+  // Capture-mode IPC navigator (no-op in production builds)
+  useEffect(() => {
+    installCaptureNavigator();
   }, []);
 
   // Load projects and restore last active view before rendering content

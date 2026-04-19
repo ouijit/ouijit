@@ -49,6 +49,19 @@ export function issueToken(ptyId: string, scope: ApiScope): string {
   return token;
 }
 
+/**
+ * Register a caller-supplied token instead of a random one. Only used by
+ * capture mode so an external driver can authenticate without spawning a PTY.
+ */
+export function registerStaticToken(token: string, ptyId: string, scope: ApiScope): void {
+  if (ptyToToken.has(ptyId)) {
+    const existing = ptyToToken.get(ptyId)!;
+    tokens.delete(existing);
+  }
+  tokens.set(token, { ptyId, scope });
+  ptyToToken.set(ptyId, token);
+}
+
 export function revokeToken(ptyId: string): void {
   const token = ptyToToken.get(ptyId);
   if (token) {
