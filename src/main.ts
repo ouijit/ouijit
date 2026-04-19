@@ -105,7 +105,6 @@ const createWindow = (): BrowserWindow => {
     height,
     minWidth: captureMode ? width : 600,
     minHeight: captureMode ? height : 400,
-    resizable: !captureMode,
     useContentSize: captureMode,
     // macOS: hidden title bar with inset traffic lights
     // Linux/Windows: use default frame (has native window controls)
