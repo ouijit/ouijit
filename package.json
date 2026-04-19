@@ -1,7 +1,7 @@
 {
   "name": "ouijit",
   "productName": "ouijit",
-  "version": "1.0.33",
+  "version": "1.0.34",
   "description": "Discover and manage your local development projects",
   "main": ".vite/build/main.js",
   "bin": {
