@@ -366,8 +366,8 @@ h3 { font-size: 1.25rem; }
   bottom: 0;
   left: var(--split, 50%);
   transform: translateX(-50%);
-  width: 3px;
-  background: rgba(255, 255, 255, 0.9);
+  width: 6px;
+  background: var(--color-background);
   border: none;
   padding: 0;
   cursor: ew-resize;
@@ -386,6 +386,7 @@ h3 { font-size: 1.25rem; }
   background: #fff;
   transform: translate(-50%, -50%);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .compare-handle::after {
@@ -398,6 +399,18 @@ h3 { font-size: 1.25rem; }
   font-size: 16px;
   font-weight: 700;
   line-height: 1;
+  transition: transform 0.2s ease;
+}
+
+
+.compare-slider:hover .compare-handle::before,
+.compare-slider.is-dragging .compare-handle::before {
+  transform: translate(-50%, -50%) scale(1.15);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45), 0 0 0 6px rgba(255, 255, 255, 0.12);
+}
+
+.compare-slider.is-dragging .compare-handle::after {
+  transform: translate(-50%, -50%) scale(1.15);
 }
 
 /* --- Features Grid --- */

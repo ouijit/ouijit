@@ -85,6 +85,7 @@
     slider.addEventListener('pointerdown', (e) => {
       pointerId = e.pointerId;
       slider.setPointerCapture(pointerId);
+      slider.classList.add('is-dragging');
       setSplit(e.clientX);
       e.preventDefault();
     });
@@ -100,9 +101,49 @@
         /* ignore */
       }
       pointerId = null;
+      slider.classList.remove('is-dragging');
     };
     slider.addEventListener('pointerup', end);
     slider.addEventListener('pointercancel', end);
+
+    // One-time nudge so it's obvious the handle is draggable.
+    // Skipped if the user prefers reduced motion, and cancelled if they
+    // start dragging before it finishes.
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (!reducedMotion) {
+      const keyframes = [
+        { split: 50, at: 0 },
+        { split: 45, at: 400 },
+        { split: 55, at: 900 },
+        { split: 50, at: 1400 },
+      ];
+      const start = performance.now() + 700; // small pre-delay
+      let raf = 0;
+      const tick = (now) => {
+        if (pointerId !== null) return; // user interrupted
+        const t = now - start;
+        if (t < 0) {
+          raf = requestAnimationFrame(tick);
+          return;
+        }
+        let current = 50;
+        for (let i = 0; i < keyframes.length - 1; i++) {
+          const a = keyframes[i];
+          const b = keyframes[i + 1];
+          if (t >= a.at && t <= b.at) {
+            const p = (t - a.at) / (b.at - a.at);
+            const eased = 0.5 - 0.5 * Math.cos(Math.PI * p); // ease-in-out
+            current = a.split + (b.split - a.split) * eased;
+            break;
+          }
+        }
+        slider.style.setProperty('--split', current + '%');
+        if (t < keyframes[keyframes.length - 1].at) {
+          raf = requestAnimationFrame(tick);
+        }
+      };
+      raf = requestAnimationFrame(tick);
+    }
   }
 
   // --- Docs Sidebar ---
