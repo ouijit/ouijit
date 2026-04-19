@@ -77,9 +77,9 @@ interface TerminalStoreActions {
   updateDisplay: (ptyId: string, patch: Partial<TerminalDisplayState>) => void;
   /**
    * Swap a terminal's key from a placeholder id to the real PTY id. Sandbox
-   * terminals register under an empty id before the VM finishes spawning so
-   * the loading card can render; once the PTY exists we re-key all per-pty
-   * state to the real id.
+   * terminals register under a per-instance placeholder id before the VM
+   * finishes spawning so the loading card can render; once the PTY exists
+   * we re-key all per-pty state to the real id.
    */
   rekeyTerminal: (oldPtyId: string, newPtyId: string) => void;
   setActiveIndex: (projectPath: string, index: number) => void;

@@ -11,6 +11,7 @@ import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import type { PtyId, PtySpawnOptions, GitFileStatus } from '../../types';
 import { notifyReady, readyBody } from '../../utils/notifications';
+import { generateId } from '../../utils/ids';
 import { useTerminalStore } from '../../stores/terminalStore';
 
 // ── Idle fallback timer constants ────────────────────────────────────
@@ -261,7 +262,10 @@ export async function refreshAllTerminalGitStatus(projectPath: string): Promise<
 
 export class OuijitTerminal {
   // ── Identity ────────────────────────────────────────────────────────
-  ptyId: PtyId = '' as PtyId;
+  // Sandboxed terminals register in the store before their real PTY id is
+  // known. Use a unique placeholder per instance so concurrent pending
+  // terminals don't collide on the same key — bind() rekeys to the real id.
+  ptyId: PtyId = generateId('pty-pending') as PtyId;
   readonly projectPath: string;
   command: string | undefined;
   readonly isRunner: boolean;
@@ -455,11 +459,11 @@ export class OuijitTerminal {
     opts?: { onData?: (data: string) => void; onExit?: (exitCode: number) => void; skipSideEffects?: boolean },
   ): void {
     if (this.disposed) return;
-    // Sandbox terminals register under an empty ptyId before the real
-    // one is known (so the loading card can render while the VM spawns).
-    // Re-key the registry and Zustand store to the real id so downstream
-    // lookups — hook status updates, plan events, git-status refresh —
-    // can find us.
+    // Sandbox terminals register under a placeholder ptyId before the
+    // real one is known (so the loading card can render while the VM
+    // spawns). Re-key the registry and Zustand store to the real id so
+    // downstream lookups — hook status updates, plan events, git-status
+    // refresh — can find us.
     const prevPtyId = this.ptyId;
     if (prevPtyId !== ptyId) {
       if (terminalInstances.get(prevPtyId) === this) {
