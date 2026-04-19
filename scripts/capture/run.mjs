@@ -44,8 +44,8 @@ const PROJECT_NAME = 'Ouijit Demo';
 const projectPath = path.join(workRoot, 'ouijit-demo');
 
 const SCENES = [
-  { scene: 'kanban', file: 'kanban.png', needsProject: true },
-  { scene: 'terminal-stack', file: 'terminal-stack.png', needsProject: true, seeds: buildTerminalSeeds() },
+  { scene: 'kanban', file: 'kanban.png', needsProject: true, seeds: buildTerminalSeeds() },
+  { scene: 'terminal-stack', file: 'terminal-stack.png', needsProject: true },
   { scene: 'settings', file: 'settings.png', needsProject: true },
   { scene: 'home', file: 'home.png', needsProject: false },
 ];
@@ -53,18 +53,26 @@ const SCENES = [
 function buildTerminalSeeds() {
   return [
     {
-      ptyId: 'capture-pty-1',
+      ptyId: 'capture-pty-1a',
       taskId: 1,
       label: 'claude',
-      summary: '● Editing capture driver\u2026',
+      summary: 'Editing capture driver\u2026',
       summaryType: 'thinking',
+      worktreeBranch: 'automate-marketing-screenshots-324',
+    },
+    {
+      ptyId: 'capture-pty-1b',
+      taskId: 1,
+      label: 'npm run dev',
+      summary: 'Vite dev server',
+      summaryType: 'ready',
       worktreeBranch: 'automate-marketing-screenshots-324',
     },
     {
       ptyId: 'capture-pty-2',
       taskId: 2,
       label: 'claude',
-      summary: '● Wiring sandbox view worktree',
+      summary: 'Wiring sandbox view worktree',
       summaryType: 'thinking',
       worktreeBranch: 'sandbox-dual-worktree-320',
     },
@@ -72,16 +80,16 @@ function buildTerminalSeeds() {
       ptyId: 'capture-pty-3',
       taskId: 3,
       label: 'claude',
-      summary: '✓ Handle hover polished',
+      summary: 'Handle hover polished',
       summaryType: 'ready',
       worktreeBranch: 'kanban-drag-handle-325',
     },
     {
       ptyId: 'capture-pty-4',
       taskId: 4,
-      label: 'runner',
-      summary: 'npm run dev',
-      summaryType: 'ready',
+      label: 'claude',
+      summary: 'Investigating focus ring contrast',
+      summaryType: 'thinking',
       worktreeBranch: 'kanban-drag-handle-hover-326',
       sandboxed: true,
     },
