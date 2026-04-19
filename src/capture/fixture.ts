@@ -39,6 +39,36 @@ interface TaskSeed {
   sandboxed?: boolean;
 }
 
+const ONBOARDING_PLAN_MARKDOWN = `# Rework onboarding flow
+
+## Outcome
+
+Split the existing single-page onboarding into a three-step stepper that persists progress per-user. Users should be able to close the tab mid-flow and pick up exactly where they left off.
+
+## Starting point
+
+The current \`<Onboarding />\` component renders everything in one scroll. State lives in a local \`useState\` tuple and evaporates on reload. Designers already provided the stepper mocks in Figma (\`Onboarding / v2\`).
+
+## Steps
+
+1. Extract each section into its own screen component under \`src/onboarding/steps/\`.
+2. Add a \`useOnboardingProgress\` hook that reads + writes \`{ step, payload }\` to \`localStorage\` under \`onboarding:<userId>\`.
+3. Wire a header-level \`<Stepper />\` that reflects current step and supports back/next.
+4. Replace the welcome copy block with a reusable \`<WelcomeIntro />\` component so the marketing site can embed it.
+5. Add analytics events (\`onboarding_step_viewed\`, \`onboarding_step_completed\`) at each boundary.
+
+## Out of scope
+
+- Server-side persistence (we can add this later once the event shape is firm).
+- Redesigning the terminal screen — it stays exactly as-is.
+
+## Test plan
+
+- Unit tests for \`useOnboardingProgress\` (initial read, write, clear on completion).
+- RTL tests for the stepper navigation (next, back, direct link to a completed step).
+- Manual: interrupt mid-flow, reload, confirm you land on the same step with the right payload.
+`;
+
 const TASK_SEEDS: TaskSeed[] = [
   {
     name: 'Rework onboarding flow',
@@ -181,6 +211,10 @@ export function seedCaptureFixture(
   scriptRepo.save(projectPath, 'Reset DB', 'npm run db:reset');
   scriptRepo.save(projectPath, 'Build CLI', 'npm run build:cli');
   scriptRepo.save(projectPath, 'Run tests', 'npm test');
+
+  const plansDir = path.join(projectPath, 'plans');
+  fs.mkdirSync(plansDir, { recursive: true });
+  fs.writeFileSync(path.join(plansDir, 'rework-onboarding-flow.md'), ONBOARDING_PLAN_MARKDOWN);
 
   new GlobalSettingsRepo(db).set(`experimental:${projectPath}`, JSON.stringify({ canvas: true }));
 

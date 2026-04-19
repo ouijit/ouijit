@@ -93,6 +93,8 @@ function buildTerminalSeeds() {
       summaryType: 'thinking',
       worktreeBranch: 'rework-onboarding-flow-124',
       content: CLAUDE_SCREEN,
+      planPath: path.join(os.homedir(), 'Code', 'horizon', 'plans', 'rework-onboarding-flow.md'),
+      planPanelOpen: true,
     },
     {
       ptyId: 'capture-pty-1b',

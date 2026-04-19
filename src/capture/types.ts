@@ -14,6 +14,9 @@ export interface CaptureTerminalSeed {
   content?: string;
   /** Canvas layout position — only consumed by the canvas scene */
   canvasPosition?: { x: number; y: number };
+  /** Open the plan panel alongside the terminal when true */
+  planPath?: string;
+  planPanelOpen?: boolean;
 }
 
 export interface CaptureNavigatePayload {
