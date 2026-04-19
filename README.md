@@ -14,7 +14,16 @@
     </span>
   </p>
 
-![Ouijit Project Mode](board.gif)
+<table>
+  <tr>
+    <td><img src="website/assets/screenshots/kanban.png" alt="Kanban board"></td>
+    <td><img src="website/assets/screenshots/terminal-stack.png" alt="Terminal stack"></td>
+  </tr>
+  <tr>
+    <td><img src="website/assets/screenshots/canvas.png" alt="Terminal canvas"></td>
+    <td><img src="website/assets/screenshots/settings.png" alt="Settings"></td>
+  </tr>
+</table>
 
 ## Setup
 
