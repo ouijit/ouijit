@@ -324,6 +324,81 @@ h3 { font-size: 1.25rem; }
   border-radius: 50%;
 }
 
+/* --- Kanban / Terminal compare slider --- */
+.compare-section {
+  padding: 0 var(--content-padding) 80px;
+  max-width: var(--content-max-width);
+  margin: 0 auto;
+}
+
+.compare-slider {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 2784 / 1824;
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+  cursor: ew-resize;
+}
+
+.compare-slider img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+  -webkit-user-drag: none;
+}
+
+.compare-slider .compare-left {
+  clip-path: inset(0 calc(100% - var(--split, 50%)) 0 0);
+}
+
+.compare-slider .compare-right {
+  clip-path: inset(0 0 0 var(--split, 50%));
+}
+
+.compare-handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: var(--split, 50%);
+  transform: translateX(-50%);
+  width: 3px;
+  background: rgba(255, 255, 255, 0.9);
+  border: none;
+  padding: 0;
+  cursor: ew-resize;
+  touch-action: none;
+  pointer-events: none;
+}
+
+.compare-handle::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: #fff;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+}
+
+.compare-handle::after {
+  content: '⇄';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: #333;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1;
+}
 
 /* --- Features Grid --- */
 .features-section {

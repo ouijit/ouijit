@@ -72,6 +72,39 @@
     `;
   }
 
+  // --- Compare Slider ---
+  const slider = document.getElementById('compare-slider');
+  if (slider) {
+    const setSplit = (clientX) => {
+      const rect = slider.getBoundingClientRect();
+      const pct = Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100));
+      slider.style.setProperty('--split', pct + '%');
+    };
+
+    let pointerId = null;
+    slider.addEventListener('pointerdown', (e) => {
+      pointerId = e.pointerId;
+      slider.setPointerCapture(pointerId);
+      setSplit(e.clientX);
+      e.preventDefault();
+    });
+    slider.addEventListener('pointermove', (e) => {
+      if (e.pointerId !== pointerId) return;
+      setSplit(e.clientX);
+    });
+    const end = (e) => {
+      if (e.pointerId !== pointerId) return;
+      try {
+        slider.releasePointerCapture(pointerId);
+      } catch {
+        /* ignore */
+      }
+      pointerId = null;
+    };
+    slider.addEventListener('pointerup', end);
+    slider.addEventListener('pointercancel', end);
+  }
+
   // --- Docs Sidebar ---
   const sidebarEl = document.getElementById('docs-sidebar');
   if (sidebarEl) {
