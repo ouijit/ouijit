@@ -10,24 +10,17 @@
   const navEl = document.getElementById('site-nav');
   if (navEl) {
     const docsHref = prefix + 'docs/';
-    const pricingHref = prefix + 'pricing.html';
-    const isHome = window.location.pathname.endsWith('/') || window.location.pathname.endsWith('/index.html');
-    const featuresHref = isHome ? '#features' : prefix + 'index.html#features';
     navEl.innerHTML = `
       <nav class="site-nav">
         <div class="nav-inner">
           <a class="nav-logo" href="${prefix}index.html"><img src="${prefix}assets/ouijit-logo.svg" alt="ouijit" height="28"></a>
           <ul class="nav-links">
-            <li><a href="${featuresHref}">Features</a></li>
-            <li><a href="${pricingHref}">Pricing</a></li>
             <li><a href="${docsHref}">Docs</a></li>
             <li><a href="https://github.com/ouijit/ouijit" target="_blank" rel="noopener">GitHub</a></li>
           </ul>
           <button class="nav-hamburger" aria-label="Menu">&#9776;</button>
         </div>
         <div class="nav-mobile" id="nav-mobile">
-          <a href="${featuresHref}">Features</a>
-          <a href="${pricingHref}">Pricing</a>
           <a href="${docsHref}">Docs</a>
           <a href="https://github.com/ouijit/ouijit" target="_blank" rel="noopener">GitHub</a>
         </div>
