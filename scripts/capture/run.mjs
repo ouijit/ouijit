@@ -34,24 +34,32 @@ const KEEP = process.env.OUIJIT_CAPTURE_KEEP === '1';
 
 const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'ouijit-capture-'));
 const userDataDir = path.join(tempRoot, 'userData');
-const workRoot = path.join(tempRoot, 'work');
 fs.mkdirSync(userDataDir, { recursive: true });
-fs.mkdirSync(workRoot, { recursive: true });
 
 const captureToken = randomBytes(32).toString('hex');
 
-const PROJECT_NAME = 'Ouijit Demo';
-const projectPath = path.join(workRoot, 'ouijit-demo');
+const PROJECT_NAME = 'horizon';
+const CODE_DIR = path.join(os.homedir(), 'Code');
+const projectPath = path.join(CODE_DIR, PROJECT_NAME);
+const worktreesPath = path.join(CODE_DIR, `${PROJECT_NAME}-worktrees`);
+if (fs.existsSync(projectPath)) {
+  console.error(
+    `Refusing to overwrite existing ${projectPath}. Move or delete it, ` +
+      `or set OUIJIT_CAPTURE_PROJECT_NAME to a different name.`,
+  );
+  process.exit(1);
+}
+fs.mkdirSync(CODE_DIR, { recursive: true });
 
 const CLAUDE_SCREEN = [
-  '\x1b[38;5;245m> \x1b[0m\x1b[38;5;252mThe snapshot API reuses the existing navigate push event then captures the\r\n',
-  '  window via webContents.capturePage. That keeps scenes in lock-step without\r\n',
-  '  shelling out to screencapture from the renderer.\x1b[0m\r\n\r\n',
-  '\x1b[38;5;245m⏺\x1b[0m \x1b[1mEdit(src/capture/captureRoutes.ts)\x1b[0m\r\n',
-  '\x1b[38;5;244m  ⎿\x1b[0m  Updated handler to resolve mediaSourceId at capture time and fall\r\n',
-  '      back to content mode when screen-recording permission is missing.\r\n\r\n',
-  '\x1b[38;5;245m⏺\x1b[0m \x1b[1mBash(npm run check)\x1b[0m\r\n',
-  '\x1b[38;5;244m  ⎿\x1b[0m  \x1b[38;5;108m✓\x1b[0m All matched files use Prettier code style\r\n\r\n',
+  '\x1b[38;5;245m> \x1b[0m\x1b[38;5;252mSplit the onboarding wizard into a stepper with saved progress, and move\r\n',
+  '  the welcome copy into a reusable intro component so the marketing site\r\n',
+  '  can embed it too.\x1b[0m\r\n\r\n',
+  '\x1b[38;5;245m⏺\x1b[0m \x1b[1mEdit(src/onboarding/Stepper.tsx)\x1b[0m\r\n',
+  '\x1b[38;5;244m  ⎿\x1b[0m  Added step-level progress persistence and a back affordance between\r\n',
+  '      each pair of screens.\r\n\r\n',
+  '\x1b[38;5;245m⏺\x1b[0m \x1b[1mBash(npm test onboarding)\x1b[0m\r\n',
+  '\x1b[38;5;244m  ⎿\x1b[0m  \x1b[38;5;108m✓\x1b[0m 14 passed, 0 failed\r\n\r\n',
   '\x1b[38;5;212m✦\x1b[0m \x1b[2mThinking…\x1b[0m\r\n',
 ].join('');
 
@@ -61,17 +69,17 @@ const VITE_SCREEN = [
   '  \x1b[38;5;108m➜\x1b[0m  \x1b[1mLocal\x1b[0m:   \x1b[38;5;75mhttp://localhost:5173/\x1b[0m\r\n',
   '  \x1b[38;5;108m➜\x1b[0m  \x1b[1mNetwork\x1b[0m: use --host to expose\r\n',
   '  \x1b[38;5;108m➜\x1b[0m  press \x1b[1mh + enter\x1b[0m to show help\r\n\r\n',
-  '\x1b[38;5;244m11:52:18 AM\x1b[0m [vite] hmr update \x1b[38;5;108m/src/components/kanban/KanbanCard.tsx\x1b[0m\r\n',
-  '\x1b[38;5;244m11:52:19 AM\x1b[0m [vite] page reload \x1b[38;5;108msrc/stores/projectStore.ts\x1b[0m\r\n',
+  '\x1b[38;5;244m11:52:18 AM\x1b[0m [vite] hmr update \x1b[38;5;108m/src/onboarding/Stepper.tsx\x1b[0m\r\n',
+  '\x1b[38;5;244m11:52:19 AM\x1b[0m [vite] page reload \x1b[38;5;108msrc/routes/dashboard.tsx\x1b[0m\r\n',
 ].join('');
 
 const SANDBOX_SCREEN = [
-  '\x1b[38;5;75m╭─ ouijit\x1b[0m \x1b[2m(sandbox)\x1b[0m \x1b[38;5;75m────────────────────────────────╮\x1b[0m\r\n',
-  '\x1b[38;5;75m│\x1b[0m sandbox:~/project$ npm run check\r\n',
+  '\x1b[38;5;75m╭─ horizon\x1b[0m \x1b[2m(sandbox)\x1b[0m \x1b[38;5;75m──────────────────────────────╮\x1b[0m\r\n',
+  '\x1b[38;5;75m│\x1b[0m sandbox:~/horizon$ npm run check\r\n',
   '\x1b[38;5;75m│\x1b[0m \x1b[38;5;108m✓\x1b[0m tsc --noEmit\r\n',
   '\x1b[38;5;75m│\x1b[0m \x1b[38;5;108m✓\x1b[0m eslint src/\r\n',
   '\x1b[38;5;75m│\x1b[0m \x1b[38;5;108m✓\x1b[0m prettier --check src/\r\n',
-  '\x1b[38;5;75m│\x1b[0m sandbox:~/project$ \x1b[5m▋\x1b[0m\r\n',
+  '\x1b[38;5;75m│\x1b[0m sandbox:~/horizon$ \x1b[5m▋\x1b[0m\r\n',
   '\x1b[38;5;75m╰──────────────────────────────────────────────╯\x1b[0m\r\n',
 ].join('');
 
@@ -81,9 +89,9 @@ function buildTerminalSeeds() {
       ptyId: 'capture-pty-1a',
       taskId: 1,
       label: 'claude',
-      summary: 'Editing capture driver\u2026',
+      summary: 'Editing onboarding stepper\u2026',
       summaryType: 'thinking',
-      worktreeBranch: 'automate-marketing-screenshots-324',
+      worktreeBranch: 'rework-onboarding-flow-124',
       content: CLAUDE_SCREEN,
     },
     {
@@ -92,34 +100,34 @@ function buildTerminalSeeds() {
       label: 'npm run dev',
       summary: 'Vite dev server',
       summaryType: 'ready',
-      worktreeBranch: 'automate-marketing-screenshots-324',
+      worktreeBranch: 'rework-onboarding-flow-124',
       content: VITE_SCREEN,
     },
     {
       ptyId: 'capture-pty-2',
       taskId: 2,
       label: 'claude',
-      summary: 'Wiring sandbox view worktree',
+      summary: 'Wiring the activity feed stream',
       summaryType: 'thinking',
-      worktreeBranch: 'sandbox-dual-worktree-320',
+      worktreeBranch: 'dashboard-activity-feed-120',
       content: CLAUDE_SCREEN,
     },
     {
       ptyId: 'capture-pty-3',
       taskId: 3,
       label: 'claude',
-      summary: 'Handle hover polished',
+      summary: 'Invite email copy tightened',
       summaryType: 'ready',
-      worktreeBranch: 'kanban-drag-handle-325',
+      worktreeBranch: 'invite-email-polish-119',
       content: CLAUDE_SCREEN,
     },
     {
       ptyId: 'capture-pty-4',
       taskId: 4,
       label: 'claude',
-      summary: 'Investigating focus ring contrast',
+      summary: 'Aligning hover states with design tokens',
       summaryType: 'thinking',
-      worktreeBranch: 'kanban-drag-handle-hover-326',
+      worktreeBranch: 'cta-hover-states-121',
       sandboxed: true,
       content: SANDBOX_SCREEN,
     },
@@ -130,7 +138,6 @@ const SCENES = [
   { scene: 'kanban', file: 'kanban.png', needsProject: true, seeds: buildTerminalSeeds() },
   { scene: 'terminal-stack', file: 'terminal-stack.png', needsProject: true },
   { scene: 'settings', file: 'settings.png', needsProject: true },
-  { scene: 'home', file: 'home.png', needsProject: false },
 ];
 
 async function sleep(ms) {
@@ -187,7 +194,8 @@ async function main() {
     ...process.env,
     OUIJIT_CAPTURE_MODE: '1',
     OUIJIT_CAPTURE_TOKEN: captureToken,
-    OUIJIT_CAPTURE_TEMP_ROOT: workRoot,
+    OUIJIT_CAPTURE_PROJECT_PATH: projectPath,
+    OUIJIT_CAPTURE_PROJECT_NAME: PROJECT_NAME,
     OUIJIT_TEST_USER_DATA: userDataDir,
     ELECTRON_DISABLE_SANDBOX: '1',
   };
@@ -226,6 +234,10 @@ async function main() {
     }
     try {
       fs.rmSync(tempRoot, { recursive: true, force: true });
+    } catch {}
+    try {
+      fs.rmSync(projectPath, { recursive: true, force: true });
+      fs.rmSync(worktreesPath, { recursive: true, force: true });
     } catch {}
   };
   process.on('SIGINT', async () => {

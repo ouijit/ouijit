@@ -10,8 +10,8 @@
  * only registered when both env vars are present, and routes 404 otherwise.
  */
 
-export const CAPTURE_WINDOW_WIDTH = 1440;
-export const CAPTURE_WINDOW_HEIGHT = 900;
+export const CAPTURE_WINDOW_WIDTH = 1280;
+export const CAPTURE_WINDOW_HEIGHT = 800;
 export const CAPTURE_READY_SENTINEL = '__OUIJIT_READY__';
 
 export function isCaptureMode(): boolean {

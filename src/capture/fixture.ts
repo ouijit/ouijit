@@ -23,6 +23,11 @@ export interface CaptureFixtureResult {
   projectName: string;
 }
 
+export interface CaptureFixtureOptions {
+  projectPath: string;
+  projectName: string;
+}
+
 interface TaskSeed {
   name: string;
   status: 'todo' | 'in_progress' | 'in_review' | 'done';
@@ -35,92 +40,94 @@ interface TaskSeed {
 
 const TASK_SEEDS: TaskSeed[] = [
   {
-    name: 'Automate marketing screenshots via screencapture',
+    name: 'Rework onboarding flow',
     status: 'in_progress',
-    prompt: 'One command regenerates README + website imagery from a deterministic Ouijit state.',
-    branch: 'automate-marketing-screenshots-324',
+    prompt: 'Split the onboarding wizard into focused steps and persist progress.',
+    branch: 'rework-onboarding-flow-124',
     mergeTarget: 'main',
   },
   {
-    name: 'Sandbox isolation via dual-worktree architecture',
+    name: 'Add activity feed to dashboard',
     status: 'in_progress',
-    prompt: 'Replace in-guest bind-mount overlay with a host-side dual-worktree design.',
-    branch: 'sandbox-dual-worktree-320',
+    prompt: 'Stream recent events into a live activity feed on the dashboard.',
+    branch: 'dashboard-activity-feed-120',
     mergeTarget: 'main',
   },
   {
-    name: 'Add drag handle to kanban cards',
+    name: 'Polish invitation email template',
     status: 'in_progress',
-    prompt: 'Show a handle on hover so it is obvious cards are draggable.',
-    branch: 'kanban-drag-handle-325',
+    prompt: 'Tighten copy and add a clear CTA to the invitation email.',
+    branch: 'invite-email-polish-119',
     mergeTarget: 'main',
   },
   {
-    name: 'Refine drag handle hover styles',
+    name: 'Refine CTA button hover states',
     status: 'in_progress',
-    prompt: 'Child task of kanban drag handle — polish the hover affordance.',
-    branch: 'kanban-drag-handle-hover-326',
+    prompt: 'Child task of invitation polish — align hover states with the design tokens.',
+    branch: 'cta-hover-states-121',
     parentTaskNumber: 3,
-    mergeTarget: 'kanban-drag-handle-325',
+    mergeTarget: 'invite-email-polish-119',
     sandboxed: true,
   },
   {
     name: 'Wire settings sync across windows',
     status: 'todo',
-    prompt: 'Propagate project settings updates to all open Electron windows.',
+    prompt: 'Propagate user settings updates to all open tabs and windows.',
   },
   {
     name: 'Ship keyboard shortcuts cheatsheet',
     status: 'todo',
-    prompt: 'Press ? to open an overlay listing all project-mode shortcuts.',
+    prompt: 'Press ? to open an overlay listing all keyboard shortcuts.',
   },
   {
-    name: 'Fix terminal flicker on focus',
+    name: 'Fix table flicker on column resize',
     status: 'todo',
-    prompt: 'Switching tabs causes a 1-frame xterm re-render.',
+    prompt: 'Column resize causes a one-frame reflow in the data grid.',
   },
   {
-    name: 'Speed up initial project scan',
+    name: 'Speed up initial workspace scan',
     status: 'in_review',
-    prompt: 'Parallelize language detection across project directories.',
-    branch: 'speed-up-project-scan-318',
+    prompt: 'Parallelize workspace indexing on first load.',
+    branch: 'speed-up-workspace-scan-116',
   },
   {
-    name: 'Harden hook server auth',
+    name: 'Harden session auth middleware',
     status: 'in_review',
-    prompt: 'Per-PTY bearer tokens scoped to host vs sandbox.',
-    branch: 'harden-hook-auth-318',
+    prompt: 'Rotate session tokens on privilege change and scope them per origin.',
+    branch: 'harden-session-auth-115',
   },
   {
-    name: 'Make canvas experimental',
+    name: 'Make charts opt-in via feature flag',
     status: 'done',
-    prompt: 'Hide the canvas view behind a per-project experimental toggle.',
-    branch: 'canvas-experimental-313',
+    prompt: 'Hide the experimental charts panel behind a feature flag.',
+    branch: 'charts-feature-flag-110',
   },
   {
-    name: 'Bulk task actions',
+    name: 'Bulk row actions',
     status: 'done',
     prompt: 'Shift-click to select ranges, Cmd-click to toggle.',
-    branch: 'bulk-task-actions-306',
+    branch: 'bulk-row-actions-108',
   },
   {
-    name: 'Add terminal plans management to the CLI',
+    name: 'Add CSV export to the reports page',
     status: 'done',
-    prompt: 'Let scripts associate a plan file with a terminal via ouijit CLI.',
-    branch: 'terminal-plans-cli-304',
+    prompt: 'Export current report view as CSV with applied filters.',
+    branch: 'reports-csv-export-105',
   },
 ];
 
-export function seedCaptureFixture(db: Database.Database, tempRoot: string): CaptureFixtureResult {
-  const projectName = 'Ouijit Demo';
-  const projectPath = path.join(tempRoot, 'ouijit-demo');
-
-  // Build a real git repo so the project scanner + worktree listing don't choke.
+export function seedCaptureFixture(
+  db: Database.Database,
+  { projectPath, projectName }: CaptureFixtureOptions,
+): CaptureFixtureResult {
   fs.mkdirSync(projectPath, { recursive: true });
   try {
     execFileSync('git', ['init', '-q', '-b', 'main'], { cwd: projectPath });
-    fs.writeFileSync(path.join(projectPath, 'README.md'), '# Ouijit Demo\n\nDemo project for capture mode.\n');
-    fs.writeFileSync(path.join(projectPath, 'package.json'), '{\n  "name": "ouijit-demo",\n  "version": "1.0.0"\n}\n');
+    fs.writeFileSync(path.join(projectPath, 'README.md'), `# ${projectName}\n`);
+    fs.writeFileSync(
+      path.join(projectPath, 'package.json'),
+      `{\n  "name": "${projectName}",\n  "version": "1.0.0"\n}\n`,
+    );
     execFileSync('git', ['add', '.'], { cwd: projectPath });
     execFileSync(
       'git',
@@ -142,7 +149,9 @@ export function seedCaptureFixture(db: Database.Database, tempRoot: string): Cap
   for (let i = 0; i < TASK_SEEDS.length; i++) {
     const seed = TASK_SEEDS[i];
     const taskNumber = i + 1;
-    const worktreePath = seed.branch ? path.join(tempRoot, 'worktrees', `T-${taskNumber}`) : undefined;
+    const worktreePath = seed.branch
+      ? path.join(path.dirname(projectPath), `${projectName}-worktrees`, `T-${taskNumber}`)
+      : undefined;
     taskRepo.create(projectPath, taskNumber, seed.name, {
       status: seed.status,
       prompt: seed.prompt,

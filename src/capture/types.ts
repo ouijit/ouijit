@@ -1,6 +1,6 @@
 import type { TerminalDisplayState } from '../stores/terminalStore';
 
-export type CaptureScene = 'home' | 'kanban' | 'settings' | 'terminal-stack';
+export type CaptureScene = 'kanban' | 'settings' | 'terminal-stack';
 
 export interface CaptureTerminalSeed {
   ptyId: string;

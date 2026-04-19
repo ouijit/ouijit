@@ -236,13 +236,18 @@ app.on('ready', async () => {
     const token = getCaptureToken();
     if (token) registerStaticToken(token, 'capture-driver', 'host');
 
-    const tempRoot = process.env.OUIJIT_CAPTURE_TEMP_ROOT || app.getPath('userData');
-    try {
-      seedCaptureFixture(db, tempRoot);
-    } catch (err) {
-      appLog.error('capture fixture seed failed', {
-        error: err instanceof Error ? err.message : String(err),
-      });
+    const projectPath = process.env.OUIJIT_CAPTURE_PROJECT_PATH;
+    const projectName = process.env.OUIJIT_CAPTURE_PROJECT_NAME;
+    if (!projectPath || !projectName) {
+      appLog.error('capture fixture missing OUIJIT_CAPTURE_PROJECT_PATH/NAME');
+    } else {
+      try {
+        seedCaptureFixture(db, { projectPath, projectName });
+      } catch (err) {
+        appLog.error('capture fixture seed failed', {
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
     }
   }
 

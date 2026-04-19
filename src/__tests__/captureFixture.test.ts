@@ -24,14 +24,16 @@ describe('seedCaptureFixture', () => {
   test('seeds a project with tasks across all four columns', () => {
     const db = _initTestDatabase();
 
-    const result = seedCaptureFixture(db, tempRoot);
+    const projectPath = path.join(tempRoot, 'horizon');
+    const result = seedCaptureFixture(db, { projectPath, projectName: 'horizon' });
 
-    expect(result.projectPath).toBe(path.join(tempRoot, 'ouijit-demo'));
+    expect(result.projectPath).toBe(projectPath);
     expect(fs.existsSync(path.join(result.projectPath, '.git'))).toBe(true);
 
     const projects = new ProjectRepo(db).getAll();
     expect(projects).toHaveLength(1);
     expect(projects[0].path).toBe(result.projectPath);
+    expect(projects[0].name).toBe('horizon');
 
     const tasks = new TaskRepo(db).getAllForProject(result.projectPath);
     const statuses = new Set(tasks.map((t) => t.status));
@@ -42,15 +44,16 @@ describe('seedCaptureFixture', () => {
   test('seeds hooks and scripts', () => {
     const db = _initTestDatabase();
 
-    const { projectPath } = seedCaptureFixture(db, tempRoot);
+    const projectPath = path.join(tempRoot, 'horizon');
+    const { projectPath: seeded } = seedCaptureFixture(db, { projectPath, projectName: 'horizon' });
 
-    const hooks = new HookRepo(db).getForProject(projectPath);
+    const hooks = new HookRepo(db).getForProject(seeded);
     expect(hooks.length).toBeGreaterThanOrEqual(3);
     const hookTypes = new Set(hooks.map((h) => h.type));
     expect(hookTypes.has('start')).toBe(true);
     expect(hookTypes.has('run')).toBe(true);
 
-    const scripts = new ScriptRepo(db).getAll(projectPath);
+    const scripts = new ScriptRepo(db).getAll(seeded);
     expect(scripts.length).toBeGreaterThanOrEqual(3);
   });
 });

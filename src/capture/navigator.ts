@@ -73,11 +73,6 @@ export function installCaptureNavigator(): void {
       }
     }
 
-    if (payload.scene === 'home') {
-      useAppStore.getState().navigateHome();
-      return;
-    }
-
     if (!payload.projectPath) {
       captureLog.warn('scene requires projectPath', { scene: payload.scene });
       return;
