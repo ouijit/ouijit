@@ -280,6 +280,29 @@ textarea,
 }
 
 /* ===================================
+   Canvas terminal node cursors
+   — drag handle grabs, rest stays default.
+   Doubled class selectors outrank React Flow's generic .react-flow__node.
+   =================================== */
+
+.react-flow__node.react-flow__node-terminal,
+.react-flow__node.react-flow__node-terminal * {
+  cursor: default;
+}
+
+.react-flow__node.react-flow__node-terminal .terminal-drag-handle,
+.react-flow__node.react-flow__node-terminal .terminal-drag-handle * {
+  cursor: grab;
+}
+
+.react-flow__node.react-flow__node-terminal.dragging,
+.react-flow__node.react-flow__node-terminal.dragging *,
+.react-flow__node.react-flow__node-terminal .terminal-drag-handle:active,
+.react-flow__node.react-flow__node-terminal .terminal-drag-handle:active * {
+  cursor: grabbing;
+}
+
+/* ===================================
    xterm overrides — third-party DOM we don't control
    =================================== */
 

@@ -89,7 +89,7 @@ const ActiveTerminalNode = memo(function ActiveTerminalNode({
           boxShadow: '0 0 0 1px rgba(0, 0, 0, 0.05), 0 4px 12px rgba(0, 0, 0, 0.15), 0 20px 40px rgba(0, 0, 0, 0.2)',
         }}
       >
-        <NodeHeader ptyId={ptyId} />
+        <NodeHeader ptyId={ptyId} selected={!!selected} />
         <div className={bodyClasses} style={selected ? undefined : { pointerEvents: 'none' }}>
           <TerminalBody
             ptyId={ptyId}
@@ -111,7 +111,7 @@ const ActiveTerminalNode = memo(function ActiveTerminalNode({
 
 // ── Header: status light + title, inside the card (drag handle) ─────
 
-const NodeHeader = memo(function NodeHeader({ ptyId }: { ptyId: string }) {
+const NodeHeader = memo(function NodeHeader({ ptyId, selected }: { ptyId: string; selected: boolean }) {
   const label = useTerminalStore((s) => s.displayStates[ptyId]?.label ?? '');
   const summary = useTerminalStore((s) => s.displayStates[ptyId]?.summary ?? '');
   const summaryType = useTerminalStore((s) => s.displayStates[ptyId]?.summaryType ?? 'ready');
@@ -121,8 +121,12 @@ const NodeHeader = memo(function NodeHeader({ ptyId }: { ptyId: string }) {
   const MAX_SCALE = 1.4;
   const inverseScale = zoom > 0 ? Math.min(MAX_SCALE, Math.max(1, 1 / zoom)) : 1;
 
+  const handleClasses = selected
+    ? 'terminal-drag-handle relative shrink-0 px-4 py-2'
+    : 'terminal-drag-handle relative shrink-0 px-4 py-2 bg-white/[0.035] border-b border-white/10';
+
   return (
-    <div className="terminal-drag-handle relative shrink-0 px-4 py-2" style={{ zIndex: 2 }}>
+    <div className={handleClasses} style={{ zIndex: 2 }}>
       <div
         className="flex items-center gap-2.5 min-w-0 origin-top-left"
         style={{

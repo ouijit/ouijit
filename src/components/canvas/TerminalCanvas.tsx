@@ -7,6 +7,7 @@ import {
   MiniMap,
   Panel,
   SelectionMode,
+  useReactFlow,
   type Viewport,
   type NodeChange,
   type EdgeChange,
@@ -20,6 +21,7 @@ import {
 } from '../../stores/canvasStore';
 import { useTerminalStore } from '../../stores/terminalStore';
 import { TerminalNode } from './TerminalNode';
+import { terminalInstances } from '../terminal/terminalReact';
 import { ChainEdge } from './ChainEdge';
 import { CanvasControls } from './CanvasControls';
 import { SmartGuideOverlay } from './SmartGuideOverlay';
@@ -101,6 +103,22 @@ function TerminalCanvasInner({ projectPath }: TerminalCanvasProps) {
   const handleCloseMenu = useCallback(() => setMenuPos(null), []);
   const handlePaneClick = useCallback(() => setMenuPos(null), []);
 
+  // Double-click a node to frame it and focus its terminal
+  const { fitView } = useReactFlow();
+  const handleNodeDoubleClick = useCallback(
+    (_: React.MouseEvent, node: TerminalNodeType) => {
+      setMenuPos(null);
+      if (node.data?.loading) return;
+      fitView({ nodes: [{ id: node.id }], padding: 0.1, duration: 350 });
+      const ptyId = node.data?.ptyId;
+      if (ptyId) {
+        const instance = terminalInstances.get(ptyId);
+        if (instance) requestAnimationFrame(() => instance.xterm.focus());
+      }
+    },
+    [fitView],
+  );
+
   // Phase 3: minimap node color from chain info
   const tasks = useProjectStore((s) => s.tasks);
   const displayStates = useTerminalStore((s) => s.displayStates);
@@ -174,6 +192,7 @@ function TerminalCanvasInner({ projectPath }: TerminalCanvasProps) {
         onSelectionContextMenu={handleSelectionContextMenu}
         onPaneClick={handlePaneClick}
         onNodeClick={handlePaneClick}
+        onNodeDoubleClick={handleNodeDoubleClick}
         panOnScroll
         zoomOnScroll={false}
         zoomOnPinch
