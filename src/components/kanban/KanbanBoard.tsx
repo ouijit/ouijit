@@ -672,7 +672,7 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
       }}
     >
       <div
-        className="kanban-board fixed top-[82px] bottom-4 z-[140] flex flex-col opacity-100 rounded-[14px] overflow-hidden border border-white/10"
+        className="kanban-board glass-bevel fixed top-[82px] bottom-4 z-[140] flex flex-col opacity-100 rounded-[14px] overflow-hidden border border-black/60"
         style={{
           left: 'calc(var(--sidebar-offset, 0px) + 16px)',
           right: showTrash ? 144 : 16,

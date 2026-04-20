@@ -256,10 +256,10 @@ textarea,
 }
 
 /* ===================================
-   Terminal card — glass bezel + recessed screen
+   Glass bevel — outer-edge bezel effect
    =================================== */
 
-.project-card::before {
+.glass-bevel::before {
   content: '';
   position: absolute;
   inset: 0;
@@ -274,7 +274,7 @@ textarea,
   z-index: 1;
 }
 
-.project-card > * {
+.glass-bevel > * {
   position: relative;
   z-index: 0;
 }
