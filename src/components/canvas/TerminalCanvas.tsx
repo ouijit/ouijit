@@ -178,7 +178,7 @@ function TerminalCanvasInner({ projectPath }: TerminalCanvasProps) {
     : { defaultViewport: { x: 0, y: 0, zoom: 1 } as Viewport };
 
   return (
-    <div className="terminal-canvas w-full h-full">
+    <div className="terminal-canvas relative w-full h-full">
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -213,7 +213,6 @@ function TerminalCanvasInner({ projectPath }: TerminalCanvasProps) {
         proOptions={proOptions}
       >
         <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="rgba(255,255,255,0.15)" />
-        <CanvasControls projectPath={projectPath} />
         {nodes.length >= 3 &&
           (minimapOpen ? (
             <MiniMap
@@ -252,6 +251,7 @@ function TerminalCanvasInner({ projectPath }: TerminalCanvasProps) {
           ))}
         <SmartGuideOverlay guides={guides} />
       </ReactFlow>
+      <CanvasControls projectPath={projectPath} />
       <AlignMenu projectPath={projectPath} position={menuPos} onClose={handleCloseMenu} />
     </div>
   );

@@ -1,5 +1,5 @@
 import { memo, useCallback } from 'react';
-import { Panel, useReactFlow, useViewport } from '@xyflow/react';
+import { useReactFlow, useViewport } from '@xyflow/react';
 import { useCanvasStore } from '../../stores/canvasStore';
 
 interface CanvasControlsProps {
@@ -22,44 +22,47 @@ export const CanvasControls = memo(function CanvasControls({ projectPath }: Canv
   const zoomPercent = Math.round(zoom * 100);
 
   return (
-    <Panel position="top-center" className="!m-0" style={{ top: 8 }}>
-      <div
-        className="glass-bevel relative flex items-center gap-0.5 px-1.5 rounded-lg border border-black/60"
-        style={{
-          height: 32,
-          background: 'rgba(28, 28, 30, 0.8)',
-          backdropFilter: 'blur(12px)',
-          WebkitBackdropFilter: 'blur(12px)',
-        }}
+    <div
+      className="glass-bevel flex items-center gap-0.5 px-1.5 rounded-lg border border-black/60"
+      style={{
+        position: 'absolute',
+        top: -16,
+        left: '50%',
+        transform: 'translateX(-50%)',
+        zIndex: 10001,
+        height: 32,
+        background: 'rgba(28, 28, 30, 0.8)',
+        backdropFilter: 'blur(12px)',
+        WebkitBackdropFilter: 'blur(12px)',
+      }}
+    >
+      <ControlButton onClick={handleZoomOut} title="Zoom out (Cmd+-)">
+        <MinusIcon />
+      </ControlButton>
+
+      <button
+        className="px-1.5 font-mono text-xs text-white/50 bg-transparent border-none hover:text-white/80 transition-colors duration-150"
+        onClick={handleFitView}
+        title="Fit view (Cmd+0)"
+        style={{ minWidth: 40, textAlign: 'center' }}
       >
-        <ControlButton onClick={handleZoomOut} title="Zoom out (Cmd+-)">
-          <MinusIcon />
-        </ControlButton>
+        {zoomPercent}%
+      </button>
 
-        <button
-          className="px-1.5 font-mono text-xs text-white/50 bg-transparent border-none hover:text-white/80 transition-colors duration-150"
-          onClick={handleFitView}
-          title="Fit view (Cmd+0)"
-          style={{ minWidth: 40, textAlign: 'center' }}
-        >
-          {zoomPercent}%
-        </button>
+      <ControlButton onClick={handleZoomIn} title="Zoom in (Cmd+=)">
+        <PlusIcon />
+      </ControlButton>
 
-        <ControlButton onClick={handleZoomIn} title="Zoom in (Cmd+=)">
-          <PlusIcon />
-        </ControlButton>
+      <div className="w-px h-4 bg-white/10 mx-0.5" />
 
-        <div className="w-px h-4 bg-white/10 mx-0.5" />
+      <ControlButton onClick={handleFitView} title="Fit all (Cmd+Shift+F)">
+        <FitIcon />
+      </ControlButton>
 
-        <ControlButton onClick={handleFitView} title="Fit all (Cmd+Shift+F)">
-          <FitIcon />
-        </ControlButton>
-
-        <ControlButton onClick={handleToggleGrid} title="Toggle snap to grid" active={gridSnap}>
-          <GridIcon />
-        </ControlButton>
-      </div>
-    </Panel>
+      <ControlButton onClick={handleToggleGrid} title="Toggle snap to grid" active={gridSnap}>
+        <GridIcon />
+      </ControlButton>
+    </div>
   );
 });
 
