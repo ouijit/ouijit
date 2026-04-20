@@ -24,7 +24,7 @@ export const CanvasControls = memo(function CanvasControls({ projectPath }: Canv
   return (
     <Panel position="top-center" className="!m-0" style={{ top: 8 }}>
       <div
-        className="flex items-center gap-0.5 px-1.5 rounded-lg border border-white/10"
+        className="glass-bevel relative flex items-center gap-0.5 px-1.5 rounded-lg border border-black/60"
         style={{
           height: 32,
           background: 'rgba(28, 28, 30, 0.8)',

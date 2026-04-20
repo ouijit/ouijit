@@ -18,7 +18,7 @@ export function ExperimentalFeaturesSection({ projectPath }: ExperimentalFeature
   };
 
   return (
-    <div className="border border-white/10 rounded-[14px] overflow-hidden divide-y divide-white/[0.06] bg-[var(--color-terminal-bg,#171717)]">
+    <div className="glass-bevel relative border border-black/60 rounded-[14px] overflow-hidden divide-y divide-white/[0.06] bg-[var(--color-terminal-bg,#171717)]">
       <ToggleRow
         label="Canvas layout"
         description="React-flow based free-form terminal canvas with grouping and chain edges."
