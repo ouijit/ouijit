@@ -66,8 +66,8 @@ const ActiveTerminalNode = memo(function ActiveTerminalNode({
         maxWidth={2400}
         maxHeight={1600}
         isVisible={!!selected}
-        lineClassName="!border-accent/30"
-        handleClassName="!w-2.5 !h-2.5 !bg-accent/60 !border-accent/80 !rounded-none"
+        lineClassName="!border-0 !border-transparent"
+        handleClassName="!w-3 !h-3 !bg-accent !border-0 !rounded-full"
       />
       <Handle id="top" type="source" position={Position.Top} className="!bg-transparent !border-none !w-0 !h-0" />
       <Handle id="top" type="target" position={Position.Top} className="!bg-transparent !border-none !w-0 !h-0" />
@@ -89,7 +89,7 @@ const ActiveTerminalNode = memo(function ActiveTerminalNode({
           boxShadow: '0 0 0 1px rgba(0, 0, 0, 0.05), 0 4px 12px rgba(0, 0, 0, 0.15), 0 20px 40px rgba(0, 0, 0, 0.2)',
         }}
       >
-        <NodeHeader ptyId={ptyId} selected={!!selected} />
+        <NodeHeader ptyId={ptyId} />
         <div className={bodyClasses} style={selected ? undefined : { pointerEvents: 'none' }}>
           <TerminalBody
             ptyId={ptyId}
@@ -111,7 +111,7 @@ const ActiveTerminalNode = memo(function ActiveTerminalNode({
 
 // ── Header: status light + title, inside the card (drag handle) ─────
 
-const NodeHeader = memo(function NodeHeader({ ptyId, selected }: { ptyId: string; selected: boolean }) {
+const NodeHeader = memo(function NodeHeader({ ptyId }: { ptyId: string }) {
   const label = useTerminalStore((s) => s.displayStates[ptyId]?.label ?? '');
   const summary = useTerminalStore((s) => s.displayStates[ptyId]?.summary ?? '');
   const summaryType = useTerminalStore((s) => s.displayStates[ptyId]?.summaryType ?? 'ready');
@@ -121,14 +121,10 @@ const NodeHeader = memo(function NodeHeader({ ptyId, selected }: { ptyId: string
   const MAX_SCALE = 1.4;
   const inverseScale = zoom > 0 ? Math.min(MAX_SCALE, Math.max(1, 1 / zoom)) : 1;
 
-  const handleClasses = selected
-    ? 'terminal-drag-handle relative shrink-0 px-4 py-2'
-    : 'terminal-drag-handle relative shrink-0 px-4 py-2 bg-white/[0.035] border-b border-white/10';
-
   return (
-    <div className={handleClasses} style={{ zIndex: 2 }}>
+    <div className="terminal-drag-handle relative shrink-0 pl-4 pr-3 py-2.5" style={{ zIndex: 2 }}>
       <div
-        className="flex items-center gap-2.5 min-w-0 origin-top-left"
+        className="flex items-center gap-2 min-w-0 origin-top-left"
         style={{
           transform: `scale(${inverseScale})`,
           width: `${100 / inverseScale}%`,
@@ -136,15 +132,15 @@ const NodeHeader = memo(function NodeHeader({ ptyId, selected }: { ptyId: string
         }}
       >
         <span
-          className={`w-3 h-3 rounded-full shrink-0 transition-all duration-200 ease-out ${summaryType === 'thinking' ? 'bg-[#da77f2]' : 'bg-[#69db7c]'}`}
+          className={`w-2.5 h-2.5 rounded-full shrink-0 transition-all duration-200 ease-out ${summaryType === 'thinking' ? 'bg-[#da77f2]' : 'bg-[#69db7c]'}`}
           data-status={summaryType}
           style={{
             boxShadow:
-              summaryType === 'thinking' ? '0 0 5px rgba(218, 119, 242, 0.5)' : '0 0 5px rgba(105, 219, 124, 0.5)',
+              summaryType === 'thinking' ? '0 0 4px rgba(218, 119, 242, 0.5)' : '0 0 4px rgba(105, 219, 124, 0.5)',
             ...(summaryType === 'thinking' ? { animation: 'terminal-status-pulse 1s ease-in-out infinite' } : {}),
           }}
         />
-        <span className="font-mono text-base font-medium text-white/85 truncate min-w-0">{displayText}</span>
+        <span className="font-mono text-sm font-medium text-white/85 truncate min-w-0">{displayText}</span>
       </div>
     </div>
   );

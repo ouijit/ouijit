@@ -194,6 +194,7 @@ function TerminalCanvasInner({ projectPath }: TerminalCanvasProps) {
         onNodeClick={handlePaneClick}
         onNodeDoubleClick={handleNodeDoubleClick}
         panOnScroll
+        panOnDrag={false}
         zoomOnScroll={false}
         zoomOnPinch
         panActivationKeyCode="Space"
