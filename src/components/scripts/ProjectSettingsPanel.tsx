@@ -68,7 +68,7 @@ export function ProjectSettingsPanel({ projectPath }: ProjectSettingsPanelProps)
             <h2 className="text-sm font-semibold text-text-primary mb-2">Run Scripts</h2>
             <p className="text-xs text-text-tertiary mb-4">Commands available from the terminal run button dropdown.</p>
             <div
-              className="border border-white/10 rounded-[14px] overflow-hidden divide-y divide-white/[0.06]"
+              className="glass-bevel relative border border-black/60 rounded-[14px] overflow-hidden divide-y divide-white/[0.06]"
               style={{
                 background: 'var(--color-terminal-bg, #171717)',
                 boxShadow:

@@ -127,7 +127,7 @@ export function TitleBar({ mode }: TitleBarProps) {
               <span className="text-base font-semibold text-text-primary leading-tight">{activeProjectData.name}</span>
               <span className="text-xs text-text-tertiary leading-tight truncate">{activeProjectPath}</span>
             </div>
-            <div className="flex items-center h-9 ml-3 bg-background-secondary border border-border rounded-[14px] overflow-hidden [-webkit-app-region:no-drag]">
+            <div className="flex items-center h-9 ml-3 bg-background-secondary glass-bevel relative border border-black/60 rounded-[14px] overflow-hidden [-webkit-app-region:no-drag]">
               <TooltipButton
                 text="Board view"
                 className={`w-9 h-full flex items-center justify-center text-text-secondary transition-all duration-150 ease-out hover:text-text-primary hover:bg-background-tertiary [&>svg]:w-5 [&>svg]:h-5${activePanel !== 'settings' && kanbanVisible ? ' text-text-primary bg-background-tertiary' : ''}`}
@@ -161,7 +161,7 @@ export function TitleBar({ mode }: TitleBarProps) {
             </div>
             <Tooltip text="New terminal" placement="bottom">
               <button
-                className="w-9 h-9 flex items-center justify-center bg-background-secondary border border-border rounded-[14px] text-text-secondary transition-all duration-150 ease-out ml-3 [-webkit-app-region:no-drag] hover:bg-background-tertiary hover:text-text-primary [&>svg]:w-5 [&>svg]:h-5"
+                className="w-9 h-9 flex items-center justify-center bg-background-secondary glass-bevel relative border border-black/60 rounded-[14px] text-text-secondary transition-all duration-150 ease-out ml-3 [-webkit-app-region:no-drag] hover:bg-background-tertiary hover:text-text-primary [&>svg]:w-5 [&>svg]:h-5"
                 onClick={handleNewTerminal}
               >
                 <Icon name="terminal" />
@@ -169,7 +169,7 @@ export function TitleBar({ mode }: TitleBarProps) {
             </Tooltip>
             <Tooltip text="New task" placement="bottom-end">
               <button
-                className="w-9 h-9 flex items-center justify-center bg-background-secondary border border-border rounded-[14px] text-text-secondary transition-all duration-150 ease-out ml-3 [-webkit-app-region:no-drag] hover:bg-background-tertiary hover:text-text-primary [&>svg]:w-5 [&>svg]:h-5"
+                className="w-9 h-9 flex items-center justify-center bg-background-secondary glass-bevel relative border border-black/60 rounded-[14px] text-text-secondary transition-all duration-150 ease-out ml-3 [-webkit-app-region:no-drag] hover:bg-background-tertiary hover:text-text-primary [&>svg]:w-5 [&>svg]:h-5"
                 onClick={handleNewTask}
               >
                 <Icon name="plus" />
@@ -183,7 +183,7 @@ export function TitleBar({ mode }: TitleBarProps) {
               <span className="text-xs text-text-tertiary leading-tight truncate">~</span>
             </div>
             <div style={{ flex: 1 }} />
-            <div className="flex items-center h-9 ml-3 bg-background-secondary border border-border rounded-[14px] overflow-hidden [-webkit-app-region:no-drag]">
+            <div className="flex items-center h-9 ml-3 bg-background-secondary glass-bevel relative border border-black/60 rounded-[14px] overflow-hidden [-webkit-app-region:no-drag]">
               <TooltipButton
                 text="Group by project"
                 className={`w-9 h-full flex items-center justify-center text-text-secondary transition-all duration-150 ease-out hover:text-text-primary hover:bg-background-tertiary [&>svg]:w-5 [&>svg]:h-5${homeGroupMode === 'project' ? ' text-text-primary bg-background-tertiary' : ''}`}
@@ -201,7 +201,7 @@ export function TitleBar({ mode }: TitleBarProps) {
             </div>
             <Tooltip text="New terminal" placement="bottom">
               <button
-                className="w-9 h-9 flex items-center justify-center bg-background-secondary border border-border rounded-[14px] text-text-secondary transition-all duration-150 ease-out ml-3 [-webkit-app-region:no-drag] hover:bg-background-tertiary hover:text-text-primary [&>svg]:w-5 [&>svg]:h-5"
+                className="w-9 h-9 flex items-center justify-center bg-background-secondary glass-bevel relative border border-black/60 rounded-[14px] text-text-secondary transition-all duration-150 ease-out ml-3 [-webkit-app-region:no-drag] hover:bg-background-tertiary hover:text-text-primary [&>svg]:w-5 [&>svg]:h-5"
                 onClick={async () => {
                   const homePath = await window.api.homePath();
                   addProjectTerminal(homePath);

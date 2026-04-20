@@ -241,7 +241,7 @@ export function SandboxSection({ projectPath }: SandboxSectionProps) {
 
       {/* YAML config editor */}
       <div
-        className="border border-white/10 rounded-[14px] overflow-hidden"
+        className="glass-bevel relative border border-black/60 rounded-[14px] overflow-hidden"
         style={{
           background: 'var(--color-terminal-bg, #171717)',
           boxShadow: '0 0 0 1px rgba(0, 0, 0, 0.05), 0 4px 12px rgba(0, 0, 0, 0.15), 0 20px 40px rgba(0, 0, 0, 0.2)',

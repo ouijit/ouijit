@@ -7,6 +7,7 @@ import {
   MiniMap,
   Panel,
   SelectionMode,
+  useReactFlow,
   type Viewport,
   type NodeChange,
   type EdgeChange,
@@ -20,6 +21,7 @@ import {
 } from '../../stores/canvasStore';
 import { useTerminalStore } from '../../stores/terminalStore';
 import { TerminalNode } from './TerminalNode';
+import { terminalInstances } from '../terminal/terminalReact';
 import { ChainEdge } from './ChainEdge';
 import { CanvasControls } from './CanvasControls';
 import { SmartGuideOverlay } from './SmartGuideOverlay';
@@ -101,6 +103,22 @@ function TerminalCanvasInner({ projectPath }: TerminalCanvasProps) {
   const handleCloseMenu = useCallback(() => setMenuPos(null), []);
   const handlePaneClick = useCallback(() => setMenuPos(null), []);
 
+  // Double-click a node to frame it and focus its terminal
+  const { fitView } = useReactFlow();
+  const handleNodeDoubleClick = useCallback(
+    (_: React.MouseEvent, node: TerminalNodeType) => {
+      setMenuPos(null);
+      if (node.data?.loading) return;
+      fitView({ nodes: [{ id: node.id }], padding: 0.1, duration: 350 });
+      const ptyId = node.data?.ptyId;
+      if (ptyId) {
+        const instance = terminalInstances.get(ptyId);
+        if (instance) requestAnimationFrame(() => instance.xterm.focus());
+      }
+    },
+    [fitView],
+  );
+
   // Phase 3: minimap node color from chain info
   const tasks = useProjectStore((s) => s.tasks);
   const displayStates = useTerminalStore((s) => s.displayStates);
@@ -160,7 +178,7 @@ function TerminalCanvasInner({ projectPath }: TerminalCanvasProps) {
     : { defaultViewport: { x: 0, y: 0, zoom: 1 } as Viewport };
 
   return (
-    <div className="terminal-canvas w-full h-full">
+    <div className="terminal-canvas relative w-full h-full">
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -174,7 +192,9 @@ function TerminalCanvasInner({ projectPath }: TerminalCanvasProps) {
         onSelectionContextMenu={handleSelectionContextMenu}
         onPaneClick={handlePaneClick}
         onNodeClick={handlePaneClick}
+        onNodeDoubleClick={handleNodeDoubleClick}
         panOnScroll
+        panOnDrag={false}
         zoomOnScroll={false}
         zoomOnPinch
         panActivationKeyCode="Space"
@@ -193,7 +213,6 @@ function TerminalCanvasInner({ projectPath }: TerminalCanvasProps) {
         proOptions={proOptions}
       >
         <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="rgba(255,255,255,0.15)" />
-        <CanvasControls projectPath={projectPath} />
         {nodes.length >= 3 &&
           (minimapOpen ? (
             <MiniMap
@@ -232,6 +251,7 @@ function TerminalCanvasInner({ projectPath }: TerminalCanvasProps) {
           ))}
         <SmartGuideOverlay guides={guides} />
       </ReactFlow>
+      <CanvasControls projectPath={projectPath} />
       <AlignMenu projectPath={projectPath} position={menuPos} onClose={handleCloseMenu} />
     </div>
   );
