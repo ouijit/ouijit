@@ -369,6 +369,7 @@ You are running inside an Ouijit terminal. The \`ouijit\` CLI manages tasks, tag
 ## Task Commands (most common)
 ouijit task list                              # → [{taskNumber, name, status, branch, worktreePath, prompt, ...}]
 ouijit task get <number>                      # → single task object
+ouijit task current                           # → task owning this terminal (resolves via OUIJIT_PTY_ID)
 ouijit task create "<name>"                   # → {success, task: {taskNumber, ...}}
 ouijit task create "<name>" --prompt "<text>" # set description at creation
 ouijit task start <number>                    # creates git worktree, sets in_progress
@@ -417,9 +418,9 @@ ouijit project list                           # → all registered projects
 - Always prefer ouijit over editing task files directly.
 
 ## Common Workflows
-# Check what tasks exist, then update yours:
-ouijit task list
-ouijit task set-status 5 in_review
+# Update the task owning this terminal:
+ouijit task current
+ouijit task set-status $(ouijit task current | jq .taskNumber) in_review
 
 # Create a task and immediately start working:
 ouijit task create-and-start "Fix auth timeout" --prompt "Session expires too early"

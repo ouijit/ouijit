@@ -320,25 +320,45 @@ export function getActiveSessionCount(): number {
 
 /**
  * Sandbox PTYs are tracked in src/lima/spawn.ts in their own map — they never
- * enter `activePtys`. But hookServer / setPlanPath need a single source of
- * truth for "is this ptyId live?" across both kinds. spawn.ts registers /
- * unregisters ids here over its lifecycle; hookServer calls isPtyActive.
- * Direct import would cycle (spawn already imports from hookServer), hence
- * this narrow one-way hook.
+ * enter `activePtys`. But hookServer / setPlanPath / `task current` need a
+ * single source of truth for "is this ptyId live?" and "what task does this
+ * ptyId belong to?" across both kinds. spawn.ts registers / unregisters ids
+ * here over its lifecycle. Direct import would cycle (spawn already imports
+ * from hookServer), hence this narrow one-way hook.
  */
-const sandboxPtyIds = new Set<PtyId>();
+interface SandboxPtyInfo {
+  projectPath: string;
+  taskId?: number;
+}
+const sandboxPtyInfo = new Map<PtyId, SandboxPtyInfo>();
 
-export function registerSandboxPtyId(ptyId: PtyId): void {
-  sandboxPtyIds.add(ptyId);
+export function registerSandboxPty(ptyId: PtyId, info: SandboxPtyInfo): void {
+  sandboxPtyInfo.set(ptyId, info);
 }
 
-export function unregisterSandboxPtyId(ptyId: PtyId): void {
-  sandboxPtyIds.delete(ptyId);
+export function unregisterSandboxPty(ptyId: PtyId): void {
+  sandboxPtyInfo.delete(ptyId);
 }
 
 /** Check if a PTY is currently active — covers host and sandbox PTYs. */
 export function isPtyActive(ptyId: PtyId): boolean {
-  return activePtys.has(ptyId) || sandboxPtyIds.has(ptyId);
+  return activePtys.has(ptyId) || sandboxPtyInfo.has(ptyId);
+}
+
+/**
+ * Resolve the task context for a ptyId — covers host and sandbox PTYs.
+ * Returns null when the pty isn't live or isn't bound to a task.
+ */
+export function getPtyTaskContext(ptyId: PtyId): { projectPath: string; taskId: number } | null {
+  const host = activePtys.get(ptyId);
+  if (host && host.taskId != null) {
+    return { projectPath: host.projectPath, taskId: host.taskId };
+  }
+  const sandbox = sandboxPtyInfo.get(ptyId);
+  if (sandbox && sandbox.taskId != null) {
+    return { projectPath: sandbox.projectPath, taskId: sandbox.taskId };
+  }
+  return null;
 }
 
 export function writeToPty(ptyId: PtyId, data: string): void {

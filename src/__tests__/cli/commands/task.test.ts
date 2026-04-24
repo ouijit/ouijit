@@ -1,4 +1,4 @@
-import { describe, test, expect, vi, beforeEach } from 'vitest';
+import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest';
 import { Command } from 'commander';
 import { registerTaskCommands } from '../../../cli/commands/task';
 
@@ -57,6 +57,41 @@ describe('task commands', () => {
     const result = output.getJson();
     expect(get).toHaveBeenCalledWith(`/api/tasks/1?project=${encodeURIComponent(PROJECT)}`);
     expect(result.name).toBe('My task');
+  });
+
+  describe('current', () => {
+    const ORIGINAL_PTY_ID = process.env['OUIJIT_PTY_ID'];
+
+    afterEach(() => {
+      if (ORIGINAL_PTY_ID === undefined) delete process.env['OUIJIT_PTY_ID'];
+      else process.env['OUIJIT_PTY_ID'] = ORIGINAL_PTY_ID;
+    });
+
+    test('calls GET /api/tasks/current with no project query', async () => {
+      process.env['OUIJIT_PTY_ID'] = 'pty-123';
+      vi.mocked(get).mockResolvedValue({ taskNumber: 7, name: 'Owned task' });
+      const output = captureOutput();
+      await createProgram().parseAsync(['task', 'current'], { from: 'user' });
+      const result = output.getJson();
+      expect(get).toHaveBeenCalledWith('/api/tasks/current');
+      expect(result.taskNumber).toBe(7);
+    });
+
+    test('errors and exits non-zero when OUIJIT_PTY_ID is unset', async () => {
+      delete process.env['OUIJIT_PTY_ID'];
+      const errSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+      const exitSpy = vi.spyOn(process, 'exit').mockImplementation(((code?: number) => {
+        throw new Error(`exit:${code}`);
+      }) as never);
+      try {
+        await expect(createProgram().parseAsync(['task', 'current'], { from: 'user' })).rejects.toThrow(/exit:1/);
+        expect(get).not.toHaveBeenCalled();
+        expect(errSpy).toHaveBeenCalled();
+      } finally {
+        errSpy.mockRestore();
+        exitSpy.mockRestore();
+      }
+    });
   });
 
   test('create calls POST /api/tasks', async () => {

@@ -34,7 +34,7 @@ import {
 } from '../taskLifecycle';
 import { getProjectList } from '../scanner';
 import { getPlanPath, setPlanPath, clearPlanPath } from '../hookServer';
-import { isPtyActive } from '../ptyManager';
+import { isPtyActive, getPtyTaskContext } from '../ptyManager';
 import { typedPush } from '../ipc/helpers';
 import { getLogger } from '../logger';
 import { authenticateRequest, type AuthContext, type ApiScope } from '../apiAuth';
@@ -154,6 +154,18 @@ const routes: Route[] = [
   // ── Tasks ────────────────────────────────────────────────────────
   route('GET', 'tasks', (r) => {
     return getTasksWithWorkspaces(requireProject(r.query));
+  }),
+
+  // Resolves the task owning the calling PTY. The project is derived from
+  // the pty's record, so this route deliberately does not take ?project=.
+  // Order matters: must come before 'tasks/:number' so the literal segment
+  // wins the match against a numeric :number.
+  route('GET', 'tasks/current', async (r) => {
+    const ctx = getPtyTaskContext(r.auth.ptyId);
+    if (!ctx) throw new HttpError(404, 'Current PTY is not associated with a task');
+    const task = await getTaskWithWorkspace(ctx.projectPath, ctx.taskId);
+    if (!task) throw new HttpError(404, `Task ${ctx.taskId} not found`);
+    return task;
   }),
 
   route('GET', 'tasks/:number', (r) => {

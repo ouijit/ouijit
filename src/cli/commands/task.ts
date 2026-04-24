@@ -26,6 +26,7 @@ Examples:
   ouijit task create "Fix login bug"
   ouijit task create "Refactor auth" --prompt "Extract auth middleware"
   ouijit task list
+  ouijit task current
   ouijit task start 5
   ouijit task set-status 5 in_review
   ouijit task set-name 5 "Better name"
@@ -51,6 +52,18 @@ Examples:
       const project = requireProject();
       const t = await get(`/api/tasks/${num}${projectQuery(project)}`);
       if (!t) return printError(`Task ${num} not found`);
+      printJson(t);
+    });
+
+  task
+    .command('current')
+    .description('Get the task owning this terminal (uses OUIJIT_PTY_ID)')
+    .action(async () => {
+      if (!process.env['OUIJIT_PTY_ID']) {
+        return printError('OUIJIT_PTY_ID not set — run from an Ouijit terminal');
+      }
+      const t = await get('/api/tasks/current');
+      if (!t) return printError('Current terminal is not associated with a task');
       printJson(t);
     });
 

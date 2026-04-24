@@ -12,6 +12,7 @@ import type { BrowserWindow } from 'electron';
 
 vi.mock('../ptyManager', () => ({
   isPtyActive: () => true,
+  getPtyTaskContext: () => null,
 }));
 
 // Prevent real IPC broadcasts; we're driving HTTP directly.
