@@ -1,4 +1,4 @@
-import { memo, useState, useCallback, useEffect, useMemo, useRef } from 'react';
+import { Fragment, memo, useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useTerminalStore } from '../../stores/terminalStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { useUIStore } from '../../stores/uiStore';
@@ -425,43 +425,24 @@ export const TerminalHeader = memo(function TerminalHeader({
         )}
       </div>
       <div className="flex items-center gap-2 shrink-0 justify-end">
-        {!compact && isActive && planPath && (
-          <button
-            className={`flex items-center gap-1 px-2.5 py-1 rounded-full font-mono text-[13px] font-medium text-white/60 bg-white/[0.06] transition-all duration-150 ease-out hover:bg-white/[0.12] hover:text-white/90 active:bg-white/[0.10] active:text-white/80 ${planPanelOpen ? '!bg-accent !text-white' : ''}`}
-            title="View plan"
-            onClick={handlePlanClick}
-          >
-            <Icon name="list-checks" className="w-3.5 h-3.5" />
-            <span>Plan</span>
-          </button>
-        )}
-        {!compact && isActive && webPreviewUrl && (
-          <button
-            className={`flex items-center gap-1 px-2.5 py-1 rounded-full font-mono text-[13px] font-medium text-white/60 bg-white/[0.06] transition-all duration-150 ease-out hover:bg-white/[0.12] hover:text-white/90 active:bg-white/[0.10] active:text-white/80 ${webPreviewPanelOpen ? '!bg-accent !text-white' : ''}`}
-            title={`Preview ${webPreviewUrl}`}
-            onClick={handleWebPreviewClick}
-          >
-            <Icon name="globe-simple" className="w-3.5 h-3.5" />
-            <span>Preview</span>
-          </button>
-        )}
-        {!compact && isActive && (
-          <div>
-            <GitStats
-              gitFileStatus={gitFileStatus}
-              isWorktree={isWorktree}
-              diffPanelOpen={diffPanelOpen}
-              onClick={handleDiffClick}
-            />
-          </div>
-        )}
         {isActive && (
-          <RunnerPill
+          <ActionGroup
+            compact={compact}
+            planPath={planPath}
+            planPanelOpen={planPanelOpen}
+            onPlanClick={handlePlanClick}
+            webPreviewUrl={webPreviewUrl}
+            webPreviewPanelOpen={webPreviewPanelOpen}
+            onWebPreviewClick={handleWebPreviewClick}
+            gitFileStatus={gitFileStatus}
+            isWorktree={isWorktree}
+            diffPanelOpen={diffPanelOpen}
+            onDiffClick={handleDiffClick}
             runnerStatus={runnerStatus}
             runnerScriptName={runnerScriptName}
             runnerPanelOpen={runnerPanelOpen}
             showChevron={showChevron}
-            onPrimaryClick={handleRunnerPrimaryClick}
+            onRunnerPrimaryClick={handleRunnerPrimaryClick}
             onChevronClick={handleChevronClick}
             chevronRef={chevronRef}
           />
@@ -500,133 +481,178 @@ function GitBranch({ gitFileStatus }: { gitFileStatus: GitFileStatus | null }) {
   );
 }
 
-function GitStats({
+// Shared button class for items inside the joined ActionGroup.
+const groupButtonBase =
+  'h-full px-2.5 flex items-center gap-1 border-none font-sans text-[13px] font-medium transition-colors duration-150 ease-out';
+const groupButtonInactive = 'bg-transparent text-text-secondary hover:text-text-primary hover:bg-background-tertiary';
+const groupButtonActive = 'bg-accent text-white hover:bg-accent';
+
+function ActionGroup({
+  compact,
+  planPath,
+  planPanelOpen,
+  onPlanClick,
+  webPreviewUrl,
+  webPreviewPanelOpen,
+  onWebPreviewClick,
   gitFileStatus,
   isWorktree,
   diffPanelOpen,
-  onClick,
-}: {
-  gitFileStatus: GitFileStatus | null;
-  isWorktree: boolean;
-  diffPanelOpen: boolean;
-  onClick: (e: React.MouseEvent) => void;
-}) {
-  if (!gitFileStatus) return null;
-
-  const { uncommittedFiles, branchDiffFiles } = gitFileStatus;
-  const dirtyFileCount = uncommittedFiles.length;
-  const insertions = uncommittedFiles.reduce((s, f) => s + f.additions, 0);
-  const deletions = uncommittedFiles.reduce((s, f) => s + f.deletions, 0);
-  const hasChanges = dirtyFileCount > 0;
-
-  if (hasChanges) {
-    const fileLabel = dirtyFileCount === 1 ? 'file' : 'files';
-    return (
-      <button
-        className={`flex items-center gap-1 px-2.5 py-1 rounded-full font-mono text-[13px] font-medium text-white/60 bg-white/[0.06] transition-all duration-150 ease-out hover:bg-white/[0.12] hover:text-white/90 active:bg-white/[0.10] active:text-white/80 ${diffPanelOpen ? '!bg-accent !text-white' : ''}`}
-        title="View uncommitted changes"
-        onClick={onClick}
-      >
-        <span className="font-medium">
-          {dirtyFileCount} {fileLabel}
-        </span>
-        {insertions > 0 && <span className="text-[#69db7c]">+{insertions}</span>}
-        {deletions > 0 && <span className="text-[#ff6b6b]">-{deletions}</span>}
-      </button>
-    );
-  }
-
-  if (isWorktree && branchDiffFiles.length > 0) {
-    return (
-      <button
-        className={`px-2.5 py-1 bg-white/[0.06] border-none font-sans text-[13px] font-medium text-white/60 rounded-full transition-all duration-150 ease-out hover:bg-white/[0.12] hover:text-white/90 active:bg-white/[0.10] active:text-white/80 ${diffPanelOpen ? '!bg-accent !text-white' : ''}`}
-        title="Compare branch changes"
-        onClick={onClick}
-      >
-        Compare
-      </button>
-    );
-  }
-
-  return null;
-}
-
-function RunnerPill({
+  onDiffClick,
   runnerStatus,
   runnerScriptName,
   runnerPanelOpen,
   showChevron,
-  onPrimaryClick,
+  onRunnerPrimaryClick,
   onChevronClick,
   chevronRef,
 }: {
+  compact?: boolean;
+  planPath: string | null;
+  planPanelOpen: boolean;
+  onPlanClick: (e: React.MouseEvent) => void;
+  webPreviewUrl: string | null;
+  webPreviewPanelOpen: boolean;
+  onWebPreviewClick: (e: React.MouseEvent) => void;
+  gitFileStatus: GitFileStatus | null;
+  isWorktree: boolean;
+  diffPanelOpen: boolean;
+  onDiffClick: (e: React.MouseEvent) => void;
   runnerStatus: string;
   runnerScriptName: string | null;
   runnerPanelOpen: boolean;
   showChevron: boolean;
-  onPrimaryClick: (e: React.MouseEvent) => void;
+  onRunnerPrimaryClick: (e: React.MouseEvent) => void;
   onChevronClick: (e: React.MouseEvent) => void;
   chevronRef: React.RefObject<HTMLButtonElement | null>;
 }) {
-  let text = 'Run';
+  const showPlan = !compact && !!planPath;
+  const showPreview = !compact && !!webPreviewUrl;
 
+  const dirtyFileCount = gitFileStatus?.uncommittedFiles.length ?? 0;
+  const insertions = gitFileStatus?.uncommittedFiles.reduce((s, f) => s + f.additions, 0) ?? 0;
+  const deletions = gitFileStatus?.uncommittedFiles.reduce((s, f) => s + f.deletions, 0) ?? 0;
+  const branchDiffCount = gitFileStatus?.branchDiffFiles.length ?? 0;
+  const hasUncommitted = !!gitFileStatus && dirtyFileCount > 0;
+  const showCompare = !!gitFileStatus && !hasUncommitted && isWorktree && branchDiffCount > 0;
+  const showGit = !compact && (hasUncommitted || showCompare);
+
+  let runText = 'Run';
   switch (runnerStatus) {
     case 'running':
-      text = runnerScriptName ?? 'Running';
+      runText = runnerScriptName ?? 'Running';
       break;
     case 'success':
-      text = 'Done';
+      runText = 'Done';
       break;
     case 'error':
-      text = 'Failed';
+      runText = 'Failed';
       break;
   }
-
-  const baseColors =
+  const runColor =
     runnerStatus === 'running' || runnerStatus === 'success'
-      ? 'text-[#69db7c]'
+      ? 'text-[#69db7c] hover:text-[#8de89a] hover:bg-background-tertiary'
       : runnerStatus === 'error'
-        ? 'text-[#ff6b6b]'
-        : 'text-white/60';
+        ? 'text-[#ff6b6b] hover:text-[#ff8e8e] hover:bg-background-tertiary'
+        : groupButtonInactive;
+  const runActive = runnerPanelOpen ? groupButtonActive : runColor;
 
-  const activeHighlight = runnerPanelOpen ? '!bg-accent !text-white' : '';
+  const slots: { key: string; content: React.ReactNode }[] = [];
 
-  if (!showChevron) {
-    return (
-      <button
-        className={`px-2.5 py-1 bg-white/[0.06] border-none font-sans text-[13px] font-medium rounded-full transition-all duration-150 ease-out hover:bg-white/[0.12] hover:text-white/90 active:bg-white/[0.10] active:text-white/80 ${activeHighlight} ${baseColors}`}
-        data-action="run"
-        onClick={onPrimaryClick}
-      >
-        {text}
-      </button>
-    );
+  if (showPlan) {
+    slots.push({
+      key: 'plan',
+      content: (
+        <button
+          className={`${groupButtonBase} ${planPanelOpen ? groupButtonActive : groupButtonInactive}`}
+          title="View plan"
+          onClick={onPlanClick}
+        >
+          <Icon name="list-checks" className="w-3.5 h-3.5" />
+          <span>Plan</span>
+        </button>
+      ),
+    });
   }
 
-  // Split button: primary action + chevron dropdown
+  if (showPreview) {
+    slots.push({
+      key: 'preview',
+      content: (
+        <button
+          className={`${groupButtonBase} ${webPreviewPanelOpen ? groupButtonActive : groupButtonInactive}`}
+          title={`Preview ${webPreviewUrl}`}
+          onClick={onWebPreviewClick}
+        >
+          <Icon name="globe-simple" className="w-3.5 h-3.5" />
+          <span>Preview</span>
+        </button>
+      ),
+    });
+  }
+
+  if (showGit && hasUncommitted) {
+    slots.push({
+      key: 'diff',
+      content: (
+        <button
+          className={`${groupButtonBase} ${diffPanelOpen ? groupButtonActive : groupButtonInactive}`}
+          title="View uncommitted changes"
+          onClick={onDiffClick}
+        >
+          <span>
+            {dirtyFileCount} {dirtyFileCount === 1 ? 'file' : 'files'}
+          </span>
+          {insertions > 0 && <span className="text-[#69db7c]">+{insertions}</span>}
+          {deletions > 0 && <span className="text-[#ff6b6b]">-{deletions}</span>}
+        </button>
+      ),
+    });
+  } else if (showGit && showCompare) {
+    slots.push({
+      key: 'compare',
+      content: (
+        <button
+          className={`${groupButtonBase} ${diffPanelOpen ? groupButtonActive : groupButtonInactive}`}
+          title="Compare branch changes"
+          onClick={onDiffClick}
+        >
+          Compare
+        </button>
+      ),
+    });
+  }
+
+  slots.push({
+    key: 'run',
+    content: (
+      <>
+        <button className={`${groupButtonBase} ${runActive}`} data-action="run" onClick={onRunnerPrimaryClick}>
+          {runText}
+        </button>
+        {showChevron && (
+          <button
+            ref={chevronRef}
+            className={`${groupButtonBase} !px-2 ${runnerPanelOpen ? groupButtonActive : runColor}`}
+            aria-haspopup="menu"
+            aria-label="More run options"
+            onClick={onChevronClick}
+          >
+            <Icon name="caret-down" className="w-2.5 h-2.5" />
+          </button>
+        )}
+      </>
+    ),
+  });
+
   return (
-    <div
-      role="group"
-      aria-label="Run options"
-      className={`inline-flex items-stretch rounded-full overflow-hidden bg-white/[0.06] ${activeHighlight}`}
-    >
-      <button
-        className={`px-2.5 py-1 border-none font-sans text-[13px] font-medium transition-all duration-150 ease-out hover:bg-white/[0.06] hover:text-white/90 active:bg-white/[0.04] active:text-white/80 ${baseColors}`}
-        data-action="run"
-        onClick={onPrimaryClick}
-      >
-        {text}
-      </button>
-      <div className="w-px self-stretch bg-white/[0.04]" />
-      <button
-        ref={chevronRef}
-        className={`flex items-center justify-center px-2 border-none transition-all duration-150 ease-out hover:bg-white/[0.06] active:bg-white/[0.04] ${baseColors}`}
-        aria-haspopup="menu"
-        aria-label="More run options"
-        onClick={onChevronClick}
-      >
-        <Icon name="caret-down" className="w-2.5 h-2.5" />
-      </button>
+    <div className="inline-flex items-center h-7 bg-background-secondary glass-bevel relative border border-black/60 rounded-[12px] overflow-hidden">
+      {slots.map((slot, i) => (
+        <Fragment key={slot.key}>
+          {i > 0 && <div aria-hidden className="w-px h-3 bg-white/10 self-center" />}
+          {slot.content}
+        </Fragment>
+      ))}
     </div>
   );
 }
