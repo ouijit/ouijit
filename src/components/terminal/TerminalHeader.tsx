@@ -521,12 +521,12 @@ function StatusDot({ summaryType, sandboxed }: { summaryType: string; sandboxed:
   const isThinking = summaryType === 'thinking';
   return (
     <span
-      className={`w-[9px] h-[9px] rounded-full shrink-0 transition-all duration-200 ease-out ${isThinking ? 'bg-[#da77f2]' : 'bg-[#69db7c]'}`}
+      className={`w-[9px] h-[9px] rounded-full shrink-0 transition-all duration-200 ease-out ${isThinking ? 'bg-[#da77f2]' : 'bg-[#4ee82e]'}`}
       data-status={summaryType}
       style={{
         boxShadow: isThinking
           ? '0 0 4px rgba(218, 119, 242, 0.5), inset 0 0 0 1px #000'
-          : '0 0 4px rgba(105, 219, 124, 0.5), inset 0 0 0 1px #000',
+          : '0 0 4px rgba(78, 232, 46, 0.5), inset 0 0 0 1px #000',
         ...(isThinking ? { animation: 'terminal-status-pulse 1s ease-in-out infinite' } : {}),
         ...(sandboxed ? { outline: '1.5px solid rgba(116, 192, 252, 0.6)', outlineOffset: '2px' } : {}),
       }}
@@ -604,7 +604,7 @@ function ActionGroup({
   }
   const runColor =
     runnerStatus === 'running' || runnerStatus === 'success'
-      ? 'text-[#69db7c] hover:text-[#8de89a] hover:bg-background-tertiary'
+      ? 'text-[#4ee82e] hover:text-[#76ee5c] hover:bg-background-tertiary'
       : runnerStatus === 'error'
         ? 'text-[#ff6b6b] hover:text-[#ff8e8e] hover:bg-background-tertiary'
         : groupButtonInactive;
@@ -660,7 +660,7 @@ function ActionGroup({
             <span>
               {dirtyFileCount} {dirtyFileCount === 1 ? 'file' : 'files'}
             </span>
-            {insertions > 0 && <span className="text-[#69db7c]">+{insertions}</span>}
+            {insertions > 0 && <span className="text-[#4ee82e]">+{insertions}</span>}
             {deletions > 0 && <span className="text-[#ff6b6b]">-{deletions}</span>}
           </button>
         </Tooltip>
