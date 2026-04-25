@@ -136,7 +136,7 @@ export function TagInput({ ptyId, onClose }: TagInputProps) {
       {tags.map((tag) => (
         <span
           key={tag}
-          className="inline-flex items-center gap-0.5 font-mono text-[11px] text-white/50 bg-white/[0.06] rounded-full px-2 py-px shrink-0"
+          className="inline-flex items-center gap-1 font-mono text-[11px] font-medium text-white/55 bg-white/[0.05] rounded-full px-2 py-0.5 shrink-0"
         >
           {tag}
           <button
@@ -153,7 +153,7 @@ export function TagInput({ ptyId, onClose }: TagInputProps) {
       <input
         ref={inputRef}
         type="text"
-        className="bg-transparent border-none outline-none font-mono text-[11px] text-white/70 min-w-[60px] py-px placeholder:text-white/25"
+        className="bg-transparent border-none outline-none font-mono text-[11px] font-medium text-white/70 min-w-[60px] py-0.5 placeholder:text-white/25"
         style={{ width: 60 }}
         placeholder={tags.length ? '' : 'Add tag\u2026'}
         value={inputValue}

@@ -12,6 +12,7 @@ import { TagInput } from './TagInput';
 import { ContextMenu, type ContextMenuEntry } from '../ui/ContextMenu';
 import { HookConfigDialog } from '../dialogs/HookConfigDialog';
 import { RunScriptDropdown } from '../scripts/RunScriptDropdown';
+import { Tooltip } from '../ui/Tooltip';
 
 const isMac = navigator.platform.toLowerCase().includes('mac');
 
@@ -44,7 +45,6 @@ export const TerminalHeader = memo(function TerminalHeader({
   const summary = useTerminalStore((s) => s.displayStates[ptyId]?.summary ?? '');
   const summaryType = useTerminalStore((s) => s.displayStates[ptyId]?.summaryType ?? 'ready');
   const gitFileStatus = useTerminalStore((s) => s.displayStates[ptyId]?.gitFileStatus ?? null);
-  const lastOscTitle = useTerminalStore((s) => s.displayStates[ptyId]?.lastOscTitle ?? '');
   const tags = useTerminalStore((s) => s.displayStates[ptyId]?.tags) ?? EMPTY_TAGS;
   const sandboxed = useTerminalStore((s) => s.displayStates[ptyId]?.sandboxed ?? false);
   const runnerStatus = useTerminalStore((s) => s.displayStates[ptyId]?.runnerStatus ?? 'idle');
@@ -320,7 +320,6 @@ export const TerminalHeader = memo(function TerminalHeader({
     [onToggleWebPreviewPanel],
   );
 
-  const displayText = summary ? `${label} \u2014 ${summary}` : label;
   const isWorktree = taskId != null && !!worktreeBranch;
   const showChevron = runnerStatus === 'idle' && (hasRunHook || hasScripts);
 
@@ -361,18 +360,10 @@ export const TerminalHeader = memo(function TerminalHeader({
           }}
         />
       )}
-      <div className="flex flex-col min-w-0 shrink">
-        <div className="flex items-center gap-2 min-w-0 flex-wrap">
-          <span
-            className={`w-1.5 h-1.5 rounded-full shrink-0 transition-all duration-200 ease-out ${summaryType === 'thinking' ? 'bg-[#da77f2]' : 'bg-[#69db7c]'}`}
-            data-status={summaryType}
-            style={{
-              boxShadow:
-                summaryType === 'thinking' ? '0 0 4px rgba(218, 119, 242, 0.5)' : '0 0 4px rgba(105, 219, 124, 0.5)',
-              ...(summaryType === 'thinking' ? { animation: 'terminal-status-pulse 1s ease-in-out infinite' } : {}),
-              ...(sandboxed ? { outline: '1.5px solid rgba(116, 192, 252, 0.6)', outlineOffset: '2px' } : {}),
-            }}
-          />
+      <div className="flex flex-col min-w-0 shrink gap-0.5">
+        {/* Row 1 \u2014 identity: status + label/summary + tags */}
+        <div className="group/meta flex items-center gap-2 min-w-0">
+          <StatusDot summaryType={summaryType} sandboxed={sandboxed} />
           {!isActive && stackPosition != null && stackPosition <= 9 && (
             <kbd className="inline-flex items-center font-mono text-base text-white/40 shrink-0">
               {isMac ? '\u2318' : 'Ctrl+'}
@@ -382,7 +373,7 @@ export const TerminalHeader = memo(function TerminalHeader({
           {renaming ? (
             <input
               ref={renameInputRef}
-              className="font-mono text-xs font-medium text-white/70 bg-transparent border-0 border-b border-accent p-0 outline-none min-w-0 shrink-0 [-webkit-app-region:no-drag]"
+              className="font-mono text-xs font-medium text-white/85 bg-transparent border-0 border-b border-accent p-0 outline-none min-w-0 shrink-0 [-webkit-app-region:no-drag]"
               onBlur={commitRename}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') commitRename();
@@ -390,39 +381,51 @@ export const TerminalHeader = memo(function TerminalHeader({
               }}
             />
           ) : (
-            <span className="font-mono text-xs font-medium text-white/70 shrink-0">{displayText}</span>
+            <span className="font-mono text-xs font-medium text-white/85 shrink-0">{label}</span>
           )}
-          <button
-            className="flex items-center justify-center w-5 h-5 rounded text-white/30 bg-transparent border-none shrink-0"
-            onMouseDown={handleTagButtonClick}
-          >
-            <Icon name="tag" className="w-3.5 h-3.5" />
-          </button>
-          <span className="inline-flex items-center gap-1 min-w-0">
-            {tagInputOpen ? (
+          {summary && !renaming && (
+            <span className="font-mono text-xs text-white/45 min-w-0 truncate">\u2014 {summary}</span>
+          )}
+          <span className="inline-flex items-center gap-1 min-w-0 shrink-0">
+            {isActive && tagInputOpen ? (
               <TagInput ptyId={ptyId} onClose={() => setTagInputOpen(false)} />
+            ) : isActive ? (
+              <>
+                {tags.map((tag) => (
+                  <Tooltip key={tag} text="Edit tag" placement="bottom">
+                    <button
+                      className={`${METADATA_CHIP} border-none hover:bg-white/[0.1] hover:text-white/75 transition-colors duration-150`}
+                      onMouseDown={handleTagButtonClick}
+                    >
+                      {tag}
+                    </button>
+                  </Tooltip>
+                ))}
+                {tags.length === 0 && (
+                  <Tooltip text="Add tag" placement="bottom">
+                    <button
+                      className="inline-flex items-center gap-1 font-mono text-[11px] text-white/35 bg-transparent border-none px-2 py-0.5 rounded-full shrink-0 opacity-0 group-hover/meta:opacity-100 hover:text-white/70 hover:bg-white/[0.05] transition-all duration-150"
+                      onMouseDown={handleTagButtonClick}
+                      aria-label="Add tag"
+                    >
+                      <Icon name="tag" className="w-3 h-3" />
+                      <span>Tag</span>
+                    </button>
+                  </Tooltip>
+                )}
+              </>
             ) : (
               tags.map((tag) => (
-                <span
-                  key={tag}
-                  className="font-mono text-[11px] text-white/50 bg-white/[0.06] rounded-full px-2 py-px shrink-0"
-                >
+                <span key={tag} className={METADATA_CHIP}>
                   {tag}
                 </span>
               ))
             )}
           </span>
-          {!compact && lastOscTitle && (
-            <span className="font-mono text-[11px] text-white/40 bg-white/5 rounded-full px-2 py-px truncate">
-              {lastOscTitle}
-            </span>
-          )}
         </div>
-        {!compact && isActive && (
-          <div className="min-w-0 overflow-hidden">
-            <GitBranch gitFileStatus={gitFileStatus} />
-          </div>
-        )}
+
+        {/* Row 2 \u2014 subordinate context: branch */}
+        {!compact && isActive && gitFileStatus?.branch && <BranchCopy branch={gitFileStatus.branch} />}
       </div>
       <div className="flex items-center gap-2 shrink-0 justify-end">
         {isActive && (
@@ -470,14 +473,62 @@ export const TerminalHeader = memo(function TerminalHeader({
 
 // ── Sub-components ───────────────────────────────────────────────────
 
-function GitBranch({ gitFileStatus }: { gitFileStatus: GitFileStatus | null }) {
-  if (!gitFileStatus) return null;
+const METADATA_CHIP =
+  'inline-flex items-center gap-1 font-mono text-[11px] font-medium text-white/55 bg-white/[0.05] rounded-full px-2 py-0.5 shrink-0';
+
+function BranchCopy({ branch }: { branch: string }) {
+  const [copied, setCopied] = useState(false);
+  const [hovered, setHovered] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(
+    () => () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    },
+    [],
+  );
+
+  const handleClick = useCallback(() => {
+    void navigator.clipboard.writeText(branch).then(() => {
+      setCopied(true);
+      if (timerRef.current) clearTimeout(timerRef.current);
+      timerRef.current = setTimeout(() => setCopied(false), 1200);
+    });
+  }, [branch]);
+
+  const iconName = copied ? 'check' : hovered ? 'copy' : 'git-branch';
 
   return (
-    <span className="flex items-center gap-1 font-mono text-[13px] text-white/50 min-w-0 overflow-hidden">
-      <Icon name="git-branch" className="w-3.5 h-3.5 shrink-0 text-white/40" />
-      <span className="truncate min-w-0">{gitFileStatus.branch}</span>
-    </span>
+    <Tooltip
+      text={copied ? 'Copied' : 'Copy branch'}
+      placement="bottom-start"
+      onHoverChange={setHovered}
+      referenceClassName="inline-flex min-w-0 self-start"
+    >
+      <button
+        type="button"
+        className="inline-flex items-center gap-1 font-mono text-[11px] text-white/45 bg-transparent border-none p-0 min-w-0 shrink-0 transition-colors duration-150 hover:text-white/75"
+        onClick={handleClick}
+      >
+        <Icon name={iconName} className="w-3 h-3 shrink-0 text-white/35" />
+        <span className="truncate">{copied ? 'Copied' : branch}</span>
+      </button>
+    </Tooltip>
+  );
+}
+
+function StatusDot({ summaryType, sandboxed }: { summaryType: string; sandboxed: boolean }) {
+  const isThinking = summaryType === 'thinking';
+  return (
+    <span
+      className={`w-1.5 h-1.5 rounded-full shrink-0 transition-all duration-200 ease-out ${isThinking ? 'bg-[#da77f2]' : 'bg-[#69db7c]'}`}
+      data-status={summaryType}
+      style={{
+        boxShadow: isThinking ? '0 0 4px rgba(218, 119, 242, 0.5)' : '0 0 4px rgba(105, 219, 124, 0.5)',
+        ...(isThinking ? { animation: 'terminal-status-pulse 1s ease-in-out infinite' } : {}),
+        ...(sandboxed ? { outline: '1.5px solid rgba(116, 192, 252, 0.6)', outlineOffset: '2px' } : {}),
+      }}
+    />
   );
 }
 
@@ -559,18 +610,21 @@ function ActionGroup({
 
   const slots: { key: string; content: React.ReactNode }[] = [];
 
+  const slotWrapClass = 'inline-flex h-full';
+
   if (showPlan) {
     slots.push({
       key: 'plan',
       content: (
-        <button
-          className={`${groupButtonBase} ${planPanelOpen ? groupButtonActive : groupButtonInactive}`}
-          title="View plan"
-          onClick={onPlanClick}
-        >
-          <Icon name="list-checks" className="w-3.5 h-3.5" />
-          <span>Plan</span>
-        </button>
+        <Tooltip text="View plan" placement="bottom" referenceClassName={slotWrapClass}>
+          <button
+            className={`${groupButtonBase} ${planPanelOpen ? groupButtonActive : groupButtonInactive}`}
+            onClick={onPlanClick}
+          >
+            <Icon name="list-checks" className="w-3.5 h-3.5" />
+            <span>Plan</span>
+          </button>
+        </Tooltip>
       ),
     });
   }
@@ -579,14 +633,15 @@ function ActionGroup({
     slots.push({
       key: 'preview',
       content: (
-        <button
-          className={`${groupButtonBase} ${webPreviewPanelOpen ? groupButtonActive : groupButtonInactive}`}
-          title={`Preview ${webPreviewUrl}`}
-          onClick={onWebPreviewClick}
-        >
-          <Icon name="globe-simple" className="w-3.5 h-3.5" />
-          <span>Preview</span>
-        </button>
+        <Tooltip text={`Preview ${webPreviewUrl}`} placement="bottom" referenceClassName={slotWrapClass}>
+          <button
+            className={`${groupButtonBase} ${webPreviewPanelOpen ? groupButtonActive : groupButtonInactive}`}
+            onClick={onWebPreviewClick}
+          >
+            <Icon name="globe-simple" className="w-3.5 h-3.5" />
+            <span>Preview</span>
+          </button>
+        </Tooltip>
       ),
     });
   }
@@ -595,30 +650,32 @@ function ActionGroup({
     slots.push({
       key: 'diff',
       content: (
-        <button
-          className={`${groupButtonBase} ${diffPanelOpen ? groupButtonActive : groupButtonInactive}`}
-          title="View uncommitted changes"
-          onClick={onDiffClick}
-        >
-          <span>
-            {dirtyFileCount} {dirtyFileCount === 1 ? 'file' : 'files'}
-          </span>
-          {insertions > 0 && <span className="text-[#69db7c]">+{insertions}</span>}
-          {deletions > 0 && <span className="text-[#ff6b6b]">-{deletions}</span>}
-        </button>
+        <Tooltip text="View uncommitted changes" placement="bottom" referenceClassName={slotWrapClass}>
+          <button
+            className={`${groupButtonBase} ${diffPanelOpen ? groupButtonActive : groupButtonInactive}`}
+            onClick={onDiffClick}
+          >
+            <span>
+              {dirtyFileCount} {dirtyFileCount === 1 ? 'file' : 'files'}
+            </span>
+            {insertions > 0 && <span className="text-[#69db7c]">+{insertions}</span>}
+            {deletions > 0 && <span className="text-[#ff6b6b]">-{deletions}</span>}
+          </button>
+        </Tooltip>
       ),
     });
   } else if (showGit && showCompare) {
     slots.push({
       key: 'compare',
       content: (
-        <button
-          className={`${groupButtonBase} ${diffPanelOpen ? groupButtonActive : groupButtonInactive}`}
-          title="Compare branch changes"
-          onClick={onDiffClick}
-        >
-          Compare
-        </button>
+        <Tooltip text="Compare branch changes" placement="bottom" referenceClassName={slotWrapClass}>
+          <button
+            className={`${groupButtonBase} ${diffPanelOpen ? groupButtonActive : groupButtonInactive}`}
+            onClick={onDiffClick}
+          >
+            Compare
+          </button>
+        </Tooltip>
       ),
     });
   }
@@ -631,15 +688,17 @@ function ActionGroup({
           {runText}
         </button>
         {showChevron && (
-          <button
-            ref={chevronRef}
-            className={`${groupButtonBase} !px-2 ${runnerPanelOpen ? groupButtonActive : runColor}`}
-            aria-haspopup="menu"
-            aria-label="More run options"
-            onClick={onChevronClick}
-          >
-            <Icon name="caret-down" className="w-2.5 h-2.5" />
-          </button>
+          <Tooltip text="More run options" placement="bottom" referenceClassName={slotWrapClass}>
+            <button
+              ref={chevronRef}
+              className={`${groupButtonBase} !px-2 ${runnerPanelOpen ? groupButtonActive : runColor}`}
+              aria-haspopup="menu"
+              aria-label="More run options"
+              onClick={onChevronClick}
+            >
+              <Icon name="caret-down" className="w-2.5 h-2.5" />
+            </button>
+          </Tooltip>
         )}
       </>
     ),

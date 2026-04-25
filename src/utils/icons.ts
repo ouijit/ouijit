@@ -29,6 +29,7 @@ import cardsThree from '@phosphor-icons/core/assets/regular/cards-three.svg?raw'
 import check from '@phosphor-icons/core/assets/regular/check.svg?raw';
 import clipboardText from '@phosphor-icons/core/assets/regular/clipboard-text.svg?raw';
 import code from '@phosphor-icons/core/assets/regular/code.svg?raw';
+import copy from '@phosphor-icons/core/assets/regular/copy.svg?raw';
 import cube from '@phosphor-icons/core/assets/regular/cube.svg?raw';
 import download from '@phosphor-icons/core/assets/regular/download.svg?raw';
 import fileDashed from '@phosphor-icons/core/assets/regular/file-dashed.svg?raw';
@@ -95,6 +96,7 @@ export const iconMap: Record<string, string> = {
   check: check,
   'clipboard-text': clipboardText,
   code: code,
+  copy: copy,
   cube: cube,
   download: download,
   'file-dashed': fileDashed,
