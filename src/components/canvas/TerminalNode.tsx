@@ -1,9 +1,10 @@
-import { memo } from 'react';
-import { NodeResizer, Handle, Position, useViewport, type NodeProps } from '@xyflow/react';
+import { memo, useCallback } from 'react';
+import { NodeResizer, Handle, Position, type NodeProps } from '@xyflow/react';
 import { type TerminalNode as TerminalNodeType } from '../../stores/canvasStore';
-import { useTerminalStore } from '../../stores/terminalStore';
 import { useTerminalPanels } from '../terminal/useTerminalPanels';
 import { TerminalBody } from '../terminal/TerminalBody';
+import { TerminalHeader } from '../terminal/TerminalHeader';
+import { closeProjectTerminal } from '../terminal/terminalActions';
 
 const INSET_TOP = 8;
 const INSET_SIDE = 10;
@@ -46,6 +47,10 @@ const ActiveTerminalNode = memo(function ActiveTerminalNode({
   const { ptyId, projectPath } = data;
 
   const {
+    toggleDiffPanel,
+    togglePlanPanel,
+    toggleWebPreviewPanel,
+    toggleRunner,
     closeDiffPanel,
     collapseRunner,
     killRunner,
@@ -55,6 +60,10 @@ const ActiveTerminalNode = memo(function ActiveTerminalNode({
     closeWebPreviewPanel,
     changeWebPreviewUrl,
   } = useTerminalPanels(ptyId);
+
+  const handleClose = useCallback(() => {
+    closeProjectTerminal(ptyId);
+  }, [ptyId]);
 
   const bodyClasses = selected ? 'nodrag nowheel nopan flex flex-col flex-1 min-h-0' : 'flex flex-col flex-1 min-h-0';
 
@@ -89,7 +98,17 @@ const ActiveTerminalNode = memo(function ActiveTerminalNode({
           boxShadow: '0 0 0 1px rgba(0, 0, 0, 0.05), 0 4px 12px rgba(0, 0, 0, 0.15), 0 20px 40px rgba(0, 0, 0, 0.2)',
         }}
       >
-        <NodeHeader ptyId={ptyId} />
+        <div className="terminal-drag-handle shrink-0" style={{ zIndex: 2 }}>
+          <TerminalHeader
+            ptyId={ptyId}
+            isActive
+            onClose={handleClose}
+            onToggleDiffPanel={toggleDiffPanel}
+            onTogglePlanPanel={togglePlanPanel}
+            onToggleWebPreviewPanel={toggleWebPreviewPanel}
+            onToggleRunner={toggleRunner}
+          />
+        </div>
         <div className={bodyClasses} style={selected ? undefined : { pointerEvents: 'none' }}>
           <TerminalBody
             ptyId={ptyId}
@@ -106,42 +125,5 @@ const ActiveTerminalNode = memo(function ActiveTerminalNode({
         </div>
       </div>
     </>
-  );
-});
-
-// ── Header: status light + title, inside the card (drag handle) ─────
-
-const NodeHeader = memo(function NodeHeader({ ptyId }: { ptyId: string }) {
-  const label = useTerminalStore((s) => s.displayStates[ptyId]?.label ?? '');
-  const summary = useTerminalStore((s) => s.displayStates[ptyId]?.summary ?? '');
-  const summaryType = useTerminalStore((s) => s.displayStates[ptyId]?.summaryType ?? 'ready');
-  const { zoom } = useViewport();
-
-  const displayText = summary ? `${label} \u2014 ${summary}` : label || 'Shell';
-  const MAX_SCALE = 1.4;
-  const inverseScale = zoom > 0 ? Math.min(MAX_SCALE, Math.max(1, 1 / zoom)) : 1;
-
-  return (
-    <div className="terminal-drag-handle relative shrink-0 pl-4 pr-3 py-2.5" style={{ zIndex: 2 }}>
-      <div
-        className="flex items-center gap-2 min-w-0 origin-top-left"
-        style={{
-          transform: `scale(${inverseScale})`,
-          width: `${100 / inverseScale}%`,
-          willChange: 'transform',
-        }}
-      >
-        <span
-          className={`w-2.5 h-2.5 rounded-full shrink-0 transition-all duration-200 ease-out ${summaryType === 'thinking' ? 'bg-[#da77f2]' : 'bg-[#69db7c]'}`}
-          data-status={summaryType}
-          style={{
-            boxShadow:
-              summaryType === 'thinking' ? '0 0 4px rgba(218, 119, 242, 0.5)' : '0 0 4px rgba(105, 219, 124, 0.5)',
-            ...(summaryType === 'thinking' ? { animation: 'terminal-status-pulse 1s ease-in-out infinite' } : {}),
-          }}
-        />
-        <span className="font-mono text-sm font-medium text-white/85 truncate min-w-0">{displayText}</span>
-      </div>
-    </div>
   );
 });

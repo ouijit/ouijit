@@ -682,12 +682,16 @@ function ActionGroup({
     });
   }
 
+  const runIcon =
+    runnerStatus === 'running' || runnerStatus === 'success' || runnerStatus === 'error' ? 'terminal' : null;
+
   slots.push({
     key: 'run',
     content: (
       <>
         <button className={`${groupButtonBase} ${runActive}`} data-action="run" onClick={onRunnerPrimaryClick}>
-          {runText}
+          {runIcon && <Icon name={runIcon} className="w-3.5 h-3.5" />}
+          <span>{runText}</span>
         </button>
         {showChevron && (
           <Tooltip text="More run options" placement="bottom" referenceClassName={slotWrapClass}>
