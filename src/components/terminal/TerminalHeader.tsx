@@ -521,10 +521,12 @@ function StatusDot({ summaryType, sandboxed }: { summaryType: string; sandboxed:
   const isThinking = summaryType === 'thinking';
   return (
     <span
-      className={`w-1.5 h-1.5 rounded-full shrink-0 transition-all duration-200 ease-out ${isThinking ? 'bg-[#da77f2]' : 'bg-[#69db7c]'}`}
+      className={`w-[9px] h-[9px] rounded-full shrink-0 transition-all duration-200 ease-out ${isThinking ? 'bg-[#da77f2]' : 'bg-[#69db7c]'}`}
       data-status={summaryType}
       style={{
-        boxShadow: isThinking ? '0 0 4px rgba(218, 119, 242, 0.5)' : '0 0 4px rgba(105, 219, 124, 0.5)',
+        boxShadow: isThinking
+          ? '0 0 4px rgba(218, 119, 242, 0.5), inset 0 0 0 1px #000'
+          : '0 0 4px rgba(105, 219, 124, 0.5), inset 0 0 0 1px #000',
         ...(isThinking ? { animation: 'terminal-status-pulse 1s ease-in-out infinite' } : {}),
         ...(sandboxed ? { outline: '1.5px solid rgba(116, 192, 252, 0.6)', outlineOffset: '2px' } : {}),
       }}
