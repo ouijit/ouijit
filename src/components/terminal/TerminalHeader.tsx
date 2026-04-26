@@ -44,6 +44,7 @@ export const TerminalHeader = memo(function TerminalHeader({
   const summary = useTerminalStore((s) => s.displayStates[ptyId]?.summary ?? '');
   const summaryType = useTerminalStore((s) => s.displayStates[ptyId]?.summaryType ?? 'ready');
   const gitFileStatus = useTerminalStore((s) => s.displayStates[ptyId]?.gitFileStatus ?? null);
+  const lastOscTitle = useTerminalStore((s) => s.displayStates[ptyId]?.lastOscTitle ?? '');
   const tags = useTerminalStore((s) => s.displayStates[ptyId]?.tags) ?? EMPTY_TAGS;
   const sandboxed = useTerminalStore((s) => s.displayStates[ptyId]?.sandboxed ?? false);
   const runnerStatus = useTerminalStore((s) => s.displayStates[ptyId]?.runnerStatus ?? 'idle');
@@ -384,6 +385,9 @@ export const TerminalHeader = memo(function TerminalHeader({
           )}
           {summary && !renaming && (
             <span className="font-mono text-xs text-white/45 min-w-0 truncate">\u2014 {summary}</span>
+          )}
+          {lastOscTitle && !renaming && (
+            <span className="font-mono text-xs font-medium text-white/40 min-w-0 truncate">{lastOscTitle}</span>
           )}
           <span className="inline-flex items-center gap-1 min-w-0 shrink-0">
             {isActive && tagInputOpen ? (
