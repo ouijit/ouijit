@@ -12,7 +12,6 @@ import { TagInput } from './TagInput';
 import { ContextMenu, type ContextMenuEntry } from '../ui/ContextMenu';
 import { HookConfigDialog } from '../dialogs/HookConfigDialog';
 import { RunScriptDropdown } from '../scripts/RunScriptDropdown';
-import { Tooltip } from '../ui/Tooltip';
 
 const isMac = navigator.platform.toLowerCase().includes('mac');
 
@@ -392,26 +391,23 @@ export const TerminalHeader = memo(function TerminalHeader({
             ) : isActive ? (
               <>
                 {tags.map((tag) => (
-                  <Tooltip key={tag} text="Edit tag" placement="bottom">
-                    <button
-                      className={`${METADATA_CHIP} border-none hover:bg-white/[0.1] hover:text-white/75 transition-colors duration-150`}
-                      onMouseDown={handleTagButtonClick}
-                    >
-                      {tag}
-                    </button>
-                  </Tooltip>
+                  <button
+                    key={tag}
+                    className={`${METADATA_CHIP} border-none hover:bg-white/[0.1] hover:text-white/75 transition-colors duration-150`}
+                    onMouseDown={handleTagButtonClick}
+                  >
+                    {tag}
+                  </button>
                 ))}
                 {tags.length === 0 && (
-                  <Tooltip text="Add tag" placement="bottom">
-                    <button
-                      className="inline-flex items-center gap-1 font-mono text-[11px] text-white/35 bg-transparent border-none px-2 py-0.5 rounded-full shrink-0 opacity-0 group-hover/meta:opacity-100 hover:text-white/70 hover:bg-white/[0.05] transition-all duration-150"
-                      onMouseDown={handleTagButtonClick}
-                      aria-label="Add tag"
-                    >
-                      <Icon name="tag" className="w-3 h-3" />
-                      <span>Tag</span>
-                    </button>
-                  </Tooltip>
+                  <button
+                    className="inline-flex items-center gap-1 font-mono text-[11px] text-white/35 bg-transparent border-none px-2 py-0.5 rounded-full shrink-0 opacity-0 group-hover/meta:opacity-100 hover:text-white/70 hover:bg-white/[0.05] transition-all duration-150"
+                    onMouseDown={handleTagButtonClick}
+                    aria-label="Add tag"
+                  >
+                    <Icon name="tag" className="w-3 h-3" />
+                    <span>Tag</span>
+                  </button>
                 )}
               </>
             ) : (
@@ -499,21 +495,16 @@ function BranchCopy({ branch }: { branch: string }) {
   const iconName = copied ? 'check' : hovered ? 'copy' : 'git-branch';
 
   return (
-    <Tooltip
-      text={copied ? 'Copied' : 'Copy branch'}
-      placement="bottom-start"
-      onHoverChange={setHovered}
-      referenceClassName="inline-flex min-w-0 self-start"
+    <button
+      type="button"
+      className="inline-flex items-center gap-1 font-mono text-[11px] text-white/45 bg-transparent border-none p-0 min-w-0 self-start shrink-0 transition-colors duration-150 hover:text-white/75"
+      onClick={handleClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
     >
-      <button
-        type="button"
-        className="inline-flex items-center gap-1 font-mono text-[11px] text-white/45 bg-transparent border-none p-0 min-w-0 shrink-0 transition-colors duration-150 hover:text-white/75"
-        onClick={handleClick}
-      >
-        <Icon name={iconName} className="w-3 h-3 shrink-0 text-white/35" />
-        <span className="truncate">{copied ? 'Copied' : branch}</span>
-      </button>
-    </Tooltip>
+      <Icon name={iconName} className="w-3 h-3 shrink-0 text-white/35" />
+      <span className="truncate">{copied ? 'Copied' : branch}</span>
+    </button>
   );
 }
 
@@ -612,21 +603,17 @@ function ActionGroup({
 
   const slots: { key: string; content: React.ReactNode }[] = [];
 
-  const slotWrapClass = 'inline-flex h-full';
-
   if (showPlan) {
     slots.push({
       key: 'plan',
       content: (
-        <Tooltip text="View plan" placement="bottom" referenceClassName={slotWrapClass}>
-          <button
-            className={`${groupButtonBase} ${planPanelOpen ? groupButtonActive : groupButtonInactive}`}
-            onClick={onPlanClick}
-          >
-            <Icon name="list-checks" className="w-3.5 h-3.5" />
-            <span>Plan</span>
-          </button>
-        </Tooltip>
+        <button
+          className={`${groupButtonBase} ${planPanelOpen ? groupButtonActive : groupButtonInactive}`}
+          onClick={onPlanClick}
+        >
+          <Icon name="list-checks" className="w-3.5 h-3.5" />
+          <span>Plan</span>
+        </button>
       ),
     });
   }
@@ -635,15 +622,13 @@ function ActionGroup({
     slots.push({
       key: 'preview',
       content: (
-        <Tooltip text={`Preview ${webPreviewUrl}`} placement="bottom" referenceClassName={slotWrapClass}>
-          <button
-            className={`${groupButtonBase} ${webPreviewPanelOpen ? groupButtonActive : groupButtonInactive}`}
-            onClick={onWebPreviewClick}
-          >
-            <Icon name="globe-simple" className="w-3.5 h-3.5" />
-            <span>Preview</span>
-          </button>
-        </Tooltip>
+        <button
+          className={`${groupButtonBase} ${webPreviewPanelOpen ? groupButtonActive : groupButtonInactive}`}
+          onClick={onWebPreviewClick}
+        >
+          <Icon name="globe-simple" className="w-3.5 h-3.5" />
+          <span>Preview</span>
+        </button>
       ),
     });
   }
@@ -652,32 +637,28 @@ function ActionGroup({
     slots.push({
       key: 'diff',
       content: (
-        <Tooltip text="View uncommitted changes" placement="bottom" referenceClassName={slotWrapClass}>
-          <button
-            className={`${groupButtonBase} ${diffPanelOpen ? groupButtonActive : groupButtonInactive}`}
-            onClick={onDiffClick}
-          >
-            <span>
-              {dirtyFileCount} {dirtyFileCount === 1 ? 'file' : 'files'}
-            </span>
-            {insertions > 0 && <span className="text-[#4ee82e]">+{insertions}</span>}
-            {deletions > 0 && <span className="text-[#ff6b6b]">-{deletions}</span>}
-          </button>
-        </Tooltip>
+        <button
+          className={`${groupButtonBase} ${diffPanelOpen ? groupButtonActive : groupButtonInactive}`}
+          onClick={onDiffClick}
+        >
+          <span>
+            {dirtyFileCount} {dirtyFileCount === 1 ? 'file' : 'files'}
+          </span>
+          {insertions > 0 && <span className="text-[#4ee82e]">+{insertions}</span>}
+          {deletions > 0 && <span className="text-[#ff6b6b]">-{deletions}</span>}
+        </button>
       ),
     });
   } else if (showGit && showCompare) {
     slots.push({
       key: 'compare',
       content: (
-        <Tooltip text="Compare branch changes" placement="bottom" referenceClassName={slotWrapClass}>
-          <button
-            className={`${groupButtonBase} ${diffPanelOpen ? groupButtonActive : groupButtonInactive}`}
-            onClick={onDiffClick}
-          >
-            Compare
-          </button>
-        </Tooltip>
+        <button
+          className={`${groupButtonBase} ${diffPanelOpen ? groupButtonActive : groupButtonInactive}`}
+          onClick={onDiffClick}
+        >
+          Compare
+        </button>
       ),
     });
   }
@@ -694,17 +675,15 @@ function ActionGroup({
           <span>{runText}</span>
         </button>
         {showChevron && (
-          <Tooltip text="More run options" placement="bottom" referenceClassName={slotWrapClass}>
-            <button
-              ref={chevronRef}
-              className={`${groupButtonBase} !px-2 ${runnerPanelOpen ? groupButtonActive : runColor}`}
-              aria-haspopup="menu"
-              aria-label="More run options"
-              onClick={onChevronClick}
-            >
-              <Icon name="caret-down" className="w-2.5 h-2.5" />
-            </button>
-          </Tooltip>
+          <button
+            ref={chevronRef}
+            className={`${groupButtonBase} !px-2 ${runnerPanelOpen ? groupButtonActive : runColor}`}
+            aria-haspopup="menu"
+            aria-label="More run options"
+            onClick={onChevronClick}
+          >
+            <Icon name="caret-down" className="w-2.5 h-2.5" />
+          </button>
         )}
       </>
     ),
