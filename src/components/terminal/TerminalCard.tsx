@@ -7,38 +7,37 @@ import { useTerminalPanels } from './useTerminalPanels';
 
 const EMPTY: string[] = [];
 
-const DEPTH_STYLES: Record<number, React.CSSProperties> = {
+interface DepthStyle {
+  translateY: number;
+  scaleX: number;
+  zIndex: number;
+  boxShadow: string;
+}
+
+const DEPTH_STYLES: Record<number, DepthStyle> = {
   1: {
+    translateY: -24,
+    scaleX: 0.98,
     zIndex: 9,
-    transform: 'translateY(-24px)',
-    left: '1%',
-    right: '1%',
     boxShadow: '0 0 0 1px rgba(0, 0, 0, 0.1), 0 2px 8px rgba(0, 0, 0, 0.12)',
-    contain: 'layout style paint',
   },
   2: {
+    translateY: -48,
+    scaleX: 0.96,
     zIndex: 8,
-    transform: 'translateY(-48px)',
-    left: '2%',
-    right: '2%',
     boxShadow: '0 0 0 1px rgba(0, 0, 0, 0.1), 0 1px 4px rgba(0, 0, 0, 0.08)',
-    contain: 'layout style paint',
   },
   3: {
+    translateY: -72,
+    scaleX: 0.94,
     zIndex: 7,
-    transform: 'translateY(-72px)',
-    left: '3%',
-    right: '3%',
     boxShadow: '0 0 0 1px rgba(0, 0, 0, 0.08)',
-    contain: 'layout style paint',
   },
   4: {
+    translateY: -96,
+    scaleX: 0.92,
     zIndex: 6,
-    transform: 'translateY(-96px)',
-    left: '4%',
-    right: '4%',
     boxShadow: '0 0 0 1px rgba(0, 0, 0, 0.06)',
-    contain: 'layout style paint',
   },
 };
 
@@ -115,21 +114,25 @@ export const TerminalCard = memo(function TerminalCard({ ptyId, projectPath }: T
   if (isHidden) return null;
 
   const depthBase = DEPTH_STYLES[backDepth];
-  const liftPx = !isActive && hovered && depthBase ? backDepth * 24 + 4 : 0;
+  const hoverLift = !isActive && hovered && depthBase ? 4 : 0;
 
   const cardStyle: React.CSSProperties = {
     background: 'var(--color-terminal-bg, #171717)',
-    transition: 'transform 0.2s ease, left 0.2s ease, right 0.2s ease',
+    transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+    contain: 'layout style paint',
     ...(isActive
       ? {
           zIndex: 10,
-          transform: 'none',
+          transform: 'translateY(0) scaleX(1)',
           boxShadow: '0 0 0 1px rgba(0, 0, 0, 0.05), 0 4px 12px rgba(0, 0, 0, 0.15), 0 20px 40px rgba(0, 0, 0, 0.2)',
         }
-      : {
-          ...depthBase,
-          ...(liftPx ? { transform: `translateY(-${liftPx}px)` } : {}),
-        }),
+      : depthBase
+        ? {
+            zIndex: depthBase.zIndex,
+            transform: `translateY(${depthBase.translateY - hoverLift}px) scaleX(${depthBase.scaleX})`,
+            boxShadow: depthBase.boxShadow,
+          }
+        : {}),
   };
 
   return (
@@ -152,18 +155,20 @@ export const TerminalCard = memo(function TerminalCard({ ptyId, projectPath }: T
         onToggleWebPreviewPanel={toggleWebPreviewPanel}
         onToggleRunner={toggleRunner}
       />
-      <TerminalBody
-        ptyId={ptyId}
-        projectPath={projectPath}
-        onCloseDiffPanel={closeDiffPanel}
-        onClosePlanPanel={closePlanPanel}
-        onChangePlanFile={changePlanFile}
-        onCloseWebPreviewPanel={closeWebPreviewPanel}
-        onChangeWebPreviewUrl={changeWebPreviewUrl}
-        onCollapseRunner={collapseRunner}
-        onKillRunner={killRunner}
-        onRestartRunner={restartRunner}
-      />
+      {isActive && (
+        <TerminalBody
+          ptyId={ptyId}
+          projectPath={projectPath}
+          onCloseDiffPanel={closeDiffPanel}
+          onClosePlanPanel={closePlanPanel}
+          onChangePlanFile={changePlanFile}
+          onCloseWebPreviewPanel={closeWebPreviewPanel}
+          onChangeWebPreviewUrl={changeWebPreviewUrl}
+          onCollapseRunner={collapseRunner}
+          onKillRunner={killRunner}
+          onRestartRunner={restartRunner}
+        />
+      )}
     </div>
   );
 });
