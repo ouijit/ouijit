@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { Project } from '../types';
+import type { HealthStatus } from '../healthCheck';
 
 interface AppStoreState {
   activeView: 'home' | 'project';
@@ -13,6 +14,9 @@ interface AppStoreState {
   sandboxVmStatus: string;
   sandboxStarting: boolean;
   whatsNew: { version: string; notes: string } | null;
+  health: HealthStatus | null;
+  welcome: boolean;
+  homeActivePanel: 'home' | 'settings';
   _version: number;
 }
 
@@ -23,6 +27,9 @@ interface AppStoreActions {
   setSandboxStatus: (available: boolean, vmStatus: string) => void;
   setSandboxStarting: (starting: boolean) => void;
   setWhatsNew: (info: { version: string; notes: string } | null) => void;
+  setHealth: (status: HealthStatus | null) => void;
+  setWelcome: (visible: boolean) => void;
+  setHomeActivePanel: (panel: 'home' | 'settings') => void;
   navigateToProject: (path: string, project: Project) => void;
   navigateHome: () => void;
   resetProjectState: () => void;
@@ -42,6 +49,9 @@ export const useAppStore = create<AppStore>()((set, get) => ({
   sandboxVmStatus: '',
   sandboxStarting: false,
   whatsNew: null,
+  health: null,
+  welcome: false,
+  homeActivePanel: 'home',
   _version: 0,
 
   setProjects: (projects) => set({ projects }),
@@ -55,6 +65,12 @@ export const useAppStore = create<AppStore>()((set, get) => ({
   setSandboxStarting: (starting) => set({ sandboxStarting: starting }),
 
   setWhatsNew: (info) => set({ whatsNew: info }),
+
+  setHealth: (status) => set({ health: status }),
+
+  setWelcome: (visible) => set({ welcome: visible }),
+
+  setHomeActivePanel: (panel) => set({ homeActivePanel: panel }),
 
   navigateToProject: (path, project) => {
     const version = get()._version + 1;
@@ -72,6 +88,7 @@ export const useAppStore = create<AppStore>()((set, get) => ({
       activeView: 'home',
       activeProjectPath: null,
       activeProjectData: null,
+      homeActivePanel: 'home',
       _version: version,
     });
   },

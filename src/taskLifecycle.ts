@@ -20,6 +20,7 @@ import {
 } from './db';
 import { listWorktrees, removeTaskWorktree, startTask } from './worktree';
 import type { TaskWithWorkspace, TaskWorktreeResult } from './types';
+import { getCachedHealth } from './healthCheck';
 import { getLogger } from './logger';
 
 const execFileAsync = promisify(execFile);
@@ -59,6 +60,16 @@ export async function beginTask(
     if (!statusResult.success) {
       taskLog.error('beginTask: failed to set status', { taskNumber, error: statusResult.error });
     }
+  }
+
+  // Surface a non-fatal warning if Claude Code is not on PATH. The kanban / open
+  // terminal handlers route these to a one-time toast.
+  const health = getCachedHealth();
+  if (health && !health.claude) {
+    result.warnings = [
+      ...(result.warnings ?? []),
+      'Claude Code not found on PATH. Install from claude.com/claude-code to use AI workflows in this terminal.',
+    ];
   }
 
   return result;

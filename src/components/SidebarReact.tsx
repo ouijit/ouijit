@@ -37,7 +37,8 @@ export function Sidebar({ onProjectSelect, onHomeSelect, onAddExisting, onCreate
   const triggerRef = useRef<HTMLDivElement>(null);
   const hideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const showTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [visible, setVisible] = useState(false);
+  const noProjects = projects.length === 0;
+  const [visible, setVisible] = useState(noProjects);
 
   const addBtnRef = useRef<HTMLButtonElement>(null);
   const [addMenuOpen, setAddMenuOpen] = useState(false);
@@ -80,6 +81,9 @@ export function Sidebar({ onProjectSelect, onHomeSelect, onAddExisting, onCreate
 
   const hideSidebar = useCallback(() => {
     if (addMenuOpen) return;
+    // Keep the sidebar pinned open until the user has at least one project —
+    // otherwise the only entry point for "add project" disappears on hover-out.
+    if (noProjects) return;
     if (showTimeoutRef.current) {
       clearTimeout(showTimeoutRef.current);
       showTimeoutRef.current = null;
@@ -89,7 +93,7 @@ export function Sidebar({ onProjectSelect, onHomeSelect, onAddExisting, onCreate
 
       document.documentElement.style.setProperty('--sidebar-offset', '0px');
     }, 300);
-  }, [addMenuOpen]);
+  }, [addMenuOpen, noProjects]);
 
   // Listen for show-sidebar events from the header toggle button
   useEffect(() => {
@@ -97,6 +101,22 @@ export function Sidebar({ onProjectSelect, onHomeSelect, onAddExisting, onCreate
     document.addEventListener('show-sidebar', handler);
     return () => document.removeEventListener('show-sidebar', handler);
   }, [showSidebar]);
+
+  // Listen for open-add-menu events from the home empty state CTA
+  useEffect(() => {
+    const handler = () => {
+      showSidebar();
+      setAddMenuOpen(true);
+    };
+    document.addEventListener('open-add-menu', handler);
+    return () => document.removeEventListener('open-add-menu', handler);
+  }, [showSidebar]);
+
+  // Pin the sidebar open whenever there are no projects so the add-project
+  // button stays visible (otherwise it auto-hides on mouse-out).
+  useEffect(() => {
+    if (noProjects) showSidebar();
+  }, [noProjects, showSidebar]);
 
   // Context menu dismiss
   useEffect(() => {

@@ -1,14 +1,17 @@
 import { Component, useCallback, useEffect, useState, type ErrorInfo, type ReactNode } from 'react';
 import { useIPCListeners } from './hooks/useIPCListeners';
 import { useAppStore } from './stores/appStore';
+import { useProjectStore } from './stores/projectStore';
 import { useExperimentalStore } from './stores/experimentalStore';
 import { TitleBar } from './components/TitleBarReact';
 import { Sidebar } from './components/SidebarReact';
 import { HomeView } from './components/HomeViewReact';
+import { GlobalSettingsPanel } from './components/GlobalSettingsPanel';
 import { ProjectView } from './components/ProjectViewReact';
 import { ToastContainer } from './components/ui/ToastContainer';
 import { NewProjectDialog } from './components/dialogs/NewProjectDialog';
 import { WhatsNewDialog } from './components/dialogs/WhatsNewDialog';
+import { WelcomeDialog } from './components/dialogs/WelcomeDialog';
 import { installCaptureNavigator } from './capture/navigator';
 import log from 'electron-log/renderer';
 import type { Project } from './types';
@@ -34,9 +37,9 @@ class ViewErrorBoundary extends Component<{ children: ReactNode }, { error: Erro
     if (this.state.error) {
       return (
         <div className="flex-1 flex items-center justify-center p-8">
-          <div className="text-center">
+          <div className="text-center w-full max-w-[28rem]">
             <div className="text-sm text-red-400 font-mono mb-2">View crashed</div>
-            <div className="text-xs text-white/50 font-mono max-w-md break-all">{this.state.error.message}</div>
+            <div className="text-xs text-white/50 font-mono break-words">{this.state.error.message}</div>
             <button
               className="mt-4 px-3 py-1.5 text-xs bg-white/10 rounded border border-white/20 text-white/70 hover:bg-white/20"
               onClick={() => this.setState({ error: null })}
@@ -57,6 +60,8 @@ export function App() {
   const activeView = useAppStore((s) => s.activeView);
   const activeProjectPath = useAppStore((s) => s.activeProjectPath);
   const whatsNew = useAppStore((s) => s.whatsNew);
+  const welcome = useAppStore((s) => s.welcome);
+  const homeActivePanel = useAppStore((s) => s.homeActivePanel);
   const [showNewProject, setShowNewProject] = useState(false);
   const [initialized, setInitialized] = useState(false);
 
@@ -132,6 +137,8 @@ export function App() {
       if (addResult.success) {
         const projects = await window.api.refreshProjects();
         useAppStore.getState().setProjects(projects);
+      } else if (addResult.error) {
+        useProjectStore.getState().addToast(addResult.error, 'error');
       }
     }
   }, []);
@@ -179,13 +186,14 @@ export function App() {
           }
         >
           <ViewErrorBoundary>
-            {activeView === 'home' && <HomeView />}
+            {activeView === 'home' && (homeActivePanel === 'settings' ? <GlobalSettingsPanel /> : <HomeView />)}
             {activeView === 'project' && <ProjectView />}
           </ViewErrorBoundary>
         </main>
       </div>
       <ToastContainer />
       {showNewProject && <NewProjectDialog onClose={handleNewProjectClose} />}
+      {welcome && <WelcomeDialog onClose={() => useAppStore.getState().setWelcome(false)} />}
       {whatsNew && (
         <WhatsNewDialog
           version={whatsNew.version}

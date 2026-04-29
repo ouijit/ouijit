@@ -462,6 +462,16 @@ export async function addProject(folderPath: string): Promise<{ success: boolean
     if (!stat.isDirectory()) {
       return { success: false, error: 'Path is not a directory' };
     }
+    // Must be a git repo. `.git` is a directory in normal repos and a file in
+    // worktrees / submodules — fs.access covers both.
+    try {
+      await fs.access(path.join(folderPath, '.git'));
+    } catch {
+      return {
+        success: false,
+        error: 'Selected folder is not a git repository. Run `git init` or pick another folder.',
+      };
+    }
     const name = path.basename(folderPath);
     const { projectRepo: pr } = repos();
     pr.add(folderPath, name);

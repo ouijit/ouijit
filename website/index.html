@@ -18,7 +18,7 @@
 
 <section class="hero">
   <h1>Integrated Divination Environment</h1>
-  <p class="subtitle">Isolated workspaces for parallel agents, lifecycle hooks for automation, and built-in VM sandboxing.</p>
+  <p class="subtitle">A kanban terminal manager for CLI agent workflows. Each task gets a git worktree and its own terminal &mdash; bring Claude Code, Codex, aider, or plain bash.</p>
   <div class="download-buttons">
     <a href="https://github.com/ouijit/ouijit/releases/latest/download/ouijit-darwin-arm64.zip" class="btn btn-primary">Download for macOS (Apple Silicon)</a>
     <a href="https://github.com/ouijit/ouijit/releases/latest/download/ouijit-darwin-x64.zip" class="btn btn-secondary">macOS (Intel)</a>
@@ -72,6 +72,25 @@
       <span class="feature-icon"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="currentColor"><path d="M224,48H32A16,16,0,0,0,16,64V192a16,16,0,0,0,16,16H224a16,16,0,0,0,16-16V64A16,16,0,0,0,224,48Zm0,144H32V64H224V192Zm-16-64a8,8,0,0,1-8,8H56a8,8,0,0,1,0-16H200A8,8,0,0,1,208,128Zm0-32a8,8,0,0,1-8,8H56a8,8,0,0,1,0-16H200A8,8,0,0,1,208,96ZM72,160a8,8,0,0,1-8,8H56a8,8,0,0,1,0-16h8A8,8,0,0,1,72,160Zm96,0a8,8,0,0,1-8,8H96a8,8,0,0,1,0-16h64A8,8,0,0,1,168,160Zm40,0a8,8,0,0,1-8,8h-8a8,8,0,0,1,0-16h8A8,8,0,0,1,208,160Z"/></svg></span>
       <h3>Keyboard-Driven</h3>
       <p>Navigate, create tasks, switch terminals, and manage workflows without leaving the keyboard.</p>
+    </div>
+  </div>
+</section>
+
+<section class="features-section" id="privacy">
+  <h2>Privacy</h2>
+  <p class="subtitle">Ouijit runs entirely on your machine. No telemetry, no analytics, no remote logging.</p>
+  <div class="features-grid">
+    <div class="feature-card">
+      <h3>Auto-update check</h3>
+      <p>On macOS, via Electron's public update service. On Linux, via the GitHub releases API for <code>ouijit/ouijit</code>. Disable with <code>OUIJIT_DISABLE_UPDATES=1</code> or in Settings &rarr; Updates.</p>
+    </div>
+    <div class="feature-card">
+      <h3>External links</h3>
+      <p>When you click a link in the app, your default browser opens it. That's it.</p>
+    </div>
+    <div class="feature-card">
+      <h3>Open source</h3>
+      <p>AGPL-3.0. Read the source if you want to verify what the app does on your network.</p>
     </div>
   </div>
 </section>

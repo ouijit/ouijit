@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo, useRef } from 'react';
+import { useAppStore } from '../stores/appStore';
 import { useTerminalStore } from '../stores/terminalStore';
 import { useUIStore } from '../stores/uiStore';
 import { terminalInstances } from './terminal/terminalReact';
@@ -28,6 +29,7 @@ function getDepthStyle(depth: number): React.CSSProperties {
 
 export function HomeView() {
   const [projects, setProjects] = useState<Map<string, Project>>(new Map());
+  const projectCount = useAppStore((s) => s.projects.length);
   const terminalsByProject = useTerminalStore((s) => s.terminalsByProject);
   const displayStates = useTerminalStore((s) => s.displayStates);
   const homeGroupMode = useUIStore((s) => s.homeGroupMode);
@@ -283,6 +285,8 @@ export function HomeView() {
 
   if (allPtyIds.length === 0) {
     const isMac = navigator.platform.toLowerCase().includes('mac');
+    const noProjects = projectCount === 0;
+
     return (
       <div
         className="fixed top-[82px] right-4 bottom-4 z-[100] overflow-visible"
@@ -292,22 +296,46 @@ export function HomeView() {
         }}
       >
         <div
-          className="absolute inset-0 flex flex-col items-center justify-center text-center rounded-[14px] border border-dashed border-white/10 p-12 opacity-100"
+          className="absolute inset-0 flex flex-col justify-center text-center rounded-[14px] border border-dashed border-white/10 p-12 opacity-100"
           style={{ background: 'var(--color-terminal-bg)' }}
         >
-          <div className="text-sm text-white/30">No active sessions</div>
-          <div className="flex justify-center gap-6 mt-6">
-            <span className="flex items-center gap-1.5 text-[13px]" style={{ color: 'rgba(255, 255, 255, 0.35)' }}>
-              <span
-                className="inline-flex items-center font-mono"
-                style={{ fontSize: isMac ? 16 : 13, color: 'rgba(255, 255, 255, 0.25)' }}
-              >
-                {isMac ? '\u2318' : 'Ctrl+'}
-                <span className={isMac ? 'text-xs' : 'text-[13px]'}>I</span>
-              </span>
-              New Terminal
-            </span>
-          </div>
+          {noProjects ? (
+            <>
+              <div
+                aria-hidden
+                className="sidebar-home-logo-mask w-12 h-12 mb-4 mx-auto"
+                style={{ backgroundColor: 'var(--color-text-tertiary)' }}
+              />
+              <div className="text-base font-semibold text-text-primary">Add your first project</div>
+              <div className="text-sm text-text-secondary mt-1 mx-auto max-w-[24rem]">
+                A project is a git repo. Each task gets its own worktree and terminal.
+              </div>
+              <div className="mt-5">
+                <button
+                  className="inline-flex items-center justify-center gap-2 px-5 py-1.5 font-sans text-sm font-medium no-underline border-none rounded-full outline-none transition-all duration-150 ease-out [-webkit-app-region:no-drag] focus-visible:ring-3 focus-visible:ring-accent-light text-white bg-accent hover:bg-accent-hover active:scale-[0.98]"
+                  onClick={() => document.dispatchEvent(new Event('open-add-menu'))}
+                >
+                  Add project
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="text-sm text-white/30">No active terminals</div>
+              <div className="flex justify-center gap-6 mt-6">
+                <span className="flex items-center gap-1.5 text-[13px]" style={{ color: 'rgba(255, 255, 255, 0.35)' }}>
+                  <span
+                    className="inline-flex items-center font-mono"
+                    style={{ fontSize: isMac ? 16 : 13, color: 'rgba(255, 255, 255, 0.25)' }}
+                  >
+                    {isMac ? '\u2318' : 'Ctrl+'}
+                    <span className={isMac ? 'text-xs' : 'text-[13px]'}>I</span>
+                  </span>
+                  New Terminal
+                </span>
+              </div>
+            </>
+          )}
         </div>
       </div>
     );

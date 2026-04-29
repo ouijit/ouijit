@@ -18,6 +18,8 @@ import { SettingsRepo } from './db/repos/settingsRepo';
 import { HookRepo } from './db/repos/hookRepo';
 import { importAll } from './services/dataImportService';
 import { initUpdater, cleanupUpdater } from './updater';
+import { checkHealth } from './healthCheck';
+import { checkFirstRun } from './firstRun';
 import {
   CAPTURE_READY_SENTINEL,
   CAPTURE_WINDOW_HEIGHT,
@@ -295,6 +297,31 @@ app.on('ready', async () => {
     }
   } else {
     initUpdater(mainWindow);
+  }
+
+  // Health probe (git/claude/lima detection) — push to renderer once it's ready
+  if (!isCaptureMode() && mainWindow) {
+    const pushHealth = async () => {
+      const status = await checkHealth();
+      if (mainWindow) typedPush(mainWindow, 'health', status);
+    };
+    if (mainWindow.webContents.isLoading()) {
+      mainWindow.webContents.once('did-finish-load', pushHealth);
+    } else {
+      pushHealth();
+    }
+  }
+
+  // First-run welcome — only when not in capture mode
+  if (!isCaptureMode() && mainWindow) {
+    const fireWelcome = () => {
+      if (mainWindow) checkFirstRun(mainWindow);
+    };
+    if (mainWindow.webContents.isLoading()) {
+      mainWindow.webContents.once('did-finish-load', fireWelcome);
+    } else {
+      fireWelcome();
+    }
   }
 });
 

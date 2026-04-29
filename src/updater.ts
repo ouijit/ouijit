@@ -119,7 +119,17 @@ export function _resetForTesting(): void {
   lastNotifiedVersion = null;
 }
 
-export function initUpdater(mainWindow: BrowserWindow): void {
+export async function initUpdater(mainWindow: BrowserWindow): Promise<void> {
+  if (process.env.OUIJIT_DISABLE_UPDATES === '1') {
+    updaterLog.info('updates disabled by env var');
+    return;
+  }
+
+  if ((await getGlobalSetting('disableUpdates')) === '1') {
+    updaterLog.info('updates disabled by setting');
+    return;
+  }
+
   if (!app.isPackaged) {
     updaterLog.info('skipping updates in dev mode');
     return;

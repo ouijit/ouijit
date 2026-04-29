@@ -192,6 +192,13 @@ contextBridge.exposeInMainWorld('api', {
     set: (key: string, value: string) => typedInvoke('settings:set-global', key, value),
   },
 
+  health: {
+    check: () => typedInvoke('health:check'),
+    onUpdate: (callback: (status: import('./healthCheck').HealthStatus) => void) => typedListen('health', callback),
+  },
+
+  onWelcome: (callback: () => void) => typedListen('welcome', callback),
+
   onUpdateAvailable: (callback: (info: { version: string; url: string }) => void) =>
     typedListen('update-available', callback),
 

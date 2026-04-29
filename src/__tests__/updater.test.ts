@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { semverGt, checkForLinuxUpdate, _resetForTesting } from '../updater';
+import { semverGt, checkForLinuxUpdate, initUpdater, _resetForTesting } from '../updater';
 
 // Mock electron modules
 const mockGetVersion = vi.fn(() => '1.0.0');
@@ -142,5 +142,25 @@ describe('checkForLinuxUpdate', () => {
     await checkForLinuxUpdate(mockWindow);
 
     expect(mockTypedPush).not.toHaveBeenCalled();
+  });
+});
+
+describe('initUpdater opt-out gates', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    _resetForTesting();
+    delete process.env.OUIJIT_DISABLE_UPDATES;
+  });
+
+  it('returns early when OUIJIT_DISABLE_UPDATES=1', async () => {
+    process.env.OUIJIT_DISABLE_UPDATES = '1';
+    await initUpdater(mockWindow);
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it('returns early in dev mode (not packaged)', async () => {
+    // app.isPackaged is hard-coded to false in the mock above
+    await initUpdater(mockWindow);
+    expect(mockFetch).not.toHaveBeenCalled();
   });
 });

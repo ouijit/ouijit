@@ -61,6 +61,8 @@ export interface TaskWorktreeResult {
   task?: TaskMetadata;
   worktreePath?: string;
   error?: string;
+  /** Non-fatal advisories surfaced to the renderer (e.g., missing CLI tool) */
+  warnings?: string[];
 }
 
 export interface WorktreeRemoveResult {

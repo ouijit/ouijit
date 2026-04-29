@@ -35,14 +35,24 @@ export async function createProject(options: CreateProjectOptions): Promise<Crea
     // Create the project directory
     await fs.mkdir(projectPath);
 
-    // Initialize git
+    // Initialize git — required. If this fails, roll back the directory.
     try {
       execSync('git init', { cwd: projectPath, stdio: 'ignore' });
     } catch (gitError) {
-      creatorLog.warn('failed to initialize git', {
+      creatorLog.error('failed to initialize git', {
         error: gitError instanceof Error ? gitError.message : String(gitError),
       });
-      // Continue anyway - git init failing shouldn't block project creation
+      try {
+        await fs.rm(projectPath, { recursive: true, force: true });
+      } catch (cleanupErr) {
+        creatorLog.warn('failed to clean up after git init failure', {
+          error: cleanupErr instanceof Error ? cleanupErr.message : String(cleanupErr),
+        });
+      }
+      return {
+        success: false,
+        error: 'Git is required. Install via `xcode-select --install` (macOS) or your package manager (Linux).',
+      };
     }
 
     // Create CLAUDE.md

@@ -24,6 +24,7 @@ export function TitleBar({ mode }: TitleBarProps) {
   const kanbanVisible = useProjectStore((s) => s.kanbanVisible);
   const terminalLayout = useProjectStore((s) => s.terminalLayout);
   const activePanel = useProjectStore((s) => s.activePanel);
+  const homeActivePanel = useAppStore((s) => s.homeActivePanel);
   const canvasEnabled = useExperimentalStore((s) =>
     activeProjectPath ? (s.flagsByProject[activeProjectPath]?.canvas ?? false) : false,
   );
@@ -186,17 +187,30 @@ export function TitleBar({ mode }: TitleBarProps) {
             <div className="flex items-center h-9 ml-3 bg-background-secondary glass-bevel relative border border-black/60 rounded-[14px] overflow-hidden [-webkit-app-region:no-drag]">
               <TooltipButton
                 text="Group by project"
-                className={`w-9 h-full flex items-center justify-center text-text-secondary transition-all duration-150 ease-out hover:text-text-primary hover:bg-background-tertiary [&>svg]:w-5 [&>svg]:h-5${homeGroupMode === 'project' ? ' text-text-primary bg-background-tertiary' : ''}`}
-                onClick={() => useUIStore.getState().setHomeGroupMode('project')}
+                className={`w-9 h-full flex items-center justify-center text-text-secondary transition-all duration-150 ease-out hover:text-text-primary hover:bg-background-tertiary [&>svg]:w-5 [&>svg]:h-5${homeActivePanel !== 'settings' && homeGroupMode === 'project' ? ' text-text-primary bg-background-tertiary' : ''}`}
+                onClick={() => {
+                  useAppStore.getState().setHomeActivePanel('home');
+                  useUIStore.getState().setHomeGroupMode('project');
+                }}
               >
                 <Icon name="folder-open" />
               </TooltipButton>
               <TooltipButton
                 text="Group by tag"
-                className={`w-9 h-full flex items-center justify-center text-text-secondary transition-all duration-150 ease-out hover:text-text-primary hover:bg-background-tertiary [&>svg]:w-5 [&>svg]:h-5${homeGroupMode === 'tag' ? ' text-text-primary bg-background-tertiary' : ''}`}
-                onClick={() => useUIStore.getState().setHomeGroupMode('tag')}
+                className={`w-9 h-full flex items-center justify-center text-text-secondary transition-all duration-150 ease-out hover:text-text-primary hover:bg-background-tertiary [&>svg]:w-5 [&>svg]:h-5${homeActivePanel !== 'settings' && homeGroupMode === 'tag' ? ' text-text-primary bg-background-tertiary' : ''}`}
+                onClick={() => {
+                  useAppStore.getState().setHomeActivePanel('home');
+                  useUIStore.getState().setHomeGroupMode('tag');
+                }}
               >
                 <Icon name="tag" />
+              </TooltipButton>
+              <TooltipButton
+                text="Settings"
+                className={`w-9 h-full flex items-center justify-center text-text-secondary transition-all duration-150 ease-out hover:text-text-primary hover:bg-background-tertiary [&>svg]:w-5 [&>svg]:h-5${homeActivePanel === 'settings' ? ' text-text-primary bg-background-tertiary' : ''}`}
+                onClick={() => useAppStore.getState().setHomeActivePanel('settings')}
+              >
+                <Icon name="gear" />
               </TooltipButton>
             </div>
             <Tooltip text="New terminal" placement="bottom">
