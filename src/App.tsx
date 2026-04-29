@@ -88,6 +88,17 @@ export function App() {
     installCaptureNavigator();
   }, []);
 
+  // First-run welcome — pull from the persisted setting on mount so we don't
+  // race the main-process push against the renderer's listener registration.
+  useEffect(() => {
+    (async () => {
+      const seen = await window.api.globalSettings.get('hasSeenWelcome');
+      if (seen) return;
+      useAppStore.getState().setWelcome(true);
+      await window.api.globalSettings.set('hasSeenWelcome', '1');
+    })();
+  }, []);
+
   // Load projects and restore last active view before rendering content
   useEffect(() => {
     window.api.getProjects().then(async (projects) => {

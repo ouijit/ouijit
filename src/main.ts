@@ -19,7 +19,7 @@ import { HookRepo } from './db/repos/hookRepo';
 import { importAll } from './services/dataImportService';
 import { initUpdater, cleanupUpdater } from './updater';
 import { checkHealth } from './healthCheck';
-import { checkFirstRun } from './firstRun';
+import { setGlobalSetting } from './db';
 import {
   CAPTURE_READY_SENTINEL,
   CAPTURE_WINDOW_HEIGHT,
@@ -312,16 +312,10 @@ app.on('ready', async () => {
     }
   }
 
-  // First-run welcome — only when not in capture mode
-  if (!isCaptureMode() && mainWindow) {
-    const fireWelcome = () => {
-      if (mainWindow) checkFirstRun(mainWindow);
-    };
-    if (mainWindow.webContents.isLoading()) {
-      mainWindow.webContents.once('did-finish-load', fireWelcome);
-    } else {
-      fireWelcome();
-    }
+  // E2E suite expects no welcome dialog interfering with existing flows.
+  // Pre-set the seen flag so the renderer's first-run pull treats it as already shown.
+  if (process.env.OUIJIT_E2E === '1') {
+    await setGlobalSetting('hasSeenWelcome', '1');
   }
 });
 

@@ -457,8 +457,6 @@ export interface ElectronAPI {
   globalSettings: GlobalSettingsAPI;
   /** Health probe API (git/claude/lima detection) */
   health: HealthAPI;
-  /** First-run welcome event from main process */
-  onWelcome(callback: () => void): () => void;
   /** Capture-mode API (only populated when OUIJIT_CAPTURE_MODE=1) */
   capture: CaptureAPI;
 }

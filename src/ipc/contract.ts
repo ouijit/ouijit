@@ -226,7 +226,6 @@ export interface IpcPushContract {
     args: [event: { taskNumber: number; userWorktreePath: string; sandboxViewPath: string }];
   };
   health: { args: [status: HealthStatus] };
-  welcome: { args: [] };
   'update-available': { args: [info: { version: string; url: string }] };
   'whats-new': { args: [info: { version: string; notes: string }] };
   'cli-change': { args: [payload: { project: string; action: string; message?: string; ts: number }] };

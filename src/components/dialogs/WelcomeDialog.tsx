@@ -60,8 +60,7 @@ export function WelcomeDialog({ onClose }: WelcomeDialogProps) {
           style={{ backgroundColor: 'var(--color-accent)' }}
         />
       </div>
-      <h2 className="text-lg font-semibold text-text-primary mb-1 text-center">Welcome to Ouijit</h2>
-      <p className="text-xs text-text-secondary text-center mb-5">A project manager that thinks in worktrees.</p>
+      <h2 className="text-lg font-semibold text-text-primary mb-5 text-center">Welcome to Ouijit</h2>
 
       <div
         className="glass-bevel relative border border-black/60 rounded-[14px] overflow-hidden divide-y divide-white/[0.06]"

@@ -52,13 +52,6 @@ export function useIPCListeners() {
       }),
     );
 
-    // First-run welcome dialog
-    cleanups.push(
-      window.api.onWelcome(() => {
-        useAppStore.getState().setWelcome(true);
-      }),
-    );
-
     // CLI changes — re-fetch tasks when CLI writes to the sentinel file
     cleanups.push(
       window.api.onCliChange((payload) => {

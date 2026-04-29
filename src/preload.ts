@@ -197,8 +197,6 @@ contextBridge.exposeInMainWorld('api', {
     onUpdate: (callback: (status: import('./healthCheck').HealthStatus) => void) => typedListen('health', callback),
   },
 
-  onWelcome: (callback: () => void) => typedListen('welcome', callback),
-
   onUpdateAvailable: (callback: (info: { version: string; url: string }) => void) =>
     typedListen('update-available', callback),
 
