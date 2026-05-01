@@ -1,5 +1,6 @@
 import { app, BrowserWindow, dialog, nativeTheme, shell } from 'electron';
 import path from 'node:path';
+import { createHash } from 'node:crypto';
 import started from 'electron-squirrel-startup';
 import fixPath from 'fix-path';
 import log from './log';
@@ -67,9 +68,10 @@ if (process.env.OUIJIT_TEST_USER_DATA) {
   app.setPath('userData', process.env.OUIJIT_TEST_USER_DATA);
   setUserDataPath(process.env.OUIJIT_TEST_USER_DATA);
 } else if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
-  // Isolate dev state from production so dev builds don't corrupt
-  // production task-metadata.json, project settings, etc.
-  const devPath = app.getPath('userData') + '-dev';
+  // Isolate dev state per worktree so multiple dev instances can run in parallel
+  // without stomping on each other (and without touching production).
+  const repoHash = createHash('sha256').update(app.getAppPath()).digest('hex').slice(0, 8);
+  const devPath = `${app.getPath('userData')}-dev-${repoHash}`;
   app.setPath('userData', devPath);
   setUserDataPath(devPath);
 } else {
