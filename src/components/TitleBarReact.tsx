@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect } from 'react';
 import { useAppStore } from '../stores/appStore';
 import { useProjectStore, type TerminalLayout } from '../stores/projectStore';
 import { useExperimentalStore } from '../stores/experimentalStore';
@@ -29,11 +29,6 @@ export function TitleBar({ mode }: TitleBarProps) {
     activeProjectPath ? (s.flagsByProject[activeProjectPath]?.canvas ?? false) : false,
   );
   const homeGroupMode = useUIStore((s) => s.homeGroupMode);
-  const [username, setUsername] = useState('');
-
-  useEffect(() => {
-    window.api.homePath().then((p) => setUsername(p.split('/').pop() || 'Home'));
-  }, []);
 
   // Fetch sandbox availability when switching projects
   useEffect(() => {
@@ -179,9 +174,15 @@ export function TitleBar({ mode }: TitleBarProps) {
           </div>
         ) : activeView === 'home' ? (
           <div key="home-header" className="flex items-center gap-3 flex-1 px-4">
+            <div className="w-8 h-8 flex items-center justify-center">
+              <div
+                aria-hidden
+                className="sidebar-home-logo-mask w-7 h-7"
+                style={{ backgroundColor: 'var(--color-text-primary)' }}
+              />
+            </div>
             <div className="flex flex-col gap-0.5 flex-1 min-w-0">
-              <span className="text-base font-semibold text-text-primary leading-tight">{username}</span>
-              <span className="text-xs text-text-tertiary leading-tight truncate">~</span>
+              <span className="text-base font-semibold text-text-primary leading-tight">Ouijit</span>
             </div>
             <div style={{ flex: 1 }} />
             <div className="flex items-center h-9 ml-3 bg-background-secondary glass-bevel relative border border-black/60 rounded-[14px] overflow-hidden [-webkit-app-region:no-drag]">
