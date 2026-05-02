@@ -94,7 +94,7 @@ export function TitleBar({ mode }: TitleBarProps) {
         style={{ paddingLeft: needsTrafficLightPad ? 80 : 16 }}
       >
         {activeView === 'project' && activeProjectData && activeProjectPath ? (
-          <div key="project-header" className="flex items-center gap-3 flex-1 px-4 min-w-0">
+          <div key="project-header" className="flex items-center gap-3 flex-1 pr-4 min-w-0">
             <div className="w-7 h-7 overflow-hidden rounded-md shrink-0">
               {activeProjectData.iconDataUrl ? (
                 <img
