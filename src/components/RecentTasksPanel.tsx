@@ -126,7 +126,7 @@ export function RecentTasksPanel({ projects }: RecentTasksPanelProps) {
   };
 
   return (
-    <div className="absolute inset-0 flex flex-col items-center justify-center px-6 py-6 overflow-hidden">
+    <div className="absolute inset-0 flex flex-col items-center justify-center overflow-hidden">
       <div
         className="w-full max-w-[36rem] flex flex-col rounded-[14px] border border-black/60 glass-bevel relative overflow-hidden"
         style={{ background: 'var(--color-terminal-bg)', maxHeight: '100%' }}
@@ -142,7 +142,6 @@ export function RecentTasksPanel({ projects }: RecentTasksPanelProps) {
                 key={key}
                 task={task}
                 selected={selected.has(key)}
-                anySelected={selected.size > 0}
                 onClick={(e) => {
                   if (e.metaKey || e.ctrlKey) {
                     toggleSelected(key);
@@ -202,12 +201,14 @@ function EmptyHint() {
 interface RecentTaskRowProps {
   task: RecentTask;
   selected: boolean;
-  anySelected: boolean;
   onClick: (e: React.MouseEvent) => void;
   onToggle: () => void;
 }
 
-function RecentTaskRow({ task, selected, anySelected, onClick, onToggle }: RecentTaskRowProps) {
+function RecentTaskRow({ task, selected, onClick, onToggle }: RecentTaskRowProps) {
+  const [checkboxHover, setCheckboxHover] = useState(false);
+  const showOpenHint = !selected && !checkboxHover;
+  const showSelectHint = checkboxHover;
   return (
     <li>
       <div
@@ -220,17 +221,18 @@ function RecentTaskRow({ task, selected, anySelected, onClick, onToggle }: Recen
             onClick(e as unknown as React.MouseEvent);
           }
         }}
-        className={`group w-full flex items-center gap-3 px-5 py-2.5 text-left transition-colors duration-100 [-webkit-app-region:no-drag] cursor-default ${
+        className={`group w-full flex items-center gap-3 pl-3 pr-5 py-2.5 text-left transition-colors duration-100 [-webkit-app-region:no-drag] cursor-default ${
           selected ? 'bg-accent/15 hover:bg-accent/20' : 'hover:bg-white/[0.03]'
         }`}
       >
         <Checkbox
           checked={selected}
-          visible={anySelected || selected}
           onChange={(e) => {
             e.stopPropagation();
             onToggle();
           }}
+          onPointerEnter={() => setCheckboxHover(true)}
+          onPointerLeave={() => setCheckboxHover(false)}
         />
         <ProjectThumb project={task.project} />
         <div className="flex flex-col min-w-0 flex-1 gap-0.5">
@@ -246,6 +248,11 @@ function RecentTaskRow({ task, selected, anySelected, onClick, onToggle }: Recen
             <span className="shrink-0">{formatRelativeTime(new Date(task.createdAt))}</span>
           </div>
         </div>
+        <div className="shrink-0 ml-3 text-[11px] text-text-tertiary opacity-0 group-hover:opacity-100 transition-opacity duration-100">
+          {showOpenHint && 'Open terminal →'}
+          {showSelectHint && (selected ? 'Deselect' : 'Add to selection')}
+          {!showOpenHint && !showSelectHint && (selected ? 'Open terminal →' : '')}
+        </div>
       </div>
     </li>
   );
@@ -253,37 +260,46 @@ function RecentTaskRow({ task, selected, anySelected, onClick, onToggle }: Recen
 
 function Checkbox({
   checked,
-  visible,
   onChange,
+  onPointerEnter,
+  onPointerLeave,
 }: {
   checked: boolean;
-  visible: boolean;
   onChange: (e: React.MouseEvent) => void;
+  onPointerEnter?: () => void;
+  onPointerLeave?: () => void;
 }) {
   return (
     <button
       type="button"
       role="checkbox"
       aria-checked={checked}
+      aria-label={checked ? 'Deselect task' : 'Select task'}
       onClick={onChange}
-      className={`shrink-0 w-4 h-4 rounded border transition-all duration-100 flex items-center justify-center [-webkit-app-region:no-drag] ${
-        checked
-          ? 'bg-accent border-accent'
-          : `border-white/20 ${visible ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`
-      }`}
+      onPointerEnter={onPointerEnter}
+      onPointerLeave={onPointerLeave}
+      className="shrink-0 w-7 h-7 -ml-1.5 rounded-md flex items-center justify-center transition-colors duration-100 hover:bg-white/[0.08] active:bg-white/[0.12] [-webkit-app-region:no-drag]"
     >
-      {checked && (
-        <svg viewBox="0 0 12 12" className="w-3 h-3 text-white" aria-hidden>
-          <path
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M2.5 6.5L5 9l4.5-5"
-          />
-        </svg>
-      )}
+      <span
+        className={`w-[15px] h-[15px] rounded border transition-all duration-100 flex items-center justify-center ${
+          checked
+            ? 'bg-accent border-accent'
+            : 'border-white/30 bg-white/[0.04] group-hover:border-white/50 group-hover:bg-white/[0.06]'
+        }`}
+      >
+        {checked && (
+          <svg viewBox="0 0 12 12" className="w-3 h-3 text-white" aria-hidden>
+            <path
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M2.5 6.5L5 9l4.5-5"
+            />
+          </svg>
+        )}
+      </span>
     </button>
   );
 }
