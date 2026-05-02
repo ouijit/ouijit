@@ -14,6 +14,7 @@ import { WhatsNewDialog } from './components/dialogs/WhatsNewDialog';
 import { installCaptureNavigator } from './capture/navigator';
 import { hydrateTerminalFont } from './components/terminal/terminalReact';
 import { installSessionAutoSave } from './components/terminal/sessionSnapshot';
+import { useUIStore } from './stores/uiStore';
 import log from 'electron-log/renderer';
 import type { Project } from './types';
 
@@ -91,6 +92,13 @@ export function App() {
   // Hydrate terminal-font cache from global settings before any terminal is constructed.
   useEffect(() => {
     hydrateTerminalFont();
+  }, []);
+
+  // Hydrate persisted sidebar-pinned preference.
+  useEffect(() => {
+    window.api.globalSettings.get('ui:sidebar-pinned').then((value) => {
+      if (value === '1') useUIStore.setState({ sidebarPinned: true });
+    });
   }, []);
 
   // Subscribe to terminal store changes so the cross-launch session snapshot

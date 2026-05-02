@@ -10,7 +10,8 @@ function isAllowedKey(key: string): boolean {
     key.startsWith('canvas:') ||
     key.startsWith('experimental:') ||
     key.startsWith('terminal:') ||
-    key.startsWith('lastSession:')
+    key.startsWith('lastSession:') ||
+    key.startsWith('ui:')
   );
 }
 
