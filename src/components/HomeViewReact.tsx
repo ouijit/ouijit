@@ -318,9 +318,11 @@ export function HomeView() {
             </div>
           </div>
         ) : (
-          <div className="absolute inset-0 flex flex-col gap-3">
-            <ResumeBanner />
-            <div className="flex-1 min-h-0 relative">
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 overflow-hidden">
+            <div className="w-full max-w-[36rem] shrink-0">
+              <ResumeBanner />
+            </div>
+            <div className="w-full max-w-[36rem] flex-1 min-h-0 relative">
               <RecentTasksPanel projects={allProjects} />
             </div>
           </div>

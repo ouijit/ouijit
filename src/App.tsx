@@ -114,21 +114,30 @@ export function App() {
     window.api.getProjects().then(async (projects) => {
       useAppStore.getState().setProjects(projects);
 
-      const lastView = await window.api.globalSettings.get('lastActiveView');
-      if (lastView) {
-        try {
-          const parsed = JSON.parse(lastView);
-          if (parsed.type === 'project' && parsed.path) {
-            const project = projects.find((p) => p.path === parsed.path);
-            if (project) {
-              // Fetch sandbox status before navigating so button renders instantly
-              const limaStatus = await window.api.lima.status(parsed.path);
-              useAppStore.getState().setSandboxStatus(limaStatus.available, limaStatus.vmStatus);
-              useAppStore.getState().navigateToProject(parsed.path, project);
+      // If we have a session snapshot to resume, force the user to home so
+      // the resume banner is the first thing they see — taking them back to
+      // their last project view would hide the offer behind the kanban/empty
+      // state and force them to navigate manually.
+      const pendingSnapshot = await window.api.globalSettings.get('lastSession:snapshot');
+      const hasResumable = !!pendingSnapshot && pendingSnapshot.length > 0;
+
+      if (!hasResumable) {
+        const lastView = await window.api.globalSettings.get('lastActiveView');
+        if (lastView) {
+          try {
+            const parsed = JSON.parse(lastView);
+            if (parsed.type === 'project' && parsed.path) {
+              const project = projects.find((p) => p.path === parsed.path);
+              if (project) {
+                // Fetch sandbox status before navigating so button renders instantly
+                const limaStatus = await window.api.lima.status(parsed.path);
+                useAppStore.getState().setSandboxStatus(limaStatus.available, limaStatus.vmStatus);
+                useAppStore.getState().navigateToProject(parsed.path, project);
+              }
             }
+          } catch {
+            /* invalid JSON, stay on home */
           }
-        } catch {
-          /* invalid JSON, stay on home */
         }
       }
 
