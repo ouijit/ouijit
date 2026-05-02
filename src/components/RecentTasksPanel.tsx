@@ -177,14 +177,14 @@ export function RecentTasksPanel({ projects }: RecentTasksPanelProps) {
               <button
                 type="button"
                 onClick={clearSelection}
-                className="px-3 py-1.5 text-xs text-text-secondary rounded-md hover:bg-white/[0.04] transition-colors"
+                className="px-3 py-1.5 text-xs text-text-secondary rounded-full hover:bg-white/[0.04] transition-colors"
               >
                 Cancel
               </button>
               <button
                 type="button"
                 onClick={openSelection}
-                className="px-3 py-1.5 text-xs font-medium text-white bg-accent rounded-md hover:bg-accent-hover active:scale-[0.98] transition-all duration-150"
+                className="px-3 py-1.5 text-xs font-medium text-white bg-accent rounded-full hover:bg-accent-hover active:scale-[0.98] transition-all duration-150"
               >
                 Open {selected.size} task{selected.size === 1 ? '' : 's'}
               </button>
