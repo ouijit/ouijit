@@ -95,7 +95,7 @@ export function TitleBar({ mode }: TitleBarProps) {
       >
         {activeView === 'project' && activeProjectData && activeProjectPath ? (
           <div key="project-header" className="flex items-center gap-3 flex-1 pl-2 pr-4 min-w-0">
-            <div className="w-7 h-7 overflow-hidden rounded-md shrink-0">
+            <div className="w-8 h-8 overflow-hidden rounded-md shrink-0">
               {activeProjectData.iconDataUrl ? (
                 <img
                   src={activeProjectData.iconDataUrl}
@@ -105,7 +105,7 @@ export function TitleBar({ mode }: TitleBarProps) {
                 />
               ) : (
                 <div
-                  className="w-full h-full flex items-center justify-center text-[11px] font-bold text-white"
+                  className="w-full h-full flex items-center justify-center text-xs font-bold text-white"
                   style={{
                     backgroundColor: stringToColor(activeProjectData.name),
                     textShadow: '0 1px 2px rgba(0, 0, 0, 0.2)',
