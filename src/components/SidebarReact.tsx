@@ -191,7 +191,9 @@ export function Sidebar({ onProjectSelect, onHomeSelect, onAddExisting, onCreate
         onMouseEnter={showSidebar}
         onMouseLeave={hideSidebar}
       >
-        <div className="shrink-0 [-webkit-app-region:drag]" style={{ height: isMac && !fullscreen ? 52 : 16 }} />
+        {/* Top spacer — sized so the home button's logomark aligns with the
+            content area top (top:82px) on the right of the window. */}
+        <div className="shrink-0 [-webkit-app-region:drag]" style={{ height: isMac && !fullscreen ? 78 : 18 }} />
 
         {/* Home button */}
         <SidebarTooltipWrapper label="Sessions">
