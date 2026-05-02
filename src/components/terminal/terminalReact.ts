@@ -182,6 +182,46 @@ export function resolveTerminalLabel(
 /** Global registry of OuijitTerminal instances by ptyId */
 export const terminalInstances = new Map<string, OuijitTerminal>();
 
+// ── Terminal font (global setting cache) ─────────────────────────────
+
+const DEFAULT_TERMINAL_FONT_FAMILY = 'Iosevka Term Extended, SF Mono, Monaco, Menlo, monospace';
+const DEFAULT_TERMINAL_FONT_SIZE = 14;
+
+let cachedTerminalFontFamily = DEFAULT_TERMINAL_FONT_FAMILY;
+let cachedTerminalFontSize = DEFAULT_TERMINAL_FONT_SIZE;
+let terminalFontHydrationStarted = false;
+
+/**
+ * Hydrate the terminal-font cache from global settings. Idempotent — call once
+ * at app boot. Terminals constructed before this resolves use the defaults.
+ */
+export async function hydrateTerminalFont(): Promise<void> {
+  if (terminalFontHydrationStarted) return;
+  terminalFontHydrationStarted = true;
+  const [family, size] = await Promise.all([
+    window.api.globalSettings.get('terminal:font-family'),
+    window.api.globalSettings.get('terminal:font-size'),
+  ]);
+  if (family?.trim()) cachedTerminalFontFamily = family.trim();
+  const parsed = parseFloat((size ?? '').trim());
+  if (Number.isFinite(parsed) && parsed > 0) cachedTerminalFontSize = parsed;
+}
+
+/**
+ * Update the cache and apply the new font to every live terminal. Called by
+ * the settings panel after the user changes a value. Pass null/empty to revert
+ * a field to its default.
+ */
+export function applyTerminalFontUpdate(family: string | null, size: number | null): void {
+  cachedTerminalFontFamily = family?.trim() || DEFAULT_TERMINAL_FONT_FAMILY;
+  cachedTerminalFontSize = size && Number.isFinite(size) && size > 0 ? size : DEFAULT_TERMINAL_FONT_SIZE;
+  for (const t of terminalInstances.values()) {
+    t.xterm.options.fontFamily = cachedTerminalFontFamily;
+    t.xterm.options.fontSize = cachedTerminalFontSize;
+    t.fit();
+  }
+}
+
 // ── Git status refresh scheduling ────────────────────────────────────
 
 const pendingTerminalGitRefreshes = new Map<string, ReturnType<typeof setTimeout>>();
@@ -369,8 +409,8 @@ export class OuijitTerminal {
     // Create xterm instance
     this.xterm = new XTerminal({
       theme: getTerminalTheme(),
-      fontFamily: 'Iosevka Term Extended, SF Mono, Monaco, Menlo, monospace',
-      fontSize: 14,
+      fontFamily: cachedTerminalFontFamily,
+      fontSize: cachedTerminalFontSize,
       lineHeight: 1.2,
       cursorBlink: !this.isRunner,
       cursorStyle: 'bar',

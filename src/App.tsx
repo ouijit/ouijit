@@ -12,6 +12,7 @@ import { ToastContainer } from './components/ui/ToastContainer';
 import { NewProjectDialog } from './components/dialogs/NewProjectDialog';
 import { WhatsNewDialog } from './components/dialogs/WhatsNewDialog';
 import { installCaptureNavigator } from './capture/navigator';
+import { hydrateTerminalFont } from './components/terminal/terminalReact';
 import log from 'electron-log/renderer';
 import type { Project } from './types';
 
@@ -84,6 +85,11 @@ export function App() {
   // Capture-mode IPC navigator (no-op in production builds)
   useEffect(() => {
     installCaptureNavigator();
+  }, []);
+
+  // Hydrate terminal-font cache from global settings before any terminal is constructed.
+  useEffect(() => {
+    hydrateTerminalFont();
   }, []);
 
   // First-run marker — set so other surfaces can know whether the user has
