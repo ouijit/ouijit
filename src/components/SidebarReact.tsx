@@ -196,7 +196,7 @@ export function Sidebar({ onProjectSelect, onHomeSelect, onAddExisting, onCreate
         <div className="shrink-0 [-webkit-app-region:drag]" style={{ height: isMac && !fullscreen ? 78 : 18 }} />
 
         {/* Home button */}
-        <SidebarTooltipWrapper label="Sessions">
+        <SidebarTooltipWrapper label="Home">
           {(tipRef, tipProps) => (
             <div
               ref={tipRef}

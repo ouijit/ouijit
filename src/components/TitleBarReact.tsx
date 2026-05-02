@@ -1,9 +1,9 @@
 import { useCallback, useEffect } from 'react';
 import { useAppStore } from '../stores/appStore';
 import { useProjectStore, type TerminalLayout } from '../stores/projectStore';
+import { stringToColor, getInitials } from '../utils/projectIcon';
 import { useExperimentalStore } from '../stores/experimentalStore';
 import { useUIStore } from '../stores/uiStore';
-import { stringToColor, getInitials } from '../utils/projectIcon';
 import { Icon } from './terminal/Icon';
 import { addProjectTerminal } from './terminal/terminalActions';
 import { focusKanbanAddInput } from './kanban/KanbanAddInput';
@@ -94,24 +94,36 @@ export function TitleBar({ mode }: TitleBarProps) {
         style={{ paddingLeft: needsTrafficLightPad ? 80 : 16 }}
       >
         {activeView === 'project' && activeProjectData && activeProjectPath ? (
-          <div key="project-header" className="flex items-center gap-3 flex-1 px-4">
-            {activeProjectData.iconDataUrl ? (
-              <img src={activeProjectData.iconDataUrl} alt="" className="w-8 h-8 rounded-md object-cover" />
-            ) : (
-              <div
-                className="w-8 h-8 rounded-md object-cover flex items-center justify-center text-base font-bold text-white"
-                style={{
-                  backgroundColor: stringToColor(activeProjectData.name),
-                  textShadow: '0 1px 2px rgba(0, 0, 0, 0.2)',
-                }}
-              >
-                {getInitials(activeProjectData.name)}
-              </div>
-            )}
-            <div className="flex flex-col gap-0.5 flex-1 min-w-0">
-              <span className="text-base font-semibold text-text-primary leading-tight">{activeProjectData.name}</span>
-              <span className="text-xs text-text-tertiary leading-tight truncate">{activeProjectPath}</span>
+          <div key="project-header" className="flex items-center gap-3.5 flex-1 px-4 min-w-0">
+            <div className="w-10 h-10 overflow-hidden rounded-md shrink-0">
+              {activeProjectData.iconDataUrl ? (
+                <img
+                  src={activeProjectData.iconDataUrl}
+                  alt={activeProjectData.name}
+                  className="w-full h-full object-cover"
+                  draggable={false}
+                />
+              ) : (
+                <div
+                  className="w-full h-full flex items-center justify-center text-sm font-bold text-white"
+                  style={{
+                    backgroundColor: stringToColor(activeProjectData.name),
+                    textShadow: '0 1px 2px rgba(0, 0, 0, 0.2)',
+                  }}
+                >
+                  {getInitials(activeProjectData.name)}
+                </div>
+              )}
             </div>
+            <div className="flex flex-col gap-[3px] min-w-0">
+              <span className="text-[15px] font-semibold text-text-primary leading-none tracking-tight truncate">
+                {activeProjectData.name}
+              </span>
+              <span className="text-[11px] font-mono text-text-tertiary leading-none truncate">
+                {activeProjectPath.replace(/^\/Users\/[^/]+/, '~')}
+              </span>
+            </div>
+            <div style={{ flex: 1 }} />
             <div className="flex items-center h-9 ml-3 bg-background-secondary glass-bevel relative border border-black/60 rounded-[14px] overflow-hidden [-webkit-app-region:no-drag]">
               <TooltipButton
                 text="Board view"

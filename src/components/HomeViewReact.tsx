@@ -11,6 +11,7 @@ import { useTerminalPanels } from './terminal/useTerminalPanels';
 import { Icon } from './terminal/Icon';
 import { stringToColor, getInitials } from '../utils/projectIcon';
 import { OuijitLogotype } from './OuijitLogotype';
+import { RecentTasksPanel } from './RecentTasksPanel';
 import type { Project } from '../types';
 
 /** Inline depth positioning for home view cards — no CSS class dependency */
@@ -30,7 +31,8 @@ function getDepthStyle(depth: number): React.CSSProperties {
 
 export function HomeView() {
   const [projects, setProjects] = useState<Map<string, Project>>(new Map());
-  const projectCount = useAppStore((s) => s.projects.length);
+  const allProjects = useAppStore((s) => s.projects);
+  const projectCount = allProjects.length;
   const terminalsByProject = useTerminalStore((s) => s.terminalsByProject);
   const displayStates = useTerminalStore((s) => s.displayStates);
   const homeGroupMode = useUIStore((s) => s.homeGroupMode);
@@ -285,7 +287,6 @@ export function HomeView() {
   } = useTerminalPanels(activePtyId);
 
   if (allPtyIds.length === 0) {
-    const isMac = navigator.platform.toLowerCase().includes('mac');
     const noProjects = projectCount === 0;
 
     return (
@@ -296,11 +297,11 @@ export function HomeView() {
           transition: 'left 0.2s ease-out, right 0.25s ease, top 0.2s ease',
         }}
       >
-        <div
-          className="absolute inset-0 flex flex-col items-center justify-center rounded-[14px] border border-dashed border-white/10"
-          style={{ background: 'var(--color-terminal-bg)' }}
-        >
-          {noProjects ? (
+        {noProjects ? (
+          <div
+            className="absolute inset-0 flex flex-col items-center justify-center rounded-[14px] border border-dashed border-white/10"
+            style={{ background: 'var(--color-terminal-bg)' }}
+          >
             <div className="flex flex-col items-center text-center px-8 max-w-[28rem]">
               <OuijitLogotype className="h-12 w-[14rem] mb-6" />
               <p className="text-[15px] text-text-secondary leading-relaxed">
@@ -314,24 +315,10 @@ export function HomeView() {
                 Add your first project
               </button>
             </div>
-          ) : (
-            <>
-              <div className="text-sm text-white/30">No active terminals</div>
-              <div className="flex justify-center gap-6 mt-6">
-                <span className="flex items-center gap-1.5 text-[13px]" style={{ color: 'rgba(255, 255, 255, 0.35)' }}>
-                  <span
-                    className="inline-flex items-center font-mono"
-                    style={{ fontSize: isMac ? 16 : 13, color: 'rgba(255, 255, 255, 0.25)' }}
-                  >
-                    {isMac ? '\u2318' : 'Ctrl+'}
-                    <span className={isMac ? 'text-xs' : 'text-[13px]'}>I</span>
-                  </span>
-                  New Terminal
-                </span>
-              </div>
-            </>
-          )}
-        </div>
+          </div>
+        ) : (
+          <RecentTasksPanel projects={allProjects} />
+        )}
       </div>
     );
   }
