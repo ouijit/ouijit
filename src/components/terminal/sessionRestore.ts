@@ -9,9 +9,18 @@ import log from 'electron-log/renderer';
 import { useAppStore } from '../../stores/appStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { addProjectTerminal } from './terminalActions';
-import type { LastSessionSnapshot, Project, SnapshotTerminal } from '../../types';
+import type { LastSessionSnapshot, Project, SnapshotTerminal, TaskStatus } from '../../types';
 
 const restoreLog = log.scope('sessionRestore');
+
+export interface RestorableEntry {
+  project: Project;
+  taskNumber: number | null;
+  taskName: string | null;
+  taskStatus: TaskStatus | null;
+  label: string | null;
+  ordinalInProject: number;
+}
 
 interface RestoreCounts {
   total: number;
@@ -19,22 +28,46 @@ interface RestoreCounts {
   projects: number;
 }
 
-/** Inspect snapshot terminals against current state (project list, tasks, fs). */
-export async function countRestorable(snapshot: LastSessionSnapshot): Promise<RestoreCounts> {
+/**
+ * Walk the snapshot, dropping entries whose project/task is gone, and return
+ * a list enriched with the current project + task metadata. Counts are
+ * derived from this list so banner copy and the expanded preview never
+ * disagree.
+ */
+export async function listRestorable(snapshot: LastSessionSnapshot): Promise<RestorableEntry[]> {
   const projects = useAppStore.getState().projects;
   const projectByPath = new Map(projects.map((p) => [p.path, p]));
 
-  let total = 0;
-  const seenProjects = new Set<string>();
-  const seenTasks = new Set<string>();
+  const out: RestorableEntry[] = [];
   for (const t of snapshot.terminals) {
-    if (await isStillRestorable(t, projectByPath)) {
-      total++;
-      seenProjects.add(t.projectPath);
-      if (t.taskNumber != null) seenTasks.add(`${t.projectPath}#${t.taskNumber}`);
+    const project = projectByPath.get(t.projectPath);
+    if (!project) continue;
+
+    let taskName: string | null = null;
+    let taskStatus: TaskStatus | null = null;
+    if (t.taskNumber != null) {
+      const task = await window.api.task.getByNumber(t.projectPath, t.taskNumber);
+      if (!task || task.status === 'done') continue;
+      taskName = task.name ?? null;
+      taskStatus = task.status;
     }
+
+    out.push({
+      project,
+      taskNumber: t.taskNumber,
+      taskName,
+      taskStatus,
+      label: t.label,
+      ordinalInProject: t.ordinalInProject,
+    });
   }
-  return { total, tasks: seenTasks.size, projects: seenProjects.size };
+  return out;
+}
+
+export function summarizeRestorable(entries: RestorableEntry[]): RestoreCounts {
+  const projectSet = new Set(entries.map((e) => e.project.path));
+  const taskSet = new Set(entries.filter((e) => e.taskNumber != null).map((e) => `${e.project.path}#${e.taskNumber}`));
+  return { total: entries.length, tasks: taskSet.size, projects: projectSet.size };
 }
 
 async function isStillRestorable(entry: SnapshotTerminal, projectByPath: Map<string, Project>): Promise<boolean> {
