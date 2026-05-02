@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { Project } from '../types';
 import type { HealthStatus } from '../healthCheck';
+import { withViewTransition, type ViewTransitionDirection } from '../utils/viewTransition';
 
 interface AppStoreState {
   activeView: 'home' | 'project';
@@ -28,8 +29,8 @@ interface AppStoreActions {
   setWhatsNew: (info: { version: string; notes: string } | null) => void;
   setHealth: (status: HealthStatus | null) => void;
   setHomeActivePanel: (panel: 'home' | 'settings') => void;
-  navigateToProject: (path: string, project: Project) => void;
-  navigateHome: () => void;
+  navigateToProject: (path: string, project: Project, options?: { direction?: ViewTransitionDirection }) => void;
+  navigateHome: (options?: { direction?: ViewTransitionDirection }) => void;
   resetProjectState: () => void;
 }
 
@@ -65,28 +66,39 @@ export const useAppStore = create<AppStore>()((set, get) => ({
 
   setHealth: (status) => set({ health: status }),
 
-  setHomeActivePanel: (panel) => set({ homeActivePanel: panel }),
+  setHomeActivePanel: (panel) =>
+    withViewTransition(() => {
+      set({ homeActivePanel: panel });
+    }),
 
-  navigateToProject: (path, project) => {
-    const version = get()._version + 1;
-    set({
-      activeView: 'project',
-      activeProjectPath: path,
-      activeProjectData: project,
-      _version: version,
-    });
-  },
+  navigateToProject: (path, project, options) =>
+    withViewTransition(
+      () => {
+        const version = get()._version + 1;
+        set({
+          activeView: 'project',
+          activeProjectPath: path,
+          activeProjectData: project,
+          _version: version,
+        });
+      },
+      { direction: options?.direction },
+    ),
 
-  navigateHome: () => {
-    const version = get()._version + 1;
-    set({
-      activeView: 'home',
-      activeProjectPath: null,
-      activeProjectData: null,
-      homeActivePanel: 'home',
-      _version: version,
-    });
-  },
+  navigateHome: (options) =>
+    withViewTransition(
+      () => {
+        const version = get()._version + 1;
+        set({
+          activeView: 'home',
+          activeProjectPath: null,
+          activeProjectData: null,
+          homeActivePanel: 'home',
+          _version: version,
+        });
+      },
+      { direction: options?.direction },
+    ),
 
   resetProjectState: () => {
     set({

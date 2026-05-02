@@ -8,7 +8,6 @@ import { Sidebar } from './components/SidebarReact';
 import { HomeView } from './components/HomeViewReact';
 import { GlobalSettingsPanel } from './components/GlobalSettingsPanel';
 import { ProjectView } from './components/ProjectViewReact';
-import { ViewTransition } from './components/ViewTransition';
 import { ToastContainer } from './components/ui/ToastContainer';
 import { NewProjectDialog } from './components/dialogs/NewProjectDialog';
 import { WhatsNewDialog } from './components/dialogs/WhatsNewDialog';
@@ -154,18 +153,25 @@ export function App() {
     });
   }, []);
 
-  // Sidebar callbacks
+  // Sidebar callbacks. Direction in the view transition reflects the relative
+  // position in the sidebar — clicking a project below the current one slides
+  // the new view up into place; above slides down. Home is treated as the
+  // top of the list.
   const handleProjectSelect = useCallback((path: string, project: Project) => {
     const state = useAppStore.getState();
     if (state.activeProjectPath === path) return;
-    state.navigateToProject(path, project);
+    const orderedPaths = state.projects.map((p) => p.path);
+    const oldIndex = state.activeView === 'home' ? -1 : orderedPaths.indexOf(state.activeProjectPath ?? '');
+    const newIndex = orderedPaths.indexOf(path);
+    const direction = newIndex > oldIndex ? 'down' : newIndex < oldIndex ? 'up' : undefined;
+    state.navigateToProject(path, project, { direction });
     window.api.globalSettings.set('lastActiveView', JSON.stringify({ type: 'project', path }));
   }, []);
 
   const handleHomeSelect = useCallback(() => {
     const state = useAppStore.getState();
     if (state.activeView === 'home') return;
-    state.navigateHome();
+    state.navigateHome({ direction: 'up' });
     window.api.globalSettings.set('lastActiveView', JSON.stringify({ type: 'home' }));
   }, []);
 
@@ -214,7 +220,7 @@ export function App() {
         onAddExisting={handleAddExisting}
         onCreateNew={handleCreateNew}
       />
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+      <div className="app-content-shell flex-1 flex flex-col min-w-0 overflow-hidden">
         <TitleBar mode={activeView} />
         <main
           className="flex-1 min-h-0"
@@ -225,16 +231,8 @@ export function App() {
           }
         >
           <ViewErrorBoundary>
-            <ViewTransition
-              scopeKey={
-                activeView === 'project'
-                  ? `project:${activeProjectPath ?? ''}`
-                  : `home:${homeActivePanel === 'settings' ? 'settings' : 'main'}`
-              }
-            >
-              {activeView === 'home' && (homeActivePanel === 'settings' ? <GlobalSettingsPanel /> : <HomeView />)}
-              {activeView === 'project' && <ProjectView />}
-            </ViewTransition>
+            {activeView === 'home' && (homeActivePanel === 'settings' ? <GlobalSettingsPanel /> : <HomeView />)}
+            {activeView === 'project' && <ProjectView />}
           </ViewErrorBoundary>
         </main>
       </div>
