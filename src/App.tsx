@@ -8,6 +8,7 @@ import { Sidebar } from './components/SidebarReact';
 import { HomeView } from './components/HomeViewReact';
 import { GlobalSettingsPanel } from './components/GlobalSettingsPanel';
 import { ProjectView } from './components/ProjectViewReact';
+import { ViewTransition } from './components/ViewTransition';
 import { ToastContainer } from './components/ui/ToastContainer';
 import { NewProjectDialog } from './components/dialogs/NewProjectDialog';
 import { WhatsNewDialog } from './components/dialogs/WhatsNewDialog';
@@ -224,8 +225,16 @@ export function App() {
           }
         >
           <ViewErrorBoundary>
-            {activeView === 'home' && (homeActivePanel === 'settings' ? <GlobalSettingsPanel /> : <HomeView />)}
-            {activeView === 'project' && <ProjectView />}
+            <ViewTransition
+              scopeKey={
+                activeView === 'project'
+                  ? `project:${activeProjectPath ?? ''}`
+                  : `home:${homeActivePanel === 'settings' ? 'settings' : 'main'}`
+              }
+            >
+              {activeView === 'home' && (homeActivePanel === 'settings' ? <GlobalSettingsPanel /> : <HomeView />)}
+              {activeView === 'project' && <ProjectView />}
+            </ViewTransition>
           </ViewErrorBoundary>
         </main>
       </div>
