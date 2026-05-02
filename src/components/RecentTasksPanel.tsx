@@ -88,6 +88,8 @@ export function RecentTasksPanel({ projects }: RecentTasksPanelProps) {
   if (recents === null) return null;
   if (recents.length === 0) return <EmptyHint />;
 
+  const allSelected = selected.size === recents.length;
+
   const toggleSelected = (key: string) => {
     setSelected((prev) => {
       const next = new Set(prev);
@@ -95,6 +97,11 @@ export function RecentTasksPanel({ projects }: RecentTasksPanelProps) {
       else next.add(key);
       return next;
     });
+  };
+
+  const toggleAll = () => {
+    if (allSelected) setSelected(new Set());
+    else setSelected(new Set(recents.map(taskKey)));
   };
 
   const clearSelection = () => setSelected(new Set());
@@ -131,8 +138,15 @@ export function RecentTasksPanel({ projects }: RecentTasksPanelProps) {
         className="w-full max-w-[36rem] flex flex-col rounded-[14px] border border-black/60 glass-bevel relative overflow-hidden"
         style={{ background: 'var(--color-terminal-bg)', maxHeight: '100%' }}
       >
-        <div className="px-5 pt-4 pb-3 text-[11px] uppercase tracking-wider text-text-tertiary shrink-0 border-b border-white/[0.06]">
-          Pick up where you left off
+        <div className="flex items-center justify-between gap-3 px-5 pt-4 pb-3 shrink-0 border-b border-white/[0.06]">
+          <span className="text-[11px] uppercase tracking-wider text-text-tertiary">Pick up where you left off</span>
+          <button
+            type="button"
+            onClick={toggleAll}
+            className="text-[11px] text-text-tertiary hover:text-text-secondary transition-colors duration-100 [-webkit-app-region:no-drag]"
+          >
+            {allSelected ? 'Deselect all' : `Select all (${recents.length})`}
+          </button>
         </div>
         <ul className="flex flex-col overflow-y-auto min-h-0 settings-scrollable divide-y divide-white/[0.04]">
           {recents.map((task) => {
@@ -258,17 +272,14 @@ function RecentTaskRow({ task, selected, onClick, onToggle }: RecentTaskRowProps
   );
 }
 
-function Checkbox({
-  checked,
-  onChange,
-  onPointerEnter,
-  onPointerLeave,
-}: {
+interface CheckboxProps {
   checked: boolean;
   onChange: (e: React.MouseEvent) => void;
   onPointerEnter?: () => void;
   onPointerLeave?: () => void;
-}) {
+}
+
+function Checkbox({ checked, onChange, onPointerEnter, onPointerLeave }: CheckboxProps) {
   return (
     <button
       type="button"
