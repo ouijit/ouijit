@@ -94,8 +94,8 @@ export function TitleBar({ mode }: TitleBarProps) {
         style={{ paddingLeft: needsTrafficLightPad ? 80 : 16 }}
       >
         {activeView === 'project' && activeProjectData && activeProjectPath ? (
-          <div key="project-header" className="flex items-center gap-3.5 flex-1 px-4 min-w-0">
-            <div className="w-10 h-10 overflow-hidden rounded-md shrink-0">
+          <div key="project-header" className="flex items-center gap-3 flex-1 px-4 min-w-0">
+            <div className="w-7 h-7 overflow-hidden rounded-md shrink-0">
               {activeProjectData.iconDataUrl ? (
                 <img
                   src={activeProjectData.iconDataUrl}
@@ -105,7 +105,7 @@ export function TitleBar({ mode }: TitleBarProps) {
                 />
               ) : (
                 <div
-                  className="w-full h-full flex items-center justify-center text-sm font-bold text-white"
+                  className="w-full h-full flex items-center justify-center text-[11px] font-bold text-white"
                   style={{
                     backgroundColor: stringToColor(activeProjectData.name),
                     textShadow: '0 1px 2px rgba(0, 0, 0, 0.2)',
@@ -115,11 +115,11 @@ export function TitleBar({ mode }: TitleBarProps) {
                 </div>
               )}
             </div>
-            <div className="flex flex-col gap-[3px] min-w-0">
+            <div className="flex flex-col gap-[2px] min-w-0">
               <span className="text-[15px] font-semibold text-text-primary leading-none tracking-tight truncate">
                 {activeProjectData.name}
               </span>
-              <span className="text-[11px] font-mono text-text-tertiary leading-none truncate">
+              <span className="text-[11px] font-mono text-text-tertiary leading-[1.3] truncate">
                 {activeProjectPath.replace(/^\/Users\/[^/]+/, '~')}
               </span>
             </div>
