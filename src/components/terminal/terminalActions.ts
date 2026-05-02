@@ -4,7 +4,14 @@
  * and register them in both the instance registry and the Zustand store.
  */
 
-import type { PtySpawnOptions, RunConfig, WorktreeInfo, ActiveSession, RunnerScript } from '../../types';
+import type {
+  PtySpawnOptions,
+  RunConfig,
+  WorktreeInfo,
+  ActiveSession,
+  RunnerScript,
+  SnapshotTerminalUi,
+} from '../../types';
 import { useTerminalStore, type TerminalDisplayState } from '../../stores/terminalStore';
 import { useCanvasStore, persistCanvas } from '../../stores/canvasStore';
 import { useAppStore, staleGuard } from '../../stores/appStore';
@@ -39,6 +46,43 @@ export interface AddProjectTerminalOptions {
   taskId?: number;
   skipAutoHook?: boolean;
   background?: boolean;
+  /** Apply persisted UI state (plan, web preview, runner panel) after spawn — for session restore. */
+  initialUiState?: SnapshotTerminalUi;
+}
+
+// ── Apply persisted UI state from a session snapshot ────────────────
+
+async function applyInitialUiState(term: OuijitTerminal, ui: SnapshotTerminalUi): Promise<void> {
+  if (ui.planPath) {
+    term.planPath = ui.planPath;
+    term.planPanelOpen = true;
+    term.pushDisplayState({ planPath: ui.planPath, planPanelOpen: true });
+  }
+
+  if (ui.webPreview?.url) {
+    term.webPreviewUrl = ui.webPreview.url;
+    term.webPreviewUrlAutoDetected = false;
+    term.webPreviewPanelOpen = ui.webPreview.panelOpen;
+    term.webPreviewFullWidth = ui.webPreview.fullWidth;
+    term.webPreviewSplitRatio = ui.webPreview.splitRatio;
+    term.pushDisplayState({
+      webPreviewUrl: ui.webPreview.url,
+      webPreviewPanelOpen: ui.webPreview.panelOpen,
+      webPreviewFullWidth: ui.webPreview.fullWidth,
+    });
+  }
+
+  if (ui.runner) {
+    // Pre-set layout so the panel renders at the right size when it appears.
+    term.runnerFullWidth = ui.runner.fullWidth;
+    // Re-spawn the previously-running script. The runner panel needs a live
+    // child PTY to render, so "restoring" the runner means running it again.
+    // Side effects are accepted: Resume is explicit, user can kill from the panel.
+    await spawnRunner(term.ptyId, {
+      name: ui.runner.scriptName ?? '',
+      command: ui.runner.scriptCommand,
+    });
+  }
 }
 
 // ── Add a terminal to the system ─────────────────────────────────────
@@ -261,6 +305,10 @@ export async function addProjectTerminal(
     // Fetch initial git status and tags
     term.refreshGitStatus();
     term.loadTags();
+
+    if (options?.initialUiState) {
+      await applyInitialUiState(term, options.initialUiState);
+    }
 
     return true;
   } catch (error) {

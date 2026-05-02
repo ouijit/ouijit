@@ -13,6 +13,7 @@ import { NewProjectDialog } from './components/dialogs/NewProjectDialog';
 import { WhatsNewDialog } from './components/dialogs/WhatsNewDialog';
 import { installCaptureNavigator } from './capture/navigator';
 import { hydrateTerminalFont } from './components/terminal/terminalReact';
+import { installSessionAutoSave } from './components/terminal/sessionSnapshot';
 import log from 'electron-log/renderer';
 import type { Project } from './types';
 
@@ -90,6 +91,12 @@ export function App() {
   // Hydrate terminal-font cache from global settings before any terminal is constructed.
   useEffect(() => {
     hydrateTerminalFont();
+  }, []);
+
+  // Subscribe to terminal store changes so the cross-launch session snapshot
+  // stays current. Resume banner reads it on next launch.
+  useEffect(() => {
+    installSessionAutoSave();
   }, []);
 
   // First-run marker — set so other surfaces can know whether the user has

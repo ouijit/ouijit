@@ -9,7 +9,8 @@ function isAllowedKey(key: string): boolean {
     key === 'hasSeenWelcome' ||
     key.startsWith('canvas:') ||
     key.startsWith('experimental:') ||
-    key.startsWith('terminal:')
+    key.startsWith('terminal:') ||
+    key.startsWith('lastSession:')
   );
 }
 

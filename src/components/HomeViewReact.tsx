@@ -12,6 +12,7 @@ import { Icon } from './terminal/Icon';
 import { stringToColor, getInitials } from '../utils/projectIcon';
 import { OuijitLogotype } from './OuijitLogotype';
 import { RecentTasksPanel } from './RecentTasksPanel';
+import { ResumeBanner } from './ResumeBanner';
 import type { Project } from '../types';
 
 /** Inline depth positioning for home view cards — no CSS class dependency */
@@ -317,7 +318,12 @@ export function HomeView() {
             </div>
           </div>
         ) : (
-          <RecentTasksPanel projects={allProjects} />
+          <div className="absolute inset-0 flex flex-col gap-3">
+            <ResumeBanner />
+            <div className="flex-1 min-h-0 relative">
+              <RecentTasksPanel projects={allProjects} />
+            </div>
+          </div>
         )}
       </div>
     );
