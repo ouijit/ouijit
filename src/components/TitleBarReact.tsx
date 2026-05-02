@@ -93,17 +93,6 @@ export function TitleBar({ mode }: TitleBarProps) {
         }`}
         style={{ paddingLeft: needsTrafficLightPad ? 80 : 16 }}
       >
-        {/* Sidebar toggle — in header flow on Linux/fullscreen, absolute below traffic lights on macOS */}
-        {isProjectOrHome && !needsTrafficLightPad && (
-          <button
-            className="flex items-center justify-center text-white/25 transition-colors duration-150 hover:text-white/50 [-webkit-app-region:no-drag] [&>svg]:w-[18px] [&>svg]:h-[18px]"
-            style={{ width: 28, height: 28 }}
-            onClick={() => document.dispatchEvent(new CustomEvent('show-sidebar'))}
-          >
-            <Icon name="arrow-left" />
-          </button>
-        )}
-
         {activeView === 'project' && activeProjectData && activeProjectPath ? (
           <div key="project-header" className="flex items-center gap-3 flex-1 px-4">
             {activeProjectData.iconDataUrl ? (
@@ -174,16 +163,6 @@ export function TitleBar({ mode }: TitleBarProps) {
           </div>
         ) : activeView === 'home' ? (
           <div key="home-header" className="flex items-center gap-3 flex-1 px-4">
-            <div className="w-8 h-8 flex items-center justify-center">
-              <div
-                aria-hidden
-                className="sidebar-home-logo-mask w-7 h-7"
-                style={{ backgroundColor: 'var(--color-text-primary)' }}
-              />
-            </div>
-            <div className="flex flex-col gap-0.5 flex-1 min-w-0">
-              <span className="text-base font-semibold text-text-primary leading-tight">Ouijit</span>
-            </div>
             <div style={{ flex: 1 }} />
             <div className="flex items-center h-9 ml-3 bg-background-secondary glass-bevel relative border border-black/60 rounded-[14px] overflow-hidden [-webkit-app-region:no-drag]">
               <TooltipButton
@@ -228,16 +207,6 @@ export function TitleBar({ mode }: TitleBarProps) {
           </div>
         ) : null}
       </div>
-      {/* Sidebar toggle below traffic lights — absolute so it doesn't affect header flow */}
-      {isProjectOrHome && needsTrafficLightPad && (
-        <button
-          className="absolute flex items-center justify-center text-white/25 transition-colors duration-150 hover:text-white/50 [-webkit-app-region:no-drag] [&>svg]:w-[18px] [&>svg]:h-[18px]"
-          style={{ left: 24, bottom: -14, width: 28, height: 28 }}
-          onClick={() => document.dispatchEvent(new CustomEvent('show-sidebar'))}
-        >
-          <Icon name="arrow-left" />
-        </button>
-      )}
     </header>
   );
 }

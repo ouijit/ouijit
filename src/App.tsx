@@ -11,7 +11,6 @@ import { ProjectView } from './components/ProjectViewReact';
 import { ToastContainer } from './components/ui/ToastContainer';
 import { NewProjectDialog } from './components/dialogs/NewProjectDialog';
 import { WhatsNewDialog } from './components/dialogs/WhatsNewDialog';
-import { WelcomeDialog } from './components/dialogs/WelcomeDialog';
 import { installCaptureNavigator } from './capture/navigator';
 import log from 'electron-log/renderer';
 import type { Project } from './types';
@@ -60,7 +59,6 @@ export function App() {
   const activeView = useAppStore((s) => s.activeView);
   const activeProjectPath = useAppStore((s) => s.activeProjectPath);
   const whatsNew = useAppStore((s) => s.whatsNew);
-  const welcome = useAppStore((s) => s.welcome);
   const homeActivePanel = useAppStore((s) => s.homeActivePanel);
   const [showNewProject, setShowNewProject] = useState(false);
   const [initialized, setInitialized] = useState(false);
@@ -88,13 +86,12 @@ export function App() {
     installCaptureNavigator();
   }, []);
 
-  // First-run welcome — pull from the persisted setting on mount so we don't
-  // race the main-process push against the renderer's listener registration.
+  // First-run marker — set so other surfaces can know whether the user has
+  // launched before. The actual welcome UI lives inline in the empty home view.
   useEffect(() => {
     (async () => {
       const seen = await window.api.globalSettings.get('hasSeenWelcome');
       if (seen) return;
-      useAppStore.getState().setWelcome(true);
       await window.api.globalSettings.set('hasSeenWelcome', '1');
     })();
   }, []);
@@ -204,7 +201,6 @@ export function App() {
       </div>
       <ToastContainer />
       {showNewProject && <NewProjectDialog onClose={handleNewProjectClose} />}
-      {welcome && <WelcomeDialog onClose={() => useAppStore.getState().setWelcome(false)} />}
       {whatsNew && (
         <WhatsNewDialog
           version={whatsNew.version}

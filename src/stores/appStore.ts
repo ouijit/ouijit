@@ -15,7 +15,6 @@ interface AppStoreState {
   sandboxStarting: boolean;
   whatsNew: { version: string; notes: string } | null;
   health: HealthStatus | null;
-  welcome: boolean;
   homeActivePanel: 'home' | 'settings';
   _version: number;
 }
@@ -28,7 +27,6 @@ interface AppStoreActions {
   setSandboxStarting: (starting: boolean) => void;
   setWhatsNew: (info: { version: string; notes: string } | null) => void;
   setHealth: (status: HealthStatus | null) => void;
-  setWelcome: (visible: boolean) => void;
   setHomeActivePanel: (panel: 'home' | 'settings') => void;
   navigateToProject: (path: string, project: Project) => void;
   navigateHome: () => void;
@@ -50,7 +48,6 @@ export const useAppStore = create<AppStore>()((set, get) => ({
   sandboxStarting: false,
   whatsNew: null,
   health: null,
-  welcome: false,
   homeActivePanel: 'home',
   _version: 0,
 
@@ -67,8 +64,6 @@ export const useAppStore = create<AppStore>()((set, get) => ({
   setWhatsNew: (info) => set({ whatsNew: info }),
 
   setHealth: (status) => set({ health: status }),
-
-  setWelcome: (visible) => set({ welcome: visible }),
 
   setHomeActivePanel: (panel) => set({ homeActivePanel: panel }),
 

@@ -10,6 +10,7 @@ import { XTermContainer } from './terminal/XTermContainer';
 import { useTerminalPanels } from './terminal/useTerminalPanels';
 import { Icon } from './terminal/Icon';
 import { stringToColor, getInitials } from '../utils/projectIcon';
+import { OuijitLogotype } from './OuijitLogotype';
 import type { Project } from '../types';
 
 /** Inline depth positioning for home view cards — no CSS class dependency */
@@ -296,29 +297,23 @@ export function HomeView() {
         }}
       >
         <div
-          className="absolute inset-0 flex flex-col justify-center text-center rounded-[14px] border border-dashed border-white/10 p-12 opacity-100"
+          className="absolute inset-0 flex flex-col items-center justify-center rounded-[14px] border border-dashed border-white/10"
           style={{ background: 'var(--color-terminal-bg)' }}
         >
           {noProjects ? (
-            <>
-              <div
-                aria-hidden
-                className="sidebar-home-logo-mask w-12 h-12 mb-4 mx-auto"
-                style={{ backgroundColor: 'var(--color-text-tertiary)' }}
-              />
-              <div className="text-base font-semibold text-text-primary">Add your first project</div>
-              <div className="text-sm text-text-secondary mt-1 mx-auto max-w-[24rem]">
-                A project is a git repo. Each task gets its own worktree and terminal.
-              </div>
-              <div className="mt-5">
-                <button
-                  className="inline-flex items-center justify-center gap-2 px-5 py-1.5 font-sans text-sm font-medium no-underline border-none rounded-full outline-none transition-all duration-150 ease-out [-webkit-app-region:no-drag] focus-visible:ring-3 focus-visible:ring-accent-light text-white bg-accent hover:bg-accent-hover active:scale-[0.98]"
-                  onClick={() => document.dispatchEvent(new Event('open-add-menu'))}
-                >
-                  Add project
-                </button>
-              </div>
-            </>
+            <div className="flex flex-col items-center text-center px-8 max-w-[28rem]">
+              <OuijitLogotype className="h-12 w-[14rem] mb-6" />
+              <p className="text-[15px] text-text-secondary leading-relaxed">
+                A local parallel agent terminal manager.
+              </p>
+              <button
+                type="button"
+                className="mt-10 inline-flex items-center justify-center px-6 py-2 font-sans text-sm font-medium border-none rounded-full outline-none transition-all duration-150 ease-out [-webkit-app-region:no-drag] focus-visible:ring-3 focus-visible:ring-accent-light text-white bg-accent hover:bg-accent-hover active:scale-[0.98]"
+                onClick={() => document.dispatchEvent(new Event('open-add-menu'))}
+              >
+                Add your first project
+              </button>
+            </div>
           ) : (
             <>
               <div className="text-sm text-white/30">No active terminals</div>
