@@ -77,7 +77,10 @@ export function RecentTasksPanel({ projects }: RecentTasksPanelProps) {
 function EmptyHint() {
   const isMac = useMemo(() => navigator.platform.toLowerCase().includes('mac'), []);
   return (
-    <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-text-tertiary rounded-[14px] border border-dashed border-white/10">
+    <div
+      className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-text-tertiary rounded-[14px] border border-dashed border-white/10"
+      style={{ background: 'var(--color-terminal-bg)' }}
+    >
       <div className="text-sm">No tasks yet.</div>
       <div className="flex items-center gap-2 text-xs">
         <span className="font-mono text-[13px]">{isMac ? '⌘ I' : 'Ctrl+I'}</span>
