@@ -133,65 +133,63 @@ export function RecentTasksPanel({ projects }: RecentTasksPanelProps) {
   };
 
   return (
-    <div className="absolute inset-0 flex flex-col items-center justify-center overflow-hidden">
-      <div
-        className="w-full max-w-[36rem] flex flex-col rounded-[14px] border border-black/60 glass-bevel relative overflow-hidden"
-        style={{ background: 'var(--color-terminal-bg)', maxHeight: '100%' }}
-      >
-        <div className="flex items-center justify-between gap-3 px-5 pt-4 pb-3 shrink-0 border-b border-white/[0.06]">
-          <span className="text-[11px] uppercase tracking-wider text-text-tertiary">Pick up where you left off</span>
-          <button
-            type="button"
-            onClick={toggleAll}
-            className="text-[11px] text-text-tertiary hover:text-text-secondary transition-colors duration-100 [-webkit-app-region:no-drag]"
-          >
-            {allSelected ? 'Deselect all' : `Select all (${recents.length})`}
-          </button>
-        </div>
-        <ul className="flex flex-col overflow-y-auto min-h-0 settings-scrollable divide-y divide-white/[0.04]">
-          {recents.map((task) => {
-            const key = taskKey(task);
-            return (
-              <RecentTaskRow
-                key={key}
-                task={task}
-                selected={selected.has(key)}
-                onClick={(e) => {
-                  if (e.metaKey || e.ctrlKey) {
-                    toggleSelected(key);
-                  } else {
-                    openAndNavigate(task);
-                  }
-                }}
-                onToggle={() => toggleSelected(key)}
-              />
-            );
-          })}
-        </ul>
-        {selected.size > 0 && (
-          <div className="flex items-center justify-between gap-3 px-5 py-3 border-t border-white/[0.06] shrink-0">
-            <span className="text-xs text-text-tertiary tabular-nums">
-              <span className="text-text-secondary">{selected.size}</span> selected
-            </span>
-            <div className="flex items-center gap-2 [-webkit-app-region:no-drag]">
-              <button
-                type="button"
-                onClick={clearSelection}
-                className="px-3 py-1.5 text-xs text-text-secondary rounded-full hover:bg-white/[0.04] transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={openSelection}
-                className="px-3 py-1.5 text-xs font-medium text-white bg-accent rounded-full hover:bg-accent-hover active:scale-[0.98] transition-all duration-150"
-              >
-                Open {selected.size} task{selected.size === 1 ? '' : 's'}
-              </button>
-            </div>
-          </div>
-        )}
+    <div
+      className="w-full flex flex-col rounded-[14px] border border-black/60 glass-bevel relative overflow-hidden min-h-0"
+      style={{ background: 'var(--color-terminal-bg)' }}
+    >
+      <div className="flex items-center justify-between gap-3 px-5 pt-4 pb-3 shrink-0 border-b border-white/[0.06]">
+        <span className="text-[11px] uppercase tracking-wider text-text-tertiary">Pick up where you left off</span>
+        <button
+          type="button"
+          onClick={toggleAll}
+          className="text-[11px] text-text-tertiary hover:text-text-secondary transition-colors duration-100 [-webkit-app-region:no-drag]"
+        >
+          {allSelected ? 'Deselect all' : `Select all (${recents.length})`}
+        </button>
       </div>
+      <ul className="flex flex-col overflow-y-auto min-h-0 settings-scrollable divide-y divide-white/[0.04]">
+        {recents.map((task) => {
+          const key = taskKey(task);
+          return (
+            <RecentTaskRow
+              key={key}
+              task={task}
+              selected={selected.has(key)}
+              onClick={(e) => {
+                if (e.metaKey || e.ctrlKey) {
+                  toggleSelected(key);
+                } else {
+                  openAndNavigate(task);
+                }
+              }}
+              onToggle={() => toggleSelected(key)}
+            />
+          );
+        })}
+      </ul>
+      {selected.size > 0 && (
+        <div className="flex items-center justify-between gap-3 px-5 py-3 border-t border-white/[0.06] shrink-0">
+          <span className="text-xs text-text-tertiary tabular-nums">
+            <span className="text-text-secondary">{selected.size}</span> selected
+          </span>
+          <div className="flex items-center gap-2 [-webkit-app-region:no-drag]">
+            <button
+              type="button"
+              onClick={clearSelection}
+              className="px-3 py-1.5 text-xs text-text-secondary rounded-full hover:bg-white/[0.04] transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={openSelection}
+              className="px-3 py-1.5 text-xs font-medium text-white bg-accent rounded-full hover:bg-accent-hover active:scale-[0.98] transition-all duration-150"
+            >
+              Open {selected.size} task{selected.size === 1 ? '' : 's'}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -200,7 +198,7 @@ function EmptyHint() {
   const isMac = useMemo(() => navigator.platform.toLowerCase().includes('mac'), []);
   return (
     <div
-      className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-text-tertiary rounded-[14px] border border-dashed border-white/10"
+      className="w-full flex flex-col items-center justify-center gap-3 text-text-tertiary rounded-[14px] border border-dashed border-white/10 py-16"
       style={{ background: 'var(--color-terminal-bg)' }}
     >
       <div className="text-sm">No tasks yet.</div>
