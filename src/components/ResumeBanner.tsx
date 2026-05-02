@@ -12,7 +12,7 @@ import type { LastSessionSnapshot } from '../types';
 
 export function ResumeBanner() {
   const [snapshot, setSnapshot] = useState<LastSessionSnapshot | null>(null);
-  const [counts, setCounts] = useState<{ total: number; projects: number } | null>(null);
+  const [counts, setCounts] = useState<{ total: number; tasks: number; projects: number } | null>(null);
   const [resuming, setResuming] = useState(false);
   const [dismissed, setDismissed] = useState(false);
 
@@ -54,9 +54,14 @@ export function ResumeBanner() {
     await clearSnapshot();
   };
 
-  const { total, projects } = counts;
+  const { total, tasks, projects } = counts;
   const terminalLabel = total === 1 ? 'terminal' : 'terminals';
+  const taskLabel = tasks === 1 ? 'task' : 'tasks';
   const projectLabel = projects === 1 ? 'project' : 'projects';
+  const subtitle =
+    tasks > 0
+      ? `${total} ${terminalLabel} across ${tasks} ${taskLabel} and ${projects} ${projectLabel}`
+      : `${total} ${terminalLabel} across ${projects} ${projectLabel}`;
 
   return (
     <div
@@ -65,9 +70,7 @@ export function ResumeBanner() {
     >
       <div className="flex flex-col min-w-0 flex-1">
         <span className="text-sm text-text-primary leading-tight">Resume last session</span>
-        <span className="text-[11px] text-text-tertiary mt-0.5">
-          {total} {terminalLabel} across {projects} {projectLabel}
-        </span>
+        <span className="text-[11px] text-text-tertiary mt-0.5">{subtitle}</span>
       </div>
       <div className="flex items-center gap-2 [-webkit-app-region:no-drag] shrink-0">
         <button

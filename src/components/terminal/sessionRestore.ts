@@ -15,6 +15,7 @@ const restoreLog = log.scope('sessionRestore');
 
 interface RestoreCounts {
   total: number;
+  tasks: number;
   projects: number;
 }
 
@@ -25,13 +26,15 @@ export async function countRestorable(snapshot: LastSessionSnapshot): Promise<Re
 
   let total = 0;
   const seenProjects = new Set<string>();
+  const seenTasks = new Set<string>();
   for (const t of snapshot.terminals) {
     if (await isStillRestorable(t, projectByPath)) {
       total++;
       seenProjects.add(t.projectPath);
+      if (t.taskNumber != null) seenTasks.add(`${t.projectPath}#${t.taskNumber}`);
     }
   }
-  return { total, projects: seenProjects.size };
+  return { total, tasks: seenTasks.size, projects: seenProjects.size };
 }
 
 async function isStillRestorable(entry: SnapshotTerminal, projectByPath: Map<string, Project>): Promise<boolean> {
