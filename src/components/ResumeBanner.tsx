@@ -66,7 +66,10 @@ export function ResumeBanner() {
   return (
     <div
       className="glass-bevel relative border border-black/60 rounded-[14px] flex items-center gap-3 px-5 py-3"
-      style={{ background: 'var(--color-terminal-bg)' }}
+      style={{
+        background: 'var(--color-terminal-bg)',
+        boxShadow: '0 0 0 1px rgba(0, 0, 0, 0.05), 0 4px 12px rgba(0, 0, 0, 0.15), 0 20px 40px rgba(0, 0, 0, 0.2)',
+      }}
     >
       <div className="flex flex-col min-w-0 flex-1">
         <span className="text-sm text-text-primary leading-tight">Resume last session</span>

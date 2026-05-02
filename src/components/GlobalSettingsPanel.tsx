@@ -78,7 +78,13 @@ export function GlobalSettingsPanel() {
         <div className="px-6 pt-4 pb-16 min-w-full max-w-2xl space-y-8">
           <section>
             <h2 className="text-sm font-semibold text-text-primary mb-4">Terminal</h2>
-            <div className="glass-bevel relative border border-black/60 rounded-[14px] overflow-hidden divide-y divide-white/[0.06] bg-[var(--color-terminal-bg,#171717)]">
+            <div
+              className="glass-bevel relative border border-black/60 rounded-[14px] overflow-hidden divide-y divide-white/[0.06] bg-[var(--color-terminal-bg,#171717)]"
+              style={{
+                boxShadow:
+                  '0 0 0 1px rgba(0, 0, 0, 0.05), 0 4px 12px rgba(0, 0, 0, 0.15), 0 20px 40px rgba(0, 0, 0, 0.2)',
+              }}
+            >
               <FontPickerRow
                 label="Font family"
                 description="Pick a monospace font. Falls back gracefully if not installed."
@@ -101,7 +107,13 @@ export function GlobalSettingsPanel() {
 
           <section>
             <h2 className="text-sm font-semibold text-text-primary mb-4">Updates</h2>
-            <div className="glass-bevel relative border border-black/60 rounded-[14px] overflow-hidden divide-y divide-white/[0.06] bg-[var(--color-terminal-bg,#171717)]">
+            <div
+              className="glass-bevel relative border border-black/60 rounded-[14px] overflow-hidden divide-y divide-white/[0.06] bg-[var(--color-terminal-bg,#171717)]"
+              style={{
+                boxShadow:
+                  '0 0 0 1px rgba(0, 0, 0, 0.05), 0 4px 12px rgba(0, 0, 0, 0.15), 0 20px 40px rgba(0, 0, 0, 0.2)',
+              }}
+            >
               <ToggleRow
                 label="Check for updates automatically"
                 description="When off, Ouijit will not contact any remote update service. You can also set OUIJIT_DISABLE_UPDATES=1 in your shell."

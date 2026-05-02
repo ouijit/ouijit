@@ -135,7 +135,10 @@ export function RecentTasksPanel({ projects }: RecentTasksPanelProps) {
   return (
     <div
       className="w-full flex flex-col rounded-[14px] border border-black/60 glass-bevel relative overflow-hidden min-h-0"
-      style={{ background: 'var(--color-terminal-bg)' }}
+      style={{
+        background: 'var(--color-terminal-bg)',
+        boxShadow: '0 0 0 1px rgba(0, 0, 0, 0.05), 0 4px 12px rgba(0, 0, 0, 0.15), 0 20px 40px rgba(0, 0, 0, 0.2)',
+      }}
     >
       <div className="flex items-center justify-between gap-3 px-5 pt-4 pb-3 shrink-0 border-b border-white/[0.06]">
         <span className="text-[11px] uppercase tracking-wider text-text-tertiary">Pick up where you left off</span>
