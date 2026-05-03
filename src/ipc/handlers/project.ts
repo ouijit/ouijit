@@ -47,9 +47,12 @@ export function registerProjectHandlers(mainWindow: BrowserWindow): void {
       try {
         await addProject(result.projectPath);
       } catch (error) {
-        ipcLog.error('failed to persist created project', {
-          error: error instanceof Error ? error.message : String(error),
-        });
+        const message = error instanceof Error ? error.message : String(error);
+        ipcLog.error('failed to persist created project', { error: message });
+        return {
+          success: false,
+          error: `Project folder created at ${result.projectPath}, but registering it failed: ${message}`,
+        };
       }
     }
     return result;

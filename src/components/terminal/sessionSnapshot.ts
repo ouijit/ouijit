@@ -89,14 +89,32 @@ let saveTimer: ReturnType<typeof setTimeout> | null = null;
 // overwrite the previous-launch snapshot during startup (when stores are
 // transiently empty), clobbering it before the resume banner reads it.
 let hadTerminalsThisSession = false;
+// While restoreSession is mutating the stores, every change schedules a save
+// that would re-populate the snapshot we're trying to clear. Suspend saves
+// for the duration of restore; the post-restore clear has the final word.
+let savesSuspended = false;
+
+export function suspendSnapshotSaves(): void {
+  savesSuspended = true;
+  if (saveTimer) {
+    clearTimeout(saveTimer);
+    saveTimer = null;
+  }
+}
+
+export function resumeSnapshotSaves(): void {
+  savesSuspended = false;
+}
 
 export function scheduleSnapshotSave(): void {
+  if (savesSuspended) return;
   if (saveTimer) clearTimeout(saveTimer);
   saveTimer = setTimeout(saveSnapshotNow, SAVE_DEBOUNCE_MS);
 }
 
 async function saveSnapshotNow(): Promise<void> {
   saveTimer = null;
+  if (savesSuspended) return;
   try {
     const snapshot = gatherSnapshot();
     if (snapshot.terminals.length === 0) {
@@ -150,6 +168,12 @@ export async function readSnapshot(): Promise<LastSessionSnapshot | null> {
 }
 
 export async function clearSnapshot(): Promise<void> {
+  // Cancel any pending save so it doesn't fire after the clear and re-populate
+  // the key with the just-restored state.
+  if (saveTimer) {
+    clearTimeout(saveTimer);
+    saveTimer = null;
+  }
   try {
     await window.api.globalSettings.set(SNAPSHOT_KEY, '');
   } catch {

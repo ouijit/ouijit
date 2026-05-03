@@ -73,15 +73,12 @@ async function applyInitialUiState(term: OuijitTerminal, ui: SnapshotTerminalUi)
   }
 
   if (ui.runner) {
-    // Pre-set layout so the panel renders at the right size when it appears.
+    // Don't auto-respawn the previously-running script. A user's `npm run dev`
+    // is benign to re-run, but a `Reset DB` or similar destructive script
+    // would silently fire on Resume. Preserve the panel layout so the slot
+    // is recognizable, and pre-load the script so one click on Run re-launches it.
     term.runnerFullWidth = ui.runner.fullWidth;
-    // Re-spawn the previously-running script. The runner panel needs a live
-    // child PTY to render, so "restoring" the runner means running it again.
-    // Side effects are accepted: Resume is explicit, user can kill from the panel.
-    await spawnRunner(term.ptyId, {
-      name: ui.runner.scriptName ?? '',
-      command: ui.runner.scriptCommand,
-    });
+    term.runnerScript = { name: ui.runner.scriptName ?? '', command: ui.runner.scriptCommand };
   }
 }
 

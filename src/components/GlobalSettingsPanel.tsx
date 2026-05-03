@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useAppStore } from '../stores/appStore';
-import { applyTerminalFontUpdate } from './terminal/terminalReact';
+import { setTerminalFontFamily, setTerminalFontSize } from './terminal/terminalReact';
 import { FontPickerRow } from './FontPickerRow';
 
 const DEFAULT_TERMINAL_FONT_SIZE = 14;
@@ -51,14 +51,14 @@ export function GlobalSettingsPanel() {
   const commitFontFamily = async (value: string) => {
     const trimmed = value.trim();
     setFontFamily(trimmed);
+    setTerminalFontFamily(trimmed || null);
     await window.api.globalSettings.set('terminal:font-family', trimmed);
-    applyTerminalFontUpdate(trimmed || null, fontSize);
   };
 
   const commitFontSize = async (value: number | null) => {
     setFontSize(value);
+    setTerminalFontSize(value);
     await window.api.globalSettings.set('terminal:font-size', value == null ? '' : String(value));
-    applyTerminalFontUpdate(fontFamily || null, value);
   };
 
   return (

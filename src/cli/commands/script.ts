@@ -48,10 +48,11 @@ Examples:
     .description('Create a new script, or update an existing one with the same name')
     .requiredOption('--name <name>', 'script name')
     .requiredOption('--command <cmd>', 'shell command to run')
-    .action(async (opts: { name: string; command: string }) => {
+    .option('--id <id>', '(deprecated) ignored — scripts are now upserted by name')
+    .action(async (opts: { name: string; command: string; id?: string }) => {
       const project = requireProject();
       const existing = await get<ScriptEntry[]>(`/api/scripts${projectQuery(project)}`);
-      const id = existing.find((s) => s.name === opts.name)?.id ?? randomUUID();
+      const id = existing.find((s) => s.name === opts.name)?.id ?? opts.id ?? randomUUID();
       const result = await put<{ success: boolean; script?: ScriptEntry }>(
         `/api/scripts/${encodeURIComponent(id)}${projectQuery(project)}`,
         { id, name: opts.name, command: opts.command, sortOrder: 0 },

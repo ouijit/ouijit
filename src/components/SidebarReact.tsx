@@ -124,8 +124,11 @@ export function Sidebar({ onProjectSelect, onHomeSelect, onAddExisting, onCreate
   }, [noProjects, showSidebar]);
 
   // When the user-toggled pin flips on, lock the sidebar visible and reserve
-  // its width in the layout. When pin flips off, mouse-out auto-hide kicks
-  // back in via the normal handlers.
+  // its width in the layout. No inverse on flip-off: hideSidebar is the only
+  // path that retracts the sidebar, and its `if (sidebarPinned) return` guard
+  // (re-evaluated when sidebarPinned drops) lets the next mouse-leave hide it
+  // and reset --sidebar-offset to 0px. Driving an inverse from this effect
+  // would race with hover state.
   useEffect(() => {
     if (sidebarPinned) {
       setVisible(true);

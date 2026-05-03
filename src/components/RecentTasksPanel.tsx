@@ -222,8 +222,7 @@ interface RecentTaskRowProps {
 
 function RecentTaskRow({ task, selected, onClick, onToggle }: RecentTaskRowProps) {
   const [checkboxHover, setCheckboxHover] = useState(false);
-  const showOpenHint = !selected && !checkboxHover;
-  const showSelectHint = checkboxHover;
+  const hint = checkboxHover ? (selected ? 'Deselect' : 'Add to selection') : 'Open terminal →';
   return (
     <li>
       <div
@@ -264,9 +263,7 @@ function RecentTaskRow({ task, selected, onClick, onToggle }: RecentTaskRowProps
           </div>
         </div>
         <div className="shrink-0 ml-3 text-[11px] text-text-tertiary opacity-0 group-hover:opacity-100 transition-opacity duration-100">
-          {showOpenHint && 'Open terminal →'}
-          {showSelectHint && (selected ? 'Deselect' : 'Add to selection')}
-          {!showOpenHint && !showSelectHint && (selected ? 'Open terminal →' : '')}
+          {hint}
         </div>
       </div>
     </li>

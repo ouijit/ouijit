@@ -207,19 +207,29 @@ export async function hydrateTerminalFont(): Promise<void> {
   if (Number.isFinite(parsed) && parsed > 0) cachedTerminalFontSize = parsed;
 }
 
-/**
- * Update the cache and apply the new font to every live terminal. Called by
- * the settings panel after the user changes a value. Pass null/empty to revert
- * a field to its default.
- */
-export function applyTerminalFontUpdate(family: string | null, size: number | null): void {
-  cachedTerminalFontFamily = family?.trim() || DEFAULT_TERMINAL_FONT_FAMILY;
-  cachedTerminalFontSize = size && Number.isFinite(size) && size > 0 ? size : DEFAULT_TERMINAL_FONT_SIZE;
+function applyCachedFontToAll(): void {
   for (const t of terminalInstances.values()) {
     t.xterm.options.fontFamily = cachedTerminalFontFamily;
     t.xterm.options.fontSize = cachedTerminalFontSize;
     t.fit();
   }
+}
+
+/**
+ * Update only the font family. Pass null/empty to revert to the default.
+ * Caller doesn't need to keep the size in sync — the cache is the source of truth.
+ */
+export function setTerminalFontFamily(family: string | null): void {
+  cachedTerminalFontFamily = family?.trim() || DEFAULT_TERMINAL_FONT_FAMILY;
+  applyCachedFontToAll();
+}
+
+/**
+ * Update only the font size. Pass null to revert to the default.
+ */
+export function setTerminalFontSize(size: number | null): void {
+  cachedTerminalFontSize = size && Number.isFinite(size) && size > 0 ? size : DEFAULT_TERMINAL_FONT_SIZE;
+  applyCachedFontToAll();
 }
 
 // ── Git status refresh scheduling ────────────────────────────────────

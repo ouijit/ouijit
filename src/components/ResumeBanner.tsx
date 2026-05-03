@@ -69,10 +69,10 @@ export function ResumeBanner() {
   if (dismissed || !snapshot || !entries || !counts) return null;
 
   const handleResume = async () => {
-    if (resuming) return;
+    if (resuming || !entries) return;
     setResuming(true);
     try {
-      await restoreSession(snapshot);
+      await restoreSession(snapshot, entries);
     } finally {
       await clearSnapshot();
       setDismissed(true);

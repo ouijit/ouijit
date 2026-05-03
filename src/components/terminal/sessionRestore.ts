@@ -9,6 +9,7 @@ import log from 'electron-log/renderer';
 import { useAppStore } from '../../stores/appStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { addProjectTerminal } from './terminalActions';
+import { suspendSnapshotSaves, resumeSnapshotSaves } from './sessionSnapshot';
 import type { LastSessionSnapshot, Project, SnapshotTerminal, TaskStatus } from '../../types';
 
 const restoreLog = log.scope('sessionRestore');
@@ -20,6 +21,8 @@ export interface RestorableEntry {
   taskStatus: TaskStatus | null;
   label: string | null;
   ordinalInProject: number;
+  /** Original snapshot row — carried so restoreSession can spawn without re-fetching tasks. */
+  source: SnapshotTerminal;
 }
 
 interface RestoreCounts {
@@ -59,6 +62,7 @@ export async function listRestorable(snapshot: LastSessionSnapshot): Promise<Res
       taskStatus,
       label: t.label,
       ordinalInProject: t.ordinalInProject,
+      source: t,
     });
   }
   return out;
@@ -70,80 +74,67 @@ export function summarizeRestorable(entries: RestorableEntry[]): RestoreCounts {
   return { total: entries.length, tasks: taskSet.size, projects: projectSet.size };
 }
 
-async function isStillRestorable(entry: SnapshotTerminal, projectByPath: Map<string, Project>): Promise<boolean> {
-  if (!projectByPath.has(entry.projectPath)) return false;
-
-  // Task lookup doubles as worktree validity — the task row stores the path.
-  // If the task is gone or marked done since quit, drop the entry.
-  if (entry.taskNumber != null) {
-    const task = await window.api.task.getByNumber(entry.projectPath, entry.taskNumber);
-    if (!task) return false;
-    if (task.status === 'done') return false;
-  }
-
-  return true;
-}
-
-export async function restoreSession(snapshot: LastSessionSnapshot): Promise<void> {
+export async function restoreSession(snapshot: LastSessionSnapshot, entries: RestorableEntry[]): Promise<void> {
   const projects = useAppStore.getState().projects;
   const projectByPath = new Map(projects.map((p) => [p.path, p]));
 
-  // Group by project, preserve original ordinal order
-  const grouped = new Map<string, SnapshotTerminal[]>();
-  for (const t of snapshot.terminals) {
-    if (!grouped.has(t.projectPath)) grouped.set(t.projectPath, []);
-    grouped.get(t.projectPath)!.push(t);
-  }
-  for (const list of grouped.values()) {
-    list.sort((a, b) => a.ordinalInProject - b.ordinalInProject);
-  }
+  // Suspend snapshot auto-save during restore: every spawn/navigate fires a
+  // store update that would otherwise schedule a save and re-populate the
+  // snapshot key the caller is about to clear.
+  suspendSnapshotSaves();
+  try {
+    // Group by project, preserve original ordinal order
+    const grouped = new Map<string, RestorableEntry[]>();
+    for (const e of entries) {
+      if (!grouped.has(e.project.path)) grouped.set(e.project.path, []);
+      grouped.get(e.project.path)!.push(e);
+    }
+    for (const list of grouped.values()) {
+      list.sort((a, b) => a.ordinalInProject - b.ordinalInProject);
+    }
 
-  for (const [projectPath, entries] of grouped) {
-    for (const entry of entries) {
-      if (!(await isStillRestorable(entry, projectByPath))) {
-        restoreLog.info('skipping unrestorable terminal', {
-          projectPath,
-          taskNumber: entry.taskNumber,
-        });
-        continue;
-      }
-
-      try {
-        await addProjectTerminal(projectPath, undefined, {
-          existingWorktree: entry.worktreePath
-            ? {
-                path: entry.worktreePath,
-                branch: entry.worktreeBranch ?? '',
-                createdAt: '',
-                sandboxed: entry.sandboxed,
-              }
-            : undefined,
-          taskId: entry.taskNumber ?? undefined,
-          sandboxed: entry.sandboxed,
-          // Don't fire start/continue hooks on resume — that'd kick off a new
-          // claude session. Restored terminals come back as plain shells.
-          skipAutoHook: true,
-          background: !entry.isActiveInProject,
-          initialUiState: entry.ui,
-        });
-      } catch (err) {
-        restoreLog.warn('failed to restore terminal', {
-          projectPath,
-          taskNumber: entry.taskNumber,
-          error: err instanceof Error ? err.message : String(err),
-        });
+    for (const [projectPath, projectEntries] of grouped) {
+      for (const entry of projectEntries) {
+        const source = entry.source;
+        try {
+          await addProjectTerminal(projectPath, undefined, {
+            existingWorktree: source.worktreePath
+              ? {
+                  path: source.worktreePath,
+                  branch: source.worktreeBranch ?? '',
+                  createdAt: '',
+                  sandboxed: source.sandboxed,
+                }
+              : undefined,
+            taskId: source.taskNumber ?? undefined,
+            sandboxed: source.sandboxed,
+            // Don't fire start/continue hooks on resume — that'd kick off a new
+            // claude session. Restored terminals come back as plain shells.
+            skipAutoHook: true,
+            background: !source.isActiveInProject,
+            initialUiState: source.ui,
+          });
+        } catch (err) {
+          restoreLog.warn('failed to restore terminal', {
+            projectPath,
+            taskNumber: source.taskNumber,
+            error: err instanceof Error ? err.message : String(err),
+          });
+        }
       }
     }
-  }
 
-  // Navigate to last-active project (terminals view)
-  if (snapshot.activeProjectPath) {
-    const project = projectByPath.get(snapshot.activeProjectPath);
-    if (project) {
-      useAppStore.getState().navigateToProject(snapshot.activeProjectPath, project);
-      const projectStore = useProjectStore.getState();
-      projectStore.setActivePanel('terminals');
-      projectStore.setKanbanVisible(false);
+    // Navigate to last-active project (terminals view)
+    if (snapshot.activeProjectPath) {
+      const project = projectByPath.get(snapshot.activeProjectPath);
+      if (project) {
+        useAppStore.getState().navigateToProject(snapshot.activeProjectPath, project);
+        const projectStore = useProjectStore.getState();
+        projectStore.setActivePanel('terminals');
+        projectStore.setKanbanVisible(false);
+      }
     }
+  } finally {
+    resumeSnapshotSaves();
   }
 }
