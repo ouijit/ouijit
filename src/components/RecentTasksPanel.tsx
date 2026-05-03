@@ -6,23 +6,20 @@
  */
 
 import { useEffect, useMemo, useState } from 'react';
-import { useAppStore } from '../stores/appStore';
+import { useAppStore, type HomeRecentTask } from '../stores/appStore';
 import { useProjectStore } from '../stores/projectStore';
 import { addProjectTerminal } from './terminal/terminalActions';
 import { stringToColor, getInitials } from '../utils/projectIcon';
 import { formatRelativeTime } from '../utils/formatDate';
-import type { Project, TaskWithWorkspace } from '../types';
+import type { Project } from '../types';
 
-const MAX_TASKS = 8;
 const STATUS_LABEL: Record<string, string> = {
   todo: 'to do',
   in_progress: 'in progress',
   in_review: 'to review',
 };
 
-interface RecentTask extends TaskWithWorkspace {
-  project: Project;
-}
+type RecentTask = HomeRecentTask;
 
 function taskKey(task: RecentTask): string {
   return `${task.project.path}#${task.taskNumber}`;
@@ -59,30 +56,14 @@ interface RecentTasksPanelProps {
 }
 
 export function RecentTasksPanel({ projects }: RecentTasksPanelProps) {
-  const [recents, setRecents] = useState<RecentTask[] | null>(null);
+  const recents = useAppStore((s) => s.homeRecents);
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
+  // Refresh whenever the projects list changes (add/remove). App.tsx
+  // pre-fetches before navigating home so the view transition snapshot is
+  // correct; this keeps recents fresh while we're already on home.
   useEffect(() => {
-    let cancelled = false;
-    Promise.all(
-      projects.map((project) =>
-        window.api.task
-          .getAll(project.path)
-          .then((tasks) => tasks.map((t) => ({ ...t, project })))
-          .catch(() => [] as RecentTask[]),
-      ),
-    ).then((arrays) => {
-      if (cancelled) return;
-      const all = arrays
-        .flat()
-        .filter((t) => t.status !== 'done')
-        .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-        .slice(0, MAX_TASKS);
-      setRecents(all);
-    });
-    return () => {
-      cancelled = true;
-    };
+    void useAppStore.getState().loadHomeRecents();
   }, [projects]);
 
   if (recents === null) return null;

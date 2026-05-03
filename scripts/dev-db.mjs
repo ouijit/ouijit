@@ -3,9 +3,10 @@
 // production data and other worktrees' dev data are untouched.
 //
 // Usage:
-//   node scripts/dev-db.mjs reset   Delete dev DB + seed project (next launch = first-launch)
-//   node scripts/dev-db.mjs seed    Create the demo project used in marketing screenshots
-//   node scripts/dev-db.mjs path    Print the dev userData dir for this worktree
+//   node scripts/dev-db.mjs reset        Delete dev DB + seed project (next launch = first-launch)
+//   node scripts/dev-db.mjs seed         Create the demo project used in marketing screenshots
+//   node scripts/dev-db.mjs clone-prod   Copy prod DB into this worktree's dev DB
+//   node scripts/dev-db.mjs path         Print the dev userData dir for this worktree
 
 import { execFileSync, spawnSync } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
@@ -24,6 +25,14 @@ function devDbDir() {
   }
   const xdg = process.env.XDG_CONFIG_HOME || join(homedir(), '.config');
   return join(xdg, `ouijit${suffix}`);
+}
+
+function prodDbDir() {
+  if (platform() === 'darwin') {
+    return join(homedir(), 'Library', 'Application Support', 'ouijit');
+  }
+  const xdg = process.env.XDG_CONFIG_HOME || join(homedir(), '.config');
+  return join(xdg, 'ouijit');
 }
 
 function dbPath() {
@@ -45,6 +54,38 @@ function exec(sql) {
     process.exit(result.status ?? 1);
   }
   return result.stdout;
+}
+
+function cloneProd() {
+  const srcDir = prodDbDir();
+  const srcDb = join(srcDir, 'ouijit.db');
+  if (!existsSync(srcDb)) {
+    process.stderr.write(`Prod DB not found at ${srcDb}\n`);
+    process.exit(1);
+  }
+
+  const dstDir = devDbDir();
+  if (!/-dev-[0-9a-f]{8}$/.test(dstDir)) {
+    throw new Error(`Refusing to write to non-dev path: ${dstDir}`);
+  }
+  mkdirSync(dstDir, { recursive: true });
+
+  // Wipe any existing dev DB so the backup lands on a clean target.
+  for (const ext of ['', '-wal', '-shm']) {
+    const f = join(dstDir, `ouijit.db${ext}`);
+    if (existsSync(f)) rmSync(f);
+  }
+
+  const dstDb = join(dstDir, 'ouijit.db');
+  // sqlite3 .backup is an online backup — safe even if the prod app is running.
+  const result = spawnSync('sqlite3', [srcDb, `.backup '${dstDb.replace(/'/g, "''")}'`], { encoding: 'utf8' });
+  if (result.status !== 0) {
+    process.stderr.write(result.stderr || `sqlite3 .backup exited ${result.status}\n`);
+    process.exit(result.status ?? 1);
+  }
+
+  console.log(`Cloned prod DB → ${dstDb}`);
+  console.log('Migrations will run on next launch of the dev app in this worktree.');
 }
 
 function reset() {
@@ -174,15 +215,19 @@ switch (cmd) {
   case 'seed':
     seed();
     break;
+  case 'clone-prod':
+    cloneProd();
+    break;
   case 'path':
     console.log(devDbDir());
     break;
   default:
     process.stderr.write(
-      `Usage: node scripts/dev-db.mjs <reset|seed|path>\n\n` +
-        `  reset   Delete dev DB + seed project (next launch = first-launch state)\n` +
-        `  seed    Create the demo project used in marketing screenshots\n` +
-        `  path    Print this worktree's dev userData dir\n`,
+      `Usage: node scripts/dev-db.mjs <reset|seed|clone-prod|path>\n\n` +
+        `  reset       Delete dev DB + seed project (next launch = first-launch state)\n` +
+        `  seed        Create the demo project used in marketing screenshots\n` +
+        `  clone-prod  Copy prod DB into this worktree's dev DB\n` +
+        `  path        Print this worktree's dev userData dir\n`,
     );
     process.exit(1);
 }
