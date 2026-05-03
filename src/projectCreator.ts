@@ -11,6 +11,34 @@ import { getLogger } from './logger';
 
 const creatorLog = getLogger().scope('projectCreator');
 
+export type ValidateFolderResult = { ok: true } | { ok: false; error: string };
+
+/**
+ * Validates that a user-picked folder is suitable to add as a project:
+ * exists, is a directory, and is a git repo. `.git` is a directory in normal
+ * repos and a file in worktrees / submodules — fs.access covers both.
+ */
+export async function validateProjectFolder(folderPath: string): Promise<ValidateFolderResult> {
+  let stat;
+  try {
+    stat = await fs.stat(folderPath);
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : 'Folder not found' };
+  }
+  if (!stat.isDirectory()) {
+    return { ok: false, error: 'Path is not a directory' };
+  }
+  try {
+    await fs.access(path.join(folderPath, '.git'));
+  } catch {
+    return {
+      ok: false,
+      error: 'Selected folder is not a git repository. Run `git init` or pick another folder.',
+    };
+  }
+  return { ok: true };
+}
+
 export async function createProject(options: CreateProjectOptions): Promise<CreateProjectResult> {
   try {
     const projectsDir = path.join(os.homedir(), 'Ouijit', 'projects');

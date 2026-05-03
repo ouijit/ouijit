@@ -6,7 +6,6 @@
  * Callers just change their import path — no other code changes needed.
  */
 
-import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import { getDatabase, _initTestDatabase } from './database';
 import { ProjectRepo } from './repos/projectRepo';
@@ -456,29 +455,10 @@ export async function getAllProjects(): Promise<{ path: string; name: string; ad
   return pr.getAll().map((row) => ({ path: row.path, name: row.name, addedAt: row.added_at }));
 }
 
-export async function addProject(folderPath: string): Promise<{ success: boolean; error?: string }> {
-  try {
-    const stat = await fs.stat(folderPath);
-    if (!stat.isDirectory()) {
-      return { success: false, error: 'Path is not a directory' };
-    }
-    // Must be a git repo. `.git` is a directory in normal repos and a file in
-    // worktrees / submodules — fs.access covers both.
-    try {
-      await fs.access(path.join(folderPath, '.git'));
-    } catch {
-      return {
-        success: false,
-        error: 'Selected folder is not a git repository. Run `git init` or pick another folder.',
-      };
-    }
-    const name = path.basename(folderPath);
-    const { projectRepo: pr } = repos();
-    pr.add(folderPath, name);
-    return { success: true };
-  } catch (error) {
-    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
-  }
+export async function addProject(folderPath: string): Promise<void> {
+  const name = path.basename(folderPath);
+  const { projectRepo: pr } = repos();
+  pr.add(folderPath, name);
 }
 
 export async function removeProject(folderPath: string): Promise<{ success: boolean }> {
