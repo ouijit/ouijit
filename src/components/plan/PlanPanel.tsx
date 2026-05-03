@@ -1,9 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { marked, type Tokens } from 'marked';
-import DOMPurify from 'dompurify';
-import { createHighlighter } from 'shiki';
-import type { BundledLanguage } from 'shiki';
-import { linkifyFilePaths } from '../../utils/linkifyFilePaths';
+import { renderPlanMarkdown } from '../../utils/renderPlanMarkdown';
 import { terminalInstances } from '../terminal/terminalReact';
 import { useProjectStore } from '../../stores/projectStore';
 import { Icon } from '../terminal/Icon';
@@ -17,46 +13,6 @@ interface PlanPanelProps {
   onChangePlanFile: (newPath: string) => void;
 }
 
-// ── Shiki highlighter (shared singleton) ─────────────────────────────
-
-const THEME = 'github-dark';
-
-const PRELOADED_LANGS: BundledLanguage[] = [
-  'typescript',
-  'javascript',
-  'tsx',
-  'jsx',
-  'json',
-  'css',
-  'html',
-  'markdown',
-  'python',
-  'rust',
-  'go',
-  'yaml',
-  'toml',
-  'bash',
-  'sql',
-  'ruby',
-  'swift',
-  'c',
-  'cpp',
-  'java',
-  'diff',
-];
-
-let highlighterPromise: ReturnType<typeof createHighlighter> | null = null;
-
-function getHighlighter() {
-  if (!highlighterPromise) {
-    highlighterPromise = createHighlighter({ themes: [THEME], langs: PRELOADED_LANGS }).catch((err) => {
-      highlighterPromise = null;
-      throw err;
-    });
-  }
-  return highlighterPromise;
-}
-
 // ── File existence helpers ───────────────────────────────────────────
 
 function applyFileExistence(container: HTMLElement, existence: Record<string, boolean>): void {
@@ -67,29 +23,6 @@ function applyFileExistence(container: HTMLElement, existence: Record<string, bo
       a.setAttribute('data-file-exists', String(existence[ref]));
     }
   });
-}
-
-// ── Markdown rendering with inline syntax highlighting ───────────────
-
-async function renderPlanMarkdown(md: string): Promise<string> {
-  const hl = await getHighlighter();
-
-  const renderer = new marked.Renderer();
-  renderer.code = ({ text, lang }: Tokens.Code) => {
-    if (lang && hl.getLoadedLanguages().includes(lang)) {
-      try {
-        return hl.codeToHtml(text, { lang, theme: THEME });
-      } catch {
-        // Fall through to plain code block
-      }
-    }
-    const escaped = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    return `<pre><code>${escaped}</code></pre>`;
-  };
-
-  const rawHtml = marked.parse(md, { gfm: true, renderer }) as string;
-  const linkedHtml = linkifyFilePaths(rawHtml);
-  return DOMPurify.sanitize(linkedHtml);
 }
 
 export function PlanPanel({ ptyId, planPath, onClose, onChangePlanFile }: PlanPanelProps) {

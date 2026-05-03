@@ -422,7 +422,9 @@ textarea,
 }
 
 .plan-markdown code {
-  @apply px-1 py-0.5 rounded bg-white/[0.08] text-[13px] font-mono text-white/70;
+  @apply px-1 py-0.5 rounded text-[13px] font-mono;
+  background: var(--color-background-secondary);
+  color: #ff6b6b;
 }
 
 .plan-markdown pre {
@@ -567,6 +569,17 @@ textarea,
 
 .plan-markdown .shiki code {
   @apply p-0 bg-transparent;
+}
+
+/* Mermaid diagrams */
+.plan-markdown .mermaid-diagram {
+  @apply my-4 flex justify-center overflow-x-auto rounded-lg p-3;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.plan-markdown .mermaid-diagram svg {
+  max-width: 100%;
+  height: auto;
 }
 
 /* Responsive Adjustments */
