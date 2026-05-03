@@ -32,6 +32,7 @@
     "postinstall": "./scripts/download-lima.sh && chmod +x node_modules/node-pty/prebuilds/*/spawn-helper 2>/dev/null || true",
     "db:reset": "node scripts/dev-db.mjs reset",
     "db:seed": "node scripts/dev-db.mjs seed",
+    "db:clone-prod": "node scripts/dev-db.mjs clone-prod",
     "capture": "node scripts/capture/run.mjs"
   },
   "keywords": [],
