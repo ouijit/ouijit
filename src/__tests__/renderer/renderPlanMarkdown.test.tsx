@@ -84,4 +84,31 @@ describe('renderPlanMarkdown — mermaid support', () => {
     const matches = html.match(/class="mermaid-diagram"/g) ?? [];
     expect(matches.length).toBe(2);
   });
+
+  it('renders mermaid blocks nested inside a blockquote', async () => {
+    const md = ['> intro line', '>', '> ```mermaid', '> graph TD; A-->B', '> ```'].join('\n');
+
+    const html = await renderPlanMarkdown(md);
+
+    expect(mermaidRender).toHaveBeenCalledOnce();
+    expect(html).toContain('class="mermaid-diagram"');
+    expect(html).toMatch(/<blockquote[^>]*>[\s\S]*mermaid-diagram[\s\S]*<\/blockquote>/);
+  });
+
+  it('passes typical mermaid SVG output through DOMPurify intact', async () => {
+    // Lock-in: with htmlLabels: false, mermaid emits plain SVG (text/g/path/rect)
+    // and DOMPurify needs no extra config. Asserts we did not regress to a
+    // setup that requires ADD_TAGS or weakened sanitization.
+    mermaidRender.mockResolvedValueOnce({
+      svg: '<svg viewBox="0 0 100 50"><g><rect x="0" y="0" width="100" height="50"/><text x="50" y="25">hello</text></g></svg>',
+    });
+
+    const md = ['```mermaid', 'graph TD; A-->B', '```'].join('\n');
+    const html = await renderPlanMarkdown(md);
+
+    expect(html).toContain('<svg');
+    expect(html).toContain('<text');
+    expect(html).toContain('hello');
+    expect(html).toContain('<rect');
+  });
 });
