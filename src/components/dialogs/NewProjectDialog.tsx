@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { DialogOverlay } from './DialogOverlay';
+import { useAppStore } from '../../stores/appStore';
 
 interface NewProjectDialogProps {
   onClose: (result: { created: boolean; projectName?: string; projectPath?: string } | null) => void;
@@ -11,9 +12,12 @@ export function NewProjectDialog({ onClose }: NewProjectDialogProps) {
   const [name, setName] = useState('');
   const [creating, setCreating] = useState(false);
   const [visible, setVisible] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const health = useAppStore((s) => s.health);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const isValid = NAME_REGEX.test(name);
+  const gitMissing = health !== null && !health.git;
+  const isValid = NAME_REGEX.test(name) && !gitMissing;
 
   useEffect(() => {
     requestAnimationFrame(() => setVisible(true));
@@ -30,12 +34,14 @@ export function NewProjectDialog({ onClose }: NewProjectDialogProps) {
 
   const handleCreate = useCallback(async () => {
     if (!isValid || creating) return;
+    setError(null);
     setCreating(true);
 
     const result = await window.api.createProject({ name: name.trim() });
     if (result.success && result.projectPath) {
       dismiss({ created: true, projectName: name.trim(), projectPath: result.projectPath });
     } else {
+      setError(result.error ?? 'Could not create project.');
       setCreating(false);
     }
   }, [name, isValid, creating, dismiss]);
@@ -53,6 +59,16 @@ export function NewProjectDialog({ onClose }: NewProjectDialogProps) {
   return (
     <DialogOverlay visible={visible} onDismiss={() => dismiss(null)}>
       <h2 className="text-lg font-semibold text-text-primary mb-4 text-center">New Project</h2>
+      {gitMissing && (
+        <div
+          className="mb-4 px-3 py-2 rounded-md text-xs text-text-primary"
+          style={{ background: 'var(--color-git-light)', border: '1px solid var(--color-git)' }}
+        >
+          <strong className="font-medium">Git not found.</strong> Install via{' '}
+          <code className="px-1 py-0.5 rounded bg-white/10 font-mono">xcode-select --install</code> (macOS) or your
+          package manager.
+        </div>
+      )}
       <div className="mb-6">
         <div className="flex flex-col gap-1">
           <label className="text-sm font-medium text-text-secondary" htmlFor="project-name">
@@ -67,8 +83,9 @@ export function NewProjectDialog({ onClose }: NewProjectDialogProps) {
             value={name}
             onChange={(e) => setName(e.target.value)}
             onKeyDown={handleKeyDown}
-            disabled={creating}
+            disabled={creating || gitMissing}
           />
+          {error && <p className="text-xs text-error mt-1">{error}</p>}
         </div>
       </div>
       <div className="flex gap-2 justify-end mt-4 items-center">

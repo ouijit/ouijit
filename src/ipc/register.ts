@@ -13,6 +13,7 @@ import { registerLimaHandlers } from './handlers/lima';
 import { registerSettingsHandlers } from './handlers/settings';
 import { registerScriptHandlers } from './handlers/scripts';
 import { registerPlanHandlers, cleanupPlanWatchers } from './handlers/plan';
+import { registerHealthHandlers } from './handlers/health';
 
 /**
  * Registers all IPC handlers for the main process.
@@ -36,6 +37,7 @@ export async function registerIpcHandlers(mainWindow: BrowserWindow): Promise<vo
   registerSettingsHandlers();
   registerScriptHandlers();
   registerPlanHandlers(mainWindow);
+  registerHealthHandlers();
 }
 
 /**

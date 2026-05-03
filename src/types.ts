@@ -40,6 +40,49 @@ import type { HookStatus, HookStatusEntry } from './hookServer';
 export type LastActiveView = { type: 'home' } | { type: 'project'; path: string };
 
 /**
+ * Per-terminal UI state captured for cross-launch session restore.
+ *
+ * Lives in `lastSession:snapshot` global setting as JSON. Restoring the live
+ * shell process is impossible across an app quit — these fields preserve the
+ * configuration around it (plan attachment, panel layout, last runner script
+ * to one-click re-run).
+ */
+export interface SnapshotTerminalUi {
+  planPath: string | null;
+  webPreview: {
+    url: string | null;
+    panelOpen: boolean;
+    fullWidth: boolean;
+    splitRatio: number;
+  } | null;
+  runner: {
+    scriptName: string | null;
+    scriptCommand: string;
+    panelOpen: boolean;
+    fullWidth: boolean;
+  } | null;
+}
+
+export interface SnapshotTerminal {
+  projectPath: string;
+  taskNumber: number | null;
+  worktreePath: string | null;
+  worktreeBranch: string | null;
+  sandboxed: boolean;
+  label: string | null;
+  ordinalInProject: number;
+  isActiveInProject: boolean;
+  ui: SnapshotTerminalUi;
+}
+
+export interface LastSessionSnapshot {
+  version: 1;
+  capturedAt: string;
+  activeProjectPath: string | null;
+  terminals: SnapshotTerminal[];
+}
+
+/**
  * Represents a run configuration for launching a project
  */
 export interface RunConfig {
@@ -455,8 +498,18 @@ export interface ElectronAPI {
   lima: LimaAPI;
   /** Global settings API */
   globalSettings: GlobalSettingsAPI;
+  /** Health probe API (git/claude/lima detection) */
+  health: HealthAPI;
   /** Capture-mode API (only populated when OUIJIT_CAPTURE_MODE=1) */
   capture: CaptureAPI;
+}
+
+/**
+ * Health probe API exposed to the renderer
+ */
+export interface HealthAPI {
+  check(): Promise<import('./healthCheck').HealthStatus>;
+  onUpdate(callback: (status: import('./healthCheck').HealthStatus) => void): () => void;
 }
 
 /**

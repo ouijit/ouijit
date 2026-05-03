@@ -107,6 +107,11 @@ export function KanbanColumn({
             />
           ))}
         </SortableContext>
+        {status === 'todo' && tasks.length === 0 && (
+          <div className="px-3 py-3 text-xs text-text-tertiary leading-relaxed">
+            No tasks yet. Type a name below to add one.
+          </div>
+        )}
         {onAddTask && <KanbanAddInput onAdd={onAddTask} />}
       </div>
     </div>

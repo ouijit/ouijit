@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo, useRef } from 'react';
+import { useAppStore } from '../stores/appStore';
 import { useTerminalStore } from '../stores/terminalStore';
 import { useUIStore } from '../stores/uiStore';
 import { terminalInstances } from './terminal/terminalReact';
@@ -9,6 +10,9 @@ import { XTermContainer } from './terminal/XTermContainer';
 import { useTerminalPanels } from './terminal/useTerminalPanels';
 import { Icon } from './terminal/Icon';
 import { stringToColor, getInitials } from '../utils/projectIcon';
+import { OuijitLogotype } from './OuijitLogotype';
+import { RecentTasksPanel } from './RecentTasksPanel';
+import { ResumeBanner } from './ResumeBanner';
 import type { Project } from '../types';
 
 /** Inline depth positioning for home view cards — no CSS class dependency */
@@ -28,6 +32,8 @@ function getDepthStyle(depth: number): React.CSSProperties {
 
 export function HomeView() {
   const [projects, setProjects] = useState<Map<string, Project>>(new Map());
+  const allProjects = useAppStore((s) => s.projects);
+  const projectCount = allProjects.length;
   const terminalsByProject = useTerminalStore((s) => s.terminalsByProject);
   const displayStates = useTerminalStore((s) => s.displayStates);
   const homeGroupMode = useUIStore((s) => s.homeGroupMode);
@@ -282,7 +288,8 @@ export function HomeView() {
   } = useTerminalPanels(activePtyId);
 
   if (allPtyIds.length === 0) {
-    const isMac = navigator.platform.toLowerCase().includes('mac');
+    const noProjects = projectCount === 0;
+
     return (
       <div
         className="fixed top-[82px] right-4 bottom-4 z-[100] overflow-visible"
@@ -291,24 +298,33 @@ export function HomeView() {
           transition: 'left 0.2s ease-out, right 0.25s ease, top 0.2s ease',
         }}
       >
-        <div
-          className="absolute inset-0 flex flex-col items-center justify-center text-center rounded-[14px] border border-dashed border-white/10 p-12 opacity-100"
-          style={{ background: 'var(--color-terminal-bg)' }}
-        >
-          <div className="text-sm text-white/30">No active sessions</div>
-          <div className="flex justify-center gap-6 mt-6">
-            <span className="flex items-center gap-1.5 text-[13px]" style={{ color: 'rgba(255, 255, 255, 0.35)' }}>
-              <span
-                className="inline-flex items-center font-mono"
-                style={{ fontSize: isMac ? 16 : 13, color: 'rgba(255, 255, 255, 0.25)' }}
+        {noProjects ? (
+          <div
+            className="absolute inset-0 flex flex-col items-center justify-center rounded-[14px] border border-dashed border-white/10"
+            style={{ background: 'var(--color-terminal-bg)' }}
+          >
+            <div className="flex flex-col items-center text-center px-8 max-w-[28rem]">
+              <OuijitLogotype className="h-12 w-[14rem] mb-6" />
+              <p className="text-[15px] text-text-secondary leading-relaxed">
+                A local parallel agent terminal manager.
+              </p>
+              <button
+                type="button"
+                className="mt-10 inline-flex items-center justify-center px-6 py-2 font-sans text-sm font-medium border-none rounded-full outline-none transition-all duration-150 ease-out [-webkit-app-region:no-drag] focus-visible:ring-3 focus-visible:ring-accent-light text-white bg-accent hover:bg-accent-hover active:scale-[0.98]"
+                onClick={() => document.dispatchEvent(new Event('open-add-menu'))}
               >
-                {isMac ? '\u2318' : 'Ctrl+'}
-                <span className={isMac ? 'text-xs' : 'text-[13px]'}>I</span>
-              </span>
-              New Terminal
-            </span>
+                Add your first project
+              </button>
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center overflow-hidden p-6">
+            <div className="w-full max-w-[36rem] flex flex-col gap-3 max-h-full min-h-0">
+              <ResumeBanner />
+              <RecentTasksPanel projects={allProjects} />
+            </div>
+          </div>
+        )}
       </div>
     );
   }

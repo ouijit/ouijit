@@ -35,6 +35,7 @@ import type {
 } from '../types';
 import type { SandboxStatus } from '../lima/types';
 import type { HookStatusEntry } from '../hookServer';
+import type { HealthStatus } from '../healthCheck';
 
 /** Hooks object returned by hooks:get — derived from the canonical ProjectSettings type */
 export type ProjectHooks = NonNullable<ProjectSettings['hooks']>;
@@ -182,6 +183,9 @@ export interface IpcInvokeContract {
   'settings:get-global': { args: [key: string]; return: string | undefined };
   'settings:set-global': { args: [key: string, value: string]; return: { success: boolean } };
 
+  // ── Health ───────────────────────────────────────────────────────────
+  'health:check': { args: []; return: HealthStatus };
+
   // ── Lima ─────────────────────────────────────────────────────────────
   'lima:status': { args: [projectPath: string]; return: SandboxStatus };
   'lima:start': { args: [projectPath: string]; return: { success: boolean; error?: string } };
@@ -221,6 +225,7 @@ export interface IpcPushContract {
   'sandbox:diverged': {
     args: [event: { taskNumber: number; userWorktreePath: string; sandboxViewPath: string }];
   };
+  health: { args: [status: HealthStatus] };
   'update-available': { args: [info: { version: string; url: string }] };
   'whats-new': { args: [info: { version: string; notes: string }] };
   'cli-change': { args: [payload: { project: string; action: string; message?: string; ts: number }] };

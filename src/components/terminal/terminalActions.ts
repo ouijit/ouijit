@@ -4,7 +4,14 @@
  * and register them in both the instance registry and the Zustand store.
  */
 
-import type { PtySpawnOptions, RunConfig, WorktreeInfo, ActiveSession, RunnerScript } from '../../types';
+import type {
+  PtySpawnOptions,
+  RunConfig,
+  WorktreeInfo,
+  ActiveSession,
+  RunnerScript,
+  SnapshotTerminalUi,
+} from '../../types';
 import { useTerminalStore, type TerminalDisplayState } from '../../stores/terminalStore';
 import { useCanvasStore, persistCanvas } from '../../stores/canvasStore';
 import { useAppStore, staleGuard } from '../../stores/appStore';
@@ -39,6 +46,40 @@ export interface AddProjectTerminalOptions {
   taskId?: number;
   skipAutoHook?: boolean;
   background?: boolean;
+  /** Apply persisted UI state (plan, web preview, runner panel) after spawn — for session restore. */
+  initialUiState?: SnapshotTerminalUi;
+}
+
+// ── Apply persisted UI state from a session snapshot ────────────────
+
+async function applyInitialUiState(term: OuijitTerminal, ui: SnapshotTerminalUi): Promise<void> {
+  if (ui.planPath) {
+    term.planPath = ui.planPath;
+    term.planPanelOpen = true;
+    term.pushDisplayState({ planPath: ui.planPath, planPanelOpen: true });
+  }
+
+  if (ui.webPreview?.url) {
+    term.webPreviewUrl = ui.webPreview.url;
+    term.webPreviewUrlAutoDetected = false;
+    term.webPreviewPanelOpen = ui.webPreview.panelOpen;
+    term.webPreviewFullWidth = ui.webPreview.fullWidth;
+    term.webPreviewSplitRatio = ui.webPreview.splitRatio;
+    term.pushDisplayState({
+      webPreviewUrl: ui.webPreview.url,
+      webPreviewPanelOpen: ui.webPreview.panelOpen,
+      webPreviewFullWidth: ui.webPreview.fullWidth,
+    });
+  }
+
+  if (ui.runner) {
+    // Don't auto-respawn the previously-running script. A user's `npm run dev`
+    // is benign to re-run, but a `Reset DB` or similar destructive script
+    // would silently fire on Resume. Preserve the panel layout so the slot
+    // is recognizable, and pre-load the script so one click on Run re-launches it.
+    term.runnerFullWidth = ui.runner.fullWidth;
+    term.runnerScript = { name: ui.runner.scriptName ?? '', command: ui.runner.scriptCommand };
+  }
 }
 
 // ── Add a terminal to the system ─────────────────────────────────────
@@ -261,6 +302,10 @@ export async function addProjectTerminal(
     // Fetch initial git status and tags
     term.refreshGitStatus();
     term.loadTags();
+
+    if (options?.initialUiState) {
+      await applyInitialUiState(term, options.initialUiState);
+    }
 
     return true;
   } catch (error) {

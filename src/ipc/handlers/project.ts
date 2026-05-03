@@ -3,7 +3,7 @@ import { shell, BrowserWindow, dialog } from 'electron';
 import { typedHandle } from '../helpers';
 import { getProjectList } from '../../scanner';
 import { addProject, removeProject, reorderProjects, getProjectSettings, setKillExistingOnRun } from '../../db';
-import { createProject } from '../../projectCreator';
+import { createProject, validateProjectFolder } from '../../projectCreator';
 import { openInEditor, openFileInEditor } from '../../editorLauncher';
 import { deleteWithCleanup } from '../../lima/manager';
 import { deleteConfig } from '../../lima/configStore';
@@ -44,7 +44,16 @@ export function registerProjectHandlers(mainWindow: BrowserWindow): void {
   typedHandle('create-project', async (options) => {
     const result = await createProject(options);
     if (result.success && result.projectPath) {
-      await addProject(result.projectPath);
+      try {
+        await addProject(result.projectPath);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        ipcLog.error('failed to persist created project', { error: message });
+        return {
+          success: false,
+          error: `Project folder created at ${result.projectPath}, but registering it failed: ${message}`,
+        };
+      }
     }
     return result;
   });
@@ -64,7 +73,16 @@ export function registerProjectHandlers(mainWindow: BrowserWindow): void {
     }
   });
 
-  typedHandle('add-project', (folderPath) => addProject(folderPath));
+  typedHandle('add-project', async (folderPath) => {
+    const validation = await validateProjectFolder(folderPath);
+    if (validation.ok === false) return { success: false, error: validation.error };
+    try {
+      await addProject(folderPath);
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+    }
+  });
   typedHandle('remove-project', async (folderPath) => {
     // Clean up sandbox config and VM before removing from DB
     await deleteWithCleanup(folderPath).catch(() => {});

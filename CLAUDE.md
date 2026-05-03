@@ -10,8 +10,12 @@ Desktop app for project management with integrated terminal sessions, git worktr
 - `npm run format` - Auto-format with Prettier
 - `npm test` - Run unit/integration tests (rebuilds better-sqlite3 silently as a pretest step)
 - `npm run test:e2e` - Run Playwright e2e tests (builds app first, tests UI flows)
+- `npm run db:reset` - Wipe this worktree's dev DB (next launch = first-launch state)
+- `npm run db:seed` - Seed the demo project used in marketing screenshots
 
 Do NOT run `npm run start` or other dev server commands.
+
+Dev userData is isolated per worktree via a hash of the repo path (`…/ouijit-dev-<hash>`), so multiple worktrees can run in parallel without stomping each other and never touch the production DB.
 
 ### Project Structure
 

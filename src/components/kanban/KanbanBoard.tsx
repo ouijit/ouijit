@@ -37,6 +37,17 @@ const COLUMNS: { status: TaskStatus; label: string }[] = [
   { status: 'in_review', label: 'In Review' },
   { status: 'done', label: 'Done' },
 ];
+
+// Session-scoped: warnings (e.g. "Claude Code not found") surface once, not on every task start.
+const surfacedWarnings = new Set<string>();
+function surfaceWarnings(warnings?: string[]): void {
+  if (!warnings) return;
+  for (const w of warnings) {
+    if (surfacedWarnings.has(w)) continue;
+    surfacedWarnings.add(w);
+    useProjectStore.getState().addToast(w, 'info');
+  }
+}
 const COLUMN_IDS: Set<string> = new Set(COLUMNS.map((c) => c.status));
 const TRASH_ID = 'trash-zone';
 
@@ -471,6 +482,7 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
         if (!startResult.success) {
           useProjectStore.getState().addToast(startResult.error || 'Failed to create worktree', 'error');
         } else if (startResult.worktreePath) {
+          surfaceWarnings(startResult.warnings);
           // Update the captured task so executeTransition uses the existing worktree
           draggedTask = {
             ...draggedTask,
@@ -568,6 +580,7 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
           useProjectStore.getState().addToast(startResult.error || 'Failed to start task', 'error');
           return;
         }
+        surfaceWarnings(startResult.warnings);
         useProjectStore.getState().loadTasks(projectPath);
         await addProjectTerminal(projectPath, undefined, {
           existingWorktree: {

@@ -1,5 +1,6 @@
 import { app, BrowserWindow, dialog, nativeTheme, shell } from 'electron';
 import path from 'node:path';
+import { createHash } from 'node:crypto';
 import started from 'electron-squirrel-startup';
 import fixPath from 'fix-path';
 import log from './log';
@@ -18,6 +19,8 @@ import { SettingsRepo } from './db/repos/settingsRepo';
 import { HookRepo } from './db/repos/hookRepo';
 import { importAll } from './services/dataImportService';
 import { initUpdater, cleanupUpdater } from './updater';
+import { checkHealth } from './healthCheck';
+import { setGlobalSetting } from './db';
 import {
   CAPTURE_READY_SENTINEL,
   CAPTURE_WINDOW_HEIGHT,
@@ -65,9 +68,10 @@ if (process.env.OUIJIT_TEST_USER_DATA) {
   app.setPath('userData', process.env.OUIJIT_TEST_USER_DATA);
   setUserDataPath(process.env.OUIJIT_TEST_USER_DATA);
 } else if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
-  // Isolate dev state from production so dev builds don't corrupt
-  // production task-metadata.json, project settings, etc.
-  const devPath = app.getPath('userData') + '-dev';
+  // Isolate dev state per worktree so multiple dev instances can run in parallel
+  // without stomping on each other (and without touching production).
+  const repoHash = createHash('sha256').update(app.getAppPath()).digest('hex').slice(0, 8);
+  const devPath = `${app.getPath('userData')}-dev-${repoHash}`;
   app.setPath('userData', devPath);
   setUserDataPath(devPath);
 } else {
@@ -295,6 +299,25 @@ app.on('ready', async () => {
     }
   } else {
     initUpdater(mainWindow);
+  }
+
+  // Health probe (git/claude/lima detection) — push to renderer once it's ready
+  if (!isCaptureMode() && mainWindow) {
+    const pushHealth = async () => {
+      const status = await checkHealth();
+      if (mainWindow) typedPush(mainWindow, 'health', status);
+    };
+    if (mainWindow.webContents.isLoading()) {
+      mainWindow.webContents.once('did-finish-load', pushHealth);
+    } else {
+      pushHealth();
+    }
+  }
+
+  // E2E suite expects no welcome dialog interfering with existing flows.
+  // Pre-set the seen flag so the renderer's first-run pull treats it as already shown.
+  if (process.env.OUIJIT_E2E === '1') {
+    await setGlobalSetting('hasSeenWelcome', '1');
   }
 });
 
