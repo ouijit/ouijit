@@ -1,7 +1,13 @@
 import { create } from 'zustand';
-import type { Project } from '../types';
+import type { Project, TaskWithWorkspace } from '../types';
 import type { HealthStatus } from '../healthCheck';
 import { withViewTransition, type ViewTransitionDirection } from '../utils/viewTransition';
+
+export interface HomeRecentTask extends TaskWithWorkspace {
+  project: Project;
+}
+
+const MAX_HOME_RECENTS = 8;
 
 interface AppStoreState {
   activeView: 'home' | 'project';
@@ -17,6 +23,7 @@ interface AppStoreState {
   whatsNew: { version: string; notes: string } | null;
   health: HealthStatus | null;
   homeActivePanel: 'home' | 'settings';
+  homeRecents: HomeRecentTask[] | null;
   _version: number;
 }
 
@@ -31,6 +38,7 @@ interface AppStoreActions {
   setHomeActivePanel: (panel: 'home' | 'settings') => void;
   navigateToProject: (path: string, project: Project, options?: { direction?: ViewTransitionDirection }) => void;
   navigateHome: (options?: { direction?: ViewTransitionDirection }) => void;
+  loadHomeRecents: () => Promise<void>;
   resetProjectState: () => void;
 }
 
@@ -50,6 +58,7 @@ export const useAppStore = create<AppStore>()((set, get) => ({
   whatsNew: null,
   health: null,
   homeActivePanel: 'home',
+  homeRecents: null,
   _version: 0,
 
   setProjects: (projects) => set({ projects }),
@@ -99,6 +108,24 @@ export const useAppStore = create<AppStore>()((set, get) => ({
       },
       { direction: options?.direction },
     ),
+
+  loadHomeRecents: async () => {
+    const projects = get().projects;
+    const arrays = await Promise.all(
+      projects.map((project) =>
+        window.api.task
+          .getAll(project.path)
+          .then((tasks) => tasks.map((t) => ({ ...t, project })))
+          .catch(() => [] as HomeRecentTask[]),
+      ),
+    );
+    const recents = arrays
+      .flat()
+      .filter((t) => t.status !== 'done')
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      .slice(0, MAX_HOME_RECENTS);
+    set({ homeRecents: recents });
+  },
 
   resetProjectState: () => {
     set({

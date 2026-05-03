@@ -129,6 +129,7 @@ export function App() {
       const pendingSnapshot = await window.api.globalSettings.get('lastSession:snapshot');
       const hasResumable = !!pendingSnapshot && pendingSnapshot.length > 0;
 
+      let restoredToProject = false;
       if (!hasResumable) {
         const lastView = await window.api.globalSettings.get('lastActiveView');
         if (lastView) {
@@ -137,16 +138,25 @@ export function App() {
             if (parsed.type === 'project' && parsed.path) {
               const project = projects.find((p) => p.path === parsed.path);
               if (project) {
-                // Fetch sandbox status before navigating so button renders instantly
+                // Pre-fetch sandbox status + tasks before navigating so the
+                // first project paint (kanban included) shows correct content.
                 const limaStatus = await window.api.lima.status(parsed.path);
                 useAppStore.getState().setSandboxStatus(limaStatus.available, limaStatus.vmStatus);
+                await useProjectStore.getState().loadTasks(parsed.path);
                 useAppStore.getState().navigateToProject(parsed.path, project);
+                restoredToProject = true;
               }
             }
           } catch {
             /* invalid JSON, stay on home */
           }
         }
+      }
+
+      // If we're landing on home (default or post-resume), pre-warm recents
+      // so the "pick up where you left off" surface is populated on first paint.
+      if (!restoredToProject) {
+        await useAppStore.getState().loadHomeRecents();
       }
 
       setInitialized(true);
@@ -157,20 +167,27 @@ export function App() {
   // position in the sidebar — clicking a project below the current one slides
   // the new view up into place; above slides down. Home is treated as the
   // top of the list.
-  const handleProjectSelect = useCallback((path: string, project: Project) => {
+  //
+  // Both handlers pre-fetch the data the new view needs *before* triggering
+  // the view transition. The transition snapshots the new DOM synchronously,
+  // so any data still loading in a useEffect would be missed by the crossfade
+  // and pop in afterwards.
+  const handleProjectSelect = useCallback(async (path: string, project: Project) => {
     const state = useAppStore.getState();
     if (state.activeProjectPath === path) return;
     const orderedPaths = state.projects.map((p) => p.path);
     const oldIndex = state.activeView === 'home' ? -1 : orderedPaths.indexOf(state.activeProjectPath ?? '');
     const newIndex = orderedPaths.indexOf(path);
     const direction = newIndex > oldIndex ? 'down' : newIndex < oldIndex ? 'up' : undefined;
+    await useProjectStore.getState().loadTasks(path);
     state.navigateToProject(path, project, { direction });
     window.api.globalSettings.set('lastActiveView', JSON.stringify({ type: 'project', path }));
   }, []);
 
-  const handleHomeSelect = useCallback(() => {
+  const handleHomeSelect = useCallback(async () => {
     const state = useAppStore.getState();
     if (state.activeView === 'home') return;
+    await state.loadHomeRecents();
     state.navigateHome({ direction: 'up' });
     window.api.globalSettings.set('lastActiveView', JSON.stringify({ type: 'home' }));
   }, []);
