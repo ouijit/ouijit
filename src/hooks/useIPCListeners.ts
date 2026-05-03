@@ -45,6 +45,13 @@ export function useIPCListeners() {
       }),
     );
 
+    // Health probe results from main
+    cleanups.push(
+      window.api.health.onUpdate((status) => {
+        useAppStore.getState().setHealth(status);
+      }),
+    );
+
     // CLI changes — re-fetch tasks when CLI writes to the sentinel file
     cleanups.push(
       window.api.onCliChange((payload) => {

@@ -49,20 +49,37 @@ describe('script commands', () => {
     expect(result).toEqual([]);
   });
 
-  test('set calls PUT /api/scripts/:id', async () => {
+  test('set creates a new script with a generated id when none exists by name', async () => {
+    vi.mocked(get).mockResolvedValue([]);
     vi.mocked(put).mockResolvedValue({ success: true, script: { name: 'Lint', command: 'npm run lint' } });
     const output = captureOutput();
     await createProgram().parseAsync(['script', 'set', '--name', 'Lint', '--command', 'npm run lint'], {
       from: 'user',
     });
     const result = output.getJson();
-    expect(put).toHaveBeenCalledWith(`/api/scripts/?project=${encodeURIComponent(PROJECT)}`, {
-      id: '',
+    expect(get).toHaveBeenCalledWith(`/api/scripts?project=${encodeURIComponent(PROJECT)}`);
+    expect(put).toHaveBeenCalledTimes(1);
+    const [url, body] = vi.mocked(put).mock.calls[0];
+    expect(typeof body.id).toBe('string');
+    expect(body.id).not.toBe('');
+    expect(url).toBe(`/api/scripts/${encodeURIComponent(body.id)}?project=${encodeURIComponent(PROJECT)}`);
+    expect(body).toMatchObject({ name: 'Lint', command: 'npm run lint', sortOrder: 0 });
+    expect(result.name).toBe('Lint');
+  });
+
+  test('set reuses the existing id when a script with the same name already exists', async () => {
+    vi.mocked(get).mockResolvedValue([{ id: 'existing-id', name: 'Lint', command: 'old', sortOrder: 0 }]);
+    vi.mocked(put).mockResolvedValue({ success: true, script: { name: 'Lint', command: 'npm run lint' } });
+    captureOutput();
+    await createProgram().parseAsync(['script', 'set', '--name', 'Lint', '--command', 'npm run lint'], {
+      from: 'user',
+    });
+    expect(put).toHaveBeenCalledWith(`/api/scripts/existing-id?project=${encodeURIComponent(PROJECT)}`, {
+      id: 'existing-id',
       name: 'Lint',
       command: 'npm run lint',
       sortOrder: 0,
     });
-    expect(result.name).toBe('Lint');
   });
 
   test('delete calls DELETE /api/scripts/:id', async () => {

@@ -3,6 +3,7 @@
  */
 
 import type { Command } from 'commander';
+import { randomUUID } from 'node:crypto';
 import { get, put, del, projectQuery } from '../api';
 import { printJson, printError } from '../output';
 import { spawn } from 'node:child_process';
@@ -44,15 +45,17 @@ Examples:
 
   script
     .command('set')
-    .description('Create or update a script')
+    .description('Create a new script, or update an existing one with the same name')
     .requiredOption('--name <name>', 'script name')
     .requiredOption('--command <cmd>', 'shell command to run')
-    .option('--id <id>', 'script id (updates existing if provided)')
+    .option('--id <id>', '(deprecated) ignored — scripts are now upserted by name')
     .action(async (opts: { name: string; command: string; id?: string }) => {
       const project = requireProject();
+      const existing = await get<ScriptEntry[]>(`/api/scripts${projectQuery(project)}`);
+      const id = existing.find((s) => s.name === opts.name)?.id ?? opts.id ?? randomUUID();
       const result = await put<{ success: boolean; script?: ScriptEntry }>(
-        `/api/scripts/${encodeURIComponent(opts.id || '')}${projectQuery(project)}`,
-        { id: opts.id || '', name: opts.name, command: opts.command, sortOrder: 0 },
+        `/api/scripts/${encodeURIComponent(id)}${projectQuery(project)}`,
+        { id, name: opts.name, command: opts.command, sortOrder: 0 },
       );
       if (!result.success) return printError('Failed to save script');
       printJson(result.script);

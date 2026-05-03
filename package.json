@@ -30,7 +30,8 @@
     "build:cli": "node scripts/build-cli.mjs",
     "test:full": "vitest run && node e2e/build.mjs && npx playwright test --config e2e/playwright.config.ts",
     "postinstall": "./scripts/download-lima.sh && chmod +x node_modules/node-pty/prebuilds/*/spawn-helper 2>/dev/null || true",
-    "db:reset": "./scripts/db-reset.sh",
+    "db:reset": "node scripts/dev-db.mjs reset",
+    "db:seed": "node scripts/dev-db.mjs seed",
     "capture": "node scripts/capture/run.mjs"
   },
   "keywords": [],

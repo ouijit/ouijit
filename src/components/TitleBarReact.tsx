@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect } from 'react';
 import { useAppStore } from '../stores/appStore';
 import { useProjectStore, type TerminalLayout } from '../stores/projectStore';
+import { stringToColor, getInitials } from '../utils/projectIcon';
 import { useExperimentalStore } from '../stores/experimentalStore';
 import { useUIStore } from '../stores/uiStore';
-import { stringToColor, getInitials } from '../utils/projectIcon';
 import { Icon } from './terminal/Icon';
 import { addProjectTerminal } from './terminal/terminalActions';
 import { focusKanbanAddInput } from './kanban/KanbanAddInput';
@@ -24,15 +24,11 @@ export function TitleBar({ mode }: TitleBarProps) {
   const kanbanVisible = useProjectStore((s) => s.kanbanVisible);
   const terminalLayout = useProjectStore((s) => s.terminalLayout);
   const activePanel = useProjectStore((s) => s.activePanel);
+  const homeActivePanel = useAppStore((s) => s.homeActivePanel);
   const canvasEnabled = useExperimentalStore((s) =>
     activeProjectPath ? (s.flagsByProject[activeProjectPath]?.canvas ?? false) : false,
   );
   const homeGroupMode = useUIStore((s) => s.homeGroupMode);
-  const [username, setUsername] = useState('');
-
-  useEffect(() => {
-    window.api.homePath().then((p) => setUsername(p.split('/').pop() || 'Home'));
-  }, []);
 
   // Fetch sandbox availability when switching projects
   useEffect(() => {
@@ -97,36 +93,37 @@ export function TitleBar({ mode }: TitleBarProps) {
         }`}
         style={{ paddingLeft: needsTrafficLightPad ? 80 : 16 }}
       >
-        {/* Sidebar toggle — in header flow on Linux/fullscreen, absolute below traffic lights on macOS */}
-        {isProjectOrHome && !needsTrafficLightPad && (
-          <button
-            className="flex items-center justify-center text-white/25 transition-colors duration-150 hover:text-white/50 [-webkit-app-region:no-drag] [&>svg]:w-[18px] [&>svg]:h-[18px]"
-            style={{ width: 28, height: 28 }}
-            onClick={() => document.dispatchEvent(new CustomEvent('show-sidebar'))}
-          >
-            <Icon name="arrow-left" />
-          </button>
-        )}
-
         {activeView === 'project' && activeProjectData && activeProjectPath ? (
-          <div key="project-header" className="flex items-center gap-3 flex-1 px-4">
-            {activeProjectData.iconDataUrl ? (
-              <img src={activeProjectData.iconDataUrl} alt="" className="w-8 h-8 rounded-md object-cover" />
-            ) : (
-              <div
-                className="w-8 h-8 rounded-md object-cover flex items-center justify-center text-base font-bold text-white"
-                style={{
-                  backgroundColor: stringToColor(activeProjectData.name),
-                  textShadow: '0 1px 2px rgba(0, 0, 0, 0.2)',
-                }}
-              >
-                {getInitials(activeProjectData.name)}
-              </div>
-            )}
-            <div className="flex flex-col gap-0.5 flex-1 min-w-0">
-              <span className="text-base font-semibold text-text-primary leading-tight">{activeProjectData.name}</span>
-              <span className="text-xs text-text-tertiary leading-tight truncate">{activeProjectPath}</span>
+          <div key="project-header" className="flex items-center gap-3 flex-1 pl-2 pr-4 min-w-0">
+            <div className="w-8 h-8 overflow-hidden rounded-md shrink-0">
+              {activeProjectData.iconDataUrl ? (
+                <img
+                  src={activeProjectData.iconDataUrl}
+                  alt={activeProjectData.name}
+                  className="w-full h-full object-cover"
+                  draggable={false}
+                />
+              ) : (
+                <div
+                  className="w-full h-full flex items-center justify-center text-xs font-bold text-white"
+                  style={{
+                    backgroundColor: stringToColor(activeProjectData.name),
+                    textShadow: '0 1px 2px rgba(0, 0, 0, 0.2)',
+                  }}
+                >
+                  {getInitials(activeProjectData.name)}
+                </div>
+              )}
             </div>
+            <div className="flex flex-col gap-[2px] min-w-0">
+              <span className="text-[15px] font-semibold text-text-primary leading-none tracking-tight truncate">
+                {activeProjectData.name}
+              </span>
+              <span className="text-[11px] font-mono text-text-tertiary leading-[1.3] truncate">
+                {activeProjectPath.replace(/^\/Users\/[^/]+/, '~')}
+              </span>
+            </div>
+            <div style={{ flex: 1 }} />
             <div className="flex items-center h-9 ml-3 bg-background-secondary glass-bevel relative border border-black/60 rounded-[14px] overflow-hidden [-webkit-app-region:no-drag]">
               <TooltipButton
                 text="Board view"
@@ -178,25 +175,34 @@ export function TitleBar({ mode }: TitleBarProps) {
           </div>
         ) : activeView === 'home' ? (
           <div key="home-header" className="flex items-center gap-3 flex-1 px-4">
-            <div className="flex flex-col gap-0.5 flex-1 min-w-0">
-              <span className="text-base font-semibold text-text-primary leading-tight">{username}</span>
-              <span className="text-xs text-text-tertiary leading-tight truncate">~</span>
-            </div>
             <div style={{ flex: 1 }} />
             <div className="flex items-center h-9 ml-3 bg-background-secondary glass-bevel relative border border-black/60 rounded-[14px] overflow-hidden [-webkit-app-region:no-drag]">
               <TooltipButton
                 text="Group by project"
-                className={`w-9 h-full flex items-center justify-center text-text-secondary transition-all duration-150 ease-out hover:text-text-primary hover:bg-background-tertiary [&>svg]:w-5 [&>svg]:h-5${homeGroupMode === 'project' ? ' text-text-primary bg-background-tertiary' : ''}`}
-                onClick={() => useUIStore.getState().setHomeGroupMode('project')}
+                className={`w-9 h-full flex items-center justify-center text-text-secondary transition-all duration-150 ease-out hover:text-text-primary hover:bg-background-tertiary [&>svg]:w-5 [&>svg]:h-5${homeActivePanel !== 'settings' && homeGroupMode === 'project' ? ' text-text-primary bg-background-tertiary' : ''}`}
+                onClick={() => {
+                  useAppStore.getState().setHomeActivePanel('home');
+                  useUIStore.getState().setHomeGroupMode('project');
+                }}
               >
                 <Icon name="folder-open" />
               </TooltipButton>
               <TooltipButton
                 text="Group by tag"
-                className={`w-9 h-full flex items-center justify-center text-text-secondary transition-all duration-150 ease-out hover:text-text-primary hover:bg-background-tertiary [&>svg]:w-5 [&>svg]:h-5${homeGroupMode === 'tag' ? ' text-text-primary bg-background-tertiary' : ''}`}
-                onClick={() => useUIStore.getState().setHomeGroupMode('tag')}
+                className={`w-9 h-full flex items-center justify-center text-text-secondary transition-all duration-150 ease-out hover:text-text-primary hover:bg-background-tertiary [&>svg]:w-5 [&>svg]:h-5${homeActivePanel !== 'settings' && homeGroupMode === 'tag' ? ' text-text-primary bg-background-tertiary' : ''}`}
+                onClick={() => {
+                  useAppStore.getState().setHomeActivePanel('home');
+                  useUIStore.getState().setHomeGroupMode('tag');
+                }}
               >
                 <Icon name="tag" />
+              </TooltipButton>
+              <TooltipButton
+                text="Settings"
+                className={`w-9 h-full flex items-center justify-center text-text-secondary transition-all duration-150 ease-out hover:text-text-primary hover:bg-background-tertiary [&>svg]:w-5 [&>svg]:h-5${homeActivePanel === 'settings' ? ' text-text-primary bg-background-tertiary' : ''}`}
+                onClick={() => useAppStore.getState().setHomeActivePanel('settings')}
+              >
+                <Icon name="gear" />
               </TooltipButton>
             </div>
             <Tooltip text="New terminal" placement="bottom">
@@ -213,16 +219,6 @@ export function TitleBar({ mode }: TitleBarProps) {
           </div>
         ) : null}
       </div>
-      {/* Sidebar toggle below traffic lights — absolute so it doesn't affect header flow */}
-      {isProjectOrHome && needsTrafficLightPad && (
-        <button
-          className="absolute flex items-center justify-center text-white/25 transition-colors duration-150 hover:text-white/50 [-webkit-app-region:no-drag] [&>svg]:w-[18px] [&>svg]:h-[18px]"
-          style={{ left: 24, bottom: -14, width: 28, height: 28 }}
-          onClick={() => document.dispatchEvent(new CustomEvent('show-sidebar'))}
-        >
-          <Icon name="arrow-left" />
-        </button>
-      )}
     </header>
   );
 }

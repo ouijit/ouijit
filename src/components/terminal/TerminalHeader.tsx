@@ -8,6 +8,7 @@ import { addProjectTerminal } from './terminalActions';
 const EMPTY_TAGS: string[] = [];
 import type { GitFileStatus, RunnerScript } from '../../types';
 import { Icon } from './Icon';
+import { StatusDot } from './StatusDot';
 import { TagInput } from './TagInput';
 import { ContextMenu, type ContextMenuEntry } from '../ui/ContextMenu';
 import { HookConfigDialog } from '../dialogs/HookConfigDialog';
@@ -509,23 +510,6 @@ function BranchCopy({ branch }: { branch: string }) {
       <Icon name={iconName} className="w-3 h-3 shrink-0 text-white/35" />
       <span className="truncate">{copied ? 'Copied' : branch}</span>
     </button>
-  );
-}
-
-function StatusDot({ summaryType, sandboxed }: { summaryType: string; sandboxed: boolean }) {
-  const isThinking = summaryType === 'thinking';
-  return (
-    <span
-      className={`w-[9px] h-[9px] rounded-full shrink-0 transition-all duration-200 ease-out ${isThinking ? 'bg-[#da77f2]' : 'bg-[#4ee82e]'}`}
-      data-status={summaryType}
-      style={{
-        boxShadow: isThinking
-          ? '0 0 4px rgba(218, 119, 242, 0.5), inset 0 0 0 1px #000'
-          : '0 0 4px rgba(78, 232, 46, 0.5), inset 0 0 0 1px #000',
-        ...(isThinking ? { animation: 'terminal-status-pulse 1s ease-in-out infinite' } : {}),
-        ...(sandboxed ? { outline: '1.5px solid rgba(116, 192, 252, 0.6)', outlineOffset: '2px' } : {}),
-      }}
-    />
   );
 }
 

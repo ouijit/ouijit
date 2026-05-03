@@ -6,6 +6,7 @@ import { useTerminalStore, type TerminalDisplayState } from '../../stores/termin
 import { useProjectStore } from '../../stores/projectStore';
 import { terminalInstances } from '../terminal/terminalReact';
 import { Icon } from '../terminal/Icon';
+import { StatusDot } from '../terminal/StatusDot';
 import { ContextMenu, type ContextMenuEntry } from '../ui/ContextMenu';
 import { HookConfigDialog } from '../dialogs/HookConfigDialog';
 import { BranchFromTaskDialog } from '../dialogs/BranchFromTaskDialog';
@@ -514,17 +515,7 @@ export const KanbanCard = memo(function KanbanCard({
                 <span className="font-mono text-sm leading-none text-text-secondary shrink-0 select-none opacity-40">
                   {isLast ? '\u2514\u2500' : '\u251C\u2500'}
                 </span>
-                <span
-                  className={`w-2 h-2 rounded-full shrink-0 ${display.summaryType === 'thinking' ? 'bg-[#da77f2]' : 'bg-[#69db7c]'}`}
-                  style={{
-                    ...(display.summaryType === 'thinking'
-                      ? { animation: 'terminal-status-pulse 1s ease-in-out infinite' }
-                      : {}),
-                    ...(display.sandboxed
-                      ? { outline: '1.5px solid rgba(116, 192, 252, 0.6)', outlineOffset: '1.5px' }
-                      : {}),
-                  }}
-                />
+                <StatusDot summaryType={display.summaryType} sandboxed={display.sandboxed} />
                 {isRenaming ? (
                   <input
                     ref={terminalRenameRef}
