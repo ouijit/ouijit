@@ -4,7 +4,7 @@ interface StatusDotProps {
   size?: number;
 }
 
-export function StatusDot({ summaryType, sandboxed = false, size = 7 }: StatusDotProps) {
+export function StatusDot({ summaryType, sandboxed = false, size = 6 }: StatusDotProps) {
   const isThinking = summaryType === 'thinking';
   return (
     <span
