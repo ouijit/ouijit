@@ -82,6 +82,13 @@ async function runTransition(
 ): Promise<void> {
   const taskNumber = task.taskNumber;
   const transitioningToInProgress = newStatus === 'in_progress';
+
+  // De-dupe: if the same task is already mid-start, drop this drop.
+  if (transitioningToInProgress && useProjectStore.getState().startingTaskNumbers.has(taskNumber)) {
+    taskStartLog.info('skipping duplicate start', { taskNumber });
+    return;
+  }
+
   const slotId = transitioningToInProgress ? makePlaceholderId(taskNumber) : null;
 
   // Insert a placeholder slot into the terminal stack right away so the user

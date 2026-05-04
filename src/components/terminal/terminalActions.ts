@@ -15,7 +15,6 @@ import type {
 import { useTerminalStore, type TerminalDisplayState } from '../../stores/terminalStore';
 import { useCanvasStore, persistCanvas } from '../../stores/canvasStore';
 import { useAppStore, staleGuard } from '../../stores/appStore';
-import { useProjectStore } from '../../stores/projectStore';
 import { OuijitTerminal, terminalInstances, resolveTerminalLabel, type SummaryType } from './terminalReact';
 import { detectDevServerUrl } from '../webPreview/urlHelpers';
 import log from 'electron-log/renderer';
@@ -37,18 +36,14 @@ function applyDetectedWebPreviewUrl(parent: OuijitTerminal, url: string): void {
 // ── Types ────────────────────────────────────────────────────────────
 
 export interface AddProjectTerminalOptions {
-  useWorktree?: boolean;
   existingWorktree?: WorktreeInfo & { prompt?: string; sandboxed?: boolean };
-  worktreeName?: string;
-  worktreePrompt?: string;
-  worktreeBranchName?: string;
   sandboxed?: boolean;
   taskId?: number;
   skipAutoHook?: boolean;
   background?: boolean;
   /** Apply persisted UI state (plan, web preview, runner panel) after spawn — for session restore. */
   initialUiState?: SnapshotTerminalUi;
-  /** If set, the new terminal takes this synthetic loading slot's place via
+  /** If set, the new terminal takes this loading slot's place via
    *  `rekeyTerminal` rather than being appended. Lets the kanban-drop loading
    *  card morph into the real terminal in the same stack position. */
   replaceLoadingId?: string;
@@ -138,41 +133,8 @@ export async function addProjectTerminal(
   const isStale = staleGuard(version);
 
   let terminalCwd = projectPath;
-  let worktreeInfo: (WorktreeInfo & { prompt?: string }) | undefined = options?.existingWorktree;
-  let taskPrompt: string | undefined = options?.existingWorktree?.prompt;
-
-  // Create worktree if needed
-  if (options?.useWorktree && !worktreeInfo) {
-    useTerminalStore.getState().setLoadingLabel(options.worktreeName || 'New task');
-
-    const result = await window.api.task.createAndStart(
-      projectPath,
-      options.worktreeName,
-      options.worktreePrompt,
-      options.worktreeBranchName,
-      options.sandboxed,
-    );
-
-    useTerminalStore.getState().setLoadingLabel(null);
-
-    if (isStale()) return false;
-
-    if (!result.success || !result.task || !result.worktreePath) {
-      useProjectStore.getState().addToast(result.error || 'Failed to create task', 'error');
-      return false;
-    }
-
-    worktreeInfo = {
-      path: result.worktreePath,
-      branch: result.task.branch || '',
-      createdAt: result.task.createdAt,
-    };
-    taskPrompt = options.worktreePrompt;
-
-    if (!options) options = {};
-    options.taskId = result.task.taskNumber;
-    useProjectStore.getState().invalidateTaskList();
-  }
+  const worktreeInfo: (WorktreeInfo & { prompt?: string }) | undefined = options?.existingWorktree;
+  const taskPrompt: string | undefined = options?.existingWorktree?.prompt;
 
   if (worktreeInfo) {
     terminalCwd = worktreeInfo.path;
@@ -197,8 +159,7 @@ export async function addProjectTerminal(
   let startEnv: Record<string, string> | undefined;
 
   if (worktreeInfo) {
-    const isNewTask = options?.useWorktree && !options?.existingWorktree;
-    const hookType = isNewTask ? 'start' : 'continue';
+    const hookType = 'continue';
 
     startEnv = {
       OUIJIT_HOOK_TYPE: hookType,
@@ -213,9 +174,8 @@ export async function addProjectTerminal(
 
     if (!runConfig && !options?.skipAutoHook) {
       const hooks = await window.api.hooks.get(projectPath);
-      const hook = isNewTask ? hooks.start : hooks.continue;
-      if (hook) {
-        startCommand = hook.command;
+      if (hooks.continue) {
+        startCommand = hooks.continue.command;
       }
     }
   }

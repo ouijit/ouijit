@@ -330,6 +330,10 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
 
   requestRunHook: (req) =>
     new Promise<RunHookResult | null>((resolve) => {
+      // If a prior prompt is still open (rare race: two transitions in flight),
+      // resolve it to null so the previous service call doesn't hang forever.
+      const prior = get().runHookRequest;
+      if (prior) prior.resolve(null);
       const id = ++runHookRequestCounter;
       set({ runHookRequest: { ...req, id, resolve } });
     }),
