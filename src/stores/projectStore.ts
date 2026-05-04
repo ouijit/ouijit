@@ -1,7 +1,17 @@
 import { create } from 'zustand';
-import type { TaskWithWorkspace, Script } from '../types';
+import type { TaskWithWorkspace, Script, ScriptHook, HookType } from '../types';
+import type { RunHookResult } from '../components/dialogs/RunHookDialog';
 
 export type TerminalLayout = 'stack' | 'canvas';
+
+export interface RunHookRequest {
+  id: number;
+  projectPath: string;
+  hookType: HookType;
+  hook: ScriptHook;
+  task: TaskWithWorkspace;
+  resolve: (result: RunHookResult | null) => void;
+}
 
 interface ProjectStoreState {
   tasks: TaskWithWorkspace[];
@@ -26,6 +36,10 @@ interface ProjectStoreState {
     actionLabel?: string;
     onAction?: () => void;
   }>;
+  /** Tasks whose worktree creation is currently in flight. View-independent. */
+  startingTaskNumbers: Set<number>;
+  /** Active hook prompt; rendered globally so it survives view switches. */
+  runHookRequest: RunHookRequest | null;
   _version: number;
 }
 
@@ -72,12 +86,22 @@ interface ProjectStoreActions {
   loadScripts: (projectPath: string) => Promise<void>;
   /** Move a task with optimistic update and rollback */
   moveTask: (projectPath: string, taskNumber: number, newStatus: string, targetIndex: number) => Promise<void>;
+
+  /** Mark a task as starting (worktree being created). Does not depend on any view being mounted. */
+  markTaskStarting: (taskNumber: number) => void;
+  markTaskStartingDone: (taskNumber: number) => void;
+
+  /** Open a hook-prompt dialog and return a promise that resolves with the user's choice. */
+  requestRunHook: (req: Omit<RunHookRequest, 'id' | 'resolve'>) => Promise<RunHookResult | null>;
+  /** Resolve the active hook prompt with a result (or null for cancel). */
+  resolveRunHookRequest: (id: number, result: RunHookResult | null) => void;
 }
 
 type ProjectStore = ProjectStoreState & ProjectStoreActions;
 
 let toastCounter = 0;
 let moveCounter = 0;
+let runHookRequestCounter = 0;
 
 export const useProjectStore = create<ProjectStore>()((set, get) => ({
   tasks: [],
@@ -95,6 +119,8 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
   selectedTaskNumbers: new Set<number>(),
   selectionAnchor: null,
   toasts: [],
+  startingTaskNumbers: new Set<number>(),
+  runHookRequest: null,
   _version: 0,
 
   setTasks: (tasks) => {
@@ -169,6 +195,9 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
   },
 
   resetForProject: () => {
+    // Unblock any service awaiting a hook prompt before we drop the request.
+    const pending = get().runHookRequest;
+    if (pending) pending.resolve(null);
     set({
       tasks: [],
       kanbanVisible: false,
@@ -184,6 +213,8 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
       activeModal: null,
       selectedTaskNumbers: new Set<number>(),
       selectionAnchor: null,
+      startingTaskNumbers: new Set<number>(),
+      runHookRequest: null,
       _version: 0,
     });
   },
@@ -280,5 +311,37 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
     } catch {
       rollbackOrReload();
     }
+  },
+
+  markTaskStarting: (taskNumber) => {
+    const next = new Set(get().startingTaskNumbers);
+    if (next.has(taskNumber)) return;
+    next.add(taskNumber);
+    set({ startingTaskNumbers: next });
+  },
+
+  markTaskStartingDone: (taskNumber) => {
+    const prev = get().startingTaskNumbers;
+    if (!prev.has(taskNumber)) return;
+    const next = new Set(prev);
+    next.delete(taskNumber);
+    set({ startingTaskNumbers: next });
+  },
+
+  requestRunHook: (req) =>
+    new Promise<RunHookResult | null>((resolve) => {
+      // If a prior prompt is still open (rare race: two transitions in flight),
+      // resolve it to null so the previous service call doesn't hang forever.
+      const prior = get().runHookRequest;
+      if (prior) prior.resolve(null);
+      const id = ++runHookRequestCounter;
+      set({ runHookRequest: { ...req, id, resolve } });
+    }),
+
+  resolveRunHookRequest: (id, result) => {
+    const current = get().runHookRequest;
+    if (!current || current.id !== id) return;
+    set({ runHookRequest: null });
+    current.resolve(result);
   },
 }));

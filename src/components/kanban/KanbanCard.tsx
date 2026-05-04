@@ -78,7 +78,7 @@ export const KanbanCard = memo(function KanbanCard({
       const result: TerminalDisplayState[] = [];
       for (const ptyId of ids) {
         const d = s.displayStates[ptyId];
-        if (d?.taskId === task.taskNumber) result.push(d);
+        if (d?.taskId === task.taskNumber && !d.isLoading) result.push(d);
       }
       return result;
     }),

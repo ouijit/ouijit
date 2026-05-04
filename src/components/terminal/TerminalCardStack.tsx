@@ -12,7 +12,6 @@ interface TerminalCardStackProps {
 export function TerminalCardStack({ projectPath }: TerminalCardStackProps) {
   const terminals = useTerminalStore((s) => s.terminalsByProject[projectPath]) ?? EMPTY;
   const activeIndex = useTerminalStore((s) => s.activeIndices[projectPath] ?? 0);
-  const loadingLabel = useTerminalStore((s) => s.loadingLabel);
 
   const page = Math.floor(activeIndex / STACK_PAGE_SIZE);
   const pageStart = page * STACK_PAGE_SIZE;
@@ -20,11 +19,10 @@ export function TerminalCardStack({ projectPath }: TerminalCardStackProps) {
   const pageSize = pageEnd - pageStart;
   const totalPages = Math.max(1, Math.ceil(terminals.length / STACK_PAGE_SIZE));
 
-  // Calculate stack top position based on back card count
   const backCardCount = Math.max(Math.min(pageSize - 1, 4), 0);
   const stackTop = 82 + backCardCount * 24;
 
-  const isEmpty = terminals.length === 0 && !loadingLabel;
+  const isEmpty = terminals.length === 0;
 
   return (
     <div
@@ -36,8 +34,6 @@ export function TerminalCardStack({ projectPath }: TerminalCardStackProps) {
       }}
     >
       {isEmpty && <EmptyState />}
-
-      {loadingLabel && <LoadingCard label={loadingLabel} />}
 
       {terminals.map((ptyId) => (
         <TerminalCard key={ptyId} ptyId={ptyId} projectPath={projectPath} />
@@ -66,7 +62,7 @@ function EmptyState() {
             className="inline-flex items-center font-mono"
             style={{ fontSize: isMac ? 16 : 13, color: 'rgba(255, 255, 255, 0.25)' }}
           >
-            {isMac ? '\u2318' : 'Ctrl+'}
+            {isMac ? '⌘' : 'Ctrl+'}
             <span className={isMac ? 'text-xs' : 'text-[13px]'}>N</span>
           </span>
           New Task
@@ -79,40 +75,11 @@ function EmptyState() {
             className="inline-flex items-center font-mono"
             style={{ fontSize: isMac ? 16 : 13, color: 'rgba(255, 255, 255, 0.25)' }}
           >
-            {isMac ? '\u2318' : 'Ctrl+'}
+            {isMac ? '⌘' : 'Ctrl+'}
             <span className={isMac ? 'text-xs' : 'text-[13px]'}>T</span>
           </span>
           Board
         </span>
-      </div>
-    </div>
-  );
-}
-
-// ── Loading card ─────────────────────────────────────────────────────
-
-function LoadingCard({ label }: { label: string }) {
-  return (
-    <div
-      className="absolute inset-0 rounded-[14px] border border-white/10 overflow-hidden flex flex-col pointer-events-none z-10"
-      style={{ background: 'var(--color-terminal-bg, #171717)' }}
-    >
-      <div className="flex items-center justify-between pl-3 pr-3 py-2 min-h-9">
-        <div className="flex flex-col min-w-0 shrink">
-          <div className="flex items-center gap-2 min-w-0 flex-wrap">
-            <span
-              className="w-2 h-2 rounded-full bg-transparent border-[1.5px] border-white/30 border-t-white/80"
-              style={{ animation: 'loading-dot-spin 0.8s linear infinite' }}
-            />
-            <span className="font-mono text-xs font-medium text-white/70 shrink-0">{label || 'New task'}</span>
-          </div>
-        </div>
-        <div className="flex items-center gap-1 shrink-0 justify-end" />
-      </div>
-      <div className="relative flex-1 flex flex-row min-h-0 overflow-hidden">
-        <div className="flex-1 flex items-center justify-center">
-          <div className="font-mono text-sm text-white/40">Setting up workspace...</div>
-        </div>
       </div>
     </div>
   );

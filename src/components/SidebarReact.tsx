@@ -367,7 +367,9 @@ interface SortableProjectIconProps {
 }
 
 function SortableProjectIcon({ project, isActive, onClick, onContextMenu }: SortableProjectIconProps) {
-  const terminalCount = useTerminalStore((s) => (s.terminalsByProject[project.path] ?? []).length);
+  const terminalCount = useTerminalStore(
+    (s) => (s.terminalsByProject[project.path] ?? []).filter((id) => !s.displayStates[id]?.isLoading).length,
+  );
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: project.path,
   });

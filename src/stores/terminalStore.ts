@@ -29,6 +29,9 @@ export interface TerminalDisplayState {
   worktreeBranch: string | null;
   projectPath: string;
   exited: boolean;
+  /** Placeholder slot for an in-flight task start. Card renders the loading
+   *  body; the slot will be rekey'd + flag cleared when the real PTY spawns. */
+  isLoading: boolean;
 }
 
 export const DEFAULT_DISPLAY_STATE: Omit<TerminalDisplayState, 'ptyId' | 'projectPath'> = {
@@ -56,6 +59,7 @@ export const DEFAULT_DISPLAY_STATE: Omit<TerminalDisplayState, 'ptyId' | 'projec
   taskId: null,
   worktreeBranch: null,
   exited: false,
+  isLoading: false,
 };
 
 export const STACK_PAGE_SIZE = 5;
@@ -67,8 +71,6 @@ interface TerminalStoreState {
   terminalsByProject: Record<string, string[]>;
   /** Active terminal index per project path */
   activeIndices: Record<string, number>;
-  /** Loading card label (shown during worktree creation) */
-  loadingLabel: string | null;
 }
 
 interface TerminalStoreActions {
@@ -85,7 +87,6 @@ interface TerminalStoreActions {
   setActiveIndex: (projectPath: string, index: number) => void;
   activateLast: (projectPath: string) => void;
   clearProject: (projectPath: string) => void;
-  setLoadingLabel: (label: string | null) => void;
 }
 
 type TerminalStore = TerminalStoreState & TerminalStoreActions;
@@ -94,7 +95,6 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
   displayStates: {},
   terminalsByProject: {},
   activeIndices: {},
-  loadingLabel: null,
 
   addTerminal: (projectPath, ptyId, initial) => {
     const state = get();
@@ -223,8 +223,6 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
       activeIndices: remainingIndices,
     });
   },
-
-  setLoadingLabel: (label) => set({ loadingLabel: label }),
 }));
 
 // ── Derived selectors ────────────────────────────────────────────────

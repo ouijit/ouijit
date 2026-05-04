@@ -36,7 +36,12 @@ import { useProjectStore } from '../../stores/projectStore';
  * Treats missing terminal list as empty (all canvas nodes are stale).
  */
 export function syncCanvasWithTerminals(projectPath: string): void {
-  const terminalPtyIds = useTerminalStore.getState().terminalsByProject[projectPath] ?? [];
+  // Skip placeholder slots flagged `isLoading`: they're stack-only placeholders
+  // with no real PTY, and have no canvas representation.
+  const termState = useTerminalStore.getState();
+  const terminalPtyIds = (termState.terminalsByProject[projectPath] ?? []).filter(
+    (id) => !termState.displayStates[id]?.isLoading,
+  );
   const canvasState = useCanvasStore.getState().canvasByProject[projectPath];
   if (!canvasState) return;
 

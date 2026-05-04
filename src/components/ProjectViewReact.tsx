@@ -9,6 +9,7 @@ import { TerminalCanvas, syncCanvasWithTerminals } from './canvas/TerminalCanvas
 import { KanbanBoard } from './kanban/KanbanBoard';
 import { ProjectSettingsPanel } from './scripts/ProjectSettingsPanel';
 import { focusKanbanAddInput } from './kanban/KanbanAddInput';
+import { RunHookDialog } from './dialogs/RunHookDialog';
 import {
   addProjectTerminal,
   closeProjectTerminal,
@@ -370,6 +371,24 @@ export function ProjectView() {
           {!kanbanVisible && renderTerminals()}
         </>
       )}
+      <GlobalRunHookDialog />
     </div>
+  );
+}
+
+/**
+ * Hook prompt rendered at the project-view level so it survives toggling
+ * between the kanban board and terminal stack mid-flow.
+ */
+function GlobalRunHookDialog() {
+  const request = useProjectStore((s) => s.runHookRequest);
+  if (!request) return null;
+  return (
+    <RunHookDialog
+      hookType={request.hookType}
+      hook={request.hook}
+      projectPath={request.projectPath}
+      onClose={(result) => useProjectStore.getState().resolveRunHookRequest(request.id, result)}
+    />
   );
 }

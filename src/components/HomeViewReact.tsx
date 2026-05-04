@@ -41,10 +41,12 @@ export function HomeView() {
   const allPtyIds = useMemo(() => {
     const ids: string[] = [];
     for (const ptyIds of Object.values(terminalsByProject)) {
-      ids.push(...ptyIds);
+      for (const id of ptyIds) {
+        if (!displayStates[id]?.isLoading) ids.push(id);
+      }
     }
     return ids;
-  }, [terminalsByProject]);
+  }, [terminalsByProject, displayStates]);
 
   const [activePtyId, setActivePtyId] = useState<string | null>(null);
   const reconnectedRef = useRef(false);
