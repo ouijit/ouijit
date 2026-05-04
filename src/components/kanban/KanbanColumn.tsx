@@ -22,7 +22,7 @@ interface KanbanColumnProps {
   label: string;
   tasks: TaskWithWorkspace[];
   projectPath: string;
-  settingUpTaskNumber?: number | null;
+  settingUpTaskNumbers?: ReadonlySet<number>;
   onAddTask?: (name: string) => void;
   onRenameTask: (taskNumber: number, newName: string) => void;
   onUpdateDescription: (taskNumber: number, description: string) => void;
@@ -39,7 +39,7 @@ export function KanbanColumn({
   label,
   tasks,
   projectPath,
-  settingUpTaskNumber,
+  settingUpTaskNumbers,
   onAddTask,
   onRenameTask,
   onUpdateDescription,
@@ -98,7 +98,7 @@ export function KanbanColumn({
               task={task}
               projectPath={projectPath}
               chainMap={chainMap}
-              isSettingUp={settingUpTaskNumber === task.taskNumber}
+              isSettingUp={settingUpTaskNumbers?.has(task.taskNumber) ?? false}
               onRename={onRenameTask}
               onUpdateDescription={onUpdateDescription}
               onOpenTerminal={onOpenTerminal}

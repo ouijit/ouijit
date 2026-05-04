@@ -30,13 +30,18 @@ import { useChainEdges } from './useChainEdges';
 import { useSmartGuides } from './useSmartGuides';
 import { getChainColor, buildChainMap } from '../../utils/taskChain';
 import { useProjectStore } from '../../stores/projectStore';
+import { isLoadingId } from '../terminal/loadingSlot';
 
 /**
  * Reconcile canvas nodes with the terminal store — add missing, remove stale.
  * Treats missing terminal list as empty (all canvas nodes are stale).
  */
 export function syncCanvasWithTerminals(projectPath: string): void {
-  const terminalPtyIds = useTerminalStore.getState().terminalsByProject[projectPath] ?? [];
+  // Skip synthetic loading-slot ids: they're stack-only placeholders, not real
+  // terminals, and have no canvas representation.
+  const terminalPtyIds = (useTerminalStore.getState().terminalsByProject[projectPath] ?? []).filter(
+    (id) => !isLoadingId(id),
+  );
   const canvasState = useCanvasStore.getState().canvasByProject[projectPath];
   if (!canvasState) return;
 

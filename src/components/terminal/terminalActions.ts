@@ -48,6 +48,10 @@ export interface AddProjectTerminalOptions {
   background?: boolean;
   /** Apply persisted UI state (plan, web preview, runner panel) after spawn — for session restore. */
   initialUiState?: SnapshotTerminalUi;
+  /** If set, the new terminal takes this synthetic loading slot's place via
+   *  `rekeyTerminal` rather than being appended. Lets the kanban-drop loading
+   *  card morph into the real terminal in the same stack position. */
+  replaceLoadingId?: string;
 }
 
 // ── Apply persisted UI state from a session snapshot ────────────────
@@ -89,6 +93,7 @@ function registerTerminal(
   projectPath: string,
   initial: Partial<TerminalDisplayState>,
   background?: boolean,
+  replaceLoadingId?: string,
 ): void {
   const ptyId = term.ptyId;
 
@@ -98,17 +103,25 @@ function registerTerminal(
   // Set project name getter for notifications
   term.setProjectNameGetter(() => useAppStore.getState().activeProjectData?.name ?? 'Ouijit');
 
-  // Add to Zustand store
-  useTerminalStore.getState().addTerminal(projectPath, ptyId, initial);
+  if (replaceLoadingId) {
+    // Take the loading slot's place: same array position, same active index.
+    useTerminalStore.getState().rekeyTerminal(replaceLoadingId, ptyId);
+    useTerminalStore.getState().updateDisplay(ptyId, initial);
+  } else {
+    useTerminalStore.getState().addTerminal(projectPath, ptyId, initial);
+  }
 
   // Add to canvas
   useCanvasStore.getState().ensureProject(projectPath);
   useCanvasStore.getState().addNode(projectPath, ptyId);
   persistCanvas(projectPath);
 
-  // Activate last unless background
+  // Activate last unless background. With a replaced loading slot the
+  // active index already points at it — just focus the new xterm.
   if (!background) {
-    useTerminalStore.getState().activateLast(projectPath);
+    if (!replaceLoadingId) {
+      useTerminalStore.getState().activateLast(projectPath);
+    }
     requestAnimationFrame(() => term.xterm.focus());
   }
 }
@@ -229,8 +242,10 @@ export async function addProjectTerminal(
   // Open xterm into viewport element (not yet in DOM — React will attach via XTermContainer)
   term.openTerminal();
 
-  // For sandbox: register early (before spawn) so the card shows
-  const addedEarly = useSandbox;
+  // For sandbox: register early (before spawn) so the card shows. Skip if
+  // we're replacing an existing loading slot — that slot is already the
+  // visible card.
+  const addedEarly = useSandbox && !options?.replaceLoadingId;
   if (addedEarly) {
     registerTerminal(
       term,
@@ -283,7 +298,7 @@ export async function addProjectTerminal(
       return false;
     }
 
-    // If not added early, register now
+    // If not added early, register now (replacing the loading slot if given).
     if (!addedEarly) {
       registerTerminal(
         term,
@@ -296,6 +311,7 @@ export async function addProjectTerminal(
           diffPanelMode: term.diffPanelMode,
         },
         options?.background,
+        options?.replaceLoadingId,
       );
     }
 
