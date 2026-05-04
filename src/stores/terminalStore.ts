@@ -29,6 +29,9 @@ export interface TerminalDisplayState {
   worktreeBranch: string | null;
   projectPath: string;
   exited: boolean;
+  /** Placeholder slot for an in-flight task start. Card renders the loading
+   *  body; the slot will be rekey'd + flag cleared when the real PTY spawns. */
+  isLoading: boolean;
 }
 
 export const DEFAULT_DISPLAY_STATE: Omit<TerminalDisplayState, 'ptyId' | 'projectPath'> = {
@@ -56,6 +59,7 @@ export const DEFAULT_DISPLAY_STATE: Omit<TerminalDisplayState, 'ptyId' | 'projec
   taskId: null,
   worktreeBranch: null,
   exited: false,
+  isLoading: false,
 };
 
 export const STACK_PAGE_SIZE = 5;

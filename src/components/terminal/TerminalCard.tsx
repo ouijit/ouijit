@@ -44,20 +44,13 @@ const DEPTH_STYLES: Record<number, DepthStyle> = {
 interface TerminalCardProps {
   ptyId: string;
   projectPath: string;
-  /** When true, render the loading-state body (spinner + "Setting up workspace…") instead of the terminal. */
-  isLoading?: boolean;
-  /** Label shown in the header while loading. */
-  loadingLabel?: string;
 }
 
-export const TerminalCard = memo(function TerminalCard({
-  ptyId,
-  projectPath,
-  isLoading,
-  loadingLabel,
-}: TerminalCardProps) {
+export const TerminalCard = memo(function TerminalCard({ ptyId, projectPath }: TerminalCardProps) {
   const terminals = useTerminalStore((s) => s.terminalsByProject[projectPath]) ?? EMPTY;
   const activeIndex = useTerminalStore((s) => s.activeIndices[projectPath] ?? 0);
+  const isLoading = useTerminalStore((s) => s.displayStates[ptyId]?.isLoading ?? false);
+  const loadingLabel = useTerminalStore((s) => s.displayStates[ptyId]?.label ?? '');
 
   const index = terminals.indexOf(ptyId);
   const page = Math.floor(activeIndex / STACK_PAGE_SIZE);
@@ -154,7 +147,7 @@ export const TerminalCard = memo(function TerminalCard({
       onClick={handleClick}
     >
       {isLoading ? (
-        <LoadingContents label={loadingLabel ?? 'New task'} isActive={isActive} />
+        <LoadingContents label={loadingLabel || 'New task'} isActive={isActive} />
       ) : (
         <>
           <TerminalHeader

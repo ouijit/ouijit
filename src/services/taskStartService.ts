@@ -11,10 +11,14 @@
 import log from 'electron-log/renderer';
 import { addProjectTerminal, closeProjectTerminal } from '../components/terminal/terminalActions';
 import type { RunHookResult } from '../components/dialogs/RunHookDialog';
-import { loadingSlotId } from '../components/terminal/loadingSlot';
 import { useProjectStore } from '../stores/projectStore';
 import { useTerminalStore } from '../stores/terminalStore';
 import type { HookType, ScriptHook, TaskStatus, TaskWithWorkspace } from '../types';
+
+let placeholderCounter = 0;
+function makePlaceholderId(taskNumber: number): string {
+  return `pending-${taskNumber}-${++placeholderCounter}`;
+}
 
 const taskStartLog = log.scope('taskStart');
 
@@ -78,15 +82,17 @@ async function runTransition(
 ): Promise<void> {
   const taskNumber = task.taskNumber;
   const transitioningToInProgress = newStatus === 'in_progress';
-  const slotId = transitioningToInProgress ? loadingSlotId(taskNumber) : null;
+  const slotId = transitioningToInProgress ? makePlaceholderId(taskNumber) : null;
 
-  // Insert a synthetic loading slot into the terminal stack right away so the
-  // user immediately sees a placeholder card (with full chrome, hover, click
-  // cycling) while we work. The real terminal will replace it in place via
-  // `rekeyTerminal` when it spawns.
+  // Insert a placeholder slot into the terminal stack right away so the user
+  // immediately sees a card (with full chrome, hover, click cycling) flagged
+  // as `isLoading`. The real terminal will replace it in place via
+  // `rekeyTerminal` when it spawns, and the flag clears.
   if (slotId) {
     useProjectStore.getState().markTaskStarting(taskNumber);
-    useTerminalStore.getState().addTerminal(projectPath, slotId, { label: task.name, taskId: taskNumber });
+    useTerminalStore
+      .getState()
+      .addTerminal(projectPath, slotId, { label: task.name, taskId: taskNumber, isLoading: true });
     useTerminalStore.getState().activateLast(projectPath);
   }
 

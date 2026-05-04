@@ -1,7 +1,6 @@
 import { useCallback } from 'react';
 import { useTerminalStore, STACK_PAGE_SIZE } from '../../stores/terminalStore';
 import { TerminalCard } from './TerminalCard';
-import { isLoadingId, loadingLabelFromId } from './loadingSlot';
 
 const isMac = navigator.platform.toLowerCase().includes('mac');
 const EMPTY: string[] = [];
@@ -13,8 +12,6 @@ interface TerminalCardStackProps {
 export function TerminalCardStack({ projectPath }: TerminalCardStackProps) {
   const terminals = useTerminalStore((s) => s.terminalsByProject[projectPath]) ?? EMPTY;
   const activeIndex = useTerminalStore((s) => s.activeIndices[projectPath] ?? 0);
-  const displayStates = useTerminalStore((s) => s.displayStates);
-  const loadingLabel = useTerminalStore((s) => s.loadingLabel);
 
   const page = Math.floor(activeIndex / STACK_PAGE_SIZE);
   const pageStart = page * STACK_PAGE_SIZE;
@@ -25,7 +22,7 @@ export function TerminalCardStack({ projectPath }: TerminalCardStackProps) {
   const backCardCount = Math.max(Math.min(pageSize - 1, 4), 0);
   const stackTop = 82 + backCardCount * 24;
 
-  const isEmpty = terminals.length === 0 && !loadingLabel;
+  const isEmpty = terminals.length === 0;
 
   return (
     <div
@@ -38,13 +35,9 @@ export function TerminalCardStack({ projectPath }: TerminalCardStackProps) {
     >
       {isEmpty && <EmptyState />}
 
-      {terminals.map((id) => {
-        if (isLoadingId(id)) {
-          const label = displayStates[id]?.label || loadingLabelFromId(id);
-          return <TerminalCard key={id} ptyId={id} projectPath={projectPath} isLoading loadingLabel={label} />;
-        }
-        return <TerminalCard key={id} ptyId={id} projectPath={projectPath} />;
-      })}
+      {terminals.map((ptyId) => (
+        <TerminalCard key={ptyId} ptyId={ptyId} projectPath={projectPath} />
+      ))}
 
       {totalPages > 1 && <Pagination page={page} totalPages={totalPages} projectPath={projectPath} />}
     </div>

@@ -105,8 +105,9 @@ function registerTerminal(
 
   if (replaceLoadingId) {
     // Take the loading slot's place: same array position, same active index.
+    // Clear the `isLoading` flag now that a real PTY backs the slot.
     useTerminalStore.getState().rekeyTerminal(replaceLoadingId, ptyId);
-    useTerminalStore.getState().updateDisplay(ptyId, initial);
+    useTerminalStore.getState().updateDisplay(ptyId, { ...initial, isLoading: false });
   } else {
     useTerminalStore.getState().addTerminal(projectPath, ptyId, initial);
   }
