@@ -5,7 +5,7 @@
  * click toggles selection for bulk opening.
  */
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAppStore, type HomeRecentTask } from '../stores/appStore';
 import { useProjectStore } from '../stores/projectStore';
 import { addProjectTerminal } from './terminal/terminalActions';
@@ -67,7 +67,7 @@ export function RecentTasksPanel({ projects }: RecentTasksPanelProps) {
   }, [projects]);
 
   if (recents === null) return null;
-  if (recents.length === 0) return <EmptyHint />;
+  if (recents.length === 0) return null;
 
   const allSelected = selected.size === recents.length;
 
@@ -174,22 +174,6 @@ export function RecentTasksPanel({ projects }: RecentTasksPanelProps) {
           </div>
         </div>
       )}
-    </div>
-  );
-}
-
-function EmptyHint() {
-  const isMac = useMemo(() => navigator.platform.toLowerCase().includes('mac'), []);
-  return (
-    <div
-      className="w-full flex flex-col items-center justify-center gap-3 text-text-tertiary rounded-[14px] border border-dashed border-white/10 py-16"
-      style={{ background: 'var(--color-terminal-bg)' }}
-    >
-      <div className="text-sm">No tasks yet.</div>
-      <div className="flex items-center gap-2 text-xs">
-        <span className="font-mono text-[13px]">{isMac ? '⌘ I' : 'Ctrl+I'}</span>
-        <span>to open a terminal</span>
-      </div>
     </div>
   );
 }
