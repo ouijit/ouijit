@@ -37,11 +37,12 @@ export function Sidebar({ onProjectSelect, onHomeSelect, onAddExisting, onCreate
   const sidebarPinned = useUIStore((s) => s.sidebarPinned);
 
   const sidebarRef = useRef<HTMLElement>(null);
-  const triggerRef = useRef<HTMLDivElement>(null);
   const hideTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const showTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const noProjects = projects.length === 0;
-  const [visible, setVisible] = useState(noProjects);
+  // Start visible on every app open so the sidebar is always discoverable;
+  // the existing hideSidebar path (mouse-leave) collapses it from there.
+  const [visible, setVisible] = useState(true);
   const effectiveVisible = visible || sidebarPinned;
 
   const addBtnRef = useRef<HTMLButtonElement>(null);
@@ -106,6 +107,13 @@ export function Sidebar({ onProjectSelect, onHomeSelect, onAddExisting, onCreate
     document.addEventListener('show-sidebar', handler);
     return () => document.removeEventListener('show-sidebar', handler);
   }, [showSidebar]);
+
+  // Sidebar starts visible (see initial useState above) — match the layout
+  // offset to that on mount so content doesn't render under the sidebar
+  // before the first show/hide tick.
+  useEffect(() => {
+    document.documentElement.style.setProperty('--sidebar-offset', 'var(--sidebar-width)');
+  }, []);
 
   // Listen for open-add-menu events from the home empty state CTA
   useEffect(() => {
@@ -180,7 +188,6 @@ export function Sidebar({ onProjectSelect, onHomeSelect, onAddExisting, onCreate
       {/* Trigger zone — hidden when sidebar is visible */}
       {!effectiveVisible && (
         <div
-          ref={triggerRef}
           className="fixed top-0 bottom-0 left-0 z-[10000]"
           style={{ width: 24 }}
           onMouseEnter={(e) => {

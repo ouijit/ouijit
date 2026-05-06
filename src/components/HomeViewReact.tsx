@@ -34,6 +34,7 @@ export function HomeView() {
   const [projects, setProjects] = useState<Map<string, Project>>(new Map());
   const allProjects = useAppStore((s) => s.projects);
   const projectCount = allProjects.length;
+  const homeRecents = useAppStore((s) => s.homeRecents);
   const terminalsByProject = useTerminalStore((s) => s.terminalsByProject);
   const displayStates = useTerminalStore((s) => s.displayStates);
   const homeGroupMode = useUIStore((s) => s.homeGroupMode);
@@ -291,6 +292,8 @@ export function HomeView() {
 
   if (allPtyIds.length === 0) {
     const noProjects = projectCount === 0;
+    const noRecents = !noProjects && homeRecents !== null && homeRecents.length === 0;
+    const isMac = navigator.platform.toLowerCase().includes('mac');
 
     return (
       <div
@@ -317,6 +320,17 @@ export function HomeView() {
               >
                 Add your first project
               </button>
+            </div>
+          </div>
+        ) : noRecents ? (
+          <div
+            className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-text-tertiary rounded-[14px] border border-dashed border-white/10"
+            style={{ background: 'var(--color-terminal-bg)' }}
+          >
+            <div className="text-sm">No tasks yet.</div>
+            <div className="flex items-center gap-2 text-xs">
+              <span className="font-mono text-[13px]">{isMac ? '⌘ I' : 'Ctrl+I'}</span>
+              <span>to open a terminal</span>
             </div>
           </div>
         ) : (
