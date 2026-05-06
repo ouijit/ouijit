@@ -132,6 +132,79 @@ describe('taskStartService.beginTransition', () => {
     expect(vi.mocked(addProjectTerminal).mock.calls[0][1]).toMatchObject({ command: 'npm ci' });
   });
 
+  test('Run & Open fires onForegroundOpen as soon as the dialog closes, not after worktree create', async () => {
+    vi.mocked(window.api.hooks.get).mockResolvedValue({
+      start: { command: 'npm install', name: 'Start', source: 'configured', priority: 0 },
+    });
+
+    // Hold worktree creation open so we can assert ordering.
+    let releaseWorktree: (() => void) | undefined;
+    vi.mocked(window.api.task.start).mockReturnValue(
+      new Promise((resolve) => {
+        releaseWorktree = () =>
+          resolve({
+            success: true,
+            worktreePath: '/wt/T-7',
+            task: {
+              taskNumber: 7,
+              name: 'Wire up auth',
+              branch: 'wire-up-auth-7',
+              status: 'in_progress',
+              createdAt: '',
+            },
+          });
+      }),
+    );
+
+    const onForegroundOpen = vi.fn();
+    beginTransition(PROJECT, {
+      origStatus: 'todo',
+      newStatus: 'in_progress',
+      task: makeTask(),
+      onForegroundOpen,
+    });
+
+    await waitFor(() => useProjectStore.getState().runHookRequest != null);
+    const req = useProjectStore.getState().runHookRequest!;
+    useProjectStore.getState().resolveRunHookRequest(req.id, { command: 'npm ci', sandboxed: false, foreground: true });
+
+    // Should fire before the worktree resolves.
+    await waitFor(() => onForegroundOpen.mock.calls.length === 1);
+    expect(addProjectTerminal).not.toHaveBeenCalled();
+
+    releaseWorktree!();
+
+    await waitFor(() => !useProjectStore.getState().startingTaskNumbers.has(7));
+
+    // Still only fired once — not double-called after the spawn.
+    expect(onForegroundOpen).toHaveBeenCalledTimes(1);
+    expect(addProjectTerminal).toHaveBeenCalledTimes(1);
+  });
+
+  test('Run (background) does not fire onForegroundOpen', async () => {
+    vi.mocked(window.api.hooks.get).mockResolvedValue({
+      start: { command: 'npm install', name: 'Start', source: 'configured', priority: 0 },
+    });
+
+    const onForegroundOpen = vi.fn();
+    beginTransition(PROJECT, {
+      origStatus: 'todo',
+      newStatus: 'in_progress',
+      task: makeTask(),
+      onForegroundOpen,
+    });
+
+    await waitFor(() => useProjectStore.getState().runHookRequest != null);
+    const req = useProjectStore.getState().runHookRequest!;
+    useProjectStore
+      .getState()
+      .resolveRunHookRequest(req.id, { command: 'npm ci', sandboxed: false, foreground: false });
+
+    await waitFor(() => !useProjectStore.getState().startingTaskNumbers.has(7));
+
+    expect(onForegroundOpen).not.toHaveBeenCalled();
+  });
+
   test('worktree creation failure: cleans up the loading slot', async () => {
     vi.mocked(window.api.task.start).mockResolvedValue({ success: false, error: 'boom' });
 

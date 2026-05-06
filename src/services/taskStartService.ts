@@ -152,6 +152,13 @@ async function runTransition(
             ms: Math.round(performance.now() - tDialog),
             accepted: !!res,
           });
+          // For an in_progress drop with "Run & Open", reveal the terminal
+          // stack right away. The loading placeholder is already on-screen
+          // and the worktree is still creating in parallel — there's no
+          // reason to make the user wait staring at the kanban.
+          if (res?.foreground && transitioningToInProgress && onForegroundOpen) {
+            onForegroundOpen();
+          }
           return res;
         });
     }
@@ -184,7 +191,7 @@ async function runTransition(
     // loading slot always morphs into a real card. For review/done the
     // terminal only spawns if the user accepted the hook.
     if (transitioningToInProgress) {
-      await spawnTerminalForInProgress(projectPath, resolvedTask, hookResult, slotId, onForegroundOpen);
+      await spawnTerminalForInProgress(projectPath, resolvedTask, hookResult, slotId);
     } else if (hookResult) {
       await runNonStartHookInTerminal(projectPath, resolvedTask, newStatus, hookResult, onForegroundOpen);
     }
@@ -213,13 +220,15 @@ async function runTransition(
  * Spawn a terminal for a task that just landed in in_progress. Always opens a
  * terminal so the loading slot always resolves into a real card. The hook
  * command runs if the user accepted it; otherwise it's a plain shell.
+ *
+ * Note: the kanban-hide for foreground hooks happens earlier (right after the
+ * dialog returns) so the user sees the loading placeholder immediately.
  */
 async function spawnTerminalForInProgress(
   projectPath: string,
   task: TaskWithWorkspace,
   hookResult: RunHookResult | null,
   loadingSlot: string | null,
-  onForegroundOpen?: () => void,
 ): Promise<void> {
   if (!task.worktreePath) {
     // Worktree creation must have failed earlier; nothing to do.
@@ -237,8 +246,6 @@ async function spawnTerminalForInProgress(
     skipAutoHook: true,
     replaceLoadingId: loadingSlot ?? undefined,
   });
-
-  if (hookResult?.foreground && onForegroundOpen) onForegroundOpen();
 }
 
 async function runNonStartHookInTerminal(
