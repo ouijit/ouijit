@@ -221,7 +221,13 @@ const config: ForgeConfig = {
         owner: 'ouijit',
         name: 'ouijit',
       },
-      draft: true,
+      // Publish as prerelease so the release is downloadable but auto-updaters
+      // skip it (update.electronjs.org and GitHub's releases/latest both honor
+      // this flag). Promote with scripts/promote-release.sh after soaking.
+      // draft: false guards the fallback path where forge creates the release
+      // itself — its default is draft=true, which would hide the build.
+      prerelease: true,
+      draft: false,
       generateReleaseNotes: true,
     }),
   ],

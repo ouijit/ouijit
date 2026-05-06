@@ -22,30 +22,30 @@ jobs:
       - run: npm rebuild better-sqlite3 --silent
       - run: npx vitest run --project unit
 
-  create-draft:
+  create-prerelease:
     needs: test
     permissions:
       contents: write
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Create or reuse draft release
+      - name: Create or reuse prerelease
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ github.ref_name }}
         run: |
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            echo "Draft for $TAG already exists, reusing."
+            echo "Release for $TAG already exists, reusing."
           else
             gh release create "$TAG" \
               --repo "$GITHUB_REPOSITORY" \
               --title "$TAG" \
-              --draft \
+              --prerelease \
               --generate-notes
           fi
 
   publish:
-    needs: create-draft
+    needs: create-prerelease
     permissions:
       contents: write
     strategy:

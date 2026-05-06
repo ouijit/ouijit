@@ -17,6 +17,16 @@ Do NOT run `npm run start` or other dev server commands.
 
 Dev userData is isolated per worktree via a hash of the repo path (`…/ouijit-dev-<hash>`), so multiple worktrees can run in parallel without stomping each other and never touch the production DB.
 
+### Releasing
+
+Tagging `v*` builds and publishes a release as **prerelease**. Prereleases are downloadable from the Releases page but are invisible to auto-updaters (`update.electronjs.org` and `releases/latest` both skip them). Soak the build for ~3 days of real use, then promote it:
+
+```
+./scripts/promote-release.sh v1.0.41
+```
+
+Promotion clears the prerelease flag and marks the release as `latest`. Auto-updaters pick it up within their next hourly check.
+
 ### Project Structure
 
 **Entry points:**
