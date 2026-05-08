@@ -244,10 +244,10 @@ export function App() {
         onAddExisting={handleAddExisting}
         onCreateNew={handleCreateNew}
       />
-      <div className="app-content-shell flex-1 flex flex-col min-w-0 overflow-hidden">
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <TitleBar mode={activeView} />
         <main
-          className="flex-1 min-h-0"
+          className="app-content-main flex-1 min-h-0"
           style={
             activeView === 'project' || activeView === 'home'
               ? { padding: 0 }

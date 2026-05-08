@@ -226,11 +226,11 @@ textarea,
 }
 
 /* View Transitions — used for home/project/sub-panel switches. We name the
-   right-hand content shell so only it animates; the sidebar is part of the
-   root snapshot and we suppress its animation explicitly so it stays still
-   during the crossfade. Triggered via `withViewTransition` in
+   main content area so only it animates; the sidebar and title bar are part
+   of the root snapshot and we suppress its animation explicitly so they stay
+   still during the crossfade. Triggered via `withViewTransition` in
    src/utils/viewTransition.ts. */
-.app-content-shell {
+.app-content-main {
   view-transition-name: app-content;
 }
 ::view-transition-old(root),
