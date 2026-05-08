@@ -171,10 +171,10 @@ export function App() {
   // the new view up into place; above slides down. Home is treated as the
   // top of the list.
   //
-  // Both handlers pre-fetch the data the new view needs *before* triggering
-  // the view transition. The transition snapshots the new DOM synchronously,
-  // so any data still loading in a useEffect would be missed by the crossfade
-  // and pop in afterwards.
+  // Project select pre-fetches tasks before navigating so the kanban paints
+  // correctly through the view-transition snapshot. Home select navigates
+  // immediately and refreshes in the background, since `homeRecents` is kept
+  // warm by `projectStore.loadTasks` and the app-init pre-fetch.
   const handleProjectSelect = useCallback(async (path: string, project: Project) => {
     const state = useAppStore.getState();
     if (state.activeProjectPath === path) return;
