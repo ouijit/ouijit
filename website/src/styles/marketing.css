@@ -869,3 +869,58 @@ body.marketing .btn-secondary:hover {
     0 6px 16px rgba(0, 0, 0, 0.25);
   overflow: hidden;
 }
+
+/* --- Features page --- */
+.features-hero {
+  padding: 80px var(--content-padding) 0;
+  max-width: 1320px;
+  margin: 0 auto;
+}
+
+.features-hero-inner {
+  max-width: 720px;
+  margin: 0 auto 56px;
+  text-align: center;
+}
+
+.features-hero-inner h1 {
+  font-size: 3rem;
+  letter-spacing: -0.025em;
+  margin-bottom: 16px;
+}
+
+.features-hero-inner .subtitle {
+  font-size: 1.1875rem;
+  color: var(--color-text-secondary);
+  max-width: 560px;
+  margin: 0 auto;
+  line-height: 1.5;
+}
+
+.features-scene {
+  padding: 0 var(--content-padding) 120px;
+  position: relative;
+}
+
+body.marketing {
+  overflow-x: clip;
+}
+
+/* The board is a static mock — hide scrollbars so the columns read clean. */
+.workspace-scene .kanban-column-body {
+  scrollbar-width: none;
+}
+.workspace-scene .kanban-column-body::-webkit-scrollbar {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .features-hero-inner h1 {
+    font-size: 2.25rem;
+  }
+  .workspace-scene {
+    height: auto !important;
+    transform: scale(0.55);
+    transform-origin: top center;
+  }
+}
