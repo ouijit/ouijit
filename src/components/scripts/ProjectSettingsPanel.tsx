@@ -6,6 +6,8 @@ import { HookList } from './HookList';
 import type { HookEntry } from './HookList';
 import { SandboxSection } from './SandboxSection';
 import { ExperimentalFeaturesSection } from './ExperimentalFeaturesSection';
+import { WorktreeSection } from './WorktreeSection';
+import { useWorktreeSettingsStore } from '../../stores/worktreeSettingsStore';
 
 const LIFECYCLE_HOOKS: HookEntry[] = [
   { type: 'start', label: 'Start', description: 'Runs when a task moves to In Progress' },
@@ -29,6 +31,7 @@ export function ProjectSettingsPanel({ projectPath }: ProjectSettingsPanelProps)
 
   useEffect(() => {
     useProjectStore.getState().loadScripts(projectPath);
+    void useWorktreeSettingsStore.getState().loadFor(projectPath);
   }, [projectPath]);
 
   // Escape key returns to terminals
@@ -57,6 +60,11 @@ export function ProjectSettingsPanel({ projectPath }: ProjectSettingsPanelProps)
           <h1 className="text-base font-semibold text-text-primary">Project Settings</h1>
         </div>
         <div className="px-6 pt-4 pb-16 min-w-full max-w-2xl space-y-8">
+          <section>
+            <h2 className="text-sm font-semibold text-text-primary mb-2">Worktree</h2>
+            <p className="text-xs text-text-tertiary mb-4">How task worktrees are created from this project.</p>
+            <WorktreeSection projectPath={projectPath} />
+          </section>
           <section>
             <h2 className="text-sm font-semibold text-text-primary mb-2">Lifecycle Hooks</h2>
             <p className="text-xs text-text-tertiary mb-4">

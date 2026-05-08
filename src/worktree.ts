@@ -19,6 +19,7 @@ import {
   setTaskBranch,
   setTaskWorktreePath,
   setTaskMergeTarget,
+  getGlobalSetting,
   type TaskMetadata,
 } from './db';
 import { mergeWorktreeBranch } from './git';
@@ -152,6 +153,21 @@ async function runWithConcurrency<T>(items: T[], limit: number, worker: (item: T
   };
   for (let i = 0; i < Math.min(limit, items.length); i++) runners.push(runOne());
   await Promise.all(runners);
+}
+
+/**
+ * Read the per-project worktree mode. Defaults to quick-start (copy ignored files)
+ * to preserve the current behavior when the user hasn't picked a mode.
+ */
+async function shouldCopyIgnoredFiles(projectPath: string): Promise<boolean> {
+  try {
+    const json = await getGlobalSetting(`worktree:${projectPath}`);
+    if (!json) return true;
+    const parsed = JSON.parse(json) as { mode?: string };
+    return parsed.mode !== 'clean-checkout';
+  } catch {
+    return true;
+  }
 }
 
 async function copyGitIgnoredFiles(
@@ -386,7 +402,8 @@ export async function startTask(
       () => true,
       () => false,
     );
-    const ignoredFilesPromise = sandboxed ? Promise.resolve<string[]>([]) : fetchIgnoredFiles(projectPath);
+    const copyIgnored = !sandboxed && (await shouldCopyIgnoredFiles(projectPath));
+    const ignoredFilesPromise = copyIgnored ? fetchIgnoredFiles(projectPath) : Promise.resolve<string[]>([]);
 
     // Probe for an available worktree path. Needs the base dir created first.
     await mkdirPromise;
@@ -434,9 +451,11 @@ export async function startTask(
     await Promise.all(dbWrites);
     t.mark('dbWrites');
 
-    if (!sandboxed) {
+    if (copyIgnored) {
       const ignoredFiles = await ignoredFilesPromise;
       await copyGitIgnoredFiles(projectPath, worktreePath, ignoredFiles);
+    } else if (!sandboxed) {
+      worktreeLog.info('clean checkout mode — skipping ignored file copy', { projectPath, taskNumber });
     }
     t.mark('copyIgnored');
 
@@ -515,11 +534,13 @@ export async function createTaskWorktree(
       ? ['worktree', 'add', worktreePath, branch]
       : ['worktree', 'add', '-b', branch, worktreePath];
 
+    const copyIgnored = !sandboxed && (await shouldCopyIgnoredFiles(projectPath));
+
     // Start ls-files in parallel with git worktree add
     // ls-files reads from source dir, doesn't need the worktree to exist
     const [, ignoredFiles] = await Promise.all([
       execFileAsync('git', wtAddArgs, { cwd: projectPath }),
-      sandboxed ? Promise.resolve<string[]>([]) : fetchIgnoredFiles(projectPath),
+      copyIgnored ? fetchIgnoredFiles(projectPath) : Promise.resolve<string[]>([]),
     ]);
 
     const task = await createTask(projectPath, currentTaskNumber, displayName, {
@@ -530,8 +551,13 @@ export async function createTaskWorktree(
       sandboxed,
     });
 
-    if (!sandboxed) {
+    if (copyIgnored) {
       await copyGitIgnoredFiles(projectPath, worktreePath, ignoredFiles);
+    } else if (!sandboxed) {
+      worktreeLog.info('clean checkout mode — skipping ignored file copy', {
+        projectPath,
+        taskNumber: currentTaskNumber,
+      });
     }
 
     return {
@@ -747,17 +773,21 @@ export async function recoverTaskWorktree(projectPath: string, taskNumber: numbe
       worktreePath = path.join(baseDir, `T-${dirNum}`);
     }
 
+    const copyIgnored = !task.sandboxed && (await shouldCopyIgnoredFiles(projectPath));
+
     // Re-create worktree from the existing branch (no -b flag)
     const [, ignoredFiles] = await Promise.all([
       execAsync(`git worktree add ${shellEscape(worktreePath)} ${shellEscape(task.branch)}`, { cwd: projectPath }),
-      task.sandboxed ? Promise.resolve<string[]>([]) : fetchIgnoredFiles(projectPath),
+      copyIgnored ? fetchIgnoredFiles(projectPath) : Promise.resolve<string[]>([]),
     ]);
 
     // Update metadata with new path
     await setTaskWorktreePath(projectPath, taskNumber, worktreePath);
 
-    if (!task.sandboxed) {
+    if (copyIgnored) {
       await copyGitIgnoredFiles(projectPath, worktreePath, ignoredFiles);
+    } else if (!task.sandboxed) {
+      worktreeLog.info('clean checkout mode — skipping ignored file copy', { projectPath, taskNumber });
     }
 
     worktreeLog.info('recovered', { taskNumber, worktreePath });
