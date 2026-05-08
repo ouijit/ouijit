@@ -455,7 +455,7 @@ export async function startTask(
       const ignoredFiles = await ignoredFilesPromise;
       await copyGitIgnoredFiles(projectPath, worktreePath, ignoredFiles);
     } else if (!sandboxed) {
-      worktreeLog.info('clean checkout mode — skipping ignored file copy', { projectPath, taskNumber });
+      worktreeLog.info('clean checkout mode, skipping ignored file copy', { projectPath, taskNumber });
     }
     t.mark('copyIgnored');
 
@@ -554,7 +554,7 @@ export async function createTaskWorktree(
     if (copyIgnored) {
       await copyGitIgnoredFiles(projectPath, worktreePath, ignoredFiles);
     } else if (!sandboxed) {
-      worktreeLog.info('clean checkout mode — skipping ignored file copy', {
+      worktreeLog.info('clean checkout mode, skipping ignored file copy', {
         projectPath,
         taskNumber: currentTaskNumber,
       });
@@ -787,7 +787,7 @@ export async function recoverTaskWorktree(projectPath: string, taskNumber: numbe
     if (copyIgnored) {
       await copyGitIgnoredFiles(projectPath, worktreePath, ignoredFiles);
     } else if (!task.sandboxed) {
-      worktreeLog.info('clean checkout mode — skipping ignored file copy', { projectPath, taskNumber });
+      worktreeLog.info('clean checkout mode, skipping ignored file copy', { projectPath, taskNumber });
     }
 
     worktreeLog.info('recovered', { taskNumber, worktreePath });

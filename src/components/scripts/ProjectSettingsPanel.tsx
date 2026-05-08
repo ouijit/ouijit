@@ -62,7 +62,10 @@ export function ProjectSettingsPanel({ projectPath }: ProjectSettingsPanelProps)
         <div className="px-6 pt-4 pb-16 min-w-full max-w-2xl space-y-8">
           <section>
             <h2 className="text-sm font-semibold text-text-primary mb-2">Worktree</h2>
-            <p className="text-xs text-text-tertiary mb-4">How task worktrees are created from this project.</p>
+            <p className="text-xs text-text-tertiary mb-4">
+              How task worktrees are created from this project. Sandboxed tasks always use a clean checkout for safety.
+              Configure the Lima VM under Sandbox to provision what they need.
+            </p>
             <WorktreeSection projectPath={projectPath} />
           </section>
           <section>
