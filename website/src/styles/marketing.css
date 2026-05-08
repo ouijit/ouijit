@@ -35,13 +35,21 @@ html {
 
 body.marketing a {
   color: #fff;
+  text-decoration: none;
+  transition: opacity var(--transition-fast);
+}
+
+/* Inline prose links inside docs content keep an underline */
+body.marketing .docs-content a,
+body.marketing .callout a {
   text-decoration: underline;
   text-decoration-color: rgba(255, 255, 255, 0.4);
   text-underline-offset: 2px;
   transition: text-decoration-color var(--transition-fast);
 }
 
-body.marketing a:hover {
+body.marketing .docs-content a:hover,
+body.marketing .callout a:hover {
   text-decoration-color: rgba(255, 255, 255, 0.8);
 }
 
@@ -221,7 +229,7 @@ img {
   }
 }
 
-.btn {
+body.marketing .btn {
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -234,23 +242,23 @@ img {
   text-decoration: none;
 }
 
-.btn-primary {
+body.marketing .btn-primary {
   background: #fff;
   color: var(--marketing-blue);
 }
 
-.btn-primary:hover {
+body.marketing .btn-primary:hover {
   background: rgba(255, 255, 255, 0.9);
   color: #0066d6;
 }
 
-.btn-secondary {
+body.marketing .btn-secondary {
   background: rgba(255, 255, 255, 0.15);
   color: #fff;
   border: 1px solid var(--color-border);
 }
 
-.btn-secondary:hover {
+body.marketing .btn-secondary:hover {
   background: rgba(255, 255, 255, 0.25);
   border-color: var(--color-border-hover);
   color: #fff;
