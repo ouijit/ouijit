@@ -153,10 +153,13 @@ export function App() {
         }
       }
 
-      // If we're landing on home (default or post-resume), pre-warm recents
-      // so the "pick up where you left off" surface is populated on first paint.
+      // Pre-warm the home recents cache regardless of which view we're
+      // restoring to, so a later home click paints from cache instantly.
+      // Awaited only when landing on home, to keep the initial home paint
+      // populated; for project restores the fetch runs in the background.
+      const recentsPromise = useAppStore.getState().loadHomeRecents();
       if (!restoredToProject) {
-        await useAppStore.getState().loadHomeRecents();
+        await recentsPromise;
       }
 
       setInitialized(true);
@@ -184,11 +187,15 @@ export function App() {
     window.api.globalSettings.set('lastActiveView', JSON.stringify({ type: 'project', path }));
   }, []);
 
-  const handleHomeSelect = useCallback(async () => {
+  const handleHomeSelect = useCallback(() => {
     const state = useAppStore.getState();
     if (state.activeView === 'home') return;
-    await state.loadHomeRecents();
+    // Navigate immediately; the cached homeRecents (kept warm by
+    // projectStore.loadTasks via updateProjectTaskCache, plus app-init
+    // pre-fetch) paints during the view transition. Refresh in background
+    // to reconcile with the source of truth.
     state.navigateHome({ direction: 'up' });
+    void state.loadHomeRecents();
     window.api.globalSettings.set('lastActiveView', JSON.stringify({ type: 'home' }));
   }, []);
 

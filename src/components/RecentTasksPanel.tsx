@@ -59,9 +59,10 @@ export function RecentTasksPanel({ projects }: RecentTasksPanelProps) {
   const recents = useAppStore((s) => s.homeRecents);
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
-  // Refresh whenever the projects list changes (add/remove). App.tsx
-  // pre-fetches before navigating home so the view transition snapshot is
-  // correct; this keeps recents fresh while we're already on home.
+  // Refresh whenever the projects list changes (add/remove). The recents
+  // cache is kept warm by projectStore.loadTasks (per-project updates) and
+  // pre-warmed at app init; this catches the add/remove case where a new
+  // project's tasks haven't been fetched yet.
   useEffect(() => {
     void useAppStore.getState().loadHomeRecents();
   }, [projects]);
