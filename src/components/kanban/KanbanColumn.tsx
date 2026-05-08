@@ -7,7 +7,7 @@ import type { TaskChainInfo } from '../../utils/taskChain';
 import { useProjectStore } from '../../stores/projectStore';
 import { KanbanCard } from './KanbanCard';
 import { KanbanAddInput } from './KanbanAddInput';
-import { Icon } from '../terminal/Icon';
+import { KanbanColumnView } from './KanbanColumnView';
 
 /** Map column status to the hook type(s) its config button should open */
 const COLUMN_HOOK_TYPES: Record<string, HookType[]> = {
@@ -54,67 +54,45 @@ export function KanbanColumn({
   const taskIds = useMemo(() => tasks.map((t) => `task-${t.taskNumber}`), [tasks]);
   const hookTypes = COLUMN_HOOK_TYPES[status] ?? [];
 
+  const showOverHighlight = isOver && tasks.length === 0;
+
   return (
-    <div
-      className="kanban-column flex flex-col transition-all duration-150 ease-out shrink-0 last:border-r-0"
-      style={{ minWidth: 240, flex: '1 0 240px', borderRight: '1px solid rgba(255, 255, 255, 0.06)' }}
-      data-status={status}
+    <KanbanColumnView
+      status={status}
+      label={label}
+      count={tasks.length}
+      hookTypes={hookTypes}
+      hasConfiguredHook={hasConfiguredHook}
+      onConfigureHook={onConfigureHook}
+      isOver={showOverHighlight}
+      bodyRef={setNodeRef}
+      onBodyClick={(e) => {
+        if (e.target === e.currentTarget) useProjectStore.getState().clearSelection();
+      }}
     >
-      <div className="flex items-center gap-2 px-3 py-2.5 shrink-0 h-[46px]">
-        <span className="text-[13px] font-medium text-text-secondary uppercase tracking-wide flex-1">
-          {label}
-          <span className="kanban-column-count text-text-secondary opacity-50 normal-case tracking-normal ml-1.5">
-            {tasks.length}
-          </span>
-        </span>
-        {hookTypes.length > 0 && onConfigureHook && (
-          <button
-            className={`flex items-center justify-center border-none text-text-tertiary transition-all duration-150 ease-out rounded-md hover:text-text-secondary hover:bg-white/[0.08] [&>svg]:w-[18px] [&>svg]:h-[18px]${hasConfiguredHook ? ' !text-accent hover:!text-accent-hover' : ''}`}
-            style={{ padding: '4px 10px', background: 'transparent' }}
-            onClick={() => onConfigureHook(hookTypes)}
-          >
-            <Icon name="webhooks-logo" />
-          </button>
-        )}
-      </div>
-      <div
-        ref={setNodeRef}
-        className="kanban-column-body flex flex-col overflow-y-auto flex-1 min-h-0"
-        style={{
-          borderTop: '1px solid rgba(255, 255, 255, 0.06)',
-          scrollbarColor: 'transparent transparent',
-          transition: 'background 150ms ease',
-          minHeight: 80,
-          background: isOver && tasks.length === 0 ? 'rgba(10, 132, 255, 0.08)' : undefined,
-        }}
-        onClick={(e) => {
-          if (e.target === e.currentTarget) useProjectStore.getState().clearSelection();
-        }}
-      >
-        <SortableContext items={taskIds} strategy={verticalListSortingStrategy}>
-          {tasks.map((task) => (
-            <SortableCard
-              key={task.taskNumber}
-              task={task}
-              projectPath={projectPath}
-              chainMap={chainMap}
-              isSettingUp={settingUpTaskNumbers?.has(task.taskNumber) ?? false}
-              onRename={onRenameTask}
-              onUpdateDescription={onUpdateDescription}
-              onOpenTerminal={onOpenTerminal}
-              onSwitchToTerminal={onSwitchToTerminal}
-              onSelect={onSelect}
-            />
-          ))}
-        </SortableContext>
-        {status === 'todo' && tasks.length === 0 && (
-          <div className="px-3 py-3 text-xs text-text-tertiary leading-relaxed">
-            No tasks yet. Type a name below to add one.
-          </div>
-        )}
-        {onAddTask && <KanbanAddInput onAdd={onAddTask} />}
-      </div>
-    </div>
+      <SortableContext items={taskIds} strategy={verticalListSortingStrategy}>
+        {tasks.map((task) => (
+          <SortableCard
+            key={task.taskNumber}
+            task={task}
+            projectPath={projectPath}
+            chainMap={chainMap}
+            isSettingUp={settingUpTaskNumbers?.has(task.taskNumber) ?? false}
+            onRename={onRenameTask}
+            onUpdateDescription={onUpdateDescription}
+            onOpenTerminal={onOpenTerminal}
+            onSwitchToTerminal={onSwitchToTerminal}
+            onSelect={onSelect}
+          />
+        ))}
+      </SortableContext>
+      {status === 'todo' && tasks.length === 0 && (
+        <div className="px-3 py-3 text-xs text-text-tertiary leading-relaxed">
+          No tasks yet. Type a name below to add one.
+        </div>
+      )}
+      {onAddTask && <KanbanAddInput onAdd={onAddTask} />}
+    </KanbanColumnView>
   );
 }
 

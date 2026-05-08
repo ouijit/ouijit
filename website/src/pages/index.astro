@@ -1,0 +1,178 @@
+---
+import Site from '../layouts/Site.astro';
+import CompareSlider from '../components/site/CompareSlider.tsx';
+import BoardDemo from '../components/demo/BoardDemo.tsx';
+import StackDemo from '../components/demo/StackDemo.tsx';
+import AutomationDemo from '../components/demo/AutomationDemo.tsx';
+import AgentStatesDemo from '../components/demo/AgentStatesDemo.tsx';
+---
+<Site>
+  <section class="hero">
+    <h1>An IDE for coding agents.</h1>
+    <p class="subtitle">
+      A board for the work in flight, a stack of terminals per task, and a fresh git worktree under each one. Built for
+      the way you actually code now.
+    </p>
+    <div class="download-buttons">
+      <a
+        href="https://github.com/ouijit/ouijit/releases/latest/download/ouijit-darwin-arm64.zip"
+        class="btn btn-primary">Download for macOS (Apple Silicon)</a>
+      <a
+        href="https://github.com/ouijit/ouijit/releases/latest/download/ouijit-darwin-x64.zip"
+        class="btn btn-secondary">macOS (Intel)</a>
+      <a href="https://github.com/ouijit/ouijit/releases/latest/download/ouijit-linux-x64.zip" class="btn btn-secondary"
+        >Linux</a>
+    </div>
+    <p class="hero-fine-print">Free and open source. No account, no sign-in.</p>
+    <div class="mobile-cta">
+      <p>You're on a phone. This is a desktop app.</p>
+      <a href="https://github.com/ouijit/ouijit" class="btn btn-primary">Here's the source code though</a>
+    </div>
+  </section>
+
+  <section class="compare-section">
+    <CompareSlider client:visible />
+  </section>
+
+  <section class="exposition" id="board">
+    <div class="exposition-inner">
+      <div class="exposition-copy">
+        <span class="eyebrow">The board</span>
+        <h2>One card per task. One task per branch.</h2>
+        <p>
+          Every piece of work lives on the kanban as a card. Drag it across columns to move it through your flow.
+          Status changes fire hooks, so a task picking up a new state can kick off whatever you'd otherwise do by hand.
+        </p>
+        <p class="exposition-quiet">
+          Tags chain related work. The badge on each card opens its terminals. Nothing about the board gets in the way
+          of finishing the work.
+        </p>
+      </div>
+      <div class="exposition-visual">
+        <BoardDemo client:visible />
+      </div>
+    </div>
+  </section>
+
+  <section class="exposition exposition-reverse" id="stack">
+    <div class="exposition-inner">
+      <div class="exposition-copy">
+        <span class="eyebrow">Terminal stacks</span>
+        <h2>As many terminals as the task needs.</h2>
+        <p>
+          One task can spawn a dev server, a coding agent, a build watcher, and a manual shell. They all share the same
+          worktree and stack on top of each other instead of fighting for tab space.
+        </p>
+        <p class="exposition-quiet">
+          The active terminal is at the front. The rest sit behind it like cards on a desk, ready when you need them.
+        </p>
+      </div>
+      <div class="exposition-visual">
+        <StackDemo client:visible />
+      </div>
+    </div>
+  </section>
+
+  <section class="exposition" id="automation">
+    <div class="exposition-inner">
+      <div class="exposition-copy">
+        <span class="eyebrow">Hooks &amp; scripts</span>
+        <h2>Automate the parts you keep retyping.</h2>
+        <p>
+          Hooks run when a task changes status. Scripts run when you click them. Both are just shell commands you save
+          once per project.
+        </p>
+        <p class="exposition-quiet">
+          Spawn an agent on Start. Run your check on Review. Reset the database from any terminal in one click.
+        </p>
+      </div>
+      <div class="exposition-visual">
+        <AutomationDemo client:visible />
+      </div>
+    </div>
+  </section>
+
+  <section class="exposition exposition-reverse" id="agents">
+    <div class="exposition-inner">
+      <div class="exposition-copy">
+        <span class="eyebrow">Made for Claude Code</span>
+        <h2>Know what each agent is doing without switching tabs.</h2>
+        <p>
+          The status dot tells you. Idle. Thinking. Awaiting input. Editing files. Running a tool. Done. The board
+          surfaces it. The terminal headers surface it. You glance, you know.
+        </p>
+        <p class="exposition-quiet">
+          Works with anything that runs in a terminal. Codex, Aider, Goose, your own scripts. Claude Code gets the
+          deepest integration.
+        </p>
+      </div>
+      <div class="exposition-visual">
+        <AgentStatesDemo client:visible />
+      </div>
+    </div>
+  </section>
+
+  <section class="details-section">
+    <div class="details-inner">
+      <h2>Built like an IDE.</h2>
+      <p class="details-lead">Small things you'll appreciate after the first afternoon.</p>
+      <div class="details-grid">
+        <div class="detail">
+          <div class="detail-title">Worktrees, automatic</div>
+          <p>
+            Every task gets its own git branch and a separate worktree on disk. Copy on write makes it instant. No
+            stashing, no switching, no losing your place.
+          </p>
+        </div>
+        <div class="detail">
+          <div class="detail-title">Sandboxed shells</div>
+          <p>
+            Open any terminal inside a Linux VM. The agent sees your code. It can't see anything else on the machine.
+            Lima handles the VM.
+          </p>
+        </div>
+        <div class="detail">
+          <div class="detail-title">Keyboard first</div>
+          <p>
+            Open any task with Cmd+K. Cycle terminals with Tab. Move cards with arrow keys. The mouse is optional.
+          </p>
+        </div>
+        <div class="detail">
+          <div class="detail-title">Diff review in place</div>
+          <p>
+            Every task has a diff panel against its merge target. Review the agent's work without leaving the terminal
+            it ran in.
+          </p>
+        </div>
+        <div class="detail">
+          <div class="detail-title">Plan files</div>
+          <p>Pin a markdown plan next to a terminal. Agents update it. You read it.</p>
+        </div>
+        <div class="detail">
+          <div class="detail-title">Local and offline</div>
+          <p>
+            Everything is on your machine. No account. No telemetry. No sign-in. Open source under AGPL.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="cta-section">
+    <div class="cta-inner">
+      <h2>Try it on something you're already working on.</h2>
+      <p>Free, open source, and as fast as your terminal.</p>
+      <div class="download-buttons">
+        <a
+          href="https://github.com/ouijit/ouijit/releases/latest/download/ouijit-darwin-arm64.zip"
+          class="btn btn-primary">Download for macOS (Apple Silicon)</a>
+        <a
+          href="https://github.com/ouijit/ouijit/releases/latest/download/ouijit-darwin-x64.zip"
+          class="btn btn-secondary">macOS (Intel)</a>
+        <a
+          href="https://github.com/ouijit/ouijit/releases/latest/download/ouijit-linux-x64.zip"
+          class="btn btn-secondary">Linux</a>
+      </div>
+    </div>
+  </section>
+</Site>

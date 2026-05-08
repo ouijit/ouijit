@@ -1,0 +1,81 @@
+@import 'tailwindcss';
+
+/*
+ * Pull in the app's design tokens (Tailwind v4 @theme block + custom utilities).
+ * The marketing site shares the exact same tokens, font stacks, and utility
+ * classes as the app, so component View renders look identical.
+ */
+@import '../../../src/index.css';
+
+/*
+ * Tell Tailwind v4 to scan the parent app's component source for utility
+ * classes used in the imported View components.
+ */
+@source "../../../src/**/*.{ts,tsx}";
+@source "../../**/*.{astro,tsx,ts}";
+
+/* Override @font-face URLs so they resolve from /fonts/ in the deployed site
+ * (the app's index.css points at relative paths inside src/assets). */
+@font-face {
+  font-family: 'Iosevka Extended';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/iosevka-extended-regular.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Iosevka Term Extended';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/iosevka-term-extended-regular.woff2') format('woff2');
+}
+
+/*
+ * The app's index.css sets html/body to overflow: hidden because the Electron
+ * window doesn't scroll. The marketing site needs to scroll, so override.
+ */
+html {
+  overflow: visible;
+}
+
+body.marketing {
+  overflow: auto;
+}
+
+/* ------- Marketing-only branding ------- */
+
+:root {
+  --marketing-blue: #0a84ff;
+  --marketing-blue-deep: #001b65;
+  --marketing-fade: rgba(255, 255, 255, 0.75);
+  --marketing-fade-2: rgba(255, 255, 255, 0.5);
+  --marketing-border: rgba(255, 255, 255, 0.2);
+}
+
+body.marketing {
+  background: var(--marketing-blue);
+  color: #fff;
+  font-family:
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    'SF Pro Display',
+    'SF Pro Text',
+    'Helvetica Neue',
+    Arial,
+    sans-serif;
+  line-height: 1.6;
+  min-height: 100vh;
+}
+
+body.marketing h1,
+body.marketing h2,
+body.marketing h3,
+body.marketing h4 {
+  font-family: Clarendon, 'Clarendon Text', 'Montagu Slab', Rockwell, 'Rockwell Nova', 'Zilla Slab', serif;
+  color: var(--marketing-blue-deep);
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  font-weight: 400;
+}

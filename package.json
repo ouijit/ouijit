@@ -33,7 +33,9 @@
     "db:reset": "node scripts/dev-db.mjs reset",
     "db:seed": "node scripts/dev-db.mjs seed",
     "db:clone-prod": "node scripts/dev-db.mjs clone-prod",
-    "capture": "node scripts/capture/run.mjs"
+    "capture": "node scripts/capture/run.mjs",
+    "website": "npm --prefix website run dev",
+    "website:build": "npm --prefix website run build"
   },
   "keywords": [],
   "author": "pbjer",

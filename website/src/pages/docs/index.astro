@@ -1,0 +1,43 @@
+---
+import Site from '../../layouts/Site.astro';
+---
+<Site
+  title="Documentation · Ouijit"
+  description="Ouijit documentation — getting started, worktrees, kanban, terminals, VM sandbox, and hooks."
+>
+  <section class="docs-hub">
+    <h1>Documentation</h1>
+    <p class="lead">Everything you need to get started with Ouijit and make the most of its features.</p>
+
+    <div class="docs-card-grid">
+      <a class="docs-card" href="/docs/getting-started/">
+        <h3>Getting Started</h3>
+        <p>System requirements, installation, first launch, and a quick tour of the app.</p>
+      </a>
+      <a class="docs-card" href="/docs/worktrees/">
+        <h3>Worktree Isolation</h3>
+        <p>How Ouijit uses git worktrees to give each task its own isolated workspace.</p>
+      </a>
+      <a class="docs-card" href="/docs/kanban/">
+        <h3>Kanban Board</h3>
+        <p>Columns, creating tasks, drag-and-drop, and keyboard shortcuts.</p>
+      </a>
+      <a class="docs-card" href="/docs/terminals/">
+        <h3>Terminal Sessions</h3>
+        <p>The card stack interface, opening and switching terminals, and multi-terminal workflows.</p>
+      </a>
+      <a class="docs-card" href="/docs/vm-sandbox/">
+        <h3>VM Sandbox</h3>
+        <p>Lima VM integration for sandboxed terminal sessions and agent isolation.</p>
+      </a>
+      <a class="docs-card" href="/docs/hooks/">
+        <h3>Hooks</h3>
+        <p>Script hooks and task lifecycle automation.</p>
+      </a>
+      <a class="docs-card" href="/docs/claude-code/">
+        <h3>Claude Code</h3>
+        <p>Live agent status indicators and how the integration works.</p>
+      </a>
+    </div>
+  </section>
+</Site>

@@ -1,0 +1,40 @@
+---
+import Nav from '../components/site/Nav.astro';
+import Footer from '../components/site/Footer.astro';
+import '../styles/global.css';
+import '../styles/marketing.css';
+
+interface Props {
+  title?: string;
+  description?: string;
+}
+
+const {
+  title = 'Ouijit · An IDE for coding agents',
+  description = 'A board for the work in flight, a stack of terminals per task, and a fresh git worktree under each one. macOS and Linux.',
+} = Astro.props;
+---
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{title}</title>
+  <meta name="description" content={description} />
+  <link rel="icon" type="image/png" href="/assets/favicon.png" />
+  <link rel="apple-touch-icon" href="/assets/favicon.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    rel="stylesheet"
+    href="https://fonts.googleapis.com/css2?family=Montagu+Slab:opsz,wght@16..144,400;16..144,500;16..144,600;16..144,700&display=swap"
+    media="print"
+    onload="this.media='all'"
+  />
+</head>
+<body class="marketing">
+  <Nav />
+  <slot />
+  <Footer />
+</body>
+</html>

@@ -1,0 +1,39 @@
+---
+import Site from './Site.astro';
+
+interface Props {
+  title: string;
+  description?: string;
+  current: string;
+}
+
+const { title, description, current } = Astro.props;
+
+const pages = [
+  { slug: 'index', href: '/docs/', label: 'Overview' },
+  { slug: 'getting-started', href: '/docs/getting-started/', label: 'Getting Started' },
+  { slug: 'worktrees', href: '/docs/worktrees/', label: 'Worktree Isolation' },
+  { slug: 'kanban', href: '/docs/kanban/', label: 'Kanban Board' },
+  { slug: 'terminals', href: '/docs/terminals/', label: 'Terminal Sessions' },
+  { slug: 'vm-sandbox', href: '/docs/vm-sandbox/', label: 'VM Sandbox' },
+  { slug: 'hooks', href: '/docs/hooks/', label: 'Hooks' },
+  { slug: 'claude-code', href: '/docs/claude-code/', label: 'Claude Code' },
+];
+---
+<Site title={title} description={description}>
+  <div class="docs-layout">
+    <aside class="docs-sidebar">
+      <h4>Documentation</h4>
+      <ul>
+        {pages.map((p) => (
+          <li>
+            <a href={p.href} class={current === p.slug ? 'active' : ''}>{p.label}</a>
+          </li>
+        ))}
+      </ul>
+    </aside>
+    <main class="docs-content">
+      <slot />
+    </main>
+  </div>
+</Site>

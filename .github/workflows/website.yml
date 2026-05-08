@@ -3,7 +3,18 @@ name: Deploy Website
 on:
   push:
     branches: [main]
-    paths: ['website/**']
+    paths:
+      - 'website/**'
+      - 'src/components/**View.tsx'
+      - 'src/components/terminal/StatusDot.tsx'
+      - 'src/components/terminal/Icon.tsx'
+      - 'src/utils/taskChain.ts'
+      - 'src/utils/icons.ts'
+      - 'src/index.css'
+      - 'src/assets/fonts/**'
+      - 'src/types.ts'
+      - 'src/stores/terminalStore.ts'
+      - '.github/workflows/website.yml'
   workflow_dispatch:
 
 permissions:
@@ -23,11 +34,25 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: website/package-lock.json
+
+      - name: Install website dependencies
+        run: npm ci
+        working-directory: website
+
+      - name: Build static site
+        run: npm run build
+        working-directory: website
+
       - uses: actions/configure-pages@v5
 
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: website
+          path: website/dist
 
       - id: deployment
         uses: actions/deploy-pages@v4
