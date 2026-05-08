@@ -1,5 +1,6 @@
 import { describe, test, expect, beforeEach, vi } from 'vitest';
 import { useProjectStore } from '../../stores/projectStore';
+import { useAppStore } from '../../stores/appStore';
 import type { TaskWithWorkspace } from '../../types';
 
 function makeTask(taskNumber: number, status: string, order: number): TaskWithWorkspace {
@@ -66,5 +67,39 @@ describe('projectStore.moveTask', () => {
 
     const rolled = useProjectStore.getState().tasks;
     expect(rolled).toEqual(tasks);
+  });
+});
+
+describe('projectStore.loadTasks → appStore cache', () => {
+  beforeEach(() => {
+    useProjectStore.setState({ tasks: [], _version: 0, toasts: [] });
+    useAppStore.setState({
+      projects: [
+        {
+          path: '/project',
+          name: 'project',
+          hasGit: true,
+          hasClaude: false,
+          lastModified: new Date('2026-01-01T00:00:00Z'),
+        },
+      ],
+      taskCacheByProject: {},
+      homeRecents: null,
+    });
+  });
+
+  test('writes loaded tasks through to appStore.taskCacheByProject', async () => {
+    const tasks = [makeTask(1, 'todo', 0), makeTask(2, 'in_progress', 1)];
+    vi.mocked(window.api.task.getAll).mockResolvedValue(tasks);
+
+    await useProjectStore.getState().loadTasks('/project');
+
+    expect(useAppStore.getState().taskCacheByProject['/project']).toEqual(tasks);
+    expect(
+      useAppStore
+        .getState()
+        .homeRecents?.map((r) => r.taskNumber)
+        .sort(),
+    ).toEqual([1, 2]);
   });
 });

@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { TaskWithWorkspace, Script, ScriptHook, HookType } from '../types';
 import type { RunHookResult } from '../components/dialogs/RunHookDialog';
+import { useAppStore } from './appStore';
 
 export type TerminalLayout = 'stack' | 'canvas';
 
@@ -259,6 +260,7 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
       const tasks = await window.api.task.getAll(projectPath);
       if (get()._version !== version) return;
       set({ tasks });
+      useAppStore.getState().updateProjectTaskCache(projectPath, tasks);
     } catch (err) {
       if (get()._version !== version) return;
       get().addToast(`Failed to load tasks: ${err instanceof Error ? err.message : String(err)}`, 'error');

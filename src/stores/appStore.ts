@@ -24,6 +24,10 @@ interface AppStoreState {
   health: HealthStatus | null;
   homeActivePanel: 'home' | 'settings';
   homeRecents: HomeRecentTask[] | null;
+  /** Per-project task cache. Source of truth for `homeRecents`; updated whenever
+   *  any project's tasks are (re)loaded. Lets the home view paint instantly
+   *  from cache while a background refresh reconciles. */
+  taskCacheByProject: Record<string, TaskWithWorkspace[]>;
   _version: number;
 }
 
@@ -39,7 +43,23 @@ interface AppStoreActions {
   navigateToProject: (path: string, project: Project, options?: { direction?: ViewTransitionDirection }) => void;
   navigateHome: (options?: { direction?: ViewTransitionDirection }) => void;
   loadHomeRecents: () => Promise<void>;
+  /** Update one project's slice of the task cache; re-derives `homeRecents`. */
+  updateProjectTaskCache: (projectPath: string, tasks: TaskWithWorkspace[]) => void;
   resetProjectState: () => void;
+}
+
+function deriveHomeRecents(projects: Project[], cache: Record<string, TaskWithWorkspace[]>): HomeRecentTask[] {
+  const projectByPath = new Map(projects.map((p) => [p.path, p]));
+  const all: HomeRecentTask[] = [];
+  for (const [path, tasks] of Object.entries(cache)) {
+    const project = projectByPath.get(path);
+    if (!project) continue;
+    for (const t of tasks) all.push({ ...t, project });
+  }
+  return all
+    .filter((t) => t.status !== 'done')
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    .slice(0, MAX_HOME_RECENTS);
 }
 
 type AppStore = AppStoreState & AppStoreActions;
@@ -59,6 +79,7 @@ export const useAppStore = create<AppStore>()((set, get) => ({
   health: null,
   homeActivePanel: 'home',
   homeRecents: null,
+  taskCacheByProject: {},
   _version: 0,
 
   setProjects: (projects) => set({ projects }),
@@ -111,20 +132,22 @@ export const useAppStore = create<AppStore>()((set, get) => ({
 
   loadHomeRecents: async () => {
     const projects = get().projects;
-    const arrays = await Promise.all(
+    const results = await Promise.all(
       projects.map((project) =>
         window.api.task
           .getAll(project.path)
-          .then((tasks) => tasks.map((t) => ({ ...t, project })))
-          .catch(() => [] as HomeRecentTask[]),
+          .then((tasks) => ({ path: project.path, tasks }))
+          .catch(() => ({ path: project.path, tasks: [] as TaskWithWorkspace[] })),
       ),
     );
-    const recents = arrays
-      .flat()
-      .filter((t) => t.status !== 'done')
-      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
-      .slice(0, MAX_HOME_RECENTS);
-    set({ homeRecents: recents });
+    const cache: Record<string, TaskWithWorkspace[]> = { ...get().taskCacheByProject };
+    for (const { path, tasks } of results) cache[path] = tasks;
+    set({ taskCacheByProject: cache, homeRecents: deriveHomeRecents(get().projects, cache) });
+  },
+
+  updateProjectTaskCache: (projectPath, tasks) => {
+    const cache = { ...get().taskCacheByProject, [projectPath]: tasks };
+    set({ taskCacheByProject: cache, homeRecents: deriveHomeRecents(get().projects, cache) });
   },
 
   resetProjectState: () => {
