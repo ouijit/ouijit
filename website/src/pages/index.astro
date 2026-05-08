@@ -1,6 +1,6 @@
 ---
 import Site from '../layouts/Site.astro';
-import CompareSlider from '../components/site/CompareSlider.tsx';
+import WorkspaceScene from '../components/demo/WorkspaceScene.tsx';
 import BoardDemo from '../components/demo/BoardDemo.tsx';
 import StackDemo from '../components/demo/StackDemo.tsx';
 import AutomationDemo from '../components/demo/AutomationDemo.tsx';
@@ -29,8 +29,8 @@ import AgentStatesDemo from '../components/demo/AgentStatesDemo.tsx';
     </div>
   </section>
 
-  <section class="compare-section">
-    <CompareSlider client:visible />
+  <section class="hero-scene">
+    <WorkspaceScene client:visible />
   </section>
 
   <section class="exposition" id="board">

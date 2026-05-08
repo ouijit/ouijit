@@ -3,6 +3,7 @@ import type { TaskStatus } from '@app/types';
 import { KanbanColumnView } from '@app/components/kanban/KanbanColumnView';
 import { KanbanCardView } from '@app/components/kanban/KanbanCardView';
 import { KanbanBadgeView } from '@app/components/kanban/KanbanBadgeView';
+import { KanbanAddInput } from '@app/components/kanban/KanbanAddInput';
 import { TerminalCardView } from '@app/components/terminal/TerminalCardView';
 import { TerminalHeaderView } from '@app/components/terminal/TerminalHeaderView';
 import { Icon } from '@app/components/terminal/Icon';
@@ -34,7 +35,6 @@ const TERMINALS: StackTerminal[] = [
     summaryType: 'thinking',
     lastOscTitle: 'Editing onboarding stepper...',
     branch: 'rework-onboarding',
-    tags: ['onboarding', 'stepper'],
     body: <ClaudeBody />,
   },
   {
@@ -47,7 +47,7 @@ const TERMINALS: StackTerminal[] = [
   },
   {
     ptyId: 'pty-103-test',
-    label: 'Polish invitation email template',
+    label: 'Polish invitation email',
     summaryType: 'ready',
     lastOscTitle: '14 passed',
     branch: 'polish-invitation-email',
@@ -104,8 +104,8 @@ export default function WorkspaceScene() {
           position: 'absolute',
           top: 0,
           left: 0,
-          right: 0,
-          height: 560,
+          right: 240,
+          height: 520,
           display: 'flex',
           background: 'var(--color-background)',
           border: '1px solid rgba(0, 0, 0, 0.6)',
@@ -135,9 +135,27 @@ export default function WorkspaceScene() {
                   />
                 );
               })}
+              {status === 'todo' && <KanbanAddInput onAdd={() => {}} />}
             </KanbanColumnView>
           );
         })}
+      </div>
+
+      {/* Bottom-left: macOS-style notification preview, anchoring the visual
+          weight opposite to the terminal stack's bottom-right mass. Clicking
+          the banner brings the matching terminal to the front of the stack,
+          just like the OS notification opens the source app. */}
+      <div
+        className="workspace-scene-notification"
+        style={{
+          position: 'absolute',
+          left: 44,
+          bottom: 20,
+          width: 320,
+          zIndex: 3,
+        }}
+      >
+        <NotificationPreview onActivate={() => bringToFront('pty-103-test')} />
       </div>
 
       {/* Terminal stack layer. */}
@@ -145,7 +163,7 @@ export default function WorkspaceScene() {
         className="workspace-scene-stack"
         style={{
           position: 'absolute',
-          right: -40,
+          right: 0,
           bottom: 0,
           width: 720,
           zIndex: 2,
@@ -195,16 +213,36 @@ function BranchLabel({ branch }: { branch: string }) {
   );
 }
 
-/** Static Plan/Run action pair, visual only. */
+/** Static action group mirroring the app's ActionGroup: Plan, Preview, Diff,
+ * Run + chevron. All idle (no panels open) so each button shows its inactive
+ * style. */
 function ActiveActions() {
+  const btn =
+    'h-full px-2.5 flex items-center gap-1 border-none font-sans text-[13px] font-medium bg-transparent text-text-secondary hover:text-text-primary hover:bg-background-tertiary';
+  const divider = <div aria-hidden className="w-px h-3 bg-white/10 self-center" />;
   return (
     <div className="inline-flex items-center h-7 bg-background-secondary glass-bevel relative border border-black/60 rounded-[12px] overflow-hidden">
-      <button className="h-full px-2.5 flex items-center gap-1 border-none font-sans text-[13px] font-medium bg-accent text-white">
-        Plan
+      <button className={btn}>
+        <Icon name="list-checks" className="w-3.5 h-3.5" />
+        <span>Plan</span>
       </button>
-      <div aria-hidden className="w-px h-3 bg-white/10 self-center" />
-      <button className="h-full px-2.5 flex items-center gap-1 border-none font-sans text-[13px] font-medium bg-transparent text-text-secondary">
-        Run
+      {divider}
+      <button className={btn}>
+        <Icon name="globe-simple" className="w-3.5 h-3.5" />
+        <span>Preview</span>
+      </button>
+      {divider}
+      <button className={btn}>
+        <span>3 files</span>
+        <span className="text-[#4ee82e]">+124</span>
+        <span className="text-[#ff6b6b]">-18</span>
+      </button>
+      {divider}
+      <button className={btn}>
+        <span>Run</span>
+      </button>
+      <button className={`${btn} !px-2`} aria-label="More run options">
+        <Icon name="caret-down" className="w-2.5 h-2.5" />
       </button>
     </div>
   );
@@ -285,6 +323,85 @@ function ShellBody() {
         <span className="text-[#4ee82e]">{'✓'}</span> 38 checks passed
       </div>
       <div className="text-white/55">2 issues to address</div>
+    </div>
+  );
+}
+
+/** macOS dark-mode notification banner mimicking the one Ouijit posts via
+ * `new Notification(projectName, { body })` when a terminal goes ready.
+ * Clicking the banner activates the matching terminal (like the OS banner
+ * opening the source app); hovering reveals a close button in the top-left
+ * that dismisses the notification without activating it. */
+function NotificationPreview({ onActivate }: { onActivate?: () => void }) {
+  const [dismissed, setDismissed] = useState(false);
+  if (dismissed) return null;
+
+  const handleClose = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setDismissed(true);
+  };
+
+  return (
+    <div
+      className="macos-notif"
+      role="button"
+      tabIndex={0}
+      onClick={onActivate}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onActivate?.();
+        }
+      }}
+    >
+      <button
+        type="button"
+        className="macos-notif-close"
+        aria-label="Dismiss notification"
+        onClick={handleClose}
+      >
+        <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
+          <path
+            d="M2 2 L8 8 M8 2 L2 8"
+            stroke="rgba(255,255,255,0.85)"
+            strokeWidth="1.4"
+            strokeLinecap="round"
+          />
+        </svg>
+      </button>
+      <img
+        src="/assets/ouijit-app-icon.png"
+        alt=""
+        width={44}
+        height={44}
+        style={{ flexShrink: 0, display: 'block' }}
+      />
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
+          <span
+            style={{
+              fontSize: 13,
+              fontWeight: 600,
+              color: 'rgba(255, 255, 255, 0.95)',
+              letterSpacing: 0.1,
+            }}
+          >
+            Ouijit
+          </span>
+          <span style={{ fontSize: 11, color: 'rgba(255, 255, 255, 0.5)', flexShrink: 0 }}>now</span>
+        </div>
+        <div
+          style={{
+            fontSize: 13,
+            fontWeight: 400,
+            color: 'rgba(255, 255, 255, 0.85)',
+            marginTop: 2,
+            lineHeight: 1.3,
+          }}
+        >
+          Polish invitation email is ready
+        </div>
+      </div>
     </div>
   );
 }

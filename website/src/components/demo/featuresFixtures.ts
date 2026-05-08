@@ -53,7 +53,7 @@ export const featuresTasks: TaskWithWorkspace[] = [
   // the bottom-right corner of the board.
   {
     taskNumber: 103,
-    name: 'Polish invitation email template',
+    name: 'Polish invitation email',
     status: 'in_progress',
     branch: 'polish-invitation-email',
     worktreePath: '/demo/horizon/.ouijit/worktrees/T-103',

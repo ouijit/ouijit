@@ -264,6 +264,65 @@ body.marketing .btn-secondary:hover {
   color: #fff;
 }
 
+/* --- Hero workspace scene --- */
+.hero-scene {
+  padding: 0 var(--content-padding) 100px;
+  position: relative;
+}
+
+/* --- macOS notification banner inside the workspace scene --- */
+.macos-notif {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 13px 14px;
+  background: rgba(46, 46, 48, 0.92);
+  backdrop-filter: blur(40px) saturate(180%);
+  -webkit-backdrop-filter: blur(40px) saturate(180%);
+  border-radius: 17px;
+  box-shadow:
+    0 24px 48px rgba(0, 0, 0, 0.45),
+    0 6px 14px rgba(0, 0, 0, 0.3),
+    inset 0 0 0 0.5px rgba(255, 255, 255, 0.18);
+  color: white;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif;
+}
+
+.macos-notif-close {
+  position: absolute;
+  top: -8px;
+  left: -8px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: none;
+  padding: 0;
+  background: rgba(60, 60, 62, 0.95);
+  box-shadow:
+    0 2px 6px rgba(0, 0, 0, 0.4),
+    inset 0 0 0 0.5px rgba(255, 255, 255, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transform: scale(0.8);
+  transition:
+    opacity 120ms ease,
+    transform 120ms ease,
+    background 120ms ease;
+}
+
+.macos-notif:hover .macos-notif-close,
+.macos-notif-close:focus-visible {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.macos-notif-close:hover {
+  background: rgba(80, 80, 82, 0.98);
+}
+
 /* --- Compare slider --- */
 .compare-section {
   padding: 0 var(--content-padding) 80px;
