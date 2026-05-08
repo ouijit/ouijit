@@ -92,43 +92,43 @@ export default function WorkspaceScene() {
         }}
       >
         <div style={{ position: 'relative', height: 450, paddingTop: 80 }}>
-          {/* Back card 3 */}
+          {/* Back card 3, owned by T-105 */}
           <TerminalCardView backDepth={3}>
             <TerminalHeaderView
               summaryType="ready"
               stackPosition={3}
               isBackCard
-              label="shell"
-              summary="zsh"
+              label="Audit accessibility on settings dialog"
+              lastOscTitle="axe-core --tags wcag2a"
             />
           </TerminalCardView>
-          {/* Back card 2 */}
+          {/* Back card 2, owned by T-103 */}
           <TerminalCardView backDepth={2}>
             <TerminalHeaderView
               summaryType="ready"
               stackPosition={2}
               isBackCard
-              label="npm test"
-              summary="14 passed"
+              label="Polish invitation email template"
+              lastOscTitle="14 passed"
             />
           </TerminalCardView>
-          {/* Back card 1 */}
+          {/* Back card 1, owned by T-101 */}
           <TerminalCardView backDepth={1}>
             <TerminalHeaderView
               summaryType="ready"
               stackPosition={1}
               isBackCard
-              label="npm run dev"
-              summary="live dev server"
+              label="Rework onboarding flow"
+              lastOscTitle="live dev server"
             />
           </TerminalCardView>
-          {/* Front (active) card */}
+          {/* Front (active) card, owned by T-101 */}
           <TerminalCardView isActive>
             <TerminalHeaderView
               summaryType="thinking"
               isActive
-              label="claude"
-              summary="Editing onboarding stepper..."
+              label="Rework onboarding flow"
+              lastOscTitle="Editing onboarding stepper..."
               tags={['onboarding', 'stepper']}
               actions={
                 <div className="inline-flex items-center h-7 bg-background-secondary glass-bevel relative border border-black/60 rounded-[12px] overflow-hidden">

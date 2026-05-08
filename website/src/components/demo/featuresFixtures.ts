@@ -48,7 +48,17 @@ export const featuresTasks: TaskWithWorkspace[] = [
     createdAt: '2026-05-07T17:00:00Z',
   },
 
-  // In Progress
+  // In Progress: T-103 leads the column with the lighter 2-terminal setup;
+  // T-101 sits below it as the focal task whose 4-terminal stack overlaps
+  // the bottom-right corner of the board.
+  {
+    taskNumber: 103,
+    name: 'Polish invitation email template',
+    status: 'in_progress',
+    branch: 'polish-invitation-email',
+    worktreePath: '/demo/horizon/.ouijit/worktrees/T-103',
+    createdAt: '2026-05-06T10:00:00Z',
+  },
   {
     taskNumber: 101,
     name: 'Rework onboarding flow',
@@ -58,14 +68,6 @@ export const featuresTasks: TaskWithWorkspace[] = [
     createdAt: '2026-05-06T10:00:00Z',
     prompt:
       'Split the existing single-page onboarding into a stepper with saved progress, and move the welcome copy into a reusable intro component so the marketing site can embed it too.',
-  },
-  {
-    taskNumber: 103,
-    name: 'Polish invitation email template',
-    status: 'in_progress',
-    branch: 'polish-invitation-email',
-    worktreePath: '/demo/horizon/.ouijit/worktrees/T-103',
-    createdAt: '2026-05-06T10:00:00Z',
   },
   {
     taskNumber: 104,
@@ -124,33 +126,45 @@ export const featuresTasks: TaskWithWorkspace[] = [
 
 export const featuresChainMap: Map<number, TaskChainInfo> = buildChainMap(featuresTasks);
 
-/** Connected terminals per task. Only T-101 needs a populated stack here — the
- * other in-progress tasks just show one terminal so cards have realistic badges. */
+/** Connected terminals per task. The four terminals from the stack are
+ * distributed 2/1/1 across the in_progress column so the board never shows
+ * a card with more than two open terminals. Each task title, status and OSC
+ * title still corresponds 1:1 to a card in the stack. */
 export const featuresTerminalsByTask: Record<number, TerminalDisplayState[]> = {
   101: [
     term({
       ptyId: 'pty-101-claude',
       label: 'claude',
       summaryType: 'thinking',
-      taskId: 101,
       lastOscTitle: 'Editing onboarding stepper...',
+      taskId: 101,
     }),
-    term({ ptyId: 'pty-101-dev', label: 'npm run dev', taskId: 101 }),
-    term({ ptyId: 'pty-101-test', label: 'npm test', summaryType: 'ready', taskId: 101 }),
-    term({ ptyId: 'pty-101-shell', label: 'shell', summaryType: 'ready', taskId: 101 }),
-  ],
-  103: [term({ ptyId: 'pty-103-claude', label: 'claude', summaryType: 'thinking', taskId: 103 })],
-  104: [
     term({
-      ptyId: 'pty-104-claude',
-      label: 'claude',
-      summaryType: 'thinking',
-      sandboxed: true,
-      taskId: 104,
+      ptyId: 'pty-101-dev',
+      label: 'npm run dev',
+      summaryType: 'ready',
+      lastOscTitle: 'live dev server',
+      taskId: 101,
     }),
   ],
-  105: [term({ ptyId: 'pty-105-claude', label: 'claude', taskId: 105 })],
-  98: [term({ ptyId: 'pty-98-claude', label: 'claude', summaryType: 'ready', taskId: 98 })],
+  103: [
+    term({
+      ptyId: 'pty-103-test',
+      label: 'npm test',
+      summaryType: 'ready',
+      lastOscTitle: '14 passed',
+      taskId: 103,
+    }),
+  ],
+  105: [
+    term({
+      ptyId: 'pty-105-shell',
+      label: 'shell',
+      summaryType: 'ready',
+      lastOscTitle: 'axe-core --tags wcag2a',
+      taskId: 105,
+    }),
+  ],
 };
 
 export const FEATURES_PROJECT_PATH = PROJECT_PATH;
