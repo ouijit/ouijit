@@ -4,6 +4,7 @@ import { useProjectStore } from '../../stores/projectStore';
 import { useUIStore } from '../../stores/uiStore';
 import { terminalInstances } from './terminalReact';
 import { addProjectTerminal, closeProjectTerminal } from './terminalActions';
+import { findOtherTaskTerminals } from './findOtherTaskTerminals';
 
 const EMPTY_TAGS: string[] = [];
 import type { GitFileStatus, RunnerScript } from '../../types';
@@ -194,12 +195,13 @@ export const TerminalHeader = memo(function TerminalHeader({
         icon: 'archive',
         onClick: async () => {
           const store = useTerminalStore.getState();
-          const projectPtyIds = store.terminalsByProject[projectPath] ?? [];
-          const otherPtyIds = projectPtyIds.filter((id) => {
-            if (id === ptyId) return false;
-            const d = store.displayStates[id];
-            return d?.taskId === taskId && !d.isLoading;
-          });
+          const otherPtyIds = findOtherTaskTerminals(
+            store.terminalsByProject,
+            store.displayStates,
+            projectPath,
+            taskId!,
+            ptyId,
+          );
 
           if (otherPtyIds.length > 0) {
             const taskName =
