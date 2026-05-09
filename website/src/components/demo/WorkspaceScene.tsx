@@ -1,5 +1,5 @@
-import { useCallback, useState, type ReactNode } from 'react';
-import type { TaskStatus } from '@app/types';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import type { TaskStatus, TaskWithWorkspace } from '@app/types';
 import { KanbanColumnView } from '@app/components/kanban/KanbanColumnView';
 import { KanbanCardView } from '@app/components/kanban/KanbanCardView';
 import { KanbanBadgeView } from '@app/components/kanban/KanbanBadgeView';
@@ -7,8 +7,14 @@ import { KanbanAddInput } from '@app/components/kanban/KanbanAddInput';
 import { TerminalCardView } from '@app/components/terminal/TerminalCardView';
 import { TerminalHeaderView } from '@app/components/terminal/TerminalHeaderView';
 import { Icon } from '@app/components/terminal/Icon';
-import { isChainMember } from '@app/utils/taskChain';
-import { featuresTasks, featuresChainMap, featuresTerminalsByTask } from './featuresFixtures';
+import { isChainMember, buildChainMap } from '@app/utils/taskChain';
+import type { TerminalDisplayState } from '@app/stores/terminalStore';
+import { DEFAULT_DISPLAY_STATE } from '@app/stores/terminalStore';
+import {
+  featuresTasks,
+  featuresTerminalsByTask,
+  FEATURES_PROJECT_PATH,
+} from './featuresFixtures';
 
 const COLUMNS: { status: TaskStatus; label: string }[] = [
   { status: 'todo', label: 'Todo' },
@@ -25,17 +31,15 @@ interface StackTerminal {
   branch?: string;
   sandboxed?: boolean;
   tags?: string[];
-  body: ReactNode;
 }
 
-const TERMINALS: StackTerminal[] = [
+const INITIAL_TERMINALS: StackTerminal[] = [
   {
     ptyId: 'pty-101-claude',
     label: 'Rework onboarding flow',
     summaryType: 'thinking',
     lastOscTitle: 'Editing onboarding stepper...',
     branch: 'rework-onboarding',
-    body: <ClaudeBody />,
   },
   {
     ptyId: 'pty-101-dev',
@@ -43,7 +47,6 @@ const TERMINALS: StackTerminal[] = [
     summaryType: 'ready',
     lastOscTitle: 'live dev server',
     branch: 'rework-onboarding',
-    body: <DevServerBody />,
   },
   {
     ptyId: 'pty-103-test',
@@ -51,17 +54,45 @@ const TERMINALS: StackTerminal[] = [
     summaryType: 'ready',
     lastOscTitle: '14 passed',
     branch: 'polish-invitation-email',
-    body: <TestBody />,
   },
   {
     ptyId: 'pty-105-shell',
     label: 'Audit accessibility on settings dialog',
     summaryType: 'ready',
     lastOscTitle: 'axe-core --tags wcag2a',
-    branch: 'a11y-settings',
-    body: <ShellBody />,
   },
 ];
+
+const DEMO_COMMAND = 'ouijit task create-and-start "Add 2FA"';
+const DEMO_TASK_NUMBER = 142;
+const DEMO_PTY_ID = 'pty-142-claude';
+
+const DEMO_TASK: TaskWithWorkspace = {
+  taskNumber: DEMO_TASK_NUMBER,
+  name: 'Add 2FA',
+  status: 'in_progress',
+  branch: 'add-2fa',
+  worktreePath: `${FEATURES_PROJECT_PATH}/.ouijit/worktrees/T-${DEMO_TASK_NUMBER}`,
+  createdAt: '2026-05-08T09:00:00Z',
+};
+
+const DEMO_TERMINAL_DISPLAY: TerminalDisplayState = {
+  ...DEFAULT_DISPLAY_STATE,
+  projectPath: FEATURES_PROJECT_PATH,
+  ptyId: DEMO_PTY_ID,
+  label: 'claude',
+  summaryType: 'thinking',
+  lastOscTitle: 'Spinning up...',
+  taskId: DEMO_TASK_NUMBER,
+};
+
+const DEMO_TERMINAL: StackTerminal = {
+  ptyId: DEMO_PTY_ID,
+  label: 'Add 2FA',
+  summaryType: 'thinking',
+  lastOscTitle: 'Spinning up...',
+  branch: 'add-2fa',
+};
 
 /**
  * The features-page hero. A 4-column kanban board sits at the top of the
@@ -70,21 +101,97 @@ const TERMINALS: StackTerminal[] = [
  *
  * Interactive: clicking a back card in the stack promotes that terminal to
  * the front, and clicking a terminal pill on a kanban card brings the
- * matching terminal to the front of the stack.
+ * matching terminal to the front of the stack. Clicking the bottom-left CLI
+ * prompt bubble plays a one-shot demo that types the command, creates a new
+ * task, spawns a terminal, and streams agent activity.
  */
 export default function WorkspaceScene() {
-  const [stackOrder, setStackOrder] = useState<string[]>(() => TERMINALS.map((t) => t.ptyId));
+  const [tasks, setTasks] = useState<TaskWithWorkspace[]>(featuresTasks);
+  const [terminalsByTask, setTerminalsByTask] = useState(featuresTerminalsByTask);
+  const [terminals, setTerminals] = useState<StackTerminal[]>(INITIAL_TERMINALS);
+  const [stackOrder, setStackOrder] = useState<string[]>(() => INITIAL_TERMINALS.map((t) => t.ptyId));
+
+  const [demoStarted, setDemoStarted] = useState(false);
+  const [typingProgress, setTypingProgress] = useState(0);
+  const [highlightTaskNumber, setHighlightTaskNumber] = useState<number | null>(null);
+  const [streamStep, setStreamStep] = useState(0);
+
+  const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const intervalsRef = useRef<ReturnType<typeof setInterval>[]>([]);
+
+  useEffect(
+    () => () => {
+      timersRef.current.forEach(clearTimeout);
+      intervalsRef.current.forEach(clearInterval);
+    },
+    [],
+  );
 
   const bringToFront = useCallback((ptyId: string) => {
     setStackOrder((prev) => (prev[0] === ptyId ? prev : [ptyId, ...prev.filter((id) => id !== ptyId)]));
   }, []);
+
+  const playDemo = useCallback(() => {
+    if (demoStarted) return;
+    setDemoStarted(true);
+
+    const TYPE_MS = 30;
+    const TYPING_DURATION = DEMO_COMMAND.length * TYPE_MS;
+
+    let charIdx = 0;
+    const typeInterval = setInterval(() => {
+      charIdx += 1;
+      setTypingProgress(charIdx);
+      if (charIdx >= DEMO_COMMAND.length) {
+        clearInterval(typeInterval);
+      }
+    }, TYPE_MS);
+    intervalsRef.current.push(typeInterval);
+
+    // After typing: drop the new task straight into In Progress. The
+    // GrowingCard wrapper animates it from 0 to its natural height, pushing
+    // T-103/T-101/etc. down so it's easy to spot.
+    timersRef.current.push(
+      setTimeout(() => {
+        setTasks((prev) => [DEMO_TASK, ...prev]);
+        setHighlightTaskNumber(DEMO_TASK_NUMBER);
+      }, TYPING_DURATION + 150),
+    );
+
+    // After the card finishes growing (~520ms) plus a beat of breathing room,
+    // spawn the terminal at the front of the stack.
+    timersRef.current.push(
+      setTimeout(() => {
+        setTerminals((prev) => [DEMO_TERMINAL, ...prev]);
+        setStackOrder((prev) => [DEMO_PTY_ID, ...prev]);
+        setTerminalsByTask((prev) => ({ ...prev, [DEMO_TASK_NUMBER]: [DEMO_TERMINAL_DISPLAY] }));
+      }, TYPING_DURATION + 1150),
+    );
+
+    // Clear the pulse highlight a touch after the terminal lands.
+    timersRef.current.push(
+      setTimeout(() => setHighlightTaskNumber(null), TYPING_DURATION + 2400),
+    );
+
+    // Stream the agent body, line by line.
+    for (let step = 1; step <= 5; step += 1) {
+      timersRef.current.push(
+        setTimeout(() => setStreamStep(step), TYPING_DURATION + 1700 + (step - 1) * 700),
+      );
+    }
+  }, [demoStarted]);
 
   // Each terminal's stack depth comes from stackOrder, but we render them in
   // a stable DOM order so React never has to reorder children. Reordering
   // would re-attach one of the cards and cancel its CSS transition mid-flight.
   // The visual stacking is handled entirely by zIndex/transform from
   // TerminalCardView's DEPTH_STYLES.
-  const positionByPtyId = new Map(stackOrder.map((id, i) => [id, i]));
+  const positionByPtyId = useMemo(
+    () => new Map(stackOrder.map((id, i) => [id, i])),
+    [stackOrder],
+  );
+
+  const chainMap = useMemo(() => buildChainMap(tasks), [tasks]);
 
   return (
     <div
@@ -115,25 +222,36 @@ export default function WorkspaceScene() {
         }}
       >
         {COLUMNS.map(({ status, label }) => {
-          const tasksInColumn = featuresTasks.filter((t) => t.status === status);
+          const tasksInColumn = tasks.filter((t) => t.status === status);
           return (
             <KanbanColumnView key={status} status={status} label={label} count={tasksInColumn.length}>
               {tasksInColumn.map((task) => {
-                const chainInfo = featuresChainMap.get(task.taskNumber);
+                const chainInfo = chainMap.get(task.taskNumber);
                 const showBadge = isChainMember(chainInfo);
-                return (
+                const isDemoTask = task.taskNumber === DEMO_TASK_NUMBER;
+                const taskTerminals = terminalsByTask[task.taskNumber] ?? [];
+                const isSettingUp = isDemoTask && taskTerminals.length === 0;
+                const card = (
                   <KanbanCardView
-                    key={task.taskNumber}
                     task={task}
-                    connectedDisplays={featuresTerminalsByTask[task.taskNumber] ?? []}
+                    connectedDisplays={taskTerminals}
                     chainInfo={chainInfo}
                     showBadge={showBadge}
                     badge={
                       showBadge ? <KanbanBadgeView taskNumber={task.taskNumber} chainInfo={chainInfo} /> : null
                     }
                     onSwitchToTerminal={bringToFront}
+                    isSettingUp={isSettingUp}
                   />
                 );
+                if (isDemoTask) {
+                  return (
+                    <GrowingCard key={task.taskNumber} pulse={highlightTaskNumber === task.taskNumber}>
+                      {card}
+                    </GrowingCard>
+                  );
+                }
+                return <Fragment key={task.taskNumber}>{card}</Fragment>;
               })}
               {status === 'todo' && <KanbanAddInput onAdd={() => {}} />}
             </KanbanColumnView>
@@ -161,7 +279,7 @@ export default function WorkspaceScene() {
       {/* Bottom-left: CLI prompt bubble. Sits near the todo column where new
           tasks land, and reinforces that the same workflow can be driven
           from the shell — agents (and people) can spin up tasks without
-          touching the UI. */}
+          touching the UI. Clicking it plays the demo. */}
       <div
         className="workspace-scene-cli"
         style={{
@@ -172,7 +290,11 @@ export default function WorkspaceScene() {
           zIndex: 3,
         }}
       >
-        <CliPromptBubble />
+        <CliPromptBubble
+          typedChars={demoStarted ? typingProgress : DEMO_COMMAND.length}
+          played={demoStarted}
+          onPlay={playDemo}
+        />
       </div>
 
       {/* Terminal stack layer. */}
@@ -188,7 +310,7 @@ export default function WorkspaceScene() {
         }}
       >
         <div style={{ position: 'relative', height: 450, paddingTop: 80 }}>
-          {TERMINALS.map((term) => {
+          {terminals.map((term) => {
             const position = positionByPtyId.get(term.ptyId) ?? 0;
             const isActive = position === 0;
             return (
@@ -210,12 +332,36 @@ export default function WorkspaceScene() {
                   branchContent={isActive && term.branch ? <BranchLabel branch={term.branch} /> : undefined}
                   actions={isActive ? <ActiveActions /> : undefined}
                 />
-                {isActive && term.body}
+                {isActive && renderBody(term.ptyId, streamStep)}
               </TerminalCardView>
             );
           })}
         </div>
       </div>
+    </div>
+  );
+}
+
+/** Wraps a freshly-spawned kanban card and animates its height from 0 up to
+ * its natural content height on mount, pushing surrounding cards down. The
+ * grid-template-rows 0fr → 1fr trick lets us transition to `auto` height
+ * without measuring. */
+function GrowingCard({ children, pulse }: { children: ReactNode; pulse: boolean }) {
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setOpen(true));
+    return () => cancelAnimationFrame(id);
+  }, []);
+  return (
+    <div
+      className={pulse ? 'workspace-scene-task-grow workspace-scene-task-pulse' : 'workspace-scene-task-grow'}
+      style={{
+        display: 'grid',
+        gridTemplateRows: open ? '1fr' : '0fr',
+        transition: 'grid-template-rows 520ms cubic-bezier(0.22, 1, 0.36, 1)',
+      }}
+    >
+      <div style={{ overflow: 'hidden', minHeight: 0 }}>{children}</div>
     </div>
   );
 }
@@ -266,6 +412,23 @@ function ActiveActions() {
 }
 
 const BODY_CLS = 'flex-1 p-4 font-mono text-[11px] leading-6 text-white/85 overflow-hidden min-h-0';
+
+function renderBody(ptyId: string, streamStep: number): ReactNode {
+  switch (ptyId) {
+    case 'pty-101-claude':
+      return <ClaudeBody />;
+    case 'pty-101-dev':
+      return <DevServerBody />;
+    case 'pty-103-test':
+      return <TestBody />;
+    case 'pty-105-shell':
+      return <ShellBody />;
+    case DEMO_PTY_ID:
+      return <DemoStreamBody step={streamStep} />;
+    default:
+      return null;
+  }
+}
 
 function ClaudeBody() {
   return (
@@ -344,20 +507,111 @@ function ShellBody() {
   );
 }
 
-/** Floating glass pill mimicking a quick CLI invocation. Static visual — the
- * cursor block blinks via CSS so the pill feels alive without animating
- * actual typed characters. */
-function CliPromptBubble() {
+/** Streaming Claude body for the demo terminal. Lines reveal one at a time
+ * as `step` increments, mimicking an agent that just kicked off. */
+function DemoStreamBody({ step }: { step: number }) {
   return (
-    <div className="cli-prompt-bubble">
-      <span className="cli-prompt-bubble__prompt">$</span>
-      <span className="cli-prompt-bubble__cmd">
-        <span className="cli-prompt-bubble__bin">ouijit</span> task create-and-start{' '}
-        <span className="cli-prompt-bubble__arg">&quot;Add 2FA&quot;</span>
-      </span>
-      <span className="cli-prompt-bubble__cursor" aria-hidden="true" />
+    <div className={BODY_CLS}>
+      {step >= 1 && (
+        <div>
+          <span className="text-white/40 mr-1">{'>'}</span> Add two-factor authentication with TOTP and recovery codes.
+        </div>
+      )}
+      {step >= 2 && (
+        <>
+          <div className="mt-1.5 text-white">
+            <span className="bg-accent/15 text-[#79b8ff] px-1.5 rounded mr-1">Read</span>
+            src/auth/AuthService.ts
+          </div>
+          <div className="text-white/55 pl-3">└─ existing session model, will extend with otpSecret column</div>
+        </>
+      )}
+      {step >= 3 && (
+        <>
+          <div className="mt-1.5 text-white">
+            <span className="bg-accent/15 text-[#79b8ff] px-1.5 rounded mr-1">Edit</span>
+            src/auth/AuthService.ts
+          </div>
+          <div className="text-white/55 pl-3">└─ +87 lines, adds setupTotp, verifyTotp, regenerateRecoveryCodes</div>
+        </>
+      )}
+      {step >= 4 && (
+        <>
+          <div className="mt-1.5 text-white">
+            <span className="bg-accent/15 text-[#79b8ff] px-1.5 rounded mr-1">Bash</span>
+            npm test auth
+          </div>
+          <div className="text-white/55 pl-3">
+            └─ <span className="text-[#4ee82e]">18 passed</span>, 0 failed
+          </div>
+        </>
+      )}
+      {step >= 5 && <div className="mt-2 text-white/40">· Thinking...</div>}
     </div>
   );
+}
+
+/** Floating glass pill mimicking a quick CLI invocation. Until clicked, shows
+ * the full command with a blinking cursor. On click, restarts the cursor
+ * blink and reveals the command character by character via `typedChars`. */
+function CliPromptBubble({
+  typedChars,
+  played,
+  onPlay,
+}: {
+  typedChars: number;
+  played: boolean;
+  onPlay: () => void;
+}) {
+  const visible = DEMO_COMMAND.slice(0, typedChars);
+  return (
+    <button
+      type="button"
+      className={`cli-prompt-bubble${played ? ' is-played' : ''}`}
+      onClick={onPlay}
+      disabled={played}
+      aria-label={played ? 'Demo started' : 'Run demo'}
+    >
+      <span className="cli-prompt-bubble__prompt">$</span>
+      <span className="cli-prompt-bubble__cmd">
+        {renderTypedCommand(visible)}
+      </span>
+      <span className="cli-prompt-bubble__cursor" aria-hidden="true" />
+    </button>
+  );
+}
+
+/** Highlight `ouijit` and the quoted argument inside whatever portion of the
+ * command has been "typed" so far. */
+function renderTypedCommand(text: string): ReactNode {
+  if (text.length === 0) return null;
+
+  const parts: ReactNode[] = [];
+  let cursor = 0;
+
+  if (text.startsWith('ouijit')) {
+    const slice = text.slice(0, Math.min(6, text.length));
+    parts.push(
+      <span key="bin" className="cli-prompt-bubble__bin">
+        {slice}
+      </span>,
+    );
+    cursor = slice.length;
+  }
+
+  const quoteIdx = text.indexOf('"');
+  if (quoteIdx >= 0) {
+    parts.push(<span key="mid">{text.slice(cursor, quoteIdx)}</span>);
+    parts.push(
+      <span key="arg" className="cli-prompt-bubble__arg">
+        {text.slice(quoteIdx)}
+      </span>,
+    );
+  } else {
+    parts.push(<span key="rest">{text.slice(cursor)}</span>);
+  }
+
+  return parts;
 }
 
 /** macOS dark-mode notification banner mimicking the one Ouijit posts via

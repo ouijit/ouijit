@@ -356,6 +356,41 @@ body.marketing .btn-secondary:hover {
   color: rgba(255, 255, 255, 0.92);
   white-space: nowrap;
   overflow: hidden;
+  width: 100%;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    transform 180ms ease-out,
+    box-shadow 180ms ease-out,
+    background 180ms ease-out;
+}
+
+.cli-prompt-bubble:hover:not(:disabled) {
+  transform: translateY(-2px);
+  background: rgba(36, 36, 40, 0.92);
+  box-shadow:
+    0 30px 56px rgba(0, 0, 0, 0.5),
+    0 8px 18px rgba(0, 0, 0, 0.35),
+    inset 0 0 0 0.5px rgba(255, 255, 255, 0.18),
+    0 0 0 1px rgba(10, 132, 255, 0.35);
+}
+
+.cli-prompt-bubble:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.cli-prompt-bubble:focus-visible {
+  outline: none;
+  box-shadow:
+    0 24px 48px rgba(0, 0, 0, 0.45),
+    0 6px 14px rgba(0, 0, 0, 0.3),
+    inset 0 0 0 0.5px rgba(255, 255, 255, 0.14),
+    0 0 0 3px rgba(10, 132, 255, 0.35);
+}
+
+.cli-prompt-bubble.is-played {
+  cursor: default;
 }
 
 .cli-prompt-bubble__prompt {
@@ -397,6 +432,24 @@ body.marketing .btn-secondary:hover {
   50.01%,
   100% {
     opacity: 0;
+  }
+}
+
+/* --- Highlight pulse on a kanban card freshly added by the demo --- */
+.workspace-scene-task-pulse {
+  border-radius: 9px;
+  animation: workspace-scene-task-pulse 1.6s ease-out;
+}
+
+@keyframes workspace-scene-task-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(10, 132, 255, 0.55);
+  }
+  60% {
+    box-shadow: 0 0 0 10px rgba(10, 132, 255, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(10, 132, 255, 0);
   }
 }
 
