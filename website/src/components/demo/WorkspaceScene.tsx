@@ -141,21 +141,38 @@ export default function WorkspaceScene() {
         })}
       </div>
 
-      {/* Bottom-left: macOS-style notification preview, anchoring the visual
-          weight opposite to the terminal stack's bottom-right mass. Clicking
-          the banner brings the matching terminal to the front of the stack,
-          just like the OS notification opens the source app. */}
+      {/* Top-right: macOS-style notification preview. Mirrors where macOS
+          actually posts notifications. Clicking the banner brings the
+          matching terminal to the front of the stack, just like the OS
+          notification opens the source app. */}
       <div
         className="workspace-scene-notification"
         style={{
           position: 'absolute',
-          left: 90,
-          bottom: 10,
-          width: 320,
+          top: 24,
+          right: -15,
+          width: 270,
           zIndex: 3,
         }}
       >
         <NotificationPreview onActivate={() => bringToFront('pty-103-test')} />
+      </div>
+
+      {/* Bottom-left: CLI prompt bubble. Sits near the todo column where new
+          tasks land, and reinforces that the same workflow can be driven
+          from the shell — agents (and people) can spin up tasks without
+          touching the UI. */}
+      <div
+        className="workspace-scene-cli"
+        style={{
+          position: 'absolute',
+          left: 30,
+          bottom: 50,
+          width: 360,
+          zIndex: 3,
+        }}
+      >
+        <CliPromptBubble />
       </div>
 
       {/* Terminal stack layer. */}
@@ -327,6 +344,22 @@ function ShellBody() {
   );
 }
 
+/** Floating glass pill mimicking a quick CLI invocation. Static visual — the
+ * cursor block blinks via CSS so the pill feels alive without animating
+ * actual typed characters. */
+function CliPromptBubble() {
+  return (
+    <div className="cli-prompt-bubble">
+      <span className="cli-prompt-bubble__prompt">$</span>
+      <span className="cli-prompt-bubble__cmd">
+        <span className="cli-prompt-bubble__bin">ouijit</span> task create-and-start{' '}
+        <span className="cli-prompt-bubble__arg">&quot;Add 2FA&quot;</span>
+      </span>
+      <span className="cli-prompt-bubble__cursor" aria-hidden="true" />
+    </div>
+  );
+}
+
 /** macOS dark-mode notification banner mimicking the one Ouijit posts via
  * `new Notification(projectName, { body })` when a terminal goes ready.
  * Clicking the banner activates the matching terminal (like the OS banner
@@ -372,15 +405,15 @@ function NotificationPreview({ onActivate }: { onActivate?: () => void }) {
       <img
         src="/assets/ouijit-app-icon.png"
         alt=""
-        width={44}
-        height={44}
+        width={36}
+        height={36}
         style={{ flexShrink: 0, display: 'block' }}
       />
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
           <span
             style={{
-              fontSize: 13,
+              fontSize: 12,
               fontWeight: 600,
               color: 'rgba(255, 255, 255, 0.95)',
               letterSpacing: 0.1,
@@ -388,11 +421,11 @@ function NotificationPreview({ onActivate }: { onActivate?: () => void }) {
           >
             Ouijit
           </span>
-          <span style={{ fontSize: 11, color: 'rgba(255, 255, 255, 0.5)', flexShrink: 0 }}>now</span>
+          <span style={{ fontSize: 10, color: 'rgba(255, 255, 255, 0.5)', flexShrink: 0 }}>now</span>
         </div>
         <div
           style={{
-            fontSize: 13,
+            fontSize: 12,
             fontWeight: 400,
             color: 'rgba(255, 255, 255, 0.85)',
             marginTop: 2,
