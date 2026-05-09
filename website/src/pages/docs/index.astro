@@ -9,6 +9,7 @@ const sections = [
   { id: 'sandbox', label: 'VM Sandbox' },
   { id: 'hooks', label: 'Hooks' },
   { id: 'claude-code', label: 'Claude Code' },
+  { id: 'cli', label: 'CLI' },
 ];
 ---
 <Site title="Documentation · Ouijit" description="Ouijit documentation: getting started, worktrees, kanban, terminals, VM sandbox, hooks, and Claude Code integration.">
@@ -370,6 +371,141 @@ OUIJIT_HOOK_TYPE=start</code></pre>
         <h2>What about other agents?</h2>
         <p>Ouijit's terminals work with any CLI agent: Cursor, Aider, Codex, whatever. They just won't get the fancy status lights. Yet. I play favorites for now.</p>
         <p>If your favorite agent has a hook or plugin system, <a href="https://github.com/ouijit/ouijit/issues" target="_blank" rel="noopener">open an issue</a> and I'll see what I can do.</p>
+      </section>
+
+      <section id="cli">
+        <h1>CLI</h1>
+        <p class="lead">Drive Ouijit from inside any terminal it spawns. Create tasks, flip statuses, manage hooks, run scripts, all from the shell.</p>
+
+        <h2>Where it lives</h2>
+        <p>
+          The <code>ouijit</code> command is auto-installed into every terminal Ouijit opens, both host shells and sandboxed
+          ones. There's nothing to install separately, no <code>npm i -g</code>, no homebrew tap. It's only available
+          inside Ouijit terminals because it talks to the running app over a localhost API with a per-session token.
+        </p>
+        <p>
+          If you run <code>ouijit</code> from a regular terminal outside the app, you'll get a polite "not available" error.
+          That's intentional. The CLI exists so AI agents and scripts running inside Ouijit terminals can drive the app,
+          not so you have a parallel command surface to maintain.
+        </p>
+
+        <h2>Output format</h2>
+        <p>
+          Every successful command writes a single JSON value to <code>stdout</code> and exits 0. Errors write
+          <code>{`{"error": "..."}`}</code> to <code>stderr</code> and exit non-zero. Pipe to <code>jq</code> for grepping
+          fields:
+        </p>
+        <pre><code>ouijit task list | jq '.[] | select(.status == "in_progress") | .name'</code></pre>
+
+        <h2>Project detection</h2>
+        <p>
+          By default the CLI auto-detects the active project from your current directory by walking up to the nearest git
+          root. If you're inside a worktree it follows the <code>.git</code> file back to the main repo. Override with
+          <code>--project &lt;path&gt;</code>.
+        </p>
+
+        <h2>Tasks</h2>
+        <p>The bread and butter. Statuses are <code>todo</code>, <code>in_progress</code>, <code>in_review</code>, <code>done</code>.</p>
+        <pre><code>ouijit task list                              # array of tasks
+ouijit task get 5                             # single task
+ouijit task current                           # task owning this terminal
+ouijit task create "Fix login bug"
+ouijit task create "Refactor auth" --prompt "Extract middleware"
+ouijit task start 5                           # creates worktree, sets in_progress
+ouijit task start 5 --branch custom-name
+ouijit task create-and-start "Add 2FA"        # create + start in one step
+ouijit task set-status 5 in_review
+ouijit task set-name 5 "Better name"
+ouijit task set-description 5 "More detail"
+ouijit task set-merge-target 5 develop
+ouijit task delete 5</code></pre>
+        <p>
+          <code>ouijit task current</code> resolves the task owning the current terminal via the <code>OUIJIT_PTY_ID</code>
+          env var that Ouijit sets on every spawn. Useful inside agent scripts:
+        </p>
+        <pre><code>TASK=$(ouijit task current | jq -r .taskNumber)
+ouijit task set-status "$TASK" in_review</code></pre>
+
+        <h2>Hooks</h2>
+        <p>
+          CRUD for the <a href="#hooks">lifecycle hooks</a>. Hook types are <code>start</code>, <code>continue</code>,
+          <code>run</code>, <code>review</code>, <code>cleanup</code>, <code>editor</code>.
+        </p>
+        <pre><code>ouijit hook list
+ouijit hook get start
+ouijit hook set start --name "Install &amp; agent" --command 'npm install &amp;&amp; claude "$OUIJIT_TASK_PROMPT"'
+ouijit hook delete cleanup</code></pre>
+
+        <h2>Tags</h2>
+        <p>Tag tasks for organization in the home view.</p>
+        <pre><code>ouijit tag list                               # all tags across projects
+ouijit tag list --task 5                      # tags on one task
+ouijit tag add 5 bug
+ouijit tag remove 5 bug
+ouijit tag set 5 bug priority urgent          # replace all tags</code></pre>
+
+        <h2>Scripts</h2>
+        <p>
+          Scripts are saved shell commands that show up in the runner panel. Set them once, then trigger from the UI or
+          the CLI. Unlike hooks, scripts are ad-hoc: they don't fire on lifecycle events.
+        </p>
+        <pre><code>ouijit script list
+ouijit script set --name "Lint" --command "npm run lint"
+ouijit script set --name "Tests" --command "npm test"
+ouijit script run Lint                        # by name
+ouijit script run &lt;id&gt;                        # by id
+ouijit script run Tests --task 5              # run inside task 5's worktree
+ouijit script delete &lt;id&gt;</code></pre>
+        <p>
+          <code>script run</code> streams the command's output through your terminal and exits with the command's exit
+          code. <code>script set</code> upserts by name, so re-running with the same <code>--name</code> updates the
+          existing script's command.
+        </p>
+
+        <h2>Plan files</h2>
+        <p>
+          Each terminal can have a Markdown plan file associated with it. The app shows the plan inline so an agent and
+          you can collaborate on a shared TODO list. The CLI is how the agent updates that association.
+        </p>
+        <pre><code>ouijit plan set ./plan.md                     # uses current OUIJIT_PTY_ID
+ouijit plan set ./plan.md pty_abc123          # explicit pty id
+ouijit plan get
+ouijit plan unset</code></pre>
+
+        <h2>Projects</h2>
+        <p>List every project registered with the app. Mostly useful for cross-project automation.</p>
+        <pre><code>ouijit project list</code></pre>
+
+        <h2>Environment variables</h2>
+        <p>Ouijit sets these on every terminal it spawns. Your scripts and agents can read them directly:</p>
+        <table>
+          <thead>
+            <tr><th>Variable</th><th>What it is</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>OUIJIT_API_URL</code></td><td>Base URL for the local REST API the CLI talks to.</td></tr>
+            <tr><td><code>OUIJIT_API_TOKEN</code></td><td>Bearer token scoped to this terminal session.</td></tr>
+            <tr><td><code>OUIJIT_PTY_ID</code></td><td>Unique id for this terminal session. Used by <code>task current</code> and <code>plan</code>.</td></tr>
+          </tbody>
+        </table>
+        <p>
+          Hooks get extra context on top of these. See <a href="#hooks">Hooks → Environment variables</a> for the full
+          list of <code>OUIJIT_TASK_*</code> variables available to start, continue, review, and cleanup commands.
+        </p>
+
+        <h2>Recipes</h2>
+        <h3>Self-promote when an agent is done</h3>
+        <p>Drop this at the end of an agent's workflow so it pushes itself into review when the work is finished:</p>
+        <pre><code>TASK=$(ouijit task current | jq -r .taskNumber)
+ouijit task set-status "$TASK" in_review</code></pre>
+
+        <h3>Tag a task with the language it's touching</h3>
+        <pre><code>TASK=$(ouijit task current | jq -r .taskNumber)
+ouijit tag add "$TASK" typescript</code></pre>
+
+        <h3>Spawn a task and let an agent pick it up</h3>
+        <p>The <code>start</code> hook fires after <code>create-and-start</code>, so any agent invocation in that hook runs immediately:</p>
+        <pre><code>ouijit task create-and-start "Add 2FA" --prompt "Implement TOTP-based 2FA"</code></pre>
       </section>
     </main>
   </div>
