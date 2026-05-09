@@ -203,17 +203,68 @@ export default function WorkspaceScene() {
 
   const chainMap = useMemo(() => buildChainMap(tasks), [tasks]);
 
+  // Scale-to-fit. The scene's internal layout is locked at 1160×630 with
+  // pixel-precise absolute positions. Below 1160px viewport we shrink the
+  // whole composition with transform: scale so positions stay coherent.
+  // Below MIN_SCALE the canvas stops shrinking — instead the wrapper clips
+  // the left/right edges, so phones and small windows still get the
+  // middle-of-the-action read.
+  const CANVAS_WIDTH = 1160;
+  const MIN_SCALE = 0.85;
+  const computeScale = (width: number) =>
+    Math.min(1, Math.max(MIN_SCALE, width / CANVAS_WIDTH));
+  const clipRef = useRef<HTMLDivElement>(null);
+  const initialWidth = typeof window === 'undefined' ? CANVAS_WIDTH : window.innerWidth;
+  const [scale, setScale] = useState(() => computeScale(initialWidth));
+  const [wrapperWidth, setWrapperWidth] = useState(initialWidth);
+  useEffect(() => {
+    const el = clipRef.current;
+    if (!el) return;
+    const update = (width: number) => {
+      setWrapperWidth(width);
+      setScale(computeScale(width));
+    };
+    update(el.getBoundingClientRect().width);
+    const observer = new ResizeObserver((entries) => update(entries[0].contentRect.width));
+    observer.observe(el);
+    return () => observer.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // The canvas stays centered in the clip via flex (so vertical alignment
+  // is unaffected). We additionally apply a horizontal drift so that when
+  // the viewport just starts being too narrow, only the RIGHT edge clips
+  // (preserving the Todo column + setup spinner on the left). As overflow
+  // grows past RIGHT_ONLY_OVERFLOW, the drift eases back to 0 so both
+  // sides clip evenly by FULLY_CENTERED_OVERFLOW.
+  const visualCanvasWidth = CANVAS_WIDTH * scale;
+  const spaceLeft = (wrapperWidth - visualCanvasWidth) / 2;
+  let driftX = 0;
+  if (spaceLeft < 0) {
+    const overflow = -spaceLeft * 2;
+    const RIGHT_ONLY_OVERFLOW = 360;
+    const FULLY_CENTERED_OVERFLOW = 760;
+    const t = Math.min(
+      1,
+      Math.max(0, (overflow - RIGHT_ONLY_OVERFLOW) / (FULLY_CENTERED_OVERFLOW - RIGHT_ONLY_OVERFLOW)),
+    );
+    driftX = -spaceLeft * (1 - t);
+  }
+
   return (
-    <div
-      className="workspace-scene"
-      style={{
-        position: 'relative',
-        width: '100%',
-        maxWidth: 1160,
-        margin: '0 auto',
-        height: 630,
-      }}
-    >
+    <div className="workspace-scene-frame">
+      <div ref={clipRef} className="workspace-scene-clip" style={{ height: 630 * scale }}>
+        <div
+          className="workspace-scene"
+          style={{
+            position: 'relative',
+            width: 1160,
+            height: 630,
+            flexShrink: 0,
+            transform: `translateX(${driftX}px) scale(${scale})`,
+            transformOrigin: 'top center',
+          }}
+        >
       {/* Board layer — matches the app's .kanban-board (glass-bevel + black border + rounded). */}
       <div
         className="workspace-scene-board glass-bevel"
@@ -272,8 +323,10 @@ export default function WorkspaceScene() {
       {/* Top-right: macOS-style notification banner that posts once the demo
           terminal goes idle. Mirrors where macOS actually fires
           notifications. Clicking it brings the matching terminal to the
-          front of the stack. */}
-      {showDemoNotification && (
+          front of the stack. Only rendered at full scale; on smaller
+          viewports the notification renders below the scene as a
+          full-width banner above the CLI prompt instead. */}
+      {showDemoNotification && scale === 1 && (
         <div
           className="workspace-scene-notification"
           style={{
@@ -293,21 +346,23 @@ export default function WorkspaceScene() {
         </div>
       )}
 
-      {/* Bottom-left: CLI prompt bubble. Sits near the todo column where new
-          tasks land, and reinforces that the same workflow can be driven
-          from the shell — agents (and people) can spin up tasks without
-          touching the UI. Clicking it plays the demo. */}
-      <div
-        className="workspace-scene-cli"
-        style={{
-          position: 'absolute',
-          left: 70,
-          bottom: 22,
-          zIndex: 3,
-        }}
-      >
-        <CliPromptBubble typedChars={typingProgress} played={demoStarted} onPlay={playDemo} />
-      </div>
+      {/* Bottom-left: CLI prompt bubble. Only rendered at full scale; on
+          smaller viewports the same prompt is rendered below the scaled
+          canvas in .workspace-scene-cli-row instead, where it stays full
+          size and centered. */}
+      {scale === 1 && (
+        <div
+          className="workspace-scene-cli"
+          style={{
+            position: 'absolute',
+            left: 70,
+            bottom: 22,
+            zIndex: 3,
+          }}
+        >
+          <CliPromptBubble typedChars={typingProgress} played={demoStarted} onPlay={playDemo} />
+        </div>
+      )}
 
       {/* Terminal stack layer. */}
       <div
@@ -353,6 +408,32 @@ export default function WorkspaceScene() {
           })}
         </div>
       </div>
+        </div>
+      </div>
+
+      {/* Mobile/tablet: notification surfaces as a full-width banner above
+          the CLI prompt (mirroring how macOS notifications stack on a small
+          screen) instead of overlapping the scene's top-right corner. */}
+      {scale < 1 && showDemoNotification && (
+        <div className="workspace-scene-notification-row">
+          <FadeInWrapper>
+            <NotificationPreview
+              title="Add 2FA is ready"
+              onActivate={() => bringToFront(DEMO_PTY_ID)}
+            />
+          </FadeInWrapper>
+        </div>
+      )}
+
+      {/* On smaller viewports where the scene gets scaled or clipped, render
+          the prompt below the canvas at full size, centered, so it's still
+          legible and clickable. At full scale the prompt lives in the
+          scene's bottom-left corner instead (see above). */}
+      {scale < 1 && (
+        <div className="workspace-scene-cli-row">
+          <CliPromptBubble typedChars={typingProgress} played={demoStarted} onPlay={playDemo} />
+        </div>
+      )}
     </div>
   );
 }
