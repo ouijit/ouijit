@@ -5,9 +5,6 @@ import WorkspaceScene from '../components/demo/WorkspaceScene.tsx';
 <Site>
   <section class="hero">
     <h1>Integrated Divination Environment</h1>
-    <p class="subtitle">
-      Isolated workspaces for parallel agents, lifecycle hooks for automation, and built-in VM sandboxing.
-    </p>
     <div class="download-buttons">
       <a
         href="https://github.com/ouijit/ouijit/releases/latest/download/ouijit-darwin-arm64.zip"
@@ -27,5 +24,14 @@ import WorkspaceScene from '../components/demo/WorkspaceScene.tsx';
 
   <section class="hero-scene">
     <WorkspaceScene client:visible />
+  </section>
+
+  <section class="home-pitch">
+    <p>
+      Ouijit is a customizable task and terminal session manager that integrates with agent CLIs and TUIs like
+      Claude Code via lifecycle hooks, scripts, and a session-aware CLI. It offers basic comforts for agentic
+      development like live agent status with notifications, automatic worktree management for parallel
+      workstreams, and VM sandboxing for untrusted code.
+    </p>
   </section>
 </Site>
