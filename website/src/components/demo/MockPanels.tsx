@@ -269,7 +269,6 @@ const FIXTURES: Record<string, PanelFixtures> = {
   'pty-101-claude': {
     plan: { filename: 'plan.md', body: ONBOARDING_PLAN_BODY },
     diff: ONBOARDING_DIFF,
-    preview: ONBOARDING_PREVIEW,
   },
   'pty-101-dev': {
     plan: { filename: 'plan.md', body: ONBOARDING_PLAN_BODY },

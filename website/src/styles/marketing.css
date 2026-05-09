@@ -563,6 +563,20 @@ body.marketing .home-pitch-link:hover span {
   }
 }
 
+/* --- Inline terminal cursor used inside mock terminal bodies --- */
+.terminal-cursor {
+  display: inline-block;
+  width: 6px;
+  height: 11px;
+  background: rgba(245, 245, 247, 0.85);
+  vertical-align: -1px;
+  margin-left: 2px;
+  animation: cli-cursor-blink 1.05s steps(2, end) infinite;
+}
+.terminal-cursor--dim {
+  background: rgba(245, 245, 247, 0.55);
+}
+
 /* --- Highlight pulse on a kanban card freshly added by the demo --- */
 .workspace-scene-task-pulse {
   border-radius: 9px;

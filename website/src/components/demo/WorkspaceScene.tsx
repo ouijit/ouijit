@@ -61,14 +61,14 @@ const INITIAL_TERMINALS: StackTerminal[] = [
     ptyId: 'pty-103-test',
     label: 'Polish invitation email',
     summaryType: 'ready',
-    lastOscTitle: '14 passed',
+    lastOscTitle: 'Tightened subject and brand tokens',
     branch: 'polish-invitation-email',
   },
   {
     ptyId: 'pty-105-shell',
     label: 'Audit accessibility on settings dialog',
-    summaryType: 'ready',
-    lastOscTitle: 'axe-core --tags wcag2a',
+    summaryType: 'thinking',
+    lastOscTitle: 'Investigating contrast at SettingsDialog:121',
   },
 ];
 
@@ -604,7 +604,8 @@ function ActiveActions({
   );
 }
 
-const BODY_CLS = 'flex-1 p-4 font-mono text-[11px] leading-6 text-white/85 overflow-hidden min-h-0';
+const BODY_CLS =
+  'flex-1 p-4 font-mono text-[11px] leading-[1.65] text-white/85 overflow-hidden min-h-0 flex flex-col';
 
 function renderBody(ptyId: string, streamStep: number, demoComplete: boolean): ReactNode {
   switch (ptyId) {
@@ -623,131 +624,296 @@ function renderBody(ptyId: string, streamStep: number, demoComplete: boolean): R
   }
 }
 
-function ClaudeBody() {
+/* ─── Claude conversation atoms ──────────────────────────────────── */
+
+function ClaudeUser({ children }: { children: ReactNode }) {
   return (
-    <div className={BODY_CLS}>
-      <div>
-        <span className="text-white/40 mr-1">{'>'}</span> Split onboarding into a three-step stepper with saved progress.
-      </div>
-      <div className="mt-1.5 text-white">
-        <span className="bg-accent/15 text-[#79b8ff] px-1.5 rounded mr-1">Edit</span>
-        src/onboarding/Stepper.tsx
-      </div>
-      <div className="text-white/55 pl-3">└─ +124 lines, persists progress, adds back affordance</div>
-      <div className="mt-1.5 text-white">
-        <span className="bg-accent/15 text-[#79b8ff] px-1.5 rounded mr-1">Bash</span>
-        npm test onboarding
-      </div>
-      <div className="text-white/55 pl-3">
-        └─ <span className="text-[#4ee82e]">14 passed</span>, 0 failed
-      </div>
-      <div className="mt-2 text-white/40">· Thinking...</div>
+    <div className="text-white/70">
+      <span className="text-white/35 mr-2">&gt;</span>
+      {children}
     </div>
   );
 }
 
-function DevServerBody() {
+/** Claude Code's bullet-style tool call header: green `⏺` dot, white text. */
+function ToolCall({ name, args }: { name: string; args: ReactNode }) {
+  return (
+    <div className="mt-2 text-white/85">
+      <span className="text-[#7ee787] mr-1.5">⏺</span>
+      <span>{name}</span>
+      <span className="text-white/45">(</span>
+      <span>{args}</span>
+      <span className="text-white/45">)</span>
+    </div>
+  );
+}
+
+/** Indented result body line (`  ⎿ ...`). */
+function ToolResult({ children, dim = false }: { children: ReactNode; dim?: boolean }) {
+  return (
+    <div className={`pl-4 ${dim ? 'text-white/40' : 'text-white/55'}`}>
+      <span className="text-white/30 mr-1.5">⎿</span>
+      {children}
+    </div>
+  );
+}
+
+function Continuation({ children, dim = true }: { children: ReactNode; dim?: boolean }) {
+  return <div className={`pl-7 ${dim ? 'text-white/40' : 'text-white/55'}`}>{children}</div>;
+}
+
+function AssistantSay({ children }: { children: ReactNode }) {
+  return (
+    <div className="mt-2 text-white/85">
+      <span className="text-white mr-1.5">⏺</span>
+      {children}
+    </div>
+  );
+}
+
+/** Claude Code-style TUI input pinned to the bottom of the body. Two
+ * horizontal rules with a `❯` prompt between them, followed by a status
+ * line. The status line surfaces busy state inline ("esc to interrupt")
+ * to match the real TUI. */
+function ClaudeTuiInput({ busy = false, pendingText }: { busy?: boolean; pendingText?: string }) {
+  return (
+    <div className="shrink-0 mt-3">
+      <div className="border-t border-white/15" />
+      <div className="py-1.5 flex items-center gap-2">
+        <span className="text-white/55">❯</span>
+        <span className="flex-1 min-w-0 truncate text-white/85">
+          {pendingText ?? <span className="text-white/25">Type a follow-up&hellip;</span>}
+        </span>
+      </div>
+      <div className="border-t border-white/15" />
+      <div className="mt-1 text-white/35 text-[10px]">
+        Sonnet 4.6 {busy ? '· esc to interrupt' : '· ⏎ to send'} · ↓ to manage
+      </div>
+    </div>
+  );
+}
+
+/** Wraps a Claude conversation: scrolling content area on top, TUI input
+ * pinned at the bottom — matching the real Claude Code TUI layout. */
+function ClaudeShell({
+  children,
+  busy,
+  pendingText,
+}: {
+  children: ReactNode;
+  busy?: boolean;
+  pendingText?: string;
+}) {
   return (
     <div className={BODY_CLS}>
-      <div className="text-white/55">VITE v5.4.10  ready in 412 ms</div>
-      <div className="mt-2">
-        <span className="text-[#79b8ff]">{'>'}</span> Local: <span className="text-white/55">http://localhost:5173/</span>
+      <div className="flex-1 min-h-0 overflow-hidden">{children}</div>
+      <ClaudeTuiInput busy={busy} pendingText={pendingText} />
+    </div>
+  );
+}
+
+/* ─── Bodies ─────────────────────────────────────────────────────── */
+
+function ClaudeBody() {
+  return (
+    <ClaudeShell busy>
+      <ClaudeUser>Split onboarding into a three-step stepper with saved progress.</ClaudeUser>
+      <AssistantSay>
+        <span>I&rsquo;ll read the existing component first, then split it.</span>
+      </AssistantSay>
+      <ToolCall name="Read" args="src/onboarding/Stepper.tsx" />
+      <ToolResult>Read 142 lines</ToolResult>
+      <ToolCall name="Edit" args="src/onboarding/Stepper.tsx" />
+      <ToolResult>
+        <span className="text-[#3fb950]">+92</span>
+        <span className="mx-1 text-white/30">/</span>
+        <span className="text-[#f85149]">−14</span>
+        <span className="ml-2 text-white/55">lines</span>
+      </ToolResult>
+      <Continuation>persists progress, adds back affordance, retires WelcomeIntro</Continuation>
+      <ToolCall name="Write" args="src/onboarding/useOnboardingProgress.ts" />
+      <ToolResult>
+        <span className="text-[#3fb950]">+38</span>
+        <span className="ml-2 text-white/55">lines (new)</span>
+      </ToolResult>
+      <ToolCall name="Bash" args="npm test -- onboarding" />
+      <ToolResult>
+        <span className="text-[#3fb950]">PASS</span>
+        <span className="ml-2 text-white/65">14 tests</span>
+        <span className="ml-2 text-white/35">in 2.1s</span>
+      </ToolResult>
+    </ClaudeShell>
+  );
+}
+
+function DevServerBody() {
+  const Hmr = ({ time, path }: { time: string; path: string }) => (
+    <div>
+      <span className="text-white/30">{time}</span>{' '}
+      <span className="text-[#79b8ff]/80">[vite]</span>{' '}
+      <span className="text-[#a4d4ff]/85">hmr update</span>{' '}
+      <span className="text-white/55">{path}</span>
+    </div>
+  );
+  return (
+    <div className={BODY_CLS}>
+      <div className="flex-1 min-h-0">
+        <div>
+          <span className="text-[#a78bfa] font-semibold">VITE</span>{' '}
+          <span className="text-white/45">v5.4.10</span>
+          <span className="ml-3 text-white/35">ready in 412 ms</span>
+        </div>
+        <div className="mt-2">
+          <span className="text-[#3fb950] mr-1.5">➜</span>
+          <span className="text-white/85 mr-1">Local:</span>
+          <span className="text-[#79b8ff]">http://localhost:5173/</span>
+        </div>
+        <div>
+          <span className="text-[#3fb950] mr-1.5">➜</span>
+          <span className="text-white/85 mr-1">Network:</span>
+          <span className="text-white/45">use --host to expose</span>
+        </div>
+        <div>
+          <span className="text-[#3fb950] mr-1.5">➜</span>
+          <span className="text-white/45">press </span>
+          <span className="text-white/65">h + enter</span>
+          <span className="text-white/45"> to show help</span>
+        </div>
+        <div className="mt-3" />
+        <Hmr time="14:32:18" path="/src/onboarding/Stepper.tsx" />
+        <Hmr time="14:32:21" path="/src/onboarding/WelcomeIntro.tsx" />
+        <Hmr time="14:32:24" path="/src/onboarding/Stepper.tsx" />
+        <div>
+          <span className="text-white/30">14:32:34</span>{' '}
+          <span className="text-[#79b8ff]/80">[vite]</span>{' '}
+          <span className="text-[#ffb454]/90">page reload</span>{' '}
+          <span className="text-white/45">src/onboarding/useOnboardingProgress.ts (new file)</span>
+        </div>
+        <Hmr time="14:32:41" path="/src/onboarding/Stepper.tsx" />
       </div>
-      <div>
-        <span className="text-[#79b8ff]">{'>'}</span> Network: <span className="text-white/55">use --host to expose</span>
-      </div>
-      <div className="mt-3 text-white/40">14:32:18 [vite] hmr update /src/onboarding/Stepper.tsx</div>
-      <div className="text-white/40">14:32:21 [vite] hmr update /src/onboarding/WelcomeIntro.tsx</div>
-      <div className="text-white/40">14:32:34 [vite] page reload (saved-progress hook)</div>
     </div>
   );
 }
 
 function TestBody() {
   return (
-    <div className={BODY_CLS}>
-      <div className="text-white/55">$ vitest run email</div>
-      <div className="mt-2">
-        <span className="text-[#4ee82e]">{'✓'}</span> templates/invitation.test.ts (8 tests)
-      </div>
-      <div className="text-white/55 pl-3">└─ subject line, body html, plain-text fallback, design tokens</div>
-      <div className="mt-1">
-        <span className="text-[#4ee82e]">{'✓'}</span> templates/styles.test.ts (6 tests)
-      </div>
-      <div className="text-white/55 pl-3">└─ resolves the new button styles</div>
-      <div className="mt-2 text-white/55">Test Files  2 passed (2)</div>
-      <div className="text-white/55">
-        Tests       <span className="text-[#4ee82e]">14 passed</span> (14)
-      </div>
-      <div className="text-white/55">Duration    1.12s</div>
-    </div>
+    <ClaudeShell pendingText="run litmus on the new template">
+      <ClaudeUser>
+        Tighten the invitation email — subject line, brand tokens, plain-text fallback.
+      </ClaudeUser>
+      <AssistantSay>
+        <span>I&rsquo;ll start with the templates dir to see the shape.</span>
+      </AssistantSay>
+      <ToolCall name="Read" args="app/mailers/templates/invitation.tsx" />
+      <ToolResult>Read 86 lines</ToolResult>
+      <ToolCall name="Edit" args="app/mailers/templates/invitation.tsx" />
+      <ToolResult>
+        <span className="text-[#3fb950]">+24</span>
+        <span className="mx-1 text-white/30">/</span>
+        <span className="text-[#f85149]">−16</span>
+        <span className="ml-2 text-white/55">lines</span>
+      </ToolResult>
+      <Continuation>tightens subject, drops inline colors, fixes plain-text fallback</Continuation>
+      <ToolCall name="Edit" args="app/mailers/templates/styles.ts" />
+      <ToolResult>
+        <span className="text-[#3fb950]">+6</span>
+        <span className="mx-1 text-white/30">/</span>
+        <span className="text-[#f85149]">−6</span>
+        <span className="ml-2 text-white/55">lines · brand tokens</span>
+      </ToolResult>
+      <ToolCall name="Bash" args="npm test -- email" />
+      <ToolResult>
+        <span className="text-[#3fb950]">PASS</span>
+        <span className="ml-2 text-white/65">14 tests</span>
+        <span className="ml-2 text-white/35">in 1.1s</span>
+      </ToolResult>
+      <AssistantSay>
+        <span>Subject is now 47 chars. Brand tokens applied. Want me to send a Litmus preview?</span>
+      </AssistantSay>
+    </ClaudeShell>
   );
 }
 
 function ShellBody() {
   return (
-    <div className={BODY_CLS}>
-      <div className="text-white/55">$ npx axe-core --tags wcag2a src/components/SettingsDialog.tsx</div>
-      <div className="mt-2 text-[#ffb454]">! aria-required-parent</div>
-      <div className="text-white/55 pl-3">└─ tab role missing tablist parent (line 84)</div>
-      <div className="mt-2 text-[#ffb454]">! color-contrast</div>
-      <div className="text-white/55 pl-3">└─ secondary text 3.8:1 (needs 4.5:1)</div>
-      <div className="mt-2">
-        <span className="text-[#4ee82e]">{'✓'}</span> 38 checks passed
-      </div>
-      <div className="text-white/55">2 issues to address</div>
-    </div>
+    <ClaudeShell busy>
+      <ClaudeUser>Audit the settings dialog for WCAG 2.0 AA issues and queue fixes.</ClaudeUser>
+      <AssistantSay>
+        <span>I&rsquo;ll run axe against the rendered dialog first.</span>
+      </AssistantSay>
+      <ToolCall name="Bash" args="npx @axe-core/cli http://localhost:5173/settings" />
+      <ToolResult>
+        <span className="text-[#3fb950]">38 passes</span>
+        <span className="mx-1.5 text-white/30">·</span>
+        <span className="text-[#ff6b6b]">2 violations</span>
+        <span className="mx-1.5 text-white/30">·</span>
+        <span className="text-white/55">4 incomplete</span>
+      </ToolResult>
+      <ToolCall name="Read" args="src/components/SettingsDialog.tsx" />
+      <ToolResult>Read 187 lines</ToolResult>
+      <AssistantSay>
+        <span>aria-required-parent — tab buttons need a tablist parent. Patching.</span>
+      </AssistantSay>
+      <ToolCall name="Edit" args="src/components/SettingsDialog.tsx" />
+      <ToolResult>
+        <span className="text-[#3fb950]">+6</span>
+        <span className="mx-1 text-white/30">/</span>
+        <span className="text-[#f85149]">−2</span>
+        <span className="ml-2 text-white/55">lines · wraps tabs in role=tablist</span>
+      </ToolResult>
+      <AssistantSay>
+        <span className="italic text-white/55">Investigating the contrast issue at line 121&hellip;</span>
+      </AssistantSay>
+    </ClaudeShell>
   );
 }
 
 /** Streaming Claude body for the demo terminal. Lines reveal one at a time
  * as `step` increments, mimicking an agent that just kicked off. Once
- * `complete` flips, the trailing "Thinking..." swaps for a "Ready for
- * review" line so the body matches the terminal's idle status. */
+ * `complete` flips, the busy indicator collapses and a final review line
+ * lands above the TUI input. */
 function DemoStreamBody({ step, complete }: { step: number; complete: boolean }) {
   return (
-    <div className={BODY_CLS}>
+    <ClaudeShell busy={!complete && step >= 1}>
       {step >= 1 && (
-        <div>
-          <span className="text-white/40 mr-1">{'>'}</span> Add two-factor authentication with TOTP and recovery codes.
-        </div>
+        <ClaudeUser>Add two-factor authentication with TOTP and recovery codes.</ClaudeUser>
       )}
       {step >= 2 && (
         <>
-          <div className="mt-1.5 text-white">
-            <span className="bg-accent/15 text-[#79b8ff] px-1.5 rounded mr-1">Read</span>
-            src/auth/AuthService.ts
-          </div>
-          <div className="text-white/55 pl-3">└─ existing session model, will extend with otpSecret column</div>
+          <ToolCall name="Read" args="src/auth/AuthService.ts" />
+          <ToolResult>Read 124 lines</ToolResult>
+          <Continuation>session model exists, will extend with otpSecret + otpEnabledAt</Continuation>
         </>
       )}
       {step >= 3 && (
         <>
-          <div className="mt-1.5 text-white">
-            <span className="bg-accent/15 text-[#79b8ff] px-1.5 rounded mr-1">Edit</span>
-            src/auth/AuthService.ts
-          </div>
-          <div className="text-white/55 pl-3">└─ +87 lines, adds setupTotp, verifyTotp, regenerateRecoveryCodes</div>
+          <ToolCall name="Edit" args="src/auth/AuthService.ts" />
+          <ToolResult>
+            <span className="text-[#3fb950]">+87</span>
+            <span className="mx-1 text-white/30">/</span>
+            <span className="text-[#f85149]">−4</span>
+            <span className="ml-2 text-white/55">lines</span>
+          </ToolResult>
+          <Continuation>setupTotp, verifyTotp, regenerateRecoveryCodes</Continuation>
         </>
       )}
       {step >= 4 && (
         <>
-          <div className="mt-1.5 text-white">
-            <span className="bg-accent/15 text-[#79b8ff] px-1.5 rounded mr-1">Bash</span>
-            npm test auth
-          </div>
-          <div className="text-white/55 pl-3">
-            └─ <span className="text-[#4ee82e]">18 passed</span>, 0 failed
-          </div>
+          <ToolCall name="Bash" args="npm test -- auth" />
+          <ToolResult>
+            <span className="text-[#3fb950]">PASS</span>
+            <span className="ml-2 text-white/65">18 tests</span>
+            <span className="ml-2 text-white/35">in 1.4s</span>
+          </ToolResult>
         </>
       )}
-      {step >= 5 && !complete && <div className="mt-2 text-white/40">· Thinking...</div>}
       {complete && (
-        <div className="mt-2">
-          <span className="text-[#4ee82e]">{'✓'}</span> <span className="text-white/70">Ready for review.</span>
-        </div>
+        <AssistantSay>
+          <span>Ready for review.</span>
+          <span className="ml-1 text-white/55">Touched 4 files, 18 tests pass.</span>
+        </AssistantSay>
       )}
-    </div>
+    </ClaudeShell>
   );
 }
 
