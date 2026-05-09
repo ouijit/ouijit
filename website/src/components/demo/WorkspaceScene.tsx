@@ -64,6 +64,7 @@ const INITIAL_TERMINALS: StackTerminal[] = [
 ];
 
 const DEMO_COMMAND = 'ouijit task create-and-start "Add 2FA"';
+const DEMO_PRETYPED = 'ouijit'.length;
 const DEMO_TASK_NUMBER = 142;
 const DEMO_PTY_ID = 'pty-142-claude';
 
@@ -112,9 +113,11 @@ export default function WorkspaceScene() {
   const [stackOrder, setStackOrder] = useState<string[]>(() => INITIAL_TERMINALS.map((t) => t.ptyId));
 
   const [demoStarted, setDemoStarted] = useState(false);
-  const [typingProgress, setTypingProgress] = useState(0);
+  const [typingProgress, setTypingProgress] = useState(DEMO_PRETYPED);
   const [highlightTaskNumber, setHighlightTaskNumber] = useState<number | null>(null);
   const [streamStep, setStreamStep] = useState(0);
+  const [demoComplete, setDemoComplete] = useState(false);
+  const [showDemoNotification, setShowDemoNotification] = useState(false);
 
   const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const intervalsRef = useRef<ReturnType<typeof setInterval>[]>([]);
@@ -135,10 +138,10 @@ export default function WorkspaceScene() {
     if (demoStarted) return;
     setDemoStarted(true);
 
-    const TYPE_MS = 30;
-    const TYPING_DURATION = DEMO_COMMAND.length * TYPE_MS;
+    const TYPE_MS = 10;
+    const TYPING_DURATION = (DEMO_COMMAND.length - DEMO_PRETYPED) * TYPE_MS;
 
-    let charIdx = 0;
+    let charIdx = DEMO_PRETYPED;
     const typeInterval = setInterval(() => {
       charIdx += 1;
       setTypingProgress(charIdx);
@@ -158,27 +161,34 @@ export default function WorkspaceScene() {
       }, TYPING_DURATION + 150),
     );
 
-    // After the card finishes growing (~520ms) plus a beat of breathing room,
-    // spawn the terminal at the front of the stack.
+    // After the card finishes growing (~520ms) plus a generous beat so the
+    // viewer can register the new card with its setup spinner, spawn the
+    // terminal at the front of the stack.
     timersRef.current.push(
       setTimeout(() => {
         setTerminals((prev) => [DEMO_TERMINAL, ...prev]);
         setStackOrder((prev) => [DEMO_PTY_ID, ...prev]);
         setTerminalsByTask((prev) => ({ ...prev, [DEMO_TASK_NUMBER]: [DEMO_TERMINAL_DISPLAY] }));
-      }, TYPING_DURATION + 1150),
+      }, TYPING_DURATION + 1900),
     );
 
     // Clear the pulse highlight a touch after the terminal lands.
     timersRef.current.push(
-      setTimeout(() => setHighlightTaskNumber(null), TYPING_DURATION + 2400),
+      setTimeout(() => setHighlightTaskNumber(null), TYPING_DURATION + 3100),
     );
 
     // Stream the agent body, line by line.
     for (let step = 1; step <= 5; step += 1) {
       timersRef.current.push(
-        setTimeout(() => setStreamStep(step), TYPING_DURATION + 1700 + (step - 1) * 700),
+        setTimeout(() => setStreamStep(step), TYPING_DURATION + 2450 + (step - 1) * 700),
       );
     }
+
+    // Final beat: terminal goes idle. Then, after a short delay so the
+    // status change registers, the macOS notification slides in.
+    const completeAt = TYPING_DURATION + 2450 + 5 * 700 + 200;
+    timersRef.current.push(setTimeout(() => setDemoComplete(true), completeAt));
+    timersRef.current.push(setTimeout(() => setShowDemoNotification(true), completeAt + 750));
   }, [demoStarted]);
 
   // Each terminal's stack depth comes from stackOrder, but we render them in
@@ -259,22 +269,29 @@ export default function WorkspaceScene() {
         })}
       </div>
 
-      {/* Top-right: macOS-style notification preview. Mirrors where macOS
-          actually posts notifications. Clicking the banner brings the
-          matching terminal to the front of the stack, just like the OS
-          notification opens the source app. */}
-      <div
-        className="workspace-scene-notification"
-        style={{
-          position: 'absolute',
-          top: 24,
-          right: -15,
-          width: 270,
-          zIndex: 3,
-        }}
-      >
-        <NotificationPreview onActivate={() => bringToFront('pty-103-test')} />
-      </div>
+      {/* Top-right: macOS-style notification banner that posts once the demo
+          terminal goes idle. Mirrors where macOS actually fires
+          notifications. Clicking it brings the matching terminal to the
+          front of the stack. */}
+      {showDemoNotification && (
+        <div
+          className="workspace-scene-notification"
+          style={{
+            position: 'absolute',
+            top: 8,
+            right: -15,
+            width: 270,
+            zIndex: 3,
+          }}
+        >
+          <FadeInWrapper>
+            <NotificationPreview
+              title="Add 2FA is ready"
+              onActivate={() => bringToFront(DEMO_PTY_ID)}
+            />
+          </FadeInWrapper>
+        </div>
+      )}
 
       {/* Bottom-left: CLI prompt bubble. Sits near the todo column where new
           tasks land, and reinforces that the same workflow can be driven
@@ -284,17 +301,12 @@ export default function WorkspaceScene() {
         className="workspace-scene-cli"
         style={{
           position: 'absolute',
-          left: 30,
-          bottom: 50,
-          width: 360,
+          left: 70,
+          bottom: 22,
           zIndex: 3,
         }}
       >
-        <CliPromptBubble
-          typedChars={demoStarted ? typingProgress : DEMO_COMMAND.length}
-          played={demoStarted}
-          onPlay={playDemo}
-        />
+        <CliPromptBubble typedChars={typingProgress} played={demoStarted} onPlay={playDemo} />
       </div>
 
       {/* Terminal stack layer. */}
@@ -313,6 +325,9 @@ export default function WorkspaceScene() {
           {terminals.map((term) => {
             const position = positionByPtyId.get(term.ptyId) ?? 0;
             const isActive = position === 0;
+            const isDemoTerminal = term.ptyId === DEMO_PTY_ID;
+            const summaryType = isDemoTerminal && demoComplete ? 'ready' : term.summaryType;
+            const lastOscTitle = isDemoTerminal && demoComplete ? '18 passed' : term.lastOscTitle;
             return (
               <TerminalCardView
                 key={term.ptyId}
@@ -321,18 +336,18 @@ export default function WorkspaceScene() {
                 onClick={isActive ? undefined : () => bringToFront(term.ptyId)}
               >
                 <TerminalHeaderView
-                  summaryType={term.summaryType}
+                  summaryType={summaryType}
                   sandboxed={term.sandboxed}
                   isActive={isActive}
                   isBackCard={!isActive}
                   stackPosition={isActive ? undefined : position}
                   label={term.label}
-                  lastOscTitle={term.lastOscTitle}
+                  lastOscTitle={lastOscTitle}
                   tags={isActive ? term.tags : undefined}
                   branchContent={isActive && term.branch ? <BranchLabel branch={term.branch} /> : undefined}
                   actions={isActive ? <ActiveActions /> : undefined}
                 />
-                {isActive && renderBody(term.ptyId, streamStep)}
+                {isActive && renderBody(term.ptyId, streamStep, demoComplete)}
               </TerminalCardView>
             );
           })}
@@ -362,6 +377,28 @@ function GrowingCard({ children, pulse }: { children: ReactNode; pulse: boolean 
       }}
     >
       <div style={{ overflow: 'hidden', minHeight: 0 }}>{children}</div>
+    </div>
+  );
+}
+
+/** Fades + slides children up into place on mount. Used so the notification
+ * doesn't pop into existence — it eases up from below its final position
+ * like a real macOS banner being posted. */
+function FadeInWrapper({ children }: { children: ReactNode }) {
+  const [shown, setShown] = useState(false);
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setShown(true));
+    return () => cancelAnimationFrame(id);
+  }, []);
+  return (
+    <div
+      style={{
+        opacity: shown ? 1 : 0,
+        transform: shown ? 'translateY(0)' : 'translateY(18px)',
+        transition: 'opacity 360ms ease-out, transform 420ms cubic-bezier(0.22, 1, 0.36, 1)',
+      }}
+    >
+      {children}
     </div>
   );
 }
@@ -413,7 +450,7 @@ function ActiveActions() {
 
 const BODY_CLS = 'flex-1 p-4 font-mono text-[11px] leading-6 text-white/85 overflow-hidden min-h-0';
 
-function renderBody(ptyId: string, streamStep: number): ReactNode {
+function renderBody(ptyId: string, streamStep: number, demoComplete: boolean): ReactNode {
   switch (ptyId) {
     case 'pty-101-claude':
       return <ClaudeBody />;
@@ -424,7 +461,7 @@ function renderBody(ptyId: string, streamStep: number): ReactNode {
     case 'pty-105-shell':
       return <ShellBody />;
     case DEMO_PTY_ID:
-      return <DemoStreamBody step={streamStep} />;
+      return <DemoStreamBody step={streamStep} complete={demoComplete} />;
     default:
       return null;
   }
@@ -508,8 +545,10 @@ function ShellBody() {
 }
 
 /** Streaming Claude body for the demo terminal. Lines reveal one at a time
- * as `step` increments, mimicking an agent that just kicked off. */
-function DemoStreamBody({ step }: { step: number }) {
+ * as `step` increments, mimicking an agent that just kicked off. Once
+ * `complete` flips, the trailing "Thinking..." swaps for a "Ready for
+ * review" line so the body matches the terminal's idle status. */
+function DemoStreamBody({ step, complete }: { step: number; complete: boolean }) {
   return (
     <div className={BODY_CLS}>
       {step >= 1 && (
@@ -546,14 +585,20 @@ function DemoStreamBody({ step }: { step: number }) {
           </div>
         </>
       )}
-      {step >= 5 && <div className="mt-2 text-white/40">· Thinking...</div>}
+      {step >= 5 && !complete && <div className="mt-2 text-white/40">· Thinking...</div>}
+      {complete && (
+        <div className="mt-2">
+          <span className="text-[#4ee82e]">{'✓'}</span> <span className="text-white/70">Ready for review.</span>
+        </div>
+      )}
     </div>
   );
 }
 
 /** Floating glass pill mimicking a quick CLI invocation. Until clicked, shows
- * the full command with a blinking cursor. On click, restarts the cursor
- * blink and reveals the command character by character via `typedChars`. */
+ * the full command with a blinking cursor and a "Run" affordance, plus an
+ * idle attention pulse to invite the click. On click, the affordance falls
+ * away and the command reveals character by character via `typedChars`. */
 function CliPromptBubble({
   typedChars,
   played,
@@ -564,19 +609,35 @@ function CliPromptBubble({
   onPlay: () => void;
 }) {
   const visible = DEMO_COMMAND.slice(0, typedChars);
+  const remaining = DEMO_COMMAND.slice(typedChars);
   return (
     <button
       type="button"
-      className={`cli-prompt-bubble${played ? ' is-played' : ''}`}
+      className={`cli-prompt-bubble${played ? ' is-played' : ' is-idle'}`}
       onClick={onPlay}
       disabled={played}
-      aria-label={played ? 'Demo started' : 'Run demo'}
+      aria-label={played ? 'Demo started' : 'Run this command'}
     >
-      <span className="cli-prompt-bubble__prompt">$</span>
-      <span className="cli-prompt-bubble__cmd">
-        {renderTypedCommand(visible)}
+      <span className="cli-prompt-bubble__line">
+        <span className="cli-prompt-bubble__prompt">$</span>
+        <span className="cli-prompt-bubble__cmd">
+          {renderTypedCommand(visible)}
+          <span className="cli-prompt-bubble__cursor" aria-hidden="true" />
+          <span className="cli-prompt-bubble__ghost" aria-hidden="true">
+            {remaining}
+          </span>
+        </span>
       </span>
-      <span className="cli-prompt-bubble__cursor" aria-hidden="true" />
+      <span
+        className="cli-prompt-bubble__run"
+        aria-hidden="true"
+        style={played ? { visibility: 'hidden' } : undefined}
+      >
+        <svg width="11" height="13" viewBox="0 0 11 13" fill="none">
+          <path d="M1 1 L10 6.5 L1 12 Z" fill="currentColor" />
+        </svg>
+        <span>Run</span>
+      </span>
     </button>
   );
 }
@@ -619,7 +680,7 @@ function renderTypedCommand(text: string): ReactNode {
  * Clicking the banner activates the matching terminal (like the OS banner
  * opening the source app); hovering reveals a close button in the top-left
  * that dismisses the notification without activating it. */
-function NotificationPreview({ onActivate }: { onActivate?: () => void }) {
+function NotificationPreview({ title, onActivate }: { title: string; onActivate?: () => void }) {
   const [dismissed, setDismissed] = useState(false);
   if (dismissed) return null;
 
@@ -686,7 +747,7 @@ function NotificationPreview({ onActivate }: { onActivate?: () => void }) {
             lineHeight: 1.3,
           }}
         >
-          Polish invitation email is ready
+          {title}
         </div>
       </div>
     </div>

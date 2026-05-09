@@ -336,62 +336,96 @@ body.marketing .btn-secondary:hover {
   background: rgba(80, 80, 82, 0.98);
 }
 
-/* --- CLI prompt bubble inside the workspace scene (top-right) --- */
+/* --- CLI prompt + Run button stacked in the workspace scene corner.
+   The page background acts as the "terminal," so no chrome on the prompt
+   itself — just naked mono text with a blinking cursor and a prominent
+   Run button below. --- */
 .cli-prompt-bubble {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 12px 16px;
-  background: rgba(28, 28, 30, 0.88);
-  backdrop-filter: blur(40px) saturate(180%);
-  -webkit-backdrop-filter: blur(40px) saturate(180%);
-  border-radius: 14px;
-  box-shadow:
-    0 24px 48px rgba(0, 0, 0, 0.45),
-    0 6px 14px rgba(0, 0, 0, 0.3),
-    inset 0 0 0 0.5px rgba(255, 255, 255, 0.14);
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  box-shadow: none;
   font-family: 'Iosevka Term Extended', 'Iosevka Extended', 'SF Mono', Monaco, Menlo, monospace;
-  font-size: 12.5px;
+  font-size: 14px;
   line-height: 1;
   color: rgba(255, 255, 255, 0.92);
   white-space: nowrap;
-  overflow: hidden;
-  width: 100%;
-  border: none;
   text-align: left;
   cursor: pointer;
-  transition:
-    transform 180ms ease-out,
-    box-shadow 180ms ease-out,
-    background 180ms ease-out;
-}
-
-.cli-prompt-bubble:hover:not(:disabled) {
-  transform: translateY(-2px);
-  background: rgba(36, 36, 40, 0.92);
-  box-shadow:
-    0 30px 56px rgba(0, 0, 0, 0.5),
-    0 8px 18px rgba(0, 0, 0, 0.35),
-    inset 0 0 0 0.5px rgba(255, 255, 255, 0.18),
-    0 0 0 1px rgba(10, 132, 255, 0.35);
-}
-
-.cli-prompt-bubble:active:not(:disabled) {
-  transform: translateY(0);
+  transition: opacity 150ms ease-out;
 }
 
 .cli-prompt-bubble:focus-visible {
   outline: none;
-  box-shadow:
-    0 24px 48px rgba(0, 0, 0, 0.45),
-    0 6px 14px rgba(0, 0, 0, 0.3),
-    inset 0 0 0 0.5px rgba(255, 255, 255, 0.14),
-    0 0 0 3px rgba(10, 132, 255, 0.35);
+}
+
+.cli-prompt-bubble:focus-visible .cli-prompt-bubble__run {
+  box-shadow: 0 0 0 3px var(--color-accent-light);
 }
 
 .cli-prompt-bubble.is-played {
   cursor: default;
 }
+
+.cli-prompt-bubble__line {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.cli-prompt-bubble__cmd {
+  display: inline;
+  white-space: pre;
+}
+
+.cli-prompt-bubble__ghost {
+  color: rgba(255, 255, 255, 0.3);
+  white-space: pre;
+}
+
+.cli-prompt-bubble__run {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-end;
+  gap: 8px;
+  padding: 11px 22px 11px 20px;
+  border-radius: 9999px;
+  background: var(--color-accent);
+  color: #fff;
+  font-family:
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    'SF Pro Text',
+    'Helvetica Neue',
+    sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  flex-shrink: 0;
+  transition:
+    background 150ms ease-out,
+    transform 150ms ease-out;
+}
+
+.cli-prompt-bubble:hover:not(:disabled) .cli-prompt-bubble__run {
+  background: var(--color-accent-hover);
+  transform: translateY(-1px);
+}
+
+.cli-prompt-bubble:active:not(:disabled) .cli-prompt-bubble__run {
+  transform: translateY(0);
+}
+
+.cli-prompt-bubble__run svg {
+  display: block;
+  margin-left: -2px;
+}
+
 
 .cli-prompt-bubble__prompt {
   color: rgba(10, 132, 255, 0.9);
@@ -416,8 +450,8 @@ body.marketing .btn-secondary:hover {
 
 .cli-prompt-bubble__cursor {
   display: inline-block;
-  width: 7px;
-  height: 14px;
+  width: 8px;
+  height: 15px;
   background: rgba(245, 245, 247, 0.85);
   border-radius: 1px;
   flex-shrink: 0;
