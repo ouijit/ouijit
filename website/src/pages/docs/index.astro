@@ -100,7 +100,7 @@ npm start</code></pre>
           </li>
           <li><strong>Work</strong>. All changes happen in the worktree. Your main branch stays clean.</li>
           <li><strong>Review</strong>. Use the diff panel to see what changed relative to main.</li>
-          <li><strong>Complete</strong>. Merge locally, push for a PR, or whatever your workflow looks like.</li>
+          <li><strong>Complete</strong>. Merge locally, push for a PR, or follow your team's workflow.</li>
         </ol>
         <p>
           Each of these transitions can trigger <a href="#hooks">lifecycle hooks</a>: scripts that run automatically when a
@@ -160,7 +160,7 @@ git branch --show-current</code></pre>
 
         <h2>Creating tasks</h2>
         <p>Click the <strong>+</strong> button on any column header, or press <code>⌘N</code> (<code>Ctrl+N</code> on Linux) to create a new task. Give it a title and optional description.</p>
-        <p>Each task gets an auto-incrementing number (e.g. <code>T-1</code>, <code>T-2</code>) used for branch names and worktree directories. I am still questioning this decision.</p>
+        <p>Each task gets an auto-incrementing number (e.g. <code>T-1</code>, <code>T-2</code>) used for branch names and worktree directories.</p>
 
         <h2>Drag and drop</h2>
         <p>Drag task cards between columns to change their status. You can also reorder tasks within a column.</p>
@@ -188,7 +188,7 @@ git branch --show-current</code></pre>
         <p>Each terminal is a full PTY session running your default shell, opened in the task's worktree directory.</p>
 
         <h2>Opening terminals</h2>
-        <p>When you start a task (move it to In Progress), a terminal opens automatically in the task's worktree. You can open additional terminals for the same task, useful for running a dev server in one and editing in another, or letting multiple AI agents fight to the death.</p>
+        <p>When you start a task (move it to In Progress), a terminal opens automatically in the task's worktree. You can open additional terminals for the same task: one for a dev server, one for an editor, one for an agent, or any combination you need.</p>
 
         <h2>Keyboard shortcuts</h2>
         <p>Click on a background terminal card to bring it to the front, or use keyboard shortcuts:</p>
@@ -208,8 +208,6 @@ git branch --show-current</code></pre>
             <tr><td><code>⌘D</code> / <code>Ctrl+D</code></td><td>Toggle diff panel</td></tr>
           </tbody>
         </table>
-        <p>I'd like to let you rebind these, but I haven't gotten around to it yet.</p>
-
         <h2>Runner panel</h2>
         <p>The runner panel is a secondary terminal that sits alongside your main terminal stack. It's meant for long-running processes like dev servers: things you want visible but out of the way.</p>
         <p>Toggle it with <code>⌘P</code> (<code>Ctrl+P</code> on Linux), or use the Run button in the toolbar. The runner executes the project's <strong>run</strong> <a href="#hooks">hook</a> (e.g. <code>npm run dev</code>), so you can start your dev server with one click or keypress.</p>
@@ -222,7 +220,7 @@ git branch --show-current</code></pre>
         <p>You can tag terminals to organize them, especially useful in the home view when you have many terminals across projects. Tags appear on terminal cards and you can group the home view by tag.</p>
 
         <h2>Working with CLI agents</h2>
-        <p>Ouijit's terminals work with any CLI tool. Launch Claude Code, Cursor, Aider, or any other agent directly in the terminal. The worktree isolation means each agent works in its own sandbox without interfering with other tasks. Only <a href="#claude-code">Claude Code gets fancy status lights</a> right now: I play favorites.</p>
+        <p>Ouijit's terminals work with any CLI tool. Launch Claude Code, Cursor, Aider, or any other agent directly in the terminal. Worktree isolation means each agent works in its own sandbox without interfering with other tasks. <a href="#claude-code">Claude Code gets live status indicators</a>; other agents run normally without them.</p>
       </section>
 
       <section id="sandbox">
@@ -330,14 +328,14 @@ git branch --show-current</code></pre>
         </table>
 
         <h2>Other hooks</h2>
-        <p>These don't really fit the "lifecycle" concept. They live in various dropdowns in the header bar because I haven't built a better home for them yet.</p>
+        <p>These run on demand rather than on lifecycle transitions. Configure them from the header bar.</p>
         <table>
           <thead>
             <tr><th>Hook</th><th>What it does</th><th>Example</th></tr>
           </thead>
           <tbody>
             <tr><td><strong>Run</strong></td><td>Command for the Run button (dev server, etc.)</td><td><code>npm run dev</code></td></tr>
-            <tr><td><strong>Editor</strong></td><td>Runs a command in the worktree that I hope opens your editor</td><td><code>open -a "Visual Studio Code"</code></td></tr>
+            <tr><td><strong>Editor</strong></td><td>Opens the worktree in your editor</td><td><code>open -a "Visual Studio Code"</code></td></tr>
             <tr><td><strong>Sandbox Setup</strong></td><td>Runs inside the VM before each terminal command</td><td><code>which claude || npm i -g @anthropic-ai/claude-code</code></td></tr>
           </tbody>
         </table>
@@ -351,26 +349,25 @@ OUIJIT_TASK_NAME="Add user auth"
 OUIJIT_TASK_PROMPT="implement oauth login"
 OUIJIT_HOOK_TYPE=start</code></pre>
 
-        <h2>Why this matters</h2>
-        <p>Hooks are just shell commands, which means they can do anything: install dependencies, launch agents, open PRs, run tests. The start hook is especially powerful: set it to <code>claude "$OUIJIT_TASK_PROMPT"</code> and every new task automatically kicks off an AI agent with the task description as its prompt.</p>
+        <h2>What you can do with them</h2>
+        <p>Hooks are shell commands, so they can do anything: install dependencies, launch agents, open PRs, run tests. The start hook is especially useful for agent workflows. Set it to <code>claude "$OUIJIT_TASK_PROMPT"</code> and every new task launches an agent with the task description as its prompt.</p>
       </section>
 
       <section id="claude-code">
         <h1>Claude Code Integration</h1>
-        <p class="lead">Live status lights so you know which agents are thinking and which are waiting. I boiled several oceans to make these little dots change color.</p>
+        <p class="lead">Live status indicators so you know at a glance which agents are working and which are waiting on you.</p>
 
         <h2>What you get</h2>
-        <p>When Claude Code is running in an Ouijit terminal, the terminal card shows a live status indicator: thinking or idle. That's it. It's a colored dot. You'd be surprised how useful it is when you have 5+ agents running(?) at once.</p>
+        <p>When Claude Code is running in an Ouijit terminal, the terminal card shows a live status indicator for thinking or idle. Visible across the entire terminal stack, so you can tell which sessions need your attention without bringing each one to the front.</p>
 
         <h2>How it works</h2>
-        <p>Ouijit installs a thin wrapper that shadows the <code>claude</code> command inside its terminals. When you launch Claude Code, the wrapper automatically injects hook settings that report status back to Ouijit. No configuration needed on your end. Just type <code>claude</code> and it's wired up.</p>
+        <p>Ouijit installs a thin wrapper that shadows the <code>claude</code> command inside its terminals. The wrapper injects hook settings that report status back to Ouijit at runtime. No configuration required: type <code>claude</code> and the integration is active.</p>
 
         <h2>Notifications</h2>
-        <p>When an agent finishes, you'll hear a sound. If the window isn't focused, you also get an OS notification. Alt-tab guilt-free while Claude does the work.</p>
+        <p>When an agent finishes, Ouijit plays a sound. If the window isn't focused, you also get an OS notification.</p>
 
-        <h2>What about other agents?</h2>
-        <p>Ouijit's terminals work with any CLI agent: Cursor, Aider, Codex, whatever. They just won't get the fancy status lights. Yet. I play favorites for now.</p>
-        <p>If your favorite agent has a hook or plugin system, <a href="https://github.com/ouijit/ouijit/issues" target="_blank" rel="noopener">open an issue</a> and I'll see what I can do.</p>
+        <h2>Other agents</h2>
+        <p>Ouijit's terminals work with any CLI agent (Cursor, Aider, Codex, and others). They run normally but without the live status indicators. If your agent has a hook or plugin system, <a href="https://github.com/ouijit/ouijit/issues" target="_blank" rel="noopener">open an issue</a>.</p>
       </section>
 
       <section id="cli">
@@ -380,13 +377,8 @@ OUIJIT_HOOK_TYPE=start</code></pre>
         <h2>Where it lives</h2>
         <p>
           The <code>ouijit</code> command is auto-installed into every terminal Ouijit opens, both host shells and sandboxed
-          ones. There's nothing to install separately, no <code>npm i -g</code>, no homebrew tap. It's only available
-          inside Ouijit terminals because it talks to the running app over a localhost API with a per-session token.
-        </p>
-        <p>
-          If you run <code>ouijit</code> from a regular terminal outside the app, you'll get a polite "not available" error.
-          That's intentional. The CLI exists so AI agents and scripts running inside Ouijit terminals can drive the app,
-          not so you have a parallel command surface to maintain.
+          ones. Nothing to install separately. It communicates with the running app over a localhost API authenticated by a
+          per-session token, so it only works from inside an Ouijit terminal.
         </p>
 
         <h2>Output format</h2>
@@ -405,7 +397,7 @@ OUIJIT_HOOK_TYPE=start</code></pre>
         </p>
 
         <h2>Tasks</h2>
-        <p>The bread and butter. Statuses are <code>todo</code>, <code>in_progress</code>, <code>in_review</code>, <code>done</code>.</p>
+        <p>Statuses are <code>todo</code>, <code>in_progress</code>, <code>in_review</code>, and <code>done</code>.</p>
         <pre><code>ouijit task list                              # array of tasks
 ouijit task get 5                             # single task
 ouijit task current                           # task owning this terminal
@@ -493,18 +485,18 @@ ouijit plan unset</code></pre>
           list of <code>OUIJIT_TASK_*</code> variables available to start, continue, review, and cleanup commands.
         </p>
 
-        <h2>Recipes</h2>
-        <h3>Self-promote when an agent is done</h3>
-        <p>Drop this at the end of an agent's workflow so it pushes itself into review when the work is finished:</p>
+        <h2>Patterns</h2>
+        <h3>Move a task to review when an agent finishes</h3>
+        <p>Add this to the end of an agent's workflow to advance the task automatically:</p>
         <pre><code>TASK=$(ouijit task current | jq -r .taskNumber)
 ouijit task set-status "$TASK" in_review</code></pre>
 
-        <h3>Tag a task with the language it's touching</h3>
+        <h3>Tag a task with the language it touches</h3>
         <pre><code>TASK=$(ouijit task current | jq -r .taskNumber)
 ouijit tag add "$TASK" typescript</code></pre>
 
-        <h3>Spawn a task and let an agent pick it up</h3>
-        <p>The <code>start</code> hook fires after <code>create-and-start</code>, so any agent invocation in that hook runs immediately:</p>
+        <h3>Create and start a task in one call</h3>
+        <p>The <code>start</code> hook fires immediately, so any agent invocation in that hook runs as part of creation:</p>
         <pre><code>ouijit task create-and-start "Add 2FA" --prompt "Implement TOTP-based 2FA"</code></pre>
       </section>
     </main>
