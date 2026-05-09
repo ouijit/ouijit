@@ -14,23 +14,6 @@
 @source "../../../src/**/*.{ts,tsx}";
 @source "../../**/*.{astro,tsx,ts}";
 
-/* Override @font-face URLs so they resolve from /fonts/ in the deployed site
- * (the app's index.css points at relative paths inside src/assets). */
-@font-face {
-  font-family: 'Iosevka Extended';
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: url('/fonts/iosevka-extended-regular.woff2') format('woff2');
-}
-@font-face {
-  font-family: 'Iosevka Term Extended';
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src: url('/fonts/iosevka-term-extended-regular.woff2') format('woff2');
-}
-
 /*
  * The app's index.css sets html/body to overflow: hidden because the Electron
  * window doesn't scroll. The marketing site needs to scroll, so override.
