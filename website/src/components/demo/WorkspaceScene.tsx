@@ -2,12 +2,10 @@ import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type React
 import type { TaskStatus, TaskWithWorkspace } from '@app/types';
 import { KanbanColumnView } from '@app/components/kanban/KanbanColumnView';
 import { KanbanCardView } from '@app/components/kanban/KanbanCardView';
-import { KanbanBadgeView } from '@app/components/kanban/KanbanBadgeView';
 import { KanbanAddInput } from '@app/components/kanban/KanbanAddInput';
 import { TerminalCardView } from '@app/components/terminal/TerminalCardView';
 import { TerminalHeaderView } from '@app/components/terminal/TerminalHeaderView';
 import { Icon } from '@app/components/terminal/Icon';
-import { isChainMember, buildChainMap } from '@app/utils/taskChain';
 import type { TerminalDisplayState } from '@app/stores/terminalStore';
 import { DEFAULT_DISPLAY_STATE } from '@app/stores/terminalStore';
 import {
@@ -72,19 +70,36 @@ const INITIAL_TERMINALS: StackTerminal[] = [
   },
 ];
 
-const DEMO_COMMAND = 'ouijit task create-and-start "Add 2FA"';
+const DEMO_COMMAND = 'ouijit task spawn "Migrate to React 19"';
 const DEMO_PRETYPED = 'ouijit'.length;
 const DEMO_TASK_NUMBER = 142;
 const DEMO_PTY_ID = 'pty-142-claude';
 
 const DEMO_TASK: TaskWithWorkspace = {
   taskNumber: DEMO_TASK_NUMBER,
-  name: 'Add 2FA',
+  name: 'Migrate to React 19',
   status: 'in_progress',
-  branch: 'add-2fa',
+  branch: 'migrate-react-19',
   worktreePath: `${FEATURES_PROJECT_PATH}/.ouijit/worktrees/T-${DEMO_TASK_NUMBER}`,
   createdAt: '2026-05-08T09:00:00Z',
 };
+
+const SUBTASKS: TaskWithWorkspace[] = [
+  {
+    taskNumber: 143,
+    name: 'Update Suspense boundaries',
+    status: 'todo',
+    parentTaskNumber: DEMO_TASK_NUMBER,
+    createdAt: '2026-05-08T09:00:01Z',
+  },
+  {
+    taskNumber: 144,
+    name: 'Audit useTransition usages',
+    status: 'todo',
+    parentTaskNumber: DEMO_TASK_NUMBER,
+    createdAt: '2026-05-08T09:00:02Z',
+  },
+];
 
 const DEMO_TERMINAL_DISPLAY: TerminalDisplayState = {
   ...DEFAULT_DISPLAY_STATE,
@@ -98,10 +113,10 @@ const DEMO_TERMINAL_DISPLAY: TerminalDisplayState = {
 
 const DEMO_TERMINAL: StackTerminal = {
   ptyId: DEMO_PTY_ID,
-  label: 'Add 2FA',
+  label: 'Migrate to React 19',
   summaryType: 'thinking',
   lastOscTitle: 'Spinning up...',
-  branch: 'add-2fa',
+  branch: 'migrate-react-19',
 };
 
 /**
@@ -198,16 +213,43 @@ export default function WorkspaceScene() {
       setTimeout(() => setHighlightTaskNumber(null), TYPING_DURATION + 3100),
     );
 
-    // Stream the agent body, line by line.
-    for (let step = 1; step <= 5; step += 1) {
-      timersRef.current.push(
-        setTimeout(() => setStreamStep(step), TYPING_DURATION + 2450 + (step - 1) * 700),
-      );
+    // Stream the agent body, line by line. Slow pacing so each beat
+    // — terminal text, kanban motion, action buttons — has a moment to
+    // register before the next one lands.
+    const STEPS = 6;
+    const STEP_MS = 1100;
+    const STREAM_START = TYPING_DURATION + 2450;
+    const stepAt = (step: number) => STREAM_START + (step - 1) * STEP_MS;
+    for (let step = 1; step <= STEPS; step += 1) {
+      timersRef.current.push(setTimeout(() => setStreamStep(step), stepAt(step)));
     }
+
+    // At step 3, the agent's two `ouijit task create` calls land — fan
+    // the subtasks into the Todo column with their own pulse highlights.
+    timersRef.current.push(
+      setTimeout(() => {
+        setTasks((prev) => [...prev, ...SUBTASKS]);
+        setHighlightTaskNumber(143);
+      }, stepAt(3)),
+    );
+    timersRef.current.push(setTimeout(() => setHighlightTaskNumber(144), stepAt(3) + 300));
+    timersRef.current.push(setTimeout(() => setHighlightTaskNumber(null), stepAt(3) + 1800));
+
+    // At step 6, the agent runs `ouijit task set-status 142 in_review` —
+    // animate the parent card from In Progress to In Review and pulse it.
+    timersRef.current.push(
+      setTimeout(() => {
+        setTasks((prev) =>
+          prev.map((t) => (t.taskNumber === DEMO_TASK_NUMBER ? { ...t, status: 'in_review' } : t)),
+        );
+        setHighlightTaskNumber(DEMO_TASK_NUMBER);
+      }, stepAt(6)),
+    );
+    timersRef.current.push(setTimeout(() => setHighlightTaskNumber(null), stepAt(6) + 1600));
 
     // Final beat: terminal goes idle. Then, after a short delay so the
     // status change registers, the macOS notification slides in.
-    const completeAt = TYPING_DURATION + 2450 + 5 * 700 + 200;
+    const completeAt = stepAt(STEPS) + 200;
     timersRef.current.push(setTimeout(() => setDemoComplete(true), completeAt));
     timersRef.current.push(setTimeout(() => setShowDemoNotification(true), completeAt + 750));
   }, [demoStarted]);
@@ -221,8 +263,6 @@ export default function WorkspaceScene() {
     () => new Map(stackOrder.map((id, i) => [id, i])),
     [stackOrder],
   );
-
-  const chainMap = useMemo(() => buildChainMap(tasks), [tasks]);
 
   // Scale-to-fit. The scene's internal layout is locked at 1160×630 with
   // pixel-precise absolute positions. Below 1160px viewport we shrink the
@@ -308,20 +348,15 @@ export default function WorkspaceScene() {
           return (
             <KanbanColumnView key={status} status={status} label={label} count={tasksInColumn.length}>
               {tasksInColumn.map((task) => {
-                const chainInfo = chainMap.get(task.taskNumber);
-                const showBadge = isChainMember(chainInfo);
-                const isDemoTask = task.taskNumber === DEMO_TASK_NUMBER;
+                const isDemoTask = task.taskNumber >= DEMO_TASK_NUMBER;
                 const taskTerminals = terminalsByTask[task.taskNumber] ?? [];
-                const isSettingUp = isDemoTask && taskTerminals.length === 0;
+                const isSettingUp =
+                  task.taskNumber === DEMO_TASK_NUMBER && taskTerminals.length === 0;
                 const card = (
                   <KanbanCardView
                     task={task}
                     connectedDisplays={taskTerminals}
-                    chainInfo={chainInfo}
-                    showBadge={showBadge}
-                    badge={
-                      showBadge ? <KanbanBadgeView taskNumber={task.taskNumber} chainInfo={chainInfo} /> : null
-                    }
+                    showBadge={false}
                     onSwitchToTerminal={bringToFront}
                     isSettingUp={isSettingUp}
                   />
@@ -882,61 +917,73 @@ function ShellBody() {
   );
 }
 
-/** Streaming Claude body for the demo terminal. Lines reveal one at a time
- * as `step` increments, mimicking an agent that just kicked off. The
- * agent writes a plan first (revealing the Plan button on the action
- * group), then reads, edits (revealing the Diff button), and runs tests.
- * Once `complete` flips, the busy indicator collapses and a final review
- * line lands above the TUI input. */
+/** Streaming Claude body for the demo terminal. The agent reads, plans,
+ * fans out three subtasks via `ouijit task create`, edits the parent
+ * (revealing the Diff button), runs tests, and finally moves the parent
+ * to In Review with `ouijit task set-status` — showcasing how an agent
+ * uses the ouijit CLI to manage its own task lifecycle. */
 function DemoStreamBody({ step, complete }: { step: number; complete: boolean }) {
   return (
     <ClaudeShell busy={!complete && step >= 1}>
       {step >= 1 && (
-        <ClaudeUser>Add two-factor authentication with TOTP and recovery codes.</ClaudeUser>
+        <ClaudeUser>
+          Migrate the app to React 19. Split the work into subtasks for the obvious chunks.
+        </ClaudeUser>
       )}
       {step >= 2 && (
         <>
           <ToolCall name="Write" args="plan.md" />
           <ToolResult>
-            <span className="text-[#3fb950]">+22</span>
+            <span className="text-[#3fb950]">+24</span>
             <span className="ml-2 text-white/55">lines (new)</span>
           </ToolResult>
-          <Continuation>schema migration, TOTP setup, recovery codes, session gate</Continuation>
+          <Continuation>codemod first, then Suspense boundaries, then useTransition audit</Continuation>
         </>
       )}
       {step >= 3 && (
         <>
-          <ToolCall name="Read" args="src/auth/AuthService.ts" />
-          <ToolResult>Read 124 lines</ToolResult>
-          <Continuation>session model exists, will extend with otpSecret + otpEnabledAt</Continuation>
+          <ToolCall name="Bash" args={'ouijit task create "Update Suspense boundaries"'} />
+          <ToolResult>
+            Created task <span className="text-white/85">#143</span>
+          </ToolResult>
+          <ToolCall name="Bash" args={'ouijit task create "Audit useTransition usages"'} />
+          <ToolResult>
+            Created task <span className="text-white/85">#144</span>
+          </ToolResult>
         </>
       )}
       {step >= 4 && (
         <>
-          <ToolCall name="Edit" args="src/auth/AuthService.ts" />
+          <ToolCall name="Edit" args="package.json" />
           <ToolResult>
-            <span className="text-[#3fb950]">+87</span>
+            <span className="text-[#3fb950]">+2</span>
             <span className="mx-1 text-white/30">/</span>
-            <span className="text-[#f85149]">−4</span>
-            <span className="ml-2 text-white/55">lines</span>
+            <span className="text-[#f85149]">−2</span>
+            <span className="ml-2 text-white/55">lines · pin react/react-dom to 19.0.0</span>
           </ToolResult>
-          <Continuation>setupTotp, verifyTotp, regenerateRecoveryCodes</Continuation>
         </>
       )}
       {step >= 5 && (
         <>
-          <ToolCall name="Bash" args="npm test -- auth" />
+          <ToolCall name="Bash" args="npx types-react-codemod preset-19 src/" />
           <ToolResult>
-            <span className="text-[#3fb950]">PASS</span>
-            <span className="ml-2 text-white/65">18 tests</span>
-            <span className="ml-2 text-white/35">in 1.4s</span>
+            <span className="text-[#3fb950]">42 files</span>
+            <span className="ml-2 text-white/55">touched · ref types updated</span>
+          </ToolResult>
+        </>
+      )}
+      {step >= 6 && (
+        <>
+          <ToolCall name="Bash" args="ouijit task set-status 142 in_review" />
+          <ToolResult>
+            #142 <span className="text-white/65">in_progress → in_review</span>
           </ToolResult>
         </>
       )}
       {complete && (
         <AssistantSay>
           <span>Ready for review.</span>
-          <span className="ml-1 text-white/55">Touched 4 files, 18 tests pass.</span>
+          <span className="ml-1 text-white/55">2 subtasks queued, codemod applied.</span>
         </AssistantSay>
       )}
     </ClaudeShell>

@@ -90,31 +90,38 @@ const ONBOARDING_PLAN_BODY: ReactNode = (
   </>
 );
 
-const TWO_FA_PLAN_BODY: ReactNode = (
+const REACT_19_PLAN_BODY: ReactNode = (
   <>
-    <h1>Add two-factor authentication</h1>
+    <h1>Migrate to React 19</h1>
     <p>
-      Add TOTP-based 2FA with downloadable recovery codes. The session model already stores a per-device fingerprint;
-      the new column extends it with an opt-in <code>otpSecret</code>.
+      Bring the app onto React 19. Order matters here — codemod and dep bumps first so the type-check passes,
+      then Suspense + transitions in their own focused passes so we don&rsquo;t conflate diff noise with semantic
+      changes.
     </p>
     <h2>Steps</h2>
     <ul>
       <li>
-        <input type="checkbox" readOnly /> Add <code>otpSecret</code> + <code>otpEnabledAt</code> to the user table
+        <input type="checkbox" readOnly /> Pin <code>react</code> and <code>react-dom</code> to{' '}
+        <code>19.0.0</code>; bump <code>@testing-library/react</code> to 16
       </li>
       <li>
-        <input type="checkbox" readOnly /> Generate and verify TOTP codes via <code>otplib</code>
+        <input type="checkbox" readOnly /> Run <code>types-react-codemod preset-19</code> across <code>src/</code>{' '}
+        and review the noisy ref-type changes
       </li>
       <li>
-        <input type="checkbox" readOnly /> Render a setup screen with QR + manual entry fallback
+        <input type="checkbox" readOnly /> Push remaining work into two subtasks: Suspense boundaries,{' '}
+        <code>useTransition</code> audit
       </li>
       <li>
-        <input type="checkbox" readOnly /> Generate ten recovery codes, render once, hash before storage
-      </li>
-      <li>
-        <input type="checkbox" readOnly /> Gate session refresh on a successful TOTP if 2FA is enabled
+        <input type="checkbox" readOnly /> Move parent task to <code>in_review</code> once codemod lands and the
+        subtasks are queued
       </li>
     </ul>
+    <h2>Subtasks</h2>
+    <p>
+      Each subtask gets its own worktree so the codemod, Suspense rewrite, and transitions audit can be reviewed
+      independently and merged in any order.
+    </p>
   </>
 );
 
@@ -265,66 +272,57 @@ const ONBOARDING_PREVIEW: PreviewFixture = {
   page: <OnboardingPreviewPage />,
 };
 
-const TWO_FA_DIFF: DiffFixture = {
-  branchAhead: 'add-2fa',
+const REACT_19_DIFF: DiffFixture = {
+  branchAhead: 'migrate-react-19',
   files: [
     {
-      path: 'src/auth/AuthService.ts',
+      path: 'package.json',
       status: 'M',
-      additions: 87,
-      deletions: 4,
+      additions: 2,
+      deletions: 2,
       hunks: [
         {
-          header: '@@ -42,6 +42,18 @@ session creation',
+          header: '@@ -22,8 +22,8 @@ "dependencies"',
           lines: [
-            {
-              type: 'context',
-              content: '  const session = await this.sessions.create({ userId });',
-              oldNo: 42,
-              newNo: 42,
-            },
-            { type: 'context', content: '  return session;', oldNo: 43, newNo: 43 },
-            { type: 'context', content: '}', oldNo: 44, newNo: 44 },
-            { type: 'context', content: '', oldNo: 45, newNo: 45 },
-            { type: 'addition', content: 'async setupTotp(userId: string) {', newNo: 46 },
-            { type: 'addition', content: '  const secret = authenticator.generateSecret();', newNo: 47 },
-            { type: 'addition', content: '  await this.users.update(userId, {', newNo: 48 },
-            { type: 'addition', content: '    otpSecret: encrypt(secret),', newNo: 49 },
-            { type: 'addition', content: '    otpEnabledAt: null,', newNo: 50 },
-            { type: 'addition', content: '  });', newNo: 51 },
-            {
-              type: 'addition',
-              content: "  return { secret, qr: authenticator.keyuri(userId, 'Constellation', secret) };",
-              newNo: 52,
-            },
-            { type: 'addition', content: '}', newNo: 53 },
+            { type: 'context', content: '  "dependencies": {', oldNo: 22, newNo: 22 },
+            { type: 'context', content: '    "@tanstack/react-query": "^5.59.0",', oldNo: 23, newNo: 23 },
+            { type: 'deletion', content: '    "react": "18.3.1",', oldNo: 24 },
+            { type: 'deletion', content: '    "react-dom": "18.3.1",', oldNo: 25 },
+            { type: 'addition', content: '    "react": "19.0.0",', newNo: 24 },
+            { type: 'addition', content: '    "react-dom": "19.0.0",', newNo: 25 },
+            { type: 'context', content: '    "zustand": "^5.0.1"', oldNo: 26, newNo: 26 },
+            { type: 'context', content: '  },', oldNo: 27, newNo: 27 },
           ],
         },
       ],
     },
     {
-      path: 'db/migrations/0042_add_otp_columns.sql',
-      status: 'A',
-      additions: 6,
-      deletions: 0,
+      path: 'src/components/Settings.tsx',
+      status: 'M',
+      additions: 4,
+      deletions: 4,
       hunks: [
         {
-          header: '@@ -0,0 +1,6 @@',
+          header: '@@ -8,12 +8,12 @@ ref types',
           lines: [
-            { type: 'addition', content: 'ALTER TABLE users', newNo: 1 },
-            { type: 'addition', content: '  ADD COLUMN otp_secret TEXT,', newNo: 2 },
-            { type: 'addition', content: '  ADD COLUMN otp_enabled_at TIMESTAMPTZ,', newNo: 3 },
-            { type: 'addition', content: '  ADD COLUMN otp_recovery_codes TEXT[];', newNo: 4 },
-            { type: 'addition', content: '', newNo: 5 },
-            {
-              type: 'addition',
-              content:
-                'CREATE INDEX users_otp_enabled_at ON users(otp_enabled_at) WHERE otp_enabled_at IS NOT NULL;',
-              newNo: 6,
-            },
+            { type: 'context', content: 'import { forwardRef } from "react";', oldNo: 8, newNo: 8 },
+            { type: 'context', content: '', oldNo: 9, newNo: 9 },
+            { type: 'deletion', content: 'export const Settings = forwardRef<HTMLDivElement, Props>(', oldNo: 10 },
+            { type: 'deletion', content: '  function Settings(props, ref) {', oldNo: 11 },
+            { type: 'addition', content: 'export function Settings(props: Props) {', newNo: 10 },
+            { type: 'addition', content: '  const { ref, ...rest } = props;', newNo: 11 },
+            { type: 'context', content: '    return (', oldNo: 12, newNo: 12 },
+            { type: 'context', content: '      <div ref={ref} className="settings">', oldNo: 13, newNo: 13 },
           ],
         },
       ],
+    },
+    {
+      path: 'src/types/refs.d.ts',
+      status: 'D',
+      additions: 0,
+      deletions: 12,
+      hunks: [],
     },
   ],
 };
@@ -347,8 +345,8 @@ const FIXTURES: Record<string, PanelFixtures> = {
     diff: { branchAhead: 'main', files: [] },
   },
   'pty-142-claude': {
-    plan: { filename: 'plan.md', body: TWO_FA_PLAN_BODY },
-    diff: TWO_FA_DIFF,
+    plan: { filename: 'plan.md', body: REACT_19_PLAN_BODY },
+    diff: REACT_19_DIFF,
   },
 };
 

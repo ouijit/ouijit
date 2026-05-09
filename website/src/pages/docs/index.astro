@@ -406,6 +406,7 @@ ouijit task create "Refactor auth" --prompt "Extract middleware"
 ouijit task start 5                           # creates worktree, sets in_progress
 ouijit task start 5 --branch custom-name
 ouijit task create-and-start "Add 2FA"        # create + start in one step
+ouijit task spawn "Add 2FA"                   # alias for create-and-start
 ouijit task set-status 5 in_review
 ouijit task set-name 5 "Better name"
 ouijit task set-description 5 "More detail"
