@@ -26,6 +26,37 @@ body.marketing {
   overflow: auto;
 }
 
+/*
+ * The app's index.css also zeroes out ::-webkit-scrollbar globally so the
+ * Electron window has no scrollbar chrome. Restore native scrollbars on the
+ * marketing site so long pages remain navigable. !important is required
+ * because the app's compiled `@apply w-0 h-0` rule has equal specificity
+ * (both are `::-webkit-scrollbar`) and may load after this file.
+ */
+html::-webkit-scrollbar,
+body.marketing::-webkit-scrollbar,
+body.marketing ::-webkit-scrollbar {
+  width: 12px !important;
+  height: 12px !important;
+}
+html::-webkit-scrollbar-track,
+body.marketing::-webkit-scrollbar-track,
+body.marketing ::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.04);
+}
+html::-webkit-scrollbar-thumb,
+body.marketing::-webkit-scrollbar-thumb,
+body.marketing ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 6px;
+  border: 3px solid var(--marketing-bg);
+}
+html::-webkit-scrollbar-thumb:hover,
+body.marketing::-webkit-scrollbar-thumb:hover,
+body.marketing ::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
 /* ------- Marketing-only branding ------- */
 
 :root {
