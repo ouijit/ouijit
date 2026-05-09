@@ -15,6 +15,15 @@ import {
   featuresTerminalsByTask,
   FEATURES_PROJECT_PATH,
 } from './featuresFixtures';
+import {
+  MockPlanPanel,
+  MockPreviewPanel,
+  MockDiffPanel,
+  getPanelFixtures,
+  type PanelFixtures,
+} from './MockPanels';
+
+type PanelKind = 'plan' | 'preview' | 'diff';
 
 const COLUMNS: { status: TaskStatus; label: string }[] = [
   { status: 'todo', label: 'Todo' },
@@ -118,6 +127,18 @@ export default function WorkspaceScene() {
   const [streamStep, setStreamStep] = useState(0);
   const [demoComplete, setDemoComplete] = useState(false);
   const [showDemoNotification, setShowDemoNotification] = useState(false);
+  const [openPanelByPty, setOpenPanelByPty] = useState<Record<string, PanelKind | null>>({});
+
+  const togglePanel = useCallback((ptyId: string, kind: PanelKind) => {
+    setOpenPanelByPty((prev) => ({
+      ...prev,
+      [ptyId]: prev[ptyId] === kind ? null : kind,
+    }));
+  }, []);
+
+  const closePanel = useCallback((ptyId: string) => {
+    setOpenPanelByPty((prev) => ({ ...prev, [ptyId]: null }));
+  }, []);
 
   const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const intervalsRef = useRef<ReturnType<typeof setInterval>[]>([]);
@@ -383,6 +404,8 @@ export default function WorkspaceScene() {
             const isDemoTerminal = term.ptyId === DEMO_PTY_ID;
             const summaryType = isDemoTerminal && demoComplete ? 'ready' : term.summaryType;
             const lastOscTitle = isDemoTerminal && demoComplete ? '18 passed' : term.lastOscTitle;
+            const fixtures = getPanelFixtures(term.ptyId);
+            const openPanel = openPanelByPty[term.ptyId] ?? null;
             return (
               <TerminalCardView
                 key={term.ptyId}
@@ -400,9 +423,30 @@ export default function WorkspaceScene() {
                   lastOscTitle={lastOscTitle}
                   tags={isActive ? term.tags : undefined}
                   branchContent={isActive && term.branch ? <BranchLabel branch={term.branch} /> : undefined}
-                  actions={isActive ? <ActiveActions /> : undefined}
+                  actions={
+                    isActive ? (
+                      <ActiveActions
+                        fixtures={fixtures}
+                        openPanel={openPanel}
+                        onToggle={(kind) => togglePanel(term.ptyId, kind)}
+                      />
+                    ) : undefined
+                  }
                 />
-                {isActive && renderBody(term.ptyId, streamStep, demoComplete)}
+                {isActive && (
+                  <div className="relative flex-1 flex flex-col min-h-0 overflow-hidden">
+                    {renderBody(term.ptyId, streamStep, demoComplete)}
+                    {openPanel === 'plan' && fixtures.plan && (
+                      <MockPlanPanel fixture={fixtures.plan} onClose={() => closePanel(term.ptyId)} />
+                    )}
+                    {openPanel === 'preview' && fixtures.preview && (
+                      <MockPreviewPanel fixture={fixtures.preview} onClose={() => closePanel(term.ptyId)} />
+                    )}
+                    {openPanel === 'diff' && fixtures.diff && (
+                      <MockDiffPanel fixture={fixtures.diff} onClose={() => closePanel(term.ptyId)} />
+                    )}
+                  </div>
+                )}
               </TerminalCardView>
             );
           })}
@@ -494,35 +538,66 @@ function BranchLabel({ branch }: { branch: string }) {
   );
 }
 
-/** Static action group mirroring the app's ActionGroup: Plan, Preview, Diff,
- * Run + chevron. All idle (no panels open) so each button shows its inactive
- * style. */
-function ActiveActions() {
-  const btn =
-    'h-full px-2.5 flex items-center gap-1 border-none font-sans text-[13px] font-medium bg-transparent text-text-secondary hover:text-text-primary hover:bg-background-tertiary';
+/** Action group mirroring the app's ActionGroup: Plan, Preview, Diff, Run +
+ * chevron. Plan/Preview/Diff are controlled — clicking toggles the matching
+ * mock panel for the active terminal, with the open button highlighted. */
+function ActiveActions({
+  fixtures,
+  openPanel,
+  onToggle,
+}: {
+  fixtures: PanelFixtures;
+  openPanel: PanelKind | null;
+  onToggle: (kind: PanelKind) => void;
+}) {
+  const base = 'h-full px-2.5 flex items-center gap-1 border-none font-sans text-[13px] font-medium';
+  const inactive = 'bg-transparent text-text-secondary hover:text-text-primary hover:bg-background-tertiary';
+  const active = 'bg-accent text-white hover:bg-accent';
+  const cls = (kind: PanelKind) => `${base} ${openPanel === kind ? active : inactive}`;
   const divider = <div aria-hidden className="w-px h-3 bg-white/10 self-center" />;
+  const diff = fixtures.diff;
+  const diffAdds = diff?.files.reduce((s, f) => s + f.additions, 0) ?? 0;
+  const diffDels = diff?.files.reduce((s, f) => s + f.deletions, 0) ?? 0;
+  const handle = (kind: PanelKind) => (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onToggle(kind);
+  };
   return (
     <div className="inline-flex items-center h-7 bg-background-secondary glass-bevel relative border border-black/60 rounded-[12px] overflow-hidden">
-      <button className={btn}>
-        <Icon name="list-checks" className="w-3.5 h-3.5" />
-        <span>Plan</span>
-      </button>
-      {divider}
-      <button className={btn}>
-        <Icon name="globe-simple" className="w-3.5 h-3.5" />
-        <span>Preview</span>
-      </button>
-      {divider}
-      <button className={btn}>
-        <span>3 files</span>
-        <span className="text-[#4ee82e]">+124</span>
-        <span className="text-[#ff6b6b]">-18</span>
-      </button>
-      {divider}
-      <button className={btn}>
+      {fixtures.plan && (
+        <>
+          <button className={cls('plan')} onClick={handle('plan')}>
+            <Icon name="list-checks" className="w-3.5 h-3.5" />
+            <span>Plan</span>
+          </button>
+          {divider}
+        </>
+      )}
+      {fixtures.preview && (
+        <>
+          <button className={cls('preview')} onClick={handle('preview')}>
+            <Icon name="globe-simple" className="w-3.5 h-3.5" />
+            <span>Preview</span>
+          </button>
+          {divider}
+        </>
+      )}
+      {diff && diff.files.length > 0 && (
+        <>
+          <button className={cls('diff')} onClick={handle('diff')}>
+            <span>
+              {diff.files.length} {diff.files.length === 1 ? 'file' : 'files'}
+            </span>
+            {diffAdds > 0 && <span className="text-[#4ee82e]">+{diffAdds}</span>}
+            {diffDels > 0 && <span className="text-[#ff6b6b]">-{diffDels}</span>}
+          </button>
+          {divider}
+        </>
+      )}
+      <button className={`${base} ${inactive}`}>
         <span>Run</span>
       </button>
-      <button className={`${btn} !px-2`} aria-label="More run options">
+      <button className={`${base} ${inactive} !px-2`} aria-label="More run options">
         <Icon name="caret-down" className="w-2.5 h-2.5" />
       </button>
     </div>
