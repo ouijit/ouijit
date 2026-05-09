@@ -46,16 +46,18 @@ body.marketing {
 /* ------- Marketing-only branding ------- */
 
 :root {
+  --marketing-bg: #0a0a0c;
+  --marketing-surface: #16161a;
   --marketing-blue: #0a84ff;
   --marketing-blue-deep: #001b65;
   --marketing-fade: rgba(255, 255, 255, 0.75);
   --marketing-fade-2: rgba(255, 255, 255, 0.5);
-  --marketing-border: rgba(255, 255, 255, 0.2);
+  --marketing-border: rgba(255, 255, 255, 0.12);
 }
 
 body.marketing {
-  background: var(--marketing-blue);
-  color: #fff;
+  background: var(--marketing-bg);
+  color: #f5f5f7;
   font-family:
     system-ui,
     -apple-system,
@@ -73,9 +75,9 @@ body.marketing h1,
 body.marketing h2,
 body.marketing h3,
 body.marketing h4 {
-  font-family: Clarendon, 'Clarendon Text', 'Montagu Slab', Rockwell, 'Rockwell Nova', 'Zilla Slab', serif;
-  color: var(--marketing-blue-deep);
-  letter-spacing: -0.02em;
-  line-height: 1.15;
+  font-family: 'Iosevka Extended', 'SF Mono', Monaco, Menlo, monospace;
+  color: #f5f5f7;
+  letter-spacing: -0.04em;
+  line-height: 1.05;
   font-weight: 400;
 }

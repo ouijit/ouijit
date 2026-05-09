@@ -1,43 +1,407 @@
 ---
 import Site from '../../layouts/Site.astro';
----
-<Site
-  title="Documentation · Ouijit"
-  description="Ouijit documentation — getting started, worktrees, kanban, terminals, VM sandbox, and hooks."
->
-  <section class="docs-hub">
-    <h1>Documentation</h1>
-    <p class="lead">Everything you need to get started with Ouijit and make the most of its features.</p>
 
-    <div class="docs-card-grid">
-      <a class="docs-card" href="/docs/getting-started/">
-        <h3>Getting Started</h3>
-        <p>System requirements, installation, first launch, and a quick tour of the app.</p>
-      </a>
-      <a class="docs-card" href="/docs/worktrees/">
-        <h3>Worktree Isolation</h3>
-        <p>How Ouijit uses git worktrees to give each task its own isolated workspace.</p>
-      </a>
-      <a class="docs-card" href="/docs/kanban/">
-        <h3>Kanban Board</h3>
-        <p>Columns, creating tasks, drag-and-drop, and keyboard shortcuts.</p>
-      </a>
-      <a class="docs-card" href="/docs/terminals/">
-        <h3>Terminal Sessions</h3>
-        <p>The card stack interface, opening and switching terminals, and multi-terminal workflows.</p>
-      </a>
-      <a class="docs-card" href="/docs/vm-sandbox/">
-        <h3>VM Sandbox</h3>
-        <p>Lima VM integration for sandboxed terminal sessions and agent isolation.</p>
-      </a>
-      <a class="docs-card" href="/docs/hooks/">
-        <h3>Hooks</h3>
-        <p>Script hooks and task lifecycle automation.</p>
-      </a>
-      <a class="docs-card" href="/docs/claude-code/">
-        <h3>Claude Code</h3>
-        <p>Live agent status indicators and how the integration works.</p>
-      </a>
-    </div>
-  </section>
+const sections = [
+  { id: 'getting-started', label: 'Getting Started' },
+  { id: 'worktrees', label: 'Worktree Isolation' },
+  { id: 'kanban', label: 'Kanban Board' },
+  { id: 'terminals', label: 'Terminal Sessions' },
+  { id: 'sandbox', label: 'VM Sandbox' },
+  { id: 'hooks', label: 'Hooks' },
+  { id: 'claude-code', label: 'Claude Code' },
+];
+---
+<Site title="Documentation · Ouijit" description="Ouijit documentation: getting started, worktrees, kanban, terminals, VM sandbox, hooks, and Claude Code integration.">
+  <div class="docs-layout">
+    <aside class="docs-sidebar">
+      <h4>Documentation</h4>
+      <ul>
+        {sections.map((s) => (
+          <li>
+            <a href={`#${s.id}`} data-doc-link={s.id}>{s.label}</a>
+          </li>
+        ))}
+      </ul>
+    </aside>
+    <main class="docs-content">
+      <section id="getting-started">
+        <h1>Getting Started</h1>
+        <p class="lead">Install Ouijit and launch your first project in under a minute.</p>
+
+        <h2>Requirements</h2>
+        <ul>
+          <li><strong>macOS</strong> 13+ (Ventura) or <strong>Linux</strong> (x64)</li>
+          <li><strong>Git</strong> 2.20+</li>
+        </ul>
+
+        <h2>Download &amp; Install</h2>
+        <p>Download the latest release for your platform:</p>
+        <ul>
+          <li><a href="https://github.com/ouijit/ouijit/releases/latest/download/ouijit-darwin-arm64.zip">macOS (Apple Silicon)</a></li>
+          <li><a href="https://github.com/ouijit/ouijit/releases/latest/download/ouijit-darwin-x64.zip">macOS (Intel)</a></li>
+          <li><a href="https://github.com/ouijit/ouijit/releases/latest/download/ouijit-linux-x64.zip">Linux (x64)</a></li>
+        </ul>
+        <p>
+          Unzip the archive and move <strong>Ouijit.app</strong> to your Applications folder (macOS) or extract the binary to
+          a location on your PATH (Linux).
+        </p>
+
+        <h3>Building from source</h3>
+        <p>Requires Node.js 20+ and C/C++ build tools for native modules (better-sqlite3, node-pty, koffi):</p>
+        <ul>
+          <li><strong>macOS:</strong> <code>xcode-select --install</code></li>
+          <li><strong>Linux:</strong> <code>sudo apt install build-essential python3</code></li>
+        </ul>
+        <pre><code>git clone https://github.com/ouijit/ouijit.git
+cd ouijit
+npm install
+npm start</code></pre>
+
+        <h2>First Launch</h2>
+        <p>
+          When you first open Ouijit you'll see the <strong>home view</strong> with a sidebar listing your projects on the
+          left. The main area shows terminal sessions grouped by project, empty on first launch until you add a project and
+          start working.
+        </p>
+
+        <h3>Adding a project</h3>
+        <ol>
+          <li>Click the <strong>+</strong> button in the sidebar.</li>
+          <li>Select a folder containing a git repository.</li>
+          <li>That's it. Your project appears in the list.</li>
+        </ol>
+
+        <h3>Opening a project</h3>
+        <p>Click any project to open it. You'll start on the kanban board, and opening a task launches its terminal.</p>
+      </section>
+
+      <section id="worktrees">
+        <h1>Worktree Isolation</h1>
+        <p class="lead">
+          Every task gets its own git worktree, so you can work on multiple features simultaneously without branch switching.
+        </p>
+
+        <h2>What are git worktrees?</h2>
+        <p>
+          Git worktrees let you check out multiple branches of the same repository into separate directories at the same
+          time. Instead of stashing changes and switching branches, each worktree has its own working directory with its own
+          checked-out branch.
+        </p>
+        <p>Ouijit creates a worktree when you start a task, so each piece of work gets its own directory and branch.</p>
+
+        <h2>How Ouijit uses worktrees</h2>
+        <h3>Task lifecycle</h3>
+        <ol>
+          <li><strong>Create task</strong>. A new branch is created from your main branch (e.g. <code>T-42</code>).</li>
+          <li>
+            <strong>Start task</strong>. Ouijit creates a git worktree under <code>~/Ouijit/worktrees/</code>. The terminal
+            opens in this isolated directory.
+          </li>
+          <li><strong>Work</strong>. All changes happen in the worktree. Your main branch stays clean.</li>
+          <li><strong>Review</strong>. Use the diff panel to see what changed relative to main.</li>
+          <li><strong>Complete</strong>. Merge locally, push for a PR, or whatever your workflow looks like.</li>
+        </ol>
+        <p>
+          Each of these transitions can trigger <a href="#hooks">lifecycle hooks</a>: scripts that run automatically when a
+          task changes status.
+        </p>
+
+        <h2>Copy-on-Write cloning</h2>
+        <p>
+          Creating a full copy of a large repository for each task would be slow and waste disk space. Ouijit uses
+          <strong>Copy-on-Write (CoW) cloning</strong> via the native file system (APFS on macOS, reflinks on Linux with
+          btrfs/XFS).
+        </p>
+        <p>CoW clones are nearly instant and share disk blocks with the original until a file is modified. This means:</p>
+        <ul>
+          <li>Worktree creation is fast regardless of repo size</li>
+          <li>Disk usage is proportional to your actual changes, not the full repo</li>
+          <li>Dependency directories and other git-ignored files are cloned too, so you're ready to work immediately</li>
+        </ul>
+
+        <h2>Directory structure</h2>
+        <pre><code>~/Ouijit/worktrees/
+  my-project/
+    T-42/                # Worktree for task 42
+    T-43/                # Worktree for task 43</code></pre>
+        <p>Worktrees live under <code>~/Ouijit/worktrees/</code>, organized by project name.</p>
+
+        <h2>Manual worktree operations</h2>
+        <p>
+          Ouijit manages worktrees for you, but they're standard git worktrees. You can inspect them with regular git
+          commands:
+        </p>
+        <pre><code># List all worktrees
+git worktree list
+
+# From inside a worktree, check which branch it's on
+git branch --show-current</code></pre>
+      </section>
+
+      <section id="kanban">
+        <h1>Kanban Board</h1>
+        <p class="lead">A four-column board for organizing tasks with drag-and-drop.</p>
+
+        <h2>Columns</h2>
+        <p>The board has four fixed columns that map to a task's lifecycle:</p>
+        <table>
+          <thead>
+            <tr><th>Column</th><th>Meaning</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><strong>To Do</strong></td><td>Planned work. No worktree or branch created yet.</td></tr>
+            <tr><td><strong>In Progress</strong></td><td>Active work. A worktree and branch are created when a task moves here.</td></tr>
+            <tr><td><strong>In Review</strong></td><td>Work is done, ready for review. Worktree is still active.</td></tr>
+            <tr><td><strong>Done</strong></td><td>Completed. The branch can be merged and the worktree removed.</td></tr>
+          </tbody>
+        </table>
+        <p>Moving a task between columns triggers <a href="#hooks">lifecycle hooks</a>: scripts that can do anything, such as running tests, opening a PR, or kicking off an agent.</p>
+
+        <h2>Creating tasks</h2>
+        <p>Click the <strong>+</strong> button on any column header, or press <code>⌘N</code> (<code>Ctrl+N</code> on Linux) to create a new task. Give it a title and optional description.</p>
+        <p>Each task gets an auto-incrementing number (e.g. <code>T-1</code>, <code>T-2</code>) used for branch names and worktree directories. I am still questioning this decision.</p>
+
+        <h2>Drag and drop</h2>
+        <p>Drag task cards between columns to change their status. You can also reorder tasks within a column.</p>
+        <p>When dragging a task from <strong>To Do</strong> to <strong>In Progress</strong>, Ouijit automatically creates a git worktree and branch for the task.</p>
+
+        <h2>Task actions</h2>
+        <p>Right-click a task card to access its context menu:</p>
+        <ul>
+          <li><strong>Open in Terminal</strong>. Launch a terminal in the task's worktree.</li>
+          <li><strong>Open in Sandbox</strong>. Launch a sandboxed terminal (if Lima is available).</li>
+          <li><strong>Open in Editor</strong>. Open the worktree in your configured editor.</li>
+          <li><strong>Rename</strong>. Edit the task's display name inline.</li>
+          <li><strong>Move to Done / Reopen</strong>. Complete an active task or reopen a finished one.</li>
+          <li><strong>Delete</strong>. Permanently remove the task.</li>
+        </ul>
+        <p>If a task already has running terminals, they'll appear at the top of the menu so you can jump straight to them.</p>
+      </section>
+
+      <section id="terminals">
+        <h1>Terminal Sessions</h1>
+        <p class="lead">Integrated terminal sessions with a card stack UI for multi-terminal workflows.</p>
+
+        <h2>Card stack</h2>
+        <p>Terminals are displayed as stacked cards. The active terminal is in front; background terminals peek out behind it so you can see what's running.</p>
+        <p>Each terminal is a full PTY session running your default shell, opened in the task's worktree directory.</p>
+
+        <h2>Opening terminals</h2>
+        <p>When you start a task (move it to In Progress), a terminal opens automatically in the task's worktree. You can open additional terminals for the same task, useful for running a dev server in one and editing in another, or letting multiple AI agents fight to the death.</p>
+
+        <h2>Keyboard shortcuts</h2>
+        <p>Click on a background terminal card to bring it to the front, or use keyboard shortcuts:</p>
+        <table>
+          <thead>
+            <tr><th>Shortcut</th><th>Action</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>⌘I</code> / <code>Ctrl+I</code></td><td>New terminal</td></tr>
+            <tr><td><code>⌘W</code> / <code>Ctrl+W</code></td><td>Close terminal</td></tr>
+            <tr><td><code>⌘1</code>–<code>⌘9</code> / <code>Ctrl+1</code>–<code>Ctrl+9</code></td><td>Select terminal by position</td></tr>
+            <tr><td><code>⌘⇧←</code> / <code>Ctrl+Shift+Left</code></td><td>Previous stack page</td></tr>
+            <tr><td><code>⌘⇧→</code> / <code>Ctrl+Shift+Right</code></td><td>Next stack page</td></tr>
+            <tr><td><code>⌘T</code> / <code>Ctrl+T</code></td><td>Toggle between kanban board and terminal stack</td></tr>
+            <tr><td><code>⌘N</code> / <code>Ctrl+N</code></td><td>Show kanban board and focus new task input</td></tr>
+            <tr><td><code>⌘P</code> / <code>Ctrl+P</code></td><td>Toggle runner panel</td></tr>
+            <tr><td><code>⌘D</code> / <code>Ctrl+D</code></td><td>Toggle diff panel</td></tr>
+          </tbody>
+        </table>
+        <p>I'd like to let you rebind these, but I haven't gotten around to it yet.</p>
+
+        <h2>Runner panel</h2>
+        <p>The runner panel is a secondary terminal that sits alongside your main terminal stack. It's meant for long-running processes like dev servers: things you want visible but out of the way.</p>
+        <p>Toggle it with <code>⌘P</code> (<code>Ctrl+P</code> on Linux), or use the Run button in the toolbar. The runner executes the project's <strong>run</strong> <a href="#hooks">hook</a> (e.g. <code>npm run dev</code>), so you can start your dev server with one click or keypress.</p>
+
+        <h2>Diff panel</h2>
+        <p>The diff panel shows what changed in the current worktree relative to the target branch. Toggle it with <code>⌘D</code> (<code>Ctrl+D</code> on Linux).</p>
+        <p>It lists changed files with per-file diffs organized by hunk: additions, deletions, and context lines. Useful for a quick review before moving a task to In Review or merging.</p>
+
+        <h2>Tags</h2>
+        <p>You can tag terminals to organize them, especially useful in the home view when you have many terminals across projects. Tags appear on terminal cards and you can group the home view by tag.</p>
+
+        <h2>Working with CLI agents</h2>
+        <p>Ouijit's terminals work with any CLI tool. Launch Claude Code, Cursor, Aider, or any other agent directly in the terminal. The worktree isolation means each agent works in its own sandbox without interfering with other tasks. Only <a href="#claude-code">Claude Code gets fancy status lights</a> right now: I play favorites.</p>
+      </section>
+
+      <section id="sandbox">
+        <h1>VM Sandbox</h1>
+        <p class="lead">Run terminal sessions inside a lightweight Linux VM so agents can't touch what they shouldn't.</p>
+
+        <h2>Why sandbox?</h2>
+        <p>Git worktrees isolate your code, but a terminal session still has full access to your host: your home directory, credentials, system binaries, network. When CLI agents run arbitrary commands, that's a lot of trust.</p>
+        <p>The VM sandbox wraps each terminal in a <a href="https://lima-vm.io" target="_blank" rel="noopener">Lima</a> virtual machine. Your project worktree is mounted into the VM (read-write), but the rest of your filesystem is walled off. Inside the worktree, every path your <code>.gitignore</code> matches, like <code>.env</code> files, <code>secrets/</code>, <code>node_modules</code>, build artifacts, is masked with an empty placeholder so the agent only sees what git would track. The agent can install packages, run builds, and execute code without risk to your host or your host-only secrets.</p>
+
+        <h2>How it works</h2>
+        <ol>
+          <li><strong>Enable sandbox on a task</strong>. Sandboxing is per-task, not per-project. When you start or continue a task, the run dialog has a <strong>Sandbox</strong> toggle. Flip it on and the task's terminal will spawn inside the VM.</li>
+          <li><strong>First terminal</strong>. Ouijit lazily creates an Ubuntu 24.04 VM via Lima on the first sandboxed spawn for a project. One VM per project, shared across that project's sandboxed tasks. Subsequent terminals reuse the running VM.</li>
+          <li><strong>Spawn progress</strong>. The spawn dialog shows each step: checking VM status, creating / starting, SSH connect, provisioning, isolating gitignored paths, launching shell. First boot takes a minute or two; later spawns are fast.</li>
+          <li><strong>Shell sessions</strong>. Terminals run inside the VM via <code>limactl shell</code>. Your worktree is mounted at the same path as on the host, so relative paths and git operations work normally.</li>
+          <li><strong>VM lifecycle &amp; resources</strong>. Manage the VM from <strong>Project Settings → Sandbox</strong>. You can see the VM status (Running / Stopped / Broken / Not created), create, start, stop, or recreate it, open a VM console, and edit the merged Lima YAML config (memory, CPU, disk, mounts). Changing resources prompts you to recreate the VM.</li>
+        </ol>
+
+        <h2>What's isolated</h2>
+        <table>
+          <thead>
+            <tr><th>Resource</th><th>Host terminal</th><th>Sandboxed terminal</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Project worktree</td><td>Read/write</td><td>Read/write (mounted)</td></tr>
+            <tr><td>Main repo</td><td>Read/write</td><td>Read-only (mounted)</td></tr>
+            <tr><td>Home directory</td><td>Full access</td><td>Ephemeral VM home</td></tr>
+            <tr><td>System files</td><td>Full access</td><td>Isolated (Ubuntu guest)</td></tr>
+            <tr><td>Network</td><td>Host network</td><td>NAT (macOS) or user-mode (Linux)</td></tr>
+            <tr><td>Processes</td><td>Can see/kill all</td><td>VM processes only</td></tr>
+          </tbody>
+        </table>
+
+        <h2>Gitignored paths are masked</h2>
+        <p>When a sandboxed terminal starts, every path your <code>.gitignore</code> matches is replaced with an empty placeholder inside the VM. Host-only secrets like <code>.env</code> or <code>config/secrets.yml</code> aren't visible to the agent, and platform-specific artifacts like macOS <code>node_modules</code> don't leak into the Linux guest.</p>
+        <p>There's no config file or allowlist to maintain. Ouijit runs <code>git ls-files</code> against the worktree and honors whatever git says is ignored: negations (<code>!keep.env</code>), nested <code>.gitignore</code> files, globs, and <code>core.excludesFile</code> all work. The terminal startup banner reports what was hidden, e.g. <em>"Isolating 12 paths (7 dir, 5 file)"</em>.</p>
+
+        <h3>What this buys you</h3>
+        <ul>
+          <li><strong>Secret isolation</strong>. Gitignored <code>.env</code>, <code>.npmrc</code>, <code>secrets/</code>, and similar files stay on the host.</li>
+          <li><strong>No ABI mismatches</strong>. darwin-arm64 <code>node_modules</code>, Rust <code>target/</code>, and Python <code>.venv</code> never collide with the Linux guest's toolchain.</li>
+          <li><strong>Per-task isolation</strong>. Two parallel sandboxed tasks on the same project can't stomp each other's installs.</li>
+        </ul>
+
+        <h3>Caveats</h3>
+        <ul>
+          <li><strong>Committed files are always visible.</strong> <code>.gitignore</code> only affects files git considers untracked. If you committed a secret and then gitignored it, the agent still sees it. Run <code>git rm --cached &lt;file&gt;</code> and rotate the secret. Don't commit what you don't want an agent to read.</li>
+          <li><strong>Masking is a snapshot at terminal start.</strong> New gitignored files created while a terminal is already open aren't masked in that terminal. Close and reopen to re-enumerate.</li>
+          <li><strong>Filenames aren't hidden, only contents.</strong> <code>ls</code> still shows <code>.env.secrets</code> as a 0-byte file. Don't rely on this to hide secret-sounding paths.</li>
+          <li><strong>The worktree is read-write.</strong> The VM has no git credentials, so a compromised agent can't push, but it can stage commits that a human on the host could unknowingly push later. Review diffs before pushing.</li>
+          <li><strong>Scope is the worktree.</strong> Files in the VM's own <code>$HOME</code> (e.g. <code>~/.netrc</code>, <code>~/.git-credentials</code>) aren't covered. Lima ships a clean home; don't copy host auth into it.</li>
+        </ul>
+
+        <h3>Startup banners</h3>
+        <p>Masking is fail-closed: if isolation can't be delivered, the terminal refuses to start. Every spawn resolves to one of three banners, printed to the terminal before the interactive shell:</p>
+        <ul>
+          <li><strong>SANDBOX ISOLATION ACTIVE</strong>. Green. Masks applied. Shell starts.</li>
+          <li><strong>SANDBOX NO PATHS TO ISOLATE</strong>. Yellow. Nothing was gitignored in the worktree. Shell still starts. Double-check your <code>.gitignore</code> before running anything sensitive.</li>
+          <li><strong>SANDBOX ISOLATION FAILED</strong>. Red. Enumeration error, missing sudo, mount failure, or any partial failure. The shell exits immediately; fix the cause and reopen. Partial failures are treated as total failures.</li>
+        </ul>
+        <p>Errors that happen before the VM side runs (e.g. <code>git ls-files</code> throws) come back as a failed terminal-open in Ouijit, not as a banner.</p>
+
+        <h2>Customizing the VM</h2>
+        <p>VMs start from a clean Ubuntu 24.04 image with <code>bash</code>, <code>git</code>, <code>curl</code>, <code>wget</code>, <code>nodejs</code>, <code>npm</code>, <code>python3</code>, and <code>build-essential</code> pre-installed. Defaults are 4 GiB memory, 2 CPUs, 10 GiB disk.</p>
+        <p>Everything else, like resource limits, extra packages, additional mounts, and provisioning scripts, is controlled by the Lima YAML config in <strong>Project Settings → Sandbox</strong>. The editor shows the merged effective config and lets you write overrides; Ouijit prompts you to recreate the VM when changes require it.</p>
+        <p>See the <a href="https://lima-vm.io/docs/config/" target="_blank" rel="noopener">Lima configuration reference</a> for the available keys.</p>
+
+        <h2>Claude Code integration</h2>
+        <p>Ouijit automatically injects its hook helper script and Claude Code settings into each sandboxed shell. This means Claude Code's hook status events (thinking, tool use, idle) work inside the VM just like they do on the host: the VM shell communicates back to Ouijit via <code>host.lima.internal</code>.</p>
+
+        <h2>Requirements</h2>
+        <ul>
+          <li><strong>macOS</strong>. Uses Apple's Virtualization.framework (vz) with vzNAT networking. No extra installation needed if Lima is available.</li>
+          <li><strong>Linux</strong>. Uses QEMU with user-mode networking.</li>
+        </ul>
+        <p>Ouijit bundles <code>limactl</code>, so there's nothing extra to install.</p>
+
+        <h2>Limitations</h2>
+        <ul>
+          <li>First boot downloads an Ubuntu cloud image and provisions packages. Requires internet and takes 1-2 minutes.</li>
+          <li>GPU passthrough is not supported.</li>
+          <li>macOS-specific tooling (Xcode, Swift) is not available inside the Linux VM.</li>
+          <li>Docker-in-VM requires additional Lima configuration.</li>
+          <li>The VM home directory is ephemeral. Anything outside mounted directories is lost on recreate.</li>
+        </ul>
+      </section>
+
+      <section id="hooks">
+        <h1>Hooks</h1>
+        <p class="lead">Shell commands that run at key moments in a task's lifecycle. Configure per project.</p>
+
+        <h2>Lifecycle hooks</h2>
+        <p>These fire when a task changes status. Configure them from the kanban column headers.</p>
+        <table>
+          <thead>
+            <tr><th>Hook</th><th>When it runs</th><th>Example</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><strong>Start</strong></td><td>Task moves from To Do to In Progress</td><td><code>npm install &amp;&amp; claude "$OUIJIT_TASK_PROMPT"</code></td></tr>
+            <tr><td><strong>Continue</strong></td><td>Reopening a task already In Progress</td><td><code>claude -c</code></td></tr>
+            <tr><td><strong>Review</strong></td><td>Task moves to In Review</td><td><code>gh pr create --fill</code></td></tr>
+            <tr><td><strong>Cleanup</strong></td><td>Task moves to Done</td><td><code>git push origin HEAD</code></td></tr>
+          </tbody>
+        </table>
+
+        <h2>Other hooks</h2>
+        <p>These don't really fit the "lifecycle" concept. They live in various dropdowns in the header bar because I haven't built a better home for them yet.</p>
+        <table>
+          <thead>
+            <tr><th>Hook</th><th>What it does</th><th>Example</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><strong>Run</strong></td><td>Command for the Run button (dev server, etc.)</td><td><code>npm run dev</code></td></tr>
+            <tr><td><strong>Editor</strong></td><td>Runs a command in the worktree that I hope opens your editor</td><td><code>open -a "Visual Studio Code"</code></td></tr>
+            <tr><td><strong>Sandbox Setup</strong></td><td>Runs inside the VM before each terminal command</td><td><code>which claude || npm i -g @anthropic-ai/claude-code</code></td></tr>
+          </tbody>
+        </table>
+
+        <h2>Environment variables</h2>
+        <p>Hooks receive context via environment variables so your scripts can act on the current task:</p>
+        <pre><code>OUIJIT_PROJECT_PATH=/path/to/my-project
+OUIJIT_WORKTREE_PATH=~/Ouijit/worktrees/my-project/T-42
+OUIJIT_TASK_BRANCH=T-42
+OUIJIT_TASK_NAME="Add user auth"
+OUIJIT_TASK_PROMPT="implement oauth login"
+OUIJIT_HOOK_TYPE=start</code></pre>
+
+        <h2>Why this matters</h2>
+        <p>Hooks are just shell commands, which means they can do anything: install dependencies, launch agents, open PRs, run tests. The start hook is especially powerful: set it to <code>claude "$OUIJIT_TASK_PROMPT"</code> and every new task automatically kicks off an AI agent with the task description as its prompt.</p>
+      </section>
+
+      <section id="claude-code">
+        <h1>Claude Code Integration</h1>
+        <p class="lead">Live status lights so you know which agents are thinking and which are waiting. I boiled several oceans to make these little dots change color.</p>
+
+        <h2>What you get</h2>
+        <p>When Claude Code is running in an Ouijit terminal, the terminal card shows a live status indicator: thinking or idle. That's it. It's a colored dot. You'd be surprised how useful it is when you have 5+ agents running(?) at once.</p>
+
+        <h2>How it works</h2>
+        <p>Ouijit installs a thin wrapper that shadows the <code>claude</code> command inside its terminals. When you launch Claude Code, the wrapper automatically injects hook settings that report status back to Ouijit. No configuration needed on your end. Just type <code>claude</code> and it's wired up.</p>
+
+        <h2>Notifications</h2>
+        <p>When an agent finishes, you'll hear a sound. If the window isn't focused, you also get an OS notification. Alt-tab guilt-free while Claude does the work.</p>
+
+        <h2>What about other agents?</h2>
+        <p>Ouijit's terminals work with any CLI agent: Cursor, Aider, Codex, whatever. They just won't get the fancy status lights. Yet. I play favorites for now.</p>
+        <p>If your favorite agent has a hook or plugin system, <a href="https://github.com/ouijit/ouijit/issues" target="_blank" rel="noopener">open an issue</a> and I'll see what I can do.</p>
+      </section>
+    </main>
+  </div>
 </Site>
+
+<script>
+  const links = document.querySelectorAll<HTMLAnchorElement>('[data-doc-link]');
+  const linkById = new Map<string, HTMLAnchorElement>();
+  links.forEach((a) => {
+    const id = a.dataset.docLink;
+    if (id) linkById.set(id, a);
+  });
+  const sections = Array.from(linkById.keys())
+    .map((id) => document.getElementById(id))
+    .filter((el): el is HTMLElement => el !== null);
+
+  const setActive = (id: string) => {
+    linkById.forEach((link, key) => link.classList.toggle('active', key === id));
+  };
+
+  const observer = new IntersectionObserver(
+    (entries) => {
+      const visible = entries
+        .filter((e) => e.isIntersecting)
+        .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+      if (visible.length > 0) setActive(visible[0].target.id);
+    },
+    { rootMargin: '-20% 0px -70% 0px', threshold: 0 },
+  );
+  sections.forEach((s) => observer.observe(s));
+
+  // Initialize active state from current hash, or first section.
+  const initial = location.hash.replace('#', '') || sections[0]?.id;
+  if (initial) setActive(initial);
+</script>

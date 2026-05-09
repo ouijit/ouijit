@@ -104,7 +104,7 @@ export default function WorkspaceScene() {
           position: 'absolute',
           top: 0,
           left: 0,
-          right: 240,
+          right: 280,
           height: 520,
           display: 'flex',
           background: 'var(--color-background)',
@@ -149,8 +149,8 @@ export default function WorkspaceScene() {
         className="workspace-scene-notification"
         style={{
           position: 'absolute',
-          left: 44,
-          bottom: 20,
+          left: 90,
+          bottom: 10,
           width: 320,
           zIndex: 3,
         }}
