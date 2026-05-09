@@ -404,7 +404,7 @@ export default function WorkspaceScene() {
             const isDemoTerminal = term.ptyId === DEMO_PTY_ID;
             const summaryType = isDemoTerminal && demoComplete ? 'ready' : term.summaryType;
             const lastOscTitle = isDemoTerminal && demoComplete ? '18 passed' : term.lastOscTitle;
-            const fixtures = getPanelFixtures(term.ptyId);
+            const fixtures = getEffectiveFixtures(term.ptyId, streamStep);
             const openPanel = openPanelByPty[term.ptyId] ?? null;
             return (
               <TerminalCardView
@@ -607,6 +607,20 @@ function ActiveActions({
 const BODY_CLS =
   'flex-1 p-4 font-mono text-[11px] leading-[1.65] text-white/85 overflow-hidden min-h-0 flex flex-col';
 
+/** The demo terminal's action buttons appear in lock-step with its tool
+ * calls: Plan reveals when the agent writes plan.md (step ≥ 2), Diff
+ * reveals when the agent edits a file (step ≥ 4). Other terminals always
+ * use their full fixture set. */
+function getEffectiveFixtures(ptyId: string, streamStep: number): PanelFixtures {
+  const base = getPanelFixtures(ptyId);
+  if (ptyId !== DEMO_PTY_ID) return base;
+  return {
+    plan: streamStep >= 2 ? base.plan : undefined,
+    diff: streamStep >= 4 ? base.diff : undefined,
+    preview: base.preview,
+  };
+}
+
 function renderBody(ptyId: string, streamStep: number, demoComplete: boolean): ReactNode {
   switch (ptyId) {
     case 'pty-101-claude':
@@ -687,7 +701,7 @@ function ClaudeTuiInput({ busy = false, pendingText }: { busy?: boolean; pending
       </div>
       <div className="border-t border-white/15" />
       <div className="mt-1 text-white/35 text-[10px]">
-        Sonnet 4.6 {busy ? '· esc to interrupt' : '· ⏎ to send'} · ↓ to manage
+        Opus 4.7 {busy ? '· esc to interrupt' : '· ⏎ to send'} · ↓ to manage
       </div>
     </div>
   );
@@ -869,9 +883,11 @@ function ShellBody() {
 }
 
 /** Streaming Claude body for the demo terminal. Lines reveal one at a time
- * as `step` increments, mimicking an agent that just kicked off. Once
- * `complete` flips, the busy indicator collapses and a final review line
- * lands above the TUI input. */
+ * as `step` increments, mimicking an agent that just kicked off. The
+ * agent writes a plan first (revealing the Plan button on the action
+ * group), then reads, edits (revealing the Diff button), and runs tests.
+ * Once `complete` flips, the busy indicator collapses and a final review
+ * line lands above the TUI input. */
 function DemoStreamBody({ step, complete }: { step: number; complete: boolean }) {
   return (
     <ClaudeShell busy={!complete && step >= 1}>
@@ -880,12 +896,22 @@ function DemoStreamBody({ step, complete }: { step: number; complete: boolean })
       )}
       {step >= 2 && (
         <>
+          <ToolCall name="Write" args="plan.md" />
+          <ToolResult>
+            <span className="text-[#3fb950]">+22</span>
+            <span className="ml-2 text-white/55">lines (new)</span>
+          </ToolResult>
+          <Continuation>schema migration, TOTP setup, recovery codes, session gate</Continuation>
+        </>
+      )}
+      {step >= 3 && (
+        <>
           <ToolCall name="Read" args="src/auth/AuthService.ts" />
           <ToolResult>Read 124 lines</ToolResult>
           <Continuation>session model exists, will extend with otpSecret + otpEnabledAt</Continuation>
         </>
       )}
-      {step >= 3 && (
+      {step >= 4 && (
         <>
           <ToolCall name="Edit" args="src/auth/AuthService.ts" />
           <ToolResult>
@@ -897,7 +923,7 @@ function DemoStreamBody({ step, complete }: { step: number; complete: boolean })
           <Continuation>setupTotp, verifyTotp, regenerateRecoveryCodes</Continuation>
         </>
       )}
-      {step >= 4 && (
+      {step >= 5 && (
         <>
           <ToolCall name="Bash" args="npm test -- auth" />
           <ToolResult>

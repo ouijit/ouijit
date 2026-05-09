@@ -265,6 +265,70 @@ const ONBOARDING_PREVIEW: PreviewFixture = {
   page: <OnboardingPreviewPage />,
 };
 
+const TWO_FA_DIFF: DiffFixture = {
+  branchAhead: 'add-2fa',
+  files: [
+    {
+      path: 'src/auth/AuthService.ts',
+      status: 'M',
+      additions: 87,
+      deletions: 4,
+      hunks: [
+        {
+          header: '@@ -42,6 +42,18 @@ session creation',
+          lines: [
+            {
+              type: 'context',
+              content: '  const session = await this.sessions.create({ userId });',
+              oldNo: 42,
+              newNo: 42,
+            },
+            { type: 'context', content: '  return session;', oldNo: 43, newNo: 43 },
+            { type: 'context', content: '}', oldNo: 44, newNo: 44 },
+            { type: 'context', content: '', oldNo: 45, newNo: 45 },
+            { type: 'addition', content: 'async setupTotp(userId: string) {', newNo: 46 },
+            { type: 'addition', content: '  const secret = authenticator.generateSecret();', newNo: 47 },
+            { type: 'addition', content: '  await this.users.update(userId, {', newNo: 48 },
+            { type: 'addition', content: '    otpSecret: encrypt(secret),', newNo: 49 },
+            { type: 'addition', content: '    otpEnabledAt: null,', newNo: 50 },
+            { type: 'addition', content: '  });', newNo: 51 },
+            {
+              type: 'addition',
+              content: "  return { secret, qr: authenticator.keyuri(userId, 'Constellation', secret) };",
+              newNo: 52,
+            },
+            { type: 'addition', content: '}', newNo: 53 },
+          ],
+        },
+      ],
+    },
+    {
+      path: 'db/migrations/0042_add_otp_columns.sql',
+      status: 'A',
+      additions: 6,
+      deletions: 0,
+      hunks: [
+        {
+          header: '@@ -0,0 +1,6 @@',
+          lines: [
+            { type: 'addition', content: 'ALTER TABLE users', newNo: 1 },
+            { type: 'addition', content: '  ADD COLUMN otp_secret TEXT,', newNo: 2 },
+            { type: 'addition', content: '  ADD COLUMN otp_enabled_at TIMESTAMPTZ,', newNo: 3 },
+            { type: 'addition', content: '  ADD COLUMN otp_recovery_codes TEXT[];', newNo: 4 },
+            { type: 'addition', content: '', newNo: 5 },
+            {
+              type: 'addition',
+              content:
+                'CREATE INDEX users_otp_enabled_at ON users(otp_enabled_at) WHERE otp_enabled_at IS NOT NULL;',
+              newNo: 6,
+            },
+          ],
+        },
+      ],
+    },
+  ],
+};
+
 const FIXTURES: Record<string, PanelFixtures> = {
   'pty-101-claude': {
     plan: { filename: 'plan.md', body: ONBOARDING_PLAN_BODY },
@@ -283,7 +347,8 @@ const FIXTURES: Record<string, PanelFixtures> = {
     diff: { branchAhead: 'main', files: [] },
   },
   'pty-142-claude': {
-    plan: { filename: '2fa-plan.md', body: TWO_FA_PLAN_BODY },
+    plan: { filename: 'plan.md', body: TWO_FA_PLAN_BODY },
+    diff: TWO_FA_DIFF,
   },
 };
 
