@@ -476,6 +476,17 @@ export interface ElectronAPI {
   onCliChange(
     callback: (payload: { project: string; action: string; message?: string; ts: number }) => void,
   ): () => void;
+  /** Listen for a CLI-initiated task start that requires spawning a terminal */
+  onCliTaskStarted(
+    callback: (payload: {
+      project: string;
+      taskNumber: number;
+      worktreePath: string;
+      branch: string;
+      createdAt: string;
+      sandboxed: boolean;
+    }) => void,
+  ): () => void;
   /** Get project settings */
   getProjectSettings(projectPath: string): Promise<ProjectSettings>;
   /** Set whether to kill existing command instances on run */

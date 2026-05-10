@@ -97,6 +97,30 @@ class HttpError extends Error {
   }
 }
 
+interface TaskStartResult {
+  success: boolean;
+  worktreePath?: string;
+  task?: { taskNumber: number; branch?: string; createdAt: string; sandboxed?: boolean };
+}
+
+function isSuccessfulStart(result: unknown): result is TaskStartResult {
+  return (
+    typeof result === 'object' &&
+    result !== null &&
+    (result as { success?: unknown }).success === true &&
+    typeof (result as { worktreePath?: unknown }).worktreePath === 'string'
+  );
+}
+
+function isTaskStartRoute(method: string, segments: string[]): boolean {
+  if (method !== 'POST') return false;
+  // POST /api/tasks/start
+  if (segments.length === 2 && segments[0] === 'tasks' && segments[1] === 'start') return true;
+  // POST /api/tasks/:number/start
+  if (segments.length === 3 && segments[0] === 'tasks' && segments[2] === 'start') return true;
+  return false;
+}
+
 // ── Route dispatch ───────────────────────────────────────────────────
 
 type RouteHandler = (req: ParsedRequest) => Promise<unknown> | unknown;
@@ -515,6 +539,24 @@ async function handleAsync(req: IncomingMessage, res: ServerResponse, window: Br
         action: `${method} /api/${apiPath}`,
         ts: Date.now(),
       });
+
+      // Task-start routes also need a terminal + hook in the renderer.
+      // The HTTP handler only creates the worktree + DB row; the renderer
+      // owns terminal/hook lifecycle, so signal it explicitly here.
+      if (isTaskStartRoute(method, segments) && isSuccessfulStart(result)) {
+        const startResult = result as TaskStartResult;
+        const task = startResult.task;
+        if (task && startResult.worktreePath && task.branch) {
+          typedPush(window, 'cli:task-started', {
+            project,
+            taskNumber: task.taskNumber,
+            worktreePath: startResult.worktreePath,
+            branch: task.branch,
+            createdAt: task.createdAt,
+            sandboxed: task.sandboxed ?? false,
+          });
+        }
+      }
     }
   } catch (err) {
     if (err instanceof HttpError) {

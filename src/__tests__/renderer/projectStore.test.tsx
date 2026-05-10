@@ -103,3 +103,48 @@ describe('projectStore.loadTasks → appStore cache', () => {
     ).toEqual([1, 2]);
   });
 });
+
+describe('projectStore.pendingCliStarts (T-366)', () => {
+  beforeEach(() => {
+    useProjectStore.setState({ pendingCliStarts: {} });
+  });
+
+  const start = (n: number) => ({
+    taskNumber: n,
+    worktreePath: `/wt/T-${n}`,
+    branch: `b-${n}`,
+    createdAt: '2026-05-10T00:00:00.000Z',
+    sandboxed: false,
+  });
+
+  test('enqueueCliStart appends per project', () => {
+    useProjectStore.getState().enqueueCliStart('/a', start(1));
+    useProjectStore.getState().enqueueCliStart('/a', start(2));
+    useProjectStore.getState().enqueueCliStart('/b', start(3));
+
+    const queue = useProjectStore.getState().pendingCliStarts;
+    expect(queue['/a'].map((s) => s.taskNumber)).toEqual([1, 2]);
+    expect(queue['/b'].map((s) => s.taskNumber)).toEqual([3]);
+  });
+
+  test('enqueueCliStart dedupes by taskNumber', () => {
+    useProjectStore.getState().enqueueCliStart('/a', start(1));
+    useProjectStore.getState().enqueueCliStart('/a', start(1));
+    expect(useProjectStore.getState().pendingCliStarts['/a']).toHaveLength(1);
+  });
+
+  test('drainCliStarts returns and clears the queue for a project', () => {
+    useProjectStore.getState().enqueueCliStart('/a', start(1));
+    useProjectStore.getState().enqueueCliStart('/a', start(2));
+    useProjectStore.getState().enqueueCliStart('/b', start(3));
+
+    const drained = useProjectStore.getState().drainCliStarts('/a');
+    expect(drained.map((s) => s.taskNumber)).toEqual([1, 2]);
+    expect(useProjectStore.getState().pendingCliStarts['/a']).toBeUndefined();
+    expect(useProjectStore.getState().pendingCliStarts['/b']).toHaveLength(1);
+  });
+
+  test('drainCliStarts returns empty array when nothing is queued', () => {
+    expect(useProjectStore.getState().drainCliStarts('/none')).toEqual([]);
+  });
+});
