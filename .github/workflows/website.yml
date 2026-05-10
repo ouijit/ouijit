@@ -33,7 +33,16 @@ jobs:
         with:
           node-version: '22'
           cache: 'npm'
-          cache-dependency-path: website/package-lock.json
+          cache-dependency-path: |
+            package-lock.json
+            website/package-lock.json
+
+      # The site imports app sources via @app/* and pulls src/index.css, which
+      # does `@import 'tailwindcss'`. Tailwind resolves that from src/, so root
+      # node_modules must exist. --ignore-scripts skips native rebuilds
+      # (electron, better-sqlite3, koffi) we don't need for the website build.
+      - name: Install root dependencies
+        run: npm ci --ignore-scripts
 
       - name: Install website dependencies
         run: npm ci
