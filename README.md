@@ -1,4 +1,8 @@
-<img width="200" height="63" alt="ouijit" src="https://github.com/user-attachments/assets/4f19561c-e1d7-451f-9c83-d2e62221716c" />
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="website/public/assets/ouijit-logo.svg">
+  <source media="(prefers-color-scheme: light)" srcset="website/public/assets/ouijit-logo-dark.svg">
+  <img alt="ouijit" src="website/public/assets/ouijit-logo.svg" width="200">
+</picture>
 
 <br>
 
