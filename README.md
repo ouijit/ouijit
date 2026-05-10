@@ -1,19 +1,27 @@
-<img width="200" height="63" alt="ouijit" src="https://github.com/user-attachments/assets/4f19561c-e1d7-451f-9c83-d2e62221716c" />
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="website/public/assets/ouijit-logo.svg">
+  <source media="(prefers-color-scheme: light)" srcset="website/public/assets/ouijit-logo-dark.svg">
+  <img alt="ouijit" src="website/public/assets/ouijit-logo.svg" width="200">
+</picture>
 
 <br>
 
-Kanban terminal manager for CLI agent workflows with automatic git worktree isolation and VM sandbox support included.
+_Integrated Divination Environment._
 
-[macOS (Apple Silicon)](https://github.com/ouijit/ouijit/releases/latest/download/ouijit-darwin-arm64.zip) · [macOS (Intel)](https://github.com/ouijit/ouijit/releases/latest/download/ouijit-darwin-x64.zip) · [Linux](https://github.com/ouijit/ouijit/releases/latest/download/ouijit-linux-x64.zip)
+Ouijit is a customizable task and terminal session manager that integrates with agent CLIs and TUIs like Claude Code via lifecycle hooks, scripts, and a session-aware CLI. It offers basic comforts for agentic development like live agent status with notifications, automatic worktree management for parallel workstreams, and VM sandboxing for untrusted code.
+
+Download for [macOS or Linux](https://ouijit.com). Free and open source. No account, no sign-in.
+
+[Docs](https://ouijit.com/docs/)
 
 <table>
   <tr>
-    <td><img src="website/assets/screenshots/kanban.png" alt="Kanban board"></td>
-    <td><img src="website/assets/screenshots/terminal-stack.png" alt="Terminal stack"></td>
+    <td><img src="website/public/assets/screenshots/kanban.png" alt="Kanban board"></td>
+    <td><img src="website/public/assets/screenshots/terminal-stack.png" alt="Terminal stack"></td>
   </tr>
   <tr>
-    <td><img src="website/assets/screenshots/canvas.png" alt="Terminal canvas"></td>
-    <td><img src="website/assets/screenshots/settings.png" alt="Settings"></td>
+    <td><img src="website/public/assets/screenshots/canvas.png" alt="Terminal canvas"></td>
+    <td><img src="website/public/assets/screenshots/settings.png" alt="Settings"></td>
   </tr>
 </table>
 

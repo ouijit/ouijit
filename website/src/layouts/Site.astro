@@ -17,7 +17,7 @@ const {
 } = Astro.props;
 
 const canonical = new URL(Astro.url.pathname, Astro.site ?? 'https://ouijit.com').toString();
-const ogImage = new URL('/assets/ouijit-app-icon.png', Astro.site ?? 'https://ouijit.com').toString();
+const ogImage = new URL('/assets/og-image.png', Astro.site ?? 'https://ouijit.com').toString();
 ---
 <!DOCTYPE html>
 <html lang="en">
@@ -35,13 +35,13 @@ const ogImage = new URL('/assets/ouijit-app-icon.png', Astro.site ?? 'https://ou
   <meta property="og:url" content={canonical} />
   <meta property="og:image" content={ogImage} />
 
-  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content={title} />
   <meta name="twitter:description" content={description} />
   <meta name="twitter:image" content={ogImage} />
 
   <link rel="icon" type="image/png" href="/assets/favicon.png" />
-  <link rel="apple-touch-icon" href="/assets/favicon.png" />
+  <link rel="apple-touch-icon" href="/assets/ouijit-app-icon.png" />
   <link rel="preload" href={iosevkaExtended} as="font" type="font/woff2" crossorigin />
   <link rel="preload" href={iosevkaTermExtended} as="font" type="font/woff2" crossorigin />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
