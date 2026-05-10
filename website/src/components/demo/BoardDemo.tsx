@@ -23,7 +23,6 @@ export default function BoardDemo() {
               key={task.taskNumber}
               task={task}
               connectedDisplays={demoTerminalsByTask[task.taskNumber] ?? []}
-              chainInfo={chainInfo}
               showBadge={showBadge}
               badge={
                 showBadge ? <KanbanBadgeView taskNumber={task.taskNumber} chainInfo={chainInfo} /> : null

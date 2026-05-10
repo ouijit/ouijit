@@ -10,7 +10,7 @@ const EMPTY_TAGS: string[] = [];
 import type { GitFileStatus, RunnerScript } from '../../types';
 import { Icon } from './Icon';
 import { TagInput } from './TagInput';
-import { TerminalHeaderView } from './TerminalHeaderView';
+import { TerminalHeaderView, TerminalHeaderName } from './TerminalHeaderView';
 import { ContextMenu, type ContextMenuEntry } from '../ui/ContextMenu';
 import { HookConfigDialog } from '../dialogs/HookConfigDialog';
 import { CloseTaskDialog } from '../dialogs/CloseTaskDialog';
@@ -353,13 +353,7 @@ export const TerminalHeader = memo(function TerminalHeader({
       }}
     />
   ) : (
-    <>
-      <span className="font-mono text-xs font-medium text-white/85 shrink-0">{label}</span>
-      {summary && <span className="font-mono text-xs text-white/45 min-w-0 truncate">\u2014 {summary}</span>}
-      {lastOscTitle && (
-        <span className="font-mono text-xs font-medium text-white/40 min-w-0 truncate">{lastOscTitle}</span>
-      )}
-    </>
+    <TerminalHeaderName label={label} summary={summary} lastOscTitle={lastOscTitle} />
   );
 
   const tagsContent =

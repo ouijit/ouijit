@@ -20,14 +20,28 @@ export interface KanbanCardViewProps {
   onSelect?: (taskNumber: number, event: MouseEvent) => void;
   onPlainClick?: () => void;
   onContextMenu?: (event: MouseEvent) => void;
-  onRename?: (taskNumber: number, newName: string) => void;
   onUpdateDescription?: (taskNumber: number, description: string) => void;
   onSwitchToTerminal?: (ptyId: string) => void;
   onTerminalContextMenu?: (ptyId: string, event: MouseEvent) => void;
-  onRenameTerminal?: (ptyId: string, label: string) => void;
-  /** ptyId currently being renamed inline. View renders an input when set. */
+
+  /** Controlled — when true, the View renders the name as an editable textarea. */
+  isRenamingTask?: boolean;
+  /** Called when the user double-clicks the name to enter rename mode. */
+  onStartRenameTask?: () => void;
+  /** Called on Enter or blur with a non-empty value different from the current name. */
+  onCommitRenameTask?: (taskNumber: number, newName: string) => void;
+  /** Called on Escape, or when blur produces no committable value. The wrapper
+   *  is expected to clear `isRenamingTask` in response. */
+  onCancelRenameTask?: () => void;
+
+  /** Controlled — ptyId currently being renamed inline. View renders an input when set. */
   renamingTerminalId?: string | null;
   initialRenamingLabel?: string;
+  /** Called on Enter or blur with a non-empty value. */
+  onCommitRenameTerminal?: (ptyId: string, label: string) => void;
+  /** Called on Escape, or when blur produces no committable value. The wrapper
+   *  is expected to clear `renamingTerminalId` in response. */
+  onCancelRenameTerminal?: (ptyId: string) => void;
 }
 
 /**
@@ -50,16 +64,19 @@ export const KanbanCardView = memo(function KanbanCardView({
   onSelect,
   onPlainClick,
   onContextMenu,
-  onRename,
   onUpdateDescription,
   onSwitchToTerminal,
   onTerminalContextMenu,
-  onRenameTerminal,
+  isRenamingTask = false,
+  onStartRenameTask,
+  onCommitRenameTask,
+  onCancelRenameTask,
   renamingTerminalId,
   initialRenamingLabel,
+  onCommitRenameTerminal,
+  onCancelRenameTerminal,
 }: KanbanCardViewProps) {
   const [expanded, setExpanded] = useState(false);
-  const [editing, setEditing] = useState(false);
   const [editingDesc, setEditingDesc] = useState(false);
   const nameInputRef = useRef<HTMLTextAreaElement>(null);
   const descInputRef = useRef<HTMLSpanElement>(null);
@@ -67,28 +84,28 @@ export const KanbanCardView = memo(function KanbanCardView({
 
   const isDone = task.status === 'done';
 
-  const startEditing = useCallback(() => {
-    setEditing(true);
-  }, []);
-
   useEffect(() => {
-    if (editing && nameInputRef.current) {
+    if (isRenamingTask && nameInputRef.current) {
       nameInputRef.current.value = task.name;
       nameInputRef.current.focus();
       nameInputRef.current.select();
       nameInputRef.current.style.height = 'auto';
       nameInputRef.current.style.height = `${nameInputRef.current.scrollHeight}px`;
     }
-  }, [editing, task.name]);
+  }, [isRenamingTask, task.name]);
 
   const commitRename = useCallback(() => {
-    if (!nameInputRef.current) return;
+    if (!nameInputRef.current) {
+      onCancelRenameTask?.();
+      return;
+    }
     const newName = nameInputRef.current.value.trim();
     if (newName && newName !== task.name) {
-      onRename?.(task.taskNumber, newName);
+      onCommitRenameTask?.(task.taskNumber, newName);
+    } else {
+      onCancelRenameTask?.();
     }
-    setEditing(false);
-  }, [task.taskNumber, task.name, onRename]);
+  }, [task.taskNumber, task.name, onCommitRenameTask, onCancelRenameTask]);
 
   const handleNameKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -96,10 +113,10 @@ export const KanbanCardView = memo(function KanbanCardView({
         e.preventDefault();
         commitRename();
       } else if (e.key === 'Escape') {
-        setEditing(false);
+        onCancelRenameTask?.();
       }
     },
-    [commitRename],
+    [commitRename, onCancelRenameTask],
   );
 
   const commitDescription = useCallback(() => {
@@ -110,11 +127,16 @@ export const KanbanCardView = memo(function KanbanCardView({
   }, [task.taskNumber, onUpdateDescription]);
 
   const commitTerminalRename = useCallback(() => {
+    if (!renamingTerminalId) return;
     const value = terminalRenameRef.current?.value.trim();
-    if (value && renamingTerminalId) {
-      onRenameTerminal?.(renamingTerminalId, value);
+    if (value) {
+      onCommitRenameTerminal?.(renamingTerminalId, value);
+    } else {
+      // Empty/whitespace value on blur — cancel so the wrapper closes the input.
+      // Without this, an empty blur leaves the rename UI stuck open.
+      onCancelRenameTerminal?.(renamingTerminalId);
     }
-  }, [renamingTerminalId, onRenameTerminal]);
+  }, [renamingTerminalId, onCommitRenameTerminal, onCancelRenameTerminal]);
 
   useEffect(() => {
     if (renamingTerminalId && terminalRenameRef.current) {
@@ -174,7 +196,7 @@ export const KanbanCardView = memo(function KanbanCardView({
             style={{ animation: 'loading-dot-spin 0.8s linear infinite' }}
           />
         )}
-        {editing ? (
+        {isRenamingTask ? (
           <textarea
             ref={nameInputRef}
             className="flex-1 font-mono text-sm font-medium text-text-primary bg-transparent border-0 border-b border-accent p-0 outline-none min-w-0 resize-none overflow-hidden [-webkit-app-region:no-drag] break-words"
@@ -185,7 +207,7 @@ export const KanbanCardView = memo(function KanbanCardView({
         ) : (
           <span
             className={`kanban-card-name flex-1 font-mono text-sm font-medium min-w-0 break-words ${isDone ? 'line-through text-text-secondary' : 'text-text-primary'}`}
-            onDoubleClick={startEditing}
+            onDoubleClick={onStartRenameTask}
           >
             {task.name}
           </span>
@@ -239,7 +261,7 @@ export const KanbanCardView = memo(function KanbanCardView({
                     onBlur={commitTerminalRename}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') commitTerminalRename();
-                      if (e.key === 'Escape' && renamingTerminalId) onRenameTerminal?.(renamingTerminalId, '');
+                      if (e.key === 'Escape' && renamingTerminalId) onCancelRenameTerminal?.(renamingTerminalId);
                     }}
                   />
                 ) : (

@@ -4,7 +4,11 @@ import { KanbanColumnView } from '@app/components/kanban/KanbanColumnView';
 import { KanbanCardView } from '@app/components/kanban/KanbanCardView';
 import { KanbanAddInput } from '@app/components/kanban/KanbanAddInput';
 import { TerminalCardView } from '@app/components/terminal/TerminalCardView';
-import { TerminalHeaderView } from '@app/components/terminal/TerminalHeaderView';
+import {
+  TerminalHeaderView,
+  TerminalHeaderName,
+  TerminalHeaderTags,
+} from '@app/components/terminal/TerminalHeaderView';
 import { Icon } from '@app/components/terminal/Icon';
 import type { TerminalDisplayState } from '@app/stores/terminalStore';
 import { DEFAULT_DISPLAY_STATE } from '@app/stores/terminalStore';
@@ -454,9 +458,8 @@ export default function WorkspaceScene() {
                   isActive={isActive}
                   isBackCard={!isActive}
                   stackPosition={isActive ? undefined : position}
-                  label={term.label}
-                  lastOscTitle={lastOscTitle}
-                  tags={isActive ? term.tags : undefined}
+                  nameContent={<TerminalHeaderName label={term.label} lastOscTitle={lastOscTitle} />}
+                  tagsContent={isActive && term.tags ? <TerminalHeaderTags tags={term.tags} /> : undefined}
                   branchContent={isActive && term.branch ? <BranchLabel branch={term.branch} /> : undefined}
                   actions={
                     isActive ? (

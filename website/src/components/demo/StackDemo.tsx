@@ -1,5 +1,9 @@
 import { TerminalCardView } from '@app/components/terminal/TerminalCardView';
-import { TerminalHeaderView } from '@app/components/terminal/TerminalHeaderView';
+import {
+  TerminalHeaderView,
+  TerminalHeaderName,
+  TerminalHeaderTags,
+} from '@app/components/terminal/TerminalHeaderView';
 
 /**
  * Composed stack of terminal cards demonstrating the active card + back cards.
@@ -17,8 +21,7 @@ export default function StackDemo() {
           summaryType="ready"
           stackPosition={3}
           isBackCard
-          label="npm run dev"
-          summary="live dev server"
+          nameContent={<TerminalHeaderName label="npm run dev" summary="live dev server" />}
         />
       </TerminalCardView>
       {/* Back card 2 */}
@@ -27,8 +30,7 @@ export default function StackDemo() {
           summaryType="ready"
           stackPosition={2}
           isBackCard
-          label="npm test"
-          summary="14 passed"
+          nameContent={<TerminalHeaderName label="npm test" summary="14 passed" />}
         />
       </TerminalCardView>
       {/* Back card 1 */}
@@ -37,8 +39,7 @@ export default function StackDemo() {
           summaryType="thinking"
           stackPosition={1}
           isBackCard
-          label="claude"
-          summary="Aligning hover states"
+          nameContent={<TerminalHeaderName label="claude" summary="Aligning hover states" />}
         />
       </TerminalCardView>
       {/* Front (active) card */}
@@ -46,9 +47,8 @@ export default function StackDemo() {
         <TerminalHeaderView
           summaryType="thinking"
           isActive
-          label="claude"
-          summary="Editing onboarding stepper..."
-          tags={['onboarding', 'stepper']}
+          nameContent={<TerminalHeaderName label="claude" summary="Editing onboarding stepper..." />}
+          tagsContent={<TerminalHeaderTags tags={['onboarding', 'stepper']} />}
           actions={
             <div className="inline-flex items-center h-7 bg-background-secondary glass-bevel relative border border-black/60 rounded-[12px] overflow-hidden">
               <button className="h-full px-2.5 flex items-center gap-1 border-none font-sans text-[13px] font-medium bg-accent text-white">

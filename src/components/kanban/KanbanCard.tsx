@@ -48,6 +48,7 @@ export const KanbanCard = memo(function KanbanCard({
   const [terminalContextMenu, setTerminalContextMenu] = useState<{ x: number; y: number; ptyId: string } | null>(null);
   const [renamingTerminalId, setRenamingTerminalId] = useState<string | null>(null);
   const [initialRenamingLabel, setInitialRenamingLabel] = useState<string>('');
+  const [isRenamingTask, setIsRenamingTask] = useState(false);
 
   const isInChain = isChainMember(chainInfo);
 
@@ -88,13 +89,12 @@ export const KanbanCard = memo(function KanbanCard({
     window.api.hooks.get(projectPath).then((hooks) => setHasEditorHook(!!hooks.editor));
   }, [projectPath]);
 
-  const handleRenameTerminal = useCallback((ptyId: string, label: string) => {
-    if (label === '') {
-      // Escape pressed
-      setRenamingTerminalId(null);
-      return;
-    }
+  const handleCommitRenameTerminal = useCallback((ptyId: string, label: string) => {
     useTerminalStore.getState().updateDisplay(ptyId, { label });
+    setRenamingTerminalId(null);
+  }, []);
+
+  const handleCancelRenameTerminal = useCallback(() => {
     setRenamingTerminalId(null);
   }, []);
 
@@ -102,6 +102,22 @@ export const KanbanCard = memo(function KanbanCard({
     const display = useTerminalStore.getState().displayStates[ptyId];
     setInitialRenamingLabel(display?.label ?? '');
     setRenamingTerminalId(ptyId);
+  }, []);
+
+  const handleCommitRenameTask = useCallback(
+    (taskNumber: number, newName: string) => {
+      onRename(taskNumber, newName);
+      setIsRenamingTask(false);
+    },
+    [onRename],
+  );
+
+  const handleCancelRenameTask = useCallback(() => {
+    setIsRenamingTask(false);
+  }, []);
+
+  const handleStartRenameTask = useCallback(() => {
+    setIsRenamingTask(true);
   }, []);
 
   const handlePlainClick = useCallback(() => {
@@ -265,12 +281,7 @@ export const KanbanCard = memo(function KanbanCard({
     items.push({
       label: 'Rename',
       icon: 'pencil-simple',
-      onClick: () => {
-        // The View owns editing state; trigger via a custom event-like prop later if needed.
-        // For now we re-trigger by simulating a double-click on the name span.
-        const el = document.querySelector(`[data-task-number="${task.taskNumber}"] .kanban-card-name`);
-        (el as HTMLElement | null)?.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
-      },
+      onClick: handleStartRenameTask,
     });
 
     if (isDone) {
@@ -316,6 +327,7 @@ export const KanbanCard = memo(function KanbanCard({
     selectedCount,
     onSwitchToTerminal,
     onOpenTerminal,
+    handleStartRenameTask,
   ]);
 
   return (
@@ -338,13 +350,17 @@ export const KanbanCard = memo(function KanbanCard({
         onSelect={onSelect}
         onPlainClick={handlePlainClick}
         onContextMenu={(e) => setContextMenu({ x: e.clientX, y: e.clientY })}
-        onRename={onRename}
         onUpdateDescription={onUpdateDescription}
         onSwitchToTerminal={onSwitchToTerminal}
         onTerminalContextMenu={(ptyId, e) => setTerminalContextMenu({ x: e.clientX, y: e.clientY, ptyId })}
-        onRenameTerminal={handleRenameTerminal}
+        isRenamingTask={isRenamingTask}
+        onStartRenameTask={handleStartRenameTask}
+        onCommitRenameTask={handleCommitRenameTask}
+        onCancelRenameTask={handleCancelRenameTask}
         renamingTerminalId={renamingTerminalId}
         initialRenamingLabel={initialRenamingLabel}
+        onCommitRenameTerminal={handleCommitRenameTerminal}
+        onCancelRenameTerminal={handleCancelRenameTerminal}
       />
       {contextMenu && (
         <ContextMenu

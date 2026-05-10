@@ -1,4 +1,4 @@
-import { TerminalHeaderView } from '@app/components/terminal/TerminalHeaderView';
+import { TerminalHeaderView, TerminalHeaderName } from '@app/components/terminal/TerminalHeaderView';
 
 interface State {
   summaryType: 'thinking' | 'ready';
@@ -26,8 +26,7 @@ export default function AgentStatesDemo() {
             key={i}
             summaryType={s.summaryType}
             sandboxed={s.sandboxed}
-            label={s.label}
-            summary={s.summary}
+            nameContent={<TerminalHeaderName label={s.label} summary={s.summary} />}
           />
         ))}
       </div>
