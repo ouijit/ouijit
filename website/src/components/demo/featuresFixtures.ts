@@ -1,8 +1,8 @@
-import type { TaskWithWorkspace } from '@app/types';
-import type { TerminalDisplayState } from '@app/stores/terminalStore';
-import { DEFAULT_DISPLAY_STATE } from '@app/stores/terminalStore';
-import type { TaskChainInfo } from '@app/utils/taskChain';
-import { buildChainMap } from '@app/utils/taskChain';
+import type { TaskWithWorkspace } from '../../ouijit-ui/types';
+import type { TerminalDisplayState } from '../../ouijit-ui/terminalDisplay';
+import { DEFAULT_DISPLAY_STATE } from '../../ouijit-ui/terminalDisplay';
+import type { TaskChainInfo } from '../../ouijit-ui/utils/taskChain';
+import { buildChainMap } from '../../ouijit-ui/utils/taskChain';
 
 const PROJECT_PATH = '/demo/horizon';
 

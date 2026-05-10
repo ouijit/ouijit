@@ -1,5 +1,5 @@
-import { HookRowView } from '@app/components/scripts/HookRowView';
-import { ScriptRowView } from '@app/components/scripts/ScriptRowView';
+import { HookRowView } from '../../ouijit-ui/components/scripts/HookRowView';
+import { ScriptRowView } from '../../ouijit-ui/components/scripts/ScriptRowView';
 
 const HOOKS: { label: string; description: string; command?: string }[] = [
   {

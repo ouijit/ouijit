@@ -1,17 +1,17 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import type { TaskStatus, TaskWithWorkspace } from '@app/types';
-import { KanbanColumnView } from '@app/components/kanban/KanbanColumnView';
-import { KanbanCardView } from '@app/components/kanban/KanbanCardView';
-import { KanbanAddInput } from '@app/components/kanban/KanbanAddInput';
-import { TerminalCardView } from '@app/components/terminal/TerminalCardView';
+import type { TaskStatus, TaskWithWorkspace } from '../../ouijit-ui/types';
+import { KanbanColumnView } from '../../ouijit-ui/components/kanban/KanbanColumnView';
+import { KanbanCardView } from '../../ouijit-ui/components/kanban/KanbanCardView';
+import { KanbanAddInput } from '../../ouijit-ui/components/kanban/KanbanAddInput';
+import { TerminalCardView } from '../../ouijit-ui/components/terminal/TerminalCardView';
 import {
   TerminalHeaderView,
   TerminalHeaderName,
   TerminalHeaderTags,
-} from '@app/components/terminal/TerminalHeaderView';
-import { Icon } from '@app/components/terminal/Icon';
-import type { TerminalDisplayState } from '@app/stores/terminalStore';
-import { DEFAULT_DISPLAY_STATE } from '@app/stores/terminalStore';
+} from '../../ouijit-ui/components/terminal/TerminalHeaderView';
+import { Icon } from '../../ouijit-ui/components/terminal/Icon';
+import type { TerminalDisplayState } from '../../ouijit-ui/terminalDisplay';
+import { DEFAULT_DISPLAY_STATE } from '../../ouijit-ui/terminalDisplay';
 import {
   featuresTasks,
   featuresTerminalsByTask,

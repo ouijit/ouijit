@@ -1,9 +1,9 @@
-import { TerminalCardView } from '@app/components/terminal/TerminalCardView';
+import { TerminalCardView } from '../../ouijit-ui/components/terminal/TerminalCardView';
 import {
   TerminalHeaderView,
   TerminalHeaderName,
   TerminalHeaderTags,
-} from '@app/components/terminal/TerminalHeaderView';
+} from '../../ouijit-ui/components/terminal/TerminalHeaderView';
 
 /**
  * Composed stack of terminal cards demonstrating the active card + back cards.
