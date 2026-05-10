@@ -1,4 +1,4 @@
-import './index.css';
+import './tailwind.css';
 import '@xterm/xterm/css/xterm.css';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';

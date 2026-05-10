@@ -1,0 +1,10 @@
+/*
+ * App entry CSS. Imports Tailwind followed by the shared design tokens.
+ *
+ * The marketing site (website/) also imports index.css, but does its own
+ * `@import 'tailwindcss'` from website/node_modules so the website build
+ * doesn't depend on root node_modules. Keeping the tailwindcss import here
+ * (instead of inside index.css) is what enables that split.
+ */
+@import 'tailwindcss';
+@import './index.css';
