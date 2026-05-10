@@ -415,7 +415,7 @@ export default function WorkspaceScene() {
           className="workspace-scene-cli"
           style={{
             position: 'absolute',
-            left: 70,
+            left: 62,
             bottom: 22,
             zIndex: 3,
           }}
