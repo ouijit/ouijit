@@ -399,7 +399,7 @@ export default function WorkspaceScene() {
         >
           <FadeInWrapper>
             <NotificationPreview
-              title="Add 2FA is ready"
+              title={`${DEMO_TASK.name} is ready`}
               onActivate={() => bringToFront(DEMO_PTY_ID)}
             />
           </FadeInWrapper>
@@ -500,7 +500,7 @@ export default function WorkspaceScene() {
         <div className="workspace-scene-notification-row">
           <FadeInWrapper>
             <NotificationPreview
-              title="Add 2FA is ready"
+              title={`${DEMO_TASK.name} is ready`}
               onActivate={() => bringToFront(DEMO_PTY_ID)}
             />
           </FadeInWrapper>
