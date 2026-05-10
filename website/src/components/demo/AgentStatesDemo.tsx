@@ -1,4 +1,4 @@
-import { TerminalHeaderView, TerminalHeaderName } from '@app/components/terminal/TerminalHeaderView';
+import { TerminalHeaderView, TerminalHeaderName } from '../../ouijit-ui/components/terminal/TerminalHeaderView';
 
 interface State {
   summaryType: 'thinking' | 'ready';

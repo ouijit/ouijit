@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { Icon } from '@app/components/terminal/Icon';
+import { Icon } from '../../ouijit-ui/components/terminal/Icon';
 
 /* ─── Plan ────────────────────────────────────────────────────────── */
 

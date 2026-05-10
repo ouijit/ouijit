@@ -1,7 +1,7 @@
-import { KanbanColumnView } from '@app/components/kanban/KanbanColumnView';
-import { KanbanCardView } from '@app/components/kanban/KanbanCardView';
-import { KanbanBadgeView } from '@app/components/kanban/KanbanBadgeView';
-import { isChainMember } from '@app/utils/taskChain';
+import { KanbanColumnView } from '../../ouijit-ui/components/kanban/KanbanColumnView';
+import { KanbanCardView } from '../../ouijit-ui/components/kanban/KanbanCardView';
+import { KanbanBadgeView } from '../../ouijit-ui/components/kanban/KanbanBadgeView';
+import { isChainMember } from '../../ouijit-ui/utils/taskChain';
 import { demoTasks, demoTerminalsByTask, demoChainMap } from './fixtures';
 
 /**
