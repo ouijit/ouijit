@@ -66,9 +66,6 @@ import treeStructure from '@phosphor-icons/core/assets/regular/tree-structure.sv
 import upload from '@phosphor-icons/core/assets/regular/upload.svg?raw';
 import webhooksLogo from '@phosphor-icons/core/assets/regular/webhooks-logo.svg?raw';
 import x from '@phosphor-icons/core/assets/regular/x.svg?raw';
-import log from 'electron-log/renderer';
-
-const iconsLog = log.scope('icons');
 
 // Map of icon names (kebab-case) to SVG strings
 export const iconMap: Record<string, string> = {
@@ -144,7 +141,7 @@ function convertIcon(element: Element): void {
 
   const svgString = iconMap[iconName];
   if (!svgString) {
-    iconsLog.warn('unknown icon', { name: iconName });
+    console.warn('unknown icon', { name: iconName });
     return;
   }
 
