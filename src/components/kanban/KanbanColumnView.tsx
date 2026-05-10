@@ -40,11 +40,9 @@ export function KanbanColumnView({
       data-status={status}
     >
       <div className="flex items-center gap-2 px-3 py-2.5 shrink-0 h-[46px]">
-        <span className="text-[13px] font-medium text-text-secondary uppercase tracking-wide flex-1">
+        <span className="text-[13px] font-medium text-text-secondary tracking-wide flex-1">
           {label}
-          <span className="kanban-column-count text-text-secondary opacity-50 normal-case tracking-normal ml-1.5">
-            {count}
-          </span>
+          <span className="kanban-column-count text-text-secondary opacity-50 tracking-normal ml-1.5">{count}</span>
         </span>
         {hookTypes.length > 0 && onConfigureHook && (
           <button
