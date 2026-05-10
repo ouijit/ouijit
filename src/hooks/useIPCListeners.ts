@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { useAppStore } from '../stores/appStore';
 import { useProjectStore, type PendingCliStart } from '../stores/projectStore';
 import { useTerminalStore } from '../stores/terminalStore';
-import { addProjectTerminal } from '../components/terminal/terminalActions';
+import { beginTransition } from '../services/taskStartService';
 import log from 'electron-log/renderer';
 
 const ipcLog = log.scope('ipcListeners');
@@ -19,17 +19,26 @@ async function spawnTerminalForCliStart(projectPath: string, start: PendingCliSt
     return;
   }
 
-  await addProjectTerminal(projectPath, undefined, {
-    existingWorktree: {
-      path: start.worktreePath,
-      branch: start.branch,
-      createdAt: start.createdAt,
-      sandboxed: start.sandboxed,
+  // Use the full task record so beginTransition has name/mergeTarget/etc.
+  // The CLI already created the worktree and flipped status, so the
+  // transition's worktree-creation step short-circuits on task.worktreePath.
+  const task = await window.api.task.getByNumber(projectPath, start.taskNumber);
+  if (!task) {
+    ipcLog.warn('CLI task-started: task not found, skipping spawn', { taskNumber: start.taskNumber });
+    return;
+  }
+
+  // Route through the same service the kanban drag uses so the `start` hook
+  // dialog appears and (on accept) its command runs in the spawned terminal,
+  // matching the todo → in_progress drop UX exactly.
+  beginTransition(projectPath, {
+    origStatus: 'todo',
+    newStatus: 'in_progress',
+    task: {
+      ...task,
+      worktreePath: task.worktreePath ?? start.worktreePath,
+      branch: task.branch ?? start.branch,
     },
-    taskId: start.taskNumber,
-    sandboxed: start.sandboxed,
-    // skipAutoHook left at default `false` so the configured `continue` hook
-    // runs on spawn, matching the kanban "existing worktree" open-terminal path.
   });
 }
 
