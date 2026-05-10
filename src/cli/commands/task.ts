@@ -97,7 +97,8 @@ Examples:
 
   task
     .command('create-and-start')
-    .description('Create + start in one step')
+    .alias('spawn')
+    .description('Create + start in one step (alias: spawn)')
     .argument('<name>', 'task name')
     .option('--prompt <text>', 'task prompt/description')
     .option('--branch <name>', 'custom branch name')

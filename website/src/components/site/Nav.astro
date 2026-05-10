@@ -1,0 +1,46 @@
+---
+const { docsHref = '/docs/' } = Astro.props;
+---
+<nav class="site-nav">
+  <div class="nav-inner">
+    <a class="nav-logo" href="/">
+      <img src="/assets/ouijit-logo.svg" alt="ouijit" width="133" height="28" />
+    </a>
+    <ul class="nav-links">
+      <li><a href={docsHref}>Docs</a></li>
+      <li><a href="https://github.com/ouijit/ouijit" target="_blank" rel="noopener">GitHub</a></li>
+    </ul>
+    <button class="nav-hamburger" aria-label="Menu" id="nav-hamburger">&#9776;</button>
+  </div>
+  <div class="nav-mobile" id="nav-mobile">
+    <a href={docsHref}>Docs</a>
+    <a href="https://github.com/ouijit/ouijit" target="_blank" rel="noopener">GitHub</a>
+  </div>
+</nav>
+
+<script>
+  const hamburger = document.getElementById('nav-hamburger');
+  const mobileMenu = document.getElementById('nav-mobile');
+  if (hamburger && mobileMenu) {
+    let overlay: HTMLDivElement | null = null;
+    const toggle = () => {
+      const open = mobileMenu.classList.toggle('open');
+      if (open) {
+        overlay = document.createElement('div');
+        overlay.className = 'nav-overlay';
+        overlay.style.display = 'block';
+        overlay.addEventListener('click', toggle);
+        document.body.appendChild(overlay);
+        document.body.style.overflow = 'hidden';
+      } else {
+        overlay?.remove();
+        overlay = null;
+        document.body.style.overflow = '';
+      }
+    };
+    hamburger.addEventListener('click', toggle);
+    mobileMenu.addEventListener('click', (e) => {
+      if ((e.target as HTMLElement).tagName === 'A') toggle();
+    });
+  }
+</script>

@@ -1,0 +1,97 @@
+@import 'tailwindcss';
+
+/*
+ * Pull in the app's design tokens (Tailwind v4 @theme block + custom utilities).
+ * The marketing site shares the exact same tokens, font stacks, and utility
+ * classes as the app, so component View renders look identical.
+ */
+@import '../../../src/index.css';
+
+/*
+ * Tell Tailwind v4 to scan the parent app's component source for utility
+ * classes used in the imported View components.
+ */
+@source "../../../src/**/*.{ts,tsx}";
+@source "../../**/*.{astro,tsx,ts}";
+
+/*
+ * The app's index.css sets html/body to overflow: hidden because the Electron
+ * window doesn't scroll. The marketing site needs to scroll, so override.
+ */
+html {
+  overflow: visible;
+}
+
+body.marketing {
+  overflow: auto;
+}
+
+/*
+ * The app's index.css also zeroes out ::-webkit-scrollbar globally so the
+ * Electron window has no scrollbar chrome. Restore native scrollbars on the
+ * marketing site so long pages remain navigable. !important is required
+ * because the app's compiled `@apply w-0 h-0` rule has equal specificity
+ * (both are `::-webkit-scrollbar`) and may load after this file.
+ */
+html::-webkit-scrollbar,
+body.marketing::-webkit-scrollbar,
+body.marketing ::-webkit-scrollbar {
+  width: 12px !important;
+  height: 12px !important;
+}
+html::-webkit-scrollbar-track,
+body.marketing::-webkit-scrollbar-track,
+body.marketing ::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.04);
+}
+html::-webkit-scrollbar-thumb,
+body.marketing::-webkit-scrollbar-thumb,
+body.marketing ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 6px;
+  border: 3px solid var(--marketing-bg);
+}
+html::-webkit-scrollbar-thumb:hover,
+body.marketing::-webkit-scrollbar-thumb:hover,
+body.marketing ::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* ------- Marketing-only branding ------- */
+
+:root {
+  --marketing-bg: #0a0a0c;
+  --marketing-surface: #16161a;
+  --marketing-blue: #0a84ff;
+  --marketing-blue-deep: #001b65;
+  --marketing-fade: rgba(255, 255, 255, 0.75);
+  --marketing-fade-2: rgba(255, 255, 255, 0.5);
+  --marketing-border: rgba(255, 255, 255, 0.12);
+}
+
+body.marketing {
+  background: var(--marketing-bg);
+  color: #f5f5f7;
+  font-family:
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    'SF Pro Display',
+    'SF Pro Text',
+    'Helvetica Neue',
+    Arial,
+    sans-serif;
+  line-height: 1.6;
+  min-height: 100vh;
+}
+
+body.marketing h1,
+body.marketing h2,
+body.marketing h3,
+body.marketing h4 {
+  font-family: 'Iosevka Extended', 'SF Mono', Monaco, Menlo, monospace;
+  color: #f5f5f7;
+  letter-spacing: -0.04em;
+  line-height: 1.05;
+  font-weight: 400;
+}

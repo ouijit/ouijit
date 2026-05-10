@@ -5,6 +5,7 @@ import { Icon } from '../terminal/Icon';
 import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, useSortable, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { ScriptRowView } from './ScriptRowView';
 
 interface ScriptListProps {
   projectPath: string;
@@ -158,25 +159,18 @@ function SortableScriptRow({
   };
 
   return (
-    <div ref={setNodeRef} style={style}>
-      <div
-        className="flex items-center gap-2 px-3 py-2 hover:bg-white/[0.04] transition-colors duration-100"
+    <>
+      <ScriptRowView
+        name={script.name}
+        command={script.command}
+        expanded={expanded}
+        containerRef={setNodeRef}
+        containerStyle={style}
+        dragHandleProps={{ ...attributes, ...listeners }}
         onClick={onToggle}
-      >
-        <button
-          className="flex items-center justify-center w-5 h-5 text-text-tertiary hover:text-text-secondary shrink-0 touch-none"
-          {...attributes}
-          {...listeners}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <Icon name="dots-six-vertical" className="w-4 h-4" />
-        </button>
-        <span className="text-xs font-medium text-text-primary truncate">{script.name}</span>
-        <span className="text-[11px] text-text-tertiary truncate ml-auto font-mono">{script.command}</span>
-        <Icon name={expanded ? 'caret-down' : 'caret-right'} className="w-3 h-3 text-text-tertiary shrink-0" />
-      </div>
+      />
       {expanded && <ScriptForm initial={script} onSave={onSave} onCancel={onToggle} onDelete={onDelete} />}
-    </div>
+    </>
   );
 }
 

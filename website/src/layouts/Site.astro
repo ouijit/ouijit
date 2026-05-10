@@ -1,0 +1,61 @@
+---
+import Nav from '../components/site/Nav.astro';
+import Footer from '../components/site/Footer.astro';
+import iosevkaExtended from '../../../src/assets/fonts/iosevka-extended-regular.woff2?url';
+import iosevkaTermExtended from '../../../src/assets/fonts/iosevka-term-extended-regular.woff2?url';
+import '../styles/global.css';
+import '../styles/marketing.css';
+
+interface Props {
+  title?: string;
+  description?: string;
+}
+
+const {
+  title = 'Ouijit · Integrated Divination Environment',
+  description = 'A customizable task and terminal session manager that integrates with agent CLIs and TUIs like Claude Code via lifecycle hooks, scripts, and a session-aware CLI.',
+} = Astro.props;
+
+const canonical = new URL(Astro.url.pathname, Astro.site ?? 'https://ouijit.com').toString();
+const ogImage = new URL('/assets/ouijit-app-icon.png', Astro.site ?? 'https://ouijit.com').toString();
+---
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{title}</title>
+  <meta name="description" content={description} />
+  <link rel="canonical" href={canonical} />
+
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Ouijit" />
+  <meta property="og:title" content={title} />
+  <meta property="og:description" content={description} />
+  <meta property="og:url" content={canonical} />
+  <meta property="og:image" content={ogImage} />
+
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content={title} />
+  <meta name="twitter:description" content={description} />
+  <meta name="twitter:image" content={ogImage} />
+
+  <link rel="icon" type="image/png" href="/assets/favicon.png" />
+  <link rel="apple-touch-icon" href="/assets/favicon.png" />
+  <link rel="preload" href={iosevkaExtended} as="font" type="font/woff2" crossorigin />
+  <link rel="preload" href={iosevkaTermExtended} as="font" type="font/woff2" crossorigin />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    rel="stylesheet"
+    href="https://fonts.googleapis.com/css2?family=Montagu+Slab:opsz,wght@16..144,400;16..144,500;16..144,600;16..144,700&display=swap"
+    media="print"
+    onload="this.media='all'"
+  />
+</head>
+<body class="marketing">
+  <Nav />
+  <slot />
+  <Footer />
+</body>
+</html>

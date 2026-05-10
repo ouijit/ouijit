@@ -1,0 +1,1168 @@
+/* ===================================
+   Ouijit Marketing Site
+   Layered on top of the app's design tokens (global.css → src/index.css)
+   =================================== */
+
+:root {
+  --header-height: 64px;
+  --content-max-width: 1100px;
+  --content-padding: 24px;
+  --sidebar-width: 220px;
+
+  --color-text-primary: #f5f5f7;
+  --color-text-secondary: rgba(245, 245, 247, 0.7);
+  --color-text-tertiary: rgba(245, 245, 247, 0.45);
+  --color-border: rgba(255, 255, 255, 0.1);
+  --color-border-hover: rgba(255, 255, 255, 0.22);
+
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.5);
+  --shadow-hover: 0 12px 40px rgba(0, 0, 0, 0.65);
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+
+  --transition-fast: 150ms ease;
+  --transition-normal: 200ms ease;
+}
+
+/*
+ * Tailwind v4 preflight already handles base resets and box-sizing.
+ * We only need to add scroll-behavior here.
+ */
+html {
+  scroll-behavior: smooth;
+}
+
+body.marketing a {
+  color: #fff;
+  text-decoration: none;
+  transition: opacity var(--transition-fast);
+}
+
+/* Inline prose links inside docs content keep an underline */
+body.marketing .docs-content a,
+body.marketing .callout a {
+  text-decoration: underline;
+  text-decoration-color: rgba(255, 255, 255, 0.4);
+  text-underline-offset: 2px;
+  transition: text-decoration-color var(--transition-fast);
+}
+
+body.marketing .docs-content a:hover,
+body.marketing .callout a:hover {
+  text-decoration-color: rgba(255, 255, 255, 0.8);
+}
+
+img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* --- Nav --- */
+.site-nav {
+  height: var(--header-height);
+}
+
+@media (max-width: 768px) {
+  .site-nav {
+    position: sticky;
+    top: 0;
+    background: rgba(10, 10, 12, 0.85);
+    backdrop-filter: blur(20px) saturate(180%);
+    -webkit-backdrop-filter: blur(20px) saturate(180%);
+    border-bottom: 1px solid var(--color-border);
+    z-index: 100;
+  }
+}
+
+.nav-inner {
+  max-width: var(--content-max-width);
+  margin: 0 auto;
+  padding: 0 var(--content-padding);
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.nav-logo {
+  display: flex;
+  align-items: center;
+  text-decoration: none;
+}
+
+.nav-logo img {
+  height: 28px;
+  width: auto;
+}
+
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+  list-style: none;
+}
+
+.nav-links a {
+  color: var(--color-text-secondary);
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+
+.nav-links a:hover {
+  color: #f5f5f7;
+}
+
+.nav-hamburger {
+  display: none;
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: 1.5rem;
+  line-height: 1;
+  padding: 4px;
+}
+
+.nav-mobile {
+  display: none;
+  padding: 8px var(--content-padding) 16px;
+  background: var(--marketing-bg);
+  border-bottom: 1px solid var(--color-border);
+  position: relative;
+  z-index: 100;
+}
+
+.nav-mobile.open {
+  display: block;
+}
+
+.nav-mobile a {
+  display: block;
+  padding: 12px 0;
+  color: var(--color-text-secondary);
+  font-size: 1rem;
+  font-weight: 500;
+  text-decoration: none;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.nav-mobile a:last-child {
+  border-bottom: none;
+}
+
+.nav-overlay {
+  display: none;
+  position: fixed;
+  top: var(--header-height);
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 50;
+}
+
+@media (max-width: 768px) {
+  .nav-links {
+    display: none;
+  }
+  .nav-hamburger {
+    display: block;
+  }
+}
+
+/* --- Hero --- */
+.hero {
+  padding: 80px var(--content-padding);
+  text-align: center;
+  max-width: var(--content-max-width);
+  margin: 0 auto;
+}
+
+.hero h1 {
+  font-size: 3rem;
+  margin-bottom: 40px;
+  letter-spacing: -0.025em;
+}
+
+.download-buttons {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.hero-fine-print {
+  margin-top: 16px;
+  font-size: 0.875rem;
+  color: var(--color-text-tertiary);
+  text-align: center;
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .hero-fine-print {
+    display: none;
+  }
+}
+
+.mobile-cta {
+  display: none;
+}
+
+.mobile-cta p {
+  color: var(--color-text-secondary);
+  font-size: 1rem;
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .download-buttons {
+    display: none;
+  }
+  .mobile-cta {
+    display: block;
+  }
+}
+
+body.marketing .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 13px 28px;
+  border-radius: 9999px;
+  font-size: 1rem;
+  font-weight: 500;
+  border: none;
+  outline: none;
+  transition: all 150ms ease-out;
+  text-decoration: none;
+  letter-spacing: -0.005em;
+}
+
+body.marketing .btn:active {
+  transform: scale(0.98);
+}
+
+body.marketing .btn:focus-visible {
+  box-shadow: 0 0 0 3px var(--color-accent-light);
+}
+
+body.marketing .btn-primary {
+  background: var(--color-accent);
+  color: #fff;
+}
+
+body.marketing .btn-primary:hover {
+  background: var(--color-accent-hover);
+  color: #fff;
+}
+
+body.marketing .btn-secondary {
+  background: var(--color-accent-light);
+  color: var(--color-accent);
+}
+
+body.marketing .btn-secondary:hover {
+  background: rgba(10, 132, 255, 0.28);
+  color: var(--color-accent);
+}
+
+/* --- Hero workspace scene --- */
+.hero-scene {
+  padding: 0 0 100px;
+  position: relative;
+}
+
+/* --- Home pitch (display paragraph below the workspace scene) --- */
+.home-pitch {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 40px var(--content-padding) 120px;
+}
+
+.home-pitch p {
+  font-size: 1.5rem;
+  line-height: 1.45;
+  letter-spacing: -0.01em;
+  color: #f5f5f7;
+  margin-bottom: 24px;
+}
+
+.home-pitch p:last-child {
+  margin-bottom: 0;
+}
+
+body.marketing .home-pitch-link {
+  display: block;
+  width: fit-content;
+  margin: 40px auto 0;
+  font-size: 0.9375rem;
+  color: var(--color-text-tertiary);
+  transition: color var(--transition-fast);
+}
+
+body.marketing .home-pitch-link span {
+  display: inline-block;
+  margin-left: 4px;
+  transition: transform var(--transition-fast);
+}
+
+body.marketing .home-pitch-link:hover {
+  color: #f5f5f7;
+}
+
+body.marketing .home-pitch-link:hover span {
+  transform: translateX(3px);
+}
+
+@media (max-width: 600px) {
+  .home-pitch {
+    padding: 24px var(--content-padding) 80px;
+  }
+  .home-pitch p {
+    font-size: 1.25rem;
+    line-height: 1.5;
+  }
+}
+
+/* Three-layer wrapper for the responsive workspace scene.
+   .workspace-scene-frame: holds the scaled canvas + the CLI prompt below.
+   .workspace-scene-clip: full viewport-width container that clips the
+     1160-px-wide canvas when viewport is smaller than the canvas's min
+     scaled width. Also short-circuits the canvas's intrinsic height down
+     to its scaled visual height so there's no empty gutter below.
+   .workspace-scene: the canvas — fixed 1160×630 with absolute children.
+   The canvas is scaled with transform; layout dimensions stay the same so
+   children's pixel positions remain coherent.
+*/
+.workspace-scene-frame {
+  position: relative;
+}
+
+.workspace-scene-clip {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  display: flex;
+  justify-content: center;
+  padding-top: 12px;
+  box-sizing: content-box;
+}
+
+.workspace-scene-notification-row {
+  display: flex;
+  justify-content: stretch;
+  padding: 0 var(--content-padding);
+  margin-top: -8px;
+}
+
+.workspace-scene-notification-row > * {
+  width: 100%;
+}
+
+.workspace-scene-cli-row {
+  display: flex;
+  justify-content: center;
+  padding: 0 var(--content-padding);
+  margin-top: 28px;
+}
+
+/* When the prompt is rendered below the scene (small screens), center the
+   Run button under the command and give it a comfier tap target. */
+.workspace-scene-cli-row .cli-prompt-bubble__run {
+  align-self: center;
+  padding: 14px 28px 14px 26px;
+  font-size: 15px;
+}
+
+/* --- macOS notification banner inside the workspace scene --- */
+.macos-notif {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 11px 12px;
+  background: rgba(46, 46, 48, 0.92);
+  backdrop-filter: blur(40px) saturate(180%);
+  -webkit-backdrop-filter: blur(40px) saturate(180%);
+  border-radius: 17px;
+  box-shadow:
+    0 24px 48px rgba(0, 0, 0, 0.45),
+    0 6px 14px rgba(0, 0, 0, 0.3),
+    inset 0 0 0 0.5px rgba(255, 255, 255, 0.18);
+  color: white;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif;
+}
+
+.macos-notif-close {
+  position: absolute;
+  top: -8px;
+  left: -8px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: none;
+  padding: 0;
+  background: rgba(60, 60, 62, 0.95);
+  box-shadow:
+    0 2px 6px rgba(0, 0, 0, 0.4),
+    inset 0 0 0 0.5px rgba(255, 255, 255, 0.12);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transform: scale(0.8);
+  transition:
+    opacity 120ms ease,
+    transform 120ms ease,
+    background 120ms ease;
+}
+
+.macos-notif:hover .macos-notif-close,
+.macos-notif-close:focus-visible {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.macos-notif-close:hover {
+  background: rgba(80, 80, 82, 0.98);
+}
+
+/* --- CLI prompt + Run button stacked in the workspace scene corner.
+   The page background acts as the "terminal," so no chrome on the prompt
+   itself — just naked mono text with a blinking cursor and a prominent
+   Run button below. --- */
+.cli-prompt-bubble {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  font-family: 'Iosevka Term Extended', 'Iosevka Extended', 'SF Mono', Monaco, Menlo, monospace;
+  font-size: 14px;
+  line-height: 1;
+  color: rgba(255, 255, 255, 0.92);
+  white-space: nowrap;
+  text-align: left;
+  cursor: pointer;
+  transition: opacity 150ms ease-out;
+}
+
+.cli-prompt-bubble:focus-visible {
+  outline: none;
+}
+
+.cli-prompt-bubble:focus-visible .cli-prompt-bubble__run {
+  box-shadow: 0 0 0 3px var(--color-accent-light);
+}
+
+.cli-prompt-bubble.is-played {
+  cursor: default;
+}
+
+.cli-prompt-bubble__line {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.cli-prompt-bubble__cmd {
+  display: inline;
+  white-space: pre;
+}
+
+.cli-prompt-bubble__ghost {
+  color: rgba(255, 255, 255, 0.3);
+  white-space: pre;
+}
+
+.cli-prompt-bubble__run {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-end;
+  gap: 8px;
+  padding: 11px 22px 11px 20px;
+  border-radius: 9999px;
+  background: var(--color-accent);
+  color: #fff;
+  font-family:
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    'SF Pro Text',
+    'Helvetica Neue',
+    sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  flex-shrink: 0;
+  transition:
+    background 150ms ease-out,
+    transform 150ms ease-out;
+}
+
+.cli-prompt-bubble:hover:not(:disabled) .cli-prompt-bubble__run {
+  background: var(--color-accent-hover);
+  transform: translateY(-1px);
+}
+
+.cli-prompt-bubble:active:not(:disabled) .cli-prompt-bubble__run {
+  transform: translateY(0);
+}
+
+.cli-prompt-bubble__run svg {
+  display: block;
+  margin-left: -2px;
+}
+
+
+.cli-prompt-bubble__prompt {
+  color: rgba(10, 132, 255, 0.9);
+  flex-shrink: 0;
+}
+
+.cli-prompt-bubble__cmd {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cli-prompt-bubble__bin {
+  color: #fff;
+  font-weight: 500;
+}
+
+.cli-prompt-bubble__arg {
+  color: rgba(121, 184, 255, 0.95);
+}
+
+.cli-prompt-bubble__cursor {
+  display: inline-block;
+  width: 8px;
+  height: 15px;
+  background: rgba(245, 245, 247, 0.85);
+  border-radius: 1px;
+  flex-shrink: 0;
+  animation: cli-cursor-blink 1.05s steps(2, end) infinite;
+}
+
+@keyframes cli-cursor-blink {
+  0%,
+  50% {
+    opacity: 1;
+  }
+  50.01%,
+  100% {
+    opacity: 0;
+  }
+}
+
+/* --- Inline terminal cursor used inside mock terminal bodies --- */
+.terminal-cursor {
+  display: inline-block;
+  width: 6px;
+  height: 11px;
+  background: rgba(245, 245, 247, 0.85);
+  vertical-align: -1px;
+  margin-left: 2px;
+  animation: cli-cursor-blink 1.05s steps(2, end) infinite;
+}
+.terminal-cursor--dim {
+  background: rgba(245, 245, 247, 0.55);
+}
+
+/* --- Highlight pulse on a kanban card freshly added by the demo --- */
+.workspace-scene-task-pulse {
+  border-radius: 9px;
+  animation: workspace-scene-task-pulse 1.6s ease-out;
+}
+
+@keyframes workspace-scene-task-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(10, 132, 255, 0.55);
+  }
+  60% {
+    box-shadow: 0 0 0 10px rgba(10, 132, 255, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(10, 132, 255, 0);
+  }
+}
+
+/* --- Compare slider --- */
+.compare-section {
+  padding: 0 var(--content-padding) 80px;
+  max-width: var(--content-max-width);
+  margin: 0 auto;
+}
+
+.compare-slider {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 2784 / 1824;
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+  cursor: ew-resize;
+}
+
+.compare-slider img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  pointer-events: none;
+  -webkit-user-drag: none;
+}
+
+.compare-slider .compare-left {
+  clip-path: inset(0 calc(100% - var(--split, 50%)) 0 0);
+}
+
+.compare-slider .compare-right {
+  clip-path: inset(0 0 0 var(--split, 50%));
+}
+
+.compare-handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: var(--split, 50%);
+  transform: translateX(-50%);
+  width: 6px;
+  background: var(--marketing-blue);
+  border: none;
+  padding: 0;
+  cursor: ew-resize;
+  touch-action: none;
+  pointer-events: none;
+}
+
+.compare-handle::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: #fff;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.compare-handle::after {
+  content: '⇄';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: #333;
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.compare-slider:hover .compare-handle::before,
+.compare-slider.is-dragging .compare-handle::before {
+  transform: translate(-50%, -50%) scale(1.15);
+  box-shadow:
+    0 6px 24px rgba(0, 0, 0, 0.45),
+    0 0 0 6px rgba(255, 255, 255, 0.12);
+}
+
+/* --- Exposition sections (copy + visual side by side) --- */
+.exposition {
+  padding: 96px 0 32px;
+  position: relative;
+}
+
+.exposition-inner {
+  max-width: var(--content-max-width);
+  margin: 0 auto;
+  padding: 0 var(--content-padding);
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  gap: 56px;
+  align-items: center;
+}
+
+.exposition-reverse .exposition-inner {
+  grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+}
+
+.exposition-reverse .exposition-copy {
+  order: 2;
+}
+
+.exposition-reverse .exposition-visual {
+  order: 1;
+}
+
+.exposition-copy {
+  max-width: 460px;
+}
+
+.eyebrow {
+  display: inline-block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--marketing-blue);
+  margin-bottom: 16px;
+}
+
+.exposition h2 {
+  font-size: 2rem;
+  line-height: 1.15;
+  margin-bottom: 20px;
+  letter-spacing: -0.02em;
+}
+
+.exposition p {
+  font-size: 1.0625rem;
+  color: var(--color-text-secondary);
+  line-height: 1.55;
+  margin-bottom: 14px;
+}
+
+.exposition-quiet {
+  color: var(--color-text-tertiary) !important;
+  font-size: 1rem !important;
+}
+
+@media (max-width: 900px) {
+  .exposition {
+    padding: 56px 0 24px;
+  }
+  .exposition-inner {
+    grid-template-columns: 1fr;
+    gap: 32px;
+  }
+  .exposition-reverse .exposition-copy {
+    order: 1;
+  }
+  .exposition-reverse .exposition-visual {
+    order: 2;
+  }
+  .exposition h2 {
+    font-size: 1.625rem;
+  }
+}
+
+/* --- Details + CTA --- */
+.details-section {
+  padding: 96px var(--content-padding) 32px;
+}
+
+.details-inner {
+  max-width: var(--content-max-width);
+  margin: 0 auto;
+}
+
+.details-section h2 {
+  font-size: 1.875rem;
+  margin-bottom: 8px;
+  text-align: center;
+  letter-spacing: -0.02em;
+}
+
+.details-lead {
+  text-align: center;
+  font-size: 1.0625rem;
+  color: var(--color-text-secondary);
+  margin-bottom: 40px;
+}
+
+.details-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+.detail {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 22px;
+  transition:
+    background var(--transition-fast),
+    border-color var(--transition-fast);
+}
+
+.detail:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: var(--color-border-hover);
+}
+
+.detail-title {
+  font-weight: 600;
+  font-size: 1rem;
+  margin-bottom: 8px;
+  color: #f5f5f7;
+}
+
+.detail p {
+  color: var(--color-text-secondary);
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  margin: 0;
+}
+
+@media (max-width: 900px) {
+  .details-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .details-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.cta-section {
+  padding: 80px var(--content-padding) 96px;
+  text-align: center;
+}
+
+.cta-inner {
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.cta-section h2 {
+  font-size: 2.25rem;
+  margin-bottom: 12px;
+  letter-spacing: -0.02em;
+}
+
+.cta-section p {
+  color: var(--color-text-secondary);
+  font-size: 1.125rem;
+  margin-bottom: 28px;
+}
+
+@media (max-width: 600px) {
+  .cta-section h2 {
+    font-size: 1.625rem;
+  }
+}
+
+/* --- Footer --- */
+.site-footer {
+  border-top: 1px solid var(--color-border);
+  padding: 32px var(--content-padding);
+  margin-top: 40px;
+}
+
+.footer-inner {
+  max-width: var(--content-max-width);
+  margin: 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.8125rem;
+  color: var(--color-text-tertiary);
+}
+
+.footer-links {
+  display: flex;
+  gap: 24px;
+  list-style: none;
+}
+
+.footer-links a {
+  color: var(--color-text-tertiary);
+  text-decoration: none;
+}
+
+.footer-links a:hover {
+  color: #f5f5f7;
+}
+
+@media (max-width: 768px) {
+  .footer-inner {
+    flex-direction: column;
+    gap: 16px;
+    text-align: center;
+  }
+  .download-buttons {
+    flex-direction: column;
+  }
+  .btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* --- Docs --- */
+.docs-layout {
+  display: flex;
+  max-width: var(--content-max-width);
+  margin: 0 auto;
+  padding: 32px var(--content-padding) 80px;
+  gap: 48px;
+  min-height: 100vh;
+}
+
+.docs-sidebar {
+  width: var(--sidebar-width);
+  flex-shrink: 0;
+  position: sticky;
+  top: 32px;
+  align-self: flex-start;
+  max-height: calc(100vh - 96px);
+  overflow-y: auto;
+}
+
+.docs-sidebar h4 {
+  font-family: 'Iosevka Extended', 'SF Mono', Monaco, Menlo, monospace;
+  font-size: 1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #fff;
+  font-weight: 400;
+  margin-top: 16px;
+  margin-bottom: 16px;
+}
+
+.docs-sidebar ul {
+  list-style: none;
+}
+
+.docs-sidebar li {
+  margin-bottom: 2px;
+}
+
+.docs-sidebar a {
+  display: block;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  color: var(--color-text-secondary);
+  font-family: 'Iosevka Extended', 'SF Mono', Monaco, Menlo, monospace;
+  font-size: 0.8125rem;
+  letter-spacing: -0.01em;
+  text-decoration: none;
+  transition: all var(--transition-fast);
+}
+
+.docs-sidebar a:hover {
+  color: #fff;
+}
+
+.docs-sidebar a.active {
+  color: var(--marketing-blue);
+  background: none;
+  font-weight: 600;
+}
+
+.docs-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.docs-content > section {
+  scroll-margin-top: 24px;
+}
+
+.docs-content > section + section {
+  margin-top: 96px;
+}
+
+.docs-content h1 {
+  font-size: 2rem;
+  margin-bottom: 8px;
+}
+
+.docs-content .lead {
+  font-size: 1.125rem;
+  color: var(--color-text-secondary);
+  margin-bottom: 40px;
+  line-height: 1.5;
+}
+
+.docs-content h2 {
+  font-size: 1.5rem;
+  margin-top: 48px;
+  margin-bottom: 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--color-border);
+  font-family:
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    sans-serif;
+  font-weight: 600;
+  color: #f5f5f7;
+}
+
+.docs-content h3 {
+  margin-top: 32px;
+  margin-bottom: 12px;
+  font-family:
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    sans-serif;
+  font-weight: 600;
+  color: #f5f5f7;
+}
+
+.docs-content p {
+  margin-bottom: 16px;
+  color: var(--color-text-secondary);
+}
+
+.docs-content ul,
+.docs-content ol {
+  margin-bottom: 16px;
+  padding-left: 24px;
+}
+
+.docs-content li {
+  margin-bottom: 8px;
+  color: var(--color-text-secondary);
+}
+
+.docs-content strong {
+  color: #fff;
+  font-weight: 600;
+}
+
+.docs-content a {
+  text-decoration-color: rgba(255, 255, 255, 0.5);
+}
+
+.docs-content a:hover {
+  text-decoration-color: #fff;
+}
+
+.docs-content code {
+  font-family:
+    'SF Mono',
+    Monaco,
+    Menlo,
+    'Cascadia Code',
+    'Fira Code',
+    monospace;
+  font-size: 0.875em;
+  background: rgba(255, 255, 255, 0.15);
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: #fff;
+}
+
+.docs-content pre {
+  background: #171717;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-sm);
+  padding: 20px;
+  margin-bottom: 20px;
+  overflow-x: auto;
+}
+
+.docs-content pre code {
+  background: none;
+  padding: 0;
+  color: #f5f5f7;
+  font-size: 0.8125rem;
+  line-height: 1.6;
+}
+
+.docs-content table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 20px;
+}
+
+.docs-content th,
+.docs-content td {
+  text-align: left;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--color-border);
+  font-size: 0.875rem;
+}
+
+.docs-content th {
+  color: #fff;
+  font-weight: 600;
+}
+
+.docs-content td {
+  color: var(--color-text-secondary);
+}
+
+.callout {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 16px 20px;
+  margin-bottom: 20px;
+  font-size: 0.9375rem;
+}
+
+.callout p {
+  color: #fff;
+  margin-bottom: 0;
+}
+
+@media (max-width: 768px) {
+  .docs-layout {
+    flex-direction: column;
+    gap: 24px;
+    padding-top: 16px;
+  }
+  .docs-sidebar {
+    width: 100%;
+    position: static;
+    max-height: none;
+    border-bottom: 1px solid var(--color-border);
+    padding-bottom: 16px;
+    margin-bottom: 8px;
+  }
+}
+
+/* Hide scrollbars in demo components so the borders run edge-to-edge */
+.demo-frame .kanban-column-body {
+  scrollbar-width: none;
+}
+.demo-frame .kanban-column-body::-webkit-scrollbar {
+  display: none;
+}
+
+/* --- Component island wrappers --- */
+.demo-frame {
+  border-radius: 14px;
+  background: var(--color-background, #1c1c1e);
+  border: 1px solid rgba(0, 0, 0, 0.5);
+  box-shadow:
+    0 0 0 1px rgba(0, 0, 0, 0.3),
+    0 24px 48px rgba(0, 0, 0, 0.35),
+    0 6px 16px rgba(0, 0, 0, 0.25);
+  overflow: hidden;
+}
+
+body.marketing {
+  overflow-x: clip;
+}
+
+/* The board is a static mock — hide scrollbars so the columns read clean. */
+.workspace-scene .kanban-column-body {
+  scrollbar-width: none;
+}
+.workspace-scene .kanban-column-body::-webkit-scrollbar {
+  display: none;
+}

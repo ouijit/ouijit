@@ -10,6 +10,16 @@ afterEach(() => {
   cleanup();
 });
 
+// Stub the icon registry. The real module statically imports ~200 Phosphor
+// SVGs via Vite's `?raw` query, which Vitest's resolver chokes on (each
+// import is a separate fetch through the asset transform pipeline). Tests
+// don't need real icon glyphs — an empty proxy satisfies any name lookup.
+vi.mock('../../utils/icons', () => ({
+  iconMap: new Proxy({} as Record<string, string>, {
+    get: () => '<svg></svg>',
+  }),
+}));
+
 // Mock the Electron API surface
 const mockApi = {
   getProjects: vi.fn().mockResolvedValue([]),

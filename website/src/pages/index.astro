@@ -1,0 +1,38 @@
+---
+import Site from '../layouts/Site.astro';
+import WorkspaceScene from '../components/demo/WorkspaceScene.tsx';
+---
+<Site>
+  <section class="hero">
+    <h1>Integrated Divination Environment</h1>
+    <div class="download-buttons">
+      <a
+        href="https://github.com/ouijit/ouijit/releases/latest/download/ouijit-darwin-arm64.zip"
+        class="btn btn-primary">Download for macOS (Apple Silicon)</a>
+      <a
+        href="https://github.com/ouijit/ouijit/releases/latest/download/ouijit-darwin-x64.zip"
+        class="btn btn-secondary">macOS (Intel)</a>
+      <a href="https://github.com/ouijit/ouijit/releases/latest/download/ouijit-linux-x64.zip" class="btn btn-secondary"
+        >Linux</a>
+    </div>
+    <p class="hero-fine-print">Free and open source. No account, no sign-in.</p>
+    <div class="mobile-cta">
+      <p>You're on a phone. This is a desktop app.</p>
+      <a href="https://github.com/ouijit/ouijit" class="btn btn-primary">Here's the source code though</a>
+    </div>
+  </section>
+
+  <section class="hero-scene">
+    <WorkspaceScene client:visible />
+  </section>
+
+  <section class="home-pitch">
+    <p>
+      Ouijit is a customizable task and terminal session manager that integrates with agent CLIs and TUIs like
+      Claude Code via lifecycle hooks, scripts, and a session-aware CLI. It offers basic comforts for agentic
+      development like live agent status with notifications, automatic worktree management for parallel
+      workstreams, and VM sandboxing for untrusted code.
+    </p>
+    <a class="home-pitch-link" href="/docs/">Read the docs <span aria-hidden="true">→</span></a>
+  </section>
+</Site>
