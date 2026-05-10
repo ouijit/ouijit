@@ -5,15 +5,10 @@ on:
     branches: [main]
     paths:
       - 'website/**'
-      - 'src/components/**View.tsx'
-      - 'src/components/terminal/StatusDot.tsx'
-      - 'src/components/terminal/Icon.tsx'
-      - 'src/utils/taskChain.ts'
-      - 'src/utils/icons.ts'
-      - 'src/index.css'
-      - 'src/assets/fonts/**'
-      - 'src/types.ts'
-      - 'src/stores/terminalStore.ts'
+      # The site imports app sources via @app/* (see website/astro.config.mjs).
+      # Rather than enumerate every imported file (fragile — any new import is
+      # a chance to forget), rebuild on any src/ change. Deploys are cheap.
+      - 'src/**'
       - '.github/workflows/website.yml'
   workflow_dispatch:
 
