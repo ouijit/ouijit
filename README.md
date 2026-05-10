@@ -6,9 +6,13 @@
 
 <br>
 
-Kanban terminal manager for CLI agent workflows with automatic git worktree isolation and VM sandbox support included.
+_Integrated Divination Environment._
 
-[macOS (Apple Silicon)](https://github.com/ouijit/ouijit/releases/latest/download/ouijit-darwin-arm64.zip) · [macOS (Intel)](https://github.com/ouijit/ouijit/releases/latest/download/ouijit-darwin-x64.zip) · [Linux](https://github.com/ouijit/ouijit/releases/latest/download/ouijit-linux-x64.zip)
+Ouijit is a customizable task and terminal session manager that integrates with agent CLIs and TUIs like Claude Code via lifecycle hooks, scripts, and a session-aware CLI. It offers basic comforts for agentic development like live agent status with notifications, automatic worktree management for parallel workstreams, and VM sandboxing for untrusted code.
+
+Download for [macOS or Linux](https://ouijit.com). Free and open source. No account, no sign-in.
+
+[Docs](https://ouijit.com/docs/)
 
 <table>
   <tr>
