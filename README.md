@@ -12,12 +12,12 @@ Kanban terminal manager for CLI agent workflows with automatic git worktree isol
 
 <table>
   <tr>
-    <td><img src="website/assets/screenshots/kanban.png" alt="Kanban board"></td>
-    <td><img src="website/assets/screenshots/terminal-stack.png" alt="Terminal stack"></td>
+    <td><img src="website/public/assets/screenshots/kanban.png" alt="Kanban board"></td>
+    <td><img src="website/public/assets/screenshots/terminal-stack.png" alt="Terminal stack"></td>
   </tr>
   <tr>
-    <td><img src="website/assets/screenshots/canvas.png" alt="Terminal canvas"></td>
-    <td><img src="website/assets/screenshots/settings.png" alt="Settings"></td>
+    <td><img src="website/public/assets/screenshots/canvas.png" alt="Terminal canvas"></td>
+    <td><img src="website/public/assets/screenshots/settings.png" alt="Settings"></td>
   </tr>
 </table>
 
