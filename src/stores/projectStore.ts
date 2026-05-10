@@ -14,6 +14,14 @@ export interface RunHookRequest {
   resolve: (result: RunHookResult | null) => void;
 }
 
+export interface PendingCliStart {
+  taskNumber: number;
+  worktreePath: string;
+  branch: string;
+  createdAt: string;
+  sandboxed: boolean;
+}
+
 interface ProjectStoreState {
   tasks: TaskWithWorkspace[];
   kanbanVisible: boolean;
@@ -41,6 +49,8 @@ interface ProjectStoreState {
   startingTaskNumbers: Set<number>;
   /** Active hook prompt; rendered globally so it survives view switches. */
   runHookRequest: RunHookRequest | null;
+  /** Queued CLI-initiated task starts awaiting the user to enter the project. */
+  pendingCliStarts: Record<string, PendingCliStart[]>;
   _version: number;
 }
 
@@ -96,6 +106,11 @@ interface ProjectStoreActions {
   requestRunHook: (req: Omit<RunHookRequest, 'id' | 'resolve'>) => Promise<RunHookResult | null>;
   /** Resolve the active hook prompt with a result (or null for cancel). */
   resolveRunHookRequest: (id: number, result: RunHookResult | null) => void;
+
+  /** Queue a CLI-initiated start for a project the user isn't currently viewing. */
+  enqueueCliStart: (projectPath: string, start: PendingCliStart) => void;
+  /** Atomically drain all queued starts for a project. */
+  drainCliStarts: (projectPath: string) => PendingCliStart[];
 }
 
 type ProjectStore = ProjectStoreState & ProjectStoreActions;
@@ -122,6 +137,7 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
   toasts: [],
   startingTaskNumbers: new Set<number>(),
   runHookRequest: null,
+  pendingCliStarts: {},
   _version: 0,
 
   setTasks: (tasks) => {
@@ -345,5 +361,21 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
     if (!current || current.id !== id) return;
     set({ runHookRequest: null });
     current.resolve(result);
+  },
+
+  enqueueCliStart: (projectPath, start) => {
+    const current = get().pendingCliStarts[projectPath] ?? [];
+    if (current.some((s) => s.taskNumber === start.taskNumber)) return;
+    set({
+      pendingCliStarts: { ...get().pendingCliStarts, [projectPath]: [...current, start] },
+    });
+  },
+
+  drainCliStarts: (projectPath) => {
+    const queued = get().pendingCliStarts[projectPath];
+    if (!queued || queued.length === 0) return [];
+    const { [projectPath]: _drained, ...rest } = get().pendingCliStarts;
+    set({ pendingCliStarts: rest });
+    return queued;
   },
 }));

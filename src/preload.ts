@@ -205,6 +205,17 @@ contextBridge.exposeInMainWorld('api', {
   onCliChange: (callback: (payload: { project: string; action: string; message?: string; ts: number }) => void) =>
     typedListen('cli-change', callback),
 
+  onCliTaskStarted: (
+    callback: (payload: {
+      project: string;
+      taskNumber: number;
+      worktreePath: string;
+      branch: string;
+      createdAt: string;
+      sandboxed: boolean;
+    }) => void,
+  ) => typedListen('cli:task-started', callback),
+
   capture: {
     onNavigate: (callback: (payload: import('./capture/types').CaptureNavigatePayload) => void) =>
       typedListen('capture:navigate', callback),

@@ -1,9 +1,37 @@
 import { useEffect } from 'react';
 import { useAppStore } from '../stores/appStore';
-import { useProjectStore } from '../stores/projectStore';
+import { useProjectStore, type PendingCliStart } from '../stores/projectStore';
+import { useTerminalStore } from '../stores/terminalStore';
+import { addProjectTerminal } from '../components/terminal/terminalActions';
 import log from 'electron-log/renderer';
 
 const ipcLog = log.scope('ipcListeners');
+
+async function spawnTerminalForCliStart(projectPath: string, start: PendingCliStart): Promise<void> {
+  // Guard against double-spawn: skip if a terminal for this task already exists.
+  const terminals = useTerminalStore.getState().terminalsByProject[projectPath] ?? [];
+  const displayStates = useTerminalStore.getState().displayStates;
+  if (terminals.some((ptyId) => displayStates[ptyId]?.taskId === start.taskNumber)) {
+    ipcLog.info('skipping CLI task-started spawn — terminal already exists', {
+      project: projectPath,
+      taskNumber: start.taskNumber,
+    });
+    return;
+  }
+
+  await addProjectTerminal(projectPath, undefined, {
+    existingWorktree: {
+      path: start.worktreePath,
+      branch: start.branch,
+      createdAt: start.createdAt,
+      sandboxed: start.sandboxed,
+    },
+    taskId: start.taskNumber,
+    sandboxed: start.sandboxed,
+    // skipAutoHook left at default `false` so the configured `continue` hook
+    // runs on spawn, matching the kanban "existing worktree" open-terminal path.
+  });
+}
 
 /**
  * Registers global IPC push event listeners.
@@ -65,6 +93,63 @@ export function useIPCListeners() {
         }
       }),
     );
+
+    // CLI-initiated task start — spawn a terminal + run the configured hook.
+    // If the user isn't viewing the project, queue it and drain on navigation.
+    cleanups.push(
+      window.api.onCliTaskStarted((payload) => {
+        const activeProject = useAppStore.getState().activeProjectPath;
+        const start: PendingCliStart = {
+          taskNumber: payload.taskNumber,
+          worktreePath: payload.worktreePath,
+          branch: payload.branch,
+          createdAt: payload.createdAt,
+          sandboxed: payload.sandboxed,
+        };
+
+        if (activeProject === payload.project) {
+          ipcLog.info('CLI task-started: spawning terminal', { taskNumber: payload.taskNumber });
+          void spawnTerminalForCliStart(payload.project, start).catch((err) => {
+            ipcLog.error('CLI task-started spawn failed', {
+              taskNumber: payload.taskNumber,
+              error: err instanceof Error ? err.message : String(err),
+            });
+          });
+        } else {
+          ipcLog.info('CLI task-started: queuing for later navigation', {
+            project: payload.project,
+            taskNumber: payload.taskNumber,
+          });
+          useProjectStore.getState().enqueueCliStart(payload.project, start);
+        }
+      }),
+    );
+
+    // Drain queued CLI starts whenever the active project changes.
+    const drain = (projectPath: string | null) => {
+      if (!projectPath) return;
+      const queued = useProjectStore.getState().drainCliStarts(projectPath);
+      for (const start of queued) {
+        ipcLog.info('draining queued CLI task-started', {
+          project: projectPath,
+          taskNumber: start.taskNumber,
+        });
+        void spawnTerminalForCliStart(projectPath, start).catch((err) => {
+          ipcLog.error('queued CLI task-started spawn failed', {
+            taskNumber: start.taskNumber,
+            error: err instanceof Error ? err.message : String(err),
+          });
+        });
+      }
+    };
+    // Initial drain in case events arrived before this effect mounted.
+    drain(useAppStore.getState().activeProjectPath);
+    const unsubscribeAppStore = useAppStore.subscribe((state, prev) => {
+      if (state.activeProjectPath !== prev.activeProjectPath) {
+        drain(state.activeProjectPath);
+      }
+    });
+    cleanups.push(unsubscribeAppStore);
 
     // Sandbox branch diverged — agent commits can't fast-forward onto the
     // user's task branch because the user committed in parallel. Surface a
