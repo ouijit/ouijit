@@ -424,9 +424,9 @@ export function HomeView() {
               marginTop: -1,
             }}
           >
-            {/* Card body below the tab */}
+            {/* Card body below the tab — square TL so tab sits flush */}
             <div
-              className="absolute border border-white/10"
+              className="absolute border border-black/60"
               style={{
                 top: 27,
                 left: 0,
@@ -434,14 +434,20 @@ export function HomeView() {
                 bottom: 0,
                 background: '#252528',
                 borderRadius: '0 14px 14px 14px',
-                borderTop: 'none',
+                boxShadow:
+                  'inset 0 1px 0 rgba(255,255,255,0.14), inset -1px 0 0 rgba(255,255,255,0.05), inset 1px 0 0 rgba(255,255,255,0.05), inset 0 -1px 0 rgba(0,0,0,0.5)',
               }}
             />
             <div
-              className="home-folder-tab absolute top-0 left-0 pointer-events-auto"
+              className="home-folder-tab absolute top-0 left-0 pointer-events-auto border border-black/60"
               style={{
-                width: 234,
+                width: 220,
                 height: 28,
+                background: '#252528',
+                borderBottom: 'none',
+                borderRadius: '12px 12px 0 0',
+                boxShadow:
+                  'inset 0 1px 0 rgba(255,255,255,0.14), inset 1px 0 0 rgba(255,255,255,0.05), inset -1px 0 0 rgba(255,255,255,0.05), inset 0 2px 6px -3px rgba(255,255,255,0.08)',
                 transform: `scale(${Math.max(0.92, 1 - item.depth * 0.015)})`,
                 transformOrigin: 'bottom left',
                 transition: 'transform 200ms ease-out',
@@ -453,19 +459,7 @@ export function HomeView() {
                 }
               }}
             >
-              <svg viewBox="0 0 234 28" width="234" height="28" className="absolute inset-0 w-full h-full">
-                <path
-                  d="M 14 0.5 H 205.5 Q 219.5 0.5 219.5 14.5 L 219.5 13.5 Q 219.5 27.5 233.5 27.5 L 0.5 27.5 L 0.5 14 Q 0.5 0.5 14 0.5 Z"
-                  fill="#252528"
-                />
-                <path
-                  d="M 0.5 27.5 L 0.5 14 Q 0.5 0.5 14 0.5 H 205.5 Q 219.5 0.5 219.5 14.5 L 219.5 13.5 Q 219.5 27.5 233.5 27.5"
-                  fill="none"
-                  stroke="rgba(255,255,255,0.08)"
-                  strokeWidth="1"
-                />
-              </svg>
-              <div className="absolute inset-0 flex items-center" style={{ gap: 6, padding: '4px 12px 0 8px' }}>
+              <div className="absolute inset-0 flex items-center" style={{ gap: 6, padding: '0 12px 0 8px' }}>
                 {item.icon === 'tag' ? (
                   <span
                     className="shrink-0 object-cover flex items-center justify-center"
