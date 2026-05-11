@@ -122,13 +122,9 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
     [projectPath],
   );
 
-  // Project-scoped config is owned by projectStore; loaded by ProjectViewReact.
-  // We re-fetch when the board opens in case a hook was added since first load
-  // (e.g. via Project Settings) so the column hook badges stay accurate.
-  useEffect(() => {
-    useProjectStore.getState().loadProjectConfig(projectPath);
-  }, [projectPath]);
-
+  // Project config is owned by projectStore; loaded once per project by
+  // ProjectViewReact, and refreshed by HookList / this board's hook-dialog
+  // close handler whenever a hook is added. No on-mount refetch needed.
   const markEditorHookConfigured = useCallback(() => {
     useProjectStore.getState().markHookConfigured('editor');
   }, []);

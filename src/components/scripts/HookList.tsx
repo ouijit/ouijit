@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect } from 'react';
 import type { HookType, ScriptHook } from '../../types';
 import { HookConfigDialog } from '../dialogs/HookConfigDialog';
 import { HookRowView } from './HookRowView';
+import { useProjectStore } from '../../stores/projectStore';
 
 export interface HookEntry {
   type: HookType;
@@ -33,9 +34,14 @@ export function HookList({ projectPath, hooks: hookEntries, bare }: HookListProp
   const handleDialogClose = useCallback(
     (result: { saved: boolean } | null) => {
       setEditingHook(null);
-      if (result?.saved) loadHooks();
+      if (result?.saved) {
+        loadHooks();
+        // Keep the shared projectStore in sync so terminal headers and kanban
+        // column badges see the new hook without a stale window.
+        useProjectStore.getState().loadProjectConfig(projectPath);
+      }
     },
-    [loadHooks],
+    [loadHooks, projectPath],
   );
 
   const rows = hookEntries.map(({ type, label, description }) => {

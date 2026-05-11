@@ -225,6 +225,14 @@ export function getMainBranch(projectPath: string): string {
 }
 
 /**
+ * Per-project in-flight Promise for `getMainBranchAsync`. Without it, the
+ * periodic git-status refresh, an open DiffPanel, and a worktree merge can
+ * all hit a cold cache concurrently and each spawn their own `git branch
+ * --list` — the cache exists to prevent exactly that.
+ */
+const mainBranchInflight = new Map<string, Promise<string>>();
+
+/**
  * Async variant for hot paths (most importantly `getGitFileStatus`). Falls
  * through to `execFileAsync` on cache miss so the main process isn't blocked.
  */
@@ -232,13 +240,25 @@ export async function getMainBranchAsync(projectPath: string): Promise<string> {
   const cached = projectMainBranchCache.get(projectPath);
   if (cached) return cached;
 
+  const pending = mainBranchInflight.get(projectPath);
+  if (pending) return pending;
+
+  const fetchPromise = (async () => {
+    try {
+      const { stdout } = await execFileAsync('git', ['branch', '--list', 'main', 'master'], gitExecOpts(projectPath));
+      const main = parseMainBranchOutput(stdout);
+      projectMainBranchCache.set(projectPath, main);
+      return main;
+    } catch {
+      return 'main';
+    }
+  })();
+
+  mainBranchInflight.set(projectPath, fetchPromise);
   try {
-    const { stdout } = await execFileAsync('git', ['branch', '--list', 'main', 'master'], gitExecOpts(projectPath));
-    const main = parseMainBranchOutput(stdout);
-    projectMainBranchCache.set(projectPath, main);
-    return main;
-  } catch {
-    return 'main';
+    return await fetchPromise;
+  } finally {
+    mainBranchInflight.delete(projectPath);
   }
 }
 
@@ -246,8 +266,10 @@ export async function getMainBranchAsync(projectPath: string): Promise<string> {
 export function invalidateMainBranchCache(projectPath?: string): void {
   if (projectPath == null) {
     projectMainBranchCache.clear();
+    mainBranchInflight.clear();
   } else {
     projectMainBranchCache.delete(projectPath);
+    mainBranchInflight.delete(projectPath);
   }
 }
 

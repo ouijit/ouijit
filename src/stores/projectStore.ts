@@ -135,6 +135,7 @@ type ProjectStore = ProjectStoreState & ProjectStoreActions;
 let toastCounter = 0;
 let moveCounter = 0;
 let runHookRequestCounter = 0;
+let configLoadVersion = 0;
 
 export const useProjectStore = create<ProjectStore>()((set, get) => ({
   tasks: [],
@@ -316,13 +317,17 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
   },
 
   loadProjectConfig: async (projectPath) => {
+    // Version counter: a later call (e.g. user switched projects A → B while
+    // A's IPC was still in flight) bumps the version, so when A's responses
+    // arrive their `version !== configLoadVersion` check drops them.
+    // Otherwise stale A config could land under project B.
+    const version = ++configLoadVersion;
     try {
       const [status, hooks] = await Promise.all([
         window.api.lima.status(projectPath),
         window.api.hooks.get(projectPath),
       ]);
-      // Bail if another project was loaded while these were in flight.
-      if (get().configProjectPath != null && get().configProjectPath !== projectPath) return;
+      if (version !== configLoadVersion) return;
       const configured: Record<string, boolean> = {};
       for (const key of Object.keys(hooks)) {
         if (hooks[key as HookType]) configured[key] = true;
