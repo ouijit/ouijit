@@ -281,7 +281,7 @@ function Checkbox({ checked, onChange, onPointerEnter, onPointerLeave }: Checkbo
 
 function ProjectThumb({ project }: { project: Project }) {
   return (
-    <div className="w-7 h-7 overflow-hidden rounded-md shrink-0">
+    <div className={`w-7 h-7 shrink-0 ${project.iconDataUrl ? '' : 'overflow-hidden rounded-md'}`}>
       {project.iconDataUrl ? (
         <img src={project.iconDataUrl} alt="" className="w-full h-full object-cover" draggable={false} />
       ) : (

@@ -128,6 +128,44 @@ const ICON_FILES = [
 ];
 
 /**
+ * Trims fully-transparent border pixels so macOS-style app icons (which include
+ * built-in padding) render at the same visual size as identicons.
+ */
+function trimTransparentBorder(image: Electron.NativeImage): Electron.NativeImage {
+  const { width, height } = image.getSize();
+  if (width === 0 || height === 0) return image;
+
+  const bitmap = image.toBitmap();
+  if (bitmap.length < width * height * 4) return image;
+
+  const alphaThreshold = 8;
+  let top = height;
+  let bottom = -1;
+  let left = width;
+  let right = -1;
+
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const alpha = bitmap[(y * width + x) * 4 + 3];
+      if (alpha > alphaThreshold) {
+        if (y < top) top = y;
+        if (y > bottom) bottom = y;
+        if (x < left) left = x;
+        if (x > right) right = x;
+      }
+    }
+  }
+
+  if (bottom < 0 || right < 0) return image;
+
+  const cropW = right - left + 1;
+  const cropH = bottom - top + 1;
+  if (cropW === width && cropH === height) return image;
+
+  return image.crop({ x: left, y: top, width: cropW, height: cropH });
+}
+
+/**
  * Finds an icon file and converts it to a data URL
  */
 async function getIconDataUrl(dirPath: string): Promise<string | undefined> {
@@ -137,8 +175,9 @@ async function getIconDataUrl(dirPath: string): Promise<string | undefined> {
       try {
         const image = nativeImage.createFromPath(iconPath);
         if (!image.isEmpty()) {
+          const trimmed = trimTransparentBorder(image);
           // Resize to 96x96 for consistent display (2x for retina)
-          const resized = image.resize({ width: 96, height: 96, quality: 'best' });
+          const resized = trimmed.resize({ width: 96, height: 96, quality: 'best' });
           return resized.toDataURL();
         }
       } catch (error) {
