@@ -51,6 +51,15 @@ interface ProjectStoreState {
   runHookRequest: RunHookRequest | null;
   /** Queued CLI-initiated task starts awaiting the user to enter the project. */
   pendingCliStarts: Record<string, PendingCliStart[]>;
+  /**
+   * Project-scoped config used by terminal/kanban cards. Loaded once per project
+   * so we don't fan out N `lima.status` (subprocess spawn) + `hooks.get` calls
+   * across every visible card.
+   */
+  sandboxAvailable: boolean;
+  configuredHooks: Record<string, boolean>;
+  /** projectPath the config currently reflects; null = not loaded. */
+  configProjectPath: string | null;
   _version: number;
 }
 
@@ -95,6 +104,14 @@ interface ProjectStoreActions {
   loadTasks: (projectPath: string) => Promise<void>;
   /** Load scripts from IPC */
   loadScripts: (projectPath: string) => Promise<void>;
+  /**
+   * Load project-scoped config (sandbox availability + configured hooks) in a
+   * single pair of IPC calls. Replaces per-card fan-out where every kanban card
+   * and terminal header spawned its own limactl subprocess on mount.
+   */
+  loadProjectConfig: (projectPath: string) => Promise<void>;
+  /** Mark a hook as configured after the user saves one from a card dialog. */
+  markHookConfigured: (hookType: HookType) => void;
   /** Move a task with optimistic update and rollback */
   moveTask: (projectPath: string, taskNumber: number, newStatus: string, targetIndex: number) => Promise<void>;
 
@@ -138,6 +155,9 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
   startingTaskNumbers: new Set<number>(),
   runHookRequest: null,
   pendingCliStarts: {},
+  sandboxAvailable: false,
+  configuredHooks: {},
+  configProjectPath: null,
   _version: 0,
 
   setTasks: (tasks) => {
@@ -232,6 +252,9 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
       selectionAnchor: null,
       startingTaskNumbers: new Set<number>(),
       runHookRequest: null,
+      sandboxAvailable: false,
+      configuredHooks: {},
+      configProjectPath: null,
       _version: 0,
     });
   },
@@ -290,6 +313,36 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
     } catch (err) {
       get().addToast(`Failed to load scripts: ${err instanceof Error ? err.message : String(err)}`, 'error');
     }
+  },
+
+  loadProjectConfig: async (projectPath) => {
+    try {
+      const [status, hooks] = await Promise.all([
+        window.api.lima.status(projectPath),
+        window.api.hooks.get(projectPath),
+      ]);
+      // Bail if another project was loaded while these were in flight.
+      if (get().configProjectPath != null && get().configProjectPath !== projectPath) return;
+      const configured: Record<string, boolean> = {};
+      for (const key of Object.keys(hooks)) {
+        if (hooks[key as HookType]) configured[key] = true;
+      }
+      set({
+        sandboxAvailable: status.available,
+        configuredHooks: configured,
+        configProjectPath: projectPath,
+      });
+    } catch {
+      // Swallow — project config (sandbox availability + configured hooks) is
+      // a UX nicety; if IPC fails the cards just render with falsy defaults
+      // and the user retries the action.
+    }
+  },
+
+  markHookConfigured: (hookType) => {
+    const prev = get().configuredHooks;
+    if (prev[hookType]) return;
+    set({ configuredHooks: { ...prev, [hookType]: true } });
   },
 
   moveTask: async (projectPath, taskNumber, newStatus, targetIndex) => {

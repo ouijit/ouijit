@@ -62,41 +62,46 @@ export function DiffPanel({ ptyId, projectPath, onClose }: DiffPanelProps) {
     if (inst) refreshTerminalGitStatus(inst);
   }, [ptyId]);
 
-  // Load per-file diffs in batches when the file list changes
+  // Load per-file diffs in batches when the file list changes.
+  // Within each batch we mutate a single Map and call setDiffs once with a
+  // fresh clone — previously each finished file cloned the entire map
+  // (O(N) per file → O(N²) for the whole load). With ~300 files that was
+  // tens of thousands of redundant copies during the load.
   useEffect(() => {
     let cancelled = false;
     setDiffs(new Map());
 
     if (files.length === 0) return;
 
+    const accumulated = new Map<string, FileDiff | null>();
+
     const loadDiffs = async () => {
       for (let i = 0; i < files.length; i += DIFF_BATCH_SIZE) {
         if (cancelled) return;
         const batch = files.slice(i, i + DIFF_BATCH_SIZE);
-        await Promise.all(
-          batch.map(async (file) => {
+        const results = await Promise.all(
+          batch.map(async (file): Promise<[string, FileDiff | null]> => {
             try {
-              let diff: FileDiff | null;
-              if (effectiveMode === 'worktree' && instance?.worktreeBranch) {
-                diff = await window.api.worktree.getFileDiff(
-                  projectPath,
-                  instance.worktreeBranch,
-                  file.path,
-                  instance.mergeTarget,
-                );
-              } else {
-                diff = await window.api.getFileDiff(gitPath, file.path);
-              }
-              if (!cancelled) {
-                setDiffs((prev) => new Map(prev).set(file.path, diff));
-              }
+              const diff =
+                effectiveMode === 'worktree' && instance?.worktreeBranch
+                  ? await window.api.worktree.getFileDiff(
+                      projectPath,
+                      instance.worktreeBranch,
+                      file.path,
+                      instance.mergeTarget,
+                    )
+                  : await window.api.getFileDiff(gitPath, file.path);
+              return [file.path, diff];
             } catch {
-              if (!cancelled) {
-                setDiffs((prev) => new Map(prev).set(file.path, null));
-              }
+              return [file.path, null];
             }
           }),
         );
+        if (cancelled) return;
+        for (const [path, diff] of results) accumulated.set(path, diff);
+        // One copy per batch instead of one per file — batches of 10 means
+        // ~30 copies for 300 files instead of ~45 000.
+        setDiffs(new Map(accumulated));
       }
     };
 

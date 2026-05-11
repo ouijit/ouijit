@@ -32,6 +32,9 @@ interface KanbanColumnProps {
   onConfigureHook?: (hookTypes: HookType[]) => void;
   hasConfiguredHook?: boolean;
   chainMap?: Map<number, TaskChainInfo>;
+  sandboxAvailable?: boolean;
+  hasEditorHook?: boolean;
+  onEditorHookConfigured?: () => void;
 }
 
 export function KanbanColumn({
@@ -49,6 +52,9 @@ export function KanbanColumn({
   onConfigureHook,
   hasConfiguredHook,
   chainMap,
+  sandboxAvailable,
+  hasEditorHook,
+  onEditorHookConfigured,
 }: KanbanColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id: status });
   const taskIds = useMemo(() => tasks.map((t) => `task-${t.taskNumber}`), [tasks]);
@@ -83,6 +89,9 @@ export function KanbanColumn({
             onOpenTerminal={onOpenTerminal}
             onSwitchToTerminal={onSwitchToTerminal}
             onSelect={onSelect}
+            sandboxAvailable={sandboxAvailable}
+            hasEditorHook={hasEditorHook}
+            onEditorHookConfigured={onEditorHookConfigured}
           />
         ))}
       </SortableContext>
@@ -108,6 +117,9 @@ function SortableCard({
   onOpenTerminal,
   onSwitchToTerminal,
   onSelect,
+  sandboxAvailable,
+  hasEditorHook,
+  onEditorHookConfigured,
 }: {
   task: TaskWithWorkspace;
   projectPath: string;
@@ -118,6 +130,9 @@ function SortableCard({
   onOpenTerminal: (task: TaskWithWorkspace, sandboxed?: boolean) => void;
   onSwitchToTerminal: (ptyId: string) => void;
   onSelect: (taskNumber: number, event: MouseEvent) => void;
+  sandboxAvailable?: boolean;
+  hasEditorHook?: boolean;
+  onEditorHookConfigured?: () => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: `task-${task.taskNumber}`,
@@ -165,6 +180,9 @@ function SortableCard({
         onOpenTerminal={onOpenTerminal}
         onSwitchToTerminal={onSwitchToTerminal}
         onSelect={onSelect}
+        sandboxAvailable={sandboxAvailable}
+        hasEditorHook={hasEditorHook}
+        onEditorHookConfigured={onEditorHookConfigured}
       />
     </div>
   );

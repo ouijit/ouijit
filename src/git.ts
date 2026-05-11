@@ -184,21 +184,70 @@ export function getGitStatus(projectPath: string): GitStatus | null {
 }
 
 /**
- * Detects the main branch (main or master) for a repo
+ * Cache the resolved main branch per project. `git branch --list` is cheap
+ * but it spawns a child process — when this used to run synchronously from
+ * inside the otherwise-async `getGitFileStatus`, it blocked the main process
+ * on every git-status refresh (30s timer per project, plus 3s after every
+ * terminal output burst). The cache is a Map<projectPath, mainBranch>; main
+ * branches effectively never change during a session.
+ */
+const projectMainBranchCache = new Map<string, string>();
+
+function parseMainBranchOutput(stdout: string): string {
+  if (!stdout) return 'main';
+  const branches = stdout
+    .split('\n')
+    .map((b) => b.replace(/^\*?\s+/, '').trim())
+    .filter(Boolean);
+  if (branches.includes('main')) return 'main';
+  if (branches.includes('master')) return 'master';
+  return 'main';
+}
+
+/**
+ * Detects the main branch (main or master) for a repo. Sync — kept for the
+ * many legacy sync git helpers in this file. First call per project spawns
+ * `git branch --list`; subsequent calls return from cache.
  */
 export function getMainBranch(projectPath: string): string {
-  const opts = gitExecOpts(projectPath);
+  const cached = projectMainBranchCache.get(projectPath);
+  if (cached) return cached;
 
+  const opts = gitExecOpts(projectPath);
   try {
-    const result = execFileSync('git', ['branch', '--list', 'main', 'master'], opts).toString().trim();
-    if (!result) return 'main';
-    // Each line is "  branchname" or "* branchname" - check if 'main' exists
-    const branches = result.split('\n').map((b) => b.replace(/^\*?\s+/, '').trim());
-    if (branches.includes('main')) return 'main';
-    if (branches.includes('master')) return 'master';
-    return 'main';
+    const result = execFileSync('git', ['branch', '--list', 'main', 'master'], opts).toString();
+    const main = parseMainBranchOutput(result);
+    projectMainBranchCache.set(projectPath, main);
+    return main;
   } catch {
     return 'main';
+  }
+}
+
+/**
+ * Async variant for hot paths (most importantly `getGitFileStatus`). Falls
+ * through to `execFileAsync` on cache miss so the main process isn't blocked.
+ */
+export async function getMainBranchAsync(projectPath: string): Promise<string> {
+  const cached = projectMainBranchCache.get(projectPath);
+  if (cached) return cached;
+
+  try {
+    const { stdout } = await execFileAsync('git', ['branch', '--list', 'main', 'master'], gitExecOpts(projectPath));
+    const main = parseMainBranchOutput(stdout);
+    projectMainBranchCache.set(projectPath, main);
+    return main;
+  } catch {
+    return 'main';
+  }
+}
+
+/** Drop the cached main branch for a project (call after a rename or fresh clone). */
+export function invalidateMainBranchCache(projectPath?: string): void {
+  if (projectPath == null) {
+    projectMainBranchCache.clear();
+  } else {
+    projectMainBranchCache.delete(projectPath);
   }
 }
 
@@ -660,7 +709,7 @@ export async function getGitFileStatus(projectPath: string, diffBase?: string): 
       return null; // Not a git repo
     }
 
-    const mainBranch = getMainBranch(projectPath);
+    const mainBranch = await getMainBranchAsync(projectPath);
     const base = diffBase || mainBranch;
     const isOnBase = branch === base;
 

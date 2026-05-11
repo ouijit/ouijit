@@ -2,6 +2,7 @@ import { Fragment, memo, useState, useCallback, useEffect, useMemo, useRef } fro
 import { useTerminalStore } from '../../stores/terminalStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { useUIStore } from '../../stores/uiStore';
+import { useShallow } from 'zustand/react/shallow';
 import { terminalInstances } from './terminalReact';
 import { addProjectTerminal, closeProjectTerminal } from './terminalActions';
 import { findOtherTaskTerminals } from './findOtherTaskTerminals';
@@ -41,23 +42,52 @@ export const TerminalHeader = memo(function TerminalHeader({
   onToggleWebPreviewPanel,
   onToggleRunner,
 }: TerminalHeaderProps) {
-  const label = useTerminalStore((s) => s.displayStates[ptyId]?.label ?? '');
-  const summary = useTerminalStore((s) => s.displayStates[ptyId]?.summary ?? '');
-  const summaryType = useTerminalStore((s) => s.displayStates[ptyId]?.summaryType ?? 'ready');
-  const gitFileStatus = useTerminalStore((s) => s.displayStates[ptyId]?.gitFileStatus ?? null);
-  const lastOscTitle = useTerminalStore((s) => s.displayStates[ptyId]?.lastOscTitle ?? '');
-  const tags = useTerminalStore((s) => s.displayStates[ptyId]?.tags) ?? EMPTY_TAGS;
-  const sandboxed = useTerminalStore((s) => s.displayStates[ptyId]?.sandboxed ?? false);
-  const runnerStatus = useTerminalStore((s) => s.displayStates[ptyId]?.runnerStatus ?? 'idle');
-  const runnerScriptName = useTerminalStore((s) => s.displayStates[ptyId]?.runnerScriptName ?? null);
-  const runnerPanelOpen = useTerminalStore((s) => s.displayStates[ptyId]?.runnerPanelOpen ?? false);
-  const diffPanelOpen = useTerminalStore((s) => s.displayStates[ptyId]?.diffPanelOpen ?? false);
-  const planPath = useTerminalStore((s) => s.displayStates[ptyId]?.planPath ?? null);
-  const planPanelOpen = useTerminalStore((s) => s.displayStates[ptyId]?.planPanelOpen ?? false);
-  const webPreviewUrl = useTerminalStore((s) => s.displayStates[ptyId]?.webPreviewUrl ?? null);
-  const webPreviewPanelOpen = useTerminalStore((s) => s.displayStates[ptyId]?.webPreviewPanelOpen ?? false);
-  const taskId = useTerminalStore((s) => s.displayStates[ptyId]?.taskId ?? null);
-  const worktreeBranch = useTerminalStore((s) => s.displayStates[ptyId]?.worktreeBranch ?? null);
+  // One shallow-compared subscription replaces seventeen individual selectors.
+  // Each `updateDisplay` (~4Hz during active terminal output) previously ran
+  // 17 selector closures per visible card; now it runs one + a shallow compare,
+  // and the header only re-renders when one of these fields actually changes.
+  const {
+    label,
+    summary,
+    summaryType,
+    gitFileStatus,
+    lastOscTitle,
+    tags,
+    sandboxed,
+    runnerStatus,
+    runnerScriptName,
+    runnerPanelOpen,
+    diffPanelOpen,
+    planPath,
+    planPanelOpen,
+    webPreviewUrl,
+    webPreviewPanelOpen,
+    taskId,
+    worktreeBranch,
+  } = useTerminalStore(
+    useShallow((s) => {
+      const d = s.displayStates[ptyId];
+      return {
+        label: d?.label ?? '',
+        summary: d?.summary ?? '',
+        summaryType: d?.summaryType ?? 'ready',
+        gitFileStatus: d?.gitFileStatus ?? null,
+        lastOscTitle: d?.lastOscTitle ?? '',
+        tags: d?.tags ?? EMPTY_TAGS,
+        sandboxed: d?.sandboxed ?? false,
+        runnerStatus: d?.runnerStatus ?? 'idle',
+        runnerScriptName: d?.runnerScriptName ?? null,
+        runnerPanelOpen: d?.runnerPanelOpen ?? false,
+        diffPanelOpen: d?.diffPanelOpen ?? false,
+        planPath: d?.planPath ?? null,
+        planPanelOpen: d?.planPanelOpen ?? false,
+        webPreviewUrl: d?.webPreviewUrl ?? null,
+        webPreviewPanelOpen: d?.webPreviewPanelOpen ?? false,
+        taskId: d?.taskId ?? null,
+        worktreeBranch: d?.worktreeBranch ?? null,
+      };
+    }),
+  );
 
   const [tagInputOpen, setTagInputOpen] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
@@ -74,24 +104,18 @@ export const TerminalHeader = memo(function TerminalHeader({
 
   const scriptDropdownVisible = useUIStore((s) => s.scriptDropdownVisible && s.scriptDropdownPtyId === ptyId);
 
-  const [sandboxAvailable, setSandboxAvailable] = useState(false);
-  const [hasEditorHook, setHasEditorHook] = useState(false);
-  const [hasRunHook, setHasRunHook] = useState(false);
-  // Subscribe to scripts from projectStore for live updates
+  // Project-scoped config lives in the store (loaded once per project by
+  // ProjectViewReact) — reading from the store keeps every card sharing one
+  // pair of IPC calls instead of fanning out N spawns of limactl.
+  const sandboxAvailable = useProjectStore((s) => s.sandboxAvailable);
+  const hasEditorHook = useProjectStore((s) => !!s.configuredHooks.editor);
+  const hasRunHook = useProjectStore((s) => !!s.configuredHooks.run);
   const storeScripts = useProjectStore((s) => s.scripts);
   const hasScripts = storeScripts.length > 0;
 
   useEffect(() => {
-    if (projectPath) {
-      window.api.lima.status(projectPath).then((s) => setSandboxAvailable(s.available));
-      window.api.hooks.get(projectPath).then((h) => {
-        setHasEditorHook(!!h.editor);
-        setHasRunHook(!!h.run);
-      });
-      // Also load scripts into store if not already loaded
-      if (storeScripts.length === 0) {
-        useProjectStore.getState().loadScripts(projectPath);
-      }
+    if (projectPath && storeScripts.length === 0) {
+      useProjectStore.getState().loadScripts(projectPath);
     }
   }, [projectPath, storeScripts.length]);
 
@@ -442,7 +466,7 @@ export const TerminalHeader = memo(function TerminalHeader({
           hookType="editor"
           onClose={(result) => {
             setEditorHookDialog(false);
-            if (result?.saved) setHasEditorHook(true);
+            if (result?.saved) useProjectStore.getState().markHookConfigured('editor');
           }}
         />
       )}
@@ -454,7 +478,7 @@ export const TerminalHeader = memo(function TerminalHeader({
           onClose={(result) => {
             setRunHookDialog(null);
             if (result?.saved && result.hook) {
-              setHasRunHook(true);
+              useProjectStore.getState().markHookConfigured('run');
               onToggleRunner?.();
             }
           }}
