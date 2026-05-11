@@ -148,3 +148,94 @@ describe('projectStore.pendingCliStarts (T-366)', () => {
     expect(useProjectStore.getState().drainCliStarts('/none')).toEqual([]);
   });
 });
+
+describe('projectStore.loadProjectConfig', () => {
+  beforeEach(() => {
+    useProjectStore.setState({
+      sandboxAvailable: false,
+      configuredHooks: {},
+      configProjectPath: null,
+    });
+    vi.mocked(window.api.lima.status).mockReset();
+    vi.mocked(window.api.hooks.get).mockReset();
+  });
+
+  test('writes sandbox availability + configured hooks into the store', async () => {
+    vi.mocked(window.api.lima.status).mockResolvedValue({ available: true, vmStatus: 'Running' });
+    vi.mocked(window.api.hooks.get).mockResolvedValue({
+      editor: { name: 'edit', command: 'code' },
+      run: undefined,
+    });
+
+    await useProjectStore.getState().loadProjectConfig('/a');
+
+    const s = useProjectStore.getState();
+    expect(s.sandboxAvailable).toBe(true);
+    expect(s.configuredHooks).toEqual({ editor: true });
+    expect(s.configProjectPath).toBe('/a');
+  });
+
+  test('the most-recent load wins regardless of IPC resolve order (stale-load race)', async () => {
+    // load(A) hangs longer than load(B); we expect B's state to land, not A's.
+    let resolveA!: (v: { available: boolean; vmStatus: string }) => void;
+    const aStatus = new Promise<{ available: boolean; vmStatus: string }>((res) => {
+      resolveA = res;
+    });
+    vi.mocked(window.api.lima.status).mockImplementationOnce(() => aStatus);
+    vi.mocked(window.api.hooks.get).mockImplementationOnce(() =>
+      Promise.resolve({ editor: { name: 'a', command: 'a' } }),
+    );
+
+    vi.mocked(window.api.lima.status).mockResolvedValueOnce({ available: true, vmStatus: 'Running' });
+    vi.mocked(window.api.hooks.get).mockResolvedValueOnce({ run: { name: 'b', command: 'b' } });
+
+    const aPromise = useProjectStore.getState().loadProjectConfig('/a');
+    const bPromise = useProjectStore.getState().loadProjectConfig('/b');
+
+    // Resolve B first (it has mockResolvedValueOnce so it resolves immediately).
+    await bPromise;
+    expect(useProjectStore.getState().configProjectPath).toBe('/b');
+    expect(useProjectStore.getState().configuredHooks).toEqual({ run: true });
+
+    // Now let A resolve — its writes must be ignored.
+    resolveA({ available: false, vmStatus: 'NotCreated' });
+    await aPromise;
+
+    const s = useProjectStore.getState();
+    expect(s.configProjectPath).toBe('/b');
+    expect(s.configuredHooks).toEqual({ run: true });
+    expect(s.sandboxAvailable).toBe(true);
+  });
+
+  test('IPC failures are swallowed and leave the store untouched', async () => {
+    useProjectStore.setState({ sandboxAvailable: true, configuredHooks: { editor: true }, configProjectPath: '/prev' });
+    vi.mocked(window.api.lima.status).mockRejectedValueOnce(new Error('boom'));
+    vi.mocked(window.api.hooks.get).mockResolvedValueOnce({});
+
+    await useProjectStore.getState().loadProjectConfig('/a');
+
+    const s = useProjectStore.getState();
+    expect(s.sandboxAvailable).toBe(true);
+    expect(s.configuredHooks).toEqual({ editor: true });
+    expect(s.configProjectPath).toBe('/prev');
+  });
+});
+
+describe('projectStore.markHookConfigured', () => {
+  beforeEach(() => {
+    useProjectStore.setState({ configuredHooks: {} });
+  });
+
+  test('adds the hook type to configuredHooks', () => {
+    useProjectStore.getState().markHookConfigured('editor');
+    expect(useProjectStore.getState().configuredHooks).toEqual({ editor: true });
+  });
+
+  test('is idempotent — repeating the call does not allocate a new object', () => {
+    useProjectStore.getState().markHookConfigured('editor');
+    const ref = useProjectStore.getState().configuredHooks;
+    useProjectStore.getState().markHookConfigured('editor');
+    // Same reference proves the early-return path was taken.
+    expect(useProjectStore.getState().configuredHooks).toBe(ref);
+  });
+});

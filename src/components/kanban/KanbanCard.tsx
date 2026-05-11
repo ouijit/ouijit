@@ -22,6 +22,12 @@ interface KanbanCardProps {
   chainMap?: Map<number, TaskChainInfo>;
   isSettingUp?: boolean;
   isSelected?: boolean;
+  /** Hoisted from per-card IPC to a single board-level call. */
+  sandboxAvailable?: boolean;
+  /** Hoisted from per-card IPC to a single board-level call. */
+  hasEditorHook?: boolean;
+  /** Called after the user saves an editor hook from this card's dialog. */
+  onEditorHookConfigured?: () => void;
   onRename: (taskNumber: number, newName: string) => void;
   onUpdateDescription: (taskNumber: number, description: string) => void;
   onOpenTerminal: (task: TaskWithWorkspace, sandboxed?: boolean) => void;
@@ -36,6 +42,9 @@ export const KanbanCard = memo(function KanbanCard({
   chainMap,
   isSettingUp,
   isSelected,
+  sandboxAvailable = false,
+  hasEditorHook = false,
+  onEditorHookConfigured,
   onRename,
   onUpdateDescription,
   onOpenTerminal,
@@ -81,13 +90,6 @@ export const KanbanCard = memo(function KanbanCard({
   const formattedDate = task.createdAt
     ? new Date(task.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
     : '';
-
-  const [sandboxAvailable, setSandboxAvailable] = useState(false);
-  const [hasEditorHook, setHasEditorHook] = useState(false);
-  useEffect(() => {
-    window.api.lima.status(projectPath).then((s) => setSandboxAvailable(s.available));
-    window.api.hooks.get(projectPath).then((hooks) => setHasEditorHook(!!hooks.editor));
-  }, [projectPath]);
 
   const handleCommitRenameTerminal = useCallback((ptyId: string, label: string) => {
     useTerminalStore.getState().updateDisplay(ptyId, { label });
@@ -384,7 +386,7 @@ export const KanbanCard = memo(function KanbanCard({
           hookType="editor"
           onClose={(result) => {
             setEditorHookDialog(false);
-            if (result?.saved) setHasEditorHook(true);
+            if (result?.saved) onEditorHookConfigured?.();
           }}
         />
       )}

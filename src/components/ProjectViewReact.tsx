@@ -258,13 +258,38 @@ export function ProjectView() {
     });
   }, [projectPath]);
 
-  // Periodic git status refresh
+  // Load project-scoped config (sandbox availability + configured hooks) once.
+  // Terminal headers and kanban cards read this from the store instead of each
+  // making their own `lima.status` (subprocess spawn) + `hooks.get` IPC calls.
   useEffect(() => {
     if (!projectPath) return;
-    const interval = setInterval(() => {
-      refreshAllTerminalGitStatus(projectPath);
-    }, GIT_STATUS_PERIODIC_INTERVAL);
-    return () => clearInterval(interval);
+    useProjectStore.getState().loadProjectConfig(projectPath);
+  }, [projectPath]);
+
+  // Periodic git status refresh — pauses while the window is hidden so we
+  // don't keep spawning git subprocesses for a project the user isn't watching.
+  useEffect(() => {
+    if (!projectPath) return;
+    let interval: ReturnType<typeof setInterval> | null = null;
+    const start = () => {
+      if (interval != null || document.hidden) return;
+      interval = setInterval(() => {
+        refreshAllTerminalGitStatus(projectPath);
+      }, GIT_STATUS_PERIODIC_INTERVAL);
+    };
+    const stop = () => {
+      if (interval != null) {
+        clearInterval(interval);
+        interval = null;
+      }
+    };
+    const onVisibility = () => (document.hidden ? stop() : start());
+    start();
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibility);
+      stop();
+    };
   }, [projectPath]);
 
   // Hook status: register ongoing listener + seed existing terminals

@@ -1,4 +1,5 @@
 import { useTerminalStore } from '../../stores/terminalStore';
+import { useShallow } from 'zustand/react/shallow';
 import { XTermContainer } from './XTermContainer';
 import { RunnerPanel } from './RunnerPanel';
 import { DiffPanel } from '../diff/DiffPanel';
@@ -30,15 +31,35 @@ export function TerminalBody({
   onKillRunner,
   onRestartRunner,
 }: TerminalBodyProps) {
-  const diffPanelOpen = useTerminalStore((s) => s.displayStates[ptyId]?.diffPanelOpen ?? false);
-  const planPanelOpen = useTerminalStore((s) => s.displayStates[ptyId]?.planPanelOpen ?? false);
-  const planPath = useTerminalStore((s) => s.displayStates[ptyId]?.planPath ?? null);
-  const planFullWidth = useTerminalStore((s) => s.displayStates[ptyId]?.planFullWidth ?? true);
-  const webPreviewPanelOpen = useTerminalStore((s) => s.displayStates[ptyId]?.webPreviewPanelOpen ?? false);
-  const webPreviewUrl = useTerminalStore((s) => s.displayStates[ptyId]?.webPreviewUrl ?? null);
-  const webPreviewFullWidth = useTerminalStore((s) => s.displayStates[ptyId]?.webPreviewFullWidth ?? true);
-  const runnerPanelOpen = useTerminalStore((s) => s.displayStates[ptyId]?.runnerPanelOpen ?? false);
-  const runnerFullWidth = useTerminalStore((s) => s.displayStates[ptyId]?.runnerFullWidth ?? true);
+  // One shallow-compared subscription replaces nine individual selectors.
+  // Every `updateDisplay` previously ran nine closures per terminal body to
+  // pick out primitive panel-state fields; now it runs one + a shallow compare.
+  const {
+    diffPanelOpen,
+    planPanelOpen,
+    planPath,
+    planFullWidth,
+    webPreviewPanelOpen,
+    webPreviewUrl,
+    webPreviewFullWidth,
+    runnerPanelOpen,
+    runnerFullWidth,
+  } = useTerminalStore(
+    useShallow((s) => {
+      const d = s.displayStates[ptyId];
+      return {
+        diffPanelOpen: d?.diffPanelOpen ?? false,
+        planPanelOpen: d?.planPanelOpen ?? false,
+        planPath: d?.planPath ?? null,
+        planFullWidth: d?.planFullWidth ?? true,
+        webPreviewPanelOpen: d?.webPreviewPanelOpen ?? false,
+        webPreviewUrl: d?.webPreviewUrl ?? null,
+        webPreviewFullWidth: d?.webPreviewFullWidth ?? true,
+        runnerPanelOpen: d?.runnerPanelOpen ?? false,
+        runnerFullWidth: d?.runnerFullWidth ?? true,
+      };
+    }),
+  );
 
   return (
     <div className="relative flex-1 flex flex-row min-h-0 overflow-hidden">

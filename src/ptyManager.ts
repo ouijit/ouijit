@@ -31,6 +31,12 @@ interface ManagedPty {
   outputChunks: string[];
   outputSize: number;
   maxBufferSize: number;
+  // Per-tick IPC coalescing — heavy output (find /, builds, log tails) emits
+  // many small chunks; sending each as its own IPC message saturates the
+  // renderer with serialization work and stutters the UI. We collect chunks
+  // and flush once per Node event-loop tick.
+  pendingForwardChunks: string[];
+  forwardFlushScheduled: boolean;
   // Terminal state tracking for accurate reconnection replay
   isAltScreen: boolean;
   lastCols: number;
@@ -79,7 +85,34 @@ function canSendToRenderer(): boolean {
 }
 
 /**
- * Handle PTY output: always buffer for history, and forward to renderer if connected
+ * Flush any pending forwarded chunks for a PTY as a single concatenated IPC
+ * message. Safe to call when nothing is pending or when no renderer is attached.
+ */
+function flushPendingForward(ptyId: PtyId, channel: string): void {
+  const managed = activePtys.get(ptyId);
+  if (!managed) return;
+  managed.forwardFlushScheduled = false;
+  if (managed.pendingForwardChunks.length === 0) return;
+  if (!canSendToRenderer()) {
+    // Drop the queue if there's no renderer to receive it; the chunks are
+    // already retained in `outputChunks` for reconnection replay.
+    managed.pendingForwardChunks.length = 0;
+    return;
+  }
+  const payload =
+    managed.pendingForwardChunks.length === 1 ? managed.pendingForwardChunks[0] : managed.pendingForwardChunks.join('');
+  managed.pendingForwardChunks.length = 0;
+  currentWindow!.webContents.send(channel, payload);
+}
+
+/**
+ * Handle PTY output: always buffer for history, and forward to renderer if connected.
+ *
+ * Forwarding is coalesced once per Node event-loop tick via `setImmediate`. A
+ * heavy command (build, `find /`, log tail) can emit many small data events
+ * per millisecond; sending each as its own IPC was saturating the renderer
+ * with serialization + xterm side-effect work, stuttering kanban drag and
+ * other UI animations.
  */
 function handlePtyOutput(ptyId: PtyId, channel: string, data: string): void {
   const managed = activePtys.get(ptyId);
@@ -93,19 +126,19 @@ function handlePtyOutput(ptyId: PtyId, channel: string, data: string): void {
     managed.isAltScreen = false;
   }
 
-  // Array-based buffering to avoid string concatenation churn
+  // Array-based history buffer (preserved per-chunk for accurate replay)
   managed.outputChunks.push(data);
   managed.outputSize += data.length;
-
-  // Trim from front when over limit
   while (managed.outputSize > managed.maxBufferSize && managed.outputChunks.length > 1) {
     const removed = managed.outputChunks.shift()!;
     managed.outputSize -= removed.length;
   }
 
-  // Forward to renderer if available
-  if (canSendToRenderer()) {
-    currentWindow!.webContents.send(channel, data);
+  // Coalesce forwards to the renderer
+  managed.pendingForwardChunks.push(data);
+  if (!managed.forwardFlushScheduled) {
+    managed.forwardFlushScheduled = true;
+    setImmediate(() => flushPendingForward(ptyId, channel));
   }
 }
 
@@ -230,6 +263,8 @@ export async function spawnPty(options: PtySpawnOptions, window: BrowserWindow):
       outputChunks: [],
       outputSize: 0,
       maxBufferSize: MAX_BUFFER_SIZE,
+      pendingForwardChunks: [],
+      forwardFlushScheduled: false,
       isAltScreen: false,
       lastCols: options.cols || 80,
       lastRows: options.rows || 24,
@@ -244,6 +279,9 @@ export async function spawnPty(options: PtySpawnOptions, window: BrowserWindow):
 
     ptyProcess.onExit(({ exitCode }) => {
       ptyLog.info('exited', { ptyId, exitCode });
+      // Drain any output buffered in the same tick as the exit so the user
+      // sees the final lines before the exit message.
+      flushPendingForward(ptyId, `pty:data:${ptyId}`);
       if (canSendToRenderer()) {
         currentWindow!.webContents.send(`pty:exit:${ptyId}`, exitCode);
       }
@@ -283,6 +321,12 @@ export function reconnectPty(
 
   // Update window reference
   currentWindow = window;
+
+  // Drop any chunks queued for forwarding — `outputChunks` already contains
+  // them, and the renderer replays the full history below. Without this clear,
+  // a scheduled setImmediate flush would re-send those same chunks after the
+  // replay, producing duplicated output on reconnect.
+  managed.pendingForwardChunks.length = 0;
 
   // Join chunks for replay (only done on reconnection, not per data event)
   const bufferedOutput = managed.outputChunks.join('');

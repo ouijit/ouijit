@@ -68,7 +68,9 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
   const startingTaskNumbers = useProjectStore((s) => s.startingTaskNumbers);
   const [activeTask, setActiveTask] = useState<TaskWithWorkspace | null>(null);
   const activeBadgeDrag = useProjectStore((s) => s.activeBadgeDrag);
-  const [configuredHooks, setConfiguredHooks] = useState<Record<string, boolean>>({});
+  // Project-scoped config is loaded once by ProjectViewReact; we just subscribe.
+  const configuredHooks = useProjectStore((s) => s.configuredHooks);
+  const sandboxAvailable = useProjectStore((s) => s.sandboxAvailable);
   const [hookDialog, setHookDialog] = useState<
     | { mode: 'single'; hookType: HookType; existingHook?: any }
     | { mode: 'combined'; start?: any; continue?: any }
@@ -120,19 +122,32 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
     [projectPath],
   );
 
-  // Load which hooks are configured
-  useEffect(() => {
-    window.api.hooks.get(projectPath).then((hooks) => {
-      const configured: Record<string, boolean> = {};
-      for (const key of Object.keys(hooks)) {
-        if (hooks[key as HookType]) configured[key] = true;
-      }
-      setConfiguredHooks(configured);
-    });
-  }, [projectPath]);
+  // Project config is owned by projectStore; loaded once per project by
+  // ProjectViewReact, and refreshed by HookList / this board's hook-dialog
+  // close handler whenever a hook is added. No on-mount refetch needed.
+  const markEditorHookConfigured = useCallback(() => {
+    useProjectStore.getState().markHookConfigured('editor');
+  }, []);
 
-  // Local task state for drag preview — synced from store, mutated during drag
-  const chainMap = useMemo(() => buildChainMap(storeTasks), [storeTasks]);
+  // Local task state for drag preview — synced from store, mutated during drag.
+  // chainMap depends only on parent relations, but `storeTasks` identity churns
+  // on every task edit (name, status, order). Memoize on a content fingerprint
+  // of just (taskNumber → parentTaskNumber) so the Map identity stays stable
+  // across reorders, status changes, and renames — and memoized cards keep
+  // their memo intact instead of re-rendering on every unrelated task tweak.
+  const chainFingerprint = useMemo(
+    () =>
+      storeTasks
+        .map((t) => `${t.taskNumber}:${t.parentTaskNumber ?? ''}`)
+        .sort()
+        .join('|'),
+    [storeTasks],
+  );
+  const chainMap = useMemo(
+    () => buildChainMap(storeTasks),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: rebuild only when parent relations change
+    [chainFingerprint],
+  );
   const [items, setItems] = useState<Record<string, TaskWithWorkspace[]>>({});
   const originalStatusRef = useRef<TaskStatus | null>(null);
 
@@ -209,16 +224,26 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
     }),
   );
 
+  // O(1) reverse lookup for findContainer. `items` only changes when a card
+  // actually crosses a column (or when the store syncs); dnd-kit's onDragOver
+  // fires continuously during drag, so doing this once per items mutation
+  // instead of scanning every column on every drag tick is a clear win as
+  // the task list grows.
+  const taskStatusByNumber = useMemo(() => {
+    const lookup = new Map<number, TaskStatus>();
+    for (const [status, tasks] of Object.entries(items)) {
+      for (const t of tasks) lookup.set(t.taskNumber, status as TaskStatus);
+    }
+    return lookup;
+  }, [items]);
+
   const findContainer = useCallback(
     (id: string): TaskStatus | null => {
       if (COLUMN_IDS.has(id)) return id as TaskStatus;
       const taskNum = parseInt(id.replace('task-', ''), 10);
-      for (const [status, tasks] of Object.entries(items)) {
-        if (tasks.some((t) => t.taskNumber === taskNum)) return status as TaskStatus;
-      }
-      return null;
+      return taskStatusByNumber.get(taskNum) ?? null;
     },
-    [items],
+    [taskStatusByNumber],
   );
 
   const [showTrash, setShowTrash] = useState(false);
@@ -226,7 +251,9 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
   const overTrashRef = useRef(false);
   const trashRef = useRef<HTMLDivElement>(null);
 
-  // Track pointer proximity to right edge during drag, and whether pointer is over the trash zone
+  // Track pointer proximity to right edge during drag, and whether pointer is over the trash zone.
+  // Coalesce pointermove processing to one tick per animation frame — pointer events fire on every
+  // pixel during a drag and we don't need higher resolution than the display.
   useEffect(() => {
     if (!activeTask || activeBadgeDrag) {
       setShowTrash(false);
@@ -234,15 +261,18 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
       return;
     }
     const threshold = 200;
-    const onMove = (e: PointerEvent) => {
-      const distFromRight = window.innerWidth - e.clientX;
+    let rafId: number | null = null;
+    let lastX = 0;
+    let lastY = 0;
+    const flush = () => {
+      rafId = null;
+      const distFromRight = window.innerWidth - lastX;
       setShowTrash(distFromRight < threshold);
 
       const el = trashRef.current;
       if (el) {
         const rect = el.getBoundingClientRect();
-        const isOver =
-          e.clientX >= rect.left && e.clientX <= rect.right && e.clientY >= rect.top && e.clientY <= rect.bottom;
+        const isOver = lastX >= rect.left && lastX <= rect.right && lastY >= rect.top && lastY <= rect.bottom;
         overTrashRef.current = isOver;
         setOverTrash(isOver);
       } else {
@@ -250,8 +280,16 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
         setOverTrash(false);
       }
     };
+    const onMove = (e: PointerEvent) => {
+      lastX = e.clientX;
+      lastY = e.clientY;
+      if (rafId == null) rafId = requestAnimationFrame(flush);
+    };
     window.addEventListener('pointermove', onMove);
-    return () => window.removeEventListener('pointermove', onMove);
+    return () => {
+      window.removeEventListener('pointermove', onMove);
+      if (rafId != null) cancelAnimationFrame(rafId);
+    };
   }, [activeTask, activeBadgeDrag]);
 
   // Track multi-drag: task numbers being dragged together (null = single drag)
@@ -591,14 +629,8 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
 
   const handleHookDialogClose = useCallback(() => {
     setHookDialog(null);
-    // Refresh configured hooks
-    window.api.hooks.get(projectPath).then((hooks) => {
-      const configured: Record<string, boolean> = {};
-      for (const key of Object.keys(hooks)) {
-        if (hooks[key as HookType]) configured[key] = true;
-      }
-      setConfiguredHooks(configured);
-    });
+    // Refresh in the store so terminal headers and column badges agree.
+    useProjectStore.getState().loadProjectConfig(projectPath);
   }, [projectPath]);
 
   return (
@@ -672,6 +704,9 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
                 onSelect={handleCardSelect}
                 onConfigureHook={handleConfigureHook}
                 hasConfiguredHook={hookActive}
+                sandboxAvailable={sandboxAvailable}
+                hasEditorHook={!!configuredHooks.editor}
+                onEditorHookConfigured={markEditorHookConfigured}
               />
             );
           })}

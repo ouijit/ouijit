@@ -113,7 +113,7 @@ const mockApi = {
     checkFilesExist: vi.fn().mockResolvedValue({}),
   },
   lima: {
-    status: vi.fn().mockResolvedValue('stopped'),
+    status: vi.fn().mockResolvedValue({ available: false, vmStatus: 'Stopped' }),
     start: vi.fn().mockResolvedValue({ success: true }),
     stop: vi.fn().mockResolvedValue({ success: true }),
     getConfig: vi.fn().mockResolvedValue({ memoryGiB: 4, diskGiB: 50 }),
