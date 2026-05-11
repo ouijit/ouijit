@@ -477,7 +477,7 @@ export function HomeView() {
                   project?.iconDataUrl ? (
                     <img
                       className="shrink-0 object-cover"
-                      style={{ width: 16, minWidth: 16, height: 16, borderRadius: 4, aspectRatio: '1' }}
+                      style={{ width: 16, minWidth: 16, height: 16, aspectRatio: '1' }}
                       src={project.iconDataUrl}
                       alt={name}
                       draggable={false}

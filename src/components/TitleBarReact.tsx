@@ -95,7 +95,7 @@ export function TitleBar({ mode }: TitleBarProps) {
       >
         {activeView === 'project' && activeProjectData && activeProjectPath ? (
           <div key="project-header" className="flex items-center gap-3 flex-1 pl-2 pr-4 min-w-0">
-            <div className="w-8 h-8 overflow-hidden rounded-md shrink-0">
+            <div className={`w-8 h-8 shrink-0 ${activeProjectData.iconDataUrl ? '' : 'overflow-hidden rounded-md'}`}>
               {activeProjectData.iconDataUrl ? (
                 <img
                   src={activeProjectData.iconDataUrl}

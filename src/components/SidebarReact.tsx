@@ -431,7 +431,7 @@ function SortableProjectIcon({ project, isActive, onClick, onContextMenu }: Sort
             isActive ? 'h-9 opacity-100' : 'h-0 opacity-0 group-hover:h-5 group-hover:opacity-50'
           }`}
         />
-        <div className="w-10 h-10 overflow-hidden rounded-md">
+        <div className={`w-10 h-10 ${project.iconDataUrl ? '' : 'overflow-hidden rounded-md'}`}>
           {project.iconDataUrl ? (
             <img
               src={project.iconDataUrl}

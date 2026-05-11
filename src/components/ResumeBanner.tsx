@@ -198,7 +198,7 @@ function EntryRow({ entry }: { entry: RestorableEntry }) {
 
 function ProjectThumb({ project }: { project: Project }) {
   return (
-    <div className="w-4 h-4 overflow-hidden rounded-[3px] shrink-0">
+    <div className={`w-4 h-4 shrink-0 ${project.iconDataUrl ? '' : 'overflow-hidden rounded-[3px]'}`}>
       {project.iconDataUrl ? (
         <img src={project.iconDataUrl} alt="" className="w-full h-full object-cover" draggable={false} />
       ) : (
