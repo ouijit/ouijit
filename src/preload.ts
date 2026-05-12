@@ -67,6 +67,7 @@ contextBridge.exposeInMainWorld('api', {
     write: (ptyId: PtyId, data: string) => typedSend('pty:write', ptyId, data),
     resize: (ptyId: PtyId, cols: number, rows: number) => typedSend('pty:resize', ptyId, cols, rows),
     kill: (ptyId: PtyId) => typedSend('pty:kill', ptyId),
+    setLabel: (ptyId: PtyId, label: string) => typedSend('pty:set-label', ptyId, label),
     getActiveSessions: () => typedInvoke('pty:get-active-sessions'),
     reconnect: (ptyId: PtyId) => typedInvoke('pty:reconnect', ptyId),
     setWindow: () => typedSend('pty:set-window'),

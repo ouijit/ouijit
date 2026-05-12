@@ -311,6 +311,14 @@ export function killSandboxPty(ptyId: PtyId): void {
 }
 
 /**
+ * Update a sandbox PTY's display label (mirror of setPtyLabel for host PTYs).
+ */
+export function setSandboxPtyLabel(ptyId: PtyId, label: string): void {
+  const managed = activeSandboxPtys.get(ptyId);
+  if (managed) managed.label = label;
+}
+
+/**
  * Get active sandbox sessions (for restoration after renderer reload)
  */
 export function getActiveSandboxSessions(): ActiveSession[] {

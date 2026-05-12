@@ -1,6 +1,15 @@
 import { BrowserWindow } from 'electron';
 import { typedHandle, typedOn } from '../helpers';
-import { spawnPty, reconnectPty, getActiveSessions, setWindow, writeToPty, resizePty, killPty } from '../../ptyManager';
+import {
+  spawnPty,
+  reconnectPty,
+  getActiveSessions,
+  setWindow,
+  writeToPty,
+  resizePty,
+  killPty,
+  setPtyLabel,
+} from '../../ptyManager';
 import * as limaPlugin from '../../lima';
 
 export function registerPtyHandlers(mainWindow: BrowserWindow): void {
@@ -41,6 +50,14 @@ export function registerPtyHandlers(mainWindow: BrowserWindow): void {
       return limaPlugin.reconnectSandboxPty(ptyId, mainWindow);
     }
     return reconnectPty(ptyId, mainWindow);
+  });
+
+  typedOn('pty:set-label', (ptyId, label) => {
+    if (limaPlugin.isSandboxPty(ptyId)) {
+      limaPlugin.setSandboxPtyLabel(ptyId, label);
+    } else {
+      setPtyLabel(ptyId, label);
+    }
   });
 
   typedOn('pty:set-window', () => {

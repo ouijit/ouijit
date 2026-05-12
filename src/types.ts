@@ -49,6 +49,11 @@ export type LastActiveView = { type: 'home' } | { type: 'project'; path: string 
  */
 export interface SnapshotTerminalUi {
   planPath: string | null;
+  /** Whether the plan panel was open. Older snapshots omit this — treat as the
+   *  legacy "open if a plan was attached" behaviour when undefined. */
+  planPanelOpen?: boolean;
+  /** Whether the diff panel was open. Older snapshots omit this. */
+  diffPanelOpen?: boolean;
   webPreview: {
     url: string | null;
     panelOpen: boolean;
@@ -64,6 +69,9 @@ export interface SnapshotTerminalUi {
 }
 
 export interface SnapshotTerminal {
+  /** Live PTY id at capture time. Useful only for a renderer-reload reconnect
+   *  (PTYs survive); meaningless across a full quit. Older snapshots omit it. */
+  ptyId?: string;
   projectPath: string;
   taskNumber: number | null;
   worktreePath: string | null;
@@ -257,6 +265,8 @@ export interface PtyAPI {
   write(ptyId: PtyId, data: string): void;
   resize(ptyId: PtyId, cols: number, rows: number): void;
   kill(ptyId: PtyId): void;
+  /** Update a terminal's display label after a user rename */
+  setLabel(ptyId: PtyId, label: string): void;
   onData(ptyId: PtyId, callback: (data: string) => void): () => void;
   onExit(ptyId: PtyId, callback: (exitCode: number) => void): () => void;
   /** Get list of active sessions (for reconnection after reload) */

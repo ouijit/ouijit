@@ -40,6 +40,8 @@ function uiFor(term: OuijitTerminal): SnapshotTerminalUi {
 
   return {
     planPath: term.planPath,
+    planPanelOpen: term.planPanelOpen,
+    diffPanelOpen: term.diffPanelOpen,
     webPreview,
     runner,
   };
@@ -60,6 +62,7 @@ export function gatherSnapshot(): LastSessionSnapshot {
       if (term.isRunner) return; // runners are restored as state on their parent
 
       terminals.push({
+        ptyId: term.ptyId,
         projectPath,
         taskNumber: term.taskId,
         worktreePath: term.worktreePath ?? null,
