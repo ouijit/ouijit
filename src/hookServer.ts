@@ -471,25 +471,42 @@ export const CLAUDE_WRAPPER = [
 
 // ── Codex wrapper ────────────────────────────────────────────────────
 // Codex has no `--settings` / `--append-system-prompt-file` flags, so the
-// wrapper injects what it can via `codex -c key=value` config overrides:
+// wrapper injects everything via `codex -c key=value` config overrides
+// (where the value is parsed as TOML, falling back to a raw string):
 //   • developer_instructions — the Ouijit CLI reference, surfaced as a
 //     `developer` role message (appends; does NOT replace base instructions
-//     like model_instructions_file would). A `-c` value that fails TOML
-//     parsing is kept as a string, which is exactly the type this key wants.
-//   • notify — Codex's stable, always-on turn-complete notifier; mapped to
-//     status=ready. Codex runs `notify[0] notify[1..] <json>` with no shell,
-//     so we wrap it as ["bash","-c","<cmd>"] — bash expands $HOME and the
-//     trailing JSON payload becomes $0 (ignored). The value is a TOML array.
-// A launch-time status=thinking ping pairs with notify→ready to give the dot
-// a launch → ready transition. (Codex's richer lifecycle-hook engine isn't
-// wired here: it can't be configured via `-c` — the value would have to be a
-// TOML inline table — and writing into the user's ~/.codex/ is out of scope.)
+//     like model_instructions_file would). The markdown isn't valid TOML, so
+//     it's kept as a string — exactly the type this key wants.
+//   • hooks.{UserPromptSubmit,PostToolUse,Stop,PermissionRequest} — Codex's
+//     lifecycle-hook engine (stable, on by default). UserPromptSubmit /
+//     PostToolUse → thinking; Stop / PermissionRequest → ready. Same status
+//     mapping as the claude wrapper. The values are TOML arrays of inline
+//     tables; commands run via the user's shell, so $HOME stays literal, and
+//     `async = true` keeps them off Codex's hot path.
+//   • notify — Codex's older, always-on turn-complete notifier; also mapped
+//     to status=ready (a harmless fallback if the hooks engine is disabled).
+//     Codex runs `notify[0] notify[1..] <json>` with no shell, so we wrap it
+//     as ["bash","-c","<cmd>"] — bash expands $HOME and the trailing JSON
+//     payload becomes $0 (ignored).
 
 /** Path to ouijit-hook with literal $HOME (expanded by whatever shell runs it). */
 const CODEX_OUIJIT_HOOK = '$HOME/.config/Ouijit/bin/ouijit-hook';
 
+/** Lifecycle hook events Codex exposes that we map to a status, in `[event, status]` pairs. */
+const CODEX_STATUS_HOOKS: ReadonlyArray<readonly [event: string, status: 'thinking' | 'ready']> = [
+  ['UserPromptSubmit', 'thinking'],
+  ['PostToolUse', 'thinking'],
+  ['Stop', 'ready'],
+  ['PermissionRequest', 'ready'],
+];
+
 function codexHookCommand(hookPath: string, status: 'thinking' | 'ready'): string {
   return `${hookPath} status status=${status}`;
+}
+
+/** TOML array-of-one-inline-table value for a single Codex `hooks.<Event>` entry (one async command hook). */
+function codexHookEventValue(hookPath: string, status: 'thinking' | 'ready'): string {
+  return `[{hooks=[{type="command",command="${codexHookCommand(hookPath, status)}",async=true}]}]`;
 }
 
 /** TOML/JSON array value for Codex's `notify` config — a shell wrapper that ignores the trailing payload arg. */
@@ -497,13 +514,13 @@ function codexNotifyValue(hookPath: string): string {
   return JSON.stringify(['bash', '-c', codexHookCommand(hookPath, 'ready')]);
 }
 
-/** Bash wrapper that shadows `codex` and injects the CLI reference + status notifier via `-c` overrides. */
+/** Bash wrapper that shadows `codex` and injects the CLI reference + status hooks via `-c` overrides. */
 export const CODEX_WRAPPER = [
   '#!/bin/bash',
   '# Ouijit codex wrapper — mirrors the claude wrapper. Removes its own',
   '# directory from PATH to find the real codex binary, then re-exports it',
   '# so the ouijit CLI is available inside Codex. Injects the Ouijit CLI',
-  '# reference and a status notifier via `-c` config overrides (Codex has no',
+  '# reference and status hooks via `-c` config overrides (Codex has no',
   '# --settings flag).',
   'WRAPPER_DIR="$(cd "$(dirname "$0")" && pwd)"',
   'CLEAN_PATH=":$PATH:"',
@@ -529,11 +546,11 @@ export const CODEX_WRAPPER = [
   '  exec "$REAL_CODEX" -c "developer_instructions=$(cat "$REFERENCE_FILE" 2>/dev/null)" "$@"',
   'fi',
   '',
-  '# Launch-time status=thinking ping (pairs with notify→ready below).',
-  '"$HOME/.config/Ouijit/bin/ouijit-hook" status status=thinking &',
-  '',
   'exec "$REAL_CODEX" \\',
   '  -c "developer_instructions=$(cat "$REFERENCE_FILE" 2>/dev/null)" \\',
+  ...CODEX_STATUS_HOOKS.map(
+    ([event, status]) => `  -c 'hooks.${event}=${codexHookEventValue(CODEX_OUIJIT_HOOK, status)}' \\`,
+  ),
   `  -c 'notify=${codexNotifyValue(CODEX_OUIJIT_HOOK)}' \\`,
   '  "$@"',
   '',
@@ -728,12 +745,17 @@ export function buildVmHookSettings(): string {
 
 /**
  * Build the TOML content for the VM's ~/.codex/config.toml. There is no `codex`
- * wrapper inside the sandbox, so Codex's turn-complete notifier is wired via the
- * config file instead. Only the stable `notify` channel is used (mapped to
- * status=ready); the CLI reference is deliberately omitted — the ouijit CLI is
- * not installed in the sandbox. $HOME stays literal so the in-VM shell expands it.
+ * wrapper inside the sandbox, so the lifecycle hooks + turn-complete notifier
+ * are wired via the config file instead. The CLI reference is deliberately
+ * omitted — the ouijit CLI is not installed in the sandbox. $HOME stays
+ * literal so the in-VM shell expands it.
  */
 export function buildVmCodexConfig(): string {
-  const readyCmd = codexHookCommand('$HOME/ouijit-hook', 'ready');
-  return [`notify = ["bash", "-c", "${readyCmd}"]`, ''].join('\n');
+  const hookPath = '$HOME/ouijit-hook';
+  const lines = [`notify = ["bash", "-c", "${codexHookCommand(hookPath, 'ready')}"]`];
+  for (const [event, status] of CODEX_STATUS_HOOKS) {
+    lines.push(`hooks.${event} = ${codexHookEventValue(hookPath, status)}`);
+  }
+  lines.push('');
+  return lines.join('\n');
 }

@@ -340,12 +340,13 @@ describe('installWrapper', () => {
     expect(wrapper).toContain('#!/bin/bash');
     expect(wrapper).toContain('REAL_CODEX=');
     expect(wrapper).toContain('export PATH="$WRAPPER_DIR:$CLEAN_PATH"');
-    // Injects the CLI reference + status notifier via -c overrides
+    // Injects the CLI reference + lifecycle hooks + notify via -c overrides
     expect(wrapper).toContain('-c "developer_instructions=$(cat "$REFERENCE_FILE" 2>/dev/null)"');
+    expect(wrapper).toContain("-c 'hooks.UserPromptSubmit=");
+    expect(wrapper).toContain("-c 'hooks.PostToolUse=");
+    expect(wrapper).toContain("-c 'hooks.Stop=");
+    expect(wrapper).toContain("-c 'hooks.PermissionRequest=");
     expect(wrapper).toContain("-c 'notify=");
-    expect(wrapper).not.toContain("-c 'hooks=");
-    // Launch-time thinking ping
-    expect(wrapper).toContain('"$HOME/.config/Ouijit/bin/ouijit-hook" status status=thinking &');
     // No-API fallthrough still passes developer_instructions
     expect(wrapper).toContain('if [ -z "$OUIJIT_API_URL" ]; then');
     expect(wrapper).toContain(
@@ -477,13 +478,31 @@ describe('CODEX_WRAPPER', () => {
     expect(notify[2]).toBe('$HOME/.config/Ouijit/bin/ouijit-hook status status=ready');
   });
 
-  test('does not inject a `hooks` config override (Codex -c cannot take a TOML table)', () => {
-    expect(CODEX_WRAPPER).not.toContain("-c 'hooks=");
-    expect(CODEX_WRAPPER).not.toContain('-c "hooks=');
+  test('injects the four status hooks as TOML arrays of inline tables (must NOT be JSON)', () => {
+    // Each hooks.<Event> override is a TOML array. Codex parses -c values as
+    // TOML; a JSON object would fail parse and degrade to a string, failing
+    // typed deserialization. Asserting TOML inline-table syntax (`{k=v}`).
+    const expected: Array<[string, 'thinking' | 'ready']> = [
+      ['UserPromptSubmit', 'thinking'],
+      ['PostToolUse', 'thinking'],
+      ['Stop', 'ready'],
+      ['PermissionRequest', 'ready'],
+    ];
+    for (const [event, status] of expected) {
+      const re = new RegExp(
+        `-c 'hooks\\.${event}=(\\[\\{hooks=\\[\\{type="command",command="[^"]+",async=true\\}\\]\\}\\])' \\\\`,
+      );
+      const match = CODEX_WRAPPER.match(re);
+      expect(match, `hooks.${event} override should be a TOML array of inline tables`).not.toBeNull();
+      // Pull the command out and check the status mapping
+      const cmdMatch = match![1].match(/command="([^"]+)"/);
+      expect(cmdMatch![1]).toBe(`$HOME/.config/Ouijit/bin/ouijit-hook status status=${status}`);
+      // Must be TOML, not JSON: no `"key":value` syntax
+      expect(match![1]).not.toMatch(/"[A-Za-z_]+":/);
+    }
   });
 
-  test('emits a launch-time thinking ping and falls through without OUIJIT_API_URL', () => {
-    expect(CODEX_WRAPPER).toContain('"$HOME/.config/Ouijit/bin/ouijit-hook" status status=thinking &');
+  test('falls through with just developer_instructions when OUIJIT_API_URL is unset', () => {
     expect(CODEX_WRAPPER).toContain('if [ -z "$OUIJIT_API_URL" ]; then');
     expect(CODEX_WRAPPER).toContain(
       'exec "$REAL_CODEX" -c "developer_instructions=$(cat "$REFERENCE_FILE" 2>/dev/null)" "$@"',
@@ -909,9 +928,15 @@ describe('buildVmHookSettings', () => {
 // ── buildVmCodexConfig ───────────────────────────────────────────────
 
 describe('buildVmCodexConfig', () => {
-  test('wires a notify command via $HOME/ouijit-hook and omits the CLI reference', () => {
+  test('wires notify + the four status hooks via $HOME/ouijit-hook and omits the CLI reference', () => {
     const toml = buildVmCodexConfig();
     expect(toml).toContain('notify = ["bash", "-c", "$HOME/ouijit-hook status status=ready"]');
+    expect(toml).toMatch(
+      /hooks\.UserPromptSubmit = \[\{hooks=\[\{type="command",command="\$HOME\/ouijit-hook status status=thinking",async=true\}\]\}\]/,
+    );
+    expect(toml).toMatch(/hooks\.PostToolUse = .+status=thinking/);
+    expect(toml).toMatch(/hooks\.Stop = .+status=ready/);
+    expect(toml).toMatch(/hooks\.PermissionRequest = .+status=ready/);
     // Sandbox must not get the ouijit CLI reference (lateral-movement concern)
     expect(toml).not.toContain('developer_instructions');
     expect(toml).not.toContain('.config/Ouijit');
