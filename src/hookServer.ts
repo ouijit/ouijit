@@ -471,20 +471,19 @@ export const CLAUDE_WRAPPER = [
 
 // ── Codex wrapper ────────────────────────────────────────────────────
 // Codex has no `--settings` / `--append-system-prompt-file` flags, so the
-// wrapper injects everything via `codex -c key=value` config overrides:
-//   • developer_instructions — appends the Ouijit CLI reference as a
-//     `developer` role message (does NOT replace base instructions, unlike
-//     model_instructions_file).
+// wrapper injects what it can via `codex -c key=value` config overrides:
+//   • developer_instructions — the Ouijit CLI reference, surfaced as a
+//     `developer` role message (appends; does NOT replace base instructions
+//     like model_instructions_file would). A `-c` value that fails TOML
+//     parsing is kept as a string, which is exactly the type this key wants.
 //   • notify — Codex's stable, always-on turn-complete notifier; mapped to
 //     status=ready. Codex runs `notify[0] notify[1..] <json>` with no shell,
 //     so we wrap it as ["bash","-c","<cmd>"] — bash expands $HOME and the
-//     trailing JSON payload becomes $0 (ignored).
-//   • hooks — Codex's lifecycle-hook engine (currently experimental). The
-//     override is a valid config key whether or not the engine is enabled,
-//     so it's inert until the user turns it on; commands run via the user's
-//     shell, so $HOME is left literal here.
-// A launch-time status=thinking ping covers the common case where the hook
-// engine is off (so the dot still transitions launch → ready via `notify`).
+//     trailing JSON payload becomes $0 (ignored). The value is a TOML array.
+// A launch-time status=thinking ping pairs with notify→ready to give the dot
+// a launch → ready transition. (Codex's richer lifecycle-hook engine isn't
+// wired here: it can't be configured via `-c` — the value would have to be a
+// TOML inline table — and writing into the user's ~/.codex/ is out of scope.)
 
 /** Path to ouijit-hook with literal $HOME (expanded by whatever shell runs it). */
 const CODEX_OUIJIT_HOOK = '$HOME/.config/Ouijit/bin/ouijit-hook';
@@ -493,31 +492,19 @@ function codexHookCommand(hookPath: string, status: 'thinking' | 'ready'): strin
   return `${hookPath} status status=${status}`;
 }
 
-/** JSON value for Codex's `notify` config — a shell wrapper that ignores the trailing payload arg. */
+/** TOML/JSON array value for Codex's `notify` config — a shell wrapper that ignores the trailing payload arg. */
 function codexNotifyValue(hookPath: string): string {
   return JSON.stringify(['bash', '-c', codexHookCommand(hookPath, 'ready')]);
 }
 
-/** JSON value for Codex's `hooks` config table. */
-function codexHooksValue(hookPath: string): string {
-  const group = (status: 'thinking' | 'ready') => ({
-    hooks: [{ type: 'command', command: codexHookCommand(hookPath, status) }],
-  });
-  return JSON.stringify({
-    UserPromptSubmit: [group('thinking')],
-    PostToolUse: [group('thinking')],
-    Stop: [group('ready')],
-    PermissionRequest: [group('ready')],
-  });
-}
-
-/** Bash wrapper that shadows `codex` and injects hooks + CLI reference via `-c` overrides. */
+/** Bash wrapper that shadows `codex` and injects the CLI reference + status notifier via `-c` overrides. */
 export const CODEX_WRAPPER = [
   '#!/bin/bash',
   '# Ouijit codex wrapper — mirrors the claude wrapper. Removes its own',
   '# directory from PATH to find the real codex binary, then re-exports it',
-  '# so the ouijit CLI is available inside Codex. Injects status hooks and the',
-  '# Ouijit CLI reference via `-c` config overrides (Codex has no --settings).',
+  '# so the ouijit CLI is available inside Codex. Injects the Ouijit CLI',
+  '# reference and a status notifier via `-c` config overrides (Codex has no',
+  '# --settings flag).',
   'WRAPPER_DIR="$(cd "$(dirname "$0")" && pwd)"',
   'CLEAN_PATH=":$PATH:"',
   'CLEAN_PATH="${CLEAN_PATH//:$WRAPPER_DIR:/:}"',
@@ -534,7 +521,7 @@ export const CODEX_WRAPPER = [
   '# Re-export PATH with wrapper dir so ouijit CLI works inside Codex',
   'export PATH="$WRAPPER_DIR:$CLEAN_PATH"',
   '',
-  '# Ouijit CLI reference file — appended as developer instructions',
+  '# Ouijit CLI reference file — surfaced via developer_instructions',
   'REFERENCE_FILE="$HOME/.config/Ouijit/ouijit-cli-reference.md"',
   '',
   '# If ouijit is not running, just exec the real codex with CLI awareness',
@@ -542,14 +529,12 @@ export const CODEX_WRAPPER = [
   '  exec "$REAL_CODEX" -c "developer_instructions=$(cat "$REFERENCE_FILE" 2>/dev/null)" "$@"',
   'fi',
   '',
-  '# Launch-time status=thinking ping (the lifecycle hooks below only fire if',
-  "# the user has Codex's experimental hooks engine enabled).",
+  '# Launch-time status=thinking ping (pairs with notify→ready below).',
   '"$HOME/.config/Ouijit/bin/ouijit-hook" status status=thinking &',
   '',
   'exec "$REAL_CODEX" \\',
   '  -c "developer_instructions=$(cat "$REFERENCE_FILE" 2>/dev/null)" \\',
   `  -c 'notify=${codexNotifyValue(CODEX_OUIJIT_HOOK)}' \\`,
-  `  -c 'hooks=${codexHooksValue(CODEX_OUIJIT_HOOK)}' \\`,
   '  "$@"',
   '',
 ].join('\n');

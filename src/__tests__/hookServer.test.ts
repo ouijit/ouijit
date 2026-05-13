@@ -340,10 +340,10 @@ describe('installWrapper', () => {
     expect(wrapper).toContain('#!/bin/bash');
     expect(wrapper).toContain('REAL_CODEX=');
     expect(wrapper).toContain('export PATH="$WRAPPER_DIR:$CLEAN_PATH"');
-    // Injects the CLI reference, notify, and hooks via -c overrides
+    // Injects the CLI reference + status notifier via -c overrides
     expect(wrapper).toContain('-c "developer_instructions=$(cat "$REFERENCE_FILE" 2>/dev/null)"');
     expect(wrapper).toContain("-c 'notify=");
-    expect(wrapper).toContain("-c 'hooks=");
+    expect(wrapper).not.toContain("-c 'hooks=");
     // Launch-time thinking ping
     expect(wrapper).toContain('"$HOME/.config/Ouijit/bin/ouijit-hook" status status=thinking &');
     // No-API fallthrough still passes developer_instructions
@@ -468,24 +468,18 @@ describe('CODEX_WRAPPER', () => {
     expect(CODEX_WRAPPER).toContain('export PATH="$WRAPPER_DIR:$CLEAN_PATH"');
   });
 
-  test('contains valid embedded JSON for notify and hooks overrides', () => {
+  test('the notify override is a valid TOML/JSON array pointing at ouijit-hook', () => {
     const notifyMatch = CODEX_WRAPPER.match(/-c 'notify=(.+?)' \\/);
     expect(notifyMatch).not.toBeNull();
     const notify = JSON.parse(notifyMatch![1]) as string[];
     expect(notify[0]).toBe('bash');
     expect(notify).toContain('-c');
-    expect(notify[2]).toContain('ouijit-hook status status=ready');
+    expect(notify[2]).toBe('$HOME/.config/Ouijit/bin/ouijit-hook status status=ready');
+  });
 
-    const hooksMatch = CODEX_WRAPPER.match(/-c 'hooks=(.+?)' \\/);
-    expect(hooksMatch).not.toBeNull();
-    const hooks = JSON.parse(hooksMatch![1]) as Record<string, Array<{ hooks: Array<{ command: string }> }>>;
-    expect(hooks.UserPromptSubmit[0].hooks[0].command).toContain('status status=thinking');
-    expect(hooks.PostToolUse[0].hooks[0].command).toContain('status status=thinking');
-    expect(hooks.Stop[0].hooks[0].command).toContain('status status=ready');
-    expect(hooks.PermissionRequest[0].hooks[0].command).toContain('status status=ready');
-    for (const event of Object.values(hooks)) {
-      expect(event[0].hooks[0].command).toContain('$HOME/.config/Ouijit/bin/ouijit-hook');
-    }
+  test('does not inject a `hooks` config override (Codex -c cannot take a TOML table)', () => {
+    expect(CODEX_WRAPPER).not.toContain("-c 'hooks=");
+    expect(CODEX_WRAPPER).not.toContain('-c "hooks=');
   });
 
   test('emits a launch-time thinking ping and falls through without OUIJIT_API_URL', () => {
