@@ -151,6 +151,13 @@ export function CombinedHookConfigDialog({
             ))}
           </ul>
         </details>
+
+        <p className="mt-3 text-xs text-text-tertiary leading-snug">
+          Works with Claude Code (<code className="font-mono">claude "$OUIJIT_TASK_PROMPT"</code> /{' '}
+          <code className="font-mono">claude -c</code>) and Codex (
+          <code className="font-mono">codex "$OUIJIT_TASK_PROMPT"</code> /{' '}
+          <code className="font-mono">codex resume --last</code>).
+        </p>
       </div>
 
       <div className="flex gap-2 justify-end mt-4 items-center">

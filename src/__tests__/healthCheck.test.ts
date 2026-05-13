@@ -36,16 +36,16 @@ describe('healthCheck', () => {
   });
 
   test('reports all tools present and parses git version', async () => {
-    execFileMock.mockImplementation((cmd: string, _args: string[], cb: Function) => {
+    execFileMock.mockImplementation((cmd: string, args: string[], cb: Function) => {
       if (cmd === 'git') cb(null, 'git version 2.39.5\n', '');
-      else if (cmd === 'which') cb(null, '/usr/local/bin/claude\n', '');
+      else if (cmd === 'which') cb(null, `/usr/local/bin/${args[0]}\n`, '');
       else cb(new Error(`unexpected ${cmd}`));
     });
     isLimaInstalledMock.mockResolvedValue(true);
 
     const { checkHealth } = await import('../healthCheck');
     const status = await checkHealth();
-    expect(status).toEqual({ git: true, claude: true, lima: true, gitVersion: '2.39.5' });
+    expect(status).toEqual({ git: true, claude: true, codex: true, lima: true, gitVersion: '2.39.5' });
   });
 
   test('reports git missing when execFile rejects', async () => {
@@ -58,7 +58,21 @@ describe('healthCheck', () => {
 
     const { checkHealth } = await import('../healthCheck');
     const status = await checkHealth();
-    expect(status).toEqual({ git: false, claude: false, lima: false, gitVersion: undefined });
+    expect(status).toEqual({ git: false, claude: false, codex: false, lima: false, gitVersion: undefined });
+  });
+
+  test('detects codex independently of claude', async () => {
+    execFileMock.mockImplementation((cmd: string, args: string[], cb: Function) => {
+      if (cmd === 'git') cb(null, 'git version 2.41.0\n', '');
+      else if (cmd === 'which' && args[0] === 'codex') cb(null, '/opt/homebrew/bin/codex\n', '');
+      else if (cmd === 'which') cb(new Error('not found'));
+      else cb(new Error(`unexpected ${cmd}`));
+    });
+    isLimaInstalledMock.mockResolvedValue(false);
+
+    const { checkHealth } = await import('../healthCheck');
+    const status = await checkHealth();
+    expect(status).toEqual({ git: true, claude: false, codex: true, lima: false, gitVersion: '2.41.0' });
   });
 
   test('caches result and exposes via getCachedHealth', async () => {
@@ -72,6 +86,6 @@ describe('healthCheck', () => {
     const { checkHealth, getCachedHealth } = await import('../healthCheck');
     expect(getCachedHealth()).toBeNull();
     await checkHealth();
-    expect(getCachedHealth()).toEqual({ git: true, claude: false, lima: true, gitVersion: '2.40.0' });
+    expect(getCachedHealth()).toEqual({ git: true, claude: false, codex: false, lima: true, gitVersion: '2.40.0' });
   });
 });

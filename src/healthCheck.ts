@@ -10,6 +10,7 @@ const healthLog = getLogger().scope('health');
 export interface HealthStatus {
   git: boolean;
   claude: boolean;
+  codex: boolean;
   lima: boolean;
   gitVersion?: string;
 }
@@ -35,12 +36,22 @@ async function detectClaude(): Promise<boolean> {
   }
 }
 
+async function detectCodex(): Promise<boolean> {
+  try {
+    await execFileAsync('which', ['codex']);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export async function checkHealth(): Promise<HealthStatus> {
-  const [git, claude, lima] = await Promise.all([detectGit(), detectClaude(), isLimaInstalled()]);
-  cached = { git: git.ok, claude, lima, gitVersion: git.version };
+  const [git, claude, codex, lima] = await Promise.all([detectGit(), detectClaude(), detectCodex(), isLimaInstalled()]);
+  cached = { git: git.ok, claude, codex, lima, gitVersion: git.version };
   healthLog.info('health probe', {
     git: cached.git,
     claude: cached.claude,
+    codex: cached.codex,
     lima: cached.lima,
     gitVersion: cached.gitVersion,
   });

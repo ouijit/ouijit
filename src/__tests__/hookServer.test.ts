@@ -37,7 +37,9 @@ import {
   installWrapper,
   migrateFromSettingsHooks,
   buildVmHookSettings,
+  buildVmCodexConfig,
   CLAUDE_WRAPPER,
+  CODEX_WRAPPER,
 } from '../hookServer';
 import { issueToken, revokeAllTokens } from '../apiAuth';
 
@@ -330,6 +332,27 @@ describe('installWrapper', () => {
     expect(settings.hooks!.Notification![0].matcher).toBe('permission_prompt|idle_prompt');
   });
 
+  test('creates codex wrapper on first install', () => {
+    installWrapper();
+
+    const wrapperPath = path.join(tmpHome, '.config', 'Ouijit', 'bin', 'codex');
+    const wrapper = fs.readFileSync(wrapperPath, 'utf-8');
+    expect(wrapper).toContain('#!/bin/bash');
+    expect(wrapper).toContain('REAL_CODEX=');
+    expect(wrapper).toContain('export PATH="$WRAPPER_DIR:$CLEAN_PATH"');
+    // Injects the CLI reference, notify, and hooks via -c overrides
+    expect(wrapper).toContain('-c "developer_instructions=$(cat "$REFERENCE_FILE" 2>/dev/null)"');
+    expect(wrapper).toContain("-c 'notify=");
+    expect(wrapper).toContain("-c 'hooks=");
+    // Launch-time thinking ping
+    expect(wrapper).toContain('"$HOME/.config/Ouijit/bin/ouijit-hook" status status=thinking &');
+    // No-API fallthrough still passes developer_instructions
+    expect(wrapper).toContain('if [ -z "$OUIJIT_API_URL" ]; then');
+    expect(wrapper).toContain(
+      'exec "$REAL_CODEX" -c "developer_instructions=$(cat "$REFERENCE_FILE" 2>/dev/null)" "$@"',
+    );
+  });
+
   test('creates CLI reference file with command documentation', () => {
     installWrapper();
 
@@ -433,6 +456,44 @@ describe('CLAUDE_WRAPPER', () => {
     ]);
 
     expect(result.stdout.trim()).toBe('/usr/bin:/usr/local/bin');
+  });
+});
+
+// ── CODEX_WRAPPER constant ───────────────────────────────────────────
+
+describe('CODEX_WRAPPER', () => {
+  test('resolves real codex and re-exports wrapper dir on PATH', () => {
+    expect(CODEX_WRAPPER).toContain('WRAPPER_DIR=');
+    expect(CODEX_WRAPPER).toContain('REAL_CODEX=');
+    expect(CODEX_WRAPPER).toContain('export PATH="$WRAPPER_DIR:$CLEAN_PATH"');
+  });
+
+  test('contains valid embedded JSON for notify and hooks overrides', () => {
+    const notifyMatch = CODEX_WRAPPER.match(/-c 'notify=(.+?)' \\/);
+    expect(notifyMatch).not.toBeNull();
+    const notify = JSON.parse(notifyMatch![1]) as string[];
+    expect(notify[0]).toBe('bash');
+    expect(notify).toContain('-c');
+    expect(notify[2]).toContain('ouijit-hook status status=ready');
+
+    const hooksMatch = CODEX_WRAPPER.match(/-c 'hooks=(.+?)' \\/);
+    expect(hooksMatch).not.toBeNull();
+    const hooks = JSON.parse(hooksMatch![1]) as Record<string, Array<{ hooks: Array<{ command: string }> }>>;
+    expect(hooks.UserPromptSubmit[0].hooks[0].command).toContain('status status=thinking');
+    expect(hooks.PostToolUse[0].hooks[0].command).toContain('status status=thinking');
+    expect(hooks.Stop[0].hooks[0].command).toContain('status status=ready');
+    expect(hooks.PermissionRequest[0].hooks[0].command).toContain('status status=ready');
+    for (const event of Object.values(hooks)) {
+      expect(event[0].hooks[0].command).toContain('$HOME/.config/Ouijit/bin/ouijit-hook');
+    }
+  });
+
+  test('emits a launch-time thinking ping and falls through without OUIJIT_API_URL', () => {
+    expect(CODEX_WRAPPER).toContain('"$HOME/.config/Ouijit/bin/ouijit-hook" status status=thinking &');
+    expect(CODEX_WRAPPER).toContain('if [ -z "$OUIJIT_API_URL" ]; then');
+    expect(CODEX_WRAPPER).toContain(
+      'exec "$REAL_CODEX" -c "developer_instructions=$(cat "$REFERENCE_FILE" 2>/dev/null)" "$@"',
+    );
   });
 });
 
@@ -848,5 +909,24 @@ describe('buildVmHookSettings', () => {
       expect(cmd).not.toContain('CLAUDE_PROJECT_DIR');
       expect(cmd).not.toContain('.config/Ouijit');
     }
+  });
+});
+
+// ── buildVmCodexConfig ───────────────────────────────────────────────
+
+describe('buildVmCodexConfig', () => {
+  test('wires a notify command via $HOME/ouijit-hook and omits the CLI reference', () => {
+    const toml = buildVmCodexConfig();
+    expect(toml).toContain('notify = ["bash", "-c", "$HOME/ouijit-hook status status=ready"]');
+    // Sandbox must not get the ouijit CLI reference (lateral-movement concern)
+    expect(toml).not.toContain('developer_instructions');
+    expect(toml).not.toContain('.config/Ouijit');
+  });
+
+  test('the embedded notify array is valid JSON', () => {
+    const match = buildVmCodexConfig().match(/notify = (\[.+\])/);
+    expect(match).not.toBeNull();
+    const notify = JSON.parse(match![1]) as string[];
+    expect(notify).toEqual(['bash', '-c', '$HOME/ouijit-hook status status=ready']);
   });
 });
