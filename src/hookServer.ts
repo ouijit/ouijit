@@ -481,8 +481,10 @@ export const CLAUDE_WRAPPER = [
 //     lifecycle-hook engine (stable, on by default). UserPromptSubmit /
 //     PostToolUse → thinking; Stop / PermissionRequest → ready. Same status
 //     mapping as the claude wrapper. The values are TOML arrays of inline
-//     tables; commands run via the user's shell, so $HOME stays literal, and
-//     `async = true` keeps them off Codex's hot path.
+//     tables; commands run via the user's shell, so $HOME stays literal.
+//     (We can't mark these `async = true` — Codex skips async hooks with a
+//     warning today. ouijit-hook itself backgrounds its `curl` and exits in
+//     milliseconds, so sync is fine.)
 //   • notify — Codex's older, always-on turn-complete notifier; also mapped
 //     to status=ready (a harmless fallback if the hooks engine is disabled).
 //     Codex runs `notify[0] notify[1..] <json>` with no shell, so we wrap it
@@ -504,9 +506,9 @@ function codexHookCommand(hookPath: string, status: 'thinking' | 'ready'): strin
   return `${hookPath} status status=${status}`;
 }
 
-/** TOML array-of-one-inline-table value for a single Codex `hooks.<Event>` entry (one async command hook). */
+/** TOML array-of-one-inline-table value for a single Codex `hooks.<Event>` entry (one command hook). */
 function codexHookEventValue(hookPath: string, status: 'thinking' | 'ready'): string {
-  return `[{hooks=[{type="command",command="${codexHookCommand(hookPath, status)}",async=true}]}]`;
+  return `[{hooks=[{type="command",command="${codexHookCommand(hookPath, status)}"}]}]`;
 }
 
 /** TOML/JSON array value for Codex's `notify` config — a shell wrapper that ignores the trailing payload arg. */

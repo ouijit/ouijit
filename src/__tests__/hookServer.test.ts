@@ -490,7 +490,7 @@ describe('CODEX_WRAPPER', () => {
     ];
     for (const [event, status] of expected) {
       const re = new RegExp(
-        `-c 'hooks\\.${event}=(\\[\\{hooks=\\[\\{type="command",command="[^"]+",async=true\\}\\]\\}\\])' \\\\`,
+        `-c 'hooks\\.${event}=(\\[\\{hooks=\\[\\{type="command",command="[^"]+"\\}\\]\\}\\])' \\\\`,
       );
       const match = CODEX_WRAPPER.match(re);
       expect(match, `hooks.${event} override should be a TOML array of inline tables`).not.toBeNull();
@@ -499,6 +499,8 @@ describe('CODEX_WRAPPER', () => {
       expect(cmdMatch![1]).toBe(`$HOME/.config/Ouijit/bin/ouijit-hook status status=${status}`);
       // Must be TOML, not JSON: no `"key":value` syntax
       expect(match![1]).not.toMatch(/"[A-Za-z_]+":/);
+      // Codex skips async hooks today ("async hooks are not supported yet")
+      expect(match![1]).not.toContain('async');
     }
   });
 
@@ -932,11 +934,13 @@ describe('buildVmCodexConfig', () => {
     const toml = buildVmCodexConfig();
     expect(toml).toContain('notify = ["bash", "-c", "$HOME/ouijit-hook status status=ready"]');
     expect(toml).toMatch(
-      /hooks\.UserPromptSubmit = \[\{hooks=\[\{type="command",command="\$HOME\/ouijit-hook status status=thinking",async=true\}\]\}\]/,
+      /hooks\.UserPromptSubmit = \[\{hooks=\[\{type="command",command="\$HOME\/ouijit-hook status status=thinking"\}\]\}\]/,
     );
     expect(toml).toMatch(/hooks\.PostToolUse = .+status=thinking/);
     expect(toml).toMatch(/hooks\.Stop = .+status=ready/);
     expect(toml).toMatch(/hooks\.PermissionRequest = .+status=ready/);
+    // Codex skips async hooks today ("async hooks are not supported yet")
+    expect(toml).not.toContain('async');
     // Sandbox must not get the ouijit CLI reference (lateral-movement concern)
     expect(toml).not.toContain('developer_instructions');
     expect(toml).not.toContain('.config/Ouijit');
