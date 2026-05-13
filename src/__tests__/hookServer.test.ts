@@ -38,6 +38,7 @@ import {
   migrateFromSettingsHooks,
   buildVmHookSettings,
   buildVmCodexConfig,
+  buildVmCodexTrustState,
   CLAUDE_WRAPPER,
   CODEX_WRAPPER,
 } from '../hookServer';
@@ -340,12 +341,14 @@ describe('installWrapper', () => {
     expect(wrapper).toContain('#!/bin/bash');
     expect(wrapper).toContain('REAL_CODEX=');
     expect(wrapper).toContain('export PATH="$WRAPPER_DIR:$CLEAN_PATH"');
-    // Injects the CLI reference + lifecycle hooks + notify via -c overrides
+    // Injects the CLI reference + lifecycle hooks + per-hook pre-trust + notify via -c overrides
     expect(wrapper).toContain('-c "developer_instructions=$(cat "$REFERENCE_FILE" 2>/dev/null)"');
     expect(wrapper).toContain("-c 'hooks.UserPromptSubmit=");
     expect(wrapper).toContain("-c 'hooks.PostToolUse=");
     expect(wrapper).toContain("-c 'hooks.Stop=");
     expect(wrapper).toContain("-c 'hooks.PermissionRequest=");
+    expect(wrapper).toContain('-c \'hooks.state."/<session-flags>/config.toml:user_prompt_submit:0:0".trusted_hash=');
+    expect(wrapper).toContain('-c \'hooks.state."/<session-flags>/config.toml:permission_request:0:0".trusted_hash=');
     expect(wrapper).toContain("-c 'notify=");
     // No-API fallthrough still passes developer_instructions
     expect(wrapper).toContain('if [ -z "$OUIJIT_API_URL" ]; then');
@@ -509,6 +512,26 @@ describe('CODEX_WRAPPER', () => {
     expect(CODEX_WRAPPER).toContain(
       'exec "$REAL_CODEX" -c "developer_instructions=$(cat "$REFERENCE_FILE" 2>/dev/null)" "$@"',
     );
+  });
+
+  test('pre-trusts each hook with the sha256 codex expects (locks the hash recipe)', () => {
+    // These hashes mirror codex-rs/hooks/src/engine/discovery.rs:command_hook_hash —
+    // sha256(canonical_json({event_name, hooks:[{type:"command",command,timeout:600,async:false}]})).
+    // If any of them ever fail, either Codex's normalization changed or our recipe drifted;
+    // a mismatch is graceful (Codex falls back to the /hooks review prompt) but we still
+    // want a tripwire so we know to recompute.
+    const expected: Record<string, string> = {
+      'user_prompt_submit:0:0': 'sha256:f5cd19bf6ce12a88c683852526d77e2553778f51f15d92b0d7f18c1773161245',
+      'post_tool_use:0:0': 'sha256:bba7cb97708e558b3d7746468ec196312d9c1a6cb685467177da4e99cca85115',
+      'stop:0:0': 'sha256:bd8907212bcda4a71b2e580355c07c837a9f34ac96d01a037526921bdf435ffd',
+      'permission_request:0:0': 'sha256:cb24d6656dd4fef6523820ae479cec67acfeae414590e837a926a7aa0daae1e5',
+    };
+    for (const [keySuffix, hash] of Object.entries(expected)) {
+      const re = new RegExp(
+        `-c 'hooks\\.state\\."/<session-flags>/config\\.toml:${keySuffix.replace(/:/g, '\\:')}"\\.trusted_hash="${hash}"'`,
+      );
+      expect(CODEX_WRAPPER, `pre-trust hash for ${keySuffix}`).toMatch(re);
+    }
   });
 });
 
@@ -951,5 +974,20 @@ describe('buildVmCodexConfig', () => {
     expect(match).not.toBeNull();
     const notify = JSON.parse(match![1]) as string[];
     expect(notify).toEqual(['bash', '-c', '$HOME/ouijit-hook status status=ready']);
+  });
+});
+
+// ── buildVmCodexTrustState ───────────────────────────────────────────
+
+describe('buildVmCodexTrustState', () => {
+  test('emits a trusted_hash line per event keyed off the VM config path with $HOME literal', () => {
+    const toml = buildVmCodexTrustState();
+    // $HOME stays literal — the unquoted heredoc in lima/spawn expands it at write time.
+    for (const event of ['user_prompt_submit', 'post_tool_use', 'stop', 'permission_request']) {
+      const re = new RegExp(
+        `hooks\\.state\\."\\$HOME/\\.codex/config\\.toml:${event}:0:0"\\.trusted_hash = "sha256:[0-9a-f]{64}"`,
+      );
+      expect(toml).toMatch(re);
+    }
   });
 });

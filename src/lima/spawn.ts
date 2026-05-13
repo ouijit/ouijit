@@ -4,7 +4,13 @@ import type { PtySpawnOptions, PtySpawnResult, PtyId } from '../types';
 import { registerSandboxPty, unregisterSandboxPty, type ActiveSession } from '../ptyManager';
 import { generateId } from '../utils/ids';
 import { buildLimactlHostEnv, ensureRunning, getLimactlPath } from './manager';
-import { getApiPort, HELPER_SCRIPT, buildVmHookSettings, buildVmCodexConfig } from '../hookServer';
+import {
+  getApiPort,
+  HELPER_SCRIPT,
+  buildVmHookSettings,
+  buildVmCodexConfig,
+  buildVmCodexTrustState,
+} from '../hookServer';
 import { issueToken, revokeToken } from '../apiAuth';
 import { getTaskByNumber } from '../db';
 import { startSandboxView, watchSandboxRef, ffMergeSandboxToUser } from './sandboxSync';
@@ -75,11 +81,17 @@ function buildVmHookSetup(): string {
     `cat > ~/.claude/settings.json <<'OUIJIT_SETTINGS_EOF'`,
     hookSettings,
     'OUIJIT_SETTINGS_EOF',
-    // Write Codex config (turn-complete notifier → status; CLI reference omitted)
+    // Write Codex config (lifecycle hooks + notify; CLI reference omitted).
+    // Quoted heredoc → $HOME in hook commands stays literal for the agent's shell.
     'mkdir -p ~/.codex',
     `cat > ~/.codex/config.toml <<'OUIJIT_CODEX_EOF'`,
     codexConfig,
     'OUIJIT_CODEX_EOF',
+    // Append pre-trust state — unquoted heredoc so the VM's bash expands $HOME
+    // in the persisted hook key (Codex uses the resolved absolute path).
+    `cat >> ~/.codex/config.toml <<OUIJIT_CODEX_TRUST_EOF`,
+    buildVmCodexTrustState(),
+    'OUIJIT_CODEX_TRUST_EOF',
     '',
   ].join('\n');
 }

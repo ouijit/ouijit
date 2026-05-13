@@ -10,6 +10,7 @@ import * as http from 'node:http';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
+import { createHash } from 'node:crypto';
 import { BrowserWindow } from 'electron';
 import { isPtyActive } from './ptyManager';
 import { getLogger } from './logger';
@@ -490,16 +491,30 @@ export const CLAUDE_WRAPPER = [
 //     Codex runs `notify[0] notify[1..] <json>` with no shell, so we wrap it
 //     as ["bash","-c","<cmd>"] — bash expands $HOME and the trailing JSON
 //     payload becomes $0 (ignored).
+//   • hooks.state."<key>".trusted_hash — pre-trust each hook so Codex doesn't
+//     gate it behind the `/hooks` review prompt on every fresh session. The
+//     hash mirrors codex-rs/hooks/src/engine/discovery.rs:command_hook_hash:
+//     sha256 of canonical JSON of the normalized hook identity. If a future
+//     Codex changes the normalization our hash mismatches → trust_status is
+//     `Modified` → hook is skipped just like an untrusted hook, and the user
+//     falls back to the same one-time `/hooks` approval as before. Graceful.
 
 /** Path to ouijit-hook with literal $HOME (expanded by whatever shell runs it). */
 const CODEX_OUIJIT_HOOK = '$HOME/.config/Ouijit/bin/ouijit-hook';
 
-/** Lifecycle hook events Codex exposes that we map to a status, in `[event, status]` pairs. */
-const CODEX_STATUS_HOOKS: ReadonlyArray<readonly [event: string, status: 'thinking' | 'ready']> = [
-  ['UserPromptSubmit', 'thinking'],
-  ['PostToolUse', 'thinking'],
-  ['Stop', 'ready'],
-  ['PermissionRequest', 'ready'],
+/** SessionFlags layer source path Codex synthesizes for `-c` overrides (see discovery.rs). */
+const CODEX_SESSION_FLAGS_PATH = '/<session-flags>/config.toml';
+
+/**
+ * Lifecycle hook events Codex exposes that we map to a status. Each entry is
+ * `[event_name, status, event_snake]`. `event_snake` matches `hook_event_key_label`
+ * in codex-rs and is what Codex uses inside the persisted hook key.
+ */
+const CODEX_STATUS_HOOKS: ReadonlyArray<readonly [event: string, status: 'thinking' | 'ready', eventSnake: string]> = [
+  ['UserPromptSubmit', 'thinking', 'user_prompt_submit'],
+  ['PostToolUse', 'thinking', 'post_tool_use'],
+  ['Stop', 'ready', 'stop'],
+  ['PermissionRequest', 'ready', 'permission_request'],
 ];
 
 function codexHookCommand(hookPath: string, status: 'thinking' | 'ready'): string {
@@ -514,6 +529,48 @@ function codexHookEventValue(hookPath: string, status: 'thinking' | 'ready'): st
 /** TOML/JSON array value for Codex's `notify` config — a shell wrapper that ignores the trailing payload arg. */
 function codexNotifyValue(hookPath: string): string {
   return JSON.stringify(['bash', '-c', codexHookCommand(hookPath, 'ready')]);
+}
+
+/**
+ * Build the persisted hook key Codex uses for a single command hook in our
+ * single-group/single-handler layout: `<source>:<event_snake>:0:0`.
+ */
+function codexHookStateKey(source: string, eventSnake: string): string {
+  return `${source}:${eventSnake}:0:0`;
+}
+
+/**
+ * Canonical JSON: recursively sort object keys, no whitespace. Mirrors
+ * codex-rs/config/src/fingerprint.rs:canonical_json + serde_json::to_vec.
+ */
+function canonicalJson(value: unknown): string {
+  if (value === null || typeof value !== 'object') return JSON.stringify(value);
+  if (Array.isArray(value)) return '[' + value.map(canonicalJson).join(',') + ']';
+  const obj = value as Record<string, unknown>;
+  const keys = Object.keys(obj).sort();
+  return '{' + keys.map((k) => JSON.stringify(k) + ':' + canonicalJson(obj[k])).join(',') + '}';
+}
+
+/**
+ * Compute the `current_hash` Codex expects in `hooks.state.<key>.trusted_hash`
+ * for one of our command hooks. Mirrors `command_hook_hash` in
+ * codex-rs/hooks/src/engine/discovery.rs:
+ *
+ *   identity = { event_name, matcher (skipped when None), hooks: [normalized] }
+ *   normalized = { type:"command", command, commandWindows (skipped when None),
+ *                  timeout (default 600), async:false, statusMessage (skipped) }
+ *   hash = sha256(canonical_json(identity))
+ *
+ * None-valued Options are skipped by toml::Serializer (TOML has no null) and so
+ * don't appear in the JSON Codex hashes.
+ */
+function codexHookTrustHash(eventSnake: string, command: string): string {
+  const identity = {
+    event_name: eventSnake,
+    hooks: [{ type: 'command', command, timeout: 600, async: false }],
+  };
+  const hex = createHash('sha256').update(canonicalJson(identity)).digest('hex');
+  return `sha256:${hex}`;
 }
 
 /** Bash wrapper that shadows `codex` and injects the CLI reference + status hooks via `-c` overrides. */
@@ -550,9 +607,15 @@ export const CODEX_WRAPPER = [
   '',
   'exec "$REAL_CODEX" \\',
   '  -c "developer_instructions=$(cat "$REFERENCE_FILE" 2>/dev/null)" \\',
-  ...CODEX_STATUS_HOOKS.map(
-    ([event, status]) => `  -c 'hooks.${event}=${codexHookEventValue(CODEX_OUIJIT_HOOK, status)}' \\`,
-  ),
+  ...CODEX_STATUS_HOOKS.flatMap(([event, status, eventSnake]) => {
+    const cmd = codexHookCommand(CODEX_OUIJIT_HOOK, status);
+    const stateKey = codexHookStateKey(CODEX_SESSION_FLAGS_PATH, eventSnake);
+    const hash = codexHookTrustHash(eventSnake, cmd);
+    return [
+      `  -c 'hooks.${event}=${codexHookEventValue(CODEX_OUIJIT_HOOK, status)}' \\`,
+      `  -c 'hooks.state."${stateKey}".trusted_hash="${hash}"' \\`,
+    ];
+  }),
   `  -c 'notify=${codexNotifyValue(CODEX_OUIJIT_HOOK)}' \\`,
   '  "$@"',
   '',
@@ -751,6 +814,9 @@ export function buildVmHookSettings(): string {
  * are wired via the config file instead. The CLI reference is deliberately
  * omitted — the ouijit CLI is not installed in the sandbox. $HOME stays
  * literal so the in-VM shell expands it.
+ *
+ * Written into the VM via a *quoted* heredoc (no expansion) so that `$HOME` in
+ * hook commands reaches Codex unchanged and gets expanded by the agent's shell.
  */
 export function buildVmCodexConfig(): string {
   const hookPath = '$HOME/ouijit-hook';
@@ -758,6 +824,25 @@ export function buildVmCodexConfig(): string {
   for (const [event, status] of CODEX_STATUS_HOOKS) {
     lines.push(`hooks.${event} = ${codexHookEventValue(hookPath, status)}`);
   }
+  lines.push('');
+  return lines.join('\n');
+}
+
+/**
+ * Build the `[hooks.state]` trust-state lines for the VM's ~/.codex/config.toml.
+ * The key prefix is the absolute path of the config file, which we can only
+ * resolve at write time inside the VM — so this is meant to be appended via an
+ * *unquoted* heredoc so the VM's bash expands `$HOME` in the key.
+ */
+export function buildVmCodexTrustState(): string {
+  const hookPath = '$HOME/ouijit-hook';
+  const source = '$HOME/.codex/config.toml';
+  const lines = CODEX_STATUS_HOOKS.map(([, status, eventSnake]) => {
+    const cmd = codexHookCommand(hookPath, status);
+    const stateKey = codexHookStateKey(source, eventSnake);
+    const hash = codexHookTrustHash(eventSnake, cmd);
+    return `hooks.state."${stateKey}".trusted_hash = "${hash}"`;
+  });
   lines.push('');
   return lines.join('\n');
 }
