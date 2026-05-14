@@ -10,6 +10,7 @@ import {
   buildVmHookSettings,
   buildVmCodexConfig,
   buildVmCodexTrustState,
+  buildVmPiExtension,
 } from '../hookServer';
 import { issueToken, revokeToken } from '../apiAuth';
 import { getTaskByNumber } from '../db';
@@ -57,9 +58,9 @@ function handleOutput(ptyId: PtyId, channel: string, data: string): void {
 }
 
 /**
- * Build bash commands that inject the ouijit-hook script, Claude settings, and
- * Codex config into the VM's ephemeral home directory. Runs once per shell spawn
- * so hooks are always fresh (never stale).
+ * Build bash commands that inject the ouijit-hook script, Claude settings,
+ * Codex config, and the Pi extension into the VM's ephemeral home directory.
+ * Runs once per shell spawn so hooks are always fresh (never stale).
  *
  * The ouijit CLI reference file is deliberately not written into the
  * sandbox VM. The CLI would give an agent inside the VM task-management
@@ -70,6 +71,7 @@ function buildVmHookSetup(): string {
   const hookScript = HELPER_SCRIPT;
   const hookSettings = buildVmHookSettings();
   const codexConfig = buildVmCodexConfig();
+  const piExtension = buildVmPiExtension();
   return [
     // Write hook script using quoted heredoc (prevents $VAR expansion at write time)
     `cat > ~/ouijit-hook <<'OUIJIT_HOOK_EOF'`,
@@ -92,6 +94,14 @@ function buildVmHookSetup(): string {
     `cat >> ~/.codex/config.toml <<OUIJIT_CODEX_TRUST_EOF`,
     buildVmCodexTrustState(),
     'OUIJIT_CODEX_TRUST_EOF',
+    // Drop the Pi extension into Pi's auto-discovery path. No host-side
+    // wrapper exists in the VM, so we rely on auto-discovery instead of
+    // passing `--extension` per-invocation. CLI reference is omitted for
+    // the same lateral-movement reason as the Claude / Codex paths.
+    'mkdir -p ~/.pi/agent/extensions/ouijit',
+    `cat > ~/.pi/agent/extensions/ouijit/index.ts <<'OUIJIT_PI_EXT_EOF'`,
+    piExtension,
+    'OUIJIT_PI_EXT_EOF',
     '',
   ].join('\n');
 }
@@ -180,6 +190,10 @@ export async function spawnSandboxedPty(options: PtySpawnOptions, window: Browse
     envExports += `export OUIJIT_PTY_ID='${ptyId}'\n`;
     envExports += `export OUIJIT_API_URL='http://host.lima.internal:${getApiPort()}'\n`;
     envExports += `export OUIJIT_API_TOKEN='${apiToken}'\n`;
+    // OUIJIT_HOOK_BIN is read by the Pi extension to shell out to
+    // ouijit-hook. Same role here as in the host wrapper; needed because
+    // Pi's auto-discovered extension runs in the sandbox without a wrapper.
+    envExports += `export OUIJIT_HOOK_BIN="$HOME/ouijit-hook"\n`;
 
     // Inject hook script + Claude settings into VM's ephemeral home dir
     const hookSetup = buildVmHookSetup();
