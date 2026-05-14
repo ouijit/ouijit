@@ -622,52 +622,19 @@ export const CODEX_WRAPPER = [
 ].join('\n');
 
 // ── Pi wrapper ───────────────────────────────────────────────────────
-// Pi (pi.dev — `@earendil-works/pi-coding-agent`) is a third coding-agent
-// harness. Unlike Claude's `--settings` or Codex's `-c hooks.<Event>=…`,
-// Pi has no declarative way to register shell-command hooks. Its lifecycle
-// events (`turn_start`, `turn_end`, …) are exposed only to *TypeScript
-// extensions* — a default-export factory that subscribes via `pi.on(...)`.
-//
-// So we ship a tiny ouijit extension at install time and pass it to every
-// wrapped invocation via `pi --extension <path>`. The same extension source
-// is dropped into `~/.pi/agent/extensions/ouijit/index.ts` inside the
-// sandbox VM (no wrapper there) and Pi auto-discovers it.
-//
-// The CLI reference is injected via `--append-system-prompt "$(cat …)"` —
-// the analog of Codex's `developer_instructions`. Pi has no `…-file`
-// variant, so we read the file in the wrapper.
-//
-// The extension reaches `ouijit-hook` via the `OUIJIT_HOOK_BIN` env var
-// the wrapper (and the VM's shell init) sets. Keeping the path in an env
-// var means the same extension source works on host and sandbox without
-// branching.
+// Pi exposes lifecycle events only to TypeScript extensions, not as
+// shell-command hooks. We ship a tiny extension and load it via
+// `pi --extension <path>`; the same source auto-discovers in the sandbox
+// VM. OUIJIT_HOOK_BIN (set by the wrapper / VM init) carries the path to
+// ouijit-hook so the extension source is identical in both contexts.
 
-/** Where the host-side Pi extension lives (passed to `pi --extension`). */
 export function getPiExtensionPath(): string {
   return path.join(os.homedir(), '.config', 'Ouijit', 'pi', 'ouijit-extension.ts');
 }
 
-/**
- * Source of the Pi extension. The same string is dropped into
- * ~/.config/Ouijit/pi/ on the host (loaded via `--extension`) and into
- * ~/.pi/agent/extensions/ouijit/index.ts in the sandbox VM (auto-loaded).
- *
- * Pi loads this via its own TS runtime, so the type annotations are local
- * to the file and never seen by Ouijit's tsc. Kept minimal so the
- * extension surface we depend on (`pi.on`, `pi.exec`, `process.env`) is
- * obvious from one screen.
- */
-export const PI_EXTENSION = `// Ouijit Pi extension — bridges Pi's lifecycle events to the Ouijit
-// per-terminal status indicator. Auto-installed by the Ouijit app; safe to
-// delete (Ouijit will recreate it on next launch).
-//
-// turn_start  → status=thinking
-// turn_end    → status=ready
-//
-// The hook binary path comes from OUIJIT_HOOK_BIN, set by the Ouijit pi
-// wrapper on the host and by the Lima VM's shell init in the sandbox. If
-// it's unset the extension no-ops, so a user running \`pi\` outside Ouijit
-// (e.g. by copying this file into their own extensions dir) is unaffected.
+export const PI_EXTENSION = `// Ouijit Pi extension — bridges Pi turn events to the per-terminal
+// status indicator. Auto-installed; safe to delete (Ouijit recreates it).
+// No-ops when OUIJIT_HOOK_BIN is unset, so it's harmless outside Ouijit.
 
 type OuijitStatus = 'thinking' | 'ready';
 
@@ -681,10 +648,6 @@ export default async (pi: OuijitPiApi) => {
   if (!hookBin) return;
 
   const ping = (status: OuijitStatus) => {
-    // Pi may reject if the hook binary is missing or slow; ouijit-hook
-    // backgrounds its curl and exits in milliseconds, so the 2s timeout
-    // is just an upper bound. Swallow errors — a missed status ping is
-    // not worth surfacing to the user inside the agent's UI.
     pi.exec(hookBin, ['status', \`status=\${status}\`], { timeout: 2000 }).catch(() => {});
   };
 
@@ -693,44 +656,32 @@ export default async (pi: OuijitPiApi) => {
 };
 `;
 
-/** Bash wrapper that shadows `pi` and injects the CLI reference + Ouijit extension. */
 export const PI_WRAPPER = [
   '#!/bin/bash',
-  '# Ouijit pi wrapper — mirrors the claude/codex wrappers. Removes its own',
-  '# directory from PATH to find the real pi binary, then re-exports it so',
-  '# the ouijit CLI is available inside Pi. Injects the Ouijit CLI reference',
-  '# via --append-system-prompt and the status-dot bridge via --extension.',
+  '# Ouijit pi wrapper — mirrors the claude/codex wrappers.',
   'WRAPPER_DIR="$(cd "$(dirname "$0")" && pwd)"',
   'CLEAN_PATH=":$PATH:"',
   'CLEAN_PATH="${CLEAN_PATH//:$WRAPPER_DIR:/:}"',
   'CLEAN_PATH="${CLEAN_PATH#:}"',
   'CLEAN_PATH="${CLEAN_PATH%:}"',
   '',
-  '# Resolve the real pi binary from the clean PATH',
   'REAL_PI="$(PATH="$CLEAN_PATH" command -v pi)"',
   'if [ -z "$REAL_PI" ]; then',
   '  echo "ouijit: pi not found on PATH" >&2',
   '  exit 1',
   'fi',
   '',
-  '# Re-export PATH with wrapper dir so ouijit CLI works inside Pi',
   'export PATH="$WRAPPER_DIR:$CLEAN_PATH"',
   '',
-  '# Ouijit CLI reference file — surfaced via --append-system-prompt',
   'REFERENCE_FILE="$HOME/.config/Ouijit/ouijit-cli-reference.md"',
-  '# Ouijit Pi extension — loaded via --extension; bridges Pi events to',
-  '# the per-terminal status indicator. Reads OUIJIT_HOOK_BIN at runtime.',
   'EXTENSION_FILE="$HOME/.config/Ouijit/pi/ouijit-extension.ts"',
   'HOOK_BIN="$HOME/.config/Ouijit/bin/ouijit-hook"',
   '',
-  '# If ouijit is not running, just exec the real pi with CLI awareness',
   'if [ -z "$OUIJIT_API_URL" ]; then',
   '  exec "$REAL_PI" --append-system-prompt "$(cat "$REFERENCE_FILE" 2>/dev/null)" "$@"',
   'fi',
   '',
-  '# OUIJIT_HOOK_BIN crosses into the Pi process so the extension can shell',
-  '# out to ouijit-hook. Kept as an env var (not a flag) so the same',
-  '# extension source works on host and in the sandbox VM.',
+  '# OUIJIT_HOOK_BIN is read by the extension to shell out to ouijit-hook.',
   'OUIJIT_HOOK_BIN="$HOOK_BIN" exec "$REAL_PI" \\',
   '  --append-system-prompt "$(cat "$REFERENCE_FILE" 2>/dev/null)" \\',
   '  --extension "$EXTENSION_FILE" \\',
@@ -822,12 +773,10 @@ export function installWrapper(): void {
     // Write codex wrapper script (shadows `codex` to inject -c config overrides)
     fs.writeFileSync(path.join(binDir, 'codex'), CODEX_WRAPPER, { mode: 0o755 });
 
-    // Write pi wrapper script (shadows `pi` to inject --append-system-prompt + --extension)
+    // Write pi wrapper and the extension it loads via --extension. The
+    // extension lives outside bin/ (not on PATH) and outside Pi's
+    // auto-discovery roots (no effect on un-wrapped `pi` invocations).
     fs.writeFileSync(path.join(binDir, 'pi'), PI_WRAPPER, { mode: 0o755 });
-
-    // Write the Pi extension the wrapper passes via --extension. Lives
-    // outside `bin/` so it never appears on PATH, and outside Pi's
-    // auto-discovery roots so a non-Ouijit `pi` invocation isn't affected.
     const piExtPath = getPiExtensionPath();
     fs.mkdirSync(path.dirname(piExtPath), { recursive: true });
     fs.writeFileSync(piExtPath, PI_EXTENSION, { mode: 0o644 });
@@ -974,13 +923,7 @@ export function buildVmCodexTrustState(): string {
   return lines.join('\n');
 }
 
-/**
- * Pi extension source for the sandbox VM. Identical to the host-side
- * extension because the only context-dependent value (the hook binary
- * path) is supplied via the OUIJIT_HOOK_BIN env var, which lima/spawn
- * exports inside the VM. Wrapping the constant in a function keeps the
- * lima/spawn import list consistent with the buildVm…() siblings.
- */
+/** Pi extension for the sandbox VM. Identical to the host-side source. */
 export function buildVmPiExtension(): string {
   return PI_EXTENSION;
 }
