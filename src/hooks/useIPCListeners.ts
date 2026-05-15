@@ -49,8 +49,9 @@ async function spawnTerminalForCliStart(projectPath: string, start: PendingCliSt
  * Per-terminal listeners (pty:data, pty:exit) remain in OuijitTerminal.bind()
  * and are NOT registered here — they are imperative, not React-managed.
  *
- * Claude hook status listener is registered in useHookStatusListener()
- * to avoid pulling in terminal module at top-level.
+ * Agent hook status listener lives in useHookStatusListener() so both the
+ * home and project views can mount it independently without pulling the
+ * terminal module in at top level here.
  */
 export function useIPCListeners() {
   useEffect(() => {

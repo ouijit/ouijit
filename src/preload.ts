@@ -168,8 +168,8 @@ contextBridge.exposeInMainWorld('api', {
 
   onFullscreenChange: (callback: (isFullscreen: boolean) => void) => typedListen('fullscreen-change', callback),
 
-  claudeHooks: {
-    onStatus: (callback: (ptyId: string, status: string) => void) => typedListen('claude-hook-status', callback),
+  agentHooks: {
+    onStatus: (callback: (ptyId: string, status: string) => void) => typedListen('agent-hook-status', callback),
     getStatus: (ptyId: string) => typedInvoke('hooks:get-status', ptyId),
   },
 

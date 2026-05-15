@@ -241,12 +241,12 @@ describe('status action', () => {
 
   test('sends IPC for valid thinking status', async () => {
     await post(port, { action: 'status', ptyId: 'pty-123', status: 'thinking' });
-    expect(mockSend).toHaveBeenCalledWith('claude-hook-status', 'pty-123', 'thinking');
+    expect(mockSend).toHaveBeenCalledWith('agent-hook-status', 'pty-123', 'thinking');
   });
 
   test('sends IPC for valid ready status', async () => {
     await post(port, { action: 'status', ptyId: 'pty-789', status: 'ready' });
-    expect(mockSend).toHaveBeenCalledWith('claude-hook-status', 'pty-789', 'ready');
+    expect(mockSend).toHaveBeenCalledWith('agent-hook-status', 'pty-789', 'ready');
   });
 
   test('rejects invalid status values', async () => {
@@ -606,7 +606,7 @@ describe('ouijit-hook script → hook server integration', () => {
     });
 
     await waitForIpc();
-    expect(mockSend).toHaveBeenCalledWith('claude-hook-status', 'pty-integration-1', 'thinking');
+    expect(mockSend).toHaveBeenCalledWith('agent-hook-status', 'pty-integration-1', 'thinking');
   });
 
   test('ready status reaches hook server and triggers IPC', async () => {
@@ -618,7 +618,7 @@ describe('ouijit-hook script → hook server integration', () => {
     });
 
     await waitForIpc();
-    expect(mockSend).toHaveBeenCalledWith('claude-hook-status', 'pty-integration-2', 'ready');
+    expect(mockSend).toHaveBeenCalledWith('agent-hook-status', 'pty-integration-2', 'ready');
   });
 
   test('script exits silently when OUIJIT_API_URL is unset', async () => {
@@ -730,7 +730,7 @@ describe('wrapper → ouijit-hook → hook server (end-to-end)', () => {
     });
 
     await waitForIpc();
-    expect(mockSend).toHaveBeenCalledWith('claude-hook-status', 'pty-e2e-1', 'thinking');
+    expect(mockSend).toHaveBeenCalledWith('agent-hook-status', 'pty-e2e-1', 'thinking');
   });
 
   test('hooks fire even when shell init prepends paths before wrapper dir', async () => {
@@ -769,7 +769,7 @@ describe('wrapper → ouijit-hook → hook server (end-to-end)', () => {
     });
 
     await waitForIpc();
-    expect(mockSend).toHaveBeenCalledWith('claude-hook-status', 'pty-e2e-2', 'thinking');
+    expect(mockSend).toHaveBeenCalledWith('agent-hook-status', 'pty-e2e-2', 'thinking');
   });
 
   test.skipIf(!hasZsh)('hooks fire in zsh after start hook runs and exec drops into interactive shell', async () => {
@@ -828,7 +828,7 @@ describe('wrapper → ouijit-hook → hook server (end-to-end)', () => {
     );
 
     await waitForIpc();
-    expect(mockSend).toHaveBeenCalledWith('claude-hook-status', 'pty-e2e-zsh-hook', 'thinking');
+    expect(mockSend).toHaveBeenCalledWith('agent-hook-status', 'pty-e2e-zsh-hook', 'thinking');
   });
 });
 

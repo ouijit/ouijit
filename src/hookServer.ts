@@ -117,7 +117,7 @@ const actionHandlers: Record<string, ActionHandler> = {
 
     // Forward to renderer for real-time UI updates
     if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('claude-hook-status', ptyId, status);
+      mainWindow.webContents.send('agent-hook-status', ptyId, status);
     }
   },
 
