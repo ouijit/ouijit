@@ -1,8 +1,50 @@
 ---
 import Site from '../layouts/Site.astro';
 import WorkspaceScene from '../components/demo/WorkspaceScene.tsx';
+
+const softwareSchema = {
+  '@context': 'https://schema.org',
+  '@type': 'SoftwareApplication',
+  name: 'Ouijit',
+  alternateName: 'Ouijit (Integrated Divination Environment)',
+  applicationCategory: 'DeveloperApplication',
+  operatingSystem: 'macOS 13+, Linux (x64)',
+  description:
+    'Ouijit is a customizable task and terminal session manager that integrates with agent CLIs and TUIs like Claude Code via lifecycle hooks, scripts, and a session-aware CLI. It offers basic comforts for agentic development like live agent status with notifications, automatic worktree management for parallel workstreams, and VM sandboxing for untrusted code.',
+  url: 'https://ouijit.com',
+  downloadUrl: 'https://github.com/ouijit/ouijit/releases/latest',
+  softwareHelp: 'https://ouijit.com/docs/',
+  license: 'https://github.com/ouijit/ouijit/blob/main/LICENSE',
+  isAccessibleForFree: true,
+  offers: {
+    '@type': 'Offer',
+    price: '0',
+    priceCurrency: 'USD',
+  },
+  publisher: {
+    '@type': 'Organization',
+    name: 'Ouijit',
+    url: 'https://ouijit.com',
+  },
+  screenshot: [
+    'https://ouijit.com/assets/screenshots/kanban.png',
+    'https://ouijit.com/assets/screenshots/terminal-stack.png',
+    'https://ouijit.com/assets/screenshots/canvas.png',
+    'https://ouijit.com/assets/screenshots/settings.png',
+  ],
+  featureList: [
+    'Per-task git worktrees with Copy-on-Write cloning',
+    'Kanban board with lifecycle hooks',
+    'Integrated terminal sessions with card stack UI',
+    'Live status indicators for Claude Code, Codex, and Pi',
+    'VM sandbox via Lima for isolated agent terminals',
+    'Session-aware ouijit CLI for driving the app from a shell',
+  ],
+  sameAs: ['https://github.com/ouijit/ouijit'],
+};
 ---
 <Site>
+  <script type="application/ld+json" set:html={JSON.stringify(softwareSchema)} />
   <section class="hero">
     <h1>Integrated Divination Environment</h1>
     <div class="download-buttons">
