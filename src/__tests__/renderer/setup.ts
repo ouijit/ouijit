@@ -116,7 +116,7 @@ const mockApi = {
     status: vi.fn().mockResolvedValue({ available: false, vmStatus: 'Stopped' }),
     start: vi.fn().mockResolvedValue({ success: true }),
     stop: vi.fn().mockResolvedValue({ success: true }),
-    getConfig: vi.fn().mockResolvedValue({ memoryGiB: 4, diskGiB: 50 }),
+    getConfig: vi.fn().mockResolvedValue({ memoryGiB: 4, diskGiB: 10 }),
     setConfig: vi.fn().mockResolvedValue({ success: true }),
     recreate: vi.fn().mockResolvedValue({ success: true }),
     delete: vi.fn().mockResolvedValue({ success: true }),

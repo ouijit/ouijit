@@ -8,7 +8,7 @@ const sections = [
   { id: 'terminals', label: 'Terminal Sessions' },
   { id: 'sandbox', label: 'VM Sandbox' },
   { id: 'hooks', label: 'Hooks' },
-  { id: 'claude-code', label: 'Claude Code' },
+  { id: 'agents', label: 'Agents' },
   { id: 'cli', label: 'CLI' },
 ];
 ---
@@ -68,8 +68,7 @@ npm start</code></pre>
         <h3>Adding a project</h3>
         <ol>
           <li>Click the <strong>+</strong> button in the sidebar.</li>
-          <li>Select a folder containing a git repository.</li>
-          <li>That's it. Your project appears in the list.</li>
+          <li>Select a folder containing a git repository. It appears in the list.</li>
         </ol>
 
         <h3>Opening a project</h3>
@@ -85,13 +84,11 @@ npm start</code></pre>
         <h2>What are git worktrees?</h2>
         <p>
           Git worktrees let you check out multiple branches of the same repository into separate directories at the same
-          time. Instead of stashing changes and switching branches, each worktree has its own working directory with its own
-          checked-out branch.
+          time. Each worktree has its own working directory with its own checked-out branch.
         </p>
         <p>Ouijit creates a worktree when you start a task, so each piece of work gets its own directory and branch.</p>
 
-        <h2>How Ouijit uses worktrees</h2>
-        <h3>Task lifecycle</h3>
+        <h2>Task lifecycle</h2>
         <ol>
           <li><strong>Create task</strong>. A new branch is created from your main branch (e.g. <code>T-42</code>).</li>
           <li>
@@ -103,22 +100,43 @@ npm start</code></pre>
           <li><strong>Complete</strong>. Merge locally, push for a PR, or follow your team's workflow.</li>
         </ol>
         <p>
-          Each of these transitions can trigger <a href="#hooks">lifecycle hooks</a>: scripts that run automatically when a
-          task changes status.
+          Each transition can trigger a <a href="#hooks">lifecycle hook</a>.
         </p>
 
         <h2>Copy-on-Write cloning</h2>
         <p>
-          Creating a full copy of a large repository for each task would be slow and waste disk space. Ouijit uses
-          <strong>Copy-on-Write (CoW) cloning</strong> via the native file system (APFS on macOS, reflinks on Linux with
-          btrfs/XFS).
+          Ouijit clones worktrees using <strong>Copy-on-Write (CoW)</strong> via the native file system (APFS on macOS,
+          reflinks on Linux with btrfs/XFS). Disk blocks are shared with the original until a file is modified.
         </p>
-        <p>CoW clones are nearly instant and share disk blocks with the original until a file is modified. This means:</p>
         <ul>
-          <li>Worktree creation is fast regardless of repo size</li>
-          <li>Disk usage is proportional to your actual changes, not the full repo</li>
-          <li>Dependency directories and other git-ignored files are cloned too, so you're ready to work immediately</li>
+          <li>Worktree creation is fast regardless of repo size.</li>
+          <li>Disk usage is proportional to your actual changes, not the full repo.</li>
+          <li>Gitignored files (dependencies, build caches) are cloned too, so the worktree is ready to run.</li>
         </ul>
+
+        <h2>Creation modes</h2>
+        <p>Each project picks how new worktrees are populated. Set this in <strong>Project Settings &rarr; Worktree</strong>.</p>
+        <table>
+          <thead>
+            <tr><th>Mode</th><th>What lands in the worktree</th><th>When to pick it</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Quick start</strong> (default)</td>
+              <td>Tracked files plus a Copy-on-Write clone of every gitignored path (<code>node_modules</code>, <code>.env</code>, build caches).</td>
+              <td>You want a worktree that's ready to run immediately with no setup step.</td>
+            </tr>
+            <tr>
+              <td><strong>Clean checkout</strong></td>
+              <td>Just <code>git worktree add</code>. Only tracked files appear.</td>
+              <td>You want a reproducible setup driven by your <a href="#hooks">Start hook</a> (e.g. <code>npm ci</code>), or you don't want gitignored secrets copied across tasks.</td>
+            </tr>
+          </tbody>
+        </table>
+        <p>
+          Sandboxed tasks always use clean checkout, regardless of this setting. Provision the VM-side environment via the
+          <strong>Sandbox Setup</strong> hook.
+        </p>
 
         <h2>Directory structure</h2>
         <pre><code>~/Ouijit/worktrees/
@@ -209,95 +227,76 @@ git branch --show-current</code></pre>
           </tbody>
         </table>
         <h2>Runner panel</h2>
-        <p>The runner panel is a secondary terminal that sits alongside your main terminal stack. It's meant for long-running processes like dev servers: things you want visible but out of the way.</p>
-        <p>Toggle it with <code>⌘P</code> (<code>Ctrl+P</code> on Linux), or use the Run button in the toolbar. The runner executes the project's <strong>run</strong> <a href="#hooks">hook</a> (e.g. <code>npm run dev</code>), so you can start your dev server with one click or keypress.</p>
+        <p>A secondary terminal alongside the main stack, for long-running processes like dev servers. Toggle it with <code>⌘P</code> (<code>Ctrl+P</code> on Linux) or the Run button. The runner executes the project's <strong>run</strong> <a href="#hooks">hook</a> (e.g. <code>npm run dev</code>).</p>
 
         <h2>Diff panel</h2>
-        <p>The diff panel shows what changed in the current worktree relative to the target branch. Toggle it with <code>⌘D</code> (<code>Ctrl+D</code> on Linux).</p>
-        <p>It lists changed files with per-file diffs organized by hunk: additions, deletions, and context lines. Useful for a quick review before moving a task to In Review or merging.</p>
+        <p>Shows what changed in the current worktree relative to the target branch. Files are listed with per-file diffs organized by hunk. Toggle it with <code>⌘D</code> (<code>Ctrl+D</code> on Linux).</p>
 
         <h2>Tags</h2>
-        <p>You can tag terminals to organize them, especially useful in the home view when you have many terminals across projects. Tags appear on terminal cards and you can group the home view by tag.</p>
+        <p>Tag terminals to organize them. Tags appear on terminal cards, and the home view can group by tag.</p>
 
         <h2>Working with CLI agents</h2>
-        <p>Ouijit's terminals work with any CLI tool. Launch Claude Code, Cursor, Aider, or any other agent directly in the terminal. Worktree isolation means each agent works in its own sandbox without interfering with other tasks. <a href="#claude-code">Claude Code gets live status indicators</a>; other agents run normally without them.</p>
+        <p>Each terminal is a normal shell, so any CLI tool runs in it. <a href="#agents">Claude Code, Codex, and Pi</a> get live status indicators and can drive Ouijit through the <a href="#cli">CLI</a>.</p>
       </section>
 
       <section id="sandbox">
         <h1>VM Sandbox</h1>
-        <p class="lead">Run terminal sessions inside a lightweight Linux VM so agents can't touch what they shouldn't.</p>
+        <p class="lead">Sandboxed terminals run inside a Linux VM, on a parallel git branch, in a worktree that contains only tracked files.</p>
 
-        <h2>Why sandbox?</h2>
-        <p>Git worktrees isolate your code, but a terminal session still has full access to your host: your home directory, credentials, system binaries, network. When CLI agents run arbitrary commands, that's a lot of trust.</p>
-        <p>The VM sandbox wraps each terminal in a <a href="https://lima-vm.io" target="_blank" rel="noopener">Lima</a> virtual machine. Your project worktree is mounted into the VM (read-write), but the rest of your filesystem is walled off. Inside the worktree, every path your <code>.gitignore</code> matches, like <code>.env</code> files, <code>secrets/</code>, <code>node_modules</code>, build artifacts, is masked with an empty placeholder so the agent only sees what git would track. The agent can install packages, run builds, and execute code without risk to your host or your host-only secrets.</p>
+        <h2>What it does</h2>
+        <p>For a sandboxed task, Ouijit creates a second git worktree at <code>~/Ouijit/sandbox-views/&lt;project&gt;/T-N-sandbox</code> on a child branch <code>s/&lt;your-branch&gt;</code>. Because it's a plain <code>git worktree add</code>, only tracked files exist there: no <code>.env</code>, <code>node_modules</code>, build caches, or anything else gitignored. That sandbox-view directory is what gets mounted into a <a href="https://lima-vm.io" target="_blank" rel="noopener">Lima</a> VM as the agent's working directory. Your real worktree is never mounted.</p>
+        <p>When the agent commits inside the VM, the commit lands on <code>s/&lt;your-branch&gt;</code>. A host-side watcher fast-forwards your branch to match. If you committed in parallel on the host, the fast-forward fails and Ouijit surfaces a divergence affordance.</p>
 
         <h2>How it works</h2>
         <ol>
-          <li><strong>Enable sandbox on a task</strong>. Sandboxing is per-task, not per-project. When you start or continue a task, the run dialog has a <strong>Sandbox</strong> toggle. Flip it on and the task's terminal will spawn inside the VM.</li>
-          <li><strong>First terminal</strong>. Ouijit lazily creates an Ubuntu 24.04 VM via Lima on the first sandboxed spawn for a project. One VM per project, shared across that project's sandboxed tasks. Subsequent terminals reuse the running VM.</li>
-          <li><strong>Spawn progress</strong>. The spawn dialog shows each step: checking VM status, creating / starting, SSH connect, provisioning, isolating gitignored paths, launching shell. First boot takes a minute or two; later spawns are fast.</li>
-          <li><strong>Shell sessions</strong>. Terminals run inside the VM via <code>limactl shell</code>. Your worktree is mounted at the same path as on the host, so relative paths and git operations work normally.</li>
-          <li><strong>VM lifecycle &amp; resources</strong>. Manage the VM from <strong>Project Settings → Sandbox</strong>. You can see the VM status (Running / Stopped / Broken / Not created), create, start, stop, or recreate it, open a VM console, and edit the merged Lima YAML config (memory, CPU, disk, mounts). Changing resources prompts you to recreate the VM.</li>
+          <li><strong>Enable sandbox on a task</strong>. Per-task, not per-project. The run dialog has a <strong>Sandbox</strong> toggle.</li>
+          <li><strong>First terminal</strong>. Ouijit lazily creates an Ubuntu 24.04 VM via Lima on the first sandboxed spawn for a project. One VM per project, reused across that project's sandboxed tasks.</li>
+          <li><strong>Spawn progress</strong>. The dialog shows each step: <em>Checking VM status, Creating / Starting, SSH connecting, Provisioning, Launching shell</em>. First boot takes 1-2 minutes; later spawns reuse the running VM.</li>
+          <li><strong>Shell sessions</strong>. Terminals run inside the VM via <code>limactl shell</code>, with cwd set to the sandbox-view path.</li>
+          <li><strong>VM lifecycle &amp; resources</strong>. Manage the VM from <strong>Project Settings &rarr; Sandbox</strong>: see status (Running / Stopped / Broken / Not created), create, start, stop, recreate, open a console, and edit the merged Lima YAML config (memory, CPU, disk, mounts). Resource changes prompt a recreate.</li>
         </ol>
 
-        <h2>What's isolated</h2>
+        <h2>Mount surface</h2>
+        <p>Only two host paths are exposed to the VM:</p>
         <table>
           <thead>
-            <tr><th>Resource</th><th>Host terminal</th><th>Sandboxed terminal</th></tr>
+            <tr><th>Host path</th><th>In guest</th><th>Why</th></tr>
           </thead>
           <tbody>
-            <tr><td>Project worktree</td><td>Read/write</td><td>Read/write (mounted)</td></tr>
-            <tr><td>Main repo</td><td>Read/write</td><td>Read-only (mounted)</td></tr>
-            <tr><td>Home directory</td><td>Full access</td><td>Ephemeral VM home</td></tr>
-            <tr><td>System files</td><td>Full access</td><td>Isolated (Ubuntu guest)</td></tr>
-            <tr><td>Network</td><td>Host network</td><td>NAT (macOS) or user-mode (Linux)</td></tr>
-            <tr><td>Processes</td><td>Can see/kill all</td><td>VM processes only</td></tr>
+            <tr><td><code>~/Ouijit/sandbox-views/&lt;proj&gt;/</code></td><td>Read/write</td><td>The agent's tracked-files-only worktree.</td></tr>
+            <tr><td><code>&lt;project&gt;/.git/</code></td><td>Read-only base, with read/write overlays at <code>objects/</code>, <code>refs/</code>, <code>logs/</code>, <code>worktrees/</code></td><td>Commits need to write packs, refs, and reflogs. <code>hooks/</code>, <code>config</code>, and <code>packed-refs</code> stay read-only.</td></tr>
           </tbody>
         </table>
+        <p>Your home directory, source tree, system binaries, and any other host paths are not mounted at all.</p>
 
-        <h2>Gitignored paths are masked</h2>
-        <p>When a sandboxed terminal starts, every path your <code>.gitignore</code> matches is replaced with an empty placeholder inside the VM. Host-only secrets like <code>.env</code> or <code>config/secrets.yml</code> aren't visible to the agent, and platform-specific artifacts like macOS <code>node_modules</code> don't leak into the Linux guest.</p>
-        <p>There's no config file or allowlist to maintain. Ouijit runs <code>git ls-files</code> against the worktree and honors whatever git says is ignored: negations (<code>!keep.env</code>), nested <code>.gitignore</code> files, globs, and <code>core.excludesFile</code> all work. The terminal startup banner reports what was hidden, e.g. <em>"Isolating 12 paths (7 dir, 5 file)"</em>.</p>
-
-        <h3>What this buys you</h3>
+        <h2>Isolation properties</h2>
         <ul>
-          <li><strong>Secret isolation</strong>. Gitignored <code>.env</code>, <code>.npmrc</code>, <code>secrets/</code>, and similar files stay on the host.</li>
-          <li><strong>No ABI mismatches</strong>. darwin-arm64 <code>node_modules</code>, Rust <code>target/</code>, and Python <code>.venv</code> never collide with the Linux guest's toolchain.</li>
-          <li><strong>Per-task isolation</strong>. Two parallel sandboxed tasks on the same project can't stomp each other's installs.</li>
+          <li><strong>Gitignored content is not in the mount</strong>. <code>.env</code>, <code>.npmrc</code>, <code>secrets/</code>, <code>node_modules</code>, and build artifacts never leave the host.</li>
+          <li><strong>Host toolchains stay separate</strong>. darwin-arm64 <code>node_modules</code>, Rust <code>target/</code>, and Python <code>.venv</code> don't collide with the Linux guest.</li>
+          <li><strong>Parallel sandboxed tasks</strong> on the same project share the VM but work in separate sandbox-view directories.</li>
+          <li><strong><code>.git/hooks/</code> and <code>.git/config</code> are read-only</strong> in the mount, so writes from the VM that would land there fail with <code>EROFS</code>.</li>
+          <li><strong>No <code>ouijit</code> CLI in the VM.</strong> The binary isn't installed; the <code>/api/*</code> routes return 403 for sandbox-scoped tokens. Only the <code>/hook</code> endpoint accepts them.</li>
         </ul>
 
         <h3>Caveats</h3>
         <ul>
-          <li><strong>Committed files are always visible.</strong> <code>.gitignore</code> only affects files git considers untracked. If you committed a secret and then gitignored it, the agent still sees it. Run <code>git rm --cached &lt;file&gt;</code> and rotate the secret. Don't commit what you don't want an agent to read.</li>
-          <li><strong>Masking is a snapshot at terminal start.</strong> New gitignored files created while a terminal is already open aren't masked in that terminal. Close and reopen to re-enumerate.</li>
-          <li><strong>Filenames aren't hidden, only contents.</strong> <code>ls</code> still shows <code>.env.secrets</code> as a 0-byte file. Don't rely on this to hide secret-sounding paths.</li>
-          <li><strong>The worktree is read-write.</strong> The VM has no git credentials, so a compromised agent can't push, but it can stage commits that a human on the host could unknowingly push later. Review diffs before pushing.</li>
-          <li><strong>Scope is the worktree.</strong> Files in the VM's own <code>$HOME</code> (e.g. <code>~/.netrc</code>, <code>~/.git-credentials</code>) aren't covered. Lima ships a clean home; don't copy host auth into it.</li>
+          <li><strong>Committed files are always visible.</strong> The sandbox view is populated from the index, so anything you committed lives there regardless of <code>.gitignore</code>. To remove: <code>git rm --cached &lt;file&gt;</code> and rotate.</li>
+          <li><strong>Commits round-trip through fast-forward.</strong> Parallel commits on the host cause the ff-merge to fail; Ouijit surfaces a divergence affordance in that case.</li>
+          <li><strong>The VM has no git credentials.</strong> Pushes happen from the host. Commits staged inside the VM ride the next host-side push.</li>
+          <li><strong>The VM's $HOME is out of scope.</strong> The isolation described above applies to mounts. Files copied into the VM's home (<code>~/.netrc</code>, <code>~/.git-credentials</code>, etc.) aren't.</li>
         </ul>
-
-        <h3>Startup banners</h3>
-        <p>Masking is fail-closed: if isolation can't be delivered, the terminal refuses to start. Every spawn resolves to one of three banners, printed to the terminal before the interactive shell:</p>
-        <ul>
-          <li><strong>SANDBOX ISOLATION ACTIVE</strong>. Green. Masks applied. Shell starts.</li>
-          <li><strong>SANDBOX NO PATHS TO ISOLATE</strong>. Yellow. Nothing was gitignored in the worktree. Shell still starts. Double-check your <code>.gitignore</code> before running anything sensitive.</li>
-          <li><strong>SANDBOX ISOLATION FAILED</strong>. Red. Enumeration error, missing sudo, mount failure, or any partial failure. The shell exits immediately; fix the cause and reopen. Partial failures are treated as total failures.</li>
-        </ul>
-        <p>Errors that happen before the VM side runs (e.g. <code>git ls-files</code> throws) come back as a failed terminal-open in Ouijit, not as a banner.</p>
 
         <h2>Customizing the VM</h2>
         <p>VMs start from a clean Ubuntu 24.04 image with <code>bash</code>, <code>git</code>, <code>curl</code>, <code>wget</code>, <code>nodejs</code>, <code>npm</code>, <code>python3</code>, and <code>build-essential</code> pre-installed. Defaults are 4 GiB memory, 2 CPUs, 10 GiB disk.</p>
-        <p>Everything else, like resource limits, extra packages, additional mounts, and provisioning scripts, is controlled by the Lima YAML config in <strong>Project Settings → Sandbox</strong>. The editor shows the merged effective config and lets you write overrides; Ouijit prompts you to recreate the VM when changes require it.</p>
+        <p>Resource limits, extra packages, additional mounts, and provisioning scripts are controlled by the Lima YAML config in <strong>Project Settings &rarr; Sandbox</strong>. The editor shows the merged effective config and lets you write overrides; Ouijit prompts you to recreate the VM when changes require it.</p>
         <p>See the <a href="https://lima-vm.io/docs/config/" target="_blank" rel="noopener">Lima configuration reference</a> for the available keys.</p>
 
-        <h2>Claude Code integration</h2>
-        <p>Ouijit automatically injects its hook helper script and Claude Code settings into each sandboxed shell. This means Claude Code's hook status events (thinking, tool use, idle) work inside the VM just like they do on the host: the VM shell communicates back to Ouijit via <code>host.lima.internal</code>.</p>
-
         <h2>Requirements</h2>
+        <p>Ouijit bundles <code>limactl</code>; nothing extra to install.</p>
         <ul>
-          <li><strong>macOS</strong>. Uses Apple's Virtualization.framework (vz) with vzNAT networking. No extra installation needed if Lima is available.</li>
-          <li><strong>Linux</strong>. Uses QEMU with user-mode networking.</li>
+          <li><strong>macOS</strong>. Apple's Virtualization.framework (vz) with vzNAT networking.</li>
+          <li><strong>Linux</strong>. QEMU with user-mode networking.</li>
         </ul>
-        <p>Ouijit bundles <code>limactl</code>, so there's nothing extra to install.</p>
 
         <h2>Limitations</h2>
         <ul>
@@ -305,7 +304,7 @@ git branch --show-current</code></pre>
           <li>GPU passthrough is not supported.</li>
           <li>macOS-specific tooling (Xcode, Swift) is not available inside the Linux VM.</li>
           <li>Docker-in-VM requires additional Lima configuration.</li>
-          <li>The VM home directory is ephemeral. Anything outside mounted directories is lost on recreate.</li>
+          <li>The VM home directory is ephemeral. Anything outside the mounted sandbox-views and <code>.git</code> overlays is lost on recreate.</li>
         </ul>
       </section>
 
@@ -341,33 +340,70 @@ git branch --show-current</code></pre>
         </table>
 
         <h2>Environment variables</h2>
-        <p>Hooks receive context via environment variables so your scripts can act on the current task:</p>
+        <p>Hooks receive these env vars:</p>
         <pre><code>OUIJIT_PROJECT_PATH=/path/to/my-project
 OUIJIT_WORKTREE_PATH=~/Ouijit/worktrees/my-project/T-42
 OUIJIT_TASK_BRANCH=T-42
 OUIJIT_TASK_NAME="Add user auth"
 OUIJIT_TASK_PROMPT="implement oauth login"
 OUIJIT_HOOK_TYPE=start</code></pre>
-
-        <h2>What you can do with them</h2>
-        <p>Hooks are shell commands, so they can do anything: install dependencies, launch agents, open PRs, run tests. The start hook is especially useful for agent workflows. Set it to <code>claude "$OUIJIT_TASK_PROMPT"</code> and every new task launches an agent with the task description as its prompt.</p>
+        <p>A common pattern is wiring the start hook to an agent: <code>claude "$OUIJIT_TASK_PROMPT"</code> launches Claude Code with the task description as its prompt the moment a task moves to In Progress.</p>
       </section>
 
-      <section id="claude-code">
-        <h1>Claude Code Integration</h1>
-        <p class="lead">Live status indicators so you know at a glance which agents are working and which are waiting on you.</p>
+      <section id="agents">
+        <h1>Agents</h1>
+        <p class="lead">Claude Code, Codex, and Pi get live status indicators and can drive Ouijit through its CLI. No configuration required.</p>
 
         <h2>What you get</h2>
-        <p>When Claude Code is running in an Ouijit terminal, the terminal card shows a live status indicator for thinking or idle. Visible across the entire terminal stack, so you can tell which sessions need your attention without bringing each one to the front.</p>
+        <p>Run <code>claude</code>, <code>codex</code>, or <code>pi</code> in any Ouijit terminal and two things happen automatically:</p>
+        <ul>
+          <li>
+            <strong>Live status</strong>. The terminal card shows whether the agent is thinking or idle, visible across the
+            entire terminal stack. You can tell which sessions need attention without bringing each one to the front.
+          </li>
+          <li>
+            <strong>CLI awareness</strong>. The <a href="#cli"><code>ouijit</code> CLI</a> reference is appended to the
+            agent's system prompt. The agent can create tasks, flip statuses, manage hooks and scripts, and update plans
+            from the shell, the same as you would.
+          </li>
+        </ul>
 
         <h2>How it works</h2>
-        <p>Ouijit installs a thin wrapper that shadows the <code>claude</code> command inside its terminals. The wrapper injects hook settings that report status back to Ouijit at runtime. No configuration required: type <code>claude</code> and the integration is active.</p>
+        <p>
+          Ouijit installs a thin wrapper for each supported agent into the terminal's <code>PATH</code>. The wrapper
+          shadows the real binary, injects the CLI reference into the agent's system prompt, and wires status hooks
+          back to Ouijit. The mechanism differs per agent:
+        </p>
+        <table>
+          <thead>
+            <tr><th>Agent</th><th>Status wiring</th><th>System prompt</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Claude Code</strong></td>
+              <td><code>--settings</code> with <code>UserPromptSubmit</code> / <code>Stop</code> hooks</td>
+              <td><code>--append-system-prompt-file</code></td>
+            </tr>
+            <tr>
+              <td><strong>Codex</strong></td>
+              <td><code>-c hooks.&lt;Event&gt;=...</code> overrides, pre-trusted so they fire without <code>/hooks</code> approval</td>
+              <td><code>-c developer_instructions=...</code></td>
+            </tr>
+            <tr>
+              <td><strong>Pi</strong></td>
+              <td><code>--extension</code> loading a generated TypeScript extension that subscribes to <code>turn_start</code> / <code>turn_end</code></td>
+              <td><code>--append-system-prompt</code></td>
+            </tr>
+          </tbody>
+        </table>
+        <p>When <code>OUIJIT_API_URL</code> is unset (i.e. the agent runs outside an Ouijit terminal), the wrappers exec the real binary unmodified.</p>
+
+        <h2>Sandboxed terminals</h2>
+        <p>Status indicators work inside the <a href="#sandbox">VM sandbox</a>: Claude settings, Codex config, and the Pi extension are written into the VM's home directory, and their hooks reach back over <code>host.lima.internal</code>.</p>
+        <p>The CLI integration does not extend into the sandbox. The <code>ouijit</code> binary isn't installed in the VM, and the <code>/api/*</code> routes reject sandbox-scoped tokens.</p>
 
         <h2>Notifications</h2>
-        <p>When an agent finishes, Ouijit plays a sound. If the window isn't focused, you also get an OS notification.</p>
-
-        <h2>Other agents</h2>
-        <p>Ouijit's terminals work with any CLI agent (Cursor, Aider, Codex, and others). They run normally but without the live status indicators. If your agent has a hook or plugin system, <a href="https://github.com/ouijit/ouijit/issues" target="_blank" rel="noopener">open an issue</a>.</p>
+        <p>When an agent finishes a turn, Ouijit plays a sound. If the window isn't focused, you also get an OS notification.</p>
       </section>
 
       <section id="cli">
@@ -376,9 +412,9 @@ OUIJIT_HOOK_TYPE=start</code></pre>
 
         <h2>Where it lives</h2>
         <p>
-          The <code>ouijit</code> command is auto-installed into every terminal Ouijit opens, both host shells and sandboxed
-          ones. Nothing to install separately. It communicates with the running app over a localhost API authenticated by a
-          per-session token, so it only works from inside an Ouijit terminal.
+          The <code>ouijit</code> command is auto-installed into every terminal Ouijit opens, host and sandboxed alike. It
+          talks to the running app over a localhost API authenticated by a per-session token, so it only works from inside
+          an Ouijit terminal.
         </p>
 
         <h2>Output format</h2>
@@ -466,7 +502,7 @@ ouijit plan get
 ouijit plan unset</code></pre>
 
         <h2>Projects</h2>
-        <p>List every project registered with the app. Mostly useful for cross-project automation.</p>
+        <p>List every project registered with the app.</p>
         <pre><code>ouijit project list</code></pre>
 
         <h2>Environment variables</h2>
