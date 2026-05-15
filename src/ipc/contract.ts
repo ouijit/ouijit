@@ -217,7 +217,7 @@ export interface IpcSendContract {
  */
 export interface IpcPushContract {
   'fullscreen-change': { args: [isFullscreen: boolean] };
-  'claude-hook-status': { args: [ptyId: string, status: import('../hookServer').HookStatus] };
+  'agent-hook-status': { args: [ptyId: string, status: import('../hookServer').HookStatus] };
   'claude-plan-detected': { args: [ptyId: string, planPath: string] };
   'claude-plan-ready': { args: [ptyId: string] };
   'plan:content-changed': { args: [planPath: string, content: string] };

@@ -17,6 +17,7 @@ import {
   spawnRunner,
 } from './terminal/terminalActions';
 import { terminalInstances, refreshAllTerminalGitStatus } from './terminal/terminalReact';
+import { useHookStatusListener } from '../hooks/useHookStatusListener';
 
 const isMac = navigator.platform.toLowerCase().includes('mac');
 const GIT_STATUS_PERIODIC_INTERVAL = 30000;
@@ -293,31 +294,7 @@ export function ProjectView() {
   }, [projectPath]);
 
   // Hook status: register ongoing listener + seed existing terminals
-  useEffect(() => {
-    if (!projectPath) return;
-
-    // Ongoing listener for hook status events
-    const cleanup = window.api.claudeHooks.onStatus((ptyId, status) => {
-      const instance = terminalInstances.get(ptyId);
-      if (instance) {
-        instance.handleHookStatus(status as 'thinking' | 'ready');
-      }
-    });
-
-    // Seed existing terminals with current hook status
-    const terms = useTerminalStore.getState().terminalsByProject[projectPath] ?? [];
-    for (const ptyId of terms) {
-      const instance = terminalInstances.get(ptyId);
-      if (!instance) continue;
-      window.api.claudeHooks.getStatus(ptyId).then((hookStatus) => {
-        if (hookStatus?.status === 'thinking' && hookStatus.thinkingCount > 0) {
-          instance.handleHookStatus('thinking');
-        }
-      });
-    }
-
-    return cleanup;
-  }, [projectPath]);
+  useHookStatusListener(projectPath);
 
   // Plan detection: register listeners + seed existing terminals
   useEffect(() => {

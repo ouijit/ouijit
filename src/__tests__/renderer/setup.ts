@@ -98,7 +98,7 @@ const mockApi = {
     removeFromTask: vi.fn().mockResolvedValue(undefined),
     setTaskTags: vi.fn().mockResolvedValue([]),
   },
-  claudeHooks: {
+  agentHooks: {
     onStatus: vi.fn().mockReturnValue(() => {}),
     getStatus: vi.fn().mockResolvedValue(null),
   },

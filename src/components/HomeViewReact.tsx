@@ -8,6 +8,7 @@ import { TerminalHeader } from './terminal/TerminalHeader';
 import { TerminalBody } from './terminal/TerminalBody';
 import { XTermContainer } from './terminal/XTermContainer';
 import { useTerminalPanels } from './terminal/useTerminalPanels';
+import { useHookStatusListener } from '../hooks/useHookStatusListener';
 import { Icon } from './terminal/Icon';
 import { stringToColor, getInitials } from '../utils/projectIcon';
 import { OuijitLogotype } from './OuijitLogotype';
@@ -52,6 +53,8 @@ export function HomeView() {
   const [activePtyId, setActivePtyId] = useState<string | null>(null);
   const reconnectedRef = useRef(false);
 
+  useHookStatusListener(null);
+
   // Keep activePtyId valid: if the active terminal was removed, fall back
   useEffect(() => {
     if (allPtyIds.length === 0) {
@@ -92,7 +95,7 @@ export function HomeView() {
           worktreeBranch = task?.branch;
         }
         const [hookStatus, planPath] = await Promise.all([
-          window.api.claudeHooks.getStatus(session.ptyId),
+          window.api.agentHooks.getStatus(session.ptyId),
           window.api.plan.getForPty(session.ptyId),
         ]);
         const initialStatus = hookStatus?.status === 'thinking' ? ('thinking' as const) : ('ready' as const);
