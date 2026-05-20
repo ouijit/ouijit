@@ -37,7 +37,7 @@ function hookTypeForTransition(origStatus: TaskStatus, newStatus: TaskStatus): H
   if (origStatus === newStatus) return null;
   if (newStatus === 'in_progress') return origStatus === 'todo' ? 'start' : 'continue';
   if (newStatus === 'in_review') return 'review';
-  if (newStatus === 'done') return 'cleanup';
+  if (newStatus === 'done') return 'done';
   return null;
 }
 

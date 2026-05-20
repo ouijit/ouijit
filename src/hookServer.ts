@@ -389,7 +389,7 @@ ouijit tag remove <task-number> <tag-name>
 ouijit tag set <task-number> <tag1> <tag2>... # replace all tags
 
 ## Hook Commands (project lifecycle scripts)
-Hook types: start, continue, run, review, cleanup, editor
+Hook types: start, continue, run, review, done, editor
 
 ouijit hook list                              # → {start?: {name, command}, ...}
 ouijit hook get <type>

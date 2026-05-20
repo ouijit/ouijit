@@ -7,7 +7,7 @@ const HOOK_TITLES: Record<string, string> = {
   start: 'Start Task',
   continue: 'Continue Task',
   review: 'Review Task',
-  cleanup: 'Done \u2014 Cleanup',
+  done: 'Done',
   run: 'Run',
 };
 

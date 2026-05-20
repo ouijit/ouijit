@@ -118,7 +118,7 @@ npm start</code></pre>
             <tr>
               <td><strong>Done</strong></td>
               <td>&rarr; Done</td>
-              <td>Runs the <code>cleanup</code> hook.</td>
+              <td>Runs the <code>done</code> hook.</td>
             </tr>
             <tr>
               <td><strong>Delete</strong></td>
@@ -335,7 +335,7 @@ git branch --show-current</code></pre>
             <tr><td><strong>Start</strong></td><td>Task moves from To Do to In Progress</td><td><code>npm install &amp;&amp; claude "$OUIJIT_TASK_PROMPT"</code></td></tr>
             <tr><td><strong>Continue</strong></td><td>Reopening a task already In Progress</td><td><code>claude -c</code></td></tr>
             <tr><td><strong>Review</strong></td><td>Task moves to In Review</td><td><code>gh pr create --fill</code></td></tr>
-            <tr><td><strong>Cleanup</strong></td><td>Task moves to Done</td><td><code>git push origin HEAD</code></td></tr>
+            <tr><td><strong>Done</strong></td><td>Task moves to Done</td><td><code>git push origin HEAD</code></td></tr>
           </tbody>
         </table>
 
@@ -470,12 +470,12 @@ ouijit task set-status "$TASK" in_review</code></pre>
         <h2>Hooks</h2>
         <p>
           CRUD for the <a href="#hooks">lifecycle hooks</a>. Hook types are <code>start</code>, <code>continue</code>,
-          <code>run</code>, <code>review</code>, <code>cleanup</code>, <code>editor</code>.
+          <code>run</code>, <code>review</code>, <code>done</code>, <code>editor</code>.
         </p>
         <pre><code>ouijit hook list
 ouijit hook get start
 ouijit hook set start --name "Install &amp; agent" --command 'npm install &amp;&amp; claude "$OUIJIT_TASK_PROMPT"'
-ouijit hook delete cleanup</code></pre>
+ouijit hook delete done</code></pre>
 
         <h2>Tags</h2>
         <p>Tag tasks for organization in the home view.</p>
@@ -531,7 +531,7 @@ ouijit plan unset</code></pre>
         </table>
         <p>
           Hooks get extra context on top of these. See <a href="#hooks">Hooks → Environment variables</a> for the full
-          list of <code>OUIJIT_TASK_*</code> variables available to start, continue, review, and cleanup commands.
+          list of <code>OUIJIT_TASK_*</code> variables available to start, continue, review, and done commands.
         </p>
 
         <h2>Patterns</h2>

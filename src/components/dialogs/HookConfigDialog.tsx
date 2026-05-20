@@ -29,8 +29,8 @@ const HOOK_LABELS: Record<HookType, { title: string; description: string; placeh
     placeholder: 'gh pr create --fill',
     envVars: true,
   },
-  cleanup: {
-    title: 'Cleanup Hook',
+  done: {
+    title: 'Done Hook',
     description: 'Runs when a task moves to Done',
     placeholder: 'git push origin HEAD',
     envVars: true,
