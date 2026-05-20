@@ -68,7 +68,7 @@ npm start</code></pre>
         <h3>Adding a project</h3>
         <ol>
           <li>Click the <strong>+</strong> button in the sidebar.</li>
-          <li>Select a folder containing a git repository. It appears in the list.</li>
+          <li>Select a folder containing a git repository.</li>
         </ol>
 
         <h3>Opening a project</h3>
@@ -89,19 +89,44 @@ npm start</code></pre>
         <p>Ouijit creates a worktree when you start a task, so each piece of work gets its own directory and branch.</p>
 
         <h2>Task lifecycle</h2>
-        <ol>
-          <li><strong>Create task</strong>. A new branch is created from your main branch (e.g. <code>T-42</code>).</li>
-          <li>
-            <strong>Start task</strong>. Ouijit creates a git worktree under <code>~/Ouijit/worktrees/</code>. The terminal
-            opens in this isolated directory.
-          </li>
-          <li><strong>Work</strong>. All changes happen in the worktree. Your main branch stays clean.</li>
-          <li><strong>Review</strong>. Use the diff panel to see what changed relative to main.</li>
-          <li><strong>Complete</strong>. Merge locally, push for a PR, or follow your team's workflow.</li>
-        </ol>
-        <p>
-          Each transition can trigger a <a href="#hooks">lifecycle hook</a>.
-        </p>
+        <p>A task has one of four statuses: <strong>To Do</strong>, <strong>In Progress</strong>, <strong>In Review</strong>, <strong>Done</strong>. Each event below changes the status and may run a <a href="#hooks">hook</a>.</p>
+        <table>
+          <thead>
+            <tr><th>Event</th><th>Status</th><th>What Ouijit does</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Create</strong></td>
+              <td>&rarr; To Do</td>
+              <td>Adds a task card to the To Do column.</td>
+            </tr>
+            <tr>
+              <td><strong>Start</strong></td>
+              <td>To Do &rarr; In Progress</td>
+              <td>Creates a branch (e.g. <code>T-42</code>) and a worktree at <code>~/Ouijit/worktrees/&lt;project&gt;/T-42</code>, opens a terminal in it, runs the <code>start</code> hook.</td>
+            </tr>
+            <tr>
+              <td><strong>Continue</strong></td>
+              <td>In Review or Done &rarr; In Progress</td>
+              <td>Opens a new terminal in the existing worktree, runs the <code>continue</code> hook.</td>
+            </tr>
+            <tr>
+              <td><strong>Review</strong></td>
+              <td>&rarr; In Review</td>
+              <td>Runs the <code>review</code> hook.</td>
+            </tr>
+            <tr>
+              <td><strong>Done</strong></td>
+              <td>&rarr; Done</td>
+              <td>Runs the <code>cleanup</code> hook.</td>
+            </tr>
+            <tr>
+              <td><strong>Delete</strong></td>
+              <td>Task removed</td>
+              <td>Moves the worktree to the trash, deletes the branch.</td>
+            </tr>
+          </tbody>
+        </table>
 
         <h2>Copy-on-Write cloning</h2>
         <p>
@@ -162,19 +187,7 @@ git branch --show-current</code></pre>
         <p class="lead">A four-column board for organizing tasks with drag-and-drop.</p>
 
         <h2>Columns</h2>
-        <p>The board has four fixed columns that map to a task's lifecycle:</p>
-        <table>
-          <thead>
-            <tr><th>Column</th><th>Meaning</th></tr>
-          </thead>
-          <tbody>
-            <tr><td><strong>To Do</strong></td><td>Planned work. No worktree or branch created yet.</td></tr>
-            <tr><td><strong>In Progress</strong></td><td>Active work. A worktree and branch are created when a task moves here.</td></tr>
-            <tr><td><strong>In Review</strong></td><td>Work is done, ready for review. Worktree is still active.</td></tr>
-            <tr><td><strong>Done</strong></td><td>Completed. The branch can be merged and the worktree removed.</td></tr>
-          </tbody>
-        </table>
-        <p>Moving a task between columns triggers <a href="#hooks">lifecycle hooks</a>: scripts that can do anything, such as running tests, opening a PR, or kicking off an agent.</p>
+        <p>The four columns map to the four task statuses: <strong>To Do</strong>, <strong>In Progress</strong>, <strong>In Review</strong>, <strong>Done</strong>. Dragging a card between columns changes its status, which can fire a <a href="#hooks">hook</a>. See <a href="#worktrees">Task lifecycle</a> for the mapping.</p>
 
         <h2>Creating tasks</h2>
         <p>Click the <strong>+</strong> button on any column header, or press <code>⌘N</code> (<code>Ctrl+N</code> on Linux) to create a new task. Give it a title and optional description.</p>
@@ -335,7 +348,6 @@ git branch --show-current</code></pre>
           <tbody>
             <tr><td><strong>Run</strong></td><td>Command for the Run button (dev server, etc.)</td><td><code>npm run dev</code></td></tr>
             <tr><td><strong>Editor</strong></td><td>Opens the worktree in your editor</td><td><code>open -a "Visual Studio Code"</code></td></tr>
-            <tr><td><strong>Sandbox Setup</strong></td><td>Runs inside the VM before each terminal command</td><td><code>which claude || npm i -g @anthropic-ai/claude-code</code></td></tr>
           </tbody>
         </table>
 
