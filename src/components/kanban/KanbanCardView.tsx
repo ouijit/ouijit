@@ -21,6 +21,12 @@ export interface KanbanCardViewProps {
   onPlainClick?: () => void;
   onContextMenu?: (event: MouseEvent) => void;
   onUpdateDescription?: (taskNumber: number, description: string) => void;
+  /**
+   * Persists a pasted image and resolves to its absolute file path (or null on
+   * failure). The path is inserted into the description so CLI agents can read
+   * the image when the task runs.
+   */
+  onSaveImage?: (data: Uint8Array, ext: string) => Promise<string | null>;
   onSwitchToTerminal?: (ptyId: string) => void;
   onTerminalContextMenu?: (ptyId: string, event: MouseEvent) => void;
 
@@ -65,6 +71,7 @@ export const KanbanCardView = memo(function KanbanCardView({
   onPlainClick,
   onContextMenu,
   onUpdateDescription,
+  onSaveImage,
   onSwitchToTerminal,
   onTerminalContextMenu,
   isRenamingTask = false,
@@ -125,6 +132,40 @@ export const KanbanCardView = memo(function KanbanCardView({
     onUpdateDescription?.(task.taskNumber, desc);
     setEditingDesc(false);
   }, [task.taskNumber, onUpdateDescription]);
+
+  /**
+   * Intercept pasted images. The clipboard image is saved to disk and its
+   * absolute path is inserted as text at the caret — CLI agents read images
+   * by the file paths referenced in the prompt.
+   */
+  const handleDescPaste = useCallback(
+    async (e: React.ClipboardEvent<HTMLSpanElement>) => {
+      if (!onSaveImage) return;
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      const imageItem = Array.from(items).find((it) => it.kind === 'file' && it.type.startsWith('image/'));
+      if (!imageItem) return;
+
+      // Block the default image paste — contentEditable would otherwise embed
+      // an <img>, which the description (plain text) can't persist.
+      e.preventDefault();
+
+      const file = imageItem.getAsFile();
+      if (!file) return;
+      const ext = imageItem.type.split('/')[1] || 'png';
+      const data = new Uint8Array(await file.arrayBuffer());
+      const savedPath = await onSaveImage(data, ext);
+      if (!savedPath) return;
+
+      // Pad with surrounding whitespace so the path stays a distinct token.
+      const existing = descInputRef.current?.textContent ?? '';
+      const insertText =
+        existing && !existing.endsWith(' ') && !existing.endsWith('\n') ? ` ${savedPath} ` : `${savedPath} `;
+      descInputRef.current?.focus();
+      document.execCommand('insertText', false, insertText);
+    },
+    [onSaveImage],
+  );
 
   const commitTerminalRename = useCallback(() => {
     if (!renamingTerminalId) return;
@@ -297,6 +338,7 @@ export const KanbanCardView = memo(function KanbanCardView({
                 }
               }}
               onBlur={commitDescription}
+              onPaste={handleDescPaste}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();

@@ -383,6 +383,7 @@ export interface TaskAPI {
     parentTaskNumber: number | null,
     mergeTarget?: string,
   ): Promise<{ success: boolean; error?: string }>;
+  saveAttachment(data: Uint8Array, ext: string): Promise<{ success: boolean; path?: string; error?: string }>;
 }
 
 /**

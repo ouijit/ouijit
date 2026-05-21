@@ -141,6 +141,7 @@ contextBridge.exposeInMainWorld('api', {
       typedInvoke('task:create-from-task', projectPath, parentTaskNumber, name),
     setParent: (projectPath: string, taskNumber: number, parentTaskNumber: number | null, mergeTarget?: string) =>
       typedInvoke('task:set-parent', projectPath, taskNumber, parentTaskNumber, mergeTarget),
+    saveAttachment: (data: Uint8Array, ext: string) => typedInvoke('task:save-attachment', data, ext),
   },
 
   hooks: {

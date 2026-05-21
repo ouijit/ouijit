@@ -1,4 +1,5 @@
 import { typedHandle } from '../helpers';
+import { saveAttachment } from '../../attachments';
 import { createTaskWorktree, createTodoTask, checkTaskWorktree, recoverTaskWorktree } from '../../worktree';
 import { setTaskMergeTarget, setTaskSandboxed, setTaskName, setTaskDescription, setTaskParent } from '../../db';
 import {
@@ -61,4 +62,6 @@ export function registerTaskHandlers(): void {
   typedHandle('task:set-parent', (projectPath, taskNumber, parentTaskNumber, mergeTarget) =>
     setTaskParent(projectPath, taskNumber, parentTaskNumber, mergeTarget),
   );
+
+  typedHandle('task:save-attachment', (data, ext) => saveAttachment(data, ext));
 }
