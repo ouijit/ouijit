@@ -507,8 +507,8 @@ export interface ElectronAPI {
   tags: TagsAPI;
   /** Ad-hoc scripts API */
   scripts: ScriptsAPI;
-  /** Claude Code hook events */
-  claudeHooks: ClaudeHooksAPI;
+  /** CLI agent hook events (claude/codex/pi) */
+  agentHooks: AgentHooksAPI;
   /** Plan file detection and viewing */
   plan: PlanAPI;
   /** Get file path from a dropped File object */
@@ -541,9 +541,9 @@ export interface CaptureAPI {
 }
 
 /**
- * Claude Code hook events API exposed to the renderer
+ * CLI agent hook events API exposed to the renderer. Shared by claude / codex / pi.
  */
-export interface ClaudeHooksAPI {
+export interface AgentHooksAPI {
   onStatus(callback: (ptyId: PtyId, status: HookStatus) => void): () => void;
   getStatus(ptyId: PtyId): Promise<HookStatusEntry | null>;
 }

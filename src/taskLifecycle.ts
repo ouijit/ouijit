@@ -62,13 +62,13 @@ export async function beginTask(
     }
   }
 
-  // Surface a non-fatal warning if Claude Code is not on PATH. The kanban / open
-  // terminal handlers route these to a one-time toast.
+  // Surface a non-fatal warning if no supported coding agent is on PATH. The
+  // kanban / open terminal handlers route these to a one-time toast.
   const health = getCachedHealth();
-  if (health && !health.claude) {
+  if (health && !health.claude && !health.codex && !health.pi) {
     result.warnings = [
       ...(result.warnings ?? []),
-      'Claude Code not found on PATH. Install from claude.com/claude-code to use AI workflows in this terminal.',
+      'No coding agent found on PATH. Install Claude Code (claude.com/claude-code), Codex, or Pi (pi.dev) to use AI workflows in this terminal.',
     ];
   }
 

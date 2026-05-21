@@ -606,7 +606,7 @@ export async function reconnectOrphanedSessions(projectPath: string): Promise<vo
     }
 
     const [hookStatus, planPath] = await Promise.all([
-      window.api.claudeHooks.getStatus(session.ptyId),
+      window.api.agentHooks.getStatus(session.ptyId),
       window.api.plan.getForPty(session.ptyId),
     ]);
     const initialStatus: SummaryType = hookStatus?.status === 'thinking' ? 'thinking' : 'ready';

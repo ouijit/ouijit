@@ -10,6 +10,7 @@ import * as http from 'node:http';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
+import { createHash } from 'node:crypto';
 import { BrowserWindow } from 'electron';
 import { isPtyActive } from './ptyManager';
 import { getLogger } from './logger';
@@ -75,15 +76,21 @@ export function setPlanPath(ptyId: string, planPath: string): boolean {
   return true;
 }
 
-/** Clear the plan file path for a pty and notify the renderer. */
+/**
+ * Clear the plan file path for a pty and notify the renderer.
+ *
+ * Always notifies the renderer, even when planPathMap has no entry: the map is
+ * in-memory only, so after an app restart it is empty while the renderer may
+ * still display a previously-set plan. Notifying unconditionally lets a stale
+ * renderer plan state get cleared.
+ */
 export function clearPlanPath(ptyId: string): boolean {
-  if (!planPathMap.has(ptyId)) return false;
-  planPathMap.delete(ptyId);
-  hookServerLog.info('plan cleared', { ptyId });
+  const had = planPathMap.delete(ptyId);
+  hookServerLog.info('plan cleared', { ptyId, had });
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('claude-plan-detected', ptyId, null);
   }
-  return true;
+  return had;
 }
 
 // ── Action handlers ──────────────────────────────────────────────────
@@ -116,7 +123,7 @@ const actionHandlers: Record<string, ActionHandler> = {
 
     // Forward to renderer for real-time UI updates
     if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('claude-hook-status', ptyId, status);
+      mainWindow.webContents.send('agent-hook-status', ptyId, status);
     }
   },
 
@@ -469,6 +476,225 @@ export const CLAUDE_WRAPPER = [
   '',
 ].join('\n');
 
+// ── Codex wrapper ────────────────────────────────────────────────────
+// Codex has no `--settings` / `--append-system-prompt-file` flags, so the
+// wrapper injects everything via `codex -c key=value` config overrides
+// (where the value is parsed as TOML, falling back to a raw string):
+//   • developer_instructions — the Ouijit CLI reference, surfaced as a
+//     `developer` role message (appends; does NOT replace base instructions
+//     like model_instructions_file would). The markdown isn't valid TOML, so
+//     it's kept as a string — exactly the type this key wants.
+//   • hooks.{UserPromptSubmit,PostToolUse,Stop,PermissionRequest} — Codex's
+//     lifecycle-hook engine (stable, on by default). UserPromptSubmit /
+//     PostToolUse → thinking; Stop / PermissionRequest → ready. Same status
+//     mapping as the claude wrapper. The values are TOML arrays of inline
+//     tables; commands run via the user's shell, so $HOME stays literal.
+//     (We can't mark these `async = true` — Codex skips async hooks with a
+//     warning today. ouijit-hook itself backgrounds its `curl` and exits in
+//     milliseconds, so sync is fine.)
+//   • notify — Codex's older, always-on turn-complete notifier; also mapped
+//     to status=ready (a harmless fallback if the hooks engine is disabled).
+//     Codex runs `notify[0] notify[1..] <json>` with no shell, so we wrap it
+//     as ["bash","-c","<cmd>"] — bash expands $HOME and the trailing JSON
+//     payload becomes $0 (ignored).
+//   • hooks.state."<key>".trusted_hash — pre-trust each hook so Codex doesn't
+//     gate it behind the `/hooks` review prompt on every fresh session. The
+//     hash mirrors codex-rs/hooks/src/engine/discovery.rs:command_hook_hash:
+//     sha256 of canonical JSON of the normalized hook identity. If a future
+//     Codex changes the normalization our hash mismatches → trust_status is
+//     `Modified` → hook is skipped just like an untrusted hook, and the user
+//     falls back to the same one-time `/hooks` approval as before. Graceful.
+
+/** Path to ouijit-hook with literal $HOME (expanded by whatever shell runs it). */
+const CODEX_OUIJIT_HOOK = '$HOME/.config/Ouijit/bin/ouijit-hook';
+
+/** SessionFlags layer source path Codex synthesizes for `-c` overrides (see discovery.rs). */
+const CODEX_SESSION_FLAGS_PATH = '/<session-flags>/config.toml';
+
+/**
+ * Lifecycle hook events Codex exposes that we map to a status. Each entry is
+ * `[event_name, status, event_snake]`. `event_snake` matches `hook_event_key_label`
+ * in codex-rs and is what Codex uses inside the persisted hook key.
+ */
+const CODEX_STATUS_HOOKS: ReadonlyArray<readonly [event: string, status: 'thinking' | 'ready', eventSnake: string]> = [
+  ['UserPromptSubmit', 'thinking', 'user_prompt_submit'],
+  ['PostToolUse', 'thinking', 'post_tool_use'],
+  ['Stop', 'ready', 'stop'],
+  ['PermissionRequest', 'ready', 'permission_request'],
+];
+
+function codexHookCommand(hookPath: string, status: 'thinking' | 'ready'): string {
+  return `${hookPath} status status=${status}`;
+}
+
+/** TOML array-of-one-inline-table value for a single Codex `hooks.<Event>` entry (one command hook). */
+function codexHookEventValue(hookPath: string, status: 'thinking' | 'ready'): string {
+  return `[{hooks=[{type="command",command="${codexHookCommand(hookPath, status)}"}]}]`;
+}
+
+/** TOML/JSON array value for Codex's `notify` config — a shell wrapper that ignores the trailing payload arg. */
+function codexNotifyValue(hookPath: string): string {
+  return JSON.stringify(['bash', '-c', codexHookCommand(hookPath, 'ready')]);
+}
+
+/**
+ * Build the persisted hook key Codex uses for a single command hook in our
+ * single-group/single-handler layout: `<source>:<event_snake>:0:0`.
+ */
+function codexHookStateKey(source: string, eventSnake: string): string {
+  return `${source}:${eventSnake}:0:0`;
+}
+
+/**
+ * Canonical JSON: recursively sort object keys, no whitespace. Mirrors
+ * codex-rs/config/src/fingerprint.rs:canonical_json + serde_json::to_vec.
+ */
+function canonicalJson(value: unknown): string {
+  if (value === null || typeof value !== 'object') return JSON.stringify(value);
+  if (Array.isArray(value)) return '[' + value.map(canonicalJson).join(',') + ']';
+  const obj = value as Record<string, unknown>;
+  const keys = Object.keys(obj).sort();
+  return '{' + keys.map((k) => JSON.stringify(k) + ':' + canonicalJson(obj[k])).join(',') + '}';
+}
+
+/**
+ * Compute the `current_hash` Codex expects in `hooks.state.<key>.trusted_hash`
+ * for one of our command hooks. Mirrors `command_hook_hash` in
+ * codex-rs/hooks/src/engine/discovery.rs:
+ *
+ *   identity = { event_name, matcher (skipped when None), hooks: [normalized] }
+ *   normalized = { type:"command", command, commandWindows (skipped when None),
+ *                  timeout (default 600), async:false, statusMessage (skipped) }
+ *   hash = sha256(canonical_json(identity))
+ *
+ * None-valued Options are skipped by toml::Serializer (TOML has no null) and so
+ * don't appear in the JSON Codex hashes.
+ */
+function codexHookTrustHash(eventSnake: string, command: string): string {
+  const identity = {
+    event_name: eventSnake,
+    hooks: [{ type: 'command', command, timeout: 600, async: false }],
+  };
+  const hex = createHash('sha256').update(canonicalJson(identity)).digest('hex');
+  return `sha256:${hex}`;
+}
+
+/** Bash wrapper that shadows `codex` and injects the CLI reference + status hooks via `-c` overrides. */
+export const CODEX_WRAPPER = [
+  '#!/bin/bash',
+  '# Ouijit codex wrapper — mirrors the claude wrapper. Removes its own',
+  '# directory from PATH to find the real codex binary, then re-exports it',
+  '# so the ouijit CLI is available inside Codex. Injects the Ouijit CLI',
+  '# reference and status hooks via `-c` config overrides (Codex has no',
+  '# --settings flag).',
+  'WRAPPER_DIR="$(cd "$(dirname "$0")" && pwd)"',
+  'CLEAN_PATH=":$PATH:"',
+  'CLEAN_PATH="${CLEAN_PATH//:$WRAPPER_DIR:/:}"',
+  'CLEAN_PATH="${CLEAN_PATH#:}"',
+  'CLEAN_PATH="${CLEAN_PATH%:}"',
+  '',
+  '# Resolve the real codex binary from the clean PATH',
+  'REAL_CODEX="$(PATH="$CLEAN_PATH" command -v codex)"',
+  'if [ -z "$REAL_CODEX" ]; then',
+  '  echo "ouijit: codex not found on PATH" >&2',
+  '  exit 1',
+  'fi',
+  '',
+  '# Re-export PATH with wrapper dir so ouijit CLI works inside Codex',
+  'export PATH="$WRAPPER_DIR:$CLEAN_PATH"',
+  '',
+  '# Ouijit CLI reference file — surfaced via developer_instructions',
+  'REFERENCE_FILE="$HOME/.config/Ouijit/ouijit-cli-reference.md"',
+  '',
+  '# If ouijit is not running, just exec the real codex with CLI awareness',
+  'if [ -z "$OUIJIT_API_URL" ]; then',
+  '  exec "$REAL_CODEX" -c "developer_instructions=$(cat "$REFERENCE_FILE" 2>/dev/null)" "$@"',
+  'fi',
+  '',
+  'exec "$REAL_CODEX" \\',
+  '  -c "developer_instructions=$(cat "$REFERENCE_FILE" 2>/dev/null)" \\',
+  ...CODEX_STATUS_HOOKS.flatMap(([event, status, eventSnake]) => {
+    const cmd = codexHookCommand(CODEX_OUIJIT_HOOK, status);
+    const stateKey = codexHookStateKey(CODEX_SESSION_FLAGS_PATH, eventSnake);
+    const hash = codexHookTrustHash(eventSnake, cmd);
+    return [
+      `  -c 'hooks.${event}=${codexHookEventValue(CODEX_OUIJIT_HOOK, status)}' \\`,
+      `  -c 'hooks.state."${stateKey}".trusted_hash="${hash}"' \\`,
+    ];
+  }),
+  `  -c 'notify=${codexNotifyValue(CODEX_OUIJIT_HOOK)}' \\`,
+  '  "$@"',
+  '',
+].join('\n');
+
+// ── Pi wrapper ───────────────────────────────────────────────────────
+// Pi exposes lifecycle events only to TypeScript extensions, not as
+// shell-command hooks. We ship a tiny extension and load it via
+// `pi --extension <path>`; the same source auto-discovers in the sandbox
+// VM. OUIJIT_HOOK_BIN (set by the wrapper / VM init) carries the path to
+// ouijit-hook so the extension source is identical in both contexts.
+
+export function getPiExtensionPath(): string {
+  return path.join(os.homedir(), '.config', 'Ouijit', 'pi', 'ouijit-extension.ts');
+}
+
+export const PI_EXTENSION = `// Ouijit Pi extension — bridges Pi turn events to the per-terminal
+// status indicator. Auto-installed; safe to delete (Ouijit recreates it).
+// No-ops when OUIJIT_HOOK_BIN is unset, so it's harmless outside Ouijit.
+
+type OuijitStatus = 'thinking' | 'ready';
+
+interface OuijitPiApi {
+  on(event: string, handler: () => void): void;
+  exec(command: string, args: string[], options?: { timeout?: number }): Promise<unknown>;
+}
+
+export default async (pi: OuijitPiApi) => {
+  const hookBin = process.env.OUIJIT_HOOK_BIN;
+  if (!hookBin) return;
+
+  const ping = (status: OuijitStatus) => {
+    pi.exec(hookBin, ['status', \`status=\${status}\`], { timeout: 2000 }).catch(() => {});
+  };
+
+  pi.on('turn_start', () => ping('thinking'));
+  pi.on('turn_end', () => ping('ready'));
+};
+`;
+
+export const PI_WRAPPER = [
+  '#!/bin/bash',
+  '# Ouijit pi wrapper — mirrors the claude/codex wrappers.',
+  'WRAPPER_DIR="$(cd "$(dirname "$0")" && pwd)"',
+  'CLEAN_PATH=":$PATH:"',
+  'CLEAN_PATH="${CLEAN_PATH//:$WRAPPER_DIR:/:}"',
+  'CLEAN_PATH="${CLEAN_PATH#:}"',
+  'CLEAN_PATH="${CLEAN_PATH%:}"',
+  '',
+  'REAL_PI="$(PATH="$CLEAN_PATH" command -v pi)"',
+  'if [ -z "$REAL_PI" ]; then',
+  '  echo "ouijit: pi not found on PATH" >&2',
+  '  exit 1',
+  'fi',
+  '',
+  'export PATH="$WRAPPER_DIR:$CLEAN_PATH"',
+  '',
+  'REFERENCE_FILE="$HOME/.config/Ouijit/ouijit-cli-reference.md"',
+  'EXTENSION_FILE="$HOME/.config/Ouijit/pi/ouijit-extension.ts"',
+  'HOOK_BIN="$HOME/.config/Ouijit/bin/ouijit-hook"',
+  '',
+  'if [ -z "$OUIJIT_API_URL" ]; then',
+  '  exec "$REAL_PI" --append-system-prompt "$(cat "$REFERENCE_FILE" 2>/dev/null)" "$@"',
+  'fi',
+  '',
+  '# OUIJIT_HOOK_BIN is read by the extension to shell out to ouijit-hook.',
+  'OUIJIT_HOOK_BIN="$HOOK_BIN" exec "$REAL_PI" \\',
+  '  --append-system-prompt "$(cat "$REFERENCE_FILE" 2>/dev/null)" \\',
+  '  --extension "$EXTENSION_FILE" \\',
+  '  "$@"',
+  '',
+].join('\n');
+
 // ── Shell integration scripts ────────────────────────────────────────
 // These scripts ensure the wrapper dir stays first in PATH even after
 // shell init files (.zshrc, .bashrc) prepend other directories.
@@ -549,6 +775,17 @@ export function installWrapper(): void {
 
     // Write claude wrapper script (shadows `claude` to inject --settings)
     fs.writeFileSync(path.join(binDir, 'claude'), CLAUDE_WRAPPER, { mode: 0o755 });
+
+    // Write codex wrapper script (shadows `codex` to inject -c config overrides)
+    fs.writeFileSync(path.join(binDir, 'codex'), CODEX_WRAPPER, { mode: 0o755 });
+
+    // Write pi wrapper and the extension it loads via --extension. The
+    // extension lives outside bin/ (not on PATH) and outside Pi's
+    // auto-discovery roots (no effect on un-wrapped `pi` invocations).
+    fs.writeFileSync(path.join(binDir, 'pi'), PI_WRAPPER, { mode: 0o755 });
+    const piExtPath = getPiExtensionPath();
+    fs.mkdirSync(path.dirname(piExtPath), { recursive: true });
+    fs.writeFileSync(piExtPath, PI_EXTENSION, { mode: 0o644 });
 
     // Write ouijit CLI wrapper (delegates to the bundled CLI JS via env vars set by PTY manager)
     fs.writeFileSync(
@@ -651,4 +888,48 @@ export function migrateFromSettingsHooks(): void {
  */
 export function buildVmHookSettings(): string {
   return JSON.stringify(buildHookSettings('$HOME/ouijit-hook', '$HOME/ouijit-plan-hook'), null, 2);
+}
+
+/**
+ * Build the TOML content for the VM's ~/.codex/config.toml. There is no `codex`
+ * wrapper inside the sandbox, so the lifecycle hooks + turn-complete notifier
+ * are wired via the config file instead. The CLI reference is deliberately
+ * omitted — the ouijit CLI is not installed in the sandbox. $HOME stays
+ * literal so the in-VM shell expands it.
+ *
+ * Written into the VM via a *quoted* heredoc (no expansion) so that `$HOME` in
+ * hook commands reaches Codex unchanged and gets expanded by the agent's shell.
+ */
+export function buildVmCodexConfig(): string {
+  const hookPath = '$HOME/ouijit-hook';
+  const lines = [`notify = ["bash", "-c", "${codexHookCommand(hookPath, 'ready')}"]`];
+  for (const [event, status] of CODEX_STATUS_HOOKS) {
+    lines.push(`hooks.${event} = ${codexHookEventValue(hookPath, status)}`);
+  }
+  lines.push('');
+  return lines.join('\n');
+}
+
+/**
+ * Build the `[hooks.state]` trust-state lines for the VM's ~/.codex/config.toml.
+ * The key prefix is the absolute path of the config file, which we can only
+ * resolve at write time inside the VM — so this is meant to be appended via an
+ * *unquoted* heredoc so the VM's bash expands `$HOME` in the key.
+ */
+export function buildVmCodexTrustState(): string {
+  const hookPath = '$HOME/ouijit-hook';
+  const source = '$HOME/.codex/config.toml';
+  const lines = CODEX_STATUS_HOOKS.map(([, status, eventSnake]) => {
+    const cmd = codexHookCommand(hookPath, status);
+    const stateKey = codexHookStateKey(source, eventSnake);
+    const hash = codexHookTrustHash(eventSnake, cmd);
+    return `hooks.state."${stateKey}".trusted_hash = "${hash}"`;
+  });
+  lines.push('');
+  return lines.join('\n');
+}
+
+/** Pi extension for the sandbox VM. Identical to the host-side source. */
+export function buildVmPiExtension(): string {
+  return PI_EXTENSION;
 }
