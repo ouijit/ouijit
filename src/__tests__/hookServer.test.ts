@@ -34,6 +34,9 @@ import {
   startHookServer,
   stopHookServer,
   getApiPort,
+  setPlanPath,
+  clearPlanPath,
+  getPlanPath,
   installWrapper,
   migrateFromSettingsHooks,
   buildVmHookSettings,
@@ -270,6 +273,38 @@ describe('status action', () => {
     port = getApiPort();
 
     await post(port, { action: 'status', ptyId: 'pty-123', status: 'thinking' });
+    expect(mockSend).not.toHaveBeenCalled();
+  });
+});
+
+describe('clearPlanPath', () => {
+  beforeEach(async () => {
+    await startHookServer(createMockWindow());
+  });
+
+  test('notifies renderer and returns true when a plan was set', () => {
+    setPlanPath('pty-plan-1', '/tmp/plan.md');
+    mockSend.mockClear();
+
+    const had = clearPlanPath('pty-plan-1');
+
+    expect(had).toBe(true);
+    expect(getPlanPath('pty-plan-1')).toBeNull();
+    expect(mockSend).toHaveBeenCalledWith('claude-plan-detected', 'pty-plan-1', null);
+  });
+
+  test('still notifies renderer when the map has no entry (stale renderer state)', () => {
+    const had = clearPlanPath('pty-never-set');
+
+    expect(had).toBe(false);
+    expect(mockSend).toHaveBeenCalledWith('claude-plan-detected', 'pty-never-set', null);
+  });
+
+  test('does not throw when window is destroyed', async () => {
+    await stopHookServer();
+    await startHookServer(createMockWindow(true));
+
+    expect(() => clearPlanPath('pty-destroyed')).not.toThrow();
     expect(mockSend).not.toHaveBeenCalled();
   });
 });
