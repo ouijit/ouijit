@@ -23,7 +23,7 @@ interface KanbanColumnProps {
   tasks: TaskWithWorkspace[];
   projectPath: string;
   settingUpTaskNumbers?: ReadonlySet<number>;
-  onAddTask?: (name: string) => void;
+  onAddTask?: (name: string, description?: string) => void;
   onRenameTask: (taskNumber: number, newName: string) => void;
   onUpdateDescription: (taskNumber: number, description: string) => void;
   onOpenTerminal: (task: TaskWithWorkspace, sandboxed?: boolean) => void;
