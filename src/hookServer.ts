@@ -76,15 +76,21 @@ export function setPlanPath(ptyId: string, planPath: string): boolean {
   return true;
 }
 
-/** Clear the plan file path for a pty and notify the renderer. */
+/**
+ * Clear the plan file path for a pty and notify the renderer.
+ *
+ * Always notifies the renderer, even when planPathMap has no entry: the map is
+ * in-memory only, so after an app restart it is empty while the renderer may
+ * still display a previously-set plan. Notifying unconditionally lets a stale
+ * renderer plan state get cleared.
+ */
 export function clearPlanPath(ptyId: string): boolean {
-  if (!planPathMap.has(ptyId)) return false;
-  planPathMap.delete(ptyId);
-  hookServerLog.info('plan cleared', { ptyId });
+  const had = planPathMap.delete(ptyId);
+  hookServerLog.info('plan cleared', { ptyId, had });
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send('claude-plan-detected', ptyId, null);
   }
-  return true;
+  return had;
 }
 
 // ── Action handlers ──────────────────────────────────────────────────
