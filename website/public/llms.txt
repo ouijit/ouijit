@@ -11,7 +11,7 @@ Free and open source under the AGPL-3.0 license. No account, no sign-in. Distrib
 - [Kanban Board](https://ouijit.com/docs/#kanban): Four-column board (To Do / In Progress / In Review / Done) with drag-and-drop.
 - [Terminal Sessions](https://ouijit.com/docs/#terminals): Card stack UI, keyboard shortcuts, runner panel, diff panel, tags.
 - [VM Sandbox](https://ouijit.com/docs/#sandbox): Lima-based Linux VM, dual-worktree model with tracked-files-only mount, partial .git mount with hooks/config read-only.
-- [Hooks](https://ouijit.com/docs/#hooks): Lifecycle hooks (start, continue, review, cleanup) and on-demand hooks (run, editor, sandbox setup) configured per project.
+- [Hooks](https://ouijit.com/docs/#hooks): Lifecycle hooks (start, continue, review, done) and on-demand hooks (run, editor) configured per project.
 - [Agents](https://ouijit.com/docs/#agents): Status indicators and CLI awareness for Claude Code, Codex, and Pi via injected wrappers.
 - [CLI](https://ouijit.com/docs/#cli): The `ouijit` command auto-installed in every terminal, with subcommands for tasks, hooks, scripts, tags, plans, and projects.
 

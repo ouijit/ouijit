@@ -249,7 +249,7 @@ export async function importAll(
           if (settings.hooks) {
             for (const [hookType, hook] of Object.entries(settings.hooks)) {
               try {
-                const validTypes: HookType[] = ['start', 'continue', 'run', 'done', 'editor'];
+                const validTypes: HookType[] = ['start', 'continue', 'run', 'review', 'done', 'editor'];
                 const mappedType = (hookType === 'cleanup' ? 'done' : hookType) as HookType;
                 if (validTypes.includes(mappedType) && hook.command) {
                   hookRepo.save(
