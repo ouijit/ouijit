@@ -26,9 +26,17 @@ export function XTermContainer({ ptyId, className, style }: XTermContainerProps)
     containerRef.current.appendChild(viewport);
     instance.reattach();
 
-    // Defer fit to next frame — container may not have layout dimensions yet
+    // Defer fit to next frame — container may not have layout dimensions yet —
+    // and grab keyboard focus. This component only renders for the active card,
+    // so mounting here means a terminal just became visible (card switch, page
+    // nav, project re-entry, session restore) and should be ready to type into.
     const raf = requestAnimationFrame(() => {
       instance.fit();
+      const focused = document.activeElement;
+      const editingElsewhere =
+        focused instanceof HTMLElement &&
+        (focused.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(focused.tagName));
+      if (!editingElsewhere) instance.xterm.focus();
     });
 
     return () => {

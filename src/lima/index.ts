@@ -7,6 +7,7 @@ export {
   writeSandboxPty,
   resizeSandboxPty,
   killSandboxPty,
+  setSandboxPtyLabel,
   getActiveSandboxSessions,
   reconnectSandboxPty,
 } from './spawn';

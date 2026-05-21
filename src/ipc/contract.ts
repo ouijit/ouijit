@@ -205,6 +205,7 @@ export interface IpcSendContract {
   'pty:write': { args: [ptyId: string, data: string] };
   'pty:resize': { args: [ptyId: string, cols: number, rows: number] };
   'pty:kill': { args: [ptyId: string] };
+  'pty:set-label': { args: [ptyId: string, label: string] };
   'pty:set-window': { args: [] };
 }
 

@@ -363,6 +363,16 @@ export function getActiveSessionCount(): number {
 }
 
 /**
+ * Update a PTY's display label (user renamed the terminal card). Keeps the
+ * managed record in sync so `getActiveSessions` — and therefore the reconnect
+ * path after a renderer reload — restores the renamed label, not the original.
+ */
+export function setPtyLabel(ptyId: PtyId, label: string): void {
+  const managed = activePtys.get(ptyId);
+  if (managed) managed.label = label;
+}
+
+/**
  * Sandbox PTYs are tracked in src/lima/spawn.ts in their own map — they never
  * enter `activePtys`. But hookServer / setPlanPath / `task current` need a
  * single source of truth for "is this ptyId live?" and "what task does this

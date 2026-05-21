@@ -4,7 +4,7 @@ import { useProjectStore } from '../../stores/projectStore';
 import { useUIStore } from '../../stores/uiStore';
 import { useShallow } from 'zustand/react/shallow';
 import { terminalInstances } from './terminalReact';
-import { addProjectTerminal, closeProjectTerminal } from './terminalActions';
+import { addProjectTerminal, closeProjectTerminal, renameTerminal } from './terminalActions';
 import { findOtherTaskTerminals } from './findOtherTaskTerminals';
 
 const EMPTY_TAGS: string[] = [];
@@ -271,9 +271,7 @@ export const TerminalHeader = memo(function TerminalHeader({
 
   const commitRename = useCallback(() => {
     const value = renameInputRef.current?.value.trim();
-    if (value) {
-      useTerminalStore.getState().updateDisplay(ptyId, { label: value });
-    }
+    if (value) renameTerminal(ptyId, value);
     setRenaming(false);
   }, [ptyId]);
 

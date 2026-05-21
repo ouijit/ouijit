@@ -51,6 +51,7 @@ const mockApi = {
     write: vi.fn(),
     resize: vi.fn(),
     kill: vi.fn(),
+    setLabel: vi.fn(),
     onData: vi.fn().mockReturnValue(() => {}),
     onExit: vi.fn().mockReturnValue(() => {}),
     getActiveSessions: vi.fn().mockResolvedValue([]),
