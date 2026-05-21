@@ -20,6 +20,10 @@ export interface PendingCliStart {
   branch: string;
   createdAt: string;
   sandboxed: boolean;
+  /** Hook-control mode from the CLI flags; absent = default start-hook dialog. */
+  hookMode?: 'run' | 'skip' | 'command';
+  /** Custom command when hookMode is 'command'. */
+  hookCommand?: string;
 }
 
 interface ProjectStoreState {

@@ -495,6 +495,8 @@ export interface ElectronAPI {
       branch: string;
       createdAt: string;
       sandboxed: boolean;
+      hookMode?: 'run' | 'skip' | 'command';
+      hookCommand?: string;
     }) => void,
   ): () => void;
   /** Get project settings */

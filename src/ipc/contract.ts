@@ -239,6 +239,10 @@ export interface IpcPushContract {
         branch: string;
         createdAt: string;
         sandboxed: boolean;
+        /** Hook-control mode from the CLI flags; absent = default dialog. */
+        hookMode?: 'run' | 'skip' | 'command';
+        /** Custom command when hookMode is 'command'. */
+        hookCommand?: string;
       },
     ];
   };

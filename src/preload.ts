@@ -214,6 +214,8 @@ contextBridge.exposeInMainWorld('api', {
       branch: string;
       createdAt: string;
       sandboxed: boolean;
+      hookMode?: 'run' | 'skip' | 'command';
+      hookCommand?: string;
     }) => void,
   ) => typedListen('cli:task-started', callback),
 
