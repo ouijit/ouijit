@@ -685,7 +685,7 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
             const hookActive =
               (col.status === 'in_progress' && !!(configuredHooks.start || configuredHooks.continue)) ||
               (col.status === 'in_review' && !!configuredHooks.review) ||
-              (col.status === 'done' && !!configuredHooks.cleanup);
+              (col.status === 'done' && !!configuredHooks.done);
 
             return (
               <KanbanColumn
