@@ -23,8 +23,12 @@ export function KanbanAddInput({ onAdd }: KanbanAddInputProps) {
     if (!trimmedName) return;
     const trimmedDescription = description.trim();
     onAdd(trimmedName, trimmedDescription || undefined);
-    reset();
-  }, [name, description, onAdd, reset]);
+    // Clear the fields but keep the form open and focused so the next task
+    // can be typed immediately without clicking back in.
+    setName('');
+    setDescription('');
+    inputRef.current?.focus();
+  }, [name, description, onAdd]);
 
   const handleNameKeyDown = useCallback(
     (e: React.KeyboardEvent) => {

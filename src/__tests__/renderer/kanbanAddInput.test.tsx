@@ -107,7 +107,7 @@ describe('KanbanAddInput', () => {
     expect(onAdd).not.toHaveBeenCalled();
   });
 
-  it('clears both fields after a successful create', () => {
+  it('clears the fields but keeps the form open for the next task after a create', () => {
     render(<KanbanAddInput onAdd={vi.fn()} />);
 
     const title = getTitle();
@@ -116,8 +116,28 @@ describe('KanbanAddInput', () => {
     fireEvent.change(getDescription()!, { target: { value: 'Details' } });
     fireEvent.keyDown(title, { key: 'Enter' });
 
+    // Fields are cleared, but the form stays expanded so the next task can
+    // be entered without clicking back in.
     expect(getTitle().value).toBe('');
-    expect(getDescription()).toBeNull();
+    expect(getDescription()).not.toBeNull();
+    expect(getDescription()!.value).toBe('');
+    expect(getCreateButton()).not.toBeNull();
+  });
+
+  it('can create a second task in a row without re-focusing the form', () => {
+    const onAdd = vi.fn();
+    render(<KanbanAddInput onAdd={onAdd} />);
+
+    const title = getTitle();
+    fireEvent.focus(title);
+    fireEvent.change(title, { target: { value: 'First task' } });
+    fireEvent.keyDown(title, { key: 'Enter' });
+
+    fireEvent.change(title, { target: { value: 'Second task' } });
+    fireEvent.keyDown(title, { key: 'Enter' });
+
+    expect(onAdd).toHaveBeenNthCalledWith(1, 'First task', undefined);
+    expect(onAdd).toHaveBeenNthCalledWith(2, 'Second task', undefined);
   });
 
   it('clears and collapses the form when Cancel is clicked', () => {
