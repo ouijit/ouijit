@@ -37,7 +37,7 @@ function hookTypeForTransition(origStatus: TaskStatus, newStatus: TaskStatus): H
   if (origStatus === newStatus) return null;
   if (newStatus === 'in_progress') return origStatus === 'todo' ? 'start' : 'continue';
   if (newStatus === 'in_review') return 'review';
-  if (newStatus === 'done') return 'cleanup';
+  if (newStatus === 'done') return 'done';
   return null;
 }
 
@@ -272,10 +272,18 @@ async function runNonStartHookInTerminal(
   }
 
   if (newStatus === 'done') {
+    // Snapshot the task's terminals *before* spawning the done-hook terminal,
+    // so the cleanup below closes only the pre-existing ones. The hook terminal
+    // is created during the await and is excluded, leaving its output visible.
+    const storeBefore = useTerminalStore.getState();
+    const staleTerminals = (storeBefore.terminalsByProject[projectPath] ?? []).filter(
+      (ptyId) => storeBefore.displayStates[ptyId]?.taskId === task.taskNumber,
+    );
+
     if (task.worktreePath) {
       await addProjectTerminal(
         projectPath,
-        { name: 'Cleanup', command: hookResult.command, source: 'custom', priority: 0 },
+        { name: 'Done', command: hookResult.command, source: 'custom', priority: 0 },
         {
           existingWorktree: { path: task.worktreePath, branch: task.branch || '', createdAt: task.createdAt },
           taskId: task.taskNumber,
@@ -286,14 +294,11 @@ async function runNonStartHookInTerminal(
       );
       if (hookResult.foreground && onForegroundOpen) onForegroundOpen();
     }
-    // Close all terminals tied to this task once it's done.
-    const store = useTerminalStore.getState();
-    const ptyIds = store.terminalsByProject[projectPath] ?? [];
-    for (const ptyId of [...ptyIds]) {
-      const display = store.displayStates[ptyId];
-      if (display?.taskId === task.taskNumber) {
-        closeProjectTerminal(ptyId);
-      }
+
+    // Close the terminals that were open before the hook ran. The done-hook
+    // terminal itself is left running so its output stays observable.
+    for (const ptyId of staleTerminals) {
+      closeProjectTerminal(ptyId);
     }
   }
 }

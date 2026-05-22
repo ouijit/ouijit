@@ -14,7 +14,7 @@ const COLUMN_HOOK_TYPES: Record<string, HookType[]> = {
   todo: [],
   in_progress: ['start', 'continue'],
   in_review: ['review'],
-  done: ['cleanup'],
+  done: ['done'],
 };
 
 interface KanbanColumnProps {
