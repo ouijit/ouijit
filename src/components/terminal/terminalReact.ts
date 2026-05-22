@@ -69,9 +69,32 @@ function getTerminalTheme(): Record<string, string> {
 // Platform detection
 const isMac = navigator.platform.toLowerCase().includes('mac');
 
-function setupTerminalAppHotkeys(terminal: XTerminal): void {
+function setupTerminalAppHotkeys(terminal: XTerminal, writeToPty: (data: string) => void): void {
   terminal.attachCustomKeyEventHandler((event) => {
     const hasModifier = isMac ? event.metaKey && !event.ctrlKey : event.ctrlKey && !event.metaKey;
+
+    // Shift+Enter — emit ESC+CR so TUIs (e.g. Claude Code) insert a line
+    // break instead of submitting. xterm.js otherwise maps Shift+Enter to a
+    // plain carriage return, identical to Enter. This is the exact sequence
+    // VS Code's xterm.js terminal sends via its `/terminal-setup` keybinding;
+    // Claude Code recognizes it unconditionally, with no kitty-protocol
+    // negotiation or TERM_PROGRAM detection required.
+    if (
+      event.type === 'keydown' &&
+      event.key === 'Enter' &&
+      event.shiftKey &&
+      !event.ctrlKey &&
+      !event.metaKey &&
+      !event.altKey
+    ) {
+      // preventDefault is required: returning false alone skips xterm's
+      // keydown handling but also skips the preventDefault it would have
+      // done, so the textarea still emits a trailing carriage return that
+      // submits the prompt right after our newline.
+      event.preventDefault();
+      writeToPty('\x1b\r');
+      return false;
+    }
 
     if (hasModifier && !event.altKey) {
       const key = event.key.toLowerCase();
@@ -436,7 +459,9 @@ export class OuijitTerminal {
       }),
     );
 
-    setupTerminalAppHotkeys(this.xterm);
+    setupTerminalAppHotkeys(this.xterm, (data) => {
+      if (this.ptyId) window.api.pty.write(this.ptyId, data);
+    });
 
     // Create viewport element (minimal — React owns card chrome)
     this.viewportElement = document.createElement('div');

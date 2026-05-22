@@ -68,6 +68,8 @@ export async function executeHook(
     }
     if (env?.taskPrompt) {
       hookEnv.OUIJIT_TASK_PROMPT = env.taskPrompt;
+      // Alias matching the "description" label used in the UI.
+      hookEnv.OUIJIT_TASK_DESCRIPTION = env.taskPrompt;
     }
 
     // Spawn the process
