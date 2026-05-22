@@ -88,13 +88,13 @@ export function KanbanAddInput({ onAdd }: KanbanAddInputProps) {
             onKeyDown={handleDescriptionKeyDown}
           />
           <div
-            className="flex items-center justify-end gap-2 px-3 py-2"
-            style={{ borderTop: '1px solid rgba(255, 255, 255, 0.06)' }}
+            className="flex items-center justify-end gap-4 px-3 py-2"
+            style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.06)' }}
           >
             <button
               type="button"
               onClick={reset}
-              className="px-3 py-1 text-xs text-text-secondary rounded-full hover:bg-white/[0.04] transition-colors"
+              className="text-[11px] text-text-tertiary hover:text-text-secondary transition-colors duration-100"
             >
               Cancel
             </button>
@@ -103,7 +103,7 @@ export function KanbanAddInput({ onAdd }: KanbanAddInputProps) {
               onClick={submit}
               disabled={!canSubmit}
               title="Create task (⌘↵)"
-              className="px-3 py-1 text-xs font-medium text-white bg-accent rounded-full hover:bg-accent-hover active:scale-[0.98] transition-all duration-150 disabled:opacity-40"
+              className="text-[11px] font-medium text-accent hover:text-accent-hover transition-colors duration-100 disabled:text-text-tertiary disabled:opacity-50"
             >
               Create
             </button>
