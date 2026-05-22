@@ -17,6 +17,7 @@ const ENV_VARS = [
   '$OUIJIT_TASK_BRANCH',
   '$OUIJIT_TASK_NAME',
   '$OUIJIT_TASK_PROMPT',
+  '$OUIJIT_TASK_DESCRIPTION',
 ];
 
 export interface RunHookResult {
