@@ -81,7 +81,7 @@ export function KanbanAddInput({ onAdd }: KanbanAddInputProps) {
           ref={textareaRef}
           className="kanban-add-description w-full font-mono text-xs text-text-secondary bg-transparent px-3 py-2.5 outline-none transition-all duration-150 ease-out border-none resize-none focus:bg-white/[0.04]"
           style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.06)' }}
-          placeholder="Description (optional) — ⌘↵ to create"
+          placeholder="Description (optional). ⌘↵ to create"
           rows={3}
           value={description}
           onChange={(e) => setDescription(e.target.value)}
