@@ -9,13 +9,14 @@ export function KanbanAddInput({ onAdd }: KanbanAddInputProps) {
   const [description, setDescription] = useState('');
   const [active, setActive] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const reset = useCallback(() => {
     setName('');
     setDescription('');
     setActive(false);
   }, []);
+
+  const canSubmit = name.trim().length > 0;
 
   const submit = useCallback(() => {
     const trimmedName = name.trim();
@@ -41,29 +42,30 @@ export function KanbanAddInput({ onAdd }: KanbanAddInputProps) {
 
   const handleDescriptionKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
+      // Enter inserts a newline so multi-line prompts can be typed; the
+      // Create button (or Cmd/Ctrl+Enter) submits.
       if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
         e.preventDefault();
         submit();
       } else if (e.key === 'Escape') {
         reset();
-        textareaRef.current?.blur();
       }
-      // A bare Enter inserts a newline so multi-line prompts can be typed.
     },
     [submit, reset],
   );
 
-  const handleBlur = useCallback(() => {
-    // Collapse the description field only when nothing has been entered.
-    if (!name.trim() && !description.trim()) {
-      setActive(false);
-    }
-  }, [name, description]);
-
-  const showDescription = active || description.length > 0;
+  // Collapse only when focus leaves the whole form and nothing was entered.
+  const handleBlur = useCallback(
+    (e: React.FocusEvent) => {
+      const nextFocus = e.relatedTarget as Node | null;
+      if (nextFocus && e.currentTarget.contains(nextFocus)) return;
+      if (!name.trim() && !description.trim()) setActive(false);
+    },
+    [name, description],
+  );
 
   return (
-    <div className="kanban-add-form">
+    <div className="kanban-add-form" onBlur={handleBlur}>
       <input
         ref={inputRef}
         type="text"
@@ -74,21 +76,39 @@ export function KanbanAddInput({ onAdd }: KanbanAddInputProps) {
         onChange={(e) => setName(e.target.value)}
         onKeyDown={handleNameKeyDown}
         onFocus={() => setActive(true)}
-        onBlur={handleBlur}
       />
-      {showDescription && (
-        <textarea
-          ref={textareaRef}
-          className="kanban-add-description w-full font-mono text-xs text-text-secondary bg-transparent px-3 py-2.5 outline-none transition-all duration-150 ease-out border-none resize-none focus:bg-white/[0.04]"
-          style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.06)' }}
-          placeholder="Description (optional). ⌘↵ to create"
-          rows={3}
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          onKeyDown={handleDescriptionKeyDown}
-          onFocus={() => setActive(true)}
-          onBlur={handleBlur}
-        />
+      {active && (
+        <>
+          <textarea
+            className="kanban-add-description w-full font-mono text-xs text-text-secondary bg-transparent px-3 py-2.5 outline-none transition-all duration-150 ease-out border-none resize-none focus:bg-white/[0.04]"
+            placeholder="Description (optional)"
+            rows={3}
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            onKeyDown={handleDescriptionKeyDown}
+          />
+          <div
+            className="flex items-center justify-end gap-2 px-3 py-2"
+            style={{ borderTop: '1px solid rgba(255, 255, 255, 0.06)' }}
+          >
+            <button
+              type="button"
+              onClick={reset}
+              className="px-3 py-1 text-xs text-text-secondary rounded-full hover:bg-white/[0.04] transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={submit}
+              disabled={!canSubmit}
+              title="Create task (⌘↵)"
+              className="px-3 py-1 text-xs font-medium text-white bg-accent rounded-full hover:bg-accent-hover active:scale-[0.98] transition-all duration-150 disabled:opacity-40"
+            >
+              Create
+            </button>
+          </div>
+        </>
       )}
     </div>
   );
