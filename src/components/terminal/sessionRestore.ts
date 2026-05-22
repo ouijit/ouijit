@@ -108,6 +108,9 @@ export async function restoreSession(snapshot: LastSessionSnapshot, entries: Res
               : undefined,
             taskId: source.taskNumber ?? undefined,
             sandboxed: source.sandboxed,
+            // Carry through a user rename so a restored card keeps its name
+            // instead of snapping back to the task name.
+            label: source.label ?? undefined,
             // Don't fire start/continue hooks on resume — that'd kick off a new
             // claude session. Restored terminals come back as plain shells.
             skipAutoHook: true,

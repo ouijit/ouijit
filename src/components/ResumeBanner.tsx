@@ -32,6 +32,24 @@ export function ResumeBanner() {
     (async () => {
       const snap = await readSnapshot();
       if (cancelled || !snap || snap.terminals.length === 0) return;
+
+      // If PTYs from this snapshot are still alive, the renderer reloaded
+      // rather than the app restarting — reconnectOrphanedSessions will bring
+      // those terminals back as the user navigates, so offering to spawn fresh
+      // copies would just duplicate them. Stay silent; leave the snapshot in
+      // place so the reconnect path can still read its UI/focus state.
+      try {
+        const live = await window.api.pty.getActiveSessions();
+        if (cancelled) return;
+        const snapPtyIds = new Set(snap.terminals.map((t) => t.ptyId).filter(Boolean));
+        if (live.some((s) => snapPtyIds.has(s.ptyId))) {
+          setDismissed(true);
+          return;
+        }
+      } catch {
+        /* fall through and offer the banner */
+      }
+
       const list = await listRestorable(snap);
       if (cancelled) return;
       if (list.length === 0) {

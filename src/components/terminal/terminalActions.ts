@@ -11,11 +11,13 @@ import type {
   ActiveSession,
   RunnerScript,
   SnapshotTerminalUi,
+  TaskWithWorkspace,
 } from '../../types';
 import { useTerminalStore, type TerminalDisplayState } from '../../stores/terminalStore';
 import { useCanvasStore, persistCanvas } from '../../stores/canvasStore';
 import { useAppStore, staleGuard } from '../../stores/appStore';
 import { OuijitTerminal, terminalInstances, resolveTerminalLabel, type SummaryType } from './terminalReact';
+import { readSnapshot } from './sessionSnapshot';
 import { detectDevServerUrl } from '../webPreview/urlHelpers';
 import log from 'electron-log/renderer';
 
@@ -41,6 +43,9 @@ export interface AddProjectTerminalOptions {
   taskId?: number;
   skipAutoHook?: boolean;
   background?: boolean;
+  /** Overrides the auto-derived card label (e.g. a user-renamed terminal being
+   *  restored from a session snapshot). */
+  label?: string;
   /** Apply persisted UI state (plan, web preview, runner panel) after spawn — for session restore. */
   initialUiState?: SnapshotTerminalUi;
   /** If set, the new terminal takes this loading slot's place via
@@ -51,11 +56,23 @@ export interface AddProjectTerminalOptions {
 
 // ── Apply persisted UI state from a session snapshot ────────────────
 
-async function applyInitialUiState(term: OuijitTerminal, ui: SnapshotTerminalUi): Promise<void> {
+/**
+ * Re-apply per-terminal UI state captured in a session snapshot. Shared by
+ * the cross-launch restore path (fresh shells) and the renderer-reload
+ * reconnect path (live PTYs), so the two stay in lockstep.
+ */
+export async function applyInitialUiState(term: OuijitTerminal, ui: SnapshotTerminalUi): Promise<void> {
   if (ui.planPath) {
     term.planPath = ui.planPath;
-    term.planPanelOpen = true;
-    term.pushDisplayState({ planPath: ui.planPath, planPanelOpen: true });
+    // Older snapshots had no planPanelOpen flag and always re-opened the panel
+    // when a plan was attached — preserve that as the fallback.
+    term.planPanelOpen = ui.planPanelOpen ?? true;
+    term.pushDisplayState({ planPath: ui.planPath, planPanelOpen: term.planPanelOpen });
+  }
+
+  if (ui.diffPanelOpen) {
+    term.diffPanelOpen = true;
+    term.pushDisplayState({ diffPanelOpen: true });
   }
 
   if (ui.webPreview?.url) {
@@ -74,10 +91,11 @@ async function applyInitialUiState(term: OuijitTerminal, ui: SnapshotTerminalUi)
   if (ui.runner) {
     // Don't auto-respawn the previously-running script. A user's `npm run dev`
     // is benign to re-run, but a `Reset DB` or similar destructive script
-    // would silently fire on Resume. Preserve the panel layout so the slot
-    // is recognizable, and pre-load the script so one click on Run re-launches it.
+    // would silently fire on Resume. Pre-load the script so one click on Run
+    // re-launches it, and surface its name in the header.
     term.runnerFullWidth = ui.runner.fullWidth;
     term.runnerScript = { name: ui.runner.scriptName ?? '', command: ui.runner.scriptCommand };
+    term.pushDisplayState({ runnerScriptName: ui.runner.scriptName ?? null });
   }
 }
 
@@ -122,6 +140,45 @@ function registerTerminal(
   }
 }
 
+// ── Worktree hook environment ────────────────────────────────────────
+
+/**
+ * Build the env vars handed to a worktree-backed terminal's hook.
+ *
+ * The task prompt MUST come from `task` — a live DB fetch — and never from the
+ * worktree snapshot in `AddProjectTerminalOptions.existingWorktree`. That
+ * snapshot is captured when the worktree is created and never refreshed, so
+ * sourcing the prompt from it leaves OUIJIT_TASK_PROMPT stale (or absent
+ * entirely, since the var is only set when the prompt is truthy) after a task's
+ * description is edited.
+ *
+ * OUIJIT_TASK_DESCRIPTION is set as an alias of OUIJIT_TASK_PROMPT: the UI
+ * labels this field "description", so a hook reaching for the var name that
+ * matches the label gets the same value.
+ */
+export function buildWorktreeStartEnv(params: {
+  hookType: string;
+  projectPath: string;
+  worktreeInfo: WorktreeInfo;
+  label: string;
+  task: TaskWithWorkspace | null;
+}): Record<string, string> {
+  const { hookType, projectPath, worktreeInfo, label, task } = params;
+  const env: Record<string, string> = {
+    OUIJIT_HOOK_TYPE: hookType,
+    OUIJIT_PROJECT_PATH: projectPath,
+    OUIJIT_WORKTREE_PATH: worktreeInfo.path,
+    OUIJIT_TASK_BRANCH: worktreeInfo.branch,
+    OUIJIT_TASK_NAME: label,
+  };
+  const prompt = task?.prompt;
+  if (prompt) {
+    env.OUIJIT_TASK_PROMPT = prompt;
+    env.OUIJIT_TASK_DESCRIPTION = prompt;
+  }
+  return env;
+}
+
 // ── Spawn a new project terminal ─────────────────────────────────────
 
 export async function addProjectTerminal(
@@ -134,24 +191,25 @@ export async function addProjectTerminal(
 
   let terminalCwd = projectPath;
   const worktreeInfo: (WorktreeInfo & { prompt?: string }) | undefined = options?.existingWorktree;
-  const taskPrompt: string | undefined = options?.existingWorktree?.prompt;
 
   if (worktreeInfo) {
     terminalCwd = worktreeInfo.path;
   }
 
-  // Look up current task name and merge target
-  let taskName: string | undefined;
-  let mergeTarget: string | undefined;
+  // Look up the current task. Name, merge target AND prompt all come from this
+  // live fetch — the worktree snapshot's prompt is a stale copy from worktree
+  // creation time and would not reflect a description edited afterwards.
+  let task: TaskWithWorkspace | null = null;
   if (options?.taskId != null) {
-    const task = await window.api.task.getByNumber(projectPath, options.taskId);
-    taskName = task?.name;
-    mergeTarget = task?.mergeTarget;
+    task = await window.api.task.getByNumber(projectPath, options.taskId);
   }
+  const taskName = task?.name;
+  const mergeTarget = task?.mergeTarget;
+  const taskPrompt = task?.prompt;
 
   if (isStale()) return false;
 
-  const label = resolveTerminalLabel(taskName, worktreeInfo?.branch, runConfig?.name);
+  const label = options?.label ?? resolveTerminalLabel(taskName, worktreeInfo?.branch, runConfig?.name);
   const command = runConfig?.command;
 
   // Determine command to run
@@ -159,18 +217,13 @@ export async function addProjectTerminal(
   let startEnv: Record<string, string> | undefined;
 
   if (worktreeInfo) {
-    const hookType = 'continue';
-
-    startEnv = {
-      OUIJIT_HOOK_TYPE: hookType,
-      OUIJIT_PROJECT_PATH: projectPath,
-      OUIJIT_WORKTREE_PATH: worktreeInfo.path,
-      OUIJIT_TASK_BRANCH: worktreeInfo.branch,
-      OUIJIT_TASK_NAME: label,
-    };
-    if (taskPrompt) {
-      startEnv.OUIJIT_TASK_PROMPT = taskPrompt;
-    }
+    startEnv = buildWorktreeStartEnv({
+      hookType: 'continue',
+      projectPath,
+      worktreeInfo,
+      label,
+      task,
+    });
 
     if (!runConfig && !options?.skipAutoHook) {
       const hooks = await window.api.hooks.get(projectPath);
@@ -295,6 +348,24 @@ export async function addProjectTerminal(
   }
 }
 
+// ── Rename a terminal ────────────────────────────────────────────────
+
+/**
+ * Apply a user rename. Writes through to (1) the display state the card reads
+ * from, (2) the OuijitTerminal instance — which `gatherSnapshot` persists, so
+ * the rename survives a cross-launch restore — and (3) the main-process PTY
+ * record, so a renderer-reload reconnect comes back with the renamed label
+ * rather than the original. Empty/whitespace names are ignored.
+ */
+export function renameTerminal(ptyId: string, label: string): void {
+  const trimmed = label.trim();
+  if (!trimmed) return;
+  const instance = terminalInstances.get(ptyId);
+  if (instance) instance.label = trimmed;
+  useTerminalStore.getState().updateDisplay(ptyId, { label: trimmed });
+  window.api.pty.setLabel(ptyId, trimmed);
+}
+
 // ── Close a terminal ─────────────────────────────────────────────────
 
 export function closeProjectTerminal(ptyId: string): void {
@@ -316,13 +387,14 @@ export function closeProjectTerminal(ptyId: string): void {
 
 export async function reconnectTerminal(
   session: ActiveSession,
-  opts: { worktreeBranch?: string; mergeTarget?: string; initialStatus?: SummaryType } = {},
+  opts: { worktreeBranch?: string; mergeTarget?: string; initialStatus?: SummaryType; label?: string } = {},
 ): Promise<OuijitTerminal | null> {
+  const label = opts.label ?? session.label;
   const term = new OuijitTerminal({
     ptyId: session.ptyId,
     projectPath: session.projectPath,
     command: session.command,
-    label: session.label,
+    label,
     sandboxed: !!session.sandboxed,
     taskId: session.taskId ?? null,
     worktreePath: session.worktreePath,
@@ -349,14 +421,21 @@ export async function reconnectTerminal(
   // Bind to PTY (wires data, input, exit, resize)
   term.bind(session.ptyId);
 
-  // Register in store
-  registerTerminal(term, session.projectPath, {
-    label: session.label,
-    sandboxed: !!session.sandboxed,
-    taskId: session.taskId ?? null,
-    worktreeBranch: opts.worktreeBranch ?? null,
-    summaryType: opts.initialStatus ?? 'ready',
-  });
+  // Register in store as a background terminal — focus is restored explicitly
+  // by reconnectOrphanedSessions once every PTY for the project is back, so the
+  // last-reconnected one doesn't steal it.
+  registerTerminal(
+    term,
+    session.projectPath,
+    {
+      label,
+      sandboxed: !!session.sandboxed,
+      taskId: session.taskId ?? null,
+      worktreeBranch: opts.worktreeBranch ?? null,
+      summaryType: opts.initialStatus ?? 'ready',
+    },
+    /* background */ true,
+  );
 
   // Load tags and git status
   term.loadTags();
@@ -452,7 +531,10 @@ async function _spawnRunnerInner(instance: OuijitTerminal, script?: RunnerScript
       ...(instance.worktreePath && { OUIJIT_WORKTREE_PATH: instance.worktreePath }),
       ...(instance.worktreeBranch && { OUIJIT_TASK_BRANCH: instance.worktreeBranch }),
       ...(instance.label && { OUIJIT_TASK_NAME: instance.label }),
-      ...(instance.taskPrompt && { OUIJIT_TASK_PROMPT: instance.taskPrompt }),
+      ...(instance.taskPrompt && {
+        OUIJIT_TASK_PROMPT: instance.taskPrompt,
+        OUIJIT_TASK_DESCRIPTION: instance.taskPrompt,
+      }),
     },
   };
 
@@ -539,6 +621,16 @@ export async function reconnectOrphanedSessions(projectPath: string): Promise<vo
   const projectSessions = sessions.filter((s) => s.projectPath === projectPath);
   if (projectSessions.length === 0) return;
 
+  // The session snapshot from the same launch (PTYs survive a renderer reload)
+  // carries per-terminal UI state and which card was focused. Match its rows to
+  // live sessions by ptyId.
+  const snapshot = await readSnapshot();
+  const snapByPtyId = new Map(
+    (snapshot?.terminals ?? [])
+      .filter((t) => t.projectPath === projectPath && t.ptyId)
+      .map((t) => [t.ptyId as string, t] as const),
+  );
+
   const mainSessions = projectSessions.filter((s) => !s.isRunner);
   const runnerSessions = projectSessions.filter((s) => s.isRunner);
 
@@ -558,10 +650,36 @@ export async function reconnectOrphanedSessions(projectPath: string): Promise<vo
     ]);
     const initialStatus: SummaryType = hookStatus?.status === 'thinking' ? 'thinking' : 'ready';
 
-    const term = await reconnectTerminal(session, { worktreeBranch, mergeTarget, initialStatus });
-    if (term && planPath) {
-      term.planPath = planPath;
-      term.pushDisplayState({ planPath });
+    const snapEntry = snapByPtyId.get(session.ptyId);
+    const term = await reconnectTerminal(session, {
+      worktreeBranch,
+      mergeTarget,
+      initialStatus,
+      label: snapEntry?.label ?? undefined,
+    });
+    if (term) {
+      if (snapEntry) await applyInitialUiState(term, snapEntry.ui);
+      // The plan association lives in the main process — authoritative for the
+      // path; the snapshot only contributes whether the panel was open.
+      if (planPath) {
+        term.planPath = planPath;
+        term.pushDisplayState({ planPath });
+      }
+    }
+  }
+
+  // Restore the focused card. Without this, every reconnectTerminal would have
+  // run activateLast and the last PTY back would win the selection.
+  {
+    const store = useTerminalStore.getState();
+    const activeEntry = (snapshot?.terminals ?? []).find(
+      (t) => t.projectPath === projectPath && t.isActiveInProject && t.ptyId,
+    );
+    const idx = activeEntry ? (store.terminalsByProject[projectPath] ?? []).indexOf(activeEntry.ptyId as string) : -1;
+    if (idx >= 0) {
+      store.setActiveIndex(projectPath, idx);
+    } else {
+      store.activateLast(projectPath);
     }
   }
 

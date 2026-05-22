@@ -514,8 +514,8 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
 
   // Task CRUD
   const handleAddTask = useCallback(
-    async (name: string) => {
-      await window.api.task.create(projectPath, name);
+    async (name: string, description?: string) => {
+      await window.api.task.create(projectPath, name, description);
       useProjectStore.getState().loadTasks(projectPath);
     },
     [projectPath],

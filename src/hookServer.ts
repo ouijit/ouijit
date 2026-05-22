@@ -657,8 +657,8 @@ export default async (pi: OuijitPiApi) => {
     pi.exec(hookBin, ['status', \`status=\${status}\`], { timeout: 2000 }).catch(() => {});
   };
 
-  pi.on('turn_start', () => ping('thinking'));
-  pi.on('turn_end', () => ping('ready'));
+  pi.on('agent_start', () => ping('thinking'));
+  pi.on('agent_end', () => ping('ready'));
 };
 `;
 
