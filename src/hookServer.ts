@@ -657,10 +657,6 @@ export default async (pi: OuijitPiApi) => {
     pi.exec(hookBin, ['status', \`status=\${status}\`], { timeout: 2000 }).catch(() => {});
   };
 
-  // agent_start / agent_end fire exactly once per user prompt. turn_start /
-  // turn_end fire once per LLM round-trip, so a single prompt produces many
-  // of them — subscribing to those replayed the done notification on every
-  // turn while Pi was still working (issue #169).
   pi.on('agent_start', () => ping('thinking'));
   pi.on('agent_end', () => ping('ready'));
 };

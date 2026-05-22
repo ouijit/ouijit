@@ -1096,8 +1096,6 @@ describe('PI_EXTENSION', () => {
   });
 
   test('subscribes agent_start → thinking and agent_end → ready exactly once each', () => {
-    // agent_start/agent_end fire once per user prompt; turn_start/turn_end
-    // fire once per LLM round-trip, which replayed the notification (#169).
     expect(PI_EXTENSION.match(/pi\.on\('agent_start'/g)).toHaveLength(1);
     expect(PI_EXTENSION.match(/pi\.on\('agent_end'/g)).toHaveLength(1);
     expect(PI_EXTENSION).not.toContain("pi.on('turn_end'");
@@ -1116,9 +1114,8 @@ describe('PI_EXTENSION', () => {
   });
 
   test('pings ready once per prompt regardless of turn count when the factory runs', async () => {
-    // Pi fires turn_start/turn_end once per LLM round-trip but agent_start/
-    // agent_end exactly once per user prompt. Subscribing to agent_* means a
-    // multi-turn prompt produces a single 'ready' ping (issue #169).
+    // agent_* events fire once per prompt, so a multi-turn prompt should
+    // still produce exactly one 'ready' ping.
     const handlers: Record<string, () => void> = {};
     const pings: string[] = [];
     const pi = {
