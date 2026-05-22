@@ -4,6 +4,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
 import { execFileSync } from 'node:child_process';
+import * as ts from 'typescript';
 import type { BrowserWindow } from 'electron';
 
 const hasZsh = (() => {
@@ -413,8 +414,8 @@ describe('installWrapper', () => {
     expect(fs.existsSync(extPath)).toBe(true);
     const ext = fs.readFileSync(extPath, 'utf-8');
     expect(ext).toContain('export default');
-    expect(ext).toContain("pi.on('turn_start'");
-    expect(ext).toContain("pi.on('turn_end'");
+    expect(ext).toContain("pi.on('agent_start'");
+    expect(ext).toContain("pi.on('agent_end'");
     expect(ext).toContain('OUIJIT_HOOK_BIN');
   });
 
@@ -1094,9 +1095,12 @@ describe('PI_EXTENSION', () => {
     expect(PI_EXTENSION).toMatch(/export default async \(pi: \w+\) =>/);
   });
 
-  test('subscribes turn_start → thinking and turn_end → ready exactly once each', () => {
-    expect(PI_EXTENSION.match(/pi\.on\('turn_start'/g)).toHaveLength(1);
-    expect(PI_EXTENSION.match(/pi\.on\('turn_end'/g)).toHaveLength(1);
+  test('subscribes agent_start → thinking and agent_end → ready exactly once each', () => {
+    // agent_start/agent_end fire once per user prompt; turn_start/turn_end
+    // fire once per LLM round-trip, which replayed the notification (#169).
+    expect(PI_EXTENSION.match(/pi\.on\('agent_start'/g)).toHaveLength(1);
+    expect(PI_EXTENSION.match(/pi\.on\('agent_end'/g)).toHaveLength(1);
+    expect(PI_EXTENSION).not.toContain("pi.on('turn_end'");
     expect(PI_EXTENSION).toContain("ping('thinking')");
     expect(PI_EXTENSION).toContain("ping('ready')");
   });
@@ -1110,7 +1114,52 @@ describe('PI_EXTENSION', () => {
     expect(PI_EXTENSION).toMatch(/pi\.exec\(hookBin, \['status', .* \{ timeout: 2000 \}\)/);
     expect(PI_EXTENSION).toContain('.catch(() => {})');
   });
+
+  test('pings ready once per prompt regardless of turn count when the factory runs', async () => {
+    // Pi fires turn_start/turn_end once per LLM round-trip but agent_start/
+    // agent_end exactly once per user prompt. Subscribing to agent_* means a
+    // multi-turn prompt produces a single 'ready' ping (issue #169).
+    const handlers: Record<string, () => void> = {};
+    const pings: string[] = [];
+    const pi = {
+      on: (event: string, handler: () => void) => {
+        handlers[event] = handler;
+      },
+      exec: async (_cmd: string, args: string[]) => {
+        pings.push(args[1].replace('status=', ''));
+      },
+    };
+    const factory = compilePiExtension(PI_EXTENSION);
+    process.env.OUIJIT_HOOK_BIN = '/fake/ouijit-hook';
+    try {
+      await factory(pi);
+
+      // One prompt, three internal turns.
+      handlers.agent_start();
+      handlers.turn_start?.();
+      handlers.turn_end?.();
+      handlers.turn_start?.();
+      handlers.turn_end?.();
+      handlers.turn_start?.();
+      handlers.turn_end?.();
+      handlers.agent_end();
+
+      expect(pings).toEqual(['thinking', 'ready']);
+    } finally {
+      delete process.env.OUIJIT_HOOK_BIN;
+    }
+  });
 });
+
+/** Strips type annotations from the PI_EXTENSION TS string into a runnable factory. */
+function compilePiExtension(src: string): (pi: unknown) => Promise<void> {
+  const transpiled = ts.transpileModule(src, {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
+  }).outputText;
+  const moduleExports: { exports: { default?: unknown } } = { exports: {} };
+  new Function('exports', 'module', 'process', transpiled)(moduleExports.exports, moduleExports, process);
+  return moduleExports.exports.default as (pi: unknown) => Promise<void>;
+}
 
 // ── buildVmPiExtension ───────────────────────────────────────────────
 
