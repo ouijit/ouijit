@@ -16,6 +16,56 @@ import { issueToken, revokeToken, revokeAllTokens } from './apiAuth';
 
 const ptyLog = getLogger().scope('pty');
 
+/**
+ * Builds the command string to run in the spawned shell.
+ *
+ * Env vars (OUIJIT_* and any custom vars from the caller) are passed to the
+ * PTY process as real environment variables, so the shell expands $VAR /
+ * ${VAR} references itself when it parses the command.
+ *
+ * The command must NOT be pre-substituted with the raw env values. Splicing a
+ * value into the command text lets the shell re-parse and re-evaluate any
+ * shell metacharacters it contains (backticks, $(), quotes) — e.g. a task
+ * named ``Add `.DS_Store` in .gitignore`` would have its backticks executed
+ * as a command. Genuine env-var expansion inside double quotes keeps such
+ * characters literal.
+ *
+ * `env` is accepted (and ignored) so callers can document that those values
+ * reach the shell as environment variables rather than as command text.
+ */
+export function buildCommandString(command: string | undefined, _env?: Record<string, string> | undefined): string {
+  return command || '';
+}
+
+/**
+ * Builds the argv for the spawned shell when a startup command is present.
+ *
+ * The command runs via `-ic` then the shell execs into an interactive
+ * session, which avoids the double-echo from writing to stdin.
+ *
+ * The command is spliced into the `-c` script verbatim: it is shell *code*
+ * the shell must parse (so $VAR expands and the user's own quotes apply), not
+ * a data string. It must NOT be quote-escaped — the `'\''` idiom is only
+ * valid inside an enclosing single-quoted string, and here the command is
+ * interpolated unquoted, so escaping it would corrupt any command containing
+ * a single quote into an unterminated quote.
+ */
+export function buildCommandShellArgs(command: string, shell: string, shellIntegrationDir: string): string[] {
+  const isZsh = shell.endsWith('/zsh') || shell === 'zsh';
+  const isBash = shell.endsWith('/bash') || shell === 'bash';
+  const prefix = 'export PATH="$OUIJIT_WRAPPER_DIR:$PATH"';
+
+  if (isZsh) {
+    return ['-ic', `${prefix}; ${command}; ZDOTDIR="$OUIJIT_SHELL_INTEGRATION_DIR/zsh" exec ${shell}`];
+  }
+  if (isBash) {
+    const rcfile = path.join(shellIntegrationDir, 'ouijit-bash-integration.bash');
+    return ['-ic', `${prefix}; ${command}; exec bash --rcfile ${rcfile}`];
+  }
+  // Fallback for other shells
+  return ['-ic', `${prefix}; ${command}; exec ${shell}`];
+}
+
 interface ManagedPty {
   process: pty.IPty;
   projectPath: string;
@@ -193,17 +243,10 @@ export async function spawnPty(options: PtySpawnOptions, window: BrowserWindow):
     const cliPath = getCliPath();
     if (cliPath) finalEnv['OUIJIT_CLI_PATH'] = cliPath;
 
-    // Expand environment variables in the command if provided
-    let expandedCommand = options.command || '';
-    if (options.command && options.env) {
-      for (const [key, value] of Object.entries(options.env)) {
-        // Replace $VAR and ${VAR} patterns
-        expandedCommand = expandedCommand.replace(new RegExp(`\\$\\{${key}\\}|\\$${key}\\b`, 'g'), value);
-      }
-    }
+    // Build the command string to run in the spawned shell
+    const expandedCommand = buildCommandString(options.command, options.env);
 
     // If there's a command, run it via shell -c then exec into interactive shell
-    // This avoids the double-echo issue from writing to stdin
     let shellArgs: string[] = [];
 
     const isZsh = shell.endsWith('/zsh') || shell === 'zsh';
@@ -217,27 +260,18 @@ export async function spawnPty(options: PtySpawnOptions, window: BrowserWindow):
       finalEnv['ZDOTDIR'] = path.join(shellIntegrationDir, 'zsh');
 
       if (expandedCommand) {
-        const escapedCmd = expandedCommand.replace(/'/g, "'\\''");
-        shellArgs = [
-          '-ic',
-          `export PATH="$OUIJIT_WRAPPER_DIR:$PATH"; ${escapedCmd}; ZDOTDIR="$OUIJIT_SHELL_INTEGRATION_DIR/zsh" exec ${shell}`,
-        ];
+        shellArgs = buildCommandShellArgs(expandedCommand, shell, shellIntegrationDir);
       }
     } else if (isBash) {
       // --rcfile/--init-file: bash sources this instead of ~/.bashrc.
       // Our integration script sources .bashrc first, then fixes PATH.
-      const rcfile = path.join(shellIntegrationDir, 'ouijit-bash-integration.bash');
-
       if (expandedCommand) {
-        const escapedCmd = expandedCommand.replace(/'/g, "'\\''");
-        shellArgs = ['-ic', `export PATH="$OUIJIT_WRAPPER_DIR:$PATH"; ${escapedCmd}; exec bash --rcfile ${rcfile}`];
+        shellArgs = buildCommandShellArgs(expandedCommand, shell, shellIntegrationDir);
       } else {
-        shellArgs = ['--init-file', rcfile];
+        shellArgs = ['--init-file', path.join(shellIntegrationDir, 'ouijit-bash-integration.bash')];
       }
     } else if (expandedCommand) {
-      // Fallback for other shells
-      const escapedCmd = expandedCommand.replace(/'/g, "'\\''");
-      shellArgs = ['-ic', `export PATH="$OUIJIT_WRAPPER_DIR:$PATH"; ${escapedCmd}; exec ${shell}`];
+      shellArgs = buildCommandShellArgs(expandedCommand, shell, shellIntegrationDir);
     }
 
     const ptyProcess = pty.spawn(shell, shellArgs, {
