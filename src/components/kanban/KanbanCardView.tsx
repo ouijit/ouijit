@@ -3,6 +3,9 @@ import type { TaskWithWorkspace } from '../../types';
 import type { TerminalDisplayState } from '../../stores/terminalStore';
 import { Icon } from '../terminal/Icon';
 import { StatusDot } from '../terminal/StatusDot';
+import { createAttachmentChip, parseDescription, serializeDescriptionDOM } from '../../utils/descriptionAttachments';
+
+const DESCRIPTION_PLACEHOLDER = 'Add description…';
 
 const isMac = typeof navigator !== 'undefined' && navigator.platform.toLowerCase().includes('mac');
 
@@ -128,15 +131,51 @@ export const KanbanCardView = memo(function KanbanCardView({
 
   const commitDescription = useCallback(() => {
     if (!descInputRef.current) return;
-    const desc = descInputRef.current.textContent?.trim() || '';
+    const desc = serializeDescriptionDOM(descInputRef.current);
     onUpdateDescription?.(task.taskNumber, desc);
     setEditingDesc(false);
   }, [task.taskNumber, onUpdateDescription]);
 
   /**
-   * Intercept pasted images. The clipboard image is saved to disk and its
-   * absolute path is inserted as text at the caret — CLI agents read images
-   * by the file paths referenced in the prompt.
+   * Sync the contentEditable DOM with `task.prompt`. Only fires when the prompt
+   * actually changes — during edit, unrelated parent re-renders won't stomp the
+   * user's in-progress edits. Attachments are rendered as inline chips at the
+   * positions where the user originally pasted them.
+   */
+  useEffect(() => {
+    const el = descInputRef.current;
+    if (!el) return;
+    el.innerHTML = '';
+    for (const seg of parseDescription(task.prompt ?? '')) {
+      if (seg.type === 'text') {
+        el.appendChild(document.createTextNode(seg.value));
+      } else {
+        el.appendChild(createAttachmentChip(seg.path));
+      }
+    }
+    if (!task.prompt) el.textContent = DESCRIPTION_PLACEHOLDER;
+  }, [task.prompt]);
+
+  /**
+   * Toggle the placeholder text on edit-state changes. Kept narrow so it never
+   * touches user-authored content — only swaps between empty and the
+   * placeholder string when the prompt itself is empty.
+   */
+  useEffect(() => {
+    const el = descInputRef.current;
+    if (!el || task.prompt) return;
+    if (editingDesc) {
+      if (el.textContent === DESCRIPTION_PLACEHOLDER) el.textContent = '';
+    } else if (!el.textContent || el.textContent === '') {
+      el.textContent = DESCRIPTION_PLACEHOLDER;
+    }
+  }, [editingDesc, task.prompt]);
+
+  /**
+   * Intercept pasted images. The bytes are saved to disk and a chip element is
+   * inserted at the caret. The chip survives serialization as an inline
+   * `![](path)` marker — that path is what the CLI agent reads when the task
+   * runs, so the image stays positional within the prompt.
    */
   const handleDescPaste = useCallback(
     async (e: React.ClipboardEvent<HTMLSpanElement>) => {
@@ -146,8 +185,8 @@ export const KanbanCardView = memo(function KanbanCardView({
       const imageItem = Array.from(items).find((it) => it.kind === 'file' && it.type.startsWith('image/'));
       if (!imageItem) return;
 
-      // Block the default image paste — contentEditable would otherwise embed
-      // an <img>, which the description (plain text) can't persist.
+      // Block the default paste: contentEditable would embed an <img>, and
+      // we own placement of the chip element instead.
       e.preventDefault();
 
       const file = imageItem.getAsFile();
@@ -157,12 +196,30 @@ export const KanbanCardView = memo(function KanbanCardView({
       const savedPath = await onSaveImage(data, ext);
       if (!savedPath) return;
 
-      // Pad with surrounding whitespace so the path stays a distinct token.
-      const existing = descInputRef.current?.textContent ?? '';
-      const insertText =
-        existing && !existing.endsWith(' ') && !existing.endsWith('\n') ? ` ${savedPath} ` : `${savedPath} `;
-      descInputRef.current?.focus();
-      document.execCommand('insertText', false, insertText);
+      const chip = createAttachmentChip(savedPath);
+
+      // Insert at the current caret, falling back to appending if the selection
+      // somehow isn't inside our editable (e.g. the await lost focus).
+      const editor = descInputRef.current;
+      if (!editor) return;
+      const selection = window.getSelection();
+      const range =
+        selection && selection.rangeCount > 0 && editor.contains(selection.anchorNode) ? selection.getRangeAt(0) : null;
+
+      if (range) {
+        range.deleteContents();
+        range.insertNode(chip);
+        // Trailing space so the caret has somewhere to land outside the chip.
+        const space = document.createTextNode(' ');
+        chip.after(space);
+        range.setStartAfter(space);
+        range.setEndAfter(space);
+        selection?.removeAllRanges();
+        selection?.addRange(range);
+      } else {
+        editor.appendChild(chip);
+        editor.appendChild(document.createTextNode(' '));
+      }
     },
     [onSaveImage],
   );
@@ -329,12 +386,7 @@ export const KanbanCardView = memo(function KanbanCardView({
               onClick={() => {
                 if (!editingDesc) {
                   setEditingDesc(true);
-                  requestAnimationFrame(() => {
-                    if (descInputRef.current && !task.prompt) {
-                      descInputRef.current.textContent = '';
-                    }
-                    descInputRef.current?.focus();
-                  });
+                  requestAnimationFrame(() => descInputRef.current?.focus());
                 }
               }}
               onBlur={commitDescription}
@@ -345,9 +397,10 @@ export const KanbanCardView = memo(function KanbanCardView({
                   commitDescription();
                 }
               }}
-            >
-              {task.prompt || (editingDesc ? '' : 'Add description…')}
-            </span>
+            />
+            {/* Content is populated imperatively in useEffect from `task.prompt` so
+                the contentEditable DOM (text + attachment chips) survives unrelated
+                parent re-renders without being stomped by React reconciliation. */}
           </div>
           {task.branch && (
             <div className="flex items-center gap-1 font-mono text-[13px] text-white/50 min-w-0 overflow-hidden [&>svg]:w-3 [&>svg]:h-3 [&>svg]:shrink-0">
