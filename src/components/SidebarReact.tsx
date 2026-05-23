@@ -108,6 +108,28 @@ export function Sidebar({ onProjectSelect, onHomeSelect, onAddExisting, onCreate
     return () => document.removeEventListener('show-sidebar', handler);
   }, [showSidebar]);
 
+  // Listen for toggle-sidebar events from the titlebar project icon. Toggling
+  // drives the pinned state so the choice persists; when unpinning we collapse
+  // immediately since the cursor isn't over the sidebar to trigger mouse-leave.
+  useEffect(() => {
+    const handler = () => {
+      const ui = useUIStore.getState();
+      if (ui.sidebarPinned) {
+        ui.setSidebarPinned(false);
+        if (showTimeoutRef.current) clearTimeout(showTimeoutRef.current);
+        if (hideTimeoutRef.current) clearTimeout(hideTimeoutRef.current);
+        showTimeoutRef.current = null;
+        hideTimeoutRef.current = null;
+        setVisible(false);
+        document.documentElement.style.setProperty('--sidebar-offset', '0px');
+      } else {
+        ui.setSidebarPinned(true);
+      }
+    };
+    document.addEventListener('toggle-sidebar', handler);
+    return () => document.removeEventListener('toggle-sidebar', handler);
+  }, []);
+
   // Sidebar starts visible (see initial useState above) — match the layout
   // offset to that on mount so content doesn't render under the sidebar
   // before the first show/hide tick.

@@ -94,10 +94,11 @@ export function App() {
     hydrateTerminalFont();
   }, []);
 
-  // Hydrate persisted sidebar-pinned preference.
+  // Hydrate persisted sidebar-pinned preference. Defaults to pinned (see the
+  // store initial state) — only an explicit '0' from a prior session unpins it.
   useEffect(() => {
     window.api.globalSettings.get('ui:sidebar-pinned').then((value) => {
-      if (value === '1') useUIStore.setState({ sidebarPinned: true });
+      if (value === '0') useUIStore.setState({ sidebarPinned: false });
     });
   }, []);
 

@@ -74,9 +74,9 @@ describe('hook commands', () => {
   test('delete calls DELETE /api/hooks/:type', async () => {
     vi.mocked(del).mockResolvedValue({ success: true });
     const output = captureOutput();
-    await createProgram().parseAsync(['hook', 'delete', 'cleanup'], { from: 'user' });
+    await createProgram().parseAsync(['hook', 'delete', 'done'], { from: 'user' });
     const result = output.getJson();
-    expect(del).toHaveBeenCalledWith(`/api/hooks/cleanup?project=${encodeURIComponent(PROJECT)}`);
+    expect(del).toHaveBeenCalledWith(`/api/hooks/done?project=${encodeURIComponent(PROJECT)}`);
     expect(result.success).toBe(true);
   });
 });

@@ -398,7 +398,7 @@ ouijit tag remove <task-number> <tag-name>
 ouijit tag set <task-number> <tag1> <tag2>... # replace all tags
 
 ## Hook Commands (project lifecycle scripts)
-Hook types: start, continue, run, review, cleanup, editor
+Hook types: start, continue, run, review, done, editor
 
 ouijit hook list                              # → {start?: {name, command}, ...}
 ouijit hook get <type>
@@ -471,6 +471,22 @@ export const CLAUDE_WRAPPER = [
   '',
   '# Re-export PATH with wrapper dir so ouijit CLI works inside Claude Code',
   'export PATH="$WRAPPER_DIR:$CLEAN_PATH"',
+  '',
+  '# Claude subcommands (mcp, update, doctor, config, install, plugin, ...)',
+  '# do not accept top-level flags like --settings / --append-system-prompt-file.',
+  '# Injecting them either errors out or reroutes the subcommand name into an',
+  '# interactive prompt (same shape as the Pi bug in issue #177). Detect the',
+  '# first non-flag arg and, if it names a known subcommand, exec the real',
+  '# claude without injection.',
+  'for arg in "$@"; do',
+  '  case "$arg" in',
+  '    -*) continue ;;',
+  '    mcp|update|doctor|config|install|plugin|project|agents|setup-token|migrate-installer|ultrareview|auth)',
+  '      exec "$REAL_CLAUDE" "$@"',
+  '      ;;',
+  '    *) break ;;',
+  '  esac',
+  'done',
   '',
   '# CLI reference file for Claude Code agents',
   'REFERENCE_FILE="$HOME/.config/Ouijit/ouijit-cli-reference.md"',
@@ -666,8 +682,8 @@ export default async (pi: OuijitPiApi) => {
     pi.exec(hookBin, ['status', \`status=\${status}\`], { timeout: 2000 }).catch(() => {});
   };
 
-  pi.on('turn_start', () => ping('thinking'));
-  pi.on('turn_end', () => ping('ready'));
+  pi.on('agent_start', () => ping('thinking'));
+  pi.on('agent_end', () => ping('ready'));
 };
 `;
 
@@ -687,6 +703,21 @@ export const PI_WRAPPER = [
   'fi',
   '',
   'export PATH="$WRAPPER_DIR:$CLEAN_PATH"',
+  '',
+  '# Pi subcommands run in their own non-interactive mode. Injecting',
+  '# --append-system-prompt / --extension forces Pi back into an interactive',
+  '# session, swallowing the subcommand (see issue #177). Detect the first',
+  '# non-flag arg and, if it names a known subcommand, exec the real pi',
+  '# without injection.',
+  'for arg in "$@"; do',
+  '  case "$arg" in',
+  '    -*) continue ;;',
+  '    install|remove|uninstall|update|list|config)',
+  '      exec "$REAL_PI" "$@"',
+  '      ;;',
+  '    *) break ;;',
+  '  esac',
+  'done',
   '',
   'REFERENCE_FILE="$HOME/.config/Ouijit/ouijit-cli-reference.md"',
   'EXTENSION_FILE="$HOME/.config/Ouijit/pi/ouijit-extension.ts"',

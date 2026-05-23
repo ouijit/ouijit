@@ -7,6 +7,7 @@ import { up as migration005 } from './migrations/005-project-sort-order';
 import { up as migration006 } from './migrations/006-add-scripts';
 import { up as migration007 } from './migrations/007-remove-sandbox-config';
 import { up as migration008 } from './migrations/008-add-parent-task';
+import { up as migration009 } from './migrations/009-rename-cleanup-hook-to-done';
 
 const migrations = [
   { version: 1, up: migration001 },
@@ -17,6 +18,7 @@ const migrations = [
   { version: 6, up: migration006 },
   { version: 7, up: migration007 },
   { version: 8, up: migration008 },
+  { version: 9, up: migration009 },
 ];
 
 let db: Database.Database | null = null;

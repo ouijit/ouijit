@@ -1,0 +1,29 @@
+# Ouijit
+
+> Ouijit is a customizable task and terminal session manager for macOS and Linux that integrates with agent CLIs and TUIs like Claude Code via lifecycle hooks, scripts, and a session-aware CLI. It offers basic comforts for agentic development like live agent status with notifications, automatic worktree management for parallel workstreams, and VM sandboxing for untrusted code.
+
+Free and open source under the AGPL-3.0 license. No account, no sign-in. Distributed as a downloadable desktop app for macOS 13+ and Linux x64.
+
+## Documentation
+
+- [Getting Started](https://ouijit.com/docs/#getting-started): Requirements, download links, building from source, and first launch.
+- [Worktree Isolation](https://ouijit.com/docs/#worktrees): Per-task git worktrees, Copy-on-Write cloning, Quick start vs Clean checkout creation modes.
+- [Kanban Board](https://ouijit.com/docs/#kanban): Four-column board (To Do / In Progress / In Review / Done) with drag-and-drop.
+- [Terminal Sessions](https://ouijit.com/docs/#terminals): Card stack UI, keyboard shortcuts, runner panel, diff panel, tags.
+- [VM Sandbox](https://ouijit.com/docs/#sandbox): Lima-based Linux VM, dual-worktree model with tracked-files-only mount, partial .git mount with hooks/config read-only.
+- [Hooks](https://ouijit.com/docs/#hooks): Lifecycle hooks (start, continue, review, done) and on-demand hooks (run, editor) configured per project.
+- [Agents](https://ouijit.com/docs/#agents): Status indicators and CLI awareness for Claude Code, Codex, and Pi via injected wrappers.
+- [CLI](https://ouijit.com/docs/#cli): The `ouijit` command auto-installed in every terminal, with subcommands for tasks, hooks, scripts, tags, plans, and projects.
+
+## Project
+
+- [Home](https://ouijit.com): Download links, demo, value prop.
+- [FAQ](https://ouijit.com/faq/): Frequently asked questions about platform support, agent integrations, sandbox behavior.
+- [GitHub repo](https://github.com/ouijit/ouijit): Source code, releases, issues.
+- [Latest release](https://github.com/ouijit/ouijit/releases/latest): macOS (arm64/x64) and Linux (x64) zipped binaries.
+
+## Notable behavior for agents
+
+- The `ouijit` CLI is available in every Ouijit-spawned terminal and authenticated by a per-session bearer token. It writes JSON to stdout for piping into `jq`.
+- Inside the VM sandbox, the `ouijit` binary is not installed and `/api/*` routes return 403 for sandbox-scoped tokens. Only the `/hook` status endpoint is reachable from a sandbox.
+- Claude Code, Codex, and Pi wrappers inject the CLI reference into the agent's system prompt, so agents can drive Ouijit (create tasks, flip statuses, manage hooks and scripts, update plans) from the shell.

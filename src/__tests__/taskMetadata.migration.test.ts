@@ -283,8 +283,8 @@ describe('data import service', () => {
       // Settings
       const settings = await barrel.getProjectSettings('/projects/myapp');
       expect(settings.hooks?.start?.command).toBe('npm install');
-      expect(settings.hooks?.cleanup?.command).toBe('rm -rf tmp');
-      expect(settings.hooks?.cleanup?.description).toBe('Tidy up');
+      expect(settings.hooks?.done?.command).toBe('rm -rf tmp');
+      expect(settings.hooks?.done?.description).toBe('Tidy up');
       expect(settings.killExistingOnRun).toBe(true);
 
       // Hook lookup by type

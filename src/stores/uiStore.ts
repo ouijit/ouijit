@@ -4,7 +4,10 @@ export type HomeGroupMode = 'project' | 'tag';
 
 interface UIStoreState {
   sidebarVisible: boolean;
-  /** When true, sidebar stays open regardless of hover. Persisted in global settings. */
+  /**
+   * When true, sidebar stays open regardless of hover. Persisted in global
+   * settings; defaults to pinned so the sidebar is discoverable on first launch.
+   */
   sidebarPinned: boolean;
   gitDropdownVisible: boolean;
   scriptDropdownVisible: boolean;
@@ -28,7 +31,7 @@ type UIStore = UIStoreState & UIStoreActions;
 
 export const useUIStore = create<UIStore>()((set, get) => ({
   sidebarVisible: false,
-  sidebarPinned: false,
+  sidebarPinned: true,
   gitDropdownVisible: false,
   scriptDropdownVisible: false,
   scriptDropdownPtyId: null,

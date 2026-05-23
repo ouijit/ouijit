@@ -126,7 +126,7 @@ export interface CustomCommand {
 /**
  * Hook type - when the script runs
  */
-export type HookType = 'start' | 'continue' | 'run' | 'review' | 'cleanup' | 'editor';
+export type HookType = 'start' | 'continue' | 'run' | 'review' | 'done' | 'editor';
 
 /**
  * Script hook configuration
@@ -176,7 +176,7 @@ export interface ProjectSettings {
     continue?: ScriptHook;
     run?: ScriptHook;
     review?: ScriptHook;
-    cleanup?: ScriptHook;
+    done?: ScriptHook;
     editor?: ScriptHook;
   };
   /** If true, kill existing instances of a command before starting a new one (default: true) */
@@ -302,7 +302,7 @@ export interface HooksAPI {
     continue?: ScriptHook;
     run?: ScriptHook;
     review?: ScriptHook;
-    cleanup?: ScriptHook;
+    done?: ScriptHook;
     editor?: ScriptHook;
   }>;
   /** Save a hook for a project */

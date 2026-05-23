@@ -13,7 +13,7 @@ const LIFECYCLE_HOOKS: HookEntry[] = [
   { type: 'start', label: 'Start', description: 'Runs when a task moves to In Progress' },
   { type: 'continue', label: 'Continue', description: 'Runs when reopening an In Progress task' },
   { type: 'review', label: 'Review', description: 'Runs when a task moves to In Review' },
-  { type: 'cleanup', label: 'Cleanup', description: 'Runs when a task moves to Done' },
+  { type: 'done', label: 'Done', description: 'Runs when a task moves to Done' },
 ];
 
 const RUN_HOOK: HookEntry[] = [{ type: 'run', label: 'Run', description: 'Runs when you click Run' }];

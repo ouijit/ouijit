@@ -69,9 +69,33 @@ function getTerminalTheme(): Record<string, string> {
 // Platform detection
 const isMac = navigator.platform.toLowerCase().includes('mac');
 
-function setupTerminalAppHotkeys(terminal: XTerminal): void {
+function setupTerminalAppHotkeys(terminal: XTerminal, writeToPty: (data: string) => void): void {
   terminal.attachCustomKeyEventHandler((event) => {
     const hasModifier = isMac ? event.metaKey && !event.ctrlKey : event.ctrlKey && !event.metaKey;
+
+    // Shift+Enter — emit the Kitty keyboard-protocol CSI 13;2u sequence so
+    // TUIs (Claude Code, Pi, Codex) insert a line break instead of submitting.
+    // xterm.js otherwise maps Shift+Enter to a plain CR, identical to Enter.
+    // Pi only recognizes shift+enter via CSI-u when the kitty protocol is
+    // inactive — the previous ESC+CR (`\x1b\r`) was parsed by Pi as
+    // alt+enter and queued a follow-up instead of breaking the line. See
+    // pi-mono/packages/tui/src/keys.ts.
+    if (
+      event.type === 'keydown' &&
+      event.key === 'Enter' &&
+      event.shiftKey &&
+      !event.ctrlKey &&
+      !event.metaKey &&
+      !event.altKey
+    ) {
+      // preventDefault is required: returning false alone skips xterm's
+      // keydown handling but also skips the preventDefault it would have
+      // done, so the textarea still emits a trailing carriage return that
+      // submits the prompt right after our newline.
+      event.preventDefault();
+      writeToPty('\x1b[13;2u');
+      return false;
+    }
 
     if (hasModifier && !event.altKey) {
       const key = event.key.toLowerCase();
@@ -436,7 +460,9 @@ export class OuijitTerminal {
       }),
     );
 
-    setupTerminalAppHotkeys(this.xterm);
+    setupTerminalAppHotkeys(this.xterm, (data) => {
+      if (this.ptyId) window.api.pty.write(this.ptyId, data);
+    });
 
     // Create viewport element (minimal — React owns card chrome)
     this.viewportElement = document.createElement('div');

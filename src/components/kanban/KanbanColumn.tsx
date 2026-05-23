@@ -14,7 +14,7 @@ const COLUMN_HOOK_TYPES: Record<string, HookType[]> = {
   todo: [],
   in_progress: ['start', 'continue'],
   in_review: ['review'],
-  done: ['cleanup'],
+  done: ['done'],
 };
 
 interface KanbanColumnProps {
@@ -23,7 +23,7 @@ interface KanbanColumnProps {
   tasks: TaskWithWorkspace[];
   projectPath: string;
   settingUpTaskNumbers?: ReadonlySet<number>;
-  onAddTask?: (name: string) => void;
+  onAddTask?: (name: string, description?: string) => void;
   onRenameTask: (taskNumber: number, newName: string) => void;
   onUpdateDescription: (taskNumber: number, description: string) => void;
   onOpenTerminal: (task: TaskWithWorkspace, sandboxed?: boolean) => void;

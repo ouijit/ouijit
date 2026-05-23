@@ -401,7 +401,7 @@ export async function getHooks(projectPath: string): Promise<{
   continue?: ScriptHook;
   run?: ScriptHook;
   review?: ScriptHook;
-  cleanup?: ScriptHook;
+  done?: ScriptHook;
   editor?: ScriptHook;
 }> {
   const settings = await getProjectSettings(projectPath);

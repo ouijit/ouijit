@@ -1,7 +1,7 @@
 import type Database from 'better-sqlite3';
 import { randomUUID } from 'node:crypto';
 
-export type HookType = 'start' | 'continue' | 'run' | 'review' | 'cleanup' | 'editor';
+export type HookType = 'start' | 'continue' | 'run' | 'review' | 'done' | 'editor';
 
 export interface HookRow {
   id: string;
