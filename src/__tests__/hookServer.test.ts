@@ -523,6 +523,60 @@ describe('CLAUDE_WRAPPER', () => {
 
     expect(result.stdout.trim()).toBe('/usr/bin:/usr/local/bin');
   });
+
+  describe('subcommand passthrough (issue #177)', () => {
+    const runWrapper = (args: string[], extraEnv: Record<string, string> = {}) => {
+      const root = fs.mkdtempSync(path.join(os.tmpdir(), 'claude-wrapper-test-'));
+      const wrapperDir = path.join(root, 'wrapper');
+      const stubDir = path.join(root, 'stub');
+      fs.mkdirSync(wrapperDir);
+      fs.mkdirSync(stubDir);
+      const argvLog = path.join(root, 'argv.log');
+      fs.writeFileSync(path.join(wrapperDir, 'claude'), CLAUDE_WRAPPER, { mode: 0o755 });
+      fs.writeFileSync(
+        path.join(stubDir, 'claude'),
+        `#!/bin/bash\nfor a in "$@"; do printf '%s\\n' "$a" >> "${argvLog}"; done\n`,
+        { mode: 0o755 },
+      );
+      try {
+        execFileSync(path.join(wrapperDir, 'claude'), args, {
+          env: {
+            PATH: `${wrapperDir}:${stubDir}:/usr/bin:/bin`,
+            HOME: root,
+            ...extraEnv,
+          },
+          encoding: 'utf8',
+        });
+        const argv = fs.existsSync(argvLog) ? fs.readFileSync(argvLog, 'utf8').replace(/\n$/, '').split('\n') : [];
+        return { argv };
+      } finally {
+        fs.rmSync(root, { recursive: true, force: true });
+      }
+    };
+
+    test('`claude update` passes through with no --settings / --append-system-prompt-file', () => {
+      const { argv } = runWrapper(['update'], { OUIJIT_API_URL: 'http://stub' });
+      expect(argv).toEqual(['update']);
+    });
+
+    test('`claude mcp serve` passes through unchanged', () => {
+      const { argv } = runWrapper(['mcp', 'serve'], { OUIJIT_API_URL: 'http://stub' });
+      expect(argv).toEqual(['mcp', 'serve']);
+    });
+
+    test('bare `claude` still gets --settings and --append-system-prompt-file', () => {
+      const { argv } = runWrapper([], { OUIJIT_API_URL: 'http://stub' });
+      expect(argv).toContain('--settings');
+      expect(argv).toContain('--append-system-prompt-file');
+    });
+
+    test('`claude <message>` (non-subcommand first arg) still gets injection', () => {
+      const { argv } = runWrapper(['hello world'], { OUIJIT_API_URL: 'http://stub' });
+      expect(argv).toContain('--settings');
+      expect(argv).toContain('--append-system-prompt-file');
+      expect(argv).toContain('hello world');
+    });
+  });
 });
 
 // ── CODEX_WRAPPER constant ───────────────────────────────────────────
@@ -1085,6 +1139,83 @@ describe('PI_WRAPPER', () => {
     expect(fallthroughLine).toBeDefined();
     expect(fallthroughLine).not.toContain('--extension');
     expect(fallthroughLine).not.toContain('OUIJIT_HOOK_BIN');
+  });
+
+  describe('subcommand passthrough (issue #177)', () => {
+    // Render PI_WRAPPER to a temp wrapper dir, plant a stub `pi` in a
+    // separate dir so CLEAN_PATH (which strips the wrapper dir) can still
+    // resolve it. The stub appends its argv to a log file, one per line.
+    const runWrapper = (args: string[], extraEnv: Record<string, string> = {}) => {
+      const root = fs.mkdtempSync(path.join(os.tmpdir(), 'pi-wrapper-test-'));
+      const wrapperDir = path.join(root, 'wrapper');
+      const stubDir = path.join(root, 'stub');
+      fs.mkdirSync(wrapperDir);
+      fs.mkdirSync(stubDir);
+      const argvLog = path.join(root, 'argv.log');
+      fs.writeFileSync(path.join(wrapperDir, 'pi'), PI_WRAPPER, { mode: 0o755 });
+      fs.writeFileSync(
+        path.join(stubDir, 'pi'),
+        `#!/bin/bash\nfor a in "$@"; do printf '%s\\n' "$a" >> "${argvLog}"; done\n`,
+        { mode: 0o755 },
+      );
+      try {
+        const result = execFileSync(path.join(wrapperDir, 'pi'), args, {
+          env: {
+            PATH: `${wrapperDir}:${stubDir}:/usr/bin:/bin`,
+            HOME: root,
+            ...extraEnv,
+          },
+          encoding: 'utf8',
+        });
+        const argv = fs.existsSync(argvLog) ? fs.readFileSync(argvLog, 'utf8').replace(/\n$/, '').split('\n') : [];
+        return { argv, stdout: result };
+      } finally {
+        fs.rmSync(root, { recursive: true, force: true });
+      }
+    };
+
+    test('`pi update` passes through with no injection', () => {
+      const { argv } = runWrapper(['update'], { OUIJIT_API_URL: 'http://stub' });
+      expect(argv).toEqual(['update']);
+    });
+
+    test('`pi install foo` passes through with no injection', () => {
+      const { argv } = runWrapper(['install', 'foo'], { OUIJIT_API_URL: 'http://stub' });
+      expect(argv).toEqual(['install', 'foo']);
+    });
+
+    test('all known subcommands (install/remove/uninstall/update/list/config) pass through clean', () => {
+      for (const sub of ['install', 'remove', 'uninstall', 'update', 'list', 'config']) {
+        const { argv } = runWrapper([sub], { OUIJIT_API_URL: 'http://stub' });
+        expect(argv, `subcommand ${sub} should pass through unchanged`).toEqual([sub]);
+      }
+    });
+
+    test('leading flags do not get mistaken for a subcommand', () => {
+      // `pi --version` is not a known subcommand → falls through to injection.
+      const { argv } = runWrapper(['--version'], { OUIJIT_API_URL: 'http://stub' });
+      expect(argv).toContain('--append-system-prompt');
+      expect(argv).toContain('--extension');
+      expect(argv).toContain('--version');
+    });
+
+    test('bare `pi` (no args) still gets --append-system-prompt and --extension', () => {
+      const { argv } = runWrapper([], { OUIJIT_API_URL: 'http://stub' });
+      expect(argv).toContain('--append-system-prompt');
+      expect(argv).toContain('--extension');
+    });
+
+    test('`pi <message>` (non-subcommand first arg) still gets injection', () => {
+      const { argv } = runWrapper(['hello world'], { OUIJIT_API_URL: 'http://stub' });
+      expect(argv).toContain('--append-system-prompt');
+      expect(argv).toContain('--extension');
+      expect(argv).toContain('hello world');
+    });
+
+    test('subcommand passthrough applies even when OUIJIT_API_URL is unset', () => {
+      const { argv } = runWrapper(['update']);
+      expect(argv).toEqual(['update']);
+    });
   });
 });
 
