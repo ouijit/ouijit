@@ -38,6 +38,7 @@ import { isPtyActive, getPtyTaskContext } from '../ptyManager';
 import { typedPush } from '../ipc/helpers';
 import { getLogger } from '../logger';
 import { authenticateRequest, type AuthContext, type ApiScope } from '../apiAuth';
+import type { CliHookMode } from '../types';
 import { isCaptureMode } from '../capture/captureMode';
 import { handleCaptureNavigate, handleCaptureSnapshot } from '../capture/captureRoutes';
 
@@ -110,6 +111,33 @@ function isSuccessfulStart(result: unknown): result is TaskStartResult {
     (result as { success?: unknown }).success === true &&
     typeof (result as { worktreePath?: unknown }).worktreePath === 'string'
   );
+}
+
+interface HookControl {
+  hookMode?: CliHookMode;
+  hookCommand?: string;
+}
+
+/**
+ * Validate the optional hook-control fields on a task-start request body.
+ * Throws HttpError on a bad request; returns the fields to forward to the
+ * renderer via the `cli:task-started` push so it can bypass the start-hook
+ * dialog. An empty result means "use the default dialog behavior".
+ */
+function parseHookControl(body: Record<string, unknown>): HookControl {
+  const mode = body.hookMode;
+  if (mode === undefined) return {};
+  if (mode !== 'run' && mode !== 'skip' && mode !== 'command') {
+    throw new HttpError(400, `Invalid hookMode: ${String(mode)}. Must be run, skip, or command`);
+  }
+  if (mode === 'command') {
+    const command = body.hookCommand;
+    if (typeof command !== 'string' || !command.trim()) {
+      throw new HttpError(400, 'hookMode "command" requires a non-empty hookCommand');
+    }
+    return { hookMode: mode, hookCommand: command };
+  }
+  return { hookMode: mode };
 }
 
 function isTaskStartRoute(method: string, segments: string[]): boolean {
@@ -213,6 +241,10 @@ const routes: Route[] = [
     'tasks/start',
     (r) => {
       const project = requireProject(r.query);
+      // Validate hook-control flags up front so a bad request fails before
+      // any worktree is created. The values themselves are forwarded to the
+      // renderer in the cli:task-started push below.
+      parseHookControl(r.body);
       // Sandbox scope can't reach this route (default minScope is 'host'),
       // but double-check the intent: an unsandboxed task must never be
       // created from a sandbox-scoped caller.
@@ -236,6 +268,7 @@ const routes: Route[] = [
     (r) => {
       const project = requireProject(r.query);
       const num = requireInt(r.segments[1], 'Task number');
+      parseHookControl(r.body);
       return beginTask(project, num, r.body.branchName as string | undefined);
     },
     true,
@@ -547,6 +580,7 @@ async function handleAsync(req: IncomingMessage, res: ServerResponse, window: Br
         const startResult = result as TaskStartResult;
         const task = startResult.task;
         if (task && startResult.worktreePath && task.branch) {
+          const hookControl = parseHookControl(body);
           typedPush(window, 'cli:task-started', {
             project,
             taskNumber: task.taskNumber,
@@ -554,6 +588,8 @@ async function handleAsync(req: IncomingMessage, res: ServerResponse, window: Br
             branch: task.branch,
             createdAt: task.createdAt,
             sandboxed: task.sandboxed ?? false,
+            hookMode: hookControl.hookMode,
+            hookCommand: hookControl.hookCommand,
           });
         }
       }

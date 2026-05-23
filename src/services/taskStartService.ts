@@ -13,7 +13,7 @@ import { addProjectTerminal, closeProjectTerminal } from '../components/terminal
 import type { RunHookResult } from '../components/dialogs/RunHookDialog';
 import { useProjectStore } from '../stores/projectStore';
 import { useTerminalStore } from '../stores/terminalStore';
-import type { HookType, ScriptHook, TaskStatus, TaskWithWorkspace } from '../types';
+import type { CliHookMode, HookType, ScriptHook, TaskStatus, TaskWithWorkspace } from '../types';
 
 let placeholderCounter = 0;
 function makePlaceholderId(taskNumber: number): string {
@@ -41,6 +41,18 @@ function hookTypeForTransition(origStatus: TaskStatus, newStatus: TaskStatus): H
   return null;
 }
 
+/**
+ * CLI-driven hook control. When present, the start-hook dialog is skipped
+ * entirely — the caller has already decided what should happen. Used by
+ * `ouijit task start --run-hook/--skip-hook/--hook-command` so an agent can
+ * start a task headlessly without a human at the dialog.
+ */
+export interface HookControl {
+  mode: CliHookMode;
+  /** The one-off command, required when `mode` is `command`. */
+  command?: string;
+}
+
 export interface BeginTransitionOptions {
   /** Original status before the drag — used to disambiguate start vs continue. */
   origStatus: TaskStatus;
@@ -50,6 +62,8 @@ export interface BeginTransitionOptions {
   task: TaskWithWorkspace;
   /** Hide the kanban (for foreground hook runs) when invoked. */
   onForegroundOpen?: () => void;
+  /** CLI-driven hook control — when set, the start-hook dialog is skipped. */
+  hookControl?: HookControl;
 }
 
 /**
@@ -57,12 +71,12 @@ export interface BeginTransitionOptions {
  * completion in the background, surviving any view changes.
  */
 export function beginTransition(projectPath: string, opts: BeginTransitionOptions): void {
-  const { origStatus, newStatus, task, onForegroundOpen } = opts;
+  const { origStatus, newStatus, task, onForegroundOpen, hookControl } = opts;
   const taskNumber = task.taskNumber;
   const t0 = performance.now();
-  taskStartLog.info('beginTransition', { taskNumber, origStatus, newStatus });
+  taskStartLog.info('beginTransition', { taskNumber, origStatus, newStatus, hookMode: hookControl?.mode });
 
-  void runTransition(projectPath, task, origStatus, newStatus, onForegroundOpen, t0).catch((err) => {
+  void runTransition(projectPath, task, origStatus, newStatus, onForegroundOpen, hookControl, t0).catch((err) => {
     taskStartLog.error('transition failed', {
       taskNumber,
       error: err instanceof Error ? err.message : String(err),
@@ -78,6 +92,7 @@ async function runTransition(
   origStatus: TaskStatus,
   newStatus: TaskStatus,
   onForegroundOpen: (() => void) | undefined,
+  hookControl: HookControl | undefined,
   t0: number,
 ): Promise<void> {
   const taskNumber = task.taskNumber;
@@ -139,9 +154,25 @@ async function runTransition(
       });
     }
 
-    // 3. Show the hook dialog proactively if one is configured.
+    // 3. Resolve the hook to run. A CLI caller (hookControl) has already
+    // decided — skip the dialog entirely. Otherwise show the dialog
+    // proactively if a hook is configured for this transition.
     let hookPromise: Promise<RunHookResult | null> = Promise.resolve(null);
-    if (hookType && hook) {
+    if (hookControl) {
+      let resolved: RunHookResult | null = null;
+      if (hookControl.mode === 'command' && hookControl.command) {
+        resolved = { command: hookControl.command, sandboxed: false, foreground: false };
+      } else if (hookControl.mode === 'run' && hook) {
+        resolved = { command: hook.command, sandboxed: false, foreground: false };
+      }
+      // 'skip', or 'run' with no configured hook → plain shell (null).
+      taskStartLog.info('hook resolved from CLI flags', {
+        taskNumber,
+        mode: hookControl.mode,
+        ranHook: !!resolved,
+      });
+      hookPromise = Promise.resolve(resolved);
+    } else if (hookType && hook) {
       const tDialog = performance.now();
       hookPromise = useProjectStore
         .getState()

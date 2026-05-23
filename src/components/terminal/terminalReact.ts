@@ -73,12 +73,13 @@ function setupTerminalAppHotkeys(terminal: XTerminal, writeToPty: (data: string)
   terminal.attachCustomKeyEventHandler((event) => {
     const hasModifier = isMac ? event.metaKey && !event.ctrlKey : event.ctrlKey && !event.metaKey;
 
-    // Shift+Enter — emit ESC+CR so TUIs (e.g. Claude Code) insert a line
-    // break instead of submitting. xterm.js otherwise maps Shift+Enter to a
-    // plain carriage return, identical to Enter. This is the exact sequence
-    // VS Code's xterm.js terminal sends via its `/terminal-setup` keybinding;
-    // Claude Code recognizes it unconditionally, with no kitty-protocol
-    // negotiation or TERM_PROGRAM detection required.
+    // Shift+Enter — emit the Kitty keyboard-protocol CSI 13;2u sequence so
+    // TUIs (Claude Code, Pi, Codex) insert a line break instead of submitting.
+    // xterm.js otherwise maps Shift+Enter to a plain CR, identical to Enter.
+    // Pi only recognizes shift+enter via CSI-u when the kitty protocol is
+    // inactive — the previous ESC+CR (`\x1b\r`) was parsed by Pi as
+    // alt+enter and queued a follow-up instead of breaking the line. See
+    // pi-mono/packages/tui/src/keys.ts.
     if (
       event.type === 'keydown' &&
       event.key === 'Enter' &&
@@ -92,7 +93,7 @@ function setupTerminalAppHotkeys(terminal: XTerminal, writeToPty: (data: string)
       // done, so the textarea still emits a trailing carriage return that
       // submits the prompt right after our newline.
       event.preventDefault();
-      writeToPty('\x1b\r');
+      writeToPty('\x1b[13;2u');
       return false;
     }
 
