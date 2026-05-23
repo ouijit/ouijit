@@ -28,9 +28,10 @@ async function spawnTerminalForCliStart(projectPath: string, start: PendingCliSt
     return;
   }
 
-  // Route through the same service the kanban drag uses so the `start` hook
-  // dialog appears and (on accept) its command runs in the spawned terminal,
-  // matching the todo → in_progress drop UX exactly.
+  // Route through the same service the kanban drag uses. With no hook flags
+  // the `start` hook dialog appears, matching the todo → in_progress drop UX
+  // exactly. When the CLI passed --run-hook/--skip-hook/--hook-command, the
+  // dialog is skipped so an agent can start a task headlessly.
   beginTransition(projectPath, {
     origStatus: 'todo',
     newStatus: 'in_progress',
@@ -39,6 +40,7 @@ async function spawnTerminalForCliStart(projectPath: string, start: PendingCliSt
       worktreePath: task.worktreePath ?? start.worktreePath,
       branch: task.branch ?? start.branch,
     },
+    hookControl: start.hookMode ? { mode: start.hookMode, command: start.hookCommand } : undefined,
   });
 }
 
@@ -115,6 +117,8 @@ export function useIPCListeners() {
           branch: payload.branch,
           createdAt: payload.createdAt,
           sandboxed: payload.sandboxed,
+          hookMode: payload.hookMode,
+          hookCommand: payload.hookCommand,
         };
 
         if (activeProject === payload.project) {

@@ -129,6 +129,16 @@ export interface CustomCommand {
 export type HookType = 'start' | 'continue' | 'run' | 'review' | 'done' | 'editor';
 
 /**
+ * Hook-control mode from the `ouijit task start` CLI flags. Threads from the
+ * CLI through the task-start API into the renderer to bypass the start-hook
+ * dialog so an agent can start a task headlessly.
+ *  - `run`: run the configured hook for the transition (plain shell if none).
+ *  - `skip`: spawn the terminal but run no hook.
+ *  - `command`: run a one-off command instead of the configured hook.
+ */
+export type CliHookMode = 'run' | 'skip' | 'command';
+
+/**
  * Script hook configuration
  */
 export interface ScriptHook {
@@ -495,6 +505,8 @@ export interface ElectronAPI {
       branch: string;
       createdAt: string;
       sandboxed: boolean;
+      hookMode?: CliHookMode;
+      hookCommand?: string;
     }) => void,
   ): () => void;
   /** Get project settings */

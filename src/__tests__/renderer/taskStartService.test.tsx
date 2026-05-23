@@ -258,6 +258,78 @@ describe('taskStartService.beginTransition', () => {
     expect(addProjectTerminal).not.toHaveBeenCalled();
   });
 
+  describe('hookControl (CLI flags) skips the dialog', () => {
+    test('mode "skip": spawns a plain shell, never opens the dialog', async () => {
+      vi.mocked(window.api.hooks.get).mockResolvedValue({
+        start: { command: 'npm install', name: 'Start', source: 'configured', priority: 0 },
+      });
+
+      beginTransition(PROJECT, {
+        origStatus: 'todo',
+        newStatus: 'in_progress',
+        task: makeTask(),
+        hookControl: { mode: 'skip' },
+      });
+
+      await waitFor(() => !useProjectStore.getState().startingTaskNumbers.has(7));
+
+      expect(useProjectStore.getState().runHookRequest).toBeNull();
+      expect(addProjectTerminal).toHaveBeenCalledTimes(1);
+      expect(vi.mocked(addProjectTerminal).mock.calls[0][1]).toBeUndefined();
+    });
+
+    test('mode "run": runs the configured hook command without the dialog', async () => {
+      vi.mocked(window.api.hooks.get).mockResolvedValue({
+        start: { command: 'npm install', name: 'Start', source: 'configured', priority: 0 },
+      });
+
+      beginTransition(PROJECT, {
+        origStatus: 'todo',
+        newStatus: 'in_progress',
+        task: makeTask(),
+        hookControl: { mode: 'run' },
+      });
+
+      await waitFor(() => !useProjectStore.getState().startingTaskNumbers.has(7));
+
+      expect(useProjectStore.getState().runHookRequest).toBeNull();
+      expect(addProjectTerminal).toHaveBeenCalledTimes(1);
+      expect(vi.mocked(addProjectTerminal).mock.calls[0][1]).toMatchObject({ command: 'npm install' });
+    });
+
+    test('mode "run" with no configured hook: plain shell', async () => {
+      beginTransition(PROJECT, {
+        origStatus: 'todo',
+        newStatus: 'in_progress',
+        task: makeTask(),
+        hookControl: { mode: 'run' },
+      });
+
+      await waitFor(() => !useProjectStore.getState().startingTaskNumbers.has(7));
+
+      expect(useProjectStore.getState().runHookRequest).toBeNull();
+      expect(vi.mocked(addProjectTerminal).mock.calls[0][1]).toBeUndefined();
+    });
+
+    test('mode "command": runs the one-off command without the dialog', async () => {
+      vi.mocked(window.api.hooks.get).mockResolvedValue({
+        start: { command: 'npm install', name: 'Start', source: 'configured', priority: 0 },
+      });
+
+      beginTransition(PROJECT, {
+        origStatus: 'todo',
+        newStatus: 'in_progress',
+        task: makeTask(),
+        hookControl: { mode: 'command', command: 'claude --resume' },
+      });
+
+      await waitFor(() => !useProjectStore.getState().startingTaskNumbers.has(7));
+
+      expect(useProjectStore.getState().runHookRequest).toBeNull();
+      expect(vi.mocked(addProjectTerminal).mock.calls[0][1]).toMatchObject({ command: 'claude --resume' });
+    });
+  });
+
   test('duplicate concurrent drop for the same task is deduped', async () => {
     beginTransition(PROJECT, { origStatus: 'todo', newStatus: 'in_progress', task: makeTask() });
     beginTransition(PROJECT, { origStatus: 'todo', newStatus: 'in_progress', task: makeTask() });

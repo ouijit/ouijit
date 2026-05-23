@@ -379,8 +379,11 @@ ouijit task get <number>                      # → single task object
 ouijit task current                           # → task owning this terminal (resolves via OUIJIT_PTY_ID)
 ouijit task create "<name>"                   # → {success, task: {taskNumber, ...}}
 ouijit task create "<name>" --prompt "<text>" # set description at creation
-ouijit task start <number>                    # creates git worktree, sets in_progress
-ouijit task create-and-start "<name>"         # create + start in one step
+ouijit task start <number>                    # creates git worktree, sets in_progress; default opens the start-hook dialog in the GUI
+ouijit task start <number> --run-hook         # run the configured start hook immediately, no dialog
+ouijit task start <number> --skip-hook        # spawn the terminal but run no hook
+ouijit task start <number> --hook-command "<cmd>"  # spawn the terminal running a one-off command instead of the configured hook
+ouijit task create-and-start "<name>"         # create + start in one step (accepts the same --run-hook / --skip-hook / --hook-command flags)
 ouijit task set-status <number> <status>      # status: todo | in_progress | in_review | done
 ouijit task set-name <number> <new name>
 ouijit task set-description <number> <text>
@@ -431,6 +434,12 @@ ouijit task set-status $(ouijit task current | jq .taskNumber) in_review
 
 # Create a task and immediately start working:
 ouijit task create-and-start "Fix auth timeout" --prompt "Session expires too early"
+
+# Headless start — no GUI dialog needed. Use these when a human isn't at the keyboard
+# to dismiss the start-hook dialog. The flags are mutually exclusive.
+ouijit task start 5 --skip-hook
+ouijit task start 5 --run-hook
+ouijit task start 5 --hook-command "claude"
 
 # Tag and describe a task:
 ouijit task set-description 3 "Refactor the auth middleware to use JWT refresh tokens"

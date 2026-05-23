@@ -8,6 +8,38 @@ import { printJson, printError } from '../output';
 
 const VALID_STATUSES = ['todo', 'in_progress', 'in_review', 'done'];
 
+interface HookFlags {
+  runHook?: boolean;
+  skipHook?: boolean;
+  hookCommand?: string;
+}
+
+/**
+ * Resolve the --run-hook / --skip-hook / --hook-command flags into the
+ * `hookMode` / `hookCommand` fields the task-start API understands.
+ *
+ * The flags are mutually exclusive. When none is passed the result is empty,
+ * leaving the renderer to fall back to its default behavior (the start-hook
+ * dialog) — exactly what a kanban todo → in_progress drop does.
+ */
+function resolveHookFlags(opts: HookFlags): { hookMode?: string; hookCommand?: string } | { error: string } {
+  const used = [
+    opts.runHook ? '--run-hook' : null,
+    opts.skipHook ? '--skip-hook' : null,
+    opts.hookCommand !== undefined ? '--hook-command' : null,
+  ].filter((f): f is string => f !== null);
+  if (used.length > 1) {
+    return { error: `Only one of ${used.join(', ')} may be used` };
+  }
+  if (opts.runHook) return { hookMode: 'run' };
+  if (opts.skipHook) return { hookMode: 'skip' };
+  if (opts.hookCommand !== undefined) {
+    if (!opts.hookCommand.trim()) return { error: '--hook-command requires a non-empty command' };
+    return { hookMode: 'command', hookCommand: opts.hookCommand };
+  }
+  return {};
+}
+
 const STATUS_LABELS: Record<string, string> = {
   todo: 'Todo',
   in_progress: 'In Progress',
@@ -28,6 +60,9 @@ Examples:
   ouijit task list
   ouijit task current
   ouijit task start 5
+  ouijit task start 5 --run-hook
+  ouijit task start 5 --skip-hook
+  ouijit task start 5 --hook-command "claude"
   ouijit task set-status 5 in_review
   ouijit task set-name 5 "Better name"
   ouijit task delete 5`,
@@ -84,11 +119,19 @@ Examples:
     .description('Start task (creates worktree)')
     .argument('<number>', 'task number')
     .option('--branch <name>', 'custom branch name')
-    .action(async (number: string, opts: { branch?: string }) => {
+    .option('--run-hook', 'run the configured start hook immediately, no dialog')
+    .option('--skip-hook', 'spawn the terminal but run no hook')
+    .option('--hook-command <cmd>', 'spawn the terminal running a one-off custom command')
+    .action(async (number: string, opts: { branch?: string } & HookFlags) => {
       const num = parseInt(number, 10);
       if (isNaN(num)) return printError('Task number must be an integer');
+      const hook = resolveHookFlags(opts);
+      if ('error' in hook) return printError(hook.error);
       const project = requireProject();
-      const result = await post(`/api/tasks/${num}/start${projectQuery(project)}`, { branchName: opts.branch });
+      const result = await post(`/api/tasks/${num}/start${projectQuery(project)}`, {
+        branchName: opts.branch,
+        ...hook,
+      });
       if (!(result as { success?: boolean }).success) {
         return printError((result as { error?: string }).error || 'Failed to start task');
       }
@@ -102,12 +145,18 @@ Examples:
     .argument('<name>', 'task name')
     .option('--prompt <text>', 'task prompt/description')
     .option('--branch <name>', 'custom branch name')
-    .action(async (name: string, opts: { prompt?: string; branch?: string }) => {
+    .option('--run-hook', 'run the configured start hook immediately, no dialog')
+    .option('--skip-hook', 'spawn the terminal but run no hook')
+    .option('--hook-command <cmd>', 'spawn the terminal running a one-off custom command')
+    .action(async (name: string, opts: { prompt?: string; branch?: string } & HookFlags) => {
+      const hook = resolveHookFlags(opts);
+      if ('error' in hook) return printError(hook.error);
       const project = requireProject();
       const result = await post(`/api/tasks/start${projectQuery(project)}`, {
         name,
         prompt: opts.prompt,
         branchName: opts.branch,
+        ...hook,
       });
       if (!(result as { success?: boolean }).success) {
         return printError((result as { error?: string }).error || 'Failed to create and start task');
