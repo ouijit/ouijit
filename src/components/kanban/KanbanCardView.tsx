@@ -137,10 +137,11 @@ export const KanbanCardView = memo(function KanbanCardView({
   }, [task.taskNumber, onUpdateDescription]);
 
   /**
-   * Sync the contentEditable DOM with `task.prompt`. Only fires when the prompt
-   * actually changes — during edit, unrelated parent re-renders won't stomp the
-   * user's in-progress edits. Attachments are rendered as inline chips at the
-   * positions where the user originally pasted them.
+   * Sync the contentEditable DOM with `task.prompt`. Fires when the prompt
+   * changes or when the editor (re-)mounts via the expand toggle — the span
+   * only exists while the card is expanded, so the ref is null on the first
+   * render and we need this effect to run again when it actually attaches.
+   * Attachments are rendered as inline chips at the paste positions.
    */
   useEffect(() => {
     const el = descInputRef.current;
@@ -154,7 +155,7 @@ export const KanbanCardView = memo(function KanbanCardView({
       }
     }
     if (!task.prompt) el.textContent = DESCRIPTION_PLACEHOLDER;
-  }, [task.prompt]);
+  }, [task.prompt, expanded]);
 
   /**
    * Toggle the placeholder text on edit-state changes. Kept narrow so it never
