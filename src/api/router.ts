@@ -38,6 +38,7 @@ import { isPtyActive, getPtyTaskContext } from '../ptyManager';
 import { typedPush } from '../ipc/helpers';
 import { getLogger } from '../logger';
 import { authenticateRequest, type AuthContext, type ApiScope } from '../apiAuth';
+import type { CliHookMode } from '../types';
 import { isCaptureMode } from '../capture/captureMode';
 import { handleCaptureNavigate, handleCaptureSnapshot } from '../capture/captureRoutes';
 
@@ -111,8 +112,6 @@ function isSuccessfulStart(result: unknown): result is TaskStartResult {
     typeof (result as { worktreePath?: unknown }).worktreePath === 'string'
   );
 }
-
-type CliHookMode = 'run' | 'skip' | 'command';
 
 interface HookControl {
   hookMode?: CliHookMode;

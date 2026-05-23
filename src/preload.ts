@@ -3,7 +3,16 @@
 
 import { contextBridge, ipcRenderer, webUtils } from 'electron';
 import type { IpcInvokeContract, IpcSendContract, IpcPushContract } from './ipc/contract';
-import type { PtyId, PtySpawnOptions, CreateProjectOptions, TaskStatus, ScriptHook, HookType, Script } from './types';
+import type {
+  PtyId,
+  PtySpawnOptions,
+  CreateProjectOptions,
+  TaskStatus,
+  ScriptHook,
+  HookType,
+  Script,
+  CliHookMode,
+} from './types';
 
 // ── Typed IPC helpers ───────────────────────────────────────────────────────
 // These ensure channel names, argument types, and return types are all
@@ -214,7 +223,7 @@ contextBridge.exposeInMainWorld('api', {
       branch: string;
       createdAt: string;
       sandboxed: boolean;
-      hookMode?: 'run' | 'skip' | 'command';
+      hookMode?: CliHookMode;
       hookCommand?: string;
     }) => void,
   ) => typedListen('cli:task-started', callback),

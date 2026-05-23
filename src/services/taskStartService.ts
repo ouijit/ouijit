@@ -13,7 +13,7 @@ import { addProjectTerminal, closeProjectTerminal } from '../components/terminal
 import type { RunHookResult } from '../components/dialogs/RunHookDialog';
 import { useProjectStore } from '../stores/projectStore';
 import { useTerminalStore } from '../stores/terminalStore';
-import type { HookType, ScriptHook, TaskStatus, TaskWithWorkspace } from '../types';
+import type { CliHookMode, HookType, ScriptHook, TaskStatus, TaskWithWorkspace } from '../types';
 
 let placeholderCounter = 0;
 function makePlaceholderId(taskNumber: number): string {
@@ -48,12 +48,7 @@ function hookTypeForTransition(origStatus: TaskStatus, newStatus: TaskStatus): H
  * start a task headlessly without a human at the dialog.
  */
 export interface HookControl {
-  /**
-   * - `run`: run the configured hook for the transition (plain shell if none).
-   * - `skip`: spawn the terminal but run no hook.
-   * - `command`: run `command` instead of the configured hook.
-   */
-  mode: 'run' | 'skip' | 'command';
+  mode: CliHookMode;
   /** The one-off command, required when `mode` is `command`. */
   command?: string;
 }
