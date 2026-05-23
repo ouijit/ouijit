@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { TaskWithWorkspace, Script, ScriptHook, HookType } from '../types';
+import type { TaskWithWorkspace, Script, ScriptHook, HookType, CliHookMode } from '../types';
 import type { RunHookResult } from '../components/dialogs/RunHookDialog';
 import { useAppStore } from './appStore';
 
@@ -20,6 +20,10 @@ export interface PendingCliStart {
   branch: string;
   createdAt: string;
   sandboxed: boolean;
+  /** Hook-control mode from the CLI flags; absent = default start-hook dialog. */
+  hookMode?: CliHookMode;
+  /** Custom command when hookMode is 'command'. */
+  hookCommand?: string;
 }
 
 interface ProjectStoreState {

@@ -37,7 +37,7 @@ export function generateDefaultConfig(): string {
   const config: Record<string, unknown> = {
     cpus: 2,
     memory: '4GiB',
-    disk: '50GiB',
+    disk: '10GiB',
     images: [
       {
         location: 'https://cloud-images.ubuntu.com/releases/24.04/release/ubuntu-24.04-server-cloudimg-arm64.img',

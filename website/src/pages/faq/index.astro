@@ -1,0 +1,119 @@
+---
+import Site from '../../layouts/Site.astro';
+
+interface Faq {
+  q: string;
+  a: string;
+}
+
+const faqs: Faq[] = [
+  {
+    q: 'What is Ouijit?',
+    a: 'Ouijit is a desktop app for project management with integrated terminal sessions, git worktree-based task isolation, and CLI agent support. It runs on macOS and Linux, is free and open source, and requires no account or sign-in.',
+  },
+  {
+    q: 'What does Ouijit do?',
+    a: 'Ouijit is a customizable task and terminal session manager that integrates with agent CLIs and TUIs like Claude Code via lifecycle hooks, scripts, and a session-aware CLI. It offers basic comforts for agentic development like live agent status with notifications, automatic worktree management for parallel workstreams, and VM sandboxing for untrusted code.',
+  },
+  {
+    q: 'What operating systems does Ouijit support?',
+    a: 'macOS 13 (Ventura) or later, and Linux x64. Builds are distributed as zipped binaries on the GitHub releases page.',
+  },
+  {
+    q: 'Is Ouijit free?',
+    a: 'Yes. Ouijit is free and open source under the AGPL-3.0 license. No account, no sign-in, no paid tier.',
+  },
+  {
+    q: 'Which CLI agents does Ouijit integrate with?',
+    a: 'Any CLI tool runs in an Ouijit terminal. Claude Code, Codex, and Pi additionally get live status indicators (thinking / idle) on the terminal card and receive an injected Ouijit CLI reference in their system prompt, so they can create tasks, flip statuses, and update plans from the shell.',
+  },
+  {
+    q: 'How does Ouijit isolate work between tasks?',
+    a: 'Every task gets its own git worktree under ~/Ouijit/worktrees/, on its own branch. Worktrees are created via Copy-on-Write cloning (APFS on macOS, reflinks on Linux) so creation is nearly instant regardless of repo size. Each project picks between Quick start (gitignored files copied across) and Clean checkout (tracked files only) in Project Settings.',
+  },
+  {
+    q: 'What does the VM sandbox do?',
+    a: 'Sandboxed terminals run inside a Lima Linux VM in a parallel git worktree that contains only tracked files. The user worktree is never mounted. .git is mounted with hooks/, config, and packed-refs read-only. Agent commits land on a child branch s/<your-branch>, and a host watcher fast-forwards them back onto your branch.',
+  },
+  {
+    q: 'Can the agent inside a sandbox terminal use the Ouijit CLI?',
+    a: 'No. The ouijit binary is not installed inside the sandbox VM, and the /api/* routes return 403 for sandbox-scoped tokens. Only the /hook endpoint accepts them, which the agent uses to report status back to the host.',
+  },
+  {
+    q: 'Where do I download Ouijit?',
+    a: 'From ouijit.com or the GitHub releases page: github.com/ouijit/ouijit/releases/latest. Unzip the archive and move Ouijit.app to your Applications folder on macOS, or extract the binary to a directory on your PATH on Linux.',
+  },
+  {
+    q: 'How do I build Ouijit from source?',
+    a: 'Clone github.com/ouijit/ouijit, run npm install, and then npm start. Requires Node.js 20+ and C/C++ build tools for native modules (better-sqlite3, node-pty, koffi). On macOS run xcode-select --install; on Debian/Ubuntu Linux run sudo apt install build-essential python3.',
+  },
+];
+
+const faqSchema = {
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  mainEntity: faqs.map((f) => ({
+    '@type': 'Question',
+    name: f.q,
+    acceptedAnswer: {
+      '@type': 'Answer',
+      text: f.a,
+    },
+  })),
+};
+---
+<Site
+  title="FAQ · Ouijit"
+  description="Frequently asked questions about Ouijit: what it is, supported operating systems, agent integrations, worktree isolation, and the VM sandbox.">
+  <script type="application/ld+json" set:html={JSON.stringify(faqSchema)} />
+  <main class="faq-content">
+    <h1>FAQ</h1>
+    <p class="lead">Common questions about Ouijit, gathered in one place.</p>
+    {
+      faqs.map((f) => (
+        <section class="faq-item">
+          <h2>{f.q}</h2>
+          <p>{f.a}</p>
+        </section>
+      ))
+    }
+    <p class="faq-footer">
+      For full reference, see the <a href="/docs/">documentation</a>.
+    </p>
+  </main>
+</Site>
+
+<style>
+  .faq-content {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 4rem 1.5rem 6rem;
+  }
+  .faq-content h1 {
+    font-size: 2.25rem;
+    margin-bottom: 0.5rem;
+  }
+  .faq-content .lead {
+    color: var(--text-secondary, #aaa);
+    margin-bottom: 3rem;
+  }
+  .faq-item {
+    padding: 1.25rem 0;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+  }
+  .faq-item h2 {
+    font-size: 1.05rem;
+    font-weight: 600;
+    margin: 0 0 0.5rem;
+  }
+  .faq-item p {
+    margin: 0;
+    color: var(--text-secondary, #c0c0c0);
+    line-height: 1.55;
+  }
+  .faq-footer {
+    margin-top: 3rem;
+    color: var(--text-tertiary, #888);
+    font-size: 0.9rem;
+  }
+</style>

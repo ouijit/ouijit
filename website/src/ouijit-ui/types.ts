@@ -1,6 +1,6 @@
 export type TaskStatus = 'todo' | 'in_progress' | 'in_review' | 'done';
 
-export type HookType = 'start' | 'continue' | 'run' | 'review' | 'cleanup' | 'editor';
+export type HookType = 'start' | 'continue' | 'run' | 'review' | 'done' | 'editor';
 
 export interface ChangedFile {
   path: string;
