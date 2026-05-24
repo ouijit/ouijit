@@ -124,15 +124,26 @@ export function KanbanAddInput({ onAdd }: KanbanAddInputProps) {
             style={{ minHeight: '4.5rem', whiteSpace: 'pre-wrap', wordWrap: 'break-word', lineHeight: 1.5 }}
           />
           <div
-            className="flex items-center justify-end gap-3 px-3 py-2 text-[11px] text-text-tertiary select-none"
+            className="flex items-center justify-end gap-2 px-2 py-1.5"
             style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.06)' }}
           >
-            <span>
-              <kbd className="font-mono">{CANCEL_HINT}</kbd> to cancel
-            </span>
-            <span className={canSubmit ? 'text-text-secondary' : 'opacity-50'}>
-              <kbd className="font-mono">{SUBMIT_HINT}</kbd> to create
-            </span>
+            <button
+              type="button"
+              onClick={reset}
+              className="kanban-add-button text-text-tertiary hover:text-text-primary hover:bg-white/[0.04]"
+            >
+              Cancel
+              <kbd className="kanban-add-button-kbd">{CANCEL_HINT}</kbd>
+            </button>
+            <button
+              type="button"
+              onClick={submit}
+              disabled={!canSubmit}
+              className="kanban-add-button text-accent hover:bg-accent/10 disabled:text-text-tertiary"
+            >
+              Create
+              <kbd className="kanban-add-button-kbd">{SUBMIT_HINT}</kbd>
+            </button>
           </div>
         </>
       )}

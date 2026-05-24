@@ -1,8 +1,8 @@
 /**
  * Behavior tests for the kanban add form. Users can enter a short title and,
  * by tabbing into the revealed description field, a full prompt before the
- * task is created. The form is keyboard-driven: Cmd/Ctrl+Enter creates,
- * Escape cancels, and a hint row in the footer surfaces those shortcuts.
+ * task is created. The footer exposes Cancel and Create as clickable buttons
+ * that also advertise their keyboard shortcuts (Esc / Cmd|Ctrl+Enter).
  */
 import { describe, it, expect, vi } from 'vitest';
 import { render, fireEvent, screen } from '@testing-library/react';
@@ -11,8 +11,8 @@ import { KanbanAddInput } from '../../components/kanban/KanbanAddInput';
 const getTitle = () => screen.getByPlaceholderText('New task...') as HTMLInputElement;
 /** Description is a contentEditable div — query by its stable class. */
 const getDescription = () => document.querySelector('.kanban-add-description') as HTMLDivElement | null;
-const getCreateHint = () => (screen.queryByText('to create')?.closest('span') ?? null) as HTMLSpanElement | null;
-const getCancelHint = () => (screen.queryByText('to cancel')?.closest('span') ?? null) as HTMLSpanElement | null;
+const getCreateButton = () => screen.queryByRole('button', { name: /Create/ }) as HTMLButtonElement | null;
+const getCancelButton = () => screen.queryByRole('button', { name: /Cancel/ }) as HTMLButtonElement | null;
 
 /** Set the editor's text content and fire the input event the editor listens
  *  for. Mirrors what a user typing produces, minus chip insertion. */
@@ -25,16 +25,16 @@ function typeDescription(text: string): void {
 }
 
 describe('KanbanAddInput', () => {
-  it('hides the description field and shortcut hints until the title is focused', () => {
+  it('hides the description field and footer buttons until the title is focused', () => {
     render(<KanbanAddInput onAdd={vi.fn()} />);
     expect(getDescription()).toBeNull();
-    expect(getCreateHint()).toBeNull();
-    expect(getCancelHint()).toBeNull();
+    expect(getCreateButton()).toBeNull();
+    expect(getCancelButton()).toBeNull();
 
     fireEvent.focus(getTitle());
     expect(getDescription()).not.toBeNull();
-    expect(getCreateHint()).not.toBeNull();
-    expect(getCancelHint()).not.toBeNull();
+    expect(getCreateButton()).not.toBeNull();
+    expect(getCancelButton()).not.toBeNull();
   });
 
   it('creates a title-only task when Enter is pressed in the title field', () => {
@@ -48,17 +48,40 @@ describe('KanbanAddInput', () => {
     expect(onAdd).toHaveBeenCalledWith('Fix login', undefined);
   });
 
-  it('dims the create hint until the title has content', () => {
+  it('disables the Create button until the title has content', () => {
     render(<KanbanAddInput onAdd={vi.fn()} />);
 
     fireEvent.focus(getTitle());
-    expect(getCreateHint()!.className).toContain('opacity-50');
+    expect(getCreateButton()!.disabled).toBe(true);
 
     fireEvent.change(getTitle(), { target: { value: 'Fix login' } });
-    expect(getCreateHint()!.className).not.toContain('opacity-50');
+    expect(getCreateButton()!.disabled).toBe(false);
 
     fireEvent.change(getTitle(), { target: { value: '   ' } });
-    expect(getCreateHint()!.className).toContain('opacity-50');
+    expect(getCreateButton()!.disabled).toBe(true);
+  });
+
+  it('creates the task when the Create button is clicked', () => {
+    const onAdd = vi.fn();
+    render(<KanbanAddInput onAdd={onAdd} />);
+
+    fireEvent.focus(getTitle());
+    fireEvent.change(getTitle(), { target: { value: 'Fix login' } });
+    typeDescription('Details');
+    fireEvent.click(getCreateButton()!);
+
+    expect(onAdd).toHaveBeenCalledWith('Fix login', 'Details');
+  });
+
+  it('clears and collapses the form when the Cancel button is clicked', () => {
+    render(<KanbanAddInput onAdd={vi.fn()} />);
+
+    fireEvent.focus(getTitle());
+    fireEvent.change(getTitle(), { target: { value: 'Fix login' } });
+    fireEvent.click(getCancelButton()!);
+
+    expect(getTitle().value).toBe('');
+    expect(getDescription()).toBeNull();
   });
 
   it('creates with Cmd+Enter from the description field', () => {
@@ -121,7 +144,7 @@ describe('KanbanAddInput', () => {
     expect(getTitle().value).toBe('');
     expect(getDescription()).not.toBeNull();
     expect(getDescription()!.textContent).toBe('');
-    expect(getCreateHint()).not.toBeNull();
+    expect(getCreateButton()).not.toBeNull();
   });
 
   it('can create a second task in a row without re-focusing the form', () => {
