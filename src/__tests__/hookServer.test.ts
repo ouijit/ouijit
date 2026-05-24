@@ -588,6 +588,18 @@ describe('CODEX_WRAPPER', () => {
     expect(CODEX_WRAPPER).toContain('export PATH="$WRAPPER_DIR:$CLEAN_PATH"');
   });
 
+  test('rejects any PATH match that is the wrapper itself (prevents E2BIG via recursive exec)', () => {
+    // The string strip on `:$WRAPPER_DIR:` misses trailing slashes, symlink
+    // targets, etc., so we need an inode-equality fallback (`-ef`) before
+    // we exec the resolved binary. See T-407.
+    expect(CODEX_WRAPPER).toContain('WRAPPER_SELF=');
+    expect(CODEX_WRAPPER).toContain('"$REAL_CODEX" -ef "$WRAPPER_SELF"');
+    // Manual PATH scan with the same inode check, so a recovery path exists
+    // when `command -v` returned the wrapper.
+    expect(CODEX_WRAPPER).toMatch(/for _dir in \$CLEAN_PATH/);
+    expect(CODEX_WRAPPER).toContain('"$_dir/codex" -ef "$WRAPPER_SELF"');
+  });
+
   test('the notify override is a valid TOML/JSON array pointing at ouijit-hook', () => {
     const notifyMatch = CODEX_WRAPPER.match(/-c 'notify=(.+?)' \\/);
     expect(notifyMatch).not.toBeNull();
@@ -628,6 +640,60 @@ describe('CODEX_WRAPPER', () => {
     expect(CODEX_WRAPPER).toContain(
       'exec "$REAL_CODEX" -c "developer_instructions=$(cat "$REFERENCE_FILE" 2>/dev/null)" "$@"',
     );
+  });
+
+  test('does not recurse into itself when PATH lists the wrapper dir twice (real exec, regression for T-407)', () => {
+    // Reproduces Keith's failure mode: the wrapper dir appears twice in PATH
+    // (once verbatim, once via a symlink) so the string-only strip leaves a
+    // wrapper-pointing entry behind. Pre-fix the wrapper exec's itself, argv
+    // balloons across each hop, and execve fails with E2BIG. Post-fix the
+    // `-ef` guard rejects the wrapper match and we resolve the real codex.
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'codex-wrapper-recursion-'));
+    try {
+      const wrapperDir = path.join(tmp, 'wrapper-bin');
+      const realDir = path.join(tmp, 'real-bin');
+      fs.mkdirSync(wrapperDir);
+      fs.mkdirSync(realDir);
+
+      // Install the wrapper under test.
+      fs.writeFileSync(path.join(wrapperDir, 'codex'), CODEX_WRAPPER, { mode: 0o755 });
+
+      // Real codex stand-in: prints a sentinel then echoes its argv so we
+      // can also assert the wrapper passed through expected -c overrides.
+      const realCodex = path.join(realDir, 'codex');
+      fs.writeFileSync(realCodex, '#!/bin/bash\necho REAL_CODEX_OK\nprintf "%s\\n" "$@"\n', { mode: 0o755 });
+
+      // Symlink target with a different spelling that the strip pattern misses.
+      const wrapperDirSymlink = path.join(tmp, 'wrapper-bin-link');
+      fs.symlinkSync(wrapperDir, wrapperDirSymlink);
+
+      // PATH: wrapper dir verbatim, real dir, then the same wrapper dir via
+      // a symlink, plus /usr/bin so the wrapper can find `dirname`/`basename`.
+      // The verbatim entry gets stripped, the symlink entry does not —
+      // without the inode guard, `command -v codex` would resolve back to
+      // the wrapper and we'd recurse.
+      const fakePath = [wrapperDir, realDir, wrapperDirSymlink, '/usr/bin', '/bin'].join(':');
+
+      const result = execFileSync('bash', [path.join(wrapperDir, 'codex'), 'exec', 'hello'], {
+        env: {
+          PATH: fakePath,
+          HOME: tmp,
+          // Force the un-OUIJIT_API_URL branch so we only exec one -c flag.
+          OUIJIT_API_URL: '',
+        },
+        encoding: 'utf8',
+        timeout: 10_000,
+      });
+
+      expect(result).toContain('REAL_CODEX_OK');
+      // Confirm the wrapper still injected its developer_instructions override.
+      expect(result).toMatch(/developer_instructions=/);
+      // And the user's argv survived intact.
+      expect(result).toContain('exec');
+      expect(result).toContain('hello');
+    } finally {
+      fs.rmSync(tmp, { recursive: true, force: true });
+    }
   });
 
   test('pre-trusts each hook with the sha256 codex expects (locks the hash recipe)', () => {
