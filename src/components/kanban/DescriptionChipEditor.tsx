@@ -123,18 +123,33 @@ export const DescriptionChipEditor = forwardRef<DescriptionChipEditorHandle, Des
 
     const handlePaste = useCallback(
       async (e: React.ClipboardEvent<HTMLDivElement>) => {
-        if (!onAttachFile) return;
-        const items = e.clipboardData?.items;
-        if (!items) return;
-        const fileItem = Array.from(items).find((it) => it.kind === 'file');
-        if (!fileItem) return;
+        const clipboard = e.clipboardData;
+        if (!clipboard) return;
+        const fileItem = onAttachFile ? Array.from(clipboard.items).find((it) => it.kind === 'file') : undefined;
+
+        // Always strip formatting: the description is plain text, and the
+        // browser's default rich-HTML paste drags in fonts, colors, and code
+        // backgrounds from styled sources (e.g. an `OUIJIT_*` env var copied
+        // from a docs code block) that look broken in the editor.
+        if (!fileItem) {
+          const text = clipboard.getData('text/plain');
+          if (!text) return;
+          e.preventDefault();
+          // execCommand is deprecated but is the only API that produces a
+          // single, undoable insertion at the current selection in a
+          // contentEditable. The modern alternative (manual Range surgery)
+          // breaks browser undo.
+          document.execCommand('insertText', false, text);
+          return;
+        }
+
         // Block default paste — contentEditable would embed an <img>, and
         // we own placement of the chip element instead.
         e.preventDefault();
 
         const file = fileItem.getAsFile();
         if (!file) return;
-        const path = await onAttachFile(file);
+        const path = await onAttachFile!(file);
         if (!path) return;
 
         const sel = window.getSelection();

@@ -84,6 +84,31 @@ describe('DescriptionChipEditor', () => {
     expect(parentKeyDown).toHaveBeenCalledTimes(1);
   });
 
+  it('strips formatting from text pastes by routing through insertText', () => {
+    // jsdom doesn't implement execCommand at all, so install a fake before spying.
+    const docWithExec = document as Document & { execCommand?: (cmd: string, ui?: boolean, val?: string) => boolean };
+    const original = docWithExec.execCommand;
+    const exec = vi.fn().mockReturnValue(true);
+    docWithExec.execCommand = exec;
+    try {
+      const { container } = render(<DescriptionChipEditor initialValue="" />);
+      const editor = container.querySelector('.kanban-description-editor') as HTMLDivElement;
+      editor.focus();
+      const dataTransfer = {
+        items: [{ kind: 'string', type: 'text/plain' }],
+        getData: (type: string) => (type === 'text/plain' ? 'OUIJIT_API_URL' : ''),
+      } as unknown as DataTransfer;
+      const evt = new Event('paste', { bubbles: true, cancelable: true });
+      Object.defineProperty(evt, 'clipboardData', { value: dataTransfer });
+      const prevented = !editor.dispatchEvent(evt);
+      expect(prevented).toBe(true);
+      expect(exec).toHaveBeenCalledWith('insertText', false, 'OUIJIT_API_URL');
+    } finally {
+      if (original) docWithExec.execCommand = original;
+      else delete docWithExec.execCommand;
+    }
+  });
+
   it('calls onAttachFile on paste and inserts a chip for the returned path', async () => {
     const onAttachFile = vi.fn().mockResolvedValue('/saved/img.png');
     const onChange = vi.fn();
