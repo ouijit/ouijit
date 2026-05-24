@@ -47,8 +47,19 @@ interface ProjectStoreState {
   }>;
   /** Tasks whose worktree creation is currently in flight. View-independent. */
   startingTaskNumbers: Set<number>;
-  /** Active hook prompt; rendered globally so it survives view switches. */
-  runHookRequest: RunHookRequest | null;
+  /**
+   * FIFO queue of pending hook prompts. The head (`[0]`) is the one currently
+   * shown; the rest wait their turn. Rendered globally so it survives view
+   * switches. Concurrent task starts (CLI / multi-select drags) each append a
+   * request rather than evicting the prior one.
+   */
+  runHookQueue: RunHookRequest[];
+  /**
+   * Count of hook prompts seen since the queue was last empty. Drives the
+   * "Hook N of M" stepper — `M` stays fixed as the queue drains so the
+   * position counts up instead of the total shrinking under the user.
+   */
+  runHookQueueTotal: number;
   /** Queued CLI-initiated task starts awaiting the user to enter the project. */
   pendingCliStarts: Record<string, PendingCliStart[]>;
   /**
@@ -119,10 +130,14 @@ interface ProjectStoreActions {
   markTaskStarting: (taskNumber: number) => void;
   markTaskStartingDone: (taskNumber: number) => void;
 
-  /** Open a hook-prompt dialog and return a promise that resolves with the user's choice. */
+  /** Enqueue a hook-prompt dialog and return a promise that resolves with the user's choice. */
   requestRunHook: (req: Omit<RunHookRequest, 'id' | 'resolve'>) => Promise<RunHookResult | null>;
-  /** Resolve the active hook prompt with a result (or null for cancel). */
+  /** Resolve one queued hook prompt with a result (or null for skip/cancel). */
   resolveRunHookRequest: (id: number, result: RunHookResult | null) => void;
+  /** Resolve the head prompt with `headResult`, then run every remaining queued hook with its default command. */
+  runAllRunHookRequests: (headResult: RunHookResult) => void;
+  /** Skip the entire queue — resolve every pending hook prompt with null. */
+  skipAllRunHookRequests: () => void;
 
   /** Queue a CLI-initiated start for a project the user isn't currently viewing. */
   enqueueCliStart: (projectPath: string, start: PendingCliStart) => void;
@@ -154,7 +169,8 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
   selectionAnchor: null,
   toasts: [],
   startingTaskNumbers: new Set<number>(),
-  runHookRequest: null,
+  runHookQueue: [],
+  runHookQueueTotal: 0,
   pendingCliStarts: {},
   sandboxAvailable: false,
   configuredHooks: {},
@@ -233,9 +249,8 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
   },
 
   resetForProject: () => {
-    // Unblock any service awaiting a hook prompt before we drop the request.
-    const pending = get().runHookRequest;
-    if (pending) pending.resolve(null);
+    // Unblock any services awaiting a hook prompt before we drop the queue.
+    for (const pending of get().runHookQueue) pending.resolve(null);
     set({
       tasks: [],
       kanbanVisible: false,
@@ -252,7 +267,8 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
       selectedTaskNumbers: new Set<number>(),
       selectionAnchor: null,
       startingTaskNumbers: new Set<number>(),
-      runHookRequest: null,
+      runHookQueue: [],
+      runHookQueueTotal: 0,
       sandboxAvailable: false,
       configuredHooks: {},
       configProjectPath: null,
@@ -406,19 +422,43 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
 
   requestRunHook: (req) =>
     new Promise<RunHookResult | null>((resolve) => {
-      // If a prior prompt is still open (rare race: two transitions in flight),
-      // resolve it to null so the previous service call doesn't hang forever.
-      const prior = get().runHookRequest;
-      if (prior) prior.resolve(null);
+      // Concurrent transitions (CLI / multi-select batch starts) each append a
+      // request. They are presented one at a time as a stepper instead of the
+      // newest evicting the prior one, so no start hook is silently dropped.
       const id = ++runHookRequestCounter;
-      set({ runHookRequest: { ...req, id, resolve } });
+      set((s) => ({
+        runHookQueue: [...s.runHookQueue, { ...req, id, resolve }],
+        runHookQueueTotal: s.runHookQueueTotal + 1,
+      }));
     }),
 
   resolveRunHookRequest: (id, result) => {
-    const current = get().runHookRequest;
-    if (!current || current.id !== id) return;
-    set({ runHookRequest: null });
-    current.resolve(result);
+    const queue = get().runHookQueue;
+    const target = queue.find((r) => r.id === id);
+    if (!target) return;
+    const next = queue.filter((r) => r.id !== id);
+    set({ runHookQueue: next, runHookQueueTotal: next.length === 0 ? 0 : get().runHookQueueTotal });
+    target.resolve(result);
+  },
+
+  runAllRunHookRequests: (headResult) => {
+    const queue = get().runHookQueue;
+    if (queue.length === 0) return;
+    const [head, ...rest] = queue;
+    set({ runHookQueue: [], runHookQueueTotal: 0 });
+    head.resolve(headResult);
+    // Remaining hooks run with their default command in the background — the
+    // user opted into a bulk action rather than reviewing each one.
+    for (const req of rest) {
+      req.resolve({ command: req.hook.command, sandboxed: false, foreground: false });
+    }
+  },
+
+  skipAllRunHookRequests: () => {
+    const queue = get().runHookQueue;
+    if (queue.length === 0) return;
+    set({ runHookQueue: [], runHookQueueTotal: 0 });
+    for (const req of queue) req.resolve(null);
   },
 
   enqueueCliStart: (projectPath, start) => {

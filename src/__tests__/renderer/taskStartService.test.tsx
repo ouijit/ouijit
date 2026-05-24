@@ -97,8 +97,8 @@ describe('taskStartService.beginTransition', () => {
     });
 
     // Wait for the dialog request to appear.
-    await waitFor(() => useProjectStore.getState().runHookRequest != null);
-    const req = useProjectStore.getState().runHookRequest!;
+    await waitFor(() => useProjectStore.getState().runHookQueue[0] != null);
+    const req = useProjectStore.getState().runHookQueue[0]!;
     expect(req.hookType).toBe('start');
 
     // User cancels.
@@ -122,8 +122,8 @@ describe('taskStartService.beginTransition', () => {
       task: makeTask(),
     });
 
-    await waitFor(() => useProjectStore.getState().runHookRequest != null);
-    const req = useProjectStore.getState().runHookRequest!;
+    await waitFor(() => useProjectStore.getState().runHookQueue[0] != null);
+    const req = useProjectStore.getState().runHookQueue[0]!;
     useProjectStore.getState().resolveRunHookRequest(req.id, { command: 'npm ci', sandboxed: false, foreground: true });
 
     await waitFor(() => !useProjectStore.getState().startingTaskNumbers.has(7));
@@ -164,8 +164,8 @@ describe('taskStartService.beginTransition', () => {
       onForegroundOpen,
     });
 
-    await waitFor(() => useProjectStore.getState().runHookRequest != null);
-    const req = useProjectStore.getState().runHookRequest!;
+    await waitFor(() => useProjectStore.getState().runHookQueue[0] != null);
+    const req = useProjectStore.getState().runHookQueue[0]!;
     useProjectStore.getState().resolveRunHookRequest(req.id, { command: 'npm ci', sandboxed: false, foreground: true });
 
     // Should fire before the worktree resolves.
@@ -194,8 +194,8 @@ describe('taskStartService.beginTransition', () => {
       onForegroundOpen,
     });
 
-    await waitFor(() => useProjectStore.getState().runHookRequest != null);
-    const req = useProjectStore.getState().runHookRequest!;
+    await waitFor(() => useProjectStore.getState().runHookQueue[0] != null);
+    const req = useProjectStore.getState().runHookQueue[0]!;
     useProjectStore
       .getState()
       .resolveRunHookRequest(req.id, { command: 'npm ci', sandboxed: false, foreground: false });
@@ -233,5 +233,105 @@ describe('taskStartService.beginTransition', () => {
     // Only one start IPC and one terminal spawn.
     expect(window.api.task.start).toHaveBeenCalledTimes(1);
     expect(addProjectTerminal).toHaveBeenCalledTimes(1);
+  });
+
+  test('concurrent starts queue both hook prompts instead of dropping the first', async () => {
+    vi.mocked(window.api.hooks.get).mockResolvedValue({
+      start: { command: 'npm install', name: 'Start', source: 'configured', priority: 0 },
+    });
+    vi.mocked(window.api.task.start).mockImplementation(async (_projectPath, taskNumber) => ({
+      success: true,
+      worktreePath: `/wt/T-${taskNumber}`,
+      task: { taskNumber, name: `Task ${taskNumber}`, branch: `t-${taskNumber}`, status: 'in_progress', createdAt: '' },
+    }));
+
+    beginTransition(PROJECT, { origStatus: 'todo', newStatus: 'in_progress', task: { ...makeTask(), taskNumber: 7 } });
+    beginTransition(PROJECT, {
+      origStatus: 'todo',
+      newStatus: 'in_progress',
+      task: { ...makeTask(), taskNumber: 8, name: 'Second task' },
+    });
+
+    // Both prompts queue up — the second does not evict the first.
+    await waitFor(() => useProjectStore.getState().runHookQueue.length === 2);
+    expect(useProjectStore.getState().runHookQueueTotal).toBe(2);
+    expect(useProjectStore.getState().runHookQueue[0]!.task.taskNumber).toBe(7);
+
+    // Resolve the head — the second prompt slides into its place.
+    useProjectStore.getState().resolveRunHookRequest(useProjectStore.getState().runHookQueue[0]!.id, null);
+    await waitFor(() => useProjectStore.getState().runHookQueue.length === 1);
+    expect(useProjectStore.getState().runHookQueue[0]!.task.taskNumber).toBe(8);
+    // Total stays fixed so the stepper counts up rather than shrinking.
+    expect(useProjectStore.getState().runHookQueueTotal).toBe(2);
+
+    useProjectStore.getState().resolveRunHookRequest(useProjectStore.getState().runHookQueue[0]!.id, null);
+    await waitFor(
+      () =>
+        !useProjectStore.getState().startingTaskNumbers.has(7) &&
+        !useProjectStore.getState().startingTaskNumbers.has(8),
+    );
+
+    // Both tasks spawned a terminal — no start hook was silently dropped.
+    expect(addProjectTerminal).toHaveBeenCalledTimes(2);
+    expect(useProjectStore.getState().runHookQueueTotal).toBe(0);
+  });
+});
+
+describe('projectStore runHook queue', () => {
+  beforeEach(() => {
+    useProjectStore.getState().resetForProject();
+  });
+
+  const makeReq = (taskNumber: number) => ({
+    projectPath: PROJECT,
+    hookType: 'start' as const,
+    hook: { command: `cmd-${taskNumber}`, name: 'Start', source: 'configured' as const, priority: 0 },
+    task: { taskNumber, name: `Task ${taskNumber}`, status: 'todo' as const, order: 0, createdAt: '' },
+  });
+
+  test('requestRunHook appends instead of evicting the prior prompt', async () => {
+    const store = useProjectStore.getState();
+    const p1 = store.requestRunHook(makeReq(1));
+    const p2 = store.requestRunHook(makeReq(2));
+
+    expect(useProjectStore.getState().runHookQueue.map((r) => r.task.taskNumber)).toEqual([1, 2]);
+    expect(useProjectStore.getState().runHookQueueTotal).toBe(2);
+
+    useProjectStore.getState().resolveRunHookRequest(useProjectStore.getState().runHookQueue[0]!.id, null);
+    await expect(p1).resolves.toBeNull();
+    expect(useProjectStore.getState().runHookQueue.map((r) => r.task.taskNumber)).toEqual([2]);
+
+    useProjectStore.getState().resolveRunHookRequest(useProjectStore.getState().runHookQueue[0]!.id, null);
+    await expect(p2).resolves.toBeNull();
+    expect(useProjectStore.getState().runHookQueueTotal).toBe(0);
+  });
+
+  test('skipAllRunHookRequests resolves every queued prompt with null', async () => {
+    const store = useProjectStore.getState();
+    const promises = [
+      store.requestRunHook(makeReq(1)),
+      store.requestRunHook(makeReq(2)),
+      store.requestRunHook(makeReq(3)),
+    ];
+
+    useProjectStore.getState().skipAllRunHookRequests();
+
+    await expect(Promise.all(promises)).resolves.toEqual([null, null, null]);
+    expect(useProjectStore.getState().runHookQueue).toHaveLength(0);
+    expect(useProjectStore.getState().runHookQueueTotal).toBe(0);
+  });
+
+  test('runAllRunHookRequests applies headResult to the head and defaults to the rest', async () => {
+    const store = useProjectStore.getState();
+    const p1 = store.requestRunHook(makeReq(1));
+    const p2 = store.requestRunHook(makeReq(2));
+
+    const headResult = { command: 'edited', sandboxed: true, foreground: true };
+    useProjectStore.getState().runAllRunHookRequests(headResult);
+
+    await expect(p1).resolves.toEqual(headResult);
+    await expect(p2).resolves.toEqual({ command: 'cmd-2', sandboxed: false, foreground: false });
+    expect(useProjectStore.getState().runHookQueue).toHaveLength(0);
+    expect(useProjectStore.getState().runHookQueueTotal).toBe(0);
   });
 });
