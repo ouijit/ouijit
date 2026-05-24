@@ -6,7 +6,7 @@ import type { Command } from 'commander';
 import { get, put, del, projectQuery } from '../api';
 import { printJson, printError } from '../output';
 
-const VALID_HOOK_TYPES = ['start', 'continue', 'run', 'review', 'cleanup', 'editor'];
+const VALID_HOOK_TYPES = ['start', 'continue', 'run', 'review', 'done', 'editor'];
 
 function validateHookType(type: string): string {
   if (!VALID_HOOK_TYPES.includes(type)) {
@@ -22,13 +22,13 @@ export function registerHookCommands(parent: Command, requireProject: () => stri
     .addHelpText(
       'after',
       `
-Hook types: start, continue, run, review, cleanup, editor
+Hook types: start, continue, run, review, done, editor
 
 Examples:
   ouijit hook list
   ouijit hook set start --name "Install deps" --command "npm install"
   ouijit hook get review
-  ouijit hook delete cleanup`,
+  ouijit hook delete done`,
     );
 
   hook

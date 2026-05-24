@@ -514,8 +514,8 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
 
   // Task CRUD
   const handleAddTask = useCallback(
-    async (name: string) => {
-      await window.api.task.create(projectPath, name);
+    async (name: string, description?: string) => {
+      await window.api.task.create(projectPath, name, description);
       useProjectStore.getState().loadTasks(projectPath);
     },
     [projectPath],
@@ -685,7 +685,7 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
             const hookActive =
               (col.status === 'in_progress' && !!(configuredHooks.start || configuredHooks.continue)) ||
               (col.status === 'in_review' && !!configuredHooks.review) ||
-              (col.status === 'done' && !!configuredHooks.cleanup);
+              (col.status === 'done' && !!configuredHooks.done);
 
             return (
               <KanbanColumn

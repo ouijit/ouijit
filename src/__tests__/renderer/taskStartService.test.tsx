@@ -15,7 +15,7 @@ vi.mock('../../components/terminal/terminalActions', () => ({
 import { useProjectStore } from '../../stores/projectStore';
 import { useTerminalStore } from '../../stores/terminalStore';
 import { beginTransition } from '../../services/taskStartService';
-import { addProjectTerminal } from '../../components/terminal/terminalActions';
+import { addProjectTerminal, closeProjectTerminal } from '../../components/terminal/terminalActions';
 import type { TaskWithWorkspace } from '../../types';
 
 const PROJECT = '/project';
@@ -205,6 +205,44 @@ describe('taskStartService.beginTransition', () => {
     expect(onForegroundOpen).not.toHaveBeenCalled();
   });
 
+  test('done transition: closes pre-existing task terminals but keeps the done-hook terminal', async () => {
+    // A terminal already open for task 7.
+    useTerminalStore.getState().addTerminal(PROJECT, 'pty-old', { label: 'old', taskId: 7 });
+
+    vi.mocked(window.api.hooks.get).mockResolvedValue({
+      done: { command: 'echo hey', name: 'Done', source: 'configured', priority: 0 },
+    });
+
+    // The done-hook terminal registers itself in the store, tied to the same
+    // task, so we can prove the cleanup does not close it.
+    vi.mocked(addProjectTerminal).mockImplementation(async () => {
+      useTerminalStore.getState().addTerminal(PROJECT, 'pty-hook', { label: 'Done', taskId: 7 });
+      return true;
+    });
+
+    beginTransition(PROJECT, {
+      origStatus: 'in_review',
+      newStatus: 'done',
+      task: { ...makeTask(), status: 'in_review', worktreePath: '/wt/T-7', branch: 'wire-up-auth-7' },
+    });
+
+    await waitFor(() => useProjectStore.getState().runHookRequest != null);
+    const req = useProjectStore.getState().runHookRequest!;
+    expect(req.hookType).toBe('done');
+    useProjectStore
+      .getState()
+      .resolveRunHookRequest(req.id, { command: 'echo hey', sandboxed: false, foreground: false });
+
+    await waitFor(() => vi.mocked(closeProjectTerminal).mock.calls.length > 0);
+    await flushPromises();
+
+    // Hook terminal spawned with the 'Done' label and the captured command.
+    expect(vi.mocked(addProjectTerminal).mock.calls[0][1]).toMatchObject({ name: 'Done', command: 'echo hey' });
+
+    // Only the pre-existing terminal was closed; the done-hook terminal survives.
+    expect(vi.mocked(closeProjectTerminal).mock.calls.map((c) => c[0])).toEqual(['pty-old']);
+  });
+
   test('worktree creation failure: cleans up the loading slot', async () => {
     vi.mocked(window.api.task.start).mockResolvedValue({ success: false, error: 'boom' });
 
@@ -218,6 +256,78 @@ describe('taskStartService.beginTransition', () => {
 
     expect(useProjectStore.getState().startingTaskNumbers.has(7)).toBe(false);
     expect(addProjectTerminal).not.toHaveBeenCalled();
+  });
+
+  describe('hookControl (CLI flags) skips the dialog', () => {
+    test('mode "skip": spawns a plain shell, never opens the dialog', async () => {
+      vi.mocked(window.api.hooks.get).mockResolvedValue({
+        start: { command: 'npm install', name: 'Start', source: 'configured', priority: 0 },
+      });
+
+      beginTransition(PROJECT, {
+        origStatus: 'todo',
+        newStatus: 'in_progress',
+        task: makeTask(),
+        hookControl: { mode: 'skip' },
+      });
+
+      await waitFor(() => !useProjectStore.getState().startingTaskNumbers.has(7));
+
+      expect(useProjectStore.getState().runHookRequest).toBeNull();
+      expect(addProjectTerminal).toHaveBeenCalledTimes(1);
+      expect(vi.mocked(addProjectTerminal).mock.calls[0][1]).toBeUndefined();
+    });
+
+    test('mode "run": runs the configured hook command without the dialog', async () => {
+      vi.mocked(window.api.hooks.get).mockResolvedValue({
+        start: { command: 'npm install', name: 'Start', source: 'configured', priority: 0 },
+      });
+
+      beginTransition(PROJECT, {
+        origStatus: 'todo',
+        newStatus: 'in_progress',
+        task: makeTask(),
+        hookControl: { mode: 'run' },
+      });
+
+      await waitFor(() => !useProjectStore.getState().startingTaskNumbers.has(7));
+
+      expect(useProjectStore.getState().runHookRequest).toBeNull();
+      expect(addProjectTerminal).toHaveBeenCalledTimes(1);
+      expect(vi.mocked(addProjectTerminal).mock.calls[0][1]).toMatchObject({ command: 'npm install' });
+    });
+
+    test('mode "run" with no configured hook: plain shell', async () => {
+      beginTransition(PROJECT, {
+        origStatus: 'todo',
+        newStatus: 'in_progress',
+        task: makeTask(),
+        hookControl: { mode: 'run' },
+      });
+
+      await waitFor(() => !useProjectStore.getState().startingTaskNumbers.has(7));
+
+      expect(useProjectStore.getState().runHookRequest).toBeNull();
+      expect(vi.mocked(addProjectTerminal).mock.calls[0][1]).toBeUndefined();
+    });
+
+    test('mode "command": runs the one-off command without the dialog', async () => {
+      vi.mocked(window.api.hooks.get).mockResolvedValue({
+        start: { command: 'npm install', name: 'Start', source: 'configured', priority: 0 },
+      });
+
+      beginTransition(PROJECT, {
+        origStatus: 'todo',
+        newStatus: 'in_progress',
+        task: makeTask(),
+        hookControl: { mode: 'command', command: 'claude --resume' },
+      });
+
+      await waitFor(() => !useProjectStore.getState().startingTaskNumbers.has(7));
+
+      expect(useProjectStore.getState().runHookRequest).toBeNull();
+      expect(vi.mocked(addProjectTerminal).mock.calls[0][1]).toMatchObject({ command: 'claude --resume' });
+    });
   });
 
   test('duplicate concurrent drop for the same task is deduped', async () => {

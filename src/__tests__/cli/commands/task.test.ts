@@ -106,6 +106,82 @@ describe('task commands', () => {
     expect(result.success).toBe(true);
   });
 
+  describe('start hook flags', () => {
+    test('start with no hook flag omits hookMode', async () => {
+      vi.mocked(post).mockResolvedValue({ success: true });
+      const output = captureOutput();
+      await createProgram().parseAsync(['task', 'start', '3'], { from: 'user' });
+      output.getJson();
+      expect(post).toHaveBeenCalledWith(`/api/tasks/3/start?project=${encodeURIComponent(PROJECT)}`, {
+        branchName: undefined,
+      });
+    });
+
+    test('start --run-hook sends hookMode run', async () => {
+      vi.mocked(post).mockResolvedValue({ success: true });
+      const output = captureOutput();
+      await createProgram().parseAsync(['task', 'start', '3', '--run-hook'], { from: 'user' });
+      output.getJson();
+      expect(post).toHaveBeenCalledWith(`/api/tasks/3/start?project=${encodeURIComponent(PROJECT)}`, {
+        branchName: undefined,
+        hookMode: 'run',
+      });
+    });
+
+    test('start --skip-hook sends hookMode skip', async () => {
+      vi.mocked(post).mockResolvedValue({ success: true });
+      const output = captureOutput();
+      await createProgram().parseAsync(['task', 'start', '3', '--skip-hook'], { from: 'user' });
+      output.getJson();
+      expect(post).toHaveBeenCalledWith(`/api/tasks/3/start?project=${encodeURIComponent(PROJECT)}`, {
+        branchName: undefined,
+        hookMode: 'skip',
+      });
+    });
+
+    test('start --hook-command sends hookMode command + hookCommand', async () => {
+      vi.mocked(post).mockResolvedValue({ success: true });
+      const output = captureOutput();
+      await createProgram().parseAsync(['task', 'start', '3', '--hook-command', 'claude'], { from: 'user' });
+      output.getJson();
+      expect(post).toHaveBeenCalledWith(`/api/tasks/3/start?project=${encodeURIComponent(PROJECT)}`, {
+        branchName: undefined,
+        hookMode: 'command',
+        hookCommand: 'claude',
+      });
+    });
+
+    test('create-and-start --run-hook sends hookMode run', async () => {
+      vi.mocked(post).mockResolvedValue({ success: true });
+      const output = captureOutput();
+      await createProgram().parseAsync(['task', 'create-and-start', 'New task', '--run-hook'], { from: 'user' });
+      output.getJson();
+      expect(post).toHaveBeenCalledWith(`/api/tasks/start?project=${encodeURIComponent(PROJECT)}`, {
+        name: 'New task',
+        prompt: undefined,
+        branchName: undefined,
+        hookMode: 'run',
+      });
+    });
+
+    test('mutually exclusive hook flags error and exit non-zero', async () => {
+      const errSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+      const exitSpy = vi.spyOn(process, 'exit').mockImplementation(((code?: number) => {
+        throw new Error(`exit:${code}`);
+      }) as never);
+      try {
+        await expect(
+          createProgram().parseAsync(['task', 'start', '3', '--run-hook', '--skip-hook'], { from: 'user' }),
+        ).rejects.toThrow(/exit:1/);
+        expect(post).not.toHaveBeenCalled();
+        expect(errSpy).toHaveBeenCalled();
+      } finally {
+        errSpy.mockRestore();
+        exitSpy.mockRestore();
+      }
+    });
+  });
+
   test('set-status calls PATCH /api/tasks/:number/status', async () => {
     vi.mocked(patch).mockResolvedValue({ success: true });
     const output = captureOutput();

@@ -379,8 +379,11 @@ ouijit task get <number>                      # → single task object
 ouijit task current                           # → task owning this terminal (resolves via OUIJIT_PTY_ID)
 ouijit task create "<name>"                   # → {success, task: {taskNumber, ...}}
 ouijit task create "<name>" --prompt "<text>" # set description at creation
-ouijit task start <number>                    # creates git worktree, sets in_progress
-ouijit task create-and-start "<name>"         # create + start in one step
+ouijit task start <number>                    # creates git worktree, sets in_progress; default opens the start-hook dialog in the GUI
+ouijit task start <number> --run-hook         # run the configured start hook immediately, no dialog
+ouijit task start <number> --skip-hook        # spawn the terminal but run no hook
+ouijit task start <number> --hook-command "<cmd>"  # spawn the terminal running a one-off command instead of the configured hook
+ouijit task create-and-start "<name>"         # create + start in one step (accepts the same --run-hook / --skip-hook / --hook-command flags)
 ouijit task set-status <number> <status>      # status: todo | in_progress | in_review | done
 ouijit task set-name <number> <new name>
 ouijit task set-description <number> <text>
@@ -395,7 +398,7 @@ ouijit tag remove <task-number> <tag-name>
 ouijit tag set <task-number> <tag1> <tag2>... # replace all tags
 
 ## Hook Commands (project lifecycle scripts)
-Hook types: start, continue, run, review, cleanup, editor
+Hook types: start, continue, run, review, done, editor
 
 ouijit hook list                              # → {start?: {name, command}, ...}
 ouijit hook get <type>
@@ -432,6 +435,12 @@ ouijit task set-status $(ouijit task current | jq .taskNumber) in_review
 # Create a task and immediately start working:
 ouijit task create-and-start "Fix auth timeout" --prompt "Session expires too early"
 
+# Headless start — no GUI dialog needed. Use these when a human isn't at the keyboard
+# to dismiss the start-hook dialog. The flags are mutually exclusive.
+ouijit task start 5 --skip-hook
+ouijit task start 5 --run-hook
+ouijit task start 5 --hook-command "claude"
+
 # Tag and describe a task:
 ouijit task set-description 3 "Refactor the auth middleware to use JWT refresh tokens"
 ouijit tag add 3 refactor
@@ -462,6 +471,22 @@ export const CLAUDE_WRAPPER = [
   '',
   '# Re-export PATH with wrapper dir so ouijit CLI works inside Claude Code',
   'export PATH="$WRAPPER_DIR:$CLEAN_PATH"',
+  '',
+  '# Claude subcommands (mcp, update, doctor, config, install, plugin, ...)',
+  '# do not accept top-level flags like --settings / --append-system-prompt-file.',
+  '# Injecting them either errors out or reroutes the subcommand name into an',
+  '# interactive prompt (same shape as the Pi bug in issue #177). Detect the',
+  '# first non-flag arg and, if it names a known subcommand, exec the real',
+  '# claude without injection.',
+  'for arg in "$@"; do',
+  '  case "$arg" in',
+  '    -*) continue ;;',
+  '    mcp|update|doctor|config|install|plugin|project|agents|setup-token|migrate-installer|ultrareview|auth)',
+  '      exec "$REAL_CLAUDE" "$@"',
+  '      ;;',
+  '    *) break ;;',
+  '  esac',
+  'done',
   '',
   '# CLI reference file for Claude Code agents',
   'REFERENCE_FILE="$HOME/.config/Ouijit/ouijit-cli-reference.md"',
@@ -657,8 +682,8 @@ export default async (pi: OuijitPiApi) => {
     pi.exec(hookBin, ['status', \`status=\${status}\`], { timeout: 2000 }).catch(() => {});
   };
 
-  pi.on('turn_start', () => ping('thinking'));
-  pi.on('turn_end', () => ping('ready'));
+  pi.on('agent_start', () => ping('thinking'));
+  pi.on('agent_end', () => ping('ready'));
 };
 `;
 
@@ -678,6 +703,21 @@ export const PI_WRAPPER = [
   'fi',
   '',
   'export PATH="$WRAPPER_DIR:$CLEAN_PATH"',
+  '',
+  '# Pi subcommands run in their own non-interactive mode. Injecting',
+  '# --append-system-prompt / --extension forces Pi back into an interactive',
+  '# session, swallowing the subcommand (see issue #177). Detect the first',
+  '# non-flag arg and, if it names a known subcommand, exec the real pi',
+  '# without injection.',
+  'for arg in "$@"; do',
+  '  case "$arg" in',
+  '    -*) continue ;;',
+  '    install|remove|uninstall|update|list|config)',
+  '      exec "$REAL_PI" "$@"',
+  '      ;;',
+  '    *) break ;;',
+  '  esac',
+  'done',
   '',
   'REFERENCE_FILE="$HOME/.config/Ouijit/ouijit-cli-reference.md"',
   'EXTENSION_FILE="$HOME/.config/Ouijit/pi/ouijit-extension.ts"',

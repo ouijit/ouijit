@@ -75,13 +75,13 @@ describe('projectSettings', () => {
     // Save something
     await saveHook(project, {
       id: 'hook-x',
-      type: 'cleanup' as const,
-      name: 'Cleanup',
+      type: 'done' as const,
+      name: 'Done',
       command: 'rm -rf tmp',
     });
 
     // Verify it exists before reset
-    const hookBefore = await getHook(project, 'cleanup');
+    const hookBefore = await getHook(project, 'done');
     expect(hookBefore).toBeDefined();
     expect(hookBefore!.command).toBe('rm -rf tmp');
 
@@ -89,7 +89,7 @@ describe('projectSettings', () => {
     _resetCacheForTesting();
 
     // Should NOT find the hook (fresh database)
-    const hookAfter = await getHook(project, 'cleanup');
+    const hookAfter = await getHook(project, 'done');
     expect(hookAfter).toBeUndefined();
   });
 

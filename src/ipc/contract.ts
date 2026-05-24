@@ -26,6 +26,7 @@ import type {
   TaskWorktreeResult,
   CheckWorktreeResult,
   TaskWithWorkspace,
+  CliHookMode,
   TaskStatus,
   ScriptHook,
   HookType,
@@ -239,6 +240,10 @@ export interface IpcPushContract {
         branch: string;
         createdAt: string;
         sandboxed: boolean;
+        /** Hook-control mode from the CLI flags; absent = default dialog. */
+        hookMode?: CliHookMode;
+        /** Custom command when hookMode is 'command'. */
+        hookCommand?: string;
       },
     ];
   };
