@@ -19,6 +19,7 @@ import { useAppStore, staleGuard } from '../../stores/appStore';
 import { OuijitTerminal, terminalInstances, resolveTerminalLabel, type SummaryType } from './terminalReact';
 import { readSnapshot } from './sessionSnapshot';
 import { detectDevServerUrl } from '../webPreview/urlHelpers';
+import { descriptionToHookPrompt } from '../../utils/descriptionAttachments';
 import log from 'electron-log/renderer';
 
 const actionsLog = log.scope('terminalActions');
@@ -173,8 +174,9 @@ export function buildWorktreeStartEnv(params: {
   };
   const prompt = task?.prompt;
   if (prompt) {
-    env.OUIJIT_TASK_PROMPT = prompt;
-    env.OUIJIT_TASK_DESCRIPTION = prompt;
+    const promptForHook = descriptionToHookPrompt(prompt);
+    env.OUIJIT_TASK_PROMPT = promptForHook;
+    env.OUIJIT_TASK_DESCRIPTION = promptForHook;
   }
   return env;
 }
@@ -532,8 +534,8 @@ async function _spawnRunnerInner(instance: OuijitTerminal, script?: RunnerScript
       ...(instance.worktreeBranch && { OUIJIT_TASK_BRANCH: instance.worktreeBranch }),
       ...(instance.label && { OUIJIT_TASK_NAME: instance.label }),
       ...(instance.taskPrompt && {
-        OUIJIT_TASK_PROMPT: instance.taskPrompt,
-        OUIJIT_TASK_DESCRIPTION: instance.taskPrompt,
+        OUIJIT_TASK_PROMPT: descriptionToHookPrompt(instance.taskPrompt),
+        OUIJIT_TASK_DESCRIPTION: descriptionToHookPrompt(instance.taskPrompt),
       }),
     },
   };

@@ -332,6 +332,13 @@ export const KanbanCard = memo(function KanbanCard({
     handleStartRenameTask,
   ]);
 
+  const handleSaveImage = useCallback(async (data: Uint8Array, ext: string): Promise<string | null> => {
+    const result = await window.api.task.saveAttachment(data, ext);
+    if (result.success && result.path) return result.path;
+    useProjectStore.getState().addToast(result.error || 'Failed to attach image', 'error');
+    return null;
+  }, []);
+
   return (
     <>
       <KanbanCardView
@@ -353,6 +360,7 @@ export const KanbanCard = memo(function KanbanCard({
         onPlainClick={handlePlainClick}
         onContextMenu={(e) => setContextMenu({ x: e.clientX, y: e.clientY })}
         onUpdateDescription={onUpdateDescription}
+        onSaveImage={handleSaveImage}
         onSwitchToTerminal={onSwitchToTerminal}
         onTerminalContextMenu={(ptyId, e) => setTerminalContextMenu({ x: e.clientX, y: e.clientY, ptyId })}
         isRenamingTask={isRenamingTask}
