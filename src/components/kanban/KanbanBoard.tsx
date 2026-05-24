@@ -448,11 +448,30 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
       if (multiDragTasks && multiDragTasks.length > 1) {
         setActiveTask(null);
         const newStatus = finalContainer as TaskStatus;
-        await Promise.allSettled(multiDragTasks.map((n) => window.api.task.setStatus(projectPath, n, newStatus)));
-        useProjectStore.getState().loadTasks(projectPath);
+        // Snapshot each task's status BEFORE mutating so we can drive the
+        // start-service with the right origStatus per task. Only the actively
+        // dragged card moved optimistically in handleDragOver; the others
+        // still reflect their original column in storeTasks.
+        const tasksByNumber = new Map(storeTasks.map((t) => [t.taskNumber, t]));
+        const transitions = multiDragTasks
+          .map((n) => tasksByNumber.get(n))
+          .filter((t): t is TaskWithWorkspace => !!t && t.status !== newStatus)
+          .map((task) => ({ task, origStatus: task.status }));
+
+        await Promise.allSettled(
+          transitions.map(({ task }) => window.api.task.setStatus(projectPath, task.taskNumber, newStatus)),
+        );
+        await useProjectStore.getState().loadTasks(projectPath);
         useProjectStore.getState().clearSelection();
+
+        // Route each through the start service so worktrees get created and
+        // hook dialogs queue up as a stepper instead of being silently skipped.
+        for (const { task, origStatus } of transitions) {
+          beginTransition(projectPath, { origStatus, newStatus, task });
+        }
+
         const label = { todo: 'To Do', in_progress: 'In Progress', in_review: 'In Review', done: 'Done' }[newStatus];
-        useProjectStore.getState().addToast(`Moved ${multiDragTasks.length} tasks to ${label}`, 'success');
+        useProjectStore.getState().addToast(`Moved ${transitions.length} tasks to ${label}`, 'success');
         return;
       }
 
