@@ -24,6 +24,7 @@ import bug from '@phosphor-icons/core/assets/regular/bug.svg?raw';
 import arrowElbowDownLeft from '@phosphor-icons/core/assets/regular/arrow-elbow-down-left.svg?raw';
 import caretDown from '@phosphor-icons/core/assets/regular/caret-down.svg?raw';
 import command from '@phosphor-icons/core/assets/regular/command.svg?raw';
+import control from '@phosphor-icons/core/assets/regular/control.svg?raw';
 import dotsSixVertical from '@phosphor-icons/core/assets/regular/dots-six-vertical.svg?raw';
 import caretLeft from '@phosphor-icons/core/assets/regular/caret-left.svg?raw';
 import caretRight from '@phosphor-icons/core/assets/regular/caret-right.svg?raw';
@@ -93,6 +94,7 @@ export const iconMap: Record<string, string> = {
   'arrow-elbow-down-left': arrowElbowDownLeft,
   'caret-down': caretDown,
   command: command,
+  control: control,
   'dots-six-vertical': dotsSixVertical,
   'caret-left': caretLeft,
   'caret-right': caretRight,

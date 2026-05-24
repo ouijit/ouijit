@@ -5,14 +5,10 @@ import { useProjectStore } from '../../stores/projectStore';
 
 const isMac = typeof navigator !== 'undefined' && navigator.platform.toLowerCase().includes('mac');
 
-function SubmitHint() {
+function SubmitHint({ withModifier }: { withModifier: boolean }) {
   return (
     <span className="kanban-add-button-hint">
-      {isMac ? (
-        <Icon name="command" className="kanban-add-button-hint-icon" />
-      ) : (
-        <span className="kanban-add-button-hint-text">Ctrl</span>
-      )}
+      {withModifier && <Icon name={isMac ? 'command' : 'control'} className="kanban-add-button-hint-icon" />}
       <Icon name="arrow-elbow-down-left" className="kanban-add-button-hint-icon" />
     </span>
   );
@@ -30,6 +26,9 @@ export function KanbanAddInput({ onAdd }: KanbanAddInputProps) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [active, setActive] = useState(false);
+  // Which input owns focus right now — drives the submit hint, since plain
+  // Enter creates from the title field but the description needs ⌘/Ctrl+↵.
+  const [focusedField, setFocusedField] = useState<'title' | 'description'>('title');
   const inputRef = useRef<HTMLInputElement>(null);
   const editorRef = useRef<DescriptionChipEditorHandle>(null);
 
@@ -38,6 +37,7 @@ export function KanbanAddInput({ onAdd }: KanbanAddInputProps) {
     setDescription('');
     editorRef.current?.setValue('');
     setActive(false);
+    setFocusedField('title');
   }, []);
 
   const canSubmit = name.trim().length > 0;
@@ -83,6 +83,12 @@ export function KanbanAddInput({ onAdd }: KanbanAddInputProps) {
     [submit, reset],
   );
 
+  const handleDescriptionFocus = useCallback(() => setFocusedField('description'), []);
+  const handleNameFocus = useCallback(() => {
+    setActive(true);
+    setFocusedField('title');
+  }, []);
+
   // Collapse only when focus leaves the whole form and nothing was entered.
   const handleBlur = useCallback(
     (e: React.FocusEvent) => {
@@ -125,7 +131,7 @@ export function KanbanAddInput({ onAdd }: KanbanAddInputProps) {
         value={name}
         onChange={(e) => setName(e.target.value)}
         onKeyDown={handleNameKeyDown}
-        onFocus={() => setActive(true)}
+        onFocus={handleNameFocus}
       />
       {active && (
         <>
@@ -136,21 +142,16 @@ export function KanbanAddInput({ onAdd }: KanbanAddInputProps) {
             onAttachFile={handleAttachFile}
             placeholder="Description (optional)"
             onKeyDown={handleDescriptionKeyDown}
+            onFocus={handleDescriptionFocus}
             className="kanban-add-description w-full font-mono text-xs text-text-secondary bg-transparent px-3 py-2.5 outline-none transition-all duration-150 ease-out border-none focus:bg-white/[0.04]"
             style={{ minHeight: '4.5rem', whiteSpace: 'pre-wrap', wordWrap: 'break-word', lineHeight: 1.5 }}
           />
+          {/* DOM order is [Create, Cancel] so Tab from the description lands
+              on Create first; flex-row-reverse keeps Cancel on the visual left. */}
           <div
-            className="flex items-center justify-end gap-2 px-2 py-1.5"
+            className="flex flex-row-reverse items-center justify-start gap-2 px-2 py-1.5"
             style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.06)' }}
           >
-            <button
-              type="button"
-              onClick={reset}
-              className="kanban-add-button text-text-tertiary hover:text-text-primary hover:bg-white/[0.04]"
-            >
-              Cancel
-              <CancelHint />
-            </button>
             <button
               type="button"
               onClick={submit}
@@ -158,7 +159,15 @@ export function KanbanAddInput({ onAdd }: KanbanAddInputProps) {
               className="kanban-add-button text-accent hover:bg-accent/10 disabled:text-text-tertiary"
             >
               Create
-              <SubmitHint />
+              <SubmitHint withModifier={focusedField === 'description'} />
+            </button>
+            <button
+              type="button"
+              onClick={reset}
+              className="kanban-add-button text-text-tertiary hover:text-text-primary hover:bg-white/[0.04]"
+            >
+              Cancel
+              <CancelHint />
             </button>
           </div>
         </>

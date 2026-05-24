@@ -181,10 +181,9 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
         if (selectedTaskNumbers.size > 0) {
           e.preventDefault();
           clearSelection();
-          return; // First Escape deselects; second closes board
         }
-        e.preventDefault();
-        onHide();
+        // Otherwise let Escape fall through — board/stack toggling is owned by
+        // Cmd/Ctrl+T, never Escape, so it doesn't fight with form-level resets.
         return;
       }
       const mod = isMac ? e.metaKey : e.ctrlKey;
@@ -195,7 +194,7 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
     };
     document.addEventListener('keydown', handler, true);
     return () => document.removeEventListener('keydown', handler, true);
-  }, [onHide, hasOpenDialog]);
+  }, [hasOpenDialog]);
 
   // Track Option/Alt key for showing standalone badges
   useEffect(() => {

@@ -60,10 +60,10 @@ function EmptyState() {
         >
           <span
             className="inline-flex items-center font-mono"
-            style={{ fontSize: isMac ? 16 : 13, color: 'rgba(255, 255, 255, 0.25)' }}
+            style={{ fontSize: 16, color: 'rgba(255, 255, 255, 0.25)' }}
           >
-            {isMac ? '⌘' : 'Ctrl+'}
-            <span className={isMac ? 'text-xs' : 'text-[13px]'}>N</span>
+            {isMac ? '⌘' : '⌃'}
+            <span className="text-xs">N</span>
           </span>
           New Task
         </span>
@@ -73,10 +73,10 @@ function EmptyState() {
         >
           <span
             className="inline-flex items-center font-mono"
-            style={{ fontSize: isMac ? 16 : 13, color: 'rgba(255, 255, 255, 0.25)' }}
+            style={{ fontSize: 16, color: 'rgba(255, 255, 255, 0.25)' }}
           >
-            {isMac ? '⌘' : 'Ctrl+'}
-            <span className={isMac ? 'text-xs' : 'text-[13px]'}>T</span>
+            {isMac ? '⌘' : '⌃'}
+            <span className="text-xs">T</span>
           </span>
           Board
         </span>
