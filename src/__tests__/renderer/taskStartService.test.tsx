@@ -226,8 +226,8 @@ describe('taskStartService.beginTransition', () => {
       task: { ...makeTask(), status: 'in_review', worktreePath: '/wt/T-7', branch: 'wire-up-auth-7' },
     });
 
-    await waitFor(() => useProjectStore.getState().runHookRequest != null);
-    const req = useProjectStore.getState().runHookRequest!;
+    await waitFor(() => useProjectStore.getState().runHookQueue[0] != null);
+    const req = useProjectStore.getState().runHookQueue[0]!;
     expect(req.hookType).toBe('done');
     useProjectStore
       .getState()
@@ -273,7 +273,7 @@ describe('taskStartService.beginTransition', () => {
 
       await waitFor(() => !useProjectStore.getState().startingTaskNumbers.has(7));
 
-      expect(useProjectStore.getState().runHookRequest).toBeNull();
+      expect(useProjectStore.getState().runHookQueue[0]).toBeUndefined();
       expect(addProjectTerminal).toHaveBeenCalledTimes(1);
       expect(vi.mocked(addProjectTerminal).mock.calls[0][1]).toBeUndefined();
     });
@@ -292,7 +292,7 @@ describe('taskStartService.beginTransition', () => {
 
       await waitFor(() => !useProjectStore.getState().startingTaskNumbers.has(7));
 
-      expect(useProjectStore.getState().runHookRequest).toBeNull();
+      expect(useProjectStore.getState().runHookQueue[0]).toBeUndefined();
       expect(addProjectTerminal).toHaveBeenCalledTimes(1);
       expect(vi.mocked(addProjectTerminal).mock.calls[0][1]).toMatchObject({ command: 'npm install' });
     });
@@ -307,7 +307,7 @@ describe('taskStartService.beginTransition', () => {
 
       await waitFor(() => !useProjectStore.getState().startingTaskNumbers.has(7));
 
-      expect(useProjectStore.getState().runHookRequest).toBeNull();
+      expect(useProjectStore.getState().runHookQueue[0]).toBeUndefined();
       expect(vi.mocked(addProjectTerminal).mock.calls[0][1]).toBeUndefined();
     });
 
@@ -325,7 +325,7 @@ describe('taskStartService.beginTransition', () => {
 
       await waitFor(() => !useProjectStore.getState().startingTaskNumbers.has(7));
 
-      expect(useProjectStore.getState().runHookRequest).toBeNull();
+      expect(useProjectStore.getState().runHookQueue[0]).toBeUndefined();
       expect(vi.mocked(addProjectTerminal).mock.calls[0][1]).toMatchObject({ command: 'claude --resume' });
     });
   });
