@@ -479,8 +479,8 @@ describe('wrapper resolver (shared)', () => {
 
   for (const [label, wrapper, bin, injectedSentinel] of wrappers) {
     test(`${label} wrapper: does not recurse into itself when PATH lists the wrapper dir twice (regression for T-407)`, () => {
-      // Reproduces Keith's failure mode: the wrapper dir appears twice in
-      // PATH (once verbatim, once via a symlink) so the string-only strip
+      // Reproduces the reported failure mode: the wrapper dir appears twice
+      // in PATH (once verbatim, once via a symlink) so the string-only strip
       // leaves a wrapper-pointing entry behind. Pre-fix the wrapper exec's
       // itself, argv balloons across each hop, and execve fails with E2BIG.
       // Post-fix the `-ef` guard rejects the wrapper match and we resolve

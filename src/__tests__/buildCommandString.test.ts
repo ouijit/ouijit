@@ -8,9 +8,9 @@ import { buildCommandString, buildCommandShellArgs } from '../ptyManager';
  * splices shell metacharacters (backticks, $(), quotes) into the command,
  * which the shell then re-evaluates.
  *
- * Proven case (Keith, Signal): task name `Add `.DS_Store` in .gitignore`
- * with start command `codex "$OUIJIT_TASK_NAME"` produced
- * `zsh: command not found: .DS_Store` — the backticks were executed.
+ * Proven case: task name `Add `.DS_Store` in .gitignore` with start
+ * command `codex "$OUIJIT_TASK_NAME"` produced `zsh: command not found:
+ * .DS_Store` — the backticks in the task name were executed.
  */
 describe('buildCommandString', () => {
   it('returns an empty string when no command is given', () => {
