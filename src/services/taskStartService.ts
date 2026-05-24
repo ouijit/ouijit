@@ -119,18 +119,45 @@ export async function bulkTransitionTasks(
     .filter((t): t is TaskWithWorkspace => !!t && t.status !== newStatus)
     .map((task) => ({ task, origStatus: task.status }));
 
-  await Promise.allSettled(
+  const results = await Promise.allSettled(
     transitions.map(({ task }) => window.api.task.setStatus(projectPath, task.taskNumber, newStatus)),
   );
+  // Drop any task whose status change didn't actually land — both IPC
+  // rejections and { success: false } responses. Otherwise beginTransition
+  // would create a worktree for a task whose server-side status is still
+  // the old one.
+  const succeeded: typeof transitions = [];
+  const failed: Array<{ taskNumber: number; error: string }> = [];
+  results.forEach((r, i) => {
+    const tr = transitions[i];
+    if (r.status === 'rejected') {
+      failed.push({
+        taskNumber: tr.task.taskNumber,
+        error: r.reason instanceof Error ? r.reason.message : String(r.reason),
+      });
+    } else if (!r.value.success) {
+      failed.push({ taskNumber: tr.task.taskNumber, error: r.value.error ?? 'Failed to update status' });
+    } else {
+      succeeded.push(tr);
+    }
+  });
+
   await store.loadTasks(projectPath);
   store.clearSelection();
 
-  for (const { task, origStatus } of transitions) {
+  for (const { task, origStatus } of succeeded) {
     beginTransition(projectPath, { origStatus, newStatus, task });
   }
 
-  useProjectStore.getState().addToast(`Moved ${transitions.length} tasks to ${STATUS_LABEL[newStatus]}`, 'success');
-  return transitions;
+  if (succeeded.length > 0) {
+    useProjectStore.getState().addToast(`Moved ${succeeded.length} tasks to ${STATUS_LABEL[newStatus]}`, 'success');
+  }
+  if (failed.length > 0) {
+    const sample = failed[0].error;
+    const suffix = failed.length > 1 ? ` (and ${failed.length - 1} more)` : '';
+    useProjectStore.getState().addToast(`Failed to move ${failed.length} tasks: ${sample}${suffix}`, 'error');
+  }
+  return succeeded;
 }
 
 async function runTransition(

@@ -153,7 +153,7 @@ describe('bulkTransitionTasks', () => {
     expect(useProjectStore.getState().runHookQueue.map((r) => r.task.taskNumber)).toEqual([1, 2]);
   });
 
-  test('a no-op bulk action (all selected already in target) emits a "Moved 0" toast and no IPC', async () => {
+  test('a no-op bulk action (all selected already in target) fires no IPC and no toast', async () => {
     useProjectStore.setState({
       tasks: [task(1, 'done'), task(2, 'done')],
       selectedTaskNumbers: new Set([1, 2]),
@@ -163,6 +163,65 @@ describe('bulkTransitionTasks', () => {
 
     expect(transitions).toEqual([]);
     expect(window.api.task.setStatus).not.toHaveBeenCalled();
-    expect(useProjectStore.getState().toasts[0].message).toBe('Moved 0 tasks to Done');
+    expect(useProjectStore.getState().toasts).toEqual([]);
+  });
+
+  test('drops tasks whose setStatus rejected and does not begin their transitions', async () => {
+    vi.mocked(window.api.hooks.get).mockResolvedValue({
+      start: { command: 'npm install', name: 'Start', source: 'configured', priority: 0 },
+    });
+    vi.mocked(window.api.task.setStatus).mockImplementation(async (_p, taskNumber) => {
+      if (taskNumber === 2) throw new Error('connection refused');
+      return { success: true };
+    });
+    useProjectStore.setState({
+      tasks: [task(1, 'todo'), task(2, 'todo'), task(3, 'todo')],
+      selectedTaskNumbers: new Set([1, 2, 3]),
+    });
+
+    const succeeded = await bulkTransitionTasks(PROJECT, [1, 2, 3], 'in_progress');
+
+    // Only tasks 1 and 3 are returned and routed through beginTransition.
+    // Task 2 was filtered out — no hook prompt for it should ever queue.
+    expect(succeeded.map((t) => t.task.taskNumber)).toEqual([1, 3]);
+    await vi.waitFor(() => expect(useProjectStore.getState().runHookQueue).toHaveLength(2));
+    expect(useProjectStore.getState().runHookQueue.map((r) => r.task.taskNumber)).toEqual([1, 3]);
+
+    // Both a success and an error toast surface the partial outcome.
+    const messages = useProjectStore.getState().toasts.map((t) => `${t.type}:${t.message}`);
+    expect(messages).toContain('success:Moved 2 tasks to In Progress');
+    expect(messages.some((m) => m.startsWith('error:Failed to move 1 tasks: connection refused'))).toBe(true);
+  });
+
+  test('drops tasks whose setStatus returned { success: false }', async () => {
+    vi.mocked(window.api.task.setStatus).mockImplementation(async (_p, taskNumber) => {
+      if (taskNumber === 1) return { success: false, error: 'task locked' };
+      return { success: true };
+    });
+    useProjectStore.setState({
+      tasks: [task(1, 'todo'), task(2, 'todo')],
+      selectedTaskNumbers: new Set([1, 2]),
+    });
+
+    const succeeded = await bulkTransitionTasks(PROJECT, [1, 2], 'in_progress');
+
+    expect(succeeded.map((t) => t.task.taskNumber)).toEqual([2]);
+    const messages = useProjectStore.getState().toasts.map((t) => `${t.type}:${t.message}`);
+    expect(messages).toContain('error:Failed to move 1 tasks: task locked');
+  });
+
+  test('when every setStatus fails, no success toast is emitted', async () => {
+    vi.mocked(window.api.task.setStatus).mockResolvedValue({ success: false, error: 'boom' });
+    useProjectStore.setState({
+      tasks: [task(1, 'todo'), task(2, 'todo')],
+      selectedTaskNumbers: new Set([1, 2]),
+    });
+
+    const succeeded = await bulkTransitionTasks(PROJECT, [1, 2], 'in_progress');
+
+    expect(succeeded).toEqual([]);
+    const types = useProjectStore.getState().toasts.map((t) => t.type);
+    expect(types).toEqual(['error']);
+    expect(types).not.toContain('success');
   });
 });
