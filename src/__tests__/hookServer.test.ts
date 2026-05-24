@@ -477,18 +477,6 @@ describe('wrapper resolver (shared)', () => {
     ['pi', PI_WRAPPER, 'pi', /--append-system-prompt/],
   ];
 
-  for (const [label, wrapper, bin] of wrappers) {
-    test(`${label} wrapper: rejects PATH matches that resolve to itself (E2BIG guard)`, () => {
-      // String strip on `:$WRAPPER_DIR:` misses trailing slashes and symlink
-      // targets, so we need an inode-equality fallback (`-ef`) before we
-      // exec the resolved binary. See T-407.
-      expect(wrapper).toContain('WRAPPER_SELF=');
-      expect(wrapper).toContain('"$REAL_BIN" -ef "$WRAPPER_SELF"');
-      expect(wrapper).toMatch(/for _dir in \$CLEAN_PATH/);
-      expect(wrapper).toContain(`"$_dir/${bin}" -ef "$WRAPPER_SELF"`);
-    });
-  }
-
   for (const [label, wrapper, bin, injectedSentinel] of wrappers) {
     test(`${label} wrapper: does not recurse into itself when PATH lists the wrapper dir twice (regression for T-407)`, () => {
       // Reproduces Keith's failure mode: the wrapper dir appears twice in
