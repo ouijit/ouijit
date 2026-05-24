@@ -72,6 +72,13 @@ describe('extractAttachmentPaths', () => {
     const text = 'one ![](/a.png) two ![](/b.png) one again ![](/a.png)';
     expect(extractAttachmentPaths(text)).toEqual(['/a.png', '/b.png']);
   });
+
+  test('decodes encoded characters so backend cleanup matches the chip path', () => {
+    // The renderer stores parens as `%28` / `%29`; the cleanup pass must see
+    // the same path the chip's `data-attachment-path` holds.
+    const text = '![](/Users/me/Doc %281%29.pdf)';
+    expect(extractAttachmentPaths(text)).toEqual(['/Users/me/Doc (1).pdf']);
+  });
 });
 
 describe('deleteOrphanedAttachments', () => {

@@ -5,6 +5,8 @@ import {
   serializeDescriptionDOM,
   createAttachmentChip,
   descriptionToHookPrompt,
+  encodeAttachmentPath,
+  decodeAttachmentPath,
 } from '../utils/descriptionAttachments';
 
 describe('parseDescription', () => {
@@ -95,5 +97,56 @@ describe('round-trip', () => {
       else editor.appendChild(createAttachmentChip(seg.path));
     }
     expect(serializeDescriptionDOM(editor)).toBe(input);
+  });
+});
+
+describe('encodeAttachmentPath / decodeAttachmentPath', () => {
+  test('passes a path with no reserved characters through unchanged', () => {
+    expect(encodeAttachmentPath('/tmp/a.png')).toBe('/tmp/a.png');
+    expect(decodeAttachmentPath('/tmp/a.png')).toBe('/tmp/a.png');
+  });
+
+  test('escapes parens that would terminate the marker early', () => {
+    expect(encodeAttachmentPath('/Users/me/Document (1).pdf')).toBe('/Users/me/Document %281%29.pdf');
+    expect(decodeAttachmentPath('/Users/me/Document %281%29.pdf')).toBe('/Users/me/Document (1).pdf');
+  });
+
+  test('round-trips a literal % already present in the path', () => {
+    const original = '/tmp/100%25-coverage.png';
+    expect(decodeAttachmentPath(encodeAttachmentPath(original))).toBe(original);
+    // And a path that literally contains %28 / %29 shouldn't be mis-decoded.
+    expect(decodeAttachmentPath(encodeAttachmentPath('/tmp/file %28keep%29.png'))).toBe('/tmp/file %28keep%29.png');
+  });
+});
+
+describe('parser with encoded paths', () => {
+  test('parseDescription decodes parens out of the storage form', () => {
+    expect(parseDescription('here ![](/Users/me/Doc %281%29.pdf) ok')).toEqual([
+      { type: 'text', value: 'here ' },
+      { type: 'image', path: '/Users/me/Doc (1).pdf' },
+      { type: 'text', value: ' ok' },
+    ]);
+  });
+
+  test('serializeDescriptionDOM encodes parens back into the storage form', () => {
+    const editor = document.createElement('div');
+    editor.appendChild(createAttachmentChip('/Users/me/Doc (1).pdf'));
+    expect(serializeDescriptionDOM(editor)).toBe('![](/Users/me/Doc %281%29.pdf)');
+  });
+});
+
+describe('descriptionToHookPrompt with special characters', () => {
+  test('decodes the storage form before quoting', () => {
+    expect(descriptionToHookPrompt('see ![](/Users/me/Doc %281%29.pdf)')).toBe('see "/Users/me/Doc (1).pdf"');
+  });
+
+  test('escapes a literal double quote so it does not collapse the surrounding quotes', () => {
+    // `data-attachment-path` happens to be `/tmp/a "real" name.png` (rare but legal).
+    // After serialization that becomes `![](/tmp/a "real" name.png)`.
+    expect(descriptionToHookPrompt('![](/tmp/a "real" name.png)')).toBe('"/tmp/a \\"real\\" name.png"');
+  });
+
+  test('escapes a literal backslash to keep escape sequences unambiguous', () => {
+    expect(descriptionToHookPrompt('![](/tmp/a\\b.png)')).toBe('"/tmp/a\\\\b.png"');
   });
 });

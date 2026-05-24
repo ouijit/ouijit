@@ -10,6 +10,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { getUserDataPath } from './paths';
 import { generateId } from './utils/ids';
+import { decodeAttachmentPath } from './utils/descriptionAttachments';
 import log from './log';
 
 const attachmentsLog = log.scope('attachments');
@@ -41,11 +42,13 @@ export function getAttachmentsDir(): string {
 /** Markdown image markers `![](path)` — pulls out the absolute path tokens. */
 const ATTACHMENT_PATH_REGEX = /!\[\]\(([^)]+)\)/g;
 
-/** Extract the set of unique attachment paths referenced by a description. */
+/** Extract the set of unique attachment paths referenced by a description.
+ *  Paths are decoded from the storage format so the returned values match the
+ *  chip's `data-attachment-path` and the on-disk file name. */
 export function extractAttachmentPaths(text: string | null | undefined): string[] {
   if (!text) return [];
   const seen = new Set<string>();
-  for (const match of text.matchAll(ATTACHMENT_PATH_REGEX)) seen.add(match[1]);
+  for (const match of text.matchAll(ATTACHMENT_PATH_REGEX)) seen.add(decodeAttachmentPath(match[1]));
   return [...seen];
 }
 

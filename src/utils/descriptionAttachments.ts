@@ -22,6 +22,26 @@ export const ATTACHMENT_CHIP_CLASS = 'description-attachment-chip';
 export const ATTACHMENT_PATH_ATTR = 'data-attachment-path';
 
 /**
+ * Round-trip-safe escape for paths stored inside `![](...)` markers. The
+ * marker terminates at the first `)`, so any literal `(` or `)` in the path
+ * has to be escaped; `%` is escaped first/decoded last to make a path that
+ * already contains `%28` / `%29` round-trip cleanly. Other characters
+ * (including spaces and quotes) are left alone — they don't break the marker.
+ */
+export function encodeAttachmentPath(path: string): string {
+  return path.replace(/%/g, '%25').replace(/\(/g, '%28').replace(/\)/g, '%29');
+}
+
+export function decodeAttachmentPath(encoded: string): string {
+  return encoded.replace(/%29/g, ')').replace(/%28/g, '(').replace(/%25/g, '%');
+}
+
+/** Escape `"` and `\` so a path can be safely embedded inside `"..."`. */
+function escapeForDoubleQuotes(s: string): string {
+  return s.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+}
+
+/**
  * Split a description string into a flat list of text and image segments,
  * preserving the order in which they appeared.
  */
@@ -36,7 +56,7 @@ export function parseDescription(text: string): DescriptionSegment[] {
     if (start > cursor) {
       segments.push({ type: 'text', value: text.slice(cursor, start) });
     }
-    segments.push({ type: 'image', path: match[1] });
+    segments.push({ type: 'image', path: decodeAttachmentPath(match[1]) });
     cursor = start + match[0].length;
   }
   if (cursor < text.length) {
@@ -69,7 +89,7 @@ export function serializeDescriptionDOM(root: Node): string {
     const el = node as HTMLElement;
     const attachmentPath = el.getAttribute(ATTACHMENT_PATH_ATTR);
     if (attachmentPath) {
-      out += `![](${attachmentPath})`;
+      out += `![](${encodeAttachmentPath(attachmentPath)})`;
       return;
     }
     if (el.tagName === 'BR') {
@@ -114,9 +134,13 @@ export function isAttachmentChip(node: Node | null | undefined): node is HTMLEle
  * Convert the stored description to the form a CLI agent sees. The `![](path)`
  * marker is an internal sentinel for our chip renderer — agents like Claude
  * Code or Codex parse file paths from the prompt directly, so we strip the
- * markdown noise and leave a quoted absolute path in its place.
+ * markdown noise and leave a quoted absolute path in its place. Paths are
+ * decoded from the storage format and escaped so a `"` or `\` in the path
+ * doesn't collapse the surrounding quotes.
  */
 export function descriptionToHookPrompt(text: string): string {
   if (!text) return text;
-  return text.replace(/!\[\]\(([^)]+)\)/g, (_, path) => `"${path}"`);
+  return text.replace(/!\[\]\(([^)]+)\)/g, (_, encoded) => {
+    return `"${escapeForDoubleQuotes(decodeAttachmentPath(encoded))}"`;
+  });
 }
