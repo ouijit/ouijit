@@ -1,7 +1,7 @@
 import { typedHandle } from '../helpers';
 import { saveAttachment } from '../../attachments';
 import { createTaskWorktree, createTodoTask, checkTaskWorktree, recoverTaskWorktree } from '../../worktree';
-import { setTaskMergeTarget, setTaskSandboxed, setTaskName, setTaskDescription, setTaskParent } from '../../db';
+import { setTaskMergeTarget, setTaskSandboxed, setTaskName, setTaskParent } from '../../db';
 import {
   beginTask,
   setTaskStatusWithHooks,
@@ -11,6 +11,7 @@ import {
   getTasksWithWorkspaces,
   getTaskWithWorkspace,
   createBranchFromTask,
+  updateTaskDescription,
 } from '../../taskLifecycle';
 
 export function registerTaskHandlers(): void {
@@ -44,7 +45,7 @@ export function registerTaskHandlers(): void {
   typedHandle('task:set-name', (projectPath, taskNumber, name) => setTaskName(projectPath, taskNumber, name));
 
   typedHandle('task:set-description', (projectPath, taskNumber, description) =>
-    setTaskDescription(projectPath, taskNumber, description),
+    updateTaskDescription(projectPath, taskNumber, description),
   );
 
   typedHandle('task:reorder', (projectPath, taskNumber, newStatus, targetIndex) =>

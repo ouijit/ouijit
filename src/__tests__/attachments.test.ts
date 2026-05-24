@@ -3,7 +3,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { setUserDataPath } from '../paths';
-import { saveAttachment, getAttachmentsDir } from '../attachments';
+import { saveAttachment, getAttachmentsDir, extractAttachmentPaths, deleteOrphanedAttachments } from '../attachments';
 
 describe('attachments', () => {
   let tmpDir: string;
@@ -58,5 +58,55 @@ describe('attachments', () => {
     const a = await saveAttachment(new Uint8Array([1]), 'png');
     const b = await saveAttachment(new Uint8Array([1]), 'png');
     expect(a.path).not.toBe(b.path);
+  });
+});
+
+describe('extractAttachmentPaths', () => {
+  test('returns nothing for empty or null input', () => {
+    expect(extractAttachmentPaths(null)).toEqual([]);
+    expect(extractAttachmentPaths('')).toEqual([]);
+    expect(extractAttachmentPaths('no images here')).toEqual([]);
+  });
+
+  test('extracts every unique path in order of first appearance', () => {
+    const text = 'one ![](/a.png) two ![](/b.png) one again ![](/a.png)';
+    expect(extractAttachmentPaths(text)).toEqual(['/a.png', '/b.png']);
+  });
+});
+
+describe('deleteOrphanedAttachments', () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ouijit-cleanup-'));
+    setUserDataPath(tmpDir);
+  });
+
+  afterEach(() => {
+    setUserDataPath('');
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  test('removes files inside the managed attachments dir', async () => {
+    const saved = await saveAttachment(new Uint8Array([1, 2, 3]), 'png');
+    expect(saved.success).toBe(true);
+    await deleteOrphanedAttachments([saved.path!]);
+    expect(fs.existsSync(saved.path!)).toBe(false);
+  });
+
+  test('skips paths outside the managed directory', async () => {
+    const outside = path.join(tmpDir, 'outside.png');
+    fs.writeFileSync(outside, 'not managed');
+    await deleteOrphanedAttachments([outside]);
+    expect(fs.existsSync(outside)).toBe(true);
+  });
+
+  test('tolerates missing files without throwing', async () => {
+    const phantom = path.join(getAttachmentsDir(), 'never-existed.png');
+    await expect(deleteOrphanedAttachments([phantom])).resolves.toBeUndefined();
+  });
+
+  test('does nothing for an empty list', async () => {
+    await expect(deleteOrphanedAttachments([])).resolves.toBeUndefined();
   });
 });
