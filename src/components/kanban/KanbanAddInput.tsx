@@ -2,6 +2,10 @@ import { useState, useRef, useCallback } from 'react';
 import { DescriptionChipEditor, type DescriptionChipEditorHandle } from './DescriptionChipEditor';
 import { useProjectStore } from '../../stores/projectStore';
 
+const isMac = typeof navigator !== 'undefined' && navigator.platform.toLowerCase().includes('mac');
+const SUBMIT_HINT = isMac ? '⌘↵' : 'Ctrl+↵';
+const CANCEL_HINT = 'Esc';
+
 interface KanbanAddInputProps {
   onAdd: (name: string, description?: string) => void;
 }
@@ -120,25 +124,15 @@ export function KanbanAddInput({ onAdd }: KanbanAddInputProps) {
             style={{ minHeight: '4.5rem', whiteSpace: 'pre-wrap', wordWrap: 'break-word', lineHeight: 1.5 }}
           />
           <div
-            className="flex items-center justify-end gap-4 px-3 py-2"
+            className="flex items-center justify-end gap-3 px-3 py-2 text-[11px] text-text-tertiary select-none"
             style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.06)' }}
           >
-            <button
-              type="button"
-              onClick={reset}
-              className="text-[11px] text-text-tertiary hover:text-text-secondary transition-colors duration-100"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={submit}
-              disabled={!canSubmit}
-              title="Create task (⌘↵)"
-              className="text-[11px] font-medium text-accent hover:text-accent-hover transition-colors duration-100 disabled:text-text-tertiary disabled:opacity-50"
-            >
-              Create
-            </button>
+            <span>
+              <kbd className="font-mono">{CANCEL_HINT}</kbd> to cancel
+            </span>
+            <span className={canSubmit ? 'text-text-secondary' : 'opacity-50'}>
+              <kbd className="font-mono">{SUBMIT_HINT}</kbd> to create
+            </span>
           </div>
         </>
       )}
