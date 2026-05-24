@@ -23,11 +23,12 @@ export interface KanbanCardViewProps {
   onContextMenu?: (event: MouseEvent) => void;
   onUpdateDescription?: (taskNumber: number, description: string) => void;
   /**
-   * Persists a pasted image and resolves to its absolute file path (or null on
-   * failure). The path is inserted into the description so CLI agents can read
-   * the image when the task runs.
+   * Resolves a pasted/dropped file to the absolute path that goes into the
+   * description as a chip. Drag-drop hands back the file's existing path;
+   * clipboard image bytes get saved to disk first. Returning null skips the
+   * file.
    */
-  onSaveImage?: (data: Uint8Array, ext: string) => Promise<string | null>;
+  onAttachFile?: (file: File) => Promise<string | null>;
   onSwitchToTerminal?: (ptyId: string) => void;
   onTerminalContextMenu?: (ptyId: string, event: MouseEvent) => void;
 
@@ -72,7 +73,7 @@ export const KanbanCardView = memo(function KanbanCardView({
   onPlainClick,
   onContextMenu,
   onUpdateDescription,
-  onSaveImage,
+  onAttachFile,
   onSwitchToTerminal,
   onTerminalContextMenu,
   isRenamingTask = false,
@@ -341,7 +342,7 @@ export const KanbanCardView = memo(function KanbanCardView({
               ref={descEditorRef}
               initialValue={task.prompt ?? ''}
               onChange={handleEditorChange}
-              onSaveImage={onSaveImage}
+              onAttachFile={onAttachFile}
               placeholder="Add description…"
               editable={editingDesc}
               onKeyDown={handleEditorKeyDown}

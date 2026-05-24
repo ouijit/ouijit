@@ -73,7 +73,21 @@ export function KanbanAddInput({ onAdd }: KanbanAddInputProps) {
     [name, description],
   );
 
-  const handleSaveImage = useCallback(async (data: Uint8Array, ext: string): Promise<string | null> => {
+  const handleAttachFile = useCallback(async (file: File): Promise<string | null> => {
+    // Prefer the file's existing on-disk path — drag-drop from Finder and
+    // most clipboard file pastes already have one. Skipping the copy keeps
+    // the user's file under their control and works for any extension.
+    const existingPath = window.api.getPathForFile(file);
+    if (existingPath) return existingPath;
+
+    // No source path — bytes only (typically a clipboard-pasted screenshot).
+    // Save those to userData so CLI agents have a stable path to read.
+    if (!file.type.startsWith('image/')) {
+      useProjectStore.getState().addToast('Attachment skipped: no source path', 'error');
+      return null;
+    }
+    const ext = file.type.split('/')[1] || 'png';
+    const data = new Uint8Array(await file.arrayBuffer());
     const result = await window.api.task.saveAttachment(data, ext);
     if (result.success && result.path) return result.path;
     useProjectStore.getState().addToast(result.error || 'Failed to attach image', 'error');
@@ -99,7 +113,7 @@ export function KanbanAddInput({ onAdd }: KanbanAddInputProps) {
             ref={editorRef}
             initialValue=""
             onChange={setDescription}
-            onSaveImage={handleSaveImage}
+            onAttachFile={handleAttachFile}
             placeholder="Description (optional)"
             onKeyDown={handleDescriptionKeyDown}
             className="kanban-add-description w-full font-mono text-xs text-text-secondary bg-transparent px-3 py-2.5 outline-none transition-all duration-150 ease-out border-none focus:bg-white/[0.04]"

@@ -184,13 +184,14 @@ describe('KanbanAddInput', () => {
     expect(onAdd).toHaveBeenCalledWith('Fix login', undefined);
   });
 
-  it('saves an image attachment as a markdown marker in the description on paste', async () => {
+  it('saves an image attachment from clipboard paste with no source path', async () => {
     const onAdd = vi.fn();
     const saveAttachment = vi.fn().mockResolvedValue({ success: true, path: '/tmp/img-test.png' });
-    // Stub the IPC the editor calls on image paste.
+    const getPathForFile = vi.fn().mockReturnValue('');
     const original = (window as unknown as { api?: unknown }).api;
-    (window as unknown as { api: { task: { saveAttachment: typeof saveAttachment } } }).api = {
+    (window as unknown as { api: unknown }).api = {
       task: { saveAttachment },
+      getPathForFile,
     };
 
     render(<KanbanAddInput onAdd={onAdd} />);
@@ -198,23 +199,51 @@ describe('KanbanAddInput', () => {
     fireEvent.change(getTitle(), { target: { value: 'With image' } });
 
     const editor = getDescription()!;
-    // Simulate a clipboard paste with one image item.
     const file = new File([new Uint8Array([1, 2, 3])], 'paste.png', { type: 'image/png' });
     const dataTransfer = {
       items: [{ kind: 'file', type: 'image/png', getAsFile: () => file }],
     } as unknown as DataTransfer;
     fireEvent.paste(editor, { clipboardData: dataTransfer });
-    // Wait a tick for the async save to resolve and the chip to land.
     await new Promise((r) => setTimeout(r, 0));
 
     fireEvent.click(getCreateButton()!);
+    expect(getPathForFile).toHaveBeenCalledTimes(1);
     expect(saveAttachment).toHaveBeenCalledTimes(1);
     expect(onAdd).toHaveBeenCalledWith('With image', '![](/tmp/img-test.png)');
 
-    if (original !== undefined) {
-      (window as unknown as { api: unknown }).api = original;
-    } else {
-      delete (window as unknown as { api?: unknown }).api;
-    }
+    if (original !== undefined) (window as unknown as { api: unknown }).api = original;
+    else delete (window as unknown as { api?: unknown }).api;
+  });
+
+  it('uses the original file path on drop, with no copy and any extension', async () => {
+    const onAdd = vi.fn();
+    const saveAttachment = vi.fn().mockResolvedValue({ success: false, error: 'should not be called' });
+    const getPathForFile = vi.fn().mockReturnValue('/Users/me/notes/agenda.txt');
+    const original = (window as unknown as { api?: unknown }).api;
+    (window as unknown as { api: unknown }).api = {
+      task: { saveAttachment },
+      getPathForFile,
+    };
+
+    render(<KanbanAddInput onAdd={onAdd} />);
+    fireEvent.focus(getTitle());
+    fireEvent.change(getTitle(), { target: { value: 'With file' } });
+
+    const editor = getDescription()!;
+    const file = new File([new Uint8Array([1])], 'agenda.txt', { type: 'text/plain' });
+    const dataTransfer = {
+      items: [{ kind: 'file', type: 'text/plain' }],
+      files: [file],
+    } as unknown as DataTransfer;
+    fireEvent.drop(editor, { dataTransfer, clientX: 0, clientY: 0 });
+    await new Promise((r) => setTimeout(r, 0));
+
+    fireEvent.click(getCreateButton()!);
+    expect(getPathForFile).toHaveBeenCalledTimes(1);
+    expect(saveAttachment).not.toHaveBeenCalled();
+    expect(onAdd).toHaveBeenCalledWith('With file', '![](/Users/me/notes/agenda.txt)');
+
+    if (original !== undefined) (window as unknown as { api: unknown }).api = original;
+    else delete (window as unknown as { api?: unknown }).api;
   });
 });

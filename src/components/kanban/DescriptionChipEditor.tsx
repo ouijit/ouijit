@@ -18,10 +18,12 @@ export interface DescriptionChipEditorProps {
   /** Fires on every edit with the current serialized value. */
   onChange?: (value: string) => void;
   /**
-   * Persists a pasted/dropped image and resolves to its absolute file path
-   * (or null on failure). Without this prop, images are ignored.
+   * Resolve a pasted/dropped file to the absolute path that goes into the
+   * prompt as a chip. The caller decides whether to use the file's existing
+   * on-disk path (drag-drop from the filesystem) or save the bytes somewhere
+   * first (clipboard paste of raw image data). Returning null skips the file.
    */
-  onSaveImage?: (data: Uint8Array, ext: string) => Promise<string | null>;
+  onAttachFile?: (file: File) => Promise<string | null>;
   placeholder?: string;
   className?: string;
   style?: React.CSSProperties;
@@ -46,7 +48,7 @@ export const DescriptionChipEditor = forwardRef<DescriptionChipEditorHandle, Des
     {
       initialValue = '',
       onChange,
-      onSaveImage,
+      onAttachFile,
       placeholder,
       className,
       style,
@@ -121,43 +123,39 @@ export const DescriptionChipEditor = forwardRef<DescriptionChipEditorHandle, Des
 
     const handlePaste = useCallback(
       async (e: React.ClipboardEvent<HTMLDivElement>) => {
-        if (!onSaveImage) return;
+        if (!onAttachFile) return;
         const items = e.clipboardData?.items;
         if (!items) return;
-        const imageItem = Array.from(items).find((it) => it.kind === 'file' && it.type.startsWith('image/'));
-        if (!imageItem) return;
+        const fileItem = Array.from(items).find((it) => it.kind === 'file');
+        if (!fileItem) return;
         // Block default paste — contentEditable would embed an <img>, and
         // we own placement of the chip element instead.
         e.preventDefault();
 
-        const file = imageItem.getAsFile();
+        const file = fileItem.getAsFile();
         if (!file) return;
-        const ext = imageItem.type.split('/')[1] || 'png';
-        const data = new Uint8Array(await file.arrayBuffer());
-        const savedPath = await onSaveImage(data, ext);
-        if (!savedPath) return;
+        const path = await onAttachFile(file);
+        if (!path) return;
 
         const sel = window.getSelection();
         const range =
           sel && sel.rangeCount > 0 && editorRef.current?.contains(sel.anchorNode) ? sel.getRangeAt(0) : null;
-        insertChipAtRange(createAttachmentChip(savedPath), range);
+        insertChipAtRange(createAttachmentChip(path), range);
       },
-      [onSaveImage, insertChipAtRange],
+      [onAttachFile, insertChipAtRange],
     );
 
     const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
-      const hasImage = Array.from(e.dataTransfer.items ?? []).some(
-        (it) => it.kind === 'file' && it.type.startsWith('image/'),
-      );
-      if (!hasImage) return;
+      const hasFile = Array.from(e.dataTransfer.items ?? []).some((it) => it.kind === 'file');
+      if (!hasFile) return;
       e.preventDefault();
       e.dataTransfer.dropEffect = 'copy';
     }, []);
 
     const handleDrop = useCallback(
       async (e: React.DragEvent<HTMLDivElement>) => {
-        if (!onSaveImage) return;
-        const files = Array.from(e.dataTransfer.files ?? []).filter((f) => f.type.startsWith('image/'));
+        if (!onAttachFile) return;
+        const files = Array.from(e.dataTransfer.files ?? []);
         if (files.length === 0) return;
         e.preventDefault();
         e.stopPropagation();
@@ -179,18 +177,16 @@ export const DescriptionChipEditor = forwardRef<DescriptionChipEditorHandle, Des
           dropRange = document.caretRangeFromPoint(e.clientX, e.clientY);
         }
 
-        const savedPaths: string[] = [];
+        const paths: string[] = [];
         for (const file of files) {
-          const ext = file.type.split('/')[1] || 'png';
-          const data = new Uint8Array(await file.arrayBuffer());
-          const savedPath = await onSaveImage(data, ext);
-          if (savedPath) savedPaths.push(savedPath);
+          const path = await onAttachFile(file);
+          if (path) paths.push(path);
         }
-        for (const path of savedPaths) {
+        for (const path of paths) {
           insertChipAtRange(createAttachmentChip(path), dropRange);
         }
       },
-      [onSaveImage, insertChipAtRange],
+      [onAttachFile, insertChipAtRange],
     );
 
     const handleKeyDown = useCallback(
