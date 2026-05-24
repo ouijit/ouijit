@@ -86,6 +86,80 @@ export function beginTransition(projectPath: string, opts: BeginTransitionOption
   });
 }
 
+const STATUS_LABEL: Record<TaskStatus, string> = {
+  todo: 'To Do',
+  in_progress: 'In Progress',
+  in_review: 'In Review',
+  done: 'Done',
+};
+
+/**
+ * Bulk-move several tasks to the same target status, then fan each one out
+ * through `beginTransition` so worktrees get created and hook dialogs fire.
+ * Used by the kanban's bulk action bar and multi-select drag — both produce
+ * an N-task move that previously stopped at `setStatus` and silently skipped
+ * every downstream hook. The hook dialogs queue up via `runHookQueue`,
+ * presenting as a stepper instead of dropping all but the last.
+ *
+ * Returns the list of transitions that actually fired (filtered to tasks
+ * whose status differed from the target). Selection is cleared and a toast
+ * is emitted as a side effect.
+ */
+export async function bulkTransitionTasks(
+  projectPath: string,
+  taskNumbers: number[],
+  newStatus: TaskStatus,
+): Promise<Array<{ task: TaskWithWorkspace; origStatus: TaskStatus }>> {
+  const store = useProjectStore.getState();
+  const tasksByNumber = new Map(store.tasks.map((t) => [t.taskNumber, t]));
+  // Snapshot each task's status BEFORE mutating so we can drive beginTransition
+  // with the right origStatus per task (start vs continue, etc.).
+  const transitions = taskNumbers
+    .map((n) => tasksByNumber.get(n))
+    .filter((t): t is TaskWithWorkspace => !!t && t.status !== newStatus)
+    .map((task) => ({ task, origStatus: task.status }));
+
+  const results = await Promise.allSettled(
+    transitions.map(({ task }) => window.api.task.setStatus(projectPath, task.taskNumber, newStatus)),
+  );
+  // Drop any task whose status change didn't actually land — both IPC
+  // rejections and { success: false } responses. Otherwise beginTransition
+  // would create a worktree for a task whose server-side status is still
+  // the old one.
+  const succeeded: typeof transitions = [];
+  const failed: Array<{ taskNumber: number; error: string }> = [];
+  results.forEach((r, i) => {
+    const tr = transitions[i];
+    if (r.status === 'rejected') {
+      failed.push({
+        taskNumber: tr.task.taskNumber,
+        error: r.reason instanceof Error ? r.reason.message : String(r.reason),
+      });
+    } else if (!r.value.success) {
+      failed.push({ taskNumber: tr.task.taskNumber, error: r.value.error ?? 'Failed to update status' });
+    } else {
+      succeeded.push(tr);
+    }
+  });
+
+  await store.loadTasks(projectPath);
+  store.clearSelection();
+
+  for (const { task, origStatus } of succeeded) {
+    beginTransition(projectPath, { origStatus, newStatus, task });
+  }
+
+  if (succeeded.length > 0) {
+    useProjectStore.getState().addToast(`Moved ${succeeded.length} tasks to ${STATUS_LABEL[newStatus]}`, 'success');
+  }
+  if (failed.length > 0) {
+    const sample = failed[0].error;
+    const suffix = failed.length > 1 ? ` (and ${failed.length - 1} more)` : '';
+    useProjectStore.getState().addToast(`Failed to move ${failed.length} tasks: ${sample}${suffix}`, 'error');
+  }
+  return succeeded;
+}
+
 async function runTransition(
   projectPath: string,
   task: TaskWithWorkspace,

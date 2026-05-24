@@ -18,7 +18,7 @@ import { useProjectStore } from '../../stores/projectStore';
 import { useTerminalStore } from '../../stores/terminalStore';
 import type { TaskWithWorkspace, TaskStatus, HookType } from '../../types';
 import { addProjectTerminal } from '../terminal/terminalActions';
-import { beginTransition, surfaceStartWarnings } from '../../services/taskStartService';
+import { beginTransition, bulkTransitionTasks, surfaceStartWarnings } from '../../services/taskStartService';
 import { KanbanColumn } from './KanbanColumn';
 import { BulkActionBar } from './BulkActionBar';
 import { focusKanbanAddInput } from './KanbanAddInput';
@@ -171,7 +171,7 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
   }, [projectPath]);
 
   // Hotkeys
-  const runHookActive = useProjectStore((s) => s.runHookRequest != null);
+  const runHookActive = useProjectStore((s) => s.runHookQueue.length > 0);
   const hasOpenDialog = !!(runHookActive || hookDialog || missingWorktreeDialog);
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -447,12 +447,7 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
       // ── Multi-drag: move all selected tasks to the target column ───
       if (multiDragTasks && multiDragTasks.length > 1) {
         setActiveTask(null);
-        const newStatus = finalContainer as TaskStatus;
-        await Promise.allSettled(multiDragTasks.map((n) => window.api.task.setStatus(projectPath, n, newStatus)));
-        useProjectStore.getState().loadTasks(projectPath);
-        useProjectStore.getState().clearSelection();
-        const label = { todo: 'To Do', in_progress: 'In Progress', in_review: 'In Review', done: 'Done' }[newStatus];
-        useProjectStore.getState().addToast(`Moved ${multiDragTasks.length} tasks to ${label}`, 'success');
+        void bulkTransitionTasks(projectPath, multiDragTasks, finalContainer as TaskStatus);
         return;
       }
 
