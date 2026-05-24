@@ -86,6 +86,53 @@ export function beginTransition(projectPath: string, opts: BeginTransitionOption
   });
 }
 
+const STATUS_LABEL: Record<TaskStatus, string> = {
+  todo: 'To Do',
+  in_progress: 'In Progress',
+  in_review: 'In Review',
+  done: 'Done',
+};
+
+/**
+ * Bulk-move several tasks to the same target status, then fan each one out
+ * through `beginTransition` so worktrees get created and hook dialogs fire.
+ * Used by the kanban's bulk action bar and multi-select drag — both produce
+ * an N-task move that previously stopped at `setStatus` and silently skipped
+ * every downstream hook. The hook dialogs queue up via `runHookQueue`,
+ * presenting as a stepper instead of dropping all but the last.
+ *
+ * Returns the list of transitions that actually fired (filtered to tasks
+ * whose status differed from the target). Selection is cleared and a toast
+ * is emitted as a side effect.
+ */
+export async function bulkTransitionTasks(
+  projectPath: string,
+  taskNumbers: number[],
+  newStatus: TaskStatus,
+): Promise<Array<{ task: TaskWithWorkspace; origStatus: TaskStatus }>> {
+  const store = useProjectStore.getState();
+  const tasksByNumber = new Map(store.tasks.map((t) => [t.taskNumber, t]));
+  // Snapshot each task's status BEFORE mutating so we can drive beginTransition
+  // with the right origStatus per task (start vs continue, etc.).
+  const transitions = taskNumbers
+    .map((n) => tasksByNumber.get(n))
+    .filter((t): t is TaskWithWorkspace => !!t && t.status !== newStatus)
+    .map((task) => ({ task, origStatus: task.status }));
+
+  await Promise.allSettled(
+    transitions.map(({ task }) => window.api.task.setStatus(projectPath, task.taskNumber, newStatus)),
+  );
+  await store.loadTasks(projectPath);
+  store.clearSelection();
+
+  for (const { task, origStatus } of transitions) {
+    beginTransition(projectPath, { origStatus, newStatus, task });
+  }
+
+  useProjectStore.getState().addToast(`Moved ${transitions.length} tasks to ${STATUS_LABEL[newStatus]}`, 'success');
+  return transitions;
+}
+
 async function runTransition(
   projectPath: string,
   task: TaskWithWorkspace,

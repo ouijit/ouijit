@@ -2,7 +2,7 @@ import { useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useProjectStore } from '../../stores/projectStore';
 import type { TaskWithWorkspace, TaskStatus } from '../../types';
-import { beginTransition } from '../../services/taskStartService';
+import { bulkTransitionTasks } from '../../services/taskStartService';
 import { Icon } from '../terminal/Icon';
 
 interface BulkActionBarProps {
@@ -24,33 +24,9 @@ export function BulkActionBar({ projectPath, onOpenTerminal }: BulkActionBarProp
       : null;
 
   const handleMoveToStatus = useCallback(
-    async (status: TaskStatus) => {
-      const store = useProjectStore.getState();
-      const selected = [...store.selectedTaskNumbers];
-      const tasksByNumber = new Map(store.tasks.map((t) => [t.taskNumber, t]));
-      // Snapshot each task's status BEFORE we mutate, so we know what the
-      // transition was (start vs continue, etc.) when routing through the
-      // hook lifecycle below.
-      const transitions = selected
-        .map((n) => tasksByNumber.get(n))
-        .filter((t): t is TaskWithWorkspace => !!t && t.status !== status)
-        .map((task) => ({ task, origStatus: task.status }));
-
-      await Promise.allSettled(
-        transitions.map(({ task }) => window.api.task.setStatus(projectPath, task.taskNumber, status)),
-      );
-      await store.loadTasks(projectPath);
-      store.clearSelection();
-
-      // Hand each transition off to the start service so worktrees get created
-      // and start/review/done hooks fire. The new runHookQueue stacks the
-      // dialogs into a stepper instead of dropping all but the last.
-      for (const { task, origStatus } of transitions) {
-        beginTransition(projectPath, { origStatus, newStatus: status, task });
-      }
-
-      const label = { todo: 'To Do', in_progress: 'In Progress', in_review: 'In Review', done: 'Done' }[status];
-      useProjectStore.getState().addToast(`Moved ${transitions.length} tasks to ${label}`, 'success');
+    (status: TaskStatus) => {
+      const selected = [...useProjectStore.getState().selectedTaskNumbers];
+      void bulkTransitionTasks(projectPath, selected, status);
     },
     [projectPath],
   );

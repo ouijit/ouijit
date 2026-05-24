@@ -18,7 +18,7 @@ import { useProjectStore } from '../../stores/projectStore';
 import { useTerminalStore } from '../../stores/terminalStore';
 import type { TaskWithWorkspace, TaskStatus, HookType } from '../../types';
 import { addProjectTerminal } from '../terminal/terminalActions';
-import { beginTransition, surfaceStartWarnings } from '../../services/taskStartService';
+import { beginTransition, bulkTransitionTasks, surfaceStartWarnings } from '../../services/taskStartService';
 import { KanbanColumn } from './KanbanColumn';
 import { BulkActionBar } from './BulkActionBar';
 import { focusKanbanAddInput } from './KanbanAddInput';
@@ -447,31 +447,7 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
       // ── Multi-drag: move all selected tasks to the target column ───
       if (multiDragTasks && multiDragTasks.length > 1) {
         setActiveTask(null);
-        const newStatus = finalContainer as TaskStatus;
-        // Snapshot each task's status BEFORE mutating so we can drive the
-        // start-service with the right origStatus per task. Only the actively
-        // dragged card moved optimistically in handleDragOver; the others
-        // still reflect their original column in storeTasks.
-        const tasksByNumber = new Map(storeTasks.map((t) => [t.taskNumber, t]));
-        const transitions = multiDragTasks
-          .map((n) => tasksByNumber.get(n))
-          .filter((t): t is TaskWithWorkspace => !!t && t.status !== newStatus)
-          .map((task) => ({ task, origStatus: task.status }));
-
-        await Promise.allSettled(
-          transitions.map(({ task }) => window.api.task.setStatus(projectPath, task.taskNumber, newStatus)),
-        );
-        await useProjectStore.getState().loadTasks(projectPath);
-        useProjectStore.getState().clearSelection();
-
-        // Route each through the start service so worktrees get created and
-        // hook dialogs queue up as a stepper instead of being silently skipped.
-        for (const { task, origStatus } of transitions) {
-          beginTransition(projectPath, { origStatus, newStatus, task });
-        }
-
-        const label = { todo: 'To Do', in_progress: 'In Progress', in_review: 'In Review', done: 'Done' }[newStatus];
-        useProjectStore.getState().addToast(`Moved ${transitions.length} tasks to ${label}`, 'success');
+        void bulkTransitionTasks(projectPath, multiDragTasks, finalContainer as TaskStatus);
         return;
       }
 
