@@ -30,6 +30,15 @@ const worktreeLog = getLogger().scope('worktree');
 const execAsync = promisify(exec);
 const execFileAsync = promisify(execFile);
 
+// Serializes the worktree path probe + `git worktree add` so two concurrent
+// startTask calls can't both probe to the same T-N path and race on create.
+let worktreeCreateMutex: Promise<unknown> = Promise.resolve();
+function runExclusive<T>(fn: () => Promise<T>): Promise<T> {
+  const next = worktreeCreateMutex.then(fn, fn);
+  worktreeCreateMutex = next.catch((): undefined => undefined);
+  return next;
+}
+
 interface Timer {
   mark: (name: string) => void;
   finish: () => Record<string, number>;
@@ -405,26 +414,12 @@ export async function startTask(
     const copyIgnored = !sandboxed && (await shouldCopyIgnoredFiles(projectPath));
     const ignoredFilesPromise = copyIgnored ? fetchIgnoredFiles(projectPath) : Promise.resolve<string[]>([]);
 
-    // Probe for an available worktree path. Needs the base dir created first.
-    await mkdirPromise;
-    let worktreePath = path.join(baseDir, `T-${taskNumber}`);
-    let dirNum = taskNumber;
-    while (
-      await fs.access(worktreePath).then(
-        () => true,
-        () => false,
-      )
-    ) {
-      dirNum++;
-      worktreePath = path.join(baseDir, `T-${dirNum}`);
-    }
-    t.mark('pathProbe');
-
     const [hasHead, branchHead, , branchExists] = await Promise.all([
       headPromise,
       branchHeadPromise,
       prunePromise,
       branchExistsPromise,
+      mkdirPromise,
     ]);
     t.mark('parallelPrelude');
 
@@ -434,14 +429,33 @@ export async function startTask(
 
     const mergeTarget = baseBranch || branchHead;
 
-    const wtAddArgs = branchExists
-      ? ['worktree', 'add', worktreePath, branch]
-      : baseBranch
-        ? ['worktree', 'add', '-b', branch, worktreePath, baseBranch]
-        : ['worktree', 'add', '-b', branch, worktreePath];
+    // Probe + add run inside the mutex so two concurrent starts don't both
+    // claim the same T-N. Prune has already completed above, so the probe
+    // sees git's current view of existing worktrees.
+    const worktreePath = await runExclusive(async () => {
+      let p = path.join(baseDir, `T-${taskNumber}`);
+      let dirNum = taskNumber;
+      while (
+        await fs.access(p).then(
+          () => true,
+          () => false,
+        )
+      ) {
+        dirNum++;
+        p = path.join(baseDir, `T-${dirNum}`);
+      }
+      t.mark('pathProbe');
 
-    await execFileAsync('git', wtAddArgs, { cwd: projectPath });
-    t.mark('worktreeAdd');
+      const wtAddArgs = branchExists
+        ? ['worktree', 'add', p, branch]
+        : baseBranch
+          ? ['worktree', 'add', '-b', branch, p, baseBranch]
+          : ['worktree', 'add', '-b', branch, p];
+
+      await execFileAsync('git', wtAddArgs, { cwd: projectPath });
+      t.mark('worktreeAdd');
+      return p;
+    });
 
     const dbWrites: Promise<unknown>[] = [
       setTaskBranch(projectPath, taskNumber, branch),
