@@ -731,31 +731,26 @@ textarea,
 
 /* ── Task description attachment chip ─────────────────────────────── */
 
+.kanban-description-editor {
+  counter-reset: img-counter;
+}
+
 .description-attachment-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 1px 6px 1px 5px;
-  margin: 0 2px;
-  border-radius: 4px;
+  display: inline-block;
+  padding: 0 5px;
+  margin: 0 1px;
+  border-radius: 3px;
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.06);
-  color: var(--color-text-primary);
-  font-size: 11px;
-  line-height: 1.4;
-  vertical-align: baseline;
-  user-select: all;
-  white-space: nowrap;
-}
-
-.description-attachment-chip svg {
-  flex-shrink: 0;
-  opacity: 0.7;
-}
-
-.description-attachment-chip .chip-name {
-  max-width: 160px;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  color: var(--color-text-secondary);
   font-family: 'Iosevka Term Extended', ui-monospace, monospace;
+  font-size: 11px;
+  line-height: 1.5;
+  vertical-align: baseline;
+  white-space: nowrap;
+  counter-increment: img-counter;
+}
+
+.description-attachment-chip::before {
+  content: '[Img #' counter(img-counter) ']';
 }
