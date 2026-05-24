@@ -342,7 +342,7 @@ export const KanbanCard = memo(function KanbanCard({
     // No source path — bytes only (typically a clipboard-pasted screenshot).
     // Save those to userData so CLI agents have a stable path to read.
     if (!file.type.startsWith('image/')) {
-      useProjectStore.getState().addToast('Attachment skipped: no source path', 'error');
+      useProjectStore.getState().addToast('Only image clipboard content can be attached', 'error');
       return null;
     }
     const ext = file.type.split('/')[1] || 'png';
