@@ -3,14 +3,7 @@ import type { TaskWithWorkspace } from '../../types';
 import type { TerminalDisplayState } from '../../stores/terminalStore';
 import { Icon } from '../terminal/Icon';
 import { StatusDot } from '../terminal/StatusDot';
-import {
-  createAttachmentChip,
-  isAttachmentChip,
-  parseDescription,
-  serializeDescriptionDOM,
-} from '../../utils/descriptionAttachments';
-
-const DESCRIPTION_PLACEHOLDER = 'Add description…';
+import { DescriptionChipEditor, type DescriptionChipEditorHandle } from './DescriptionChipEditor';
 
 const isMac = typeof navigator !== 'undefined' && navigator.platform.toLowerCase().includes('mac');
 
@@ -94,8 +87,12 @@ export const KanbanCardView = memo(function KanbanCardView({
   const [expanded, setExpanded] = useState(false);
   const [editingDesc, setEditingDesc] = useState(false);
   const nameInputRef = useRef<HTMLTextAreaElement>(null);
-  const descInputRef = useRef<HTMLSpanElement>(null);
+  const descEditorRef = useRef<DescriptionChipEditorHandle>(null);
   const terminalRenameRef = useRef<HTMLInputElement>(null);
+  /** Last prompt value pushed into the editor — guards against repopulating
+   *  the DOM (and stomping the user's caret) when our own onChange triggers
+   *  a server round-trip that returns the same string. */
+  const lastSyncedPromptRef = useRef<string>(task.prompt ?? '');
 
   const isDone = task.status === 'done';
 
@@ -135,193 +132,53 @@ export const KanbanCardView = memo(function KanbanCardView({
   );
 
   const commitDescription = useCallback(() => {
-    if (!descInputRef.current) return;
-    const desc = serializeDescriptionDOM(descInputRef.current);
-    onUpdateDescription?.(task.taskNumber, desc);
+    const value = descEditorRef.current?.getValue() ?? '';
+    lastSyncedPromptRef.current = value;
+    onUpdateDescription?.(task.taskNumber, value);
     setEditingDesc(false);
   }, [task.taskNumber, onUpdateDescription]);
 
   /**
-   * Sync the contentEditable DOM with `task.prompt`. Fires when the prompt
-   * changes or when the editor (re-)mounts via the expand toggle — the span
-   * only exists while the card is expanded, so the ref is null on the first
-   * render and we need this effect to run again when it actually attaches.
-   * Attachments are rendered as inline chips at the paste positions.
+   * Sync the editor with `task.prompt` when an external change arrives — but
+   * skip the case where the change is just our own commit round-tripping back
+   * (otherwise we'd repopulate the DOM and stomp the caret). While editing,
+   * we never replay external changes; the user's in-flight edits win.
    */
   useEffect(() => {
-    const el = descInputRef.current;
-    if (!el) return;
-    el.innerHTML = '';
-    for (const seg of parseDescription(task.prompt ?? '')) {
-      if (seg.type === 'text') {
-        el.appendChild(document.createTextNode(seg.value));
-      } else {
-        el.appendChild(createAttachmentChip(seg.path));
-      }
-    }
-    if (!task.prompt) el.textContent = DESCRIPTION_PLACEHOLDER;
-  }, [task.prompt, expanded]);
+    if (editingDesc) return;
+    const next = task.prompt ?? '';
+    if (next === lastSyncedPromptRef.current) return;
+    descEditorRef.current?.setValue(next);
+    lastSyncedPromptRef.current = next;
+  }, [task.prompt, editingDesc, expanded]);
 
-  /**
-   * Toggle the placeholder text on edit-state changes. Kept narrow so it never
-   * touches user-authored content — only swaps between empty and the
-   * placeholder string when the prompt itself is empty.
-   */
+  /** Focus the editor when the user enters edit mode. */
   useEffect(() => {
-    const el = descInputRef.current;
-    if (!el || task.prompt) return;
-    if (editingDesc) {
-      if (el.textContent === DESCRIPTION_PLACEHOLDER) el.textContent = '';
-    } else if (!el.textContent || el.textContent === '') {
-      el.textContent = DESCRIPTION_PLACEHOLDER;
-    }
-  }, [editingDesc, task.prompt]);
-
-  /** Insert a chip into the editor at a given range, or append if no range. */
-  const insertChipAtRange = useCallback((chip: HTMLElement, range: Range | null) => {
-    const editor = descInputRef.current;
-    if (!editor) return;
-    if (range && editor.contains(range.startContainer)) {
-      range.deleteContents();
-      range.insertNode(chip);
-      range.setStartAfter(chip);
-      range.collapse(true);
-      const sel = window.getSelection();
-      sel?.removeAllRanges();
-      sel?.addRange(range);
-    } else {
-      editor.appendChild(chip);
-    }
-  }, []);
+    if (!editingDesc) return;
+    requestAnimationFrame(() => descEditorRef.current?.focus());
+  }, [editingDesc]);
 
   /**
-   * Intercept pasted images. The bytes are saved to disk and a chip element is
-   * inserted at the caret. The chip survives serialization as an inline
-   * `![](path)` marker — that path is what the CLI agent reads when the task
-   * runs, so the image stays positional within the prompt.
+   * Drop-in-view-mode: the editor still fires onChange when an image is
+   * dropped (the chip is added imperatively). Commit immediately so the
+   * server learns about it. During edit mode, blur/Enter commits — ignore
+   * intermediate input events.
    */
-  const handleDescPaste = useCallback(
-    async (e: React.ClipboardEvent<HTMLSpanElement>) => {
-      if (!onSaveImage) return;
-      const items = e.clipboardData?.items;
-      if (!items) return;
-      const imageItem = Array.from(items).find((it) => it.kind === 'file' && it.type.startsWith('image/'));
-      if (!imageItem) return;
-
-      // Block the default paste: contentEditable would embed an <img>, and
-      // we own placement of the chip element instead.
-      e.preventDefault();
-
-      const file = imageItem.getAsFile();
-      if (!file) return;
-      const ext = imageItem.type.split('/')[1] || 'png';
-      const data = new Uint8Array(await file.arrayBuffer());
-      const savedPath = await onSaveImage(data, ext);
-      if (!savedPath) return;
-
-      const sel = window.getSelection();
-      const range =
-        sel && sel.rangeCount > 0 && descInputRef.current?.contains(sel.anchorNode) ? sel.getRangeAt(0) : null;
-      insertChipAtRange(createAttachmentChip(savedPath), range);
+  const handleEditorChange = useCallback(
+    (next: string) => {
+      if (editingDesc) return;
+      lastSyncedPromptRef.current = next;
+      onUpdateDescription?.(task.taskNumber, next);
     },
-    [onSaveImage, insertChipAtRange],
+    [editingDesc, onUpdateDescription, task.taskNumber],
   );
 
-  /**
-   * Accept image files dragged onto the description. If the user hasn't yet
-   * entered edit mode we update the description through the normal commit
-   * channel — the populate effect repaints the chip on re-render. When
-   * already editing, the chip is inserted at the drop point.
-   */
-  const handleDescDragOver = useCallback((e: React.DragEvent<HTMLSpanElement>) => {
-    const hasImage = Array.from(e.dataTransfer.items ?? []).some(
-      (it) => it.kind === 'file' && it.type.startsWith('image/'),
-    );
-    if (!hasImage) return;
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'copy';
-  }, []);
-
-  const handleDescDrop = useCallback(
-    async (e: React.DragEvent<HTMLSpanElement>) => {
-      if (!onSaveImage) return;
-      const files = Array.from(e.dataTransfer.files ?? []).filter((f) => f.type.startsWith('image/'));
-      if (files.length === 0) return;
-      e.preventDefault();
-      e.stopPropagation();
-
-      // Resolve the drop point to a caret range *before* the await — the
-      // hit-test API needs the live layout from the drop event.
-      const docWithCaret = document as Document & {
-        caretPositionFromPoint?: (x: number, y: number) => { offsetNode: Node; offset: number } | null;
-      };
-      let dropRange: Range | null = null;
-      if (editingDesc) {
-        if (docWithCaret.caretPositionFromPoint) {
-          const pos = docWithCaret.caretPositionFromPoint(e.clientX, e.clientY);
-          if (pos) {
-            dropRange = document.createRange();
-            dropRange.setStart(pos.offsetNode, pos.offset);
-            dropRange.collapse(true);
-          }
-        } else if (document.caretRangeFromPoint) {
-          dropRange = document.caretRangeFromPoint(e.clientX, e.clientY);
-        }
-      }
-
-      const savedPaths: string[] = [];
-      for (const file of files) {
-        const ext = file.type.split('/')[1] || 'png';
-        const data = new Uint8Array(await file.arrayBuffer());
-        const savedPath = await onSaveImage(data, ext);
-        if (savedPath) savedPaths.push(savedPath);
-      }
-      if (savedPaths.length === 0) return;
-
-      if (editingDesc) {
-        for (const path of savedPaths) {
-          insertChipAtRange(createAttachmentChip(path), dropRange);
-        }
-      } else {
-        const prev = task.prompt ?? '';
-        const appended = savedPaths.map((p) => `![](${p})`).join('');
-        const next = prev ? `${prev} ${appended}` : appended;
-        onUpdateDescription?.(task.taskNumber, next);
-      }
-    },
-    [editingDesc, insertChipAtRange, onSaveImage, onUpdateDescription, task.prompt, task.taskNumber],
-  );
-
-  /**
-   * Key handling for the description editor. Enter commits; Backspace/Delete
-   * adjacent to a chip removes the entire chip in one keypress instead of
-   * relying on the browser's two-step "select then delete" behaviour.
-   */
-  const handleDescKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLSpanElement>) => {
+  /** Enter (without shift) commits the description. */
+  const handleEditorKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLDivElement>) => {
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
         commitDescription();
-        return;
-      }
-      if (e.key !== 'Backspace' && e.key !== 'Delete') return;
-      const sel = window.getSelection();
-      if (!sel || sel.rangeCount === 0 || !sel.isCollapsed) return;
-      const range = sel.getRangeAt(0);
-      const { startContainer: sc, startOffset: so } = range;
-
-      let adjacent: Node | null = null;
-      if (e.key === 'Backspace') {
-        if (sc.nodeType === Node.TEXT_NODE && so === 0) adjacent = sc.previousSibling;
-        else if (sc.nodeType === Node.ELEMENT_NODE) adjacent = (sc as Element).childNodes[so - 1] ?? null;
-      } else {
-        const len = sc.nodeType === Node.TEXT_NODE ? (sc.textContent?.length ?? 0) : 0;
-        if (sc.nodeType === Node.TEXT_NODE && so === len) adjacent = sc.nextSibling;
-        else if (sc.nodeType === Node.ELEMENT_NODE) adjacent = (sc as Element).childNodes[so] ?? null;
-      }
-      if (isAttachmentChip(adjacent)) {
-        e.preventDefault();
-        adjacent.remove();
       }
     },
     [commitDescription],
@@ -480,27 +337,21 @@ export const KanbanCardView = memo(function KanbanCardView({
       {expanded && (
         <div className="grid mt-2 pt-2 border-t border-white/[0.04] gap-2">
           <div className="flex flex-col gap-1 text-sm">
-            <span
-              ref={descInputRef}
-              className={`kanban-description-editor text-text-secondary cursor-text break-words${editingDesc ? ' outline-none' : ' line-clamp-3'}${!task.prompt && !editingDesc ? ' text-text-tertiary italic transition-colors duration-150 ease-out hover:text-text-secondary' : ''}`}
-              style={editingDesc ? { whiteSpace: 'pre-wrap', wordWrap: 'break-word', lineHeight: 1.5 } : undefined}
-              contentEditable={editingDesc}
-              suppressContentEditableWarning
+            <DescriptionChipEditor
+              ref={descEditorRef}
+              initialValue={task.prompt ?? ''}
+              onChange={handleEditorChange}
+              onSaveImage={onSaveImage}
+              placeholder="Add description…"
+              editable={editingDesc}
+              onKeyDown={handleEditorKeyDown}
+              onBlur={editingDesc ? commitDescription : undefined}
               onClick={() => {
-                if (!editingDesc) {
-                  setEditingDesc(true);
-                  requestAnimationFrame(() => descInputRef.current?.focus());
-                }
+                if (!editingDesc) setEditingDesc(true);
               }}
-              onBlur={commitDescription}
-              onPaste={handleDescPaste}
-              onDragOver={handleDescDragOver}
-              onDrop={handleDescDrop}
-              onKeyDown={handleDescKeyDown}
+              className={`text-text-secondary cursor-text break-words${editingDesc ? ' outline-none' : ' line-clamp-3'}`}
+              style={editingDesc ? { whiteSpace: 'pre-wrap', wordWrap: 'break-word', lineHeight: 1.5 } : undefined}
             />
-            {/* Content is populated imperatively in useEffect from `task.prompt` so
-                the contentEditable DOM (text + attachment chips) survives unrelated
-                parent re-renders without being stomped by React reconciliation. */}
           </div>
           {task.branch && (
             <div className="flex items-center gap-1 font-mono text-[13px] text-white/50 min-w-0 overflow-hidden [&>svg]:w-3 [&>svg]:h-3 [&>svg]:shrink-0">
