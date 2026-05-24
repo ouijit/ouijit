@@ -8,9 +8,20 @@ import { render, fireEvent, screen } from '@testing-library/react';
 import { KanbanAddInput } from '../../components/kanban/KanbanAddInput';
 
 const getTitle = () => screen.getByPlaceholderText('New task...') as HTMLInputElement;
-const getDescription = () => screen.queryByPlaceholderText('Description (optional)') as HTMLTextAreaElement | null;
+/** Description is a contentEditable div — query by its stable class. */
+const getDescription = () => document.querySelector('.kanban-add-description') as HTMLDivElement | null;
 const getCreateButton = () => screen.queryByRole('button', { name: 'Create' }) as HTMLButtonElement | null;
 const getCancelButton = () => screen.getByRole('button', { name: 'Cancel' }) as HTMLButtonElement;
+
+/** Set the editor's text content and fire the input event the editor listens
+ *  for. Mirrors what a user typing produces, minus chip insertion. */
+function typeDescription(text: string): void {
+  const el = getDescription();
+  if (!el) throw new Error('Description editor not in DOM');
+  el.innerHTML = '';
+  if (text) el.appendChild(document.createTextNode(text));
+  fireEvent.input(el);
+}
 
 describe('KanbanAddInput', () => {
   it('hides the description field and buttons until the title is focused', () => {
@@ -40,7 +51,7 @@ describe('KanbanAddInput', () => {
 
     fireEvent.focus(getTitle());
     fireEvent.change(getTitle(), { target: { value: 'Fix login' } });
-    fireEvent.change(getDescription()!, { target: { value: 'Sessions expire too early' } });
+    typeDescription('Sessions expire too early');
     fireEvent.click(getCreateButton()!);
 
     expect(onAdd).toHaveBeenCalledWith('Fix login', 'Sessions expire too early');
@@ -65,9 +76,8 @@ describe('KanbanAddInput', () => {
 
     fireEvent.focus(getTitle());
     fireEvent.change(getTitle(), { target: { value: 'Fix login' } });
-    const description = getDescription()!;
-    fireEvent.change(description, { target: { value: 'Details' } });
-    fireEvent.keyDown(description, { key: 'Enter', metaKey: true });
+    typeDescription('Details');
+    fireEvent.keyDown(getDescription()!, { key: 'Enter', metaKey: true });
 
     expect(onAdd).toHaveBeenCalledWith('Fix login', 'Details');
   });
@@ -78,9 +88,8 @@ describe('KanbanAddInput', () => {
 
     fireEvent.focus(getTitle());
     fireEvent.change(getTitle(), { target: { value: 'Fix login' } });
-    const description = getDescription()!;
-    fireEvent.change(description, { target: { value: 'Details' } });
-    fireEvent.keyDown(description, { key: 'Enter', ctrlKey: true });
+    typeDescription('Details');
+    fireEvent.keyDown(getDescription()!, { key: 'Enter', ctrlKey: true });
 
     expect(onAdd).toHaveBeenCalledWith('Fix login', 'Details');
   });
@@ -113,14 +122,14 @@ describe('KanbanAddInput', () => {
     const title = getTitle();
     fireEvent.focus(title);
     fireEvent.change(title, { target: { value: 'Fix login' } });
-    fireEvent.change(getDescription()!, { target: { value: 'Details' } });
+    typeDescription('Details');
     fireEvent.keyDown(title, { key: 'Enter' });
 
     // Fields are cleared, but the form stays expanded so the next task can
     // be entered without clicking back in.
     expect(getTitle().value).toBe('');
     expect(getDescription()).not.toBeNull();
-    expect(getDescription()!.value).toBe('');
+    expect(getDescription()!.textContent).toBe('');
     expect(getCreateButton()).not.toBeNull();
   });
 
@@ -169,9 +178,72 @@ describe('KanbanAddInput', () => {
     const title = getTitle();
     fireEvent.focus(title);
     fireEvent.change(title, { target: { value: 'Fix login' } });
-    fireEvent.change(getDescription()!, { target: { value: '   ' } });
+    typeDescription('   ');
     fireEvent.keyDown(title, { key: 'Enter' });
 
     expect(onAdd).toHaveBeenCalledWith('Fix login', undefined);
+  });
+
+  it('saves an image attachment from clipboard paste with no source path', async () => {
+    const onAdd = vi.fn();
+    const saveAttachment = vi.fn().mockResolvedValue({ success: true, path: '/tmp/img-test.png' });
+    const getPathForFile = vi.fn().mockReturnValue('');
+    const original = (window as unknown as { api?: unknown }).api;
+    (window as unknown as { api: unknown }).api = {
+      task: { saveAttachment },
+      getPathForFile,
+    };
+
+    render(<KanbanAddInput onAdd={onAdd} />);
+    fireEvent.focus(getTitle());
+    fireEvent.change(getTitle(), { target: { value: 'With image' } });
+
+    const editor = getDescription()!;
+    const file = new File([new Uint8Array([1, 2, 3])], 'paste.png', { type: 'image/png' });
+    const dataTransfer = {
+      items: [{ kind: 'file', type: 'image/png', getAsFile: () => file }],
+    } as unknown as DataTransfer;
+    fireEvent.paste(editor, { clipboardData: dataTransfer });
+    await new Promise((r) => setTimeout(r, 0));
+
+    fireEvent.click(getCreateButton()!);
+    expect(getPathForFile).toHaveBeenCalledTimes(1);
+    expect(saveAttachment).toHaveBeenCalledTimes(1);
+    expect(onAdd).toHaveBeenCalledWith('With image', '![](/tmp/img-test.png)');
+
+    if (original !== undefined) (window as unknown as { api: unknown }).api = original;
+    else delete (window as unknown as { api?: unknown }).api;
+  });
+
+  it('uses the original file path on drop, with no copy and any extension', async () => {
+    const onAdd = vi.fn();
+    const saveAttachment = vi.fn().mockResolvedValue({ success: false, error: 'should not be called' });
+    const getPathForFile = vi.fn().mockReturnValue('/Users/me/notes/agenda.txt');
+    const original = (window as unknown as { api?: unknown }).api;
+    (window as unknown as { api: unknown }).api = {
+      task: { saveAttachment },
+      getPathForFile,
+    };
+
+    render(<KanbanAddInput onAdd={onAdd} />);
+    fireEvent.focus(getTitle());
+    fireEvent.change(getTitle(), { target: { value: 'With file' } });
+
+    const editor = getDescription()!;
+    const file = new File([new Uint8Array([1])], 'agenda.txt', { type: 'text/plain' });
+    const dataTransfer = {
+      items: [{ kind: 'file', type: 'text/plain' }],
+      files: [file],
+    } as unknown as DataTransfer;
+    fireEvent.drop(editor, { dataTransfer, clientX: 0, clientY: 0 });
+    await new Promise((r) => setTimeout(r, 0));
+
+    fireEvent.click(getCreateButton()!);
+    expect(getPathForFile).toHaveBeenCalledTimes(1);
+    expect(saveAttachment).not.toHaveBeenCalled();
+    expect(onAdd).toHaveBeenCalledWith('With file', '![](/Users/me/notes/agenda.txt)');
+
+    if (original !== undefined) (window as unknown as { api: unknown }).api = original;
+    else delete (window as unknown as { api?: unknown }).api;
   });
 });

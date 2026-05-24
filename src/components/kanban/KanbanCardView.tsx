@@ -3,6 +3,7 @@ import type { TaskWithWorkspace } from '../../types';
 import type { TerminalDisplayState } from '../../stores/terminalStore';
 import { Icon } from '../terminal/Icon';
 import { StatusDot } from '../terminal/StatusDot';
+import { DescriptionChipEditor, type DescriptionChipEditorHandle } from './DescriptionChipEditor';
 
 const isMac = typeof navigator !== 'undefined' && navigator.platform.toLowerCase().includes('mac');
 
@@ -21,6 +22,13 @@ export interface KanbanCardViewProps {
   onPlainClick?: () => void;
   onContextMenu?: (event: MouseEvent) => void;
   onUpdateDescription?: (taskNumber: number, description: string) => void;
+  /**
+   * Resolves a pasted/dropped file to the absolute path that goes into the
+   * description as a chip. Drag-drop hands back the file's existing path;
+   * clipboard image bytes get saved to disk first. Returning null skips the
+   * file.
+   */
+  onAttachFile?: (file: File) => Promise<string | null>;
   onSwitchToTerminal?: (ptyId: string) => void;
   onTerminalContextMenu?: (ptyId: string, event: MouseEvent) => void;
 
@@ -65,6 +73,7 @@ export const KanbanCardView = memo(function KanbanCardView({
   onPlainClick,
   onContextMenu,
   onUpdateDescription,
+  onAttachFile,
   onSwitchToTerminal,
   onTerminalContextMenu,
   isRenamingTask = false,
@@ -79,8 +88,12 @@ export const KanbanCardView = memo(function KanbanCardView({
   const [expanded, setExpanded] = useState(false);
   const [editingDesc, setEditingDesc] = useState(false);
   const nameInputRef = useRef<HTMLTextAreaElement>(null);
-  const descInputRef = useRef<HTMLSpanElement>(null);
+  const descEditorRef = useRef<DescriptionChipEditorHandle>(null);
   const terminalRenameRef = useRef<HTMLInputElement>(null);
+  /** Last prompt value pushed into the editor — guards against repopulating
+   *  the DOM (and stomping the user's caret) when our own onChange triggers
+   *  a server round-trip that returns the same string. */
+  const lastSyncedPromptRef = useRef<string>(task.prompt ?? '');
 
   const isDone = task.status === 'done';
 
@@ -120,11 +133,57 @@ export const KanbanCardView = memo(function KanbanCardView({
   );
 
   const commitDescription = useCallback(() => {
-    if (!descInputRef.current) return;
-    const desc = descInputRef.current.textContent?.trim() || '';
-    onUpdateDescription?.(task.taskNumber, desc);
+    const value = descEditorRef.current?.getValue() ?? '';
+    lastSyncedPromptRef.current = value;
+    onUpdateDescription?.(task.taskNumber, value);
     setEditingDesc(false);
   }, [task.taskNumber, onUpdateDescription]);
+
+  /**
+   * Sync the editor with `task.prompt` when an external change arrives — but
+   * skip the case where the change is just our own commit round-tripping back
+   * (otherwise we'd repopulate the DOM and stomp the caret). While editing,
+   * we never replay external changes; the user's in-flight edits win.
+   */
+  useEffect(() => {
+    if (editingDesc) return;
+    const next = task.prompt ?? '';
+    if (next === lastSyncedPromptRef.current) return;
+    descEditorRef.current?.setValue(next);
+    lastSyncedPromptRef.current = next;
+  }, [task.prompt, editingDesc, expanded]);
+
+  /** Focus the editor when the user enters edit mode. */
+  useEffect(() => {
+    if (!editingDesc) return;
+    requestAnimationFrame(() => descEditorRef.current?.focus());
+  }, [editingDesc]);
+
+  /**
+   * Drop-in-view-mode: the editor still fires onChange when an image is
+   * dropped (the chip is added imperatively). Commit immediately so the
+   * server learns about it. During edit mode, blur/Enter commits — ignore
+   * intermediate input events.
+   */
+  const handleEditorChange = useCallback(
+    (next: string) => {
+      if (editingDesc) return;
+      lastSyncedPromptRef.current = next;
+      onUpdateDescription?.(task.taskNumber, next);
+    },
+    [editingDesc, onUpdateDescription, task.taskNumber],
+  );
+
+  /** Enter (without shift) commits the description. */
+  const handleEditorKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLDivElement>) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        commitDescription();
+      }
+    },
+    [commitDescription],
+  );
 
   const commitTerminalRename = useCallback(() => {
     if (!renamingTerminalId) return;
@@ -279,33 +338,21 @@ export const KanbanCardView = memo(function KanbanCardView({
       {expanded && (
         <div className="grid mt-2 pt-2 border-t border-white/[0.04] gap-2">
           <div className="flex flex-col gap-1 text-sm">
-            <span
-              ref={descInputRef}
-              className={`text-text-secondary cursor-text break-words${editingDesc ? ' outline-none' : ' line-clamp-3'}${!task.prompt && !editingDesc ? ' text-text-tertiary italic transition-colors duration-150 ease-out hover:text-text-secondary' : ''}`}
-              style={editingDesc ? { whiteSpace: 'pre-wrap', wordWrap: 'break-word', lineHeight: 1.5 } : undefined}
-              contentEditable={editingDesc}
-              suppressContentEditableWarning
+            <DescriptionChipEditor
+              ref={descEditorRef}
+              initialValue={task.prompt ?? ''}
+              onChange={handleEditorChange}
+              onAttachFile={onAttachFile}
+              placeholder="Add description…"
+              editable={editingDesc}
+              onKeyDown={handleEditorKeyDown}
+              onBlur={editingDesc ? commitDescription : undefined}
               onClick={() => {
-                if (!editingDesc) {
-                  setEditingDesc(true);
-                  requestAnimationFrame(() => {
-                    if (descInputRef.current && !task.prompt) {
-                      descInputRef.current.textContent = '';
-                    }
-                    descInputRef.current?.focus();
-                  });
-                }
+                if (!editingDesc) setEditingDesc(true);
               }}
-              onBlur={commitDescription}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  commitDescription();
-                }
-              }}
-            >
-              {task.prompt || (editingDesc ? '' : 'Add description…')}
-            </span>
+              className={`text-text-secondary cursor-text break-words${editingDesc ? ' outline-none' : ' line-clamp-3'}`}
+              style={editingDesc ? { whiteSpace: 'pre-wrap', wordWrap: 'break-word', lineHeight: 1.5 } : undefined}
+            />
           </div>
           {task.branch && (
             <div className="flex items-center gap-1 font-mono text-[13px] text-white/50 min-w-0 overflow-hidden [&>svg]:w-3 [&>svg]:h-3 [&>svg]:shrink-0">

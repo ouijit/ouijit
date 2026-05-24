@@ -128,6 +128,10 @@ export interface IpcInvokeContract {
     args: [projectPath: string, taskNumber: number, parentTaskNumber: number | null, mergeTarget?: string];
     return: { success: boolean; error?: string };
   };
+  'task:save-attachment': {
+    args: [data: Uint8Array, ext: string];
+    return: { success: boolean; path?: string; error?: string };
+  };
 
   // ── Worktree ─────────────────────────────────────────────────────────
   'worktree:validate-branch-name': {

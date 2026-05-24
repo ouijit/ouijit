@@ -1,4 +1,6 @@
 import { useState, useRef, useCallback } from 'react';
+import { DescriptionChipEditor, type DescriptionChipEditorHandle } from './DescriptionChipEditor';
+import { useProjectStore } from '../../stores/projectStore';
 
 interface KanbanAddInputProps {
   onAdd: (name: string, description?: string) => void;
@@ -9,10 +11,12 @@ export function KanbanAddInput({ onAdd }: KanbanAddInputProps) {
   const [description, setDescription] = useState('');
   const [active, setActive] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const editorRef = useRef<DescriptionChipEditorHandle>(null);
 
   const reset = useCallback(() => {
     setName('');
     setDescription('');
+    editorRef.current?.setValue('');
     setActive(false);
   }, []);
 
@@ -27,6 +31,7 @@ export function KanbanAddInput({ onAdd }: KanbanAddInputProps) {
     // can be typed immediately without clicking back in.
     setName('');
     setDescription('');
+    editorRef.current?.setValue('');
     inputRef.current?.focus();
   }, [name, description, onAdd]);
 
@@ -46,8 +51,8 @@ export function KanbanAddInput({ onAdd }: KanbanAddInputProps) {
 
   const handleDescriptionKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      // Enter inserts a newline so multi-line prompts can be typed; the
-      // Create button (or Cmd/Ctrl+Enter) submits.
+      // Cmd/Ctrl+Enter submits; plain Enter falls through to contentEditable's
+      // native line-break handling. Escape resets the form.
       if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
         e.preventDefault();
         submit();
@@ -68,6 +73,27 @@ export function KanbanAddInput({ onAdd }: KanbanAddInputProps) {
     [name, description],
   );
 
+  const handleAttachFile = useCallback(async (file: File): Promise<string | null> => {
+    // Prefer the file's existing on-disk path — drag-drop from Finder and
+    // most clipboard file pastes already have one. Skipping the copy keeps
+    // the user's file under their control and works for any extension.
+    const existingPath = window.api.getPathForFile(file);
+    if (existingPath) return existingPath;
+
+    // No source path — bytes only (typically a clipboard-pasted screenshot).
+    // Save those to userData so CLI agents have a stable path to read.
+    if (!file.type.startsWith('image/')) {
+      useProjectStore.getState().addToast('Only image clipboard content can be attached', 'error');
+      return null;
+    }
+    const ext = file.type.split('/')[1] || 'png';
+    const data = new Uint8Array(await file.arrayBuffer());
+    const result = await window.api.task.saveAttachment(data, ext);
+    if (result.success && result.path) return result.path;
+    useProjectStore.getState().addToast(result.error || 'Failed to attach image', 'error');
+    return null;
+  }, []);
+
   return (
     <div className="kanban-add-form" onBlur={handleBlur}>
       <input
@@ -83,13 +109,15 @@ export function KanbanAddInput({ onAdd }: KanbanAddInputProps) {
       />
       {active && (
         <>
-          <textarea
-            className="kanban-add-description w-full font-mono text-xs text-text-secondary bg-transparent px-3 py-2.5 outline-none transition-all duration-150 ease-out border-none resize-none focus:bg-white/[0.04]"
+          <DescriptionChipEditor
+            ref={editorRef}
+            initialValue=""
+            onChange={setDescription}
+            onAttachFile={handleAttachFile}
             placeholder="Description (optional)"
-            rows={3}
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
             onKeyDown={handleDescriptionKeyDown}
+            className="kanban-add-description w-full font-mono text-xs text-text-secondary bg-transparent px-3 py-2.5 outline-none transition-all duration-150 ease-out border-none focus:bg-white/[0.04]"
+            style={{ minHeight: '4.5rem', whiteSpace: 'pre-wrap', wordWrap: 'break-word', lineHeight: 1.5 }}
           />
           <div
             className="flex items-center justify-end gap-4 px-3 py-2"
