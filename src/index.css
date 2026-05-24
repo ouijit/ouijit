@@ -756,11 +756,23 @@ textarea,
 }
 
 .kanban-add-button-kbd {
+  display: inline-flex;
+  align-items: center;
+  min-width: 18px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--color-text-secondary);
   font-family: 'Iosevka Term Extended', ui-monospace, monospace;
   font-size: 10px;
-  font-weight: 400;
-  color: currentColor;
-  opacity: 0.5;
+  font-weight: 500;
+  line-height: 1;
+  justify-content: center;
+}
+
+.kanban-add-button:disabled .kanban-add-button-kbd {
+  background: rgba(255, 255, 255, 0.04);
 }
 
 /* ── Task description attachment chip ─────────────────────────────── */
