@@ -1,6 +1,11 @@
 // @vitest-environment jsdom
 import { describe, test, expect } from 'vitest';
-import { parseDescription, serializeDescriptionDOM, createAttachmentChip } from '../utils/descriptionAttachments';
+import {
+  parseDescription,
+  serializeDescriptionDOM,
+  createAttachmentChip,
+  descriptionToHookPrompt,
+} from '../utils/descriptionAttachments';
 
 describe('parseDescription', () => {
   test('returns an empty list for empty input', () => {
@@ -60,6 +65,24 @@ describe('serializeDescriptionDOM', () => {
 
   test('treats <div> wrappers as line boundaries', () => {
     expect(serializeDescriptionDOM(buildEditor('<div>one</div><div>two</div>'))).toBe('one\ntwo');
+  });
+});
+
+describe('descriptionToHookPrompt', () => {
+  test('returns plain text unchanged', () => {
+    expect(descriptionToHookPrompt('just text')).toBe('just text');
+  });
+
+  test('returns empty input untouched', () => {
+    expect(descriptionToHookPrompt('')).toBe('');
+  });
+
+  test('replaces a single image marker with a quoted path', () => {
+    expect(descriptionToHookPrompt('fix ![](/tmp/a.png) layout')).toBe('fix "/tmp/a.png" layout');
+  });
+
+  test('replaces every marker in order', () => {
+    expect(descriptionToHookPrompt('![](/a.png) and ![](/b.png)')).toBe('"/a.png" and "/b.png"');
   });
 });
 

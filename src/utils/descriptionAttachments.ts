@@ -109,3 +109,14 @@ export function isAttachmentChip(node: Node | null | undefined): node is HTMLEle
     !!node && node.nodeType === Node.ELEMENT_NODE && (node as HTMLElement).classList.contains(ATTACHMENT_CHIP_CLASS)
   );
 }
+
+/**
+ * Convert the stored description to the form a CLI agent sees. The `![](path)`
+ * marker is an internal sentinel for our chip renderer — agents like Claude
+ * Code or Codex parse file paths from the prompt directly, so we strip the
+ * markdown noise and leave a quoted absolute path in its place.
+ */
+export function descriptionToHookPrompt(text: string): string {
+  if (!text) return text;
+  return text.replace(/!\[\]\(([^)]+)\)/g, (_, path) => `"${path}"`);
+}
