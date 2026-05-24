@@ -1,10 +1,26 @@
 import { useState, useRef, useCallback } from 'react';
 import { DescriptionChipEditor, type DescriptionChipEditorHandle } from './DescriptionChipEditor';
+import { Icon } from '../terminal/Icon';
 import { useProjectStore } from '../../stores/projectStore';
 
 const isMac = typeof navigator !== 'undefined' && navigator.platform.toLowerCase().includes('mac');
-const SUBMIT_HINT = isMac ? '⌘↵' : 'Ctrl+↵';
-const CANCEL_HINT = 'Esc';
+
+function SubmitHint() {
+  return (
+    <span className="kanban-add-button-hint">
+      {isMac ? (
+        <Icon name="command" className="kanban-add-button-hint-icon" />
+      ) : (
+        <span className="kanban-add-button-hint-text">Ctrl</span>
+      )}
+      <Icon name="arrow-elbow-down-left" className="kanban-add-button-hint-icon" />
+    </span>
+  );
+}
+
+function CancelHint() {
+  return <span className="kanban-add-button-hint kanban-add-button-hint-text">Esc</span>;
+}
 
 interface KanbanAddInputProps {
   onAdd: (name: string, description?: string) => void;
@@ -133,7 +149,7 @@ export function KanbanAddInput({ onAdd }: KanbanAddInputProps) {
               className="kanban-add-button text-text-tertiary hover:text-text-primary hover:bg-white/[0.04]"
             >
               Cancel
-              <kbd className="kanban-add-button-kbd">{CANCEL_HINT}</kbd>
+              <CancelHint />
             </button>
             <button
               type="button"
@@ -142,7 +158,7 @@ export function KanbanAddInput({ onAdd }: KanbanAddInputProps) {
               className="kanban-add-button text-accent hover:bg-accent/10 disabled:text-text-tertiary"
             >
               Create
-              <kbd className="kanban-add-button-kbd">{SUBMIT_HINT}</kbd>
+              <SubmitHint />
             </button>
           </div>
         </>

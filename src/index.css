@@ -734,12 +734,12 @@ textarea,
 .kanban-add-button {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 4px 8px;
-  border-radius: 4px;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 5px;
   border: none;
   background: transparent;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
   line-height: 1;
   transition:
@@ -755,24 +755,23 @@ textarea,
   background: transparent;
 }
 
-.kanban-add-button-kbd {
+.kanban-add-button-hint {
   display: inline-flex;
   align-items: center;
-  min-width: 18px;
-  height: 16px;
-  padding: 0 4px;
-  border-radius: 3px;
-  background: rgba(255, 255, 255, 0.08);
-  color: var(--color-text-secondary);
-  font-family: 'Iosevka Term Extended', ui-monospace, monospace;
-  font-size: 10px;
-  font-weight: 500;
-  line-height: 1;
-  justify-content: center;
+  gap: 2px;
+  opacity: 0.65;
 }
 
-.kanban-add-button:disabled .kanban-add-button-kbd {
-  background: rgba(255, 255, 255, 0.04);
+.kanban-add-button-hint-icon {
+  width: 14px;
+  height: 14px;
+}
+
+.kanban-add-button-hint-text {
+  font-family: 'Iosevka Term Extended', ui-monospace, monospace;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1;
 }
 
 /* ── Task description attachment chip ─────────────────────────────── */
