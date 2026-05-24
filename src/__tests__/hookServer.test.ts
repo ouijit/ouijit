@@ -337,7 +337,7 @@ describe('installWrapper', () => {
     const wrapper = fs.readFileSync(wrapperPath, 'utf-8');
     expect(wrapper).toContain('#!/bin/bash');
     expect(wrapper).toContain('WRAPPER_DIR');
-    expect(wrapper).toContain('exec "$REAL_CLAUDE" --settings');
+    expect(wrapper).toContain('exec "$REAL_BIN" --settings');
     expect(wrapper).toContain('ouijit-hook');
   });
 
@@ -348,7 +348,7 @@ describe('installWrapper', () => {
     const wrapper = fs.readFileSync(wrapperPath, 'utf-8');
     // Contains the fallthrough: exec real claude without --settings but with reference file
     expect(wrapper).toContain('if [ -z "$OUIJIT_API_URL" ]; then');
-    expect(wrapper).toContain('exec "$REAL_CLAUDE" --append-system-prompt-file "$REFERENCE_FILE" "$@"');
+    expect(wrapper).toContain('exec "$REAL_BIN" --append-system-prompt-file "$REFERENCE_FILE" "$@"');
   });
 
   test('wrapper injects all 4 hook events via --settings', () => {
@@ -378,7 +378,7 @@ describe('installWrapper', () => {
     const wrapperPath = path.join(tmpHome, '.config', 'Ouijit', 'bin', 'codex');
     const wrapper = fs.readFileSync(wrapperPath, 'utf-8');
     expect(wrapper).toContain('#!/bin/bash');
-    expect(wrapper).toContain('REAL_CODEX=');
+    expect(wrapper).toContain('REAL_BIN=');
     expect(wrapper).toContain('export PATH="$WRAPPER_DIR:$CLEAN_PATH"');
     // Injects the CLI reference + lifecycle hooks + per-hook pre-trust + notify via -c overrides
     expect(wrapper).toContain('-c "developer_instructions=$(cat "$REFERENCE_FILE" 2>/dev/null)"');
@@ -391,9 +391,7 @@ describe('installWrapper', () => {
     expect(wrapper).toContain("-c 'notify=");
     // No-API fallthrough still passes developer_instructions
     expect(wrapper).toContain('if [ -z "$OUIJIT_API_URL" ]; then');
-    expect(wrapper).toContain(
-      'exec "$REAL_CODEX" -c "developer_instructions=$(cat "$REFERENCE_FILE" 2>/dev/null)" "$@"',
-    );
+    expect(wrapper).toContain('exec "$REAL_BIN" -c "developer_instructions=$(cat "$REFERENCE_FILE" 2>/dev/null)" "$@"');
   });
 
   test('creates pi wrapper and extension on first install', () => {
@@ -402,13 +400,13 @@ describe('installWrapper', () => {
     const wrapperPath = path.join(tmpHome, '.config', 'Ouijit', 'bin', 'pi');
     const wrapper = fs.readFileSync(wrapperPath, 'utf-8');
     expect(wrapper).toContain('#!/bin/bash');
-    expect(wrapper).toContain('REAL_PI=');
+    expect(wrapper).toContain('REAL_BIN=');
     expect(wrapper).toContain('export PATH="$WRAPPER_DIR:$CLEAN_PATH"');
     expect(wrapper).toContain('--append-system-prompt "$(cat "$REFERENCE_FILE" 2>/dev/null)"');
     expect(wrapper).toContain('--extension "$EXTENSION_FILE"');
-    expect(wrapper).toContain('OUIJIT_HOOK_BIN="$HOOK_BIN" exec "$REAL_PI"');
+    expect(wrapper).toContain('OUIJIT_HOOK_BIN="$HOOK_BIN" exec "$REAL_BIN"');
     expect(wrapper).toContain('if [ -z "$OUIJIT_API_URL" ]; then');
-    expect(wrapper).toContain('exec "$REAL_PI" --append-system-prompt "$(cat "$REFERENCE_FILE" 2>/dev/null)" "$@"');
+    expect(wrapper).toContain('exec "$REAL_BIN" --append-system-prompt "$(cat "$REFERENCE_FILE" 2>/dev/null)" "$@"');
 
     const extPath = path.join(tmpHome, '.config', 'Ouijit', 'pi', 'ouijit-extension.ts');
     expect(fs.existsSync(extPath)).toBe(true);
@@ -466,12 +464,90 @@ describe('installWrapper', () => {
   });
 });
 
+// ── Shared wrapper resolver (claude / codex / pi) ────────────────────
+
+describe('wrapper resolver (shared)', () => {
+  // Each entry: [wrapper label, wrapper source, binary name, sentinel the
+  // wrapper injects when OUIJIT_API_URL is unset]. The injection sentinel
+  // lets us confirm the wrapper still wrapped — that we didn't accidentally
+  // skip everything to dodge recursion.
+  const wrappers: Array<[string, string, string, RegExp]> = [
+    ['claude', CLAUDE_WRAPPER, 'claude', /--append-system-prompt-file/],
+    ['codex', CODEX_WRAPPER, 'codex', /developer_instructions=/],
+    ['pi', PI_WRAPPER, 'pi', /--append-system-prompt/],
+  ];
+
+  for (const [label, wrapper, bin] of wrappers) {
+    test(`${label} wrapper: rejects PATH matches that resolve to itself (E2BIG guard)`, () => {
+      // String strip on `:$WRAPPER_DIR:` misses trailing slashes and symlink
+      // targets, so we need an inode-equality fallback (`-ef`) before we
+      // exec the resolved binary. See T-407.
+      expect(wrapper).toContain('WRAPPER_SELF=');
+      expect(wrapper).toContain('"$REAL_BIN" -ef "$WRAPPER_SELF"');
+      expect(wrapper).toMatch(/for _dir in \$CLEAN_PATH/);
+      expect(wrapper).toContain(`"$_dir/${bin}" -ef "$WRAPPER_SELF"`);
+    });
+  }
+
+  for (const [label, wrapper, bin, injectedSentinel] of wrappers) {
+    test(`${label} wrapper: does not recurse into itself when PATH lists the wrapper dir twice (regression for T-407)`, () => {
+      // Reproduces Keith's failure mode: the wrapper dir appears twice in
+      // PATH (once verbatim, once via a symlink) so the string-only strip
+      // leaves a wrapper-pointing entry behind. Pre-fix the wrapper exec's
+      // itself, argv balloons across each hop, and execve fails with E2BIG.
+      // Post-fix the `-ef` guard rejects the wrapper match and we resolve
+      // the real binary.
+      const tmp = fs.mkdtempSync(path.join(os.tmpdir(), `wrapper-resolver-${label}-`));
+      try {
+        const wrapperDir = path.join(tmp, 'wrapper-bin');
+        const realDir = path.join(tmp, 'real-bin');
+        fs.mkdirSync(wrapperDir);
+        fs.mkdirSync(realDir);
+
+        fs.writeFileSync(path.join(wrapperDir, bin), wrapper, { mode: 0o755 });
+
+        // Real-binary stand-in: prints a sentinel then echoes its argv so we
+        // can also assert the wrapper passed through the expected injection.
+        fs.writeFileSync(path.join(realDir, bin), '#!/bin/bash\necho REAL_BIN_OK\nprintf "%s\\n" "$@"\n', {
+          mode: 0o755,
+        });
+
+        // Symlink with a different spelling that the strip pattern misses.
+        const wrapperDirSymlink = path.join(tmp, 'wrapper-bin-link');
+        fs.symlinkSync(wrapperDir, wrapperDirSymlink);
+
+        // PATH: wrapper verbatim, real dir, wrapper via symlink, plus the
+        // system dirs so dirname/basename are reachable.
+        const fakePath = [wrapperDir, realDir, wrapperDirSymlink, '/usr/bin', '/bin'].join(':');
+
+        const result = execFileSync('bash', [path.join(wrapperDir, bin), 'hello'], {
+          env: {
+            PATH: fakePath,
+            HOME: tmp,
+            // Force the no-OUIJIT_API_URL branch — keeps the injected argv
+            // small and predictable across the three wrappers.
+            OUIJIT_API_URL: '',
+          },
+          encoding: 'utf8',
+          timeout: 10_000,
+        });
+
+        expect(result).toContain('REAL_BIN_OK');
+        expect(result).toMatch(injectedSentinel);
+        expect(result).toContain('hello');
+      } finally {
+        fs.rmSync(tmp, { recursive: true, force: true });
+      }
+    });
+  }
+});
+
 // ── CLAUDE_WRAPPER constant ──────────────────────────────────────────
 
 describe('CLAUDE_WRAPPER', () => {
   test('resolves real claude and re-exports wrapper dir on PATH', () => {
     expect(CLAUDE_WRAPPER).toContain('WRAPPER_DIR=');
-    expect(CLAUDE_WRAPPER).toContain('REAL_CLAUDE=');
+    expect(CLAUDE_WRAPPER).toContain('REAL_BIN=');
     expect(CLAUDE_WRAPPER).toContain('export PATH="$WRAPPER_DIR:$CLEAN_PATH"');
   });
 
@@ -584,20 +660,8 @@ describe('CLAUDE_WRAPPER', () => {
 describe('CODEX_WRAPPER', () => {
   test('resolves real codex and re-exports wrapper dir on PATH', () => {
     expect(CODEX_WRAPPER).toContain('WRAPPER_DIR=');
-    expect(CODEX_WRAPPER).toContain('REAL_CODEX=');
+    expect(CODEX_WRAPPER).toContain('REAL_BIN=');
     expect(CODEX_WRAPPER).toContain('export PATH="$WRAPPER_DIR:$CLEAN_PATH"');
-  });
-
-  test('rejects any PATH match that is the wrapper itself (prevents E2BIG via recursive exec)', () => {
-    // The string strip on `:$WRAPPER_DIR:` misses trailing slashes, symlink
-    // targets, etc., so we need an inode-equality fallback (`-ef`) before
-    // we exec the resolved binary. See T-407.
-    expect(CODEX_WRAPPER).toContain('WRAPPER_SELF=');
-    expect(CODEX_WRAPPER).toContain('"$REAL_CODEX" -ef "$WRAPPER_SELF"');
-    // Manual PATH scan with the same inode check, so a recovery path exists
-    // when `command -v` returned the wrapper.
-    expect(CODEX_WRAPPER).toMatch(/for _dir in \$CLEAN_PATH/);
-    expect(CODEX_WRAPPER).toContain('"$_dir/codex" -ef "$WRAPPER_SELF"');
   });
 
   test('the notify override is a valid TOML/JSON array pointing at ouijit-hook', () => {
@@ -638,62 +702,8 @@ describe('CODEX_WRAPPER', () => {
   test('falls through with just developer_instructions when OUIJIT_API_URL is unset', () => {
     expect(CODEX_WRAPPER).toContain('if [ -z "$OUIJIT_API_URL" ]; then');
     expect(CODEX_WRAPPER).toContain(
-      'exec "$REAL_CODEX" -c "developer_instructions=$(cat "$REFERENCE_FILE" 2>/dev/null)" "$@"',
+      'exec "$REAL_BIN" -c "developer_instructions=$(cat "$REFERENCE_FILE" 2>/dev/null)" "$@"',
     );
-  });
-
-  test('does not recurse into itself when PATH lists the wrapper dir twice (real exec, regression for T-407)', () => {
-    // Reproduces Keith's failure mode: the wrapper dir appears twice in PATH
-    // (once verbatim, once via a symlink) so the string-only strip leaves a
-    // wrapper-pointing entry behind. Pre-fix the wrapper exec's itself, argv
-    // balloons across each hop, and execve fails with E2BIG. Post-fix the
-    // `-ef` guard rejects the wrapper match and we resolve the real codex.
-    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'codex-wrapper-recursion-'));
-    try {
-      const wrapperDir = path.join(tmp, 'wrapper-bin');
-      const realDir = path.join(tmp, 'real-bin');
-      fs.mkdirSync(wrapperDir);
-      fs.mkdirSync(realDir);
-
-      // Install the wrapper under test.
-      fs.writeFileSync(path.join(wrapperDir, 'codex'), CODEX_WRAPPER, { mode: 0o755 });
-
-      // Real codex stand-in: prints a sentinel then echoes its argv so we
-      // can also assert the wrapper passed through expected -c overrides.
-      const realCodex = path.join(realDir, 'codex');
-      fs.writeFileSync(realCodex, '#!/bin/bash\necho REAL_CODEX_OK\nprintf "%s\\n" "$@"\n', { mode: 0o755 });
-
-      // Symlink target with a different spelling that the strip pattern misses.
-      const wrapperDirSymlink = path.join(tmp, 'wrapper-bin-link');
-      fs.symlinkSync(wrapperDir, wrapperDirSymlink);
-
-      // PATH: wrapper dir verbatim, real dir, then the same wrapper dir via
-      // a symlink, plus /usr/bin so the wrapper can find `dirname`/`basename`.
-      // The verbatim entry gets stripped, the symlink entry does not —
-      // without the inode guard, `command -v codex` would resolve back to
-      // the wrapper and we'd recurse.
-      const fakePath = [wrapperDir, realDir, wrapperDirSymlink, '/usr/bin', '/bin'].join(':');
-
-      const result = execFileSync('bash', [path.join(wrapperDir, 'codex'), 'exec', 'hello'], {
-        env: {
-          PATH: fakePath,
-          HOME: tmp,
-          // Force the un-OUIJIT_API_URL branch so we only exec one -c flag.
-          OUIJIT_API_URL: '',
-        },
-        encoding: 'utf8',
-        timeout: 10_000,
-      });
-
-      expect(result).toContain('REAL_CODEX_OK');
-      // Confirm the wrapper still injected its developer_instructions override.
-      expect(result).toMatch(/developer_instructions=/);
-      // And the user's argv survived intact.
-      expect(result).toContain('exec');
-      expect(result).toContain('hello');
-    } finally {
-      fs.rmSync(tmp, { recursive: true, force: true });
-    }
   });
 
   test('pre-trusts each hook with the sha256 codex expects (locks the hash recipe)', () => {
@@ -1179,7 +1189,7 @@ describe('buildVmCodexTrustState', () => {
 describe('PI_WRAPPER', () => {
   test('resolves real pi and re-exports wrapper dir on PATH', () => {
     expect(PI_WRAPPER).toContain('WRAPPER_DIR=');
-    expect(PI_WRAPPER).toContain('REAL_PI=');
+    expect(PI_WRAPPER).toContain('REAL_BIN=');
     expect(PI_WRAPPER).toContain('export PATH="$WRAPPER_DIR:$CLEAN_PATH"');
   });
 
@@ -1189,7 +1199,7 @@ describe('PI_WRAPPER', () => {
   });
 
   test('loads the extension via --extension and bridges OUIJIT_HOOK_BIN', () => {
-    expect(PI_WRAPPER).toMatch(/OUIJIT_HOOK_BIN="\$HOOK_BIN" exec "\$REAL_PI" \\/);
+    expect(PI_WRAPPER).toMatch(/OUIJIT_HOOK_BIN="\$HOOK_BIN" exec "\$REAL_BIN" \\/);
     expect(PI_WRAPPER).toContain('--extension "$EXTENSION_FILE"');
     expect(PI_WRAPPER).toContain('HOOK_BIN="$HOME/.config/Ouijit/bin/ouijit-hook"');
     expect(PI_WRAPPER).toContain('EXTENSION_FILE="$HOME/.config/Ouijit/pi/ouijit-extension.ts"');
@@ -1197,10 +1207,10 @@ describe('PI_WRAPPER', () => {
 
   test('falls through with just --append-system-prompt when OUIJIT_API_URL is unset', () => {
     expect(PI_WRAPPER).toContain('if [ -z "$OUIJIT_API_URL" ]; then');
-    expect(PI_WRAPPER).toContain('exec "$REAL_PI" --append-system-prompt "$(cat "$REFERENCE_FILE" 2>/dev/null)" "$@"');
+    expect(PI_WRAPPER).toContain('exec "$REAL_BIN" --append-system-prompt "$(cat "$REFERENCE_FILE" 2>/dev/null)" "$@"');
     // Fallthrough must not carry the extension or hook env var.
     const fallthroughLine = PI_WRAPPER.split('\n').find(
-      (l) => l.includes('exec "$REAL_PI" --append-system-prompt') && !l.endsWith('\\'),
+      (l) => l.includes('exec "$REAL_BIN" --append-system-prompt') && !l.endsWith('\\'),
     );
     expect(fallthroughLine).toBeDefined();
     expect(fallthroughLine).not.toContain('--extension');
