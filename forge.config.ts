@@ -2,6 +2,7 @@ import type { ForgeConfig } from '@electron-forge/shared-types';
 import { MakerSquirrel } from '@electron-forge/maker-squirrel';
 import { MakerZIP } from '@electron-forge/maker-zip';
 import { MakerDeb } from '@electron-forge/maker-deb';
+import { MakerDMG } from '@electron-forge/maker-dmg';
 import { VitePlugin } from '@electron-forge/plugin-vite';
 import { FusesPlugin } from '@electron-forge/plugin-fuses';
 import { FuseV1Options, FuseVersion } from '@electron/fuses';
@@ -212,8 +213,21 @@ const config: ForgeConfig = {
   },
   makers: [
     new MakerSquirrel({}),
+    // ZIP is kept for macOS so Squirrel.Mac auto-updates keep working;
+    // the DMG below is the user-facing first-install download.
     new MakerZIP({}, ['darwin', 'linux']),
     new MakerDeb({}),
+    // DMG with an /Applications drag-target so the install path is obvious.
+    // maker-dmg lays the app and an Applications symlink side by side in the
+    // mounted volume window, the standard macOS drag-to-install experience.
+    new MakerDMG(
+      {
+        name: 'Ouijit',
+        icon: './src/assets/icons/icon.icns',
+        format: 'ULFO',
+      },
+      ['darwin'],
+    ),
   ],
   publishers: [
     new PublisherGithub({
