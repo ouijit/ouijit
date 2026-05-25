@@ -9,7 +9,7 @@
  */
 
 import log from 'electron-log/renderer';
-import { addProjectTerminal, closeProjectTerminal } from '../components/terminal/terminalActions';
+import { addProjectTerminal } from '../components/terminal/terminalActions';
 import type { RunHookResult } from '../components/dialogs/RunHookDialog';
 import { useProjectStore } from '../stores/projectStore';
 import { useTerminalStore } from '../stores/terminalStore';
@@ -376,34 +376,18 @@ async function runNonStartHookInTerminal(
     return;
   }
 
-  if (newStatus === 'done') {
-    // Snapshot the task's terminals *before* spawning the done-hook terminal,
-    // so the cleanup below closes only the pre-existing ones. The hook terminal
-    // is created during the await and is excluded, leaving its output visible.
-    const storeBefore = useTerminalStore.getState();
-    const staleTerminals = (storeBefore.terminalsByProject[projectPath] ?? []).filter(
-      (ptyId) => storeBefore.displayStates[ptyId]?.taskId === task.taskNumber,
+  if (newStatus === 'done' && task.worktreePath) {
+    await addProjectTerminal(
+      projectPath,
+      { name: 'Done', command: hookResult.command, source: 'custom', priority: 0 },
+      {
+        existingWorktree: { path: task.worktreePath, branch: task.branch || '', createdAt: task.createdAt },
+        taskId: task.taskNumber,
+        skipAutoHook: true,
+        sandboxed: hookResult.sandboxed,
+        background: !hookResult.foreground,
+      },
     );
-
-    if (task.worktreePath) {
-      await addProjectTerminal(
-        projectPath,
-        { name: 'Done', command: hookResult.command, source: 'custom', priority: 0 },
-        {
-          existingWorktree: { path: task.worktreePath, branch: task.branch || '', createdAt: task.createdAt },
-          taskId: task.taskNumber,
-          skipAutoHook: true,
-          sandboxed: hookResult.sandboxed,
-          background: !hookResult.foreground,
-        },
-      );
-      if (hookResult.foreground && onForegroundOpen) onForegroundOpen();
-    }
-
-    // Close the terminals that were open before the hook ran. The done-hook
-    // terminal itself is left running so its output stays observable.
-    for (const ptyId of staleTerminals) {
-      closeProjectTerminal(ptyId);
-    }
+    if (hookResult.foreground && onForegroundOpen) onForegroundOpen();
   }
 }

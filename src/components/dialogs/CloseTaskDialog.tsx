@@ -3,11 +3,18 @@ import { DialogOverlay } from './DialogOverlay';
 
 interface CloseTaskDialogProps {
   taskName: string;
-  otherTerminalCount: number;
+  terminalCount: number;
+  /**
+   * When true, the caller closes one additional terminal regardless of the
+   * answer (the terminal the menu was opened from). The dialog asks about the
+   * "other" terminals. When false, the listed terminals are all the task has,
+   * and the dialog asks about them directly.
+   */
+  includesCurrent: boolean;
   onClose: (action: 'close-all' | 'just-this' | null) => void;
 }
 
-export function CloseTaskDialog({ taskName, otherTerminalCount, onClose }: CloseTaskDialogProps) {
+export function CloseTaskDialog({ taskName, terminalCount, includesCurrent, onClose }: CloseTaskDialogProps) {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
@@ -22,7 +29,12 @@ export function CloseTaskDialog({ taskName, otherTerminalCount, onClose }: Close
     [onClose],
   );
 
-  const plural = otherTerminalCount === 1 ? 'terminal' : 'terminals';
+  const plural = terminalCount === 1 ? 'terminal' : 'terminals';
+  const pronoun = terminalCount === 1 ? 'it' : 'them';
+  const prompt = includesCurrent
+    ? `has ${terminalCount} other open ${plural}. Close ${pronoun} too?`
+    : `has ${terminalCount} open ${plural}. Close ${pronoun}?`;
+  const keepLabel = includesCurrent ? 'Keep Others' : 'Keep Open';
 
   return (
     <DialogOverlay visible={visible} onDismiss={() => dismiss(null)} maxWidth={340}>
@@ -30,8 +42,7 @@ export function CloseTaskDialog({ taskName, otherTerminalCount, onClose }: Close
         Close Task
       </h2>
       <p className="text-sm text-text-secondary text-center">
-        &ldquo;<strong className="text-text-primary">{taskName}</strong>&rdquo; has {otherTerminalCount} other open{' '}
-        {plural}. Close {otherTerminalCount === 1 ? 'it' : 'them'} too?
+        &ldquo;<strong className="text-text-primary">{taskName}</strong>&rdquo; {prompt}
       </p>
       <div className="flex gap-2 justify-end mt-4 items-center">
         <button
@@ -46,7 +57,7 @@ export function CloseTaskDialog({ taskName, otherTerminalCount, onClose }: Close
           className="inline-flex items-center justify-center gap-2 px-4 py-1.5 font-sans text-sm font-medium no-underline border-none rounded-full outline-none transition-all duration-150 ease-out [-webkit-app-region:no-drag] focus-visible:ring-3 focus-visible:ring-accent-light text-accent bg-accent-light hover:bg-[rgba(0,122,255,0.15)] whitespace-nowrap"
           onClick={() => dismiss('just-this')}
         >
-          Keep Others
+          {keepLabel}
         </button>
         <button
           data-testid="dialog-close-all"

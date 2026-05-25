@@ -14,6 +14,24 @@ export interface RunHookRequest {
   resolve: (result: RunHookResult | null) => void;
 }
 
+export type CloseTaskAction = 'close-all' | 'just-this' | null;
+
+export interface CloseTaskRequest {
+  id: number;
+  projectPath: string;
+  taskNumber: number;
+  taskName: string;
+  /** How many terminals the dialog is asking the user about. */
+  terminalCount: number;
+  /**
+   * True when the caller (e.g. a terminal's Close Task menu) will close one
+   * extra terminal regardless of the dialog answer. The dialog uses this to
+   * pick copy: "other open" vs. plain "open" terminals.
+   */
+  includesCurrent: boolean;
+  resolve: (action: CloseTaskAction) => void;
+}
+
 export interface PendingCliStart {
   taskNumber: number;
   worktreePath: string;
@@ -64,6 +82,12 @@ interface ProjectStoreState {
    * position counts up instead of the total shrinking under the user.
    */
   runHookQueueTotal: number;
+  /**
+   * Pending "close task?" confirmations. The head is shown; the rest wait.
+   * Driven by the shared task-completion helper so both entry points (drag to
+   * done, terminal Close Task menu) reuse one dialog.
+   */
+  closeTaskQueue: CloseTaskRequest[];
   /** Queued CLI-initiated task starts awaiting the user to enter the project. */
   pendingCliStarts: Record<string, PendingCliStart[]>;
   /**
@@ -143,6 +167,11 @@ interface ProjectStoreActions {
   /** Skip the entire queue — resolve every pending hook prompt with null. */
   skipAllRunHookRequests: () => void;
 
+  /** Enqueue a close-task confirmation. Resolves with the user's choice. */
+  requestCloseTask: (req: Omit<CloseTaskRequest, 'id' | 'resolve'>) => Promise<CloseTaskAction>;
+  /** Resolve the head close-task request. */
+  resolveCloseTaskRequest: (id: number, action: CloseTaskAction) => void;
+
   /** Queue a CLI-initiated start for a project the user isn't currently viewing. */
   enqueueCliStart: (projectPath: string, start: PendingCliStart) => void;
   /** Atomically drain all queued starts for a project. */
@@ -154,6 +183,7 @@ type ProjectStore = ProjectStoreState & ProjectStoreActions;
 let toastCounter = 0;
 let moveCounter = 0;
 let runHookRequestCounter = 0;
+let closeTaskRequestCounter = 0;
 let configLoadVersion = 0;
 
 export const useProjectStore = create<ProjectStore>()((set, get) => ({
@@ -175,6 +205,7 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
   startingTaskNumbers: new Set<number>(),
   runHookQueue: [],
   runHookQueueTotal: 0,
+  closeTaskQueue: [],
   pendingCliStarts: {},
   sandboxAvailable: false,
   configuredHooks: {},
@@ -255,6 +286,7 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
   resetForProject: () => {
     // Unblock any services awaiting a hook prompt before we drop the queue.
     for (const pending of get().runHookQueue) pending.resolve(null);
+    for (const pending of get().closeTaskQueue) pending.resolve(null);
     set({
       tasks: [],
       kanbanVisible: false,
@@ -273,6 +305,7 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
       startingTaskNumbers: new Set<number>(),
       runHookQueue: [],
       runHookQueueTotal: 0,
+      closeTaskQueue: [],
       sandboxAvailable: false,
       configuredHooks: {},
       configProjectPath: null,
@@ -463,6 +496,20 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
     if (queue.length === 0) return;
     set({ runHookQueue: [], runHookQueueTotal: 0 });
     for (const req of queue) req.resolve(null);
+  },
+
+  requestCloseTask: (req) =>
+    new Promise<CloseTaskAction>((resolve) => {
+      const id = ++closeTaskRequestCounter;
+      set((s) => ({ closeTaskQueue: [...s.closeTaskQueue, { ...req, id, resolve }] }));
+    }),
+
+  resolveCloseTaskRequest: (id, action) => {
+    const queue = get().closeTaskQueue;
+    const target = queue.find((r) => r.id === id);
+    if (!target) return;
+    set({ closeTaskQueue: queue.filter((r) => r.id !== id) });
+    target.resolve(action);
   },
 
   enqueueCliStart: (projectPath, start) => {

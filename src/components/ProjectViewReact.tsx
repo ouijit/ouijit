@@ -10,6 +10,7 @@ import { KanbanBoard } from './kanban/KanbanBoard';
 import { ProjectSettingsPanel } from './scripts/ProjectSettingsPanel';
 import { focusKanbanAddInput } from './kanban/KanbanAddInput';
 import { RunHookDialog } from './dialogs/RunHookDialog';
+import { CloseTaskDialog } from './dialogs/CloseTaskDialog';
 import {
   addProjectTerminal,
   closeProjectTerminal,
@@ -374,7 +375,27 @@ export function ProjectView() {
         </>
       )}
       <GlobalRunHookDialog />
+      <GlobalCloseTaskDialog />
     </div>
+  );
+}
+
+/**
+ * Close-task confirmation rendered at the project-view level so it survives
+ * the kanban ↔ terminal toggle. Both the drag-to-done flow and the terminal
+ * Close Task menu drive it through `projectStore.requestCloseTask`.
+ */
+function GlobalCloseTaskDialog() {
+  const request = useProjectStore((s) => s.closeTaskQueue[0]);
+  if (!request) return null;
+  return (
+    <CloseTaskDialog
+      key={request.id}
+      taskName={request.taskName}
+      terminalCount={request.terminalCount}
+      includesCurrent={request.includesCurrent}
+      onClose={(action) => useProjectStore.getState().resolveCloseTaskRequest(request.id, action)}
+    />
   );
 }
 

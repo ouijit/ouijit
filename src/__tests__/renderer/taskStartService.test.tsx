@@ -205,16 +205,16 @@ describe('taskStartService.beginTransition', () => {
     expect(onForegroundOpen).not.toHaveBeenCalled();
   });
 
-  test('done transition: closes pre-existing task terminals but keeps the done-hook terminal', async () => {
-    // A terminal already open for task 7.
+  test('done transition: runs the done hook but leaves task terminals alone', async () => {
+    // Terminal closure is now driven by the shared Close Task confirmation
+    // dialog (see taskCompletion.ts); beginTransition no longer auto-closes
+    // pre-existing task terminals as a side effect of running the done hook.
     useTerminalStore.getState().addTerminal(PROJECT, 'pty-old', { label: 'old', taskId: 7 });
 
     vi.mocked(window.api.hooks.get).mockResolvedValue({
       done: { command: 'echo hey', name: 'Done', source: 'configured', priority: 0 },
     });
 
-    // The done-hook terminal registers itself in the store, tied to the same
-    // task, so we can prove the cleanup does not close it.
     vi.mocked(addProjectTerminal).mockImplementation(async () => {
       useTerminalStore.getState().addTerminal(PROJECT, 'pty-hook', { label: 'Done', taskId: 7 });
       return true;
@@ -233,14 +233,11 @@ describe('taskStartService.beginTransition', () => {
       .getState()
       .resolveRunHookRequest(req.id, { command: 'echo hey', sandboxed: false, foreground: false });
 
-    await waitFor(() => vi.mocked(closeProjectTerminal).mock.calls.length > 0);
+    await waitFor(() => vi.mocked(addProjectTerminal).mock.calls.length > 0);
     await flushPromises();
 
-    // Hook terminal spawned with the 'Done' label and the captured command.
     expect(vi.mocked(addProjectTerminal).mock.calls[0][1]).toMatchObject({ name: 'Done', command: 'echo hey' });
-
-    // Only the pre-existing terminal was closed; the done-hook terminal survives.
-    expect(vi.mocked(closeProjectTerminal).mock.calls.map((c) => c[0])).toEqual(['pty-old']);
+    expect(vi.mocked(closeProjectTerminal).mock.calls).toEqual([]);
   });
 
   test('worktree creation failure: cleans up the loading slot', async () => {

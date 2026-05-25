@@ -19,6 +19,7 @@ import { useTerminalStore } from '../../stores/terminalStore';
 import type { TaskWithWorkspace, TaskStatus, HookType } from '../../types';
 import { addProjectTerminal } from '../terminal/terminalActions';
 import { beginTransition, bulkTransitionTasks, surfaceStartWarnings } from '../../services/taskStartService';
+import { requestCloseTask } from '../../services/taskCompletion';
 import { KanbanColumn } from './KanbanColumn';
 import { BulkActionBar } from './BulkActionBar';
 import { focusKanbanAddInput } from './KanbanAddInput';
@@ -473,6 +474,21 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
       );
 
       const newStatus = finalContainer as TaskStatus;
+
+      // Dropping into done with a status change: ask whether to close any open
+      // task terminals before persisting. This mirrors the terminal Close Task
+      // menu so both entry points share the same confirmation flow.
+      if (newStatus === 'done' && origStatus && origStatus !== newStatus) {
+        const result = await requestCloseTask({
+          projectPath,
+          taskNumber: activeTaskNum,
+          taskName: draggedTask.name,
+        });
+        if (result.cancelled) {
+          setActiveTask(null);
+          return;
+        }
+      }
 
       // Persist status + position optimistically BEFORE async work (worktree creation, etc.)
       // This updates the store so that when we clear activeTask the effect re-syncs to the new position.
