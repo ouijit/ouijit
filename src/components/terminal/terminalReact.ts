@@ -13,13 +13,14 @@ import type { PtyId, PtySpawnOptions, GitFileStatus } from '../../types';
 import { notifyReady, readyBody } from '../../utils/notifications';
 import { generateId } from '../../utils/ids';
 import { useTerminalStore } from '../../stores/terminalStore';
+import { closeProjectTerminal } from './terminalActions';
 
 // ── Idle fallback timer constants ────────────────────────────────────
 const IDLE_FALLBACK_MS = 3000;
 const READY_DEFERRAL_MS = 5_000;
 const SIDE_EFFECT_THROTTLE_MS = 250;
 
-export type SummaryType = 'thinking' | 'ready';
+export type SummaryType = 'thinking' | 'ready' | 'success' | 'error';
 
 export interface TerminalOptions {
   ptyId?: PtyId;
@@ -35,6 +36,28 @@ export interface TerminalOptions {
   tags?: string[];
   isRunner?: boolean;
   initialSummaryType?: SummaryType;
+  /**
+   * When true, this terminal closes itself after a short grace period if its
+   * underlying process exits successfully (exit code 0). On non-zero exit it
+   * stays open with an error status. Used by the done-hook terminal so the
+   * cleanup script doesn't leave a stale terminal behind on success.
+   */
+  autoCloseOnSuccess?: boolean;
+}
+
+/** How long to leave an auto-close terminal visible on success before closing. */
+export const AUTO_CLOSE_GRACE_MS = 3000;
+
+/**
+ * Schedule a self-tidy close for a terminal that opted into autoCloseOnSuccess.
+ * Extracted so the timing behavior is unit-testable without standing up an
+ * OuijitTerminal instance (which couples to xterm + DOM).
+ */
+export function scheduleAutoCloseOnSuccess(ptyId: PtyId, isDisposed: () => boolean): ReturnType<typeof setTimeout> {
+  return setTimeout(() => {
+    if (isDisposed()) return;
+    closeProjectTerminal(ptyId);
+  }, AUTO_CLOSE_GRACE_MS);
 }
 
 function getTerminalTheme(): Record<string, string> {
@@ -369,6 +392,8 @@ export class OuijitTerminal {
   worktreePath?: string;
   worktreeBranch?: string;
   mergeTarget?: string;
+  /** See TerminalOptions.autoCloseOnSuccess. */
+  readonly autoCloseOnSuccess: boolean;
 
   // ── Per-terminal diff panel state ───────────────────────────────────
   diffPanelOpen = false;
@@ -430,6 +455,7 @@ export class OuijitTerminal {
     this.worktreePath = opts.worktreePath;
     this.worktreeBranch = opts.worktreeBranch;
     this.mergeTarget = opts.mergeTarget;
+    this.autoCloseOnSuccess = opts.autoCloseOnSuccess ?? false;
 
     if (opts.taskId != null) {
       this.diffPanelMode = 'worktree';
@@ -884,15 +910,22 @@ export class OuijitTerminal {
       const exitColor = exitCode === 0 ? '32' : '31';
       this.xterm.writeln(`\x1b[${exitColor}m● Process exited with code ${exitCode}\x1b[0m`);
 
+      const nextType: SummaryType = exitCode === 0 ? 'success' : 'error';
       this.summary = exitCode === 0 ? 'Exited' : `Exit ${exitCode}`;
-      this.summaryType = 'ready';
+      this.summaryType = nextType;
       this.pushDisplayState({
         summary: this.summary,
-        summaryType: 'ready',
+        summaryType: nextType,
         exited: true,
       });
 
       onExit?.(exitCode);
+
+      // Self-tidy on success for terminals that opted in (today: the done-hook
+      // terminal). Non-zero exits stay open so the failure is visible.
+      if (this.autoCloseOnSuccess && exitCode === 0) {
+        scheduleAutoCloseOnSuccess(this.ptyId, () => this.disposed);
+      }
     });
   }
 

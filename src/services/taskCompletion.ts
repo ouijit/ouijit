@@ -60,6 +60,7 @@ export async function completeTask(opts: CompleteTaskOptions): Promise<void> {
   });
 
   // 3. Spawn the done-hook terminal if there's a command and a worktree to run it in.
+  //    autoCloseOnSuccess keeps the success case tidy while leaving failures visible.
   if (effectiveCommand && task.worktreePath) {
     await addProjectTerminal(
       projectPath,
@@ -69,6 +70,7 @@ export async function completeTask(opts: CompleteTaskOptions): Promise<void> {
         taskId: taskNumber,
         skipAutoHook: true,
         background: true,
+        autoCloseOnSuccess: true,
       },
     );
   }

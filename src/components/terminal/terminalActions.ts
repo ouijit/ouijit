@@ -53,6 +53,9 @@ export interface AddProjectTerminalOptions {
    *  `rekeyTerminal` rather than being appended. Lets the kanban-drop loading
    *  card morph into the real terminal in the same stack position. */
   replaceLoadingId?: string;
+  /** Close this terminal automatically after a short grace period when its
+   *  process exits with code 0. On non-zero exit it stays open. */
+  autoCloseOnSuccess?: boolean;
 }
 
 // ── Apply persisted UI state from a session snapshot ────────────────
@@ -253,6 +256,7 @@ export async function addProjectTerminal(
     worktreePath: worktreeInfo?.path,
     worktreeBranch: worktreeInfo?.branch,
     mergeTarget,
+    autoCloseOnSuccess: options?.autoCloseOnSuccess,
   });
 
   // Open xterm into viewport element (not yet in DOM — React will attach via XTermContainer)

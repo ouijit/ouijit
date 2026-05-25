@@ -55,6 +55,9 @@ describe('completeTask', () => {
     await completeTask({ projectPath: PROJECT, task: makeTask() });
 
     expect(vi.mocked(addProjectTerminal).mock.calls[0][1]).toMatchObject({ name: 'Done', command: 'echo hey' });
+    // The hook terminal is opted into the self-tidy behavior so its success
+    // exit closes it after the grace period (see terminalReact wireExitHandler).
+    expect(vi.mocked(addProjectTerminal).mock.calls[0][2]).toMatchObject({ autoCloseOnSuccess: true });
     // Only the pre-existing terminal is closed; the freshly spawned hook terminal survives.
     expect(vi.mocked(closeProjectTerminal).mock.calls.map((c) => c[0])).toEqual(['pty-old']);
   });
