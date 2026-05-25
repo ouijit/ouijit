@@ -113,6 +113,7 @@
     "lodash": "^4.18.1",
     "fast-uri": "^3.1.2",
     "ip-address": "^10.2.0",
-    "make-fetch-happen": "^15.0.5"
+    "make-fetch-happen": "^15.0.5",
+    "macos-alias": "npm:@napi-rs/macos-alias@^0.0.4"
   }
 }

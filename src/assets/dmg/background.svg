@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Cradle DMG background. Oversized image so resize reveals more white matte
+  rather than image edges. Cradle is a light-grey rounded inset (no border),
+  surrounded by white outer matte that blends with Finder's light-mode chrome.
+-->
+<svg xmlns="http://www.w3.org/2000/svg"
+     width="2000" height="1500" viewBox="0 0 2000 1500">
+
+  <!-- Outer matte: white, blends with Finder light-mode window chrome -->
+  <rect width="2000" height="1500" fill="#ffffff"/>
+
+  <!-- Cradle: light-grey rounded inset, no border. Default window (720x460)
+       frames this with 40px of matte on each side. -->
+  <rect x="40" y="40" width="640" height="380" rx="16" ry="16" fill="#f5f5f7"/>
+
+  <!-- Drag indicator: three right-pointing chevrons fading toward the destination,
+       on the icon centerline (y=235) between the app icon (x=180 center) and
+       the Applications symlink (x=540 center). -->
+  <g fill="none" stroke="#0a0a0c" stroke-width="1.5"
+     stroke-linecap="round" stroke-linejoin="round">
+    <polyline points="-4,-8 4,0 -4,8" transform="translate(320 235)" stroke-opacity="0.45"/>
+    <polyline points="-4,-8 4,0 -4,8" transform="translate(360 235)" stroke-opacity="0.28"/>
+    <polyline points="-4,-8 4,0 -4,8" transform="translate(400 235)" stroke-opacity="0.12"/>
+  </g>
+</svg>

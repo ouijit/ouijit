@@ -12,6 +12,24 @@ import { execFileSync } from 'child_process';
 import path from 'path';
 import fs from 'fs';
 
+// Resolve the Developer ID Application identity used to code-sign the DMG itself
+// (separate from the app inside, which is signed via packagerConfig.osxSign).
+// Falls back to autodiscovery from the login keychain when APPLE_SIGNING_IDENTITY
+// isn't set, so local notarized builds work without extra env wiring.
+const resolveDMGSigningIdentity = (): string | undefined => {
+  if (process.env.SKIP_SIGN) return undefined;
+  if (process.env.APPLE_SIGNING_IDENTITY) return process.env.APPLE_SIGNING_IDENTITY;
+  try {
+    const output = execFileSync('security', ['find-identity', '-v', '-p', 'codesigning'], {
+      encoding: 'utf8',
+    });
+    const match = output.match(/"(Developer ID Application:[^"]+)"/);
+    return match ? match[1] : undefined;
+  } catch {
+    return undefined;
+  }
+};
+
 // Copy a directory tree. Does NOT preserve unix permissions (fs.copyFileSync doesn't),
 // so anything that needs +x must be chmod'd explicitly after copying.
 const copyRecursive = (src: string, dest: string) => {
@@ -217,14 +235,33 @@ const config: ForgeConfig = {
     // the DMG below is the user-facing first-install download.
     new MakerZIP({}, ['darwin', 'linux']),
     new MakerDeb({}),
-    // DMG with an /Applications drag-target so the install path is obvious.
-    // maker-dmg lays the app and an Applications symlink side by side in the
-    // mounted volume window, the standard macOS drag-to-install experience.
+    // Branded DMG with an /Applications drag-target.
+    //
+    // - `icon` is the volume icon, shown on the desktop and in Finder's sidebar
+    //   when the DMG is mounted (replaces the generic disk icon).
+    // - The window is sized generously so the app and Applications symlink have
+    //   breathing room around the drag arrow drawn into background.png.
+    // - The DMG file itself is code-signed when an identity is available so
+    //   Gatekeeper trusts the download without a warning prompt.
     new MakerDMG(
       {
-        name: 'Ouijit',
+        name: 'Install Ouijit',
         icon: './src/assets/icons/icon.icns',
+        background: './src/assets/dmg/background.png',
         format: 'ULFO',
+        iconSize: 144,
+        additionalDMGOptions: {
+          window: {
+            size: { width: 720, height: 460 },
+          },
+          ...(resolveDMGSigningIdentity()
+            ? { 'code-sign': { 'signing-identity': resolveDMGSigningIdentity()! } }
+            : {}),
+        },
+        contents: (opts) => [
+          { x: 180, y: 235, type: 'file', path: opts.appPath },
+          { x: 540, y: 235, type: 'link', path: '/Applications' },
+        ],
       },
       ['darwin'],
     ),
