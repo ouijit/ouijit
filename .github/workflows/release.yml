@@ -119,6 +119,12 @@ jobs:
           BUILD_ARCH: ${{ matrix.arch }}
         run: npm run publish -- --arch="$BUILD_ARCH"
 
+      # -- Verify the DMG would pass Gatekeeper on a user's machine.
+      # Catches missing signing or notarization before the draft is promoted.
+      - name: Verify DMG signed + notarized
+        if: matrix.platform == 'darwin'
+        run: ./scripts/verify-dmg.sh
+
       # -- Cleanup -----------------------------------------------------------
       - name: Clean up signing artifacts
         if: always() && matrix.platform == 'darwin'

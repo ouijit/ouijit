@@ -11,21 +11,9 @@ import { notarize } from '@electron/notarize';
 import { execFileSync } from 'child_process';
 import path from 'path';
 import fs from 'fs';
+import { resolveSigningIdentity, notarizeAndStapleDMGs } from './forge.dmg';
 
-// Signs the DMG wrapper itself; the app inside is signed separately by osxSign.
-const resolveDMGSigningIdentity = (): string | undefined => {
-  if (process.env.SKIP_SIGN) return undefined;
-  if (process.env.APPLE_SIGNING_IDENTITY) return process.env.APPLE_SIGNING_IDENTITY;
-  try {
-    const output = execFileSync('security', ['find-identity', '-v', '-p', 'codesigning'], {
-      encoding: 'utf8',
-    });
-    const match = output.match(/"(Developer ID Application:[^"]+)"/);
-    return match ? match[1] : undefined;
-  } catch {
-    return undefined;
-  }
-};
+const dmgSigningIdentity = resolveSigningIdentity();
 
 // Copy a directory tree. Does NOT preserve unix permissions (fs.copyFileSync doesn't),
 // so anything that needs +x must be chmod'd explicitly after copying.
@@ -185,6 +173,16 @@ const config: ForgeConfig = {
           return newPath;
         });
       }
+
+      // Notarize and staple the DMG wrapper. The app inside is already
+      // notarized via postPackage, but Apple requires the distribution
+      // artifact itself to be notarized too, otherwise Gatekeeper warns
+      // on first open.
+      for (const result of makeResults) {
+        if (result.platform !== 'darwin') continue;
+        await notarizeAndStapleDMGs(result.artifacts);
+      }
+
       return makeResults;
     },
     postPackage: async (_config, options) => {
@@ -242,8 +240,8 @@ const config: ForgeConfig = {
           window: {
             size: { width: 720, height: 460 },
           },
-          ...(resolveDMGSigningIdentity()
-            ? { 'code-sign': { 'signing-identity': resolveDMGSigningIdentity()! } }
+          ...(dmgSigningIdentity
+            ? { 'code-sign': { 'signing-identity': dmgSigningIdentity } }
             : {}),
         },
         contents: (opts) => [
