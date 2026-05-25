@@ -12,10 +12,7 @@ import { execFileSync } from 'child_process';
 import path from 'path';
 import fs from 'fs';
 
-// Resolve the Developer ID Application identity used to code-sign the DMG itself
-// (separate from the app inside, which is signed via packagerConfig.osxSign).
-// Falls back to autodiscovery from the login keychain when APPLE_SIGNING_IDENTITY
-// isn't set, so local notarized builds work without extra env wiring.
+// Signs the DMG wrapper itself; the app inside is signed separately by osxSign.
 const resolveDMGSigningIdentity = (): string | undefined => {
   if (process.env.SKIP_SIGN) return undefined;
   if (process.env.APPLE_SIGNING_IDENTITY) return process.env.APPLE_SIGNING_IDENTITY;
@@ -231,18 +228,9 @@ const config: ForgeConfig = {
   },
   makers: [
     new MakerSquirrel({}),
-    // ZIP is kept for macOS so Squirrel.Mac auto-updates keep working;
-    // the DMG below is the user-facing first-install download.
+    // macOS ZIP is required for Squirrel.Mac auto-updates; the DMG below is the first-install download.
     new MakerZIP({}, ['darwin', 'linux']),
     new MakerDeb({}),
-    // Branded DMG with an /Applications drag-target.
-    //
-    // - `icon` is the volume icon, shown on the desktop and in Finder's sidebar
-    //   when the DMG is mounted (replaces the generic disk icon).
-    // - The window is sized generously so the app and Applications symlink have
-    //   breathing room around the drag arrow drawn into background.png.
-    // - The DMG file itself is code-signed when an identity is available so
-    //   Gatekeeper trusts the download without a warning prompt.
     new MakerDMG(
       {
         name: 'Install Ouijit',
