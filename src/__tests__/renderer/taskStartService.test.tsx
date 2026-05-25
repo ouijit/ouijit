@@ -205,19 +205,12 @@ describe('taskStartService.beginTransition', () => {
     expect(onForegroundOpen).not.toHaveBeenCalled();
   });
 
-  test('done transition: runs the done hook but leaves task terminals alone', async () => {
-    // Terminal closure is now driven by the shared Close Task confirmation
-    // dialog (see taskCompletion.ts); beginTransition no longer auto-closes
-    // pre-existing task terminals as a side effect of running the done hook.
-    useTerminalStore.getState().addTerminal(PROJECT, 'pty-old', { label: 'old', taskId: 7 });
-
+  test('done transition: beginTransition is now a no-op for done — completeTask owns it', async () => {
+    // Done is no longer routed through beginTransition; the kanban and bulk
+    // paths call completeTask directly. beginTransition for done should not
+    // prompt for a hook or spawn any terminal.
     vi.mocked(window.api.hooks.get).mockResolvedValue({
       done: { command: 'echo hey', name: 'Done', source: 'configured', priority: 0 },
-    });
-
-    vi.mocked(addProjectTerminal).mockImplementation(async () => {
-      useTerminalStore.getState().addTerminal(PROJECT, 'pty-hook', { label: 'Done', taskId: 7 });
-      return true;
     });
 
     beginTransition(PROJECT, {
@@ -226,17 +219,12 @@ describe('taskStartService.beginTransition', () => {
       task: { ...makeTask(), status: 'in_review', worktreePath: '/wt/T-7', branch: 'wire-up-auth-7' },
     });
 
-    await waitFor(() => useProjectStore.getState().runHookQueue[0] != null);
-    const req = useProjectStore.getState().runHookQueue[0]!;
-    expect(req.hookType).toBe('done');
-    useProjectStore
-      .getState()
-      .resolveRunHookRequest(req.id, { command: 'echo hey', sandboxed: false, foreground: false });
-
-    await waitFor(() => vi.mocked(addProjectTerminal).mock.calls.length > 0);
+    // Give beginTransition time to run to completion if it were going to do anything.
+    await flushPromises();
     await flushPromises();
 
-    expect(vi.mocked(addProjectTerminal).mock.calls[0][1]).toMatchObject({ name: 'Done', command: 'echo hey' });
+    expect(useProjectStore.getState().runHookQueue).toEqual([]);
+    expect(vi.mocked(addProjectTerminal).mock.calls).toEqual([]);
     expect(vi.mocked(closeProjectTerminal).mock.calls).toEqual([]);
   });
 

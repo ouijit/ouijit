@@ -5,7 +5,7 @@ import { useUIStore } from '../../stores/uiStore';
 import { useShallow } from 'zustand/react/shallow';
 import { terminalInstances } from './terminalReact';
 import { addProjectTerminal, renameTerminal } from './terminalActions';
-import { requestCloseTask } from '../../services/taskCompletion';
+import { completeTask } from '../../services/taskCompletion';
 
 const EMPTY_TAGS: string[] = [];
 import type { GitFileStatus, RunnerScript } from '../../types';
@@ -214,18 +214,9 @@ export const TerminalHeader = memo(function TerminalHeader({
         label: 'Close Task',
         icon: 'archive',
         onClick: async () => {
-          const taskName =
-            useProjectStore.getState().tasks.find((t) => t.taskNumber === taskId)?.name ?? `Task #${taskId}`;
-          const result = await requestCloseTask({
-            projectPath,
-            taskNumber: taskId!,
-            taskName,
-            contextPtyId: ptyId,
-          });
-          if (result.cancelled) return;
-          await window.api.task.setStatus(projectPath, taskId!, 'done');
-          onClose();
-          useProjectStore.getState().invalidateTaskList();
+          const storeTask = useProjectStore.getState().tasks.find((t) => t.taskNumber === taskId);
+          if (!storeTask) return;
+          await completeTask({ projectPath, task: storeTask });
           useProjectStore.getState().addToast('Task closed', 'success');
         },
       });
@@ -237,10 +228,8 @@ export const TerminalHeader = memo(function TerminalHeader({
     instance,
     projectPath,
     taskId,
-    ptyId,
     sandboxAvailable,
     hasEditorHook,
-    onClose,
     webPreviewUrl,
     webPreviewPanelOpen,
     onToggleWebPreviewPanel,

@@ -19,7 +19,7 @@ import { useTerminalStore } from '../../stores/terminalStore';
 import type { TaskWithWorkspace, TaskStatus, HookType } from '../../types';
 import { addProjectTerminal } from '../terminal/terminalActions';
 import { beginTransition, bulkTransitionTasks, surfaceStartWarnings } from '../../services/taskStartService';
-import { requestCloseTask } from '../../services/taskCompletion';
+import { completeTask } from '../../services/taskCompletion';
 import { KanbanColumn } from './KanbanColumn';
 import { BulkActionBar } from './BulkActionBar';
 import { focusKanbanAddInput } from './KanbanAddInput';
@@ -475,19 +475,22 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
 
       const newStatus = finalContainer as TaskStatus;
 
-      // Dropping into done with a status change: ask whether to close any open
-      // task terminals before persisting. This mirrors the terminal Close Task
-      // menu so both entry points share the same confirmation flow.
+      // Done is its own lifecycle: snapshot existing task terminals, spawn the
+      // done-hook terminal (if configured), close the snapshot, persist status.
+      // All three entry points (kanban, terminal Close Task menu, CLI) funnel
+      // through completeTask so they behave identically.
       if (newStatus === 'done' && origStatus && origStatus !== newStatus) {
-        const result = await requestCloseTask({
-          projectPath,
-          taskNumber: activeTaskNum,
-          taskName: draggedTask.name,
-        });
-        if (result.cancelled) {
-          setActiveTask(null);
-          return;
+        if (draggedTask.worktreePath) {
+          const wtPath = await ensureWorktreeExists(draggedTask);
+          if (!wtPath) {
+            setActiveTask(null);
+            return;
+          }
+          draggedTask = { ...draggedTask, worktreePath: wtPath };
         }
+        setActiveTask(null);
+        await completeTask({ projectPath, task: draggedTask, targetIndex });
+        return;
       }
 
       // Persist status + position optimistically BEFORE async work (worktree creation, etc.)

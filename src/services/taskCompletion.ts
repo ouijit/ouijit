@@ -1,65 +1,88 @@
 /**
- * Shared "task is being marked done" flow. Both the kanban drag-to-done and
- * the terminal Close Task context menu route through here so a single
- * confirmation dialog drives whether the task's open terminals get closed.
+ * Single done-transition lifecycle. All three entry points (kanban drag,
+ * terminal Close Task menu, CLI set-status done) funnel through `completeTask`
+ * so the observable behavior of marking a task done is identical regardless
+ * of where it's triggered.
  *
- * Callers remain responsible for the actual status change, view-level cleanup
- * (e.g. closing the originating terminal card), and toasts. This helper owns
- * just the prompt + closure of related terminals.
+ * Order is snapshot → spawn → close → persist. The snapshot is taken before
+ * the new done-hook terminal is spawned, so the new terminal is excluded from
+ * closure by construction.
  */
 
-import { closeProjectTerminal } from '../components/terminal/terminalActions';
-import { findOtherTaskTerminals } from '../components/terminal/findOtherTaskTerminals';
+import log from 'electron-log/renderer';
+import { addProjectTerminal, closeProjectTerminal } from '../components/terminal/terminalActions';
 import { useProjectStore } from '../stores/projectStore';
 import { useTerminalStore } from '../stores/terminalStore';
+import type { TaskWithWorkspace } from '../types';
 
-export interface RequestCloseTaskOptions {
+const completionLog = log.scope('taskCompletion');
+
+export interface CompleteTaskOptions {
   projectPath: string;
-  taskNumber: number;
-  taskName: string;
+  task: TaskWithWorkspace;
+  /** Skip the configured done hook for this transition. */
+  skipHook?: boolean;
+  /** Override the configured done hook's command for this transition. */
+  hookCommand?: string;
   /**
-   * When the request originates from a specific terminal's Close Task menu,
-   * pass that terminal's ptyId. It is excluded from the count (the caller
-   * closes it separately via its own `onClose`) and the dialog adjusts copy.
+   * Kanban-only: when set, also reorder the task within the done column.
+   * When omitted, only the status is written.
    */
-  contextPtyId?: string;
+  targetIndex?: number;
 }
 
-export interface CloseTaskResult {
-  /** True if the user cancelled — no status change should happen. */
-  cancelled: boolean;
-  /** True if related task terminals were closed as part of this flow. */
-  closedAll: boolean;
-}
-
-export async function requestCloseTask(opts: RequestCloseTaskOptions): Promise<CloseTaskResult> {
-  const { projectPath, taskNumber, taskName, contextPtyId } = opts;
-  const store = useTerminalStore.getState();
-  const relatedPtyIds = findOtherTaskTerminals(
-    store.terminalsByProject,
-    store.displayStates,
-    projectPath,
+export async function completeTask(opts: CompleteTaskOptions): Promise<void> {
+  const { projectPath, task, skipHook, hookCommand, targetIndex } = opts;
+  const taskNumber = task.taskNumber;
+  completionLog.info('completing task', {
     taskNumber,
-    contextPtyId ?? '',
-  );
-
-  if (relatedPtyIds.length === 0) {
-    return { cancelled: false, closedAll: false };
-  }
-
-  const action = await useProjectStore.getState().requestCloseTask({
     projectPath,
-    taskNumber,
-    taskName,
-    terminalCount: relatedPtyIds.length,
-    includesCurrent: contextPtyId != null,
+    skipHook,
+    hasHookCommand: !!hookCommand,
+    hasTargetIndex: targetIndex != null,
   });
 
-  if (action == null) return { cancelled: true, closedAll: false };
-
-  if (action === 'close-all') {
-    for (const id of relatedPtyIds) closeProjectTerminal(id);
+  // 1. Resolve the effective hook command.
+  let effectiveCommand: string | null = null;
+  if (hookCommand) {
+    effectiveCommand = hookCommand;
+  } else if (!skipHook) {
+    const hooks = await window.api.hooks.get(projectPath);
+    if (hooks.done) effectiveCommand = hooks.done.command;
   }
 
-  return { cancelled: false, closedAll: action === 'close-all' };
+  // 2. Snapshot existing task terminals BEFORE spawning the hook terminal,
+  //    so the new terminal is excluded from the close sweep.
+  const termStore = useTerminalStore.getState();
+  const snapshot = (termStore.terminalsByProject[projectPath] ?? []).filter((ptyId) => {
+    const d = termStore.displayStates[ptyId];
+    return d != null && d.taskId === taskNumber && !d.isLoading;
+  });
+
+  // 3. Spawn the done-hook terminal if there's a command and a worktree to run it in.
+  if (effectiveCommand && task.worktreePath) {
+    await addProjectTerminal(
+      projectPath,
+      { name: 'Done', command: effectiveCommand, source: 'custom', priority: 0 },
+      {
+        existingWorktree: { path: task.worktreePath, branch: task.branch || '', createdAt: task.createdAt },
+        taskId: taskNumber,
+        skipAutoHook: true,
+        background: true,
+      },
+    );
+  }
+
+  // 4. Close the snapshotted terminals.
+  for (const ptyId of snapshot) {
+    closeProjectTerminal(ptyId);
+  }
+
+  // 5. Persist status (and order, for the kanban-drag entry point).
+  if (targetIndex != null) {
+    await useProjectStore.getState().moveTask(projectPath, taskNumber, 'done', targetIndex);
+  } else {
+    await window.api.task.setStatus(projectPath, taskNumber, 'done');
+    await useProjectStore.getState().loadTasks(projectPath);
+  }
 }
