@@ -80,6 +80,7 @@ function installListenerStubs(): ListenerStubs {
     stubs.cliTaskStartedCb = cb;
     return () => {};
   });
+  api['onCliTaskCompleted'] = vi.fn(() => () => {});
   return stubs;
 }
 

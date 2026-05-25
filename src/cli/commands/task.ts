@@ -64,6 +64,9 @@ Examples:
   ouijit task start 5 --skip-hook
   ouijit task start 5 --hook-command "claude"
   ouijit task set-status 5 in_review
+  ouijit task set-status 5 done
+  ouijit task set-status 5 done --skip-hook
+  ouijit task set-status 5 done --hook-command "npm run deploy"
   ouijit task set-name 5 "Better name"
   ouijit task delete 5`,
     );
@@ -169,16 +172,31 @@ Examples:
     .description('Set task status')
     .argument('<number>', 'task number')
     .argument('<status>', 'new status (todo|in_progress|in_review|done)')
-    .action(async (number: string, status: string) => {
+    .option('--skip-hook', 'when setting done, skip the configured done hook')
+    .option('--hook-command <cmd>', 'when setting done, run a one-off command instead of the configured done hook')
+    .action(async (number: string, status: string, opts: Pick<HookFlags, 'skipHook' | 'hookCommand'>) => {
       const num = parseInt(number, 10);
       if (isNaN(num)) return printError('Task number must be an integer');
       if (!VALID_STATUSES.includes(status)) {
         return printError(`Invalid status: ${status}. Must be one of: ${VALID_STATUSES.join(', ')}`);
       }
+      // The hook flags only apply to `done` — silently drop them for other
+      // statuses so scripted callers can pass them defensively.
+      const hookBody: { skipHook?: boolean; hookCommand?: string } = {};
+      if (status === 'done') {
+        if (opts.skipHook && opts.hookCommand !== undefined) {
+          return printError('Only one of --skip-hook, --hook-command may be used');
+        }
+        if (opts.skipHook) hookBody.skipHook = true;
+        if (opts.hookCommand !== undefined) {
+          if (!opts.hookCommand.trim()) return printError('--hook-command requires a non-empty command');
+          hookBody.hookCommand = opts.hookCommand;
+        }
+      }
       const project = requireProject();
       const result = await patch<{ success: boolean; error?: string; hookWarning?: string }>(
         `/api/tasks/${num}/status${projectQuery(project)}`,
-        { status },
+        { status, ...hookBody },
       );
       if (!result.success) return printError(result.error || 'Failed to set status');
       printJson({ success: true, status: STATUS_LABELS[status] || status, hookWarning: result.hookWarning });

@@ -149,6 +149,14 @@ function isTaskStartRoute(method: string, segments: string[]): boolean {
   return false;
 }
 
+function isStatusPatchRoute(method: string, segments: string[]): boolean {
+  return method === 'PATCH' && segments.length === 3 && segments[0] === 'tasks' && segments[2] === 'status';
+}
+
+function isSuccessfulMutation(result: unknown): boolean {
+  return typeof result === 'object' && result !== null && (result as { success?: unknown }).success === true;
+}
+
 // ── Route dispatch ───────────────────────────────────────────────────
 
 type RouteHandler = (req: ParsedRequest) => Promise<unknown> | unknown;
@@ -590,6 +598,23 @@ async function handleAsync(req: IncomingMessage, res: ServerResponse, window: Br
             sandboxed: task.sandboxed ?? false,
             hookMode: hookControl.hookMode,
             hookCommand: hookControl.hookCommand,
+          });
+        }
+      }
+
+      // CLI set-status N done: the server wrote the status, but the renderer
+      // owns the rest of the done lifecycle (terminal cleanup + done-hook
+      // spawn). Push so the active project view can run completeTask.
+      if (isStatusPatchRoute(method, segments) && body.status === 'done' && isSuccessfulMutation(result)) {
+        const taskNumber = parseInt(segments[1] ?? '', 10);
+        if (!Number.isNaN(taskNumber)) {
+          const skipHook = body.skipHook === true;
+          const hookCommand = typeof body.hookCommand === 'string' ? body.hookCommand : undefined;
+          typedPush(window, 'cli:task-completed', {
+            project,
+            taskNumber,
+            skipHook: skipHook || undefined,
+            hookCommand,
           });
         }
       }

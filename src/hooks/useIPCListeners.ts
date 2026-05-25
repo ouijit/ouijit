@@ -3,6 +3,7 @@ import { useAppStore } from '../stores/appStore';
 import { useProjectStore, type PendingCliStart } from '../stores/projectStore';
 import { useTerminalStore } from '../stores/terminalStore';
 import { beginTransition } from '../services/taskStartService';
+import { completeTask } from '../services/taskCompletion';
 import log from 'electron-log/renderer';
 
 const ipcLog = log.scope('ipcListeners');
@@ -103,6 +104,42 @@ export function useIPCListeners() {
             useProjectStore.getState().addToast(payload.message, 'info');
           }
         }
+      }),
+    );
+
+    // CLI-initiated done transition — server already wrote status, we run the
+    // shared completeTask lifecycle (snapshot terminals, spawn done hook, close
+    // snapshot). setStatus inside completeTask is idempotent so the redundant
+    // write is harmless. Skipped if the user isn't viewing the project — the
+    // server-side status change still landed; only the terminal cleanup is
+    // missed, and there's nothing meaningful to do offline.
+    cleanups.push(
+      window.api.onCliTaskCompleted((payload) => {
+        const activeProject = useAppStore.getState().activeProjectPath;
+        if (activeProject !== payload.project) {
+          ipcLog.info('CLI task-completed: project not active, skipping lifecycle', {
+            project: payload.project,
+            taskNumber: payload.taskNumber,
+          });
+          return;
+        }
+        const task = useProjectStore.getState().tasks.find((t) => t.taskNumber === payload.taskNumber);
+        if (!task) {
+          ipcLog.warn('CLI task-completed: task not found in store', { taskNumber: payload.taskNumber });
+          return;
+        }
+        ipcLog.info('CLI task-completed: running completeTask', { taskNumber: payload.taskNumber });
+        void completeTask({
+          projectPath: payload.project,
+          task,
+          skipHook: payload.skipHook,
+          hookCommand: payload.hookCommand,
+        }).catch((err) => {
+          ipcLog.error('CLI task-completed lifecycle failed', {
+            taskNumber: payload.taskNumber,
+            error: err instanceof Error ? err.message : String(err),
+          });
+        });
       }),
     );
 

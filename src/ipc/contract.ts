@@ -251,5 +251,17 @@ export interface IpcPushContract {
       },
     ];
   };
+  'cli:task-completed': {
+    args: [
+      payload: {
+        project: string;
+        taskNumber: number;
+        /** When true, the CLI passed --skip-hook; the renderer should bypass the done hook. */
+        skipHook?: boolean;
+        /** When set, the CLI passed --hook-command; run this instead of the configured hook. */
+        hookCommand?: string;
+      },
+    ];
+  };
   'capture:navigate': { args: [payload: import('../capture/types').CaptureNavigatePayload] };
 }

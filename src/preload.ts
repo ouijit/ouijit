@@ -229,6 +229,10 @@ contextBridge.exposeInMainWorld('api', {
     }) => void,
   ) => typedListen('cli:task-started', callback),
 
+  onCliTaskCompleted: (
+    callback: (payload: { project: string; taskNumber: number; skipHook?: boolean; hookCommand?: string }) => void,
+  ) => typedListen('cli:task-completed', callback),
+
   capture: {
     onNavigate: (callback: (payload: import('./capture/types').CaptureNavigatePayload) => void) =>
       typedListen('capture:navigate', callback),

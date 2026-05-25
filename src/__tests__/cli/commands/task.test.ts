@@ -193,6 +193,70 @@ describe('task commands', () => {
     expect(result.success).toBe(true);
   });
 
+  describe('set-status done hook flags', () => {
+    test('done with no flags sends just the status', async () => {
+      vi.mocked(patch).mockResolvedValue({ success: true });
+      const output = captureOutput();
+      await createProgram().parseAsync(['task', 'set-status', '1', 'done'], { from: 'user' });
+      output.getJson();
+      expect(patch).toHaveBeenCalledWith(expect.any(String), { status: 'done' });
+    });
+
+    test('done --skip-hook forwards skipHook in the body', async () => {
+      vi.mocked(patch).mockResolvedValue({ success: true });
+      const output = captureOutput();
+      await createProgram().parseAsync(['task', 'set-status', '1', 'done', '--skip-hook'], { from: 'user' });
+      output.getJson();
+      expect(patch).toHaveBeenCalledWith(expect.any(String), { status: 'done', skipHook: true });
+    });
+
+    test('done --hook-command forwards hookCommand', async () => {
+      vi.mocked(patch).mockResolvedValue({ success: true });
+      const output = captureOutput();
+      await createProgram().parseAsync(['task', 'set-status', '1', 'done', '--hook-command', 'npm run deploy'], {
+        from: 'user',
+      });
+      output.getJson();
+      expect(patch).toHaveBeenCalledWith(expect.any(String), { status: 'done', hookCommand: 'npm run deploy' });
+    });
+
+    test('done with both --skip-hook and --hook-command exits non-zero', async () => {
+      const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
+      const errSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+      try {
+        await createProgram().parseAsync(['task', 'set-status', '1', 'done', '--skip-hook', '--hook-command', 'x'], {
+          from: 'user',
+        });
+        expect(exitSpy).toHaveBeenCalledWith(1);
+      } finally {
+        exitSpy.mockRestore();
+        errSpy.mockRestore();
+      }
+    });
+
+    test('done with empty --hook-command exits non-zero', async () => {
+      const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
+      const errSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+      try {
+        await createProgram().parseAsync(['task', 'set-status', '1', 'done', '--hook-command', '  '], { from: 'user' });
+        expect(exitSpy).toHaveBeenCalledWith(1);
+      } finally {
+        exitSpy.mockRestore();
+        errSpy.mockRestore();
+      }
+    });
+
+    test('hook flags are silently ignored for non-done statuses', async () => {
+      vi.mocked(patch).mockResolvedValue({ success: true });
+      const output = captureOutput();
+      await createProgram().parseAsync(['task', 'set-status', '1', 'in_review', '--skip-hook', '--hook-command', 'x'], {
+        from: 'user',
+      });
+      output.getJson();
+      expect(patch).toHaveBeenCalledWith(expect.any(String), { status: 'in_review' });
+    });
+  });
+
   test('set-name calls PATCH /api/tasks/:number/name', async () => {
     vi.mocked(patch).mockResolvedValue({ success: true });
     const output = captureOutput();
