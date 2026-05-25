@@ -36,6 +36,8 @@ interface ProjectStoreState {
   highlightedChainTask: number | null;
   detachHoverParent: number | null;
   optionKeyHeld: boolean;
+  /** True while Shift is held — shift-drag to the done column skips the done hook. */
+  shiftKeyHeld: boolean;
   activeBadgeDrag: number | null;
   badgeDragOverTask: number | null;
   activeModal: string | null;
@@ -166,6 +168,7 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
   highlightedChainTask: null,
   detachHoverParent: null,
   optionKeyHeld: false,
+  shiftKeyHeld: false,
   activeBadgeDrag: null,
   badgeDragOverTask: null,
   activeModal: null,
@@ -265,6 +268,7 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
       highlightedChainTask: null,
       detachHoverParent: null,
       optionKeyHeld: false,
+      shiftKeyHeld: false,
       activeBadgeDrag: null,
       badgeDragOverTask: null,
       activeModal: null,

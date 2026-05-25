@@ -62,6 +62,11 @@ export function KanbanColumn({
 
   const showOverHighlight = isOver && tasks.length === 0;
 
+  // Surface the shift-to-skip affordance on the done column when shift is held
+  // mid-drag and a done hook is actually configured (otherwise the cue is noise).
+  const shiftKeyHeld = useProjectStore((s) => s.shiftKeyHeld);
+  const showSkipHookHint = status === 'done' && shiftKeyHeld && !!hasConfiguredHook;
+
   return (
     <KanbanColumnView
       status={status}
@@ -72,6 +77,7 @@ export function KanbanColumn({
       onConfigureHook={onConfigureHook}
       isOver={showOverHighlight}
       bodyRef={setNodeRef}
+      caption={showSkipHookHint ? 'shift to skip hook' : undefined}
       onBodyClick={(e) => {
         if (e.target === e.currentTarget) useProjectStore.getState().clearSelection();
       }}

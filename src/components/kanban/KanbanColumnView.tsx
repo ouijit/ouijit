@@ -12,6 +12,9 @@ export interface KanbanColumnViewProps {
   isOver?: boolean;
   bodyRef?: Ref<HTMLDivElement>;
   onBodyClick?: (e: MouseEvent<HTMLDivElement>) => void;
+  /** Short caption rendered in place of the count when set — used to surface
+   *  modifier-key affordances mid-drag (e.g. "shift to skip hook"). */
+  caption?: string;
   children?: ReactNode;
 }
 
@@ -31,6 +34,7 @@ export function KanbanColumnView({
   isOver = false,
   bodyRef,
   onBodyClick,
+  caption,
   children,
 }: KanbanColumnViewProps) {
   return (
@@ -42,7 +46,11 @@ export function KanbanColumnView({
       <div className="flex items-center gap-2 px-3 py-2.5 shrink-0 h-[46px]">
         <span className="text-[13px] font-medium text-text-secondary tracking-wide flex-1">
           {label}
-          <span className="kanban-column-count text-text-secondary opacity-50 tracking-normal ml-1.5">{count}</span>
+          {caption ? (
+            <span className="text-text-secondary opacity-60 tracking-normal ml-1.5 text-[11px]">{caption}</span>
+          ) : (
+            <span className="kanban-column-count text-text-secondary opacity-50 tracking-normal ml-1.5">{count}</span>
+          )}
         </span>
         {hookTypes.length > 0 && onConfigureHook && (
           <button
