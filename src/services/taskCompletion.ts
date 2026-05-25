@@ -60,7 +60,9 @@ export async function completeTask(opts: CompleteTaskOptions): Promise<void> {
   });
 
   // 3. Spawn the done-hook terminal if there's a command and a worktree to run it in.
-  //    autoCloseOnSuccess keeps the success case tidy while leaving failures visible.
+  //    exitAfterCommand makes the PTY exit when the command finishes so the
+  //    real exit code reaches wireExitHandler; autoCloseOnSuccess then tidies
+  //    the success case while leaving failures visible (red dot, Exit N).
   if (effectiveCommand && task.worktreePath) {
     await addProjectTerminal(
       projectPath,
@@ -71,6 +73,7 @@ export async function completeTask(opts: CompleteTaskOptions): Promise<void> {
         skipAutoHook: true,
         background: true,
         autoCloseOnSuccess: true,
+        exitAfterCommand: true,
       },
     );
   }

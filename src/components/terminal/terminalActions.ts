@@ -54,8 +54,12 @@ export interface AddProjectTerminalOptions {
    *  card morph into the real terminal in the same stack position. */
   replaceLoadingId?: string;
   /** Close this terminal automatically after a short grace period when its
-   *  process exits with code 0. On non-zero exit it stays open. */
+   *  process exits with code 0. On non-zero exit it stays open. Pair with
+   *  `exitAfterCommand` so the PTY actually exits when the command finishes. */
   autoCloseOnSuccess?: boolean;
+  /** Forwarded to PtySpawnOptions.exitAfterCommand — the PTY exits as soon as
+   *  the spawned command finishes instead of dropping into an interactive shell. */
+  exitAfterCommand?: boolean;
 }
 
 // ── Apply persisted UI state from a session snapshot ────────────────
@@ -258,6 +262,8 @@ export async function addProjectTerminal(
     mergeTarget,
     autoCloseOnSuccess: options?.autoCloseOnSuccess,
   });
+  // exitAfterCommand is spawn-only — capture from options for the spawn call below.
+  const exitAfterCommand = options?.exitAfterCommand;
 
   // Open xterm into viewport element (not yet in DOM — React will attach via XTermContainer)
   term.openTerminal();
@@ -293,6 +299,7 @@ export async function addProjectTerminal(
     worktreePath: worktreeInfo?.path,
     env: startEnv,
     sandboxed: useSandbox,
+    exitAfterCommand,
   };
 
   try {

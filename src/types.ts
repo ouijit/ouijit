@@ -240,6 +240,14 @@ export interface PtySpawnOptions {
   env?: Record<string, string>;
   /** Whether to run this terminal inside a Lima sandbox VM */
   sandboxed?: boolean;
+  /**
+   * When true, the PTY exits as soon as the command finishes instead of
+   * dropping into an interactive shell. Required for terminals that want to
+   * react to the command's actual exit code (e.g. the done-hook terminal's
+   * autoCloseOnSuccess + error status). Defaults to false so normal task
+   * terminals still drop you into a usable shell after the agent command runs.
+   */
+  exitAfterCommand?: boolean;
 }
 
 /**

@@ -93,4 +93,34 @@ describe('buildCommandShellArgs', () => {
     expect(args[1]).toContain("fish_cmd 'arg'");
     expect(args[1]).toContain('exec /usr/bin/fish');
   });
+
+  // exitAfterCommand: spawn for one-shot terminals (currently the done-hook
+  // terminal) so the PTY exits with the command's real exit code instead of
+  // dropping into an interactive shell — required for autoCloseOnSuccess and
+  // the success/error status to fire.
+  describe('exitAfterCommand', () => {
+    it('omits the exec into interactive shell for zsh', () => {
+      const args = buildCommandShellArgs('echo hi', '/bin/zsh', '/tmp/integration', true);
+      expect(args[1]).toContain('echo hi');
+      expect(args[1]).not.toContain('exec /bin/zsh');
+      expect(args[1]).not.toContain('exec zsh');
+    });
+
+    it('omits the exec into interactive shell for bash', () => {
+      const args = buildCommandShellArgs('echo hi', '/bin/bash', '/tmp/integration', true);
+      expect(args[1]).toContain('echo hi');
+      expect(args[1]).not.toContain('exec bash');
+    });
+
+    it('omits the exec into interactive shell for non-zsh/bash shells', () => {
+      const args = buildCommandShellArgs('echo hi', '/usr/bin/fish', '/tmp/integration', true);
+      expect(args[1]).toContain('echo hi');
+      expect(args[1]).not.toContain('exec /usr/bin/fish');
+    });
+
+    it('default (exitAfterCommand false) still drops into the interactive shell', () => {
+      const args = buildCommandShellArgs('echo hi', '/bin/zsh', '/tmp/integration');
+      expect(args[1]).toContain('exec /bin/zsh');
+    });
+  });
 });

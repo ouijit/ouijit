@@ -41,6 +41,10 @@ export interface TerminalOptions {
    * underlying process exits successfully (exit code 0). On non-zero exit it
    * stays open with an error status. Used by the done-hook terminal so the
    * cleanup script doesn't leave a stale terminal behind on success.
+   *
+   * Note: this only fires if the PTY itself exits. Spawns that drop into an
+   * interactive shell after the command (the default) never trigger it; pair
+   * with PtySpawnOptions.exitAfterCommand for a one-shot terminal.
    */
   autoCloseOnSuccess?: boolean;
 }

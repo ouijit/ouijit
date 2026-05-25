@@ -55,9 +55,14 @@ describe('completeTask', () => {
     await completeTask({ projectPath: PROJECT, task: makeTask() });
 
     expect(vi.mocked(addProjectTerminal).mock.calls[0][1]).toMatchObject({ name: 'Done', command: 'echo hey' });
-    // The hook terminal is opted into the self-tidy behavior so its success
-    // exit closes it after the grace period (see terminalReact wireExitHandler).
-    expect(vi.mocked(addProjectTerminal).mock.calls[0][2]).toMatchObject({ autoCloseOnSuccess: true });
+    // The hook terminal is one-shot (exits when the command exits) and opts
+    // into self-tidy on success. Both flags are required: without
+    // exitAfterCommand the PTY would drop into an interactive shell and
+    // autoCloseOnSuccess would never fire (see terminalReact wireExitHandler).
+    expect(vi.mocked(addProjectTerminal).mock.calls[0][2]).toMatchObject({
+      autoCloseOnSuccess: true,
+      exitAfterCommand: true,
+    });
     // Only the pre-existing terminal is closed; the freshly spawned hook terminal survives.
     expect(vi.mocked(closeProjectTerminal).mock.calls.map((c) => c[0])).toEqual(['pty-old']);
   });
