@@ -26,6 +26,7 @@ import type {
   TaskWorktreeResult,
   CheckWorktreeResult,
   TaskWithWorkspace,
+  CliHookMode,
   TaskStatus,
   ScriptHook,
   HookType,
@@ -126,6 +127,10 @@ export interface IpcInvokeContract {
   'task:set-parent': {
     args: [projectPath: string, taskNumber: number, parentTaskNumber: number | null, mergeTarget?: string];
     return: { success: boolean; error?: string };
+  };
+  'task:save-attachment': {
+    args: [data: Uint8Array, ext: string];
+    return: { success: boolean; path?: string; error?: string };
   };
 
   // ── Worktree ─────────────────────────────────────────────────────────
@@ -239,6 +244,10 @@ export interface IpcPushContract {
         branch: string;
         createdAt: string;
         sandboxed: boolean;
+        /** Hook-control mode from the CLI flags; absent = default dialog. */
+        hookMode?: CliHookMode;
+        /** Custom command when hookMode is 'command'. */
+        hookCommand?: string;
       },
     ];
   };

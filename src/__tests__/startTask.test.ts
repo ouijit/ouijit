@@ -174,4 +174,63 @@ describe('startTask', () => {
 
     lstatSpy.mockRestore();
   });
+
+  test('concurrent startTask calls do not race to claim the same T-N directory', async () => {
+    const { execFile } = await import('node:child_process');
+    const fs = await import('node:fs/promises');
+
+    // Stateful mock world: tracks which T-N paths exist. Two tasks start at
+    // the same time with T-3 and T-4 already on disk, so both probes climb
+    // past them. Without the mutex they would both target T-5 and one git
+    // worktree add would fail with "already exists".
+    const claimed = new Set(['T-3', 'T-4']);
+    const baseOf = (p: string) => p.split('/').pop() ?? '';
+
+    vi.mocked(fs.access).mockImplementation(async (p) => {
+      if (claimed.has(baseOf(p as string))) return undefined;
+      throw new Error('ENOENT');
+    });
+
+    vi.mocked(execFile).mockImplementation(
+      (
+        _file: string,
+        args: readonly string[] | undefined | null,
+        _opts: unknown,
+        cb?: (err: Error | null, stdout: string, stderr: string) => void,
+      ) => {
+        const callback = cb!;
+        if (Array.isArray(args) && args.includes('--verify')) {
+          callback(new Error('not found'), '', '');
+          return undefined as never;
+        }
+        if (Array.isArray(args) && args[0] === 'worktree' && args[1] === 'add') {
+          const targetPath = args.find((a) => a.includes('/T-')) ?? '';
+          const base = baseOf(targetPath);
+          if (claimed.has(base)) {
+            callback(new Error(`fatal: '${targetPath}' already exists`), '', '');
+          } else {
+            claimed.add(base);
+            callback(null, '', '');
+          }
+          return undefined as never;
+        }
+        callback(null, '', '');
+        return undefined as never;
+      },
+    );
+
+    const project = '/test/start-concurrency';
+    await createTask(project, 3, 'Task three', { status: 'todo' });
+    await createTask(project, 5, 'Task five', { status: 'todo' });
+
+    const [r3, r5] = await Promise.all([startTask(project, 3), startTask(project, 5)]);
+
+    expect(r3.success).toBe(true);
+    expect(r5.success).toBe(true);
+    expect(r3.worktreePath).not.toBe(r5.worktreePath);
+    // Task 3 enters first, probes past T-3/T-4, claims T-5. Task 5 then
+    // enters, probes T-5 (now claimed) and lands at T-6.
+    expect(baseOf(r3.worktreePath!)).toBe('T-5');
+    expect(baseOf(r5.worktreePath!)).toBe('T-6');
+  });
 });

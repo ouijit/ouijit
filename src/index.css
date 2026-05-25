@@ -686,17 +686,6 @@ textarea,
   }
 }
 
-/* Reduced Motion */
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-  }
-}
-
 /* ── React Flow canvas overrides ──────────────────────────────────── */
 
 .terminal-canvas {
@@ -738,4 +727,82 @@ textarea,
   border-radius: 10px;
   overflow: hidden;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* ── Kanban add-task form buttons ─────────────────────────────────── */
+
+.kanban-add-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 5px;
+  border: none;
+  background: transparent;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1;
+  transition:
+    color 100ms ease-out,
+    background-color 100ms ease-out;
+}
+
+.kanban-add-button:disabled {
+  opacity: 0.5;
+}
+
+.kanban-add-button:disabled:hover {
+  background: transparent;
+}
+
+.kanban-add-button-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  opacity: 0.65;
+}
+
+.kanban-add-button-hint-icon {
+  width: 14px;
+  height: 14px;
+}
+
+.kanban-add-button-hint-text {
+  font-family: 'Iosevka Term Extended', ui-monospace, monospace;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1;
+}
+
+/* ── Task description attachment chip ─────────────────────────────── */
+
+.kanban-description-editor {
+  counter-reset: img-counter;
+}
+
+.kanban-description-editor[data-empty='true']::before {
+  content: attr(data-placeholder);
+  color: var(--color-text-tertiary);
+  font-style: italic;
+  pointer-events: none;
+}
+
+.description-attachment-chip {
+  display: inline-block;
+  padding: 0 5px;
+  margin: 0 1px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  color: var(--color-text-secondary);
+  font-family: 'Iosevka Term Extended', ui-monospace, monospace;
+  font-size: 11px;
+  line-height: 1.5;
+  vertical-align: baseline;
+  white-space: nowrap;
+  counter-increment: img-counter;
+}
+
+.description-attachment-chip::before {
+  content: '[Img #' counter(img-counter) ']';
 }

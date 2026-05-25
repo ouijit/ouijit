@@ -379,8 +379,11 @@ ouijit task get <number>                      # → single task object
 ouijit task current                           # → task owning this terminal (resolves via OUIJIT_PTY_ID)
 ouijit task create "<name>"                   # → {success, task: {taskNumber, ...}}
 ouijit task create "<name>" --prompt "<text>" # set description at creation
-ouijit task start <number>                    # creates git worktree, sets in_progress
-ouijit task create-and-start "<name>"         # create + start in one step
+ouijit task start <number>                    # creates git worktree, sets in_progress; default opens the start-hook dialog in the GUI
+ouijit task start <number> --run-hook         # run the configured start hook immediately, no dialog
+ouijit task start <number> --skip-hook        # spawn the terminal but run no hook
+ouijit task start <number> --hook-command "<cmd>"  # spawn the terminal running a one-off command instead of the configured hook
+ouijit task create-and-start "<name>"         # create + start in one step (accepts the same --run-hook / --skip-hook / --hook-command flags)
 ouijit task set-status <number> <status>      # status: todo | in_progress | in_review | done
 ouijit task set-name <number> <new name>
 ouijit task set-description <number> <text>
@@ -395,7 +398,7 @@ ouijit tag remove <task-number> <tag-name>
 ouijit tag set <task-number> <tag1> <tag2>... # replace all tags
 
 ## Hook Commands (project lifecycle scripts)
-Hook types: start, continue, run, review, cleanup, editor
+Hook types: start, continue, run, review, done, editor
 
 ouijit hook list                              # → {start?: {name, command}, ...}
 ouijit hook get <type>
@@ -432,6 +435,12 @@ ouijit task set-status $(ouijit task current | jq .taskNumber) in_review
 # Create a task and immediately start working:
 ouijit task create-and-start "Fix auth timeout" --prompt "Session expires too early"
 
+# Headless start — no GUI dialog needed. Use these when a human isn't at the keyboard
+# to dismiss the start-hook dialog. The flags are mutually exclusive.
+ouijit task start 5 --skip-hook
+ouijit task start 5 --run-hook
+ouijit task start 5 --hook-command "claude"
+
 # Tag and describe a task:
 ouijit task set-description 3 "Refactor the auth middleware to use JWT refresh tokens"
 ouijit tag add 3 refactor
@@ -441,38 +450,90 @@ ouijit tag add 3 auth
 ouijit hook set run --name "Dev server" --command "npm run dev"
 `;
 
+/**
+ * Bash snippet that resolves the real `${binaryName}` binary on PATH while
+ * defending against exec'ing back into this wrapper. Shared by the claude,
+ * codex, and pi wrappers (all of which install into `~/.config/Ouijit/bin`
+ * and shadow a tool of the same name on PATH).
+ *
+ * Defines (on success): `WRAPPER_DIR`, `WRAPPER_SELF`, `CLEAN_PATH`, `REAL_BIN`,
+ * and re-exports `PATH` with the wrapper dir kept in front so the ouijit CLI
+ * stays reachable inside the agent's subshells.
+ *
+ * The string `:$WRAPPER_DIR:` substitution alone isn't enough — if PATH spells
+ * the wrapper dir twice with even a slight difference (trailing slash, symlink
+ * target, normalised vs raw) the strip silently misses one copy and we exec
+ * ourselves. Each recursion appends a few KB of injected `-c` / `--settings`
+ * overrides to argv until execve hits ARG_MAX and fails with E2BIG (T-407).
+ * Comparing candidates by inode (`-ef`) collapses every spelling onto the same
+ * identity check.
+ */
+function buildWrapperResolver(binaryName: string): string {
+  return [
+    'WRAPPER_DIR="$(cd "$(dirname "$0")" && pwd)"',
+    'WRAPPER_SELF="$WRAPPER_DIR/$(basename "$0")"',
+    'CLEAN_PATH=":$PATH:"',
+    'CLEAN_PATH="${CLEAN_PATH//:$WRAPPER_DIR:/:}"',
+    'CLEAN_PATH="${CLEAN_PATH#:}"',
+    'CLEAN_PATH="${CLEAN_PATH%:}"',
+    '',
+    `REAL_BIN="$(PATH="$CLEAN_PATH" command -v ${binaryName} 2>/dev/null)"`,
+    'if [ -n "$REAL_BIN" ] && [ "$REAL_BIN" -ef "$WRAPPER_SELF" ]; then',
+    '  REAL_BIN=""',
+    'fi',
+    'if [ -z "$REAL_BIN" ]; then',
+    '  _IFS="$IFS"; IFS=":"',
+    '  for _dir in $CLEAN_PATH; do',
+    '    [ -z "$_dir" ] && continue',
+    `    if [ -x "$_dir/${binaryName}" ] && [ ! "$_dir/${binaryName}" -ef "$WRAPPER_SELF" ]; then`,
+    `      REAL_BIN="$_dir/${binaryName}"`,
+    '      break',
+    '    fi',
+    '  done',
+    '  IFS="$_IFS"; unset _IFS _dir',
+    'fi',
+    'if [ -z "$REAL_BIN" ]; then',
+    `  echo "ouijit: ${binaryName} not found on PATH (or only the Ouijit wrapper was found)" >&2`,
+    '  exit 1',
+    'fi',
+    '',
+    '# Re-export PATH so the ouijit CLI is reachable from inside the agent.',
+    'export PATH="$WRAPPER_DIR:$CLEAN_PATH"',
+  ].join('\n');
+}
+
 /** Bash wrapper that shadows `claude` and injects hook settings via --settings. */
 export const CLAUDE_WRAPPER = [
   '#!/bin/bash',
   '# Ouijit claude wrapper — injects hook settings at invocation time.',
-  '# Removes its own directory from PATH to find the real claude binary,',
-  '# then re-exports it so ouijit CLI is available inside Claude Code.',
-  'WRAPPER_DIR="$(cd "$(dirname "$0")" && pwd)"',
-  'CLEAN_PATH=":$PATH:"',
-  'CLEAN_PATH="${CLEAN_PATH//:$WRAPPER_DIR:/:}"',
-  'CLEAN_PATH="${CLEAN_PATH#:}"',
-  'CLEAN_PATH="${CLEAN_PATH%:}"',
+  buildWrapperResolver('claude'),
   '',
-  '# Resolve the real claude binary from the clean PATH',
-  'REAL_CLAUDE="$(PATH="$CLEAN_PATH" command -v claude)"',
-  'if [ -z "$REAL_CLAUDE" ]; then',
-  '  echo "ouijit: claude not found on PATH" >&2',
-  '  exit 1',
-  'fi',
-  '',
-  '# Re-export PATH with wrapper dir so ouijit CLI works inside Claude Code',
-  'export PATH="$WRAPPER_DIR:$CLEAN_PATH"',
+  '# Claude subcommands (mcp, update, doctor, config, install, plugin, ...)',
+  '# do not accept top-level flags like --settings / --append-system-prompt-file.',
+  '# Injecting them either errors out or reroutes the subcommand name into an',
+  '# interactive prompt (same shape as the Pi bug in issue #177). Detect the',
+  '# first non-flag arg and, if it names a known subcommand, exec the real',
+  '# claude without injection.',
+  'for arg in "$@"; do',
+  '  case "$arg" in',
+  '    -*) continue ;;',
+  '    mcp|update|doctor|config|install|plugin|project|agents|setup-token|migrate-installer|ultrareview|auth)',
+  '      exec "$REAL_BIN" "$@"',
+  '      ;;',
+  '    *) break ;;',
+  '  esac',
+  'done',
   '',
   '# CLI reference file for Claude Code agents',
   'REFERENCE_FILE="$HOME/.config/Ouijit/ouijit-cli-reference.md"',
   '',
   '# If ouijit is not running, just exec the real claude with CLI awareness',
   'if [ -z "$OUIJIT_API_URL" ]; then',
-  '  exec "$REAL_CLAUDE" --append-system-prompt-file "$REFERENCE_FILE" "$@"',
+  '  exec "$REAL_BIN" --append-system-prompt-file "$REFERENCE_FILE" "$@"',
   'fi',
   '',
   '# Inject ouijit hooks via --settings (merges with user settings at runtime)',
-  `exec "$REAL_CLAUDE" --settings '${JSON.stringify(buildHookSettings('$HOME/.config/Ouijit/bin/ouijit-hook', '$HOME/.config/Ouijit/bin/ouijit-plan-hook'))}' --append-system-prompt-file "$REFERENCE_FILE" "$@"`,
+  `exec "$REAL_BIN" --settings '${JSON.stringify(buildHookSettings('$HOME/.config/Ouijit/bin/ouijit-hook', '$HOME/.config/Ouijit/bin/ouijit-plan-hook'))}' --append-system-prompt-file "$REFERENCE_FILE" "$@"`,
   '',
 ].join('\n');
 
@@ -582,36 +643,19 @@ function codexHookTrustHash(eventSnake: string, command: string): string {
 /** Bash wrapper that shadows `codex` and injects the CLI reference + status hooks via `-c` overrides. */
 export const CODEX_WRAPPER = [
   '#!/bin/bash',
-  '# Ouijit codex wrapper — mirrors the claude wrapper. Removes its own',
-  '# directory from PATH to find the real codex binary, then re-exports it',
-  '# so the ouijit CLI is available inside Codex. Injects the Ouijit CLI',
-  '# reference and status hooks via `-c` config overrides (Codex has no',
-  '# --settings flag).',
-  'WRAPPER_DIR="$(cd "$(dirname "$0")" && pwd)"',
-  'CLEAN_PATH=":$PATH:"',
-  'CLEAN_PATH="${CLEAN_PATH//:$WRAPPER_DIR:/:}"',
-  'CLEAN_PATH="${CLEAN_PATH#:}"',
-  'CLEAN_PATH="${CLEAN_PATH%:}"',
-  '',
-  '# Resolve the real codex binary from the clean PATH',
-  'REAL_CODEX="$(PATH="$CLEAN_PATH" command -v codex)"',
-  'if [ -z "$REAL_CODEX" ]; then',
-  '  echo "ouijit: codex not found on PATH" >&2',
-  '  exit 1',
-  'fi',
-  '',
-  '# Re-export PATH with wrapper dir so ouijit CLI works inside Codex',
-  'export PATH="$WRAPPER_DIR:$CLEAN_PATH"',
+  '# Ouijit codex wrapper — injects the Ouijit CLI reference and status',
+  '# hooks via `-c` config overrides (Codex has no --settings flag).',
+  buildWrapperResolver('codex'),
   '',
   '# Ouijit CLI reference file — surfaced via developer_instructions',
   'REFERENCE_FILE="$HOME/.config/Ouijit/ouijit-cli-reference.md"',
   '',
   '# If ouijit is not running, just exec the real codex with CLI awareness',
   'if [ -z "$OUIJIT_API_URL" ]; then',
-  '  exec "$REAL_CODEX" -c "developer_instructions=$(cat "$REFERENCE_FILE" 2>/dev/null)" "$@"',
+  '  exec "$REAL_BIN" -c "developer_instructions=$(cat "$REFERENCE_FILE" 2>/dev/null)" "$@"',
   'fi',
   '',
-  'exec "$REAL_CODEX" \\',
+  'exec "$REAL_BIN" \\',
   '  -c "developer_instructions=$(cat "$REFERENCE_FILE" 2>/dev/null)" \\',
   ...CODEX_STATUS_HOOKS.flatMap(([event, status, eventSnake]) => {
     const cmd = codexHookCommand(CODEX_OUIJIT_HOOK, status);
@@ -657,38 +701,42 @@ export default async (pi: OuijitPiApi) => {
     pi.exec(hookBin, ['status', \`status=\${status}\`], { timeout: 2000 }).catch(() => {});
   };
 
-  pi.on('turn_start', () => ping('thinking'));
-  pi.on('turn_end', () => ping('ready'));
+  pi.on('agent_start', () => ping('thinking'));
+  pi.on('agent_end', () => ping('ready'));
 };
 `;
 
 export const PI_WRAPPER = [
   '#!/bin/bash',
-  '# Ouijit pi wrapper — mirrors the claude/codex wrappers.',
-  'WRAPPER_DIR="$(cd "$(dirname "$0")" && pwd)"',
-  'CLEAN_PATH=":$PATH:"',
-  'CLEAN_PATH="${CLEAN_PATH//:$WRAPPER_DIR:/:}"',
-  'CLEAN_PATH="${CLEAN_PATH#:}"',
-  'CLEAN_PATH="${CLEAN_PATH%:}"',
+  '# Ouijit pi wrapper — loads the ouijit-extension Pi extension so',
+  '# turn-complete events surface as terminal status updates.',
+  buildWrapperResolver('pi'),
   '',
-  'REAL_PI="$(PATH="$CLEAN_PATH" command -v pi)"',
-  'if [ -z "$REAL_PI" ]; then',
-  '  echo "ouijit: pi not found on PATH" >&2',
-  '  exit 1',
-  'fi',
-  '',
-  'export PATH="$WRAPPER_DIR:$CLEAN_PATH"',
+  '# Pi subcommands run in their own non-interactive mode. Injecting',
+  '# --append-system-prompt / --extension forces Pi back into an interactive',
+  '# session, swallowing the subcommand (see issue #177). Detect the first',
+  '# non-flag arg and, if it names a known subcommand, exec the real pi',
+  '# without injection.',
+  'for arg in "$@"; do',
+  '  case "$arg" in',
+  '    -*) continue ;;',
+  '    install|remove|uninstall|update|list|config)',
+  '      exec "$REAL_BIN" "$@"',
+  '      ;;',
+  '    *) break ;;',
+  '  esac',
+  'done',
   '',
   'REFERENCE_FILE="$HOME/.config/Ouijit/ouijit-cli-reference.md"',
   'EXTENSION_FILE="$HOME/.config/Ouijit/pi/ouijit-extension.ts"',
   'HOOK_BIN="$HOME/.config/Ouijit/bin/ouijit-hook"',
   '',
   'if [ -z "$OUIJIT_API_URL" ]; then',
-  '  exec "$REAL_PI" --append-system-prompt "$(cat "$REFERENCE_FILE" 2>/dev/null)" "$@"',
+  '  exec "$REAL_BIN" --append-system-prompt "$(cat "$REFERENCE_FILE" 2>/dev/null)" "$@"',
   'fi',
   '',
   '# OUIJIT_HOOK_BIN is read by the extension to shell out to ouijit-hook.',
-  'OUIJIT_HOOK_BIN="$HOOK_BIN" exec "$REAL_PI" \\',
+  'OUIJIT_HOOK_BIN="$HOOK_BIN" exec "$REAL_BIN" \\',
   '  --append-system-prompt "$(cat "$REFERENCE_FILE" 2>/dev/null)" \\',
   '  --extension "$EXTENSION_FILE" \\',
   '  "$@"',

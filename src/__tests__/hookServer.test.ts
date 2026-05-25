@@ -4,6 +4,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as os from 'node:os';
 import { execFileSync } from 'node:child_process';
+import * as ts from 'typescript';
 import type { BrowserWindow } from 'electron';
 
 const hasZsh = (() => {
@@ -336,7 +337,7 @@ describe('installWrapper', () => {
     const wrapper = fs.readFileSync(wrapperPath, 'utf-8');
     expect(wrapper).toContain('#!/bin/bash');
     expect(wrapper).toContain('WRAPPER_DIR');
-    expect(wrapper).toContain('exec "$REAL_CLAUDE" --settings');
+    expect(wrapper).toContain('exec "$REAL_BIN" --settings');
     expect(wrapper).toContain('ouijit-hook');
   });
 
@@ -347,7 +348,7 @@ describe('installWrapper', () => {
     const wrapper = fs.readFileSync(wrapperPath, 'utf-8');
     // Contains the fallthrough: exec real claude without --settings but with reference file
     expect(wrapper).toContain('if [ -z "$OUIJIT_API_URL" ]; then');
-    expect(wrapper).toContain('exec "$REAL_CLAUDE" --append-system-prompt-file "$REFERENCE_FILE" "$@"');
+    expect(wrapper).toContain('exec "$REAL_BIN" --append-system-prompt-file "$REFERENCE_FILE" "$@"');
   });
 
   test('wrapper injects all 4 hook events via --settings', () => {
@@ -377,7 +378,7 @@ describe('installWrapper', () => {
     const wrapperPath = path.join(tmpHome, '.config', 'Ouijit', 'bin', 'codex');
     const wrapper = fs.readFileSync(wrapperPath, 'utf-8');
     expect(wrapper).toContain('#!/bin/bash');
-    expect(wrapper).toContain('REAL_CODEX=');
+    expect(wrapper).toContain('REAL_BIN=');
     expect(wrapper).toContain('export PATH="$WRAPPER_DIR:$CLEAN_PATH"');
     // Injects the CLI reference + lifecycle hooks + per-hook pre-trust + notify via -c overrides
     expect(wrapper).toContain('-c "developer_instructions=$(cat "$REFERENCE_FILE" 2>/dev/null)"');
@@ -390,9 +391,7 @@ describe('installWrapper', () => {
     expect(wrapper).toContain("-c 'notify=");
     // No-API fallthrough still passes developer_instructions
     expect(wrapper).toContain('if [ -z "$OUIJIT_API_URL" ]; then');
-    expect(wrapper).toContain(
-      'exec "$REAL_CODEX" -c "developer_instructions=$(cat "$REFERENCE_FILE" 2>/dev/null)" "$@"',
-    );
+    expect(wrapper).toContain('exec "$REAL_BIN" -c "developer_instructions=$(cat "$REFERENCE_FILE" 2>/dev/null)" "$@"');
   });
 
   test('creates pi wrapper and extension on first install', () => {
@@ -401,20 +400,20 @@ describe('installWrapper', () => {
     const wrapperPath = path.join(tmpHome, '.config', 'Ouijit', 'bin', 'pi');
     const wrapper = fs.readFileSync(wrapperPath, 'utf-8');
     expect(wrapper).toContain('#!/bin/bash');
-    expect(wrapper).toContain('REAL_PI=');
+    expect(wrapper).toContain('REAL_BIN=');
     expect(wrapper).toContain('export PATH="$WRAPPER_DIR:$CLEAN_PATH"');
     expect(wrapper).toContain('--append-system-prompt "$(cat "$REFERENCE_FILE" 2>/dev/null)"');
     expect(wrapper).toContain('--extension "$EXTENSION_FILE"');
-    expect(wrapper).toContain('OUIJIT_HOOK_BIN="$HOOK_BIN" exec "$REAL_PI"');
+    expect(wrapper).toContain('OUIJIT_HOOK_BIN="$HOOK_BIN" exec "$REAL_BIN"');
     expect(wrapper).toContain('if [ -z "$OUIJIT_API_URL" ]; then');
-    expect(wrapper).toContain('exec "$REAL_PI" --append-system-prompt "$(cat "$REFERENCE_FILE" 2>/dev/null)" "$@"');
+    expect(wrapper).toContain('exec "$REAL_BIN" --append-system-prompt "$(cat "$REFERENCE_FILE" 2>/dev/null)" "$@"');
 
     const extPath = path.join(tmpHome, '.config', 'Ouijit', 'pi', 'ouijit-extension.ts');
     expect(fs.existsSync(extPath)).toBe(true);
     const ext = fs.readFileSync(extPath, 'utf-8');
     expect(ext).toContain('export default');
-    expect(ext).toContain("pi.on('turn_start'");
-    expect(ext).toContain("pi.on('turn_end'");
+    expect(ext).toContain("pi.on('agent_start'");
+    expect(ext).toContain("pi.on('agent_end'");
     expect(ext).toContain('OUIJIT_HOOK_BIN');
   });
 
@@ -465,12 +464,78 @@ describe('installWrapper', () => {
   });
 });
 
+// ── Shared wrapper resolver (claude / codex / pi) ────────────────────
+
+describe('wrapper resolver (shared)', () => {
+  // Each entry: [wrapper label, wrapper source, binary name, sentinel the
+  // wrapper injects when OUIJIT_API_URL is unset]. The injection sentinel
+  // lets us confirm the wrapper still wrapped — that we didn't accidentally
+  // skip everything to dodge recursion.
+  const wrappers: Array<[string, string, string, RegExp]> = [
+    ['claude', CLAUDE_WRAPPER, 'claude', /--append-system-prompt-file/],
+    ['codex', CODEX_WRAPPER, 'codex', /developer_instructions=/],
+    ['pi', PI_WRAPPER, 'pi', /--append-system-prompt/],
+  ];
+
+  for (const [label, wrapper, bin, injectedSentinel] of wrappers) {
+    test(`${label} wrapper: does not recurse into itself when PATH lists the wrapper dir twice (regression for T-407)`, () => {
+      // Reproduces the reported failure mode: the wrapper dir appears twice
+      // in PATH (once verbatim, once via a symlink) so the string-only strip
+      // leaves a wrapper-pointing entry behind. Pre-fix the wrapper exec's
+      // itself, argv balloons across each hop, and execve fails with E2BIG.
+      // Post-fix the `-ef` guard rejects the wrapper match and we resolve
+      // the real binary.
+      const tmp = fs.mkdtempSync(path.join(os.tmpdir(), `wrapper-resolver-${label}-`));
+      try {
+        const wrapperDir = path.join(tmp, 'wrapper-bin');
+        const realDir = path.join(tmp, 'real-bin');
+        fs.mkdirSync(wrapperDir);
+        fs.mkdirSync(realDir);
+
+        fs.writeFileSync(path.join(wrapperDir, bin), wrapper, { mode: 0o755 });
+
+        // Real-binary stand-in: prints a sentinel then echoes its argv so we
+        // can also assert the wrapper passed through the expected injection.
+        fs.writeFileSync(path.join(realDir, bin), '#!/bin/bash\necho REAL_BIN_OK\nprintf "%s\\n" "$@"\n', {
+          mode: 0o755,
+        });
+
+        // Symlink with a different spelling that the strip pattern misses.
+        const wrapperDirSymlink = path.join(tmp, 'wrapper-bin-link');
+        fs.symlinkSync(wrapperDir, wrapperDirSymlink);
+
+        // PATH: wrapper verbatim, real dir, wrapper via symlink, plus the
+        // system dirs so dirname/basename are reachable.
+        const fakePath = [wrapperDir, realDir, wrapperDirSymlink, '/usr/bin', '/bin'].join(':');
+
+        const result = execFileSync('bash', [path.join(wrapperDir, bin), 'hello'], {
+          env: {
+            PATH: fakePath,
+            HOME: tmp,
+            // Force the no-OUIJIT_API_URL branch — keeps the injected argv
+            // small and predictable across the three wrappers.
+            OUIJIT_API_URL: '',
+          },
+          encoding: 'utf8',
+          timeout: 10_000,
+        });
+
+        expect(result).toContain('REAL_BIN_OK');
+        expect(result).toMatch(injectedSentinel);
+        expect(result).toContain('hello');
+      } finally {
+        fs.rmSync(tmp, { recursive: true, force: true });
+      }
+    });
+  }
+});
+
 // ── CLAUDE_WRAPPER constant ──────────────────────────────────────────
 
 describe('CLAUDE_WRAPPER', () => {
   test('resolves real claude and re-exports wrapper dir on PATH', () => {
     expect(CLAUDE_WRAPPER).toContain('WRAPPER_DIR=');
-    expect(CLAUDE_WRAPPER).toContain('REAL_CLAUDE=');
+    expect(CLAUDE_WRAPPER).toContain('REAL_BIN=');
     expect(CLAUDE_WRAPPER).toContain('export PATH="$WRAPPER_DIR:$CLEAN_PATH"');
   });
 
@@ -522,6 +587,60 @@ describe('CLAUDE_WRAPPER', () => {
 
     expect(result.stdout.trim()).toBe('/usr/bin:/usr/local/bin');
   });
+
+  describe('subcommand passthrough (issue #177)', () => {
+    const runWrapper = (args: string[], extraEnv: Record<string, string> = {}) => {
+      const root = fs.mkdtempSync(path.join(os.tmpdir(), 'claude-wrapper-test-'));
+      const wrapperDir = path.join(root, 'wrapper');
+      const stubDir = path.join(root, 'stub');
+      fs.mkdirSync(wrapperDir);
+      fs.mkdirSync(stubDir);
+      const argvLog = path.join(root, 'argv.log');
+      fs.writeFileSync(path.join(wrapperDir, 'claude'), CLAUDE_WRAPPER, { mode: 0o755 });
+      fs.writeFileSync(
+        path.join(stubDir, 'claude'),
+        `#!/bin/bash\nfor a in "$@"; do printf '%s\\n' "$a" >> "${argvLog}"; done\n`,
+        { mode: 0o755 },
+      );
+      try {
+        execFileSync(path.join(wrapperDir, 'claude'), args, {
+          env: {
+            PATH: `${wrapperDir}:${stubDir}:/usr/bin:/bin`,
+            HOME: root,
+            ...extraEnv,
+          },
+          encoding: 'utf8',
+        });
+        const argv = fs.existsSync(argvLog) ? fs.readFileSync(argvLog, 'utf8').replace(/\n$/, '').split('\n') : [];
+        return { argv };
+      } finally {
+        fs.rmSync(root, { recursive: true, force: true });
+      }
+    };
+
+    test('`claude update` passes through with no --settings / --append-system-prompt-file', () => {
+      const { argv } = runWrapper(['update'], { OUIJIT_API_URL: 'http://stub' });
+      expect(argv).toEqual(['update']);
+    });
+
+    test('`claude mcp serve` passes through unchanged', () => {
+      const { argv } = runWrapper(['mcp', 'serve'], { OUIJIT_API_URL: 'http://stub' });
+      expect(argv).toEqual(['mcp', 'serve']);
+    });
+
+    test('bare `claude` still gets --settings and --append-system-prompt-file', () => {
+      const { argv } = runWrapper([], { OUIJIT_API_URL: 'http://stub' });
+      expect(argv).toContain('--settings');
+      expect(argv).toContain('--append-system-prompt-file');
+    });
+
+    test('`claude <message>` (non-subcommand first arg) still gets injection', () => {
+      const { argv } = runWrapper(['hello world'], { OUIJIT_API_URL: 'http://stub' });
+      expect(argv).toContain('--settings');
+      expect(argv).toContain('--append-system-prompt-file');
+      expect(argv).toContain('hello world');
+    });
+  });
 });
 
 // ── CODEX_WRAPPER constant ───────────────────────────────────────────
@@ -529,7 +648,7 @@ describe('CLAUDE_WRAPPER', () => {
 describe('CODEX_WRAPPER', () => {
   test('resolves real codex and re-exports wrapper dir on PATH', () => {
     expect(CODEX_WRAPPER).toContain('WRAPPER_DIR=');
-    expect(CODEX_WRAPPER).toContain('REAL_CODEX=');
+    expect(CODEX_WRAPPER).toContain('REAL_BIN=');
     expect(CODEX_WRAPPER).toContain('export PATH="$WRAPPER_DIR:$CLEAN_PATH"');
   });
 
@@ -571,7 +690,7 @@ describe('CODEX_WRAPPER', () => {
   test('falls through with just developer_instructions when OUIJIT_API_URL is unset', () => {
     expect(CODEX_WRAPPER).toContain('if [ -z "$OUIJIT_API_URL" ]; then');
     expect(CODEX_WRAPPER).toContain(
-      'exec "$REAL_CODEX" -c "developer_instructions=$(cat "$REFERENCE_FILE" 2>/dev/null)" "$@"',
+      'exec "$REAL_BIN" -c "developer_instructions=$(cat "$REFERENCE_FILE" 2>/dev/null)" "$@"',
     );
   });
 
@@ -1058,7 +1177,7 @@ describe('buildVmCodexTrustState', () => {
 describe('PI_WRAPPER', () => {
   test('resolves real pi and re-exports wrapper dir on PATH', () => {
     expect(PI_WRAPPER).toContain('WRAPPER_DIR=');
-    expect(PI_WRAPPER).toContain('REAL_PI=');
+    expect(PI_WRAPPER).toContain('REAL_BIN=');
     expect(PI_WRAPPER).toContain('export PATH="$WRAPPER_DIR:$CLEAN_PATH"');
   });
 
@@ -1068,7 +1187,7 @@ describe('PI_WRAPPER', () => {
   });
 
   test('loads the extension via --extension and bridges OUIJIT_HOOK_BIN', () => {
-    expect(PI_WRAPPER).toMatch(/OUIJIT_HOOK_BIN="\$HOOK_BIN" exec "\$REAL_PI" \\/);
+    expect(PI_WRAPPER).toMatch(/OUIJIT_HOOK_BIN="\$HOOK_BIN" exec "\$REAL_BIN" \\/);
     expect(PI_WRAPPER).toContain('--extension "$EXTENSION_FILE"');
     expect(PI_WRAPPER).toContain('HOOK_BIN="$HOME/.config/Ouijit/bin/ouijit-hook"');
     expect(PI_WRAPPER).toContain('EXTENSION_FILE="$HOME/.config/Ouijit/pi/ouijit-extension.ts"');
@@ -1076,14 +1195,91 @@ describe('PI_WRAPPER', () => {
 
   test('falls through with just --append-system-prompt when OUIJIT_API_URL is unset', () => {
     expect(PI_WRAPPER).toContain('if [ -z "$OUIJIT_API_URL" ]; then');
-    expect(PI_WRAPPER).toContain('exec "$REAL_PI" --append-system-prompt "$(cat "$REFERENCE_FILE" 2>/dev/null)" "$@"');
+    expect(PI_WRAPPER).toContain('exec "$REAL_BIN" --append-system-prompt "$(cat "$REFERENCE_FILE" 2>/dev/null)" "$@"');
     // Fallthrough must not carry the extension or hook env var.
     const fallthroughLine = PI_WRAPPER.split('\n').find(
-      (l) => l.includes('exec "$REAL_PI" --append-system-prompt') && !l.endsWith('\\'),
+      (l) => l.includes('exec "$REAL_BIN" --append-system-prompt') && !l.endsWith('\\'),
     );
     expect(fallthroughLine).toBeDefined();
     expect(fallthroughLine).not.toContain('--extension');
     expect(fallthroughLine).not.toContain('OUIJIT_HOOK_BIN');
+  });
+
+  describe('subcommand passthrough (issue #177)', () => {
+    // Render PI_WRAPPER to a temp wrapper dir, plant a stub `pi` in a
+    // separate dir so CLEAN_PATH (which strips the wrapper dir) can still
+    // resolve it. The stub appends its argv to a log file, one per line.
+    const runWrapper = (args: string[], extraEnv: Record<string, string> = {}) => {
+      const root = fs.mkdtempSync(path.join(os.tmpdir(), 'pi-wrapper-test-'));
+      const wrapperDir = path.join(root, 'wrapper');
+      const stubDir = path.join(root, 'stub');
+      fs.mkdirSync(wrapperDir);
+      fs.mkdirSync(stubDir);
+      const argvLog = path.join(root, 'argv.log');
+      fs.writeFileSync(path.join(wrapperDir, 'pi'), PI_WRAPPER, { mode: 0o755 });
+      fs.writeFileSync(
+        path.join(stubDir, 'pi'),
+        `#!/bin/bash\nfor a in "$@"; do printf '%s\\n' "$a" >> "${argvLog}"; done\n`,
+        { mode: 0o755 },
+      );
+      try {
+        const result = execFileSync(path.join(wrapperDir, 'pi'), args, {
+          env: {
+            PATH: `${wrapperDir}:${stubDir}:/usr/bin:/bin`,
+            HOME: root,
+            ...extraEnv,
+          },
+          encoding: 'utf8',
+        });
+        const argv = fs.existsSync(argvLog) ? fs.readFileSync(argvLog, 'utf8').replace(/\n$/, '').split('\n') : [];
+        return { argv, stdout: result };
+      } finally {
+        fs.rmSync(root, { recursive: true, force: true });
+      }
+    };
+
+    test('`pi update` passes through with no injection', () => {
+      const { argv } = runWrapper(['update'], { OUIJIT_API_URL: 'http://stub' });
+      expect(argv).toEqual(['update']);
+    });
+
+    test('`pi install foo` passes through with no injection', () => {
+      const { argv } = runWrapper(['install', 'foo'], { OUIJIT_API_URL: 'http://stub' });
+      expect(argv).toEqual(['install', 'foo']);
+    });
+
+    test('all known subcommands (install/remove/uninstall/update/list/config) pass through clean', () => {
+      for (const sub of ['install', 'remove', 'uninstall', 'update', 'list', 'config']) {
+        const { argv } = runWrapper([sub], { OUIJIT_API_URL: 'http://stub' });
+        expect(argv, `subcommand ${sub} should pass through unchanged`).toEqual([sub]);
+      }
+    });
+
+    test('leading flags do not get mistaken for a subcommand', () => {
+      // `pi --version` is not a known subcommand → falls through to injection.
+      const { argv } = runWrapper(['--version'], { OUIJIT_API_URL: 'http://stub' });
+      expect(argv).toContain('--append-system-prompt');
+      expect(argv).toContain('--extension');
+      expect(argv).toContain('--version');
+    });
+
+    test('bare `pi` (no args) still gets --append-system-prompt and --extension', () => {
+      const { argv } = runWrapper([], { OUIJIT_API_URL: 'http://stub' });
+      expect(argv).toContain('--append-system-prompt');
+      expect(argv).toContain('--extension');
+    });
+
+    test('`pi <message>` (non-subcommand first arg) still gets injection', () => {
+      const { argv } = runWrapper(['hello world'], { OUIJIT_API_URL: 'http://stub' });
+      expect(argv).toContain('--append-system-prompt');
+      expect(argv).toContain('--extension');
+      expect(argv).toContain('hello world');
+    });
+
+    test('subcommand passthrough applies even when OUIJIT_API_URL is unset', () => {
+      const { argv } = runWrapper(['update']);
+      expect(argv).toEqual(['update']);
+    });
   });
 });
 
@@ -1094,9 +1290,10 @@ describe('PI_EXTENSION', () => {
     expect(PI_EXTENSION).toMatch(/export default async \(pi: \w+\) =>/);
   });
 
-  test('subscribes turn_start → thinking and turn_end → ready exactly once each', () => {
-    expect(PI_EXTENSION.match(/pi\.on\('turn_start'/g)).toHaveLength(1);
-    expect(PI_EXTENSION.match(/pi\.on\('turn_end'/g)).toHaveLength(1);
+  test('subscribes agent_start → thinking and agent_end → ready exactly once each', () => {
+    expect(PI_EXTENSION.match(/pi\.on\('agent_start'/g)).toHaveLength(1);
+    expect(PI_EXTENSION.match(/pi\.on\('agent_end'/g)).toHaveLength(1);
+    expect(PI_EXTENSION).not.toContain("pi.on('turn_end'");
     expect(PI_EXTENSION).toContain("ping('thinking')");
     expect(PI_EXTENSION).toContain("ping('ready')");
   });
@@ -1110,7 +1307,51 @@ describe('PI_EXTENSION', () => {
     expect(PI_EXTENSION).toMatch(/pi\.exec\(hookBin, \['status', .* \{ timeout: 2000 \}\)/);
     expect(PI_EXTENSION).toContain('.catch(() => {})');
   });
+
+  test('pings ready once per prompt regardless of turn count when the factory runs', async () => {
+    // agent_* events fire once per prompt, so a multi-turn prompt should
+    // still produce exactly one 'ready' ping.
+    const handlers: Record<string, () => void> = {};
+    const pings: string[] = [];
+    const pi = {
+      on: (event: string, handler: () => void) => {
+        handlers[event] = handler;
+      },
+      exec: async (_cmd: string, args: string[]) => {
+        pings.push(args[1].replace('status=', ''));
+      },
+    };
+    const factory = compilePiExtension(PI_EXTENSION);
+    process.env.OUIJIT_HOOK_BIN = '/fake/ouijit-hook';
+    try {
+      await factory(pi);
+
+      // One prompt, three internal turns.
+      handlers.agent_start();
+      handlers.turn_start?.();
+      handlers.turn_end?.();
+      handlers.turn_start?.();
+      handlers.turn_end?.();
+      handlers.turn_start?.();
+      handlers.turn_end?.();
+      handlers.agent_end();
+
+      expect(pings).toEqual(['thinking', 'ready']);
+    } finally {
+      delete process.env.OUIJIT_HOOK_BIN;
+    }
+  });
 });
+
+/** Strips type annotations from the PI_EXTENSION TS string into a runnable factory. */
+function compilePiExtension(src: string): (pi: unknown) => Promise<void> {
+  const transpiled = ts.transpileModule(src, {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020 },
+  }).outputText;
+  const moduleExports: { exports: { default?: unknown } } = { exports: {} };
+  new Function('exports', 'module', 'process', transpiled)(moduleExports.exports, moduleExports, process);
+  return moduleExports.exports.default as (pi: unknown) => Promise<void>;
+}
 
 // ── buildVmPiExtension ───────────────────────────────────────────────
 

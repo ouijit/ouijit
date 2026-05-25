@@ -11,6 +11,7 @@ import type {
   ActiveSession,
   RunnerScript,
   SnapshotTerminalUi,
+  TaskWithWorkspace,
 } from '../../types';
 import { useTerminalStore, type TerminalDisplayState } from '../../stores/terminalStore';
 import { useCanvasStore, persistCanvas } from '../../stores/canvasStore';
@@ -18,6 +19,7 @@ import { useAppStore, staleGuard } from '../../stores/appStore';
 import { OuijitTerminal, terminalInstances, resolveTerminalLabel, type SummaryType } from './terminalReact';
 import { readSnapshot } from './sessionSnapshot';
 import { detectDevServerUrl } from '../webPreview/urlHelpers';
+import { descriptionToHookPrompt } from '../../utils/descriptionAttachments';
 import log from 'electron-log/renderer';
 
 const actionsLog = log.scope('terminalActions');
@@ -139,6 +141,46 @@ function registerTerminal(
   }
 }
 
+// ── Worktree hook environment ────────────────────────────────────────
+
+/**
+ * Build the env vars handed to a worktree-backed terminal's hook.
+ *
+ * The task prompt MUST come from `task` — a live DB fetch — and never from the
+ * worktree snapshot in `AddProjectTerminalOptions.existingWorktree`. That
+ * snapshot is captured when the worktree is created and never refreshed, so
+ * sourcing the prompt from it leaves OUIJIT_TASK_PROMPT stale (or absent
+ * entirely, since the var is only set when the prompt is truthy) after a task's
+ * description is edited.
+ *
+ * OUIJIT_TASK_DESCRIPTION is set as an alias of OUIJIT_TASK_PROMPT: the UI
+ * labels this field "description", so a hook reaching for the var name that
+ * matches the label gets the same value.
+ */
+export function buildWorktreeStartEnv(params: {
+  hookType: string;
+  projectPath: string;
+  worktreeInfo: WorktreeInfo;
+  label: string;
+  task: TaskWithWorkspace | null;
+}): Record<string, string> {
+  const { hookType, projectPath, worktreeInfo, label, task } = params;
+  const env: Record<string, string> = {
+    OUIJIT_HOOK_TYPE: hookType,
+    OUIJIT_PROJECT_PATH: projectPath,
+    OUIJIT_WORKTREE_PATH: worktreeInfo.path,
+    OUIJIT_TASK_BRANCH: worktreeInfo.branch,
+    OUIJIT_TASK_NAME: label,
+  };
+  const prompt = task?.prompt;
+  if (prompt) {
+    const promptForHook = descriptionToHookPrompt(prompt);
+    env.OUIJIT_TASK_PROMPT = promptForHook;
+    env.OUIJIT_TASK_DESCRIPTION = promptForHook;
+  }
+  return env;
+}
+
 // ── Spawn a new project terminal ─────────────────────────────────────
 
 export async function addProjectTerminal(
@@ -151,20 +193,21 @@ export async function addProjectTerminal(
 
   let terminalCwd = projectPath;
   const worktreeInfo: (WorktreeInfo & { prompt?: string }) | undefined = options?.existingWorktree;
-  const taskPrompt: string | undefined = options?.existingWorktree?.prompt;
 
   if (worktreeInfo) {
     terminalCwd = worktreeInfo.path;
   }
 
-  // Look up current task name and merge target
-  let taskName: string | undefined;
-  let mergeTarget: string | undefined;
+  // Look up the current task. Name, merge target AND prompt all come from this
+  // live fetch — the worktree snapshot's prompt is a stale copy from worktree
+  // creation time and would not reflect a description edited afterwards.
+  let task: TaskWithWorkspace | null = null;
   if (options?.taskId != null) {
-    const task = await window.api.task.getByNumber(projectPath, options.taskId);
-    taskName = task?.name;
-    mergeTarget = task?.mergeTarget;
+    task = await window.api.task.getByNumber(projectPath, options.taskId);
   }
+  const taskName = task?.name;
+  const mergeTarget = task?.mergeTarget;
+  const taskPrompt = task?.prompt;
 
   if (isStale()) return false;
 
@@ -176,18 +219,13 @@ export async function addProjectTerminal(
   let startEnv: Record<string, string> | undefined;
 
   if (worktreeInfo) {
-    const hookType = 'continue';
-
-    startEnv = {
-      OUIJIT_HOOK_TYPE: hookType,
-      OUIJIT_PROJECT_PATH: projectPath,
-      OUIJIT_WORKTREE_PATH: worktreeInfo.path,
-      OUIJIT_TASK_BRANCH: worktreeInfo.branch,
-      OUIJIT_TASK_NAME: label,
-    };
-    if (taskPrompt) {
-      startEnv.OUIJIT_TASK_PROMPT = taskPrompt;
-    }
+    startEnv = buildWorktreeStartEnv({
+      hookType: 'continue',
+      projectPath,
+      worktreeInfo,
+      label,
+      task,
+    });
 
     if (!runConfig && !options?.skipAutoHook) {
       const hooks = await window.api.hooks.get(projectPath);
@@ -495,7 +533,10 @@ async function _spawnRunnerInner(instance: OuijitTerminal, script?: RunnerScript
       ...(instance.worktreePath && { OUIJIT_WORKTREE_PATH: instance.worktreePath }),
       ...(instance.worktreeBranch && { OUIJIT_TASK_BRANCH: instance.worktreeBranch }),
       ...(instance.label && { OUIJIT_TASK_NAME: instance.label }),
-      ...(instance.taskPrompt && { OUIJIT_TASK_PROMPT: instance.taskPrompt }),
+      ...(instance.taskPrompt && {
+        OUIJIT_TASK_PROMPT: descriptionToHookPrompt(instance.taskPrompt),
+        OUIJIT_TASK_DESCRIPTION: descriptionToHookPrompt(instance.taskPrompt),
+      }),
     },
   };
 

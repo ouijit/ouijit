@@ -71,7 +71,7 @@ export function TerminalHeaderView({
             <StatusDot summaryType={summaryType} sandboxed={sandboxed} />
             {!isActive && stackPosition != null && stackPosition <= 9 && (
               <kbd className="inline-flex items-center font-mono text-base text-white/40 shrink-0">
-                {isMac ? '⌘' : 'Ctrl+'}
+                {isMac ? '⌘' : '⌃'}
                 <span className="text-xs">{stackPosition}</span>
               </kbd>
             )}

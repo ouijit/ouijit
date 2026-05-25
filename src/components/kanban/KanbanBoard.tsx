@@ -18,7 +18,7 @@ import { useProjectStore } from '../../stores/projectStore';
 import { useTerminalStore } from '../../stores/terminalStore';
 import type { TaskWithWorkspace, TaskStatus, HookType } from '../../types';
 import { addProjectTerminal } from '../terminal/terminalActions';
-import { beginTransition, surfaceStartWarnings } from '../../services/taskStartService';
+import { beginTransition, bulkTransitionTasks, surfaceStartWarnings } from '../../services/taskStartService';
 import { KanbanColumn } from './KanbanColumn';
 import { BulkActionBar } from './BulkActionBar';
 import { focusKanbanAddInput } from './KanbanAddInput';
@@ -171,7 +171,7 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
   }, [projectPath]);
 
   // Hotkeys
-  const runHookActive = useProjectStore((s) => s.runHookRequest != null);
+  const runHookActive = useProjectStore((s) => s.runHookQueue.length > 0);
   const hasOpenDialog = !!(runHookActive || hookDialog || missingWorktreeDialog);
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -181,10 +181,9 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
         if (selectedTaskNumbers.size > 0) {
           e.preventDefault();
           clearSelection();
-          return; // First Escape deselects; second closes board
         }
-        e.preventDefault();
-        onHide();
+        // Otherwise let Escape fall through — board/stack toggling is owned by
+        // Cmd/Ctrl+T, never Escape, so it doesn't fight with form-level resets.
         return;
       }
       const mod = isMac ? e.metaKey : e.ctrlKey;
@@ -195,7 +194,7 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
     };
     document.addEventListener('keydown', handler, true);
     return () => document.removeEventListener('keydown', handler, true);
-  }, [onHide, hasOpenDialog]);
+  }, [hasOpenDialog]);
 
   // Track Option/Alt key for showing standalone badges
   useEffect(() => {
@@ -447,12 +446,7 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
       // ── Multi-drag: move all selected tasks to the target column ───
       if (multiDragTasks && multiDragTasks.length > 1) {
         setActiveTask(null);
-        const newStatus = finalContainer as TaskStatus;
-        await Promise.allSettled(multiDragTasks.map((n) => window.api.task.setStatus(projectPath, n, newStatus)));
-        useProjectStore.getState().loadTasks(projectPath);
-        useProjectStore.getState().clearSelection();
-        const label = { todo: 'To Do', in_progress: 'In Progress', in_review: 'In Review', done: 'Done' }[newStatus];
-        useProjectStore.getState().addToast(`Moved ${multiDragTasks.length} tasks to ${label}`, 'success');
+        void bulkTransitionTasks(projectPath, multiDragTasks, finalContainer as TaskStatus);
         return;
       }
 
@@ -514,8 +508,8 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
 
   // Task CRUD
   const handleAddTask = useCallback(
-    async (name: string) => {
-      await window.api.task.create(projectPath, name);
+    async (name: string, description?: string) => {
+      await window.api.task.create(projectPath, name, description);
       useProjectStore.getState().loadTasks(projectPath);
     },
     [projectPath],
@@ -685,7 +679,7 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
             const hookActive =
               (col.status === 'in_progress' && !!(configuredHooks.start || configuredHooks.continue)) ||
               (col.status === 'in_review' && !!configuredHooks.review) ||
-              (col.status === 'done' && !!configuredHooks.cleanup);
+              (col.status === 'done' && !!configuredHooks.done);
 
             return (
               <KanbanColumn

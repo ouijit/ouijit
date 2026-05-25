@@ -13,6 +13,7 @@ import {
   getNextTaskNumber,
   createTask,
   setTaskStatus,
+  setTaskDescription,
   deleteTaskByNumber,
   clearParentReferences,
   reorderTask,
@@ -22,10 +23,57 @@ import { listWorktrees, removeTaskWorktree, startTask } from './worktree';
 import type { TaskWithWorkspace, TaskWorktreeResult } from './types';
 import { getCachedHealth } from './healthCheck';
 import { getLogger } from './logger';
+import { deleteOrphanedAttachments, extractAttachmentPaths } from './attachments';
 
 const execFileAsync = promisify(execFile);
 
 const taskLog = getLogger().scope('task');
+
+/**
+ * Remove attachment files referenced by `candidatePaths` that no longer appear
+ * in any task description for the project. The check is project-scoped because
+ * attachments live under userData (shared by all projects' tasks) and a chip
+ * could conceivably be copy-pasted from one task to another inside the same
+ * project. `excludeTaskNumber` skips a task that is about to be deleted or has
+ * already been updated to a stale value.
+ */
+async function cleanupAttachments(
+  projectPath: string,
+  candidatePaths: readonly string[],
+  excludeTaskNumber?: number,
+): Promise<void> {
+  if (candidatePaths.length === 0) return;
+  const tasks = await getProjectTasks(projectPath);
+  const stillReferenced = new Set<string>();
+  for (const task of tasks) {
+    if (excludeTaskNumber !== undefined && task.taskNumber === excludeTaskNumber) continue;
+    for (const p of extractAttachmentPaths(task.prompt)) stillReferenced.add(p);
+  }
+  const orphans = candidatePaths.filter((p) => !stillReferenced.has(p));
+  await deleteOrphanedAttachments(orphans);
+}
+
+/**
+ * Update a task's description and sweep any attachment files the edit
+ * dropped. A path is treated as an orphan only if no other task in the
+ * project still references it — chips can be copy-pasted between tasks.
+ */
+export async function updateTaskDescription(
+  projectPath: string,
+  taskNumber: number,
+  description: string,
+): Promise<{ success: boolean; error?: string }> {
+  const previous = await getTaskByNumber(projectPath, taskNumber);
+  const result = await setTaskDescription(projectPath, taskNumber, description);
+  if (!result.success) return result;
+
+  const oldPaths = extractAttachmentPaths(previous?.prompt);
+  if (oldPaths.length === 0) return result;
+  const newPaths = new Set(extractAttachmentPaths(description));
+  const removed = oldPaths.filter((p) => !newPaths.has(p));
+  await cleanupAttachments(projectPath, removed, taskNumber);
+  return result;
+}
 
 /**
  * Begin a task: create its worktree and move it to in_progress.
@@ -141,6 +189,8 @@ export async function deleteTaskWithWorktree(
   // Clear parent references on children before deleting
   await clearParentReferences(projectPath, taskNumber);
 
+  const taskPaths = extractAttachmentPaths(task?.prompt);
+
   if (task?.worktreePath || task?.branch) {
     const worktrees = await listWorktrees(projectPath);
     const wt = task.branch
@@ -153,11 +203,14 @@ export async function deleteTaskWithWorktree(
         taskLog.error('worktree removal failed', { taskNumber, error: removeResult.error });
         return removeResult;
       }
+      await cleanupAttachments(projectPath, taskPaths, taskNumber);
       return { success: true };
     }
     taskLog.info('deleting task (metadata-only)', { taskNumber });
   }
-  return deleteTaskByNumber(projectPath, taskNumber);
+  const result = await deleteTaskByNumber(projectPath, taskNumber);
+  if (result.success) await cleanupAttachments(projectPath, taskPaths, taskNumber);
+  return result;
 }
 
 /**
@@ -204,11 +257,18 @@ export async function trashTaskWithWorktree(
     }
 
     const dbResult = await deleteTaskByNumber(projectPath, taskNumber);
+    if (dbResult.success) {
+      await cleanupAttachments(projectPath, extractAttachmentPaths(task?.prompt), taskNumber);
+    }
     return { ...dbResult, trashed: true };
   }
 
   taskLog.info('trashing task (metadata-only)', { taskNumber });
-  return deleteTaskByNumber(projectPath, taskNumber);
+  const dbResult = await deleteTaskByNumber(projectPath, taskNumber);
+  if (dbResult.success) {
+    await cleanupAttachments(projectPath, extractAttachmentPaths(task?.prompt), taskNumber);
+  }
+  return dbResult;
 }
 
 /**

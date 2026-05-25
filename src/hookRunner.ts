@@ -6,6 +6,7 @@
 import { spawn } from 'node:child_process';
 import type { ScriptHook } from './types';
 import { getLogger } from './logger';
+import { descriptionToHookPrompt } from './utils/descriptionAttachments';
 
 const hookLog = getLogger().scope('hookRunner');
 
@@ -67,7 +68,10 @@ export async function executeHook(
       hookEnv.OUIJIT_TASK_NAME = env.taskName;
     }
     if (env?.taskPrompt) {
-      hookEnv.OUIJIT_TASK_PROMPT = env.taskPrompt;
+      const promptForHook = descriptionToHookPrompt(env.taskPrompt);
+      hookEnv.OUIJIT_TASK_PROMPT = promptForHook;
+      // Alias matching the "description" label used in the UI.
+      hookEnv.OUIJIT_TASK_DESCRIPTION = promptForHook;
     }
 
     // Spawn the process

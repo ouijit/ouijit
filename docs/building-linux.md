@@ -1,10 +1,22 @@
 # Building Ouijit for Linux
 
-This document explains how to build Ouijit for Linux x64 from macOS.
+Production Linux builds are produced by the
+[`.github/workflows/release.yml`](../.github/workflows/release.yml) workflow
+when a version tag is pushed.
 
-## The Challenge
+This document covers building a Linux x64 binary locally from macOS, for
+testing.
 
-Ouijit uses `node-pty`, a native Node.js module that requires compilation for each target platform and architecture. Cross-compilation of native modules is not supported by Electron, so we use Docker with QEMU emulation to build the Linux binaries.
+## The challenge
+
+Ouijit uses `node-pty`, a native Node.js module that requires compilation for
+each target platform and architecture. Cross-compilation of native modules is
+not supported by Electron, so the local script uses a Lima VM with Docker +
+QEMU emulation.
+
+If you have a native Linux x64 machine available, [building there
+directly](#alternative-build-on-native-linux) is faster and avoids QEMU
+emulation flakiness.
 
 ## Prerequisites
 
@@ -33,17 +45,14 @@ This will:
 4. Package the Electron app with staged binaries via `OUIJIT_CROSS_STAGING`
 5. Create `out/ouijit-linux-x64.zip`
 
-The first run takes longer as it sets up the VM and downloads Docker images. Subsequent builds are faster.
+The first run also downloads Docker images for the emulation environment. Later builds skip these steps.
 
 ## Output
 
-The build produces:
-- `out/ouijit-linux-x64/` - Unpacked application
-- `out/ouijit-linux-x64.zip` - Distributable archive
+- `out/ouijit-linux-x64/` - unpacked application
+- `out/ouijit-linux-x64.zip` - distributable archive
 
 ## Verification
-
-To verify the binaries are correct:
 
 ```bash
 file out/ouijit-linux-x64/resources/app/node_modules/node-pty/build/Release/pty.node
@@ -96,11 +105,3 @@ npm run make -- --targets=@electron-forge/maker-zip
 # Output: out/make/zip/linux/x64/ouijit-linux-x64-1.0.0.zip
 ```
 
-## GitHub Actions (Production Releases)
-
-Production Linux builds are created automatically by the
-`.github/workflows/release.yml` workflow when a version tag is pushed.
-See the workflow file for details.
-
-The cross-compilation script (`scripts/build-linux.sh`) remains available
-for local testing when you need a Linux build without pushing a tag.

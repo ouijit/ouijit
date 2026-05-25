@@ -23,7 +23,7 @@ describe('configStore', () => {
       const yaml = generateDefaultConfig();
       expect(yaml).toContain('cpus: 2');
       expect(yaml).toContain('memory: 4GiB');
-      expect(yaml).toContain('disk: 50GiB');
+      expect(yaml).toContain('disk: 10GiB');
       expect(yaml).toContain('ubuntu-24.04');
       expect(yaml).toContain('provision');
       expect(yaml).toContain('apt-get install');

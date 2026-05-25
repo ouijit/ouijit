@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useProjectStore } from '../../stores/projectStore';
 import type { TaskWithWorkspace, TaskStatus } from '../../types';
+import { bulkTransitionTasks } from '../../services/taskStartService';
 import { Icon } from '../terminal/Icon';
 
 interface BulkActionBarProps {
@@ -23,13 +24,9 @@ export function BulkActionBar({ projectPath, onOpenTerminal }: BulkActionBarProp
       : null;
 
   const handleMoveToStatus = useCallback(
-    async (status: TaskStatus) => {
+    (status: TaskStatus) => {
       const selected = [...useProjectStore.getState().selectedTaskNumbers];
-      await Promise.allSettled(selected.map((n) => window.api.task.setStatus(projectPath, n, status)));
-      useProjectStore.getState().loadTasks(projectPath);
-      useProjectStore.getState().clearSelection();
-      const label = { todo: 'To Do', in_progress: 'In Progress', in_review: 'In Review', done: 'Done' }[status];
-      useProjectStore.getState().addToast(`Moved ${selected.length} tasks to ${label}`, 'success');
+      void bulkTransitionTasks(projectPath, selected, status);
     },
     [projectPath],
   );

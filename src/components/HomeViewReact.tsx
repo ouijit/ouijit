@@ -332,7 +332,7 @@ export function HomeView() {
           >
             <div className="text-sm">No tasks yet.</div>
             <div className="flex items-center gap-2 text-xs">
-              <span className="font-mono text-[13px]">{isMac ? '⌘ I' : 'Ctrl+I'}</span>
+              <span className="font-mono text-[13px]">{isMac ? '⌘ I' : '⌃ I'}</span>
               <span>to open a terminal</span>
             </div>
           </div>

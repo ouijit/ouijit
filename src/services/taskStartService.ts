@@ -13,7 +13,7 @@ import { addProjectTerminal, closeProjectTerminal } from '../components/terminal
 import type { RunHookResult } from '../components/dialogs/RunHookDialog';
 import { useProjectStore } from '../stores/projectStore';
 import { useTerminalStore } from '../stores/terminalStore';
-import type { HookType, ScriptHook, TaskStatus, TaskWithWorkspace } from '../types';
+import type { CliHookMode, HookType, ScriptHook, TaskStatus, TaskWithWorkspace } from '../types';
 
 let placeholderCounter = 0;
 function makePlaceholderId(taskNumber: number): string {
@@ -37,8 +37,20 @@ function hookTypeForTransition(origStatus: TaskStatus, newStatus: TaskStatus): H
   if (origStatus === newStatus) return null;
   if (newStatus === 'in_progress') return origStatus === 'todo' ? 'start' : 'continue';
   if (newStatus === 'in_review') return 'review';
-  if (newStatus === 'done') return 'cleanup';
+  if (newStatus === 'done') return 'done';
   return null;
+}
+
+/**
+ * CLI-driven hook control. When present, the start-hook dialog is skipped
+ * entirely — the caller has already decided what should happen. Used by
+ * `ouijit task start --run-hook/--skip-hook/--hook-command` so an agent can
+ * start a task headlessly without a human at the dialog.
+ */
+export interface HookControl {
+  mode: CliHookMode;
+  /** The one-off command, required when `mode` is `command`. */
+  command?: string;
 }
 
 export interface BeginTransitionOptions {
@@ -50,6 +62,8 @@ export interface BeginTransitionOptions {
   task: TaskWithWorkspace;
   /** Hide the kanban (for foreground hook runs) when invoked. */
   onForegroundOpen?: () => void;
+  /** CLI-driven hook control — when set, the start-hook dialog is skipped. */
+  hookControl?: HookControl;
 }
 
 /**
@@ -57,12 +71,12 @@ export interface BeginTransitionOptions {
  * completion in the background, surviving any view changes.
  */
 export function beginTransition(projectPath: string, opts: BeginTransitionOptions): void {
-  const { origStatus, newStatus, task, onForegroundOpen } = opts;
+  const { origStatus, newStatus, task, onForegroundOpen, hookControl } = opts;
   const taskNumber = task.taskNumber;
   const t0 = performance.now();
-  taskStartLog.info('beginTransition', { taskNumber, origStatus, newStatus });
+  taskStartLog.info('beginTransition', { taskNumber, origStatus, newStatus, hookMode: hookControl?.mode });
 
-  void runTransition(projectPath, task, origStatus, newStatus, onForegroundOpen, t0).catch((err) => {
+  void runTransition(projectPath, task, origStatus, newStatus, onForegroundOpen, hookControl, t0).catch((err) => {
     taskStartLog.error('transition failed', {
       taskNumber,
       error: err instanceof Error ? err.message : String(err),
@@ -72,12 +86,87 @@ export function beginTransition(projectPath: string, opts: BeginTransitionOption
   });
 }
 
+const STATUS_LABEL: Record<TaskStatus, string> = {
+  todo: 'To Do',
+  in_progress: 'In Progress',
+  in_review: 'In Review',
+  done: 'Done',
+};
+
+/**
+ * Bulk-move several tasks to the same target status, then fan each one out
+ * through `beginTransition` so worktrees get created and hook dialogs fire.
+ * Used by the kanban's bulk action bar and multi-select drag — both produce
+ * an N-task move that previously stopped at `setStatus` and silently skipped
+ * every downstream hook. The hook dialogs queue up via `runHookQueue`,
+ * presenting as a stepper instead of dropping all but the last.
+ *
+ * Returns the list of transitions that actually fired (filtered to tasks
+ * whose status differed from the target). Selection is cleared and a toast
+ * is emitted as a side effect.
+ */
+export async function bulkTransitionTasks(
+  projectPath: string,
+  taskNumbers: number[],
+  newStatus: TaskStatus,
+): Promise<Array<{ task: TaskWithWorkspace; origStatus: TaskStatus }>> {
+  const store = useProjectStore.getState();
+  const tasksByNumber = new Map(store.tasks.map((t) => [t.taskNumber, t]));
+  // Snapshot each task's status BEFORE mutating so we can drive beginTransition
+  // with the right origStatus per task (start vs continue, etc.).
+  const transitions = taskNumbers
+    .map((n) => tasksByNumber.get(n))
+    .filter((t): t is TaskWithWorkspace => !!t && t.status !== newStatus)
+    .map((task) => ({ task, origStatus: task.status }));
+
+  const results = await Promise.allSettled(
+    transitions.map(({ task }) => window.api.task.setStatus(projectPath, task.taskNumber, newStatus)),
+  );
+  // Drop any task whose status change didn't actually land — both IPC
+  // rejections and { success: false } responses. Otherwise beginTransition
+  // would create a worktree for a task whose server-side status is still
+  // the old one.
+  const succeeded: typeof transitions = [];
+  const failed: Array<{ taskNumber: number; error: string }> = [];
+  results.forEach((r, i) => {
+    const tr = transitions[i];
+    if (r.status === 'rejected') {
+      failed.push({
+        taskNumber: tr.task.taskNumber,
+        error: r.reason instanceof Error ? r.reason.message : String(r.reason),
+      });
+    } else if (!r.value.success) {
+      failed.push({ taskNumber: tr.task.taskNumber, error: r.value.error ?? 'Failed to update status' });
+    } else {
+      succeeded.push(tr);
+    }
+  });
+
+  await store.loadTasks(projectPath);
+  store.clearSelection();
+
+  for (const { task, origStatus } of succeeded) {
+    beginTransition(projectPath, { origStatus, newStatus, task });
+  }
+
+  if (succeeded.length > 0) {
+    useProjectStore.getState().addToast(`Moved ${succeeded.length} tasks to ${STATUS_LABEL[newStatus]}`, 'success');
+  }
+  if (failed.length > 0) {
+    const sample = failed[0].error;
+    const suffix = failed.length > 1 ? ` (and ${failed.length - 1} more)` : '';
+    useProjectStore.getState().addToast(`Failed to move ${failed.length} tasks: ${sample}${suffix}`, 'error');
+  }
+  return succeeded;
+}
+
 async function runTransition(
   projectPath: string,
   task: TaskWithWorkspace,
   origStatus: TaskStatus,
   newStatus: TaskStatus,
   onForegroundOpen: (() => void) | undefined,
+  hookControl: HookControl | undefined,
   t0: number,
 ): Promise<void> {
   const taskNumber = task.taskNumber;
@@ -139,9 +228,25 @@ async function runTransition(
       });
     }
 
-    // 3. Show the hook dialog proactively if one is configured.
+    // 3. Resolve the hook to run. A CLI caller (hookControl) has already
+    // decided — skip the dialog entirely. Otherwise show the dialog
+    // proactively if a hook is configured for this transition.
     let hookPromise: Promise<RunHookResult | null> = Promise.resolve(null);
-    if (hookType && hook) {
+    if (hookControl) {
+      let resolved: RunHookResult | null = null;
+      if (hookControl.mode === 'command' && hookControl.command) {
+        resolved = { command: hookControl.command, sandboxed: false, foreground: false };
+      } else if (hookControl.mode === 'run' && hook) {
+        resolved = { command: hook.command, sandboxed: false, foreground: false };
+      }
+      // 'skip', or 'run' with no configured hook → plain shell (null).
+      taskStartLog.info('hook resolved from CLI flags', {
+        taskNumber,
+        mode: hookControl.mode,
+        ranHook: !!resolved,
+      });
+      hookPromise = Promise.resolve(resolved);
+    } else if (hookType && hook) {
       const tDialog = performance.now();
       hookPromise = useProjectStore
         .getState()
@@ -272,10 +377,18 @@ async function runNonStartHookInTerminal(
   }
 
   if (newStatus === 'done') {
+    // Snapshot the task's terminals *before* spawning the done-hook terminal,
+    // so the cleanup below closes only the pre-existing ones. The hook terminal
+    // is created during the await and is excluded, leaving its output visible.
+    const storeBefore = useTerminalStore.getState();
+    const staleTerminals = (storeBefore.terminalsByProject[projectPath] ?? []).filter(
+      (ptyId) => storeBefore.displayStates[ptyId]?.taskId === task.taskNumber,
+    );
+
     if (task.worktreePath) {
       await addProjectTerminal(
         projectPath,
-        { name: 'Cleanup', command: hookResult.command, source: 'custom', priority: 0 },
+        { name: 'Done', command: hookResult.command, source: 'custom', priority: 0 },
         {
           existingWorktree: { path: task.worktreePath, branch: task.branch || '', createdAt: task.createdAt },
           taskId: task.taskNumber,
@@ -286,14 +399,11 @@ async function runNonStartHookInTerminal(
       );
       if (hookResult.foreground && onForegroundOpen) onForegroundOpen();
     }
-    // Close all terminals tied to this task once it's done.
-    const store = useTerminalStore.getState();
-    const ptyIds = store.terminalsByProject[projectPath] ?? [];
-    for (const ptyId of [...ptyIds]) {
-      const display = store.displayStates[ptyId];
-      if (display?.taskId === task.taskNumber) {
-        closeProjectTerminal(ptyId);
-      }
+
+    // Close the terminals that were open before the hook ran. The done-hook
+    // terminal itself is left running so its output stays observable.
+    for (const ptyId of staleTerminals) {
+      closeProjectTerminal(ptyId);
     }
   }
 }

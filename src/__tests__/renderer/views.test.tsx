@@ -84,6 +84,43 @@ describe('KanbanCardView', () => {
     expect(onCommit).toHaveBeenCalledWith(7, 'Renamed');
     expect(onCancel).not.toHaveBeenCalled();
   });
+
+  it('commits a description drop while not editing through onUpdateDescription', async () => {
+    const onUpdateDescription = vi.fn();
+    const onAttachFile = vi.fn().mockResolvedValue('/Users/a/notes.txt');
+    const { container } = render(
+      <KanbanCardView task={baseTask} onUpdateDescription={onUpdateDescription} onAttachFile={onAttachFile} />,
+    );
+    // Expand the card so the description editor is rendered.
+    fireEvent.click(container.querySelector('button')!);
+    const editor = container.querySelector('.kanban-description-editor') as HTMLDivElement;
+
+    const file = new File([new Uint8Array([1])], 'notes.txt', { type: 'text/plain' });
+    const dataTransfer = {
+      items: [{ kind: 'file', type: 'text/plain' }],
+      files: [file],
+    } as unknown as DataTransfer;
+    fireEvent.drop(editor, { dataTransfer, clientX: 0, clientY: 0 });
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(onAttachFile).toHaveBeenCalledTimes(1);
+    expect(onUpdateDescription).toHaveBeenCalledWith(7, '![](/Users/a/notes.txt)');
+  });
+
+  it('commits the description on Enter while editing', () => {
+    const onUpdateDescription = vi.fn();
+    const taskWithPrompt = { ...baseTask, prompt: 'old' };
+    const { container } = render(<KanbanCardView task={taskWithPrompt} onUpdateDescription={onUpdateDescription} />);
+    // Expand and click into the editor to enter edit mode.
+    fireEvent.click(container.querySelector('button')!);
+    const editor = container.querySelector('.kanban-description-editor') as HTMLDivElement;
+    fireEvent.click(editor);
+    editor.textContent = 'new value';
+    fireEvent.input(editor);
+    fireEvent.keyDown(editor, { key: 'Enter' });
+
+    expect(onUpdateDescription).toHaveBeenCalledWith(7, 'new value');
+  });
 });
 
 describe('KanbanBadgeView', () => {
