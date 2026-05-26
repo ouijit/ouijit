@@ -145,4 +145,31 @@ describe('buildCommandShellArgs', () => {
       expect(args[1]).toContain('(echo hi; exit 1)');
     });
   });
+
+  // exec replaces the process and resets $?, so the subshell's exit code has
+  // to be passed across via an env var. The integration script reads it on
+  // first load and emits OSC 133;D — without this, the renderer never sees
+  // the initial command's exit code until the user types something.
+  describe('OUIJIT_INITIAL_EXIT propagation', () => {
+    it('captures $? into OUIJIT_INITIAL_EXIT before exec in zsh', () => {
+      const args = buildCommandShellArgs('false', '/bin/zsh', '/tmp/integration');
+      expect(args[1]).toContain('export OUIJIT_INITIAL_EXIT=$?');
+      // The capture must come AFTER the user command and BEFORE the exec.
+      const captureIdx = args[1].indexOf('OUIJIT_INITIAL_EXIT');
+      const execIdx = args[1].indexOf('exec ');
+      const cmdIdx = args[1].indexOf('(false)');
+      expect(cmdIdx).toBeLessThan(captureIdx);
+      expect(captureIdx).toBeLessThan(execIdx);
+    });
+
+    it('captures $? into OUIJIT_INITIAL_EXIT before exec in bash', () => {
+      const args = buildCommandShellArgs('false', '/bin/bash', '/tmp/integration');
+      expect(args[1]).toContain('export OUIJIT_INITIAL_EXIT=$?');
+    });
+
+    it('does not capture for exitAfterCommand spawns (PTY exits naturally)', () => {
+      const args = buildCommandShellArgs('false', '/bin/zsh', '/tmp/integration', true);
+      expect(args[1]).not.toContain('OUIJIT_INITIAL_EXIT');
+    });
+  });
 });

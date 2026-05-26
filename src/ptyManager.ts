@@ -67,18 +67,25 @@ export function buildCommandShellArgs(
   // captured into $? exactly like an inline command would be.
   const wrapped = `(${command})`;
 
+  // Capture the subshell's exit code into an env var so it survives the
+  // `exec` into the interactive shell — exec replaces the process and resets
+  // $?, so without this the renderer would never learn the initial command's
+  // exit code. The integration script reads OUIJIT_INITIAL_EXIT on first load
+  // and emits OSC 133;D itself.
+  const captureExit = 'export OUIJIT_INITIAL_EXIT=$?';
+
   if (isZsh) {
     if (exitAfterCommand) return ['-ic', `${prefix}; ${wrapped}`];
-    return ['-ic', `${prefix}; ${wrapped}; ZDOTDIR="$OUIJIT_SHELL_INTEGRATION_DIR/zsh" exec ${shell}`];
+    return ['-ic', `${prefix}; ${wrapped}; ${captureExit}; ZDOTDIR="$OUIJIT_SHELL_INTEGRATION_DIR/zsh" exec ${shell}`];
   }
   if (isBash) {
     if (exitAfterCommand) return ['-ic', `${prefix}; ${wrapped}`];
     const rcfile = path.join(shellIntegrationDir, 'ouijit-bash-integration.bash');
-    return ['-ic', `${prefix}; ${wrapped}; exec bash --rcfile ${rcfile}`];
+    return ['-ic', `${prefix}; ${wrapped}; ${captureExit}; exec bash --rcfile ${rcfile}`];
   }
   // Fallback for other shells
   if (exitAfterCommand) return ['-ic', `${prefix}; ${wrapped}`];
-  return ['-ic', `${prefix}; ${wrapped}; exec ${shell}`];
+  return ['-ic', `${prefix}; ${wrapped}; ${captureExit}; exec ${shell}`];
 }
 
 interface ManagedPty {

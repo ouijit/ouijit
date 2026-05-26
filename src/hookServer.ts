@@ -797,6 +797,16 @@ export const ZSH_INTEGRATION = [
   '}',
   'precmd_functions=(_ouijit_emit_exit_code $precmd_functions)',
   '',
+  '# When we exec into this shell from a one-off command (a hook script), the',
+  '# subshell exit code is passed across the exec via OUIJIT_INITIAL_EXIT. Emit',
+  '# OSC 133;D for it now so the renderer learns the result without waiting for',
+  '# the user to type a command. The precmd hook above still skips its first',
+  '# emission so this is the only signal for the initial command.',
+  'if [ -n "${OUIJIT_INITIAL_EXIT-}" ]; then',
+  '  printf "\\033]133;D;%d\\007" "$OUIJIT_INITIAL_EXIT"',
+  '  unset OUIJIT_INITIAL_EXIT',
+  'fi',
+  '',
 ].join('\n');
 
 /** bash rcfile replacement — written to shell-integration/ouijit-bash-integration.bash */
@@ -830,6 +840,15 @@ export const BASH_INTEGRATION = [
   '  PROMPT_COMMAND="_ouijit_emit_exit_code; $PROMPT_COMMAND"',
   'else',
   '  PROMPT_COMMAND="_ouijit_emit_exit_code"',
+  'fi',
+  '',
+  '# When we exec into this shell from a one-off command (a hook script), the',
+  '# subshell exit code is passed across the exec via OUIJIT_INITIAL_EXIT. Emit',
+  '# OSC 133;D for it now so the renderer learns the result without waiting for',
+  '# the user to type a command.',
+  'if [ -n "${OUIJIT_INITIAL_EXIT-}" ]; then',
+  '  printf "\\033]133;D;%d\\007" "$OUIJIT_INITIAL_EXIT"',
+  '  unset OUIJIT_INITIAL_EXIT',
   'fi',
   '',
 ].join('\n');

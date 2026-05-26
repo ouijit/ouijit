@@ -24,6 +24,12 @@ describe('zsh shell integration', () => {
   test('hook runs first so $? still reflects the user command, not later precmds', () => {
     expect(ZSH_INTEGRATION).toContain('precmd_functions=(_ouijit_emit_exit_code $precmd_functions)');
   });
+
+  test('emits initial exit code passed via OUIJIT_INITIAL_EXIT across the exec', () => {
+    expect(ZSH_INTEGRATION).toContain('if [ -n "${OUIJIT_INITIAL_EXIT-}" ]');
+    expect(ZSH_INTEGRATION).toContain('printf "\\033]133;D;%d\\007" "$OUIJIT_INITIAL_EXIT"');
+    expect(ZSH_INTEGRATION).toContain('unset OUIJIT_INITIAL_EXIT');
+  });
 });
 
 describe('bash shell integration', () => {
@@ -40,5 +46,11 @@ describe('bash shell integration', () => {
 
   test('hook is prepended to PROMPT_COMMAND so $? still reflects the user command', () => {
     expect(BASH_INTEGRATION).toContain('PROMPT_COMMAND="_ouijit_emit_exit_code; $PROMPT_COMMAND"');
+  });
+
+  test('emits initial exit code passed via OUIJIT_INITIAL_EXIT across the exec', () => {
+    expect(BASH_INTEGRATION).toContain('if [ -n "${OUIJIT_INITIAL_EXIT-}" ]');
+    expect(BASH_INTEGRATION).toContain('printf "\\033]133;D;%d\\007" "$OUIJIT_INITIAL_EXIT"');
+    expect(BASH_INTEGRATION).toContain('unset OUIJIT_INITIAL_EXIT');
   });
 });
