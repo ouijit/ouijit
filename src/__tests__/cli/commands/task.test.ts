@@ -246,14 +246,16 @@ describe('task commands', () => {
       }
     });
 
-    test('hook flags are silently ignored for non-done statuses', async () => {
-      vi.mocked(patch).mockResolvedValue({ success: true });
-      const output = captureOutput();
-      await createProgram().parseAsync(['task', 'set-status', '1', 'in_review', '--skip-hook', '--hook-command', 'x'], {
-        from: 'user',
-      });
-      output.getJson();
-      expect(patch).toHaveBeenCalledWith(expect.any(String), { status: 'in_review' });
+    test('hook flags on non-done status exit non-zero (no silent ignore)', async () => {
+      const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
+      const errSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+      try {
+        await createProgram().parseAsync(['task', 'set-status', '1', 'in_review', '--skip-hook'], { from: 'user' });
+        expect(exitSpy).toHaveBeenCalledWith(1);
+      } finally {
+        exitSpy.mockRestore();
+        errSpy.mockRestore();
+      }
     });
   });
 

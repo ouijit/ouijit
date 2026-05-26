@@ -914,22 +914,34 @@ export class OuijitTerminal {
       this.xterm.writeln('');
       const exitColor = exitCode === 0 ? '32' : '31';
       this.xterm.writeln(`\x1b[${exitColor}m● Process exited with code ${exitCode}\x1b[0m`);
-
-      const nextType: SummaryType = exitCode === 0 ? 'success' : 'error';
-      this.summary = exitCode === 0 ? 'Exited' : `Exit ${exitCode}`;
-      this.summaryType = nextType;
-      this.pushDisplayState({
-        summary: this.summary,
-        summaryType: nextType,
-        exited: true,
-      });
-
+      this.applyExitState(exitCode, { isPtyExit: true });
       onExit?.(exitCode);
-
-      // Self-tidy on success for terminals that opted in (today: the done-hook
-      // terminal). Non-zero exits stay open so the failure is visible.
-      this.maybeScheduleAutoClose(exitCode);
     });
+  }
+
+  /**
+   * Apply an exit-code-driven status flip. Used by both the PTY-exit path
+   * (`wireExitHandler`) and the OSC 133;D in-shell path (`handleCommandExit`).
+   * The PTY-exit path additionally writes the `exited: true` flag and uses a
+   * different summary string ("Exited" vs "Done") so the two callers stay
+   * distinguishable in the UI.
+   */
+  private applyExitState(exitCode: number, opts: { isPtyExit: boolean }): void {
+    const nextType: SummaryType = exitCode === 0 ? 'success' : 'error';
+    const successSummary = opts.isPtyExit ? 'Exited' : 'Done';
+    const nextSummary = exitCode === 0 ? successSummary : `Exit ${exitCode}`;
+    if (this.summaryType !== nextType || this.summary !== nextSummary) {
+      this.summaryType = nextType;
+      this.summary = nextSummary;
+      this.pushDisplayState(
+        opts.isPtyExit
+          ? { summaryType: nextType, summary: nextSummary, exited: true }
+          : { summaryType: nextType, summary: nextSummary },
+      );
+    } else if (opts.isPtyExit) {
+      this.pushDisplayState({ exited: true });
+    }
+    this.maybeScheduleAutoClose(exitCode);
   }
 
   private wireInputForwarding(): void {
@@ -1018,14 +1030,7 @@ export class OuijitTerminal {
   }
 
   private handleCommandExit(exitCode: number): void {
-    const nextType: SummaryType = exitCode === 0 ? 'success' : 'error';
-    const nextSummary = exitCode === 0 ? 'Done' : `Exit ${exitCode}`;
-    if (this.summaryType !== nextType || this.summary !== nextSummary) {
-      this.summaryType = nextType;
-      this.summary = nextSummary;
-      this.pushDisplayState({ summaryType: nextType, summary: nextSummary });
-    }
-    this.maybeScheduleAutoClose(exitCode);
+    this.applyExitState(exitCode, { isPtyExit: false });
   }
 
   private maybeScheduleAutoClose(exitCode: number): void {

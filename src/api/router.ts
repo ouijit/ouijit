@@ -153,8 +153,8 @@ function isStatusPatchRoute(method: string, segments: string[]): boolean {
   return method === 'PATCH' && segments.length === 3 && segments[0] === 'tasks' && segments[2] === 'status';
 }
 
-function isSuccessfulMutation(result: unknown): boolean {
-  return typeof result === 'object' && result !== null && (result as { success?: unknown }).success === true;
+function isSuccessfulMutation(result: unknown): result is { success: true } {
+  return typeof result === 'object' && result !== null && (result as Record<string, unknown>).success === true;
 }
 
 // ── Route dispatch ───────────────────────────────────────────────────

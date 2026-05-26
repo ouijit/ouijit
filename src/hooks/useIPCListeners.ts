@@ -134,6 +134,9 @@ export function useIPCListeners() {
           task,
           skipHook: payload.skipHook,
           hookCommand: payload.hookCommand,
+          // Server already PATCHed the status before pushing; only the
+          // renderer reload remains.
+          skipStatusWrite: true,
         }).catch((err) => {
           ipcLog.error('CLI task-completed lifecycle failed', {
             taskNumber: payload.taskNumber,

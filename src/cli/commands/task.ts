@@ -40,6 +40,32 @@ function resolveHookFlags(opts: HookFlags): { hookMode?: string; hookCommand?: s
   return {};
 }
 
+/**
+ * Resolve --skip-hook / --hook-command for the `done` transition. Mutually
+ * exclusive. Rejected on non-done statuses (would otherwise silently mask
+ * typos like `Done`) and on empty --hook-command strings.
+ */
+function resolveDoneHookFlags(
+  status: string,
+  opts: Pick<HookFlags, 'skipHook' | 'hookCommand'>,
+): { skipHook?: boolean; hookCommand?: string } | { error: string } {
+  if (status !== 'done') {
+    if (opts.skipHook || opts.hookCommand !== undefined) {
+      return { error: '--skip-hook and --hook-command only apply when setting status to "done"' };
+    }
+    return {};
+  }
+  if (opts.skipHook && opts.hookCommand !== undefined) {
+    return { error: 'Only one of --skip-hook, --hook-command may be used' };
+  }
+  if (opts.skipHook) return { skipHook: true };
+  if (opts.hookCommand !== undefined) {
+    if (!opts.hookCommand.trim()) return { error: '--hook-command requires a non-empty command' };
+    return { hookCommand: opts.hookCommand };
+  }
+  return {};
+}
+
 const STATUS_LABELS: Record<string, string> = {
   todo: 'Todo',
   in_progress: 'In Progress',
@@ -182,19 +208,8 @@ Examples:
       if (!VALID_STATUSES.includes(status)) {
         return printError(`Invalid status: ${status}. Must be one of: ${VALID_STATUSES.join(', ')}`);
       }
-      // The hook flags only apply to `done` — silently drop them for other
-      // statuses so scripted callers can pass them defensively.
-      const hookBody: { skipHook?: boolean; hookCommand?: string } = {};
-      if (status === 'done') {
-        if (opts.skipHook && opts.hookCommand !== undefined) {
-          return printError('Only one of --skip-hook, --hook-command may be used');
-        }
-        if (opts.skipHook) hookBody.skipHook = true;
-        if (opts.hookCommand !== undefined) {
-          if (!opts.hookCommand.trim()) return printError('--hook-command requires a non-empty command');
-          hookBody.hookCommand = opts.hookCommand;
-        }
-      }
+      const hookBody = resolveDoneHookFlags(status, opts);
+      if ('error' in hookBody) return printError(hookBody.error);
       const project = requireProject();
       const result = await patch<{ success: boolean; error?: string; hookWarning?: string }>(
         `/api/tasks/${num}/status${projectQuery(project)}`,
@@ -221,17 +236,8 @@ Examples:
         if (isNaN(n)) return printError(`Task number must be an integer: ${arg}`);
         numbers.push(n);
       }
-      const hookBody: { skipHook?: boolean; hookCommand?: string } = {};
-      if (status === 'done') {
-        if (opts.skipHook && opts.hookCommand !== undefined) {
-          return printError('Only one of --skip-hook, --hook-command may be used');
-        }
-        if (opts.skipHook) hookBody.skipHook = true;
-        if (opts.hookCommand !== undefined) {
-          if (!opts.hookCommand.trim()) return printError('--hook-command requires a non-empty command');
-          hookBody.hookCommand = opts.hookCommand;
-        }
-      }
+      const hookBody = resolveDoneHookFlags(status, opts);
+      if ('error' in hookBody) return printError(hookBody.error);
       const project = requireProject();
       const results = await Promise.allSettled(
         numbers.map((n) =>

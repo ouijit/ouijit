@@ -29,6 +29,12 @@ export interface CompleteTaskOptions {
    * When omitted, only the status is written.
    */
   targetIndex?: number;
+  /**
+   * Skip the `setStatus` write — the server has already persisted the status
+   * (e.g. the CLI path: server PATCHed, then pushed `cli:task-completed`).
+   * The renderer still needs to reload tasks to reflect the new status.
+   */
+  skipStatusWrite?: boolean;
 }
 
 /**
@@ -57,7 +63,7 @@ export async function completeTask(opts: CompleteTaskOptions): Promise<void> {
 }
 
 async function completeTaskInner(opts: CompleteTaskOptions): Promise<void> {
-  const { projectPath, task, skipHook, hookCommand, targetIndex } = opts;
+  const { projectPath, task, skipHook, hookCommand, targetIndex, skipStatusWrite } = opts;
   const taskNumber = task.taskNumber;
   completionLog.info('completing task', {
     taskNumber,
@@ -65,6 +71,7 @@ async function completeTaskInner(opts: CompleteTaskOptions): Promise<void> {
     skipHook,
     hasHookCommand: !!hookCommand,
     hasTargetIndex: targetIndex != null,
+    skipStatusWrite,
   });
 
   // 1. Resolve the effective hook command.
@@ -91,17 +98,26 @@ async function completeTaskInner(opts: CompleteTaskOptions): Promise<void> {
   //    drops into an interactive shell at the worktree, so failures leave a
   //    usable debugging surface instead of a dead terminal.
   if (effectiveCommand && task.worktreePath) {
-    await addProjectTerminal(
-      projectPath,
-      { name: 'Done', command: effectiveCommand, source: 'custom', priority: 0 },
-      {
-        existingWorktree: { path: task.worktreePath, branch: task.branch || '', createdAt: task.createdAt },
-        taskId: taskNumber,
-        skipAutoHook: true,
-        background: true,
-        autoCloseOnSuccess: true,
-      },
-    );
+    try {
+      await addProjectTerminal(
+        projectPath,
+        { name: 'Done', command: effectiveCommand, source: 'custom', priority: 0 },
+        {
+          existingWorktree: { path: task.worktreePath, branch: task.branch || '', createdAt: task.createdAt },
+          taskId: taskNumber,
+          skipAutoHook: true,
+          background: true,
+          autoCloseOnSuccess: true,
+        },
+      );
+    } catch (err) {
+      // Persist status anyway — the user moved the task to done and the
+      // intent should survive a hook-spawn failure. Surface the failure
+      // explicitly so they can re-run the hook manually if it matters.
+      const message = err instanceof Error ? err.message : String(err);
+      completionLog.error('done-hook spawn failed', { taskNumber, error: message });
+      useProjectStore.getState().addToast(`Done hook failed to start: ${message}`, 'error');
+    }
   }
 
   // 4. Close the snapshotted terminals.
@@ -111,11 +127,13 @@ async function completeTaskInner(opts: CompleteTaskOptions): Promise<void> {
 
   // 5. Persist status (and order, for the kanban-drag entry point).
   //    moveTask reloads the task list itself; the bare setStatus path has to
-  //    do it explicitly so the kanban reflects the new status.
+  //    do it explicitly so the kanban reflects the new status. The CLI path
+  //    sets `skipStatusWrite` because the server already PATCHed before
+  //    pushing — only the renderer reload is needed.
   if (targetIndex != null) {
     await useProjectStore.getState().moveTask(projectPath, taskNumber, 'done', targetIndex);
   } else {
-    await window.api.task.setStatus(projectPath, taskNumber, 'done');
+    if (!skipStatusWrite) await window.api.task.setStatus(projectPath, taskNumber, 'done');
     await useProjectStore.getState().loadTasks(projectPath);
   }
 }
