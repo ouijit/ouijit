@@ -459,6 +459,26 @@ export async function reconnectTerminal(
 
 // ── Run hook or ad-hoc script as runner terminal ────────────────────
 
+/**
+ * Drive the parent terminal's runnerStatus from OSC 133;D sequences emitted by
+ * the runner's shell-integration precmd hook. The PTY's onExit fires only when
+ * the *shell* exits (i.e. when the user types `exit`), which is essentially
+ * never for a long-running runner — OSC 133 is the per-command signal that
+ * actually reflects whether the script succeeded or failed.
+ */
+export function updateRunnerStatusFromOsc133(data: string, parent: OuijitTerminal): void {
+  const matches = data.matchAll(/\x1b\]133;D;(-?\d+)(?:\x07|\x1b\\)/g);
+  for (const match of matches) {
+    const code = parseInt(match[1], 10);
+    if (Number.isNaN(code)) continue;
+    const next = code === 0 ? 'success' : 'error';
+    if (parent.runnerStatus !== next) {
+      parent.runnerStatus = next;
+      parent.pushDisplayState({ runnerStatus: next });
+    }
+  }
+}
+
 export async function spawnRunner(ptyId: string, script?: RunnerScript): Promise<void> {
   const instance = terminalInstances.get(ptyId);
   if (!instance) return;
@@ -575,6 +595,7 @@ async function _spawnRunnerInner(instance: OuijitTerminal, script?: RunnerScript
             instance.pushDisplayState({ runnerStatus: instance.runnerStatus });
           }
         }
+        updateRunnerStatusFromOsc133(data, instance);
         const detected = detectDevServerUrl(data);
         if (detected) applyDetectedWebPreviewUrl(instance, detected);
       },
@@ -730,6 +751,7 @@ export async function reconnectOrphanedSessions(projectPath: string): Promise<vo
             parentTerminal.pushDisplayState({ runnerStatus: parentTerminal.runnerStatus });
           }
         }
+        updateRunnerStatusFromOsc133(data, parentTerminal);
         const detected = detectDevServerUrl(data);
         if (detected) applyDetectedWebPreviewUrl(parentTerminal, detected);
       },
