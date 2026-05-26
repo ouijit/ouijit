@@ -55,14 +55,14 @@ describe('completeTask', () => {
     await completeTask({ projectPath: PROJECT, task: makeTask() });
 
     expect(vi.mocked(addProjectTerminal).mock.calls[0][1]).toMatchObject({ name: 'Done', command: 'echo hey' });
-    // The hook terminal is one-shot (exits when the command exits) and opts
-    // into self-tidy on success. Both flags are required: without
-    // exitAfterCommand the PTY would drop into an interactive shell and
-    // autoCloseOnSuccess would never fire (see terminalReact wireExitHandler).
+    // The hook terminal opts into autoCloseOnSuccess. The OSC 133 emitted by
+    // our shell-integration precmd hook (see hookServer.ZSH_INTEGRATION /
+    // BASH_INTEGRATION) provides the exit-code signal — the PTY stays alive
+    // in an interactive shell after the command so failures are debuggable.
     expect(vi.mocked(addProjectTerminal).mock.calls[0][2]).toMatchObject({
       autoCloseOnSuccess: true,
-      exitAfterCommand: true,
     });
+    expect(vi.mocked(addProjectTerminal).mock.calls[0][2]).not.toHaveProperty('exitAfterCommand');
     // Only the pre-existing terminal is closed; the freshly spawned hook terminal survives.
     expect(vi.mocked(closeProjectTerminal).mock.calls.map((c) => c[0])).toEqual(['pty-old']);
   });

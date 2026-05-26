@@ -766,7 +766,7 @@ export const ZSH_ZSHENV = [
   '',
 ].join('\n');
 
-/** zsh PATH fix — written to shell-integration/ouijit-zsh-integration.zsh */
+/** zsh PATH fix + command-exit signal — written to shell-integration/ouijit-zsh-integration.zsh */
 export const ZSH_INTEGRATION = [
   '# Ouijit zsh integration — ensures wrapper dir stays first in PATH.',
   '_ouijit_fix_path() {',
@@ -782,6 +782,20 @@ export const ZSH_INTEGRATION = [
   '}',
   'precmd_functions+=(_ouijit_fix_path)',
   'preexec_functions+=(_ouijit_fix_path)',
+  '',
+  '# Emit OSC 133;D;<exit_code> after each command so the renderer can detect',
+  "# the prior command's exit code without the PTY actually exiting. Skips the",
+  '# very first prompt (no command has run yet). MUST be the first precmd so',
+  '# $? still reflects the user command, not a downstream precmd hook.',
+  '_ouijit_emit_exit_code() {',
+  '  local code=$?',
+  '  if [ -n "$_OUIJIT_HAS_RUN" ]; then',
+  '    printf "\\033]133;D;%d\\007" "$code"',
+  '  fi',
+  '  _OUIJIT_HAS_RUN=1',
+  '  return $code',
+  '}',
+  'precmd_functions=(_ouijit_emit_exit_code $precmd_functions)',
   '',
 ].join('\n');
 
@@ -799,6 +813,24 @@ export const BASH_INTEGRATION = [
   'PATH="${PATH%:}"',
   'PATH="$OUIJIT_WRAPPER_DIR:$PATH"',
   'export PATH',
+  '',
+  '# Emit OSC 133;D;<exit_code> after each command so the renderer can detect',
+  "# the prior command's exit code without the PTY actually exiting. Skips the",
+  '# very first prompt. Prepended to PROMPT_COMMAND so $? still reflects the',
+  '# user command rather than a previously-installed hook.',
+  '_ouijit_emit_exit_code() {',
+  '  local code=$?',
+  '  if [ -n "$_OUIJIT_HAS_RUN" ]; then',
+  '    printf "\\033]133;D;%d\\007" "$code"',
+  '  fi',
+  '  _OUIJIT_HAS_RUN=1',
+  '  return $code',
+  '}',
+  'if [ -n "$PROMPT_COMMAND" ]; then',
+  '  PROMPT_COMMAND="_ouijit_emit_exit_code; $PROMPT_COMMAND"',
+  'else',
+  '  PROMPT_COMMAND="_ouijit_emit_exit_code"',
+  'fi',
   '',
 ].join('\n');
 

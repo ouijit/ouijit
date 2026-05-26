@@ -1007,7 +1007,31 @@ export class OuijitTerminal {
       }
     }
 
+    // OSC 133 ; D ; <exit_code> ST — emitted by our shell-integration precmd
+    // hook after each user command. Lets us reflect the real exit code without
+    // requiring the PTY to die. Used by both the success/error status dot and
+    // autoCloseOnSuccess so the done-hook terminal can drop into an interactive
+    // shell on failure (for debugging) while still tidying up on success.
+    const exitMatches = batch.matchAll(/\x1b\]133;D;(-?\d+)(?:\x07|\x1b\\)/g);
+    for (const match of exitMatches) {
+      const code = parseInt(match[1], 10);
+      if (!Number.isNaN(code)) this.handleCommandExit(code);
+    }
+
     scheduleTerminalGitStatusRefresh(this);
+  }
+
+  private handleCommandExit(exitCode: number): void {
+    const nextType: SummaryType = exitCode === 0 ? 'success' : 'error';
+    const nextSummary = exitCode === 0 ? 'Done' : `Exit ${exitCode}`;
+    if (this.summaryType !== nextType || this.summary !== nextSummary) {
+      this.summaryType = nextType;
+      this.summary = nextSummary;
+      this.pushDisplayState({ summaryType: nextType, summary: nextSummary });
+    }
+    if (this.autoCloseOnSuccess && exitCode === 0) {
+      scheduleAutoCloseOnSuccess(this.ptyId, () => this.disposed);
+    }
   }
 
   clearDataThrottle(): void {

@@ -60,9 +60,11 @@ export async function completeTask(opts: CompleteTaskOptions): Promise<void> {
   });
 
   // 3. Spawn the done-hook terminal if there's a command and a worktree to run it in.
-  //    exitAfterCommand makes the PTY exit when the command finishes so the
-  //    real exit code reaches wireExitHandler; autoCloseOnSuccess then tidies
-  //    the success case while leaving failures visible (red dot, Exit N).
+  //    The shell-integration precmd hook emits OSC 133;D;<exit_code> after the
+  //    command runs; the renderer flips the status to success/error and (for
+  //    autoCloseOnSuccess: true) schedules a tidy-up on success. The PTY itself
+  //    drops into an interactive shell at the worktree, so failures leave a
+  //    usable debugging surface instead of a dead terminal.
   if (effectiveCommand && task.worktreePath) {
     await addProjectTerminal(
       projectPath,
@@ -73,7 +75,6 @@ export async function completeTask(opts: CompleteTaskOptions): Promise<void> {
         skipAutoHook: true,
         background: true,
         autoCloseOnSuccess: true,
-        exitAfterCommand: true,
       },
     );
   }
