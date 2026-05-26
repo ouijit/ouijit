@@ -69,6 +69,7 @@ export function HelpDialog({ onClose }: HelpDialogProps) {
               />
               <HealthRow ok={health.claude} label="claude" hint="not on PATH" />
               <HealthRow ok={health.codex} label="codex" hint="not on PATH" />
+              <HealthRow ok={health.pi} label="pi" hint="not on PATH" />
             </div>
           ) : (
             <div className="text-xs text-text-tertiary">Checking…</div>
