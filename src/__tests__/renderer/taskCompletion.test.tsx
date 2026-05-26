@@ -163,4 +163,40 @@ describe('completeTask', () => {
 
     expect(vi.mocked(closeProjectTerminal).mock.calls.map((c) => c[0])).toEqual(['pty-mine']);
   });
+
+  test('concurrent calls for the same task collapse to a single lifecycle', async () => {
+    // Reproduces the race between e.g. a shift-drag and the CLI's
+    // cli:task-completed push landing for the same task. Without the gate,
+    // each call snapshots the other's freshly-spawned hook terminal.
+    useTerminalStore.getState().addTerminal(PROJECT, 'pty-old', { label: 'old', taskId: 7 });
+    vi.mocked(window.api.hooks.get).mockResolvedValue({
+      done: { command: 'echo hey', name: 'Done', source: 'configured', priority: 0 },
+    });
+    let spawnCount = 0;
+    vi.mocked(addProjectTerminal).mockImplementation(async () => {
+      spawnCount++;
+      useTerminalStore.getState().addTerminal(PROJECT, `pty-hook-${spawnCount}`, { label: 'Done', taskId: 7 });
+      return true;
+    });
+
+    const task = makeTask();
+    await Promise.all([
+      completeTask({ projectPath: PROJECT, task }),
+      completeTask({ projectPath: PROJECT, task }),
+      completeTask({ projectPath: PROJECT, task }),
+    ]);
+
+    expect(spawnCount).toBe(1);
+    expect(window.api.task.setStatus).toHaveBeenCalledTimes(1);
+    // The pre-existing terminal closes once; the single freshly-spawned hook
+    // terminal survives.
+    expect(vi.mocked(closeProjectTerminal).mock.calls.map((c) => c[0])).toEqual(['pty-old']);
+  });
+
+  test('after completion, a later call runs again (gate clears)', async () => {
+    await completeTask({ projectPath: PROJECT, task: makeTask() });
+    await completeTask({ projectPath: PROJECT, task: makeTask() });
+
+    expect(window.api.task.setStatus).toHaveBeenCalledTimes(2);
+  });
 });

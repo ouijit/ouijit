@@ -1008,10 +1008,11 @@ export class OuijitTerminal {
 
     // OSC 133;D from our shell-integration precmd hook lets us reflect the
     // real exit code without requiring the PTY to die. Drives the success/
-    // error status dot and autoCloseOnSuccess.
-    for (const code of parseOsc133ExitCodes(batch)) {
-      this.handleCommandExit(code);
-    }
+    // error status dot and autoCloseOnSuccess. A throttled batch may carry
+    // multiple codes (e.g. `false; true`) — only the last one is meaningful
+    // since the prior commands have already been visually superseded.
+    const codes = parseOsc133ExitCodes(batch);
+    if (codes.length > 0) this.handleCommandExit(codes[codes.length - 1]);
 
     scheduleTerminalGitStatusRefresh(this);
   }

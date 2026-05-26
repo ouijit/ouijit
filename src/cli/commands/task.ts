@@ -67,6 +67,8 @@ Examples:
   ouijit task set-status 5 done
   ouijit task set-status 5 done --skip-hook
   ouijit task set-status 5 done --hook-command "npm run deploy"
+  ouijit task bulk-set-status done 5 6 7
+  ouijit task bulk-set-status done 5 6 7 --skip-hook
   ouijit task set-name 5 "Better name"
   ouijit task delete 5`,
     );
@@ -200,6 +202,63 @@ Examples:
       );
       if (!result.success) return printError(result.error || 'Failed to set status');
       printJson({ success: true, status: STATUS_LABELS[status] || status, hookWarning: result.hookWarning });
+    });
+
+  task
+    .command('bulk-set-status')
+    .description('Set status on multiple tasks in parallel')
+    .argument('<status>', 'new status (todo|in_progress|in_review|done)')
+    .argument('<numbers...>', 'task numbers (space-separated)')
+    .option('--skip-hook', 'when setting done, skip the configured done hook for every task')
+    .option('--hook-command <cmd>', 'when setting done, run this command instead of the configured done hook')
+    .action(async (status: string, numberArgs: string[], opts: Pick<HookFlags, 'skipHook' | 'hookCommand'>) => {
+      if (!VALID_STATUSES.includes(status)) {
+        return printError(`Invalid status: ${status}. Must be one of: ${VALID_STATUSES.join(', ')}`);
+      }
+      const numbers: number[] = [];
+      for (const arg of numberArgs) {
+        const n = parseInt(arg, 10);
+        if (isNaN(n)) return printError(`Task number must be an integer: ${arg}`);
+        numbers.push(n);
+      }
+      const hookBody: { skipHook?: boolean; hookCommand?: string } = {};
+      if (status === 'done') {
+        if (opts.skipHook && opts.hookCommand !== undefined) {
+          return printError('Only one of --skip-hook, --hook-command may be used');
+        }
+        if (opts.skipHook) hookBody.skipHook = true;
+        if (opts.hookCommand !== undefined) {
+          if (!opts.hookCommand.trim()) return printError('--hook-command requires a non-empty command');
+          hookBody.hookCommand = opts.hookCommand;
+        }
+      }
+      const project = requireProject();
+      const results = await Promise.allSettled(
+        numbers.map((n) =>
+          patch<{ success: boolean; error?: string; hookWarning?: string }>(
+            `/api/tasks/${n}/status${projectQuery(project)}`,
+            { status, ...hookBody },
+          ).then((r) => ({ taskNumber: n, ...r })),
+        ),
+      );
+      const succeeded: number[] = [];
+      const failed: Array<{ taskNumber: number; error: string }> = [];
+      results.forEach((r, i) => {
+        const taskNumber = numbers[i];
+        if (r.status === 'rejected') {
+          failed.push({ taskNumber, error: r.reason instanceof Error ? r.reason.message : String(r.reason) });
+        } else if (!r.value.success) {
+          failed.push({ taskNumber, error: r.value.error || 'Failed to set status' });
+        } else {
+          succeeded.push(taskNumber);
+        }
+      });
+      printJson({
+        success: failed.length === 0,
+        status: STATUS_LABELS[status] || status,
+        succeeded,
+        failed,
+      });
     });
 
   task

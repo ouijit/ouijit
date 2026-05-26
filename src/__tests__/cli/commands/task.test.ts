@@ -257,6 +257,79 @@ describe('task commands', () => {
     });
   });
 
+  describe('bulk-set-status', () => {
+    test('fans out N parallel PATCH requests and aggregates success', async () => {
+      vi.mocked(patch).mockResolvedValue({ success: true });
+      const output = captureOutput();
+      await createProgram().parseAsync(['task', 'bulk-set-status', 'in_review', '1', '2', '3'], { from: 'user' });
+      const result = output.getJson();
+
+      expect(patch).toHaveBeenCalledTimes(3);
+      expect(patch).toHaveBeenCalledWith(expect.stringContaining('/api/tasks/1/status'), { status: 'in_review' });
+      expect(patch).toHaveBeenCalledWith(expect.stringContaining('/api/tasks/2/status'), { status: 'in_review' });
+      expect(patch).toHaveBeenCalledWith(expect.stringContaining('/api/tasks/3/status'), { status: 'in_review' });
+      expect(result).toEqual({ success: true, status: 'In Review', succeeded: [1, 2, 3], failed: [] });
+    });
+
+    test('done forwards --skip-hook to every task', async () => {
+      vi.mocked(patch).mockResolvedValue({ success: true });
+      const output = captureOutput();
+      await createProgram().parseAsync(['task', 'bulk-set-status', 'done', '5', '6', '--skip-hook'], { from: 'user' });
+      output.getJson();
+      expect(patch).toHaveBeenCalledWith(expect.stringContaining('/api/tasks/5/status'), {
+        status: 'done',
+        skipHook: true,
+      });
+      expect(patch).toHaveBeenCalledWith(expect.stringContaining('/api/tasks/6/status'), {
+        status: 'done',
+        skipHook: true,
+      });
+    });
+
+    test('aggregates per-task failures without rejecting the whole batch', async () => {
+      vi.mocked(patch)
+        .mockResolvedValueOnce({ success: true })
+        .mockResolvedValueOnce({ success: false, error: 'not found' })
+        .mockResolvedValueOnce({ success: true });
+      const output = captureOutput();
+      await createProgram().parseAsync(['task', 'bulk-set-status', 'done', '1', '2', '3'], { from: 'user' });
+      const result = output.getJson();
+      expect(result).toEqual({
+        success: false,
+        status: 'Done',
+        succeeded: [1, 3],
+        failed: [{ taskNumber: 2, error: 'not found' }],
+      });
+    });
+
+    test('rejects --skip-hook + --hook-command together', async () => {
+      const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
+      const errSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+      try {
+        await createProgram().parseAsync(
+          ['task', 'bulk-set-status', 'done', '1', '2', '--skip-hook', '--hook-command', 'x'],
+          { from: 'user' },
+        );
+        expect(exitSpy).toHaveBeenCalledWith(1);
+      } finally {
+        exitSpy.mockRestore();
+        errSpy.mockRestore();
+      }
+    });
+
+    test('rejects non-integer task numbers', async () => {
+      const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
+      const errSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+      try {
+        await createProgram().parseAsync(['task', 'bulk-set-status', 'done', '1', 'abc'], { from: 'user' });
+        expect(exitSpy).toHaveBeenCalledWith(1);
+      } finally {
+        exitSpy.mockRestore();
+        errSpy.mockRestore();
+      }
+    });
+  });
+
   test('set-name calls PATCH /api/tasks/:number/name', async () => {
     vi.mocked(patch).mockResolvedValue({ success: true });
     const output = captureOutput();

@@ -31,7 +31,32 @@ export interface CompleteTaskOptions {
   targetIndex?: number;
 }
 
+/**
+ * Per-(project, task) in-flight gate. A second concurrent call awaits the
+ * first instead of running its own lifecycle — without this, two callers
+ * (e.g. a shift-drag racing the CLI's cli:task-completed push) can each
+ * snapshot the other's freshly-spawned done-hook terminal and then close it.
+ */
+const inFlight = new Map<string, Promise<void>>();
+
 export async function completeTask(opts: CompleteTaskOptions): Promise<void> {
+  const key = `${opts.projectPath}:${opts.task.taskNumber}`;
+  const existing = inFlight.get(key);
+  if (existing) {
+    completionLog.info('completeTask already in flight, awaiting prior call', {
+      taskNumber: opts.task.taskNumber,
+      projectPath: opts.projectPath,
+    });
+    return existing;
+  }
+  const promise = completeTaskInner(opts).finally(() => {
+    inFlight.delete(key);
+  });
+  inFlight.set(key, promise);
+  return promise;
+}
+
+async function completeTaskInner(opts: CompleteTaskOptions): Promise<void> {
   const { projectPath, task, skipHook, hookCommand, targetIndex } = opts;
   const taskNumber = task.taskNumber;
   completionLog.info('completing task', {

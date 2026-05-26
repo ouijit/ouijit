@@ -463,12 +463,14 @@ export async function reconnectTerminal(
  * actually reflects whether the script succeeded or failed.
  */
 export function updateRunnerStatusFromOsc133(data: string, parent: OuijitTerminal): void {
-  for (const code of parseOsc133ExitCodes(data)) {
-    const next = code === 0 ? 'success' : 'error';
-    if (parent.runnerStatus !== next) {
-      parent.runnerStatus = next;
-      parent.pushDisplayState({ runnerStatus: next });
-    }
+  // Only the most recent exit code in this batch matters — earlier codes are
+  // already visually obsolete by the time the renderer sees them.
+  const codes = parseOsc133ExitCodes(data);
+  if (codes.length === 0) return;
+  const next = codes[codes.length - 1] === 0 ? 'success' : 'error';
+  if (parent.runnerStatus !== next) {
+    parent.runnerStatus = next;
+    parent.pushDisplayState({ runnerStatus: next });
   }
 }
 
