@@ -542,10 +542,19 @@ export interface ElectronAPI {
   lima: LimaAPI;
   /** Global settings API */
   globalSettings: GlobalSettingsAPI;
+  /** Onboarding API */
+  onboarding: OnboardingAPI;
   /** Health probe API (git/claude/lima detection) */
   health: HealthAPI;
   /** Capture-mode API (only populated when OUIJIT_CAPTURE_MODE=1) */
   capture: CaptureAPI;
+}
+
+/**
+ * Onboarding API exposed to the renderer
+ */
+export interface OnboardingAPI {
+  seedTask(projectPath: string): Promise<{ success: boolean }>;
 }
 
 /**

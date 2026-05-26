@@ -205,10 +205,15 @@ export function App() {
   const handleAddExisting = useCallback(async () => {
     const result = await window.api.showFolderPicker();
     if (!result.canceled && result.filePaths.length > 0) {
-      const addResult = await window.api.addProject(result.filePaths[0]);
+      const addedPath = result.filePaths[0];
+      const addResult = await window.api.addProject(addedPath);
       if (addResult.success) {
         const projects = await window.api.refreshProjects();
         useAppStore.getState().setProjects(projects);
+        const project = projects.find((p) => p.path === addedPath);
+        if (project) {
+          useAppStore.getState().navigateToProject(addedPath, project);
+        }
       } else if (addResult.error) {
         useProjectStore.getState().addToast(addResult.error, 'error');
       }

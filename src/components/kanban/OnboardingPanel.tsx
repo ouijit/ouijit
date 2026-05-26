@@ -8,11 +8,11 @@ interface OnboardingPanelProps {
   onOpenHelp: () => void;
 }
 
-const SEEDED_PROJECT_KEY = 'onboarding:seededProject';
+const FIRST_PROJECT_KEY = 'onboarding:firstProjectPath';
 const SEEDED_TASK_NUMBER_KEY = 'onboarding:seededTaskNumber';
 const DISMISSED_KEY = 'onboarding:dismissed';
 
-type Stage = 'setup' | 'in-flight' | 'complete';
+type Stage = 'intro' | 'setup' | 'in-flight' | 'complete';
 
 /**
  * First-run onboarding banner. Walks the user through configuring a start
@@ -23,19 +23,20 @@ type Stage = 'setup' | 'in-flight' | 'complete';
 export function OnboardingPanel({ projectPath, onConfigureCliAgent, onOpenHelp }: OnboardingPanelProps) {
   const tasks = useProjectStore((s) => s.tasks);
   const startHookConfigured = useProjectStore((s) => !!s.configuredHooks.start);
-  const [seededProject, setSeededProject] = useState<string | undefined>(undefined);
+  const [firstProject, setFirstProject] = useState<string | undefined>(undefined);
   const [seededTaskNumber, setSeededTaskNumber] = useState<number | undefined>(undefined);
   const [dismissed, setDismissed] = useState<boolean | undefined>(undefined);
+  const [seeding, setSeeding] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     Promise.all([
-      window.api.globalSettings.get(SEEDED_PROJECT_KEY),
+      window.api.globalSettings.get(FIRST_PROJECT_KEY),
       window.api.globalSettings.get(SEEDED_TASK_NUMBER_KEY),
       window.api.globalSettings.get(DISMISSED_KEY),
-    ]).then(([seeded, taskNum, dismissedVal]) => {
+    ]).then(([first, taskNum, dismissedVal]) => {
       if (cancelled) return;
-      setSeededProject(seeded ?? undefined);
+      setFirstProject(first ?? undefined);
       setSeededTaskNumber(taskNum ? Number(taskNum) : undefined);
       setDismissed(dismissedVal === '1');
     });
@@ -50,14 +51,15 @@ export function OnboardingPanel({ projectPath, onConfigureCliAgent, onOpenHelp }
   );
 
   const stage: Stage | null = useMemo(() => {
-    if (!seededTask) return 'setup';
+    if (seededTaskNumber == null) return 'intro';
+    if (!seededTask) return 'intro';
     if (seededTask.status === 'todo') return 'setup';
     if (seededTask.status === 'in_progress') return 'in-flight';
     return 'complete';
-  }, [seededTask]);
+  }, [seededTaskNumber, seededTask]);
 
-  if (seededProject === undefined || dismissed === undefined) return null;
-  if (seededProject !== projectPath) return null;
+  if (firstProject === undefined || dismissed === undefined) return null;
+  if (firstProject !== projectPath) return null;
   if (dismissed) return null;
   if (stage === null) return null;
 
@@ -66,17 +68,30 @@ export function OnboardingPanel({ projectPath, onConfigureCliAgent, onOpenHelp }
     await window.api.globalSettings.set(DISMISSED_KEY, '1');
   };
 
+  const handleSeedPracticeTask = async () => {
+    if (seeding) return;
+    setSeeding(true);
+    await window.api.onboarding.seedTask(projectPath);
+    await useProjectStore.getState().loadTasks(projectPath);
+    const taskNum = await window.api.globalSettings.get(SEEDED_TASK_NUMBER_KEY);
+    if (taskNum) setSeededTaskNumber(Number(taskNum));
+    setSeeding(false);
+  };
+
   const renderStageBody = (s: Stage) => (
     <>
+      {s === 'intro' && <IntroStage />}
       {s === 'setup' && <SetupStage configured={startHookConfigured} />}
       {s === 'in-flight' && <InFlightStage />}
       {s === 'complete' && <CompleteStage />}
       <StageCtas
         stage={s}
         startHookConfigured={startHookConfigured}
+        seeding={seeding}
         onConfigureCliAgent={onConfigureCliAgent}
         onOpenHelp={onOpenHelp}
         onDismiss={handleDismiss}
+        onSeedPracticeTask={handleSeedPracticeTask}
       />
     </>
   );
@@ -137,22 +152,43 @@ function StageCrossfade({ stage, renderStage }: { stage: Stage; renderStage: (s:
 interface StageCtasProps {
   stage: Stage;
   startHookConfigured: boolean;
+  seeding: boolean;
   onConfigureCliAgent: () => void;
   onOpenHelp: () => void;
   onDismiss: () => void;
+  onSeedPracticeTask: () => void;
 }
 
-function StageCtas({ stage, startHookConfigured, onConfigureCliAgent, onOpenHelp, onDismiss }: StageCtasProps) {
+function StageCtas({
+  stage,
+  startHookConfigured,
+  seeding,
+  onConfigureCliAgent,
+  onOpenHelp,
+  onDismiss,
+  onSeedPracticeTask,
+}: StageCtasProps) {
   return (
     <div className="flex items-center gap-2 flex-wrap mt-4">
-      {stage === 'complete' ? (
+      {stage === 'intro' && (
+        <button
+          className="inline-flex items-center justify-center gap-1.5 px-3 py-1 text-xs font-medium rounded-full text-white bg-accent hover:bg-accent-hover active:scale-[0.98] transition-all duration-150 ease-out disabled:opacity-60"
+          onClick={onSeedPracticeTask}
+          disabled={seeding}
+        >
+          <Icon name="plus" className="w-3.5 h-3.5" />
+          {seeding ? 'Adding…' : 'Try a practice task'}
+        </button>
+      )}
+      {stage === 'complete' && (
         <button
           className="inline-flex items-center justify-center gap-1.5 px-3 py-1 text-xs font-medium rounded-full text-white bg-accent hover:bg-accent-hover active:scale-[0.98] transition-all duration-150 ease-out"
           onClick={onDismiss}
         >
           Got it
         </button>
-      ) : (
+      )}
+      {(stage === 'setup' || stage === 'in-flight') && (
         <button
           className={`inline-flex items-center justify-center gap-1.5 px-3 py-1 text-xs font-medium rounded-full active:scale-[0.98] transition-all duration-150 ease-out ${
             startHookConfigured
@@ -170,9 +206,9 @@ function StageCtas({ stage, startHookConfigured, onConfigureCliAgent, onOpenHelp
         onClick={onOpenHelp}
       >
         <Icon name="question" className="w-3.5 h-3.5" />
-        {stage === 'complete' ? 'Help & setup' : 'Need help?'}
+        {stage === 'complete' || stage === 'intro' ? 'Help & setup' : 'Need help?'}
       </button>
-      {stage === 'complete' && (
+      {(stage === 'complete' || stage === 'intro') && (
         <button
           className="inline-flex items-center justify-center gap-1.5 px-3 py-1 text-xs font-medium rounded-full text-text-secondary bg-white/5 hover:bg-white/10 hover:text-text-primary active:scale-[0.98] transition-all duration-150 ease-out"
           onClick={() => window.api.openExternal('https://ouijit.com/docs')}
@@ -215,6 +251,39 @@ function StepBadge({ done, number }: { done: boolean; number: number }) {
         <Icon name="check" />
       </span>
     </span>
+  );
+}
+
+function IntroStage() {
+  return (
+    <>
+      <div className="text-sm font-semibold text-text-primary mb-3">How Ouijit runs tasks</div>
+      <ul className="flex flex-col gap-1.5 text-xs text-text-secondary leading-relaxed mb-3">
+        <li className="flex gap-2">
+          <span className="text-text-tertiary shrink-0">•</span>
+          <span>Each task gets its own git worktree and branch, so multiple agents can work in parallel.</span>
+        </li>
+        <li className="flex gap-2">
+          <span className="text-text-tertiary shrink-0">•</span>
+          <span>
+            Each column has a hook (start, continue, review, done) that fires on task transitions and can run any
+            command.
+          </span>
+        </li>
+        <li className="flex gap-2">
+          <span className="text-text-tertiary shrink-0">•</span>
+          <span>
+            Supported agents automatically get the{' '}
+            <code className="px-1 py-0.5 rounded bg-white/5 font-mono text-[11px]">ouijit</code> CLI in their context,
+            so they know how to see and manage tasks, hooks, tags, plans, and scripts.
+          </span>
+        </li>
+      </ul>
+      <div className="text-xs text-text-tertiary leading-relaxed">
+        A practice task adds one card with a throwaway prompt. It runs on its own branch and writes a single file you
+        can delete after.
+      </div>
+    </>
   );
 }
 
