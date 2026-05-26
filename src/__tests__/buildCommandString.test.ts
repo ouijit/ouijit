@@ -123,4 +123,26 @@ describe('buildCommandShellArgs', () => {
       expect(args[1]).toContain('exec /bin/zsh');
     });
   });
+
+  // Subshell wrapping isolates the user command from our outer zsh/bash so
+  // that an explicit `exit` builtin terminates only the subshell. Without it,
+  // a hook like `echo hi; exit 1` would nuke the outer shell before we could
+  // exec into the interactive one — the user would never see a usable shell
+  // on failure.
+  describe('subshell wrapping', () => {
+    it('wraps the command in a subshell for zsh', () => {
+      const args = buildCommandShellArgs('echo hi; exit 1', '/bin/zsh', '/tmp/integration');
+      expect(args[1]).toContain('(echo hi; exit 1)');
+    });
+
+    it('wraps the command in a subshell for bash', () => {
+      const args = buildCommandShellArgs('echo hi; exit 1', '/bin/bash', '/tmp/integration');
+      expect(args[1]).toContain('(echo hi; exit 1)');
+    });
+
+    it('still wraps when exitAfterCommand is set', () => {
+      const args = buildCommandShellArgs('echo hi; exit 1', '/bin/zsh', '/tmp/integration', true);
+      expect(args[1]).toContain('(echo hi; exit 1)');
+    });
+  });
 });
