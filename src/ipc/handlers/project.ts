@@ -4,6 +4,7 @@ import { typedHandle } from '../helpers';
 import { getProjectList } from '../../scanner';
 import { addProject, removeProject, reorderProjects, getProjectSettings, setKillExistingOnRun } from '../../db';
 import { createProject, validateProjectFolder } from '../../projectCreator';
+import { seedOnboardingTaskIfFirstProject } from '../../onboarding';
 import { openInEditor, openFileInEditor } from '../../editorLauncher';
 import { deleteWithCleanup } from '../../lima/manager';
 import { deleteConfig } from '../../lima/configStore';
@@ -54,6 +55,7 @@ export function registerProjectHandlers(mainWindow: BrowserWindow): void {
           error: `Project folder created at ${result.projectPath}, but registering it failed: ${message}`,
         };
       }
+      await seedOnboardingTaskIfFirstProject(result.projectPath);
     }
     return result;
   });

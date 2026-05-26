@@ -22,7 +22,9 @@ import { beginTransition, bulkTransitionTasks, surfaceStartWarnings } from '../.
 import { completeTask } from '../../services/taskCompletion';
 import { KanbanColumn } from './KanbanColumn';
 import { BulkActionBar } from './BulkActionBar';
+import { OnboardingPanel } from './OnboardingPanel';
 import { focusKanbanAddInput } from './KanbanAddInput';
+import { useAppStore } from '../../stores/appStore';
 import { HookConfigDialog } from '../dialogs/HookConfigDialog';
 import { CombinedHookConfigDialog } from '../dialogs/CombinedHookConfigDialog';
 import { MissingWorktreeDialog } from '../dialogs/MissingWorktreeDialog';
@@ -699,6 +701,11 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
             onClose={handleHookDialogClose}
           />
         )}
+        <OnboardingPanel
+          projectPath={projectPath}
+          onConfigureCliAgent={() => handleConfigureHook(['start', 'continue'])}
+          onOpenHelp={() => useAppStore.getState().setHelpDialogOpen(true)}
+        />
         <div className="flex flex-1 min-h-0" style={{ overflowX: 'auto', overflowY: 'hidden' }}>
           {COLUMNS.map((col) => {
             const hookActive =

@@ -168,12 +168,20 @@ export function TitleBar({ mode }: TitleBarProps) {
                 <Icon name="terminal" />
               </button>
             </Tooltip>
-            <Tooltip text="New task" placement="bottom-end">
+            <Tooltip text="New task" placement="bottom">
               <button
                 className="w-9 h-9 flex items-center justify-center bg-background-secondary glass-bevel relative border border-black/60 rounded-[14px] text-text-secondary transition-all duration-150 ease-out ml-3 [-webkit-app-region:no-drag] hover:bg-background-tertiary hover:text-text-primary [&>svg]:w-5 [&>svg]:h-5"
                 onClick={handleNewTask}
               >
                 <Icon name="plus" />
+              </button>
+            </Tooltip>
+            <Tooltip text="Help &amp; setup" placement="bottom-end">
+              <button
+                className="w-9 h-9 flex items-center justify-center bg-background-secondary glass-bevel relative border border-black/60 rounded-[14px] text-text-secondary transition-all duration-150 ease-out ml-3 [-webkit-app-region:no-drag] hover:bg-background-tertiary hover:text-text-primary [&>svg]:w-5 [&>svg]:h-5"
+                onClick={() => useAppStore.getState().setHelpDialogOpen(true)}
+              >
+                <Icon name="question" />
               </button>
             </Tooltip>
           </div>

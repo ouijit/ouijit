@@ -11,6 +11,7 @@ import { ProjectView } from './components/ProjectViewReact';
 import { ToastContainer } from './components/ui/ToastContainer';
 import { NewProjectDialog } from './components/dialogs/NewProjectDialog';
 import { WhatsNewDialog } from './components/dialogs/WhatsNewDialog';
+import { HelpDialog } from './components/dialogs/HelpDialog';
 import { installCaptureNavigator } from './capture/navigator';
 import { hydrateTerminalFont } from './components/terminal/terminalReact';
 import { installSessionAutoSave } from './components/terminal/sessionSnapshot';
@@ -62,6 +63,7 @@ export function App() {
   const activeView = useAppStore((s) => s.activeView);
   const activeProjectPath = useAppStore((s) => s.activeProjectPath);
   const whatsNew = useAppStore((s) => s.whatsNew);
+  const helpDialogOpen = useAppStore((s) => s.helpDialogOpen);
   const homeActivePanel = useAppStore((s) => s.homeActivePanel);
   const [showNewProject, setShowNewProject] = useState(false);
   const [initialized, setInitialized] = useState(false);
@@ -270,6 +272,7 @@ export function App() {
           onClose={() => useAppStore.getState().setWhatsNew(null)}
         />
       )}
+      {helpDialogOpen && <HelpDialog onClose={() => useAppStore.getState().setHelpDialogOpen(false)} />}
     </div>
   );
 }
