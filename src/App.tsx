@@ -219,6 +219,17 @@ export function App() {
     setShowNewProject(true);
   }, []);
 
+  useEffect(() => {
+    const onAddExisting = () => handleAddExisting();
+    const onCreateNew = () => handleCreateNew();
+    document.addEventListener('add-existing-project', onAddExisting);
+    document.addEventListener('create-new-project', onCreateNew);
+    return () => {
+      document.removeEventListener('add-existing-project', onAddExisting);
+      document.removeEventListener('create-new-project', onCreateNew);
+    };
+  }, [handleAddExisting, handleCreateNew]);
+
   const handleNewProjectClose = useCallback(
     async (result: { created: boolean; projectName?: string; projectPath?: string } | null) => {
       setShowNewProject(false);
