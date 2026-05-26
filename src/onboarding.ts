@@ -8,15 +8,11 @@ export const ONBOARDING_SEEDED_PROJECT_KEY = 'onboarding:seededProject';
 export const ONBOARDING_DISMISSED_KEY = 'onboarding:dismissed';
 export const ONBOARDING_TASK_NAME = 'Your first task: meet the Ouijit CLI';
 
-export const ONBOARDING_TASK_PROMPT = `This is a guided practice task. Complete it by using the \`ouijit\` CLI, which is how Ouijit's board, terminals, and your agent stay in sync.
+export const ONBOARDING_TASK_PROMPT = `Welcome to Ouijit. This is a practice task to show how the app works end to end.
 
-Steps:
-1. Run \`ouijit task current\` to see this task. The CLI is pre-configured in this terminal (OUIJIT_API_URL and OUIJIT_PTY_ID are set automatically).
-2. Create a file named \`hello.txt\` in the project root containing the text \`hello world\`.
-3. Run \`ouijit task set-status <taskNumber> in_review\` using the number from step 1. Watch the card move across the board in real time.
-4. Run \`ouijit task list\` to see the full board state.
+Create a file named \`hello.txt\` in the project root containing the text \`hello world\`, then move this task to In Review.
 
-When you're done, summarize what each command did so the user understands how to drive Ouijit from the CLI.`;
+The \`ouijit\` CLI is available in this terminal; use \`ouijit --help\` if you need it.`;
 
 /**
  * Seeds the onboarding tutorial task on the first project the user ever creates.

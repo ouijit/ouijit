@@ -80,21 +80,18 @@ export function HelpDialog({ onClose }: HelpDialogProps) {
           <h3 className="text-xs font-semibold uppercase tracking-wide text-text-tertiary mb-2">Connect a CLI agent</h3>
           <p className="text-xs text-text-secondary leading-relaxed">
             Configure a <span className="text-text-primary font-medium">start hook</span> on the kanban board (the chip
-            on the In Progress column). When you drag a task to In Progress, Ouijit creates a git worktree and runs your
-            hook script with <code className="px-1 py-0.5 rounded bg-white/5 font-mono">OUIJIT_TASK_PROMPT</code> set to
-            the task description. A typical hook just launches your agent:{' '}
-            <code className="px-1 py-0.5 rounded bg-white/5 font-mono">claude</code> or{' '}
-            <code className="px-1 py-0.5 rounded bg-white/5 font-mono">codex</code>.
+            on the In Progress column). A start hook is the command that runs when you drag a task to In Progress.
+            Usually it&apos;s just your agent: <code className="px-1 py-0.5 rounded bg-white/5 font-mono">claude</code>{' '}
+            or <code className="px-1 py-0.5 rounded bg-white/5 font-mono">codex</code>. The task description is passed
+            in as the prompt, and the agent figures out the rest using the{' '}
+            <code className="px-1 py-0.5 rounded bg-white/5 font-mono">ouijit</code> CLI.
           </p>
         </section>
 
         <section className="mt-5">
           <h3 className="text-xs font-semibold uppercase tracking-wide text-text-tertiary mb-2">The ouijit CLI</h3>
           <p className="text-xs text-text-secondary leading-relaxed mb-2">
-            Every task terminal has <code className="px-1 py-0.5 rounded bg-white/5 font-mono">OUIJIT_API_URL</code> and{' '}
-            <code className="px-1 py-0.5 rounded bg-white/5 font-mono">OUIJIT_PTY_ID</code> pre-set, so the{' '}
-            <code className="px-1 py-0.5 rounded bg-white/5 font-mono">ouijit</code> CLI works without setup. Your agent
-            can use it to drive the board.
+            Available in every task terminal. Your agent uses it to read and update the board.
           </p>
           <div className="flex flex-col gap-1.5 mt-3 font-mono text-[11px]">
             {CLI_EXAMPLES.map((ex) => (

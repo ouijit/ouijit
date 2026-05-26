@@ -55,19 +55,18 @@ export function OnboardingPanel({ projectPath, onConfigureCliAgent, onOpenHelp }
       className="mx-3 mt-3 mb-2 px-4 py-3 rounded-[12px] border border-white/10 flex items-start gap-3"
       style={{ background: 'rgba(255, 255, 255, 0.03)' }}
     >
-      <div
-        className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-accent [&>svg]:w-5 [&>svg]:h-5"
-        style={{ background: 'rgba(10, 132, 255, 0.12)' }}
-      >
-        <Icon name="rocket" />
-      </div>
       <div className="flex-1 min-w-0">
-        <div className="text-sm font-medium text-text-primary mb-1">Welcome to Ouijit</div>
+        <div className="text-sm font-medium text-text-primary mb-1">Set up a start hook</div>
+        <div className="text-xs text-text-secondary leading-relaxed mb-2">
+          A start hook is the command Ouijit runs when a task enters In Progress. It can be as small as one line that
+          hands the task to your CLI agent. For example:
+        </div>
+        <pre className="text-[11px] font-mono text-text-primary bg-white/5 rounded-md px-2.5 py-1.5 mb-3 overflow-x-auto">
+          <code>{`claude "complete the current task and move it to in-review"`}</code>
+        </pre>
         <div className="text-xs text-text-secondary leading-relaxed mb-3">
-          We seeded a tutorial task below. Set up a start hook to launch your CLI agent (Claude, Codex, etc.), then drag
-          the tutorial card to In Progress. The agent will use the{' '}
-          <code className="px-1 py-0.5 rounded bg-white/5 font-mono">ouijit</code> CLI to drive the board itself. Watch
-          the card move across columns live.
+          We seeded a practice task below. Set up your hook, then drag the card to In Progress and watch your agent take
+          over.
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <button
@@ -75,7 +74,7 @@ export function OnboardingPanel({ projectPath, onConfigureCliAgent, onOpenHelp }
             onClick={onConfigureCliAgent}
           >
             <Icon name="terminal" className="w-3.5 h-3.5" />
-            Set up your CLI agent
+            Configure start hook
           </button>
           <button
             className="inline-flex items-center justify-center gap-1.5 px-3 py-1 text-xs font-medium rounded-full text-text-secondary bg-white/5 hover:bg-white/10 hover:text-text-primary active:scale-[0.98] transition-all duration-150 ease-out"
