@@ -200,8 +200,17 @@ function CompleteStage() {
         <li className="flex gap-2">
           <span className="text-text-tertiary shrink-0">•</span>
           <span>
-            The <code className="px-1 py-0.5 rounded bg-white/5 font-mono text-[11px]">ouijit</code> CLI is how your
-            agent read this task and updated the board, and it&rsquo;s available to you in any terminal.
+            Supported agents automatically get the{' '}
+            <code className="px-1 py-0.5 rounded bg-white/5 font-mono text-[11px]">ouijit</code> CLI in their context,
+            so they know how to see and manage tasks, hooks, tags, plans, and scripts. The same commands are available
+            to you in any terminal.
+          </span>
+        </li>
+        <li className="flex gap-2">
+          <span className="text-text-tertiary shrink-0">•</span>
+          <span>
+            Each column has its own hook (start, continue, review, done) that fires on task transitions and can run any
+            command.
           </span>
         </li>
         <li className="flex gap-2">
