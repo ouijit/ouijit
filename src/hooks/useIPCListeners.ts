@@ -107,31 +107,21 @@ export function useIPCListeners() {
       }),
     );
 
-    // CLI-initiated done transition — server already wrote status, we run the
-    // shared completeTask lifecycle (snapshot terminals, spawn done hook, close
-    // snapshot). setStatus inside completeTask is idempotent so the redundant
-    // write is harmless. Skipped if the user isn't viewing the project — the
-    // server-side status change still landed; only the terminal cleanup is
-    // missed, and there's nothing meaningful to do offline.
+    // CLI-initiated done transition — server already wrote status and included
+    // the full task in the payload, so the done-hook lifecycle (snapshot
+    // terminals, spawn done hook, close snapshot) can run regardless of which
+    // project the user is currently viewing. completeTask itself guards
+    // loadTasks against clobbering the active project's task list, so the
+    // visible kanban catches up on next navigation.
     cleanups.push(
       window.api.onCliTaskCompleted((payload) => {
-        const activeProject = useAppStore.getState().activeProjectPath;
-        if (activeProject !== payload.project) {
-          ipcLog.info('CLI task-completed: project not active, skipping lifecycle', {
-            project: payload.project,
-            taskNumber: payload.taskNumber,
-          });
-          return;
-        }
-        const task = useProjectStore.getState().tasks.find((t) => t.taskNumber === payload.taskNumber);
-        if (!task) {
-          ipcLog.warn('CLI task-completed: task not found in store', { taskNumber: payload.taskNumber });
-          return;
-        }
-        ipcLog.info('CLI task-completed: running completeTask', { taskNumber: payload.taskNumber });
+        ipcLog.info('CLI task-completed: running completeTask', {
+          project: payload.project,
+          taskNumber: payload.taskNumber,
+        });
         void completeTask({
           projectPath: payload.project,
-          task,
+          task: payload.task,
           skipHook: payload.skipHook,
           hookCommand: payload.hookCommand,
           // Server already PATCHed the status before pushing; only the

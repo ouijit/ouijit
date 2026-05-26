@@ -12,7 +12,9 @@ import type {
   HookType,
   Script,
   CliHookMode,
+  TaskWithWorkspace,
 } from './types';
+import type { CaptureNavigatePayload } from './capture/types';
 
 // ── Typed IPC helpers ───────────────────────────────────────────────────────
 // These ensure channel names, argument types, and return types are all
@@ -230,12 +232,17 @@ contextBridge.exposeInMainWorld('api', {
   ) => typedListen('cli:task-started', callback),
 
   onCliTaskCompleted: (
-    callback: (payload: { project: string; taskNumber: number; skipHook?: boolean; hookCommand?: string }) => void,
+    callback: (payload: {
+      project: string;
+      taskNumber: number;
+      task: TaskWithWorkspace;
+      skipHook?: boolean;
+      hookCommand?: string;
+    }) => void,
   ) => typedListen('cli:task-completed', callback),
 
   capture: {
-    onNavigate: (callback: (payload: import('./capture/types').CaptureNavigatePayload) => void) =>
-      typedListen('capture:navigate', callback),
+    onNavigate: (callback: (payload: CaptureNavigatePayload) => void) => typedListen('capture:navigate', callback),
   },
 
   getPathForFile: (file: File): string => webUtils.getPathForFile(file),

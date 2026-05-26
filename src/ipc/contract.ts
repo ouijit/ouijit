@@ -37,6 +37,7 @@ import type {
 import type { SandboxStatus } from '../lima/types';
 import type { HookStatusEntry } from '../hookServer';
 import type { HealthStatus } from '../healthCheck';
+import type { CaptureNavigatePayload } from '../capture/types';
 
 /** Hooks object returned by hooks:get — derived from the canonical ProjectSettings type */
 export type ProjectHooks = NonNullable<ProjectSettings['hooks']>;
@@ -256,6 +257,10 @@ export interface IpcPushContract {
       payload: {
         project: string;
         taskNumber: number;
+        /** Full task record fetched server-side, so the renderer doesn't need to
+         *  look it up in projectStore.tasks (which only holds the *active*
+         *  project's tasks — would miss when the user is viewing a different project). */
+        task: TaskWithWorkspace;
         /** When true, the CLI passed --skip-hook; the renderer should bypass the done hook. */
         skipHook?: boolean;
         /** When set, the CLI passed --hook-command; run this instead of the configured hook. */
@@ -263,5 +268,5 @@ export interface IpcPushContract {
       },
     ];
   };
-  'capture:navigate': { args: [payload: import('../capture/types').CaptureNavigatePayload] };
+  'capture:navigate': { args: [payload: CaptureNavigatePayload] };
 }

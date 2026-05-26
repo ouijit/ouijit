@@ -604,18 +604,24 @@ async function handleAsync(req: IncomingMessage, res: ServerResponse, window: Br
 
       // CLI set-status N done: the server wrote the status, but the renderer
       // owns the rest of the done lifecycle (terminal cleanup + done-hook
-      // spawn). Push so the active project view can run completeTask.
+      // spawn). The task is fetched here and included in the payload so the
+      // renderer doesn't need projectStore.tasks (which only holds the active
+      // project's task list — would miss when the user is viewing elsewhere).
       if (isStatusPatchRoute(method, segments) && body.status === 'done' && isSuccessfulMutation(result)) {
         const taskNumber = parseInt(segments[1] ?? '', 10);
         if (!Number.isNaN(taskNumber)) {
-          const skipHook = body.skipHook === true;
-          const hookCommand = typeof body.hookCommand === 'string' ? body.hookCommand : undefined;
-          typedPush(window, 'cli:task-completed', {
-            project,
-            taskNumber,
-            skipHook: skipHook || undefined,
-            hookCommand,
-          });
+          const task = await getTaskWithWorkspace(project, taskNumber);
+          if (task) {
+            const skipHook = body.skipHook === true;
+            const hookCommand = typeof body.hookCommand === 'string' ? body.hookCommand : undefined;
+            typedPush(window, 'cli:task-completed', {
+              project,
+              taskNumber,
+              task,
+              skipHook: skipHook || undefined,
+              hookCommand,
+            });
+          }
         }
       }
     }
