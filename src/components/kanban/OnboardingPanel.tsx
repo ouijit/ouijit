@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { Icon } from '../terminal/Icon';
 import { useProjectStore } from '../../stores/projectStore';
 
@@ -66,45 +66,28 @@ export function OnboardingPanel({ projectPath, onConfigureCliAgent, onOpenHelp }
     await window.api.globalSettings.set(DISMISSED_KEY, '1');
   };
 
+  const renderStageBody = (s: Stage) => (
+    <>
+      {s === 'setup' && <SetupStage configured={startHookConfigured} />}
+      {s === 'in-flight' && <InFlightStage />}
+      {s === 'complete' && <CompleteStage />}
+      <StageCtas
+        stage={s}
+        startHookConfigured={startHookConfigured}
+        onConfigureCliAgent={onConfigureCliAgent}
+        onOpenHelp={onOpenHelp}
+        onDismiss={handleDismiss}
+      />
+    </>
+  );
+
   return (
     <div
-      className="mx-3 mt-3 mb-2 px-4 py-3 rounded-[12px] border border-white/10 flex items-start gap-3"
+      className="mx-3 mt-3 mb-2 px-4 py-3 rounded-[12px] border border-white/10 flex items-start gap-3 onboarding-stage-enter"
       style={{ background: 'rgba(255, 255, 255, 0.03)' }}
     >
       <div className="flex-1 min-w-0">
-        {stage === 'setup' && <SetupStage configured={startHookConfigured} />}
-        {stage === 'in-flight' && <InFlightStage />}
-        {stage === 'complete' && <CompleteStage />}
-
-        <div className="flex items-center gap-2 flex-wrap mt-4">
-          {stage === 'complete' ? (
-            <button
-              className="inline-flex items-center justify-center gap-1.5 px-3 py-1 text-xs font-medium rounded-full text-white bg-accent hover:bg-accent-hover active:scale-[0.98] transition-all duration-150 ease-out"
-              onClick={handleDismiss}
-            >
-              Got it
-            </button>
-          ) : (
-            <button
-              className={`inline-flex items-center justify-center gap-1.5 px-3 py-1 text-xs font-medium rounded-full active:scale-[0.98] transition-all duration-150 ease-out ${
-                startHookConfigured
-                  ? 'text-text-secondary bg-white/5 hover:bg-white/10 hover:text-text-primary'
-                  : 'text-white bg-accent hover:bg-accent-hover'
-              }`}
-              onClick={onConfigureCliAgent}
-            >
-              <Icon name="terminal" className="w-3.5 h-3.5" />
-              {startHookConfigured ? 'Edit start hook' : 'Configure start hook'}
-            </button>
-          )}
-          <button
-            className="inline-flex items-center justify-center gap-1.5 px-3 py-1 text-xs font-medium rounded-full text-text-secondary bg-white/5 hover:bg-white/10 hover:text-text-primary active:scale-[0.98] transition-all duration-150 ease-out"
-            onClick={onOpenHelp}
-          >
-            <Icon name="question" className="w-3.5 h-3.5" />
-            {stage === 'complete' ? 'Help & setup' : 'Need help?'}
-          </button>
-        </div>
+        <StageCrossfade stage={stage} renderStage={renderStageBody} />
       </div>
       <button
         className="shrink-0 w-7 h-7 flex items-center justify-center rounded-full text-text-tertiary hover:text-text-primary hover:bg-white/10 transition-colors [&>svg]:w-4 [&>svg]:h-4"
@@ -117,14 +100,120 @@ export function OnboardingPanel({ projectPath, onConfigureCliAgent, onOpenHelp }
   );
 }
 
+/**
+ * Crossfades between stages: old stage runs its exit animation while the new
+ * stage renders in the same grid cell with its entrance animation. The grid
+ * sizes the container to the max of the two children's heights during the
+ * overlap, so the parent height changes smoothly as old shrinks and new grows.
+ */
+function StageCrossfade({ stage, renderStage }: { stage: Stage; renderStage: (s: Stage) => React.ReactNode }) {
+  const [exiting, setExiting] = useState<Stage | null>(null);
+  const prevStage = useRef(stage);
+
+  useEffect(() => {
+    if (prevStage.current !== stage) {
+      const old = prevStage.current;
+      setExiting(old);
+      const t = setTimeout(() => setExiting((s) => (s === old ? null : s)), 200);
+      prevStage.current = stage;
+      return () => clearTimeout(t);
+    }
+  }, [stage]);
+
+  return (
+    <div className="grid">
+      {exiting && (
+        <div key={`exit-${exiting}`} className="[grid-area:1/1] onboarding-stage-exit">
+          {renderStage(exiting)}
+        </div>
+      )}
+      <div key={`enter-${stage}`} className="[grid-area:1/1] onboarding-stage-children-enter">
+        {renderStage(stage)}
+      </div>
+    </div>
+  );
+}
+
+interface StageCtasProps {
+  stage: Stage;
+  startHookConfigured: boolean;
+  onConfigureCliAgent: () => void;
+  onOpenHelp: () => void;
+  onDismiss: () => void;
+}
+
+function StageCtas({ stage, startHookConfigured, onConfigureCliAgent, onOpenHelp, onDismiss }: StageCtasProps) {
+  return (
+    <div className="flex items-center gap-2 flex-wrap mt-4">
+      {stage === 'complete' ? (
+        <button
+          className="inline-flex items-center justify-center gap-1.5 px-3 py-1 text-xs font-medium rounded-full text-white bg-accent hover:bg-accent-hover active:scale-[0.98] transition-all duration-150 ease-out"
+          onClick={onDismiss}
+        >
+          Got it
+        </button>
+      ) : (
+        <button
+          className={`inline-flex items-center justify-center gap-1.5 px-3 py-1 text-xs font-medium rounded-full active:scale-[0.98] transition-all duration-150 ease-out ${
+            startHookConfigured
+              ? 'text-text-secondary bg-white/5 hover:bg-white/10 hover:text-text-primary'
+              : 'text-white bg-accent hover:bg-accent-hover'
+          }`}
+          onClick={onConfigureCliAgent}
+        >
+          <Icon name="terminal" className="w-3.5 h-3.5" />
+          {startHookConfigured ? 'Edit start hook' : 'Configure start hook'}
+        </button>
+      )}
+      <button
+        className="inline-flex items-center justify-center gap-1.5 px-3 py-1 text-xs font-medium rounded-full text-text-secondary bg-white/5 hover:bg-white/10 hover:text-text-primary active:scale-[0.98] transition-all duration-150 ease-out"
+        onClick={onOpenHelp}
+      >
+        <Icon name="question" className="w-3.5 h-3.5" />
+        {stage === 'complete' ? 'Help & setup' : 'Need help?'}
+      </button>
+      {stage === 'complete' && (
+        <button
+          className="inline-flex items-center justify-center gap-1.5 px-3 py-1 text-xs font-medium rounded-full text-text-secondary bg-white/5 hover:bg-white/10 hover:text-text-primary active:scale-[0.98] transition-all duration-150 ease-out"
+          onClick={() => window.api.openExternal('https://ouijit.com/docs')}
+        >
+          <Icon name="file-text" className="w-3.5 h-3.5" />
+          Docs
+        </button>
+      )}
+    </div>
+  );
+}
+
 function StepBadge({ done, number }: { done: boolean; number: number }) {
+  const [popping, setPopping] = useState(false);
+  const prevDone = useRef(done);
+
+  useEffect(() => {
+    if (!prevDone.current && done) {
+      setPopping(true);
+      const timeout = setTimeout(() => setPopping(false), 320);
+      return () => clearTimeout(timeout);
+    }
+    prevDone.current = done;
+  }, [done]);
+
   return (
     <span
-      className={`shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-semibold ${
-        done ? 'bg-accent text-white [&>svg]:w-3 [&>svg]:h-3' : 'bg-white/10 text-text-primary'
-      }`}
+      className={`relative shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-semibold transition-colors duration-300 ease-out ${
+        done ? 'bg-accent text-white' : 'bg-white/10 text-text-primary'
+      } ${popping ? 'onboarding-badge-check' : ''}`}
     >
-      {done ? <Icon name="check" /> : number}
+      <span
+        className={`absolute inset-0 flex items-center justify-center transition-opacity duration-200 ease-out ${done ? 'opacity-0' : 'opacity-100'}`}
+      >
+        {number}
+      </span>
+      <span
+        className={`absolute inset-0 flex items-center justify-center transition-opacity duration-200 ease-out [&>svg]:w-3 [&>svg]:h-3 ${done ? 'opacity-100' : 'opacity-0'}`}
+      >
+        <Icon name="check" />
+      </span>
     </span>
   );
 }
@@ -195,15 +284,19 @@ function InFlightStage() {
 function CompleteStage() {
   return (
     <>
-      <div className="text-sm font-semibold text-text-primary mb-3">Your agent moved the task to In Review</div>
+      <div className="flex items-center gap-2 mb-4">
+        <StepBadge done={true} number={0} />
+        <div className="text-xs text-text-primary">
+          &ldquo;Your first task&rdquo; is in <span className="font-medium">In Review</span>
+        </div>
+      </div>
       <ul className="flex flex-col gap-1.5 text-xs text-text-secondary leading-relaxed">
         <li className="flex gap-2">
           <span className="text-text-tertiary shrink-0">•</span>
           <span>
             Supported agents automatically get the{' '}
             <code className="px-1 py-0.5 rounded bg-white/5 font-mono text-[11px]">ouijit</code> CLI in their context,
-            so they know how to see and manage tasks, hooks, tags, plans, and scripts. The same commands are available
-            to you in any terminal.
+            so they know how to see and manage tasks, hooks, tags, plans, and scripts.
           </span>
         </li>
         <li className="flex gap-2">
@@ -212,14 +305,6 @@ function CompleteStage() {
             Each column has its own hook (start, continue, review, done) that fires on task transitions and can run any
             command.
           </span>
-        </li>
-        <li className="flex gap-2">
-          <span className="text-text-tertiary shrink-0">•</span>
-          <span>Each task lives in its own git worktree and branch, so multiple agents can work in parallel.</span>
-        </li>
-        <li className="flex gap-2">
-          <span className="text-text-tertiary shrink-0">•</span>
-          <span>Task descriptions support multiple lines, images, and attached files.</span>
         </li>
       </ul>
     </>
