@@ -85,6 +85,8 @@ export async function completeTask(opts: CompleteTaskOptions): Promise<void> {
   }
 
   // 5. Persist status (and order, for the kanban-drag entry point).
+  //    moveTask reloads the task list itself; the bare setStatus path has to
+  //    do it explicitly so the kanban reflects the new status.
   if (targetIndex != null) {
     await useProjectStore.getState().moveTask(projectPath, taskNumber, 'done', targetIndex);
   } else {

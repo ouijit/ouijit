@@ -14,6 +14,7 @@ import { notifyReady, readyBody } from '../../utils/notifications';
 import { generateId } from '../../utils/ids';
 import { useTerminalStore } from '../../stores/terminalStore';
 import { closeProjectTerminal } from './terminalActions';
+import { parseOsc133ExitCodes } from './osc133';
 
 // ── Idle fallback timer constants ────────────────────────────────────
 const IDLE_FALLBACK_MS = 3000;
@@ -37,14 +38,11 @@ export interface TerminalOptions {
   isRunner?: boolean;
   initialSummaryType?: SummaryType;
   /**
-   * When true, this terminal closes itself after a short grace period if its
-   * underlying process exits successfully (exit code 0). On non-zero exit it
-   * stays open with an error status. Used by the done-hook terminal so the
-   * cleanup script doesn't leave a stale terminal behind on success.
-   *
-   * Note: this only fires if the PTY itself exits. Spawns that drop into an
-   * interactive shell after the command (the default) never trigger it; pair
-   * with PtySpawnOptions.exitAfterCommand for a one-shot terminal.
+   * When true, this terminal closes itself after a short grace period when its
+   * underlying command exits with code 0. The exit signal comes from OSC 133;D
+   * (emitted by the shell-integration precmd hook) or from PTY exit. On
+   * non-zero exit it stays open with an error status, so the failure is
+   * debuggable in the interactive shell that survives the command.
    */
   autoCloseOnSuccess?: boolean;
 }
@@ -398,6 +396,9 @@ export class OuijitTerminal {
   mergeTarget?: string;
   /** See TerminalOptions.autoCloseOnSuccess. */
   readonly autoCloseOnSuccess: boolean;
+  /** Guards against scheduling the auto-close timer twice when both the OSC
+   *  133;D path and the PTY-exit path fire for the same successful command. */
+  private autoCloseScheduled = false;
 
   // ── Per-terminal diff panel state ───────────────────────────────────
   diffPanelOpen = false;
@@ -927,9 +928,7 @@ export class OuijitTerminal {
 
       // Self-tidy on success for terminals that opted in (today: the done-hook
       // terminal). Non-zero exits stay open so the failure is visible.
-      if (this.autoCloseOnSuccess && exitCode === 0) {
-        scheduleAutoCloseOnSuccess(this.ptyId, () => this.disposed);
-      }
+      this.maybeScheduleAutoClose(exitCode);
     });
   }
 
@@ -1007,15 +1006,11 @@ export class OuijitTerminal {
       }
     }
 
-    // OSC 133 ; D ; <exit_code> ST — emitted by our shell-integration precmd
-    // hook after each user command. Lets us reflect the real exit code without
-    // requiring the PTY to die. Used by both the success/error status dot and
-    // autoCloseOnSuccess so the done-hook terminal can drop into an interactive
-    // shell on failure (for debugging) while still tidying up on success.
-    const exitMatches = batch.matchAll(/\x1b\]133;D;(-?\d+)(?:\x07|\x1b\\)/g);
-    for (const match of exitMatches) {
-      const code = parseInt(match[1], 10);
-      if (!Number.isNaN(code)) this.handleCommandExit(code);
+    // OSC 133;D from our shell-integration precmd hook lets us reflect the
+    // real exit code without requiring the PTY to die. Drives the success/
+    // error status dot and autoCloseOnSuccess.
+    for (const code of parseOsc133ExitCodes(batch)) {
+      this.handleCommandExit(code);
     }
 
     scheduleTerminalGitStatusRefresh(this);
@@ -1029,9 +1024,13 @@ export class OuijitTerminal {
       this.summary = nextSummary;
       this.pushDisplayState({ summaryType: nextType, summary: nextSummary });
     }
-    if (this.autoCloseOnSuccess && exitCode === 0) {
-      scheduleAutoCloseOnSuccess(this.ptyId, () => this.disposed);
-    }
+    this.maybeScheduleAutoClose(exitCode);
+  }
+
+  private maybeScheduleAutoClose(exitCode: number): void {
+    if (!this.autoCloseOnSuccess || exitCode !== 0 || this.autoCloseScheduled) return;
+    this.autoCloseScheduled = true;
+    scheduleAutoCloseOnSuccess(this.ptyId, () => this.disposed);
   }
 
   clearDataThrottle(): void {

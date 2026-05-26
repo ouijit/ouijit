@@ -50,12 +50,7 @@ export function buildCommandString(command: string | undefined, _env?: Record<st
  * interpolated unquoted, so escaping it would corrupt any command containing
  * a single quote into an unterminated quote.
  */
-export function buildCommandShellArgs(
-  command: string,
-  shell: string,
-  shellIntegrationDir: string,
-  exitAfterCommand = false,
-): string[] {
+export function buildCommandShellArgs(command: string, shell: string, shellIntegrationDir: string): string[] {
   const isZsh = shell.endsWith('/zsh') || shell === 'zsh';
   const isBash = shell.endsWith('/bash') || shell === 'bash';
   const prefix = 'export PATH="$OUIJIT_WRAPPER_DIR:$PATH"';
@@ -75,16 +70,13 @@ export function buildCommandShellArgs(
   const captureExit = 'export OUIJIT_INITIAL_EXIT=$?';
 
   if (isZsh) {
-    if (exitAfterCommand) return ['-ic', `${prefix}; ${wrapped}`];
     return ['-ic', `${prefix}; ${wrapped}; ${captureExit}; ZDOTDIR="$OUIJIT_SHELL_INTEGRATION_DIR/zsh" exec ${shell}`];
   }
   if (isBash) {
-    if (exitAfterCommand) return ['-ic', `${prefix}; ${wrapped}`];
     const rcfile = path.join(shellIntegrationDir, 'ouijit-bash-integration.bash');
     return ['-ic', `${prefix}; ${wrapped}; ${captureExit}; exec bash --rcfile ${rcfile}`];
   }
   // Fallback for other shells
-  if (exitAfterCommand) return ['-ic', `${prefix}; ${wrapped}`];
   return ['-ic', `${prefix}; ${wrapped}; ${captureExit}; exec ${shell}`];
 }
 
@@ -282,18 +274,18 @@ export async function spawnPty(options: PtySpawnOptions, window: BrowserWindow):
       finalEnv['ZDOTDIR'] = path.join(shellIntegrationDir, 'zsh');
 
       if (expandedCommand) {
-        shellArgs = buildCommandShellArgs(expandedCommand, shell, shellIntegrationDir, options.exitAfterCommand);
+        shellArgs = buildCommandShellArgs(expandedCommand, shell, shellIntegrationDir);
       }
     } else if (isBash) {
       // --rcfile/--init-file: bash sources this instead of ~/.bashrc.
       // Our integration script sources .bashrc first, then fixes PATH.
       if (expandedCommand) {
-        shellArgs = buildCommandShellArgs(expandedCommand, shell, shellIntegrationDir, options.exitAfterCommand);
+        shellArgs = buildCommandShellArgs(expandedCommand, shell, shellIntegrationDir);
       } else {
         shellArgs = ['--init-file', path.join(shellIntegrationDir, 'ouijit-bash-integration.bash')];
       }
     } else if (expandedCommand) {
-      shellArgs = buildCommandShellArgs(expandedCommand, shell, shellIntegrationDir, options.exitAfterCommand);
+      shellArgs = buildCommandShellArgs(expandedCommand, shell, shellIntegrationDir);
     }
 
     const ptyProcess = pty.spawn(shell, shellArgs, {

@@ -62,7 +62,6 @@ describe('completeTask', () => {
     expect(vi.mocked(addProjectTerminal).mock.calls[0][2]).toMatchObject({
       autoCloseOnSuccess: true,
     });
-    expect(vi.mocked(addProjectTerminal).mock.calls[0][2]).not.toHaveProperty('exitAfterCommand');
     // Only the pre-existing terminal is closed; the freshly spawned hook terminal survives.
     expect(vi.mocked(closeProjectTerminal).mock.calls.map((c) => c[0])).toEqual(['pty-old']);
   });

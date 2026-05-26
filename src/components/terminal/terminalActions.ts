@@ -17,6 +17,7 @@ import { useTerminalStore, type TerminalDisplayState } from '../../stores/termin
 import { useCanvasStore, persistCanvas } from '../../stores/canvasStore';
 import { useAppStore, staleGuard } from '../../stores/appStore';
 import { OuijitTerminal, terminalInstances, resolveTerminalLabel, type SummaryType } from './terminalReact';
+import { parseOsc133ExitCodes } from './osc133';
 import { readSnapshot } from './sessionSnapshot';
 import { detectDevServerUrl } from '../webPreview/urlHelpers';
 import { descriptionToHookPrompt } from '../../utils/descriptionAttachments';
@@ -54,12 +55,10 @@ export interface AddProjectTerminalOptions {
    *  card morph into the real terminal in the same stack position. */
   replaceLoadingId?: string;
   /** Close this terminal automatically after a short grace period when its
-   *  process exits with code 0. On non-zero exit it stays open. Pair with
-   *  `exitAfterCommand` so the PTY actually exits when the command finishes. */
+   *  underlying command exits with code 0 (signalled by OSC 133;D from the
+   *  shell-integration precmd hook). On non-zero exit it stays open so the
+   *  failure is debuggable in the interactive shell that survives the command. */
   autoCloseOnSuccess?: boolean;
-  /** Forwarded to PtySpawnOptions.exitAfterCommand — the PTY exits as soon as
-   *  the spawned command finishes instead of dropping into an interactive shell. */
-  exitAfterCommand?: boolean;
 }
 
 // ── Apply persisted UI state from a session snapshot ────────────────
@@ -262,8 +261,6 @@ export async function addProjectTerminal(
     mergeTarget,
     autoCloseOnSuccess: options?.autoCloseOnSuccess,
   });
-  // exitAfterCommand is spawn-only — capture from options for the spawn call below.
-  const exitAfterCommand = options?.exitAfterCommand;
 
   // Open xterm into viewport element (not yet in DOM — React will attach via XTermContainer)
   term.openTerminal();
@@ -299,7 +296,6 @@ export async function addProjectTerminal(
     worktreePath: worktreeInfo?.path,
     env: startEnv,
     sandboxed: useSandbox,
-    exitAfterCommand,
   };
 
   try {
@@ -467,10 +463,7 @@ export async function reconnectTerminal(
  * actually reflects whether the script succeeded or failed.
  */
 export function updateRunnerStatusFromOsc133(data: string, parent: OuijitTerminal): void {
-  const matches = data.matchAll(/\x1b\]133;D;(-?\d+)(?:\x07|\x1b\\)/g);
-  for (const match of matches) {
-    const code = parseInt(match[1], 10);
-    if (Number.isNaN(code)) continue;
+  for (const code of parseOsc133ExitCodes(data)) {
     const next = code === 0 ? 'success' : 'error';
     if (parent.runnerStatus !== next) {
       parent.runnerStatus = next;

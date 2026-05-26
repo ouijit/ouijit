@@ -94,36 +94,6 @@ describe('buildCommandShellArgs', () => {
     expect(args[1]).toContain('exec /usr/bin/fish');
   });
 
-  // exitAfterCommand: spawn for one-shot terminals (currently the done-hook
-  // terminal) so the PTY exits with the command's real exit code instead of
-  // dropping into an interactive shell — required for autoCloseOnSuccess and
-  // the success/error status to fire.
-  describe('exitAfterCommand', () => {
-    it('omits the exec into interactive shell for zsh', () => {
-      const args = buildCommandShellArgs('echo hi', '/bin/zsh', '/tmp/integration', true);
-      expect(args[1]).toContain('echo hi');
-      expect(args[1]).not.toContain('exec /bin/zsh');
-      expect(args[1]).not.toContain('exec zsh');
-    });
-
-    it('omits the exec into interactive shell for bash', () => {
-      const args = buildCommandShellArgs('echo hi', '/bin/bash', '/tmp/integration', true);
-      expect(args[1]).toContain('echo hi');
-      expect(args[1]).not.toContain('exec bash');
-    });
-
-    it('omits the exec into interactive shell for non-zsh/bash shells', () => {
-      const args = buildCommandShellArgs('echo hi', '/usr/bin/fish', '/tmp/integration', true);
-      expect(args[1]).toContain('echo hi');
-      expect(args[1]).not.toContain('exec /usr/bin/fish');
-    });
-
-    it('default (exitAfterCommand false) still drops into the interactive shell', () => {
-      const args = buildCommandShellArgs('echo hi', '/bin/zsh', '/tmp/integration');
-      expect(args[1]).toContain('exec /bin/zsh');
-    });
-  });
-
   // Subshell wrapping isolates the user command from our outer zsh/bash so
   // that an explicit `exit` builtin terminates only the subshell. Without it,
   // a hook like `echo hi; exit 1` would nuke the outer shell before we could
@@ -137,11 +107,6 @@ describe('buildCommandShellArgs', () => {
 
     it('wraps the command in a subshell for bash', () => {
       const args = buildCommandShellArgs('echo hi; exit 1', '/bin/bash', '/tmp/integration');
-      expect(args[1]).toContain('(echo hi; exit 1)');
-    });
-
-    it('still wraps when exitAfterCommand is set', () => {
-      const args = buildCommandShellArgs('echo hi; exit 1', '/bin/zsh', '/tmp/integration', true);
       expect(args[1]).toContain('(echo hi; exit 1)');
     });
   });
@@ -165,11 +130,6 @@ describe('buildCommandShellArgs', () => {
     it('captures $? into OUIJIT_INITIAL_EXIT before exec in bash', () => {
       const args = buildCommandShellArgs('false', '/bin/bash', '/tmp/integration');
       expect(args[1]).toContain('export OUIJIT_INITIAL_EXIT=$?');
-    });
-
-    it('does not capture for exitAfterCommand spawns (PTY exits naturally)', () => {
-      const args = buildCommandShellArgs('false', '/bin/zsh', '/tmp/integration', true);
-      expect(args[1]).not.toContain('OUIJIT_INITIAL_EXIT');
     });
   });
 });
