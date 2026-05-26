@@ -9,6 +9,7 @@ vi.mock('../../components/terminal/terminalActions', () => ({
   closeProjectTerminal: vi.fn(),
 }));
 
+import { useAppStore } from '../../stores/appStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { useTerminalStore } from '../../stores/terminalStore';
 import { completeTask } from '../../services/taskCompletion';
@@ -34,6 +35,7 @@ describe('completeTask', () => {
   beforeEach(() => {
     useProjectStore.getState().resetForProject();
     useTerminalStore.setState({ terminalsByProject: {}, displayStates: {}, activeIndices: {} });
+    useAppStore.setState({ activeProjectPath: PROJECT });
     vi.clearAllMocks();
     vi.mocked(window.api.hooks.get).mockResolvedValue({});
     vi.mocked(window.api.task.setStatus).mockResolvedValue({ success: true });
@@ -198,5 +200,17 @@ describe('completeTask', () => {
     await completeTask({ projectPath: PROJECT, task: makeTask() });
 
     expect(window.api.task.setStatus).toHaveBeenCalledTimes(2);
+  });
+
+  test('cross-project call does not clobber the active project task list', async () => {
+    // projectStore.tasks is a singleton holding the active project's tasks.
+    // Calling loadTasks() for a non-active project would overwrite them with
+    // the wrong project's data. Today useIPCListeners gates this out before
+    // completeTask is called, but the guard inside completeTask is the
+    // backstop against future callers.
+    useAppStore.setState({ activeProjectPath: '/other-project' });
+    await completeTask({ projectPath: PROJECT, task: makeTask() });
+
+    expect(window.api.task.getAll).not.toHaveBeenCalled();
   });
 });

@@ -11,6 +11,7 @@
 
 import log from 'electron-log/renderer';
 import { addProjectTerminal, closeProjectTerminal } from '../components/terminal/terminalActions';
+import { useAppStore } from '../stores/appStore';
 import { useProjectStore } from '../stores/projectStore';
 import { useTerminalStore } from '../stores/terminalStore';
 import type { TaskWithWorkspace } from '../types';
@@ -134,6 +135,14 @@ async function completeTaskInner(opts: CompleteTaskOptions): Promise<void> {
     await useProjectStore.getState().moveTask(projectPath, taskNumber, 'done', targetIndex);
   } else {
     if (!skipStatusWrite) await window.api.task.setStatus(projectPath, taskNumber, 'done');
-    await useProjectStore.getState().loadTasks(projectPath);
+    // loadTasks writes into projectStore.tasks, a singleton holding the
+    // *active* project's task list. Calling it for a non-active project
+    // would clobber the visible kanban with the wrong project's tasks.
+    // The non-active case is unreachable today (useIPCListeners gates on
+    // active project) but guarded here so a future caller can't reintroduce
+    // the bug. The proper fix — multi-project projectStore — is task #417.
+    if (useAppStore.getState().activeProjectPath === projectPath) {
+      await useProjectStore.getState().loadTasks(projectPath);
+    }
   }
 }
