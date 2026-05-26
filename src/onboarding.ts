@@ -6,7 +6,7 @@ const onboardingLog = getLogger().scope('onboarding');
 
 export const ONBOARDING_SEEDED_PROJECT_KEY = 'onboarding:seededProject';
 export const ONBOARDING_DISMISSED_KEY = 'onboarding:dismissed';
-export const ONBOARDING_TASK_NAME = 'Your first task: meet the Ouijit CLI';
+export const ONBOARDING_TASK_NAME = 'Your first task';
 
 export const ONBOARDING_TASK_PROMPT = `Welcome to Ouijit. This is a practice task to show how the app works end to end.
 
