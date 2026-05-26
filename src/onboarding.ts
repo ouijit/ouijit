@@ -5,6 +5,7 @@ import { getLogger } from './logger';
 const onboardingLog = getLogger().scope('onboarding');
 
 export const ONBOARDING_SEEDED_PROJECT_KEY = 'onboarding:seededProject';
+export const ONBOARDING_SEEDED_TASK_NUMBER_KEY = 'onboarding:seededTaskNumber';
 export const ONBOARDING_DISMISSED_KEY = 'onboarding:dismissed';
 export const ONBOARDING_TASK_NAME = 'Your first task';
 
@@ -32,6 +33,9 @@ export async function seedOnboardingTaskIfFirstProject(projectPath: string): Pro
     }
 
     await setGlobalSetting(ONBOARDING_SEEDED_PROJECT_KEY, projectPath);
+    if (result.task) {
+      await setGlobalSetting(ONBOARDING_SEEDED_TASK_NUMBER_KEY, String(result.task.taskNumber));
+    }
     onboardingLog.info('seeded onboarding task', { projectPath, taskNumber: result.task?.taskNumber });
   } catch (error) {
     onboardingLog.error('seed failed unexpectedly', {
