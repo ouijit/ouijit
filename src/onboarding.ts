@@ -33,19 +33,31 @@ const io: OnboardingStorageIO = {
  * Ouijit before and should be treated as already onboarded.
  */
 export async function recordFirstProjectIfNeeded(projectPath: string, source: FirstProjectSource): Promise<boolean> {
-  const existing = await readOnboardingState(io);
-  if (existing?.firstProjectPath) return false;
+  // Errors here must not bubble: this runs inside the create-project and
+  // add-project IPC handlers, and we don't want a settings-read or scanner
+  // failure to make a successful project add look like a failure to the
+  // renderer. Worst case the user just doesn't get the onboarding panel.
+  try {
+    const existing = await readOnboardingState(io);
+    if (existing?.firstProjectPath) return false;
 
-  const projects = await getProjectList();
-  if (projects.length > 1) {
-    await patchOnboardingState(io, { dismissed: true });
-    onboardingLog.info('existing user detected; suppressing onboarding', { projectCount: projects.length });
+    const projects = await getProjectList();
+    if (projects.length > 1) {
+      await patchOnboardingState(io, { dismissed: true });
+      onboardingLog.info('existing user detected; suppressing onboarding', { projectCount: projects.length });
+      return false;
+    }
+
+    await patchOnboardingState(io, { firstProjectPath: projectPath, source });
+    onboardingLog.info('recorded first project', { projectPath, source });
+    return true;
+  } catch (error) {
+    onboardingLog.error('recordFirstProjectIfNeeded failed', {
+      projectPath,
+      error: error instanceof Error ? error.message : String(error),
+    });
     return false;
   }
-
-  await patchOnboardingState(io, { firstProjectPath: projectPath, source });
-  onboardingLog.info('recorded first project', { projectPath, source });
-  return true;
 }
 
 /**
