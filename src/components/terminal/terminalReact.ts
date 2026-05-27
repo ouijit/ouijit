@@ -14,14 +14,14 @@ import { notifyReady, readyBody } from '../../utils/notifications';
 import { generateId } from '../../utils/ids';
 import { useTerminalStore } from '../../stores/terminalStore';
 import { closeProjectTerminal } from './terminalActions';
-import { parseOsc133ExitCodes } from './osc133';
+import { parseOsc133Events } from './osc133';
 
 // ── Idle fallback timer constants ────────────────────────────────────
 const IDLE_FALLBACK_MS = 3000;
 const READY_DEFERRAL_MS = 5_000;
 const SIDE_EFFECT_THROTTLE_MS = 250;
 
-export type SummaryType = 'thinking' | 'ready' | 'success' | 'error';
+export type SummaryType = 'thinking' | 'ready' | 'running' | 'success' | 'error';
 
 export interface TerminalOptions {
   ptyId?: PtyId;
@@ -1018,13 +1018,29 @@ export class OuijitTerminal {
       }
     }
 
-    // OSC 133;D from our shell-integration precmd hook lets us reflect the
-    // real exit code without requiring the PTY to die. Drives the success/
-    // error status dot and autoCloseOnSuccess. A throttled batch may carry
-    // multiple codes (e.g. `false; true`) — only the last one is meaningful
-    // since the prior commands have already been visually superseded.
-    const codes = parseOsc133ExitCodes(batch);
-    if (codes.length > 0) this.handleCommandExit(codes[codes.length - 1]);
+    // OSC 133 prompt marks from our shell integration:
+    //   - ;A → at prompt (idle)
+    //   - ;C → command running (busy)
+    //   - ;D;<code> → command finished, drives success/error and autoCloseOnSuccess
+    // Hook events (if any) override these via handleHookStatus — for plain
+    // shells with no agent activity, ;C/;A are the only running-state signal.
+    // A throttled batch may carry multiple events; replay them in order.
+    const events = parseOsc133Events(batch);
+    for (const event of events) {
+      if (event.kind === 'D') {
+        this.handleCommandExit(event.code);
+      } else if (event.kind === 'C') {
+        if (this.summaryType !== 'thinking' && this.summaryType !== 'running') {
+          this.summaryType = 'running';
+          this.pushDisplayState({ summaryType: 'running' });
+        }
+      } else if (event.kind === 'A') {
+        if (this.summaryType === 'running') {
+          this.summaryType = 'ready';
+          this.pushDisplayState({ summaryType: 'ready' });
+        }
+      }
+    }
 
     scheduleTerminalGitStatusRefresh(this);
   }

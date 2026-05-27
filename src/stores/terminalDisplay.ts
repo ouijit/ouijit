@@ -5,7 +5,7 @@ export interface TerminalDisplayState {
   ptyId: string;
   label: string;
   summary: string;
-  summaryType: 'thinking' | 'ready' | 'success' | 'error';
+  summaryType: 'thinking' | 'ready' | 'running' | 'success' | 'error';
   gitFileStatus: GitFileStatus | null;
   lastOscTitle: string;
   tags: string[];

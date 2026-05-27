@@ -1,20 +1,41 @@
 /**
- * OSC 133 ; D ; <exit_code> ST is emitted by our shell-integration precmd hook
- * after each command. Lets the renderer learn the prior command's exit code
- * without the PTY having to die. ST is either BEL (\x07) or ESC \\.
+ * OSC 133 prompt-mark parsing. Sequences are emitted by our shell-integration
+ * scripts:
+ *   - ;A — prompt start (terminal is idle, ready for input)
+ *   - ;C — command about to run (terminal is busy)
+ *   - ;D;<exit_code> — command finished, with exit code
+ * ST is either BEL (\x07) or ESC \\.
  *
- * Codes outside POSIX's plausible range (signals as negatives, statuses 0–255)
- * are dropped — the parser is the trust boundary between raw PTY bytes and
- * renderer state, and an OSC-injected `99999999` shouldn't be coerced into a
- * meaningful "error" verdict.
+ * Exit codes outside POSIX's plausible range (signals as negatives, statuses
+ * 0–255) are dropped — the parser is the trust boundary between raw PTY bytes
+ * and renderer state, and an OSC-injected `99999999` shouldn't be coerced into
+ * a meaningful "error" verdict.
  */
-export function parseOsc133ExitCodes(data: string): number[] {
-  const codes: number[] = [];
-  const matches = data.matchAll(/\x1b\]133;D;(-?\d+)(?:\x07|\x1b\\)/g);
-  for (const match of matches) {
-    const code = parseInt(match[1], 10);
+
+export type Osc133Event = { kind: 'A' } | { kind: 'C' } | { kind: 'D'; code: number };
+
+const OSC_133_REGEX = /\x1b\]133;([ACD])(?:;(-?\d+))?(?:\x07|\x1b\\)/g;
+
+/** Parse all OSC 133 prompt-mark events in order. */
+export function parseOsc133Events(data: string): Osc133Event[] {
+  const events: Osc133Event[] = [];
+  for (const match of data.matchAll(OSC_133_REGEX)) {
+    const kind = match[1] as 'A' | 'C' | 'D';
+    if (kind === 'A' || kind === 'C') {
+      events.push({ kind });
+      continue;
+    }
+    if (match[2] == null) continue;
+    const code = parseInt(match[2], 10);
     if (!Number.isFinite(code) || code < -255 || code > 255) continue;
-    codes.push(code);
+    events.push({ kind: 'D', code });
   }
-  return codes;
+  return events;
+}
+
+/** Back-compat helper used by the runner panel — extracts just exit codes. */
+export function parseOsc133ExitCodes(data: string): number[] {
+  return parseOsc133Events(data)
+    .filter((e): e is { kind: 'D'; code: number } => e.kind === 'D')
+    .map((e) => e.code);
 }
