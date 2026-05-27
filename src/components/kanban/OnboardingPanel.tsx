@@ -1,6 +1,8 @@
 import { useEffect, useState, useMemo, useRef } from 'react';
 import { Icon } from '../terminal/Icon';
 import { useProjectStore } from '../../stores/projectStore';
+import { type OnboardingStorageIO, patchOnboardingState, readOnboardingState } from '../../onboardingState';
+import type { FirstProjectSource, OnboardingState } from '../../types';
 
 interface OnboardingPanelProps {
   projectPath: string;
@@ -8,15 +10,14 @@ interface OnboardingPanelProps {
   onOpenHelp: () => void;
 }
 
-const FIRST_PROJECT_KEY = 'onboarding:firstProjectPath';
-const FIRST_PROJECT_SOURCE_KEY = 'onboarding:firstProjectSource';
-const SEEDED_TASK_NUMBER_KEY = 'onboarding:seededTaskNumber';
-const DISMISSED_KEY = 'onboarding:dismissed';
-
 const EXAMPLE_START_HOOK_COMMAND = `claude "complete the current task and move it to in-review"`;
 
 type Stage = 'intro' | 'setup' | 'in-flight' | 'complete';
-type FirstProjectSource = 'created' | 'added';
+
+const io: OnboardingStorageIO = {
+  get: (key) => window.api.globalSettings.get(key),
+  set: (key, value) => window.api.globalSettings.set(key, value),
+};
 
 /**
  * First-run onboarding banner. Walks the user through configuring a start
@@ -27,10 +28,8 @@ type FirstProjectSource = 'created' | 'added';
 export function OnboardingPanel({ projectPath, onConfigureCliAgent, onOpenHelp }: OnboardingPanelProps) {
   const tasks = useProjectStore((s) => s.tasks);
   const startHookConfigured = useProjectStore((s) => !!s.configuredHooks.start);
-  const [firstProject, setFirstProject] = useState<string | undefined>(undefined);
-  const [firstProjectSource, setFirstProjectSource] = useState<FirstProjectSource | undefined>(undefined);
-  const [seededTaskNumber, setSeededTaskNumber] = useState<number | undefined>(undefined);
-  const [dismissed, setDismissed] = useState<boolean | undefined>(undefined);
+  // `undefined` = not yet loaded, `null` = loaded but no state exists yet.
+  const [state, setState] = useState<OnboardingState | null | undefined>(undefined);
   // Session-only soft dismiss: used when the user hits X at intro. Hides the
   // panel for this mount but doesn't write to global settings, so the panel
   // reappears on next app launch / project switch. Only the intro stage uses
@@ -40,23 +39,16 @@ export function OnboardingPanel({ projectPath, onConfigureCliAgent, onOpenHelp }
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([
-      window.api.globalSettings.get(FIRST_PROJECT_KEY),
-      window.api.globalSettings.get(FIRST_PROJECT_SOURCE_KEY),
-      window.api.globalSettings.get(SEEDED_TASK_NUMBER_KEY),
-      window.api.globalSettings.get(DISMISSED_KEY),
-    ]).then(([first, source, taskNum, dismissedVal]) => {
+    readOnboardingState(io).then((s) => {
       if (cancelled) return;
-      setFirstProject(first ?? undefined);
-      setFirstProjectSource(source === 'created' || source === 'added' ? source : undefined);
-      setSeededTaskNumber(taskNum ? Number(taskNum) : undefined);
-      setDismissed(dismissedVal === '1');
+      setState(s);
     });
     return () => {
       cancelled = true;
     };
   }, []);
 
+  const seededTaskNumber = state?.seededTaskNumber ?? null;
   const seededTask = useMemo(
     () => (seededTaskNumber != null ? tasks.find((t) => t.taskNumber === seededTaskNumber) : undefined),
     [tasks, seededTaskNumber],
@@ -86,9 +78,9 @@ export function OnboardingPanel({ projectPath, onConfigureCliAgent, onOpenHelp }
     }
   }, [stage, startHookConfigured, stuckLatched]);
 
-  if (firstProject === undefined || dismissed === undefined) return null;
-  if (firstProject !== projectPath) return null;
-  if (dismissed || softDismissed) return null;
+  if (state === undefined) return null;
+  if (!state || state.firstProjectPath !== projectPath) return null;
+  if (state.dismissed || softDismissed) return null;
   if (stage === null) return null;
 
   const handleDismiss = async () => {
@@ -98,8 +90,8 @@ export function OnboardingPanel({ projectPath, onConfigureCliAgent, onOpenHelp }
       setSoftDismissed(true);
       return;
     }
-    setDismissed(true);
-    await window.api.globalSettings.set(DISMISSED_KEY, '1');
+    const next = await patchOnboardingState(io, { dismissed: true });
+    setState(next);
   };
 
   const handleSeedPracticeTask = async () => {
@@ -107,8 +99,8 @@ export function OnboardingPanel({ projectPath, onConfigureCliAgent, onOpenHelp }
     setSeeding(true);
     await window.api.onboarding.seedTask(projectPath);
     await useProjectStore.getState().loadTasks(projectPath);
-    const taskNum = await window.api.globalSettings.get(SEEDED_TASK_NUMBER_KEY);
-    if (taskNum) setSeededTaskNumber(Number(taskNum));
+    const next = await readOnboardingState(io);
+    if (next) setState(next);
     setSeeding(false);
   };
 
@@ -130,7 +122,7 @@ export function OnboardingPanel({ projectPath, onConfigureCliAgent, onOpenHelp }
 
   const renderStageBody = (s: Stage) => (
     <>
-      {s === 'intro' && <IntroStage source={firstProjectSource} />}
+      {s === 'intro' && <IntroStage source={state.source} />}
       {s === 'setup' && <SetupStage configured={startHookConfigured} onUseExampleHook={handleUseExampleHook} />}
       {s === 'in-flight' && (
         <InFlightStage

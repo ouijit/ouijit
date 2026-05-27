@@ -1,36 +1,12 @@
 import { createTodoTask } from './worktree';
 import { getGlobalSetting, setGlobalSetting } from './db';
 import { getLogger } from './logger';
+import { type OnboardingStorageIO, patchOnboardingState, readOnboardingState } from './onboardingState';
+import type { FirstProjectSource } from './types';
 
 const onboardingLog = getLogger().scope('onboarding');
 
-export const ONBOARDING_FIRST_PROJECT_KEY = 'onboarding:firstProjectPath';
-export const ONBOARDING_FIRST_PROJECT_SOURCE_KEY = 'onboarding:firstProjectSource';
-export const ONBOARDING_SEEDED_PROJECT_KEY = 'onboarding:seededProject';
-export const ONBOARDING_SEEDED_TASK_NUMBER_KEY = 'onboarding:seededTaskNumber';
-export const ONBOARDING_DISMISSED_KEY = 'onboarding:dismissed';
 export const ONBOARDING_TASK_NAME = 'Your first task';
-
-export type FirstProjectSource = 'created' | 'added';
-
-/**
- * Records the path and source of the first project the user adds (whether via
- * create-new or open-existing). The OnboardingPanel uses both to decide which
- * project gets the first-run experience and to vary copy by path. Idempotent:
- * subsequent project additions are ignored, so the panel remains anchored to
- * the original first project.
- *
- * Returns whether this call was the one that set the value — callers use this
- * to decide whether to trigger one-time side effects.
- */
-export async function recordFirstProjectIfNeeded(projectPath: string, source: FirstProjectSource): Promise<boolean> {
-  const existing = await getGlobalSetting(ONBOARDING_FIRST_PROJECT_KEY);
-  if (existing) return false;
-  await setGlobalSetting(ONBOARDING_FIRST_PROJECT_KEY, projectPath);
-  await setGlobalSetting(ONBOARDING_FIRST_PROJECT_SOURCE_KEY, source);
-  onboardingLog.info('recorded first project', { projectPath, source });
-  return true;
-}
 
 export const ONBOARDING_TASK_PROMPT = `Welcome to Ouijit. This is a practice task to show how the app works end to end.
 
@@ -38,28 +14,43 @@ Create a file named \`hello.txt\` in the project root containing the text \`hell
 
 The \`ouijit\` CLI is available in this terminal; use \`ouijit --help\` if you need it.`;
 
+const io: OnboardingStorageIO = {
+  get: getGlobalSetting,
+  set: setGlobalSetting,
+};
+
 /**
- * Seeds the onboarding tutorial task on the first project the user ever creates.
- * Subsequent project creations are no-ops. Failure to seed is non-fatal; we
- * log and let project creation succeed, since onboarding is a nice-to-have,
- * not a blocker.
+ * Records the first project (whether via create-new or open-existing).
+ * Idempotent: subsequent project additions are ignored so the panel stays
+ * anchored to the original first project. Returns whether this call was the
+ * one that set the value.
+ */
+export async function recordFirstProjectIfNeeded(projectPath: string, source: FirstProjectSource): Promise<boolean> {
+  const existing = await readOnboardingState(io);
+  if (existing?.firstProjectPath) return false;
+  await patchOnboardingState(io, { firstProjectPath: projectPath, source });
+  onboardingLog.info('recorded first project', { projectPath, source });
+  return true;
+}
+
+/**
+ * Seeds the onboarding tutorial task in the user's first project. Idempotent
+ * via the `seededTaskNumber` field — if a task has already been seeded, this
+ * is a no-op. Failure is non-fatal; we log and return.
  */
 export async function seedOnboardingTaskIfFirstProject(projectPath: string): Promise<void> {
   try {
-    const already = await getGlobalSetting(ONBOARDING_SEEDED_PROJECT_KEY);
-    if (already) return;
+    const state = await readOnboardingState(io);
+    if (state?.seededTaskNumber != null) return;
 
     const result = await createTodoTask(projectPath, ONBOARDING_TASK_NAME, ONBOARDING_TASK_PROMPT);
-    if (!result.success) {
+    if (!result.success || !result.task) {
       onboardingLog.warn('seed task creation failed', { projectPath, error: result.error });
       return;
     }
 
-    await setGlobalSetting(ONBOARDING_SEEDED_PROJECT_KEY, projectPath);
-    if (result.task) {
-      await setGlobalSetting(ONBOARDING_SEEDED_TASK_NUMBER_KEY, String(result.task.taskNumber));
-    }
-    onboardingLog.info('seeded onboarding task', { projectPath, taskNumber: result.task?.taskNumber });
+    await patchOnboardingState(io, { seededTaskNumber: result.task.taskNumber });
+    onboardingLog.info('seeded onboarding task', { projectPath, taskNumber: result.task.taskNumber });
   } catch (error) {
     onboardingLog.error('seed failed unexpectedly', {
       projectPath,
