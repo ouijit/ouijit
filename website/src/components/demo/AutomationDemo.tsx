@@ -5,7 +5,7 @@ const HOOKS: { label: string; description: string; command?: string }[] = [
   {
     label: 'Start',
     description: 'Runs when a task moves to In Progress',
-    command: 'claude --dangerously-skip-permissions "$OUIJIT_TASK_PROMPT"',
+    command: 'claude --dangerously-skip-permissions "$OUIJIT_TASK_DESCRIPTION"',
   },
   {
     label: 'Continue',

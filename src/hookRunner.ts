@@ -68,10 +68,10 @@ export async function executeHook(
       hookEnv.OUIJIT_TASK_NAME = env.taskName;
     }
     if (env?.taskPrompt) {
-      const promptForHook = descriptionToHookPrompt(env.taskPrompt);
-      hookEnv.OUIJIT_TASK_PROMPT = promptForHook;
-      // Alias matching the "description" label used in the UI.
-      hookEnv.OUIJIT_TASK_DESCRIPTION = promptForHook;
+      const descriptionForHook = descriptionToHookPrompt(env.taskPrompt);
+      hookEnv.OUIJIT_TASK_DESCRIPTION = descriptionForHook;
+      // Deprecated alias for OUIJIT_TASK_DESCRIPTION.
+      hookEnv.OUIJIT_TASK_PROMPT = descriptionForHook;
     }
 
     // Spawn the process

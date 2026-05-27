@@ -8,7 +8,7 @@ const HOOK_LABELS: Record<HookType, { title: string; description: string; placeh
   start: {
     title: 'Start Hook',
     description: 'Runs when a task moves from To Do to In Progress',
-    placeholder: 'npm install && claude "$OUIJIT_TASK_PROMPT"',
+    placeholder: 'npm install && claude "$OUIJIT_TASK_DESCRIPTION"',
     envVars: true,
   },
   continue: {
@@ -47,7 +47,6 @@ const ENV_VARS = [
   '$OUIJIT_WORKTREE_PATH',
   '$OUIJIT_TASK_BRANCH',
   '$OUIJIT_TASK_NAME',
-  '$OUIJIT_TASK_PROMPT',
   '$OUIJIT_TASK_DESCRIPTION',
 ];
 

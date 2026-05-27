@@ -9,7 +9,6 @@ const ENV_VARS = [
   '$OUIJIT_WORKTREE_PATH',
   '$OUIJIT_TASK_BRANCH',
   '$OUIJIT_TASK_NAME',
-  '$OUIJIT_TASK_PROMPT',
   '$OUIJIT_TASK_DESCRIPTION',
 ];
 
@@ -105,7 +104,7 @@ export function CombinedHookConfigDialog({
             id="hook-start-command"
             className="w-full px-3 py-2 font-mono text-sm leading-snug text-text-primary bg-background border border-border rounded-md outline-none resize-none overflow-hidden focus:border-accent focus:ring-3 focus:ring-accent-light placeholder:text-text-tertiary"
             style={{ transition: 'border-color 150ms ease-out, box-shadow 150ms ease-out' }}
-            placeholder='npm install && claude "$OUIJIT_TASK_PROMPT"'
+            placeholder='npm install && claude "$OUIJIT_TASK_DESCRIPTION"'
             value={startCommand}
             onChange={(e) => {
               setStartCommand(e.target.value);

@@ -152,16 +152,15 @@ function registerTerminal(
 /**
  * Build the env vars handed to a worktree-backed terminal's hook.
  *
- * The task prompt MUST come from `task` — a live DB fetch — and never from the
- * worktree snapshot in `AddProjectTerminalOptions.existingWorktree`. That
- * snapshot is captured when the worktree is created and never refreshed, so
- * sourcing the prompt from it leaves OUIJIT_TASK_PROMPT stale (or absent
- * entirely, since the var is only set when the prompt is truthy) after a task's
+ * The task description MUST come from `task` — a live DB fetch — and never
+ * from the worktree snapshot in `AddProjectTerminalOptions.existingWorktree`.
+ * That snapshot is captured when the worktree is created and never refreshed,
+ * so sourcing it from there leaves OUIJIT_TASK_DESCRIPTION stale (or absent
+ * entirely, since the var is only set when the value is truthy) after a task's
  * description is edited.
  *
- * OUIJIT_TASK_DESCRIPTION is set as an alias of OUIJIT_TASK_PROMPT: the UI
- * labels this field "description", so a hook reaching for the var name that
- * matches the label gets the same value.
+ * OUIJIT_TASK_PROMPT is kept as a deprecated alias of OUIJIT_TASK_DESCRIPTION
+ * so existing user hooks that reference the old name keep working.
  */
 export function buildWorktreeStartEnv(params: {
   hookType: string;
@@ -178,11 +177,11 @@ export function buildWorktreeStartEnv(params: {
     OUIJIT_TASK_BRANCH: worktreeInfo.branch,
     OUIJIT_TASK_NAME: label,
   };
-  const prompt = task?.prompt;
-  if (prompt) {
-    const promptForHook = descriptionToHookPrompt(prompt);
-    env.OUIJIT_TASK_PROMPT = promptForHook;
-    env.OUIJIT_TASK_DESCRIPTION = promptForHook;
+  const description = task?.prompt;
+  if (description) {
+    const descriptionForHook = descriptionToHookPrompt(description);
+    env.OUIJIT_TASK_DESCRIPTION = descriptionForHook;
+    env.OUIJIT_TASK_PROMPT = descriptionForHook;
   }
   return env;
 }
@@ -560,8 +559,9 @@ async function _spawnRunnerInner(instance: OuijitTerminal, script?: RunnerScript
       ...(instance.worktreeBranch && { OUIJIT_TASK_BRANCH: instance.worktreeBranch }),
       ...(instance.label && { OUIJIT_TASK_NAME: instance.label }),
       ...(instance.taskPrompt && {
-        OUIJIT_TASK_PROMPT: descriptionToHookPrompt(instance.taskPrompt),
         OUIJIT_TASK_DESCRIPTION: descriptionToHookPrompt(instance.taskPrompt),
+        // Deprecated alias for OUIJIT_TASK_DESCRIPTION.
+        OUIJIT_TASK_PROMPT: descriptionToHookPrompt(instance.taskPrompt),
       }),
     },
   };
