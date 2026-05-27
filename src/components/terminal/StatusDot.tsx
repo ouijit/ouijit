@@ -16,7 +16,6 @@ const COLORS: Record<string, string> = {
 const LABELS: Record<string, string> = {
   thinking: 'Thinking',
   ready: 'Ready',
-  success: 'Ready',
   error: 'Failed',
 };
 
