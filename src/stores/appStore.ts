@@ -21,6 +21,15 @@ interface AppStoreState {
   sandboxVmStatus: string;
   sandboxStarting: boolean;
   whatsNew: { version: string; notes: string } | null;
+  helpDialogOpen: boolean;
+  /**
+   * Session-only onboarding panel state. Lives in the app store (not in the
+   * OnboardingPanel component) so it survives kanban-toggle remounts — without
+   * this, hitting "Hide for now" or being in the stuck state would reset every
+   * time the user toggled the kanban view off and back on.
+   */
+  onboardingSoftDismissed: boolean;
+  onboardingStuckLatched: boolean;
   health: HealthStatus | null;
   homeActivePanel: 'home' | 'settings';
   homeRecents: HomeRecentTask[] | null;
@@ -38,6 +47,9 @@ interface AppStoreActions {
   setSandboxStatus: (available: boolean, vmStatus: string) => void;
   setSandboxStarting: (starting: boolean) => void;
   setWhatsNew: (info: { version: string; notes: string } | null) => void;
+  setHelpDialogOpen: (open: boolean) => void;
+  setOnboardingSoftDismissed: (value: boolean) => void;
+  setOnboardingStuckLatched: (value: boolean) => void;
   setHealth: (status: HealthStatus | null) => void;
   setHomeActivePanel: (panel: 'home' | 'settings') => void;
   navigateToProject: (path: string, project: Project, options?: { direction?: ViewTransitionDirection }) => void;
@@ -76,6 +88,9 @@ export const useAppStore = create<AppStore>()((set, get) => ({
   sandboxVmStatus: '',
   sandboxStarting: false,
   whatsNew: null,
+  helpDialogOpen: false,
+  onboardingSoftDismissed: false,
+  onboardingStuckLatched: false,
   health: null,
   homeActivePanel: 'home',
   homeRecents: null,
@@ -93,6 +108,12 @@ export const useAppStore = create<AppStore>()((set, get) => ({
   setSandboxStarting: (starting) => set({ sandboxStarting: starting }),
 
   setWhatsNew: (info) => set({ whatsNew: info }),
+
+  setHelpDialogOpen: (open) => set({ helpDialogOpen: open }),
+
+  setOnboardingSoftDismissed: (value) => set({ onboardingSoftDismissed: value }),
+
+  setOnboardingStuckLatched: (value) => set({ onboardingStuckLatched: value }),
 
   setHealth: (status) => set({ health: status }),
 

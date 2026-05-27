@@ -205,6 +205,10 @@ contextBridge.exposeInMainWorld('api', {
     set: (key: string, value: string) => typedInvoke('settings:set-global', key, value),
   },
 
+  onboarding: {
+    seedTask: (projectPath: string) => typedInvoke('onboarding:seed-task', projectPath),
+  },
+
   health: {
     check: () => typedInvoke('health:check'),
     onUpdate: (callback: (status: import('./healthCheck').HealthStatus) => void) => typedListen('health', callback),

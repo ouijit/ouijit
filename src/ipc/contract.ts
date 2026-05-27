@@ -189,6 +189,9 @@ export interface IpcInvokeContract {
   'settings:get-global': { args: [key: string]; return: string | undefined };
   'settings:set-global': { args: [key: string, value: string]; return: { success: boolean } };
 
+  // ── Onboarding ───────────────────────────────────────────────────────
+  'onboarding:seed-task': { args: [projectPath: string]; return: { success: boolean } };
+
   // ── Health ───────────────────────────────────────────────────────────
   'health:check': { args: []; return: HealthStatus };
 

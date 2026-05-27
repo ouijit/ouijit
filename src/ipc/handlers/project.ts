@@ -4,6 +4,7 @@ import { typedHandle } from '../helpers';
 import { getProjectList } from '../../scanner';
 import { addProject, removeProject, reorderProjects, getProjectSettings, setKillExistingOnRun } from '../../db';
 import { createProject, validateProjectFolder } from '../../projectCreator';
+import { recordFirstProjectIfNeeded, seedOnboardingTaskIfFirstProject } from '../../onboarding';
 import { openInEditor, openFileInEditor } from '../../editorLauncher';
 import { deleteWithCleanup } from '../../lima/manager';
 import { deleteConfig } from '../../lima/configStore';
@@ -54,6 +55,7 @@ export function registerProjectHandlers(mainWindow: BrowserWindow): void {
           error: `Project folder created at ${result.projectPath}, but registering it failed: ${message}`,
         };
       }
+      await recordFirstProjectIfNeeded(result.projectPath, 'created');
     }
     return result;
   });
@@ -78,6 +80,7 @@ export function registerProjectHandlers(mainWindow: BrowserWindow): void {
     if (validation.ok === false) return { success: false, error: validation.error };
     try {
       await addProject(folderPath);
+      await recordFirstProjectIfNeeded(folderPath, 'added');
       return { success: true };
     } catch (error) {
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
@@ -88,6 +91,10 @@ export function registerProjectHandlers(mainWindow: BrowserWindow): void {
     await deleteWithCleanup(folderPath).catch(() => {});
     await deleteConfig(folderPath).catch(() => {});
     return removeProject(folderPath);
+  });
+  typedHandle('onboarding:seed-task', async (projectPath) => {
+    await seedOnboardingTaskIfFirstProject(projectPath);
+    return { success: true };
   });
   typedHandle('reorder-projects', (paths) => reorderProjects(paths));
   typedHandle('get-project-settings', (projectPath) => getProjectSettings(projectPath));

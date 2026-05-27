@@ -542,10 +542,43 @@ export interface ElectronAPI {
   lima: LimaAPI;
   /** Global settings API */
   globalSettings: GlobalSettingsAPI;
+  /** Onboarding API */
+  onboarding: OnboardingAPI;
   /** Health probe API (git/claude/lima detection) */
   health: HealthAPI;
   /** Capture-mode API (only populated when OUIJIT_CAPTURE_MODE=1) */
   capture: CaptureAPI;
+}
+
+/**
+ * Onboarding API exposed to the renderer
+ */
+export interface OnboardingAPI {
+  seedTask(projectPath: string): Promise<{ success: boolean }>;
+}
+
+/**
+ * Whether the user's first project was created fresh or added from an
+ * existing folder. Used to vary the intro stage lead.
+ */
+export type FirstProjectSource = 'created' | 'added';
+
+/**
+ * All first-run onboarding state, stored as a single JSON blob under the
+ * `onboarding:state` global setting. Single read on mount, single write per
+ * transition. The seeded task itself lives in the task table — only the
+ * task number is kept here so the panel can resolve it.
+ *
+ * `version` exists for schema evolution: bump the constant in
+ * `src/onboardingState.ts` and add migration logic to `normalizeOnboardingState`
+ * when the shape changes.
+ */
+export interface OnboardingState {
+  version: number;
+  firstProjectPath: string;
+  source: FirstProjectSource;
+  seededTaskNumber: number | null;
+  dismissed: boolean;
 }
 
 /**

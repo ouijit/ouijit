@@ -12,7 +12,8 @@ function isAllowedKey(key: string): boolean {
     key.startsWith('terminal:') ||
     key.startsWith('lastSession:') ||
     key.startsWith('ui:') ||
-    key.startsWith('worktree:')
+    key.startsWith('worktree:') ||
+    key.startsWith('onboarding:')
   );
 }
 

@@ -57,6 +57,7 @@ import pencilSimple from '@phosphor-icons/core/assets/regular/pencil-simple.svg?
 import play from '@phosphor-icons/core/assets/regular/play.svg?raw';
 import plus from '@phosphor-icons/core/assets/regular/plus.svg?raw';
 import prohibit from '@phosphor-icons/core/assets/regular/prohibit.svg?raw';
+import question from '@phosphor-icons/core/assets/regular/question.svg?raw';
 import rocket from '@phosphor-icons/core/assets/regular/rocket.svg?raw';
 import sidebarSimple from '@phosphor-icons/core/assets/regular/sidebar-simple.svg?raw';
 import splitHorizontal from '@phosphor-icons/core/assets/regular/split-horizontal.svg?raw';
@@ -127,6 +128,7 @@ export const iconMap: Record<string, string> = {
   play: play,
   plus: plus,
   prohibit: prohibit,
+  question: question,
   rocket: rocket,
   'sidebar-simple': sidebarSimple,
   'split-horizontal': splitHorizontal,

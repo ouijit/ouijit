@@ -11,7 +11,6 @@ import { useTerminalPanels } from './terminal/useTerminalPanels';
 import { useHookStatusListener } from '../hooks/useHookStatusListener';
 import { Icon } from './terminal/Icon';
 import { stringToColor, getInitials } from '../utils/projectIcon';
-import { OuijitLogotype } from './OuijitLogotype';
 import { RecentTasksPanel } from './RecentTasksPanel';
 import { ResumeBanner } from './ResumeBanner';
 import type { Project } from '../types';
@@ -311,18 +310,22 @@ export function HomeView() {
             className="absolute inset-0 flex flex-col items-center justify-center rounded-[14px] border border-dashed border-white/10"
             style={{ background: 'var(--color-terminal-bg)' }}
           >
-            <div className="flex flex-col items-center text-center px-8 max-w-[28rem]">
-              <OuijitLogotype className="h-12 w-[14rem] mb-6" />
-              <p className="text-[15px] text-text-secondary leading-relaxed">
-                A local parallel agent terminal manager.
-              </p>
-              <button
-                type="button"
-                className="mt-10 inline-flex items-center justify-center px-6 py-2 font-sans text-sm font-medium border-none rounded-full outline-none transition-all duration-150 ease-out [-webkit-app-region:no-drag] focus-visible:ring-3 focus-visible:ring-accent-light text-white bg-accent hover:bg-accent-hover active:scale-[0.98]"
-                onClick={() => document.dispatchEvent(new Event('open-add-menu'))}
-              >
-                Add your first project
-              </button>
+            <div className="flex flex-col px-8 max-w-[32rem]">
+              <h1 className="text-[22px] font-semibold text-text-primary tracking-tight mb-6">Start a project</h1>
+              <div className="flex flex-col">
+                <EmptyStateChoice
+                  verb="Open"
+                  noun="a folder you already have"
+                  detail="Brings an existing folder into Ouijit as a project."
+                  onClick={() => document.dispatchEvent(new Event('add-existing-project'))}
+                />
+                <EmptyStateChoice
+                  verb="Create"
+                  noun="a new project"
+                  detail="Creates a new folder, initialized as a git repo."
+                  onClick={() => document.dispatchEvent(new Event('create-new-project'))}
+                />
+              </div>
             </div>
           </div>
         ) : noRecents ? (
@@ -525,5 +528,32 @@ export function HomeView() {
         );
       })}
     </div>
+  );
+}
+
+interface EmptyStateChoiceProps {
+  verb: string;
+  noun: string;
+  detail: string;
+  onClick: () => void;
+}
+
+function EmptyStateChoice({ verb, noun, detail, onClick }: EmptyStateChoiceProps) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="group flex items-baseline gap-3 w-full text-left py-3 transition-colors duration-150 ease-out focus-visible:ring-2 focus-visible:ring-accent-light rounded-sm outline-none [-webkit-app-region:no-drag]"
+    >
+      <span className="text-[15px] text-text-tertiary group-hover:text-text-primary transition-colors w-3 shrink-0">
+        →
+      </span>
+      <span className="flex-1 min-w-0">
+        <span className="text-[14px] text-text-primary">
+          <span className="font-semibold">{verb}</span> <span className="text-text-secondary">{noun}.</span>
+        </span>
+        <span className="block text-[12px] text-text-tertiary mt-0.5 leading-relaxed">{detail}</span>
+      </span>
+    </button>
   );
 }
