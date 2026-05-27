@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo, useRef } from 'react';
 import { Icon } from '../terminal/Icon';
 import { useProjectStore } from '../../stores/projectStore';
+import { useAppStore } from '../../stores/appStore';
 import { type OnboardingStorageIO, patchOnboardingState, readOnboardingState } from '../../onboardingState';
 import type { FirstProjectSource, OnboardingState } from '../../types';
 
@@ -30,11 +31,14 @@ export function OnboardingPanel({ projectPath, onConfigureCliAgent, onOpenHelp }
   const startHookConfigured = useProjectStore((s) => !!s.configuredHooks.start);
   // `undefined` = not yet loaded, `null` = loaded but no state exists yet.
   const [state, setState] = useState<OnboardingState | null | undefined>(undefined);
-  // Session-only soft dismiss: used when the user hits X at intro. Hides the
-  // panel for this mount but doesn't write to global settings, so the panel
-  // reappears on next app launch / project switch. Only the intro stage uses
-  // this; later stages set the persisted `dismissed` flag.
-  const [softDismissed, setSoftDismissed] = useState(false);
+  // Session-only flags live in the app store so they survive panel unmount
+  // (e.g., user toggles the kanban view off and back on). If these were
+  // useState they'd reset on every remount, which contradicts "Hide for now"
+  // and would lose the stuck-state context too.
+  const softDismissed = useAppStore((s) => s.onboardingSoftDismissed);
+  const stuckLatched = useAppStore((s) => s.onboardingStuckLatched);
+  const setSoftDismissed = useAppStore((s) => s.setOnboardingSoftDismissed);
+  const setStuckLatched = useAppStore((s) => s.setOnboardingStuckLatched);
   const [seeding, setSeeding] = useState(false);
 
   useEffect(() => {
@@ -74,7 +78,6 @@ export function OnboardingPanel({ projectPath, onConfigureCliAgent, onOpenHelp }
   // the store — startHookConfigured is briefly `false` even when the hook
   // exists. Tracking the previous stage closes that window.
   const prevStageRef = useRef<Stage | undefined>(undefined);
-  const [stuckLatched, setStuckLatched] = useState(false);
   useEffect(() => {
     const prev = prevStageRef.current;
     prevStageRef.current = stage;
@@ -86,7 +89,7 @@ export function OnboardingPanel({ projectPath, onConfigureCliAgent, onOpenHelp }
       // forward drag re-evaluates cleanly.
       if (stuckLatched) setStuckLatched(false);
     }
-  }, [stage, startHookConfigured, stuckLatched]);
+  }, [stage, startHookConfigured, stuckLatched, setStuckLatched]);
 
   if (state === undefined) return null;
   if (!state || state.firstProjectPath !== projectPath) return null;
@@ -123,14 +126,24 @@ export function OnboardingPanel({ projectPath, onConfigureCliAgent, onOpenHelp }
   };
 
   const handleUseExampleHook = async () => {
-    await window.api.hooks.save(projectPath, {
-      id: `hook-${Date.now()}`,
-      type: 'start',
-      name: 'Start Hook',
-      command: EXAMPLE_START_HOOK_COMMAND,
-    });
-    await useProjectStore.getState().loadProjectConfig(projectPath);
-    useProjectStore.getState().addToast('Start hook configured', 'success');
+    try {
+      const result = await window.api.hooks.save(projectPath, {
+        id: `hook-${Date.now()}`,
+        type: 'start',
+        name: 'Start Hook',
+        command: EXAMPLE_START_HOOK_COMMAND,
+      });
+      if (!result.success) {
+        useProjectStore.getState().addToast("Couldn't save the start hook", 'error');
+        return;
+      }
+      await useProjectStore.getState().loadProjectConfig(projectPath);
+      useProjectStore.getState().addToast('Start hook configured', 'success');
+    } catch (error) {
+      useProjectStore
+        .getState()
+        .addToast(error instanceof Error ? error.message : "Couldn't save the start hook", 'error');
+    }
   };
 
   const renderStageBody = (s: Stage) => (

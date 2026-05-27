@@ -1,5 +1,5 @@
 import { createTodoTask } from './worktree';
-import { getGlobalSetting, setGlobalSetting } from './db';
+import { getGlobalSetting, getTaskByNumber, setGlobalSetting } from './db';
 import { getLogger } from './logger';
 import { type OnboardingStorageIO, patchOnboardingState, readOnboardingState } from './onboardingState';
 import { getProjectList } from './scanner';
@@ -50,13 +50,22 @@ export async function recordFirstProjectIfNeeded(projectPath: string, source: Fi
 
 /**
  * Seeds the onboarding tutorial task in the user's first project. Idempotent
- * via the `seededTaskNumber` field — if a task has already been seeded, this
- * is a no-op. Failure is non-fatal; we log and return.
+ * if a real seeded task already exists. If the persisted `seededTaskNumber`
+ * points at a task that's been deleted, we treat the reference as stale and
+ * re-seed — otherwise the user would be stranded on the intro stage with the
+ * IPC silently no-op'ing forever. Failure is non-fatal; we log and return.
  */
 export async function seedOnboardingTaskIfFirstProject(projectPath: string): Promise<void> {
   try {
     const state = await readOnboardingState(io);
-    if (state?.seededTaskNumber != null) return;
+    if (state?.seededTaskNumber != null) {
+      const existing = await getTaskByNumber(projectPath, state.seededTaskNumber);
+      if (existing) return;
+      onboardingLog.info('seeded task missing; re-seeding', {
+        projectPath,
+        previousTaskNumber: state.seededTaskNumber,
+      });
+    }
 
     const result = await createTodoTask(projectPath, ONBOARDING_TASK_NAME, ONBOARDING_TASK_PROMPT);
     if (!result.success || !result.task) {
