@@ -62,13 +62,23 @@ export function OnboardingPanel({ projectPath, onConfigureCliAgent, onOpenHelp }
     return 'complete';
   }, [seededTaskNumber, seededTask]);
 
-  // "Stuck" = task entered in_progress without a start hook configured, so
-  // nothing actually fired. We latch this so re-configuring the hook after
-  // the fact doesn't silently flip the stage display — the user still needs
-  // to drag back and forward to retrigger.
+  // "Stuck" = task transitioned into in_progress without a start hook
+  // configured, so nothing actually fired. We latch this so re-configuring
+  // the hook after the fact doesn't silently flip the stage display — the
+  // user still needs to drag back and forward to retrigger.
+  //
+  // The latch is set only on a real stage TRANSITION into 'in-flight'.
+  // Checking just `stage === 'in-flight'` on first render would falsely
+  // latch when the panel mounts with a task already in_progress (e.g., after
+  // an app restart) before the project's configuredHooks have loaded from
+  // the store — startHookConfigured is briefly `false` even when the hook
+  // exists. Tracking the previous stage closes that window.
+  const prevStageRef = useRef<Stage | undefined>(undefined);
   const [stuckLatched, setStuckLatched] = useState(false);
   useEffect(() => {
-    if (stage === 'in-flight' && !startHookConfigured && !stuckLatched) {
+    const prev = prevStageRef.current;
+    prevStageRef.current = stage;
+    if (prev !== undefined && prev !== 'in-flight' && stage === 'in-flight' && !startHookConfigured) {
       setStuckLatched(true);
     }
     if (stage === 'setup' || stage === 'intro' || stage === 'complete') {
@@ -97,11 +107,14 @@ export function OnboardingPanel({ projectPath, onConfigureCliAgent, onOpenHelp }
   const handleSeedPracticeTask = async () => {
     if (seeding) return;
     setSeeding(true);
-    await window.api.onboarding.seedTask(projectPath);
-    await useProjectStore.getState().loadTasks(projectPath);
-    const next = await readOnboardingState(io);
-    if (next) setState(next);
-    setSeeding(false);
+    try {
+      await window.api.onboarding.seedTask(projectPath);
+      await useProjectStore.getState().loadTasks(projectPath);
+      const next = await readOnboardingState(io);
+      if (next) setState(next);
+    } finally {
+      setSeeding(false);
+    }
   };
 
   const handleMoveBackToTodo = async () => {
