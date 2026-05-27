@@ -14,7 +14,7 @@ import { notifyReady, readyBody } from '../../utils/notifications';
 import { generateId } from '../../utils/ids';
 import { useTerminalStore } from '../../stores/terminalStore';
 import { closeProjectTerminal } from './terminalActions';
-import { parseOsc133Events } from './osc133';
+import { parseOsc133Events, planOsc133Transitions } from './osc133';
 
 // ── Idle fallback timer constants ────────────────────────────────────
 const IDLE_FALLBACK_MS = 3000;
@@ -1024,21 +1024,18 @@ export class OuijitTerminal {
     //   - ;D;<code> → command finished, drives success/error and autoCloseOnSuccess
     // Hook events (if any) override these via handleHookStatus — for plain
     // shells with no agent activity, ;C/;A are the only running-state signal.
-    // A throttled batch may carry multiple events; replay them in order.
-    const events = parseOsc133Events(batch);
-    for (const event of events) {
-      if (event.kind === 'D') {
-        this.handleCommandExit(event.code);
-      } else if (event.kind === 'C') {
-        if (this.summaryType !== 'thinking' && this.summaryType !== 'running') {
-          this.summaryType = 'running';
-          this.pushDisplayState({ summaryType: 'running' });
-        }
-      } else if (event.kind === 'A') {
-        if (this.summaryType === 'running') {
-          this.summaryType = 'ready';
-          this.pushDisplayState({ summaryType: 'ready' });
-        }
+    // The pure planner decides which transitions a batch should drive; we
+    // apply them here.
+    const plans = planOsc133Transitions(parseOsc133Events(batch), this.summaryType);
+    for (const plan of plans) {
+      if (plan.kind === 'exit') {
+        this.handleCommandExit(plan.code);
+      } else if (plan.kind === 'enterRunning') {
+        this.summaryType = 'running';
+        this.pushDisplayState({ summaryType: 'running' });
+      } else if (plan.kind === 'leaveRunning') {
+        this.summaryType = 'ready';
+        this.pushDisplayState({ summaryType: 'ready' });
       }
     }
 

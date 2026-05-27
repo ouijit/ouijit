@@ -39,3 +39,42 @@ export function parseOsc133ExitCodes(data: string): number[] {
     .filter((e): e is { kind: 'D'; code: number } => e.kind === 'D')
     .map((e) => e.code);
 }
+
+type Osc133Summary = 'thinking' | 'ready' | 'running' | 'success' | 'error';
+
+export type Osc133Transition = { kind: 'exit'; code: number } | { kind: 'enterRunning' } | { kind: 'leaveRunning' };
+
+/**
+ * Decide which state transitions a batch of OSC 133 events should drive,
+ * given the current summary state. Pure function so the rules are testable
+ * without instantiating an OuijitTerminal.
+ *
+ * Priority rules:
+ *   - ;C only enters `running` when not already `thinking`/`running` (agent
+ *     activity wins over shell command tracking).
+ *   - ;A only flips `running` → `ready`, so a success/error verdict from a
+ *     prior ;D stays visible until the next ;C.
+ *   - ;D always fires; the caller routes it through its exit-state handler,
+ *     which will land on `success` or `error`.
+ */
+export function planOsc133Transitions(events: Osc133Event[], currentSummary: Osc133Summary): Osc133Transition[] {
+  const plans: Osc133Transition[] = [];
+  let s: Osc133Summary = currentSummary;
+  for (const event of events) {
+    if (event.kind === 'D') {
+      plans.push({ kind: 'exit', code: event.code });
+      s = event.code === 0 ? 'success' : 'error';
+    } else if (event.kind === 'C') {
+      if (s !== 'thinking' && s !== 'running') {
+        plans.push({ kind: 'enterRunning' });
+        s = 'running';
+      }
+    } else if (event.kind === 'A') {
+      if (s === 'running') {
+        plans.push({ kind: 'leaveRunning' });
+        s = 'ready';
+      }
+    }
+  }
+  return plans;
+}
