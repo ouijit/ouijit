@@ -311,21 +311,18 @@ export function HomeView() {
             style={{ background: 'var(--color-terminal-bg)' }}
           >
             <div className="flex flex-col px-8 max-w-[32rem]">
-              <h1 className="text-[22px] font-semibold text-text-primary tracking-tight mb-2">Start a project</h1>
-              <p className="text-[13px] text-text-secondary leading-relaxed mb-7">
-                A project is a folder on your machine. Ouijit tracks its tasks and gives each one its own git worktree.
-              </p>
+              <h1 className="text-[22px] font-semibold text-text-primary tracking-tight mb-6">Start a project</h1>
               <div className="flex flex-col">
                 <EmptyStateChoice
                   verb="Open"
                   noun="a folder you already have"
-                  detail="Stays where it is on disk. Ouijit just starts tracking tasks against it."
+                  detail="Brings an existing folder into Ouijit as a project."
                   onClick={() => document.dispatchEvent(new Event('add-existing-project'))}
                 />
                 <EmptyStateChoice
                   verb="Create"
                   noun="a new project"
-                  detail="A fresh folder with git initialized, ready for tasks and agent runs."
+                  detail="Creates a new folder, initialized as a git repo."
                   onClick={() => document.dispatchEvent(new Event('create-new-project'))}
                 />
               </div>
