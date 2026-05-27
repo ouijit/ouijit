@@ -9,11 +9,14 @@ interface OnboardingPanelProps {
 }
 
 const FIRST_PROJECT_KEY = 'onboarding:firstProjectPath';
+const FIRST_PROJECT_SOURCE_KEY = 'onboarding:firstProjectSource';
 const SEEDED_TASK_NUMBER_KEY = 'onboarding:seededTaskNumber';
-const SEEDED_ON_DEMAND_KEY = 'onboarding:seededOnDemand';
 const DISMISSED_KEY = 'onboarding:dismissed';
 
+const EXAMPLE_START_HOOK_COMMAND = `claude "complete the current task and move it to in-review"`;
+
 type Stage = 'intro' | 'setup' | 'in-flight' | 'complete';
+type FirstProjectSource = 'created' | 'added';
 
 /**
  * First-run onboarding banner. Walks the user through configuring a start
@@ -25,23 +28,28 @@ export function OnboardingPanel({ projectPath, onConfigureCliAgent, onOpenHelp }
   const tasks = useProjectStore((s) => s.tasks);
   const startHookConfigured = useProjectStore((s) => !!s.configuredHooks.start);
   const [firstProject, setFirstProject] = useState<string | undefined>(undefined);
+  const [firstProjectSource, setFirstProjectSource] = useState<FirstProjectSource | undefined>(undefined);
   const [seededTaskNumber, setSeededTaskNumber] = useState<number | undefined>(undefined);
-  const [seededOnDemand, setSeededOnDemand] = useState(false);
   const [dismissed, setDismissed] = useState<boolean | undefined>(undefined);
+  // Session-only soft dismiss: used when the user hits X at intro. Hides the
+  // panel for this mount but doesn't write to global settings, so the panel
+  // reappears on next app launch / project switch. Only the intro stage uses
+  // this; later stages set the persisted `dismissed` flag.
+  const [softDismissed, setSoftDismissed] = useState(false);
   const [seeding, setSeeding] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     Promise.all([
       window.api.globalSettings.get(FIRST_PROJECT_KEY),
+      window.api.globalSettings.get(FIRST_PROJECT_SOURCE_KEY),
       window.api.globalSettings.get(SEEDED_TASK_NUMBER_KEY),
-      window.api.globalSettings.get(SEEDED_ON_DEMAND_KEY),
       window.api.globalSettings.get(DISMISSED_KEY),
-    ]).then(([first, taskNum, onDemand, dismissedVal]) => {
+    ]).then(([first, source, taskNum, dismissedVal]) => {
       if (cancelled) return;
       setFirstProject(first ?? undefined);
+      setFirstProjectSource(source === 'created' || source === 'added' ? source : undefined);
       setSeededTaskNumber(taskNum ? Number(taskNum) : undefined);
-      setSeededOnDemand(onDemand === '1');
       setDismissed(dismissedVal === '1');
     });
     return () => {
@@ -62,12 +70,34 @@ export function OnboardingPanel({ projectPath, onConfigureCliAgent, onOpenHelp }
     return 'complete';
   }, [seededTaskNumber, seededTask]);
 
+  // "Stuck" = task entered in_progress without a start hook configured, so
+  // nothing actually fired. We latch this so re-configuring the hook after
+  // the fact doesn't silently flip the stage display — the user still needs
+  // to drag back and forward to retrigger.
+  const [stuckLatched, setStuckLatched] = useState(false);
+  useEffect(() => {
+    if (stage === 'in-flight' && !startHookConfigured && !stuckLatched) {
+      setStuckLatched(true);
+    }
+    if (stage === 'setup' || stage === 'intro' || stage === 'complete') {
+      // Task moved out of in_progress: clear the latch so a subsequent
+      // forward drag re-evaluates cleanly.
+      if (stuckLatched) setStuckLatched(false);
+    }
+  }, [stage, startHookConfigured, stuckLatched]);
+
   if (firstProject === undefined || dismissed === undefined) return null;
   if (firstProject !== projectPath) return null;
-  if (dismissed) return null;
+  if (dismissed || softDismissed) return null;
   if (stage === null) return null;
 
   const handleDismiss = async () => {
+    if (stage === 'intro') {
+      // Soft dismiss: hide for this session, but allow the panel to return on
+      // next launch so a casually-dismissed first-run user isn't stranded.
+      setSoftDismissed(true);
+      return;
+    }
     setDismissed(true);
     await window.api.globalSettings.set(DISMISSED_KEY, '1');
   };
@@ -79,24 +109,48 @@ export function OnboardingPanel({ projectPath, onConfigureCliAgent, onOpenHelp }
     await useProjectStore.getState().loadTasks(projectPath);
     const taskNum = await window.api.globalSettings.get(SEEDED_TASK_NUMBER_KEY);
     if (taskNum) setSeededTaskNumber(Number(taskNum));
-    setSeededOnDemand(true);
     setSeeding(false);
+  };
+
+  const handleMoveBackToTodo = async () => {
+    if (!seededTask) return;
+    await useProjectStore.getState().moveTask(projectPath, seededTask.taskNumber, 'todo', 0);
+  };
+
+  const handleUseExampleHook = async () => {
+    await window.api.hooks.save(projectPath, {
+      id: `hook-${Date.now()}`,
+      type: 'start',
+      name: 'Start Hook',
+      command: EXAMPLE_START_HOOK_COMMAND,
+    });
+    await useProjectStore.getState().loadProjectConfig(projectPath);
+    useProjectStore.getState().addToast('Start hook configured', 'success');
   };
 
   const renderStageBody = (s: Stage) => (
     <>
-      {s === 'intro' && <IntroStage />}
-      {s === 'setup' && <SetupStage configured={startHookConfigured} viaIntro={seededOnDemand} />}
-      {s === 'in-flight' && <InFlightStage />}
+      {s === 'intro' && <IntroStage source={firstProjectSource} />}
+      {s === 'setup' && <SetupStage configured={startHookConfigured} onUseExampleHook={handleUseExampleHook} />}
+      {s === 'in-flight' && (
+        <InFlightStage
+          stuck={stuckLatched}
+          startHookConfigured={startHookConfigured}
+          onConfigureCliAgent={onConfigureCliAgent}
+          onMoveBackToTodo={handleMoveBackToTodo}
+        />
+      )}
       {s === 'complete' && <CompleteStage />}
       <StageCtas
         stage={s}
         startHookConfigured={startHookConfigured}
         seeding={seeding}
+        stuck={s === 'in-flight' && stuckLatched}
         onConfigureCliAgent={onConfigureCliAgent}
         onOpenHelp={onOpenHelp}
         onDismiss={handleDismiss}
         onSeedPracticeTask={handleSeedPracticeTask}
+        onMoveBackToTodo={handleMoveBackToTodo}
       />
     </>
   );
@@ -112,7 +166,8 @@ export function OnboardingPanel({ projectPath, onConfigureCliAgent, onOpenHelp }
       <button
         className="shrink-0 w-7 h-7 flex items-center justify-center rounded-full text-text-tertiary hover:text-text-primary hover:bg-white/10 transition-colors [&>svg]:w-4 [&>svg]:h-4"
         onClick={handleDismiss}
-        aria-label="Dismiss onboarding"
+        aria-label={stage === 'intro' ? 'Hide onboarding for now' : 'Dismiss onboarding'}
+        title={stage === 'intro' ? 'Hide for now' : 'Dismiss'}
       >
         <Icon name="x" />
       </button>
@@ -158,20 +213,24 @@ interface StageCtasProps {
   stage: Stage;
   startHookConfigured: boolean;
   seeding: boolean;
+  stuck: boolean;
   onConfigureCliAgent: () => void;
   onOpenHelp: () => void;
   onDismiss: () => void;
   onSeedPracticeTask: () => void;
+  onMoveBackToTodo: () => void;
 }
 
 function StageCtas({
   stage,
   startHookConfigured,
   seeding,
+  stuck,
   onConfigureCliAgent,
   onOpenHelp,
   onDismiss,
   onSeedPracticeTask,
+  onMoveBackToTodo,
 }: StageCtasProps) {
   return (
     <div className="flex items-center gap-2 flex-wrap mt-4">
@@ -193,7 +252,7 @@ function StageCtas({
           Got it
         </button>
       )}
-      {(stage === 'setup' || stage === 'in-flight') && (
+      {stage === 'setup' && (
         <button
           className={`inline-flex items-center justify-center gap-1.5 px-3 py-1 text-xs font-medium rounded-full active:scale-[0.98] transition-all duration-150 ease-out ${
             startHookConfigured
@@ -206,22 +265,42 @@ function StageCtas({
           {startHookConfigured ? 'Edit start hook' : 'Configure start hook'}
         </button>
       )}
+      {stage === 'in-flight' && stuck && !startHookConfigured && (
+        <button
+          className="inline-flex items-center justify-center gap-1.5 px-3 py-1 text-xs font-medium rounded-full text-white bg-accent hover:bg-accent-hover active:scale-[0.98] transition-all duration-150 ease-out"
+          onClick={onConfigureCliAgent}
+        >
+          <Icon name="terminal" className="w-3.5 h-3.5" />
+          Configure start hook
+        </button>
+      )}
+      {stage === 'in-flight' && stuck && (
+        <button
+          className={`inline-flex items-center justify-center gap-1.5 px-3 py-1 text-xs font-medium rounded-full active:scale-[0.98] transition-all duration-150 ease-out ${
+            startHookConfigured
+              ? 'text-white bg-accent hover:bg-accent-hover'
+              : 'text-text-secondary bg-white/5 hover:bg-white/10 hover:text-text-primary'
+          }`}
+          onClick={onMoveBackToTodo}
+        >
+          <Icon name="arrow-left" className="w-3.5 h-3.5" />
+          Move task back to To Do
+        </button>
+      )}
       <button
         className="inline-flex items-center justify-center gap-1.5 px-3 py-1 text-xs font-medium rounded-full text-text-secondary bg-white/5 hover:bg-white/10 hover:text-text-primary active:scale-[0.98] transition-all duration-150 ease-out"
         onClick={onOpenHelp}
       >
         <Icon name="question" className="w-3.5 h-3.5" />
-        {stage === 'complete' || stage === 'intro' ? 'Help & setup' : 'Need help?'}
+        Help & setup
       </button>
-      {(stage === 'complete' || stage === 'intro') && (
-        <button
-          className="inline-flex items-center justify-center gap-1.5 px-3 py-1 text-xs font-medium rounded-full text-text-secondary bg-white/5 hover:bg-white/10 hover:text-text-primary active:scale-[0.98] transition-all duration-150 ease-out"
-          onClick={() => window.api.openExternal('https://ouijit.com/docs')}
-        >
-          <Icon name="file-text" className="w-3.5 h-3.5" />
-          Docs
-        </button>
-      )}
+      <button
+        className="inline-flex items-center justify-center gap-1.5 px-3 py-1 text-xs font-medium rounded-full text-text-secondary bg-white/5 hover:bg-white/10 hover:text-text-primary active:scale-[0.98] transition-all duration-150 ease-out"
+        onClick={() => window.api.openExternal('https://ouijit.com/docs')}
+      >
+        <Icon name="file-text" className="w-3.5 h-3.5" />
+        Docs
+      </button>
     </div>
   );
 }
@@ -259,60 +338,37 @@ function StepBadge({ done, number }: { done: boolean; number: number }) {
   );
 }
 
-function IntroStage() {
+function IntroStage({ source }: { source: FirstProjectSource | undefined }) {
+  const leadVerb = source === 'created' ? 'Created' : 'Added';
   return (
     <>
-      <div className="flex items-center gap-2 mb-3">
+      <div className="flex items-center gap-2 mb-4">
         <StepBadge done={true} number={0} />
-        <div className="text-xs text-text-primary">Added your first project</div>
+        <div className="text-xs text-text-primary">{leadVerb} your first project</div>
       </div>
-      <ul className="flex flex-col gap-1.5 text-xs text-text-secondary leading-relaxed mb-3">
-        <li className="flex gap-2">
-          <span className="text-text-tertiary shrink-0">•</span>
-          <span>Each task gets its own git worktree and branch, so multiple agents can work in parallel.</span>
+      <ol className="flex flex-col gap-3">
+        <li className="flex gap-3">
+          <StepBadge done={false} number={1} />
+          <div className="min-w-0">
+            <div className="text-xs font-medium text-text-primary mb-1">Try a practice task</div>
+            <div className="text-xs text-text-secondary leading-relaxed">
+              A dry run that shows how hooks and the{' '}
+              <code className="px-1 py-0.5 rounded bg-white/5 font-mono text-[11px]">ouijit</code> CLI work together.
+            </div>
+          </div>
         </li>
-        <li className="flex gap-2">
-          <span className="text-text-tertiary shrink-0">•</span>
-          <span>
-            Each column has a hook (start, continue, review, done) that fires on task transitions and can run any
-            command.
-          </span>
-        </li>
-        <li className="flex gap-2">
-          <span className="text-text-tertiary shrink-0">•</span>
-          <span>
-            Supported agents automatically get the{' '}
-            <code className="px-1 py-0.5 rounded bg-white/5 font-mono text-[11px]">ouijit</code> CLI in their context,
-            so they know how to see and manage tasks, hooks, tags, plans, and scripts.
-          </span>
-        </li>
-      </ul>
-      <div className="text-xs text-text-tertiary leading-relaxed">
-        A practice task adds one card with a throwaway prompt. It runs on its own branch and writes a single file you
-        can delete after.
-      </div>
+      </ol>
     </>
   );
 }
 
-function SetupStage({ configured, viaIntro }: { configured: boolean; viaIntro: boolean }) {
+function SetupStage({ configured, onUseExampleHook }: { configured: boolean; onUseExampleHook: () => void }) {
   return (
     <>
-      {viaIntro ? (
-        <>
-          <div className="flex items-center gap-2 mb-4">
-            <StepBadge done={true} number={0} />
-            <div className="text-xs text-text-primary">Practice task added to To Do</div>
-          </div>
-        </>
-      ) : (
-        <>
-          <div className="text-sm font-semibold text-text-primary mb-1">Welcome to your first project in Ouijit</div>
-          <div className="text-xs text-text-secondary leading-relaxed mb-4">
-            A tutorial task is waiting below. Complete it end to end to see how Ouijit works:
-          </div>
-        </>
-      )}
+      <div className="flex items-center gap-2 mb-4">
+        <StepBadge done={true} number={0} />
+        <div className="text-xs text-text-primary">Practice task added to To Do</div>
+      </div>
       <ol className="flex flex-col gap-3">
         <li className="flex gap-3">
           <StepBadge done={configured} number={1} />
@@ -321,14 +377,25 @@ function SetupStage({ configured, viaIntro }: { configured: boolean; viaIntro: b
             <div className="text-xs text-text-secondary leading-relaxed mb-2">
               The command Ouijit runs when a task enters In Progress. For example:
             </div>
-            <div className="flex">
+            <div className="flex items-center gap-2 flex-wrap">
               <code className="inline-block font-mono text-[12px] text-text-primary bg-white/5 rounded-md px-2.5 py-1.5 max-w-full overflow-x-auto whitespace-nowrap">
-                {`claude "complete the current task and move it to in-review"`}
+                {EXAMPLE_START_HOOK_COMMAND}
               </code>
+              {!configured && (
+                <button
+                  type="button"
+                  onClick={onUseExampleHook}
+                  className="inline-flex items-center justify-center gap-1.5 px-2.5 py-1 text-[11px] font-medium rounded-full text-white bg-accent hover:bg-accent-hover active:scale-[0.98] transition-all duration-150 ease-out"
+                >
+                  Use this
+                </button>
+              )}
             </div>
           </div>
         </li>
-        <li className="flex gap-3">
+        <li
+          className={`flex gap-3 transition-opacity duration-200 ease-out ${configured ? 'opacity-100' : 'opacity-50'}`}
+        >
           <StepBadge done={false} number={2} />
           <div className="min-w-0">
             <div className="text-xs font-medium text-text-primary mb-1">
@@ -344,14 +411,45 @@ function SetupStage({ configured, viaIntro }: { configured: boolean; viaIntro: b
   );
 }
 
-function InFlightStage() {
+interface InFlightStageProps {
+  stuck: boolean;
+  startHookConfigured: boolean;
+  onConfigureCliAgent: () => void;
+  onMoveBackToTodo: () => void;
+}
+
+function InFlightStage({ stuck, startHookConfigured }: InFlightStageProps) {
+  if (stuck) {
+    return (
+      <>
+        <div className="flex items-center gap-2 mb-2">
+          <span className="shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-semibold bg-amber-500/20 text-amber-300">
+            !
+          </span>
+          <div className="text-xs text-text-primary font-medium">
+            {startHookConfigured ? 'Start hook didn’t fire' : 'No start hook configured'}
+          </div>
+        </div>
+        <div className="text-xs text-text-secondary leading-relaxed">
+          {startHookConfigured
+            ? 'The hook was set after the task moved. Move it back to To Do and drag it forward again to run it.'
+            : 'Dragging into In Progress fires the start hook. Set one up, then move the task back to To Do and forward again.'}
+        </div>
+      </>
+    );
+  }
   return (
-    <div className="flex items-center gap-2">
-      <StepBadge done={true} number={0} />
-      <div className="text-xs text-text-primary">
-        &ldquo;Your first task&rdquo; is in <span className="font-medium">In Progress</span>
+    <>
+      <div className="flex items-center gap-2 mb-2">
+        <StepBadge done={true} number={0} />
+        <div className="text-xs text-text-primary">
+          &ldquo;Your first task&rdquo; is in <span className="font-medium">In Progress</span>
+        </div>
       </div>
-    </div>
+      <div className="text-xs text-text-secondary leading-relaxed">
+        The start hook is running. Output is in this task&rsquo;s terminal.
+      </div>
+    </>
   );
 }
 

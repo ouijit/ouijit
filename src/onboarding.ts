@@ -5,26 +5,30 @@ import { getLogger } from './logger';
 const onboardingLog = getLogger().scope('onboarding');
 
 export const ONBOARDING_FIRST_PROJECT_KEY = 'onboarding:firstProjectPath';
+export const ONBOARDING_FIRST_PROJECT_SOURCE_KEY = 'onboarding:firstProjectSource';
 export const ONBOARDING_SEEDED_PROJECT_KEY = 'onboarding:seededProject';
 export const ONBOARDING_SEEDED_TASK_NUMBER_KEY = 'onboarding:seededTaskNumber';
-export const ONBOARDING_SEEDED_ON_DEMAND_KEY = 'onboarding:seededOnDemand';
 export const ONBOARDING_DISMISSED_KEY = 'onboarding:dismissed';
 export const ONBOARDING_TASK_NAME = 'Your first task';
 
+export type FirstProjectSource = 'created' | 'added';
+
 /**
- * Records the path of the first project the user adds (whether via create-new
- * or open-existing). The OnboardingPanel uses this to decide which project
- * gets the first-run experience. Idempotent: subsequent project additions are
- * ignored, so the panel remains anchored to the original first project.
+ * Records the path and source of the first project the user adds (whether via
+ * create-new or open-existing). The OnboardingPanel uses both to decide which
+ * project gets the first-run experience and to vary copy by path. Idempotent:
+ * subsequent project additions are ignored, so the panel remains anchored to
+ * the original first project.
  *
  * Returns whether this call was the one that set the value — callers use this
- * to decide whether to trigger one-time side effects like auto-seeding.
+ * to decide whether to trigger one-time side effects.
  */
-export async function recordFirstProjectIfNeeded(projectPath: string): Promise<boolean> {
+export async function recordFirstProjectIfNeeded(projectPath: string, source: FirstProjectSource): Promise<boolean> {
   const existing = await getGlobalSetting(ONBOARDING_FIRST_PROJECT_KEY);
   if (existing) return false;
   await setGlobalSetting(ONBOARDING_FIRST_PROJECT_KEY, projectPath);
-  onboardingLog.info('recorded first project', { projectPath });
+  await setGlobalSetting(ONBOARDING_FIRST_PROJECT_SOURCE_KEY, source);
+  onboardingLog.info('recorded first project', { projectPath, source });
   return true;
 }
 

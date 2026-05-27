@@ -2,20 +2,9 @@ import os from 'os';
 import { shell, BrowserWindow, dialog } from 'electron';
 import { typedHandle } from '../helpers';
 import { getProjectList } from '../../scanner';
-import {
-  addProject,
-  removeProject,
-  reorderProjects,
-  getProjectSettings,
-  setKillExistingOnRun,
-  setGlobalSetting,
-} from '../../db';
+import { addProject, removeProject, reorderProjects, getProjectSettings, setKillExistingOnRun } from '../../db';
 import { createProject, validateProjectFolder } from '../../projectCreator';
-import {
-  ONBOARDING_SEEDED_ON_DEMAND_KEY,
-  recordFirstProjectIfNeeded,
-  seedOnboardingTaskIfFirstProject,
-} from '../../onboarding';
+import { recordFirstProjectIfNeeded, seedOnboardingTaskIfFirstProject } from '../../onboarding';
 import { openInEditor, openFileInEditor } from '../../editorLauncher';
 import { deleteWithCleanup } from '../../lima/manager';
 import { deleteConfig } from '../../lima/configStore';
@@ -66,10 +55,7 @@ export function registerProjectHandlers(mainWindow: BrowserWindow): void {
           error: `Project folder created at ${result.projectPath}, but registering it failed: ${message}`,
         };
       }
-      const wasFirst = await recordFirstProjectIfNeeded(result.projectPath);
-      if (wasFirst) {
-        await seedOnboardingTaskIfFirstProject(result.projectPath);
-      }
+      await recordFirstProjectIfNeeded(result.projectPath, 'created');
     }
     return result;
   });
@@ -94,7 +80,7 @@ export function registerProjectHandlers(mainWindow: BrowserWindow): void {
     if (validation.ok === false) return { success: false, error: validation.error };
     try {
       await addProject(folderPath);
-      await recordFirstProjectIfNeeded(folderPath);
+      await recordFirstProjectIfNeeded(folderPath, 'added');
       return { success: true };
     } catch (error) {
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
@@ -108,7 +94,6 @@ export function registerProjectHandlers(mainWindow: BrowserWindow): void {
   });
   typedHandle('onboarding:seed-task', async (projectPath) => {
     await seedOnboardingTaskIfFirstProject(projectPath);
-    await setGlobalSetting(ONBOARDING_SEEDED_ON_DEMAND_KEY, '1');
     return { success: true };
   });
   typedHandle('reorder-projects', (paths) => reorderProjects(paths));
