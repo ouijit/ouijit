@@ -447,7 +447,7 @@ function InFlightStage({ stuck, startHookConfigured }: InFlightStageProps) {
         </div>
       </div>
       <div className="text-xs text-text-secondary leading-relaxed">
-        The start hook is running. Output is in this task&rsquo;s terminal.
+        The start hook is running in the task&rsquo;s terminal.
       </div>
     </>
   );
