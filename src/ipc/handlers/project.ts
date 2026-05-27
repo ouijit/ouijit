@@ -2,9 +2,20 @@ import os from 'os';
 import { shell, BrowserWindow, dialog } from 'electron';
 import { typedHandle } from '../helpers';
 import { getProjectList } from '../../scanner';
-import { addProject, removeProject, reorderProjects, getProjectSettings, setKillExistingOnRun } from '../../db';
+import {
+  addProject,
+  removeProject,
+  reorderProjects,
+  getProjectSettings,
+  setKillExistingOnRun,
+  setGlobalSetting,
+} from '../../db';
 import { createProject, validateProjectFolder } from '../../projectCreator';
-import { recordFirstProjectIfNeeded, seedOnboardingTaskIfFirstProject } from '../../onboarding';
+import {
+  ONBOARDING_SEEDED_ON_DEMAND_KEY,
+  recordFirstProjectIfNeeded,
+  seedOnboardingTaskIfFirstProject,
+} from '../../onboarding';
 import { openInEditor, openFileInEditor } from '../../editorLauncher';
 import { deleteWithCleanup } from '../../lima/manager';
 import { deleteConfig } from '../../lima/configStore';
@@ -97,6 +108,7 @@ export function registerProjectHandlers(mainWindow: BrowserWindow): void {
   });
   typedHandle('onboarding:seed-task', async (projectPath) => {
     await seedOnboardingTaskIfFirstProject(projectPath);
+    await setGlobalSetting(ONBOARDING_SEEDED_ON_DEMAND_KEY, '1');
     return { success: true };
   });
   typedHandle('reorder-projects', (paths) => reorderProjects(paths));

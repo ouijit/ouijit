@@ -7,6 +7,7 @@ const onboardingLog = getLogger().scope('onboarding');
 export const ONBOARDING_FIRST_PROJECT_KEY = 'onboarding:firstProjectPath';
 export const ONBOARDING_SEEDED_PROJECT_KEY = 'onboarding:seededProject';
 export const ONBOARDING_SEEDED_TASK_NUMBER_KEY = 'onboarding:seededTaskNumber';
+export const ONBOARDING_SEEDED_ON_DEMAND_KEY = 'onboarding:seededOnDemand';
 export const ONBOARDING_DISMISSED_KEY = 'onboarding:dismissed';
 export const ONBOARDING_TASK_NAME = 'Your first task';
 

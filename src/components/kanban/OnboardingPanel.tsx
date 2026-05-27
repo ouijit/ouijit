@@ -10,6 +10,7 @@ interface OnboardingPanelProps {
 
 const FIRST_PROJECT_KEY = 'onboarding:firstProjectPath';
 const SEEDED_TASK_NUMBER_KEY = 'onboarding:seededTaskNumber';
+const SEEDED_ON_DEMAND_KEY = 'onboarding:seededOnDemand';
 const DISMISSED_KEY = 'onboarding:dismissed';
 
 type Stage = 'intro' | 'setup' | 'in-flight' | 'complete';
@@ -25,6 +26,7 @@ export function OnboardingPanel({ projectPath, onConfigureCliAgent, onOpenHelp }
   const startHookConfigured = useProjectStore((s) => !!s.configuredHooks.start);
   const [firstProject, setFirstProject] = useState<string | undefined>(undefined);
   const [seededTaskNumber, setSeededTaskNumber] = useState<number | undefined>(undefined);
+  const [seededOnDemand, setSeededOnDemand] = useState(false);
   const [dismissed, setDismissed] = useState<boolean | undefined>(undefined);
   const [seeding, setSeeding] = useState(false);
 
@@ -33,11 +35,13 @@ export function OnboardingPanel({ projectPath, onConfigureCliAgent, onOpenHelp }
     Promise.all([
       window.api.globalSettings.get(FIRST_PROJECT_KEY),
       window.api.globalSettings.get(SEEDED_TASK_NUMBER_KEY),
+      window.api.globalSettings.get(SEEDED_ON_DEMAND_KEY),
       window.api.globalSettings.get(DISMISSED_KEY),
-    ]).then(([first, taskNum, dismissedVal]) => {
+    ]).then(([first, taskNum, onDemand, dismissedVal]) => {
       if (cancelled) return;
       setFirstProject(first ?? undefined);
       setSeededTaskNumber(taskNum ? Number(taskNum) : undefined);
+      setSeededOnDemand(onDemand === '1');
       setDismissed(dismissedVal === '1');
     });
     return () => {
@@ -75,13 +79,14 @@ export function OnboardingPanel({ projectPath, onConfigureCliAgent, onOpenHelp }
     await useProjectStore.getState().loadTasks(projectPath);
     const taskNum = await window.api.globalSettings.get(SEEDED_TASK_NUMBER_KEY);
     if (taskNum) setSeededTaskNumber(Number(taskNum));
+    setSeededOnDemand(true);
     setSeeding(false);
   };
 
   const renderStageBody = (s: Stage) => (
     <>
       {s === 'intro' && <IntroStage />}
-      {s === 'setup' && <SetupStage configured={startHookConfigured} />}
+      {s === 'setup' && <SetupStage configured={startHookConfigured} viaIntro={seededOnDemand} />}
       {s === 'in-flight' && <InFlightStage />}
       {s === 'complete' && <CompleteStage />}
       <StageCtas
@@ -257,7 +262,10 @@ function StepBadge({ done, number }: { done: boolean; number: number }) {
 function IntroStage() {
   return (
     <>
-      <div className="text-sm font-semibold text-text-primary mb-3">How Ouijit runs tasks</div>
+      <div className="flex items-center gap-2 mb-3">
+        <StepBadge done={true} number={0} />
+        <div className="text-xs text-text-primary">Added your first project</div>
+      </div>
       <ul className="flex flex-col gap-1.5 text-xs text-text-secondary leading-relaxed mb-3">
         <li className="flex gap-2">
           <span className="text-text-tertiary shrink-0">•</span>
@@ -287,13 +295,24 @@ function IntroStage() {
   );
 }
 
-function SetupStage({ configured }: { configured: boolean }) {
+function SetupStage({ configured, viaIntro }: { configured: boolean; viaIntro: boolean }) {
   return (
     <>
-      <div className="text-sm font-semibold text-text-primary mb-1">Welcome to your first project in Ouijit</div>
-      <div className="text-xs text-text-secondary leading-relaxed mb-4">
-        A tutorial task is waiting below. Complete it end to end to see how Ouijit works:
-      </div>
+      {viaIntro ? (
+        <>
+          <div className="flex items-center gap-2 mb-4">
+            <StepBadge done={true} number={0} />
+            <div className="text-xs text-text-primary">Practice task added to To Do</div>
+          </div>
+        </>
+      ) : (
+        <>
+          <div className="text-sm font-semibold text-text-primary mb-1">Welcome to your first project in Ouijit</div>
+          <div className="text-xs text-text-secondary leading-relaxed mb-4">
+            A tutorial task is waiting below. Complete it end to end to see how Ouijit works:
+          </div>
+        </>
+      )}
       <ol className="flex flex-col gap-3">
         <li className="flex gap-3">
           <StepBadge done={configured} number={1} />
@@ -327,26 +346,12 @@ function SetupStage({ configured }: { configured: boolean }) {
 
 function InFlightStage() {
   return (
-    <>
-      <div className="text-sm font-semibold text-text-primary mb-1">Your agent is working</div>
-      <div className="text-xs text-text-secondary leading-relaxed mb-4">
-        Watch the tutorial task move across the board as your agent runs it.
+    <div className="flex items-center gap-2">
+      <StepBadge done={true} number={0} />
+      <div className="text-xs text-text-primary">
+        &ldquo;Your first task&rdquo; is in <span className="font-medium">In Progress</span>
       </div>
-      <ol className="flex flex-col gap-3">
-        <li className="flex gap-3 opacity-50">
-          <StepBadge done={true} number={1} />
-          <div className="min-w-0 pt-0.5">
-            <div className="text-xs font-medium text-text-primary">Start hook configured</div>
-          </div>
-        </li>
-        <li className="flex gap-3 opacity-50">
-          <StepBadge done={true} number={2} />
-          <div className="min-w-0 pt-0.5">
-            <div className="text-xs font-medium text-text-primary">Tutorial task started</div>
-          </div>
-        </li>
-      </ol>
-    </>
+    </div>
   );
 }
 
