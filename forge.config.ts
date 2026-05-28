@@ -157,15 +157,22 @@ const config: ForgeConfig = {
   },
   hooks: {
     postMake: async (_config, makeResults) => {
-      // Strip version from artifact filenames so GitHub release asset URLs
-      // are stable across versions (enables /releases/latest/download/<name>)
+      // Stabilize artifact filenames so GitHub release asset URLs are stable
+      // across versions (enables /releases/latest/download/<name>)
       for (const result of makeResults) {
         result.artifacts = result.artifacts.map((artifact) => {
           const dir = path.dirname(artifact);
           const ext = path.extname(artifact);
           const base = path.basename(artifact, ext);
-          // Match patterns like "ouijit-1.0.6-darwin-arm64" or "ouijit-darwin-arm64-1.0.6"
-          const stripped = base.replace(/-\d+\.\d+\.\d+/, '');
+          // maker-dmg can't see targetArch in its static config, so each DMG is
+          // emitted with the same version-stamped name and would collide on the
+          // shared release. Rename here (result.arch is available) to a stable,
+          // arch-distinct, version-less name matching the ZIP convention.
+          const stripped =
+            ext === '.dmg'
+              ? `ouijit-darwin-${result.arch}`
+              : // Match patterns like "ouijit-1.0.6-darwin-arm64" or "ouijit-darwin-arm64-1.0.6"
+                base.replace(/-\d+\.\d+\.\d+/, '');
           if (stripped === base) return artifact;
           const newPath = path.join(dir, stripped + ext);
           fs.renameSync(artifact, newPath);
@@ -231,7 +238,10 @@ const config: ForgeConfig = {
     new MakerDeb({}),
     new MakerDMG(
       {
-        name: 'Install Ouijit',
+        // Mounted volume title only. Leave `name` unset so the DMG filename is
+        // renamed to a stable, arch-distinct name in the postMake hook below
+        // (where targetArch is available, unlike here in the static config).
+        title: 'Ouijit',
         icon: './src/assets/icons/icon.icns',
         background: './src/assets/dmg/background.png',
         format: 'ULFO',
