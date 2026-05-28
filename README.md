@@ -32,7 +32,7 @@ Wire commands to run on each task status change, choose how worktrees are provis
 
 ## CLI
 
-Every terminal Ouijit opens has a session-scoped `ouijit` command available. Use it to create and advance tasks, manage hooks and scripts, or attach a plan file to the current terminal:
+The `ouijit` command is available in every terminal Ouijit opens. You can use it directly from the shell to create and advance tasks, manage hooks and scripts, or attach a plan file to the current terminal:
 
 ```bash
 ouijit task list                              # array of tasks in the current project
@@ -44,7 +44,7 @@ ouijit script run Lint
 ouijit plan set ./plan.md
 ```
 
-Commands write JSON to stdout and pair well with `jq`. Agent CLIs that Ouijit recognizes (Claude Code, Codex, Pi) get the full reference injected into their system prompt automatically. Full command list in the [docs](https://ouijit.com/docs/#cli).
+Supported agents (Claude Code, Codex, Pi) already have the full reference in their system prompt, so they can call the same commands without any setup. Output is JSON on stdout for easy piping into `jq`. Full command list in the [docs](https://ouijit.com/docs/#cli).
 
 ## Setup
 
