@@ -15,7 +15,7 @@ export interface TerminalHeaderViewProps {
   isBackCard?: boolean;
   compact?: boolean;
 
-  /** Identity slot (label, summary, optional rename input). Required. */
+  /** Identity slot (label, OSC title, optional rename input). Required. */
   nameContent: ReactNode;
 
   /** Tag chips. Optional. */
@@ -97,23 +97,14 @@ export function TerminalHeaderView({
 }
 
 /**
- * Standard identity content for a terminal header: label, optional summary
- * (em-dash separated), optional OSC title. Used by the in-app TerminalHeader
- * (when not renaming) and by marketing demos.
+ * Standard identity content for a terminal header: label and optional OSC
+ * title. Used by the in-app TerminalHeader (when not renaming) and by
+ * marketing demos.
  */
-export function TerminalHeaderName({
-  label,
-  summary,
-  lastOscTitle,
-}: {
-  label?: string;
-  summary?: string;
-  lastOscTitle?: string;
-}) {
+export function TerminalHeaderName({ label, lastOscTitle }: { label?: string; lastOscTitle?: string }) {
   return (
     <Fragment>
       {label && <span className="font-mono text-xs font-medium text-white/85 shrink-0">{label}</span>}
-      {summary && <span className="font-mono text-xs text-white/45 min-w-0 truncate">— {summary}</span>}
       {lastOscTitle && (
         <span className="font-mono text-xs font-medium text-white/40 min-w-0 truncate">{lastOscTitle}</span>
       )}

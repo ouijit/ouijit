@@ -4,7 +4,6 @@ import type { GitFileStatus } from '../types';
 export interface TerminalDisplayState {
   ptyId: string;
   label: string;
-  summary: string;
   summaryType: 'thinking' | 'ready' | 'success' | 'error';
   gitFileStatus: GitFileStatus | null;
   lastOscTitle: string;
@@ -35,7 +34,6 @@ export interface TerminalDisplayState {
 
 export const DEFAULT_DISPLAY_STATE: Omit<TerminalDisplayState, 'ptyId' | 'projectPath'> = {
   label: '',
-  summary: '',
   summaryType: 'ready',
   gitFileStatus: null,
   lastOscTitle: '',

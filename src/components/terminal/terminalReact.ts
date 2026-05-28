@@ -381,7 +381,6 @@ export class OuijitTerminal {
 
   // ── Display state (plain values, pushed to Zustand) ────────────────
   label: string;
-  summary = '';
   summaryType: SummaryType;
   gitFileStatus: GitFileStatus | null = null;
   lastOscTitle = '';
@@ -922,22 +921,16 @@ export class OuijitTerminal {
   /**
    * Apply an exit-code-driven status flip. Used by both the PTY-exit path
    * (`wireExitHandler`) and the OSC 133;D in-shell path (`handleCommandExit`).
-   * The PTY-exit path additionally writes the `exited: true` flag and uses a
-   * different summary string ("Exited" vs "Done") so the two callers stay
-   * distinguishable in the UI.
+   * Only the status dot (`summaryType`) reflects the exit code; the PTY-exit
+   * path additionally sets the `exited: true` flag. We don't surface a textual
+   * "Done" / "Exit N" suffix in the header — the dot carries that signal, and
+   * the suffix only collided with the OSC title the shell/agent renders.
    */
   private applyExitState(exitCode: number, opts: { isPtyExit: boolean }): void {
     const nextType: SummaryType = exitCode === 0 ? 'success' : 'error';
-    const successSummary = opts.isPtyExit ? 'Exited' : 'Done';
-    const nextSummary = exitCode === 0 ? successSummary : `Exit ${exitCode}`;
-    if (this.summaryType !== nextType || this.summary !== nextSummary) {
+    if (this.summaryType !== nextType) {
       this.summaryType = nextType;
-      this.summary = nextSummary;
-      this.pushDisplayState(
-        opts.isPtyExit
-          ? { summaryType: nextType, summary: nextSummary, exited: true }
-          : { summaryType: nextType, summary: nextSummary },
-      );
+      this.pushDisplayState(opts.isPtyExit ? { summaryType: nextType, exited: true } : { summaryType: nextType });
     } else if (opts.isPtyExit) {
       this.pushDisplayState({ exited: true });
     }

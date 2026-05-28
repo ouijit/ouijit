@@ -9,7 +9,6 @@ function makeDisplay(ptyId: string, patch: Partial<TerminalDisplayState>): Termi
   return {
     ptyId,
     label: '',
-    summary: '',
     summaryType: 'ready',
     gitFileStatus: null,
     lastOscTitle: '',
