@@ -333,6 +333,7 @@ body.marketing .home-pitch-link:hover span {
   margin: 0 auto;
   padding: 0 var(--content-padding) 120px;
   color: #f5f5f7;
+  text-align: center;
 }
 
 .home-agents h2 {
@@ -345,19 +346,34 @@ body.marketing .home-pitch-link:hover span {
 .home-agents ul {
   list-style: none;
   padding: 0;
-  margin: 0 0 24px;
+  margin: 0 0 32px;
   display: flex;
   flex-wrap: wrap;
-  gap: 8px 24px;
+  justify-content: center;
+  gap: 32px 56px;
 }
 
 body.marketing .home-agents a {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
   color: var(--color-text-tertiary);
   transition: color var(--transition-fast);
 }
 
 body.marketing .home-agents a:hover {
   color: #f5f5f7;
+}
+
+.home-agents img {
+  width: 48px;
+  height: 48px;
+  display: block;
+}
+
+.home-agents span {
+  font-size: 0.9375rem;
 }
 
 .home-agents p {
