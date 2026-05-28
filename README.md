@@ -14,7 +14,7 @@ Download the latest release:
 - [macOS (Intel)](https://github.com/ouijit/ouijit/releases/latest/download/ouijit-darwin-x64.zip)
 - [Linux (x64)](https://github.com/ouijit/ouijit/releases/latest/download/ouijit-linux-x64.zip)
 
-Free and open source. No account, no sign-in.
+Free and open source. No account, no sign-in, no telemetry.
 
 [Website](https://ouijit.com/) · [Docs](https://ouijit.com/docs/) · [All releases](https://github.com/ouijit/ouijit/releases)
 
