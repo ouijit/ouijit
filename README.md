@@ -1,12 +1,12 @@
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="website/public/assets/ouijit-logo.svg">
   <source media="(prefers-color-scheme: light)" srcset="website/public/assets/ouijit-logo-dark.svg">
-  <img alt="ouijit" src="website/public/assets/ouijit-logo.svg" width="200">
+  <img alt="ouijit" src="website/public/assets/ouijit-logo.svg" width="160">
 </picture>
 
-<br>
+<br><br>
 
-Ouijit is a customizable task and terminal session manager that integrates with agent CLIs and TUIs like Claude Code via lifecycle hooks, scripts, and a session-aware CLI. It offers basic comforts for agentic development like live agent status with notifications, automatic worktree management for parallel workstreams, and VM sandboxing for untrusted code.
+Ouijit is a customizable task and terminal session manager that integrates with agent CLIs and TUIs (Claude Code, Codex, Pi) via lifecycle hooks, scripts, and a session-aware CLI. It offers basic comforts for agentic development like live agent status with notifications, automatic worktree management for parallel workstreams, and VM sandboxing for untrusted code.
 
 Download the latest release:
 
@@ -14,7 +14,9 @@ Download the latest release:
 - [macOS (Intel)](https://github.com/ouijit/ouijit/releases/latest/download/ouijit-darwin-x64.zip)
 - [Linux (x64)](https://github.com/ouijit/ouijit/releases/latest/download/ouijit-linux-x64.zip)
 
-Free and open source. No account, no sign-in. [Docs](https://ouijit.com/docs/) · [All releases](https://github.com/ouijit/ouijit/releases)
+Free and open source. No account, no sign-in.
+
+[Website](https://ouijit.com/) · [Docs](https://ouijit.com/docs/) · [All releases](https://github.com/ouijit/ouijit/releases)
 
 <img src="website/public/assets/screenshots/kanban.png" alt="Kanban board" width="100%">
 
@@ -31,12 +33,12 @@ ouijit task list                              # array of tasks in the current pr
 ouijit task current                           # task owning this terminal
 ouijit task create-and-start "Fix login bug"  # new task + worktree + terminal
 ouijit task set-status 5 in_review
-ouijit hook set start --command 'claude "$OUIJIT_TASK_PROMPT"'
+ouijit hook set start --command 'claude "$OUIJIT_TASK_DESCRIPTION"'
 ouijit script run Lint
 ouijit plan set ./plan.md
 ```
 
-Supported agents (Claude Code, Codex, Pi) know how to use it out of the box. Output is JSON on stdout for easy piping into `jq`. Full command list in the [docs](https://ouijit.com/docs/#cli).
+The supported agents (Claude Code, Codex, Pi) know how to use it out of the box. Output is JSON on stdout for easy piping into `jq`. Full command list in the [docs](https://ouijit.com/docs/#cli).
 
 ## Setup
 
