@@ -6,7 +6,7 @@
 
 <br><br>
 
-Ouijit is a customizable task and terminal session manager that integrates with agent CLIs and TUIs (Claude Code, Codex, Pi) via lifecycle hooks, scripts, and a session-aware CLI. It offers basic comforts for agentic development like live agent status with notifications, automatic worktree management for parallel workstreams, and VM sandboxing for untrusted code.
+Ouijit is a customizable task and terminal session manager that integrates with agent CLIs and TUIs via lifecycle hooks, scripts, and a session-aware CLI. It offers basic comforts for agentic development like live agent status with notifications, automatic worktree management for parallel workstreams, and VM sandboxing for untrusted code.
 
 Download the latest release:
 
@@ -23,6 +23,12 @@ Free and open source. No account, no sign-in.
 <img src="website/public/assets/screenshots/terminal-stack.png" alt="Terminal stack" width="100%">
 
 <img src="website/public/assets/screenshots/settings.png" alt="Settings" width="100%">
+
+## Supported agents
+
+- [Claude Code](https://claude.com/claude-code)
+- [Codex](https://github.com/openai/codex)
+- [Pi](https://pi.dev)
 
 ## CLI
 
