@@ -30,6 +30,22 @@ Run multiple terminals per task and read the active session's plan beside it. Ch
 
 Wire commands to run on each task status change, choose how worktrees are provisioned, and save scripts you can launch from any terminal.
 
+## CLI
+
+Every terminal Ouijit opens has a session-scoped `ouijit` command available. Use it to create and advance tasks, manage hooks and scripts, or attach a plan file to the current terminal:
+
+```bash
+ouijit task list                              # array of tasks in the current project
+ouijit task current                           # task owning this terminal
+ouijit task create-and-start "Fix login bug"  # new task + worktree + terminal
+ouijit task set-status 5 in_review
+ouijit hook set start --command 'claude "$OUIJIT_TASK_PROMPT"'
+ouijit script run Lint
+ouijit plan set ./plan.md
+```
+
+Commands write JSON to stdout and pair well with `jq`. Agent CLIs that Ouijit recognizes (Claude Code, Codex, Pi) get the full reference injected into their system prompt automatically. Full command list in the [docs](https://ouijit.com/docs/#cli).
+
 ## Setup
 
 Requires Node.js 20+, git, and C/C++ build tools for native modules (better-sqlite3, node-pty, koffi):
