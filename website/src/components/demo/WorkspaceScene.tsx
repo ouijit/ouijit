@@ -340,7 +340,7 @@ export default function WorkspaceScene() {
           right: 280,
           height: 520,
           display: 'flex',
-          background: 'var(--color-background)',
+          background: 'var(--color-terminal-bg, #171717)',
           border: '1px solid rgba(0, 0, 0, 0.6)',
           borderRadius: 14,
           overflow: 'hidden',
