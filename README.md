@@ -6,8 +6,6 @@
 
 <br>
 
-_Integrated Divination Environment._
-
 Ouijit is a customizable task and terminal session manager that integrates with agent CLIs and TUIs like Claude Code via lifecycle hooks, scripts, and a session-aware CLI. It offers basic comforts for agentic development like live agent status with notifications, automatic worktree management for parallel workstreams, and VM sandboxing for untrusted code.
 
 Download the latest release:
