@@ -453,13 +453,27 @@ ouijit task create "Fix login bug"
 ouijit task create "Refactor auth" --prompt "Extract middleware"
 ouijit task start 5                           # creates worktree, sets in_progress
 ouijit task start 5 --branch custom-name
+ouijit task start 5 --run-hook                # run the configured start hook, no dialog
+ouijit task start 5 --skip-hook               # spawn the terminal, run no hook
+ouijit task start 5 --hook-command "claude"   # one-off command instead of the configured hook
 ouijit task create-and-start "Add 2FA"        # create + start in one step
+ouijit task create-and-start "Add 2FA" --prompt "..." --branch custom --skip-hook
 ouijit task spawn "Add 2FA"                   # alias for create-and-start
 ouijit task set-status 5 in_review
+ouijit task set-status 5 done --skip-hook     # skip the configured done hook
+ouijit task set-status 5 done --hook-command "npm run deploy"
+ouijit task bulk-set-status done 5 6 7        # set status on many in parallel
 ouijit task set-name 5 "Better name"
 ouijit task set-description 5 "More detail"
 ouijit task set-merge-target 5 develop
 ouijit task delete 5</code></pre>
+        <p>
+          The <code>--run-hook</code>, <code>--skip-hook</code>, and <code>--hook-command</code> flags on
+          <code>task start</code> and <code>create-and-start</code> are mutually exclusive. By default,
+          starting a task opens the start-hook dialog in the GUI; use these flags for headless runs where
+          no human is at the keyboard to dismiss it. On <code>set-status &lt;n&gt; done</code> and
+          <code>bulk-set-status done</code>, the same hook flags control the done hook.
+        </p>
         <p>
           <code>ouijit task current</code> resolves the task owning the current terminal via the <code>OUIJIT_PTY_ID</code>
           env var that Ouijit sets on every spawn. Useful inside agent scripts:
@@ -475,6 +489,7 @@ ouijit task set-status "$TASK" in_review</code></pre>
         <pre><code>ouijit hook list
 ouijit hook get start
 ouijit hook set start --name "Install &amp; agent" --command 'npm install &amp;&amp; claude "$OUIJIT_TASK_DESCRIPTION"'
+ouijit hook set start --name "Install &amp; agent" --command '...' --description "Boots the agent on a fresh worktree"
 ouijit hook delete done</code></pre>
 
         <h2>Tags</h2>
