@@ -20,15 +20,15 @@ Free and open source. No account, no sign-in. [Docs](https://ouijit.com/docs/) Â
 
 <img src="website/public/assets/screenshots/kanban.png" alt="Kanban board" width="100%">
 
-Drag tasks between columns to move them through your workflow. Open any task to jump into its worktree and run an agent.
+Drag tasks between columns to advance them through your workflow. Status changes fire lifecycle hooks, so dropping a task into In Progress can launch an agent in its fresh worktree.
 
 <img src="website/public/assets/screenshots/terminal-stack.png" alt="Terminal stack" width="100%">
 
-Run multiple terminals per task and read the active session's plan beside it. Check each agent's status from the tab header without switching sessions.
+Run an agent CLI per task with live status (thinking, ready, waiting) in the tab header. Open a plan file alongside the active session for a shared TODO list both you and the agent can read and write through the `ouijit plan` command.
 
 <img src="website/public/assets/screenshots/settings.png" alt="Settings" width="100%">
 
-Wire commands to run on each task status change, choose how worktrees are provisioned, and save scripts you can launch from any terminal.
+Configure the hooks that fire on each status change, including which agent command runs on Start. Pick how worktrees are provisioned, and save scripts you or the agent can launch from any terminal.
 
 ## CLI
 
