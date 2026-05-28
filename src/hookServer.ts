@@ -380,11 +380,15 @@ ouijit task current                           # → task owning this terminal (r
 ouijit task create "<name>"                   # → {success, task: {taskNumber, ...}}
 ouijit task create "<name>" --prompt "<text>" # set description at creation
 ouijit task start <number>                    # creates git worktree, sets in_progress; default opens the start-hook dialog in the GUI
+ouijit task start <number> --branch <name>    # use a custom branch name for the worktree
 ouijit task start <number> --run-hook         # run the configured start hook immediately, no dialog
 ouijit task start <number> --skip-hook        # spawn the terminal but run no hook
 ouijit task start <number> --hook-command "<cmd>"  # spawn the terminal running a one-off command instead of the configured hook
-ouijit task create-and-start "<name>"         # create + start in one step (accepts the same --run-hook / --skip-hook / --hook-command flags)
+ouijit task create-and-start "<name>"         # create + start in one step (accepts --prompt, --branch, and the same --run-hook / --skip-hook / --hook-command flags); aliased as "task spawn"
 ouijit task set-status <number> <status>      # status: todo | in_progress | in_review | done
+ouijit task set-status <number> done --skip-hook            # skip the configured done hook
+ouijit task set-status <number> done --hook-command "<cmd>" # run a one-off command instead of the done hook
+ouijit task bulk-set-status <status> <n1> <n2>...           # set status on many tasks in parallel (same hook flags when status=done)
 ouijit task set-name <number> <new name>
 ouijit task set-description <number> <text>
 ouijit task set-merge-target <number> <branch>
@@ -402,7 +406,7 @@ Hook types: start, continue, run, review, done, editor
 
 ouijit hook list                              # → {start?: {name, command}, ...}
 ouijit hook get <type>
-ouijit hook set <type> --name "<name>" --command "<cmd>"
+ouijit hook set <type> --name "<name>" --command "<cmd>" [--description "<desc>"]
 ouijit hook delete <type>
 
 ## Script Commands (ad-hoc project scripts)
