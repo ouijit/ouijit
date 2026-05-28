@@ -28,7 +28,7 @@ Canvas view arranges every terminal across the project on a zoomable plane.
 
 <img src="website/public/assets/screenshots/settings.png" alt="Settings" width="100%">
 
-Configure lifecycle hooks (Start, Continue, Review, Cleanup), run scripts, and the editor command per project.
+Configure worktree strategy, lifecycle hooks (Start, Continue, Review, Done), run scripts, and the editor command per project.
 
 ## Setup
 
