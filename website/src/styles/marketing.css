@@ -368,7 +368,7 @@ body.marketing .home-agents-grid a {
   padding: 32px 20px;
   border: 1px solid rgba(0, 0, 0, 0.6);
   border-radius: 14px;
-  background: var(--color-background-secondary, rgba(255, 255, 255, 0.06));
+  background: var(--color-terminal-bg, #171717);
   overflow: hidden;
   color: var(--color-text-secondary);
   transition:
@@ -377,7 +377,7 @@ body.marketing .home-agents-grid a {
 }
 
 body.marketing .home-agents-grid a:hover {
-  background: rgba(255, 255, 255, 0.09);
+  background: #1f1f1f;
   transform: translateY(-1px);
 }
 
