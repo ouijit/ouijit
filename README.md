@@ -22,10 +22,6 @@ Tasks move across To Do, In Progress, In Review, and Done columns. Each task own
 
 Open multiple terminals per task, with an optional plan panel alongside the active session. Agent status (thinking, ready, waiting for input) surfaces in the tab header.
 
-<img src="website/public/assets/screenshots/canvas.png" alt="Terminal canvas" width="100%">
-
-Canvas view arranges every terminal across the project on a zoomable plane.
-
 <img src="website/public/assets/screenshots/settings.png" alt="Settings" width="100%">
 
 Configure worktree strategy, lifecycle hooks (Start, Continue, Review, Done), run scripts, and the editor command per project.
