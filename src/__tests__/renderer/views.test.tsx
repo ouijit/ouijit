@@ -160,13 +160,12 @@ describe('TerminalHeaderView', () => {
     render(
       <TerminalHeaderView
         summaryType="ready"
-        nameContent={<TerminalHeaderName label="claude" summary="thinking" />}
+        nameContent={<TerminalHeaderName label="claude" lastOscTitle="~/project" />}
         tagsContent={<TerminalHeaderTags tags={['auth']} />}
       />,
     );
     expect(screen.getByText('claude')).toBeTruthy();
-    // Em-dash separator should render literally, not as a backslash escape.
-    expect(screen.getByText('— thinking')).toBeTruthy();
+    expect(screen.getByText('~/project')).toBeTruthy();
     expect(screen.getByText('auth')).toBeTruthy();
   });
 
