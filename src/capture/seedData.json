@@ -25,10 +25,9 @@
     {
       "name": "Refine CTA button hover states",
       "status": "in_progress",
-      "prompt": "Child task of invitation polish — align hover states with the design tokens.",
+      "prompt": "Align CTA hover states with the design tokens.",
       "branch": "cta-hover-states-121",
-      "parentTaskNumber": 3,
-      "mergeTarget": "invite-email-polish-119",
+      "mergeTarget": "main",
       "sandboxed": true
     },
     {
