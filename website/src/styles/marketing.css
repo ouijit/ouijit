@@ -329,62 +329,94 @@ body.marketing .home-pitch-link:hover span {
 
 /* --- Supported agents --- */
 .home-agents {
-  max-width: 720px;
+  max-width: 960px;
   margin: 0 auto;
   padding: 0 var(--content-padding) 120px;
-  color: #f5f5f7;
   text-align: center;
 }
 
 .home-agents h2 {
-  font-size: 1.25rem;
-  font-weight: 600;
-  margin: 0 0 16px;
-  letter-spacing: -0.01em;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--color-text-tertiary);
+  margin: 0 0 28px;
 }
 
-.home-agents ul {
+.home-agents-grid {
   list-style: none;
   padding: 0;
   margin: 0 0 32px;
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 32px 56px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
 }
 
-body.marketing .home-agents a {
+body.marketing .home-agents-grid a {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
-  color: var(--color-text-tertiary);
-  transition: color var(--transition-fast);
+  gap: 14px;
+  padding: 32px 20px;
+  border: 1px solid var(--color-border);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--color-text-secondary);
+  transition:
+    border-color var(--transition-fast),
+    background-color var(--transition-fast),
+    transform var(--transition-fast);
 }
 
-body.marketing .home-agents a:hover {
-  color: #f5f5f7;
+body.marketing .home-agents-grid a:hover {
+  border-color: var(--color-border-hover);
+  background: rgba(255, 255, 255, 0.04);
+  transform: translateY(-1px);
 }
 
-.home-agents img {
-  width: 48px;
-  height: 48px;
+.home-agents-grid img {
+  width: 40px;
+  height: 40px;
   display: block;
 }
 
-.home-agents span {
-  font-size: 0.9375rem;
+.home-agents-name {
+  font-size: 1rem;
+  font-weight: 500;
+  color: #f5f5f7;
+  letter-spacing: -0.005em;
 }
 
-.home-agents p {
+.home-agents-domain {
+  font-size: 0.8125rem;
+  color: var(--color-text-tertiary);
+}
+
+.home-agents-footnote {
   font-size: 0.9375rem;
   color: var(--color-text-tertiary);
   margin: 0;
 }
 
+body.marketing .home-agents-footnote a {
+  color: var(--color-text-secondary);
+  transition: color var(--transition-fast);
+}
+
+body.marketing .home-agents-footnote a:hover {
+  color: #f5f5f7;
+}
+
 @media (max-width: 600px) {
   .home-agents {
     padding: 0 var(--content-padding) 80px;
+  }
+  .home-agents-grid {
+    grid-template-columns: 1fr;
+  }
+  body.marketing .home-agents-grid a {
+    padding: 24px 20px;
   }
 }
 
