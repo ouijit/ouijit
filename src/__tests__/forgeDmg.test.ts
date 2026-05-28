@@ -8,7 +8,7 @@ describe('notarizeAndStapleArtifact', () => {
     const notarizeFn = vi.fn().mockRejectedValue(new Error('notarize failed'));
     const stapleFn = vi.fn();
     await expect(
-      notarizeAndStapleArtifact('/tmp/Install Ouijit.dmg', {
+      notarizeAndStapleArtifact('/tmp/ouijit-darwin-arm64.dmg', {
         keychainProfile: 'ouijit-notarize',
         notarizeFn,
         stapleFn,
@@ -26,7 +26,7 @@ describe('notarizeAndStapleDMGs', () => {
 
     await notarizeAndStapleDMGs(
       [
-        '/out/make/Install Ouijit.dmg',
+        '/out/make/ouijit-darwin-arm64.dmg',
         '/out/make/zip/darwin/arm64/ouijit-darwin-arm64.zip',
         '/out/make/ouijit-1.0.deb',
       ],
@@ -38,7 +38,7 @@ describe('notarizeAndStapleDMGs', () => {
     );
 
     expect(notarizeFn).toHaveBeenCalledTimes(1);
-    expect(notarizeFn).toHaveBeenCalledWith(expect.objectContaining({ appPath: '/out/make/Install Ouijit.dmg' }));
+    expect(notarizeFn).toHaveBeenCalledWith(expect.objectContaining({ appPath: '/out/make/ouijit-darwin-arm64.dmg' }));
     expect(stapleFn).toHaveBeenCalledTimes(1);
   });
 
@@ -46,7 +46,7 @@ describe('notarizeAndStapleDMGs', () => {
     const notarizeFn = vi.fn();
     const stapleFn = vi.fn();
 
-    await notarizeAndStapleDMGs(['/out/make/Install Ouijit.dmg'], {
+    await notarizeAndStapleDMGs(['/out/make/ouijit-darwin-arm64.dmg'], {
       env: { SKIP_NOTARIZE: '1' },
       notarizeFn,
       stapleFn,

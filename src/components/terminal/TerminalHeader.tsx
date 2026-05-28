@@ -47,7 +47,6 @@ export const TerminalHeader = memo(function TerminalHeader({
   // and the header only re-renders when one of these fields actually changes.
   const {
     label,
-    summary,
     summaryType,
     gitFileStatus,
     lastOscTitle,
@@ -68,7 +67,6 @@ export const TerminalHeader = memo(function TerminalHeader({
       const d = s.displayStates[ptyId];
       return {
         label: d?.label ?? '',
-        summary: d?.summary ?? '',
         summaryType: d?.summaryType ?? 'ready',
         gitFileStatus: d?.gitFileStatus ?? null,
         lastOscTitle: d?.lastOscTitle ?? '',
@@ -355,7 +353,7 @@ export const TerminalHeader = memo(function TerminalHeader({
       }}
     />
   ) : (
-    <TerminalHeaderName label={label} summary={summary} lastOscTitle={lastOscTitle} />
+    <TerminalHeaderName label={label} lastOscTitle={lastOscTitle} />
   );
 
   const tagsContent =

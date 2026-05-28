@@ -6,7 +6,6 @@ export interface CaptureTerminalSeed {
   ptyId: string;
   taskId: number;
   label: string;
-  summary?: string;
   summaryType?: TerminalDisplayState['summaryType'];
   worktreeBranch?: string;
   sandboxed?: boolean;

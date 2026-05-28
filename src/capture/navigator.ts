@@ -25,7 +25,6 @@ function seedTerminal(projectPath: string, seed: CaptureTerminalSeed): void {
     projectPath,
     taskId: seed.taskId,
     label: seed.label,
-    summary: seed.summary ?? '',
     summaryType: seed.summaryType ?? 'ready',
     worktreeBranch: seed.worktreeBranch ?? null,
     sandboxed: seed.sandboxed ?? false,
