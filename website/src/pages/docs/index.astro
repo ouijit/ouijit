@@ -332,7 +332,7 @@ git branch --show-current</code></pre>
             <tr><th>Hook</th><th>When it runs</th><th>Example</th></tr>
           </thead>
           <tbody>
-            <tr><td><strong>Start</strong></td><td>Task moves from To Do to In Progress</td><td><code>npm install &amp;&amp; claude "$OUIJIT_TASK_PROMPT"</code></td></tr>
+            <tr><td><strong>Start</strong></td><td>Task moves from To Do to In Progress</td><td><code>npm install &amp;&amp; claude "$OUIJIT_TASK_DESCRIPTION"</code></td></tr>
             <tr><td><strong>Continue</strong></td><td>Reopening a task already In Progress</td><td><code>claude -c</code></td></tr>
             <tr><td><strong>Review</strong></td><td>Task moves to In Review</td><td><code>gh pr create --fill</code></td></tr>
             <tr><td><strong>Done</strong></td><td>Task moves to Done</td><td><code>git push origin HEAD</code></td></tr>
@@ -357,9 +357,9 @@ git branch --show-current</code></pre>
 OUIJIT_WORKTREE_PATH=~/Ouijit/worktrees/my-project/T-42
 OUIJIT_TASK_BRANCH=T-42
 OUIJIT_TASK_NAME="Add user auth"
-OUIJIT_TASK_PROMPT="implement oauth login"
+OUIJIT_TASK_DESCRIPTION="implement oauth login"
 OUIJIT_HOOK_TYPE=start</code></pre>
-        <p>A common pattern is wiring the start hook to an agent: <code>claude "$OUIJIT_TASK_PROMPT"</code> launches Claude Code with the task description as its prompt the moment a task moves to In Progress.</p>
+        <p>A common pattern is wiring the start hook to an agent: <code>claude "$OUIJIT_TASK_DESCRIPTION"</code> launches Claude Code with the task description as its prompt the moment a task moves to In Progress.</p>
       </section>
 
       <section id="agents">
@@ -474,7 +474,7 @@ ouijit task set-status "$TASK" in_review</code></pre>
         </p>
         <pre><code>ouijit hook list
 ouijit hook get start
-ouijit hook set start --name "Install &amp; agent" --command 'npm install &amp;&amp; claude "$OUIJIT_TASK_PROMPT"'
+ouijit hook set start --name "Install &amp; agent" --command 'npm install &amp;&amp; claude "$OUIJIT_TASK_DESCRIPTION"'
 ouijit hook delete done</code></pre>
 
         <h2>Tags</h2>
