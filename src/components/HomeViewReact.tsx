@@ -306,25 +306,33 @@ export function HomeView() {
         }}
       >
         {noProjects ? (
-          <div
-            className="absolute inset-0 flex flex-col items-center justify-center rounded-[14px] border border-dashed border-white/10"
-            style={{ background: 'var(--color-terminal-bg)' }}
-          >
-            <div className="flex flex-col px-8 max-w-[32rem]">
-              <h1 className="text-[22px] font-semibold text-text-primary tracking-tight mb-6">Start a project</h1>
-              <div className="flex flex-col">
-                <EmptyStateChoice
-                  verb="Open"
-                  noun="a folder you already have"
-                  detail="Brings an existing folder into Ouijit as a project."
-                  onClick={() => document.dispatchEvent(new Event('add-existing-project'))}
-                />
-                <EmptyStateChoice
-                  verb="Create"
-                  noun="a new project"
-                  detail="Creates a new folder, initialized as a git repo."
-                  onClick={() => document.dispatchEvent(new Event('create-new-project'))}
-                />
+          <div className="absolute inset-0 flex items-center justify-center overflow-hidden p-6">
+            <div className="w-full max-w-[36rem]">
+              <div
+                className="glass-bevel relative border border-black/60 rounded-[14px] overflow-hidden"
+                style={{
+                  background: 'var(--color-terminal-bg)',
+                  boxShadow:
+                    '0 0 0 1px rgba(0, 0, 0, 0.05), 0 4px 12px rgba(0, 0, 0, 0.15), 0 20px 40px rgba(0, 0, 0, 0.2)',
+                }}
+              >
+                <div className="px-5 py-3">
+                  <span className="text-sm text-text-primary leading-tight">Start a project</span>
+                </div>
+                <div className="border-t border-white/[0.06] divide-y divide-white/[0.04]">
+                  <EmptyStateChoice
+                    verb="Open"
+                    noun="a folder you already have"
+                    detail="Brings an existing folder into Ouijit as a project."
+                    onClick={() => document.dispatchEvent(new Event('add-existing-project'))}
+                  />
+                  <EmptyStateChoice
+                    verb="Create"
+                    noun="a new project"
+                    detail="Creates a new folder, initialized as a git repo."
+                    onClick={() => document.dispatchEvent(new Event('create-new-project'))}
+                  />
+                </div>
               </div>
             </div>
           </div>
@@ -543,7 +551,7 @@ function EmptyStateChoice({ verb, noun, detail, onClick }: EmptyStateChoiceProps
     <button
       type="button"
       onClick={onClick}
-      className="group flex items-baseline gap-3 w-full text-left py-3 transition-colors duration-150 ease-out focus-visible:ring-2 focus-visible:ring-accent-light rounded-sm outline-none [-webkit-app-region:no-drag]"
+      className="group flex items-baseline gap-3 w-full text-left px-5 py-3 hover:bg-white/[0.04] transition-colors duration-150 ease-out focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent-light outline-none [-webkit-app-region:no-drag]"
     >
       <span className="text-[15px] text-text-tertiary group-hover:text-text-primary transition-colors w-3 shrink-0">
         →
