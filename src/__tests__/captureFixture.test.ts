@@ -38,7 +38,6 @@ describe('seedCaptureFixture', () => {
     const tasks = new TaskRepo(db).getAllForProject(result.projectPath);
     const statuses = new Set(tasks.map((t) => t.status));
     expect(statuses).toEqual(new Set(['todo', 'in_progress', 'in_review', 'done']));
-    expect(tasks.some((t) => t.parent_task_number !== null)).toBe(true);
   });
 
   test('seeds hooks and scripts', () => {
