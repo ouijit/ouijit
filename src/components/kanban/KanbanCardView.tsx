@@ -249,12 +249,6 @@ export const KanbanCardView = memo(function KanbanCardView({
       }}
     >
       <div className="flex items-start gap-2">
-        {isSettingUp && (
-          <span
-            className="w-2 h-2 rounded-full bg-transparent border-[1.5px] border-white/30 border-t-white/80 shrink-0 mt-[5px]"
-            style={{ animation: 'loading-dot-spin 0.8s linear infinite' }}
-          />
-        )}
         {isRenamingTask ? (
           <textarea
             ref={nameInputRef}
@@ -283,10 +277,22 @@ export const KanbanCardView = memo(function KanbanCardView({
       </div>
       {showBadge && badge && <div className="mt-1">{badge}</div>}
 
-      {isSettingUp && <div className="font-mono text-xs text-white/40 mt-1">Setting up workspace{'…'}</div>}
-
-      {connectedDisplays.length > 0 && (
+      {(connectedDisplays.length > 0 || isSettingUp) && (
         <div className="flex flex-col" style={{ paddingTop: 3 }}>
+          {isSettingUp && connectedDisplays.length === 0 && (
+            <div className="flex flex-row items-center gap-1.5" style={{ padding: '3px 2px', borderRadius: 3 }}>
+              <span className="font-mono text-sm leading-none text-text-secondary shrink-0 select-none opacity-40">
+                └─
+              </span>
+              <span
+                className="w-2 h-2 rounded-full bg-transparent border-[1.5px] border-white/30 border-t-white/80 shrink-0"
+                style={{ animation: 'loading-dot-spin 0.8s linear infinite' }}
+              />
+              <span className="font-mono text-[10px] leading-tight text-text-secondary truncate min-w-0">
+                Setting up workspace{'…'}
+              </span>
+            </div>
+          )}
           {connectedDisplays.map((display, i) => {
             const isLast = i === connectedDisplays.length - 1;
             const isRenaming = renamingTerminalId === display.ptyId;
