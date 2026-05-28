@@ -111,7 +111,7 @@ export function seedCaptureFixture(
   fs.mkdirSync(plansDir, { recursive: true });
   fs.writeFileSync(path.join(plansDir, seedData.onboardingPlanFilename), seedData.onboardingPlanMarkdown);
 
-  new GlobalSettingsRepo(db).set(`experimental:${projectPath}`, JSON.stringify({ canvas: true }));
+  new GlobalSettingsRepo(db).set(`experimental:${projectPath}`, JSON.stringify({ canvas: false }));
 
   captureFixtureLog.info('fixture seeded', { projectPath, tasks: TASK_SEEDS.length });
 
