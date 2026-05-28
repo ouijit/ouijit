@@ -14,16 +14,21 @@ Download for [macOS or Linux](https://ouijit.com). Free and open source. No acco
 
 [Docs](https://ouijit.com/docs/)
 
-<table>
-  <tr>
-    <td><img src="website/public/assets/screenshots/kanban.png" alt="Kanban board"></td>
-    <td><img src="website/public/assets/screenshots/terminal-stack.png" alt="Terminal stack"></td>
-  </tr>
-  <tr>
-    <td><img src="website/public/assets/screenshots/canvas.png" alt="Terminal canvas"></td>
-    <td><img src="website/public/assets/screenshots/settings.png" alt="Settings"></td>
-  </tr>
-</table>
+<img src="website/public/assets/screenshots/kanban.png" alt="Kanban board" width="100%">
+
+Tasks move across To Do, In Progress, In Review, and Done columns. Each task owns a git worktree and a stack of terminal sessions.
+
+<img src="website/public/assets/screenshots/terminal-stack.png" alt="Terminal stack" width="100%">
+
+Open multiple terminals per task, with an optional plan panel alongside the active session. Agent status (thinking, ready, waiting for input) surfaces in the tab header.
+
+<img src="website/public/assets/screenshots/canvas.png" alt="Terminal canvas" width="100%">
+
+Canvas view arranges every terminal across the project on a zoomable plane.
+
+<img src="website/public/assets/screenshots/settings.png" alt="Settings" width="100%">
+
+Configure lifecycle hooks (Start, Continue, Review, Cleanup), run scripts, and the editor command per project.
 
 ## Setup
 
