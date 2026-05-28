@@ -44,7 +44,7 @@ ouijit script run Lint
 ouijit plan set ./plan.md
 ```
 
-Supported agents (Claude Code, Codex, Pi) already have the full reference in their system prompt, so they can call the same commands without any setup. Output is JSON on stdout for easy piping into `jq`. Full command list in the [docs](https://ouijit.com/docs/#cli).
+Supported agents (Claude Code, Codex, Pi) know how to use it out of the box. Output is JSON on stdout for easy piping into `jq`. Full command list in the [docs](https://ouijit.com/docs/#cli).
 
 ## Setup
 
