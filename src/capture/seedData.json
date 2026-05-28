@@ -80,8 +80,8 @@
     {
       "type": "start",
       "name": "Claude",
-      "command": "claude --dangerously-skip-permissions \"$OUIJIT_TASK_PROMPT\"",
-      "description": "Launch Claude Code with the task prompt"
+      "command": "claude --dangerously-skip-permissions \"$OUIJIT_TASK_DESCRIPTION\"",
+      "description": "Launch Claude Code with the task description"
     },
     {
       "type": "continue",
