@@ -8,7 +8,7 @@ const sections = [
   { id: 'terminals', label: 'Terminal Sessions' },
   { id: 'sandbox', label: 'VM Sandbox' },
   { id: 'hooks', label: 'Hooks' },
-  { id: 'agents', label: 'Agents' },
+  { id: 'harnesses', label: 'Harnesses' },
   { id: 'cli', label: 'CLI' },
 ];
 ---
@@ -248,8 +248,8 @@ git branch --show-current</code></pre>
         <h2>Tags</h2>
         <p>Tag terminals to organize them. Tags appear on terminal cards, and the home view can group by tag.</p>
 
-        <h2>Working with CLI agents</h2>
-        <p>Each terminal is a normal shell, so any CLI tool runs in it. <a href="#agents">Claude Code, Codex, and Pi</a> get live status indicators and can drive Ouijit through the <a href="#cli">CLI</a>.</p>
+        <h2>Working with harnesses</h2>
+        <p>Each terminal is a normal shell, so any CLI tool runs in it. <a href="#harnesses">Claude Code, Codex, and Pi</a> get live status indicators and can drive Ouijit through the <a href="#cli">CLI</a>.</p>
       </section>
 
       <section id="sandbox">
@@ -362,8 +362,8 @@ OUIJIT_HOOK_TYPE=start</code></pre>
         <p>A common pattern is wiring the start hook to an agent: <code>claude "$OUIJIT_TASK_DESCRIPTION"</code> launches Claude Code with the task description as its prompt the moment a task moves to In Progress.</p>
       </section>
 
-      <section id="agents">
-        <h1>Agents</h1>
+      <section id="harnesses">
+        <h1>Harnesses</h1>
         <p class="lead">Claude Code, Codex, and Pi get live status indicators and can drive Ouijit through its CLI. No configuration required.</p>
 
         <h2>What you get</h2>
@@ -382,13 +382,13 @@ OUIJIT_HOOK_TYPE=start</code></pre>
 
         <h2>How it works</h2>
         <p>
-          Ouijit installs a thin wrapper for each supported agent into the terminal's <code>PATH</code>. The wrapper
-          shadows the real binary, injects the CLI reference into the agent's system prompt, and wires status hooks
-          back to Ouijit. The mechanism differs per agent:
+          Ouijit installs a thin wrapper for each supported harness into the terminal's <code>PATH</code>. The wrapper
+          shadows the real binary, injects the CLI reference into the harness's system prompt, and wires status hooks
+          back to Ouijit. The mechanism differs per harness:
         </p>
         <table>
           <thead>
-            <tr><th>Agent</th><th>Status wiring</th><th>System prompt</th></tr>
+            <tr><th>Harness</th><th>Status wiring</th><th>System prompt</th></tr>
           </thead>
           <tbody>
             <tr>
@@ -408,7 +408,7 @@ OUIJIT_HOOK_TYPE=start</code></pre>
             </tr>
           </tbody>
         </table>
-        <p>When <code>OUIJIT_API_URL</code> is unset (i.e. the agent runs outside an Ouijit terminal), the wrappers exec the real binary unmodified.</p>
+        <p>When <code>OUIJIT_API_URL</code> is unset (i.e. the harness runs outside an Ouijit terminal), the wrappers exec the real binary unmodified.</p>
 
         <h2>Sandboxed terminals</h2>
         <p>Status indicators work inside the <a href="#sandbox">VM sandbox</a>: Claude settings, Codex config, and the Pi extension are written into the VM's home directory, and their hooks reach back over <code>host.lima.internal</code>.</p>
