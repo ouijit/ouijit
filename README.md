@@ -30,6 +30,8 @@ Free and open source. No account, no sign-in.
 - [Codex](https://github.com/openai/codex)
 - [Pi](https://pi.dev)
 
+To request support for another agent, [open an issue](https://github.com/ouijit/ouijit/issues/new).
+
 ## CLI
 
 The `ouijit` command is available in every terminal Ouijit opens. You can use it directly from the shell to create and advance tasks, manage hooks and scripts, or attach a plan file to the current terminal:
