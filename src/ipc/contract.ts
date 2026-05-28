@@ -33,6 +33,7 @@ import type {
   BranchInfo,
   TagRow,
   Script,
+  ValidateFolderFailureReason,
 } from '../types';
 import type { SandboxStatus } from '../lima/types';
 import type { HookStatusEntry } from '../hookServer';
@@ -60,7 +61,14 @@ export interface IpcInvokeContract {
   'refresh-projects': { args: []; return: Project[] };
   'create-project': { args: [options: CreateProjectOptions]; return: CreateProjectResult };
   'show-folder-picker': { args: []; return: { canceled: boolean; filePaths: string[] } };
-  'add-project': { args: [folderPath: string]; return: { success: boolean; error?: string } };
+  'add-project': {
+    args: [folderPath: string];
+    return: { success: boolean; error?: string; reason?: ValidateFolderFailureReason };
+  };
+  'init-git-repo': {
+    args: [folderPath: string, initialCommit?: boolean];
+    return: { success: boolean; error?: string };
+  };
   'remove-project': { args: [folderPath: string]; return: { success: boolean } };
   'reorder-projects': { args: [paths: string[]]; return: { success: boolean } };
   'get-project-settings': { args: [projectPath: string]; return: ProjectSettings };

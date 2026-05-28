@@ -10,6 +10,7 @@ import { GlobalSettingsPanel } from './components/GlobalSettingsPanel';
 import { ProjectView } from './components/ProjectViewReact';
 import { ToastContainer } from './components/ui/ToastContainer';
 import { NewProjectDialog } from './components/dialogs/NewProjectDialog';
+import { InitGitRepoDialog } from './components/dialogs/InitGitRepoDialog';
 import { WhatsNewDialog } from './components/dialogs/WhatsNewDialog';
 import { HelpDialog } from './components/dialogs/HelpDialog';
 import { installCaptureNavigator } from './capture/navigator';
@@ -66,6 +67,7 @@ export function App() {
   const helpDialogOpen = useAppStore((s) => s.helpDialogOpen);
   const homeActivePanel = useAppStore((s) => s.homeActivePanel);
   const [showNewProject, setShowNewProject] = useState(false);
+  const [gitInitPath, setGitInitPath] = useState<string | null>(null);
   const [initialized, setInitialized] = useState(false);
 
   // Hydrate experimental flags whenever the active project changes
@@ -202,23 +204,46 @@ export function App() {
     window.api.globalSettings.set('lastActiveView', JSON.stringify({ type: 'home' }));
   }, []);
 
+  // Register the added folder, refresh the project list, and navigate to it.
+  const finalizeAddedProject = useCallback(async (addedPath: string) => {
+    const projects = await window.api.refreshProjects();
+    useAppStore.getState().setProjects(projects);
+    const project = projects.find((p) => p.path === addedPath);
+    if (project) {
+      useAppStore.getState().navigateToProject(addedPath, project);
+    }
+  }, []);
+
   const handleAddExisting = useCallback(async () => {
     const result = await window.api.showFolderPicker();
     if (!result.canceled && result.filePaths.length > 0) {
       const addedPath = result.filePaths[0];
       const addResult = await window.api.addProject(addedPath);
       if (addResult.success) {
-        const projects = await window.api.refreshProjects();
-        useAppStore.getState().setProjects(projects);
-        const project = projects.find((p) => p.path === addedPath);
-        if (project) {
-          useAppStore.getState().navigateToProject(addedPath, project);
-        }
+        await finalizeAddedProject(addedPath);
+      } else if (addResult.reason === 'not-a-git-repo') {
+        // Recoverable dead-end: offer to `git init` the folder in place.
+        setGitInitPath(addedPath);
       } else if (addResult.error) {
         useProjectStore.getState().addToast(addResult.error, 'error');
       }
     }
-  }, []);
+  }, [finalizeAddedProject]);
+
+  const handleGitInitClose = useCallback(
+    async (result: { initialized: boolean; initialCommit: boolean } | null) => {
+      const folderPath = gitInitPath;
+      setGitInitPath(null);
+      if (!result?.initialized || !folderPath) return;
+      const addResult = await window.api.addProject(folderPath);
+      if (addResult.success) {
+        await finalizeAddedProject(folderPath);
+      } else if (addResult.error) {
+        useProjectStore.getState().addToast(addResult.error, 'error');
+      }
+    },
+    [gitInitPath, finalizeAddedProject],
+  );
 
   const handleCreateNew = useCallback(() => {
     setShowNewProject(true);
@@ -281,6 +306,7 @@ export function App() {
       </div>
       <ToastContainer />
       {showNewProject && <NewProjectDialog onClose={handleNewProjectClose} />}
+      {gitInitPath && <InitGitRepoDialog folderPath={gitInitPath} onClose={handleGitInitClose} />}
       {whatsNew && (
         <WhatsNewDialog
           version={whatsNew.version}

@@ -56,6 +56,7 @@ contextBridge.exposeInMainWorld('api', {
   createProject: (options: CreateProjectOptions) => typedInvoke('create-project', options),
   showFolderPicker: () => typedInvoke('show-folder-picker'),
   addProject: (folderPath: string) => typedInvoke('add-project', folderPath),
+  initGitRepo: (folderPath: string, initialCommit?: boolean) => typedInvoke('init-git-repo', folderPath, initialCommit),
   removeProject: (folderPath: string) => typedInvoke('remove-project', folderPath),
   reorderProjects: (paths: string[]) => typedInvoke('reorder-projects', paths),
   getProjectSettings: (projectPath: string) => typedInvoke('get-project-settings', projectPath),

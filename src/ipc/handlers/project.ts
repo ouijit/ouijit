@@ -3,7 +3,7 @@ import { shell, BrowserWindow, dialog } from 'electron';
 import { typedHandle } from '../helpers';
 import { getProjectList } from '../../scanner';
 import { addProject, removeProject, reorderProjects, getProjectSettings, setKillExistingOnRun } from '../../db';
-import { createProject, validateProjectFolder } from '../../projectCreator';
+import { createProject, validateProjectFolder, initGitRepo } from '../../projectCreator';
 import { recordFirstProjectIfNeeded, seedOnboardingTaskIfFirstProject } from '../../onboarding';
 import { openInEditor, openFileInEditor } from '../../editorLauncher';
 import { deleteWithCleanup } from '../../lima/manager';
@@ -77,7 +77,7 @@ export function registerProjectHandlers(mainWindow: BrowserWindow): void {
 
   typedHandle('add-project', async (folderPath) => {
     const validation = await validateProjectFolder(folderPath);
-    if (validation.ok === false) return { success: false, error: validation.error };
+    if (validation.ok === false) return { success: false, error: validation.error, reason: validation.reason };
     try {
       await addProject(folderPath);
       await recordFirstProjectIfNeeded(folderPath, 'added');
@@ -86,6 +86,7 @@ export function registerProjectHandlers(mainWindow: BrowserWindow): void {
       return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
     }
   });
+  typedHandle('init-git-repo', (folderPath, initialCommit) => initGitRepo(folderPath, { initialCommit }));
   typedHandle('remove-project', async (folderPath) => {
     // Clean up sandbox config and VM before removing from DB
     await deleteWithCleanup(folderPath).catch(() => {});

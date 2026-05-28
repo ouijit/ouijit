@@ -39,6 +39,7 @@ const mockApi = {
   createProject: vi.fn().mockResolvedValue({ success: true }),
   showFolderPicker: vi.fn().mockResolvedValue({ canceled: true, filePaths: [] }),
   addProject: vi.fn().mockResolvedValue({ success: true }),
+  initGitRepo: vi.fn().mockResolvedValue({ success: true }),
   removeProject: vi.fn().mockResolvedValue({ success: true }),
   reorderProjects: vi.fn().mockResolvedValue({ success: true }),
   onFullscreenChange: vi.fn().mockReturnValue(() => {}),

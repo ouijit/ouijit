@@ -482,7 +482,9 @@ export interface ElectronAPI {
   /** Show native folder picker dialog */
   showFolderPicker(): Promise<{ canceled: boolean; filePaths: string[] }>;
   /** Add a project folder to the app */
-  addProject(folderPath: string): Promise<{ success: boolean; error?: string }>;
+  addProject(folderPath: string): Promise<{ success: boolean; error?: string; reason?: ValidateFolderFailureReason }>;
+  /** Initialize a git repository in an existing folder (recovers a non-git folder) */
+  initGitRepo(folderPath: string, initialCommit?: boolean): Promise<{ success: boolean; error?: string }>;
   /** Remove a project folder from the app */
   removeProject(folderPath: string): Promise<{ success: boolean }>;
   /** Reorder projects in the sidebar */
@@ -660,6 +662,9 @@ export interface CreateProjectResult {
   projectPath?: string;
   error?: string;
 }
+
+/** Why a picked folder failed project validation. `not-a-git-repo` is recoverable via `initGitRepo`. */
+export type ValidateFolderFailureReason = 'not-found' | 'not-a-directory' | 'not-a-git-repo';
 
 declare global {
   interface Window {
