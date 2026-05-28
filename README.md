@@ -24,13 +24,13 @@ Free and open source. No account, no sign-in.
 
 <img src="website/public/assets/screenshots/settings.png" alt="Settings" width="100%">
 
-## Supported agents
+## Supported harnesses
 
 - [Claude Code](https://claude.com/claude-code)
 - [Codex](https://github.com/openai/codex)
 - [Pi](https://pi.dev)
 
-To request support for another agent, [open an issue](https://github.com/ouijit/ouijit/issues/new).
+To request support for another harness, [open an issue](https://github.com/ouijit/ouijit/issues/new).
 
 ## CLI
 
@@ -46,7 +46,7 @@ ouijit script run Lint
 ouijit plan set ./plan.md
 ```
 
-The supported agents (Claude Code, Codex, Pi) know how to use it out of the box. Output is JSON on stdout for easy piping into `jq`. Full command list in the [docs](https://ouijit.com/docs/#cli).
+The supported harnesses (Claude Code, Codex, Pi) know how to use it out of the box. Output is JSON on stdout for easy piping into `jq`. Full command list in the [docs](https://ouijit.com/docs/#cli).
 
 ## Setup
 
