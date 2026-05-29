@@ -20,7 +20,7 @@ Free and open source under the AGPL-3.0 license. No account, no sign-in. Distrib
 - [Home](https://ouijit.com): Download links, demo, value prop.
 - [FAQ](https://ouijit.com/faq/): Frequently asked questions about platform support, agent integrations, sandbox behavior.
 - [GitHub repo](https://github.com/ouijit/ouijit): Source code, releases, issues.
-- [Latest release](https://github.com/ouijit/ouijit/releases/latest): macOS (arm64/x64) and Linux (x64) zipped binaries.
+- [Latest release](https://github.com/ouijit/ouijit/releases/latest): macOS (arm64/x64) DMG installers and Linux (x64) zipped binaries.
 
 ## Notable behavior for agents
 
