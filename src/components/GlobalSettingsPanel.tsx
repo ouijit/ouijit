@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useAppStore } from '../stores/appStore';
 import { setTerminalFontFamily, setTerminalFontSize } from './terminal/terminalReact';
+import { setReadyAudioDisabled } from '../utils/notifications';
 import { FontPickerRow } from './FontPickerRow';
 
 const DEFAULT_TERMINAL_FONT_SIZE = 14;
@@ -9,6 +10,7 @@ const MAX_TERMINAL_FONT_SIZE = 32;
 
 export function GlobalSettingsPanel() {
   const [autoUpdate, setAutoUpdate] = useState(true);
+  const [readyAudio, setReadyAudio] = useState(true);
   const [fontFamily, setFontFamily] = useState('');
   const [fontSize, setFontSize] = useState<number | null>(null);
 
@@ -17,11 +19,13 @@ export function GlobalSettingsPanel() {
     let cancelled = false;
     Promise.all([
       window.api.globalSettings.get('disableUpdates'),
+      window.api.globalSettings.get('disableReadyAudio'),
       window.api.globalSettings.get('terminal:font-family'),
       window.api.globalSettings.get('terminal:font-size'),
-    ]).then(([disableUpdates, family, size]) => {
+    ]).then(([disableUpdates, disableReadyAudio, family, size]) => {
       if (cancelled) return;
       setAutoUpdate(disableUpdates !== '1');
+      setReadyAudio(disableReadyAudio !== '1');
       setFontFamily(family ?? '');
       const parsed = parseFloat((size ?? '').trim());
       setFontSize(Number.isFinite(parsed) && parsed > 0 ? parsed : null);
@@ -48,6 +52,14 @@ export function GlobalSettingsPanel() {
     await window.api.globalSettings.set('disableUpdates', next ? '0' : '1');
   };
 
+  const toggleReadyAudio = async () => {
+    const next = !readyAudio;
+    setReadyAudio(next);
+    // Update the notifications cache immediately so the change applies without a reload.
+    setReadyAudioDisabled(!next);
+    await window.api.globalSettings.set('disableReadyAudio', next ? '0' : '1');
+  };
+
   const commitFontFamily = async (value: string) => {
     const trimmed = value.trim();
     setFontFamily(trimmed);
@@ -72,10 +84,14 @@ export function GlobalSettingsPanel() {
         style={{ background: 'linear-gradient(to bottom, var(--color-background-primary, #1c1c1e), transparent)' }}
       />
       <div className="flex-1 overflow-y-auto settings-scrollable">
-        <div className="flex items-center gap-3 px-6 pt-4 pb-2">
-          <h1 className="text-base font-semibold text-text-primary">Settings</h1>
-        </div>
         <div className="px-6 pt-4 pb-16 min-w-full max-w-2xl space-y-8">
+          <div>
+            <h1 className="text-base font-semibold text-text-primary">App Settings</h1>
+            <p className="text-xs text-text-tertiary mt-1">
+              Settings that apply to every project. Scripts, hooks, sandbox, and worktree options are set in each
+              project's settings.
+            </p>
+          </div>
           <section>
             <h2 className="text-sm font-semibold text-text-primary mb-4">Terminal</h2>
             <div
@@ -116,9 +132,27 @@ export function GlobalSettingsPanel() {
             >
               <ToggleRow
                 label="Check for updates automatically"
-                description="When off, Ouijit will not contact any remote update service. You can also set OUIJIT_DISABLE_UPDATES=1 in your shell."
+                description="When off, Ouijit won't contact the update service or download new versions."
                 checked={autoUpdate}
                 onChange={toggleAutoUpdate}
+              />
+            </div>
+          </section>
+
+          <section>
+            <h2 className="text-sm font-semibold text-text-primary mb-4">Sound</h2>
+            <div
+              className="glass-bevel relative border border-black/60 rounded-[14px] overflow-hidden divide-y divide-white/[0.06] bg-[var(--color-terminal-bg,#171717)]"
+              style={{
+                boxShadow:
+                  '0 0 0 1px rgba(0, 0, 0, 0.05), 0 4px 12px rgba(0, 0, 0, 0.15), 0 20px 40px rgba(0, 0, 0, 0.2)',
+              }}
+            >
+              <ToggleRow
+                label="Play a sound when a task is ready"
+                description="Plays a chime when a terminal returns to the ready state."
+                checked={readyAudio}
+                onChange={toggleReadyAudio}
               />
             </div>
           </section>

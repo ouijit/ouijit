@@ -53,7 +53,7 @@ interface AppStoreActions {
   setHealth: (status: HealthStatus | null) => void;
   setHomeActivePanel: (panel: 'home' | 'settings') => void;
   navigateToProject: (path: string, project: Project, options?: { direction?: ViewTransitionDirection }) => void;
-  navigateHome: (options?: { direction?: ViewTransitionDirection }) => void;
+  navigateHome: (options?: { direction?: ViewTransitionDirection; panel?: 'home' | 'settings' }) => void;
   loadHomeRecents: () => Promise<void>;
   /** Update one project's slice of the task cache; re-derives `homeRecents`. */
   updateProjectTaskCache: (projectPath: string, tasks: TaskWithWorkspace[]) => void;
@@ -144,7 +144,7 @@ export const useAppStore = create<AppStore>()((set, get) => ({
           activeView: 'home',
           activeProjectPath: null,
           activeProjectData: null,
-          homeActivePanel: 'home',
+          homeActivePanel: options?.panel ?? 'home',
           _version: version,
         });
       },

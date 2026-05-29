@@ -15,6 +15,7 @@ import { WhatsNewDialog } from './components/dialogs/WhatsNewDialog';
 import { HelpDialog } from './components/dialogs/HelpDialog';
 import { installCaptureNavigator } from './capture/navigator';
 import { hydrateTerminalFont } from './components/terminal/terminalReact';
+import { hydrateNotificationSettings } from './utils/notifications';
 import { installSessionAutoSave } from './components/terminal/sessionSnapshot';
 import { useUIStore } from './stores/uiStore';
 import log from 'electron-log/renderer';
@@ -96,6 +97,11 @@ export function App() {
   // Hydrate terminal-font cache from global settings before any terminal is constructed.
   useEffect(() => {
     hydrateTerminalFont();
+  }, []);
+
+  // Hydrate the ready-audio toggle so notifyReady reads it without an async call.
+  useEffect(() => {
+    hydrateNotificationSettings();
   }, []);
 
   // Hydrate persisted sidebar-pinned preference. Defaults to pinned (see the
