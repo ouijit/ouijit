@@ -154,16 +154,10 @@ export function CombinedHookConfigDialog({
       </div>
 
       <div className="flex gap-2 justify-end mt-4 items-center">
-        <button
-          className="inline-flex items-center justify-center gap-2 px-4 py-1.5 font-sans text-sm font-medium no-underline border-none rounded-full outline-none transition-all duration-150 ease-out [-webkit-app-region:no-drag] focus-visible:ring-3 focus-visible:ring-accent-light text-accent bg-accent-light hover:bg-[rgba(0,122,255,0.15)]"
-          onClick={() => dismiss(null)}
-        >
+        <button className="btn-secondary" onClick={() => dismiss(null)}>
           Cancel
         </button>
-        <button
-          className="inline-flex items-center justify-center gap-2 px-4 py-1.5 font-sans text-sm font-medium no-underline border-none rounded-full outline-none transition-all duration-150 ease-out [-webkit-app-region:no-drag] focus-visible:ring-3 focus-visible:ring-accent-light text-white bg-accent hover:bg-accent-hover active:scale-[0.98]"
-          onClick={handleSave}
-        >
+        <button className="btn-primary" onClick={handleSave}>
           Save
         </button>
       </div>

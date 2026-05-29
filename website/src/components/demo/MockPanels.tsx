@@ -470,7 +470,7 @@ function OnboardingPreviewPage() {
   return (
     <div className="w-full h-full flex flex-col bg-[#fafafa] text-[#0a0a0c] font-sans overflow-hidden">
       <div className="px-6 py-3 border-b border-black/10 flex items-center gap-3">
-        <div className="w-6 h-6 rounded-md bg-gradient-to-br from-[#0a84ff] to-[#5ac8fa]" />
+        <div className="w-6 h-6 rounded-md bg-gradient-to-br from-accent to-[#9af0c0]" />
         <span className="text-[12px] font-medium">Constellation</span>
         <div className="ml-auto text-[11px] text-black/40">Step 2 of 3</div>
       </div>
@@ -480,7 +480,7 @@ function OnboardingPreviewPage() {
         <div className="w-full max-w-[320px] flex flex-col gap-3">
           <div>
             <div className="text-[10px] uppercase tracking-wide text-black/45 mb-1">Workspace name</div>
-            <div className="px-2.5 py-1.5 rounded border border-[#0a84ff]/60 bg-white text-[12px] shadow-[0_0_0_3px_rgba(10,132,255,0.15)]">
+            <div className="px-2.5 py-1.5 rounded border border-accent/60 bg-white text-[12px] ring-[3px] ring-accent/15">
               Northwind
             </div>
           </div>
@@ -495,7 +495,7 @@ function OnboardingPreviewPage() {
             <button className="px-3 py-1.5 rounded text-[11px] text-black/60 bg-transparent border border-black/15">
               Back
             </button>
-            <button className="px-3 py-1.5 rounded text-[11px] text-white bg-[#0a84ff] border-none">Continue</button>
+            <button className="px-3 py-1.5 rounded text-[11px] text-accent-ink bg-accent border-none">Continue</button>
           </div>
         </div>
       </div>

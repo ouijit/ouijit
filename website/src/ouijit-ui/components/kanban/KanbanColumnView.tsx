@@ -62,7 +62,7 @@ export function KanbanColumnView({
           scrollbarColor: 'transparent transparent',
           transition: 'background 150ms ease',
           minHeight: 80,
-          background: isOver ? 'rgba(10, 132, 255, 0.08)' : undefined,
+          background: isOver ? 'color-mix(in srgb, var(--color-accent) 8%, transparent)' : undefined,
         }}
         onClick={onBodyClick}
       >

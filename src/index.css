@@ -31,10 +31,13 @@
   --color-border: rgba(255, 255, 255, 0.1);
   --color-border-hover: rgba(255, 255, 255, 0.15);
 
-  /* Accent Colors */
+  /* Accent / brand — Ouijit blue. App-wide accent: links, selection, focus
+     rings, primary buttons, the homepage Run button. --color-accent-ink is the
+     text color on filled accent buttons. */
   --color-accent: #0a84ff;
   --color-accent-hover: #409cff;
   --color-accent-light: rgba(10, 132, 255, 0.2);
+  --color-accent-ink: #ffffff;
 
   /* Status Colors */
   --color-git: #ff6b4a;
@@ -169,6 +172,35 @@ textarea,
 }
 
 /* ===================================
+   Buttons (shared dialog/CTA pattern)
+   .btn-primary / .btn-secondary are plain flat pills used everywhere (app
+   dialogs + website).
+   =================================== */
+
+@layer components {
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 px-4 py-1.5 font-sans text-sm font-medium no-underline outline-none transition-all duration-150 ease-out [-webkit-app-region:no-drag] focus-visible:ring-3 focus-visible:ring-accent-light active:scale-[0.98] disabled:opacity-50;
+    border-radius: 9999px;
+    background-color: var(--color-accent);
+    color: var(--color-accent-ink);
+  }
+
+  .btn-primary:hover:not(:disabled) {
+    background-color: var(--color-accent-hover);
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 px-4 py-1.5 font-sans text-sm font-medium no-underline border-none outline-none text-text-primary transition-all duration-150 ease-out [-webkit-app-region:no-drag] focus-visible:ring-3 focus-visible:ring-white/15 active:scale-[0.98] disabled:opacity-50;
+    border-radius: 9999px;
+    background: rgba(255, 255, 255, 0.06);
+  }
+
+  .btn-secondary:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.1);
+  }
+}
+
+/* ===================================
    Animations
    =================================== */
 
@@ -215,11 +247,11 @@ textarea,
 @keyframes sandbox-icon-pulse {
   0%,
   100% {
-    color: #409cff;
+    color: var(--color-accent-hover);
     opacity: 0.4;
   }
   50% {
-    color: #409cff;
+    color: var(--color-accent-hover);
     opacity: 1;
   }
 }
@@ -507,13 +539,13 @@ textarea,
 
 .react-flow__node.react-flow__node-terminal .react-flow__resize-control.handle:hover {
   transform: scale(1.25);
-  box-shadow: 0 0 0 4px rgba(10, 132, 255, 0.2);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-accent) 20%, transparent);
 }
 
 .react-flow__node.react-flow__node-terminal .react-flow__resize-control.handle:active,
 .react-flow__node.react-flow__node-terminal .react-flow__resize-control.handle:focus-visible {
   transform: scale(1.2);
-  box-shadow: 0 0 0 5px rgba(10, 132, 255, 0.3);
+  box-shadow: 0 0 0 5px color-mix(in srgb, var(--color-accent) 30%, transparent);
   outline: none;
 }
 
@@ -787,8 +819,8 @@ textarea,
 
 /* Selection box styling */
 .terminal-canvas .react-flow__selection {
-  border: 1px solid rgba(10, 132, 255, 0.3);
-  background: rgba(10, 132, 255, 0.05);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 30%, transparent);
+  background: color-mix(in srgb, var(--color-accent) 5%, transparent);
 }
 
 /* Minimap — styled to match controls bar */

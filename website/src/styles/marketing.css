@@ -65,14 +65,22 @@ img {
 }
 
 @media (max-width: 768px) {
+  /* CRT-styled sticky bar: opaque page color + the same scanlines/grille as
+     the site background, viewport-aligned so they line up. No glass blur. */
   .site-nav {
     position: sticky;
     top: 0;
-    background: rgba(10, 10, 12, 0.85);
-    backdrop-filter: blur(20px) saturate(180%);
-    -webkit-backdrop-filter: blur(20px) saturate(180%);
-    border-bottom: 1px solid var(--color-border);
     z-index: 100;
+    background-color: var(--marketing-bg);
+    background-image:
+      repeating-linear-gradient(to bottom, rgba(0, 0, 0, 0.4) 0 1px, transparent 1px 3px),
+      repeating-linear-gradient(
+        to right,
+        rgba(255, 0, 0, 0.08) 0 1px,
+        rgba(0, 255, 0, 0.08) 1px 2px,
+        rgba(0, 0, 255, 0.08) 2px 3px
+      );
+    background-attachment: fixed;
   }
 }
 
@@ -129,8 +137,17 @@ img {
 .nav-mobile {
   display: none;
   padding: 8px var(--content-padding) 16px;
-  background: var(--marketing-bg);
-  border-bottom: 1px solid var(--color-border);
+  /* CRT-styled panel, continuous with the sticky nav (same fixed scanlines). */
+  background-color: var(--marketing-bg);
+  background-image:
+    repeating-linear-gradient(to bottom, rgba(0, 0, 0, 0.4) 0 1px, transparent 1px 3px),
+    repeating-linear-gradient(
+      to right,
+      rgba(255, 0, 0, 0.08) 0 1px,
+      rgba(0, 255, 0, 0.08) 1px 2px,
+      rgba(0, 0, 255, 0.08) 2px 3px
+    );
+  background-attachment: fixed;
   position: relative;
   z-index: 100;
 }
@@ -211,9 +228,19 @@ img {
   display: none;
 }
 
-.mobile-cta p {
+/* Full-width grey pill, non-interactive — just tells touch users to use a
+   desktop to download. */
+.mobile-cta-note {
+  display: block;
+  width: 100%;
+  text-align: center;
+  padding: 14px 30px;
+  border-radius: 9999px;
+  background: #19191b;
   color: var(--color-text-secondary);
   font-size: 1rem;
+  font-weight: 500;
+  letter-spacing: -0.005em;
 }
 
 @media (hover: none) and (pointer: coarse) {
@@ -225,12 +252,14 @@ img {
   }
 }
 
+/* Ouijit button system — flat accent-blue pills, white label. Driven by the
+   shared --color-accent token (imported from src/index.css). */
 body.marketing .btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 13px 28px;
+  padding: 14px 30px;
   border-radius: 9999px;
   font-size: 1rem;
   font-weight: 500;
@@ -249,24 +278,28 @@ body.marketing .btn:focus-visible {
   box-shadow: 0 0 0 3px var(--color-accent-light);
 }
 
+/* Grain overlay (.btn-primary::after) is inherited from src/index.css. */
 body.marketing .btn-primary {
-  background: var(--color-accent);
-  color: #fff;
+  background-color: var(--color-accent);
+  color: var(--color-accent-ink);
 }
 
 body.marketing .btn-primary:hover {
-  background: var(--color-accent-hover);
-  color: #fff;
+  background-color: var(--color-accent-hover);
+  color: var(--color-accent-ink);
+  transform: translateY(-1px);
 }
 
+/* Opaque fills (matching the old translucent shades over --marketing-bg) so
+   the site-wide CRT background doesn't show through the ghost buttons. */
 body.marketing .btn-secondary {
-  background: var(--color-accent-light);
-  color: var(--color-accent);
+  background: #19191b;
+  color: var(--color-text-primary);
 }
 
 body.marketing .btn-secondary:hover {
-  background: rgba(10, 132, 255, 0.28);
-  color: var(--color-accent);
+  background: #232326;
+  color: var(--color-text-primary);
 }
 
 /* --- Hero workspace scene --- */
@@ -443,7 +476,11 @@ body.marketing .home-agents-footnote a:hover {
 .workspace-scene-clip {
   position: relative;
   width: 100%;
-  overflow: hidden;
+  /* Clip the 1160px canvas horizontally, but let it overflow vertically so
+     the cards' drop shadows aren't cut at the scaled-height bottom edge.
+     (clip + visible is the one mixed combo that doesn't force a scrollbar.) */
+  overflow-x: clip;
+  overflow-y: visible;
   display: flex;
   justify-content: center;
   padding-top: 12px;
@@ -587,8 +624,8 @@ body.marketing .home-agents-footnote a:hover {
   gap: 8px;
   padding: 11px 22px 11px 20px;
   border-radius: 9999px;
-  background: var(--color-accent);
-  color: #fff;
+  background-color: var(--color-accent);
+  color: var(--color-accent-ink);
   font-family:
     system-ui,
     -apple-system,
@@ -606,7 +643,7 @@ body.marketing .home-agents-footnote a:hover {
 }
 
 .cli-prompt-bubble:hover:not(:disabled) .cli-prompt-bubble__run {
-  background: var(--color-accent-hover);
+  background-color: var(--color-accent-hover);
   transform: translateY(-1px);
 }
 
@@ -619,9 +656,8 @@ body.marketing .home-agents-footnote a:hover {
   margin-left: -2px;
 }
 
-
 .cli-prompt-bubble__prompt {
-  color: rgba(10, 132, 255, 0.9);
+  color: color-mix(in srgb, var(--color-accent) 90%, transparent);
   flex-shrink: 0;
 }
 
@@ -684,13 +720,13 @@ body.marketing .home-agents-footnote a:hover {
 
 @keyframes workspace-scene-task-pulse {
   0% {
-    box-shadow: 0 0 0 0 rgba(10, 132, 255, 0.55);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-accent) 55%, transparent);
   }
   60% {
-    box-shadow: 0 0 0 10px rgba(10, 132, 255, 0);
+    box-shadow: 0 0 0 10px color-mix(in srgb, var(--color-accent) 0%, transparent);
   }
   100% {
-    box-shadow: 0 0 0 0 rgba(10, 132, 255, 0);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-accent) 0%, transparent);
   }
 }
 
@@ -739,7 +775,7 @@ body.marketing .home-agents-footnote a:hover {
   font-weight: 600;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--marketing-blue);
+  color: var(--marketing-accent);
   margin-bottom: 16px;
 }
 
@@ -983,7 +1019,7 @@ body.marketing .home-agents-footnote a:hover {
 }
 
 .docs-sidebar a.active {
-  color: var(--marketing-blue);
+  color: var(--marketing-accent);
   background: none;
   font-weight: 600;
 }
@@ -1070,13 +1106,7 @@ body.marketing .home-agents-footnote a:hover {
 }
 
 .docs-content code {
-  font-family:
-    'SF Mono',
-    Monaco,
-    Menlo,
-    'Cascadia Code',
-    'Fira Code',
-    monospace;
+  font-family: 'SF Mono', Monaco, Menlo, 'Cascadia Code', 'Fira Code', monospace;
   font-size: 0.875em;
   background: rgba(255, 255, 255, 0.15);
   padding: 2px 6px;
@@ -1184,4 +1214,29 @@ body.marketing {
 }
 .workspace-scene .kanban-column-body::-webkit-scrollbar {
   display: none;
+}
+
+/* ===================================
+   Site-wide CRT overlay — scanlines + tube vignette fixed over the viewport.
+   The animated hero scene and the supported-harness cards opt out by sitting
+   above it (raised z-index below). pointer-events: none so it never blocks.
+   =================================== */
+body.marketing::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1; /* behind all content — CRT shows only through the background */
+  pointer-events: none;
+  background-image:
+    /* scanlines (darken content rows) */
+    repeating-linear-gradient(to bottom, rgba(0, 0, 0, 0.4) 0 1px, transparent 1px 3px),
+    /* vertical R/G/B phosphor grille — adds color shimmer even on dark areas */
+    repeating-linear-gradient(
+      to right,
+      rgba(255, 0, 0, 0.08) 0 1px,
+      rgba(0, 255, 0, 0.08) 1px 2px,
+      rgba(0, 0, 255, 0.08) 2px 3px
+    ),
+    /* tube vignette */
+    radial-gradient(120% 120% at 50% 50%, transparent 45%, rgba(0, 0, 0, 0.55) 100%);
 }

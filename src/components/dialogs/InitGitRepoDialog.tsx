@@ -87,20 +87,10 @@ export function InitGitRepoDialog({ folderPath, onClose }: InitGitRepoDialogProp
         </p>
       )}
       <div className="flex gap-2 justify-end mt-4 items-center">
-        <button
-          data-testid="dialog-cancel"
-          className="inline-flex items-center justify-center gap-2 px-4 py-1.5 font-sans text-sm font-medium no-underline border-none rounded-full outline-none transition-all duration-150 ease-out [-webkit-app-region:no-drag] focus-visible:ring-3 focus-visible:ring-accent-light text-accent bg-accent-light hover:bg-[rgba(0,122,255,0.15)]"
-          onClick={() => dismiss(null)}
-          disabled={working}
-        >
+        <button data-testid="dialog-cancel" className="btn-secondary" onClick={() => dismiss(null)} disabled={working}>
           Cancel
         </button>
-        <button
-          data-testid="dialog-init"
-          className="inline-flex items-center justify-center gap-2 px-4 py-1.5 font-sans text-sm font-medium no-underline border-none rounded-full outline-none transition-all duration-150 ease-out [-webkit-app-region:no-drag] focus-visible:ring-3 focus-visible:ring-accent-light text-white bg-accent hover:bg-accent-hover active:scale-[0.98]"
-          onClick={handleInit}
-          disabled={working || gitMissing}
-        >
+        <button data-testid="dialog-init" className="btn-primary" onClick={handleInit} disabled={working || gitMissing}>
           {working ? 'Initializing…' : 'Initialize Repository'}
         </button>
       </div>

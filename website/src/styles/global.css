@@ -62,7 +62,7 @@ body.marketing ::-webkit-scrollbar-thumb:hover {
 :root {
   --marketing-bg: #0a0a0c;
   --marketing-surface: #16161a;
-  --marketing-blue: #0a84ff;
+  --marketing-accent: var(--color-accent);
   --marketing-blue-deep: #001b65;
   --marketing-fade: rgba(255, 255, 255, 0.75);
   --marketing-fade-2: rgba(255, 255, 255, 0.5);

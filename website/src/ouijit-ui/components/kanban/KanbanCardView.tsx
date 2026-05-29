@@ -151,9 +151,9 @@ export const KanbanCardView = memo(function KanbanCardView({
       className="kanban-card group px-3 py-3.5 ease-out [-webkit-app-region:no-drag] hover:bg-black/10 active:bg-black/[0.12]"
       style={{
         background: isSelected
-          ? 'rgba(10, 132, 255, 0.06)'
+          ? 'color-mix(in srgb, var(--color-accent) 6%, transparent)'
           : isHoveredBadgeTarget
-            ? 'rgba(10, 132, 255, 0.08)'
+            ? 'color-mix(in srgb, var(--color-accent) 8%, transparent)'
             : expanded
               ? 'rgba(0, 0, 0, 0.15)'
               : 'var(--color-terminal-bg)',
@@ -161,9 +161,9 @@ export const KanbanCardView = memo(function KanbanCardView({
           'background 150ms ease-out, opacity 150ms ease-out, outline-color 150ms ease-out, box-shadow 150ms ease-out',
         borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
         outline: isHoveredBadgeTarget
-          ? '1px solid rgba(10, 132, 255, 0.6)'
+          ? '1px solid color-mix(in srgb, var(--color-accent) 60%, transparent)'
           : isValidBadgeTarget
-            ? '1px dashed rgba(10, 132, 255, 0.3)'
+            ? '1px dashed color-mix(in srgb, var(--color-accent) 30%, transparent)'
             : 'none',
         outlineOffset: -1,
         ...(isInvalidBadgeTarget && { opacity: 0.4 }),

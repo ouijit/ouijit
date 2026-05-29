@@ -158,7 +158,7 @@ export function RunHookDialog({
         {limaAvailable ? (
           <div className="flex items-center gap-2" onClick={() => setSandboxed((s) => !s)}>
             <div
-              className={`relative w-[34px] h-5 rounded-[10px] shrink-0 transition-[background] duration-200 ease-out ${sandboxed ? 'bg-[#0a84ff]' : 'bg-white/15'}`}
+              className={`relative w-[34px] h-5 rounded-[10px] shrink-0 transition-[background] duration-200 ease-out ${sandboxed ? 'bg-accent' : 'bg-white/15'}`}
             >
               <div
                 className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow-[0_1px_3px_rgba(0,0,0,0.3)] transition-transform duration-200 ease-out ${sandboxed ? 'translate-x-3.5' : ''}`}
@@ -170,16 +170,12 @@ export function RunHookDialog({
           <div />
         )}
         <div className="flex gap-2">
-          <button
-            data-testid="dialog-cancel"
-            className="btn-secondary inline-flex items-center justify-center gap-2 px-4 py-1.5 font-sans text-sm font-medium no-underline border-none rounded-full outline-none transition-all duration-150 ease-out [-webkit-app-region:no-drag] focus-visible:ring-3 focus-visible:ring-accent-light text-accent bg-accent-light hover:bg-[rgba(0,122,255,0.15)]"
-            onClick={() => dismiss(null)}
-          >
+          <button data-testid="dialog-cancel" className="btn-secondary" onClick={() => dismiss(null)}>
             {queued ? 'Skip' : 'Cancel'}
           </button>
           <button
             data-testid="dialog-run-open"
-            className="btn-primary inline-flex items-center justify-center gap-2 px-4 py-1.5 font-sans text-sm font-medium no-underline border-none rounded-full outline-none transition-all duration-150 ease-out [-webkit-app-region:no-drag] focus-visible:ring-3 focus-visible:ring-accent-light text-white bg-accent hover:bg-accent-hover active:scale-[0.98] whitespace-nowrap"
+            className="btn-primary whitespace-nowrap"
             onClick={() => dismiss({ command: command.trim(), sandboxed, foreground: true })}
             disabled={!command.trim()}
           >
@@ -187,7 +183,7 @@ export function RunHookDialog({
           </button>
           <button
             data-testid="dialog-run"
-            className="btn-primary inline-flex items-center justify-center gap-2 px-4 py-1.5 font-sans text-sm font-medium no-underline border-none rounded-full outline-none transition-all duration-150 ease-out [-webkit-app-region:no-drag] focus-visible:ring-3 focus-visible:ring-accent-light text-white bg-accent hover:bg-accent-hover active:scale-[0.98]"
+            className="btn-primary"
             onClick={() => dismiss({ command: command.trim(), sandboxed, foreground: false })}
             disabled={!command.trim()}
           >
