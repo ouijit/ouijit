@@ -3,14 +3,8 @@ import type { ScriptHook } from '../../types';
 import { useProjectStore } from '../../stores/projectStore';
 import { useAutoResize } from '../../hooks/useAutoResize';
 import { DialogOverlay } from './DialogOverlay';
-
-const ENV_VARS = [
-  '$OUIJIT_PROJECT_PATH',
-  '$OUIJIT_WORKTREE_PATH',
-  '$OUIJIT_TASK_BRANCH',
-  '$OUIJIT_TASK_NAME',
-  '$OUIJIT_TASK_DESCRIPTION',
-];
+import { HookCliHint } from './HookCliHint';
+import { HookEnvVars } from './HookEnvVars';
 
 interface CombinedHookConfigDialogProps {
   projectPath: string;
@@ -28,7 +22,6 @@ export function CombinedHookConfigDialog({
   const [startCommand, setStartCommand] = useState(existingStart?.command ?? '');
   const [continueCommand, setContinueCommand] = useState(existingContinue?.command ?? '');
   const [visible, setVisible] = useState(false);
-  const [copiedVar, setCopiedVar] = useState<string | null>(null);
   const startRef = useRef<HTMLTextAreaElement>(null);
   const autoResize = useAutoResize();
 
@@ -81,12 +74,6 @@ export function CombinedHookConfigDialog({
     dismiss({ saved: true });
   }, [startCommand, continueCommand, projectPath, existingStart, existingContinue, dismiss]);
 
-  const copyVar = useCallback((varName: string) => {
-    navigator.clipboard.writeText(varName);
-    setCopiedVar(varName);
-    setTimeout(() => setCopiedVar(null), 1500);
-  }, []);
-
   return (
     <DialogOverlay visible={visible} onDismiss={() => dismiss(null)}>
       <h2 className="text-lg font-semibold text-text-primary mb-4 text-center">Start & Continue Hooks</h2>
@@ -104,7 +91,7 @@ export function CombinedHookConfigDialog({
             id="hook-start-command"
             className="w-full px-3 py-2 font-mono text-sm leading-snug text-text-primary bg-background border border-border rounded-md outline-none resize-none overflow-hidden focus:border-accent focus:ring-3 focus:ring-accent-light placeholder:text-text-tertiary"
             style={{ transition: 'border-color 150ms ease-out, box-shadow 150ms ease-out' }}
-            placeholder='npm install && claude "$OUIJIT_TASK_DESCRIPTION"'
+            placeholder='claude "complete the current task and move it into in review"'
             value={startCommand}
             onChange={(e) => {
               setStartCommand(e.target.value);
@@ -135,31 +122,19 @@ export function CombinedHookConfigDialog({
           />
         </div>
 
-        <details className="mt-3 text-xs text-text-secondary [&>summary]:cursor-default [&>summary]:select-none [&_ul]:mt-2 [&_ul]:mb-0 [&_ul]:pl-5 [&_li]:my-1">
-          <summary>Environment variables</summary>
-          <ul>
-            {ENV_VARS.map((v) => (
-              <li key={v}>
-                <code
-                  className={`font-mono text-[13px] px-1.5 py-0.5 rounded inline-block bg-background-secondary hover:text-text-primary hover:bg-border-hover ${copiedVar === v ? 'text-accent !bg-[color-mix(in_srgb,var(--color-accent)_15%,transparent)]' : ''}`}
-                  style={{ transition: 'background 100ms ease, color 100ms ease' }}
-                  onClick={() => copyVar(v)}
-                >
-                  {copiedVar === v ? 'Copied!' : v}
-                </code>
-              </li>
-            ))}
-          </ul>
-        </details>
+        <HookEnvVars />
       </div>
 
-      <div className="flex gap-2 justify-end mt-4 items-center">
-        <button className="btn-secondary" onClick={() => dismiss(null)}>
-          Cancel
-        </button>
-        <button className="btn-primary" onClick={handleSave}>
-          Save
-        </button>
+      <div className="flex gap-2 justify-between mt-4 items-center">
+        <HookCliHint />
+        <div className="flex gap-2">
+          <button className="btn-secondary" onClick={() => dismiss(null)}>
+            Cancel
+          </button>
+          <button className="btn-primary" onClick={handleSave}>
+            Save
+          </button>
+        </div>
       </div>
     </DialogOverlay>
   );

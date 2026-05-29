@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import type { ScriptHook, HookType } from '../../types';
 import { useAutoResize } from '../../hooks/useAutoResize';
 import { DialogOverlay } from './DialogOverlay';
+import { HookEnvVars } from './HookEnvVars';
 
 const HOOK_TITLES: Record<string, string> = {
   start: 'Start Task',
@@ -10,14 +11,6 @@ const HOOK_TITLES: Record<string, string> = {
   done: 'Done',
   run: 'Run',
 };
-
-const ENV_VARS = [
-  '$OUIJIT_PROJECT_PATH',
-  '$OUIJIT_WORKTREE_PATH',
-  '$OUIJIT_TASK_BRANCH',
-  '$OUIJIT_TASK_NAME',
-  '$OUIJIT_TASK_DESCRIPTION',
-];
 
 export interface RunHookResult {
   command: string;
@@ -57,7 +50,6 @@ export function RunHookDialog({
   const [sandboxed, setSandboxed] = useState(false);
   const [limaAvailable, setLimaAvailable] = useState(false);
   const [visible, setVisible] = useState(false);
-  const [copiedVar, setCopiedVar] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const autoResize = useAutoResize();
 
@@ -95,12 +87,6 @@ export function RunHookDialog({
     setTimeout(() => onSkipAll?.(), 200);
   }, [onSkipAll]);
 
-  const copyVar = useCallback((varName: string) => {
-    navigator.clipboard.writeText(varName);
-    setCopiedVar(varName);
-    setTimeout(() => setCopiedVar(null), 1500);
-  }, []);
-
   const title = HOOK_TITLES[hookType] || hookType;
   const queued = queueTotal != null && queueTotal > 1;
 
@@ -137,22 +123,7 @@ export function RunHookDialog({
         rows={1}
       />
 
-      <details className="mt-3 text-xs text-text-secondary [&>summary]:cursor-default [&>summary]:select-none [&_ul]:mt-2 [&_ul]:mb-0 [&_ul]:pl-5 [&_li]:my-1">
-        <summary>Environment variables</summary>
-        <ul>
-          {ENV_VARS.map((v) => (
-            <li key={v}>
-              <code
-                className={`font-mono text-[13px] px-1.5 py-0.5 rounded inline-block bg-background-secondary hover:text-text-primary hover:bg-border-hover ${copiedVar === v ? 'text-accent !bg-[color-mix(in_srgb,var(--color-accent)_15%,transparent)]' : ''}`}
-                style={{ transition: 'background 100ms ease, color 100ms ease' }}
-                onClick={() => copyVar(v)}
-              >
-                {copiedVar === v ? 'Copied!' : v}
-              </code>
-            </li>
-          ))}
-        </ul>
-      </details>
+      <HookEnvVars />
 
       <div className="flex gap-2 justify-between mt-4 items-center">
         {limaAvailable ? (

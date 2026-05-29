@@ -11,7 +11,7 @@ interface OnboardingPanelProps {
   onOpenHelp: () => void;
 }
 
-const EXAMPLE_START_HOOK_COMMAND = `claude "complete the current task and move it to in-review"`;
+const EXAMPLE_START_HOOK_COMMAND = `claude "complete the current task and move it into in review"`;
 
 type Stage = 'intro' | 'setup' | 'in-flight' | 'complete';
 
