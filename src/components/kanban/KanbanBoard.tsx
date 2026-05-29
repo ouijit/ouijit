@@ -495,9 +495,16 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
           }
           draggedTask = { ...draggedTask, worktreePath: wtPath };
         }
+        // Plain drop prompts with the Done dialog (like every other column);
+        // shift-drag skips the hook outright.
         const skipHook = useProjectStore.getState().shiftKeyHeld;
         setActiveTask(null);
-        await completeTask({ projectPath, task: draggedTask, targetIndex, skipHook });
+        await completeTask({
+          projectPath,
+          task: draggedTask,
+          targetIndex,
+          hookControl: skipHook ? { mode: 'skip' } : undefined,
+        });
         return;
       }
 

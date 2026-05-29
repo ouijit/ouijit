@@ -518,7 +518,19 @@ export interface ElectronAPI {
       project: string;
       taskNumber: number;
       task: TaskWithWorkspace;
-      skipHook?: boolean;
+      hookMode?: CliHookMode;
+      hookCommand?: string;
+    }) => void,
+  ): () => void;
+  /** Listen for a CLI-initiated in_progress/in_review transition that needs a hook spawn */
+  onCliTaskTransitioned(
+    callback: (payload: {
+      project: string;
+      taskNumber: number;
+      origStatus: TaskStatus;
+      newStatus: TaskStatus;
+      task: TaskWithWorkspace;
+      hookMode?: CliHookMode;
       hookCommand?: string;
     }) => void,
   ): () => void;

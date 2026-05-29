@@ -24,6 +24,7 @@ import {
   getScripts,
   saveScript,
   deleteScript,
+  getTaskByNumber,
 } from '../db';
 import {
   beginTask,
@@ -290,6 +291,10 @@ const routes: Route[] = [
       const num = requireInt(r.segments[1], 'Task number');
       const status = r.body.status;
       if (typeof status !== 'string') throw new HttpError(400, 'Missing status in body');
+      // in_progress / in_review / done all fire a renderer-side hook and carry
+      // the same hook-control flags as task-start. Validate them up front so a
+      // bad hookMode fails before any status is written.
+      if (status === 'in_progress' || status === 'in_review' || status === 'done') parseHookControl(r.body);
       return setTaskStatusWithHooks(project, num, status as 'todo' | 'in_progress' | 'in_review' | 'done');
     },
     true,
@@ -568,6 +573,23 @@ async function handleAsync(req: IncomingMessage, res: ServerResponse, window: Br
     }
   }
 
+  // A status PATCH to in_progress/in_review/done fires a renderer-side hook,
+  // which needs the *old* status to disambiguate start vs continue and to skip
+  // a no-op (status unchanged — e.g. re-running set-status on a task already in
+  // that column would otherwise re-spawn the hook / re-show the dialog).
+  // Capture it before the handler overwrites it.
+  let prevStatus: string | undefined;
+  if (
+    isStatusPatchRoute(method, segments) &&
+    (body.status === 'in_progress' || body.status === 'in_review' || body.status === 'done')
+  ) {
+    const num = parseInt(segments[1] ?? '', 10);
+    if (!Number.isNaN(num)) {
+      const existing = await getTaskByNumber(url.searchParams.get('project') ?? '', num);
+      prevStatus = existing?.status;
+    }
+  }
+
   try {
     const result = await matched.route.handler({ method, segments, query: url.searchParams, body, auth });
     json(res, 200, { data: result });
@@ -607,19 +629,54 @@ async function handleAsync(req: IncomingMessage, res: ServerResponse, window: Br
       // spawn). The task is fetched here and included in the payload so the
       // renderer doesn't need projectStore.tasks (which only holds the active
       // project's task list — would miss when the user is viewing elsewhere).
-      if (isStatusPatchRoute(method, segments) && body.status === 'done' && isSuccessfulMutation(result)) {
+      if (
+        isStatusPatchRoute(method, segments) &&
+        body.status === 'done' &&
+        isSuccessfulMutation(result) &&
+        prevStatus !== 'done'
+      ) {
         const taskNumber = parseInt(segments[1] ?? '', 10);
         if (!Number.isNaN(taskNumber)) {
           const task = await getTaskWithWorkspace(project, taskNumber);
           if (task) {
-            const skipHook = body.skipHook === true;
-            const hookCommand = typeof body.hookCommand === 'string' ? body.hookCommand : undefined;
+            const hookControl = parseHookControl(body);
             typedPush(window, 'cli:task-completed', {
               project,
               taskNumber,
               task,
-              skipHook: skipHook || undefined,
-              hookCommand,
+              hookMode: hookControl.hookMode,
+              hookCommand: hookControl.hookCommand,
+            });
+          }
+        }
+      }
+
+      // CLI set-status N in_progress|in_review: the server wrote the status, but
+      // the in_progress/in_review hook lives in the renderer (beginTransition).
+      // Push the transition with the *old* status so the renderer runs the same
+      // path a kanban drop would — dialog by default, headless when the CLI
+      // passed --run-hook/--skip-hook/--hook-command. Skipped when the status
+      // didn't actually change (no transition, no hook).
+      if (
+        isStatusPatchRoute(method, segments) &&
+        (body.status === 'in_progress' || body.status === 'in_review') &&
+        isSuccessfulMutation(result) &&
+        prevStatus &&
+        prevStatus !== body.status
+      ) {
+        const taskNumber = parseInt(segments[1] ?? '', 10);
+        if (!Number.isNaN(taskNumber)) {
+          const task = await getTaskWithWorkspace(project, taskNumber);
+          if (task) {
+            const hookControl = parseHookControl(body);
+            typedPush(window, 'cli:task-transitioned', {
+              project,
+              taskNumber,
+              origStatus: prevStatus as 'todo' | 'in_progress' | 'in_review' | 'done',
+              newStatus: body.status,
+              task,
+              hookMode: hookControl.hookMode,
+              hookCommand: hookControl.hookCommand,
             });
           }
         }

@@ -4,9 +4,12 @@
  * so the observable behavior of marking a task done is identical regardless
  * of where it's triggered.
  *
- * Order is snapshot → spawn → close → persist. The snapshot is taken before
- * the new done-hook terminal is spawned, so the new terminal is excluded from
- * closure by construction.
+ * Order is (prompt) → snapshot → spawn → close → persist. With no hookControl
+ * the Done dialog is shown first — the same prompt every other column shows —
+ * and its result drives the spawn; shift-drag and the CLI pass an explicit
+ * hookControl to run/skip headlessly. The snapshot is taken after the prompt
+ * resolves but before the new done-hook terminal is spawned, so the new
+ * terminal is excluded from closure by construction.
  */
 
 import log from 'electron-log/renderer';
@@ -14,17 +17,34 @@ import { addProjectTerminal, closeProjectTerminal } from '../components/terminal
 import { useAppStore } from '../stores/appStore';
 import { useProjectStore } from '../stores/projectStore';
 import { useTerminalStore } from '../stores/terminalStore';
-import type { TaskWithWorkspace } from '../types';
+import type { CliHookMode, TaskWithWorkspace } from '../types';
 
 const completionLog = log.scope('taskCompletion');
+
+/**
+ * Governs the done hook for a completion. Mirrors the start/continue/review
+ * transitions so Done behaves uniformly across the four columns:
+ *   - omitted             → show the Done dialog (if a done hook is configured)
+ *   - { mode: 'skip' }        → run no hook
+ *   - { mode: 'run' }         → run the configured done hook headless (no dialog)
+ *   - { mode: 'command', ... }→ run a one-off command headless
+ * The terminal-cleanup + status-write lifecycle runs regardless of this choice.
+ */
+export interface CompleteHookControl {
+  mode: CliHookMode;
+  /** The one-off command, required when `mode` is `command`. */
+  command?: string;
+}
 
 export interface CompleteTaskOptions {
   projectPath: string;
   task: TaskWithWorkspace;
-  /** Skip the configured done hook for this transition. */
-  skipHook?: boolean;
-  /** Override the configured done hook's command for this transition. */
-  hookCommand?: string;
+  /**
+   * How to handle the done hook. Omit to prompt with the Done dialog (the
+   * default for a kanban drop / terminal "Close Task"); set it to run the hook
+   * headlessly, run a custom command, or skip — used by shift-drag and the CLI.
+   */
+  hookControl?: CompleteHookControl;
   /**
    * Kanban-only: when set, also reorder the task within the done column.
    * When omitted, only the status is written.
@@ -64,24 +84,43 @@ export async function completeTask(opts: CompleteTaskOptions): Promise<void> {
 }
 
 async function completeTaskInner(opts: CompleteTaskOptions): Promise<void> {
-  const { projectPath, task, skipHook, hookCommand, targetIndex, skipStatusWrite } = opts;
+  const { projectPath, task, hookControl, targetIndex, skipStatusWrite } = opts;
   const taskNumber = task.taskNumber;
   completionLog.info('completing task', {
     taskNumber,
     projectPath,
-    skipHook,
-    hasHookCommand: !!hookCommand,
+    hookMode: hookControl?.mode ?? 'prompt',
     hasTargetIndex: targetIndex != null,
     skipStatusWrite,
   });
 
-  // 1. Resolve the effective hook command.
+  // 1. Resolve the effective hook command + how to run it. With no hookControl
+  //    the Done dialog is shown (if a hook is configured), matching the dialog
+  //    every other column transition shows; the dialog's foreground/sandbox
+  //    choices are honored. Headless modes (run/command/skip) come from
+  //    shift-drag or the CLI flags and never prompt.
   let effectiveCommand: string | null = null;
-  if (hookCommand) {
-    effectiveCommand = hookCommand;
-  } else if (!skipHook) {
+  let foreground = false;
+  let sandboxed = false;
+  if (hookControl?.mode === 'skip') {
+    // Run no hook.
+  } else if (hookControl?.mode === 'command' && hookControl.command) {
+    effectiveCommand = hookControl.command;
+  } else if (hookControl?.mode === 'run') {
     const hooks = await window.api.hooks.get(projectPath);
     if (hooks.done) effectiveCommand = hooks.done.command;
+  } else if (!hookControl) {
+    const hooks = await window.api.hooks.get(projectPath);
+    if (hooks.done) {
+      const result = await useProjectStore
+        .getState()
+        .requestRunHook({ projectPath, hookType: 'done', hook: hooks.done, task });
+      if (result) {
+        effectiveCommand = result.command;
+        foreground = result.foreground;
+        sandboxed = result.sandboxed;
+      }
+    }
   }
 
   // 2. Snapshot existing task terminals BEFORE spawning the hook terminal,
@@ -107,8 +146,13 @@ async function completeTaskInner(opts: CompleteTaskOptions): Promise<void> {
           existingWorktree: { path: task.worktreePath, branch: task.branch || '', createdAt: task.createdAt },
           taskId: taskNumber,
           skipAutoHook: true,
-          background: true,
-          autoCloseOnSuccess: true,
+          sandboxed,
+          // "Run & Open" (foreground) brings the hook terminal up so the user
+          // can watch it; the background run stays out of the way and tidies up
+          // on success. Either way the hook terminal is excluded from the close
+          // sweep by the snapshot taken above.
+          background: !foreground,
+          autoCloseOnSuccess: !foreground,
         },
       );
     } catch (err) {
