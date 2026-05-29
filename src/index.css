@@ -34,9 +34,9 @@
   /* Accent / brand — Ouijit blue. App-wide accent: links, selection, focus
      rings, primary buttons, the homepage Run button. --color-accent-ink is the
      text color on filled accent buttons. */
-  --color-accent: #2f6fe6;
-  --color-accent-hover: #4d88f0;
-  --color-accent-light: rgba(47, 111, 230, 0.2);
+  --color-accent: #0a84ff;
+  --color-accent-hover: #409cff;
+  --color-accent-light: rgba(10, 132, 255, 0.2);
   --color-accent-ink: #ffffff;
 
   /* Status Colors */
