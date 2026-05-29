@@ -590,13 +590,9 @@ body.marketing .home-agents-footnote a:hover {
   align-self: flex-end;
   gap: 8px;
   padding: 11px 22px 11px 20px;
-  position: relative;
-  isolation: isolate;
-  overflow: hidden;
   border-radius: 9999px;
   background-color: var(--color-accent);
   color: var(--color-accent-ink);
-  text-shadow: 0 0 5px rgba(170, 205, 255, 0.45);
   font-family:
     system-ui,
     -apple-system,
@@ -613,56 +609,6 @@ body.marketing .home-agents-footnote a:hover {
     transform 150ms ease-out;
 }
 
-/* Animated lava-lamp fill (z-index -2), matching .btn-primary. */
-.cli-prompt-bubble__run::before {
-  content: '';
-  position: absolute;
-  inset: -25%;
-  z-index: -2;
-  background-image:
-    radial-gradient(circle, var(--lava-1) 0%, transparent 46%),
-    radial-gradient(circle, var(--lava-2) 0%, transparent 46%),
-    radial-gradient(circle, var(--lava-3) 0%, transparent 46%);
-  background-repeat: no-repeat;
-  background-size:
-    120% 120%,
-    130% 130%,
-    115% 115%;
-  background-position:
-    0% 0%,
-    100% 0%,
-    50% 100%;
-  filter: blur(var(--lava-blur));
-  animation: lava-drift var(--lava-speed) ease-in-out infinite alternate;
-  pointer-events: none;
-}
-
-/* CRT shadow-mask overlay, behind the label (z-index -1), matching .btn-primary. */
-.cli-prompt-bubble__run::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  background-image:
-    repeating-linear-gradient(to bottom, rgba(0, 0, 0, 0.7) 0 1px, transparent 1px var(--crt-line)),
-    radial-gradient(125% 135% at 50% 50%, transparent 52%, rgba(0, 0, 0, 0.55) 100%),
-    var(--btn-grain),
-    repeating-linear-gradient(
-      to right,
-      rgb(255, 45, 45) 0 var(--crt-dot),
-      rgb(45, 255, 45) var(--crt-dot) calc(var(--crt-dot) * 2),
-      rgb(60, 60, 255) calc(var(--crt-dot) * 2) calc(var(--crt-dot) * 3)
-    );
-  background-size:
-    auto,
-    auto,
-    120px 120px,
-    auto;
-  image-rendering: pixelated;
-  mix-blend-mode: multiply;
-  opacity: var(--crt-strength);
-  pointer-events: none;
-}
 
 .cli-prompt-bubble:hover:not(:disabled) .cli-prompt-bubble__run {
   background-color: var(--color-accent-hover);

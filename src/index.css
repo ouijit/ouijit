@@ -32,8 +32,8 @@
   --color-border-hover: rgba(255, 255, 255, 0.15);
 
   /* Accent / brand — Ouijit blue. App-wide accent: links, selection, focus
-     rings, primary buttons, the homepage Run button. --color-accent-ink is
-     the text color on filled accent buttons (white, since blue is dark). */
+     rings, primary buttons, the homepage Run button. --color-accent-ink is the
+     text color on filled accent buttons. */
   --color-accent: #2f6fe6;
   --color-accent-hover: #4d88f0;
   --color-accent-light: rgba(47, 111, 230, 0.2);
@@ -173,28 +173,27 @@ textarea,
 
 /* ===================================
    Buttons (shared dialog/CTA pattern)
-   "CRT screen" primary: an animated lava-lamp fill (::before) under a CRT
-   shadow-mask overlay of vertical R/G/B phosphor dots + tube vignette +
-   static (::after), with a white, softly-glowing label on top. Full pill.
-   Keep in sync with the website's .btn in website/src/styles/marketing.css.
+   .btn-primary / .btn-secondary are plain flat pills used everywhere (app
+   dialogs + website). .btn-crt is an opt-in "CRT screen" modifier (animated
+   lava + R/G/B shadow mask + glowing label) reserved for the most important
+   marketing CTAs. Keep in sync with website/src/styles/marketing.css.
    =================================== */
 
-/* Sparse phosphor noise: feTurbulence mapped to ALPHA (transparent except
-   sparse opaque black specks) so it composites cleanly above the opaque RGB
-   grille layer and reads as CRT static under the multiply overlay. */
+/* Sparse phosphor static: feTurbulence mapped to ALPHA (transparent except
+   sparse opaque black specks) so it composites above the RGB grille and reads
+   as CRT static under the multiply overlay. */
 :root {
   --btn-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.5' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0'/%3E%3CfeComponentTransfer%3E%3CfeFuncA type='discrete' tableValues='0 0 0 0 1'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-  /* CRT shadow-mask overlay: vertical R/G/B phosphor stripes, segmented into
-     dots by thin horizontal gaps, plus tube vignette + static, multiplied
-     over the lava. --crt-strength fades the whole effect; --crt-dot is the
-     subpixel width (triad = 3x); --crt-line is the dot row height. */
+  /* CRT shadow-mask overlay: vertical R/G/B phosphor stripes segmented into
+     dots by thin horizontal gaps, plus vignette + static, multiplied over the
+     lava. --crt-strength fades it; --crt-dot = subpixel width (triad = 3x);
+     --crt-line = dot row height. */
   --crt-strength: 0.42;
   --crt-dot: 1.5px;
   --crt-line: 2px;
 
-  /* Lava-lamp fill: drifting hue blobs behind the label. Hues are spread
-     wide (indigo / magenta / cyan) and distinct from the blue base for
-     visible contrast, but kept dark enough that white text stays legible. */
+  /* Lava-lamp fill: drifting hue blobs (indigo / magenta / cyan), dark enough
+     that white text stays legible. */
   --lava-1: rgba(79, 70, 229, 0.95); /* indigo */
   --lava-2: rgba(147, 51, 234, 0.95); /* magenta */
   --lava-3: rgba(8, 145, 178, 0.92); /* cyan */
@@ -204,17 +203,23 @@ textarea,
 
 @layer components {
   .btn-primary {
-    @apply relative isolate overflow-hidden inline-flex items-center justify-center gap-2 px-4 py-1.5 font-sans text-sm font-medium no-underline border-none outline-none transition-all duration-150 ease-out [-webkit-app-region:no-drag] focus-visible:ring-3 focus-visible:ring-accent-light active:scale-[0.98] disabled:opacity-50;
+    @apply inline-flex items-center justify-center gap-2 px-4 py-1.5 font-sans text-sm font-medium no-underline outline-none transition-all duration-150 ease-out [-webkit-app-region:no-drag] focus-visible:ring-3 focus-visible:ring-accent-light active:scale-[0.98] disabled:opacity-50;
     border-radius: 9999px;
     background-color: var(--color-accent);
     color: var(--color-accent-ink);
+  }
+
+  /* "CRT screen" treatment — an OPT-IN modifier for the most important
+     marketing CTAs only (not app dialog buttons). Pair with .btn-primary:
+     it layers an animated lava fill (::before) + a CRT shadow mask (::after)
+     behind a glowing label. */
+  .btn-crt {
+    @apply relative isolate overflow-hidden;
     text-shadow: 0 0 5px rgba(170, 205, 255, 0.45); /* phosphor glow */
   }
 
-  /* Animated lava-lamp fill (z-index -2): three blurred hue blobs drifting
-     via background-position. Clipped to the pill, sits below both the grain
-     and the label. */
-  .btn-primary::before {
+  /* Animated lava fill (z-index -2): drifting hue blobs behind the label. */
+  .btn-crt::before {
     content: '';
     position: absolute;
     inset: -25%;
@@ -237,11 +242,10 @@ textarea,
     pointer-events: none;
   }
 
-  /* CRT shadow-mask overlay (z-index -1), multiplied onto the lava. Top to
-     bottom: horizontal dot-row gaps, tube vignette, phosphor static, then the
-     opaque vertical R/G/B grille. Sits BEHIND the label (scoped by `isolate`)
-     so it masks the screen without touching the text. */
-  .btn-primary::after {
+  /* CRT shadow-mask overlay (z-index -1) multiplied onto the lava: dot-row
+     gaps, tube vignette, phosphor static, then the vertical R/G/B grille.
+     Sits BEHIND the label (scoped by `isolate`). */
+  .btn-crt::after {
     content: '';
     position: absolute;
     inset: 0;
