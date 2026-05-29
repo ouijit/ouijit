@@ -1,5 +1,5 @@
 /**
- * Creates a new project directory with git init and CLAUDE.md scaffold.
+ * Creates a new project directory with git init.
  */
 
 import { execSync } from 'node:child_process';
@@ -164,19 +164,6 @@ export async function createProject(options: CreateProjectOptions): Promise<Crea
         error: 'Git is required. Install via `xcode-select --install` (macOS) or your package manager (Linux).',
       };
     }
-
-    // Create CLAUDE.md
-    const claudeMdContent = `# ${options.name}
-
-## Project Overview
-
-<!-- Describe your project here -->
-
-## Development Guidelines
-
-<!-- Add guidelines for Claude to follow -->
-`;
-    await fs.writeFile(path.join(projectPath, 'CLAUDE.md'), claudeMdContent, 'utf-8');
 
     return { success: true, projectPath };
   } catch (error) {
