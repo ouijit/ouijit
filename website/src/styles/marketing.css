@@ -532,7 +532,7 @@ body.marketing .home-agents-footnote a:hover {
   font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Helvetica Neue', system-ui, sans-serif;
 }
 
-.macos-notif-close {
+.macos-notif-replay {
   position: absolute;
   top: -8px;
   left: -8px;
@@ -556,13 +556,13 @@ body.marketing .home-agents-footnote a:hover {
     background 120ms ease;
 }
 
-.macos-notif:hover .macos-notif-close,
-.macos-notif-close:focus-visible {
+.macos-notif:hover .macos-notif-replay,
+.macos-notif-replay:focus-visible {
   opacity: 1;
   transform: scale(1);
 }
 
-.macos-notif-close:hover {
+.macos-notif-replay:hover {
   background: rgba(80, 80, 82, 0.98);
 }
 
@@ -653,35 +653,6 @@ body.marketing .home-agents-footnote a:hover {
 
 .cli-prompt-bubble:active:not(:disabled) .cli-prompt-bubble__run {
   transform: translateY(0);
-}
-
-/* Idle attention pulse: a soft accent ring breathing out from the Run
-   button to invite the first click. Pauses on hover (so it doesn't fight
-   the hover lift) and is gone once played (no .is-idle). */
-.cli-prompt-bubble.is-idle .cli-prompt-bubble__run {
-  animation: cli-prompt-bubble-pulse 2.4s ease-out infinite;
-}
-
-.cli-prompt-bubble.is-idle:hover .cli-prompt-bubble__run {
-  animation: none;
-}
-
-@keyframes cli-prompt-bubble-pulse {
-  0% {
-    box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-accent) 45%, transparent);
-  }
-  70% {
-    box-shadow: 0 0 0 9px color-mix(in srgb, var(--color-accent) 0%, transparent);
-  }
-  100% {
-    box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-accent) 0%, transparent);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .cli-prompt-bubble.is-idle .cli-prompt-bubble__run {
-    animation: none;
-  }
 }
 
 .cli-prompt-bubble__run svg {
@@ -1268,11 +1239,10 @@ body.marketing::after {
     repeating-linear-gradient(to bottom, rgba(0, 0, 0, 0.4) 0 1px, transparent 1px 3px),
     /* vertical R/G/B phosphor grille — adds color shimmer even on dark areas */
     repeating-linear-gradient(
-      to right,
-      rgba(255, 0, 0, 0.08) 0 1px,
-      rgba(0, 255, 0, 0.08) 1px 2px,
-      rgba(0, 0, 255, 0.08) 2px 3px
-    ),
-    /* tube vignette */
-    radial-gradient(120% 120% at 50% 50%, transparent 45%, rgba(0, 0, 0, 0.55) 100%);
+        to right,
+        rgba(255, 0, 0, 0.08) 0 1px,
+        rgba(0, 255, 0, 0.08) 1px 2px,
+        rgba(0, 0, 255, 0.08) 2px 3px
+      ),
+    /* tube vignette */ radial-gradient(120% 120% at 50% 50%, transparent 45%, rgba(0, 0, 0, 0.55) 100%);
 }

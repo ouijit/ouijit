@@ -12,18 +12,8 @@ import {
 import { Icon } from '../../ouijit-ui/components/terminal/Icon';
 import type { TerminalDisplayState } from '../../ouijit-ui/terminalDisplay';
 import { DEFAULT_DISPLAY_STATE } from '../../ouijit-ui/terminalDisplay';
-import {
-  featuresTasks,
-  featuresTerminalsByTask,
-  FEATURES_PROJECT_PATH,
-} from './featuresFixtures';
-import {
-  MockPlanPanel,
-  MockPreviewPanel,
-  MockDiffPanel,
-  getPanelFixtures,
-  type PanelFixtures,
-} from './MockPanels';
+import { featuresTasks, featuresTerminalsByTask, FEATURES_PROJECT_PATH } from './featuresFixtures';
+import { MockPlanPanel, MockPreviewPanel, MockDiffPanel, getPanelFixtures, type PanelFixtures } from './MockPanels';
 
 type PanelKind = 'plan' | 'preview' | 'diff';
 
@@ -175,8 +165,26 @@ export default function WorkspaceScene() {
   }, []);
 
   const playDemo = useCallback(() => {
-    if (demoStarted) return;
+    // Clear anything still in flight, then reset to the opening state, so a
+    // click works the same whether it's the first play or a replay.
+    timersRef.current.forEach(clearTimeout);
+    timersRef.current = [];
+    intervalsRef.current.forEach(clearInterval);
+    intervalsRef.current = [];
+
+    setTasks(featuresTasks);
+    setTerminalsByTask(featuresTerminalsByTask);
+    setTerminals(INITIAL_TERMINALS);
+    setStackOrder(INITIAL_TERMINALS.map((t) => t.ptyId));
+    setTypingProgress(DEMO_PRETYPED);
+    setHighlightTaskNumber(null);
+    setStreamStep(0);
+    setDemoComplete(false);
+    setShowDemoNotification(false);
+    setOpenPanelByPty({});
     setDemoStarted(true);
+
+    const at = (fn: () => void, delay: number) => timersRef.current.push(setTimeout(fn, delay));
 
     const TYPE_MS = 10;
     const TYPING_DURATION = (DEMO_COMMAND.length - DEMO_PRETYPED) * TYPE_MS;
@@ -194,28 +202,22 @@ export default function WorkspaceScene() {
     // After typing: drop the new task straight into In Progress. The
     // GrowingCard wrapper animates it from 0 to its natural height, pushing
     // T-103/T-101/etc. down so it's easy to spot.
-    timersRef.current.push(
-      setTimeout(() => {
-        setTasks((prev) => [DEMO_TASK, ...prev]);
-        setHighlightTaskNumber(DEMO_TASK_NUMBER);
-      }, TYPING_DURATION + 150),
-    );
+    at(() => {
+      setTasks((prev) => [DEMO_TASK, ...prev]);
+      setHighlightTaskNumber(DEMO_TASK_NUMBER);
+    }, TYPING_DURATION + 150);
 
     // After the card finishes growing (~520ms) plus a generous beat so the
     // viewer can register the new card with its setup spinner, spawn the
     // terminal at the front of the stack.
-    timersRef.current.push(
-      setTimeout(() => {
-        setTerminals((prev) => [DEMO_TERMINAL, ...prev]);
-        setStackOrder((prev) => [DEMO_PTY_ID, ...prev]);
-        setTerminalsByTask((prev) => ({ ...prev, [DEMO_TASK_NUMBER]: [DEMO_TERMINAL_DISPLAY] }));
-      }, TYPING_DURATION + 1900),
-    );
+    at(() => {
+      setTerminals((prev) => [DEMO_TERMINAL, ...prev]);
+      setStackOrder((prev) => [DEMO_PTY_ID, ...prev]);
+      setTerminalsByTask((prev) => ({ ...prev, [DEMO_TASK_NUMBER]: [DEMO_TERMINAL_DISPLAY] }));
+    }, TYPING_DURATION + 1900);
 
     // Clear the pulse highlight a touch after the terminal lands.
-    timersRef.current.push(
-      setTimeout(() => setHighlightTaskNumber(null), TYPING_DURATION + 3100),
-    );
+    at(() => setHighlightTaskNumber(null), TYPING_DURATION + 3100);
 
     // Stream the agent body, line by line. Slow pacing so each beat
     // — terminal text, kanban motion, action buttons — has a moment to
@@ -225,48 +227,39 @@ export default function WorkspaceScene() {
     const STREAM_START = TYPING_DURATION + 2450;
     const stepAt = (step: number) => STREAM_START + (step - 1) * STEP_MS;
     for (let step = 1; step <= STEPS; step += 1) {
-      timersRef.current.push(setTimeout(() => setStreamStep(step), stepAt(step)));
+      at(() => setStreamStep(step), stepAt(step));
     }
 
     // At step 3, the agent's two `ouijit task create` calls land — fan
     // the subtasks into the Todo column with their own pulse highlights.
-    timersRef.current.push(
-      setTimeout(() => {
-        setTasks((prev) => [...prev, ...SUBTASKS]);
-        setHighlightTaskNumber(143);
-      }, stepAt(3)),
-    );
-    timersRef.current.push(setTimeout(() => setHighlightTaskNumber(144), stepAt(3) + 300));
-    timersRef.current.push(setTimeout(() => setHighlightTaskNumber(null), stepAt(3) + 1800));
+    at(() => {
+      setTasks((prev) => [...prev, ...SUBTASKS]);
+      setHighlightTaskNumber(143);
+    }, stepAt(3));
+    at(() => setHighlightTaskNumber(144), stepAt(3) + 300);
+    at(() => setHighlightTaskNumber(null), stepAt(3) + 1800);
 
     // At step 6, the agent runs `ouijit task set-status 142 in_review` —
     // animate the parent card from In Progress to In Review and pulse it.
-    timersRef.current.push(
-      setTimeout(() => {
-        setTasks((prev) =>
-          prev.map((t) => (t.taskNumber === DEMO_TASK_NUMBER ? { ...t, status: 'in_review' } : t)),
-        );
-        setHighlightTaskNumber(DEMO_TASK_NUMBER);
-      }, stepAt(6)),
-    );
-    timersRef.current.push(setTimeout(() => setHighlightTaskNumber(null), stepAt(6) + 1600));
+    at(() => {
+      setTasks((prev) => prev.map((t) => (t.taskNumber === DEMO_TASK_NUMBER ? { ...t, status: 'in_review' } : t)));
+      setHighlightTaskNumber(DEMO_TASK_NUMBER);
+    }, stepAt(6));
+    at(() => setHighlightTaskNumber(null), stepAt(6) + 1600);
 
     // Final beat: terminal goes idle. Then, after a short delay so the
     // status change registers, the macOS notification slides in.
     const completeAt = stepAt(STEPS) + 200;
-    timersRef.current.push(setTimeout(() => setDemoComplete(true), completeAt));
-    timersRef.current.push(setTimeout(() => setShowDemoNotification(true), completeAt + 750));
-  }, [demoStarted]);
+    at(() => setDemoComplete(true), completeAt);
+    at(() => setShowDemoNotification(true), completeAt + 750);
+  }, []);
 
   // Each terminal's stack depth comes from stackOrder, but we render them in
   // a stable DOM order so React never has to reorder children. Reordering
   // would re-attach one of the cards and cancel its CSS transition mid-flight.
   // The visual stacking is handled entirely by zIndex/transform from
   // TerminalCardView's DEPTH_STYLES.
-  const positionByPtyId = useMemo(
-    () => new Map(stackOrder.map((id, i) => [id, i])),
-    [stackOrder],
-  );
+  const positionByPtyId = useMemo(() => new Map(stackOrder.map((id, i) => [id, i])), [stackOrder]);
 
   // Scale-to-fit. The scene's internal layout is locked at 1160×630 with
   // pixel-precise absolute positions. Below 1160px viewport we shrink the
@@ -276,8 +269,7 @@ export default function WorkspaceScene() {
   // middle-of-the-action read.
   const CANVAS_WIDTH = 1160;
   const MIN_SCALE = 0.85;
-  const computeScale = (width: number) =>
-    Math.min(1, Math.max(MIN_SCALE, width / CANVAS_WIDTH));
+  const computeScale = (width: number) => Math.min(1, Math.max(MIN_SCALE, width / CANVAS_WIDTH));
   const clipRef = useRef<HTMLDivElement>(null);
   const initialWidth = typeof window === 'undefined' ? CANVAS_WIDTH : window.innerWidth;
   const [scale, setScale] = useState(() => computeScale(initialWidth));
@@ -330,166 +322,166 @@ export default function WorkspaceScene() {
             transformOrigin: 'top center',
           }}
         >
-      {/* Board layer — matches the app's .kanban-board (glass-bevel + black border + rounded). */}
-      <div
-        className="workspace-scene-board glass-bevel"
-        style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 280,
-          height: 520,
-          display: 'flex',
-          background: 'var(--color-terminal-bg, #171717)',
-          border: '1px solid rgba(0, 0, 0, 0.6)',
-          borderRadius: 14,
-          overflow: 'hidden',
-          boxShadow: '0 30px 80px -30px rgba(0,0,0,0.7)',
-        }}
-      >
-        {COLUMNS.map(({ status, label }) => {
-          const tasksInColumn = tasks.filter((t) => t.status === status);
-          return (
-            <KanbanColumnView key={status} status={status} label={label} count={tasksInColumn.length}>
-              {tasksInColumn.map((task) => {
-                const isDemoTask = task.taskNumber >= DEMO_TASK_NUMBER;
-                const taskTerminals = terminalsByTask[task.taskNumber] ?? [];
-                const isSettingUp =
-                  task.taskNumber === DEMO_TASK_NUMBER && taskTerminals.length === 0;
-                const card = (
-                  <KanbanCardView
-                    task={task}
-                    connectedDisplays={taskTerminals}
-                    showBadge={false}
-                    onSwitchToTerminal={bringToFront}
-                    isSettingUp={isSettingUp}
-                  />
-                );
-                if (isDemoTask) {
-                  return (
-                    <GrowingCard key={task.taskNumber} pulse={highlightTaskNumber === task.taskNumber}>
-                      {card}
-                    </GrowingCard>
-                  );
-                }
-                return <Fragment key={task.taskNumber}>{card}</Fragment>;
-              })}
-              {status === 'todo' && <KanbanAddInput onAdd={() => {}} />}
-            </KanbanColumnView>
-          );
-        })}
-      </div>
+          {/* Board layer — matches the app's .kanban-board (glass-bevel + black border + rounded). */}
+          <div
+            className="workspace-scene-board glass-bevel"
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 280,
+              height: 520,
+              display: 'flex',
+              background: 'var(--color-terminal-bg, #171717)',
+              border: '1px solid rgba(0, 0, 0, 0.6)',
+              borderRadius: 14,
+              overflow: 'hidden',
+              boxShadow: '0 30px 80px -30px rgba(0,0,0,0.7)',
+            }}
+          >
+            {COLUMNS.map(({ status, label }) => {
+              const tasksInColumn = tasks.filter((t) => t.status === status);
+              return (
+                <KanbanColumnView key={status} status={status} label={label} count={tasksInColumn.length}>
+                  {tasksInColumn.map((task) => {
+                    const isDemoTask = task.taskNumber >= DEMO_TASK_NUMBER;
+                    const taskTerminals = terminalsByTask[task.taskNumber] ?? [];
+                    const isSettingUp = task.taskNumber === DEMO_TASK_NUMBER && taskTerminals.length === 0;
+                    const card = (
+                      <KanbanCardView
+                        task={task}
+                        connectedDisplays={taskTerminals}
+                        showBadge={false}
+                        onSwitchToTerminal={bringToFront}
+                        isSettingUp={isSettingUp}
+                      />
+                    );
+                    if (isDemoTask) {
+                      return (
+                        <GrowingCard key={task.taskNumber} pulse={highlightTaskNumber === task.taskNumber}>
+                          {card}
+                        </GrowingCard>
+                      );
+                    }
+                    return <Fragment key={task.taskNumber}>{card}</Fragment>;
+                  })}
+                  {status === 'todo' && <KanbanAddInput onAdd={() => {}} />}
+                </KanbanColumnView>
+              );
+            })}
+          </div>
 
-      {/* Top-right: macOS-style notification banner that posts once the demo
+          {/* Top-right: macOS-style notification banner that posts once the demo
           terminal goes idle. Mirrors where macOS actually fires
           notifications. Clicking it brings the matching terminal to the
           front of the stack. Only rendered at full scale; on smaller
           viewports the notification renders below the scene as a
           full-width banner above the CLI prompt instead. */}
-      {showDemoNotification && scale === 1 && (
-        <div
-          className="workspace-scene-notification"
-          style={{
-            position: 'absolute',
-            top: 8,
-            right: -15,
-            width: 270,
-            zIndex: 3,
-          }}
-        >
-          <FadeInWrapper>
-            <NotificationPreview
-              title={`${DEMO_TASK.name} is ready`}
-              onActivate={() => bringToFront(DEMO_PTY_ID)}
-            />
-          </FadeInWrapper>
-        </div>
-      )}
+          {showDemoNotification && scale === 1 && (
+            <div
+              className="workspace-scene-notification"
+              style={{
+                position: 'absolute',
+                top: 8,
+                right: -15,
+                width: 270,
+                zIndex: 3,
+              }}
+            >
+              <FadeInWrapper>
+                <NotificationPreview
+                  title={`${DEMO_TASK.name} is ready`}
+                  onActivate={() => bringToFront(DEMO_PTY_ID)}
+                  onReplay={playDemo}
+                />
+              </FadeInWrapper>
+            </div>
+          )}
 
-      {/* Bottom-left: CLI prompt bubble. Only rendered at full scale; on
+          {/* Bottom-left: CLI prompt bubble. Only rendered at full scale; on
           smaller viewports the same prompt is rendered below the scaled
           canvas in .workspace-scene-cli-row instead, where it stays full
           size and centered. */}
-      {scale === 1 && (
-        <div
-          className="workspace-scene-cli"
-          style={{
-            position: 'absolute',
-            left: 62,
-            bottom: 22,
-            zIndex: 3,
-          }}
-        >
-          <CliPromptBubble typedChars={typingProgress} played={demoStarted} onPlay={playDemo} />
-        </div>
-      )}
+          {scale === 1 && (
+            <div
+              className="workspace-scene-cli"
+              style={{
+                position: 'absolute',
+                left: 62,
+                bottom: 22,
+                zIndex: 3,
+              }}
+            >
+              <CliPromptBubble typedChars={typingProgress} played={demoStarted} onPlay={playDemo} />
+            </div>
+          )}
 
-      {/* Terminal stack layer. */}
-      <div
-        className="workspace-scene-stack"
-        style={{
-          position: 'absolute',
-          right: 0,
-          bottom: 0,
-          width: 720,
-          zIndex: 2,
-          filter: 'drop-shadow(0 30px 60px rgba(0,0,0,0.6))',
-        }}
-      >
-        <div style={{ position: 'relative', height: 450, paddingTop: 80 }}>
-          {terminals.map((term) => {
-            const position = positionByPtyId.get(term.ptyId) ?? 0;
-            const isActive = position === 0;
-            const isDemoTerminal = term.ptyId === DEMO_PTY_ID;
-            const summaryType = isDemoTerminal && demoComplete ? 'ready' : term.summaryType;
-            const lastOscTitle = isDemoTerminal && demoComplete ? '18 passed' : term.lastOscTitle;
-            const fixtures = getEffectiveFixtures(term.ptyId, streamStep);
-            const openPanel = openPanelByPty[term.ptyId] ?? null;
-            return (
-              <TerminalCardView
-                key={term.ptyId}
-                isActive={isActive}
-                backDepth={isActive ? 0 : position}
-                onClick={isActive ? undefined : () => bringToFront(term.ptyId)}
-              >
-                <TerminalHeaderView
-                  summaryType={summaryType}
-                  sandboxed={term.sandboxed}
-                  isActive={isActive}
-                  isBackCard={!isActive}
-                  stackPosition={isActive ? undefined : position}
-                  nameContent={<TerminalHeaderName label={term.label} lastOscTitle={lastOscTitle} />}
-                  tagsContent={isActive && term.tags ? <TerminalHeaderTags tags={term.tags} /> : undefined}
-                  branchContent={isActive && term.branch ? <BranchLabel branch={term.branch} /> : undefined}
-                  actions={
-                    isActive ? (
-                      <ActiveActions
-                        fixtures={fixtures}
-                        openPanel={openPanel}
-                        onToggle={(kind) => togglePanel(term.ptyId, kind)}
-                      />
-                    ) : undefined
-                  }
-                />
-                {isActive && (
-                  <div className="relative flex-1 flex flex-col min-h-0 overflow-hidden">
-                    {renderBody(term.ptyId, streamStep, demoComplete)}
-                    {openPanel === 'plan' && fixtures.plan && (
-                      <MockPlanPanel fixture={fixtures.plan} onClose={() => closePanel(term.ptyId)} />
+          {/* Terminal stack layer. */}
+          <div
+            className="workspace-scene-stack"
+            style={{
+              position: 'absolute',
+              right: 0,
+              bottom: 0,
+              width: 720,
+              zIndex: 2,
+              filter: 'drop-shadow(0 30px 60px rgba(0,0,0,0.6))',
+            }}
+          >
+            <div style={{ position: 'relative', height: 450, paddingTop: 80 }}>
+              {terminals.map((term) => {
+                const position = positionByPtyId.get(term.ptyId) ?? 0;
+                const isActive = position === 0;
+                const isDemoTerminal = term.ptyId === DEMO_PTY_ID;
+                const summaryType = isDemoTerminal && demoComplete ? 'ready' : term.summaryType;
+                const lastOscTitle = isDemoTerminal && demoComplete ? '18 passed' : term.lastOscTitle;
+                const fixtures = getEffectiveFixtures(term.ptyId, streamStep);
+                const openPanel = openPanelByPty[term.ptyId] ?? null;
+                return (
+                  <TerminalCardView
+                    key={term.ptyId}
+                    isActive={isActive}
+                    backDepth={isActive ? 0 : position}
+                    onClick={isActive ? undefined : () => bringToFront(term.ptyId)}
+                  >
+                    <TerminalHeaderView
+                      summaryType={summaryType}
+                      sandboxed={term.sandboxed}
+                      isActive={isActive}
+                      isBackCard={!isActive}
+                      stackPosition={isActive ? undefined : position}
+                      nameContent={<TerminalHeaderName label={term.label} lastOscTitle={lastOscTitle} />}
+                      tagsContent={isActive && term.tags ? <TerminalHeaderTags tags={term.tags} /> : undefined}
+                      branchContent={isActive && term.branch ? <BranchLabel branch={term.branch} /> : undefined}
+                      actions={
+                        isActive ? (
+                          <ActiveActions
+                            fixtures={fixtures}
+                            openPanel={openPanel}
+                            onToggle={(kind) => togglePanel(term.ptyId, kind)}
+                          />
+                        ) : undefined
+                      }
+                    />
+                    {isActive && (
+                      <div className="relative flex-1 flex flex-col min-h-0 overflow-hidden">
+                        {renderBody(term.ptyId, streamStep, demoComplete)}
+                        {openPanel === 'plan' && fixtures.plan && (
+                          <MockPlanPanel fixture={fixtures.plan} onClose={() => closePanel(term.ptyId)} />
+                        )}
+                        {openPanel === 'preview' && fixtures.preview && (
+                          <MockPreviewPanel fixture={fixtures.preview} onClose={() => closePanel(term.ptyId)} />
+                        )}
+                        {openPanel === 'diff' && fixtures.diff && (
+                          <MockDiffPanel fixture={fixtures.diff} onClose={() => closePanel(term.ptyId)} />
+                        )}
+                      </div>
                     )}
-                    {openPanel === 'preview' && fixtures.preview && (
-                      <MockPreviewPanel fixture={fixtures.preview} onClose={() => closePanel(term.ptyId)} />
-                    )}
-                    {openPanel === 'diff' && fixtures.diff && (
-                      <MockDiffPanel fixture={fixtures.diff} onClose={() => closePanel(term.ptyId)} />
-                    )}
-                  </div>
-                )}
-              </TerminalCardView>
-            );
-          })}
-        </div>
-      </div>
+                  </TerminalCardView>
+                );
+              })}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -502,6 +494,7 @@ export default function WorkspaceScene() {
             <NotificationPreview
               title={`${DEMO_TASK.name} is ready`}
               onActivate={() => bringToFront(DEMO_PTY_ID)}
+              onReplay={playDemo}
             />
           </FadeInWrapper>
         </div>
@@ -642,8 +635,7 @@ function ActiveActions({
   );
 }
 
-const BODY_CLS =
-  'flex-1 p-4 font-mono text-[11px] leading-[1.65] text-white/85 overflow-hidden min-h-0 flex flex-col';
+const BODY_CLS = 'flex-1 p-4 font-mono text-[11px] leading-[1.65] text-white/85 overflow-hidden min-h-0 flex flex-col';
 
 /** The demo terminal's action buttons appear in lock-step with its tool
  * calls: Plan reveals when the agent writes plan.md (step ≥ 2), Diff
@@ -747,15 +739,7 @@ function ClaudeTuiInput({ busy = false, pendingText }: { busy?: boolean; pending
 
 /** Wraps a Claude conversation: scrolling content area on top, TUI input
  * pinned at the bottom — matching the real Claude Code TUI layout. */
-function ClaudeShell({
-  children,
-  busy,
-  pendingText,
-}: {
-  children: ReactNode;
-  busy?: boolean;
-  pendingText?: string;
-}) {
+function ClaudeShell({ children, busy, pendingText }: { children: ReactNode; busy?: boolean; pendingText?: string }) {
   return (
     <div className={BODY_CLS}>
       <div className="flex-1 min-h-0 overflow-hidden">{children}</div>
@@ -801,18 +785,15 @@ function ClaudeBody() {
 function DevServerBody() {
   const Hmr = ({ time, path }: { time: string; path: string }) => (
     <div>
-      <span className="text-white/30">{time}</span>{' '}
-      <span className="text-[#79b8ff]/80">[vite]</span>{' '}
-      <span className="text-[#a4d4ff]/85">hmr update</span>{' '}
-      <span className="text-white/55">{path}</span>
+      <span className="text-white/30">{time}</span> <span className="text-[#79b8ff]/80">[vite]</span>{' '}
+      <span className="text-[#a4d4ff]/85">hmr update</span> <span className="text-white/55">{path}</span>
     </div>
   );
   return (
     <div className={BODY_CLS}>
       <div className="flex-1 min-h-0">
         <div>
-          <span className="text-[#a78bfa] font-semibold">VITE</span>{' '}
-          <span className="text-white/45">v5.4.10</span>
+          <span className="text-[#a78bfa] font-semibold">VITE</span> <span className="text-white/45">v5.4.10</span>
           <span className="ml-3 text-white/35">ready in 412 ms</span>
         </div>
         <div className="mt-2">
@@ -836,8 +817,7 @@ function DevServerBody() {
         <Hmr time="14:32:21" path="/src/onboarding/WelcomeIntro.tsx" />
         <Hmr time="14:32:24" path="/src/onboarding/Stepper.tsx" />
         <div>
-          <span className="text-white/30">14:32:34</span>{' '}
-          <span className="text-[#79b8ff]/80">[vite]</span>{' '}
+          <span className="text-white/30">14:32:34</span> <span className="text-[#79b8ff]/80">[vite]</span>{' '}
           <span className="text-[#ffb454]/90">page reload</span>{' '}
           <span className="text-white/45">src/onboarding/useOnboardingProgress.ts (new file)</span>
         </div>
@@ -850,9 +830,7 @@ function DevServerBody() {
 function TestBody() {
   return (
     <ClaudeShell pendingText="run litmus on the new template">
-      <ClaudeUser>
-        Tighten the invitation email — subject line, brand tokens, plain-text fallback.
-      </ClaudeUser>
+      <ClaudeUser>Tighten the invitation email — subject line, brand tokens, plain-text fallback.</ClaudeUser>
       <AssistantSay>
         <span>I&rsquo;ll start with the templates dir to see the shape.</span>
       </AssistantSay>
@@ -929,9 +907,7 @@ function DemoStreamBody({ step, complete }: { step: number; complete: boolean })
   return (
     <ClaudeShell busy={!complete && step >= 1}>
       {step >= 1 && (
-        <ClaudeUser>
-          Migrate the app to React 19. Split the work into subtasks for the obvious chunks.
-        </ClaudeUser>
+        <ClaudeUser>Migrate the app to React 19. Split the work into subtasks for the obvious chunks.</ClaudeUser>
       )}
       {step >= 2 && (
         <>
@@ -997,21 +973,13 @@ function DemoStreamBody({ step, complete }: { step: number; complete: boolean })
  * the full command with a blinking cursor and a "Run" affordance, plus an
  * idle attention pulse to invite the click. On click, the affordance falls
  * away and the command reveals character by character via `typedChars`. */
-function CliPromptBubble({
-  typedChars,
-  played,
-  onPlay,
-}: {
-  typedChars: number;
-  played: boolean;
-  onPlay: () => void;
-}) {
+function CliPromptBubble({ typedChars, played, onPlay }: { typedChars: number; played: boolean; onPlay: () => void }) {
   const visible = DEMO_COMMAND.slice(0, typedChars);
   const remaining = DEMO_COMMAND.slice(typedChars);
   return (
     <button
       type="button"
-      className={`cli-prompt-bubble${played ? ' is-played' : ' is-idle'}`}
+      className={`cli-prompt-bubble${played ? ' is-played' : ''}`}
       onClick={onPlay}
       disabled={played}
       aria-label={played ? 'Demo started' : 'Run this command'}
@@ -1026,11 +994,7 @@ function CliPromptBubble({
           </span>
         </span>
       </span>
-      <span
-        className="cli-prompt-bubble__run"
-        aria-hidden="true"
-        style={played ? { visibility: 'hidden' } : undefined}
-      >
+      <span className="cli-prompt-bubble__run" aria-hidden="true" style={played ? { visibility: 'hidden' } : undefined}>
         <svg width="11" height="13" viewBox="0 0 11 13" fill="none">
           <path d="M1 1 L10 6.5 L1 12 Z" fill="currentColor" />
         </svg>
@@ -1078,13 +1042,18 @@ function renderTypedCommand(text: string): ReactNode {
  * Clicking the banner activates the matching terminal (like the OS banner
  * opening the source app); hovering reveals a close button in the top-left
  * that dismisses the notification without activating it. */
-function NotificationPreview({ title, onActivate }: { title: string; onActivate?: () => void }) {
-  const [dismissed, setDismissed] = useState(false);
-  if (dismissed) return null;
-
-  const handleClose = (e: React.MouseEvent) => {
+function NotificationPreview({
+  title,
+  onActivate,
+  onReplay,
+}: {
+  title: string;
+  onActivate?: () => void;
+  onReplay?: () => void;
+}) {
+  const handleReplay = (e: React.MouseEvent) => {
     e.stopPropagation();
-    setDismissed(true);
+    onReplay?.();
   };
 
   return (
@@ -1100,20 +1069,11 @@ function NotificationPreview({ title, onActivate }: { title: string; onActivate?
         }
       }}
     >
-      <button
-        type="button"
-        className="macos-notif-close"
-        aria-label="Dismiss notification"
-        onClick={handleClose}
-      >
-        <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
-          <path
-            d="M2 2 L8 8 M8 2 L2 8"
-            stroke="rgba(255,255,255,0.85)"
-            strokeWidth="1.4"
-            strokeLinecap="round"
-          />
-        </svg>
+      {/* The macOS close affordance (top-left circle on hover) is repurposed
+          as the replay control — hovering the banner reveals it, clicking it
+          replays the demo. */}
+      <button type="button" className="macos-notif-replay" aria-label="Replay the demo" onClick={handleReplay}>
+        <Icon name="arrow-counter-clockwise" className="w-3 h-3" />
       </button>
       <img
         src="/assets/ouijit-app-icon.png"
