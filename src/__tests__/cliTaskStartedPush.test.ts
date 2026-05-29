@@ -407,4 +407,13 @@ describe('cli:task-completed push', () => {
     expect(setTaskStatusWithHooksMock).not.toHaveBeenCalled();
     expect(getTaskCompletedPushes()).toHaveLength(0);
   });
+
+  test('does not fire when the task is already done (no transition, no re-run)', async () => {
+    getTaskByNumberMock.mockResolvedValueOnce({ taskNumber: 8, status: 'done' });
+    const token = issueToken('pty-host', 'host');
+    const res = await request('PATCH', `/api/tasks/8/status?project=${PROJECT}`, token, { status: 'done' });
+
+    expect(res.status).toBe(200);
+    expect(getTaskCompletedPushes()).toHaveLength(0);
+  });
 });

@@ -217,9 +217,11 @@ export function useIPCListeners() {
     );
 
     // CLI-initiated in_progress/in_review transition — fire the column hook via
-    // beginTransition (dialog by default, headless when flags were passed). If
-    // the user isn't viewing the project, queue it and drain on navigation, the
-    // same as a CLI start.
+    // beginTransition. A bare transition (no hookMode) shows that column's hook
+    // dialog, which can only render for the project the user is viewing — queue
+    // it otherwise and drain on navigation. A transition with explicit hook
+    // flags is headless (no dialog), so it runs immediately regardless of which
+    // project is in view, the same as a headless done.
     cleanups.push(
       window.api.onCliTaskTransitioned((payload) => {
         const activeProject = useAppStore.getState().activeProjectPath;
@@ -232,7 +234,7 @@ export function useIPCListeners() {
           hookCommand: payload.hookCommand,
         };
 
-        if (activeProject === payload.project) {
+        if (payload.hookMode || activeProject === payload.project) {
           ipcLog.info('CLI task-transitioned: running transition', {
             taskNumber: payload.taskNumber,
             newStatus: payload.newStatus,

@@ -237,16 +237,17 @@ describe('useIPCListeners — cli:task-transitioned → beginTransition', () => 
     });
   });
 
-  test('queued-then-drained transition preserves origStatus + hookMode', async () => {
+  test('bare transition for a project not in view is queued, then drained on navigation', async () => {
     useAppStore.setState({ activeProjectPath: '/proj/other' });
     const stubs = installListenerStubs();
     renderHook(() => useIPCListeners());
 
-    stubs.cliTaskTransitionedCb!(transitionPayload({ hookMode: 'skip' }));
+    // No hookMode → shows a dialog, which can't render off-project, so it waits.
+    stubs.cliTaskTransitionedCb!(transitionPayload());
     await flush();
 
     expect(beginTransition).not.toHaveBeenCalled();
-    expect(useProjectStore.getState().pendingCliTransitions[PROJECT]?.[0]?.hookMode).toBe('skip');
+    expect(useProjectStore.getState().pendingCliTransitions[PROJECT]?.[0]?.origStatus).toBe('in_progress');
 
     useAppStore.setState({ activeProjectPath: PROJECT });
     await flush();
@@ -254,7 +255,23 @@ describe('useIPCListeners — cli:task-transitioned → beginTransition', () => 
     expect(beginTransition).toHaveBeenCalledTimes(1);
     const opts = vi.mocked(beginTransition).mock.calls[0][1];
     expect(opts.origStatus).toBe('in_progress');
+    expect(opts.hookControl).toBeUndefined();
+  });
+
+  test('headless transition (explicit flag) runs immediately even when off-project', async () => {
+    useAppStore.setState({ activeProjectPath: '/proj/other' });
+    const stubs = installListenerStubs();
+    renderHook(() => useIPCListeners());
+
+    // No dialog for a skip, so it's safe to run regardless of the active project.
+    stubs.cliTaskTransitionedCb!(transitionPayload({ hookMode: 'skip' }));
+    await flush();
+
+    expect(beginTransition).toHaveBeenCalledTimes(1);
+    const opts = vi.mocked(beginTransition).mock.calls[0][1];
+    expect(opts.origStatus).toBe('in_progress');
     expect(opts.hookControl).toEqual({ mode: 'skip', command: undefined });
+    expect(useProjectStore.getState().pendingCliTransitions[PROJECT]).toBeUndefined();
   });
 });
 

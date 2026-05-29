@@ -573,11 +573,16 @@ async function handleAsync(req: IncomingMessage, res: ServerResponse, window: Br
     }
   }
 
-  // A status PATCH to in_progress/in_review fires a renderer-side hook, which
-  // needs the *old* status to disambiguate start vs continue and to skip a
-  // no-op (status unchanged). Capture it before the handler overwrites it.
+  // A status PATCH to in_progress/in_review/done fires a renderer-side hook,
+  // which needs the *old* status to disambiguate start vs continue and to skip
+  // a no-op (status unchanged — e.g. re-running set-status on a task already in
+  // that column would otherwise re-spawn the hook / re-show the dialog).
+  // Capture it before the handler overwrites it.
   let prevStatus: string | undefined;
-  if (isStatusPatchRoute(method, segments) && (body.status === 'in_progress' || body.status === 'in_review')) {
+  if (
+    isStatusPatchRoute(method, segments) &&
+    (body.status === 'in_progress' || body.status === 'in_review' || body.status === 'done')
+  ) {
     const num = parseInt(segments[1] ?? '', 10);
     if (!Number.isNaN(num)) {
       const existing = await getTaskByNumber(url.searchParams.get('project') ?? '', num);
@@ -624,7 +629,12 @@ async function handleAsync(req: IncomingMessage, res: ServerResponse, window: Br
       // spawn). The task is fetched here and included in the payload so the
       // renderer doesn't need projectStore.tasks (which only holds the active
       // project's task list — would miss when the user is viewing elsewhere).
-      if (isStatusPatchRoute(method, segments) && body.status === 'done' && isSuccessfulMutation(result)) {
+      if (
+        isStatusPatchRoute(method, segments) &&
+        body.status === 'done' &&
+        isSuccessfulMutation(result) &&
+        prevStatus !== 'done'
+      ) {
         const taskNumber = parseInt(segments[1] ?? '', 10);
         if (!Number.isNaN(taskNumber)) {
           const task = await getTaskWithWorkspace(project, taskNumber);
