@@ -28,7 +28,7 @@ export const SmartGuideOverlay = memo(function SmartGuideOverlay({ guides }: Sma
               y1={0}
               x2={guide.screenPos}
               y2="100%"
-              stroke="rgba(10, 132, 255, 0.5)"
+              stroke="color-mix(in srgb, var(--color-accent) 50%, transparent)"
               strokeWidth={1}
               strokeDasharray="4 4"
             />
@@ -39,7 +39,7 @@ export const SmartGuideOverlay = memo(function SmartGuideOverlay({ guides }: Sma
               y1={guide.screenPos}
               x2="100%"
               y2={guide.screenPos}
-              stroke="rgba(10, 132, 255, 0.5)"
+              stroke="color-mix(in srgb, var(--color-accent) 50%, transparent)"
               strokeWidth={1}
               strokeDasharray="4 4"
             />

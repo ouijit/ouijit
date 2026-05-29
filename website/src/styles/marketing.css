@@ -225,12 +225,15 @@ img {
   }
 }
 
+/* Ouijit button system — flat phosphor-green fill with film-grain texture
+   and dark ink text. Driven by the shared --color-accent token + --btn-grain
+   (imported from src/index.css). */
 body.marketing .btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 13px 28px;
+  padding: 14px 30px;
   border-radius: 9999px;
   font-size: 1rem;
   font-weight: 500;
@@ -249,24 +252,25 @@ body.marketing .btn:focus-visible {
   box-shadow: 0 0 0 3px var(--color-accent-light);
 }
 
+/* Grain overlay (.btn-primary::after) is inherited from src/index.css. */
 body.marketing .btn-primary {
-  background: var(--color-accent);
-  color: #fff;
+  background-color: var(--color-accent);
+  color: var(--color-accent-ink);
 }
 
 body.marketing .btn-primary:hover {
-  background: var(--color-accent-hover);
-  color: #fff;
+  background-color: var(--color-accent-hover);
+  color: var(--color-accent-ink);
 }
 
 body.marketing .btn-secondary {
-  background: var(--color-accent-light);
-  color: var(--color-accent);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--color-text-primary);
 }
 
 body.marketing .btn-secondary:hover {
-  background: rgba(10, 132, 255, 0.28);
-  color: var(--color-accent);
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--color-text-primary);
 }
 
 /* --- Hero workspace scene --- */
@@ -586,9 +590,13 @@ body.marketing .home-agents-footnote a:hover {
   align-self: flex-end;
   gap: 8px;
   padding: 11px 22px 11px 20px;
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
   border-radius: 9999px;
-  background: var(--color-accent);
-  color: #fff;
+  background-color: var(--color-accent);
+  color: var(--color-accent-ink);
+  text-shadow: 0 0 5px rgba(170, 205, 255, 0.45);
   font-family:
     system-ui,
     -apple-system,
@@ -605,8 +613,59 @@ body.marketing .home-agents-footnote a:hover {
     transform 150ms ease-out;
 }
 
+/* Animated lava-lamp fill (z-index -2), matching .btn-primary. */
+.cli-prompt-bubble__run::before {
+  content: '';
+  position: absolute;
+  inset: -25%;
+  z-index: -2;
+  background-image:
+    radial-gradient(circle, var(--lava-1) 0%, transparent 46%),
+    radial-gradient(circle, var(--lava-2) 0%, transparent 46%),
+    radial-gradient(circle, var(--lava-3) 0%, transparent 46%);
+  background-repeat: no-repeat;
+  background-size:
+    120% 120%,
+    130% 130%,
+    115% 115%;
+  background-position:
+    0% 0%,
+    100% 0%,
+    50% 100%;
+  filter: blur(var(--lava-blur));
+  animation: lava-drift var(--lava-speed) ease-in-out infinite alternate;
+  pointer-events: none;
+}
+
+/* CRT shadow-mask overlay, behind the label (z-index -1), matching .btn-primary. */
+.cli-prompt-bubble__run::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background-image:
+    repeating-linear-gradient(to bottom, rgba(0, 0, 0, 0.7) 0 1px, transparent 1px var(--crt-line)),
+    radial-gradient(125% 135% at 50% 50%, transparent 52%, rgba(0, 0, 0, 0.55) 100%),
+    var(--btn-grain),
+    repeating-linear-gradient(
+      to right,
+      rgb(255, 45, 45) 0 var(--crt-dot),
+      rgb(45, 255, 45) var(--crt-dot) calc(var(--crt-dot) * 2),
+      rgb(60, 60, 255) calc(var(--crt-dot) * 2) calc(var(--crt-dot) * 3)
+    );
+  background-size:
+    auto,
+    auto,
+    120px 120px,
+    auto;
+  image-rendering: pixelated;
+  mix-blend-mode: multiply;
+  opacity: var(--crt-strength);
+  pointer-events: none;
+}
+
 .cli-prompt-bubble:hover:not(:disabled) .cli-prompt-bubble__run {
-  background: var(--color-accent-hover);
+  background-color: var(--color-accent-hover);
   transform: translateY(-1px);
 }
 
@@ -621,7 +680,7 @@ body.marketing .home-agents-footnote a:hover {
 
 
 .cli-prompt-bubble__prompt {
-  color: rgba(10, 132, 255, 0.9);
+  color: color-mix(in srgb, var(--color-accent) 90%, transparent);
   flex-shrink: 0;
 }
 
@@ -684,13 +743,13 @@ body.marketing .home-agents-footnote a:hover {
 
 @keyframes workspace-scene-task-pulse {
   0% {
-    box-shadow: 0 0 0 0 rgba(10, 132, 255, 0.55);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-accent) 55%, transparent);
   }
   60% {
-    box-shadow: 0 0 0 10px rgba(10, 132, 255, 0);
+    box-shadow: 0 0 0 10px color-mix(in srgb, var(--color-accent) 0%, transparent);
   }
   100% {
-    box-shadow: 0 0 0 0 rgba(10, 132, 255, 0);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-accent) 0%, transparent);
   }
 }
 
@@ -739,7 +798,7 @@ body.marketing .home-agents-footnote a:hover {
   font-weight: 600;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--marketing-blue);
+  color: var(--marketing-accent);
   margin-bottom: 16px;
 }
 
@@ -983,7 +1042,7 @@ body.marketing .home-agents-footnote a:hover {
 }
 
 .docs-sidebar a.active {
-  color: var(--marketing-blue);
+  color: var(--marketing-accent);
   background: none;
   font-weight: 600;
 }

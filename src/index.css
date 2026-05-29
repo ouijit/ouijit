@@ -31,10 +31,13 @@
   --color-border: rgba(255, 255, 255, 0.1);
   --color-border-hover: rgba(255, 255, 255, 0.15);
 
-  /* Accent Colors */
-  --color-accent: #0a84ff;
-  --color-accent-hover: #409cff;
-  --color-accent-light: rgba(10, 132, 255, 0.2);
+  /* Accent / brand — Ouijit blue. App-wide accent: links, selection, focus
+     rings, primary buttons, the homepage Run button. --color-accent-ink is
+     the text color on filled accent buttons (white, since blue is dark). */
+  --color-accent: #2f6fe6;
+  --color-accent-hover: #4d88f0;
+  --color-accent-light: rgba(47, 111, 230, 0.2);
+  --color-accent-ink: #ffffff;
 
   /* Status Colors */
   --color-git: #ff6b4a;
@@ -169,8 +172,147 @@ textarea,
 }
 
 /* ===================================
+   Buttons (shared dialog/CTA pattern)
+   "CRT screen" primary: an animated lava-lamp fill (::before) under a CRT
+   shadow-mask overlay of vertical R/G/B phosphor dots + tube vignette +
+   static (::after), with a white, softly-glowing label on top. Full pill.
+   Keep in sync with the website's .btn in website/src/styles/marketing.css.
+   =================================== */
+
+/* Sparse phosphor noise: feTurbulence mapped to ALPHA (transparent except
+   sparse opaque black specks) so it composites cleanly above the opaque RGB
+   grille layer and reads as CRT static under the multiply overlay. */
+:root {
+  --btn-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.5' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0'/%3E%3CfeComponentTransfer%3E%3CfeFuncA type='discrete' tableValues='0 0 0 0 1'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  /* CRT shadow-mask overlay: vertical R/G/B phosphor stripes, segmented into
+     dots by thin horizontal gaps, plus tube vignette + static, multiplied
+     over the lava. --crt-strength fades the whole effect; --crt-dot is the
+     subpixel width (triad = 3x); --crt-line is the dot row height. */
+  --crt-strength: 0.42;
+  --crt-dot: 1.5px;
+  --crt-line: 2px;
+
+  /* Lava-lamp fill: drifting hue blobs behind the label. Hues are spread
+     wide (indigo / magenta / cyan) and distinct from the blue base for
+     visible contrast, but kept dark enough that white text stays legible. */
+  --lava-1: rgba(79, 70, 229, 0.95); /* indigo */
+  --lava-2: rgba(147, 51, 234, 0.95); /* magenta */
+  --lava-3: rgba(8, 145, 178, 0.92); /* cyan */
+  --lava-speed: 9s;
+  --lava-blur: 7px;
+}
+
+@layer components {
+  .btn-primary {
+    @apply relative isolate overflow-hidden inline-flex items-center justify-center gap-2 px-4 py-1.5 font-sans text-sm font-medium no-underline border-none outline-none transition-all duration-150 ease-out [-webkit-app-region:no-drag] focus-visible:ring-3 focus-visible:ring-accent-light active:scale-[0.98] disabled:opacity-50;
+    border-radius: 9999px;
+    background-color: var(--color-accent);
+    color: var(--color-accent-ink);
+    text-shadow: 0 0 5px rgba(170, 205, 255, 0.45); /* phosphor glow */
+  }
+
+  /* Animated lava-lamp fill (z-index -2): three blurred hue blobs drifting
+     via background-position. Clipped to the pill, sits below both the grain
+     and the label. */
+  .btn-primary::before {
+    content: '';
+    position: absolute;
+    inset: -25%;
+    z-index: -2;
+    background-image:
+      radial-gradient(circle, var(--lava-1) 0%, transparent 46%),
+      radial-gradient(circle, var(--lava-2) 0%, transparent 46%),
+      radial-gradient(circle, var(--lava-3) 0%, transparent 46%);
+    background-repeat: no-repeat;
+    background-size:
+      120% 120%,
+      130% 130%,
+      115% 115%;
+    background-position:
+      0% 0%,
+      100% 0%,
+      50% 100%;
+    filter: blur(var(--lava-blur));
+    animation: lava-drift var(--lava-speed) ease-in-out infinite alternate;
+    pointer-events: none;
+  }
+
+  /* CRT shadow-mask overlay (z-index -1), multiplied onto the lava. Top to
+     bottom: horizontal dot-row gaps, tube vignette, phosphor static, then the
+     opaque vertical R/G/B grille. Sits BEHIND the label (scoped by `isolate`)
+     so it masks the screen without touching the text. */
+  .btn-primary::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background-image:
+      repeating-linear-gradient(to bottom, rgba(0, 0, 0, 0.7) 0 1px, transparent 1px var(--crt-line)),
+      radial-gradient(125% 135% at 50% 50%, transparent 52%, rgba(0, 0, 0, 0.55) 100%), var(--btn-grain),
+      repeating-linear-gradient(
+        to right,
+        rgb(255, 45, 45) 0 var(--crt-dot),
+        rgb(45, 255, 45) var(--crt-dot) calc(var(--crt-dot) * 2),
+        rgb(60, 60, 255) calc(var(--crt-dot) * 2) calc(var(--crt-dot) * 3)
+      );
+    background-size:
+      auto,
+      auto,
+      120px 120px,
+      auto;
+    image-rendering: pixelated;
+    mix-blend-mode: multiply;
+    opacity: var(--crt-strength);
+    pointer-events: none;
+  }
+
+  .btn-primary:hover:not(:disabled) {
+    background-color: var(--color-accent-hover);
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 px-4 py-1.5 font-sans text-sm font-medium no-underline border-none outline-none text-text-primary transition-all duration-150 ease-out [-webkit-app-region:no-drag] focus-visible:ring-3 focus-visible:ring-white/15 active:scale-[0.98] disabled:opacity-50;
+    border-radius: 9999px;
+    background: rgba(255, 255, 255, 0.06);
+  }
+
+  .btn-secondary:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.1);
+  }
+}
+
+/* ===================================
    Animations
    =================================== */
+
+/* Lava-lamp blob drift for primary buttons (see .btn-primary::before). */
+@keyframes lava-drift {
+  0% {
+    background-position:
+      0% 0%,
+      100% 0%,
+      50% 100%;
+  }
+  50% {
+    background-position:
+      70% 80%,
+      10% 60%,
+      90% 10%;
+  }
+  100% {
+    background-position:
+      100% 40%,
+      40% 100%,
+      0% 30%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn-primary::before,
+  .cli-prompt-bubble__run::before {
+    animation: none;
+  }
+}
 
 @keyframes spin {
   from {
@@ -215,11 +357,11 @@ textarea,
 @keyframes sandbox-icon-pulse {
   0%,
   100% {
-    color: #409cff;
+    color: var(--color-accent-hover);
     opacity: 0.4;
   }
   50% {
-    color: #409cff;
+    color: var(--color-accent-hover);
     opacity: 1;
   }
 }
@@ -507,13 +649,13 @@ textarea,
 
 .react-flow__node.react-flow__node-terminal .react-flow__resize-control.handle:hover {
   transform: scale(1.25);
-  box-shadow: 0 0 0 4px rgba(10, 132, 255, 0.2);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-accent) 20%, transparent);
 }
 
 .react-flow__node.react-flow__node-terminal .react-flow__resize-control.handle:active,
 .react-flow__node.react-flow__node-terminal .react-flow__resize-control.handle:focus-visible {
   transform: scale(1.2);
-  box-shadow: 0 0 0 5px rgba(10, 132, 255, 0.3);
+  box-shadow: 0 0 0 5px color-mix(in srgb, var(--color-accent) 30%, transparent);
   outline: none;
 }
 
@@ -787,8 +929,8 @@ textarea,
 
 /* Selection box styling */
 .terminal-canvas .react-flow__selection {
-  border: 1px solid rgba(10, 132, 255, 0.3);
-  background: rgba(10, 132, 255, 0.05);
+  border: 1px solid color-mix(in srgb, var(--color-accent) 30%, transparent);
+  background: color-mix(in srgb, var(--color-accent) 5%, transparent);
 }
 
 /* Minimap — styled to match controls bar */

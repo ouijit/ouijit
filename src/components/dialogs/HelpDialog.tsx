@@ -105,10 +105,7 @@ export function HelpDialog({ onClose }: HelpDialogProps) {
       </div>
 
       <div className="flex justify-end mt-5">
-        <button
-          className="inline-flex items-center justify-center gap-2 px-5 py-1.5 font-sans text-sm font-medium border-none rounded-full outline-none transition-all duration-150 ease-out [-webkit-app-region:no-drag] focus-visible:ring-3 focus-visible:ring-accent-light text-white bg-accent hover:bg-accent-hover active:scale-[0.98]"
-          onClick={dismiss}
-        >
+        <button className="btn-primary px-5" onClick={dismiss}>
           Got it
         </button>
       </div>

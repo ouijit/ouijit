@@ -156,7 +156,11 @@ function SortableCard({
     return (
       <div
         ref={setNodeRef}
-        style={{ ...style, background: 'rgba(10, 132, 255, 0.15)', border: '1px solid rgba(10, 132, 255, 0.4)' }}
+        style={{
+          ...style,
+          background: 'color-mix(in srgb, var(--color-accent) 15%, transparent)',
+          border: '1px solid color-mix(in srgb, var(--color-accent) 40%, transparent)',
+        }}
         {...attributes}
         {...listeners}
         className="[&>*]:opacity-0"
