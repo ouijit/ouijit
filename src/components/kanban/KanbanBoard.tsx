@@ -424,12 +424,12 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
           await Promise.allSettled(multiDragTasks.map((n) => window.api.task.trash(projectPath, n)));
           useProjectStore.getState().loadTasks(projectPath);
           useProjectStore.getState().clearSelection();
-          useProjectStore.getState().addToast(`Deleted ${multiDragTasks.length} tasks`, 'success');
+          useProjectStore.getState().addToast(`Moved ${multiDragTasks.length} tasks to trash`, 'success');
         } else {
           const taskNum = parseInt(activeId.replace('task-', ''), 10);
           await window.api.task.trash(projectPath, taskNum);
           useProjectStore.getState().loadTasks(projectPath);
-          useProjectStore.getState().addToast('Task deleted', 'success');
+          useProjectStore.getState().addToast('Task moved to trash', 'success');
         }
         return;
       }
@@ -822,7 +822,7 @@ const KanbanTrashZone = forwardRef<HTMLDivElement, { visible: boolean; isOver: b
       <div className="[&>svg]:w-6 [&>svg]:h-6">
         <Icon name="trash" />
       </div>
-      <span className="text-xs font-medium whitespace-nowrap">Delete</span>
+      <span className="text-xs font-medium whitespace-nowrap">Move to Trash</span>
     </div>
   );
 });

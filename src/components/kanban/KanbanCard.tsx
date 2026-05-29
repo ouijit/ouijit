@@ -199,7 +199,7 @@ export const KanbanCard = memo(function KanbanCard({
         },
         { separator: true },
         {
-          label: 'Delete',
+          label: 'Move to Trash',
           icon: 'trash',
           danger: true,
           onClick: async () => {
@@ -207,7 +207,7 @@ export const KanbanCard = memo(function KanbanCard({
             await Promise.allSettled(selected.map((n) => window.api.task.trash(projectPath, n)));
             useProjectStore.getState().loadTasks(projectPath);
             useProjectStore.getState().clearSelection();
-            useProjectStore.getState().addToast(`Deleted ${selected.length} tasks`, 'success');
+            useProjectStore.getState().addToast(`Moved ${selected.length} tasks to trash`, 'success');
           },
         },
       ];
@@ -307,13 +307,13 @@ export const KanbanCard = memo(function KanbanCard({
     }
 
     items.push({
-      label: 'Delete',
+      label: 'Move to Trash',
       icon: 'trash',
       danger: true,
       onClick: async () => {
         await window.api.task.trash(projectPath, task.taskNumber);
         useProjectStore.getState().loadTasks(projectPath);
-        useProjectStore.getState().addToast('Task deleted', 'success');
+        useProjectStore.getState().addToast('Task moved to trash', 'success');
       },
     });
 

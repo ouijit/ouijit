@@ -6,6 +6,7 @@ function isAllowedKey(key: string): boolean {
   return (
     key === 'lastActiveView' ||
     key === 'disableUpdates' ||
+    key === 'disableReadyAudio' ||
     key === 'hasSeenWelcome' ||
     key.startsWith('canvas:') ||
     key.startsWith('experimental:') ||

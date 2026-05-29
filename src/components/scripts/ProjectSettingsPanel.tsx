@@ -56,10 +56,21 @@ export function ProjectSettingsPanel({ projectPath }: ProjectSettingsPanelProps)
         style={{ background: 'linear-gradient(to bottom, var(--color-background-primary, #1c1c1e), transparent)' }}
       />
       <div className="flex-1 overflow-y-auto settings-scrollable">
-        <div className="flex items-center gap-3 px-6 pt-4 pb-2">
-          <h1 className="text-base font-semibold text-text-primary">Project Settings</h1>
-        </div>
         <div className="px-6 pt-4 pb-16 min-w-full max-w-2xl space-y-8">
+          <div>
+            <h1 className="text-base font-semibold text-text-primary">Project Settings</h1>
+            <p className="text-xs text-text-tertiary mt-1">
+              Settings for this project only. Updates, terminal, and sound are set in{' '}
+              <button
+                type="button"
+                onClick={() => useAppStore.getState().navigateHome({ panel: 'settings', direction: 'up' })}
+                className="text-accent underline-offset-2 hover:underline outline-none focus-visible:underline"
+              >
+                App Settings
+              </button>
+              .
+            </p>
+          </div>
           <section>
             <h2 className="text-sm font-semibold text-text-primary mb-2">Worktree</h2>
             <p className="text-xs text-text-tertiary mb-4">
