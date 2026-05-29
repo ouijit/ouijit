@@ -605,6 +605,10 @@ body.marketing .home-agents-footnote a:hover {
   display: inline-flex;
   align-items: center;
   gap: 10px;
+  /* Room for descenders (j/g tails) so they aren't clipped by the
+     __cmd overflow, and a stable box height so the $, command, and
+     caret all share one baseline. */
+  line-height: 1.4;
 }
 
 .cli-prompt-bubble__cmd {
@@ -651,6 +655,35 @@ body.marketing .home-agents-footnote a:hover {
   transform: translateY(0);
 }
 
+/* Idle attention pulse: a soft accent ring breathing out from the Run
+   button to invite the first click. Pauses on hover (so it doesn't fight
+   the hover lift) and is gone once played (no .is-idle). */
+.cli-prompt-bubble.is-idle .cli-prompt-bubble__run {
+  animation: cli-prompt-bubble-pulse 2.4s ease-out infinite;
+}
+
+.cli-prompt-bubble.is-idle:hover .cli-prompt-bubble__run {
+  animation: none;
+}
+
+@keyframes cli-prompt-bubble-pulse {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-accent) 45%, transparent);
+  }
+  70% {
+    box-shadow: 0 0 0 9px color-mix(in srgb, var(--color-accent) 0%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-accent) 0%, transparent);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cli-prompt-bubble.is-idle .cli-prompt-bubble__run {
+    animation: none;
+  }
+}
+
 .cli-prompt-bubble__run svg {
   display: block;
   margin-left: -2px;
@@ -680,10 +713,13 @@ body.marketing .home-agents-footnote a:hover {
 .cli-prompt-bubble__cursor {
   display: inline-block;
   width: 8px;
-  height: 15px;
+  height: 14px;
   background: rgba(245, 245, 247, 0.85);
   border-radius: 1px;
   flex-shrink: 0;
+  /* Center the caret on the text rather than baseline-aligning it,
+     which otherwise leaves it sitting a touch high. */
+  vertical-align: middle;
   animation: cli-cursor-blink 1.05s steps(2, end) infinite;
 }
 
