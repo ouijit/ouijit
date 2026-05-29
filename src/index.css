@@ -174,9 +174,9 @@ textarea,
 /* ===================================
    Buttons (shared dialog/CTA pattern)
    .btn-primary / .btn-secondary are plain flat pills used everywhere (app
-   dialogs + website). .btn-crt is an opt-in "CRT screen" modifier (animated
-   lava + R/G/B shadow mask + glowing label) reserved for the most important
-   marketing CTAs. Keep in sync with website/src/styles/marketing.css.
+   dialogs + website). .btn-crt is an opt-in "CRT screen" treatment (animated
+   blue plasma + R/G/B shadow mask + glowing label) reserved for the marketing
+   hero CTA; the cursor glow lives in website/src/styles/marketing.css.
    =================================== */
 
 /* Sparse phosphor static: feTurbulence mapped to ALPHA (transparent except
@@ -184,19 +184,19 @@ textarea,
    as CRT static under the multiply overlay. */
 :root {
   --btn-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.5' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0'/%3E%3CfeComponentTransfer%3E%3CfeFuncA type='discrete' tableValues='0 0 0 0 1'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-  /* CRT shadow-mask overlay: vertical R/G/B phosphor stripes segmented into
-     dots by thin horizontal gaps, plus vignette + static, multiplied over the
-     lava. --crt-strength fades it; --crt-dot = subpixel width (triad = 3x);
-     --crt-line = dot row height. */
+  /* CRT shadow-mask overlay (used by .btn-crt): vertical R/G/B phosphor
+     stripes segmented into dots by thin horizontal gaps, plus vignette +
+     static, multiplied over the lava. --crt-strength fades it; --crt-dot =
+     subpixel width (triad = 3x); --crt-line = dot row height. */
   --crt-strength: 0.42;
   --crt-dot: 1.5px;
   --crt-line: 2px;
 
-  /* Lava-lamp fill: drifting shades of blue around the primary accent, over a
-     dark navy screen — a cohesive, on-brand glowing blue. */
-  --lava-base: var(--color-accent); /* screen base = primary accent */
-  --lava-1: rgba(96, 165, 250, 0.9); /* light sky */
-  --lava-2: rgba(47, 111, 230, 0.95); /* primary blue */
+  /* Lava fill: drifting shades of blue around the primary accent, over a
+     screen base of the accent itself — a cohesive, on-brand glowing blue. */
+  --lava-base: var(--color-accent);
+  --lava-1: rgba(59, 130, 246, 0.9); /* sky (deeper, more saturated) */
+  --lava-2: rgba(37, 99, 235, 0.95); /* primary blue */
   --lava-3: rgba(29, 78, 216, 0.95); /* deep blue */
   --lava-speed: 9s;
   --lava-blur: 7px;
@@ -210,16 +210,23 @@ textarea,
     color: var(--color-accent-ink);
   }
 
-  /* "CRT screen" treatment — an OPT-IN modifier for the most important
-     marketing CTAs only (not app dialog buttons). Pair with .btn-primary:
-     it layers an animated lava fill (::before) + a CRT shadow mask (::after)
-     behind a glowing label. */
+  /* "CRT screen" treatment — opt-in modifier for the marketing hero CTA only
+     (pair with .btn-primary): animated blue plasma (::before) under a CRT
+     shadow mask (::after), behind a glowing label. */
   .btn-crt {
     @apply relative isolate overflow-hidden;
     text-shadow: 0 0 5px rgba(170, 205, 255, 0.45); /* phosphor glow */
+    filter: saturate(1.12); /* rich saturated screen at rest */
+    transition:
+      filter 90ms ease-out,
+      transform 90ms ease-out;
   }
 
-  /* Animated lava fill (z-index -2): drifting hue blobs on a dark screen base. */
+  /* Snappy traditional hover: the saturated screen brightens (gets lighter). */
+  .btn-crt:hover {
+    filter: saturate(1.12) brightness(1.14);
+  }
+
   .btn-crt::before {
     content: '';
     position: absolute;
@@ -244,9 +251,6 @@ textarea,
     pointer-events: none;
   }
 
-  /* CRT shadow-mask overlay (z-index -1) multiplied onto the lava: dot-row
-     gaps, tube vignette, phosphor static, then the vertical R/G/B grille.
-     Sits BEHIND the label (scoped by `isolate`). */
   .btn-crt::after {
     content: '';
     position: absolute;
@@ -291,7 +295,7 @@ textarea,
    Animations
    =================================== */
 
-/* Lava-lamp blob drift for primary buttons (see .btn-primary::before). */
+/* Lava drift for the CRT CTA (.btn-crt::before). */
 @keyframes lava-drift {
   0% {
     background-position:
@@ -314,8 +318,7 @@ textarea,
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .btn-primary::before,
-  .cli-prompt-bubble__run::before {
+  .btn-crt::before {
     animation: none;
   }
 }
