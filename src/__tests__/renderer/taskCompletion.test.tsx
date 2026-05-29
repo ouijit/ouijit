@@ -54,7 +54,7 @@ describe('completeTask', () => {
       return true;
     });
 
-    await completeTask({ projectPath: PROJECT, task: makeTask() });
+    await completeTask({ projectPath: PROJECT, task: makeTask(), hookControl: { mode: 'run' } });
 
     expect(vi.mocked(addProjectTerminal).mock.calls[0][1]).toMatchObject({ name: 'Done', command: 'echo hey' });
     // The hook terminal opts into autoCloseOnSuccess. The OSC 133 emitted by
@@ -84,31 +84,36 @@ describe('completeTask', () => {
     expect(window.api.task.setStatus).toHaveBeenCalledWith(PROJECT, 7, 'done');
   });
 
-  test('skipHook: configured hook is bypassed', async () => {
+  test('hookControl skip: configured hook is bypassed, no dialog', async () => {
     vi.mocked(window.api.hooks.get).mockResolvedValue({
       done: { command: 'echo hey', name: 'Done', source: 'configured', priority: 0 },
     });
+    const promptSpy = vi.spyOn(useProjectStore.getState(), 'requestRunHook');
 
-    await completeTask({ projectPath: PROJECT, task: makeTask(), skipHook: true });
+    await completeTask({ projectPath: PROJECT, task: makeTask(), hookControl: { mode: 'skip' } });
 
+    expect(promptSpy).not.toHaveBeenCalled();
     expect(addProjectTerminal).not.toHaveBeenCalled();
     expect(window.api.task.setStatus).toHaveBeenCalledWith(PROJECT, 7, 'done');
   });
 
-  test('hookCommand: overrides the configured command for this transition', async () => {
+  test('hookControl run: runs the configured hook headless, no dialog', async () => {
     vi.mocked(window.api.hooks.get).mockResolvedValue({
       done: { command: 'echo configured', name: 'Done', source: 'configured', priority: 0 },
     });
+    const promptSpy = vi.spyOn(useProjectStore.getState(), 'requestRunHook');
 
-    await completeTask({ projectPath: PROJECT, task: makeTask(), hookCommand: 'echo override' });
+    await completeTask({ projectPath: PROJECT, task: makeTask(), hookControl: { mode: 'run' } });
 
-    expect(vi.mocked(addProjectTerminal).mock.calls[0][1]).toMatchObject({
-      name: 'Done',
-      command: 'echo override',
+    expect(promptSpy).not.toHaveBeenCalled();
+    expect(vi.mocked(addProjectTerminal).mock.calls[0][1]).toMatchObject({ command: 'echo configured' });
+    expect(vi.mocked(addProjectTerminal).mock.calls[0][2]).toMatchObject({
+      background: true,
+      autoCloseOnSuccess: true,
     });
   });
 
-  test('hookCommand wins even when skipHook is also true', async () => {
+  test('hookControl command: overrides the configured command for this transition', async () => {
     vi.mocked(window.api.hooks.get).mockResolvedValue({
       done: { command: 'echo configured', name: 'Done', source: 'configured', priority: 0 },
     });
@@ -116,11 +121,58 @@ describe('completeTask', () => {
     await completeTask({
       projectPath: PROJECT,
       task: makeTask(),
-      skipHook: true,
-      hookCommand: 'echo explicit',
+      hookControl: { mode: 'command', command: 'echo override' },
     });
 
-    expect(vi.mocked(addProjectTerminal).mock.calls[0][1]).toMatchObject({ command: 'echo explicit' });
+    expect(vi.mocked(addProjectTerminal).mock.calls[0][1]).toMatchObject({
+      name: 'Done',
+      command: 'echo override',
+    });
+  });
+
+  test('no hookControl with a configured hook: shows the Done dialog and runs the chosen command', async () => {
+    vi.mocked(window.api.hooks.get).mockResolvedValue({
+      done: { command: 'echo configured', name: 'Done', source: 'configured', priority: 0 },
+    });
+    const promptSpy = vi
+      .spyOn(useProjectStore.getState(), 'requestRunHook')
+      .mockResolvedValue({ command: 'echo configured', sandboxed: false, foreground: false });
+
+    await completeTask({ projectPath: PROJECT, task: makeTask() });
+
+    expect(promptSpy).toHaveBeenCalledWith(expect.objectContaining({ projectPath: PROJECT, hookType: 'done' }));
+    expect(vi.mocked(addProjectTerminal).mock.calls[0][1]).toMatchObject({ command: 'echo configured' });
+    expect(window.api.task.setStatus).toHaveBeenCalledWith(PROJECT, 7, 'done');
+  });
+
+  test('dialog skipped (returns null): no hook spawns but the task still completes', async () => {
+    vi.mocked(window.api.hooks.get).mockResolvedValue({
+      done: { command: 'echo configured', name: 'Done', source: 'configured', priority: 0 },
+    });
+    vi.spyOn(useProjectStore.getState(), 'requestRunHook').mockResolvedValue(null);
+
+    await completeTask({ projectPath: PROJECT, task: makeTask() });
+
+    expect(addProjectTerminal).not.toHaveBeenCalled();
+    expect(window.api.task.setStatus).toHaveBeenCalledWith(PROJECT, 7, 'done');
+  });
+
+  test('dialog "Run & Open" (foreground): spawns foreground without autoClose', async () => {
+    vi.mocked(window.api.hooks.get).mockResolvedValue({
+      done: { command: 'echo configured', name: 'Done', source: 'configured', priority: 0 },
+    });
+    vi.spyOn(useProjectStore.getState(), 'requestRunHook').mockResolvedValue({
+      command: 'echo configured',
+      sandboxed: false,
+      foreground: true,
+    });
+
+    await completeTask({ projectPath: PROJECT, task: makeTask() });
+
+    expect(vi.mocked(addProjectTerminal).mock.calls[0][2]).toMatchObject({
+      background: false,
+      autoCloseOnSuccess: false,
+    });
   });
 
   test('targetIndex: routes through moveTask (status + order) instead of bare setStatus', async () => {
@@ -150,7 +202,11 @@ describe('completeTask', () => {
       done: { command: 'echo hey', name: 'Done', source: 'configured', priority: 0 },
     });
 
-    await completeTask({ projectPath: PROJECT, task: makeTask({ worktreePath: undefined }) });
+    await completeTask({
+      projectPath: PROJECT,
+      task: makeTask({ worktreePath: undefined }),
+      hookControl: { mode: 'run' },
+    });
 
     expect(addProjectTerminal).not.toHaveBeenCalled();
     expect(window.api.task.setStatus).toHaveBeenCalledWith(PROJECT, 7, 'done');
@@ -183,9 +239,9 @@ describe('completeTask', () => {
 
     const task = makeTask();
     await Promise.all([
-      completeTask({ projectPath: PROJECT, task }),
-      completeTask({ projectPath: PROJECT, task }),
-      completeTask({ projectPath: PROJECT, task }),
+      completeTask({ projectPath: PROJECT, task, hookControl: { mode: 'run' } }),
+      completeTask({ projectPath: PROJECT, task, hookControl: { mode: 'run' } }),
+      completeTask({ projectPath: PROJECT, task, hookControl: { mode: 'run' } }),
     ]);
 
     expect(spawnCount).toBe(1);

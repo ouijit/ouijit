@@ -41,18 +41,27 @@ describe('shift-drag (skip done hook)', () => {
     vi.mocked(window.api.task.getAll).mockResolvedValue([]);
   });
 
-  test('skipHook bypasses the configured done hook', async () => {
-    // This is what the KanbanBoard drag-end calls when shiftKeyHeld is true.
-    await completeTask({ projectPath: PROJECT, task: makeTask(), skipHook: true });
+  test('shift-drag (hookControl skip) bypasses the configured done hook with no dialog', async () => {
+    // This is what the KanbanBoard drag-end passes when shiftKeyHeld is true.
+    const promptSpy = vi.spyOn(useProjectStore.getState(), 'requestRunHook');
 
+    await completeTask({ projectPath: PROJECT, task: makeTask(), hookControl: { mode: 'skip' } });
+
+    expect(promptSpy).not.toHaveBeenCalled();
     expect(addProjectTerminal).not.toHaveBeenCalled();
     expect(window.api.task.setStatus).toHaveBeenCalledWith(PROJECT, 9, 'done');
   });
 
-  test('without skipHook the configured hook runs', async () => {
-    // Sanity counterpart: same scenario but no shift held -> hook fires.
+  test('plain drop (no hookControl) shows the Done dialog instead of auto-running', async () => {
+    // Sanity counterpart: no shift held -> the Done dialog is shown, exactly
+    // like every other column transition.
+    const promptSpy = vi
+      .spyOn(useProjectStore.getState(), 'requestRunHook')
+      .mockResolvedValue({ command: 'echo cleanup', sandboxed: false, foreground: false });
+
     await completeTask({ projectPath: PROJECT, task: makeTask() });
 
+    expect(promptSpy).toHaveBeenCalledWith(expect.objectContaining({ hookType: 'done' }));
     expect(vi.mocked(addProjectTerminal).mock.calls[0][1]).toMatchObject({ command: 'echo cleanup' });
   });
 

@@ -272,9 +272,27 @@ export interface IpcPushContract {
          *  look it up in projectStore.tasks (which only holds the *active*
          *  project's tasks — would miss when the user is viewing a different project). */
         task: TaskWithWorkspace;
-        /** When true, the CLI passed --skip-hook; the renderer should bypass the done hook. */
-        skipHook?: boolean;
-        /** When set, the CLI passed --hook-command; run this instead of the configured hook. */
+        /** Hook-control mode from the CLI flags; absent = default Done dialog. */
+        hookMode?: CliHookMode;
+        /** Custom command when hookMode is 'command'. */
+        hookCommand?: string;
+      },
+    ];
+  };
+  'cli:task-transitioned': {
+    args: [
+      payload: {
+        project: string;
+        taskNumber: number;
+        /** Status before the CLI write — disambiguates start vs continue. */
+        origStatus: TaskStatus;
+        /** Status the CLI just wrote (in_progress or in_review). */
+        newStatus: TaskStatus;
+        /** Full task record fetched server-side (same rationale as cli:task-completed). */
+        task: TaskWithWorkspace;
+        /** Hook-control mode from the CLI flags; absent = default dialog. */
+        hookMode?: CliHookMode;
+        /** Custom command when hookMode is 'command'. */
         hookCommand?: string;
       },
     ];

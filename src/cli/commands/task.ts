@@ -41,29 +41,32 @@ function resolveHookFlags(opts: HookFlags): { hookMode?: string; hookCommand?: s
 }
 
 /**
- * Resolve --skip-hook / --hook-command for the `done` transition. Mutually
- * exclusive. Rejected on non-done statuses (would otherwise silently mask
- * typos like `Done`) and on empty --hook-command strings.
+ * Resolve the hook flags for a `set-status` transition into the request body
+ * the status API understands. Every status that fires a hook — in_progress
+ * (continue), in_review (review), and done — supports the same
+ * --run-hook / --skip-hook / --hook-command trio as `task start`, riding on the
+ * `hookMode` / `hookCommand` body fields. With no flag the renderer shows that
+ * column's hook dialog, exactly like a kanban drop. `todo` fires no hook, so
+ * any hook flag is rejected.
+ *
+ * Rejecting flags on `todo` (rather than ignoring them) surfaces typos like
+ * `Todo` instead of silently dropping the request's intent.
  */
-function resolveDoneHookFlags(
+function resolveStatusHookFlags(
   status: string,
-  opts: Pick<HookFlags, 'skipHook' | 'hookCommand'>,
-): { skipHook?: boolean; hookCommand?: string } | { error: string } {
-  if (status !== 'done') {
-    if (opts.skipHook || opts.hookCommand !== undefined) {
-      return { error: '--skip-hook and --hook-command only apply when setting status to "done"' };
+  opts: HookFlags,
+): { body: { hookMode?: string; hookCommand?: string } } | { error: string } {
+  if (status === 'todo') {
+    if (opts.runHook || opts.skipHook || opts.hookCommand !== undefined) {
+      return { error: 'Hook flags do not apply when setting status to "todo" — no hook runs on that transition' };
     }
-    return {};
+    return { body: {} };
   }
-  if (opts.skipHook && opts.hookCommand !== undefined) {
-    return { error: 'Only one of --skip-hook, --hook-command may be used' };
-  }
-  if (opts.skipHook) return { skipHook: true };
-  if (opts.hookCommand !== undefined) {
-    if (!opts.hookCommand.trim()) return { error: '--hook-command requires a non-empty command' };
-    return { hookCommand: opts.hookCommand };
-  }
-  return {};
+
+  // in_progress / in_review / done — same semantics as `task start`.
+  const resolved = resolveHookFlags(opts);
+  if ('error' in resolved) return resolved;
+  return { body: resolved };
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -90,7 +93,11 @@ Examples:
   ouijit task start 5 --skip-hook
   ouijit task start 5 --hook-command "claude"
   ouijit task set-status 5 in_review
+  ouijit task set-status 5 in_review --run-hook
+  ouijit task set-status 5 in_review --skip-hook
+  ouijit task set-status 5 in_review --hook-command "claude review"
   ouijit task set-status 5 done
+  ouijit task set-status 5 done --run-hook
   ouijit task set-status 5 done --skip-hook
   ouijit task set-status 5 done --hook-command "npm run deploy"
   ouijit task bulk-set-status done 5 6 7
@@ -200,20 +207,21 @@ Examples:
     .description('Set task status')
     .argument('<number>', 'task number')
     .argument('<status>', 'new status (todo|in_progress|in_review|done)')
-    .option('--skip-hook', 'when setting done, skip the configured done hook')
-    .option('--hook-command <cmd>', 'when setting done, run a one-off command instead of the configured done hook')
-    .action(async (number: string, status: string, opts: Pick<HookFlags, 'skipHook' | 'hookCommand'>) => {
+    .option('--run-hook', "run this transition's configured hook immediately, no dialog")
+    .option('--skip-hook', 'skip the hook for this transition (continue/review/done)')
+    .option('--hook-command <cmd>', 'run a one-off command instead of the configured hook for this transition')
+    .action(async (number: string, status: string, opts: HookFlags) => {
       const num = parseInt(number, 10);
       if (isNaN(num)) return printError('Task number must be an integer');
       if (!VALID_STATUSES.includes(status)) {
         return printError(`Invalid status: ${status}. Must be one of: ${VALID_STATUSES.join(', ')}`);
       }
-      const hookBody = resolveDoneHookFlags(status, opts);
-      if ('error' in hookBody) return printError(hookBody.error);
+      const hook = resolveStatusHookFlags(status, opts);
+      if ('error' in hook) return printError(hook.error);
       const project = requireProject();
       const result = await patch<{ success: boolean; error?: string; hookWarning?: string }>(
         `/api/tasks/${num}/status${projectQuery(project)}`,
-        { status, ...hookBody },
+        { status, ...hook.body },
       );
       if (!result.success) return printError(result.error || 'Failed to set status');
       printJson({ success: true, status: STATUS_LABELS[status] || status, hookWarning: result.hookWarning });
@@ -224,9 +232,10 @@ Examples:
     .description('Set status on multiple tasks in parallel')
     .argument('<status>', 'new status (todo|in_progress|in_review|done)')
     .argument('<numbers...>', 'task numbers (space-separated)')
-    .option('--skip-hook', 'when setting done, skip the configured done hook for every task')
-    .option('--hook-command <cmd>', 'when setting done, run this command instead of the configured done hook')
-    .action(async (status: string, numberArgs: string[], opts: Pick<HookFlags, 'skipHook' | 'hookCommand'>) => {
+    .option('--run-hook', "run this transition's configured hook for every task, no dialog")
+    .option('--skip-hook', 'skip the hook for this transition (continue/review/done) on every task')
+    .option('--hook-command <cmd>', 'run this command instead of the configured hook for every task')
+    .action(async (status: string, numberArgs: string[], opts: HookFlags) => {
       if (!VALID_STATUSES.includes(status)) {
         return printError(`Invalid status: ${status}. Must be one of: ${VALID_STATUSES.join(', ')}`);
       }
@@ -236,14 +245,14 @@ Examples:
         if (isNaN(n)) return printError(`Task number must be an integer: ${arg}`);
         numbers.push(n);
       }
-      const hookBody = resolveDoneHookFlags(status, opts);
-      if ('error' in hookBody) return printError(hookBody.error);
+      const hook = resolveStatusHookFlags(status, opts);
+      if ('error' in hook) return printError(hook.error);
       const project = requireProject();
       const results = await Promise.allSettled(
         numbers.map((n) =>
           patch<{ success: boolean; error?: string; hookWarning?: string }>(
             `/api/tasks/${n}/status${projectQuery(project)}`,
-            { status, ...hookBody },
+            { status, ...hook.body },
           ).then((r) => ({ taskNumber: n, ...r })),
         ),
       );

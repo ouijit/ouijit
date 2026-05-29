@@ -241,10 +241,22 @@ contextBridge.exposeInMainWorld('api', {
       project: string;
       taskNumber: number;
       task: TaskWithWorkspace;
-      skipHook?: boolean;
+      hookMode?: CliHookMode;
       hookCommand?: string;
     }) => void,
   ) => typedListen('cli:task-completed', callback),
+
+  onCliTaskTransitioned: (
+    callback: (payload: {
+      project: string;
+      taskNumber: number;
+      origStatus: TaskStatus;
+      newStatus: TaskStatus;
+      task: TaskWithWorkspace;
+      hookMode?: CliHookMode;
+      hookCommand?: string;
+    }) => void,
+  ) => typedListen('cli:task-transitioned', callback),
 
   capture: {
     onNavigate: (callback: (payload: CaptureNavigatePayload) => void) => typedListen('capture:navigate', callback),

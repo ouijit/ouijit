@@ -1,6 +1,11 @@
 import { useEffect } from 'react';
 import { useAppStore } from '../stores/appStore';
-import { useProjectStore, type PendingCliStart } from '../stores/projectStore';
+import {
+  useProjectStore,
+  type PendingCliStart,
+  type PendingCliTransition,
+  type PendingCliCompletion,
+} from '../stores/projectStore';
 import { useTerminalStore } from '../stores/terminalStore';
 import { beginTransition } from '../services/taskStartService';
 import { completeTask } from '../services/taskCompletion';
@@ -42,6 +47,41 @@ async function spawnTerminalForCliStart(projectPath: string, start: PendingCliSt
       branch: task.branch ?? start.branch,
     },
     hookControl: start.hookMode ? { mode: start.hookMode, command: start.hookCommand } : undefined,
+  });
+}
+
+/**
+ * Run a CLI-initiated in_progress/in_review transition through the same
+ * beginTransition path a kanban drop uses. The server already wrote the status
+ * and fetched the full task, so this just fires the hook: a dialog by default,
+ * or headless when the CLI passed --run-hook/--skip-hook/--hook-command.
+ */
+function runCliTransition(projectPath: string, transition: PendingCliTransition): void {
+  beginTransition(projectPath, {
+    origStatus: transition.origStatus,
+    newStatus: transition.newStatus,
+    task: transition.task,
+    hookControl: transition.hookMode ? { mode: transition.hookMode, command: transition.hookCommand } : undefined,
+  });
+}
+
+/**
+ * Run a CLI-initiated done transition through completeTask. The server already
+ * wrote the status (skipStatusWrite), so this drives the done lifecycle:
+ * terminal cleanup always runs; the hook is a dialog by default, or headless
+ * when the CLI passed --run-hook/--skip-hook/--hook-command.
+ */
+function runCliCompletion(projectPath: string, completion: PendingCliCompletion): void {
+  void completeTask({
+    projectPath,
+    task: completion.task,
+    hookControl: completion.hookMode ? { mode: completion.hookMode, command: completion.hookCommand } : undefined,
+    skipStatusWrite: true,
+  }).catch((err) => {
+    ipcLog.error('CLI task-completed lifecycle failed', {
+      taskNumber: completion.taskNumber,
+      error: err instanceof Error ? err.message : String(err),
+    });
   });
 }
 
@@ -115,24 +155,31 @@ export function useIPCListeners() {
     // visible kanban catches up on next navigation.
     cleanups.push(
       window.api.onCliTaskCompleted((payload) => {
-        ipcLog.info('CLI task-completed: running completeTask', {
-          project: payload.project,
+        const activeProject = useAppStore.getState().activeProjectPath;
+        const completion: PendingCliCompletion = {
           taskNumber: payload.taskNumber,
-        });
-        void completeTask({
-          projectPath: payload.project,
           task: payload.task,
-          skipHook: payload.skipHook,
+          hookMode: payload.hookMode,
           hookCommand: payload.hookCommand,
-          // Server already PATCHed the status before pushing; only the
-          // renderer reload remains.
-          skipStatusWrite: true,
-        }).catch((err) => {
-          ipcLog.error('CLI task-completed lifecycle failed', {
+        };
+
+        // A bare done (no hookMode) shows the Done dialog, which can only render
+        // for the project the user is viewing — queue it otherwise and drain on
+        // navigation. A done with explicit hook flags is headless (no dialog),
+        // so it runs immediately regardless of which project is in view.
+        if (payload.hookMode || activeProject === payload.project) {
+          ipcLog.info('CLI task-completed: running completeTask', {
+            project: payload.project,
             taskNumber: payload.taskNumber,
-            error: err instanceof Error ? err.message : String(err),
           });
-        });
+          runCliCompletion(payload.project, completion);
+        } else {
+          ipcLog.info('CLI task-completed: queuing for later navigation', {
+            project: payload.project,
+            taskNumber: payload.taskNumber,
+          });
+          useProjectStore.getState().enqueueCliCompletion(payload.project, completion);
+        }
       }),
     );
 
@@ -169,6 +216,38 @@ export function useIPCListeners() {
       }),
     );
 
+    // CLI-initiated in_progress/in_review transition — fire the column hook via
+    // beginTransition (dialog by default, headless when flags were passed). If
+    // the user isn't viewing the project, queue it and drain on navigation, the
+    // same as a CLI start.
+    cleanups.push(
+      window.api.onCliTaskTransitioned((payload) => {
+        const activeProject = useAppStore.getState().activeProjectPath;
+        const transition: PendingCliTransition = {
+          taskNumber: payload.taskNumber,
+          origStatus: payload.origStatus,
+          newStatus: payload.newStatus,
+          task: payload.task,
+          hookMode: payload.hookMode,
+          hookCommand: payload.hookCommand,
+        };
+
+        if (activeProject === payload.project) {
+          ipcLog.info('CLI task-transitioned: running transition', {
+            taskNumber: payload.taskNumber,
+            newStatus: payload.newStatus,
+          });
+          runCliTransition(payload.project, transition);
+        } else {
+          ipcLog.info('CLI task-transitioned: queuing for later navigation', {
+            project: payload.project,
+            taskNumber: payload.taskNumber,
+          });
+          useProjectStore.getState().enqueueCliTransition(payload.project, transition);
+        }
+      }),
+    );
+
     // Drain queued CLI starts whenever the active project changes.
     const drain = (projectPath: string | null) => {
       if (!projectPath) return;
@@ -184,6 +263,22 @@ export function useIPCListeners() {
             error: err instanceof Error ? err.message : String(err),
           });
         });
+      }
+      const queuedTransitions = useProjectStore.getState().drainCliTransitions(projectPath);
+      for (const transition of queuedTransitions) {
+        ipcLog.info('draining queued CLI task-transitioned', {
+          project: projectPath,
+          taskNumber: transition.taskNumber,
+        });
+        runCliTransition(projectPath, transition);
+      }
+      const queuedCompletions = useProjectStore.getState().drainCliCompletions(projectPath);
+      for (const completion of queuedCompletions) {
+        ipcLog.info('draining queued CLI task-completed', {
+          project: projectPath,
+          taskNumber: completion.taskNumber,
+        });
+        runCliCompletion(projectPath, completion);
       }
     };
     // Initial drain in case events arrived before this effect mounted.

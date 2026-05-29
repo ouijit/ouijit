@@ -386,9 +386,15 @@ ouijit task start <number> --skip-hook        # spawn the terminal but run no ho
 ouijit task start <number> --hook-command "<cmd>"  # spawn the terminal running a one-off command instead of the configured hook
 ouijit task create-and-start "<name>"         # create + start in one step (accepts --prompt, --branch, and the same --run-hook / --skip-hook / --hook-command flags); aliased as "task spawn"
 ouijit task set-status <number> <status>      # status: todo | in_progress | in_review | done
-ouijit task set-status <number> done --skip-hook            # skip the configured done hook
+ouijit task set-status <number> in_review                    # default: opens the review-hook dialog (like a kanban drop)
+ouijit task set-status <number> in_review --run-hook         # run the configured review hook immediately, no dialog
+ouijit task set-status <number> in_review --skip-hook        # change status, run no hook
+ouijit task set-status <number> in_review --hook-command "<cmd>" # run a one-off command instead of the review hook
+ouijit task set-status <number> done                         # default: opens the done-hook dialog (like a kanban drop)
+ouijit task set-status <number> done --run-hook              # run the configured done hook immediately, no dialog
+ouijit task set-status <number> done --skip-hook            # change status, run no hook
 ouijit task set-status <number> done --hook-command "<cmd>" # run a one-off command instead of the done hook
-ouijit task bulk-set-status <status> <n1> <n2>...           # set status on many tasks in parallel (same hook flags when status=done)
+ouijit task bulk-set-status <status> <n1> <n2>...           # set status on many tasks in parallel (in_progress/in_review/done all take --run-hook/--skip-hook/--hook-command)
 ouijit task set-name <number> <new name>
 ouijit task set-description <number> <text>
 ouijit task set-merge-target <number> <branch>

@@ -23,6 +23,7 @@ vi.mock('../worktree', () => ({
   createTaskWorktree: (...args: unknown[]) => createTaskWorktreeMock(...args),
 }));
 
+const getTaskByNumberMock = vi.fn(async () => null);
 vi.mock('../db', () => ({
   setTaskMergeTarget: vi.fn(),
   setTaskName: vi.fn(),
@@ -38,15 +39,18 @@ vi.mock('../db', () => ({
   getScripts: vi.fn(() => []),
   saveScript: vi.fn(),
   deleteScript: vi.fn(),
+  getTaskByNumber: (...args: unknown[]) => getTaskByNumberMock(...args),
 }));
 
 const beginTaskMock = vi.fn();
+const setTaskStatusWithHooksMock = vi.fn(async () => ({ success: true }));
+const getTaskWithWorkspaceMock = vi.fn(async () => null);
 vi.mock('../taskLifecycle', () => ({
   beginTask: (...args: unknown[]) => beginTaskMock(...args),
-  setTaskStatusWithHooks: vi.fn(async () => ({})),
+  setTaskStatusWithHooks: (...args: unknown[]) => setTaskStatusWithHooksMock(...args),
   deleteTaskWithWorktree: vi.fn(async () => ({})),
   getTasksWithWorkspaces: vi.fn(async () => []),
-  getTaskWithWorkspace: vi.fn(async () => null),
+  getTaskWithWorkspace: (...args: unknown[]) => getTaskWithWorkspaceMock(...args),
 }));
 
 vi.mock('../scanner', () => ({
@@ -100,6 +104,12 @@ beforeEach(async () => {
   typedPushMock.mockClear();
   createTaskWorktreeMock.mockReset();
   beginTaskMock.mockReset();
+  getTaskByNumberMock.mockReset();
+  getTaskByNumberMock.mockResolvedValue(null);
+  setTaskStatusWithHooksMock.mockReset();
+  setTaskStatusWithHooksMock.mockResolvedValue({ success: true });
+  getTaskWithWorkspaceMock.mockReset();
+  getTaskWithWorkspaceMock.mockResolvedValue(null);
   revokeAllTokens();
   await startHookServer(mockWindow());
 });
@@ -282,5 +292,119 @@ describe('cli:task-started push', () => {
     const token = issueToken('pty-host', 'host');
     await request('PATCH', `/api/tasks/3/name?project=${PROJECT}`, token, { name: 'rename' });
     expect(getTaskStartedPushes()).toHaveLength(0);
+  });
+});
+
+function getTaskTransitionedPushes() {
+  return typedPushMock.mock.calls.filter((call) => call[1] === 'cli:task-transitioned');
+}
+
+describe('cli:task-transitioned push', () => {
+  test('fires after PATCH status to in_review when the status actually changed', async () => {
+    getTaskByNumberMock.mockResolvedValueOnce({ taskNumber: 4, status: 'in_progress' });
+    getTaskWithWorkspaceMock.mockResolvedValueOnce({ taskNumber: 4, status: 'in_review' });
+    const token = issueToken('pty-host', 'host');
+    const res = await request('PATCH', `/api/tasks/4/status?project=${PROJECT}`, token, { status: 'in_review' });
+
+    expect(res.status).toBe(200);
+    const pushes = getTaskTransitionedPushes();
+    expect(pushes).toHaveLength(1);
+    expect(pushes[0][2]).toMatchObject({
+      project: '/tmp/test-project',
+      taskNumber: 4,
+      origStatus: 'in_progress',
+      newStatus: 'in_review',
+    });
+  });
+
+  test('forwards hookMode + hookCommand from the request body into the push', async () => {
+    getTaskByNumberMock.mockResolvedValueOnce({ taskNumber: 4, status: 'in_progress' });
+    getTaskWithWorkspaceMock.mockResolvedValueOnce({ taskNumber: 4, status: 'in_review' });
+    const token = issueToken('pty-host', 'host');
+    const res = await request('PATCH', `/api/tasks/4/status?project=${PROJECT}`, token, {
+      status: 'in_review',
+      hookMode: 'command',
+      hookCommand: 'claude review',
+    });
+
+    expect(res.status).toBe(200);
+    const pushes = getTaskTransitionedPushes();
+    expect(pushes).toHaveLength(1);
+    expect(pushes[0][2]).toMatchObject({ hookMode: 'command', hookCommand: 'claude review' });
+  });
+
+  test('does not fire when the status is unchanged (no transition)', async () => {
+    getTaskByNumberMock.mockResolvedValueOnce({ taskNumber: 4, status: 'in_review' });
+    const token = issueToken('pty-host', 'host');
+    const res = await request('PATCH', `/api/tasks/4/status?project=${PROJECT}`, token, { status: 'in_review' });
+
+    expect(res.status).toBe(200);
+    expect(getTaskTransitionedPushes()).toHaveLength(0);
+  });
+
+  test('does not fire for a done transition (that uses cli:task-completed)', async () => {
+    getTaskWithWorkspaceMock.mockResolvedValueOnce({ taskNumber: 4, status: 'done' });
+    const token = issueToken('pty-host', 'host');
+    const res = await request('PATCH', `/api/tasks/4/status?project=${PROJECT}`, token, { status: 'done' });
+
+    expect(res.status).toBe(200);
+    expect(getTaskTransitionedPushes()).toHaveLength(0);
+  });
+
+  test('rejects an invalid hookMode with 400 before writing the status', async () => {
+    const token = issueToken('pty-host', 'host');
+    const res = await request('PATCH', `/api/tasks/4/status?project=${PROJECT}`, token, {
+      status: 'in_review',
+      hookMode: 'bogus',
+    });
+
+    expect(res.status).toBe(400);
+    expect(setTaskStatusWithHooksMock).not.toHaveBeenCalled();
+    expect(getTaskTransitionedPushes()).toHaveLength(0);
+  });
+});
+
+function getTaskCompletedPushes() {
+  return typedPushMock.mock.calls.filter((call) => call[1] === 'cli:task-completed');
+}
+
+describe('cli:task-completed push', () => {
+  test('fires after PATCH status to done, with no hookMode for a bare done', async () => {
+    getTaskWithWorkspaceMock.mockResolvedValueOnce({ taskNumber: 8, status: 'done' });
+    const token = issueToken('pty-host', 'host');
+    const res = await request('PATCH', `/api/tasks/8/status?project=${PROJECT}`, token, { status: 'done' });
+
+    expect(res.status).toBe(200);
+    const pushes = getTaskCompletedPushes();
+    expect(pushes).toHaveLength(1);
+    expect(pushes[0][2]).toMatchObject({ project: '/tmp/test-project', taskNumber: 8 });
+    expect(pushes[0][2].hookMode).toBeUndefined();
+  });
+
+  test('forwards hookMode + hookCommand from the request body into the push', async () => {
+    getTaskWithWorkspaceMock.mockResolvedValueOnce({ taskNumber: 8, status: 'done' });
+    const token = issueToken('pty-host', 'host');
+    const res = await request('PATCH', `/api/tasks/8/status?project=${PROJECT}`, token, {
+      status: 'done',
+      hookMode: 'command',
+      hookCommand: 'npm run deploy',
+    });
+
+    expect(res.status).toBe(200);
+    const pushes = getTaskCompletedPushes();
+    expect(pushes).toHaveLength(1);
+    expect(pushes[0][2]).toMatchObject({ hookMode: 'command', hookCommand: 'npm run deploy' });
+  });
+
+  test('rejects an invalid hookMode on a done PATCH with 400 before writing', async () => {
+    const token = issueToken('pty-host', 'host');
+    const res = await request('PATCH', `/api/tasks/8/status?project=${PROJECT}`, token, {
+      status: 'done',
+      hookMode: 'bogus',
+    });
+
+    expect(res.status).toBe(400);
+    expect(setTaskStatusWithHooksMock).not.toHaveBeenCalled();
+    expect(getTaskCompletedPushes()).toHaveLength(0);
   });
 });
