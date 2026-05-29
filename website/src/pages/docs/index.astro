@@ -68,8 +68,12 @@ npm start</code></pre>
         <h3>Adding a project</h3>
         <ol>
           <li>Click the <strong>+</strong> button in the sidebar.</li>
-          <li>Select a folder containing a git repository.</li>
+          <li>Select a folder. If it's a git repository, Ouijit adds it directly.</li>
         </ol>
+        <p>
+          If the folder isn't a git repository yet, Ouijit offers to run <code>git init</code> on it in place, then adds the
+          project automatically.
+        </p>
 
         <h3>Opening a project</h3>
         <p>Click any project to open it. You'll start on the kanban board, and opening a task launches its terminal.</p>
@@ -416,6 +420,7 @@ OUIJIT_HOOK_TYPE=start</code></pre>
 
         <h2>Notifications</h2>
         <p>When an agent finishes a turn, Ouijit plays a sound. If the window isn't focused, you also get an OS notification.</p>
+        <p>Turn the sound off under <strong>App Settings &rarr; Sound</strong> with the <strong>Play a sound when a task is ready</strong> toggle.</p>
       </section>
 
       <section id="cli">
@@ -459,8 +464,9 @@ ouijit task start 5 --hook-command "claude"   # one-off command instead of the c
 ouijit task create-and-start "Add 2FA"        # create + start in one step
 ouijit task create-and-start "Add 2FA" --prompt "..." --branch custom --skip-hook
 ouijit task spawn "Add 2FA"                   # alias for create-and-start
-ouijit task set-status 5 in_review
-ouijit task set-status 5 done --skip-hook     # skip the configured done hook
+ouijit task set-status 5 in_review            # fires the review hook (dialog by default)
+ouijit task set-status 5 in_review --run-hook # run the review hook, no dialog
+ouijit task set-status 5 in_review --skip-hook
 ouijit task set-status 5 done --hook-command "npm run deploy"
 ouijit task bulk-set-status done 5 6 7        # set status on many in parallel
 ouijit task set-name 5 "Better name"
@@ -468,11 +474,13 @@ ouijit task set-description 5 "More detail"
 ouijit task set-merge-target 5 develop
 ouijit task delete 5</code></pre>
         <p>
-          The <code>--run-hook</code>, <code>--skip-hook</code>, and <code>--hook-command</code> flags on
-          <code>task start</code> and <code>create-and-start</code> are mutually exclusive. By default,
-          starting a task opens the start-hook dialog in the GUI; use these flags for headless runs where
-          no human is at the keyboard to dismiss it. On <code>set-status &lt;n&gt; done</code> and
-          <code>bulk-set-status done</code>, the same hook flags control the done hook.
+          The <code>--run-hook</code>, <code>--skip-hook</code>, and <code>--hook-command</code> flags are mutually
+          exclusive. By default, a status change opens that column's hook dialog in the GUI, just like dragging a card on
+          the board; use these flags for headless runs where no human is at the keyboard to dismiss it. They apply to
+          <code>task start</code> and <code>create-and-start</code> (the start hook) and to <code>set-status</code> into
+          <code>in_progress</code>, <code>in_review</code>, or <code>done</code> (the continue, review, and done hooks
+          respectively). <code>bulk-set-status</code> takes the same flags for those three statuses. Setting status to
+          <code>todo</code> runs no hook and rejects these flags.
         </p>
         <p>
           <code>ouijit task current</code> resolves the task owning the current terminal via the <code>OUIJIT_PTY_ID</code>
@@ -548,20 +556,6 @@ ouijit plan unset</code></pre>
           Hooks get extra context on top of these. See <a href="#hooks">Hooks → Environment variables</a> for the full
           list of <code>OUIJIT_TASK_*</code> variables available to start, continue, review, and done commands.
         </p>
-
-        <h2>Patterns</h2>
-        <h3>Move a task to review when an agent finishes</h3>
-        <p>Add this to the end of an agent's workflow to advance the task automatically:</p>
-        <pre><code>TASK=$(ouijit task current | jq -r .taskNumber)
-ouijit task set-status "$TASK" in_review</code></pre>
-
-        <h3>Tag a task with the language it touches</h3>
-        <pre><code>TASK=$(ouijit task current | jq -r .taskNumber)
-ouijit tag add "$TASK" typescript</code></pre>
-
-        <h3>Create and start a task in one call</h3>
-        <p>The <code>start</code> hook fires immediately, so any agent invocation in that hook runs as part of creation:</p>
-        <pre><code>ouijit task create-and-start "Add 2FA" --prompt "Implement TOTP-based 2FA"</code></pre>
       </section>
     </main>
   </div>
