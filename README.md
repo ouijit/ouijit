@@ -24,6 +24,8 @@ Free and open source. No account, no sign-in, no telemetry.
 
 <img src="website/public/assets/screenshots/settings.png" alt="Settings" width="100%">
 
+<img src="website/public/assets/screenshots/resume.png" alt="Resume session" width="100%">
+
 ## Supported harnesses
 
 - [Claude Code](https://claude.com/claude-code)
