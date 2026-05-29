@@ -476,10 +476,11 @@ body.marketing .home-agents-footnote a:hover {
 .workspace-scene-clip {
   position: relative;
   width: 100%;
-  /* clip (not hidden) + a margin so card drop shadows can spill past the
-     scaled-height bottom edge instead of being cut off. */
-  overflow: clip;
-  overflow-clip-margin: 160px;
+  /* Clip the 1160px canvas horizontally, but let it overflow vertically so
+     the cards' drop shadows aren't cut at the scaled-height bottom edge.
+     (clip + visible is the one mixed combo that doesn't force a scrollbar.) */
+  overflow-x: clip;
+  overflow-y: visible;
   display: flex;
   justify-content: center;
   padding-top: 12px;
