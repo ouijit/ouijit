@@ -35,16 +35,16 @@ export function BulkActionBar({ projectPath, onOpenTerminal }: BulkActionBarProp
     const store = useProjectStore.getState();
     const selected = [...store.selectedTaskNumbers];
     if (selected.length > 5) {
-      store.addToast(`Delete ${selected.length} tasks?`, {
+      store.addToast(`Move ${selected.length} tasks to trash?`, {
         type: 'info',
         persistent: true,
-        actionLabel: 'Delete',
+        actionLabel: 'Move to Trash',
         onAction: async () => {
           const nums = [...useProjectStore.getState().selectedTaskNumbers];
           await Promise.allSettled(nums.map((n) => window.api.task.trash(projectPath, n)));
           useProjectStore.getState().loadTasks(projectPath);
           useProjectStore.getState().clearSelection();
-          useProjectStore.getState().addToast(`Deleted ${nums.length} tasks`, 'success');
+          useProjectStore.getState().addToast(`Moved ${nums.length} tasks to trash`, 'success');
         },
       });
       return;
@@ -52,7 +52,7 @@ export function BulkActionBar({ projectPath, onOpenTerminal }: BulkActionBarProp
     await Promise.allSettled(selected.map((n) => window.api.task.trash(projectPath, n)));
     useProjectStore.getState().loadTasks(projectPath);
     useProjectStore.getState().clearSelection();
-    useProjectStore.getState().addToast(`Deleted ${selected.length} tasks`, 'success');
+    useProjectStore.getState().addToast(`Moved ${selected.length} tasks to trash`, 'success');
   }, [projectPath]);
 
   const handleOpenTerminals = useCallback(() => {
@@ -104,7 +104,7 @@ export function BulkActionBar({ projectPath, onOpenTerminal }: BulkActionBarProp
       <Divider />
       <ActionButton icon="terminal" label="Terminal" onClick={handleOpenTerminals} />
       <Divider />
-      <ActionButton icon="trash" label="Delete" onClick={handleDelete} danger />
+      <ActionButton icon="trash" label="Move to Trash" onClick={handleDelete} danger />
     </div>
   );
 

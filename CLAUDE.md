@@ -22,61 +22,71 @@ Dev userData is isolated per worktree via a hash of the repo path (`…/ouijit-d
 **Entry points:**
 - `src/main.ts` - Electron main process (window lifecycle, native module loading)
 - `src/preload.ts` - Preload script (IPC bridge, exposes `window.api`)
-- `src/renderer.ts` - Renderer entry point (project grid UI)
+- `src/renderer.tsx` - Renderer entry point (mounts the React `App`)
+- `src/App.tsx` - Root React component (home/project view routing)
 
 **Core logic (main process):**
-- `src/ipc.ts` - All IPC handler registrations
+- `src/ipc/` - IPC layer
+  - `contract.ts` - Typed channel contract shared with the preload bridge
+  - `register.ts` - Registers all handlers on app startup
+  - `handlers/` - Per-domain handlers (git, worktree, task, project, pty, hooks, scripts, tags, settings, plan, lima, health)
 - `src/git.ts` - Git operations (status, diff, merge, branch management)
 - `src/worktree.ts` - Git worktree lifecycle (create, start, remove, CoW cloning)
+- `src/taskLifecycle.ts` - Task status transitions and side effects
 - `src/db/` - SQLite persistence layer (tasks, settings, hooks, projects)
   - `database.ts` - Database singleton (WAL mode, migrations)
   - `index.ts` - Public API barrel (async wrappers preserving IPC contract)
-  - `repos/` - Repository classes (taskRepo, hookRepo, projectRepo, settingsRepo)
+  - `repos/` - Repository classes (taskRepo, hookRepo, projectRepo, scriptRepo, tagRepo, settingsRepo, globalSettingsRepo)
   - `migrations/` - Versioned schema migrations
-- `src/services/dataImportService.ts` - One-shot JSON→SQLite migration on first launch
+- `src/services/` - App services (`dataImportService.ts` one-shot JSON→SQLite migration, `taskStartService.ts`, `taskCompletion.ts`)
 - `src/scanner.ts` - Project metadata enrichment (language, description, icon)
 - `src/ptyManager.ts` - PTY spawning, session management, output buffering
-- `src/hookServer.ts` - HTTP server for Claude Code hook status events
+- `src/hookServer.ts` - HTTP server for agent hook status events
 - `src/hookRunner.ts` - Script hook execution with timeout/output capture
+- `src/projectCreator.ts` - New-project scaffolding
+- `src/editorLauncher.ts` - Open files/worktrees in the configured editor
+- `src/onboarding.ts` / `src/onboardingState.ts` - First-launch onboarding flow
+- `src/updater.ts` - Auto-update wiring
 - `src/types.ts` - Shared TypeScript interfaces
 
-**UI components (renderer process):**
-- `src/components/projectGrid.ts` - Project list grid view
-- `src/components/projectRow.ts` - Individual project card
-- `src/components/searchBar.ts` - Project search
-- `src/components/newProjectDialog.ts` - Create project dialog
-- `src/components/hookConfigDialog.ts` - Script hook configuration
-- `src/components/importDialog.ts` - Toast notifications
-- `src/components/project/` - Project mode (terminal card stack, kanban board, diff panel, git status, dropdowns)
-  - `projectMode.ts` - Enter/exit project mode orchestration
-  - `signals.ts` - Preact signals (reactive state)
-  - `state.ts` - Mutable session state
-  - `helpers.ts` - Registry pattern for cross-module calls
-  - `terminalCards.ts` - Terminal card stack UI
-  - `kanbanBoard.ts` - Task kanban board (4 columns: todo/in_progress/in_review/done)
-  - `diffPanel.ts` - Diff review panel
-  - `gitStatus.ts` - Per-terminal git status display
+**Renderer state (Zustand stores):**
+- `src/stores/` - Reactive state: `appStore.ts` (top-level app/view), `projectStore.ts` (tasks, toasts, modals per project), `terminalStore.ts` / `terminalDisplay.ts`, `canvasStore.ts`, `uiStore.ts`, `experimentalStore.ts`, `worktreeSettingsStore.ts`
+- `src/hooks/` - Shared React hooks (`useIPCListeners.ts`, `useHookStatusListener.ts`, `useAutoResize.ts`)
+
+**UI components (renderer process, React/.tsx):**
+- `src/components/` - Top-level views: `HomeViewReact.tsx` (project grid), `ProjectViewReact.tsx` (project mode), `SidebarReact.tsx`, `TitleBarReact.tsx`, `GlobalSettingsPanel.tsx`, `RecentTasksPanel.tsx`, `ResumeBanner.tsx`
+- `src/components/terminal/` - Terminal card stack, xterm integration, session restore/snapshot, OSC 133 handling, the shared `Icon` component
+- `src/components/kanban/` - Task kanban board (4 columns: todo/in_progress/in_review/done), cards, bulk actions, onboarding panel
+- `src/components/canvas/` - React Flow terminal canvas (nodes, chain edges, smart guides, alignment)
+- `src/components/diff/` - Diff review panel + syntax highlighting
+- `src/components/dialogs/` - Modal dialogs (new project, hook config, help, what's new, etc.)
+- `src/components/scripts/` - Project settings, hook/script lists, sandbox + worktree sections
+- `src/components/plan/` - Plan markdown panel
+- `src/components/webPreview/` - Web preview panel
+- `src/components/ui/` - Reusable primitives (`ToastContainer.tsx`, `ContextMenu.tsx`, `Tooltip.tsx`, `TooltipButton.tsx`)
 
 **Lima VM sandbox:**
 - `src/lima/` - Lima VM integration (sandboxed terminal sessions)
   - `manager.ts` - limactl CLI wrapper
   - `spawn.ts` - Sandboxed PTY creation
   - `config.ts` - Lima YAML config generation
+  - `sandboxSync.ts` - Host↔VM file sync
+  - `configStore.ts` / `types.ts` - Sandbox config persistence and shared types
 
 **Utilities:**
-- `src/utils/` - Shared utilities (hotkeys, DOM helpers, icons, IDs, dropdowns, toasts, date formatting)
+- `src/utils/` - Shared utilities (icons, IDs, date formatting, file-path linkify/safety, plan markdown rendering, syntax highlighting, task chain, view transitions, OS notifications)
 
 ### Tech Stack
 - Electron + Vite + TypeScript
-- No framework - vanilla DOM manipulation with targeted DOM updates
-- @preact/signals-core for reactivity
+- React 19 in the renderer (function components, no class components)
+- Zustand for renderer state management
+- @xyflow/react (React Flow) for the terminal canvas
 - xterm.js for terminal emulation
 - node-pty for shell processes
 - better-sqlite3 for local persistence (SQLite, WAL mode)
 - koffi (FFI) for native Copy-on-Write file cloning
 - hotkeys-js for keyboard shortcuts
-- sortablejs for kanban drag-and-drop
-- Tailwind CSS for styling
+- Tailwind CSS v4 for styling
 - Vitest for testing
 - ESLint 9 + typescript-eslint for linting (circular dependency detection via `import-x/no-cycle`)
 - Prettier for formatting (single quotes, 120 char width)

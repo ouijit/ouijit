@@ -98,6 +98,7 @@
 
   /* Animations */
   --animate-tooltip-pop: tooltip-pop 80ms ease-out forwards;
+  --animate-toast-in: toast-in 240ms cubic-bezier(0.32, 0.72, 0, 1) both;
 
   /* Terminal */
   --color-terminal-bg: #171717;
@@ -226,6 +227,17 @@ textarea,
 @keyframes loading-dot-spin {
   to {
     transform: rotate(360deg);
+  }
+}
+
+@keyframes toast-in {
+  0% {
+    transform: translateY(12px) scale(0.96);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
   }
 }
 
