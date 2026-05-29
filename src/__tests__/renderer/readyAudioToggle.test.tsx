@@ -22,27 +22,19 @@ beforeEach(() => {
 });
 
 describe('ready-audio toggle', () => {
-  test('notifyReady plays the sound when enabled', () => {
+  // Both directions of the `if (!readyAudioDisabled)` gate in notifyReady.
+  test('notifyReady plays the sound when enabled, stays silent when disabled', () => {
     setReadyAudioDisabled(false);
     notifyReady('Project', 'Ready');
     expect(play).toHaveBeenCalledTimes(1);
-  });
 
-  test('notifyReady does not play the sound when disabled', () => {
+    play.mockClear();
     setReadyAudioDisabled(true);
     notifyReady('Project', 'Ready');
     expect(play).not.toHaveBeenCalled();
   });
 
-  test('re-enabling resumes playback', () => {
-    setReadyAudioDisabled(true);
-    notifyReady('Project', 'Ready');
-    setReadyAudioDisabled(false);
-    notifyReady('Project', 'Ready');
-    expect(play).toHaveBeenCalledTimes(1);
-  });
-
-  test('hydrateNotificationSettings disables playback when the stored value is "1"', async () => {
+  test('hydrateNotificationSettings applies the persisted "1" before the first notifyReady', async () => {
     vi.mocked(window.api.globalSettings.get).mockResolvedValueOnce('1');
     await hydrateNotificationSettings();
     notifyReady('Project', 'Ready');

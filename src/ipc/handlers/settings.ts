@@ -2,7 +2,7 @@ import { typedHandle } from '../helpers';
 import { getGlobalSetting, setGlobalSetting } from '../../db';
 
 /** Check if a settings key is allowed through the IPC boundary */
-export function isAllowedKey(key: string): boolean {
+function isAllowedKey(key: string): boolean {
   return (
     key === 'lastActiveView' ||
     key === 'disableUpdates' ||
