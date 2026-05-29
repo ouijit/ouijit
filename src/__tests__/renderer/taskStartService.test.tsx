@@ -315,6 +315,83 @@ describe('taskStartService.beginTransition', () => {
     });
   });
 
+  describe('in_review transition fires the review hook', () => {
+    const reviewTask = (): TaskWithWorkspace => ({
+      ...makeTask(),
+      status: 'in_review',
+      worktreePath: '/wt/T-7',
+      branch: 'wire-up-auth-7',
+    });
+
+    test('hookControl "run": spawns the Review terminal headless, no dialog', async () => {
+      vi.mocked(window.api.hooks.get).mockResolvedValue({
+        review: { command: 'claude review', name: 'Review', source: 'configured', priority: 0 },
+      });
+
+      beginTransition(PROJECT, {
+        origStatus: 'in_progress',
+        newStatus: 'in_review',
+        task: reviewTask(),
+        hookControl: { mode: 'run' },
+      });
+
+      await waitFor(() => vi.mocked(addProjectTerminal).mock.calls.length > 0);
+
+      expect(useProjectStore.getState().runHookQueue[0]).toBeUndefined();
+      expect(vi.mocked(addProjectTerminal).mock.calls[0][1]).toMatchObject({
+        name: 'Review',
+        command: 'claude review',
+      });
+      expect(vi.mocked(addProjectTerminal).mock.calls[0][2]).toMatchObject({ background: true });
+    });
+
+    test('hookControl "skip": no dialog and no terminal spawn', async () => {
+      vi.mocked(window.api.hooks.get).mockResolvedValue({
+        review: { command: 'claude review', name: 'Review', source: 'configured', priority: 0 },
+      });
+
+      beginTransition(PROJECT, {
+        origStatus: 'in_progress',
+        newStatus: 'in_review',
+        task: reviewTask(),
+        hookControl: { mode: 'skip' },
+      });
+
+      // loadTasks (window.api.task.getAll) runs once the transition settles.
+      await waitFor(() => vi.mocked(window.api.task.getAll).mock.calls.length > 0);
+
+      expect(useProjectStore.getState().runHookQueue[0]).toBeUndefined();
+      expect(addProjectTerminal).not.toHaveBeenCalled();
+    });
+
+    test('no hookControl: shows the review dialog, then spawns the Review terminal on accept', async () => {
+      vi.mocked(window.api.hooks.get).mockResolvedValue({
+        review: { command: 'claude review', name: 'Review', source: 'configured', priority: 0 },
+      });
+
+      beginTransition(PROJECT, {
+        origStatus: 'in_progress',
+        newStatus: 'in_review',
+        task: reviewTask(),
+      });
+
+      await waitFor(() => useProjectStore.getState().runHookQueue[0] != null);
+      const req = useProjectStore.getState().runHookQueue[0]!;
+      expect(req.hookType).toBe('review');
+      expect(addProjectTerminal).not.toHaveBeenCalled();
+
+      useProjectStore
+        .getState()
+        .resolveRunHookRequest(req.id, { command: 'claude review', sandboxed: false, foreground: false });
+
+      await waitFor(() => vi.mocked(addProjectTerminal).mock.calls.length > 0);
+      expect(vi.mocked(addProjectTerminal).mock.calls[0][1]).toMatchObject({
+        name: 'Review',
+        command: 'claude review',
+      });
+    });
+  });
+
   test('duplicate concurrent drop for the same task is deduped', async () => {
     beginTransition(PROJECT, { origStatus: 'todo', newStatus: 'in_progress', task: makeTask() });
     beginTransition(PROJECT, { origStatus: 'todo', newStatus: 'in_progress', task: makeTask() });
