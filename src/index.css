@@ -192,11 +192,12 @@ textarea,
   --crt-dot: 1.5px;
   --crt-line: 2px;
 
-  /* Lava-lamp fill: drifting hue blobs (indigo / magenta / cyan), dark enough
-     that white text stays legible. */
-  --lava-1: rgba(79, 70, 229, 0.95); /* indigo */
-  --lava-2: rgba(147, 51, 234, 0.95); /* magenta */
-  --lava-3: rgba(8, 145, 178, 0.92); /* cyan */
+  /* Lava-lamp fill: drifting shades of blue around the primary accent, over a
+     dark navy screen — a cohesive, on-brand glowing blue. */
+  --lava-base: var(--color-accent); /* screen base = primary accent */
+  --lava-1: rgba(96, 165, 250, 0.9); /* light sky */
+  --lava-2: rgba(47, 111, 230, 0.95); /* primary blue */
+  --lava-3: rgba(29, 78, 216, 0.95); /* deep blue */
   --lava-speed: 9s;
   --lava-blur: 7px;
 }
@@ -218,12 +219,13 @@ textarea,
     text-shadow: 0 0 5px rgba(170, 205, 255, 0.45); /* phosphor glow */
   }
 
-  /* Animated lava fill (z-index -2): drifting hue blobs behind the label. */
+  /* Animated lava fill (z-index -2): drifting hue blobs on a dark screen base. */
   .btn-crt::before {
     content: '';
     position: absolute;
     inset: -25%;
     z-index: -2;
+    background-color: var(--lava-base);
     background-image:
       radial-gradient(circle, var(--lava-1) 0%, transparent 46%),
       radial-gradient(circle, var(--lava-2) 0%, transparent 46%),
