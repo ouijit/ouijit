@@ -228,9 +228,19 @@ img {
   display: none;
 }
 
-.mobile-cta p {
+/* Full-width grey pill, non-interactive — just tells touch users to use a
+   desktop to download. */
+.mobile-cta-note {
+  display: block;
+  width: 100%;
+  text-align: center;
+  padding: 14px 30px;
+  border-radius: 9999px;
+  background: #19191b;
   color: var(--color-text-secondary);
   font-size: 1rem;
+  font-weight: 500;
+  letter-spacing: -0.005em;
 }
 
 @media (hover: none) and (pointer: coarse) {
