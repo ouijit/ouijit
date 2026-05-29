@@ -174,33 +174,8 @@ textarea,
 /* ===================================
    Buttons (shared dialog/CTA pattern)
    .btn-primary / .btn-secondary are plain flat pills used everywhere (app
-   dialogs + website). .btn-crt is an opt-in "CRT screen" treatment (animated
-   blue plasma + R/G/B shadow mask + glowing label) reserved for the marketing
-   hero CTA; the cursor glow lives in website/src/styles/marketing.css.
+   dialogs + website).
    =================================== */
-
-/* Sparse phosphor static: feTurbulence mapped to ALPHA (transparent except
-   sparse opaque black specks) so it composites above the RGB grille and reads
-   as CRT static under the multiply overlay. */
-:root {
-  --btn-grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.5' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0 0 0 0'/%3E%3CfeComponentTransfer%3E%3CfeFuncA type='discrete' tableValues='0 0 0 0 1'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-  /* CRT shadow-mask overlay (used by .btn-crt): vertical R/G/B phosphor
-     stripes segmented into dots by thin horizontal gaps, plus vignette +
-     static, multiplied over the lava. --crt-strength fades it; --crt-dot =
-     subpixel width (triad = 3x); --crt-line = dot row height. */
-  --crt-strength: 0.42;
-  --crt-dot: 1.5px;
-  --crt-line: 2px;
-
-  /* Lava fill: drifting shades of blue around the primary accent, over a
-     screen base of the accent itself — a cohesive, on-brand glowing blue. */
-  --lava-base: var(--color-accent);
-  --lava-1: rgba(59, 130, 246, 0.9); /* sky (deeper, more saturated) */
-  --lava-2: rgba(37, 99, 235, 0.95); /* primary blue */
-  --lava-3: rgba(29, 78, 216, 0.95); /* deep blue */
-  --lava-speed: 9s;
-  --lava-blur: 7px;
-}
 
 @layer components {
   .btn-primary {
@@ -208,72 +183,6 @@ textarea,
     border-radius: 9999px;
     background-color: var(--color-accent);
     color: var(--color-accent-ink);
-  }
-
-  /* "CRT screen" treatment — opt-in modifier for the marketing hero CTA only
-     (pair with .btn-primary): animated blue plasma (::before) under a CRT
-     shadow mask (::after), behind a glowing label. */
-  .btn-crt {
-    @apply relative isolate overflow-hidden;
-    text-shadow: 0 0 5px rgba(170, 205, 255, 0.45); /* phosphor glow */
-    filter: saturate(1.12); /* rich saturated screen at rest */
-    transition:
-      filter 90ms ease-out,
-      transform 90ms ease-out;
-  }
-
-  /* Snappy traditional hover: the saturated screen brightens (gets lighter). */
-  .btn-crt:hover {
-    filter: saturate(1.12) brightness(1.14);
-  }
-
-  .btn-crt::before {
-    content: '';
-    position: absolute;
-    inset: -25%;
-    z-index: -2;
-    background-color: var(--lava-base);
-    background-image:
-      radial-gradient(circle, var(--lava-1) 0%, transparent 46%),
-      radial-gradient(circle, var(--lava-2) 0%, transparent 46%),
-      radial-gradient(circle, var(--lava-3) 0%, transparent 46%);
-    background-repeat: no-repeat;
-    background-size:
-      120% 120%,
-      130% 130%,
-      115% 115%;
-    background-position:
-      0% 0%,
-      100% 0%,
-      50% 100%;
-    filter: blur(var(--lava-blur));
-    animation: lava-drift var(--lava-speed) ease-in-out infinite alternate;
-    pointer-events: none;
-  }
-
-  .btn-crt::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    z-index: -1;
-    background-image:
-      repeating-linear-gradient(to bottom, rgba(0, 0, 0, 0.7) 0 1px, transparent 1px var(--crt-line)),
-      radial-gradient(125% 135% at 50% 50%, transparent 52%, rgba(0, 0, 0, 0.55) 100%), var(--btn-grain),
-      repeating-linear-gradient(
-        to right,
-        rgb(255, 45, 45) 0 var(--crt-dot),
-        rgb(45, 255, 45) var(--crt-dot) calc(var(--crt-dot) * 2),
-        rgb(60, 60, 255) calc(var(--crt-dot) * 2) calc(var(--crt-dot) * 3)
-      );
-    background-size:
-      auto,
-      auto,
-      120px 120px,
-      auto;
-    image-rendering: pixelated;
-    mix-blend-mode: multiply;
-    opacity: var(--crt-strength);
-    pointer-events: none;
   }
 
   .btn-primary:hover:not(:disabled) {
@@ -294,34 +203,6 @@ textarea,
 /* ===================================
    Animations
    =================================== */
-
-/* Lava drift for the CRT CTA (.btn-crt::before). */
-@keyframes lava-drift {
-  0% {
-    background-position:
-      0% 0%,
-      100% 0%,
-      50% 100%;
-  }
-  50% {
-    background-position:
-      70% 80%,
-      10% 60%,
-      90% 10%;
-  }
-  100% {
-    background-position:
-      100% 40%,
-      40% 100%,
-      0% 30%;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .btn-crt::before {
-    animation: none;
-  }
-}
 
 @keyframes spin {
   from {

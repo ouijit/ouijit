@@ -65,14 +65,22 @@ img {
 }
 
 @media (max-width: 768px) {
+  /* CRT-styled sticky bar: opaque page color + the same scanlines/grille as
+     the site background, viewport-aligned so they line up. No glass blur. */
   .site-nav {
     position: sticky;
     top: 0;
-    background: rgba(10, 10, 12, 0.85);
-    backdrop-filter: blur(20px) saturate(180%);
-    -webkit-backdrop-filter: blur(20px) saturate(180%);
-    border-bottom: 1px solid var(--color-border);
     z-index: 100;
+    background-color: var(--marketing-bg);
+    background-image:
+      repeating-linear-gradient(to bottom, rgba(0, 0, 0, 0.4) 0 1px, transparent 1px 3px),
+      repeating-linear-gradient(
+        to right,
+        rgba(255, 0, 0, 0.08) 0 1px,
+        rgba(0, 255, 0, 0.08) 1px 2px,
+        rgba(0, 0, 255, 0.08) 2px 3px
+      );
+    background-attachment: fixed;
   }
 }
 
@@ -129,8 +137,17 @@ img {
 .nav-mobile {
   display: none;
   padding: 8px var(--content-padding) 16px;
-  background: var(--marketing-bg);
-  border-bottom: 1px solid var(--color-border);
+  /* CRT-styled panel, continuous with the sticky nav (same fixed scanlines). */
+  background-color: var(--marketing-bg);
+  background-image:
+    repeating-linear-gradient(to bottom, rgba(0, 0, 0, 0.4) 0 1px, transparent 1px 3px),
+    repeating-linear-gradient(
+      to right,
+      rgba(255, 0, 0, 0.08) 0 1px,
+      rgba(0, 255, 0, 0.08) 1px 2px,
+      rgba(0, 0, 255, 0.08) 2px 3px
+    );
+  background-attachment: fixed;
   position: relative;
   z-index: 100;
 }
@@ -225,9 +242,8 @@ img {
   }
 }
 
-/* Ouijit button system — flat phosphor-green fill with film-grain texture
-   and dark ink text. Driven by the shared --color-accent token + --btn-grain
-   (imported from src/index.css). */
+/* Ouijit button system — flat accent-blue pills, white label. Driven by the
+   shared --color-accent token (imported from src/index.css). */
 body.marketing .btn {
   display: inline-flex;
   align-items: center;
@@ -261,15 +277,18 @@ body.marketing .btn-primary {
 body.marketing .btn-primary:hover {
   background-color: var(--color-accent-hover);
   color: var(--color-accent-ink);
+  transform: translateY(-1px);
 }
 
+/* Opaque fills (matching the old translucent shades over --marketing-bg) so
+   the site-wide CRT background doesn't show through the ghost buttons. */
 body.marketing .btn-secondary {
-  background: rgba(255, 255, 255, 0.06);
+  background: #19191b;
   color: var(--color-text-primary);
 }
 
 body.marketing .btn-secondary:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: #232326;
   color: var(--color-text-primary);
 }
 
@@ -447,7 +466,10 @@ body.marketing .home-agents-footnote a:hover {
 .workspace-scene-clip {
   position: relative;
   width: 100%;
-  overflow: hidden;
+  /* clip (not hidden) + a margin so card drop shadows can spill past the
+     scaled-height bottom edge instead of being cut off. */
+  overflow: clip;
+  overflow-clip-margin: 160px;
   display: flex;
   justify-content: center;
   padding-top: 12px;
@@ -609,7 +631,6 @@ body.marketing .home-agents-footnote a:hover {
     transform 150ms ease-out;
 }
 
-
 .cli-prompt-bubble:hover:not(:disabled) .cli-prompt-bubble__run {
   background-color: var(--color-accent-hover);
   transform: translateY(-1px);
@@ -623,7 +644,6 @@ body.marketing .home-agents-footnote a:hover {
   display: block;
   margin-left: -2px;
 }
-
 
 .cli-prompt-bubble__prompt {
   color: color-mix(in srgb, var(--color-accent) 90%, transparent);
@@ -1075,13 +1095,7 @@ body.marketing .home-agents-footnote a:hover {
 }
 
 .docs-content code {
-  font-family:
-    'SF Mono',
-    Monaco,
-    Menlo,
-    'Cascadia Code',
-    'Fira Code',
-    monospace;
+  font-family: 'SF Mono', Monaco, Menlo, 'Cascadia Code', 'Fira Code', monospace;
   font-size: 0.875em;
   background: rgba(255, 255, 255, 0.15);
   padding: 2px 6px;
@@ -1189,4 +1203,29 @@ body.marketing {
 }
 .workspace-scene .kanban-column-body::-webkit-scrollbar {
   display: none;
+}
+
+/* ===================================
+   Site-wide CRT overlay — scanlines + tube vignette fixed over the viewport.
+   The animated hero scene and the supported-harness cards opt out by sitting
+   above it (raised z-index below). pointer-events: none so it never blocks.
+   =================================== */
+body.marketing::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1; /* behind all content — CRT shows only through the background */
+  pointer-events: none;
+  background-image:
+    /* scanlines (darken content rows) */
+    repeating-linear-gradient(to bottom, rgba(0, 0, 0, 0.4) 0 1px, transparent 1px 3px),
+    /* vertical R/G/B phosphor grille — adds color shimmer even on dark areas */
+    repeating-linear-gradient(
+      to right,
+      rgba(255, 0, 0, 0.08) 0 1px,
+      rgba(0, 255, 0, 0.08) 1px 2px,
+      rgba(0, 0, 255, 0.08) 2px 3px
+    ),
+    /* tube vignette */
+    radial-gradient(120% 120% at 50% 50%, transparent 45%, rgba(0, 0, 0, 0.55) 100%);
 }
