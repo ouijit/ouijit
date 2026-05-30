@@ -306,6 +306,15 @@ body.marketing .btn-secondary:hover {
 .hero-scene {
   padding: 0 0 100px;
   position: relative;
+  /* The scene is a decorative animation - its text shouldn't be selectable. */
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+@media (max-width: 768px) {
+  .hero-scene {
+    padding: 0 0 72px;
+  }
 }
 
 /* --- Home pitch (display paragraph below the workspace scene) --- */

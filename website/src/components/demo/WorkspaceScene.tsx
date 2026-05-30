@@ -268,14 +268,22 @@ export default function WorkspaceScene() {
   // the left/right edges, so phones and small windows still get the
   // middle-of-the-action read.
   const CANVAS_WIDTH = 1160;
+  const BOARD_WIDTH = 880;
+  const BOARD_HEIGHT = 520;
+  const STACK_WIDTH = 720;
+  const STACK_HEIGHT = 530;
+  // The mobile canvas is just wide enough to seat the stack-width board/stack
+  // with a small side gutter, so they fill more of a phone's width.
+  const MOBILE_CANVAS_WIDTH = STACK_WIDTH + 56;
+  const MOBILE_BREAKPOINT = 768;
   const MIN_SCALE = 0.85;
   const computeScale = (width: number) => Math.min(1, Math.max(MIN_SCALE, width / CANVAS_WIDTH));
-  const clipRef = useRef<HTMLDivElement>(null);
+  const frameRef = useRef<HTMLDivElement>(null);
   const initialWidth = typeof window === 'undefined' ? CANVAS_WIDTH : window.innerWidth;
   const [scale, setScale] = useState(() => computeScale(initialWidth));
   const [wrapperWidth, setWrapperWidth] = useState(initialWidth);
   useEffect(() => {
-    const el = clipRef.current;
+    const el = frameRef.current;
     if (!el) return;
     const update = (width: number) => {
       setWrapperWidth(width);
@@ -294,10 +302,25 @@ export default function WorkspaceScene() {
   // (preserving the Todo column + setup spinner on the left). As overflow
   // grows past RIGHT_ONLY_OVERFLOW, the drift eases back to 0 so both
   // sides clip evenly by FULLY_CENTERED_OVERFLOW.
+  // Below this width the scene reflows to a vertical stack: the board on top,
+  // the terminal stack centered below it, with no overlap. Above it the board
+  // and stack overlap as a single scaled composition.
+  const isMobile = wrapperWidth <= MOBILE_BREAKPOINT;
+  // The board is shorter on mobile - its columns scroll internally, so a
+  // trimmed height just shows fewer cards rather than empty space.
+  const MOBILE_BOARD_HEIGHT = 440;
+  const boardHeight = isMobile ? MOBILE_BOARD_HEIGHT : BOARD_HEIGHT;
+  // The stack carries ~80px of built-in top padding for its back-card peek, so
+  // this offsets against that to land the visible gap below the board.
+  const MOBILE_GAP = 128;
+  const sceneWidth = isMobile ? MOBILE_CANVAS_WIDTH : CANVAS_WIDTH;
+  const sceneHeight = isMobile ? boardHeight + MOBILE_GAP + STACK_HEIGHT : 630;
+  const renderScale = isMobile ? wrapperWidth / sceneWidth : scale;
+
   const visualCanvasWidth = CANVAS_WIDTH * scale;
   const spaceLeft = (wrapperWidth - visualCanvasWidth) / 2;
   let driftX = 0;
-  if (spaceLeft < 0) {
+  if (!isMobile && spaceLeft < 0) {
     const overflow = -spaceLeft * 2;
     const RIGHT_ONLY_OVERFLOW = 360;
     const FULLY_CENTERED_OVERFLOW = 760;
@@ -309,16 +332,16 @@ export default function WorkspaceScene() {
   }
 
   return (
-    <div className="workspace-scene-frame">
-      <div ref={clipRef} className="workspace-scene-clip" style={{ height: 630 * scale }}>
+    <div ref={frameRef} className="workspace-scene-frame">
+      <div className="workspace-scene-clip" style={{ height: sceneHeight * renderScale }}>
         <div
           className="workspace-scene"
           style={{
             position: 'relative',
-            width: 1160,
-            height: 630,
+            width: sceneWidth,
+            height: sceneHeight,
             flexShrink: 0,
-            transform: `translateX(${driftX}px) scale(${scale})`,
+            transform: `translateX(${driftX}px) scale(${renderScale})`,
             transformOrigin: 'top center',
           }}
         >
@@ -328,15 +351,18 @@ export default function WorkspaceScene() {
             style={{
               position: 'absolute',
               top: 0,
-              left: 0,
-              right: 280,
-              height: 520,
+              height: boardHeight,
               display: 'flex',
               background: 'var(--color-terminal-bg, #171717)',
               border: '1px solid rgba(0, 0, 0, 0.6)',
               borderRadius: 14,
               overflow: 'hidden',
               boxShadow: '0 30px 80px -30px rgba(0,0,0,0.7)',
+              // On mobile the board narrows to the stack's width and shares its
+              // left edge, so the two read as one centered column.
+              ...(isMobile
+                ? { left: (MOBILE_CANVAS_WIDTH - STACK_WIDTH) / 2, width: STACK_WIDTH }
+                : { left: 0, width: BOARD_WIDTH }),
             }}
           >
             {COLUMNS.map(({ status, label }) => {
@@ -421,11 +447,12 @@ export default function WorkspaceScene() {
             className="workspace-scene-stack"
             style={{
               position: 'absolute',
-              right: 0,
-              bottom: 0,
-              width: 720,
+              width: STACK_WIDTH,
               zIndex: 2,
               filter: 'drop-shadow(0 30px 60px rgba(0,0,0,0.6))',
+              ...(isMobile
+                ? { left: (MOBILE_CANVAS_WIDTH - STACK_WIDTH) / 2, top: boardHeight + MOBILE_GAP }
+                : { right: 0, bottom: 0 }),
             }}
           >
             <div style={{ position: 'relative', height: 450, paddingTop: 80 }}>
