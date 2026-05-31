@@ -342,7 +342,13 @@ export const KanbanCardView = memo(function KanbanCardView({
       )}
 
       {expanded && (
-        <div className="grid mt-2 pt-2 border-t border-white/[0.04] gap-2">
+        <div
+          className="grid mt-2 pt-2 border-t border-white/[0.04] gap-2"
+          // Keep the card's drag activator (dnd-kit listeners on the wrapper)
+          // out of the expanded area so selecting description text doesn't
+          // start a card drag.
+          onPointerDown={(e) => e.stopPropagation()}
+        >
           <div className="flex flex-col gap-1 text-sm">
             <DescriptionChipEditor
               ref={descEditorRef}
