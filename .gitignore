@@ -106,3 +106,6 @@ test-results/
 # Docs (generated/internal)
 /docs/
 !/docs/building-linux.md
+
+# Claude Code local state
+.claude/
