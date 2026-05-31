@@ -175,7 +175,7 @@ export function OnboardingPanel({ projectPath, onConfigureCliAgent, onOpenHelp }
 
   return (
     <div
-      className="mx-3 mt-3 mb-2 px-4 py-3 rounded-[12px] border border-white/10 flex items-start gap-3 onboarding-stage-enter"
+      className="mb-2 px-4 py-3 flex items-start gap-3 onboarding-stage-enter"
       style={{ background: 'rgba(255, 255, 255, 0.03)' }}
     >
       <div className="flex-1 min-w-0">
