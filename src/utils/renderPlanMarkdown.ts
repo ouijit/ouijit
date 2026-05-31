@@ -131,13 +131,15 @@ export async function renderPlanMarkdown(md: string): Promise<string> {
     }
     if (lang && hl.getLoadedLanguages().includes(lang)) {
       try {
-        return hl.codeToHtml(text, { lang, theme: THEME });
+        return hl
+          .codeToHtml(text, { lang, theme: THEME })
+          .replace('<pre class="shiki', '<pre class="shiki glass-bevel');
       } catch {
         // Fall through to plain code block
       }
     }
     const escaped = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    return `<pre><code>${escaped}</code></pre>`;
+    return `<pre class="glass-bevel"><code>${escaped}</code></pre>`;
   };
 
   const rawHtml = marked.parser(tokens, { renderer }) as string;

@@ -1122,17 +1122,21 @@ body.marketing .home-agents-footnote a:hover {
 }
 
 .docs-content pre {
+  position: relative;
   background: #171717;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: var(--radius-sm);
-  padding: 20px;
+  border: 1px solid rgba(0, 0, 0, 0.6);
+  border-radius: 14px;
   margin-bottom: 20px;
-  overflow-x: auto;
+  /* Clip to the rounded corners so the bevel frames the visible card; the
+     horizontal scroll lives on the inner <code> so content stays inside it. */
+  overflow: hidden;
 }
 
 .docs-content pre code {
+  display: block;
+  padding: 20px;
+  overflow-x: auto;
   background: none;
-  padding: 0;
   color: #f5f5f7;
   font-size: 0.8125rem;
   line-height: 1.6;

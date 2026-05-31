@@ -53,7 +53,7 @@ const sections = [
           <li><strong>macOS:</strong> <code>xcode-select --install</code></li>
           <li><strong>Linux:</strong> <code>sudo apt install build-essential python3</code></li>
         </ul>
-        <pre><code>git clone https://github.com/ouijit/ouijit.git
+        <pre class="glass-bevel"><code>git clone https://github.com/ouijit/ouijit.git
 cd ouijit
 npm install
 npm start</code></pre>
@@ -168,7 +168,7 @@ npm start</code></pre>
         </p>
 
         <h2>Directory structure</h2>
-        <pre><code>~/Ouijit/worktrees/
+        <pre class="glass-bevel"><code>~/Ouijit/worktrees/
   my-project/
     T-42/                # Worktree for task 42
     T-43/                # Worktree for task 43</code></pre>
@@ -179,7 +179,7 @@ npm start</code></pre>
           Ouijit manages worktrees for you, but they're standard git worktrees. You can inspect them with regular git
           commands:
         </p>
-        <pre><code># List all worktrees
+        <pre class="glass-bevel"><code># List all worktrees
 git worktree list
 
 # From inside a worktree, check which branch it's on
@@ -357,7 +357,7 @@ git branch --show-current</code></pre>
 
         <h2>Environment variables</h2>
         <p>Hooks receive these env vars:</p>
-        <pre><code>OUIJIT_PROJECT_PATH=/path/to/my-project
+        <pre class="glass-bevel"><code>OUIJIT_PROJECT_PATH=/path/to/my-project
 OUIJIT_WORKTREE_PATH=~/Ouijit/worktrees/my-project/T-42
 OUIJIT_TASK_BRANCH=T-42
 OUIJIT_TASK_NAME="Add user auth"
@@ -440,7 +440,7 @@ OUIJIT_HOOK_TYPE=start</code></pre>
           <code>{`{"error": "..."}`}</code> to <code>stderr</code> and exit non-zero. Pipe to <code>jq</code> for grepping
           fields:
         </p>
-        <pre><code>ouijit task list | jq '.[] | select(.status == "in_progress") | .name'</code></pre>
+        <pre class="glass-bevel"><code>ouijit task list | jq '.[] | select(.status == "in_progress") | .name'</code></pre>
 
         <h2>Project detection</h2>
         <p>
@@ -451,7 +451,7 @@ OUIJIT_HOOK_TYPE=start</code></pre>
 
         <h2>Tasks</h2>
         <p>Statuses are <code>todo</code>, <code>in_progress</code>, <code>in_review</code>, and <code>done</code>.</p>
-        <pre><code>ouijit task list                              # array of tasks
+        <pre class="glass-bevel"><code>ouijit task list                              # array of tasks
 ouijit task get 5                             # single task
 ouijit task current                           # task owning this terminal
 ouijit task create "Fix login bug"
@@ -486,7 +486,7 @@ ouijit task delete 5</code></pre>
           <code>ouijit task current</code> resolves the task owning the current terminal via the <code>OUIJIT_PTY_ID</code>
           env var that Ouijit sets on every spawn. Useful inside agent scripts:
         </p>
-        <pre><code>TASK=$(ouijit task current | jq -r .taskNumber)
+        <pre class="glass-bevel"><code>TASK=$(ouijit task current | jq -r .taskNumber)
 ouijit task set-status "$TASK" in_review</code></pre>
 
         <h2>Hooks</h2>
@@ -494,7 +494,7 @@ ouijit task set-status "$TASK" in_review</code></pre>
           CRUD for the <a href="#hooks">lifecycle hooks</a>. Hook types are <code>start</code>, <code>continue</code>,
           <code>run</code>, <code>review</code>, <code>done</code>, <code>editor</code>.
         </p>
-        <pre><code>ouijit hook list
+        <pre class="glass-bevel"><code>ouijit hook list
 ouijit hook get start
 ouijit hook set start --name "Install &amp; agent" --command 'npm install &amp;&amp; claude "$OUIJIT_TASK_DESCRIPTION"'
 ouijit hook set start --name "Install &amp; agent" --command '...' --description "Boots the agent on a fresh worktree"
@@ -502,7 +502,7 @@ ouijit hook delete done</code></pre>
 
         <h2>Tags</h2>
         <p>Tag tasks for organization in the home view.</p>
-        <pre><code>ouijit tag list                               # all tags across projects
+        <pre class="glass-bevel"><code>ouijit tag list                               # all tags across projects
 ouijit tag list --task 5                      # tags on one task
 ouijit tag add 5 bug
 ouijit tag remove 5 bug
@@ -513,7 +513,7 @@ ouijit tag set 5 bug priority urgent          # replace all tags</code></pre>
           Scripts are saved shell commands that show up in the runner panel. Set them once, then trigger from the UI or
           the CLI. Unlike hooks, scripts are ad-hoc: they don't fire on lifecycle events.
         </p>
-        <pre><code>ouijit script list
+        <pre class="glass-bevel"><code>ouijit script list
 ouijit script set --name "Lint" --command "npm run lint"
 ouijit script set --name "Tests" --command "npm test"
 ouijit script run Lint                        # by name
@@ -531,14 +531,14 @@ ouijit script delete &lt;id&gt;</code></pre>
           Each terminal can have a Markdown plan file associated with it. The app shows the plan inline so an agent and
           you can collaborate on a shared TODO list. The CLI is how the agent updates that association.
         </p>
-        <pre><code>ouijit plan set ./plan.md                     # uses current OUIJIT_PTY_ID
+        <pre class="glass-bevel"><code>ouijit plan set ./plan.md                     # uses current OUIJIT_PTY_ID
 ouijit plan set ./plan.md pty_abc123          # explicit pty id
 ouijit plan get
 ouijit plan unset</code></pre>
 
         <h2>Projects</h2>
         <p>List every project registered with the app.</p>
-        <pre><code>ouijit project list</code></pre>
+        <pre class="glass-bevel"><code>ouijit project list</code></pre>
 
         <h2>Environment variables</h2>
         <p>Ouijit sets these on every terminal it spawns. Your scripts and agents can read them directly:</p>

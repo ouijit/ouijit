@@ -638,7 +638,7 @@ textarea,
 }
 
 .plan-markdown pre {
-  @apply my-3 p-3 rounded-lg bg-white/[0.06] overflow-x-auto;
+  @apply relative my-3 p-3 rounded-[14px] border border-black/60 bg-white/[0.06] overflow-x-auto;
 }
 
 .plan-markdown pre code {
@@ -774,7 +774,7 @@ textarea,
 
 /* Shiki highlighted code blocks */
 .plan-markdown .shiki {
-  @apply my-3 p-3 rounded-lg overflow-x-auto text-[13px] leading-relaxed;
+  @apply relative my-3 p-3 rounded-[14px] border border-black/60 overflow-x-auto text-[13px] leading-relaxed;
 }
 
 .plan-markdown .shiki code {
