@@ -51,7 +51,7 @@ describe('renderPlanMarkdown — mermaid support', () => {
     const html = await renderPlanMarkdown(md);
 
     expect(mermaidRender).not.toHaveBeenCalled();
-    expect(html).toContain('class="shiki"');
+    expect(html).toContain('class="shiki');
     expect(html).toContain('const x = 1;');
   });
 
