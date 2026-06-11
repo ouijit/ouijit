@@ -36,6 +36,24 @@ export class ProjectRepo {
     this.db.prepare('DELETE FROM projects WHERE path = ?').run(path);
   }
 
+  /**
+   * Rewrites a project's path everywhere it's stored. The path is the primary
+   * key referenced by every per-project table (no ON UPDATE CASCADE), so all
+   * tables update in one transaction with foreign-key checks deferred to commit.
+   */
+  updatePath(oldPath: string, newPath: string): void {
+    this.db.transaction(() => {
+      // Resets automatically at the end of this transaction.
+      this.db.pragma('defer_foreign_keys = ON');
+      this.db.prepare('UPDATE projects SET path = ? WHERE path = ?').run(newPath, oldPath);
+      this.db.prepare('UPDATE tasks SET project_path = ? WHERE project_path = ?').run(newPath, oldPath);
+      this.db.prepare('UPDATE project_counters SET project_path = ? WHERE project_path = ?').run(newPath, oldPath);
+      this.db.prepare('UPDATE project_settings SET project_path = ? WHERE project_path = ?').run(newPath, oldPath);
+      this.db.prepare('UPDATE hooks SET project_path = ? WHERE project_path = ?').run(newPath, oldPath);
+      this.db.prepare('UPDATE scripts SET project_path = ? WHERE project_path = ?').run(newPath, oldPath);
+    })();
+  }
+
   /** Reorder projects by setting sort_order based on the given path order */
   reorder(paths: string[]): void {
     const stmt = this.db.prepare('UPDATE projects SET sort_order = ? WHERE path = ?');

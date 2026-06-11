@@ -11,6 +11,7 @@ import { ProjectView } from './components/ProjectViewReact';
 import { ToastContainer } from './components/ui/ToastContainer';
 import { NewProjectDialog } from './components/dialogs/NewProjectDialog';
 import { InitGitRepoDialog } from './components/dialogs/InitGitRepoDialog';
+import { AddSiblingProjectsDialog } from './components/dialogs/AddSiblingProjectsDialog';
 import { WhatsNewDialog } from './components/dialogs/WhatsNewDialog';
 import { HelpDialog } from './components/dialogs/HelpDialog';
 import { installCaptureNavigator } from './capture/navigator';
@@ -19,7 +20,7 @@ import { hydrateNotificationSettings } from './utils/notifications';
 import { installSessionAutoSave } from './components/terminal/sessionSnapshot';
 import { useUIStore } from './stores/uiStore';
 import log from 'electron-log/renderer';
-import type { Project } from './types';
+import type { Project, SiblingScanResult } from './types';
 
 const appLog = log.scope('app');
 
@@ -69,6 +70,7 @@ export function App() {
   const homeActivePanel = useAppStore((s) => s.homeActivePanel);
   const [showNewProject, setShowNewProject] = useState(false);
   const [gitInitPath, setGitInitPath] = useState<string | null>(null);
+  const [siblingScan, setSiblingScan] = useState<SiblingScanResult | null>(null);
   const [initialized, setInitialized] = useState(false);
 
   // Hydrate experimental flags whenever the active project changes
@@ -211,12 +213,18 @@ export function App() {
   }, []);
 
   // Register the added folder, refresh the project list, and navigate to it.
+  // Then check the parent directory for sibling repos worth offering to add
+  // in bulk (the Obsidian-vault pattern: one folder holding all projects).
   const finalizeAddedProject = useCallback(async (addedPath: string) => {
     const projects = await window.api.refreshProjects();
     useAppStore.getState().setProjects(projects);
     const project = projects.find((p) => p.path === addedPath);
     if (project) {
       useAppStore.getState().navigateToProject(addedPath, project);
+    }
+    const scan = await window.api.scanSiblingProjects(addedPath);
+    if (scan.siblings.length > 0) {
+      setSiblingScan(scan);
     }
   }, []);
 
@@ -249,6 +257,29 @@ export function App() {
       }
     },
     [gitInitPath, finalizeAddedProject],
+  );
+
+  const handleSiblingScanClose = useCallback(
+    async (result: { addAll: boolean } | null) => {
+      const scan = siblingScan;
+      setSiblingScan(null);
+      if (!result?.addAll || !scan) return;
+      let added = 0;
+      for (const sibling of scan.siblings) {
+        const addResult = await window.api.addProject(sibling);
+        if (addResult.success) {
+          added++;
+        } else if (addResult.error) {
+          useProjectStore.getState().addToast(addResult.error, 'error');
+        }
+      }
+      if (added > 0) {
+        const projects = await window.api.refreshProjects();
+        useAppStore.getState().setProjects(projects);
+        useProjectStore.getState().addToast(`Added ${added} ${added === 1 ? 'project' : 'projects'}`, 'success');
+      }
+    },
+    [siblingScan],
   );
 
   const handleCreateNew = useCallback(() => {
@@ -313,6 +344,13 @@ export function App() {
       <ToastContainer />
       {showNewProject && <NewProjectDialog onClose={handleNewProjectClose} />}
       {gitInitPath && <InitGitRepoDialog folderPath={gitInitPath} onClose={handleGitInitClose} />}
+      {siblingScan && (
+        <AddSiblingProjectsDialog
+          parentDir={siblingScan.parentDir}
+          siblings={siblingScan.siblings}
+          onClose={handleSiblingScanClose}
+        />
+      )}
       {whatsNew && (
         <WhatsNewDialog
           version={whatsNew.version}

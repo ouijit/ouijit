@@ -1,9 +1,11 @@
 import os from 'os';
+import path from 'node:path';
 import { shell, BrowserWindow, dialog } from 'electron';
 import { typedHandle } from '../helpers';
 import { getProjectList } from '../../scanner';
 import { addProject, removeProject, reorderProjects, getProjectSettings, setKillExistingOnRun } from '../../db';
 import { createProject, validateProjectFolder, initGitRepo } from '../../projectCreator';
+import { getDefaultProjectsDir, setDefaultProjectsDir, scanSiblingProjects, moveProjects } from '../../projectsFolder';
 import { recordFirstProjectIfNeeded, seedOnboardingTaskIfFirstProject } from '../../onboarding';
 import { openInEditor, openFileInEditor } from '../../editorLauncher';
 import { deleteWithCleanup } from '../../lima/manager';
@@ -55,18 +57,21 @@ export function registerProjectHandlers(mainWindow: BrowserWindow): void {
           error: `Project folder created at ${result.projectPath}, but registering it failed: ${message}`,
         };
       }
+      // The folder this project was created in becomes the default for the next one.
+      await setDefaultProjectsDir(path.dirname(result.projectPath));
       await recordFirstProjectIfNeeded(result.projectPath, 'created');
     }
     return result;
   });
 
-  typedHandle('show-folder-picker', async () => {
+  typedHandle('show-folder-picker', async (options) => {
     try {
       const targetWindow = BrowserWindow.getFocusedWindow() ?? mainWindow;
       const result = await dialog.showOpenDialog(targetWindow, {
-        properties: ['openDirectory'],
-        title: 'Add Project Folder',
-        buttonLabel: 'Add Project',
+        properties: ['openDirectory', 'createDirectory'],
+        title: options?.title ?? 'Add Project Folder',
+        buttonLabel: options?.buttonLabel ?? 'Add Project',
+        ...(options?.defaultPath ? { defaultPath: options.defaultPath } : {}),
       });
       return { canceled: result.canceled, filePaths: result.filePaths };
     } catch (error) {
@@ -74,6 +79,10 @@ export function registerProjectHandlers(mainWindow: BrowserWindow): void {
       return { canceled: true, filePaths: [] };
     }
   });
+
+  typedHandle('projects:get-default-folder', () => getDefaultProjectsDir());
+  typedHandle('projects:scan-siblings', (folderPath) => scanSiblingProjects(folderPath));
+  typedHandle('projects:relocate', (projectPaths, newFolder) => moveProjects(projectPaths, newFolder));
 
   typedHandle('add-project', async (folderPath) => {
     const validation = await validateProjectFolder(folderPath);

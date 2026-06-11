@@ -480,7 +480,13 @@ export interface ElectronAPI {
   /** Create a new project */
   createProject(options: CreateProjectOptions): Promise<CreateProjectResult>;
   /** Show native folder picker dialog */
-  showFolderPicker(): Promise<{ canceled: boolean; filePaths: string[] }>;
+  showFolderPicker(options?: FolderPickerOptions): Promise<{ canceled: boolean; filePaths: string[] }>;
+  /** Get the folder new projects are created in (setting or built-in default) */
+  getDefaultProjectsFolder(): Promise<string>;
+  /** Scan a just-added project's parent directory for sibling git repos to offer adding */
+  scanSiblingProjects(folderPath: string): Promise<SiblingScanResult>;
+  /** Move registered projects into a new projects folder, updating all stored paths */
+  relocateProjects(projectPaths: string[], newFolder: string): Promise<RelocateProjectsResult>;
   /** Add a project folder to the app */
   addProject(folderPath: string): Promise<{ success: boolean; error?: string; reason?: ValidateFolderFailureReason }>;
   /** Initialize a git repository in an existing folder (recovers a non-git folder) */
@@ -664,6 +670,29 @@ export interface GlobalSettingsAPI {
  */
 export interface CreateProjectOptions {
   name: string;
+  /** Directory the project folder is created in. Defaults to the projects folder setting. */
+  parentDir?: string;
+}
+
+/** Options for the native directory picker */
+export interface FolderPickerOptions {
+  title?: string;
+  buttonLabel?: string;
+  defaultPath?: string;
+}
+
+/** Result of scanning a just-added project's parent directory for sibling git repos */
+export interface SiblingScanResult {
+  parentDir: string;
+  /** Absolute paths of sibling git repos not yet registered as projects */
+  siblings: string[];
+}
+
+/** Result of moving registered projects into a new projects folder */
+export interface RelocateProjectsResult {
+  success: boolean;
+  moved: { from: string; to: string }[];
+  failed: { path: string; error: string }[];
 }
 
 /**

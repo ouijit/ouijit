@@ -5,8 +5,8 @@
 import { execSync } from 'node:child_process';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
-import * as os from 'node:os';
 import type { CreateProjectOptions, CreateProjectResult, ValidateFolderFailureReason } from './types';
+import { getDefaultProjectsDir } from './projectsFolder';
 import { getLogger } from './logger';
 
 const creatorLog = getLogger().scope('projectCreator');
@@ -123,7 +123,7 @@ export async function initGitRepo(
 
 export async function createProject(options: CreateProjectOptions): Promise<CreateProjectResult> {
   try {
-    const projectsDir = path.join(os.homedir(), 'Ouijit', 'projects');
+    const projectsDir = options.parentDir ?? (await getDefaultProjectsDir());
     const projectPath = path.join(projectsDir, options.name);
 
     // Validate name doesn't escape the projects directory (e.g. via ../)
