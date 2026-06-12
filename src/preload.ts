@@ -8,6 +8,7 @@ import type {
   PtySpawnOptions,
   CreateProjectOptions,
   FolderPickerOptions,
+  ProjectsFolderChangeAction,
   TaskStatus,
   ScriptHook,
   HookType,
@@ -58,8 +59,9 @@ contextBridge.exposeInMainWorld('api', {
   showFolderPicker: (options?: FolderPickerOptions) => typedInvoke('show-folder-picker', options),
   getDefaultProjectsFolder: () => typedInvoke('projects:get-default-folder'),
   scanSiblingProjects: (folderPath: string) => typedInvoke('projects:scan-siblings', folderPath),
-  relocateProjects: (projectPaths: string[], newFolder: string) =>
-    typedInvoke('projects:relocate', projectPaths, newFolder),
+  prepareProjectsFolderChange: (newFolder: string) => typedInvoke('projects:prepare-folder-change', newFolder),
+  applyProjectsFolderChange: (newFolder: string, action: ProjectsFolderChangeAction) =>
+    typedInvoke('projects:apply-folder-change', newFolder, action),
   addProject: (folderPath: string) => typedInvoke('add-project', folderPath),
   initGitRepo: (folderPath: string, initialCommit?: boolean) => typedInvoke('init-git-repo', folderPath, initialCommit),
   removeProject: (folderPath: string) => typedInvoke('remove-project', folderPath),

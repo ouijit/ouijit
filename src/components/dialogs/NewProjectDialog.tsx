@@ -29,9 +29,14 @@ export function NewProjectDialog({ onClose }: NewProjectDialogProps) {
   // created in is persisted as the new default by the main process.
   useEffect(() => {
     let cancelled = false;
-    window.api.getDefaultProjectsFolder().then((folder) => {
-      if (!cancelled) setLocation(folder);
-    });
+    window.api
+      .getDefaultProjectsFolder()
+      .then((folder) => {
+        if (!cancelled) setLocation(folder);
+      })
+      .catch(() => {
+        if (!cancelled) setError('Could not load the projects folder. Choose a location.');
+      });
     return () => {
       cancelled = true;
     };

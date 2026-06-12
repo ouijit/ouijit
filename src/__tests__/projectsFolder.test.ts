@@ -8,10 +8,23 @@ import {
   setDefaultProjectsDir,
   scanSiblingProjects,
   moveProjects,
+  prepareProjectsFolderChange,
+  applyProjectsFolderChange,
   PROJECTS_FOLDER_KEY,
 } from '../projectsFolder';
 import { createProject } from '../projectCreator';
-import { addProject, getAllProjects, getProjectTasks, createTask, getHooks, saveHook, getGlobalSetting } from '../db';
+import { writeUserConfig, configExists } from '../lima/configStore';
+import {
+  addProject,
+  getAllProjects,
+  getProjectTasks,
+  createTask,
+  getHooks,
+  saveHook,
+  getGlobalSetting,
+  setGlobalSetting,
+  removeProject,
+} from '../db';
 
 let scratchDir: string;
 
@@ -29,6 +42,14 @@ async function makeFakeRepo(parent: string, name: string): Promise<string> {
   await fs.mkdir(path.join(repoPath, '.git'), { recursive: true });
   return repoPath;
 }
+
+const noActiveSessions = new Set<string>();
+const applyOptions = (active: Set<string> = noActiveSessions) => ({
+  activeProjectPaths: active,
+  removeProject: async (projectPath: string) => {
+    await removeProject(projectPath);
+  },
+});
 
 describe('getDefaultProjectsDir', () => {
   test('falls back to ~/Ouijit/projects when no setting is stored', async () => {
@@ -89,7 +110,6 @@ describe('moveProjects', () => {
     const result = await moveProjects([projectPath], newFolder);
 
     const newPath = path.join(newFolder, 'my-app');
-    expect(result.success).toBe(true);
     expect(result.moved).toEqual([{ from: projectPath, to: newPath }]);
     expect(result.failed).toEqual([]);
 
@@ -108,6 +128,60 @@ describe('moveProjects', () => {
     expect(hooks.start?.command).toBe('npm install');
   });
 
+  test('migrates path-keyed global settings with the project', async () => {
+    const oldFolder = path.join(scratchDir, 'old');
+    const newFolder = path.join(scratchDir, 'new');
+    const projectPath = await makeFakeRepo(oldFolder, 'my-app');
+    await addProject(projectPath);
+    await setGlobalSetting(`canvas:${projectPath}`, '{"nodes":[]}');
+    await setGlobalSetting(`worktree:${projectPath}`, 'clean-checkout');
+    await setGlobalSetting(`experimental:${projectPath}`, '{"flags":1}');
+
+    await moveProjects([projectPath], newFolder);
+
+    const newPath = path.join(newFolder, 'my-app');
+    expect(await getGlobalSetting(`canvas:${newPath}`)).toBe('{"nodes":[]}');
+    expect(await getGlobalSetting(`worktree:${newPath}`)).toBe('clean-checkout');
+    expect(await getGlobalSetting(`experimental:${newPath}`)).toBe('{"flags":1}');
+    expect(await getGlobalSetting(`canvas:${projectPath}`)).toBeUndefined();
+    expect(await getGlobalSetting(`worktree:${projectPath}`)).toBeUndefined();
+  });
+
+  test('migrates the sandbox config file with the project', async () => {
+    const oldFolder = path.join(scratchDir, 'old');
+    const newFolder = path.join(scratchDir, 'new');
+    const projectPath = await makeFakeRepo(oldFolder, 'my-app');
+    await addProject(projectPath);
+    await writeUserConfig(projectPath, 'cpus: 4\n');
+
+    await moveProjects([projectPath], newFolder);
+
+    const newPath = path.join(newFolder, 'my-app');
+    expect(await configExists(newPath)).toBe(true);
+    expect(await configExists(projectPath)).toBe(false);
+  });
+
+  test('rejects a new folder nested inside a project being moved, without creating it', async () => {
+    const oldFolder = path.join(scratchDir, 'old');
+    const projectPath = await makeFakeRepo(oldFolder, 'my-app');
+    await addProject(projectPath);
+    const nested = path.join(projectPath, 'projects');
+
+    const result = await moveProjects([projectPath], nested);
+
+    expect(result.moved).toEqual([]);
+    expect(result.failed).toEqual([{ path: projectPath, error: 'The new folder is inside "my-app"' }]);
+    await expect(fs.access(nested)).rejects.toThrow();
+    await expect(fs.access(projectPath)).resolves.toBeUndefined();
+  });
+
+  test('rejects a relative new folder', async () => {
+    const projectPath = await makeFakeRepo(scratchDir, 'my-app');
+    await addProject(projectPath);
+    const result = await moveProjects([projectPath], 'relative/folder');
+    expect(result.failed).toEqual([{ path: projectPath, error: 'The new folder must be an absolute path' }]);
+  });
+
   test('fails a project whose name already exists in the target folder', async () => {
     const oldFolder = path.join(scratchDir, 'old');
     const newFolder = path.join(scratchDir, 'new');
@@ -117,7 +191,6 @@ describe('moveProjects', () => {
 
     const result = await moveProjects([projectPath], newFolder);
 
-    expect(result.success).toBe(false);
     expect(result.moved).toEqual([]);
     expect(result.failed).toHaveLength(1);
     expect(result.failed[0].path).toBe(projectPath);
@@ -129,7 +202,6 @@ describe('moveProjects', () => {
   test('rejects paths that are not registered projects', async () => {
     const stray = await makeFakeRepo(scratchDir, 'stray');
     const result = await moveProjects([stray], path.join(scratchDir, 'new'));
-    expect(result.success).toBe(false);
     expect(result.failed).toEqual([{ path: stray, error: 'Not a registered project' }]);
   });
 
@@ -150,6 +222,118 @@ describe('moveProjects', () => {
   });
 });
 
+describe('prepareProjectsFolderChange', () => {
+  test('commits immediately when no projects live in the current folder', async () => {
+    const oldFolder = path.join(scratchDir, 'old');
+    const newFolder = path.join(scratchDir, 'new');
+    await setDefaultProjectsDir(oldFolder);
+
+    const plan = await prepareProjectsFolderChange(newFolder, noActiveSessions);
+
+    expect(plan.status).toBe('committed');
+    expect(await getDefaultProjectsDir()).toBe(newFolder);
+  });
+
+  test('asks for a decision when projects live in the current folder', async () => {
+    const oldFolder = path.join(scratchDir, 'old');
+    const newFolder = path.join(scratchDir, 'new');
+    await setDefaultProjectsDir(oldFolder);
+    const projectPath = await makeFakeRepo(oldFolder, 'my-app');
+    await addProject(projectPath);
+
+    const plan = await prepareProjectsFolderChange(newFolder, new Set([projectPath]));
+
+    expect(plan.status).toBe('needs-decision');
+    expect(plan.affected).toEqual([{ path: projectPath, name: 'my-app', hasActiveSessions: true }]);
+    // Not committed until the user decides
+    expect(await getDefaultProjectsDir()).toBe(oldFolder);
+  });
+
+  test('reports unchanged and invalid folders without committing', async () => {
+    await setDefaultProjectsDir(scratchDir);
+    expect((await prepareProjectsFolderChange(scratchDir, noActiveSessions)).status).toBe('unchanged');
+    expect((await prepareProjectsFolderChange('relative/path', noActiveSessions)).status).toBe('invalid');
+    expect(await getDefaultProjectsDir()).toBe(scratchDir);
+  });
+});
+
+describe('applyProjectsFolderChange', () => {
+  test('move relocates the projects and commits', async () => {
+    const oldFolder = path.join(scratchDir, 'old');
+    const newFolder = path.join(scratchDir, 'new');
+    await setDefaultProjectsDir(oldFolder);
+    const projectPath = await makeFakeRepo(oldFolder, 'my-app');
+    await addProject(projectPath);
+
+    const result = await applyProjectsFolderChange(newFolder, 'move', applyOptions());
+
+    expect(result.committed).toBe(true);
+    expect(result.moved).toEqual([{ from: projectPath, to: path.join(newFolder, 'my-app') }]);
+    expect(await getDefaultProjectsDir()).toBe(newFolder);
+  });
+
+  test('move does not commit when a relocation fails', async () => {
+    const oldFolder = path.join(scratchDir, 'old');
+    const newFolder = path.join(scratchDir, 'new');
+    await setDefaultProjectsDir(oldFolder);
+    const projectPath = await makeFakeRepo(oldFolder, 'my-app');
+    await makeFakeRepo(newFolder, 'my-app'); // name conflict
+    await addProject(projectPath);
+
+    const result = await applyProjectsFolderChange(newFolder, 'move', applyOptions());
+
+    expect(result.committed).toBe(false);
+    expect(result.failed).toHaveLength(1);
+    // Setting still points at the old folder, so the change can be retried.
+    expect(await getDefaultProjectsDir()).toBe(oldFolder);
+  });
+
+  test('move refuses projects with active terminal sessions and does not commit', async () => {
+    const oldFolder = path.join(scratchDir, 'old');
+    const newFolder = path.join(scratchDir, 'new');
+    await setDefaultProjectsDir(oldFolder);
+    const projectPath = await makeFakeRepo(oldFolder, 'my-app');
+    await addProject(projectPath);
+
+    const result = await applyProjectsFolderChange(newFolder, 'move', applyOptions(new Set([projectPath])));
+
+    expect(result.committed).toBe(false);
+    expect(result.moved).toEqual([]);
+    expect(result.failed).toEqual([{ path: projectPath, error: 'Close its running terminal sessions first' }]);
+    await expect(fs.access(projectPath)).resolves.toBeUndefined();
+    expect(await getDefaultProjectsDir()).toBe(oldFolder);
+  });
+
+  test('forget unregisters the projects, keeps the folders, and commits', async () => {
+    const oldFolder = path.join(scratchDir, 'old');
+    const newFolder = path.join(scratchDir, 'new');
+    await setDefaultProjectsDir(oldFolder);
+    const projectPath = await makeFakeRepo(oldFolder, 'my-app');
+    await addProject(projectPath);
+
+    const result = await applyProjectsFolderChange(newFolder, 'forget', applyOptions());
+
+    expect(result.committed).toBe(true);
+    expect((await getAllProjects()).map((p) => p.path)).not.toContain(projectPath);
+    await expect(fs.access(projectPath)).resolves.toBeUndefined();
+    expect(await getDefaultProjectsDir()).toBe(newFolder);
+  });
+
+  test('keep leaves the projects alone and commits', async () => {
+    const oldFolder = path.join(scratchDir, 'old');
+    const newFolder = path.join(scratchDir, 'new');
+    await setDefaultProjectsDir(oldFolder);
+    const projectPath = await makeFakeRepo(oldFolder, 'my-app');
+    await addProject(projectPath);
+
+    const result = await applyProjectsFolderChange(newFolder, 'keep', applyOptions());
+
+    expect(result.committed).toBe(true);
+    expect((await getAllProjects()).map((p) => p.path)).toContain(projectPath);
+    expect(await getDefaultProjectsDir()).toBe(newFolder);
+  });
+});
+
 describe('createProject with a custom parent directory', () => {
   test('creates the project inside parentDir', async () => {
     const parentDir = path.join(scratchDir, 'workspace');
@@ -165,6 +349,11 @@ describe('createProject with a custom parent directory', () => {
     const result = await createProject({ name: 'settled-app' });
     expect(result.success).toBe(true);
     expect(result.projectPath).toBe(path.join(configured, 'settled-app'));
+  });
+
+  test('rejects a relative parentDir', async () => {
+    const result = await createProject({ name: 'fresh-app', parentDir: 'relative/workspace' });
+    expect(result.success).toBe(false);
   });
 
   test('still rejects names that escape the projects directory', async () => {

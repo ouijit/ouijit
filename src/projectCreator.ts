@@ -124,6 +124,10 @@ export async function initGitRepo(
 export async function createProject(options: CreateProjectOptions): Promise<CreateProjectResult> {
   try {
     const projectsDir = options.parentDir ?? (await getDefaultProjectsDir());
+    // A relative parentDir would resolve against the process cwd ('/' when packaged).
+    if (!path.isAbsolute(projectsDir)) {
+      return { success: false, error: 'The project location must be an absolute path' };
+    }
     const projectPath = path.join(projectsDir, options.name);
 
     // Validate name doesn't escape the projects directory (e.g. via ../)

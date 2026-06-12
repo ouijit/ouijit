@@ -1,19 +1,19 @@
 import { useState, useEffect, useCallback } from 'react';
 import { DialogOverlay } from './DialogOverlay';
-
-export type MoveProjectsAction = 'move' | 'forget' | 'keep';
+import type { AffectedProject, ProjectsFolderChangeAction } from '../../types';
 
 interface MoveProjectsDialogProps {
   newFolder: string;
   /** Projects currently living in the old projects folder */
-  projects: { path: string; name: string }[];
-  onClose: (result: { action: MoveProjectsAction } | null) => void;
+  projects: AffectedProject[];
+  onClose: (result: { action: ProjectsFolderChangeAction } | null) => void;
 }
 
 interface ActionOption {
-  action: MoveProjectsAction;
+  action: ProjectsFolderChangeAction;
   label: string;
   description: string;
+  disabled?: boolean;
 }
 
 /**
@@ -23,15 +23,21 @@ interface ActionOption {
  * leave them where they are.
  */
 export function MoveProjectsDialog({ newFolder, projects, onClose }: MoveProjectsDialogProps) {
+  const blocked = projects.filter((p) => p.hasActiveSessions);
+  const moveDisabled = blocked.length > 0;
+
   const [visible, setVisible] = useState(false);
-  const [selected, setSelected] = useState<MoveProjectsAction>('move');
+  const [selected, setSelected] = useState<ProjectsFolderChangeAction>(moveDisabled ? 'keep' : 'move');
   const [working, setWorking] = useState(false);
 
   const options: ActionOption[] = [
     {
       action: 'move',
       label: 'Move them to the new folder',
-      description: `Each project folder moves into ${newFolder}. Tasks, hooks, and settings stay attached.`,
+      description: moveDisabled
+        ? `Close the running terminals in ${blocked.map((p) => p.name).join(', ')} first.`
+        : `Each project folder moves into ${newFolder}. Tasks, hooks, and settings stay attached.`,
+      disabled: moveDisabled,
     },
     {
       action: 'forget',
@@ -50,7 +56,7 @@ export function MoveProjectsDialog({ newFolder, projects, onClose }: MoveProject
   }, []);
 
   const dismiss = useCallback(
-    (result: { action: MoveProjectsAction } | null) => {
+    (result: { action: ProjectsFolderChangeAction } | null) => {
       setVisible(false);
       setTimeout(() => onClose(result), 200);
     },
@@ -77,7 +83,11 @@ export function MoveProjectsDialog({ newFolder, projects, onClose }: MoveProject
           <label
             key={option.action}
             className={`flex items-start gap-3 px-3 py-2.5 rounded-md border [-webkit-app-region:no-drag] ${
-              selected === option.action ? 'border-accent bg-accent-light/20' : 'border-border hover:bg-white/[0.02]'
+              option.disabled
+                ? 'border-border opacity-50'
+                : selected === option.action
+                  ? 'border-accent bg-accent-light/20'
+                  : 'border-border hover:bg-white/[0.02]'
             }`}
           >
             <input
@@ -86,7 +96,7 @@ export function MoveProjectsDialog({ newFolder, projects, onClose }: MoveProject
               className="mt-0.5"
               checked={selected === option.action}
               onChange={() => setSelected(option.action)}
-              disabled={working}
+              disabled={working || option.disabled}
             />
             <span className="flex-1 min-w-0">
               <span className="block text-sm text-text-primary">{option.label}</span>

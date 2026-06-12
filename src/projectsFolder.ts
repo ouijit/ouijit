@@ -1,15 +1,21 @@
 /**
  * Projects folder setting and the operations built on it: where new projects
- * are created, scanning a folder for sibling repos to add, and physically
- * moving registered projects when the user changes the setting.
+ * are created, scanning a folder for sibling repos to add, and changing the
+ * setting with the user's chosen handling of projects in the old folder.
  */
 
-import { execSync } from 'node:child_process';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import * as os from 'node:os';
-import { getGlobalSetting, setGlobalSetting, getAllProjects, updateProjectPath } from './db';
-import type { SiblingScanResult, RelocateProjectsResult } from './types';
+import { getGlobalSetting, setGlobalSetting, getAllProjects } from './db';
+import { renameProjectPath } from './services/projectPathRename';
+import type {
+  SiblingScanResult,
+  AffectedProject,
+  ProjectsFolderChangePlan,
+  ProjectsFolderChangeAction,
+  ApplyProjectsFolderChangeResult,
+} from './types';
 import { getLogger } from './logger';
 
 const projectsFolderLog = getLogger().scope('projectsFolder');
@@ -44,50 +50,154 @@ export async function scanSiblingProjects(folderPath: string): Promise<SiblingSc
   // At the filesystem root dirname() returns the path itself — nothing to scan.
   if (parentDir === folderPath) return { parentDir, siblings: [] };
 
-  let entries;
   try {
-    entries = await fs.readdir(parentDir, { withFileTypes: true });
+    const entries = await fs.readdir(parentDir, { withFileTypes: true });
+    const registered = new Set((await getAllProjects()).map((p) => p.path));
+    const candidates = entries
+      .filter((entry) => entry.isDirectory() && !entry.name.startsWith('.'))
+      .map((entry) => path.join(parentDir, entry.name))
+      .filter((candidate) => candidate !== folderPath && !registered.has(candidate));
+    const siblings = (
+      await Promise.all(
+        candidates.map(async (candidate) => {
+          try {
+            // `.git` is a directory in normal repos and a file in worktrees/submodules.
+            await fs.access(path.join(candidate, '.git'));
+            return candidate;
+          } catch {
+            return null;
+          }
+        }),
+      )
+    ).filter((candidate): candidate is string => candidate !== null);
+    siblings.sort((a, b) => a.localeCompare(b));
+    return { parentDir, siblings };
   } catch (error) {
-    projectsFolderLog.warn('sibling scan failed to read parent directory', {
+    projectsFolderLog.warn('sibling scan failed', {
       parentDir,
       error: error instanceof Error ? error.message : String(error),
     });
     return { parentDir, siblings: [] };
   }
+}
 
-  const registered = new Set((await getAllProjects()).map((p) => p.path));
-  const siblings: string[] = [];
-  for (const entry of entries) {
-    if (!entry.isDirectory() || entry.name.startsWith('.')) continue;
-    const candidate = path.join(parentDir, entry.name);
-    if (candidate === folderPath || registered.has(candidate)) continue;
-    try {
-      // `.git` is a directory in normal repos and a file in worktrees/submodules.
-      await fs.access(path.join(candidate, '.git'));
-    } catch {
-      continue;
-    }
-    siblings.push(candidate);
-  }
-  siblings.sort((a, b) => a.localeCompare(b));
-  return { parentDir, siblings };
+/** Registered projects living directly in the given folder. */
+async function projectsInFolder(folder: string, activeProjectPaths: Set<string>): Promise<AffectedProject[]> {
+  const projects = await getAllProjects();
+  return projects
+    .filter((p) => path.dirname(p.path) === folder)
+    .map((p) => ({ path: p.path, name: p.name, hasActiveSessions: activeProjectPaths.has(p.path) }));
 }
 
 /**
- * Moves registered projects into a new folder: renames the directory on disk,
- * rewrites every stored path in the database, and repairs git worktree links
- * (the linked worktrees' `.git` files point at the main repo's old location).
+ * First half of changing the projects folder setting: validates the new
+ * folder and reports the projects living in the current one. When none are
+ * affected the setting commits immediately; otherwise the caller shows the
+ * move/forget/keep dialog and follows up with applyProjectsFolderChange.
+ */
+export async function prepareProjectsFolderChange(
+  newFolder: string,
+  activeProjectPaths: Set<string>,
+): Promise<ProjectsFolderChangePlan> {
+  if (!path.isAbsolute(newFolder)) {
+    return { status: 'invalid', error: 'The projects folder must be an absolute path', affected: [] };
+  }
+  const currentFolder = await getDefaultProjectsDir();
+  if (newFolder === currentFolder) return { status: 'unchanged', affected: [] };
+
+  const affected = await projectsInFolder(currentFolder, activeProjectPaths);
+  if (affected.length === 0) {
+    await setDefaultProjectsDir(newFolder);
+    return { status: 'committed', affected: [] };
+  }
+  return { status: 'needs-decision', affected };
+}
+
+export interface ApplyProjectsFolderChangeOptions {
+  /** Paths of projects with running terminal sessions; these refuse to move. */
+  activeProjectPaths: Set<string>;
+  /** Unregisters one project, including any per-project cleanup (sandbox VM, config). */
+  removeProject: (projectPath: string) => Promise<void>;
+}
+
+/**
+ * Second half of changing the projects folder: carries out the user's chosen
+ * action for the affected projects, then commits the setting. A 'move' only
+ * commits when every project relocated; failures leave the setting on the old
+ * folder so the change can be fixed and retried.
+ */
+export async function applyProjectsFolderChange(
+  newFolder: string,
+  action: ProjectsFolderChangeAction,
+  options: ApplyProjectsFolderChangeOptions,
+): Promise<ApplyProjectsFolderChangeResult> {
+  const currentFolder = await getDefaultProjectsDir();
+  const affected = await projectsInFolder(currentFolder, options.activeProjectPaths);
+
+  if (action === 'move') {
+    const blocked = affected.filter((p) => p.hasActiveSessions);
+    const movable = affected.filter((p) => !p.hasActiveSessions);
+    const result = await moveProjects(
+      movable.map((p) => p.path),
+      newFolder,
+    );
+    const failed = [
+      ...blocked.map((p) => ({ path: p.path, error: 'Close its running terminal sessions first' })),
+      ...result.failed,
+    ];
+    const committed = failed.length === 0;
+    if (committed) await setDefaultProjectsDir(newFolder);
+    return { committed, moved: result.moved, failed };
+  }
+
+  if (action === 'forget') {
+    const failed: { path: string; error: string }[] = [];
+    await Promise.all(
+      affected.map(async (p) => {
+        try {
+          await options.removeProject(p.path);
+        } catch (error) {
+          failed.push({ path: p.path, error: error instanceof Error ? error.message : String(error) });
+        }
+      }),
+    );
+    await setDefaultProjectsDir(newFolder);
+    return { committed: true, moved: [], failed };
+  }
+
+  await setDefaultProjectsDir(newFolder);
+  return { committed: true, moved: [], failed: [] };
+}
+
+/**
+ * Moves registered projects into a new folder: renames each directory on
+ * disk, then migrates everything keyed by the old path (database rows,
+ * settings, sandbox config, worktree links) via renameProjectPath.
  * Each project is independent — one failure doesn't stop the rest.
  */
-export async function moveProjects(projectPaths: string[], newFolder: string): Promise<RelocateProjectsResult> {
+export async function moveProjects(
+  projectPaths: string[],
+  newFolder: string,
+): Promise<{ moved: { from: string; to: string }[]; failed: { path: string; error: string }[] }> {
   const moved: { from: string; to: string }[] = [];
   const failed: { path: string; error: string }[] = [];
+  const failAll = (error: string) => ({ moved, failed: projectPaths.map((p) => ({ path: p, error })) });
+
+  if (!path.isAbsolute(newFolder)) {
+    return failAll('The new folder must be an absolute path');
+  }
+  // Renaming a directory into its own subtree fails (and mkdir would leave a
+  // stray folder inside the repo), so reject before touching the disk.
+  for (const projectPath of projectPaths) {
+    if (newFolder === projectPath || newFolder.startsWith(projectPath + path.sep)) {
+      return failAll(`The new folder is inside "${path.basename(projectPath)}"`);
+    }
+  }
 
   try {
     await fs.mkdir(newFolder, { recursive: true });
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    return { success: false, moved, failed: projectPaths.map((p) => ({ path: p, error: message })) };
+    return failAll(error instanceof Error ? error.message : String(error));
   }
 
   const registered = new Set((await getAllProjects()).map((p) => p.path));
@@ -114,7 +224,7 @@ export async function moveProjects(projectPaths: string[], newFolder: string): P
       const code = (error as NodeJS.ErrnoException).code;
       const message =
         code === 'EXDEV'
-          ? 'Cannot move across disks — pick a folder on the same volume'
+          ? 'Cannot move across disks. Pick a folder on the same volume.'
           : error instanceof Error
             ? error.message
             : String(error);
@@ -123,7 +233,7 @@ export async function moveProjects(projectPaths: string[], newFolder: string): P
     }
 
     try {
-      await updateProjectPath(projectPath, target);
+      await renameProjectPath(projectPath, target);
     } catch (error) {
       // The directory moved but the database still points at the old path —
       // move it back so disk and registry stay consistent.
@@ -146,19 +256,9 @@ export async function moveProjects(projectPaths: string[], newFolder: string): P
       continue;
     }
 
-    // Best-effort: linked worktrees still point at the old main-repo path.
-    try {
-      execSync('git worktree repair', { cwd: target, stdio: 'ignore' });
-    } catch (error) {
-      projectsFolderLog.warn('git worktree repair failed after move', {
-        target,
-        error: error instanceof Error ? error.message : String(error),
-      });
-    }
-
     moved.push({ from: projectPath, to: target });
     projectsFolderLog.info('moved project', { from: projectPath, to: target });
   }
 
-  return { success: failed.length === 0, moved, failed };
+  return { moved, failed };
 }

@@ -216,14 +216,20 @@ export function App() {
   // Then check the parent directory for sibling repos worth offering to add
   // in bulk (the Obsidian-vault pattern: one folder holding all projects).
   const finalizeAddedProject = useCallback(async (addedPath: string) => {
-    const projects = await window.api.refreshProjects();
+    const [projects, scan] = await Promise.all([
+      window.api.refreshProjects(),
+      // A failed scan only costs the sibling-import offer; the add succeeded.
+      window.api.scanSiblingProjects(addedPath).catch((error: unknown): null => {
+        appLog.warn('sibling scan failed', { error: error instanceof Error ? error.message : String(error) });
+        return null;
+      }),
+    ]);
     useAppStore.getState().setProjects(projects);
     const project = projects.find((p) => p.path === addedPath);
     if (project) {
       useAppStore.getState().navigateToProject(addedPath, project);
     }
-    const scan = await window.api.scanSiblingProjects(addedPath);
-    if (scan.siblings.length > 0) {
+    if (scan && scan.siblings.length > 0) {
       setSiblingScan(scan);
     }
   }, []);
@@ -264,9 +270,9 @@ export function App() {
       const scan = siblingScan;
       setSiblingScan(null);
       if (!result?.addAll || !scan) return;
+      const results = await Promise.all(scan.siblings.map((sibling) => window.api.addProject(sibling)));
       let added = 0;
-      for (const sibling of scan.siblings) {
-        const addResult = await window.api.addProject(sibling);
+      for (const addResult of results) {
         if (addResult.success) {
           added++;
         } else if (addResult.error) {

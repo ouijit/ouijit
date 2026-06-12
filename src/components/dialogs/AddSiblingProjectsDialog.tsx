@@ -1,16 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { DialogOverlay } from './DialogOverlay';
+import { folderName } from '../../utils/folderName';
 
 interface AddSiblingProjectsDialogProps {
   parentDir: string;
   /** Absolute paths of sibling git repos not yet registered */
   siblings: string[];
   onClose: (result: { addAll: boolean } | null) => void;
-}
-
-function folderName(folderPath: string): string {
-  const parts = folderPath.split(/[\\/]/).filter(Boolean);
-  return parts[parts.length - 1] ?? folderPath;
 }
 
 /**

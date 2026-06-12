@@ -4,18 +4,15 @@ import { useProjectStore } from '../stores/projectStore';
 import { setTerminalFontFamily, setTerminalFontSize } from './terminal/terminalReact';
 import { setReadyAudioDisabled } from '../utils/notifications';
 import { FontPickerRow } from './FontPickerRow';
-import { MoveProjectsDialog, type MoveProjectsAction } from './dialogs/MoveProjectsDialog';
+import { MoveProjectsDialog } from './dialogs/MoveProjectsDialog';
+import type { AffectedProject, ProjectsFolderChangeAction } from '../types';
+import log from 'electron-log/renderer';
+
+const settingsLog = log.scope('globalSettings');
 
 const DEFAULT_TERMINAL_FONT_SIZE = 14;
 const MIN_TERMINAL_FONT_SIZE = 8;
 const MAX_TERMINAL_FONT_SIZE = 32;
-
-/** Parent directory of a posix path (the app runs on macOS/Linux only). */
-function parentDirOf(p: string): string {
-  const trimmed = p.replace(/\/+$/, '');
-  const idx = trimmed.lastIndexOf('/');
-  return idx > 0 ? trimmed.slice(0, idx) : '/';
-}
 
 export function GlobalSettingsPanel() {
   const [autoUpdate, setAutoUpdate] = useState(true);
@@ -25,7 +22,7 @@ export function GlobalSettingsPanel() {
   const [projectsFolder, setProjectsFolder] = useState<string | null>(null);
   const [moveDialog, setMoveDialog] = useState<{
     newFolder: string;
-    projects: { path: string; name: string }[];
+    projects: AffectedProject[];
   } | null>(null);
 
   // Hydrate persisted settings on mount.
@@ -37,15 +34,21 @@ export function GlobalSettingsPanel() {
       window.api.globalSettings.get('terminal:font-family'),
       window.api.globalSettings.get('terminal:font-size'),
       window.api.getDefaultProjectsFolder(),
-    ]).then(([disableUpdates, disableReadyAudio, family, size, folder]) => {
-      if (cancelled) return;
-      setAutoUpdate(disableUpdates !== '1');
-      setReadyAudio(disableReadyAudio !== '1');
-      setFontFamily(family ?? '');
-      const parsed = parseFloat((size ?? '').trim());
-      setFontSize(Number.isFinite(parsed) && parsed > 0 ? parsed : null);
-      setProjectsFolder(folder);
-    });
+    ])
+      .then(([disableUpdates, disableReadyAudio, family, size, folder]) => {
+        if (cancelled) return;
+        setAutoUpdate(disableUpdates !== '1');
+        setReadyAudio(disableReadyAudio !== '1');
+        setFontFamily(family ?? '');
+        const parsed = parseFloat((size ?? '').trim());
+        setFontSize(Number.isFinite(parsed) && parsed > 0 ? parsed : null);
+        setProjectsFolder(folder);
+      })
+      .catch((error) => {
+        settingsLog.error('failed to hydrate settings', {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      });
     return () => {
       cancelled = true;
     };
@@ -89,11 +92,6 @@ export function GlobalSettingsPanel() {
     await window.api.globalSettings.set('terminal:font-size', value == null ? '' : String(value));
   };
 
-  const commitProjectsFolder = async (folder: string) => {
-    setProjectsFolder(folder);
-    await window.api.globalSettings.set('projects:folder', folder);
-  };
-
   const handleChangeProjectsFolder = async () => {
     const result = await window.api.showFolderPicker({
       title: 'Choose Projects Folder',
@@ -102,50 +100,51 @@ export function GlobalSettingsPanel() {
     });
     if (result.canceled || result.filePaths.length === 0) return;
     const newFolder = result.filePaths[0];
-    if (newFolder === projectsFolder) return;
 
-    // Projects living in the current folder are affected by the change —
-    // the user decides whether they move, get forgotten, or stay put.
-    const projects = await window.api.getProjects();
-    const affected = projectsFolder ? projects.filter((p) => parentDirOf(p.path) === projectsFolder) : [];
-    if (affected.length === 0) {
-      await commitProjectsFolder(newFolder);
-      useProjectStore.getState().addToast('Projects folder updated', 'success');
+    // The main process owns the setting: it validates the folder, finds the
+    // projects living in the current one, and commits when none are affected.
+    const plan = await window.api.prepareProjectsFolderChange(newFolder);
+    const { addToast } = useProjectStore.getState();
+    if (plan.status === 'unchanged') return;
+    if (plan.status === 'invalid') {
+      addToast(plan.error ?? 'That folder cannot be used', 'error');
       return;
     }
-    setMoveDialog({ newFolder, projects: affected.map((p) => ({ path: p.path, name: p.name })) });
+    if (plan.status === 'committed') {
+      setProjectsFolder(newFolder);
+      addToast('Projects folder updated', 'success');
+      return;
+    }
+    setMoveDialog({ newFolder, projects: plan.affected });
   };
 
-  const handleMoveDialogClose = async (result: { action: MoveProjectsAction } | null) => {
+  const handleMoveDialogClose = async (result: { action: ProjectsFolderChangeAction } | null) => {
     const dialog = moveDialog;
     setMoveDialog(null);
     if (!result || !dialog) return;
     const { addToast } = useProjectStore.getState();
 
-    if (result.action === 'move') {
-      const relocation = await window.api.relocateProjects(
-        dialog.projects.map((p) => p.path),
-        dialog.newFolder,
-      );
-      for (const failure of relocation.failed) {
-        addToast(`Could not move ${failure.path}: ${failure.error}`, 'error');
-      }
-      if (relocation.moved.length > 0) {
-        addToast(
-          `Moved ${relocation.moved.length} ${relocation.moved.length === 1 ? 'project' : 'projects'}`,
-          'success',
-        );
-      }
-    } else if (result.action === 'forget') {
-      for (const project of dialog.projects) {
-        await window.api.removeProject(project.path);
-      }
+    const outcome = await window.api.applyProjectsFolderChange(dialog.newFolder, result.action);
+    for (const failure of outcome.failed) {
+      addToast(`Could not move ${failure.path}: ${failure.error}`, 'error');
+    }
+    if (outcome.moved.length > 0) {
+      addToast(`Moved ${outcome.moved.length} ${outcome.moved.length === 1 ? 'project' : 'projects'}`, 'success');
+    }
+    if (result.action === 'forget') {
       addToast(`Forgot ${dialog.projects.length} ${dialog.projects.length === 1 ? 'project' : 'projects'}`, 'info');
     }
+    if (outcome.committed) {
+      setProjectsFolder(dialog.newFolder);
+    } else {
+      addToast('The projects folder was not changed', 'info');
+    }
 
-    await commitProjectsFolder(dialog.newFolder);
-    const refreshed = await window.api.refreshProjects();
-    useAppStore.getState().setProjects(refreshed);
+    if (result.action !== 'keep') {
+      const refreshed = await window.api.refreshProjects();
+      useAppStore.getState().setProjects(refreshed);
+      await useAppStore.getState().loadHomeRecents();
+    }
   };
 
   return (

@@ -36,7 +36,9 @@ import type {
   ValidateFolderFailureReason,
   FolderPickerOptions,
   SiblingScanResult,
-  RelocateProjectsResult,
+  ProjectsFolderChangePlan,
+  ProjectsFolderChangeAction,
+  ApplyProjectsFolderChangeResult,
 } from '../types';
 import type { SandboxStatus } from '../lima/types';
 import type { HookStatusEntry } from '../hookServer';
@@ -66,7 +68,11 @@ export interface IpcInvokeContract {
   'show-folder-picker': { args: [options?: FolderPickerOptions]; return: { canceled: boolean; filePaths: string[] } };
   'projects:get-default-folder': { args: []; return: string };
   'projects:scan-siblings': { args: [folderPath: string]; return: SiblingScanResult };
-  'projects:relocate': { args: [projectPaths: string[], newFolder: string]; return: RelocateProjectsResult };
+  'projects:prepare-folder-change': { args: [newFolder: string]; return: ProjectsFolderChangePlan };
+  'projects:apply-folder-change': {
+    args: [newFolder: string, action: ProjectsFolderChangeAction];
+    return: ApplyProjectsFolderChangeResult;
+  };
   'add-project': {
     args: [folderPath: string];
     return: { success: boolean; error?: string; reason?: ValidateFolderFailureReason };

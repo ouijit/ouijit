@@ -5,14 +5,33 @@ import { typedHandle } from '../helpers';
 import { getProjectList } from '../../scanner';
 import { addProject, removeProject, reorderProjects, getProjectSettings, setKillExistingOnRun } from '../../db';
 import { createProject, validateProjectFolder, initGitRepo } from '../../projectCreator';
-import { getDefaultProjectsDir, setDefaultProjectsDir, scanSiblingProjects, moveProjects } from '../../projectsFolder';
+import {
+  getDefaultProjectsDir,
+  setDefaultProjectsDir,
+  scanSiblingProjects,
+  prepareProjectsFolderChange,
+  applyProjectsFolderChange,
+} from '../../projectsFolder';
 import { recordFirstProjectIfNeeded, seedOnboardingTaskIfFirstProject } from '../../onboarding';
 import { openInEditor, openFileInEditor } from '../../editorLauncher';
 import { deleteWithCleanup } from '../../lima/manager';
 import { deleteConfig } from '../../lima/configStore';
+import { getActiveSessions } from '../../ptyManager';
 import { getLogger } from '../../logger';
 
 const ipcLog = getLogger().scope('ipc');
+
+/** Projects with running terminal sessions; they refuse to be moved on disk. */
+function activeProjectPaths(): Set<string> {
+  return new Set(getActiveSessions().map((session) => session.projectPath));
+}
+
+/** Unregister a project, cleaning up its sandbox VM and config first. */
+async function removeProjectWithCleanup(folderPath: string): Promise<void> {
+  await deleteWithCleanup(folderPath).catch(() => {});
+  await deleteConfig(folderPath).catch(() => {});
+  await removeProject(folderPath);
+}
 
 export function registerProjectHandlers(mainWindow: BrowserWindow): void {
   typedHandle('get-projects', () => getProjectList());
@@ -82,7 +101,15 @@ export function registerProjectHandlers(mainWindow: BrowserWindow): void {
 
   typedHandle('projects:get-default-folder', () => getDefaultProjectsDir());
   typedHandle('projects:scan-siblings', (folderPath) => scanSiblingProjects(folderPath));
-  typedHandle('projects:relocate', (projectPaths, newFolder) => moveProjects(projectPaths, newFolder));
+  typedHandle('projects:prepare-folder-change', (newFolder) =>
+    prepareProjectsFolderChange(newFolder, activeProjectPaths()),
+  );
+  typedHandle('projects:apply-folder-change', (newFolder, action) =>
+    applyProjectsFolderChange(newFolder, action, {
+      activeProjectPaths: activeProjectPaths(),
+      removeProject: removeProjectWithCleanup,
+    }),
+  );
 
   typedHandle('add-project', async (folderPath) => {
     const validation = await validateProjectFolder(folderPath);
@@ -97,10 +124,8 @@ export function registerProjectHandlers(mainWindow: BrowserWindow): void {
   });
   typedHandle('init-git-repo', (folderPath, initialCommit) => initGitRepo(folderPath, { initialCommit }));
   typedHandle('remove-project', async (folderPath) => {
-    // Clean up sandbox config and VM before removing from DB
-    await deleteWithCleanup(folderPath).catch(() => {});
-    await deleteConfig(folderPath).catch(() => {});
-    return removeProject(folderPath);
+    await removeProjectWithCleanup(folderPath);
+    return { success: true };
   });
   typedHandle('onboarding:seed-task', async (projectPath) => {
     await seedOnboardingTaskIfFirstProject(projectPath);
