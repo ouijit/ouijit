@@ -52,6 +52,18 @@ export function HomeView() {
   const [activePtyId, setActivePtyId] = useState<string | null>(null);
   const reconnectedRef = useRef(false);
 
+  // Stack order: bigger tick = closer to the front. A terminal gets a tick
+  // when it first appears and a fresh one each time it becomes the active
+  // card, so the back stack stays in most-recently-front order — adding or
+  // closing the front card only shifts its neighbors by one depth.
+  const stackTickRef = useRef(0);
+  const stackRecencyRef = useRef(new Map<string, number>());
+
+  useEffect(() => {
+    if (!activePtyId) return;
+    stackRecencyRef.current.set(activePtyId, ++stackTickRef.current);
+  }, [activePtyId]);
+
   useHookStatusListener(null);
 
   useEffect(() => {
@@ -107,6 +119,14 @@ export function HomeView() {
     const groups: Group[] = [];
     const seen = new Map<string, number>();
 
+    // Assign appearance ticks so a freshly spawned terminal sorts to the
+    // front of the back stack even before its activation tick lands
+    const recency = stackRecencyRef.current;
+    for (const ptyId of allPtyIds) {
+      if (!recency.has(ptyId)) recency.set(ptyId, ++stackTickRef.current);
+    }
+    const rank = (ptyId: string) => recency.get(ptyId) ?? 0;
+
     for (const ptyId of allPtyIds) {
       const display = displayStates[ptyId];
       if (!display) continue;
@@ -147,9 +167,13 @@ export function HomeView() {
       }
     }
 
-    const ordered = activeGroupKey
-      ? [...groups.filter((g) => g.key === activeGroupKey), ...groups.filter((g) => g.key !== activeGroupKey)]
-      : groups;
+    for (const group of groups) {
+      group.ptyIds.sort((a, b) => rank(b) - rank(a));
+    }
+
+    const groupRank = (group: Group) => Math.max(...group.ptyIds.map(rank));
+    const rest = groups.filter((g) => g.key !== activeGroupKey).sort((a, b) => groupRank(b) - groupRank(a));
+    const ordered = activeGroupKey ? [...groups.filter((g) => g.key === activeGroupKey), ...rest] : rest;
 
     const items: StackItem[] = [];
     let depth = 0;
