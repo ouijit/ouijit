@@ -1,7 +1,23 @@
-import { describe, test, expect, beforeEach, afterEach } from 'vitest';
+import { describe, test, expect, beforeEach, afterEach, vi } from 'vitest';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import * as os from 'node:os';
+
+// Pass-through mock so one test can make the path migration fail and exercise
+// moveProjects' rollback; every other test gets the real implementation.
+const pathRenameControl = vi.hoisted(() => ({ failNext: false }));
+vi.mock('../services/projectPathRename', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../services/projectPathRename')>();
+  return {
+    renameProjectPath: async (oldPath: string, newPath: string) => {
+      if (pathRenameControl.failNext) {
+        pathRenameControl.failNext = false;
+        throw new Error('database unavailable');
+      }
+      return actual.renameProjectPath(oldPath, newPath);
+    },
+  };
+});
 import {
   getDefaultProjectsDir,
   getFallbackProjectsDir,
@@ -205,6 +221,23 @@ describe('moveProjects', () => {
     expect(result.failed).toEqual([{ path: stray, error: 'Not a registered project' }]);
   });
 
+  test('rolls the directory rename back when the path migration fails', async () => {
+    const oldFolder = path.join(scratchDir, 'old');
+    const newFolder = path.join(scratchDir, 'new');
+    const projectPath = await makeFakeRepo(oldFolder, 'my-app');
+    await addProject(projectPath);
+    pathRenameControl.failNext = true;
+
+    const result = await moveProjects([projectPath], newFolder);
+
+    expect(result.moved).toEqual([]);
+    expect(result.failed).toEqual([{ path: projectPath, error: 'database unavailable' }]);
+    // Directory restored so disk and registry stay consistent
+    await expect(fs.access(projectPath)).resolves.toBeUndefined();
+    await expect(fs.access(path.join(newFolder, 'my-app'))).rejects.toThrow();
+    expect((await getAllProjects()).map((p) => p.path)).toContain(projectPath);
+  });
+
   test('one failure does not stop the other projects from moving', async () => {
     const oldFolder = path.join(scratchDir, 'old');
     const newFolder = path.join(scratchDir, 'new');
@@ -316,6 +349,25 @@ describe('applyProjectsFolderChange', () => {
     expect(result.committed).toBe(true);
     expect((await getAllProjects()).map((p) => p.path)).not.toContain(projectPath);
     await expect(fs.access(projectPath)).resolves.toBeUndefined();
+    expect(await getDefaultProjectsDir()).toBe(newFolder);
+  });
+
+  test('forget reports projects that fail to unregister and still commits', async () => {
+    const oldFolder = path.join(scratchDir, 'old');
+    const newFolder = path.join(scratchDir, 'new');
+    await setDefaultProjectsDir(oldFolder);
+    const projectPath = await makeFakeRepo(oldFolder, 'my-app');
+    await addProject(projectPath);
+
+    const result = await applyProjectsFolderChange(newFolder, 'forget', {
+      activeProjectPaths: noActiveSessions,
+      removeProject: async () => {
+        throw new Error('cleanup failed');
+      },
+    });
+
+    expect(result.committed).toBe(true);
+    expect(result.failed).toEqual([{ path: projectPath, error: 'cleanup failed' }]);
     expect(await getDefaultProjectsDir()).toBe(newFolder);
   });
 
