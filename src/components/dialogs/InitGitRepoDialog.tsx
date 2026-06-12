@@ -1,16 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { DialogOverlay } from './DialogOverlay';
 import { useAppStore } from '../../stores/appStore';
+import { folderName } from '../../utils/folderName';
 
 interface InitGitRepoDialogProps {
   folderPath: string;
   onClose: (result: { initialized: boolean; initialCommit: boolean } | null) => void;
-}
-
-/** Basename for display — full path is shown as a subtitle. */
-function folderName(folderPath: string): string {
-  const parts = folderPath.split(/[\\/]/).filter(Boolean);
-  return parts[parts.length - 1] ?? folderPath;
 }
 
 /**

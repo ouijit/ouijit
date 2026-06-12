@@ -82,6 +82,30 @@ export async function writeUserConfig(projectPath: string, yaml: string): Promis
   configLog.info('wrote sandbox config', { projectPath, configPath });
 }
 
+/**
+ * Move a project's config file to the location keyed by its new path.
+ * Config files are named by a hash of the project path, so the file must
+ * follow when a project directory moves. The VM instance (named by the same
+ * hash) is not migrated; a new one is provisioned from the moved config on
+ * the next sandboxed session.
+ */
+export async function renameConfig(oldProjectPath: string, newProjectPath: string): Promise<void> {
+  const oldConfigPath = getConfigPath(oldProjectPath);
+  const newConfigPath = getConfigPath(newProjectPath);
+  try {
+    await fs.rename(oldConfigPath, newConfigPath);
+    configLog.info('moved sandbox config', { oldConfigPath, newConfigPath });
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+      configLog.warn('failed to move sandbox config', {
+        oldConfigPath,
+        newConfigPath,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+}
+
 /** Delete the config file for a project */
 export async function deleteConfig(projectPath: string): Promise<void> {
   try {

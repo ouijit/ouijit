@@ -2,15 +2,35 @@ import os from 'os';
 import { shell, BrowserWindow, dialog } from 'electron';
 import { typedHandle } from '../helpers';
 import { getProjectList } from '../../scanner';
-import { addProject, removeProject, reorderProjects, getProjectSettings, setKillExistingOnRun } from '../../db';
-import { createProject, validateProjectFolder, initGitRepo } from '../../projectCreator';
-import { recordFirstProjectIfNeeded, seedOnboardingTaskIfFirstProject } from '../../onboarding';
+import { removeProject, reorderProjects, getProjectSettings, setKillExistingOnRun } from '../../db';
+import { initGitRepo } from '../../projectCreator';
+import {
+  getDefaultProjectsDir,
+  scanSiblingProjects,
+  prepareProjectsFolderChange,
+  applyProjectsFolderChange,
+} from '../../projectsFolder';
+import { addExistingProject, createAndRegisterProject } from '../../services/projectRegistration';
+import { seedOnboardingTaskIfFirstProject } from '../../onboarding';
 import { openInEditor, openFileInEditor } from '../../editorLauncher';
 import { deleteWithCleanup } from '../../lima/manager';
 import { deleteConfig } from '../../lima/configStore';
+import { getActiveSessions } from '../../ptyManager';
 import { getLogger } from '../../logger';
 
 const ipcLog = getLogger().scope('ipc');
+
+/** Projects with running terminal sessions; they refuse to be moved on disk. */
+function activeProjectPaths(): Set<string> {
+  return new Set(getActiveSessions().map((session) => session.projectPath));
+}
+
+/** Unregister a project, cleaning up its sandbox VM and config first. */
+async function removeProjectWithCleanup(folderPath: string): Promise<void> {
+  await deleteWithCleanup(folderPath).catch(() => {});
+  await deleteConfig(folderPath).catch(() => {});
+  await removeProject(folderPath);
+}
 
 export function registerProjectHandlers(mainWindow: BrowserWindow): void {
   typedHandle('get-projects', () => getProjectList());
@@ -42,31 +62,16 @@ export function registerProjectHandlers(mainWindow: BrowserWindow): void {
     return shell.openExternal(url);
   });
 
-  typedHandle('create-project', async (options) => {
-    const result = await createProject(options);
-    if (result.success && result.projectPath) {
-      try {
-        await addProject(result.projectPath);
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        ipcLog.error('failed to persist created project', { error: message });
-        return {
-          success: false,
-          error: `Project folder created at ${result.projectPath}, but registering it failed: ${message}`,
-        };
-      }
-      await recordFirstProjectIfNeeded(result.projectPath, 'created');
-    }
-    return result;
-  });
+  typedHandle('create-project', (options) => createAndRegisterProject(options));
 
-  typedHandle('show-folder-picker', async () => {
+  typedHandle('show-folder-picker', async (options) => {
     try {
       const targetWindow = BrowserWindow.getFocusedWindow() ?? mainWindow;
       const result = await dialog.showOpenDialog(targetWindow, {
-        properties: ['openDirectory'],
-        title: 'Add Project Folder',
-        buttonLabel: 'Add Project',
+        properties: ['openDirectory', 'createDirectory'],
+        title: options?.title ?? 'Add Project Folder',
+        buttonLabel: options?.buttonLabel ?? 'Add Project',
+        ...(options?.defaultPath ? { defaultPath: options.defaultPath } : {}),
       });
       return { canceled: result.canceled, filePaths: result.filePaths };
     } catch (error) {
@@ -75,23 +80,23 @@ export function registerProjectHandlers(mainWindow: BrowserWindow): void {
     }
   });
 
-  typedHandle('add-project', async (folderPath) => {
-    const validation = await validateProjectFolder(folderPath);
-    if (validation.ok === false) return { success: false, error: validation.error, reason: validation.reason };
-    try {
-      await addProject(folderPath);
-      await recordFirstProjectIfNeeded(folderPath, 'added');
-      return { success: true };
-    } catch (error) {
-      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
-    }
-  });
+  typedHandle('projects:get-default-folder', () => getDefaultProjectsDir());
+  typedHandle('projects:scan-siblings', (folderPath) => scanSiblingProjects(folderPath));
+  typedHandle('projects:prepare-folder-change', (newFolder) =>
+    prepareProjectsFolderChange(newFolder, activeProjectPaths()),
+  );
+  typedHandle('projects:apply-folder-change', (newFolder, action) =>
+    applyProjectsFolderChange(newFolder, action, {
+      activeProjectPaths: activeProjectPaths(),
+      removeProject: removeProjectWithCleanup,
+    }),
+  );
+
+  typedHandle('add-project', (folderPath) => addExistingProject(folderPath));
   typedHandle('init-git-repo', (folderPath, initialCommit) => initGitRepo(folderPath, { initialCommit }));
   typedHandle('remove-project', async (folderPath) => {
-    // Clean up sandbox config and VM before removing from DB
-    await deleteWithCleanup(folderPath).catch(() => {});
-    await deleteConfig(folderPath).catch(() => {});
-    return removeProject(folderPath);
+    await removeProjectWithCleanup(folderPath);
+    return { success: true };
   });
   typedHandle('onboarding:seed-task', async (projectPath) => {
     await seedOnboardingTaskIfFirstProject(projectPath);

@@ -34,6 +34,11 @@ import type {
   TagRow,
   Script,
   ValidateFolderFailureReason,
+  FolderPickerOptions,
+  SiblingScanResult,
+  ProjectsFolderChangePlan,
+  ProjectsFolderChangeAction,
+  ApplyProjectsFolderChangeResult,
 } from '../types';
 import type { SandboxStatus } from '../lima/types';
 import type { HookStatusEntry } from '../hookServer';
@@ -60,7 +65,14 @@ export interface IpcInvokeContract {
   'open-external': { args: [url: string]; return: void };
   'refresh-projects': { args: []; return: Project[] };
   'create-project': { args: [options: CreateProjectOptions]; return: CreateProjectResult };
-  'show-folder-picker': { args: []; return: { canceled: boolean; filePaths: string[] } };
+  'show-folder-picker': { args: [options?: FolderPickerOptions]; return: { canceled: boolean; filePaths: string[] } };
+  'projects:get-default-folder': { args: []; return: string };
+  'projects:scan-siblings': { args: [folderPath: string]; return: SiblingScanResult };
+  'projects:prepare-folder-change': { args: [newFolder: string]; return: ProjectsFolderChangePlan };
+  'projects:apply-folder-change': {
+    args: [newFolder: string, action: ProjectsFolderChangeAction];
+    return: ApplyProjectsFolderChangeResult;
+  };
   'add-project': {
     args: [folderPath: string];
     return: { success: boolean; error?: string; reason?: ValidateFolderFailureReason };

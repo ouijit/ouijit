@@ -461,6 +461,11 @@ export async function addProject(folderPath: string): Promise<void> {
   pr.add(folderPath, name);
 }
 
+export async function updateProjectPath(oldPath: string, newPath: string): Promise<void> {
+  const { projectRepo: pr } = repos();
+  pr.updatePath(oldPath, newPath);
+}
+
 export async function removeProject(folderPath: string): Promise<{ success: boolean }> {
   const { projectRepo: pr } = repos();
   pr.remove(folderPath);

@@ -480,7 +480,18 @@ export interface ElectronAPI {
   /** Create a new project */
   createProject(options: CreateProjectOptions): Promise<CreateProjectResult>;
   /** Show native folder picker dialog */
-  showFolderPicker(): Promise<{ canceled: boolean; filePaths: string[] }>;
+  showFolderPicker(options?: FolderPickerOptions): Promise<{ canceled: boolean; filePaths: string[] }>;
+  /** Get the folder new projects are created in (setting or built-in default) */
+  getDefaultProjectsFolder(): Promise<string>;
+  /** Scan a just-added project's parent directory for sibling git repos to offer adding */
+  scanSiblingProjects(folderPath: string): Promise<SiblingScanResult>;
+  /** Ask to change the projects folder; returns whether affected projects need a user decision */
+  prepareProjectsFolderChange(newFolder: string): Promise<ProjectsFolderChangePlan>;
+  /** Apply a projects folder change with the user's chosen action for affected projects */
+  applyProjectsFolderChange(
+    newFolder: string,
+    action: ProjectsFolderChangeAction,
+  ): Promise<ApplyProjectsFolderChangeResult>;
   /** Add a project folder to the app */
   addProject(folderPath: string): Promise<{ success: boolean; error?: string; reason?: ValidateFolderFailureReason }>;
   /** Initialize a git repository in an existing folder (recovers a non-git folder) */
@@ -664,6 +675,56 @@ export interface GlobalSettingsAPI {
  */
 export interface CreateProjectOptions {
   name: string;
+  /** Directory the project folder is created in. Defaults to the projects folder setting. */
+  parentDir?: string;
+}
+
+/** Options for the native directory picker */
+export interface FolderPickerOptions {
+  title?: string;
+  buttonLabel?: string;
+  defaultPath?: string;
+}
+
+/** Result of scanning a just-added project's parent directory for sibling git repos */
+export interface SiblingScanResult {
+  parentDir: string;
+  /** Absolute paths of sibling git repos not yet registered as projects */
+  siblings: string[];
+}
+
+/** What happens to projects living in the old folder when the projects folder setting changes */
+export type ProjectsFolderChangeAction = 'move' | 'forget' | 'keep';
+
+/** A registered project living in the current projects folder, affected by changing it */
+export interface AffectedProject {
+  path: string;
+  name: string;
+  /** Project has running terminal sessions and can't be moved until they're closed */
+  hasActiveSessions: boolean;
+}
+
+/**
+ * Result of asking the main process to change the projects folder setting.
+ *
+ * committed: no projects were affected, the setting changed immediately.
+ * needs-decision: projects live in the current folder; ask the user what
+ * happens to them, then call applyProjectsFolderChange.
+ * unchanged: the chosen folder is already the setting.
+ * invalid: the folder can't be used; `error` says why.
+ */
+export interface ProjectsFolderChangePlan {
+  status: 'committed' | 'needs-decision' | 'unchanged' | 'invalid';
+  error?: string;
+  affected: AffectedProject[];
+}
+
+/** Result of applying a projects folder change with the user's chosen action */
+export interface ApplyProjectsFolderChangeResult {
+  /** Whether the setting now points at the new folder */
+  committed: boolean;
+  moved: { from: string; to: string }[];
+  failed: { path: string; error: string }[];
 }
 
 /**

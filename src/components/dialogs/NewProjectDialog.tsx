@@ -10,6 +10,7 @@ const NAME_REGEX = /^[a-zA-Z0-9][a-zA-Z0-9 _-]*$/;
 
 export function NewProjectDialog({ onClose }: NewProjectDialogProps) {
   const [name, setName] = useState('');
+  const [location, setLocation] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [visible, setVisible] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -17,11 +18,28 @@ export function NewProjectDialog({ onClose }: NewProjectDialogProps) {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const gitMissing = health !== null && !health.git;
-  const isValid = NAME_REGEX.test(name) && !gitMissing;
+  const isValid = NAME_REGEX.test(name) && !gitMissing && location !== null;
 
   useEffect(() => {
     requestAnimationFrame(() => setVisible(true));
     inputRef.current?.focus();
+  }, []);
+
+  // The current default projects folder — whatever folder the project ends up
+  // created in is persisted as the new default by the main process.
+  useEffect(() => {
+    let cancelled = false;
+    window.api
+      .getDefaultProjectsFolder()
+      .then((folder) => {
+        if (!cancelled) setLocation(folder);
+      })
+      .catch(() => {
+        if (!cancelled) setError('Could not load the projects folder. Choose a location.');
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const dismiss = useCallback(
@@ -32,19 +50,30 @@ export function NewProjectDialog({ onClose }: NewProjectDialogProps) {
     [onClose],
   );
 
+  const handleChooseLocation = useCallback(async () => {
+    const result = await window.api.showFolderPicker({
+      title: 'Choose Projects Folder',
+      buttonLabel: 'Choose',
+      defaultPath: location ?? undefined,
+    });
+    if (!result.canceled && result.filePaths.length > 0) {
+      setLocation(result.filePaths[0]);
+    }
+  }, [location]);
+
   const handleCreate = useCallback(async () => {
     if (!isValid || creating) return;
     setError(null);
     setCreating(true);
 
-    const result = await window.api.createProject({ name: name.trim() });
+    const result = await window.api.createProject({ name: name.trim(), parentDir: location ?? undefined });
     if (result.success && result.projectPath) {
       dismiss({ created: true, projectName: name.trim(), projectPath: result.projectPath });
     } else {
       setError(result.error ?? 'Could not create project.');
       setCreating(false);
     }
-  }, [name, isValid, creating, dismiss]);
+  }, [name, location, isValid, creating, dismiss]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -69,7 +98,7 @@ export function NewProjectDialog({ onClose }: NewProjectDialogProps) {
           package manager.
         </div>
       )}
-      <div className="mb-6">
+      <div className="mb-6 flex flex-col gap-4">
         <div className="flex flex-col gap-1">
           <label className="text-sm font-medium text-text-secondary" htmlFor="project-name">
             Name
@@ -85,15 +114,29 @@ export function NewProjectDialog({ onClose }: NewProjectDialogProps) {
             onKeyDown={handleKeyDown}
             disabled={creating || gitMissing}
           />
-          {error && <p className="text-xs text-error mt-1">{error}</p>}
         </div>
+        <div className="flex flex-col gap-1">
+          <span className="text-sm font-medium text-text-secondary">Location</span>
+          <div className="flex items-center gap-2">
+            <div
+              className="flex-1 min-w-0 h-9 px-4 flex items-center text-xs font-mono text-text-secondary bg-background border border-border rounded-md truncate"
+              title={location ?? undefined}
+            >
+              <span className="truncate">{location ?? '…'}</span>
+            </div>
+            <button className="btn-secondary shrink-0" onClick={handleChooseLocation} disabled={creating}>
+              Choose…
+            </button>
+          </div>
+        </div>
+        {error && <p className="text-xs text-error">{error}</p>}
       </div>
       <div className="flex gap-2 justify-end mt-4 items-center">
         <button className="btn-secondary" onClick={() => dismiss(null)} disabled={creating}>
           Cancel
         </button>
         <button className="btn-primary" onClick={handleCreate} disabled={!isValid || creating}>
-          {creating ? 'Creating\u2026' : 'Create'}
+          {creating ? 'Creating…' : 'Create'}
         </button>
       </div>
     </DialogOverlay>

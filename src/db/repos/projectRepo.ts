@@ -1,5 +1,13 @@
 import type Database from 'better-sqlite3';
 
+/**
+ * Global-settings keys of the form `<prefix><projectPath>`. Must stay in sync
+ * with the renderer stores that write them: canvasStore ('canvas:'),
+ * worktreeSettingsStore ('worktree:'), experimentalStore ('experimental:').
+ * Any new path-keyed setting prefix must be added here so updatePath migrates it.
+ */
+const PATH_KEYED_SETTING_PREFIXES = ['canvas:', 'worktree:', 'experimental:'];
+
 export interface ProjectRow {
   path: string;
   name: string;
@@ -34,6 +42,30 @@ export class ProjectRepo {
   remove(path: string): void {
     // CASCADE will clean up tasks, counters, settings, hooks
     this.db.prepare('DELETE FROM projects WHERE path = ?').run(path);
+  }
+
+  /**
+   * Rewrites a project's path everywhere it's stored. The path is the primary
+   * key referenced by every per-project table (no ON UPDATE CASCADE), so all
+   * tables update in one transaction with foreign-key checks deferred to commit.
+   * Path-keyed global_settings rows migrate in the same transaction.
+   */
+  updatePath(oldPath: string, newPath: string): void {
+    this.db.transaction(() => {
+      // Resets automatically at the end of this transaction.
+      this.db.pragma('defer_foreign_keys = ON');
+      this.db.prepare('UPDATE projects SET path = ? WHERE path = ?').run(newPath, oldPath);
+      this.db.prepare('UPDATE tasks SET project_path = ? WHERE project_path = ?').run(newPath, oldPath);
+      this.db.prepare('UPDATE project_counters SET project_path = ? WHERE project_path = ?').run(newPath, oldPath);
+      this.db.prepare('UPDATE project_settings SET project_path = ? WHERE project_path = ?').run(newPath, oldPath);
+      this.db.prepare('UPDATE hooks SET project_path = ? WHERE project_path = ?').run(newPath, oldPath);
+      this.db.prepare('UPDATE scripts SET project_path = ? WHERE project_path = ?').run(newPath, oldPath);
+      // OR REPLACE: if a row already exists under the new path, the old one wins.
+      const renameSetting = this.db.prepare('UPDATE OR REPLACE global_settings SET key = ? WHERE key = ?');
+      for (const prefix of PATH_KEYED_SETTING_PREFIXES) {
+        renameSetting.run(prefix + newPath, prefix + oldPath);
+      }
+    })();
   }
 
   /** Reorder projects by setting sort_order based on the given path order */

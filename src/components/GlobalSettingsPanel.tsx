@@ -1,8 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { useAppStore } from '../stores/appStore';
+import { useProjectStore } from '../stores/projectStore';
 import { setTerminalFontFamily, setTerminalFontSize } from './terminal/terminalReact';
 import { setReadyAudioDisabled } from '../utils/notifications';
 import { FontPickerRow } from './FontPickerRow';
+import { MoveProjectsDialog } from './dialogs/MoveProjectsDialog';
+import type { AffectedProject, ProjectsFolderChangeAction } from '../types';
+import log from 'electron-log/renderer';
+
+const settingsLog = log.scope('globalSettings');
 
 const DEFAULT_TERMINAL_FONT_SIZE = 14;
 const MIN_TERMINAL_FONT_SIZE = 8;
@@ -13,6 +19,11 @@ export function GlobalSettingsPanel() {
   const [readyAudio, setReadyAudio] = useState(true);
   const [fontFamily, setFontFamily] = useState('');
   const [fontSize, setFontSize] = useState<number | null>(null);
+  const [projectsFolder, setProjectsFolder] = useState<string | null>(null);
+  const [moveDialog, setMoveDialog] = useState<{
+    newFolder: string;
+    projects: AffectedProject[];
+  } | null>(null);
 
   // Hydrate persisted settings on mount.
   useEffect(() => {
@@ -22,14 +33,22 @@ export function GlobalSettingsPanel() {
       window.api.globalSettings.get('disableReadyAudio'),
       window.api.globalSettings.get('terminal:font-family'),
       window.api.globalSettings.get('terminal:font-size'),
-    ]).then(([disableUpdates, disableReadyAudio, family, size]) => {
-      if (cancelled) return;
-      setAutoUpdate(disableUpdates !== '1');
-      setReadyAudio(disableReadyAudio !== '1');
-      setFontFamily(family ?? '');
-      const parsed = parseFloat((size ?? '').trim());
-      setFontSize(Number.isFinite(parsed) && parsed > 0 ? parsed : null);
-    });
+      window.api.getDefaultProjectsFolder(),
+    ])
+      .then(([disableUpdates, disableReadyAudio, family, size, folder]) => {
+        if (cancelled) return;
+        setAutoUpdate(disableUpdates !== '1');
+        setReadyAudio(disableReadyAudio !== '1');
+        setFontFamily(family ?? '');
+        const parsed = parseFloat((size ?? '').trim());
+        setFontSize(Number.isFinite(parsed) && parsed > 0 ? parsed : null);
+        setProjectsFolder(folder);
+      })
+      .catch((error) => {
+        settingsLog.error('failed to hydrate settings', {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      });
     return () => {
       cancelled = true;
     };
@@ -73,6 +92,61 @@ export function GlobalSettingsPanel() {
     await window.api.globalSettings.set('terminal:font-size', value == null ? '' : String(value));
   };
 
+  const handleChangeProjectsFolder = async () => {
+    const result = await window.api.showFolderPicker({
+      title: 'Choose Projects Folder',
+      buttonLabel: 'Choose',
+      defaultPath: projectsFolder ?? undefined,
+    });
+    if (result.canceled || result.filePaths.length === 0) return;
+    const newFolder = result.filePaths[0];
+
+    // The main process owns the setting: it validates the folder, finds the
+    // projects living in the current one, and commits when none are affected.
+    const plan = await window.api.prepareProjectsFolderChange(newFolder);
+    const { addToast } = useProjectStore.getState();
+    if (plan.status === 'unchanged') return;
+    if (plan.status === 'invalid') {
+      addToast(plan.error ?? 'That folder cannot be used', 'error');
+      return;
+    }
+    if (plan.status === 'committed') {
+      setProjectsFolder(newFolder);
+      addToast('Projects folder updated', 'success');
+      return;
+    }
+    setMoveDialog({ newFolder, projects: plan.affected });
+  };
+
+  const handleMoveDialogClose = async (result: { action: ProjectsFolderChangeAction } | null) => {
+    const dialog = moveDialog;
+    setMoveDialog(null);
+    if (!result || !dialog) return;
+    const { addToast } = useProjectStore.getState();
+
+    const outcome = await window.api.applyProjectsFolderChange(dialog.newFolder, result.action);
+    for (const failure of outcome.failed) {
+      addToast(`Could not move ${failure.path}: ${failure.error}`, 'error');
+    }
+    if (outcome.moved.length > 0) {
+      addToast(`Moved ${outcome.moved.length} ${outcome.moved.length === 1 ? 'project' : 'projects'}`, 'success');
+    }
+    if (result.action === 'forget') {
+      addToast(`Forgot ${dialog.projects.length} ${dialog.projects.length === 1 ? 'project' : 'projects'}`, 'info');
+    }
+    if (outcome.committed) {
+      setProjectsFolder(dialog.newFolder);
+    } else {
+      addToast('The projects folder was not changed', 'info');
+    }
+
+    if (result.action !== 'keep') {
+      const refreshed = await window.api.refreshProjects();
+      useAppStore.getState().setProjects(refreshed);
+      await useAppStore.getState().loadHomeRecents();
+    }
+  };
+
   return (
     <div
       className="flex flex-col h-full transition-[margin-left] duration-200 ease-out"
@@ -92,6 +166,25 @@ export function GlobalSettingsPanel() {
               project's settings.
             </p>
           </div>
+          <section>
+            <h2 className="text-sm font-semibold text-text-primary mb-4">Projects</h2>
+            <div
+              className="glass-bevel relative border border-black/60 rounded-[14px] overflow-hidden divide-y divide-white/[0.06] bg-[var(--color-terminal-bg,#171717)]"
+              style={{
+                boxShadow:
+                  '0 0 0 1px rgba(0, 0, 0, 0.05), 0 4px 12px rgba(0, 0, 0, 0.15), 0 20px 40px rgba(0, 0, 0, 0.2)',
+              }}
+            >
+              <PathRow
+                label="Projects folder"
+                description="New projects are created here. Changing it lets you move or forget existing projects."
+                value={projectsFolder}
+                buttonLabel="Change…"
+                onChoose={handleChangeProjectsFolder}
+              />
+            </div>
+          </section>
+
           <section>
             <h2 className="text-sm font-semibold text-text-primary mb-4">Terminal</h2>
             <div
@@ -158,6 +251,38 @@ export function GlobalSettingsPanel() {
           </section>
         </div>
       </div>
+      {moveDialog && (
+        <MoveProjectsDialog
+          newFolder={moveDialog.newFolder}
+          projects={moveDialog.projects}
+          onClose={handleMoveDialogClose}
+        />
+      )}
+    </div>
+  );
+}
+
+interface PathRowProps {
+  label: string;
+  description: string;
+  value: string | null;
+  buttonLabel: string;
+  onChoose: () => void;
+}
+
+function PathRow({ label, description, value, buttonLabel, onChoose }: PathRowProps) {
+  return (
+    <div className="flex items-center gap-4 px-4 py-3 hover:bg-white/[0.02]">
+      <div className="flex-1 min-w-0">
+        <div className="text-sm text-text-primary">{label}</div>
+        <div className="text-xs text-text-tertiary mt-0.5">{description}</div>
+        <div className="text-xs font-mono text-text-secondary mt-1.5 truncate" title={value ?? undefined}>
+          {value ?? '…'}
+        </div>
+      </div>
+      <button type="button" className="btn-secondary shrink-0" onClick={onChoose}>
+        {buttonLabel}
+      </button>
     </div>
   );
 }
