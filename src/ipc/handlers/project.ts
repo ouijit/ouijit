@@ -1,18 +1,17 @@
 import os from 'os';
-import path from 'node:path';
 import { shell, BrowserWindow, dialog } from 'electron';
 import { typedHandle } from '../helpers';
 import { getProjectList } from '../../scanner';
-import { addProject, removeProject, reorderProjects, getProjectSettings, setKillExistingOnRun } from '../../db';
-import { createProject, validateProjectFolder, initGitRepo } from '../../projectCreator';
+import { removeProject, reorderProjects, getProjectSettings, setKillExistingOnRun } from '../../db';
+import { initGitRepo } from '../../projectCreator';
 import {
   getDefaultProjectsDir,
-  setDefaultProjectsDir,
   scanSiblingProjects,
   prepareProjectsFolderChange,
   applyProjectsFolderChange,
 } from '../../projectsFolder';
-import { recordFirstProjectIfNeeded, seedOnboardingTaskIfFirstProject } from '../../onboarding';
+import { addExistingProject, createAndRegisterProject } from '../../services/projectRegistration';
+import { seedOnboardingTaskIfFirstProject } from '../../onboarding';
 import { openInEditor, openFileInEditor } from '../../editorLauncher';
 import { deleteWithCleanup } from '../../lima/manager';
 import { deleteConfig } from '../../lima/configStore';
@@ -63,25 +62,7 @@ export function registerProjectHandlers(mainWindow: BrowserWindow): void {
     return shell.openExternal(url);
   });
 
-  typedHandle('create-project', async (options) => {
-    const result = await createProject(options);
-    if (result.success && result.projectPath) {
-      try {
-        await addProject(result.projectPath);
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        ipcLog.error('failed to persist created project', { error: message });
-        return {
-          success: false,
-          error: `Project folder created at ${result.projectPath}, but registering it failed: ${message}`,
-        };
-      }
-      // The folder this project was created in becomes the default for the next one.
-      await setDefaultProjectsDir(path.dirname(result.projectPath));
-      await recordFirstProjectIfNeeded(result.projectPath, 'created');
-    }
-    return result;
-  });
+  typedHandle('create-project', (options) => createAndRegisterProject(options));
 
   typedHandle('show-folder-picker', async (options) => {
     try {
@@ -111,17 +92,7 @@ export function registerProjectHandlers(mainWindow: BrowserWindow): void {
     }),
   );
 
-  typedHandle('add-project', async (folderPath) => {
-    const validation = await validateProjectFolder(folderPath);
-    if (validation.ok === false) return { success: false, error: validation.error, reason: validation.reason };
-    try {
-      await addProject(folderPath);
-      await recordFirstProjectIfNeeded(folderPath, 'added');
-      return { success: true };
-    } catch (error) {
-      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
-    }
-  });
+  typedHandle('add-project', (folderPath) => addExistingProject(folderPath));
   typedHandle('init-git-repo', (folderPath, initialCommit) => initGitRepo(folderPath, { initialCommit }));
   typedHandle('remove-project', async (folderPath) => {
     await removeProjectWithCleanup(folderPath);

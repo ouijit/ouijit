@@ -2,12 +2,15 @@
  * Creates a new project directory with git init.
  */
 
-import { execSync } from 'node:child_process';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import type { CreateProjectOptions, CreateProjectResult, ValidateFolderFailureReason } from './types';
 import { getDefaultProjectsDir } from './projectsFolder';
 import { getLogger } from './logger';
+
+const execFileAsync = promisify(execFile);
 
 const creatorLog = getLogger().scope('projectCreator');
 
@@ -41,15 +44,11 @@ export async function validateProjectFolder(folderPath: string): Promise<Validat
 }
 
 /** True when both git user.name and user.email resolve in this folder's context. */
-function gitIdentityConfigured(cwd: string): boolean {
+async function gitIdentityConfigured(cwd: string): Promise<boolean> {
   try {
-    const name = execSync('git config user.name', { cwd, stdio: ['ignore', 'pipe', 'ignore'] })
-      .toString()
-      .trim();
-    const email = execSync('git config user.email', { cwd, stdio: ['ignore', 'pipe', 'ignore'] })
-      .toString()
-      .trim();
-    return name.length > 0 && email.length > 0;
+    const { stdout: name } = await execFileAsync('git', ['config', 'user.name'], { cwd });
+    const { stdout: email } = await execFileAsync('git', ['config', 'user.email'], { cwd });
+    return name.trim().length > 0 && email.trim().length > 0;
   } catch {
     return false;
   }
@@ -87,7 +86,7 @@ export async function initGitRepo(
   }
 
   try {
-    execSync('git init', { cwd: folderPath, stdio: 'ignore' });
+    await execFileAsync('git', ['init'], { cwd: folderPath });
   } catch (error) {
     creatorLog.error('git init failed', {
       folderPath,
@@ -101,13 +100,13 @@ export async function initGitRepo(
 
   if (options.initialCommit) {
     try {
-      execSync('git add -A', { cwd: folderPath, stdio: 'ignore' });
+      await execFileAsync('git', ['add', '-A'], { cwd: folderPath });
       // Prefer the user's configured identity; fall back to a neutral one only
       // when git has none, so first-time users still get a commit instead of an
       // "Author identity unknown" failure.
-      const hasIdentity = gitIdentityConfigured(folderPath);
-      const identityFlags = hasIdentity ? '' : '-c user.name="Ouijit" -c user.email="noreply@ouijit.dev" ';
-      execSync(`git ${identityFlags}commit -m "Initial commit"`, { cwd: folderPath, stdio: 'ignore' });
+      const hasIdentity = await gitIdentityConfigured(folderPath);
+      const identityFlags = hasIdentity ? [] : ['-c', 'user.name=Ouijit', '-c', 'user.email=noreply@ouijit.dev'];
+      await execFileAsync('git', [...identityFlags, 'commit', '-m', 'Initial commit'], { cwd: folderPath });
     } catch (error) {
       // Best-effort: nothing to commit (empty folder). The repo is still
       // initialized, which is all the add-project flow requires.
@@ -151,7 +150,7 @@ export async function createProject(options: CreateProjectOptions): Promise<Crea
 
     // Initialize git — required. If this fails, roll back the directory.
     try {
-      execSync('git init', { cwd: projectPath, stdio: 'ignore' });
+      await execFileAsync('git', ['init'], { cwd: projectPath });
     } catch (gitError) {
       creatorLog.error('failed to initialize git', {
         error: gitError instanceof Error ? gitError.message : String(gitError),
