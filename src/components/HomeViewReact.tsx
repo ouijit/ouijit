@@ -3,7 +3,7 @@ import { useAppStore } from '../stores/appStore';
 import { useTerminalStore } from '../stores/terminalStore';
 import { useUIStore } from '../stores/uiStore';
 import { terminalInstances } from './terminal/terminalReact';
-import { reconnectTerminal, addProjectTerminal } from './terminal/terminalActions';
+import { reconnectTerminal, addProjectTerminal, closeProjectTerminal } from './terminal/terminalActions';
 import { TerminalHeader } from './terminal/TerminalHeader';
 import { TerminalBody } from './terminal/TerminalBody';
 import { XTermContainer } from './terminal/XTermContainer';
@@ -53,17 +53,6 @@ export function HomeView() {
   const reconnectedRef = useRef(false);
 
   useHookStatusListener(null);
-
-  // Keep activePtyId valid: if the active terminal was removed, fall back
-  useEffect(() => {
-    if (allPtyIds.length === 0) {
-      if (activePtyId !== null) setActivePtyId(null);
-      return;
-    }
-    if (activePtyId === null || !allPtyIds.includes(activePtyId)) {
-      setActivePtyId(allPtyIds[allPtyIds.length - 1]);
-    }
-  }, [allPtyIds, activePtyId]);
 
   useEffect(() => {
     window.api.getProjects().then((projs) => {
@@ -184,6 +173,19 @@ export function HomeView() {
     return { stackItems: items, orderedGroups: ordered };
   }, [allPtyIds, displayStates, homeGroupMode, activeDisplay, activePtyId]);
 
+  // Keep activePtyId valid: if the active terminal was removed, fall back to
+  // the front-most card of the back stack (visual order, not insertion order)
+  useEffect(() => {
+    if (allPtyIds.length === 0) {
+      if (activePtyId !== null) setActivePtyId(null);
+      return;
+    }
+    if (activePtyId === null || !allPtyIds.includes(activePtyId)) {
+      const next = stackItems.find((i): i is Extract<StackItem, { type: 'terminal' }> => i.type === 'terminal');
+      setActivePtyId(next ? next.ptyId : allPtyIds[allPtyIds.length - 1]);
+    }
+  }, [allPtyIds, activePtyId, stackItems]);
+
   const maxDepth = stackItems.length > 0 ? stackItems[stackItems.length - 1].depth : 0;
 
   const stackTop = 82 + maxDepth * 24;
@@ -207,11 +209,16 @@ export function HomeView() {
       if (!mod) return;
       const key = e.key.toLowerCase();
 
-      // Cmd+I — new terminal
+      // Cmd+I — new terminal, brought to the front of the stack
       if (key === 'i') {
         e.preventDefault();
         e.stopPropagation();
-        window.api.homePath().then((homePath) => addProjectTerminal(homePath));
+        window.api.homePath().then(async (homePath) => {
+          const added = await addProjectTerminal(homePath);
+          if (!added) return;
+          const ptyIds = useTerminalStore.getState().terminalsByProject[homePath];
+          if (ptyIds && ptyIds.length > 0) setActivePtyId(ptyIds[ptyIds.length - 1]);
+        });
         return;
       }
 
@@ -227,9 +234,11 @@ export function HomeView() {
       if (key === 'w' && activePtyId) {
         e.preventDefault();
         e.stopPropagation();
-        const instance = terminalInstances.get(activePtyId);
-        if (instance) instance.dispose();
-        useTerminalStore.getState().removeTerminal(activePtyId);
+        // Promote the next card in visual stack order before closing so
+        // repeated Cmd+W peels cards front-to-back
+        const next = stackItems.find((i): i is Extract<StackItem, { type: 'terminal' }> => i.type === 'terminal');
+        if (next) setActivePtyId(next.ptyId);
+        closeProjectTerminal(activePtyId);
         return;
       }
 
@@ -274,9 +283,11 @@ export function HomeView() {
   );
 
   const handleClose = (ptyId: string) => {
-    const instance = terminalInstances.get(ptyId);
-    if (instance) instance.dispose();
-    useTerminalStore.getState().removeTerminal(ptyId);
+    if (ptyId === activePtyId) {
+      const next = stackItems.find((i): i is Extract<StackItem, { type: 'terminal' }> => i.type === 'terminal');
+      if (next) setActivePtyId(next.ptyId);
+    }
+    closeProjectTerminal(ptyId);
   };
 
   const {
