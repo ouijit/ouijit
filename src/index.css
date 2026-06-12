@@ -562,26 +562,6 @@ textarea,
 }
 
 /* ===================================
-   xterm overrides — third-party DOM we don't control
-   =================================== */
-
-.terminal-xterm-container .xterm {
-  @apply h-full w-full;
-}
-
-.terminal-xterm-container .xterm-viewport {
-  background-color: transparent !important;
-}
-
-.runner-xterm-container .xterm {
-  @apply h-full w-full;
-}
-
-.runner-xterm-container .xterm-viewport {
-  background-color: transparent !important;
-}
-
-/* ===================================
    Plan panel markdown styles
    =================================== */
 

@@ -7,6 +7,6 @@ export default defineConfig({
     minify: false,
   },
   optimizeDeps: {
-    exclude: ['xterm'],
+    exclude: ['ghostty-web'],
   },
 });

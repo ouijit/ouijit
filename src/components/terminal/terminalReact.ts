@@ -1,14 +1,16 @@
 /**
- * OuijitTerminal (React) — encapsulates xterm instance, PTY lifecycle,
- * and display state push to Zustand terminalStore.
+ * OuijitTerminal (React) — encapsulates the ghostty-web terminal instance,
+ * PTY lifecycle, and display state push to Zustand terminalStore.
  *
  * React owns the card chrome (header, tags, git stats, runner panel).
- * This class owns only the xterm viewport and imperative PTY wiring.
+ * This class owns only the terminal viewport and imperative PTY wiring.
+ *
+ * ghostty-web exposes an xterm.js-compatible API (Terminal, FitAddon,
+ * buffer/selection/scroll methods), so the `xterm` property name is kept
+ * for the rest of the renderer.
  */
 
-import { Terminal as XTerminal } from '@xterm/xterm';
-import { FitAddon } from '@xterm/addon-fit';
-import { WebLinksAddon } from '@xterm/addon-web-links';
+import { Terminal as XTerminal, FitAddon, UrlRegexProvider, type ILink } from 'ghostty-web';
 import type { PtyId, PtySpawnOptions, GitFileStatus } from '../../types';
 import { notifyReady, readyBody } from '../../utils/notifications';
 import { generateId } from '../../utils/ids';
@@ -69,9 +71,6 @@ function getTerminalTheme(): Record<string, string> {
     cursor: '#e4e4e4',
     cursorAccent: '#171717',
     selectionBackground: 'rgba(255, 255, 255, 0.15)',
-    scrollbarSliderBackground: 'rgba(255, 255, 255, 0.15)',
-    scrollbarSliderHoverBackground: 'rgba(255, 255, 255, 0.3)',
-    scrollbarSliderActiveBackground: 'rgba(255, 255, 255, 0.4)',
     black: '#171717',
     red: '#ff6b6b',
     green: '#69db7c',
@@ -100,9 +99,9 @@ function setupTerminalAppHotkeys(terminal: XTerminal, writeToPty: (data: string)
 
     // Shift+Enter — emit the Kitty keyboard-protocol CSI 13;2u sequence so
     // TUIs (Claude Code, Pi, Codex) insert a line break instead of submitting.
-    // xterm.js otherwise maps Shift+Enter to a plain CR, identical to Enter.
-    // Pi only recognizes shift+enter via CSI-u when the kitty protocol is
-    // inactive — the previous ESC+CR (`\x1b\r`) was parsed by Pi as
+    // The terminal otherwise maps Shift+Enter to a plain CR, identical to
+    // Enter. Pi only recognizes shift+enter via CSI-u when the kitty protocol
+    // is inactive — the previous ESC+CR (`\x1b\r`) was parsed by Pi as
     // alt+enter and queued a follow-up instead of breaking the line. See
     // pi-mono/packages/tui/src/keys.ts.
     if (
@@ -113,10 +112,10 @@ function setupTerminalAppHotkeys(terminal: XTerminal, writeToPty: (data: string)
       !event.metaKey &&
       !event.altKey
     ) {
-      // preventDefault is required: returning false alone skips xterm's
-      // keydown handling but also skips the preventDefault it would have
-      // done, so the textarea still emits a trailing carriage return that
-      // submits the prompt right after our newline.
+      // preventDefault is required: returning false alone skips the
+      // terminal's keydown handling but also skips the preventDefault it
+      // would have done, so the hidden textarea still emits a trailing
+      // carriage return that submits the prompt right after our newline.
       event.preventDefault();
       writeToPty('\x1b[13;2u');
       return false;
@@ -230,6 +229,13 @@ export function resolveTerminalLabel(
 
 /** Global registry of OuijitTerminal instances by ptyId */
 export const terminalInstances = new Map<string, OuijitTerminal>();
+
+// Expose for e2e tests — ghostty-web renders to canvas, so Playwright reads
+// terminal text through the buffer API instead of querying DOM rows.
+// Guarded: some unit tests import this module in a node environment.
+if (typeof window !== 'undefined') {
+  (window as any).__terminalInstances = terminalInstances;
+}
 
 // ── Terminal font (global setting cache) ─────────────────────────────
 
@@ -470,12 +476,11 @@ export class OuijitTerminal {
     this.summaryType = opts.initialSummaryType ?? 'ready';
     this.tags = opts.tags ?? [];
 
-    // Create xterm instance
+    // Create ghostty-web terminal instance
     this.xterm = new XTerminal({
       theme: getTerminalTheme(),
       fontFamily: cachedTerminalFontFamily,
       fontSize: cachedTerminalFontSize,
-      lineHeight: 1.2,
       cursorBlink: !this.isRunner,
       cursorStyle: 'bar',
       allowTransparency: false,
@@ -484,11 +489,6 @@ export class OuijitTerminal {
 
     this.fitAddon = new FitAddon();
     this.xterm.loadAddon(this.fitAddon);
-    this.xterm.loadAddon(
-      new WebLinksAddon((_event, uri) => {
-        window.api.openExternal(uri);
-      }),
-    );
 
     setupTerminalAppHotkeys(this.xterm, (data) => {
       if (this.ptyId) window.api.pty.write(this.ptyId, data);
@@ -526,9 +526,29 @@ export class OuijitTerminal {
 
   // ── Public API ──────────────────────────────────────────────────────
 
-  /** Open the xterm in its viewport element and set up drag/drop. */
+  /** Open the terminal in its viewport element and set up links + drag/drop. */
   openTerminal(): void {
     this.xterm.open(this.viewportElement);
+
+    // URL detection: reuse ghostty-web's regex provider but route activation
+    // through the main process so links open in the system browser instead of
+    // a new Electron window. Must run after open() — ghostty-web rejects link
+    // providers on an unopened terminal.
+    const urlProvider = new UrlRegexProvider(this.xterm);
+    this.xterm.registerLinkProvider({
+      provideLinks: (y: number, callback: (links: ILink[] | undefined) => void) => {
+        urlProvider.provideLinks(y, (links) => {
+          callback(
+            links?.map((link) => ({
+              ...link,
+              activate: () => window.api.openExternal(link.text),
+            })),
+          );
+        });
+      },
+      dispose: () => urlProvider.dispose(),
+    });
+
     this.wireDragDrop(this.viewportElement);
   }
 
@@ -953,7 +973,7 @@ export class OuijitTerminal {
   }
 
   private wireDragDrop(xtermContainer: HTMLElement): void {
-    const screen = xtermContainer.querySelector('.xterm-screen');
+    const screen = xtermContainer.querySelector('canvas');
     const target = screen || xtermContainer;
 
     target.addEventListener('dragover', (e) => {

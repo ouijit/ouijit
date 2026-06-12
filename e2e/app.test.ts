@@ -27,10 +27,11 @@ async function enterProject(appPage: Page, repoPath: string): Promise<void> {
 }
 
 /**
- * Helper: dismiss the kanban board by pressing Escape.
+ * Helper: dismiss the kanban board. Board toggling is owned by Cmd/Ctrl+T
+ * (Escape is reserved for form-level resets inside the board).
  */
 async function dismissKanban(appPage: Page): Promise<void> {
-  await appPage.keyboard.press('Escape');
+  await appPage.keyboard.press(`${modifier}+t`);
   await expect(appPage.locator('.kanban-board')).toHaveCount(0, { timeout: 5_000 });
 }
 
@@ -205,11 +206,20 @@ test('terminal reconnect after reload does not produce % artifacts', async ({ ap
   // Wait for reconnection and any resize events to settle
   await appPage.waitForTimeout(3_000);
 
-  // Read the terminal's visible text content
-  // xterm renders rows in .xterm-rows; text is accessible via textContent
+  // Read the terminal's text content. ghostty-web renders to canvas, so the
+  // text is read through the buffer API on the exposed instance registry.
   const terminalText = await appPage.evaluate(() => {
-    const rows = document.querySelector('.terminal-xterm-container .xterm-rows');
-    return rows?.textContent ?? '';
+    type BufferLine = { translateToString(trimRight?: boolean): string };
+    type Instance = { xterm: { buffer: { active: { length: number; getLine(y: number): BufferLine | undefined } } } };
+    const instances = (window as { __terminalInstances?: Map<string, Instance> }).__terminalInstances;
+    const instance = instances?.values().next().value;
+    if (!instance) return '';
+    const buffer = instance.xterm.buffer.active;
+    const lines: string[] = [];
+    for (let y = 0; y < buffer.length; y++) {
+      lines.push(buffer.getLine(y)?.translateToString(false) ?? '');
+    }
+    return lines.join('\n');
   });
 
   // The marker should be present (reconnection replayed the buffer)
@@ -433,7 +443,7 @@ test('update available: persistent toast with download action', async ({ appPage
   await expect(toast).toBeVisible();
 
   // Dismiss via close button
-  const closeBtn = toast.locator('button', { hasText: '✕' });
+  const closeBtn = toast.locator('button[aria-label="Dismiss"]');
   await expect(closeBtn).toBeVisible();
   await closeBtn.click();
   await expect(toast).not.toBeVisible({ timeout: 3_000 });
