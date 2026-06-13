@@ -44,6 +44,7 @@ import type { SandboxStatus } from '../lima/types';
 import type { HookStatusEntry } from '../hookServer';
 import type { HealthStatus } from '../healthCheck';
 import type { CaptureNavigatePayload } from '../capture/types';
+import type { SessionInvokeContract, SessionPushContract } from '../sessions/model';
 
 /** Hooks object returned by hooks:get — derived from the canonical ProjectSettings type */
 export type ProjectHooks = NonNullable<ProjectSettings['hooks']>;
@@ -52,7 +53,11 @@ export type ProjectHooks = NonNullable<ProjectSettings['hooks']>;
  * Invoke channels: renderer calls via ipcRenderer.invoke(), main responds via ipcMain.handle().
  * Each entry maps a channel name to its positional argument tuple and return type.
  */
-export interface IpcInvokeContract {
+export interface IpcInvokeContract extends SessionInvokeContract {
+  // ── Sessions (firewall #460; handlers wired by #462) ─────────────────
+  // session:list / get / attach / detach / reattach — see SessionInvokeContract
+  // in ../sessions/model.ts, the authoritative session contract.
+
   // ── Project ──────────────────────────────────────────────────────────
   'get-projects': { args: []; return: Project[] };
   'open-project': { args: [projectPath: string]; return: { success: boolean } };
@@ -245,7 +250,8 @@ export interface IpcSendContract {
  * included here because their channel names are constructed at runtime. They are
  * handled directly in preload.ts and ptyManager.ts / lima/spawn.ts.
  */
-export interface IpcPushContract {
+export interface IpcPushContract extends SessionPushContract {
+  // session:event — unified SessionEvent stream; see ../sessions/model.ts.
   'fullscreen-change': { args: [isFullscreen: boolean] };
   'agent-hook-status': { args: [ptyId: string, status: import('../hookServer').HookStatus] };
   'claude-plan-detected': { args: [ptyId: string, planPath: string] };

@@ -21,6 +21,11 @@ export type { TaskStatus, TaskMetadata } from './db';
 export type { TagRow } from './db';
 // Re-export PTY session type from ptyManager.ts (single source of truth)
 export type { ActiveSession } from './ptyManager';
+// The authoritative, durability-first Session model (id/state machine/event
+// stream/detach-attach/buffer access) lives in ./sessions/model.ts. It is the
+// firewall contract for the session tracks (#461/#462/#463) and is imported
+// directly from there (not re-exported here — it depends on PtyId below, so a
+// re-export would form an import cycle).
 // Re-export sandbox status from lima/types.ts (single source of truth)
 export type { SandboxStatus } from './lima/types';
 // Re-export hook status types from hookServer.ts (single source of truth)
