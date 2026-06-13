@@ -562,6 +562,19 @@ textarea,
 }
 
 /* ===================================
+   Terminal (ghostty-web)
+   =================================== */
+
+/* ghostty-web draws the real cursor on its canvas and keeps a hidden textarea
+   for input/IME. The textarea is visually suppressed with opacity:0 but still
+   inherits a light caret-color, so when it takes focus Chromium paints a second
+   blinking caret at the viewport's top-left — "outside the shell". Suppress it. */
+.terminal-xterm-container textarea,
+.runner-xterm-container textarea {
+  caret-color: transparent;
+}
+
+/* ===================================
    Plan panel markdown styles
    =================================== */
 

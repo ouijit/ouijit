@@ -94,6 +94,9 @@ function getTerminalTheme(): Record<string, string> {
 const isMac = navigator.platform.toLowerCase().includes('mac');
 
 function setupTerminalAppHotkeys(terminal: XTerminal, writeToPty: (data: string) => void): void {
+  // ghostty-web's custom key handler semantics are INVERTED from xterm.js:
+  // returning true consumes the event (the terminal preventDefaults and skips
+  // its own key processing); returning false lets the terminal handle the key.
   terminal.attachCustomKeyEventHandler((event) => {
     const hasModifier = isMac ? event.metaKey && !event.ctrlKey : event.ctrlKey && !event.metaKey;
 
@@ -112,13 +115,8 @@ function setupTerminalAppHotkeys(terminal: XTerminal, writeToPty: (data: string)
       !event.metaKey &&
       !event.altKey
     ) {
-      // preventDefault is required: returning false alone skips the
-      // terminal's keydown handling but also skips the preventDefault it
-      // would have done, so the hidden textarea still emits a trailing
-      // carriage return that submits the prompt right after our newline.
-      event.preventDefault();
       writeToPty('\x1b[13;2u');
-      return false;
+      return true;
     }
 
     if (hasModifier && !event.altKey) {
@@ -129,30 +127,32 @@ function setupTerminalAppHotkeys(terminal: XTerminal, writeToPty: (data: string)
         if (key === 'c') {
           const selection = terminal.getSelection();
           if (selection) navigator.clipboard.writeText(selection);
-          return false;
+          return true;
         }
         if (key === 'v') {
-          event.preventDefault();
           navigator.clipboard.readText().then((text) => {
             if (text) terminal.paste(text);
           });
-          return false;
+          return true;
         }
       }
 
-      // Mod+Shift+Arrow for page navigation
+      // Mod+Shift+Arrow for page navigation — consumed here so the terminal
+      // doesn't see them; the app's capture-phase document listener handles
+      // the actual page switch.
       if (event.shiftKey && (key === 'arrowleft' || key === 'arrowright')) {
-        return false;
+        return true;
       }
 
-      // App hotkeys that should pass through to hotkeys-js
+      // App hotkeys — consume so the terminal ignores them; hotkeys-js and the
+      // app's document-level listeners still receive the event via bubbling.
       const appHotkeys = ['n', 't', 'b', 'i', 'p', 'd', 's', 'w', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
       if (appHotkeys.includes(key)) {
-        return false;
+        return true;
       }
     }
 
-    return true;
+    return false;
   });
 }
 
