@@ -8,8 +8,8 @@
 
 import { Terminal as XTerminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
-import { WebLinksAddon } from '@xterm/addon-web-links';
 import type { PtyId, PtySpawnOptions, GitFileStatus } from '../../types';
+import { XtermRenderer, type TerminalRenderer } from './rendererPort';
 import { notifyReady, readyBody } from '../../utils/notifications';
 import { generateId } from '../../utils/ids';
 import { useTerminalStore } from '../../stores/terminalStore';
@@ -369,9 +369,22 @@ export class OuijitTerminal {
   command: string | undefined;
   readonly isRunner: boolean;
 
-  // ── xterm + viewport ───────────────────────────────────────────────
-  readonly xterm: XTerminal;
-  readonly fitAddon: FitAddon;
+  // ── Renderer (swappable backend) + viewport ─────────────────────────
+  // The VT core talks to the renderer through the TerminalRenderer port;
+  // `backend` is the concrete xterm.js implementation, kept typed so the
+  // xterm-coupled bits below (key handling, scroll preservation, selection)
+  // can reach the underlying Terminal. Swapping renderers is a one-line
+  // change at construction.
+  readonly renderer: TerminalRenderer;
+  private readonly backend: XtermRenderer;
+  /** The underlying xterm Terminal. Exposed for xterm-specific operations. */
+  get xterm(): XTerminal {
+    return this.backend.terminal;
+  }
+  /** The xterm fit addon. Exposed for layout fitting. */
+  get fitAddon(): FitAddon {
+    return this.backend.fitAddon;
+  }
   private viewportElement: HTMLDivElement;
 
   // ── PTY cleanup ─────────────────────────────────────────────────────
@@ -470,25 +483,15 @@ export class OuijitTerminal {
     this.summaryType = opts.initialSummaryType ?? 'ready';
     this.tags = opts.tags ?? [];
 
-    // Create xterm instance
-    this.xterm = new XTerminal({
+    // Create the renderer backend behind the swappable port.
+    this.backend = new XtermRenderer({
       theme: getTerminalTheme(),
       fontFamily: cachedTerminalFontFamily,
       fontSize: cachedTerminalFontSize,
-      lineHeight: 1.2,
-      cursorBlink: !this.isRunner,
-      cursorStyle: 'bar',
-      allowTransparency: false,
-      scrollback: 2000,
+      isRunner: this.isRunner,
+      onLinkClick: (uri) => window.api.openExternal(uri),
     });
-
-    this.fitAddon = new FitAddon();
-    this.xterm.loadAddon(this.fitAddon);
-    this.xterm.loadAddon(
-      new WebLinksAddon((_event, uri) => {
-        window.api.openExternal(uri);
-      }),
-    );
+    this.renderer = this.backend;
 
     setupTerminalAppHotkeys(this.xterm, (data) => {
       if (this.ptyId) window.api.pty.write(this.ptyId, data);
@@ -526,9 +529,9 @@ export class OuijitTerminal {
 
   // ── Public API ──────────────────────────────────────────────────────
 
-  /** Open the xterm in its viewport element and set up drag/drop. */
+  /** Mount the renderer in its viewport element and set up drag/drop. */
   openTerminal(): void {
-    this.xterm.open(this.viewportElement);
+    this.renderer.render(this.viewportElement);
     this.wireDragDrop(this.viewportElement);
   }
 
@@ -671,17 +674,17 @@ export class OuijitTerminal {
     const currentRows = this.xterm.rows;
 
     if (lastCols && lastCols !== currentCols) {
-      this.xterm.resize(lastCols, currentRows);
+      this.renderer.resize(lastCols, currentRows);
     }
 
     if (isAltScreen) {
-      this.xterm.write('\x1b[?1049h');
+      this.renderer.write('\x1b[?1049h');
     }
 
-    this.xterm.write(buffer);
+    this.renderer.write(buffer);
 
     if (lastCols && lastCols !== currentCols) {
-      this.xterm.resize(currentCols, currentRows);
+      this.renderer.resize(currentCols, currentRows);
     }
 
     const oscMatches = buffer.matchAll(/\x1b\]0;([^\x07]*)\x07/g);
@@ -754,8 +757,8 @@ export class OuijitTerminal {
     // Disconnect observers
     this.resizeObserver?.disconnect();
 
-    // Dispose xterm
-    this.xterm.dispose();
+    // Dispose the renderer
+    this.renderer.dispose();
 
     // Remove from instance registry
     if (this.ptyId) {
@@ -878,7 +881,7 @@ export class OuijitTerminal {
 
   private wireDataHandler(skipSideEffects?: boolean, onData?: (data: string) => void): void {
     this.cleanupData = window.api.pty.onData(this.ptyId, (data) => {
-      const buf = this.xterm.buffer.active;
+      const buf = this.renderer.readBuffer();
       const atBottom = buf.viewportY >= buf.baseY;
 
       // Capture scroll position on the first write of a batch (while value is still trustworthy)
@@ -888,15 +891,15 @@ export class OuijitTerminal {
         this._scrollRestoreY = null;
       }
 
-      this.xterm.write(data);
+      this.renderer.write(data);
 
-      // Coalesce into a single rAF so the restore runs after xterm's render pass
+      // Coalesce into a single rAF so the restore runs after the render pass
       if (this._scrollRestoreY !== null && this._scrollRestoreRaf === null) {
         const targetY = this._scrollRestoreY;
         this._scrollRestoreRaf = requestAnimationFrame(() => {
           this._scrollRestoreRaf = null;
           this._scrollRestoreY = null;
-          const maxY = this.xterm.buffer.active.baseY;
+          const maxY = this.renderer.readBuffer().baseY;
           this.xterm.scrollToLine(Math.min(targetY, maxY));
         });
       }
