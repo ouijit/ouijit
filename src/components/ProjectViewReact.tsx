@@ -69,6 +69,15 @@ export function ProjectView() {
 
       const key = e.key.toLowerCase();
 
+      // Cmd+R (reload) and Cmd+Q (quit) are Electron's native accelerators.
+      // ghostty-web's input handler calls preventDefault on every key it sees,
+      // which swallows them when a terminal is focused. Stop the event before it
+      // reaches the terminal, but do NOT preventDefault — let Electron handle it.
+      if (key === 'r' || key === 'q') {
+        e.stopPropagation();
+        return;
+      }
+
       // Cmd+I — spawn shell terminal
       if (key === 'i') {
         e.preventDefault();
