@@ -4,6 +4,7 @@ import { useProjectStore } from '../stores/projectStore';
 import { useTerminalStore, getTerminalIndexByStackPosition, STACK_PAGE_SIZE } from '../stores/terminalStore';
 import { useCanvasStore, persistCanvas } from '../stores/canvasStore';
 import { useExperimentalStore } from '../stores/experimentalStore';
+import { passThroughSystemShortcut } from '../utils/keyboard';
 import { TerminalCardStack } from './terminal/TerminalCardStack';
 import { TerminalCanvas, syncCanvasWithTerminals } from './canvas/TerminalCanvas';
 import { KanbanBoard } from './kanban/KanbanBoard';
@@ -67,16 +68,11 @@ export function ProjectView() {
       const mod = isMac ? e.metaKey : e.ctrlKey;
       if (!mod) return;
 
-      const key = e.key.toLowerCase();
+      // Let Electron's native accelerators (reload, quit) through to the OS
+      // instead of the focused terminal. Shared with the home view.
+      if (passThroughSystemShortcut(e)) return;
 
-      // Cmd+R (reload) and Cmd+Q (quit) are Electron's native accelerators.
-      // ghostty-web's input handler calls preventDefault on every key it sees,
-      // which swallows them when a terminal is focused. Stop the event before it
-      // reaches the terminal, but do NOT preventDefault — let Electron handle it.
-      if (key === 'r' || key === 'q') {
-        e.stopPropagation();
-        return;
-      }
+      const key = e.key.toLowerCase();
 
       // Cmd+I — spawn shell terminal
       if (key === 'i') {

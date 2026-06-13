@@ -11,6 +11,7 @@ import { useTerminalPanels } from './terminal/useTerminalPanels';
 import { useHookStatusListener } from '../hooks/useHookStatusListener';
 import { Icon } from './terminal/Icon';
 import { stringToColor, getInitials } from '../utils/projectIcon';
+import { passThroughSystemShortcut } from '../utils/keyboard';
 import { RecentTasksPanel } from './RecentTasksPanel';
 import { ResumeBanner } from './ResumeBanner';
 import type { Project } from '../types';
@@ -231,6 +232,11 @@ export function HomeView() {
       if (e.repeat) return;
       const mod = isMac ? e.metaKey : e.ctrlKey;
       if (!mod) return;
+
+      // Let Electron's native accelerators (reload, quit) through to the OS
+      // instead of the focused terminal. Shared with the project view.
+      if (passThroughSystemShortcut(e)) return;
+
       const key = e.key.toLowerCase();
 
       // Cmd+I — new terminal, brought to the front of the stack
