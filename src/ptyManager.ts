@@ -207,96 +207,116 @@ function handlePtyOutput(ptyId: PtyId, channel: string, data: string): void {
 }
 
 /**
+ * Build the spawned shell's environment and argv, then spawn the node-pty
+ * process. Shared by {@link spawnPty} (the renderer-facing path) and the durable
+ * session backend (src/sessions/nodePtyBackend.ts), so both get identical hook
+ * env injection and shell integration. Pure process creation: no `activePtys`
+ * bookkeeping, no renderer forwarding, no exit wiring — the caller owns those.
+ *
+ * Each call issues a host API token keyed to `ptyId`; the caller must revoke it
+ * on exit (see {@link killPty} / the session backend).
+ */
+export function createShellProcess(
+  ptyId: PtyId,
+  options: PtySpawnOptions,
+): { process: pty.IPty; command: string; label: string } {
+  const shell = getDefaultShell();
+
+  // Build environment: start with process.env, add our vars, then custom env
+  // Filter out undefined values which can cause issues with node-pty
+  const baseEnv: Record<string, string> = {};
+  for (const [key, value] of Object.entries(process.env)) {
+    if (value !== undefined) {
+      baseEnv[key] = value;
+    }
+  }
+  const finalEnv: Record<string, string> = {
+    ...baseEnv,
+    TERM: 'xterm-256color',
+  };
+  // Add custom env vars (these take precedence)
+  if (options.env) {
+    for (const [key, value] of Object.entries(options.env)) {
+      if (value !== undefined) {
+        finalEnv[key] = value;
+      }
+    }
+  }
+
+  // Inject hook API env vars so Claude Code hooks can reach us
+  finalEnv['OUIJIT_PTY_ID'] = ptyId;
+  finalEnv['OUIJIT_API_URL'] = `http://127.0.0.1:${getApiPort()}`;
+  finalEnv['OUIJIT_API_TOKEN'] = issueToken(ptyId, 'host');
+
+  // Shell integration: wrapper dir + integration dir for PATH fix scripts
+  const wrapperBinDir = getWrapperBinDir();
+  const shellIntegrationDir = getShellIntegrationDir();
+  finalEnv['OUIJIT_WRAPPER_DIR'] = wrapperBinDir;
+  finalEnv['OUIJIT_SHELL_INTEGRATION_DIR'] = shellIntegrationDir;
+
+  // Prepend wrapper bin dir so `claude` and `ouijit` resolve to our wrappers first
+  finalEnv['PATH'] = `${wrapperBinDir}:${finalEnv['PATH'] || ''}`;
+
+  // Inject CLI env vars so the `ouijit` wrapper can find the bundled CLI
+  finalEnv['OUIJIT_USER_DATA'] = getUserDataPath();
+  const cliPath = getCliPath();
+  if (cliPath) finalEnv['OUIJIT_CLI_PATH'] = cliPath;
+
+  // Build the command string to run in the spawned shell
+  const expandedCommand = buildCommandString(options.command, options.env);
+
+  // If there's a command, run it via shell -c then exec into interactive shell
+  let shellArgs: string[] = [];
+
+  const isZsh = shell.endsWith('/zsh') || shell === 'zsh';
+  const isBash = shell.endsWith('/bash') || shell === 'bash';
+
+  if (isZsh) {
+    // ZDOTDIR trick: zsh sources $ZDOTDIR/.zshenv first. Our bootstrap
+    // restores the real ZDOTDIR, sources user's .zshenv, then registers
+    // precmd/preexec hooks that re-fix PATH after all init files run.
+    finalEnv['OUIJIT_ZSH_ZDOTDIR'] = finalEnv['ZDOTDIR'] || '';
+    finalEnv['ZDOTDIR'] = path.join(shellIntegrationDir, 'zsh');
+
+    if (expandedCommand) {
+      shellArgs = buildCommandShellArgs(expandedCommand, shell, shellIntegrationDir);
+    }
+  } else if (isBash) {
+    // --rcfile/--init-file: bash sources this instead of ~/.bashrc.
+    // Our integration script sources .bashrc first, then fixes PATH.
+    if (expandedCommand) {
+      shellArgs = buildCommandShellArgs(expandedCommand, shell, shellIntegrationDir);
+    } else {
+      shellArgs = ['--init-file', path.join(shellIntegrationDir, 'ouijit-bash-integration.bash')];
+    }
+  } else if (expandedCommand) {
+    shellArgs = buildCommandShellArgs(expandedCommand, shell, shellIntegrationDir);
+  }
+
+  const ptyProcess = pty.spawn(shell, shellArgs, {
+    name: 'xterm-256color',
+    cols: options.cols || 80,
+    rows: options.rows || 24,
+    cwd: options.cwd,
+    env: finalEnv,
+  });
+
+  const label = options.label || expandedCommand || 'Shell';
+  return { process: ptyProcess, command: expandedCommand, label };
+}
+
+/**
  * Spawn a new PTY with the user's shell
  */
 export async function spawnPty(options: PtySpawnOptions, window: BrowserWindow): Promise<PtySpawnResult> {
   try {
     const ptyId = generateId('pty');
-    const shell = getDefaultShell();
 
     // Store window reference
     currentWindow = window;
 
-    // Build environment: start with process.env, add our vars, then custom env
-    // Filter out undefined values which can cause issues with node-pty
-    const baseEnv: Record<string, string> = {};
-    for (const [key, value] of Object.entries(process.env)) {
-      if (value !== undefined) {
-        baseEnv[key] = value;
-      }
-    }
-    const finalEnv: Record<string, string> = {
-      ...baseEnv,
-      TERM: 'xterm-256color',
-    };
-    // Add custom env vars (these take precedence)
-    if (options.env) {
-      for (const [key, value] of Object.entries(options.env)) {
-        if (value !== undefined) {
-          finalEnv[key] = value;
-        }
-      }
-    }
-
-    // Inject hook API env vars so Claude Code hooks can reach us
-    finalEnv['OUIJIT_PTY_ID'] = ptyId;
-    finalEnv['OUIJIT_API_URL'] = `http://127.0.0.1:${getApiPort()}`;
-    finalEnv['OUIJIT_API_TOKEN'] = issueToken(ptyId, 'host');
-
-    // Shell integration: wrapper dir + integration dir for PATH fix scripts
-    const wrapperBinDir = getWrapperBinDir();
-    const shellIntegrationDir = getShellIntegrationDir();
-    finalEnv['OUIJIT_WRAPPER_DIR'] = wrapperBinDir;
-    finalEnv['OUIJIT_SHELL_INTEGRATION_DIR'] = shellIntegrationDir;
-
-    // Prepend wrapper bin dir so `claude` and `ouijit` resolve to our wrappers first
-    finalEnv['PATH'] = `${wrapperBinDir}:${finalEnv['PATH'] || ''}`;
-
-    // Inject CLI env vars so the `ouijit` wrapper can find the bundled CLI
-    finalEnv['OUIJIT_USER_DATA'] = getUserDataPath();
-    const cliPath = getCliPath();
-    if (cliPath) finalEnv['OUIJIT_CLI_PATH'] = cliPath;
-
-    // Build the command string to run in the spawned shell
-    const expandedCommand = buildCommandString(options.command, options.env);
-
-    // If there's a command, run it via shell -c then exec into interactive shell
-    let shellArgs: string[] = [];
-
-    const isZsh = shell.endsWith('/zsh') || shell === 'zsh';
-    const isBash = shell.endsWith('/bash') || shell === 'bash';
-
-    if (isZsh) {
-      // ZDOTDIR trick: zsh sources $ZDOTDIR/.zshenv first. Our bootstrap
-      // restores the real ZDOTDIR, sources user's .zshenv, then registers
-      // precmd/preexec hooks that re-fix PATH after all init files run.
-      finalEnv['OUIJIT_ZSH_ZDOTDIR'] = finalEnv['ZDOTDIR'] || '';
-      finalEnv['ZDOTDIR'] = path.join(shellIntegrationDir, 'zsh');
-
-      if (expandedCommand) {
-        shellArgs = buildCommandShellArgs(expandedCommand, shell, shellIntegrationDir);
-      }
-    } else if (isBash) {
-      // --rcfile/--init-file: bash sources this instead of ~/.bashrc.
-      // Our integration script sources .bashrc first, then fixes PATH.
-      if (expandedCommand) {
-        shellArgs = buildCommandShellArgs(expandedCommand, shell, shellIntegrationDir);
-      } else {
-        shellArgs = ['--init-file', path.join(shellIntegrationDir, 'ouijit-bash-integration.bash')];
-      }
-    } else if (expandedCommand) {
-      shellArgs = buildCommandShellArgs(expandedCommand, shell, shellIntegrationDir);
-    }
-
-    const ptyProcess = pty.spawn(shell, shellArgs, {
-      name: 'xterm-256color',
-      cols: options.cols || 80,
-      rows: options.rows || 24,
-      cwd: options.cwd,
-      env: finalEnv,
-    });
-
-    const label = options.label || expandedCommand || 'Shell';
+    const { process: ptyProcess, command: expandedCommand, label } = createShellProcess(ptyId, options);
+    const shell = getDefaultShell();
 
     const managed: ManagedPty = {
       process: ptyProcess,

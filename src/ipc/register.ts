@@ -14,6 +14,8 @@ import { registerSettingsHandlers } from './handlers/settings';
 import { registerScriptHandlers } from './handlers/scripts';
 import { registerPlanHandlers, cleanupPlanWatchers } from './handlers/plan';
 import { registerHealthHandlers } from './handlers/health';
+import { registerSessionHandlers } from './handlers/session';
+import { initSessionManager, shutdownSessionManager } from '../sessions';
 
 /**
  * Registers all IPC handlers for the main process.
@@ -38,12 +40,20 @@ export async function registerIpcHandlers(mainWindow: BrowserWindow): Promise<vo
   registerScriptHandlers();
   registerPlanHandlers(mainWindow);
   registerHealthHandlers();
+
+  // Durable sessions (#462): build the manager, rehydrate dormant sessions from
+  // the last run, and expose the session channels. Bound to the current window
+  // by reference so the event stream follows a renderer reload.
+  initSessionManager(() => (mainWindow.isDestroyed() ? null : mainWindow));
+  registerSessionHandlers();
 }
 
 /**
  * Cleanup function to be called when app is quitting
  */
 export function cleanupIpc(): void {
+  // Persist durable sessions before their processes are torn down.
+  shutdownSessionManager();
   cleanupAllPtys();
   limaCleanup();
   cleanupPlanWatchers();
