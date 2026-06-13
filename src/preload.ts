@@ -17,6 +17,7 @@ import type {
   TaskWithWorkspace,
 } from './types';
 import type { CaptureNavigatePayload } from './capture/types';
+import type { SessionEvent } from './sessions/model';
 
 // ── Typed IPC helpers ───────────────────────────────────────────────────────
 // These ensure channel names, argument types, and return types are all
@@ -104,6 +105,17 @@ contextBridge.exposeInMainWorld('api', {
       ipcRenderer.on(channel, handler);
       return () => ipcRenderer.removeListener(channel, handler);
     },
+  },
+
+  // Authoritative session stream (firewall #460; handlers wired by #462).
+  // The renderer projection (#463) consumes this surface.
+  sessions: {
+    list: () => typedInvoke('session:list'),
+    get: (id: string) => typedInvoke('session:get', id),
+    attach: (id: string) => typedInvoke('session:attach', id),
+    detach: (id: string) => typedInvoke('session:detach', id),
+    reattach: (id: string) => typedInvoke('session:reattach', id),
+    onEvent: (callback: (event: SessionEvent) => void) => typedListen('session:event', callback),
   },
 
   worktree: {
