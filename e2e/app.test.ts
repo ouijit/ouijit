@@ -27,10 +27,11 @@ async function enterProject(appPage: Page, repoPath: string): Promise<void> {
 }
 
 /**
- * Helper: dismiss the kanban board by pressing Escape.
+ * Helper: dismiss the kanban board. Board toggling is owned by Cmd/Ctrl+T
+ * (Escape is reserved for form-level resets inside the board).
  */
 async function dismissKanban(appPage: Page): Promise<void> {
-  await appPage.keyboard.press('Escape');
+  await appPage.keyboard.press(`${modifier}+t`);
   await expect(appPage.locator('.kanban-board')).toHaveCount(0, { timeout: 5_000 });
 }
 
@@ -150,7 +151,7 @@ test('project mode: terminals, kanban, context menu, and task lifecycle', async 
   await expect(contextMenu).toBeVisible({ timeout: 5_000 });
   await expect(contextMenu.locator('.context-menu-item', { hasText: 'Open in Terminal' })).toBeVisible();
   await expect(contextMenu.locator('.context-menu-item', { hasText: 'Move to Done' })).toBeVisible();
-  await expect(contextMenu.locator('.context-menu-item--danger', { hasText: 'Delete' })).toBeVisible();
+  await expect(contextMenu.locator('.context-menu-item--danger', { hasText: 'Move to Trash' })).toBeVisible();
 
   await contextMenu.locator('.context-menu-item', { hasText: 'Open in Terminal' }).click();
 
@@ -170,7 +171,7 @@ test('project mode: terminals, kanban, context menu, and task lifecycle', async 
   await ipCard.click({ button: 'right' });
   await expect(appPage.locator('.context-menu--visible')).toBeVisible({ timeout: 5_000 });
 
-  await appPage.locator('.context-menu-item--danger', { hasText: 'Delete' }).click();
+  await appPage.locator('.context-menu-item--danger', { hasText: 'Move to Trash' }).click();
 
   // React version deletes immediately without confirmation
   await expect(inProgressColumn.locator('.kanban-card')).toHaveCount(0, { timeout: 5_000 });
@@ -178,6 +179,7 @@ test('project mode: terminals, kanban, context menu, and task lifecycle', async 
 });
 
 test('terminal reconnect after reload does not produce % artifacts', async ({ appPage, testRepo }) => {
+  test.setTimeout(20_000);
   await enterProject(appPage, testRepo.repoPath);
   await dismissKanban(appPage);
 
@@ -198,9 +200,12 @@ test('terminal reconnect after reload does not produce % artifacts', async ({ ap
   await appPage.reload();
   await appPage.waitForLoadState('domcontentloaded');
 
-  // Wait for terminal reconnection — project view should restore
-  await expect(appPage.locator('.project-card--active')).toHaveCount(1, { timeout: 15_000 });
-  await expect(appPage.locator('.terminal-xterm-container').first()).toBeAttached({ timeout: 5_000 });
+  // After reload the app restores to the home view — a saved session snapshot
+  // forces home so the resume banner is shown first. The live PTY reconnects
+  // automatically and its terminal renders there; wait for the reconnected
+  // xterm container (view-agnostic) before reading its buffer.
+  await expect(appPage.locator('.terminal-xterm-container').first()).toBeAttached({ timeout: 15_000 });
+  await expect(appPage.locator('.terminal-xterm-container .xterm-rows').first()).toBeAttached({ timeout: 5_000 });
 
   // Wait for reconnection and any resize events to settle
   await appPage.waitForTimeout(3_000);
@@ -253,7 +258,9 @@ test('lifecycle hooks: start hook via drag shows dialog', async ({ appPage, test
 
   // Click "Run" — terminal created in background, task moves to in_progress
   await hookDialog.locator('[data-testid="dialog-run"]').click();
-  await expect(appPage.locator('[data-testid="dialog-overlay"][data-visible="true"]')).not.toBeVisible({ timeout: 5_000 });
+  await expect(appPage.locator('[data-testid="dialog-overlay"][data-visible="true"]')).not.toBeVisible({
+    timeout: 5_000,
+  });
   // Kanban stays visible for background run — verify task moved
   await expect(inProgressColumn.locator('.kanban-card')).toHaveCount(1, { timeout: 5_000 });
   await expect(todoColumn.locator('.kanban-card')).toHaveCount(0);
@@ -274,14 +281,17 @@ test('lifecycle hooks: start hook via drag shows dialog', async ({ appPage, test
   await expect(hookDialog).toBeVisible({ timeout: 15_000 });
   await expect(hookDialog.locator('[data-testid="dialog-title"]')).toHaveText('Start Task');
 
-  // Click "Cancel" — no terminal, task still moves to in_progress (worktree already created)
+  // Click "Cancel" — the hook command is skipped, but in_progress drops always
+  // open a terminal, so the task still moves to in_progress with a plain shell.
   await hookDialog.locator('[data-testid="dialog-cancel"]').click();
-  await expect(appPage.locator('[data-testid="dialog-overlay"][data-visible="true"]')).not.toBeVisible({ timeout: 5_000 });
+  await expect(appPage.locator('[data-testid="dialog-overlay"][data-visible="true"]')).not.toBeVisible({
+    timeout: 5_000,
+  });
   await expect(inProgressColumn.locator('.kanban-card')).toHaveCount(2, { timeout: 5_000 });
   await expect(todoColumn.locator('.kanban-card')).toHaveCount(0);
-  // Verify no new terminal was created (still just 1 from earlier)
+  // Cancel skips the hook but still spawns a plain-shell terminal (2 total now)
   await appPage.keyboard.press(`${modifier}+t`);
-  await expect(appPage.locator('.project-card')).toHaveCount(1);
+  await expect(appPage.locator('.project-card')).toHaveCount(2, { timeout: 15_000 });
   await appPage.keyboard.press(`${modifier}+t`);
 
   // --- No dialog after hook deleted ---
@@ -297,7 +307,9 @@ test('lifecycle hooks: start hook via drag shows dialog', async ({ appPage, test
   await dragCard(appPage, todoColumn.locator('.kanban-card').first(), inProgressBody);
 
   await appPage.waitForTimeout(1_000);
-  await expect(appPage.locator('[data-testid="dialog-overlay"][data-visible="true"] [data-testid="dialog"]')).not.toBeVisible();
+  await expect(
+    appPage.locator('[data-testid="dialog-overlay"][data-visible="true"] [data-testid="dialog"]'),
+  ).not.toBeVisible();
   await expect(inProgressColumn.locator('.kanban-card')).toHaveCount(3, { timeout: 5_000 });
   await expect(todoColumn.locator('.kanban-card')).toHaveCount(0);
 });
@@ -374,7 +386,8 @@ test('whats new: modal appears and dismisses', async ({ appPage }) => {
   await appPage.evaluate(() => {
     (window as any).__appStore.getState().setWhatsNew({
       version: '1.1.0',
-      notes: '## Improvements\n- **Faster startup** with lazy loading\n- Fixed `bug #42` in terminal\n\n## Bug Fixes\n- Resolved crash on exit',
+      notes:
+        '## Improvements\n- **Faster startup** with lazy loading\n- Fixed `bug #42` in terminal\n\n## Bug Fixes\n- Resolved crash on exit',
     });
   });
 
@@ -391,7 +404,9 @@ test('whats new: modal appears and dismisses', async ({ appPage }) => {
   await expect(dialog).not.toBeVisible({ timeout: 3_000 });
 
   // Store should be cleared (after 200ms dismiss animation)
-  await appPage.waitForFunction(() => (window as any).__appStore.getState().whatsNew === null, null, { timeout: 3_000 });
+  await appPage.waitForFunction(() => (window as any).__appStore.getState().whatsNew === null, null, {
+    timeout: 3_000,
+  });
 });
 
 test('whats new: modal dismisses on Escape', async ({ appPage }) => {
@@ -433,7 +448,7 @@ test('update available: persistent toast with download action', async ({ appPage
   await expect(toast).toBeVisible();
 
   // Dismiss via close button
-  const closeBtn = toast.locator('button', { hasText: '✕' });
+  const closeBtn = toast.locator('button[aria-label="Dismiss"]');
   await expect(closeBtn).toBeVisible();
   await closeBtn.click();
   await expect(toast).not.toBeVisible({ timeout: 3_000 });
