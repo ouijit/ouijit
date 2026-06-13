@@ -7,8 +7,8 @@
  *   - #462 durable sessions   — implements {@link SessionManagerApi} + persists {@link DurableSession}
  *   - #463 renderer projection — consumes the {@link SessionEvent} stream
  *
- * See ./DESIGN.md for the rationale, the state-machine diagram, and the mapping
- * to today's `ptyManager.ts` (ManagedPty / ActiveSession).
+ * Each type below carries its own rationale; the state machine and the mapping
+ * to today's `ptyManager.ts` (ManagedPty / ActiveSession) are documented inline.
  *
  * Durability requirements baked into this contract (hard to retrofit later):
  *   1. Session ids are STABLE and survive a full app restart — distinct from
