@@ -17,6 +17,7 @@ import { generateId } from '../../utils/ids';
 import { useTerminalStore } from '../../stores/terminalStore';
 import { closeProjectTerminal } from './terminalActions';
 import { parseOsc133ExitCodes } from './osc133';
+import { installSeamlessBoxDrawing } from './boxDrawing';
 
 // ── Idle fallback timer constants ────────────────────────────────────
 const IDLE_FALLBACK_MS = 3000;
@@ -529,6 +530,11 @@ export class OuijitTerminal {
   /** Open the terminal in its viewport element and set up links + drag/drop. */
   openTerminal(): void {
     this.xterm.open(this.viewportElement);
+
+    // ghostty-web stamps box-drawing/block glyphs as font text in a cell box
+    // that's taller than the glyph, so borders render with gaps. Patch the
+    // renderer to draw those codepoints as cell-filling geometry instead.
+    installSeamlessBoxDrawing(this.xterm);
 
     // URL detection: reuse ghostty-web's regex provider but route activation
     // through the main process so links open in the system browser instead of
