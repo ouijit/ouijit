@@ -42,6 +42,7 @@ const mockApi = {
   initGitRepo: vi.fn().mockResolvedValue({ success: true }),
   removeProject: vi.fn().mockResolvedValue({ success: true }),
   reorderProjects: vi.fn().mockResolvedValue({ success: true }),
+  setProjectIconColor: vi.fn().mockResolvedValue({ success: true }),
   onFullscreenChange: vi.fn().mockReturnValue(() => {}),
   getProjectSettings: vi.fn().mockResolvedValue({}),
   setKillExistingOnRun: vi.fn().mockResolvedValue({ success: true }),

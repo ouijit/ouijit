@@ -466,6 +466,19 @@ export async function updateProjectPath(oldPath: string, newPath: string): Promi
   pr.updatePath(oldPath, newPath);
 }
 
+export async function setProjectIconColor(projectPath: string, color: string | null): Promise<{ success: boolean }> {
+  try {
+    const { projectRepo: pr } = repos();
+    pr.setIconColor(projectPath, color);
+    return { success: true };
+  } catch (error) {
+    dbLog.error('failed to set project icon color', {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return { success: false };
+  }
+}
+
 export async function removeProject(folderPath: string): Promise<{ success: boolean }> {
   const { projectRepo: pr } = repos();
   pr.remove(folderPath);

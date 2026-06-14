@@ -9,7 +9,7 @@ import { useEffect, useState } from 'react';
 import { useAppStore, type HomeRecentTask } from '../stores/appStore';
 import { useProjectStore } from '../stores/projectStore';
 import { addProjectTerminal } from './terminal/terminalActions';
-import { stringToColor, getInitials } from '../utils/projectIcon';
+import { projectIconColor, getInitials } from '../utils/projectIcon';
 import { formatRelativeTime } from '../utils/formatDate';
 import type { Project } from '../types';
 
@@ -288,7 +288,7 @@ function ProjectThumb({ project }: { project: Project }) {
         <div
           className="w-full h-full flex items-center justify-center text-xs font-bold text-white"
           style={{
-            backgroundColor: stringToColor(project.name),
+            backgroundColor: projectIconColor(project),
             textShadow: '0 1px 2px rgba(0, 0, 0, 0.2)',
           }}
         >

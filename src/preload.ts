@@ -66,6 +66,8 @@ contextBridge.exposeInMainWorld('api', {
   initGitRepo: (folderPath: string, initialCommit?: boolean) => typedInvoke('init-git-repo', folderPath, initialCommit),
   removeProject: (folderPath: string) => typedInvoke('remove-project', folderPath),
   reorderProjects: (paths: string[]) => typedInvoke('reorder-projects', paths),
+  setProjectIconColor: (projectPath: string, color: string | null) =>
+    typedInvoke('settings:set-project-icon-color', projectPath, color),
   getProjectSettings: (projectPath: string) => typedInvoke('get-project-settings', projectPath),
   setKillExistingOnRun: (projectPath: string, kill: boolean) =>
     typedInvoke('settings:set-kill-existing-on-run', projectPath, kill),

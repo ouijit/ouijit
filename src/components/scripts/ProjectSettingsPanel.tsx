@@ -7,6 +7,7 @@ import type { HookEntry } from './HookList';
 import { SandboxSection } from './SandboxSection';
 import { ExperimentalFeaturesSection } from './ExperimentalFeaturesSection';
 import { WorktreeSection } from './WorktreeSection';
+import { IconColorSection } from './IconColorSection';
 import { useWorktreeSettingsStore } from '../../stores/worktreeSettingsStore';
 
 const LIFECYCLE_HOOKS: HookEntry[] = [
@@ -71,6 +72,11 @@ export function ProjectSettingsPanel({ projectPath }: ProjectSettingsPanelProps)
               .
             </p>
           </div>
+          <section>
+            <h2 className="text-sm font-semibold text-text-primary mb-2">Appearance</h2>
+            <p className="text-xs text-text-tertiary mb-4">How this project looks in the sidebar and home view.</p>
+            <IconColorSection projectPath={projectPath} />
+          </section>
           <section>
             <h2 className="text-sm font-semibold text-text-primary mb-2">Worktree</h2>
             <p className="text-xs text-text-tertiary mb-4">
