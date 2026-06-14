@@ -434,6 +434,8 @@ export interface Project {
   description?: string;
   language?: string;
   iconDataUrl?: string;
+  /** Custom icon color override; when unset the color is generated from the name. */
+  iconColor?: string;
 }
 
 /**
@@ -500,6 +502,8 @@ export interface ElectronAPI {
   removeProject(folderPath: string): Promise<{ success: boolean }>;
   /** Reorder projects in the sidebar */
   reorderProjects(paths: string[]): Promise<{ success: boolean }>;
+  /** Set a custom icon color for a project, or null to revert to the generated color */
+  setProjectIconColor(projectPath: string, color: string | null): Promise<{ success: boolean }>;
   /** Listen for fullscreen state changes */
   onFullscreenChange(callback: (isFullscreen: boolean) => void): () => void;
   /** Listen for app update availability (Linux only) */

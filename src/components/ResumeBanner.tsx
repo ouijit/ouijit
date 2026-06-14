@@ -10,7 +10,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { readSnapshot, clearSnapshot } from './terminal/sessionSnapshot';
 import { listRestorable, restoreSession, summarizeRestorable, type RestorableEntry } from './terminal/sessionRestore';
 import { Icon } from './terminal/Icon';
-import { stringToColor, getInitials } from '../utils/projectIcon';
+import { projectIconColor, getInitials } from '../utils/projectIcon';
 import type { LastSessionSnapshot, Project, TaskStatus } from '../types';
 
 const STATUS_LABEL: Record<TaskStatus, string> = {
@@ -223,7 +223,7 @@ function ProjectThumb({ project }: { project: Project }) {
         <div
           className="w-full h-full flex items-center justify-center text-white"
           style={{
-            backgroundColor: stringToColor(project.name),
+            backgroundColor: projectIconColor(project),
             fontSize: 7,
             fontWeight: 700,
             textShadow: '0 1px 1px rgba(0, 0, 0, 0.2)',

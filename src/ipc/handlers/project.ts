@@ -2,7 +2,13 @@ import os from 'os';
 import { shell, BrowserWindow, dialog } from 'electron';
 import { typedHandle } from '../helpers';
 import { getProjectList } from '../../scanner';
-import { removeProject, reorderProjects, getProjectSettings, setKillExistingOnRun } from '../../db';
+import {
+  removeProject,
+  reorderProjects,
+  getProjectSettings,
+  setKillExistingOnRun,
+  setProjectIconColor,
+} from '../../db';
 import { initGitRepo } from '../../projectCreator';
 import {
   getDefaultProjectsDir,
@@ -103,6 +109,7 @@ export function registerProjectHandlers(mainWindow: BrowserWindow): void {
     return { success: true };
   });
   typedHandle('reorder-projects', (paths) => reorderProjects(paths));
+  typedHandle('settings:set-project-icon-color', (projectPath, color) => setProjectIconColor(projectPath, color));
   typedHandle('get-project-settings', (projectPath) => getProjectSettings(projectPath));
   typedHandle('settings:set-kill-existing-on-run', (projectPath, kill) => setKillExistingOnRun(projectPath, kill));
 }

@@ -1,7 +1,7 @@
 import { useCallback, useEffect } from 'react';
 import { useAppStore } from '../stores/appStore';
 import { useProjectStore, type TerminalLayout } from '../stores/projectStore';
-import { stringToColor, getInitials } from '../utils/projectIcon';
+import { projectIconColor, getInitials } from '../utils/projectIcon';
 import { useExperimentalStore } from '../stores/experimentalStore';
 import { useUIStore } from '../stores/uiStore';
 import { Icon } from './terminal/Icon';
@@ -111,7 +111,7 @@ export function TitleBar({ mode }: TitleBarProps) {
                 <div
                   className="w-full h-full flex items-center justify-center text-xs font-bold text-white"
                   style={{
-                    backgroundColor: stringToColor(activeProjectData.name),
+                    backgroundColor: projectIconColor(activeProjectData),
                     textShadow: '0 1px 2px rgba(0, 0, 0, 0.2)',
                   }}
                 >

@@ -194,7 +194,7 @@ async function getIconDataUrl(dirPath: string): Promise<string | undefined> {
 /**
  * Creates a Project object from a directory path
  */
-async function createProject(dirPath: string): Promise<Project> {
+async function createProject(dirPath: string, iconColor?: string): Promise<Project> {
   const stats = await fs.stat(dirPath);
   const hasGit = await exists(path.join(dirPath, '.git'));
   const hasClaudeDir = await exists(path.join(dirPath, '.claude'));
@@ -215,6 +215,7 @@ async function createProject(dirPath: string): Promise<Project> {
     description,
     language,
     iconDataUrl,
+    iconColor,
   };
 }
 
@@ -226,12 +227,12 @@ async function createProject(dirPath: string): Promise<Project> {
 export async function getProjectList(): Promise<Project[]> {
   const db = getDatabase();
   const projectRepo = new ProjectRepo(db);
-  const addedPaths = projectRepo.getAll().map((p) => p.path);
+  const rows = projectRepo.getAll();
 
   const projects: Project[] = [];
-  for (const projectPath of addedPaths) {
-    if (await exists(projectPath)) {
-      const project = await createProject(projectPath);
+  for (const row of rows) {
+    if (await exists(row.path)) {
+      const project = await createProject(row.path, row.icon_color ?? undefined);
       projects.push(project);
     }
   }

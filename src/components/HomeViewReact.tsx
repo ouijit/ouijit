@@ -534,7 +534,7 @@ export function HomeView() {
                         height: 16,
                         borderRadius: 4,
                         aspectRatio: '1',
-                        backgroundColor: stringToColor(name),
+                        backgroundColor: project?.iconColor ?? stringToColor(name),
                         fontSize: 7,
                         fontWeight: 700,
                         textShadow: '0 1px 1px rgba(0, 0, 0, 0.2)',

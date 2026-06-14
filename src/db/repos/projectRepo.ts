@@ -13,6 +13,7 @@ export interface ProjectRow {
   name: string;
   added_at: string;
   icon_data_url: string | null;
+  icon_color: string | null;
   sort_order: number;
 }
 
@@ -66,6 +67,11 @@ export class ProjectRepo {
         renameSetting.run(prefix + newPath, prefix + oldPath);
       }
     })();
+  }
+
+  /** Set a custom icon color, or pass null to fall back to the generated color. */
+  setIconColor(path: string, color: string | null): void {
+    this.db.prepare('UPDATE projects SET icon_color = ? WHERE path = ?').run(color, path);
   }
 
   /** Reorder projects by setting sort_order based on the given path order */

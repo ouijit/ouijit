@@ -18,7 +18,7 @@ import type { Project } from '../types';
 import { useAppStore } from '../stores/appStore';
 import { useTerminalStore } from '../stores/terminalStore';
 import { useUIStore } from '../stores/uiStore';
-import { stringToColor, getInitials } from '../utils/projectIcon';
+import { projectIconColor, getInitials } from '../utils/projectIcon';
 import { Icon } from './terminal/Icon';
 const isMac = navigator.platform.toLowerCase().includes('mac');
 
@@ -464,7 +464,7 @@ function SortableProjectIcon({ project, isActive, onClick, onContextMenu }: Sort
           ) : (
             <div
               className="w-full h-full flex items-center justify-center text-sm font-bold text-white"
-              style={{ backgroundColor: stringToColor(project.name), textShadow: '0 1px 2px rgba(0, 0, 0, 0.2)' }}
+              style={{ backgroundColor: projectIconColor(project), textShadow: '0 1px 2px rgba(0, 0, 0, 0.2)' }}
             >
               {getInitials(project.name)}
             </div>
