@@ -1,5 +1,6 @@
+import { useEffect, useRef, useState } from 'react';
 import { useAppStore } from '../../stores/appStore';
-import { PROJECT_ICON_COLORS, projectIconColor, getInitials, stringToColor } from '../../utils/projectIcon';
+import { projectIconColor, getInitials, stringToColor } from '../../utils/projectIcon';
 
 interface IconColorSectionProps {
   projectPath: string;
@@ -7,17 +8,41 @@ interface IconColorSectionProps {
 
 export function IconColorSection({ projectPath }: IconColorSectionProps) {
   const project = useAppStore((s) => s.projects.find((p) => p.path === projectPath));
+  const resolvedColor = project ? projectIconColor(project) : '#000000';
+
+  // Local state drives the live preview while dragging in the OS color panel;
+  // the DB write is debounced so we don't rescan projects on every tick.
+  const [color, setColor] = useState(resolvedColor);
+  const persistTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Sync from the store when the project's color changes elsewhere (e.g. reset).
+  useEffect(() => {
+    setColor(resolvedColor);
+  }, [resolvedColor]);
+
+  useEffect(() => () => clearTimeout(persistTimer.current ?? undefined), []);
 
   if (!project) return null;
 
   const generatedColor = stringToColor(project.name);
-  const currentColor = projectIconColor(project);
   const isCustom = project.iconColor != null;
 
-  const apply = async (color: string | null) => {
-    await window.api.setProjectIconColor(projectPath, color);
+  const persist = async (next: string | null) => {
+    await window.api.setProjectIconColor(projectPath, next);
     const refreshed = await window.api.refreshProjects();
     useAppStore.getState().setProjects(refreshed);
+  };
+
+  const handlePick = (next: string) => {
+    setColor(next);
+    clearTimeout(persistTimer.current ?? undefined);
+    persistTimer.current = setTimeout(() => void persist(next), 150);
+  };
+
+  const handleReset = () => {
+    clearTimeout(persistTimer.current ?? undefined);
+    setColor(generatedColor);
+    void persist(null);
   };
 
   return (
@@ -29,7 +54,7 @@ export function IconColorSection({ projectPath }: IconColorSectionProps) {
           ) : (
             <div
               className="w-full h-full flex items-center justify-center text-base font-bold text-white"
-              style={{ backgroundColor: currentColor, textShadow: '0 1px 2px rgba(0, 0, 0, 0.2)' }}
+              style={{ backgroundColor: color, textShadow: '0 1px 2px rgba(0, 0, 0, 0.2)' }}
             >
               {getInitials(project.name)}
             </div>
@@ -43,37 +68,30 @@ export function IconColorSection({ projectPath }: IconColorSectionProps) {
               : 'The color behind the project initials.'}
           </div>
         </div>
-      </div>
-      <div className="px-4 pb-4 flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          aria-label="Automatic color"
-          aria-pressed={!isCustom}
-          onClick={() => void apply(null)}
-          className={`relative w-7 h-7 rounded-full flex items-center justify-center text-[9px] font-bold text-white transition-transform duration-100 hover:scale-110 ${
-            !isCustom ? 'ring-2 ring-white ring-offset-2 ring-offset-[var(--color-terminal-bg,#171717)]' : ''
-          }`}
-          style={{ backgroundColor: generatedColor, textShadow: '0 1px 1px rgba(0, 0, 0, 0.3)' }}
-          title="Automatic (generated from name)"
-        >
-          A
-        </button>
-        {PROJECT_ICON_COLORS.map((color) => {
-          const selected = isCustom && project.iconColor === color;
-          return (
+        <div className="flex items-center gap-3 shrink-0">
+          {isCustom && (
             <button
-              key={color}
               type="button"
-              aria-label={`Set icon color ${color}`}
-              aria-pressed={selected}
-              onClick={() => void apply(color)}
-              className={`w-7 h-7 rounded-full transition-transform duration-100 hover:scale-110 ${
-                selected ? 'ring-2 ring-white ring-offset-2 ring-offset-[var(--color-terminal-bg,#171717)]' : ''
-              }`}
-              style={{ backgroundColor: color }}
+              onClick={handleReset}
+              className="text-xs text-text-tertiary hover:text-text-primary outline-none focus-visible:underline"
+            >
+              Automatic
+            </button>
+          )}
+          <label
+            className="relative w-8 h-8 rounded-full overflow-hidden border border-white/15"
+            style={{ backgroundColor: color }}
+            title="Choose a color"
+          >
+            <input
+              type="color"
+              aria-label="Icon color"
+              value={color}
+              onChange={(e) => handlePick(e.target.value)}
+              className="absolute inset-0 w-full h-full opacity-0"
             />
-          );
-        })}
+          </label>
+        </div>
       </div>
     </div>
   );
