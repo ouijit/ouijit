@@ -714,50 +714,64 @@ export async function reconnectOrphanedSessions(projectPath: string): Promise<vo
 
   // Reconnect runners to their parent terminals
   for (const session of runnerSessions) {
-    const parentTerminal = terminalInstances.get(session.parentPtyId!);
-    if (!parentTerminal) {
-      actionsLog.warn('could not find parent for runner', { ptyId: session.ptyId, parentPtyId: session.parentPtyId });
-      continue;
-    }
-
-    const runner = new OuijitTerminal({
-      projectPath: session.projectPath,
-      label: session.label,
-      isRunner: true,
-      ptyId: session.ptyId,
-    });
-    runner.openTerminal();
-
-    const result = await window.api.pty.reconnect(session.ptyId);
-    if (!result.success) {
-      runner.dispose();
-      continue;
-    }
-
-    runner.replayBuffer(result.bufferedOutput, result.lastCols, result.isAltScreen);
-    terminalInstances.set(session.ptyId, runner);
-    runner.bind(session.ptyId, {
-      skipSideEffects: true,
-      onData: (data) => {
-        const oscMatches = data.matchAll(/\x1b\]0;([^\x07]*)\x07/g);
-        for (const match of oscMatches) {
-          if (match[1]) {
-            parentTerminal.runnerCommand = match[1];
-            parentTerminal.pushDisplayState({ runnerStatus: parentTerminal.runnerStatus });
-          }
-        }
-        updateRunnerStatusFromOsc133(data, parentTerminal);
-        const detected = detectDevServerUrl(data);
-        if (detected) applyDetectedWebPreviewUrl(parentTerminal, detected);
-      },
-      onExit: (exitCode) => {
-        parentTerminal.runnerStatus = exitCode === 0 ? 'success' : 'error';
-        parentTerminal.pushDisplayState({ runnerStatus: parentTerminal.runnerStatus });
-      },
-    });
-
-    parentTerminal.runnerStatus = 'running';
-    parentTerminal.setRunner(runner);
-    parentTerminal.pushDisplayState({ runnerStatus: 'running' });
+    await reconnectRunnerToParent(session);
   }
+}
+
+/**
+ * Reattach a runner (run hook / script) session to its parent terminal after a
+ * renderer reload. The runner is NOT a standalone card — it lives as state on
+ * the parent (runnerStatus, the runner panel). The parent must already be back
+ * in `terminalInstances`, so callers reconnect main terminals first.
+ *
+ * Returns false if the parent could not be found (caller should leave the
+ * session orphaned rather than promote it to a standalone card).
+ */
+export async function reconnectRunnerToParent(session: ActiveSession): Promise<boolean> {
+  const parentTerminal = session.parentPtyId ? terminalInstances.get(session.parentPtyId) : undefined;
+  if (!parentTerminal) {
+    actionsLog.warn('could not find parent for runner', { ptyId: session.ptyId, parentPtyId: session.parentPtyId });
+    return false;
+  }
+
+  const runner = new OuijitTerminal({
+    projectPath: session.projectPath,
+    label: session.label,
+    isRunner: true,
+    ptyId: session.ptyId,
+  });
+  runner.openTerminal();
+
+  const result = await window.api.pty.reconnect(session.ptyId);
+  if (!result.success) {
+    runner.dispose();
+    return false;
+  }
+
+  runner.replayBuffer(result.bufferedOutput, result.lastCols, result.isAltScreen);
+  terminalInstances.set(session.ptyId, runner);
+  runner.bind(session.ptyId, {
+    skipSideEffects: true,
+    onData: (data) => {
+      const oscMatches = data.matchAll(/\x1b\]0;([^\x07]*)\x07/g);
+      for (const match of oscMatches) {
+        if (match[1]) {
+          parentTerminal.runnerCommand = match[1];
+          parentTerminal.pushDisplayState({ runnerStatus: parentTerminal.runnerStatus });
+        }
+      }
+      updateRunnerStatusFromOsc133(data, parentTerminal);
+      const detected = detectDevServerUrl(data);
+      if (detected) applyDetectedWebPreviewUrl(parentTerminal, detected);
+    },
+    onExit: (exitCode) => {
+      parentTerminal.runnerStatus = exitCode === 0 ? 'success' : 'error';
+      parentTerminal.pushDisplayState({ runnerStatus: parentTerminal.runnerStatus });
+    },
+  });
+
+  parentTerminal.runnerStatus = 'running';
+  parentTerminal.setRunner(runner);
+  parentTerminal.pushDisplayState({ runnerStatus: 'running' });
+  return true;
 }

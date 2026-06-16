@@ -3,7 +3,12 @@ import { useAppStore } from '../stores/appStore';
 import { useTerminalStore } from '../stores/terminalStore';
 import { useUIStore } from '../stores/uiStore';
 import { terminalInstances } from './terminal/terminalReact';
-import { reconnectTerminal, addProjectTerminal, closeProjectTerminal } from './terminal/terminalActions';
+import {
+  reconnectTerminal,
+  reconnectRunnerToParent,
+  addProjectTerminal,
+  closeProjectTerminal,
+} from './terminal/terminalActions';
 import { TerminalHeader } from './terminal/TerminalHeader';
 import { TerminalBody } from './terminal/TerminalBody';
 import { XTermContainer } from './terminal/XTermContainer';
@@ -87,7 +92,14 @@ export function HomeView() {
       }
       if (sessions.length === 0) return;
 
-      for (const session of sessions) {
+      // Runners (run hooks / scripts) aren't standalone cards — they live as
+      // state on their parent terminal. Reconnect main terminals first so the
+      // parents are back in terminalInstances before runners reattach,
+      // otherwise a runner would be promoted to its own "run hook" card.
+      const mainSessions = sessions.filter((s) => !s.isRunner);
+      const runnerSessions = sessions.filter((s) => s.isRunner);
+
+      for (const session of mainSessions) {
         if (terminalInstances.has(session.ptyId)) continue;
         let worktreeBranch: string | undefined;
         if (session.taskId != null) {
@@ -104,6 +116,11 @@ export function HomeView() {
           term.planPath = planPath;
           term.pushDisplayState({ planPath });
         }
+      }
+
+      for (const session of runnerSessions) {
+        if (terminalInstances.has(session.ptyId)) continue;
+        await reconnectRunnerToParent(session);
       }
     })();
   }, [allPtyIds.length]);
