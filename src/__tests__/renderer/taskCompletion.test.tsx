@@ -58,9 +58,10 @@ describe('completeTask', () => {
 
     expect(vi.mocked(addProjectTerminal).mock.calls[0][1]).toMatchObject({ name: 'Done', command: 'echo hey' });
     // The hook terminal opts into autoCloseOnSuccess. The OSC 133 emitted by
-    // our shell-integration precmd hook (see hookServer.ZSH_INTEGRATION /
-    // BASH_INTEGRATION) provides the exit-code signal — the PTY stays alive
-    // in an interactive shell after the command so failures are debuggable.
+    // our shell-integration hooks (see shellIntegration.ZSH_INTEGRATION /
+    // BASH_INTEGRATION / FISH_INTEGRATION) provides the exit-code signal; the
+    // PTY stays alive in an interactive shell after the command so failures
+    // are debuggable.
     expect(vi.mocked(addProjectTerminal).mock.calls[0][2]).toMatchObject({
       autoCloseOnSuccess: true,
     });
