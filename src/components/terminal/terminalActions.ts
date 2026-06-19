@@ -642,7 +642,10 @@ export async function openWorktreeEditor(
   await addProjectTerminal(
     projectPath,
     { name: 'Editor', command: buildEditorCommand(editor.command, worktree.path), source: 'custom', priority: 0 },
-    { existingWorktree: worktree, taskId },
+    // A terminal editor only signals success once you quit it; a GUI editor's
+    // launcher returns immediately. Either way the card tidies itself; a failed
+    // launch exits non-zero and stays open.
+    { existingWorktree: worktree, taskId, autoCloseOnSuccess: true },
   );
   // Surface the editor terminal: when launched from the kanban, dismiss the
   // board so the new card is visible (mirrors "Open in Terminal").
