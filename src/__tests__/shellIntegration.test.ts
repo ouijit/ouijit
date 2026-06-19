@@ -20,6 +20,13 @@ describe('resolveShellIntegration', () => {
     expect(resolveShellIntegration('/usr/bin/fish').id).toBe('fish');
     expect(resolveShellIntegration('/usr/bin/nu').id).toBe('posix');
   });
+
+  it('marks zsh/bash/fish integrated and the fallback not (drives the limited-support notice)', () => {
+    expect(resolveShellIntegration('/bin/zsh').isIntegrated).toBe(true);
+    expect(resolveShellIntegration('/bin/bash').isIntegrated).toBe(true);
+    expect(resolveShellIntegration('/usr/bin/fish').isIntegrated).toBe(true);
+    expect(resolveShellIntegration('/usr/bin/nu').isIntegrated).toBe(false);
+  });
 });
 
 describe('zsh launch', () => {

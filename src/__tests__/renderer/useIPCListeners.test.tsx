@@ -103,6 +103,7 @@ function installListenerStubs(): ListenerStubs {
   const stubs: ListenerStubs = { cliTaskStartedCb: null, cliTaskTransitionedCb: null, cliTaskCompletedCb: null };
   const api = window.api as unknown as Record<string, unknown>;
   api['onUpdateAvailable'] = vi.fn(() => () => {});
+  api['onShellUnsupported'] = vi.fn(() => () => {});
   api['onWhatsNew'] = vi.fn(() => () => {});
   api['onCliChange'] = vi.fn(() => () => {});
   api['health'] = { onUpdate: vi.fn(() => () => {}) };

@@ -47,6 +47,13 @@ export interface ShellLaunchContext {
 export interface ShellIntegration {
   /** Stable id for logging/tests. */
   id: string;
+  /**
+   * True if this provider keeps the wrapper dir first in PATH and emits OSC 133
+   * exit codes. False is the fail-open fallback: the shell launches but the
+   * bundled `claude`/`ouijit` wrappers and per-command status dots may not work.
+   * Drives the one-time "limited shell support" notice.
+   */
+  isIntegrated: boolean;
   /** Whether this provider handles the given shell path. */
   matches(shell: string): boolean;
   /** Write this shell's integration scripts into `integrationDir`. */
@@ -154,6 +161,7 @@ export const ZSH_INTEGRATION = [
 
 const zshIntegration: ShellIntegration = {
   id: 'zsh',
+  isIntegrated: true,
   matches: (shell) => shell.endsWith('/zsh') || shell === 'zsh',
   installFiles(dir) {
     const zshDir = path.join(dir, 'zsh');
@@ -217,6 +225,7 @@ export const BASH_INTEGRATION = [
 
 const bashIntegration: ShellIntegration = {
   id: 'bash',
+  isIntegrated: true,
   matches: (shell) => shell.endsWith('/bash') || shell === 'bash',
   installFiles(dir) {
     fs.writeFileSync(path.join(dir, 'ouijit-bash-integration.bash'), BASH_INTEGRATION, { mode: 0o644 });
@@ -267,6 +276,7 @@ export const FISH_INTEGRATION = [
 
 const fishIntegration: ShellIntegration = {
   id: 'fish',
+  isIntegrated: true,
   matches: (shell) => shell.endsWith('/fish') || shell === 'fish',
   installFiles(dir) {
     fs.writeFileSync(path.join(dir, 'ouijit-fish-integration.fish'), FISH_INTEGRATION, { mode: 0o644 });
@@ -293,6 +303,7 @@ const fishIntegration: ShellIntegration = {
  */
 const posixFallbackIntegration: ShellIntegration = {
   id: 'posix',
+  isIntegrated: false,
   matches: () => true,
   installFiles() {},
   launch({ shell, command }) {

@@ -508,6 +508,8 @@ export interface ElectronAPI {
   onFullscreenChange(callback: (isFullscreen: boolean) => void): () => void;
   /** Listen for app update availability (Linux only) */
   onUpdateAvailable(callback: (info: { version: string; url: string }) => void): () => void;
+  /** Listen for a spawned shell that has no integration provider (fish/zsh/bash are integrated) */
+  onShellUnsupported(callback: (info: { shell: string }) => void): () => void;
   /** Listen for "What's New" on first launch after update */
   onWhatsNew(callback: (info: { version: string; notes: string }) => void): () => void;
   /** Listen for CLI changes (sentinel file written by ouijit CLI) */

@@ -4,6 +4,7 @@ import type { PtyId, PtySpawnOptions, PtySpawnResult } from './types';
 import { generateId } from './utils/ids';
 import { getApiPort, getWrapperBinDir, clearHookStatus, clearAllHookStatuses } from './hookServer';
 import { getShellIntegrationDir, resolveShellIntegration } from './shellIntegration';
+import { typedPush } from './ipc/helpers';
 import { getLogger } from './logger';
 import { getUserDataPath, getCliPath } from './paths';
 import { issueToken, revokeToken, revokeAllTokens } from './apiAuth';
@@ -72,6 +73,10 @@ export interface ActiveSession {
 
 const activePtys = new Map<PtyId, ManagedPty>();
 let currentWindow: BrowserWindow | null = null;
+
+// Shells we've already shown the "limited support" notice for this session, so
+// the toast fires once per shell rather than on every spawn.
+const warnedUnsupportedShells = new Set<string>();
 
 // Maximum bytes to buffer for scroll history preservation (100KB)
 const MAX_BUFFER_SIZE = 100 * 1024;
@@ -223,6 +228,15 @@ export async function spawnPty(options: PtySpawnOptions, window: BrowserWindow):
     });
     if (launch.env) {
       Object.assign(finalEnv, launch.env);
+    }
+
+    // Fail-open shell (not zsh/bash/fish): it launches, but the wrapper-PATH fix
+    // and OSC 133 status signals are absent. Tell the user once per shell so the
+    // degraded behavior isn't a silent mystery, with a path to request support.
+    if (!integration.isIntegrated && !warnedUnsupportedShells.has(shell)) {
+      warnedUnsupportedShells.add(shell);
+      ptyLog.warn('shell has no integration provider', { shell });
+      typedPush(window, 'shell-unsupported', { shell });
     }
 
     const ptyProcess = pty.spawn(launch.file, launch.args, {
