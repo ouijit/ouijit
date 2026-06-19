@@ -25,7 +25,6 @@ const mockApi = {
   getProjects: vi.fn().mockResolvedValue([]),
   openProject: vi.fn().mockResolvedValue({ success: true }),
   openInFinder: vi.fn().mockResolvedValue({ success: true }),
-  openInEditor: vi.fn().mockResolvedValue({ success: true }),
   openFileInEditor: vi.fn().mockResolvedValue({ success: true }),
   openExternal: vi.fn().mockResolvedValue(undefined),
   refreshProjects: vi.fn().mockResolvedValue([]),

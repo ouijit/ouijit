@@ -50,7 +50,6 @@ contextBridge.exposeInMainWorld('api', {
   getProjects: () => typedInvoke('get-projects'),
   openProject: (path: string) => typedInvoke('open-project', path),
   openInFinder: (path: string) => typedInvoke('open-in-finder', path),
-  openInEditor: (projectPath: string, dirPath: string) => typedInvoke('open-in-editor', projectPath, dirPath),
   openFileInEditor: (projectPath: string, workspaceRoot: string, filePath: string, line?: number) =>
     typedInvoke('open-file-in-editor', projectPath, workspaceRoot, filePath, line),
   openExternal: (url: string) => typedInvoke('open-external', url),

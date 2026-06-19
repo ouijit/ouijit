@@ -71,15 +71,6 @@ function ensureEditorPath(): void {
 
 // ── Public API ──────────────────────────────────────────────────────
 
-export async function openInEditor(projectPath: string, dirPath: string): Promise<{ success: boolean }> {
-  const hook = await getHook(projectPath, 'editor');
-  if (!hook?.command) throw new Error('No editor configured');
-
-  ensureEditorPath();
-  spawn(hook.command, [dirPath], { detached: true, stdio: 'ignore', shell: true }).unref();
-  return { success: true };
-}
-
 /**
  * Opens a file at a specific line in the user's editor.
  *

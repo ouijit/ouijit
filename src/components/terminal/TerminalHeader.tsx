@@ -4,7 +4,7 @@ import { useProjectStore } from '../../stores/projectStore';
 import { useUIStore } from '../../stores/uiStore';
 import { useShallow } from 'zustand/react/shallow';
 import { terminalInstances } from './terminalReact';
-import { addProjectTerminal, renameTerminal } from './terminalActions';
+import { addProjectTerminal, openWorktreeEditor, renameTerminal } from './terminalActions';
 import { completeTask } from '../../services/taskCompletion';
 
 const EMPTY_TAGS: string[] = [];
@@ -159,7 +159,11 @@ export const TerminalHeader = memo(function TerminalHeader({
         icon: 'code',
         onClick: () => {
           if (hasEditorHook && instance.worktreePath) {
-            window.api.openInEditor(projectPath, instance.worktreePath!);
+            openWorktreeEditor(
+              projectPath,
+              { path: instance.worktreePath, branch: instance.worktreeBranch ?? '', createdAt: '' },
+              taskId ?? undefined,
+            );
           } else {
             setEditorHookDialog(true);
           }
@@ -442,7 +446,18 @@ export const TerminalHeader = memo(function TerminalHeader({
           hookType="editor"
           onClose={(result) => {
             setEditorHookDialog(false);
-            if (result?.saved) useProjectStore.getState().markHookConfigured('editor');
+            if (result?.saved) {
+              useProjectStore.getState().markHookConfigured('editor');
+              // Open the editor straight away rather than making the user
+              // re-invoke "Open in Editor" after configuring it.
+              if (result.hook?.command && instance?.worktreePath) {
+                openWorktreeEditor(
+                  projectPath,
+                  { path: instance.worktreePath, branch: instance.worktreeBranch ?? '', createdAt: '' },
+                  taskId ?? undefined,
+                );
+              }
+            }
           }}
         />
       )}
