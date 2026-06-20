@@ -6,9 +6,6 @@ function makeProject(path: string, name = path): Project {
   return {
     path,
     name,
-    hasGit: true,
-    hasClaude: false,
-    lastModified: new Date('2026-01-01T00:00:00Z'),
   };
 }
 

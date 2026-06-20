@@ -216,22 +216,18 @@ function EntryRow({ entry }: { entry: RestorableEntry }) {
 
 function ProjectThumb({ project }: { project: Project }) {
   return (
-    <div className={`w-4 h-4 shrink-0 ${project.iconDataUrl ? '' : 'overflow-hidden rounded-[3px]'}`}>
-      {project.iconDataUrl ? (
-        <img src={project.iconDataUrl} alt="" className="w-full h-full object-cover" draggable={false} />
-      ) : (
-        <div
-          className="w-full h-full flex items-center justify-center text-white"
-          style={{
-            backgroundColor: projectIconColor(project),
-            fontSize: 7,
-            fontWeight: 700,
-            textShadow: '0 1px 1px rgba(0, 0, 0, 0.2)',
-          }}
-        >
-          {getInitials(project.name)}
-        </div>
-      )}
+    <div className="w-4 h-4 shrink-0 overflow-hidden rounded-[3px]">
+      <div
+        className="w-full h-full flex items-center justify-center text-white"
+        style={{
+          backgroundColor: projectIconColor(project),
+          fontSize: 7,
+          fontWeight: 700,
+          textShadow: '0 1px 1px rgba(0, 0, 0, 0.2)',
+        }}
+      >
+        {getInitials(project.name)}
+      </div>
     </div>
   );
 }

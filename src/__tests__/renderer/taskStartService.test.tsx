@@ -85,7 +85,7 @@ describe('taskStartService.beginTransition', () => {
     expect(useProjectStore.getState().startingTaskNumbers.has(7)).toBe(false);
   });
 
-  test('hook prompt cancel: still spawns a plain shell so the loading slot resolves', async () => {
+  test('hook prompt cancel: opens no terminal and removes the loading slot', async () => {
     vi.mocked(window.api.hooks.get).mockResolvedValue({
       start: { command: 'npm install', name: 'Start', source: 'configured', priority: 0 },
     });
@@ -101,14 +101,15 @@ describe('taskStartService.beginTransition', () => {
     const req = useProjectStore.getState().runHookQueue[0]!;
     expect(req.hookType).toBe('start');
 
-    // User cancels.
+    // User cancels the start-hook dialog — an explicit "don't run a hook and
+    // don't open a terminal", just move the task.
     useProjectStore.getState().resolveRunHookRequest(req.id, null);
 
     await waitFor(() => !useProjectStore.getState().startingTaskNumbers.has(7));
 
-    // Terminal still spawned, but with no runConfig (plain shell).
-    expect(addProjectTerminal).toHaveBeenCalledTimes(1);
-    expect(vi.mocked(addProjectTerminal).mock.calls[0][1]).toBeUndefined();
+    // No terminal spawned, and the loading slot was cleaned up.
+    expect(addProjectTerminal).not.toHaveBeenCalled();
+    expect(useTerminalStore.getState().terminalsByProject[PROJECT] ?? []).toHaveLength(0);
   });
 
   test('hook prompt accept: spawns terminal with the captured command', async () => {
@@ -429,21 +430,23 @@ describe('taskStartService.beginTransition', () => {
     expect(useProjectStore.getState().runHookQueueTotal).toBe(2);
     expect(useProjectStore.getState().runHookQueue[0]!.task.taskNumber).toBe(7);
 
-    // Resolve the head — the second prompt slides into its place.
-    useProjectStore.getState().resolveRunHookRequest(useProjectStore.getState().runHookQueue[0]!.id, null);
+    // Accept the head — the second prompt slides into its place.
+    const runResult = { command: 'npm install', sandboxed: false, foreground: false };
+    useProjectStore.getState().resolveRunHookRequest(useProjectStore.getState().runHookQueue[0]!.id, runResult);
     await waitFor(() => useProjectStore.getState().runHookQueue.length === 1);
     expect(useProjectStore.getState().runHookQueue[0]!.task.taskNumber).toBe(8);
     // Total stays fixed so the stepper counts up rather than shrinking.
     expect(useProjectStore.getState().runHookQueueTotal).toBe(2);
 
-    useProjectStore.getState().resolveRunHookRequest(useProjectStore.getState().runHookQueue[0]!.id, null);
+    useProjectStore.getState().resolveRunHookRequest(useProjectStore.getState().runHookQueue[0]!.id, runResult);
     await waitFor(
       () =>
         !useProjectStore.getState().startingTaskNumbers.has(7) &&
         !useProjectStore.getState().startingTaskNumbers.has(8),
     );
 
-    // Both tasks spawned a terminal — no start hook was silently dropped.
+    // Both prompts were shown (neither evicted) and both accepted starts
+    // spawned a terminal — no start hook was silently dropped.
     expect(addProjectTerminal).toHaveBeenCalledTimes(2);
     expect(useProjectStore.getState().runHookQueueTotal).toBe(0);
   });
