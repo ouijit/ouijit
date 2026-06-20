@@ -17,7 +17,7 @@ export const TerminalNode = memo(function TerminalNode({ data, selected }: NodeP
 function LoadingNode({ label }: { label?: string }) {
   return (
     <div
-      className="canvas-terminal-node glass-bevel absolute rounded-[14px] border border-black/60 overflow-hidden flex flex-col items-center justify-center gap-3"
+      className="canvas-terminal-node absolute rounded-[14px] border border-black/60 overflow-hidden flex flex-col items-center justify-center gap-3"
       style={{
         top: INSET_TOP,
         left: INSET_SIDE,
@@ -72,7 +72,7 @@ const ActiveTerminalNode = memo(function ActiveTerminalNode({
       <Handle id="right" type="target" position={Position.Right} className="!bg-transparent !border-none !w-0 !h-0" />
 
       <div
-        className="canvas-terminal-node glass-bevel absolute rounded-[14px] border border-black/60 overflow-hidden flex flex-col"
+        className="canvas-terminal-node absolute rounded-[14px] border border-black/60 overflow-hidden flex flex-col"
         style={{
           top: INSET_TOP,
           left: INSET_SIDE,
