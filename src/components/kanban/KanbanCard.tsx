@@ -5,6 +5,7 @@ import type { TaskWithWorkspace } from '../../types';
 import { useTerminalStore, type TerminalDisplayState } from '../../stores/terminalStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { terminalInstances } from '../terminal/terminalReact';
+import { openWorktreeEditor } from '../terminal/terminalActions';
 import { Icon } from '../terminal/Icon';
 import { ContextMenu, type ContextMenuEntry } from '../ui/ContextMenu';
 import { HookConfigDialog } from '../dialogs/HookConfigDialog';
@@ -244,8 +245,12 @@ export const KanbanCard = memo(function KanbanCard({
       label: 'Open in Editor',
       icon: 'code',
       onClick: () => {
-        if (hasEditorHook && task.worktreePath) {
-          window.api.openInEditor(projectPath, task.worktreePath);
+        if (hasEditorHook && task.worktreePath && task.branch) {
+          openWorktreeEditor(
+            projectPath,
+            { path: task.worktreePath, branch: task.branch, createdAt: task.createdAt },
+            task.taskNumber,
+          );
         } else {
           setEditorHookDialog(true);
         }
@@ -408,7 +413,18 @@ export const KanbanCard = memo(function KanbanCard({
           hookType="editor"
           onClose={(result) => {
             setEditorHookDialog(false);
-            if (result?.saved) onEditorHookConfigured?.();
+            if (result?.saved) {
+              onEditorHookConfigured?.();
+              // Open the editor straight away — the user picked "Open in Editor"
+              // to get into the editor, not just to fill out a config dialog.
+              if (result.hook?.command && task.worktreePath && task.branch) {
+                openWorktreeEditor(
+                  projectPath,
+                  { path: task.worktreePath, branch: task.branch, createdAt: task.createdAt },
+                  task.taskNumber,
+                );
+              }
+            }
           }}
         />
       )}

@@ -14,10 +14,12 @@ import type {
   TaskWithWorkspace,
 } from '../../types';
 import { useTerminalStore, type TerminalDisplayState } from '../../stores/terminalStore';
+import { useProjectStore } from '../../stores/projectStore';
 import { useCanvasStore, persistCanvas } from '../../stores/canvasStore';
 import { useAppStore, staleGuard } from '../../stores/appStore';
 import { OuijitTerminal, terminalInstances, resolveTerminalLabel, type SummaryType } from './terminalReact';
 import { parseOsc133ExitCodes } from './osc133';
+import { buildEditorCommand } from './editorCommand';
 import { readSnapshot } from './sessionSnapshot';
 import { detectDevServerUrl } from '../webPreview/urlHelpers';
 import { descriptionToHookPrompt } from '../../utils/descriptionAttachments';
@@ -612,6 +614,43 @@ async function _spawnRunnerInner(instance: OuijitTerminal, script?: RunnerScript
     instance.runnerStatus = 'error';
     instance.pushDisplayState({ runnerStatus: 'error', runnerScriptName: script?.name ?? null });
   }
+}
+
+// ── Open the worktree in the configured editor ──────────────────────
+
+/**
+ * Open a task's worktree in the configured editor.
+ *
+ * Spawns a new task terminal whose startup command is the editor, so the editor
+ * runs in the card's main shell with a real TTY. That TTY is what terminal
+ * editors — Helix, Vim, Neovim — need to render; a detached background spawn
+ * (`stdio: 'ignore'`) never gives them one, which is why "Open in Editor" did
+ * nothing for them on Linux. GUI editors (VS Code, etc.) work too: their
+ * launcher returns immediately and the card drops into an interactive shell in
+ * the worktree. Returns false when no editor hook is configured so the caller
+ * can open the editor config dialog.
+ */
+export async function openWorktreeEditor(
+  projectPath: string,
+  worktree: WorktreeInfo,
+  taskId: number | undefined,
+): Promise<boolean> {
+  const hooks = await window.api.hooks.get(projectPath);
+  const editor = hooks.editor;
+  if (!editor?.command) return false;
+
+  await addProjectTerminal(
+    projectPath,
+    { name: 'Editor', command: buildEditorCommand(editor.command, worktree.path), source: 'custom', priority: 0 },
+    // A terminal editor only signals success once you quit it; a GUI editor's
+    // launcher returns immediately. Either way the card tidies itself; a failed
+    // launch exits non-zero and stays open.
+    { existingWorktree: worktree, taskId, autoCloseOnSuccess: true },
+  );
+  // Surface the editor terminal: when launched from the kanban, dismiss the
+  // board so the new card is visible (mirrors "Open in Terminal").
+  useProjectStore.getState().setKanbanVisible(false);
+  return true;
 }
 
 // ── Kill existing command instances ──────────────────────────────────

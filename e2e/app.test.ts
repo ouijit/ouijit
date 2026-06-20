@@ -1,6 +1,7 @@
 import { test, expect } from './fixtures';
 import type { Page, Locator, ElectronApplication } from '@playwright/test';
 import * as fs from 'node:fs';
+import * as path from 'node:path';
 
 const modifier = process.platform === 'darwin' ? 'Meta' : 'Control';
 
@@ -383,6 +384,74 @@ test('missing worktree: recovery dialog recreates worktree on open', async ({ ap
   }, repoPath);
   expect(newWorktreePath).toBeTruthy();
   expect(fs.existsSync(newWorktreePath)).toBe(true);
+});
+
+test('open in editor: runs the editor hook in a task terminal with the worktree path', async ({
+  appPage,
+  testRepo,
+}) => {
+  test.slow(); // spawns two terminals and polls for a side-effect file
+  const repoPath = testRepo.repoPath;
+
+  // A fake "editor" that records the directory argument it is launched with.
+  // Proving this file gets written is the whole point of the regression: the
+  // old implementation detached the editor as a background process with stdio
+  // ignored, so terminal editors (Helix/Vim) never rendered and nothing ran
+  // visibly. Running it inside a task terminal gives it a real shell + TTY, and
+  // the recorded argument confirms the worktree path reaches the editor.
+  const fixtureDir = path.dirname(repoPath); // cleaned up by the testRepo fixture
+  const fakeEditor = path.join(fixtureDir, 'fake-editor.sh');
+  const markerFile = path.join(fixtureDir, 'editor-arg.txt');
+  fs.writeFileSync(fakeEditor, `#!/bin/sh\nprintf '%s' "$1" > '${markerFile}'\n`);
+  fs.chmodSync(fakeEditor, 0o755);
+
+  await enterProject(appPage, repoPath);
+
+  // Configure the editor hook, then refresh the renderer's hook config so the
+  // context menu launches the editor instead of opening the setup dialog.
+  await appPage.evaluate(
+    async ({ rp, cmd }) => {
+      await window.api.hooks.save(rp, { id: 'hook-editor', type: 'editor', name: 'Editor', command: cmd });
+      await (window as any).__projectStore.getState().loadProjectConfig(rp);
+    },
+    { rp: repoPath, cmd: fakeEditor },
+  );
+
+  // Create a task and open it in a terminal (creates the worktree).
+  const input = appPage.locator('.kanban-add-input');
+  await input.fill('Editor task');
+  await input.press('Enter');
+
+  const todoColumn = appPage.locator('.kanban-column[data-status="todo"]');
+  await expect(todoColumn.locator('.kanban-card')).toHaveCount(1, { timeout: 5_000 });
+  await todoColumn.locator('.kanban-card').first().click({ button: 'right' });
+  await appPage.locator('.context-menu--visible .context-menu-item', { hasText: 'Open in Terminal' }).click();
+  await expect(appPage.locator('.project-card')).toHaveCount(1, { timeout: 15_000 });
+
+  // Reopen the kanban and launch the editor from the in-progress card.
+  await appPage.keyboard.press(`${modifier}+t`);
+  await expect(appPage.locator('.kanban-board')).toBeVisible({ timeout: 5_000 });
+  const ipCard = appPage.locator('.kanban-column[data-status="in_progress"] .kanban-card').first();
+  await ipCard.click({ button: 'right' });
+
+  const contextMenu = appPage.locator('.context-menu--visible');
+  await expect(contextMenu).toBeVisible({ timeout: 5_000 });
+  await contextMenu.locator('.context-menu-item', { hasText: 'Open in Editor' }).click();
+
+  // A second terminal card opens for the editor — the visible result the old
+  // detached-spawn path never produced.
+  await expect(appPage.locator('.project-card')).toHaveCount(2, { timeout: 15_000 });
+
+  // The fake editor ran in the worktree and received the worktree path.
+  const worktreePath = await appPage.evaluate(async (rp: string) => {
+    const tasks = await window.api.task.getAll(rp);
+    return tasks.find((t: any) => t.name === 'Editor task')?.worktreePath as string | undefined;
+  }, repoPath);
+  expect(worktreePath).toBeTruthy();
+
+  await expect
+    .poll(() => (fs.existsSync(markerFile) ? fs.readFileSync(markerFile, 'utf8') : null), { timeout: 15_000 })
+    .toBe(worktreePath);
 });
 
 test('whats new: modal appears and dismisses', async ({ appPage }) => {
