@@ -260,6 +260,7 @@ export interface IpcPushContract {
   };
   health: { args: [status: HealthStatus] };
   'update-available': { args: [info: { version: string; url: string }] };
+  'shell-unsupported': { args: [info: { shell: string }] };
   'whats-new': { args: [info: { version: string; notes: string }] };
   'cli-change': { args: [payload: { project: string; action: string; message?: string; ts: number }] };
   'cli:task-started': {

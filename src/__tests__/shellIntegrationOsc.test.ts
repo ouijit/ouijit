@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'vitest';
-import { ZSH_INTEGRATION, BASH_INTEGRATION } from '../hookServer';
+import { ZSH_INTEGRATION, BASH_INTEGRATION, FISH_INTEGRATION } from '../shellIntegration';
 
 /**
  * The shell-integration scripts emit OSC 133;D;<exit_code> after each command
@@ -52,5 +52,24 @@ describe('bash shell integration', () => {
     expect(BASH_INTEGRATION).toContain('if [ -n "${OUIJIT_INITIAL_EXIT-}" ]');
     expect(BASH_INTEGRATION).toContain('printf "\\033]133;D;%d\\007" "$OUIJIT_INITIAL_EXIT"');
     expect(BASH_INTEGRATION).toContain('unset OUIJIT_INITIAL_EXIT');
+  });
+});
+
+describe('fish shell integration', () => {
+  test('re-prepends the wrapper dir to PATH (after config.fish runs)', () => {
+    expect(FISH_INTEGRATION).toContain('set -gx PATH $OUIJIT_WRAPPER_DIR $cleaned');
+  });
+
+  test('emits the exit code via a fish_postexec event handler', () => {
+    expect(FISH_INTEGRATION).toContain('function _ouijit_emit_exit_code --on-event fish_postexec');
+    // $status must be captured before printf clobbers it.
+    expect(FISH_INTEGRATION).toContain('set -l code $status');
+    expect(FISH_INTEGRATION).toContain('printf "\\033]133;D;%d\\007" $code');
+  });
+
+  test('emits initial exit code passed via OUIJIT_INITIAL_EXIT across the exec', () => {
+    expect(FISH_INTEGRATION).toContain('if set -q OUIJIT_INITIAL_EXIT');
+    expect(FISH_INTEGRATION).toContain('printf "\\033]133;D;%d\\007" $OUIJIT_INITIAL_EXIT');
+    expect(FISH_INTEGRATION).toContain('set -e OUIJIT_INITIAL_EXIT');
   });
 });

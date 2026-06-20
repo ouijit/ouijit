@@ -1,15 +1,10 @@
-import * as path from 'node:path';
 import * as pty from 'node-pty';
 import { BrowserWindow } from 'electron';
 import type { PtyId, PtySpawnOptions, PtySpawnResult } from './types';
 import { generateId } from './utils/ids';
-import {
-  getApiPort,
-  getWrapperBinDir,
-  getShellIntegrationDir,
-  clearHookStatus,
-  clearAllHookStatuses,
-} from './hookServer';
+import { getApiPort, getWrapperBinDir, clearHookStatus, clearAllHookStatuses } from './hookServer';
+import { getShellIntegrationDir, resolveShellIntegration } from './shellIntegration';
+import { typedPush } from './ipc/helpers';
 import { getLogger } from './logger';
 import { getUserDataPath, getCliPath } from './paths';
 import { issueToken, revokeToken, revokeAllTokens } from './apiAuth';
@@ -35,49 +30,6 @@ const ptyLog = getLogger().scope('pty');
  */
 export function buildCommandString(command: string | undefined, _env?: Record<string, string> | undefined): string {
   return command || '';
-}
-
-/**
- * Builds the argv for the spawned shell when a startup command is present.
- *
- * The command runs via `-ic` then the shell execs into an interactive
- * session, which avoids the double-echo from writing to stdin.
- *
- * The command is spliced into the `-c` script verbatim: it is shell *code*
- * the shell must parse (so $VAR expands and the user's own quotes apply), not
- * a data string. It must NOT be quote-escaped — the `'\''` idiom is only
- * valid inside an enclosing single-quoted string, and here the command is
- * interpolated unquoted, so escaping it would corrupt any command containing
- * a single quote into an unterminated quote.
- */
-export function buildCommandShellArgs(command: string, shell: string, shellIntegrationDir: string): string[] {
-  const isZsh = shell.endsWith('/zsh') || shell === 'zsh';
-  const isBash = shell.endsWith('/bash') || shell === 'bash';
-  const prefix = 'export PATH="$OUIJIT_WRAPPER_DIR:$PATH"';
-
-  // Wrap the user command in a subshell so a stray `exit` (a shell builtin,
-  // not a child process) only terminates the subshell, not our outer zsh/bash.
-  // Without this, a hook like `echo hi; exit 1` would nuke the outer shell
-  // before we could `exec` into the interactive one. Subshell exit code is
-  // captured into $? exactly like an inline command would be.
-  const wrapped = `(${command})`;
-
-  // Capture the subshell's exit code into an env var so it survives the
-  // `exec` into the interactive shell — exec replaces the process and resets
-  // $?, so without this the renderer would never learn the initial command's
-  // exit code. The integration script reads OUIJIT_INITIAL_EXIT on first load
-  // and emits OSC 133;D itself.
-  const captureExit = 'export OUIJIT_INITIAL_EXIT=$?';
-
-  if (isZsh) {
-    return ['-ic', `${prefix}; ${wrapped}; ${captureExit}; ZDOTDIR="$OUIJIT_SHELL_INTEGRATION_DIR/zsh" exec ${shell}`];
-  }
-  if (isBash) {
-    const rcfile = path.join(shellIntegrationDir, 'ouijit-bash-integration.bash');
-    return ['-ic', `${prefix}; ${wrapped}; ${captureExit}; exec bash --rcfile ${rcfile}`];
-  }
-  // Fallback for other shells
-  return ['-ic', `${prefix}; ${wrapped}; ${captureExit}; exec ${shell}`];
 }
 
 interface ManagedPty {
@@ -121,6 +73,10 @@ export interface ActiveSession {
 
 const activePtys = new Map<PtyId, ManagedPty>();
 let currentWindow: BrowserWindow | null = null;
+
+// Shells we've already shown the "limited support" notice for this session, so
+// the toast fires once per shell rather than on every spawn.
+const warnedUnsupportedShells = new Set<string>();
 
 // Maximum bytes to buffer for scroll history preservation (100KB)
 const MAX_BUFFER_SIZE = 100 * 1024;
@@ -260,35 +216,30 @@ export async function spawnPty(options: PtySpawnOptions, window: BrowserWindow):
     // Build the command string to run in the spawned shell
     const expandedCommand = buildCommandString(options.command, options.env);
 
-    // If there's a command, run it via shell -c then exec into interactive shell
-    let shellArgs: string[] = [];
-
-    const isZsh = shell.endsWith('/zsh') || shell === 'zsh';
-    const isBash = shell.endsWith('/bash') || shell === 'bash';
-
-    if (isZsh) {
-      // ZDOTDIR trick: zsh sources $ZDOTDIR/.zshenv first. Our bootstrap
-      // restores the real ZDOTDIR, sources user's .zshenv, then registers
-      // precmd/preexec hooks that re-fix PATH after all init files run.
-      finalEnv['OUIJIT_ZSH_ZDOTDIR'] = finalEnv['ZDOTDIR'] || '';
-      finalEnv['ZDOTDIR'] = path.join(shellIntegrationDir, 'zsh');
-
-      if (expandedCommand) {
-        shellArgs = buildCommandShellArgs(expandedCommand, shell, shellIntegrationDir);
-      }
-    } else if (isBash) {
-      // --rcfile/--init-file: bash sources this instead of ~/.bashrc.
-      // Our integration script sources .bashrc first, then fixes PATH.
-      if (expandedCommand) {
-        shellArgs = buildCommandShellArgs(expandedCommand, shell, shellIntegrationDir);
-      } else {
-        shellArgs = ['--init-file', path.join(shellIntegrationDir, 'ouijit-bash-integration.bash')];
-      }
-    } else if (expandedCommand) {
-      shellArgs = buildCommandShellArgs(expandedCommand, shell, shellIntegrationDir);
+    // Resolve the shell's integration provider (zsh/bash/fish, or a fail-open
+    // POSIX fallback for anything else) and let it build the spawn recipe: the
+    // binary to exec, its argv, and any env vars it needs (e.g. zsh's ZDOTDIR).
+    const integration = resolveShellIntegration(shell);
+    const launch = integration.launch({
+      shell,
+      integrationDir: shellIntegrationDir,
+      command: expandedCommand,
+      zdotdir: finalEnv['ZDOTDIR'],
+    });
+    if (launch.env) {
+      Object.assign(finalEnv, launch.env);
     }
 
-    const ptyProcess = pty.spawn(shell, shellArgs, {
+    // Fail-open shell (not zsh/bash/fish): it launches, but the wrapper-PATH fix
+    // and OSC 133 status signals are absent. Tell the user once per shell so the
+    // degraded behavior isn't a silent mystery, with a path to request support.
+    if (!integration.isIntegrated && !warnedUnsupportedShells.has(shell)) {
+      warnedUnsupportedShells.add(shell);
+      ptyLog.warn('shell has no integration provider', { shell });
+      typedPush(window, 'shell-unsupported', { shell });
+    }
+
+    const ptyProcess = pty.spawn(launch.file, launch.args, {
       name: 'xterm-256color',
       cols: options.cols || 80,
       rows: options.rows || 24,
@@ -319,7 +270,15 @@ export async function spawnPty(options: PtySpawnOptions, window: BrowserWindow):
     };
 
     activePtys.set(ptyId, managed);
-    ptyLog.info('spawned', { ptyId, shell, cwd: options.cwd, pid: ptyProcess.pid, label });
+    ptyLog.info('spawned', {
+      ptyId,
+      shell,
+      shellIntegration: integration.id,
+      spawnFile: launch.file,
+      cwd: options.cwd,
+      pid: ptyProcess.pid,
+      label,
+    });
 
     ptyProcess.onData((data: string) => {
       handlePtyOutput(ptyId, `pty:data:${ptyId}`, data);

@@ -13,6 +13,7 @@ import * as os from 'node:os';
 import { createHash } from 'node:crypto';
 import { BrowserWindow } from 'electron';
 import { isPtyActive } from './ptyManager';
+import { getShellIntegrationDir, installShellIntegration } from './shellIntegration';
 import { getLogger } from './logger';
 import { handleApiRequest } from './api/router';
 import { authenticateRequest, type AuthContext } from './apiAuth';
@@ -268,11 +269,6 @@ export function stopHookServer(): Promise<void> {
 /** Path where wrapper and helper scripts are installed. */
 export function getWrapperBinDir(): string {
   return path.join(os.homedir(), '.config', 'Ouijit', 'bin');
-}
-
-/** Path where shell integration scripts live. */
-export function getShellIntegrationDir(): string {
-  return path.join(os.homedir(), '.config', 'Ouijit', 'shell-integration');
 }
 
 /** Path to the CLI reference file loaded by Claude via --append-system-prompt-file. */
@@ -753,116 +749,6 @@ export const PI_WRAPPER = [
   '',
 ].join('\n');
 
-// ── Shell integration scripts ────────────────────────────────────────
-// These scripts ensure the wrapper dir stays first in PATH even after
-// shell init files (.zshrc, .bashrc) prepend other directories.
-
-/** zsh ZDOTDIR bootstrap — written to shell-integration/zsh/.zshenv */
-export const ZSH_ZSHENV = [
-  '# Ouijit zsh integration — ZDOTDIR bootstrap',
-  '# Restores original ZDOTDIR, sources user .zshenv, loads PATH fix.',
-  'ZDOTDIR="$OUIJIT_ZSH_ZDOTDIR"',
-  '[ -z "$ZDOTDIR" ] && unset ZDOTDIR',
-  '',
-  '# Source user .zshenv',
-  'if [ -f "${ZDOTDIR:-$HOME}/.zshenv" ]; then',
-  '  . "${ZDOTDIR:-$HOME}/.zshenv"',
-  'fi',
-  '',
-  '# For interactive shells, load PATH fix',
-  'if [[ -o interactive ]]; then',
-  '  . "$OUIJIT_SHELL_INTEGRATION_DIR/ouijit-zsh-integration.zsh"',
-  'fi',
-  '',
-].join('\n');
-
-/** zsh PATH fix + command-exit signal — written to shell-integration/ouijit-zsh-integration.zsh */
-export const ZSH_INTEGRATION = [
-  '# Ouijit zsh integration — ensures wrapper dir stays first in PATH.',
-  '_ouijit_fix_path() {',
-  '  PATH=":$PATH:"',
-  '  PATH="${PATH//:$OUIJIT_WRAPPER_DIR:/:}"',
-  '  PATH="${PATH#:}"',
-  '  PATH="${PATH%:}"',
-  '  PATH="$OUIJIT_WRAPPER_DIR:$PATH"',
-  '  export PATH',
-  '  # Self-remove after first invocation',
-  '  precmd_functions=(${precmd_functions:#_ouijit_fix_path})',
-  '  preexec_functions=(${preexec_functions:#_ouijit_fix_path})',
-  '}',
-  'precmd_functions+=(_ouijit_fix_path)',
-  'preexec_functions+=(_ouijit_fix_path)',
-  '',
-  '# Emit OSC 133;D;<exit_code> after each command so the renderer can detect',
-  "# the prior command's exit code without the PTY actually exiting. Skips the",
-  '# very first prompt (no command has run yet). MUST be the first precmd so',
-  '# $? still reflects the user command, not a downstream precmd hook.',
-  '_ouijit_emit_exit_code() {',
-  '  local code=$?',
-  '  if [ -n "$_OUIJIT_HAS_RUN" ]; then',
-  '    printf "\\033]133;D;%d\\007" "$code"',
-  '  fi',
-  '  _OUIJIT_HAS_RUN=1',
-  '  return $code',
-  '}',
-  'precmd_functions=(_ouijit_emit_exit_code $precmd_functions)',
-  '',
-  '# When we exec into this shell from a one-off command (a hook script), the',
-  '# subshell exit code is passed across the exec via OUIJIT_INITIAL_EXIT. Emit',
-  '# OSC 133;D for it now so the renderer learns the result without waiting for',
-  '# the user to type a command. The precmd hook above still skips its first',
-  '# emission so this is the only signal for the initial command.',
-  'if [ -n "${OUIJIT_INITIAL_EXIT-}" ]; then',
-  '  printf "\\033]133;D;%d\\007" "$OUIJIT_INITIAL_EXIT"',
-  '  unset OUIJIT_INITIAL_EXIT',
-  'fi',
-  '',
-].join('\n');
-
-/** bash rcfile replacement — written to shell-integration/ouijit-bash-integration.bash */
-export const BASH_INTEGRATION = [
-  '# Ouijit bash integration — sources .bashrc then fixes PATH.',
-  'if [ -f "$HOME/.bashrc" ]; then',
-  '  . "$HOME/.bashrc"',
-  'fi',
-  '',
-  '# Fix PATH: remove wrapper dir, re-prepend it',
-  'PATH=":$PATH:"',
-  'PATH="${PATH//:$OUIJIT_WRAPPER_DIR:/:}"',
-  'PATH="${PATH#:}"',
-  'PATH="${PATH%:}"',
-  'PATH="$OUIJIT_WRAPPER_DIR:$PATH"',
-  'export PATH',
-  '',
-  '# Emit OSC 133;D;<exit_code> after each command so the renderer can detect',
-  "# the prior command's exit code without the PTY actually exiting. Skips the",
-  '# very first prompt. Prepended to PROMPT_COMMAND so $? still reflects the',
-  '# user command rather than a previously-installed hook.',
-  '_ouijit_emit_exit_code() {',
-  '  local code=$?',
-  '  if [ -n "$_OUIJIT_HAS_RUN" ]; then',
-  '    printf "\\033]133;D;%d\\007" "$code"',
-  '  fi',
-  '  _OUIJIT_HAS_RUN=1',
-  '  return $code',
-  '}',
-  'if [ -n "$PROMPT_COMMAND" ]; then',
-  '  PROMPT_COMMAND="_ouijit_emit_exit_code; $PROMPT_COMMAND"',
-  'else',
-  '  PROMPT_COMMAND="_ouijit_emit_exit_code"',
-  'fi',
-  '',
-  '# When we exec into this shell from a one-off command (a hook script), the',
-  '# subshell exit code is passed across the exec via OUIJIT_INITIAL_EXIT. Emit',
-  '# OSC 133;D for it now so the renderer learns the result without waiting for',
-  '# the user to type a command.',
-  'if [ -n "${OUIJIT_INITIAL_EXIT-}" ]; then',
-  '  printf "\\033]133;D;%d\\007" "$OUIJIT_INITIAL_EXIT"',
-  '  unset OUIJIT_INITIAL_EXIT',
-  'fi',
-  '',
-].join('\n');
-
 /**
  * Install the ouijit-hook helper script and claude wrapper into
  * ~/.config/Ouijit/bin/. The wrapper injects hooks via --settings
@@ -912,13 +798,9 @@ export function installWrapper(): void {
       { mode: 0o755 },
     );
 
-    // Write shell integration scripts (re-fix PATH after shell init)
-    const integrationDir = getShellIntegrationDir();
-    const zshDir = path.join(integrationDir, 'zsh');
-    fs.mkdirSync(zshDir, { recursive: true });
-    fs.writeFileSync(path.join(zshDir, '.zshenv'), ZSH_ZSHENV, { mode: 0o644 });
-    fs.writeFileSync(path.join(integrationDir, 'ouijit-zsh-integration.zsh'), ZSH_INTEGRATION, { mode: 0o644 });
-    fs.writeFileSync(path.join(integrationDir, 'ouijit-bash-integration.bash'), BASH_INTEGRATION, { mode: 0o644 });
+    // Write per-shell integration scripts (re-fix PATH after shell init,
+    // emit OSC 133 exit codes). Each provider owns its own files.
+    installShellIntegration(getShellIntegrationDir());
   } catch (err) {
     hookServerLog.warn('failed to install wrapper', { error: err instanceof Error ? err.message : String(err) });
   }

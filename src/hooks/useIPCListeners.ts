@@ -119,6 +119,31 @@ export function useIPCListeners() {
       }),
     );
 
+    // Spawned a shell with no integration provider (not zsh/bash/fish). It
+    // launches fine, but the wrapper-PATH fix and command status dots may not
+    // work. Notify once per shell, with a one-click path to request support.
+    cleanups.push(
+      window.api.onShellUnsupported(({ shell }) => {
+        const name = shell.split('/').pop() || shell;
+        const title = `Shell support: ${name}`;
+        const body = `Requesting full Ouijit shell integration for \`${name}\`.\n\nShell path: ${shell}\n`;
+        const issueUrl = `https://github.com/ouijit/ouijit/issues/new?labels=shell-support&title=${encodeURIComponent(
+          title,
+        )}&body=${encodeURIComponent(body)}`;
+        useProjectStore
+          .getState()
+          .addToast(
+            `${name} isn't a fully supported shell yet. Tasks still run, but the bundled claude and ouijit commands and command status indicators may not work.`,
+            {
+              type: 'info',
+              persistent: true,
+              actionLabel: 'Open GitHub issue',
+              onAction: () => window.api.openExternal(issueUrl),
+            },
+          );
+      }),
+    );
+
     // "What's New" on first launch after update
     cleanups.push(
       window.api.onWhatsNew((info) => {
