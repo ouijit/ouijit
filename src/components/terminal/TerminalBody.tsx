@@ -117,7 +117,7 @@ export function TerminalBody({ ptyId, projectPath }: TerminalBodyProps) {
 
   const panelStyle: React.CSSProperties = split
     ? { flexBasis: `${splitRatio * 100}%`, minWidth: 200, transition: 'flex-basis 0.25s ease' }
-    : { flex: '1 0 100%' };
+    : { flex: '1 1 0%' };
 
   return (
     <div className="relative flex flex-col flex-1 min-h-0 overflow-hidden">
@@ -158,7 +158,7 @@ export function TerminalBody({ ptyId, projectPath }: TerminalBodyProps) {
         {activePanel && (
           <div
             ref={panelRef}
-            className="relative flex flex-col min-h-0 overflow-hidden"
+            className="relative flex flex-col min-h-0 overflow-hidden glass-bevel border border-black/60 rounded-[12px] mb-3 mr-3 ml-2"
             style={{
               ...panelStyle,
               background: 'var(--color-terminal-bg, #171717)',

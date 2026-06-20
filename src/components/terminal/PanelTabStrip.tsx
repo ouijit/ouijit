@@ -50,17 +50,17 @@ export function PanelTabStrip({
   };
 
   return (
-    <div className="flex items-center gap-1.5 px-2 py-1.5 bg-white/[0.03] border-b border-white/10 shrink-0 overflow-x-auto">
+    <div className="flex items-center gap-1 px-3 pt-2 pb-1.5 shrink-0 overflow-x-auto">
       {panels.map((panel) => {
         const active = panel.id === activePanelId;
         return (
           <button
             key={panel.id}
             onClick={() => onActivate(panel.id)}
-            className={`group/tab relative inline-flex items-center gap-1.5 h-7 pl-2.5 pr-1.5 rounded-[12px] glass-bevel border border-black/60 overflow-hidden text-[13px] font-medium shrink-0 transition-colors duration-150 ${
+            className={`group/tab relative inline-flex items-center gap-1.5 h-7 pl-2.5 pr-1.5 rounded-md text-[13px] font-medium shrink-0 transition-colors duration-150 ${
               active
-                ? 'bg-accent text-white'
-                : 'bg-background-secondary text-text-secondary hover:text-text-primary hover:bg-background-tertiary'
+                ? 'text-text-primary bg-white/[0.08]'
+                : 'text-text-secondary hover:text-text-primary hover:bg-white/[0.04]'
             }`}
           >
             {panel.kind === 'runner' ? (
@@ -76,9 +76,7 @@ export function PanelTabStrip({
                 e.stopPropagation();
                 onClose(panel.id);
               }}
-              className={`w-4 h-4 flex items-center justify-center rounded shrink-0 opacity-0 group-hover/tab:opacity-100 transition-all duration-150 [&>svg]:w-3 [&>svg]:h-3 ${
-                active ? 'hover:bg-white/20 text-white/80' : 'hover:bg-white/10 text-white/50 hover:text-white/90'
-              }`}
+              className="w-4 h-4 flex items-center justify-center rounded shrink-0 opacity-0 group-hover/tab:opacity-100 transition-all duration-150 text-white/50 hover:bg-white/10 hover:text-white/90 [&>svg]:w-3 [&>svg]:h-3"
             >
               <Icon name="x" />
             </span>
@@ -90,7 +88,7 @@ export function PanelTabStrip({
         <button
           ref={addRef}
           onClick={openMenu}
-          className="w-7 h-7 flex items-center justify-center shrink-0 rounded-[12px] glass-bevel border border-black/60 bg-background-secondary text-text-secondary hover:text-text-primary hover:bg-background-tertiary transition-colors duration-150 [&>svg]:w-3.5 [&>svg]:h-3.5"
+          className="w-7 h-7 flex items-center justify-center shrink-0 rounded-md bg-transparent border-none text-text-secondary hover:text-text-primary hover:bg-white/[0.05] transition-colors duration-150 [&>svg]:w-3.5 [&>svg]:h-3.5"
           aria-label="Add panel"
         >
           <Icon name="plus" />
