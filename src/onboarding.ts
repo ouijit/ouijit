@@ -2,7 +2,7 @@ import { createTodoTask } from './worktree';
 import { getGlobalSetting, getTaskByNumber, setGlobalSetting } from './db';
 import { getLogger } from './logger';
 import { type OnboardingStorageIO, patchOnboardingState, readOnboardingState } from './onboardingState';
-import { getProjectList } from './scanner';
+import { getProjectList } from './projectList';
 import type { FirstProjectSource } from './types';
 
 const onboardingLog = getLogger().scope('onboarding');

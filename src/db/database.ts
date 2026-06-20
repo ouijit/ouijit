@@ -9,6 +9,7 @@ import { up as migration007 } from './migrations/007-remove-sandbox-config';
 import { up as migration008 } from './migrations/008-add-parent-task';
 import { up as migration009 } from './migrations/009-rename-cleanup-hook-to-done';
 import { up as migration010 } from './migrations/010-project-icon-color';
+import { up as migration011 } from './migrations/011-drop-project-icon-data-url';
 
 const migrations = [
   { version: 1, up: migration001 },
@@ -21,6 +22,7 @@ const migrations = [
   { version: 8, up: migration008 },
   { version: 9, up: migration009 },
   { version: 10, up: migration010 },
+  { version: 11, up: migration011 },
 ];
 
 let db: Database.Database | null = null;

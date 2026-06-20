@@ -12,7 +12,6 @@ export interface ProjectRow {
   path: string;
   name: string;
   added_at: string;
-  icon_data_url: string | null;
   icon_color: string | null;
   sort_order: number;
 }
@@ -28,11 +27,9 @@ export class ProjectRepo {
     return this.db.prepare('SELECT * FROM projects WHERE path = ?').get(path) as ProjectRow | undefined;
   }
 
-  add(path: string, name: string, iconDataUrl?: string): void {
+  add(path: string, name: string): void {
     this.db.transaction(() => {
-      this.db
-        .prepare('INSERT OR IGNORE INTO projects (path, name, icon_data_url) VALUES (?, ?, ?)')
-        .run(path, name, iconDataUrl ?? null);
+      this.db.prepare('INSERT OR IGNORE INTO projects (path, name) VALUES (?, ?)').run(path, name);
 
       this.db.prepare('INSERT OR IGNORE INTO project_counters (project_path) VALUES (?)').run(path);
 
