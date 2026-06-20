@@ -202,7 +202,7 @@ export function PlanPanel({ ptyId, planPath, onChangePlanFile }: PlanPanelProps)
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* Header */}
-      <div className="flex items-center gap-2 px-3 py-1.5 bg-white/[0.03] border-b border-white/10 shrink-0">
+      <div className="flex items-center gap-2 px-3 py-1.5 shrink-0">
         <Icon name="list-checks" className="w-3.5 h-3.5 text-white/50 shrink-0" />
         <button
           className="text-[13px] text-white/50 truncate flex-1 font-mono bg-transparent border-none p-0 text-left transition-colors duration-150 hover:text-white/80"

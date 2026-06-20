@@ -165,7 +165,7 @@ export function WebPreviewPanel({ url, onChangeUrl }: WebPreviewPanelProps) {
   return (
     <div className="flex flex-col h-full overflow-hidden">
       {/* Header */}
-      <div className="flex items-center gap-1 px-2 py-1.5 bg-white/[0.03] border-b border-white/10 shrink-0">
+      <div className="flex items-center gap-1 px-2 py-1.5 shrink-0">
         <TooltipButton
           text="Back"
           placement="bottom"

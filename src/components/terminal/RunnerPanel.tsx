@@ -20,7 +20,7 @@ export function RunnerPanel({ ptyId, panelId, onRestart }: RunnerPanelProps) {
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <div className="flex items-center gap-2 px-3 py-1.5 bg-white/[0.03] border-b border-white/10 shrink-0">
+      <div className="flex items-center gap-2 px-3 py-1.5 shrink-0">
         <span className="text-[13px] text-white/50 truncate flex-1 font-mono">{panelTitle}</span>
         <Tooltip text="Restart">
           <button
