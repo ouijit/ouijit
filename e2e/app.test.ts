@@ -284,18 +284,18 @@ test('lifecycle hooks: start hook via drag shows dialog', async ({ appPage, test
   await expect(hookDialog).toBeVisible({ timeout: 15_000 });
   await expect(hookDialog.locator('[data-testid="dialog-title"]')).toHaveText('Start Task');
 
-  // Click "Cancel" — the task still moves to in_progress and the loading slot
-  // still resolves into a terminal, just a plain shell instead of running the
-  // hook (cancel skips the hook, it does not abort the start).
+  // Click "Cancel" — an explicit "don't run the hook, don't open a terminal".
+  // The task still moves to in_progress (worktree already created), but no
+  // terminal is spawned and the loading slot is removed.
   await hookDialog.locator('[data-testid="dialog-cancel"]').click();
   await expect(appPage.locator('[data-testid="dialog-overlay"][data-visible="true"]')).not.toBeVisible({
     timeout: 5_000,
   });
   await expect(inProgressColumn.locator('.kanban-card')).toHaveCount(2, { timeout: 5_000 });
   await expect(todoColumn.locator('.kanban-card')).toHaveCount(0);
-  // A plain-shell terminal was spawned for the cancelled task (2 total now).
+  // No new terminal was created — still just the one from the Run flow earlier.
   await appPage.keyboard.press(`${modifier}+t`);
-  await expect(appPage.locator('.project-card')).toHaveCount(2, { timeout: 15_000 });
+  await expect(appPage.locator('.project-card')).toHaveCount(1);
   await appPage.keyboard.press(`${modifier}+t`);
 
   // --- No dialog after hook deleted ---
