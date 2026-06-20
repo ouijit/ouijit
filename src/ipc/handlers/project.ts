@@ -18,7 +18,7 @@ import {
 } from '../../projectsFolder';
 import { addExistingProject, createAndRegisterProject } from '../../services/projectRegistration';
 import { seedOnboardingTaskIfFirstProject } from '../../onboarding';
-import { openInEditor, openFileInEditor } from '../../editorLauncher';
+import { openFileInEditor } from '../../editorLauncher';
 import { deleteWithCleanup } from '../../lima/manager';
 import { deleteConfig } from '../../lima/configStore';
 import { getActiveSessions } from '../../ptyManager';
@@ -54,8 +54,6 @@ export function registerProjectHandlers(mainWindow: BrowserWindow): void {
     await shell.openPath(projectPath);
     return { success: true };
   });
-
-  typedHandle('open-in-editor', (projectPath, dirPath) => openInEditor(projectPath, dirPath));
 
   typedHandle('open-file-in-editor', (projectPath, workspaceRoot, filePath, line) =>
     openFileInEditor(projectPath, workspaceRoot, filePath, line),
