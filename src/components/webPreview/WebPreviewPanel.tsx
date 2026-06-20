@@ -220,7 +220,7 @@ export function WebPreviewPanel({ url, onChangeUrl }: WebPreviewPanelProps) {
       </div>
 
       {/* Content */}
-      <div className="flex-1 relative bg-white">
+      <div className="flex-1 relative bg-white mx-3 mb-3 glass-bevel border border-black/60 rounded-[12px] overflow-hidden">
         {url ? (
           <webview
             ref={setWebviewNode as unknown as React.Ref<HTMLWebViewElement>}

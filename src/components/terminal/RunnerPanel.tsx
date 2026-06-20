@@ -34,7 +34,7 @@ export function RunnerPanel({ ptyId, panelId, onRestart }: RunnerPanelProps) {
           </button>
         </Tooltip>
       </div>
-      <div className="flex-1 overflow-hidden min-h-0 p-4">
+      <div className="flex-1 overflow-hidden min-h-0 mx-3 mb-3 p-4 glass-bevel border border-black/60 rounded-[12px]">
         {runnerPtyId ? (
           <XTermContainer ptyId={runnerPtyId} className="runner-xterm-container w-full h-full overflow-hidden" />
         ) : (

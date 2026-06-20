@@ -229,7 +229,10 @@ export function PlanPanel({ ptyId, planPath, onChangePlanFile }: PlanPanelProps)
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto px-6 py-4" onClick={handleClick}>
+      <div
+        className="flex-1 overflow-y-auto px-6 py-4 mx-3 mb-3 glass-bevel border border-black/60 rounded-[12px]"
+        onClick={handleClick}
+      >
         {loading ? (
           <div className="text-sm text-white/40">Loading plan...</div>
         ) : content === null ? (
