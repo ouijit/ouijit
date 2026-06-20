@@ -52,7 +52,7 @@ vi.mock('../taskLifecycle', () => ({
   getTaskWithWorkspace: vi.fn(async () => null),
 }));
 
-vi.mock('../scanner', () => ({
+vi.mock('../projectList', () => ({
   getProjectList: vi.fn(async () => []),
 }));
 

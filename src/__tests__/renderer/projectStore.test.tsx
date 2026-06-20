@@ -78,9 +78,6 @@ describe('projectStore.loadTasks → appStore cache', () => {
         {
           path: '/project',
           name: 'project',
-          hasGit: true,
-          hasClaude: false,
-          lastModified: new Date('2026-01-01T00:00:00Z'),
         },
       ],
       taskCacheByProject: {},
