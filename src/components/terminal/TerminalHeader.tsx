@@ -3,16 +3,18 @@ import { useTerminalStore } from '../../stores/terminalStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { useShallow } from 'zustand/react/shallow';
 import { terminalInstances } from './terminalReact';
-import { addProjectTerminal, openWorktreeEditor, renameTerminal } from './terminalActions';
+import { addProjectTerminal, openWorktreeEditor, renameTerminal, startRunner } from './terminalActions';
 import { completeTask } from '../../services/taskCompletion';
 
 const EMPTY_TAGS: string[] = [];
 import { Icon } from './Icon';
+import { Tooltip } from '../ui/Tooltip';
 import { TagInput } from './TagInput';
 import { TerminalHeaderView, TerminalHeaderName } from './TerminalHeaderView';
 import { ContextMenu, type ContextMenuEntry } from '../ui/ContextMenu';
+import { AddPanelMenu } from './AddPanelMenu';
 import { HookConfigDialog } from '../dialogs/HookConfigDialog';
-import type { GitFileStatus } from '../../types';
+import type { GitFileStatus, RunnerScript } from '../../types';
 
 interface TerminalHeaderProps {
   ptyId: string;
@@ -53,8 +55,10 @@ export const TerminalHeader = memo(function TerminalHeader({
   const [tagInputOpen, setTagInputOpen] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
   const [editorHookDialog, setEditorHookDialog] = useState(false);
+  const [addMenu, setAddMenu] = useState<{ x: number; y: number } | null>(null);
   const [renaming, setRenaming] = useState(false);
   const renameInputRef = useRef<HTMLInputElement>(null);
+  const addRef = useRef<HTMLButtonElement>(null);
 
   const instance = terminalInstances.get(ptyId);
   const projectPath = instance?.projectPath ?? '';
@@ -187,6 +191,28 @@ export const TerminalHeader = memo(function TerminalHeader({
     [ptyId],
   );
 
+  const openAddMenu = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    const rect = addRef.current?.getBoundingClientRect();
+    if (rect) setAddMenu({ x: rect.left, y: rect.bottom + 4 });
+  }, []);
+
+  const handleAddRunner = useCallback(
+    (script?: RunnerScript) => {
+      void startRunner(ptyId, script);
+    },
+    [ptyId],
+  );
+  const handleAddWebPreview = useCallback(() => {
+    terminalInstances.get(ptyId)?.addWebPreviewPanel(null);
+  }, [ptyId]);
+  const handleAddPlan = useCallback(
+    (planPath: string) => {
+      terminalInstances.get(ptyId)?.addPlanPanel(planPath);
+    },
+    [ptyId],
+  );
+
   const isWorktree = taskId != null && !!worktreeBranch;
 
   const nameContent = renaming ? (
@@ -246,6 +272,18 @@ export const TerminalHeader = memo(function TerminalHeader({
           onClose={() => setContextMenu(null)}
         />
       )}
+      {addMenu && (
+        <AddPanelMenu
+          ptyId={ptyId}
+          projectPath={projectPath}
+          x={addMenu.x}
+          y={addMenu.y}
+          onAddRunner={handleAddRunner}
+          onAddWebPreview={handleAddWebPreview}
+          onAddPlan={handleAddPlan}
+          onClose={() => setAddMenu(null)}
+        />
+      )}
       {editorHookDialog && (
         <HookConfigDialog
           projectPath={projectPath}
@@ -282,14 +320,25 @@ export const TerminalHeader = memo(function TerminalHeader({
       tagsContent={tagsContent}
       branchContent={gitFileStatus?.branch ? <BranchCopy branch={gitFileStatus.branch} /> : undefined}
       actions={
-        isActive ? (
-          <DiffButton
-            compact={compact}
-            gitFileStatus={gitFileStatus}
-            isWorktree={isWorktree}
-            diffPanelOpen={diffPanelOpen}
-            onClick={handleDiffClick}
-          />
+        isActive && !compact ? (
+          <>
+            <DiffButton
+              gitFileStatus={gitFileStatus}
+              isWorktree={isWorktree}
+              diffPanelOpen={diffPanelOpen}
+              onClick={handleDiffClick}
+            />
+            <Tooltip text="Add panel">
+              <button
+                ref={addRef}
+                onClick={openAddMenu}
+                aria-label="Add panel"
+                className="w-7 h-7 flex items-center justify-center shrink-0 rounded-[12px] glass-bevel border border-black/60 bg-background-secondary text-text-secondary hover:text-text-primary hover:bg-background-tertiary transition-colors duration-150 [&>svg]:w-3.5 [&>svg]:h-3.5"
+              >
+                <Icon name="plus" />
+              </button>
+            </Tooltip>
+          </>
         ) : undefined
       }
       showCloseButton
@@ -347,13 +396,11 @@ const diffButtonBase =
   'h-full px-2.5 flex items-center gap-1 border-none font-sans text-[13px] font-medium transition-colors duration-150 ease-out';
 
 function DiffButton({
-  compact,
   gitFileStatus,
   isWorktree,
   diffPanelOpen,
   onClick,
 }: {
-  compact?: boolean;
   gitFileStatus: GitFileStatus | null;
   isWorktree: boolean;
   diffPanelOpen: boolean;
@@ -365,7 +412,7 @@ function DiffButton({
   const branchDiffCount = gitFileStatus?.branchDiffFiles.length ?? 0;
   const hasUncommitted = !!gitFileStatus && dirtyFileCount > 0;
   const showCompare = !!gitFileStatus && !hasUncommitted && isWorktree && branchDiffCount > 0;
-  if (compact || (!hasUncommitted && !showCompare)) return null;
+  if (!hasUncommitted && !showCompare) return null;
 
   const stateClass = diffPanelOpen
     ? 'bg-accent text-white hover:bg-accent'
