@@ -158,10 +158,11 @@ export function TerminalBody({ ptyId, projectPath }: TerminalBodyProps) {
         {activePanel && (
           <div
             ref={panelRef}
-            className="relative flex flex-col min-h-0 overflow-hidden"
+            className="relative flex flex-col min-h-0 overflow-hidden glass-bevel border border-black/60 rounded-[14px] mb-3 mr-3 ml-3"
             style={{
               ...panelStyle,
               background: 'var(--color-terminal-bg, #171717)',
+              boxShadow: '0 0 0 1px rgba(0, 0, 0, 0.05), 0 2px 10px rgba(0, 0, 0, 0.18)',
               ...(dragging ? { pointerEvents: 'none' } : {}),
             }}
           >
