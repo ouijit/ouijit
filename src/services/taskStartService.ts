@@ -263,6 +263,12 @@ async function runTransition(
     // decided — skip the dialog entirely. Otherwise show the dialog
     // proactively if a hook is configured for this transition.
     let hookPromise: Promise<RunHookResult | null> = Promise.resolve(null);
+    // True when an interactive start-hook dialog is shown to the user. Clicking
+    // its Cancel button (hookResult === null) is an explicit "don't run a hook
+    // and don't open a terminal" — distinct from the no-hook drop, where a plain
+    // shell is the whole point. We only honor that on this interactive path, not
+    // for CLI-driven (hookControl) starts.
+    const interactiveHookOffered = !hookControl && transitioningToInProgress && !!hookType && !!hook;
     if (hookControl) {
       let resolved: RunHookResult | null = null;
       if (hookControl.mode === 'command' && hookControl.command) {
@@ -322,12 +328,18 @@ async function runTransition(
 
     await useProjectStore.getState().loadTasks(projectPath);
 
-    // 6. Spawn the terminal. For in_progress drops we always open a terminal
-    // (with the hook command if accepted, otherwise a plain shell) so the
-    // loading slot always morphs into a real card. For review/done the
-    // terminal only spawns if the user accepted the hook.
+    // 6. Spawn the terminal. For in_progress drops we open a terminal (with the
+    // hook command if accepted, otherwise a plain shell) so the loading slot
+    // morphs into a real card. The exception: explicitly cancelling an offered
+    // start-hook dialog means "move the task but open no terminal" — skip the
+    // spawn and let the finally block remove the loading slot. For review/done
+    // the terminal only spawns if the user accepted the hook.
     if (transitioningToInProgress) {
-      await spawnTerminalForInProgress(projectPath, resolvedTask, hookResult, slotId);
+      if (interactiveHookOffered && !hookResult) {
+        taskStartLog.info('start hook cancelled — moving to in_progress without a terminal', { taskNumber });
+      } else {
+        await spawnTerminalForInProgress(projectPath, resolvedTask, hookResult, slotId);
+      }
     } else if (hookResult) {
       await runNonStartHookInTerminal(projectPath, resolvedTask, newStatus, hookResult, onForegroundOpen);
     }

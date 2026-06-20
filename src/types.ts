@@ -428,12 +428,6 @@ export interface WorktreeAPI {
 export interface Project {
   name: string;
   path: string;
-  hasGit: boolean;
-  hasClaude: boolean;
-  lastModified: Date;
-  description?: string;
-  language?: string;
-  iconDataUrl?: string;
   /** Custom icon color override; when unset the color is generated from the name. */
   iconColor?: string;
 }

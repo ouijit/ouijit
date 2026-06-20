@@ -53,7 +53,7 @@ vi.mock('../taskLifecycle', () => ({
   getTaskWithWorkspace: (...args: unknown[]) => getTaskWithWorkspaceMock(...args),
 }));
 
-vi.mock('../scanner', () => ({
+vi.mock('../projectList', () => ({
   getProjectList: vi.fn(async () => []),
 }));
 

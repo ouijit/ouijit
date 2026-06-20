@@ -96,28 +96,19 @@ export function TitleBar({ mode }: TitleBarProps) {
         {activeView === 'project' && activeProjectData && activeProjectPath ? (
           <div key="project-header" className="flex items-center gap-3 flex-1 pl-2 pr-4 min-w-0">
             <button
-              className={`w-8 h-8 shrink-0 [-webkit-app-region:no-drag] transition-opacity duration-150 ease-out hover:opacity-70 active:opacity-50 ${activeProjectData.iconDataUrl ? '' : 'overflow-hidden rounded-md'}`}
+              className="w-8 h-8 shrink-0 overflow-hidden rounded-md [-webkit-app-region:no-drag] transition-opacity duration-150 ease-out hover:opacity-70 active:opacity-50"
               aria-label="Toggle sidebar"
               onClick={() => document.dispatchEvent(new CustomEvent('toggle-sidebar'))}
             >
-              {activeProjectData.iconDataUrl ? (
-                <img
-                  src={activeProjectData.iconDataUrl}
-                  alt={activeProjectData.name}
-                  className="w-full h-full object-cover"
-                  draggable={false}
-                />
-              ) : (
-                <div
-                  className="w-full h-full flex items-center justify-center text-xs font-bold text-white"
-                  style={{
-                    backgroundColor: projectIconColor(activeProjectData),
-                    textShadow: '0 1px 2px rgba(0, 0, 0, 0.2)',
-                  }}
-                >
-                  {getInitials(activeProjectData.name)}
-                </div>
-              )}
+              <div
+                className="w-full h-full flex items-center justify-center text-xs font-bold text-white"
+                style={{
+                  backgroundColor: projectIconColor(activeProjectData),
+                  textShadow: '0 1px 2px rgba(0, 0, 0, 0.2)',
+                }}
+              >
+                {getInitials(activeProjectData.name)}
+              </div>
             </button>
             <div className="flex flex-col gap-[2px] min-w-0">
               <span className="text-[15px] font-semibold text-text-primary leading-none tracking-tight truncate">

@@ -33,7 +33,7 @@ import {
   getTasksWithWorkspaces,
   getTaskWithWorkspace,
 } from '../taskLifecycle';
-import { getProjectList } from '../scanner';
+import { getProjectList } from '../projectList';
 import { getPlanPath, setPlanPath, clearPlanPath } from '../hookServer';
 import { isPtyActive, getPtyTaskContext } from '../ptyManager';
 import { typedPush } from '../ipc/helpers';

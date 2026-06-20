@@ -534,32 +534,22 @@ export function HomeView() {
                     <Icon name="tag" />
                   </span>
                 ) : isRegisteredProject ? (
-                  project?.iconDataUrl ? (
-                    <img
-                      className="shrink-0 object-cover"
-                      style={{ width: 16, minWidth: 16, height: 16, aspectRatio: '1' }}
-                      src={project.iconDataUrl}
-                      alt={name}
-                      draggable={false}
-                    />
-                  ) : (
-                    <span
-                      className="shrink-0 object-cover flex items-center justify-center text-white"
-                      style={{
-                        width: 16,
-                        minWidth: 16,
-                        height: 16,
-                        borderRadius: 4,
-                        aspectRatio: '1',
-                        backgroundColor: project?.iconColor ?? stringToColor(name),
-                        fontSize: 7,
-                        fontWeight: 700,
-                        textShadow: '0 1px 1px rgba(0, 0, 0, 0.2)',
-                      }}
-                    >
-                      {getInitials(name)}
-                    </span>
-                  )
+                  <span
+                    className="shrink-0 object-cover flex items-center justify-center text-white"
+                    style={{
+                      width: 16,
+                      minWidth: 16,
+                      height: 16,
+                      borderRadius: 4,
+                      aspectRatio: '1',
+                      backgroundColor: project?.iconColor ?? stringToColor(name),
+                      fontSize: 7,
+                      fontWeight: 700,
+                      textShadow: '0 1px 1px rgba(0, 0, 0, 0.2)',
+                    }}
+                  >
+                    {getInitials(name)}
+                  </span>
                 ) : (
                   <span
                     className="shrink-0 object-cover flex items-center justify-center"

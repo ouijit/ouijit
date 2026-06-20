@@ -47,41 +47,39 @@ export function IconColorSection({ projectPath }: IconColorSectionProps) {
 
   return (
     <div className="glass-bevel relative border border-black/60 rounded-[14px] overflow-hidden bg-[var(--color-terminal-bg,#171717)]">
-      <div className="flex items-center gap-4 px-4 py-4">
+      <label
+        className="group flex items-center gap-4 px-4 py-4 transition-colors hover:bg-white/[0.03]"
+        title="Choose a color"
+      >
         <div className="w-12 h-12 shrink-0 rounded-md overflow-hidden">
-          {project.iconDataUrl ? (
-            <img src={project.iconDataUrl} alt="" className="w-full h-full object-cover" draggable={false} />
-          ) : (
-            <div
-              className="w-full h-full flex items-center justify-center text-base font-bold text-white"
-              style={{ backgroundColor: color, textShadow: '0 1px 2px rgba(0, 0, 0, 0.2)' }}
-            >
-              {getInitials(project.name)}
-            </div>
-          )}
+          <div
+            className="w-full h-full flex items-center justify-center text-base font-bold text-white"
+            style={{ backgroundColor: color, textShadow: '0 1px 2px rgba(0, 0, 0, 0.2)' }}
+          >
+            {getInitials(project.name)}
+          </div>
         </div>
         <div className="flex-1 min-w-0">
           <div className="text-sm text-text-primary">Icon color</div>
-          <div className="text-xs text-text-tertiary mt-0.5">
-            {project.iconDataUrl
-              ? 'This project uses an icon image, so the color only shows where the image is unavailable.'
-              : 'The color behind the project initials.'}
-          </div>
+          <div className="text-xs text-text-tertiary mt-0.5">The color behind the project initials.</div>
         </div>
         <div className="flex items-center gap-3 shrink-0">
           {isCustom && (
             <button
               type="button"
-              onClick={handleReset}
+              // Inside the row label; preventDefault stops the click from also opening the color picker.
+              onClick={(e) => {
+                e.preventDefault();
+                handleReset();
+              }}
               className="text-xs text-text-tertiary hover:text-text-primary outline-none focus-visible:underline"
             >
               Automatic
             </button>
           )}
-          <label
-            className="relative w-8 h-8 rounded-full overflow-hidden border border-white/15"
+          <span
+            className="relative w-8 h-8 rounded-full overflow-hidden border border-white/15 transition-colors group-hover:border-white/30"
             style={{ backgroundColor: color }}
-            title="Choose a color"
           >
             <input
               type="color"
@@ -90,9 +88,9 @@ export function IconColorSection({ projectPath }: IconColorSectionProps) {
               onChange={(e) => handlePick(e.target.value)}
               className="absolute inset-0 w-full h-full opacity-0"
             />
-          </label>
+          </span>
         </div>
-      </div>
+      </label>
     </div>
   );
 }
