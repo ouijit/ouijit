@@ -114,6 +114,10 @@ html {
   text-rendering: optimizeLegibility;
   color-scheme: dark;
   overflow: hidden;
+  /* Paint the themed background on the root element too, not just <body>.
+     During async window resize macOS exposes newly grown pixels before the
+     WebContents repaints; without a background here those pixels flash white. */
+  background-color: var(--color-background);
 }
 
 body {
