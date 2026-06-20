@@ -281,20 +281,16 @@ function Checkbox({ checked, onChange, onPointerEnter, onPointerLeave }: Checkbo
 
 function ProjectThumb({ project }: { project: Project }) {
   return (
-    <div className={`w-7 h-7 shrink-0 ${project.iconDataUrl ? '' : 'overflow-hidden rounded-md'}`}>
-      {project.iconDataUrl ? (
-        <img src={project.iconDataUrl} alt="" className="w-full h-full object-cover" draggable={false} />
-      ) : (
-        <div
-          className="w-full h-full flex items-center justify-center text-xs font-bold text-white"
-          style={{
-            backgroundColor: projectIconColor(project),
-            textShadow: '0 1px 2px rgba(0, 0, 0, 0.2)',
-          }}
-        >
-          {getInitials(project.name)}
-        </div>
-      )}
+    <div className="w-7 h-7 shrink-0 overflow-hidden rounded-md">
+      <div
+        className="w-full h-full flex items-center justify-center text-xs font-bold text-white"
+        style={{
+          backgroundColor: projectIconColor(project),
+          textShadow: '0 1px 2px rgba(0, 0, 0, 0.2)',
+        }}
+      >
+        {getInitials(project.name)}
+      </div>
     </div>
   );
 }

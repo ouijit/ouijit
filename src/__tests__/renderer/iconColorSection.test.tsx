@@ -7,9 +7,6 @@ import type { Project } from '../../types';
 const PROJECT: Project = {
   name: 'My App',
   path: '/projects/app',
-  hasGit: true,
-  hasClaude: false,
-  lastModified: new Date(0),
   iconColor: '#123456',
 };
 

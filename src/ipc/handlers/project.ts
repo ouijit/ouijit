@@ -1,7 +1,7 @@
 import os from 'os';
 import { shell, BrowserWindow, dialog } from 'electron';
 import { typedHandle } from '../helpers';
-import { getProjectList } from '../../scanner';
+import { getProjectList } from '../../projectList';
 import {
   removeProject,
   reorderProjects,

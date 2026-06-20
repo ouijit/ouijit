@@ -453,22 +453,13 @@ function SortableProjectIcon({ project, isActive, onClick, onContextMenu }: Sort
             isActive ? 'h-9 opacity-100' : 'h-0 opacity-0 group-hover:h-5 group-hover:opacity-50'
           }`}
         />
-        <div className={`w-10 h-10 ${project.iconDataUrl ? '' : 'overflow-hidden rounded-md'}`}>
-          {project.iconDataUrl ? (
-            <img
-              src={project.iconDataUrl}
-              alt={project.name}
-              className="w-full h-full object-cover"
-              draggable={false}
-            />
-          ) : (
-            <div
-              className="w-full h-full flex items-center justify-center text-sm font-bold text-white"
-              style={{ backgroundColor: projectIconColor(project), textShadow: '0 1px 2px rgba(0, 0, 0, 0.2)' }}
-            >
-              {getInitials(project.name)}
-            </div>
-          )}
+        <div className="w-10 h-10 overflow-hidden rounded-md">
+          <div
+            className="w-full h-full flex items-center justify-center text-sm font-bold text-white"
+            style={{ backgroundColor: projectIconColor(project), textShadow: '0 1px 2px rgba(0, 0, 0, 0.2)' }}
+          >
+            {getInitials(project.name)}
+          </div>
         </div>
         {terminalCount > 0 && (
           <span

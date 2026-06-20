@@ -23,6 +23,7 @@ import { completeTask } from '../../services/taskCompletion';
 import { KanbanColumn } from './KanbanColumn';
 import { BulkActionBar } from './BulkActionBar';
 import { OnboardingPanel } from './OnboardingPanel';
+import { KanbanShellBar } from './KanbanShellBar';
 import { focusKanbanAddInput } from './KanbanAddInput';
 import { useAppStore } from '../../stores/appStore';
 import { HookConfigDialog } from '../dialogs/HookConfigDialog';
@@ -744,6 +745,7 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
             );
           })}
         </div>
+        <KanbanShellBar projectPath={projectPath} onSwitchToTerminal={handleSwitchToTerminal} />
       </div>
 
       {selectedTaskCount > 0 && <BulkActionBar projectPath={projectPath} onOpenTerminal={handleOpenTerminal} />}
