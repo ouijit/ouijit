@@ -15,6 +15,7 @@ import { generateId } from '../../utils/ids';
 import { useTerminalStore } from '../../stores/terminalStore';
 import { closeProjectTerminal } from './terminalActions';
 import { parseOsc133ExitCodes } from './osc133';
+import type { TerminalPanel, RunnerPanel, WebPreviewPanel } from './panelTypes';
 
 // ── Idle fallback timer constants ────────────────────────────────────
 const IDLE_FALLBACK_MS = 3000;
@@ -399,32 +400,23 @@ export class OuijitTerminal {
    *  133;D path and the PTY-exit path fire for the same successful command. */
   private autoCloseScheduled = false;
 
-  // ── Per-terminal diff panel state ───────────────────────────────────
+  // ── Panels (runner / web preview / plan / diff) ────────────────────
+  // An ordered tab list; one is active at a time. Runner/preview/plan can have
+  // multiple instances, diff is limited to one.
+  panels: TerminalPanel[] = [];
+  activePanelId: string | null = null;
+  /** Shared across the active panel area: the active panel renders full-width
+   *  or split alongside the xterm. */
+  panelFullWidth = true;
+  panelSplitRatio = 0.5;
+  /** Live runner child terminals, keyed by their runner panel id. */
+  runnerChildren = new Map<string, OuijitTerminal>();
+  /** Guards against double-spawn per runner panel. */
+  runnerSpawning = new Set<string>();
+
+  // ── Diff (automatic, header-driven — not a user-managed panel tab) ──
   diffPanelOpen = false;
   diffPanelMode: 'uncommitted' | 'worktree' = 'uncommitted';
-
-  // ── Per-terminal plan panel state ──────────────────────────────────
-  planPath: string | null = null;
-  planPanelOpen = false;
-  planFullWidth = true;
-  planSplitRatio = 0.5;
-
-  // ── Per-terminal web preview panel state ──────────────────────────
-  webPreviewUrl: string | null = null;
-  webPreviewUrlAutoDetected = false;
-  webPreviewPanelOpen = false;
-  webPreviewFullWidth = true;
-  webPreviewSplitRatio = 0.5;
-
-  // ── Runner (child OuijitTerminal) ──────────────────────────────────
-  runner: OuijitTerminal | null = null;
-  runnerPanelOpen = false;
-  runnerFullWidth = true;
-  runnerSplitRatio = 0.5;
-  runnerCommand: string | null = null;
-  runnerScript: { name: string; command: string } | null = null;
-  runnerStatus: 'running' | 'success' | 'error' | 'idle' = 'idle';
-  _runnerSpawning = false;
 
   // ── Data side-effect throttling ─────────────────────────────────────
   private sideEffectTimer: ReturnType<typeof setTimeout> | null = null;
@@ -711,18 +703,14 @@ export class OuijitTerminal {
     });
     this.resizeObserver.observe(this.viewportElement);
 
-    // Reattach runner's resize observer if it has one
-    if (this.runner?.ptyId) {
-      const runnerViewport = this.runner.getViewportElement();
-      if (this.runner.resizeObserver) {
-        this.runner.resizeObserver.disconnect();
-      }
-      this.runner.resizeObserver = new ResizeObserver(() => {
-        if (this.runner?.ptyId) {
-          debouncedResize(this.runner.ptyId, this.runner.xterm, this.runner.fitAddon);
-        }
+    // Reattach each runner child's resize observer.
+    for (const child of this.runnerChildren.values()) {
+      if (!child.ptyId) continue;
+      child.resizeObserver?.disconnect();
+      child.resizeObserver = new ResizeObserver(() => {
+        if (child.ptyId) debouncedResize(child.ptyId, child.xterm, child.fitAddon);
       });
-      this.runner.resizeObserver.observe(runnerViewport);
+      child.resizeObserver.observe(child.getViewportElement());
     }
   }
 
@@ -731,8 +719,10 @@ export class OuijitTerminal {
     if (this.disposed) return;
     this.disposed = true;
 
-    // Kill runner first
-    this.killRunner();
+    // Kill all runner children first
+    for (const child of this.runnerChildren.values()) child.dispose();
+    this.runnerChildren.clear();
+    this.runnerSpawning.clear();
 
     // Kill main PTY
     if (this.ptyId) {
@@ -766,42 +756,156 @@ export class OuijitTerminal {
     this.viewportElement.remove();
   }
 
-  // ── Runner management ───────────────────────────────────────────────
+  // ── Panel management ────────────────────────────────────────────────
 
-  setRunner(runner: OuijitTerminal): void {
-    this.killRunner();
-    this.runner = runner;
+  getActivePanel(): TerminalPanel | null {
+    return this.panels.find((p) => p.id === this.activePanelId) ?? null;
   }
 
-  killRunner(): void {
-    if (!this.runner) return;
+  /** Push the panel list + layout to the store. A fresh array + cloned panel
+   *  objects are required for the store's shallow compare to detect changes. */
+  syncPanels(): void {
+    this.pushDisplayState({
+      panels: this.panels.map((p) => ({ ...p })),
+      activePanelId: this.activePanelId,
+      panelFullWidth: this.panelFullWidth,
+    });
+  }
 
-    this.runnerPanelOpen = false;
-    this.runner.dispose();
-    this.runner = null;
+  private appendPanel(panel: TerminalPanel, activate = true): void {
+    this.panels = [...this.panels, panel];
+    if (activate) this.activePanelId = panel.id;
+    this.syncPanels();
+  }
 
-    this.runnerCommand = null;
-    this.runnerScript = null;
-    this.runnerStatus = 'idle';
-    this.runnerFullWidth = true;
+  updatePanel(id: string, patch: Partial<TerminalPanel>): void {
+    let changed = false;
+    this.panels = this.panels.map((p) => {
+      if (p.id !== id) return p;
+      changed = true;
+      return { ...p, ...patch } as TerminalPanel;
+    });
+    if (changed) this.syncPanels();
+  }
 
-    const patch: Record<string, unknown> = {
-      runnerPanelOpen: false,
-      runnerStatus: 'idle',
-      runnerScriptName: null,
+  activatePanel(id: string): void {
+    if (this.activePanelId === id) return;
+    if (!this.panels.some((p) => p.id === id)) return;
+    this.activePanelId = id;
+    this.syncPanels();
+  }
+
+  setPanelFullWidth(fullWidth: boolean): void {
+    if (this.panelFullWidth === fullWidth) return;
+    this.panelFullWidth = fullWidth;
+    this.syncPanels();
+  }
+
+  addRunnerPanel(script?: { name: string; command: string } | null, activate = true): string {
+    const id = generateId('panel');
+    const panel: RunnerPanel = {
+      id,
+      kind: 'runner',
+      scriptName: script?.name || null,
+      scriptCommand: script?.command ?? null,
+      command: script?.command ?? null,
+      status: 'idle',
     };
+    this.appendPanel(panel, activate);
+    return id;
+  }
 
-    // Clear auto-detected preview URL so the next runner can publish a fresh one
-    // (e.g. Vite bumps ports when its default is busy). Manual URLs are preserved.
-    if (this.webPreviewUrlAutoDetected) {
-      this.webPreviewUrl = null;
-      this.webPreviewUrlAutoDetected = false;
-      this.webPreviewPanelOpen = false;
-      patch.webPreviewUrl = null;
-      patch.webPreviewPanelOpen = false;
+  addWebPreviewPanel(
+    url: string | null = null,
+    opts?: { autoDetected?: boolean; sourceRunnerPanelId?: string | null; activate?: boolean },
+  ): string {
+    const id = generateId('panel');
+    const panel: WebPreviewPanel = {
+      id,
+      kind: 'webPreview',
+      url: url || null,
+      urlAutoDetected: opts?.autoDetected ?? false,
+      sourceRunnerPanelId: opts?.sourceRunnerPanelId ?? null,
+    };
+    this.appendPanel(panel, opts?.activate ?? true);
+    return id;
+  }
+
+  addPlanPanel(planPath: string, activate = true): string {
+    const id = generateId('panel');
+    this.appendPanel({ id, kind: 'plan', planPath }, activate);
+    return id;
+  }
+
+  /** Toggle the automatic diff takeover (separate from the panel tabs). */
+  setDiffPanelOpen(open: boolean): void {
+    if (this.diffPanelOpen === open) return;
+    this.diffPanelOpen = open;
+    this.pushDisplayState({ diffPanelOpen: open });
+  }
+
+  toggleDiffPanel(): void {
+    this.setDiffPanelOpen(!this.diffPanelOpen);
+  }
+
+  closePanel(id: string): void {
+    const idx = this.panels.findIndex((p) => p.id === id);
+    if (idx === -1) return;
+    const panel = this.panels[idx];
+
+    const removeIds = new Set<string>([id]);
+    if (panel.kind === 'runner') {
+      // Kill the child PTY and drop any auto-detected preview tabs it published.
+      this.killRunnerChild(id);
+      for (const p of this.panels) {
+        if (p.kind === 'webPreview' && p.sourceRunnerPanelId === id && p.urlAutoDetected) removeIds.add(p.id);
+      }
     }
 
-    this.pushDisplayState(patch);
+    const remaining = this.panels.filter((p) => !removeIds.has(p.id));
+
+    // If the active panel is being removed, activate the same-index neighbor
+    // (else the previous one, else collapse to the bare xterm).
+    if (this.activePanelId && removeIds.has(this.activePanelId)) {
+      this.activePanelId = remaining.length === 0 ? null : remaining[Math.min(idx, remaining.length - 1)].id;
+    }
+
+    this.panels = remaining;
+    this.syncPanels();
+  }
+
+  /** Track the live runner child for a runner panel. */
+  setRunnerChild(panelId: string, runner: OuijitTerminal): void {
+    const prev = this.runnerChildren.get(panelId);
+    if (prev && prev !== runner) prev.dispose();
+    this.runnerChildren.set(panelId, runner);
+  }
+
+  killRunnerChild(panelId: string): void {
+    const child = this.runnerChildren.get(panelId);
+    if (child) {
+      child.dispose();
+      this.runnerChildren.delete(panelId);
+    }
+    this.runnerSpawning.delete(panelId);
+  }
+
+  /**
+   * A runner detected a dev-server URL. Update the preview tab it already
+   * published, or surface a new auto-detected preview tab (without stealing
+   * focus from the user's current panel). Manual URLs are left untouched.
+   */
+  publishDetectedPreviewUrl(runnerPanelId: string, url: string): void {
+    const existing = this.panels.find(
+      (p): p is WebPreviewPanel => p.kind === 'webPreview' && p.sourceRunnerPanelId === runnerPanelId,
+    );
+    if (existing) {
+      if (existing.url && !existing.urlAutoDetected) return;
+      if (existing.url === url) return;
+      this.updatePanel(existing.id, { url, urlAutoDetected: true } as Partial<WebPreviewPanel>);
+    } else {
+      this.addWebPreviewPanel(url, { autoDetected: true, sourceRunnerPanelId: runnerPanelId, activate: false });
+    }
   }
 
   // ── Hook status handling ────────────────────────────────────────────

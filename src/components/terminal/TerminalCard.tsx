@@ -4,7 +4,6 @@ import { terminalInstances } from './terminalReact';
 import { TerminalHeader } from './TerminalHeader';
 import { TerminalBody } from './TerminalBody';
 import { TerminalCardView } from './TerminalCardView';
-import { useTerminalPanels } from './useTerminalPanels';
 
 const EMPTY: string[] = [];
 
@@ -27,21 +26,6 @@ export const TerminalCard = memo(function TerminalCard({ ptyId, projectPath }: T
   const isActive = index === activeIndex;
 
   const isHidden = index < pageStart || index >= pageEnd;
-
-  const {
-    toggleDiffPanel,
-    closeDiffPanel,
-    toggleRunner,
-    collapseRunner,
-    killRunner,
-    restartRunner,
-    togglePlanPanel,
-    closePlanPanel,
-    changePlanFile,
-    toggleWebPreviewPanel,
-    closeWebPreviewPanel,
-    changeWebPreviewUrl,
-  } = useTerminalPanels(ptyId);
 
   const backDepth = useMemo(() => {
     if (isActive || isHidden) return 0;
@@ -104,25 +88,8 @@ export const TerminalCard = memo(function TerminalCard({ ptyId, projectPath }: T
             isBackCard={!isActive}
             stackPosition={stackPosition}
             onClose={handleClose}
-            onToggleDiffPanel={toggleDiffPanel}
-            onTogglePlanPanel={togglePlanPanel}
-            onToggleWebPreviewPanel={toggleWebPreviewPanel}
-            onToggleRunner={toggleRunner}
           />
-          {isActive && (
-            <TerminalBody
-              ptyId={ptyId}
-              projectPath={projectPath}
-              onCloseDiffPanel={closeDiffPanel}
-              onClosePlanPanel={closePlanPanel}
-              onChangePlanFile={changePlanFile}
-              onCloseWebPreviewPanel={closeWebPreviewPanel}
-              onChangeWebPreviewUrl={changeWebPreviewUrl}
-              onCollapseRunner={collapseRunner}
-              onKillRunner={killRunner}
-              onRestartRunner={restartRunner}
-            />
-          )}
+          {isActive && <TerminalBody ptyId={ptyId} projectPath={projectPath} />}
         </>
       )}
     </TerminalCardView>

@@ -1,177 +1,129 @@
 import { useCallback } from 'react';
-import { terminalInstances, type OuijitTerminal } from './terminalReact';
-import { spawnRunner } from './terminalActions';
+import { terminalInstances } from './terminalReact';
+import { startRunner, restartRunner as restartRunnerAction } from './terminalActions';
 import type { RunnerScript } from '../../types';
 
-type PanelKey = 'diffPanelOpen' | 'runnerPanelOpen' | 'planPanelOpen' | 'webPreviewPanelOpen';
-
-const ALL_PANELS: PanelKey[] = ['diffPanelOpen', 'runnerPanelOpen', 'planPanelOpen', 'webPreviewPanelOpen'];
-
-/** Close every panel except the one being opened, and push the patch to the store. */
-function closeOtherPanels(instance: OuijitTerminal, keep: PanelKey): void {
-  const patch: Record<string, boolean> = { [keep]: true };
-  for (const panel of ALL_PANELS) {
-    if (panel === keep) continue;
-    instance[panel] = false;
-    patch[panel] = false;
-  }
-  instance.pushDisplayState(patch);
-}
-
+/**
+ * Panel operations for one terminal. A terminal holds a list of panels
+ * (runner/preview/plan/diff) shown as tabs, with one active at a time.
+ * Runner/preview/plan support multiple instances; diff is single.
+ */
 export function useTerminalPanels(ptyId: string | null) {
-  const toggleDiffPanel = useCallback(() => {
-    if (!ptyId) return;
-    const instance = terminalInstances.get(ptyId);
-    if (!instance) return;
-    instance.diffPanelOpen = !instance.diffPanelOpen;
-    if (instance.diffPanelOpen) {
-      closeOtherPanels(instance, 'diffPanelOpen');
-    } else {
-      instance.pushDisplayState({ diffPanelOpen: false });
-      requestAnimationFrame(() => instance.fit());
-    }
-  }, [ptyId]);
+  const withInstance = useCallback(
+    (fn: (instance: NonNullable<ReturnType<typeof terminalInstances.get>>) => void) => {
+      if (!ptyId) return;
+      const instance = terminalInstances.get(ptyId);
+      if (!instance) return;
+      fn(instance);
+    },
+    [ptyId],
+  );
 
-  const closeDiffPanel = useCallback(() => {
-    if (!ptyId) return;
-    const instance = terminalInstances.get(ptyId);
-    if (!instance) return;
-    instance.diffPanelOpen = false;
-    instance.pushDisplayState({ diffPanelOpen: false });
-    requestAnimationFrame(() => instance.fit());
-  }, [ptyId]);
+  const activatePanel = useCallback(
+    (panelId: string) => {
+      withInstance((instance) => {
+        instance.activatePanel(panelId);
+        requestAnimationFrame(() => instance.fit());
+      });
+    },
+    [withInstance],
+  );
 
-  const toggleRunner = useCallback(
+  const closePanel = useCallback(
+    (panelId: string) => {
+      withInstance((instance) => {
+        instance.closePanel(panelId);
+        requestAnimationFrame(() => instance.fit());
+      });
+    },
+    [withInstance],
+  );
+
+  const setPanelFullWidth = useCallback(
+    (fullWidth: boolean) => {
+      withInstance((instance) => {
+        instance.setPanelFullWidth(fullWidth);
+        requestAnimationFrame(() => {
+          instance.fit();
+          const active = instance.getActivePanel();
+          if (active?.kind === 'runner') instance.runnerChildren.get(active.id)?.fit();
+        });
+      });
+    },
+    [withInstance],
+  );
+
+  const addRunnerPanel = useCallback(
     (script?: RunnerScript) => {
       if (!ptyId) return;
-      const instance = terminalInstances.get(ptyId);
-      if (!instance) return;
-      if (instance.runner?.ptyId && !script) {
-        instance.runnerPanelOpen = !instance.runnerPanelOpen;
-        if (instance.runnerPanelOpen) {
-          closeOtherPanels(instance, 'runnerPanelOpen');
-        } else {
-          instance.pushDisplayState({ runnerPanelOpen: false });
-        }
-      } else {
-        spawnRunner(ptyId, script);
-      }
+      void startRunner(ptyId, script);
     },
     [ptyId],
   );
 
-  const collapseRunner = useCallback(() => {
-    if (!ptyId) return;
-    const instance = terminalInstances.get(ptyId);
-    if (!instance) return;
-    instance.runnerPanelOpen = false;
-    instance.pushDisplayState({ runnerPanelOpen: false });
-  }, [ptyId]);
+  const addWebPreviewPanel = useCallback(
+    (url?: string) => {
+      withInstance((instance) => {
+        instance.addWebPreviewPanel(url ?? null);
+        requestAnimationFrame(() => instance.fit());
+      });
+    },
+    [withInstance],
+  );
 
-  const killRunner = useCallback(() => {
-    if (!ptyId) return;
-    const instance = terminalInstances.get(ptyId);
-    if (!instance) return;
-    instance.killRunner();
-    requestAnimationFrame(() => instance.fit());
-  }, [ptyId]);
-
-  const restartRunner = useCallback(async () => {
-    if (!ptyId) return;
-    const instance = terminalInstances.get(ptyId);
-    if (!instance) return;
-    const script = instance.runnerScript;
-    instance.killRunner();
-    // Re-run whatever was last run (ad-hoc script or run hook)
-    await spawnRunner(ptyId, script ?? undefined);
-    // Re-open panel since restart is triggered from within the open panel
-    if (instance.runner?.ptyId) {
-      instance.runnerPanelOpen = true;
-      instance.runnerFullWidth = true;
-      instance.pushDisplayState({ runnerPanelOpen: true, runnerFullWidth: true });
-    }
-  }, [ptyId]);
-
-  const togglePlanPanel = useCallback(() => {
-    if (!ptyId) return;
-    const instance = terminalInstances.get(ptyId);
-    if (!instance) return;
-    instance.planPanelOpen = !instance.planPanelOpen;
-    if (instance.planPanelOpen) {
-      closeOtherPanels(instance, 'planPanelOpen');
-    } else {
-      instance.pushDisplayState({ planPanelOpen: false });
-      requestAnimationFrame(() => instance.fit());
-    }
-  }, [ptyId]);
-
-  const closePlanPanel = useCallback(() => {
-    if (!ptyId) return;
-    const instance = terminalInstances.get(ptyId);
-    if (!instance) return;
-    instance.planPanelOpen = false;
-    instance.pushDisplayState({ planPanelOpen: false });
-    requestAnimationFrame(() => instance.fit());
-  }, [ptyId]);
+  const addPlanPanel = useCallback(
+    (planPath: string) => {
+      withInstance((instance) => {
+        instance.addPlanPanel(planPath);
+        requestAnimationFrame(() => instance.fit());
+      });
+    },
+    [withInstance],
+  );
 
   const changePlanFile = useCallback(
-    (newPath: string) => {
+    (panelId: string, newPath: string) => {
+      withInstance((instance) => instance.updatePanel(panelId, { planPath: newPath }));
+    },
+    [withInstance],
+  );
+
+  const changeWebPreviewUrl = useCallback(
+    (panelId: string, newUrl: string) => {
+      // A manual edit locks out future auto-detections for this panel.
+      withInstance((instance) => instance.updatePanel(panelId, { url: newUrl, urlAutoDetected: false }));
+    },
+    [withInstance],
+  );
+
+  const restartRunner = useCallback(
+    (panelId: string) => {
       if (!ptyId) return;
-      const instance = terminalInstances.get(ptyId);
-      if (!instance) return;
-      instance.planPath = newPath;
-      instance.pushDisplayState({ planPath: newPath });
+      void restartRunnerAction(ptyId, panelId);
     },
     [ptyId],
   );
 
-  const toggleWebPreviewPanel = useCallback(() => {
-    if (!ptyId) return;
-    const instance = terminalInstances.get(ptyId);
-    if (!instance) return;
-    instance.webPreviewPanelOpen = !instance.webPreviewPanelOpen;
-    if (instance.webPreviewPanelOpen) {
-      closeOtherPanels(instance, 'webPreviewPanelOpen');
-    } else {
-      instance.pushDisplayState({ webPreviewPanelOpen: false });
-      requestAnimationFrame(() => instance.fit());
-    }
-  }, [ptyId]);
-
-  const closeWebPreviewPanel = useCallback(() => {
-    if (!ptyId) return;
-    const instance = terminalInstances.get(ptyId);
-    if (!instance) return;
-    instance.webPreviewPanelOpen = false;
-    instance.pushDisplayState({ webPreviewPanelOpen: false });
-    requestAnimationFrame(() => instance.fit());
-  }, [ptyId]);
-
-  const changeWebPreviewUrl = useCallback(
-    (newUrl: string) => {
-      if (!ptyId) return;
-      const instance = terminalInstances.get(ptyId);
-      if (!instance) return;
-      instance.webPreviewUrl = newUrl;
-      // A manual edit locks out future auto-detections.
-      instance.webPreviewUrlAutoDetected = false;
-      instance.pushDisplayState({ webPreviewUrl: newUrl });
+  const killRunner = useCallback(
+    (panelId: string) => {
+      withInstance((instance) => {
+        instance.closePanel(panelId);
+        requestAnimationFrame(() => instance.fit());
+      });
     },
-    [ptyId],
+    [withInstance],
   );
 
   return {
-    toggleDiffPanel,
-    closeDiffPanel,
-    toggleRunner,
-    collapseRunner,
-    killRunner,
-    restartRunner,
-    togglePlanPanel,
-    closePlanPanel,
+    activatePanel,
+    closePanel,
+    setPanelFullWidth,
+    addRunnerPanel,
+    addWebPreviewPanel,
+    addPlanPanel,
     changePlanFile,
-    toggleWebPreviewPanel,
-    closeWebPreviewPanel,
     changeWebPreviewUrl,
+    restartRunner,
+    killRunner,
   };
 }

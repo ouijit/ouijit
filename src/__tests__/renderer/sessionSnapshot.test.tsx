@@ -34,9 +34,26 @@ interface FakeTermOpts {
   planPath?: string | null;
   planPanelOpen?: boolean;
   diffPanelOpen?: boolean;
+  /** A preview URL that was auto-detected by a runner (should not persist). */
+  autoPreviewUrl?: string | null;
 }
 
 function makeFakeTerm(opts: FakeTermOpts): OuijitTerminal {
+  const panels: Array<Record<string, unknown>> = [];
+  let activePanelId: string | null = null;
+  if (opts.planPath) {
+    panels.push({ id: 'plan', kind: 'plan', planPath: opts.planPath });
+    if (opts.planPanelOpen) activePanelId = 'plan';
+  }
+  if (opts.autoPreviewUrl) {
+    panels.push({
+      id: 'prev',
+      kind: 'webPreview',
+      url: opts.autoPreviewUrl,
+      urlAutoDetected: true,
+      sourceRunnerPanelId: 'r',
+    });
+  }
   return {
     ptyId: opts.ptyId,
     label: opts.label ?? 'Shell',
@@ -45,17 +62,10 @@ function makeFakeTerm(opts: FakeTermOpts): OuijitTerminal {
     taskId: opts.taskId ?? null,
     worktreePath: opts.worktreePath ?? undefined,
     worktreeBranch: opts.worktreeBranch ?? undefined,
-    planPath: opts.planPath ?? null,
-    planPanelOpen: opts.planPanelOpen ?? false,
+    panels,
+    activePanelId,
+    panelFullWidth: true,
     diffPanelOpen: opts.diffPanelOpen ?? false,
-    webPreviewUrl: null,
-    webPreviewUrlAutoDetected: false,
-    webPreviewPanelOpen: false,
-    webPreviewFullWidth: true,
-    webPreviewSplitRatio: 0.5,
-    runnerScript: null,
-    runnerPanelOpen: false,
-    runnerFullWidth: true,
   } as unknown as OuijitTerminal;
 }
 
@@ -95,8 +105,11 @@ describe('gatherSnapshot', () => {
     const [t0, t1, t2] = snap.terminals;
     expect(t0).toMatchObject({ ptyId: 'a', label: 'Build', isActiveInProject: false });
     expect(t1).toMatchObject({ ptyId: 'b', label: 'My Renamed Tab', taskNumber: 7, isActiveInProject: true });
-    expect(t1.ui).toMatchObject({ planPath: '/plan.md', planPanelOpen: true });
+    expect(t1.ui.panels).toEqual([{ kind: 'plan', planPath: '/plan.md' }]);
+    expect(t1.ui.activePanelIndex).toBe(0);
     expect(t2).toMatchObject({ ptyId: 'c', isActiveInProject: false });
+    // Diff is automatic/separate — persisted as its own flag, not a panel tab.
+    expect(t2.ui.panels).toEqual([]);
     expect(t2.ui.diffPanelOpen).toBe(true);
   });
 
@@ -106,6 +119,13 @@ describe('gatherSnapshot', () => {
 
     const snap = gatherSnapshot();
     expect(snap.terminals.map((t) => t.ptyId)).toEqual(['main']);
+  });
+
+  test('excludes auto-detected preview URLs from the snapshot', () => {
+    register(PROJECT, makeFakeTerm({ ptyId: 'a', label: 'Shell', autoPreviewUrl: 'http://localhost:3000' }));
+
+    const snap = gatherSnapshot();
+    expect(snap.terminals[0].ui.panels).toEqual([]);
   });
 });
 

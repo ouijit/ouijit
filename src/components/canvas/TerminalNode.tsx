@@ -1,7 +1,6 @@
 import { memo, useCallback } from 'react';
 import { NodeResizer, Handle, Position, type NodeProps } from '@xyflow/react';
 import { type TerminalNode as TerminalNodeType } from '../../stores/canvasStore';
-import { useTerminalPanels } from '../terminal/useTerminalPanels';
 import { TerminalBody } from '../terminal/TerminalBody';
 import { TerminalHeader } from '../terminal/TerminalHeader';
 import { closeProjectTerminal } from '../terminal/terminalActions';
@@ -46,21 +45,6 @@ const ActiveTerminalNode = memo(function ActiveTerminalNode({
 }) {
   const { ptyId, projectPath } = data;
 
-  const {
-    toggleDiffPanel,
-    togglePlanPanel,
-    toggleWebPreviewPanel,
-    toggleRunner,
-    closeDiffPanel,
-    collapseRunner,
-    killRunner,
-    restartRunner,
-    closePlanPanel,
-    changePlanFile,
-    closeWebPreviewPanel,
-    changeWebPreviewUrl,
-  } = useTerminalPanels(ptyId);
-
   const handleClose = useCallback(() => {
     closeProjectTerminal(ptyId);
   }, [ptyId]);
@@ -99,29 +83,10 @@ const ActiveTerminalNode = memo(function ActiveTerminalNode({
         }}
       >
         <div className="terminal-drag-handle shrink-0" style={{ zIndex: 2 }}>
-          <TerminalHeader
-            ptyId={ptyId}
-            isActive
-            onClose={handleClose}
-            onToggleDiffPanel={toggleDiffPanel}
-            onTogglePlanPanel={togglePlanPanel}
-            onToggleWebPreviewPanel={toggleWebPreviewPanel}
-            onToggleRunner={toggleRunner}
-          />
+          <TerminalHeader ptyId={ptyId} isActive onClose={handleClose} />
         </div>
         <div className={bodyClasses} style={selected ? undefined : { pointerEvents: 'none' }}>
-          <TerminalBody
-            ptyId={ptyId}
-            projectPath={projectPath}
-            onCloseDiffPanel={closeDiffPanel}
-            onClosePlanPanel={closePlanPanel}
-            onChangePlanFile={changePlanFile}
-            onCloseWebPreviewPanel={closeWebPreviewPanel}
-            onChangeWebPreviewUrl={changeWebPreviewUrl}
-            onCollapseRunner={collapseRunner}
-            onKillRunner={killRunner}
-            onRestartRunner={restartRunner}
-          />
+          <TerminalBody ptyId={ptyId} projectPath={projectPath} />
         </div>
       </div>
     </>

@@ -9,18 +9,43 @@ vi.mock('electron-log/renderer', () => ({
 // OuijitTerminal records the lifecycle calls reconnectRunnerToParent makes so
 // we can assert the runner reattaches to its parent rather than becoming a card.
 vi.mock('../../components/terminal/terminalReact', () => {
+  interface FakePanel {
+    id: string;
+    kind: string;
+    scriptName: string | null;
+    scriptCommand: string | null;
+    command: string | null;
+    status: string;
+  }
   class FakeTerminal {
     ptyId?: string;
     label?: string;
     isRunner: boolean;
-    runnerStatus: string | null = null;
-    runnerCommand: string | null = null;
-    setRunner = vi.fn();
-    pushDisplayState = vi.fn();
+    panels: FakePanel[] = [];
+    runnerChildren = new Map<string, unknown>();
     openTerminal = vi.fn();
     replayBuffer = vi.fn();
     bind = vi.fn();
     dispose = vi.fn();
+    setRunnerChild = vi.fn((id: string, runner: unknown) => {
+      this.runnerChildren.set(id, runner);
+    });
+    updatePanel = vi.fn((id: string, patch: Record<string, unknown>) => {
+      const p = this.panels.find((x) => x.id === id);
+      if (p) Object.assign(p, patch);
+    });
+    addRunnerPanel = vi.fn((script?: { name: string; command: string } | null) => {
+      const id = `panel-${this.panels.length}`;
+      this.panels.push({
+        id,
+        kind: 'runner',
+        scriptName: script?.name ?? null,
+        scriptCommand: script?.command ?? null,
+        command: script?.command ?? null,
+        status: 'idle',
+      });
+      return id;
+    });
     constructor(opts: { ptyId?: string; label?: string; isRunner?: boolean }) {
       this.ptyId = opts.ptyId;
       this.label = opts.label;
@@ -42,14 +67,15 @@ import type { ActiveSession } from '../../types';
 
 const PROJECT = '/project';
 
-interface FakeTerminal {
+interface FakeParent {
   ptyId?: string;
-  runnerStatus: string | null;
-  setRunner: ReturnType<typeof vi.fn>;
+  panels: Array<{ id: string; kind: string; status: string }>;
+  runnerChildren: Map<string, unknown>;
+  setRunnerChild: ReturnType<typeof vi.fn>;
 }
 
-function makeParent(ptyId: string): FakeTerminal {
-  const parent = new (OuijitTerminal as unknown as new (o: { ptyId: string }) => FakeTerminal)({ ptyId });
+function makeParent(ptyId: string): FakeParent {
+  const parent = new (OuijitTerminal as unknown as new (o: { ptyId: string }) => FakeParent)({ ptyId });
   terminalInstances.set(ptyId, parent as never);
   return parent;
 }
@@ -79,18 +105,35 @@ beforeEach(() => {
 });
 
 describe('reconnectRunnerToParent', () => {
-  test('reattaches the runner to its parent as panel state, not a standalone card', async () => {
+  test('reattaches the runner to its parent as a runner panel, not a standalone card', async () => {
     const parent = makeParent('parent-1');
 
     const ok = await reconnectRunnerToParent(runnerSession());
 
     expect(ok).toBe(true);
-    // Runner state lands on the parent...
-    expect(parent.setRunner).toHaveBeenCalledTimes(1);
-    expect(parent.runnerStatus).toBe('running');
+    // Runner state lands on the parent as a running runner panel...
+    expect(parent.setRunnerChild).toHaveBeenCalledTimes(1);
+    expect(parent.panels).toHaveLength(1);
+    expect(parent.panels[0]).toMatchObject({ kind: 'runner', status: 'running' });
     // ...and the runner is NOT promoted to its own card in the stack.
     const stack = useTerminalStore.getState().terminalsByProject[PROJECT] ?? [];
     expect(stack).not.toContain('runner-1');
+  });
+
+  test('attaches to an existing idle runner panel matching the command', async () => {
+    const parent = makeParent('parent-1') as FakeParent & {
+      addRunnerPanel: (s?: { name: string; command: string }) => string;
+    };
+    // A runner panel preloaded from the restored snapshot (idle, no live child).
+    const panelId = parent.addRunnerPanel({ name: 'dev', command: 'npm run dev' });
+
+    const ok = await reconnectRunnerToParent(runnerSession());
+
+    expect(ok).toBe(true);
+    // No new panel was created — it reused the idle one.
+    expect(parent.panels).toHaveLength(1);
+    expect(parent.runnerChildren.has(panelId)).toBe(true);
+    expect(parent.panels[0].status).toBe('running');
   });
 
   test('does not promote the runner to a standalone card when the parent is missing', async () => {

@@ -12,7 +12,6 @@ import {
 import { TerminalHeader } from './terminal/TerminalHeader';
 import { TerminalBody } from './terminal/TerminalBody';
 import { XTermContainer } from './terminal/XTermContainer';
-import { useTerminalPanels } from './terminal/useTerminalPanels';
 import { useHookStatusListener } from '../hooks/useHookStatusListener';
 import { Icon } from './terminal/Icon';
 import { stringToColor, getInitials } from '../utils/projectIcon';
@@ -112,9 +111,8 @@ export function HomeView() {
         ]);
         const initialStatus = hookStatus?.status === 'thinking' ? ('thinking' as const) : ('ready' as const);
         const term = await reconnectTerminal(session, { worktreeBranch, initialStatus });
-        if (term && planPath) {
-          term.planPath = planPath;
-          term.pushDisplayState({ planPath });
+        if (term && planPath && !term.panels.some((p) => p.kind === 'plan' && p.planPath === planPath)) {
+          term.addPlanPanel(planPath, false);
         }
       }
 
@@ -331,19 +329,6 @@ export function HomeView() {
     closeProjectTerminal(ptyId);
   };
 
-  const {
-    toggleDiffPanel,
-    closeDiffPanel,
-    toggleRunner,
-    collapseRunner,
-    killRunner,
-    restartRunner,
-    closePlanPanel,
-    changePlanFile,
-    closeWebPreviewPanel,
-    changeWebPreviewUrl,
-  } = useTerminalPanels(activePtyId);
-
   if (allPtyIds.length === 0) {
     const noProjects = projectCount === 0;
     const noRecents = !noProjects && homeRecents !== null && homeRecents.length === 0;
@@ -440,27 +425,9 @@ export function HomeView() {
             }}
             onClick={() => !isActive && setActivePtyId(ptyId)}
           >
-            <TerminalHeader
-              ptyId={ptyId}
-              isActive={isActive}
-              compact={!isActive}
-              onClose={() => handleClose(ptyId)}
-              onToggleDiffPanel={isActive ? toggleDiffPanel : undefined}
-              onToggleRunner={isActive ? toggleRunner : undefined}
-            />
+            <TerminalHeader ptyId={ptyId} isActive={isActive} compact={!isActive} onClose={() => handleClose(ptyId)} />
             {isActive ? (
-              <TerminalBody
-                ptyId={ptyId}
-                projectPath={activeDisplay?.projectPath ?? ''}
-                onCloseDiffPanel={closeDiffPanel}
-                onClosePlanPanel={closePlanPanel}
-                onChangePlanFile={changePlanFile}
-                onCloseWebPreviewPanel={closeWebPreviewPanel}
-                onChangeWebPreviewUrl={changeWebPreviewUrl}
-                onCollapseRunner={collapseRunner}
-                onKillRunner={killRunner}
-                onRestartRunner={restartRunner}
-              />
+              <TerminalBody ptyId={ptyId} projectPath={activeDisplay?.projectPath ?? ''} />
             ) : (
               <div className="relative flex-1 flex flex-row min-h-0 overflow-hidden">
                 <XTermContainer ptyId={ptyId} />

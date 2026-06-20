@@ -11,14 +11,14 @@ import { useSyntaxHighlight } from './useSyntaxHighlight';
 interface DiffPanelProps {
   ptyId: string;
   projectPath: string;
+  mode: 'uncommitted' | 'worktree';
   onClose: () => void;
 }
 
 const MAX_DIFF_FILES = 300;
 const DIFF_BATCH_SIZE = 10;
 
-export function DiffPanel({ ptyId, projectPath, onClose }: DiffPanelProps) {
-  const mode = useTerminalStore((s) => s.displayStates[ptyId]?.diffPanelMode ?? 'uncommitted');
+export function DiffPanel({ ptyId, projectPath, mode, onClose }: DiffPanelProps) {
   const gitFileStatus = useTerminalStore((s) => s.displayStates[ptyId]?.gitFileStatus ?? null);
   const [diffs, setDiffs] = useState<Map<string, FileDiff | null>>(new Map());
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);

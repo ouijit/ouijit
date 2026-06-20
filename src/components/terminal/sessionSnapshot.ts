@@ -8,7 +8,7 @@ import log from 'electron-log/renderer';
 import { useAppStore } from '../../stores/appStore';
 import { useTerminalStore } from '../../stores/terminalStore';
 import { terminalInstances, type OuijitTerminal } from './terminalReact';
-import type { LastSessionSnapshot, SnapshotTerminal, SnapshotTerminalUi } from '../../types';
+import type { LastSessionSnapshot, SnapshotPanel, SnapshotTerminal, SnapshotTerminalUi } from '../../types';
 
 const sessionLog = log.scope('sessionSnapshot');
 
@@ -17,34 +17,29 @@ export const SNAPSHOT_KEY = 'lastSession:snapshot';
 // ── Gather ───────────────────────────────────────────────────────────
 
 function uiFor(term: OuijitTerminal): SnapshotTerminalUi {
-  // Web preview: only persist user-set URLs. Auto-detected ones are tied to
-  // a runner that no longer exists post-quit and would mislead the user.
-  const webPreview =
-    term.webPreviewUrl && !term.webPreviewUrlAutoDetected
-      ? {
-          url: term.webPreviewUrl,
-          panelOpen: term.webPreviewPanelOpen,
-          fullWidth: term.webPreviewFullWidth,
-          splitRatio: term.webPreviewSplitRatio,
-        }
-      : null;
+  const panels: SnapshotPanel[] = [];
+  let activePanelIndex: number | null = null;
 
-  const runner = term.runnerScript
-    ? {
-        scriptName: term.runnerScript.name || null,
-        scriptCommand: term.runnerScript.command,
-        panelOpen: term.runnerPanelOpen,
-        fullWidth: term.runnerFullWidth,
-      }
-    : null;
+  for (const p of term.panels) {
+    const before = panels.length;
+    switch (p.kind) {
+      case 'runner':
+        // Persist the script (not the live PTY) for one-click re-run.
+        panels.push({ kind: 'runner', scriptName: p.scriptName, scriptCommand: p.scriptCommand });
+        break;
+      case 'webPreview':
+        // Only persist user-set URLs. Auto-detected ones are tied to a runner
+        // that no longer exists post-quit and would mislead the user.
+        if (p.url && !p.urlAutoDetected) panels.push({ kind: 'webPreview', url: p.url });
+        break;
+      case 'plan':
+        panels.push({ kind: 'plan', planPath: p.planPath });
+        break;
+    }
+    if (panels.length > before && p.id === term.activePanelId) activePanelIndex = panels.length - 1;
+  }
 
-  return {
-    planPath: term.planPath,
-    planPanelOpen: term.planPanelOpen,
-    diffPanelOpen: term.diffPanelOpen,
-    webPreview,
-    runner,
-  };
+  return { panels, activePanelIndex, panelFullWidth: term.panelFullWidth, diffPanelOpen: term.diffPanelOpen };
 }
 
 export function gatherSnapshot(): LastSessionSnapshot {

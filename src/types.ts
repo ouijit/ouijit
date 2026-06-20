@@ -47,20 +47,38 @@ export type LastActiveView = { type: 'home' } | { type: 'project'; path: string 
  * configuration around it (plan attachment, panel layout, last runner script
  * to one-click re-run).
  */
+/** One persisted user-managed panel in the multi-panel snapshot shape. */
+export interface SnapshotPanel {
+  kind: 'runner' | 'webPreview' | 'plan';
+  /** runner */
+  scriptName?: string | null;
+  scriptCommand?: string | null;
+  /** webPreview (only user-set URLs are persisted) */
+  url?: string | null;
+  /** plan */
+  planPath?: string | null;
+}
+
 export interface SnapshotTerminalUi {
-  planPath: string | null;
-  /** Whether the plan panel was open. Older snapshots omit this — treat as the
-   *  legacy "open if a plan was attached" behaviour when undefined. */
-  planPanelOpen?: boolean;
-  /** Whether the diff panel was open. Older snapshots omit this. */
+  /** New shape: the ordered tab list. Absence means a legacy snapshot. */
+  panels?: SnapshotPanel[];
+  /** Index of the active panel within `panels`, or null when none was active. */
+  activePanelIndex?: number | null;
+  /** Whether the active panel was full-width. */
+  panelFullWidth?: boolean;
+  /** Automatic diff takeover state (separate from the panel tabs). */
   diffPanelOpen?: boolean;
-  webPreview: {
+
+  // ── Legacy singleton fields (kept optional for back-compat) ──────────
+  planPath?: string | null;
+  planPanelOpen?: boolean;
+  webPreview?: {
     url: string | null;
     panelOpen: boolean;
     fullWidth: boolean;
     splitRatio: number;
   } | null;
-  runner: {
+  runner?: {
     scriptName: string | null;
     scriptCommand: string;
     panelOpen: boolean;
