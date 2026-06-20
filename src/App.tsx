@@ -135,15 +135,32 @@ export function App() {
     window.api.getProjects().then(async (projects) => {
       useAppStore.getState().setProjects(projects);
 
-      // If we have a session snapshot to resume, force the user to home so
-      // the resume banner is the first thing they see — taking them back to
-      // their last project view would hide the offer behind the kanban/empty
-      // state and force them to navigate manually.
+      // A persisted snapshot only means "force home for the resume banner" on a
+      // cold launch, where its PTYs are gone. When those PTYs are still alive
+      // the renderer merely reloaded (a refresh): restore the prior view so the
+      // user lands exactly where they were and reconnectOrphanedSessions
+      // reattaches the terminals. (ResumeBanner uses the same live-PTY check to
+      // stay silent in that case.)
       const pendingSnapshot = await window.api.globalSettings.get('lastSession:snapshot');
       const hasResumable = !!pendingSnapshot && pendingSnapshot.length > 0;
 
+      let snapshotPtysAlive = false;
+      if (hasResumable) {
+        try {
+          const snap = JSON.parse(pendingSnapshot) as { terminals?: { ptyId?: string }[] };
+          const snapPtyIds = new Set((snap.terminals ?? []).map((t) => t.ptyId).filter(Boolean));
+          if (snapPtyIds.size > 0) {
+            const live = await window.api.pty.getActiveSessions();
+            snapshotPtysAlive = live.some((s) => snapPtyIds.has(s.ptyId));
+          }
+        } catch {
+          /* unparseable snapshot — treat as a cold launch */
+        }
+      }
+      const forceHomeForResume = hasResumable && !snapshotPtysAlive;
+
       let restoredToProject = false;
-      if (!hasResumable) {
+      if (!forceHomeForResume) {
         const lastView = await window.api.globalSettings.get('lastActiveView');
         if (lastView) {
           try {

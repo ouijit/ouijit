@@ -663,8 +663,12 @@ export async function reconnectOrphanedSessions(projectPath: string): Promise<vo
   const mainSessions = projectSessions.filter((s) => !s.isRunner);
   const runnerSessions = projectSessions.filter((s) => s.isRunner);
 
-  // Reconnect main terminals first
+  // Reconnect main terminals first. Skip any session already reconnected — the
+  // home view runs the same reconnect as the user lands, so on a refresh both
+  // paths can fire for one project; without this guard the shared session would
+  // be added to the stack twice.
   for (const session of mainSessions) {
+    if (terminalInstances.has(session.ptyId)) continue;
     let worktreeBranch: string | undefined;
     let mergeTarget: string | undefined;
     if (session.taskId != null) {
@@ -714,6 +718,7 @@ export async function reconnectOrphanedSessions(projectPath: string): Promise<vo
 
   // Reconnect runners to their parent terminals
   for (const session of runnerSessions) {
+    if (terminalInstances.has(session.ptyId)) continue;
     await reconnectRunnerToParent(session);
   }
 }
