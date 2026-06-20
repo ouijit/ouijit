@@ -48,11 +48,11 @@ export function KanbanShellBar({ projectPath, onSwitchToTerminal }: KanbanShellB
           return (
             <button
               key={shell.ptyId}
-              className="flex items-center gap-1.5 shrink-0 px-2 py-1 rounded-full border-none bg-white/[0.06] hover:bg-white/[0.1] active:bg-white/[0.04] transition-colors duration-100 [-webkit-app-region:no-drag] max-w-[200px]"
+              className="group/shell relative flex items-center gap-1.5 shrink-0 h-7 px-2.5 rounded-[12px] bg-background-secondary glass-bevel border border-black/60 overflow-hidden text-text-secondary hover:bg-background-tertiary transition-colors duration-150 ease-out [-webkit-app-region:no-drag] max-w-[200px]"
               onClick={() => onSwitchToTerminal(shell.ptyId)}
             >
               <StatusDot summaryType={shell.summaryType} sandboxed={shell.sandboxed} />
-              <span className="font-mono text-[11px] leading-none text-text-secondary truncate min-w-0">
+              <span className="font-mono text-[11px] leading-none truncate min-w-0 group-hover/shell:text-text-primary transition-colors duration-150">
                 {name}
                 {shell.sandboxed ? ' (sandbox)' : ''}
               </span>
