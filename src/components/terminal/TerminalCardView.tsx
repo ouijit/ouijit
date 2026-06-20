@@ -89,7 +89,7 @@ export function TerminalCardView({
 
   return (
     <div
-      className={`project-card absolute inset-0 rounded-[14px] border border-black/60 overflow-hidden flex flex-col ${isActive ? 'project-card--active' : 'hover:border-accent'}${className ? ' ' + className : ''}`}
+      className={`project-card absolute inset-0 rounded-[14px] border border-black/60 overflow-hidden flex flex-col ${isActive ? 'project-card--active' : 'glass-bevel hover:border-accent'}${className ? ' ' + className : ''}`}
       style={style}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}

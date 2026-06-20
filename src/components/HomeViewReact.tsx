@@ -412,7 +412,7 @@ export function HomeView() {
         return (
           <div
             key={ptyId}
-            className={`absolute inset-0 rounded-[14px] border border-black/60 overflow-hidden flex flex-col${!isActive ? ' hover:border-accent' : ''}`}
+            className={`absolute inset-0 rounded-[14px] border border-black/60 overflow-hidden flex flex-col${!isActive ? ' glass-bevel hover:border-accent' : ''}`}
             style={{
               ...getDepthStyle(depth),
               background: 'var(--color-terminal-bg, #171717)',
