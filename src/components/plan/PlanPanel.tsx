@@ -4,7 +4,7 @@ import { terminalInstances } from '../terminal/terminalReact';
 import { useProjectStore } from '../../stores/projectStore';
 import { Icon } from '../terminal/Icon';
 import { TooltipButton } from '../ui/TooltipButton';
-import { FullWidthToggle, PanelCloseButton } from '../terminal/FullWidthToggle';
+import { FullWidthToggle, MinimizeButton, PanelCloseButton } from '../terminal/FullWidthToggle';
 import { HookConfigDialog } from '../dialogs/HookConfigDialog';
 
 interface PlanPanelProps {
@@ -14,6 +14,7 @@ interface PlanPanelProps {
   onChangePlanFile: (newPath: string) => void;
   fullWidth: boolean;
   onToggleFullWidth: () => void;
+  onMinimize: () => void;
   onClose: () => void;
 }
 
@@ -35,6 +36,7 @@ export function PlanPanel({
   onChangePlanFile,
   fullWidth,
   onToggleFullWidth,
+  onMinimize,
   onClose,
 }: PlanPanelProps) {
   const [content, setContent] = useState<string | null>(null);
@@ -238,6 +240,7 @@ export function PlanPanel({
           <Icon name={copied ? 'check' : 'clipboard-text'} className={copied ? 'text-[#69db7c]' : ''} />
         </TooltipButton>
         <FullWidthToggle fullWidth={fullWidth} onToggle={onToggleFullWidth} />
+        <MinimizeButton onMinimize={onMinimize} />
         <PanelCloseButton onClose={onClose} />
       </div>
 

@@ -39,6 +39,13 @@ export function useTerminalPanels(ptyId: string | null) {
     [withInstance],
   );
 
+  const minimizePanel = useCallback(() => {
+    withInstance((instance) => {
+      instance.deactivatePanel();
+      requestAnimationFrame(() => instance.fit());
+    });
+  }, [withInstance]);
+
   const setPanelFullWidth = useCallback(
     (fullWidth: boolean) => {
       withInstance((instance) => {
@@ -117,6 +124,7 @@ export function useTerminalPanels(ptyId: string | null) {
   return {
     activatePanel,
     closePanel,
+    minimizePanel,
     setPanelFullWidth,
     addRunnerPanel,
     addWebPreviewPanel,

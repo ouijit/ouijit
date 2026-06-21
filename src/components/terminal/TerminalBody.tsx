@@ -194,6 +194,7 @@ function ActivePanel({
           onRestart={() => ops.restartRunner(panel.id)}
           fullWidth={fullWidth}
           onToggleFullWidth={onToggleFullWidth}
+          onMinimize={() => ops.minimizePanel()}
           onClose={() => ops.closePanel(panel.id)}
         />
       );
@@ -206,6 +207,7 @@ function ActivePanel({
           onChangeUrl={(url) => ops.changeWebPreviewUrl(panel.id, url)}
           fullWidth={fullWidth}
           onToggleFullWidth={onToggleFullWidth}
+          onMinimize={() => ops.minimizePanel()}
           onClose={() => ops.closePanel(panel.id)}
         />
       );
@@ -218,6 +220,7 @@ function ActivePanel({
           onChangePlanFile={(path) => ops.changePlanFile(panel.id, path)}
           fullWidth={fullWidth}
           onToggleFullWidth={onToggleFullWidth}
+          onMinimize={() => ops.minimizePanel()}
           onClose={() => ops.closePanel(panel.id)}
         />
       );

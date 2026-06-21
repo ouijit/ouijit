@@ -22,6 +22,24 @@ export function FullWidthToggle({ fullWidth, onToggle }: { fullWidth: boolean; o
   );
 }
 
+/** Panel-level minimize button — collapses the panel, keeping its tab. */
+export function MinimizeButton({ onMinimize }: { onMinimize: () => void }) {
+  return (
+    <Tooltip text="Minimize">
+      <button
+        className={PANEL_HEADER_BUTTON}
+        onClick={(e) => {
+          e.stopPropagation();
+          onMinimize();
+        }}
+        aria-label="Minimize"
+      >
+        <Icon name="minus" />
+      </button>
+    </Tooltip>
+  );
+}
+
 /** Panel-level close button — closes (removes) the panel. */
 export function PanelCloseButton({ onClose }: { onClose: () => void }) {
   return (

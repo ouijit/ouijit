@@ -795,6 +795,13 @@ export class OuijitTerminal {
     this.syncPanels();
   }
 
+  /** Collapse the panel area (show the bare terminal) while keeping the tabs. */
+  deactivatePanel(): void {
+    if (this.activePanelId === null) return;
+    this.activePanelId = null;
+    this.syncPanels();
+  }
+
   setPanelFullWidth(fullWidth: boolean): void {
     if (this.panelFullWidth === fullWidth) return;
     this.panelFullWidth = fullWidth;
