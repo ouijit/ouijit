@@ -194,6 +194,7 @@ function ActivePanel({
           onRestart={() => ops.restartRunner(panel.id)}
           fullWidth={fullWidth}
           onToggleFullWidth={onToggleFullWidth}
+          onClose={() => ops.closePanel(panel.id)}
         />
       );
     case 'webPreview':
@@ -205,6 +206,7 @@ function ActivePanel({
           onChangeUrl={(url) => ops.changeWebPreviewUrl(panel.id, url)}
           fullWidth={fullWidth}
           onToggleFullWidth={onToggleFullWidth}
+          onClose={() => ops.closePanel(panel.id)}
         />
       );
     case 'plan':
@@ -216,6 +218,7 @@ function ActivePanel({
           onChangePlanFile={(path) => ops.changePlanFile(panel.id, path)}
           fullWidth={fullWidth}
           onToggleFullWidth={onToggleFullWidth}
+          onClose={() => ops.closePanel(panel.id)}
         />
       );
   }

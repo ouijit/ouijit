@@ -3,7 +3,7 @@ import { terminalInstances } from './terminalReact';
 import { XTermContainer } from './XTermContainer';
 import { Icon } from './Icon';
 import { Tooltip } from '../ui/Tooltip';
-import { FullWidthToggle } from './FullWidthToggle';
+import { FullWidthToggle, PanelCloseButton } from './FullWidthToggle';
 
 interface RunnerPanelProps {
   ptyId: string;
@@ -11,9 +11,10 @@ interface RunnerPanelProps {
   onRestart: () => void;
   fullWidth: boolean;
   onToggleFullWidth: () => void;
+  onClose: () => void;
 }
 
-export function RunnerPanel({ ptyId, panelId, onRestart, fullWidth, onToggleFullWidth }: RunnerPanelProps) {
+export function RunnerPanel({ ptyId, panelId, onRestart, fullWidth, onToggleFullWidth, onClose }: RunnerPanelProps) {
   const panel = useTerminalStore((s) => s.displayStates[ptyId]?.panels.find((p) => p.id === panelId));
   const instance = terminalInstances.get(ptyId);
   const runner = instance?.runnerChildren.get(panelId);
@@ -37,6 +38,7 @@ export function RunnerPanel({ ptyId, panelId, onRestart, fullWidth, onToggleFull
           </button>
         </Tooltip>
         <FullWidthToggle fullWidth={fullWidth} onToggle={onToggleFullWidth} />
+        <PanelCloseButton onClose={onClose} />
       </div>
       <div className="flex-1 overflow-hidden min-h-0 px-3 pb-3">
         {runnerPtyId ? (

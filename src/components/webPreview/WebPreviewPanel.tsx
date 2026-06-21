@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { Icon } from '../terminal/Icon';
 import { TooltipButton } from '../ui/TooltipButton';
-import { FullWidthToggle } from '../terminal/FullWidthToggle';
+import { FullWidthToggle, PanelCloseButton } from '../terminal/FullWidthToggle';
 import { normalizeUrl } from './urlHelpers';
 
 interface WebPreviewPanelProps {
@@ -11,6 +11,7 @@ interface WebPreviewPanelProps {
   onChangeUrl: (newUrl: string) => void;
   fullWidth: boolean;
   onToggleFullWidth: () => void;
+  onClose: () => void;
 }
 
 // Electron <webview> is a custom element. Declare the minimal API surface we use.
@@ -27,7 +28,7 @@ interface ElectronWebviewElement extends HTMLElement {
   openDevTools(): void;
 }
 
-export function WebPreviewPanel({ url, onChangeUrl, fullWidth, onToggleFullWidth }: WebPreviewPanelProps) {
+export function WebPreviewPanel({ url, onChangeUrl, fullWidth, onToggleFullWidth, onClose }: WebPreviewPanelProps) {
   const [loading, setLoading] = useState(false);
   const [canGoBack, setCanGoBack] = useState(false);
   const [canGoForward, setCanGoForward] = useState(false);
@@ -221,6 +222,7 @@ export function WebPreviewPanel({ url, onChangeUrl, fullWidth, onToggleFullWidth
           </button>
         )}
         <FullWidthToggle fullWidth={fullWidth} onToggle={onToggleFullWidth} />
+        <PanelCloseButton onClose={onClose} />
       </div>
 
       {/* Content */}
