@@ -789,9 +789,14 @@ export class OuijitTerminal {
   }
 
   activatePanel(id: string): void {
-    if (this.activePanelId === id) return;
     if (!this.panels.some((p) => p.id === id)) return;
+    if (this.activePanelId === id && !this.diffPanelOpen) return;
     this.activePanelId = id;
+    // The diff takeover and an active panel are mutually exclusive.
+    if (this.diffPanelOpen) {
+      this.diffPanelOpen = false;
+      this.pushDisplayState({ diffPanelOpen: false });
+    }
     this.syncPanels();
   }
 
@@ -844,10 +849,15 @@ export class OuijitTerminal {
     return id;
   }
 
-  /** Toggle the automatic diff takeover (separate from the panel tabs). */
+  /** Toggle the automatic diff takeover. Mutually exclusive with an active panel. */
   setDiffPanelOpen(open: boolean): void {
     if (this.diffPanelOpen === open) return;
     this.diffPanelOpen = open;
+    // Opening the diff deactivates any active panel so only one view is active.
+    if (open && this.activePanelId !== null) {
+      this.activePanelId = null;
+      this.syncPanels();
+    }
     this.pushDisplayState({ diffPanelOpen: open });
   }
 
