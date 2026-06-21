@@ -128,10 +128,10 @@ export async function applyInitialUiState(term: OuijitTerminal, ui: SnapshotTerm
   }
 
   term.panels = panels;
-  term.activePanelId = activeId;
+  // Diff and an active panel are mutually exclusive — the diff wins on restore.
+  term.activePanelId = ui.diffPanelOpen ? null : activeId;
   term.syncPanels();
 
-  // Diff is restored separately from the user-managed panel tabs.
   if (ui.diffPanelOpen) {
     term.diffPanelOpen = true;
     term.pushDisplayState({ diffPanelOpen: true });

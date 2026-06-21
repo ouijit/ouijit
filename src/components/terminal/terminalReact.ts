@@ -774,8 +774,19 @@ export class OuijitTerminal {
 
   private appendPanel(panel: TerminalPanel, activate = true): void {
     this.panels = [...this.panels, panel];
-    if (activate) this.activePanelId = panel.id;
+    if (activate) {
+      this.activePanelId = panel.id;
+      this.closeDiffForActivation();
+    }
     this.syncPanels();
+  }
+
+  /** Diff and an active panel are mutually exclusive — drop the diff when a
+   *  panel becomes the active view. */
+  private closeDiffForActivation(): void {
+    if (!this.diffPanelOpen) return;
+    this.diffPanelOpen = false;
+    this.pushDisplayState({ diffPanelOpen: false });
   }
 
   updatePanel(id: string, patch: Partial<TerminalPanel>): void {
@@ -792,11 +803,7 @@ export class OuijitTerminal {
     if (!this.panels.some((p) => p.id === id)) return;
     if (this.activePanelId === id && !this.diffPanelOpen) return;
     this.activePanelId = id;
-    // The diff takeover and an active panel are mutually exclusive.
-    if (this.diffPanelOpen) {
-      this.diffPanelOpen = false;
-      this.pushDisplayState({ diffPanelOpen: false });
-    }
+    this.closeDiffForActivation();
     this.syncPanels();
   }
 
