@@ -161,12 +161,20 @@ export function TerminalBody({ ptyId, projectPath }: TerminalBodyProps) {
         )}
       </div>
       {diffPanelOpen && (
-        <DiffPanel
-          ptyId={ptyId}
-          projectPath={projectPath}
-          mode={diffPanelMode}
-          onClose={() => terminalInstances.get(ptyId)?.setDiffPanelOpen(false)}
-        />
+        <div
+          className="absolute inset-0 z-20 flex flex-col m-3 glass-bevel border border-black/60 rounded-[14px] overflow-hidden"
+          style={{
+            background: 'var(--color-terminal-bg, #171717)',
+            boxShadow: '0 0 0 1px rgba(0, 0, 0, 0.05), 0 2px 10px rgba(0, 0, 0, 0.18)',
+          }}
+        >
+          <DiffPanel
+            ptyId={ptyId}
+            projectPath={projectPath}
+            mode={diffPanelMode}
+            onClose={() => terminalInstances.get(ptyId)?.setDiffPanelOpen(false)}
+          />
+        </div>
       )}
     </div>
   );
