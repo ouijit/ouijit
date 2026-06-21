@@ -3,14 +3,17 @@ import { terminalInstances } from './terminalReact';
 import { XTermContainer } from './XTermContainer';
 import { Icon } from './Icon';
 import { Tooltip } from '../ui/Tooltip';
+import { FullWidthToggle } from './FullWidthToggle';
 
 interface RunnerPanelProps {
   ptyId: string;
   panelId: string;
   onRestart: () => void;
+  fullWidth: boolean;
+  onToggleFullWidth: () => void;
 }
 
-export function RunnerPanel({ ptyId, panelId, onRestart }: RunnerPanelProps) {
+export function RunnerPanel({ ptyId, panelId, onRestart, fullWidth, onToggleFullWidth }: RunnerPanelProps) {
   const panel = useTerminalStore((s) => s.displayStates[ptyId]?.panels.find((p) => p.id === panelId));
   const instance = terminalInstances.get(ptyId);
   const runner = instance?.runnerChildren.get(panelId);
@@ -33,6 +36,7 @@ export function RunnerPanel({ ptyId, panelId, onRestart }: RunnerPanelProps) {
             <Icon name="arrow-counter-clockwise" />
           </button>
         </Tooltip>
+        <FullWidthToggle fullWidth={fullWidth} onToggle={onToggleFullWidth} />
       </div>
       <div className="flex-1 overflow-hidden min-h-0 px-3 pb-3">
         {runnerPtyId ? (

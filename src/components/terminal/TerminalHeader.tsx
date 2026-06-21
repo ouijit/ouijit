@@ -48,7 +48,6 @@ export const TerminalHeader = memo(function TerminalHeader({
     diffPanelOpen,
     panels,
     activePanelId,
-    panelFullWidth,
   } = useTerminalStore(
     useShallow((s) => {
       const d = s.displayStates[ptyId];
@@ -64,7 +63,6 @@ export const TerminalHeader = memo(function TerminalHeader({
         diffPanelOpen: d?.diffPanelOpen ?? false,
         panels: d?.panels ?? EMPTY_PANELS,
         activePanelId: d?.activePanelId ?? null,
-        panelFullWidth: d?.panelFullWidth ?? true,
       };
     }),
   );
@@ -343,14 +341,12 @@ export const TerminalHeader = memo(function TerminalHeader({
           <PanelControls
             panels={panels}
             activePanelId={activePanelId}
-            panelFullWidth={panelFullWidth}
             gitFileStatus={gitFileStatus}
             isWorktree={isWorktree}
             diffPanelOpen={diffPanelOpen}
             addRef={addRef}
             onActivate={panelOps.activatePanel}
             onClosePanel={panelOps.closePanel}
-            onSetFullWidth={panelOps.setPanelFullWidth}
             onDiffClick={handleDiffClick}
             onAddClick={openAddMenu}
           />
@@ -423,27 +419,23 @@ const RUNNER_DOT: Record<string, string> = {
 function PanelControls({
   panels,
   activePanelId,
-  panelFullWidth,
   gitFileStatus,
   isWorktree,
   diffPanelOpen,
   addRef,
   onActivate,
   onClosePanel,
-  onSetFullWidth,
   onDiffClick,
   onAddClick,
 }: {
   panels: TerminalPanel[];
   activePanelId: string | null;
-  panelFullWidth: boolean;
   gitFileStatus: GitFileStatus | null;
   isWorktree: boolean;
   diffPanelOpen: boolean;
   addRef: React.RefObject<HTMLButtonElement | null>;
   onActivate: (id: string) => void;
   onClosePanel: (id: string) => void;
-  onSetFullWidth: (fullWidth: boolean) => void;
   onDiffClick: (e: React.MouseEvent) => void;
   onAddClick: (e: React.MouseEvent) => void;
 }) {
@@ -454,7 +446,6 @@ function PanelControls({
   const hasUncommitted = !!gitFileStatus && dirtyFileCount > 0;
   const showCompare = !!gitFileStatus && !hasUncommitted && isWorktree && branchDiffCount > 0;
   const showDiff = hasUncommitted || showCompare;
-  const hasActive = activePanelId != null && panels.some((p) => p.id === activePanelId);
 
   const slots: React.ReactNode[] = [];
 
@@ -520,22 +511,6 @@ function PanelControls({
       <Icon name="plus" className="w-3.5 h-3.5" />
     </button>,
   );
-
-  if (hasActive) {
-    slots.push(
-      <button
-        key="fullwidth"
-        className={`${groupButtonBase} !px-2 ${groupButtonInactive}`}
-        onClick={() => onSetFullWidth(!panelFullWidth)}
-        aria-label={panelFullWidth ? 'Split view' : 'Full width'}
-      >
-        <Icon
-          name={panelFullWidth ? 'square-split-horizontal' : 'arrows-out-line-horizontal'}
-          className="w-3.5 h-3.5"
-        />
-      </button>,
-    );
-  }
 
   return (
     <div className="inline-flex items-center h-7 bg-background-secondary glass-bevel relative border border-black/60 rounded-[12px] overflow-hidden">

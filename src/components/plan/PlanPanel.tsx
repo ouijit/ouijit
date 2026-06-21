@@ -4,6 +4,7 @@ import { terminalInstances } from '../terminal/terminalReact';
 import { useProjectStore } from '../../stores/projectStore';
 import { Icon } from '../terminal/Icon';
 import { TooltipButton } from '../ui/TooltipButton';
+import { FullWidthToggle } from '../terminal/FullWidthToggle';
 import { HookConfigDialog } from '../dialogs/HookConfigDialog';
 
 interface PlanPanelProps {
@@ -11,6 +12,8 @@ interface PlanPanelProps {
   panelId: string;
   planPath: string;
   onChangePlanFile: (newPath: string) => void;
+  fullWidth: boolean;
+  onToggleFullWidth: () => void;
 }
 
 // ── File existence helpers ───────────────────────────────────────────
@@ -25,7 +28,7 @@ function applyFileExistence(container: HTMLElement, existence: Record<string, bo
   });
 }
 
-export function PlanPanel({ ptyId, planPath, onChangePlanFile }: PlanPanelProps) {
+export function PlanPanel({ ptyId, planPath, onChangePlanFile, fullWidth, onToggleFullWidth }: PlanPanelProps) {
   const [content, setContent] = useState<string | null>(null);
   const [renderedHtml, setRenderedHtml] = useState<string>('');
   const [loading, setLoading] = useState(true);
@@ -226,6 +229,7 @@ export function PlanPanel({ ptyId, planPath, onChangePlanFile }: PlanPanelProps)
         >
           <Icon name={copied ? 'check' : 'clipboard-text'} className={copied ? 'text-[#69db7c]' : ''} />
         </TooltipButton>
+        <FullWidthToggle fullWidth={fullWidth} onToggle={onToggleFullWidth} />
       </div>
 
       {/* Content */}

@@ -150,7 +150,13 @@ export function TerminalBody({ ptyId, projectPath }: TerminalBodyProps) {
               ...(dragging ? { pointerEvents: 'none' } : {}),
             }}
           >
-            <ActivePanel ptyId={ptyId} panel={activePanel} ops={ops} />
+            <ActivePanel
+              ptyId={ptyId}
+              panel={activePanel}
+              ops={ops}
+              fullWidth={panelFullWidth}
+              onToggleFullWidth={() => ops.setPanelFullWidth(!panelFullWidth)}
+            />
           </div>
         )}
       </div>
@@ -170,14 +176,26 @@ function ActivePanel({
   ptyId,
   panel,
   ops,
+  fullWidth,
+  onToggleFullWidth,
 }: {
   ptyId: string;
   panel: TerminalPanel;
   ops: ReturnType<typeof useTerminalPanels>;
+  fullWidth: boolean;
+  onToggleFullWidth: () => void;
 }) {
   switch (panel.kind) {
     case 'runner':
-      return <RunnerPanel ptyId={ptyId} panelId={panel.id} onRestart={() => ops.restartRunner(panel.id)} />;
+      return (
+        <RunnerPanel
+          ptyId={ptyId}
+          panelId={panel.id}
+          onRestart={() => ops.restartRunner(panel.id)}
+          fullWidth={fullWidth}
+          onToggleFullWidth={onToggleFullWidth}
+        />
+      );
     case 'webPreview':
       return (
         <WebPreviewPanel
@@ -185,6 +203,8 @@ function ActivePanel({
           panelId={panel.id}
           url={panel.url ?? ''}
           onChangeUrl={(url) => ops.changeWebPreviewUrl(panel.id, url)}
+          fullWidth={fullWidth}
+          onToggleFullWidth={onToggleFullWidth}
         />
       );
     case 'plan':
@@ -194,6 +214,8 @@ function ActivePanel({
           panelId={panel.id}
           planPath={panel.planPath}
           onChangePlanFile={(path) => ops.changePlanFile(panel.id, path)}
+          fullWidth={fullWidth}
+          onToggleFullWidth={onToggleFullWidth}
         />
       );
   }

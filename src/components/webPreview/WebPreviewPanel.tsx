@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { Icon } from '../terminal/Icon';
 import { TooltipButton } from '../ui/TooltipButton';
+import { FullWidthToggle } from '../terminal/FullWidthToggle';
 import { normalizeUrl } from './urlHelpers';
 
 interface WebPreviewPanelProps {
@@ -8,6 +9,8 @@ interface WebPreviewPanelProps {
   panelId: string;
   url: string;
   onChangeUrl: (newUrl: string) => void;
+  fullWidth: boolean;
+  onToggleFullWidth: () => void;
 }
 
 // Electron <webview> is a custom element. Declare the minimal API surface we use.
@@ -24,7 +27,7 @@ interface ElectronWebviewElement extends HTMLElement {
   openDevTools(): void;
 }
 
-export function WebPreviewPanel({ url, onChangeUrl }: WebPreviewPanelProps) {
+export function WebPreviewPanel({ url, onChangeUrl, fullWidth, onToggleFullWidth }: WebPreviewPanelProps) {
   const [loading, setLoading] = useState(false);
   const [canGoBack, setCanGoBack] = useState(false);
   const [canGoForward, setCanGoForward] = useState(false);
@@ -217,6 +220,7 @@ export function WebPreviewPanel({ url, onChangeUrl }: WebPreviewPanelProps) {
             {currentUrl || 'Enter URL…'}
           </button>
         )}
+        <FullWidthToggle fullWidth={fullWidth} onToggle={onToggleFullWidth} />
       </div>
 
       {/* Content */}
