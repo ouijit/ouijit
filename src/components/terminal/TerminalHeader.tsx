@@ -1,4 +1,4 @@
-import { memo, useState, useCallback, useEffect, useMemo, useRef } from 'react';
+import { Fragment, memo, useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useTerminalStore } from '../../stores/terminalStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { useShallow } from 'zustand/react/shallow';
@@ -7,13 +7,15 @@ import { addProjectTerminal, openWorktreeEditor, renameTerminal, startRunner } f
 import { completeTask } from '../../services/taskCompletion';
 
 const EMPTY_TAGS: string[] = [];
+const EMPTY_PANELS: TerminalPanel[] = [];
 import { Icon } from './Icon';
-import { Tooltip } from '../ui/Tooltip';
 import { TagInput } from './TagInput';
 import { TerminalHeaderView, TerminalHeaderName } from './TerminalHeaderView';
 import { ContextMenu, type ContextMenuEntry } from '../ui/ContextMenu';
 import { AddPanelMenu } from './AddPanelMenu';
 import { HookConfigDialog } from '../dialogs/HookConfigDialog';
+import { useTerminalPanels } from './useTerminalPanels';
+import { panelIcon, panelLabel, type TerminalPanel } from './panelTypes';
 import type { GitFileStatus, RunnerScript } from '../../types';
 
 interface TerminalHeaderProps {
@@ -34,23 +36,40 @@ export const TerminalHeader = memo(function TerminalHeader({
   onClose,
 }: TerminalHeaderProps) {
   // One shallow-compared subscription replaces many individual selectors.
-  const { label, summaryType, gitFileStatus, lastOscTitle, tags, sandboxed, taskId, worktreeBranch, diffPanelOpen } =
-    useTerminalStore(
-      useShallow((s) => {
-        const d = s.displayStates[ptyId];
-        return {
-          label: d?.label ?? '',
-          summaryType: d?.summaryType ?? 'ready',
-          gitFileStatus: d?.gitFileStatus ?? null,
-          lastOscTitle: d?.lastOscTitle ?? '',
-          tags: d?.tags ?? EMPTY_TAGS,
-          sandboxed: d?.sandboxed ?? false,
-          taskId: d?.taskId ?? null,
-          worktreeBranch: d?.worktreeBranch ?? null,
-          diffPanelOpen: d?.diffPanelOpen ?? false,
-        };
-      }),
-    );
+  const {
+    label,
+    summaryType,
+    gitFileStatus,
+    lastOscTitle,
+    tags,
+    sandboxed,
+    taskId,
+    worktreeBranch,
+    diffPanelOpen,
+    panels,
+    activePanelId,
+    panelFullWidth,
+  } = useTerminalStore(
+    useShallow((s) => {
+      const d = s.displayStates[ptyId];
+      return {
+        label: d?.label ?? '',
+        summaryType: d?.summaryType ?? 'ready',
+        gitFileStatus: d?.gitFileStatus ?? null,
+        lastOscTitle: d?.lastOscTitle ?? '',
+        tags: d?.tags ?? EMPTY_TAGS,
+        sandboxed: d?.sandboxed ?? false,
+        taskId: d?.taskId ?? null,
+        worktreeBranch: d?.worktreeBranch ?? null,
+        diffPanelOpen: d?.diffPanelOpen ?? false,
+        panels: d?.panels ?? EMPTY_PANELS,
+        activePanelId: d?.activePanelId ?? null,
+        panelFullWidth: d?.panelFullWidth ?? true,
+      };
+    }),
+  );
+
+  const panelOps = useTerminalPanels(ptyId);
 
   const [tagInputOpen, setTagInputOpen] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
@@ -321,24 +340,20 @@ export const TerminalHeader = memo(function TerminalHeader({
       branchContent={gitFileStatus?.branch ? <BranchCopy branch={gitFileStatus.branch} /> : undefined}
       actions={
         isActive && !compact ? (
-          <>
-            <DiffButton
-              gitFileStatus={gitFileStatus}
-              isWorktree={isWorktree}
-              diffPanelOpen={diffPanelOpen}
-              onClick={handleDiffClick}
-            />
-            <Tooltip text="Add panel">
-              <button
-                ref={addRef}
-                onClick={openAddMenu}
-                aria-label="Add panel"
-                className="w-7 h-7 flex items-center justify-center shrink-0 rounded-[12px] glass-bevel border border-black/60 bg-background-secondary text-text-secondary hover:text-text-primary hover:bg-background-tertiary transition-colors duration-150 [&>svg]:w-3.5 [&>svg]:h-3.5"
-              >
-                <Icon name="plus" />
-              </button>
-            </Tooltip>
-          </>
+          <PanelControls
+            panels={panels}
+            activePanelId={activePanelId}
+            panelFullWidth={panelFullWidth}
+            gitFileStatus={gitFileStatus}
+            isWorktree={isWorktree}
+            diffPanelOpen={diffPanelOpen}
+            addRef={addRef}
+            onActivate={panelOps.activatePanel}
+            onClosePanel={panelOps.closePanel}
+            onSetFullWidth={panelOps.setPanelFullWidth}
+            onDiffClick={handleDiffClick}
+            onAddClick={openAddMenu}
+          />
         ) : undefined
       }
       showCloseButton
@@ -390,21 +405,47 @@ function BranchCopy({ branch }: { branch: string }) {
   );
 }
 
-// Contextual git-diff affordance. Surfaces the uncommitted file count (or a
-// "Compare" branch-diff) and toggles the automatic diff takeover.
-const diffButtonBase =
-  'h-full px-2.5 flex items-center gap-1 border-none font-sans text-[13px] font-medium transition-colors duration-150 ease-out';
+// Joined, beveled segmented control in the terminal header: one segment per
+// open panel (runner/preview/plan) plus the contextual diff toggle, an "add"
+// trigger, and a full-width toggle when a panel is active.
+const groupButtonBase =
+  'group/seg h-full px-2.5 flex items-center gap-1 border-none font-sans text-[13px] font-medium transition-colors duration-150 ease-out';
+const groupButtonInactive = 'bg-transparent text-text-secondary hover:text-text-primary hover:bg-background-tertiary';
+const groupButtonActive = 'bg-accent text-white hover:bg-accent';
 
-function DiffButton({
+const RUNNER_DOT: Record<string, string> = {
+  running: 'bg-[#4ee82e]',
+  success: 'bg-[#4ee82e]',
+  error: 'bg-[#ff6b6b]',
+  idle: 'bg-white/30',
+};
+
+function PanelControls({
+  panels,
+  activePanelId,
+  panelFullWidth,
   gitFileStatus,
   isWorktree,
   diffPanelOpen,
-  onClick,
+  addRef,
+  onActivate,
+  onClosePanel,
+  onSetFullWidth,
+  onDiffClick,
+  onAddClick,
 }: {
+  panels: TerminalPanel[];
+  activePanelId: string | null;
+  panelFullWidth: boolean;
   gitFileStatus: GitFileStatus | null;
   isWorktree: boolean;
   diffPanelOpen: boolean;
-  onClick: (e: React.MouseEvent) => void;
+  addRef: React.RefObject<HTMLButtonElement | null>;
+  onActivate: (id: string) => void;
+  onClosePanel: (id: string) => void;
+  onSetFullWidth: (fullWidth: boolean) => void;
+  onDiffClick: (e: React.MouseEvent) => void;
+  onAddClick: (e: React.MouseEvent) => void;
 }) {
   const dirtyFileCount = gitFileStatus?.uncommittedFiles.length ?? 0;
   const insertions = gitFileStatus?.uncommittedFiles.reduce((s, f) => s + f.additions, 0) ?? 0;
@@ -412,27 +453,98 @@ function DiffButton({
   const branchDiffCount = gitFileStatus?.branchDiffFiles.length ?? 0;
   const hasUncommitted = !!gitFileStatus && dirtyFileCount > 0;
   const showCompare = !!gitFileStatus && !hasUncommitted && isWorktree && branchDiffCount > 0;
-  if (!hasUncommitted && !showCompare) return null;
+  const showDiff = hasUncommitted || showCompare;
+  const hasActive = activePanelId != null && panels.some((p) => p.id === activePanelId);
 
-  const stateClass = diffPanelOpen
-    ? 'bg-accent text-white hover:bg-accent'
-    : 'bg-transparent text-text-secondary hover:text-text-primary hover:bg-background-tertiary';
+  const slots: React.ReactNode[] = [];
 
-  return (
-    <div className="inline-flex items-center h-7 bg-background-secondary glass-bevel relative border border-black/60 rounded-[12px] overflow-hidden">
-      <button className={`${diffButtonBase} ${stateClass}`} onClick={onClick}>
+  for (const panel of panels) {
+    const active = panel.id === activePanelId;
+    slots.push(
+      <button
+        key={panel.id}
+        className={`${groupButtonBase} ${active ? groupButtonActive : groupButtonInactive}`}
+        onClick={() => onActivate(panel.id)}
+      >
+        {panel.kind === 'runner' ? (
+          <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${RUNNER_DOT[panel.status] ?? 'bg-white/30'}`} />
+        ) : (
+          <Icon name={panelIcon(panel)} className="w-3.5 h-3.5 shrink-0" />
+        )}
+        <span className="truncate max-w-[120px]">{panelLabel(panel)}</span>
+        <span
+          role="button"
+          aria-label="Close panel"
+          onClick={(e) => {
+            e.stopPropagation();
+            onClosePanel(panel.id);
+          }}
+          className="-mr-1 ml-0.5 w-4 h-4 flex items-center justify-center rounded shrink-0 opacity-0 group-hover/seg:opacity-100 hover:bg-white/15 transition-all duration-150 [&>svg]:w-3 [&>svg]:h-3"
+        >
+          <Icon name="x" />
+        </span>
+      </button>,
+    );
+  }
+
+  if (showDiff) {
+    slots.push(
+      <button
+        key="diff"
+        className={`${groupButtonBase} ${diffPanelOpen ? groupButtonActive : groupButtonInactive}`}
+        onClick={onDiffClick}
+      >
         {hasUncommitted ? (
           <>
             <span>
               {dirtyFileCount} {dirtyFileCount === 1 ? 'file' : 'files'}
             </span>
-            {insertions > 0 && <span className="text-[#4ee82e]">+{insertions}</span>}
-            {deletions > 0 && <span className="text-[#ff6b6b]">-{deletions}</span>}
+            {insertions > 0 && <span className={diffPanelOpen ? '' : 'text-[#4ee82e]'}>+{insertions}</span>}
+            {deletions > 0 && <span className={diffPanelOpen ? '' : 'text-[#ff6b6b]'}>-{deletions}</span>}
           </>
         ) : (
           <span>Compare</span>
         )}
-      </button>
+      </button>,
+    );
+  }
+
+  slots.push(
+    <button
+      key="add"
+      ref={addRef}
+      className={`${groupButtonBase} !px-2 ${groupButtonInactive}`}
+      onClick={onAddClick}
+      aria-label="Add panel"
+    >
+      <Icon name="plus" className="w-3.5 h-3.5" />
+    </button>,
+  );
+
+  if (hasActive) {
+    slots.push(
+      <button
+        key="fullwidth"
+        className={`${groupButtonBase} !px-2 ${groupButtonInactive}`}
+        onClick={() => onSetFullWidth(!panelFullWidth)}
+        aria-label={panelFullWidth ? 'Split view' : 'Full width'}
+      >
+        <Icon
+          name={panelFullWidth ? 'square-split-horizontal' : 'arrows-out-line-horizontal'}
+          className="w-3.5 h-3.5"
+        />
+      </button>,
+    );
+  }
+
+  return (
+    <div className="inline-flex items-center h-7 bg-background-secondary glass-bevel relative border border-black/60 rounded-[12px] overflow-hidden">
+      {slots.map((slot, i) => (
+        <Fragment key={i}>
+          {i > 0 && <div aria-hidden className="w-px h-3 bg-white/10 self-center" />}
+          {slot}
+        </Fragment>
+      ))}
     </div>
   );
 }

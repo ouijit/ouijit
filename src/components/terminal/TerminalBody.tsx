@@ -6,7 +6,6 @@ import { RunnerPanel } from './RunnerPanel';
 import { DiffPanel } from '../diff/DiffPanel';
 import { PlanPanel } from '../plan/PlanPanel';
 import { WebPreviewPanel } from '../webPreview/WebPreviewPanel';
-import { PanelTabStrip } from './PanelTabStrip';
 import { useTerminalPanels } from './useTerminalPanels';
 import { terminalInstances } from './terminalReact';
 import type { TerminalPanel } from './panelTypes';
@@ -121,21 +120,6 @@ export function TerminalBody({ ptyId, projectPath }: TerminalBodyProps) {
 
   return (
     <div className="relative flex flex-col flex-1 min-h-0 overflow-hidden">
-      {panels.length > 0 && (
-        <PanelTabStrip
-          ptyId={ptyId}
-          projectPath={projectPath}
-          panels={panels}
-          activePanelId={activePanelId}
-          panelFullWidth={panelFullWidth}
-          onActivate={ops.activatePanel}
-          onClose={ops.closePanel}
-          onSetFullWidth={ops.setPanelFullWidth}
-          onAddRunner={ops.addRunnerPanel}
-          onAddWebPreview={ops.addWebPreviewPanel}
-          onAddPlan={ops.addPlanPanel}
-        />
-      )}
       <div ref={rowRef} className="relative flex-1 flex flex-row min-h-0 overflow-hidden">
         {showXterm && (
           <XTermContainer
@@ -158,7 +142,7 @@ export function TerminalBody({ ptyId, projectPath }: TerminalBodyProps) {
         {activePanel && (
           <div
             ref={panelRef}
-            className="relative flex flex-col min-h-0 overflow-hidden glass-bevel border border-black/60 rounded-[14px] mb-3 mr-3 ml-3"
+            className="relative flex flex-col min-h-0 overflow-hidden glass-bevel border border-black/60 rounded-[14px] m-3"
             style={{
               ...panelStyle,
               background: 'var(--color-terminal-bg, #171717)',
