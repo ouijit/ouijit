@@ -48,13 +48,13 @@ export function AddPanelMenu({
   const items: ContextMenuEntry[] = [];
 
   if (hasRunHook) {
-    items.push({ label: 'Run hook', icon: 'terminal', onClick: () => onAddRunner() });
+    items.push({ label: 'Run hook', onClick: () => onAddRunner() });
   }
   for (const script of scripts) {
-    items.push({ label: script.name, icon: 'terminal', onClick: () => onAddRunner(script) });
+    items.push({ label: script.name, onClick: () => onAddRunner(script) });
   }
   if (!hasRunHook && scripts.length === 0) {
-    items.push({ label: 'Configure run command…', icon: 'terminal', onClick: () => setRunHookDialog(true) });
+    items.push({ label: 'Configure run command…', onClick: () => setRunHookDialog(true) });
   }
 
   items.push({ separator: true });

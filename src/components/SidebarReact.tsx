@@ -368,14 +368,16 @@ export function Sidebar({ onProjectSelect, onHomeSelect, onAddExisting, onCreate
       {/* Context menu */}
       {contextMenu && (
         <div
-          className="sidebar-context-menu-react fixed z-[10002] py-1 bg-surface border border-border rounded-md shadow-lg overflow-hidden opacity-100"
+          className="sidebar-context-menu-react fixed z-[10002] p-1 glass-bevel border border-black/60 rounded-[12px] overflow-hidden opacity-100"
           style={{
             left: Math.min(contextMenu.x, window.innerWidth - 120),
             top: Math.min(contextMenu.y, window.innerHeight - 40),
+            background: 'var(--color-terminal-bg, #171717)',
+            boxShadow: '0 0 0 1px rgba(0, 0, 0, 0.05), 0 10px 30px rgba(0, 0, 0, 0.35)',
           }}
         >
           <button
-            className="w-full px-3 py-1.5 text-xs text-text-primary bg-transparent border-none text-left transition-colors duration-100 ease-out hover:bg-background-tertiary hover:text-error"
+            className="w-full px-2.5 py-1.5 rounded-[7px] text-xs text-text-primary bg-transparent border-none text-left transition-colors duration-100 ease-out hover:bg-error/10 hover:text-error"
             onClick={() => handleRemoveProject(contextMenu.project)}
           >
             Remove
@@ -575,11 +577,17 @@ function AddMenu({ anchorRef, onAddExisting, onCreateNew, onClose }: AddMenuProp
   return createPortal(
     <div
       ref={ref}
-      className="sidebar-add-menu-react fixed z-[10002] flex flex-col py-1 bg-surface border border-border rounded-md shadow-lg overflow-hidden"
-      style={{ left, bottom, top: 'auto' }}
+      className="sidebar-add-menu-react fixed z-[10002] flex flex-col p-1 glass-bevel border border-black/60 rounded-[12px] overflow-hidden"
+      style={{
+        left,
+        bottom,
+        top: 'auto',
+        background: 'var(--color-terminal-bg, #171717)',
+        boxShadow: '0 0 0 1px rgba(0, 0, 0, 0.05), 0 10px 30px rgba(0, 0, 0, 0.35)',
+      }}
     >
       <button
-        className="w-full px-3 py-1.5 text-xs text-text-primary bg-transparent border-none text-left transition-colors duration-100 ease-out hover:bg-background-tertiary"
+        className="w-full px-2.5 py-1.5 rounded-[7px] text-xs text-text-primary bg-transparent border-none text-left transition-colors duration-100 ease-out hover:bg-white/[0.08]"
         onClick={() => {
           onClose();
           onAddExisting();
@@ -588,7 +596,7 @@ function AddMenu({ anchorRef, onAddExisting, onCreateNew, onClose }: AddMenuProp
         Add existing
       </button>
       <button
-        className="w-full px-3 py-1.5 text-xs text-text-primary bg-transparent border-none text-left transition-colors duration-100 ease-out hover:bg-background-tertiary"
+        className="w-full px-2.5 py-1.5 rounded-[7px] text-xs text-text-primary bg-transparent border-none text-left transition-colors duration-100 ease-out hover:bg-white/[0.08]"
         onClick={() => {
           onClose();
           onCreateNew();
