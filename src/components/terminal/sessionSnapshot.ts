@@ -110,25 +110,53 @@ export function scheduleSnapshotSave(): void {
   saveTimer = setTimeout(saveSnapshotNow, SAVE_DEBOUNCE_MS);
 }
 
+// Gather the current state and fire the persist IPC. Kept synchronous (the IPC
+// is dispatched without awaiting) so it can run inside a `beforeunload` handler,
+// where the renderer tears down before any promise would resolve — the message
+// is still posted to the main process, which writes it.
+function persistSnapshotNow(): void {
+  const snapshot = gatherSnapshot();
+  if (snapshot.terminals.length === 0) {
+    // Don't touch the persisted snapshot until we've seen at least one terminal
+    // this session — otherwise we'd clobber the previous-launch snapshot before
+    // the resume banner has had a chance to read it.
+    if (!hadTerminalsThisSession) return;
+    // Had terminals, now don't — user closed the last one. Clear snapshot so
+    // the next launch doesn't show a stale resume banner.
+    void window.api.globalSettings.set(SNAPSHOT_KEY, '');
+    return;
+  }
+  hadTerminalsThisSession = true;
+  void window.api.globalSettings.set(SNAPSHOT_KEY, JSON.stringify(snapshot));
+}
+
 async function saveSnapshotNow(): Promise<void> {
   saveTimer = null;
   if (savesSuspended) return;
   try {
-    const snapshot = gatherSnapshot();
-    if (snapshot.terminals.length === 0) {
-      // Don't touch the persisted snapshot until we've seen at least one
-      // terminal this session — otherwise we'd clobber the previous-launch
-      // snapshot before the resume banner has had a chance to read it.
-      if (!hadTerminalsThisSession) return;
-      // Had terminals, now don't — user closed the last one. Clear snapshot
-      // so the next launch doesn't show a stale resume banner.
-      await window.api.globalSettings.set(SNAPSHOT_KEY, '');
-      return;
-    }
-    hadTerminalsThisSession = true;
-    await window.api.globalSettings.set(SNAPSHOT_KEY, JSON.stringify(snapshot));
+    persistSnapshotNow();
   } catch (err) {
     sessionLog.warn('snapshot save failed', { error: err instanceof Error ? err.message : String(err) });
+  }
+}
+
+/**
+ * Persist immediately, cancelling any pending debounced save. Called on renderer
+ * unload (refresh / reload / quit) so changes made within the debounce window —
+ * e.g. a panel attached moments before a refresh — aren't lost. Without this the
+ * pending timer is discarded when the renderer tears down and those changes
+ * never reach the snapshot, so reconnect restores a stale layout.
+ */
+export function flushSnapshotSave(): void {
+  if (saveTimer) {
+    clearTimeout(saveTimer);
+    saveTimer = null;
+  }
+  if (savesSuspended) return;
+  try {
+    persistSnapshotNow();
+  } catch {
+    /* best-effort on unload */
   }
 }
 
@@ -149,6 +177,13 @@ export function installSessionAutoSave(): void {
 
   // Snapshot whenever active project changes (so resume nav lands correctly).
   useAppStore.subscribe(() => scheduleSnapshotSave());
+
+  // Flush any pending save before the renderer unloads (refresh / reload / quit)
+  // so changes made within the debounce window survive. The PTYs outlive a
+  // reload, and reconnectOrphanedSessions reads this snapshot to restore each
+  // terminal's panels — a dropped pending save means they come back bare.
+  window.addEventListener('beforeunload', flushSnapshotSave);
+  window.addEventListener('pagehide', flushSnapshotSave);
 }
 
 // ── Read on launch ───────────────────────────────────────────────────
