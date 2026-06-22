@@ -216,7 +216,7 @@ export function PlanPanel({
     <div className="flex flex-col h-full overflow-hidden">
       {/* Header */}
       <div className="flex items-center gap-2 px-3 py-1.5 shrink-0">
-        <Icon name="list-checks" className="w-3.5 h-3.5 text-white/50 shrink-0" />
+        <Icon name="file-text" className="w-3.5 h-3.5 text-white/50 shrink-0" />
         <button
           className="text-[13px] text-white/50 truncate flex-1 font-mono bg-transparent border-none p-0 text-left transition-colors duration-150 hover:text-white/80"
           title={planPath}
@@ -247,9 +247,9 @@ export function PlanPanel({
       {/* Content */}
       <div className="flex-1 overflow-y-auto px-6 py-4" onClick={handleClick}>
         {loading ? (
-          <div className="text-sm text-white/40">Loading plan...</div>
+          <div className="text-sm text-white/40">Loading</div>
         ) : content === null ? (
-          <div className="text-sm text-white/40">Plan file not found</div>
+          <div className="text-sm text-white/40">Markdown file not found</div>
         ) : (
           <div ref={contentRef} className="plan-markdown" dangerouslySetInnerHTML={{ __html: renderedHtml }} />
         )}

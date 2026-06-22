@@ -346,6 +346,7 @@ export const TerminalHeader = memo(function TerminalHeader({
             diffPanelOpen={diffPanelOpen}
             addRef={addRef}
             onActivate={panelOps.activatePanel}
+            onMinimize={panelOps.minimizePanel}
             onClosePanel={panelOps.closePanel}
             onDiffClick={handleDiffClick}
             onAddClick={openAddMenu}
@@ -424,6 +425,7 @@ function PanelControls({
   diffPanelOpen,
   addRef,
   onActivate,
+  onMinimize,
   onClosePanel,
   onDiffClick,
   onAddClick,
@@ -435,6 +437,7 @@ function PanelControls({
   diffPanelOpen: boolean;
   addRef: React.RefObject<HTMLButtonElement | null>;
   onActivate: (id: string) => void;
+  onMinimize: () => void;
   onClosePanel: (id: string) => void;
   onDiffClick: (e: React.MouseEvent) => void;
   onAddClick: (e: React.MouseEvent) => void;
@@ -455,7 +458,8 @@ function PanelControls({
       <button
         key={panel.id}
         className={`${groupButtonBase} ${active ? groupButtonActive : groupButtonInactive}`}
-        onClick={() => onActivate(panel.id)}
+        // Clicking the already-active tab minimizes it (collapses to the bare terminal).
+        onClick={() => (active ? onMinimize() : onActivate(panel.id))}
       >
         {panel.kind === 'runner' ? (
           <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${RUNNER_DOT[panel.status] ?? 'bg-white/30'}`} />

@@ -52,7 +52,7 @@ export function panelIcon(panel: TerminalPanel): string {
     case 'webPreview':
       return 'globe-simple';
     case 'plan':
-      return 'list-checks';
+      return 'file-text';
   }
 }
 
@@ -73,6 +73,6 @@ export function panelLabel(panel: TerminalPanel): string {
     case 'webPreview':
       return panel.url ? previewHostLabel(panel.url) : 'Preview';
     case 'plan':
-      return panel.planPath.split('/').pop() ?? 'Plan';
+      return panel.planPath.split('/').pop() ?? 'Markdown File';
   }
 }

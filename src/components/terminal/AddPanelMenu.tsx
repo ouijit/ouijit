@@ -59,7 +59,7 @@ export function AddPanelMenu({
 
   items.push({ separator: true });
   items.push({ label: 'Web Preview', icon: 'globe-simple', onClick: onAddWebPreview });
-  items.push({ label: 'Plan File…', icon: 'list-checks', onClick: () => void pickPlanFile() });
+  items.push({ label: 'Markdown File', icon: 'file-text', onClick: () => void pickPlanFile() });
 
   if (runHookDialog) {
     return (
