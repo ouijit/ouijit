@@ -132,18 +132,6 @@ export async function applyInitialUiState(term: OuijitTerminal, ui: SnapshotTerm
   term.activePanelId = ui.diffPanelOpen ? null : activeId;
   term.syncPanels();
 
-  actionsLog.info('applyInitialUiState', {
-    ptyId: term.ptyId,
-    received:
-      (ui.panels ?? [])
-        .map((p) => `${p.kind}(${p.kind === 'plan' ? p.planPath : p.kind === 'webPreview' ? p.url : ''})`)
-        .join(', ') || '(none)',
-    legacy: !ui.panels,
-    restored: panels.map((p) => p.kind).join(', ') || '(none)',
-    activePanelId: term.activePanelId,
-    diffPanelOpen: ui.diffPanelOpen ?? false,
-  });
-
   if (ui.diffPanelOpen) {
     term.diffPanelOpen = true;
     term.pushDisplayState({ diffPanelOpen: true });
@@ -733,7 +721,7 @@ function killExistingCommandInstances(projectPath: string, command: string): voi
 
 // ── Reconnect all orphaned sessions for a project ────────────────────
 
-export async function reconnectOrphanedSessions(projectPath: string): Promise<void> {
+export async function reconnectOrphanedSessions(projectPath?: string): Promise<void> {
   let sessions: ActiveSession[];
   try {
     sessions = await window.api.pty.getActiveSessions();
@@ -741,13 +729,12 @@ export async function reconnectOrphanedSessions(projectPath: string): Promise<vo
     return;
   }
 
-  const projectSessions = sessions.filter((s) => s.projectPath === projectPath);
-  actionsLog.info('reconnect: enter', {
-    projectPath,
-    liveSessions: sessions.map((s) => s.ptyId),
-    projectSessions: projectSessions.map((s) => s.ptyId),
-  });
-  if (projectSessions.length === 0) return;
+  // The single reconnect path, used by both the project view (scoped to one
+  // project) and the home view (all projects). Scoping only narrows which
+  // sessions are considered; the per-terminal restore is identical either way,
+  // so panels can't be dropped by one path that the other applies.
+  const relevant = projectPath ? sessions.filter((s) => s.projectPath === projectPath) : sessions;
+  if (relevant.length === 0) return;
 
   // The session snapshot from the same launch (PTYs survive a renderer reload)
   // carries per-terminal UI state and which card was focused. Match its rows to
@@ -755,31 +742,21 @@ export async function reconnectOrphanedSessions(projectPath: string): Promise<vo
   const snapshot = await readSnapshot();
   const snapByPtyId = new Map(
     (snapshot?.terminals ?? [])
-      .filter((t) => t.projectPath === projectPath && t.ptyId)
+      .filter((t) => t.ptyId && (!projectPath || t.projectPath === projectPath))
       .map((t) => [t.ptyId as string, t] as const),
   );
-  actionsLog.info('reconnect: snapshot matched', {
-    projectPath,
-    snapPtyIds: [...snapByPtyId.keys()],
-    snapProjectPaths: (snapshot?.terminals ?? []).map((t) => t.projectPath),
-  });
 
-  const mainSessions = projectSessions.filter((s) => !s.isRunner);
-  const runnerSessions = projectSessions.filter((s) => s.isRunner);
+  const mainSessions = relevant.filter((s) => !s.isRunner);
+  const runnerSessions = relevant.filter((s) => s.isRunner);
 
-  // Reconnect main terminals first. Skip any session already reconnected — the
-  // home view runs the same reconnect as the user lands, so on a refresh both
-  // paths can fire for one project; without this guard the shared session would
-  // be added to the stack twice.
+  // Reconnect main terminals first (so runner parents exist before runners
+  // reattach). The instance guard makes this idempotent across the two callers.
   for (const session of mainSessions) {
-    if (terminalInstances.has(session.ptyId)) {
-      actionsLog.info('reconnect: skip (already has instance)', { ptyId: session.ptyId });
-      continue;
-    }
+    if (terminalInstances.has(session.ptyId)) continue;
     let worktreeBranch: string | undefined;
     let mergeTarget: string | undefined;
     if (session.taskId != null) {
-      const task = await window.api.task.getByNumber(projectPath, session.taskId);
+      const task = await window.api.task.getByNumber(session.projectPath, session.taskId);
       worktreeBranch = task?.branch;
       mergeTarget = task?.mergeTarget;
     }
@@ -797,11 +774,6 @@ export async function reconnectOrphanedSessions(projectPath: string): Promise<vo
       initialStatus,
       label: snapEntry?.label ?? undefined,
     });
-    actionsLog.info('reconnect: main session', {
-      ptyId: session.ptyId,
-      hasSnapEntry: !!snapEntry,
-      termReconnected: !!term,
-    });
     if (term) {
       if (snapEntry) await applyInitialUiState(term, snapEntry.ui);
       // The plan association lives in the main process — authoritative for the
@@ -812,18 +784,17 @@ export async function reconnectOrphanedSessions(projectPath: string): Promise<vo
     }
   }
 
-  // Restore the focused card. Without this, every reconnectTerminal would have
-  // run activateLast and the last PTY back would win the selection.
-  {
-    const store = useTerminalStore.getState();
-    const activeEntry = (snapshot?.terminals ?? []).find(
-      (t) => t.projectPath === projectPath && t.isActiveInProject && t.ptyId,
-    );
-    const idx = activeEntry ? (store.terminalsByProject[projectPath] ?? []).indexOf(activeEntry.ptyId as string) : -1;
+  // Restore the focused card per project. Without this, every reconnectTerminal
+  // would have run activateLast and the last PTY back would win the selection.
+  const store = useTerminalStore.getState();
+  const focusProjects = projectPath ? [projectPath] : [...new Set(mainSessions.map((s) => s.projectPath))];
+  for (const pp of focusProjects) {
+    const activeEntry = (snapshot?.terminals ?? []).find((t) => t.projectPath === pp && t.isActiveInProject && t.ptyId);
+    const idx = activeEntry ? (store.terminalsByProject[pp] ?? []).indexOf(activeEntry.ptyId as string) : -1;
     if (idx >= 0) {
-      store.setActiveIndex(projectPath, idx);
+      store.setActiveIndex(pp, idx);
     } else {
-      store.activateLast(projectPath);
+      store.activateLast(pp);
     }
   }
 
