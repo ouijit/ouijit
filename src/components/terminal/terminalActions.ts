@@ -132,6 +132,15 @@ export async function applyInitialUiState(term: OuijitTerminal, ui: SnapshotTerm
   term.activePanelId = ui.diffPanelOpen ? null : activeId;
   term.syncPanels();
 
+  actionsLog.info('applyInitialUiState', {
+    ptyId: term.ptyId,
+    received: (ui.panels ?? []).map((p) => p.kind),
+    legacy: !ui.panels,
+    restored: panels.map((p) => p.kind),
+    activePanelId: term.activePanelId,
+    diffPanelOpen: ui.diffPanelOpen ?? false,
+  });
+
   if (ui.diffPanelOpen) {
     term.diffPanelOpen = true;
     term.pushDisplayState({ diffPanelOpen: true });

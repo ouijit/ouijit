@@ -116,6 +116,17 @@ export function scheduleSnapshotSave(): void {
 // is still posted to the main process, which writes it.
 function persistSnapshotNow(): void {
   const snapshot = gatherSnapshot();
+  sessionLog.info('snapshot save', {
+    terminals: snapshot.terminals.map((t) => ({
+      ptyId: t.ptyId,
+      panels: (t.ui.panels ?? []).map(
+        (p) =>
+          `${p.kind}:${p.kind === 'plan' ? p.planPath : p.kind === 'webPreview' ? p.url : (p.scriptCommand ?? '')}`,
+      ),
+      active: t.ui.activePanelIndex,
+      diff: t.ui.diffPanelOpen,
+    })),
+  });
   if (snapshot.terminals.length === 0) {
     // Don't touch the persisted snapshot until we've seen at least one terminal
     // this session — otherwise we'd clobber the previous-launch snapshot before
@@ -194,6 +205,12 @@ export async function readSnapshot(): Promise<LastSessionSnapshot | null> {
     if (!raw) return null;
     const parsed = JSON.parse(raw) as LastSessionSnapshot;
     if (parsed.version !== 1 || !Array.isArray(parsed.terminals)) return null;
+    sessionLog.info('snapshot read', {
+      terminals: parsed.terminals.map((t) => ({
+        ptyId: t.ptyId,
+        panels: (t.ui?.panels ?? []).map((p) => p.kind),
+      })),
+    });
     return parsed;
   } catch {
     return null;
