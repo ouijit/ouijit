@@ -36,7 +36,10 @@ export function XTermContainer({ ptyId, className, style }: XTermContainerProps)
       const editingElsewhere =
         focused instanceof HTMLElement &&
         (focused.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(focused.tagName));
-      if (!editingElsewhere) instance.xterm.focus();
+      // Don't steal focus when mounted at zero width (hidden behind a
+      // full-width panel) — the panel owns focus in that case.
+      const visible = (containerRef.current?.offsetWidth ?? 0) > 0;
+      if (!editingElsewhere && visible) instance.xterm.focus();
     });
 
     return () => {

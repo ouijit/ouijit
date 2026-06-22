@@ -38,7 +38,6 @@ export function TerminalBody({ ptyId, projectPath }: TerminalBodyProps) {
 
   const activePanel = panels.find((p) => p.id === activePanelId) ?? null;
   const split = !!activePanel && !panelFullWidth;
-  const showXterm = !activePanel || split;
 
   const instance = terminalInstances.get(ptyId);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -47,8 +46,17 @@ export function TerminalBody({ ptyId, projectPath }: TerminalBodyProps) {
   const [splitRatio, setSplitRatio] = useState(instance?.panelSplitRatio ?? 0.5);
   const [dragging, setDragging] = useState(false);
 
-  // Keep the panel area flex-basis in sync with the current layout, and refit
-  // both terminals after the layout settles.
+  // Only animate the width when the SAME panel toggles between full-width and
+  // split. Opening, switching, or closing a panel changes the active id and
+  // should snap instantly — otherwise the panel appears to grow from the right.
+  const prevActiveId = useRef(activePanelId);
+  const animate = prevActiveId.current === activePanelId;
+  useEffect(() => {
+    prevActiveId.current = activePanelId;
+  });
+
+  // Keep the panel area in sync with the current layout, and refit both
+  // terminals after the layout settles.
   useEffect(() => {
     const inst = terminalInstances.get(ptyId);
     requestAnimationFrame(() => {
@@ -67,12 +75,14 @@ export function TerminalBody({ ptyId, projectPath }: TerminalBodyProps) {
     if (!handle || !row || !panel || !instance) return;
 
     let active = false;
+    const xtermEl = row.querySelector<HTMLElement>('.terminal-xterm-container');
 
     const onMouseDown = (e: MouseEvent) => {
       e.preventDefault();
       active = true;
       setDragging(true);
       panel.style.transition = 'none';
+      if (xtermEl) xtermEl.style.transition = 'none';
       document.body.style.cursor = 'col-resize';
       document.body.style.userSelect = 'none';
     };
@@ -86,6 +96,7 @@ export function TerminalBody({ ptyId, projectPath }: TerminalBodyProps) {
       ratio = Math.max(0.15, Math.min(0.85, ratio));
       instance.panelSplitRatio = ratio;
       panel.style.flexBasis = `${ratio * 100}%`;
+      if (xtermEl) xtermEl.style.flexBasis = `${(1 - ratio) * 100}%`;
     };
     const onMouseUp = () => {
       if (!active) return;
@@ -93,6 +104,7 @@ export function TerminalBody({ ptyId, projectPath }: TerminalBodyProps) {
       setDragging(false);
       setSplitRatio(instance.panelSplitRatio ?? 0.5);
       panel.style.transition = '';
+      if (xtermEl) xtermEl.style.transition = '';
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
       requestAnimationFrame(() => {
@@ -114,24 +126,32 @@ export function TerminalBody({ ptyId, projectPath }: TerminalBodyProps) {
     };
   }, [split, instance]);
 
-  const panelStyle: React.CSSProperties = split
-    ? { flexBasis: `${splitRatio * 100}%`, minWidth: 200, transition: 'flex-basis 0.25s ease' }
-    : { flex: '1 1 0%' };
+  // Width is driven by flex-basis with flex-grow held constant at 0, so toggling
+  // between full-width and split animates ONLY the basis (the property that
+  // reliably transitions). Swapping grow would make the panel collapse and grow
+  // back from the right. flex-shrink lets basis:100% fit without margin overflow.
+  // The xterm stays mounted at basis 0 when hidden so the toggle has a frame to
+  // animate from. When there is no panel at all, the xterm grows to fill.
+  const xtermBasis = !activePanel || !split ? '0%' : `${(1 - splitRatio) * 100}%`;
+  const panelBasis = split ? `${splitRatio * 100}%` : '100%';
+  const transition = animate ? 'flex-basis 0.25s ease' : 'none';
 
   return (
     <div className="relative flex flex-col flex-1 min-h-0 overflow-hidden">
       <div ref={rowRef} className="relative flex-1 flex flex-row min-h-0 overflow-hidden">
-        {showXterm && (
-          <XTermContainer
-            ptyId={ptyId}
-            className={XTERM_CLASS}
-            style={{
-              transition: 'flex 0.25s ease',
-              ...(split ? { minWidth: 200 } : {}),
-              background: 'var(--color-terminal-bg, #171717)',
-            }}
-          />
-        )}
+        <XTermContainer
+          ptyId={ptyId}
+          className={XTERM_CLASS}
+          style={{
+            flexGrow: activePanel ? 0 : 1,
+            flexShrink: 1,
+            flexBasis: xtermBasis,
+            transition,
+            // Collapse padding too when hidden, so basis 0 means truly zero width.
+            ...(activePanel && !split ? { padding: 0 } : {}),
+            background: 'var(--color-terminal-bg, #171717)',
+          }}
+        />
         {split && (
           <div
             ref={handleRef}
@@ -144,7 +164,10 @@ export function TerminalBody({ ptyId, projectPath }: TerminalBodyProps) {
             ref={panelRef}
             className="relative flex flex-col min-h-0 overflow-hidden glass-bevel border border-black/60 rounded-[14px] m-3"
             style={{
-              ...panelStyle,
+              flexGrow: 0,
+              flexShrink: 1,
+              flexBasis: panelBasis,
+              transition,
               background: 'var(--color-terminal-bg, #171717)',
               boxShadow: '0 0 0 1px rgba(0, 0, 0, 0.05), 0 2px 10px rgba(0, 0, 0, 0.18)',
               ...(dragging ? { pointerEvents: 'none' } : {}),
