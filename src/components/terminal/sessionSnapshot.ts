@@ -116,17 +116,26 @@ export function scheduleSnapshotSave(): void {
 // is still posted to the main process, which writes it.
 function persistSnapshotNow(): void {
   const snapshot = gatherSnapshot();
-  sessionLog.info('snapshot save', {
-    terminals: snapshot.terminals.map((t) => ({
+  for (const t of snapshot.terminals) {
+    const inst = terminalInstances.get(t.ptyId ?? '');
+    const raw = (inst?.panels ?? [])
+      .map((p) => {
+        const detail =
+          p.kind === 'plan' ? p.planPath : p.kind === 'webPreview' ? `${p.url}|auto=${p.urlAutoDetected}` : '';
+        return `${p.kind}(${detail ?? ''})`;
+      })
+      .join(', ');
+    const persisted = (t.ui.panels ?? [])
+      .map((p) => `${p.kind}(${p.kind === 'plan' ? p.planPath : p.kind === 'webPreview' ? p.url : ''})`)
+      .join(', ');
+    sessionLog.info('snapshot save', {
       ptyId: t.ptyId,
-      panels: (t.ui.panels ?? []).map(
-        (p) =>
-          `${p.kind}:${p.kind === 'plan' ? p.planPath : p.kind === 'webPreview' ? p.url : (p.scriptCommand ?? '')}`,
-      ),
+      rawInstancePanels: raw || '(none)',
+      persistedPanels: persisted || '(none)',
       active: t.ui.activePanelIndex,
       diff: t.ui.diffPanelOpen,
-    })),
-  });
+    });
+  }
   if (snapshot.terminals.length === 0) {
     // Don't touch the persisted snapshot until we've seen at least one terminal
     // this session — otherwise we'd clobber the previous-launch snapshot before
@@ -205,12 +214,15 @@ export async function readSnapshot(): Promise<LastSessionSnapshot | null> {
     if (!raw) return null;
     const parsed = JSON.parse(raw) as LastSessionSnapshot;
     if (parsed.version !== 1 || !Array.isArray(parsed.terminals)) return null;
-    sessionLog.info('snapshot read', {
-      terminals: parsed.terminals.map((t) => ({
+    for (const t of parsed.terminals) {
+      sessionLog.info('snapshot read', {
         ptyId: t.ptyId,
-        panels: (t.ui?.panels ?? []).map((p) => p.kind),
-      })),
-    });
+        panels:
+          (t.ui?.panels ?? [])
+            .map((p) => `${p.kind}(${p.kind === 'plan' ? p.planPath : p.kind === 'webPreview' ? p.url : ''})`)
+            .join(', ') || '(none)',
+      });
+    }
     return parsed;
   } catch {
     return null;

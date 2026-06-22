@@ -134,9 +134,12 @@ export async function applyInitialUiState(term: OuijitTerminal, ui: SnapshotTerm
 
   actionsLog.info('applyInitialUiState', {
     ptyId: term.ptyId,
-    received: (ui.panels ?? []).map((p) => p.kind),
+    received:
+      (ui.panels ?? [])
+        .map((p) => `${p.kind}(${p.kind === 'plan' ? p.planPath : p.kind === 'webPreview' ? p.url : ''})`)
+        .join(', ') || '(none)',
     legacy: !ui.panels,
-    restored: panels.map((p) => p.kind),
+    restored: panels.map((p) => p.kind).join(', ') || '(none)',
     activePanelId: term.activePanelId,
     diffPanelOpen: ui.diffPanelOpen ?? false,
   });
@@ -739,6 +742,11 @@ export async function reconnectOrphanedSessions(projectPath: string): Promise<vo
   }
 
   const projectSessions = sessions.filter((s) => s.projectPath === projectPath);
+  actionsLog.info('reconnect: enter', {
+    projectPath,
+    liveSessions: sessions.map((s) => s.ptyId),
+    projectSessions: projectSessions.map((s) => s.ptyId),
+  });
   if (projectSessions.length === 0) return;
 
   // The session snapshot from the same launch (PTYs survive a renderer reload)
@@ -750,6 +758,11 @@ export async function reconnectOrphanedSessions(projectPath: string): Promise<vo
       .filter((t) => t.projectPath === projectPath && t.ptyId)
       .map((t) => [t.ptyId as string, t] as const),
   );
+  actionsLog.info('reconnect: snapshot matched', {
+    projectPath,
+    snapPtyIds: [...snapByPtyId.keys()],
+    snapProjectPaths: (snapshot?.terminals ?? []).map((t) => t.projectPath),
+  });
 
   const mainSessions = projectSessions.filter((s) => !s.isRunner);
   const runnerSessions = projectSessions.filter((s) => s.isRunner);
@@ -759,7 +772,10 @@ export async function reconnectOrphanedSessions(projectPath: string): Promise<vo
   // paths can fire for one project; without this guard the shared session would
   // be added to the stack twice.
   for (const session of mainSessions) {
-    if (terminalInstances.has(session.ptyId)) continue;
+    if (terminalInstances.has(session.ptyId)) {
+      actionsLog.info('reconnect: skip (already has instance)', { ptyId: session.ptyId });
+      continue;
+    }
     let worktreeBranch: string | undefined;
     let mergeTarget: string | undefined;
     if (session.taskId != null) {
@@ -780,6 +796,11 @@ export async function reconnectOrphanedSessions(projectPath: string): Promise<vo
       mergeTarget,
       initialStatus,
       label: snapEntry?.label ?? undefined,
+    });
+    actionsLog.info('reconnect: main session', {
+      ptyId: session.ptyId,
+      hasSnapEntry: !!snapEntry,
+      termReconnected: !!term,
     });
     if (term) {
       if (snapEntry) await applyInitialUiState(term, snapEntry.ui);
