@@ -53,6 +53,7 @@ export interface SnapshotPanel {
   /** runner */
   scriptName?: string | null;
   scriptCommand?: string | null;
+  source?: 'hook' | 'script';
   /** webPreview (only user-set URLs are persisted) */
   url?: string | null;
   /** plan */

@@ -820,7 +820,10 @@ export class OuijitTerminal {
     this.syncPanels();
   }
 
-  addRunnerPanel(script?: { name: string; command: string } | null, activate = true): string {
+  addRunnerPanel(
+    script?: { name: string; command: string; source?: 'hook' | 'script' } | null,
+    activate = true,
+  ): string {
     const id = generateId('panel');
     const panel: RunnerPanel = {
       id,
@@ -828,6 +831,7 @@ export class OuijitTerminal {
       scriptName: script?.name || null,
       scriptCommand: script?.command ?? null,
       command: script?.command ?? null,
+      source: script?.source ?? 'script',
       status: 'idle',
     };
     this.appendPanel(panel, activate);

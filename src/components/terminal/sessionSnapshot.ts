@@ -25,7 +25,7 @@ function uiFor(term: OuijitTerminal): SnapshotTerminalUi {
     switch (p.kind) {
       case 'runner':
         // Persist the script (not the live PTY) for one-click re-run.
-        panels.push({ kind: 'runner', scriptName: p.scriptName, scriptCommand: p.scriptCommand });
+        panels.push({ kind: 'runner', scriptName: p.scriptName, scriptCommand: p.scriptCommand, source: p.source });
         break;
       case 'webPreview':
         // Only persist user-set URLs. Auto-detected ones are tied to a runner

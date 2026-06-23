@@ -79,6 +79,9 @@ export async function applyInitialUiState(term: OuijitTerminal, ui: SnapshotTerm
             scriptName: sp.scriptName ?? null,
             scriptCommand: sp.scriptCommand ?? null,
             command: sp.scriptCommand ?? null,
+            // Legacy snapshots (pre-source) default to 'script'; harmless since
+            // a restored runner is idle until the user re-runs it.
+            source: sp.source ?? 'script',
             status: 'idle',
           });
           break;
@@ -121,6 +124,7 @@ export async function applyInitialUiState(term: OuijitTerminal, ui: SnapshotTerm
         scriptName: ui.runner.scriptName ?? null,
         scriptCommand: ui.runner.scriptCommand,
         command: ui.runner.scriptCommand,
+        source: 'script',
         status: 'idle',
       });
     }
@@ -506,26 +510,54 @@ export function updateRunnerStatusFromOsc133(data: string, parent: OuijitTermina
 }
 
 /** Create a runner panel and spawn its command. Returns the new panel id. */
+/**
+ * Resolve what a runner should execute into a concrete command, scoped to the
+ * project. An explicit `script` is itself the answer; otherwise we look up the
+ * project's run hook. Returns null when there's nothing to run (e.g. the run
+ * hook isn't actually configured for this project). Doing this BEFORE the panel
+ * is created is the whole point of the unification: run hooks and scripts then
+ * flow through one identical path, and a missing command can't manifest as a
+ * panel that silently closes itself the instant it opens.
+ */
+async function resolveRunnable(
+  projectPath: string,
+  script?: RunnerScript,
+): Promise<{ runnable: RunnerScript; source: 'hook' | 'script' } | null> {
+  if (script) return { runnable: script, source: 'script' };
+  const hooks = await window.api.hooks.get(projectPath);
+  if (!hooks.run) return null;
+  return { runnable: { name: hooks.run.name, command: hooks.run.command }, source: 'hook' };
+}
+
 export async function startRunner(ptyId: string, script?: RunnerScript): Promise<string | null> {
   const instance = terminalInstances.get(ptyId);
   if (!instance) return null;
-  const panelId = instance.addRunnerPanel(script ? { name: script.name, command: script.command } : null);
-  await spawnRunner(ptyId, panelId, script);
+
+  const resolved = await resolveRunnable(instance.projectPath, script);
+  if (!resolved) {
+    // Nothing to run for this project — surface it instead of opening (and then
+    // closing) an empty panel.
+    useProjectStore.getState().addToast('No run command configured for this project', 'error');
+    return null;
+  }
+
+  const panelId = instance.addRunnerPanel({ ...resolved.runnable, source: resolved.source });
+  await spawnRunner(ptyId, panelId);
   return panelId;
 }
 
-/** Kill a runner panel's child and re-run its command in the same panel. */
+/** Kill a runner panel's child and re-run its command in the same panel. The
+ *  command + source already live on the panel, so a restart is just a re-spawn. */
 export async function restartRunner(ptyId: string, panelId: string): Promise<void> {
   const instance = terminalInstances.get(ptyId);
   if (!instance) return;
   const panel = instance.panels.find((p) => p.id === panelId);
   if (panel?.kind !== 'runner') return;
-  const script = panel.scriptCommand ? { name: panel.scriptName ?? '', command: panel.scriptCommand } : undefined;
   instance.killRunnerChild(panelId);
-  await spawnRunner(ptyId, panelId, script);
+  await spawnRunner(ptyId, panelId);
 }
 
-export async function spawnRunner(ptyId: string, panelId: string, script?: RunnerScript): Promise<void> {
+export async function spawnRunner(ptyId: string, panelId: string): Promise<void> {
   const instance = terminalInstances.get(ptyId);
   if (!instance) return;
 
@@ -534,55 +566,35 @@ export async function spawnRunner(ptyId: string, panelId: string, script?: Runne
   instance.runnerSpawning.add(panelId);
 
   try {
-    await _spawnRunnerInner(instance, panelId, script);
+    await _spawnRunnerInner(instance, panelId);
   } finally {
     instance.runnerSpawning.delete(panelId);
   }
 }
 
-async function _spawnRunnerInner(instance: OuijitTerminal, panelId: string, script?: RunnerScript): Promise<void> {
+async function _spawnRunnerInner(instance: OuijitTerminal, panelId: string): Promise<void> {
   const path = instance.projectPath;
 
-  // Determine command source: explicit script, or fall back to run hook
-  let commandName: string;
-  let commandStr: string;
-  let hookType: string;
+  // Everything needed to run was resolved up front and lives on the panel — one
+  // path for run hooks and scripts alike.
+  const panel = instance.panels.find((p) => p.id === panelId);
+  if (!panel || panel.kind !== 'runner' || !panel.scriptCommand) {
+    instance.updatePanel(panelId, { status: 'error' });
+    return;
+  }
+  const commandStr = panel.scriptCommand;
+  const commandName = panel.scriptName ?? commandStr;
+  const hookType = panel.source === 'hook' ? 'run' : 'script';
 
-  if (script) {
-    commandName = script.name;
-    commandStr = script.command;
-    hookType = 'script';
-  } else {
-    const [hooks, settings] = await Promise.all([window.api.hooks.get(path), window.api.getProjectSettings(path)]);
-    if (!hooks.run) {
-      instance.closePanel(panelId);
-      return;
-    }
-    commandName = hooks.run.name;
-    commandStr = hooks.run.command;
-    hookType = 'run';
-
-    // Kill existing instances with same command
-    if (settings.killExistingOnRun !== false) {
-      killExistingCommandInstances(path, commandStr);
-    }
+  // Kill existing runs of the same command — but never this panel (its command
+  // is already set, so it would otherwise match and close itself).
+  const settings = await window.api.getProjectSettings(path);
+  if (settings.killExistingOnRun !== false) {
+    killExistingCommandInstances(path, commandStr, panelId);
   }
 
-  // For scripts, also check killExistingOnRun
-  if (script) {
-    const settings = await window.api.getProjectSettings(path);
-    if (settings.killExistingOnRun !== false) {
-      killExistingCommandInstances(path, commandStr);
-    }
-  }
-
-  // Set runner state on the panel
-  instance.updatePanel(panelId, {
-    scriptName: commandName,
-    scriptCommand: script ? script.command : null,
-    command: commandStr,
-    status: 'running',
-  });
+  // Reset the header to the command on (re)start; OSC titles refine it later.
+  instance.updatePanel(panelId, { command: commandStr, status: 'running' });
 
   // Create runner terminal
   const runner = new OuijitTerminal({
@@ -695,15 +707,18 @@ export async function openWorktreeEditor(
 
 // ── Kill existing command instances ──────────────────────────────────
 
-function killExistingCommandInstances(projectPath: string, command: string): void {
+function killExistingCommandInstances(projectPath: string, command: string, exceptPanelId?: string): void {
   const store = useTerminalStore.getState();
   const ptyIds = store.terminalsByProject[projectPath] ?? [];
 
-  // Close runner panels running the same command
+  // Close runner panels running the same command. Never close `exceptPanelId` —
+  // that's the panel currently being (re)started, whose command field is already
+  // set, so it would otherwise match and close itself the instant it launches.
   for (const id of ptyIds) {
     const instance = terminalInstances.get(id);
     if (!instance) continue;
     for (const p of [...instance.panels]) {
+      if (p.id === exceptPanelId) continue;
       if (p.kind === 'runner' && (p.command === command || p.scriptCommand === command)) {
         instance.closePanel(p.id);
       }

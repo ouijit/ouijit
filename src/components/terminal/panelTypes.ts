@@ -20,10 +20,14 @@ export interface RunnerPanel {
   kind: 'runner';
   /** Tab label — the script or run-hook name. */
   scriptName: string | null;
-  /** Original command, kept for restart/persist; null when launched from the run hook. */
+  /** The command this runner runs — the single source of truth for (re)starting
+   *  and persisting it. Set for both run hooks and scripts (resolved up front). */
   scriptCommand: string | null;
   /** Live command/title for the panel header (updated from the runner's OSC title). */
   command: string | null;
+  /** Where the command came from — drives the OUIJIT_HOOK_TYPE env var. A run
+   *  hook and a named script are otherwise identical from here on. */
+  source: 'hook' | 'script';
   status: RunnerStatus;
 }
 
