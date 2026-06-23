@@ -111,11 +111,13 @@ export function useTerminalPanels(ptyId: string | null) {
     [ptyId],
   );
 
+  // Stop the running command but keep the panel (it drops to its "Runner
+  // stopped / Restart" state). Closing the panel entirely is the X button.
   const killRunner = useCallback(
     (panelId: string) => {
       withInstance((instance) => {
-        instance.closePanel(panelId);
-        requestAnimationFrame(() => instance.fit());
+        instance.killRunnerChild(panelId);
+        instance.updatePanel(panelId, { status: 'idle' });
       });
     },
     [withInstance],

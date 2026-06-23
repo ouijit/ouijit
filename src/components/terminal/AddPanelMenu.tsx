@@ -48,7 +48,7 @@ export function AddPanelMenu({
   const items: ContextMenuEntry[] = [];
 
   if (hasRunHook) {
-    items.push({ label: 'Run hook', onClick: () => onAddRunner() });
+    items.push({ label: 'Run', onClick: () => onAddRunner() });
   }
   for (const script of scripts) {
     items.push({ label: script.name, onClick: () => onAddRunner(script) });

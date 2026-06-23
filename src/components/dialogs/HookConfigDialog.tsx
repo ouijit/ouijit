@@ -20,8 +20,8 @@ const HOOK_LABELS: Record<HookType, { title: string; description: string; placeh
     envVars: true,
   },
   run: {
-    title: 'Run Hook',
-    description: 'Runs when you click Run',
+    title: 'Run',
+    description: "Runs from a terminal's + menu",
     placeholder: 'npm run dev',
     envVars: true,
   },

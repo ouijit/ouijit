@@ -9,6 +9,7 @@ interface RunnerPanelProps {
   ptyId: string;
   panelId: string;
   onRestart: () => void;
+  onKill: () => void;
   fullWidth: boolean;
   onToggleFullWidth: () => void;
   onMinimize: () => void;
@@ -19,6 +20,7 @@ export function RunnerPanel({
   ptyId,
   panelId,
   onRestart,
+  onKill,
   fullWidth,
   onToggleFullWidth,
   onMinimize,
@@ -35,6 +37,19 @@ export function RunnerPanel({
     <div className="flex flex-col h-full overflow-hidden">
       <div className="flex items-center gap-2 px-3 py-1.5 shrink-0">
         <span className="text-[13px] text-white/50 truncate flex-1 font-mono">{panelTitle}</span>
+        {runnerPtyId && (
+          <Tooltip text="Kill">
+            <button
+              className="w-7 h-7 flex items-center justify-center p-0 bg-transparent border-none rounded-md text-white/40 shrink-0 transition-all duration-150 ease-out hover:bg-red-500/20 hover:text-[#ff6b6b] [&>svg]:w-3.5 [&>svg]:h-3.5"
+              onClick={(e) => {
+                e.stopPropagation();
+                onKill();
+              }}
+            >
+              <Icon name="prohibit" />
+            </button>
+          </Tooltip>
+        )}
         <Tooltip text="Restart">
           <button
             className="w-7 h-7 flex items-center justify-center p-0 bg-transparent border-none rounded-md text-white/60 shrink-0 transition-all duration-150 ease-out hover:bg-white/10 hover:text-white/90 [&>svg]:w-3.5 [&>svg]:h-3.5"

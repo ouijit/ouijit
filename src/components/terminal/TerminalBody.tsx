@@ -223,6 +223,7 @@ function ActivePanel({
           ptyId={ptyId}
           panelId={panel.id}
           onRestart={() => ops.restartRunner(panel.id)}
+          onKill={() => ops.killRunner(panel.id)}
           fullWidth={fullWidth}
           onToggleFullWidth={onToggleFullWidth}
           onMinimize={() => ops.minimizePanel()}
