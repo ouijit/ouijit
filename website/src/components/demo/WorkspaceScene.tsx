@@ -596,9 +596,10 @@ function BranchLabel({ branch }: { branch: string }) {
   );
 }
 
-/** Action group mirroring the app's ActionGroup: Plan, Preview, Diff, Run +
- * chevron. Plan/Preview/Diff are controlled — clicking toggles the matching
- * mock panel for the active terminal, with the open button highlighted. */
+/** Panel controls mirroring the app's joined beveled segmented control: a tab
+ * per open panel (the markdown file, the preview host, the diff summary) plus a
+ * + to add more. Each tab is controlled — clicking toggles the matching mock
+ * panel for the active terminal, with the open tab highlighted. */
 function ActiveActions({
   fixtures,
   openPanel,
@@ -625,8 +626,8 @@ function ActiveActions({
       {fixtures.plan && (
         <>
           <button className={cls('plan')} onClick={handle('plan')}>
-            <Icon name="list-checks" className="w-3.5 h-3.5" />
-            <span>Plan</span>
+            <Icon name="file-text" className="w-3.5 h-3.5" />
+            <span>{fixtures.plan.filename}</span>
           </button>
           {divider}
         </>
@@ -635,7 +636,7 @@ function ActiveActions({
         <>
           <button className={cls('preview')} onClick={handle('preview')}>
             <Icon name="globe-simple" className="w-3.5 h-3.5" />
-            <span>Preview</span>
+            <span>{fixtures.preview.url.replace(/^https?:\/\//, '').split('/')[0]}</span>
           </button>
           {divider}
         </>
@@ -652,11 +653,8 @@ function ActiveActions({
           {divider}
         </>
       )}
-      <button className={`${base} ${inactive}`}>
-        <span>Run</span>
-      </button>
-      <button className={`${base} ${inactive} !px-2`} aria-label="More run options">
-        <Icon name="caret-down" className="w-2.5 h-2.5" />
+      <button className={`${base} ${inactive} !px-2`} aria-label="Add panel">
+        <Icon name="plus" className="w-3.5 h-3.5" />
       </button>
     </div>
   );
