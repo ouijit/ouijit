@@ -309,7 +309,7 @@ export function Sidebar({ onProjectSelect, onHomeSelect, onAddExisting, onCreate
               >
                 <button
                   ref={addBtnRef}
-                  className="w-10 h-10 flex items-center justify-center rounded-md bg-background-secondary border border-border/50 text-text-secondary transition-colors duration-200 ease-out [-webkit-app-region:no-drag] hover:bg-background-tertiary hover:text-text-primary [&>svg]:w-5 [&>svg]:h-5"
+                  className="w-10 h-10 flex items-center justify-center relative glass-bevel overflow-hidden rounded-[12px] bg-background-secondary border border-black/60 text-text-secondary transition-colors duration-200 ease-out [-webkit-app-region:no-drag] hover:bg-background-tertiary hover:text-text-primary [&>svg]:w-5 [&>svg]:h-5"
                   onClick={(e) => {
                     e.stopPropagation();
                     setAddMenuOpen(!addMenuOpen);
