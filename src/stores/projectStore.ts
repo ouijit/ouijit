@@ -202,6 +202,8 @@ let moveCounter = 0;
 let runHookRequestCounter = 0;
 let configLoadVersion = 0;
 
+let scriptsLoadVersion = 0;
+
 export const useProjectStore = create<ProjectStore>()((set, get) => ({
   tasks: [],
   kanbanVisible: false,
@@ -378,8 +380,13 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
   },
 
   loadScripts: async (projectPath) => {
+    // Version-guarded like loadProjectConfig: if the user switches A → B while
+    // A's IPC is in flight, B's call bumps the version so A's late response is
+    // dropped instead of overwriting B's scripts.
+    const version = ++scriptsLoadVersion;
     try {
       const scripts = await window.api.scripts.getAll(projectPath);
+      if (version !== scriptsLoadVersion) return;
       set({ scripts });
     } catch (err) {
       get().addToast(`Failed to load scripts: ${err instanceof Error ? err.message : String(err)}`, 'error');

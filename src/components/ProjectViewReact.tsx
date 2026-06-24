@@ -260,6 +260,7 @@ export function ProjectView() {
   useEffect(() => {
     if (!projectPath) return;
     useProjectStore.getState().loadProjectConfig(projectPath);
+    useProjectStore.getState().loadScripts(projectPath);
   }, [projectPath]);
 
   // Periodic git status refresh — pauses while the window is hidden so we

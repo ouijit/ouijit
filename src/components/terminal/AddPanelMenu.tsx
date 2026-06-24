@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useProjectStore } from '../../stores/projectStore';
 import { terminalInstances } from './terminalReact';
 import { ContextMenu, type ContextMenuEntry } from '../ui/ContextMenu';
@@ -28,15 +28,12 @@ export function AddPanelMenu({
   onAddPlan,
   onClose,
 }: AddPanelMenuProps) {
+  // Config and scripts are both loaded centrally by ProjectViewReact on project
+  // switch (version-guarded), so we read them straight from the store here — no
+  // self-load. The store always reflects the active project's commands.
   const hasRunHook = useProjectStore((s) => !!s.configuredHooks.run);
   const scripts = useProjectStore((s) => s.scripts);
   const [runHookDialog, setRunHookDialog] = useState(false);
-
-  useEffect(() => {
-    if (projectPath && scripts.length === 0) {
-      useProjectStore.getState().loadScripts(projectPath);
-    }
-  }, [projectPath, scripts.length]);
 
   const pickPlanFile = async () => {
     const inst = terminalInstances.get(ptyId);
