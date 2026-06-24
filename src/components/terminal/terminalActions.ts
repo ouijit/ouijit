@@ -98,6 +98,7 @@ export async function applyInitialUiState(term: OuijitTerminal, ui: SnapshotTerm
     const ai = ui.activePanelIndex;
     activeId = ai != null && ai >= 0 && ai < panels.length ? panels[ai].id : null;
     if (ui.panelFullWidth != null) term.panelFullWidth = ui.panelFullWidth;
+    if (ui.panelSplitRatio != null) term.panelSplitRatio = ui.panelSplitRatio;
   } else {
     // Legacy singleton shape — at most one panel was open (mutually exclusive).
     if (ui.planPath) {
@@ -129,6 +130,7 @@ export async function applyInitialUiState(term: OuijitTerminal, ui: SnapshotTerm
       });
     }
     term.panelFullWidth = ui.webPreview?.fullWidth ?? ui.runner?.fullWidth ?? true;
+    if (ui.webPreview?.splitRatio != null) term.panelSplitRatio = ui.webPreview.splitRatio;
   }
 
   term.panels = panels;
@@ -719,7 +721,14 @@ function killExistingCommandInstances(projectPath: string, command: string, exce
     if (!instance) continue;
     for (const p of [...instance.panels]) {
       if (p.id === exceptPanelId) continue;
-      if (p.kind === 'runner' && (p.command === command || p.scriptCommand === command)) {
+      // Only close runners with a live child — an actually-running instance of
+      // the command. Restored-idle runner panels (preloaded for one-click re-run)
+      // carry a matching scriptCommand but no process, and must not be torn down.
+      if (
+        p.kind === 'runner' &&
+        instance.runnerChildren.has(p.id) &&
+        (p.command === command || p.scriptCommand === command)
+      ) {
         instance.closePanel(p.id);
       }
     }

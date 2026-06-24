@@ -67,6 +67,8 @@ export interface SnapshotTerminalUi {
   activePanelIndex?: number | null;
   /** Whether the active panel was full-width. */
   panelFullWidth?: boolean;
+  /** Split position (0–1) of the panel/terminal divider when not full-width. */
+  panelSplitRatio?: number;
   /** Automatic diff takeover state (separate from the panel tabs). */
   diffPanelOpen?: boolean;
 

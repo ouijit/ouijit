@@ -39,7 +39,13 @@ function uiFor(term: OuijitTerminal): SnapshotTerminalUi {
     if (panels.length > before && p.id === term.activePanelId) activePanelIndex = panels.length - 1;
   }
 
-  return { panels, activePanelIndex, panelFullWidth: term.panelFullWidth, diffPanelOpen: term.diffPanelOpen };
+  return {
+    panels,
+    activePanelIndex,
+    panelFullWidth: term.panelFullWidth,
+    panelSplitRatio: term.panelSplitRatio,
+    diffPanelOpen: term.diffPanelOpen,
+  };
 }
 
 export function gatherSnapshot(): LastSessionSnapshot {
