@@ -1569,7 +1569,7 @@ describe('OPENCODE_PLUGIN', () => {
     try {
       const handlers = await factory({ $ });
       await handlers.event!(status('busy'));
-      await handlers.event!(status('busy')); // repeat — deduped
+      await handlers.event!(status('busy')); // repeat, deduped
       // Non-status events are ignored entirely.
       await handlers.event!({ event: { type: 'message.updated' } });
       await handlers.event!(status('idle'));

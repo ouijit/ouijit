@@ -757,11 +757,11 @@ export const PI_WRAPPER = [
 //   • `plugin` takes our plugin's absolute path (path specs are supported
 //     alongside npm names), so opencode loads it only for wrapped sessions.
 //     The plugin lives in Ouijit's own dir, never in the user's opencode
-//     config — the same scoping Pi gets from `--extension`.
+//     config. This is the same scoping Pi gets from `--extension`.
 //   • `instructions` takes the CLI reference path; opencode concatenates it
 //     onto the user's instructions (it never replaces them).
 // The plugin is additionally a no-op unless OUIJIT_HOOK_BIN is set, which
-// only the wrapper does — belt-and-suspenders on top of the scoped load.
+// only the wrapper does: belt-and-suspenders on top of the scoped load.
 
 /** Directory for Ouijit's opencode status plugin (loaded via config path, not opencode's auto-load dir). */
 export function getOpencodePluginDir(): string {
