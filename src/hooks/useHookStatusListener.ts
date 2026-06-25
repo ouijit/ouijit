@@ -3,7 +3,7 @@ import { useTerminalStore } from '../stores/terminalStore';
 import { terminalInstances } from '../components/terminal/terminalReact';
 
 /**
- * Subscribes to CLI agent hook status events (claude / codex / pi) and dispatches
+ * Subscribes to CLI agent hook status events (claude / codex / pi / opencode) and dispatches
  * them to the matching terminal instance. On mount, seeds existing terminals
  * with their current status so the dot reflects state captured before the
  * listener was registered.
