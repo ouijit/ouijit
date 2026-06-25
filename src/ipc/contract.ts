@@ -39,6 +39,8 @@ import type {
   ProjectsFolderChangePlan,
   ProjectsFolderChangeAction,
   ApplyProjectsFolderChangeResult,
+  CliPanelOp,
+  CliPanelResponse,
 } from '../types';
 import type { SandboxStatus } from '../lima/types';
 import type { HookStatusEntry } from '../hookServer';
@@ -195,6 +197,9 @@ export interface IpcInvokeContract {
   'plan:check-files-exist': { args: [workspaceRoot: string, filePaths: string[]]; return: Record<string, boolean> };
   'plan:pick-file': { args: [defaultPath?: string]; return: { canceled: boolean; filePath: string | null } };
 
+  // ── CLI panel ops (renderer → main reply for a cli:panel-op push) ─────
+  'cli-panels:respond': { args: [requestId: number, response: CliPanelResponse]; return: void };
+
   // ── Scripts ──────────────────────────────────────────────────────────
   'scripts:get-all': { args: [projectPath: string]; return: Script[] };
   'scripts:save': { args: [projectPath: string, script: Script]; return: { success: boolean; script?: Script } };
@@ -253,6 +258,7 @@ export interface IpcPushContract {
   'agent-hook-status': { args: [ptyId: string, status: import('../hookServer').HookStatus] };
   'claude-plan-detected': { args: [ptyId: string, planPath: string] };
   'claude-plan-ready': { args: [ptyId: string] };
+  'cli:panel-op': { args: [op: CliPanelOp] };
   'plan:content-changed': { args: [planPath: string, content: string] };
   'lima:spawn-progress': { args: [step: { id: string; label: string; status: 'active' | 'done' }] };
   'sandbox:diverged': {

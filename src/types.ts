@@ -578,6 +578,8 @@ export interface ElectronAPI {
   agentHooks: AgentHooksAPI;
   /** Plan file detection and viewing */
   plan: PlanAPI;
+  /** CLI-driven terminal panel ops (markdown / web preview) */
+  cliPanels: CliPanelsAPI;
   /** Get file path from a dropped File object */
   getPathForFile(file: File): string;
   /** User's home directory */
@@ -661,6 +663,56 @@ export interface PlanAPI {
   onContentChanged(callback: (planPath: string, content: string) => void): () => void;
   checkFilesExist(workspaceRoot: string, filePaths: string[]): Promise<Record<string, boolean>>;
   pickFile(defaultPath?: string): Promise<{ canceled: boolean; filePath: string | null }>;
+}
+
+/**
+ * CLI-driven terminal panel operations. The CLI (and agents) can add, list, and
+ * remove the two user-addressable panel kinds — markdown files and web previews
+ * — on a given terminal. The renderer owns the live panel list, so these ops are
+ * a request/response bridge: the main process forwards the op to the renderer,
+ * which mutates the terminal and replies with the resulting panel set.
+ *
+ * A terminal's panel kind is `'plan'` internally; the CLI surfaces it as
+ * `'markdown'` to match the UI's "Markdown File" tab.
+ */
+export type CliPanelKind = 'markdown' | 'preview';
+
+/** A single panel as reported back to the CLI. */
+export interface CliPanelInfo {
+  kind: CliPanelKind;
+  /** Tab label shown in the UI. */
+  label: string;
+  /** Absolute file path — markdown panels only. */
+  path?: string;
+  /** Preview URL — preview panels only. */
+  url?: string;
+  /** Whether this panel is the terminal's active (foreground) panel. */
+  active: boolean;
+}
+
+/** Op forwarded from the main process to the renderer over IPC. */
+export interface CliPanelOp {
+  /** Correlates the renderer's reply with the awaiting main-process request. */
+  requestId: number;
+  ptyId: PtyId;
+  action: 'list' | 'add' | 'remove';
+  kind: CliPanelKind;
+  /** Absolute path (markdown) or URL (preview) for add/remove. */
+  value?: string;
+}
+
+/** Renderer's reply for a {@link CliPanelOp}. */
+export interface CliPanelResponse {
+  ok: boolean;
+  /** Present when ok=false — a human-readable reason (e.g. terminal not found). */
+  error?: string;
+  /** The terminal's panels of the op's kind after the op ran. */
+  panels?: CliPanelInfo[];
+}
+
+export interface CliPanelsAPI {
+  onOp(callback: (op: CliPanelOp) => void): () => void;
+  respond(requestId: number, response: CliPanelResponse): Promise<void>;
 }
 
 /**

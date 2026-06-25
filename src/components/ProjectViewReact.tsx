@@ -18,6 +18,7 @@ import {
 } from './terminal/terminalActions';
 import { terminalInstances, refreshAllTerminalGitStatus } from './terminal/terminalReact';
 import { useHookStatusListener } from '../hooks/useHookStatusListener';
+import { useCliPanelListener } from '../hooks/useCliPanelListener';
 
 const isMac = navigator.platform.toLowerCase().includes('mac');
 const GIT_STATUS_PERIODIC_INTERVAL = 30000;
@@ -291,6 +292,9 @@ export function ProjectView() {
 
   // Hook status: register ongoing listener + seed existing terminals
   useHookStatusListener(projectPath);
+
+  // CLI panel ops (`ouijit markdown` / `ouijit preview`) → live terminal panels
+  useCliPanelListener();
 
   // Plan detection: register listeners + seed existing terminals
   useEffect(() => {
