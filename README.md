@@ -36,7 +36,7 @@ To request support for another harness, [open an issue](https://github.com/ouiji
 
 ## CLI
 
-The `ouijit` command is available in every terminal Ouijit opens. You can use it directly from the shell to create and advance tasks, manage hooks and scripts, or attach a plan file to the current terminal:
+The `ouijit` command is available in every terminal Ouijit opens. You can use it directly from the shell to create and advance tasks, manage hooks and scripts, or open markdown files and web previews as panels on the current terminal:
 
 ```bash
 ouijit task list                              # array of tasks in the current project
@@ -45,7 +45,8 @@ ouijit task create-and-start "Fix login bug"  # new task + worktree + terminal
 ouijit task set-status 5 in_review
 ouijit hook set start --command 'claude "$OUIJIT_TASK_DESCRIPTION"'
 ouijit script run Lint
-ouijit plan set ./plan.md
+ouijit markdown add ./plan.md                 # open a markdown file as a panel
+ouijit preview add http://localhost:3000      # open a web preview panel
 ```
 
 The supported harnesses (Claude Code, Codex, Pi) know how to use it out of the box. Output is JSON on stdout for easy piping into `jq`. Full command list in the [docs](https://ouijit.com/docs/#cli).
