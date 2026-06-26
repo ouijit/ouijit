@@ -751,26 +751,28 @@ export const PI_WRAPPER = [
 
 // ── opencode plugin + wrapper ────────────────────────────────────────
 // opencode exposes lifecycle events only to JS/TS plugins, and it has no
-// --append-system-prompt / hook CLI flag. Both the status plugin and the
-// CLI reference ride on OPENCODE_CONFIG_CONTENT, an env var opencode parses
-// as JSON and merges (additively) into the resolved config at launch:
-//   • `plugin` takes our plugin's absolute path (path specs are supported
-//     alongside npm names), so opencode loads it only for wrapped sessions.
-//     The plugin lives in Ouijit's own dir, never in the user's opencode
-//     config. This is the same scoping Pi gets from `--extension`.
-//   • `instructions` takes the CLI reference path; opencode concatenates it
-//     onto the user's instructions (it never replaces them).
-// The plugin is additionally a no-op unless OUIJIT_HOOK_BIN is set, which
-// only the wrapper does: belt-and-suspenders on top of the scoped load.
+// --append-system-prompt / hook CLI flag. Status and the CLI reference are
+// injected two different ways:
+//   • Status plugin: written into opencode's auto-load dir
+//     (~/.config/opencode/plugins), which opencode imports directly at
+//     startup. This is the only mechanism that works on released opencode:
+//     a `plugin` entry in config (even an absolute path) is instead treated
+//     as an npm package and `bun add`-ed, which fails for a local file. The
+//     plugin loads for every opencode session but is a no-op unless
+//     OUIJIT_HOOK_BIN is set (only the wrapper sets it), so a plain
+//     `opencode` run is unaffected.
+//   • CLI reference: rides on OPENCODE_CONFIG_CONTENT, an env var opencode
+//     parses as JSON and merges additively into the resolved config. Its
+//     `instructions` array concatenates onto the user's (never replaces).
 
-/** Directory for Ouijit's opencode status plugin (loaded via config path, not opencode's auto-load dir). */
+/** opencode's global plugin auto-load directory. */
 export function getOpencodePluginDir(): string {
-  return path.join(os.homedir(), '.config', 'Ouijit', 'opencode');
+  return path.join(os.homedir(), '.config', 'opencode', 'plugins');
 }
 
 /** Path to the ouijit opencode status plugin. */
 export function getOpencodePluginPath(): string {
-  return path.join(getOpencodePluginDir(), 'ouijit-plugin.ts');
+  return path.join(getOpencodePluginDir(), 'ouijit.ts');
 }
 
 export const OPENCODE_PLUGIN = `// Ouijit opencode plugin - bridges opencode session status to the
@@ -824,11 +826,11 @@ export const OuijitStatusPlugin = async ({ $ }: OuijitOpencodeContext) => {
 export const OPENCODE_WRAPPER = [
   '#!/bin/bash',
   '# Ouijit opencode wrapper - injects the Ouijit CLI reference via',
-  '# OPENCODE_CONFIG_CONTENT - opencode parses it as JSON and merges it into',
-  '# the resolved config. We add the CLI reference to `instructions` and the',
-  '# status plugin path to `plugin` (both additive). The plugin only reports',
-  '# status once OUIJIT_HOOK_BIN is set. opencode has no system-prompt or hook',
-  '# CLI flags, so everything rides on env + config.',
+  '# OPENCODE_CONFIG_CONTENT (opencode parses it as JSON and merges it into',
+  '# the resolved config; `instructions` concatenates onto the user config).',
+  '# The status plugin is loaded separately from opencode auto-load dir; this',
+  '# wrapper only flips it on by exporting OUIJIT_HOOK_BIN. opencode has no',
+  '# system-prompt or hook CLI flags, so everything rides on env + config.',
   buildWrapperResolver('opencode'),
   '',
   '# opencode utility subcommands do not start an agent session. Run them',
@@ -845,13 +847,10 @@ export const OPENCODE_WRAPPER = [
   'done',
   '',
   'REFERENCE_FILE="$HOME/.config/Ouijit/ouijit-cli-reference.md"',
-  'PLUGIN_FILE="$HOME/.config/Ouijit/opencode/ouijit-plugin.ts"',
   'HOOK_BIN="$HOME/.config/Ouijit/bin/ouijit-hook"',
   '',
-  '# Add the CLI reference (instructions) and the status plugin (plugin) to',
-  '# opencode config for this invocation only. opencode concatenates both onto',
-  '# the user config, so their own opencode.json is never modified.',
-  'OUIJIT_OPENCODE_CONFIG="{\\"instructions\\":[\\"$REFERENCE_FILE\\"],\\"plugin\\":[\\"$PLUGIN_FILE\\"]}"',
+  '# Add the CLI reference to opencode instructions for this invocation only.',
+  'OUIJIT_OPENCODE_CONFIG="{\\"instructions\\":[\\"$REFERENCE_FILE\\"]}"',
   '',
   '# If ouijit is not running, still surface the CLI reference but leave the',
   '# status plugin inert (OUIJIT_HOOK_BIN unset).',
@@ -859,8 +858,8 @@ export const OPENCODE_WRAPPER = [
   '  OPENCODE_CONFIG_CONTENT="$OUIJIT_OPENCODE_CONFIG" exec "$REAL_BIN" "$@"',
   'fi',
   '',
-  '# OUIJIT_HOOK_BIN activates the ouijit status plugin; it shells out to',
-  '# ouijit-hook on session.status busy/idle transitions.',
+  '# OUIJIT_HOOK_BIN activates the ouijit status plugin (loaded from opencode',
+  '# auto-load dir); it shells out to ouijit-hook on session.status busy/idle.',
   'OPENCODE_CONFIG_CONTENT="$OUIJIT_OPENCODE_CONFIG" OUIJIT_HOOK_BIN="$HOOK_BIN" exec "$REAL_BIN" "$@"',
   '',
 ].join('\n');
@@ -899,9 +898,11 @@ export function installWrapper(): void {
     fs.writeFileSync(piExtPath, PI_EXTENSION, { mode: 0o644 });
 
     // Write opencode wrapper (shadows `opencode`) and the status plugin into
-    // Ouijit's own dir. The wrapper points opencode at the plugin via
-    // OPENCODE_CONFIG_CONTENT, so opencode loads it only for wrapped sessions
-    // and the user's opencode config is never touched.
+    // opencode's auto-load dir. opencode imports auto-load files directly,
+    // whereas a `plugin` config entry is `bun add`-ed (fails for a local
+    // file), so the auto-load dir is the only working host mechanism. The
+    // plugin is inert until the wrapper exports OUIJIT_HOOK_BIN, so a plain
+    // `opencode` run is unaffected.
     fs.writeFileSync(path.join(binDir, 'opencode'), OPENCODE_WRAPPER, { mode: 0o755 });
     const opencodePluginPath = getOpencodePluginPath();
     fs.mkdirSync(path.dirname(opencodePluginPath), { recursive: true });

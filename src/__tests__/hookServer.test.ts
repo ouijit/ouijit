@@ -435,11 +435,10 @@ describe('installWrapper', () => {
     // No-API fallthrough still surfaces the CLI reference, plugin left inert.
     expect(wrapper).toContain('if [ -z "$OUIJIT_API_URL" ]; then');
 
-    // Plugin lands in Ouijit's own dir (loaded via config path), never in the
-    // user's opencode config dir.
-    const pluginPath = path.join(tmpHome, '.config', 'Ouijit', 'opencode', 'ouijit-plugin.ts');
+    // Plugin lands in opencode's auto-load dir (imported directly at startup;
+    // a `plugin` config entry would be bun-add'd and fail for a local file).
+    const pluginPath = path.join(tmpHome, '.config', 'opencode', 'plugins', 'ouijit.ts');
     expect(fs.existsSync(pluginPath)).toBe(true);
-    expect(fs.existsSync(path.join(tmpHome, '.config', 'opencode'))).toBe(false);
     const plugin = fs.readFileSync(pluginPath, 'utf-8');
     expect(plugin).toContain('export const OuijitStatusPlugin');
     expect(plugin).toContain('session.status');
@@ -1407,10 +1406,11 @@ describe('OPENCODE_WRAPPER', () => {
     expect(OPENCODE_WRAPPER).toContain('export PATH="$WRAPPER_DIR:$CLEAN_PATH"');
   });
 
-  test('builds a valid embedded config with instructions + plugin', () => {
+  test('builds a valid embedded instructions config', () => {
     // Expand the OUIJIT_OPENCODE_CONFIG assignment under bash with a fake HOME
-    // and confirm the result parses as JSON pointing at the CLI reference and
-    // the status plugin (both as absolute paths).
+    // and confirm the result parses as JSON pointing at the CLI reference.
+    // (The plugin is loaded from the auto-load dir, not via config — a
+    // `plugin` config entry would be bun-add'd and fail for a local file.)
     const home = '/home/user';
     const result = execFileSync(
       'bash',
@@ -1419,16 +1419,15 @@ describe('OPENCODE_WRAPPER', () => {
         [
           `HOME="${home}"`,
           'REFERENCE_FILE="$HOME/.config/Ouijit/ouijit-cli-reference.md"',
-          'PLUGIN_FILE="$HOME/.config/Ouijit/opencode/ouijit-plugin.ts"',
-          'OUIJIT_OPENCODE_CONFIG="{\\"instructions\\":[\\"$REFERENCE_FILE\\"],\\"plugin\\":[\\"$PLUGIN_FILE\\"]}"',
+          'OUIJIT_OPENCODE_CONFIG="{\\"instructions\\":[\\"$REFERENCE_FILE\\"]}"',
           'printf %s "$OUIJIT_OPENCODE_CONFIG"',
         ].join('\n'),
       ],
       { encoding: 'utf8' },
     );
-    const parsed = JSON.parse(result) as { instructions: string[]; plugin: string[] };
+    const parsed = JSON.parse(result) as { instructions: string[] };
     expect(parsed.instructions).toEqual([`${home}/.config/Ouijit/ouijit-cli-reference.md`]);
-    expect(parsed.plugin).toEqual([`${home}/.config/Ouijit/opencode/ouijit-plugin.ts`]);
+    expect(parsed).not.toHaveProperty('plugin');
   });
 
   describe('subcommand passthrough', () => {
@@ -1474,11 +1473,13 @@ describe('OPENCODE_WRAPPER', () => {
       expect(hook).toBe('');
     });
 
-    test('bare `opencode` injects the CLI reference + plugin and activates the hook', () => {
+    test('bare `opencode` injects the CLI reference and activates the hook', () => {
       const { cfg, hook } = runWrapper([], { OUIJIT_API_URL: 'http://stub' });
-      const parsed = JSON.parse(cfg) as { instructions: string[]; plugin: string[] };
+      const parsed = JSON.parse(cfg) as { instructions: string[] };
       expect(parsed.instructions[0]).toContain('ouijit-cli-reference.md');
-      expect(parsed.plugin[0]).toContain('ouijit-plugin.ts');
+      // The plugin is NOT referenced in config (auto-loaded instead); a config
+      // `plugin` entry would be bun-add'd and fail for a local file.
+      expect(cfg).not.toContain('plugin');
       expect(hook).toContain('ouijit-hook');
     });
 
@@ -1486,14 +1487,12 @@ describe('OPENCODE_WRAPPER', () => {
       const { argv, cfg, hook } = runWrapper(['run', 'hello world'], { OUIJIT_API_URL: 'http://stub' });
       expect(argv).toEqual(['run', 'hello world']);
       expect(cfg).toContain('ouijit-cli-reference.md');
-      expect(cfg).toContain('ouijit-plugin.ts');
       expect(hook).toContain('ouijit-hook');
     });
 
-    test('without OUIJIT_API_URL the config is injected but the plugin stays inert (no hook bin)', () => {
+    test('without OUIJIT_API_URL the CLI reference is injected but the plugin stays inert (no hook bin)', () => {
       const { cfg, hook } = runWrapper([], { OUIJIT_API_URL: '' });
       expect(cfg).toContain('ouijit-cli-reference.md');
-      expect(cfg).toContain('ouijit-plugin.ts');
       expect(hook).toBe('');
     });
   });
