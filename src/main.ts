@@ -26,6 +26,7 @@ import {
   destroyTerminalWindow,
   registerTerminalHotkey,
   unregisterTerminalHotkey,
+  setHotkeyChangeListener,
   DEFAULT_TERMINAL_HOTKEY,
 } from './terminalWindow';
 import {
@@ -173,8 +174,8 @@ function resolveTrayIcon(): Electron.NativeImage {
  * the same toggle/show handler.
  */
 async function setupTerminalWindowTriggers(): Promise<void> {
-  // Global hotkey — user-overridable via the `terminal:hotkey` global setting
-  // (no UI yet), falling back to the default accelerator.
+  // Global hotkey — user-overridable via App Settings (the `terminal:hotkey`
+  // global setting), falling back to the default accelerator.
   let accelerator = DEFAULT_TERMINAL_HOTKEY;
   try {
     const stored = await getGlobalSetting('terminal:hotkey');
@@ -191,29 +192,42 @@ async function setupTerminalWindowTriggers(): Promise<void> {
     app.dock.setMenu(Menu.buildFromTemplate([{ label: 'New Terminal', click: () => showTerminalWindow() }]));
   }
 
-  // Status-bar tray item (macOS + Linux).
+  // Status-bar tray item (macOS + Linux). Clicking the icon reveals this menu;
+  // "Open Terminal" is the action, and it discloses the global hotkey alongside
+  // it (display-only — the shortcut is already bound via registerTerminalHotkey,
+  // so registerAccelerator is false to avoid binding it twice).
   try {
     const icon = resolveTrayIcon();
     tray = new Tray(icon);
     tray.setToolTip('Ouijit Terminal');
-    tray.setContextMenu(
-      Menu.buildFromTemplate([
-        { label: 'Open Terminal', click: () => showTerminalWindow() },
-        { type: 'separator' },
-        {
-          label: 'Quit Ouijit',
-          click: () => {
-            quitConfirmed = true;
-            app.quit();
-          },
-        },
-      ]),
-    );
-    // Left-clicking the tray icon opens the terminal directly.
-    tray.on('click', () => showTerminalWindow());
+    tray.setContextMenu(buildTrayMenu(accelerator));
+    // Keep the menu's disclosed hotkey in sync when it's changed in settings.
+    setHotkeyChangeListener((accel) => {
+      if (tray && !tray.isDestroyed()) tray.setContextMenu(buildTrayMenu(accel));
+    });
   } catch (err) {
     appLog.error('failed to create tray', { error: err instanceof Error ? err.message : String(err) });
   }
+}
+
+/** Build the status-bar tray menu, disclosing the current toggle hotkey. */
+function buildTrayMenu(accelerator: string): Electron.Menu {
+  return Menu.buildFromTemplate([
+    {
+      label: 'Open Terminal',
+      accelerator,
+      registerAccelerator: false,
+      click: () => showTerminalWindow(),
+    },
+    { type: 'separator' },
+    {
+      label: 'Quit Ouijit',
+      click: () => {
+        quitConfirmed = true;
+        app.quit();
+      },
+    },
+  ]);
 }
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.

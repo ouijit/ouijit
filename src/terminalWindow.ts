@@ -10,6 +10,15 @@ export const DEFAULT_TERMINAL_HOTKEY = 'Control+`';
 /** The accelerator currently bound to {@link toggleTerminalWindow}, if any. */
 let registeredHotkey: string | null = null;
 
+/** Notified whenever the hotkey is (re)bound, so the tray menu can disclose the
+ *  current accelerator. */
+let hotkeyChangeListener: ((accelerator: string) => void) | null = null;
+
+/** Register a listener invoked each time the hotkey is successfully bound. */
+export function setHotkeyChangeListener(listener: (accelerator: string) => void): void {
+  hotkeyChangeListener = listener;
+}
+
 /**
  * The standalone terminal window — a "regular" terminal detached from the main
  * app window, opened via the global hotkey, the dock menu, or the status-bar
@@ -130,6 +139,7 @@ export function registerTerminalHotkey(accelerator: string): boolean {
     const ok = globalShortcut.register(accelerator, toggleTerminalWindow);
     if (ok) {
       registeredHotkey = accelerator;
+      hotkeyChangeListener?.(accelerator);
       return true;
     }
   } catch (err) {
