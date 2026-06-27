@@ -11,9 +11,12 @@ interface TerminalCardStackProps {
    *  included). Defaults to the main app window's header offset; the standalone
    *  terminal window passes its slimmer title-bar height. */
   topBase?: number;
+  /** Vertical position of the page switcher. Defaults to sitting in the main
+   *  app's header; the standalone window centers it in its empty title bar. */
+  paginationTop?: number;
 }
 
-export function TerminalCardStack({ projectPath, topBase = 82 }: TerminalCardStackProps) {
+export function TerminalCardStack({ projectPath, topBase = 82, paginationTop = 58 }: TerminalCardStackProps) {
   const terminals = useTerminalStore((s) => s.terminalsByProject[projectPath]) ?? EMPTY;
   const activeIndex = useTerminalStore((s) => s.activeIndices[projectPath] ?? 0);
 
@@ -43,7 +46,9 @@ export function TerminalCardStack({ projectPath, topBase = 82 }: TerminalCardSta
         <TerminalCard key={ptyId} ptyId={ptyId} projectPath={projectPath} />
       ))}
 
-      {totalPages > 1 && <Pagination page={page} totalPages={totalPages} projectPath={projectPath} />}
+      {totalPages > 1 && (
+        <Pagination page={page} totalPages={totalPages} projectPath={projectPath} top={paginationTop} />
+      )}
     </div>
   );
 }
@@ -91,7 +96,17 @@ function EmptyState() {
 
 // ── Pagination ───────────────────────────────────────────────────────
 
-function Pagination({ page, totalPages, projectPath }: { page: number; totalPages: number; projectPath: string }) {
+function Pagination({
+  page,
+  totalPages,
+  projectPath,
+  top,
+}: {
+  page: number;
+  totalPages: number;
+  projectPath: string;
+  top: number;
+}) {
   const navigatePage = useCallback(
     (direction: -1 | 1) => {
       const targetPage = page + direction;
@@ -104,9 +119,9 @@ function Pagination({ page, totalPages, projectPath }: { page: number; totalPage
 
   return (
     <div
-      className="project-stack-pagination fixed z-[150] flex items-center gap-1.5"
+      className="project-stack-pagination fixed z-[150] flex items-center gap-1.5 [-webkit-app-region:no-drag]"
       style={{
-        top: 58,
+        top,
         left: 'calc(var(--sidebar-offset, 0px) + (100% - var(--sidebar-offset, 0px)) / 2)',
         transition: 'left 0.2s ease-out',
         transform: 'translateX(-50%)',

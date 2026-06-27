@@ -173,5 +173,8 @@ function StandaloneTerminalView() {
       </div>
     );
   }
-  return <TerminalCardStack projectPath={homePath} topBase={TITLE_BAR_HEIGHT} />;
+  // Center the page switcher in the empty title-bar strip (the control is
+  // ~24px tall within the 44px bar).
+  const paginationTop = Math.round((TITLE_BAR_HEIGHT - 24) / 2);
+  return <TerminalCardStack projectPath={homePath} topBase={TITLE_BAR_HEIGHT} paginationTop={paginationTop} />;
 }
