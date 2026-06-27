@@ -55,13 +55,12 @@ export function StandaloneTerminalApp() {
 }
 
 function StandaloneTitleBar() {
+  // An empty draggable strip so the frameless window can be moved; no label.
   return (
     <div
-      className="absolute top-0 left-0 right-0 flex items-center justify-center select-none z-10"
-      style={{ height: TITLE_BAR_HEIGHT, WebkitAppRegion: 'drag', paddingLeft: isMac ? 78 : 12 } as CSSProperties}
-    >
-      <span className="text-xs font-medium text-white/40">Terminal</span>
-    </div>
+      className="absolute top-0 left-0 right-0 select-none z-10"
+      style={{ height: TITLE_BAR_HEIGHT, WebkitAppRegion: 'drag' } as CSSProperties}
+    />
   );
 }
 
