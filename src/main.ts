@@ -127,6 +127,32 @@ function cleanupNativeResources(): void {
   }
 }
 
+/**
+ * In dev, electron-forge frequently exits (stop, crash, restart) without killing
+ * the Electron child it spawned, leaving an orphaned instance running — each one
+ * still holding its tray icon, so they pile up in the menu bar across restarts.
+ * An orphan never receives a termination signal, so the SIGINT/SIGTERM handlers
+ * below can't catch it. Instead, poll for the parent dying (the process is
+ * reparented to launchd, ppid 1) and self-terminate. Dev-only; packaged builds
+ * aren't launched under forge.
+ */
+function watchForOrphanedDevInstance(): void {
+  if (!MAIN_WINDOW_VITE_DEV_SERVER_URL) return;
+  const originalPpid = process.ppid;
+  const timer = setInterval(() => {
+    if (process.ppid === originalPpid && process.ppid !== 1) return;
+    appLog.info('dev parent process exited — quitting orphaned instance', {
+      originalPpid,
+      ppid: process.ppid,
+    });
+    cleanupNativeResources();
+    quitConfirmed = true;
+    app.quit();
+  }, 2000);
+  // Don't let the watcher keep the process alive on its own.
+  timer.unref();
+}
+
 /** Resolve the tray/status-bar icon, falling back gracefully if missing. */
 function resolveTrayIcon(): Electron.NativeImage {
   // The planchette logomark rendered as a macOS template image — macOS recolors
@@ -429,6 +455,7 @@ app.on('ready', async () => {
   // capture mode so screenshots aren't perturbed by a global shortcut or tray.
   if (!isCaptureMode()) {
     await setupTerminalWindowTriggers();
+    watchForOrphanedDevInstance();
   }
 });
 
