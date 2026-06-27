@@ -173,5 +173,5 @@ function StandaloneTerminalView() {
       </div>
     );
   }
-  return <TerminalCardStack projectPath={homePath} />;
+  return <TerminalCardStack projectPath={homePath} topBase={TITLE_BAR_HEIGHT} />;
 }
