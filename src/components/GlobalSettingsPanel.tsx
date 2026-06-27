@@ -14,11 +14,16 @@ const DEFAULT_TERMINAL_FONT_SIZE = 14;
 const MIN_TERMINAL_FONT_SIZE = 8;
 const MAX_TERMINAL_FONT_SIZE = 32;
 
+// Must match DEFAULT_TERMINAL_HOTKEY in src/terminalWindow.ts — used only to
+// decide whether to offer "Reset" in the UI.
+const DEFAULT_TERMINAL_HOTKEY = 'Control+`';
+
 export function GlobalSettingsPanel() {
   const [autoUpdate, setAutoUpdate] = useState(true);
   const [readyAudio, setReadyAudio] = useState(true);
   const [fontFamily, setFontFamily] = useState('');
   const [fontSize, setFontSize] = useState<number | null>(null);
+  const [hotkey, setHotkey] = useState(DEFAULT_TERMINAL_HOTKEY);
   const [projectsFolder, setProjectsFolder] = useState<string | null>(null);
   const [moveDialog, setMoveDialog] = useState<{
     newFolder: string;
@@ -34,8 +39,9 @@ export function GlobalSettingsPanel() {
       window.api.globalSettings.get('terminal:font-family'),
       window.api.globalSettings.get('terminal:font-size'),
       window.api.getDefaultProjectsFolder(),
+      window.api.getTerminalHotkey(),
     ])
-      .then(([disableUpdates, disableReadyAudio, family, size, folder]) => {
+      .then(([disableUpdates, disableReadyAudio, family, size, folder, terminalHotkey]) => {
         if (cancelled) return;
         setAutoUpdate(disableUpdates !== '1');
         setReadyAudio(disableReadyAudio !== '1');
@@ -43,6 +49,7 @@ export function GlobalSettingsPanel() {
         const parsed = parseFloat((size ?? '').trim());
         setFontSize(Number.isFinite(parsed) && parsed > 0 ? parsed : null);
         setProjectsFolder(folder);
+        setHotkey(terminalHotkey);
       })
       .catch((error) => {
         settingsLog.error('failed to hydrate settings', {
@@ -90,6 +97,22 @@ export function GlobalSettingsPanel() {
     setFontSize(value);
     setTerminalFontSize(value);
     await window.api.globalSettings.set('terminal:font-size', value == null ? '' : String(value));
+  };
+
+  const commitHotkey = async (accelerator: string) => {
+    const result = await window.api.setTerminalHotkey(accelerator);
+    if (result.success) {
+      setHotkey(result.accelerator);
+    } else {
+      useProjectStore
+        .getState()
+        .addToast(`Couldn't bind ${formatAccelerator(accelerator)} — it may be in use by another app`, 'error');
+    }
+  };
+
+  const resetHotkey = async () => {
+    const result = await window.api.setTerminalHotkey('');
+    if (result.success) setHotkey(result.accelerator);
   };
 
   const handleChangeProjectsFolder = async () => {
@@ -211,6 +234,14 @@ export function GlobalSettingsPanel() {
                 max={MAX_TERMINAL_FONT_SIZE}
                 onCommit={commitFontSize}
               />
+              <HotkeyRecorderRow
+                label="Quick terminal hotkey"
+                description="Global shortcut to open the standalone terminal window from anywhere."
+                value={hotkey}
+                isDefault={hotkey === DEFAULT_TERMINAL_HOTKEY}
+                onCommit={commitHotkey}
+                onReset={resetHotkey}
+              />
             </div>
           </section>
 
@@ -317,6 +348,145 @@ function ToggleRow({ label, description, checked, onChange }: ToggleRowProps) {
         />
       </button>
     </label>
+  );
+}
+
+// ── Hotkey recorder ──────────────────────────────────────────────────
+
+const MODIFIER_SYMBOLS: Record<string, string> = {
+  Command: '⌘',
+  Control: '⌃',
+  Alt: '⌥',
+  Shift: '⇧',
+};
+
+/** Render an Electron accelerator (e.g. "Control+`") as symbols ("⌃ `"). */
+function formatAccelerator(accelerator: string): string {
+  return accelerator
+    .split('+')
+    .map((part) => MODIFIER_SYMBOLS[part] ?? part)
+    .join(' ');
+}
+
+/** Map a physical key code to its Electron accelerator key token, or null. */
+function keyTokenFromCode(code: string): string | null {
+  const letter = /^Key([A-Z])$/.exec(code);
+  if (letter) return letter[1];
+  const digit = /^Digit([0-9])$/.exec(code);
+  if (digit) return digit[1];
+  if (/^F\d{1,2}$/.test(code)) return code;
+  const named: Record<string, string> = {
+    Backquote: '`',
+    Minus: '-',
+    Equal: '=',
+    BracketLeft: '[',
+    BracketRight: ']',
+    Backslash: '\\',
+    Semicolon: ';',
+    Quote: "'",
+    Comma: ',',
+    Period: '.',
+    Slash: '/',
+    Space: 'Space',
+    Escape: 'Escape',
+    Tab: 'Tab',
+    Enter: 'Return',
+    Backspace: 'Backspace',
+    Delete: 'Delete',
+    ArrowUp: 'Up',
+    ArrowDown: 'Down',
+    ArrowLeft: 'Left',
+    ArrowRight: 'Right',
+  };
+  return named[code] ?? null;
+}
+
+/**
+ * Build an Electron accelerator from a keydown event, or null if it isn't a
+ * usable global shortcut (no real modifier, or an unmappable key). Function
+ * keys are allowed without a modifier.
+ */
+function buildAccelerator(e: KeyboardEvent): string | null {
+  const key = keyTokenFromCode(e.code);
+  if (!key) return null;
+  const isFunctionKey = /^F\d{1,2}$/.test(key);
+  const hasModifier = e.metaKey || e.ctrlKey || e.altKey;
+  if (!hasModifier && !isFunctionKey) return null;
+
+  const parts: string[] = [];
+  if (e.metaKey) parts.push('Command');
+  if (e.ctrlKey) parts.push('Control');
+  if (e.altKey) parts.push('Alt');
+  if (e.shiftKey) parts.push('Shift');
+  parts.push(key);
+  return parts.join('+');
+}
+
+interface HotkeyRecorderRowProps {
+  label: string;
+  description: string;
+  value: string;
+  isDefault: boolean;
+  onCommit: (accelerator: string) => void;
+  onReset: () => void;
+}
+
+function HotkeyRecorderRow({ label, description, value, isDefault, onCommit, onReset }: HotkeyRecorderRowProps) {
+  const [recording, setRecording] = useState(false);
+
+  useEffect(() => {
+    if (!recording) return;
+    const handler = (e: KeyboardEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      // Escape cancels; lone modifier presses keep waiting for the real key.
+      if (e.key === 'Escape') {
+        setRecording(false);
+        return;
+      }
+      if (['Shift', 'Control', 'Alt', 'Meta'].includes(e.key)) return;
+      const accelerator = buildAccelerator(e);
+      if (accelerator) {
+        setRecording(false);
+        onCommit(accelerator);
+      }
+    };
+    window.addEventListener('keydown', handler, true);
+    return () => window.removeEventListener('keydown', handler, true);
+  }, [recording, onCommit]);
+
+  return (
+    <div className="flex items-center gap-4 px-4 py-3 hover:bg-white/[0.02]">
+      <div className="flex-1 min-w-0">
+        <div className="text-sm text-text-primary">{label}</div>
+        <div className="text-xs text-text-tertiary mt-0.5">{description}</div>
+      </div>
+      <div className="flex items-center gap-2 shrink-0">
+        {!isDefault && (
+          <button
+            type="button"
+            className="text-xs text-text-tertiary hover:text-text-secondary"
+            onClick={() => {
+              setRecording(false);
+              onReset();
+            }}
+          >
+            Reset
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={() => setRecording((r) => !r)}
+          className={`min-w-[6rem] px-3 py-1.5 text-sm font-mono rounded-md border outline-none transition-colors ${
+            recording
+              ? 'border-accent ring-2 ring-accent-light text-text-primary bg-white/[0.04]'
+              : 'border-white/10 text-text-primary bg-white/[0.04] hover:border-white/20'
+          }`}
+        >
+          {recording ? 'Press keys…' : formatAccelerator(value)}
+        </button>
+      </div>
+    </div>
   );
 }
 

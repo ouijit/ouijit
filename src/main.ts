@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, nativeTheme, shell } from 'electron';
+import { app, BrowserWindow, dialog, Menu, nativeImage, nativeTheme, shell, Tray } from 'electron';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 import started from 'electron-squirrel-startup';
@@ -20,7 +20,14 @@ import { HookRepo } from './db/repos/hookRepo';
 import { importAll } from './services/dataImportService';
 import { initUpdater, cleanupUpdater } from './updater';
 import { checkHealth } from './healthCheck';
-import { setGlobalSetting } from './db';
+import { setGlobalSetting, getGlobalSetting } from './db';
+import {
+  showTerminalWindow,
+  destroyTerminalWindow,
+  registerTerminalHotkey,
+  unregisterTerminalHotkey,
+  DEFAULT_TERMINAL_HOTKEY,
+} from './terminalWindow';
 import {
   CAPTURE_READY_SENTINEL,
   CAPTURE_WINDOW_HEIGHT,
@@ -87,6 +94,97 @@ if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
 
 let mainWindow: BrowserWindow | null = null;
 let quitConfirmed = false;
+let tray: Tray | null = null;
+let nativeResourcesCleaned = false;
+
+/**
+ * Tear down OS-level resources (status-bar tray, global shortcut, standalone
+ * window). Idempotent so it can run from both `will-quit` and the termination
+ * signal handlers below — the latter matter in dev, where electron-forge
+ * SIGTERMs the old process on reload and `will-quit` never fires, orphaning the
+ * tray icon in the menu bar until it's interacted with.
+ */
+function cleanupNativeResources(): void {
+  if (nativeResourcesCleaned) return;
+  nativeResourcesCleaned = true;
+  try {
+    unregisterTerminalHotkey();
+  } catch {
+    /* nothing registered */
+  }
+  try {
+    destroyTerminalWindow();
+  } catch {
+    /* already gone */
+  }
+  if (tray) {
+    try {
+      tray.destroy();
+    } catch {
+      /* already gone */
+    }
+    tray = null;
+  }
+}
+
+/** Resolve the tray/status-bar icon, falling back gracefully if missing. */
+function resolveTrayIcon(): Electron.NativeImage {
+  // Packaged: <app>/icon.png (copied by forge afterCopy). Dev: source asset.
+  const iconPath = MAIN_WINDOW_VITE_DEV_SERVER_URL
+    ? path.join(__dirname, '..', '..', 'src', 'assets', 'icons', 'icon.png')
+    : path.join(__dirname, '..', '..', 'icon.png');
+  const image = nativeImage.createFromPath(iconPath);
+  return image.isEmpty() ? image : image.resize({ width: 18, height: 18 });
+}
+
+/**
+ * Wire the three entry points for the standalone terminal window: a global
+ * hotkey, a dock menu item (macOS), and a status-bar tray item. All three call
+ * the same toggle/show handler.
+ */
+async function setupTerminalWindowTriggers(): Promise<void> {
+  // Global hotkey — user-overridable via the `terminal:hotkey` global setting
+  // (no UI yet), falling back to the default accelerator.
+  let accelerator = DEFAULT_TERMINAL_HOTKEY;
+  try {
+    const stored = await getGlobalSetting('terminal:hotkey');
+    if (stored && stored.trim()) accelerator = stored.trim();
+  } catch {
+    /* settings unavailable — use the default */
+  }
+  if (!registerTerminalHotkey(accelerator)) {
+    appLog.warn('failed to register terminal hotkey (already taken?)', { accelerator });
+  }
+
+  // Dock menu (macOS only).
+  if (process.platform === 'darwin' && app.dock) {
+    app.dock.setMenu(Menu.buildFromTemplate([{ label: 'New Terminal', click: () => showTerminalWindow() }]));
+  }
+
+  // Status-bar tray item (macOS + Linux).
+  try {
+    const icon = resolveTrayIcon();
+    tray = new Tray(icon);
+    tray.setToolTip('Ouijit Terminal');
+    tray.setContextMenu(
+      Menu.buildFromTemplate([
+        { label: 'Open Terminal', click: () => showTerminalWindow() },
+        { type: 'separator' },
+        {
+          label: 'Quit Ouijit',
+          click: () => {
+            quitConfirmed = true;
+            app.quit();
+          },
+        },
+      ]),
+    );
+    // Left-clicking the tray icon opens the terminal directly.
+    tray.on('click', () => showTerminalWindow());
+  } catch (err) {
+    appLog.error('failed to create tray', { error: err instanceof Error ? err.message : String(err) });
+  }
+}
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (started) {
@@ -319,6 +417,12 @@ app.on('ready', async () => {
   if (process.env.OUIJIT_E2E === '1') {
     await setGlobalSetting('hasSeenWelcome', '1');
   }
+
+  // Standalone terminal window entry points (hotkey, dock, tray). Skipped in
+  // capture mode so screenshots aren't perturbed by a global shortcut or tray.
+  if (!isCaptureMode()) {
+    await setupTerminalWindowTriggers();
+  }
 });
 
 app.on('before-quit', (e) => {
@@ -348,10 +452,24 @@ app.on('before-quit', (e) => {
 
 app.on('will-quit', () => {
   appLog.info('app quitting');
+  cleanupNativeResources();
   cleanupUpdater();
   cleanupIpc();
   closeDatabase();
 });
+
+// Terminate gracefully on signals so OS resources (notably the status-bar tray
+// icon) are released. In dev, electron-forge SIGTERMs the previous process on
+// reload; without this the tray icon would orphan in the menu bar. Registering
+// a handler suppresses Node's default terminate-on-signal, so we must quit
+// ourselves. `quitConfirmed` skips the active-sessions prompt in before-quit.
+for (const signal of ['SIGINT', 'SIGTERM'] as const) {
+  process.on(signal, () => {
+    cleanupNativeResources();
+    quitConfirmed = true;
+    app.quit();
+  });
+}
 
 // Quit when all windows are closed, except on macOS. There, it's common
 // for applications and their menu bar to stay active until the user quits

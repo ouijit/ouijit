@@ -274,6 +274,8 @@ contextBridge.exposeInMainWorld('api', {
 
   getPathForFile: (file: File): string => webUtils.getPathForFile(file),
   homePath: (): Promise<string> => typedInvoke('get-home-path'),
+  getTerminalHotkey: () => typedInvoke('terminal:get-hotkey'),
+  setTerminalHotkey: (accelerator: string) => typedInvoke('terminal:set-hotkey', accelerator),
 
   lima: {
     status: (projectPath: string) => typedInvoke('lima:status', projectPath),

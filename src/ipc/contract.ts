@@ -89,6 +89,12 @@ export interface IpcInvokeContract {
   'get-project-settings': { args: [projectPath: string]; return: ProjectSettings };
   'settings:set-kill-existing-on-run': { args: [projectPath: string, kill: boolean]; return: { success: boolean } };
   'get-home-path': { args: []; return: string };
+  // Set the standalone terminal window's global hotkey. An empty string resets
+  // to the default. Returns whether the accelerator could be registered and the
+  // accelerator that ended up active.
+  'terminal:set-hotkey': { args: [accelerator: string]; return: { success: boolean; accelerator: string } };
+  // Read the current standalone terminal hotkey (stored value, or the default).
+  'terminal:get-hotkey': { args: []; return: string };
 
   // ── Git ──────────────────────────────────────────────────────────────
   'get-git-status': { args: [projectPath: string]; return: GitStatus | null };

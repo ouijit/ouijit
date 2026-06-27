@@ -44,6 +44,8 @@ function applyDetectedWebPreviewUrl(parent: OuijitTerminal, url: string): void {
 export interface AddProjectTerminalOptions {
   existingWorktree?: WorktreeInfo & { prompt?: string; sandboxed?: boolean };
   sandboxed?: boolean;
+  /** Marks the shell as owned by the standalone terminal window. */
+  standalone?: boolean;
   taskId?: number;
   skipAutoHook?: boolean;
   background?: boolean;
@@ -297,6 +299,7 @@ export async function addProjectTerminal(
     worktreePath: worktreeInfo?.path,
     env: startEnv,
     sandboxed: useSandbox,
+    standalone: options?.standalone,
   };
 
   try {
@@ -686,7 +689,9 @@ export async function reconnectOrphanedSessions(projectPath: string): Promise<vo
     return;
   }
 
-  const projectSessions = sessions.filter((s) => s.projectPath === projectPath);
+  // Skip standalone shells — they belong to the standalone terminal window,
+  // which reconnects them itself.
+  const projectSessions = sessions.filter((s) => s.projectPath === projectPath && !s.standalone);
   if (projectSessions.length === 0) return;
 
   // The session snapshot from the same launch (PTYs survive a renderer reload)

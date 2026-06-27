@@ -92,6 +92,10 @@ export function HomeView() {
       }
       if (sessions.length === 0) return;
 
+      // Shells owned by the standalone terminal window reconnect in that window,
+      // not here — exclude them so the main app window doesn't reclaim them.
+      sessions = sessions.filter((s) => !s.standalone);
+
       // Runners (run hooks / scripts) aren't standalone cards — they live as
       // state on their parent terminal. Reconnect main terminals first so the
       // parents are back in terminalInstances before runners reattach,

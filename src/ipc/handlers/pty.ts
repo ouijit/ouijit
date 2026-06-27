@@ -1,5 +1,5 @@
 import { BrowserWindow } from 'electron';
-import { typedHandle, typedOn } from '../helpers';
+import { typedHandle, typedHandleWithWindow, typedOn } from '../helpers';
 import {
   spawnPty,
   reconnectPty,
@@ -13,11 +13,12 @@ import {
 import * as limaPlugin from '../../lima';
 
 export function registerPtyHandlers(mainWindow: BrowserWindow): void {
-  typedHandle('pty:spawn', async (options) => {
+  typedHandleWithWindow('pty:spawn', async (window, options) => {
+    const owner = window ?? mainWindow;
     if (options.sandboxed) {
-      return await limaPlugin.spawnSandboxedPty(options, mainWindow);
+      return await limaPlugin.spawnSandboxedPty(options, owner);
     }
-    return await spawnPty(options, mainWindow);
+    return await spawnPty(options, owner);
   });
 
   typedOn('pty:write', (ptyId, data) => {
@@ -45,11 +46,12 @@ export function registerPtyHandlers(mainWindow: BrowserWindow): void {
   });
 
   typedHandle('pty:get-active-sessions', () => [...getActiveSessions(), ...limaPlugin.getActiveSandboxSessions()]);
-  typedHandle('pty:reconnect', (ptyId) => {
+  typedHandleWithWindow('pty:reconnect', (window, ptyId) => {
+    const owner = window ?? mainWindow;
     if (limaPlugin.isSandboxPty(ptyId)) {
-      return limaPlugin.reconnectSandboxPty(ptyId, mainWindow);
+      return limaPlugin.reconnectSandboxPty(ptyId, owner);
     }
-    return reconnectPty(ptyId, mainWindow);
+    return reconnectPty(ptyId, owner);
   });
 
   typedOn('pty:set-label', (ptyId, label) => {

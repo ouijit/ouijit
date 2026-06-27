@@ -28,6 +28,28 @@ export function typedHandle<C extends keyof IpcInvokeContract>(
 }
 
 /**
+ * Like {@link typedHandle}, but also passes the BrowserWindow that sent the
+ * request as the first argument (resolved from the IPC event's sender). Used by
+ * PTY handlers so spawned/reconnected sessions are bound to the requesting
+ * window — the main app window or the standalone terminal window — for output
+ * routing. The window is null if the sender's window can't be resolved.
+ */
+export function typedHandleWithWindow<C extends keyof IpcInvokeContract>(
+  channel: C,
+  handler: (
+    window: BrowserWindow | null,
+    ...args: IpcInvokeContract[C]['args']
+  ) => Promise<IpcInvokeContract[C]['return']> | IpcInvokeContract[C]['return'],
+): void {
+  ipcMain.handle(channel, (event: Electron.IpcMainInvokeEvent, ...args: unknown[]) =>
+    (handler as (w: BrowserWindow | null, ...a: unknown[]) => unknown)(
+      BrowserWindow.fromWebContents(event.sender),
+      ...args,
+    ),
+  );
+}
+
+/**
  * Register a type-safe ipcMain.on() handler (fire-and-forget, no response).
  * The handler receives only the business args (event is stripped).
  */
