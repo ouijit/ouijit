@@ -129,12 +129,16 @@ function cleanupNativeResources(): void {
 
 /** Resolve the tray/status-bar icon, falling back gracefully if missing. */
 function resolveTrayIcon(): Electron.NativeImage {
-  // Packaged: <app>/icon.png (copied by forge afterCopy). Dev: source asset.
+  // The planchette logomark rendered as a macOS template image — macOS recolors
+  // template images to match the menu bar (light/dark). createFromPath picks up
+  // the adjacent @2x variant automatically for retina displays.
+  // Packaged: <app>/trayTemplate.png (copied by forge afterCopy). Dev: source asset.
   const iconPath = MAIN_WINDOW_VITE_DEV_SERVER_URL
-    ? path.join(__dirname, '..', '..', 'src', 'assets', 'icons', 'icon.png')
-    : path.join(__dirname, '..', '..', 'icon.png');
+    ? path.join(__dirname, '..', '..', 'src', 'assets', 'icons', 'trayTemplate.png')
+    : path.join(__dirname, '..', '..', 'trayTemplate.png');
   const image = nativeImage.createFromPath(iconPath);
-  return image.isEmpty() ? image : image.resize({ width: 18, height: 18 });
+  if (!image.isEmpty()) image.setTemplateImage(true);
+  return image;
 }
 
 /**

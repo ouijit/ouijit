@@ -122,15 +122,17 @@ const config: ForgeConfig = {
             console.log(`Copied Lima guest agents from ${guestAgentSrc}`);
           }
 
-          // 6. Copy app icon (Linux window icon + the status-bar tray icon on
-          //    every platform). Lands at <app>/icon.png, i.e.
-          //    path.join(__dirname, '..', '..', 'icon.png') at runtime.
+          // 6. Copy app icon (Linux window icon) and the planchette status-bar
+          //    tray icon (+ its @2x retina variant). They land at <app>/<name>,
+          //    i.e. path.join(__dirname, '..', '..', '<name>') at runtime.
           {
-            const iconSrc = path.join(__dirname, 'src', 'assets', 'icons', 'icon.png');
-            if (fs.existsSync(iconSrc)) {
-              const iconDest = path.join(buildPath, 'icon.png');
-              fs.copyFileSync(iconSrc, iconDest);
-              console.log(`Copied icon.png`);
+            const iconAssets = ['icon.png', 'trayTemplate.png', 'trayTemplate@2x.png'];
+            for (const name of iconAssets) {
+              const src = path.join(__dirname, 'src', 'assets', 'icons', name);
+              if (fs.existsSync(src)) {
+                fs.copyFileSync(src, path.join(buildPath, name));
+                console.log(`Copied ${name}`);
+              }
             }
           }
 
