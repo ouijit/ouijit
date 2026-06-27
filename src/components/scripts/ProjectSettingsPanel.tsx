@@ -17,7 +17,7 @@ const LIFECYCLE_HOOKS: HookEntry[] = [
   { type: 'done', label: 'Done', description: 'Runs when a task moves to Done' },
 ];
 
-const RUN_HOOK: HookEntry[] = [{ type: 'run', label: 'Run', description: 'Runs when you click Run' }];
+const RUN_HOOK: HookEntry[] = [{ type: 'run', label: 'Run', description: "Runs from a terminal's + menu" }];
 
 const EDITOR_HOOK: HookEntry[] = [
   { type: 'editor', label: 'Editor', description: 'Opens the task worktree in your editor' },
@@ -93,8 +93,8 @@ export function ProjectSettingsPanel({ projectPath }: ProjectSettingsPanelProps)
             <HookList projectPath={projectPath} hooks={LIFECYCLE_HOOKS} />
           </section>
           <section>
-            <h2 className="text-sm font-semibold text-text-primary mb-2">Run Scripts</h2>
-            <p className="text-xs text-text-tertiary mb-4">Commands available from the terminal run button dropdown.</p>
+            <h2 className="text-sm font-semibold text-text-primary mb-2">Run Commands</h2>
+            <p className="text-xs text-text-tertiary mb-4">Commands you can launch from a terminal's + menu.</p>
             <div
               className="glass-bevel relative border border-black/60 rounded-[14px] overflow-hidden divide-y divide-white/[0.06]"
               style={{

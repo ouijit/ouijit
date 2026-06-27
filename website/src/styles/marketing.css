@@ -200,8 +200,16 @@ img {
 
 .hero h1 {
   font-size: 3rem;
-  margin-bottom: 40px;
+  margin-bottom: 16px;
   letter-spacing: -0.025em;
+  text-wrap: balance;
+}
+
+.hero-subtitle {
+  font-size: 1.25rem;
+  color: var(--color-text-secondary);
+  margin: 0 auto 40px;
+  text-wrap: balance;
 }
 
 .download-buttons {

@@ -24,7 +24,7 @@ export interface TerminalHeaderViewProps {
   /** Branch row content (typically a copy-button). Rendered below the identity row when active. */
   branchContent?: ReactNode;
 
-  /** Right-side action area (ActionGroup, RunScriptDropdown anchor, etc.). */
+  /** Right-side action area (panel controls, add menu, etc.). */
   actions?: ReactNode;
 
   /** When true, renders a close × button to the right of actions. */

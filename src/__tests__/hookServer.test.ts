@@ -457,7 +457,8 @@ describe('installWrapper', () => {
     expect(content).toContain('ouijit tag');
     expect(content).toContain('ouijit hook');
     expect(content).toContain('ouijit script');
-    expect(content).toContain('ouijit plan');
+    expect(content).toContain('ouijit markdown add');
+    expect(content).toContain('ouijit preview add');
     expect(content).toContain('ouijit project list');
     // Contains env var documentation
     expect(content).toContain('OUIJIT_API_URL');

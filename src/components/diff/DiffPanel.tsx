@@ -11,14 +11,14 @@ import { useSyntaxHighlight } from './useSyntaxHighlight';
 interface DiffPanelProps {
   ptyId: string;
   projectPath: string;
+  mode: 'uncommitted' | 'worktree';
   onClose: () => void;
 }
 
 const MAX_DIFF_FILES = 300;
 const DIFF_BATCH_SIZE = 10;
 
-export function DiffPanel({ ptyId, projectPath, onClose }: DiffPanelProps) {
-  const mode = useTerminalStore((s) => s.displayStates[ptyId]?.diffPanelMode ?? 'uncommitted');
+export function DiffPanel({ ptyId, projectPath, mode, onClose }: DiffPanelProps) {
   const gitFileStatus = useTerminalStore((s) => s.displayStates[ptyId]?.gitFileStatus ?? null);
   const [diffs, setDiffs] = useState<Map<string, FileDiff | null>>(new Map());
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -156,10 +156,7 @@ export function DiffPanel({ ptyId, projectPath, onClose }: DiffPanelProps) {
   const modeLabel = effectiveMode === 'worktree' ? 'Branch changes' : 'Uncommitted changes';
 
   return (
-    <div
-      className="absolute inset-0 rounded-none border-0 border-t border-solid border-white/10 shadow-none z-20 flex overflow-hidden opacity-100 pointer-events-auto"
-      style={{ background: 'var(--color-terminal-bg, #171717)', transition: 'opacity 0.15s ease' }}
-    >
+    <div className="flex flex-1 min-h-0 overflow-hidden" style={{ background: 'var(--color-terminal-bg, #171717)' }}>
       <div
         className={
           sidebarCollapsed
@@ -178,7 +175,7 @@ export function DiffPanel({ ptyId, projectPath, onClose }: DiffPanelProps) {
         />
       )}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <div className="px-3 py-2 bg-[#252525] border-b border-white/10 text-sm text-white/70 flex items-center gap-2">
+        <div className="px-3 py-2 text-sm text-white/70 flex items-center gap-2 shrink-0">
           <button
             className="w-7 h-7 rounded-md bg-transparent border-none text-white/60 flex items-center justify-center shrink-0 transition-all duration-150 ease-out hover:bg-white/10 hover:text-white/90"
             onClick={() => setSidebarCollapsed(!sidebarCollapsed)}

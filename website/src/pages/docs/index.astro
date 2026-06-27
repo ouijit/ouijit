@@ -526,15 +526,25 @@ ouijit script delete &lt;id&gt;</code></pre>
           existing script's command.
         </p>
 
-        <h2>Plan files</h2>
+        <h2>Markdown panels</h2>
         <p>
-          Each terminal can have a Markdown plan file associated with it. The app shows the plan inline so an agent and
-          you can collaborate on a shared TODO list. The CLI is how the agent updates that association.
+          A terminal can open Markdown files as panels shown alongside it, so an agent and you can collaborate on a
+          shared TODO list or notes. A terminal can hold several at once.
         </p>
-        <pre class="glass-bevel"><code>ouijit plan set ./plan.md                     # uses current OUIJIT_PTY_ID
-ouijit plan set ./plan.md pty_abc123          # explicit pty id
-ouijit plan get
-ouijit plan unset</code></pre>
+        <pre class="glass-bevel"><code>ouijit markdown add ./plan.md                 # uses current OUIJIT_PTY_ID
+ouijit markdown add ./plan.md pty_abc123      # explicit pty id
+ouijit markdown list
+ouijit markdown remove ./plan.md</code></pre>
+
+        <h2>Web preview panels</h2>
+        <p>
+          A terminal can open web preview panels pointed at a URL, so an agent that starts a dev server can surface it
+          inline. A terminal can hold several at once.
+        </p>
+        <pre class="glass-bevel"><code>ouijit preview add http://localhost:3000      # uses current OUIJIT_PTY_ID
+ouijit preview add http://localhost:3000 pty_abc123
+ouijit preview list
+ouijit preview remove http://localhost:3000</code></pre>
 
         <h2>Projects</h2>
         <p>List every project registered with the app.</p>

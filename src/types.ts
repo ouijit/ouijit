@@ -47,20 +47,41 @@ export type LastActiveView = { type: 'home' } | { type: 'project'; path: string 
  * configuration around it (plan attachment, panel layout, last runner script
  * to one-click re-run).
  */
+/** One persisted user-managed panel in the multi-panel snapshot shape. */
+export interface SnapshotPanel {
+  kind: 'runner' | 'webPreview' | 'plan';
+  /** runner */
+  scriptName?: string | null;
+  scriptCommand?: string | null;
+  source?: 'hook' | 'script';
+  /** webPreview (only user-set URLs are persisted) */
+  url?: string | null;
+  /** plan */
+  planPath?: string | null;
+}
+
 export interface SnapshotTerminalUi {
-  planPath: string | null;
-  /** Whether the plan panel was open. Older snapshots omit this — treat as the
-   *  legacy "open if a plan was attached" behaviour when undefined. */
-  planPanelOpen?: boolean;
-  /** Whether the diff panel was open. Older snapshots omit this. */
+  /** New shape: the ordered tab list. Absence means a legacy snapshot. */
+  panels?: SnapshotPanel[];
+  /** Index of the active panel within `panels`, or null when none was active. */
+  activePanelIndex?: number | null;
+  /** Whether the active panel was full-width. */
+  panelFullWidth?: boolean;
+  /** Split position (0–1) of the panel/terminal divider when not full-width. */
+  panelSplitRatio?: number;
+  /** Automatic diff takeover state (separate from the panel tabs). */
   diffPanelOpen?: boolean;
-  webPreview: {
+
+  // ── Legacy singleton fields (kept optional for back-compat) ──────────
+  planPath?: string | null;
+  planPanelOpen?: boolean;
+  webPreview?: {
     url: string | null;
     panelOpen: boolean;
     fullWidth: boolean;
     splitRatio: number;
   } | null;
-  runner: {
+  runner?: {
     scriptName: string | null;
     scriptCommand: string;
     panelOpen: boolean;
@@ -557,6 +578,8 @@ export interface ElectronAPI {
   agentHooks: AgentHooksAPI;
   /** Plan file detection and viewing */
   plan: PlanAPI;
+  /** CLI-driven terminal panel ops (markdown / web preview) */
+  cliPanels: CliPanelsAPI;
   /** Get file path from a dropped File object */
   getPathForFile(file: File): string;
   /** User's home directory */
@@ -640,6 +663,56 @@ export interface PlanAPI {
   onContentChanged(callback: (planPath: string, content: string) => void): () => void;
   checkFilesExist(workspaceRoot: string, filePaths: string[]): Promise<Record<string, boolean>>;
   pickFile(defaultPath?: string): Promise<{ canceled: boolean; filePath: string | null }>;
+}
+
+/**
+ * CLI-driven terminal panel operations. The CLI (and agents) can add, list, and
+ * remove the two user-addressable panel kinds — markdown files and web previews
+ * — on a given terminal. The renderer owns the live panel list, so these ops are
+ * a request/response bridge: the main process forwards the op to the renderer,
+ * which mutates the terminal and replies with the resulting panel set.
+ *
+ * A terminal's panel kind is `'plan'` internally; the CLI surfaces it as
+ * `'markdown'` to match the UI's "Markdown File" tab.
+ */
+export type CliPanelKind = 'markdown' | 'preview';
+
+/** A single panel as reported back to the CLI. */
+export interface CliPanelInfo {
+  kind: CliPanelKind;
+  /** Tab label shown in the UI. */
+  label: string;
+  /** Absolute file path — markdown panels only. */
+  path?: string;
+  /** Preview URL — preview panels only. */
+  url?: string;
+  /** Whether this panel is the terminal's active (foreground) panel. */
+  active: boolean;
+}
+
+/** Op forwarded from the main process to the renderer over IPC. */
+export interface CliPanelOp {
+  /** Correlates the renderer's reply with the awaiting main-process request. */
+  requestId: number;
+  ptyId: PtyId;
+  action: 'list' | 'add' | 'remove';
+  kind: CliPanelKind;
+  /** Absolute path (markdown) or URL (preview) for add/remove. */
+  value?: string;
+}
+
+/** Renderer's reply for a {@link CliPanelOp}. */
+export interface CliPanelResponse {
+  ok: boolean;
+  /** Present when ok=false — a human-readable reason (e.g. terminal not found). */
+  error?: string;
+  /** The terminal's panels of the op's kind after the op ran. */
+  panels?: CliPanelInfo[];
+}
+
+export interface CliPanelsAPI {
+  onOp(callback: (op: CliPanelOp) => void): () => void;
+  respond(requestId: number, response: CliPanelResponse): Promise<void>;
 }
 
 /**

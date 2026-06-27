@@ -71,6 +71,10 @@ body.marketing ::-webkit-scrollbar-thumb:hover {
 
 body.marketing {
   background: var(--marketing-bg);
+  /* Establish a stacking context so the CRT overlay (body.marketing::after,
+     z-index: -1) layers above this opaque background instead of dropping
+     behind the body box into the root context, where the background hides it. */
+  isolation: isolate;
   color: #f5f5f7;
   font-family:
     system-ui,

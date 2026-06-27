@@ -28,9 +28,6 @@ function seedTerminal(projectPath: string, seed: CaptureTerminalSeed): void {
     summaryType: seed.summaryType ?? 'ready',
     worktreeBranch: seed.worktreeBranch ?? null,
     sandboxed: seed.sandboxed ?? false,
-    planPath: seed.planPath ?? null,
-    planPanelOpen: seed.planPanelOpen ?? false,
-    planFullWidth: false,
   });
 
   const term = new OuijitTerminal({
@@ -44,11 +41,8 @@ function seedTerminal(projectPath: string, seed: CaptureTerminalSeed): void {
   });
   term.openTerminal();
   if (seed.planPath) {
-    term.planPath = seed.planPath;
-  }
-  if (seed.planPanelOpen) {
-    term.planPanelOpen = true;
-    term.planFullWidth = false;
+    term.panelFullWidth = false;
+    term.addPlanPanel(seed.planPath, seed.planPanelOpen ?? false);
   }
   terminalInstances.set(seed.ptyId, term);
 

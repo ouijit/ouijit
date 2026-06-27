@@ -356,8 +356,10 @@ export function getPanelFixtures(ptyId: string): PanelFixtures {
 
 /* ─── Shared chrome ───────────────────────────────────────────────── */
 
+// The active panel is an inset beveled card matching the app's terminal cards
+// (glass-bevel rim + crisp black outline + radius), not a flat divided section.
 const PANEL_CHROME =
-  'flex flex-col absolute inset-0 bg-[var(--color-terminal-bg,#171717)] border-l-0 border-t border-white/10';
+  'flex flex-col absolute inset-0 m-3 glass-bevel border border-black/60 rounded-[14px] overflow-hidden bg-[var(--color-terminal-bg,#171717)] shadow-[0_2px_10px_rgba(0,0,0,0.18)]';
 
 interface PanelHeaderProps {
   icon: string;
@@ -368,7 +370,7 @@ interface PanelHeaderProps {
 
 function PanelHeader({ icon, title, onClose, trailing }: PanelHeaderProps) {
   return (
-    <div className="flex items-center gap-2 px-3 py-1.5 bg-white/[0.03] border-b border-white/10 shrink-0">
+    <div className="flex items-center gap-2 px-3 py-1.5 shrink-0">
       <Icon name={icon} className="w-3.5 h-3.5 text-white/50 shrink-0" />
       <span className="text-[13px] text-white/50 truncate flex-1 font-mono">{title}</span>
       {trailing}
@@ -377,6 +379,9 @@ function PanelHeader({ icon, title, onClose, trailing }: PanelHeaderProps) {
       </PanelHeaderButton>
       <PanelHeaderButton aria-label="Minimize" onClick={onClose}>
         <Icon name="minus" className="w-4 h-4" />
+      </PanelHeaderButton>
+      <PanelHeaderButton aria-label="Close" onClick={onClose}>
+        <Icon name="x" className="w-3.5 h-3.5" />
       </PanelHeaderButton>
     </div>
   );
@@ -413,7 +418,7 @@ export function MockPlanPanel({ fixture, onClose }: { fixture: PlanFixture; onCl
   return (
     <div className={PANEL_CHROME}>
       <PanelHeader
-        icon="list-checks"
+        icon="file-text"
         title={fixture.filename}
         onClose={onClose}
         trailing={
@@ -443,7 +448,7 @@ export function MockPlanPanel({ fixture, onClose }: { fixture: PlanFixture; onCl
 export function MockPreviewPanel({ fixture, onClose }: { fixture: PreviewFixture; onClose: () => void }) {
   return (
     <div className={PANEL_CHROME}>
-      <div className="flex items-center gap-2 px-3 py-1.5 bg-white/[0.03] border-b border-white/10 shrink-0">
+      <div className="flex items-center gap-2 px-3 py-1.5 shrink-0">
         <Icon name="globe-simple" className="w-3.5 h-3.5 text-white/50 shrink-0" />
         <div className="flex-1 min-w-0 flex items-center gap-2 px-2 py-1 rounded-md bg-black/30 border border-white/10">
           <span className="text-[11px] font-mono text-white/35">https://</span>
@@ -459,6 +464,9 @@ export function MockPreviewPanel({ fixture, onClose }: { fixture: PreviewFixture
         </PanelHeaderButton>
         <PanelHeaderButton aria-label="Minimize" onClick={onClose}>
           <Icon name="minus" className="w-4 h-4" />
+        </PanelHeaderButton>
+        <PanelHeaderButton aria-label="Close" onClick={onClose}>
+          <Icon name="x" className="w-3.5 h-3.5" />
         </PanelHeaderButton>
       </div>
       <div className="flex-1 overflow-hidden bg-white">{fixture.page}</div>
@@ -511,7 +519,7 @@ export function MockDiffPanel({ fixture, onClose }: { fixture: DiffFixture; onCl
 
   return (
     <div className={PANEL_CHROME}>
-      <div className="flex items-center gap-2 px-3 py-1.5 bg-white/[0.03] border-b border-white/10 shrink-0">
+      <div className="flex items-center gap-2 px-3 py-1.5 shrink-0">
         <Icon name="git-branch" className="w-3.5 h-3.5 text-white/50 shrink-0" />
         <span className="text-[13px] text-white/70 font-mono truncate">
           {fixture.branchAhead ?? 'uncommitted changes'}
@@ -524,6 +532,9 @@ export function MockDiffPanel({ fixture, onClose }: { fixture: DiffFixture; onCl
         <div className="flex-1" />
         <PanelHeaderButton aria-label="Minimize" onClick={onClose}>
           <Icon name="minus" className="w-4 h-4" />
+        </PanelHeaderButton>
+        <PanelHeaderButton aria-label="Close" onClick={onClose}>
+          <Icon name="x" className="w-3.5 h-3.5" />
         </PanelHeaderButton>
       </div>
       {fixture.files.length === 0 ? (

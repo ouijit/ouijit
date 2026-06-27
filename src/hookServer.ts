@@ -367,7 +367,7 @@ You are running inside an Ouijit terminal. The \`ouijit\` CLI manages tasks, tag
 
 ## Environment (pre-set, do not modify)
 - OUIJIT_API_URL — REST API endpoint (already configured)
-- OUIJIT_PTY_ID — this terminal session's ID (used by plan commands)
+- OUIJIT_PTY_ID — this terminal session's ID (used by markdown and preview commands)
 
 ## Task Commands (most common)
 ouijit task list                              # → [{taskNumber, name, status, branch, worktreePath, prompt, ...}]
@@ -417,10 +417,15 @@ ouijit script set --name "<name>" --command "<cmd>"
 ouijit script run <id-or-name>                # executes and streams output
 ouijit script run <id-or-name> --task <number> # run in task's worktree dir
 
-## Plan Commands (terminal session plan files)
-ouijit plan set <path.md>                     # associate plan file with this terminal
-ouijit plan get                               # → {ptyId, planPath}
-ouijit plan unset                             # clear plan association
+## Markdown Panel Commands (open .md files as tabs in this terminal)
+ouijit markdown add <path.md>                 # open a markdown file panel on this terminal
+ouijit markdown list                          # → {ptyId, kind, panels: [{label, path, active}, ...]}
+ouijit markdown remove <path.md>              # close that markdown panel
+
+## Web Preview Commands (open a URL as a tab in this terminal)
+ouijit preview add <url>                      # open a web preview panel (http/https) on this terminal
+ouijit preview list                           # → {ptyId, kind, panels: [{label, url, active}, ...]}
+ouijit preview remove <url>                   # close that preview panel
 
 ## Project Commands
 ouijit project list                           # → all registered projects

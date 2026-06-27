@@ -257,7 +257,7 @@ export const KanbanCard = memo(function KanbanCard({
       },
     });
 
-    const planDisplay = connectedDisplays.find((d) => d.planPath);
+    const planDisplay = connectedDisplays.find((d) => d.panels.some((p) => p.kind === 'plan'));
     if (planDisplay) {
       items.push({
         label: 'View Plan',
@@ -265,12 +265,8 @@ export const KanbanCard = memo(function KanbanCard({
         onClick: () => {
           onSwitchToTerminal(planDisplay.ptyId);
           const inst = terminalInstances.get(planDisplay.ptyId);
-          if (inst && !inst.planPanelOpen) {
-            inst.planPanelOpen = true;
-            inst.diffPanelOpen = false;
-            inst.runnerPanelOpen = false;
-            inst.pushDisplayState({ planPanelOpen: true, diffPanelOpen: false, runnerPanelOpen: false });
-          }
+          const planPanel = inst?.panels.find((p) => p.kind === 'plan');
+          if (inst && planPanel) inst.activatePanel(planPanel.id);
         },
       });
     }
