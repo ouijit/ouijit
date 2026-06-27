@@ -11,6 +11,7 @@ import {
   buildVmCodexConfig,
   buildVmCodexTrustState,
   buildVmPiExtension,
+  buildVmOpencodePlugin,
 } from '../hookServer';
 import { issueToken, revokeToken } from '../apiAuth';
 import { getTaskByNumber } from '../db';
@@ -59,8 +60,9 @@ function handleOutput(ptyId: PtyId, channel: string, data: string): void {
 
 /**
  * Build bash commands that inject the ouijit-hook script, Claude settings,
- * Codex config, and the Pi extension into the VM's ephemeral home directory.
- * Runs once per shell spawn so hooks are always fresh (never stale).
+ * Codex config, the Pi extension, and the opencode plugin into the VM's
+ * ephemeral home directory. Runs once per shell spawn so hooks are always
+ * fresh (never stale).
  *
  * The ouijit CLI reference file is deliberately not written into the
  * sandbox VM. The CLI would give an agent inside the VM task-management
@@ -72,6 +74,7 @@ function buildVmHookSetup(): string {
   const hookSettings = buildVmHookSettings();
   const codexConfig = buildVmCodexConfig();
   const piExtension = buildVmPiExtension();
+  const opencodePlugin = buildVmOpencodePlugin();
   return [
     // Write hook script using quoted heredoc (prevents $VAR expansion at write time)
     `cat > ~/ouijit-hook <<'OUIJIT_HOOK_EOF'`,
@@ -99,6 +102,13 @@ function buildVmHookSetup(): string {
     `cat > ~/.pi/agent/extensions/ouijit/index.ts <<'OUIJIT_PI_EXT_EOF'`,
     piExtension,
     'OUIJIT_PI_EXT_EOF',
+    // opencode plugin lands in its global auto-load path (no wrapper in the
+    // VM). OUIJIT_HOOK_BIN is exported below, so the plugin reports status
+    // exactly as on the host. The CLI reference is deliberately omitted.
+    'mkdir -p ~/.config/opencode/plugins',
+    `cat > ~/.config/opencode/plugins/ouijit.ts <<'OUIJIT_OPENCODE_PLUGIN_EOF'`,
+    opencodePlugin,
+    'OUIJIT_OPENCODE_PLUGIN_EOF',
     '',
   ].join('\n');
 }

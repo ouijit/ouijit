@@ -12,6 +12,7 @@ export interface HealthStatus {
   claude: boolean;
   codex: boolean;
   pi: boolean;
+  opencode: boolean;
   lima: boolean;
   gitVersion?: string;
 }
@@ -55,20 +56,31 @@ async function detectPi(): Promise<boolean> {
   }
 }
 
+async function detectOpencode(): Promise<boolean> {
+  try {
+    await execFileAsync('which', ['opencode']);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export async function checkHealth(): Promise<HealthStatus> {
-  const [git, claude, codex, pi, lima] = await Promise.all([
+  const [git, claude, codex, pi, opencode, lima] = await Promise.all([
     detectGit(),
     detectClaude(),
     detectCodex(),
     detectPi(),
+    detectOpencode(),
     isLimaInstalled(),
   ]);
-  cached = { git: git.ok, claude, codex, pi, lima, gitVersion: git.version };
+  cached = { git: git.ok, claude, codex, pi, opencode, lima, gitVersion: git.version };
   healthLog.info('health probe', {
     git: cached.git,
     claude: cached.claude,
     codex: cached.codex,
     pi: cached.pi,
+    opencode: cached.opencode,
     lima: cached.lima,
     gitVersion: cached.gitVersion,
   });
