@@ -108,8 +108,8 @@ export function registerPlanHandlers(mainWindow: BrowserWindow): void {
       properties: ['openFile', 'showHiddenFiles'],
       filters: [{ name: 'Markdown', extensions: ['md'] }],
       defaultPath: defaultPath ?? undefined,
-      title: 'Select Plan File',
-      buttonLabel: 'Open Plan',
+      title: 'Select Markdown File',
+      buttonLabel: 'Open',
     });
     return {
       canceled: result.canceled,

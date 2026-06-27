@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, Menu, nativeImage, nativeTheme, shell, Tray } from 'electron';
+import { app, BrowserWindow, dialog, Menu, nativeImage, shell, Tray } from 'electron';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 import started from 'electron-squirrel-startup';
@@ -192,9 +192,12 @@ if (started) {
 }
 
 const createWindow = (): BrowserWindow => {
-  // Determine background color based on system theme
-  const isDark = nativeTheme.shouldUseDarkColors;
-  const backgroundColor = isDark ? '#1C1C1E' : '#F5F5F7';
+  // The renderer UI is always dark (see --color-background / color-scheme:dark
+  // in index.css), so the native window background must be dark too regardless
+  // of the system theme. Otherwise, in light mode the WebContents surface lags
+  // behind the native frame during live resize and the near-white window
+  // background flashes through as bars on the bottom and right edges.
+  const backgroundColor = '#1C1C1E';
 
   // Create the browser window.
   const isMac = process.platform === 'darwin';

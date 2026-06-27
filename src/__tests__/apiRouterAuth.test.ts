@@ -3,7 +3,7 @@
  * hook server with a real HTTP client. Covers:
  *   - Unauthenticated requests get 401.
  *   - Host-only routes reject sandbox-scoped tokens with 403.
- *   - Sandbox-scoped tokens can hit plan/:ptyId but only for own ptyId.
+ *   - Panel routes are host-only: sandbox-scoped tokens are refused.
  *   - POST /api/tasks/start with sandboxed:false is refused on sandbox scope.
  */
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest';
@@ -54,6 +54,12 @@ vi.mock('../taskLifecycle', () => ({
 
 vi.mock('../projectList', () => ({
   getProjectList: vi.fn(async () => []),
+}));
+
+// Panel routes forward to the renderer via this bridge; stub it so the route's
+// own auth/scope checks are what we exercise, not the renderer round-trip.
+vi.mock('../cliPanels', () => ({
+  cliPanelRequest: vi.fn(async () => ({ ok: true, panels: [] })),
 }));
 
 import { startHookServer, stopHookServer, getApiPort } from '../hookServer';
@@ -157,27 +163,33 @@ describe('REST API auth', () => {
   });
 });
 
-describe('plan scope', () => {
-  test('sandbox token cannot GET any plan (host-only)', async () => {
-    // The guest has no legitimate reason to read plan paths directly —
-    // it writes via /hook action:plan which server-joins safely under
-    // ~/.claude/plans. Keep the GET endpoint host-only.
+describe('panel scope', () => {
+  test('sandbox token cannot GET panels (host-only)', async () => {
+    // The guest has no legitimate reason to read host panel state directly —
+    // agent-detected plans flow through /hook action:plan, which server-joins
+    // safely under ~/.claude/plans. Keep panel routes host-only.
     const token = issueToken('pty-42', 'sandbox');
-    const res = await request('GET', '/api/plan/pty-42', token);
+    const res = await request('GET', '/api/panels/pty-42/markdown', token);
     expect(res.status).toBe(403);
   });
 
-  test('sandbox token cannot POST a plan path', async () => {
+  test('sandbox token cannot POST a markdown panel', async () => {
     // An attacker with a sandbox token must not be able to steer the
-    // host renderer to read an arbitrary .md file on the host.
+    // host renderer to open an arbitrary .md file on the host.
     const token = issueToken('pty-42', 'sandbox');
-    const res = await request('POST', '/api/plan/pty-42', token, { path: '/tmp/x.md' });
+    const res = await request('POST', '/api/panels/pty-42/markdown', token, { path: '/tmp/x.md' });
     expect(res.status).toBe(403);
   });
 
-  test('host token can POST a plan path', async () => {
+  test('host token can POST a markdown panel', async () => {
     const token = issueToken('pty-42', 'host');
-    const res = await request('POST', '/api/plan/pty-42', token, { path: '/tmp/x.md' });
+    const res = await request('POST', '/api/panels/pty-42/markdown', token, { path: '/tmp/x.md' });
+    expect(res.status).toBe(200);
+  });
+
+  test('host token can POST a preview panel', async () => {
+    const token = issueToken('pty-42', 'host');
+    const res = await request('POST', '/api/panels/pty-42/preview', token, { url: 'http://localhost:3000' });
     expect(res.status).toBe(200);
   });
 });

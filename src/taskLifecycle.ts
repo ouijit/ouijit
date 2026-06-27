@@ -113,10 +113,10 @@ export async function beginTask(
   // Surface a non-fatal warning if no supported coding agent is on PATH. The
   // kanban / open terminal handlers route these to a one-time toast.
   const health = getCachedHealth();
-  if (health && !health.claude && !health.codex && !health.pi) {
+  if (health && !health.claude && !health.codex && !health.pi && !health.opencode) {
     result.warnings = [
       ...(result.warnings ?? []),
-      'No coding agent found on PATH. Install Claude Code (claude.com/claude-code), Codex, or Pi (pi.dev) to use AI workflows in this terminal.',
+      'No coding agent found on PATH. Install Claude Code (claude.com/claude-code), Codex, Pi (pi.dev), or opencode (opencode.ai) to use AI workflows in this terminal.',
     ];
   }
 

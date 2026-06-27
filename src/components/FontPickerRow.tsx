@@ -202,8 +202,12 @@ export function FontPickerRow({ label, description, value, defaultLabel, onCommi
             }}
             role="listbox"
             aria-label="Choose terminal font"
-            style={floatingStyles}
-            className="w-[16rem] max-h-[24rem] overflow-y-auto bg-surface border border-border rounded-md shadow-lg z-[1000] py-1"
+            style={{
+              ...floatingStyles,
+              background: 'var(--color-terminal-bg, #171717)',
+              boxShadow: '0 0 0 1px rgba(0, 0, 0, 0.05), 0 10px 30px rgba(0, 0, 0, 0.35)',
+            }}
+            className="w-[16rem] max-h-[24rem] overflow-y-auto border border-black/60 rounded-[12px] z-[1000] p-1"
           >
             <FontOptionRow
               label={defaultLabel}
@@ -211,10 +215,10 @@ export function FontPickerRow({ label, description, value, defaultLabel, onCommi
               selected={!trimmedValue}
               onClick={() => select('')}
             />
-            <div className="my-1 mx-3 border-t border-white/[0.06]" />
-            {loading && <div className="px-3 py-2 text-xs text-text-tertiary">Loading installed fonts…</div>}
+            <div className="my-1 mx-1 border-t border-white/[0.06]" />
+            {loading && <div className="px-2.5 py-2 text-xs text-text-tertiary">Loading installed fonts…</div>}
             {!loading && options.length === 0 && (
-              <div className="px-3 py-2 text-xs text-text-tertiary">No monospace fonts found.</div>
+              <div className="px-2.5 py-2 text-xs text-text-tertiary">No monospace fonts found.</div>
             )}
             {!loading &&
               options.map((opt) => (
@@ -227,7 +231,7 @@ export function FontPickerRow({ label, description, value, defaultLabel, onCommi
                 />
               ))}
             {!loading && usingFallback && (
-              <div className="px-3 pt-2 pb-1 text-[11px] text-text-tertiary border-t border-white/[0.06] mt-1">
+              <div className="px-2.5 pt-2 pb-1 text-[11px] text-text-tertiary border-t border-white/[0.06] mt-1">
                 Showing fallback list — allow font access to see your installed fonts.
               </div>
             )}
@@ -255,7 +259,7 @@ function FontOptionRow({ label, hint, fontFamily, selected, onClick }: FontOptio
         e.preventDefault();
         onClick();
       }}
-      className={`w-full text-left px-3 py-1.5 text-sm flex items-center gap-2 hover:bg-background-tertiary transition-colors duration-100 ${
+      className={`w-full text-left px-2.5 py-1.5 rounded-[7px] text-sm flex items-center gap-2 hover:bg-white/[0.08] transition-colors duration-100 ${
         selected ? 'text-text-primary bg-white/[0.04]' : 'text-text-secondary'
       }`}
     >

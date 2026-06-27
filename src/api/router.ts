@@ -34,12 +34,12 @@ import {
   getTaskWithWorkspace,
 } from '../taskLifecycle';
 import { getProjectList } from '../projectList';
-import { getPlanPath, setPlanPath, clearPlanPath } from '../hookServer';
+import { cliPanelRequest } from '../cliPanels';
 import { isPtyActive, getPtyTaskContext } from '../ptyManager';
 import { typedPush } from '../ipc/helpers';
 import { getLogger } from '../logger';
 import { authenticateRequest, type AuthContext, type ApiScope } from '../apiAuth';
-import type { CliHookMode } from '../types';
+import type { CliHookMode, CliPanelKind } from '../types';
 import { isCaptureMode } from '../capture/captureMode';
 import { handleCaptureNavigate, handleCaptureSnapshot } from '../capture/captureRoutes';
 
@@ -209,6 +209,50 @@ function route(
   minScope: ApiScope = 'host',
 ): Route {
   return { method, pattern: pattern.split('/').filter(Boolean), handler, mutating, minScope };
+}
+
+// ── Panel route helpers ──────────────────────────────────────────────
+
+function parsePanelKind(segment: string): CliPanelKind {
+  if (segment === 'markdown' || segment === 'preview') return segment;
+  throw new HttpError(404, `Unknown panel kind '${segment}' (expected 'markdown' or 'preview')`);
+}
+
+/**
+ * Validate and normalize the add/remove target for a panel kind. Markdown
+ * paths are resolved to absolute so a removal matches the path a prior add
+ * stored. Returns undefined for list ops (no target).
+ */
+function panelValue(kind: CliPanelKind, rawPath?: unknown, rawUrl?: unknown): string {
+  if (kind === 'markdown') {
+    if (typeof rawPath !== 'string' || !rawPath) throw new HttpError(400, 'Missing path');
+    if (!rawPath.endsWith('.md')) throw new HttpError(400, 'Markdown path must be a .md file');
+    return path.resolve(rawPath);
+  }
+  if (typeof rawUrl !== 'string' || !rawUrl) throw new HttpError(400, 'Missing url');
+  let parsed: URL;
+  try {
+    parsed = new URL(rawUrl);
+  } catch {
+    throw new HttpError(400, `Invalid url: ${rawUrl}`);
+  }
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    throw new HttpError(400, 'Preview url must be http(s)');
+  }
+  return rawUrl;
+}
+
+/** Forward a panel op to the renderer (via the CLI panel bridge) and shape the reply. */
+async function runPanelOp(
+  ptyId: string,
+  action: 'list' | 'add' | 'remove',
+  kind: CliPanelKind,
+  value?: string,
+): Promise<{ ptyId: string; kind: CliPanelKind; panels: unknown }> {
+  if (!isPtyActive(ptyId)) throw new HttpError(404, `PTY ${ptyId} not found or inactive`);
+  const result = await cliPanelRequest({ ptyId, action, kind, value });
+  if (!result.ok) throw new HttpError(404, result.error ?? 'Panel operation failed');
+  return { ptyId, kind, panels: result.panels ?? [] };
 }
 
 const routes: Route[] = [
@@ -452,45 +496,37 @@ const routes: Route[] = [
     true,
   ),
 
-  // ── Plan ──────────────────────────────────────────────────────────
-  // These routes are host-only: the guest shouldn't be able to steer
-  // the host renderer to read arbitrary .md files outside the worktree
-  // by setting a plan path. Inside the guest, plans flow through the
-  // `/hook` action:plan path which server-joins under ~/.claude/plans.
-  route('GET', 'plan/:ptyId', (r) => {
-    const ptyId = r.segments[1];
-    return { ptyId, planPath: getPlanPath(ptyId) };
-  }),
+  // ── Panels ────────────────────────────────────────────────────────
+  // The two user-addressable panel kinds on a terminal: markdown files and
+  // web previews. A terminal can hold several of each, so these are plural
+  // (list/add/remove) rather than the old single-plan-per-pty model.
+  //
+  // Host-only (default scope): the guest shouldn't be able to steer the host
+  // renderer to open arbitrary .md files or URLs. Agent-detected plans inside
+  // a guest still flow through the `/hook` action:plan path, which server-joins
+  // safely under ~/.claude/plans.
+  route('GET', 'panels/:ptyId/:kind', (r) => runPanelOp(r.segments[1], 'list', parsePanelKind(r.segments[2]))),
 
   route(
     'POST',
-    'plan/:ptyId',
+    'panels/:ptyId/:kind',
     (r) => {
-      const ptyId = r.segments[1];
-      const planPath = r.body.path;
-      if (typeof planPath !== 'string' || !planPath) {
-        throw new HttpError(400, 'Missing path in body');
-      }
-      if (!planPath.endsWith('.md')) {
-        throw new HttpError(400, 'Plan path must be a .md file');
-      }
-      if (!isPtyActive(ptyId)) {
-        throw new HttpError(404, `PTY ${ptyId} not found or inactive`);
-      }
-      const resolved = path.resolve(planPath);
-      setPlanPath(ptyId, resolved);
-      return { success: true, ptyId, planPath: resolved };
+      const kind = parsePanelKind(r.segments[2]);
+      const value = panelValue(kind, r.body.path, r.body.url);
+      return runPanelOp(r.segments[1], 'add', kind, value);
     },
     true,
   ),
 
   route(
     'DELETE',
-    'plan/:ptyId',
+    'panels/:ptyId/:kind',
     (r) => {
-      const ptyId = r.segments[1];
-      clearPlanPath(ptyId);
-      return { success: true, ptyId };
+      const kind = parsePanelKind(r.segments[2]);
+      // DELETE carries no body through the CLI client; the target comes in the
+      // query string (?path= / ?url=).
+      const value = panelValue(kind, r.query.get('path') ?? undefined, r.query.get('url') ?? undefined);
+      return runPanelOp(r.segments[1], 'remove', kind, value);
     },
     true,
   ),

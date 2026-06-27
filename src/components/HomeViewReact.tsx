@@ -3,16 +3,10 @@ import { useAppStore } from '../stores/appStore';
 import { useTerminalStore } from '../stores/terminalStore';
 import { useUIStore } from '../stores/uiStore';
 import { terminalInstances } from './terminal/terminalReact';
-import {
-  reconnectTerminal,
-  reconnectRunnerToParent,
-  addProjectTerminal,
-  closeProjectTerminal,
-} from './terminal/terminalActions';
+import { reconnectOrphanedSessions, addProjectTerminal, closeProjectTerminal } from './terminal/terminalActions';
 import { TerminalHeader } from './terminal/TerminalHeader';
 import { TerminalBody } from './terminal/TerminalBody';
 import { XTermContainer } from './terminal/XTermContainer';
-import { useTerminalPanels } from './terminal/useTerminalPanels';
 import { useHookStatusListener } from '../hooks/useHookStatusListener';
 import { Icon } from './terminal/Icon';
 import { stringToColor, getInitials } from '../utils/projectIcon';
@@ -77,56 +71,14 @@ export function HomeView() {
     });
   }, []);
 
-  // Reconnect orphaned sessions
+  // Reconnect orphaned sessions across all projects (the home recents stack is
+  // cross-project). Uses the same reconnect path as the project view so panels
+  // and focus restore identically — see reconnectOrphanedSessions.
   useEffect(() => {
     if (reconnectedRef.current) return;
     if (allPtyIds.length > 0) return;
     reconnectedRef.current = true;
-
-    (async () => {
-      let sessions;
-      try {
-        sessions = await window.api.pty.getActiveSessions();
-      } catch {
-        return;
-      }
-      if (sessions.length === 0) return;
-
-      // Shells owned by the standalone terminal window reconnect in that window,
-      // not here — exclude them so the main app window doesn't reclaim them.
-      sessions = sessions.filter((s) => !s.standalone);
-
-      // Runners (run hooks / scripts) aren't standalone cards — they live as
-      // state on their parent terminal. Reconnect main terminals first so the
-      // parents are back in terminalInstances before runners reattach,
-      // otherwise a runner would be promoted to its own "run hook" card.
-      const mainSessions = sessions.filter((s) => !s.isRunner);
-      const runnerSessions = sessions.filter((s) => s.isRunner);
-
-      for (const session of mainSessions) {
-        if (terminalInstances.has(session.ptyId)) continue;
-        let worktreeBranch: string | undefined;
-        if (session.taskId != null) {
-          const task = await window.api.task.getByNumber(session.projectPath, session.taskId);
-          worktreeBranch = task?.branch;
-        }
-        const [hookStatus, planPath] = await Promise.all([
-          window.api.agentHooks.getStatus(session.ptyId),
-          window.api.plan.getForPty(session.ptyId),
-        ]);
-        const initialStatus = hookStatus?.status === 'thinking' ? ('thinking' as const) : ('ready' as const);
-        const term = await reconnectTerminal(session, { worktreeBranch, initialStatus });
-        if (term && planPath) {
-          term.planPath = planPath;
-          term.pushDisplayState({ planPath });
-        }
-      }
-
-      for (const session of runnerSessions) {
-        if (terminalInstances.has(session.ptyId)) continue;
-        await reconnectRunnerToParent(session);
-      }
-    })();
+    void reconnectOrphanedSessions();
   }, [allPtyIds.length]);
 
   const activeDisplay = activePtyId ? displayStates[activePtyId] : null;
@@ -335,19 +287,6 @@ export function HomeView() {
     closeProjectTerminal(ptyId);
   };
 
-  const {
-    toggleDiffPanel,
-    closeDiffPanel,
-    toggleRunner,
-    collapseRunner,
-    killRunner,
-    restartRunner,
-    closePlanPanel,
-    changePlanFile,
-    closeWebPreviewPanel,
-    changeWebPreviewUrl,
-  } = useTerminalPanels(activePtyId);
-
   if (allPtyIds.length === 0) {
     const noProjects = projectCount === 0;
     const noRecents = !noProjects && homeRecents !== null && homeRecents.length === 0;
@@ -444,27 +383,9 @@ export function HomeView() {
             }}
             onClick={() => !isActive && setActivePtyId(ptyId)}
           >
-            <TerminalHeader
-              ptyId={ptyId}
-              isActive={isActive}
-              compact={!isActive}
-              onClose={() => handleClose(ptyId)}
-              onToggleDiffPanel={isActive ? toggleDiffPanel : undefined}
-              onToggleRunner={isActive ? toggleRunner : undefined}
-            />
+            <TerminalHeader ptyId={ptyId} isActive={isActive} compact={!isActive} onClose={() => handleClose(ptyId)} />
             {isActive ? (
-              <TerminalBody
-                ptyId={ptyId}
-                projectPath={activeDisplay?.projectPath ?? ''}
-                onCloseDiffPanel={closeDiffPanel}
-                onClosePlanPanel={closePlanPanel}
-                onChangePlanFile={changePlanFile}
-                onCloseWebPreviewPanel={closeWebPreviewPanel}
-                onChangeWebPreviewUrl={changeWebPreviewUrl}
-                onCollapseRunner={collapseRunner}
-                onKillRunner={killRunner}
-                onRestartRunner={restartRunner}
-              />
+              <TerminalBody ptyId={ptyId} projectPath={activeDisplay?.projectPath ?? ''} />
             ) : (
               <div className="relative flex-1 flex flex-row min-h-0 overflow-hidden">
                 <XTermContainer ptyId={ptyId} />

@@ -23,7 +23,10 @@ import { fileURLToPath } from 'node:url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const REPO_ROOT = path.resolve(__dirname, '..', '..');
-const OUT_DIR = path.join(REPO_ROOT, 'website', 'assets', 'screenshots');
+// Write straight into the website's served/committed asset dir so a capture run
+// actually updates the images the site (index.astro) and README reference. Astro
+// serves `public/` at the site root, so these land at /assets/screenshots/*.png.
+const OUT_DIR = path.join(REPO_ROOT, 'website', 'public', 'assets', 'screenshots');
 
 if (process.platform !== 'darwin') {
   console.error('npm run capture is macOS only (uses screencapture).');
@@ -136,30 +139,9 @@ function buildTerminalSeeds() {
   ];
 }
 
-function buildCanvasSeeds() {
-  const positionsByPtyId = {
-    'capture-pty-1a': { x: 0, y: 0 },
-    'capture-pty-1b': { x: 800, y: 0 },
-    'capture-pty-2': { x: 1600, y: 0 },
-    'capture-pty-3': { x: 400, y: 620 },
-    'capture-pty-4': { x: 1200, y: 620 },
-  };
-  return buildTerminalSeeds().map((seed) => ({
-    ...seed,
-    canvasPosition: positionsByPtyId[seed.ptyId],
-  }));
-}
-
 const SCENES = [
   { scene: 'kanban', file: 'kanban.png', needsProject: true, seeds: buildTerminalSeeds() },
   { scene: 'terminal-stack', file: 'terminal-stack.png', needsProject: true },
-  {
-    scene: 'canvas',
-    file: 'canvas.png',
-    needsProject: true,
-    seeds: buildCanvasSeeds(),
-    canvasViewport: { x: 120, y: 140, zoom: 0.4 },
-  },
   { scene: 'settings', file: 'settings.png', needsProject: true },
 ];
 
@@ -291,7 +273,6 @@ async function main() {
       const payload = { scene: scene.scene };
       if (scene.needsProject) payload.projectPath = projectPath;
       if (scene.seeds) payload.terminalSeeds = scene.seeds;
-      if (scene.canvasViewport) payload.canvasViewport = scene.canvasViewport;
 
       console.log(`→ ${scene.scene}`);
       const outPath = path.join(OUT_DIR, scene.file);

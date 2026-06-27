@@ -14,10 +14,11 @@ import {
   addProjectTerminal,
   closeProjectTerminal,
   reconnectOrphanedSessions,
-  spawnRunner,
+  startRunner,
 } from './terminal/terminalActions';
 import { terminalInstances, refreshAllTerminalGitStatus } from './terminal/terminalReact';
 import { useHookStatusListener } from '../hooks/useHookStatusListener';
+import { useCliPanelListener } from '../hooks/useCliPanelListener';
 
 const isMac = navigator.platform.toLowerCase().includes('mac');
 const GIT_STATUS_PERIODIC_INTERVAL = 30000;
@@ -137,16 +138,12 @@ export function ProjectView() {
         if (pPtyId) {
           const inst = terminalInstances.get(pPtyId);
           if (inst) {
-            if (inst.runner?.ptyId) {
-              inst.runnerPanelOpen = !inst.runnerPanelOpen;
-              if (inst.runnerPanelOpen && inst.diffPanelOpen) {
-                inst.diffPanelOpen = false;
-                inst.pushDisplayState({ runnerPanelOpen: true, diffPanelOpen: false });
-              } else {
-                inst.pushDisplayState({ runnerPanelOpen: inst.runnerPanelOpen });
-              }
+            // Activate an existing runner tab, else start a new runner.
+            const runnerPanel = inst.panels.find((p) => p.kind === 'runner');
+            if (runnerPanel) {
+              inst.activatePanel(runnerPanel.id);
             } else {
-              spawnRunner(pPtyId);
+              void startRunner(pPtyId);
             }
             useProjectStore.getState().setKanbanVisible(false);
           }
@@ -162,8 +159,7 @@ export function ProjectView() {
         if (tPtyId) {
           const inst = terminalInstances.get(tPtyId);
           if (inst) {
-            inst.diffPanelOpen = !inst.diffPanelOpen;
-            inst.pushDisplayState({ diffPanelOpen: inst.diffPanelOpen });
+            inst.toggleDiffPanel();
             if (inst.diffPanelOpen) useProjectStore.getState().setKanbanVisible(false);
           }
         }
@@ -265,6 +261,7 @@ export function ProjectView() {
   useEffect(() => {
     if (!projectPath) return;
     useProjectStore.getState().loadProjectConfig(projectPath);
+    useProjectStore.getState().loadScripts(projectPath);
   }, [projectPath]);
 
   // Periodic git status refresh — pauses while the window is hidden so we
@@ -296,17 +293,20 @@ export function ProjectView() {
   // Hook status: register ongoing listener + seed existing terminals
   useHookStatusListener(projectPath);
 
+  // CLI panel ops (`ouijit markdown` / `ouijit preview`) → live terminal panels
+  useCliPanelListener();
+
   // Plan detection: register listeners + seed existing terminals
   useEffect(() => {
     if (!projectPath) return;
 
-    // Plan file path captured (Write/Edit to .claude/plans/)
+    // Plan file path captured (Write/Edit to .claude/plans/). Ensure a plan
+    // panel exists for it (without stealing focus from the current panel).
     const cleanupDetected = window.api.plan.onDetected((ptyId, planPath) => {
       const apply = () => {
         const instance = terminalInstances.get(ptyId);
-        if (instance) {
-          instance.planPath = planPath;
-          instance.pushDisplayState({ planPath });
+        if (instance && !instance.panels.some((p) => p.kind === 'plan' && p.planPath === planPath)) {
+          instance.addPlanPanel(planPath, false);
         }
       };
       // Instance may not exist yet if reconnection is in progress
@@ -317,15 +317,12 @@ export function ProjectView() {
       }
     });
 
-    // Plan finalized (ExitPlanMode fired) — auto-open the plan panel
+    // Plan finalized (ExitPlanMode fired) — surface and activate the plan panel
     const cleanupReady = window.api.plan.onReady((ptyId) => {
       const instance = terminalInstances.get(ptyId);
-      if (instance?.planPath && !instance.planPanelOpen) {
-        instance.planPanelOpen = true;
-        instance.diffPanelOpen = false;
-        instance.runnerPanelOpen = false;
-        instance.pushDisplayState({ planPanelOpen: true, diffPanelOpen: false, runnerPanelOpen: false });
-      }
+      if (!instance) return;
+      const planPanel = instance.panels.find((p) => p.kind === 'plan');
+      if (planPanel) instance.activatePanel(planPanel.id);
     });
 
     return () => {

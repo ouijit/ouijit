@@ -18,6 +18,8 @@ import { useProjectStore } from '../../stores/projectStore';
 import { useCanvasStore, persistCanvas } from '../../stores/canvasStore';
 import { useAppStore, staleGuard } from '../../stores/appStore';
 import { OuijitTerminal, terminalInstances, resolveTerminalLabel, type SummaryType } from './terminalReact';
+import type { TerminalPanel } from './panelTypes';
+import { generateId } from '../../utils/ids';
 import { parseOsc133ExitCodes } from './osc133';
 import { buildEditorCommand } from './editorCommand';
 import { readSnapshot } from './sessionSnapshot';
@@ -26,18 +28,6 @@ import { descriptionToHookPrompt } from '../../utils/descriptionAttachments';
 import log from 'electron-log/renderer';
 
 const actionsLog = log.scope('terminalActions');
-
-// ── Dev server URL detection ─────────────────────────────────────────
-
-function applyDetectedWebPreviewUrl(parent: OuijitTerminal, url: string): void {
-  // Respect manual edits: only overwrite if unset or the previous value was
-  // itself auto-detected (e.g. Vite bumped to a new port).
-  if (parent.webPreviewUrl && !parent.webPreviewUrlAutoDetected) return;
-  if (parent.webPreviewUrl === url) return;
-  parent.webPreviewUrl = url;
-  parent.webPreviewUrlAutoDetected = true;
-  parent.pushDisplayState({ webPreviewUrl: url });
-}
 
 // ── Types ────────────────────────────────────────────────────────────
 
@@ -73,40 +63,86 @@ export interface AddProjectTerminalOptions {
  * reconnect path (live PTYs), so the two stay in lockstep.
  */
 export async function applyInitialUiState(term: OuijitTerminal, ui: SnapshotTerminalUi): Promise<void> {
-  if (ui.planPath) {
-    term.planPath = ui.planPath;
-    // Older snapshots had no planPanelOpen flag and always re-opened the panel
-    // when a plan was attached — preserve that as the fallback.
-    term.planPanelOpen = ui.planPanelOpen ?? true;
-    term.pushDisplayState({ planPath: ui.planPath, planPanelOpen: term.planPanelOpen });
+  // Runner panels are restored idle (never auto-respawned): a benign `npm run
+  // dev` is fine to re-run, but a destructive `Reset DB` should not fire on
+  // Resume. The script is preloaded so one click re-launches it.
+  const panels: TerminalPanel[] = [];
+  let activeId: string | null = null;
+
+  if (ui.panels) {
+    // New shape: a list of panels.
+    for (const sp of ui.panels) {
+      const id = generateId('panel');
+      switch (sp.kind) {
+        case 'runner':
+          panels.push({
+            id,
+            kind: 'runner',
+            scriptName: sp.scriptName ?? null,
+            scriptCommand: sp.scriptCommand ?? null,
+            command: sp.scriptCommand ?? null,
+            // Legacy snapshots (pre-source) default to 'script'; harmless since
+            // a restored runner is idle until the user re-runs it.
+            source: sp.source ?? 'script',
+            status: 'idle',
+          });
+          break;
+        case 'webPreview':
+          if (sp.url) {
+            panels.push({ id, kind: 'webPreview', url: sp.url, urlAutoDetected: false, sourceRunnerPanelId: null });
+          }
+          break;
+        case 'plan':
+          if (sp.planPath) panels.push({ id, kind: 'plan', planPath: sp.planPath });
+          break;
+      }
+    }
+    const ai = ui.activePanelIndex;
+    activeId = ai != null && ai >= 0 && ai < panels.length ? panels[ai].id : null;
+    if (ui.panelFullWidth != null) term.panelFullWidth = ui.panelFullWidth;
+    if (ui.panelSplitRatio != null) term.panelSplitRatio = ui.panelSplitRatio;
+  } else {
+    // Legacy singleton shape — at most one panel was open (mutually exclusive).
+    if (ui.planPath) {
+      const id = generateId('panel');
+      panels.push({ id, kind: 'plan', planPath: ui.planPath });
+      if (ui.planPanelOpen ?? true) activeId = id;
+    }
+    if (ui.webPreview?.url) {
+      const id = generateId('panel');
+      panels.push({
+        id,
+        kind: 'webPreview',
+        url: ui.webPreview.url,
+        urlAutoDetected: false,
+        sourceRunnerPanelId: null,
+      });
+      if (ui.webPreview.panelOpen) activeId = id;
+    }
+    if (ui.runner) {
+      const id = generateId('panel');
+      panels.push({
+        id,
+        kind: 'runner',
+        scriptName: ui.runner.scriptName ?? null,
+        scriptCommand: ui.runner.scriptCommand,
+        command: ui.runner.scriptCommand,
+        source: 'script',
+        status: 'idle',
+      });
+    }
+    term.panelFullWidth = ui.webPreview?.fullWidth ?? ui.runner?.fullWidth ?? true;
+    if (ui.webPreview?.splitRatio != null) term.panelSplitRatio = ui.webPreview.splitRatio;
   }
+
+  term.panels = panels;
+  // Diff and an active panel are mutually exclusive — the diff wins on restore.
+  term.activePanelId = ui.diffPanelOpen ? null : activeId;
+  term.syncPanels();
 
   if (ui.diffPanelOpen) {
     term.diffPanelOpen = true;
     term.pushDisplayState({ diffPanelOpen: true });
-  }
-
-  if (ui.webPreview?.url) {
-    term.webPreviewUrl = ui.webPreview.url;
-    term.webPreviewUrlAutoDetected = false;
-    term.webPreviewPanelOpen = ui.webPreview.panelOpen;
-    term.webPreviewFullWidth = ui.webPreview.fullWidth;
-    term.webPreviewSplitRatio = ui.webPreview.splitRatio;
-    term.pushDisplayState({
-      webPreviewUrl: ui.webPreview.url,
-      webPreviewPanelOpen: ui.webPreview.panelOpen,
-      webPreviewFullWidth: ui.webPreview.fullWidth,
-    });
-  }
-
-  if (ui.runner) {
-    // Don't auto-respawn the previously-running script. A user's `npm run dev`
-    // is benign to re-run, but a `Reset DB` or similar destructive script
-    // would silently fire on Resume. Pre-load the script so one click on Run
-    // re-launches it, and surface its name in the header.
-    term.runnerFullWidth = ui.runner.fullWidth;
-    term.runnerScript = { name: ui.runner.scriptName ?? '', command: ui.runner.scriptCommand };
-    term.pushDisplayState({ runnerScriptName: ui.runner.scriptName ?? null });
   }
 }
 
@@ -466,75 +502,104 @@ export async function reconnectTerminal(
  * never for a long-running runner — OSC 133 is the per-command signal that
  * actually reflects whether the script succeeded or failed.
  */
-export function updateRunnerStatusFromOsc133(data: string, parent: OuijitTerminal): void {
+export function updateRunnerStatusFromOsc133(data: string, parent: OuijitTerminal, panelId: string): void {
   // Only the most recent exit code in this batch matters — earlier codes are
   // already visually obsolete by the time the renderer sees them.
   const codes = parseOsc133ExitCodes(data);
   if (codes.length === 0) return;
   const next = codes[codes.length - 1] === 0 ? 'success' : 'error';
-  if (parent.runnerStatus !== next) {
-    parent.runnerStatus = next;
-    parent.pushDisplayState({ runnerStatus: next });
+  const panel = parent.panels.find((p) => p.id === panelId);
+  if (panel?.kind === 'runner' && panel.status !== next) {
+    parent.updatePanel(panelId, { status: next });
   }
 }
 
-export async function spawnRunner(ptyId: string, script?: RunnerScript): Promise<void> {
+/** Create a runner panel and spawn its command. Returns the new panel id. */
+/**
+ * Resolve what a runner should execute into a concrete command, scoped to the
+ * project. An explicit `script` is itself the answer; otherwise we look up the
+ * project's run hook. Returns null when there's nothing to run (e.g. the run
+ * hook isn't actually configured for this project). Doing this BEFORE the panel
+ * is created is the whole point of the unification: run hooks and scripts then
+ * flow through one identical path, and a missing command can't manifest as a
+ * panel that silently closes itself the instant it opens.
+ */
+async function resolveRunnable(
+  projectPath: string,
+  script?: RunnerScript,
+): Promise<{ runnable: RunnerScript; source: 'hook' | 'script' } | null> {
+  if (script) return { runnable: script, source: 'script' };
+  const hooks = await window.api.hooks.get(projectPath);
+  if (!hooks.run) return null;
+  return { runnable: { name: hooks.run.name, command: hooks.run.command }, source: 'hook' };
+}
+
+export async function startRunner(ptyId: string, script?: RunnerScript): Promise<string | null> {
+  const instance = terminalInstances.get(ptyId);
+  if (!instance) return null;
+
+  const resolved = await resolveRunnable(instance.projectPath, script);
+  if (!resolved) {
+    // Nothing to run for this project — surface it instead of opening (and then
+    // closing) an empty panel.
+    useProjectStore.getState().addToast('No run command configured for this project', 'error');
+    return null;
+  }
+
+  const panelId = instance.addRunnerPanel({ ...resolved.runnable, source: resolved.source });
+  await spawnRunner(ptyId, panelId);
+  return panelId;
+}
+
+/** Kill a runner panel's child and re-run its command in the same panel. The
+ *  command + source already live on the panel, so a restart is just a re-spawn. */
+export async function restartRunner(ptyId: string, panelId: string): Promise<void> {
+  const instance = terminalInstances.get(ptyId);
+  if (!instance) return;
+  const panel = instance.panels.find((p) => p.id === panelId);
+  if (panel?.kind !== 'runner') return;
+  instance.killRunnerChild(panelId);
+  await spawnRunner(ptyId, panelId);
+}
+
+export async function spawnRunner(ptyId: string, panelId: string): Promise<void> {
   const instance = terminalInstances.get(ptyId);
   if (!instance) return;
 
-  // Double-spawn guard
-  if (instance._runnerSpawning) return;
-  instance._runnerSpawning = true;
+  // Double-spawn guard (per runner panel)
+  if (instance.runnerSpawning.has(panelId)) return;
+  instance.runnerSpawning.add(panelId);
 
   try {
-    await _spawnRunnerInner(instance, script);
+    await _spawnRunnerInner(instance, panelId);
   } finally {
-    instance._runnerSpawning = false;
+    instance.runnerSpawning.delete(panelId);
   }
 }
 
-async function _spawnRunnerInner(instance: OuijitTerminal, script?: RunnerScript): Promise<void> {
+async function _spawnRunnerInner(instance: OuijitTerminal, panelId: string): Promise<void> {
   const path = instance.projectPath;
 
-  // Kill existing runner first
-  if (instance.runner?.ptyId) {
-    instance.killRunner();
+  // Everything needed to run was resolved up front and lives on the panel — one
+  // path for run hooks and scripts alike.
+  const panel = instance.panels.find((p) => p.id === panelId);
+  if (!panel || panel.kind !== 'runner' || !panel.scriptCommand) {
+    instance.updatePanel(panelId, { status: 'error' });
+    return;
+  }
+  const commandStr = panel.scriptCommand;
+  const commandName = panel.scriptName ?? commandStr;
+  const hookType = panel.source === 'hook' ? 'run' : 'script';
+
+  // Kill existing runs of the same command — but never this panel (its command
+  // is already set, so it would otherwise match and close itself).
+  const settings = await window.api.getProjectSettings(path);
+  if (settings.killExistingOnRun !== false) {
+    killExistingCommandInstances(path, commandStr, panelId);
   }
 
-  // Determine command source: explicit script, or fall back to run hook
-  let commandName: string;
-  let commandStr: string;
-  let hookType: string;
-
-  if (script) {
-    commandName = script.name;
-    commandStr = script.command;
-    hookType = 'script';
-  } else {
-    const [hooks, settings] = await Promise.all([window.api.hooks.get(path), window.api.getProjectSettings(path)]);
-    if (!hooks.run) return;
-    commandName = hooks.run.name;
-    commandStr = hooks.run.command;
-    hookType = 'run';
-
-    // Kill existing instances with same command
-    if (settings.killExistingOnRun !== false) {
-      killExistingCommandInstances(path, commandStr);
-    }
-  }
-
-  // For scripts, also check killExistingOnRun
-  if (script) {
-    const settings = await window.api.getProjectSettings(path);
-    if (settings.killExistingOnRun !== false) {
-      killExistingCommandInstances(path, commandStr);
-    }
-  }
-
-  // Set runner state on parent
-  instance.runnerCommand = commandStr;
-  instance.runnerScript = script ?? null;
-  instance.runnerStatus = 'running';
+  // Reset the header to the command on (re)start; OSC titles refine it later.
+  instance.updatePanel(panelId, { command: commandStr, status: 'running' });
 
   // Create runner terminal
   const runner = new OuijitTerminal({
@@ -576,8 +641,7 @@ async function _spawnRunnerInner(instance: OuijitTerminal, script?: RunnerScript
 
     if (!result.success || !result.ptyId) {
       runner.xterm.writeln(`\x1b[31mFailed to start runner: ${result.error || 'Unknown error'}\x1b[0m`);
-      instance.runnerStatus = 'error';
-      instance.pushDisplayState({ runnerStatus: 'error', runnerScriptName: script?.name ?? null });
+      instance.updatePanel(panelId, { status: 'error' });
       return;
     }
 
@@ -590,32 +654,22 @@ async function _spawnRunnerInner(instance: OuijitTerminal, script?: RunnerScript
       onData: (data) => {
         const oscMatches = data.matchAll(/\x1b\]0;([^\x07]*)\x07/g);
         for (const match of oscMatches) {
-          if (match[1]) {
-            instance.runnerCommand = match[1];
-            instance.pushDisplayState({ runnerStatus: instance.runnerStatus });
-          }
+          if (match[1]) instance.updatePanel(panelId, { command: match[1] });
         }
-        updateRunnerStatusFromOsc133(data, instance);
+        updateRunnerStatusFromOsc133(data, instance, panelId);
         const detected = detectDevServerUrl(data);
-        if (detected) applyDetectedWebPreviewUrl(instance, detected);
+        if (detected) instance.publishDetectedPreviewUrl(panelId, detected);
       },
       onExit: (exitCode) => {
-        instance.runnerStatus = exitCode === 0 ? 'success' : 'error';
-        instance.pushDisplayState({ runnerStatus: instance.runnerStatus });
+        instance.updatePanel(panelId, { status: exitCode === 0 ? 'success' : 'error' });
       },
     });
 
-    instance.setRunner(runner);
-    instance.pushDisplayState({
-      runnerStatus: 'running',
-      runnerScriptName: script?.name ?? null,
-      runnerPanelOpen: true,
-      runnerFullWidth: true,
-    });
+    instance.setRunnerChild(panelId, runner);
+    instance.updatePanel(panelId, { status: 'running' });
   } catch (error) {
     runner.xterm.writeln(`\x1b[31mError: ${error instanceof Error ? error.message : 'Unknown error'}\x1b[0m`);
-    instance.runnerStatus = 'error';
-    instance.pushDisplayState({ runnerStatus: 'error', runnerScriptName: script?.name ?? null });
+    instance.updatePanel(panelId, { status: 'error' });
   }
 }
 
@@ -658,15 +712,28 @@ export async function openWorktreeEditor(
 
 // ── Kill existing command instances ──────────────────────────────────
 
-function killExistingCommandInstances(projectPath: string, command: string): void {
+function killExistingCommandInstances(projectPath: string, command: string, exceptPanelId?: string): void {
   const store = useTerminalStore.getState();
   const ptyIds = store.terminalsByProject[projectPath] ?? [];
 
-  // Kill runners with same command
+  // Close runner panels running the same command. Never close `exceptPanelId` —
+  // that's the panel currently being (re)started, whose command field is already
+  // set, so it would otherwise match and close itself the instant it launches.
   for (const id of ptyIds) {
     const instance = terminalInstances.get(id);
-    if (instance?.runnerCommand === command) {
-      instance.killRunner();
+    if (!instance) continue;
+    for (const p of [...instance.panels]) {
+      if (p.id === exceptPanelId) continue;
+      // Only close runners with a live child — an actually-running instance of
+      // the command. Restored-idle runner panels (preloaded for one-click re-run)
+      // carry a matching scriptCommand but no process, and must not be torn down.
+      if (
+        p.kind === 'runner' &&
+        instance.runnerChildren.has(p.id) &&
+        (p.command === command || p.scriptCommand === command)
+      ) {
+        instance.closePanel(p.id);
+      }
     }
   }
 
@@ -681,7 +748,7 @@ function killExistingCommandInstances(projectPath: string, command: string): voi
 
 // ── Reconnect all orphaned sessions for a project ────────────────────
 
-export async function reconnectOrphanedSessions(projectPath: string): Promise<void> {
+export async function reconnectOrphanedSessions(projectPath?: string): Promise<void> {
   let sessions: ActiveSession[];
   try {
     sessions = await window.api.pty.getActiveSessions();
@@ -689,10 +756,16 @@ export async function reconnectOrphanedSessions(projectPath: string): Promise<vo
     return;
   }
 
-  // Skip standalone shells — they belong to the standalone terminal window,
-  // which reconnects them itself.
-  const projectSessions = sessions.filter((s) => s.projectPath === projectPath && !s.standalone);
-  if (projectSessions.length === 0) return;
+  // The single reconnect path, used by both the project view (scoped to one
+  // project) and the home view (all projects). Scoping only narrows which
+  // sessions are considered; the per-terminal restore is identical either way,
+  // so panels can't be dropped by one path that the other applies.
+  //
+  // Standalone shells are excluded — they belong to the standalone terminal
+  // window, which reconnects them itself.
+  const scoped = projectPath ? sessions.filter((s) => s.projectPath === projectPath) : sessions;
+  const relevant = scoped.filter((s) => !s.standalone);
+  if (relevant.length === 0) return;
 
   // The session snapshot from the same launch (PTYs survive a renderer reload)
   // carries per-terminal UI state and which card was focused. Match its rows to
@@ -700,23 +773,21 @@ export async function reconnectOrphanedSessions(projectPath: string): Promise<vo
   const snapshot = await readSnapshot();
   const snapByPtyId = new Map(
     (snapshot?.terminals ?? [])
-      .filter((t) => t.projectPath === projectPath && t.ptyId)
+      .filter((t) => t.ptyId && (!projectPath || t.projectPath === projectPath))
       .map((t) => [t.ptyId as string, t] as const),
   );
 
-  const mainSessions = projectSessions.filter((s) => !s.isRunner);
-  const runnerSessions = projectSessions.filter((s) => s.isRunner);
+  const mainSessions = relevant.filter((s) => !s.isRunner);
+  const runnerSessions = relevant.filter((s) => s.isRunner);
 
-  // Reconnect main terminals first. Skip any session already reconnected — the
-  // home view runs the same reconnect as the user lands, so on a refresh both
-  // paths can fire for one project; without this guard the shared session would
-  // be added to the stack twice.
+  // Reconnect main terminals first (so runner parents exist before runners
+  // reattach). The instance guard makes this idempotent across the two callers.
   for (const session of mainSessions) {
     if (terminalInstances.has(session.ptyId)) continue;
     let worktreeBranch: string | undefined;
     let mergeTarget: string | undefined;
     if (session.taskId != null) {
-      const task = await window.api.task.getByNumber(projectPath, session.taskId);
+      const task = await window.api.task.getByNumber(session.projectPath, session.taskId);
       worktreeBranch = task?.branch;
       mergeTarget = task?.mergeTarget;
     }
@@ -737,26 +808,24 @@ export async function reconnectOrphanedSessions(projectPath: string): Promise<vo
     if (term) {
       if (snapEntry) await applyInitialUiState(term, snapEntry.ui);
       // The plan association lives in the main process — authoritative for the
-      // path; the snapshot only contributes whether the panel was open.
-      if (planPath) {
-        term.planPath = planPath;
-        term.pushDisplayState({ planPath });
+      // path. Ensure a plan panel exists for it (without stealing focus).
+      if (planPath && !term.panels.some((p) => p.kind === 'plan' && p.planPath === planPath)) {
+        term.addPlanPanel(planPath, false);
       }
     }
   }
 
-  // Restore the focused card. Without this, every reconnectTerminal would have
-  // run activateLast and the last PTY back would win the selection.
-  {
-    const store = useTerminalStore.getState();
-    const activeEntry = (snapshot?.terminals ?? []).find(
-      (t) => t.projectPath === projectPath && t.isActiveInProject && t.ptyId,
-    );
-    const idx = activeEntry ? (store.terminalsByProject[projectPath] ?? []).indexOf(activeEntry.ptyId as string) : -1;
+  // Restore the focused card per project. Without this, every reconnectTerminal
+  // would have run activateLast and the last PTY back would win the selection.
+  const store = useTerminalStore.getState();
+  const focusProjects = projectPath ? [projectPath] : [...new Set(mainSessions.map((s) => s.projectPath))];
+  for (const pp of focusProjects) {
+    const activeEntry = (snapshot?.terminals ?? []).find((t) => t.projectPath === pp && t.isActiveInProject && t.ptyId);
+    const idx = activeEntry ? (store.terminalsByProject[pp] ?? []).indexOf(activeEntry.ptyId as string) : -1;
     if (idx >= 0) {
-      store.setActiveIndex(projectPath, idx);
+      store.setActiveIndex(pp, idx);
     } else {
-      store.activateLast(projectPath);
+      store.activateLast(pp);
     }
   }
 
@@ -783,6 +852,23 @@ export async function reconnectRunnerToParent(session: ActiveSession): Promise<b
     return false;
   }
 
+  // Attach to a runner panel that has no live child yet (preferring a command
+  // match from the restored snapshot); otherwise create one in the background.
+  let panelId =
+    parentTerminal.panels.find(
+      (p) =>
+        p.kind === 'runner' &&
+        !parentTerminal.runnerChildren.has(p.id) &&
+        (p.scriptCommand === session.command || p.command === session.command),
+    )?.id ?? parentTerminal.panels.find((p) => p.kind === 'runner' && !parentTerminal.runnerChildren.has(p.id))?.id;
+  if (!panelId) {
+    panelId = parentTerminal.addRunnerPanel(
+      session.command ? { name: session.label, command: session.command } : null,
+      /* activate */ false,
+    );
+  }
+  const runnerPanelId = panelId;
+
   const runner = new OuijitTerminal({
     projectPath: session.projectPath,
     label: session.label,
@@ -804,23 +890,18 @@ export async function reconnectRunnerToParent(session: ActiveSession): Promise<b
     onData: (data) => {
       const oscMatches = data.matchAll(/\x1b\]0;([^\x07]*)\x07/g);
       for (const match of oscMatches) {
-        if (match[1]) {
-          parentTerminal.runnerCommand = match[1];
-          parentTerminal.pushDisplayState({ runnerStatus: parentTerminal.runnerStatus });
-        }
+        if (match[1]) parentTerminal.updatePanel(runnerPanelId, { command: match[1] });
       }
-      updateRunnerStatusFromOsc133(data, parentTerminal);
+      updateRunnerStatusFromOsc133(data, parentTerminal, runnerPanelId);
       const detected = detectDevServerUrl(data);
-      if (detected) applyDetectedWebPreviewUrl(parentTerminal, detected);
+      if (detected) parentTerminal.publishDetectedPreviewUrl(runnerPanelId, detected);
     },
     onExit: (exitCode) => {
-      parentTerminal.runnerStatus = exitCode === 0 ? 'success' : 'error';
-      parentTerminal.pushDisplayState({ runnerStatus: parentTerminal.runnerStatus });
+      parentTerminal.updatePanel(runnerPanelId, { status: exitCode === 0 ? 'success' : 'error' });
     },
   });
 
-  parentTerminal.runnerStatus = 'running';
-  parentTerminal.setRunner(runner);
-  parentTerminal.pushDisplayState({ runnerStatus: 'running' });
+  parentTerminal.setRunnerChild(runnerPanelId, runner);
+  parentTerminal.updatePanel(runnerPanelId, { status: 'running' });
   return true;
 }

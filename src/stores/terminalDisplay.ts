@@ -1,4 +1,5 @@
 import type { GitFileStatus } from '../types';
+import type { TerminalPanel } from '../components/terminal/panelTypes';
 
 /** Renderable state pushed from OuijitTerminal class to React */
 export interface TerminalDisplayState {
@@ -9,19 +10,15 @@ export interface TerminalDisplayState {
   lastOscTitle: string;
   tags: string[];
   hookStatus: 'thinking' | 'ready' | null;
-  runnerStatus: 'running' | 'success' | 'error' | 'idle';
-  runnerScriptName: string | null;
-  runnerPanelOpen: boolean;
-  runnerFullWidth: boolean;
+  /** Ordered tab list of user-managed panels (runner/preview/plan). */
+  panels: TerminalPanel[];
+  /** Id of the panel currently displayed, or null when none is open. */
+  activePanelId: string | null;
+  /** Whether the active panel renders full-width or split with the xterm. */
+  panelFullWidth: boolean;
+  /** Automatic diff takeover (header-driven, separate from the panel tabs). */
   diffPanelOpen: boolean;
-  diffPanelSelectedFile: string | null;
   diffPanelMode: 'uncommitted' | 'worktree';
-  planPath: string | null;
-  planPanelOpen: boolean;
-  planFullWidth: boolean;
-  webPreviewUrl: string | null;
-  webPreviewPanelOpen: boolean;
-  webPreviewFullWidth: boolean;
   sandboxed: boolean;
   taskId: number | null;
   worktreeBranch: string | null;
@@ -39,19 +36,11 @@ export const DEFAULT_DISPLAY_STATE: Omit<TerminalDisplayState, 'ptyId' | 'projec
   lastOscTitle: '',
   tags: [],
   hookStatus: null,
-  runnerStatus: 'idle',
-  runnerScriptName: null,
-  runnerPanelOpen: false,
-  runnerFullWidth: true,
+  panels: [],
+  activePanelId: null,
+  panelFullWidth: true,
   diffPanelOpen: false,
-  diffPanelSelectedFile: null,
   diffPanelMode: 'uncommitted',
-  planPath: null,
-  planPanelOpen: false,
-  planFullWidth: true,
-  webPreviewUrl: null,
-  webPreviewPanelOpen: false,
-  webPreviewFullWidth: true,
   sandboxed: false,
   taskId: null,
   worktreeBranch: null,

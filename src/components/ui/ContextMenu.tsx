@@ -54,17 +54,23 @@ export function ContextMenu({ x, y, items, onClose }: ContextMenuProps) {
   return createPortal(
     <div
       ref={menuRef}
-      className={`context-menu fixed z-[2000] py-1 bg-surface border border-border rounded-md shadow-lg overflow-hidden ${visible ? 'context-menu--visible opacity-100' : 'opacity-0'}`}
-      style={{ left: posX, top: posY, transition: 'opacity 100ms ease' }}
+      className={`context-menu fixed z-[2000] p-1 glass-bevel border border-black/60 rounded-[12px] overflow-hidden ${visible ? 'context-menu--visible opacity-100' : 'opacity-0'}`}
+      style={{
+        left: posX,
+        top: posY,
+        background: 'var(--color-terminal-bg, #171717)',
+        boxShadow: '0 0 0 1px rgba(0, 0, 0, 0.05), 0 10px 30px rgba(0, 0, 0, 0.35)',
+        transition: 'opacity 100ms ease',
+      }}
     >
       {items.map((item, i) => {
         if ('separator' in item) {
-          return <div key={`sep-${i}`} className="border-t border-border my-1" />;
+          return <div key={`sep-${i}`} className="border-t border-white/10 mx-1 my-1" />;
         }
         return (
           <button
             key={i}
-            className={`context-menu-item w-full px-3 py-1.5 text-xs text-text-primary bg-transparent border-none text-left transition-colors duration-100 ease-out flex items-center gap-1.5 whitespace-nowrap hover:bg-background-tertiary [&>svg]:w-3 [&>svg]:h-3 [&>svg]:opacity-60 ${item.danger ? 'context-menu-item--danger hover:text-error' : ''}`}
+            className={`context-menu-item w-full px-2.5 py-1.5 rounded-[7px] text-xs text-text-primary bg-transparent border-none text-left transition-colors duration-100 ease-out flex items-center gap-1.5 whitespace-nowrap hover:bg-white/[0.08] [&>svg]:w-3 [&>svg]:h-3 [&>svg]:opacity-60 ${item.danger ? 'context-menu-item--danger hover:bg-error/10 hover:text-error' : ''}`}
             onClick={() => {
               setVisible(false);
               setTimeout(() => {

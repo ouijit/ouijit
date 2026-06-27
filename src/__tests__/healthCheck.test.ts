@@ -45,7 +45,15 @@ describe('healthCheck', () => {
 
     const { checkHealth } = await import('../healthCheck');
     const status = await checkHealth();
-    expect(status).toEqual({ git: true, claude: true, codex: true, pi: true, lima: true, gitVersion: '2.39.5' });
+    expect(status).toEqual({
+      git: true,
+      claude: true,
+      codex: true,
+      pi: true,
+      opencode: true,
+      lima: true,
+      gitVersion: '2.39.5',
+    });
   });
 
   test('reports git missing when execFile rejects', async () => {
@@ -58,7 +66,15 @@ describe('healthCheck', () => {
 
     const { checkHealth } = await import('../healthCheck');
     const status = await checkHealth();
-    expect(status).toEqual({ git: false, claude: false, codex: false, pi: false, lima: false, gitVersion: undefined });
+    expect(status).toEqual({
+      git: false,
+      claude: false,
+      codex: false,
+      pi: false,
+      opencode: false,
+      lima: false,
+      gitVersion: undefined,
+    });
   });
 
   test('detects codex independently of claude', async () => {
@@ -72,7 +88,15 @@ describe('healthCheck', () => {
 
     const { checkHealth } = await import('../healthCheck');
     const status = await checkHealth();
-    expect(status).toEqual({ git: true, claude: false, codex: true, pi: false, lima: false, gitVersion: '2.41.0' });
+    expect(status).toEqual({
+      git: true,
+      claude: false,
+      codex: true,
+      pi: false,
+      opencode: false,
+      lima: false,
+      gitVersion: '2.41.0',
+    });
   });
 
   test('detects pi independently of claude and codex', async () => {
@@ -86,7 +110,37 @@ describe('healthCheck', () => {
 
     const { checkHealth } = await import('../healthCheck');
     const status = await checkHealth();
-    expect(status).toEqual({ git: true, claude: false, codex: false, pi: true, lima: false, gitVersion: '2.42.0' });
+    expect(status).toEqual({
+      git: true,
+      claude: false,
+      codex: false,
+      pi: true,
+      opencode: false,
+      lima: false,
+      gitVersion: '2.42.0',
+    });
+  });
+
+  test('detects opencode independently of the other agents', async () => {
+    execFileMock.mockImplementation((cmd: string, args: string[], cb: Function) => {
+      if (cmd === 'git') cb(null, 'git version 2.43.0\n', '');
+      else if (cmd === 'which' && args[0] === 'opencode') cb(null, '/opt/homebrew/bin/opencode\n', '');
+      else if (cmd === 'which') cb(new Error('not found'));
+      else cb(new Error(`unexpected ${cmd}`));
+    });
+    isLimaInstalledMock.mockResolvedValue(false);
+
+    const { checkHealth } = await import('../healthCheck');
+    const status = await checkHealth();
+    expect(status).toEqual({
+      git: true,
+      claude: false,
+      codex: false,
+      pi: false,
+      opencode: true,
+      lima: false,
+      gitVersion: '2.43.0',
+    });
   });
 
   test('caches result and exposes via getCachedHealth', async () => {
@@ -105,6 +159,7 @@ describe('healthCheck', () => {
       claude: false,
       codex: false,
       pi: false,
+      opencode: false,
       lima: true,
       gitVersion: '2.40.0',
     });

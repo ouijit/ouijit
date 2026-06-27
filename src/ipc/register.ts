@@ -15,6 +15,7 @@ import { registerScriptHandlers } from './handlers/scripts';
 import { registerPlanHandlers, cleanupPlanWatchers } from './handlers/plan';
 import { registerHealthHandlers } from './handlers/health';
 import { registerTerminalHandlers } from './handlers/terminal';
+import { initCliPanels } from '../cliPanels';
 
 /**
  * Registers all IPC handlers for the main process.
@@ -40,6 +41,7 @@ export async function registerIpcHandlers(mainWindow: BrowserWindow): Promise<vo
   registerPlanHandlers(mainWindow);
   registerHealthHandlers();
   registerTerminalHandlers();
+  initCliPanels(mainWindow);
 }
 
 /**

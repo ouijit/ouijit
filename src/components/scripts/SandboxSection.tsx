@@ -11,6 +11,11 @@ const VM_STATUS_LABELS: Record<string, string> = {
   NotCreated: 'Not created',
 };
 
+// Beveled action button matching the app's house style (glass-bevel rim + crisp
+// outline + radius), shared by the VM action row.
+const VM_BUTTON =
+  'relative glass-bevel overflow-hidden px-3 py-1.5 text-xs font-medium text-text-secondary bg-background-secondary border border-black/60 rounded-[12px] hover:bg-background-tertiary hover:text-text-primary transition-colors';
+
 interface SandboxSectionProps {
   projectPath: string;
 }
@@ -341,41 +346,26 @@ export function SandboxSection({ projectPath }: SandboxSectionProps) {
       {/* VM action buttons */}
       <div className="flex flex-wrap gap-2 mt-3">
         {vmStatus === 'NotCreated' && (
-          <button
-            className="px-3 py-1.5 text-xs font-medium text-text-secondary bg-white/[0.06] border border-white/10 rounded-md hover:bg-white/[0.1] hover:text-text-primary transition-all disabled:opacity-50"
-            onClick={handleStart}
-            disabled={!!activeAction}
-          >
+          <button className={`${VM_BUTTON} disabled:opacity-50`} onClick={handleStart} disabled={!!activeAction}>
             {activeAction === 'starting' ? 'Creating\u2026' : 'Create VM'}
           </button>
         )}
         {vmStatus === 'Stopped' && (
-          <button
-            className="px-3 py-1.5 text-xs font-medium text-text-secondary bg-white/[0.06] border border-white/10 rounded-md hover:bg-white/[0.1] hover:text-text-primary transition-all disabled:opacity-50"
-            onClick={handleStart}
-            disabled={!!activeAction}
-          >
+          <button className={`${VM_BUTTON} disabled:opacity-50`} onClick={handleStart} disabled={!!activeAction}>
             {activeAction === 'starting' ? 'Starting\u2026' : 'Start VM'}
           </button>
         )}
         {vmStatus === 'Running' && (
-          <button
-            className="px-3 py-1.5 text-xs font-medium text-text-secondary bg-white/[0.06] border border-white/10 rounded-md hover:bg-white/[0.1] hover:text-text-primary transition-all disabled:opacity-50"
-            onClick={handleStop}
-            disabled={!!activeAction}
-          >
+          <button className={`${VM_BUTTON} disabled:opacity-50`} onClick={handleStop} disabled={!!activeAction}>
             {activeAction === 'stopping' ? 'Stopping\u2026' : 'Stop VM'}
           </button>
         )}
-        <button
-          className="px-3 py-1.5 text-xs font-medium text-text-secondary bg-white/[0.06] border border-white/10 rounded-md hover:bg-white/[0.1] hover:text-text-primary transition-all"
-          onClick={handleConsole}
-        >
+        <button className={VM_BUTTON} onClick={handleConsole}>
           VM Console
         </button>
         {(vmStatus === 'Running' || vmStatus === 'Stopped' || vmStatus === 'Broken') && (
           <button
-            className="px-3 py-1.5 text-xs font-medium text-text-secondary bg-white/[0.06] border border-white/10 rounded-md hover:bg-white/[0.1] hover:text-text-primary transition-all disabled:opacity-50"
+            className={`${VM_BUTTON} disabled:opacity-50`}
             onClick={() => {
               if (confirm('This will delete the current VM and all its data, then create a fresh one.')) {
                 handleRecreate();

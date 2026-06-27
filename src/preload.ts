@@ -15,6 +15,8 @@ import type {
   Script,
   CliHookMode,
   TaskWithWorkspace,
+  CliPanelOp,
+  CliPanelResponse,
 } from './types';
 import type { CaptureNavigatePayload } from './capture/types';
 
@@ -207,6 +209,11 @@ contextBridge.exposeInMainWorld('api', {
     checkFilesExist: (workspaceRoot: string, filePaths: string[]) =>
       typedInvoke('plan:check-files-exist', workspaceRoot, filePaths),
     pickFile: (defaultPath?: string) => typedInvoke('plan:pick-file', defaultPath),
+  },
+
+  cliPanels: {
+    onOp: (callback: (op: CliPanelOp) => void) => typedListen('cli:panel-op', callback),
+    respond: (requestId: number, response: CliPanelResponse) => typedInvoke('cli-panels:respond', requestId, response),
   },
 
   globalSettings: {

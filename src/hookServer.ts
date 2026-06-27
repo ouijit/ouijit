@@ -367,7 +367,7 @@ You are running inside an Ouijit terminal. The \`ouijit\` CLI manages tasks, tag
 
 ## Environment (pre-set, do not modify)
 - OUIJIT_API_URL — REST API endpoint (already configured)
-- OUIJIT_PTY_ID — this terminal session's ID (used by plan commands)
+- OUIJIT_PTY_ID — this terminal session's ID (used by markdown and preview commands)
 
 ## Task Commands (most common)
 ouijit task list                              # → [{taskNumber, name, status, branch, worktreePath, prompt, ...}]
@@ -417,10 +417,15 @@ ouijit script set --name "<name>" --command "<cmd>"
 ouijit script run <id-or-name>                # executes and streams output
 ouijit script run <id-or-name> --task <number> # run in task's worktree dir
 
-## Plan Commands (terminal session plan files)
-ouijit plan set <path.md>                     # associate plan file with this terminal
-ouijit plan get                               # → {ptyId, planPath}
-ouijit plan unset                             # clear plan association
+## Markdown Panel Commands (open .md files as tabs in this terminal)
+ouijit markdown add <path.md>                 # open a markdown file panel on this terminal
+ouijit markdown list                          # → {ptyId, kind, panels: [{label, path, active}, ...]}
+ouijit markdown remove <path.md>              # close that markdown panel
+
+## Web Preview Commands (open a URL as a tab in this terminal)
+ouijit preview add <url>                      # open a web preview panel (http/https) on this terminal
+ouijit preview list                           # → {ptyId, kind, panels: [{label, url, active}, ...]}
+ouijit preview remove <url>                   # close that preview panel
 
 ## Project Commands
 ouijit project list                           # → all registered projects
@@ -749,6 +754,121 @@ export const PI_WRAPPER = [
   '',
 ].join('\n');
 
+// ── opencode plugin + wrapper ────────────────────────────────────────
+// opencode exposes lifecycle events only to JS/TS plugins, and it has no
+// --append-system-prompt / hook CLI flag. Status and the CLI reference are
+// injected two different ways:
+//   • Status plugin: written into opencode's auto-load dir
+//     (~/.config/opencode/plugins), which opencode imports directly at
+//     startup. This is the only mechanism that works on released opencode:
+//     a `plugin` entry in config (even an absolute path) is instead treated
+//     as an npm package and `bun add`-ed, which fails for a local file. The
+//     plugin loads for every opencode session but is a no-op unless
+//     OUIJIT_HOOK_BIN is set (only the wrapper sets it), so a plain
+//     `opencode` run is unaffected.
+//   • CLI reference: rides on OPENCODE_CONFIG_CONTENT, an env var opencode
+//     parses as JSON and merges additively into the resolved config. Its
+//     `instructions` array concatenates onto the user's (never replaces).
+
+/** opencode's global plugin auto-load directory. */
+export function getOpencodePluginDir(): string {
+  return path.join(os.homedir(), '.config', 'opencode', 'plugins');
+}
+
+/** Path to the ouijit opencode status plugin. */
+export function getOpencodePluginPath(): string {
+  return path.join(getOpencodePluginDir(), 'ouijit.ts');
+}
+
+export const OPENCODE_PLUGIN = `// Ouijit opencode plugin - bridges opencode session status to the
+// per-terminal status indicator. Auto-installed; safe to delete (Ouijit
+// recreates it). No-ops when OUIJIT_HOOK_BIN is unset, so it is harmless if
+// it ever loads outside Ouijit.
+
+type OuijitStatus = 'thinking' | 'ready';
+
+interface OuijitShellResult {
+  quiet(): { nothrow(): Promise<unknown> };
+}
+
+interface OuijitOpencodeContext {
+  $: (strings: TemplateStringsArray, ...values: unknown[]) => OuijitShellResult;
+}
+
+interface OuijitSessionEvent {
+  type: string;
+  properties?: { status?: { type?: string } };
+}
+
+export const OuijitStatusPlugin = async ({ $ }: OuijitOpencodeContext) => {
+  const hookBin = process.env.OUIJIT_HOOK_BIN;
+  if (!hookBin) return {};
+
+  // Only report real transitions so we don't spawn a hook process per event.
+  let last: OuijitStatus | null = null;
+  const ping = (status: OuijitStatus) => {
+    if (status === last) return;
+    last = status;
+    try {
+      $\`\${hookBin} status status=\${status}\`.quiet().nothrow().catch(() => {});
+    } catch {
+      // best-effort: never let status reporting break the session
+    }
+  };
+
+  return {
+    // session.status carries opencode's busy/idle state (session.idle is
+    // deprecated). status.type is 'busy' | 'retry' | 'idle'; anything that is
+    // not idle means the agent is still working.
+    event: async ({ event }: { event: OuijitSessionEvent }) => {
+      if (event?.type !== 'session.status') return;
+      ping(event.properties?.status?.type === 'idle' ? 'ready' : 'thinking');
+    },
+  };
+};
+`;
+
+export const OPENCODE_WRAPPER = [
+  '#!/bin/bash',
+  '# Ouijit opencode wrapper - injects the Ouijit CLI reference via',
+  '# OPENCODE_CONFIG_CONTENT (opencode parses it as JSON and merges it into',
+  '# the resolved config; `instructions` concatenates onto the user config).',
+  '# The status plugin is loaded separately from opencode auto-load dir; this',
+  '# wrapper only flips it on by exporting OUIJIT_HOOK_BIN. opencode has no',
+  '# system-prompt or hook CLI flags, so everything rides on env + config.',
+  buildWrapperResolver('opencode'),
+  '',
+  '# opencode utility subcommands do not start an agent session. Run them',
+  '# untouched so config injection never interferes (mirrors the claude and',
+  '# pi subcommand guards).',
+  'for arg in "$@"; do',
+  '  case "$arg" in',
+  '    -*) continue ;;',
+  '    auth|models|upgrade|uninstall|stats|mcp|serve|github|export|import|debug|agent|session|db|plugin)',
+  '      exec "$REAL_BIN" "$@"',
+  '      ;;',
+  '    *) break ;;',
+  '  esac',
+  'done',
+  '',
+  'REFERENCE_FILE="$HOME/.config/Ouijit/ouijit-cli-reference.md"',
+  'HOOK_BIN="$HOME/.config/Ouijit/bin/ouijit-hook"',
+  '',
+  '# Add the CLI reference to opencode instructions for this invocation only.',
+  'OUIJIT_OPENCODE_CONFIG="{\\"instructions\\":[\\"$REFERENCE_FILE\\"]}"',
+  '',
+  '# If ouijit is not running, still surface the CLI reference but leave the',
+  '# status plugin inert (OUIJIT_HOOK_BIN unset).',
+  'if [ -z "$OUIJIT_API_URL" ]; then',
+  '  OPENCODE_CONFIG_CONTENT="$OUIJIT_OPENCODE_CONFIG" exec "$REAL_BIN" "$@"',
+  'fi',
+  '',
+  '# OUIJIT_HOOK_BIN activates the ouijit status plugin (loaded from opencode',
+  '# auto-load dir); it shells out to ouijit-hook on session.status busy/idle.',
+  'OPENCODE_CONFIG_CONTENT="$OUIJIT_OPENCODE_CONFIG" OUIJIT_HOOK_BIN="$HOOK_BIN" exec "$REAL_BIN" "$@"',
+  '',
+].join('\n');
+
 /**
  * Install the ouijit-hook helper script and claude wrapper into
  * ~/.config/Ouijit/bin/. The wrapper injects hooks via --settings
@@ -781,6 +901,17 @@ export function installWrapper(): void {
     const piExtPath = getPiExtensionPath();
     fs.mkdirSync(path.dirname(piExtPath), { recursive: true });
     fs.writeFileSync(piExtPath, PI_EXTENSION, { mode: 0o644 });
+
+    // Write opencode wrapper (shadows `opencode`) and the status plugin into
+    // opencode's auto-load dir. opencode imports auto-load files directly,
+    // whereas a `plugin` config entry is `bun add`-ed (fails for a local
+    // file), so the auto-load dir is the only working host mechanism. The
+    // plugin is inert until the wrapper exports OUIJIT_HOOK_BIN, so a plain
+    // `opencode` run is unaffected.
+    fs.writeFileSync(path.join(binDir, 'opencode'), OPENCODE_WRAPPER, { mode: 0o755 });
+    const opencodePluginPath = getOpencodePluginPath();
+    fs.mkdirSync(path.dirname(opencodePluginPath), { recursive: true });
+    fs.writeFileSync(opencodePluginPath, OPENCODE_PLUGIN, { mode: 0o644 });
 
     // Write ouijit CLI wrapper (delegates to the bundled CLI JS via env vars set by PTY manager)
     fs.writeFileSync(
@@ -923,4 +1054,9 @@ export function buildVmCodexTrustState(): string {
 /** Pi extension for the sandbox VM. Identical to the host-side source. */
 export function buildVmPiExtension(): string {
   return PI_EXTENSION;
+}
+
+/** opencode status plugin for the sandbox VM. Identical to the host-side source. */
+export function buildVmOpencodePlugin(): string {
+  return OPENCODE_PLUGIN;
 }
