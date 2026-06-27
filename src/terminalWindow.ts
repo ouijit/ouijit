@@ -4,8 +4,8 @@ import log from './log';
 
 const terminalWindowLog = log.scope('terminalWindow');
 
-/** Default global hotkey that toggles the standalone terminal window. */
-export const DEFAULT_TERMINAL_HOTKEY = 'Control+`';
+// Re-exported so main-process consumers can keep importing it from here.
+export { DEFAULT_TERMINAL_HOTKEY } from './terminalHotkey';
 
 /** The accelerator currently bound to {@link toggleTerminalWindow}, if any. */
 let registeredHotkey: string | null = null;

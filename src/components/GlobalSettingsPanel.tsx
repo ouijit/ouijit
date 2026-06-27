@@ -5,6 +5,7 @@ import { setTerminalFontFamily, setTerminalFontSize } from './terminal/terminalR
 import { setReadyAudioDisabled } from '../utils/notifications';
 import { FontPickerRow } from './FontPickerRow';
 import { MoveProjectsDialog } from './dialogs/MoveProjectsDialog';
+import { DEFAULT_TERMINAL_HOTKEY } from '../terminalHotkey';
 import type { AffectedProject, ProjectsFolderChangeAction } from '../types';
 import log from 'electron-log/renderer';
 
@@ -13,10 +14,6 @@ const settingsLog = log.scope('globalSettings');
 const DEFAULT_TERMINAL_FONT_SIZE = 14;
 const MIN_TERMINAL_FONT_SIZE = 8;
 const MAX_TERMINAL_FONT_SIZE = 32;
-
-// Must match DEFAULT_TERMINAL_HOTKEY in src/terminalWindow.ts — used only to
-// decide whether to offer "Reset" in the UI.
-const DEFAULT_TERMINAL_HOTKEY = 'Control+`';
 
 export function GlobalSettingsPanel() {
   const [autoUpdate, setAutoUpdate] = useState(true);

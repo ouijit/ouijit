@@ -146,6 +146,7 @@ function watchForOrphanedDevInstance(): void {
       originalPpid,
       ppid: process.ppid,
     });
+    clearInterval(timer);
     cleanupNativeResources();
     quitConfirmed = true;
     app.quit();
