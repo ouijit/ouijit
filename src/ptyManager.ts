@@ -40,6 +40,11 @@ interface ManagedPty {
   taskId?: number;
   worktreePath?: string;
   sandboxed: boolean;
+  // The window that spawned (or last reconnected to) this PTY. Output and exit
+  // events route here, so PTYs spawned from the standalone terminal window
+  // reach that window rather than the main app window.
+  ownerWindow: BrowserWindow;
+  standalone: boolean;
   // Runner identification
   isRunner: boolean;
   parentPtyId?: PtyId;
@@ -69,9 +74,13 @@ export interface ActiveSession {
   isRunner?: boolean;
   parentPtyId?: PtyId;
   sandboxed?: boolean;
+  standalone?: boolean;
 }
 
 const activePtys = new Map<PtyId, ManagedPty>();
+// Default owner for PTYs whose owning window was destroyed — set by the
+// `pty:set-window` handler. Per-PTY `ownerWindow` is the authoritative target;
+// this is only a fallback.
 let currentWindow: BrowserWindow | null = null;
 
 // Shells we've already shown the "limited support" notice for this session, so
@@ -98,10 +107,17 @@ export function setWindow(window: BrowserWindow): void {
 }
 
 /**
- * Check if we can send to the renderer
+ * Send a message to a PTY's owning window. Falls back to the last-set
+ * `currentWindow` if the owner was destroyed. Returns false when no live
+ * window is available.
  */
-function canSendToRenderer(): boolean {
-  return currentWindow !== null && !currentWindow.isDestroyed();
+function sendToOwner(managed: ManagedPty, channel: string, payload: unknown): boolean {
+  const target = managed.ownerWindow && !managed.ownerWindow.isDestroyed() ? managed.ownerWindow : currentWindow;
+  if (target && !target.isDestroyed()) {
+    target.webContents.send(channel, payload);
+    return true;
+  }
+  return false;
 }
 
 /**
@@ -113,16 +129,13 @@ function flushPendingForward(ptyId: PtyId, channel: string): void {
   if (!managed) return;
   managed.forwardFlushScheduled = false;
   if (managed.pendingForwardChunks.length === 0) return;
-  if (!canSendToRenderer()) {
-    // Drop the queue if there's no renderer to receive it; the chunks are
-    // already retained in `outputChunks` for reconnection replay.
-    managed.pendingForwardChunks.length = 0;
-    return;
-  }
   const payload =
     managed.pendingForwardChunks.length === 1 ? managed.pendingForwardChunks[0] : managed.pendingForwardChunks.join('');
+  // Clear the queue unconditionally: the chunks are already retained in
+  // `outputChunks` for reconnection replay, so dropping them here when no
+  // window is live is safe.
   managed.pendingForwardChunks.length = 0;
-  currentWindow!.webContents.send(channel, payload);
+  sendToOwner(managed, channel, payload);
 }
 
 /**
@@ -257,6 +270,8 @@ export async function spawnPty(options: PtySpawnOptions, window: BrowserWindow):
       taskId: options.taskId,
       worktreePath: options.worktreePath,
       sandboxed: options.sandboxed || false,
+      ownerWindow: window,
+      standalone: options.standalone || false,
       isRunner: options.isRunner || false,
       parentPtyId: options.parentPtyId,
       outputChunks: [],
@@ -289,9 +304,7 @@ export async function spawnPty(options: PtySpawnOptions, window: BrowserWindow):
       // Drain any output buffered in the same tick as the exit so the user
       // sees the final lines before the exit message.
       flushPendingForward(ptyId, `pty:data:${ptyId}`);
-      if (canSendToRenderer()) {
-        currentWindow!.webContents.send(`pty:exit:${ptyId}`, exitCode);
-      }
+      sendToOwner(managed, `pty:exit:${ptyId}`, exitCode);
       activePtys.delete(ptyId);
       clearHookStatus(ptyId);
       revokeToken(ptyId);
@@ -326,8 +339,10 @@ export function reconnectPty(
     return { success: false, error: `PTY ${ptyId} not found` };
   }
 
-  // Update window reference
+  // Update window reference — the reconnecting window now owns this PTY, so
+  // its output routes there (e.g. after the standalone window's renderer reloads).
   currentWindow = window;
+  managed.ownerWindow = window;
 
   // Drop any chunks queued for forwarding — `outputChunks` already contains
   // them, and the renderer replays the full history below. Without this clear,
@@ -361,6 +376,7 @@ export function getActiveSessions(): ActiveSession[] {
     isRunner: managed.isRunner,
     parentPtyId: managed.parentPtyId,
     sandboxed: managed.sandboxed,
+    standalone: managed.standalone,
   }));
 }
 

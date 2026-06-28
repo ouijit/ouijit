@@ -59,7 +59,7 @@ const config: ForgeConfig = {
     // For cross-builds (e.g. Linux from macOS), set OUIJIT_CROSS_STAGING
     // to a directory with pre-built binaries for the target platform.
     afterCopy: [
-      (buildPath, electronVersion, platform, _arch, callback) => {
+      (buildPath, electronVersion, _platform, _arch, callback) => {
         try {
           const staging = process.env.OUIJIT_CROSS_STAGING;
           const nodeModulesDest = path.join(buildPath, 'node_modules');
@@ -122,13 +122,17 @@ const config: ForgeConfig = {
             console.log(`Copied Lima guest agents from ${guestAgentSrc}`);
           }
 
-          // 6. Copy app icon for Linux
-          if (platform === 'linux') {
-            const iconSrc = path.join(__dirname, 'src', 'assets', 'icons', 'icon.png');
-            if (fs.existsSync(iconSrc)) {
-              const iconDest = path.join(buildPath, 'icon.png');
-              fs.copyFileSync(iconSrc, iconDest);
-              console.log(`Copied icon.png for Linux`);
+          // 6. Copy app icon (Linux window icon) and the planchette status-bar
+          //    tray icon (+ its @2x retina variant). They land at <app>/<name>,
+          //    i.e. path.join(__dirname, '..', '..', '<name>') at runtime.
+          {
+            const iconAssets = ['icon.png', 'trayTemplate.png', 'trayTemplate@2x.png'];
+            for (const name of iconAssets) {
+              const src = path.join(__dirname, 'src', 'assets', 'icons', name);
+              if (fs.existsSync(src)) {
+                fs.copyFileSync(src, path.join(buildPath, name));
+                console.log(`Copied ${name}`);
+              }
             }
           }
 

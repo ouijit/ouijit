@@ -261,6 +261,13 @@ export interface PtySpawnOptions {
   env?: Record<string, string>;
   /** Whether to run this terminal inside a Lima sandbox VM */
   sandboxed?: boolean;
+  /**
+   * Marks a shell owned by the standalone terminal window (opened via the
+   * global hotkey / dock / status-bar item) rather than the main app window.
+   * Used to partition session reconnection so the two windows don't reclaim
+   * each other's shells after a renderer reload.
+   */
+  standalone?: boolean;
 }
 
 /**
@@ -584,6 +591,10 @@ export interface ElectronAPI {
   getPathForFile(file: File): string;
   /** User's home directory */
   homePath(): Promise<string>;
+  /** Read the standalone terminal window's global hotkey (or the default). */
+  getTerminalHotkey(): Promise<string>;
+  /** Set the standalone terminal window's global hotkey ('' resets to default). */
+  setTerminalHotkey(accelerator: string): Promise<{ success: boolean; accelerator: string }>;
   /** Lima sandbox API */
   lima: LimaAPI;
   /** Global settings API */

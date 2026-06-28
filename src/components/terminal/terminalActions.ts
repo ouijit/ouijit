@@ -34,6 +34,8 @@ const actionsLog = log.scope('terminalActions');
 export interface AddProjectTerminalOptions {
   existingWorktree?: WorktreeInfo & { prompt?: string; sandboxed?: boolean };
   sandboxed?: boolean;
+  /** Marks the shell as owned by the standalone terminal window. */
+  standalone?: boolean;
   taskId?: number;
   skipAutoHook?: boolean;
   background?: boolean;
@@ -333,6 +335,7 @@ export async function addProjectTerminal(
     worktreePath: worktreeInfo?.path,
     env: startEnv,
     sandboxed: useSandbox,
+    standalone: options?.standalone,
   };
 
   try {
@@ -757,7 +760,11 @@ export async function reconnectOrphanedSessions(projectPath?: string): Promise<v
   // project) and the home view (all projects). Scoping only narrows which
   // sessions are considered; the per-terminal restore is identical either way,
   // so panels can't be dropped by one path that the other applies.
-  const relevant = projectPath ? sessions.filter((s) => s.projectPath === projectPath) : sessions;
+  //
+  // Standalone shells are excluded — they belong to the standalone terminal
+  // window, which reconnects them itself.
+  const scoped = projectPath ? sessions.filter((s) => s.projectPath === projectPath) : sessions;
+  const relevant = scoped.filter((s) => !s.standalone);
   if (relevant.length === 0) return;
 
   // The session snapshot from the same launch (PTYs survive a renderer reload)
