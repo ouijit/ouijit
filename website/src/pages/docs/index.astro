@@ -12,7 +12,7 @@ const sections = [
   { id: 'cli', label: 'CLI' },
 ];
 ---
-<Site title="Documentation · Ouijit" description="Ouijit documentation: getting started, worktrees, kanban, terminals, VM sandbox, hooks, and Claude Code integration.">
+<Site title="Documentation · Ouijit" description="Ouijit documentation: getting started, worktrees, kanban, terminals, VM sandbox, hooks, and agent harness integration.">
   <div class="docs-layout">
     <aside class="docs-sidebar">
       <h4>Documentation</h4>
@@ -253,7 +253,7 @@ git branch --show-current</code></pre>
         <p>Tag terminals to organize them. Tags appear on terminal cards, and the home view can group by tag.</p>
 
         <h2>Working with harnesses</h2>
-        <p>Each terminal is a normal shell, so any CLI tool runs in it. <a href="#harnesses">Claude Code, Codex, and Pi</a> get live status indicators and can drive Ouijit through the <a href="#cli">CLI</a>.</p>
+        <p>Each terminal is a normal shell, so any CLI tool runs in it. <a href="#harnesses">Claude Code, Codex, Pi, and OpenCode</a> get live status indicators and can drive Ouijit through the <a href="#cli">CLI</a>.</p>
       </section>
 
       <section id="sandbox">
@@ -368,10 +368,10 @@ OUIJIT_HOOK_TYPE=start</code></pre>
 
       <section id="harnesses">
         <h1>Harnesses</h1>
-        <p class="lead">Claude Code, Codex, and Pi get live status indicators and can drive Ouijit through its CLI. No configuration required.</p>
+        <p class="lead">Claude Code, Codex, Pi, and OpenCode get live status indicators and can drive Ouijit through its CLI. No configuration required.</p>
 
         <h2>What you get</h2>
-        <p>Run <code>claude</code>, <code>codex</code>, or <code>pi</code> in any Ouijit terminal and two things happen automatically:</p>
+        <p>Run <code>claude</code>, <code>codex</code>, <code>pi</code>, or <code>opencode</code> in any Ouijit terminal and two things happen automatically:</p>
         <ul>
           <li>
             <strong>Live status</strong>. The terminal card shows whether the agent is thinking or idle, visible across the
@@ -410,12 +410,17 @@ OUIJIT_HOOK_TYPE=start</code></pre>
               <td><code>--extension</code> loading a generated TypeScript extension that subscribes to <code>turn_start</code> / <code>turn_end</code></td>
               <td><code>--append-system-prompt</code></td>
             </tr>
+            <tr>
+              <td><strong>OpenCode</strong></td>
+              <td>Status plugin loaded from opencode's auto-load dir, reporting off the <code>session.status</code> event (<code>session.idle</code> is deprecated)</td>
+              <td>CLI reference injected via <code>OPENCODE_CONFIG_CONTENT</code> (opencode has no system-prompt CLI flag)</td>
+            </tr>
           </tbody>
         </table>
         <p>When <code>OUIJIT_API_URL</code> is unset (i.e. the harness runs outside an Ouijit terminal), the wrappers exec the real binary unmodified.</p>
 
         <h2>Sandboxed terminals</h2>
-        <p>Status indicators work inside the <a href="#sandbox">VM sandbox</a>: Claude settings, Codex config, and the Pi extension are written into the VM's home directory, and their hooks reach back over <code>host.lima.internal</code>.</p>
+        <p>Status indicators work inside the <a href="#sandbox">VM sandbox</a>: Claude settings, Codex config, the Pi extension, and the opencode plugin (written into opencode's auto-load dir in the ephemeral home) are placed in the VM's home directory, and their hooks reach back over <code>host.lima.internal</code>.</p>
         <p>The CLI integration does not extend into the sandbox. The <code>ouijit</code> binary isn't installed in the VM, and the <code>/api/*</code> routes reject sandbox-scoped tokens.</p>
 
         <h2>Notifications</h2>
