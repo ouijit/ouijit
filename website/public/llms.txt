@@ -26,4 +26,4 @@ Free and open source under the AGPL-3.0 license. No account, no sign-in. Distrib
 
 - The `ouijit` CLI is available in every Ouijit-spawned terminal and authenticated by a per-session bearer token. It writes JSON to stdout for piping into `jq`.
 - Inside the VM sandbox, the `ouijit` binary is not installed and `/api/*` routes return 403 for sandbox-scoped tokens. Only the `/hook` status endpoint is reachable from a sandbox.
-- Claude Code, Codex, and Pi wrappers inject the CLI reference into the agent's system prompt, so agents can drive Ouijit (create tasks, flip statuses, manage hooks and scripts, update plans) from the shell. OpenCode gets the same CLI reference, injected via the `OPENCODE_CONFIG_CONTENT` config content rather than a system-prompt flag.
+- Claude Code, Codex, and Pi wrappers inject the CLI reference into the agent's system prompt, so agents can drive Ouijit (create tasks, flip statuses, manage hooks and scripts, update plans) from the shell. OpenCode gets the same CLI reference, injected via the `OPENCODE_CONFIG_CONTENT` env var rather than a system-prompt flag.

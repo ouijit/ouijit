@@ -420,7 +420,7 @@ OUIJIT_HOOK_TYPE=start</code></pre>
         <p>When <code>OUIJIT_API_URL</code> is unset (i.e. the harness runs outside an Ouijit terminal), the wrappers exec the real binary unmodified.</p>
 
         <h2>Sandboxed terminals</h2>
-        <p>Status indicators work inside the <a href="#sandbox">VM sandbox</a>: Claude settings, Codex config, the Pi extension, and the opencode plugin (written into opencode's auto-load dir in the ephemeral home) are placed in the VM's home directory, and their hooks reach back over <code>host.lima.internal</code>.</p>
+        <p>Status indicators work inside the <a href="#sandbox">VM sandbox</a>: Claude settings, Codex config, the Pi extension, and the opencode plugin are written into the VM's home directory, and their hooks reach back over <code>host.lima.internal</code>.</p>
         <p>The CLI integration does not extend into the sandbox. The <code>ouijit</code> binary isn't installed in the VM, and the <code>/api/*</code> routes reject sandbox-scoped tokens.</p>
 
         <h2>Notifications</h2>
