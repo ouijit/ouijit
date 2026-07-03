@@ -56,7 +56,7 @@ export const nonoProvider: WrapperSandboxProvider = {
     // tear down on quit.
   },
 
-  async prepare(ctx: SandboxSpawnContext): Promise<{ cwd: string }> {
+  async prepare(ctx: SandboxSpawnContext): Promise<{ cwd: string; env?: Record<string, string> }> {
     const platform = checkPlatformSupport();
     if (!platform.supported) {
       throw new Error(`nono is unavailable: ${platform.reason}`);
@@ -64,8 +64,11 @@ export const nonoProvider: WrapperSandboxProvider = {
     if (!(await isNonoInstalled())) {
       throw new Error('nono is not installed. Install it, then reopen the terminal.');
     }
-    // nono runs in place on the host worktree — cwd is unchanged.
-    return { cwd: ctx.cwd };
+    // nono runs in place on the host worktree — cwd is unchanged. Point shell
+    // history at /dev/null: nono denies the user's ~/.zsh_history (its
+    // deny_shell_configs policy), which otherwise prints a lock error at every
+    // prompt. A task shell doesn't need persistent history.
+    return { cwd: ctx.cwd, env: { HISTFILE: '/dev/null' } };
   },
 
   async wrapLaunch(launch: SandboxLaunch, ctx: SandboxSpawnContext): Promise<SandboxLaunch> {

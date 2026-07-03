@@ -109,8 +109,9 @@ export const ZSH_ZSHENV = [
   'ZDOTDIR="$OUIJIT_ZSH_ZDOTDIR"',
   '[ -z "$ZDOTDIR" ] && unset ZDOTDIR',
   '',
-  '# Source user .zshenv',
-  'if [ -f "${ZDOTDIR:-$HOME}/.zshenv" ]; then',
+  '# Source user .zshenv (only if readable — a sandbox may deny it, and',
+  '# sourcing a denied file errors loudly instead of being skipped).',
+  'if [ -r "${ZDOTDIR:-$HOME}/.zshenv" ]; then',
   '  . "${ZDOTDIR:-$HOME}/.zshenv"',
   'fi',
   '',
@@ -187,7 +188,9 @@ const zshIntegration: ShellIntegration = {
 /** bash rcfile replacement — written to shell-integration/ouijit-bash-integration.bash */
 export const BASH_INTEGRATION = [
   '# Ouijit bash integration — sources .bashrc then fixes PATH.',
-  'if [ -f "$HOME/.bashrc" ]; then',
+  '# Only if readable — a sandbox may deny it, and sourcing a denied file',
+  '# errors loudly instead of being skipped.',
+  'if [ -r "$HOME/.bashrc" ]; then',
   '  . "$HOME/.bashrc"',
   'fi',
   '',

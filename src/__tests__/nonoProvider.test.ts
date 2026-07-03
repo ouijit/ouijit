@@ -47,9 +47,10 @@ describe('nonoProvider', () => {
     expect(nonoProvider.capabilities).toMatchObject({ profiles: true, network: true, sandboxView: false });
   });
 
-  test('prepare leaves cwd unchanged when nono is available', async () => {
+  test('prepare leaves cwd unchanged and redirects shell history off the denied ~/.zsh_history', async () => {
     const result = await nonoProvider.prepare(ctx);
-    expect(result).toEqual({ cwd: '/Users/dev/wt/T-3' });
+    expect(result.cwd).toBe('/Users/dev/wt/T-3');
+    expect(result.env).toEqual({ HISTFILE: '/dev/null' });
   });
 
   test('prepare rejects with a clear error when nono is not installed', async () => {
