@@ -55,10 +55,12 @@ export interface SessionOwnerSandboxProvider extends SandboxProviderBase {
  */
 export interface WrapperSandboxProvider extends SandboxProviderBase {
   readonly kind: 'wrapper';
-  /** Near-no-op for nono: verify availability and resolve config; cwd unchanged. */
+  /** Near-no-op for nono: verify availability and resolve cwd/env. Throws with
+   *  a clear message when the backend can't run so the spawn fails loudly. */
   prepare(ctx: SandboxSpawnContext): Promise<{ cwd: string; env?: Record<string, string> }>;
-  /** Pure transform applied after the shell-integration launch is built. */
-  wrapLaunch(launch: SandboxLaunch, ctx: SandboxSpawnContext): SandboxLaunch;
+  /** Transform the host launch — nono derives its grants (worktree, git dir,
+   *  hook port) at spawn time, so this resolves them and prefixes its argv. */
+  wrapLaunch(launch: SandboxLaunch, ctx: SandboxSpawnContext): Promise<SandboxLaunch>;
 }
 
 export type SandboxProvider = SessionOwnerSandboxProvider | WrapperSandboxProvider;

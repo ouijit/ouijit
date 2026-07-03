@@ -125,6 +125,9 @@ const mockApi = {
     onSpawnProgress: vi.fn().mockReturnValue(() => {}),
     onSandboxDiverged: vi.fn().mockReturnValue(() => {}),
   },
+  sandbox: {
+    status: vi.fn().mockResolvedValue([]),
+  },
   globalSettings: {
     get: vi.fn().mockResolvedValue(undefined),
     set: vi.fn().mockResolvedValue({ success: true }),

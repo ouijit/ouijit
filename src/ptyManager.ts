@@ -264,7 +264,7 @@ export async function spawnPty(
       });
       spawnCwd = prepared.cwd;
       if (prepared.env) Object.assign(finalEnv, prepared.env);
-      const wrapped = wrapper.wrapLaunch(
+      const wrapped = await wrapper.wrapLaunch(
         { file: launch.file, args: launch.args, env: finalEnv },
         {
           projectPath: options.projectPath || options.cwd,

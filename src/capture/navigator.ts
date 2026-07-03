@@ -34,7 +34,7 @@ function seedTerminal(projectPath: string, seed: CaptureTerminalSeed): void {
     projectPath,
     label: seed.label,
     taskId: seed.taskId,
-    sandboxed: seed.sandboxed ?? false,
+    sandboxProvider: seed.sandboxed ? 'lima' : undefined,
     worktreeBranch: seed.worktreeBranch,
     ptyId: seed.ptyId,
     initialSummaryType: seed.summaryType ?? 'ready',

@@ -303,4 +303,7 @@ contextBridge.exposeInMainWorld('api', {
       callback: (event: { taskNumber: number; userWorktreePath: string; sandboxViewPath: string }) => void,
     ) => typedListen('sandbox:diverged', callback),
   },
+  sandbox: {
+    status: (projectPath: string) => typedInvoke('sandbox:status', projectPath),
+  },
 });

@@ -43,7 +43,7 @@ import type {
   CliPanelResponse,
 } from '../types';
 import type { LimaStatus } from '../lima/types';
-import type { SandboxProviderId } from '../sandbox/types';
+import type { SandboxProviderId, SandboxProviderStatus } from '../sandbox/types';
 import type { HookStatusEntry } from '../hookServer';
 import type { HealthStatus } from '../healthCheck';
 import type { CaptureNavigatePayload } from '../capture/types';
@@ -229,6 +229,9 @@ export interface IpcInvokeContract {
 
   // ── Health ───────────────────────────────────────────────────────────
   'health:check': { args: []; return: HealthStatus };
+
+  // ── Sandbox (cross-provider) ─────────────────────────────────────────
+  'sandbox:status': { args: [projectPath: string]; return: SandboxProviderStatus[] };
 
   // ── Lima ─────────────────────────────────────────────────────────────
   'lima:status': { args: [projectPath: string]; return: LimaStatus };

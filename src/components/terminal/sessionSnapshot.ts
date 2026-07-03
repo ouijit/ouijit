@@ -68,6 +68,8 @@ export function gatherSnapshot(): LastSessionSnapshot {
         taskNumber: term.taskId,
         worktreePath: term.worktreePath ?? null,
         worktreeBranch: term.worktreeBranch ?? null,
+        sandboxProvider: term.sandboxProvider,
+        // Legacy boolean kept so an older build can still read this snapshot.
         sandboxed: term.sandboxed,
         label: term.label || null,
         ordinalInProject,

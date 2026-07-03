@@ -34,7 +34,7 @@ import type { TaskWorktreeResult, WorktreeInfo, WorktreeRemoveResult, CheckWorkt
 import type { TaskStatus, TagRow } from './db';
 import type { ActiveSession } from './ptyManager';
 import type { LimaStatus } from './lima/types';
-import type { SandboxProviderId } from './sandbox/types';
+import type { SandboxProviderId, SandboxProviderStatus } from './sandbox/types';
 import type { HookStatus, HookStatusEntry } from './hookServer';
 
 /**
@@ -592,6 +592,8 @@ export interface ElectronAPI {
   homePath(): Promise<string>;
   /** Lima sandbox API */
   lima: LimaAPI;
+  /** Cross-provider sandbox API */
+  sandbox: SandboxAPI;
   /** Global settings API */
   globalSettings: GlobalSettingsAPI;
   /** Onboarding API */
@@ -719,6 +721,16 @@ export interface CliPanelResponse {
 export interface CliPanelsAPI {
   onOp(callback: (op: CliPanelOp) => void): () => void;
   respond(requestId: number, response: CliPanelResponse): Promise<void>;
+}
+
+/**
+ * Cross-provider sandbox API exposed to the renderer. Provider-neutral: it
+ * reports availability for every registered backend. Backend-specific config
+ * lives on its own API surface (e.g. LimaAPI for the YAML editor).
+ */
+export interface SandboxAPI {
+  /** Availability + readiness of every registered sandbox backend. */
+  status(projectPath: string): Promise<SandboxProviderStatus[]>;
 }
 
 /**

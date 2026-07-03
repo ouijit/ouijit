@@ -97,17 +97,20 @@ export async function restoreSession(snapshot: LastSessionSnapshot, entries: Res
       for (const entry of projectEntries) {
         const source = entry.source;
         try {
+          // Prefer the persisted provider; fall back to the legacy boolean
+          // (pre-provider snapshots) which was always Lima.
+          const restoredProvider = source.sandboxProvider ?? (source.sandboxed ? 'lima' : undefined);
           await addProjectTerminal(projectPath, undefined, {
             existingWorktree: source.worktreePath
               ? {
                   path: source.worktreePath,
                   branch: source.worktreeBranch ?? '',
                   createdAt: '',
-                  sandboxed: source.sandboxed,
+                  sandboxProvider: restoredProvider,
                 }
               : undefined,
             taskId: source.taskNumber ?? undefined,
-            sandboxed: source.sandboxed,
+            sandboxProvider: restoredProvider,
             // Carry through a user rename so a restored card keeps its name
             // instead of snapping back to the task name.
             label: source.label ?? undefined,

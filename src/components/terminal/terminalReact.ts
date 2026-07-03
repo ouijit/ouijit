@@ -9,7 +9,7 @@
 import { Terminal as XTerminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
-import type { PtyId, PtySpawnOptions, GitFileStatus } from '../../types';
+import type { PtyId, PtySpawnOptions, GitFileStatus, SandboxProviderId } from '../../types';
 import { notifyReady, readyBody } from '../../utils/notifications';
 import { generateId } from '../../utils/ids';
 import { useTerminalStore } from '../../stores/terminalStore';
@@ -29,7 +29,7 @@ export interface TerminalOptions {
   projectPath: string;
   command?: string;
   label: string;
-  sandboxed?: boolean;
+  sandboxProvider?: SandboxProviderId;
   taskId?: number | null;
   taskPrompt?: string;
   worktreePath?: string;
@@ -388,7 +388,11 @@ export class OuijitTerminal {
   tags: string[];
 
   // ── Task/worktree metadata ──────────────────────────────────────────
-  readonly sandboxed: boolean;
+  readonly sandboxProvider: SandboxProviderId | undefined;
+  /** Display convenience: is this terminal running under any sandbox backend. */
+  get sandboxed(): boolean {
+    return this.sandboxProvider != null && this.sandboxProvider !== 'none';
+  }
   readonly taskId: number | null;
   readonly taskPrompt?: string;
   worktreePath?: string;
@@ -445,7 +449,7 @@ export class OuijitTerminal {
     this.projectPath = opts.projectPath;
     this.command = opts.command;
     this.isRunner = opts.isRunner ?? false;
-    this.sandboxed = opts.sandboxed ?? false;
+    this.sandboxProvider = opts.sandboxProvider;
     this.taskId = opts.taskId ?? null;
     this.taskPrompt = opts.taskPrompt;
     this.worktreePath = opts.worktreePath;
