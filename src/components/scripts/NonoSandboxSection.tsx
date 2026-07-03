@@ -5,14 +5,18 @@ interface NonoSandboxSectionProps {
   projectPath: string;
 }
 
-/**
- * Config surface for the nono backend: an optional named profile and a network
- * restriction toggle. Copy stays to mechanism (what the flag does), not
- * isolation guarantees.
- */
+const CARD =
+  'glass-bevel relative border border-black/60 rounded-[14px] overflow-hidden bg-[var(--color-terminal-bg,#171717)] divide-y divide-white/[0.06]';
+
+const PILL_BTN =
+  'shrink-0 text-xs font-medium text-text-secondary bg-background-secondary border border-black/60 rounded-[10px] px-2.5 py-1.5 hover:bg-background-tertiary hover:text-text-primary transition-colors';
+
+/** Config surface for the nono backend. Controls only — no exposition. */
 export function NonoSandboxSection({ projectPath }: NonoSandboxSectionProps) {
   const [config, setConfig] = useState<NonoConfig>({});
   const [profiles, setProfiles] = useState<string[]>([]);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [portDraft, setPortDraft] = useState('');
 
   useEffect(() => {
     let active = true;
@@ -36,62 +40,189 @@ export function NonoSandboxSection({ projectPath }: NonoSandboxSectionProps) {
     [projectPath],
   );
 
+  const allowPaths = config.allowPaths ?? [];
+  const openPorts = config.openPorts ?? [];
+
+  const addFolder = async () => {
+    const res = await window.api.showFolderPicker();
+    if (res.canceled || res.filePaths.length === 0) return;
+    const picked = res.filePaths[0];
+    if (allowPaths.includes(picked)) return;
+    save({ ...config, allowPaths: [...allowPaths, picked] });
+  };
+  const removeFolder = (p: string) => save({ ...config, allowPaths: allowPaths.filter((x) => x !== p) });
+
+  const addPort = () => {
+    const n = Number(portDraft.trim());
+    if (!Number.isInteger(n) || n <= 0 || n > 65535 || openPorts.includes(n)) return;
+    save({ ...config, openPorts: [...openPorts, n] });
+    setPortDraft('');
+  };
+  const removePort = (n: number) => save({ ...config, openPorts: openPorts.filter((x) => x !== n) });
+
   return (
     <div className="flex flex-col gap-3">
       <p className="text-xs text-text-tertiary">
-        Runs task commands under nono on this machine. Filesystem access is scoped to the task worktree and its git
-        data; the agent status channel stays reachable.
+        Runs a task's commands with OS-level access limits, scoped to its worktree and git data. Turn it on from a
+        task's menu.
       </p>
 
-      <div className="glass-bevel relative border border-black/60 rounded-[14px] overflow-hidden bg-[var(--color-terminal-bg,#171717)]">
-        <label className="flex items-center gap-4 px-4 py-3">
-          <div className="flex-1 min-w-0">
-            <div className="text-sm text-text-primary">Profile</div>
-            <div className="text-xs text-text-tertiary mt-0.5">
-              A named nono profile from ~/.config/nono/profiles, layered under the worktree grants.
+      <div className={CARD}>
+        {/* Additional folders */}
+        <div className="flex flex-col gap-2 px-4 py-3">
+          <div className="flex items-center justify-between gap-4">
+            <div className="min-w-0">
+              <div className="text-sm text-text-primary">Additional folders</div>
+              <div className="mt-0.5 text-xs text-text-tertiary">Beyond the worktree and git data.</div>
             </div>
+            <button type="button" onClick={addFolder} className={PILL_BTN}>
+              Add folder
+            </button>
           </div>
-          <select
-            className="text-xs bg-background-secondary border border-black/60 rounded-[10px] px-2 py-1.5 text-text-primary"
-            value={config.profile ?? ''}
-            onChange={(e) => save({ ...config, profile: e.target.value || undefined })}
-          >
-            <option value="">None</option>
-            {profiles.map((p) => (
-              <option key={p} value={p}>
-                {p}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <div className="border-t border-white/[0.06]" />
-
-        <label className="flex items-center gap-4 px-4 py-3">
-          <div className="flex-1 min-w-0">
-            <div className="text-sm text-text-primary">Restrict outbound network</div>
-            <div className="text-xs text-text-tertiary mt-0.5">
-              Blocks outbound network for sandboxed commands. The local agent status port stays open.
+          {allowPaths.length > 0 && (
+            <div className="flex flex-col gap-1">
+              {allowPaths.map((p) => (
+                <div key={p} className="flex items-center gap-2">
+                  <code className="min-w-0 flex-1 truncate text-xs text-text-secondary">{p}</code>
+                  <button
+                    type="button"
+                    onClick={() => removeFolder(p)}
+                    aria-label={`Remove ${p}`}
+                    className="px-1 text-xs text-text-tertiary hover:text-text-primary"
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
             </div>
-          </div>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={config.blockNet ?? false}
-            aria-label="Restrict outbound network"
+          )}
+        </div>
+
+        {/* Network */}
+        <label className="flex items-center justify-between gap-4 px-4 py-3">
+          <span className="text-sm text-text-primary">Block outbound network</span>
+          <Toggle
+            checked={config.blockNet ?? false}
+            label="Block outbound network"
             onClick={() => save({ ...config, blockNet: !(config.blockNet ?? false) })}
-            className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors duration-150 ${
-              config.blockNet ? 'bg-blue-500' : 'bg-white/15'
-            }`}
-          >
-            <span
-              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-150 ${
-                config.blockNet ? 'translate-x-[18px]' : 'translate-x-[2px]'
-              }`}
-            />
-          </button>
+          />
         </label>
+
+        {/* Allowed ports */}
+        <div className="flex flex-col gap-2 px-4 py-3">
+          <div className="flex items-center justify-between gap-4">
+            <span className="text-sm text-text-primary">Allowed ports</span>
+            <div className="flex shrink-0 items-center gap-1.5">
+              <input
+                type="text"
+                inputMode="numeric"
+                value={portDraft}
+                placeholder="3000"
+                aria-label="Add a port"
+                onChange={(e) => setPortDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') addPort();
+                }}
+                className="w-16 rounded-[10px] border border-black/60 bg-background-secondary px-2 py-1.5 text-xs text-text-primary"
+              />
+              <button type="button" onClick={addPort} className={PILL_BTN}>
+                Add
+              </button>
+            </div>
+          </div>
+          {openPorts.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {openPorts.map((n) => (
+                <span
+                  key={n}
+                  className="inline-flex items-center gap-1 rounded-full border border-black/60 bg-background-secondary py-0.5 pl-2 pr-1 text-xs text-text-secondary"
+                >
+                  {n}
+                  <button
+                    type="button"
+                    onClick={() => removePort(n)}
+                    aria-label={`Remove port ${n}`}
+                    className="px-1 text-text-tertiary hover:text-text-primary"
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
+
+      {/* Advanced */}
+      <button
+        type="button"
+        onClick={() => setAdvancedOpen((v) => !v)}
+        className="flex items-center gap-1 self-start text-xs font-medium text-text-secondary hover:text-text-primary"
+      >
+        <span className={`transition-transform ${advancedOpen ? 'rotate-90' : ''}`}>▸</span> Advanced
+      </button>
+      {advancedOpen && (
+        <div className={CARD}>
+          <div className="flex flex-col gap-2 px-4 py-3">
+            <div className="flex items-center justify-between gap-4">
+              <div className="min-w-0">
+                <div className="text-sm text-text-primary">Profile</div>
+                <div className="mt-0.5 text-xs text-text-tertiary">
+                  Optional. Adds your own nono rules on top of the grants above.
+                </div>
+              </div>
+              {profiles.length > 0 && (
+                <select
+                  className="rounded-[10px] border border-black/60 bg-background-secondary px-2 py-1.5 text-xs text-text-primary"
+                  value={config.profile ?? ''}
+                  onChange={(e) => save({ ...config, profile: e.target.value || undefined })}
+                >
+                  <option value="">None</option>
+                  {profiles.map((p) => (
+                    <option key={p} value={p}>
+                      {p}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+            {profiles.length === 0 && (
+              <div className="text-xs text-text-tertiary">
+                None installed. Create one with <code className="text-text-secondary">nono profile init</code>, or{' '}
+                <button
+                  type="button"
+                  onClick={() => window.api.openExternal('https://nono.sh/docs/cli/features/profile-authoring')}
+                  className="underline hover:text-text-primary"
+                >
+                  learn more
+                </button>
+                .
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
+  );
+}
+
+function Toggle({ checked, label, onClick }: { checked: boolean; label: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
+      onClick={onClick}
+      className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors duration-150 ${
+        checked ? 'bg-blue-500' : 'bg-white/15'
+      }`}
+    >
+      <span
+        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-150 ${
+          checked ? 'translate-x-[18px]' : 'translate-x-[2px]'
+        }`}
+      />
+    </button>
   );
 }

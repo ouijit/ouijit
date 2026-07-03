@@ -240,12 +240,12 @@ export const KanbanCard = memo(function KanbanCard({
     });
 
     if (task.worktreePath && task.branch && availableSandboxProviders.length > 0) {
-      // One entry per installed backend. Opening under a backend also makes it
-      // the task's default. A single backend keeps the short "Open in Sandbox".
-      const single = availableSandboxProviders.length === 1;
+      // One entry per installed backend, always named so the action and the
+      // backend's settings read as the same feature. Opening under a backend
+      // also makes it the task's default.
       for (const provider of availableSandboxProviders) {
         items.push({
-          label: single ? 'Open in Sandbox' : `Open in ${SANDBOX_PROVIDER_LABELS[provider]} sandbox`,
+          label: `Open in ${SANDBOX_PROVIDER_LABELS[provider]} sandbox`,
           icon: 'cube',
           onClick: () => onOpenTerminal(task, provider),
         });

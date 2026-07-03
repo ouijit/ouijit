@@ -111,9 +111,8 @@ export const TerminalHeader = memo(function TerminalHeader({
       });
 
       for (const provider of availableSandboxProviders) {
-        const single = availableSandboxProviders.length === 1;
         items.push({
-          label: single ? 'Open in Sandbox' : `Open in ${SANDBOX_PROVIDER_LABELS[provider]} sandbox`,
+          label: `Open in ${SANDBOX_PROVIDER_LABELS[provider]} sandbox`,
           icon: 'cube',
           onClick: () => {
             addProjectTerminal(projectPath, undefined, {

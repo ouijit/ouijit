@@ -87,6 +87,15 @@ describe('buildNonoLaunch', () => {
     expect(opened).toEqual(['5000', '3000', '8080']);
   });
 
+  test('grants extra configured folders read+write alongside the worktree', () => {
+    const { args } = build({ config: { allowPaths: ['/Users/dev/cache', '/Users/dev/mono/sibling'] } });
+    const allowed = args.reduce<string[]>((acc, a, i) => (a === '--allow' ? [...acc, args[i + 1]] : acc), []);
+    // The worktree is always first; the configured extras follow.
+    expect(allowed).toContain('/Users/dev/cache');
+    expect(allowed).toContain('/Users/dev/mono/sibling');
+    expect(allowed[0]).toBe('/Users/dev/Ouijit/worktrees/proj/T-5');
+  });
+
   test('keeps paths with spaces as single argv elements', () => {
     const { args } = build({ worktreePath: '/Users/dev/My Projects/T-5' });
     expect(args).toContain('/Users/dev/My Projects/T-5');

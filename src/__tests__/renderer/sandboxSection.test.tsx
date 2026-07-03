@@ -26,7 +26,7 @@ describe('SandboxSection provider router', () => {
   test('nono-only: shows the nono config surface, no backend picker', async () => {
     setAvailable(['nono']);
     const { queryByText, getByLabelText } = render(<SandboxSection projectPath="/p" />);
-    await waitFor(() => expect(getByLabelText('Restrict outbound network')).toBeTruthy());
+    await waitFor(() => expect(getByLabelText('Block outbound network')).toBeTruthy());
     // No picker tabs when a single backend.
     expect(queryByText('Lima VM')).toBeNull();
   });
@@ -43,10 +43,47 @@ describe('SandboxSection provider router', () => {
   test('toggling the nono network restriction persists the config', async () => {
     setAvailable(['nono']);
     const { getByLabelText } = render(<SandboxSection projectPath="/p" />);
-    const toggle = await waitFor(() => getByLabelText('Restrict outbound network'));
+    const toggle = await waitFor(() => getByLabelText('Block outbound network'));
     fireEvent.click(toggle);
     await waitFor(() =>
       expect(window.api.sandbox.setNonoConfig).toHaveBeenCalledWith('/p', expect.objectContaining({ blockNet: true })),
     );
+  });
+
+  test('adding a folder via the picker persists it to allowPaths', async () => {
+    vi.mocked(window.api.showFolderPicker).mockResolvedValue({ canceled: false, filePaths: ['/Users/dev/cache'] });
+    setAvailable(['nono']);
+    const { getByText } = render(<SandboxSection projectPath="/p" />);
+    const addBtn = await waitFor(() => getByText('Add folder'));
+    fireEvent.click(addBtn);
+    await waitFor(() =>
+      expect(window.api.sandbox.setNonoConfig).toHaveBeenCalledWith(
+        '/p',
+        expect.objectContaining({ allowPaths: ['/Users/dev/cache'] }),
+      ),
+    );
+  });
+
+  test('adding an extra port persists it to openPorts', async () => {
+    setAvailable(['nono']);
+    const { getByText, getByPlaceholderText } = render(<SandboxSection projectPath="/p" />);
+    const input = await waitFor(() => getByPlaceholderText('3000'));
+    fireEvent.change(input, { target: { value: '8080' } });
+    fireEvent.click(getByText('Add'));
+    await waitFor(() =>
+      expect(window.api.sandbox.setNonoConfig).toHaveBeenCalledWith(
+        '/p',
+        expect.objectContaining({ openPorts: [8080] }),
+      ),
+    );
+  });
+
+  test('profile is tucked under Advanced, not shown by default', async () => {
+    setAvailable(['nono']);
+    const { getByText, queryByText } = render(<SandboxSection projectPath="/p" />);
+    await waitFor(() => expect(getByText('Additional folders')).toBeTruthy());
+    expect(queryByText('Profile')).toBeNull();
+    fireEvent.click(getByText('Advanced'));
+    await waitFor(() => expect(getByText('Profile')).toBeTruthy());
   });
 });

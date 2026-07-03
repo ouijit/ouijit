@@ -67,4 +67,6 @@ export interface NonoConfig {
   blockNet?: boolean;
   /** Extra localhost ports to open beyond the hook server. */
   openPorts?: number[];
+  /** Extra folders granted read+write beyond the derived worktree + git grants. */
+  allowPaths?: string[];
 }

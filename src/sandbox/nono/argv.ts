@@ -45,6 +45,11 @@ export function buildNonoLaunch(nonoPath: string, launch: SandboxLaunch, ctx: No
   }
 
   args.push('--allow', ctx.worktreePath);
+  // Extra user-granted folders (read+write), e.g. a shared cache or a monorepo
+  // sibling that lives outside the worktree.
+  for (const extra of ctx.config?.allowPaths ?? []) {
+    args.push('--allow', extra);
+  }
   args.push('--read', git);
   args.push('--write', path.join(git, 'objects'));
   args.push('--write', path.join(git, 'refs'));
