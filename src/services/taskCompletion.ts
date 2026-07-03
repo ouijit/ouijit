@@ -146,7 +146,9 @@ async function completeTaskInner(opts: CompleteTaskOptions): Promise<void> {
           existingWorktree: { path: task.worktreePath, branch: task.branch || '', createdAt: task.createdAt },
           taskId: taskNumber,
           skipAutoHook: true,
-          sandboxed,
+          // The task's backend runs its hooks; the dialog toggle only opts a
+          // non-sandboxed task's one-off hook into Lima.
+          sandboxProvider: task.sandboxProvider ?? (sandboxed ? 'lima' : undefined),
           // "Run & Open" (foreground) brings the hook terminal up so the user
           // can watch it; the background run stays out of the way and tidies up
           // on success. Either way the hook terminal is excluded from the close

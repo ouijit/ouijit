@@ -390,7 +390,9 @@ async function spawnTerminalForInProgress(
   await addProjectTerminal(projectPath, runConfig, {
     existingWorktree: { path: task.worktreePath, branch: task.branch || '', createdAt: task.createdAt },
     taskId: task.taskNumber,
-    sandboxed: hookResult?.sandboxed,
+    // The task's backend runs its hooks; the dialog toggle only opts a
+    // non-sandboxed task's one-off hook into Lima.
+    sandboxProvider: task.sandboxProvider ?? (hookResult?.sandboxed ? 'lima' : undefined),
     skipAutoHook: true,
     replaceLoadingId: loadingSlot ?? undefined,
   });
@@ -411,7 +413,9 @@ async function runNonStartHookInTerminal(
         existingWorktree: { path: task.worktreePath, branch: task.branch || '', createdAt: task.createdAt },
         taskId: task.taskNumber,
         skipAutoHook: true,
-        sandboxed: hookResult.sandboxed,
+        // The task's backend runs its hooks; the dialog toggle only opts a
+        // non-sandboxed task's one-off hook into Lima.
+        sandboxProvider: task.sandboxProvider ?? (hookResult.sandboxed ? 'lima' : undefined),
         background: !hookResult.foreground,
       },
     );

@@ -85,6 +85,20 @@ describe('taskStartService.beginTransition', () => {
     expect(useProjectStore.getState().startingTaskNumbers.has(7)).toBe(false);
   });
 
+  test("a task's start-hook terminal inherits its sandbox backend", async () => {
+    beginTransition(PROJECT, {
+      origStatus: 'todo',
+      newStatus: 'in_progress',
+      task: { ...makeTask(), sandboxProvider: 'nono', worktreePath: '/wt/T-7', branch: 'wire-up-auth-7' },
+    });
+
+    await waitFor(() => vi.mocked(addProjectTerminal).mock.calls.length > 0);
+    expect(vi.mocked(addProjectTerminal).mock.calls[0][2]).toMatchObject({
+      taskId: 7,
+      sandboxProvider: 'nono',
+    });
+  });
+
   test('hook prompt cancel: opens no terminal and removes the loading slot', async () => {
     vi.mocked(window.api.hooks.get).mockResolvedValue({
       start: { command: 'npm install', name: 'Start', source: 'configured', priority: 0 },
