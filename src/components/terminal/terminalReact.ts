@@ -581,10 +581,10 @@ export class OuijitTerminal {
     this.wireResizeObserver();
   }
 
-  /** Spawn a PTY, showing sandbox progress if sandboxed. */
+  /** Spawn a PTY, showing VM boot progress for the Lima backend. */
   async spawnPty(options: PtySpawnOptions): Promise<PtyId | null> {
     let cleanupProgress: (() => void) | null = null;
-    if (options.sandboxed) {
+    if (options.sandboxProvider === 'lima') {
       const spinner = ['⣾', '⣽', '⣻', '⢿', '⡿', '⣟', '⣯', '⣷'];
       let frame = 0;
       let activeLabel = 'Connecting to sandbox…';

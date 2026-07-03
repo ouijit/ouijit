@@ -1,6 +1,7 @@
 import * as pty from 'node-pty';
 import { BrowserWindow } from 'electron';
-import type { PtyId, PtySpawnOptions, PtySpawnResult } from './types';
+import type { PtyId, PtySpawnOptions, PtySpawnResult, SandboxProviderId } from './types';
+import type { WrapperSandboxProvider } from './sandbox/provider';
 import { generateId } from './utils/ids';
 import { getApiPort, getWrapperBinDir, clearHookStatus, clearAllHookStatuses } from './hookServer';
 import { getShellIntegrationDir, resolveShellIntegration } from './shellIntegration';
@@ -39,7 +40,8 @@ interface ManagedPty {
   label: string;
   taskId?: number;
   worktreePath?: string;
-  sandboxed: boolean;
+  /** Sandbox backend running this PTY, or undefined for a plain host shell. */
+  sandboxProvider?: SandboxProviderId;
   // Runner identification
   isRunner: boolean;
   parentPtyId?: PtyId;
@@ -68,7 +70,7 @@ export interface ActiveSession {
   worktreePath?: string;
   isRunner?: boolean;
   parentPtyId?: PtyId;
-  sandboxed?: boolean;
+  sandboxProvider?: SandboxProviderId;
 }
 
 const activePtys = new Map<PtyId, ManagedPty>();
@@ -165,7 +167,11 @@ function handlePtyOutput(ptyId: PtyId, channel: string, data: string): void {
 /**
  * Spawn a new PTY with the user's shell
  */
-export async function spawnPty(options: PtySpawnOptions, window: BrowserWindow): Promise<PtySpawnResult> {
+export async function spawnPty(
+  options: PtySpawnOptions,
+  window: BrowserWindow,
+  wrapper?: WrapperSandboxProvider,
+): Promise<PtySpawnResult> {
   try {
     const ptyId = generateId('pty');
     const shell = getDefaultShell();
@@ -194,10 +200,12 @@ export async function spawnPty(options: PtySpawnOptions, window: BrowserWindow):
       }
     }
 
-    // Inject hook API env vars so Claude Code hooks can reach us
+    // Inject hook API env vars so Claude Code hooks can reach us. A wrapper
+    // provider (e.g. nono) runs the shell inside a sandbox, so it gets the
+    // restricted 'sandbox' token scope, matching Lima-hosted agents.
     finalEnv['OUIJIT_PTY_ID'] = ptyId;
     finalEnv['OUIJIT_API_URL'] = `http://127.0.0.1:${getApiPort()}`;
-    finalEnv['OUIJIT_API_TOKEN'] = issueToken(ptyId, 'host');
+    finalEnv['OUIJIT_API_TOKEN'] = issueToken(ptyId, wrapper ? 'sandbox' : 'host');
 
     // Shell integration: wrapper dir + integration dir for PATH fix scripts
     const wrapperBinDir = getWrapperBinDir();
@@ -239,11 +247,42 @@ export async function spawnPty(options: PtySpawnOptions, window: BrowserWindow):
       typedPush(window, 'shell-unsupported', { shell });
     }
 
-    const ptyProcess = pty.spawn(launch.file, launch.args, {
+    // A wrapper provider (nono) transforms the fully-built host launch: it
+    // prefixes its own argv around the shell and may overlay cwd/env. The
+    // shell-integration recipe, wrapper-PATH, and OUIJIT_* env are already in
+    // place, so the sandboxed shell keeps status reporting and shell integration.
+    let launchFile = launch.file;
+    let launchArgs = launch.args;
+    let spawnCwd = options.cwd;
+    if (wrapper) {
+      const prepared = await wrapper.prepare({
+        projectPath: options.projectPath || options.cwd,
+        taskId: options.taskId,
+        cwd: options.cwd,
+        worktreePath: options.worktreePath,
+        apiPort: getApiPort(),
+      });
+      spawnCwd = prepared.cwd;
+      if (prepared.env) Object.assign(finalEnv, prepared.env);
+      const wrapped = wrapper.wrapLaunch(
+        { file: launch.file, args: launch.args, env: finalEnv },
+        {
+          projectPath: options.projectPath || options.cwd,
+          taskId: options.taskId,
+          cwd: spawnCwd,
+          worktreePath: options.worktreePath,
+          apiPort: getApiPort(),
+        },
+      );
+      launchFile = wrapped.file;
+      launchArgs = wrapped.args;
+    }
+
+    const ptyProcess = pty.spawn(launchFile, launchArgs, {
       name: 'xterm-256color',
       cols: options.cols || 80,
       rows: options.rows || 24,
-      cwd: options.cwd,
+      cwd: spawnCwd,
       env: finalEnv,
     });
 
@@ -256,7 +295,7 @@ export async function spawnPty(options: PtySpawnOptions, window: BrowserWindow):
       label,
       taskId: options.taskId,
       worktreePath: options.worktreePath,
-      sandboxed: options.sandboxed || false,
+      sandboxProvider: wrapper?.id ?? options.sandboxProvider,
       isRunner: options.isRunner || false,
       parentPtyId: options.parentPtyId,
       outputChunks: [],
@@ -360,7 +399,7 @@ export function getActiveSessions(): ActiveSession[] {
     worktreePath: managed.worktreePath,
     isRunner: managed.isRunner,
     parentPtyId: managed.parentPtyId,
-    sandboxed: managed.sandboxed,
+    sandboxProvider: managed.sandboxProvider,
   }));
 }
 

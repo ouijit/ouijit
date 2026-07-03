@@ -332,7 +332,7 @@ export async function addProjectTerminal(
     taskId: options?.taskId,
     worktreePath: worktreeInfo?.path,
     env: startEnv,
-    sandboxed: useSandbox,
+    sandboxProvider: useSandbox ? 'lima' : undefined,
   };
 
   try {
@@ -441,7 +441,7 @@ export async function reconnectTerminal(
     projectPath: session.projectPath,
     command: session.command,
     label,
-    sandboxed: !!session.sandboxed,
+    sandboxed: session.sandboxProvider != null && session.sandboxProvider !== 'none',
     taskId: session.taskId ?? null,
     worktreePath: session.worktreePath,
     worktreeBranch: opts.worktreeBranch,
@@ -475,7 +475,7 @@ export async function reconnectTerminal(
     session.projectPath,
     {
       label,
-      sandboxed: !!session.sandboxed,
+      sandboxed: session.sandboxProvider != null && session.sandboxProvider !== 'none',
       taskId: session.taskId ?? null,
       worktreeBranch: opts.worktreeBranch ?? null,
       summaryType: opts.initialStatus ?? 'ready',

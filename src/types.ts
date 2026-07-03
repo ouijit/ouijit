@@ -34,6 +34,7 @@ import type { TaskWorktreeResult, WorktreeInfo, WorktreeRemoveResult, CheckWorkt
 import type { TaskStatus, TagRow } from './db';
 import type { ActiveSession } from './ptyManager';
 import type { LimaStatus } from './lima/types';
+import type { SandboxProviderId } from './sandbox/types';
 import type { HookStatus, HookStatusEntry } from './hookServer';
 
 /**
@@ -261,8 +262,8 @@ export interface PtySpawnOptions {
   parentPtyId?: PtyId;
   /** Additional environment variables to set */
   env?: Record<string, string>;
-  /** Whether to run this terminal inside a Lima sandbox VM */
-  sandboxed?: boolean;
+  /** Which sandbox backend runs this terminal, or omitted/'none' for a host shell. */
+  sandboxProvider?: SandboxProviderId;
 }
 
 /**
