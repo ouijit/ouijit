@@ -30,6 +30,33 @@ const worktreeLog = getLogger().scope('worktree');
 const execAsync = promisify(exec);
 const execFileAsync = promisify(execFile);
 
+// Coalesces concurrent worktree materializations (start/recover) for the same
+// task. startTask persists worktreePath to the DB before the ignored-file copy
+// completes, so a second caller consulting the DB mid-copy (the idempotent
+// early return, CLI `ouijit task start`, open-terminal affordances) would be
+// handed a half-populated worktree and could run hooks against it, the same
+// corruption #112 fixed for the primary start path. Awaiting the in-flight
+// promise instead means every caller observes the copy's completion.
+const inFlightWorktreeOps = new Map<string, Promise<TaskWorktreeResult>>();
+
+function coalesceWorktreeOp(
+  projectPath: string,
+  taskNumber: number,
+  fn: () => Promise<TaskWorktreeResult>,
+): Promise<TaskWorktreeResult> {
+  const key = `${projectPath}::${taskNumber}`;
+  const existing = inFlightWorktreeOps.get(key);
+  if (existing) {
+    worktreeLog.info('worktree operation already in flight, awaiting it', { taskNumber });
+    return existing;
+  }
+  const run = fn().finally(() => {
+    inFlightWorktreeOps.delete(key);
+  });
+  inFlightWorktreeOps.set(key, run);
+  return run;
+}
+
 // Serializes the worktree path probe + `git worktree add` so two concurrent
 // startTask calls can't both probe to the same T-N path and race on create.
 let worktreeCreateMutex: Promise<unknown> = Promise.resolve();
@@ -433,7 +460,19 @@ export async function createTodoTask(projectPath: string, name?: string, prompt?
   }
 }
 
-export async function startTask(
+export function startTask(
+  projectPath: string,
+  taskNumber: number,
+  branchName?: string,
+  baseBranch?: string,
+  sandboxed: boolean = false,
+): Promise<TaskWorktreeResult> {
+  return coalesceWorktreeOp(projectPath, taskNumber, () =>
+    startTaskImpl(projectPath, taskNumber, branchName, baseBranch, sandboxed),
+  );
+}
+
+async function startTaskImpl(
   projectPath: string,
   taskNumber: number,
   branchName?: string,
@@ -791,7 +830,11 @@ export async function checkTaskWorktree(projectPath: string, taskNumber: number)
  * Recover a task whose worktree directory was deleted externally.
  * Prunes stale worktrees, then re-creates from the existing branch.
  */
-export async function recoverTaskWorktree(projectPath: string, taskNumber: number): Promise<TaskWorktreeResult> {
+export function recoverTaskWorktree(projectPath: string, taskNumber: number): Promise<TaskWorktreeResult> {
+  return coalesceWorktreeOp(projectPath, taskNumber, () => recoverTaskWorktreeImpl(projectPath, taskNumber));
+}
+
+async function recoverTaskWorktreeImpl(projectPath: string, taskNumber: number): Promise<TaskWorktreeResult> {
   try {
     const task = await getTaskByNumber(projectPath, taskNumber);
     if (!task) return { success: false, error: 'Task not found' };
