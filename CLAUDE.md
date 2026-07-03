@@ -65,8 +65,14 @@ Dev userData is isolated per worktree via a hash of the repo path (`…/ouijit-d
 - `src/components/webPreview/` - Web preview panel
 - `src/components/ui/` - Reusable primitives (`ToastContainer.tsx`, `ContextMenu.tsx`, `Tooltip.tsx`, `TooltipButton.tsx`)
 
-**Lima VM sandbox:**
-- `src/lima/` - Lima VM integration (sandboxed terminal sessions)
+**Sandbox backends:**
+- `src/sandbox/` - Pluggable sandbox provider layer (a task's `sandboxProvider` id selects the backend)
+  - `types.ts` - Cross-provider types (leaf; re-exported by `src/types.ts`)
+  - `provider.ts` - `SandboxProvider` interface (session-owner: Lima; wrapper: nono)
+  - `registry.ts` - Provider registry; `pty.ts` + worktree cleanup resolve backends here
+  - `index.ts` - Registers built-in providers at bootstrap
+  - `nono/` - nono backend (`binary.ts` resolution, `argv.ts` pure `nono wrap` builder, `config.ts` per-project config, `provider.ts` wrapper impl)
+- `src/lima/` - Lima VM backend (a session-owner provider via `provider.ts`)
   - `manager.ts` - limactl CLI wrapper
   - `spawn.ts` - Sandboxed PTY creation
   - `config.ts` - Lima YAML config generation
