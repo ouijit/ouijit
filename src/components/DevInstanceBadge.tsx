@@ -1,9 +1,10 @@
 import { useEffect } from 'react';
 import { Tooltip } from './ui/Tooltip';
+import { folderName } from '../utils/folderName';
 
 // typeof guard: the define only exists in Vite-built bundles, not in vitest.
 const worktreePath = typeof __DEV_WORKTREE_PATH__ === 'string' ? __DEV_WORKTREE_PATH__ : null;
-const worktreeName = worktreePath?.split('/').pop() ?? null;
+const worktreeName = worktreePath ? folderName(worktreePath) : null;
 
 /**
  * Dev-only titlebar pill identifying which worktree (and dev server port) a
