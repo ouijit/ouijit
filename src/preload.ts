@@ -16,6 +16,7 @@ import type {
   CliHookMode,
   TaskWithWorkspace,
   SandboxProviderId,
+  NonoConfig,
   CliPanelOp,
   CliPanelResponse,
 } from './types';
@@ -305,5 +306,9 @@ contextBridge.exposeInMainWorld('api', {
   },
   sandbox: {
     status: (projectPath: string) => typedInvoke('sandbox:status', projectPath),
+    nonoConfig: (projectPath: string) => typedInvoke('sandbox:nono-config', projectPath),
+    setNonoConfig: (projectPath: string, config: NonoConfig) =>
+      typedInvoke('sandbox:set-nono-config', projectPath, config),
+    nonoProfiles: () => typedInvoke('sandbox:nono-profiles'),
   },
 });

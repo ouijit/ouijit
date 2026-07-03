@@ -58,3 +58,13 @@ export interface SandboxLaunch {
   args: string[];
   env: Record<string, string>;
 }
+
+/** Persisted per-project nono configuration. */
+export interface NonoConfig {
+  /** Named nono profile (`--profile`); layered under the derived grants. */
+  profile?: string;
+  /** Deny outbound network (`--block-net`); the hook port stays open. */
+  blockNet?: boolean;
+  /** Extra localhost ports to open beyond the hook server. */
+  openPorts?: number[];
+}

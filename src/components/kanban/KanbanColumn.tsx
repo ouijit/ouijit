@@ -2,7 +2,7 @@ import { useMemo, type MouseEvent } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import type { TaskWithWorkspace, HookType } from '../../types';
+import type { TaskWithWorkspace, HookType, SandboxProviderId } from '../../types';
 import type { TaskChainInfo } from '../../utils/taskChain';
 import { useProjectStore } from '../../stores/projectStore';
 import { KanbanCard } from './KanbanCard';
@@ -26,13 +26,13 @@ interface KanbanColumnProps {
   onAddTask?: (name: string, description?: string) => void;
   onRenameTask: (taskNumber: number, newName: string) => void;
   onUpdateDescription: (taskNumber: number, description: string) => void;
-  onOpenTerminal: (task: TaskWithWorkspace, sandboxed?: boolean) => void;
+  onOpenTerminal: (task: TaskWithWorkspace, sandboxProvider?: SandboxProviderId) => void;
   onSwitchToTerminal: (ptyId: string) => void;
   onSelect: (taskNumber: number, event: MouseEvent) => void;
   onConfigureHook?: (hookTypes: HookType[]) => void;
   hasConfiguredHook?: boolean;
   chainMap?: Map<number, TaskChainInfo>;
-  sandboxAvailable?: boolean;
+  availableSandboxProviders?: SandboxProviderId[];
   hasEditorHook?: boolean;
   onEditorHookConfigured?: () => void;
 }
@@ -52,7 +52,7 @@ export function KanbanColumn({
   onConfigureHook,
   hasConfiguredHook,
   chainMap,
-  sandboxAvailable,
+  availableSandboxProviders,
   hasEditorHook,
   onEditorHookConfigured,
 }: KanbanColumnProps) {
@@ -95,7 +95,7 @@ export function KanbanColumn({
             onOpenTerminal={onOpenTerminal}
             onSwitchToTerminal={onSwitchToTerminal}
             onSelect={onSelect}
-            sandboxAvailable={sandboxAvailable}
+            availableSandboxProviders={availableSandboxProviders}
             hasEditorHook={hasEditorHook}
             onEditorHookConfigured={onEditorHookConfigured}
           />
@@ -123,7 +123,7 @@ function SortableCard({
   onOpenTerminal,
   onSwitchToTerminal,
   onSelect,
-  sandboxAvailable,
+  availableSandboxProviders,
   hasEditorHook,
   onEditorHookConfigured,
 }: {
@@ -133,10 +133,10 @@ function SortableCard({
   isSettingUp?: boolean;
   onRename: (taskNumber: number, newName: string) => void;
   onUpdateDescription: (taskNumber: number, description: string) => void;
-  onOpenTerminal: (task: TaskWithWorkspace, sandboxed?: boolean) => void;
+  onOpenTerminal: (task: TaskWithWorkspace, sandboxProvider?: SandboxProviderId) => void;
   onSwitchToTerminal: (ptyId: string) => void;
   onSelect: (taskNumber: number, event: MouseEvent) => void;
-  sandboxAvailable?: boolean;
+  availableSandboxProviders?: SandboxProviderId[];
   hasEditorHook?: boolean;
   onEditorHookConfigured?: () => void;
 }) {
@@ -190,7 +190,7 @@ function SortableCard({
         onOpenTerminal={onOpenTerminal}
         onSwitchToTerminal={onSwitchToTerminal}
         onSelect={onSelect}
-        sandboxAvailable={sandboxAvailable}
+        availableSandboxProviders={availableSandboxProviders}
         hasEditorHook={hasEditorHook}
         onEditorHookConfigured={onEditorHookConfigured}
       />

@@ -1,15 +1,5 @@
 import * as path from 'node:path';
-import type { SandboxLaunch } from '../types';
-
-/** Persisted per-project nono configuration (see `config.ts`). */
-export interface NonoConfig {
-  /** Named nono profile (`--profile`); layered under the derived grants. */
-  profile?: string;
-  /** Deny outbound network (`--block-net`); the hook port stays open. */
-  blockNet?: boolean;
-  /** Extra localhost ports to open beyond the hook server. */
-  openPorts?: number[];
-}
+import type { NonoConfig, SandboxLaunch } from '../types';
 
 /** Everything the argv builder needs, resolved at spawn time. */
 export interface NonoArgvContext {

@@ -28,7 +28,7 @@ interface ProjectSettingsPanelProps {
 }
 
 export function ProjectSettingsPanel({ projectPath }: ProjectSettingsPanelProps) {
-  const sandboxAvailable = useAppStore((s) => s.sandboxAvailable);
+  const sandboxAvailable = useProjectStore((s) => s.sandboxAvailable);
 
   useEffect(() => {
     useProjectStore.getState().loadScripts(projectPath);
@@ -80,8 +80,8 @@ export function ProjectSettingsPanel({ projectPath }: ProjectSettingsPanelProps)
           <section>
             <h2 className="text-sm font-semibold text-text-primary mb-2">Worktree</h2>
             <p className="text-xs text-text-tertiary mb-4">
-              How task worktrees are created from this project. Sandboxed tasks always use a clean checkout for safety.
-              Configure the Lima VM under Sandbox to provision what they need.
+              How task worktrees are created from this project. Lima-sandboxed tasks use a clean checkout; configure
+              backends under Sandbox.
             </p>
             <WorktreeSection projectPath={projectPath} />
           </section>
@@ -115,7 +115,7 @@ export function ProjectSettingsPanel({ projectPath }: ProjectSettingsPanelProps)
           {sandboxAvailable && (
             <section>
               <h2 className="text-sm font-semibold text-text-primary mb-2">Sandbox</h2>
-              <p className="text-xs text-text-tertiary mb-4">Lima VM for sandboxed terminal sessions.</p>
+              <p className="text-xs text-text-tertiary mb-4">Backends that can run a task's terminals contained.</p>
               <SandboxSection projectPath={projectPath} />
             </section>
           )}

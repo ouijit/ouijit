@@ -1,7 +1,13 @@
 import { memo, useState, useCallback, useEffect, useMemo, useRef, type ReactNode } from 'react';
 import { useDraggable } from '@dnd-kit/core';
 import { useShallow } from 'zustand/react/shallow';
-import type { TaskWithWorkspace } from '../../types';
+import type { TaskWithWorkspace, SandboxProviderId } from '../../types';
+
+const SANDBOX_PROVIDER_LABELS: Record<SandboxProviderId, string> = {
+  none: 'Off',
+  lima: 'Lima VM',
+  nono: 'nono',
+};
 import { useTerminalStore, type TerminalDisplayState } from '../../stores/terminalStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { terminalInstances } from '../terminal/terminalReact';
@@ -24,14 +30,14 @@ interface KanbanCardProps {
   isSettingUp?: boolean;
   isSelected?: boolean;
   /** Hoisted from per-card IPC to a single board-level call. */
-  sandboxAvailable?: boolean;
+  availableSandboxProviders?: SandboxProviderId[];
   /** Hoisted from per-card IPC to a single board-level call. */
   hasEditorHook?: boolean;
   /** Called after the user saves an editor hook from this card's dialog. */
   onEditorHookConfigured?: () => void;
   onRename: (taskNumber: number, newName: string) => void;
   onUpdateDescription: (taskNumber: number, description: string) => void;
-  onOpenTerminal: (task: TaskWithWorkspace, sandboxed?: boolean) => void;
+  onOpenTerminal: (task: TaskWithWorkspace, sandboxProvider?: SandboxProviderId) => void;
   onSwitchToTerminal: (ptyId: string) => void;
   onSelect: (taskNumber: number, event: React.MouseEvent) => void;
 }
@@ -43,7 +49,7 @@ export const KanbanCard = memo(function KanbanCard({
   chainMap,
   isSettingUp,
   isSelected,
-  sandboxAvailable = false,
+  availableSandboxProviders = [],
   hasEditorHook = false,
   onEditorHookConfigured,
   onRename,
@@ -233,12 +239,24 @@ export const KanbanCard = memo(function KanbanCard({
       onClick: () => onOpenTerminal(task),
     });
 
-    if (task.worktreePath && task.branch && sandboxAvailable) {
-      items.push({
-        label: 'Open in Sandbox',
-        icon: 'cube',
-        onClick: () => onOpenTerminal(task, true),
-      });
+    if (task.worktreePath && task.branch && availableSandboxProviders.length > 0) {
+      // One entry per installed backend. Opening under a backend also makes it
+      // the task's default. A single backend keeps the short "Open in Sandbox".
+      const single = availableSandboxProviders.length === 1;
+      for (const provider of availableSandboxProviders) {
+        items.push({
+          label: single ? 'Open in Sandbox' : `Open in ${SANDBOX_PROVIDER_LABELS[provider]} sandbox`,
+          icon: 'cube',
+          onClick: () => onOpenTerminal(task, provider),
+        });
+      }
+      if (task.sandboxProvider && task.sandboxProvider !== 'none') {
+        items.push({
+          label: 'Run on host (clear sandbox)',
+          icon: 'terminal',
+          onClick: () => onOpenTerminal(task, 'none'),
+        });
+      }
     }
 
     items.push({
@@ -324,7 +342,7 @@ export const KanbanCard = memo(function KanbanCard({
     task,
     projectPath,
     isDone,
-    sandboxAvailable,
+    availableSandboxProviders,
     hasEditorHook,
     isSelected,
     selectedCount,

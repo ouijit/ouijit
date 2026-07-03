@@ -16,7 +16,13 @@ import { AddPanelMenu } from './AddPanelMenu';
 import { HookConfigDialog } from '../dialogs/HookConfigDialog';
 import { useTerminalPanels } from './useTerminalPanels';
 import { panelIcon, panelLabel, type TerminalPanel } from './panelTypes';
-import type { GitFileStatus, RunnerScript } from '../../types';
+import type { GitFileStatus, RunnerScript, SandboxProviderId } from '../../types';
+
+const SANDBOX_PROVIDER_LABELS: Record<SandboxProviderId, string> = {
+  none: 'Off',
+  lima: 'Lima VM',
+  nono: 'nono',
+};
 
 interface TerminalHeaderProps {
   ptyId: string;
@@ -81,7 +87,7 @@ export const TerminalHeader = memo(function TerminalHeader({
   const projectPath = instance?.projectPath ?? '';
   const isTaskTerminal = taskId != null;
 
-  const sandboxAvailable = useProjectStore((s) => s.sandboxAvailable);
+  const availableSandboxProviders = useProjectStore((s) => s.availableSandboxProviders);
   const hasEditorHook = useProjectStore((s) => !!s.configuredHooks.editor);
 
   const contextMenuItems = useMemo((): ContextMenuEntry[] => {
@@ -104,9 +110,10 @@ export const TerminalHeader = memo(function TerminalHeader({
         },
       });
 
-      if (sandboxAvailable) {
+      for (const provider of availableSandboxProviders) {
+        const single = availableSandboxProviders.length === 1;
         items.push({
-          label: 'Open in Sandbox',
+          label: single ? 'Open in Sandbox' : `Open in ${SANDBOX_PROVIDER_LABELS[provider]} sandbox`,
           icon: 'cube',
           onClick: () => {
             addProjectTerminal(projectPath, undefined, {
@@ -116,7 +123,7 @@ export const TerminalHeader = memo(function TerminalHeader({
                 createdAt: '',
               },
               taskId: taskId!,
-              sandboxed: true,
+              sandboxProvider: provider,
             });
           },
         });
@@ -161,7 +168,7 @@ export const TerminalHeader = memo(function TerminalHeader({
     }
 
     return items;
-  }, [isTaskTerminal, instance, projectPath, taskId, sandboxAvailable, hasEditorHook]);
+  }, [isTaskTerminal, instance, projectPath, taskId, availableSandboxProviders, hasEditorHook]);
 
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
     e.preventDefault();

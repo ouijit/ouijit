@@ -43,7 +43,7 @@ import type {
   CliPanelResponse,
 } from '../types';
 import type { LimaStatus } from '../lima/types';
-import type { SandboxProviderId, SandboxProviderStatus } from '../sandbox/types';
+import type { SandboxProviderId, SandboxProviderStatus, NonoConfig } from '../sandbox/types';
 import type { HookStatusEntry } from '../hookServer';
 import type { HealthStatus } from '../healthCheck';
 import type { CaptureNavigatePayload } from '../capture/types';
@@ -232,6 +232,9 @@ export interface IpcInvokeContract {
 
   // ── Sandbox (cross-provider) ─────────────────────────────────────────
   'sandbox:status': { args: [projectPath: string]; return: SandboxProviderStatus[] };
+  'sandbox:nono-config': { args: [projectPath: string]; return: NonoConfig };
+  'sandbox:set-nono-config': { args: [projectPath: string, config: NonoConfig]; return: { success: boolean } };
+  'sandbox:nono-profiles': { args: []; return: string[] };
 
   // ── Lima ─────────────────────────────────────────────────────────────
   'lima:status': { args: [projectPath: string]; return: LimaStatus };

@@ -16,7 +16,7 @@ import {
 import { arrayMove } from '@dnd-kit/sortable';
 import { useProjectStore } from '../../stores/projectStore';
 import { useTerminalStore } from '../../stores/terminalStore';
-import type { TaskWithWorkspace, TaskStatus, HookType } from '../../types';
+import type { TaskWithWorkspace, TaskStatus, HookType, SandboxProviderId } from '../../types';
 import { addProjectTerminal } from '../terminal/terminalActions';
 import { beginTransition, bulkTransitionTasks, surfaceStartWarnings } from '../../services/taskStartService';
 import { completeTask } from '../../services/taskCompletion';
@@ -74,7 +74,7 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
   const activeBadgeDrag = useProjectStore((s) => s.activeBadgeDrag);
   // Project-scoped config is loaded once by ProjectViewReact; we just subscribe.
   const configuredHooks = useProjectStore((s) => s.configuredHooks);
-  const sandboxAvailable = useProjectStore((s) => s.sandboxAvailable);
+  const availableSandboxProviders = useProjectStore((s) => s.availableSandboxProviders);
   const [hookDialog, setHookDialog] = useState<
     | { mode: 'single'; hookType: HookType; existingHook?: any }
     | { mode: 'combined'; start?: any; continue?: any }
@@ -567,14 +567,20 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
   );
 
   const handleOpenTerminal = useCallback(
-    async (task: TaskWithWorkspace, sandboxed?: boolean) => {
+    async (task: TaskWithWorkspace, sandboxProvider?: SandboxProviderId) => {
+      // Choosing a backend to open under also makes it the task's default, so
+      // its later terminals, runners, and hooks follow the same backend.
+      if (sandboxProvider && sandboxProvider !== task.sandboxProvider) {
+        await window.api.task.setSandboxProvider(projectPath, task.taskNumber, sandboxProvider);
+        useProjectStore.getState().loadTasks(projectPath);
+      }
       if (task.worktreePath && task.branch) {
         const wtPath = await ensureWorktreeExists(task);
         if (!wtPath) return;
         await addProjectTerminal(projectPath, undefined, {
           existingWorktree: { path: wtPath, branch: task.branch, createdAt: task.createdAt },
           taskId: task.taskNumber,
-          sandboxed,
+          sandboxProvider,
         });
       } else if (task.branch) {
         // Has a branch but lost its worktree — recover via dialog
@@ -583,7 +589,7 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
         await addProjectTerminal(projectPath, undefined, {
           existingWorktree: { path: wtPath, branch: task.branch, createdAt: task.createdAt },
           taskId: task.taskNumber,
-          sandboxed,
+          sandboxProvider,
         });
       } else {
         // No worktree or branch yet — beginTask creates worktree + sets in_progress
@@ -738,7 +744,7 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
                 onSelect={handleCardSelect}
                 onConfigureHook={handleConfigureHook}
                 hasConfiguredHook={hookActive}
-                sandboxAvailable={sandboxAvailable}
+                availableSandboxProviders={availableSandboxProviders}
                 hasEditorHook={!!configuredHooks.editor}
                 onEditorHookConfigured={markEditorHookConfigured}
               />

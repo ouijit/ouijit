@@ -1,13 +1,13 @@
 import { useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { useProjectStore } from '../../stores/projectStore';
-import type { TaskWithWorkspace, TaskStatus } from '../../types';
+import type { TaskWithWorkspace, TaskStatus, SandboxProviderId } from '../../types';
 import { bulkTransitionTasks } from '../../services/taskStartService';
 import { Icon } from '../terminal/Icon';
 
 interface BulkActionBarProps {
   projectPath: string;
-  onOpenTerminal: (task: TaskWithWorkspace, sandboxed?: boolean) => void;
+  onOpenTerminal: (task: TaskWithWorkspace, sandboxProvider?: SandboxProviderId) => void;
 }
 
 export function BulkActionBar({ projectPath, onOpenTerminal }: BulkActionBarProps) {

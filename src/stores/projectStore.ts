@@ -112,9 +112,12 @@ interface ProjectStoreState {
   pendingCliCompletions: Record<string, PendingCliCompletion[]>;
   /**
    * Project-scoped config used by terminal/kanban cards. Loaded once per project
-   * so we don't fan out N `lima.status` (subprocess spawn) + `hooks.get` calls
+   * so we don't fan out N `sandbox.status` (subprocess spawn) + `hooks.get` calls
    * across every visible card.
    */
+  /** Backends that are installed for this project (a task can pick any of these). */
+  availableSandboxProviders: SandboxProviderId[];
+  /** Derived: any sandbox backend is available (gates the sandbox affordances). */
   sandboxAvailable: boolean;
   configuredHooks: Record<string, boolean>;
   /** projectPath the config currently reflects; null = not loaded. */
@@ -235,6 +238,7 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
   pendingCliStarts: {},
   pendingCliTransitions: {},
   pendingCliCompletions: {},
+  availableSandboxProviders: [],
   sandboxAvailable: false,
   configuredHooks: {},
   configProjectPath: null,
@@ -333,6 +337,7 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
       startingTaskNumbers: new Set<number>(),
       runHookQueue: [],
       runHookQueueTotal: 0,
+      availableSandboxProviders: [],
       sandboxAvailable: false,
       configuredHooks: {},
       configProjectPath: null,
@@ -408,8 +413,8 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
     // Otherwise stale A config could land under project B.
     const version = ++configLoadVersion;
     try {
-      const [status, hooks] = await Promise.all([
-        window.api.lima.status(projectPath),
+      const [statuses, hooks] = await Promise.all([
+        window.api.sandbox.status(projectPath),
         window.api.hooks.get(projectPath),
       ]);
       if (version !== configLoadVersion) return;
@@ -417,8 +422,10 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
       for (const key of Object.keys(hooks)) {
         if (hooks[key as HookType]) configured[key] = true;
       }
+      const available = statuses.filter((s) => s.available).map((s) => s.providerId);
       set({
-        sandboxAvailable: status.available,
+        availableSandboxProviders: available,
+        sandboxAvailable: available.length > 0,
         configuredHooks: configured,
         configProjectPath: projectPath,
       });

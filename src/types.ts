@@ -24,7 +24,7 @@ export type { ActiveSession } from './ptyManager';
 // Re-export the VM-shaped Lima status (single source of truth)
 export type { LimaStatus } from './lima/types';
 // Re-export the cross-provider sandbox types (single source of truth)
-export type { SandboxProviderId, SandboxProviderStatus, SandboxCapabilities } from './sandbox/types';
+export type { SandboxProviderId, SandboxProviderStatus, SandboxCapabilities, NonoConfig } from './sandbox/types';
 // Re-export hook status types from hookServer.ts (single source of truth)
 export type { HookStatus, HookStatusEntry } from './hookServer';
 
@@ -34,7 +34,7 @@ import type { TaskWorktreeResult, WorktreeInfo, WorktreeRemoveResult, CheckWorkt
 import type { TaskStatus, TagRow } from './db';
 import type { ActiveSession } from './ptyManager';
 import type { LimaStatus } from './lima/types';
-import type { SandboxProviderId, SandboxProviderStatus } from './sandbox/types';
+import type { SandboxProviderId, SandboxProviderStatus, NonoConfig } from './sandbox/types';
 import type { HookStatus, HookStatusEntry } from './hookServer';
 
 /**
@@ -731,6 +731,12 @@ export interface CliPanelsAPI {
 export interface SandboxAPI {
   /** Availability + readiness of every registered sandbox backend. */
   status(projectPath: string): Promise<SandboxProviderStatus[]>;
+  /** Read a project's nono config. */
+  nonoConfig(projectPath: string): Promise<NonoConfig>;
+  /** Persist a project's nono config. */
+  setNonoConfig(projectPath: string, config: NonoConfig): Promise<{ success: boolean }>;
+  /** List named nono profiles installed under ~/.config/nono/profiles. */
+  nonoProfiles(): Promise<string[]>;
 }
 
 /**

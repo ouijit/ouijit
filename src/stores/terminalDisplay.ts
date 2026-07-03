@@ -1,4 +1,4 @@
-import type { GitFileStatus } from '../types';
+import type { GitFileStatus, SandboxProviderId } from '../types';
 import type { TerminalPanel } from '../components/terminal/panelTypes';
 
 /** Renderable state pushed from OuijitTerminal class to React */
@@ -20,6 +20,8 @@ export interface TerminalDisplayState {
   diffPanelOpen: boolean;
   diffPanelMode: 'uncommitted' | 'worktree';
   sandboxed: boolean;
+  /** Which backend runs the terminal, for the status label (undefined = host). */
+  sandboxProvider?: SandboxProviderId;
   taskId: number | null;
   worktreeBranch: string | null;
   projectPath: string;

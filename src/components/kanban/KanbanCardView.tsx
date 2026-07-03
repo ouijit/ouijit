@@ -317,7 +317,11 @@ export const KanbanCardView = memo(function KanbanCardView({
                 <span className="font-mono text-sm leading-none text-text-secondary shrink-0 select-none opacity-40">
                   {isLast ? '└─' : '├─'}
                 </span>
-                <StatusDot summaryType={display.summaryType} sandboxed={display.sandboxed} />
+                <StatusDot
+                  summaryType={display.summaryType}
+                  sandboxed={display.sandboxed}
+                  sandboxProvider={display.sandboxProvider}
+                />
                 {isRenaming ? (
                   <input
                     ref={terminalRenameRef}
@@ -332,7 +336,7 @@ export const KanbanCardView = memo(function KanbanCardView({
                 ) : (
                   <span className="font-mono text-[10px] leading-tight text-text-secondary truncate min-w-0">
                     {truncated}
-                    {display.sandboxed ? ' (sandbox)' : ''}
+                    {display.sandboxed ? ` (${display.sandboxProvider ?? 'sandbox'})` : ''}
                   </span>
                 )}
               </div>
