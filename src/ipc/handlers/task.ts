@@ -1,7 +1,7 @@
 import { typedHandle } from '../helpers';
 import { saveAttachment } from '../../attachments';
 import { createTaskWorktree, createTodoTask, checkTaskWorktree, recoverTaskWorktree } from '../../worktree';
-import { setTaskMergeTarget, setTaskSandboxed, setTaskName, setTaskParent } from '../../db';
+import { setTaskMergeTarget, setTaskSandboxProvider, setTaskName, setTaskParent } from '../../db';
 import {
   beginTask,
   setTaskStatusWithHooks,
@@ -17,8 +17,8 @@ import {
 export function registerTaskHandlers(): void {
   typedHandle('task:create', (projectPath, name, prompt) => createTodoTask(projectPath, name, prompt));
 
-  typedHandle('task:create-and-start', (projectPath, name, prompt, branchName, sandboxed) =>
-    createTaskWorktree(projectPath, name, prompt, branchName, sandboxed),
+  typedHandle('task:create-and-start', (projectPath, name, prompt, branchName, sandboxProvider) =>
+    createTaskWorktree(projectPath, name, prompt, branchName, sandboxProvider),
   );
 
   typedHandle('task:start', (projectPath, taskNumber, branchName) => beginTask(projectPath, taskNumber, branchName));
@@ -38,8 +38,8 @@ export function registerTaskHandlers(): void {
     setTaskMergeTarget(projectPath, taskNumber, mergeTarget),
   );
 
-  typedHandle('task:set-sandboxed', (projectPath, taskNumber, sandboxed) =>
-    setTaskSandboxed(projectPath, taskNumber, sandboxed),
+  typedHandle('task:set-sandbox-provider', (projectPath, taskNumber, sandboxProvider) =>
+    setTaskSandboxProvider(projectPath, taskNumber, sandboxProvider),
   );
 
   typedHandle('task:set-name', (projectPath, taskNumber, name) => setTaskName(projectPath, taskNumber, name));

@@ -16,6 +16,7 @@ import { TagRepo, type TagRow } from './repos/tagRepo';
 import { GlobalSettingsRepo } from './repos/globalSettingsRepo';
 import { ScriptRepo, type ScriptRow } from './repos/scriptRepo';
 import type { ProjectSettings, ScriptHook } from '../types';
+import type { SandboxProviderId } from '../sandbox/types';
 import { getLogger } from '../logger';
 
 const dbLog = getLogger().scope('db');
@@ -35,7 +36,8 @@ export interface TaskMetadata {
   worktreePath?: string;
   mergeTarget?: string;
   prompt?: string;
-  sandboxed?: boolean;
+  /** Sandbox backend for this task's terminals; omitted when 'none'. */
+  sandboxProvider?: SandboxProviderId;
   order?: number;
   parentTaskNumber?: number;
 }
@@ -106,7 +108,8 @@ function rowToTask(row: TaskRow): TaskMetadata {
     ...(row.worktree_path && { worktreePath: row.worktree_path }),
     ...(row.merge_target && { mergeTarget: row.merge_target }),
     ...(row.prompt && { prompt: row.prompt }),
-    ...(row.sandboxed === 1 && { sandboxed: true }),
+    ...(row.sandbox_provider &&
+      row.sandbox_provider !== 'none' && { sandboxProvider: row.sandbox_provider as SandboxProviderId }),
     ...(row.parent_task_number != null && { parentTaskNumber: row.parent_task_number }),
   };
 }
@@ -164,7 +167,7 @@ export async function createTask(
     status?: TaskStatus;
     mergeTarget?: string;
     prompt?: string;
-    sandboxed?: boolean;
+    sandboxProvider?: SandboxProviderId;
     worktreePath?: string;
     parentTaskNumber?: number;
   },
@@ -197,17 +200,17 @@ export async function setTaskStatus(
   }
 }
 
-export async function setTaskSandboxed(
+export async function setTaskSandboxProvider(
   projectPath: string,
   taskNumber: number,
-  sandboxed: boolean,
+  provider: SandboxProviderId,
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const { taskRepo: tr } = repos();
     const row = tr.getByTaskNumber(projectPath, taskNumber);
     if (!row) return { success: false, error: 'Task not found' };
 
-    tr.updateSandboxed(projectPath, taskNumber, sandboxed);
+    tr.updateSandboxProvider(projectPath, taskNumber, provider);
     return { success: true };
   } catch (error) {
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };

@@ -68,7 +68,7 @@ describe('createTaskWorktree worktree-mode gating', () => {
     const project = '/test/wt-mode-create-clean';
     await setMode(project, 'clean-checkout');
 
-    const result = await createTaskWorktree(project, 'Clean task', undefined, undefined, false);
+    const result = await createTaskWorktree(project, 'Clean task', undefined, undefined);
     expect(result.success).toBe(true);
     expect(findLsFilesCall()).toBeUndefined();
   });
@@ -77,7 +77,7 @@ describe('createTaskWorktree worktree-mode gating', () => {
     const project = '/test/wt-mode-create-quick';
     await setMode(project, 'quick-start');
 
-    const result = await createTaskWorktree(project, 'Quick task', undefined, undefined, false);
+    const result = await createTaskWorktree(project, 'Quick task', undefined, undefined);
     expect(result.success).toBe(true);
     expect(findLsFilesCall()).toBeDefined();
   });
@@ -85,7 +85,7 @@ describe('createTaskWorktree worktree-mode gating', () => {
   test('runs git ls-files by default when no mode is set', async () => {
     const project = '/test/wt-mode-create-default';
 
-    const result = await createTaskWorktree(project, 'Default task', undefined, undefined, false);
+    const result = await createTaskWorktree(project, 'Default task', undefined, undefined);
     expect(result.success).toBe(true);
     expect(findLsFilesCall()).toBeDefined();
   });
@@ -94,7 +94,7 @@ describe('createTaskWorktree worktree-mode gating', () => {
     const project = '/test/wt-mode-create-garbage';
     await setGlobalSetting(`worktree:${project}`, '{not valid json');
 
-    const result = await createTaskWorktree(project, 'Garbage task', undefined, undefined, false);
+    const result = await createTaskWorktree(project, 'Garbage task', undefined, undefined);
     expect(result.success).toBe(true);
     expect(findLsFilesCall()).toBeDefined();
   });

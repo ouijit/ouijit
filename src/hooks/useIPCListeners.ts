@@ -218,7 +218,7 @@ export function useIPCListeners() {
           worktreePath: payload.worktreePath,
           branch: payload.branch,
           createdAt: payload.createdAt,
-          sandboxed: payload.sandboxed,
+          sandboxProvider: payload.sandboxProvider,
           hookMode: payload.hookMode,
           hookCommand: payload.hookCommand,
         };

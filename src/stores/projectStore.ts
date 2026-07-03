@@ -1,5 +1,13 @@
 import { create } from 'zustand';
-import type { TaskWithWorkspace, Script, ScriptHook, HookType, CliHookMode, TaskStatus } from '../types';
+import type {
+  TaskWithWorkspace,
+  Script,
+  ScriptHook,
+  HookType,
+  CliHookMode,
+  TaskStatus,
+  SandboxProviderId,
+} from '../types';
 import type { RunHookResult } from '../components/dialogs/RunHookDialog';
 import { useAppStore } from './appStore';
 
@@ -19,7 +27,7 @@ export interface PendingCliStart {
   worktreePath: string;
   branch: string;
   createdAt: string;
-  sandboxed: boolean;
+  sandboxProvider: SandboxProviderId;
   /** Hook-control mode from the CLI flags; absent = default start-hook dialog. */
   hookMode?: CliHookMode;
   /** Custom command when hookMode is 'command'. */

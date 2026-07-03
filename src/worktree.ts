@@ -23,7 +23,11 @@ import {
   type TaskMetadata,
 } from './db';
 import { mergeWorktreeBranch } from './git';
-import { stopSandboxView } from './lima/sandboxSync';
+// Import from the registry (runtime-import-free) rather than the sandbox index
+// so worktree.ts doesn't pull the Lima/node-pty graph into every importer. The
+// registry is populated at bootstrap, before any worktree op runs.
+import { getSandboxProvider } from './sandbox/registry';
+import type { SandboxProviderId } from './sandbox/types';
 
 const worktreeLog = getLogger().scope('worktree');
 
@@ -378,8 +382,12 @@ export async function startTask(
   taskNumber: number,
   branchName?: string,
   baseBranch?: string,
-  sandboxed: boolean = false,
+  sandboxProvider?: SandboxProviderId,
 ): Promise<TaskWorktreeResult> {
+  // Only Lima uses a tracked-files-only checkout (its VM mounts a dual
+  // worktree); 'none' and 'nono' run in place, so they copy gitignored files
+  // like a normal task.
+  const isLimaSandbox = sandboxProvider === 'lima';
   const t = timer();
   try {
     const task = await getTaskByNumber(projectPath, taskNumber);
@@ -411,7 +419,7 @@ export async function startTask(
       () => true,
       () => false,
     );
-    const copyIgnored = !sandboxed && (await shouldCopyIgnoredFiles(projectPath));
+    const copyIgnored = !isLimaSandbox && (await shouldCopyIgnoredFiles(projectPath));
     const ignoredFilesPromise = copyIgnored ? fetchIgnoredFiles(projectPath) : Promise.resolve<string[]>([]);
 
     const [hasHead, branchHead, , branchExists] = await Promise.all([
@@ -468,7 +476,7 @@ export async function startTask(
     if (copyIgnored) {
       const ignoredFiles = await ignoredFilesPromise;
       await copyGitIgnoredFiles(projectPath, worktreePath, ignoredFiles);
-    } else if (!sandboxed) {
+    } else if (!isLimaSandbox) {
       worktreeLog.info('clean checkout mode, skipping ignored file copy', { projectPath, taskNumber });
     }
     t.mark('copyIgnored');
@@ -493,8 +501,9 @@ export async function createTaskWorktree(
   name?: string,
   prompt?: string,
   branchName?: string,
-  sandboxed: boolean = false,
+  sandboxProvider?: SandboxProviderId,
 ): Promise<TaskWorktreeResult> {
+  const isLimaSandbox = sandboxProvider === 'lima';
   try {
     const [hasHead, branchResult, taskNumber] = await Promise.all([
       // Check if repo has any commits (worktrees require a valid HEAD)
@@ -548,7 +557,7 @@ export async function createTaskWorktree(
       ? ['worktree', 'add', worktreePath, branch]
       : ['worktree', 'add', '-b', branch, worktreePath];
 
-    const copyIgnored = !sandboxed && (await shouldCopyIgnoredFiles(projectPath));
+    const copyIgnored = !isLimaSandbox && (await shouldCopyIgnoredFiles(projectPath));
 
     // Start ls-files in parallel with git worktree add
     // ls-files reads from source dir, doesn't need the worktree to exist
@@ -562,12 +571,12 @@ export async function createTaskWorktree(
       mergeTarget,
       prompt,
       worktreePath,
-      sandboxed,
+      sandboxProvider,
     });
 
     if (copyIgnored) {
       await copyGitIgnoredFiles(projectPath, worktreePath, ignoredFiles);
-    } else if (!sandboxed) {
+    } else if (!isLimaSandbox) {
       worktreeLog.info('clean checkout mode, skipping ignored file copy', {
         projectPath,
         taskNumber: currentTaskNumber,
@@ -600,14 +609,16 @@ export async function removeTaskWorktree(
     const task = await getTaskByNumber(projectPath, taskNumber);
     const branchName = task?.branch;
 
-    // Best-effort: remove the sandbox-view worktree and its s/<branch>
-    // branch before touching the user worktree, so git's metadata stays
-    // consistent. Swallow errors — the view may already be gone.
-    if (task?.sandboxed && task.branch && !Number.isNaN(taskNumber)) {
+    // Best-effort: let the task's sandbox backend tear down any per-task
+    // resources (Lima removes its sandbox-view worktree and s/<branch> branch)
+    // before touching the user worktree, so git's metadata stays consistent.
+    // Routing through the provider keeps this decoupled from any one backend.
+    // Swallow errors — the resources may already be gone.
+    if (task?.sandboxProvider && task.branch && !Number.isNaN(taskNumber)) {
       try {
-        await stopSandboxView(projectPath, taskNumber, task.branch);
+        await getSandboxProvider(task.sandboxProvider)?.cleanupTaskResources?.(projectPath, taskNumber, task.branch);
       } catch (error) {
-        worktreeLog.warn('sandbox view cleanup failed', {
+        worktreeLog.warn('sandbox task cleanup failed', {
           taskNumber,
           error: error instanceof Error ? error.message : String(error),
         });
@@ -787,7 +798,7 @@ export async function recoverTaskWorktree(projectPath: string, taskNumber: numbe
       worktreePath = path.join(baseDir, `T-${dirNum}`);
     }
 
-    const copyIgnored = !task.sandboxed && (await shouldCopyIgnoredFiles(projectPath));
+    const copyIgnored = task.sandboxProvider !== 'lima' && (await shouldCopyIgnoredFiles(projectPath));
 
     // Re-create worktree from the existing branch (no -b flag)
     const [, ignoredFiles] = await Promise.all([
@@ -800,7 +811,7 @@ export async function recoverTaskWorktree(projectPath: string, taskNumber: numbe
 
     if (copyIgnored) {
       await copyGitIgnoredFiles(projectPath, worktreePath, ignoredFiles);
-    } else if (!task.sandboxed) {
+    } else if (task.sandboxProvider !== 'lima') {
       worktreeLog.info('clean checkout mode, skipping ignored file copy', { projectPath, taskNumber });
     }
 

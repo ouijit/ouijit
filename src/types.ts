@@ -100,7 +100,10 @@ export interface SnapshotTerminal {
   taskNumber: number | null;
   worktreePath: string | null;
   worktreeBranch: string | null;
-  sandboxed: boolean;
+  /** Sandbox backend for the terminal; omitted/'none' for a host shell. */
+  sandboxProvider?: SandboxProviderId;
+  /** @deprecated Legacy boolean read on restore of pre-provider snapshots. */
+  sandboxed?: boolean;
   label: string | null;
   ordinalInProject: number;
   isActiveInProject: boolean;
@@ -321,7 +324,7 @@ export interface TaskWithWorkspace {
   closedAt?: string;
   mergeTarget?: string;
   prompt?: string;
-  sandboxed?: boolean;
+  sandboxProvider?: SandboxProviderId;
   order?: number;
   parentTaskNumber?: number;
 }
@@ -374,7 +377,7 @@ export interface TaskAPI {
     name?: string,
     prompt?: string,
     branchName?: string,
-    sandboxed?: boolean,
+    sandboxProvider?: SandboxProviderId,
   ): Promise<TaskWorktreeResult>;
   start(projectPath: string, taskNumber: number, branchName?: string): Promise<TaskWorktreeResult>;
   getAll(projectPath: string): Promise<TaskWithWorkspace[]>;
@@ -391,10 +394,10 @@ export interface TaskAPI {
     taskNumber: number,
     mergeTarget: string,
   ): Promise<{ success: boolean; error?: string }>;
-  setSandboxed(
+  setSandboxProvider(
     projectPath: string,
     taskNumber: number,
-    sandboxed: boolean,
+    sandboxProvider: SandboxProviderId,
   ): Promise<{ success: boolean; error?: string }>;
   setName(projectPath: string, taskNumber: number, name: string): Promise<{ success: boolean; error?: string }>;
   setDescription(
@@ -540,7 +543,7 @@ export interface ElectronAPI {
       worktreePath: string;
       branch: string;
       createdAt: string;
-      sandboxed: boolean;
+      sandboxProvider: SandboxProviderId;
       hookMode?: CliHookMode;
       hookCommand?: string;
     }) => void,
