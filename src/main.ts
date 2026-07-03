@@ -15,7 +15,6 @@ import * as fs from 'node:fs';
 import { initDatabase, closeDatabase } from './db/database';
 import { ProjectRepo } from './db/repos/projectRepo';
 import { TaskRepo } from './db/repos/taskRepo';
-import { SettingsRepo } from './db/repos/settingsRepo';
 import { HookRepo } from './db/repos/hookRepo';
 import { importAll } from './services/dataImportService';
 import { initUpdater, cleanupUpdater } from './updater';
@@ -233,7 +232,7 @@ app.on('ready', async () => {
   // end up in the temp DB and displace the fixture.
   const db = initDatabase(getDbPath());
   if (!isCaptureMode()) {
-    await importAll(db, new ProjectRepo(db), new TaskRepo(db), new SettingsRepo(db), new HookRepo(db));
+    await importAll(db, new ProjectRepo(db), new TaskRepo(db), new HookRepo(db));
   }
 
   // Capture mode: register the driver's pre-shared token so it can hit the

@@ -32,13 +32,11 @@ export class ProjectRepo {
       this.db.prepare('INSERT OR IGNORE INTO projects (path, name) VALUES (?, ?)').run(path, name);
 
       this.db.prepare('INSERT OR IGNORE INTO project_counters (project_path) VALUES (?)').run(path);
-
-      this.db.prepare('INSERT OR IGNORE INTO project_settings (project_path) VALUES (?)').run(path);
     })();
   }
 
   remove(path: string): void {
-    // CASCADE will clean up tasks, counters, settings, hooks
+    // CASCADE will clean up tasks, counters, hooks, scripts
     this.db.prepare('DELETE FROM projects WHERE path = ?').run(path);
   }
 
@@ -55,7 +53,6 @@ export class ProjectRepo {
       this.db.prepare('UPDATE projects SET path = ? WHERE path = ?').run(newPath, oldPath);
       this.db.prepare('UPDATE tasks SET project_path = ? WHERE project_path = ?').run(newPath, oldPath);
       this.db.prepare('UPDATE project_counters SET project_path = ? WHERE project_path = ?').run(newPath, oldPath);
-      this.db.prepare('UPDATE project_settings SET project_path = ? WHERE project_path = ?').run(newPath, oldPath);
       this.db.prepare('UPDATE hooks SET project_path = ? WHERE project_path = ?').run(newPath, oldPath);
       this.db.prepare('UPDATE scripts SET project_path = ? WHERE project_path = ?').run(newPath, oldPath);
       // OR REPLACE: if a row already exists under the new path, the old one wins.

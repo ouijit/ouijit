@@ -1,16 +1,8 @@
 import { describe, test, expect } from 'vitest';
-import {
-  getProjectSettings,
-  getHooks,
-  getHook,
-  saveHook,
-  deleteHook,
-  setKillExistingOnRun,
-  _resetCacheForTesting,
-} from '../db';
+import { getProjectSettings, getHooks, getHook, saveHook, deleteHook, _resetCacheForTesting } from '../db';
 
 describe('projectSettings', () => {
-  test('full lifecycle: hooks, killExistingOnRun', async () => {
+  test('full lifecycle: hooks, restartIfRunning', async () => {
     const project = '/test/settings-lifecycle';
 
     // 1. New project returns defaults
@@ -59,14 +51,14 @@ describe('projectSettings', () => {
     expect(hooksAfterDelete.start).toBeUndefined();
     expect(hooksAfterDelete.run).toBeDefined();
 
-    // 8. Set killExistingOnRun
-    const killResult = await setKillExistingOnRun(project, true);
-    expect(killResult.success).toBe(true);
+    // 8. Update the run hook to opt into restart-if-running (per-runnable flag)
+    const restartResult = await saveHook(project, { ...runHook, restartIfRunning: true });
+    expect(restartResult.success).toBe(true);
 
-    // 9. Verify full settings
+    // 9. Verify full settings — the flag round-trips on the run hook
     const finalSettings = await getProjectSettings(project);
     expect(finalSettings.hooks?.run?.command).toBe('npm run lint');
-    expect(finalSettings.killExistingOnRun).toBe(true);
+    expect(finalSettings.hooks?.run?.restartIfRunning).toBe(true);
   });
 
   test('cache reset provides isolation between tests', async () => {

@@ -48,14 +48,15 @@ Examples:
     .description('Create a new script, or update an existing one with the same name')
     .requiredOption('--name <name>', 'script name')
     .requiredOption('--command <cmd>', 'shell command to run')
+    .option('--restart-if-running', 'restart the command if an instance is already running in the same task')
     .option('--id <id>', '(deprecated) ignored — scripts are now upserted by name')
-    .action(async (opts: { name: string; command: string; id?: string }) => {
+    .action(async (opts: { name: string; command: string; id?: string; restartIfRunning?: boolean }) => {
       const project = requireProject();
       const existing = await get<ScriptEntry[]>(`/api/scripts${projectQuery(project)}`);
       const id = existing.find((s) => s.name === opts.name)?.id ?? opts.id ?? randomUUID();
       const result = await put<{ success: boolean; script?: ScriptEntry }>(
         `/api/scripts/${encodeURIComponent(id)}${projectQuery(project)}`,
-        { id, name: opts.name, command: opts.command, sortOrder: 0 },
+        { id, name: opts.name, command: opts.command, sortOrder: 0, restartIfRunning: !!opts.restartIfRunning },
       );
       if (!result.success) return printError('Failed to save script');
       printJson(result.script);

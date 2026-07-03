@@ -189,6 +189,7 @@ function ScriptForm({
 }) {
   const [name, setName] = useState(initial?.name ?? '');
   const [command, setCommand] = useState(initial?.command ?? '');
+  const [restartIfRunning, setRestartIfRunning] = useState(initial?.restartIfRunning ?? false);
   const nameRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -206,8 +207,9 @@ function ScriptForm({
       name: trimmedName,
       command: trimmedCommand,
       sortOrder: initial?.sortOrder ?? 0,
+      restartIfRunning,
     });
-  }, [name, command, initial, onSave]);
+  }, [name, command, restartIfRunning, initial, onSave]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -246,6 +248,15 @@ function ScriptForm({
           placeholder="e.g. npm run lint"
         />
       </div>
+      <label className="flex items-center gap-2 cursor-default">
+        <input
+          type="checkbox"
+          className="w-4 h-4 accent-accent !cursor-default"
+          checked={restartIfRunning}
+          onChange={(e) => setRestartIfRunning(e.target.checked)}
+        />
+        <span className="text-[11px] text-text-secondary">Restart if it's already running in the task</span>
+      </label>
       <div className="flex items-center gap-2 pt-1">
         {onDelete && (
           <button
