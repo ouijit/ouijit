@@ -597,10 +597,9 @@ async function _spawnRunnerInner(instance: OuijitTerminal, panelId: string): Pro
   const commandName = panel.scriptName ?? commandStr;
   const hookType = panel.source === 'hook' ? 'run' : 'script';
 
-  // Opt-in per runnable: when this runnable asked to restart-if-running, kill an
-  // existing instance of the same command in this task first — but never this
-  // panel (its command is already set, so it would otherwise match and close
-  // itself). Scoped to the task's worktree by killExistingCommandInstances.
+  // Opt-in: this runnable wants a solo instance, so clear an existing one first.
+  // Pass panelId to spare this panel — its command is already set and would else
+  // match and close itself.
   if (panel.restartIfRunning) {
     killExistingCommandInstances(path, commandStr, instance.worktreePath, panelId);
   }
