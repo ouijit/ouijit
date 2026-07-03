@@ -5,6 +5,7 @@ import { useAutoResize } from '../../hooks/useAutoResize';
 import { DialogOverlay } from './DialogOverlay';
 import { HookCliHint } from './HookCliHint';
 import { HookEnvVars } from './HookEnvVars';
+import { Checkbox } from '../ui/Checkbox';
 
 const HOOK_LABELS: Record<HookType, { title: string; description: string; placeholder: string; envVars?: boolean }> = {
   start: {
@@ -48,22 +49,15 @@ interface HookConfigDialogProps {
   projectPath: string;
   hookType: HookType;
   existingHook?: ScriptHook;
-  killExistingOnRun?: boolean;
-  onClose: (result: { saved: boolean; hook?: ScriptHook; killExistingOnRun?: boolean } | null) => void;
+  onClose: (result: { saved: boolean; hook?: ScriptHook } | null) => void;
 }
 
-export function HookConfigDialog({
-  projectPath,
-  hookType,
-  existingHook,
-  killExistingOnRun,
-  onClose,
-}: HookConfigDialogProps) {
+export function HookConfigDialog({ projectPath, hookType, existingHook, onClose }: HookConfigDialogProps) {
   const labels = HOOK_LABELS[hookType];
   const isRunHook = hookType === 'run';
 
   const [command, setCommand] = useState(existingHook?.command ?? '');
-  const [killExisting, setKillExisting] = useState(killExistingOnRun !== false);
+  const [restartIfRunning, setRestartIfRunning] = useState(existingHook?.restartIfRunning ?? false);
   const [visible, setVisible] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const autoResize = useAutoResize();
@@ -78,7 +72,7 @@ export function HookConfigDialog({
   }, []);
 
   const dismiss = useCallback(
-    (result: { saved: boolean; hook?: ScriptHook; killExistingOnRun?: boolean } | null) => {
+    (result: { saved: boolean; hook?: ScriptHook } | null) => {
       setVisible(false);
       setTimeout(() => onClose(result), 200);
     },
@@ -100,17 +94,14 @@ export function HookConfigDialog({
       type: hookType,
       name: labels.title,
       command: trimmed,
+      ...(isRunHook && { restartIfRunning }),
     };
 
     await window.api.hooks.save(projectPath, hook);
 
-    if (isRunHook) {
-      await window.api.setKillExistingOnRun(projectPath, killExisting);
-    }
-
     useProjectStore.getState().addToast(`${labels.title} saved`, 'success');
-    dismiss({ saved: true, hook, killExistingOnRun: killExisting });
-  }, [command, projectPath, hookType, existingHook, labels, isRunHook, killExisting, dismiss]);
+    dismiss({ saved: true, hook });
+  }, [command, projectPath, hookType, existingHook, labels, isRunHook, restartIfRunning, dismiss]);
 
   return (
     <DialogOverlay visible={visible} onDismiss={() => dismiss(null)}>
@@ -139,15 +130,11 @@ export function HookConfigDialog({
 
         {isRunHook && (
           <div className="flex flex-col gap-1 mt-3">
-            <label className="flex items-center gap-2 cursor-default">
-              <input
-                type="checkbox"
-                className="w-4 h-4 accent-accent !cursor-default"
-                checked={killExisting}
-                onChange={(e) => setKillExisting(e.target.checked)}
-              />
-              <span className="text-sm text-text-secondary">Kill existing instances before running</span>
-            </label>
+            <Checkbox
+              checked={restartIfRunning}
+              onChange={setRestartIfRunning}
+              label="Restart if it's already running in the task"
+            />
           </div>
         )}
 
