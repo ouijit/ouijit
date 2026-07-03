@@ -111,6 +111,20 @@ const config: ForgeConfig = {
             console.log(`Copied limactl from ${limactlSrc}`);
           }
 
+          // 4b. Copy nono binary (optional — absent means the nono backend
+          // resolves the binary from PATH instead, so this never blocks a build).
+          const stagedNono = staging ? path.join(staging, 'bin', 'nono') : null;
+          const nonoSrc = stagedNono && fs.existsSync(stagedNono)
+            ? stagedNono
+            : path.join(__dirname, 'resources', 'bin', 'nono');
+          if (fs.existsSync(nonoSrc)) {
+            const binDest = path.join(buildPath, '..', 'bin');
+            fs.mkdirSync(binDest, { recursive: true });
+            fs.copyFileSync(nonoSrc, path.join(binDest, 'nono'));
+            fs.chmodSync(path.join(binDest, 'nono'), 0o755);
+            console.log(`Copied nono from ${nonoSrc}`);
+          }
+
           // 5. Copy Lima guest agent binaries
           const stagedAgents = staging ? path.join(staging, 'share', 'lima') : null;
           const guestAgentSrc = stagedAgents && fs.existsSync(stagedAgents)

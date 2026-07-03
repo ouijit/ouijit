@@ -1,6 +1,7 @@
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { isLimaInstalled } from './lima/manager';
+import { isNonoInstalled } from './sandbox/nono/binary';
 import { getLogger } from './logger';
 
 const execFileAsync = promisify(execFile);
@@ -14,6 +15,7 @@ export interface HealthStatus {
   pi: boolean;
   opencode: boolean;
   lima: boolean;
+  nono: boolean;
   gitVersion?: string;
 }
 
@@ -66,15 +68,16 @@ async function detectOpencode(): Promise<boolean> {
 }
 
 export async function checkHealth(): Promise<HealthStatus> {
-  const [git, claude, codex, pi, opencode, lima] = await Promise.all([
+  const [git, claude, codex, pi, opencode, lima, nono] = await Promise.all([
     detectGit(),
     detectClaude(),
     detectCodex(),
     detectPi(),
     detectOpencode(),
     isLimaInstalled(),
+    isNonoInstalled(),
   ]);
-  cached = { git: git.ok, claude, codex, pi, opencode, lima, gitVersion: git.version };
+  cached = { git: git.ok, claude, codex, pi, opencode, lima, nono, gitVersion: git.version };
   healthLog.info('health probe', {
     git: cached.git,
     claude: cached.claude,
@@ -82,6 +85,7 @@ export async function checkHealth(): Promise<HealthStatus> {
     pi: cached.pi,
     opencode: cached.opencode,
     lima: cached.lima,
+    nono: cached.nono,
     gitVersion: cached.gitVersion,
   });
   return cached;
