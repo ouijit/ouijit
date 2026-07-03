@@ -64,7 +64,7 @@ function timer(): Timer {
 // macOS: clonefile() clones files and directories atomically in one kernel call.
 // Called via koffi's .async so the (potentially long, for big directory trees)
 // syscall runs on a worker thread instead of blocking the main-process event
-// loop — cloning node_modules synchronously beachballed the UI (#59), and the
+// loop. Cloning node_modules synchronously beachballed the UI (#59), and the
 // cp -c child-process workaround walked the tree file-by-file, making
 // quick-start worktrees ~10x slower than a single directory clone.
 // Linux: ioctl(FICLONE) for CoW file cloning on btrfs/xfs
@@ -212,7 +212,7 @@ async function copyGitIgnoredFiles(
 
     // CoW clones only work within a single volume. When the project and the
     // worktree live on different devices, skip the doomed clone syscalls and
-    // go straight to cp — and say so in the log, because "quick start is slow"
+    // go straight to cp, and say so in the log, because "quick start is slow"
     // reports are often exactly this: every copy silently degrading to a full
     // physical copy.
     if (clonefileAsync || ficloneFn) {
@@ -221,7 +221,7 @@ async function copyGitIgnoredFiles(
         crossVolume = srcStat.dev !== dstStat.dev;
         if (crossVolume) {
           worktreeLog.warn(
-            'project and worktree are on different volumes — CoW cloning unavailable, using full copies',
+            'project and worktree are on different volumes; CoW cloning unavailable, using full copies',
             {
               sourcePath,
               worktreePath,
@@ -229,7 +229,7 @@ async function copyGitIgnoredFiles(
           );
         }
       } catch {
-        /* stat failure — let the per-item clone attempts decide */
+        /* stat failure: let the per-item clone attempts decide */
       }
     }
 
