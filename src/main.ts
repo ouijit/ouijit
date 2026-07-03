@@ -74,6 +74,11 @@ if (process.env.OUIJIT_TEST_USER_DATA) {
   const devPath = `${app.getPath('userData')}-dev-${repoHash}`;
   app.setPath('userData', devPath);
   setUserDataPath(devPath);
+  appLog.info('dev instance', {
+    repoPath: app.getAppPath(),
+    devServerUrl: MAIN_WINDOW_VITE_DEV_SERVER_URL,
+    userDataPath: devPath,
+  });
 } else {
   setUserDataPath(app.getPath('userData'));
 }
