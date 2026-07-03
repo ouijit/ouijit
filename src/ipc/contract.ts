@@ -42,7 +42,7 @@ import type {
   CliPanelOp,
   CliPanelResponse,
 } from '../types';
-import type { SandboxStatus } from '../lima/types';
+import type { LimaStatus } from '../lima/types';
 import type { HookStatusEntry } from '../hookServer';
 import type { HealthStatus } from '../healthCheck';
 import type { CaptureNavigatePayload } from '../capture/types';
@@ -224,7 +224,7 @@ export interface IpcInvokeContract {
   'health:check': { args: []; return: HealthStatus };
 
   // ── Lima ─────────────────────────────────────────────────────────────
-  'lima:status': { args: [projectPath: string]; return: SandboxStatus };
+  'lima:status': { args: [projectPath: string]; return: LimaStatus };
   'lima:start': { args: [projectPath: string]; return: { success: boolean; error?: string } };
   'lima:stop': { args: [projectPath: string]; return: { success: boolean; error?: string } };
   'lima:get-yaml': { args: [projectPath: string]; return: string };

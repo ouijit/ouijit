@@ -5,7 +5,7 @@ import * as path from 'node:path';
 import * as fs from 'node:fs/promises';
 import * as fsSync from 'node:fs';
 import * as os from 'node:os';
-import type { LimaInstance, SandboxStatus } from './types';
+import type { LimaInstance, LimaStatus } from './types';
 import { buildFinalConfig } from './configStore';
 import { buildProjectMounts } from './config';
 import { getLogger } from '../logger';
@@ -463,9 +463,9 @@ export async function ensureRunning(
 }
 
 /**
- * Get the sandbox status for a project, mapping Lima instance status to UI-level SandboxStatus.
+ * Get the sandbox status for a project, mapping Lima instance status to UI-level LimaStatus.
  */
-export async function getLimaStatus(projectPath: string): Promise<SandboxStatus> {
+export async function getLimaStatus(projectPath: string): Promise<LimaStatus> {
   const available = await isLimaInstalled();
   if (!available) {
     return { available: false, vmStatus: 'Unavailable' };
@@ -474,7 +474,7 @@ export async function getLimaStatus(projectPath: string): Promise<SandboxStatus>
   const instanceName = getInstanceName(projectPath);
   const instance = await getInstance(instanceName);
 
-  let vmStatus: SandboxStatus['vmStatus'];
+  let vmStatus: LimaStatus['vmStatus'];
   switch (instance.status) {
     case 'Running':
       vmStatus = 'Running';

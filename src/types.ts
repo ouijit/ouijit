@@ -21,8 +21,10 @@ export type { TaskStatus, TaskMetadata } from './db';
 export type { TagRow } from './db';
 // Re-export PTY session type from ptyManager.ts (single source of truth)
 export type { ActiveSession } from './ptyManager';
-// Re-export sandbox status from lima/types.ts (single source of truth)
-export type { SandboxStatus } from './lima/types';
+// Re-export the VM-shaped Lima status (single source of truth)
+export type { LimaStatus } from './lima/types';
+// Re-export the cross-provider sandbox types (single source of truth)
+export type { SandboxProviderId, SandboxProviderStatus, SandboxCapabilities } from './sandbox/types';
 // Re-export hook status types from hookServer.ts (single source of truth)
 export type { HookStatus, HookStatusEntry } from './hookServer';
 
@@ -31,7 +33,7 @@ import type { GitStatus, GitFileStatus, GitDropdownInfo, FileDiff, WorktreeDiffS
 import type { TaskWorktreeResult, WorktreeInfo, WorktreeRemoveResult, CheckWorktreeResult } from './worktree';
 import type { TaskStatus, TagRow } from './db';
 import type { ActiveSession } from './ptyManager';
-import type { SandboxStatus } from './lima/types';
+import type { LimaStatus } from './lima/types';
 import type { HookStatus, HookStatusEntry } from './hookServer';
 
 /**
@@ -719,7 +721,7 @@ export interface CliPanelsAPI {
  * Lima sandbox API exposed to the renderer
  */
 export interface LimaAPI {
-  status(projectPath: string): Promise<SandboxStatus>;
+  status(projectPath: string): Promise<LimaStatus>;
   start(projectPath: string): Promise<{ success: boolean; error?: string }>;
   stop(projectPath: string): Promise<{ success: boolean; error?: string }>;
   getYaml(projectPath: string): Promise<string>;
