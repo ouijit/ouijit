@@ -65,6 +65,11 @@ Examples:
         opts: { name: string; command: string; description?: string; restartIfRunning?: boolean },
       ) => {
         const t = validateHookType(type);
+        // restartIfRunning only affects the run hook (the only hook surfaced as a
+        // runner). Reject it elsewhere so it can't persist an inert, misleading flag.
+        if (opts.restartIfRunning && t !== 'run') {
+          return printError('--restart-if-running is only valid for the run hook');
+        }
         const project = requireProject();
         const result = await put(`/api/hooks/${t}${projectQuery(project)}`, {
           name: opts.name,

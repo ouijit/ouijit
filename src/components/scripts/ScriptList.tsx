@@ -6,6 +6,7 @@ import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type D
 import { SortableContext, useSortable, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { ScriptRowView } from './ScriptRowView';
+import { Checkbox } from '../ui/Checkbox';
 
 interface ScriptListProps {
   projectPath: string;
@@ -248,15 +249,12 @@ function ScriptForm({
           placeholder="e.g. npm run lint"
         />
       </div>
-      <label className="flex items-center gap-2 cursor-default">
-        <input
-          type="checkbox"
-          className="w-4 h-4 accent-accent !cursor-default"
-          checked={restartIfRunning}
-          onChange={(e) => setRestartIfRunning(e.target.checked)}
-        />
-        <span className="text-[11px] text-text-secondary">Restart if it's already running in the task</span>
-      </label>
+      <Checkbox
+        checked={restartIfRunning}
+        onChange={setRestartIfRunning}
+        label="Restart if it's already running in the task"
+        textClassName="text-[11px] text-text-secondary"
+      />
       <div className="flex items-center gap-2 pt-1">
         {onDelete && (
           <button
