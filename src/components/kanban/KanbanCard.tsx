@@ -241,20 +241,13 @@ export const KanbanCard = memo(function KanbanCard({
 
     if (task.worktreePath && task.branch && availableSandboxProviders.length > 0) {
       // One entry per installed backend, always named so the action and the
-      // backend's settings read as the same feature. Opening under a backend
-      // also makes it the task's default.
+      // backend's settings read as the same feature. Sandboxing is per terminal:
+      // "Open in Terminal" above is a host shell, these open a sandboxed one.
       for (const provider of availableSandboxProviders) {
         items.push({
           label: `Open in ${SANDBOX_PROVIDER_LABELS[provider]} sandbox`,
           icon: 'cube',
           onClick: () => onOpenTerminal(task, provider),
-        });
-      }
-      if (task.sandboxProvider && task.sandboxProvider !== 'none') {
-        items.push({
-          label: 'Run on host (clear sandbox)',
-          icon: 'terminal',
-          onClick: () => onOpenTerminal(task, 'none'),
         });
       }
     }

@@ -27,7 +27,6 @@ export interface PendingCliStart {
   worktreePath: string;
   branch: string;
   createdAt: string;
-  sandboxProvider: SandboxProviderId;
   /** Hook-control mode from the CLI flags; absent = default start-hook dialog. */
   hookMode?: CliHookMode;
   /** Custom command when hookMode is 'command'. */

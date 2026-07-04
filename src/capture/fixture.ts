@@ -86,7 +86,6 @@ export function seedCaptureFixture(
       branch: seed.branch,
       mergeTarget: seed.mergeTarget,
       parentTaskNumber: seed.parentTaskNumber,
-      sandboxProvider: seed.sandboxed ? 'lima' : undefined,
       worktreePath,
       createdAt: new Date(Date.now() - (TASK_SEEDS.length - i) * 3600_000).toISOString(),
     });

@@ -303,14 +303,14 @@ export async function addProjectTerminal(
 
   if (isStale()) return false;
 
-  // Resolve which sandbox backend runs this terminal. Precedence: an explicit
-  // provider option, then the legacy "open in sandbox" boolean (→ Lima), then
-  // the task's persisted backend, then a restored worktree's backend. The
-  // chosen backend must be ready right now, else fall back to a host shell.
+  // Resolve which sandbox backend runs this terminal. Sandboxing is per
+  // terminal, not per task: an explicit provider option (the menu choice),
+  // the legacy "open in sandbox" boolean (→ Lima), or a restored terminal's
+  // own recorded backend. No task-level default — a plain open is a host
+  // shell. The chosen backend must be ready right now, else fall back to host.
   const requestedProvider: SandboxProviderId | undefined =
     options?.sandboxProvider ??
     (options?.sandboxed ? 'lima' : undefined) ??
-    task?.sandboxProvider ??
     options?.existingWorktree?.sandboxProvider ??
     (options?.existingWorktree?.sandboxed ? 'lima' : undefined);
   const sandboxProvider = await resolveReadyProvider(projectPath, requestedProvider);

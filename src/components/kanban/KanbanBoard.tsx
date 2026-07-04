@@ -568,12 +568,8 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
 
   const handleOpenTerminal = useCallback(
     async (task: TaskWithWorkspace, sandboxProvider?: SandboxProviderId) => {
-      // Choosing a backend to open under also makes it the task's default, so
-      // its later terminals, runners, and hooks follow the same backend.
-      if (sandboxProvider && sandboxProvider !== task.sandboxProvider) {
-        await window.api.task.setSandboxProvider(projectPath, task.taskNumber, sandboxProvider);
-        useProjectStore.getState().loadTasks(projectPath);
-      }
+      // The backend is scoped to this terminal — passed straight through to the
+      // spawn, never persisted on the task.
       if (task.worktreePath && task.branch) {
         const wtPath = await ensureWorktreeExists(task);
         if (!wtPath) return;
