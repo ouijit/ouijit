@@ -145,9 +145,7 @@ export const KanbanCard = memo(function KanbanCard({
   const selectedCount = useProjectStore((s) => s.selectedTaskNumbers.size);
   const contextMenuItems = useMemo((): ContextMenuEntry[] => {
     if (isSelected && selectedCount > 1) {
-      const bulkActions: TaskMenuActions = {
-        openTerminal: () => {},
-        openEditor: () => {},
+      const bulkActions: Pick<TaskMenuActions, 'setStatus' | 'trash'> = {
         setStatus: async (status) => {
           const selected = [...useProjectStore.getState().selectedTaskNumbers];
           await Promise.allSettled(selected.map((n) => window.api.task.setStatus(projectPath, n, status)));

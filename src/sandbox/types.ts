@@ -23,6 +23,11 @@ export function legacySandboxProvider(sandboxed: boolean | undefined): SandboxPr
   return sandboxed ? 'lima' : undefined;
 }
 
+/** Whether an id names a real sandbox backend (i.e. not host / the 'none' pass-through). */
+export function isActiveSandbox(provider: SandboxProviderId | undefined): provider is SandboxBackendId {
+  return provider != null && provider !== 'none';
+}
+
 /** Display label for each sandbox backend, shared across every UI surface. */
 export const SANDBOX_BACKEND_LABELS: Record<SandboxBackendId, string> = {
   lima: 'Lima VM',

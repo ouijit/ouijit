@@ -356,7 +356,6 @@ export async function addProjectTerminal(
       projectPath,
       {
         label,
-        sandboxed: useSandbox,
         sandboxProvider,
         taskId: options?.taskId ?? null,
         worktreeBranch: worktreeInfo?.branch ?? null,
@@ -410,7 +409,6 @@ export async function addProjectTerminal(
         projectPath,
         {
           label,
-          sandboxed: useSandbox,
           sandboxProvider,
           taskId: options?.taskId ?? null,
           worktreeBranch: worktreeInfo?.branch ?? null,
@@ -521,7 +519,6 @@ export async function reconnectTerminal(
     session.projectPath,
     {
       label,
-      sandboxed: session.sandboxProvider != null && session.sandboxProvider !== 'none',
       sandboxProvider: session.sandboxProvider,
       taskId: session.taskId ?? null,
       worktreeBranch: opts.worktreeBranch ?? null,

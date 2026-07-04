@@ -1,4 +1,5 @@
 import { type MouseEvent, type ReactNode, Fragment } from 'react';
+import type { SandboxProviderId } from '../../types';
 import { Icon } from './Icon';
 import { StatusDot } from './StatusDot';
 
@@ -9,7 +10,7 @@ const METADATA_CHIP =
 
 export interface TerminalHeaderViewProps {
   summaryType: string;
-  sandboxed?: boolean;
+  sandboxProvider?: SandboxProviderId;
   stackPosition?: number;
   isActive?: boolean;
   isBackCard?: boolean;
@@ -39,13 +40,13 @@ export interface TerminalHeaderViewProps {
 
 /**
  * Pure presentational terminal header. Used by the smart TerminalHeader
- * wrapper (which fills slots with editable inputs, action groups, dialogs)
- * and by the marketing site (which composes nameContent/tagsContent inline
- * using the helpers below).
+ * wrapper (which fills slots with editable inputs, action groups, dialogs).
+ * The marketing site does not import this module; it keeps its own vendored
+ * copy under website/src/ouijit-ui/, so the two can diverge independently.
  */
 export function TerminalHeaderView({
   summaryType,
-  sandboxed = false,
+  sandboxProvider,
   stackPosition,
   isActive = false,
   isBackCard = false,
@@ -68,7 +69,7 @@ export function TerminalHeaderView({
       >
         <div className="flex flex-col min-w-0 shrink gap-0.5">
           <div className="group/meta flex items-center gap-2 min-w-0">
-            <StatusDot summaryType={summaryType} sandboxed={sandboxed} />
+            <StatusDot summaryType={summaryType} sandboxProvider={sandboxProvider} />
             {!isActive && stackPosition != null && stackPosition <= 9 && (
               <kbd className="inline-flex items-center font-mono text-base text-white/40 shrink-0">
                 {isMac ? '⌘' : '⌃'}

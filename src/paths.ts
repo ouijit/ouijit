@@ -15,20 +15,28 @@ const execFileAsync = promisify(execFile);
 
 let _userDataPath: string | null = null;
 let _cliPath: string | null = null;
+const _bundledBinaryCache = new Map<string, string>();
 
 /**
  * Resolve a bundled CLI binary: the executable copy under the app's resources
  * if it exists, otherwise the bare name for PATH lookup (dev / user-installed).
- * Shared by the sandbox backends so they bundle and resolve the same way.
+ * Shared by the sandbox backends so they bundle and resolve the same way. The
+ * bundled path is fixed for the process lifetime, so the `accessSync` probe is
+ * memoized — the nono spawn path resolves each binary several times per spawn.
  */
 export function resolveBundledBinary(name: string): string {
+  const cached = _bundledBinaryCache.get(name);
+  if (cached != null) return cached;
   const bundled = path.join(process.resourcesPath ?? '', 'bin', name);
+  let resolved = name;
   try {
     fsSync.accessSync(bundled, fsSync.constants.X_OK);
-    return bundled;
+    resolved = bundled;
   } catch {
-    return name;
+    resolved = name;
   }
+  _bundledBinaryCache.set(name, resolved);
+  return resolved;
 }
 
 /** Whether a binary is present, bundled or on PATH. */

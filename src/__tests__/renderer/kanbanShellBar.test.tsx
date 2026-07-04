@@ -56,8 +56,10 @@ describe('KanbanShellBar', () => {
   });
 
   it('marks sandboxed shells in the chip label', () => {
-    useTerminalStore.getState().addTerminal(PROJECT, 'shell-1', { taskId: null, label: 'box', sandboxed: true });
+    useTerminalStore
+      .getState()
+      .addTerminal(PROJECT, 'shell-1', { taskId: null, label: 'box', sandboxProvider: 'lima' });
     render(<KanbanShellBar projectPath={PROJECT} onSwitchToTerminal={vi.fn()} />);
-    expect(screen.getByText(/\(sandbox\)/)).toBeTruthy();
+    expect(screen.getByText(/\(lima\)/)).toBeTruthy();
   });
 });

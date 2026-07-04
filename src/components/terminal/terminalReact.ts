@@ -10,6 +10,7 @@ import { Terminal as XTerminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import type { PtyId, PtySpawnOptions, GitFileStatus, SandboxProviderId } from '../../types';
+import { isActiveSandbox } from '../../types';
 import { notifyReady, readyBody } from '../../utils/notifications';
 import { generateId } from '../../utils/ids';
 import { useTerminalStore } from '../../stores/terminalStore';
@@ -391,7 +392,7 @@ export class OuijitTerminal {
   readonly sandboxProvider: SandboxProviderId | undefined;
   /** Display convenience: is this terminal running under any sandbox backend. */
   get sandboxed(): boolean {
-    return this.sandboxProvider != null && this.sandboxProvider !== 'none';
+    return isActiveSandbox(this.sandboxProvider);
   }
   readonly taskId: number | null;
   readonly taskPrompt?: string;

@@ -1,18 +1,17 @@
 import { Tooltip } from '../ui/Tooltip';
 import type { SandboxProviderId } from '../../types';
-import { SANDBOX_BACKEND_LABELS } from '../../types';
+import { SANDBOX_BACKEND_LABELS, isActiveSandbox } from '../../types';
 
 interface StatusDotProps {
   summaryType: string;
-  sandboxed?: boolean;
-  /** Backend name shown in the tooltip; falls back to "Sandboxed". */
+  /** Backend running the terminal; drives the sandbox outline + tooltip. Host when unset. */
   sandboxProvider?: SandboxProviderId;
   size?: number;
 }
 
 /** " (lima)" backend suffix for a sandboxed terminal label; empty for a host shell. */
 export function sandboxSuffix(sandboxProvider?: SandboxProviderId): string {
-  return sandboxProvider && sandboxProvider !== 'none' ? ` (${sandboxProvider})` : '';
+  return isActiveSandbox(sandboxProvider) ? ` (${sandboxProvider})` : '';
 }
 
 const COLORS: Record<string, string> = {
@@ -28,13 +27,14 @@ const LABELS: Record<string, string> = {
   error: 'Failed',
 };
 
-export function StatusDot({ summaryType, sandboxed = false, sandboxProvider, size = 6 }: StatusDotProps) {
+export function StatusDot({ summaryType, sandboxProvider, size = 6 }: StatusDotProps) {
   const isThinking = summaryType === 'thinking';
   const background = COLORS[summaryType] ?? COLORS.ready;
   const label = LABELS[summaryType] ?? LABELS.ready;
-  const sandboxLabel =
-    sandboxProvider && sandboxProvider !== 'none' ? SANDBOX_BACKEND_LABELS[sandboxProvider] : 'Sandboxed';
-  const tooltipText = sandboxed ? `${label} · ${sandboxLabel}` : label;
+  const sandboxed = isActiveSandbox(sandboxProvider);
+  const tooltipText = isActiveSandbox(sandboxProvider)
+    ? `${label} · ${SANDBOX_BACKEND_LABELS[sandboxProvider]}`
+    : label;
   return (
     <Tooltip text={tooltipText} placement="top" delay={300} offsetPx={sandboxed ? 8 : 6}>
       <span

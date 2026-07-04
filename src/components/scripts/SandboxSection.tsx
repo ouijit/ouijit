@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ComponentType } from 'react';
 import { useProjectStore } from '../../stores/projectStore';
 import type { SandboxBackendId } from '../../types';
 import { SANDBOX_BACKEND_LABELS } from '../../types';
@@ -8,6 +8,12 @@ import { NonoSandboxSection } from './NonoSandboxSection';
 const BACKEND_DESCRIPTIONS: Record<SandboxBackendId, string> = {
   lima: 'Full Linux VM with its own filesystem. Boots an image, so it is slower to start.',
   nono: 'Kernel-level access limits, no VM. Starts instantly, in place on the worktree.',
+};
+
+/** Config surface per backend; keyed by id so a new backend is a compile error until wired. */
+const BACKEND_SECTIONS: Record<SandboxBackendId, ComponentType<{ projectPath: string }>> = {
+  lima: LimaSandboxSection,
+  nono: NonoSandboxSection,
 };
 
 interface SandboxSectionProps {
@@ -23,11 +29,12 @@ export function SandboxSection({ projectPath }: SandboxSectionProps) {
   const available = useProjectStore((s) => s.availableSandboxProviders);
   const [selected, setSelected] = useState<SandboxBackendId | null>(null);
 
-  const providers = available.filter((p): p is SandboxBackendId => p === 'lima' || p === 'nono');
+  const providers = available.filter((p): p is SandboxBackendId => p !== 'none');
   if (providers.length === 0) return null;
 
   const active = selected && providers.includes(selected) ? selected : providers[0];
   const both = providers.length > 1;
+  const ActiveSection = BACKEND_SECTIONS[active];
 
   return (
     <div className="flex flex-col gap-3">
@@ -52,11 +59,7 @@ export function SandboxSection({ projectPath }: SandboxSectionProps) {
           <p className="text-xs text-text-tertiary">{BACKEND_DESCRIPTIONS[active]}</p>
         </div>
       )}
-      {active === 'lima' ? (
-        <LimaSandboxSection projectPath={projectPath} />
-      ) : (
-        <NonoSandboxSection projectPath={projectPath} />
-      )}
+      <ActiveSection projectPath={projectPath} />
     </div>
   );
 }

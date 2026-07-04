@@ -25,6 +25,7 @@ import { BulkActionBar } from './BulkActionBar';
 import { OnboardingPanel } from './OnboardingPanel';
 import { KanbanShellBar } from './KanbanShellBar';
 import { focusKanbanAddInput } from './KanbanAddInput';
+import { STATUS_LABELS } from './taskMenu';
 import { useAppStore } from '../../stores/appStore';
 import { HookConfigDialog } from '../dialogs/HookConfigDialog';
 import { CombinedHookConfigDialog } from '../dialogs/CombinedHookConfigDialog';
@@ -35,12 +36,11 @@ import log from 'electron-log/renderer';
 
 const kanbanLog = log.scope('kanban');
 
-const COLUMNS: { status: TaskStatus; label: string }[] = [
-  { status: 'todo', label: 'To Do' },
-  { status: 'in_progress', label: 'In Progress' },
-  { status: 'in_review', label: 'In Review' },
-  { status: 'done', label: 'Done' },
-];
+const COLUMN_ORDER: TaskStatus[] = ['todo', 'in_progress', 'in_review', 'done'];
+const COLUMNS: { status: TaskStatus; label: string }[] = COLUMN_ORDER.map((status) => ({
+  status,
+  label: STATUS_LABELS[status],
+}));
 
 const COLUMN_IDS: Set<string> = new Set(COLUMNS.map((c) => c.status));
 const TRASH_ID = 'trash-zone';

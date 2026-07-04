@@ -16,6 +16,14 @@ function ouijitDir(): string {
   return path.dirname(getWrapperBinDir());
 }
 
+/** Single platform + installed gate that `isAvailable`/`getStatus`/`prepare` all read. */
+async function checkAvailability(): Promise<{ ready: boolean; detail?: string }> {
+  const platform = checkPlatformSupport();
+  if (!platform.supported) return { ready: false, detail: platform.reason };
+  const installed = await isNonoInstalled();
+  return { ready: installed, detail: installed ? 'Ready' : 'Not installed' };
+}
+
 /**
  * nono as a `SandboxProvider`. Unlike Lima it owns no session: it is a pure
  * argv wrapper, so its PTYs flow through the host `ptyManager` and reuse all of
@@ -35,21 +43,12 @@ export const nonoProvider: WrapperSandboxProvider = {
   },
 
   async isAvailable(): Promise<boolean> {
-    return checkPlatformSupport().supported && (await isNonoInstalled());
+    return (await checkAvailability()).ready;
   },
 
   async getStatus(): Promise<SandboxProviderStatus> {
-    const platform = checkPlatformSupport();
-    if (!platform.supported) {
-      return { providerId: 'nono', available: false, ready: false, detail: platform.reason };
-    }
-    const installed = await isNonoInstalled();
-    return {
-      providerId: 'nono',
-      available: installed,
-      ready: installed,
-      detail: installed ? 'Ready' : 'Not installed',
-    };
+    const { ready, detail } = await checkAvailability();
+    return { providerId: 'nono', available: ready, ready, detail };
   },
 
   cleanup(): void {

@@ -44,7 +44,7 @@ export const TerminalHeader = memo(function TerminalHeader({
     gitFileStatus,
     lastOscTitle,
     tags,
-    sandboxed,
+    sandboxProvider,
     taskId,
     worktreeBranch,
     diffPanelOpen,
@@ -59,7 +59,7 @@ export const TerminalHeader = memo(function TerminalHeader({
         gitFileStatus: d?.gitFileStatus ?? null,
         lastOscTitle: d?.lastOscTitle ?? '',
         tags: d?.tags ?? EMPTY_TAGS,
-        sandboxed: d?.sandboxed ?? false,
+        sandboxProvider: d?.sandboxProvider,
         taskId: d?.taskId ?? null,
         worktreeBranch: d?.worktreeBranch ?? null,
         diffPanelOpen: d?.diffPanelOpen ?? false,
@@ -322,7 +322,7 @@ export const TerminalHeader = memo(function TerminalHeader({
   return (
     <TerminalHeaderView
       summaryType={summaryType}
-      sandboxed={sandboxed}
+      sandboxProvider={sandboxProvider}
       stackPosition={stackPosition}
       isActive={isActive}
       isBackCard={isBackCard}

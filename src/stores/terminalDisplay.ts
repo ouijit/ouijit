@@ -19,8 +19,7 @@ export interface TerminalDisplayState {
   /** Automatic diff takeover (header-driven, separate from the panel tabs). */
   diffPanelOpen: boolean;
   diffPanelMode: 'uncommitted' | 'worktree';
-  sandboxed: boolean;
-  /** Which backend runs the terminal, for the status label (undefined = host). */
+  /** Which backend runs the terminal (undefined = host); `isActiveSandbox` derives the boolean. */
   sandboxProvider?: SandboxProviderId;
   taskId: number | null;
   worktreeBranch: string | null;
@@ -43,7 +42,6 @@ export const DEFAULT_DISPLAY_STATE: Omit<TerminalDisplayState, 'ptyId' | 'projec
   panelFullWidth: true,
   diffPanelOpen: false,
   diffPanelMode: 'uncommitted',
-  sandboxed: false,
   taskId: null,
   worktreeBranch: null,
   exited: false,

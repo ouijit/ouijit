@@ -28,7 +28,7 @@ function seedTerminal(projectPath: string, seed: CaptureTerminalSeed): void {
     label: seed.label,
     summaryType: seed.summaryType ?? 'ready',
     worktreeBranch: seed.worktreeBranch ?? null,
-    sandboxed: seed.sandboxed ?? false,
+    sandboxProvider: legacySandboxProvider(seed.sandboxed),
   });
 
   const term = new OuijitTerminal({

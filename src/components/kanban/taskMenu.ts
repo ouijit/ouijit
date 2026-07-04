@@ -52,7 +52,9 @@ export function openInEntry(
 }
 
 /** "Move to ▸" — the four columns, then a danger Trash. */
-export function moveToEntry(actions: TaskMenuActions): ContextMenuEntry {
+export function moveToEntry(
+  actions: Pick<TaskMenuActions, 'setStatus' | 'completeToDone' | 'trash'>,
+): ContextMenuEntry {
   return {
     label: 'Move to',
     submenu: [
