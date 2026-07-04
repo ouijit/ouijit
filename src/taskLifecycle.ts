@@ -141,7 +141,6 @@ export async function createBranchFromTask(
     status: 'todo',
     parentTaskNumber,
     mergeTarget: parent.branch,
-    sandboxProvider: parent.sandboxProvider,
   });
   return { success: true, task };
 }
@@ -291,7 +290,6 @@ export async function getTasksWithWorkspaces(projectPath: string): Promise<TaskW
       closedAt: task.closedAt,
       mergeTarget: task.mergeTarget,
       prompt: task.prompt,
-      sandboxProvider: task.sandboxProvider,
       order: task.order,
       parentTaskNumber: task.parentTaskNumber,
     };

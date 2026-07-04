@@ -16,7 +16,6 @@ import { TagRepo, type TagRow } from './repos/tagRepo';
 import { GlobalSettingsRepo } from './repos/globalSettingsRepo';
 import { ScriptRepo, type ScriptRow } from './repos/scriptRepo';
 import type { ProjectSettings, ScriptHook } from '../types';
-import type { SandboxProviderId } from '../sandbox/types';
 import { getLogger } from '../logger';
 
 const dbLog = getLogger().scope('db');
@@ -36,8 +35,6 @@ export interface TaskMetadata {
   worktreePath?: string;
   mergeTarget?: string;
   prompt?: string;
-  /** Sandbox backend for this task's terminals; omitted when 'none'. */
-  sandboxProvider?: SandboxProviderId;
   order?: number;
   parentTaskNumber?: number;
 }
@@ -165,7 +162,6 @@ export async function createTask(
     status?: TaskStatus;
     mergeTarget?: string;
     prompt?: string;
-    sandboxProvider?: SandboxProviderId;
     worktreePath?: string;
     parentTaskNumber?: number;
   },
