@@ -10,6 +10,11 @@ interface StatusDotProps {
   size?: number;
 }
 
+/** " (lima)" backend suffix for a sandboxed terminal label; empty for a host shell. */
+export function sandboxSuffix(sandboxProvider?: SandboxProviderId): string {
+  return sandboxProvider && sandboxProvider !== 'none' ? ` (${sandboxProvider})` : '';
+}
+
 const COLORS: Record<string, string> = {
   thinking: '#da77f2',
   ready: '#4ee82e',

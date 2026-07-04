@@ -13,6 +13,16 @@ export type SandboxProviderId = 'none' | 'lima' | 'nono';
 /** A registered backend id (everything except the pass-through 'none'). */
 export type SandboxBackendId = Exclude<SandboxProviderId, 'none'>;
 
+/**
+ * Map the legacy per-terminal "open in sandbox" boolean to a provider id. Older
+ * snapshots and the hook-run toggle only recorded a boolean, which always meant
+ * the Lima backend; new code records `sandboxProvider` directly. Single source
+ * of the boolean→id translation so the deserialization boundaries can't drift.
+ */
+export function legacySandboxProvider(sandboxed: boolean | undefined): SandboxProviderId | undefined {
+  return sandboxed ? 'lima' : undefined;
+}
+
 /** Display label for each sandbox backend, shared across every UI surface. */
 export const SANDBOX_BACKEND_LABELS: Record<SandboxBackendId, string> = {
   lima: 'Lima VM',

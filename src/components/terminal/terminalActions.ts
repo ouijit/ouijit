@@ -14,6 +14,7 @@ import type {
   TaskWithWorkspace,
   SandboxProviderId,
 } from '../../types';
+import { legacySandboxProvider } from '../../types';
 import { useTerminalStore, type TerminalDisplayState } from '../../stores/terminalStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { useCanvasStore, persistCanvas } from '../../stores/canvasStore';
@@ -44,6 +45,14 @@ async function resolveAvailableProvider(
   requested: SandboxProviderId | undefined,
 ): Promise<SandboxProviderId | undefined> {
   if (!requested || requested === 'none') return undefined;
+  // Reuse the per-project availability `loadProjectConfig` already cached, so a
+  // sandbox open doesn't re-probe every backend over IPC (Lima's status shells
+  // out to `limactl`) just to check the one we asked for. Fall back to a live
+  // query only when the cache is for a different project (or absent).
+  const { availableSandboxProviders, configProjectPath } = useProjectStore.getState();
+  if (configProjectPath === projectPath) {
+    return availableSandboxProviders.includes(requested) ? requested : undefined;
+  }
   try {
     const statuses = await window.api.sandbox.status(projectPath);
     return statuses.find((s) => s.providerId === requested)?.available ? requested : undefined;
@@ -314,9 +323,9 @@ export async function addProjectTerminal(
   // backend that needs booting (Lima's VM) boots on demand during spawn.
   const requestedProvider: SandboxProviderId | undefined =
     options?.sandboxProvider ??
-    (options?.sandboxed ? 'lima' : undefined) ??
+    legacySandboxProvider(options?.sandboxed) ??
     options?.existingWorktree?.sandboxProvider ??
-    (options?.existingWorktree?.sandboxed ? 'lima' : undefined);
+    legacySandboxProvider(options?.existingWorktree?.sandboxed);
   const sandboxProvider = await resolveAvailableProvider(projectPath, requestedProvider);
   const useSandbox = sandboxProvider != null;
 

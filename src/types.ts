@@ -31,7 +31,7 @@ export type {
   SandboxCapabilities,
   NonoConfig,
 } from './sandbox/types';
-export { SANDBOX_BACKEND_LABELS } from './sandbox/types';
+export { SANDBOX_BACKEND_LABELS, legacySandboxProvider } from './sandbox/types';
 // Re-export hook status types from hookServer.ts (single source of truth)
 export type { HookStatus, HookStatusEntry } from './hookServer';
 

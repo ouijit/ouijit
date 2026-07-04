@@ -1,6 +1,6 @@
 import { useShallow } from 'zustand/react/shallow';
 import { useTerminalStore, type TerminalDisplayState } from '../../stores/terminalStore';
-import { StatusDot } from '../terminal/StatusDot';
+import { StatusDot, sandboxSuffix } from '../terminal/StatusDot';
 import { Icon } from '../terminal/Icon';
 
 interface KanbanShellBarProps {
@@ -58,7 +58,7 @@ export function KanbanShellBar({ projectPath, onSwitchToTerminal }: KanbanShellB
               />
               <span className="font-mono text-[11px] leading-none truncate min-w-0 group-hover/shell:text-text-primary transition-colors duration-150">
                 {name}
-                {shell.sandboxed ? ` (${shell.sandboxProvider ?? 'sandbox'})` : ''}
+                {sandboxSuffix(shell.sandboxProvider)}
               </span>
             </button>
           );

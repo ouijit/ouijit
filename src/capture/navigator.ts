@@ -13,6 +13,7 @@ import { useProjectStore } from '../stores/projectStore';
 import { useTerminalStore, DEFAULT_DISPLAY_STATE } from '../stores/terminalStore';
 import { useCanvasStore } from '../stores/canvasStore';
 import { OuijitTerminal, terminalInstances } from '../components/terminal/terminalReact';
+import { legacySandboxProvider } from '../types';
 import type { CaptureNavigatePayload, CaptureTerminalSeed } from './types';
 
 const captureLog = log.scope('capture');
@@ -34,7 +35,7 @@ function seedTerminal(projectPath: string, seed: CaptureTerminalSeed): void {
     projectPath,
     label: seed.label,
     taskId: seed.taskId,
-    sandboxProvider: seed.sandboxed ? 'lima' : undefined,
+    sandboxProvider: legacySandboxProvider(seed.sandboxed),
     worktreeBranch: seed.worktreeBranch,
     ptyId: seed.ptyId,
     initialSummaryType: seed.summaryType ?? 'ready',

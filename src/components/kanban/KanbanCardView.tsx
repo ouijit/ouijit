@@ -2,7 +2,7 @@ import { memo, useCallback, useEffect, useRef, useState, type MouseEvent, type R
 import type { TaskWithWorkspace } from '../../types';
 import type { TerminalDisplayState } from '../../stores/terminalStore';
 import { Icon } from '../terminal/Icon';
-import { StatusDot } from '../terminal/StatusDot';
+import { StatusDot, sandboxSuffix } from '../terminal/StatusDot';
 import { DescriptionChipEditor, type DescriptionChipEditorHandle } from './DescriptionChipEditor';
 
 const isMac = typeof navigator !== 'undefined' && navigator.platform.toLowerCase().includes('mac');
@@ -336,7 +336,7 @@ export const KanbanCardView = memo(function KanbanCardView({
                 ) : (
                   <span className="font-mono text-[10px] leading-tight text-text-secondary truncate min-w-0">
                     {truncated}
-                    {display.sandboxed ? ` (${display.sandboxProvider ?? 'sandbox'})` : ''}
+                    {sandboxSuffix(display.sandboxProvider)}
                   </span>
                 )}
               </div>
