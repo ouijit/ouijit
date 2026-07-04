@@ -1,5 +1,6 @@
 import * as path from 'node:path';
 import type { NonoConfig, SandboxLaunch } from '../types';
+import { GIT_WRITABLE_OVERLAY_DIRS } from '../types';
 import { OUIJIT_PROFILE_NAME } from './profile';
 
 /** Everything the argv builder needs, resolved at spawn time. */
@@ -64,10 +65,9 @@ export function buildNonoLaunch(nonoPath: string, launch: SandboxLaunch, ctx: No
     args.push('--allow', extra);
   }
   args.push('--read', git);
-  args.push('--write', path.join(git, 'objects'));
-  args.push('--write', path.join(git, 'refs'));
-  args.push('--write', path.join(git, 'logs'));
-  args.push('--write', path.join(git, 'worktrees'));
+  for (const dir of GIT_WRITABLE_OVERLAY_DIRS) {
+    args.push('--write', path.join(git, dir));
+  }
 
   // Ouijit wrapper scripts (first on PATH) and the bundled CLI they exec.
   args.push('--read', ctx.wrapperDir);

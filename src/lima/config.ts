@@ -1,6 +1,7 @@
 import * as os from 'node:os';
 import * as path from 'node:path';
 import type { LimaMount } from './types';
+import { GIT_WRITABLE_OVERLAY_DIRS } from '../sandbox/types';
 import { getSandboxViewBaseDir } from './sandboxSync';
 
 /**
@@ -44,26 +45,11 @@ export function buildProjectMounts(projectPath: string): LimaMount[] {
       guestPath: projectGitDir,
       writable: false,
     },
-    {
-      hostPath: path.join(projectGitDir, 'objects'),
-      guestPath: path.join(projectGitDir, 'objects'),
+    ...GIT_WRITABLE_OVERLAY_DIRS.map((dir) => ({
+      hostPath: path.join(projectGitDir, dir),
+      guestPath: path.join(projectGitDir, dir),
       writable: true,
-    },
-    {
-      hostPath: path.join(projectGitDir, 'refs'),
-      guestPath: path.join(projectGitDir, 'refs'),
-      writable: true,
-    },
-    {
-      hostPath: path.join(projectGitDir, 'logs'),
-      guestPath: path.join(projectGitDir, 'logs'),
-      writable: true,
-    },
-    {
-      hostPath: path.join(projectGitDir, 'worktrees'),
-      guestPath: path.join(projectGitDir, 'worktrees'),
-      writable: true,
-    },
+    })),
   ];
 }
 

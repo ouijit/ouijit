@@ -19,6 +19,15 @@ export const SANDBOX_BACKEND_LABELS: Record<SandboxBackendId, string> = {
   nono: 'nono',
 };
 
+/**
+ * Subdirectories of a repo's `.git` that every sandbox backend grants writable
+ * on top of an otherwise read-only `.git`, so commits land while `hooks/` and
+ * `config` (the host-side RCE surface) stay unwritable. Single source of truth
+ * for this security-sensitive overlay set — Lima's mounts and nono's `--write`
+ * flags derive from it so the two backends can't drift apart.
+ */
+export const GIT_WRITABLE_OVERLAY_DIRS = ['objects', 'refs', 'logs', 'worktrees'] as const;
+
 /** Provider-neutral availability / readiness status surfaced to the UI. */
 export interface SandboxProviderStatus {
   providerId: SandboxBackendId;
