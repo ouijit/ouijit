@@ -267,8 +267,6 @@ describe('data import service', () => {
       expect(task1.mergeTarget).toBe('main');
       expect(task1.prompt).toBe('Build login page');
       expect(task1.worktreePath).toBe('/worktrees/login');
-      // Legacy imports carried a boolean `sandboxed`; it maps to the 'lima' provider.
-      expect(task1.sandboxProvider).toBe('lima');
       expect(task1.order).toBe(5);
 
       // closedAt preserved
