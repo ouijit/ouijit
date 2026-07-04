@@ -164,6 +164,19 @@ export const KanbanCard = memo(function KanbanCard({
             { label: 'In Progress', onClick: bulkMove('in_progress', 'In Progress') },
             { label: 'In Review', onClick: bulkMove('in_review', 'In Review') },
             { label: 'Done', onClick: bulkMove('done', 'Done') },
+            { separator: true },
+            {
+              label: 'Trash',
+              icon: 'trash',
+              danger: true,
+              onClick: async () => {
+                const selected = [...useProjectStore.getState().selectedTaskNumbers];
+                await Promise.allSettled(selected.map((n) => window.api.task.trash(projectPath, n)));
+                useProjectStore.getState().loadTasks(projectPath);
+                useProjectStore.getState().clearSelection();
+                useProjectStore.getState().addToast(`Moved ${selected.length} tasks to trash`, 'success');
+              },
+            },
           ],
         },
         { separator: true },
@@ -176,19 +189,6 @@ export const KanbanCard = memo(function KanbanCard({
             const tasks = store.tasks.filter((t) => selected.includes(t.taskNumber));
             for (const t of tasks) onOpenTerminal(t);
             store.clearSelection();
-          },
-        },
-        { separator: true },
-        {
-          label: 'Move to Trash',
-          icon: 'trash',
-          danger: true,
-          onClick: async () => {
-            const selected = [...useProjectStore.getState().selectedTaskNumbers];
-            await Promise.allSettled(selected.map((n) => window.api.task.trash(projectPath, n)));
-            useProjectStore.getState().loadTasks(projectPath);
-            useProjectStore.getState().clearSelection();
-            useProjectStore.getState().addToast(`Moved ${selected.length} tasks to trash`, 'success');
           },
         },
       ];
@@ -263,6 +263,17 @@ export const KanbanCard = memo(function KanbanCard({
         { label: 'In Progress', onClick: moveTo('in_progress') },
         { label: 'In Review', onClick: moveTo('in_review') },
         { label: 'Done', onClick: moveTo('done') },
+        { separator: true },
+        {
+          label: 'Trash',
+          icon: 'trash',
+          danger: true,
+          onClick: async () => {
+            await window.api.task.trash(projectPath, task.taskNumber);
+            useProjectStore.getState().loadTasks(projectPath);
+            useProjectStore.getState().addToast('Task moved to trash', 'success');
+          },
+        },
       ],
     });
 
@@ -278,19 +289,6 @@ export const KanbanCard = memo(function KanbanCard({
       label: 'Rename',
       icon: 'pencil-simple',
       onClick: handleStartRenameTask,
-    });
-
-    items.push({ separator: true });
-
-    items.push({
-      label: 'Move to Trash',
-      icon: 'trash',
-      danger: true,
-      onClick: async () => {
-        await window.api.task.trash(projectPath, task.taskNumber);
-        useProjectStore.getState().loadTasks(projectPath);
-        useProjectStore.getState().addToast('Task moved to trash', 'success');
-      },
     });
 
     return items;
