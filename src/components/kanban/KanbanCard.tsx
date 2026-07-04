@@ -135,8 +135,6 @@ export const KanbanCard = memo(function KanbanCard({
     }
   }, []);
 
-  const isDone = task.status === 'done';
-
   const terminalContextMenuItems = useMemo((): ContextMenuEntry[] => {
     if (!terminalContextMenu) return [];
     return [
@@ -151,46 +149,23 @@ export const KanbanCard = memo(function KanbanCard({
   const selectedCount = useProjectStore((s) => s.selectedTaskNumbers.size);
   const contextMenuItems = useMemo((): ContextMenuEntry[] => {
     if (isSelected && selectedCount > 1) {
+      const bulkMove = (status: 'todo' | 'in_progress' | 'in_review' | 'done', label: string) => async () => {
+        const selected = [...useProjectStore.getState().selectedTaskNumbers];
+        await Promise.allSettled(selected.map((n) => window.api.task.setStatus(projectPath, n, status)));
+        useProjectStore.getState().loadTasks(projectPath);
+        useProjectStore.getState().clearSelection();
+        useProjectStore.getState().addToast(`Moved ${selected.length} tasks to ${label}`, 'success');
+      };
       const items: ContextMenuEntry[] = [
         {
-          label: 'Move to To Do',
-          onClick: async () => {
-            const selected = [...useProjectStore.getState().selectedTaskNumbers];
-            await Promise.allSettled(selected.map((n) => window.api.task.setStatus(projectPath, n, 'todo')));
-            useProjectStore.getState().loadTasks(projectPath);
-            useProjectStore.getState().clearSelection();
-            useProjectStore.getState().addToast(`Moved ${selected.length} tasks to To Do`, 'success');
-          },
-        },
-        {
-          label: 'Move to In Progress',
-          onClick: async () => {
-            const selected = [...useProjectStore.getState().selectedTaskNumbers];
-            await Promise.allSettled(selected.map((n) => window.api.task.setStatus(projectPath, n, 'in_progress')));
-            useProjectStore.getState().loadTasks(projectPath);
-            useProjectStore.getState().clearSelection();
-            useProjectStore.getState().addToast(`Moved ${selected.length} tasks to In Progress`, 'success');
-          },
-        },
-        {
-          label: 'Move to In Review',
-          onClick: async () => {
-            const selected = [...useProjectStore.getState().selectedTaskNumbers];
-            await Promise.allSettled(selected.map((n) => window.api.task.setStatus(projectPath, n, 'in_review')));
-            useProjectStore.getState().loadTasks(projectPath);
-            useProjectStore.getState().clearSelection();
-            useProjectStore.getState().addToast(`Moved ${selected.length} tasks to In Review`, 'success');
-          },
-        },
-        {
-          label: 'Move to Done',
-          onClick: async () => {
-            const selected = [...useProjectStore.getState().selectedTaskNumbers];
-            await Promise.allSettled(selected.map((n) => window.api.task.setStatus(projectPath, n, 'done')));
-            useProjectStore.getState().loadTasks(projectPath);
-            useProjectStore.getState().clearSelection();
-            useProjectStore.getState().addToast(`Moved ${selected.length} tasks to Done`, 'success');
-          },
+          label: 'Move to',
+          icon: 'arrow-right',
+          submenu: [
+            { label: 'To Do', onClick: bulkMove('todo', 'To Do') },
+            { label: 'In Progress', onClick: bulkMove('in_progress', 'In Progress') },
+            { label: 'In Review', onClick: bulkMove('in_review', 'In Review') },
+            { label: 'Done', onClick: bulkMove('done', 'Done') },
+          ],
         },
         { separator: true },
         {
@@ -233,27 +208,20 @@ export const KanbanCard = memo(function KanbanCard({
       items.push({ separator: true });
     }
 
-    items.push({
-      label: 'Open in Terminal',
-      icon: 'terminal',
-      onClick: () => onOpenTerminal(task),
-    });
-
-    if (task.worktreePath && task.branch && availableSandboxProviders.length > 0) {
-      // One entry per installed backend, always named so the action and the
-      // backend's settings read as the same feature. Sandboxing is per terminal:
-      // "Open in Terminal" above is a host shell, these open a sandboxed one.
+    // "Open in" groups the launch targets. Sandboxing is per terminal:
+    // "Terminal" is a host shell; each "<backend> sandbox" opens a sandboxed one.
+    const openIn: ContextMenuEntry[] = [{ label: 'Terminal', icon: 'terminal', onClick: () => onOpenTerminal(task) }];
+    if (task.worktreePath && task.branch) {
       for (const provider of availableSandboxProviders) {
-        items.push({
-          label: `Open in ${SANDBOX_PROVIDER_LABELS[provider]} sandbox`,
+        openIn.push({
+          label: `${SANDBOX_PROVIDER_LABELS[provider]} sandbox`,
           icon: 'cube',
           onClick: () => onOpenTerminal(task, provider),
         });
       }
     }
-
-    items.push({
-      label: 'Open in Editor',
+    openIn.push({
+      label: 'Editor',
       icon: 'code',
       onClick: () => {
         if (hasEditorHook && task.worktreePath && task.branch) {
@@ -267,6 +235,7 @@ export const KanbanCard = memo(function KanbanCard({
         }
       },
     });
+    items.push({ label: 'Open in', icon: 'terminal', submenu: openIn });
 
     const planDisplay = connectedDisplays.find((d) => d.panels.some((p) => p.kind === 'plan'));
     if (planDisplay) {
@@ -284,6 +253,21 @@ export const KanbanCard = memo(function KanbanCard({
 
     items.push({ separator: true });
 
+    const moveTo = (status: 'todo' | 'in_progress' | 'in_review' | 'done') => async () => {
+      await window.api.task.setStatus(projectPath, task.taskNumber, status);
+      useProjectStore.getState().loadTasks(projectPath);
+    };
+    items.push({
+      label: 'Move to',
+      icon: 'arrow-right',
+      submenu: [
+        { label: 'To Do', onClick: moveTo('todo') },
+        { label: 'In Progress', onClick: moveTo('in_progress') },
+        { label: 'In Review', onClick: moveTo('in_review') },
+        { label: 'Done', onClick: moveTo('done') },
+      ],
+    });
+
     if (task.branch && task.status !== 'done') {
       items.push({
         label: 'Branch from this task',
@@ -298,25 +282,7 @@ export const KanbanCard = memo(function KanbanCard({
       onClick: handleStartRenameTask,
     });
 
-    if (isDone) {
-      items.push({
-        label: 'Reopen',
-        icon: 'arrow-counter-clockwise',
-        onClick: async () => {
-          await window.api.task.setStatus(projectPath, task.taskNumber, 'in_progress');
-          useProjectStore.getState().loadTasks(projectPath);
-        },
-      });
-    } else {
-      items.push({
-        label: 'Move to Done',
-        icon: 'archive',
-        onClick: async () => {
-          await window.api.task.setStatus(projectPath, task.taskNumber, 'done');
-          useProjectStore.getState().loadTasks(projectPath);
-        },
-      });
-    }
+    items.push({ separator: true });
 
     items.push({
       label: 'Move to Trash',
@@ -334,7 +300,6 @@ export const KanbanCard = memo(function KanbanCard({
     connectedDisplays,
     task,
     projectPath,
-    isDone,
     availableSandboxProviders,
     hasEditorHook,
     isSelected,
