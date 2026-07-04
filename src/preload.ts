@@ -309,6 +309,5 @@ contextBridge.exposeInMainWorld('api', {
     nonoConfig: (projectPath: string) => typedInvoke('sandbox:nono-config', projectPath),
     setNonoConfig: (projectPath: string, config: NonoConfig) =>
       typedInvoke('sandbox:set-nono-config', projectPath, config),
-    nonoProfiles: () => typedInvoke('sandbox:nono-profiles'),
   },
 });

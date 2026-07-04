@@ -1,4 +1,3 @@
-import * as os from 'node:os';
 import * as path from 'node:path';
 import { getWrapperBinDir } from '../../hookServer';
 import { getLogger } from '../../logger';
@@ -6,6 +5,7 @@ import type { WrapperSandboxProvider } from '../provider';
 import type { SandboxLaunch, SandboxProviderStatus, SandboxSpawnContext } from '../types';
 import { getNonoPath, isNonoInstalled, checkPlatformSupport, getMainGitDir } from './binary';
 import { getNonoConfig } from './config';
+import { ensureUnionProfile } from './profile';
 import { buildNonoLaunch } from './argv';
 
 const nonoLog = getLogger().scope('nono');
@@ -64,6 +64,9 @@ export const nonoProvider: WrapperSandboxProvider = {
     if (!(await isNonoInstalled())) {
       throw new Error('nono is not installed. Install it, then reopen the terminal.');
     }
+    // Make sure the union profile (and the agent packs it inherits) is on disk
+    // before the spawn references it by name.
+    await ensureUnionProfile(getNonoPath());
     // nono runs in place on the host worktree — cwd is unchanged. Point shell
     // history at /dev/null: nono denies the user's ~/.zsh_history (its
     // deny_shell_configs policy), which otherwise prints a lock error at every
@@ -80,7 +83,6 @@ export const nonoProvider: WrapperSandboxProvider = {
       worktreePath,
       mainGitDir,
       apiPort: ctx.apiPort,
-      profile: config.profile,
       blockNet: config.blockNet ?? false,
     });
 
@@ -88,7 +90,6 @@ export const nonoProvider: WrapperSandboxProvider = {
       worktreePath,
       mainGitDir,
       apiPort: ctx.apiPort,
-      homeDir: os.homedir(),
       wrapperDir: ouijitDir(),
       config,
     });

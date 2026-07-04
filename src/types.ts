@@ -735,8 +735,6 @@ export interface SandboxAPI {
   nonoConfig(projectPath: string): Promise<NonoConfig>;
   /** Persist a project's nono config. */
   setNonoConfig(projectPath: string, config: NonoConfig): Promise<{ success: boolean }>;
-  /** List named nono profiles installed under ~/.config/nono/profiles. */
-  nonoProfiles(): Promise<string[]>;
 }
 
 /**

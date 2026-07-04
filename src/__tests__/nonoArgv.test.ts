@@ -8,7 +8,6 @@ const baseCtx: NonoArgvContext = {
   worktreePath: '/Users/dev/Ouijit/worktrees/proj/T-5',
   mainGitDir: '/Users/dev/code/proj/.git',
   apiPort: 41234,
-  homeDir: '/Users/dev',
   wrapperDir: '/Users/dev/.config/Ouijit',
 };
 
@@ -17,10 +16,13 @@ function build(ctx: Partial<NonoArgvContext> = {}) {
 }
 
 describe('buildNonoLaunch', () => {
-  test('wraps the shell launch as the tail of a `nono wrap` argv', () => {
+  test('wraps the shell launch as a supervised `nono run` under the union profile', () => {
     const { file, args, env } = build();
     expect(file).toBe('/opt/bin/nono');
-    expect(args.slice(0, 3)).toEqual(['wrap', '--silent', '--allow-cwd']);
+    // run mode (supervisor: banner + denial prompts), the union profile, and the
+    // startup-timeout disabled so a plain shell is not killed for never entering a TUI.
+    expect(args.slice(0, 6)).toEqual(['run', '--profile', 'ouijit', '--startup-timeout', '0', '--allow-cwd']);
+    expect(args).not.toContain('--silent');
     // The original launch is preserved verbatim after the `--` separator.
     const sep = args.indexOf('--');
     expect(sep).toBeGreaterThan(0);
@@ -62,22 +64,17 @@ describe('buildNonoLaunch', () => {
     expect(args[openPortIdxs[0] + 1]).toBe('41234');
   });
 
-  test('grants global git config and the Ouijit wrapper dir', () => {
+  test('grants the Ouijit wrapper dir so the PATH-first agent shims execute', () => {
     const { args } = build();
     const readTargets = args.reduce<string[]>((acc, a, i) => (a === '--read' ? [...acc, args[i + 1]] : acc), []);
-    const readFileTargets = args.reduce<string[]>(
-      (acc, a, i) => (a === '--read-file' ? [...acc, args[i + 1]] : acc),
-      [],
-    );
-    expect(readFileTargets).toContain('/Users/dev/.gitconfig');
-    expect(readTargets).toContain('/Users/dev/.config/git');
     expect(readTargets).toContain('/Users/dev/.config/Ouijit');
+    // Global git config is not granted here — the union profile's git_config group covers it.
+    expect(readTargets).not.toContain('/Users/dev/.config/git');
+    expect(args).not.toContain('--read-file');
   });
 
-  test('appends a profile and block-net when configured', () => {
-    const { args } = build({ config: { profile: 'always-further/claude', blockNet: true } });
-    expect(args).toContain('--profile');
-    expect(args[args.indexOf('--profile') + 1]).toBe('always-further/claude');
+  test('adds block-net when configured', () => {
+    const { args } = build({ config: { blockNet: true } });
     expect(args).toContain('--block-net');
   });
 

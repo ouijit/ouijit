@@ -14,19 +14,14 @@ const PILL_BTN =
 /** Config surface for the nono backend. Controls only — no exposition. */
 export function NonoSandboxSection({ projectPath }: NonoSandboxSectionProps) {
   const [config, setConfig] = useState<NonoConfig>({});
-  const [profiles, setProfiles] = useState<string[]>([]);
-  const [advancedOpen, setAdvancedOpen] = useState(false);
   const [portDraft, setPortDraft] = useState('');
 
   useEffect(() => {
     let active = true;
-    void Promise.all([window.api.sandbox.nonoConfig(projectPath), window.api.sandbox.nonoProfiles()]).then(
-      ([cfg, profs]) => {
-        if (!active) return;
-        setConfig(cfg);
-        setProfiles(profs);
-      },
-    );
+    void window.api.sandbox.nonoConfig(projectPath).then((cfg) => {
+      if (!active) return;
+      setConfig(cfg);
+    });
     return () => {
       active = false;
     };
@@ -152,56 +147,6 @@ export function NonoSandboxSection({ projectPath }: NonoSandboxSectionProps) {
           )}
         </div>
       </div>
-
-      {/* Advanced */}
-      <button
-        type="button"
-        onClick={() => setAdvancedOpen((v) => !v)}
-        className="flex items-center gap-1 self-start text-xs font-medium text-text-secondary hover:text-text-primary"
-      >
-        <span className={`transition-transform ${advancedOpen ? 'rotate-90' : ''}`}>▸</span> Advanced
-      </button>
-      {advancedOpen && (
-        <div className={CARD}>
-          <div className="flex flex-col gap-2 px-4 py-3">
-            <div className="flex items-center justify-between gap-4">
-              <div className="min-w-0">
-                <div className="text-sm text-text-primary">Profile</div>
-                <div className="mt-0.5 text-xs text-text-tertiary">
-                  Optional. Adds your own nono rules on top of the grants above.
-                </div>
-              </div>
-              {profiles.length > 0 && (
-                <select
-                  className="rounded-[10px] border border-black/60 bg-background-secondary px-2 py-1.5 text-xs text-text-primary"
-                  value={config.profile ?? ''}
-                  onChange={(e) => save({ ...config, profile: e.target.value || undefined })}
-                >
-                  <option value="">None</option>
-                  {profiles.map((p) => (
-                    <option key={p} value={p}>
-                      {p}
-                    </option>
-                  ))}
-                </select>
-              )}
-            </div>
-            {profiles.length === 0 && (
-              <div className="text-xs text-text-tertiary">
-                None installed. Create one with <code className="text-text-secondary">nono profile init</code>, or{' '}
-                <button
-                  type="button"
-                  onClick={() => window.api.openExternal('https://nono.sh/docs/cli/features/profile-authoring')}
-                  className="underline hover:text-text-primary"
-                >
-                  learn more
-                </button>
-                .
-              </div>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

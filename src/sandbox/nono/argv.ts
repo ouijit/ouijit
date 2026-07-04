@@ -1,5 +1,6 @@
 import * as path from 'node:path';
 import type { NonoConfig, SandboxLaunch } from '../types';
+import { OUIJIT_PROFILE_NAME } from './profile';
 
 /** Everything the argv builder needs, resolved at spawn time. */
 export interface NonoArgvContext {
@@ -9,32 +10,38 @@ export interface NonoArgvContext {
   mainGitDir: string;
   /** Host hook-server port to keep reachable from inside the sandbox. */
   apiPort: number;
-  /** User home dir, for global git config grants. */
-  homeDir: string;
   /** Ouijit wrapper/CLI dir (`~/.config/Ouijit`) the agent hooks live in. */
   wrapperDir: string;
   config?: NonoConfig;
 }
 
 /**
- * Build the `nono wrap` argv that sandboxes a host launch. Pure (no fs / no
- * process) so it is exhaustively unit-testable; the provider passes the
- * resolved binary path and spawn context.
+ * Build the `nono run` argv that sandboxes a host launch under Ouijit's union
+ * profile. Pure (no fs / no process) so it is exhaustively unit-testable; the
+ * provider passes the resolved binary path and spawn context.
  *
- * Grants (deny-by-default on macOS Seatbelt / Linux Landlock):
+ * `run` (not `wrap`) so the supervisor is present: it prints the grant banner,
+ * shows interactive denial prompts, and lets agents authenticate through the
+ * keychain grant the profile carries. `--startup-timeout 0` disables the
+ * alt-screen watchdog, which would otherwise kill a plain shell that never
+ * enters a full-screen TUI.
+ *
+ * The profile carries the static, agent-facing grants (per-agent config dirs,
+ * keychain, global git config, runtime groups). Layered on here are the
+ * per-task grants that can't live in a static profile:
  *   - the task worktree, read+write
  *   - the main `.git` read-only, with objects/refs/logs/worktrees writable so
  *     commits land while hooks/config stay unwritable (mirrors Lima's mounts)
- *   - global git config, the Ouijit wrapper dir, and the hook-server port
+ *   - the Ouijit wrapper dir (its agent shims are first on PATH) and the
+ *     hook-server port
  *
  * Network is nono's default (allowed) unless `config.blockNet` opts into deny,
  * in which case `--open-port` keeps the hook server reachable.
  */
 export function buildNonoLaunch(nonoPath: string, launch: SandboxLaunch, ctx: NonoArgvContext): SandboxLaunch {
   const git = ctx.mainGitDir;
-  const args: string[] = ['wrap', '--silent', '--allow-cwd'];
+  const args: string[] = ['run', '--profile', OUIJIT_PROFILE_NAME, '--startup-timeout', '0', '--allow-cwd'];
 
-  if (ctx.config?.profile) args.push('--profile', ctx.config.profile);
   if (ctx.config?.blockNet) args.push('--block-net');
 
   // Always open the hook-server port: harmless when network is allowed,
@@ -56,10 +63,7 @@ export function buildNonoLaunch(nonoPath: string, launch: SandboxLaunch, ctx: No
   args.push('--write', path.join(git, 'logs'));
   args.push('--write', path.join(git, 'worktrees'));
 
-  // Global git config (nono tolerates paths that don't exist).
-  args.push('--read-file', path.join(ctx.homeDir, '.gitconfig'));
-  args.push('--read', path.join(ctx.homeDir, '.config', 'git'));
-  // Ouijit wrapper scripts + CLI reference the agent hooks invoke.
+  // Ouijit wrapper scripts + CLI the agent hooks invoke (first on PATH).
   args.push('--read', ctx.wrapperDir);
 
   args.push('--', launch.file, ...launch.args);

@@ -234,7 +234,6 @@ export interface IpcInvokeContract {
   'sandbox:status': { args: [projectPath: string]; return: SandboxProviderStatus[] };
   'sandbox:nono-config': { args: [projectPath: string]; return: NonoConfig };
   'sandbox:set-nono-config': { args: [projectPath: string, config: NonoConfig]; return: { success: boolean } };
-  'sandbox:nono-profiles': { args: []; return: string[] };
 
   // ── Lima ─────────────────────────────────────────────────────────────
   'lima:status': { args: [projectPath: string]; return: LimaStatus };

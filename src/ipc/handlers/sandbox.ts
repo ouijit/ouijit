@@ -1,6 +1,6 @@
 import { typedHandle } from '../helpers';
 import { listSandboxProviders } from '../../sandbox';
-import { getNonoConfig, setNonoConfig, listNonoProfiles } from '../../sandbox/nono/config';
+import { getNonoConfig, setNonoConfig } from '../../sandbox/nono/config';
 
 /**
  * Cross-provider sandbox IPC. Reports availability/readiness for every
@@ -16,5 +16,4 @@ export function registerSandboxHandlers(): void {
 
   typedHandle('sandbox:nono-config', (projectPath) => getNonoConfig(projectPath));
   typedHandle('sandbox:set-nono-config', (projectPath, config) => setNonoConfig(projectPath, config));
-  typedHandle('sandbox:nono-profiles', () => listNonoProfiles());
 }
