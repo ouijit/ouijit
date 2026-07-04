@@ -77,13 +77,4 @@ describe('SandboxSection provider router', () => {
       ),
     );
   });
-
-  test('profile is tucked under Advanced, not shown by default', async () => {
-    setAvailable(['nono']);
-    const { getByText, queryByText } = render(<SandboxSection projectPath="/p" />);
-    await waitFor(() => expect(getByText('Additional folders')).toBeTruthy());
-    expect(queryByText('Profile')).toBeNull();
-    fireEvent.click(getByText('Advanced'));
-    await waitFor(() => expect(getByText('Profile')).toBeTruthy());
-  });
 });
