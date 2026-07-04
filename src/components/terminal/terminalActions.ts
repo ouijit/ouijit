@@ -32,18 +32,21 @@ const actionsLog = log.scope('terminalActions');
 
 /**
  * Resolve the sandbox backend to actually spawn under: the requested backend if
- * it is installed and ready right now, otherwise undefined (a plain host shell).
- * Only queries backend status when a backend is requested, so host terminals
- * pay no IPC cost.
+ * it is installed (available) on this machine, otherwise undefined (a plain host
+ * shell). Gated on `available`, not `ready`: Lima reports `ready` only once its
+ * VM is booted, but its spawn path boots the VM on demand (with a progress
+ * spinner), so requesting it while the VM is Stopped must still sandbox — not
+ * silently downgrade to a host shell. Only queries backend status when a backend
+ * is requested, so host terminals pay no IPC cost.
  */
-async function resolveReadyProvider(
+async function resolveAvailableProvider(
   projectPath: string,
   requested: SandboxProviderId | undefined,
 ): Promise<SandboxProviderId | undefined> {
   if (!requested || requested === 'none') return undefined;
   try {
     const statuses = await window.api.sandbox.status(projectPath);
-    return statuses.find((s) => s.providerId === requested)?.ready ? requested : undefined;
+    return statuses.find((s) => s.providerId === requested)?.available ? requested : undefined;
   } catch {
     return undefined;
   }
@@ -307,13 +310,14 @@ export async function addProjectTerminal(
   // terminal, not per task: an explicit provider option (the menu choice),
   // the legacy "open in sandbox" boolean (→ Lima), or a restored terminal's
   // own recorded backend. No task-level default — a plain open is a host
-  // shell. The chosen backend must be ready right now, else fall back to host.
+  // shell. The chosen backend must be installed, else fall back to host; a
+  // backend that needs booting (Lima's VM) boots on demand during spawn.
   const requestedProvider: SandboxProviderId | undefined =
     options?.sandboxProvider ??
     (options?.sandboxed ? 'lima' : undefined) ??
     options?.existingWorktree?.sandboxProvider ??
     (options?.existingWorktree?.sandboxed ? 'lima' : undefined);
-  const sandboxProvider = await resolveReadyProvider(projectPath, requestedProvider);
+  const sandboxProvider = await resolveAvailableProvider(projectPath, requestedProvider);
   const useSandbox = sandboxProvider != null;
 
   // Create OuijitTerminal
