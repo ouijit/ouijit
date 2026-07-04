@@ -277,19 +277,40 @@ const routes: Route[] = [
   // the pty's record, so this route deliberately does not take ?project=.
   // Order matters: must come before 'tasks/:number' so the literal segment
   // wins the match against a numeric :number.
-  route('GET', 'tasks/current', async (r) => {
-    const ctx = getPtyTaskContext(r.auth.ptyId);
-    if (!ctx) throw new HttpError(404, 'Current PTY is not associated with a task');
-    const task = await getTaskWithWorkspace(ctx.projectPath, ctx.taskId);
-    if (!task) throw new HttpError(404, `Task ${ctx.taskId} not found`);
-    return task;
-  }),
+  route(
+    'GET',
+    'tasks/current',
+    async (r) => {
+      const ctx = getPtyTaskContext(r.auth.ptyId);
+      if (!ctx) throw new HttpError(404, 'Current PTY is not associated with a task');
+      const task = await getTaskWithWorkspace(ctx.projectPath, ctx.taskId);
+      if (!task) throw new HttpError(404, `Task ${ctx.taskId} not found`);
+      return task;
+    },
+    false,
+    // Read-only, resolved from the caller's own PTY, so a sandboxed agent can
+    // read its own current task without host scope.
+    'sandbox',
+  ),
 
-  route('GET', 'tasks/:number', (r) => {
-    const project = requireProject(r.query);
-    const num = requireInt(r.segments[1], 'Task number');
-    return getTaskWithWorkspace(project, num);
-  }),
+  route(
+    'GET',
+    'tasks/:number',
+    (r) => {
+      const project = requireProject(r.query);
+      const num = requireInt(r.segments[1], 'Task number');
+      // A sandboxed session may read only its own task, never an arbitrary one.
+      if (r.auth.scope === 'sandbox') {
+        const ctx = getPtyTaskContext(r.auth.ptyId);
+        if (!ctx || ctx.projectPath !== project || ctx.taskId !== num) {
+          throw new HttpError(403, 'Sandboxed sessions may only read their own task');
+        }
+      }
+      return getTaskWithWorkspace(project, num);
+    },
+    false,
+    'sandbox',
+  ),
 
   route(
     'POST',
@@ -606,6 +627,12 @@ async function handleAsync(req: IncomingMessage, res: ServerResponse, window: Br
     return;
   }
 
+  // Sandbox-scoped callers are read-only: they may never reach a mutating
+  // route, even one that opts into sandbox scope. Writes require host scope.
+  if (matched.route.mutating && auth.scope !== 'host') {
+    json(res, 403, { error: 'Forbidden' });
+    return;
+  }
   if (matched.route.minScope === 'host' && auth.scope !== 'host') {
     json(res, 403, { error: 'Forbidden' });
     return;

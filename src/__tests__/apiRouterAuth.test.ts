@@ -10,9 +10,13 @@ import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest';
 import * as http from 'node:http';
 import type { BrowserWindow } from 'electron';
 
+const { getPtyTaskContextMock } = vi.hoisted(() => ({
+  getPtyTaskContextMock: vi.fn<() => { projectPath: string; taskId: number } | null>(),
+}));
+
 vi.mock('../ptyManager', () => ({
   isPtyActive: () => true,
-  getPtyTaskContext: () => null,
+  getPtyTaskContext: () => getPtyTaskContextMock(),
 }));
 
 // Prevent real IPC broadcasts; we're driving HTTP directly.
@@ -64,6 +68,7 @@ vi.mock('../cliPanels', () => ({
 
 import { startHookServer, stopHookServer, getApiPort } from '../hookServer';
 import { issueToken, revokeAllTokens } from '../apiAuth';
+import { getTaskWithWorkspace } from '../taskLifecycle';
 
 const mockSend = vi.fn();
 function mockWindow(): BrowserWindow {
@@ -114,6 +119,7 @@ function request(method: string, path: string, token?: string, body?: Record<str
 beforeEach(async () => {
   mockSend.mockClear();
   revokeAllTokens();
+  getPtyTaskContextMock.mockReturnValue(null);
   await startHookServer(mockWindow());
 });
 
@@ -160,6 +166,54 @@ describe('REST API auth', () => {
     const token = issueToken('pty-sbx', 'sandbox');
     const res = await request(method, `${route}?project=${PROJECT}`, token, { name: 'x', type: 'run', command: 'x' });
     expect(res.status).toBe(403);
+  });
+});
+
+describe('sandbox read-only, own-task scope', () => {
+  const OWN = { projectPath: '/tmp/test-project', taskId: 7 };
+
+  test('sandbox token can read its own current task', async () => {
+    getPtyTaskContextMock.mockReturnValue(OWN);
+    vi.mocked(getTaskWithWorkspace).mockResolvedValueOnce({ taskNumber: 7 } as never);
+    const token = issueToken('pty-sbx', 'sandbox');
+    const res = await request('GET', '/api/tasks/current', token);
+    expect(res.status).toBe(200);
+  });
+
+  test('sandbox token can read its own task by number', async () => {
+    getPtyTaskContextMock.mockReturnValue(OWN);
+    vi.mocked(getTaskWithWorkspace).mockResolvedValueOnce({ taskNumber: 7 } as never);
+    const token = issueToken('pty-sbx', 'sandbox');
+    const res = await request('GET', `/api/tasks/7?project=${PROJECT}`, token);
+    expect(res.status).toBe(200);
+  });
+
+  test('sandbox token gets 403 reading a different task by number', async () => {
+    getPtyTaskContextMock.mockReturnValue(OWN);
+    const token = issueToken('pty-sbx', 'sandbox');
+    const res = await request('GET', `/api/tasks/9?project=${PROJECT}`, token);
+    expect(res.status).toBe(403);
+  });
+
+  test('sandbox token gets 403 reading its number in a different project', async () => {
+    getPtyTaskContextMock.mockReturnValue(OWN);
+    const token = issueToken('pty-sbx', 'sandbox');
+    const res = await request('GET', `/api/tasks/7?project=${encodeURIComponent('/tmp/other')}`, token);
+    expect(res.status).toBe(403);
+  });
+
+  test('sandbox token gets 403 mutating even its own task (status PATCH)', async () => {
+    getPtyTaskContextMock.mockReturnValue(OWN);
+    const token = issueToken('pty-sbx', 'sandbox');
+    const res = await request('PATCH', `/api/tasks/7/status?project=${PROJECT}`, token, { status: 'done' });
+    expect(res.status).toBe(403);
+  });
+
+  test('host token still reads any task by number', async () => {
+    vi.mocked(getTaskWithWorkspace).mockResolvedValueOnce({ taskNumber: 9 } as never);
+    const token = issueToken('pty-host', 'host');
+    const res = await request('GET', `/api/tasks/9?project=${PROJECT}`, token);
+    expect(res.status).toBe(200);
   });
 });
 
