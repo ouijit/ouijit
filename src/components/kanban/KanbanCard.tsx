@@ -159,7 +159,6 @@ export const KanbanCard = memo(function KanbanCard({
       const items: ContextMenuEntry[] = [
         {
           label: 'Move to',
-          icon: 'arrow-right',
           submenu: [
             { label: 'To Do', onClick: bulkMove('todo', 'To Do') },
             { label: 'In Progress', onClick: bulkMove('in_progress', 'In Progress') },
@@ -235,7 +234,7 @@ export const KanbanCard = memo(function KanbanCard({
         }
       },
     });
-    items.push({ label: 'Open in', icon: 'terminal', submenu: openIn });
+    items.push({ label: 'Open in', submenu: openIn });
 
     const planDisplay = connectedDisplays.find((d) => d.panels.some((p) => p.kind === 'plan'));
     if (planDisplay) {
@@ -259,7 +258,6 @@ export const KanbanCard = memo(function KanbanCard({
     };
     items.push({
       label: 'Move to',
-      icon: 'arrow-right',
       submenu: [
         { label: 'To Do', onClick: moveTo('todo') },
         { label: 'In Progress', onClick: moveTo('in_progress') },
