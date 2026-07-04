@@ -15,7 +15,6 @@ import type {
   Script,
   CliHookMode,
   TaskWithWorkspace,
-  SandboxProviderId,
   NonoConfig,
   CliPanelOp,
   CliPanelResponse,
@@ -137,13 +136,8 @@ contextBridge.exposeInMainWorld('api', {
   task: {
     create: (projectPath: string, name?: string, prompt?: string) =>
       typedInvoke('task:create', projectPath, name, prompt),
-    createAndStart: (
-      projectPath: string,
-      name?: string,
-      prompt?: string,
-      branchName?: string,
-      sandboxProvider?: SandboxProviderId,
-    ) => typedInvoke('task:create-and-start', projectPath, name, prompt, branchName, sandboxProvider),
+    createAndStart: (projectPath: string, name?: string, prompt?: string, branchName?: string) =>
+      typedInvoke('task:create-and-start', projectPath, name, prompt, branchName),
     start: (projectPath: string, taskNumber: number, branchName?: string) =>
       typedInvoke('task:start', projectPath, taskNumber, branchName),
     getAll: (projectPath: string) => typedInvoke('task:get-all', projectPath),
@@ -155,8 +149,6 @@ contextBridge.exposeInMainWorld('api', {
     trash: (projectPath: string, taskNumber: number) => typedInvoke('task:trash', projectPath, taskNumber),
     setMergeTarget: (projectPath: string, taskNumber: number, mergeTarget: string) =>
       typedInvoke('task:set-merge-target', projectPath, taskNumber, mergeTarget),
-    setSandboxProvider: (projectPath: string, taskNumber: number, sandboxProvider: SandboxProviderId) =>
-      typedInvoke('task:set-sandbox-provider', projectPath, taskNumber, sandboxProvider),
     setName: (projectPath: string, taskNumber: number, name: string) =>
       typedInvoke('task:set-name', projectPath, taskNumber, name),
     setDescription: (projectPath: string, taskNumber: number, description: string) =>
@@ -254,7 +246,6 @@ contextBridge.exposeInMainWorld('api', {
       worktreePath: string;
       branch: string;
       createdAt: string;
-      sandboxProvider: SandboxProviderId;
       hookMode?: CliHookMode;
       hookCommand?: string;
     }) => void,

@@ -390,9 +390,9 @@ async function spawnTerminalForInProgress(
   await addProjectTerminal(projectPath, runConfig, {
     existingWorktree: { path: task.worktreePath, branch: task.branch || '', createdAt: task.createdAt },
     taskId: task.taskNumber,
-    // The task's backend runs its hooks; the dialog toggle only opts a
-    // non-sandboxed task's one-off hook into Lima.
-    sandboxProvider: task.sandboxProvider ?? (hookResult?.sandboxed ? 'lima' : undefined),
+    // Sandboxing is per terminal: this one-off hook runs on the host unless
+    // the dialog toggle opts it into Lima.
+    sandboxProvider: hookResult?.sandboxed ? 'lima' : undefined,
     skipAutoHook: true,
     replaceLoadingId: loadingSlot ?? undefined,
   });
@@ -413,9 +413,9 @@ async function runNonStartHookInTerminal(
         existingWorktree: { path: task.worktreePath, branch: task.branch || '', createdAt: task.createdAt },
         taskId: task.taskNumber,
         skipAutoHook: true,
-        // The task's backend runs its hooks; the dialog toggle only opts a
-        // non-sandboxed task's one-off hook into Lima.
-        sandboxProvider: task.sandboxProvider ?? (hookResult.sandboxed ? 'lima' : undefined),
+        // Sandboxing is per terminal: this one-off hook runs on the host unless
+        // the dialog toggle opts it into Lima.
+        sandboxProvider: hookResult.sandboxed ? 'lima' : undefined,
         background: !hookResult.foreground,
       },
     );

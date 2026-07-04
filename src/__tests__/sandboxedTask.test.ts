@@ -1,5 +1,5 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest';
-import { createTask, getTaskByNumber } from '../db';
+import { createTask } from '../db';
 import { registerSandboxProvider, _resetSandboxRegistryForTesting } from '../sandbox/registry';
 import type { SessionOwnerSandboxProvider } from '../sandbox/provider';
 
@@ -46,16 +46,16 @@ vi.mock('koffi', () => ({
   default: { load: vi.fn() },
 }));
 
-import { createTaskWorktree, startTask, recoverTaskWorktree, removeTaskWorktree } from '../worktree';
-import { beginTask, createBranchFromTask } from '../taskLifecycle';
+import { createTaskWorktree, recoverTaskWorktree, removeTaskWorktree } from '../worktree';
+import { beginTask } from '../taskLifecycle';
 import { exec as execMockedRaw } from 'node:child_process';
 
 const execMocked = vi.mocked(execMockedRaw);
 
-// worktree.ts routes per-task sandbox cleanup through the registered provider's
-// cleanupTaskResources (Lima's stopSandboxView). Register a fake Lima provider
-// whose cleanup is a spy — this keeps the real Lima/node-pty graph out of the
-// unit test while still exercising the registry dispatch.
+// removeTaskWorktree routes per-task cleanup through every registered provider's
+// cleanupTaskResources (Lima's stopSandboxView) — the backend is a per-terminal
+// choice, not stored on the task, so cleanup asks each provider. Register a fake
+// Lima provider whose cleanup is a spy to keep the real Lima/node-pty graph out.
 const cleanupTaskResources = vi.fn(async () => undefined);
 const fakeLima = {
   kind: 'session-owner',
@@ -89,107 +89,41 @@ beforeEach(() => {
   registerSandboxProvider(fakeLima);
 });
 
-describe('createTaskWorktree sandbox behavior', () => {
-  test('persists the lima provider on the task row', async () => {
-    const project = '/test/sandboxed-create-persists';
-    const result = await createTaskWorktree(project, 'Sandboxed task', undefined, undefined, 'lima');
-    expect(result.success).toBe(true);
-    const task = await getTaskByNumber(project, result.task!.taskNumber);
-    expect(task!.sandboxProvider).toBe('lima');
-  });
-
-  test('skips git ls-files (and copyGitIgnoredFiles) when lima-sandboxed', async () => {
-    const project = '/test/sandboxed-create-skip';
-    const result = await createTaskWorktree(project, 'Sandboxed', undefined, undefined, 'lima');
-    expect(result.success).toBe(true);
-    expect(findLsFilesCall()).toBeUndefined();
-  });
-
-  test('still calls git ls-files when not sandboxed (regression guard)', async () => {
-    const project = '/test/sandboxed-create-regression';
-    const result = await createTaskWorktree(project, 'Normal', undefined, undefined, undefined);
+// Sandboxing is per terminal, not per task, so worktrees are always full
+// in-place checkouts (gitignored files copied) — no backend-conditional skip.
+describe('worktree ignored-file copy', () => {
+  test('createTaskWorktree copies ignored files (runs git ls-files)', async () => {
+    const project = '/test/worktree-create-copies';
+    const result = await createTaskWorktree(project, 'A task');
     expect(result.success).toBe(true);
     expect(findLsFilesCall()).toBeDefined();
   });
 
-  test('nono runs in place, so it still copies ignored files (like a host task)', async () => {
-    const project = '/test/sandboxed-create-nono';
-    const result = await createTaskWorktree(project, 'Nono', undefined, undefined, 'nono');
-    expect(result.success).toBe(true);
-    const task = await getTaskByNumber(project, result.task!.taskNumber);
-    expect(task!.sandboxProvider).toBe('nono');
-    expect(findLsFilesCall()).toBeDefined();
-  });
-});
-
-describe('beginTask sandbox propagation', () => {
-  test('forwards task.sandboxProvider into startTask (lima skips copy)', async () => {
-    const project = '/test/sandboxed-begin';
-    await createTask(project, 1, 'Sandboxed todo', { status: 'todo', sandboxProvider: 'lima' });
-
-    const result = await beginTask(project, 1);
-    expect(result.success).toBe(true);
-    expect(findLsFilesCall()).toBeUndefined();
-  });
-
-  test('non-sandboxed begin still copies', async () => {
-    const project = '/test/nonsandboxed-begin';
-    await createTask(project, 1, 'Regular todo', { status: 'todo' });
-
+  test('beginTask copies ignored files', async () => {
+    const project = '/test/worktree-begin-copies';
+    await createTask(project, 1, 'A todo', { status: 'todo' });
     const result = await beginTask(project, 1);
     expect(result.success).toBe(true);
     expect(findLsFilesCall()).toBeDefined();
   });
-});
 
-describe('recoverTaskWorktree sandbox behavior', () => {
-  test('skips copyGitIgnoredFiles when task is lima-sandboxed', async () => {
-    const project = '/test/sandboxed-recover';
-    await createTask(project, 7, 'Sandbox recovered', {
-      branch: 'feat/sandbox-recover',
+  test('recoverTaskWorktree copies ignored files', async () => {
+    const project = '/test/worktree-recover-copies';
+    await createTask(project, 7, 'Recovered', {
+      branch: 'feat/recover',
       status: 'in_progress',
-      sandboxProvider: 'lima',
       worktreePath: '/old/path',
     });
-
     const result = await recoverTaskWorktree(project, 7);
     expect(result.success).toBe(true);
-    expect(findLsFilesCall()).toBeUndefined();
+    expect(findLsFilesCall()).toBeDefined();
   });
 });
 
-describe('createBranchFromTask sandbox inheritance', () => {
-  test('child inherits the provider from a sandboxed parent', async () => {
-    const project = '/test/sandbox-inherit';
-    await createTask(project, 1, 'Sandbox parent', {
-      branch: 'feat/parent',
-      status: 'in_progress',
-      sandboxProvider: 'lima',
-    });
-
-    const result = await createBranchFromTask(project, 1, 'Child');
-    expect(result.success).toBe(true);
-    expect(result.task!.sandboxProvider).toBe('lima');
-  });
-
-  test('child of non-sandboxed parent has no provider', async () => {
-    const project = '/test/sandbox-inherit-none';
-    await createTask(project, 1, 'Regular parent', { branch: 'feat/parent', status: 'in_progress' });
-
-    const result = await createBranchFromTask(project, 1, 'Child');
-    expect(result.success).toBe(true);
-    expect(result.task!.sandboxProvider).toBeUndefined();
-  });
-});
-
-describe('removeTaskWorktree sandbox-view cleanup', () => {
-  test('invokes the provider cleanup when the task has a sandbox backend', async () => {
-    const project = '/test/sandbox-remove';
-    await createTask(project, 4, 'Sandbox delete', {
-      branch: 'feat/del',
-      worktreePath: '/worktrees/T-4',
-      sandboxProvider: 'lima',
-    });
+describe('removeTaskWorktree provider cleanup', () => {
+  test('asks every registered provider to clean up a task with a branch', async () => {
+    const project = '/test/worktree-remove';
+    await createTask(project, 4, 'Delete me', { branch: 'feat/del', worktreePath: '/worktrees/T-4' });
 
     const result = await removeTaskWorktree(project, '/worktrees/T-4', 4);
     expect(result.success).toBe(true);
@@ -197,39 +131,12 @@ describe('removeTaskWorktree sandbox-view cleanup', () => {
     expect(cleanupTaskResources).toHaveBeenCalledWith(project, 4, 'feat/del');
   });
 
-  test('does not invoke provider cleanup when task has no sandbox backend', async () => {
-    const project = '/test/regular-remove';
-    await createTask(project, 4, 'Regular delete', {
-      branch: 'feat/reg',
-      worktreePath: '/worktrees/T-4',
-    });
-
-    const result = await removeTaskWorktree(project, '/worktrees/T-4', 4);
-    expect(result.success).toBe(true);
-    expect(cleanupTaskResources).not.toHaveBeenCalled();
-  });
-
-  test('swallows provider cleanup errors so task delete still succeeds', async () => {
+  test('swallows provider cleanup errors so the delete still succeeds', async () => {
     cleanupTaskResources.mockRejectedValueOnce(new Error('git worktree not found'));
-    const project = '/test/sandbox-remove-error';
-    await createTask(project, 9, 'Sandbox delete err', {
-      branch: 'feat/err',
-      worktreePath: '/worktrees/T-9',
-      sandboxProvider: 'lima',
-    });
+    const project = '/test/worktree-remove-error';
+    await createTask(project, 9, 'Delete err', { branch: 'feat/err', worktreePath: '/worktrees/T-9' });
 
     const result = await removeTaskWorktree(project, '/worktrees/T-9', 9);
     expect(result.success).toBe(true);
-  });
-});
-
-describe('startTask sandbox flag', () => {
-  test('lima provider skips ls-files', async () => {
-    const project = '/test/start-sandbox';
-    await createTask(project, 1, 'Sandbox todo', { status: 'todo' });
-
-    const result = await startTask(project, 1, undefined, undefined, 'lima');
-    expect(result.success).toBe(true);
-    expect(findLsFilesCall()).toBeUndefined();
   });
 });

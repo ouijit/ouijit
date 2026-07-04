@@ -324,7 +324,6 @@ export interface TaskWithWorkspace {
   closedAt?: string;
   mergeTarget?: string;
   prompt?: string;
-  sandboxProvider?: SandboxProviderId;
   order?: number;
   parentTaskNumber?: number;
 }
@@ -372,13 +371,7 @@ export interface ScriptsAPI {
 
 export interface TaskAPI {
   create(projectPath: string, name?: string, prompt?: string): Promise<TaskWorktreeResult>;
-  createAndStart(
-    projectPath: string,
-    name?: string,
-    prompt?: string,
-    branchName?: string,
-    sandboxProvider?: SandboxProviderId,
-  ): Promise<TaskWorktreeResult>;
+  createAndStart(projectPath: string, name?: string, prompt?: string, branchName?: string): Promise<TaskWorktreeResult>;
   start(projectPath: string, taskNumber: number, branchName?: string): Promise<TaskWorktreeResult>;
   getAll(projectPath: string): Promise<TaskWithWorkspace[]>;
   getByNumber(projectPath: string, taskNumber: number): Promise<TaskWithWorkspace | null>;
@@ -393,11 +386,6 @@ export interface TaskAPI {
     projectPath: string,
     taskNumber: number,
     mergeTarget: string,
-  ): Promise<{ success: boolean; error?: string }>;
-  setSandboxProvider(
-    projectPath: string,
-    taskNumber: number,
-    sandboxProvider: SandboxProviderId,
   ): Promise<{ success: boolean; error?: string }>;
   setName(projectPath: string, taskNumber: number, name: string): Promise<{ success: boolean; error?: string }>;
   setDescription(
@@ -543,7 +531,6 @@ export interface ElectronAPI {
       worktreePath: string;
       branch: string;
       createdAt: string;
-      sandboxProvider: SandboxProviderId;
       hookMode?: CliHookMode;
       hookCommand?: string;
     }) => void,

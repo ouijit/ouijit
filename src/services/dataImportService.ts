@@ -192,7 +192,6 @@ export async function importAll(
               branch: task.branch,
               mergeTarget: task.mergeTarget,
               prompt: task.prompt,
-              sandboxProvider: task.sandboxed ? 'lima' : undefined,
               worktreePath: task.worktreePath,
               createdAt: task.createdAt,
             });

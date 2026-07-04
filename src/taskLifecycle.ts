@@ -99,7 +99,7 @@ export async function beginTask(
     }
   }
 
-  const result = await startTask(projectPath, taskNumber, branchName, baseBranch, task?.sandboxProvider);
+  const result = await startTask(projectPath, taskNumber, branchName, baseBranch);
   if (!result.success) return result;
 
   // Move to in_progress if currently todo (startTask doesn't change status)
@@ -316,7 +316,6 @@ export async function getTaskWithWorkspace(projectPath: string, taskNumber: numb
     closedAt: task.closedAt,
     mergeTarget: task.mergeTarget,
     prompt: task.prompt,
-    sandboxProvider: task.sandboxProvider,
     order: task.order,
     parentTaskNumber: task.parentTaskNumber,
   };

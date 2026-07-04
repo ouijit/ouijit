@@ -39,7 +39,7 @@ import { isPtyActive, getPtyTaskContext } from '../ptyManager';
 import { typedPush } from '../ipc/helpers';
 import { getLogger } from '../logger';
 import { authenticateRequest, type AuthContext, type ApiScope } from '../apiAuth';
-import type { CliHookMode, CliPanelKind, SandboxProviderId } from '../types';
+import type { CliHookMode, CliPanelKind } from '../types';
 import { isCaptureMode } from '../capture/captureMode';
 import { handleCaptureNavigate, handleCaptureSnapshot } from '../capture/captureRoutes';
 
@@ -102,19 +102,7 @@ class HttpError extends Error {
 interface TaskStartResult {
   success: boolean;
   worktreePath?: string;
-  task?: { taskNumber: number; branch?: string; createdAt: string; sandboxProvider?: SandboxProviderId };
-}
-
-/**
- * Resolve the sandbox backend from a task-start body. Accepts the new
- * `sandboxProvider` id, or a legacy `sandboxed` boolean (true → 'lima') for
- * back-compat with callers on the previous API shape.
- */
-function resolveBodyProvider(body: Record<string, unknown>): SandboxProviderId | undefined {
-  const raw = body.sandboxProvider;
-  if (raw === 'none' || raw === 'lima' || raw === 'nono') return raw;
-  if (typeof body.sandboxed === 'boolean') return body.sandboxed ? 'lima' : 'none';
-  return undefined;
+  task?: { taskNumber: number; branch?: string; createdAt: string };
 }
 
 function isSuccessfulStart(result: unknown): result is TaskStartResult {
@@ -331,19 +319,11 @@ const routes: Route[] = [
       // any worktree is created. The values themselves are forwarded to the
       // renderer in the cli:task-started push below.
       parseHookControl(r.body);
-      const sandboxProvider = resolveBodyProvider(r.body);
-      // Sandbox scope can't reach this route (default minScope is 'host'),
-      // but double-check the intent: an unsandboxed task must never be
-      // created from a sandbox-scoped caller.
-      if (r.auth.scope === 'sandbox' && sandboxProvider === 'none') {
-        throw new HttpError(403, 'Sandboxed sessions cannot create unsandboxed tasks');
-      }
       return createTaskWorktree(
         project,
         r.body.name as string | undefined,
         r.body.prompt as string | undefined,
         r.body.branchName as string | undefined,
-        sandboxProvider,
       );
     },
     true,
@@ -693,7 +673,6 @@ async function handleAsync(req: IncomingMessage, res: ServerResponse, window: Br
             worktreePath: startResult.worktreePath,
             branch: task.branch,
             createdAt: task.createdAt,
-            sandboxProvider: task.sandboxProvider ?? 'none',
             hookMode: hookControl.hookMode,
             hookCommand: hookControl.hookCommand,
           });

@@ -7,7 +7,6 @@ import {
   getNextTaskNumber,
   setTaskStatus,
   setTaskMergeTarget,
-  setTaskSandboxProvider,
   setTaskName,
   setTaskDescription,
   setTaskParent,
@@ -23,7 +22,6 @@ describe('taskMetadata', () => {
       branch: 'feat/login',
       mergeTarget: 'main',
       prompt: 'Build login page',
-      sandboxProvider: 'lima',
     });
 
     expect(task.taskNumber).toBe(1);
@@ -33,7 +31,6 @@ describe('taskMetadata', () => {
     expect(task.createdAt).toBeTruthy();
     expect(task.mergeTarget).toBe('main');
     expect(task.prompt).toBe('Build login page');
-    expect(task.sandboxProvider).toBe('lima');
 
     const tasks = await getProjectTasks(project);
     expect(tasks).toHaveLength(1);
@@ -98,23 +95,6 @@ describe('taskMetadata', () => {
     await setTaskMergeTarget(project, 1, 'develop');
     const task = await getTaskByNumber(project, 1);
     expect(task!.mergeTarget).toBe('develop');
-  });
-
-  test('setTaskSandboxProvider updates the provider', async () => {
-    const project = '/test/sandboxed';
-    await createTask(project, 1, 'Sandbox task', { branch: 'feat/sb' });
-
-    await setTaskSandboxProvider(project, 1, 'lima');
-    let task = await getTaskByNumber(project, 1);
-    expect(task!.sandboxProvider).toBe('lima');
-
-    await setTaskSandboxProvider(project, 1, 'nono');
-    task = await getTaskByNumber(project, 1);
-    expect(task!.sandboxProvider).toBe('nono');
-
-    await setTaskSandboxProvider(project, 1, 'none');
-    task = await getTaskByNumber(project, 1);
-    expect(task!.sandboxProvider).toBeUndefined();
   });
 
   test('deleteTaskByNumber removes the task', async () => {

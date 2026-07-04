@@ -108,8 +108,6 @@ function rowToTask(row: TaskRow): TaskMetadata {
     ...(row.worktree_path && { worktreePath: row.worktree_path }),
     ...(row.merge_target && { mergeTarget: row.merge_target }),
     ...(row.prompt && { prompt: row.prompt }),
-    ...(row.sandbox_provider &&
-      row.sandbox_provider !== 'none' && { sandboxProvider: row.sandbox_provider as SandboxProviderId }),
     ...(row.parent_task_number != null && { parentTaskNumber: row.parent_task_number }),
   };
 }
@@ -194,23 +192,6 @@ export async function setTaskStatus(
     if (!row) return { success: false, error: 'Task not found' };
 
     tr.updateStatus(projectPath, taskNumber, status);
-    return { success: true };
-  } catch (error) {
-    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
-  }
-}
-
-export async function setTaskSandboxProvider(
-  projectPath: string,
-  taskNumber: number,
-  provider: SandboxProviderId,
-): Promise<{ success: boolean; error?: string }> {
-  try {
-    const { taskRepo: tr } = repos();
-    const row = tr.getByTaskNumber(projectPath, taskNumber);
-    if (!row) return { success: false, error: 'Task not found' };
-
-    tr.updateSandboxProvider(projectPath, taskNumber, provider);
     return { success: true };
   } catch (error) {
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };

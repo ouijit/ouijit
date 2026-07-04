@@ -43,7 +43,7 @@ import type {
   CliPanelResponse,
 } from '../types';
 import type { LimaStatus } from '../lima/types';
-import type { SandboxProviderId, SandboxProviderStatus, NonoConfig } from '../sandbox/types';
+import type { SandboxProviderStatus, NonoConfig } from '../sandbox/types';
 import type { HookStatusEntry } from '../hookServer';
 import type { HealthStatus } from '../healthCheck';
 import type { CaptureNavigatePayload } from '../capture/types';
@@ -110,13 +110,7 @@ export interface IpcInvokeContract {
   // ── Task ─────────────────────────────────────────────────────────────
   'task:create': { args: [projectPath: string, name?: string, prompt?: string]; return: TaskWorktreeResult };
   'task:create-and-start': {
-    args: [
-      projectPath: string,
-      name?: string,
-      prompt?: string,
-      branchName?: string,
-      sandboxProvider?: SandboxProviderId,
-    ];
+    args: [projectPath: string, name?: string, prompt?: string, branchName?: string];
     return: TaskWorktreeResult;
   };
   'task:start': { args: [projectPath: string, taskNumber: number, branchName?: string]; return: TaskWorktreeResult };
@@ -133,10 +127,6 @@ export interface IpcInvokeContract {
   };
   'task:set-merge-target': {
     args: [projectPath: string, taskNumber: number, mergeTarget: string];
-    return: { success: boolean; error?: string };
-  };
-  'task:set-sandbox-provider': {
-    args: [projectPath: string, taskNumber: number, sandboxProvider: SandboxProviderId];
     return: { success: boolean; error?: string };
   };
   'task:set-name': {
@@ -289,7 +279,6 @@ export interface IpcPushContract {
         worktreePath: string;
         branch: string;
         createdAt: string;
-        sandboxProvider: SandboxProviderId;
         /** Hook-control mode from the CLI flags; absent = default dialog. */
         hookMode?: CliHookMode;
         /** Custom command when hookMode is 'command'. */
