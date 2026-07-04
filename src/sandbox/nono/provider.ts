@@ -67,11 +67,12 @@ export const nonoProvider: WrapperSandboxProvider = {
     // Make sure the union profile (and the agent packs it inherits) is on disk
     // before the spawn references it by name.
     await ensureUnionProfile(getNonoPath());
-    // nono runs in place on the host worktree — cwd is unchanged. Point shell
-    // history at /dev/null: nono denies the user's ~/.zsh_history (its
-    // deny_shell_configs policy), which otherwise prints a lock error at every
-    // prompt. A task shell doesn't need persistent history.
-    return { cwd: ctx.cwd, env: { HISTFILE: '/dev/null' } };
+    // nono runs in place on the host worktree — cwd is unchanged. Signal the
+    // shell integration to disable history: nono denies the user's shell
+    // history file (its deny_shell_history policy), which otherwise makes zsh
+    // print a lock error at every prompt. The integration neutralizes HISTFILE
+    // after the user's rc runs (a plain env var loses to an rc that re-sets it).
+    return { cwd: ctx.cwd, env: { OUIJIT_SANDBOX_NO_HISTORY: '1' } };
   },
 
   async wrapLaunch(launch: SandboxLaunch, ctx: SandboxSpawnContext): Promise<SandboxLaunch> {

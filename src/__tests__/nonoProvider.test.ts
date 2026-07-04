@@ -55,10 +55,10 @@ describe('nonoProvider', () => {
     expect(nonoProvider.capabilities).toMatchObject({ profiles: true, network: true, sandboxView: false });
   });
 
-  test('prepare leaves cwd unchanged, installs the union profile, and redirects shell history off the denied ~/.zsh_history', async () => {
+  test('prepare leaves cwd unchanged, installs the union profile, and signals the shell to disable denied history', async () => {
     const result = await nonoProvider.prepare(ctx);
     expect(result.cwd).toBe('/Users/dev/wt/T-3');
-    expect(result.env).toEqual({ HISTFILE: '/dev/null' });
+    expect(result.env).toEqual({ OUIJIT_SANDBOX_NO_HISTORY: '1' });
     expect(ensureUnionProfile).toHaveBeenCalledTimes(1);
   });
 
