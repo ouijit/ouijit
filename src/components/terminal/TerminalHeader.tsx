@@ -16,13 +16,9 @@ import { AddPanelMenu } from './AddPanelMenu';
 import { HookConfigDialog } from '../dialogs/HookConfigDialog';
 import { useTerminalPanels } from './useTerminalPanels';
 import { panelIcon, panelLabel, type TerminalPanel } from './panelTypes';
-import type { GitFileStatus, RunnerScript, SandboxProviderId } from '../../types';
-
-const SANDBOX_PROVIDER_LABELS: Record<SandboxProviderId, string> = {
-  none: 'Off',
-  lima: 'Lima VM',
-  nono: 'nono',
-};
+import type { GitFileStatus, RunnerScript } from '../../types';
+import { openInEntry, moveToEntry, type TaskMenuActions } from '../kanban/taskMenu';
+import { BranchFromTaskDialog } from '../dialogs/BranchFromTaskDialog';
 
 interface TerminalHeaderProps {
   ptyId: string;
@@ -79,7 +75,8 @@ export const TerminalHeader = memo(function TerminalHeader({
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
   const [editorHookDialog, setEditorHookDialog] = useState(false);
   const [addMenu, setAddMenu] = useState<{ x: number; y: number } | null>(null);
-  const [renaming, setRenaming] = useState(false);
+  const [renameTarget, setRenameTarget] = useState<null | 'terminal' | 'task'>(null);
+  const [branchFromDialog, setBranchFromDialog] = useState(false);
   const renameInputRef = useRef<HTMLInputElement>(null);
   const addRef = useRef<HTMLButtonElement>(null);
 
@@ -89,50 +86,26 @@ export const TerminalHeader = memo(function TerminalHeader({
 
   const availableSandboxProviders = useProjectStore((s) => s.availableSandboxProviders);
   const hasEditorHook = useProjectStore((s) => !!s.configuredHooks.editor);
+  const task = useProjectStore((s) => (taskId != null ? s.tasks.find((t) => t.taskNumber === taskId) : undefined));
 
   const contextMenuItems = useMemo((): ContextMenuEntry[] => {
     if (!instance) return [];
     const items: ContextMenuEntry[] = [];
 
-    if (isTaskTerminal && instance.worktreePath && instance.worktreeBranch) {
-      items.push({
-        label: 'Open in Terminal',
-        icon: 'terminal',
-        onClick: () => {
+    // A task terminal shares the task's context menu (Open in / Move to /
+    // Branch), so it stays identical to the kanban card. It adds terminal-scoped
+    // items — Rename terminal, Close Task — that the card has no notion of.
+    if (isTaskTerminal) {
+      const hasWorktree = !!instance.worktreePath && !!instance.worktreeBranch;
+      const actions: TaskMenuActions = {
+        openTerminal: (provider) => {
           addProjectTerminal(projectPath, undefined, {
-            existingWorktree: {
-              path: instance.worktreePath!,
-              branch: instance.worktreeBranch!,
-              createdAt: '',
-            },
+            existingWorktree: { path: instance.worktreePath!, branch: instance.worktreeBranch!, createdAt: '' },
             taskId: taskId!,
+            sandboxProvider: provider,
           });
         },
-      });
-
-      for (const provider of availableSandboxProviders) {
-        items.push({
-          label: `Open in ${SANDBOX_PROVIDER_LABELS[provider]} sandbox`,
-          icon: 'cube',
-          onClick: () => {
-            addProjectTerminal(projectPath, undefined, {
-              existingWorktree: {
-                path: instance.worktreePath!,
-                branch: instance.worktreeBranch!,
-                createdAt: '',
-              },
-              taskId: taskId!,
-              sandboxProvider: provider,
-            });
-          },
-        });
-      }
-
-      // Open in editor (always visible — prompts config dialog if not set up)
-      items.push({
-        label: 'Open in Editor',
-        icon: 'code',
-        onClick: () => {
+        openEditor: () => {
           if (hasEditorHook && instance.worktreePath) {
             openWorktreeEditor(
               projectPath,
@@ -143,13 +116,30 @@ export const TerminalHeader = memo(function TerminalHeader({
             setEditorHookDialog(true);
           }
         },
-      });
+        setStatus: async (status) => {
+          await window.api.task.setStatus(projectPath, taskId!, status);
+          useProjectStore.getState().loadTasks(projectPath);
+        },
+        trash: async () => {
+          await window.api.task.trash(projectPath, taskId!);
+          useProjectStore.getState().loadTasks(projectPath);
+          useProjectStore.getState().addToast('Task moved to trash', 'success');
+        },
+      };
+
+      items.push(openInEntry(availableSandboxProviders, hasWorktree, actions));
+      items.push({ separator: true });
+      items.push(moveToEntry(actions));
+      if (task?.branch && task.status !== 'done') {
+        items.push({ label: 'Branch from this task', icon: 'git-branch', onClick: () => setBranchFromDialog(true) });
+      }
+      items.push({ label: 'Rename task', icon: 'pencil-simple', onClick: () => setRenameTarget('task') });
     }
 
     items.push({
-      label: 'Rename',
+      label: isTaskTerminal ? 'Rename terminal' : 'Rename',
       icon: 'pencil-simple',
-      onClick: () => setRenaming(true),
+      onClick: () => setRenameTarget('terminal'),
     });
 
     if (isTaskTerminal) {
@@ -167,7 +157,7 @@ export const TerminalHeader = memo(function TerminalHeader({
     }
 
     return items;
-  }, [isTaskTerminal, instance, projectPath, taskId, availableSandboxProviders, hasEditorHook]);
+  }, [isTaskTerminal, instance, projectPath, taskId, availableSandboxProviders, hasEditorHook, task]);
 
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -185,17 +175,25 @@ export const TerminalHeader = memo(function TerminalHeader({
 
   const commitRename = useCallback(() => {
     const value = renameInputRef.current?.value.trim();
-    if (value) renameTerminal(ptyId, value);
-    setRenaming(false);
-  }, [ptyId]);
+    if (value) {
+      if (renameTarget === 'task' && taskId != null) {
+        void window.api.task.setName(projectPath, taskId, value).then(() => {
+          useProjectStore.getState().loadTasks(projectPath);
+        });
+      } else {
+        renameTerminal(ptyId, value);
+      }
+    }
+    setRenameTarget(null);
+  }, [ptyId, renameTarget, taskId, projectPath]);
 
   useEffect(() => {
-    if (renaming && renameInputRef.current) {
-      renameInputRef.current.value = label;
+    if (renameTarget && renameInputRef.current) {
+      renameInputRef.current.value = renameTarget === 'task' ? (task?.name ?? '') : label;
       renameInputRef.current.focus();
       renameInputRef.current.select();
     }
-  }, [renaming, label]);
+  }, [renameTarget, label, task]);
 
   const handleTagButtonClick = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -238,14 +236,14 @@ export const TerminalHeader = memo(function TerminalHeader({
 
   const isWorktree = taskId != null && !!worktreeBranch;
 
-  const nameContent = renaming ? (
+  const nameContent = renameTarget ? (
     <input
       ref={renameInputRef}
       className="font-mono text-xs font-medium text-white/85 bg-transparent border-0 border-b border-accent p-0 outline-none min-w-0 shrink-0 [-webkit-app-region:no-drag]"
       onBlur={commitRename}
       onKeyDown={(e) => {
         if (e.key === 'Enter') commitRename();
-        if (e.key === 'Escape') setRenaming(false);
+        if (e.key === 'Escape') setRenameTarget(null);
       }}
     />
   ) : (
@@ -306,6 +304,9 @@ export const TerminalHeader = memo(function TerminalHeader({
           onAddPlan={handleAddPlan}
           onClose={() => setAddMenu(null)}
         />
+      )}
+      {branchFromDialog && task && (
+        <BranchFromTaskDialog projectPath={projectPath} parentTask={task} onClose={() => setBranchFromDialog(false)} />
       )}
       {editorHookDialog && (
         <HookConfigDialog
