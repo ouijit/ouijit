@@ -13,6 +13,12 @@ export type SandboxProviderId = 'none' | 'lima' | 'nono';
 /** A registered backend id (everything except the pass-through 'none'). */
 export type SandboxBackendId = Exclude<SandboxProviderId, 'none'>;
 
+/** Display label for each sandbox backend, shared across every UI surface. */
+export const SANDBOX_BACKEND_LABELS: Record<SandboxBackendId, string> = {
+  lima: 'Lima VM',
+  nono: 'nono',
+};
+
 /** Provider-neutral availability / readiness status surfaced to the UI. */
 export interface SandboxProviderStatus {
   providerId: SandboxBackendId;

@@ -149,7 +149,7 @@ describe('projectStore.pendingCliStarts (T-366)', () => {
 describe('projectStore.loadProjectConfig', () => {
   beforeEach(() => {
     useProjectStore.setState({
-      sandboxAvailable: false,
+      availableSandboxProviders: [],
       configuredHooks: {},
       configProjectPath: null,
     });
@@ -171,7 +171,6 @@ describe('projectStore.loadProjectConfig', () => {
 
     const s = useProjectStore.getState();
     expect(s.availableSandboxProviders).toEqual(['lima', 'nono']);
-    expect(s.sandboxAvailable).toBe(true);
     expect(s.configuredHooks).toEqual({ editor: true });
     expect(s.configProjectPath).toBe('/a');
   });
@@ -205,18 +204,22 @@ describe('projectStore.loadProjectConfig', () => {
     const s = useProjectStore.getState();
     expect(s.configProjectPath).toBe('/b');
     expect(s.configuredHooks).toEqual({ run: true });
-    expect(s.sandboxAvailable).toBe(true);
+    expect(s.availableSandboxProviders).toEqual(['lima']);
   });
 
   test('IPC failures are swallowed and leave the store untouched', async () => {
-    useProjectStore.setState({ sandboxAvailable: true, configuredHooks: { editor: true }, configProjectPath: '/prev' });
+    useProjectStore.setState({
+      availableSandboxProviders: ['lima'],
+      configuredHooks: { editor: true },
+      configProjectPath: '/prev',
+    });
     vi.mocked(window.api.sandbox.status).mockRejectedValueOnce(new Error('boom'));
     vi.mocked(window.api.hooks.get).mockResolvedValueOnce({});
 
     await useProjectStore.getState().loadProjectConfig('/a');
 
     const s = useProjectStore.getState();
-    expect(s.sandboxAvailable).toBe(true);
+    expect(s.availableSandboxProviders).toEqual(['lima']);
     expect(s.configuredHooks).toEqual({ editor: true });
     expect(s.configProjectPath).toBe('/prev');
   });

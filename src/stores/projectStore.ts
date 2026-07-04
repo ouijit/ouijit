@@ -116,8 +116,6 @@ interface ProjectStoreState {
    */
   /** Backends that are installed for this project (a task can pick any of these). */
   availableSandboxProviders: SandboxProviderId[];
-  /** Derived: any sandbox backend is available (gates the sandbox affordances). */
-  sandboxAvailable: boolean;
   configuredHooks: Record<string, boolean>;
   /** projectPath the config currently reflects; null = not loaded. */
   configProjectPath: string | null;
@@ -238,7 +236,6 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
   pendingCliTransitions: {},
   pendingCliCompletions: {},
   availableSandboxProviders: [],
-  sandboxAvailable: false,
   configuredHooks: {},
   configProjectPath: null,
   _version: 0,
@@ -337,7 +334,6 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
       runHookQueue: [],
       runHookQueueTotal: 0,
       availableSandboxProviders: [],
-      sandboxAvailable: false,
       configuredHooks: {},
       configProjectPath: null,
       _version: 0,
@@ -424,7 +420,6 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
       const available = statuses.filter((s) => s.available).map((s) => s.providerId);
       set({
         availableSandboxProviders: available,
-        sandboxAvailable: available.length > 0,
         configuredHooks: configured,
         configProjectPath: projectPath,
       });

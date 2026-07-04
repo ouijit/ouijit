@@ -7,9 +7,40 @@
 
 import * as path from 'node:path';
 import * as os from 'node:os';
+import * as fsSync from 'node:fs';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+
+const execFileAsync = promisify(execFile);
 
 let _userDataPath: string | null = null;
 let _cliPath: string | null = null;
+
+/**
+ * Resolve a bundled CLI binary: the executable copy under the app's resources
+ * if it exists, otherwise the bare name for PATH lookup (dev / user-installed).
+ * Shared by the sandbox backends so they bundle and resolve the same way.
+ */
+export function resolveBundledBinary(name: string): string {
+  const bundled = path.join(process.resourcesPath ?? '', 'bin', name);
+  try {
+    fsSync.accessSync(bundled, fsSync.constants.X_OK);
+    return bundled;
+  } catch {
+    return name;
+  }
+}
+
+/** Whether a binary is present, bundled or on PATH. */
+export async function isBundledBinaryInstalled(name: string): Promise<boolean> {
+  if (resolveBundledBinary(name) !== name) return true;
+  try {
+    await execFileAsync('which', [name]);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 function defaultUserDataPath(): string {
   if (process.platform === 'darwin') {

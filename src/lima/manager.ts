@@ -9,7 +9,7 @@ import type { LimaInstance, LimaStatus } from './types';
 import { buildFinalConfig } from './configStore';
 import { buildProjectMounts } from './config';
 import { getLogger } from '../logger';
-import { getUserDataPath } from '../paths';
+import { getUserDataPath, resolveBundledBinary, isBundledBinaryInstalled } from '../paths';
 
 const limaLog = getLogger().scope('lima');
 
@@ -37,13 +37,7 @@ function contextualizeError(msg: string): string {
 
 /** Get the path to the bundled limactl binary */
 export function getLimactlPath(): string {
-  const bundled = path.join(process.resourcesPath ?? '', 'bin', 'limactl');
-  try {
-    fsSync.accessSync(bundled, fsSync.constants.X_OK);
-    return bundled;
-  } catch {
-    return 'limactl';
-  }
+  return resolveBundledBinary('limactl');
 }
 
 /**
@@ -100,13 +94,7 @@ export function getLimaEnv(): Record<string, string> {
  * Check if limactl is available (bundled binary or system PATH)
  */
 export async function isLimaInstalled(): Promise<boolean> {
-  if (getLimactlPath() !== 'limactl') return true;
-  try {
-    await execFileAsync('which', ['limactl']);
-    return true;
-  } catch {
-    return false;
-  }
+  return isBundledBinaryInstalled('limactl');
 }
 
 /**

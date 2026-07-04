@@ -1,17 +1,9 @@
 import type { ContextMenuEntry } from '../ui/ContextMenu';
-import type { SandboxProviderId } from '../../types';
-
-/** The four kanban columns a task can be moved between. */
-export type MoveStatus = 'todo' | 'in_progress' | 'in_review' | 'done';
-
-export const SANDBOX_PROVIDER_LABELS: Record<SandboxProviderId, string> = {
-  none: 'Off',
-  lima: 'Lima VM',
-  nono: 'nono',
-};
+import type { SandboxProviderId, TaskStatus } from '../../types';
+import { SANDBOX_BACKEND_LABELS } from '../../types';
 
 /** Column display names, shared by the "Move to" menu and its toasts. */
-export const STATUS_LABELS: Record<MoveStatus, string> = {
+export const STATUS_LABELS: Record<TaskStatus, string> = {
   todo: 'To Do',
   in_progress: 'In Progress',
   in_review: 'In Review',
@@ -28,7 +20,7 @@ export interface TaskMenuActions {
   /** Open a new terminal for the task; a provider opens it sandboxed. */
   openTerminal: (provider?: SandboxProviderId) => void;
   openEditor: () => void;
-  setStatus: (status: MoveStatus) => void;
+  setStatus: (status: TaskStatus) => void;
   /**
    * Finish the task: runs the done hook + closes its terminals, matching
    * drag-to-Done. When omitted (e.g. bulk selection), "Done" falls back to a
@@ -47,8 +39,9 @@ export function openInEntry(
   const submenu: ContextMenuEntry[] = [{ label: 'Terminal', icon: 'terminal', onClick: () => actions.openTerminal() }];
   if (hasWorktree) {
     for (const provider of sandboxProviders) {
+      if (provider === 'none') continue;
       submenu.push({
-        label: `${SANDBOX_PROVIDER_LABELS[provider]} sandbox`,
+        label: `${SANDBOX_BACKEND_LABELS[provider]} sandbox`,
         icon: 'cube',
         onClick: () => actions.openTerminal(provider),
       });

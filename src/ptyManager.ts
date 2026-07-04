@@ -255,24 +255,18 @@ export async function spawnPty(
     let launchArgs = launch.args;
     let spawnCwd = options.cwd;
     if (wrapper) {
-      const prepared = await wrapper.prepare({
+      const spawnContext = {
         projectPath: options.projectPath || options.cwd,
         taskId: options.taskId,
-        cwd: options.cwd,
         worktreePath: options.worktreePath,
         apiPort: getApiPort(),
-      });
+      };
+      const prepared = await wrapper.prepare({ ...spawnContext, cwd: options.cwd });
       spawnCwd = prepared.cwd;
       if (prepared.env) Object.assign(finalEnv, prepared.env);
       const wrapped = await wrapper.wrapLaunch(
         { file: launch.file, args: launch.args, env: finalEnv },
-        {
-          projectPath: options.projectPath || options.cwd,
-          taskId: options.taskId,
-          cwd: spawnCwd,
-          worktreePath: options.worktreePath,
-          apiPort: getApiPort(),
-        },
+        { ...spawnContext, cwd: spawnCwd },
       );
       launchFile = wrapped.file;
       launchArgs = wrapped.args;

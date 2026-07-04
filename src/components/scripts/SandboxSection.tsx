@@ -1,20 +1,15 @@
 import { useState } from 'react';
 import { useProjectStore } from '../../stores/projectStore';
 import type { SandboxProviderId } from '../../types';
+import { SANDBOX_BACKEND_LABELS } from '../../types';
 import { LimaSandboxSection } from './LimaSandboxSection';
 import { NonoSandboxSection } from './NonoSandboxSection';
 
 type BackendId = Exclude<SandboxProviderId, 'none'>;
 
-const BACKEND_INFO: Record<BackendId, { label: string; description: string }> = {
-  lima: {
-    label: 'Lima VM',
-    description: 'Full Linux VM with its own filesystem. Boots an image, so it is slower to start.',
-  },
-  nono: {
-    label: 'nono',
-    description: 'Kernel-level access limits, no VM. Starts instantly, in place on the worktree.',
-  },
+const BACKEND_DESCRIPTIONS: Record<BackendId, string> = {
+  lima: 'Full Linux VM with its own filesystem. Boots an image, so it is slower to start.',
+  nono: 'Kernel-level access limits, no VM. Starts instantly, in place on the worktree.',
 };
 
 interface SandboxSectionProps {
@@ -52,11 +47,11 @@ export function SandboxSection({ projectPath }: SandboxSectionProps) {
                     : 'text-text-secondary hover:text-text-primary'
                 }`}
               >
-                {BACKEND_INFO[p].label}
+                {SANDBOX_BACKEND_LABELS[p]}
               </button>
             ))}
           </div>
-          <p className="text-xs text-text-tertiary">{BACKEND_INFO[active].description}</p>
+          <p className="text-xs text-text-tertiary">{BACKEND_DESCRIPTIONS[active]}</p>
         </div>
       )}
       {active === 'lima' ? (

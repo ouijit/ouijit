@@ -28,7 +28,7 @@ interface ProjectSettingsPanelProps {
 }
 
 export function ProjectSettingsPanel({ projectPath }: ProjectSettingsPanelProps) {
-  const sandboxAvailable = useProjectStore((s) => s.sandboxAvailable);
+  const sandboxAvailable = useProjectStore((s) => s.availableSandboxProviders.length > 0);
 
   useEffect(() => {
     useProjectStore.getState().loadScripts(projectPath);

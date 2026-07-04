@@ -1,9 +1,8 @@
-import * as path from 'node:path';
-import * as fsSync from 'node:fs';
 import * as os from 'node:os';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { getLogger } from '../../logger';
+import { resolveBundledBinary, isBundledBinaryInstalled } from '../../paths';
 
 const execFileAsync = promisify(execFile);
 const nonoLog = getLogger().scope('nono');
@@ -11,16 +10,9 @@ const nonoLog = getLogger().scope('nono');
 /**
  * Resolve the nono binary: the bundled copy under the app's resources if it
  * exists and is executable, otherwise `nono` on PATH (dev / user-installed).
- * Mirrors `getLimactlPath` so the two backends bundle and resolve the same way.
  */
 export function getNonoPath(): string {
-  const bundled = path.join(process.resourcesPath ?? '', 'bin', 'nono');
-  try {
-    fsSync.accessSync(bundled, fsSync.constants.X_OK);
-    return bundled;
-  } catch {
-    return 'nono';
-  }
+  return resolveBundledBinary('nono');
 }
 
 /** Minimum Linux kernel for Landlock filesystem mediation nono relies on. */
@@ -48,13 +40,7 @@ export function checkPlatformSupport(): { supported: boolean; reason?: string } 
 
 /** Whether the nono binary is present (bundled or on PATH). */
 export async function isNonoInstalled(): Promise<boolean> {
-  if (getNonoPath() !== 'nono') return true;
-  try {
-    await execFileAsync('which', ['nono']);
-    return true;
-  } catch {
-    return false;
-  }
+  return isBundledBinaryInstalled('nono');
 }
 
 /** Absolute path to the main repository's `.git` directory for a worktree. */

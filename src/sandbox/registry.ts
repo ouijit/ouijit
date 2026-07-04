@@ -10,11 +10,19 @@ import type { SandboxProvider, SessionOwnerSandboxProvider } from './provider';
  */
 const providers = new Map<SandboxBackendId, SandboxProvider>();
 
+/**
+ * Cached session-owner list. `findSessionOwner` runs on every PTY event (write
+ * fires per keystroke), so we memoize the filtered list instead of rebuilding
+ * two throwaway arrays each time. Invalidated whenever the registry changes.
+ */
+let sessionOwnersCache: SessionOwnerSandboxProvider[] | null = null;
+
 export function registerSandboxProvider(provider: SandboxProvider): void {
   if (providers.has(provider.id)) {
     throw new Error(`Sandbox provider already registered: ${provider.id}`);
   }
   providers.set(provider.id, provider);
+  sessionOwnersCache = null;
 }
 
 /** Resolve a provider by id. Returns undefined for 'none' or an unknown id. */
@@ -28,7 +36,12 @@ export function listSandboxProviders(): SandboxProvider[] {
 }
 
 export function listSessionOwners(): SessionOwnerSandboxProvider[] {
-  return listSandboxProviders().filter((p): p is SessionOwnerSandboxProvider => p.kind === 'session-owner');
+  if (sessionOwnersCache === null) {
+    sessionOwnersCache = Array.from(providers.values()).filter(
+      (p): p is SessionOwnerSandboxProvider => p.kind === 'session-owner',
+    );
+  }
+  return sessionOwnersCache;
 }
 
 /** Find the session-owning provider that owns a given PTY, if any. */
@@ -46,4 +59,5 @@ export function cleanupSandboxProviders(): void {
 /** Test-only: clear the registry between tests. */
 export function _resetSandboxRegistryForTesting(): void {
   providers.clear();
+  sessionOwnersCache = null;
 }

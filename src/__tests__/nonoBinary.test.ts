@@ -1,9 +1,12 @@
 import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest';
 
-const accessSyncMock = vi.fn();
-vi.mock('node:fs', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('node:fs')>();
-  return { ...actual, accessSync: (...a: unknown[]) => accessSyncMock(...(a as [])) };
+// The bundled-binary resolution logic is shared in paths.ts (exercised by its
+// own coverage); here we mock it to verify getNonoPath delegates with the right
+// binary name rather than re-testing the resolver's fs probing.
+const resolveBundledBinaryMock = vi.fn<(name: string) => string>();
+vi.mock('../paths', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../paths')>();
+  return { ...actual, resolveBundledBinary: (name: string) => resolveBundledBinaryMock(name) };
 });
 
 const osReleaseMock = vi.fn(() => '23.0.0');
@@ -14,7 +17,6 @@ vi.mock('node:os', async (importOriginal) => {
 
 import { getNonoPath, checkPlatformSupport } from '../sandbox/nono/binary';
 
-const realResourcesPath = process.resourcesPath;
 const realPlatform = process.platform;
 
 function setPlatform(p: NodeJS.Platform) {
@@ -22,27 +24,23 @@ function setPlatform(p: NodeJS.Platform) {
 }
 
 beforeEach(() => {
-  accessSyncMock.mockReset();
+  resolveBundledBinaryMock.mockReset();
   osReleaseMock.mockReturnValue('23.0.0');
 });
 
 afterEach(() => {
-  Object.defineProperty(process, 'resourcesPath', { value: realResourcesPath, configurable: true });
   setPlatform(realPlatform);
 });
 
 describe('getNonoPath', () => {
-  test('returns the bundled binary when it exists and is executable', () => {
-    Object.defineProperty(process, 'resourcesPath', { value: '/app/resources', configurable: true });
-    accessSyncMock.mockImplementation(() => undefined); // access OK
+  test('resolves the nono binary via the shared bundled-binary resolver', () => {
+    resolveBundledBinaryMock.mockReturnValue('/app/resources/bin/nono');
     expect(getNonoPath()).toBe('/app/resources/bin/nono');
+    expect(resolveBundledBinaryMock).toHaveBeenCalledWith('nono');
   });
 
   test('falls back to `nono` on PATH when the bundled binary is absent', () => {
-    Object.defineProperty(process, 'resourcesPath', { value: '/app/resources', configurable: true });
-    accessSyncMock.mockImplementation(() => {
-      throw new Error('ENOENT');
-    });
+    resolveBundledBinaryMock.mockReturnValue('nono');
     expect(getNonoPath()).toBe('nono');
   });
 });

@@ -1,5 +1,6 @@
 import { Tooltip } from '../ui/Tooltip';
 import type { SandboxProviderId } from '../../types';
+import { SANDBOX_BACKEND_LABELS } from '../../types';
 
 interface StatusDotProps {
   summaryType: string;
@@ -8,12 +9,6 @@ interface StatusDotProps {
   sandboxProvider?: SandboxProviderId;
   size?: number;
 }
-
-const PROVIDER_LABELS: Record<SandboxProviderId, string> = {
-  none: 'Sandboxed',
-  lima: 'Lima VM',
-  nono: 'nono',
-};
 
 const COLORS: Record<string, string> = {
   thinking: '#da77f2',
@@ -33,7 +28,7 @@ export function StatusDot({ summaryType, sandboxed = false, sandboxProvider, siz
   const background = COLORS[summaryType] ?? COLORS.ready;
   const label = LABELS[summaryType] ?? LABELS.ready;
   const sandboxLabel =
-    sandboxProvider && sandboxProvider !== 'none' ? PROVIDER_LABELS[sandboxProvider] : PROVIDER_LABELS.none;
+    sandboxProvider && sandboxProvider !== 'none' ? SANDBOX_BACKEND_LABELS[sandboxProvider] : 'Sandboxed';
   const tooltipText = sandboxed ? `${label} · ${sandboxLabel}` : label;
   return (
     <Tooltip text={tooltipText} placement="top" delay={300} offsetPx={sandboxed ? 8 : 6}>
