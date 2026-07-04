@@ -24,7 +24,13 @@ export type { ActiveSession } from './ptyManager';
 // Re-export the VM-shaped Lima status (single source of truth)
 export type { LimaStatus } from './lima/types';
 // Re-export the cross-provider sandbox types (single source of truth)
-export type { SandboxProviderId, SandboxProviderStatus, SandboxCapabilities, NonoConfig } from './sandbox/types';
+export type {
+  SandboxProviderId,
+  SandboxBackendId,
+  SandboxProviderStatus,
+  SandboxCapabilities,
+  NonoConfig,
+} from './sandbox/types';
 export { SANDBOX_BACKEND_LABELS } from './sandbox/types';
 // Re-export hook status types from hookServer.ts (single source of truth)
 export type { HookStatus, HookStatusEntry } from './hookServer';

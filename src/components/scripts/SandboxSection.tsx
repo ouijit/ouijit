@@ -1,13 +1,11 @@
 import { useState } from 'react';
 import { useProjectStore } from '../../stores/projectStore';
-import type { SandboxProviderId } from '../../types';
+import type { SandboxBackendId } from '../../types';
 import { SANDBOX_BACKEND_LABELS } from '../../types';
 import { LimaSandboxSection } from './LimaSandboxSection';
 import { NonoSandboxSection } from './NonoSandboxSection';
 
-type BackendId = Exclude<SandboxProviderId, 'none'>;
-
-const BACKEND_DESCRIPTIONS: Record<BackendId, string> = {
+const BACKEND_DESCRIPTIONS: Record<SandboxBackendId, string> = {
   lima: 'Full Linux VM with its own filesystem. Boots an image, so it is slower to start.',
   nono: 'Kernel-level access limits, no VM. Starts instantly, in place on the worktree.',
 };
@@ -23,9 +21,9 @@ interface SandboxSectionProps {
  */
 export function SandboxSection({ projectPath }: SandboxSectionProps) {
   const available = useProjectStore((s) => s.availableSandboxProviders);
-  const [selected, setSelected] = useState<BackendId | null>(null);
+  const [selected, setSelected] = useState<SandboxBackendId | null>(null);
 
-  const providers = available.filter((p): p is BackendId => p === 'lima' || p === 'nono');
+  const providers = available.filter((p): p is SandboxBackendId => p === 'lima' || p === 'nono');
   if (providers.length === 0) return null;
 
   const active = selected && providers.includes(selected) ? selected : providers[0];
