@@ -78,8 +78,10 @@ export const nonoProvider: WrapperSandboxProvider = {
 
   async wrapLaunch(launch: SandboxLaunch, ctx: SandboxSpawnContext): Promise<SandboxLaunch> {
     const worktreePath = ctx.worktreePath ?? ctx.cwd;
-    const mainGitDir = (await getMainGitDir(worktreePath)) ?? path.join(worktreePath, '.git');
-    const config = await getNonoConfig(ctx.projectPath);
+    // Independent: a `git rev-parse` subprocess and a DB read. Run them together
+    // so the config read isn't stuck behind the git subprocess on the spawn path.
+    const [resolvedGitDir, config] = await Promise.all([getMainGitDir(worktreePath), getNonoConfig(ctx.projectPath)]);
+    const mainGitDir = resolvedGitDir ?? path.join(worktreePath, '.git');
     const cliPath = getCliPath();
     const cliDir = cliPath ? path.dirname(cliPath) : undefined;
 
