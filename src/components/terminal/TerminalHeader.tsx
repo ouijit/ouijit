@@ -120,6 +120,7 @@ export const TerminalHeader = memo(function TerminalHeader({
           await window.api.task.setStatus(projectPath, taskId!, status);
           useProjectStore.getState().loadTasks(projectPath);
         },
+        completeToDone: task ? () => void completeTask({ projectPath, task }) : undefined,
         trash: async () => {
           await window.api.task.trash(projectPath, taskId!);
           useProjectStore.getState().loadTasks(projectPath);
@@ -141,20 +142,6 @@ export const TerminalHeader = memo(function TerminalHeader({
       icon: 'pencil-simple',
       onClick: () => setRenameTarget('terminal'),
     });
-
-    if (isTaskTerminal) {
-      items.push({ separator: true });
-      items.push({
-        label: 'Close Task',
-        icon: 'archive',
-        onClick: async () => {
-          const storeTask = useProjectStore.getState().tasks.find((t) => t.taskNumber === taskId);
-          if (!storeTask) return;
-          await completeTask({ projectPath, task: storeTask });
-          useProjectStore.getState().addToast('Task closed', 'success');
-        },
-      });
-    }
 
     return items;
   }, [isTaskTerminal, instance, projectPath, taskId, availableSandboxProviders, hasEditorHook, task]);

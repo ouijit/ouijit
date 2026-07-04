@@ -3,6 +3,7 @@ import { useDraggable } from '@dnd-kit/core';
 import { useShallow } from 'zustand/react/shallow';
 import type { TaskWithWorkspace, SandboxProviderId } from '../../types';
 import { openInEntry, moveToEntry, STATUS_LABELS, type TaskMenuActions } from './taskMenu';
+import { completeTask } from '../../services/taskCompletion';
 import { useTerminalStore, type TerminalDisplayState } from '../../stores/terminalStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { terminalInstances } from '../terminal/terminalReact';
@@ -209,6 +210,7 @@ export const KanbanCard = memo(function KanbanCard({
         await window.api.task.setStatus(projectPath, task.taskNumber, status);
         useProjectStore.getState().loadTasks(projectPath);
       },
+      completeToDone: () => void completeTask({ projectPath, task }),
       trash: async () => {
         await window.api.task.trash(projectPath, task.taskNumber);
         useProjectStore.getState().loadTasks(projectPath);

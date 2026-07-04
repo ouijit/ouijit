@@ -29,6 +29,12 @@ export interface TaskMenuActions {
   openTerminal: (provider?: SandboxProviderId) => void;
   openEditor: () => void;
   setStatus: (status: MoveStatus) => void;
+  /**
+   * Finish the task: runs the done hook + closes its terminals, matching
+   * drag-to-Done. When omitted (e.g. bulk selection), "Done" falls back to a
+   * plain status write.
+   */
+  completeToDone?: () => void;
   trash: () => void;
 }
 
@@ -60,7 +66,7 @@ export function moveToEntry(actions: TaskMenuActions): ContextMenuEntry {
       { label: STATUS_LABELS.todo, onClick: () => actions.setStatus('todo') },
       { label: STATUS_LABELS.in_progress, onClick: () => actions.setStatus('in_progress') },
       { label: STATUS_LABELS.in_review, onClick: () => actions.setStatus('in_review') },
-      { label: STATUS_LABELS.done, onClick: () => actions.setStatus('done') },
+      { label: STATUS_LABELS.done, onClick: actions.completeToDone ?? (() => actions.setStatus('done')) },
       { separator: true },
       { label: 'Trash', icon: 'trash', danger: true, onClick: actions.trash },
     ],
