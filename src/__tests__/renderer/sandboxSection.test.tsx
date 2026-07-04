@@ -1,5 +1,14 @@
 import { describe, test, expect, beforeEach, vi } from 'vitest';
 import { render, waitFor, fireEvent } from '@testing-library/react';
+
+// LimaSandboxSection (reached via SandboxSection) transitively imports
+// terminalActions -> terminalReact -> @xterm/xterm, which hangs when loaded
+// for real under jsdom. Sever the chain like the other renderer tests do.
+vi.mock('../../components/terminal/terminalActions', () => ({
+  addProjectTerminal: vi.fn().mockResolvedValue(true),
+  closeProjectTerminal: vi.fn(),
+}));
+
 import { SandboxSection } from '../../components/scripts/SandboxSection';
 import { useProjectStore } from '../../stores/projectStore';
 import type { SandboxProviderId } from '../../types';
