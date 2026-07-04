@@ -12,6 +12,12 @@ export interface NonoArgvContext {
   apiPort: number;
   /** Ouijit wrapper/CLI dir (`~/.config/Ouijit`) the agent hooks live in. */
   wrapperDir: string;
+  /**
+   * Dir holding the bundled `ouijit` CLI (`<app>/dist-cli`) the `ouijit`
+   * wrapper `exec node`s. Outside the worktree, so it needs its own grant or
+   * the CLI is unreadable and every `ouijit …` call dies. Empty when unresolved.
+   */
+  cliDir?: string;
   config?: NonoConfig;
 }
 
@@ -63,8 +69,9 @@ export function buildNonoLaunch(nonoPath: string, launch: SandboxLaunch, ctx: No
   args.push('--write', path.join(git, 'logs'));
   args.push('--write', path.join(git, 'worktrees'));
 
-  // Ouijit wrapper scripts + CLI the agent hooks invoke (first on PATH).
+  // Ouijit wrapper scripts (first on PATH) and the bundled CLI they exec.
   args.push('--read', ctx.wrapperDir);
+  if (ctx.cliDir) args.push('--read', ctx.cliDir);
 
   args.push('--', launch.file, ...launch.args);
 

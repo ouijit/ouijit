@@ -1,5 +1,6 @@
 import * as path from 'node:path';
 import { getWrapperBinDir } from '../../hookServer';
+import { getCliPath } from '../../paths';
 import { getLogger } from '../../logger';
 import type { WrapperSandboxProvider } from '../provider';
 import type { SandboxLaunch, SandboxProviderStatus, SandboxSpawnContext } from '../types';
@@ -79,6 +80,8 @@ export const nonoProvider: WrapperSandboxProvider = {
     const worktreePath = ctx.worktreePath ?? ctx.cwd;
     const mainGitDir = (await getMainGitDir(worktreePath)) ?? path.join(worktreePath, '.git');
     const config = await getNonoConfig(ctx.projectPath);
+    const cliPath = getCliPath();
+    const cliDir = cliPath ? path.dirname(cliPath) : undefined;
 
     nonoLog.info('wrapping launch under nono', {
       worktreePath,
@@ -92,6 +95,7 @@ export const nonoProvider: WrapperSandboxProvider = {
       mainGitDir,
       apiPort: ctx.apiPort,
       wrapperDir: ouijitDir(),
+      cliDir,
       config,
     });
   },

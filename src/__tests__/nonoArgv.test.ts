@@ -73,6 +73,19 @@ describe('buildNonoLaunch', () => {
     expect(args).not.toContain('--read-file');
   });
 
+  test('grants the bundled CLI dir read so the `ouijit` shim can exec it', () => {
+    const { args } = build({ cliDir: '/Applications/Ouijit.app/Contents/Resources/dist-cli' });
+    const readTargets = args.reduce<string[]>((acc, a, i) => (a === '--read' ? [...acc, args[i + 1]] : acc), []);
+    expect(readTargets).toContain('/Applications/Ouijit.app/Contents/Resources/dist-cli');
+  });
+
+  test('omits the CLI grant when the CLI dir is unresolved', () => {
+    const { args } = build({ cliDir: undefined });
+    const reads = args.reduce<string[]>((acc, a, i) => (a === '--read' ? [...acc, args[i + 1]] : acc), []);
+    // Only the git dir and wrapper dir reads, no empty/extra grant.
+    expect(reads).toEqual(['/Users/dev/code/proj/.git', '/Users/dev/.config/Ouijit']);
+  });
+
   test('adds block-net when configured', () => {
     const { args } = build({ config: { blockNet: true } });
     expect(args).toContain('--block-net');
