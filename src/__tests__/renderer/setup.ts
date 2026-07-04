@@ -129,7 +129,6 @@ const mockApi = {
     status: vi.fn().mockResolvedValue([]),
     nonoConfig: vi.fn().mockResolvedValue({}),
     setNonoConfig: vi.fn().mockResolvedValue({ success: true }),
-    nonoProfiles: vi.fn().mockResolvedValue([]),
   },
   globalSettings: {
     get: vi.fn().mockResolvedValue(undefined),
