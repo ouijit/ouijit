@@ -63,6 +63,38 @@ describe('hook commands', () => {
     expect(result.success).toBe(true);
   });
 
+  test('set accepts --restart-if-running for the run hook', async () => {
+    vi.mocked(put).mockResolvedValue({ success: true });
+    const output = captureOutput();
+    await createProgram().parseAsync(
+      ['hook', 'set', 'run', '--name', 'Dev', '--command', 'npm run dev', '--restart-if-running'],
+      { from: 'user' },
+    );
+    output.getJson();
+    expect(put).toHaveBeenCalledWith(`/api/hooks/run?project=${encodeURIComponent(PROJECT)}`, {
+      name: 'Dev',
+      command: 'npm run dev',
+      restartIfRunning: true,
+    });
+  });
+
+  test('set rejects --restart-if-running for non-run hooks', async () => {
+    const exit = vi.spyOn(process, 'exit').mockImplementation(() => {
+      throw new Error('exit');
+    });
+    const stderr = vi.spyOn(process.stderr, 'write').mockReturnValue(true);
+    await expect(
+      createProgram().parseAsync(
+        ['hook', 'set', 'start', '--name', 'Setup', '--command', 'npm install', '--restart-if-running'],
+        { from: 'user' },
+      ),
+    ).rejects.toThrow('exit');
+    expect(put).not.toHaveBeenCalled();
+    expect(stderr).toHaveBeenCalledWith(expect.stringContaining('only valid for the run hook'));
+    exit.mockRestore();
+    stderr.mockRestore();
+  });
+
   test('get retrieves a hook by type from hooks object', async () => {
     vi.mocked(get).mockResolvedValue({ start: { name: 'Start', command: 'echo start' } });
     const output = captureOutput();

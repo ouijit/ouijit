@@ -58,16 +58,28 @@ Examples:
     .requiredOption('--name <name>', 'hook name')
     .requiredOption('--command <cmd>', 'hook command')
     .option('--description <desc>', 'hook description')
-    .action(async (type: string, opts: { name: string; command: string; description?: string }) => {
-      const t = validateHookType(type);
-      const project = requireProject();
-      const result = await put(`/api/hooks/${t}${projectQuery(project)}`, {
-        name: opts.name,
-        command: opts.command,
-        ...(opts.description && { description: opts.description }),
-      });
-      printJson(result);
-    });
+    .option('--restart-if-running', 'run hook only: restart the command if it is already running in the task')
+    .action(
+      async (
+        type: string,
+        opts: { name: string; command: string; description?: string; restartIfRunning?: boolean },
+      ) => {
+        const t = validateHookType(type);
+        // restartIfRunning only affects the run hook (the only hook surfaced as a
+        // runner). Reject it elsewhere so it can't persist an inert, misleading flag.
+        if (opts.restartIfRunning && t !== 'run') {
+          return printError('--restart-if-running is only valid for the run hook');
+        }
+        const project = requireProject();
+        const result = await put(`/api/hooks/${t}${projectQuery(project)}`, {
+          name: opts.name,
+          command: opts.command,
+          ...(opts.description && { description: opts.description }),
+          ...(opts.restartIfRunning && { restartIfRunning: true }),
+        });
+        printJson(result);
+      },
+    );
 
   hook
     .command('delete')

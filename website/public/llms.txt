@@ -12,7 +12,7 @@ Free and open source under the AGPL-3.0 license. No account, no sign-in. Distrib
 - [Terminal Sessions](https://ouijit.com/docs/#terminals): Card stack UI, keyboard shortcuts, runner panel, diff panel, tags.
 - [VM Sandbox](https://ouijit.com/docs/#sandbox): Lima-based Linux VM, dual-worktree model with tracked-files-only mount, partial .git mount with hooks/config read-only.
 - [Hooks](https://ouijit.com/docs/#hooks): Lifecycle hooks (start, continue, review, done) and on-demand hooks (run, editor) configured per project.
-- [Agents](https://ouijit.com/docs/#agents): Status indicators and CLI awareness for Claude Code, Codex, and Pi via injected wrappers.
+- [Agents](https://ouijit.com/docs/#agents): Status indicators and CLI awareness for Claude Code, Codex, Pi, and OpenCode via injected wrappers.
 - [CLI](https://ouijit.com/docs/#cli): The `ouijit` command auto-installed in every terminal, with subcommands for tasks, hooks, scripts, tags, plans, and projects.
 
 ## Project
@@ -26,4 +26,4 @@ Free and open source under the AGPL-3.0 license. No account, no sign-in. Distrib
 
 - The `ouijit` CLI is available in every Ouijit-spawned terminal and authenticated by a per-session bearer token. It writes JSON to stdout for piping into `jq`.
 - Inside the VM sandbox, the `ouijit` binary is not installed and `/api/*` routes return 403 for sandbox-scoped tokens. Only the `/hook` status endpoint is reachable from a sandbox.
-- Claude Code, Codex, and Pi wrappers inject the CLI reference into the agent's system prompt, so agents can drive Ouijit (create tasks, flip statuses, manage hooks and scripts, update plans) from the shell.
+- Claude Code, Codex, and Pi wrappers inject the CLI reference into the agent's system prompt, so agents can drive Ouijit (create tasks, flip statuses, manage hooks and scripts, update plans) from the shell. OpenCode gets the same CLI reference, injected via the `OPENCODE_CONFIG_CONTENT` env var rather than a system-prompt flag.
