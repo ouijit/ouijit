@@ -110,6 +110,39 @@ describe('recoverTaskWorktree', () => {
     expect(task!.worktreePath).toBe(result.worktreePath);
   });
 
+  test('copies gitignored files and directories into the recovered worktree', async () => {
+    // Committed .gitignore plus ignored content: a nested dependency tree
+    // (exercises the directory CoW-clone path) and a top-level secrets file
+    await fs.writeFile(path.join(repoDir, '.gitignore'), 'node_modules/\n.env\n');
+    execSync('git add .gitignore && git commit -m "Add gitignore"', { cwd: repoDir });
+    await fs.mkdir(path.join(repoDir, 'node_modules', 'some-dep', 'lib'), { recursive: true });
+    await fs.writeFile(path.join(repoDir, 'node_modules', 'some-dep', 'lib', 'index.js'), 'module.exports = 1;\n');
+    await fs.writeFile(path.join(repoDir, '.env'), 'SECRET=1\n');
+
+    const wtPath = path.join(tmpDir, 'wt-ignored');
+    execSync(`git worktree add -b feat-ignored "${wtPath}"`, { cwd: repoDir });
+    await fs.rm(wtPath, { recursive: true, force: true });
+
+    await createTask(repoDir, 1, 'Ignored files', {
+      branch: 'feat-ignored',
+      worktreePath: wtPath,
+    });
+
+    const result = await recoverTaskWorktree(repoDir, 1);
+    expect(result.success).toBe(true);
+    try {
+      const dep = await fs.readFile(
+        path.join(result.worktreePath!, 'node_modules', 'some-dep', 'lib', 'index.js'),
+        'utf-8',
+      );
+      expect(dep).toBe('module.exports = 1;\n');
+      const env = await fs.readFile(path.join(result.worktreePath!, '.env'), 'utf-8');
+      expect(env).toBe('SECRET=1\n');
+    } finally {
+      execSync(`git worktree remove --force "${result.worktreePath}"`, { cwd: repoDir });
+    }
+  });
+
   test('reuses existing worktree when branch is already checked out', async () => {
     // Create a worktree at path A, then record a stale path B in the task
     const realWtPath = path.join(tmpDir, 'wt-real');
