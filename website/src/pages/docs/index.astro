@@ -6,13 +6,13 @@ const sections = [
   { id: 'worktrees', label: 'Worktree Isolation' },
   { id: 'kanban', label: 'Kanban Board' },
   { id: 'terminals', label: 'Terminal Sessions' },
-  { id: 'sandbox', label: 'VM Sandbox' },
+  { id: 'sandbox', label: 'Sandbox' },
   { id: 'hooks', label: 'Hooks' },
   { id: 'harnesses', label: 'Harnesses' },
   { id: 'cli', label: 'CLI' },
 ];
 ---
-<Site title="Documentation · Ouijit" description="Ouijit documentation: getting started, worktrees, kanban, terminals, VM sandbox, hooks, and agent harness integration.">
+<Site title="Documentation · Ouijit" description="Ouijit documentation: getting started, worktrees, kanban, terminals, sandboxing, hooks, and agent harness integration.">
   <div class="docs-layout">
     <aside class="docs-sidebar">
       <h4>Documentation</h4>
@@ -204,9 +204,7 @@ git branch --show-current</code></pre>
         <h2>Task actions</h2>
         <p>Right-click a task card to access its context menu:</p>
         <ul>
-          <li><strong>Open in Terminal</strong>. Launch a terminal in the task's worktree.</li>
-          <li><strong>Open in Sandbox</strong>. Launch a sandboxed terminal (if Lima is available).</li>
-          <li><strong>Open in Editor</strong>. Open the worktree in your configured editor.</li>
+          <li><strong>Open in</strong>. A submenu: a terminal in the task's worktree, a <a href="#sandbox">sandboxed</a> terminal for each installed backend (<strong>Lima VM</strong> or <strong>nono</strong>), or the worktree in your configured editor.</li>
           <li><strong>Rename</strong>. Edit the task's display name inline.</li>
           <li><strong>Move to Done / Reopen</strong>. Complete an active task or reopen a finished one.</li>
           <li><strong>Delete</strong>. Permanently remove the task.</li>
@@ -257,23 +255,30 @@ git branch --show-current</code></pre>
       </section>
 
       <section id="sandbox">
-        <h1>VM Sandbox</h1>
-        <p class="lead">Sandboxed terminals run inside a Linux VM, on a parallel git branch, in a worktree that contains only tracked files.</p>
+        <h1>Sandbox</h1>
+        <p class="lead">Run a task's terminals and hooks inside a sandbox. Two backends are available: a Lima VM, or nono's kernel-level access limits.</p>
 
-        <h2>What it does</h2>
-        <p>For a sandboxed task, Ouijit creates a second git worktree at <code>~/Ouijit/sandbox-views/&lt;project&gt;/T-N-sandbox</code> on a child branch <code>s/&lt;your-branch&gt;</code>. Because it's a plain <code>git worktree add</code>, only tracked files exist there: no <code>.env</code>, <code>node_modules</code>, build caches, or anything else gitignored. That sandbox-view directory is what gets mounted into a <a href="https://lima-vm.io" target="_blank" rel="noopener">Lima</a> VM as the agent's working directory. Your real worktree is never mounted.</p>
+        <h2>Choosing a backend</h2>
+        <p>Sandboxing is a per-terminal choice. Right-click a task and use <strong>Open in &rarr; Lima VM sandbox</strong> or <strong>Open in &rarr; nono sandbox</strong>; an entry appears for each backend installed on your system. Plain <strong>Open in &rarr; Terminal</strong> runs on the host, unsandboxed. Every terminal and <a href="#hooks">lifecycle hook</a> opened for that task then runs under the chosen backend. A sandboxed terminal carries an outlined status dot and a backend suffix on its label.</p>
+        <p>Each backend has its own config surface under <strong>Project Settings &rarr; Sandbox</strong>.</p>
+
+        <h2>Lima VM</h2>
+        <p>Lima-sandboxed terminals run inside a Linux VM, on a parallel git branch, in a worktree that contains only tracked files.</p>
+
+        <h3>What it does</h3>
+        <p>For a Lima-sandboxed task, Ouijit creates a second git worktree at <code>~/Ouijit/sandbox-views/&lt;project&gt;/T-N-sandbox</code> on a child branch <code>s/&lt;your-branch&gt;</code>. Because it's a plain <code>git worktree add</code>, only tracked files exist there: no <code>.env</code>, <code>node_modules</code>, build caches, or anything else gitignored. That sandbox-view directory is what gets mounted into a <a href="https://lima-vm.io" target="_blank" rel="noopener">Lima</a> VM as the agent's working directory. Your real worktree is never mounted.</p>
         <p>When the agent commits inside the VM, the commit lands on <code>s/&lt;your-branch&gt;</code>. A host-side watcher fast-forwards your branch to match. If you committed in parallel on the host, the fast-forward fails and Ouijit surfaces a divergence affordance.</p>
 
-        <h2>How it works</h2>
+        <h3>How it works</h3>
         <ol>
-          <li><strong>Enable sandbox on a task</strong>. Per-task, not per-project. The run dialog has a <strong>Sandbox</strong> toggle.</li>
+          <li><strong>Open a Lima sandbox terminal</strong>. From a task's <strong>Open in &rarr; Lima VM sandbox</strong>. Every terminal and hook for that task then runs in the VM.</li>
           <li><strong>First terminal</strong>. Ouijit lazily creates an Ubuntu 24.04 VM via Lima on the first sandboxed spawn for a project. One VM per project, reused across that project's sandboxed tasks.</li>
           <li><strong>Spawn progress</strong>. The dialog shows each step: <em>Checking VM status, Creating / Starting, SSH connecting, Provisioning, Launching shell</em>. First boot takes 1-2 minutes; later spawns reuse the running VM.</li>
           <li><strong>Shell sessions</strong>. Terminals run inside the VM via <code>limactl shell</code>, with cwd set to the sandbox-view path.</li>
-          <li><strong>VM lifecycle &amp; resources</strong>. Manage the VM from <strong>Project Settings &rarr; Sandbox</strong>: see status (Running / Stopped / Broken / Not created), create, start, stop, recreate, open a console, and edit the merged Lima YAML config (memory, CPU, disk, mounts). Resource changes prompt a recreate.</li>
+          <li><strong>VM lifecycle &amp; resources</strong>. Manage the VM from <strong>Project Settings &rarr; Sandbox &rarr; Lima VM</strong>: see status (Running / Stopped / Broken / Not created), create, start, stop, recreate, open a console, and edit the merged Lima YAML config (memory, CPU, disk, mounts). Resource changes prompt a recreate.</li>
         </ol>
 
-        <h2>Mount surface</h2>
+        <h3>Mount surface</h3>
         <p>Only two host paths are exposed to the VM:</p>
         <table>
           <thead>
@@ -286,7 +291,7 @@ git branch --show-current</code></pre>
         </table>
         <p>Your home directory, source tree, system binaries, and any other host paths are not mounted at all.</p>
 
-        <h2>Isolation properties</h2>
+        <h3>Isolation properties</h3>
         <ul>
           <li><strong>Gitignored content is not in the mount</strong>. <code>.env</code>, <code>.npmrc</code>, <code>secrets/</code>, <code>node_modules</code>, and build artifacts never leave the host.</li>
           <li><strong>Host toolchains stay separate</strong>. darwin-arm64 <code>node_modules</code>, Rust <code>target/</code>, and Python <code>.venv</code> don't collide with the Linux guest.</li>
@@ -295,7 +300,7 @@ git branch --show-current</code></pre>
           <li><strong>No <code>ouijit</code> CLI in the VM.</strong> The binary isn't installed; the <code>/api/*</code> routes return 403 for sandbox-scoped tokens. Only the <code>/hook</code> endpoint accepts them.</li>
         </ul>
 
-        <h3>Caveats</h3>
+        <h4>Caveats</h4>
         <ul>
           <li><strong>Committed files are always visible.</strong> The sandbox view is populated from the index, so anything you committed lives there regardless of <code>.gitignore</code>. To remove: <code>git rm --cached &lt;file&gt;</code> and rotate.</li>
           <li><strong>Commits round-trip through fast-forward.</strong> Parallel commits on the host cause the ff-merge to fail; Ouijit surfaces a divergence affordance in that case.</li>
@@ -303,25 +308,46 @@ git branch --show-current</code></pre>
           <li><strong>The VM's $HOME is out of scope.</strong> The isolation described above applies to mounts. Files copied into the VM's home (<code>~/.netrc</code>, <code>~/.git-credentials</code>, etc.) aren't.</li>
         </ul>
 
-        <h2>Customizing the VM</h2>
+        <h3>Customizing the VM</h3>
         <p>VMs start from a clean Ubuntu 24.04 image with <code>bash</code>, <code>git</code>, <code>curl</code>, <code>wget</code>, <code>nodejs</code>, <code>npm</code>, <code>python3</code>, and <code>build-essential</code> pre-installed. Defaults are 4 GiB memory, 2 CPUs, 10 GiB disk.</p>
-        <p>Resource limits, extra packages, additional mounts, and provisioning scripts are controlled by the Lima YAML config in <strong>Project Settings &rarr; Sandbox</strong>. The editor shows the merged effective config and lets you write overrides; Ouijit prompts you to recreate the VM when changes require it.</p>
+        <p>Resource limits, extra packages, additional mounts, and provisioning scripts are controlled by the Lima YAML config in <strong>Project Settings &rarr; Sandbox &rarr; Lima VM</strong>. The editor shows the merged effective config and lets you write overrides; Ouijit prompts you to recreate the VM when changes require it.</p>
         <p>See the <a href="https://lima-vm.io/docs/config/" target="_blank" rel="noopener">Lima configuration reference</a> for the available keys.</p>
 
-        <h2>Requirements</h2>
+        <h3>Requirements</h3>
         <p>Ouijit bundles <code>limactl</code>; nothing extra to install.</p>
         <ul>
           <li><strong>macOS</strong>. Apple's Virtualization.framework (vz) with vzNAT networking.</li>
           <li><strong>Linux</strong>. QEMU with user-mode networking.</li>
         </ul>
 
-        <h2>Limitations</h2>
+        <h3>Limitations</h3>
         <ul>
           <li>First boot downloads an Ubuntu cloud image and provisions packages. Requires internet and takes 1-2 minutes.</li>
           <li>GPU passthrough is not supported.</li>
           <li>macOS-specific tooling (Xcode, Swift) is not available inside the Linux VM.</li>
           <li>Docker-in-VM requires additional Lima configuration.</li>
           <li>The VM home directory is ephemeral. Anything outside the mounted sandbox-views and <code>.git</code> overlays is lost on recreate.</li>
+        </ul>
+
+        <h2>nono</h2>
+        <p><a href="https://github.com/always-further/nono" target="_blank" rel="noopener">nono</a> runs a task's commands in place on the host worktree under kernel-level access limits (Seatbelt on macOS, Landlock on Linux). There is no VM and no file sync, so it starts instantly. Compared to the Lima VM it is a lighter boundary: a kernel access policy on a host process rather than a separate machine.</p>
+
+        <h3>What it does</h3>
+        <p>Terminals and hooks run on the real worktree, wrapped by <code>nono</code>. Filesystem access is limited to the worktree and the repo's git data, with the same read/write overlays at <code>objects/</code>, <code>refs/</code>, <code>logs/</code>, <code>worktrees/</code> so commits land while <code>hooks/</code> and <code>config</code> stay read-only. Ouijit derives these grants from the task's worktree path at spawn time. Network is allowed by default; the local hook-server port stays reachable so agent status still reports back.</p>
+
+        <h3>Configuration</h3>
+        <p>Under <strong>Project Settings &rarr; Sandbox &rarr; nono</strong>:</p>
+        <ul>
+          <li><strong>Additional folders</strong>. Extra paths granted read/write beyond the worktree and git data, e.g. a shared cache or a monorepo sibling.</li>
+          <li><strong>Block outbound network</strong>. Deny outbound connections. The hook-server port stays open so agent status keeps working.</li>
+          <li><strong>Allowed ports</strong>. Extra localhost ports to keep reachable, e.g. a dev server on <code>3000</code>.</li>
+        </ul>
+
+        <h3>Requirements</h3>
+        <p>Ouijit bundles the <code>nono</code> binary and the agent packs it uses; nothing extra to install.</p>
+        <ul>
+          <li><strong>macOS</strong>. Seatbelt (<code>sandbox-exec</code>).</li>
+          <li><strong>Linux</strong>. Landlock, which needs kernel 5.13 or newer.</li>
         </ul>
       </section>
 
@@ -420,8 +446,11 @@ OUIJIT_HOOK_TYPE=start</code></pre>
         <p>When <code>OUIJIT_API_URL</code> is unset (i.e. the harness runs outside an Ouijit terminal), the wrappers exec the real binary unmodified.</p>
 
         <h2>Sandboxed terminals</h2>
-        <p>Status indicators work inside the <a href="#sandbox">VM sandbox</a>: Claude settings, Codex config, the Pi extension, and the opencode plugin are written into the VM's home directory, and their hooks reach back over <code>host.lima.internal</code>.</p>
-        <p>The CLI integration does not extend into the sandbox. The <code>ouijit</code> binary isn't installed in the VM, and the <code>/api/*</code> routes reject sandbox-scoped tokens.</p>
+        <p>Status indicators work inside both <a href="#sandbox">sandbox backends</a>.</p>
+        <ul>
+          <li><strong>Lima VM</strong>. Claude settings, Codex config, the Pi extension, and the opencode plugin are written into the VM's home directory, and their hooks reach back over <code>host.lima.internal</code>. The <code>ouijit</code> CLI isn't installed in the VM, and the <code>/api/*</code> routes reject sandbox-scoped tokens.</li>
+          <li><strong>nono</strong>. Terminals run on the host, so the agent uses your real config and hooks reach the hook server over localhost. The <code>ouijit</code> CLI shim stays on <code>PATH</code> with access scoped to the task's own data.</li>
+        </ul>
 
         <h2>Notifications</h2>
         <p>When an agent finishes a turn, Ouijit plays a sound. If the window isn't focused, you also get an OS notification.</p>
