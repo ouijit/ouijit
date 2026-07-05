@@ -70,6 +70,18 @@ rm -rf "$NONO_TMP"
 trap - EXIT
 echo "    Staged nono"
 
+# 1b-ii. Stage the vendored nono agent packs (platform-independent JSON the
+# union profile inherits). download-nono.sh vendors them on the build host via
+# postinstall; copy that tree so the packaged app ships it and first launch
+# needs no network. cp -R preserves the hook scripts' exec bits.
+if [ -d "$PROJECT_DIR/resources/share/nono" ]; then
+    mkdir -p "$STAGING/share/nono"
+    cp -R "$PROJECT_DIR/resources/share/nono/." "$STAGING/share/nono/"
+    echo "    Staged nono agent packs"
+else
+    echo "    No vendored nono packs to stage (first launch will pull them)"
+fi
+
 # 1c. Ensure Lima builder VM is running
 if ! limactl list -q | grep -q "^${LIMA_VM}$"; then
     echo "==> Creating Lima VM '${LIMA_VM}'..."

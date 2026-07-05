@@ -4,6 +4,7 @@ import * as fs from 'node:fs/promises';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { getLogger } from '../../logger';
+import { resolveBundledResourceDir } from '../../paths';
 
 const execFileAsync = promisify(execFile);
 const nonoLog = getLogger().scope('nono');
@@ -90,7 +91,14 @@ async function installUnionProfile(nonoPath: string): Promise<void> {
   await writeProfile(root);
 }
 
-/** Pull any inherited agent pack that isn't already present under the config root. */
+/**
+ * Ensure every inherited agent pack is present under the config root. Missing
+ * packs are installed from the copy Ouijit bundles under `share/nono/packages`
+ * so the first sandboxed spawn needs no network; only when no bundled copy
+ * exists (dev / unpackaged builds) does it fall back to pulling from nono's
+ * registry. Packs are platform-independent JSON, so the bundled tree is valid
+ * on every OS.
+ */
 async function ensurePacks(nonoPath: string, root: string): Promise<void> {
   const packagesDir = path.join(root, 'packages');
   const missing: string[] = [];
@@ -103,8 +111,17 @@ async function ensurePacks(nonoPath: string, root: string): Promise<void> {
   }
   if (missing.length === 0) return;
 
-  nonoLog.info('pulling nono agent packs for the union profile', { missing });
+  const bundled = resolveBundledResourceDir('share', 'nono', 'packages');
   for (const pack of missing) {
+    const dest = path.join(packagesDir, pack);
+    const bundledPack = bundled ? path.join(bundled, pack) : null;
+    if (bundledPack && (await pathExists(bundledPack))) {
+      nonoLog.info('installing bundled nono agent pack', { pack });
+      await fs.mkdir(path.dirname(dest), { recursive: true });
+      await fs.cp(bundledPack, dest, { recursive: true });
+      continue;
+    }
+    nonoLog.info('pulling nono agent pack for the union profile', { pack });
     try {
       await execFileAsync(nonoPath, ['pull', pack]);
     } catch (error) {
@@ -112,6 +129,16 @@ async function ensurePacks(nonoPath: string, root: string): Promise<void> {
       nonoLog.error('failed to pull nono agent pack', { pack, error: message });
       throw new Error(`Could not install the nono agent profile '${pack}' (needed for sandboxing): ${message}`);
     }
+  }
+}
+
+/** Whether a path exists, without throwing. */
+async function pathExists(p: string): Promise<boolean> {
+  try {
+    await fs.access(p);
+    return true;
+  } catch {
+    return false;
   }
 }
 

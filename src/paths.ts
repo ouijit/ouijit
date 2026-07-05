@@ -39,6 +39,23 @@ export function resolveBundledBinary(name: string): string {
   return resolved;
 }
 
+/**
+ * Resolve a bundled resource directory shipped under the app's `resources`
+ * (e.g. `share/nono/packages`). Returns the absolute path when it exists,
+ * else null so callers fall back to fetching at runtime — in dev/unpackaged
+ * builds `process.resourcesPath` points at Electron's own resources, so the
+ * dir is absent and the caller pulls from the network instead.
+ */
+export function resolveBundledResourceDir(...segments: string[]): string | null {
+  const dir = path.join(process.resourcesPath ?? '', ...segments);
+  try {
+    fsSync.accessSync(dir);
+    return dir;
+  } catch {
+    return null;
+  }
+}
+
 /** Whether a binary is present, bundled or on PATH. */
 export async function isBundledBinaryInstalled(name: string): Promise<boolean> {
   if (resolveBundledBinary(name) !== name) return true;
