@@ -28,6 +28,9 @@ export interface RunnerPanel {
   /** Where the command came from — drives the OUIJIT_HOOK_TYPE env var. A run
    *  hook and a named script are otherwise identical from here on. */
   source: 'hook' | 'script';
+  /** When re-run while a live instance already runs in this task, kill the old
+   *  one first. Opt-in per runnable (script or run hook); defaults off. */
+  restartIfRunning: boolean;
   status: RunnerStatus;
 }
 

@@ -64,6 +64,7 @@ export interface SnapshotPanel {
   scriptName?: string | null;
   scriptCommand?: string | null;
   source?: 'hook' | 'script';
+  restartIfRunning?: boolean;
   /** webPreview (only user-set URLs are persisted) */
   url?: string | null;
   /** plan */
@@ -186,6 +187,8 @@ export interface ScriptHook {
   command: string;
   /** Optional description */
   description?: string;
+  /** Restart the command if an instance is already running in the same task (run hook only). */
+  restartIfRunning?: boolean;
 }
 
 /**
@@ -196,6 +199,8 @@ export interface Script {
   name: string;
   command: string;
   sortOrder: number;
+  /** Restart the command if an instance is already running in the same task. */
+  restartIfRunning: boolean;
 }
 
 /**
@@ -204,6 +209,8 @@ export interface Script {
 export interface RunnerScript {
   name: string;
   command: string;
+  /** Restart the command if an instance is already running in the same task. */
+  restartIfRunning?: boolean;
 }
 
 /**
@@ -223,8 +230,6 @@ export interface ProjectSettings {
     done?: ScriptHook;
     editor?: ScriptHook;
   };
-  /** If true, kill existing instances of a command before starting a new one (default: true) */
-  killExistingOnRun?: boolean;
 }
 
 /**
@@ -564,10 +569,6 @@ export interface ElectronAPI {
       hookCommand?: string;
     }) => void,
   ): () => void;
-  /** Get project settings */
-  getProjectSettings(projectPath: string): Promise<ProjectSettings>;
-  /** Set whether to kill existing command instances on run */
-  setKillExistingOnRun(projectPath: string, kill: boolean): Promise<{ success: boolean }>;
   /** Script hooks API */
   hooks: HooksAPI;
   /** Tags API */

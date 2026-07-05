@@ -79,6 +79,7 @@ describe('script commands', () => {
       name: 'Lint',
       command: 'npm run lint',
       sortOrder: 0,
+      restartIfRunning: false,
     });
   });
 

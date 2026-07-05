@@ -89,8 +89,6 @@ export interface IpcInvokeContract {
     args: [projectPath: string, color: string | null];
     return: { success: boolean };
   };
-  'get-project-settings': { args: [projectPath: string]; return: ProjectSettings };
-  'settings:set-kill-existing-on-run': { args: [projectPath: string, kill: boolean]; return: { success: boolean } };
   'get-home-path': { args: []; return: string };
 
   // ── Git ──────────────────────────────────────────────────────────────

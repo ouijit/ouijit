@@ -9,7 +9,6 @@ import * as path from 'node:path';
 import * as os from 'node:os';
 import type { ProjectRepo } from '../db/repos/projectRepo';
 import type { TaskRepo, TaskStatus } from '../db/repos/taskRepo';
-import type { SettingsRepo } from '../db/repos/settingsRepo';
 import type { HookRepo, HookType } from '../db/repos/hookRepo';
 import type Database from 'better-sqlite3';
 import { getLogger } from '../logger';
@@ -54,7 +53,6 @@ interface OldProjectSettings {
   customCommands?: unknown[];
   hooks?: Record<string, OldScriptHook>;
   sandbox?: { memoryGiB?: number; diskGiB?: number };
-  killExistingOnRun?: boolean;
 }
 
 interface OldSettingsStore {
@@ -65,7 +63,6 @@ export interface ImportResult {
   projectsImported: number;
   tasksImported: number;
   hooksImported: number;
-  settingsImported: number;
   errors: string[];
 }
 
@@ -103,14 +100,12 @@ export async function importAll(
   db: Database.Database,
   projectRepo: ProjectRepo,
   taskRepo: TaskRepo,
-  settingsRepo: SettingsRepo,
   hookRepo: HookRepo,
 ): Promise<ImportResult> {
   const result: ImportResult = {
     projectsImported: 0,
     tasksImported: 0,
     hooksImported: 0,
-    settingsImported: 0,
     errors: [],
   };
 
@@ -232,18 +227,6 @@ export async function importAll(
             result.projectsImported++;
           }
 
-          // Import settings
-          const updates: Partial<{
-            kill_existing_on_run: number;
-          }> = {};
-          if (settings.killExistingOnRun !== undefined)
-            updates.kill_existing_on_run = settings.killExistingOnRun ? 1 : 0;
-
-          if (Object.keys(updates).length > 0) {
-            settingsRepo.update(projectPath, updates);
-            result.settingsImported++;
-          }
-
           // Import hooks
           if (settings.hooks) {
             for (const [hookType, hook] of Object.entries(settings.hooks)) {
@@ -281,7 +264,6 @@ export async function importAll(
     projects: result.projectsImported,
     tasks: result.tasksImported,
     hooks: result.hooksImported,
-    settings: result.settingsImported,
     errors: result.errors.length,
   });
 

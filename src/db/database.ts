@@ -10,7 +10,8 @@ import { up as migration008 } from './migrations/008-add-parent-task';
 import { up as migration009 } from './migrations/009-rename-cleanup-hook-to-done';
 import { up as migration010 } from './migrations/010-project-icon-color';
 import { up as migration011 } from './migrations/011-drop-project-icon-data-url';
-import { up as migration012 } from './migrations/012-drop-task-sandboxed';
+import { up as migration012 } from './migrations/012-per-runnable-restart';
+import { up as migration013 } from './migrations/013-drop-task-sandboxed';
 
 const migrations = [
   { version: 1, up: migration001 },
@@ -25,6 +26,7 @@ const migrations = [
   { version: 10, up: migration010 },
   { version: 11, up: migration011 },
   { version: 12, up: migration012 },
+  { version: 13, up: migration013 },
 ];
 
 let db: Database.Database | null = null;

@@ -405,7 +405,7 @@ body.marketing .home-pitch-link:hover span {
   padding: 0;
   margin: 0 0 32px;
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 16px;
 }
 
@@ -462,6 +462,12 @@ body.marketing .home-agents-footnote a {
 
 body.marketing .home-agents-footnote a:hover {
   color: #f5f5f7;
+}
+
+@media (max-width: 768px) {
+  .home-agents-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 600px) {

@@ -117,6 +117,7 @@ export async function applyInitialUiState(term: OuijitTerminal, ui: SnapshotTerm
             // Legacy snapshots (pre-source) default to 'script'; harmless since
             // a restored runner is idle until the user re-runs it.
             source: sp.source ?? 'script',
+            restartIfRunning: sp.restartIfRunning ?? false,
             status: 'idle',
           });
           break;
@@ -161,6 +162,7 @@ export async function applyInitialUiState(term: OuijitTerminal, ui: SnapshotTerm
         scriptCommand: ui.runner.scriptCommand,
         command: ui.runner.scriptCommand,
         source: 'script',
+        restartIfRunning: false,
         status: 'idle',
       });
     }
@@ -572,7 +574,14 @@ async function resolveRunnable(
   if (script) return { runnable: script, source: 'script' };
   const hooks = await window.api.hooks.get(projectPath);
   if (!hooks.run) return null;
-  return { runnable: { name: hooks.run.name, command: hooks.run.command }, source: 'hook' };
+  return {
+    runnable: {
+      name: hooks.run.name,
+      command: hooks.run.command,
+      restartIfRunning: hooks.run.restartIfRunning ?? false,
+    },
+    source: 'hook',
+  };
 }
 
 export async function startRunner(ptyId: string, script?: RunnerScript): Promise<string | null> {
@@ -632,11 +641,11 @@ async function _spawnRunnerInner(instance: OuijitTerminal, panelId: string): Pro
   const commandName = panel.scriptName ?? commandStr;
   const hookType = panel.source === 'hook' ? 'run' : 'script';
 
-  // Kill existing runs of the same command — but never this panel (its command
-  // is already set, so it would otherwise match and close itself).
-  const settings = await window.api.getProjectSettings(path);
-  if (settings.killExistingOnRun !== false) {
-    killExistingCommandInstances(path, commandStr, panelId);
+  // Opt-in: this runnable wants a solo instance, so clear an existing one first.
+  // Pass panelId to spare this panel — its command is already set and would else
+  // match and close itself.
+  if (panel.restartIfRunning) {
+    killExistingCommandInstances(path, commandStr, instance.worktreePath, panelId);
   }
 
   // Reset the header to the command on (re)start; OSC titles refine it later.
@@ -756,7 +765,20 @@ export async function openWorktreeEditor(
 
 // ── Kill existing command instances ──────────────────────────────────
 
-function killExistingCommandInstances(projectPath: string, command: string, exceptPanelId?: string): void {
+/**
+ * Close other running instances of `command` before a fresh launch. Scoped to
+ * `worktreePath` — a task's runner lives in its own git worktree, so an
+ * identically-named command in a *different* task (or a project-root terminal)
+ * is a legitimately separate process and must not be torn down. Only same-cwd
+ * duplicates (same worktree, or both worktree-less project-root terminals) are
+ * killed. Exported for unit testing.
+ */
+export function killExistingCommandInstances(
+  projectPath: string,
+  command: string,
+  worktreePath: string | undefined,
+  exceptPanelId?: string,
+): void {
   const store = useTerminalStore.getState();
   const ptyIds = store.terminalsByProject[projectPath] ?? [];
 
@@ -766,6 +788,7 @@ function killExistingCommandInstances(projectPath: string, command: string, exce
   for (const id of ptyIds) {
     const instance = terminalInstances.get(id);
     if (!instance) continue;
+    if (instance.worktreePath !== worktreePath) continue; // different task/worktree — leave it alone
     for (const p of [...instance.panels]) {
       if (p.id === exceptPanelId) continue;
       // Only close runners with a live child — an actually-running instance of
@@ -784,7 +807,7 @@ function killExistingCommandInstances(projectPath: string, command: string, exce
   // Close terminals running the same command (reverse order for index safety)
   for (let i = ptyIds.length - 1; i >= 0; i--) {
     const instance = terminalInstances.get(ptyIds[i]);
-    if (instance?.command === command) {
+    if (instance?.command === command && instance.worktreePath === worktreePath) {
       closeProjectTerminal(ptyIds[i]);
     }
   }

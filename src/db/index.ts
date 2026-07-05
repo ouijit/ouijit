@@ -10,7 +10,6 @@ import * as path from 'node:path';
 import { getDatabase, _initTestDatabase } from './database';
 import { ProjectRepo } from './repos/projectRepo';
 import { TaskRepo, type TaskStatus, type TaskRow } from './repos/taskRepo';
-import { SettingsRepo } from './repos/settingsRepo';
 import { HookRepo, type HookType } from './repos/hookRepo';
 import { TagRepo, type TagRow } from './repos/tagRepo';
 import { GlobalSettingsRepo } from './repos/globalSettingsRepo';
@@ -43,7 +42,6 @@ export interface TaskMetadata {
 
 let projectRepo: ProjectRepo | null = null;
 let taskRepo: TaskRepo | null = null;
-let settingsRepo: SettingsRepo | null = null;
 let hookRepo: HookRepo | null = null;
 let tagRepo: TagRepo | null = null;
 let globalSettingsRepo: GlobalSettingsRepo | null = null;
@@ -54,7 +52,6 @@ function repos() {
     const db = getDatabase();
     projectRepo = new ProjectRepo(db);
     taskRepo = new TaskRepo(db);
-    settingsRepo = new SettingsRepo(db);
     hookRepo = new HookRepo(db);
     tagRepo = new TagRepo(db);
     globalSettingsRepo = new GlobalSettingsRepo(db);
@@ -63,7 +60,6 @@ function repos() {
   return {
     projectRepo: projectRepo!,
     taskRepo: taskRepo!,
-    settingsRepo: settingsRepo!,
     hookRepo: hookRepo!,
     tagRepo: tagRepo!,
     globalSettingsRepo: globalSettingsRepo!,
@@ -77,7 +73,6 @@ export function _resetCacheForTesting(): void {
   const db = _initTestDatabase();
   projectRepo = new ProjectRepo(db);
   taskRepo = new TaskRepo(db);
-  settingsRepo = new SettingsRepo(db);
   hookRepo = new HookRepo(db);
   tagRepo = new TagRepo(db);
   globalSettingsRepo = new GlobalSettingsRepo(db);
@@ -354,8 +349,7 @@ export async function reorderTask(
 // ── Project settings functions (match projectSettings.ts signatures) ─
 
 export async function getProjectSettings(projectPath: string): Promise<ProjectSettings> {
-  const { settingsRepo: sr, hookRepo: hr } = repos();
-  const settings = sr.get(projectPath);
+  const { hookRepo: hr } = repos();
   const hookRows = hr.getForProject(projectPath);
 
   const hooks: ProjectSettings['hooks'] = {};
@@ -365,6 +359,7 @@ export async function getProjectSettings(projectPath: string): Promise<ProjectSe
       type: row.type,
       name: row.name,
       command: row.command,
+      restartIfRunning: row.restart_if_running === 1,
       ...(row.description && { description: row.description }),
     } as ScriptHook;
   }
@@ -372,7 +367,6 @@ export async function getProjectSettings(projectPath: string): Promise<ProjectSe
   return {
     customCommands: [],
     hooks,
-    killExistingOnRun: settings ? settings.kill_existing_on_run === 1 : undefined,
   };
 }
 
@@ -397,7 +391,15 @@ export async function saveHook(projectPath: string, hook: ScriptHook): Promise<{
   try {
     ensureProject(projectPath);
     const { hookRepo: hr } = repos();
-    hr.save(projectPath, hook.type as HookType, hook.name, hook.command, hook.id, hook.description);
+    hr.save(
+      projectPath,
+      hook.type as HookType,
+      hook.name,
+      hook.command,
+      hook.id,
+      hook.description,
+      hook.restartIfRunning,
+    );
     return { success: true };
   } catch (error) {
     dbLog.error('failed to save hook', { error: error instanceof Error ? error.message : String(error) });
@@ -412,18 +414,6 @@ export async function deleteHook(projectPath: string, hookType: HookType): Promi
     return { success: true };
   } catch (error) {
     dbLog.error('failed to delete hook', { error: error instanceof Error ? error.message : String(error) });
-    return { success: false };
-  }
-}
-
-export async function setKillExistingOnRun(projectPath: string, kill: boolean): Promise<{ success: boolean }> {
-  try {
-    ensureProject(projectPath);
-    const { settingsRepo: sr } = repos();
-    sr.update(projectPath, { kill_existing_on_run: kill ? 1 : 0 });
-    return { success: true };
-  } catch (error) {
-    dbLog.error('failed to set killExistingOnRun', { error: error instanceof Error ? error.message : String(error) });
     return { success: false };
   }
 }
@@ -528,6 +518,7 @@ export interface Script {
   name: string;
   command: string;
   sortOrder: number;
+  restartIfRunning: boolean;
 }
 
 function rowToScript(row: ScriptRow): Script {
@@ -536,6 +527,7 @@ function rowToScript(row: ScriptRow): Script {
     name: row.name,
     command: row.command,
     sortOrder: row.sort_order,
+    restartIfRunning: row.restart_if_running === 1,
   };
 }
 
@@ -548,7 +540,7 @@ export async function saveScript(projectPath: string, script: Script): Promise<{
   try {
     ensureProject(projectPath);
     const { scriptRepo: sr } = repos();
-    const row = sr.save(projectPath, script.name, script.command, script.id || undefined);
+    const row = sr.save(projectPath, script.name, script.command, script.id || undefined, script.restartIfRunning);
     return { success: true, script: rowToScript(row) };
   } catch (error) {
     dbLog.error('failed to save script', { error: error instanceof Error ? error.message : String(error) });
