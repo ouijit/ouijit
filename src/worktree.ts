@@ -300,7 +300,20 @@ async function copyGitIgnoredFiles(
         // macOS: clonefile() clones files and whole directory trees (e.g.
         // node_modules) in one kernel call, off the event loop
         if (clonefileAsync && !crossVolume) {
-          if ((await clonefileAsync(sourceItem, destItem)) === 0) {
+          // A failed syscall surfaces as result -1 (err null); a rejection means
+          // a koffi/worker-thread error. Catch here so either lands on the cp
+          // fallback below instead of the terminal catch, which would drop the
+          // item entirely and leave it missing from the worktree.
+          let cloneResult: number | null = null;
+          try {
+            cloneResult = await clonefileAsync(sourceItem, destItem);
+          } catch (error) {
+            worktreeLog.warn('clonefile threw, falling back to cp', {
+              path: cleanItem,
+              error: error instanceof Error ? error.message : String(error),
+            });
+          }
+          if (cloneResult === 0) {
             cloneSyscalls++;
             if (stat.isDirectory()) copiedDirs++;
             else copiedFiles++;
@@ -485,9 +498,25 @@ async function startTaskImpl(
     t.mark('lookup');
     if (!task) return { success: false, error: 'Task not found' };
 
-    // Idempotent: if already started with a worktree, return success
+    // Idempotent: if already started and the worktree is still on disk, return
+    // success. Verify existence rather than trusting the persisted path: the
+    // directory may have been deleted out from under us (the case
+    // recoverTaskWorktree handles), and coalesceWorktreeOp shares its in-flight
+    // map with recover, so an unchecked early return here could short-circuit a
+    // concurrent recovery onto a stale, non-existent path. If it is gone, fall
+    // through and re-materialize the worktree.
     if (task.worktreePath) {
-      return { success: true, task, worktreePath: task.worktreePath };
+      const worktreeExists = await fs.access(task.worktreePath).then(
+        () => true,
+        () => false,
+      );
+      if (worktreeExists) {
+        return { success: true, task, worktreePath: task.worktreePath };
+      }
+      worktreeLog.warn('persisted worktree missing on disk, re-materializing', {
+        taskNumber,
+        worktreePath: task.worktreePath,
+      });
     }
 
     worktreeLog.info('starting task', { taskNumber, name: task.name });
