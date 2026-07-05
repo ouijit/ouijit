@@ -481,10 +481,9 @@ export function startTask(
   taskNumber: number,
   branchName?: string,
   baseBranch?: string,
-  sandboxed: boolean = false,
 ): Promise<TaskWorktreeResult> {
   return coalesceWorktreeOp(projectPath, taskNumber, () =>
-    startTaskImpl(projectPath, taskNumber, branchName, baseBranch, sandboxed),
+    startTaskImpl(projectPath, taskNumber, branchName, baseBranch),
   );
 }
 
