@@ -7,7 +7,7 @@ import { NonoSandboxSection } from './NonoSandboxSection';
 
 const BACKEND_DESCRIPTIONS: Record<SandboxBackendId, string> = {
   lima: 'Full Linux VM with its own filesystem. Boots an image, so it is slower to start.',
-  nono: 'Kernel-level access limits, no VM. Starts instantly, in place on the worktree.',
+  nono: 'Kernel-level access limits rather than a VM boundary. Starts instantly, in place on the worktree.',
 };
 
 /** Config surface per backend; keyed by id so a new backend is a compile error until wired. */
