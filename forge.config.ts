@@ -111,8 +111,9 @@ const config: ForgeConfig = {
             console.log(`Copied limactl from ${limactlSrc}`);
           }
 
-          // 4b. Copy nono binary (optional — absent means the nono backend
-          // resolves the binary from PATH instead, so this never blocks a build).
+          // 4b. Copy nono binary (vendored by download-nono.sh / build-linux.sh,
+          // same as limactl). The existsSync guard keeps a build working if the
+          // download step was skipped — the backend then resolves nono from PATH.
           const stagedNono = staging ? path.join(staging, 'bin', 'nono') : null;
           const nonoSrc = stagedNono && fs.existsSync(stagedNono)
             ? stagedNono
