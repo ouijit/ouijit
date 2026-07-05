@@ -33,6 +33,33 @@ const worktreeLog = getLogger().scope('worktree');
 const execAsync = promisify(exec);
 const execFileAsync = promisify(execFile);
 
+// Coalesces concurrent worktree materializations (start/recover) for the same
+// task. startTask persists worktreePath to the DB before the ignored-file copy
+// completes, so a second caller consulting the DB mid-copy (the idempotent
+// early return, CLI `ouijit task start`, open-terminal affordances) would be
+// handed a half-populated worktree and could run hooks against it, the same
+// corruption #112 fixed for the primary start path. Awaiting the in-flight
+// promise instead means every caller observes the copy's completion.
+const inFlightWorktreeOps = new Map<string, Promise<TaskWorktreeResult>>();
+
+function coalesceWorktreeOp(
+  projectPath: string,
+  taskNumber: number,
+  fn: () => Promise<TaskWorktreeResult>,
+): Promise<TaskWorktreeResult> {
+  const key = `${projectPath}::${taskNumber}`;
+  const existing = inFlightWorktreeOps.get(key);
+  if (existing) {
+    worktreeLog.info('worktree operation already in flight, awaiting it', { taskNumber });
+    return existing;
+  }
+  const run = fn().finally(() => {
+    inFlightWorktreeOps.delete(key);
+  });
+  inFlightWorktreeOps.set(key, run);
+  return run;
+}
+
 // Serializes the worktree path probe + `git worktree add` so two concurrent
 // startTask calls can't both probe to the same T-N path and race on create.
 let worktreeCreateMutex: Promise<unknown> = Promise.resolve();
@@ -64,15 +91,27 @@ function timer(): Timer {
 }
 
 // Native CoW clone support via koffi FFI
-// macOS: clonefile() clones files and directories atomically in one kernel call
+// macOS: clonefile() clones files and directories atomically in one kernel call.
+// Called via koffi's .async so the (potentially long, for big directory trees)
+// syscall runs on a worker thread instead of blocking the main-process event
+// loop. Cloning node_modules synchronously beachballed the UI (#59), and the
+// cp -c child-process workaround walked the tree file-by-file, making
+// quick-start worktrees ~10x slower than a single directory clone.
 // Linux: ioctl(FICLONE) for CoW file cloning on btrfs/xfs
-let clonefileFn: ((src: string, dst: string, flags: number) => number) | null = null;
+let clonefileAsync: ((src: string, dst: string) => Promise<number>) | null = null;
 let ficloneFn: ((destFd: number, srcFd: number) => boolean) | null = null;
 
 try {
   if (os.platform() === 'darwin') {
     const lib = koffi.load('libSystem.B.dylib');
-    clonefileFn = lib.func('clonefile', 'int', ['str', 'str', 'int']);
+    const clonefile = lib.func('clonefile', 'int', ['str', 'str', 'int']);
+    clonefileAsync = (src, dst) =>
+      new Promise((resolve, reject) => {
+        clonefile.async(src, dst, 0, (err: Error | null, result: number) => {
+          if (err) reject(err);
+          else resolve(result);
+        });
+      });
   } else if (os.platform() === 'linux') {
     const lib = koffi.load('libc.so.6');
     // ioctl is variadic — koffi requires '...' marker for correct ARM64 calling convention
@@ -193,9 +232,36 @@ async function copyGitIgnoredFiles(
   let cloneSyscalls = 0;
   let cpFallbacks = 0;
   let skipped = 0;
+  let itemCount = 0;
+  let crossVolume = false;
+  const slowest = { path: '', ms: 0 };
   try {
     const items = prefetchedItems ?? (await fetchIgnoredFiles(sourcePath));
+    itemCount = items.length;
     if (items.length === 0) return;
+
+    // CoW clones only work within a single volume. When the project and the
+    // worktree live on different devices, skip the doomed clone syscalls and
+    // go straight to cp, and say so in the log, because "quick start is slow"
+    // reports are often exactly this: every copy silently degrading to a full
+    // physical copy.
+    if (clonefileAsync || ficloneFn) {
+      try {
+        const [srcStat, dstStat] = await Promise.all([fs.stat(sourcePath), fs.stat(worktreePath)]);
+        crossVolume = srcStat.dev !== dstStat.dev;
+        if (crossVolume) {
+          worktreeLog.warn(
+            'project and worktree are on different volumes; CoW cloning unavailable, using full copies',
+            {
+              sourcePath,
+              worktreePath,
+            },
+          );
+        }
+      } catch {
+        /* stat failure: let the per-item clone attempts decide */
+      }
+    }
 
     await runWithConcurrency(items, COPY_CONCURRENCY, async (item) => {
       // Remove trailing slash if present (directories)
@@ -204,6 +270,14 @@ async function copyGitIgnoredFiles(
 
       const sourceItem = path.join(sourcePath, cleanItem);
       const destItem = path.join(worktreePath, cleanItem);
+      const itemStart = performance.now();
+      const recordDuration = () => {
+        const ms = performance.now() - itemStart;
+        if (ms > slowest.ms) {
+          slowest.ms = ms;
+          slowest.path = cleanItem;
+        }
+      };
 
       // Validate paths don't escape their roots (prevents path traversal attacks)
       if (!isPathWithinBase(sourcePath, sourceItem) || !isPathWithinBase(worktreePath, destItem)) {
@@ -226,19 +300,40 @@ async function copyGitIgnoredFiles(
         // Ensure parent directory exists
         await fs.mkdir(path.dirname(destItem), { recursive: true });
 
-        // macOS: clonefile() for individual files only — directories fall through
-        // to cp -c (child process) to avoid blocking the event loop on large trees
-        if (clonefileFn && stat.isFile()) {
-          if (clonefileFn(sourceItem, destItem, 0) === 0) {
+        // macOS: clonefile() clones files and whole directory trees (e.g.
+        // node_modules) in one kernel call, off the event loop
+        if (clonefileAsync && !crossVolume) {
+          // A failed syscall surfaces as result -1 (err null); a rejection means
+          // a koffi/worker-thread error. Catch here so either lands on the cp
+          // fallback below instead of the terminal catch, which would drop the
+          // item entirely and leave it missing from the worktree.
+          let cloneResult: number | null = null;
+          try {
+            cloneResult = await clonefileAsync(sourceItem, destItem);
+          } catch (error) {
+            worktreeLog.warn('clonefile threw, falling back to cp', {
+              path: cleanItem,
+              error: error instanceof Error ? error.message : String(error),
+            });
+          }
+          if (cloneResult === 0) {
             cloneSyscalls++;
-            copiedFiles++;
+            if (stat.isDirectory()) copiedDirs++;
+            else copiedFiles++;
             return;
           }
-          // Fall through to cp on failure (e.g. EEXIST from race with start script, non-APFS, cross-volume)
+          // Fall through to cp on failure (e.g. EEXIST from a leftover dest, non-APFS).
+          // Logged because a fallback here is the difference between an instant
+          // CoW clone and a full physical copy in "quick start is slow" reports.
+          worktreeLog.warn('clonefile failed, falling back to cp', { path: cleanItem });
+          if (stat.isDirectory()) {
+            // cp -R into an existing dest dir would nest the copy inside it
+            await fs.rm(destItem, { recursive: true, force: true }).catch(() => {});
+          }
         }
 
         // Linux: ioctl(FICLONE) for per-file CoW cloning on btrfs/xfs
-        if (ficloneFn && stat.isFile()) {
+        if (ficloneFn && !crossVolume && stat.isFile()) {
           let cloned = false;
           const srcHandle = await fs.open(sourceItem, 'r');
           try {
@@ -279,6 +374,8 @@ async function copyGitIgnoredFiles(
           path: cleanItem,
           error: error instanceof Error ? error.message : String(error),
         });
+      } finally {
+        recordDuration();
       }
     });
   } catch (error) {
@@ -289,12 +386,15 @@ async function copyGitIgnoredFiles(
   } finally {
     worktreeLog.info('copyGitIgnoredFiles', {
       ms: Math.round(performance.now() - t),
-      items: prefetchedItems?.length ?? 0,
+      items: itemCount,
       copiedFiles,
       copiedDirs,
       cloneSyscalls,
       cpFallbacks,
       skipped,
+      crossVolume,
+      slowestItem: slowest.path,
+      slowestMs: Math.round(slowest.ms),
     });
   }
 }
@@ -376,7 +476,19 @@ export async function createTodoTask(projectPath: string, name?: string, prompt?
   }
 }
 
-export async function startTask(
+export function startTask(
+  projectPath: string,
+  taskNumber: number,
+  branchName?: string,
+  baseBranch?: string,
+  sandboxed: boolean = false,
+): Promise<TaskWorktreeResult> {
+  return coalesceWorktreeOp(projectPath, taskNumber, () =>
+    startTaskImpl(projectPath, taskNumber, branchName, baseBranch, sandboxed),
+  );
+}
+
+async function startTaskImpl(
   projectPath: string,
   taskNumber: number,
   branchName?: string,
@@ -388,9 +500,25 @@ export async function startTask(
     t.mark('lookup');
     if (!task) return { success: false, error: 'Task not found' };
 
-    // Idempotent: if already started with a worktree, return success
+    // Idempotent: if already started and the worktree is still on disk, return
+    // success. Verify existence rather than trusting the persisted path: the
+    // directory may have been deleted out from under us (the case
+    // recoverTaskWorktree handles), and coalesceWorktreeOp shares its in-flight
+    // map with recover, so an unchecked early return here could short-circuit a
+    // concurrent recovery onto a stale, non-existent path. If it is gone, fall
+    // through and re-materialize the worktree.
     if (task.worktreePath) {
-      return { success: true, task, worktreePath: task.worktreePath };
+      const worktreeExists = await fs.access(task.worktreePath).then(
+        () => true,
+        () => false,
+      );
+      if (worktreeExists) {
+        return { success: true, task, worktreePath: task.worktreePath };
+      }
+      worktreeLog.warn('persisted worktree missing on disk, re-materializing', {
+        taskNumber,
+        worktreePath: task.worktreePath,
+      });
     }
 
     worktreeLog.info('starting task', { taskNumber, name: task.name });
@@ -737,7 +865,11 @@ export async function checkTaskWorktree(projectPath: string, taskNumber: number)
  * Recover a task whose worktree directory was deleted externally.
  * Prunes stale worktrees, then re-creates from the existing branch.
  */
-export async function recoverTaskWorktree(projectPath: string, taskNumber: number): Promise<TaskWorktreeResult> {
+export function recoverTaskWorktree(projectPath: string, taskNumber: number): Promise<TaskWorktreeResult> {
+  return coalesceWorktreeOp(projectPath, taskNumber, () => recoverTaskWorktreeImpl(projectPath, taskNumber));
+}
+
+async function recoverTaskWorktreeImpl(projectPath: string, taskNumber: number): Promise<TaskWorktreeResult> {
   try {
     const task = await getTaskByNumber(projectPath, taskNumber);
     if (!task) return { success: false, error: 'Task not found' };

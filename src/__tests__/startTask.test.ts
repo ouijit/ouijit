@@ -175,6 +175,45 @@ describe('startTask', () => {
     lstatSpy.mockRestore();
   });
 
+  test('a second start for the same task awaits the in-flight copy instead of returning early', async () => {
+    const project = '/test/start-coalesce';
+    await createTask(project, 1, 'Coalesce test', { status: 'todo' });
+
+    const { execFile } = await import('node:child_process');
+    vi.mocked(execFile).mockClear();
+
+    // Slow the copy down (lstat runs once per ignored item) so the second
+    // start arrives while worktreePath is already in the DB but the copy is
+    // still running. Returning early from the DB there would hand the caller
+    // a half-populated worktree.
+    let copyFinished = false;
+    const fs = await import('node:fs/promises');
+    const lstatSpy = vi.spyOn(fs, 'lstat').mockImplementation(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      copyFinished = true;
+      throw new Error('ENOENT');
+    });
+
+    const first = startTask(project, 1);
+    const second = startTask(project, 1).then((res) => ({ res, copyDoneAtResolve: copyFinished }));
+
+    const [r1, r2] = await Promise.all([first, second]);
+    expect(r1.success).toBe(true);
+    expect(r2.res.success).toBe(true);
+    expect(r2.copyDoneAtResolve).toBe(true);
+    expect(r2.res.worktreePath).toBe(r1.worktreePath);
+
+    // Coalesced: only one git worktree add across both calls
+    const wtAdds = vi
+      .mocked(execFile)
+      .mock.calls.filter(
+        ([file, args]) => file === 'git' && Array.isArray(args) && args[0] === 'worktree' && args[1] === 'add',
+      );
+    expect(wtAdds).toHaveLength(1);
+
+    lstatSpy.mockRestore();
+  });
+
   test('concurrent startTask calls do not race to claim the same T-N directory', async () => {
     const { execFile } = await import('node:child_process');
     const fs = await import('node:fs/promises');
