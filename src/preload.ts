@@ -69,9 +69,6 @@ contextBridge.exposeInMainWorld('api', {
   reorderProjects: (paths: string[]) => typedInvoke('reorder-projects', paths),
   setProjectIconColor: (projectPath: string, color: string | null) =>
     typedInvoke('settings:set-project-icon-color', projectPath, color),
-  getProjectSettings: (projectPath: string) => typedInvoke('get-project-settings', projectPath),
-  setKillExistingOnRun: (projectPath: string, kill: boolean) =>
-    typedInvoke('settings:set-kill-existing-on-run', projectPath, kill),
 
   getGitStatus: (projectPath: string) => typedInvoke('get-git-status', projectPath),
   getGitFileStatus: (projectPath: string, diffBase?: string) =>

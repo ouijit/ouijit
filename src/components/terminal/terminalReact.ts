@@ -821,7 +821,7 @@ export class OuijitTerminal {
   }
 
   addRunnerPanel(
-    script?: { name: string; command: string; source?: 'hook' | 'script' } | null,
+    script?: { name: string; command: string; source?: 'hook' | 'script'; restartIfRunning?: boolean } | null,
     activate = true,
   ): string {
     const id = generateId('panel');
@@ -832,6 +832,7 @@ export class OuijitTerminal {
       scriptCommand: script?.command ?? null,
       command: script?.command ?? null,
       source: script?.source ?? 'script',
+      restartIfRunning: script?.restartIfRunning ?? false,
       status: 'idle',
     };
     this.appendPanel(panel, activate);

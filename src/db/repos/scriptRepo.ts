@@ -7,6 +7,7 @@ export interface ScriptRow {
   name: string;
   command: string;
   sort_order: number;
+  restart_if_running: number;
 }
 
 export class ScriptRepo {
@@ -18,7 +19,7 @@ export class ScriptRepo {
       .all(projectPath) as ScriptRow[];
   }
 
-  save(projectPath: string, name: string, command: string, id?: string): ScriptRow {
+  save(projectPath: string, name: string, command: string, id?: string, restartIfRunning = false): ScriptRow {
     const scriptId = id ?? randomUUID();
 
     // For new scripts, assign sort_order after the last existing one
@@ -30,14 +31,15 @@ export class ScriptRepo {
     this.db
       .prepare(
         `
-      INSERT INTO scripts (id, project_path, name, command, sort_order)
-      VALUES (?, ?, ?, ?, ?)
+      INSERT INTO scripts (id, project_path, name, command, sort_order, restart_if_running)
+      VALUES (?, ?, ?, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET
         name = excluded.name,
-        command = excluded.command
+        command = excluded.command,
+        restart_if_running = excluded.restart_if_running
     `,
       )
-      .run(scriptId, projectPath, name, command, nextOrder);
+      .run(scriptId, projectPath, name, command, nextOrder, restartIfRunning ? 1 : 0);
 
     return this.db.prepare('SELECT * FROM scripts WHERE id = ?').get(scriptId) as ScriptRow;
   }

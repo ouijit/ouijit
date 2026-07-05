@@ -31,6 +31,7 @@ Free and open source. No account, no sign-in, no telemetry.
 - [Claude Code](https://claude.com/claude-code)
 - [Codex](https://github.com/openai/codex)
 - [Pi](https://pi.dev)
+- [OpenCode](https://opencode.ai)
 
 To request support for another harness, [open an issue](https://github.com/ouijit/ouijit/issues/new).
 
@@ -49,7 +50,7 @@ ouijit markdown add ./plan.md                 # open a markdown file as a panel
 ouijit preview add http://localhost:3000      # open a web preview panel
 ```
 
-The supported harnesses (Claude Code, Codex, Pi) know how to use it out of the box. Output is JSON on stdout for easy piping into `jq`. Full command list in the [docs](https://ouijit.com/docs/#cli).
+The supported harnesses (Claude Code, Codex, Pi, OpenCode) know how to use it out of the box. Output is JSON on stdout for easy piping into `jq`. Full command list in the [docs](https://ouijit.com/docs/#cli).
 
 ## Setup
 

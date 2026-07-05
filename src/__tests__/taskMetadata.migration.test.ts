@@ -6,7 +6,6 @@ import { app } from 'electron';
 import { _initTestDatabase, getDatabase } from '../db/database';
 import { ProjectRepo } from '../db/repos/projectRepo';
 import { TaskRepo } from '../db/repos/taskRepo';
-import { SettingsRepo } from '../db/repos/settingsRepo';
 import { HookRepo } from '../db/repos/hookRepo';
 import { importAll } from '../services/dataImportService';
 
@@ -20,7 +19,6 @@ describe('data import service', () => {
     const db = _initTestDatabase();
     const projectRepo = new ProjectRepo(db);
     const taskRepo = new TaskRepo(db);
-    const settingsRepo = new SettingsRepo(db);
     const hookRepo = new HookRepo(db);
 
     // Remove marker file if exists
@@ -31,11 +29,11 @@ describe('data import service', () => {
       /* ignore */
     }
 
-    return { db, projectRepo, taskRepo, settingsRepo, hookRepo };
+    return { db, projectRepo, taskRepo, hookRepo };
   }
 
   test('imports tasks from task-metadata.json', async () => {
-    const { db, projectRepo, taskRepo, settingsRepo, hookRepo } = setupImport();
+    const { db, projectRepo, taskRepo, hookRepo } = setupImport();
     const userData = app.getPath('userData');
 
     // Write a fake task-metadata.json
@@ -66,7 +64,7 @@ describe('data import service', () => {
     };
     fs.writeFileSync(path.join(userData, 'task-metadata.json'), JSON.stringify(taskStore));
 
-    const result = await importAll(db, projectRepo, taskRepo, settingsRepo, hookRepo);
+    const result = await importAll(db, projectRepo, taskRepo, hookRepo);
 
     expect(result.projectsImported).toBeGreaterThanOrEqual(1);
     expect(result.tasksImported).toBe(2);
@@ -84,7 +82,7 @@ describe('data import service', () => {
   });
 
   test('migrates v1 statuses during import', async () => {
-    const { db, projectRepo, taskRepo, settingsRepo, hookRepo } = setupImport();
+    const { db, projectRepo, taskRepo, hookRepo } = setupImport();
     const userData = app.getPath('userData');
 
     const taskStore = {
@@ -105,7 +103,7 @@ describe('data import service', () => {
     };
     fs.writeFileSync(path.join(userData, 'task-metadata.json'), JSON.stringify(taskStore));
 
-    await importAll(db, projectRepo, taskRepo, settingsRepo, hookRepo);
+    await importAll(db, projectRepo, taskRepo, hookRepo);
 
     const tasks = taskRepo.getAllForProject('/projects/legacy');
     expect(tasks.find((t) => t.task_number === 1)?.status).toBe('in_progress');
@@ -114,7 +112,7 @@ describe('data import service', () => {
   });
 
   test('imports hooks from project-settings.json', async () => {
-    const { db, projectRepo, taskRepo, settingsRepo, hookRepo } = setupImport();
+    const { db, projectRepo, taskRepo, hookRepo } = setupImport();
     const userData = app.getPath('userData');
 
     const settingsStore = {
@@ -123,29 +121,24 @@ describe('data import service', () => {
           start: { id: 'h1', type: 'start', name: 'Setup', command: 'npm install' },
           cleanup: { id: 'h2', type: 'cleanup', name: 'Clean', command: 'rm -rf tmp' },
         },
-        killExistingOnRun: true,
       },
     };
     fs.writeFileSync(path.join(userData, 'project-settings.json'), JSON.stringify(settingsStore));
 
-    const result = await importAll(db, projectRepo, taskRepo, settingsRepo, hookRepo);
+    const result = await importAll(db, projectRepo, taskRepo, hookRepo);
 
     expect(result.hooksImported).toBe(2);
-    expect(result.settingsImported).toBe(1);
 
     const hooks = hookRepo.getForProject('/projects/hooked');
     expect(hooks).toHaveLength(2);
     expect(hooks.find((h) => h.type === 'start')?.command).toBe('npm install');
-
-    const settings = settingsRepo.get('/projects/hooked');
-    expect(settings?.kill_existing_on_run).toBe(1);
   });
 
   test('writes marker file and skips on subsequent runs', async () => {
-    const { db, projectRepo, taskRepo, settingsRepo, hookRepo } = setupImport();
+    const { db, projectRepo, taskRepo, hookRepo } = setupImport();
 
     // First run should succeed
-    const result1 = await importAll(db, projectRepo, taskRepo, settingsRepo, hookRepo);
+    const result1 = await importAll(db, projectRepo, taskRepo, hookRepo);
     expect(result1).toBeDefined();
 
     // Marker file should exist
@@ -153,7 +146,7 @@ describe('data import service', () => {
     expect(fs.existsSync(markerPath)).toBe(true);
 
     // Second run should be a no-op
-    const result2 = await importAll(db, projectRepo, taskRepo, settingsRepo, hookRepo);
+    const result2 = await importAll(db, projectRepo, taskRepo, hookRepo);
     expect(result2.projectsImported).toBe(0);
     expect(result2.tasksImported).toBe(0);
   });
@@ -225,7 +218,7 @@ describe('data import service', () => {
       };
       fs.writeFileSync(path.join(userData, 'task-metadata.json'), JSON.stringify(taskStore));
 
-      // 3. project-settings.json — hooks + sandbox + killExisting
+      // 3. project-settings.json — hooks (dedup with task-metadata project)
       //    /projects/myapp appears in both task-metadata AND settings (dedup)
       const settingsStore = {
         '/projects/myapp': {
@@ -233,7 +226,6 @@ describe('data import service', () => {
             start: { id: 'h1', type: 'start', name: 'Setup', command: 'npm install' },
             cleanup: { id: 'h2', type: 'cleanup', name: 'Clean', command: 'rm -rf tmp', description: 'Tidy up' },
           },
-          killExistingOnRun: true,
         },
       };
       fs.writeFileSync(path.join(userData, 'project-settings.json'), JSON.stringify(settingsStore));
@@ -241,12 +233,11 @@ describe('data import service', () => {
       // ── Run import using the barrel's DB ────────────────────────────
 
       const db = getDatabase();
-      const result = await importAll(db, new ProjectRepo(db), new TaskRepo(db), new SettingsRepo(db), new HookRepo(db));
+      const result = await importAll(db, new ProjectRepo(db), new TaskRepo(db), new HookRepo(db));
 
       expect(result.errors).toHaveLength(0);
       expect(result.tasksImported).toBe(3);
       expect(result.hooksImported).toBe(2);
-      expect(result.settingsImported).toBe(1);
 
       // ── Read back through barrel module (public API) ────────────────
 
@@ -285,7 +276,6 @@ describe('data import service', () => {
       expect(settings.hooks?.start?.command).toBe('npm install');
       expect(settings.hooks?.done?.command).toBe('rm -rf tmp');
       expect(settings.hooks?.done?.description).toBe('Tidy up');
-      expect(settings.killExistingOnRun).toBe(true);
 
       // Hook lookup by type
       const startHook = await barrel.getHook('/projects/myapp', 'start');
@@ -308,7 +298,7 @@ describe('data import service', () => {
   });
 
   test('imports added projects from added-projects.json', async () => {
-    const { db, projectRepo, taskRepo, settingsRepo, hookRepo } = setupImport();
+    const { db, projectRepo, taskRepo, hookRepo } = setupImport();
 
     // Use a temp directory instead of real home to avoid touching ~/Ouijit/
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ouijit-test-'));
@@ -322,7 +312,7 @@ describe('data import service', () => {
         JSON.stringify({ projects: ['/tmp/test-project-import'] }),
       );
 
-      const result = await importAll(db, projectRepo, taskRepo, settingsRepo, hookRepo);
+      const result = await importAll(db, projectRepo, taskRepo, hookRepo);
       expect(result.projectsImported).toBeGreaterThanOrEqual(1);
 
       const project = projectRepo.getByPath('/tmp/test-project-import');

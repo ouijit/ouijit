@@ -43,8 +43,6 @@ const mockApi = {
   reorderProjects: vi.fn().mockResolvedValue({ success: true }),
   setProjectIconColor: vi.fn().mockResolvedValue({ success: true }),
   onFullscreenChange: vi.fn().mockReturnValue(() => {}),
-  getProjectSettings: vi.fn().mockResolvedValue({}),
-  setKillExistingOnRun: vi.fn().mockResolvedValue({ success: true }),
   getPathForFile: vi.fn().mockReturnValue(''),
   homePath: vi.fn().mockResolvedValue('/Users/test'),
   pty: {

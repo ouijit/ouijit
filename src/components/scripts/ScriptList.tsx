@@ -6,6 +6,7 @@ import { DndContext, closestCenter, PointerSensor, useSensor, useSensors, type D
 import { SortableContext, useSortable, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { ScriptRowView } from './ScriptRowView';
+import { Checkbox } from '../ui/Checkbox';
 
 interface ScriptListProps {
   projectPath: string;
@@ -189,6 +190,7 @@ function ScriptForm({
 }) {
   const [name, setName] = useState(initial?.name ?? '');
   const [command, setCommand] = useState(initial?.command ?? '');
+  const [restartIfRunning, setRestartIfRunning] = useState(initial?.restartIfRunning ?? false);
   const nameRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -206,8 +208,9 @@ function ScriptForm({
       name: trimmedName,
       command: trimmedCommand,
       sortOrder: initial?.sortOrder ?? 0,
+      restartIfRunning,
     });
-  }, [name, command, initial, onSave]);
+  }, [name, command, restartIfRunning, initial, onSave]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -246,6 +249,12 @@ function ScriptForm({
           placeholder="e.g. npm run lint"
         />
       </div>
+      <Checkbox
+        checked={restartIfRunning}
+        onChange={setRestartIfRunning}
+        label="Restart if it's already running in the task"
+        textClassName="text-[11px] text-text-secondary"
+      />
       <div className="flex items-center gap-2 pt-1">
         {onDelete && (
           <button
