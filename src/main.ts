@@ -1,4 +1,4 @@
-import { app, BrowserWindow, dialog, shell } from 'electron';
+import { app, BrowserWindow, Menu, dialog, shell } from 'electron';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 import started from 'electron-squirrel-startup';
@@ -29,6 +29,7 @@ import {
 } from './capture/captureMode';
 import { seedCaptureFixture } from './capture/fixture';
 import { registerStaticToken } from './apiAuth';
+import { buildAppMenu } from './appMenu';
 
 /** Wraps electron-log to the Logger interface */
 function createElectronLogAdapter(electronLog: typeof log): Logger {
@@ -264,6 +265,12 @@ app.on('ready', async () => {
 
   mainWindow = createWindow();
   await registerIpcHandlers(mainWindow);
+
+  // Dev only: replace the default menu with one that carries a "Dev instance"
+  // label under Help, identifying this window's worktree + dev-server port.
+  // Returns null (keeping Electron's default menu) in packaged builds.
+  const appMenu = buildAppMenu({ devServerUrl: MAIN_WINDOW_VITE_DEV_SERVER_URL, appPath: app.getAppPath() });
+  if (appMenu) Menu.setApplicationMenu(appMenu);
 
   if (isCaptureMode()) {
     // Write the hook server port + actual window bounds to a well-known
