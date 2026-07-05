@@ -330,7 +330,8 @@ git branch --show-current</code></pre>
         </ul>
 
         <h2>nono</h2>
-        <p><a href="https://github.com/always-further/nono" target="_blank" rel="noopener">nono</a> runs a task's commands in place on the host worktree under kernel-level access limits (Seatbelt on macOS, Landlock on Linux). There is no VM and no file sync, so it starts instantly. Compared to the Lima VM it is a lighter boundary: a kernel access policy on a host process rather than a separate machine.</p>
+        <p><a href="https://github.com/nolabs-ai/nono" target="_blank" rel="noopener">nono</a> runs a task's commands in place on the host worktree under kernel-level access limits (Seatbelt on macOS, Landlock on Linux). There is no VM and no file sync, so it starts instantly. Compared to the Lima VM it is a lighter boundary: a kernel access policy on a host process rather than a separate machine.</p>
+        <p>nono is currently experimental. Turn it on under <strong>Project Settings &rarr; Experimental</strong>; the <strong>nono sandbox</strong> entry then appears in a task's <strong>Open in</strong> menu.</p>
 
         <h3>What it does</h3>
         <p>Terminals and hooks run on the real worktree, wrapped by <code>nono</code>. Filesystem access is limited to the worktree and the repo's git data, with the same read/write overlays at <code>objects/</code>, <code>refs/</code>, <code>logs/</code>, <code>worktrees/</code> so commits land while <code>hooks/</code> and <code>config</code> stay read-only. Ouijit derives these grants from the task's worktree path at spawn time. Network is allowed by default; the local hook-server port stays reachable so agent status still reports back.</p>

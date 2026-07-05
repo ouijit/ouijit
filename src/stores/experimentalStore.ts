@@ -1,15 +1,15 @@
 import { create } from 'zustand';
 import log from 'electron-log/renderer';
+import {
+  type ExperimentalFlags,
+  DEFAULT_EXPERIMENTAL_FLAGS,
+  experimentalStorageKey,
+  parseExperimentalFlags,
+} from '../experimentalFlags';
 
 const experimentalLog = log.scope('experimental');
 
-export interface ExperimentalFlags {
-  canvas: boolean;
-}
-
-const DEFAULT_FLAGS: ExperimentalFlags = {
-  canvas: false,
-};
+export type { ExperimentalFlags };
 
 interface ExperimentalStoreState {
   flagsByProject: Record<string, ExperimentalFlags>;
@@ -27,23 +27,18 @@ interface ExperimentalStoreActions {
 
 type ExperimentalStore = ExperimentalStoreState & ExperimentalStoreActions;
 
-function storageKey(projectPath: string): string {
-  return 'experimental:' + projectPath;
-}
-
 export const useExperimentalStore = create<ExperimentalStore>()((set, get) => ({
   flagsByProject: {},
 
-  getFlags: (projectPath) => get().flagsByProject[projectPath] ?? DEFAULT_FLAGS,
+  getFlags: (projectPath) => get().flagsByProject[projectPath] ?? DEFAULT_EXPERIMENTAL_FLAGS,
 
   loadFor: async (projectPath) => {
     try {
-      const json = await window.api.globalSettings.get(storageKey(projectPath));
-      const parsed = json ? (JSON.parse(json) as Partial<ExperimentalFlags>) : {};
+      const json = await window.api.globalSettings.get(experimentalStorageKey(projectPath));
       set((s) => ({
         flagsByProject: {
           ...s.flagsByProject,
-          [projectPath]: { ...DEFAULT_FLAGS, ...parsed },
+          [projectPath]: parseExperimentalFlags(json),
         },
       }));
     } catch (error) {
@@ -52,19 +47,19 @@ export const useExperimentalStore = create<ExperimentalStore>()((set, get) => ({
         error: error instanceof Error ? error.message : String(error),
       });
       set((s) => ({
-        flagsByProject: { ...s.flagsByProject, [projectPath]: { ...DEFAULT_FLAGS } },
+        flagsByProject: { ...s.flagsByProject, [projectPath]: { ...DEFAULT_EXPERIMENTAL_FLAGS } },
       }));
     }
   },
 
   setFlag: async (projectPath, name, value) => {
-    const current = get().flagsByProject[projectPath] ?? DEFAULT_FLAGS;
+    const current = get().flagsByProject[projectPath] ?? DEFAULT_EXPERIMENTAL_FLAGS;
     const next = { ...current, [name]: value };
     set((s) => ({
       flagsByProject: { ...s.flagsByProject, [projectPath]: next },
     }));
     try {
-      await window.api.globalSettings.set(storageKey(projectPath), JSON.stringify(next));
+      await window.api.globalSettings.set(experimentalStorageKey(projectPath), JSON.stringify(next));
     } catch (error) {
       experimentalLog.error('failed to persist flag', {
         projectPath,
