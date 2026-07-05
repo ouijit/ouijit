@@ -9,6 +9,7 @@ import { addProjectTerminal } from './terminal/terminalActions';
 import { focusKanbanAddInput } from './kanban/KanbanAddInput';
 import { Tooltip } from './ui/Tooltip';
 import { TooltipButton } from './ui/TooltipButton';
+import { DevInstanceBadge } from './DevInstanceBadge';
 
 const isMac = navigator.platform.toLowerCase().includes('mac');
 
@@ -213,6 +214,7 @@ export function TitleBar({ mode }: TitleBarProps) {
             </Tooltip>
           </div>
         ) : null}
+        <DevInstanceBadge />
       </div>
     </header>
   );
