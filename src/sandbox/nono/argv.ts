@@ -19,6 +19,17 @@ export interface NonoArgvContext {
    * the CLI is unreadable and every `ouijit …` call dies. Empty when unresolved.
    */
   cliDir?: string;
+  /**
+   * Per-project package-manager cache dir (outside the worktree), granted
+   * read+write so `npm install` and friends can write their caches without
+   * opening the real home-dir caches. Empty when unresolved.
+   */
+  cacheDir?: string;
+  /**
+   * Profile to run under. Defaults to Ouijit's managed `ouijit` profile; a
+   * per-project override profile (the profile editor) replaces it by name.
+   */
+  profileName?: string;
   config?: NonoConfig;
 }
 
@@ -47,7 +58,8 @@ export interface NonoArgvContext {
  */
 export function buildNonoLaunch(nonoPath: string, launch: SandboxLaunch, ctx: NonoArgvContext): SandboxLaunch {
   const git = ctx.mainGitDir;
-  const args: string[] = ['run', '--profile', OUIJIT_PROFILE_NAME, '--startup-timeout', '0', '--allow-cwd'];
+  const profile = ctx.profileName ?? OUIJIT_PROFILE_NAME;
+  const args: string[] = ['run', '--profile', profile, '--startup-timeout', '0', '--allow-cwd'];
 
   if (ctx.config?.blockNet) args.push('--block-net');
 
@@ -59,6 +71,9 @@ export function buildNonoLaunch(nonoPath: string, launch: SandboxLaunch, ctx: No
   }
 
   args.push('--allow', ctx.worktreePath);
+  // Per-project package-manager cache dir, so installs write their caches here
+  // instead of failing on the read-only home caches.
+  if (ctx.cacheDir) args.push('--allow', ctx.cacheDir);
   // Extra user-granted folders (read+write), e.g. a shared cache or a monorepo
   // sibling that lives outside the worktree.
   for (const extra of ctx.config?.allowPaths ?? []) {

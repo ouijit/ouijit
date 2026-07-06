@@ -1,6 +1,7 @@
 import * as os from 'node:os';
 import * as path from 'node:path';
 import * as fs from 'node:fs/promises';
+import { createHash } from 'node:crypto';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { getLogger } from '../../logger';
@@ -140,6 +141,42 @@ async function pathExists(p: string): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+/** Deterministic per-project profile name for a developer's override profile. */
+export function projectProfileName(projectPath: string): string {
+  const hash = createHash('sha1').update(projectPath).digest('hex').slice(0, 10);
+  return `${OUIJIT_PROFILE_NAME}-${hash}`;
+}
+
+/**
+ * Resolve the profile a spawn runs under. With no override, the managed
+ * `ouijit` profile. With an override (the profile editor), write the
+ * developer's raw profile JSON to a per-project profile file and return its
+ * name so `nono run --profile` resolves it. `meta.name` is forced to the
+ * filename so a hand-edited profile can't drift from the name we pass. Invalid
+ * JSON falls back to the managed profile (logged) rather than blocking the
+ * spawn — the editor surfaces parse errors separately at save time.
+ */
+export async function ensureProjectProfile(projectPath: string, override: string | undefined): Promise<string> {
+  if (!override || override.trim().length === 0) return OUIJIT_PROFILE_NAME;
+  const name = projectProfileName(projectPath);
+  let parsed: Record<string, unknown>;
+  try {
+    parsed = JSON.parse(override) as Record<string, unknown>;
+  } catch (error) {
+    nonoLog.warn('invalid nono profile override; falling back to the managed profile', {
+      projectPath,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return OUIJIT_PROFILE_NAME;
+  }
+  const meta = typeof parsed.meta === 'object' && parsed.meta !== null ? (parsed.meta as Record<string, unknown>) : {};
+  const withName = { ...parsed, meta: { ...meta, name } };
+  const profilesDir = path.join(nonoConfigRoot(), 'profiles');
+  await fs.mkdir(profilesDir, { recursive: true });
+  await fs.writeFile(path.join(profilesDir, `${name}.json`), `${JSON.stringify(withName, null, 2)}\n`, 'utf8');
+  return name;
 }
 
 /** Write the union profile JSON, skipping the write when the file already matches. */

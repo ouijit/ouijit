@@ -24,6 +24,7 @@ export async function getNonoConfig(projectPath: string): Promise<NonoConfig> {
       allowPaths: Array.isArray(parsed.allowPaths)
         ? parsed.allowPaths.filter((p) => typeof p === 'string' && p.length > 0)
         : undefined,
+      profile: typeof parsed.profile === 'string' && parsed.profile.trim().length > 0 ? parsed.profile : undefined,
     };
   } catch (error) {
     nonoLog.warn('failed to parse nono config; using defaults', {

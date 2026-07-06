@@ -12,9 +12,17 @@ const PILL_BTN =
   'shrink-0 text-xs font-medium text-text-secondary bg-background-secondary border border-black/60 rounded-[10px] px-2.5 py-1.5 hover:bg-background-tertiary hover:text-text-primary transition-colors';
 
 /** Config surface for the nono backend. Controls only — no exposition. */
+const STARTER_PROFILE = `{
+  "extends": "ouijit"
+}
+`;
+
 export function NonoSandboxSection({ projectPath }: NonoSandboxSectionProps) {
   const [config, setConfig] = useState<NonoConfig>({});
   const [portDraft, setPortDraft] = useState('');
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [profileDraft, setProfileDraft] = useState('');
+  const [profileError, setProfileError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -54,6 +62,31 @@ export function NonoSandboxSection({ projectPath }: NonoSandboxSectionProps) {
     setPortDraft('');
   };
   const removePort = (n: number) => save({ ...config, openPorts: openPorts.filter((x) => x !== n) });
+
+  const openProfileEditor = () => {
+    setProfileDraft(config.profile && config.profile.trim().length > 0 ? config.profile : STARTER_PROFILE);
+    setProfileError(null);
+    setProfileOpen(true);
+  };
+  const saveProfile = () => {
+    const text = profileDraft.trim();
+    if (text.length > 0) {
+      try {
+        JSON.parse(text);
+      } catch (e) {
+        setProfileError(e instanceof Error ? e.message : 'Invalid JSON');
+        return;
+      }
+    }
+    setProfileError(null);
+    save({ ...config, profile: text.length > 0 ? text : undefined });
+    setProfileOpen(false);
+  };
+  const resetProfile = () => {
+    setProfileError(null);
+    save({ ...config, profile: undefined });
+    setProfileOpen(false);
+  };
 
   return (
     <div className="flex flex-col gap-3">
@@ -143,6 +176,59 @@ export function NonoSandboxSection({ projectPath }: NonoSandboxSectionProps) {
                   </button>
                 </span>
               ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Sandbox profile — full escape hatch, peer to Lima's YAML editor */}
+      <div className={CARD}>
+        <div className="flex flex-col gap-2 px-4 py-3">
+          <div className="flex items-center justify-between gap-4">
+            <div className="min-w-0">
+              <div className="text-sm text-text-primary">Sandbox profile</div>
+              <div className="mt-0.5 text-xs text-text-tertiary">
+                {config.profile
+                  ? 'Using a custom profile for this project.'
+                  : 'Edit this project’s nono policy directly. Ouijit still grants the worktree, git data, hook port, and caches on top.'}
+              </div>
+            </div>
+            {!profileOpen && (
+              <button type="button" onClick={openProfileEditor} className={PILL_BTN}>
+                {config.profile ? 'Edit' : 'Customize'}
+              </button>
+            )}
+          </div>
+          {profileOpen && (
+            <div className="flex flex-col gap-2">
+              <textarea
+                value={profileDraft}
+                onChange={(e) => {
+                  setProfileDraft(e.target.value);
+                  setProfileError(null);
+                }}
+                spellCheck={false}
+                aria-label="nono profile JSON"
+                className="h-56 w-full resize-y rounded-[10px] border border-black/60 bg-background-secondary px-3 py-2 font-mono text-xs leading-relaxed text-text-primary outline-none"
+              />
+              {profileError && <div className="text-xs text-red-400">{profileError}</div>}
+              <div className="flex items-center gap-1.5">
+                <button type="button" onClick={saveProfile} className={PILL_BTN}>
+                  Save
+                </button>
+                <button type="button" onClick={() => setProfileOpen(false)} className={PILL_BTN}>
+                  Cancel
+                </button>
+                {config.profile && (
+                  <button
+                    type="button"
+                    onClick={resetProfile}
+                    className="ml-auto text-xs text-text-tertiary hover:text-text-primary"
+                  >
+                    Reset to default
+                  </button>
+                )}
+              </div>
             </div>
           )}
         </div>

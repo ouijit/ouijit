@@ -22,6 +22,8 @@ vi.mock('../sandbox/nono/config', () => ({
 vi.mock('../sandbox/nono/profile', () => ({
   OUIJIT_PROFILE_NAME: 'ouijit',
   ensureUnionProfile: () => ensureUnionProfile(),
+  ensureProjectProfile: (_p: string, override: string | undefined) =>
+    Promise.resolve(override ? 'ouijit-local' : 'ouijit'),
 }));
 vi.mock('../hookServer', () => ({
   getWrapperBinDir: () => '/Users/dev/.config/Ouijit/bin',
@@ -58,7 +60,11 @@ describe('nonoProvider', () => {
   test('prepare leaves cwd unchanged, installs the union profile, and signals the shell to disable denied history', async () => {
     const result = await nonoProvider.prepare(ctx);
     expect(result.cwd).toBe('/Users/dev/wt/T-3');
-    expect(result.env).toEqual({ OUIJIT_SANDBOX_NO_HISTORY: '1' });
+    expect(result.env?.OUIJIT_SANDBOX_NO_HISTORY).toBe('1');
+    // Package-manager caches are redirected into the per-project sandbox cache
+    // dir; only caches are relocated, never CARGO_HOME (credentials/binaries).
+    expect(result.env?.npm_config_cache).toMatch(/sandbox-cache\/.+\/npm$/);
+    expect(result.env?.CARGO_HOME).toBeUndefined();
     expect(ensureUnionProfile).toHaveBeenCalledTimes(1);
   });
 

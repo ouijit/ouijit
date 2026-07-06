@@ -37,6 +37,22 @@ describe('buildNonoLaunch', () => {
     expect(args[args.indexOf('--allow') + 1]).toBe('/Users/dev/Ouijit/worktrees/proj/T-5');
   });
 
+  test('reflects per-project overrides: the cache-dir grant and the override profile name', () => {
+    const allowsOf = (args: string[]): string[] =>
+      args.reduce<string[]>((acc, a, i) => (a === '--allow' ? [...acc, args[i + 1]] : acc), []);
+
+    // With overrides: runs under the override profile, and the cache dir is
+    // granted read+write alongside the worktree.
+    const over = build({ cacheDir: '/data/sandbox-cache/abc123', profileName: 'ouijit-9f8e7d6c5b' });
+    expect(over.args.slice(0, 3)).toEqual(['run', '--profile', 'ouijit-9f8e7d6c5b']);
+    expect(allowsOf(over.args)).toEqual(['/Users/dev/Ouijit/worktrees/proj/T-5', '/data/sandbox-cache/abc123']);
+
+    // Without overrides: the managed profile, and only the worktree is granted.
+    const base = build();
+    expect(base.args.slice(0, 3)).toEqual(['run', '--profile', 'ouijit']);
+    expect(allowsOf(base.args)).toEqual(['/Users/dev/Ouijit/worktrees/proj/T-5']);
+  });
+
   test('grants the MAIN repo .git read-only with the writable overlay subdirs', () => {
     const { args } = build();
     // Read-only base is the main common dir, not the worktree's .git file.

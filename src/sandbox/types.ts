@@ -97,4 +97,12 @@ export interface NonoConfig {
   openPorts?: number[];
   /** Extra folders granted read+write beyond the derived worktree + git grants. */
   allowPaths?: string[];
+  /**
+   * Full escape hatch: a raw nono profile (JSON text) that replaces Ouijit's
+   * managed `ouijit` profile for this project. Peer to Lima's YAML editor —
+   * the developer owns the sandbox policy. Blank/absent means the managed
+   * profile is used. Ouijit still layers the per-task grants (worktree, git,
+   * hook port, caches) on top at spawn time regardless of what this contains.
+   */
+  profile?: string;
 }
