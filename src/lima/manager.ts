@@ -5,11 +5,11 @@ import * as path from 'node:path';
 import * as fs from 'node:fs/promises';
 import * as fsSync from 'node:fs';
 import * as os from 'node:os';
-import type { LimaInstance, SandboxStatus } from './types';
+import type { LimaInstance, LimaStatus } from './types';
 import { buildFinalConfig } from './configStore';
 import { buildProjectMounts } from './config';
 import { getLogger } from '../logger';
-import { getUserDataPath } from '../paths';
+import { getUserDataPath, resolveBundledBinary, isBundledBinaryInstalled } from '../paths';
 
 const limaLog = getLogger().scope('lima');
 
@@ -37,13 +37,7 @@ function contextualizeError(msg: string): string {
 
 /** Get the path to the bundled limactl binary */
 export function getLimactlPath(): string {
-  const bundled = path.join(process.resourcesPath ?? '', 'bin', 'limactl');
-  try {
-    fsSync.accessSync(bundled, fsSync.constants.X_OK);
-    return bundled;
-  } catch {
-    return 'limactl';
-  }
+  return resolveBundledBinary('limactl');
 }
 
 /**
@@ -70,9 +64,19 @@ const LIMACTL_HOST_ENV_ALLOWLIST: readonly string[] = [
   'TMPDIR',
 ];
 
-/** Path used as LIMA_HOME for all `limactl` invocations. */
+/**
+ * Path used as LIMA_HOME for all `limactl` invocations.
+ *
+ * Anchored at `~/.ouijit/` rather than under `Library/Application Support/…`:
+ * Lima's SSH control socket is `{LIMA_HOME}/{instance}/ssh.sock.<nonce>` and
+ * must fit macOS's UNIX_PATH_MAX (104). The deep Application Support path plus
+ * the per-worktree dev suffix overflows that limit, so we keep LIMA_HOME
+ * shallow while mirroring the userData dir's name for the same per-worktree
+ * isolation (`ouijit` → `lima`, `ouijit-dev-<hash>` → `lima-dev-<hash>`).
+ */
 function getLimaHome(): string {
-  return path.join(getUserDataPath(), 'lima');
+  const dir = path.basename(getUserDataPath()).replace(/^ouijit/, 'lima');
+  return path.join(os.homedir(), '.ouijit', dir);
 }
 
 /**
@@ -100,19 +104,14 @@ export function getLimaEnv(): Record<string, string> {
  * Check if limactl is available (bundled binary or system PATH)
  */
 export async function isLimaInstalled(): Promise<boolean> {
-  if (getLimactlPath() !== 'limactl') return true;
-  try {
-    await execFileAsync('which', ['limactl']);
-    return true;
-  } catch {
-    return false;
-  }
+  return isBundledBinaryInstalled('limactl');
 }
 
 /**
  * Derive a stable, short instance name from a project path.
- * Uses a 12-char hex hash to stay well under the macOS UNIX socket
- * path limit (104 bytes) regardless of LIMA_HOME length.
+ * Uses a 12-char hex hash to keep the Lima SSH socket path
+ * (`{LIMA_HOME}/{instance}/ssh.sock.<nonce>`) under the macOS
+ * UNIX socket limit (104 bytes); `getLimaHome` keeps the prefix shallow.
  */
 export function getInstanceName(projectPath: string): string {
   const hash = createHash('sha256').update(projectPath).digest('hex').slice(0, 12);
@@ -463,9 +462,9 @@ export async function ensureRunning(
 }
 
 /**
- * Get the sandbox status for a project, mapping Lima instance status to UI-level SandboxStatus.
+ * Get the sandbox status for a project, mapping Lima instance status to UI-level LimaStatus.
  */
-export async function getLimaStatus(projectPath: string): Promise<SandboxStatus> {
+export async function getLimaStatus(projectPath: string): Promise<LimaStatus> {
   const available = await isLimaInstalled();
   if (!available) {
     return { available: false, vmStatus: 'Unavailable' };
@@ -474,7 +473,7 @@ export async function getLimaStatus(projectPath: string): Promise<SandboxStatus>
   const instanceName = getInstanceName(projectPath);
   const instance = await getInstance(instanceName);
 
-  let vmStatus: SandboxStatus['vmStatus'];
+  let vmStatus: LimaStatus['vmStatus'];
   switch (instance.status) {
     case 'Running':
       vmStatus = 'Running';

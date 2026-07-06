@@ -21,8 +21,17 @@ export type { TaskStatus, TaskMetadata } from './db';
 export type { TagRow } from './db';
 // Re-export PTY session type from ptyManager.ts (single source of truth)
 export type { ActiveSession } from './ptyManager';
-// Re-export sandbox status from lima/types.ts (single source of truth)
-export type { SandboxStatus } from './lima/types';
+// Re-export the VM-shaped Lima status (single source of truth)
+export type { LimaStatus } from './lima/types';
+// Re-export the cross-provider sandbox types (single source of truth)
+export type {
+  SandboxProviderId,
+  SandboxBackendId,
+  SandboxProviderStatus,
+  SandboxCapabilities,
+  NonoConfig,
+} from './sandbox/types';
+export { SANDBOX_BACKEND_LABELS, legacySandboxProvider, isActiveSandbox } from './sandbox/types';
 // Re-export hook status types from hookServer.ts (single source of truth)
 export type { HookStatus, HookStatusEntry } from './hookServer';
 
@@ -31,7 +40,8 @@ import type { GitStatus, GitFileStatus, GitDropdownInfo, FileDiff, WorktreeDiffS
 import type { TaskWorktreeResult, WorktreeInfo, WorktreeRemoveResult, CheckWorktreeResult } from './worktree';
 import type { TaskStatus, TagRow } from './db';
 import type { ActiveSession } from './ptyManager';
-import type { SandboxStatus } from './lima/types';
+import type { LimaStatus } from './lima/types';
+import type { SandboxProviderId, SandboxProviderStatus, NonoConfig } from './sandbox/types';
 import type { HookStatus, HookStatusEntry } from './hookServer';
 
 /**
@@ -98,7 +108,10 @@ export interface SnapshotTerminal {
   taskNumber: number | null;
   worktreePath: string | null;
   worktreeBranch: string | null;
-  sandboxed: boolean;
+  /** Sandbox backend for the terminal; omitted/'none' for a host shell. */
+  sandboxProvider?: SandboxProviderId;
+  /** @deprecated Legacy boolean read on restore of pre-provider snapshots. */
+  sandboxed?: boolean;
   label: string | null;
   ordinalInProject: number;
   isActiveInProject: boolean;
@@ -264,8 +277,8 @@ export interface PtySpawnOptions {
   parentPtyId?: PtyId;
   /** Additional environment variables to set */
   env?: Record<string, string>;
-  /** Whether to run this terminal inside a Lima sandbox VM */
-  sandboxed?: boolean;
+  /** Which sandbox backend runs this terminal, or omitted/'none' for a host shell. */
+  sandboxProvider?: SandboxProviderId;
 }
 
 /**
@@ -323,7 +336,6 @@ export interface TaskWithWorkspace {
   closedAt?: string;
   mergeTarget?: string;
   prompt?: string;
-  sandboxed?: boolean;
   order?: number;
   parentTaskNumber?: number;
 }
@@ -371,13 +383,7 @@ export interface ScriptsAPI {
 
 export interface TaskAPI {
   create(projectPath: string, name?: string, prompt?: string): Promise<TaskWorktreeResult>;
-  createAndStart(
-    projectPath: string,
-    name?: string,
-    prompt?: string,
-    branchName?: string,
-    sandboxed?: boolean,
-  ): Promise<TaskWorktreeResult>;
+  createAndStart(projectPath: string, name?: string, prompt?: string, branchName?: string): Promise<TaskWorktreeResult>;
   start(projectPath: string, taskNumber: number, branchName?: string): Promise<TaskWorktreeResult>;
   getAll(projectPath: string): Promise<TaskWithWorkspace[]>;
   getByNumber(projectPath: string, taskNumber: number): Promise<TaskWithWorkspace | null>;
@@ -392,11 +398,6 @@ export interface TaskAPI {
     projectPath: string,
     taskNumber: number,
     mergeTarget: string,
-  ): Promise<{ success: boolean; error?: string }>;
-  setSandboxed(
-    projectPath: string,
-    taskNumber: number,
-    sandboxed: boolean,
   ): Promise<{ success: boolean; error?: string }>;
   setName(projectPath: string, taskNumber: number, name: string): Promise<{ success: boolean; error?: string }>;
   setDescription(
@@ -542,7 +543,6 @@ export interface ElectronAPI {
       worktreePath: string;
       branch: string;
       createdAt: string;
-      sandboxed: boolean;
       hookMode?: CliHookMode;
       hookCommand?: string;
     }) => void,
@@ -587,6 +587,8 @@ export interface ElectronAPI {
   homePath(): Promise<string>;
   /** Lima sandbox API */
   lima: LimaAPI;
+  /** Cross-provider sandbox API */
+  sandbox: SandboxAPI;
   /** Global settings API */
   globalSettings: GlobalSettingsAPI;
   /** Onboarding API */
@@ -717,10 +719,24 @@ export interface CliPanelsAPI {
 }
 
 /**
+ * Cross-provider sandbox API exposed to the renderer. Provider-neutral: it
+ * reports availability for every registered backend. Backend-specific config
+ * lives on its own API surface (e.g. LimaAPI for the YAML editor).
+ */
+export interface SandboxAPI {
+  /** Availability + readiness of every registered sandbox backend. */
+  status(projectPath: string): Promise<SandboxProviderStatus[]>;
+  /** Read a project's nono config. */
+  nonoConfig(projectPath: string): Promise<NonoConfig>;
+  /** Persist a project's nono config. */
+  setNonoConfig(projectPath: string, config: NonoConfig): Promise<{ success: boolean }>;
+}
+
+/**
  * Lima sandbox API exposed to the renderer
  */
 export interface LimaAPI {
-  status(projectPath: string): Promise<SandboxStatus>;
+  status(projectPath: string): Promise<LimaStatus>;
   start(projectPath: string): Promise<{ success: boolean; error?: string }>;
   stop(projectPath: string): Promise<{ success: boolean; error?: string }>;
   getYaml(projectPath: string): Promise<string>;

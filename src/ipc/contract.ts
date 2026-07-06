@@ -42,7 +42,8 @@ import type {
   CliPanelOp,
   CliPanelResponse,
 } from '../types';
-import type { SandboxStatus } from '../lima/types';
+import type { LimaStatus } from '../lima/types';
+import type { SandboxProviderStatus, NonoConfig } from '../sandbox/types';
 import type { HookStatusEntry } from '../hookServer';
 import type { HealthStatus } from '../healthCheck';
 import type { CaptureNavigatePayload } from '../capture/types';
@@ -107,7 +108,7 @@ export interface IpcInvokeContract {
   // ── Task ─────────────────────────────────────────────────────────────
   'task:create': { args: [projectPath: string, name?: string, prompt?: string]; return: TaskWorktreeResult };
   'task:create-and-start': {
-    args: [projectPath: string, name?: string, prompt?: string, branchName?: string, sandboxed?: boolean];
+    args: [projectPath: string, name?: string, prompt?: string, branchName?: string];
     return: TaskWorktreeResult;
   };
   'task:start': { args: [projectPath: string, taskNumber: number, branchName?: string]; return: TaskWorktreeResult };
@@ -124,10 +125,6 @@ export interface IpcInvokeContract {
   };
   'task:set-merge-target': {
     args: [projectPath: string, taskNumber: number, mergeTarget: string];
-    return: { success: boolean; error?: string };
-  };
-  'task:set-sandboxed': {
-    args: [projectPath: string, taskNumber: number, sandboxed: boolean];
     return: { success: boolean; error?: string };
   };
   'task:set-name': {
@@ -221,8 +218,13 @@ export interface IpcInvokeContract {
   // ── Health ───────────────────────────────────────────────────────────
   'health:check': { args: []; return: HealthStatus };
 
+  // ── Sandbox (cross-provider) ─────────────────────────────────────────
+  'sandbox:status': { args: [projectPath: string]; return: SandboxProviderStatus[] };
+  'sandbox:nono-config': { args: [projectPath: string]; return: NonoConfig };
+  'sandbox:set-nono-config': { args: [projectPath: string, config: NonoConfig]; return: { success: boolean } };
+
   // ── Lima ─────────────────────────────────────────────────────────────
-  'lima:status': { args: [projectPath: string]; return: SandboxStatus };
+  'lima:status': { args: [projectPath: string]; return: LimaStatus };
   'lima:start': { args: [projectPath: string]; return: { success: boolean; error?: string } };
   'lima:stop': { args: [projectPath: string]; return: { success: boolean; error?: string } };
   'lima:get-yaml': { args: [projectPath: string]; return: string };
@@ -275,7 +277,6 @@ export interface IpcPushContract {
         worktreePath: string;
         branch: string;
         createdAt: string;
-        sandboxed: boolean;
         /** Hook-control mode from the CLI flags; absent = default dialog. */
         hookMode?: CliHookMode;
         /** Custom command when hookMode is 'command'. */

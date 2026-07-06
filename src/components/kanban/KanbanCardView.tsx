@@ -2,7 +2,7 @@ import { memo, useCallback, useEffect, useRef, useState, type MouseEvent, type R
 import type { TaskWithWorkspace } from '../../types';
 import type { TerminalDisplayState } from '../../stores/terminalStore';
 import { Icon } from '../terminal/Icon';
-import { StatusDot } from '../terminal/StatusDot';
+import { StatusDot, sandboxSuffix } from '../terminal/StatusDot';
 import { DescriptionChipEditor, type DescriptionChipEditorHandle } from './DescriptionChipEditor';
 
 const isMac = typeof navigator !== 'undefined' && navigator.platform.toLowerCase().includes('mac');
@@ -317,7 +317,7 @@ export const KanbanCardView = memo(function KanbanCardView({
                 <span className="font-mono text-sm leading-none text-text-secondary shrink-0 select-none opacity-40">
                   {isLast ? '└─' : '├─'}
                 </span>
-                <StatusDot summaryType={display.summaryType} sandboxed={display.sandboxed} />
+                <StatusDot summaryType={display.summaryType} sandboxProvider={display.sandboxProvider} />
                 {isRenaming ? (
                   <input
                     ref={terminalRenameRef}
@@ -332,7 +332,7 @@ export const KanbanCardView = memo(function KanbanCardView({
                 ) : (
                   <span className="font-mono text-[10px] leading-tight text-text-secondary truncate min-w-0">
                     {truncated}
-                    {display.sandboxed ? ' (sandbox)' : ''}
+                    {sandboxSuffix(display.sandboxProvider)}
                   </span>
                 )}
               </div>

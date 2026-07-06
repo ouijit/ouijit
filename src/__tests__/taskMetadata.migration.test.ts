@@ -258,7 +258,6 @@ describe('data import service', () => {
       expect(task1.mergeTarget).toBe('main');
       expect(task1.prompt).toBe('Build login page');
       expect(task1.worktreePath).toBe('/worktrees/login');
-      expect(task1.sandboxed).toBe(true);
       expect(task1.order).toBe(5);
 
       // closedAt preserved

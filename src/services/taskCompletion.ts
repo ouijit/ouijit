@@ -18,6 +18,7 @@ import { useAppStore } from '../stores/appStore';
 import { useProjectStore } from '../stores/projectStore';
 import { useTerminalStore } from '../stores/terminalStore';
 import type { CliHookMode, TaskWithWorkspace } from '../types';
+import { legacySandboxProvider } from '../types';
 
 const completionLog = log.scope('taskCompletion');
 
@@ -146,7 +147,9 @@ async function completeTaskInner(opts: CompleteTaskOptions): Promise<void> {
           existingWorktree: { path: task.worktreePath, branch: task.branch || '', createdAt: task.createdAt },
           taskId: taskNumber,
           skipAutoHook: true,
-          sandboxed,
+          // Sandboxing is per terminal: this one-off hook runs on the host
+          // unless the dialog toggle opts it into Lima.
+          sandboxProvider: legacySandboxProvider(sandboxed),
           // "Run & Open" (foreground) brings the hook terminal up so the user
           // can watch it; the background run stays out of the way and tidies up
           // on success. Either way the hook terminal is excluded from the close

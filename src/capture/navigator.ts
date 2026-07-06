@@ -13,6 +13,7 @@ import { useProjectStore } from '../stores/projectStore';
 import { useTerminalStore, DEFAULT_DISPLAY_STATE } from '../stores/terminalStore';
 import { useCanvasStore } from '../stores/canvasStore';
 import { OuijitTerminal, terminalInstances } from '../components/terminal/terminalReact';
+import { legacySandboxProvider } from '../types';
 import type { CaptureNavigatePayload, CaptureTerminalSeed } from './types';
 
 const captureLog = log.scope('capture');
@@ -27,14 +28,14 @@ function seedTerminal(projectPath: string, seed: CaptureTerminalSeed): void {
     label: seed.label,
     summaryType: seed.summaryType ?? 'ready',
     worktreeBranch: seed.worktreeBranch ?? null,
-    sandboxed: seed.sandboxed ?? false,
+    sandboxProvider: legacySandboxProvider(seed.sandboxed),
   });
 
   const term = new OuijitTerminal({
     projectPath,
     label: seed.label,
     taskId: seed.taskId,
-    sandboxed: seed.sandboxed ?? false,
+    sandboxProvider: legacySandboxProvider(seed.sandboxed),
     worktreeBranch: seed.worktreeBranch,
     ptyId: seed.ptyId,
     initialSummaryType: seed.summaryType ?? 'ready',

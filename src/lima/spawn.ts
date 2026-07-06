@@ -368,7 +368,7 @@ export function getActiveSandboxSessions(): ActiveSession[] {
     worktreePath: managed.worktreePath,
     isRunner: managed.isRunner,
     parentPtyId: managed.parentPtyId,
-    sandboxed: true,
+    sandboxProvider: 'lima',
   }));
 }
 

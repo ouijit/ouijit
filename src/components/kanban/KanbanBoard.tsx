@@ -16,7 +16,7 @@ import {
 import { arrayMove } from '@dnd-kit/sortable';
 import { useProjectStore } from '../../stores/projectStore';
 import { useTerminalStore } from '../../stores/terminalStore';
-import type { TaskWithWorkspace, TaskStatus, HookType } from '../../types';
+import type { TaskWithWorkspace, TaskStatus, HookType, SandboxProviderId } from '../../types';
 import { addProjectTerminal } from '../terminal/terminalActions';
 import { beginTransition, bulkTransitionTasks, surfaceStartWarnings } from '../../services/taskStartService';
 import { completeTask } from '../../services/taskCompletion';
@@ -25,6 +25,7 @@ import { BulkActionBar } from './BulkActionBar';
 import { OnboardingPanel } from './OnboardingPanel';
 import { KanbanShellBar } from './KanbanShellBar';
 import { focusKanbanAddInput } from './KanbanAddInput';
+import { STATUS_LABELS } from './taskMenu';
 import { useAppStore } from '../../stores/appStore';
 import { HookConfigDialog } from '../dialogs/HookConfigDialog';
 import { CombinedHookConfigDialog } from '../dialogs/CombinedHookConfigDialog';
@@ -35,12 +36,11 @@ import log from 'electron-log/renderer';
 
 const kanbanLog = log.scope('kanban');
 
-const COLUMNS: { status: TaskStatus; label: string }[] = [
-  { status: 'todo', label: 'To Do' },
-  { status: 'in_progress', label: 'In Progress' },
-  { status: 'in_review', label: 'In Review' },
-  { status: 'done', label: 'Done' },
-];
+const COLUMN_ORDER: TaskStatus[] = ['todo', 'in_progress', 'in_review', 'done'];
+const COLUMNS: { status: TaskStatus; label: string }[] = COLUMN_ORDER.map((status) => ({
+  status,
+  label: STATUS_LABELS[status],
+}));
 
 const COLUMN_IDS: Set<string> = new Set(COLUMNS.map((c) => c.status));
 const TRASH_ID = 'trash-zone';
@@ -74,7 +74,7 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
   const activeBadgeDrag = useProjectStore((s) => s.activeBadgeDrag);
   // Project-scoped config is loaded once by ProjectViewReact; we just subscribe.
   const configuredHooks = useProjectStore((s) => s.configuredHooks);
-  const sandboxAvailable = useProjectStore((s) => s.sandboxAvailable);
+  const availableSandboxProviders = useProjectStore((s) => s.availableSandboxProviders);
   const [hookDialog, setHookDialog] = useState<
     | { mode: 'single'; hookType: HookType; existingHook?: any }
     | { mode: 'combined'; start?: any; continue?: any }
@@ -567,14 +567,16 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
   );
 
   const handleOpenTerminal = useCallback(
-    async (task: TaskWithWorkspace, sandboxed?: boolean) => {
+    async (task: TaskWithWorkspace, sandboxProvider?: SandboxProviderId) => {
+      // The backend is scoped to this terminal — passed straight through to the
+      // spawn, never persisted on the task.
       if (task.worktreePath && task.branch) {
         const wtPath = await ensureWorktreeExists(task);
         if (!wtPath) return;
         await addProjectTerminal(projectPath, undefined, {
           existingWorktree: { path: wtPath, branch: task.branch, createdAt: task.createdAt },
           taskId: task.taskNumber,
-          sandboxed,
+          sandboxProvider,
         });
       } else if (task.branch) {
         // Has a branch but lost its worktree — recover via dialog
@@ -583,7 +585,7 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
         await addProjectTerminal(projectPath, undefined, {
           existingWorktree: { path: wtPath, branch: task.branch, createdAt: task.createdAt },
           taskId: task.taskNumber,
-          sandboxed,
+          sandboxProvider,
         });
       } else {
         // No worktree or branch yet — beginTask creates worktree + sets in_progress
@@ -738,7 +740,7 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
                 onSelect={handleCardSelect}
                 onConfigureHook={handleConfigureHook}
                 hasConfiguredHook={hookActive}
-                sandboxAvailable={sandboxAvailable}
+                availableSandboxProviders={availableSandboxProviders}
                 hasEditorHook={!!configuredHooks.editor}
                 onEditorHookConfigured={markEditorHookConfigured}
               />

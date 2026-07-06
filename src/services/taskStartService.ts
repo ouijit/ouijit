@@ -10,10 +10,12 @@
 
 import log from 'electron-log/renderer';
 import { addProjectTerminal } from '../components/terminal/terminalActions';
+import { STATUS_LABELS } from '../components/kanban/taskMenu';
 import type { RunHookResult } from '../components/dialogs/RunHookDialog';
 import { completeTask } from './taskCompletion';
 import { useProjectStore } from '../stores/projectStore';
 import { useTerminalStore } from '../stores/terminalStore';
+import { legacySandboxProvider } from '../types';
 import type { CliHookMode, HookType, ScriptHook, TaskStatus, TaskWithWorkspace } from '../types';
 
 let placeholderCounter = 0;
@@ -87,13 +89,6 @@ export function beginTransition(projectPath: string, opts: BeginTransitionOption
   });
 }
 
-const STATUS_LABEL: Record<TaskStatus, string> = {
-  todo: 'To Do',
-  in_progress: 'In Progress',
-  in_review: 'In Review',
-  done: 'Done',
-};
-
 /**
  * Bulk-move several tasks to the same target status, then fan each one out
  * through `beginTransition` so worktrees get created and hook dialogs fire.
@@ -140,7 +135,7 @@ export async function bulkTransitionTasks(
     });
     store.clearSelection();
     if (succeeded.length > 0) {
-      useProjectStore.getState().addToast(`Moved ${succeeded.length} tasks to ${STATUS_LABEL[newStatus]}`, 'success');
+      useProjectStore.getState().addToast(`Moved ${succeeded.length} tasks to ${STATUS_LABELS[newStatus]}`, 'success');
     }
     if (failed.length > 0) {
       const sample = failed[0].error;
@@ -181,7 +176,7 @@ export async function bulkTransitionTasks(
   }
 
   if (succeeded.length > 0) {
-    useProjectStore.getState().addToast(`Moved ${succeeded.length} tasks to ${STATUS_LABEL[newStatus]}`, 'success');
+    useProjectStore.getState().addToast(`Moved ${succeeded.length} tasks to ${STATUS_LABELS[newStatus]}`, 'success');
   }
   if (failed.length > 0) {
     const sample = failed[0].error;
@@ -390,7 +385,9 @@ async function spawnTerminalForInProgress(
   await addProjectTerminal(projectPath, runConfig, {
     existingWorktree: { path: task.worktreePath, branch: task.branch || '', createdAt: task.createdAt },
     taskId: task.taskNumber,
-    sandboxed: hookResult?.sandboxed,
+    // Sandboxing is per terminal: this one-off hook runs on the host unless
+    // the dialog toggle opts it into Lima.
+    sandboxProvider: legacySandboxProvider(hookResult?.sandboxed),
     skipAutoHook: true,
     replaceLoadingId: loadingSlot ?? undefined,
   });
@@ -411,7 +408,9 @@ async function runNonStartHookInTerminal(
         existingWorktree: { path: task.worktreePath, branch: task.branch || '', createdAt: task.createdAt },
         taskId: task.taskNumber,
         skipAutoHook: true,
-        sandboxed: hookResult.sandboxed,
+        // Sandboxing is per terminal: this one-off hook runs on the host unless
+        // the dialog toggle opts it into Lima.
+        sandboxProvider: legacySandboxProvider(hookResult.sandboxed),
         background: !hookResult.foreground,
       },
     );

@@ -1,7 +1,7 @@
 import { BrowserWindow } from 'electron';
 import { startHookServer, stopHookServer, installWrapper, migrateFromSettingsHooks } from '../hookServer';
 import { cleanupAllPtys } from '../ptyManager';
-import { cleanup as limaCleanup } from '../lima';
+import { registerSandboxProviders, cleanupSandboxProviders } from '../sandbox';
 import { registerProjectHandlers } from './handlers/project';
 import { registerGitHandlers } from './handlers/git';
 import { registerPtyHandlers } from './handlers/pty';
@@ -10,6 +10,7 @@ import { registerWorktreeHandlers } from './handlers/worktree';
 import { registerHookHandlers } from './handlers/hooks';
 import { registerTagHandlers } from './handlers/tags';
 import { registerLimaHandlers } from './handlers/lima';
+import { registerSandboxHandlers } from './handlers/sandbox';
 import { registerSettingsHandlers } from './handlers/settings';
 import { registerScriptHandlers } from './handlers/scripts';
 import { registerPlanHandlers, cleanupPlanWatchers } from './handlers/plan';
@@ -27,6 +28,9 @@ export async function registerIpcHandlers(mainWindow: BrowserWindow): Promise<vo
   installWrapper();
   migrateFromSettingsHooks();
 
+  // Register sandbox backends before PTY handlers so spawns can resolve them.
+  registerSandboxProviders();
+
   registerProjectHandlers(mainWindow);
   registerGitHandlers();
   registerPtyHandlers(mainWindow);
@@ -35,6 +39,7 @@ export async function registerIpcHandlers(mainWindow: BrowserWindow): Promise<vo
   registerHookHandlers();
   registerTagHandlers();
   registerLimaHandlers(mainWindow);
+  registerSandboxHandlers();
   registerSettingsHandlers();
   registerScriptHandlers();
   registerPlanHandlers(mainWindow);
@@ -47,7 +52,7 @@ export async function registerIpcHandlers(mainWindow: BrowserWindow): Promise<vo
  */
 export function cleanupIpc(): void {
   cleanupAllPtys();
-  limaCleanup();
+  cleanupSandboxProviders();
   cleanupPlanWatchers();
   stopHookServer();
 }

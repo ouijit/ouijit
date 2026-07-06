@@ -118,10 +118,18 @@ const mockApi = {
     stop: vi.fn().mockResolvedValue({ success: true }),
     getConfig: vi.fn().mockResolvedValue({ memoryGiB: 4, diskGiB: 10 }),
     setConfig: vi.fn().mockResolvedValue({ success: true }),
+    getYaml: vi.fn().mockResolvedValue(''),
+    getMergedYaml: vi.fn().mockResolvedValue(''),
+    setYaml: vi.fn().mockResolvedValue({ success: true }),
     recreate: vi.fn().mockResolvedValue({ success: true }),
     delete: vi.fn().mockResolvedValue({ success: true }),
     onSpawnProgress: vi.fn().mockReturnValue(() => {}),
     onSandboxDiverged: vi.fn().mockReturnValue(() => {}),
+  },
+  sandbox: {
+    status: vi.fn().mockResolvedValue([]),
+    nonoConfig: vi.fn().mockResolvedValue({}),
+    setNonoConfig: vi.fn().mockResolvedValue({ success: true }),
   },
   globalSettings: {
     get: vi.fn().mockResolvedValue(undefined),

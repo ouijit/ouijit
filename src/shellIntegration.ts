@@ -104,19 +104,54 @@ const indent = (lines: string[], pad: string): string[] => lines.map((line) => (
 
 /** zsh ZDOTDIR bootstrap — written to shell-integration/zsh/.zshenv */
 export const ZSH_ZSHENV = [
-  '# Ouijit zsh integration — ZDOTDIR bootstrap',
-  '# Restores original ZDOTDIR, sources user .zshenv, loads PATH fix.',
+  '# Ouijit zsh integration — ZDOTDIR bootstrap (.zshenv stage).',
+  '# Sources the user .zshenv, loads PATH fix, then keeps ZDOTDIR pointed at our',
+  '# dir so zsh sources our .zshrc next (it sources the user .zshrc in turn).',
+  '_OUIJIT_ZSH_HOME="$ZDOTDIR"',
   'ZDOTDIR="$OUIJIT_ZSH_ZDOTDIR"',
   '[ -z "$ZDOTDIR" ] && unset ZDOTDIR',
   '',
-  '# Source user .zshenv',
-  'if [ -f "${ZDOTDIR:-$HOME}/.zshenv" ]; then',
+  '# Source user .zshenv (only if readable — a sandbox may deny it, and',
+  '# sourcing a denied file errors loudly instead of being skipped).',
+  'if [ -r "${ZDOTDIR:-$HOME}/.zshenv" ]; then',
   '  . "${ZDOTDIR:-$HOME}/.zshenv"',
   'fi',
+  '',
+  "# Remember where the user's .zshrc lives (their .zshenv may set ZDOTDIR).",
+  '_OUIJIT_USER_ZDOTDIR="${ZDOTDIR:-$HOME}"',
   '',
   '# For interactive shells, load PATH fix',
   'if [[ -o interactive ]]; then',
   '  . "$OUIJIT_SHELL_INTEGRATION_DIR/ouijit-zsh-integration.zsh"',
+  'fi',
+  '',
+  '# Back to our dir so zsh sources our .zshrc next.',
+  'ZDOTDIR="$_OUIJIT_ZSH_HOME"',
+  '',
+].join('\n');
+
+/** zsh rc stage — written to shell-integration/zsh/.zshrc, sourced after .zshenv */
+export const ZSH_ZSHRC = [
+  '# Ouijit zsh integration — .zshrc stage. We own this file so we can run after',
+  "# the user's rc. Source the user .zshrc, then restore their ZDOTDIR.",
+  'if [ -r "$_OUIJIT_USER_ZDOTDIR/.zshrc" ]; then',
+  '  ZDOTDIR="$_OUIJIT_USER_ZDOTDIR"',
+  '  . "$_OUIJIT_USER_ZDOTDIR/.zshrc"',
+  'fi',
+  'if [ -n "$OUIJIT_ZSH_ZDOTDIR" ]; then',
+  '  ZDOTDIR="$OUIJIT_ZSH_ZDOTDIR"',
+  'else',
+  '  unset ZDOTDIR',
+  'fi',
+  'unset _OUIJIT_ZSH_HOME _OUIJIT_USER_ZDOTDIR',
+  '',
+  "# Under a filesystem sandbox the user's history file is denied. Point HISTFILE",
+  '# at /dev/null AFTER the user rc (which may set it) so zsh never tries to lock',
+  '# a file it cannot write — otherwise it prints "locking failed" at every',
+  '# prompt. Gated so ordinary (non-sandboxed) terminals keep their history.',
+  'if [ -n "$OUIJIT_SANDBOX_NO_HISTORY" ]; then',
+  '  HISTFILE=/dev/null',
+  '  SAVEHIST=0',
   'fi',
   '',
 ].join('\n');
@@ -167,6 +202,7 @@ const zshIntegration: ShellIntegration = {
     const zshDir = path.join(dir, 'zsh');
     fs.mkdirSync(zshDir, { recursive: true });
     fs.writeFileSync(path.join(zshDir, '.zshenv'), ZSH_ZSHENV, { mode: 0o644 });
+    fs.writeFileSync(path.join(zshDir, '.zshrc'), ZSH_ZSHRC, { mode: 0o644 });
     fs.writeFileSync(path.join(dir, 'ouijit-zsh-integration.zsh'), ZSH_INTEGRATION, { mode: 0o644 });
   },
   launch({ shell, integrationDir, command, zdotdir }) {
@@ -187,8 +223,17 @@ const zshIntegration: ShellIntegration = {
 /** bash rcfile replacement — written to shell-integration/ouijit-bash-integration.bash */
 export const BASH_INTEGRATION = [
   '# Ouijit bash integration — sources .bashrc then fixes PATH.',
-  'if [ -f "$HOME/.bashrc" ]; then',
+  '# Only if readable — a sandbox may deny it, and sourcing a denied file',
+  '# errors loudly instead of being skipped.',
+  'if [ -r "$HOME/.bashrc" ]; then',
   '  . "$HOME/.bashrc"',
+  'fi',
+  '',
+  "# Under a filesystem sandbox the user's history file is denied; point HISTFILE",
+  '# at /dev/null (after .bashrc, which may set it) so history writes are not',
+  '# attempted against a denied path. Gated so ordinary terminals keep history.',
+  'if [ -n "$OUIJIT_SANDBOX_NO_HISTORY" ]; then',
+  '  HISTFILE=/dev/null',
   'fi',
   '',
   '# Fix PATH: remove wrapper dir, re-prepend it',

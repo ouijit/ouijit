@@ -187,7 +187,6 @@ export async function importAll(
               branch: task.branch,
               mergeTarget: task.mergeTarget,
               prompt: task.prompt,
-              sandboxed: task.sandboxed,
               worktreePath: task.worktreePath,
               createdAt: task.createdAt,
             });

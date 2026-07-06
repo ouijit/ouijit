@@ -99,7 +99,7 @@ export async function beginTask(
     }
   }
 
-  const result = await startTask(projectPath, taskNumber, branchName, baseBranch, task?.sandboxed ?? false);
+  const result = await startTask(projectPath, taskNumber, branchName, baseBranch);
   if (!result.success) return result;
 
   // Move to in_progress if currently todo (startTask doesn't change status)
@@ -141,7 +141,6 @@ export async function createBranchFromTask(
     status: 'todo',
     parentTaskNumber,
     mergeTarget: parent.branch,
-    sandboxed: parent.sandboxed,
   });
   return { success: true, task };
 }
@@ -291,7 +290,6 @@ export async function getTasksWithWorkspaces(projectPath: string): Promise<TaskW
       closedAt: task.closedAt,
       mergeTarget: task.mergeTarget,
       prompt: task.prompt,
-      sandboxed: task.sandboxed,
       order: task.order,
       parentTaskNumber: task.parentTaskNumber,
     };
@@ -316,7 +314,6 @@ export async function getTaskWithWorkspace(projectPath: string, taskNumber: numb
     closedAt: task.closedAt,
     mergeTarget: task.mergeTarget,
     prompt: task.prompt,
-    sandboxed: task.sandboxed,
     order: task.order,
     parentTaskNumber: task.parentTaskNumber,
   };

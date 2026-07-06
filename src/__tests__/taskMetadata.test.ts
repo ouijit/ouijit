@@ -7,7 +7,6 @@ import {
   getNextTaskNumber,
   setTaskStatus,
   setTaskMergeTarget,
-  setTaskSandboxed,
   setTaskName,
   setTaskDescription,
   setTaskParent,
@@ -23,7 +22,6 @@ describe('taskMetadata', () => {
       branch: 'feat/login',
       mergeTarget: 'main',
       prompt: 'Build login page',
-      sandboxed: true,
     });
 
     expect(task.taskNumber).toBe(1);
@@ -33,7 +31,6 @@ describe('taskMetadata', () => {
     expect(task.createdAt).toBeTruthy();
     expect(task.mergeTarget).toBe('main');
     expect(task.prompt).toBe('Build login page');
-    expect(task.sandboxed).toBe(true);
 
     const tasks = await getProjectTasks(project);
     expect(tasks).toHaveLength(1);
@@ -98,19 +95,6 @@ describe('taskMetadata', () => {
     await setTaskMergeTarget(project, 1, 'develop');
     const task = await getTaskByNumber(project, 1);
     expect(task!.mergeTarget).toBe('develop');
-  });
-
-  test('setTaskSandboxed toggles the flag', async () => {
-    const project = '/test/sandboxed';
-    await createTask(project, 1, 'Sandbox task', { branch: 'feat/sb' });
-
-    await setTaskSandboxed(project, 1, true);
-    let task = await getTaskByNumber(project, 1);
-    expect(task!.sandboxed).toBe(true);
-
-    await setTaskSandboxed(project, 1, false);
-    task = await getTaskByNumber(project, 1);
-    expect(task!.sandboxed).toBeUndefined();
   });
 
   test('deleteTaskByNumber removes the task', async () => {

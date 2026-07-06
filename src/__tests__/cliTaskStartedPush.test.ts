@@ -133,7 +133,6 @@ describe('cli:task-started push', () => {
         taskNumber: 7,
         branch: 'feat-7',
         createdAt: '2026-05-10T00:00:00.000Z',
-        sandboxed: false,
       },
     });
     const token = issueToken('pty-host', 'host');
@@ -148,7 +147,6 @@ describe('cli:task-started push', () => {
       worktreePath: '/tmp/wt/T-7',
       branch: 'feat-7',
       createdAt: '2026-05-10T00:00:00.000Z',
-      sandboxed: false,
     });
   });
 
@@ -160,7 +158,6 @@ describe('cli:task-started push', () => {
         taskNumber: 42,
         branch: 'fix-42',
         createdAt: '2026-05-10T01:00:00.000Z',
-        sandboxed: true,
       },
     });
     const token = issueToken('pty-host', 'host');
@@ -173,7 +170,6 @@ describe('cli:task-started push', () => {
       taskNumber: 42,
       worktreePath: '/tmp/wt/T-42',
       branch: 'fix-42',
-      sandboxed: true,
     });
   });
 
@@ -203,7 +199,7 @@ describe('cli:task-started push', () => {
     createTaskWorktreeMock.mockResolvedValueOnce({
       success: true,
       worktreePath: '/tmp/wt/T-1',
-      task: { taskNumber: 1, branch: 'b', createdAt: '2026-05-10T00:00:00.000Z', sandboxed: false },
+      task: { taskNumber: 1, branch: 'b', createdAt: '2026-05-10T00:00:00.000Z', sandboxProvider: 'none' },
     });
     const token = issueToken('pty-host', 'host');
     await request('POST', `/api/tasks/start?project=${PROJECT}`, token, { name: 'x' });
@@ -217,7 +213,7 @@ describe('cli:task-started push', () => {
     createTaskWorktreeMock.mockResolvedValueOnce({
       success: true,
       worktreePath: '/tmp/wt/T-5',
-      task: { taskNumber: 5, branch: 'feat-5', createdAt: '2026-05-10T00:00:00.000Z', sandboxed: false },
+      task: { taskNumber: 5, branch: 'feat-5', createdAt: '2026-05-10T00:00:00.000Z', sandboxProvider: 'none' },
     });
     const token = issueToken('pty-host', 'host');
     const res = await request('POST', `/api/tasks/start?project=${PROJECT}`, token, {
@@ -264,7 +260,7 @@ describe('cli:task-started push', () => {
     beginTaskMock.mockResolvedValueOnce({
       success: true,
       worktreePath: '/tmp/wt/T-3',
-      task: { taskNumber: 3, branch: 'fix-3', createdAt: '2026-05-10T00:00:00.000Z', sandboxed: false },
+      task: { taskNumber: 3, branch: 'fix-3', createdAt: '2026-05-10T00:00:00.000Z', sandboxProvider: 'none' },
     });
     const token = issueToken('pty-host', 'host');
     const res = await request('POST', `/api/tasks/3/start?project=${PROJECT}`, token, {

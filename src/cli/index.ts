@@ -6,6 +6,7 @@
  */
 
 import { Command } from 'commander';
+import { ApiError } from './api';
 import { detectProject } from './detect';
 import { printError } from './output';
 import { registerTaskCommands } from './commands/task';
@@ -48,4 +49,18 @@ registerScriptCommands(program, requireProject);
 registerMarkdownCommands(program);
 registerPreviewCommands(program);
 
-program.parse();
+// Command actions are async; parse() would let an API rejection surface as an
+// uncaught error with a raw stack trace. parseAsync + a single catch turns any
+// failure into a clean stderr message and a non-zero exit.
+program.parseAsync().catch((err: unknown) => {
+  if (err instanceof ApiError) {
+    if (err.status === 403) {
+      return printError(
+        'Forbidden: this command is not available for the current session. ' +
+          'Sandboxed sessions are read-only and limited to their own task.',
+      );
+    }
+    return printError(err.status > 0 ? `${err.message} (HTTP ${err.status})` : err.message);
+  }
+  return printError(err instanceof Error ? err.message : String(err));
+});

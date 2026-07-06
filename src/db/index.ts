@@ -34,7 +34,6 @@ export interface TaskMetadata {
   worktreePath?: string;
   mergeTarget?: string;
   prompt?: string;
-  sandboxed?: boolean;
   order?: number;
   parentTaskNumber?: number;
 }
@@ -101,7 +100,6 @@ function rowToTask(row: TaskRow): TaskMetadata {
     ...(row.worktree_path && { worktreePath: row.worktree_path }),
     ...(row.merge_target && { mergeTarget: row.merge_target }),
     ...(row.prompt && { prompt: row.prompt }),
-    ...(row.sandboxed === 1 && { sandboxed: true }),
     ...(row.parent_task_number != null && { parentTaskNumber: row.parent_task_number }),
   };
 }
@@ -159,7 +157,6 @@ export async function createTask(
     status?: TaskStatus;
     mergeTarget?: string;
     prompt?: string;
-    sandboxed?: boolean;
     worktreePath?: string;
     parentTaskNumber?: number;
   },
@@ -186,23 +183,6 @@ export async function setTaskStatus(
     if (!row) return { success: false, error: 'Task not found' };
 
     tr.updateStatus(projectPath, taskNumber, status);
-    return { success: true };
-  } catch (error) {
-    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
-  }
-}
-
-export async function setTaskSandboxed(
-  projectPath: string,
-  taskNumber: number,
-  sandboxed: boolean,
-): Promise<{ success: boolean; error?: string }> {
-  try {
-    const { taskRepo: tr } = repos();
-    const row = tr.getByTaskNumber(projectPath, taskNumber);
-    if (!row) return { success: false, error: 'Task not found' };
-
-    tr.updateSandboxed(projectPath, taskNumber, sandboxed);
     return { success: true };
   } catch (error) {
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };

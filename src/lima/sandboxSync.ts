@@ -116,6 +116,15 @@ export async function stopSandboxView(
   const viewPath = getSandboxViewPath(projectName, taskNumber);
   const branch = getSandboxBranchName(userWorktreeBranch);
 
+  // Fast path: a task that never opened a Lima sandbox has no view worktree, so
+  // skip the two git subprocesses that would only fail. Every worktree removal
+  // (including plain host tasks) reaches here via the provider cleanup fan-out.
+  const viewExists = await fs.access(viewPath).then(
+    () => true,
+    () => false,
+  );
+  if (!viewExists) return;
+
   try {
     await execFileAsync('git', ['worktree', 'remove', viewPath, '--force'], { cwd: projectPath });
   } catch (error) {

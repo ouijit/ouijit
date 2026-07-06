@@ -12,7 +12,6 @@ export interface TaskRow {
   branch: string | null;
   worktree_path: string | null;
   merge_target: string | null;
-  sandboxed: number;
   sort_order: number;
   created_at: string;
   closed_at: string | null;
@@ -56,7 +55,6 @@ export class TaskRepo {
       branch?: string;
       mergeTarget?: string;
       prompt?: string;
-      sandboxed?: boolean;
       worktreePath?: string;
       createdAt?: string;
       parentTaskNumber?: number;
@@ -74,8 +72,8 @@ export class TaskRepo {
       this.db
         .prepare(
           `
-        INSERT INTO tasks (project_path, task_number, name, status, prompt, branch, worktree_path, merge_target, sandboxed, sort_order, created_at, parent_task_number)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO tasks (project_path, task_number, name, status, prompt, branch, worktree_path, merge_target, sort_order, created_at, parent_task_number)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `,
         )
         .run(
@@ -87,7 +85,6 @@ export class TaskRepo {
           options?.branch ?? null,
           options?.worktreePath ?? null,
           options?.mergeTarget ?? null,
-          options?.sandboxed ? 1 : 0,
           sortOrder,
           options?.createdAt ?? new Date().toISOString(),
           options?.parentTaskNumber ?? null,
@@ -174,12 +171,6 @@ export class TaskRepo {
     this.db
       .prepare('UPDATE tasks SET prompt = ? WHERE project_path = ? AND task_number = ?')
       .run(prompt, projectPath, taskNumber);
-  }
-
-  updateSandboxed(projectPath: string, taskNumber: number, sandboxed: boolean): void {
-    this.db
-      .prepare('UPDATE tasks SET sandboxed = ? WHERE project_path = ? AND task_number = ?')
-      .run(sandboxed ? 1 : 0, projectPath, taskNumber);
   }
 
   reorder(projectPath: string, taskNumber: number, newStatus: TaskStatus, targetIndex: number): void {

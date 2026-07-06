@@ -2,6 +2,7 @@ import { describe, test, expect, vi, beforeEach } from 'vitest';
 
 const execFileMock = vi.fn();
 const isLimaInstalledMock = vi.fn();
+const isNonoInstalledMock = vi.fn();
 
 vi.mock('node:child_process', () => ({
   execFile: (...args: unknown[]) => execFileMock(...args),
@@ -28,11 +29,18 @@ vi.mock('../lima/manager', () => ({
   isLimaInstalled: () => isLimaInstalledMock(),
 }));
 
+vi.mock('../sandbox/nono/binary', () => ({
+  isNonoInstalled: () => isNonoInstalledMock(),
+}));
+
 describe('healthCheck', () => {
   beforeEach(() => {
     vi.resetModules();
     execFileMock.mockReset();
     isLimaInstalledMock.mockReset();
+    isNonoInstalledMock.mockReset();
+    // Default nono to false; individual tests override as needed.
+    isNonoInstalledMock.mockResolvedValue(false);
   });
 
   test('reports all tools present and parses git version', async () => {
@@ -42,6 +50,7 @@ describe('healthCheck', () => {
       else cb(new Error(`unexpected ${cmd}`));
     });
     isLimaInstalledMock.mockResolvedValue(true);
+    isNonoInstalledMock.mockResolvedValue(true);
 
     const { checkHealth } = await import('../healthCheck');
     const status = await checkHealth();
@@ -52,6 +61,7 @@ describe('healthCheck', () => {
       pi: true,
       opencode: true,
       lima: true,
+      nono: true,
       gitVersion: '2.39.5',
     });
   });
@@ -73,6 +83,7 @@ describe('healthCheck', () => {
       pi: false,
       opencode: false,
       lima: false,
+      nono: false,
       gitVersion: undefined,
     });
   });
@@ -95,6 +106,7 @@ describe('healthCheck', () => {
       pi: false,
       opencode: false,
       lima: false,
+      nono: false,
       gitVersion: '2.41.0',
     });
   });
@@ -117,6 +129,7 @@ describe('healthCheck', () => {
       pi: true,
       opencode: false,
       lima: false,
+      nono: false,
       gitVersion: '2.42.0',
     });
   });
@@ -139,6 +152,7 @@ describe('healthCheck', () => {
       pi: false,
       opencode: true,
       lima: false,
+      nono: false,
       gitVersion: '2.43.0',
     });
   });
@@ -161,7 +175,23 @@ describe('healthCheck', () => {
       pi: false,
       opencode: false,
       lima: true,
+      nono: false,
       gitVersion: '2.40.0',
     });
+  });
+
+  test('detects nono independently of lima', async () => {
+    execFileMock.mockImplementation((cmd: string, _args: string[], cb: Function) => {
+      if (cmd === 'git') cb(null, 'git version 2.44.0\n', '');
+      else if (cmd === 'which') cb(new Error('not found'));
+      else cb(new Error(`unexpected ${cmd}`));
+    });
+    isLimaInstalledMock.mockResolvedValue(false);
+    isNonoInstalledMock.mockResolvedValue(true);
+
+    const { checkHealth } = await import('../healthCheck');
+    const status = await checkHealth();
+    expect(status.lima).toBe(false);
+    expect(status.nono).toBe(true);
   });
 });

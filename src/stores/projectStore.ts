@@ -1,5 +1,13 @@
 import { create } from 'zustand';
-import type { TaskWithWorkspace, Script, ScriptHook, HookType, CliHookMode, TaskStatus } from '../types';
+import type {
+  TaskWithWorkspace,
+  Script,
+  ScriptHook,
+  HookType,
+  CliHookMode,
+  TaskStatus,
+  SandboxProviderId,
+} from '../types';
 import type { RunHookResult } from '../components/dialogs/RunHookDialog';
 import { useAppStore } from './appStore';
 
@@ -19,7 +27,6 @@ export interface PendingCliStart {
   worktreePath: string;
   branch: string;
   createdAt: string;
-  sandboxed: boolean;
   /** Hook-control mode from the CLI flags; absent = default start-hook dialog. */
   hookMode?: CliHookMode;
   /** Custom command when hookMode is 'command'. */
@@ -104,10 +111,11 @@ interface ProjectStoreState {
   pendingCliCompletions: Record<string, PendingCliCompletion[]>;
   /**
    * Project-scoped config used by terminal/kanban cards. Loaded once per project
-   * so we don't fan out N `lima.status` (subprocess spawn) + `hooks.get` calls
+   * so we don't fan out N `sandbox.status` (subprocess spawn) + `hooks.get` calls
    * across every visible card.
    */
-  sandboxAvailable: boolean;
+  /** Backends that are installed for this project (a task can pick any of these). */
+  availableSandboxProviders: SandboxProviderId[];
   configuredHooks: Record<string, boolean>;
   /** projectPath the config currently reflects; null = not loaded. */
   configProjectPath: string | null;
@@ -227,7 +235,7 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
   pendingCliStarts: {},
   pendingCliTransitions: {},
   pendingCliCompletions: {},
-  sandboxAvailable: false,
+  availableSandboxProviders: [],
   configuredHooks: {},
   configProjectPath: null,
   _version: 0,
@@ -325,7 +333,7 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
       startingTaskNumbers: new Set<number>(),
       runHookQueue: [],
       runHookQueueTotal: 0,
-      sandboxAvailable: false,
+      availableSandboxProviders: [],
       configuredHooks: {},
       configProjectPath: null,
       _version: 0,
@@ -400,8 +408,8 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
     // Otherwise stale A config could land under project B.
     const version = ++configLoadVersion;
     try {
-      const [status, hooks] = await Promise.all([
-        window.api.lima.status(projectPath),
+      const [statuses, hooks] = await Promise.all([
+        window.api.sandbox.status(projectPath),
         window.api.hooks.get(projectPath),
       ]);
       if (version !== configLoadVersion) return;
@@ -409,8 +417,9 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
       for (const key of Object.keys(hooks)) {
         if (hooks[key as HookType]) configured[key] = true;
       }
+      const available = statuses.filter((s) => s.available).map((s) => s.providerId);
       set({
-        sandboxAvailable: status.available,
+        availableSandboxProviders: available,
         configuredHooks: configured,
         configProjectPath: projectPath,
       });

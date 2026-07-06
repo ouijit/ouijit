@@ -111,6 +111,21 @@ const config: ForgeConfig = {
             console.log(`Copied limactl from ${limactlSrc}`);
           }
 
+          // 4b. Copy nono binary (vendored by download-nono.sh / build-linux.sh,
+          // same as limactl). The existsSync guard keeps a build working if the
+          // download step was skipped — the backend then resolves nono from PATH.
+          const stagedNono = staging ? path.join(staging, 'bin', 'nono') : null;
+          const nonoSrc = stagedNono && fs.existsSync(stagedNono)
+            ? stagedNono
+            : path.join(__dirname, 'resources', 'bin', 'nono');
+          if (fs.existsSync(nonoSrc)) {
+            const binDest = path.join(buildPath, '..', 'bin');
+            fs.mkdirSync(binDest, { recursive: true });
+            fs.copyFileSync(nonoSrc, path.join(binDest, 'nono'));
+            fs.chmodSync(path.join(binDest, 'nono'), 0o755);
+            console.log(`Copied nono from ${nonoSrc}`);
+          }
+
           // 5. Copy Lima guest agent binaries
           const stagedAgents = staging ? path.join(staging, 'share', 'lima') : null;
           const guestAgentSrc = stagedAgents && fs.existsSync(stagedAgents)
@@ -120,6 +135,21 @@ const config: ForgeConfig = {
             const shareDest = path.join(buildPath, '..', 'share', 'lima');
             copyRecursive(guestAgentSrc, shareDest);
             console.log(`Copied Lima guest agents from ${guestAgentSrc}`);
+          }
+
+          // 5b. Copy vendored nono agent packs (platform-independent JSON the
+          // union profile inherits) so the first sandboxed launch needs no
+          // network. Same staged-else-resources resolution as the binaries.
+          // Uses fs.cpSync, not copyRecursive, to preserve the pack hook
+          // scripts' exec bits.
+          const stagedNonoShare = staging ? path.join(staging, 'share', 'nono') : null;
+          const nonoShareSrc = stagedNonoShare && fs.existsSync(stagedNonoShare)
+            ? stagedNonoShare
+            : path.join(__dirname, 'resources', 'share', 'nono');
+          if (fs.existsSync(nonoShareSrc)) {
+            const nonoShareDest = path.join(buildPath, '..', 'share', 'nono');
+            fs.cpSync(nonoShareSrc, nonoShareDest, { recursive: true });
+            console.log(`Copied nono agent packs from ${nonoShareSrc}`);
           }
 
           // 6. Copy app icon for Linux

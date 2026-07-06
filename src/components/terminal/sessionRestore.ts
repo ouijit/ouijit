@@ -10,6 +10,7 @@ import { useAppStore } from '../../stores/appStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { addProjectTerminal } from './terminalActions';
 import { suspendSnapshotSaves, resumeSnapshotSaves } from './sessionSnapshot';
+import { legacySandboxProvider } from '../../types';
 import type { LastSessionSnapshot, Project, SnapshotTerminal, TaskStatus } from '../../types';
 
 const restoreLog = log.scope('sessionRestore');
@@ -97,17 +98,20 @@ export async function restoreSession(snapshot: LastSessionSnapshot, entries: Res
       for (const entry of projectEntries) {
         const source = entry.source;
         try {
+          // Prefer the persisted provider; fall back to the legacy boolean
+          // (pre-provider snapshots) which was always Lima.
+          const restoredProvider = source.sandboxProvider ?? legacySandboxProvider(source.sandboxed);
           await addProjectTerminal(projectPath, undefined, {
             existingWorktree: source.worktreePath
               ? {
                   path: source.worktreePath,
                   branch: source.worktreeBranch ?? '',
                   createdAt: '',
-                  sandboxed: source.sandboxed,
+                  sandboxProvider: restoredProvider,
                 }
               : undefined,
             taskId: source.taskNumber ?? undefined,
-            sandboxed: source.sandboxed,
+            sandboxProvider: restoredProvider,
             // Carry through a user rename so a restored card keeps its name
             // instead of snapping back to the task name.
             label: source.label ?? undefined,

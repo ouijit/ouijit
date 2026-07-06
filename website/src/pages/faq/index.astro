@@ -32,12 +32,12 @@ const faqs: Faq[] = [
     a: 'Every task gets its own git worktree under ~/Ouijit/worktrees/, on its own branch. Worktrees are created via Copy-on-Write cloning (APFS on macOS, reflinks on Linux) so creation is nearly instant regardless of repo size. Each project picks between Quick start (gitignored files copied across) and Clean checkout (tracked files only) in Project Settings.',
   },
   {
-    q: 'What does the VM sandbox do?',
-    a: 'Sandboxed terminals run inside a Lima Linux VM in a parallel git worktree that contains only tracked files. The user worktree is never mounted. .git is mounted with hooks/, config, and packed-refs read-only. Agent commits land on a child branch s/<your-branch>, and a host watcher fast-forwards them back onto your branch.',
+    q: 'What does the sandbox do?',
+    a: 'Ouijit runs a task\'s terminals and hooks inside a sandbox, chosen per terminal from the task\'s Open in menu. Two backends are available. Lima runs them inside a Linux VM on a parallel git worktree of only tracked files: the user worktree is never mounted, .git is mounted with hooks/, config, and packed-refs read-only, and agent commits land on a child branch s/<your-branch> that a host watcher fast-forwards back. nono runs them in place on the host worktree under kernel-level access limits (Seatbelt on macOS, Landlock on Linux), with filesystem access scoped to the worktree and git data and the same read-only .git hooks/config. nono is a lighter boundary than the VM: a kernel access policy on a host process rather than a separate machine.',
   },
   {
     q: 'Can the agent inside a sandbox terminal use the Ouijit CLI?',
-    a: 'No. The ouijit binary is not installed inside the sandbox VM, and the /api/* routes return 403 for sandbox-scoped tokens. Only the /hook endpoint accepts them, which the agent uses to report status back to the host.',
+    a: 'Under Lima, no: the ouijit binary is not installed inside the VM, and the /api/* routes return 403 for sandbox-scoped tokens. Only the /hook endpoint accepts them, which the agent uses to report status back to the host. Under nono the terminal runs on the host, so the ouijit CLI shim stays on PATH with access scoped to the task\'s own data.',
   },
   {
     q: 'Where do I download Ouijit?',
@@ -64,7 +64,7 @@ const faqSchema = {
 ---
 <Site
   title="FAQ · Ouijit"
-  description="Frequently asked questions about Ouijit: what it is, supported operating systems, agent integrations, worktree isolation, and the VM sandbox.">
+  description="Frequently asked questions about Ouijit: what it is, supported operating systems, agent integrations, worktree isolation, and sandboxing.">
   <script type="application/ld+json" set:html={JSON.stringify(faqSchema)} />
   <main class="faq-content">
     <h1>FAQ</h1>

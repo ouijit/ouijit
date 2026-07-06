@@ -149,16 +149,19 @@ describe('projectStore.pendingCliStarts (T-366)', () => {
 describe('projectStore.loadProjectConfig', () => {
   beforeEach(() => {
     useProjectStore.setState({
-      sandboxAvailable: false,
+      availableSandboxProviders: [],
       configuredHooks: {},
       configProjectPath: null,
     });
-    vi.mocked(window.api.lima.status).mockReset();
+    vi.mocked(window.api.sandbox.status).mockReset();
     vi.mocked(window.api.hooks.get).mockReset();
   });
 
-  test('writes sandbox availability + configured hooks into the store', async () => {
-    vi.mocked(window.api.lima.status).mockResolvedValue({ available: true, vmStatus: 'Running' });
+  test('writes available backends + configured hooks into the store', async () => {
+    vi.mocked(window.api.sandbox.status).mockResolvedValue([
+      { providerId: 'lima', available: true, ready: true },
+      { providerId: 'nono', available: true, ready: true },
+    ]);
     vi.mocked(window.api.hooks.get).mockResolvedValue({
       editor: { name: 'edit', command: 'code' },
       run: undefined,
@@ -167,23 +170,23 @@ describe('projectStore.loadProjectConfig', () => {
     await useProjectStore.getState().loadProjectConfig('/a');
 
     const s = useProjectStore.getState();
-    expect(s.sandboxAvailable).toBe(true);
+    expect(s.availableSandboxProviders).toEqual(['lima', 'nono']);
     expect(s.configuredHooks).toEqual({ editor: true });
     expect(s.configProjectPath).toBe('/a');
   });
 
   test('the most-recent load wins regardless of IPC resolve order (stale-load race)', async () => {
     // load(A) hangs longer than load(B); we expect B's state to land, not A's.
-    let resolveA!: (v: { available: boolean; vmStatus: string }) => void;
-    const aStatus = new Promise<{ available: boolean; vmStatus: string }>((res) => {
+    let resolveA!: (v: { providerId: 'lima'; available: boolean; ready: boolean }[]) => void;
+    const aStatus = new Promise<{ providerId: 'lima'; available: boolean; ready: boolean }[]>((res) => {
       resolveA = res;
     });
-    vi.mocked(window.api.lima.status).mockImplementationOnce(() => aStatus);
+    vi.mocked(window.api.sandbox.status).mockImplementationOnce(() => aStatus);
     vi.mocked(window.api.hooks.get).mockImplementationOnce(() =>
       Promise.resolve({ editor: { name: 'a', command: 'a' } }),
     );
 
-    vi.mocked(window.api.lima.status).mockResolvedValueOnce({ available: true, vmStatus: 'Running' });
+    vi.mocked(window.api.sandbox.status).mockResolvedValueOnce([{ providerId: 'lima', available: true, ready: true }]);
     vi.mocked(window.api.hooks.get).mockResolvedValueOnce({ run: { name: 'b', command: 'b' } });
 
     const aPromise = useProjectStore.getState().loadProjectConfig('/a');
@@ -195,24 +198,28 @@ describe('projectStore.loadProjectConfig', () => {
     expect(useProjectStore.getState().configuredHooks).toEqual({ run: true });
 
     // Now let A resolve — its writes must be ignored.
-    resolveA({ available: false, vmStatus: 'NotCreated' });
+    resolveA([{ providerId: 'lima', available: false, ready: false }]);
     await aPromise;
 
     const s = useProjectStore.getState();
     expect(s.configProjectPath).toBe('/b');
     expect(s.configuredHooks).toEqual({ run: true });
-    expect(s.sandboxAvailable).toBe(true);
+    expect(s.availableSandboxProviders).toEqual(['lima']);
   });
 
   test('IPC failures are swallowed and leave the store untouched', async () => {
-    useProjectStore.setState({ sandboxAvailable: true, configuredHooks: { editor: true }, configProjectPath: '/prev' });
-    vi.mocked(window.api.lima.status).mockRejectedValueOnce(new Error('boom'));
+    useProjectStore.setState({
+      availableSandboxProviders: ['lima'],
+      configuredHooks: { editor: true },
+      configProjectPath: '/prev',
+    });
+    vi.mocked(window.api.sandbox.status).mockRejectedValueOnce(new Error('boom'));
     vi.mocked(window.api.hooks.get).mockResolvedValueOnce({});
 
     await useProjectStore.getState().loadProjectConfig('/a');
 
     const s = useProjectStore.getState();
-    expect(s.sandboxAvailable).toBe(true);
+    expect(s.availableSandboxProviders).toEqual(['lima']);
     expect(s.configuredHooks).toEqual({ editor: true });
     expect(s.configProjectPath).toBe('/prev');
   });

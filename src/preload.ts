@@ -15,6 +15,7 @@ import type {
   Script,
   CliHookMode,
   TaskWithWorkspace,
+  NonoConfig,
   CliPanelOp,
   CliPanelResponse,
 } from './types';
@@ -132,8 +133,8 @@ contextBridge.exposeInMainWorld('api', {
   task: {
     create: (projectPath: string, name?: string, prompt?: string) =>
       typedInvoke('task:create', projectPath, name, prompt),
-    createAndStart: (projectPath: string, name?: string, prompt?: string, branchName?: string, sandboxed?: boolean) =>
-      typedInvoke('task:create-and-start', projectPath, name, prompt, branchName, sandboxed),
+    createAndStart: (projectPath: string, name?: string, prompt?: string, branchName?: string) =>
+      typedInvoke('task:create-and-start', projectPath, name, prompt, branchName),
     start: (projectPath: string, taskNumber: number, branchName?: string) =>
       typedInvoke('task:start', projectPath, taskNumber, branchName),
     getAll: (projectPath: string) => typedInvoke('task:get-all', projectPath),
@@ -145,8 +146,6 @@ contextBridge.exposeInMainWorld('api', {
     trash: (projectPath: string, taskNumber: number) => typedInvoke('task:trash', projectPath, taskNumber),
     setMergeTarget: (projectPath: string, taskNumber: number, mergeTarget: string) =>
       typedInvoke('task:set-merge-target', projectPath, taskNumber, mergeTarget),
-    setSandboxed: (projectPath: string, taskNumber: number, sandboxed: boolean) =>
-      typedInvoke('task:set-sandboxed', projectPath, taskNumber, sandboxed),
     setName: (projectPath: string, taskNumber: number, name: string) =>
       typedInvoke('task:set-name', projectPath, taskNumber, name),
     setDescription: (projectPath: string, taskNumber: number, description: string) =>
@@ -244,7 +243,6 @@ contextBridge.exposeInMainWorld('api', {
       worktreePath: string;
       branch: string;
       createdAt: string;
-      sandboxed: boolean;
       hookMode?: CliHookMode;
       hookCommand?: string;
     }) => void,
@@ -293,5 +291,11 @@ contextBridge.exposeInMainWorld('api', {
     onSandboxDiverged: (
       callback: (event: { taskNumber: number; userWorktreePath: string; sandboxViewPath: string }) => void,
     ) => typedListen('sandbox:diverged', callback),
+  },
+  sandbox: {
+    status: (projectPath: string) => typedInvoke('sandbox:status', projectPath),
+    nonoConfig: (projectPath: string) => typedInvoke('sandbox:nono-config', projectPath),
+    setNonoConfig: (projectPath: string, config: NonoConfig) =>
+      typedInvoke('sandbox:set-nono-config', projectPath, config),
   },
 });

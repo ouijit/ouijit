@@ -12,7 +12,9 @@ import type {
   RunnerScript,
   SnapshotTerminalUi,
   TaskWithWorkspace,
+  SandboxProviderId,
 } from '../../types';
+import { legacySandboxProvider } from '../../types';
 import { useTerminalStore, type TerminalDisplayState } from '../../stores/terminalStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { useCanvasStore, persistCanvas } from '../../stores/canvasStore';
@@ -29,11 +31,44 @@ import log from 'electron-log/renderer';
 
 const actionsLog = log.scope('terminalActions');
 
+/**
+ * Resolve the sandbox backend to actually spawn under: the requested backend if
+ * it is installed (available) on this machine, otherwise undefined (a plain host
+ * shell). Gated on `available`, not `ready`: Lima reports `ready` only once its
+ * VM is booted, but its spawn path boots the VM on demand (with a progress
+ * spinner), so requesting it while the VM is Stopped must still sandbox — not
+ * silently downgrade to a host shell. Only queries backend status when a backend
+ * is requested, so host terminals pay no IPC cost.
+ */
+async function resolveAvailableProvider(
+  projectPath: string,
+  requested: SandboxProviderId | undefined,
+): Promise<SandboxProviderId | undefined> {
+  if (!requested || requested === 'none') return undefined;
+  // Reuse the per-project availability `loadProjectConfig` already cached, so a
+  // sandbox open doesn't re-probe every backend over IPC (Lima's status shells
+  // out to `limactl`) just to check the one we asked for. Fall back to a live
+  // query only when the cache is for a different project (or absent).
+  const { availableSandboxProviders, configProjectPath } = useProjectStore.getState();
+  if (configProjectPath === projectPath) {
+    return availableSandboxProviders.includes(requested) ? requested : undefined;
+  }
+  try {
+    const statuses = await window.api.sandbox.status(projectPath);
+    return statuses.find((s) => s.providerId === requested)?.available ? requested : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 // ── Types ────────────────────────────────────────────────────────────
 
 export interface AddProjectTerminalOptions {
-  existingWorktree?: WorktreeInfo & { prompt?: string; sandboxed?: boolean };
+  existingWorktree?: WorktreeInfo & { prompt?: string; sandboxed?: boolean; sandboxProvider?: SandboxProviderId };
+  /** Legacy "open in sandbox" intent (kanban); maps to the Lima backend. */
   sandboxed?: boolean;
+  /** Explicit sandbox backend for this spawn (provider-aware callers). */
+  sandboxProvider?: SandboxProviderId;
   taskId?: number;
   skipAutoHook?: boolean;
   background?: boolean;
@@ -282,17 +317,26 @@ export async function addProjectTerminal(
 
   if (isStale()) return false;
 
-  // Check sandbox
-  const limaStatus = await window.api.lima.status(projectPath);
-  const taskSandboxed = options?.sandboxed ?? options?.existingWorktree?.sandboxed;
-  const useSandbox = limaStatus.available && taskSandboxed === true;
+  // Resolve which sandbox backend runs this terminal. Sandboxing is per
+  // terminal, not per task: an explicit provider option (the menu choice),
+  // the legacy "open in sandbox" boolean (→ Lima), or a restored terminal's
+  // own recorded backend. No task-level default — a plain open is a host
+  // shell. The chosen backend must be installed, else fall back to host; a
+  // backend that needs booting (Lima's VM) boots on demand during spawn.
+  const requestedProvider: SandboxProviderId | undefined =
+    options?.sandboxProvider ??
+    legacySandboxProvider(options?.sandboxed) ??
+    options?.existingWorktree?.sandboxProvider ??
+    legacySandboxProvider(options?.existingWorktree?.sandboxed);
+  const sandboxProvider = await resolveAvailableProvider(projectPath, requestedProvider);
+  const useSandbox = sandboxProvider != null;
 
   // Create OuijitTerminal
   const term = new OuijitTerminal({
     projectPath,
     command: startCommand,
     label,
-    sandboxed: useSandbox,
+    sandboxProvider,
     taskId: options?.taskId ?? null,
     taskPrompt,
     worktreePath: worktreeInfo?.path,
@@ -314,7 +358,7 @@ export async function addProjectTerminal(
       projectPath,
       {
         label,
-        sandboxed: useSandbox,
+        sandboxProvider,
         taskId: options?.taskId ?? null,
         worktreeBranch: worktreeInfo?.branch ?? null,
         diffPanelMode: term.diffPanelMode,
@@ -334,7 +378,7 @@ export async function addProjectTerminal(
     taskId: options?.taskId,
     worktreePath: worktreeInfo?.path,
     env: startEnv,
-    sandboxed: useSandbox,
+    sandboxProvider,
   };
 
   try {
@@ -367,7 +411,7 @@ export async function addProjectTerminal(
         projectPath,
         {
           label,
-          sandboxed: useSandbox,
+          sandboxProvider,
           taskId: options?.taskId ?? null,
           worktreeBranch: worktreeInfo?.branch ?? null,
           diffPanelMode: term.diffPanelMode,
@@ -443,7 +487,7 @@ export async function reconnectTerminal(
     projectPath: session.projectPath,
     command: session.command,
     label,
-    sandboxed: !!session.sandboxed,
+    sandboxProvider: session.sandboxProvider,
     taskId: session.taskId ?? null,
     worktreePath: session.worktreePath,
     worktreeBranch: opts.worktreeBranch,
@@ -477,7 +521,7 @@ export async function reconnectTerminal(
     session.projectPath,
     {
       label,
-      sandboxed: !!session.sandboxed,
+      sandboxProvider: session.sandboxProvider,
       taskId: session.taskId ?? null,
       worktreeBranch: opts.worktreeBranch ?? null,
       summaryType: opts.initialStatus ?? 'ready',
@@ -607,11 +651,13 @@ async function _spawnRunnerInner(instance: OuijitTerminal, panelId: string): Pro
   // Reset the header to the command on (re)start; OSC titles refine it later.
   instance.updatePanel(panelId, { command: commandStr, status: 'running' });
 
-  // Create runner terminal
+  // Create runner terminal — inherit the parent's sandbox backend so a runner
+  // in a sandboxed task is contained the same way its shell is.
   const runner = new OuijitTerminal({
     projectPath: path,
     label: commandName,
     isRunner: true,
+    sandboxProvider: instance.sandboxProvider,
   });
 
   runner.openTerminal();
@@ -628,6 +674,7 @@ async function _spawnRunnerInner(instance: OuijitTerminal, panelId: string): Pro
     worktreePath: instance.worktreePath,
     isRunner: true,
     parentPtyId: instance.ptyId,
+    sandboxProvider: instance.sandboxProvider,
     env: {
       OUIJIT_HOOK_TYPE: hookType,
       OUIJIT_PROJECT_PATH: path,
@@ -890,6 +937,7 @@ export async function reconnectRunnerToParent(session: ActiveSession): Promise<b
     label: session.label,
     isRunner: true,
     ptyId: session.ptyId,
+    sandboxProvider: session.sandboxProvider,
   });
   runner.openTerminal();
 

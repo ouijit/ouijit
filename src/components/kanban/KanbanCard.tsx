@@ -1,7 +1,9 @@
 import { memo, useState, useCallback, useEffect, useMemo, useRef, type ReactNode } from 'react';
 import { useDraggable } from '@dnd-kit/core';
 import { useShallow } from 'zustand/react/shallow';
-import type { TaskWithWorkspace } from '../../types';
+import type { TaskWithWorkspace, SandboxProviderId } from '../../types';
+import { openInEntry, moveToEntry, STATUS_LABELS, type TaskMenuActions } from './taskMenu';
+import { completeTask } from '../../services/taskCompletion';
 import { useTerminalStore, type TerminalDisplayState } from '../../stores/terminalStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { terminalInstances } from '../terminal/terminalReact';
@@ -24,14 +26,14 @@ interface KanbanCardProps {
   isSettingUp?: boolean;
   isSelected?: boolean;
   /** Hoisted from per-card IPC to a single board-level call. */
-  sandboxAvailable?: boolean;
+  availableSandboxProviders?: SandboxProviderId[];
   /** Hoisted from per-card IPC to a single board-level call. */
   hasEditorHook?: boolean;
   /** Called after the user saves an editor hook from this card's dialog. */
   onEditorHookConfigured?: () => void;
   onRename: (taskNumber: number, newName: string) => void;
   onUpdateDescription: (taskNumber: number, description: string) => void;
-  onOpenTerminal: (task: TaskWithWorkspace, sandboxed?: boolean) => void;
+  onOpenTerminal: (task: TaskWithWorkspace, sandboxProvider?: SandboxProviderId) => void;
   onSwitchToTerminal: (ptyId: string) => void;
   onSelect: (taskNumber: number, event: React.MouseEvent) => void;
 }
@@ -43,7 +45,7 @@ export const KanbanCard = memo(function KanbanCard({
   chainMap,
   isSettingUp,
   isSelected,
-  sandboxAvailable = false,
+  availableSandboxProviders = [],
   hasEditorHook = false,
   onEditorHookConfigured,
   onRename,
@@ -129,8 +131,6 @@ export const KanbanCard = memo(function KanbanCard({
     }
   }, []);
 
-  const isDone = task.status === 'done';
-
   const terminalContextMenuItems = useMemo((): ContextMenuEntry[] => {
     if (!terminalContextMenu) return [];
     return [
@@ -145,47 +145,24 @@ export const KanbanCard = memo(function KanbanCard({
   const selectedCount = useProjectStore((s) => s.selectedTaskNumbers.size);
   const contextMenuItems = useMemo((): ContextMenuEntry[] => {
     if (isSelected && selectedCount > 1) {
+      const bulkActions: Pick<TaskMenuActions, 'setStatus' | 'trash'> = {
+        setStatus: async (status) => {
+          const selected = [...useProjectStore.getState().selectedTaskNumbers];
+          await Promise.allSettled(selected.map((n) => window.api.task.setStatus(projectPath, n, status)));
+          useProjectStore.getState().loadTasks(projectPath);
+          useProjectStore.getState().clearSelection();
+          useProjectStore.getState().addToast(`Moved ${selected.length} tasks to ${STATUS_LABELS[status]}`, 'success');
+        },
+        trash: async () => {
+          const selected = [...useProjectStore.getState().selectedTaskNumbers];
+          await Promise.allSettled(selected.map((n) => window.api.task.trash(projectPath, n)));
+          useProjectStore.getState().loadTasks(projectPath);
+          useProjectStore.getState().clearSelection();
+          useProjectStore.getState().addToast(`Moved ${selected.length} tasks to trash`, 'success');
+        },
+      };
       const items: ContextMenuEntry[] = [
-        {
-          label: 'Move to To Do',
-          onClick: async () => {
-            const selected = [...useProjectStore.getState().selectedTaskNumbers];
-            await Promise.allSettled(selected.map((n) => window.api.task.setStatus(projectPath, n, 'todo')));
-            useProjectStore.getState().loadTasks(projectPath);
-            useProjectStore.getState().clearSelection();
-            useProjectStore.getState().addToast(`Moved ${selected.length} tasks to To Do`, 'success');
-          },
-        },
-        {
-          label: 'Move to In Progress',
-          onClick: async () => {
-            const selected = [...useProjectStore.getState().selectedTaskNumbers];
-            await Promise.allSettled(selected.map((n) => window.api.task.setStatus(projectPath, n, 'in_progress')));
-            useProjectStore.getState().loadTasks(projectPath);
-            useProjectStore.getState().clearSelection();
-            useProjectStore.getState().addToast(`Moved ${selected.length} tasks to In Progress`, 'success');
-          },
-        },
-        {
-          label: 'Move to In Review',
-          onClick: async () => {
-            const selected = [...useProjectStore.getState().selectedTaskNumbers];
-            await Promise.allSettled(selected.map((n) => window.api.task.setStatus(projectPath, n, 'in_review')));
-            useProjectStore.getState().loadTasks(projectPath);
-            useProjectStore.getState().clearSelection();
-            useProjectStore.getState().addToast(`Moved ${selected.length} tasks to In Review`, 'success');
-          },
-        },
-        {
-          label: 'Move to Done',
-          onClick: async () => {
-            const selected = [...useProjectStore.getState().selectedTaskNumbers];
-            await Promise.allSettled(selected.map((n) => window.api.task.setStatus(projectPath, n, 'done')));
-            useProjectStore.getState().loadTasks(projectPath);
-            useProjectStore.getState().clearSelection();
-            useProjectStore.getState().addToast(`Moved ${selected.length} tasks to Done`, 'success');
-          },
-        },
+        moveToEntry(bulkActions),
         { separator: true },
         {
           label: 'Open in Terminal',
@@ -196,19 +173,6 @@ export const KanbanCard = memo(function KanbanCard({
             const tasks = store.tasks.filter((t) => selected.includes(t.taskNumber));
             for (const t of tasks) onOpenTerminal(t);
             store.clearSelection();
-          },
-        },
-        { separator: true },
-        {
-          label: 'Move to Trash',
-          icon: 'trash',
-          danger: true,
-          onClick: async () => {
-            const selected = [...useProjectStore.getState().selectedTaskNumbers];
-            await Promise.allSettled(selected.map((n) => window.api.task.trash(projectPath, n)));
-            useProjectStore.getState().loadTasks(projectPath);
-            useProjectStore.getState().clearSelection();
-            useProjectStore.getState().addToast(`Moved ${selected.length} tasks to trash`, 'success');
           },
         },
       ];
@@ -227,24 +191,9 @@ export const KanbanCard = memo(function KanbanCard({
       items.push({ separator: true });
     }
 
-    items.push({
-      label: 'Open in Terminal',
-      icon: 'terminal',
-      onClick: () => onOpenTerminal(task),
-    });
-
-    if (task.worktreePath && task.branch && sandboxAvailable) {
-      items.push({
-        label: 'Open in Sandbox',
-        icon: 'cube',
-        onClick: () => onOpenTerminal(task, true),
-      });
-    }
-
-    items.push({
-      label: 'Open in Editor',
-      icon: 'code',
-      onClick: () => {
+    const actions: TaskMenuActions = {
+      openTerminal: (provider) => onOpenTerminal(task, provider),
+      openEditor: () => {
         if (hasEditorHook && task.worktreePath && task.branch) {
           openWorktreeEditor(
             projectPath,
@@ -255,7 +204,18 @@ export const KanbanCard = memo(function KanbanCard({
           setEditorHookDialog(true);
         }
       },
-    });
+      setStatus: async (status) => {
+        await window.api.task.setStatus(projectPath, task.taskNumber, status);
+        useProjectStore.getState().loadTasks(projectPath);
+      },
+      completeToDone: () => void completeTask({ projectPath, task }),
+      trash: async () => {
+        await window.api.task.trash(projectPath, task.taskNumber);
+        useProjectStore.getState().loadTasks(projectPath);
+        useProjectStore.getState().addToast('Task moved to trash', 'success');
+      },
+    };
+    items.push(openInEntry(availableSandboxProviders, !!(task.worktreePath && task.branch), actions));
 
     const planDisplay = connectedDisplays.find((d) => d.panels.some((p) => p.kind === 'plan'));
     if (planDisplay) {
@@ -273,6 +233,8 @@ export const KanbanCard = memo(function KanbanCard({
 
     items.push({ separator: true });
 
+    items.push(moveToEntry(actions));
+
     if (task.branch && task.status !== 'done') {
       items.push({
         label: 'Branch from this task',
@@ -287,44 +249,12 @@ export const KanbanCard = memo(function KanbanCard({
       onClick: handleStartRenameTask,
     });
 
-    if (isDone) {
-      items.push({
-        label: 'Reopen',
-        icon: 'arrow-counter-clockwise',
-        onClick: async () => {
-          await window.api.task.setStatus(projectPath, task.taskNumber, 'in_progress');
-          useProjectStore.getState().loadTasks(projectPath);
-        },
-      });
-    } else {
-      items.push({
-        label: 'Move to Done',
-        icon: 'archive',
-        onClick: async () => {
-          await window.api.task.setStatus(projectPath, task.taskNumber, 'done');
-          useProjectStore.getState().loadTasks(projectPath);
-        },
-      });
-    }
-
-    items.push({
-      label: 'Move to Trash',
-      icon: 'trash',
-      danger: true,
-      onClick: async () => {
-        await window.api.task.trash(projectPath, task.taskNumber);
-        useProjectStore.getState().loadTasks(projectPath);
-        useProjectStore.getState().addToast('Task moved to trash', 'success');
-      },
-    });
-
     return items;
   }, [
     connectedDisplays,
     task,
     projectPath,
-    isDone,
-    sandboxAvailable,
+    availableSandboxProviders,
     hasEditorHook,
     isSelected,
     selectedCount,

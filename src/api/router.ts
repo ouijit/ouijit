@@ -102,7 +102,7 @@ class HttpError extends Error {
 interface TaskStartResult {
   success: boolean;
   worktreePath?: string;
-  task?: { taskNumber: number; branch?: string; createdAt: string; sandboxed?: boolean };
+  task?: { taskNumber: number; branch?: string; createdAt: string };
 }
 
 function isSuccessfulStart(result: unknown): result is TaskStartResult {
@@ -265,19 +265,40 @@ const routes: Route[] = [
   // the pty's record, so this route deliberately does not take ?project=.
   // Order matters: must come before 'tasks/:number' so the literal segment
   // wins the match against a numeric :number.
-  route('GET', 'tasks/current', async (r) => {
-    const ctx = getPtyTaskContext(r.auth.ptyId);
-    if (!ctx) throw new HttpError(404, 'Current PTY is not associated with a task');
-    const task = await getTaskWithWorkspace(ctx.projectPath, ctx.taskId);
-    if (!task) throw new HttpError(404, `Task ${ctx.taskId} not found`);
-    return task;
-  }),
+  route(
+    'GET',
+    'tasks/current',
+    async (r) => {
+      const ctx = getPtyTaskContext(r.auth.ptyId);
+      if (!ctx) throw new HttpError(404, 'Current PTY is not associated with a task');
+      const task = await getTaskWithWorkspace(ctx.projectPath, ctx.taskId);
+      if (!task) throw new HttpError(404, `Task ${ctx.taskId} not found`);
+      return task;
+    },
+    false,
+    // Read-only, resolved from the caller's own PTY, so a sandboxed agent can
+    // read its own current task without host scope.
+    'sandbox',
+  ),
 
-  route('GET', 'tasks/:number', (r) => {
-    const project = requireProject(r.query);
-    const num = requireInt(r.segments[1], 'Task number');
-    return getTaskWithWorkspace(project, num);
-  }),
+  route(
+    'GET',
+    'tasks/:number',
+    (r) => {
+      const project = requireProject(r.query);
+      const num = requireInt(r.segments[1], 'Task number');
+      // A sandboxed session may read only its own task, never an arbitrary one.
+      if (r.auth.scope === 'sandbox') {
+        const ctx = getPtyTaskContext(r.auth.ptyId);
+        if (!ctx || ctx.projectPath !== project || ctx.taskId !== num) {
+          throw new HttpError(403, 'Sandboxed sessions may only read their own task');
+        }
+      }
+      return getTaskWithWorkspace(project, num);
+    },
+    false,
+    'sandbox',
+  ),
 
   route(
     'POST',
@@ -298,18 +319,11 @@ const routes: Route[] = [
       // any worktree is created. The values themselves are forwarded to the
       // renderer in the cli:task-started push below.
       parseHookControl(r.body);
-      // Sandbox scope can't reach this route (default minScope is 'host'),
-      // but double-check the intent: an unsandboxed task must never be
-      // created from a sandbox-scoped caller.
-      if (r.auth.scope === 'sandbox' && r.body.sandboxed === false) {
-        throw new HttpError(403, 'Sandboxed sessions cannot create unsandboxed tasks');
-      }
       return createTaskWorktree(
         project,
         r.body.name as string | undefined,
         r.body.prompt as string | undefined,
         r.body.branchName as string | undefined,
-        r.body.sandboxed as boolean | undefined,
       );
     },
     true,
@@ -593,6 +607,12 @@ async function handleAsync(req: IncomingMessage, res: ServerResponse, window: Br
     return;
   }
 
+  // Sandbox-scoped callers are read-only: they may never reach a mutating
+  // route, even one that opts into sandbox scope. Writes require host scope.
+  if (matched.route.mutating && auth.scope !== 'host') {
+    json(res, 403, { error: 'Forbidden' });
+    return;
+  }
   if (matched.route.minScope === 'host' && auth.scope !== 'host') {
     json(res, 403, { error: 'Forbidden' });
     return;
@@ -653,7 +673,6 @@ async function handleAsync(req: IncomingMessage, res: ServerResponse, window: Br
             worktreePath: startResult.worktreePath,
             branch: task.branch,
             createdAt: task.createdAt,
-            sandboxed: task.sandboxed ?? false,
             hookMode: hookControl.hookMode,
             hookCommand: hookControl.hookCommand,
           });

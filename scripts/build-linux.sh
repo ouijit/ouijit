@@ -3,12 +3,12 @@
 # Build Ouijit for Linux x64 from macOS
 #
 # This script cross-compiles native modules (node-pty) and downloads
-# Linux-specific binaries (limactl) into a staging directory, then
+# Linux-specific binaries (limactl, nono) into a staging directory, then
 # packages the app. The forge afterCopy hook picks up staged binaries
 # via OUIJIT_CROSS_STAGING so everything is bundled correctly in one pass.
 #
 # Flow:
-#   1. Stage: cross-compile node-pty, download Linux limactl
+#   1. Stage: cross-compile node-pty, download Linux limactl + nono
 #   2. Package: electron-forge packages with staged binaries
 #   3. Archive: zip the output
 #
@@ -28,6 +28,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 LIMA_VM="ouijit-linux-builder"
 LIMA_VERSION="2.0.3"
+NONO_VERSION="0.66.0"
 STAGING="${PROJECT_DIR}/out/linux-staging"
 
 echo "==> Building Ouijit for Linux x64"
@@ -57,7 +58,31 @@ rm -rf "$LIMA_TMP"
 trap - EXIT
 echo "    Staged limactl and guest agents"
 
-# 1b. Ensure Lima builder VM is running
+# 1b. Download Linux nono
+echo "==> Downloading Linux nono v${NONO_VERSION}..."
+NONO_URL="https://github.com/always-further/nono/releases/download/v${NONO_VERSION}/nono-v${NONO_VERSION}-x86_64-unknown-linux-gnu.tar.gz"
+NONO_TMP="$(mktemp -d)"
+trap 'rm -rf "$NONO_TMP"' EXIT
+curl -fSL "$NONO_URL" | tar xz -C "$NONO_TMP"
+cp "$NONO_TMP/nono" "$STAGING/bin/nono"
+chmod 755 "$STAGING/bin/nono"
+rm -rf "$NONO_TMP"
+trap - EXIT
+echo "    Staged nono"
+
+# 1b-ii. Stage the vendored nono agent packs (platform-independent JSON the
+# union profile inherits). download-nono.sh vendors them on the build host via
+# postinstall; copy that tree so the packaged app ships it and first launch
+# needs no network. cp -R preserves the hook scripts' exec bits.
+if [ -d "$PROJECT_DIR/resources/share/nono" ]; then
+    mkdir -p "$STAGING/share/nono"
+    cp -R "$PROJECT_DIR/resources/share/nono/." "$STAGING/share/nono/"
+    echo "    Staged nono agent packs"
+else
+    echo "    No vendored nono packs to stage (first launch will pull them)"
+fi
+
+# 1c. Ensure Lima builder VM is running
 if ! limactl list -q | grep -q "^${LIMA_VM}$"; then
     echo "==> Creating Lima VM '${LIMA_VM}'..."
     limactl create --name="${LIMA_VM}" --cpus=4 --memory=8 template:default
@@ -80,7 +105,7 @@ limactl shell "${LIMA_VM}" -- bash -c "
     fi
 "
 
-# 1c. Cross-compile node-pty for Linux x64 via Docker
+# 1d. Cross-compile node-pty for Linux x64 via Docker
 echo "==> Cross-compiling node-pty for Linux x64..."
 limactl shell "${LIMA_VM}" -- bash -c "
     rm -rf /tmp/node-pty-x64
@@ -116,3 +141,4 @@ echo ""
 echo "    To verify binaries:"
 echo "    file out/ouijit-linux-x64/resources/app/node_modules/node-pty/build/Release/pty.node"
 echo "    file out/ouijit-linux-x64/resources/bin/limactl"
+echo "    file out/ouijit-linux-x64/resources/bin/nono"
