@@ -49,19 +49,26 @@ else
 fi
 
 # Vendor the agent packs the union profile inherits (claude, codex, opencode,
-# pi) so the first sandboxed launch needs no network. Only the `packages/` tree
-# is bundled — nono resolves the union profile from it directly (no lockfile or
-# wiring needed). Packs are platform-independent JSON, so one vendored copy is
-# valid on every OS. See src/sandbox/nono/profile.ts.
+# pi) so the first sandboxed launch needs no network. The `packages/` tree is
+# bundled together with its `lockfile.json`: nono verifies every pack against
+# the lockfile on each real `nono run` (artifact digests + the Sigstore trust
+# bundle, all offline), and a pack directory with no lockfile entry is a hard
+# error. The app installs each pack as a matched pair — directory plus its
+# vendored lockfile entry. Packs are platform-independent JSON, so one
+# vendored copy is valid on every OS. See src/sandbox/nono/profile.ts.
 #
 # `nono pull` also "wires" agent hooks into the invoking user's real config
 # (~/.config/nono, ~/.claude, …). To keep postinstall from mutating a
 # developer's machine, pull into a throwaway HOME and copy only the packages
-# out; every side effect stays inside the temp dir and is discarded.
+# out; every side effect stays inside the temp dir and is discarded. The
+# wiring_record in the vendored lockfile is emptied to match: the app's
+# copy-install performs no wiring, and the record would otherwise bake this
+# machine's paths into every install.
 SHARE="$RESOURCES/share"
 PACKS_DIR="$SHARE/nono/packages/always-further"
+LOCKFILE="$SHARE/nono/packages/lockfile.json"
 PACKS="claude codex opencode pi"
-if [ -d "$PACKS_DIR/claude" ] && [ -d "$PACKS_DIR/codex" ] && [ -d "$PACKS_DIR/opencode" ] && [ -d "$PACKS_DIR/pi" ]; then
+if [ -f "$LOCKFILE" ] && [ -d "$PACKS_DIR/claude" ] && [ -d "$PACKS_DIR/codex" ] && [ -d "$PACKS_DIR/opencode" ] && [ -d "$PACKS_DIR/pi" ]; then
   echo "nono agent packs already vendored"
 else
   echo "Vendoring nono agent packs into $SHARE/nono/packages..."
@@ -75,6 +82,24 @@ else
       echo "Warning: failed to vendor always-further/$pack; first launch will pull it at runtime"
     fi
   done
+  TMP_LOCKFILE="$PACKS_TMP/.config/nono/packages/lockfile.json"
+  if [ -f "$TMP_LOCKFILE" ]; then
+    python3 - "$TMP_LOCKFILE" "$LOCKFILE" <<'PY'
+import json, sys
+
+src, dest = sys.argv[1], sys.argv[2]
+with open(src) as f:
+    lock = json.load(f)
+# The vendored copy is installed without wiring; drop the temp-HOME paths.
+for entry in lock.get("packages", {}).values():
+    entry["wiring_record"] = []
+with open(dest, "w") as f:
+    json.dump(lock, f, indent=2)
+    f.write("\n")
+PY
+  else
+    echo "Warning: no lockfile produced; first launch will pull packs at runtime"
+  fi
   rm -rf "$PACKS_TMP"
   trap - EXIT
 fi

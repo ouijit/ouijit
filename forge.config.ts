@@ -137,9 +137,10 @@ const config: ForgeConfig = {
             console.log(`Copied Lima guest agents from ${guestAgentSrc}`);
           }
 
-          // 5b. Copy vendored nono agent packs (platform-independent JSON the
-          // union profile inherits) so the first sandboxed launch needs no
-          // network. Same staged-else-resources resolution as the binaries.
+          // 5b. Copy vendored nono agent packs and their lockfile
+          // (platform-independent JSON the union profile inherits) so the
+          // first sandboxed launch needs no network. Same staged-else-resources
+          // resolution as the binaries.
           // Uses fs.cpSync, not copyRecursive, to preserve the pack hook
           // scripts' exec bits.
           const stagedNonoShare = staging ? path.join(staging, 'share', 'nono') : null;
