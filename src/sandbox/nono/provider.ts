@@ -6,7 +6,7 @@ import { getCliPath, getUserDataPath } from '../../paths';
 import { getLogger } from '../../logger';
 import type { WrapperSandboxProvider } from '../provider';
 import type { SandboxLaunch, SandboxProviderStatus, SandboxSpawnContext } from '../types';
-import { getNonoPath, isNonoInstalled, checkPlatformSupport, getMainGitDir } from './binary';
+import { getNonoPath, getVendoredNonoPath, isNonoInstalled, checkPlatformSupport, getMainGitDir } from './binary';
 import { getNonoConfig } from './config';
 import { ensureUnionProfile, ensureProjectProfile } from './profile';
 import { sandboxCacheEnv } from './cacheEnv';
@@ -92,7 +92,13 @@ export const nonoProvider: WrapperSandboxProvider = {
     // print a lock error at every prompt. The integration neutralizes HISTFILE
     // after the user's rc runs (a plain env var loses to an rc that re-sets it).
     // The cache vars are injected the same way, so a user's rc still overrides.
-    return { cwd: ctx.cwd, env: { OUIJIT_SANDBOX_NO_HISTORY: '1', ...sandboxCacheEnv(cacheDir) } };
+    const env: Record<string, string> = { OUIJIT_SANDBOX_NO_HISTORY: '1', ...sandboxCacheEnv(cacheDir) };
+    // Point the `nono` shim (wrapper bin dir, first on PATH) at the vendored
+    // binary so agents can run `nono why` inside the sandbox. Skipped when
+    // nono resolves to PATH (user-installed) — the shim falls through to it.
+    const vendoredNono = getVendoredNonoPath();
+    if (vendoredNono) env.OUIJIT_NONO_PATH = vendoredNono;
+    return { cwd: ctx.cwd, env };
   },
 
   async wrapLaunch(launch: SandboxLaunch, ctx: SandboxSpawnContext): Promise<SandboxLaunch> {
@@ -123,6 +129,7 @@ export const nonoProvider: WrapperSandboxProvider = {
       wrapperDir: ouijitDir(),
       cliDir,
       cacheDir,
+      nonoBinPath: getVendoredNonoPath() ?? undefined,
       profileName,
       config,
     });

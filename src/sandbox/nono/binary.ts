@@ -1,4 +1,5 @@
 import * as os from 'node:os';
+import * as path from 'node:path';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { getLogger } from '../../logger';
@@ -13,6 +14,18 @@ const nonoLog = getLogger().scope('nono');
  */
 export function getNonoPath(): string {
   return resolveBundledBinary('nono');
+}
+
+/**
+ * Absolute path of the vendored nono binary, or null when nono resolves to
+ * PATH (user-installed / dev without the download). Sandboxed sessions need
+ * the vendored path explicitly: it is neither on PATH nor readable inside the
+ * sandbox by default, so the spawn injects it via OUIJIT_NONO_PATH (for the
+ * `nono` shim) and grants it read (so the agent can exec `nono why`).
+ */
+export function getVendoredNonoPath(): string | null {
+  const resolved = getNonoPath();
+  return path.isAbsolute(resolved) ? resolved : null;
 }
 
 /** Minimum Linux kernel for Landlock filesystem mediation nono relies on. */

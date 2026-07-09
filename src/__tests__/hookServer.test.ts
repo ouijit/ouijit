@@ -51,6 +51,7 @@ import {
   PI_EXTENSION,
   OPENCODE_WRAPPER,
   OPENCODE_PLUGIN,
+  NONO_SHIM,
 } from '../hookServer';
 import { issueToken, revokeAllTokens } from '../apiAuth';
 
@@ -446,6 +447,19 @@ describe('installWrapper', () => {
     expect(plugin).toContain('OUIJIT_HOOK_BIN');
   });
 
+  test('creates nono shim preferring OUIJIT_NONO_PATH with a PATH fallthrough', () => {
+    installWrapper();
+
+    const shimPath = path.join(tmpHome, '.config', 'Ouijit', 'bin', 'nono');
+    const shim = fs.readFileSync(shimPath, 'utf-8');
+    expect(shim).toContain('#!/bin/bash');
+    // Sandboxed sessions: exec the vendored binary the provider injected.
+    expect(shim).toContain('exec "$OUIJIT_NONO_PATH" "$@"');
+    // Everywhere else: resolve the real nono on PATH via the shared resolver.
+    expect(shim).toContain('REAL_BIN=');
+    expect(shim).toContain('exec "$REAL_BIN" "$@"');
+  });
+
   test('creates CLI reference file with command documentation', () => {
     installWrapper();
 
@@ -558,6 +572,47 @@ describe('wrapper resolver (shared)', () => {
       }
     });
   }
+});
+
+describe('NONO_SHIM', () => {
+  test('execs the vendored binary when OUIJIT_NONO_PATH is set, else the real nono on PATH', () => {
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'nono-shim-'));
+    try {
+      const wrapperDir = path.join(tmp, 'wrapper-bin');
+      const realDir = path.join(tmp, 'real-bin');
+      fs.mkdirSync(wrapperDir);
+      fs.mkdirSync(realDir);
+      const shimPath = path.join(wrapperDir, 'nono');
+      fs.writeFileSync(shimPath, NONO_SHIM, { mode: 0o755 });
+
+      // Stand-ins for the vendored binary (as the app resources would hold it)
+      // and a user-installed nono on PATH.
+      const vendored = path.join(tmp, 'vendored-nono');
+      fs.writeFileSync(vendored, '#!/bin/bash\necho VENDORED_OK\nprintf "%s\\n" "$@"\n', { mode: 0o755 });
+      fs.writeFileSync(path.join(realDir, 'nono'), '#!/bin/bash\necho PATH_NONO_OK\n', { mode: 0o755 });
+
+      const fakePath = [wrapperDir, realDir, '/usr/bin', '/bin'].join(':');
+
+      // Sandboxed session: the provider-injected env var wins and argv passes through.
+      const sandboxed = execFileSync('bash', [shimPath, 'why', '--path', '/x'], {
+        env: { PATH: fakePath, HOME: tmp, OUIJIT_NONO_PATH: vendored },
+        encoding: 'utf8',
+        timeout: 10_000,
+      });
+      expect(sandboxed).toContain('VENDORED_OK');
+      expect(sandboxed).toContain('why');
+
+      // Host session (no env var): falls through to the user's nono on PATH.
+      const host = execFileSync('bash', [shimPath, 'why'], {
+        env: { PATH: fakePath, HOME: tmp },
+        encoding: 'utf8',
+        timeout: 10_000,
+      });
+      expect(host).toContain('PATH_NONO_OK');
+    } finally {
+      fs.rmSync(tmp, { recursive: true, force: true });
+    }
+  });
 });
 
 // ── CLAUDE_WRAPPER constant ──────────────────────────────────────────
