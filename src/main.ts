@@ -5,7 +5,7 @@ import started from 'electron-squirrel-startup';
 import fixPath from 'fix-path';
 import log from './log';
 import { setLogger, type Logger } from './logger';
-import { setUserDataPath, getDbPath, setCliPath } from './paths';
+import { setUserDataPath, getDbPath, setCliPath, setDevResourcesRoot } from './paths';
 import { setTrashItem } from './platform';
 import { registerIpcHandlers, cleanupIpc } from './ipc/register';
 import { getApiPort } from './hookServer';
@@ -86,6 +86,10 @@ if (process.env.OUIJIT_TEST_USER_DATA) {
 // Set CLI path so PTY sessions can find the bundled ouijit CLI
 if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
   setCliPath(path.join(app.getAppPath(), 'dist-cli', 'ouijit.js'));
+  // Resolve vendored binaries/resources (limactl, nono, agent packs) from the
+  // repo checkout so dev matches packaged builds instead of falling back to
+  // whatever happens to be on PATH.
+  setDevResourcesRoot(path.join(app.getAppPath(), 'resources'));
 } else {
   setCliPath(path.join(app.getAppPath(), 'cli', 'ouijit.js'));
 }

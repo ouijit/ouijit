@@ -15,25 +15,46 @@ const execFileAsync = promisify(execFile);
 
 let _userDataPath: string | null = null;
 let _cliPath: string | null = null;
+let _devResourcesRoot: string | null = null;
 const _bundledBinaryCache = new Map<string, string>();
 
 /**
+ * Point resolution at a repo checkout's `resources/` dir. In dev/unpackaged
+ * runs `process.resourcesPath` is Electron's own resources, so without this
+ * the vendored binaries and packs (fetched by postinstall) are invisible and
+ * dev silently diverges from packaged builds by falling back to PATH.
+ */
+export function setDevResourcesRoot(p: string): void {
+  _devResourcesRoot = p;
+  _bundledBinaryCache.clear();
+}
+
+/** Candidate absolute paths for a bundled resource, packaged root first. */
+function bundledCandidates(...segments: string[]): string[] {
+  const roots = [process.resourcesPath, _devResourcesRoot].filter((r): r is string => !!r);
+  return roots.map((root) => path.join(root, ...segments));
+}
+
+/**
  * Resolve a bundled CLI binary: the executable copy under the app's resources
- * if it exists, otherwise the bare name for PATH lookup (dev / user-installed).
- * Shared by the sandbox backends so they bundle and resolve the same way. The
- * bundled path is fixed for the process lifetime, so the `accessSync` probe is
- * memoized — the nono spawn path resolves each binary several times per spawn.
+ * (packaged) or the repo's `resources/` dir (dev) if it exists, otherwise the
+ * bare name for PATH lookup (user-installed). Shared by the sandbox backends
+ * so they bundle and resolve the same way. The bundled path is fixed for the
+ * process lifetime, so the `accessSync` probe is memoized — the nono spawn
+ * path resolves each binary several times per spawn.
  */
 export function resolveBundledBinary(name: string): string {
   const cached = _bundledBinaryCache.get(name);
   if (cached != null) return cached;
-  const bundled = path.join(process.resourcesPath ?? '', 'bin', name);
   let resolved = name;
-  try {
-    fsSync.accessSync(bundled, fsSync.constants.X_OK);
-    resolved = bundled;
-  } catch {
-    resolved = name;
+  for (const candidate of bundledCandidates('bin', name)) {
+    try {
+      fsSync.accessSync(candidate, fsSync.constants.X_OK);
+      resolved = candidate;
+      break;
+    } catch {
+      // keep looking
+    }
   }
   _bundledBinaryCache.set(name, resolved);
   return resolved;
@@ -41,19 +62,20 @@ export function resolveBundledBinary(name: string): string {
 
 /**
  * Resolve a bundled resource directory shipped under the app's `resources`
- * (e.g. `share/nono/packages`). Returns the absolute path when it exists,
- * else null so callers fall back to fetching at runtime — in dev/unpackaged
- * builds `process.resourcesPath` points at Electron's own resources, so the
- * dir is absent and the caller pulls from the network instead.
+ * (e.g. `share/nono/packages`), checking the packaged root then the dev repo
+ * root. Returns the absolute path when it exists, else null so callers fall
+ * back to fetching at runtime.
  */
 export function resolveBundledResourceDir(...segments: string[]): string | null {
-  const dir = path.join(process.resourcesPath ?? '', ...segments);
-  try {
-    fsSync.accessSync(dir);
-    return dir;
-  } catch {
-    return null;
+  for (const candidate of bundledCandidates(...segments)) {
+    try {
+      fsSync.accessSync(candidate);
+      return candidate;
+    } catch {
+      // keep looking
+    }
   }
+  return null;
 }
 
 /** Whether a binary is present, bundled or on PATH. */
