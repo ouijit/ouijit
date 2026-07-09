@@ -6,10 +6,10 @@ interface NonoSandboxSectionProps {
 }
 
 const CARD =
-  'glass-bevel relative border border-black/60 rounded-[14px] overflow-hidden bg-[var(--color-terminal-bg,#171717)] divide-y divide-white/[0.06]';
+  'glass-bevel relative border border-bezel rounded-[14px] overflow-hidden bg-terminal-bg divide-y divide-ink/[0.06]';
 
 const PILL_BTN =
-  'shrink-0 text-xs font-medium text-text-secondary bg-background-secondary border border-black/60 rounded-[10px] px-2.5 py-1.5 hover:bg-background-tertiary hover:text-text-primary transition-colors';
+  'shrink-0 text-xs font-medium text-text-secondary bg-background-secondary border border-bezel rounded-[10px] px-2.5 py-1.5 hover:bg-background-tertiary hover:text-text-primary transition-colors';
 
 /** Config surface for the nono backend. Controls only — no exposition. */
 const STARTER_PROFILE = `{
@@ -151,7 +151,7 @@ export function NonoSandboxSection({ projectPath }: NonoSandboxSectionProps) {
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') addPort();
                 }}
-                className="w-16 rounded-[10px] border border-black/60 bg-background-secondary px-2 py-1.5 text-xs text-text-primary"
+                className="w-16 rounded-[10px] border border-bezel bg-background-secondary px-2 py-1.5 text-xs text-text-primary"
               />
               <button type="button" onClick={addPort} className={PILL_BTN}>
                 Add
@@ -163,7 +163,7 @@ export function NonoSandboxSection({ projectPath }: NonoSandboxSectionProps) {
               {openPorts.map((n) => (
                 <span
                   key={n}
-                  className="inline-flex items-center gap-1 rounded-full border border-black/60 bg-background-secondary py-0.5 pl-2 pr-1 text-xs text-text-secondary"
+                  className="inline-flex items-center gap-1 rounded-full border border-bezel bg-background-secondary py-0.5 pl-2 pr-1 text-xs text-text-secondary"
                 >
                   {n}
                   <button
@@ -209,9 +209,9 @@ export function NonoSandboxSection({ projectPath }: NonoSandboxSectionProps) {
                 }}
                 spellCheck={false}
                 aria-label="nono profile JSON"
-                className="h-56 w-full resize-y rounded-[10px] border border-black/60 bg-background-secondary px-3 py-2 font-mono text-xs leading-relaxed text-text-primary outline-none"
+                className="h-56 w-full resize-y rounded-[10px] border border-bezel bg-background-secondary px-3 py-2 font-mono text-xs leading-relaxed text-text-primary outline-none"
               />
-              {profileError && <div className="text-xs text-red-400">{profileError}</div>}
+              {profileError && <div className="text-xs text-error">{profileError}</div>}
               <div className="flex items-center gap-1.5">
                 <button type="button" onClick={saveProfile} className={PILL_BTN}>
                   Save
@@ -246,11 +246,11 @@ function Toggle({ checked, label, onClick }: { checked: boolean; label: string; 
       aria-label={label}
       onClick={onClick}
       className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors duration-150 ${
-        checked ? 'bg-blue-500' : 'bg-white/15'
+        checked ? 'bg-accent' : 'bg-ink/15'
       }`}
     >
       <span
-        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-150 ${
+        className={`inline-block h-4 w-4 transform rounded-full bg-accent-ink transition-transform duration-150 ${
           checked ? 'translate-x-[18px]' : 'translate-x-[2px]'
         }`}
       />

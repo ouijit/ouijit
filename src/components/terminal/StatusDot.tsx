@@ -15,10 +15,10 @@ export function sandboxSuffix(sandboxProvider?: SandboxProviderId): string {
 }
 
 const COLORS: Record<string, string> = {
-  thinking: '#da77f2',
-  ready: '#4ee82e',
-  success: '#4ee82e',
-  error: '#ff453a',
+  thinking: 'var(--color-status-thinking)',
+  ready: 'var(--color-status-ready)',
+  success: 'var(--color-status-ready)',
+  error: 'var(--color-error)',
 };
 
 const LABELS: Record<string, string> = {
@@ -45,7 +45,12 @@ export function StatusDot({ summaryType, sandboxProvider, size = 6 }: StatusDotP
           height: size,
           background,
           ...(isThinking ? { animation: 'terminal-status-pulse 1s ease-in-out infinite' } : {}),
-          ...(sandboxed ? { outline: '1.5px solid rgba(116, 192, 252, 0.6)', outlineOffset: '2px' } : {}),
+          ...(sandboxed
+            ? {
+                outline: '1.5px solid color-mix(in srgb, var(--color-ansi-blue) 60%, transparent)',
+                outlineOffset: '2px',
+              }
+            : {}),
         }}
       />
     </Tooltip>

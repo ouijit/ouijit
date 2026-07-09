@@ -40,7 +40,7 @@ export function SandboxSection({ projectPath }: SandboxSectionProps) {
     <div className="flex flex-col gap-3">
       {both && (
         <div className="flex flex-col gap-1.5">
-          <div className="flex gap-1 self-start rounded-[12px] border border-black/60 bg-background-secondary p-1">
+          <div className="flex gap-1 self-start rounded-[12px] border border-bezel bg-background-secondary p-1">
             {providers.map((p) => (
               <button
                 key={p}

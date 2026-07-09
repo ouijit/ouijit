@@ -679,13 +679,13 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
       }}
     >
       <div
-        className="kanban-board glass-bevel fixed top-[82px] bottom-4 z-[140] flex flex-col opacity-100 rounded-[14px] overflow-hidden border border-black/60"
+        className="kanban-board glass-bevel fixed top-[82px] bottom-4 z-[140] flex flex-col opacity-100 rounded-[14px] overflow-hidden border border-bezel"
         style={{
           left: 'calc(var(--sidebar-offset, 0px) + 16px)',
           right: showTrash ? 144 : 16,
           transition: 'left 0.2s ease-out, right 0.2s ease-out',
-          background: 'var(--color-terminal-bg, #171717)',
-          boxShadow: '0 0 0 1px rgba(0, 0, 0, 0.05), 0 4px 12px rgba(0, 0, 0, 0.15), 0 20px 40px rgba(0, 0, 0, 0.2)',
+          background: 'var(--color-terminal-bg)',
+          boxShadow: 'var(--shadow-panel)',
         }}
       >
         {missingWorktreeDialog && (
@@ -759,8 +759,8 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
           <div
             className="px-3 py-3.5 relative"
             style={{
-              background: '#111111',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
+              background: 'var(--color-terminal-inset)',
+              border: '1px solid var(--color-border)',
               boxShadow: '0 8px 24px rgba(0, 0, 0, 0.5)',
               borderRadius: 0,
             }}
@@ -772,8 +772,8 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
             </div>
             {selectedTaskCount > 1 && (
               <span
-                className="absolute -top-2 -right-2 flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-[11px] font-semibold text-white"
-                style={{ background: '#0A84FF' }}
+                className="absolute -top-2 -right-2 flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-[11px] font-semibold text-accent-ink"
+                style={{ background: 'var(--color-accent)' }}
               >
                 {selectedTaskCount}
               </span>
@@ -784,8 +784,8 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
           <span
             className="inline-flex items-center gap-0.5 font-mono text-[11px] leading-none px-2 py-1 rounded-full whitespace-nowrap"
             style={{
-              color: 'rgba(255, 255, 255, 0.7)',
-              background: 'rgba(255, 255, 255, 0.12)',
+              color: 'color-mix(in srgb, var(--color-ink) 70%, transparent)',
+              background: 'var(--color-background-tertiary)',
               boxShadow: '0 4px 12px rgba(0, 0, 0, 0.4)',
             }}
           >
@@ -819,8 +819,8 @@ const KanbanTrashZone = forwardRef<HTMLDivElement, { visible: boolean; isOver: b
         opacity: visible ? 1 : 0,
         transition: 'width 0.2s ease-out, opacity 0.2s ease-out, background 150ms ease, color 150ms ease',
 
-        background: isOver ? 'rgba(255, 69, 58, 0.12)' : 'var(--color-background)',
-        color: isOver ? 'var(--color-error, #ff453a)' : 'var(--color-text-tertiary)',
+        background: isOver ? 'color-mix(in srgb, var(--color-error) 12%, transparent)' : 'var(--color-background)',
+        color: isOver ? 'var(--color-error)' : 'var(--color-text-tertiary)',
       }}
     >
       <div className="[&>svg]:w-6 [&>svg]:h-6">

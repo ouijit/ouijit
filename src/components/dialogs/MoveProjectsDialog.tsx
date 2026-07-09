@@ -87,7 +87,7 @@ export function MoveProjectsDialog({ newFolder, projects, onClose }: MoveProject
                 ? 'border-border opacity-50'
                 : selected === option.action
                   ? 'border-accent bg-accent-light/20'
-                  : 'border-border hover:bg-white/[0.02]'
+                  : 'border-border hover:bg-ink/[0.02]'
             }`}
           >
             <input

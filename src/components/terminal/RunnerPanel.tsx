@@ -36,11 +36,11 @@ export function RunnerPanel({
   return (
     <div className="flex flex-col h-full overflow-hidden">
       <div className="flex items-center gap-2 px-3 py-1.5 shrink-0">
-        <span className="text-[13px] text-white/50 truncate flex-1 font-mono">{panelTitle}</span>
+        <span className="text-[13px] text-ink/50 truncate flex-1 font-mono">{panelTitle}</span>
         {runnerPtyId && (
           <Tooltip text="Kill">
             <button
-              className="w-7 h-7 flex items-center justify-center p-0 bg-transparent border-none rounded-md text-white/40 shrink-0 transition-all duration-150 ease-out hover:bg-red-500/20 hover:text-[#ff6b6b] [&>svg]:w-3.5 [&>svg]:h-3.5"
+              className="w-7 h-7 flex items-center justify-center p-0 bg-transparent border-none rounded-md text-ink/40 shrink-0 transition-all duration-150 ease-out hover:bg-error/20 hover:text-ansi-red [&>svg]:w-3.5 [&>svg]:h-3.5"
               onClick={(e) => {
                 e.stopPropagation();
                 onKill();
@@ -52,7 +52,7 @@ export function RunnerPanel({
         )}
         <Tooltip text="Restart">
           <button
-            className="w-7 h-7 flex items-center justify-center p-0 bg-transparent border-none rounded-md text-white/60 shrink-0 transition-all duration-150 ease-out hover:bg-white/10 hover:text-white/90 [&>svg]:w-3.5 [&>svg]:h-3.5"
+            className="w-7 h-7 flex items-center justify-center p-0 bg-transparent border-none rounded-md text-ink/60 shrink-0 transition-all duration-150 ease-out hover:bg-ink/10 hover:text-ink/90 [&>svg]:w-3.5 [&>svg]:h-3.5"
             onClick={(e) => {
               e.stopPropagation();
               onRestart();
@@ -69,10 +69,10 @@ export function RunnerPanel({
         {runnerPtyId ? (
           <XTermContainer ptyId={runnerPtyId} className="runner-xterm-container w-full h-full overflow-hidden" />
         ) : (
-          <div className="w-full h-full flex flex-col items-center justify-center gap-3 text-white/40">
+          <div className="w-full h-full flex flex-col items-center justify-center gap-3 text-ink/40">
             <div className="font-mono text-sm">Runner stopped</div>
             <button
-              className="px-3 py-1 rounded-md bg-white/10 hover:bg-white/15 text-white/80 text-xs border-none transition-colors flex items-center gap-1.5 [&>svg]:w-3.5 [&>svg]:h-3.5"
+              className="px-3 py-1 rounded-md bg-ink/10 hover:bg-ink/15 text-ink/80 text-xs border-none transition-colors flex items-center gap-1.5 [&>svg]:w-3.5 [&>svg]:h-3.5"
               onClick={(e) => {
                 e.stopPropagation();
                 onRestart();

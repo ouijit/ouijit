@@ -37,7 +37,7 @@ const DEPTH_STYLES: Record<number, DepthStyle> = {
 const ACTIVE_STYLE: CSSProperties = {
   zIndex: 10,
   transform: 'translateY(0) scaleX(1)',
-  boxShadow: '0 0 0 1px rgba(0, 0, 0, 0.05), 0 4px 12px rgba(0, 0, 0, 0.15), 0 20px 40px rgba(0, 0, 0, 0.2)',
+  boxShadow: 'var(--shadow-panel)',
 };
 
 export interface TerminalCardViewProps {
@@ -73,7 +73,7 @@ export function TerminalCardView({
   const depthBase = !isActive && backDepth > 0 ? DEPTH_STYLES[Math.min(backDepth, 4)] : undefined;
 
   const style: CSSProperties = {
-    background: 'var(--color-terminal-bg, #171717)',
+    background: 'var(--color-terminal-bg)',
     transition: 'transform 0.2s ease, box-shadow 0.2s ease',
     contain: 'layout style paint',
     ...(isActive
@@ -89,7 +89,7 @@ export function TerminalCardView({
 
   return (
     <div
-      className={`project-card glass-bevel absolute inset-0 rounded-[14px] border border-black/60 overflow-hidden flex flex-col ${isActive ? 'project-card--active' : 'hover:border-accent'}${className ? ' ' + className : ''}`}
+      className={`project-card glass-bevel absolute inset-0 rounded-[14px] border border-bezel overflow-hidden flex flex-col ${isActive ? 'project-card--active' : 'hover:border-accent'}${className ? ' ' + className : ''}`}
       style={style}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}

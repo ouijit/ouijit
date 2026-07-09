@@ -54,7 +54,7 @@ export function ProjectSettingsPanel({ projectPath }: ProjectSettingsPanelProps)
       {/* Fade overlay — content fades out under the header */}
       <div
         className="pointer-events-none h-6 shrink-0 -mb-6 relative z-10"
-        style={{ background: 'linear-gradient(to bottom, var(--color-background-primary, #1c1c1e), transparent)' }}
+        style={{ background: 'linear-gradient(to bottom, var(--color-background), transparent)' }}
       />
       <div className="flex-1 overflow-y-auto settings-scrollable">
         <div className="px-6 pt-4 pb-16 min-w-full max-w-2xl space-y-8">
@@ -96,11 +96,10 @@ export function ProjectSettingsPanel({ projectPath }: ProjectSettingsPanelProps)
             <h2 className="text-sm font-semibold text-text-primary mb-2">Run Commands</h2>
             <p className="text-xs text-text-tertiary mb-4">Commands you can launch from a terminal's + menu.</p>
             <div
-              className="glass-bevel relative border border-black/60 rounded-[14px] overflow-hidden divide-y divide-white/[0.06]"
+              className="glass-bevel relative border border-bezel rounded-[14px] overflow-hidden divide-y divide-ink/[0.06]"
               style={{
-                background: 'var(--color-terminal-bg, #171717)',
-                boxShadow:
-                  '0 0 0 1px rgba(0, 0, 0, 0.05), 0 4px 12px rgba(0, 0, 0, 0.15), 0 20px 40px rgba(0, 0, 0, 0.2)',
+                background: 'var(--color-terminal-bg)',
+                boxShadow: 'var(--shadow-panel)',
               }}
             >
               <HookList projectPath={projectPath} hooks={RUN_HOOK} bare />

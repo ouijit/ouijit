@@ -149,27 +149,27 @@ export function TerminalBody({ ptyId, projectPath }: TerminalBodyProps) {
             transition,
             // Collapse padding too when hidden, so basis 0 means truly zero width.
             ...(activePanel && !split ? { padding: 0 } : {}),
-            background: 'var(--color-terminal-bg, #171717)',
+            background: 'var(--color-terminal-bg)',
           }}
         />
         {split && (
           <div
             ref={handleRef}
-            className="shrink-0 relative hover:bg-white/15 active:bg-white/15 after:content-[''] after:absolute after:top-0 after:bottom-0 after:-left-2 after:-right-2"
+            className="shrink-0 relative hover:bg-ink/15 active:bg-ink/15 after:content-[''] after:absolute after:top-0 after:bottom-0 after:-left-2 after:-right-2"
             style={{ width: 4, cursor: 'col-resize', background: 'transparent', transition: 'background 0.15s ease' }}
           />
         )}
         {activePanel && (
           <div
             ref={panelRef}
-            className="relative flex flex-col min-h-0 overflow-hidden glass-bevel border border-black/60 rounded-[14px] m-3"
+            className="relative flex flex-col min-h-0 overflow-hidden glass-bevel border border-bezel rounded-[14px] m-3"
             style={{
               flexGrow: 0,
               flexShrink: 1,
               flexBasis: panelBasis,
               transition,
-              background: 'var(--color-terminal-bg, #171717)',
-              boxShadow: '0 0 0 1px rgba(0, 0, 0, 0.05), 0 2px 10px rgba(0, 0, 0, 0.18)',
+              background: 'var(--color-terminal-bg)',
+              boxShadow: 'var(--shadow-inset-panel)',
               ...(dragging ? { pointerEvents: 'none' } : {}),
             }}
           >
@@ -185,10 +185,10 @@ export function TerminalBody({ ptyId, projectPath }: TerminalBodyProps) {
       </div>
       {diffPanelOpen && (
         <div
-          className="absolute inset-0 z-20 flex flex-col m-3 glass-bevel border border-black/60 rounded-[14px] overflow-hidden"
+          className="absolute inset-0 z-20 flex flex-col m-3 glass-bevel border border-bezel rounded-[14px] overflow-hidden"
           style={{
-            background: 'var(--color-terminal-bg, #171717)',
-            boxShadow: '0 0 0 1px rgba(0, 0, 0, 0.05), 0 2px 10px rgba(0, 0, 0, 0.18)',
+            background: 'var(--color-terminal-bg)',
+            boxShadow: 'var(--shadow-inset-panel)',
           }}
         >
           <DiffPanel

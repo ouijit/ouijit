@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import type { FileDiff } from '../../types';
 import type { HunkTokens } from '../../utils/syntaxHighlight';
+import { useResolvedTheme } from '../../hooks/useResolvedTheme';
 
 /**
  * Hook that tokenizes diff hunks for syntax highlighting.
@@ -9,6 +10,8 @@ import type { HunkTokens } from '../../utils/syntaxHighlight';
 export function useSyntaxHighlight(diff: FileDiff | null, filePath: string): HunkTokens[] | null {
   const [tokens, setTokens] = useState<HunkTokens[] | null>(null);
   const cancelRef = useRef(false);
+  // Tokenization reads the resolved theme; re-tokenize when it changes.
+  const resolvedTheme = useResolvedTheme();
 
   useEffect(() => {
     cancelRef.current = false;
@@ -31,7 +34,7 @@ export function useSyntaxHighlight(diff: FileDiff | null, filePath: string): Hun
       cancelled = true;
       cancelRef.current = true;
     };
-  }, [diff, filePath]);
+  }, [diff, filePath, resolvedTheme]);
 
   return tokens;
 }

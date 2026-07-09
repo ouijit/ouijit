@@ -17,21 +17,21 @@ export const TerminalNode = memo(function TerminalNode({ data, selected }: NodeP
 function LoadingNode({ label }: { label?: string }) {
   return (
     <div
-      className="canvas-terminal-node glass-bevel absolute rounded-[14px] border border-black/60 overflow-hidden flex flex-col items-center justify-center gap-3"
+      className="canvas-terminal-node glass-bevel absolute rounded-[14px] border border-bezel overflow-hidden flex flex-col items-center justify-center gap-3"
       style={{
         top: INSET_TOP,
         left: INSET_SIDE,
         right: INSET_SIDE,
         bottom: INSET_BOTTOM,
-        background: 'var(--color-terminal-bg, #171717)',
-        boxShadow: '0 0 0 1px rgba(0, 0, 0, 0.05), 0 4px 12px rgba(0, 0, 0, 0.15), 0 20px 40px rgba(0, 0, 0, 0.2)',
+        background: 'var(--color-terminal-bg)',
+        boxShadow: 'var(--shadow-panel)',
       }}
     >
       <div
-        className="w-5 h-5 rounded-full border-2 border-white/20 border-t-accent"
+        className="w-5 h-5 rounded-full border-2 border-ink/20 border-t-accent"
         style={{ animation: 'spin 0.8s linear infinite' }}
       />
-      <span className="font-mono text-sm text-white/40">{label || 'Setting up workspace\u2026'}</span>
+      <span className="font-mono text-sm text-ink/40">{label || 'Setting up workspace\u2026'}</span>
     </div>
   );
 }
@@ -72,14 +72,14 @@ const ActiveTerminalNode = memo(function ActiveTerminalNode({
       <Handle id="right" type="target" position={Position.Right} className="!bg-transparent !border-none !w-0 !h-0" />
 
       <div
-        className="canvas-terminal-node glass-bevel absolute rounded-[14px] border border-black/60 overflow-hidden flex flex-col"
+        className="canvas-terminal-node glass-bevel absolute rounded-[14px] border border-bezel overflow-hidden flex flex-col"
         style={{
           top: INSET_TOP,
           left: INSET_SIDE,
           right: INSET_SIDE,
           bottom: INSET_BOTTOM,
-          background: 'var(--color-terminal-bg, #171717)',
-          boxShadow: '0 0 0 1px rgba(0, 0, 0, 0.05), 0 4px 12px rgba(0, 0, 0, 0.15), 0 20px 40px rgba(0, 0, 0, 0.2)',
+          background: 'var(--color-terminal-bg)',
+          boxShadow: 'var(--shadow-panel)',
         }}
       >
         <div className="terminal-drag-handle shrink-0" style={{ zIndex: 2 }}>

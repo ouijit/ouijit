@@ -116,13 +116,13 @@ export function RecentTasksPanel({ projects }: RecentTasksPanelProps) {
 
   return (
     <div
-      className="w-full flex flex-col rounded-[14px] border border-black/60 glass-bevel relative overflow-hidden min-h-0"
+      className="w-full flex flex-col rounded-[14px] border border-bezel glass-bevel relative overflow-hidden min-h-0"
       style={{
         background: 'var(--color-terminal-bg)',
-        boxShadow: '0 0 0 1px rgba(0, 0, 0, 0.05), 0 4px 12px rgba(0, 0, 0, 0.15), 0 20px 40px rgba(0, 0, 0, 0.2)',
+        boxShadow: 'var(--shadow-panel)',
       }}
     >
-      <div className="flex items-center justify-between gap-3 px-5 pt-4 pb-3 shrink-0 border-b border-white/[0.06]">
+      <div className="flex items-center justify-between gap-3 px-5 pt-4 pb-3 shrink-0 border-b border-ink/[0.06]">
         <span className="text-[11px] uppercase tracking-wider text-text-tertiary">Pick up where you left off</span>
         <button
           type="button"
@@ -132,7 +132,7 @@ export function RecentTasksPanel({ projects }: RecentTasksPanelProps) {
           {allSelected ? 'Deselect all' : `Select all (${recents.length})`}
         </button>
       </div>
-      <ul className="flex flex-col overflow-y-auto min-h-0 settings-scrollable divide-y divide-white/[0.04]">
+      <ul className="flex flex-col overflow-y-auto min-h-0 settings-scrollable divide-y divide-ink/[0.04]">
         {recents.map((task) => {
           const key = taskKey(task);
           return (
@@ -153,7 +153,7 @@ export function RecentTasksPanel({ projects }: RecentTasksPanelProps) {
         })}
       </ul>
       {selected.size > 0 && (
-        <div className="flex items-center justify-between gap-3 px-5 py-3 border-t border-white/[0.06] shrink-0">
+        <div className="flex items-center justify-between gap-3 px-5 py-3 border-t border-ink/[0.06] shrink-0">
           <span className="text-xs text-text-tertiary tabular-nums">
             <span className="text-text-secondary">{selected.size}</span> selected
           </span>
@@ -161,14 +161,14 @@ export function RecentTasksPanel({ projects }: RecentTasksPanelProps) {
             <button
               type="button"
               onClick={clearSelection}
-              className="px-3 py-1.5 text-xs text-text-secondary rounded-full hover:bg-white/[0.04] transition-colors"
+              className="px-3 py-1.5 text-xs text-text-secondary rounded-full hover:bg-ink/[0.04] transition-colors"
             >
               Cancel
             </button>
             <button
               type="button"
               onClick={openSelection}
-              className="px-3 py-1.5 text-xs font-medium text-white bg-accent rounded-full hover:bg-accent-hover active:scale-[0.98] transition-all duration-150"
+              className="px-3 py-1.5 text-xs font-medium text-accent-ink bg-accent rounded-full hover:bg-accent-hover active:scale-[0.98] transition-all duration-150"
             >
               Open {selected.size} task{selected.size === 1 ? '' : 's'}
             </button>
@@ -202,7 +202,7 @@ function RecentTaskRow({ task, selected, onClick, onToggle }: RecentTaskRowProps
           }
         }}
         className={`group w-full flex items-center gap-3 pl-3 pr-5 py-2.5 text-left transition-colors duration-100 [-webkit-app-region:no-drag] cursor-default ${
-          selected ? 'bg-accent/15 hover:bg-accent/20' : 'hover:bg-white/[0.03]'
+          selected ? 'bg-accent/15 hover:bg-accent/20' : 'hover:bg-ink/[0.03]'
         }`}
       >
         <Checkbox
@@ -253,17 +253,17 @@ function Checkbox({ checked, onChange, onPointerEnter, onPointerLeave }: Checkbo
       onClick={onChange}
       onPointerEnter={onPointerEnter}
       onPointerLeave={onPointerLeave}
-      className="shrink-0 w-7 h-7 -ml-1.5 rounded-md flex items-center justify-center transition-colors duration-100 hover:bg-white/[0.08] active:bg-white/[0.12] [-webkit-app-region:no-drag]"
+      className="shrink-0 w-7 h-7 -ml-1.5 rounded-md flex items-center justify-center transition-colors duration-100 hover:bg-ink/[0.08] active:bg-ink/[0.12] [-webkit-app-region:no-drag]"
     >
       <span
         className={`w-[15px] h-[15px] rounded border transition-all duration-100 flex items-center justify-center ${
           checked
             ? 'bg-accent border-accent'
-            : 'border-white/30 bg-white/[0.04] group-hover:border-white/50 group-hover:bg-white/[0.06]'
+            : 'border-ink/30 bg-ink/[0.04] group-hover:border-ink/50 group-hover:bg-ink/[0.06]'
         }`}
       >
         {checked && (
-          <svg viewBox="0 0 12 12" className="w-3 h-3 text-white" aria-hidden>
+          <svg viewBox="0 0 12 12" className="w-3 h-3 text-accent-ink" aria-hidden>
             <path
               fill="none"
               stroke="currentColor"

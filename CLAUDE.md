@@ -103,6 +103,7 @@ Dev userData is isolated per worktree via a hash of the repo path (`…/ouijit-d
 - Use hover/active states for visual feedback, not cursor changes
 - Follow macOS HIG patterns
 - Respect system light/dark mode
+- Never hardcode colors or shadows. Every color/shadow comes from a design token in `src/theme/tokens.css` (Tailwind utility like `bg-ink/10` / `border-bezel`, or `var(--token)` in inline styles). Themes override tokens at runtime via `src/theme/themeManager.ts`. Allowed exceptions: pure-black scrims/shadows and the project identity palette in `src/utils/projectIcon.ts`.
 
 ## Logging
 

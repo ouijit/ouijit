@@ -40,7 +40,11 @@ export function KanbanColumnView({
   return (
     <div
       className="kanban-column flex flex-col transition-all duration-150 ease-out shrink-0 last:border-r-0"
-      style={{ minWidth: 240, flex: '1 0 240px', borderRight: '1px solid rgba(255, 255, 255, 0.06)' }}
+      style={{
+        minWidth: 240,
+        flex: '1 0 240px',
+        borderRight: '1px solid color-mix(in srgb, var(--color-ink) 6%, transparent)',
+      }}
       data-status={status}
     >
       <div className="flex items-center gap-2 px-3 py-2.5 shrink-0 h-[46px]">
@@ -54,7 +58,7 @@ export function KanbanColumnView({
         </span>
         {hookTypes.length > 0 && onConfigureHook && (
           <button
-            className={`flex items-center justify-center border-none text-text-tertiary transition-all duration-150 ease-out rounded-md hover:text-text-secondary hover:bg-white/[0.08] [&>svg]:w-[18px] [&>svg]:h-[18px]${hasConfiguredHook ? ' !text-accent hover:!text-accent-hover' : ''}`}
+            className={`flex items-center justify-center border-none text-text-tertiary transition-all duration-150 ease-out rounded-md hover:text-text-secondary hover:bg-ink/[0.08] [&>svg]:w-[18px] [&>svg]:h-[18px]${hasConfiguredHook ? ' !text-accent hover:!text-accent-hover' : ''}`}
             style={{ padding: '4px 10px', background: 'transparent' }}
             onClick={() => onConfigureHook(hookTypes)}
           >
@@ -66,7 +70,7 @@ export function KanbanColumnView({
         ref={bodyRef}
         className="kanban-column-body flex flex-col overflow-y-auto flex-1 min-h-0"
         style={{
-          borderTop: '1px solid rgba(255, 255, 255, 0.06)',
+          borderTop: '1px solid color-mix(in srgb, var(--color-ink) 6%, transparent)',
           scrollbarColor: 'transparent transparent',
           transition: 'background 150ms ease',
           minHeight: 80,

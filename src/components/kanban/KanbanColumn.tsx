@@ -165,7 +165,10 @@ function SortableCard({
         {...listeners}
         className="[&>*]:opacity-0"
       >
-        <div className="px-3 py-3.5" style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.06)' }}>
+        <div
+          className="px-3 py-3.5"
+          style={{ borderBottom: '1px solid color-mix(in srgb, var(--color-ink) 6%, transparent)' }}
+        >
           <div className="flex items-start gap-2">
             <span className="flex-1 font-mono text-sm font-medium text-text-primary min-w-0 break-words">
               {task.name}

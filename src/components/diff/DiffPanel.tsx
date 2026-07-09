@@ -156,7 +156,7 @@ export function DiffPanel({ ptyId, projectPath, mode, onClose }: DiffPanelProps)
   const modeLabel = effectiveMode === 'worktree' ? 'Branch changes' : 'Uncommitted changes';
 
   return (
-    <div className="flex flex-1 min-h-0 overflow-hidden" style={{ background: 'var(--color-terminal-bg, #171717)' }}>
+    <div className="flex flex-1 min-h-0 overflow-hidden" style={{ background: 'var(--color-terminal-bg)' }}>
       <div
         className={
           sidebarCollapsed
@@ -169,29 +169,29 @@ export function DiffPanel({ ptyId, projectPath, mode, onClose }: DiffPanelProps)
       </div>
       {!sidebarCollapsed && (
         <div
-          className="w-[3px] shrink-0 bg-white/10 hover:bg-accent/60 active:bg-accent transition-colors duration-100"
+          className="w-[3px] shrink-0 bg-ink/10 hover:bg-accent/60 active:bg-accent transition-colors duration-100"
           style={{ cursor: 'col-resize' }}
           onMouseDown={handleSidebarDragStart}
         />
       )}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <div className="px-3 py-2 text-sm text-white/70 flex items-center gap-2 shrink-0">
+        <div className="px-3 py-2 text-sm text-ink/70 flex items-center gap-2 shrink-0">
           <button
-            className="w-7 h-7 rounded-md bg-transparent border-none text-white/60 flex items-center justify-center shrink-0 transition-all duration-150 ease-out hover:bg-white/10 hover:text-white/90"
+            className="w-7 h-7 rounded-md bg-transparent border-none text-ink/60 flex items-center justify-center shrink-0 transition-all duration-150 ease-out hover:bg-ink/10 hover:text-ink/90"
             onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
             title={sidebarCollapsed ? 'Show sidebar' : 'Hide sidebar'}
           >
             <Icon name={sidebarCollapsed ? 'caret-right' : 'caret-left'} />
           </button>
           <span
-            className="text-xs bg-white/[0.06] pl-2 pr-1 py-1 text-white/50 flex items-center gap-1.5 relative"
+            className="text-xs bg-ink/[0.06] pl-2 pr-1 py-1 text-ink/50 flex items-center gap-1.5 relative"
             style={{ borderRadius: '5px' }}
           >
             {modeLabel}
           </span>
           <span className="text-xs text-text-tertiary ml-auto relative">{stats}</span>
           <button
-            className="w-7 h-7 rounded-md bg-transparent border-none text-white/60 flex items-center justify-center shrink-0 transition-all duration-150 ease-out hover:bg-white/10 hover:text-white/90 [&>svg]:w-4 [&>svg]:h-4"
+            className="w-7 h-7 rounded-md bg-transparent border-none text-ink/60 flex items-center justify-center shrink-0 transition-all duration-150 ease-out hover:bg-ink/10 hover:text-ink/90 [&>svg]:w-4 [&>svg]:h-4"
             onClick={onClose}
             title="Close"
           >
@@ -210,7 +210,7 @@ export function DiffPanel({ ptyId, projectPath, mode, onClose }: DiffPanelProps)
           {!loading &&
             files.map((file) => <DiffFileSection key={file.path} file={file} diff={diffs.get(file.path) ?? null} />)}
           {!loading && truncated && (
-            <div className="px-4 py-3 text-xs text-white/40 text-center border-t border-white/[0.06]">
+            <div className="px-4 py-3 text-xs text-ink/40 text-center border-t border-ink/[0.06]">
               Showing {files.length} of {totalFileCount} changed files
             </div>
           )}
@@ -227,21 +227,21 @@ function UntrackedFilesSection({ files }: { files: string[] }) {
   const [expanded, setExpanded] = useState(false);
 
   return (
-    <div className="border-t border-white/[0.08]">
+    <div className="border-t border-ink/[0.08]">
       <div
-        className="flex items-center gap-2 px-4 py-2 bg-[#252525] border-b border-white/[0.06] text-sm text-white/50 hover:text-white/70 transition-colors duration-150"
+        className="flex items-center gap-2 px-4 py-2 bg-terminal-surface border-b border-ink/[0.06] text-sm text-ink/50 hover:text-ink/70 transition-colors duration-150"
         onClick={() => setExpanded(!expanded)}
       >
         <Icon name={expanded ? 'caret-down' : 'caret-right'} className="!w-3 !h-3" />
-        <Icon name="file-plus" className="w-3.5 h-3.5 text-[#FF9F0A]" />
+        <Icon name="file-plus" className="w-3.5 h-3.5 text-vcs-modified" />
         <span>
           {files.length} untracked {files.length === 1 ? 'file' : 'files'}
         </span>
       </div>
       {expanded && (
-        <div className="bg-[#1a1a1a]">
+        <div className="bg-terminal-surface-alt">
           {files.map((filePath) => (
-            <div key={filePath} className="flex items-center gap-2 px-4 py-1 text-sm text-white/50 font-mono">
+            <div key={filePath} className="flex items-center gap-2 px-4 py-1 text-sm text-ink/50 font-mono">
               <span className="truncate">{filePath}</span>
             </div>
           ))}
@@ -320,7 +320,7 @@ function DiffFileTree({
       {untrackedFiles.length > 0 && (
         <>
           <div
-            className="flex items-center gap-1.5 py-1 pl-3 pr-3 mt-1 border-t border-white/[0.06] text-[13px] text-white/40 transition-colors duration-150 ease-out hover:bg-white/5 hover:text-white/60"
+            className="flex items-center gap-1.5 py-1 pl-3 pr-3 mt-1 border-t border-ink/[0.06] text-[13px] text-ink/40 transition-colors duration-150 ease-out hover:bg-ink/5 hover:text-ink/60"
             onClick={() => setUntrackedExpanded(!untrackedExpanded)}
           >
             <Icon name={untrackedExpanded ? 'caret-down' : 'caret-right'} className="!w-3 !h-3" />
@@ -328,8 +328,8 @@ function DiffFileTree({
           </div>
           {untrackedExpanded &&
             untrackedFiles.map((filePath) => (
-              <div key={filePath} className="flex items-center gap-1.5 py-1 pl-6 pr-3 text-[13px] text-white/40">
-                <Icon name="file-plus" className="w-4 h-4 text-[#FF9F0A]" />
+              <div key={filePath} className="flex items-center gap-1.5 py-1 pl-6 pr-3 text-[13px] text-ink/40">
+                <Icon name="file-plus" className="w-4 h-4 text-vcs-modified" />
                 <span className="flex-1 min-w-0 truncate">{filePath}</span>
               </div>
             ))}
@@ -345,7 +345,7 @@ function TreeNodeView({ node, onFileClick }: { node: TreeNode; onFileClick: (pat
   if (node.isFile && node.file) {
     return (
       <div
-        className="flex items-center gap-1.5 py-1 pl-3 pr-3 text-[13px] text-white/70 transition-colors duration-150 ease-out hover:bg-white/5"
+        className="flex items-center gap-1.5 py-1 pl-3 pr-3 text-[13px] text-ink/70 transition-colors duration-150 ease-out hover:bg-ink/5"
         data-path={node.file.path}
         onClick={() => onFileClick(node.file!.path)}
       >
@@ -358,9 +358,9 @@ function TreeNodeView({ node, onFileClick }: { node: TreeNode; onFileClick: (pat
         )}
         {(node.file.additions > 0 || node.file.deletions > 0) && (
           <span className="shrink-0 font-mono text-[13px]">
-            {node.file.additions > 0 && <span className="text-[#3fb950]">+{node.file.additions}</span>}
+            {node.file.additions > 0 && <span className="text-diff-added">+{node.file.additions}</span>}
             {node.file.additions > 0 && node.file.deletions > 0 && ' '}
-            {node.file.deletions > 0 && <span className="text-[#f85149]">-{node.file.deletions}</span>}
+            {node.file.deletions > 0 && <span className="text-diff-removed">-{node.file.deletions}</span>}
           </span>
         )}
       </div>
@@ -371,7 +371,7 @@ function TreeNodeView({ node, onFileClick }: { node: TreeNode; onFileClick: (pat
   return (
     <div data-expanded={expanded}>
       <div
-        className="flex items-center gap-1.5 py-1 pl-3 pr-3 text-[13px] text-white/50 transition-colors duration-150 ease-out hover:bg-white/5 hover:text-white/70"
+        className="flex items-center gap-1.5 py-1 pl-3 pr-3 text-[13px] text-ink/50 transition-colors duration-150 ease-out hover:bg-ink/5 hover:text-ink/70"
         onClick={() => setExpanded(!expanded)}
       >
         <Icon name={expanded ? 'caret-down' : 'caret-right'} className="!w-3 !h-3" />
@@ -412,30 +412,30 @@ function statusIcon(status: string): string {
 function statusColorClass(status: string): string {
   switch (status) {
     case 'A':
-      return 'text-[#34C759]';
+      return 'text-vcs-added';
     case 'D':
-      return 'text-[#FF3B30]';
+      return 'text-vcs-deleted';
     case 'R':
-      return 'text-[#5856D6]';
+      return 'text-vcs-renamed';
     case '?':
-      return 'text-[#FF9F0A]';
+      return 'text-vcs-modified';
     default:
-      return 'text-white/50';
+      return 'text-ink/50';
   }
 }
 
 function badgeColorClass(status: string): string {
   switch (status) {
     case 'A':
-      return 'bg-[#34C759]/15 text-[#34C759]';
+      return 'bg-vcs-added/15 text-vcs-added';
     case 'D':
-      return 'bg-[#FF3B30]/15 text-[#FF3B30]';
+      return 'bg-vcs-deleted/15 text-vcs-deleted';
     case 'R':
-      return 'bg-[#5856D6]/15 text-[#5856D6]';
+      return 'bg-vcs-renamed/15 text-vcs-renamed';
     case '?':
-      return 'bg-[#FF9F0A]/15 text-[#FF9F0A]';
+      return 'bg-vcs-modified/15 text-vcs-modified';
     default:
-      return 'bg-white/[0.06] text-white/40';
+      return 'bg-ink/[0.06] text-ink/40';
   }
 }
 
@@ -456,9 +456,9 @@ function DiffFileSection({ file, diff }: { file: ChangedFile; diff: FileDiff | n
             : 'modified';
 
   return (
-    <div className="border-b border-white/[0.08] last:border-b-0" data-path={file.path}>
-      <div className="sticky top-0 z-10 flex items-center gap-2 px-4 py-2 bg-[#252525] border-b border-white/[0.06]">
-        <span className="flex-1 min-w-0 truncate text-sm text-white/90" title={file.path}>
+    <div className="border-b border-ink/[0.08] last:border-b-0" data-path={file.path}>
+      <div className="sticky top-0 z-10 flex items-center gap-2 px-4 py-2 bg-terminal-surface border-b border-ink/[0.06]">
+        <span className="flex-1 min-w-0 truncate text-sm text-ink/90" title={file.path}>
           {file.path}
         </span>
         <span className={`shrink-0 text-[11px] px-1 py-px rounded font-medium ${badgeColorClass(file.status)}`}>
@@ -466,8 +466,8 @@ function DiffFileSection({ file, diff }: { file: ChangedFile; diff: FileDiff | n
         </span>
         {(file.additions > 0 || file.deletions > 0) && (
           <span className="shrink-0 font-mono text-[13px]">
-            {file.additions > 0 && <span className="text-[#3fb950]">+{file.additions}</span>}
-            {file.deletions > 0 && <span className="text-[#f85149]">-{file.deletions}</span>}
+            {file.additions > 0 && <span className="text-diff-added">+{file.additions}</span>}
+            {file.deletions > 0 && <span className="text-diff-removed">-{file.deletions}</span>}
           </span>
         )}
       </div>
@@ -496,7 +496,7 @@ function DiffFileSection({ file, diff }: { file: ChangedFile; diff: FileDiff | n
 function HunkHeader({ header }: { header: string }) {
   return (
     <div
-      className="py-1 pr-4 bg-[rgba(88,86,214,0.10)] text-[#8b8bcd] font-mono text-xs truncate"
+      className="py-1 pr-4 bg-vcs-renamed/10 text-diff-hunk font-mono text-xs truncate"
       style={{ paddingLeft: '106px' }}
     >
       {header}
@@ -526,29 +526,29 @@ function DiffLineView({
   wordHighlight?: WordHighlight;
 }) {
   const lineBg =
-    line.type === 'addition'
-      ? 'bg-[rgba(63,185,80,0.10)]'
-      : line.type === 'deletion'
-        ? 'bg-[rgba(248,81,73,0.08)]'
-        : '';
+    line.type === 'addition' ? 'bg-diff-added/10' : line.type === 'deletion' ? 'bg-diff-removed/[0.08]' : '';
   const gutterBg =
     line.type === 'addition'
-      ? 'bg-[rgba(63,185,80,0.12)]'
+      ? 'bg-diff-added/[0.12]'
       : line.type === 'deletion'
-        ? 'bg-[rgba(248,81,73,0.10)]'
-        : 'bg-[#141414]';
+        ? 'bg-diff-removed/10'
+        : 'bg-terminal-inset';
   const prefixColor =
-    line.type === 'addition' ? 'text-[#3fb950]' : line.type === 'deletion' ? 'text-[#f85149]' : 'text-transparent';
+    line.type === 'addition' ? 'text-diff-added' : line.type === 'deletion' ? 'text-diff-removed' : 'text-transparent';
   const wordBg =
-    line.type === 'addition' ? 'rgba(63,185,80,0.25)' : line.type === 'deletion' ? 'rgba(248,81,73,0.22)' : undefined;
+    line.type === 'addition'
+      ? 'color-mix(in srgb, var(--color-diff-added) 25%, transparent)'
+      : line.type === 'deletion'
+        ? 'color-mix(in srgb, var(--color-diff-removed) 22%, transparent)'
+        : undefined;
 
   return (
     <div className={`flex font-mono text-sm leading-normal ${lineBg}`}>
       <span className="flex shrink-0 select-none sticky left-0 z-[1]">
-        <span className={`w-[45px] px-2 text-right text-white/25 ${gutterBg} border-r border-white/5`}>
+        <span className={`w-[45px] px-2 text-right text-ink/25 ${gutterBg} border-r border-ink/5`}>
           {line.oldLineNo ?? ''}
         </span>
-        <span className={`w-[45px] px-2 text-right text-white/25 ${gutterBg} border-r border-white/5`}>
+        <span className={`w-[45px] px-2 text-right text-ink/25 ${gutterBg} border-r border-ink/5`}>
           {line.newLineNo ?? ''}
         </span>
       </span>
@@ -649,7 +649,7 @@ function renderPlainWithHighlights(
   wordBg: string | undefined,
 ): React.ReactNode {
   if (!wordHighlight || wordHighlight.ranges.length === 0 || !wordBg) {
-    return <span className="text-[#e6edf3]">{content}</span>;
+    return <span className="text-diff-fg">{content}</span>;
   }
 
   const elements: React.ReactNode[] = [];
@@ -658,13 +658,13 @@ function renderPlainWithHighlights(
   for (const [start, end] of wordHighlight.ranges) {
     if (start > pos) {
       elements.push(
-        <span key={pos} className="text-[#e6edf3]">
+        <span key={pos} className="text-diff-fg">
           {content.slice(pos, start)}
         </span>,
       );
     }
     elements.push(
-      <span key={start} className="text-[#e6edf3]" style={{ backgroundColor: wordBg, borderRadius: '2px' }}>
+      <span key={start} className="text-diff-fg" style={{ backgroundColor: wordBg, borderRadius: '2px' }}>
         {content.slice(start, end)}
       </span>,
     );
@@ -673,7 +673,7 @@ function renderPlainWithHighlights(
 
   if (pos < content.length) {
     elements.push(
-      <span key={pos} className="text-[#e6edf3]">
+      <span key={pos} className="text-diff-fg">
         {content.slice(pos)}
       </span>,
     );

@@ -102,17 +102,17 @@ function LoadingContents({ label, isActive }: { label: string; isActive: boolean
       <div className="flex items-center justify-between pl-3 pr-3 py-2 min-h-9">
         <div className="flex items-center gap-2 min-w-0">
           <span
-            className="w-2 h-2 rounded-full bg-transparent border-[1.5px] border-white/30 border-t-white/80 shrink-0"
+            className="w-2 h-2 rounded-full bg-transparent border-[1.5px] border-ink/30 border-t-ink/80 shrink-0"
             style={{ animation: 'loading-dot-spin 0.8s linear infinite' }}
           />
-          <span className="font-mono text-xs font-medium text-white/85 truncate">{label}</span>
+          <span className="font-mono text-xs font-medium text-ink/85 truncate">{label}</span>
         </div>
         <div className="flex items-center gap-1 shrink-0 justify-end" />
       </div>
       {isActive && (
         <div className="relative flex-1 flex flex-row min-h-0 overflow-hidden">
           <div className="flex-1 flex items-center justify-center">
-            <div className="font-mono text-sm text-white/40">Setting up workspace{'…'}</div>
+            <div className="font-mono text-sm text-ink/40">Setting up workspace{'…'}</div>
           </div>
         </div>
       )}

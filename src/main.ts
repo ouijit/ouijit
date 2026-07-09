@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu, dialog, shell } from 'electron';
+import { app, BrowserWindow, Menu, dialog, nativeTheme, shell } from 'electron';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 import started from 'electron-squirrel-startup';
@@ -12,7 +12,7 @@ import { getApiPort } from './hookServer';
 import { getActiveSessionCount } from './ptyManager';
 import { typedPush } from './ipc/helpers';
 import * as fs from 'node:fs';
-import { initDatabase, closeDatabase } from './db/database';
+import { initDatabase, getDatabase, closeDatabase } from './db/database';
 import { ProjectRepo } from './db/repos/projectRepo';
 import { TaskRepo } from './db/repos/taskRepo';
 import { HookRepo } from './db/repos/hookRepo';
@@ -20,6 +20,7 @@ import { importAll } from './services/dataImportService';
 import { initUpdater, cleanupUpdater } from './updater';
 import { checkHealth } from './healthCheck';
 import { setGlobalSetting } from './db';
+import { GlobalSettingsRepo } from './db/repos/globalSettingsRepo';
 import {
   CAPTURE_READY_SENTINEL,
   CAPTURE_WINDOW_HEIGHT,
@@ -102,13 +103,33 @@ if (started) {
   app.quit();
 }
 
+// Built-in theme window backgrounds — must match --color-background in
+// src/theme/tokens.css. The native window background has to match the
+// renderer theme: the WebContents surface lags behind the native frame
+// during live resize and a mismatched window background flashes through as
+// bars on the bottom and right edges.
+const DARK_WINDOW_BACKGROUND = '#1C1C1E';
+const LIGHT_WINDOW_BACKGROUND = '#F5F5F7';
+
+/**
+ * Resolve the native window background from the persisted theme settings.
+ * Custom themes mirror their resolved background into `ui:themeBackground`
+ * (written by src/theme/themeManager.ts on every theme apply).
+ */
+const resolveWindowBackgroundColor = (): string => {
+  const settings = new GlobalSettingsRepo(getDatabase());
+  const preference = settings.get('ui:theme') ?? 'system';
+  if (preference === 'dark') return DARK_WINDOW_BACKGROUND;
+  if (preference === 'light') return LIGHT_WINDOW_BACKGROUND;
+  if (preference.startsWith('custom:')) {
+    const stored = settings.get('ui:themeBackground');
+    if (stored && /^#[0-9a-fA-F]{6}$/.test(stored)) return stored;
+  }
+  return nativeTheme.shouldUseDarkColors ? DARK_WINDOW_BACKGROUND : LIGHT_WINDOW_BACKGROUND;
+};
+
 const createWindow = (): BrowserWindow => {
-  // The renderer UI is always dark (see --color-background / color-scheme:dark
-  // in index.css), so the native window background must be dark too regardless
-  // of the system theme. Otherwise, in light mode the WebContents surface lags
-  // behind the native frame during live resize and the near-white window
-  // background flashes through as bars on the bottom and right edges.
-  const backgroundColor = '#1C1C1E';
+  const backgroundColor = resolveWindowBackgroundColor();
 
   // Create the browser window.
   const isMac = process.platform === 'darwin';

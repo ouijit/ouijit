@@ -46,7 +46,7 @@ function inlineFormat(s: string): string {
   // Bold
   out = out.replace(/\*\*(.+?)\*\*/g, '<strong class="text-text-primary font-medium">$1</strong>');
   // Inline code
-  out = out.replace(/`(.+?)`/g, '<code class="px-1 py-0.5 rounded bg-white/5 text-xs font-mono">$1</code>');
+  out = out.replace(/`(.+?)`/g, '<code class="px-1 py-0.5 rounded bg-ink/5 text-xs font-mono">$1</code>');
   // Links [text](url)
   out = out.replace(/\[(.+?)\]\((.+?)\)/g, '<a class="text-accent hover:underline" data-href="$2">$1</a>');
   return out;

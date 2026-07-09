@@ -26,7 +26,7 @@ function HealthRow({ ok, label, hint }: { ok: boolean; label: string; hint?: str
     <div className="flex items-center gap-2 text-xs">
       <span
         className="shrink-0 w-2 h-2 rounded-full"
-        style={{ background: ok ? 'rgb(48, 209, 88)' : 'rgb(255, 159, 10)' }}
+        style={{ background: ok ? 'var(--color-success)' : 'var(--color-vcs-modified)' }}
       />
       <span className="text-text-primary font-medium w-20 shrink-0">{label}</span>
       <span className="text-text-secondary">{ok ? 'installed' : hint || 'not found'}</span>
@@ -51,7 +51,7 @@ export function HelpDialog({ onClose }: HelpDialogProps) {
   return (
     <DialogOverlay visible={visible} onDismiss={dismiss} maxWidth={520}>
       <div className="flex items-center gap-2 mb-1">
-        <div className="w-7 h-7 rounded-full flex items-center justify-center text-text-secondary [&>svg]:w-4 [&>svg]:h-4 bg-white/5">
+        <div className="w-7 h-7 rounded-full flex items-center justify-center text-text-secondary [&>svg]:w-4 [&>svg]:h-4 bg-ink/5">
           <Icon name="question" />
         </div>
         <h2 className="text-lg font-semibold text-text-primary">Help &amp; Setup</h2>
@@ -82,10 +82,10 @@ export function HelpDialog({ onClose }: HelpDialogProps) {
           <p className="text-xs text-text-secondary leading-relaxed">
             Configure a <span className="text-text-primary font-medium">start hook</span> on the kanban board (the chip
             on the In Progress column). A start hook is the command that runs when you drag a task to In Progress.
-            Usually it&apos;s just your agent: <code className="px-1 py-0.5 rounded bg-white/5 font-mono">claude</code>{' '}
-            or <code className="px-1 py-0.5 rounded bg-white/5 font-mono">codex</code>. The task description is passed
-            in as the prompt, and the agent figures out the rest using the{' '}
-            <code className="px-1 py-0.5 rounded bg-white/5 font-mono">ouijit</code> CLI.
+            Usually it&apos;s just your agent: <code className="px-1 py-0.5 rounded bg-ink/5 font-mono">claude</code> or{' '}
+            <code className="px-1 py-0.5 rounded bg-ink/5 font-mono">codex</code>. The task description is passed in as
+            the prompt, and the agent figures out the rest using the{' '}
+            <code className="px-1 py-0.5 rounded bg-ink/5 font-mono">ouijit</code> CLI.
           </p>
         </section>
 
@@ -97,7 +97,7 @@ export function HelpDialog({ onClose }: HelpDialogProps) {
           <div className="flex flex-col gap-1.5 mt-3 font-mono text-[11px]">
             {CLI_EXAMPLES.map((ex) => (
               <div key={ex.command} className="flex items-baseline gap-3">
-                <code className="px-1.5 py-0.5 rounded bg-white/5 text-text-primary shrink-0">{ex.command}</code>
+                <code className="px-1.5 py-0.5 rounded bg-ink/5 text-text-primary shrink-0">{ex.command}</code>
                 <span className="text-text-tertiary text-xs">{ex.desc}</span>
               </div>
             ))}

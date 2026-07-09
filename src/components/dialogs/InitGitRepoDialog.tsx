@@ -62,7 +62,7 @@ export function InitGitRepoDialog({ folderPath, onClose }: InitGitRepoDialogProp
           style={{ background: 'var(--color-git-light)', border: '1px solid var(--color-git)' }}
         >
           <strong className="font-medium">Git not found.</strong> Install via{' '}
-          <code className="px-1 py-0.5 rounded bg-white/10 font-mono">xcode-select --install</code> (macOS) or your
+          <code className="px-1 py-0.5 rounded bg-ink/10 font-mono">xcode-select --install</code> (macOS) or your
           package manager.
         </div>
       ) : (

@@ -226,7 +226,7 @@ export const TerminalHeader = memo(function TerminalHeader({
   const nameContent = renameTarget ? (
     <input
       ref={renameInputRef}
-      className="font-mono text-xs font-medium text-white/85 bg-transparent border-0 border-b border-accent p-0 outline-none min-w-0 shrink-0 [-webkit-app-region:no-drag]"
+      className="font-mono text-xs font-medium text-ink/85 bg-transparent border-0 border-b border-accent p-0 outline-none min-w-0 shrink-0 [-webkit-app-region:no-drag]"
       onBlur={commitRename}
       onKeyDown={(e) => {
         if (e.key === 'Enter') commitRename();
@@ -245,7 +245,7 @@ export const TerminalHeader = memo(function TerminalHeader({
         {tags.map((tag) => (
           <button
             key={tag}
-            className={`${METADATA_CHIP} border-none hover:bg-white/[0.1] hover:text-white/75 transition-colors duration-150`}
+            className={`${METADATA_CHIP} border-none hover:bg-ink/[0.1] hover:text-ink/75 transition-colors duration-150`}
             onMouseDown={handleTagButtonClick}
           >
             {tag}
@@ -253,7 +253,7 @@ export const TerminalHeader = memo(function TerminalHeader({
         ))}
         {tags.length === 0 && (
           <button
-            className="inline-flex items-center gap-1 font-mono text-[11px] text-white/35 bg-transparent border-none px-2 py-0.5 rounded-full shrink-0 opacity-0 group-hover/meta:opacity-100 hover:text-white/70 hover:bg-white/[0.05] transition-all duration-150"
+            className="inline-flex items-center gap-1 font-mono text-[11px] text-ink/35 bg-transparent border-none px-2 py-0.5 rounded-full shrink-0 opacity-0 group-hover/meta:opacity-100 hover:text-ink/70 hover:bg-ink/[0.05] transition-all duration-150"
             onMouseDown={handleTagButtonClick}
             aria-label="Add tag"
           >
@@ -358,7 +358,7 @@ export const TerminalHeader = memo(function TerminalHeader({
 // ── Sub-components ───────────────────────────────────────────────────
 
 const METADATA_CHIP =
-  'inline-flex items-center gap-1 font-mono text-[11px] font-medium text-white/55 bg-white/[0.05] rounded-full px-2 py-0.5 shrink-0';
+  'inline-flex items-center gap-1 font-mono text-[11px] font-medium text-ink/55 bg-ink/[0.05] rounded-full px-2 py-0.5 shrink-0';
 
 function BranchCopy({ branch }: { branch: string }) {
   const [copied, setCopied] = useState(false);
@@ -385,12 +385,12 @@ function BranchCopy({ branch }: { branch: string }) {
   return (
     <button
       type="button"
-      className="inline-flex items-center gap-1 font-mono text-[11px] text-white/45 bg-transparent border-none p-0 min-w-0 self-start shrink-0 transition-colors duration-150 hover:text-white/75"
+      className="inline-flex items-center gap-1 font-mono text-[11px] text-ink/45 bg-transparent border-none p-0 min-w-0 self-start shrink-0 transition-colors duration-150 hover:text-ink/75"
       onClick={handleClick}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
     >
-      <Icon name={iconName} className="w-3 h-3 shrink-0 text-white/35" />
+      <Icon name={iconName} className="w-3 h-3 shrink-0 text-ink/35" />
       <span className="truncate">{copied ? 'Copied' : branch}</span>
     </button>
   );
@@ -402,13 +402,13 @@ function BranchCopy({ branch }: { branch: string }) {
 const groupButtonBase =
   'group/seg h-full px-2.5 flex items-center gap-1 border-none font-sans text-[13px] font-medium transition-colors duration-150 ease-out';
 const groupButtonInactive = 'bg-transparent text-text-secondary hover:text-text-primary hover:bg-background-tertiary';
-const groupButtonActive = 'bg-accent text-white hover:bg-accent';
+const groupButtonActive = 'bg-accent text-accent-ink hover:bg-accent';
 
 const RUNNER_DOT: Record<string, string> = {
-  running: 'bg-[#4ee82e]',
-  success: 'bg-[#4ee82e]',
-  error: 'bg-[#ff6b6b]',
-  idle: 'bg-white/30',
+  running: 'bg-status-ready',
+  success: 'bg-status-ready',
+  error: 'bg-ansi-red',
+  idle: 'bg-ink/30',
 };
 
 function PanelControls({
@@ -456,7 +456,7 @@ function PanelControls({
         onClick={() => (active ? onMinimize() : onActivate(panel.id))}
       >
         {panel.kind === 'runner' ? (
-          <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${RUNNER_DOT[panel.status] ?? 'bg-white/30'}`} />
+          <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${RUNNER_DOT[panel.status] ?? 'bg-ink/30'}`} />
         ) : (
           <Icon name={panelIcon(panel)} className="w-3.5 h-3.5 shrink-0" />
         )}
@@ -468,7 +468,7 @@ function PanelControls({
             e.stopPropagation();
             onClosePanel(panel.id);
           }}
-          className="-mr-1 ml-0.5 w-4 h-4 flex items-center justify-center rounded shrink-0 opacity-0 group-hover/seg:opacity-100 hover:bg-white/15 transition-all duration-150 [&>svg]:w-3 [&>svg]:h-3"
+          className="-mr-1 ml-0.5 w-4 h-4 flex items-center justify-center rounded shrink-0 opacity-0 group-hover/seg:opacity-100 hover:bg-ink/15 transition-all duration-150 [&>svg]:w-3 [&>svg]:h-3"
         >
           <Icon name="x" />
         </span>
@@ -488,8 +488,8 @@ function PanelControls({
             <span>
               {dirtyFileCount} {dirtyFileCount === 1 ? 'file' : 'files'}
             </span>
-            {insertions > 0 && <span className={diffPanelOpen ? '' : 'text-[#4ee82e]'}>+{insertions}</span>}
-            {deletions > 0 && <span className={diffPanelOpen ? '' : 'text-[#ff6b6b]'}>-{deletions}</span>}
+            {insertions > 0 && <span className={diffPanelOpen ? '' : 'text-status-ready'}>+{insertions}</span>}
+            {deletions > 0 && <span className={diffPanelOpen ? '' : 'text-ansi-red'}>-{deletions}</span>}
           </>
         ) : (
           <span>Compare</span>
@@ -511,10 +511,10 @@ function PanelControls({
   );
 
   return (
-    <div className="inline-flex items-center h-7 bg-background-secondary glass-bevel relative border border-black/60 rounded-[12px] overflow-hidden">
+    <div className="inline-flex items-center h-7 bg-background-secondary glass-bevel relative border border-bezel rounded-[12px] overflow-hidden">
       {slots.map((slot, i) => (
         <Fragment key={i}>
-          {i > 0 && <div aria-hidden className="w-px h-3 bg-white/10 self-center" />}
+          {i > 0 && <div aria-hidden className="w-px h-3 bg-ink/10 self-center" />}
           {slot}
         </Fragment>
       ))}

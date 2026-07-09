@@ -177,7 +177,7 @@ export function FontPickerRow({ label, description, value, defaultLabel, onCommi
   };
 
   return (
-    <div className="flex items-center gap-4 px-4 py-3 hover:bg-white/[0.02]">
+    <div className="flex items-center gap-4 px-4 py-3 hover:bg-ink/[0.02]">
       <div className="flex-1 min-w-0">
         <div className="text-sm text-text-primary">{label}</div>
         <div className="text-xs text-text-tertiary mt-0.5">{description}</div>
@@ -186,7 +186,7 @@ export function FontPickerRow({ label, description, value, defaultLabel, onCommi
         ref={triggerRef}
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="w-[16rem] shrink-0 flex items-center justify-between gap-2 px-3 py-1.5 text-sm bg-white/[0.04] border border-white/10 rounded-md text-text-primary hover:bg-white/[0.06] outline-none focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent-light"
+        className="w-[16rem] shrink-0 flex items-center justify-between gap-2 px-3 py-1.5 text-sm bg-ink/[0.04] border border-ink/10 rounded-md text-text-primary hover:bg-ink/[0.06] outline-none focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent-light"
       >
         <span className="truncate" style={triggerFont ? { fontFamily: triggerFont } : undefined}>
           {triggerLabel}
@@ -204,10 +204,10 @@ export function FontPickerRow({ label, description, value, defaultLabel, onCommi
             aria-label="Choose terminal font"
             style={{
               ...floatingStyles,
-              background: 'var(--color-terminal-bg, #171717)',
-              boxShadow: '0 0 0 1px rgba(0, 0, 0, 0.05), 0 10px 30px rgba(0, 0, 0, 0.35)',
+              background: 'var(--color-terminal-bg)',
+              boxShadow: 'var(--shadow-menu)',
             }}
-            className="w-[16rem] max-h-[24rem] overflow-y-auto border border-black/60 rounded-[12px] z-[1000] p-1"
+            className="w-[16rem] max-h-[24rem] overflow-y-auto border border-bezel rounded-[12px] z-[1000] p-1"
           >
             <FontOptionRow
               label={defaultLabel}
@@ -215,7 +215,7 @@ export function FontPickerRow({ label, description, value, defaultLabel, onCommi
               selected={!trimmedValue}
               onClick={() => select('')}
             />
-            <div className="my-1 mx-1 border-t border-white/[0.06]" />
+            <div className="my-1 mx-1 border-t border-ink/[0.06]" />
             {loading && <div className="px-2.5 py-2 text-xs text-text-tertiary">Loading installed fonts…</div>}
             {!loading && options.length === 0 && (
               <div className="px-2.5 py-2 text-xs text-text-tertiary">No monospace fonts found.</div>
@@ -231,7 +231,7 @@ export function FontPickerRow({ label, description, value, defaultLabel, onCommi
                 />
               ))}
             {!loading && usingFallback && (
-              <div className="px-2.5 pt-2 pb-1 text-[11px] text-text-tertiary border-t border-white/[0.06] mt-1">
+              <div className="px-2.5 pt-2 pb-1 text-[11px] text-text-tertiary border-t border-ink/[0.06] mt-1">
                 Showing fallback list — allow font access to see your installed fonts.
               </div>
             )}
@@ -259,8 +259,8 @@ function FontOptionRow({ label, hint, fontFamily, selected, onClick }: FontOptio
         e.preventDefault();
         onClick();
       }}
-      className={`w-full text-left px-2.5 py-1.5 rounded-[7px] text-sm flex items-center gap-2 hover:bg-white/[0.08] transition-colors duration-100 ${
-        selected ? 'text-text-primary bg-white/[0.04]' : 'text-text-secondary'
+      className={`w-full text-left px-2.5 py-1.5 rounded-[7px] text-sm flex items-center gap-2 hover:bg-ink/[0.08] transition-colors duration-100 ${
+        selected ? 'text-text-primary bg-ink/[0.04]' : 'text-text-secondary'
       }`}
     >
       <span className="flex-1 truncate" style={fontFamily ? { fontFamily } : undefined}>

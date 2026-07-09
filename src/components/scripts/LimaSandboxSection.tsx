@@ -15,7 +15,7 @@ const VM_STATUS_LABELS: Record<string, string> = {
 // Beveled action button matching the app's house style (glass-bevel rim + crisp
 // outline + radius), shared by the VM action row.
 const VM_BUTTON =
-  'relative glass-bevel overflow-hidden px-3 py-1.5 text-xs font-medium text-text-secondary bg-background-secondary border border-black/60 rounded-[12px] hover:bg-background-tertiary hover:text-text-primary transition-colors';
+  'relative glass-bevel overflow-hidden px-3 py-1.5 text-xs font-medium text-text-secondary bg-background-secondary border border-bezel rounded-[12px] hover:bg-background-tertiary hover:text-text-primary transition-colors';
 
 interface LimaSandboxSectionProps {
   projectPath: string;
@@ -274,17 +274,17 @@ export function LimaSandboxSection({ projectPath }: LimaSandboxSectionProps) {
 
       {/* YAML config editor */}
       <div
-        className="glass-bevel relative border border-black/60 rounded-[14px] overflow-hidden"
+        className="glass-bevel relative border border-bezel rounded-[14px] overflow-hidden"
         style={{
-          background: 'var(--color-terminal-bg, #171717)',
-          boxShadow: '0 0 0 1px rgba(0, 0, 0, 0.05), 0 4px 12px rgba(0, 0, 0, 0.15), 0 20px 40px rgba(0, 0, 0, 0.2)',
+          background: 'var(--color-terminal-bg)',
+          boxShadow: 'var(--shadow-panel)',
         }}
       >
         <div className="flex items-center justify-between px-3 py-2">
           <span className="text-xs font-medium text-text-secondary">Configuration</span>
           <div className="flex items-center gap-2">
             <button
-              className={`text-[10px] px-1.5 py-0.5 rounded ${showMerged ? 'bg-white/10 text-text-primary' : 'text-text-secondary hover:text-text-primary'}`}
+              className={`text-[10px] px-1.5 py-0.5 rounded ${showMerged ? 'bg-ink/10 text-text-primary' : 'text-text-secondary hover:text-text-primary'}`}
               onClick={() => setShowMerged(!showMerged)}
             >
               {showMerged ? 'Edit' : 'Merged'}
@@ -303,7 +303,7 @@ export function LimaSandboxSection({ projectPath }: LimaSandboxSectionProps) {
         {showMerged ? (
           <textarea
             ref={mergedRef}
-            className="w-full max-h-[80vh] overflow-y-auto text-[13px] leading-5 font-mono bg-transparent border-t border-white/[0.06] p-4 text-text-secondary resize-none outline-none tabular-nums"
+            className="w-full max-h-[80vh] overflow-y-auto text-[13px] leading-5 font-mono bg-transparent border-t border-ink/[0.06] p-4 text-text-secondary resize-none outline-none tabular-nums"
             value={mergedYaml}
             readOnly
             spellCheck={false}
@@ -311,7 +311,7 @@ export function LimaSandboxSection({ projectPath }: LimaSandboxSectionProps) {
         ) : (
           <textarea
             ref={editRef}
-            className="w-full max-h-[80vh] overflow-y-auto text-[13px] leading-5 font-mono bg-transparent border-t border-white/[0.06] p-4 text-text-primary resize-none outline-none tabular-nums"
+            className="w-full max-h-[80vh] overflow-y-auto text-[13px] leading-5 font-mono bg-transparent border-t border-ink/[0.06] p-4 text-text-primary resize-none outline-none tabular-nums"
             value={editorValue}
             onChange={(e) => handleEditorChange(e.target.value)}
             onKeyDown={handleKeyDown}
@@ -322,7 +322,7 @@ export function LimaSandboxSection({ projectPath }: LimaSandboxSectionProps) {
           />
         )}
 
-        {yamlError && <p className="text-[11px] text-red-400 px-3 pb-2">{yamlError}</p>}
+        {yamlError && <p className="text-[11px] text-error px-3 pb-2">{yamlError}</p>}
       </div>
 
       {/* Recreate prompt */}

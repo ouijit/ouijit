@@ -84,9 +84,9 @@ export function BulkActionBar({ projectPath, onOpenTerminal }: BulkActionBarProp
         bottom: 56,
         left: '50%',
         transform: 'translateX(-50%)',
-        background: 'rgba(30, 30, 30, 0.95)',
+        background: 'color-mix(in srgb, var(--color-background) 95%, transparent)',
         backdropFilter: 'blur(20px)',
-        border: '1px solid rgba(255, 255, 255, 0.1)',
+        border: '1px solid var(--color-border)',
         borderRadius: 10,
         boxShadow: '0 8px 24px rgba(0, 0, 0, 0.4)',
       }}
@@ -112,7 +112,7 @@ export function BulkActionBar({ projectPath, onOpenTerminal }: BulkActionBarProp
 }
 
 function Divider() {
-  return <div className="w-px h-4 mx-1" style={{ background: 'rgba(255, 255, 255, 0.1)' }} />;
+  return <div className="w-px h-4 mx-1" style={{ background: 'var(--color-border)' }} />;
 }
 
 function ActionButton({
@@ -130,8 +130,8 @@ function ActionButton({
     <button
       className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border-none text-xs font-medium transition-colors duration-100 [&>svg]:w-3.5 [&>svg]:h-3.5 ${
         danger
-          ? 'text-text-secondary bg-transparent hover:text-red-400 hover:bg-red-500/10'
-          : 'text-text-secondary bg-transparent hover:text-text-primary hover:bg-white/[0.08]'
+          ? 'text-text-secondary bg-transparent hover:text-error hover:bg-error/10'
+          : 'text-text-secondary bg-transparent hover:text-text-primary hover:bg-ink/[0.08]'
       }`}
       onClick={onClick}
     >

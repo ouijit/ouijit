@@ -36,7 +36,7 @@ export function KanbanShellBar({ projectPath, onSwitchToTerminal }: KanbanShellB
   return (
     <div
       className="shrink-0 flex items-center gap-2 px-3 py-2 overflow-x-auto"
-      style={{ borderTop: '1px solid rgba(255, 255, 255, 0.06)' }}
+      style={{ borderTop: '1px solid color-mix(in srgb, var(--color-ink) 6%, transparent)' }}
     >
       <span className="flex items-center gap-1.5 shrink-0 text-text-tertiary [&>svg]:w-3.5 [&>svg]:h-3.5">
         <Icon name="terminal" />
@@ -48,7 +48,7 @@ export function KanbanShellBar({ projectPath, onSwitchToTerminal }: KanbanShellB
           return (
             <button
               key={shell.ptyId}
-              className="group/shell relative flex items-center gap-1.5 shrink-0 h-7 px-2.5 rounded-[12px] bg-background-secondary glass-bevel border border-black/60 overflow-hidden text-text-secondary hover:bg-background-tertiary transition-colors duration-150 ease-out [-webkit-app-region:no-drag] max-w-[200px]"
+              className="group/shell relative flex items-center gap-1.5 shrink-0 h-7 px-2.5 rounded-[12px] bg-background-secondary glass-bevel border border-bezel overflow-hidden text-text-secondary hover:bg-background-tertiary transition-colors duration-150 ease-out [-webkit-app-region:no-drag] max-w-[200px]"
               onClick={() => onSwitchToTerminal(shell.ptyId)}
             >
               <StatusDot summaryType={shell.summaryType} sandboxProvider={shell.sandboxProvider} />

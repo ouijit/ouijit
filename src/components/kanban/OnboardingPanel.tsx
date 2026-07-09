@@ -176,13 +176,13 @@ export function OnboardingPanel({ projectPath, onConfigureCliAgent, onOpenHelp }
   return (
     <div
       className="mb-2 px-4 py-3 flex items-start gap-3 onboarding-stage-enter"
-      style={{ background: 'rgba(255, 255, 255, 0.03)' }}
+      style={{ background: 'color-mix(in srgb, var(--color-ink) 3%, transparent)' }}
     >
       <div className="flex-1 min-w-0">
         <StageCrossfade stage={stage} renderStage={renderStageBody} />
       </div>
       <button
-        className="shrink-0 w-7 h-7 flex items-center justify-center rounded-full text-text-tertiary hover:text-text-primary hover:bg-white/10 transition-colors [&>svg]:w-4 [&>svg]:h-4"
+        className="shrink-0 w-7 h-7 flex items-center justify-center rounded-full text-text-tertiary hover:text-text-primary hover:bg-ink/10 transition-colors [&>svg]:w-4 [&>svg]:h-4"
         onClick={handleDismiss}
         aria-label={stage === 'intro' ? 'Hide onboarding for now' : 'Dismiss onboarding'}
         title={stage === 'intro' ? 'Hide for now' : 'Dismiss'}
@@ -254,7 +254,7 @@ function StageCtas({
     <div className="flex items-center gap-2 flex-wrap mt-4">
       {stage === 'intro' && (
         <button
-          className="inline-flex items-center justify-center gap-1.5 px-3 py-1 text-xs font-medium rounded-full text-white bg-accent hover:bg-accent-hover active:scale-[0.98] transition-all duration-150 ease-out disabled:opacity-60"
+          className="inline-flex items-center justify-center gap-1.5 px-3 py-1 text-xs font-medium rounded-full text-accent-ink bg-accent hover:bg-accent-hover active:scale-[0.98] transition-all duration-150 ease-out disabled:opacity-60"
           onClick={onSeedPracticeTask}
           disabled={seeding}
         >
@@ -264,7 +264,7 @@ function StageCtas({
       )}
       {stage === 'complete' && (
         <button
-          className="inline-flex items-center justify-center gap-1.5 px-3 py-1 text-xs font-medium rounded-full text-white bg-accent hover:bg-accent-hover active:scale-[0.98] transition-all duration-150 ease-out"
+          className="inline-flex items-center justify-center gap-1.5 px-3 py-1 text-xs font-medium rounded-full text-accent-ink bg-accent hover:bg-accent-hover active:scale-[0.98] transition-all duration-150 ease-out"
           onClick={onDismiss}
         >
           Got it
@@ -274,8 +274,8 @@ function StageCtas({
         <button
           className={`inline-flex items-center justify-center gap-1.5 px-3 py-1 text-xs font-medium rounded-full active:scale-[0.98] transition-all duration-150 ease-out ${
             startHookConfigured
-              ? 'text-text-secondary bg-white/5 hover:bg-white/10 hover:text-text-primary'
-              : 'text-white bg-accent hover:bg-accent-hover'
+              ? 'text-text-secondary bg-ink/5 hover:bg-ink/10 hover:text-text-primary'
+              : 'text-accent-ink bg-accent hover:bg-accent-hover'
           }`}
           onClick={onConfigureCliAgent}
         >
@@ -285,7 +285,7 @@ function StageCtas({
       )}
       {stage === 'in-flight' && stuck && !startHookConfigured && (
         <button
-          className="inline-flex items-center justify-center gap-1.5 px-3 py-1 text-xs font-medium rounded-full text-white bg-accent hover:bg-accent-hover active:scale-[0.98] transition-all duration-150 ease-out"
+          className="inline-flex items-center justify-center gap-1.5 px-3 py-1 text-xs font-medium rounded-full text-accent-ink bg-accent hover:bg-accent-hover active:scale-[0.98] transition-all duration-150 ease-out"
           onClick={onConfigureCliAgent}
         >
           <Icon name="terminal" className="w-3.5 h-3.5" />
@@ -296,8 +296,8 @@ function StageCtas({
         <button
           className={`inline-flex items-center justify-center gap-1.5 px-3 py-1 text-xs font-medium rounded-full active:scale-[0.98] transition-all duration-150 ease-out ${
             startHookConfigured
-              ? 'text-white bg-accent hover:bg-accent-hover'
-              : 'text-text-secondary bg-white/5 hover:bg-white/10 hover:text-text-primary'
+              ? 'text-accent-ink bg-accent hover:bg-accent-hover'
+              : 'text-text-secondary bg-ink/5 hover:bg-ink/10 hover:text-text-primary'
           }`}
           onClick={onMoveBackToTodo}
         >
@@ -306,14 +306,14 @@ function StageCtas({
         </button>
       )}
       <button
-        className="inline-flex items-center justify-center gap-1.5 px-3 py-1 text-xs font-medium rounded-full text-text-secondary bg-white/5 hover:bg-white/10 hover:text-text-primary active:scale-[0.98] transition-all duration-150 ease-out"
+        className="inline-flex items-center justify-center gap-1.5 px-3 py-1 text-xs font-medium rounded-full text-text-secondary bg-ink/5 hover:bg-ink/10 hover:text-text-primary active:scale-[0.98] transition-all duration-150 ease-out"
         onClick={onOpenHelp}
       >
         <Icon name="question" className="w-3.5 h-3.5" />
         Help & setup
       </button>
       <button
-        className="inline-flex items-center justify-center gap-1.5 px-3 py-1 text-xs font-medium rounded-full text-text-secondary bg-white/5 hover:bg-white/10 hover:text-text-primary active:scale-[0.98] transition-all duration-150 ease-out"
+        className="inline-flex items-center justify-center gap-1.5 px-3 py-1 text-xs font-medium rounded-full text-text-secondary bg-ink/5 hover:bg-ink/10 hover:text-text-primary active:scale-[0.98] transition-all duration-150 ease-out"
         onClick={() => window.api.openExternal('https://ouijit.com/docs')}
       >
         <Icon name="file-text" className="w-3.5 h-3.5" />
@@ -339,7 +339,7 @@ function StepBadge({ done, number }: { done: boolean; number: number }) {
   return (
     <span
       className={`relative shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-semibold transition-colors duration-300 ease-out ${
-        done ? 'bg-accent text-white' : 'bg-white/10 text-text-primary'
+        done ? 'bg-accent text-accent-ink' : 'bg-ink/10 text-text-primary'
       } ${popping ? 'onboarding-badge-check' : ''}`}
     >
       <span
@@ -371,7 +371,7 @@ function IntroStage({ source }: { source: FirstProjectSource | undefined }) {
             <div className="text-xs font-medium text-text-primary mb-1">Try a practice task</div>
             <div className="text-xs text-text-secondary leading-relaxed">
               A dry run that shows how hooks and the{' '}
-              <code className="px-1 py-0.5 rounded bg-white/5 font-mono text-[11px]">ouijit</code> CLI work together.
+              <code className="px-1 py-0.5 rounded bg-ink/5 font-mono text-[11px]">ouijit</code> CLI work together.
             </div>
           </div>
         </li>
@@ -396,14 +396,14 @@ function SetupStage({ configured, onUseExampleHook }: { configured: boolean; onU
               The command Ouijit runs when a task enters In Progress. For example:
             </div>
             <div className="flex items-center gap-2 flex-wrap">
-              <code className="inline-block font-mono text-[12px] text-text-primary bg-white/5 rounded-md px-2.5 py-1.5 max-w-full overflow-x-auto whitespace-nowrap">
+              <code className="inline-block font-mono text-[12px] text-text-primary bg-ink/5 rounded-md px-2.5 py-1.5 max-w-full overflow-x-auto whitespace-nowrap">
                 {EXAMPLE_START_HOOK_COMMAND}
               </code>
               {!configured && (
                 <button
                   type="button"
                   onClick={onUseExampleHook}
-                  className="inline-flex items-center justify-center gap-1.5 px-2.5 py-1 text-[11px] font-medium rounded-full text-white bg-accent hover:bg-accent-hover active:scale-[0.98] transition-all duration-150 ease-out"
+                  className="inline-flex items-center justify-center gap-1.5 px-2.5 py-1 text-[11px] font-medium rounded-full text-accent-ink bg-accent hover:bg-accent-hover active:scale-[0.98] transition-all duration-150 ease-out"
                 >
                   Use this
                 </button>
@@ -441,7 +441,7 @@ function InFlightStage({ stuck, startHookConfigured }: InFlightStageProps) {
     return (
       <>
         <div className="flex items-center gap-2 mb-2">
-          <span className="shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-semibold bg-amber-500/20 text-amber-300">
+          <span className="shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-semibold bg-claude/20 text-claude">
             !
           </span>
           <div className="text-xs text-text-primary font-medium">
@@ -485,8 +485,8 @@ function CompleteStage() {
           <span className="text-text-tertiary shrink-0">•</span>
           <span>
             Supported agents automatically get the{' '}
-            <code className="px-1 py-0.5 rounded bg-white/5 font-mono text-[11px]">ouijit</code> CLI in their context,
-            so they know how to see and manage tasks, hooks, tags, plans, and scripts.
+            <code className="px-1 py-0.5 rounded bg-ink/5 font-mono text-[11px]">ouijit</code> CLI in their context, so
+            they know how to see and manage tasks, hooks, tags, plans, and scripts.
           </span>
         </li>
         <li className="flex gap-2">

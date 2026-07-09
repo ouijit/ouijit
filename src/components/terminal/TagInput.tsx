@@ -136,11 +136,11 @@ export function TagInput({ ptyId, onClose }: TagInputProps) {
       {tags.map((tag) => (
         <span
           key={tag}
-          className="inline-flex items-center gap-1 font-mono text-[11px] font-medium text-white/55 bg-white/[0.05] rounded-full px-2 py-0.5 shrink-0"
+          className="inline-flex items-center gap-1 font-mono text-[11px] font-medium text-ink/55 bg-ink/[0.05] rounded-full px-2 py-0.5 shrink-0"
         >
           {tag}
           <button
-            className="inline-flex items-center justify-center w-3 h-3 text-white/30 bg-transparent border-none text-xs leading-none hover:text-white/60"
+            className="inline-flex items-center justify-center w-3 h-3 text-ink/30 bg-transparent border-none text-xs leading-none hover:text-ink/60"
             onClick={(e) => {
               e.stopPropagation();
               removeTag(tag);
@@ -153,7 +153,7 @@ export function TagInput({ ptyId, onClose }: TagInputProps) {
       <input
         ref={inputRef}
         type="text"
-        className="bg-transparent border-none outline-none font-mono text-[11px] font-medium text-white/70 min-w-[60px] py-0.5 placeholder:text-white/25"
+        className="bg-transparent border-none outline-none font-mono text-[11px] font-medium text-ink/70 min-w-[60px] py-0.5 placeholder:text-ink/25"
         style={{ width: 60 }}
         placeholder={tags.length ? '' : 'Add tag\u2026'}
         value={inputValue}
@@ -162,13 +162,13 @@ export function TagInput({ ptyId, onClose }: TagInputProps) {
       />
       {suggestions.length > 0 && (
         <div
-          className="absolute left-0 bg-surface border border-white/10 rounded-lg shadow-lg z-50 max-h-48 overflow-y-auto"
+          className="absolute left-0 bg-surface border border-ink/10 rounded-lg shadow-lg z-50 max-h-48 overflow-y-auto"
           style={{ top: '100%', marginTop: 4, minWidth: 120, display: 'block' }}
         >
           {suggestions.map((s) => (
             <div
               key={s}
-              className="block w-full text-left font-mono text-[11px] text-white/60 px-3 py-1.5 bg-transparent border-none hover:bg-white/[0.08] hover:text-white/80"
+              className="block w-full text-left font-mono text-[11px] text-ink/60 px-3 py-1.5 bg-transparent border-none hover:bg-ink/[0.08] hover:text-ink/80"
               onMouseDown={(e) => {
                 e.preventDefault();
                 addTag(s);

@@ -30,12 +30,12 @@ interface ContextMenuProps {
 }
 
 const ITEM_CLASS =
-  'context-menu-item w-full px-2.5 py-1.5 rounded-[7px] text-xs text-text-primary bg-transparent border-none text-left transition-colors duration-100 ease-out flex items-center gap-1.5 whitespace-nowrap hover:bg-white/[0.08] [&>svg]:w-3 [&>svg]:h-3 [&>svg]:opacity-60';
+  'context-menu-item w-full px-2.5 py-1.5 rounded-[7px] text-xs text-text-primary bg-transparent border-none text-left transition-colors duration-100 ease-out flex items-center gap-1.5 whitespace-nowrap hover:bg-ink/[0.08] [&>svg]:w-3 [&>svg]:h-3 [&>svg]:opacity-60';
 
-const PANEL_CLASS = 'p-1 glass-bevel border border-black/60 rounded-[12px]';
+const PANEL_CLASS = 'p-1 glass-bevel border border-bezel rounded-[12px]';
 const PANEL_STYLE = {
-  background: 'var(--color-terminal-bg, #171717)',
-  boxShadow: '0 0 0 1px rgba(0, 0, 0, 0.05), 0 10px 30px rgba(0, 0, 0, 0.35)',
+  background: 'var(--color-terminal-bg)',
+  boxShadow: 'var(--shadow-menu)',
 } as const;
 
 /** Renders the entries of a menu (or submenu). `onSelect` fires a leaf action. */
@@ -52,7 +52,7 @@ function MenuList({
     <>
       {items.map((item, i) => {
         if ('separator' in item) {
-          return <div key={`sep-${i}`} className="border-t border-white/10 mx-1 my-1" />;
+          return <div key={`sep-${i}`} className="border-t border-ink/10 mx-1 my-1" />;
         }
         if ('submenu' in item) {
           return (

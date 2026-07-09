@@ -31,7 +31,7 @@ export function ScriptRowView({
   return (
     <div ref={containerRef} style={containerStyle}>
       <div
-        className="flex items-center gap-2 px-3 py-2 hover:bg-white/[0.04] transition-colors duration-100"
+        className="flex items-center gap-2 px-3 py-2 hover:bg-ink/[0.04] transition-colors duration-100"
         onClick={onClick}
       >
         <button

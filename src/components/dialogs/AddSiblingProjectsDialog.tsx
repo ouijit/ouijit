@@ -47,7 +47,7 @@ export function AddSiblingProjectsDialog({ parentDir, siblings, onClose }: AddSi
         {siblings.length === 1 ? 'it' : 'them'} as {siblings.length === 1 ? 'a project' : 'projects'} too?
       </p>
       <p className="text-xs text-text-secondary/70 text-center mt-1 font-mono break-all">{parentDir}</p>
-      <ul className="mt-4 max-h-40 overflow-y-auto rounded-md border border-border bg-background divide-y divide-white/[0.06]">
+      <ul className="mt-4 max-h-40 overflow-y-auto rounded-md border border-border bg-background divide-y divide-ink/[0.06]">
         {siblings.map((sibling) => (
           <li key={sibling} className="px-3 py-1.5 text-xs font-mono text-text-secondary truncate" title={sibling}>
             {folderName(sibling)}

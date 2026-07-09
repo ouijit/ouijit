@@ -125,8 +125,8 @@ export function KanbanAddInput({ onAdd }: KanbanAddInputProps) {
       <input
         ref={inputRef}
         type="text"
-        className="kanban-add-input w-full font-mono text-sm font-medium text-text-primary bg-transparent px-3 py-3.5 outline-none transition-all duration-150 ease-out border-none focus:bg-white/[0.04]"
-        style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.06)' }}
+        className="kanban-add-input w-full font-mono text-sm font-medium text-text-primary bg-transparent px-3 py-3.5 outline-none transition-all duration-150 ease-out border-none focus:bg-ink/[0.04]"
+        style={{ borderBottom: '1px solid color-mix(in srgb, var(--color-ink) 6%, transparent)' }}
         placeholder="New task..."
         value={name}
         onChange={(e) => setName(e.target.value)}
@@ -143,14 +143,14 @@ export function KanbanAddInput({ onAdd }: KanbanAddInputProps) {
             placeholder="Description (optional)"
             onKeyDown={handleDescriptionKeyDown}
             onFocus={handleDescriptionFocus}
-            className="kanban-add-description w-full font-mono text-xs text-text-secondary bg-transparent px-3 py-2.5 outline-none transition-all duration-150 ease-out border-none focus:bg-white/[0.04]"
+            className="kanban-add-description w-full font-mono text-xs text-text-secondary bg-transparent px-3 py-2.5 outline-none transition-all duration-150 ease-out border-none focus:bg-ink/[0.04]"
             style={{ minHeight: '4.5rem', whiteSpace: 'pre-wrap', wordWrap: 'break-word', lineHeight: 1.5 }}
           />
           {/* DOM order is [Create, Cancel] so Tab from the description lands
               on Create first; flex-row-reverse keeps Cancel on the visual left. */}
           <div
             className="flex flex-row-reverse items-center justify-start gap-2 px-2 py-1.5"
-            style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.06)' }}
+            style={{ borderBottom: '1px solid color-mix(in srgb, var(--color-ink) 6%, transparent)' }}
           >
             <button
               type="button"
@@ -164,7 +164,7 @@ export function KanbanAddInput({ onAdd }: KanbanAddInputProps) {
             <button
               type="button"
               onClick={reset}
-              className="kanban-add-button text-text-tertiary hover:text-text-primary hover:bg-white/[0.04]"
+              className="kanban-add-button text-text-tertiary hover:text-text-primary hover:bg-ink/[0.04]"
             >
               Cancel
               <CancelHint />
