@@ -77,6 +77,9 @@ else
   trap 'rm -rf "$PACKS_TMP"' EXIT
   for pack in $PACKS; do
     if env -u XDG_CONFIG_HOME HOME="$PACKS_TMP" "$DEST/nono" pull "always-further/$pack" --silent; then
+      # Replace, don't merge: cp -R into an existing dir keeps files deleted
+      # upstream, leaving the vendored tree out of sync with the lockfile.
+      rm -rf "$PACKS_DIR/$pack"
       cp -R "$PACKS_TMP/.config/nono/packages/always-further/$pack" "$PACKS_DIR/"
     else
       echo "Warning: failed to vendor always-further/$pack; first launch will pull it at runtime"

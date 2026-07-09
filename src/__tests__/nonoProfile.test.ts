@@ -189,16 +189,36 @@ describe('installUnionProfile', () => {
     await expect(fs.readFile(path.join(userPackDir, 'user.json'), 'utf8')).resolves.toBe('{}');
   });
 
-  test('an unparseable runtime lockfile is healed rather than left blocking every spawn', async () => {
+  test('a corrupt runtime lockfile is healed rather than left blocking every spawn', async () => {
     await writeBundledFixture();
+    await fs.mkdir(path.dirname(runtimeLockfilePath()), { recursive: true });
+    // All flavors nono hard-errors on: unparseable JSON, valid JSON of the
+    // wrong shape, and an object missing the required lockfile_version. Each
+    // must be rewritten as a complete lockfile (entries AND version), or the
+    // "heal" leaves nono just as broken as before.
+    for (const corrupt of ['{not json', '[]', '"x"', '{"packages": {}}']) {
+      await fs.writeFile(runtimeLockfilePath(), corrupt, 'utf8');
+
+      await installUnionProfile(NONO);
+
+      const lockfile = await readRuntimeLockfile();
+      for (const pack of PACKS) expect(lockfile.packages[pack]).toBeDefined();
+      expect(lockfile.lockfile_version).toBe(4);
+    }
+  });
+
+  test('a corrupt lockfile is rewritten before registry pulls, so the pull fallback is not blocked (dev builds)', async () => {
+    resolveBundledResourceDir.mockReturnValue(null);
     await fs.mkdir(path.dirname(runtimeLockfilePath()), { recursive: true });
     await fs.writeFile(runtimeLockfilePath(), '{not json', 'utf8');
 
     await installUnionProfile(NONO);
 
+    // `nono pull` itself hard-errors on a lockfile it cannot parse, so the
+    // corrupt file must be replaced with a valid one before any pull runs.
     const lockfile = await readRuntimeLockfile();
-    for (const pack of PACKS) expect(lockfile.packages[pack]).toBeDefined();
-    expect(lockfile.lockfile_version).toBe(4);
+    expect(typeof lockfile.lockfile_version).toBe('number');
+    expect(execFileMock).toHaveBeenCalledTimes(PACKS.length);
   });
 
   test('falls back to nono pull per missing pack when no bundled tree exists (dev builds)', async () => {

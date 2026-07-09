@@ -115,27 +115,42 @@ interface NonoLockfile {
 }
 
 /**
- * Read a nono lockfile, returning null when absent. A present-but-unparseable
- * file is also treated as absent (warned): nono itself hard-errors on a
- * corrupt lockfile, so rewriting it with valid entries is a strict improvement
- * over leaving every spawn broken.
+ * Read a nono lockfile. `lockfile` is null when the file is absent (normal on
+ * a fresh machine — nono treats a missing lockfile as empty) or when it is
+ * corrupt. `corrupt` distinguishes the two: nono hard-errors on a lockfile it
+ * cannot parse (including valid JSON of the wrong shape or one missing the
+ * required `lockfile_version`), which blocks `nono pull` itself — so a corrupt
+ * file must be rewritten, not just ignored.
  */
-async function readLockfile(file: string): Promise<NonoLockfile | null> {
+async function readLockfile(file: string): Promise<{ lockfile: NonoLockfile | null; corrupt: boolean }> {
   let raw: string;
   try {
     raw = await fs.readFile(file, 'utf8');
   } catch {
-    return null;
+    return { lockfile: null, corrupt: false };
   }
   try {
-    const parsed = JSON.parse(raw) as NonoLockfile;
-    return { ...parsed, packages: parsed.packages ?? {} };
+    const parsed: unknown = JSON.parse(raw);
+    // nono requires lockfile_version (no serde default) and packages must be
+    // an object; anything else is as fatal to nono as unparseable JSON.
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+      throw new Error('lockfile is not a JSON object');
+    }
+    const candidate = parsed as NonoLockfile;
+    if (typeof candidate.lockfile_version !== 'number') {
+      throw new Error('lockfile has no numeric lockfile_version');
+    }
+    const packages = candidate.packages;
+    if (packages !== undefined && (typeof packages !== 'object' || packages === null || Array.isArray(packages))) {
+      throw new Error('lockfile packages is not an object');
+    }
+    return { lockfile: { ...candidate, packages: packages ?? {} }, corrupt: false };
   } catch (error) {
-    nonoLog.warn('unparseable nono lockfile; treating as empty', {
+    nonoLog.warn('corrupt nono lockfile; it will be rewritten', {
       file,
       error: error instanceof Error ? error.message : String(error),
     });
-    return null;
+    return { lockfile: null, corrupt: true };
   }
 }
 
@@ -171,7 +186,7 @@ async function writeLockfile(file: string, lockfile: NonoLockfile): Promise<void
 async function ensurePacks(nonoPath: string, root: string): Promise<void> {
   const packagesDir = path.join(root, 'packages');
   const lockfilePath = path.join(packagesDir, 'lockfile.json');
-  const lockfile = await readLockfile(lockfilePath);
+  const { lockfile, corrupt } = await readLockfile(lockfilePath);
 
   const missing: string[] = [];
   for (const pack of PROFILE_PACKAGES) {
@@ -181,12 +196,14 @@ async function ensurePacks(nonoPath: string, root: string): Promise<void> {
   if (missing.length === 0) return;
 
   const bundled = resolveBundledResourceDir('share', 'nono', 'packages');
-  const bundledLockfile = bundled ? await readLockfile(path.join(bundled, 'lockfile.json')) : null;
+  const bundledLockfile = bundled ? (await readLockfile(path.join(bundled, 'lockfile.json'))).lockfile : null;
 
   // Merge vendored entries into the user's existing lockfile (never clobber
   // packs they pulled themselves). When creating it fresh, inherit the
   // version/registry from the vendored file, which came from the same pinned
-  // nono binary Ouijit ships.
+  // nono binary Ouijit ships; without one (dev builds healing a corrupt file),
+  // fall back to the pinned binary's LOCKFILE_VERSION — nono never validates
+  // the number beyond bumping 0, so any real version parses fine.
   const merged: NonoLockfile = lockfile ?? {
     lockfile_version: bundledLockfile?.lockfile_version ?? 4,
     registry: bundledLockfile?.registry,
@@ -216,8 +233,10 @@ async function ensurePacks(nonoPath: string, root: string): Promise<void> {
   }
 
   // Write before any pulls: `nono pull` reads and rewrites the lockfile
-  // itself, so it must see the merged entries rather than race them.
-  if (mergedDirty) await writeLockfile(lockfilePath, merged);
+  // itself, so it must see the merged entries rather than race them. A corrupt
+  // file is rewritten even with nothing merged — `nono pull` hard-errors on a
+  // lockfile it cannot parse, so leaving it in place would block the fallback.
+  if (mergedDirty || corrupt) await writeLockfile(lockfilePath, merged);
 
   for (const pack of toPull) {
     nonoLog.info('pulling nono agent pack for the union profile', { pack });
