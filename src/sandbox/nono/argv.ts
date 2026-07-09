@@ -26,6 +26,13 @@ export interface NonoArgvContext {
    */
   cacheDir?: string;
   /**
+   * Absolute path of the vendored nono binary (under the app's resources),
+   * granted read so the sandboxed agent can exec it — the `nono` shim on PATH
+   * points here via OUIJIT_NONO_PATH, letting agents self-diagnose denials
+   * with `nono why`. Unset when nono is user-installed (already on PATH).
+   */
+  nonoBinPath?: string;
+  /**
    * Profile to run under. Defaults to Ouijit's managed `ouijit` profile; a
    * per-project override profile (the profile editor) replaces it by name.
    */
@@ -87,6 +94,9 @@ export function buildNonoLaunch(nonoPath: string, launch: SandboxLaunch, ctx: No
   // Ouijit wrapper scripts (first on PATH) and the bundled CLI they exec.
   args.push('--read', ctx.wrapperDir);
   if (ctx.cliDir) args.push('--read', ctx.cliDir);
+  // The vendored nono binary alone (not its dir), so `nono why` runs inside
+  // the sandbox without exposing anything else bundled next to it.
+  if (ctx.nonoBinPath) args.push('--read', ctx.nonoBinPath);
 
   args.push('--', launch.file, ...launch.args);
 
