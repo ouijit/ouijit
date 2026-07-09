@@ -121,61 +121,27 @@ describe('installUnionProfile', () => {
     await expect(fs.readFile(runtimeLockfilePath(), 'utf8')).resolves.toBe(before);
   });
 
-  test('treats a pack directory without a lockfile entry as missing and reinstalls the pair (T-490)', async () => {
-    await writeBundledFixture();
-    // The broken state the old dir-only check produced: pack dirs on disk,
-    // no lockfile — nono fails every run with "has no lockfile entry".
-    const staleDir = path.join(configBase, 'nono', 'packages', 'always-further', 'claude');
-    await fs.mkdir(staleDir, { recursive: true });
-    await fs.writeFile(path.join(staleDir, 'stale.txt'), 'old contents', 'utf8');
-
-    await installUnionProfile(NONO);
-
-    const lockfile = await readRuntimeLockfile();
-    for (const pack of PACKS) expect(lockfile.packages[pack]).toBeDefined();
-    // The stale dir was replaced wholesale so files always match the entry's
-    // digests (a mismatched pair trips nono's tamper check).
-    await expect(fs.access(path.join(staleDir, 'stale.txt'))).rejects.toThrow();
-    await expect(fs.readFile(path.join(staleDir, 'package.json'), 'utf8')).resolves.toContain('claude');
-    expect(execFileMock).not.toHaveBeenCalled();
-  });
-
-  test('reinstalls the pair when the lockfile entry exists but the directory is missing', async () => {
+  test("repairs broken pairs from the bundled tree without clobbering the user's own lockfile state", async () => {
     await writeBundledFixture();
     const packagesDir = path.join(configBase, 'nono', 'packages');
-    await fs.mkdir(packagesDir, { recursive: true });
-    await fs.writeFile(
-      runtimeLockfilePath(),
-      JSON.stringify({
-        lockfile_version: 4,
-        packages: { 'always-further/claude': { version: '9.9.9', artifacts: {} } },
-      }),
-      'utf8',
-    );
-
-    await installUnionProfile(NONO);
-
-    const lockfile = await readRuntimeLockfile();
-    // Entry replaced together with the directory so the pair stays matched.
-    expect(lockfile.packages['always-further/claude'].version).toBe('0.0.1');
-    await expect(
-      fs.access(path.join(packagesDir, 'always-further', 'claude', 'package.json')),
-    ).resolves.toBeUndefined();
-  });
-
-  test("merging never clobbers a user's own lockfile entries or packs", async () => {
-    await writeBundledFixture();
-    const packagesDir = path.join(configBase, 'nono', 'packages');
+    // claude: the T-490 state — a pack dir on disk with NO lockfile entry
+    // (nono fails every run with "has no lockfile entry").
+    const claudeDir = path.join(packagesDir, 'always-further', 'claude');
+    await fs.mkdir(claudeDir, { recursive: true });
+    await fs.writeFile(path.join(claudeDir, 'stale.txt'), 'old contents', 'utf8');
+    // acme/widget: a pack the user pulled themselves, which the merge must
+    // leave untouched.
     const userPackDir = path.join(packagesDir, 'acme', 'widget');
     await fs.mkdir(userPackDir, { recursive: true });
     await fs.writeFile(path.join(userPackDir, 'user.json'), '{}', 'utf8');
     const userEntry = { version: '2.0.0', artifacts: { 'user.json': { sha256: 'def' } }, wiring_record: [] };
+    // codex: the inverse broken half — a lockfile entry with no directory.
     await fs.writeFile(
       runtimeLockfilePath(),
       JSON.stringify({
         lockfile_version: 4,
         registry: 'https://example.com/custom',
-        packages: { 'acme/widget': userEntry },
+        packages: { 'acme/widget': userEntry, 'always-further/codex': { version: '9.9.9', artifacts: {} } },
       }),
       'utf8',
     );
@@ -183,13 +149,23 @@ describe('installUnionProfile', () => {
     await installUnionProfile(NONO);
 
     const lockfile = await readRuntimeLockfile();
+    for (const pack of PACKS) expect(lockfile.packages[pack]).toBeDefined();
+    // claude's stale dir was replaced wholesale so files always match the
+    // entry's digests (a mismatched pair trips nono's tamper check).
+    await expect(fs.access(path.join(claudeDir, 'stale.txt'))).rejects.toThrow();
+    await expect(fs.readFile(path.join(claudeDir, 'package.json'), 'utf8')).resolves.toContain('claude');
+    // codex's dangling entry was replaced together with its directory so the
+    // pair stays matched.
+    expect(lockfile.packages['always-further/codex'].version).toBe('0.0.1');
+    await expect(fs.access(path.join(packagesDir, 'always-further', 'codex', 'package.json'))).resolves.toBeUndefined();
+    // The user's own pack and top-level fields survive the merge untouched.
     expect(lockfile.packages['acme/widget']).toEqual(userEntry);
     expect(lockfile.registry).toBe('https://example.com/custom');
-    for (const pack of PACKS) expect(lockfile.packages[pack]).toBeDefined();
     await expect(fs.readFile(path.join(userPackDir, 'user.json'), 'utf8')).resolves.toBe('{}');
+    expect(execFileMock).not.toHaveBeenCalled();
   });
 
-  test('a corrupt runtime lockfile is healed rather than left blocking every spawn', async () => {
+  test('corrupt lockfiles are healed on both the bundled and the registry-pull path', async () => {
     await writeBundledFixture();
     await fs.mkdir(path.dirname(runtimeLockfilePath()), { recursive: true });
     // All flavors nono hard-errors on: unparseable JSON, valid JSON of the
@@ -205,23 +181,22 @@ describe('installUnionProfile', () => {
       for (const pack of PACKS) expect(lockfile.packages[pack]).toBeDefined();
       expect(lockfile.lockfile_version).toBe(4);
     }
-  });
+    expect(execFileMock).not.toHaveBeenCalled();
 
-  test('a corrupt lockfile is rewritten before registry pulls, so the pull fallback is not blocked (dev builds)', async () => {
+    // Dev builds (no bundled tree) must rewrite the corrupt file BEFORE the
+    // registry fallback runs — `nono pull` itself hard-errors on a lockfile it
+    // cannot parse, so leaving it in place would block the fallback forever.
     resolveBundledResourceDir.mockReturnValue(null);
-    await fs.mkdir(path.dirname(runtimeLockfilePath()), { recursive: true });
     await fs.writeFile(runtimeLockfilePath(), '{not json', 'utf8');
 
     await installUnionProfile(NONO);
 
-    // `nono pull` itself hard-errors on a lockfile it cannot parse, so the
-    // corrupt file must be replaced with a valid one before any pull runs.
-    const lockfile = await readRuntimeLockfile();
-    expect(typeof lockfile.lockfile_version).toBe('number');
+    const healed = await readRuntimeLockfile();
+    expect(typeof healed.lockfile_version).toBe('number');
     expect(execFileMock).toHaveBeenCalledTimes(PACKS.length);
   });
 
-  test('falls back to nono pull per missing pack when no bundled tree exists (dev builds)', async () => {
+  test('without a bundled tree every missing pack is registry-pulled, and a failed pull surfaces a clear error', async () => {
     resolveBundledResourceDir.mockReturnValue(null);
 
     await installUnionProfile(NONO);
@@ -230,12 +205,10 @@ describe('installUnionProfile', () => {
     for (const pack of PACKS) {
       expect(execFileMock).toHaveBeenCalledWith(NONO, ['pull', pack], expect.any(Function));
     }
-  });
 
-  test('surfaces a clear error naming the pack when the registry pull fails', async () => {
-    resolveBundledResourceDir.mockReturnValue(null);
+    // The mocked pulls installed nothing, so every pack is still missing; a
+    // failing registry now must reject with an error naming the pack.
     execFileMock.mockImplementation((_file, _args, cb) => cb(new Error('network down')));
-
     await expect(installUnionProfile(NONO)).rejects.toThrow(
       /Could not install the nono agent profile 'always-further\/claude'/,
     );
