@@ -110,12 +110,13 @@ describe('nonoProvider', () => {
     expect(wrapped.args).toContain('/Users/dev/code/proj/.git'); // main git dir (not the worktree's)
     const openPortIdx = wrapped.args.indexOf('--open-port');
     expect(wrapped.args[openPortIdx + 1]).toBe('7777');
-    // The vendored binary itself is read-granted so the agent can exec `nono why`.
-    const reads = wrapped.args.reduce<string[]>(
-      (acc, a, i) => (a === '--read' ? [...acc, wrapped.args[i + 1]] : acc),
+    // The vendored binary itself is read-granted (a single file, so via
+    // --read-file) so the agent can exec `nono why`.
+    const fileReads = wrapped.args.reduce<string[]>(
+      (acc, a, i) => (a === '--read-file' ? [...acc, wrapped.args[i + 1]] : acc),
       [],
     );
-    expect(reads).toContain('/opt/bin/nono');
+    expect(fileReads).toContain('/opt/bin/nono');
     // The original launch is the argv tail.
     expect(wrapped.args.slice(-3)).toEqual(['--', '/bin/zsh', '-il']);
   });
