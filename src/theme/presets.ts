@@ -73,7 +73,72 @@ const dracula: CustomTheme = {
   },
 };
 
-export const PRESET_THEMES: CustomTheme[] = [dracula];
+/** Tokyo Night — https://github.com/enkia/tokyo-night-vscode-theme (night variant). */
+const tokyoNight: CustomTheme = {
+  id: 'tokyo-night',
+  name: 'Tokyo Night',
+  base: 'dark',
+  tokens: {
+    // App chrome on the darker sidebar tone; terminals use the canonical
+    // #1a1b26 editor background.
+    '--color-background': '#16161e',
+    '--color-surface': '#24283b',
+    '--color-surface-raised': '#1f2335',
+
+    '--color-text-primary': '#c0caf5',
+    '--color-text-secondary': '#a9b1d6',
+    '--color-text-tertiary': '#565f89',
+
+    '--color-accent': '#7aa2f7',
+    '--color-accent-hover': '#94b2f9',
+    '--color-accent-light': 'rgba(122, 162, 247, 0.2)',
+    '--color-accent-ink': '#16161e',
+
+    '--color-git': '#ff9e64',
+    '--color-git-light': 'rgba(255, 158, 100, 0.15)',
+    '--color-success': '#9ece6a',
+    '--color-success-subtle': 'rgba(158, 206, 106, 0.15)',
+    '--color-error': '#f7768e',
+    '--color-status-ready': '#9ece6a',
+    '--color-status-thinking': '#bb9af7',
+
+    '--color-terminal-bg': '#1a1b26',
+    '--color-terminal-fg': '#a9b1d6',
+    '--color-terminal-surface': '#24283b',
+    '--color-terminal-surface-alt': '#1f2335',
+    '--color-terminal-inset': '#16161e',
+
+    '--color-ansi-black': '#414868',
+    '--color-ansi-red': '#f7768e',
+    '--color-ansi-green': '#9ece6a',
+    '--color-ansi-yellow': '#e0af68',
+    '--color-ansi-blue': '#7aa2f7',
+    '--color-ansi-magenta': '#bb9af7',
+    '--color-ansi-cyan': '#7dcfff',
+    '--color-ansi-white': '#a9b1d6',
+    '--color-ansi-bright-black': '#565f89',
+    '--color-ansi-bright-red': '#f7768e',
+    '--color-ansi-bright-green': '#9ece6a',
+    '--color-ansi-bright-yellow': '#e0af68',
+    '--color-ansi-bright-blue': '#7aa2f7',
+    '--color-ansi-bright-magenta': '#bb9af7',
+    '--color-ansi-bright-cyan': '#7dcfff',
+    '--color-ansi-bright-white': '#c0caf5',
+
+    '--color-diff-fg': '#c0caf5',
+    '--color-diff-added': '#9ece6a',
+    '--color-diff-removed': '#f7768e',
+    '--color-diff-hunk': '#bb9af7',
+    '--color-vcs-added': '#9ece6a',
+    '--color-vcs-deleted': '#f7768e',
+    '--color-vcs-renamed': '#bb9af7',
+    '--color-vcs-modified': '#e0af68',
+
+    '--terminal-selection': 'rgba(51, 70, 124, 0.8)',
+  },
+};
+
+export const PRESET_THEMES: CustomTheme[] = [dracula, tokyoNight];
 
 /**
  * User themes plus the presets they don't shadow. Resolution order matters:
