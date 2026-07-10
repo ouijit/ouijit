@@ -20,7 +20,7 @@ jobs:
       - run: npm ci
       - run: npm run check
       - run: npm rebuild better-sqlite3 --silent
-      - run: npx vitest run --project unit
+      - run: npx vitest run --project unit --project integration
 
   create-draft:
     needs: test
