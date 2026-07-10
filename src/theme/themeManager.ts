@@ -24,6 +24,7 @@ import {
   resolveThemeBase,
   selectedCustomTheme,
 } from './themes';
+import { PRESET_THEMES, withPresets } from './presets';
 
 const themeLog = log.scope('theme');
 
@@ -52,7 +53,7 @@ export function getThemePreference(): ThemePreference {
 }
 
 export function getResolvedTheme(): ResolvedThemeBase {
-  return resolveThemeBase(preference, prefersDarkQuery()?.matches ?? true, customThemes);
+  return resolveThemeBase(preference, prefersDarkQuery()?.matches ?? true, withPresets(customThemes));
 }
 
 export function getCustomThemes(): CustomTheme[] {
@@ -85,7 +86,7 @@ function applyTheme(): void {
   }
   appliedTokenNames = [];
 
-  const custom = selectedCustomTheme(preference, customThemes);
+  const custom = selectedCustomTheme(preference, withPresets(customThemes));
   if (custom) {
     for (const [name, value] of Object.entries(custom.tokens)) {
       root.style.setProperty(name, value);
@@ -170,7 +171,8 @@ export async function saveCustomTheme(theme: CustomTheme): Promise<void> {
 
 export async function deleteCustomTheme(id: string): Promise<void> {
   customThemes = customThemes.filter((t) => t.id !== id);
-  if (preference === `custom:${id}`) {
+  // Removing a user copy of a preset restores the preset — keep it selected.
+  if (preference === `custom:${id}` && !PRESET_THEMES.some((t) => t.id === id)) {
     await setThemePreference('system');
   }
   await persistCustomThemes();

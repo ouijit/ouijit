@@ -7,6 +7,7 @@ import {
   selectedCustomTheme,
   type CustomTheme,
 } from '../theme/themes';
+import { PRESET_THEMES, withPresets } from '../theme/presets';
 
 const midnight: CustomTheme = {
   id: 'midnight',
@@ -48,6 +49,23 @@ describe('theme model', () => {
     expect(parseCustomTheme({ ...midnight, tokens: { 'color-accent': '#fff' } })).toBeNull();
     expect(parseCustomTheme({ ...midnight, tokens: { '--color-accent': 'red; } html { display: none' } })).toBeNull();
     expect(parseCustomTheme({ ...midnight, id: '' })).toBeNull();
+  });
+
+  test('presets are valid themes, resolve like custom themes, and are shadowed by user copies', () => {
+    // Every bundled preset must survive the same validation as user themes.
+    for (const preset of PRESET_THEMES) {
+      expect(parseCustomTheme(preset)).toEqual(preset);
+    }
+
+    const dracula = PRESET_THEMES.find((t) => t.id === 'dracula')!;
+    expect(resolveThemeBase('custom:dracula', false, withPresets([]))).toBe(dracula.base);
+    expect(selectedCustomTheme('custom:dracula', withPresets([midnight]))).toEqual(dracula);
+
+    // A user theme with the same id wins; other presets stay available.
+    const userCopy: CustomTheme = { ...dracula, name: 'My Dracula', tokens: { '--color-accent': '#ff79c6' } };
+    const merged = withPresets([userCopy]);
+    expect(selectedCustomTheme('custom:dracula', merged)).toEqual(userCopy);
+    expect(merged.filter((t) => t.id === 'dracula')).toHaveLength(1);
   });
 
   test('parseCustomThemes drops invalid entries and survives corrupt JSON', () => {

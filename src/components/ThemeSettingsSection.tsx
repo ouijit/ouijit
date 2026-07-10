@@ -8,6 +8,7 @@ import {
   deleteCustomTheme,
 } from '../theme/themeManager';
 import { parseCustomTheme, type CustomTheme, type ThemePreference } from '../theme/themes';
+import { PRESET_THEMES } from '../theme/presets';
 import { DialogOverlay } from './dialogs/DialogOverlay';
 
 const BUILT_IN_OPTIONS: { value: ThemePreference; label: string }[] = [
@@ -36,6 +37,10 @@ export function ThemeSettingsSection() {
   const customThemes = useSyncExternalStore(subscribeTheme, getCustomThemes);
   const [editor, setEditor] = useState<{ initial: string; editingId: string | null } | null>(null);
 
+  // A user theme saved with a preset's id shadows it; the user copy renders
+  // in the custom list instead.
+  const presets = PRESET_THEMES.filter((preset) => !customThemes.some((t) => t.id === preset.id));
+
   return (
     <section>
       <h2 className="text-sm font-semibold text-text-primary mb-4">Appearance</h2>
@@ -59,6 +64,16 @@ export function ThemeSettingsSection() {
             ))}
           </div>
         </div>
+
+        {presets.map((theme) => (
+          <PresetThemeRow
+            key={theme.id}
+            theme={theme}
+            selected={preference === `custom:${theme.id}`}
+            onSelect={() => void setThemePreference(`custom:${theme.id}`)}
+            onEdit={() => setEditor({ initial: JSON.stringify(theme, null, 2), editingId: theme.id })}
+          />
+        ))}
 
         {customThemes.map((theme) => (
           <CustomThemeRow
@@ -116,6 +131,43 @@ function SegmentButton({ label, selected, onSelect }: { label: string; selected:
     >
       {label}
     </button>
+  );
+}
+
+interface PresetThemeRowProps {
+  theme: CustomTheme;
+  selected: boolean;
+  onSelect: () => void;
+  onEdit: () => void;
+}
+
+/** A built-in preset theme. Editing saves a user copy that shadows it. */
+function PresetThemeRow({ theme, selected, onSelect, onEdit }: PresetThemeRowProps) {
+  return (
+    <div className="flex items-center gap-4 px-4 py-3 hover:bg-ink/[0.02]">
+      <div className="flex-1 min-w-0">
+        <div className="text-sm text-text-primary truncate">{theme.name}</div>
+        <div className="text-xs text-text-tertiary mt-0.5">
+          Preset · {theme.base === 'dark' ? 'Dark' : 'Light'} base
+        </div>
+      </div>
+      <div className="flex items-center gap-2 shrink-0">
+        <button
+          type="button"
+          role="radio"
+          aria-checked={selected}
+          onClick={onSelect}
+          className={`px-3 py-1 rounded-full text-xs font-medium transition-colors duration-150 ${
+            selected ? 'bg-accent text-accent-ink' : 'bg-ink/[0.06] text-text-secondary hover:text-text-primary'
+          }`}
+        >
+          {selected ? 'Selected' : 'Use'}
+        </button>
+        <button type="button" className="btn-secondary" onClick={onEdit}>
+          Edit…
+        </button>
+      </div>
+    </div>
   );
 }
 
