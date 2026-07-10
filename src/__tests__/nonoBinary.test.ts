@@ -15,7 +15,7 @@ vi.mock('node:os', async (importOriginal) => {
   return { ...actual, release: () => osReleaseMock() };
 });
 
-import { getNonoPath, checkPlatformSupport } from '../sandbox/nono/binary';
+import { getNonoPath, getVendoredNonoPath, checkPlatformSupport } from '../sandbox/nono/binary';
 
 const realPlatform = process.platform;
 
@@ -42,6 +42,15 @@ describe('getNonoPath', () => {
   test('falls back to `nono` on PATH when the bundled binary is absent', () => {
     resolveBundledBinaryMock.mockReturnValue('nono');
     expect(getNonoPath()).toBe('nono');
+  });
+});
+
+describe('getVendoredNonoPath', () => {
+  test('returns the bundled path when vendored, null when nono resolves to PATH', () => {
+    resolveBundledBinaryMock.mockReturnValue('/app/resources/bin/nono');
+    expect(getVendoredNonoPath()).toBe('/app/resources/bin/nono');
+    resolveBundledBinaryMock.mockReturnValue('nono');
+    expect(getVendoredNonoPath()).toBeNull();
   });
 });
 

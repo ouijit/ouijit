@@ -8,6 +8,7 @@ import { getShellIntegrationDir, resolveShellIntegration } from './shellIntegrat
 import { typedPush } from './ipc/helpers';
 import { getLogger } from './logger';
 import { getUserDataPath, getCliPath } from './paths';
+import { getVendoredNonoPath } from './sandbox/nono/binary';
 import { issueToken, revokeToken, revokeAllTokens } from './apiAuth';
 
 const ptyLog = getLogger().scope('pty');
@@ -220,6 +221,14 @@ export async function spawnPty(
     finalEnv['OUIJIT_USER_DATA'] = getUserDataPath();
     const cliPath = getCliPath();
     if (cliPath) finalEnv['OUIJIT_CLI_PATH'] = cliPath;
+
+    // Point the `nono` shim at the vendored binary. Every task terminal needs
+    // it, not just sandboxed ones: nono's persistent-grant flow ends with the
+    // user running `nono profile promote` outside the sandbox, i.e. in a
+    // regular task terminal. Unset when nono is user-installed (the shim falls
+    // through to PATH); sandboxed spawns re-set the same value.
+    const vendoredNono = getVendoredNonoPath();
+    if (vendoredNono) finalEnv['OUIJIT_NONO_PATH'] = vendoredNono;
 
     // Build the command string to run in the spawned shell
     const expandedCommand = buildCommandString(options.command, options.env);

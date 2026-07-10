@@ -869,6 +869,34 @@ export const OPENCODE_WRAPPER = [
   '',
 ].join('\n');
 
+// ── nono shim ────────────────────────────────────────────────────────
+
+/**
+ * Bash shim that makes `nono` resolvable in Ouijit terminals. The vendored
+ * binary lives inside the app bundle — not on PATH — so without this shim
+ * agents inside the sandbox could not run `nono why` to diagnose denials, and
+ * users in regular task terminals could not run `nono profile promote` to
+ * apply a profile draft. The PTY manager injects OUIJIT_NONO_PATH into every
+ * task terminal (the nono provider re-sets the same value and grants it read
+ * for sandboxed spawns); when nono is user-installed the env var is unset and
+ * the shim falls through to the real nono on PATH.
+ */
+export const NONO_SHIM = [
+  '#!/bin/bash',
+  '# Ouijit nono shim — resolves the vendored nono binary in Ouijit terminals.',
+  '# OUIJIT_NONO_PATH is set by Ouijit task terminals; in a nono-sandboxed',
+  '# session it points at the same binary that supervises the session, so',
+  '# `nono why` answers with the version that actually enforced the denial.',
+  'if [ -n "$OUIJIT_NONO_PATH" ] && [ -x "$OUIJIT_NONO_PATH" ]; then',
+  '  exec "$OUIJIT_NONO_PATH" "$@"',
+  'fi',
+  '',
+  buildWrapperResolver('nono'),
+  '',
+  'exec "$REAL_BIN" "$@"',
+  '',
+].join('\n');
+
 /**
  * Install the ouijit-hook helper script and claude wrapper into
  * ~/.config/Ouijit/bin/. The wrapper injects hooks via --settings
@@ -909,6 +937,10 @@ export function installWrapper(): void {
     // plugin is inert until the wrapper exports OUIJIT_HOOK_BIN, so a plain
     // `opencode` run is unaffected.
     fs.writeFileSync(path.join(binDir, 'opencode'), OPENCODE_WRAPPER, { mode: 0o755 });
+
+    // Write nono shim (resolves the vendored nono binary via OUIJIT_NONO_PATH,
+    // set by every Ouijit task terminal; falls through to PATH everywhere else)
+    fs.writeFileSync(path.join(binDir, 'nono'), NONO_SHIM, { mode: 0o755 });
     const opencodePluginPath = getOpencodePluginPath();
     fs.mkdirSync(path.dirname(opencodePluginPath), { recursive: true });
     fs.writeFileSync(opencodePluginPath, OPENCODE_PLUGIN, { mode: 0o644 });

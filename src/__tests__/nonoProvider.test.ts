@@ -7,9 +7,13 @@ const checkPlatformSupport = vi.fn<() => { supported: boolean; reason?: string }
 const getMainGitDir = vi.fn<(wt: string) => Promise<string | null>>();
 const getNonoConfig = vi.fn();
 const ensureUnionProfile = vi.fn<() => Promise<void>>();
+const getNonoPath = vi.fn<() => string>();
 
 vi.mock('../sandbox/nono/binary', () => ({
-  getNonoPath: () => '/opt/bin/nono',
+  getNonoPath: () => getNonoPath(),
+  // Mirrors the real derivation: the resolved path when bundled (absolute),
+  // null when nono resolves to bare `nono` on PATH.
+  getVendoredNonoPath: () => (getNonoPath().startsWith('/') ? getNonoPath() : null),
   isNonoInstalled: () => isNonoInstalled(),
   checkPlatformSupport: () => checkPlatformSupport(),
   getMainGitDir: (wt: string) => getMainGitDir(wt),
@@ -48,6 +52,7 @@ beforeEach(() => {
   getMainGitDir.mockResolvedValue('/Users/dev/code/proj/.git');
   getNonoConfig.mockResolvedValue({});
   ensureUnionProfile.mockResolvedValue(undefined);
+  getNonoPath.mockReturnValue('/opt/bin/nono');
 });
 
 describe('nonoProvider', () => {
@@ -65,7 +70,24 @@ describe('nonoProvider', () => {
     // dir; only caches are relocated, never CARGO_HOME (credentials/binaries).
     expect(result.env?.npm_config_cache).toMatch(/sandbox-cache\/.+\/npm$/);
     expect(result.env?.CARGO_HOME).toBeUndefined();
+    // The `nono` shim resolves the vendored binary through this env var so
+    // agents can run `nono why` inside the sandbox.
+    expect(result.env?.OUIJIT_NONO_PATH).toBe('/opt/bin/nono');
     expect(ensureUnionProfile).toHaveBeenCalledTimes(1);
+  });
+
+  test('vendored-binary plumbing is absent when nono resolves to PATH (user-installed)', async () => {
+    getNonoPath.mockReturnValue('nono');
+    // No env var for the shim — it falls through to the user's nono on PATH.
+    const prepared = await nonoProvider.prepare(ctx);
+    expect(prepared.env?.OUIJIT_NONO_PATH).toBeUndefined();
+    // And no read grant, since there is no bundled path to expose.
+    const wrapped = await nonoProvider.wrapLaunch(launch, ctx);
+    const reads = wrapped.args.reduce<string[]>(
+      (acc, a, i) => (a === '--read' ? [...acc, wrapped.args[i + 1]] : acc),
+      [],
+    );
+    expect(reads).toEqual(['/Users/dev/code/proj/.git', '/Users/dev/.config/Ouijit']);
   });
 
   test('prepare rejects with a clear error when nono is not installed', async () => {
@@ -88,6 +110,13 @@ describe('nonoProvider', () => {
     expect(wrapped.args).toContain('/Users/dev/code/proj/.git'); // main git dir (not the worktree's)
     const openPortIdx = wrapped.args.indexOf('--open-port');
     expect(wrapped.args[openPortIdx + 1]).toBe('7777');
+    // The vendored binary itself is read-granted (a single file, so via
+    // --read-file) so the agent can exec `nono why`.
+    const fileReads = wrapped.args.reduce<string[]>(
+      (acc, a, i) => (a === '--read-file' ? [...acc, wrapped.args[i + 1]] : acc),
+      [],
+    );
+    expect(fileReads).toContain('/opt/bin/nono');
     // The original launch is the argv tail.
     expect(wrapped.args.slice(-3)).toEqual(['--', '/bin/zsh', '-il']);
   });

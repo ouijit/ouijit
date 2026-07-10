@@ -102,6 +102,18 @@ describe('buildNonoLaunch', () => {
     expect(reads).toEqual(['/Users/dev/code/proj/.git', '/Users/dev/.config/Ouijit']);
   });
 
+  test('grants the vendored nono binary via --read-file so `nono why` runs in-sandbox', () => {
+    const binPath = '/Applications/Ouijit.app/Contents/Resources/bin/nono';
+    const { args } = build({ nonoBinPath: binPath });
+    // A single file must use --read-file: nono rejects file paths on --read.
+    const fileReads = args.reduce<string[]>((acc, a, i) => (a === '--read-file' ? [...acc, args[i + 1]] : acc), []);
+    expect(fileReads).toContain(binPath);
+    // Nothing else bundled next to the binary is exposed.
+    const reads = args.reduce<string[]>((acc, a, i) => (a === '--read' ? [...acc, args[i + 1]] : acc), []);
+    expect(reads).not.toContain('/Applications/Ouijit.app/Contents/Resources/bin');
+    expect(reads).not.toContain(binPath);
+  });
+
   test('adds block-net when configured', () => {
     const { args } = build({ config: { blockNet: true } });
     expect(args).toContain('--block-net');
