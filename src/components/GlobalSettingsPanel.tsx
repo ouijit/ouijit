@@ -171,7 +171,7 @@ export function GlobalSettingsPanel() {
           <section>
             <h2 className="text-sm font-semibold text-text-primary mb-4">Projects</h2>
             <div
-              className="glass-bevel relative border border-bezel rounded-[14px] overflow-hidden divide-y divide-ink/[0.06] bg-terminal-bg"
+              className="glass-bevel relative border border-bezel-panel rounded-[14px] overflow-hidden divide-y divide-ink/[0.06] bg-terminal-bg"
               style={{
                 boxShadow: 'var(--shadow-panel)',
               }}
@@ -189,7 +189,7 @@ export function GlobalSettingsPanel() {
           <section>
             <h2 className="text-sm font-semibold text-text-primary mb-4">Terminal</h2>
             <div
-              className="glass-bevel relative border border-bezel rounded-[14px] overflow-hidden divide-y divide-ink/[0.06] bg-terminal-bg"
+              className="glass-bevel relative border border-bezel-panel rounded-[14px] overflow-hidden divide-y divide-ink/[0.06] bg-terminal-bg"
               style={{
                 boxShadow: 'var(--shadow-panel)',
               }}
@@ -217,7 +217,7 @@ export function GlobalSettingsPanel() {
           <section>
             <h2 className="text-sm font-semibold text-text-primary mb-4">Updates</h2>
             <div
-              className="glass-bevel relative border border-bezel rounded-[14px] overflow-hidden divide-y divide-ink/[0.06] bg-terminal-bg"
+              className="glass-bevel relative border border-bezel-panel rounded-[14px] overflow-hidden divide-y divide-ink/[0.06] bg-terminal-bg"
               style={{
                 boxShadow: 'var(--shadow-panel)',
               }}
@@ -234,7 +234,7 @@ export function GlobalSettingsPanel() {
           <section>
             <h2 className="text-sm font-semibold text-text-primary mb-4">Sound</h2>
             <div
-              className="glass-bevel relative border border-bezel rounded-[14px] overflow-hidden divide-y divide-ink/[0.06] bg-terminal-bg"
+              className="glass-bevel relative border border-bezel-panel rounded-[14px] overflow-hidden divide-y divide-ink/[0.06] bg-terminal-bg"
               style={{
                 boxShadow: 'var(--shadow-panel)',
               }}

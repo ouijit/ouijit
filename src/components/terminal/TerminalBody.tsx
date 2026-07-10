@@ -162,7 +162,7 @@ export function TerminalBody({ ptyId, projectPath }: TerminalBodyProps) {
         {activePanel && (
           <div
             ref={panelRef}
-            className="relative flex flex-col min-h-0 overflow-hidden glass-bevel border border-bezel rounded-[14px] m-3"
+            className="relative flex flex-col min-h-0 overflow-hidden glass-bevel border border-bezel-panel rounded-[14px] m-3"
             style={{
               flexGrow: 0,
               flexShrink: 1,
@@ -185,7 +185,7 @@ export function TerminalBody({ ptyId, projectPath }: TerminalBodyProps) {
       </div>
       {diffPanelOpen && (
         <div
-          className="absolute inset-0 z-20 flex flex-col m-3 glass-bevel border border-bezel rounded-[14px] overflow-hidden"
+          className="absolute inset-0 z-20 flex flex-col m-3 glass-bevel border border-bezel-panel rounded-[14px] overflow-hidden"
           style={{
             background: 'var(--color-terminal-bg)',
             boxShadow: 'var(--shadow-inset-panel)',

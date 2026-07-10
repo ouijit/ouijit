@@ -96,7 +96,7 @@ export function ProjectSettingsPanel({ projectPath }: ProjectSettingsPanelProps)
             <h2 className="text-sm font-semibold text-text-primary mb-2">Run Commands</h2>
             <p className="text-xs text-text-tertiary mb-4">Commands you can launch from a terminal's + menu.</p>
             <div
-              className="glass-bevel relative border border-bezel rounded-[14px] overflow-hidden divide-y divide-ink/[0.06]"
+              className="glass-bevel relative border border-bezel-panel rounded-[14px] overflow-hidden divide-y divide-ink/[0.06]"
               style={{
                 background: 'var(--color-terminal-bg)',
                 boxShadow: 'var(--shadow-panel)',

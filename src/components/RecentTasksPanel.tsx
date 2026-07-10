@@ -116,7 +116,7 @@ export function RecentTasksPanel({ projects }: RecentTasksPanelProps) {
 
   return (
     <div
-      className="w-full flex flex-col rounded-[14px] border border-bezel glass-bevel relative overflow-hidden min-h-0"
+      className="w-full flex flex-col rounded-[14px] border border-bezel-panel glass-bevel relative overflow-hidden min-h-0"
       style={{
         background: 'var(--color-terminal-bg)',
         boxShadow: 'var(--shadow-panel)',
