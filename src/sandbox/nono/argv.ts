@@ -95,8 +95,9 @@ export function buildNonoLaunch(nonoPath: string, launch: SandboxLaunch, ctx: No
   args.push('--read', ctx.wrapperDir);
   if (ctx.cliDir) args.push('--read', ctx.cliDir);
   // The vendored nono binary alone (not its dir), so `nono why` runs inside
-  // the sandbox without exposing anything else bundled next to it.
-  if (ctx.nonoBinPath) args.push('--read', ctx.nonoBinPath);
+  // the sandbox without exposing anything else bundled next to it. Granted
+  // with --read-file: nono rejects file paths on the directory flags.
+  if (ctx.nonoBinPath) args.push('--read-file', ctx.nonoBinPath);
 
   args.push('--', launch.file, ...launch.args);
 

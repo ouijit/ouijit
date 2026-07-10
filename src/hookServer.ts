@@ -872,19 +872,21 @@ export const OPENCODE_WRAPPER = [
 // ── nono shim ────────────────────────────────────────────────────────
 
 /**
- * Bash shim that makes `nono` resolvable in sandboxed sessions. The vendored
- * binary lives inside the app bundle — not on PATH — so agents inside the
- * sandbox could not run `nono why` to diagnose denials. The nono provider
- * injects OUIJIT_NONO_PATH (and a read grant for it) at spawn time; in every
- * other context the env var is unset and the shim falls through to the real
- * nono on PATH, so a user-installed nono behaves exactly as before.
+ * Bash shim that makes `nono` resolvable in Ouijit terminals. The vendored
+ * binary lives inside the app bundle — not on PATH — so without this shim
+ * agents inside the sandbox could not run `nono why` to diagnose denials, and
+ * users in regular task terminals could not run `nono profile promote` to
+ * apply a profile draft. The PTY manager injects OUIJIT_NONO_PATH into every
+ * task terminal (the nono provider re-sets the same value and grants it read
+ * for sandboxed spawns); when nono is user-installed the env var is unset and
+ * the shim falls through to the real nono on PATH.
  */
 export const NONO_SHIM = [
   '#!/bin/bash',
-  '# Ouijit nono shim — resolves the vendored nono binary in sandboxed sessions.',
-  '# OUIJIT_NONO_PATH is set only by nono-sandboxed Ouijit terminals; it points',
-  '# at the same binary that supervises this session, so `nono why` answers',
-  '# with the version that actually enforced the denial.',
+  '# Ouijit nono shim — resolves the vendored nono binary in Ouijit terminals.',
+  '# OUIJIT_NONO_PATH is set by Ouijit task terminals; in a nono-sandboxed',
+  '# session it points at the same binary that supervises the session, so',
+  '# `nono why` answers with the version that actually enforced the denial.',
   'if [ -n "$OUIJIT_NONO_PATH" ] && [ -x "$OUIJIT_NONO_PATH" ]; then',
   '  exec "$OUIJIT_NONO_PATH" "$@"',
   'fi',
@@ -936,8 +938,8 @@ export function installWrapper(): void {
     // `opencode` run is unaffected.
     fs.writeFileSync(path.join(binDir, 'opencode'), OPENCODE_WRAPPER, { mode: 0o755 });
 
-    // Write nono shim (resolves the vendored nono binary in sandboxed sessions
-    // via OUIJIT_NONO_PATH; falls through to PATH everywhere else)
+    // Write nono shim (resolves the vendored nono binary via OUIJIT_NONO_PATH,
+    // set by every Ouijit task terminal; falls through to PATH everywhere else)
     fs.writeFileSync(path.join(binDir, 'nono'), NONO_SHIM, { mode: 0o755 });
     const opencodePluginPath = getOpencodePluginPath();
     fs.mkdirSync(path.dirname(opencodePluginPath), { recursive: true });
