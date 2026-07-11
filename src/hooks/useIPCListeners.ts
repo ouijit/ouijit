@@ -9,6 +9,7 @@ import {
 import { useTerminalStore } from '../stores/terminalStore';
 import { beginTransition } from '../services/taskStartService';
 import { completeTask } from '../services/taskCompletion';
+import { reloadTheme } from '../theme/themeManager';
 import log from 'electron-log/renderer';
 
 const ipcLog = log.scope('ipcListeners');
@@ -169,6 +170,15 @@ export function useIPCListeners() {
             useProjectStore.getState().addToast(payload.message, 'info');
           }
         }
+      }),
+    );
+
+    // CLI theme mutation — the main process wrote global settings directly,
+    // so re-read and re-apply the theme.
+    cleanups.push(
+      window.api.onCliThemeChanged(() => {
+        ipcLog.info('CLI theme change detected, reloading theme');
+        void reloadTheme();
       }),
     );
 

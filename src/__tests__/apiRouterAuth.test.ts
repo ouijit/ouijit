@@ -46,6 +46,8 @@ vi.mock('../db', () => ({
   getScripts: vi.fn(() => []),
   saveScript: vi.fn(),
   deleteScript: vi.fn(),
+  getGlobalSetting: vi.fn(async () => undefined),
+  setGlobalSetting: vi.fn(async () => ({ success: true })),
 }));
 
 vi.mock('../taskLifecycle', () => ({
@@ -69,6 +71,7 @@ vi.mock('../cliPanels', () => ({
 import { startHookServer, stopHookServer, getApiPort } from '../hookServer';
 import { issueToken, revokeAllTokens } from '../apiAuth';
 import { getTaskWithWorkspace } from '../taskLifecycle';
+import { typedPush } from '../ipc/helpers';
 
 const mockSend = vi.fn();
 function mockWindow(): BrowserWindow {
@@ -214,6 +217,53 @@ describe('sandbox read-only, own-task scope', () => {
     const token = issueToken('pty-host', 'host');
     const res = await request('GET', `/api/tasks/9?project=${PROJECT}`, token);
     expect(res.status).toBe(200);
+  });
+});
+
+describe('theme routes', () => {
+  test('theme routes validate, persist, and push cli:theme-changed; sandbox is refused', async () => {
+    // Sandbox scope: read and write both refused (host-only routes).
+    const sandboxToken = issueToken('pty-sbx', 'sandbox');
+    expect((await request('GET', '/api/themes', sandboxToken)).status).toBe(403);
+    expect(
+      (
+        await request('PUT', '/api/themes/custom/x', sandboxToken, {
+          name: 'X',
+          base: 'dark',
+          tokens: {},
+        })
+      ).status,
+    ).toBe(403);
+
+    const token = issueToken('pty-host', 'host');
+
+    // GET returns presets plus (empty) custom themes and the default preference.
+    const list = await request('GET', '/api/themes', token);
+    expect(list.status).toBe(200);
+    const data = list.body.data as { preference: string; presets: unknown[]; customThemes: unknown[] };
+    expect(data.preference).toBe('system');
+    expect(data.presets.length).toBeGreaterThan(0);
+    expect(data.customThemes).toEqual([]);
+
+    // Invalid theme body → 400; valid body persists and pushes cli:theme-changed.
+    const bad = await request('PUT', '/api/themes/custom/my-theme', token, { base: 'sepia', tokens: {} });
+    expect(bad.status).toBe(400);
+    const good = await request('PUT', '/api/themes/custom/my-theme', token, {
+      name: 'My Theme',
+      base: 'dark',
+      tokens: { '--color-accent': '#ff2d55' },
+    });
+    expect(good.status).toBe(200);
+    expect(vi.mocked(typedPush)).toHaveBeenCalledWith(expect.anything(), 'cli:theme-changed');
+
+    // Preference validation: unknown custom id 404s, presets and built-ins work.
+    expect((await request('PUT', '/api/themes/preference', token, { preference: 'custom:nope' })).status).toBe(404);
+    expect((await request('PUT', '/api/themes/preference', token, { preference: 'sepia' })).status).toBe(400);
+    expect((await request('PUT', '/api/themes/preference', token, { preference: 'custom:dracula' })).status).toBe(200);
+    expect((await request('PUT', '/api/themes/preference', token, { preference: 'light' })).status).toBe(200);
+
+    // Deleting a theme that doesn't exist → 404 (settings mock stores nothing).
+    expect((await request('DELETE', '/api/themes/custom/nope', token)).status).toBe(404);
   });
 });
 

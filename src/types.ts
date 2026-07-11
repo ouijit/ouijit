@@ -535,6 +535,8 @@ export interface ElectronAPI {
   onCliChange(
     callback: (payload: { project: string; action: string; message?: string; ts: number }) => void,
   ): () => void;
+  /** Listen for a CLI theme mutation — re-read and re-apply theme settings */
+  onCliThemeChanged(callback: () => void): () => void;
   /** Listen for a CLI-initiated task start that requires spawning a terminal */
   onCliTaskStarted(
     callback: (payload: {

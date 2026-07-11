@@ -8,6 +8,7 @@ import {
   setThemePreference,
   saveCustomTheme,
   deleteCustomTheme,
+  previewTheme,
 } from '../theme/themeManager';
 import { parseCustomTheme, type CustomTheme, type ThemePreference } from '../theme/themes';
 import { PRESET_THEMES } from '../theme/presets';
@@ -160,6 +161,14 @@ function ThemeDropdown({ value, groups, onSelect }: ThemeDropdownProps) {
     return () => document.removeEventListener('keydown', handler);
   }, [open]);
 
+  // Any way the dropdown closes (select, click-outside, escape, unmount)
+  // ends the hover preview. Selection commits first in select(), so the
+  // clear is a no-op there.
+  useEffect(() => {
+    if (!open) previewTheme(null);
+    return () => previewTheme(null);
+  }, [open]);
+
   const selected = groups.flat().find((o) => o.value === value) ?? null;
 
   const select = (next: ThemePreference) => {
@@ -187,6 +196,7 @@ function ThemeDropdown({ value, groups, onSelect }: ThemeDropdownProps) {
             }}
             role="listbox"
             aria-label="Choose theme"
+            onMouseLeave={() => previewTheme(null)}
             style={{
               ...floatingStyles,
               background: 'var(--color-terminal-bg)',
@@ -227,6 +237,7 @@ function ThemeOptionRow({
     <button
       role="option"
       aria-selected={selected}
+      onMouseEnter={() => previewTheme(option.value)}
       onMouseDown={(e) => {
         e.preventDefault();
         onClick();

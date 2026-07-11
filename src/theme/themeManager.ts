@@ -34,6 +34,8 @@ const WINDOW_BACKGROUND_KEY = 'ui:themeBackground';
 const LOCAL_CACHE_KEY = 'ouijit:theme-cache';
 
 let preference: ThemePreference = 'system';
+/** Hover-preview override; non-null renders this theme instead of `preference` without persisting. */
+let previewPreference: ThemePreference | null = null;
 let customThemes: CustomTheme[] = [];
 /** Token names currently overridden inline by a custom theme. */
 let appliedTokenNames: string[] = [];
@@ -53,7 +55,11 @@ export function getThemePreference(): ThemePreference {
 }
 
 export function getResolvedTheme(): ResolvedThemeBase {
-  return resolveThemeBase(preference, prefersDarkQuery()?.matches ?? true, withPresets(customThemes));
+  return resolveThemeBase(
+    previewPreference ?? preference,
+    prefersDarkQuery()?.matches ?? true,
+    withPresets(customThemes),
+  );
 }
 
 export function getCustomThemes(): CustomTheme[] {
@@ -86,7 +92,7 @@ function applyTheme(): void {
   }
   appliedTokenNames = [];
 
-  const custom = selectedCustomTheme(preference, withPresets(customThemes));
+  const custom = selectedCustomTheme(previewPreference ?? preference, withPresets(customThemes));
   if (custom) {
     for (const [name, value] of Object.entries(custom.tokens)) {
       root.style.setProperty(name, value);
@@ -95,6 +101,9 @@ function applyTheme(): void {
   }
 
   for (const callback of subscribers) callback();
+
+  // A hover preview must leave no trace — skip the persistence mirrors.
+  if (previewPreference !== null) return;
 
   // Mirror the resolved window background for the main process. Only plain
   // hex values are useful there (BrowserWindow.setBackgroundColor).
@@ -155,8 +164,41 @@ export async function initTheme(): Promise<void> {
   applyTheme();
 }
 
+/**
+ * Re-read persisted theme settings and re-apply. Called when the CLI
+ * mutates themes through the REST API (main process writes the settings
+ * DB directly, so this module's state must be refreshed).
+ */
+export async function reloadTheme(): Promise<void> {
+  try {
+    const [storedPreference, storedCustomThemes] = await Promise.all([
+      window.api.globalSettings.get(PREFERENCE_KEY),
+      window.api.globalSettings.get(CUSTOM_THEMES_KEY),
+    ]);
+    customThemes = parseCustomThemes(storedCustomThemes);
+    preference = storedPreference && isThemePreference(storedPreference) ? storedPreference : 'system';
+  } catch (error) {
+    themeLog.error('failed to reload theme settings', {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return;
+  }
+  applyTheme();
+}
+
+/**
+ * Temporarily render a theme without persisting anything (dropdown hover
+ * preview). Pass null to restore the committed preference.
+ */
+export function previewTheme(pref: ThemePreference | null): void {
+  if (previewPreference === pref) return;
+  previewPreference = pref;
+  applyTheme();
+}
+
 export async function setThemePreference(next: ThemePreference): Promise<void> {
   preference = next;
+  previewPreference = null;
   applyTheme();
   await window.api.globalSettings.set(PREFERENCE_KEY, next);
   themeLog.info('theme preference changed', { preference: next });
