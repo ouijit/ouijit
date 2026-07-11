@@ -10,6 +10,7 @@ import * as fs from 'node:fs';
 import type { Command } from 'commander';
 import { get, put, del } from '../api';
 import { printJson, printError } from '../output';
+import { isThemePreference } from '../../theme/themes';
 
 export function registerThemeCommands(parent: Command) {
   const theme = parent
@@ -39,10 +40,8 @@ Examples:
     .description('Select a theme')
     .argument('<theme>', 'system | light | dark | a preset or custom theme id (e.g. dracula)')
     .action(async (value: string) => {
-      const preference =
-        value === 'system' || value === 'light' || value === 'dark' || value.startsWith('custom:')
-          ? value
-          : `custom:${value}`;
+      // A bare id ("dracula") is shorthand for the custom:<id> form.
+      const preference = isThemePreference(value) ? value : `custom:${value}`;
       printJson(await put('/api/themes/preference', { preference }));
     });
 

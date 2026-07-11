@@ -1,7 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
-import { useFloating, offset, flip, shift, autoUpdate } from '@floating-ui/react';
-import { Icon } from './terminal/Icon';
+import { useEffect, useMemo, useState } from 'react';
+import { SettingsDropdown, SettingsDropdownOption, SettingsDropdownDivider } from './ui/SettingsDropdown';
 import log from 'electron-log/renderer';
 
 const fontPickerLog = log.scope('fontPicker');
@@ -112,19 +110,6 @@ export function FontPickerRow({ label, description, value, defaultLabel, onCommi
   const [open, setOpen] = useState(false);
   const [systemFonts, setSystemFonts] = useState<MonoFontOption[] | null>(cachedSystemFonts);
   const [loading, setLoading] = useState(false);
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-
-  const { refs, floatingStyles } = useFloating({
-    placement: 'bottom-end',
-    strategy: 'fixed',
-    middleware: [offset(6), flip(), shift({ padding: 8 })],
-    whileElementsMounted: autoUpdate,
-  });
-
-  useEffect(() => {
-    if (triggerRef.current) refs.setReference(triggerRef.current);
-  }, [refs]);
 
   // On first dropdown open, ask Chromium for the user's installed fonts.
   // The first call shows a permission prompt; subsequent calls are silent.
@@ -136,32 +121,6 @@ export function FontPickerRow({ label, description, value, defaultLabel, onCommi
       .then((list) => setSystemFonts(list))
       .finally(() => setLoading(false));
   }, [open, systemFonts]);
-
-  // Click-outside
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e: MouseEvent) => {
-      const target = e.target as Node;
-      if (dropdownRef.current?.contains(target)) return;
-      if (triggerRef.current?.contains(target)) return;
-      setOpen(false);
-    };
-    const timer = setTimeout(() => document.addEventListener('mousedown', handler), 0);
-    return () => {
-      clearTimeout(timer);
-      document.removeEventListener('mousedown', handler);
-    };
-  }, [open]);
-
-  // Escape
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false);
-    };
-    document.addEventListener('keydown', handler);
-    return () => document.removeEventListener('keydown', handler);
-  }, [open]);
 
   const options = systemFonts && systemFonts.length > 0 ? systemFonts : FALLBACK_FONT_OPTIONS;
   const usingFallback = !systemFonts || systemFonts.length === 0;
@@ -182,92 +141,41 @@ export function FontPickerRow({ label, description, value, defaultLabel, onCommi
         <div className="text-sm text-text-primary">{label}</div>
         <div className="text-xs text-text-tertiary mt-0.5">{description}</div>
       </div>
-      <button
-        ref={triggerRef}
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="w-[16rem] shrink-0 flex items-center justify-between gap-2 px-3 py-1.5 text-sm bg-ink/[0.04] border border-ink/10 rounded-md text-text-primary hover:bg-ink/[0.06] outline-none focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent-light"
+      <SettingsDropdown
+        open={open}
+        onOpenChange={setOpen}
+        widthClass="w-[16rem]"
+        ariaLabel="Choose terminal font"
+        triggerLabel={triggerLabel}
+        triggerStyle={triggerFont ? { fontFamily: triggerFont } : undefined}
       >
-        <span className="truncate" style={triggerFont ? { fontFamily: triggerFont } : undefined}>
-          {triggerLabel}
-        </span>
-        <Icon name="caret-down" className="w-3.5 h-3.5 text-text-tertiary shrink-0" />
-      </button>
-      {open &&
-        createPortal(
-          <div
-            ref={(el) => {
-              dropdownRef.current = el;
-              refs.setFloating(el);
-            }}
-            role="listbox"
-            aria-label="Choose terminal font"
-            style={{
-              ...floatingStyles,
-              background: 'var(--color-terminal-bg)',
-              boxShadow: 'var(--shadow-menu)',
-            }}
-            className="w-[16rem] max-h-[24rem] overflow-y-auto border border-bezel rounded-[12px] z-[1000] p-1"
-          >
-            <FontOptionRow
-              label={defaultLabel}
-              hint="System default"
-              selected={!trimmedValue}
-              onClick={() => select('')}
-            />
-            <div className="my-1 mx-1 border-t border-ink/[0.06]" />
-            {loading && <div className="px-2.5 py-2 text-xs text-text-tertiary">Loading installed fonts…</div>}
-            {!loading && options.length === 0 && (
-              <div className="px-2.5 py-2 text-xs text-text-tertiary">No monospace fonts found.</div>
-            )}
-            {!loading &&
-              options.map((opt) => (
-                <FontOptionRow
-                  key={opt.value}
-                  label={opt.label}
-                  fontFamily={opt.value}
-                  selected={trimmedValue === opt.value}
-                  onClick={() => select(opt.value)}
-                />
-              ))}
-            {!loading && usingFallback && (
-              <div className="px-2.5 pt-2 pb-1 text-[11px] text-text-tertiary border-t border-ink/[0.06] mt-1">
-                Showing fallback list — allow font access to see your installed fonts.
-              </div>
-            )}
-          </div>,
-          document.body,
+        <SettingsDropdownOption
+          label={defaultLabel}
+          hint="System default"
+          selected={!trimmedValue}
+          onClick={() => select('')}
+        />
+        <SettingsDropdownDivider />
+        {loading && <div className="px-2.5 py-2 text-xs text-text-tertiary">Loading installed fonts…</div>}
+        {!loading && options.length === 0 && (
+          <div className="px-2.5 py-2 text-xs text-text-tertiary">No monospace fonts found.</div>
         )}
+        {!loading &&
+          options.map((opt) => (
+            <SettingsDropdownOption
+              key={opt.value}
+              label={opt.label}
+              fontFamily={opt.value}
+              selected={trimmedValue === opt.value}
+              onClick={() => select(opt.value)}
+            />
+          ))}
+        {!loading && usingFallback && (
+          <div className="px-2.5 pt-2 pb-1 text-[11px] text-text-tertiary border-t border-ink/[0.06] mt-1">
+            Showing fallback list — allow font access to see your installed fonts.
+          </div>
+        )}
+      </SettingsDropdown>
     </div>
-  );
-}
-
-interface FontOptionRowProps {
-  label: string;
-  hint?: string;
-  fontFamily?: string;
-  selected: boolean;
-  onClick: () => void;
-}
-
-function FontOptionRow({ label, hint, fontFamily, selected, onClick }: FontOptionRowProps) {
-  return (
-    <button
-      role="option"
-      aria-selected={selected}
-      onMouseDown={(e) => {
-        e.preventDefault();
-        onClick();
-      }}
-      className={`w-full text-left px-2.5 py-1.5 rounded-[7px] text-sm flex items-center gap-2 hover:bg-ink/[0.08] transition-colors duration-100 ${
-        selected ? 'text-text-primary bg-ink/[0.04]' : 'text-text-secondary'
-      }`}
-    >
-      <span className="flex-1 truncate" style={fontFamily ? { fontFamily } : undefined}>
-        {label}
-      </span>
-      {hint && <span className="text-[11px] text-text-tertiary shrink-0">{hint}</span>}
-      {selected && <Icon name="check" className="w-3.5 h-3.5 text-text-primary shrink-0" />}
-    </button>
   );
 }

@@ -2,18 +2,12 @@ import { createHighlighter, bundledLanguages } from 'shiki';
 import type { BundledLanguage } from 'shiki';
 import type { ThemedToken, HighlighterGeneric } from '@shikijs/types';
 import type { DiffHunk } from '../git';
-import { getResolvedTheme } from '../theme/themeManager';
+import { SHIKI_THEMES, currentShikiTheme } from '../theme/shikiTheme';
 
 export type { ThemedToken };
 
 /** Tokens for each line in a hunk, indexed by line position within the hunk */
 export type HunkTokens = (ThemedToken[] | null)[];
-
-const THEMES = { dark: 'github-dark', light: 'github-light' } as const;
-
-function currentTheme(): string {
-  return THEMES[getResolvedTheme()];
-}
 
 const PRELOADED_LANGS: BundledLanguage[] = [
   'typescript',
@@ -103,7 +97,7 @@ let highlighterPromise: Promise<HighlighterGeneric<any, any>> | null = null;
 function getHighlighter() {
   if (!highlighterPromise) {
     highlighterPromise = createHighlighter({
-      themes: [THEMES.dark, THEMES.light],
+      themes: [SHIKI_THEMES.dark, SHIKI_THEMES.light],
       langs: PRELOADED_LANGS,
     });
   }
@@ -233,6 +227,6 @@ function tokenizeLines(hl: HighlighterGeneric<any, any>, lines: string[], lang: 
   if (lines.length === 0) return [];
 
   const code = lines.join('\n');
-  const { tokens } = hl.codeToTokens(code, { lang, theme: currentTheme() });
+  const { tokens } = hl.codeToTokens(code, { lang, theme: currentShikiTheme() });
   return tokens;
 }

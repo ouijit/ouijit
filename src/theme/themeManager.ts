@@ -19,18 +19,20 @@ import {
   type ThemePreference,
   type ResolvedThemeBase,
   type CustomTheme,
+  THEME_PREFERENCE_KEY,
+  CUSTOM_THEMES_KEY,
+  WINDOW_BACKGROUND_KEY,
   isThemePreference,
+  isWindowBackgroundColor,
   parseCustomThemes,
+  upsertCustomTheme,
   resolveThemeBase,
   selectedCustomTheme,
 } from './themes';
-import { PRESET_THEMES, withPresets } from './presets';
+import { withPresets, selectionOrphanedByDelete } from './presets';
 
 const themeLog = log.scope('theme');
 
-const PREFERENCE_KEY = 'ui:theme';
-const CUSTOM_THEMES_KEY = 'ui:customThemes';
-const WINDOW_BACKGROUND_KEY = 'ui:themeBackground';
 const LOCAL_CACHE_KEY = 'ouijit:theme-cache';
 
 let preference: ThemePreference = 'system';
@@ -39,7 +41,23 @@ let previewPreference: ThemePreference | null = null;
 let customThemes: CustomTheme[] = [];
 /** Token names currently overridden inline by a custom theme. */
 let appliedTokenNames: string[] = [];
+/** Bumped on every applied-theme change; lets consumers cache token reads per applied theme. */
+let themeEpoch = 0;
+/** Last values written to the persistence mirrors, to skip redundant writes. */
+let mirroredBackground: string | null = null;
+let cachedThemeJson: string | null = null;
 const subscribers = new Set<() => void>();
+
+// customThemes is replaced (never mutated), so the merged list can be cached
+// per array identity; getResolvedTheme() is a useSyncExternalStore snapshot
+// called on every render of subscribed components.
+let mergedThemesCache: { source: CustomTheme[]; merged: CustomTheme[] } | null = null;
+function mergedThemes(): CustomTheme[] {
+  if (mergedThemesCache?.source !== customThemes) {
+    mergedThemesCache = { source: customThemes, merged: withPresets(customThemes) };
+  }
+  return mergedThemesCache.merged;
+}
 
 // Created lazily: this module is transitively imported by code that also runs
 // in Node test environments where window doesn't exist.
@@ -55,11 +73,16 @@ export function getThemePreference(): ThemePreference {
 }
 
 export function getResolvedTheme(): ResolvedThemeBase {
-  return resolveThemeBase(
-    previewPreference ?? preference,
-    prefersDarkQuery()?.matches ?? true,
-    withPresets(customThemes),
-  );
+  return resolveThemeBase(previewPreference ?? preference, prefersDarkQuery()?.matches ?? true, mergedThemes());
+}
+
+/**
+ * Identity of the currently applied theme. Unlike the resolved base, this
+ * changes on every theme switch, including between two themes with the same
+ * base, so consumers that read token values can use it as a cache key.
+ */
+export function getThemeEpoch(): number {
+  return themeEpoch;
 }
 
 export function getCustomThemes(): CustomTheme[] {
@@ -92,7 +115,7 @@ function applyTheme(): void {
   }
   appliedTokenNames = [];
 
-  const custom = selectedCustomTheme(previewPreference ?? preference, withPresets(customThemes));
+  const custom = selectedCustomTheme(previewPreference ?? preference, mergedThemes());
   if (custom) {
     for (const [name, value] of Object.entries(custom.tokens)) {
       root.style.setProperty(name, value);
@@ -100,6 +123,7 @@ function applyTheme(): void {
     }
   }
 
+  themeEpoch++;
   for (const callback of subscribers) callback();
 
   // A hover preview must leave no trace — skip the persistence mirrors.
@@ -108,14 +132,19 @@ function applyTheme(): void {
   // Mirror the resolved window background for the main process. Only plain
   // hex values are useful there (BrowserWindow.setBackgroundColor).
   const background = readToken('--color-background');
-  if (/^#[0-9a-fA-F]{6}$/.test(background)) {
+  if (background !== mirroredBackground && isWindowBackgroundColor(background)) {
+    mirroredBackground = background;
     void window.api.globalSettings.set(WINDOW_BACKGROUND_KEY, background);
   }
 
-  try {
-    localStorage.setItem(LOCAL_CACHE_KEY, JSON.stringify({ preference, customThemes }));
-  } catch {
-    // localStorage is best-effort; the settings DB remains the source of truth.
+  const cacheJson = JSON.stringify({ preference, customThemes });
+  if (cacheJson !== cachedThemeJson) {
+    cachedThemeJson = cacheJson;
+    try {
+      localStorage.setItem(LOCAL_CACHE_KEY, cacheJson);
+    } catch {
+      // localStorage is best-effort; the settings DB remains the source of truth.
+    }
   }
 }
 
@@ -140,22 +169,27 @@ export function initThemeSync(): void {
   }
 }
 
-/** Load the persisted theme from global settings and start following the OS. */
-export async function initTheme(): Promise<void> {
+/** Re-read the persisted theme from global settings into module state. Returns false when the read failed. */
+async function loadPersistedTheme(): Promise<boolean> {
   try {
     const [storedPreference, storedCustomThemes] = await Promise.all([
-      window.api.globalSettings.get(PREFERENCE_KEY),
+      window.api.globalSettings.get(THEME_PREFERENCE_KEY),
       window.api.globalSettings.get(CUSTOM_THEMES_KEY),
     ]);
     customThemes = parseCustomThemes(storedCustomThemes);
-    if (storedPreference && isThemePreference(storedPreference)) {
-      preference = storedPreference;
-    }
+    preference = storedPreference && isThemePreference(storedPreference) ? storedPreference : 'system';
+    return true;
   } catch (error) {
     themeLog.error('failed to load theme settings', {
       error: error instanceof Error ? error.message : String(error),
     });
+    return false;
   }
+}
+
+/** Load the persisted theme from global settings and start following the OS. */
+export async function initTheme(): Promise<void> {
+  await loadPersistedTheme();
 
   prefersDarkQuery()?.addEventListener('change', () => {
     if (preference === 'system') applyTheme();
@@ -170,20 +204,7 @@ export async function initTheme(): Promise<void> {
  * DB directly, so this module's state must be refreshed).
  */
 export async function reloadTheme(): Promise<void> {
-  try {
-    const [storedPreference, storedCustomThemes] = await Promise.all([
-      window.api.globalSettings.get(PREFERENCE_KEY),
-      window.api.globalSettings.get(CUSTOM_THEMES_KEY),
-    ]);
-    customThemes = parseCustomThemes(storedCustomThemes);
-    preference = storedPreference && isThemePreference(storedPreference) ? storedPreference : 'system';
-  } catch (error) {
-    themeLog.error('failed to reload theme settings', {
-      error: error instanceof Error ? error.message : String(error),
-    });
-    return;
-  }
-  applyTheme();
+  if (await loadPersistedTheme()) applyTheme();
 }
 
 /**
@@ -200,21 +221,20 @@ export async function setThemePreference(next: ThemePreference): Promise<void> {
   preference = next;
   previewPreference = null;
   applyTheme();
-  await window.api.globalSettings.set(PREFERENCE_KEY, next);
+  await window.api.globalSettings.set(THEME_PREFERENCE_KEY, next);
   themeLog.info('theme preference changed', { preference: next });
 }
 
 /** Add or update a custom theme. Does not select it. */
 export async function saveCustomTheme(theme: CustomTheme): Promise<void> {
-  customThemes = [...customThemes.filter((t) => t.id !== theme.id), theme];
+  customThemes = upsertCustomTheme(customThemes, theme);
   await persistCustomThemes();
   applyTheme();
 }
 
 export async function deleteCustomTheme(id: string): Promise<void> {
   customThemes = customThemes.filter((t) => t.id !== id);
-  // Removing a user copy of a preset restores the preset — keep it selected.
-  if (preference === `custom:${id}` && !PRESET_THEMES.some((t) => t.id === id)) {
+  if (selectionOrphanedByDelete(preference, id)) {
     await setThemePreference('system');
   }
   await persistCustomThemes();

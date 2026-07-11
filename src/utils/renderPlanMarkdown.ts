@@ -6,14 +6,9 @@ import mermaid from 'mermaid';
 import log from 'electron-log/renderer';
 import { linkifyFilePaths } from './linkifyFilePaths';
 import { getResolvedTheme } from '../theme/themeManager';
+import { SHIKI_THEMES, currentShikiTheme } from '../theme/shikiTheme';
 
 const planRenderLog = log.scope('planRender');
-
-const THEMES = { dark: 'github-dark', light: 'github-light' } as const;
-
-function currentTheme(): string {
-  return THEMES[getResolvedTheme()];
-}
 
 const PRELOADED_LANGS: BundledLanguage[] = [
   'typescript',
@@ -43,12 +38,13 @@ let highlighterPromise: Promise<HighlighterGeneric<BundledLanguage, BundledTheme
 
 function getHighlighter() {
   if (!highlighterPromise) {
-    highlighterPromise = createHighlighter({ themes: [THEMES.dark, THEMES.light], langs: PRELOADED_LANGS }).catch(
-      (err) => {
-        highlighterPromise = null;
-        throw err;
-      },
-    );
+    highlighterPromise = createHighlighter({
+      themes: [SHIKI_THEMES.dark, SHIKI_THEMES.light],
+      langs: PRELOADED_LANGS,
+    }).catch((err) => {
+      highlighterPromise = null;
+      throw err;
+    });
   }
   return highlighterPromise;
 }
@@ -142,7 +138,7 @@ export async function renderPlanMarkdown(md: string): Promise<string> {
     if (lang && hl.getLoadedLanguages().includes(lang)) {
       try {
         return hl
-          .codeToHtml(text, { lang, theme: currentTheme() })
+          .codeToHtml(text, { lang, theme: currentShikiTheme() })
           .replace('<pre class="shiki', '<pre class="shiki glass-bevel');
       } catch {
         // Fall through to plain code block

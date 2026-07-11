@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ReactFlow,
   ReactFlowProvider,
@@ -31,7 +31,7 @@ import { useSmartGuides } from './useSmartGuides';
 import { getChainColor, buildChainMap } from '../../utils/taskChain';
 import { useProjectStore } from '../../stores/projectStore';
 import { readToken } from '../../theme/themeManager';
-import { useResolvedTheme } from '../../hooks/useResolvedTheme';
+import { useThemeEpoch } from '../../hooks/useResolvedTheme';
 
 /**
  * Reconcile canvas nodes with the terminal store — add missing, remove stale.
@@ -128,10 +128,13 @@ function TerminalCanvasInner({ projectPath }: TerminalCanvasProps) {
 
   // Phase 3: minimap node color from chain info.
   // MiniMap colors land in SVG fill attributes where var() can't resolve, so
-  // read the tokens at render time; useResolvedTheme re-renders on theme change.
-  useResolvedTheme();
-  const minimapFallbackColor = readToken('--color-border-hover');
-  const minimapBgColor = readToken('--color-background');
+  // read the tokens per applied theme (the epoch also covers switches between
+  // two themes with the same base, which the resolved base can't see).
+  const themeEpoch = useThemeEpoch();
+  const [minimapFallbackColor, minimapBgColor] = useMemo(() => {
+    void themeEpoch; // the tokens change when the applied theme does
+    return [readToken('--color-border-hover'), readToken('--color-background')];
+  }, [themeEpoch]);
   const tasks = useProjectStore((s) => s.tasks);
   const displayStates = useTerminalStore((s) => s.displayStates);
   const minimapNodeColor = useCallback(

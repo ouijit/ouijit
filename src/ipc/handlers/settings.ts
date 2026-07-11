@@ -1,6 +1,7 @@
 import { BrowserWindow } from 'electron';
 import { typedHandle } from '../helpers';
 import { getGlobalSetting, setGlobalSetting } from '../../db';
+import { WINDOW_BACKGROUND_KEY, isWindowBackgroundColor } from '../../theme/themes';
 
 /** Check if a settings key is allowed through the IPC boundary */
 function isAllowedKey(key: string): boolean {
@@ -33,7 +34,7 @@ export function registerSettingsHandlers(): void {
     // The renderer mirrors the resolved theme background here (see
     // src/theme/themeManager.ts); repaint the native window chrome to match
     // so live resize doesn't flash the previous theme's color.
-    if (key === 'ui:themeBackground' && /^#[0-9a-fA-F]{6}$/.test(value)) {
+    if (key === WINDOW_BACKGROUND_KEY && isWindowBackgroundColor(value)) {
       for (const window of BrowserWindow.getAllWindows()) {
         window.setBackgroundColor(value);
       }

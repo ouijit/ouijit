@@ -10,6 +10,16 @@
 /** Built-in selection values plus `custom:<id>` for user themes. */
 export type ThemePreference = 'system' | 'dark' | 'light' | `custom:${string}`;
 
+/** Global-settings keys shared by the renderer theme manager, the REST API, and the main process. */
+export const THEME_PREFERENCE_KEY = 'ui:theme';
+export const CUSTOM_THEMES_KEY = 'ui:customThemes';
+export const WINDOW_BACKGROUND_KEY = 'ui:themeBackground';
+
+/** Six-digit hex: the only form both BrowserWindow.setBackgroundColor and the `ui:themeBackground` mirror accept. */
+export function isWindowBackgroundColor(value: string): boolean {
+  return /^#[0-9a-fA-F]{6}$/.test(value);
+}
+
 export type ResolvedThemeBase = 'dark' | 'light';
 
 export interface CustomTheme {
@@ -74,6 +84,11 @@ export function resolveThemeBase(
     if (custom) return custom.base;
   }
   return systemPrefersDark ? 'dark' : 'light';
+}
+
+/** Add or replace a theme by id. */
+export function upsertCustomTheme(list: CustomTheme[], theme: CustomTheme): CustomTheme[] {
+  return [...list.filter((t) => t.id !== theme.id), theme];
 }
 
 /** The custom theme selected by a preference, if any. */

@@ -15,7 +15,7 @@
      overrides on <html>. See src/theme/themeManager.ts.
 
    JS consumers (xterm, React Flow, the main-process window background) read
-   tokens with getComputedStyle — see src/theme/readToken.ts. */
+   tokens with getComputedStyle; see readToken() in src/theme/themeManager.ts. */
 
 @theme {
   /* ── Core surfaces ─────────────────────────────────────────────── */

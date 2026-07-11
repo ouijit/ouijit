@@ -21,6 +21,7 @@ import { initUpdater, cleanupUpdater } from './updater';
 import { checkHealth } from './healthCheck';
 import { setGlobalSetting } from './db';
 import { GlobalSettingsRepo } from './db/repos/globalSettingsRepo';
+import { THEME_PREFERENCE_KEY, WINDOW_BACKGROUND_KEY, isWindowBackgroundColor } from './theme/themes';
 import {
   CAPTURE_READY_SENTINEL,
   CAPTURE_WINDOW_HEIGHT,
@@ -103,28 +104,31 @@ if (started) {
   app.quit();
 }
 
-// Built-in theme window backgrounds — must match --color-background in
-// src/theme/tokens.css. The native window background has to match the
-// renderer theme: the WebContents surface lags behind the native frame
-// during live resize and a mismatched window background flashes through as
-// bars on the bottom and right edges.
-const DARK_WINDOW_BACKGROUND = '#1C1C1E';
-const LIGHT_WINDOW_BACKGROUND = '#F5F5F7';
+// First-launch fallbacks only: after the first theme apply the renderer
+// mirrors the exact tokens.css --color-background into `ui:themeBackground`,
+// which resolveWindowBackgroundColor prefers. The native window background
+// has to match the renderer theme: the WebContents surface lags behind the
+// native frame during live resize and a mismatched window background flashes
+// through as bars on the bottom and right edges.
+const DARK_WINDOW_BACKGROUND = '#1c1c1e';
+const LIGHT_WINDOW_BACKGROUND = '#f5f5f7';
 
 /**
  * Resolve the native window background from the persisted theme settings.
- * Custom themes mirror their resolved background into `ui:themeBackground`
- * (written by src/theme/themeManager.ts on every theme apply).
+ * Any explicit preference uses the `ui:themeBackground` mirror (written by
+ * src/theme/themeManager.ts on every theme apply), so retuning tokens.css
+ * propagates here without touching the fallback constants. 'system' can't
+ * trust the mirror: the OS appearance may have changed since the last run.
  */
 const resolveWindowBackgroundColor = (): string => {
   const settings = new GlobalSettingsRepo(getDatabase());
-  const preference = settings.get('ui:theme') ?? 'system';
+  const preference = settings.get(THEME_PREFERENCE_KEY) ?? 'system';
+  if (preference !== 'system') {
+    const stored = settings.get(WINDOW_BACKGROUND_KEY);
+    if (stored && isWindowBackgroundColor(stored)) return stored;
+  }
   if (preference === 'dark') return DARK_WINDOW_BACKGROUND;
   if (preference === 'light') return LIGHT_WINDOW_BACKGROUND;
-  if (preference.startsWith('custom:')) {
-    const stored = settings.get('ui:themeBackground');
-    if (stored && /^#[0-9a-fA-F]{6}$/.test(stored)) return stored;
-  }
   return nativeTheme.shouldUseDarkColors ? DARK_WINDOW_BACKGROUND : LIGHT_WINDOW_BACKGROUND;
 };
 

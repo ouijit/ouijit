@@ -359,3 +359,12 @@ export const PRESET_THEMES: CustomTheme[] = [dracula, tokyoNight, matrix, hotPin
 export function withPresets(customThemes: CustomTheme[]): CustomTheme[] {
   return [...customThemes, ...PRESET_THEMES.filter((preset) => !customThemes.some((t) => t.id === preset.id))];
 }
+
+/**
+ * Whether deleting the custom theme `id` orphans a preference pointing at it.
+ * Removing a user copy of a preset restores the preset, so that selection
+ * stays valid and must be kept.
+ */
+export function selectionOrphanedByDelete(preference: string | undefined, id: string): boolean {
+  return preference === `custom:${id}` && !PRESET_THEMES.some((t) => t.id === id);
+}

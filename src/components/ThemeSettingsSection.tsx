@@ -1,6 +1,4 @@
-import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { createPortal } from 'react-dom';
-import { useFloating, offset, flip, shift, autoUpdate } from '@floating-ui/react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 import {
   subscribeTheme,
   getThemePreference,
@@ -12,7 +10,7 @@ import {
 } from '../theme/themeManager';
 import { parseCustomTheme, type CustomTheme, type ThemePreference } from '../theme/themes';
 import { PRESET_THEMES } from '../theme/presets';
-import { Icon } from './terminal/Icon';
+import { SettingsDropdown, SettingsDropdownOption, SettingsDropdownDivider } from './ui/SettingsDropdown';
 import { DialogOverlay } from './dialogs/DialogOverlay';
 
 const CUSTOM_THEME_TEMPLATE = `{
@@ -60,7 +58,7 @@ export function ThemeSettingsSection() {
   return (
     <section>
       <h2 className="text-sm font-semibold text-text-primary mb-4">Appearance</h2>
-      <div className="glass-bevel relative border border-bezel rounded-[14px] overflow-hidden divide-y divide-ink/[0.06] bg-terminal-bg">
+      <div className="glass-bevel relative border border-bezel-panel rounded-[14px] overflow-hidden divide-y divide-ink/[0.06] bg-terminal-bg">
         <div className="flex items-center gap-4 px-4 py-3 hover:bg-ink/[0.02]">
           <div className="flex-1 min-w-0">
             <div className="text-sm text-text-primary">Theme</div>
@@ -118,45 +116,6 @@ interface ThemeDropdownProps {
 
 function ThemeDropdown({ value, groups, onSelect }: ThemeDropdownProps) {
   const [open, setOpen] = useState(false);
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-
-  const { refs, floatingStyles } = useFloating({
-    placement: 'bottom-end',
-    strategy: 'fixed',
-    middleware: [offset(6), flip(), shift({ padding: 8 })],
-    whileElementsMounted: autoUpdate,
-  });
-
-  useEffect(() => {
-    if (triggerRef.current) refs.setReference(triggerRef.current);
-  }, [refs]);
-
-  // Click-outside
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e: MouseEvent) => {
-      const target = e.target as Node;
-      if (dropdownRef.current?.contains(target)) return;
-      if (triggerRef.current?.contains(target)) return;
-      setOpen(false);
-    };
-    const timer = setTimeout(() => document.addEventListener('mousedown', handler), 0);
-    return () => {
-      clearTimeout(timer);
-      document.removeEventListener('mousedown', handler);
-    };
-  }, [open]);
-
-  // Escape
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setOpen(false);
-    };
-    document.addEventListener('keydown', handler);
-    return () => document.removeEventListener('keydown', handler);
-  }, [open]);
 
   // Any way the dropdown closes (select, click-outside, escape, unmount)
   // ends the hover preview. Selection commits first in select(), so the
@@ -174,79 +133,30 @@ function ThemeDropdown({ value, groups, onSelect }: ThemeDropdownProps) {
   };
 
   return (
-    <>
-      <button
-        ref={triggerRef}
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="w-[13rem] shrink-0 flex items-center justify-between gap-2 px-3 py-1.5 text-sm bg-ink/[0.04] border border-ink/10 rounded-md text-text-primary hover:bg-ink/[0.06] outline-none focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent-light"
-      >
-        <span className="truncate">{selected?.label ?? 'System'}</span>
-        <Icon name="caret-down" className="w-3.5 h-3.5 text-text-tertiary shrink-0" />
-      </button>
-      {open &&
-        createPortal(
-          <div
-            ref={(el) => {
-              dropdownRef.current = el;
-              refs.setFloating(el);
-            }}
-            role="listbox"
-            aria-label="Choose theme"
-            onMouseLeave={() => previewTheme(null)}
-            style={{
-              ...floatingStyles,
-              background: 'var(--color-terminal-bg)',
-              boxShadow: 'var(--shadow-menu)',
-            }}
-            className="w-[13rem] max-h-[24rem] overflow-y-auto border border-bezel rounded-[12px] z-[1000] p-1"
-          >
-            {groups.map((group, i) => (
-              <div key={i}>
-                {i > 0 && <div className="my-1 mx-1 border-t border-ink/[0.06]" />}
-                {group.map((option) => (
-                  <ThemeOptionRow
-                    key={option.value}
-                    option={option}
-                    selected={option.value === value}
-                    onClick={() => select(option.value)}
-                  />
-                ))}
-              </div>
-            ))}
-          </div>,
-          document.body,
-        )}
-    </>
-  );
-}
-
-function ThemeOptionRow({
-  option,
-  selected,
-  onClick,
-}: {
-  option: ThemeOption;
-  selected: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      role="option"
-      aria-selected={selected}
-      onMouseEnter={() => previewTheme(option.value)}
-      onMouseDown={(e) => {
-        e.preventDefault();
-        onClick();
-      }}
-      className={`w-full text-left px-2.5 py-1.5 rounded-[7px] text-sm flex items-center gap-2 hover:bg-ink/[0.08] transition-colors duration-100 ${
-        selected ? 'text-text-primary bg-ink/[0.04]' : 'text-text-secondary'
-      }`}
+    <SettingsDropdown
+      open={open}
+      onOpenChange={setOpen}
+      widthClass="w-[13rem]"
+      ariaLabel="Choose theme"
+      triggerLabel={selected?.label ?? 'System'}
+      onMenuMouseLeave={() => previewTheme(null)}
     >
-      <span className="flex-1 truncate">{option.label}</span>
-      {option.hint && <span className="text-[11px] text-text-tertiary shrink-0">{option.hint}</span>}
-      {selected && <Icon name="check" className="w-3.5 h-3.5 text-text-primary shrink-0" />}
-    </button>
+      {groups.map((group, i) => (
+        <div key={i}>
+          {i > 0 && <SettingsDropdownDivider />}
+          {group.map((option) => (
+            <SettingsDropdownOption
+              key={option.value}
+              label={option.label}
+              hint={option.hint}
+              selected={option.value === value}
+              onMouseEnter={() => previewTheme(option.value)}
+              onClick={() => select(option.value)}
+            />
+          ))}
+        </div>
+      ))}
+    </SettingsDropdown>
   );
 }
 

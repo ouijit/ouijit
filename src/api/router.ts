@@ -28,8 +28,16 @@ import {
   getGlobalSetting,
   setGlobalSetting,
 } from '../db';
-import { isThemePreference, parseCustomTheme, parseCustomThemes, type CustomTheme } from '../theme/themes';
-import { PRESET_THEMES, withPresets } from '../theme/presets';
+import {
+  THEME_PREFERENCE_KEY,
+  CUSTOM_THEMES_KEY,
+  isThemePreference,
+  parseCustomTheme,
+  parseCustomThemes,
+  upsertCustomTheme,
+  type CustomTheme,
+} from '../theme/themes';
+import { PRESET_THEMES, withPresets, selectionOrphanedByDelete } from '../theme/presets';
 import {
   beginTask,
   setTaskStatusWithHooks,
@@ -144,9 +152,6 @@ function parseHookControl(body: Record<string, unknown>): HookControl {
   }
   return { hookMode: mode };
 }
-
-const THEME_PREFERENCE_KEY = 'ui:theme';
-const CUSTOM_THEMES_KEY = 'ui:customThemes';
 
 async function readCustomThemes(): Promise<CustomTheme[]> {
   return parseCustomThemes(await getGlobalSetting(CUSTOM_THEMES_KEY));
@@ -568,8 +573,7 @@ const routes: Route[] = [
         );
       }
       const list = await readCustomThemes();
-      const next = [...list.filter((t) => t.id !== theme.id), theme];
-      await setGlobalSetting(CUSTOM_THEMES_KEY, JSON.stringify(next));
+      await setGlobalSetting(CUSTOM_THEMES_KEY, JSON.stringify(upsertCustomTheme(list, theme)));
       return { success: true, theme };
     },
     true,
@@ -583,10 +587,10 @@ const routes: Route[] = [
       const list = await readCustomThemes();
       if (!list.some((t) => t.id === id)) throw new HttpError(404, `No custom theme with id '${id}'`);
       await setGlobalSetting(CUSTOM_THEMES_KEY, JSON.stringify(list.filter((t) => t.id !== id)));
-      // Mirrors the renderer's delete behavior: removing a user copy of a
-      // preset restores the preset, so the selection stays valid.
+      // Same rule as the renderer's deleteCustomTheme: removing a user copy
+      // of a preset restores the preset, so the selection stays valid.
       const preference = await getGlobalSetting(THEME_PREFERENCE_KEY);
-      if (preference === `custom:${id}` && !PRESET_THEMES.some((t) => t.id === id)) {
+      if (selectionOrphanedByDelete(preference, id)) {
         await setGlobalSetting(THEME_PREFERENCE_KEY, 'system');
       }
       return { success: true };
