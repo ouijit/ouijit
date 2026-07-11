@@ -555,12 +555,15 @@ textarea,
   color: var(--color-ansi-red);
 }
 
+/* The pre is the visual frame (border, bevel); the inner code is the scroll
+   container. If the pre itself scrolled, the absolutely-positioned
+   .glass-bevel::before overlay would scroll away with the content. */
 .plan-markdown pre {
-  @apply relative my-3 p-3 rounded-[14px] border border-bezel bg-ink/[0.06] overflow-x-auto;
+  @apply relative my-3 p-3 rounded-[14px] border border-bezel bg-ink/[0.06] overflow-hidden;
 }
 
 .plan-markdown pre code {
-  @apply p-0 bg-transparent text-ink/70;
+  @apply block p-0 bg-transparent text-ink/70 overflow-x-auto;
 }
 
 .plan-markdown blockquote {
