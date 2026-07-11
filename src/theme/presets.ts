@@ -1,9 +1,9 @@
 /**
- * Built-in preset themes — bundled CustomTheme definitions selectable without
- * any setup. A preset behaves exactly like a user custom theme (token
- * overrides on a built-in base) but ships with the app. A user theme saved
- * with the same id shadows the preset, so "editing" a preset really edits a
- * user copy; deleting that copy restores the preset.
+ * Built-in preset themes — bundled CustomTheme definitions. A preset behaves
+ * like a user custom theme (token overrides on a built-in base) but ships
+ * with the app. A user theme saved with the same id shadows the preset, so
+ * "editing" a preset really edits a user copy; deleting that copy restores
+ * the preset.
  */
 
 import type { CustomTheme } from './themes';
@@ -14,8 +14,8 @@ const dracula: CustomTheme = {
   name: 'Dracula',
   base: 'dark',
   tokens: {
-    // App chrome sits on the darker Dracula background; terminals use the
-    // canonical #282a36 so cards read as raised surfaces.
+    // App chrome uses the darker Dracula background; terminals use the
+    // palette's #282a36 editor background.
     '--color-background': '#21222c',
     '--color-surface': '#343746',
     '--color-surface-raised': '#2f313d',
@@ -79,7 +79,7 @@ const tokyoNight: CustomTheme = {
   name: 'Tokyo Night',
   base: 'dark',
   tokens: {
-    // App chrome on the darker sidebar tone; terminals use the canonical
+    // App chrome uses the darker sidebar tone; terminals use the palette's
     // #1a1b26 editor background.
     '--color-background': '#16161e',
     '--color-surface': '#24283b',
