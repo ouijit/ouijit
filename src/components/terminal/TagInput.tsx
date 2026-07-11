@@ -162,7 +162,7 @@ export function TagInput({ ptyId, onClose }: TagInputProps) {
       />
       {suggestions.length > 0 && (
         <div
-          className="absolute left-0 bg-surface border border-ink/10 rounded-lg shadow-lg z-50 max-h-48 overflow-y-auto"
+          className="absolute left-0 bg-surface border border-ink/10 rounded-lg shadow-menu z-50 max-h-48 overflow-y-auto"
           style={{ top: '100%', marginTop: 4, minWidth: 120, display: 'block' }}
         >
           {suggestions.map((s) => (

@@ -285,7 +285,20 @@ const sepia: CustomTheme = {
 
     '--color-border': 'rgba(74, 58, 36, 0.14)',
     '--color-border-hover': 'rgba(74, 58, 36, 0.22)',
+    '--color-bezel': 'rgba(74, 58, 36, 0.18)',
     '--color-bezel-panel': 'rgba(74, 58, 36, 0.3)',
+
+    // Warm-tinted elevation — pure black shadows read cold on paper.
+    '--shadow-sm': '0 1px 2px rgba(58, 42, 20, 0.1)',
+    '--shadow-md': '0 4px 12px rgba(58, 42, 20, 0.12)',
+    '--shadow-lg': '0 8px 24px rgba(58, 42, 20, 0.14)',
+    '--shadow-hover': '0 12px 32px rgba(58, 42, 20, 0.18)',
+    '--shadow-panel': '0 4px 12px rgba(58, 42, 20, 0.1), 0 20px 40px rgba(58, 42, 20, 0.12)',
+    '--shadow-menu': '0 0 0 1px rgba(58, 42, 20, 0.08), 0 10px 30px rgba(58, 42, 20, 0.18)',
+    '--shadow-toast':
+      '0 0 0 1px rgba(58, 42, 20, 0.08), 0 4px 12px rgba(58, 42, 20, 0.12), 0 16px 32px rgba(58, 42, 20, 0.16)',
+    '--shadow-inset-panel': '0 2px 10px rgba(58, 42, 20, 0.1)',
+    '--shadow-tooltip': '0 2px 8px rgba(58, 42, 20, 0.15)',
 
     '--color-accent': '#a4632a',
     '--color-accent-hover': '#8a5222',

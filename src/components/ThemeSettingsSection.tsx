@@ -1,4 +1,6 @@
-import { useState, useSyncExternalStore } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { createPortal } from 'react-dom';
+import { useFloating, offset, flip, shift, autoUpdate } from '@floating-ui/react';
 import {
   subscribeTheme,
   getThemePreference,
@@ -9,13 +11,8 @@ import {
 } from '../theme/themeManager';
 import { parseCustomTheme, type CustomTheme, type ThemePreference } from '../theme/themes';
 import { PRESET_THEMES } from '../theme/presets';
+import { Icon } from './terminal/Icon';
 import { DialogOverlay } from './dialogs/DialogOverlay';
-
-const BUILT_IN_OPTIONS: { value: ThemePreference; label: string }[] = [
-  { value: 'system', label: 'System' },
-  { value: 'light', label: 'Light' },
-  { value: 'dark', label: 'Dark' },
-];
 
 const CUSTOM_THEME_TEMPLATE = `{
   "id": "my-theme",
@@ -27,19 +24,37 @@ const CUSTOM_THEME_TEMPLATE = `{
   }
 }`;
 
+interface ThemeOption {
+  value: ThemePreference;
+  label: string;
+  hint?: string;
+}
+
 /**
- * Appearance settings: pick a built-in theme (system-following, light, dark)
- * or a custom theme. Custom themes are token overrides on top of a built-in
- * base — any token from src/theme/tokens.css can be overridden.
+ * Appearance settings: one dropdown picks the theme — built-ins
+ * (system-following, light, dark), bundled presets, and user custom themes.
+ * Custom themes are token overrides on top of a built-in base — any token
+ * from src/theme/tokens.css can be overridden.
  */
 export function ThemeSettingsSection() {
   const preference = useSyncExternalStore(subscribeTheme, getThemePreference);
   const customThemes = useSyncExternalStore(subscribeTheme, getCustomThemes);
   const [editor, setEditor] = useState<{ initial: string; editingId: string | null } | null>(null);
 
-  // A user theme saved with a preset's id shadows it; the user copy renders
-  // in the custom list instead.
+  // A user theme saved with a preset's id shadows it; the user copy is
+  // listed in the custom group instead.
   const presets = PRESET_THEMES.filter((preset) => !customThemes.some((t) => t.id === preset.id));
+
+  const allGroups: ThemeOption[][] = [
+    [
+      { value: 'system', label: 'System' },
+      { value: 'light', label: 'Light' },
+      { value: 'dark', label: 'Dark' },
+    ],
+    presets.map((theme): ThemeOption => ({ value: `custom:${theme.id}`, label: theme.name, hint: 'Preset' })),
+    customThemes.map((theme): ThemeOption => ({ value: `custom:${theme.id}`, label: theme.name, hint: 'Custom' })),
+  ];
+  const optionGroups = allGroups.filter((group) => group.length > 0);
 
   return (
     <section>
@@ -53,34 +68,13 @@ export function ThemeSettingsSection() {
             <div className="text-sm text-text-primary">Theme</div>
             <div className="text-xs text-text-tertiary mt-0.5">System follows the OS light/dark appearance.</div>
           </div>
-          <div className="flex items-center gap-1 shrink-0 rounded-full bg-ink/[0.06] p-0.5">
-            {BUILT_IN_OPTIONS.map((option) => (
-              <SegmentButton
-                key={option.value}
-                label={option.label}
-                selected={preference === option.value}
-                onSelect={() => void setThemePreference(option.value)}
-              />
-            ))}
-          </div>
+          <ThemeDropdown value={preference} groups={optionGroups} onSelect={(next) => void setThemePreference(next)} />
         </div>
-
-        {presets.map((theme) => (
-          <PresetThemeRow
-            key={theme.id}
-            theme={theme}
-            selected={preference === `custom:${theme.id}`}
-            onSelect={() => void setThemePreference(`custom:${theme.id}`)}
-            onEdit={() => setEditor({ initial: JSON.stringify(theme, null, 2), editingId: theme.id })}
-          />
-        ))}
 
         {customThemes.map((theme) => (
           <CustomThemeRow
             key={theme.id}
             theme={theme}
-            selected={preference === `custom:${theme.id}`}
-            onSelect={() => void setThemePreference(`custom:${theme.id}`)}
             onEdit={() => setEditor({ initial: JSON.stringify(theme, null, 2), editingId: theme.id })}
             onRemove={() => void deleteCustomTheme(theme.id)}
           />
@@ -118,68 +112,143 @@ export function ThemeSettingsSection() {
   );
 }
 
-function SegmentButton({ label, selected, onSelect }: { label: string; selected: boolean; onSelect: () => void }) {
+interface ThemeDropdownProps {
+  value: ThemePreference;
+  groups: ThemeOption[][];
+  onSelect: (value: ThemePreference) => void;
+}
+
+function ThemeDropdown({ value, groups, onSelect }: ThemeDropdownProps) {
+  const [open, setOpen] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const { refs, floatingStyles } = useFloating({
+    placement: 'bottom-end',
+    strategy: 'fixed',
+    middleware: [offset(6), flip(), shift({ padding: 8 })],
+    whileElementsMounted: autoUpdate,
+  });
+
+  useEffect(() => {
+    if (triggerRef.current) refs.setReference(triggerRef.current);
+  }, [refs]);
+
+  // Click-outside
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (dropdownRef.current?.contains(target)) return;
+      if (triggerRef.current?.contains(target)) return;
+      setOpen(false);
+    };
+    const timer = setTimeout(() => document.addEventListener('mousedown', handler), 0);
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener('mousedown', handler);
+    };
+  }, [open]);
+
+  // Escape
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [open]);
+
+  const selected = groups.flat().find((o) => o.value === value) ?? null;
+
+  const select = (next: ThemePreference) => {
+    setOpen(false);
+    onSelect(next);
+  };
+
   return (
-    <button
-      type="button"
-      role="radio"
-      aria-checked={selected}
-      onClick={onSelect}
-      className={`px-3 py-1 rounded-full text-xs font-medium transition-colors duration-150 ${
-        selected ? 'bg-accent text-accent-ink' : 'text-text-secondary hover:text-text-primary hover:bg-ink/[0.06]'
-      }`}
-    >
-      {label}
-    </button>
+    <>
+      <button
+        ref={triggerRef}
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="w-[13rem] shrink-0 flex items-center justify-between gap-2 px-3 py-1.5 text-sm bg-ink/[0.04] border border-ink/10 rounded-md text-text-primary hover:bg-ink/[0.06] outline-none focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent-light"
+      >
+        <span className="truncate">{selected?.label ?? 'System'}</span>
+        <Icon name="caret-down" className="w-3.5 h-3.5 text-text-tertiary shrink-0" />
+      </button>
+      {open &&
+        createPortal(
+          <div
+            ref={(el) => {
+              dropdownRef.current = el;
+              refs.setFloating(el);
+            }}
+            role="listbox"
+            aria-label="Choose theme"
+            style={{
+              ...floatingStyles,
+              background: 'var(--color-terminal-bg)',
+              boxShadow: 'var(--shadow-menu)',
+            }}
+            className="w-[13rem] max-h-[24rem] overflow-y-auto border border-bezel rounded-[12px] z-[1000] p-1"
+          >
+            {groups.map((group, i) => (
+              <div key={i}>
+                {i > 0 && <div className="my-1 mx-1 border-t border-ink/[0.06]" />}
+                {group.map((option) => (
+                  <ThemeOptionRow
+                    key={option.value}
+                    option={option}
+                    selected={option.value === value}
+                    onClick={() => select(option.value)}
+                  />
+                ))}
+              </div>
+            ))}
+          </div>,
+          document.body,
+        )}
+    </>
   );
 }
 
-interface PresetThemeRowProps {
-  theme: CustomTheme;
+function ThemeOptionRow({
+  option,
+  selected,
+  onClick,
+}: {
+  option: ThemeOption;
   selected: boolean;
-  onSelect: () => void;
-  onEdit: () => void;
-}
-
-/** A built-in preset theme. Editing saves a user copy that shadows it. */
-function PresetThemeRow({ theme, selected, onSelect, onEdit }: PresetThemeRowProps) {
+  onClick: () => void;
+}) {
   return (
-    <div className="flex items-center gap-4 px-4 py-3 hover:bg-ink/[0.02]">
-      <div className="flex-1 min-w-0">
-        <div className="text-sm text-text-primary truncate">{theme.name}</div>
-        <div className="text-xs text-text-tertiary mt-0.5">
-          Preset · {theme.base === 'dark' ? 'Dark' : 'Light'} base
-        </div>
-      </div>
-      <div className="flex items-center gap-2 shrink-0">
-        <button
-          type="button"
-          role="radio"
-          aria-checked={selected}
-          onClick={onSelect}
-          className={`px-3 py-1 rounded-full text-xs font-medium transition-colors duration-150 ${
-            selected ? 'bg-accent text-accent-ink' : 'bg-ink/[0.06] text-text-secondary hover:text-text-primary'
-          }`}
-        >
-          {selected ? 'Selected' : 'Use'}
-        </button>
-        <button type="button" className="btn-secondary" onClick={onEdit}>
-          Edit…
-        </button>
-      </div>
-    </div>
+    <button
+      role="option"
+      aria-selected={selected}
+      onMouseDown={(e) => {
+        e.preventDefault();
+        onClick();
+      }}
+      className={`w-full text-left px-2.5 py-1.5 rounded-[7px] text-sm flex items-center gap-2 hover:bg-ink/[0.08] transition-colors duration-100 ${
+        selected ? 'text-text-primary bg-ink/[0.04]' : 'text-text-secondary'
+      }`}
+    >
+      <span className="flex-1 truncate">{option.label}</span>
+      {option.hint && <span className="text-[11px] text-text-tertiary shrink-0">{option.hint}</span>}
+      {selected && <Icon name="check" className="w-3.5 h-3.5 text-text-primary shrink-0" />}
+    </button>
   );
 }
 
 interface CustomThemeRowProps {
   theme: CustomTheme;
-  selected: boolean;
-  onSelect: () => void;
   onEdit: () => void;
   onRemove: () => void;
 }
 
-function CustomThemeRow({ theme, selected, onSelect, onEdit, onRemove }: CustomThemeRowProps) {
+function CustomThemeRow({ theme, onEdit, onRemove }: CustomThemeRowProps) {
   return (
     <div className="flex items-center gap-4 px-4 py-3 hover:bg-ink/[0.02]">
       <div className="flex-1 min-w-0">
@@ -190,17 +259,6 @@ function CustomThemeRow({ theme, selected, onSelect, onEdit, onRemove }: CustomT
         </div>
       </div>
       <div className="flex items-center gap-2 shrink-0">
-        <button
-          type="button"
-          role="radio"
-          aria-checked={selected}
-          onClick={onSelect}
-          className={`px-3 py-1 rounded-full text-xs font-medium transition-colors duration-150 ${
-            selected ? 'bg-accent text-accent-ink' : 'bg-ink/[0.06] text-text-secondary hover:text-text-primary'
-          }`}
-        >
-          {selected ? 'Selected' : 'Use'}
-        </button>
         <button type="button" className="btn-secondary" onClick={onEdit}>
           Edit…
         </button>

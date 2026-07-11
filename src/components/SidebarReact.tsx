@@ -490,7 +490,7 @@ function SortableProjectIcon({ project, isActive, onClick, onContextMenu }: Sort
             style={tipStyles}
             {...getTipFloatProps()}
           >
-            <div className="px-3 py-1.5 text-[13px] font-medium text-text-primary bg-terminal-surface border border-ink/10 rounded-md shadow-lg whitespace-nowrap animate-tooltip-pop">
+            <div className="px-3 py-1.5 text-[13px] font-medium text-text-primary bg-terminal-surface border border-ink/10 rounded-md shadow-tooltip whitespace-nowrap animate-tooltip-pop">
               {project.name}
             </div>
           </div>,
@@ -537,7 +537,7 @@ function SidebarTooltipWrapper({
             style={floatingStyles}
             {...getFloatingProps()}
           >
-            <div className="px-3 py-1.5 text-[13px] font-medium text-text-primary bg-terminal-surface border border-ink/10 rounded-md shadow-lg whitespace-nowrap animate-tooltip-pop">
+            <div className="px-3 py-1.5 text-[13px] font-medium text-text-primary bg-terminal-surface border border-ink/10 rounded-md shadow-tooltip whitespace-nowrap animate-tooltip-pop">
               {label}
             </div>
           </div>,
