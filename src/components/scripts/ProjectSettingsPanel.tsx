@@ -99,7 +99,6 @@ export function ProjectSettingsPanel({ projectPath }: ProjectSettingsPanelProps)
               className="glass-bevel relative border border-bezel-panel rounded-[14px] overflow-hidden divide-y divide-ink/[0.06]"
               style={{
                 background: 'var(--color-terminal-bg)',
-                boxShadow: 'var(--shadow-panel)',
               }}
             >
               <HookList projectPath={projectPath} hooks={RUN_HOOK} bare />

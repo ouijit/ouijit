@@ -277,7 +277,6 @@ export function LimaSandboxSection({ projectPath }: LimaSandboxSectionProps) {
         className="glass-bevel relative border border-bezel rounded-[14px] overflow-hidden"
         style={{
           background: 'var(--color-terminal-bg)',
-          boxShadow: 'var(--shadow-panel)',
         }}
       >
         <div className="flex items-center justify-between px-3 py-2">

@@ -122,7 +122,6 @@ export function ScriptList({ projectPath, bare }: ScriptListProps) {
         className="glass-bevel relative border border-bezel rounded-[14px] overflow-hidden divide-y divide-ink/[0.06]"
         style={{
           background: 'var(--color-terminal-bg)',
-          boxShadow: 'var(--shadow-panel)',
         }}
       >
         {scripts.length === 0 && !addingNew && (

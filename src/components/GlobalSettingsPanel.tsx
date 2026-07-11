@@ -170,12 +170,7 @@ export function GlobalSettingsPanel() {
           <ThemeSettingsSection />
           <section>
             <h2 className="text-sm font-semibold text-text-primary mb-4">Projects</h2>
-            <div
-              className="glass-bevel relative border border-bezel-panel rounded-[14px] overflow-hidden divide-y divide-ink/[0.06] bg-terminal-bg"
-              style={{
-                boxShadow: 'var(--shadow-panel)',
-              }}
-            >
+            <div className="glass-bevel relative border border-bezel-panel rounded-[14px] overflow-hidden divide-y divide-ink/[0.06] bg-terminal-bg">
               <PathRow
                 label="Projects folder"
                 description="New projects are created here. Changing it lets you move or forget existing projects."
@@ -188,12 +183,7 @@ export function GlobalSettingsPanel() {
 
           <section>
             <h2 className="text-sm font-semibold text-text-primary mb-4">Terminal</h2>
-            <div
-              className="glass-bevel relative border border-bezel-panel rounded-[14px] overflow-hidden divide-y divide-ink/[0.06] bg-terminal-bg"
-              style={{
-                boxShadow: 'var(--shadow-panel)',
-              }}
-            >
+            <div className="glass-bevel relative border border-bezel-panel rounded-[14px] overflow-hidden divide-y divide-ink/[0.06] bg-terminal-bg">
               <FontPickerRow
                 label="Font family"
                 description="Pick a monospace font. Falls back gracefully if not installed."
@@ -216,12 +206,7 @@ export function GlobalSettingsPanel() {
 
           <section>
             <h2 className="text-sm font-semibold text-text-primary mb-4">Updates</h2>
-            <div
-              className="glass-bevel relative border border-bezel-panel rounded-[14px] overflow-hidden divide-y divide-ink/[0.06] bg-terminal-bg"
-              style={{
-                boxShadow: 'var(--shadow-panel)',
-              }}
-            >
+            <div className="glass-bevel relative border border-bezel-panel rounded-[14px] overflow-hidden divide-y divide-ink/[0.06] bg-terminal-bg">
               <ToggleRow
                 label="Check for updates automatically"
                 description="When off, Ouijit won't contact the update service or download new versions."
@@ -233,12 +218,7 @@ export function GlobalSettingsPanel() {
 
           <section>
             <h2 className="text-sm font-semibold text-text-primary mb-4">Sound</h2>
-            <div
-              className="glass-bevel relative border border-bezel-panel rounded-[14px] overflow-hidden divide-y divide-ink/[0.06] bg-terminal-bg"
-              style={{
-                boxShadow: 'var(--shadow-panel)',
-              }}
-            >
+            <div className="glass-bevel relative border border-bezel-panel rounded-[14px] overflow-hidden divide-y divide-ink/[0.06] bg-terminal-bg">
               <ToggleRow
                 label="Play a sound when a task is ready"
                 description="Plays a chime when a terminal returns to the ready state."
