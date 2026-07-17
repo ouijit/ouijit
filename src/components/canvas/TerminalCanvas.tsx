@@ -137,18 +137,20 @@ function TerminalCanvasInner({ projectPath }: TerminalCanvasProps) {
   }, [themeEpoch]);
   const tasks = useProjectStore((s) => s.tasks);
   const displayStates = useTerminalStore((s) => s.displayStates);
+  // React Flow calls nodeColor once per node on every minimap render, so build
+  // the chain map once here rather than rebuilding it inside the callback.
+  const chainMap = useMemo(() => buildChainMap(tasks), [tasks]);
   const minimapNodeColor = useCallback(
     (node: TerminalNodeType) => {
       const ptyId = node.data?.ptyId;
       if (!ptyId) return minimapFallbackColor;
       const display = displayStates[ptyId];
       if (!display?.taskId) return minimapFallbackColor;
-      const chainMap = buildChainMap(tasks);
       const info = chainMap.get(display.taskId);
       if (!info) return minimapFallbackColor;
       return getChainColor(info.rootTaskNumber, info.depth);
     },
-    [tasks, displayStates, minimapFallbackColor],
+    [chainMap, displayStates, minimapFallbackColor],
   );
 
   // Load persisted canvas state on mount, then reconcile with current terminals
