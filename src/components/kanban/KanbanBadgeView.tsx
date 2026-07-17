@@ -34,9 +34,13 @@ export function KanbanBadgeView({
 }: KanbanBadgeViewProps) {
   const isInChain = isChainMember(chainInfo);
   const color =
-    isInChain && chainInfo ? getChainColor(chainInfo.rootTaskNumber, chainInfo.depth) : 'rgba(255, 255, 255, 0.2)';
+    isInChain && chainInfo
+      ? getChainColor(chainInfo.rootTaskNumber, chainInfo.depth)
+      : 'color-mix(in srgb, var(--color-ink) 20%, transparent)';
   const background =
-    isInChain && chainInfo ? getChainBgColor(chainInfo.rootTaskNumber, chainInfo.depth) : 'rgba(255, 255, 255, 0.04)';
+    isInChain && chainInfo
+      ? getChainBgColor(chainInfo.rootTaskNumber, chainInfo.depth)
+      : 'color-mix(in srgb, var(--color-ink) 4%, transparent)';
 
   const style: CSSProperties = {
     color,

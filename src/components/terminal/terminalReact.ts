@@ -9,6 +9,8 @@
 import { Terminal as XTerminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
+import { subscribeTheme } from '../../theme/themeManager';
+import { buildXtermTheme } from '../../theme/xtermTheme';
 import type { PtyId, PtySpawnOptions, GitFileStatus, SandboxProviderId } from '../../types';
 import { isActiveSandbox } from '../../types';
 import { notifyReady, readyBody } from '../../utils/notifications';
@@ -62,35 +64,6 @@ export function scheduleAutoCloseOnSuccess(ptyId: PtyId, isDisposed: () => boole
     if (isDisposed()) return;
     closeProjectTerminal(ptyId);
   }, AUTO_CLOSE_GRACE_MS);
-}
-
-function getTerminalTheme(): Record<string, string> {
-  return {
-    background: '#171717',
-    foreground: '#e4e4e4',
-    cursor: '#e4e4e4',
-    cursorAccent: '#171717',
-    selectionBackground: 'rgba(255, 255, 255, 0.15)',
-    scrollbarSliderBackground: 'rgba(255, 255, 255, 0.15)',
-    scrollbarSliderHoverBackground: 'rgba(255, 255, 255, 0.3)',
-    scrollbarSliderActiveBackground: 'rgba(255, 255, 255, 0.4)',
-    black: '#171717',
-    red: '#ff6b6b',
-    green: '#69db7c',
-    yellow: '#ffd43b',
-    blue: '#74c0fc',
-    magenta: '#da77f2',
-    cyan: '#66d9e8',
-    white: '#e4e4e4',
-    brightBlack: '#5c5c5c',
-    brightRed: '#ff8787',
-    brightGreen: '#8ce99a',
-    brightYellow: '#ffe066',
-    brightBlue: '#a5d8ff',
-    brightMagenta: '#e599f7',
-    brightCyan: '#99e9f2',
-    brightWhite: '#ffffff',
-  };
 }
 
 // Platform detection
@@ -232,6 +205,18 @@ export function resolveTerminalLabel(
 
 /** Global registry of OuijitTerminal instances by ptyId */
 export const terminalInstances = new Map<string, OuijitTerminal>();
+
+// Re-skin every live terminal (including runner children not yet in the
+// registry) when the resolved theme changes — xterm repaints on assignment.
+subscribeTheme(() => {
+  const theme = buildXtermTheme();
+  for (const instance of terminalInstances.values()) {
+    instance.xterm.options.theme = theme;
+    for (const child of instance.runnerChildren.values()) {
+      child.xterm.options.theme = theme;
+    }
+  }
+});
 
 // ── Terminal font (global setting cache) ─────────────────────────────
 
@@ -469,7 +454,7 @@ export class OuijitTerminal {
 
     // Create xterm instance
     this.xterm = new XTerminal({
-      theme: getTerminalTheme(),
+      theme: buildXtermTheme(),
       fontFamily: cachedTerminalFontFamily,
       fontSize: cachedTerminalFontSize,
       lineHeight: 1.2,

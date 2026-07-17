@@ -16,6 +16,7 @@ import { registerProjectCommands } from './commands/project';
 import { registerScriptCommands } from './commands/script';
 import { registerMarkdownCommands } from './commands/markdown';
 import { registerPreviewCommands } from './commands/preview';
+import { registerThemeCommands } from './commands/theme';
 
 const program = new Command();
 
@@ -48,6 +49,7 @@ registerProjectCommands(program);
 registerScriptCommands(program, requireProject);
 registerMarkdownCommands(program);
 registerPreviewCommands(program);
+registerThemeCommands(program);
 
 // Command actions are async; parse() would let an API rejection surface as an
 // uncaught error with a raw stack trace. parseAsync + a single catch turns any

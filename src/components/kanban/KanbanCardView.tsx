@@ -218,7 +218,7 @@ export const KanbanCardView = memo(function KanbanCardView({
               : 'var(--color-terminal-bg)',
         transition:
           'background 150ms ease-out, opacity 150ms ease-out, outline-color 150ms ease-out, box-shadow 150ms ease-out',
-        borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
+        borderBottom: '1px solid color-mix(in srgb, var(--color-ink) 6%, transparent)',
         outline: isHoveredBadgeTarget
           ? '1px solid color-mix(in srgb, var(--color-accent) 60%, transparent)'
           : isValidBadgeTarget
@@ -226,7 +226,7 @@ export const KanbanCardView = memo(function KanbanCardView({
             : 'none',
         outlineOffset: -1,
         ...(isInvalidBadgeTarget && { opacity: 0.4 }),
-        ...(isSelected && { boxShadow: 'inset 2px 0 0 0 #0A84FF' }),
+        ...(isSelected && { boxShadow: 'inset 2px 0 0 0 var(--color-accent)' }),
       }}
       data-task-number={task.taskNumber}
       onMouseDown={(e) => {
@@ -285,7 +285,7 @@ export const KanbanCardView = memo(function KanbanCardView({
                 └─
               </span>
               <span
-                className="w-2 h-2 rounded-full bg-transparent border-[1.5px] border-white/30 border-t-white/80 shrink-0"
+                className="w-2 h-2 rounded-full bg-transparent border-[1.5px] border-ink/30 border-t-ink/80 shrink-0"
                 style={{ animation: 'loading-dot-spin 0.8s linear infinite' }}
               />
               <span className="font-mono text-[10px] leading-tight text-text-secondary truncate min-w-0">
@@ -302,7 +302,7 @@ export const KanbanCardView = memo(function KanbanCardView({
             return (
               <div
                 key={display.ptyId}
-                className="flex flex-row items-center gap-1.5 hover:bg-white/[0.06] active:bg-white/[0.03]"
+                className="flex flex-row items-center gap-1.5 hover:bg-ink/[0.06] active:bg-ink/[0.03]"
                 style={{ padding: '3px 2px', borderRadius: 3, transition: 'background 0.1s ease' }}
                 onClick={(e) => {
                   e.stopPropagation();
@@ -343,7 +343,7 @@ export const KanbanCardView = memo(function KanbanCardView({
 
       {expanded && (
         <div
-          className="grid mt-2 pt-2 border-t border-white/[0.04] gap-2"
+          className="grid mt-2 pt-2 border-t border-ink/[0.04] gap-2"
           // Keep the card's drag activator (dnd-kit listeners on the wrapper)
           // out of the expanded area so selecting description text doesn't
           // start a card drag.
@@ -367,7 +367,7 @@ export const KanbanCardView = memo(function KanbanCardView({
             />
           </div>
           {task.branch && (
-            <div className="flex items-center gap-1 font-mono text-[13px] text-white/50 min-w-0 overflow-hidden [&>svg]:w-3 [&>svg]:h-3 [&>svg]:shrink-0">
+            <div className="flex items-center gap-1 font-mono text-[13px] text-ink/50 min-w-0 overflow-hidden [&>svg]:w-3 [&>svg]:h-3 [&>svg]:shrink-0">
               <Icon name="git-branch" />
               <span className="truncate min-w-0">{task.branch}</span>
             </div>

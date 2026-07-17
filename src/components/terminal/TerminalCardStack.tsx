@@ -49,18 +49,18 @@ export function TerminalCardStack({ projectPath }: TerminalCardStackProps) {
 function EmptyState() {
   return (
     <div
-      className="project-stack-empty project-stack-empty--visible absolute inset-0 flex flex-col items-center justify-center text-center rounded-[14px] border border-dashed border-white/10 p-12 opacity-100"
+      className="project-stack-empty project-stack-empty--visible absolute inset-0 flex flex-col items-center justify-center text-center rounded-[14px] border border-dashed border-ink/10 p-12 opacity-100"
       style={{ background: 'var(--color-terminal-bg)' }}
     >
-      <div className="text-sm text-white/30">No active terminals</div>
+      <div className="text-sm text-ink/30">No active terminals</div>
       <div className="flex justify-center gap-6 mt-6">
         <span
           className="flex items-center gap-1.5"
-          style={{ fontSize: 'var(--font-size-xs)', color: 'rgba(255, 255, 255, 0.35)' }}
+          style={{ fontSize: 'var(--font-size-xs)', color: 'color-mix(in srgb, var(--color-ink) 35%, transparent)' }}
         >
           <span
             className="inline-flex items-center font-mono"
-            style={{ fontSize: 16, color: 'rgba(255, 255, 255, 0.25)' }}
+            style={{ fontSize: 16, color: 'color-mix(in srgb, var(--color-ink) 25%, transparent)' }}
           >
             {isMac ? '⌘' : '⌃'}
             <span className="text-xs">N</span>
@@ -69,11 +69,11 @@ function EmptyState() {
         </span>
         <span
           className="flex items-center gap-1.5"
-          style={{ fontSize: 'var(--font-size-xs)', color: 'rgba(255, 255, 255, 0.35)' }}
+          style={{ fontSize: 'var(--font-size-xs)', color: 'color-mix(in srgb, var(--color-ink) 35%, transparent)' }}
         >
           <span
             className="inline-flex items-center font-mono"
-            style={{ fontSize: 16, color: 'rgba(255, 255, 255, 0.25)' }}
+            style={{ fontSize: 16, color: 'color-mix(in srgb, var(--color-ink) 25%, transparent)' }}
           >
             {isMac ? '⌘' : '⌃'}
             <span className="text-xs">T</span>
@@ -109,7 +109,7 @@ function Pagination({ page, totalPages, projectPath }: { page: number; totalPage
       }}
     >
       <button
-        className="w-6 h-6 flex items-center justify-center bg-transparent border-none rounded text-white/35 transition-colors duration-150 ease-out hover:text-white/70"
+        className="w-6 h-6 flex items-center justify-center bg-transparent border-none rounded text-ink/35 transition-colors duration-150 ease-out hover:text-ink/70"
         style={{ visibility: page > 0 ? 'visible' : 'hidden' }}
         onClick={(e) => {
           e.stopPropagation();
@@ -129,11 +129,11 @@ function Pagination({ page, totalPages, projectPath }: { page: number; totalPage
           <polyline points="15 18 9 12 15 6" />
         </svg>
       </button>
-      <span className="project-stack-page-indicator text-xs font-mono text-white/35">
+      <span className="project-stack-page-indicator text-xs font-mono text-ink/35">
         {page + 1} / {totalPages}
       </span>
       <button
-        className="w-6 h-6 flex items-center justify-center bg-transparent border-none rounded text-white/35 transition-colors duration-150 ease-out hover:text-white/70"
+        className="w-6 h-6 flex items-center justify-center bg-transparent border-none rounded text-ink/35 transition-colors duration-150 ease-out hover:text-ink/70"
         style={{ visibility: page < totalPages - 1 ? 'visible' : 'hidden' }}
         onClick={(e) => {
           e.stopPropagation();

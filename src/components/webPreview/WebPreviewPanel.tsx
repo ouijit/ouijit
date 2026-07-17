@@ -181,7 +181,7 @@ export function WebPreviewPanel({
         <TooltipButton
           text="Back"
           placement="bottom"
-          className="w-7 h-7 flex items-center justify-center p-0 bg-transparent border-none rounded-md text-white/60 shrink-0 transition-all duration-150 ease-out hover:bg-white/10 hover:text-white/90 disabled:text-white/20 disabled:hover:bg-transparent [&>svg]:w-3.5 [&>svg]:h-3.5"
+          className="w-7 h-7 flex items-center justify-center p-0 bg-transparent border-none rounded-md text-ink/60 shrink-0 transition-all duration-150 ease-out hover:bg-ink/10 hover:text-ink/90 disabled:text-ink/20 disabled:hover:bg-transparent [&>svg]:w-3.5 [&>svg]:h-3.5"
           onClick={handleBack}
           disabled={!canGoBack}
         >
@@ -190,7 +190,7 @@ export function WebPreviewPanel({
         <TooltipButton
           text="Forward"
           placement="bottom"
-          className="w-7 h-7 flex items-center justify-center p-0 bg-transparent border-none rounded-md text-white/60 shrink-0 transition-all duration-150 ease-out hover:bg-white/10 hover:text-white/90 disabled:text-white/20 disabled:hover:bg-transparent [&>svg]:w-3.5 [&>svg]:h-3.5"
+          className="w-7 h-7 flex items-center justify-center p-0 bg-transparent border-none rounded-md text-ink/60 shrink-0 transition-all duration-150 ease-out hover:bg-ink/10 hover:text-ink/90 disabled:text-ink/20 disabled:hover:bg-transparent [&>svg]:w-3.5 [&>svg]:h-3.5"
           onClick={handleForward}
           disabled={!canGoForward}
         >
@@ -199,7 +199,7 @@ export function WebPreviewPanel({
         <TooltipButton
           text={loading ? 'Stop' : 'Reload'}
           placement="bottom"
-          className="w-7 h-7 flex items-center justify-center p-0 bg-transparent border-none rounded-md text-white/60 shrink-0 transition-all duration-150 ease-out hover:bg-white/10 hover:text-white/90 [&>svg]:w-3.5 [&>svg]:h-3.5"
+          className="w-7 h-7 flex items-center justify-center p-0 bg-transparent border-none rounded-md text-ink/60 shrink-0 transition-all duration-150 ease-out hover:bg-ink/10 hover:text-ink/90 [&>svg]:w-3.5 [&>svg]:h-3.5"
           onClick={loading ? () => webviewRef.current?.stop() : handleReload}
         >
           <Icon name={loading ? 'x' : 'arrows-clockwise'} />
@@ -218,11 +218,11 @@ export function WebPreviewPanel({
               }
             }}
             placeholder="http://localhost:3000"
-            className="text-[13px] text-white/80 flex-1 min-w-0 font-mono bg-white/5 border border-white/10 rounded px-2 py-0.5 outline-none focus:border-accent [-webkit-app-region:no-drag]"
+            className="text-[13px] text-ink/80 flex-1 min-w-0 font-mono bg-ink/5 border border-ink/10 rounded px-2 py-0.5 outline-none focus:border-accent [-webkit-app-region:no-drag]"
           />
         ) : (
           <button
-            className="text-[13px] text-white/60 truncate flex-1 min-w-0 font-mono bg-transparent border-none py-0.5 px-2 text-left transition-colors duration-150 hover:text-white/90 rounded"
+            className="text-[13px] text-ink/60 truncate flex-1 min-w-0 font-mono bg-transparent border-none py-0.5 px-2 text-left transition-colors duration-150 hover:text-ink/90 rounded"
             title={currentUrl}
             onClick={startEditingUrl}
           >
@@ -249,17 +249,17 @@ export function WebPreviewPanel({
             }}
           />
         ) : (
-          <div className="absolute inset-0 flex items-center justify-center text-sm text-white/40 bg-[var(--color-terminal-bg,#171717)]">
+          <div className="absolute inset-0 flex items-center justify-center text-sm text-ink/40 bg-terminal-bg">
             Enter a URL above to preview it
           </div>
         )}
         {loadError && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-sm text-white/70 bg-[var(--color-terminal-bg,#171717)] p-6 text-center">
-            <Icon name="globe-simple" className="w-8 h-8 text-white/30" />
-            <div className="font-mono text-white/80">{loadError}</div>
-            <div className="font-mono text-[11px] text-white/40 break-all">{currentUrl}</div>
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-sm text-ink/70 bg-terminal-bg p-6 text-center">
+            <Icon name="globe-simple" className="w-8 h-8 text-ink/30" />
+            <div className="font-mono text-ink/80">{loadError}</div>
+            <div className="font-mono text-[11px] text-ink/40 break-all">{currentUrl}</div>
             <button
-              className="mt-2 px-3 py-1 rounded-md bg-white/10 hover:bg-white/15 text-white/80 text-xs border-none transition-colors"
+              className="mt-2 px-3 py-1 rounded-md bg-ink/10 hover:bg-ink/15 text-ink/80 text-xs border-none transition-colors"
               onClick={handleReload}
             >
               Retry

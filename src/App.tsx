@@ -44,10 +44,10 @@ class ViewErrorBoundary extends Component<{ children: ReactNode }, { error: Erro
       return (
         <div className="flex-1 flex items-center justify-center p-8">
           <div className="text-center w-full max-w-[28rem]">
-            <div className="text-sm text-red-400 font-mono mb-2">View crashed</div>
-            <div className="text-xs text-white/50 font-mono break-words">{this.state.error.message}</div>
+            <div className="text-sm text-error font-mono mb-2">View crashed</div>
+            <div className="text-xs text-ink/50 font-mono break-words">{this.state.error.message}</div>
             <button
-              className="mt-4 px-3 py-1.5 text-xs bg-white/10 rounded border border-white/20 text-white/70 hover:bg-white/20"
+              className="mt-4 px-3 py-1.5 text-xs bg-ink/10 rounded border border-ink/20 text-ink/70 hover:bg-ink/20"
               onClick={() => this.setState({ error: null })}
             >
               Retry

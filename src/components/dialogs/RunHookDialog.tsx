@@ -129,13 +129,13 @@ export function RunHookDialog({
         {limaAvailable ? (
           <div className="flex items-center gap-2" onClick={() => setSandboxed((s) => !s)}>
             <div
-              className={`relative w-[34px] h-5 rounded-[10px] shrink-0 transition-[background] duration-200 ease-out ${sandboxed ? 'bg-accent' : 'bg-white/15'}`}
+              className={`relative w-[34px] h-5 rounded-[10px] shrink-0 transition-[background] duration-200 ease-out ${sandboxed ? 'bg-accent' : 'bg-ink/15'}`}
             >
               <div
-                className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow-[0_1px_3px_rgba(0,0,0,0.3)] transition-transform duration-200 ease-out ${sandboxed ? 'translate-x-3.5' : ''}`}
+                className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-accent-ink shadow-[0_1px_3px_rgba(0,0,0,0.3)] transition-transform duration-200 ease-out ${sandboxed ? 'translate-x-3.5' : ''}`}
               />
             </div>
-            <span className="text-xs text-white/40">Sandbox</span>
+            <span className="text-xs text-ink/40">Sandbox</span>
           </div>
         ) : (
           <div />

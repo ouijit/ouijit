@@ -430,6 +430,17 @@ ouijit preview remove <url>                   # close that preview panel
 ## Project Commands
 ouijit project list                           # → all registered projects
 
+## Theme Commands (global appearance, not project-scoped)
+ouijit theme list                             # → {preference, presets: [...], customThemes: [...]}
+ouijit theme use <theme>                      # system | light | dark | a preset/custom id (e.g. dracula)
+ouijit theme save '<json>'                    # create or update a custom theme (also: --file <path.json>)
+ouijit theme delete <id>                      # remove a custom theme
+
+# A theme is design-token overrides on a "dark" or "light" base:
+# {"id":"my-theme","name":"My Theme","base":"dark","tokens":{"--color-accent":"#ff2d55"}}
+# The presets in \`ouijit theme list\` show the full token vocabulary (colors,
+# ANSI palette, shadows). Saving an id that matches a preset overrides it.
+
 ## Key Behaviors
 - All mutating commands notify the Ouijit app UI in real-time.
 - Task statuses: todo → in_progress → in_review → done (set any directly).

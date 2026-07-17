@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { renderPlanMarkdown } from '../../utils/renderPlanMarkdown';
+import { useResolvedTheme } from '../../hooks/useResolvedTheme';
 import { terminalInstances } from '../terminal/terminalReact';
 import { useProjectStore } from '../../stores/projectStore';
 import { Icon } from '../terminal/Icon';
@@ -84,6 +85,9 @@ export function PlanPanel({
 
   const contentRef = useRef<HTMLDivElement>(null);
 
+  // Syntax highlighting follows the resolved theme; re-render when it flips.
+  const resolvedTheme = useResolvedTheme();
+
   // Render markdown with syntax highlighting whenever content changes (debounced)
   useEffect(() => {
     if (!content) {
@@ -109,7 +113,7 @@ export function PlanPanel({
     return () => {
       clearTimeout(timer);
     };
-  }, [content]);
+  }, [content, resolvedTheme]);
 
   // Fetch file existence when rendered HTML changes, cache results for re-application
   const fileExistenceRef = useRef<Record<string, boolean>>({});
@@ -216,9 +220,9 @@ export function PlanPanel({
     <div className="flex flex-col h-full overflow-hidden">
       {/* Header */}
       <div className="flex items-center gap-2 px-3 py-1.5 shrink-0">
-        <Icon name="file-text" className="w-3.5 h-3.5 text-white/50 shrink-0" />
+        <Icon name="file-text" className="w-3.5 h-3.5 text-ink/50 shrink-0" />
         <button
-          className="text-[13px] text-white/50 truncate flex-1 font-mono bg-transparent border-none p-0 text-left transition-colors duration-150 hover:text-white/80"
+          className="text-[13px] text-ink/50 truncate flex-1 font-mono bg-transparent border-none p-0 text-left transition-colors duration-150 hover:text-ink/80"
           title={planPath}
           onClick={async () => {
             const inst = terminalInstances.get(ptyId);
@@ -234,10 +238,10 @@ export function PlanPanel({
         <TooltipButton
           text={copied ? 'Copied!' : 'Copy to clipboard'}
           placement="bottom"
-          className="w-7 h-7 flex items-center justify-center p-0 bg-transparent border-none rounded-md text-white/40 shrink-0 transition-all duration-150 ease-out hover:bg-white/10 hover:text-white/90 [&>svg]:w-3.5 [&>svg]:h-3.5"
+          className="w-7 h-7 flex items-center justify-center p-0 bg-transparent border-none rounded-md text-ink/40 shrink-0 transition-all duration-150 ease-out hover:bg-ink/10 hover:text-ink/90 [&>svg]:w-3.5 [&>svg]:h-3.5"
           onClick={handleCopy}
         >
-          <Icon name={copied ? 'check' : 'clipboard-text'} className={copied ? 'text-[#69db7c]' : ''} />
+          <Icon name={copied ? 'check' : 'clipboard-text'} className={copied ? 'text-ansi-green' : ''} />
         </TooltipButton>
         <FullWidthToggle fullWidth={fullWidth} onToggle={onToggleFullWidth} />
         <MinimizeButton onMinimize={onMinimize} />
@@ -247,9 +251,9 @@ export function PlanPanel({
       {/* Content */}
       <div className="flex-1 overflow-y-auto px-6 py-4" onClick={handleClick}>
         {loading ? (
-          <div className="text-sm text-white/40">Loading</div>
+          <div className="text-sm text-ink/40">Loading</div>
         ) : content === null ? (
-          <div className="text-sm text-white/40">Markdown file not found</div>
+          <div className="text-sm text-ink/40">Markdown file not found</div>
         ) : (
           <div ref={contentRef} className="plan-markdown" dangerouslySetInnerHTML={{ __html: renderedHtml }} />
         )}

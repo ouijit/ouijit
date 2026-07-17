@@ -2,7 +2,7 @@ import { Icon } from './Icon';
 import { Tooltip } from '../ui/Tooltip';
 
 const PANEL_HEADER_BUTTON =
-  'w-7 h-7 flex items-center justify-center p-0 bg-transparent border-none rounded-md text-white/60 shrink-0 transition-all duration-150 ease-out hover:bg-white/10 hover:text-white/90 [&>svg]:w-3.5 [&>svg]:h-3.5';
+  'w-7 h-7 flex items-center justify-center p-0 bg-transparent border-none rounded-md text-ink/60 shrink-0 transition-all duration-150 ease-out hover:bg-ink/10 hover:text-ink/90 [&>svg]:w-3.5 [&>svg]:h-3.5';
 
 /** Panel-level toggle between full-width and split-with-terminal layout. */
 export function FullWidthToggle({ fullWidth, onToggle }: { fullWidth: boolean; onToggle: () => void }) {

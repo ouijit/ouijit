@@ -90,7 +90,7 @@ export function ScriptList({ projectPath, bare }: ScriptListProps) {
   ));
 
   const addButton = (
-    <div className="px-3 py-2 hover:bg-white/[0.04] transition-colors duration-100" onClick={handleAddNew}>
+    <div className="px-3 py-2 hover:bg-ink/[0.04] transition-colors duration-100" onClick={handleAddNew}>
       <span className="flex items-center gap-2 text-xs text-text-tertiary hover:text-text-primary transition-colors duration-150">
         <Icon name="plus" className="w-3.5 h-3.5" />
         Add Script
@@ -119,10 +119,9 @@ export function ScriptList({ projectPath, bare }: ScriptListProps) {
   return (
     <div>
       <div
-        className="glass-bevel relative border border-black/60 rounded-[14px] overflow-hidden divide-y divide-white/[0.06]"
+        className="glass-bevel relative border border-bezel rounded-[14px] overflow-hidden divide-y divide-ink/[0.06]"
         style={{
-          background: 'var(--color-terminal-bg, #171717)',
-          boxShadow: '0 0 0 1px rgba(0, 0, 0, 0.05), 0 4px 12px rgba(0, 0, 0, 0.15), 0 20px 40px rgba(0, 0, 0, 0.2)',
+          background: 'var(--color-terminal-bg)',
         }}
       >
         {scripts.length === 0 && !addingNew && (
@@ -258,7 +257,7 @@ function ScriptForm({
       <div className="flex items-center gap-2 pt-1">
         {onDelete && (
           <button
-            className="px-3 py-1.5 text-xs text-[#ff6b6b] bg-transparent border border-[#ff6b6b]/30 rounded-md hover:bg-[#ff6b6b]/10 transition-colors duration-150"
+            className="px-3 py-1.5 text-xs text-ansi-red bg-transparent border border-ansi-red/30 rounded-md hover:bg-ansi-red/10 transition-colors duration-150"
             onClick={onDelete}
           >
             Delete
@@ -273,7 +272,7 @@ function ScriptForm({
         </button>
         <button
           className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors duration-150 ${
-            isValid ? 'text-white bg-accent hover:bg-accent-hover' : 'text-text-tertiary bg-background-tertiary'
+            isValid ? 'text-accent-ink bg-accent hover:bg-accent-hover' : 'text-text-tertiary bg-background-tertiary'
           }`}
           disabled={!isValid}
           onClick={handleSubmit}

@@ -46,9 +46,9 @@ export function IconColorSection({ projectPath }: IconColorSectionProps) {
   };
 
   return (
-    <div className="glass-bevel relative border border-black/60 rounded-[14px] overflow-hidden bg-[var(--color-terminal-bg,#171717)]">
+    <div className="glass-bevel relative border border-bezel rounded-[14px] overflow-hidden bg-terminal-bg">
       <label
-        className="group flex items-center gap-4 px-4 py-4 transition-colors hover:bg-white/[0.03]"
+        className="group flex items-center gap-4 px-4 py-4 transition-colors hover:bg-ink/[0.03]"
         title="Choose a color"
       >
         <div className="w-12 h-12 shrink-0 rounded-md overflow-hidden">
@@ -78,7 +78,7 @@ export function IconColorSection({ projectPath }: IconColorSectionProps) {
             </button>
           )}
           <span
-            className="relative w-8 h-8 rounded-full overflow-hidden border border-white/15 transition-colors group-hover:border-white/30"
+            className="relative w-8 h-8 rounded-full overflow-hidden border border-ink/15 transition-colors group-hover:border-ink/30"
             style={{ backgroundColor: color }}
           >
             <input

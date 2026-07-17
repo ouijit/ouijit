@@ -25,7 +25,19 @@ import {
   saveScript,
   deleteScript,
   getTaskByNumber,
+  getGlobalSetting,
+  setGlobalSetting,
 } from '../db';
+import {
+  THEME_PREFERENCE_KEY,
+  CUSTOM_THEMES_KEY,
+  isThemePreference,
+  parseCustomTheme,
+  parseCustomThemes,
+  upsertCustomTheme,
+  type CustomTheme,
+} from '../theme/themes';
+import { PRESET_THEMES, withPresets, selectionOrphanedByDelete } from '../theme/presets';
 import {
   beginTask,
   setTaskStatusWithHooks,
@@ -139,6 +151,10 @@ function parseHookControl(body: Record<string, unknown>): HookControl {
     return { hookMode: mode, hookCommand: command };
   }
   return { hookMode: mode };
+}
+
+async function readCustomThemes(): Promise<CustomTheme[]> {
+  return parseCustomThemes(await getGlobalSetting(CUSTOM_THEMES_KEY));
 }
 
 function isTaskStartRoute(method: string, segments: string[]): boolean {
@@ -510,6 +526,78 @@ const routes: Route[] = [
     true,
   ),
 
+  // ── Themes (global appearance — not project-scoped) ─────────────
+  // Same persistence the renderer theme manager uses (ui:theme /
+  // ui:customThemes in global settings); mutations push cli:theme-changed
+  // so the renderer re-reads and re-applies live.
+  route('GET', 'themes', async () => {
+    const stored = await getGlobalSetting(THEME_PREFERENCE_KEY);
+    return {
+      preference: stored && isThemePreference(stored) ? stored : 'system',
+      presets: PRESET_THEMES,
+      customThemes: await readCustomThemes(),
+    };
+  }),
+
+  route(
+    'PUT',
+    'themes/preference',
+    async (r) => {
+      const preference = r.body.preference;
+      if (typeof preference !== 'string' || !isThemePreference(preference)) {
+        throw new HttpError(400, 'Invalid preference: must be system, light, dark, or custom:<id>');
+      }
+      if (preference.startsWith('custom:')) {
+        const merged = withPresets(await readCustomThemes());
+        if (!merged.some((t) => `custom:${t.id}` === preference)) {
+          throw new HttpError(404, `No theme with id '${preference.slice('custom:'.length)}'`);
+        }
+      }
+      await setGlobalSetting(THEME_PREFERENCE_KEY, preference);
+      return { success: true, preference };
+    },
+    true,
+  ),
+
+  route(
+    'PUT',
+    'themes/custom/:id',
+    async (r) => {
+      const id = decodeURIComponent(r.segments[2]);
+      // The URL segment is authoritative for the id (PUT semantics).
+      const theme = parseCustomTheme({ ...r.body, id });
+      if (!theme) {
+        throw new HttpError(
+          400,
+          'Invalid theme: needs "name", "base" ("dark" or "light"), and a "tokens" object of --token overrides',
+        );
+      }
+      const list = await readCustomThemes();
+      await setGlobalSetting(CUSTOM_THEMES_KEY, JSON.stringify(upsertCustomTheme(list, theme)));
+      return { success: true, theme };
+    },
+    true,
+  ),
+
+  route(
+    'DELETE',
+    'themes/custom/:id',
+    async (r) => {
+      const id = decodeURIComponent(r.segments[2]);
+      const list = await readCustomThemes();
+      if (!list.some((t) => t.id === id)) throw new HttpError(404, `No custom theme with id '${id}'`);
+      await setGlobalSetting(CUSTOM_THEMES_KEY, JSON.stringify(list.filter((t) => t.id !== id)));
+      // Same rule as the renderer's deleteCustomTheme: removing a user copy
+      // of a preset restores the preset, so the selection stays valid.
+      const preference = await getGlobalSetting(THEME_PREFERENCE_KEY);
+      if (selectionOrphanedByDelete(preference, id)) {
+        await setGlobalSetting(THEME_PREFERENCE_KEY, 'system');
+      }
+      return { success: true };
+    },
+    true,
+  ),
+
   // ── Panels ────────────────────────────────────────────────────────
   // The two user-addressable panel kinds on a terminal: markdown files and
   // web previews. A terminal can hold several of each, so these are plural
@@ -658,6 +746,12 @@ async function handleAsync(req: IncomingMessage, res: ServerResponse, window: Br
         action: `${method} /api/${apiPath}`,
         ts: Date.now(),
       });
+
+      // Theme mutations: the renderer theme manager holds module state, so
+      // tell it to re-read global settings and re-apply.
+      if (segments[0] === 'themes') {
+        typedPush(window, 'cli:theme-changed');
+      }
 
       // Task-start routes also need a terminal + hook in the renderer.
       // The HTTP handler only creates the worktree + DB row; the renderer

@@ -5,10 +5,10 @@ import type { BundledLanguage, HighlighterGeneric, BundledTheme } from 'shiki';
 import mermaid from 'mermaid';
 import log from 'electron-log/renderer';
 import { linkifyFilePaths } from './linkifyFilePaths';
+import { getResolvedTheme } from '../theme/themeManager';
+import { SHIKI_THEMES, currentShikiTheme } from '../theme/shikiTheme';
 
 const planRenderLog = log.scope('planRender');
-
-const THEME = 'github-dark';
 
 const PRELOADED_LANGS: BundledLanguage[] = [
   'typescript',
@@ -38,7 +38,10 @@ let highlighterPromise: Promise<HighlighterGeneric<BundledLanguage, BundledTheme
 
 function getHighlighter() {
   if (!highlighterPromise) {
-    highlighterPromise = createHighlighter({ themes: [THEME], langs: PRELOADED_LANGS }).catch((err) => {
+    highlighterPromise = createHighlighter({
+      themes: [SHIKI_THEMES.dark, SHIKI_THEMES.light],
+      langs: PRELOADED_LANGS,
+    }).catch((err) => {
       highlighterPromise = null;
       throw err;
     });
@@ -46,16 +49,19 @@ function getHighlighter() {
   return highlighterPromise;
 }
 
-let mermaidInitialized = false;
+let mermaidTheme: 'dark' | 'default' | null = null;
 let mermaidCounter = 0;
 
 const MERMAID_FONT_FAMILY = '-apple-system, BlinkMacSystemFont, system-ui, sans-serif';
 
 function ensureMermaid(): void {
-  if (mermaidInitialized) return;
+  // Re-initialize when the app theme flipped since the last render; the plan
+  // panel re-renders markdown on theme changes, so diagrams follow along.
+  const theme = getResolvedTheme() === 'light' ? 'default' : 'dark';
+  if (mermaidTheme === theme) return;
   mermaid.initialize({
     startOnLoad: false,
-    theme: 'dark',
+    theme,
     securityLevel: 'strict',
     fontFamily: MERMAID_FONT_FAMILY,
     // Render labels as native SVG <text> elements rather than <foreignObject>
@@ -63,7 +69,7 @@ function ensureMermaid(): void {
     // namespace edge cases that strip child content of foreignObject.
     flowchart: { htmlLabels: false },
   });
-  mermaidInitialized = true;
+  mermaidTheme = theme;
 }
 
 async function renderMermaidBlock(source: string): Promise<string | null> {
@@ -132,7 +138,7 @@ export async function renderPlanMarkdown(md: string): Promise<string> {
     if (lang && hl.getLoadedLanguages().includes(lang)) {
       try {
         return hl
-          .codeToHtml(text, { lang, theme: THEME })
+          .codeToHtml(text, { lang, theme: currentShikiTheme() })
           .replace('<pre class="shiki', '<pre class="shiki glass-bevel');
       } catch {
         // Fall through to plain code block

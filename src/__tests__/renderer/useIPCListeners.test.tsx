@@ -106,6 +106,7 @@ function installListenerStubs(): ListenerStubs {
   api['onShellUnsupported'] = vi.fn(() => () => {});
   api['onWhatsNew'] = vi.fn(() => () => {});
   api['onCliChange'] = vi.fn(() => () => {});
+  api['onCliThemeChanged'] = vi.fn(() => () => {});
   api['health'] = { onUpdate: vi.fn(() => () => {}) };
   api['onCliTaskStarted'] = vi.fn((cb: CliTaskStartedCb) => {
     stubs.cliTaskStartedCb = cb;

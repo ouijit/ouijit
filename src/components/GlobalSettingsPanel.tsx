@@ -4,6 +4,7 @@ import { useProjectStore } from '../stores/projectStore';
 import { setTerminalFontFamily, setTerminalFontSize } from './terminal/terminalReact';
 import { setReadyAudioDisabled } from '../utils/notifications';
 import { FontPickerRow } from './FontPickerRow';
+import { ThemeSettingsSection } from './ThemeSettingsSection';
 import { MoveProjectsDialog } from './dialogs/MoveProjectsDialog';
 import type { AffectedProject, ProjectsFolderChangeAction } from '../types';
 import log from 'electron-log/renderer';
@@ -155,7 +156,7 @@ export function GlobalSettingsPanel() {
       {/* Fade overlay — content fades out under the header (mirrors ProjectSettingsPanel) */}
       <div
         className="pointer-events-none h-6 shrink-0 -mb-6 relative z-10"
-        style={{ background: 'linear-gradient(to bottom, var(--color-background-primary, #1c1c1e), transparent)' }}
+        style={{ background: 'linear-gradient(to bottom, var(--color-background), transparent)' }}
       />
       <div className="flex-1 overflow-y-auto settings-scrollable">
         <div className="px-6 pt-4 pb-16 min-w-full max-w-2xl space-y-8">
@@ -166,15 +167,10 @@ export function GlobalSettingsPanel() {
               project's settings.
             </p>
           </div>
+          <ThemeSettingsSection />
           <section>
             <h2 className="text-sm font-semibold text-text-primary mb-4">Projects</h2>
-            <div
-              className="glass-bevel relative border border-black/60 rounded-[14px] overflow-hidden divide-y divide-white/[0.06] bg-[var(--color-terminal-bg,#171717)]"
-              style={{
-                boxShadow:
-                  '0 0 0 1px rgba(0, 0, 0, 0.05), 0 4px 12px rgba(0, 0, 0, 0.15), 0 20px 40px rgba(0, 0, 0, 0.2)',
-              }}
-            >
+            <div className="glass-bevel relative border border-bezel-panel rounded-[14px] overflow-hidden divide-y divide-ink/[0.06] bg-terminal-bg">
               <PathRow
                 label="Projects folder"
                 description="New projects are created here. Changing it lets you move or forget existing projects."
@@ -187,13 +183,7 @@ export function GlobalSettingsPanel() {
 
           <section>
             <h2 className="text-sm font-semibold text-text-primary mb-4">Terminal</h2>
-            <div
-              className="glass-bevel relative border border-black/60 rounded-[14px] overflow-hidden divide-y divide-white/[0.06] bg-[var(--color-terminal-bg,#171717)]"
-              style={{
-                boxShadow:
-                  '0 0 0 1px rgba(0, 0, 0, 0.05), 0 4px 12px rgba(0, 0, 0, 0.15), 0 20px 40px rgba(0, 0, 0, 0.2)',
-              }}
-            >
+            <div className="glass-bevel relative border border-bezel-panel rounded-[14px] overflow-hidden divide-y divide-ink/[0.06] bg-terminal-bg">
               <FontPickerRow
                 label="Font family"
                 description="Pick a monospace font. Falls back gracefully if not installed."
@@ -216,13 +206,7 @@ export function GlobalSettingsPanel() {
 
           <section>
             <h2 className="text-sm font-semibold text-text-primary mb-4">Updates</h2>
-            <div
-              className="glass-bevel relative border border-black/60 rounded-[14px] overflow-hidden divide-y divide-white/[0.06] bg-[var(--color-terminal-bg,#171717)]"
-              style={{
-                boxShadow:
-                  '0 0 0 1px rgba(0, 0, 0, 0.05), 0 4px 12px rgba(0, 0, 0, 0.15), 0 20px 40px rgba(0, 0, 0, 0.2)',
-              }}
-            >
+            <div className="glass-bevel relative border border-bezel-panel rounded-[14px] overflow-hidden divide-y divide-ink/[0.06] bg-terminal-bg">
               <ToggleRow
                 label="Check for updates automatically"
                 description="When off, Ouijit won't contact the update service or download new versions."
@@ -234,13 +218,7 @@ export function GlobalSettingsPanel() {
 
           <section>
             <h2 className="text-sm font-semibold text-text-primary mb-4">Sound</h2>
-            <div
-              className="glass-bevel relative border border-black/60 rounded-[14px] overflow-hidden divide-y divide-white/[0.06] bg-[var(--color-terminal-bg,#171717)]"
-              style={{
-                boxShadow:
-                  '0 0 0 1px rgba(0, 0, 0, 0.05), 0 4px 12px rgba(0, 0, 0, 0.15), 0 20px 40px rgba(0, 0, 0, 0.2)',
-              }}
-            >
+            <div className="glass-bevel relative border border-bezel-panel rounded-[14px] overflow-hidden divide-y divide-ink/[0.06] bg-terminal-bg">
               <ToggleRow
                 label="Play a sound when a task is ready"
                 description="Plays a chime when a terminal returns to the ready state."
@@ -272,7 +250,7 @@ interface PathRowProps {
 
 function PathRow({ label, description, value, buttonLabel, onChoose }: PathRowProps) {
   return (
-    <div className="flex items-center gap-4 px-4 py-3 hover:bg-white/[0.02]">
+    <div className="flex items-center gap-4 px-4 py-3 hover:bg-ink/[0.02]">
       <div className="flex-1 min-w-0">
         <div className="text-sm text-text-primary">{label}</div>
         <div className="text-xs text-text-tertiary mt-0.5">{description}</div>
@@ -296,7 +274,7 @@ interface ToggleRowProps {
 
 function ToggleRow({ label, description, checked, onChange }: ToggleRowProps) {
   return (
-    <label className="flex items-center gap-4 px-4 py-3 hover:bg-white/[0.02]">
+    <label className="flex items-center gap-4 px-4 py-3 hover:bg-ink/[0.02]">
       <div className="flex-1 min-w-0">
         <div className="text-sm text-text-primary">{label}</div>
         <div className="text-xs text-text-tertiary mt-0.5">{description}</div>
@@ -307,11 +285,11 @@ function ToggleRow({ label, description, checked, onChange }: ToggleRowProps) {
         aria-checked={checked}
         onClick={onChange}
         className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors duration-150 ${
-          checked ? 'bg-blue-500' : 'bg-white/15'
+          checked ? 'bg-accent' : 'bg-ink/15'
         }`}
       >
         <span
-          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform duration-150 ${
+          className={`inline-block h-4 w-4 transform rounded-full bg-accent-ink transition-transform duration-150 ${
             checked ? 'translate-x-[18px]' : 'translate-x-[2px]'
           }`}
         />
@@ -388,7 +366,7 @@ function NumberRow({ label, description, value, placeholder, suffix, min, max, o
   }, []);
 
   return (
-    <div className="flex items-center gap-4 px-4 py-3 hover:bg-white/[0.02]">
+    <div className="flex items-center gap-4 px-4 py-3 hover:bg-ink/[0.02]">
       <div className="flex-1 min-w-0">
         <div className="text-sm text-text-primary">{label}</div>
         <div className="text-xs text-text-tertiary mt-0.5">{description}</div>
@@ -408,7 +386,7 @@ function NumberRow({ label, description, value, placeholder, suffix, min, max, o
               (e.target as HTMLInputElement).blur();
             }
           }}
-          className="w-[5rem] px-3 py-1.5 text-sm bg-white/[0.04] border border-white/10 rounded-md text-text-primary placeholder:text-text-tertiary outline-none focus:border-accent focus:ring-2 focus:ring-accent-light"
+          className="w-[5rem] px-3 py-1.5 text-sm bg-ink/[0.04] border border-ink/10 rounded-md text-text-primary placeholder:text-text-tertiary outline-none focus:border-accent focus:ring-2 focus:ring-accent-light"
         />
         {suffix && <span className="text-xs text-text-tertiary">{suffix}</span>}
       </div>

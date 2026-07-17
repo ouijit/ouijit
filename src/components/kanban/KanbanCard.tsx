@@ -445,7 +445,7 @@ function DraggableBadge({
     task.parentTaskNumber != null ? (
       <Tooltip text={`Detach from #${task.parentTaskNumber}`} placement="bottom" delay={300}>
         <button
-          className="w-0 overflow-hidden group-hover/badge:w-4 flex items-center justify-center border-none bg-transparent text-white/30 hover:text-red-400 transition-all duration-150 [-webkit-app-region:no-drag] [&>svg]:w-2.5 [&>svg]:h-2.5 shrink-0 p-0"
+          className="w-0 overflow-hidden group-hover/badge:w-4 flex items-center justify-center border-none bg-transparent text-ink/30 hover:text-error transition-all duration-150 [-webkit-app-region:no-drag] [&>svg]:w-2.5 [&>svg]:h-2.5 shrink-0 p-0"
           onPointerDown={(e) => e.stopPropagation()}
           onClick={async (e) => {
             e.stopPropagation();

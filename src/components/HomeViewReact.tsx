@@ -304,17 +304,16 @@ export function HomeView() {
           <div className="absolute inset-0 flex items-center justify-center overflow-hidden p-6">
             <div className="w-full max-w-[36rem]">
               <div
-                className="glass-bevel relative border border-black/60 rounded-[14px] overflow-hidden"
+                className="glass-bevel relative border border-bezel rounded-[14px] overflow-hidden"
                 style={{
                   background: 'var(--color-terminal-bg)',
-                  boxShadow:
-                    '0 0 0 1px rgba(0, 0, 0, 0.05), 0 4px 12px rgba(0, 0, 0, 0.15), 0 20px 40px rgba(0, 0, 0, 0.2)',
+                  boxShadow: 'var(--shadow-panel)',
                 }}
               >
                 <div className="px-5 py-3">
                   <span className="text-sm text-text-primary leading-tight">Start a project</span>
                 </div>
-                <div className="border-t border-white/[0.06] divide-y divide-white/[0.04]">
+                <div className="border-t border-ink/[0.06] divide-y divide-ink/[0.04]">
                   <EmptyStateChoice
                     verb="Open"
                     noun="a folder you already have"
@@ -333,7 +332,7 @@ export function HomeView() {
           </div>
         ) : noRecents ? (
           <div
-            className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-text-tertiary rounded-[14px] border border-dashed border-white/10"
+            className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-text-tertiary rounded-[14px] border border-dashed border-ink/10"
             style={{ background: 'var(--color-terminal-bg)' }}
           >
             <div className="text-sm">No tasks yet.</div>
@@ -370,14 +369,13 @@ export function HomeView() {
         return (
           <div
             key={ptyId}
-            className={`glass-bevel absolute inset-0 rounded-[14px] border border-black/60 overflow-hidden flex flex-col${!isActive ? ' hover:border-accent' : ''}`}
+            className={`glass-bevel absolute inset-0 rounded-[14px] border border-bezel overflow-hidden flex flex-col${!isActive ? ' hover:border-accent' : ''}`}
             style={{
               ...getDepthStyle(depth),
-              background: 'var(--color-terminal-bg, #171717)',
+              background: 'var(--color-terminal-bg)',
               ...(isActive
                 ? {
-                    boxShadow:
-                      '0 0 0 1px rgba(0, 0, 0, 0.05), 0 4px 12px rgba(0, 0, 0, 0.15), 0 20px 40px rgba(0, 0, 0, 0.2)',
+                    boxShadow: 'var(--shadow-panel)',
                   }
                 : {}),
             }}
@@ -417,28 +415,28 @@ export function HomeView() {
           >
             {/* Card body below the tab — square TL so tab sits flush */}
             <div
-              className="absolute border border-black/60"
+              className="absolute border border-bezel"
               style={{
                 top: 27,
                 left: 0,
                 right: 0,
                 bottom: 0,
-                background: '#252528',
+                background: 'var(--color-surface-raised)',
                 borderRadius: '0 14px 14px 14px',
                 boxShadow:
-                  'inset 0 1px 0 rgba(255,255,255,0.14), inset -1px 0 0 rgba(255,255,255,0.05), inset 1px 0 0 rgba(255,255,255,0.05), inset 0 -1px 0 rgba(0,0,0,0.5)',
+                  'inset 0 1px 0 var(--bevel-top), inset -1px 0 0 var(--bevel-side), inset 1px 0 0 var(--bevel-side), inset 0 -1px 0 var(--bevel-bottom)',
               }}
             />
             <div
-              className="home-folder-tab absolute top-0 left-0 pointer-events-auto border border-black/60"
+              className="home-folder-tab absolute top-0 left-0 pointer-events-auto border border-bezel"
               style={{
                 width: 220,
                 height: 28,
-                background: '#252528',
+                background: 'var(--color-surface-raised)',
                 borderBottom: 'none',
                 borderRadius: '12px 12px 0 0',
                 boxShadow:
-                  'inset 0 1px 0 rgba(255,255,255,0.14), inset 1px 0 0 rgba(255,255,255,0.05), inset -1px 0 0 rgba(255,255,255,0.05), inset 0 2px 6px -3px rgba(255,255,255,0.08)',
+                  'inset 0 1px 0 var(--bevel-top), inset 1px 0 0 var(--bevel-side), inset -1px 0 0 var(--bevel-side), inset 0 2px 6px -3px var(--bevel-glow)',
                 transform: `scale(${Math.max(0.92, 1 - item.depth * 0.015)})`,
                 transformOrigin: 'bottom left',
                 transition: 'transform 200ms ease-out',
@@ -487,7 +485,7 @@ export function HomeView() {
                   style={{
                     fontSize: 10,
                     fontWeight: 600,
-                    color: 'rgba(255, 255, 255, 0.45)',
+                    color: 'color-mix(in srgb, var(--color-ink) 45%, transparent)',
                     textTransform: 'uppercase',
                     letterSpacing: '0.5px',
                     whiteSpace: 'nowrap',
@@ -518,7 +516,7 @@ function EmptyStateChoice({ verb, noun, detail, onClick }: EmptyStateChoiceProps
     <button
       type="button"
       onClick={onClick}
-      className="group flex items-baseline gap-3 w-full text-left px-5 py-3 hover:bg-white/[0.04] transition-colors duration-150 ease-out focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent-light outline-none [-webkit-app-region:no-drag]"
+      className="group flex items-baseline gap-3 w-full text-left px-5 py-3 hover:bg-ink/[0.04] transition-colors duration-150 ease-out focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent-light outline-none [-webkit-app-region:no-drag]"
     >
       <span className="text-[15px] text-text-tertiary group-hover:text-text-primary transition-colors w-3 shrink-0">
         →

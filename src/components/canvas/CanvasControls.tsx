@@ -23,7 +23,7 @@ export const CanvasControls = memo(function CanvasControls({ projectPath }: Canv
 
   return (
     <div
-      className="glass-bevel flex items-center gap-0.5 px-1.5 rounded-lg border border-black/60"
+      className="glass-bevel flex items-center gap-0.5 px-1.5 rounded-lg border border-bezel"
       style={{
         position: 'absolute',
         top: -16,
@@ -31,7 +31,7 @@ export const CanvasControls = memo(function CanvasControls({ projectPath }: Canv
         transform: 'translateX(-50%)',
         zIndex: 10001,
         height: 32,
-        background: 'rgba(28, 28, 30, 0.8)',
+        background: 'color-mix(in srgb, var(--color-background) 80%, transparent)',
         backdropFilter: 'blur(12px)',
         WebkitBackdropFilter: 'blur(12px)',
       }}
@@ -41,7 +41,7 @@ export const CanvasControls = memo(function CanvasControls({ projectPath }: Canv
       </ControlButton>
 
       <button
-        className="px-1.5 font-mono text-xs text-white/50 bg-transparent border-none hover:text-white/80 transition-colors duration-150"
+        className="px-1.5 font-mono text-xs text-ink/50 bg-transparent border-none hover:text-ink/80 transition-colors duration-150"
         onClick={handleFitView}
         title="Fit view (Cmd+0)"
         style={{ minWidth: 40, textAlign: 'center' }}
@@ -53,7 +53,7 @@ export const CanvasControls = memo(function CanvasControls({ projectPath }: Canv
         <PlusIcon />
       </ControlButton>
 
-      <div className="w-px h-4 bg-white/10 mx-0.5" />
+      <div className="w-px h-4 bg-ink/10 mx-0.5" />
 
       <ControlButton onClick={handleFitView} title="Fit all (Cmd+Shift+F)">
         <FitIcon />
@@ -82,7 +82,7 @@ function ControlButton({
   return (
     <button
       className={`w-7 h-7 flex items-center justify-center rounded bg-transparent border-none transition-colors duration-150 ${
-        active ? 'text-accent' : 'text-white/40 hover:text-white/70'
+        active ? 'text-accent' : 'text-ink/40 hover:text-ink/70'
       }`}
       onClick={onClick}
       title={title}

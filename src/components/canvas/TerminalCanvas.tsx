@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ReactFlow,
   ReactFlowProvider,
@@ -30,6 +30,8 @@ import { useChainEdges } from './useChainEdges';
 import { useSmartGuides } from './useSmartGuides';
 import { getChainColor, buildChainMap } from '../../utils/taskChain';
 import { useProjectStore } from '../../stores/projectStore';
+import { readToken } from '../../theme/themeManager';
+import { useThemeEpoch } from '../../hooks/useResolvedTheme';
 
 /**
  * Reconcile canvas nodes with the terminal store — add missing, remove stale.
@@ -124,21 +126,31 @@ function TerminalCanvasInner({ projectPath }: TerminalCanvasProps) {
     [fitView],
   );
 
-  // Phase 3: minimap node color from chain info
+  // Phase 3: minimap node color from chain info.
+  // MiniMap colors land in SVG fill attributes where var() can't resolve, so
+  // read the tokens per applied theme (the epoch also covers switches between
+  // two themes with the same base, which the resolved base can't see).
+  const themeEpoch = useThemeEpoch();
+  const [minimapFallbackColor, minimapBgColor] = useMemo(() => {
+    void themeEpoch; // the tokens change when the applied theme does
+    return [readToken('--color-border-hover'), readToken('--color-background')];
+  }, [themeEpoch]);
   const tasks = useProjectStore((s) => s.tasks);
   const displayStates = useTerminalStore((s) => s.displayStates);
+  // React Flow calls nodeColor once per node on every minimap render, so build
+  // the chain map once here rather than rebuilding it inside the callback.
+  const chainMap = useMemo(() => buildChainMap(tasks), [tasks]);
   const minimapNodeColor = useCallback(
     (node: TerminalNodeType) => {
       const ptyId = node.data?.ptyId;
-      if (!ptyId) return 'rgba(255, 255, 255, 0.15)';
+      if (!ptyId) return minimapFallbackColor;
       const display = displayStates[ptyId];
-      if (!display?.taskId) return 'rgba(255, 255, 255, 0.15)';
-      const chainMap = buildChainMap(tasks);
+      if (!display?.taskId) return minimapFallbackColor;
       const info = chainMap.get(display.taskId);
-      if (!info) return 'rgba(255, 255, 255, 0.15)';
+      if (!info) return minimapFallbackColor;
       return getChainColor(info.rootTaskNumber, info.depth);
     },
-    [tasks, displayStates],
+    [chainMap, displayStates, minimapFallbackColor],
   );
 
   // Load persisted canvas state on mount, then reconcile with current terminals
@@ -217,7 +229,7 @@ function TerminalCanvasInner({ projectPath }: TerminalCanvasProps) {
         fitView
         proOptions={proOptions}
       >
-        <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="rgba(255,255,255,0.15)" />
+        <Background variant={BackgroundVariant.Dots} gap={20} size={1} />
         {nodes.length >= 3 &&
           (minimapOpen ? (
             <MiniMap
@@ -226,15 +238,18 @@ function TerminalCanvasInner({ projectPath }: TerminalCanvasProps) {
               position="bottom-right"
               nodeColor={minimapNodeColor as (node: any) => string}
               maskColor="rgba(0, 0, 0, 0.25)"
-              bgColor="#1c1c1e"
+              bgColor={minimapBgColor}
               nodeBorderRadius={16}
               onClick={handleToggleMinimap}
             />
           ) : (
             <Panel position="bottom-right">
               <button
-                className="flex items-center justify-center w-8 h-8 rounded-lg border border-white/10 text-white/40 hover:text-white/70 transition-colors duration-150"
-                style={{ background: 'rgba(28, 28, 30, 0.8)', backdropFilter: 'blur(12px)' }}
+                className="flex items-center justify-center w-8 h-8 rounded-lg border border-ink/10 text-ink/40 hover:text-ink/70 transition-colors duration-150"
+                style={{
+                  background: 'color-mix(in srgb, var(--color-background) 80%, transparent)',
+                  backdropFilter: 'blur(12px)',
+                }}
                 onClick={handleToggleMinimap}
                 title="Show minimap"
               >

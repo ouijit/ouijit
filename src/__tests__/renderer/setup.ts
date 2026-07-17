@@ -10,6 +10,22 @@ afterEach(() => {
   cleanup();
 });
 
+// jsdom doesn't implement matchMedia; the theme manager queries the OS
+// appearance at module load.
+Object.defineProperty(window, 'matchMedia', {
+  writable: true,
+  value: (query: string) => ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    addListener: () => {},
+    removeListener: () => {},
+    dispatchEvent: () => false,
+  }),
+});
+
 // Stub the icon registry. The real module statically imports ~200 Phosphor
 // SVGs via Vite's `?raw` query, which Vitest's resolver chokes on (each
 // import is a separate fetch through the asset transform pipeline). Tests

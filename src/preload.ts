@@ -236,6 +236,8 @@ contextBridge.exposeInMainWorld('api', {
   onCliChange: (callback: (payload: { project: string; action: string; message?: string; ts: number }) => void) =>
     typedListen('cli-change', callback),
 
+  onCliThemeChanged: (callback: () => void) => typedListen('cli:theme-changed', callback),
+
   onCliTaskStarted: (
     callback: (payload: {
       project: string;

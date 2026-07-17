@@ -276,8 +276,8 @@ export const useCanvasStore = create<CanvasStore>()((set, get) => ({
       style: {
         width: bounds.maxX - bounds.minX + padding * 2,
         height: bounds.maxY - bounds.minY + padding * 2,
-        background: 'rgba(255, 255, 255, 0.02)',
-        border: '1px dashed rgba(255, 255, 255, 0.1)',
+        background: 'color-mix(in srgb, var(--color-ink) 2%, transparent)',
+        border: '1px dashed color-mix(in srgb, var(--color-ink) 10%, transparent)',
         borderRadius: 16,
       },
     } as TerminalNode;

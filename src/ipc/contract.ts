@@ -269,6 +269,8 @@ export interface IpcPushContract {
   'shell-unsupported': { args: [info: { shell: string }] };
   'whats-new': { args: [info: { version: string; notes: string }] };
   'cli-change': { args: [payload: { project: string; action: string; message?: string; ts: number }] };
+  /** A CLI theme mutation wrote global settings — re-read and re-apply. */
+  'cli:theme-changed': { args: [] };
   'cli:task-started': {
     args: [
       payload: {

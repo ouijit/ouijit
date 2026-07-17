@@ -113,10 +113,10 @@ export function ResumeBanner() {
 
   return (
     <div
-      className="glass-bevel relative border border-black/60 rounded-[14px] overflow-hidden shrink-0"
+      className="glass-bevel relative border border-bezel rounded-[14px] overflow-hidden shrink-0"
       style={{
         background: 'var(--color-terminal-bg)',
-        boxShadow: '0 0 0 1px rgba(0, 0, 0, 0.05), 0 4px 12px rgba(0, 0, 0, 0.15), 0 20px 40px rgba(0, 0, 0, 0.2)',
+        boxShadow: 'var(--shadow-panel)',
       }}
     >
       <div className="flex items-center gap-3 px-5 py-3">
@@ -141,7 +141,7 @@ export function ResumeBanner() {
             type="button"
             onClick={handleDismiss}
             disabled={resuming}
-            className="px-3 py-1.5 text-xs text-text-secondary rounded-full hover:bg-white/[0.04] transition-colors disabled:opacity-50"
+            className="px-3 py-1.5 text-xs text-text-secondary rounded-full hover:bg-ink/[0.04] transition-colors disabled:opacity-50"
           >
             Dismiss
           </button>
@@ -149,14 +149,14 @@ export function ResumeBanner() {
             type="button"
             onClick={handleResume}
             disabled={resuming}
-            className="px-4 py-1.5 text-xs font-medium text-white bg-accent rounded-full hover:bg-accent-hover active:scale-[0.98] transition-all duration-150 disabled:opacity-60"
+            className="px-4 py-1.5 text-xs font-medium text-accent-ink bg-accent rounded-full hover:bg-accent-hover active:scale-[0.98] transition-all duration-150 disabled:opacity-60"
           >
             {resuming ? 'Resuming…' : 'Resume'}
           </button>
         </div>
       </div>
       {expanded && (
-        <div className="border-t border-white/[0.06] max-h-[14rem] overflow-y-auto settings-scrollable">
+        <div className="border-t border-ink/[0.06] max-h-[14rem] overflow-y-auto settings-scrollable">
           {grouped.map((group, idx) => (
             <ProjectGroup key={group.project.path} group={group} isFirst={idx === 0} />
           ))}
@@ -174,7 +174,7 @@ function ProjectGroup({
   isFirst: boolean;
 }) {
   return (
-    <div className={isFirst ? '' : 'border-t border-white/[0.04]'}>
+    <div className={isFirst ? '' : 'border-t border-ink/[0.04]'}>
       <div className="flex items-center gap-2 px-5 pt-2.5 pb-1">
         <ProjectThumb project={group.project} />
         <span className="text-[11px] uppercase tracking-wider text-text-tertiary truncate">{group.project.name}</span>

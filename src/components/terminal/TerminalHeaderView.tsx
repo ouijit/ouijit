@@ -6,7 +6,7 @@ import { StatusDot } from './StatusDot';
 const isMac = typeof navigator !== 'undefined' && navigator.platform.toLowerCase().includes('mac');
 
 const METADATA_CHIP =
-  'inline-flex items-center gap-1 font-mono text-[11px] font-medium text-white/55 bg-white/[0.05] rounded-full px-2 py-0.5 shrink-0';
+  'inline-flex items-center gap-1 font-mono text-[11px] font-medium text-ink/55 bg-ink/[0.05] rounded-full px-2 py-0.5 shrink-0';
 
 export interface TerminalHeaderViewProps {
   summaryType: string;
@@ -71,7 +71,7 @@ export function TerminalHeaderView({
           <div className="group/meta flex items-center gap-2 min-w-0">
             <StatusDot summaryType={summaryType} sandboxProvider={sandboxProvider} />
             {!isActive && stackPosition != null && stackPosition <= 9 && (
-              <kbd className="inline-flex items-center font-mono text-base text-white/40 shrink-0">
+              <kbd className="inline-flex items-center font-mono text-base text-ink/40 shrink-0">
                 {isMac ? '⌘' : '⌃'}
                 <span className="text-xs">{stackPosition}</span>
               </kbd>
@@ -85,7 +85,7 @@ export function TerminalHeaderView({
           {actions}
           {showCloseButton && (
             <button
-              className="w-7 h-7 flex items-center justify-center bg-transparent border-none text-white/40 hover:text-white/90 transition-colors duration-150 ml-1 [&_svg]:w-4 [&_svg]:h-4"
+              className="w-7 h-7 flex items-center justify-center bg-transparent border-none text-ink/40 hover:text-ink/90 transition-colors duration-150 ml-1 [&_svg]:w-4 [&_svg]:h-4"
               onClick={onClose}
             >
               <Icon name="x" />
@@ -105,9 +105,9 @@ export function TerminalHeaderView({
 export function TerminalHeaderName({ label, lastOscTitle }: { label?: string; lastOscTitle?: string }) {
   return (
     <Fragment>
-      {label && <span className="font-mono text-xs font-medium text-white/85 shrink-0">{label}</span>}
+      {label && <span className="font-mono text-xs font-medium text-ink/85 shrink-0">{label}</span>}
       {lastOscTitle && (
-        <span className="font-mono text-xs font-medium text-white/40 min-w-0 truncate">{lastOscTitle}</span>
+        <span className="font-mono text-xs font-medium text-ink/40 min-w-0 truncate">{lastOscTitle}</span>
       )}
     </Fragment>
   );

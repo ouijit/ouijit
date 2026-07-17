@@ -253,7 +253,7 @@ export function Sidebar({ onProjectSelect, onHomeSelect, onAddExisting, onCreate
               onClick={onHomeSelect}
             >
               <div
-                className={`absolute left-0 w-1 rounded-r-sm bg-white transition-all duration-200 ease-out ${
+                className={`absolute left-0 w-1 rounded-r-sm bg-ink transition-all duration-200 ease-out ${
                   activeView === 'home' ? 'h-9 opacity-100' : 'h-0 opacity-0 group-hover:h-5 group-hover:opacity-50'
                 }`}
               />
@@ -309,7 +309,7 @@ export function Sidebar({ onProjectSelect, onHomeSelect, onAddExisting, onCreate
               >
                 <button
                   ref={addBtnRef}
-                  className="w-10 h-10 flex items-center justify-center relative glass-bevel overflow-hidden rounded-[12px] bg-background-secondary border border-black/60 text-text-secondary transition-colors duration-200 ease-out [-webkit-app-region:no-drag] hover:bg-background-tertiary hover:text-text-primary [&>svg]:w-5 [&>svg]:h-5"
+                  className="w-10 h-10 flex items-center justify-center relative glass-bevel overflow-hidden rounded-[12px] bg-background-secondary border border-bezel text-text-secondary transition-colors duration-200 ease-out [-webkit-app-region:no-drag] hover:bg-background-tertiary hover:text-text-primary [&>svg]:w-5 [&>svg]:h-5"
                   onClick={(e) => {
                     e.stopPropagation();
                     setAddMenuOpen(!addMenuOpen);
@@ -339,7 +339,7 @@ export function Sidebar({ onProjectSelect, onHomeSelect, onAddExisting, onCreate
                 aria-label={sidebarPinned ? 'Unpin sidebar' : 'Pin sidebar open'}
               >
                 <div
-                  className={`absolute left-0 w-1 rounded-r-sm bg-white transition-all duration-200 ease-out ${
+                  className={`absolute left-0 w-1 rounded-r-sm bg-ink transition-all duration-200 ease-out ${
                     sidebarPinned ? 'h-7 opacity-100' : 'h-0 opacity-0 group-hover:h-4 group-hover:opacity-50'
                   }`}
                 />
@@ -368,12 +368,12 @@ export function Sidebar({ onProjectSelect, onHomeSelect, onAddExisting, onCreate
       {/* Context menu */}
       {contextMenu && (
         <div
-          className="sidebar-context-menu-react fixed z-[10002] p-1 glass-bevel border border-black/60 rounded-[12px] overflow-hidden opacity-100"
+          className="sidebar-context-menu-react fixed z-[10002] p-1 glass-bevel border border-bezel rounded-[12px] overflow-hidden opacity-100"
           style={{
             left: Math.min(contextMenu.x, window.innerWidth - 120),
             top: Math.min(contextMenu.y, window.innerHeight - 40),
-            background: 'var(--color-terminal-bg, #171717)',
-            boxShadow: '0 0 0 1px rgba(0, 0, 0, 0.05), 0 10px 30px rgba(0, 0, 0, 0.35)',
+            background: 'var(--color-terminal-bg)',
+            boxShadow: 'var(--shadow-menu)',
           }}
         >
           <button
@@ -451,7 +451,7 @@ function SortableProjectIcon({ project, isActive, onClick, onContextMenu }: Sort
         onContextMenu={onContextMenu}
       >
         <div
-          className={`absolute left-0 w-1 rounded-r-sm bg-white transition-all duration-200 ease-out ${
+          className={`absolute left-0 w-1 rounded-r-sm bg-ink transition-all duration-200 ease-out ${
             isActive ? 'h-9 opacity-100' : 'h-0 opacity-0 group-hover:h-5 group-hover:opacity-50'
           }`}
         />
@@ -465,7 +465,7 @@ function SortableProjectIcon({ project, isActive, onClick, onContextMenu }: Sort
         </div>
         {terminalCount > 0 && (
           <span
-            className="absolute bottom-0 right-2 flex items-center justify-center text-white font-bold"
+            className="absolute bottom-0 right-2 flex items-center justify-center text-accent-ink font-bold"
             style={{
               minWidth: 16,
               height: 16,
@@ -490,7 +490,7 @@ function SortableProjectIcon({ project, isActive, onClick, onContextMenu }: Sort
             style={tipStyles}
             {...getTipFloatProps()}
           >
-            <div className="px-3 py-1.5 text-[13px] font-medium text-white bg-neutral-800 border border-white/10 rounded-md shadow-lg whitespace-nowrap animate-tooltip-pop">
+            <div className="px-3 py-1.5 text-[13px] font-medium text-text-primary bg-terminal-surface border border-ink/10 rounded-md shadow-tooltip whitespace-nowrap animate-tooltip-pop">
               {project.name}
             </div>
           </div>,
@@ -537,7 +537,7 @@ function SidebarTooltipWrapper({
             style={floatingStyles}
             {...getFloatingProps()}
           >
-            <div className="px-3 py-1.5 text-[13px] font-medium text-white bg-neutral-800 border border-white/10 rounded-md shadow-lg whitespace-nowrap animate-tooltip-pop">
+            <div className="px-3 py-1.5 text-[13px] font-medium text-text-primary bg-terminal-surface border border-ink/10 rounded-md shadow-tooltip whitespace-nowrap animate-tooltip-pop">
               {label}
             </div>
           </div>,
@@ -577,17 +577,17 @@ function AddMenu({ anchorRef, onAddExisting, onCreateNew, onClose }: AddMenuProp
   return createPortal(
     <div
       ref={ref}
-      className="sidebar-add-menu-react fixed z-[10002] flex flex-col p-1 glass-bevel border border-black/60 rounded-[12px] overflow-hidden"
+      className="sidebar-add-menu-react fixed z-[10002] flex flex-col p-1 glass-bevel border border-bezel rounded-[12px] overflow-hidden"
       style={{
         left,
         bottom,
         top: 'auto',
-        background: 'var(--color-terminal-bg, #171717)',
-        boxShadow: '0 0 0 1px rgba(0, 0, 0, 0.05), 0 10px 30px rgba(0, 0, 0, 0.35)',
+        background: 'var(--color-terminal-bg)',
+        boxShadow: 'var(--shadow-menu)',
       }}
     >
       <button
-        className="w-full px-2.5 py-1.5 rounded-[7px] text-xs text-text-primary bg-transparent border-none text-left transition-colors duration-100 ease-out hover:bg-white/[0.08]"
+        className="w-full px-2.5 py-1.5 rounded-[7px] text-xs text-text-primary bg-transparent border-none text-left transition-colors duration-100 ease-out hover:bg-ink/[0.08]"
         onClick={() => {
           onClose();
           onAddExisting();
@@ -596,7 +596,7 @@ function AddMenu({ anchorRef, onAddExisting, onCreateNew, onClose }: AddMenuProp
         Add existing
       </button>
       <button
-        className="w-full px-2.5 py-1.5 rounded-[7px] text-xs text-text-primary bg-transparent border-none text-left transition-colors duration-100 ease-out hover:bg-white/[0.08]"
+        className="w-full px-2.5 py-1.5 rounded-[7px] text-xs text-text-primary bg-transparent border-none text-left transition-colors duration-100 ease-out hover:bg-ink/[0.08]"
         onClick={() => {
           onClose();
           onCreateNew();

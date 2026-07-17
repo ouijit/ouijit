@@ -18,7 +18,7 @@ export interface HookRowViewProps {
 export function HookRowView({ label, description, command, onAction, actionLabel }: HookRowViewProps) {
   const buttonLabel = actionLabel ?? (command ? 'Edit' : '+ Configure');
   return (
-    <div className="group flex items-center gap-3 px-3 py-2 hover:bg-white/[0.04] transition-colors duration-100">
+    <div className="group flex items-center gap-3 px-3 py-2 hover:bg-ink/[0.04] transition-colors duration-100">
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
           <span className="text-xs font-medium text-text-primary">{label}</span>
