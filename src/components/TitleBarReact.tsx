@@ -1,10 +1,12 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { useAppStore } from '../stores/appStore';
 import { useProjectStore, type TerminalLayout } from '../stores/projectStore';
 import { projectIconColor, getInitials } from '../utils/projectIcon';
 import { useExperimentalStore } from '../stores/experimentalStore';
 import { useUIStore } from '../stores/uiStore';
+import { useTerminalStore, collectActiveTags } from '../stores/terminalStore';
 import { Icon } from './terminal/Icon';
+import { TagFilterControl } from './terminal/TagFilterControl';
 import { addProjectTerminal } from './terminal/terminalActions';
 import { focusKanbanAddInput } from './kanban/KanbanAddInput';
 import { Tooltip } from './ui/Tooltip';
@@ -29,6 +31,20 @@ export function TitleBar({ mode }: TitleBarProps) {
     activeProjectPath ? (s.flagsByProject[activeProjectPath]?.canvas ?? false) : false,
   );
   const homeGroupMode = useUIStore((s) => s.homeGroupMode);
+  const tagFilter = useProjectStore((s) => s.tagFilter);
+  const homeTagFilter = useUIStore((s) => s.homeTagFilter);
+  const terminalsByProject = useTerminalStore((s) => s.terminalsByProject);
+  const displayStates = useTerminalStore((s) => s.displayStates);
+
+  const projectTags = useMemo(
+    () => (activeProjectPath ? collectActiveTags(terminalsByProject[activeProjectPath] ?? [], displayStates) : []),
+    [activeProjectPath, terminalsByProject, displayStates],
+  );
+  const homeTags = useMemo(() => {
+    const all: string[] = [];
+    for (const ids of Object.values(terminalsByProject)) all.push(...ids);
+    return collectActiveTags(all, displayStates);
+  }, [terminalsByProject, displayStates]);
 
   // Fetch sandbox availability when switching projects
   useEffect(() => {
@@ -151,6 +167,14 @@ export function TitleBar({ mode }: TitleBarProps) {
                 <Icon name="gear" />
               </TooltipButton>
             </div>
+            <TagFilterControl
+              tags={projectTags}
+              value={tagFilter}
+              active={tagFilter != null}
+              allSelected={tagFilter == null}
+              onSelectAll={() => useProjectStore.getState().setTagFilter(null)}
+              onSelectTag={(t) => useProjectStore.getState().setTagFilter(t)}
+            />
             <Tooltip text="New terminal" placement="bottom">
               <button
                 className="w-9 h-9 flex items-center justify-center bg-background-secondary glass-bevel relative border border-bezel rounded-[14px] text-text-secondary transition-all duration-150 ease-out ml-3 [-webkit-app-region:no-drag] hover:bg-background-tertiary hover:text-text-primary [&>svg]:w-5 [&>svg]:h-5"
@@ -182,16 +206,24 @@ export function TitleBar({ mode }: TitleBarProps) {
               >
                 <Icon name="folder-open" />
               </TooltipButton>
-              <TooltipButton
-                text="Group by tag"
-                className={`w-9 h-full flex items-center justify-center text-text-secondary transition-all duration-150 ease-out hover:text-text-primary hover:bg-background-tertiary [&>svg]:w-5 [&>svg]:h-5${homeActivePanel !== 'settings' && homeGroupMode === 'tag' ? ' text-text-primary bg-background-tertiary' : ''}`}
-                onClick={() => {
+              <TagFilterControl
+                variant="segment"
+                title="Group or filter by tag"
+                tags={homeTags}
+                value={homeTagFilter}
+                active={homeActivePanel !== 'settings' && homeGroupMode === 'tag'}
+                allSelected={homeGroupMode === 'tag' && homeTagFilter == null}
+                onSelectAll={() => {
                   useAppStore.getState().setHomeActivePanel('home');
                   useUIStore.getState().setHomeGroupMode('tag');
+                  useUIStore.getState().setHomeTagFilter(null);
                 }}
-              >
-                <Icon name="tag" />
-              </TooltipButton>
+                onSelectTag={(t) => {
+                  useAppStore.getState().setHomeActivePanel('home');
+                  useUIStore.getState().setHomeGroupMode('tag');
+                  useUIStore.getState().setHomeTagFilter(t);
+                }}
+              />
               <TooltipButton
                 text="Settings"
                 className={`w-9 h-full flex items-center justify-center text-text-secondary transition-all duration-150 ease-out hover:text-text-primary hover:bg-background-tertiary [&>svg]:w-5 [&>svg]:h-5${homeActivePanel === 'settings' ? ' text-text-primary bg-background-tertiary' : ''}`}

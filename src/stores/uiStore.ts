@@ -11,6 +11,8 @@ interface UIStoreState {
   sidebarPinned: boolean;
   gitDropdownVisible: boolean;
   homeGroupMode: HomeGroupMode;
+  /** When set, the home terminal stack shows only sessions whose task has this tag (across all projects). */
+  homeTagFilter: string | null;
 }
 
 interface UIStoreActions {
@@ -21,6 +23,7 @@ interface UIStoreActions {
   setGitDropdownVisible: (visible: boolean) => void;
   closeAllDropdowns: () => void;
   setHomeGroupMode: (mode: HomeGroupMode) => void;
+  setHomeTagFilter: (tag: string | null) => void;
 }
 
 type UIStore = UIStoreState & UIStoreActions;
@@ -30,6 +33,7 @@ export const useUIStore = create<UIStore>()((set, get) => ({
   sidebarPinned: true,
   gitDropdownVisible: false,
   homeGroupMode: 'project',
+  homeTagFilter: null,
 
   setSidebarVisible: (visible) => set({ sidebarVisible: visible }),
 
@@ -51,4 +55,6 @@ export const useUIStore = create<UIStore>()((set, get) => ({
   closeAllDropdowns: () => set({ gitDropdownVisible: false }),
 
   setHomeGroupMode: (mode) => set({ homeGroupMode: mode }),
+
+  setHomeTagFilter: (tag) => set({ homeTagFilter: tag }),
 }));

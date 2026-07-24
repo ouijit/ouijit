@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo, useRef } from 'react';
 import { useAppStore } from '../stores/appStore';
-import { useTerminalStore } from '../stores/terminalStore';
+import { useTerminalStore, terminalMatchesTag } from '../stores/terminalStore';
 import { useUIStore } from '../stores/uiStore';
 import { terminalInstances } from './terminal/terminalReact';
 import { reconnectOrphanedSessions, addProjectTerminal, closeProjectTerminal } from './terminal/terminalActions';
@@ -37,16 +37,19 @@ export function HomeView() {
   const terminalsByProject = useTerminalStore((s) => s.terminalsByProject);
   const displayStates = useTerminalStore((s) => s.displayStates);
   const homeGroupMode = useUIStore((s) => s.homeGroupMode);
+  const homeTagFilter = useUIStore((s) => s.homeTagFilter);
 
   const allPtyIds = useMemo(() => {
     const ids: string[] = [];
     for (const ptyIds of Object.values(terminalsByProject)) {
       for (const id of ptyIds) {
-        if (!displayStates[id]?.isLoading) ids.push(id);
+        if (displayStates[id]?.isLoading) continue;
+        if (homeTagFilter && !terminalMatchesTag(displayStates[id], homeTagFilter)) continue;
+        ids.push(id);
       }
     }
     return ids;
-  }, [terminalsByProject, displayStates]);
+  }, [terminalsByProject, displayStates, homeTagFilter]);
 
   const [activePtyId, setActivePtyId] = useState<string | null>(null);
   const reconnectedRef = useRef(false);

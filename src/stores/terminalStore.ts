@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { DEFAULT_DISPLAY_STATE, type TerminalDisplayState } from './terminalDisplay';
+import { useProjectStore } from './projectStore';
 
 export { DEFAULT_DISPLAY_STATE, type TerminalDisplayState } from './terminalDisplay';
 
@@ -166,6 +167,39 @@ export const useTerminalStore = create<TerminalStore>()((set, get) => ({
   },
 }));
 
+// ── Tag filtering ─────────────────────────────────────────────────────
+
+/** Whether a terminal's display state matches the given tag filter. A null tag matches everything. */
+export function terminalMatchesTag(display: TerminalDisplayState | undefined, tag: string | null): boolean {
+  if (!tag) return true;
+  if (!display) return false;
+  const needle = tag.toLowerCase();
+  return display.tags.some((t) => t.toLowerCase() === needle);
+}
+
+/** Distinct tags (case-insensitive, first-seen casing) present on the given terminals' display states. */
+export function collectActiveTags(ptyIds: string[], displayStates: Record<string, TerminalDisplayState>): string[] {
+  const seen = new Map<string, string>();
+  for (const id of ptyIds) {
+    const display = displayStates[id];
+    if (!display) continue;
+    for (const tag of display.tags) {
+      const key = tag.toLowerCase();
+      if (!seen.has(key)) seen.set(key, tag);
+    }
+  }
+  return [...seen.values()];
+}
+
+/** A project's ordered terminals after applying the active per-project tag filter. */
+export function getVisibleTerminals(projectPath: string): string[] {
+  const state = useTerminalStore.getState();
+  const terminals = state.terminalsByProject[projectPath] ?? [];
+  const tagFilter = useProjectStore.getState().tagFilter;
+  if (!tagFilter) return terminals;
+  return terminals.filter((id) => terminalMatchesTag(state.displayStates[id], tagFilter));
+}
+
 // ── Derived selectors ────────────────────────────────────────────────
 
 /** Get the active ptyId for a project */
@@ -197,14 +231,20 @@ export function getTotalStackPages(projectPath: string): number {
  */
 export function getTerminalIndexByStackPosition(projectPath: string, stackPosition: number): number {
   const state = useTerminalStore.getState();
-  const terminals = state.terminalsByProject[projectPath] ?? [];
-  const currentActiveIndex = state.activeIndices[projectPath] ?? 0;
+  const fullTerminals = state.terminalsByProject[projectPath] ?? [];
+  // Position math runs over the visible (filtered) list, but the returned index
+  // addresses the full list, since setActiveIndex/activeIndices are full-list.
+  const terminals = getVisibleTerminals(projectPath);
+  if (terminals.length === 0) return -1;
+
+  const activePtyId = fullTerminals[state.activeIndices[projectPath] ?? 0];
+  let currentActiveIndex = activePtyId ? terminals.indexOf(activePtyId) : -1;
+  if (currentActiveIndex < 0) currentActiveIndex = 0;
+
   const page = Math.floor(currentActiveIndex / STACK_PAGE_SIZE);
   const pageStart = page * STACK_PAGE_SIZE;
   const pageEnd = Math.min(pageStart + STACK_PAGE_SIZE, terminals.length);
   const pageSize = pageEnd - pageStart;
-
-  if (terminals.length === 0) return -1;
 
   const backPositions: { index: number; diff: number }[] = [];
   for (let index = pageStart; index < pageEnd; index++) {
@@ -221,7 +261,7 @@ export function getTerminalIndexByStackPosition(projectPath: string, stackPositi
 
   const arrayIndex = stackPosition - 1;
   if (arrayIndex >= 0 && arrayIndex < backPositions.length) {
-    return backPositions[arrayIndex].index;
+    return fullTerminals.indexOf(terminals[backPositions[arrayIndex].index]);
   }
 
   return -1;

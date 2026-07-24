@@ -5,25 +5,34 @@ import { TerminalHeader } from './TerminalHeader';
 import { TerminalBody } from './TerminalBody';
 import { TerminalCardView } from './TerminalCardView';
 
-const EMPTY: string[] = [];
-
 interface TerminalCardProps {
   ptyId: string;
   projectPath: string;
+  /** Ordered visible (tag-filtered) terminals this card belongs to. */
+  orderedIds: string[];
+  /** The active ptyId within {@link orderedIds}, or null when the list is empty. */
+  activeId: string | null;
 }
 
-export const TerminalCard = memo(function TerminalCard({ ptyId, projectPath }: TerminalCardProps) {
-  const terminals = useTerminalStore((s) => s.terminalsByProject[projectPath]) ?? EMPTY;
-  const activeIndex = useTerminalStore((s) => s.activeIndices[projectPath] ?? 0);
+export const TerminalCard = memo(function TerminalCard({
+  ptyId,
+  projectPath,
+  orderedIds,
+  activeId,
+}: TerminalCardProps) {
   const isLoading = useTerminalStore((s) => s.displayStates[ptyId]?.isLoading ?? false);
   const loadingLabel = useTerminalStore((s) => s.displayStates[ptyId]?.label ?? '');
 
-  const index = terminals.indexOf(ptyId);
+  // Position math runs over the visible list; the store's activeIndices stays a
+  // full-list index, so clicks map back through terminalsByProject.
+  const index = orderedIds.indexOf(ptyId);
+  const rawActiveIndex = activeId ? orderedIds.indexOf(activeId) : 0;
+  const activeIndex = rawActiveIndex < 0 ? 0 : rawActiveIndex;
   const page = Math.floor(activeIndex / STACK_PAGE_SIZE);
   const pageStart = page * STACK_PAGE_SIZE;
-  const pageEnd = Math.min(pageStart + STACK_PAGE_SIZE, terminals.length);
+  const pageEnd = Math.min(pageStart + STACK_PAGE_SIZE, orderedIds.length);
   const pageSize = pageEnd - pageStart;
-  const isActive = index === activeIndex;
+  const isActive = ptyId === activeId;
 
   const isHidden = index < pageStart || index >= pageEnd;
 
@@ -50,9 +59,10 @@ export const TerminalCard = memo(function TerminalCard({ ptyId, projectPath }: T
 
   const handleClick = useCallback(() => {
     if (!isActive) {
-      useTerminalStore.getState().setActiveIndex(projectPath, index);
+      const fullIdx = useTerminalStore.getState().terminalsByProject[projectPath]?.indexOf(ptyId) ?? -1;
+      if (fullIdx >= 0) useTerminalStore.getState().setActiveIndex(projectPath, fullIdx);
     }
-  }, [isActive, projectPath, index]);
+  }, [isActive, projectPath, ptyId]);
 
   const handleClose = useCallback(() => {
     const instance = terminalInstances.get(ptyId);
