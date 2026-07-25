@@ -83,10 +83,10 @@ export function TagFilterControl({
             ? 'text-text-primary bg-background-tertiary'
             : 'text-text-secondary hover:text-text-primary hover:bg-background-tertiary'
         }`
-      : `${widthClass} h-9 flex items-center justify-center bg-background-secondary glass-bevel relative border rounded-[14px] transition-all duration-150 ease-out [&>svg]:w-5 [&>svg]:h-5 ${
+      : `${widthClass} h-9 flex items-center justify-center bg-background-secondary glass-bevel relative border border-bezel rounded-[14px] transition-all duration-150 ease-out [&>svg]:w-5 [&>svg]:h-5 ${
           active
-            ? 'text-accent border-accent'
-            : 'text-text-secondary border-bezel hover:bg-background-tertiary hover:text-text-primary'
+            ? 'text-text-primary bg-background-tertiary'
+            : 'text-text-secondary hover:bg-background-tertiary hover:text-text-primary'
         }`;
 
   const wrapperClass = variant === 'segment' ? 'contents' : 'relative ml-3 [-webkit-app-region:no-drag]';

@@ -26,7 +26,7 @@ export const CanvasControls = memo(function CanvasControls({ projectPath }: Canv
       className="glass-bevel flex items-center gap-0.5 px-1.5 rounded-lg border border-bezel"
       style={{
         position: 'absolute',
-        top: -16,
+        top: 8,
         left: '50%',
         transform: 'translateX(-50%)',
         zIndex: 10001,

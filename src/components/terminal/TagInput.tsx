@@ -132,7 +132,10 @@ export function TagInput({ ptyId, onClose }: TagInputProps) {
   };
 
   return (
-    <div ref={containerRef} className="inline-flex flex-wrap items-center gap-1 relative [-webkit-app-region:no-drag]">
+    <div
+      ref={containerRef}
+      className="nodrag inline-flex flex-wrap items-center gap-1 relative [-webkit-app-region:no-drag]"
+    >
       {tags.map((tag) => (
         <span
           key={tag}

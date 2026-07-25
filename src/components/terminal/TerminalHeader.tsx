@@ -245,7 +245,7 @@ export const TerminalHeader = memo(function TerminalHeader({
         {tags.map((tag) => (
           <button
             key={tag}
-            className={`${METADATA_CHIP} border-none hover:bg-ink/[0.1] hover:text-ink/75 transition-colors duration-150`}
+            className={`nodrag ${METADATA_CHIP} border-none hover:bg-ink/[0.1] hover:text-ink/75 transition-colors duration-150`}
             onMouseDown={handleTagButtonClick}
           >
             {tag}
@@ -253,7 +253,7 @@ export const TerminalHeader = memo(function TerminalHeader({
         ))}
         {tags.length === 0 && (
           <button
-            className="inline-flex items-center gap-1 font-mono text-[11px] text-ink/35 bg-transparent border-none px-2 py-0.5 rounded-full shrink-0 opacity-0 group-hover/meta:opacity-100 hover:text-ink/70 hover:bg-ink/[0.05] transition-all duration-150"
+            className="nodrag inline-flex items-center gap-1 font-mono text-[11px] text-ink/35 bg-transparent border-none px-2 py-0.5 rounded-full shrink-0 opacity-0 group-hover/meta:opacity-100 hover:text-ink/70 hover:bg-ink/[0.05] transition-all duration-150"
             onMouseDown={handleTagButtonClick}
             aria-label="Add tag"
           >
