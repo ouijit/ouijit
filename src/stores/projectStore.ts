@@ -70,6 +70,8 @@ interface ProjectStoreState {
   kanbanVisible: boolean;
   terminalLayout: TerminalLayout;
   activePanel: 'terminals' | 'settings';
+  /** When set, the terminal stack and canvas show only sessions whose task has this tag. */
+  tagFilter: string | null;
   scripts: Script[];
   taskVersion: number;
   highlightedChainTask: number | null;
@@ -150,6 +152,7 @@ interface ProjectStoreActions {
   setTerminalLayout: (layout: TerminalLayout) => void;
   toggleTerminalLayout: () => void;
   setActivePanel: (panel: 'terminals' | 'settings') => void;
+  setTagFilter: (tag: string | null) => void;
   resetForProject: () => void;
 
   /** Toggle a single task's selection (Cmd/Ctrl+click) */
@@ -217,6 +220,7 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
   kanbanVisible: false,
   terminalLayout: 'stack',
   activePanel: 'terminals',
+  tagFilter: null,
   scripts: [],
   taskVersion: 0,
   highlightedChainTask: null,
@@ -286,6 +290,8 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
 
   setActivePanel: (panel) => set({ activePanel: panel }),
 
+  setTagFilter: (tag) => set({ tagFilter: tag }),
+
   showModal: (modal) => set({ activeModal: modal }),
 
   hideModal: () => set({ activeModal: null }),
@@ -319,6 +325,7 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
       kanbanVisible: false,
       terminalLayout: 'stack',
       activePanel: 'terminals',
+      tagFilter: null,
       scripts: [],
       taskVersion: 0,
       highlightedChainTask: null,

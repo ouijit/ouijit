@@ -19,7 +19,7 @@ import {
   persistCanvas,
   type TerminalNode as TerminalNodeType,
 } from '../../stores/canvasStore';
-import { useTerminalStore } from '../../stores/terminalStore';
+import { useTerminalStore, terminalMatchesTag } from '../../stores/terminalStore';
 import { TerminalNode } from './TerminalNode';
 import { terminalInstances } from '../terminal/terminalReact';
 import { ChainEdge } from './ChainEdge';
@@ -91,6 +91,28 @@ function TerminalCanvasInner({ projectPath }: TerminalCanvasProps) {
   const viewport = project?.viewport;
   const gridSnap = project?.gridSnap ?? false;
 
+  // Tag filter: hide non-matching nodes (and their edges) rather than removing
+  // them, so persisted canvas positions survive filtering.
+  const displayStates = useTerminalStore((s) => s.displayStates);
+  const tagFilter = useProjectStore((s) => s.tagFilter);
+  const hiddenIds = useMemo(() => {
+    if (!tagFilter) return null;
+    const set = new Set<string>();
+    for (const n of nodes) if (!terminalMatchesTag(displayStates[n.id], tagFilter)) set.add(n.id);
+    return set;
+  }, [nodes, tagFilter, displayStates]);
+  const renderedNodes = useMemo(
+    () => (hiddenIds ? nodes.map((n) => (hiddenIds.has(n.id) ? { ...n, hidden: true } : n)) : nodes),
+    [nodes, hiddenIds],
+  );
+  const renderedEdges = useMemo(
+    () =>
+      hiddenIds && hiddenIds.size > 0
+        ? edges.filter((e) => !hiddenIds.has(e.source) && !hiddenIds.has(e.target))
+        : edges,
+    [edges, hiddenIds],
+  );
+
   // Phase 2: chain edges
   useChainEdges(projectPath);
 
@@ -136,7 +158,6 @@ function TerminalCanvasInner({ projectPath }: TerminalCanvasProps) {
     return [readToken('--color-border-hover'), readToken('--color-background')];
   }, [themeEpoch]);
   const tasks = useProjectStore((s) => s.tasks);
-  const displayStates = useTerminalStore((s) => s.displayStates);
   // React Flow calls nodeColor once per node on every minimap render, so build
   // the chain map once here rather than rebuilding it inside the callback.
   const chainMap = useMemo(() => buildChainMap(tasks), [tasks]);
@@ -197,8 +218,8 @@ function TerminalCanvasInner({ projectPath }: TerminalCanvasProps) {
   return (
     <div className="terminal-canvas relative w-full h-full">
       <ReactFlow
-        nodes={nodes}
-        edges={edges}
+        nodes={renderedNodes}
+        edges={renderedEdges}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         nodeTypes={nodeTypes}
