@@ -4,6 +4,7 @@ import {
   terminalMatchesTag,
   collectActiveTags,
   getVisibleTerminals,
+  getTerminalIndexByStackPosition,
 } from '../../stores/terminalStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { DEFAULT_DISPLAY_STATE, type TerminalDisplayState } from '../../stores/terminalDisplay';
@@ -55,5 +56,29 @@ describe('tag filtering helpers', () => {
 
     useProjectStore.setState({ tagFilter: 'nonexistent' });
     expect(getVisibleTerminals(PROJECT)).toEqual([]);
+  });
+
+  test('getTerminalIndexByStackPosition navigates the visible list but returns full-list indices', () => {
+    // full list a..e; a, c, e are 'bug'. With the filter on, only [a, c, e] show,
+    // and 'a' (full index 0) is active — so the back stack is [c, e].
+    useTerminalStore.setState({
+      displayStates: {
+        a: display('a', PROJECT, ['bug']),
+        b: display('b', PROJECT, ['feature']),
+        c: display('c', PROJECT, ['bug']),
+        d: display('d', PROJECT, ['feature']),
+        e: display('e', PROJECT, ['bug']),
+      },
+      terminalsByProject: { [PROJECT]: ['a', 'b', 'c', 'd', 'e'] },
+      activeIndices: { [PROJECT]: 0 },
+    });
+    useProjectStore.setState({ tagFilter: 'bug' });
+
+    // Stack position 1 -> 'c' (full index 2), position 2 -> 'e' (full index 4),
+    // proving the math skips the filtered-out b/d and maps back to the full list.
+    expect(getTerminalIndexByStackPosition(PROJECT, 1)).toBe(2);
+    expect(getTerminalIndexByStackPosition(PROJECT, 2)).toBe(4);
+    // Only two other visible terminals exist, so there's no third back card.
+    expect(getTerminalIndexByStackPosition(PROJECT, 3)).toBe(-1);
   });
 });
