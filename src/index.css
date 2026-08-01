@@ -383,6 +383,16 @@ textarea,
   mask-position: center;
 }
 
+/* Project icon tile — a true squircle rather than a rounded rectangle.
+   `corner-shape` gives continuous curvature: flat along the edges, rounding
+   only into the corner, which is why the radius here is larger than the
+   `rounded-md` a circular-arc corner would use at this size. Browsers without
+   `corner-shape` (Chromium < 139) fall back to a plain rounded rect. */
+.project-tile {
+  border-radius: 12px;
+  corner-shape: squircle;
+}
+
 /* ===================================
    Glass bevel — outer-edge bezel effect
    =================================== */
