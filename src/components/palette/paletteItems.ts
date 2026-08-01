@@ -271,7 +271,7 @@ export function buildPaletteItems(input: PaletteInput): PaletteItem[] {
             createdAt: task.createdAt,
           });
         } else {
-          void startTaskWorktree(project, task.taskNumber, task.createdAt);
+          void startTaskWorktree(project, task.taskNumber, task.createdAt, task.name || 'Untitled');
         }
       },
     });

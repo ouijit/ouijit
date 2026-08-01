@@ -83,7 +83,13 @@ function seed(): void {
     },
     activeIndices: { [projectA.path]: 0 },
   });
-  useProjectStore.setState({ tagFilter: null, terminalLayout: 'stack', kanbanVisible: true });
+  useProjectStore.setState({
+    tagFilter: null,
+    terminalLayout: 'stack',
+    kanbanVisible: true,
+    toasts: [],
+    startingTaskNumbers: new Set<number>(),
+  });
   useUIStore.setState({ paletteOpen: true, homeActivePtyId: null, homeTagFilter: null });
 }
 
@@ -293,12 +299,11 @@ describe('command palette navigation', () => {
     expect(window.api.task.start).not.toHaveBeenCalled();
   });
 
-  test('a task with no worktree is started, then opened as a plain shell', async () => {
-    window.api.task.start = vi.fn().mockResolvedValue({
-      success: true,
-      worktreePath: '/wt/eleven',
-      task: { ...TASKS[projectA.path][2], branch: 'eleven' },
-    });
+  test('a task with no worktree stages a loading card, then starts and opens it', async () => {
+    // Hold the start open so the staged state is observable, the way it is on
+    // screen while git creates the worktree.
+    let releaseStart: (v: unknown) => void = () => {};
+    window.api.task.start = vi.fn().mockReturnValue(new Promise((r) => (releaseStart = r)));
 
     await openPalette();
     const input = screen.getByLabelText('Search terminals, projects and tasks');
@@ -306,19 +311,28 @@ describe('command palette navigation', () => {
     await waitFor(() => expect(rowLabels()[0]).toContain('Eleven'));
     fireEvent.keyDown(input, { key: 'Enter' });
 
-    await waitFor(() => expect(window.api.task.start).toHaveBeenCalledWith(projectA.path, 11));
-    // Same shape the board's open-in-terminal produces after a start: the new
-    // worktree, and no hook.
+    // Mid-start: a loading card is already in the stack, so the user is looking
+    // at the task rather than at nothing.
+    await waitFor(() => expect(useProjectStore.getState().startingTaskNumbers.has(11)).toBe(true));
+    const staged = Object.values(useTerminalStore.getState().displayStates).find((d) => d.taskId === 11);
+    expect(staged).toMatchObject({ label: 'Eleven', isLoading: true });
+    expect(useProjectStore.getState().kanbanVisible).toBe(false);
+
+    releaseStart({ success: true, worktreePath: '/wt/eleven', task: { branch: 'eleven' } });
+
+    // The real terminal takes the staged slot's place rather than appending.
     await waitFor(() =>
       expect(addProjectTerminal).toHaveBeenCalledWith(projectA.path, undefined, {
         existingWorktree: { path: '/wt/eleven', branch: 'eleven', createdAt: '2026-07-01T00:00:00.000Z' },
         taskId: 11,
         skipAutoHook: true,
+        replaceLoadingId: staged?.ptyId,
       }),
     );
+    await waitFor(() => expect(useProjectStore.getState().startingTaskNumbers.has(11)).toBe(false));
   });
 
-  test('a failed start surfaces the error and opens nothing', async () => {
+  test('a failed start clears the staged card and surfaces the error', async () => {
     window.api.task.start = vi.fn().mockResolvedValue({ success: false, error: 'branch exists' });
 
     await openPalette();
@@ -329,6 +343,9 @@ describe('command palette navigation', () => {
 
     await waitFor(() => expect(useProjectStore.getState().toasts[0]?.message).toBe('branch exists'));
     expect(addProjectTerminal).not.toHaveBeenCalled();
+    // No orphan card left behind that would never resolve.
+    expect(Object.values(useTerminalStore.getState().displayStates).some((d) => d.isLoading)).toBe(false);
+    expect(useProjectStore.getState().startingTaskNumbers.has(11)).toBe(false);
   });
 
   test('remembers where you jumped and leads with it next time', async () => {

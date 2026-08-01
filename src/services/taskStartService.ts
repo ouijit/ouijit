@@ -19,7 +19,8 @@ import { legacySandboxProvider } from '../types';
 import type { CliHookMode, HookType, ScriptHook, TaskStatus, TaskWithWorkspace } from '../types';
 
 let placeholderCounter = 0;
-function makePlaceholderId(taskNumber: number): string {
+/** Id for a loading slot standing in for a task's terminal while it spawns. */
+export function makePlaceholderId(taskNumber: number): string {
   return `pending-${taskNumber}-${++placeholderCounter}`;
 }
 
