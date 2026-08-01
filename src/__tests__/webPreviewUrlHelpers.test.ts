@@ -33,4 +33,3 @@ describe('normalizeUrl', () => {
     expect(normalizeUrl('  http://foo  ')).toBe('http://foo');
   });
 });
-
