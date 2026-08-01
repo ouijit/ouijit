@@ -21,6 +21,7 @@ import type { ActiveSession, Project, SandboxProviderId, TaskWithWorkspace } fro
 import type { TerminalDisplayState } from '../../stores/terminalStore';
 import type { SearchField } from '../../utils/paletteScore';
 import { formatAge } from '../../utils/formatDate';
+import { STATUS_LABELS } from '../kanban/taskMenu';
 import { focusTerminal, openTaskWorktree, selectProject, startTaskWorktree } from '../navigation';
 
 export type PaletteKind = 'terminal' | 'project' | 'task';
@@ -29,13 +30,6 @@ export const KIND_LABEL: Record<PaletteKind, string> = {
   terminal: 'Terminals',
   project: 'Projects',
   task: 'Tasks',
-};
-
-const STATUS_LABEL: Record<string, string> = {
-  todo: 'to do',
-  in_progress: 'in progress',
-  in_review: 'to review',
-  done: 'done',
 };
 
 export interface PaletteItem {
@@ -162,7 +156,7 @@ function taskFields(task: TaskWithWorkspace, project: Project, live: LiveTermina
     { key: 'number', text: String(task.taskNumber), weight: 0.9 },
     { key: 'project', text: project.name, weight: 0.5 },
     { key: 'status', text: task.status, weight: 0.4 },
-    { key: 'status', text: STATUS_LABEL[task.status] ?? task.status, weight: 0.4 },
+    { key: 'status', text: STATUS_LABELS[task.status] ?? task.status, weight: 0.4 },
   ];
   if (task.branch) fields.push({ key: 'branch', text: task.branch, weight: 0.7 });
   if (task.prompt) fields.push({ key: 'prompt', text: task.prompt, weight: 0.3 });
@@ -263,7 +257,7 @@ export function buildPaletteItems(input: PaletteInput): PaletteItem[] {
     const live = liveByTask.get(`${project.path}#${task.taskNumber}`) ?? [];
     const first = live[0];
     const openable = task.worktreePath && task.branch;
-    const status = STATUS_LABEL[task.status] ?? task.status;
+    const status = STATUS_LABELS[task.status] ?? task.status;
     const taskId = `task:${project.path}#${task.taskNumber}`;
 
     push({

@@ -205,8 +205,13 @@ describe('command palette results', () => {
     fireEvent.change(input, { target: { value: 'scheduler' } });
     await waitFor(() => expect(rowLabels()[0]).toContain('Nine'));
 
+    // Statuses read and match by the board's own column names.
     fireEvent.change(input, { target: { value: 'to do' } });
     await waitFor(() => expect(rowLabels()[0]).toContain('Eleven'));
+    expect(rowLabels()[0]).toContain('To Do');
+
+    fireEvent.change(input, { target: { value: 'in progress' } });
+    await waitFor(() => expect(rowLabels()[0]).toContain('In Progress'));
 
     // An exact name still outranks a lower-weight field's exact hit.
     fireEvent.change(input, { target: { value: 'Seven' } });
