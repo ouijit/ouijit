@@ -124,6 +124,10 @@ function getTaskStartedPushes() {
   return typedPushMock.mock.calls.filter((call) => call[1] === 'cli:task-started');
 }
 
+function cliChangePayloads() {
+  return typedPushMock.mock.calls.filter((call) => call[1] === 'cli-change').map((call) => call[2]);
+}
+
 describe('cli:task-started push', () => {
   test('fires after POST /api/tasks/start when result is successful', async () => {
     createTaskWorktreeMock.mockResolvedValueOnce({
@@ -195,7 +199,7 @@ describe('cli:task-started push', () => {
     expect(getTaskStartedPushes()).toHaveLength(0);
   });
 
-  test('still emits cli-change alongside cli:task-started', async () => {
+  test('still emits cli-change alongside cli:task-started, tagged with the mutated resource', async () => {
     createTaskWorktreeMock.mockResolvedValueOnce({
       success: true,
       worktreePath: '/tmp/wt/T-1',
@@ -207,6 +211,15 @@ describe('cli:task-started push', () => {
     const channels = typedPushMock.mock.calls.map((c) => c[1]);
     expect(channels).toContain('cli-change');
     expect(channels).toContain('cli:task-started');
+    expect(cliChangePayloads()).toEqual([expect.objectContaining({ resource: 'tasks' })]);
+
+    // `resource` drives which loader the renderer re-runs, and a wrong value
+    // degrades silently (it just falls back to refreshing tasks), so pin that
+    // it tracks the route rather than being hardcoded.
+    typedPushMock.mockClear();
+    await request('PUT', `/api/scripts/dev-server?project=${PROJECT}`, token, { name: 'Dev', command: 'npm run dev' });
+
+    expect(cliChangePayloads()).toEqual([expect.objectContaining({ resource: 'scripts' })]);
   });
 
   test('forwards hookMode + hookCommand from the request body into the push', async () => {
