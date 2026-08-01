@@ -97,8 +97,7 @@ export function useTerminalPanels(ptyId: string | null) {
 
   const changeWebPreviewUrl = useCallback(
     (panelId: string, newUrl: string) => {
-      // A manual edit locks out future auto-detections for this panel.
-      withInstance((instance) => instance.updatePanel(panelId, { url: newUrl, urlAutoDetected: false }));
+      withInstance((instance) => instance.updatePanel(panelId, { url: newUrl }));
     },
     [withInstance],
   );

@@ -233,8 +233,9 @@ contextBridge.exposeInMainWorld('api', {
 
   onWhatsNew: (callback: (info: { version: string; notes: string }) => void) => typedListen('whats-new', callback),
 
-  onCliChange: (callback: (payload: { project: string; action: string; message?: string; ts: number }) => void) =>
-    typedListen('cli-change', callback),
+  onCliChange: (
+    callback: (payload: { project: string; action: string; resource: string; message?: string; ts: number }) => void,
+  ) => typedListen('cli-change', callback),
 
   onCliThemeChanged: (callback: () => void) => typedListen('cli:theme-changed', callback),
 

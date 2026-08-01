@@ -34,9 +34,7 @@ function uiFor(term: OuijitTerminal): SnapshotTerminalUi {
         });
         break;
       case 'webPreview':
-        // Only persist user-set URLs. Auto-detected ones are tied to a runner
-        // that no longer exists post-quit and would mislead the user.
-        if (p.url && !p.urlAutoDetected) panels.push({ kind: 'webPreview', url: p.url });
+        if (p.url) panels.push({ kind: 'webPreview', url: p.url });
         break;
       case 'plan':
         panels.push({ kind: 'plan', planPath: p.planPath });

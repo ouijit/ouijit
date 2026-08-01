@@ -107,6 +107,12 @@ const mockApi = {
     save: vi.fn().mockResolvedValue({ success: true }),
     delete: vi.fn().mockResolvedValue({ success: true }),
   },
+  scripts: {
+    getAll: vi.fn().mockResolvedValue([]),
+    save: vi.fn().mockResolvedValue({ success: true }),
+    delete: vi.fn().mockResolvedValue({ success: true }),
+    reorder: vi.fn().mockResolvedValue({ success: true }),
+  },
   tags: {
     getAll: vi.fn().mockResolvedValue([]),
     getForTask: vi.fn().mockResolvedValue([]),
