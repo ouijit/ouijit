@@ -342,7 +342,7 @@ function PaletteBody({ visible }: { visible: boolean }) {
               <div key={group.key} role="group" aria-label={group.title ?? 'Results'}>
                 {group.title && (
                   <div
-                    className="sticky top-0 z-10 px-3 pt-2 pb-1 text-[10px] uppercase tracking-[0.08em] text-ink/40"
+                    className="sticky top-0 z-10 px-3 pt-2 pb-1 text-[11px] text-ink/40"
                     style={{ background: 'var(--color-terminal-bg)' }}
                   >
                     {group.title}
