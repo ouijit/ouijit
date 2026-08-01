@@ -7,9 +7,8 @@
  * to the renderer over a `cli:panel-op` push and awaits the matching
  * `cli-panels:respond` reply, correlated by an incrementing request id.
  *
- * Kept separate from `hookServer`'s `planPathMap` on purpose: that map is the
- * single agent-detected plan per pty (ExitPlanMode flow). These ops are the
- * plural, user/CLI-addressable panel set and always reflect what's on screen.
+ * These ops are the only way a panel appears without a click, and they always
+ * reflect what's on screen.
  */
 
 import { BrowserWindow, ipcMain } from 'electron';

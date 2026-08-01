@@ -2,7 +2,6 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { BrowserWindow, dialog } from 'electron';
 import { typedHandle } from '../helpers';
-import { getPlanPath } from '../../hookServer';
 import { getLogger } from '../../logger';
 import { resolveWithinBase, isSymlinkEscapeError } from '../../utils/pathSafety';
 
@@ -72,8 +71,6 @@ export function registerPlanHandlers(mainWindow: BrowserWindow): void {
       watchers.delete(resolved);
     }
   });
-
-  typedHandle('plan:get-for-pty', (ptyId) => getPlanPath(ptyId));
 
   typedHandle('plan:check-files-exist', async (workspaceRoot, filePaths) => {
     const result: Record<string, boolean> = {};

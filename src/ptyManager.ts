@@ -423,7 +423,7 @@ export function setPtyLabel(ptyId: PtyId, label: string): void {
 
 /**
  * Sandbox PTYs are tracked in src/lima/spawn.ts in their own map — they never
- * enter `activePtys`. But hookServer / setPlanPath / `task current` need a
+ * enter `activePtys`. But hookServer and `task current` need a
  * single source of truth for "is this ptyId live?" and "what task does this
  * ptyId belong to?" across both kinds. spawn.ts registers / unregisters ids
  * here over its lifecycle. Direct import would cycle (spawn already imports

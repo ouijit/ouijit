@@ -35,9 +35,6 @@ import {
   startHookServer,
   stopHookServer,
   getApiPort,
-  setPlanPath,
-  clearPlanPath,
-  getPlanPath,
   installWrapper,
   migrateFromSettingsHooks,
   buildVmHookSettings,
@@ -282,35 +279,37 @@ describe('status action', () => {
   });
 });
 
-describe('clearPlanPath', () => {
-  beforeEach(async () => {
+// ── Plan detection (removed) ─────────────────────────────────────────
+
+// Markdown panels are opened by the user (the "+" menu or `ouijit markdown
+// add`), never by an agent writing a file. Nothing may push a panel onto a
+// terminal on its own — no hook to fire it, and no server action if one does.
+describe('plan detection', () => {
+  test('nothing installs or answers a plan hook', async () => {
+    _testHomedir = tmpHome;
+    const binDir = path.join(tmpHome, '.config', 'Ouijit', 'bin');
+    fs.mkdirSync(binDir, { recursive: true });
+    // A plan hook left behind by an older install must be cleaned up.
+    fs.writeFileSync(path.join(binDir, 'ouijit-plan-hook'), '#!/bin/bash\n', { mode: 0o755 });
+    fs.mkdirSync(path.join(tmpHome, '.claude', 'plans'), { recursive: true });
+    fs.writeFileSync(path.join(tmpHome, '.claude', 'plans', 'a-plan.md'), '# Plan\n');
+
     await startHookServer(createMockWindow());
-  });
+    installWrapper();
 
-  test('notifies renderer and returns true when a plan was set', () => {
-    setPlanPath('pty-plan-1', '/tmp/plan.md');
-    mockSend.mockClear();
+    expect(fs.existsSync(path.join(binDir, 'ouijit-plan-hook'))).toBe(false);
+    expect(fs.readFileSync(path.join(binDir, 'claude'), 'utf-8')).not.toContain('plan-hook');
+    expect(buildVmHookSettings()).not.toContain('plan-hook');
 
-    const had = clearPlanPath('pty-plan-1');
-
-    expect(had).toBe(true);
-    expect(getPlanPath('pty-plan-1')).toBeNull();
-    expect(mockSend).toHaveBeenCalledWith('claude-plan-detected', 'pty-plan-1', null);
-  });
-
-  test('still notifies renderer when the map has no entry (stale renderer state)', () => {
-    const had = clearPlanPath('pty-never-set');
-
-    expect(had).toBe(false);
-    expect(mockSend).toHaveBeenCalledWith('claude-plan-detected', 'pty-never-set', null);
-  });
-
-  test('does not throw when window is destroyed', async () => {
-    await stopHookServer();
-    await startHookServer(createMockWindow(true));
-
-    expect(() => clearPlanPath('pty-destroyed')).not.toThrow();
+    // And an older hook script still calling in gets a silent 200.
+    const port = getApiPort();
+    for (const action of ['plan', 'plan-ready']) {
+      const res = await post(port, { action, ptyId: 'pty-plan-1', filename: 'a-plan.md' });
+      expect(res.status).toBe(200);
+    }
     expect(mockSend).not.toHaveBeenCalled();
+
+    _testHomedir = '';
   });
 });
 
@@ -368,9 +367,7 @@ describe('installWrapper', () => {
 
     expect(settings.hooks).toBeDefined();
     expect(settings.hooks!.UserPromptSubmit).toHaveLength(1);
-    expect(settings.hooks!.PostToolUse).toHaveLength(3); // status + plan detection + ExitPlanMode
-    expect(settings.hooks!.PostToolUse![1].matcher).toBe('Write|Edit');
-    expect(settings.hooks!.PostToolUse![2].matcher).toBe('ExitPlanMode');
+    expect(settings.hooks!.PostToolUse).toHaveLength(1);
     expect(settings.hooks!.Stop).toHaveLength(1);
     expect(settings.hooks!.Notification).toHaveLength(1);
     expect(settings.hooks!.Notification![0].matcher).toBe('permission_prompt|idle_prompt');
@@ -1195,9 +1192,7 @@ describe('buildVmHookSettings', () => {
     const settings = JSON.parse(buildVmHookSettings()) as HookSettings;
     expect(settings.hooks).toBeDefined();
     expect(settings.hooks!.UserPromptSubmit).toHaveLength(1);
-    expect(settings.hooks!.PostToolUse).toHaveLength(3); // status + plan detection + ExitPlanMode
-    expect(settings.hooks!.PostToolUse![1].matcher).toBe('Write|Edit');
-    expect(settings.hooks!.PostToolUse![2].matcher).toBe('ExitPlanMode');
+    expect(settings.hooks!.PostToolUse).toHaveLength(1);
     expect(settings.hooks!.Stop).toHaveLength(1);
     expect(settings.hooks!.Notification).toHaveLength(1);
     expect(settings.hooks!.Notification![0].matcher).toBe('permission_prompt|idle_prompt');

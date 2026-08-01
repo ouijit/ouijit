@@ -188,7 +188,6 @@ export interface IpcInvokeContract {
   'plan:read': { args: [planPath: string]; return: string | null };
   'plan:watch': { args: [planPath: string]; return: { success: boolean } };
   'plan:unwatch': { args: [planPath: string]; return: void };
-  'plan:get-for-pty': { args: [ptyId: string]; return: string | null };
   'plan:check-files-exist': { args: [workspaceRoot: string, filePaths: string[]]; return: Record<string, boolean> };
   'plan:pick-file': { args: [defaultPath?: string]; return: { canceled: boolean; filePath: string | null } };
 
@@ -256,8 +255,6 @@ export interface IpcSendContract {
 export interface IpcPushContract {
   'fullscreen-change': { args: [isFullscreen: boolean] };
   'agent-hook-status': { args: [ptyId: string, status: import('../hookServer').HookStatus] };
-  'claude-plan-detected': { args: [ptyId: string, planPath: string] };
-  'claude-plan-ready': { args: [ptyId: string] };
   'cli:panel-op': { args: [op: CliPanelOp] };
   'plan:content-changed': { args: [planPath: string, content: string] };
   'lima:spawn-progress': { args: [step: { id: string; label: string; status: 'active' | 'done' }] };

@@ -604,9 +604,7 @@ const routes: Route[] = [
   // (list/add/remove) rather than the old single-plan-per-pty model.
   //
   // Host-only (default scope): the guest shouldn't be able to steer the host
-  // renderer to open arbitrary .md files or URLs. Agent-detected plans inside
-  // a guest still flow through the `/hook` action:plan path, which server-joins
-  // safely under ~/.claude/plans.
+  // renderer to open arbitrary .md files or URLs.
   route('GET', 'panels/:ptyId/:kind', (r) => runPanelOp(r.segments[1], 'list', parsePanelKind(r.segments[2]))),
 
   route(

@@ -296,41 +296,6 @@ export function ProjectView() {
   // CLI panel ops (`ouijit markdown` / `ouijit preview`) → live terminal panels
   useCliPanelListener();
 
-  // Plan detection: register listeners + seed existing terminals
-  useEffect(() => {
-    if (!projectPath) return;
-
-    // Plan file path captured (Write/Edit to .claude/plans/). Ensure a plan
-    // panel exists for it (without stealing focus from the current panel).
-    const cleanupDetected = window.api.plan.onDetected((ptyId, planPath) => {
-      const apply = () => {
-        const instance = terminalInstances.get(ptyId);
-        if (instance && !instance.panels.some((p) => p.kind === 'plan' && p.planPath === planPath)) {
-          instance.addPlanPanel(planPath, false);
-        }
-      };
-      // Instance may not exist yet if reconnection is in progress
-      if (terminalInstances.has(ptyId)) {
-        apply();
-      } else {
-        setTimeout(apply, 500);
-      }
-    });
-
-    // Plan finalized (ExitPlanMode fired) — surface and activate the plan panel
-    const cleanupReady = window.api.plan.onReady((ptyId) => {
-      const instance = terminalInstances.get(ptyId);
-      if (!instance) return;
-      const planPanel = instance.panels.find((p) => p.kind === 'plan');
-      if (planPanel) instance.activatePanel(planPanel.id);
-    });
-
-    return () => {
-      cleanupDetected();
-      cleanupReady();
-    };
-  }, [projectPath]);
-
   // Focus active terminal when active index changes (stack mode only)
   useEffect(() => {
     if (!projectPath || terminals.length === 0 || kanbanVisible || terminalLayout !== 'stack') return;

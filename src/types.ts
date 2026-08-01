@@ -656,15 +656,12 @@ export interface AgentHooksAPI {
 }
 
 /**
- * Plan file detection and viewing API exposed to the renderer
+ * Markdown file viewing API exposed to the renderer (the "Markdown File" panel)
  */
 export interface PlanAPI {
   read(planPath: string): Promise<string | null>;
   watch(planPath: string): Promise<{ success: boolean }>;
   unwatch(planPath: string): Promise<void>;
-  getForPty(ptyId: PtyId): Promise<string | null>;
-  onDetected(callback: (ptyId: PtyId, planPath: string) => void): () => void;
-  onReady(callback: (ptyId: PtyId) => void): () => void;
   onContentChanged(callback: (planPath: string, content: string) => void): () => void;
   checkFilesExist(workspaceRoot: string, filePaths: string[]): Promise<Record<string, boolean>>;
   pickFile(defaultPath?: string): Promise<{ canceled: boolean; filePath: string | null }>;
