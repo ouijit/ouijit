@@ -68,6 +68,7 @@ export const KanbanCard = memo(function KanbanCard({
   const activeBadgeDragSource = useProjectStore((s) => s.activeBadgeDrag);
   const isHoveredByBadgeDrag = useProjectStore((s) => s.badgeDragOverTask === task.taskNumber);
   const optionKeyHeld = useProjectStore((s) => s.optionKeyHeld);
+  const isRevealed = useProjectStore((s) => s.revealedTaskNumber === task.taskNumber);
   const isBadgeDragActive = activeBadgeDragSource != null;
   const isValidBadgeTarget = useMemo(() => {
     if (activeBadgeDragSource == null || activeBadgeDragSource === task.taskNumber || !chainMap) return false;
@@ -291,6 +292,7 @@ export const KanbanCard = memo(function KanbanCard({
         connectedDisplays={connectedDisplays}
         isSettingUp={isSettingUp}
         isSelected={isSelected}
+        isRevealed={isRevealed}
         isHoveredBadgeTarget={isHoveredBadgeTarget}
         isValidBadgeTarget={isValidBadgeTarget}
         isInvalidBadgeTarget={isInvalidBadgeTarget}

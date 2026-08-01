@@ -123,6 +123,22 @@ export async function focusTerminal(ptyId: string, projectPath?: string): Promis
   focusXterm(ptyId);
 }
 
+/**
+ * Show a task on its project's board.
+ *
+ * The switcher's fallback for a task with nothing to open yet: no worktree
+ * exists, and creating one would make the switcher a launcher. Navigating to
+ * the card leaves the decision on the board, where starting a task already
+ * lives.
+ */
+export async function revealTaskOnBoard(project: Project, taskNumber: number): Promise<void> {
+  await selectProject(project.path, project);
+  const store = useProjectStore.getState();
+  store.setActivePanel('terminals');
+  store.setKanbanVisible(true);
+  store.revealTask(taskNumber);
+}
+
 export interface TaskWorktreeTarget {
   project: Project;
   taskNumber: number;

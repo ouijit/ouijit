@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach, vi } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react';
 
 vi.mock('electron-log/renderer', () => ({
   default: { scope: () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }) },
@@ -59,9 +59,10 @@ const SESSIONS: ActiveSession[] = [
 const TASKS: Record<string, TaskWithWorkspace[]> = {
   [projectA.path]: [
     task({ taskNumber: 7, name: 'Seven', worktreePath: '/wt/seven', branch: 'seven' }),
-    task({ taskNumber: 9, name: 'Nine', worktreePath: '/wt/nine', branch: 'nine' }),
-    // No worktree: the palette must not offer to start it.
-    task({ taskNumber: 11, name: 'Eleven' }),
+    task({ taskNumber: 9, name: 'Nine', worktreePath: '/wt/nine', branch: 'nine', prompt: 'Rewire the scheduler' }),
+    // No worktree yet: listed, but there is nothing to open.
+    task({ taskNumber: 11, name: 'Eleven', status: 'todo' }),
+    task({ taskNumber: 12, name: 'Cache invalidation', branch: 'fix/cache-headers', worktreePath: '/wt/twelve' }),
   ],
   [projectB.path]: [],
 };
@@ -133,7 +134,7 @@ describe('mod+K shortcut', () => {
 });
 
 describe('command palette results', () => {
-  test('lists switchable terminals, projects and worktree-backed tasks, without duplicates', async () => {
+  test('lists every task once, alongside non-task terminals and projects', async () => {
     await openPalette();
     const labels = rowLabels();
 
@@ -144,17 +145,17 @@ describe('command palette results', () => {
     // Runners are panels on a parent card, never their own row.
     expect(labels.some((l) => l.includes('npm run dev'))).toBe(false);
 
-    // Task 7 already has a live terminal, so it lists once — as that terminal.
+    // Task 7 has a live terminal. It is still one row, and it is the task's —
+    // not a second row wearing the terminal's label.
     expect(labels.filter((l) => l.includes('T-7'))).toHaveLength(1);
-    // Task 9 has a worktree and no terminal, so it lists as a task.
+    // A task with a worktree and one with nothing at all both list.
     expect(labels.some((l) => l.includes('Nine'))).toBe(true);
-    // Task 11 has no worktree — opening it would have to create one.
-    expect(labels.some((l) => l.includes('Eleven'))).toBe(false);
+    expect(labels.some((l) => l.includes('Eleven'))).toBe(true);
 
     // Projects are listed too.
     expect(labels.some((l) => l.includes('Bravo') && l.includes('/work/bravo'))).toBe(true);
 
-    // Sections keep their order: terminals, then projects, then tasks.
+    // With no query the browse groups keep their order.
     expect(screen.getAllByText(/^(Terminals|Projects|Tasks)$/).map((n) => n.textContent)).toEqual([
       'Terminals',
       'Projects',
@@ -175,6 +176,50 @@ describe('command palette results', () => {
 
     fireEvent.keyDown(input, { key: 'Escape' });
     expect(useUIStore.getState().paletteOpen).toBe(false);
+  });
+
+  test('ranks the best match first regardless of type, and searches beyond the title', async () => {
+    await openPalette();
+    const input = screen.getByLabelText('Search terminals, projects and tasks');
+
+    // A task number, in either form. Under the old per-type sections a
+    // terminal always took the first row; the digits weren't searchable at all.
+    fireEvent.change(input, { target: { value: 'T-12' } });
+    await waitFor(() => expect(rowLabels()[0]).toContain('Cache invalidation'));
+    fireEvent.change(input, { target: { value: '12' } });
+    await waitFor(() => expect(rowLabels()[0]).toContain('Cache invalidation'));
+
+    // Branch, prompt and status are all searchable, and the row says which
+    // field it matched on so the result doesn't look arbitrary.
+    fireEvent.change(input, { target: { value: 'cache-headers' } });
+    await waitFor(() => expect(rowLabels()[0]).toContain('Cache invalidation'));
+    expect(rowLabels()[0]).toContain('branch');
+
+    fireEvent.change(input, { target: { value: 'scheduler' } });
+    await waitFor(() => expect(rowLabels()[0]).toContain('Nine'));
+
+    fireEvent.change(input, { target: { value: 'to do' } });
+    await waitFor(() => expect(rowLabels()[0]).toContain('Eleven'));
+
+    // An exact name still outranks a lower-weight field's exact hit.
+    fireEvent.change(input, { target: { value: 'Seven' } });
+    await waitFor(() => expect(rowLabels()[0]).toContain('Seven'));
+  });
+
+  test('the footer names what Enter will do for the selected row', async () => {
+    await openPalette();
+    const input = screen.getByLabelText('Search terminals, projects and tasks');
+
+    fireEvent.change(input, { target: { value: 'Nine' } });
+    await waitFor(() => expect(screen.getByText('Open worktree')).toBeTruthy());
+
+    // Task 7 is live, so its row focuses the running shell instead.
+    fireEvent.change(input, { target: { value: 'Seven' } });
+    await waitFor(() => expect(screen.getByText('Focus terminal')).toBeTruthy());
+
+    // Nothing to open: the row points at the board.
+    fireEvent.change(input, { target: { value: 'Eleven' } });
+    await waitFor(() => expect(screen.getByText('Show on board')).toBeTruthy());
   });
 });
 
@@ -246,6 +291,45 @@ describe('command palette navigation', () => {
     });
     // A switcher never starts a task.
     expect(window.api.task.start).not.toHaveBeenCalled();
+  });
+
+  test('a task with nothing to open goes to its card on the board, and starts nothing', async () => {
+    await openPalette();
+    const input = screen.getByLabelText('Search terminals, projects and tasks');
+    fireEvent.change(input, { target: { value: 'Eleven' } });
+    await waitFor(() => expect(rowLabels()[0]).toContain('Eleven'));
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    await waitFor(() => expect(useProjectStore.getState().revealedTaskNumber).toBe(11));
+    expect(useProjectStore.getState().kanbanVisible).toBe(true);
+    // Creating the worktree would make this a launcher.
+    expect(addProjectTerminal).not.toHaveBeenCalled();
+    expect(window.api.task.start).not.toHaveBeenCalled();
+  });
+
+  test('remembers where you jumped and leads with it next time', async () => {
+    await openPalette();
+    const input = screen.getByLabelText('Search terminals, projects and tasks');
+    fireEvent.change(input, { target: { value: 'Nine' } });
+    await waitFor(() => expect(rowLabels()[0]).toContain('Nine'));
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    const write = vi.mocked(window.api.globalSettings.set).mock.calls.find(([key]) => key === 'ui:palette-frecency');
+    expect(write).toBeTruthy();
+    const stored = JSON.parse(write?.[1] as string);
+    // Keyed on the task, not the pty — the shell it just opened will not
+    // outlive the worktree, but what we learned about the task should.
+    expect(Object.keys(stored)).toEqual([`task:${projectA.path}#9`]);
+
+    // Reopen with that history in place: the jump leads the empty-query list.
+    cleanup();
+    window.api.globalSettings.get = vi.fn(async (key: string) =>
+      key === 'ui:palette-frecency' ? JSON.stringify(stored) : undefined,
+    );
+    useUIStore.setState({ paletteOpen: true });
+    await openPalette();
+    await waitFor(() => expect(screen.getByText('Recent')).toBeTruthy());
+    expect(rowLabels()[0]).toContain('Nine');
   });
 
   test('selecting a project loads its tasks, navigates, and persists the view', async () => {

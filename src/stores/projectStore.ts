@@ -75,6 +75,11 @@ interface ProjectStoreState {
   scripts: Script[];
   taskVersion: number;
   highlightedChainTask: number | null;
+  /**
+   * Card the switcher just jumped to. Rings and scrolls itself into view, then
+   * clears on a timer — it points out a card, it doesn't select one.
+   */
+  revealedTaskNumber: number | null;
   detachHoverParent: number | null;
   optionKeyHeld: boolean;
   /** True while Shift is held — shift-drag to the done column skips the done hook. */
@@ -144,6 +149,7 @@ interface ProjectStoreActions {
   ) => void;
   removeToast: (id: string) => void;
   setHighlightedChainTask: (taskNumber: number | null) => void;
+  revealTask: (taskNumber: number) => void;
   setDetachHoverParent: (taskNumber: number | null) => void;
   setActiveBadgeDrag: (taskNumber: number | null) => void;
   setBadgeDragOverTask: (taskNumber: number | null) => void;
@@ -215,6 +221,10 @@ let configLoadVersion = 0;
 
 let scriptsLoadVersion = 0;
 
+/** How long a switcher-revealed card stays ringed. */
+const REVEAL_MS = 2000;
+let revealTimer: ReturnType<typeof setTimeout> | null = null;
+
 export const useProjectStore = create<ProjectStore>()((set, get) => ({
   tasks: [],
   kanbanVisible: false,
@@ -224,6 +234,7 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
   scripts: [],
   taskVersion: 0,
   highlightedChainTask: null,
+  revealedTaskNumber: null,
   detachHoverParent: null,
   optionKeyHeld: false,
   shiftKeyHeld: false,
@@ -265,6 +276,18 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
 
   setHighlightedChainTask: (taskNumber) => {
     if (get().highlightedChainTask !== taskNumber) set({ highlightedChainTask: taskNumber });
+  },
+
+  revealTask: (taskNumber) => {
+    if (revealTimer) clearTimeout(revealTimer);
+    // Re-revealing the same card has to blank it first, or a repeat jump
+    // re-runs no state change and the ring never replays.
+    set({ revealedTaskNumber: null });
+    set({ revealedTaskNumber: taskNumber });
+    revealTimer = setTimeout(() => {
+      revealTimer = null;
+      set({ revealedTaskNumber: null });
+    }, REVEAL_MS);
   },
 
   setDetachHoverParent: (taskNumber) => {
