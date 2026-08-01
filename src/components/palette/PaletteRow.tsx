@@ -18,7 +18,7 @@ import type { FieldMatch } from '../../utils/paletteScore';
 import type { MatchRange } from '../../utils/fuzzyMatch';
 import { Icon } from '../terminal/Icon';
 import { StatusDot } from '../terminal/StatusDot';
-import { KIND_CHIP, type PaletteItem } from './paletteItems';
+import { type PaletteItem } from './paletteItems';
 
 /** Fields whose match is shown on the title rather than as a separate hint. */
 const TITLE_FIELDS = new Set(['name', 'label', 'number']);
@@ -48,14 +48,12 @@ export interface PaletteRowProps {
   /** The winning field, when a query produced one. */
   match: FieldMatch | null;
   selected: boolean;
-  /** Type tag on the right. On in the flat ranked list, off under group headers. */
-  showKind: boolean;
   rowRef?: React.Ref<HTMLDivElement>;
   onHover: () => void;
   onClick: () => void;
 }
 
-export function PaletteRow({ item, match, selected, showKind, rowRef, onHover, onClick }: PaletteRowProps) {
+export function PaletteRow({ item, match, selected, rowRef, onHover, onClick }: PaletteRowProps) {
   const matchKey = match?.key;
   const titleRanges = matchKey && TITLE_FIELDS.has(matchKey) ? match?.ranges : undefined;
   const contextRanges = matchKey && CONTEXT_FIELDS.has(matchKey) ? match?.ranges : undefined;
@@ -87,13 +85,6 @@ export function PaletteRow({ item, match, selected, showKind, rowRef, onHover, o
         {highlight(item.title, titleRanges)}
       </span>
 
-      {item.kind !== 'project' && item.project && (
-        <span
-          aria-hidden
-          className="w-1.5 h-1.5 rounded-[2px] shrink-0"
-          style={{ backgroundColor: projectIconColor(item.project) }}
-        />
-      )}
       <span className="text-[11px] text-text-tertiary truncate shrink min-w-0">
         {highlight(item.context, contextRanges)}
       </span>
@@ -107,12 +98,6 @@ export function PaletteRow({ item, match, selected, showKind, rowRef, onHover, o
       <span className="flex-1" />
 
       {item.meta && <span className="shrink-0 text-[11px] text-text-tertiary">{item.meta}</span>}
-
-      {showKind && (
-        <span className="shrink-0 w-8 text-right font-mono text-[10px] uppercase tracking-[0.08em] text-ink/40">
-          {KIND_CHIP[item.kind]}
-        </span>
-      )}
     </div>
   );
 }

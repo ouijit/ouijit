@@ -358,7 +358,6 @@ function PaletteBody({ visible }: { visible: boolean }) {
                       item={row.item}
                       match={row.match}
                       selected={isSelected}
-                      showKind={group.key === 'results' || group.key === 'recent'}
                       rowRef={isSelected ? selectedRef : undefined}
                       onHover={() => {
                         if (pointerLive.current) setSelected(index);

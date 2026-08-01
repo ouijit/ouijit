@@ -31,13 +31,6 @@ export const KIND_LABEL: Record<PaletteKind, string> = {
   task: 'Tasks',
 };
 
-/** Compact right-hand type tag, so a flat ranked list stays readable. */
-export const KIND_CHIP: Record<PaletteKind, string> = {
-  terminal: 'term',
-  project: 'proj',
-  task: 'task',
-};
-
 const STATUS_LABEL: Record<string, string> = {
   todo: 'to do',
   in_progress: 'in progress',
