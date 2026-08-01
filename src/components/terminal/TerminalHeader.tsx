@@ -18,6 +18,7 @@ import { useTerminalPanels } from './useTerminalPanels';
 import { panelIcon, panelLabel, type TerminalPanel } from './panelTypes';
 import type { GitFileStatus, RunnerScript } from '../../types';
 import { openInEntry, moveToEntry, type TaskMenuActions } from '../kanban/taskMenu';
+import { revealInFileManager } from '../../utils/fileManager';
 import { BranchFromTaskDialog } from '../dialogs/BranchFromTaskDialog';
 
 interface TerminalHeaderProps {
@@ -116,6 +117,7 @@ export const TerminalHeader = memo(function TerminalHeader({
             setEditorHookDialog(true);
           }
         },
+        openFolder: () => void revealInFileManager(instance.worktreePath!),
         setStatus: async (status) => {
           await window.api.task.setStatus(projectPath, taskId!, status);
           useProjectStore.getState().loadTasks(projectPath);

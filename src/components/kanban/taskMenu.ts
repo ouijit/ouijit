@@ -1,6 +1,7 @@
 import type { ContextMenuEntry } from '../ui/ContextMenu';
 import type { SandboxProviderId, TaskStatus } from '../../types';
 import { SANDBOX_BACKEND_LABELS } from '../../types';
+import { FILE_MANAGER_NAME } from '../../utils/fileManager';
 
 /** Column display names, shared by the "Move to" menu and its toasts. */
 export const STATUS_LABELS: Record<TaskStatus, string> = {
@@ -20,6 +21,8 @@ export interface TaskMenuActions {
   /** Open a new terminal for the task; a provider opens it sandboxed. */
   openTerminal: (provider?: SandboxProviderId) => void;
   openEditor: () => void;
+  /** Reveal the task's worktree in the OS file manager. */
+  openFolder: () => void;
   setStatus: (status: TaskStatus) => void;
   /**
    * Finish the task: runs the done hook + closes its terminals, matching
@@ -30,7 +33,11 @@ export interface TaskMenuActions {
   trash: () => void;
 }
 
-/** "Open in ▸" — a host Terminal, one entry per installed sandbox backend, Editor. */
+/**
+ * "Open in ▸" — a host Terminal, one entry per installed sandbox backend,
+ * Editor, and the OS file manager. The file manager entry needs a worktree on
+ * disk to point at, so it only appears once the task has one.
+ */
 export function openInEntry(
   sandboxProviders: SandboxProviderId[],
   hasWorktree: boolean,
@@ -48,6 +55,9 @@ export function openInEntry(
     }
   }
   submenu.push({ label: 'Editor', icon: 'code', onClick: actions.openEditor });
+  if (hasWorktree) {
+    submenu.push({ label: FILE_MANAGER_NAME, icon: 'folder-open', onClick: actions.openFolder });
+  }
   return { label: 'Open in', submenu };
 }
 
