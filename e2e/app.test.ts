@@ -37,6 +37,20 @@ async function dismissKanban(appPage: Page): Promise<void> {
 }
 
 /**
+ * Helper: pick a leaf entry out of a context-menu submenu ("Open in ▸ Terminal").
+ * The flyout is a CSS hover state on its parent row, so the parent has to be
+ * hovered before the leaf exists as a click target.
+ */
+async function chooseSubmenuItem(appPage: Page, parentLabel: string, itemLabel: string): Promise<void> {
+  const menu = appPage.locator('.context-menu--visible');
+  await expect(menu).toBeVisible({ timeout: 5_000 });
+  // Exact names throughout: the menu also lists the task's own terminals by
+  // label, and a task named "Editor task" otherwise collides with "Editor".
+  await menu.getByRole('button', { name: parentLabel, exact: true }).hover();
+  await menu.getByRole('button', { name: itemLabel, exact: true }).click();
+}
+
+/**
  * Helper: drag a kanban card to a target column using mouse events.
  * dnd-kit uses pointer events; requires mouse simulation.
  * Only reliable for adjacent-column drags (todo → in_progress).
@@ -150,11 +164,14 @@ test('project mode: terminals, kanban, context menu, and task lifecycle', async 
 
   const contextMenu = appPage.locator('.context-menu--visible');
   await expect(contextMenu).toBeVisible({ timeout: 5_000 });
-  await expect(contextMenu.locator('.context-menu-item', { hasText: 'Open in Terminal' })).toBeVisible();
-  await expect(contextMenu.locator('.context-menu-item', { hasText: 'Move to Done' })).toBeVisible();
-  await expect(contextMenu.locator('.context-menu-item--danger', { hasText: 'Move to Trash' })).toBeVisible();
+  await expect(contextMenu.getByRole('button', { name: 'Open in', exact: true })).toBeVisible();
 
-  await contextMenu.locator('.context-menu-item', { hasText: 'Open in Terminal' }).click();
+  // "Move to ▸" carries the column moves plus the danger Trash entry.
+  await contextMenu.getByRole('button', { name: 'Move to', exact: true }).hover();
+  await expect(contextMenu.getByRole('button', { name: 'Done', exact: true })).toBeVisible();
+  await expect(contextMenu.locator('.context-menu-item--danger', { hasText: 'Trash' })).toBeVisible();
+
+  await chooseSubmenuItem(appPage, 'Open in', 'Terminal');
 
   await expect(appPage.locator('.kanban-board')).not.toBeVisible({ timeout: 5_000 });
   await expect(appPage.locator('.project-card')).toHaveCount(1, { timeout: 15_000 });
@@ -172,7 +189,7 @@ test('project mode: terminals, kanban, context menu, and task lifecycle', async 
   await ipCard.click({ button: 'right' });
   await expect(appPage.locator('.context-menu--visible')).toBeVisible({ timeout: 5_000 });
 
-  await appPage.locator('.context-menu-item--danger', { hasText: 'Move to Trash' }).click();
+  await chooseSubmenuItem(appPage, 'Move to', 'Trash');
 
   // Trashing removes the card from the board immediately, no confirmation
   await expect(inProgressColumn.locator('.kanban-card')).toHaveCount(0, { timeout: 5_000 });
@@ -334,7 +351,7 @@ test('missing worktree: recovery dialog recreates worktree on open', async ({ ap
   // Open in terminal via context menu
   const kanbanCard = todoColumn.locator('.kanban-card').first();
   await kanbanCard.click({ button: 'right' });
-  await appPage.locator('.context-menu--visible .context-menu-item', { hasText: 'Open in Terminal' }).click();
+  await chooseSubmenuItem(appPage, 'Open in', 'Terminal');
   await expect(appPage.locator('.project-card')).toHaveCount(1, { timeout: 15_000 });
 
   // Get the worktree path from the task data
@@ -362,7 +379,7 @@ test('missing worktree: recovery dialog recreates worktree on open', async ({ ap
 
   // Try to open the task again — should show recovery dialog
   await ipCard.click({ button: 'right' });
-  await appPage.locator('.context-menu--visible .context-menu-item', { hasText: 'Open in Terminal' }).click();
+  await chooseSubmenuItem(appPage, 'Open in', 'Terminal');
 
   // Recovery dialog should appear
   const recoveryDialog = appPage.locator('[data-testid="dialog-overlay"][data-visible="true"] [data-testid="dialog"]');
@@ -425,7 +442,7 @@ test('open in editor: runs the editor hook in a task terminal with the worktree 
   const todoColumn = appPage.locator('.kanban-column[data-status="todo"]');
   await expect(todoColumn.locator('.kanban-card')).toHaveCount(1, { timeout: 5_000 });
   await todoColumn.locator('.kanban-card').first().click({ button: 'right' });
-  await appPage.locator('.context-menu--visible .context-menu-item', { hasText: 'Open in Terminal' }).click();
+  await chooseSubmenuItem(appPage, 'Open in', 'Terminal');
   await expect(appPage.locator('.project-card')).toHaveCount(1, { timeout: 15_000 });
 
   // Reopen the kanban and launch the editor from the in-progress card.
@@ -434,9 +451,7 @@ test('open in editor: runs the editor hook in a task terminal with the worktree 
   const ipCard = appPage.locator('.kanban-column[data-status="in_progress"] .kanban-card').first();
   await ipCard.click({ button: 'right' });
 
-  const contextMenu = appPage.locator('.context-menu--visible');
-  await expect(contextMenu).toBeVisible({ timeout: 5_000 });
-  await contextMenu.locator('.context-menu-item', { hasText: 'Open in Editor' }).click();
+  await chooseSubmenuItem(appPage, 'Open in', 'Editor');
 
   // A second terminal card opens for the editor — the visible result the old
   // detached-spawn path never produced.
