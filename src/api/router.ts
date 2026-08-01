@@ -742,6 +742,7 @@ async function handleAsync(req: IncomingMessage, res: ServerResponse, window: Br
       typedPush(window, 'cli-change', {
         project,
         action: `${method} /api/${apiPath}`,
+        resource: segments[0] ?? '',
         ts: Date.now(),
       });
 

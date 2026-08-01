@@ -87,10 +87,14 @@ function completedPayload(overrides: Partial<CliTaskCompletedPayload> = {}): Cli
   };
 }
 
+type CliChangePayload = Parameters<Parameters<typeof window.api.onCliChange>[0]>[0];
+type CliChangeCb = (payload: CliChangePayload) => void;
+
 interface ListenerStubs {
   cliTaskStartedCb: CliTaskStartedCb | null;
   cliTaskTransitionedCb: CliTaskTransitionedCb | null;
   cliTaskCompletedCb: CliTaskCompletedCb | null;
+  cliChangeCb: CliChangeCb | null;
 }
 
 /**
@@ -100,12 +104,20 @@ interface ListenerStubs {
  * fill the gaps here per-test rather than polluting the global mock.
  */
 function installListenerStubs(): ListenerStubs {
-  const stubs: ListenerStubs = { cliTaskStartedCb: null, cliTaskTransitionedCb: null, cliTaskCompletedCb: null };
+  const stubs: ListenerStubs = {
+    cliTaskStartedCb: null,
+    cliTaskTransitionedCb: null,
+    cliTaskCompletedCb: null,
+    cliChangeCb: null,
+  };
   const api = window.api as unknown as Record<string, unknown>;
   api['onUpdateAvailable'] = vi.fn(() => () => {});
   api['onShellUnsupported'] = vi.fn(() => () => {});
   api['onWhatsNew'] = vi.fn(() => () => {});
-  api['onCliChange'] = vi.fn(() => () => {});
+  api['onCliChange'] = vi.fn((cb: CliChangeCb) => {
+    stubs.cliChangeCb = cb;
+    return () => {};
+  });
   api['onCliThemeChanged'] = vi.fn(() => () => {});
   api['health'] = { onUpdate: vi.fn(() => () => {}) };
   api['onCliTaskStarted'] = vi.fn((cb: CliTaskStartedCb) => {
@@ -343,5 +355,45 @@ describe('useIPCListeners — cli:task-completed → completeTask', () => {
     expect(completeTask).toHaveBeenCalledTimes(1);
     expect(vi.mocked(completeTask).mock.calls[0][0].hookControl).toEqual({ mode: 'skip', command: undefined });
     expect(useProjectStore.getState().pendingCliCompletions[PROJECT]).toBeUndefined();
+  });
+});
+
+describe('useIPCListeners — cli-change refreshes the resource that changed', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    useProjectStore.getState().resetForProject();
+    useAppStore.setState({ activeProjectPath: PROJECT });
+  });
+
+  function fire(resource: string, project = PROJECT): void {
+    const stubs = installListenerStubs();
+    renderHook(() => useIPCListeners());
+    stubs.cliChangeCb!({ project, action: `PUT /api/${resource}/x`, resource, ts: 0 });
+  }
+
+  test('routes each resource to its own loader and ignores other projects', async () => {
+    // `ouijit script set` / `hook set` add run commands the terminal "+" menu
+    // reads from the store — they must refresh without a project switch.
+    fire('scripts');
+    await flush();
+    expect(window.api.scripts.getAll).toHaveBeenCalledWith(PROJECT);
+    expect(window.api.task.getAll).not.toHaveBeenCalled();
+
+    vi.clearAllMocks();
+    fire('hooks');
+    await flush();
+    expect(window.api.hooks.get).toHaveBeenCalledWith(PROJECT);
+    expect(window.api.task.getAll).not.toHaveBeenCalled();
+
+    vi.clearAllMocks();
+    fire('tasks');
+    await flush();
+    expect(window.api.task.getAll).toHaveBeenCalledWith(PROJECT);
+    expect(window.api.scripts.getAll).not.toHaveBeenCalled();
+
+    vi.clearAllMocks();
+    fire('scripts', '/proj/other');
+    await flush();
+    expect(window.api.scripts.getAll).not.toHaveBeenCalled();
   });
 });

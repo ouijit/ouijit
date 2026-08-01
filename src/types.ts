@@ -533,7 +533,7 @@ export interface ElectronAPI {
   onWhatsNew(callback: (info: { version: string; notes: string }) => void): () => void;
   /** Listen for CLI changes (sentinel file written by ouijit CLI) */
   onCliChange(
-    callback: (payload: { project: string; action: string; message?: string; ts: number }) => void,
+    callback: (payload: { project: string; action: string; resource: string; message?: string; ts: number }) => void,
   ): () => void;
   /** Listen for a CLI theme mutation — re-read and re-apply theme settings */
   onCliThemeChanged(callback: () => void): () => void;

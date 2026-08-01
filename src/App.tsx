@@ -1,5 +1,6 @@
 import { Component, useCallback, useEffect, useState, type ErrorInfo, type ReactNode } from 'react';
 import { useIPCListeners } from './hooks/useIPCListeners';
+import { usePaletteShortcut } from './hooks/usePaletteShortcut';
 import { useAppStore } from './stores/appStore';
 import { useProjectStore } from './stores/projectStore';
 import { useExperimentalStore } from './stores/experimentalStore';
@@ -14,6 +15,8 @@ import { InitGitRepoDialog } from './components/dialogs/InitGitRepoDialog';
 import { AddSiblingProjectsDialog } from './components/dialogs/AddSiblingProjectsDialog';
 import { WhatsNewDialog } from './components/dialogs/WhatsNewDialog';
 import { HelpDialog } from './components/dialogs/HelpDialog';
+import { CommandPalette } from './components/CommandPalette';
+import { selectProject, selectHome } from './components/navigation';
 import { installCaptureNavigator } from './capture/navigator';
 import { hydrateTerminalFont } from './components/terminal/terminalReact';
 import { hydrateNotificationSettings } from './utils/notifications';
@@ -62,6 +65,7 @@ class ViewErrorBoundary extends Component<{ children: ReactNode }, { error: Erro
 
 export function App() {
   useIPCListeners();
+  usePaletteShortcut();
 
   const activeView = useAppStore((s) => s.activeView);
   const activeProjectPath = useAppStore((s) => s.activeProjectPath);
@@ -196,37 +200,14 @@ export function App() {
     });
   }, []);
 
-  // Sidebar callbacks. Direction in the view transition reflects the relative
-  // position in the sidebar — clicking a project below the current one slides
-  // the new view up into place; above slides down. Home is treated as the
-  // top of the list.
-  //
-  // Project select pre-fetches tasks before navigating so the kanban paints
-  // correctly through the view-transition snapshot. Home select navigates
-  // immediately and refreshes in the background, since `homeRecents` is kept
-  // warm by `projectStore.loadTasks` and the app-init pre-fetch.
-  const handleProjectSelect = useCallback(async (path: string, project: Project) => {
-    const state = useAppStore.getState();
-    if (state.activeProjectPath === path) return;
-    const orderedPaths = state.projects.map((p) => p.path);
-    const oldIndex = state.activeView === 'home' ? -1 : orderedPaths.indexOf(state.activeProjectPath ?? '');
-    const newIndex = orderedPaths.indexOf(path);
-    const direction = newIndex > oldIndex ? 'down' : newIndex < oldIndex ? 'up' : undefined;
-    await useProjectStore.getState().loadTasks(path);
-    state.navigateToProject(path, project, { direction });
-    window.api.globalSettings.set('lastActiveView', JSON.stringify({ type: 'project', path }));
+  // Sidebar callbacks — the shared navigation actions, so the sidebar and the
+  // command palette can't drift apart.
+  const handleProjectSelect = useCallback((path: string, project: Project) => {
+    void selectProject(path, project);
   }, []);
 
   const handleHomeSelect = useCallback(() => {
-    const state = useAppStore.getState();
-    if (state.activeView === 'home') return;
-    // Navigate immediately; the cached homeRecents (kept warm by
-    // projectStore.loadTasks via updateProjectTaskCache, plus app-init
-    // pre-fetch) paints during the view transition. Refresh in background
-    // to reconcile with the source of truth.
-    state.navigateHome({ direction: 'up' });
-    void state.loadHomeRecents();
-    window.api.globalSettings.set('lastActiveView', JSON.stringify({ type: 'home' }));
+    selectHome();
   }, []);
 
   // Register the added folder, refresh the project list, and navigate to it.
@@ -382,6 +363,7 @@ export function App() {
         />
       )}
       {helpDialogOpen && <HelpDialog onClose={() => useAppStore.getState().setHelpDialogOpen(false)} />}
+      <CommandPalette />
     </div>
   );
 }

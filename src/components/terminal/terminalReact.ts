@@ -122,7 +122,7 @@ function setupTerminalAppHotkeys(terminal: XTerminal, writeToPty: (data: string)
       }
 
       // App hotkeys that should pass through to hotkeys-js
-      const appHotkeys = ['n', 't', 'b', 'i', 'p', 'd', 's', 'w', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
+      const appHotkeys = ['n', 't', 'b', 'i', 'p', 'd', 's', 'w', 'k', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
       if (appHotkeys.includes(key)) {
         return false;
       }
@@ -829,17 +829,12 @@ export class OuijitTerminal {
     return id;
   }
 
-  addWebPreviewPanel(
-    url: string | null = null,
-    opts?: { autoDetected?: boolean; sourceRunnerPanelId?: string | null; activate?: boolean },
-  ): string {
+  addWebPreviewPanel(url: string | null = null, opts?: { activate?: boolean }): string {
     const id = generateId('panel');
     const panel: WebPreviewPanel = {
       id,
       kind: 'webPreview',
       url: url || null,
-      urlAutoDetected: opts?.autoDetected ?? false,
-      sourceRunnerPanelId: opts?.sourceRunnerPanelId ?? null,
     };
     this.appendPanel(panel, opts?.activate ?? true);
     return id;
@@ -872,20 +867,14 @@ export class OuijitTerminal {
     if (idx === -1) return;
     const panel = this.panels[idx];
 
-    const removeIds = new Set<string>([id]);
-    if (panel.kind === 'runner') {
-      // Kill the child PTY and drop any auto-detected preview tabs it published.
-      this.killRunnerChild(id);
-      for (const p of this.panels) {
-        if (p.kind === 'webPreview' && p.sourceRunnerPanelId === id && p.urlAutoDetected) removeIds.add(p.id);
-      }
-    }
+    // Closing a runner tab kills the child PTY it owns.
+    if (panel.kind === 'runner') this.killRunnerChild(id);
 
-    const remaining = this.panels.filter((p) => !removeIds.has(p.id));
+    const remaining = this.panels.filter((p) => p.id !== id);
 
     // If the active panel is being removed, activate the same-index neighbor
     // (else the previous one, else collapse to the bare xterm).
-    if (this.activePanelId && removeIds.has(this.activePanelId)) {
+    if (this.activePanelId === id) {
       this.activePanelId = remaining.length === 0 ? null : remaining[Math.min(idx, remaining.length - 1)].id;
     }
 
@@ -907,24 +896,6 @@ export class OuijitTerminal {
       this.runnerChildren.delete(panelId);
     }
     this.runnerSpawning.delete(panelId);
-  }
-
-  /**
-   * A runner detected a dev-server URL. Update the preview tab it already
-   * published, or surface a new auto-detected preview tab (without stealing
-   * focus from the user's current panel). Manual URLs are left untouched.
-   */
-  publishDetectedPreviewUrl(runnerPanelId: string, url: string): void {
-    const existing = this.panels.find(
-      (p): p is WebPreviewPanel => p.kind === 'webPreview' && p.sourceRunnerPanelId === runnerPanelId,
-    );
-    if (existing) {
-      if (existing.url && !existing.urlAutoDetected) return;
-      if (existing.url === url) return;
-      this.updatePanel(existing.id, { url, urlAutoDetected: true } as Partial<WebPreviewPanel>);
-    } else {
-      this.addWebPreviewPanel(url, { autoDetected: true, sourceRunnerPanelId: runnerPanelId, activate: false });
-    }
   }
 
   // ── Hook status handling ────────────────────────────────────────────

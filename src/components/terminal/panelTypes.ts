@@ -38,9 +38,6 @@ export interface WebPreviewPanel {
   id: string;
   kind: 'webPreview';
   url: string | null;
-  urlAutoDetected: boolean;
-  /** Runner panel that auto-published this URL, if any. */
-  sourceRunnerPanelId: string | null;
 }
 
 export interface PlanPanel {
