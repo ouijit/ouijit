@@ -194,10 +194,32 @@ function PaletteBody({ visible }: { visible: boolean }) {
     [projects, activeProjectPath, terminalsByProject, displayStates, sessions, taskCacheByProject],
   );
 
+  // A task's shells are branch rows under it, never free-standing results.
+  // Ranking and the group caps see only parents; children are spliced back in
+  // afterwards so a branch can never be ranked away from its task.
+  const parents = useMemo(() => items.filter((item) => !item.parentId), [items]);
+  const childrenByParent = useMemo(() => {
+    const map = new Map<string, PaletteItem[]>();
+    for (const item of items) {
+      if (!item.parentId) continue;
+      const existing = map.get(item.parentId);
+      if (existing) existing.push(item);
+      else map.set(item.parentId, [item]);
+    }
+    return map;
+  }, [items]);
+
   const groups = useMemo<Group[]>(() => {
+    const withChildren = (rows: RankedItem[]): RankedItem[] =>
+      rows.flatMap((row) => {
+        const children = childrenByParent.get(row.item.id);
+        if (!children) return [row];
+        return [row, ...children.map((child): RankedItem => ({ item: child, match: null, score: row.score }))];
+      });
+
     if (query.length > 0) {
       const ranked: RankedItem[] = [];
-      for (const item of items) {
+      for (const item of parents) {
         const match = scoreFields(query, item.fields);
         if (!match) continue;
         // The boost stays under one tier step, so what you use often reorders
@@ -205,21 +227,21 @@ function PaletteBody({ visible }: { visible: boolean }) {
         ranked.push({ item, match, score: match.score + frecencyBoost(frecency[item.key], openedAt) });
       }
       ranked.sort((a, b) => b.score - a.score || a.item.order - b.item.order);
-      return [{ key: 'results', title: null, rows: ranked.slice(0, QUERY_LIMIT), hidden: 0 }];
+      return [{ key: 'results', title: null, rows: withChildren(ranked.slice(0, QUERY_LIMIT)), hidden: 0 }];
     }
 
     const result: Group[] = [];
     const recentKeys = new Set<string>();
-    const recent: RankedItem[] = items
+    const recent: RankedItem[] = parents
       .map((item): RankedItem => ({ item, match: null, score: frecencyBoost(frecency[item.key], openedAt) }))
       .filter((entry) => entry.score > 0)
       .sort((a, b) => b.score - a.score)
       .slice(0, RECENT_LIMIT);
     for (const entry of recent) recentKeys.add(entry.item.key);
-    if (recent.length > 0) result.push({ key: 'recent', title: 'Recent', rows: recent, hidden: 0 });
+    if (recent.length > 0) result.push({ key: 'recent', title: 'Recent', rows: withChildren(recent), hidden: 0 });
 
     for (const kind of GROUP_ORDER) {
-      const rows: RankedItem[] = items
+      const rows: RankedItem[] = parents
         .filter((item) => item.kind === kind && !recentKeys.has(item.key))
         .map((item): RankedItem => ({ item, match: null, score: 0 }));
       if (rows.length === 0) continue;
@@ -227,12 +249,12 @@ function PaletteBody({ visible }: { visible: boolean }) {
       result.push({
         key: kind,
         title: KIND_LABEL[kind],
-        rows: rows.slice(0, limit),
+        rows: withChildren(rows.slice(0, limit)),
         hidden: Math.max(0, rows.length - limit),
       });
     }
     return result;
-  }, [items, query, frecency, expanded, openedAt]);
+  }, [parents, childrenByParent, query, frecency, expanded, openedAt]);
 
   const flat = useMemo(() => groups.flatMap((g) => g.rows), [groups]);
 

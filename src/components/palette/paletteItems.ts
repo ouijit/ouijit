@@ -60,6 +60,15 @@ export interface PaletteItem {
   dimmed?: boolean;
   /** Present when a live shell backs the row; renders as the leading dot. */
   status?: { summaryType: string; sandboxProvider?: SandboxProviderId };
+  /**
+   * Id of the task row this one hangs under. Set on a task's live shells, which
+   * render as branch children the way they do on a kanban card. Ranking scores
+   * parents only and re-attaches children afterwards, so a branch never drifts
+   * away from its task.
+   */
+  parentId?: string;
+  /** Which corner glyph the branch draws. */
+  branch?: 'mid' | 'last';
   /** What Enter does, named in the footer as the selection moves. */
   action: string;
   /** Position in the no-query browse order; the final ranking tiebreak. */
@@ -144,7 +153,7 @@ function collectTerminals(input: PaletteInput): LiveTerminal[] {
   return terminals.sort((a, b) => a.rank - b.rank);
 }
 
-function taskFields(task: TaskWithWorkspace, project: Project): SearchField[] {
+function taskFields(task: TaskWithWorkspace, project: Project, live: LiveTerminal[]): SearchField[] {
   const fields: SearchField[] = [
     { key: 'name', text: task.name || 'Untitled', weight: 1 },
     // Both forms, so "t-517" and "517" are each an exact hit rather than a
@@ -157,6 +166,9 @@ function taskFields(task: TaskWithWorkspace, project: Project): SearchField[] {
   ];
   if (task.branch) fields.push({ key: 'branch', text: task.branch, weight: 0.7 });
   if (task.prompt) fields.push({ key: 'prompt', text: task.prompt, weight: 0.3 });
+  // The task owns its shells' rows now, so it has to be findable by what they
+  // are called — otherwise searching "claude" would match nothing.
+  for (const terminal of live) fields.push({ key: 'terminal', text: terminal.label, weight: 0.8 });
   return fields;
 }
 
@@ -172,29 +184,30 @@ export function buildPaletteItems(input: PaletteInput): PaletteItem[] {
   const projectByPath = new Map(input.projects.map((p) => [p.path, p]));
   const terminals = collectTerminals(input);
 
-  // First live shell per task. A task with several shells focuses the one that
-  // sorted highest, matching what its card would bring forward.
-  const liveByTask = new Map<string, LiveTerminal>();
+  // Every live shell a task owns, in stack order. They render as that task's
+  // branch children rather than as terminals in their own right.
+  const liveByTask = new Map<string, LiveTerminal[]>();
   for (const terminal of terminals) {
     if (terminal.taskId == null) continue;
     const key = `${terminal.projectPath}#${terminal.taskId}`;
-    if (!liveByTask.has(key)) liveByTask.set(key, terminal);
+    const existing = liveByTask.get(key);
+    if (existing) existing.push(terminal);
+    else liveByTask.set(key, [terminal]);
   }
 
   const items: PaletteItem[] = [];
   const push = (item: Omit<PaletteItem, 'order'>) => items.push({ ...item, order: items.length });
 
   // ── Terminals ──
-  // A task's shell is represented by its task row instead. The exception is a
-  // shell whose task isn't in the cache (an unregistered project, a task
-  // deleted under a running shell): without this it would vanish entirely.
+  // A task's shells hang off its row instead. The exception is a shell whose
+  // task isn't in the cache (an unregistered project, a task deleted under a
+  // running shell): without this it would vanish entirely.
   for (const terminal of terminals) {
     const project = projectByPath.get(terminal.projectPath);
-    const taskKey = terminal.taskId != null ? `${terminal.projectPath}#${terminal.taskId}` : null;
     const taskExists =
-      taskKey != null &&
+      terminal.taskId != null &&
       (input.taskCacheByProject[terminal.projectPath] ?? []).some((t) => t.taskNumber === terminal.taskId);
-    if (taskExists && liveByTask.get(taskKey as string)?.ptyId === terminal.ptyId) continue;
+    if (taskExists) continue;
 
     push({
       id: `terminal:${terminal.ptyId}`,
@@ -247,28 +260,30 @@ export function buildPaletteItems(input: PaletteInput): PaletteItem[] {
   taskRows.sort((a, b) => b.task.createdAt.localeCompare(a.task.createdAt));
 
   for (const { task, project } of taskRows) {
-    const live = liveByTask.get(`${project.path}#${task.taskNumber}`);
+    const live = liveByTask.get(`${project.path}#${task.taskNumber}`) ?? [];
+    const first = live[0];
     const openable = task.worktreePath && task.branch;
     const status = STATUS_LABEL[task.status] ?? task.status;
+    const taskId = `task:${project.path}#${task.taskNumber}`;
 
     push({
-      id: `task:${project.path}#${task.taskNumber}`,
-      key: `task:${project.path}#${task.taskNumber}`,
+      id: taskId,
+      key: taskId,
       kind: 'task',
       title: task.name || 'Untitled',
       context: project.name,
-      fields: taskFields(task, project),
+      fields: taskFields(task, project, live),
       project,
       taskNumber: task.taskNumber,
-      tags: live?.tags,
+      tags: first?.tags,
       // Compact age, not "3 days ago": the meta column is fixed-width so the
       // ages line up, and the long form would truncate.
       meta: `${status} · ${formatAge((Date.now() - new Date(task.createdAt).getTime()) / 1000)}`,
-      status: live ? { summaryType: live.summaryType, sandboxProvider: live.sandboxProvider } : undefined,
-      action: live ? 'Focus terminal' : openable ? 'Open worktree' : 'Start task',
+      // No status dot: the shells carry their own, on their branch rows.
+      action: first ? 'Focus terminal' : openable ? 'Open worktree' : 'Start task',
       run: () => {
-        if (live) {
-          void focusTerminal(live.ptyId, live.projectPath);
+        if (first) {
+          void focusTerminal(first.ptyId, first.projectPath);
         } else if (openable) {
           void openTaskWorktree({
             project,
@@ -281,6 +296,26 @@ export function buildPaletteItems(input: PaletteInput): PaletteItem[] {
           void startTaskWorktree(project, task.taskNumber, task.createdAt, task.name || 'Untitled');
         }
       },
+    });
+
+    // The task's shells, drawn as branches off its row the way a kanban card
+    // draws them. Each is its own target, so a task running several agents is
+    // navigable rather than collapsing to whichever one sorted first.
+    live.forEach((terminal, i) => {
+      push({
+        id: `terminal:${terminal.ptyId}`,
+        key: taskId,
+        kind: 'terminal',
+        title: terminal.label,
+        context: '',
+        fields: [],
+        project,
+        parentId: taskId,
+        branch: i === live.length - 1 ? 'last' : 'mid',
+        status: { summaryType: terminal.summaryType, sandboxProvider: terminal.sandboxProvider },
+        action: 'Focus terminal',
+        run: () => void focusTerminal(terminal.ptyId, terminal.projectPath),
+      });
     });
   }
 

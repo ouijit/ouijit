@@ -151,9 +151,10 @@ describe('command palette results', () => {
     // Runners are panels on a parent card, never their own row.
     expect(labels.some((l) => l.includes('npm run dev'))).toBe(false);
 
-    // Task 7 has a live terminal. It is still one row, and it is the task's —
-    // not a second row wearing the terminal's label.
+    // Task 7 has a live terminal. There is exactly one task row for it, and the
+    // shell hangs off that row as a branch rather than listing under Terminals.
     expect(labels.filter((l) => l.includes('T-7'))).toHaveLength(1);
+    expect(labels.some((l) => l.includes('└─') && l.includes('Seven'))).toBe(true);
     // A task with a worktree and one with nothing at all both list.
     expect(labels.some((l) => l.includes('Nine'))).toBe(true);
     expect(labels.some((l) => l.includes('Eleven'))).toBe(true);
@@ -210,6 +211,38 @@ describe('command palette results', () => {
     // An exact name still outranks a lower-weight field's exact hit.
     fireEvent.change(input, { target: { value: 'Seven' } });
     await waitFor(() => expect(rowLabels()[0]).toContain('Seven'));
+  });
+
+  test("a task's shells branch off its row, each one its own target", async () => {
+    // Two shells on task 7, so the mid/last glyphs and per-shell targeting
+    // both matter.
+    useTerminalStore.setState({
+      terminalsByProject: { [projectA.path]: ['alpha-7', 'alpha-7b'] },
+      displayStates: {
+        'alpha-7': display({ ptyId: 'alpha-7', projectPath: projectA.path, label: 'claude', taskId: 7 }),
+        'alpha-7b': display({ ptyId: 'alpha-7b', projectPath: projectA.path, label: 'npm test', taskId: 7 }),
+      },
+      activeIndices: { [projectA.path]: 0 },
+    });
+
+    await openPalette();
+    const input = screen.getByLabelText('Search terminals, projects and tasks');
+    // Found by a shell's label, since the task now owns those rows.
+    fireEvent.change(input, { target: { value: 'npm test' } });
+
+    await waitFor(() => expect(rowLabels()[0]).toContain('T-7'));
+    expect(rowLabels()[1]).toContain('├─');
+    expect(rowLabels()[1]).toContain('claude');
+    expect(rowLabels()[2]).toContain('└─');
+    expect(rowLabels()[2]).toContain('npm test');
+
+    // Arrow down twice past the task row lands on the second shell, and Enter
+    // focuses that one rather than whichever sorted first.
+    fireEvent.keyDown(input, { key: 'ArrowDown' });
+    fireEvent.keyDown(input, { key: 'ArrowDown' });
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    await waitFor(() => expect(useTerminalStore.getState().activeIndices[projectA.path]).toBe(1));
   });
 
   test('a project row searches and shows the same home-relative path', async () => {
