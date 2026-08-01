@@ -25,7 +25,6 @@ import { generateId } from '../../utils/ids';
 import { parseOsc133ExitCodes } from './osc133';
 import { buildEditorCommand } from './editorCommand';
 import { readSnapshot } from './sessionSnapshot';
-import { detectDevServerUrl } from '../webPreview/urlHelpers';
 import { descriptionToHookPrompt } from '../../utils/descriptionAttachments';
 import log from 'electron-log/renderer';
 
@@ -122,9 +121,7 @@ export async function applyInitialUiState(term: OuijitTerminal, ui: SnapshotTerm
           });
           break;
         case 'webPreview':
-          if (sp.url) {
-            panels.push({ id, kind: 'webPreview', url: sp.url, urlAutoDetected: false, sourceRunnerPanelId: null });
-          }
+          if (sp.url) panels.push({ id, kind: 'webPreview', url: sp.url });
           break;
         case 'plan':
           if (sp.planPath) panels.push({ id, kind: 'plan', planPath: sp.planPath });
@@ -144,13 +141,7 @@ export async function applyInitialUiState(term: OuijitTerminal, ui: SnapshotTerm
     }
     if (ui.webPreview?.url) {
       const id = generateId('panel');
-      panels.push({
-        id,
-        kind: 'webPreview',
-        url: ui.webPreview.url,
-        urlAutoDetected: false,
-        sourceRunnerPanelId: null,
-      });
+      panels.push({ id, kind: 'webPreview', url: ui.webPreview.url });
       if (ui.webPreview.panelOpen) activeId = id;
     }
     if (ui.runner) {
@@ -710,8 +701,6 @@ async function _spawnRunnerInner(instance: OuijitTerminal, panelId: string): Pro
           if (match[1]) instance.updatePanel(panelId, { command: match[1] });
         }
         updateRunnerStatusFromOsc133(data, instance, panelId);
-        const detected = detectDevServerUrl(data);
-        if (detected) instance.publishDetectedPreviewUrl(panelId, detected);
       },
       onExit: (exitCode) => {
         instance.updatePanel(panelId, { status: exitCode === 0 ? 'success' : 'error' });
@@ -957,8 +946,6 @@ export async function reconnectRunnerToParent(session: ActiveSession): Promise<b
         if (match[1]) parentTerminal.updatePanel(runnerPanelId, { command: match[1] });
       }
       updateRunnerStatusFromOsc133(data, parentTerminal, runnerPanelId);
-      const detected = detectDevServerUrl(data);
-      if (detected) parentTerminal.publishDetectedPreviewUrl(runnerPanelId, detected);
     },
     onExit: (exitCode) => {
       parentTerminal.updatePanel(runnerPanelId, { status: exitCode === 0 ? 'success' : 'error' });
