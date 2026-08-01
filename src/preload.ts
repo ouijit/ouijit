@@ -197,9 +197,6 @@ contextBridge.exposeInMainWorld('api', {
     read: (planPath: string) => typedInvoke('plan:read', planPath),
     watch: (planPath: string) => typedInvoke('plan:watch', planPath),
     unwatch: (planPath: string) => typedInvoke('plan:unwatch', planPath),
-    getForPty: (ptyId: string) => typedInvoke('plan:get-for-pty', ptyId),
-    onDetected: (callback: (ptyId: string, planPath: string) => void) => typedListen('claude-plan-detected', callback),
-    onReady: (callback: (ptyId: string) => void) => typedListen('claude-plan-ready', callback),
     onContentChanged: (callback: (planPath: string, content: string) => void) =>
       typedListen('plan:content-changed', callback),
     checkFilesExist: (workspaceRoot: string, filePaths: string[]) =>

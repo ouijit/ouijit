@@ -878,10 +878,7 @@ export async function reconnectOrphanedSessions(projectPath?: string): Promise<v
         mergeTarget = task?.mergeTarget;
       }
 
-      const [hookStatus, planPath] = await Promise.all([
-        window.api.agentHooks.getStatus(session.ptyId),
-        window.api.plan.getForPty(session.ptyId),
-      ]);
+      const hookStatus = await window.api.agentHooks.getStatus(session.ptyId);
       const initialStatus: SummaryType = hookStatus?.status === 'thinking' ? 'thinking' : 'ready';
 
       const snapEntry = snapByPtyId.get(session.ptyId);
@@ -891,14 +888,7 @@ export async function reconnectOrphanedSessions(projectPath?: string): Promise<v
         initialStatus,
         label: snapEntry?.label ?? undefined,
       });
-      if (term) {
-        if (snapEntry) await applyInitialUiState(term, snapEntry.ui);
-        // The plan association lives in the main process — authoritative for the
-        // path. Ensure a plan panel exists for it (without stealing focus).
-        if (planPath && !term.panels.some((p) => p.kind === 'plan' && p.planPath === planPath)) {
-          term.addPlanPanel(planPath, false);
-        }
-      }
+      if (term && snapEntry) await applyInitialUiState(term, snapEntry.ui);
     });
   }
 
