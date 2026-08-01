@@ -6,8 +6,8 @@
  * behind one IPC call, so opening it costs a `getActiveSessions` round trip and
  * a background task-cache refresh.
  *
- * It is a switcher, not a launcher: nothing here creates a worktree, changes a
- * task's status or runs a hook.
+ * Opening a task that has never been started creates its worktree, the same way
+ * the board's "open in terminal" does. Nothing here runs a hook.
  *
  * Two layouts, chosen by whether there's a query:
  *

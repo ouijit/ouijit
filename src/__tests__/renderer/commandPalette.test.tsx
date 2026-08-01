@@ -217,9 +217,9 @@ describe('command palette results', () => {
     fireEvent.change(input, { target: { value: 'Seven' } });
     await waitFor(() => expect(screen.getByText('Focus terminal')).toBeTruthy());
 
-    // Nothing to open: the row points at the board.
+    // No worktree yet, so opening it has to create one first.
     fireEvent.change(input, { target: { value: 'Eleven' } });
-    await waitFor(() => expect(screen.getByText('Show on board')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('Start task')).toBeTruthy());
   });
 });
 
@@ -289,22 +289,46 @@ describe('command palette navigation', () => {
       taskId: 9,
       skipAutoHook: true,
     });
-    // A switcher never starts a task.
+    // The worktree already exists, so there is nothing to start.
     expect(window.api.task.start).not.toHaveBeenCalled();
   });
 
-  test('a task with nothing to open goes to its card on the board, and starts nothing', async () => {
+  test('a task with no worktree is started, then opened as a plain shell', async () => {
+    window.api.task.start = vi.fn().mockResolvedValue({
+      success: true,
+      worktreePath: '/wt/eleven',
+      task: { ...TASKS[projectA.path][2], branch: 'eleven' },
+    });
+
     await openPalette();
     const input = screen.getByLabelText('Search terminals, projects and tasks');
     fireEvent.change(input, { target: { value: 'Eleven' } });
     await waitFor(() => expect(rowLabels()[0]).toContain('Eleven'));
     fireEvent.keyDown(input, { key: 'Enter' });
 
-    await waitFor(() => expect(useProjectStore.getState().revealedTaskNumber).toBe(11));
-    expect(useProjectStore.getState().kanbanVisible).toBe(true);
-    // Creating the worktree would make this a launcher.
+    await waitFor(() => expect(window.api.task.start).toHaveBeenCalledWith(projectA.path, 11));
+    // Same shape the board's open-in-terminal produces after a start: the new
+    // worktree, and no hook.
+    await waitFor(() =>
+      expect(addProjectTerminal).toHaveBeenCalledWith(projectA.path, undefined, {
+        existingWorktree: { path: '/wt/eleven', branch: 'eleven', createdAt: '2026-07-01T00:00:00.000Z' },
+        taskId: 11,
+        skipAutoHook: true,
+      }),
+    );
+  });
+
+  test('a failed start surfaces the error and opens nothing', async () => {
+    window.api.task.start = vi.fn().mockResolvedValue({ success: false, error: 'branch exists' });
+
+    await openPalette();
+    const input = screen.getByLabelText('Search terminals, projects and tasks');
+    fireEvent.change(input, { target: { value: 'Eleven' } });
+    await waitFor(() => expect(rowLabels()[0]).toContain('Eleven'));
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    await waitFor(() => expect(useProjectStore.getState().toasts[0]?.message).toBe('branch exists'));
     expect(addProjectTerminal).not.toHaveBeenCalled();
-    expect(window.api.task.start).not.toHaveBeenCalled();
   });
 
   test('remembers where you jumped and leads with it next time', async () => {

@@ -11,7 +11,7 @@
  *
  *   live terminal  →  focus it
  *   worktree only  →  open a plain shell there
- *   neither        →  show the card on the board
+ *   neither        →  create the worktree, then open a plain shell there
  *
  * Terminals list on their own only when they aren't a task's shell. Runners are
  * panels on a parent card and never list at all.
@@ -21,7 +21,7 @@ import type { ActiveSession, Project, SandboxProviderId, TaskWithWorkspace } fro
 import type { TerminalDisplayState } from '../../stores/terminalStore';
 import type { SearchField } from '../../utils/paletteScore';
 import { formatRelativeTime } from '../../utils/formatDate';
-import { focusTerminal, openTaskWorktree, revealTaskOnBoard, selectProject } from '../navigation';
+import { focusTerminal, openTaskWorktree, selectProject, startTaskWorktree } from '../navigation';
 
 export type PaletteKind = 'terminal' | 'project' | 'task';
 
@@ -257,11 +257,8 @@ export function buildPaletteItems(input: PaletteInput): PaletteItem[] {
       taskNumber: task.taskNumber,
       tags: live?.tags,
       meta: `${status} · ${formatRelativeTime(new Date(task.createdAt))}`,
-      // Nothing to open yet, so the row reads as a destination rather than a
-      // session you can drop into.
-      dimmed: !live && !openable,
       status: live ? { summaryType: live.summaryType, sandboxProvider: live.sandboxProvider } : undefined,
-      action: live ? 'Focus terminal' : openable ? 'Open worktree' : 'Show on board',
+      action: live ? 'Focus terminal' : openable ? 'Open worktree' : 'Start task',
       run: () => {
         if (live) {
           void focusTerminal(live.ptyId, live.projectPath);
@@ -274,7 +271,7 @@ export function buildPaletteItems(input: PaletteInput): PaletteItem[] {
             createdAt: task.createdAt,
           });
         } else {
-          void revealTaskOnBoard(project, task.taskNumber);
+          void startTaskWorktree(project, task.taskNumber, task.createdAt);
         }
       },
     });

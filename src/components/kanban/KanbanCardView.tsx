@@ -12,8 +12,6 @@ export interface KanbanCardViewProps {
   connectedDisplays?: TerminalDisplayState[];
   isSettingUp?: boolean;
   isSelected?: boolean;
-  /** Momentarily ringed and scrolled into view after a mod+K jump. */
-  isRevealed?: boolean;
   isHoveredBadgeTarget?: boolean;
   isValidBadgeTarget?: boolean;
   isInvalidBadgeTarget?: boolean;
@@ -65,7 +63,6 @@ export const KanbanCardView = memo(function KanbanCardView({
   connectedDisplays = [],
   isSettingUp = false,
   isSelected = false,
-  isRevealed = false,
   isHoveredBadgeTarget = false,
   isValidBadgeTarget = false,
   isInvalidBadgeTarget = false,
@@ -93,7 +90,6 @@ export const KanbanCardView = memo(function KanbanCardView({
   const nameInputRef = useRef<HTMLTextAreaElement>(null);
   const descEditorRef = useRef<DescriptionChipEditorHandle>(null);
   const terminalRenameRef = useRef<HTMLInputElement>(null);
-  const cardRef = useRef<HTMLDivElement>(null);
   /** Last prompt value pushed into the editor — guards against repopulating
    *  the DOM (and stomping the user's caret) when our own onChange triggers
    *  a server round-trip that returns the same string. */
@@ -209,35 +205,25 @@ export const KanbanCardView = memo(function KanbanCardView({
     }
   }, [renamingTerminalId, initialRenamingLabel]);
 
-  // A revealed card is usually off-screen in its column — the ring is no use
-  // until it's scrolled to. Optional call: jsdom has no scrollIntoView.
-  useEffect(() => {
-    if (isRevealed) cardRef.current?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
-  }, [isRevealed]);
-
   return (
     <div
-      ref={cardRef}
       className="kanban-card group px-3 py-3.5 ease-out [-webkit-app-region:no-drag] hover:bg-black/10 active:bg-black/[0.12]"
       style={{
-        background: isRevealed
-          ? 'color-mix(in srgb, var(--color-accent) 12%, transparent)'
-          : isSelected
-            ? 'color-mix(in srgb, var(--color-accent) 6%, transparent)'
-            : isHoveredBadgeTarget
-              ? 'color-mix(in srgb, var(--color-accent) 8%, transparent)'
-              : expanded
-                ? 'rgba(0, 0, 0, 0.15)'
-                : 'var(--color-terminal-bg)',
+        background: isSelected
+          ? 'color-mix(in srgb, var(--color-accent) 6%, transparent)'
+          : isHoveredBadgeTarget
+            ? 'color-mix(in srgb, var(--color-accent) 8%, transparent)'
+            : expanded
+              ? 'rgba(0, 0, 0, 0.15)'
+              : 'var(--color-terminal-bg)',
         transition:
           'background 150ms ease-out, opacity 150ms ease-out, outline-color 150ms ease-out, box-shadow 150ms ease-out',
         borderBottom: '1px solid color-mix(in srgb, var(--color-ink) 6%, transparent)',
-        outline:
-          isHoveredBadgeTarget || isRevealed
-            ? '1px solid color-mix(in srgb, var(--color-accent) 60%, transparent)'
-            : isValidBadgeTarget
-              ? '1px dashed color-mix(in srgb, var(--color-accent) 30%, transparent)'
-              : 'none',
+        outline: isHoveredBadgeTarget
+          ? '1px solid color-mix(in srgb, var(--color-accent) 60%, transparent)'
+          : isValidBadgeTarget
+            ? '1px dashed color-mix(in srgb, var(--color-accent) 30%, transparent)'
+            : 'none',
         outlineOffset: -1,
         ...(isInvalidBadgeTarget && { opacity: 0.4 }),
         ...(isSelected && { boxShadow: 'inset 2px 0 0 0 var(--color-accent)' }),

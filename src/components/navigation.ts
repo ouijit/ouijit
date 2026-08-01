@@ -16,6 +16,7 @@ import { useTerminalStore, terminalMatchesTag } from '../stores/terminalStore';
 import { useCanvasStore } from '../stores/canvasStore';
 import { useUIStore } from '../stores/uiStore';
 import { addProjectTerminal, reconnectOrphanedSessions } from './terminal/terminalActions';
+import { surfaceStartWarnings } from '../services/taskStartService';
 import { terminalInstances } from './terminal/terminalReact';
 
 /**
@@ -123,22 +124,6 @@ export async function focusTerminal(ptyId: string, projectPath?: string): Promis
   focusXterm(ptyId);
 }
 
-/**
- * Show a task on its project's board.
- *
- * The switcher's fallback for a task with nothing to open yet: no worktree
- * exists, and creating one would make the switcher a launcher. Navigating to
- * the card leaves the decision on the board, where starting a task already
- * lives.
- */
-export async function revealTaskOnBoard(project: Project, taskNumber: number): Promise<void> {
-  await selectProject(project.path, project);
-  const store = useProjectStore.getState();
-  store.setActivePanel('terminals');
-  store.setKanbanVisible(true);
-  store.revealTask(taskNumber);
-}
-
 export interface TaskWorktreeTarget {
   project: Project;
   taskNumber: number;
@@ -174,4 +159,32 @@ export async function openTaskWorktree(target: TaskWorktreeTarget): Promise<void
   const store = useProjectStore.getState();
   store.setActivePanel('terminals');
   store.setKanbanVisible(false);
+}
+
+/**
+ * Create a task's worktree, then open a shell in it.
+ *
+ * The path for a task that has never been started. `beginTask` behind
+ * `task.start` creates the branch and worktree and moves a todo task to
+ * in_progress; it runs no hook, and `openTaskWorktree` skips the continue hook,
+ * so what lands is a plain shell in a new worktree. Same sequence the board's
+ * "open in terminal" and the home recents panel already use for a task with no
+ * worktree, so all three agree on what opening an unstarted task means.
+ */
+export async function startTaskWorktree(project: Project, taskNumber: number, createdAt: string): Promise<void> {
+  const result = await window.api.task.start(project.path, taskNumber);
+  if (!result.success || !result.worktreePath) {
+    useProjectStore.getState().addToast(result.error || `Failed to open T-${taskNumber}`, 'error');
+    return;
+  }
+  surfaceStartWarnings(result.warnings);
+  void useProjectStore.getState().loadTasks(project.path);
+
+  await openTaskWorktree({
+    project,
+    taskNumber,
+    worktreePath: result.worktreePath,
+    branch: result.task?.branch || '',
+    createdAt,
+  });
 }
