@@ -13,6 +13,14 @@ interface UIStoreState {
   homeGroupMode: HomeGroupMode;
   /** When set, the home terminal stack shows only sessions whose task has this tag (across all projects). */
   homeTagFilter: string | null;
+  /**
+   * Front card of the home terminal stack. Lives here rather than in HomeView
+   * so the command palette can bring a home-owned session to the front from
+   * anywhere; HomeView still owns the stack's depth/recency ordering.
+   */
+  homeActivePtyId: string | null;
+  /** Command palette (mod+K) visibility. Session-only. */
+  paletteOpen: boolean;
 }
 
 interface UIStoreActions {
@@ -24,6 +32,9 @@ interface UIStoreActions {
   closeAllDropdowns: () => void;
   setHomeGroupMode: (mode: HomeGroupMode) => void;
   setHomeTagFilter: (tag: string | null) => void;
+  setHomeActivePtyId: (ptyId: string | null) => void;
+  setPaletteOpen: (open: boolean) => void;
+  togglePalette: () => void;
 }
 
 type UIStore = UIStoreState & UIStoreActions;
@@ -34,6 +45,8 @@ export const useUIStore = create<UIStore>()((set, get) => ({
   gitDropdownVisible: false,
   homeGroupMode: 'project',
   homeTagFilter: null,
+  homeActivePtyId: null,
+  paletteOpen: false,
 
   setSidebarVisible: (visible) => set({ sidebarVisible: visible }),
 
@@ -57,4 +70,10 @@ export const useUIStore = create<UIStore>()((set, get) => ({
   setHomeGroupMode: (mode) => set({ homeGroupMode: mode }),
 
   setHomeTagFilter: (tag) => set({ homeTagFilter: tag }),
+
+  setHomeActivePtyId: (ptyId) => set({ homeActivePtyId: ptyId }),
+
+  setPaletteOpen: (open) => set({ paletteOpen: open }),
+
+  togglePalette: () => set((s) => ({ paletteOpen: !s.paletteOpen })),
 }));

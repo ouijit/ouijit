@@ -51,7 +51,11 @@ export function HomeView() {
     return ids;
   }, [terminalsByProject, displayStates, homeTagFilter]);
 
-  const [activePtyId, setActivePtyId] = useState<string | null>(null);
+  // Front card of the stack. Held in the UI store rather than local state so
+  // the command palette can promote a home-owned session from anywhere; the
+  // depth/recency ordering below still lives here.
+  const activePtyId = useUIStore((s) => s.homeActivePtyId);
+  const setActivePtyId = useUIStore((s) => s.setHomeActivePtyId);
   const reconnectedRef = useRef(false);
 
   // Stack order: bigger tick = closer to the front. A terminal gets a tick
@@ -184,7 +188,7 @@ export function HomeView() {
       const next = stackItems.find((i): i is Extract<StackItem, { type: 'terminal' }> => i.type === 'terminal');
       setActivePtyId(next ? next.ptyId : allPtyIds[allPtyIds.length - 1]);
     }
-  }, [allPtyIds, activePtyId, stackItems]);
+  }, [allPtyIds, activePtyId, stackItems, setActivePtyId]);
 
   const maxDepth = stackItems.length > 0 ? stackItems[stackItems.length - 1].depth : 0;
 
@@ -257,7 +261,7 @@ export function HomeView() {
     };
     document.addEventListener('keydown', handler, true);
     return () => document.removeEventListener('keydown', handler, true);
-  }, [activePtyId, stackItems]);
+  }, [activePtyId, stackItems, setActivePtyId]);
 
   // Build depth map: ptyId → depth (active = 0, others from stackItems)
   const depthMap = useMemo(() => {

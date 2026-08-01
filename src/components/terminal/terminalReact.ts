@@ -122,7 +122,7 @@ function setupTerminalAppHotkeys(terminal: XTerminal, writeToPty: (data: string)
       }
 
       // App hotkeys that should pass through to hotkeys-js
-      const appHotkeys = ['n', 't', 'b', 'i', 'p', 'd', 's', 'w', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
+      const appHotkeys = ['n', 't', 'b', 'i', 'p', 'd', 's', 'w', 'k', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
       if (appHotkeys.includes(key)) {
         return false;
       }
