@@ -1,0 +1,31 @@
+# Shared check suite. Called by ci.yml (pull requests, pushes to main) and by
+# the release workflow's gate job, so a PR runs exactly what the release runs
+# and the two cannot drift.
+#
+# E2E is deliberately not here. It needs an Electron rebuild plus a full Vite
+# build under xvfb, and e2e/playwright.config.ts uses retries: 0 with a 10s
+# per-test timeout, which is tight for a cold runner. The suite has also never
+# run on a GitHub runner, so its headless behaviour there is unknown.
+name: Checks
+
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+      - run: npm rebuild better-sqlite3 --silent
+      # Only the unit project: integration tests need a git identity the
+      # runner does not have (see #63).
+      - run: npx vitest run --project unit

@@ -88,7 +88,6 @@ const actionHandlers: Record<string, ActionHandler> = {
       mainWindow.webContents.send('agent-hook-status', ptyId, status);
     }
   },
-
 };
 
 // ── Server lifecycle ─────────────────────────────────────────────────
