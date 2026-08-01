@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach, vi } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, cleanup } from '@testing-library/react';
 
 vi.mock('electron-log/renderer', () => ({
   default: { scope: () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }) },
@@ -59,9 +59,10 @@ const SESSIONS: ActiveSession[] = [
 const TASKS: Record<string, TaskWithWorkspace[]> = {
   [projectA.path]: [
     task({ taskNumber: 7, name: 'Seven', worktreePath: '/wt/seven', branch: 'seven' }),
-    task({ taskNumber: 9, name: 'Nine', worktreePath: '/wt/nine', branch: 'nine' }),
-    // No worktree: the palette must not offer to start it.
-    task({ taskNumber: 11, name: 'Eleven' }),
+    task({ taskNumber: 9, name: 'Nine', worktreePath: '/wt/nine', branch: 'nine', prompt: 'Rewire the scheduler' }),
+    // No worktree yet: listed, but there is nothing to open.
+    task({ taskNumber: 11, name: 'Eleven', status: 'todo' }),
+    task({ taskNumber: 12, name: 'Cache invalidation', branch: 'fix/cache-headers', worktreePath: '/wt/twelve' }),
   ],
   [projectB.path]: [],
 };
@@ -82,7 +83,13 @@ function seed(): void {
     },
     activeIndices: { [projectA.path]: 0 },
   });
-  useProjectStore.setState({ tagFilter: null, terminalLayout: 'stack', kanbanVisible: true });
+  useProjectStore.setState({
+    tagFilter: null,
+    terminalLayout: 'stack',
+    kanbanVisible: true,
+    toasts: [],
+    startingTaskNumbers: new Set<number>(),
+  });
   useUIStore.setState({ paletteOpen: true, homeActivePtyId: null, homeTagFilter: null });
 }
 
@@ -133,7 +140,7 @@ describe('mod+K shortcut', () => {
 });
 
 describe('command palette results', () => {
-  test('lists switchable terminals, projects and worktree-backed tasks, without duplicates', async () => {
+  test('lists every task once, alongside non-task terminals and projects', async () => {
     await openPalette();
     const labels = rowLabels();
 
@@ -144,17 +151,18 @@ describe('command palette results', () => {
     // Runners are panels on a parent card, never their own row.
     expect(labels.some((l) => l.includes('npm run dev'))).toBe(false);
 
-    // Task 7 already has a live terminal, so it lists once — as that terminal.
+    // Task 7 has a live terminal. There is exactly one task row for it, and the
+    // shell hangs off that row as a branch rather than listing under Terminals.
     expect(labels.filter((l) => l.includes('T-7'))).toHaveLength(1);
-    // Task 9 has a worktree and no terminal, so it lists as a task.
+    expect(labels.some((l) => l.includes('└─') && l.includes('Seven'))).toBe(true);
+    // A task with a worktree and one with nothing at all both list.
     expect(labels.some((l) => l.includes('Nine'))).toBe(true);
-    // Task 11 has no worktree — opening it would have to create one.
-    expect(labels.some((l) => l.includes('Eleven'))).toBe(false);
+    expect(labels.some((l) => l.includes('Eleven'))).toBe(true);
 
     // Projects are listed too.
     expect(labels.some((l) => l.includes('Bravo') && l.includes('/work/bravo'))).toBe(true);
 
-    // Sections keep their order: terminals, then projects, then tasks.
+    // With no query the browse groups keep their order.
     expect(screen.getAllByText(/^(Terminals|Projects|Tasks)$/).map((n) => n.textContent)).toEqual([
       'Terminals',
       'Projects',
@@ -175,6 +183,100 @@ describe('command palette results', () => {
 
     fireEvent.keyDown(input, { key: 'Escape' });
     expect(useUIStore.getState().paletteOpen).toBe(false);
+  });
+
+  test('ranks the best match first regardless of type, and searches beyond the title', async () => {
+    await openPalette();
+    const input = screen.getByLabelText('Search terminals, projects and tasks');
+
+    // A task number, in either form. Under the old per-type sections a
+    // terminal always took the first row; the digits weren't searchable at all.
+    fireEvent.change(input, { target: { value: 'T-12' } });
+    await waitFor(() => expect(rowLabels()[0]).toContain('Cache invalidation'));
+    fireEvent.change(input, { target: { value: '12' } });
+    await waitFor(() => expect(rowLabels()[0]).toContain('Cache invalidation'));
+
+    // Branch, prompt and status are all searchable, and the row says which
+    // field it matched on so the result doesn't look arbitrary.
+    fireEvent.change(input, { target: { value: 'cache-headers' } });
+    await waitFor(() => expect(rowLabels()[0]).toContain('Cache invalidation'));
+    expect(rowLabels()[0]).toContain('branch');
+
+    fireEvent.change(input, { target: { value: 'scheduler' } });
+    await waitFor(() => expect(rowLabels()[0]).toContain('Nine'));
+
+    // Statuses read and match by the board's own column names.
+    fireEvent.change(input, { target: { value: 'to do' } });
+    await waitFor(() => expect(rowLabels()[0]).toContain('Eleven'));
+    expect(rowLabels()[0]).toContain('To Do');
+
+    fireEvent.change(input, { target: { value: 'in progress' } });
+    await waitFor(() => expect(rowLabels()[0]).toContain('In Progress'));
+
+    // An exact name still outranks a lower-weight field's exact hit.
+    fireEvent.change(input, { target: { value: 'Seven' } });
+    await waitFor(() => expect(rowLabels()[0]).toContain('Seven'));
+  });
+
+  test("a task's shells branch off its row, each one its own target", async () => {
+    // Two shells on task 7, so the mid/last glyphs and per-shell targeting
+    // both matter.
+    useTerminalStore.setState({
+      terminalsByProject: { [projectA.path]: ['alpha-7', 'alpha-7b'] },
+      displayStates: {
+        'alpha-7': display({ ptyId: 'alpha-7', projectPath: projectA.path, label: 'claude', taskId: 7 }),
+        'alpha-7b': display({ ptyId: 'alpha-7b', projectPath: projectA.path, label: 'npm test', taskId: 7 }),
+      },
+      activeIndices: { [projectA.path]: 0 },
+    });
+
+    await openPalette();
+    const input = screen.getByLabelText('Search terminals, projects and tasks');
+    // Found by a shell's label, since the task now owns those rows.
+    fireEvent.change(input, { target: { value: 'npm test' } });
+
+    await waitFor(() => expect(rowLabels()[0]).toContain('T-7'));
+    expect(rowLabels()[1]).toContain('├─');
+    expect(rowLabels()[1]).toContain('claude');
+    expect(rowLabels()[2]).toContain('└─');
+    expect(rowLabels()[2]).toContain('npm test');
+
+    // Arrow down twice past the task row lands on the second shell, and Enter
+    // focuses that one rather than whichever sorted first.
+    fireEvent.keyDown(input, { key: 'ArrowDown' });
+    fireEvent.keyDown(input, { key: 'ArrowDown' });
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    await waitFor(() => expect(useTerminalStore.getState().activeIndices[projectA.path]).toBe(1));
+  });
+
+  test('a project row searches and shows the same home-relative path', async () => {
+    // Row text and match ranges have to index the same string, or the
+    // highlight lands on the wrong characters.
+    useAppStore.setState({ projects: [projectA, { path: '/Users/someone/Code/horizon', name: 'Horizon' }] });
+
+    await openPalette();
+    const input = screen.getByLabelText('Search terminals, projects and tasks');
+    fireEvent.change(input, { target: { value: '~/Code/horizon' } });
+
+    await waitFor(() => expect(rowLabels()[0]).toContain('~/Code/horizon'));
+    expect(rowLabels()[0]).not.toContain('/Users/someone');
+  });
+
+  test('the footer names what Enter will do for the selected row', async () => {
+    await openPalette();
+    const input = screen.getByLabelText('Search terminals, projects and tasks');
+
+    fireEvent.change(input, { target: { value: 'Nine' } });
+    await waitFor(() => expect(screen.getByText('Open worktree')).toBeTruthy());
+
+    // Task 7 is live, so its row focuses the running shell instead.
+    fireEvent.change(input, { target: { value: 'Seven' } });
+    await waitFor(() => expect(screen.getByText('Focus terminal')).toBeTruthy());
+
+    // No worktree yet, so opening it has to create one first.
+    fireEvent.change(input, { target: { value: 'Eleven' } });
+    await waitFor(() => expect(screen.getByText('Start task')).toBeTruthy());
   });
 });
 
@@ -244,8 +346,82 @@ describe('command palette navigation', () => {
       taskId: 9,
       skipAutoHook: true,
     });
-    // A switcher never starts a task.
+    // The worktree already exists, so there is nothing to start.
     expect(window.api.task.start).not.toHaveBeenCalled();
+  });
+
+  test('a task with no worktree stages a loading card, then starts and opens it', async () => {
+    // Hold the start open so the staged state is observable, the way it is on
+    // screen while git creates the worktree.
+    let releaseStart: (v: unknown) => void = () => {};
+    window.api.task.start = vi.fn().mockReturnValue(new Promise((r) => (releaseStart = r)));
+
+    await openPalette();
+    const input = screen.getByLabelText('Search terminals, projects and tasks');
+    fireEvent.change(input, { target: { value: 'Eleven' } });
+    await waitFor(() => expect(rowLabels()[0]).toContain('Eleven'));
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    // Mid-start: a loading card is already in the stack, so the user is looking
+    // at the task rather than at nothing.
+    await waitFor(() => expect(useProjectStore.getState().startingTaskNumbers.has(11)).toBe(true));
+    const staged = Object.values(useTerminalStore.getState().displayStates).find((d) => d.taskId === 11);
+    expect(staged).toMatchObject({ label: 'Eleven', isLoading: true });
+    expect(useProjectStore.getState().kanbanVisible).toBe(false);
+
+    releaseStart({ success: true, worktreePath: '/wt/eleven', task: { branch: 'eleven' } });
+
+    // The real terminal takes the staged slot's place rather than appending.
+    await waitFor(() =>
+      expect(addProjectTerminal).toHaveBeenCalledWith(projectA.path, undefined, {
+        existingWorktree: { path: '/wt/eleven', branch: 'eleven', createdAt: '2026-07-01T00:00:00.000Z' },
+        taskId: 11,
+        skipAutoHook: true,
+        replaceLoadingId: staged?.ptyId,
+      }),
+    );
+    await waitFor(() => expect(useProjectStore.getState().startingTaskNumbers.has(11)).toBe(false));
+  });
+
+  test('a failed start clears the staged card and surfaces the error', async () => {
+    window.api.task.start = vi.fn().mockResolvedValue({ success: false, error: 'branch exists' });
+
+    await openPalette();
+    const input = screen.getByLabelText('Search terminals, projects and tasks');
+    fireEvent.change(input, { target: { value: 'Eleven' } });
+    await waitFor(() => expect(rowLabels()[0]).toContain('Eleven'));
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    await waitFor(() => expect(useProjectStore.getState().toasts[0]?.message).toBe('branch exists'));
+    expect(addProjectTerminal).not.toHaveBeenCalled();
+    // No orphan card left behind that would never resolve.
+    expect(Object.values(useTerminalStore.getState().displayStates).some((d) => d.isLoading)).toBe(false);
+    expect(useProjectStore.getState().startingTaskNumbers.has(11)).toBe(false);
+  });
+
+  test('remembers where you jumped and leads with it next time', async () => {
+    await openPalette();
+    const input = screen.getByLabelText('Search terminals, projects and tasks');
+    fireEvent.change(input, { target: { value: 'Nine' } });
+    await waitFor(() => expect(rowLabels()[0]).toContain('Nine'));
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    const write = vi.mocked(window.api.globalSettings.set).mock.calls.find(([key]) => key === 'ui:palette-frecency');
+    expect(write).toBeTruthy();
+    const stored = JSON.parse(write?.[1] as string);
+    // Keyed on the task, not the pty — the shell it just opened will not
+    // outlive the worktree, but what we learned about the task should.
+    expect(Object.keys(stored)).toEqual([`task:${projectA.path}#9`]);
+
+    // Reopen with that history in place: the jump leads the empty-query list.
+    cleanup();
+    window.api.globalSettings.get = vi.fn(async (key: string) =>
+      key === 'ui:palette-frecency' ? JSON.stringify(stored) : undefined,
+    );
+    useUIStore.setState({ paletteOpen: true });
+    await openPalette();
+    await waitFor(() => expect(screen.getByText('Recent')).toBeTruthy());
+    expect(rowLabels()[0]).toContain('Nine');
   });
 
   test('selecting a project loads its tasks, navigates, and persists the view', async () => {
