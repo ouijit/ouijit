@@ -61,11 +61,20 @@ describe('revealInFileManager', () => {
     expect(useProjectStore.getState().toasts).toHaveLength(0);
   });
 
-  it('toasts when the OS refuses to open the path', async () => {
+  it('toasts the OS reason when it refuses to open the path', async () => {
     vi.mocked(window.api.openInFinder).mockResolvedValueOnce({ success: false, error: 'no such file' });
     await revealInFileManager('/tmp/gone');
     const [toast] = useProjectStore.getState().toasts;
     expect(toast.type).toBe('error');
     expect(toast.message).toContain('/tmp/gone');
+    expect(toast.message).toContain('no such file');
+  });
+
+  it('toasts instead of rejecting when the invoke itself fails', async () => {
+    vi.mocked(window.api.openInFinder).mockRejectedValueOnce(new Error('channel closed'));
+    await revealInFileManager('/tmp/worktree');
+    const [toast] = useProjectStore.getState().toasts;
+    expect(toast.type).toBe('error');
+    expect(toast.message).toContain('channel closed');
   });
 });
