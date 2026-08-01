@@ -1,4 +1,4 @@
-import { test, expect } from './fixtures';
+import { test, expect, createTestRepo } from './fixtures';
 import type { Page, Locator, ElectronApplication } from '@playwright/test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
@@ -25,6 +25,18 @@ async function enterProject(appPage: Page, repoPath: string): Promise<void> {
   await sidebarItem.click();
   // First entry shows kanban board (no existing terminals)
   await expect(appPage.locator('.kanban-board')).toBeVisible({ timeout: 10_000 });
+}
+
+/**
+ * Helper: navigate into an already-registered project by path. `enterProject`
+ * takes the first sidebar item, which is ambiguous once more than one project
+ * is registered.
+ */
+async function enterProjectByPath(appPage: Page, repoPath: string): Promise<void> {
+  await appPage.mouse.move(2, 200);
+  const sidebarItem = appPage.locator(`[data-project-path="${repoPath}"]`);
+  await expect(sidebarItem).toBeVisible({ timeout: 10_000 });
+  await sidebarItem.click();
 }
 
 /**
@@ -467,6 +479,105 @@ test('open in editor: runs the editor hook in a task terminal with the worktree 
   await expect
     .poll(() => (fs.existsSync(markerFile) ? fs.readFileSync(markerFile, 'utf8') : null), { timeout: 15_000 })
     .toBe(worktreePath);
+});
+
+/**
+ * Everything here is out of reach of the jsdom suite: a real xterm competing
+ * for the keystroke, a real second PTY that this renderer has not hydrated,
+ * and real focus landing on a terminal after the jump.
+ */
+test('command palette: opens over a focused terminal and jumps to a session in another project', async ({
+  appPage,
+  testRepo,
+}) => {
+  // Two shells, a renderer reload and a PTY reconnect — well past the default.
+  test.setTimeout(60_000);
+
+  const otherRepo = createTestRepo('other-project');
+  try {
+    await appPage.evaluate(async (paths: string[]) => {
+      for (const p of paths) await window.api.addProject(p);
+      const projects = await window.api.refreshProjects();
+      (window as any).__appStore.getState().setProjects(projects);
+    }, [testRepo.repoPath, otherRepo.repoPath]);
+
+    // A terminal in each project.
+    await enterProjectByPath(appPage, testRepo.repoPath);
+    await expect(appPage.locator('.kanban-board')).toBeVisible({ timeout: 10_000 });
+    await dismissKanban(appPage);
+    await appPage.keyboard.press(`${modifier}+i`);
+    await expect(appPage.locator('.project-card')).toHaveCount(1, { timeout: 15_000 });
+
+    await enterProjectByPath(appPage, otherRepo.repoPath);
+    await expect(appPage.locator('.kanban-board')).toBeVisible({ timeout: 10_000 });
+    await dismissKanban(appPage);
+    await appPage.keyboard.press(`${modifier}+i`);
+    await expect(appPage.locator('.project-card')).toHaveCount(1, { timeout: 15_000 });
+
+    // Reload so the first project's PTY is still alive but no longer hydrated
+    // in this renderer. The palette has to source it from getActiveSessions and
+    // reconnect it on the way in — the path the unit suite can only mock.
+    await appPage.reload();
+    await appPage.waitForLoadState('domcontentloaded');
+    await expect(appPage.locator('.project-card--active')).toHaveCount(1, { timeout: 30_000 });
+    await appPage.waitForTimeout(3_000);
+
+    // Put the keystroke in the hardest place for it to survive: a focused xterm.
+    await appPage.locator('.terminal-xterm-container').first().click();
+    await appPage.keyboard.type('PALETTE_MARKER');
+    await appPage.waitForTimeout(500);
+
+    await appPage.keyboard.press(`${modifier}+k`);
+    const palette = appPage.locator('[data-testid="command-palette"]');
+    await expect(palette).toBeVisible({ timeout: 5_000 });
+
+    // The shell must not have received the `k` as input.
+    const shellText = await appPage.evaluate(
+      () => document.querySelector('.terminal-xterm-container .xterm-rows')?.textContent ?? '',
+    );
+    expect(shellText).toContain('PALETTE_MARKER');
+    expect(shellText, 'the `k` leaked into the terminal instead of opening the palette').not.toContain(
+      'PALETTE_MARKERk',
+    );
+
+    // Typing right after the open transition must survive it.
+    const input = appPage.getByLabel('Search terminals, projects and tasks');
+    await expect(input).toBeFocused({ timeout: 5_000 });
+    await appPage.keyboard.type('test-project');
+    await expect(input).toHaveValue('test-project');
+
+    // Terminals rank above projects, so the top row is the other project's
+    // shell, not the project itself.
+    const firstRow = appPage.locator('[data-testid="palette-row"]').first();
+    await expect(firstRow).toContainText('test-project', { timeout: 5_000 });
+    await appPage.keyboard.press('Enter');
+
+    await expect
+      .poll(() => appPage.evaluate(() => (window as any).__appStore.getState().activeProjectPath), { timeout: 20_000 })
+      .toBe(testRepo.repoPath);
+    await expect(palette).toHaveCount(0, { timeout: 5_000 });
+    // Jumping to a terminal shows terminals, not the board.
+    await expect(appPage.locator('.kanban-board')).toHaveCount(0);
+    await expect(appPage.locator('.project-card--active')).toHaveCount(1, { timeout: 20_000 });
+
+    // Focus has to land in the terminal, or the jump isn't finished.
+    await expect
+      .poll(() => appPage.evaluate(() => !!document.activeElement?.closest('.terminal-xterm-container')), {
+        timeout: 10_000,
+      })
+      .toBe(true);
+
+    // Escape closes without navigating.
+    await appPage.keyboard.press(`${modifier}+k`);
+    await expect(palette).toBeVisible({ timeout: 5_000 });
+    await appPage.keyboard.press('Escape');
+    await expect(palette).toHaveCount(0, { timeout: 5_000 });
+    expect(await appPage.evaluate(() => (window as any).__appStore.getState().activeProjectPath)).toBe(
+      testRepo.repoPath,
+    );
+  } finally {
+    otherRepo.cleanup();
+  }
 });
 
 test('whats new: modal appears and dismisses', async ({ appPage }) => {

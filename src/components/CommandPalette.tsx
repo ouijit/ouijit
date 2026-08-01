@@ -10,7 +10,7 @@
  * task's status or runs a hook.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useAppStore } from '../stores/appStore';
 import { useTerminalStore } from '../stores/terminalStore';
@@ -166,9 +166,26 @@ function PaletteBody({ visible }: { visible: boolean }) {
     };
   }, []);
 
-  useEffect(() => {
-    requestAnimationFrame(() => inputRef.current?.focus());
+  // Focus before paint, not on the next frame. A deferred focus leaves a window
+  // where the palette is on screen but the keystrokes still belong to whatever
+  // had focus before — typically an xterm, which would eat the first characters
+  // typed and the Escape that was meant to dismiss this.
+  useLayoutEffect(() => {
+    inputRef.current?.focus();
   }, []);
+
+  // Escape at the document level, in capture, the way the dialogs handle it —
+  // dismissal must not depend on focus being somewhere in particular.
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      e.preventDefault();
+      e.stopPropagation();
+      close();
+    };
+    document.addEventListener('keydown', handler, true);
+    return () => document.removeEventListener('keydown', handler, true);
+  }, [close]);
 
   const projectByPath = useMemo(() => new Map(projects.map((p) => [p.path, p])), [projects]);
 
@@ -308,12 +325,6 @@ function PaletteBody({ visible }: { visible: boolean }) {
 
   const onKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        e.stopPropagation();
-        close();
-        return;
-      }
       if (e.key === 'ArrowDown') {
         e.preventDefault();
         setSelected((current) => (flat.length === 0 ? 0 : (current + 1) % flat.length));
@@ -329,7 +340,7 @@ function PaletteBody({ visible }: { visible: boolean }) {
         activate(flat[selected]);
       }
     },
-    [flat, selected, activate, close],
+    [flat, selected, activate],
   );
 
   let rowIndex = -1;
