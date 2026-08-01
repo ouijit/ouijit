@@ -13,6 +13,7 @@ import { ContextMenu, type ContextMenuEntry } from '../ui/ContextMenu';
 import { HookConfigDialog } from '../dialogs/HookConfigDialog';
 import { BranchFromTaskDialog } from '../dialogs/BranchFromTaskDialog';
 import { Tooltip } from '../ui/Tooltip';
+import { revealInFileManager } from '../../utils/fileManager';
 import type { TaskChainInfo } from '../../utils/taskChain';
 import { isChainMember, isDescendantOf } from '../../utils/taskChain';
 import { KanbanCardView } from './KanbanCardView';
@@ -204,6 +205,7 @@ export const KanbanCard = memo(function KanbanCard({
           setEditorHookDialog(true);
         }
       },
+      openFolder: () => void revealInFileManager(task.worktreePath!),
       setStatus: async (status) => {
         await window.api.task.setStatus(projectPath, task.taskNumber, status);
         useProjectStore.getState().loadTasks(projectPath);

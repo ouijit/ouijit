@@ -464,9 +464,9 @@ export interface Project {
  */
 export interface ElectronAPI {
   getProjects(): Promise<Project[]>;
-  openProject(path: string): Promise<{ success: boolean }>;
-  /** Open project in Finder */
-  openInFinder(path: string): Promise<{ success: boolean }>;
+  openProject(path: string): Promise<{ success: boolean; error?: string }>;
+  /** Reveal a directory in the OS file manager (Finder, Explorer, ...) */
+  openInFinder(path: string): Promise<{ success: boolean; error?: string }>;
   /** Open a file at a specific line in the user's editor (auto-detects, falls back to hook) */
   openFileInEditor(
     projectPath: string,
