@@ -159,16 +159,25 @@ export function useIPCListeners() {
       }),
     );
 
-    // CLI changes — re-fetch tasks when CLI writes to the sentinel file
+    // CLI changes — re-fetch whatever the mutated route touched. Scripts and
+    // hooks are the project's run commands: the store loads them once on
+    // project switch, so without this a `ouijit script set` / `hook set` never
+    // shows up in an already-open window (terminal "+" menu, headers, badges).
     cleanups.push(
       window.api.onCliChange((payload) => {
         const activeProject = useAppStore.getState().activeProjectPath;
-        if (activeProject && payload.project === activeProject) {
-          ipcLog.info('CLI change detected, refreshing tasks', { action: payload.action });
-          useProjectStore.getState().loadTasks(activeProject);
-          if (payload.message) {
-            useProjectStore.getState().addToast(payload.message, 'info');
-          }
+        if (!activeProject || payload.project !== activeProject) return;
+        ipcLog.info('CLI change detected, refreshing', { action: payload.action });
+        const store = useProjectStore.getState();
+        if (payload.resource === 'scripts') {
+          store.loadScripts(activeProject);
+        } else if (payload.resource === 'hooks') {
+          store.loadProjectConfig(activeProject);
+        } else {
+          store.loadTasks(activeProject);
+        }
+        if (payload.message) {
+          store.addToast(payload.message, 'info');
         }
       }),
     );
