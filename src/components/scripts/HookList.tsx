@@ -31,6 +31,15 @@ export function HookList({ projectPath, hooks: hookEntries, bare }: HookListProp
     loadHooks();
   }, [loadHooks]);
 
+  // The hook rows are local state (the store only tracks which types are
+  // configured), so a `ouijit hook set` while this panel is open needs its own
+  // re-read to avoid showing the old command.
+  useEffect(() => {
+    return window.api.onCliChange((payload) => {
+      if (payload.resource === 'hooks' && payload.project === projectPath) loadHooks();
+    });
+  }, [loadHooks, projectPath]);
+
   const handleDialogClose = useCallback(
     (result: { saved: boolean } | null) => {
       setEditingHook(null);
