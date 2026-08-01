@@ -34,8 +34,7 @@ interface FakeTermOpts {
   planPath?: string | null;
   planPanelOpen?: boolean;
   diffPanelOpen?: boolean;
-  /** A preview URL that was auto-detected by a runner (should not persist). */
-  autoPreviewUrl?: string | null;
+  previewUrl?: string | null;
 }
 
 function makeFakeTerm(opts: FakeTermOpts): OuijitTerminal {
@@ -45,14 +44,8 @@ function makeFakeTerm(opts: FakeTermOpts): OuijitTerminal {
     panels.push({ id: 'plan', kind: 'plan', planPath: opts.planPath });
     if (opts.planPanelOpen) activePanelId = 'plan';
   }
-  if (opts.autoPreviewUrl) {
-    panels.push({
-      id: 'prev',
-      kind: 'webPreview',
-      url: opts.autoPreviewUrl,
-      urlAutoDetected: true,
-      sourceRunnerPanelId: 'r',
-    });
+  if (opts.previewUrl) {
+    panels.push({ id: 'prev', kind: 'webPreview', url: opts.previewUrl });
   }
   return {
     ptyId: opts.ptyId,
@@ -121,11 +114,11 @@ describe('gatherSnapshot', () => {
     expect(snap.terminals.map((t) => t.ptyId)).toEqual(['main']);
   });
 
-  test('excludes auto-detected preview URLs from the snapshot', () => {
-    register(PROJECT, makeFakeTerm({ ptyId: 'a', label: 'Shell', autoPreviewUrl: 'http://localhost:3000' }));
+  test('persists preview panel URLs', () => {
+    register(PROJECT, makeFakeTerm({ ptyId: 'a', label: 'Shell', previewUrl: 'http://localhost:3000' }));
 
     const snap = gatherSnapshot();
-    expect(snap.terminals[0].ui.panels).toEqual([]);
+    expect(snap.terminals[0].ui.panels).toEqual([{ kind: 'webPreview', url: 'http://localhost:3000' }]);
   });
 });
 

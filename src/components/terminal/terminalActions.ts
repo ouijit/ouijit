@@ -25,7 +25,6 @@ import { generateId } from '../../utils/ids';
 import { parseOsc133ExitCodes } from './osc133';
 import { buildEditorCommand } from './editorCommand';
 import { readSnapshot } from './sessionSnapshot';
-import { detectDevServerUrl } from '../webPreview/urlHelpers';
 import { descriptionToHookPrompt } from '../../utils/descriptionAttachments';
 import log from 'electron-log/renderer';
 
@@ -122,9 +121,7 @@ export async function applyInitialUiState(term: OuijitTerminal, ui: SnapshotTerm
           });
           break;
         case 'webPreview':
-          if (sp.url) {
-            panels.push({ id, kind: 'webPreview', url: sp.url, urlAutoDetected: false, sourceRunnerPanelId: null });
-          }
+          if (sp.url) panels.push({ id, kind: 'webPreview', url: sp.url });
           break;
         case 'plan':
           if (sp.planPath) panels.push({ id, kind: 'plan', planPath: sp.planPath });
@@ -144,13 +141,7 @@ export async function applyInitialUiState(term: OuijitTerminal, ui: SnapshotTerm
     }
     if (ui.webPreview?.url) {
       const id = generateId('panel');
-      panels.push({
-        id,
-        kind: 'webPreview',
-        url: ui.webPreview.url,
-        urlAutoDetected: false,
-        sourceRunnerPanelId: null,
-      });
+      panels.push({ id, kind: 'webPreview', url: ui.webPreview.url });
       if (ui.webPreview.panelOpen) activeId = id;
     }
     if (ui.runner) {
@@ -710,8 +701,6 @@ async function _spawnRunnerInner(instance: OuijitTerminal, panelId: string): Pro
           if (match[1]) instance.updatePanel(panelId, { command: match[1] });
         }
         updateRunnerStatusFromOsc133(data, instance, panelId);
-        const detected = detectDevServerUrl(data);
-        if (detected) instance.publishDetectedPreviewUrl(panelId, detected);
       },
       onExit: (exitCode) => {
         instance.updatePanel(panelId, { status: exitCode === 0 ? 'success' : 'error' });
@@ -815,6 +804,40 @@ export function killExistingCommandInstances(
 
 // ── Reconnect all orphaned sessions for a project ────────────────────
 
+/**
+ * Reconnects currently in flight, keyed by PTY id. `terminalInstances` only
+ * gains its entry after `pty.reconnect` resolves, so a bare `has(ptyId)` check
+ * can't serialize the two callers: on a renderer reload the home view's
+ * unscoped reconnect and the project view's scoped one overlap, both pass the
+ * check for the same session, and each registers a card for it.
+ */
+const reconnectsInFlight = new Map<string, Promise<unknown>>();
+
+/**
+ * Restore `ptyId` at most once across concurrent callers. A caller that loses
+ * the race awaits the winner rather than skipping ahead, so the terminal list
+ * is final by the time it returns. ProjectViewReact reads that list to decide
+ * whether reconnection produced anything or the kanban should open instead.
+ */
+async function reconnectSessionOnce(ptyId: string, restore: () => Promise<unknown>): Promise<void> {
+  if (terminalInstances.has(ptyId)) return;
+
+  const inFlight = reconnectsInFlight.get(ptyId);
+  if (inFlight) {
+    // The winner reports its own failure; the loser only needs it to be over.
+    await inFlight.catch(() => {});
+    return;
+  }
+
+  const pending = restore();
+  reconnectsInFlight.set(ptyId, pending);
+  try {
+    await pending;
+  } finally {
+    reconnectsInFlight.delete(ptyId);
+  }
+}
+
 export async function reconnectOrphanedSessions(projectPath?: string): Promise<void> {
   let sessions: ActiveSession[];
   try {
@@ -844,38 +867,39 @@ export async function reconnectOrphanedSessions(projectPath?: string): Promise<v
   const runnerSessions = relevant.filter((s) => s.isRunner);
 
   // Reconnect main terminals first (so runner parents exist before runners
-  // reattach). The instance guard makes this idempotent across the two callers.
+  // reattach). reconnectSessionOnce makes this idempotent across the two callers.
   for (const session of mainSessions) {
-    if (terminalInstances.has(session.ptyId)) continue;
-    let worktreeBranch: string | undefined;
-    let mergeTarget: string | undefined;
-    if (session.taskId != null) {
-      const task = await window.api.task.getByNumber(session.projectPath, session.taskId);
-      worktreeBranch = task?.branch;
-      mergeTarget = task?.mergeTarget;
-    }
-
-    const [hookStatus, planPath] = await Promise.all([
-      window.api.agentHooks.getStatus(session.ptyId),
-      window.api.plan.getForPty(session.ptyId),
-    ]);
-    const initialStatus: SummaryType = hookStatus?.status === 'thinking' ? 'thinking' : 'ready';
-
-    const snapEntry = snapByPtyId.get(session.ptyId);
-    const term = await reconnectTerminal(session, {
-      worktreeBranch,
-      mergeTarget,
-      initialStatus,
-      label: snapEntry?.label ?? undefined,
-    });
-    if (term) {
-      if (snapEntry) await applyInitialUiState(term, snapEntry.ui);
-      // The plan association lives in the main process — authoritative for the
-      // path. Ensure a plan panel exists for it (without stealing focus).
-      if (planPath && !term.panels.some((p) => p.kind === 'plan' && p.planPath === planPath)) {
-        term.addPlanPanel(planPath, false);
+    await reconnectSessionOnce(session.ptyId, async () => {
+      let worktreeBranch: string | undefined;
+      let mergeTarget: string | undefined;
+      if (session.taskId != null) {
+        const task = await window.api.task.getByNumber(session.projectPath, session.taskId);
+        worktreeBranch = task?.branch;
+        mergeTarget = task?.mergeTarget;
       }
-    }
+
+      const [hookStatus, planPath] = await Promise.all([
+        window.api.agentHooks.getStatus(session.ptyId),
+        window.api.plan.getForPty(session.ptyId),
+      ]);
+      const initialStatus: SummaryType = hookStatus?.status === 'thinking' ? 'thinking' : 'ready';
+
+      const snapEntry = snapByPtyId.get(session.ptyId);
+      const term = await reconnectTerminal(session, {
+        worktreeBranch,
+        mergeTarget,
+        initialStatus,
+        label: snapEntry?.label ?? undefined,
+      });
+      if (term) {
+        if (snapEntry) await applyInitialUiState(term, snapEntry.ui);
+        // The plan association lives in the main process — authoritative for the
+        // path. Ensure a plan panel exists for it (without stealing focus).
+        if (planPath && !term.panels.some((p) => p.kind === 'plan' && p.planPath === planPath)) {
+          term.addPlanPanel(planPath, false);
+        }
+      }
+    });
   }
 
   // Restore the focused card per project. Without this, every reconnectTerminal
@@ -894,8 +918,7 @@ export async function reconnectOrphanedSessions(projectPath?: string): Promise<v
 
   // Reconnect runners to their parent terminals
   for (const session of runnerSessions) {
-    if (terminalInstances.has(session.ptyId)) continue;
-    await reconnectRunnerToParent(session);
+    await reconnectSessionOnce(session.ptyId, () => reconnectRunnerToParent(session));
   }
 }
 
@@ -957,8 +980,6 @@ export async function reconnectRunnerToParent(session: ActiveSession): Promise<b
         if (match[1]) parentTerminal.updatePanel(runnerPanelId, { command: match[1] });
       }
       updateRunnerStatusFromOsc133(data, parentTerminal, runnerPanelId);
-      const detected = detectDevServerUrl(data);
-      if (detected) parentTerminal.publishDetectedPreviewUrl(runnerPanelId, detected);
     },
     onExit: (exitCode) => {
       parentTerminal.updatePanel(runnerPanelId, { status: exitCode === 0 ? 'success' : 'error' });
