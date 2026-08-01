@@ -212,6 +212,19 @@ describe('command palette results', () => {
     await waitFor(() => expect(rowLabels()[0]).toContain('Seven'));
   });
 
+  test('a project row searches and shows the same home-relative path', async () => {
+    // Row text and match ranges have to index the same string, or the
+    // highlight lands on the wrong characters.
+    useAppStore.setState({ projects: [projectA, { path: '/Users/someone/Code/horizon', name: 'Horizon' }] });
+
+    await openPalette();
+    const input = screen.getByLabelText('Search terminals, projects and tasks');
+    fireEvent.change(input, { target: { value: '~/Code/horizon' } });
+
+    await waitFor(() => expect(rowLabels()[0]).toContain('~/Code/horizon'));
+    expect(rowLabels()[0]).not.toContain('/Users/someone');
+  });
+
   test('the footer names what Enter will do for the selected row', async () => {
     await openPalette();
     const input = screen.getByLabelText('Search terminals, projects and tasks');

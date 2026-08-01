@@ -20,7 +20,7 @@
 import type { ActiveSession, Project, SandboxProviderId, TaskWithWorkspace } from '../../types';
 import type { TerminalDisplayState } from '../../stores/terminalStore';
 import type { SearchField } from '../../utils/paletteScore';
-import { formatRelativeTime } from '../../utils/formatDate';
+import { formatAge } from '../../utils/formatDate';
 import { focusTerminal, openTaskWorktree, selectProject, startTaskWorktree } from '../navigation';
 
 export type PaletteKind = 'terminal' | 'project' | 'task';
@@ -216,15 +216,20 @@ export function buildPaletteItems(input: PaletteInput): PaletteItem[] {
 
   // ── Projects ──
   for (const project of input.projects) {
+    // Home-relative, matching the title bar: the context column is fixed-width
+    // and an absolute path would spend most of it on /Users/<name>. Searched in
+    // this form too — the match's ranges index the string the row renders, so
+    // scoring the full path here would highlight the wrong characters.
+    const displayPath = project.path.replace(/^\/Users\/[^/]+/, '~');
     push({
       id: `project:${project.path}`,
       key: `project:${project.path}`,
       kind: 'project',
       title: project.name,
-      context: project.path,
+      context: displayPath,
       fields: [
         { key: 'name', text: project.name, weight: 1 },
-        { key: 'path', text: project.path, weight: 0.6 },
+        { key: 'path', text: displayPath, weight: 0.6 },
       ],
       project,
       action: 'Switch project',
@@ -256,7 +261,9 @@ export function buildPaletteItems(input: PaletteInput): PaletteItem[] {
       project,
       taskNumber: task.taskNumber,
       tags: live?.tags,
-      meta: `${status} · ${formatRelativeTime(new Date(task.createdAt))}`,
+      // Compact age, not "3 days ago": the meta column is fixed-width so the
+      // ages line up, and the long form would truncate.
+      meta: `${status} · ${formatAge((Date.now() - new Date(task.createdAt).getTime()) / 1000)}`,
       status: live ? { summaryType: live.summaryType, sandboxProvider: live.sandboxProvider } : undefined,
       action: live ? 'Focus terminal' : openable ? 'Open worktree' : 'Start task',
       run: () => {

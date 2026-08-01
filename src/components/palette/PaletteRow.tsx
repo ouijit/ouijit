@@ -77,27 +77,27 @@ export function PaletteRow({ item, match, selected, rowRef, onHover, onClick }: 
         <Leading item={item} />
       </span>
 
-      {item.taskNumber != null && (
-        <span className="font-mono text-[11px] text-text-tertiary tabular-nums shrink-0">T-{item.taskNumber}</span>
-      )}
-
-      <span className={`text-[13px] truncate shrink ${item.dimmed ? 'text-text-tertiary' : 'text-text-primary'}`}>
-        {highlight(item.title, titleRanges)}
+      {/* Held open on rows without a number so every title starts at one x. */}
+      <span className="w-12 shrink-0 font-mono text-[11px] text-text-tertiary tabular-nums">
+        {item.taskNumber != null ? `T-${item.taskNumber}` : ''}
       </span>
 
-      <span className="text-[11px] text-text-tertiary truncate shrink min-w-0">
+      <span className="flex-1 min-w-0 flex items-center gap-2">
+        <span className={`text-[13px] truncate ${item.dimmed ? 'text-text-tertiary' : 'text-text-primary'}`}>
+          {highlight(item.title, titleRanges)}
+        </span>
+        {hint && (
+          <span className="text-[11px] text-text-tertiary truncate shrink-0 max-w-[9rem]">
+            {hint.key} <span className="text-text-secondary">{highlight(hint.text, hint.ranges)}</span>
+          </span>
+        )}
+      </span>
+
+      <span className="w-32 shrink-0 text-[11px] text-text-tertiary truncate">
         {highlight(item.context, contextRanges)}
       </span>
 
-      {hint && (
-        <span className="text-[11px] text-text-tertiary truncate shrink-0 max-w-[10rem]">
-          {hint.key} <span className="text-text-secondary">{highlight(hint.text, hint.ranges)}</span>
-        </span>
-      )}
-
-      <span className="flex-1" />
-
-      {item.meta && <span className="shrink-0 text-[11px] text-text-tertiary">{item.meta}</span>}
+      <span className="w-28 shrink-0 text-right text-[11px] text-text-tertiary truncate">{item.meta}</span>
     </div>
   );
 }
