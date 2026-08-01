@@ -333,7 +333,9 @@ function PaletteBody({ visible }: { visible: boolean }) {
           <div
             role="listbox"
             aria-label="Results"
-            className="flex-1 min-h-0 overflow-y-auto settings-scrollable py-1"
+            // No top padding: it would be 4px of scrollable content above where
+            // the sticky group header pins, so rows would show through the gap.
+            className="flex-1 min-h-0 overflow-y-auto settings-scrollable pb-1"
             // Locked once there's enough to scroll, so the panel stops resizing
             // under the cursor on every keystroke.
             style={flat.length >= VISIBLE_ROWS ? { height: '22rem' } : undefined}
