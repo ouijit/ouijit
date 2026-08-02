@@ -163,10 +163,10 @@ export function TaskComposerSheet({
               placeholder="Task name"
               spellCheck={false}
               aria-label="Task name"
-              className="flex-1 min-w-0 bg-transparent border-none outline-none font-mono text-sm font-medium text-text-primary placeholder:text-text-tertiary"
+              className="flex-1 min-w-0 bg-transparent border-none outline-none text-[15px] text-text-primary placeholder:text-text-tertiary"
             />
           ) : (
-            <span className="flex-1 min-w-0 truncate font-mono text-sm font-medium text-text-primary">{name}</span>
+            <span className="flex-1 min-w-0 truncate text-[15px] text-text-primary">{name}</span>
           )}
           <span className="shrink-0 text-[11px] text-ink/40">{isCreate ? 'Todo' : 'Description'}</span>
         </div>
@@ -179,7 +179,7 @@ export function TaskComposerSheet({
           onChange={onDescriptionChange}
           onAttachFile={onAttachFile}
           placeholder={isCreate ? 'Describe the task, or write the prompt to start from…' : 'Add a description…'}
-          className="composer-sheet-editor settings-scrollable w-full overflow-y-auto px-8 pt-5 pb-6 font-mono text-[13px] text-text-primary bg-transparent outline-none border-none"
+          className="composer-sheet-editor settings-scrollable w-full overflow-y-auto px-8 pt-5 pb-6 text-sm leading-relaxed text-text-primary bg-transparent outline-none border-none"
           // Floor is a few lines, not a canvas: an empty sheet should look
           // ready rather than vacant, and it grows from there as you write.
           style={{ minHeight: '8.5rem', maxHeight: '46vh', whiteSpace: 'pre-wrap', wordWrap: 'break-word' }}

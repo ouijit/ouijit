@@ -322,7 +322,7 @@ export function KanbanAddInput({ onAdd }: KanbanAddInputProps) {
           <input
             ref={inputRef}
             type="text"
-            className="kanban-add-input w-full font-mono text-sm font-medium text-text-primary bg-transparent px-3 py-3.5 outline-none transition-all duration-150 ease-out border-none focus:bg-ink/[0.04]"
+            className="kanban-add-input w-full text-[15px] text-text-primary bg-transparent px-3 py-3 outline-none transition-all duration-150 ease-out border-none focus:bg-ink/[0.04]"
             style={{ borderBottom: '1px solid color-mix(in srgb, var(--color-ink) 6%, transparent)' }}
             placeholder="New task..."
             value={name}
@@ -342,12 +342,11 @@ export function KanbanAddInput({ onAdd }: KanbanAddInputProps) {
               placeholder="Description (optional)"
               onKeyDown={handleDescriptionKeyDown}
               onFocus={handleDescriptionFocus}
-              className="kanban-add-description w-full font-mono text-xs text-text-secondary bg-transparent px-3 py-2.5 outline-none transition-all duration-150 ease-out border-none focus:bg-ink/[0.04]"
+              className="kanban-add-description w-full text-sm leading-relaxed text-text-secondary bg-transparent px-3 py-2.5 outline-none transition-all duration-150 ease-out border-none focus:bg-ink/[0.04]"
               style={{
                 minHeight: '4.5rem',
                 whiteSpace: 'pre-wrap',
                 wordWrap: 'break-word',
-                lineHeight: 1.5,
                 overflowY: 'auto',
                 ...capStyle,
               }}

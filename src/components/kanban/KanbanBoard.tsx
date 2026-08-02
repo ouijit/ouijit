@@ -767,9 +767,7 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
             }}
           >
             <div className="flex items-start gap-2">
-              <span className="flex-1 font-mono text-sm font-medium text-text-primary min-w-0 break-words">
-                {activeTask.name}
-              </span>
+              <span className="flex-1 text-[15px] text-text-primary min-w-0 break-words">{activeTask.name}</span>
             </div>
             {selectedTaskCount > 1 && (
               <span

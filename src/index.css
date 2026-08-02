@@ -844,7 +844,6 @@ textarea,
   border: none;
   background: transparent;
   color: var(--color-text-tertiary);
-  font-family: 'Iosevka Term Extended', ui-monospace, monospace;
   font-size: 13px;
   padding: 13px 12px;
   text-align: left;
@@ -976,14 +975,9 @@ textarea,
 
 /* ── Expanded composer sheet ──────────────────────────────────────── */
 
-/* Prose settings for the sheet's editor: looser leading than the 240px
-   inline box. The placeholder drops the italic the inline editor uses —
-   at this size a full italic line reads as content, not as a prompt.
-   Both classes, to outrank the base rule further down the file. */
-.composer-sheet-editor {
-  line-height: 1.7;
-}
-
+/* The placeholder drops the italic the inline editor uses — at this size a
+   full italic line reads as content, not as a prompt. Both classes, to
+   outrank the base rule further down the file. */
 .kanban-description-editor.composer-sheet-editor[data-empty='true']::before {
   font-style: normal;
   color: var(--color-text-tertiary);

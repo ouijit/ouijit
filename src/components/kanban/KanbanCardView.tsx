@@ -299,14 +299,14 @@ export const KanbanCardView = memo(function KanbanCardView({
         {isRenamingTask ? (
           <textarea
             ref={nameInputRef}
-            className="flex-1 font-mono text-sm font-medium text-text-primary bg-transparent border-0 border-b border-accent p-0 outline-none min-w-0 resize-none overflow-hidden [-webkit-app-region:no-drag] break-words"
+            className="flex-1 text-[15px] text-text-primary bg-transparent border-0 border-b border-accent p-0 outline-none min-w-0 resize-none overflow-hidden [-webkit-app-region:no-drag] break-words"
             onBlur={commitRename}
             onKeyDown={handleNameKeyDown}
             rows={1}
           />
         ) : (
           <span
-            className={`kanban-card-name flex-1 font-mono text-sm font-medium min-w-0 break-words ${isDone ? 'line-through text-text-secondary' : 'text-text-primary'}`}
+            className={`kanban-card-name flex-1 text-[15px] min-w-0 break-words ${isDone ? 'line-through text-text-secondary' : 'text-text-primary'}`}
             onDoubleClick={onStartRenameTask}
           >
             {task.name}
@@ -415,7 +415,7 @@ export const KanbanCardView = memo(function KanbanCardView({
               onClick={() => {
                 if (!editingDesc) setEditingDesc(true);
               }}
-              className={`text-text-secondary cursor-text break-words${editingDesc ? ' outline-none' : ' line-clamp-3'}`}
+              className={`text-sm leading-relaxed text-text-secondary cursor-text break-words${editingDesc ? ' outline-none' : ' line-clamp-3'}`}
               style={
                 editingDesc
                   ? {
