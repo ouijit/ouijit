@@ -141,6 +141,32 @@ describe('PullRequestsPanel', () => {
     expect(screen.queryByText('Everything else')).toBeNull();
   });
 
+  /**
+   * A broken or missing avatar URL must not leave a hole in the row: the
+   * fallback is the initial, so every person is still distinguishable.
+   */
+  test('rows carry an avatar, and fall back to the initial without one', async () => {
+    vi.mocked(window.api.github.inbox).mockResolvedValue(
+      inbox({
+        needsReview: [
+          pr({ number: 1, title: 'With a face', author: 'octo', authorAvatarUrl: 'https://x/a.png' }),
+          pr({ number: 2, title: 'Without one', author: 'ghost' }),
+        ],
+      }),
+    );
+
+    render(<PullRequestsPanel projectPath={PROJECT} />);
+    await screen.findByText('With a face');
+
+    const image = document.querySelector('img[src^="https://x/a.png"]') as HTMLImageElement | null;
+    expect(image).not.toBeNull();
+    // Requested at twice the rendered size, and without a referrer.
+    expect(image!.src).toContain('s=32');
+    expect(image!.getAttribute('referrerpolicy')).toBe('no-referrer');
+
+    expect(screen.getByTitle('ghost').textContent).toBe('G');
+  });
+
   test('shows a spinner on a first load, not on a refresh', async () => {
     let release!: (value: InboxResult) => void;
     vi.mocked(window.api.github.inbox).mockReturnValueOnce(

@@ -2,6 +2,7 @@ import { useState, type ReactNode } from 'react';
 import type { PullRequestDetail } from '../../github/types';
 import type { TaskWithWorkspace } from '../../types';
 import { Icon } from '../terminal/Icon';
+import { Avatar } from './Avatar';
 import { STATUS_LABELS } from '../kanban/taskMenu';
 import { ChecksSection } from './ChecksSection';
 import { Markdown } from './Markdown';
@@ -42,6 +43,7 @@ export function SummaryPane({
       <header className="flex flex-col gap-3">
         <h1 className="text-[28px] leading-tight font-medium text-text-primary text-balance">{detail.title}</h1>
         <div className="flex items-center gap-2 text-[15px] text-text-secondary">
+          <Avatar login={detail.author} url={detail.authorAvatarUrl} size={22} />
           <span className="text-text-primary">{detail.author}</span>
           <Dot />
           <span>{since(detail.createdAt)}</span>

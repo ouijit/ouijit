@@ -3,6 +3,7 @@ import type { PullRequestDetail, ReviewThread } from '../../github/types';
 import { useGithubStore } from '../../stores/githubStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { Icon } from '../terminal/Icon';
+import { Avatar } from './Avatar';
 import { Markdown } from './Markdown';
 import { CommentComposer } from './CommentComposer';
 import { ReviewThreadView } from './ReviewThreadView';
@@ -83,20 +84,24 @@ export function DiscussionSection({ projectPath, detail }: DiscussionSectionProp
           item.kind === 'event' ? (
             <div key={item.id} className="flex items-center gap-2 text-[13px] text-text-tertiary">
               <Icon name="git-commit" className="w-4 h-4 shrink-0 opacity-60" />
+              <Avatar login={item.author} url={item.authorAvatarUrl} size={16} />
               <span className="text-text-secondary">{item.author}</span>
               <span>{item.eventType}</span>
               <span className="opacity-50">·</span>
               <span>{since(item.createdAt)}</span>
             </div>
           ) : (
-            <article key={item.id} className="flex flex-col gap-2">
-              <div className="flex items-center gap-2 text-[13px] text-text-tertiary">
-                <span className="text-text-primary text-[15px]">{item.author}</span>
-                <span>{item.kind === 'review' ? reviewStateLabel(item.reviewState) : 'commented'}</span>
-                <span className="opacity-50">·</span>
-                <span>{since(item.createdAt)}</span>
+            <article key={item.id} className="flex gap-3">
+              <Avatar login={item.author} url={item.authorAvatarUrl} size={26} className="mt-0.5" />
+              <div className="flex-1 min-w-0 flex flex-col gap-1.5">
+                <div className="flex items-center gap-2 text-[13px] text-text-tertiary flex-wrap">
+                  <span className="text-text-primary text-[15px]">{item.author}</span>
+                  <span>{item.kind === 'review' ? reviewStateLabel(item.reviewState) : 'commented'}</span>
+                  <span className="opacity-50">·</span>
+                  <span>{since(item.createdAt)}</span>
+                </div>
+                {item.body.trim() && <Markdown body={item.body} />}
               </div>
-              {item.body.trim() && <Markdown body={item.body} />}
             </article>
           ),
         )}

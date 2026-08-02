@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useGithubStore } from '../../stores/githubStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { Icon } from '../terminal/Icon';
+import { Avatar } from './Avatar';
 
 /**
  * Leave a comment on the pull request itself.
@@ -11,6 +12,8 @@ import { Icon } from '../terminal/Icon';
  * is something in it worth growing for.
  */
 export function CommentComposer({ projectPath, prNumber }: { projectPath: string; prNumber: number }) {
+  const viewer = useGithubStore((s) => s.inbox?.viewer);
+  const viewerAvatarUrl = useGithubStore((s) => s.inbox?.viewerAvatarUrl);
   const [body, setBody] = useState('');
   const [posting, setPosting] = useState(false);
 
@@ -31,7 +34,8 @@ export function CommentComposer({ projectPath, prNumber }: { projectPath: string
   };
 
   return (
-    <div className="flex items-end gap-2 pl-4 pr-2 py-2 rounded-[22px] bg-ink/[0.05] focus-within:bg-ink/[0.07] transition-colors duration-150">
+    <div className="flex items-end gap-2.5 pl-2.5 pr-2 py-2 rounded-[22px] bg-ink/[0.05] focus-within:bg-ink/[0.07] transition-colors duration-150">
+      {viewer && <Avatar login={viewer} url={viewerAvatarUrl} size={24} className="mb-0.5" />}
       <textarea
         rows={body.includes('\n') || body.length > 80 ? 3 : 1}
         value={body}

@@ -165,6 +165,7 @@ export interface GithubIssue {
   body: string;
   state: 'open' | 'closed';
   author: string;
+  authorAvatarUrl?: string;
   createdAt: string;
   updatedAt: string;
   url: string;
@@ -177,6 +178,7 @@ export interface GithubIssue {
 /** The three groups the inbox renders, computed main-side so both surfaces agree. */
 export interface PullRequestInbox {
   viewer: string;
+  viewerAvatarUrl?: string;
   needsReview: PullRequestSummary[];
   mine: PullRequestSummary[];
   others: PullRequestSummary[];

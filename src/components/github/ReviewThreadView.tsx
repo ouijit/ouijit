@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { ReviewThread } from '../../github/types';
 import { Icon } from '../terminal/Icon';
+import { Avatar } from './Avatar';
 import { Markdown } from './Markdown';
 import { since } from './prFormat';
 
@@ -92,12 +93,15 @@ export function ReviewThreadView({ thread, onReply, onToggleResolved, inline = f
         <>
           <div className="divide-y divide-ink/[0.06]">
             {thread.comments.map((comment) => (
-              <div key={comment.id} className="px-3 py-2">
-                <div className="flex items-center gap-2 text-xs text-text-tertiary mb-1">
-                  <span className="text-text-secondary">{comment.author}</span>
-                  <span>{since(comment.createdAt)}</span>
+              <div key={comment.id} className="flex gap-2 px-3 py-2">
+                <Avatar login={comment.author} url={comment.authorAvatarUrl} size={20} className="mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 text-xs text-text-tertiary mb-1">
+                    <span className="text-text-secondary">{comment.author}</span>
+                    <span>{since(comment.createdAt)}</span>
+                  </div>
+                  <Markdown body={comment.body} />
                 </div>
-                <Markdown body={comment.body} />
               </div>
             ))}
           </div>

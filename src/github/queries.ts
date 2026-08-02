@@ -38,7 +38,7 @@ const PR_SUMMARY_FIELDS = `
  */
 export const PULL_REQUEST_LIST_QUERY = `
 query($owner: String!, $repo: String!, $first: Int!, $reviewQuery: String!) {
-  viewer { login }
+  viewer { login avatarUrl }
   repository(owner: $owner, name: $repo) {
     pullRequests(first: $first, states: [OPEN], orderBy: { field: UPDATED_AT, direction: DESC }) {
       nodes { ${PR_SUMMARY_FIELDS} }
@@ -57,7 +57,7 @@ query($owner: String!, $repo: String!, $first: Int!, $reviewQuery: String!) {
  */
 export const PULL_REQUEST_DETAIL_QUERY = `
 query($owner: String!, $repo: String!, $number: Int!) {
-  viewer { login }
+  viewer { login avatarUrl }
   repository(owner: $owner, name: $repo) {
     pullRequest(number: $number) {
       ${PR_SUMMARY_FIELDS}
@@ -128,7 +128,7 @@ query($owner: String!, $repo: String!, $number: Int!) {
 
 export const ISSUE_LIST_QUERY = `
 query($owner: String!, $repo: String!, $first: Int!) {
-  viewer { login }
+  viewer { login avatarUrl }
   repository(owner: $owner, name: $repo) {
     issues(first: $first, states: [OPEN], orderBy: { field: UPDATED_AT, direction: DESC }) {
       nodes {
@@ -139,7 +139,7 @@ query($owner: String!, $repo: String!, $first: Int!) {
         url
         createdAt
         updatedAt
-        author { login }
+        author { login avatarUrl }
         comments { totalCount }
         labels(first: 10) { nodes { name color } }
         assignees(first: 10) { nodes { login } }

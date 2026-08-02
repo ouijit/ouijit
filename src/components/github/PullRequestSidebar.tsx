@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import type { GithubIssue, PullRequestSummary } from '../../github/types';
 import type { TaskWithWorkspace } from '../../types';
 import { Icon } from '../terminal/Icon';
+import { Avatar } from './Avatar';
 import { Tab, TabBar } from './Tabs';
 import { since, stateBadge } from './prFormat';
 
@@ -212,6 +213,7 @@ function PullRequestRow({
       </button>
       <span className="flex items-center gap-2 min-w-0 text-[13px] text-text-tertiary">
         <Icon name={badge.icon} className={`w-3.5 h-3.5 shrink-0 ${STATE_TONE[badge.label] ?? ''}`} />
+        <Avatar login={pr.author} url={pr.authorAvatarUrl} size={16} />
         <span className="shrink-0">{pr.author}</span>
         <span className="flex-1 min-w-0 truncate font-mono text-[12px]">{pr.headRefName}</span>
         {drafts > 0 && <span className="shrink-0 text-accent">{drafts} unsent</span>}
@@ -264,6 +266,7 @@ function IssueRow({
       </button>
       <span className="flex items-center gap-2 min-w-0 text-[13px] text-text-tertiary">
         <Icon name="circle-dashed" className="w-3.5 h-3.5 shrink-0 text-vcs-added" />
+        <Avatar login={issue.author} url={issue.authorAvatarUrl} size={16} />
         <span className="shrink-0">{issue.author}</span>
         <span className="flex-1 min-w-0 truncate font-mono text-[12px]">#{issue.number}</span>
         {task ? (

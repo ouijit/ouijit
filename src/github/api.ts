@@ -331,7 +331,7 @@ export function deriveMergeStatus(raw: {
  */
 export async function fetchInbox(identity: RepoIdentity): Promise<PullRequestInbox> {
   const data = await ghGraphql<{
-    viewer: { login: string };
+    viewer: { login: string; avatarUrl?: string };
     repository: { pullRequests: { nodes: Array<RawSummary | null> | null } } | null;
     reviewRequested: { nodes: Array<{ number?: number } | null> | null };
   }>(
@@ -364,7 +364,7 @@ export async function fetchInbox(identity: RepoIdentity): Promise<PullRequestInb
   const claimed = new Set([...needsReview, ...mine].map((pr) => pr.number));
   const others = all.filter((pr) => !claimed.has(pr.number));
 
-  return { viewer, needsReview, mine, others };
+  return { viewer, viewerAvatarUrl: data.viewer.avatarUrl, needsReview, mine, others };
 }
 
 export async function fetchPullRequest(identity: RepoIdentity, number: number): Promise<PullRequestDetail> {
@@ -491,6 +491,7 @@ export async function fetchIssues(identity: RepoIdentity): Promise<GithubIssue[]
       body: n.body ?? '',
       state: n.state === 'CLOSED' ? ('closed' as const) : ('open' as const),
       author: actorLogin(n.author),
+      authorAvatarUrl: n.author?.avatarUrl,
       createdAt: n.createdAt,
       updatedAt: n.updatedAt,
       url: n.url,
