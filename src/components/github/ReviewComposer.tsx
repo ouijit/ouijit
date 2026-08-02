@@ -37,7 +37,7 @@ export function ReviewComposer({
   };
 
   return (
-    <div className="shrink-0 border-t border-bezel bg-background-secondary">
+    <div className="shrink-0 border-t border-ink/[0.06] bg-background-secondary">
       <button
         type="button"
         className="w-full flex items-center gap-2 px-4 py-2 text-sm text-text-secondary hover:text-text-primary transition-colors duration-100"
@@ -53,7 +53,7 @@ export function ReviewComposer({
       {expanded && (
         <div className="px-4 pb-3">
           {drafts.length > 0 && (
-            <ul className="mb-3 divide-y divide-ink/[0.06] border border-bezel rounded-md overflow-hidden">
+            <ul className="mb-3 divide-y divide-ink/[0.06] border border-ink/10 rounded-md overflow-hidden">
               {drafts.map((draft) => (
                 <li key={draft.id} className="flex items-start gap-2 px-3 py-2 text-xs">
                   <button
@@ -84,7 +84,7 @@ export function ReviewComposer({
             value={body}
             onChange={(e) => setBody(e.target.value)}
             placeholder="Review summary (optional)"
-            className="w-full text-sm bg-terminal-inset border border-bezel rounded-md px-2 py-1.5 text-text-primary outline-none focus:border-accent resize-y"
+            className="w-full text-sm bg-terminal-inset border border-ink/10 rounded-md px-2 py-1.5 text-text-primary outline-none focus:border-accent resize-y"
           />
 
           <div className="flex items-center gap-2 mt-2">

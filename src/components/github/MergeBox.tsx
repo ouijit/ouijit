@@ -40,23 +40,25 @@ export function MergeBox({ detail, onMerge }: MergeBoxProps) {
   };
 
   return (
-    <div className="glass-bevel relative border border-bezel rounded-[14px] overflow-hidden bg-terminal-bg">
+    // No border of its own: this already sits in the frame's footer strip,
+    // above the hairline that separates it from the conversation.
+    <div className="flex flex-col gap-2">
       {blockers.length > 0 && (
-        <ul className="px-4 py-3 border-b border-ink/[0.06] flex flex-col gap-1.5">
+        <ul className="flex flex-col gap-1">
           {blockers.map((blocker) => (
-            <li key={blocker} className="flex items-center gap-2 text-xs text-text-secondary">
-              <Icon name="warning" className="w-3.5 h-3.5 shrink-0 text-vcs-modified" />
+            <li key={blocker} className="flex items-center gap-1.5 font-mono text-[10px] text-text-secondary">
+              <Icon name="warning" className="w-3 h-3 shrink-0 text-vcs-modified" />
               {blocker}
             </li>
           ))}
         </ul>
       )}
 
-      <div className="flex items-center gap-3 px-4 py-3 flex-wrap">
+      <div className="flex items-center gap-2 flex-wrap">
         <select
           value={method}
           onChange={(e) => setMethod(e.target.value as MergeMethod)}
-          className="text-xs bg-terminal-inset border border-bezel rounded-md px-2 py-1.5 text-text-primary outline-none focus:border-accent"
+          className="font-mono text-[11px] bg-terminal-inset border border-ink/10 rounded-md px-2 py-1.5 text-text-primary outline-none focus:border-accent"
         >
           {METHODS.map((m) => (
             <option key={m.value} value={m.value}>
@@ -65,7 +67,7 @@ export function MergeBox({ detail, onMerge }: MergeBoxProps) {
           ))}
         </select>
 
-        <label className="flex items-center gap-1.5 text-xs text-text-secondary">
+        <label className="flex items-center gap-1.5 font-mono text-[11px] text-text-secondary">
           <input type="checkbox" checked={deleteBranch} onChange={(e) => setDeleteBranch(e.target.checked)} />
           Delete branch
         </label>
@@ -80,7 +82,7 @@ export function MergeBox({ detail, onMerge }: MergeBoxProps) {
                 ? 'Resolve the conflicts first'
                 : undefined
           }
-          className="ml-auto text-xs px-3 py-1.5 rounded-md bg-vcs-added/20 text-vcs-added hover:bg-vcs-added/30 disabled:opacity-40"
+          className="ml-auto font-mono text-[11px] leading-none px-3 py-1.5 rounded-full bg-vcs-added/20 text-vcs-added hover:bg-vcs-added/30 disabled:opacity-40"
           onClick={() => void merge()}
         >
           {busy ? 'Merging…' : 'Merge pull request'}

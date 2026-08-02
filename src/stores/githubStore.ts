@@ -5,8 +5,8 @@ import type { InboxResult } from '../github/service';
 
 const githubLog = log.scope('github');
 
-/** Which pane the panel is showing. */
-export type GithubView = 'inbox' | 'issues' | 'detail';
+/** Which pane the panel is showing: the board of columns, or one pull request. */
+export type GithubView = 'board' | 'detail';
 
 /** Tab within the PR detail view. */
 export type PullRequestTab = 'conversation' | 'files' | 'checks';
@@ -45,7 +45,6 @@ interface GithubStoreState {
 
 interface GithubStoreActions {
   setProject: (projectPath: string | null) => void;
-  setView: (view: GithubView) => void;
   setTab: (tab: PullRequestTab) => void;
 
   loadAvailability: (projectPath: string) => Promise<void>;
@@ -68,7 +67,7 @@ type GithubStore = GithubStoreState & GithubStoreActions;
 const INITIAL: GithubStoreState = {
   projectPath: null,
   availability: null,
-  view: 'inbox',
+  view: 'board',
   tab: 'conversation',
   inbox: null,
   inboxLoading: false,
@@ -111,7 +110,6 @@ export const useGithubStore = create<GithubStore>()((set, get) => ({
     set({ ...INITIAL, projectPath });
   },
 
-  setView: (view) => set({ view }),
   setTab: (tab) => set({ tab }),
 
   loadAvailability: async (projectPath) => {
@@ -196,7 +194,7 @@ export const useGithubStore = create<GithubStore>()((set, get) => ({
     // Bump so a detail load still in flight can't reopen the pane behind the
     // user after they've gone back to the list.
     detailVersion++;
-    set({ view: 'inbox', activeNumber: null, detail: null, files: [], drafts: [], composingAt: null });
+    set({ view: 'board', activeNumber: null, detail: null, files: [], drafts: [], composingAt: null });
   },
 
   reloadDetail: async (projectPath) => {

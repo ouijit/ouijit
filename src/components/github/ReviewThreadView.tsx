@@ -41,10 +41,13 @@ export function ReviewThreadView({ thread, onReply, onToggleResolved, inline = f
   const anchorLine = thread.line ?? thread.originalLine;
 
   return (
+    // Inline in a diff, the thread is an insert into a code stream and keeps
+    // its own frame. In the conversation it is one entry among others, so it
+    // runs full bleed under the same hairline everything else there uses.
     <div
-      className={`bg-terminal-surface border-l-2 ${
-        thread.isResolved ? 'border-vcs-added/40' : 'border-accent/60'
-      } ${inline ? 'mx-[90px] my-1 rounded-r-md' : 'rounded-md'} border-y border-r border-ink/[0.06] overflow-hidden`}
+      className={`bg-terminal-surface border-l-2 ${thread.isResolved ? 'border-vcs-added/40' : 'border-accent/60'} ${
+        inline ? 'mx-[90px] my-1 rounded-r-md border-y border-r border-ink/[0.06]' : 'border-b border-ink/[0.06]'
+      } overflow-hidden`}
     >
       <div className="flex items-center gap-2 px-3 py-1.5 text-xs text-text-tertiary border-b border-ink/[0.06]">
         <button
@@ -111,7 +114,7 @@ export function ReviewThreadView({ thread, onReply, onToggleResolved, inline = f
                   if (e.key === 'Escape') setReplying(false);
                 }}
                 placeholder="Reply…"
-                className="w-full text-sm bg-terminal-inset border border-bezel rounded-md px-2 py-1.5 text-text-primary outline-none focus:border-accent resize-y"
+                className="w-full text-sm bg-terminal-inset border border-ink/10 rounded-md px-2 py-1.5 text-text-primary outline-none focus:border-accent resize-y"
               />
               <div className="flex items-center gap-2 mt-2">
                 <button

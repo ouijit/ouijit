@@ -138,7 +138,11 @@ async function requireIdentity(projectPath: string): Promise<RepoIdentity> {
 export interface InboxResult extends PullRequestInbox {
   /** Draft counts per PR so the list can badge unsubmitted work. */
   draftCounts: Record<number, number>;
-  /** PR number → task number, for the "already checked out" affordance. */
+  /**
+   * PR number → task number. For the REST and CLI callers, which have no task
+   * store to join against; the panel derives its own from live task state so a
+   * new link shows up without waiting for the next inbox fetch.
+   */
   linkedTasks: Record<number, number>;
 }
 

@@ -70,92 +70,108 @@ export function PullRequestConversation({ projectPath, detail }: PullRequestConv
 
   return (
     <div className="flex-1 overflow-y-auto">
-      <div className="max-w-3xl mx-auto px-6 py-4 flex flex-col gap-4 pb-16">
-        <article className="glass-bevel relative border border-bezel rounded-[14px] overflow-hidden bg-terminal-bg">
-          <header className="flex items-center gap-2 px-4 py-2 text-xs text-text-tertiary border-b border-ink/[0.06]">
-            <span className="text-text-secondary">{detail.author}</span>
-            <span>opened this {since(detail.createdAt)}</span>
-          </header>
-          <div className="px-4 py-3">
-            {detail.body.trim() ? (
-              <Markdown body={detail.body} />
-            ) : (
-              <p className="text-sm text-text-tertiary italic">No description</p>
-            )}
-          </div>
-        </article>
-
-        {unresolved.length > 0 && (
-          <section>
-            <h3 className="text-xs font-semibold text-text-tertiary mb-2">
-              Unresolved threads
-              <span className="ml-2 font-normal opacity-60">{unresolved.length}</span>
-            </h3>
-            <div className="flex flex-col gap-2">
-              {unresolved.map((thread) => (
-                <ReviewThreadView
-                  key={thread.id}
-                  thread={thread}
-                  onReply={replyToThread}
-                  onToggleResolved={toggleResolved}
-                />
-              ))}
-            </div>
-          </section>
+      {/* Every entry is a full-bleed block under a hairline, the same shape as
+          a card in a board column. Nothing in here draws its own border: the
+          panel is the surface, and boxes inside it would be a second one. */}
+      <Entry author={detail.author} action={`opened this ${since(detail.createdAt)}`}>
+        {detail.body.trim() ? (
+          <Markdown body={detail.body} />
+        ) : (
+          <p className="font-mono text-[11px] text-text-tertiary">No description</p>
         )}
+      </Entry>
 
-        {detail.timeline.length > 0 && (
-          <section className="flex flex-col gap-3">
-            {detail.timeline.map((item) =>
-              item.kind === 'event' ? (
-                <div key={item.id} className="flex items-center gap-2 text-xs text-text-tertiary px-1">
-                  <Icon name="git-commit" className="w-3.5 h-3.5" />
-                  <span className="text-text-secondary">{item.author}</span>
-                  <span>{item.eventType}</span>
-                  <span>{since(item.createdAt)}</span>
-                </div>
-              ) : (
-                <article
-                  key={item.id}
-                  className="glass-bevel relative border border-bezel rounded-[14px] overflow-hidden bg-terminal-bg"
-                >
-                  <header className="flex items-center gap-2 px-4 py-2 text-xs text-text-tertiary border-b border-ink/[0.06]">
-                    <span className="text-text-secondary">{item.author}</span>
-                    <span>{item.kind === 'review' ? reviewStateLabel(item.reviewState) : 'commented'}</span>
-                    <span>{since(item.createdAt)}</span>
-                  </header>
-                  {item.body.trim() && (
-                    <div className="px-4 py-3">
-                      <Markdown body={item.body} />
-                    </div>
-                  )}
-                </article>
-              ),
-            )}
-          </section>
-        )}
+      {unresolved.length > 0 && (
+        <section>
+          <SectionHeader label="Unresolved threads" count={unresolved.length} />
+          {unresolved.map((thread) => (
+            <ReviewThreadView
+              key={thread.id}
+              thread={thread}
+              onReply={replyToThread}
+              onToggleResolved={toggleResolved}
+            />
+          ))}
+        </section>
+      )}
 
-        <div>
-          <textarea
-            rows={3}
-            value={comment}
-            onChange={(e) => setComment(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) void postComment();
-            }}
-            placeholder="Add a comment…"
-            className="w-full text-sm bg-terminal-inset border border-bezel rounded-md px-3 py-2 text-text-primary outline-none focus:border-accent resize-y"
-          />
-          <button
-            type="button"
-            disabled={!comment.trim() || posting}
-            className="mt-2 text-xs px-3 py-1.5 rounded-md bg-accent text-accent-ink disabled:opacity-40"
-            onClick={() => void postComment()}
+      {detail.timeline.map((item) =>
+        item.kind === 'event' ? (
+          <div
+            key={item.id}
+            className="flex items-center gap-1.5 px-3 py-2 font-mono text-[10px] leading-tight text-text-secondary"
+            style={{ borderBottom: '1px solid color-mix(in srgb, var(--color-ink) 6%, transparent)' }}
           >
-            {posting ? 'Posting…' : 'Comment'}
-          </button>
-        </div>
+            <Icon name="git-commit" className="w-3 h-3 shrink-0 opacity-60" />
+            <span>{item.author}</span>
+            <span className="opacity-30">·</span>
+            <span className="opacity-70">{item.eventType}</span>
+            <span className="opacity-30">·</span>
+            <span className="opacity-70">{since(item.createdAt)}</span>
+          </div>
+        ) : (
+          <Entry
+            key={item.id}
+            author={item.author}
+            action={`${item.kind === 'review' ? reviewStateLabel(item.reviewState) : 'commented'} ${since(item.createdAt)}`}
+          >
+            {item.body.trim() && <Markdown body={item.body} />}
+          </Entry>
+        ),
+      )}
+
+      <div className="px-3 py-3">
+        <textarea
+          rows={3}
+          value={comment}
+          onChange={(e) => setComment(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) void postComment();
+          }}
+          placeholder="Add a comment…"
+          className="w-full text-sm bg-terminal-inset border border-ink/10 rounded-md px-3 py-2 text-text-primary outline-none focus:border-accent resize-y"
+        />
+        <button
+          type="button"
+          disabled={!comment.trim() || posting}
+          className="mt-2 font-mono text-[11px] leading-none px-3 py-1.5 rounded-full bg-accent text-accent-ink disabled:opacity-40"
+          onClick={() => void postComment()}
+        >
+          {posting ? 'Posting…' : 'Comment'}
+        </button>
       </div>
+    </div>
+  );
+}
+
+/** One authored block in the conversation: who, what they did, and the body. */
+function Entry({ author, action, children }: { author: string; action: string; children?: React.ReactNode }) {
+  return (
+    <article
+      className="px-3 py-3"
+      style={{ borderBottom: '1px solid color-mix(in srgb, var(--color-ink) 6%, transparent)' }}
+    >
+      <div className="flex items-center gap-1.5 font-mono text-[10px] leading-tight text-text-secondary">
+        <span className="text-text-primary">{author}</span>
+        <span className="opacity-30">·</span>
+        <span className="opacity-70">{action}</span>
+      </div>
+      {children && <div className="mt-2">{children}</div>}
+    </article>
+  );
+}
+
+/** Reads like a column header, because it is doing a column header's job. */
+function SectionHeader({ label, count }: { label: string; count: number }) {
+  return (
+    <div
+      className="flex items-center gap-2 px-3 py-2.5 h-[46px]"
+      style={{ borderBottom: '1px solid color-mix(in srgb, var(--color-ink) 6%, transparent)' }}
+    >
+      <span className="text-[13px] font-medium text-text-secondary tracking-wide">
+        {label}
+        <span className="text-text-secondary opacity-50 tracking-normal ml-1.5">{count}</span>
+      </span>
     </div>
   );
 }

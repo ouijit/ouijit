@@ -109,7 +109,12 @@ describe('PullRequestsPanel', () => {
     spy.mockRestore();
   });
 
-  test('renders the three inbox groups, and only those with rows', async () => {
+  /**
+   * The board keeps every column, empty or not. Dropping an empty one would
+   * make the whole board reflow as pull requests arrive and land, and an empty
+   * column that says what belongs in it is more use than a missing one.
+   */
+  test('renders every column, and says what an empty one would hold', async () => {
     vi.mocked(window.api.github.inbox).mockResolvedValue(
       inbox({
         needsReview: [pr({ number: 1, title: 'Needs a look', reviewRequested: true })],
@@ -121,13 +126,13 @@ describe('PullRequestsPanel', () => {
 
     expect(await screen.findByText('Needs a look')).toBeTruthy();
     expect(screen.getByText('Mine to land')).toBeTruthy();
-    expect(screen.getByText('Needs your review')).toBeTruthy();
-    expect(screen.getByText('Yours')).toBeTruthy();
-    // No PRs landed in the third bucket, so its header must not render.
-    expect(screen.queryByText('Everything else')).toBeNull();
+    for (const column of ['Needs your review', 'Yours', 'Everything else', 'Issues']) {
+      expect(screen.getByText(column)).toBeTruthy();
+    }
+    expect(screen.getByText('No other open pull requests')).toBeTruthy();
   });
 
-  test('shows skeleton rows on a first load, not on a refresh', async () => {
+  test('shows a spinner on a first load, not on a refresh', async () => {
     let release!: (value: InboxResult) => void;
     vi.mocked(window.api.github.inbox).mockReturnValueOnce(
       new Promise<InboxResult>((resolve) => {
@@ -198,10 +203,8 @@ describe('PullRequestsPanel', () => {
 
     render(<PullRequestsPanel projectPath={PROJECT} />);
 
-    fireEvent.click(await screen.findByText('Issues'));
-
-    // The chip carries the task's number and where it has got to, so the row
-    // reports the state of the work rather than merely that work exists.
+    // The sub-row carries the task's number and where it has got to, so the
+    // card reports the state of the work rather than merely that work exists.
     expect(await screen.findByText('T-7')).toBeTruthy();
     expect(screen.getByText('In Progress')).toBeTruthy();
 
@@ -209,6 +212,32 @@ describe('PullRequestsPanel', () => {
     await waitFor(() => {
       expect(activateTask).toHaveBeenCalledWith({ path: PROJECT, name: 'Alpha' }, linked);
     });
+  });
+
+  /**
+   * A pull request checked out locally and the task holding that checkout are
+   * the same work. The card hangs the task off itself the way a kanban card
+   * hangs off its terminals, and opening it does what the switcher would do.
+   */
+  test('a pull request checked out as a task opens it from the card', async () => {
+    vi.mocked(window.api.github.inbox).mockResolvedValue(
+      inbox({ mine: [pr({ number: 42, title: 'Half landed', isMine: true })] }),
+    );
+    const linked = task({ taskNumber: 3, githubPrNumber: 42, status: 'in_review' });
+    useProjectStore.setState({ tasks: [linked] });
+
+    render(<PullRequestsPanel projectPath={PROJECT} />);
+
+    expect(await screen.findByText('T-3')).toBeTruthy();
+    expect(screen.getByText('In Review')).toBeTruthy();
+
+    fireEvent.click(screen.getByText('T-3'));
+    await waitFor(() => {
+      expect(activateTask).toHaveBeenCalledWith({ path: PROJECT, name: 'Alpha' }, linked);
+    });
+    // The sub-row is the target, not the card underneath it: opening the task
+    // must not also open the pull request behind it.
+    expect(window.api.github.pullRequest).not.toHaveBeenCalled();
   });
 
   test('an unlinked issue offers to create a task', async () => {
@@ -230,7 +259,6 @@ describe('PullRequestsPanel', () => {
     vi.mocked(window.api.github.taskFromIssue).mockResolvedValue({ success: true, taskNumber: 9 });
 
     render(<PullRequestsPanel projectPath={PROJECT} />);
-    fireEvent.click(await screen.findByText('Issues'));
     fireEvent.click(await screen.findByText('Create task'));
 
     await waitFor(() => {

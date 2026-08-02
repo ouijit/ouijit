@@ -1,20 +1,26 @@
 import { useCallback } from 'react';
 import type { MergeMethod, PullRequestDetail } from '../../github/types';
+import type { TaskWithWorkspace } from '../../types';
 import { useGithubStore, type PullRequestTab } from '../../stores/githubStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { Icon } from '../terminal/Icon';
+import { STATUS_LABELS } from '../kanban/taskMenu';
+import { BoardChip, BoardLabels, NumberChip } from './BoardCard';
 import { PullRequestConversation } from './PullRequestConversation';
 import { PullRequestFiles } from './PullRequestFiles';
 import { PullRequestChecks } from './PullRequestChecks';
 import { MergeBox } from './MergeBox';
 import { RefreshButton } from './RefreshButton';
-import { checksBadge, labelStyle, reviewDecisionLabel, since, stateBadge } from './prFormat';
+import { checksBadge, reviewDecisionLabel, since, stateBadge } from './prFormat';
 
 interface PullRequestDetailViewProps {
   projectPath: string;
   detail: PullRequestDetail;
   /** Task already tracking this PR, when there is one. */
-  linkedTask?: number;
+  linkedTask?: TaskWithWorkspace;
+  /** What opening that task will do, so the chip can say so first. */
+  openTaskLabel?: (task: TaskWithWorkspace) => string;
+  onOpenTask: (task: TaskWithWorkspace) => void;
   onPromoteToTask: () => void;
 }
 
@@ -24,10 +30,31 @@ const TABS: Array<{ id: PullRequestTab; label: string }> = [
   { id: 'checks', label: 'Checks' },
 ];
 
+const STATE_TONE: Record<string, string> = {
+  Merged: 'var(--color-vcs-renamed)',
+  Closed: 'var(--color-vcs-deleted)',
+  Draft: 'var(--color-text-tertiary)',
+  Open: 'var(--color-vcs-added)',
+};
+
+const DECISION_TONE: Record<string, string> = {
+  Approved: 'var(--color-vcs-added)',
+  'Changes requested': 'var(--color-vcs-deleted)',
+  'Review required': 'var(--color-text-tertiary)',
+};
+
+/**
+ * One pull request, inside the same frame the board uses. The tab strip sits
+ * where the column headers sat and is typed the same way, so moving from the
+ * board into a pull request reads as the frame's contents changing rather than
+ * as arriving somewhere else.
+ */
 export function PullRequestDetailView({
   projectPath,
   detail,
   linkedTask,
+  openTaskLabel,
+  onOpenTask,
   onPromoteToTask,
 }: PullRequestDetailViewProps) {
   const tab = useGithubStore((s) => s.tab);
@@ -52,51 +79,37 @@ export function PullRequestDetailView({
 
   return (
     <div className="flex flex-col flex-1 min-h-0">
-      <header className="shrink-0 px-6 pt-3 pb-2 border-b border-bezel">
-        <div className="flex items-start gap-3">
+      <header className="shrink-0 px-3 pt-2.5">
+        <div className="flex items-start gap-2">
           <button
             type="button"
-            className="mt-0.5 w-7 h-7 shrink-0 rounded-md text-text-secondary flex items-center justify-center hover:bg-ink/10 hover:text-text-primary transition-all duration-150"
-            title="Back to pull requests"
+            className="w-6 h-6 shrink-0 rounded text-text-tertiary flex items-center justify-center hover:bg-ink/[0.08] hover:text-text-primary transition-colors duration-150 [&>svg]:w-4 [&>svg]:h-4"
+            title="Back to the board"
             onClick={() => useGithubStore.getState().closeDetail()}
           >
             <Icon name="caret-left" />
           </button>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="text-base font-semibold text-text-primary">{detail.title}</h1>
-              <span className="font-mono text-sm text-text-tertiary">#{detail.number}</span>
-              <span className={`text-[11px] px-1.5 py-px rounded-full font-medium ${badge.className}`}>
-                {badge.label}
-              </span>
-              {detail.labels.map((label) => (
-                <span
-                  key={label.name}
-                  className="text-[10px] px-1.5 py-px rounded-full"
-                  style={labelStyle(label.color)}
-                >
-                  {label.name}
-                </span>
-              ))}
-            </div>
-            <div className="flex items-center gap-2 mt-1 text-xs text-text-tertiary flex-wrap">
-              <span>{detail.author}</span>
-              <span>
-                wants to merge <span className="font-mono">{detail.headRefName}</span> into{' '}
-                <span className="font-mono">{detail.baseRefName}</span>
-              </span>
-              <span>{since(detail.updatedAt)}</span>
-              {decision && <span className={decision.className}>{decision.label}</span>}
-              {checks && <Icon name={checks.icon} className={`w-3.5 h-3.5 ${checks.className}`} />}
-            </div>
-          </div>
+          <h1 className="flex-1 font-mono text-sm font-medium text-text-primary min-w-0 break-words pt-0.5">
+            {detail.title}
+          </h1>
           <div className="flex items-center gap-1 shrink-0">
-            {linkedTask != null ? (
-              <span className="text-xs font-mono text-text-tertiary px-2">task #{linkedTask}</span>
+            {linkedTask ? (
+              <button
+                type="button"
+                className="flex items-center gap-1.5 font-mono text-[11px] leading-none px-2 py-1.5 rounded-full text-text-secondary hover:text-text-primary transition-colors duration-100"
+                style={{ background: 'color-mix(in srgb, var(--color-ink) 4%, transparent)' }}
+                title={openTaskLabel ? `${openTaskLabel(linkedTask)} — ${linkedTask.name}` : linkedTask.name}
+                onClick={() => onOpenTask(linkedTask)}
+              >
+                <span>T-{linkedTask.taskNumber}</span>
+                <span className="opacity-50">{STATUS_LABELS[linkedTask.status] ?? linkedTask.status}</span>
+                <Icon name="arrow-right" className="w-3 h-3 opacity-60" />
+              </button>
             ) : (
               <button
                 type="button"
-                className="text-xs px-2.5 py-1.5 rounded-md bg-ink/[0.08] text-text-primary hover:bg-ink/[0.12]"
+                className="font-mono text-[11px] leading-none px-2.5 py-1.5 rounded-full text-text-secondary hover:text-text-primary transition-colors duration-100"
+                style={{ background: 'color-mix(in srgb, var(--color-ink) 6%, transparent)' }}
                 title="Create a task with a worktree at this pull request's head"
                 onClick={onPromoteToTask}
               >
@@ -109,7 +122,7 @@ export function PullRequestDetailView({
             />
             <button
               type="button"
-              className="w-7 h-7 rounded-md text-text-secondary flex items-center justify-center hover:bg-ink/10 hover:text-text-primary transition-all duration-150"
+              className="w-7 h-7 rounded-md text-text-secondary flex items-center justify-center hover:bg-ink/10 hover:text-text-primary transition-all duration-150 [&>svg]:w-4 [&>svg]:h-4"
               title="Open on GitHub"
               onClick={() => void window.api.openExternal(detail.url)}
             >
@@ -118,31 +131,64 @@ export function PullRequestDetailView({
           </div>
         </div>
 
-        <nav className="flex items-center gap-1 mt-3 -mb-2">
-          {TABS.map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              className={`px-3 py-1.5 text-xs rounded-t-md border-b-2 transition-colors duration-100 ${
-                tab === t.id
-                  ? 'border-accent text-text-primary'
-                  : 'border-transparent text-text-tertiary hover:text-text-secondary'
-              }`}
-              onClick={() => useGithubStore.getState().setTab(t.id)}
-            >
-              {t.label}
-              {t.id === 'files' && detail.changedFiles > 0 && (
-                <span className="ml-1.5 opacity-60">{detail.changedFiles}</span>
-              )}
-            </button>
-          ))}
-        </nav>
+        <div className="flex items-center gap-1 flex-wrap mt-1.5 pl-8">
+          <NumberChip number={detail.number} />
+          <BoardChip tone={STATE_TONE[badge.label]}>{badge.label}</BoardChip>
+          {decision && <BoardChip tone={DECISION_TONE[decision.label]}>{decision.label}</BoardChip>}
+          {checks && (
+            <BoardChip tone={CHECK_TONE[checks.icon]} title={checks.label}>
+              {checks.label}
+            </BoardChip>
+          )}
+          <BoardLabels labels={detail.labels} max={4} />
+        </div>
+
+        <div className="flex items-center gap-1.5 flex-wrap mt-1.5 pl-8 font-mono text-[10px] leading-tight text-text-secondary">
+          <span>{detail.author}</span>
+          <span className="opacity-30">·</span>
+          <span>
+            {detail.headRefName} <span className="opacity-40">into</span> {detail.baseRefName}
+          </span>
+          <span className="opacity-30">·</span>
+          <span>{since(detail.updatedAt)}</span>
+        </div>
       </header>
+
+      {/* The tab strip takes the column header's job and its type, and hands
+          off to the body across the same hairline a column body sits under. */}
+      <nav
+        className="shrink-0 flex items-center gap-1 px-3 mt-2"
+        style={{ borderBottom: '1px solid color-mix(in srgb, var(--color-ink) 6%, transparent)' }}
+      >
+        {TABS.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            className={`px-2 py-2 text-[13px] font-medium tracking-wide transition-colors duration-100 -mb-px border-b ${
+              tab === t.id
+                ? 'text-text-primary border-accent'
+                : 'text-text-secondary opacity-60 hover:opacity-100 border-transparent'
+            }`}
+            onClick={() => useGithubStore.getState().setTab(t.id)}
+          >
+            {t.label}
+            {t.id === 'files' && detail.changedFiles > 0 && (
+              <span className="ml-1.5 font-normal opacity-50">{detail.changedFiles}</span>
+            )}
+            {t.id === 'checks' && detail.checks.length > 0 && (
+              <span className="ml-1.5 font-normal opacity-50">{detail.checks.length}</span>
+            )}
+          </button>
+        ))}
+      </nav>
 
       {tab === 'conversation' && (
         <div className="flex flex-col flex-1 min-h-0">
           <PullRequestConversation projectPath={projectPath} detail={detail} />
-          <div className="shrink-0 px-6 py-3 border-t border-bezel">
+          <div
+            className="shrink-0 px-3 py-2.5"
+            style={{ borderTop: '1px solid color-mix(in srgb, var(--color-ink) 6%, transparent)' }}
+          >
             <MergeBox detail={detail} onMerge={merge} />
           </div>
         </div>
@@ -152,3 +198,9 @@ export function PullRequestDetailView({
     </div>
   );
 }
+
+const CHECK_TONE: Record<string, string> = {
+  'check-circle': 'var(--color-vcs-added)',
+  'x-circle': 'var(--color-vcs-deleted)',
+  clock: 'var(--color-vcs-modified)',
+};
