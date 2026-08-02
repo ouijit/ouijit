@@ -16,6 +16,7 @@ import { useTerminalStore, terminalMatchesTag } from '../stores/terminalStore';
 import { useCanvasStore } from '../stores/canvasStore';
 import { useUIStore } from '../stores/uiStore';
 import { addProjectTerminal, reconnectOrphanedSessions } from './terminal/terminalActions';
+import { makePlaceholderId, surfaceStartWarnings } from '../services/taskStartService';
 import { terminalInstances } from './terminal/terminalReact';
 
 /**
@@ -158,4 +159,74 @@ export async function openTaskWorktree(target: TaskWorktreeTarget): Promise<void
   const store = useProjectStore.getState();
   store.setActivePanel('terminals');
   store.setKanbanVisible(false);
+}
+
+/**
+ * Create a task's worktree, then open a shell in it.
+ *
+ * The path for a task that has never been started. `beginTask` behind
+ * `task.start` creates the branch and worktree and moves a todo task to
+ * in_progress; it runs no hook, and the spawn skips the continue hook, so what
+ * lands is a plain shell in a new worktree. Same sequence the board's "open in
+ * terminal" and the home recents panel already use for a task with no worktree,
+ * so all three agree on what opening an unstarted task means.
+ *
+ * Creating a worktree takes long enough to see, so this borrows the kanban
+ * drop's staging rather than awaiting it behind a closed palette: a loading slot
+ * goes into the stack first and the view moves to it immediately, so the card is
+ * on screen — with its chrome, in its final position — while git works. The real
+ * terminal then takes that slot's place via `replaceLoadingId` instead of
+ * appearing from nowhere once everything is ready.
+ */
+export async function startTaskWorktree(
+  project: Project,
+  taskNumber: number,
+  createdAt: string,
+  taskName: string,
+): Promise<void> {
+  // A second Enter on a row whose start is still in flight would stage a
+  // duplicate slot and race the first spawn.
+  if (useProjectStore.getState().startingTaskNumbers.has(taskNumber)) return;
+
+  const slotId = makePlaceholderId(taskNumber);
+  useProjectStore.getState().markTaskStarting(taskNumber);
+  useTerminalStore
+    .getState()
+    .addTerminal(project.path, slotId, { label: taskName, taskId: taskNumber, isLoading: true });
+
+  try {
+    // Navigate with the slot already registered: the project view force-shows
+    // the kanban when it mounts with no terminals for the project.
+    await selectProject(project.path, project);
+    const store = useProjectStore.getState();
+    store.setActivePanel('terminals');
+    store.setKanbanVisible(false);
+    useTerminalStore.getState().activateLast(project.path);
+
+    const result = await window.api.task.start(project.path, taskNumber);
+    if (!result.success || !result.worktreePath) {
+      useProjectStore.getState().addToast(result.error || `Failed to open T-${taskNumber}`, 'error');
+      return;
+    }
+    surfaceStartWarnings(result.warnings);
+    void useProjectStore.getState().loadTasks(project.path);
+
+    await addProjectTerminal(project.path, undefined, {
+      existingWorktree: {
+        path: result.worktreePath,
+        branch: result.task?.branch || '',
+        createdAt,
+      },
+      taskId: taskNumber,
+      skipAutoHook: true,
+      replaceLoadingId: slotId,
+    });
+  } finally {
+    useProjectStore.getState().markTaskStartingDone(taskNumber);
+    // A successful spawn swapped the slot for the real ptyId; anything else
+    // leaves it behind as a card that would never resolve.
+    if (useTerminalStore.getState().terminalsByProject[project.path]?.includes(slotId)) {
+      useTerminalStore.getState().removeTerminal(slotId);
+    }
+  }
 }

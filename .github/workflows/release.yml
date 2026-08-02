@@ -9,18 +9,9 @@ permissions:
   contents: read
 
 jobs:
+  # Same suite that ci.yml runs on every pull request.
   test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      - run: npm run check
-      - run: npm rebuild better-sqlite3 --silent
-      - run: npx vitest run --project unit
+    uses: ./.github/workflows/checks.yml
 
   create-draft:
     needs: test

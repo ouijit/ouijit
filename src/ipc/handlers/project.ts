@@ -25,6 +25,21 @@ function activeProjectPaths(): Set<string> {
   return new Set(getActiveSessions().map((session) => session.projectPath));
 }
 
+/**
+ * Hands a directory to the OS file manager (Finder, Explorer, the Linux
+ * desktop's handler). shell.openPath resolves to a non-empty string when the
+ * open fails — a deleted worktree is the common case — so the renderer can
+ * surface it instead of the click doing nothing.
+ */
+async function revealPath(targetPath: string): Promise<{ success: boolean; error?: string }> {
+  const error = await shell.openPath(targetPath);
+  if (error) {
+    ipcLog.warn('open path failed', { targetPath, error });
+    return { success: false, error };
+  }
+  return { success: true };
+}
+
 /** Unregister a project, cleaning up its sandbox VM and config first. */
 async function removeProjectWithCleanup(folderPath: string): Promise<void> {
   await deleteWithCleanup(folderPath).catch(() => {});
@@ -39,15 +54,8 @@ export function registerProjectHandlers(mainWindow: BrowserWindow): void {
 
   // Both open-project and open-in-finder use shell.openPath — they share the same
   // implementation because Finder/file-manager is the correct handler for directories.
-  typedHandle('open-project', async (projectPath) => {
-    await shell.openPath(projectPath);
-    return { success: true };
-  });
-
-  typedHandle('open-in-finder', async (projectPath) => {
-    await shell.openPath(projectPath);
-    return { success: true };
-  });
+  typedHandle('open-project', (projectPath) => revealPath(projectPath));
+  typedHandle('open-in-finder', (projectPath) => revealPath(projectPath));
 
   typedHandle('open-file-in-editor', (projectPath, workspaceRoot, filePath, line) =>
     openFileInEditor(projectPath, workspaceRoot, filePath, line),

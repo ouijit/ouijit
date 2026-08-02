@@ -68,8 +68,8 @@ export type ProjectHooks = NonNullable<ProjectSettings['hooks']>;
 export interface IpcInvokeContract {
   // ── Project ──────────────────────────────────────────────────────────
   'get-projects': { args: []; return: Project[] };
-  'open-project': { args: [projectPath: string]; return: { success: boolean } };
-  'open-in-finder': { args: [projectPath: string]; return: { success: boolean } };
+  'open-project': { args: [projectPath: string]; return: { success: boolean; error?: string } };
+  'open-in-finder': { args: [projectPath: string]; return: { success: boolean; error?: string } };
   'open-file-in-editor': {
     args: [projectPath: string, workspaceRoot: string, filePath: string, line?: number];
     return: { success: boolean; error?: string };
