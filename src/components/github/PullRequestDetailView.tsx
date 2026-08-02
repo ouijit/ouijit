@@ -1,15 +1,17 @@
-import { useCallback } from 'react';
-import type { MergeMethod, PullRequestDetail } from '../../github/types';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import type { PullRequestDetail, ReviewDraft } from '../../github/types';
 import type { TaskWithWorkspace } from '../../types';
-import { useGithubStore, type PullRequestTab } from '../../stores/githubStore';
-import { useProjectStore } from '../../stores/projectStore';
+import { useGithubStore } from '../../stores/githubStore';
 import { Icon } from '../terminal/Icon';
 import { STATUS_LABELS } from '../kanban/taskMenu';
 import { BoardChip, BoardLabels, NumberChip } from './BoardCard';
-import { PullRequestConversation } from './PullRequestConversation';
-import { PullRequestFiles } from './PullRequestFiles';
-import { PullRequestChecks } from './PullRequestChecks';
-import { MergeBox } from './MergeBox';
+import { BandHeader, Entry, SECTION_IDS, type SectionId } from './DocumentSection';
+import { ChecksSection } from './ChecksSection';
+import { DiscussionSection } from './DiscussionSection';
+import { FilesSection, type FilesSectionHandle } from './FilesSection';
+import { PullRequestRail } from './PullRequestRail';
+import { ReviewActionBar } from './ReviewActionBar';
+import { Markdown } from './Markdown';
 import { RefreshButton } from './RefreshButton';
 import { checksBadge, reviewDecisionLabel, since, stateBadge } from './prFormat';
 
@@ -24,12 +26,6 @@ interface PullRequestDetailViewProps {
   onPromoteToTask: () => void;
 }
 
-const TABS: Array<{ id: PullRequestTab; label: string }> = [
-  { id: 'conversation', label: 'Conversation' },
-  { id: 'files', label: 'Files changed' },
-  { id: 'checks', label: 'Checks' },
-];
-
 const STATE_TONE: Record<string, string> = {
   Merged: 'var(--color-vcs-renamed)',
   Closed: 'var(--color-vcs-deleted)',
@@ -43,11 +39,20 @@ const DECISION_TONE: Record<string, string> = {
   'Review required': 'var(--color-text-tertiary)',
 };
 
+const CHECK_TONE: Record<string, string> = {
+  'check-circle': 'var(--color-vcs-added)',
+  'x-circle': 'var(--color-vcs-deleted)',
+  clock: 'var(--color-vcs-modified)',
+};
+
 /**
- * One pull request, inside the same frame the board uses. The tab strip sits
- * where the column headers sat and is typed the same way, so moving from the
- * board into a pull request reads as the frame's contents changing rather than
- * as arriving somewhere else.
+ * One pull request as one document.
+ *
+ * What it says, whether it builds, what has been said about it, then every file
+ * in order — one scroll, one position, no view to be in the wrong one of. The
+ * rail on the left indexes the whole thing rather than only the files, and the
+ * bar at the bottom carries every action, so nothing you might want to do is
+ * ever somewhere you are not.
  */
 export function PullRequestDetailView({
   projectPath,
@@ -57,34 +62,83 @@ export function PullRequestDetailView({
   onOpenTask,
   onPromoteToTask,
 }: PullRequestDetailViewProps) {
-  const tab = useGithubStore((s) => s.tab);
   const detailLoading = useGithubStore((s) => s.detailLoading);
+  const files = useGithubStore((s) => s.files);
   const badge = stateBadge(detail);
   const checks = checksBadge(detail.checksState);
   const decision = reviewDecisionLabel(detail.reviewDecision);
 
-  const merge = useCallback(
-    async (method: MergeMethod, deleteBranch: boolean) => {
-      const result = await window.api.github.mergePr(projectPath, detail.number, method, deleteBranch);
-      if (!result.success) {
-        useProjectStore.getState().addToast(result.error ?? 'Merge failed', 'error');
-        return;
-      }
-      useProjectStore.getState().addToast(`Merged #${detail.number}`, 'success');
-      await useGithubStore.getState().reloadDetail(projectPath);
-      await useGithubStore.getState().loadInbox(projectPath);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const filesRef = useRef<FilesSectionHandle>(null);
+  const [active, setActive] = useState<string | null>(SECTION_IDS.description);
+
+  const scrollTo = useCallback((selector: string) => {
+    const target = scrollRef.current?.querySelector(selector);
+    target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, []);
+
+  const jumpToSection = useCallback((section: SectionId) => scrollTo(`#${SECTION_IDS[section]}`), [scrollTo]);
+  const jumpToFile = useCallback((path: string) => scrollTo(`[data-path="${CSS.escape(path)}"]`), [scrollTo]);
+
+  const jumpToDraft = useCallback(
+    (draft: ReviewDraft) => {
+      jumpToFile(draft.path);
+      filesRef.current?.editDraft(draft.id);
     },
-    [projectPath, detail.number],
+    [jumpToFile],
   );
+
+  /**
+   * Scroll spy. Everything that can be jumped to is marked with an id or a
+   * data-path, so one observer over both kinds keeps the rail honest without
+   * the rail needing to know what sort of thing it is pointing at.
+   *
+   * `rootMargin` pulls the trigger line down to just under the header: an
+   * element counts as current once it reaches the top of the reading area, not
+   * when it first peeks in at the bottom.
+   */
+  useEffect(() => {
+    const root = scrollRef.current;
+    if (!root) return;
+
+    const targets = root.querySelectorAll('[id^="pr-section-"], [data-path]');
+    if (targets.length === 0) return;
+
+    const visible = new Map<string, number>();
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          const key = entry.target.id || entry.target.getAttribute('data-path');
+          if (!key) continue;
+          if (entry.isIntersecting) visible.set(key, entry.boundingClientRect.top);
+          else visible.delete(key);
+        }
+        // The topmost thing still in the reading area is the one you are on.
+        let best: string | null = null;
+        let bestTop = Infinity;
+        for (const [key, top] of visible) {
+          if (top < bestTop) {
+            bestTop = top;
+            best = key;
+          }
+        }
+        if (best) setActive(best);
+      },
+      { root, rootMargin: '0px 0px -70% 0px', threshold: 0 },
+    );
+
+    for (const target of targets) observer.observe(target);
+    return () => observer.disconnect();
+  }, [detail.number, files.length, detail.threads.length, detail.checks.length]);
 
   return (
     <div className="flex flex-col flex-1 min-h-0">
-      <header className="shrink-0 px-3 pt-2.5">
+      <header className="shrink-0 px-3 pt-2.5 pb-2.5">
         <div className="flex items-start gap-2">
           <button
             type="button"
             className="w-6 h-6 shrink-0 rounded text-text-tertiary flex items-center justify-center hover:bg-ink/[0.08] hover:text-text-primary transition-colors duration-150 [&>svg]:w-4 [&>svg]:h-4"
-            title="Back to the board"
+            title="Back to pull requests"
             onClick={() => useGithubStore.getState().closeDetail()}
           >
             <Icon name="caret-left" />
@@ -135,11 +189,7 @@ export function PullRequestDetailView({
           <NumberChip number={detail.number} />
           <BoardChip tone={STATE_TONE[badge.label]}>{badge.label}</BoardChip>
           {decision && <BoardChip tone={DECISION_TONE[decision.label]}>{decision.label}</BoardChip>}
-          {checks && (
-            <BoardChip tone={CHECK_TONE[checks.icon]} title={checks.label}>
-              {checks.label}
-            </BoardChip>
-          )}
+          {checks && <BoardChip tone={CHECK_TONE[checks.icon]}>{checks.label}</BoardChip>}
           <BoardLabels labels={detail.labels} max={4} />
         </div>
 
@@ -154,53 +204,34 @@ export function PullRequestDetailView({
         </div>
       </header>
 
-      {/* The tab strip takes the column header's job and its type, and hands
-          off to the body across the same hairline a column body sits under. */}
-      <nav
-        className="shrink-0 flex items-center gap-1 px-3 mt-2"
-        style={{ borderBottom: '1px solid color-mix(in srgb, var(--color-ink) 6%, transparent)' }}
-      >
-        {TABS.map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            className={`px-2 py-2 text-[13px] font-medium tracking-wide transition-colors duration-100 -mb-px border-b ${
-              tab === t.id
-                ? 'text-text-primary border-accent'
-                : 'text-text-secondary opacity-60 hover:opacity-100 border-transparent'
-            }`}
-            onClick={() => useGithubStore.getState().setTab(t.id)}
-          >
-            {t.label}
-            {t.id === 'files' && detail.changedFiles > 0 && (
-              <span className="ml-1.5 font-normal opacity-50">{detail.changedFiles}</span>
-            )}
-            {t.id === 'checks' && detail.checks.length > 0 && (
-              <span className="ml-1.5 font-normal opacity-50">{detail.checks.length}</span>
-            )}
-          </button>
-        ))}
-      </nav>
+      <div className="flex flex-1 min-h-0 border-t border-ink/[0.06]">
+        <PullRequestRail
+          detail={detail}
+          files={files}
+          active={active}
+          onJumpToSection={jumpToSection}
+          onJumpToFile={jumpToFile}
+        />
 
-      {tab === 'conversation' && (
-        <div className="flex flex-col flex-1 min-h-0">
-          <PullRequestConversation projectPath={projectPath} detail={detail} />
-          <div
-            className="shrink-0 px-3 py-2.5"
-            style={{ borderTop: '1px solid color-mix(in srgb, var(--color-ink) 6%, transparent)' }}
-          >
-            <MergeBox detail={detail} onMerge={merge} />
-          </div>
+        <div ref={scrollRef} className="flex-1 min-w-0 overflow-y-auto">
+          <section id={SECTION_IDS.description}>
+            <BandHeader label="Description" />
+            <Entry author={detail.author} action={`opened this ${since(detail.createdAt)}`}>
+              {detail.body.trim() ? (
+                <Markdown body={detail.body} />
+              ) : (
+                <p className="font-mono text-[11px] text-text-tertiary">No description</p>
+              )}
+            </Entry>
+          </section>
+
+          <ChecksSection checks={detail.checks} />
+          <DiscussionSection projectPath={projectPath} detail={detail} />
+          <FilesSection ref={filesRef} projectPath={projectPath} detail={detail} />
         </div>
-      )}
-      {tab === 'files' && <PullRequestFiles projectPath={projectPath} detail={detail} />}
-      {tab === 'checks' && <PullRequestChecks checks={detail.checks} />}
+      </div>
+
+      <ReviewActionBar projectPath={projectPath} detail={detail} onJumpToDraft={jumpToDraft} />
     </div>
   );
 }
-
-const CHECK_TONE: Record<string, string> = {
-  'check-circle': 'var(--color-vcs-added)',
-  'x-circle': 'var(--color-vcs-deleted)',
-  clock: 'var(--color-vcs-modified)',
-};

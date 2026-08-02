@@ -4,7 +4,8 @@ import { useProjectStore } from '../../stores/projectStore';
 import { useAppStore } from '../../stores/appStore';
 import { activateTask, taskOpenAction, TASK_OPEN_LABEL } from '../navigation';
 import { Icon } from '../terminal/Icon';
-import { GithubBoard } from './GithubBoard';
+import { PullRequestList } from './PullRequestList';
+import { IssueList } from './IssueList';
 import { PullRequestDetailView } from './PullRequestDetailView';
 import type { TaskWithWorkspace } from '../../types';
 import { RefreshButton } from './RefreshButton';
@@ -15,8 +16,9 @@ interface PullRequestsPanelProps {
 }
 
 /**
- * The GitHub surface: a board framed the same way the kanban board is, in the
- * same slot, with the same columns and the same cards.
+ * The GitHub surface: pull requests and issues, in the frame the kanban board
+ * occupies and in the same slot, so switching between them moves what is inside
+ * the frame rather than the frame.
  *
  * Reviewing a teammate's PR here is ephemeral: the diff is read straight out of
  * the object database with no checkout and no worktree, and the session leaves
@@ -44,8 +46,8 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
 
   const available = availability?.available ?? false;
 
-  // Both loads start together: the board shows pull requests and issues at
-  // once, so deferring either one would leave a column empty on arrival.
+  // Both loads start together so the tab counts are true before either tab is
+  // opened, and so switching tabs never waits on a fetch.
   useEffect(() => {
     if (!available) return;
     const store = useGithubStore.getState();
@@ -80,7 +82,7 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
     };
   }, [available, projectPath]);
 
-  // Escape returns to the board, then out of the panel — matching how the
+  // Escape returns to the list, then out of the panel — matching how the
   // settings panel treats Escape.
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -219,38 +221,97 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
     );
   }
 
+  const showingIssues = view === 'issues';
+
   return (
     <BoardFrame>
-      {inboxError ? (
-        <ErrorNotice message={inboxError} onRetry={refresh} />
-      ) : !inbox ? (
-        <Loading label="Loading pull requests" />
-      ) : (
-        <GithubBoard
-          needsReview={inbox.needsReview}
-          mine={inbox.mine}
-          others={inbox.others}
-          issues={issues}
-          draftCounts={inbox.draftCounts}
-          prTasks={prTasks}
-          issueTasks={issueTasks}
-          issuesLoading={issuesLoading}
-          issuesError={issuesError}
-          openTaskLabel={openTaskLabel}
-          onOpenPullRequest={(n) => void useGithubStore.getState().openPullRequest(projectPath, n)}
-          onOpenTask={openLinkedTask}
-          onCreateTaskFromIssue={(n) => void createTaskFromIssue(n)}
-          onOpenExternal={(url) => void window.api.openExternal(url)}
-          onRetryIssues={() => void useGithubStore.getState().loadIssues(projectPath)}
+      <nav className="shrink-0 flex items-center gap-1 px-3 pt-1.5 border-b border-ink/[0.06]">
+        <Tab
+          label="Pull requests"
+          count={inbox ? inbox.needsReview.length + inbox.mine.length + inbox.others.length : undefined}
+          active={!showingIssues}
+          onClick={() => useGithubStore.getState().setView('inbox')}
         />
-      )}
+        <Tab
+          label="Issues"
+          count={issues.length || undefined}
+          active={showingIssues}
+          onClick={() => useGithubStore.getState().setView('issues')}
+        />
+      </nav>
+
+      {/* The spinner shows only on a first load. A refresh keeps the rows
+          already on screen: swapping them for a spinner would throw away what
+          the user is reading to announce a re-fetch that the spinning refresh
+          button already reports. */}
+      <div className="flex-1 min-h-0 overflow-y-auto flex flex-col">
+        {showingIssues ? (
+          issuesError ? (
+            <ErrorNotice message={issuesError} onRetry={() => void useGithubStore.getState().loadIssues(projectPath)} />
+          ) : issuesLoading && issues.length === 0 ? (
+            <Loading label="Loading issues" />
+          ) : (
+            <IssueList
+              issues={issues}
+              linkedTasks={issueTasks}
+              openTaskLabel={openTaskLabel}
+              onCreateTask={(n) => void createTaskFromIssue(n)}
+              onOpenTask={openLinkedTask}
+              onOpenExternal={(url) => void window.api.openExternal(url)}
+            />
+          )
+        ) : inboxError ? (
+          <ErrorNotice message={inboxError} onRetry={refresh} />
+        ) : !inbox ? (
+          <Loading label="Loading pull requests" />
+        ) : (
+          <PullRequestList
+            needsReview={inbox.needsReview}
+            mine={inbox.mine}
+            others={inbox.others}
+            draftCounts={inbox.draftCounts}
+            linkedTasks={prTasks}
+            openTaskLabel={openTaskLabel}
+            onOpen={(n) => void useGithubStore.getState().openPullRequest(projectPath, n)}
+            onOpenTask={openLinkedTask}
+          />
+        )}
+      </div>
 
       <BoardFooter
         slug={availability.identity ? `${availability.identity.owner}/${availability.identity.repo}` : ''}
-        busy={inboxLoading || issuesLoading}
+        busy={showingIssues ? issuesLoading : inboxLoading}
         onRefresh={refresh}
       />
     </BoardFrame>
+  );
+}
+
+/** Switches the list. Typed like a column header, since it names one. */
+function Tab({
+  label,
+  count,
+  active,
+  onClick,
+}: {
+  label: string;
+  count?: number;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      className={`px-2 py-2.5 text-[13px] font-medium tracking-wide transition-colors duration-100 -mb-px border-b ${
+        active
+          ? 'text-text-primary border-accent'
+          : 'text-text-secondary opacity-60 hover:opacity-100 border-transparent'
+      }`}
+      onClick={onClick}
+    >
+      {label}
+      {count != null && <span className="ml-1.5 font-normal opacity-50">{count}</span>}
+    </button>
   );
 }
 

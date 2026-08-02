@@ -186,3 +186,27 @@ Object.defineProperty(window, 'api', {
   value: mockApi,
   writable: true,
 });
+
+// jsdom implements neither of these; Chromium implements both. Stubbed rather
+// than guarded at the call site so components can use them unconditionally.
+if (!('IntersectionObserver' in window)) {
+  class NoopIntersectionObserver {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+    takeRecords() {
+      return [];
+    }
+    readonly root = null;
+    readonly rootMargin = '';
+    readonly thresholds: number[] = [];
+  }
+  Object.defineProperty(window, 'IntersectionObserver', {
+    value: NoopIntersectionObserver,
+    writable: true,
+  });
+}
+
+if (!Element.prototype.scrollIntoView) {
+  Element.prototype.scrollIntoView = function scrollIntoView() {};
+}

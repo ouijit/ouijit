@@ -15,7 +15,7 @@ import { activateTask } from '../../components/navigation';
 import { useAppStore } from '../../stores/appStore';
 import { useGithubStore } from '../../stores/githubStore';
 import { useProjectStore } from '../../stores/projectStore';
-import type { PullRequestSummary, TaskWithWorkspace } from '../../types';
+import type { PullRequestDetail, PullRequestSummary, TaskWithWorkspace } from '../../types';
 import type { InboxResult } from '../../github/service';
 
 const PROJECT = '/work/alpha';
@@ -52,6 +52,20 @@ function inbox(over: Partial<InboxResult> = {}): InboxResult {
     others: [],
     draftCounts: {},
     linkedTasks: {},
+    ...over,
+  };
+}
+
+function detail(over: Partial<PullRequestDetail> = {}): PullRequestDetail {
+  return {
+    ...pr({ number: 5 }),
+    body: 'why this change exists',
+    baseSha: 'aaa',
+    headSha: 'bbb',
+    threads: [],
+    timeline: [],
+    checks: [],
+    merge: { mergeable: 'MERGEABLE', blockers: [] },
     ...over,
   };
 }
@@ -109,12 +123,7 @@ describe('PullRequestsPanel', () => {
     spy.mockRestore();
   });
 
-  /**
-   * The board keeps every column, empty or not. Dropping an empty one would
-   * make the whole board reflow as pull requests arrive and land, and an empty
-   * column that says what belongs in it is more use than a missing one.
-   */
-  test('renders every column, and says what an empty one would hold', async () => {
+  test('renders the three inbox sections, and only those with rows', async () => {
     vi.mocked(window.api.github.inbox).mockResolvedValue(
       inbox({
         needsReview: [pr({ number: 1, title: 'Needs a look', reviewRequested: true })],
@@ -126,10 +135,10 @@ describe('PullRequestsPanel', () => {
 
     expect(await screen.findByText('Needs a look')).toBeTruthy();
     expect(screen.getByText('Mine to land')).toBeTruthy();
-    for (const column of ['Needs your review', 'Yours', 'Everything else', 'Issues']) {
-      expect(screen.getByText(column)).toBeTruthy();
-    }
-    expect(screen.getByText('No other open pull requests')).toBeTruthy();
+    expect(screen.getByText('Needs your review')).toBeTruthy();
+    expect(screen.getByText('Yours')).toBeTruthy();
+    // No PRs landed in the third bucket, so its header must not render.
+    expect(screen.queryByText('Everything else')).toBeNull();
   });
 
   test('shows a spinner on a first load, not on a refresh', async () => {
@@ -202,6 +211,7 @@ describe('PullRequestsPanel', () => {
     useProjectStore.setState({ tasks: [linked] });
 
     render(<PullRequestsPanel projectPath={PROJECT} />);
+    fireEvent.click(await screen.findByText('Issues'));
 
     // The sub-row carries the task's number and where it has got to, so the
     // card reports the state of the work rather than merely that work exists.
@@ -259,11 +269,57 @@ describe('PullRequestsPanel', () => {
     vi.mocked(window.api.github.taskFromIssue).mockResolvedValue({ success: true, taskNumber: 9 });
 
     render(<PullRequestsPanel projectPath={PROJECT} />);
+    fireEvent.click(await screen.findByText('Issues'));
     fireEvent.click(await screen.findByText('Create task'));
 
     await waitFor(() => {
       expect(window.api.github.taskFromIssue).toHaveBeenCalledWith(PROJECT, 13);
     });
+  });
+
+  /**
+   * The interior used to be three tabs, which put merge on one of them and
+   * submit-review on another, so finishing the diff and deciding to land it
+   * meant navigating. One document means every part is present at once and the
+   * action bar is never somewhere the reader is not.
+   */
+  test('a pull request opens as one document with every action on screen', async () => {
+    vi.mocked(window.api.github.inbox).mockResolvedValue(
+      inbox({ needsReview: [pr({ number: 5, title: 'Please look', reviewRequested: true })] }),
+    );
+    vi.mocked(window.api.github.pullRequest).mockResolvedValue(detail());
+
+    render(<PullRequestsPanel projectPath={PROJECT} />);
+    fireEvent.click(await screen.findByText('Please look'));
+
+    // Each part is a band in the document and an entry in the rail indexing it.
+    for (const band of ['Description', 'Checks', 'Discussion']) {
+      expect(await screen.findAllByText(band)).toHaveLength(2);
+    }
+    expect(screen.getByText('Files changed')).toBeTruthy();
+
+    // Every verdict, and the merge, without leaving the page.
+    expect(screen.getByText('Approve')).toBeTruthy();
+    expect(screen.getByText('Request changes')).toBeTruthy();
+    expect(screen.getByText('Squash and merge')).toBeTruthy();
+
+    fireEvent.click(screen.getByText('Approve'));
+    await waitFor(() => {
+      expect(window.api.github.submitReview).toHaveBeenCalledWith(PROJECT, 5, 'APPROVE', '');
+    });
+  });
+
+  test('a closed pull request offers no merge', async () => {
+    vi.mocked(window.api.github.inbox).mockResolvedValue(
+      inbox({ others: [pr({ number: 6, title: 'Landed already', state: 'merged' })] }),
+    );
+    vi.mocked(window.api.github.pullRequest).mockResolvedValue(detail({ number: 6, state: 'merged' }));
+
+    render(<PullRequestsPanel projectPath={PROJECT} />);
+    fireEvent.click(await screen.findByText('Landed already'));
+
+    expect(await screen.findAllByText('Description')).toHaveLength(2);
+    expect(screen.queryByText('Squash and merge')).toBeNull();
   });
 
   test('surfaces why the panel is empty instead of rendering blank', async () => {

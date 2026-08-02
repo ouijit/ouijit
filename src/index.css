@@ -117,6 +117,36 @@ textarea,
   .btn-secondary:hover:not(:disabled) {
     background: var(--color-background-tertiary);
   }
+
+  /* Same pill, carrying a verdict. For actions whose colour is the point —
+     approving, merging, asking for changes — where a neutral secondary would
+     make the consequential button look like the one beside it. */
+  .btn-success {
+    @apply inline-flex items-center justify-center gap-2 px-4 py-1.5 font-sans text-sm font-medium no-underline border-none outline-none transition-all duration-150 ease-out [-webkit-app-region:no-drag] focus-visible:ring-3 focus-visible:ring-ink/15 active:scale-[0.98] disabled:opacity-40;
+    border-radius: 9999px;
+    background: color-mix(in srgb, var(--color-success) 16%, transparent);
+    color: var(--color-success);
+  }
+
+  .btn-success:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--color-success) 26%, transparent);
+  }
+
+  .btn-danger {
+    @apply inline-flex items-center justify-center gap-2 px-4 py-1.5 font-sans text-sm font-medium no-underline border-none outline-none transition-all duration-150 ease-out [-webkit-app-region:no-drag] focus-visible:ring-3 focus-visible:ring-ink/15 active:scale-[0.98] disabled:opacity-40;
+    border-radius: 9999px;
+    background: color-mix(in srgb, var(--color-error) 16%, transparent);
+    color: var(--color-error);
+  }
+
+  .btn-danger:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--color-error) 26%, transparent);
+  }
+
+  /* The same pills at the density of a toolbar rather than a dialog. */
+  .btn-compact {
+    @apply px-3 py-1 text-[13px];
+  }
 }
 
 /* ===================================

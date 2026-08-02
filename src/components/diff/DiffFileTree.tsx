@@ -66,6 +66,10 @@ export interface DiffFileTreeProps {
   onFileClick: (path: string) => void;
   /** Per-file trailing content — the PR view puts unresolved-thread counts here. */
   renderFileTrailing?: (file: ChangedFile) => ReactNode;
+  /** Content above the tree — the PR view puts the rest of its contents here. */
+  header?: ReactNode;
+  /** Path currently in view, marked so the rail reports where the reader is. */
+  activePath?: string | null;
   footer?: ReactNode;
 }
 
@@ -74,6 +78,8 @@ export function DiffFileTree({
   untrackedFiles = [],
   onFileClick,
   renderFileTrailing,
+  header,
+  activePath,
   footer,
 }: DiffFileTreeProps) {
   const tree = useMemo(() => buildTree(files), [files]);
@@ -81,12 +87,14 @@ export function DiffFileTree({
 
   return (
     <div className="flex-1 overflow-y-auto py-2">
+      {header}
       {tree.map((node) => (
         <TreeNodeView
           key={node.fullPath}
           node={node}
           onFileClick={onFileClick}
           renderFileTrailing={renderFileTrailing}
+          activePath={activePath}
         />
       ))}
       {untrackedFiles.length > 0 && (
@@ -116,18 +124,23 @@ function TreeNodeView({
   node,
   onFileClick,
   renderFileTrailing,
+  activePath,
 }: {
   node: TreeNode;
   onFileClick: (path: string) => void;
   renderFileTrailing?: (file: ChangedFile) => ReactNode;
+  activePath?: string | null;
 }) {
   const [expanded, setExpanded] = useState(true);
 
   if (node.isFile && node.file) {
     const file = node.file;
+    const isActive = activePath === file.path;
     return (
       <div
-        className="flex items-center gap-1.5 py-1 pl-3 pr-3 text-[13px] text-ink/70 transition-colors duration-150 ease-out hover:bg-ink/5"
+        className={`flex items-center gap-1.5 py-1 pl-3 pr-3 text-[13px] transition-colors duration-150 ease-out hover:bg-ink/5 ${
+          isActive ? 'bg-ink/[0.07] text-ink' : 'text-ink/70'
+        }`}
         data-path={file.path}
         onClick={() => onFileClick(file.path)}
       >
@@ -168,6 +181,7 @@ function TreeNodeView({
               node={child}
               onFileClick={onFileClick}
               renderFileTrailing={renderFileTrailing}
+              activePath={activePath}
             />
           ))}
         </div>

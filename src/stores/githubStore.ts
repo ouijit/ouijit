@@ -5,17 +5,15 @@ import type { InboxResult } from '../github/service';
 
 const githubLog = log.scope('github');
 
-/** Which pane the panel is showing: the board of columns, or one pull request. */
-export type GithubView = 'board' | 'detail';
-
-/** Tab within the PR detail view. */
-export type PullRequestTab = 'conversation' | 'files' | 'checks';
+/** Which pane the panel is showing: the lists, or one pull request. */
+export type GithubView = 'inbox' | 'issues' | 'detail';
 
 interface GithubStoreState {
   projectPath: string | null;
   availability: GithubAvailability | null;
   view: GithubView;
-  tab: PullRequestTab;
+  /** The list to return to when the detail view closes. */
+  listView: 'inbox' | 'issues';
 
   inbox: InboxResult | null;
   inboxLoading: boolean;
@@ -45,7 +43,7 @@ interface GithubStoreState {
 
 interface GithubStoreActions {
   setProject: (projectPath: string | null) => void;
-  setTab: (tab: PullRequestTab) => void;
+  setView: (view: GithubView) => void;
 
   loadAvailability: (projectPath: string) => Promise<void>;
   loadInbox: (projectPath: string) => Promise<void>;
@@ -67,8 +65,8 @@ type GithubStore = GithubStoreState & GithubStoreActions;
 const INITIAL: GithubStoreState = {
   projectPath: null,
   availability: null,
-  view: 'board',
-  tab: 'conversation',
+  view: 'inbox',
+  listView: 'inbox',
   inbox: null,
   inboxLoading: false,
   inboxError: null,
@@ -110,7 +108,7 @@ export const useGithubStore = create<GithubStore>()((set, get) => ({
     set({ ...INITIAL, projectPath });
   },
 
-  setTab: (tab) => set({ tab }),
+  setView: (view) => set({ view }),
 
   loadAvailability: async (projectPath) => {
     try {
@@ -152,9 +150,12 @@ export const useGithubStore = create<GithubStore>()((set, get) => ({
 
   openPullRequest: async (projectPath, number) => {
     const version = ++detailVersion;
+    const from = get().view;
     set({
       view: 'detail',
-      tab: 'conversation',
+      // Remember which list you came from: opening a PR linked to an issue and
+      // then going back should land you on issues, not on pull requests.
+      ...(from !== 'detail' ? { listView: from } : {}),
       activeNumber: number,
       detail: null,
       detailLoading: true,
@@ -173,8 +174,8 @@ export const useGithubStore = create<GithubStore>()((set, get) => ({
 
       void get().loadDrafts(projectPath, number);
 
-      // Files come second: the detail view opens on the conversation tab, and
-      // the file list needs the base/head SHAs the detail call just returned.
+      // Files come second: the document renders the description first, and the
+      // file list needs the base/head SHAs the detail call just returned.
       set({ filesLoading: true });
       const result = await window.api.github.pullRequestFiles(projectPath, number, detail.baseSha, detail.headSha);
       if (version !== detailVersion) return;
@@ -194,7 +195,7 @@ export const useGithubStore = create<GithubStore>()((set, get) => ({
     // Bump so a detail load still in flight can't reopen the pane behind the
     // user after they've gone back to the list.
     detailVersion++;
-    set({ view: 'board', activeNumber: null, detail: null, files: [], drafts: [], composingAt: null });
+    set({ view: get().listView, activeNumber: null, detail: null, files: [], drafts: [], composingAt: null });
   },
 
   reloadDetail: async (projectPath) => {

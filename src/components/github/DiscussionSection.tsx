@@ -5,19 +5,23 @@ import { useProjectStore } from '../../stores/projectStore';
 import { Icon } from '../terminal/Icon';
 import { Markdown } from './Markdown';
 import { ReviewThreadView } from './ReviewThreadView';
+import { BandHeader, Entry, SECTION_IDS } from './DocumentSection';
 import { reviewStateLabel, since } from './prFormat';
 
-interface PullRequestConversationProps {
+interface DiscussionSectionProps {
   projectPath: string;
   detail: PullRequestDetail;
 }
 
 /**
- * Description, timeline, and unresolved threads, plus a box to add a top-level
- * comment. The threads shown here are the ones still open — resolved ones stay
- * in the files view where the code gives them context.
+ * Timeline, unresolved threads, and the box for a top-level comment.
+ *
+ * Threads anchored to a line render against that line further down the
+ * document; the ones repeated here are the unresolved ones, which are the
+ * outstanding obligations on the change and should not require finding the
+ * right hunk to discover.
  */
-export function PullRequestConversation({ projectPath, detail }: PullRequestConversationProps) {
+export function DiscussionSection({ projectPath, detail }: DiscussionSectionProps) {
   const [comment, setComment] = useState('');
   const [posting, setPosting] = useState(false);
 
@@ -68,32 +72,15 @@ export function PullRequestConversation({ projectPath, detail }: PullRequestConv
     }
   };
 
-  return (
-    <div className="flex-1 overflow-y-auto">
-      {/* Every entry is a full-bleed block under a hairline, the same shape as
-          a card in a board column. Nothing in here draws its own border: the
-          panel is the surface, and boxes inside it would be a second one. */}
-      <Entry author={detail.author} action={`opened this ${since(detail.createdAt)}`}>
-        {detail.body.trim() ? (
-          <Markdown body={detail.body} />
-        ) : (
-          <p className="font-mono text-[11px] text-text-tertiary">No description</p>
-        )}
-      </Entry>
+  const entries = detail.timeline.length + unresolved.length;
 
-      {unresolved.length > 0 && (
-        <section>
-          <SectionHeader label="Unresolved threads" count={unresolved.length} />
-          {unresolved.map((thread) => (
-            <ReviewThreadView
-              key={thread.id}
-              thread={thread}
-              onReply={replyToThread}
-              onToggleResolved={toggleResolved}
-            />
-          ))}
-        </section>
-      )}
+  return (
+    <section id={SECTION_IDS.discussion}>
+      <BandHeader label="Discussion" count={entries} />
+
+      {unresolved.map((thread) => (
+        <ReviewThreadView key={thread.id} thread={thread} onReply={replyToThread} onToggleResolved={toggleResolved} />
+      ))}
 
       {detail.timeline.map((item) =>
         item.kind === 'event' ? (
@@ -120,9 +107,21 @@ export function PullRequestConversation({ projectPath, detail }: PullRequestConv
         ),
       )}
 
-      <div className="px-3 py-3">
+      {entries === 0 && (
+        <div
+          className="px-3 py-4 font-mono text-[11px] text-text-tertiary"
+          style={{ borderBottom: '1px solid color-mix(in srgb, var(--color-ink) 6%, transparent)' }}
+        >
+          Nothing said yet
+        </div>
+      )}
+
+      <div
+        className="px-3 py-3 flex flex-col items-start gap-2"
+        style={{ borderBottom: '1px solid color-mix(in srgb, var(--color-ink) 6%, transparent)' }}
+      >
         <textarea
-          rows={3}
+          rows={2}
           value={comment}
           onChange={(e) => setComment(e.target.value)}
           onKeyDown={(e) => {
@@ -131,47 +130,19 @@ export function PullRequestConversation({ projectPath, detail }: PullRequestConv
           placeholder="Add a comment…"
           className="w-full text-sm bg-terminal-inset border border-ink/10 rounded-md px-3 py-2 text-text-primary outline-none focus:border-accent resize-y"
         />
-        <button
-          type="button"
-          disabled={!comment.trim() || posting}
-          className="mt-2 font-mono text-[11px] leading-none px-3 py-1.5 rounded-full bg-accent text-accent-ink disabled:opacity-40"
-          onClick={() => void postComment()}
-        >
-          {posting ? 'Posting…' : 'Comment'}
-        </button>
+        {/* Only offered once there is something to send: an always-live button
+            beside an empty box is a control that mostly cannot be used. */}
+        {comment.trim() && (
+          <button
+            type="button"
+            className="btn-secondary btn-compact"
+            disabled={posting}
+            onClick={() => void postComment()}
+          >
+            {posting ? 'Posting…' : 'Comment'}
+          </button>
+        )}
       </div>
-    </div>
-  );
-}
-
-/** One authored block in the conversation: who, what they did, and the body. */
-function Entry({ author, action, children }: { author: string; action: string; children?: React.ReactNode }) {
-  return (
-    <article
-      className="px-3 py-3"
-      style={{ borderBottom: '1px solid color-mix(in srgb, var(--color-ink) 6%, transparent)' }}
-    >
-      <div className="flex items-center gap-1.5 font-mono text-[10px] leading-tight text-text-secondary">
-        <span className="text-text-primary">{author}</span>
-        <span className="opacity-30">·</span>
-        <span className="opacity-70">{action}</span>
-      </div>
-      {children && <div className="mt-2">{children}</div>}
-    </article>
-  );
-}
-
-/** Reads like a column header, because it is doing a column header's job. */
-function SectionHeader({ label, count }: { label: string; count: number }) {
-  return (
-    <div
-      className="flex items-center gap-2 px-3 py-2.5 h-[46px]"
-      style={{ borderBottom: '1px solid color-mix(in srgb, var(--color-ink) 6%, transparent)' }}
-    >
-      <span className="text-[13px] font-medium text-text-secondary tracking-wide">
-        {label}
-        <span className="text-text-secondary opacity-50 tracking-normal ml-1.5">{count}</span>
-      </span>
-    </div>
+    </section>
   );
 }
