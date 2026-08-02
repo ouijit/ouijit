@@ -46,18 +46,22 @@ export function DiffFileSection({
   const tokens = useSyntaxHighlight(diff, path);
 
   return (
-    <div className="border-b border-ink/[0.08] last:border-b-0" data-path={path}>
-      <div className="sticky top-0 z-10 flex items-center gap-2 px-4 py-2 bg-terminal-surface border-b border-ink/[0.06]">
-        <span className="flex-1 min-w-0 truncate text-sm text-ink/90" title={path}>
-          {path}
+    <div className="last:border-b-0" data-path={path}>
+      {/* The directory is context and the filename is the subject, so they are
+          not set at the same weight. */}
+      <div className="sticky top-0 z-10 flex items-center gap-2 px-4 h-9 bg-terminal-surface border-y border-ink/[0.06]">
+        <span className="flex-1 min-w-0 truncate font-mono text-[13px]" title={path}>
+          <span className="text-ink/35">{dirname(path)}</span>
+          <span className="text-ink/90">{basename(path)}</span>
         </span>
         {headerRight}
-        <span className={`shrink-0 text-[11px] px-1 py-px rounded font-medium ${badgeColorClass(status)}`}>
+        <span className={`shrink-0 text-[10px] px-1 py-px rounded font-medium ${badgeColorClass(status)}`}>
           {statusLabel(status)}
         </span>
         {(additions > 0 || deletions > 0) && (
-          <span className="shrink-0 font-mono text-[13px]">
+          <span className="shrink-0 font-mono text-[11px]">
             {additions > 0 && <span className="text-diff-added">+{additions}</span>}
+            {additions > 0 && deletions > 0 && ' '}
             {deletions > 0 && <span className="text-diff-removed">-{deletions}</span>}
           </span>
         )}
@@ -73,7 +77,8 @@ export function DiffFileSection({
           <div className="min-w-full">
             {diff.hunks.map((hunk, i) => (
               <div key={i}>
-                <HunkHeader header={hunk.header} />
+                {/* The first hunk needs no boundary; the file header is one. */}
+                <HunkHeader header={hunk.header} first={i === 0} />
                 <DiffHunkView
                   hunk={hunk}
                   hunkTokens={tokens?.[i] ?? null}
@@ -90,15 +95,38 @@ export function DiffFileSection({
   );
 }
 
-export function HunkHeader({ header }: { header: string }) {
+/**
+ * `@@ -12,7 +12,10 @@ export function readToken()`.
+ *
+ * The line numbers are the least useful part — the gutter beside every line
+ * already carries them — and the enclosing function is the most useful, so the
+ * range is dimmed and the context reads plainly. The old purple wash on a full
+ * width band drew more attention than a hunk boundary deserves.
+ */
+export function HunkHeader({ header, first = false }: { header: string; first?: boolean }) {
+  const match = /^(@@[^@]*@@)\s*(.*)$/.exec(header);
+  const range = match?.[1] ?? header;
+  const context = match?.[2] ?? '';
+
   return (
     <div
-      className="py-1 pr-4 bg-vcs-renamed/10 text-diff-hunk font-mono text-xs truncate"
-      style={{ paddingLeft: '106px' }}
+      className={`flex items-center gap-3 py-1 pr-4 font-mono text-xs ${first ? '' : 'border-t border-ink/[0.06]'}`}
+      style={{ paddingLeft: '100px' }}
     >
-      {header}
+      <span className="shrink-0 text-ink/25">{range}</span>
+      {context && <span className="truncate text-ink/45">{context}</span>}
     </div>
   );
+}
+
+function dirname(path: string): string {
+  const cut = path.lastIndexOf('/');
+  return cut === -1 ? '' : path.slice(0, cut + 1);
+}
+
+function basename(path: string): string {
+  const cut = path.lastIndexOf('/');
+  return cut === -1 ? path : path.slice(cut + 1);
 }
 
 export interface DiffHunkViewProps {

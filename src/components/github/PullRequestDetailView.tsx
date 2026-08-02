@@ -5,7 +5,7 @@ import { useGithubStore } from '../../stores/githubStore';
 import { Icon } from '../terminal/Icon';
 import { STATUS_LABELS } from '../kanban/taskMenu';
 import { BoardChip, BoardLabels } from './BoardCard';
-import { Band, Entry, SECTION_IDS, type SectionId } from './DocumentSection';
+import { Entry, filePathOf, type PrSection } from './DocumentSection';
 import { ChecksSection } from './ChecksSection';
 import { DiscussionSection } from './DiscussionSection';
 import { FilesSection, type FilesSectionHandle } from './FilesSection';
@@ -61,68 +61,29 @@ export function PullRequestDetailView({
   const badge = stateBadge(detail);
   const decision = reviewDecisionLabel(detail.reviewDecision);
 
-  const scrollRef = useRef<HTMLDivElement>(null);
   const filesRef = useRef<FilesSectionHandle>(null);
-  const [active, setActive] = useState<string | null>(SECTION_IDS.description);
+  const paneRef = useRef<HTMLDivElement>(null);
+  const [section, setSection] = useState<PrSection>('files');
 
-  const scrollTo = useCallback((selector: string) => {
-    const target = scrollRef.current?.querySelector(selector);
-    target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  useEffect(() => {
+    if (paneRef.current) paneRef.current.scrollTop = 0;
+  }, [section]);
+
+  // A pending comment lives on a line in a file, so jumping to one means
+  // showing that file. The pane is the whole point: there is nothing to scroll
+  // past to reach it.
+  const jumpToDraft = useCallback((draft: ReviewDraft) => {
+    setSection(`file:${draft.path}`);
+    filesRef.current?.editDraft(draft.id);
   }, []);
 
-  const jumpToSection = useCallback((section: SectionId) => scrollTo(`#${SECTION_IDS[section]}`), [scrollTo]);
-  const jumpToFile = useCallback((path: string) => scrollTo(`[data-path="${CSS.escape(path)}"]`), [scrollTo]);
-
-  const jumpToDraft = useCallback(
-    (draft: ReviewDraft) => {
-      jumpToFile(draft.path);
-      filesRef.current?.editDraft(draft.id);
-    },
-    [jumpToFile],
-  );
-
-  /**
-   * Scroll spy. Everything that can be jumped to is marked with an id or a
-   * data-path, so one observer over both kinds keeps the rail honest without
-   * the rail needing to know what sort of thing it is pointing at.
-   *
-   * `rootMargin` pulls the trigger line down to just under the header: an
-   * element counts as current once it reaches the top of the reading area, not
-   * when it first peeks in at the bottom.
-   */
+  // A file that disappears under you — a force-push drops it from the diff —
+  // would otherwise leave the pane empty with no way back.
+  const activePath = filePathOf(section);
   useEffect(() => {
-    const root = scrollRef.current;
-    if (!root) return;
-
-    const targets = root.querySelectorAll('[id^="pr-section-"], [data-path]');
-    if (targets.length === 0) return;
-
-    const visible = new Map<string, number>();
-    const observer = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          const key = entry.target.id || entry.target.getAttribute('data-path');
-          if (!key) continue;
-          if (entry.isIntersecting) visible.set(key, entry.boundingClientRect.top);
-          else visible.delete(key);
-        }
-        // The topmost thing still in the reading area is the one you are on.
-        let best: string | null = null;
-        let bestTop = Infinity;
-        for (const [key, top] of visible) {
-          if (top < bestTop) {
-            bestTop = top;
-            best = key;
-          }
-        }
-        if (best) setActive(best);
-      },
-      { root, rootMargin: '0px 0px -70% 0px', threshold: 0 },
-    );
-
-    for (const target of targets) observer.observe(target);
-    return () => observer.disconnect();
-  }, [detail.number, files.length, detail.threads.length, detail.checks.length]);
+    if (!activePath || files.length === 0) return;
+    if (!files.some((f) => f.path === activePath)) setSection('files');
+  }, [activePath, files]);
 
   return (
     <div className="flex flex-col flex-1 min-h-0">
@@ -180,7 +141,7 @@ export function PullRequestDetailView({
 
         {/* One line, not three. The state is worth a chip; the rest is text.
             Checks used to have a chip here too, which said the same thing the
-            Checks band says a few pixels below it. */}
+            rail already says beside "Checks". */}
         <div className="flex items-center gap-2 flex-wrap mt-1.5 pl-8 font-mono text-[10px] leading-tight text-text-secondary">
           <BoardChip tone={STATE_TONE[badge.label]}>{badge.label}</BoardChip>
           {decision && <BoardChip tone={DECISION_TONE[decision.label]}>{decision.label}</BoardChip>}
@@ -198,29 +159,28 @@ export function PullRequestDetailView({
       </header>
 
       <div className="flex flex-1 min-h-0 border-t border-ink/[0.06]">
-        <PullRequestRail
-          detail={detail}
-          files={files}
-          active={active}
-          onJumpToSection={jumpToSection}
-          onJumpToFile={jumpToFile}
-        />
+        <PullRequestRail detail={detail} files={files} section={section} onSelect={setSection} />
 
-        <div ref={scrollRef} className="flex-1 min-w-0 overflow-y-auto">
-          <Band
-            id={SECTION_IDS.description}
-            label="Description"
-            summary={detail.body.trim() ? undefined : 'none written'}
-            defaultOpen={detail.body.trim().length > 0}
-          >
-            <Entry author={detail.author} action={`opened this ${since(detail.createdAt)}`}>
-              <Markdown body={detail.body} />
-            </Entry>
-          </Band>
-
-          <ChecksSection checks={detail.checks} />
-          <DiscussionSection projectPath={projectPath} detail={detail} />
-          <FilesSection ref={filesRef} projectPath={projectPath} detail={detail} />
+        {/* One pane, one part. The scroll resets on the way in — arriving
+            partway down a diff you have not read is disorienting — but the
+            pane is not keyed on the section, which would remount the file
+            list and re-read every diff on each click. */}
+        <div ref={paneRef} className="flex-1 min-w-0 overflow-y-auto">
+          {section === 'description' ? (
+            detail.body.trim() ? (
+              <Entry author={detail.author} action={`opened this ${since(detail.createdAt)}`}>
+                <Markdown body={detail.body} />
+              </Entry>
+            ) : (
+              <p className="px-4 py-4 font-mono text-[11px] text-text-tertiary">No description was written</p>
+            )
+          ) : section === 'checks' ? (
+            <ChecksSection checks={detail.checks} />
+          ) : section === 'discussion' ? (
+            <DiscussionSection projectPath={projectPath} detail={detail} />
+          ) : (
+            <FilesSection ref={filesRef} projectPath={projectPath} detail={detail} only={activePath} />
+          )}
         </div>
       </div>
 

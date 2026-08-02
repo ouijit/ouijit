@@ -38,11 +38,12 @@ export function DiffLineView({ line, tokens, wordHighlight, onAddComment }: Diff
 
   return (
     <div className={`group/diffline relative flex font-mono text-sm leading-normal ${lineBg}`}>
-      <span className="flex shrink-0 select-none sticky left-0 z-[1]">
-        <span className={`w-[45px] px-2 text-right text-ink/25 ${gutterBg} border-r border-ink/5`}>
-          {line.oldLineNo ?? ''}
-        </span>
-        <span className={`relative w-[45px] px-2 text-right text-ink/25 ${gutterBg} border-r border-ink/5`}>
+      {/* One rule at the edge of the gutter, not one between the two number
+          columns as well. Two hairlines running the height of every diff was
+          the single noisiest thing on the page. */}
+      <span className={`flex shrink-0 select-none sticky left-0 z-[1] ${gutterBg} border-r border-ink/[0.07]`}>
+        <span className="w-[44px] px-2 text-right text-ink/25">{line.oldLineNo ?? ''}</span>
+        <span className="relative w-[44px] px-2 text-right text-ink/25">
           {line.newLineNo ?? ''}
           {anchor && (
             <button

@@ -283,7 +283,7 @@ describe('PullRequestsPanel', () => {
    * meant navigating. One document means every part is present at once and the
    * action bar is never somewhere the reader is not.
    */
-  test('a pull request opens as one document with every action on screen', async () => {
+  test('the rail switches parts and the actions stay put', async () => {
     vi.mocked(window.api.github.inbox).mockResolvedValue(
       inbox({ needsReview: [pr({ number: 5, title: 'Please look', reviewRequested: true })] }),
     );
@@ -292,11 +292,15 @@ describe('PullRequestsPanel', () => {
     render(<PullRequestsPanel projectPath={PROJECT} />);
     fireEvent.click(await screen.findByText('Please look'));
 
-    // Each part is a band in the document and an entry in the rail indexing it.
-    for (const band of ['Description', 'Checks', 'Discussion']) {
-      expect(await screen.findAllByText(band)).toHaveLength(2);
+    // Each part is named once, in the rail, and shown one at a time.
+    for (const part of ['Description', 'Checks', 'Discussion', 'All files']) {
+      expect(await screen.findByText(part)).toBeTruthy();
     }
-    expect(screen.getByText('Files changed')).toBeTruthy();
+
+    // Opens on the diff: reviewing is what this surface is for.
+    expect(screen.queryByText('why this change exists')).toBeNull();
+    fireEvent.click(screen.getByText('Description'));
+    expect(await screen.findByText('why this change exists')).toBeTruthy();
 
     // Both terminal actions are on the bar, whatever part you are reading.
     expect(screen.getByText('Review')).toBeTruthy();
@@ -334,7 +338,8 @@ describe('PullRequestsPanel', () => {
     render(<PullRequestsPanel projectPath={PROJECT} />);
     fireEvent.click(await screen.findByText('Landed already'));
 
-    expect(await screen.findAllByText('Description')).toHaveLength(2);
+    expect(await screen.findByText('Description')).toBeTruthy();
+    expect(screen.getByText('Review')).toBeTruthy();
     expect(screen.queryByText('Merge')).toBeNull();
   });
 

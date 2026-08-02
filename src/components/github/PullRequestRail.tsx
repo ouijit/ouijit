@@ -2,28 +2,27 @@ import { useMemo } from 'react';
 import type { ChangedFile } from '../../types';
 import type { PullRequestDetail, PullRequestFile } from '../../github/types';
 import { DiffFileTree } from '../diff/DiffFileTree';
-import { Icon } from '../terminal/Icon';
-import { SECTION_IDS, type SectionId } from './DocumentSection';
+import { filePathOf, type PrSection } from './DocumentSection';
 
 interface PullRequestRailProps {
   detail: PullRequestDetail;
   files: PullRequestFile[];
-  /** Section id or file path currently under the top of the viewport. */
-  active: string | null;
-  onJumpToSection: (section: SectionId) => void;
-  onJumpToFile: (path: string) => void;
+  section: PrSection;
+  onSelect: (section: PrSection) => void;
 }
 
 /**
- * Contents for the whole pull request, not just its files.
+ * The rail is the navigation. Picking a part of the pull request shows that
+ * part and nothing else — the description, the checks, the discussion, all the
+ * files at once, or one file on its own.
  *
- * The document puts the discussion above the diff, which is the right reading
- * order and the wrong order for someone who came back only to look at one file.
- * The rail is the answer to that: every part of the document is one click away,
- * and it reports where you currently are.
+ * Reviewing a file at a time is the case this is built around: the diff gets
+ * the whole pane, and moving to the next file is one click rather than a scroll
+ * past everything in between.
  */
-export function PullRequestRail({ detail, files, active, onJumpToSection, onJumpToFile }: PullRequestRailProps) {
+export function PullRequestRail({ detail, files, section, onSelect }: PullRequestRailProps) {
   const changedFiles: ChangedFile[] = useMemo(() => files.map(toChangedFile), [files]);
+  const activePath = filePathOf(section);
 
   const unresolvedByPath = useMemo(() => {
     const counts = new Map<string, number>();
@@ -42,46 +41,43 @@ export function PullRequestRail({ detail, files, active, onJumpToSection, onJump
   ).length;
 
   return (
-    <div className="w-[220px] shrink-0 flex flex-col overflow-hidden border-r border-ink/[0.06]">
+    <div className="w-[228px] shrink-0 flex flex-col overflow-hidden border-r border-ink/[0.06]">
       <DiffFileTree
         files={changedFiles}
-        activePath={active}
-        onFileClick={onJumpToFile}
+        activePath={activePath}
+        onFileClick={(path) => onSelect(`file:${path}`)}
         renderFileTrailing={(file) => {
           const count = unresolvedByPath.get(file.path);
           if (!count) return null;
           return (
-            <span
-              className="shrink-0 font-mono text-[10px] px-1.5 py-px rounded-full bg-accent/15 text-accent"
-              title="Unresolved threads"
-            >
+            <span className="shrink-0 font-mono text-[10px] text-accent" title="Unresolved threads">
               {count}
             </span>
           );
         }}
         header={
-          <>
-            <RailEntry
-              label="Description"
-              active={active === SECTION_IDS.description}
-              onClick={() => onJumpToSection('description')}
-            />
+          <div className="pb-2 mb-1 border-b border-ink/[0.06]">
+            <RailEntry label="Description" active={section === 'description'} onClick={() => onSelect('description')} />
             <RailEntry
               label="Checks"
-              count={detail.checks.length}
-              tone={failing > 0 ? 'error' : undefined}
-              active={active === SECTION_IDS.checks}
-              onClick={() => onJumpToSection('checks')}
+              note={failing > 0 ? `${failing} failing` : detail.checks.length > 0 ? 'passing' : undefined}
+              alert={failing > 0}
+              active={section === 'checks'}
+              onClick={() => onSelect('checks')}
             />
             <RailEntry
               label="Discussion"
-              count={unresolved > 0 ? unresolved : undefined}
-              tone={unresolved > 0 ? 'accent' : undefined}
-              active={active === SECTION_IDS.discussion}
-              onClick={() => onJumpToSection('discussion')}
+              note={unresolved > 0 ? `${unresolved}` : undefined}
+              active={section === 'discussion'}
+              onClick={() => onSelect('discussion')}
             />
-            <RailHeading label="Files" count={detail.changedFiles} onClick={() => onJumpToSection('files')} />
-          </>
+            <RailEntry
+              label="All files"
+              note={`${detail.changedFiles}`}
+              active={section === 'files'}
+              onClick={() => onSelect('files')}
+            />
+          </div>
         }
       />
     </div>
@@ -90,14 +86,14 @@ export function PullRequestRail({ detail, files, active, onJumpToSection, onJump
 
 function RailEntry({
   label,
-  count,
-  tone,
+  note,
+  alert,
   active,
   onClick,
 }: {
   label: string;
-  count?: number;
-  tone?: 'accent' | 'error';
+  note?: string;
+  alert?: boolean;
   active: boolean;
   onClick: () => void;
 }) {
@@ -110,34 +106,9 @@ function RailEntry({
       onClick={onClick}
     >
       <span className="flex-1 min-w-0 truncate">{label}</span>
-      {count != null && count > 0 && (
-        <span
-          className={`shrink-0 font-mono text-[10px] px-1.5 py-px rounded-full ${
-            tone === 'error'
-              ? 'bg-vcs-deleted/15 text-vcs-deleted'
-              : tone === 'accent'
-                ? 'bg-accent/15 text-accent'
-                : 'text-ink/40'
-          }`}
-        >
-          {count}
-        </span>
+      {note && (
+        <span className={`shrink-0 font-mono text-[10px] ${alert ? 'text-vcs-deleted' : 'text-ink/35'}`}>{note}</span>
       )}
-    </button>
-  );
-}
-
-/** Separates the document's prose from its files, the way the document does. */
-function RailHeading({ label, count, onClick }: { label: string; count: number; onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      className="w-full flex items-center gap-1.5 py-1 pl-3 pr-3 mt-1 pt-2 border-t border-ink/[0.06] text-[13px] text-left text-ink/40 hover:text-ink/60 transition-colors duration-150"
-      onClick={onClick}
-    >
-      <Icon name="code" className="w-3.5 h-3.5" />
-      <span className="flex-1 min-w-0 truncate">{label}</span>
-      <span className="shrink-0 font-mono text-[10px]">{count}</span>
     </button>
   );
 }

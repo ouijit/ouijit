@@ -7,7 +7,7 @@ import type { DiffLineAnchor } from '../diff/DiffLineView';
 import { Icon } from '../terminal/Icon';
 import { ReviewThreadView } from './ReviewThreadView';
 import { DraftCommentBox } from './DraftCommentBox';
-import { Band, SECTION_IDS } from './DocumentSection';
+
 import { Loading } from './Loading';
 
 const DIFF_BATCH_SIZE = 10;
@@ -15,6 +15,8 @@ const DIFF_BATCH_SIZE = 10;
 interface FilesSectionProps {
   projectPath: string;
   detail: PullRequestDetail;
+  /** Render only this file. Omitted, the whole diff renders in order. */
+  only?: string | null;
 }
 
 export interface FilesSectionHandle {
@@ -38,7 +40,7 @@ function anchorKey(path: string, line: number, side: 'LEFT' | 'RIGHT'): string {
  * like any other.
  */
 export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(function FilesSection(
-  { projectPath, detail },
+  { projectPath, detail, only },
   ref,
 ) {
   const files = useGithubStore((s) => s.files);
@@ -249,18 +251,10 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
     ],
   );
 
+  const shown = only ? files.filter((f) => f.path === only) : files;
+
   return (
-    <Band
-      id={SECTION_IDS.files}
-      label="Files changed"
-      count={detail.changedFiles}
-      summary={
-        <>
-          <span className="text-diff-added">+{detail.additions}</span>{' '}
-          <span className="text-diff-removed">-{detail.deletions}</span>
-        </>
-      }
-    >
+    <>
       {filesFromGit && (
         <div className="px-3 py-2 font-mono text-[11px] text-text-tertiary border-b border-ink/[0.06]">
           File list read from git — GitHub&apos;s list was unavailable
@@ -274,7 +268,7 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
         </div>
       )}
 
-      {files.map((file) => (
+      {shown.map((file) => (
         <DiffFileSection
           key={file.path}
           path={file.path}
@@ -297,7 +291,7 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
         />
       ))}
 
-      {orphanThreads.length > 0 && (
+      {!only && orphanThreads.length > 0 && (
         <>
           <div className="px-3 py-2 font-mono text-[11px] text-text-tertiary border-t border-ink/[0.06]">
             {orphanThreads.length} {orphanThreads.length === 1 ? 'thread' : 'threads'} on lines outside this diff
@@ -313,12 +307,12 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
         </>
       )}
 
-      {detail.changedFiles > files.length && (
+      {!only && detail.changedFiles > files.length && (
         <div className="flex items-center justify-center gap-1.5 px-3 py-3 font-mono text-[11px] text-text-tertiary border-t border-ink/[0.06]">
           <Icon name="warning" className="w-3 h-3" />
           Showing {files.length} of {detail.changedFiles} changed files
         </div>
       )}
-    </Band>
+    </>
   );
 });
