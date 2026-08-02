@@ -46,7 +46,7 @@ import {
   mergePullRequest,
   type DraftReviewComment,
 } from './api';
-import { getPrFileDiff, getPrDiffFiles, prunePrRefs } from './prDiff';
+import { getPrFileDiff, getPrFileVersions, getPrDiffFiles, prunePrRefs, type PrFileVersions } from './prDiff';
 import type {
   GithubAvailability,
   PullRequestInbox,
@@ -221,6 +221,18 @@ export async function getPullRequestFileDiff(
   contextLines?: number,
 ): Promise<FileDiff | null> {
   return getPrFileDiff(projectPath, number, baseSha, headSha, filePath, contextLines);
+}
+
+/** Both sides of a binary file, for the image viewer. */
+export async function getPullRequestFileVersions(
+  projectPath: string,
+  number: number,
+  baseSha: string,
+  headSha: string,
+  filePath: string,
+  oldPath?: string,
+): Promise<PrFileVersions> {
+  return getPrFileVersions(projectPath, number, baseSha, headSha, filePath, oldPath);
 }
 
 export async function getIssues(projectPath: string): Promise<GithubIssue[]> {

@@ -162,6 +162,7 @@ const mockApi = {
     pullRequest: vi.fn().mockResolvedValue(null),
     pullRequestFiles: vi.fn().mockResolvedValue({ files: [], fromGit: false }),
     pullRequestFileDiff: vi.fn().mockResolvedValue(null),
+    pullRequestFileVersions: vi.fn().mockResolvedValue({ before: null, after: null }),
     issues: vi.fn().mockResolvedValue([]),
     refresh: vi.fn().mockResolvedValue(undefined),
     linkTaskPr: vi.fn().mockResolvedValue({ success: true }),

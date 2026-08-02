@@ -27,6 +27,11 @@ export interface DiffFileSectionProps {
   onAddComment?: (path: string, anchor: DiffLineAnchor) => void;
   /** Extra header content, right-aligned before the stats. */
   headerRight?: ReactNode;
+  /**
+   * Shown in place of the hunks when git reports the file as binary. Without
+   * one, a binary file says so rather than claiming there is no diff.
+   */
+  binaryView?: ReactNode;
   loadingLabel?: string;
   emptyLabel?: string;
 }
@@ -40,6 +45,7 @@ export function DiffFileSection({
   renderBelowLine,
   onAddComment,
   headerRight,
+  binaryView,
   loadingLabel = 'Loading...',
   emptyLabel = 'No diff available',
 }: DiffFileSectionProps) {
@@ -71,6 +77,10 @@ export function DiffFileSection({
           <div className="flex-1 flex flex-col items-center justify-center text-text-tertiary gap-2">
             {loadingLabel}
           </div>
+        ) : diff.binary ? (
+          (binaryView ?? (
+            <div className="px-4 py-6 text-center font-mono text-[11px] text-text-tertiary">Binary file</div>
+          ))
         ) : diff.hunks.length === 0 ? (
           <div className="flex-1 flex flex-col items-center justify-center text-text-tertiary gap-2">{emptyLabel}</div>
         ) : (

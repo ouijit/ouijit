@@ -2,6 +2,7 @@ import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useSt
 import type { FileDiff } from '../../types';
 import type { PullRequestDetail, ReviewDraft, ReviewThread } from '../../github/types';
 import { useGithubStore } from '../../stores/githubStore';
+import { BinaryFileView } from '../diff/BinaryFileView';
 import { DiffFileSection } from '../diff/DiffFileSection';
 import type { DiffLineAnchor } from '../diff/DiffLineView';
 import { Icon } from '../terminal/Icon';
@@ -278,6 +279,22 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
           diff={diffs.get(file.path) ?? null}
           onAddComment={startComment}
           renderBelowLine={(anchor) => renderBelowLine(file.path, anchor)}
+          binaryView={
+            <BinaryFileView
+              path={file.path}
+              revision={`${detail.baseSha}...${detail.headSha}`}
+              load={() =>
+                window.api.github.pullRequestFileVersions(
+                  projectPath,
+                  detail.number,
+                  detail.baseSha,
+                  detail.headSha,
+                  file.path,
+                  file.oldPath,
+                )
+              }
+            />
+          }
           headerRight={
             file.oldPath ? (
               <span

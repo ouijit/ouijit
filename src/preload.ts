@@ -315,6 +315,14 @@ contextBridge.exposeInMainWorld('api', {
       filePath: string,
       contextLines?: number,
     ) => typedInvoke('github:pull-request-file-diff', projectPath, number, baseSha, headSha, filePath, contextLines),
+    pullRequestFileVersions: (
+      projectPath: string,
+      number: number,
+      baseSha: string,
+      headSha: string,
+      filePath: string,
+      oldPath?: string,
+    ) => typedInvoke('github:pull-request-file-versions', projectPath, number, baseSha, headSha, filePath, oldPath),
     issues: (projectPath: string) => typedInvoke('github:issues', projectPath),
     refresh: (projectPath: string) => typedInvoke('github:refresh', projectPath),
 

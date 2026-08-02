@@ -9,6 +9,7 @@ export type {
   DiffLine,
   DiffHunk,
   FileDiff,
+  BlobContent,
   GitFileStatus,
   WorktreeDiffSummary,
   BranchInfo,
@@ -68,6 +69,7 @@ import type {
   GithubChangedPayload,
 } from './github/types';
 import type { InboxResult, PullRequestFilesResult, SaveDraftInput, PromoteToTaskResult } from './github/service';
+import type { PrFileVersions } from './github/prDiff';
 import type { TaskStatus, TagRow } from './db';
 import type { ActiveSession } from './ptyManager';
 import type { LimaStatus } from './lima/types';
@@ -662,6 +664,14 @@ export interface GithubAPI {
     filePath: string,
     contextLines?: number,
   ): Promise<FileDiff | null>;
+  pullRequestFileVersions(
+    projectPath: string,
+    number: number,
+    baseSha: string,
+    headSha: string,
+    filePath: string,
+    oldPath?: string,
+  ): Promise<PrFileVersions>;
   issues(projectPath: string): Promise<GithubIssue[]>;
   refresh(projectPath: string): Promise<void>;
 

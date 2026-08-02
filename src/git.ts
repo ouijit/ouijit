@@ -95,6 +95,20 @@ export interface DiffHunk {
 export interface FileDiff {
   path: string;
   hunks: DiffHunk[];
+  /**
+   * Git could not express the change as lines — an image, a font, any binary
+   * asset. There are no hunks in that case, so a viewer that only knows how to
+   * draw hunks has to be told the difference between "nothing to show" and
+   * "something to show that isn't text".
+   */
+  binary?: boolean;
+}
+
+/** One version of a binary file, read out of the object database. */
+export interface BlobContent {
+  byteSize: number;
+  /** Base64 of the blob. Absent when the blob is past the caller's cap. */
+  base64?: string;
 }
 
 /**
@@ -394,7 +408,7 @@ export async function getRangeFileDiff(
       maxBuffer: 20 * 1024 * 1024,
     });
     if (!stdout.trim()) return null;
-    return { path: filePath, hunks: parseDiff(stdout) };
+    return { path: filePath, hunks: parseDiff(stdout), binary: isBinaryDiff(stdout) };
   } catch {
     return null;
   }
@@ -694,6 +708,58 @@ export function mergeIntoMain(projectPath: string): { success: boolean; error?: 
 }
 
 /**
+ * Whether git declined to diff a file as text.
+ *
+ * Taken from git's own output rather than guessed from the extension: git
+ * decides this from the content and from `.gitattributes`, so a `.txt` marked
+ * binary and a `.png` marked text both come out right.
+ */
+export function isBinaryDiff(diffOutput: string): boolean {
+  return /^Binary files .* differ$/m.test(diffOutput) || diffOutput.includes('GIT binary patch');
+}
+
+/**
+ * One revision's copy of a file, base64 encoded.
+ *
+ * Returns null when the path does not exist at that revision, which is how an
+ * added or deleted file reports its missing side. Blobs past `maxBytes` come
+ * back with their size and no content, so a caller can say how big the thing is
+ * without moving it across a process boundary.
+ */
+export async function readBlob(
+  projectPath: string,
+  rev: string,
+  filePath: string,
+  maxBytes: number,
+): Promise<BlobContent | null> {
+  const spec = `${rev}:${filePath}`;
+
+  let byteSize: number;
+  try {
+    const { stdout } = await execFileAsync('git', ['cat-file', '-s', spec], {
+      cwd: projectPath,
+      encoding: 'utf8',
+    });
+    byteSize = Number.parseInt(stdout.trim(), 10);
+  } catch {
+    return null;
+  }
+  if (!Number.isFinite(byteSize)) return null;
+  if (byteSize > maxBytes) return { byteSize };
+
+  try {
+    const { stdout } = await execFileAsync('git', ['cat-file', 'blob', spec], {
+      cwd: projectPath,
+      encoding: 'buffer',
+      maxBuffer: maxBytes + 1024,
+    });
+    return { byteSize, base64: stdout.toString('base64') };
+  } catch {
+    return { byteSize };
+  }
+}
+
+/**
  * Parses unified diff output into structured hunks
  */
 export function parseDiff(diffOutput: string): DiffHunk[] {
@@ -786,6 +852,7 @@ export function getFileDiff(projectPath: string, filePath: string, contextLines?
     return {
       path: filePath,
       hunks: parseDiff(diffOutput),
+      binary: isBinaryDiff(diffOutput),
     };
   } catch {
     return null;
@@ -1021,6 +1088,7 @@ export function getWorktreeFileDiff(
     return {
       path: filePath,
       hunks: parseDiff(diffOutput),
+      binary: isBinaryDiff(diffOutput),
     };
   } catch {
     return null;

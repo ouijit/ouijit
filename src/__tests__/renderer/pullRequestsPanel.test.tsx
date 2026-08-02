@@ -375,6 +375,44 @@ describe('PullRequestsPanel', () => {
     expect(screen.getByText('this needs a second look')).toBeTruthy();
   });
 
+  /**
+   * Regression: git emits no hunks for a binary file, and the diff viewer read
+   * that as an empty diff and said "No diff available" — so a pull request that
+   * changed an image showed nothing at all.
+   */
+  test('an image in the diff renders both versions instead of an empty diff', async () => {
+    vi.mocked(window.api.github.inbox).mockResolvedValue(
+      inbox({ needsReview: [pr({ number: 5, title: 'Please look' })] }),
+    );
+    vi.mocked(window.api.github.pullRequest).mockResolvedValue(detail());
+    vi.mocked(window.api.github.pullRequestFiles).mockResolvedValue({
+      files: [{ path: 'assets/logo.png', status: 'M', additions: 0, deletions: 0 }],
+      fromGit: false,
+    });
+    vi.mocked(window.api.github.pullRequestFileDiff).mockResolvedValue({
+      path: 'assets/logo.png',
+      hunks: [],
+      binary: true,
+    });
+    vi.mocked(window.api.github.pullRequestFileVersions).mockResolvedValue({
+      before: { byteSize: 2048, base64: 'YmVmb3Jl' },
+      after: { byteSize: 4096, base64: 'YWZ0ZXI=' },
+    });
+
+    render(<PullRequestsPanel projectPath={PROJECT} />);
+    fireEvent.click(await screen.findByText('Please look'));
+    fireEvent.click(await screen.findByText('Code'));
+
+    const before = (await screen.findByAltText('Before')) as HTMLImageElement;
+    const after = screen.getByAltText('After') as HTMLImageElement;
+    expect(before.src).toBe('data:image/png;base64,YmVmb3Jl');
+    expect(after.src).toBe('data:image/png;base64,YWZ0ZXI=');
+
+    expect(screen.getByText('2.0 KB')).toBeTruthy();
+    expect(screen.getByText('4.0 KB')).toBeTruthy();
+    expect(screen.queryByText('No diff available')).toBeNull();
+  });
+
   test('you cannot approve your own pull request', async () => {
     vi.mocked(window.api.github.inbox).mockResolvedValue(
       inbox({ mine: [pr({ number: 8, title: 'Mine', isMine: true })] }),

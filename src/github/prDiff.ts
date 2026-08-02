@@ -17,9 +17,9 @@
 
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
-import { fetchRefspec, resolveRef, getRangeDiffFiles, getRangeFileDiff } from '../git';
+import { fetchRefspec, resolveRef, getRangeDiffFiles, getRangeFileDiff, readBlob } from '../git';
 import { getLogger } from '../logger';
-import type { ChangedFile, FileDiff } from '../types';
+import type { BlobContent, ChangedFile, FileDiff } from '../types';
 
 const execFileAsync = promisify(execFile);
 
@@ -177,6 +177,44 @@ export async function getPrFileDiff(
   const refs = await ensurePrRefs(projectPath, prNumber, baseSha, headSha);
   if (!refs.success) return null;
   return getRangeFileDiff(projectPath, baseSha, headSha, filePath, contextLines);
+}
+
+/**
+ * How much of a binary file we are willing to base64 across the IPC boundary.
+ * Past this the viewer states the size instead, which is the useful fact about
+ * a file that large anyway.
+ */
+const MAX_INLINE_BLOB_BYTES = 12 * 1024 * 1024;
+
+export interface PrFileVersions {
+  /** The file as of the base. Null when the pull request adds it. */
+  before: BlobContent | null;
+  /** The file as of the head. Null when the pull request deletes it. */
+  after: BlobContent | null;
+}
+
+/**
+ * Both sides of a binary file, so an image can be shown before and after.
+ *
+ * A rename moves the path, so the base side is looked up under `oldPath` when
+ * there is one — otherwise a renamed image would read as deleted and added.
+ */
+export async function getPrFileVersions(
+  projectPath: string,
+  prNumber: number,
+  baseSha: string,
+  headSha: string,
+  filePath: string,
+  oldPath?: string,
+): Promise<PrFileVersions> {
+  const refs = await ensurePrRefs(projectPath, prNumber, baseSha, headSha);
+  if (!refs.success) return { before: null, after: null };
+
+  const [before, after] = await Promise.all([
+    readBlob(projectPath, baseSha, oldPath ?? filePath, MAX_INLINE_BLOB_BYTES),
+    readBlob(projectPath, headSha, filePath, MAX_INLINE_BLOB_BYTES),
+  ]);
+  return { before, after };
 }
 
 /**

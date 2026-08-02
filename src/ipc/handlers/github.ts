@@ -6,6 +6,7 @@ import {
   getPullRequest,
   getPullRequestFiles,
   getPullRequestFileDiff,
+  getPullRequestFileVersions,
   getIssues,
   linkTaskToPr,
   linkTaskToIssue,
@@ -37,6 +38,9 @@ export function registerGithubHandlers(): void {
   );
   typedHandle('github:pull-request-file-diff', (projectPath, number, baseSha, headSha, filePath, contextLines) =>
     getPullRequestFileDiff(projectPath, number, baseSha, headSha, filePath, contextLines),
+  );
+  typedHandle('github:pull-request-file-versions', (projectPath, number, baseSha, headSha, filePath, oldPath) =>
+    getPullRequestFileVersions(projectPath, number, baseSha, headSha, filePath, oldPath),
   );
   typedHandle('github:issues', (projectPath) => getIssues(projectPath));
   typedHandle('github:refresh', (projectPath) => refreshGithubNow(projectPath));

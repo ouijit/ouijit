@@ -53,6 +53,7 @@ import type {
   GithubChangedPayload,
 } from '../github/types';
 import type { InboxResult, PullRequestFilesResult, SaveDraftInput, PromoteToTaskResult } from '../github/service';
+import type { PrFileVersions } from '../github/prDiff';
 import type { SandboxProviderStatus, NonoConfig } from '../sandbox/types';
 import type { HookStatusEntry } from '../hookServer';
 import type { HealthStatus } from '../healthCheck';
@@ -252,6 +253,10 @@ export interface IpcInvokeContract {
       contextLines?: number,
     ];
     return: FileDiff | null;
+  };
+  'github:pull-request-file-versions': {
+    args: [projectPath: string, number: number, baseSha: string, headSha: string, filePath: string, oldPath?: string];
+    return: PrFileVersions;
   };
   'github:issues': { args: [projectPath: string]; return: GithubIssue[] };
   'github:refresh': { args: [projectPath: string]; return: void };
