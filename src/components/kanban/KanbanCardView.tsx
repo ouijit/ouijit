@@ -456,6 +456,7 @@ export const KanbanCardView = memo(function KanbanCardView({
       {sheetOpen && (
         <TaskComposerSheet
           mode="edit"
+          name={task.name}
           description={sheetDraft}
           initialCaret={sheetCaret}
           onDescriptionChange={(value) => {

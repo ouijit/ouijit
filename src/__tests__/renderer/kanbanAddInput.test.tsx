@@ -16,8 +16,7 @@ const getTitle = () => document.querySelector('.kanban-add-input') as HTMLInputE
 /** Description is a contentEditable div — query by its stable class. */
 const getDescription = () => document.querySelector('.kanban-add-description') as HTMLDivElement | null;
 const getSheet = () => screen.queryByTestId('composer-sheet');
-const getSheetDescription = () =>
-  getSheet()?.querySelector('.kanban-composer-sheet-editor') as HTMLDivElement | undefined;
+const getSheetDescription = () => getSheet()?.querySelector('.composer-sheet-editor') as HTMLDivElement | undefined;
 const getCreateButton = () => screen.queryByRole('button', { name: /^Create/ }) as HTMLButtonElement | null;
 
 /** Open the resting composer and return its title input. */
@@ -32,6 +31,14 @@ function typeInto(el: HTMLElement, text: string): void {
   el.innerHTML = '';
   if (text) el.appendChild(document.createTextNode(text));
   fireEvent.input(el);
+}
+
+/** The sheet plays its exit before handing control back, like the app's other
+ *  overlays, so anything it hands off lands a transition later. */
+async function flushSheetExit(): Promise<void> {
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 260));
+  });
 }
 
 /** Swap in a partial window.api for one test, restoring it afterwards. */
@@ -139,7 +146,7 @@ describe('KanbanAddInput', () => {
     expect(getRest()!.textContent).toContain('New task');
   });
 
-  it('shares one draft between the inline form and the expanded sheet', () => {
+  it('shares one draft between the inline form and the expanded sheet', async () => {
     const onAdd = vi.fn();
     render(<KanbanAddInput onAdd={onAdd} />);
 
@@ -158,12 +165,13 @@ describe('KanbanAddInput', () => {
 
     // Escape returns to the column with the draft intact, not to a cleared form.
     fireEvent.keyDown(document, { key: 'Escape' });
+    await flushSheetExit();
     expect(getSheet()).toBeNull();
     expect(getTitle()!.value).toBe('Fix login');
     expect(getDescription()!.textContent).toBe('Continued in the sheet');
   });
 
-  it('creates from the sheet and closes it', () => {
+  it('creates from the sheet and closes it', async () => {
     const onAdd = vi.fn();
     render(<KanbanAddInput onAdd={onAdd} />);
 
@@ -172,6 +180,7 @@ describe('KanbanAddInput', () => {
     fireEvent.keyDown(title, { key: 'e', metaKey: true });
     typeInto(getSheetDescription()!, 'Written with room to think');
     fireEvent.keyDown(document, { key: 'Enter', metaKey: true });
+    await flushSheetExit();
 
     expect(onAdd).toHaveBeenCalledWith('Fix login', 'Written with room to think');
     expect(getSheet()).toBeNull();

@@ -825,20 +825,6 @@ textarea,
   line-height: 1;
 }
 
-.kanban-add-button-filled {
-  background: var(--color-accent);
-  color: var(--color-accent-ink);
-  padding: 7px 14px;
-}
-
-.kanban-add-button-filled:hover {
-  background: var(--color-accent-hover);
-}
-
-.kanban-add-button-filled:disabled:hover {
-  background: var(--color-accent);
-}
-
 /* ── New-task composer ────────────────────────────────────────────── */
 
 /* Pinned below the card list rather than scrolling with it, so it reads as
@@ -984,20 +970,71 @@ textarea,
 
 /* ── Expanded composer sheet ──────────────────────────────────────── */
 
-.kanban-composer-chip {
-  font-family: 'Iosevka Term Extended', ui-monospace, monospace;
-  font-size: 10.5px;
-  line-height: 1;
-  padding: 4px 8px;
-  border-radius: 4px;
-  background: color-mix(in srgb, var(--color-ink) 6%, transparent);
-  color: var(--color-text-secondary);
+/* Prose settings for the sheet's editor: looser leading than the 240px
+   inline box, and a placeholder that sits on the first line rather than
+   being italicised at this size. */
+.composer-sheet-editor {
+  line-height: 1.7;
 }
 
-/* The editor is narrowed to a measure, so its focus tint would read as a
-   floating stripe. Let the sheet carry the surface instead. */
-.kanban-composer-sheet-editor:focus {
+.composer-sheet-editor[data-empty='true']::before {
+  font-style: normal;
+}
+
+/* Footer actions. Quieter than a filled pill — this bar is a legend the
+   primary action sits in, not a dialog's button row. */
+.composer-sheet-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px 5px 10px;
+  border: none;
+  border-radius: 7px;
   background: transparent;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1;
+  transition:
+    color 100ms ease-out,
+    background-color 100ms ease-out;
+}
+
+.composer-sheet-action:hover {
+  background: color-mix(in srgb, var(--color-ink) 6%, transparent);
+  color: var(--color-text-primary);
+}
+
+.composer-sheet-action-primary {
+  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+  color: var(--color-accent);
+}
+
+.composer-sheet-action-primary:hover {
+  background: color-mix(in srgb, var(--color-accent) 22%, transparent);
+  color: var(--color-accent);
+}
+
+.composer-sheet-action:disabled {
+  opacity: 0.4;
+}
+
+.composer-sheet-action:disabled:hover {
+  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
+  color: var(--color-accent);
+}
+
+.composer-sheet-action kbd {
+  font-family: 'Iosevka Term Extended', ui-monospace, monospace;
+  font-size: 10px;
+  line-height: 1;
+  padding: 3px 5px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--color-ink) 8%, transparent);
+}
+
+.composer-sheet-action-primary kbd {
+  background: color-mix(in srgb, var(--color-accent) 18%, transparent);
 }
 
 /* ── Task description attachment chip ─────────────────────────────── */
