@@ -156,11 +156,10 @@ export function ReviewThreadView({ thread, onReply, onToggleResolved, inline = f
   }
 
   return (
-    <div
-      className={`mx-[88px] my-1.5 rounded-md border-l-2 ${
-        thread.isResolved ? 'border-vcs-added/40' : 'border-accent/60'
-      } bg-terminal-surface`}
-    >
+    // No left bar: the fill and the gutter offset already tell it apart from
+    // the code around it, and a coloured rule down the side of every thread
+    // made a reviewed file look striped.
+    <div className="mx-[88px] my-1.5 rounded-md bg-terminal-surface">
       <div className="flex flex-col gap-2.5 px-3 py-2">
         {header}
         {!collapsed && comments}

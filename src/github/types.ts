@@ -157,6 +157,13 @@ export interface PullRequestDetail extends PullRequestSummary {
   checks: CheckRun[];
   /** True when the viewer can push to the head branch (drives the merge button). */
   viewerCanUpdate: boolean;
+  /**
+   * Who fetched this, and their avatar. `isMine` is already derived from the
+   * same field, and carrying it lets a comment box show you your own face
+   * without waiting on a separate inbox fetch to say who you are.
+   */
+  viewer: string;
+  viewerAvatarUrl?: string;
 }
 
 export interface GithubIssue {

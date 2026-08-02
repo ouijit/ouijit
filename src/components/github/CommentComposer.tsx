@@ -11,8 +11,11 @@ import { Avatar } from './Avatar';
  * inside it — belongs to a messaging app; nothing else here is drawn that way.
  */
 export function CommentComposer({ projectPath, prNumber }: { projectPath: string; prNumber: number }) {
-  const viewer = useGithubStore((s) => s.inbox?.viewer);
-  const viewerAvatarUrl = useGithubStore((s) => s.inbox?.viewerAvatarUrl);
+  // From the pull request itself, which is always loaded when this renders.
+  // Reading it off the inbox meant the box showed a placeholder whenever the
+  // list had not been fetched.
+  const viewer = useGithubStore((s) => s.detail?.viewer ?? s.inbox?.viewer);
+  const viewerAvatarUrl = useGithubStore((s) => s.detail?.viewerAvatarUrl ?? s.inbox?.viewerAvatarUrl);
   const [body, setBody] = useState('');
   const [posting, setPosting] = useState(false);
 

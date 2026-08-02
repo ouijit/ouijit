@@ -369,7 +369,7 @@ export async function fetchInbox(identity: RepoIdentity): Promise<PullRequestInb
 
 export async function fetchPullRequest(identity: RepoIdentity, number: number): Promise<PullRequestDetail> {
   const data = await ghGraphql<{
-    viewer: { login: string };
+    viewer: { login: string; avatarUrl?: string };
     repository: {
       pullRequest:
         | (RawDetail & {
@@ -400,6 +400,8 @@ export async function fetchPullRequest(identity: RepoIdentity, number: number): 
     baseSha: pr.baseRefOid,
     headSha: pr.headRefOid,
     viewerCanUpdate: pr.viewerCanUpdate,
+    viewer: data.viewer.login,
+    viewerAvatarUrl: data.viewer.avatarUrl,
     merge: deriveMergeStatus({
       mergeable: pr.mergeable,
       mergeStateStatus: pr.mergeStateStatus,
