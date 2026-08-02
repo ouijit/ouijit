@@ -6,8 +6,10 @@ import {
 } from './DescriptionChipEditor';
 import { TaskComposerSheet } from './TaskComposerSheet';
 import { Icon } from '../terminal/Icon';
-import { useProjectStore } from '../../stores/projectStore';
+import { Tooltip } from '../ui/Tooltip';
 import { useAppStore } from '../../stores/appStore';
+import { useComposerStore } from '../../stores/composerStore';
+import { resolveAttachmentPath } from '../../utils/taskAttachments';
 
 const isMac = typeof navigator !== 'undefined' && navigator.platform.toLowerCase().includes('mac');
 /** Modifier name for tooltips and the resting row's shortcut hint. */
@@ -53,15 +55,20 @@ interface KanbanAddInputProps {
  * implicitly — Escape collapses and keeps it.
  */
 export function KanbanAddInput({ onAdd }: KanbanAddInputProps) {
-  const [name, setName] = useState('');
-  const [description, setDescription] = useState('');
+  // The draft is shared with the standalone sheet, which opens on ⌘N when the
+  // board isn't on screen, so it has to outlive this component.
+  const name = useComposerStore((s) => s.draft.name);
+  const description = useComposerStore((s) => s.draft.description);
+  const sheetOpen = useComposerStore((s) => s.sheetOpen);
+  const sheetCaret = useComposerStore((s) => s.sheetCaret);
+  const setName = useComposerStore((s) => s.setName);
+  const setDescription = useComposerStore((s) => s.setDescription);
+
   const [active, setActive] = useState(false);
   // Which input owns focus right now — drives the submit hint, since plain
   // Enter creates from the title field but the description needs ⌘/Ctrl+↵.
   const [focusedField, setFocusedField] = useState<'title' | 'description'>('title');
   const [metrics, setMetrics] = useState<DescriptionEditorMetrics>(EMPTY_METRICS);
-  const [sheetCaret, setSheetCaret] = useState<number | null>(null);
-  const [sheetOpen, setSheetOpen] = useState(false);
   const [pinnedHeight, setPinnedHeight] = useState<number | null>(null);
 
   const inputRef = useRef<HTMLInputElement>(null);
@@ -117,12 +124,12 @@ export function KanbanAddInput({ onAdd }: KanbanAddInputProps) {
 
   /** Throw the draft away and close. The only path that loses text. */
   const discard = useCallback(() => {
-    setName('');
-    setDescription('');
+    const composer = useComposerStore.getState();
+    composer.clearDraft();
+    composer.closeSheet();
     editorRef.current?.setValue('');
     setActive(false);
     setFocusedField('title');
-    setSheetOpen(false);
   }, []);
 
   const submit = useCallback(() => {
@@ -132,22 +139,21 @@ export function KanbanAddInput({ onAdd }: KanbanAddInputProps) {
     onAdd(trimmedName, trimmedDescription || undefined);
     // Clear the fields but keep the form open and focused so the next task
     // can be typed immediately without clicking back in.
-    setName('');
-    setDescription('');
+    const composer = useComposerStore.getState();
+    composer.clearDraft();
+    composer.closeSheet();
     editorRef.current?.setValue('');
-    setSheetOpen(false);
     setActive(true);
     requestAnimationFrame(() => inputRef.current?.focus());
   }, [name, description, onAdd]);
 
   const expand = useCallback(() => {
-    setSheetCaret(editorRef.current?.getCaret() ?? null);
-    setSheetOpen(true);
+    useComposerStore.getState().openSheet(editorRef.current?.getCaret() ?? null);
   }, []);
 
   /** Return from the sheet, putting the caret back where it was left. */
   const collapseSheet = useCallback((caret: number | null) => {
-    setSheetOpen(false);
+    useComposerStore.getState().closeSheet();
     setActive(true);
     requestAnimationFrame(() => {
       if (caret != null) editorRef.current?.focusAtCaret(caret);
@@ -222,27 +228,6 @@ export function KanbanAddInput({ onAdd }: KanbanAddInputProps) {
     },
     [hasDraft, sheetOpen],
   );
-
-  const handleAttachFile = useCallback(async (file: File): Promise<string | null> => {
-    // Prefer the file's existing on-disk path — drag-drop from Finder and
-    // most clipboard file pastes already have one. Skipping the copy keeps
-    // the user's file under their control and works for any extension.
-    const existingPath = window.api.getPathForFile(file);
-    if (existingPath) return existingPath;
-
-    // No source path — bytes only (typically a clipboard-pasted screenshot).
-    // Save those to userData so CLI agents have a stable path to read.
-    if (!file.type.startsWith('image/')) {
-      useProjectStore.getState().addToast('Only image clipboard content can be attached', 'error');
-      return null;
-    }
-    const ext = file.type.split('/')[1] || 'png';
-    const data = new Uint8Array(await file.arrayBuffer());
-    const result = await window.api.task.saveAttachment(data, ext);
-    if (result.success && result.path) return result.path;
-    useProjectStore.getState().addToast(result.error || 'Failed to attach image', 'error');
-    return null;
-  }, []);
 
   // ── Drag the top edge to pin a height ──────────────────────────────
   const dragRef = useRef<{ startY: number; startHeight: number; max: number } | null>(null);
@@ -352,7 +337,7 @@ export function KanbanAddInput({ onAdd }: KanbanAddInputProps) {
               // collapse comes back with it. Uncontrolled from then on.
               initialValue={description}
               onChange={setDescription}
-              onAttachFile={handleAttachFile}
+              onAttachFile={resolveAttachmentPath}
               onMetrics={setMetrics}
               placeholder="Description (optional)"
               onKeyDown={handleDescriptionKeyDown}
@@ -367,20 +352,30 @@ export function KanbanAddInput({ onAdd }: KanbanAddInputProps) {
                 ...capStyle,
               }}
             />
-            <button
-              type="button"
-              className="kanban-add-expand"
-              // The tooltip carries the shortcut and, once the box is
-              // clipping, says what expanding buys you.
-              title={`${metrics.overflowing ? 'Expand to the full sheet' : 'Expand'}  ${MOD_LABEL}E`}
-              aria-label="Expand the description"
-              // Keep focus in the editor so the caret is still readable when
-              // the sheet asks for it.
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={expand}
+            {/* The tooltip carries the shortcut and, once the box is
+                clipping, says what expanding buys you. */}
+            <Tooltip
+              placement="left"
+              text={
+                <span className="flex items-center gap-2">
+                  {metrics.overflowing ? 'Expand to the full sheet' : 'Expand'}
+                  <span className="kanban-add-button-hint kanban-add-button-hint-text">{MOD_LABEL}E</span>
+                </span>
+              }
+              referenceClassName="kanban-add-expand-anchor"
             >
-              <Icon name="arrows-out" className="w-3.5 h-3.5" />
-            </button>
+              <button
+                type="button"
+                className="kanban-add-expand"
+                aria-label="Expand the description"
+                // Keep focus in the editor so the caret is still readable when
+                // the sheet asks for it.
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={expand}
+              >
+                <Icon name="arrows-out" className="w-3.5 h-3.5" />
+              </button>
+            </Tooltip>
           </div>
           {/* DOM order is [Create, Discard] so Tab from the description lands
               on Create first; flex-row-reverse keeps Discard on the visual left.
@@ -419,7 +414,7 @@ export function KanbanAddInput({ onAdd }: KanbanAddInputProps) {
             // reads as a return to the same draft, not a jump to a stale one.
             editorRef.current?.setValue(value);
           }}
-          onAttachFile={handleAttachFile}
+          onAttachFile={resolveAttachmentPath}
           onSubmit={submit}
           onCollapse={collapseSheet}
           onDiscard={discard}

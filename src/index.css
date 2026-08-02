@@ -931,10 +931,16 @@ textarea,
   mask-image: linear-gradient(to bottom, transparent 0, #000 20px, #000 calc(100% - 20px), transparent 100%);
 }
 
-.kanban-add-expand {
+/* The tooltip wraps its reference in a div, so the anchor carries the
+   positioning and the button just fills it. */
+.kanban-add-expand-anchor {
   position: absolute;
   top: 5px;
   right: 5px;
+  display: block;
+}
+
+.kanban-add-expand {
   width: 24px;
   height: 24px;
   display: grid;

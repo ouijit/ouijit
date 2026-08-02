@@ -7,9 +7,13 @@
  * an explicit discard clears it), and the draft is one piece of state shared
  * by the inline form and the expanded sheet.
  */
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import { render, fireEvent, screen, act } from '@testing-library/react';
 import { KanbanAddInput, focusKanbanAddInput } from '../../components/kanban/KanbanAddInput';
+import { useComposerStore } from '../../stores/composerStore';
+import { useAppStore } from '../../stores/appStore';
+import { useProjectStore } from '../../stores/projectStore';
+import { openTaskComposer } from '../../utils/openTaskComposer';
 
 const getRest = () => document.querySelector('.kanban-add-rest') as HTMLButtonElement | null;
 const getTitle = () => document.querySelector('.kanban-add-input') as HTMLInputElement | null;
@@ -51,6 +55,13 @@ function stubApi(overrides: Record<string, unknown>): void {
 afterEach(() => {
   restoreApi?.();
   restoreApi = null;
+});
+
+// The draft outlives the component by design, so it also outlives a test.
+beforeEach(() => {
+  useComposerStore.setState({ draft: { name: '', description: '' }, sheetOpen: false, sheetCaret: null });
+  useAppStore.setState({ composerSheetOpen: false });
+  useProjectStore.setState({ activePanel: 'terminals', kanbanVisible: true });
 });
 
 describe('KanbanAddInput', () => {
@@ -185,6 +196,34 @@ describe('KanbanAddInput', () => {
     expect(onAdd).toHaveBeenCalledWith('Fix login', 'Written with room to think');
     expect(getSheet()).toBeNull();
     expect(getTitle()!.value).toBe('');
+  });
+
+  it('routes the new-task shortcut to the column on the board, and to the sheet elsewhere', () => {
+    render(<KanbanAddInput onAdd={vi.fn()} />);
+
+    // On the board the composer is already on screen, so focus it.
+    act(() => openTaskComposer());
+    expect(document.activeElement).toBe(getTitle());
+    expect(getSheet()).toBeNull();
+
+    // Off the board there is nothing to focus, so the sheet comes to you
+    // rather than the view switching underneath.
+    useProjectStore.setState({ kanbanVisible: false });
+    act(() => openTaskComposer());
+    expect(useComposerStore.getState().sheetOpen).toBe(true);
+    expect(useProjectStore.getState().kanbanVisible).toBe(false);
+  });
+
+  it('carries a draft written off the board back to the column composer', () => {
+    useProjectStore.setState({ kanbanVisible: false });
+    act(() => openTaskComposer());
+    useComposerStore.getState().setName('Started from a terminal');
+    useComposerStore.getState().closeSheet();
+
+    // Arriving at the board later, the draft is waiting in the resting row.
+    useProjectStore.setState({ kanbanVisible: true });
+    render(<KanbanAddInput onAdd={vi.fn()} />);
+    expect(getRest()!.textContent).toContain('Started from a terminal');
   });
 
   it('opens the collapsed form when focused programmatically', () => {

@@ -9,6 +9,7 @@ import {
   type DescriptionEditorMetrics,
 } from './DescriptionChipEditor';
 import { TaskComposerSheet } from './TaskComposerSheet';
+import { Tooltip } from '../ui/Tooltip';
 import { useAppStore } from '../../stores/appStore';
 
 const isMac = typeof navigator !== 'undefined' && navigator.platform.toLowerCase().includes('mac');
@@ -430,17 +431,27 @@ export const KanbanCardView = memo(function KanbanCardView({
               }
             />
             {editingDesc && (
-              <button
-                type="button"
-                className="kanban-add-expand"
-                title={`Expand  ${isMac ? '⌘E' : 'Ctrl E'}`}
-                aria-label="Expand the description"
-                // Hold focus in the editor so its caret is still readable.
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={expandDescription}
+              <Tooltip
+                placement="left"
+                text={
+                  <span className="flex items-center gap-2">
+                    Expand
+                    <span className="kanban-add-button-hint kanban-add-button-hint-text">{isMac ? '⌘' : 'Ctrl '}E</span>
+                  </span>
+                }
+                referenceClassName="kanban-add-expand-anchor"
               >
-                <Icon name="arrows-out" className="w-3.5 h-3.5" />
-              </button>
+                <button
+                  type="button"
+                  className="kanban-add-expand"
+                  aria-label="Expand the description"
+                  // Hold focus in the editor so its caret is still readable.
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={expandDescription}
+                >
+                  <Icon name="arrows-out" className="w-3.5 h-3.5" />
+                </button>
+              </Tooltip>
             )}
           </div>
           {task.branch && (
