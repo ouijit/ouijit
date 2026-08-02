@@ -292,7 +292,7 @@ export function KanbanAddInput({ onAdd }: KanbanAddInputProps) {
         >
           {hasDraft ? (
             <>
-              <span className="kanban-add-draft-dot" />
+              <Icon name="file-dashed" className="kanban-add-draft-icon" />
               <span className="kanban-add-draft-label">{name.trim() || 'Untitled draft'}</span>
               <span className="kanban-add-button-hint kanban-add-button-hint-text">Esc to discard</span>
             </>

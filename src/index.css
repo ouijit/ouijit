@@ -865,15 +865,18 @@ textarea,
 .kanban-add-rest .kanban-add-button-hint {
   margin-left: auto;
   opacity: 0.5;
+  /* Never wrap or get squeezed: the draft title beside it truncates instead. */
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
-/* A draft survives collapsing; the row says so instead of looking empty. */
-.kanban-add-draft-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--color-accent);
+/* A draft survives collapsing; the row says so instead of looking empty.
+   The dashed page reads as "unfinished" on its own, which a dot never did. */
+.kanban-add-draft-icon {
+  width: 15px;
+  height: 15px;
   flex-shrink: 0;
+  color: var(--color-accent);
 }
 
 .kanban-add-draft-label {
