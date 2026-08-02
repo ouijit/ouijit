@@ -330,6 +330,51 @@ describe('PullRequestsPanel', () => {
     });
   });
 
+  /**
+   * Regression: the summary's Comments section counted the timeline's comments
+   * and then rendered only the composer, so posting one bumped the count and
+   * showed nothing. A section that counts entries must render those entries.
+   */
+  test('the comments section shows the comments it counts', async () => {
+    vi.mocked(window.api.github.inbox).mockResolvedValue(
+      inbox({ needsReview: [pr({ number: 5, title: 'Please look' })] }),
+    );
+    vi.mocked(window.api.github.pullRequest).mockResolvedValue(
+      detail({
+        timeline: [
+          {
+            id: 'c1',
+            kind: 'comment',
+            author: 'someone',
+            body: 'this needs a second look',
+            createdAt: '2026-07-02T00:00:00.000Z',
+          },
+          {
+            id: 'e1',
+            kind: 'event',
+            author: 'someone',
+            body: '',
+            eventType: 'reopened',
+            createdAt: '2026-07-02T00:00:00.000Z',
+          },
+        ],
+      }),
+    );
+
+    render(<PullRequestsPanel projectPath={PROJECT} />);
+    fireEvent.click(await screen.findByText('Please look'));
+
+    expect(await screen.findByText('this needs a second look')).toBeTruthy();
+    // One comment, not two: the reopen event is timeline furniture.
+    expect(screen.getByText('1 comment')).toBeTruthy();
+    expect(screen.queryByText('reopened')).toBeNull();
+
+    // The timeline pane carries both.
+    fireEvent.click(screen.getByText('Timeline'));
+    expect(await screen.findByText('reopened')).toBeTruthy();
+    expect(screen.getByText('this needs a second look')).toBeTruthy();
+  });
+
   test('you cannot approve your own pull request', async () => {
     vi.mocked(window.api.github.inbox).mockResolvedValue(
       inbox({ mine: [pr({ number: 8, title: 'Mine', isMine: true })] }),

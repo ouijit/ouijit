@@ -7,6 +7,7 @@ import { STATUS_LABELS } from '../kanban/taskMenu';
 import { ChecksSection } from './ChecksSection';
 import { Markdown } from './Markdown';
 import { CommentComposer } from './CommentComposer';
+import { TimelineEntries } from './TimelineEntries';
 import { since } from './prFormat';
 
 interface SummaryPaneProps {
@@ -36,7 +37,8 @@ export function SummaryPane({
   onPromoteToTask,
 }: SummaryPaneProps) {
   const unresolved = detail.threads.filter((t) => !t.isResolved).length;
-  const comments = detail.timeline.filter((i) => i.kind !== 'event').length;
+  // Events belong to the timeline; this section is what people have said.
+  const comments = detail.timeline.filter((i) => i.kind !== 'event');
 
   return (
     <div className="w-full max-w-3xl mx-auto px-8 py-7 flex flex-col gap-7">
@@ -88,10 +90,10 @@ export function SummaryPane({
         </Fact>
 
         <Fact icon="chat-circle" label="Comments">
-          <span className={comments + unresolved === 0 ? 'text-text-tertiary' : 'text-text-primary'}>
-            {comments + unresolved === 0
+          <span className={comments.length + unresolved === 0 ? 'text-text-tertiary' : 'text-text-primary'}>
+            {comments.length + unresolved === 0
               ? 'No comments'
-              : `${comments + unresolved} ${comments + unresolved === 1 ? 'comment' : 'comments'}`}
+              : `${comments.length + unresolved} ${comments.length + unresolved === 1 ? 'comment' : 'comments'}`}
             {unresolved > 0 && <span className="text-accent">, {unresolved} unresolved</span>}
           </span>
         </Fact>
@@ -115,8 +117,11 @@ export function SummaryPane({
         <ChecksSection checks={detail.checks} />
       </Section>
 
-      <Section label="Comments" count={comments} defaultOpen>
-        <CommentComposer projectPath={projectPath} prNumber={detail.number} />
+      <Section label="Comments" count={comments.length} defaultOpen>
+        <div className="flex flex-col gap-5">
+          <TimelineEntries items={comments} empty="No comments yet" />
+          <CommentComposer projectPath={projectPath} prNumber={detail.number} />
+        </div>
       </Section>
     </div>
   );

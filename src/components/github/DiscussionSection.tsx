@@ -2,12 +2,9 @@ import { useCallback } from 'react';
 import type { PullRequestDetail, ReviewThread } from '../../github/types';
 import { useGithubStore } from '../../stores/githubStore';
 import { useProjectStore } from '../../stores/projectStore';
-import { Icon } from '../terminal/Icon';
-import { Avatar } from './Avatar';
-import { Markdown } from './Markdown';
 import { CommentComposer } from './CommentComposer';
 import { ReviewThreadView } from './ReviewThreadView';
-import { reviewStateLabel, since } from './prFormat';
+import { TimelineEntries } from './TimelineEntries';
 
 interface DiscussionSectionProps {
   projectPath: string;
@@ -79,34 +76,10 @@ export function DiscussionSection({ projectPath, detail }: DiscussionSectionProp
         {detail.timeline.length > 0 && (
           <h2 className="text-[19px] font-medium text-text-primary pb-2.5 border-b border-ink/[0.08]">Timeline</h2>
         )}
-
-        {detail.timeline.map((item) =>
-          item.kind === 'event' ? (
-            <div key={item.id} className="flex items-center gap-2 text-[13px] text-text-tertiary">
-              <Icon name="git-commit" className="w-4 h-4 shrink-0 opacity-60" />
-              <Avatar login={item.author} url={item.authorAvatarUrl} size={16} />
-              <span className="text-text-secondary">{item.author}</span>
-              <span>{item.eventType}</span>
-              <span className="opacity-50">·</span>
-              <span>{since(item.createdAt)}</span>
-            </div>
-          ) : (
-            <article key={item.id} className="flex gap-3">
-              <Avatar login={item.author} url={item.authorAvatarUrl} size={26} className="mt-0.5" />
-              <div className="flex-1 min-w-0 flex flex-col gap-1.5">
-                <div className="flex items-center gap-2 text-[13px] text-text-tertiary flex-wrap">
-                  <span className="text-text-primary text-[15px]">{item.author}</span>
-                  <span>{item.kind === 'review' ? reviewStateLabel(item.reviewState) : 'commented'}</span>
-                  <span className="opacity-50">·</span>
-                  <span>{since(item.createdAt)}</span>
-                </div>
-                {item.body.trim() && <Markdown body={item.body} />}
-              </div>
-            </article>
-          ),
-        )}
-
-        {entries === 0 && <p className="text-[15px] text-text-tertiary">Nothing has been said about this change</p>}
+        <TimelineEntries
+          items={detail.timeline}
+          empty={entries === 0 ? 'Nothing has been said about this change' : undefined}
+        />
       </section>
 
       <CommentComposer projectPath={projectPath} prNumber={detail.number} />
