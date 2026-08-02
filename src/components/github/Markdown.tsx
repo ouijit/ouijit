@@ -11,7 +11,7 @@ export function Markdown({ body, className = '' }: { body: string; className?: s
   if (!html) return null;
   return (
     <div
-      className={`github-markdown text-sm text-text-primary leading-relaxed break-words ${className}`}
+      className={`app-markdown text-sm text-text-primary leading-relaxed break-words ${className}`}
       dangerouslySetInnerHTML={{ __html: html }}
     />
   );

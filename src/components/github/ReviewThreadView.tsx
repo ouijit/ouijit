@@ -118,7 +118,7 @@ export function ReviewThreadView({ thread, onReply, onToggleResolved, inline = f
                   if (e.key === 'Escape') setReplying(false);
                 }}
                 placeholder="Reply…"
-                className="w-full text-sm bg-terminal-inset border border-ink/10 rounded-md px-2 py-1.5 text-text-primary outline-none focus:border-accent resize-y"
+                className="field resize-y"
               />
               <div className="flex items-center gap-2 mt-2">
                 <button

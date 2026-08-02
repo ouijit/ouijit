@@ -1,15 +1,14 @@
 import { useState } from 'react';
 import { useGithubStore } from '../../stores/githubStore';
 import { useProjectStore } from '../../stores/projectStore';
-import { Icon } from '../terminal/Icon';
 import { Avatar } from './Avatar';
 
 /**
  * Leave a comment on the pull request itself.
  *
- * One field with the send action inside it, rather than a textarea with a
- * button underneath: at rest it is a single line, and it grows only once there
- * is something in it worth growing for.
+ * A field and a button under it, the way every dialog in this app takes text.
+ * The chat-bubble shape this replaced — a capsule with a circular send button
+ * inside it — belongs to a messaging app; nothing else here is drawn that way.
  */
 export function CommentComposer({ projectPath, prNumber }: { projectPath: string; prNumber: number }) {
   const viewer = useGithubStore((s) => s.inbox?.viewer);
@@ -34,27 +33,27 @@ export function CommentComposer({ projectPath, prNumber }: { projectPath: string
   };
 
   return (
-    <div className="flex items-end gap-2.5 pl-2.5 pr-2 py-2 rounded-[22px] bg-ink/[0.05] focus-within:bg-ink/[0.07] transition-colors duration-150">
-      {viewer && <Avatar login={viewer} url={viewerAvatarUrl} size={24} className="mb-0.5" />}
-      <textarea
-        rows={body.includes('\n') || body.length > 80 ? 3 : 1}
-        value={body}
-        onChange={(e) => setBody(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) void post();
-        }}
-        placeholder="Leave a comment"
-        className="flex-1 min-w-0 bg-transparent border-none outline-none resize-none text-[15px] leading-6 py-1 text-text-primary placeholder:text-text-tertiary"
-      />
-      <button
-        type="button"
-        disabled={!body.trim() || posting}
-        title="Comment"
-        className="shrink-0 w-8 h-8 rounded-full flex items-center justify-center bg-ink/[0.08] text-text-secondary transition-all duration-150 enabled:hover:bg-accent enabled:hover:text-accent-ink disabled:opacity-40"
-        onClick={() => void post()}
-      >
-        <Icon name={posting ? 'arrows-clockwise' : 'arrow-up'} className="w-4 h-4" />
-      </button>
+    <div className="flex gap-3">
+      {viewer && <Avatar login={viewer} url={viewerAvatarUrl} size={26} className="mt-1" />}
+      <div className="flex-1 min-w-0 flex flex-col items-start gap-2">
+        <textarea
+          rows={3}
+          value={body}
+          onChange={(e) => setBody(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) void post();
+          }}
+          placeholder="Leave a comment"
+          className="field resize-y"
+        />
+        {/* Offered once there is something to send. An always-live button
+            beside an empty box is a control that mostly cannot be used. */}
+        {body.trim() && (
+          <button type="button" className="btn-primary btn-compact" disabled={posting} onClick={() => void post()}>
+            {posting ? 'Posting…' : 'Comment'}
+          </button>
+        )}
+      </div>
     </div>
   );
 }

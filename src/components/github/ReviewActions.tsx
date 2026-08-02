@@ -100,7 +100,7 @@ export function ReviewActions({ projectPath, detail, onJumpToDraft }: ReviewActi
                 value={summary}
                 onChange={(e) => setSummary(e.target.value)}
                 placeholder="Summary (optional)"
-                className="w-full text-sm bg-terminal-inset border border-ink/10 rounded-md px-2 py-1.5 text-text-primary outline-none focus:border-accent resize-y"
+                className="field resize-y"
               />
             </MenuField>
             <MenuDivider />

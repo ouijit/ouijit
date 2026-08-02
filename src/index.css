@@ -122,6 +122,15 @@ textarea,
   .btn-compact {
     @apply px-3 py-1 text-[13px];
   }
+
+  /* Text input, as the dialogs have always drawn one. */
+  .field {
+    @apply w-full px-3 py-2 font-sans text-sm leading-snug text-text-primary bg-background border border-border rounded-md outline-none transition-all duration-150 ease-out placeholder:text-text-tertiary;
+  }
+
+  .field:focus {
+    @apply border-accent ring-3 ring-accent-light;
+  }
 }
 
 /* ===================================
@@ -520,127 +529,57 @@ textarea,
 
 /* Comment bodies are short and dense — headings stay close to body size so a
    PR description with an h1 in it doesn't tower over the timeline around it. */
-.github-markdown h1,
-.github-markdown h2 {
-  @apply text-sm font-semibold text-text-primary mt-3 mb-1.5 first:mt-0;
-}
-
-.github-markdown h3,
-.github-markdown h4 {
-  @apply text-sm font-medium text-ink/90 mt-2 mb-1 first:mt-0;
-}
-
-.github-markdown p {
-  @apply my-1.5 first:mt-0 last:mb-0;
-}
-
-.github-markdown ul,
-.github-markdown ol {
-  @apply my-1.5 pl-5;
-}
-
-.github-markdown ul {
-  list-style-type: disc;
-}
-
-.github-markdown ol {
-  list-style-type: decimal;
-}
-
-.github-markdown li {
-  @apply my-0.5;
-}
-
-.github-markdown code {
-  @apply px-1 py-0.5 rounded text-[12px] font-mono;
-  background: var(--color-background-secondary);
-  color: var(--color-ansi-red);
-}
-
-.github-markdown pre {
-  @apply my-2 p-2.5 rounded-[10px] border border-bezel bg-ink/[0.06] overflow-x-auto;
-}
-
-.github-markdown pre code {
-  @apply block p-0 bg-transparent text-ink/70;
-}
-
-.github-markdown blockquote {
-  @apply my-1.5 pl-3 border-l-2 border-ink/20 text-ink/60;
-}
-
-.github-markdown a {
-  @apply text-accent hover:underline;
-}
-
-.github-markdown table {
-  @apply my-2 text-xs border-collapse;
-}
-
-.github-markdown th,
-.github-markdown td {
-  @apply px-2 py-1 border border-ink/10 text-left;
-}
-
-.github-markdown img {
-  @apply max-w-full rounded-md my-2;
-}
-
-.github-markdown hr {
-  @apply my-3 border-0 border-t border-ink/10;
-}
-
 /* ===================================
-   Plan panel markdown styles
+   Rendered markdown — plan panel, pull request bodies and comments
    =================================== */
 
-.plan-markdown {
+.app-markdown {
   @apply text-sm text-ink/80 leading-relaxed;
 }
 
-.plan-markdown h1 {
+.app-markdown h1 {
   @apply text-lg font-semibold text-text-primary mt-0 mb-3;
 }
 
-.plan-markdown h2 {
+.app-markdown h2 {
   @apply text-base font-semibold text-text-primary mt-6 mb-2;
 }
 
-.plan-markdown h3 {
+.app-markdown h3 {
   @apply text-sm font-semibold text-text-primary mt-4 mb-1;
 }
 
-.plan-markdown h4 {
+.app-markdown h4 {
   @apply text-sm font-medium text-ink/90 mt-3 mb-1;
 }
 
-.plan-markdown p {
+.app-markdown p {
   @apply my-2;
 }
 
-.plan-markdown ul,
-.plan-markdown ol {
+.app-markdown ul,
+.app-markdown ol {
   @apply my-2 pl-5;
 }
 
-.plan-markdown ul {
+.app-markdown ul {
   list-style-type: disc;
 }
 
-.plan-markdown ol {
+.app-markdown ol {
   list-style-type: decimal;
 }
 
-.plan-markdown li {
+.app-markdown li {
   @apply my-0.5;
 }
 
-.plan-markdown li > ul,
-.plan-markdown li > ol {
+.app-markdown li > ul,
+.app-markdown li > ol {
   @apply my-0;
 }
 
-.plan-markdown code {
+.app-markdown code {
   @apply px-1 py-0.5 rounded text-[13px] font-mono;
   background: var(--color-background-secondary);
   color: var(--color-ansi-red);
@@ -649,19 +588,19 @@ textarea,
 /* The pre is the visual frame (border, bevel); the inner code is the scroll
    container. If the pre itself scrolled, the absolutely-positioned
    .glass-bevel::before overlay would scroll away with the content. */
-.plan-markdown pre {
+.app-markdown pre {
   @apply relative my-3 p-3 rounded-[14px] border border-bezel bg-ink/[0.06] overflow-hidden;
 }
 
-.plan-markdown pre code {
+.app-markdown pre code {
   @apply block p-0 bg-transparent text-ink/70 overflow-x-auto;
 }
 
-.plan-markdown blockquote {
+.app-markdown blockquote {
   @apply my-2 pl-3 border-l-2 border-ink/20 text-ink/60;
 }
 
-.plan-markdown a {
+.app-markdown a {
   @apply text-accent hover:underline;
 }
 

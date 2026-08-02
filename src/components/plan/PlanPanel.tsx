@@ -255,7 +255,11 @@ export function PlanPanel({
         ) : content === null ? (
           <div className="text-sm text-ink/40">Markdown file not found</div>
         ) : (
-          <div ref={contentRef} className="plan-markdown" dangerouslySetInnerHTML={{ __html: renderedHtml }} />
+          <div
+            ref={contentRef}
+            className="app-markdown plan-markdown"
+            dangerouslySetInnerHTML={{ __html: renderedHtml }}
+          />
         )}
       </div>
       {editorHookDialog && (
