@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import type { GithubIssue, PullRequestSummary } from '../../github/types';
 import type { TaskWithWorkspace } from '../../types';
 import { Icon } from '../terminal/Icon';
+import { Tab, TabBar } from './Tabs';
 import { since, stateBadge } from './prFormat';
 
 interface PullRequestSidebarProps {
@@ -66,6 +67,8 @@ export function PullRequestSidebar({
     };
   }, [query, needsReview, mine, others, issues]);
 
+  const pullCount = needsReview.length + mine.length + others.length;
+
   const empty =
     showing === 'issues'
       ? groups.issues.length === 0
@@ -73,30 +76,36 @@ export function PullRequestSidebar({
 
   return (
     <div className="w-[320px] shrink-0 flex flex-col overflow-hidden border-r border-ink/[0.06]">
-      <div className="shrink-0 px-3 pt-3 pb-2 flex flex-col gap-3">
-        <div className="flex items-center gap-1">
-          <Segment label="Pull requests" active={showing === 'pulls'} onClick={() => onShow('pulls')} />
-          <Segment label="Issues" active={showing === 'issues'} onClick={() => onShow('issues')} />
+      <div className="shrink-0 flex flex-col">
+        <TabBar className="h-12 px-3 items-center border-b border-ink/[0.06]">
+          <Tab active={showing === 'pulls'} count={pullCount} onClick={() => onShow('pulls')}>
+            Pull requests
+          </Tab>
+          <Tab active={showing === 'issues'} count={issues.length} onClick={() => onShow('issues')}>
+            Issues
+          </Tab>
+        </TabBar>
+        <div className="px-3 py-2">
+          <label className="flex items-center gap-2 h-9 px-3 rounded-full bg-ink/[0.05] focus-within:bg-ink/[0.08] transition-colors duration-150">
+            <Icon name="magnifying-glass" className="w-4 h-4 shrink-0 text-text-tertiary" />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder={showing === 'issues' ? 'Search issues' : 'Search pull requests'}
+              className="flex-1 min-w-0 bg-transparent border-none outline-none text-sm text-text-primary placeholder:text-text-tertiary"
+            />
+            {query && (
+              <button
+                type="button"
+                className="shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-text-tertiary hover:text-text-primary"
+                title="Clear"
+                onClick={() => setQuery('')}
+              >
+                <Icon name="x" className="w-3 h-3" />
+              </button>
+            )}
+          </label>
         </div>
-        <label className="flex items-center gap-2 h-9 px-3 rounded-full bg-ink/[0.05] focus-within:bg-ink/[0.08] transition-colors duration-150">
-          <Icon name="magnifying-glass" className="w-4 h-4 shrink-0 text-text-tertiary" />
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder={showing === 'issues' ? 'Search issues' : 'Search pull requests'}
-            className="flex-1 min-w-0 bg-transparent border-none outline-none text-sm text-text-primary placeholder:text-text-tertiary"
-          />
-          {query && (
-            <button
-              type="button"
-              className="shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-text-tertiary hover:text-text-primary"
-              title="Clear"
-              onClick={() => setQuery('')}
-            >
-              <Icon name="x" className="w-3 h-3" />
-            </button>
-          )}
-        </label>
       </div>
 
       <div className="flex-1 min-h-0 overflow-y-auto pb-4">
@@ -162,20 +171,6 @@ export function PullRequestSidebar({
         )}
       </div>
     </div>
-  );
-}
-
-function Segment({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      className={`px-3 h-7 rounded-full text-[13px] font-medium transition-colors duration-150 ${
-        active ? 'bg-ink/[0.09] text-text-primary' : 'text-text-tertiary hover:text-text-secondary'
-      }`}
-      onClick={onClick}
-    >
-      {label}
-    </button>
   );
 }
 

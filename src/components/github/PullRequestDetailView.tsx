@@ -3,6 +3,7 @@ import type { PullRequestDetail, ReviewDraft } from '../../github/types';
 import type { TaskWithWorkspace } from '../../types';
 import { useGithubStore } from '../../stores/githubStore';
 import { Icon } from '../terminal/Icon';
+import { Tab, TabBar } from './Tabs';
 import { DiscussionSection } from './DiscussionSection';
 import { FilesSection, type FilesSectionHandle } from './FilesSection';
 import { PullRequestRail } from './PullRequestRail';
@@ -80,7 +81,7 @@ export function PullRequestDetailView({
 
   return (
     <div className="flex flex-col flex-1 min-w-0">
-      <header className="shrink-0 h-12 flex items-center gap-3 px-3">
+      <header className="shrink-0 h-12 flex items-center gap-3 px-3 border-b border-ink/[0.06]">
         <button
           type="button"
           className="flex items-center gap-2 min-w-0 max-w-[280px] text-text-secondary hover:text-text-primary transition-colors duration-150"
@@ -91,20 +92,18 @@ export function PullRequestDetailView({
           <span className="truncate text-[15px]">{detail.title}</span>
         </button>
 
-        <nav className="flex items-center gap-1 mx-auto">
+        <TabBar className="mx-auto shrink-0 self-stretch items-center">
           {PANES.map((p) => (
-            <button
+            <Tab
               key={p.id}
-              type="button"
-              className={`px-3 h-7 rounded-full text-[13px] font-medium transition-colors duration-150 ${
-                pane === p.id ? 'bg-ink/[0.09] text-text-primary' : 'text-text-tertiary hover:text-text-secondary'
-              }`}
+              active={pane === p.id}
+              count={p.id === 'code' ? detail.changedFiles : undefined}
               onClick={() => setPane(p.id)}
             >
               {p.label}
-            </button>
+            </Tab>
           ))}
-        </nav>
+        </TabBar>
 
         <div className="flex items-center gap-1 shrink-0">
           <ReviewActions projectPath={projectPath} detail={detail} onJumpToDraft={jumpToDraft} />
