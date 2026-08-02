@@ -87,15 +87,17 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
     return () => document.removeEventListener('keydown', handler);
   }, []);
 
-  const issueLinkedTasks = useProjectStore(
-    useCallback((s) => {
-      const map: Record<number, number> = {};
-      for (const task of s.tasks) {
-        if (task.githubIssueNumber != null) map[task.githubIssueNumber] = task.taskNumber;
-      }
-      return map;
-    }, []),
-  );
+  // Select the array (a stable reference from the store) and build the map in
+  // a memo. Building it inside the selector would return a fresh object on
+  // every store read, which never equals the last one and re-renders forever.
+  const tasks = useProjectStore((s) => s.tasks);
+  const issueLinkedTasks = useMemo(() => {
+    const map: Record<number, number> = {};
+    for (const task of tasks) {
+      if (task.githubIssueNumber != null) map[task.githubIssueNumber] = task.taskNumber;
+    }
+    return map;
+  }, [tasks]);
 
   const createTaskFromIssue = useCallback(
     async (issueNumber: number) => {
