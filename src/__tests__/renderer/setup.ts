@@ -154,6 +154,32 @@ const mockApi = {
     get: vi.fn().mockResolvedValue(undefined),
     set: vi.fn().mockResolvedValue({ success: true }),
   },
+  github: {
+    availability: vi.fn().mockResolvedValue({ available: false, reason: 'flag-off' }),
+    inbox: vi
+      .fn()
+      .mockResolvedValue({ viewer: '', needsReview: [], mine: [], others: [], draftCounts: {}, linkedTasks: {} }),
+    pullRequest: vi.fn().mockResolvedValue(null),
+    pullRequestFiles: vi.fn().mockResolvedValue({ files: [], fromGit: false }),
+    pullRequestFileDiff: vi.fn().mockResolvedValue(null),
+    issues: vi.fn().mockResolvedValue([]),
+    refresh: vi.fn().mockResolvedValue(undefined),
+    linkTaskPr: vi.fn().mockResolvedValue({ success: true }),
+    linkTaskIssue: vi.fn().mockResolvedValue({ success: true }),
+    detectTaskPr: vi.fn().mockResolvedValue({ prNumber: null }),
+    drafts: vi.fn().mockResolvedValue([]),
+    saveDraft: vi.fn().mockResolvedValue({ id: 'draft-1' }),
+    discardDraft: vi.fn().mockResolvedValue({ success: true }),
+    submitReview: vi.fn().mockResolvedValue({ success: true }),
+    comment: vi.fn().mockResolvedValue({ success: true }),
+    replyToThread: vi.fn().mockResolvedValue({ success: true }),
+    resolveThread: vi.fn().mockResolvedValue({ success: true }),
+    createPr: vi.fn().mockResolvedValue({ success: true }),
+    mergePr: vi.fn().mockResolvedValue({ success: true }),
+    taskFromIssue: vi.fn().mockResolvedValue({ success: true }),
+    taskFromPr: vi.fn().mockResolvedValue({ success: true }),
+    onChanged: vi.fn().mockReturnValue(() => {}),
+  },
 };
 
 Object.defineProperty(window, 'api', {

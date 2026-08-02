@@ -51,6 +51,42 @@ export function openInEntry(
   return { label: 'Open in', submenu };
 }
 
+/**
+ * GitHub actions for a task. Returns nothing when the feature is off for the
+ * project, so the menu shape is unchanged for anyone not using it.
+ *
+ * Lives here rather than in either caller because the kanban card and the
+ * terminal header share this menu — adding it in one place would silently make
+ * the two disagree about what a task can do.
+ */
+export interface GithubMenuActions {
+  openPullRequest: (prNumber: number) => void;
+  createPullRequest: () => void;
+  unlinkPullRequest: () => void;
+}
+
+export function githubEntries(
+  options: { enabled: boolean; prNumber?: number; hasBranch: boolean },
+  actions: GithubMenuActions,
+): ContextMenuEntry[] {
+  if (!options.enabled) return [];
+
+  if (options.prNumber != null) {
+    const prNumber = options.prNumber;
+    return [
+      {
+        label: `Pull request #${prNumber}`,
+        icon: 'git-pull-request',
+        onClick: () => actions.openPullRequest(prNumber),
+      },
+      { label: 'Unlink pull request', onClick: actions.unlinkPullRequest },
+    ];
+  }
+
+  if (!options.hasBranch) return [];
+  return [{ label: 'Create pull request', icon: 'git-pull-request', onClick: actions.createPullRequest }];
+}
+
 /** "Move to ▸" — the four columns, then a danger Trash. */
 export function moveToEntry(
   actions: Pick<TaskMenuActions, 'setStatus' | 'completeToDone' | 'trash'>,

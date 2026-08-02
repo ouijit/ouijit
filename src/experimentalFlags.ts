@@ -12,11 +12,14 @@ export interface ExperimentalFlags {
   canvas: boolean;
   /** The nono sandbox backend (still maturing; gated off by default). */
   nono: boolean;
+  /** GitHub pull request inbox and review surface. Panel and polling stay dark until on. */
+  github: boolean;
 }
 
 export const DEFAULT_EXPERIMENTAL_FLAGS: ExperimentalFlags = {
   canvas: false,
   nono: false,
+  github: false,
 };
 
 /** globalSettings key holding a project's experimental flags JSON. */

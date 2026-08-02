@@ -21,6 +21,9 @@ import { formatRelativeTime } from '../utils/formatDate';
 import { Icon } from './terminal/Icon';
 import { StatusDot } from './terminal/StatusDot';
 import { selectProject, focusTerminal, openTaskWorktree } from './navigation';
+import { useGithubStore } from '../stores/githubStore';
+import { useExperimentalStore } from '../stores/experimentalStore';
+import { openPullRequestInPanel } from '../services/githubTaskActions';
 import type { ActiveSession, Project, SandboxProviderId, TaskWithWorkspace } from '../types';
 
 /** A match on the primary text outranks the same match on supporting text. */
@@ -37,13 +40,14 @@ const STATUS_LABEL: Record<string, string> = {
   done: 'done',
 };
 
-type SectionKey = 'terminals' | 'projects' | 'tasks';
+type SectionKey = 'terminals' | 'projects' | 'tasks' | 'pulls';
 
-const SECTION_ORDER: SectionKey[] = ['terminals', 'projects', 'tasks'];
+const SECTION_ORDER: SectionKey[] = ['terminals', 'projects', 'tasks', 'pulls'];
 const SECTION_TITLE: Record<SectionKey, string> = {
   terminals: 'Terminals',
   projects: 'Projects',
   tasks: 'Tasks',
+  pulls: 'Pull requests',
 };
 
 interface PaletteItem {
@@ -138,6 +142,10 @@ function PaletteBody({ visible }: { visible: boolean }) {
   const taskCacheByProject = useAppStore((s) => s.taskCacheByProject);
   const terminalsByProject = useTerminalStore((s) => s.terminalsByProject);
   const displayStates = useTerminalStore((s) => s.displayStates);
+  const githubEnabled = useExperimentalStore((s) =>
+    activeProjectPath ? (s.flagsByProject[activeProjectPath]?.github ?? false) : false,
+  );
+  const inbox = useGithubStore((s) => s.inbox);
 
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState(0);
@@ -161,9 +169,18 @@ function PaletteBody({ visible }: { visible: boolean }) {
         /* store-backed terminals still list */
       });
     void useAppStore.getState().loadHomeRecents();
+    // Same background-refresh idea as the task cache: paint from whatever is
+    // already loaded, and reconcile behind the user. Only when the flag is on,
+    // so a project without GitHub never pays for a `gh` fork here.
+    if (githubEnabled && activeProjectPath) {
+      const store = useGithubStore.getState();
+      store.setProject(activeProjectPath);
+      void store.loadInbox(activeProjectPath);
+    }
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- open-once effect; the palette remounts per session
   }, []);
 
   // Focus before paint, not on the next frame. A deferred focus leaves a window
@@ -285,8 +302,40 @@ function PaletteBody({ visible }: { visible: boolean }) {
     taskItems.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
     result.push(...taskItems.map((t) => t.item));
 
+    // ── Pull requests ──
+    // Navigation only: opening one shows it in the project panel. Nothing here
+    // creates a worktree or writes to GitHub, matching the rest of the palette.
+    if (githubEnabled && activeProjectPath && inbox) {
+      const project = projectByPath.get(activeProjectPath);
+      const seen = new Set<number>();
+      for (const pr of [...inbox.needsReview, ...inbox.mine, ...inbox.others]) {
+        if (seen.has(pr.number)) continue;
+        seen.add(pr.number);
+        result.push({
+          id: `pull:${pr.number}`,
+          section: 'pulls',
+          primary: pr.title,
+          secondary: `#${pr.number} ${pr.author}`,
+          project,
+          taskNumber: inbox.linkedTasks[pr.number],
+          trailing: pr.reviewRequested && !pr.isMine ? 'needs review' : undefined,
+          run: () => openPullRequestInPanel(activeProjectPath, pr.number),
+        });
+      }
+    }
+
     return result;
-  }, [projects, projectByPath, activeProjectPath, terminalsByProject, displayStates, sessions, taskCacheByProject]);
+  }, [
+    projects,
+    projectByPath,
+    activeProjectPath,
+    terminalsByProject,
+    displayStates,
+    sessions,
+    taskCacheByProject,
+    githubEnabled,
+    inbox,
+  ]);
 
   const sections = useMemo(() => {
     const scored = items.map((item) => scoreItem(query, item)).filter((i): i is ScoredItem => i !== null);

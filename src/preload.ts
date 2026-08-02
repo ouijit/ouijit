@@ -20,6 +20,8 @@ import type {
   CliPanelResponse,
 } from './types';
 import type { CaptureNavigatePayload } from './capture/types';
+import type { ReviewEvent, MergeMethod, GithubChangedPayload } from './github/types';
+import type { SaveDraftInput } from './github/service';
 
 // ── Typed IPC helpers ───────────────────────────────────────────────────────
 // These ensure channel names, argument types, and return types are all
@@ -297,5 +299,54 @@ contextBridge.exposeInMainWorld('api', {
     nonoConfig: (projectPath: string) => typedInvoke('sandbox:nono-config', projectPath),
     setNonoConfig: (projectPath: string, config: NonoConfig) =>
       typedInvoke('sandbox:set-nono-config', projectPath, config),
+  },
+
+  github: {
+    availability: (projectPath: string) => typedInvoke('github:availability', projectPath),
+    inbox: (projectPath: string) => typedInvoke('github:inbox', projectPath),
+    pullRequest: (projectPath: string, number: number) => typedInvoke('github:pull-request', projectPath, number),
+    pullRequestFiles: (projectPath: string, number: number, baseSha: string, headSha: string) =>
+      typedInvoke('github:pull-request-files', projectPath, number, baseSha, headSha),
+    pullRequestFileDiff: (
+      projectPath: string,
+      number: number,
+      baseSha: string,
+      headSha: string,
+      filePath: string,
+      contextLines?: number,
+    ) => typedInvoke('github:pull-request-file-diff', projectPath, number, baseSha, headSha, filePath, contextLines),
+    issues: (projectPath: string) => typedInvoke('github:issues', projectPath),
+    refresh: (projectPath: string) => typedInvoke('github:refresh', projectPath),
+
+    linkTaskPr: (projectPath: string, taskNumber: number, prNumber: number | null) =>
+      typedInvoke('github:link-task-pr', projectPath, taskNumber, prNumber),
+    linkTaskIssue: (projectPath: string, taskNumber: number, issueNumber: number | null) =>
+      typedInvoke('github:link-task-issue', projectPath, taskNumber, issueNumber),
+    detectTaskPr: (projectPath: string, taskNumber: number) =>
+      typedInvoke('github:detect-task-pr', projectPath, taskNumber),
+
+    drafts: (projectPath: string, prNumber: number) => typedInvoke('github:drafts', projectPath, prNumber),
+    saveDraft: (projectPath: string, input: SaveDraftInput) => typedInvoke('github:save-draft', projectPath, input),
+    discardDraft: (projectPath: string, draftId: string) => typedInvoke('github:discard-draft', projectPath, draftId),
+    submitReview: (projectPath: string, prNumber: number, event: ReviewEvent, body: string) =>
+      typedInvoke('github:submit-review', projectPath, prNumber, event, body),
+    comment: (projectPath: string, prNumber: number, body: string) =>
+      typedInvoke('github:comment', projectPath, prNumber, body),
+    replyToThread: (projectPath: string, prNumber: number, commentId: number, body: string) =>
+      typedInvoke('github:reply-to-thread', projectPath, prNumber, commentId, body),
+    resolveThread: (projectPath: string, threadId: string, resolved: boolean) =>
+      typedInvoke('github:resolve-thread', projectPath, threadId, resolved),
+    createPr: (
+      projectPath: string,
+      taskNumber: number,
+      options: { title?: string; body?: string; base?: string; draft?: boolean },
+    ) => typedInvoke('github:create-pr', projectPath, taskNumber, options),
+    mergePr: (projectPath: string, prNumber: number, method: MergeMethod, deleteBranch: boolean) =>
+      typedInvoke('github:merge-pr', projectPath, prNumber, method, deleteBranch),
+    taskFromIssue: (projectPath: string, issueNumber: number) =>
+      typedInvoke('github:task-from-issue', projectPath, issueNumber),
+    taskFromPr: (projectPath: string, prNumber: number) => typedInvoke('github:task-from-pr', projectPath, prNumber),
+
+    onChanged: (callback: (payload: GithubChangedPayload) => void) => typedListen('github:changed', callback),
   },
 });

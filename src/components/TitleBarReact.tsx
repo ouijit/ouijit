@@ -30,6 +30,9 @@ export function TitleBar({ mode }: TitleBarProps) {
   const canvasEnabled = useExperimentalStore((s) =>
     activeProjectPath ? (s.flagsByProject[activeProjectPath]?.canvas ?? false) : false,
   );
+  const githubEnabled = useExperimentalStore((s) =>
+    activeProjectPath ? (s.flagsByProject[activeProjectPath]?.github ?? false) : false,
+  );
   const homeGroupMode = useUIStore((s) => s.homeGroupMode);
   const tagFilter = useProjectStore((s) => s.tagFilter);
   const homeTagFilter = useUIStore((s) => s.homeTagFilter);
@@ -57,10 +60,10 @@ export function TitleBar({ mode }: TitleBarProps) {
     });
   }, [activeProjectPath]);
 
-  const handleToggleView = useCallback((view: 'board' | 'stack' | 'canvas' | 'settings') => {
+  const handleToggleView = useCallback((view: 'board' | 'stack' | 'canvas' | 'settings' | 'pull-requests') => {
     const store = useProjectStore.getState();
-    if (view === 'settings') {
-      store.setActivePanel('settings');
+    if (view === 'settings' || view === 'pull-requests') {
+      store.setActivePanel(view);
     } else if (view === 'board') {
       store.setActivePanel('terminals');
       store.setKanbanVisible(true);
@@ -138,14 +141,14 @@ export function TitleBar({ mode }: TitleBarProps) {
             <div className="flex items-center h-9 ml-3 bg-background-secondary glass-bevel relative border border-bezel rounded-[14px] overflow-hidden [-webkit-app-region:no-drag]">
               <TooltipButton
                 text="Board view"
-                className={`w-9 h-full flex items-center justify-center text-text-secondary transition-all duration-150 ease-out hover:text-text-primary hover:bg-background-tertiary [&>svg]:w-5 [&>svg]:h-5${activePanel !== 'settings' && kanbanVisible ? ' text-text-primary bg-background-tertiary' : ''}`}
+                className={`w-9 h-full flex items-center justify-center text-text-secondary transition-all duration-150 ease-out hover:text-text-primary hover:bg-background-tertiary [&>svg]:w-5 [&>svg]:h-5${activePanel === 'terminals' && kanbanVisible ? ' text-text-primary bg-background-tertiary' : ''}`}
                 onClick={() => handleToggleView('board')}
               >
                 <Icon name="kanban" />
               </TooltipButton>
               <TooltipButton
                 text="Terminal stack"
-                className={`w-9 h-full flex items-center justify-center text-text-secondary transition-all duration-150 ease-out hover:text-text-primary hover:bg-background-tertiary [&>svg]:w-5 [&>svg]:h-5${activePanel !== 'settings' && !kanbanVisible && terminalLayout === 'stack' ? ' text-text-primary bg-background-tertiary' : ''}`}
+                className={`w-9 h-full flex items-center justify-center text-text-secondary transition-all duration-150 ease-out hover:text-text-primary hover:bg-background-tertiary [&>svg]:w-5 [&>svg]:h-5${activePanel === 'terminals' && !kanbanVisible && terminalLayout === 'stack' ? ' text-text-primary bg-background-tertiary' : ''}`}
                 onClick={() => handleToggleView('stack')}
               >
                 <Icon name="cards-three" />
@@ -153,10 +156,19 @@ export function TitleBar({ mode }: TitleBarProps) {
               {canvasEnabled && (
                 <TooltipButton
                   text="Canvas"
-                  className={`w-9 h-full flex items-center justify-center text-text-secondary transition-all duration-150 ease-out hover:text-text-primary hover:bg-background-tertiary [&>svg]:w-5 [&>svg]:h-5${activePanel !== 'settings' && !kanbanVisible && terminalLayout === 'canvas' ? ' text-text-primary bg-background-tertiary' : ''}`}
+                  className={`w-9 h-full flex items-center justify-center text-text-secondary transition-all duration-150 ease-out hover:text-text-primary hover:bg-background-tertiary [&>svg]:w-5 [&>svg]:h-5${activePanel === 'terminals' && !kanbanVisible && terminalLayout === 'canvas' ? ' text-text-primary bg-background-tertiary' : ''}`}
                   onClick={() => handleToggleView('canvas')}
                 >
                   <CanvasIcon />
+                </TooltipButton>
+              )}
+              {githubEnabled && (
+                <TooltipButton
+                  text="Pull requests"
+                  className={`w-9 h-full flex items-center justify-center text-text-secondary transition-all duration-150 ease-out hover:text-text-primary hover:bg-background-tertiary [&>svg]:w-5 [&>svg]:h-5${activePanel === 'pull-requests' ? ' text-text-primary bg-background-tertiary' : ''}`}
+                  onClick={() => handleToggleView('pull-requests')}
+                >
+                  <Icon name="git-pull-request" />
                 </TooltipButton>
               )}
               <TooltipButton

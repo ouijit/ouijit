@@ -33,6 +33,18 @@ vi.mock('../sandbox/nono/binary', () => ({
   isNonoInstalled: () => isNonoInstalledMock(),
 }));
 
+/**
+ * What the gh fields look like when `gh` is not on PATH. Every case below whose
+ * execFile mock rejects unknown commands lands here, so spelling it once keeps
+ * the assertions about the tool each test actually cares about.
+ */
+const GH_ABSENT = {
+  gh: false,
+  ghAuthenticated: false,
+  ghVersionOk: false,
+  ghVersion: undefined,
+} as const;
+
 describe('healthCheck', () => {
   beforeEach(() => {
     vi.resetModules();
@@ -63,6 +75,7 @@ describe('healthCheck', () => {
       lima: true,
       nono: true,
       gitVersion: '2.39.5',
+      ...GH_ABSENT,
     });
   });
 
@@ -85,6 +98,7 @@ describe('healthCheck', () => {
       lima: false,
       nono: false,
       gitVersion: undefined,
+      ...GH_ABSENT,
     });
   });
 
@@ -108,6 +122,7 @@ describe('healthCheck', () => {
       lima: false,
       nono: false,
       gitVersion: '2.41.0',
+      ...GH_ABSENT,
     });
   });
 
@@ -131,6 +146,7 @@ describe('healthCheck', () => {
       lima: false,
       nono: false,
       gitVersion: '2.42.0',
+      ...GH_ABSENT,
     });
   });
 
@@ -154,6 +170,7 @@ describe('healthCheck', () => {
       lima: false,
       nono: false,
       gitVersion: '2.43.0',
+      ...GH_ABSENT,
     });
   });
 
@@ -177,7 +194,60 @@ describe('healthCheck', () => {
       lima: true,
       nono: false,
       gitVersion: '2.40.0',
+      ...GH_ABSENT,
     });
+  });
+
+  test('detects gh and its auth state', async () => {
+    execFileMock.mockImplementation((cmd: string, args: string[], cb: Function) => {
+      if (cmd === 'git') cb(null, 'git version 2.45.0\n', '');
+      else if (cmd === 'gh' && args[0] === '--version') cb(null, 'gh version 2.85.0 (2026-01-14)\n', '');
+      else if (cmd === 'gh' && args[0] === 'auth') cb(null, 'Logged in to github.com\n', '');
+      else if (cmd === 'which') cb(new Error('not found'));
+      else cb(new Error(`unexpected ${cmd}`));
+    });
+    isLimaInstalledMock.mockResolvedValue(false);
+
+    const { checkHealth } = await import('../healthCheck');
+    const status = await checkHealth();
+    expect(status.gh).toBe(true);
+    expect(status.ghVersion).toBe('2.85.0');
+    expect(status.ghVersionOk).toBe(true);
+    expect(status.ghAuthenticated).toBe(true);
+  });
+
+  test('reports gh installed but signed out — the panel needs to tell these apart', async () => {
+    execFileMock.mockImplementation((cmd: string, args: string[], cb: Function) => {
+      if (cmd === 'git') cb(null, 'git version 2.45.0\n', '');
+      else if (cmd === 'gh' && args[0] === '--version') cb(null, 'gh version 2.85.0 (2026-01-14)\n', '');
+      // `gh auth status` exits non-zero when logged out; that is the signal.
+      else if (cmd === 'gh' && args[0] === 'auth') cb(new Error('You are not logged into any GitHub hosts'));
+      else if (cmd === 'which') cb(new Error('not found'));
+      else cb(new Error(`unexpected ${cmd}`));
+    });
+    isLimaInstalledMock.mockResolvedValue(false);
+
+    const { checkHealth } = await import('../healthCheck');
+    const status = await checkHealth();
+    expect(status.gh).toBe(true);
+    expect(status.ghAuthenticated).toBe(false);
+  });
+
+  test('flags a gh below the version floor as unusable rather than merely present', async () => {
+    execFileMock.mockImplementation((cmd: string, args: string[], cb: Function) => {
+      if (cmd === 'git') cb(null, 'git version 2.45.0\n', '');
+      else if (cmd === 'gh' && args[0] === '--version') cb(null, 'gh version 2.4.0 (2021-01-01)\n', '');
+      else if (cmd === 'gh' && args[0] === 'auth') cb(null, 'Logged in\n', '');
+      else if (cmd === 'which') cb(new Error('not found'));
+      else cb(new Error(`unexpected ${cmd}`));
+    });
+    isLimaInstalledMock.mockResolvedValue(false);
+
+    const { checkHealth } = await import('../healthCheck');
+    const status = await checkHealth();
+    expect(status.gh).toBe(true);
+    expect(status.ghVersion).toBe('2.4.0');
+    expect(status.ghVersionOk).toBe(false);
   });
 
   test('detects nono independently of lima', async () => {

@@ -45,6 +45,12 @@ import {
   getTasksWithWorkspaces,
   getTaskWithWorkspace,
 } from '../taskLifecycle';
+import {
+  getAvailability as getGithubAvailability,
+  getInbox as getGithubInbox,
+  getPullRequest as getGithubPullRequest,
+  linkTaskToPr as linkGithubTaskToPr,
+} from '../github/service';
 import { getProjectList } from '../projectList';
 import { cliPanelRequest } from '../cliPanels';
 import { isPtyActive, getPtyTaskContext } from '../ptyManager';
@@ -594,6 +600,40 @@ const routes: Route[] = [
         await setGlobalSetting(THEME_PREFERENCE_KEY, 'system');
       }
       return { success: true };
+    },
+    true,
+  ),
+
+  // ── Pull requests ─────────────────────────────────────────────────
+  // Host-only (default scope): these shell out to `gh` on the host with the
+  // user's credentials. A sandboxed session must not be able to reach them,
+  // which is also why the guest env keeps its GITHUB_TOKEN stripped.
+  route('GET', 'pulls', async (r) => {
+    const project = requireProject(r.query);
+    const availability = await getGithubAvailability(project);
+    if (!availability.available) {
+      throw new HttpError(400, availability.message ?? 'GitHub is not enabled for this project');
+    }
+    return getGithubInbox(project);
+  }),
+
+  route('GET', 'pulls/:number', async (r) => {
+    const project = requireProject(r.query);
+    const num = requireInt(r.segments[1], 'Pull request number');
+    return getGithubPullRequest(project, num);
+  }),
+
+  route(
+    'POST',
+    'pulls/:number/link',
+    async (r) => {
+      const project = requireProject(r.query);
+      const num = requireInt(r.segments[1], 'Pull request number');
+      const taskNumber = r.body.taskNumber;
+      if (typeof taskNumber !== 'number') throw new HttpError(400, 'Missing taskNumber in body');
+      const result = await linkGithubTaskToPr(project, taskNumber, num);
+      if (!result.success) throw new HttpError(400, result.error ?? 'Failed to link');
+      return { success: true, taskNumber, prNumber: num };
     },
     true,
   ),

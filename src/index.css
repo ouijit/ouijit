@@ -510,6 +510,82 @@ textarea,
 }
 
 /* ===================================
+   GitHub comment markdown styles
+   =================================== */
+
+/* Comment bodies are short and dense — headings stay close to body size so a
+   PR description with an h1 in it doesn't tower over the timeline around it. */
+.github-markdown h1,
+.github-markdown h2 {
+  @apply text-sm font-semibold text-text-primary mt-3 mb-1.5 first:mt-0;
+}
+
+.github-markdown h3,
+.github-markdown h4 {
+  @apply text-sm font-medium text-ink/90 mt-2 mb-1 first:mt-0;
+}
+
+.github-markdown p {
+  @apply my-1.5 first:mt-0 last:mb-0;
+}
+
+.github-markdown ul,
+.github-markdown ol {
+  @apply my-1.5 pl-5;
+}
+
+.github-markdown ul {
+  list-style-type: disc;
+}
+
+.github-markdown ol {
+  list-style-type: decimal;
+}
+
+.github-markdown li {
+  @apply my-0.5;
+}
+
+.github-markdown code {
+  @apply px-1 py-0.5 rounded text-[12px] font-mono;
+  background: var(--color-background-secondary);
+  color: var(--color-ansi-red);
+}
+
+.github-markdown pre {
+  @apply my-2 p-2.5 rounded-[10px] border border-bezel bg-ink/[0.06] overflow-x-auto;
+}
+
+.github-markdown pre code {
+  @apply block p-0 bg-transparent text-ink/70;
+}
+
+.github-markdown blockquote {
+  @apply my-1.5 pl-3 border-l-2 border-ink/20 text-ink/60;
+}
+
+.github-markdown a {
+  @apply text-accent hover:underline;
+}
+
+.github-markdown table {
+  @apply my-2 text-xs border-collapse;
+}
+
+.github-markdown th,
+.github-markdown td {
+  @apply px-2 py-1 border border-ink/10 text-left;
+}
+
+.github-markdown img {
+  @apply max-w-full rounded-md my-2;
+}
+
+.github-markdown hr {
+  @apply my-3 border-0 border-t border-ink/10;
+}
+
+/* ===================================
    Plan panel markdown styles
    =================================== */
 

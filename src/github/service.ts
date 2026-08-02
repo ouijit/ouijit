@@ -1,0 +1,607 @@
+/**
+ * The GitHub feature's main-process entry points.
+ *
+ * IPC handlers, the REST router, and the poller all call in here rather than
+ * touching `api.ts` / `prDiff.ts` directly, so availability gating, error
+ * shaping, and the task-link side effects happen in exactly one place.
+ *
+ * Every `gh` call runs on the host from the main process. The sandbox policy
+ * that strips `GITHUB_TOKEN` from guest environments is untouched — no guest
+ * ever gets GitHub credentials, directly or by proxy.
+ */
+
+import { randomUUID } from 'node:crypto';
+import { getCachedHealth, checkHealth } from '../healthCheck';
+import {
+  getTaskByNumber,
+  getProjectTasks,
+  setTaskGithubPr,
+  setTaskGithubIssue,
+  getReviewDrafts,
+  saveReviewDraft,
+  deleteReviewDraft,
+  clearReviewDrafts,
+  getReviewDraftCounts,
+  getGlobalSetting,
+  createTask,
+  getNextTaskNumber,
+  type ReviewDraftRow,
+} from '../db';
+import { experimentalStorageKey, parseExperimentalFlags } from '../experimentalFlags';
+import { pushBranch } from '../git';
+import { getLogger } from '../logger';
+import { getRepoIdentity } from './repoIdentity';
+import { GithubError, MIN_GH_VERSION, getViewerLogin } from './client';
+import {
+  fetchInbox,
+  fetchPullRequest,
+  fetchPullRequestFiles,
+  fetchIssues,
+  findPullRequestForBranch,
+  submitReview,
+  replyToReviewComment,
+  addIssueComment,
+  setThreadResolved,
+  createPullRequest,
+  mergePullRequest,
+  type DraftReviewComment,
+} from './api';
+import { getPrFileDiff, getPrDiffFiles, prunePrRefs } from './prDiff';
+import type {
+  GithubAvailability,
+  PullRequestInbox,
+  PullRequestDetail,
+  PullRequestFile,
+  GithubIssue,
+  ReviewDraft,
+  ReviewEvent,
+  MergeMethod,
+  RepoIdentity,
+} from './types';
+import type { FileDiff, ChangedFile, TaskWithWorkspace } from '../types';
+
+const ghLog = getLogger().scope('github:service');
+
+// ── Availability ─────────────────────────────────────────────────────
+
+/** Is the experimental flag on for this project? */
+export async function isGithubEnabled(projectPath: string): Promise<boolean> {
+  const raw = await getGlobalSetting(experimentalStorageKey(projectPath));
+  return parseExperimentalFlags(raw).github;
+}
+
+/**
+ * Whether the GitHub surface can run for a project, and why not when it can't.
+ *
+ * The panel stays hidden rather than showing a blank screen, and the reason is
+ * surfaced wherever a user would otherwise wonder where the feature went.
+ */
+export async function getAvailability(projectPath: string): Promise<GithubAvailability> {
+  if (!(await isGithubEnabled(projectPath))) {
+    return { available: false, reason: 'flag-off' };
+  }
+
+  const health = getCachedHealth() ?? (await checkHealth());
+
+  if (!health.gh) {
+    return {
+      available: false,
+      reason: 'gh-missing',
+      message: 'The GitHub CLI is not installed. Install it from cli.github.com, then reopen this panel.',
+    };
+  }
+  if (!health.ghVersionOk) {
+    return {
+      available: false,
+      reason: 'gh-too-old',
+      message: `The GitHub CLI is ${health.ghVersion ?? 'an unknown version'}; this needs ${MIN_GH_VERSION} or newer.`,
+    };
+  }
+  if (!health.ghAuthenticated) {
+    return {
+      available: false,
+      reason: 'gh-unauthenticated',
+      message: 'The GitHub CLI is not signed in. Run `gh auth login` in a terminal, then refresh.',
+    };
+  }
+
+  const identity = await getRepoIdentity(projectPath);
+  if (!identity) {
+    return {
+      available: false,
+      reason: 'no-remote',
+      message: 'This project has no `origin` remote pointing at a GitHub repository.',
+    };
+  }
+
+  return { available: true, identity };
+}
+
+/**
+ * Resolve a project to its repo, throwing the availability message when the
+ * feature is not usable. Every read and write path funnels through this so a
+ * disabled flag or a missing `gh` can never reach a `gh` invocation.
+ */
+async function requireIdentity(projectPath: string): Promise<RepoIdentity> {
+  const availability = await getAvailability(projectPath);
+  if (!availability.available || !availability.identity) {
+    throw new GithubError(
+      availability.reason === 'gh-unauthenticated' ? 'unauthorized' : 'unknown',
+      availability.message ?? 'GitHub is not available for this project',
+    );
+  }
+  return availability.identity;
+}
+
+// ── Reads ────────────────────────────────────────────────────────────
+
+export interface InboxResult extends PullRequestInbox {
+  /** Draft counts per PR so the list can badge unsubmitted work. */
+  draftCounts: Record<number, number>;
+  /** PR number → task number, for the "already checked out" affordance. */
+  linkedTasks: Record<number, number>;
+}
+
+export async function getInbox(projectPath: string): Promise<InboxResult> {
+  const identity = await requireIdentity(projectPath);
+  const [inbox, draftCounts, tasks] = await Promise.all([
+    fetchInbox(identity),
+    getReviewDraftCounts(projectPath),
+    getProjectTasks(projectPath),
+  ]);
+
+  const linkedTasks: Record<number, number> = {};
+  for (const task of tasks) {
+    if (task.githubPrNumber != null) linkedTasks[task.githubPrNumber] = task.taskNumber;
+  }
+
+  return { ...inbox, draftCounts, linkedTasks };
+}
+
+export async function getPullRequest(projectPath: string, number: number): Promise<PullRequestDetail> {
+  const identity = await requireIdentity(projectPath);
+  return fetchPullRequest(identity, number);
+}
+
+export interface PullRequestFilesResult {
+  files: PullRequestFile[];
+  /** True when the file list came from git because the API list was unusable. */
+  fromGit: boolean;
+  error?: string;
+}
+
+/**
+ * The changed-file list. GitHub's list is preferred because its rename
+ * detection is authoritative, but a failure there falls back to git rather
+ * than leaving the view empty — the bytes come from git either way.
+ */
+export async function getPullRequestFiles(
+  projectPath: string,
+  number: number,
+  baseSha: string,
+  headSha: string,
+): Promise<PullRequestFilesResult> {
+  const identity = await requireIdentity(projectPath);
+  try {
+    return { files: await fetchPullRequestFiles(identity, number), fromGit: false };
+  } catch (error) {
+    ghLog.warn('API file list failed, falling back to git', {
+      number,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    const result = await getPrDiffFiles(projectPath, number, baseSha, headSha);
+    if (!result.success || !result.files) {
+      return { files: [], fromGit: true, error: result.error };
+    }
+    return { files: result.files.map(fromChangedFile), fromGit: true };
+  }
+}
+
+function fromChangedFile(file: ChangedFile): PullRequestFile {
+  return {
+    path: file.path,
+    status: file.status === '?' ? 'A' : file.status,
+    ...(file.oldPath ? { oldPath: file.oldPath } : {}),
+    additions: file.additions,
+    deletions: file.deletions,
+  };
+}
+
+/** One file's hunks, read from the local object database. */
+export async function getPullRequestFileDiff(
+  projectPath: string,
+  number: number,
+  baseSha: string,
+  headSha: string,
+  filePath: string,
+  contextLines?: number,
+): Promise<FileDiff | null> {
+  return getPrFileDiff(projectPath, number, baseSha, headSha, filePath, contextLines);
+}
+
+export async function getIssues(projectPath: string): Promise<GithubIssue[]> {
+  const identity = await requireIdentity(projectPath);
+  return fetchIssues(identity);
+}
+
+// ── Task linking ─────────────────────────────────────────────────────
+
+/**
+ * Attach a PR to a task, or detach with null. Detaching also prunes the fetched
+ * refs so a long-lived project doesn't accumulate one per PR ever reviewed.
+ */
+export async function linkTaskToPr(
+  projectPath: string,
+  taskNumber: number,
+  prNumber: number | null,
+): Promise<{ success: boolean; error?: string }> {
+  const previous = (await getTaskByNumber(projectPath, taskNumber))?.githubPrNumber;
+  const result = await setTaskGithubPr(projectPath, taskNumber, prNumber);
+  if (result.success && previous != null && previous !== prNumber) {
+    await prunePrRefs(projectPath, previous);
+  }
+  return result;
+}
+
+export async function linkTaskToIssue(
+  projectPath: string,
+  taskNumber: number,
+  issueNumber: number | null,
+): Promise<{ success: boolean; error?: string }> {
+  return setTaskGithubIssue(projectPath, taskNumber, issueNumber);
+}
+
+/**
+ * Look for an existing PR whose head is the task's branch, and link it.
+ *
+ * Called when a task loads, so a PR opened from a terminal (or by a teammate on
+ * the same branch) shows up on the card without the user telling the app about
+ * it. Silently does nothing when the feature is off or the task has no branch.
+ */
+export async function detectPullRequestForTask(
+  projectPath: string,
+  taskNumber: number,
+): Promise<{ prNumber: number | null }> {
+  const task = await getTaskByNumber(projectPath, taskNumber);
+  if (!task?.branch) return { prNumber: null };
+  if (task.githubPrNumber != null) return { prNumber: task.githubPrNumber };
+
+  const availability = await getAvailability(projectPath);
+  if (!availability.available || !availability.identity) return { prNumber: null };
+
+  const prNumber = await findPullRequestForBranch(availability.identity, task.branch, task.worktreePath);
+  if (prNumber != null) await setTaskGithubPr(projectPath, taskNumber, prNumber);
+  return { prNumber };
+}
+
+// ── Review drafts ────────────────────────────────────────────────────
+
+function toDraft(row: ReviewDraftRow): ReviewDraft {
+  return {
+    id: row.id,
+    projectPath: row.project_path,
+    prNumber: row.pr_number,
+    path: row.path,
+    line: row.line,
+    side: row.side,
+    ...(row.start_line != null ? { startLine: row.start_line } : {}),
+    body: row.body,
+    createdAt: row.created_at,
+    ...(row.reply_to_thread_id ? { replyToThreadId: row.reply_to_thread_id } : {}),
+    ...(row.reply_to_comment_id != null ? { replyToCommentId: row.reply_to_comment_id } : {}),
+  };
+}
+
+export async function listDrafts(projectPath: string, prNumber: number): Promise<ReviewDraft[]> {
+  return (await getReviewDrafts(projectPath, prNumber)).map(toDraft);
+}
+
+export interface SaveDraftInput {
+  id?: string;
+  prNumber: number;
+  path: string;
+  line: number;
+  side: 'LEFT' | 'RIGHT';
+  startLine?: number;
+  body: string;
+  replyToThreadId?: string;
+  replyToCommentId?: number;
+}
+
+export async function saveDraft(projectPath: string, input: SaveDraftInput): Promise<ReviewDraft> {
+  const existing = input.id
+    ? (await getReviewDrafts(projectPath, input.prNumber)).find((d) => d.id === input.id)
+    : null;
+  const row = await saveReviewDraft({
+    id: input.id ?? randomUUID(),
+    project_path: projectPath,
+    pr_number: input.prNumber,
+    path: input.path,
+    line: input.line,
+    side: input.side,
+    start_line: input.startLine ?? null,
+    body: input.body,
+    reply_to_thread_id: input.replyToThreadId ?? null,
+    reply_to_comment_id: input.replyToCommentId ?? null,
+    // Preserve the original timestamp on edit so drafts keep their write order.
+    created_at: existing?.created_at ?? new Date().toISOString(),
+  });
+  return toDraft(row);
+}
+
+export async function discardDraft(projectPath: string, draftId: string): Promise<{ success: boolean }> {
+  void projectPath;
+  await deleteReviewDraft(draftId);
+  return { success: true };
+}
+
+// ── Writes ───────────────────────────────────────────────────────────
+
+export interface SubmitReviewResult {
+  success: boolean;
+  error?: string;
+  url?: string;
+}
+
+/**
+ * Send every batched draft up as one review.
+ *
+ * Replies to existing threads can't ride inside the reviews payload, so those
+ * go first as individual reply calls; whatever is left is a new-thread comment
+ * and travels in the single `POST /pulls/{n}/reviews`. Drafts are only cleared
+ * once the whole thing succeeds — a failure leaves the user's writing intact.
+ */
+export async function submitPullRequestReview(
+  projectPath: string,
+  prNumber: number,
+  event: ReviewEvent,
+  body: string,
+): Promise<SubmitReviewResult> {
+  const identity = await requireIdentity(projectPath);
+  const drafts = await getReviewDrafts(projectPath, prNumber);
+
+  const replies = drafts.filter((d) => d.reply_to_comment_id != null);
+  const newThreads: DraftReviewComment[] = drafts
+    .filter((d) => d.reply_to_comment_id == null)
+    .map((d) => ({
+      path: d.path,
+      line: d.line,
+      side: d.side,
+      ...(d.start_line != null ? { start_line: d.start_line, start_side: d.side } : {}),
+      body: d.body,
+    }));
+
+  if (newThreads.length === 0 && replies.length === 0 && !body.trim() && event === 'COMMENT') {
+    return { success: false, error: 'Nothing to submit — add a comment or a review body first.' };
+  }
+
+  try {
+    for (const reply of replies) {
+      await replyToReviewComment(identity, prNumber, reply.reply_to_comment_id!, reply.body);
+    }
+    const result = await submitReview(identity, prNumber, event, body, newThreads);
+    await clearReviewDrafts(projectPath, prNumber);
+    return { success: true, url: result.url };
+  } catch (error) {
+    return { success: false, error: describeError(error) };
+  }
+}
+
+export async function commentOnPullRequest(
+  projectPath: string,
+  prNumber: number,
+  body: string,
+): Promise<{ success: boolean; error?: string }> {
+  if (!body.trim()) return { success: false, error: 'Comment is empty' };
+  try {
+    const identity = await requireIdentity(projectPath);
+    await addIssueComment(identity, prNumber, body);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: describeError(error) };
+  }
+}
+
+export async function replyToThread(
+  projectPath: string,
+  prNumber: number,
+  commentId: number,
+  body: string,
+): Promise<{ success: boolean; error?: string }> {
+  if (!body.trim()) return { success: false, error: 'Reply is empty' };
+  try {
+    const identity = await requireIdentity(projectPath);
+    await replyToReviewComment(identity, prNumber, commentId, body);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: describeError(error) };
+  }
+}
+
+export async function resolveThread(
+  projectPath: string,
+  threadId: string,
+  resolved: boolean,
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const identity = await requireIdentity(projectPath);
+    await setThreadResolved(identity, threadId, resolved);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: describeError(error) };
+  }
+}
+
+export interface CreatePrFromTaskResult {
+  success: boolean;
+  error?: string;
+  url?: string;
+  prNumber?: number;
+}
+
+/**
+ * Task to PR: push the task's branch, then open a pull request for it.
+ *
+ * Hung off the same seam `shipWorktree` uses, and routed through `gh pr create`
+ * rather than the raw API so the repo's PR template and closing keywords
+ * (`Fixes #123`) behave the way they would from GitHub's own UI. A task created
+ * from an issue gets that closing keyword appended automatically.
+ */
+export async function createPullRequestForTask(
+  projectPath: string,
+  taskNumber: number,
+  options: { title?: string; body?: string; base?: string; draft?: boolean } = {},
+): Promise<CreatePrFromTaskResult> {
+  const task = await getTaskByNumber(projectPath, taskNumber);
+  if (!task) return { success: false, error: 'Task not found' };
+  if (!task.branch) return { success: false, error: 'Task has no branch to open a pull request from' };
+
+  let identity: RepoIdentity;
+  try {
+    identity = await requireIdentity(projectPath);
+  } catch (error) {
+    return { success: false, error: describeError(error) };
+  }
+
+  const cwd = task.worktreePath || projectPath;
+  const push = await pushBranch(cwd, task.branch);
+  if (!push.success) return { success: false, error: push.error };
+
+  const body = buildPrBody(options.body ?? task.prompt ?? '', task.githubIssueNumber);
+
+  try {
+    const result = await createPullRequest(identity, cwd, {
+      title: options.title || task.name,
+      body,
+      base: options.base ?? task.mergeTarget,
+      head: task.branch,
+      draft: options.draft,
+    });
+    if (result.number != null) await setTaskGithubPr(projectPath, taskNumber, result.number);
+    return { success: true, url: result.url, prNumber: result.number ?? undefined };
+  } catch (error) {
+    return { success: false, error: describeError(error) };
+  }
+}
+
+/** Append the closing keyword for a linked issue, unless the body already has one. */
+function buildPrBody(body: string, issueNumber?: number): string {
+  if (issueNumber == null) return body;
+  if (new RegExp(`\\b(closes|fixes|resolves)\\s+#${issueNumber}\\b`, 'i').test(body)) return body;
+  return body.trim() ? `${body.trim()}\n\nFixes #${issueNumber}` : `Fixes #${issueNumber}`;
+}
+
+export async function mergePr(
+  projectPath: string,
+  prNumber: number,
+  method: MergeMethod,
+  deleteBranch: boolean,
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const identity = await requireIdentity(projectPath);
+    await mergePullRequest(identity, prNumber, method, { deleteBranch, cwd: projectPath });
+    // The refs were only ever there to render the diff; the PR is now history.
+    await prunePrRefs(projectPath, prNumber);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: describeError(error) };
+  }
+}
+
+// ── Issue to task, PR to task ────────────────────────────────────────
+
+export interface TaskFromGithubResult {
+  success: boolean;
+  error?: string;
+  task?: TaskWithWorkspace;
+  taskNumber?: number;
+}
+
+/**
+ * Issue to task: a todo carrying the issue body as its description, linked back
+ * so a PR opened from it later closes the issue automatically.
+ */
+export async function createTaskFromIssue(projectPath: string, issueNumber: number): Promise<TaskFromGithubResult> {
+  let issues: GithubIssue[];
+  try {
+    issues = await getIssues(projectPath);
+  } catch (error) {
+    return { success: false, error: describeError(error) };
+  }
+
+  const issue = issues.find((i) => i.number === issueNumber);
+  if (!issue) return { success: false, error: `Issue #${issueNumber} not found among the open issues` };
+
+  const existing = (await getProjectTasks(projectPath)).find((t) => t.githubIssueNumber === issueNumber);
+  if (existing)
+    return { success: false, error: `Task #${existing.taskNumber} is already linked to issue #${issueNumber}` };
+
+  const taskNumber = await getNextTaskNumber(projectPath);
+  const description = issue.body.trim() ? `${issue.body.trim()}\n\n${issue.url}` : issue.url;
+  await createTask(projectPath, taskNumber, issue.title, {
+    status: 'todo',
+    prompt: description,
+    githubIssueNumber: issueNumber,
+  });
+  return { success: true, taskNumber };
+}
+
+export interface PromoteToTaskResult extends TaskFromGithubResult {
+  /** Base branch the task's worktree should merge back into. */
+  mergeTarget?: string;
+  headRef?: string;
+}
+
+/**
+ * PR to task: the metadata half of promoting an ephemeral review session into a
+ * checked-out task.
+ *
+ * The `mergeTarget` is set to the PR's base branch, which is worth being
+ * explicit about: everywhere else `mergeTarget` means "whatever branch HEAD was
+ * on when the task started", and for a teammate's PR that is almost never the
+ * base you want to merge back into. The caller creates the worktree at the PR
+ * head using the returned refs.
+ */
+export async function prepareTaskFromPullRequest(projectPath: string, prNumber: number): Promise<PromoteToTaskResult> {
+  let pr: PullRequestDetail;
+  try {
+    pr = await getPullRequest(projectPath, prNumber);
+  } catch (error) {
+    return { success: false, error: describeError(error) };
+  }
+
+  const existing = (await getProjectTasks(projectPath)).find((t) => t.githubPrNumber === prNumber);
+  if (existing) {
+    return { success: false, error: `Task #${existing.taskNumber} is already linked to pull request #${prNumber}` };
+  }
+
+  const taskNumber = await getNextTaskNumber(projectPath);
+  await createTask(projectPath, taskNumber, `PR #${pr.number}: ${pr.title}`, {
+    status: 'todo',
+    prompt: pr.body.trim() ? `${pr.body.trim()}\n\n${pr.url}` : pr.url,
+    mergeTarget: pr.baseRefName,
+    githubPrNumber: prNumber,
+  });
+
+  return {
+    success: true,
+    taskNumber,
+    mergeTarget: pr.baseRefName,
+    headRef: pr.headRefName,
+  };
+}
+
+// ── Error shaping ────────────────────────────────────────────────────
+
+/** One place that decides what a GitHub failure reads like in the UI. */
+export function describeError(error: unknown): string {
+  if (error instanceof GithubError) return error.message;
+  return error instanceof Error ? error.message : String(error);
+}
+
+/** Login of the signed-in user, for the "yours" bucket and self-review guards. */
+export async function getViewer(projectPath: string): Promise<string | null> {
+  const availability = await getAvailability(projectPath);
+  if (!availability.available) return null;
+  return getViewerLogin(availability.identity);
+}

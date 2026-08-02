@@ -274,6 +274,133 @@ export function invalidateMainBranchCache(projectPath?: string): void {
 }
 
 /**
+ * Reads a remote's fetch URL. Async because every caller (repo identity
+ * resolution, the GitHub availability probe) is off the hot path and the
+ * main process should not block on a subprocess for it.
+ *
+ * Returns null when the repo has no such remote, or isn't a repo at all.
+ */
+export async function getRemoteUrl(projectPath: string, remote = 'origin'): Promise<string | null> {
+  try {
+    const { stdout } = await execFileAsync('git', ['remote', 'get-url', remote], gitExecOpts(projectPath));
+    const url = stdout.trim();
+    return url || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Fetch a refspec from a remote. The GitHub integration uses this to pull a PR
+ * head into a namespaced local ref so the diff can be read straight out of the
+ * object database — no checkout, no worktree, and nothing added to the user's
+ * branch list.
+ */
+export async function fetchRefspec(
+  projectPath: string,
+  remote: string,
+  refspec: string,
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    await execFileAsync('git', ['fetch', '--no-tags', '--force', remote, refspec], {
+      ...gitExecOpts(projectPath),
+      maxBuffer: 10 * 1024 * 1024,
+    });
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : 'Fetch failed' };
+  }
+}
+
+/** Resolve a revision to a full SHA, or null when it isn't present locally. */
+export async function resolveRef(projectPath: string, rev: string): Promise<string | null> {
+  try {
+    const { stdout } = await execFileAsync('git', ['rev-parse', '--verify', `${rev}^{commit}`], {
+      cwd: projectPath,
+      encoding: 'utf8',
+    });
+    return stdout.trim() || null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Push a branch to a remote, setting upstream. Used by the task-to-PR path,
+ * which needs the branch on the remote before `gh pr create` can reference it.
+ */
+export async function pushBranch(
+  projectPath: string,
+  branch: string,
+  remote = 'origin',
+  options?: { force?: boolean },
+): Promise<{ success: boolean; error?: string }> {
+  const args = ['push', '--set-upstream'];
+  if (options?.force) args.push('--force-with-lease');
+  args.push(remote, branch);
+  try {
+    await execFileAsync('git', args, { ...gitExecOpts(projectPath), maxBuffer: 10 * 1024 * 1024 });
+    return { success: true };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Push failed';
+    if (/non-fast-forward|rejected/i.test(message)) {
+      return { success: false, error: 'Remote has commits this branch does not. Pull or force-push.' };
+    }
+    if (/Permission denied|could not read Username|Authentication failed/i.test(message)) {
+      return { success: false, error: 'Push was rejected: no write access to the remote.' };
+    }
+    return { success: false, error: message.split('\n').slice(0, 3).join(' ').trim() || 'Push failed' };
+  }
+}
+
+/**
+ * Three-dot diff between two revisions, listing changed files with per-file
+ * stats. Same shape `getWorktreeDiff` produces, but pinned to SHAs rather than
+ * branch names — GitHub computes a PR's diff as `base...head`, so pinning to
+ * the SHAs the API reports is what makes the resulting line numbers valid
+ * review anchors.
+ */
+export async function getRangeDiffFiles(
+  projectPath: string,
+  baseRev: string,
+  headRev: string,
+): Promise<ChangedFile[] | null> {
+  const range = `${baseRev}...${headRev}`;
+  try {
+    const [numstat, nameStatus] = await Promise.all([
+      gitAsync(['diff', '--numstat', range], projectPath),
+      gitAsync(['diff', '--name-status', range], projectPath),
+    ]);
+    return parseNameStatus(nameStatus, parseNumstat(numstat));
+  } catch {
+    return null;
+  }
+}
+
+/** Per-file diff for a revision range. Mirrors `getWorktreeFileDiff` on SHAs. */
+export async function getRangeFileDiff(
+  projectPath: string,
+  baseRev: string,
+  headRev: string,
+  filePath: string,
+  contextLines?: number,
+): Promise<FileDiff | null> {
+  const args = ['diff'];
+  if (contextLines != null) args.push(`-U${contextLines}`);
+  args.push(`${baseRev}...${headRev}`, '--', filePath);
+  try {
+    const { stdout } = await execFileAsync('git', args, {
+      ...gitExecOpts(projectPath),
+      maxBuffer: 20 * 1024 * 1024,
+    });
+    if (!stdout.trim()) return null;
+    return { path: filePath, hunks: parseDiff(stdout) };
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Gets ahead/behind count relative to upstream
  */
 function getAheadBehind(projectPath: string): { ahead: number; behind: number } {

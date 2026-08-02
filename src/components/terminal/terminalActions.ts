@@ -26,6 +26,7 @@ import { parseOsc133ExitCodes } from './osc133';
 import { buildEditorCommand } from './editorCommand';
 import { readSnapshot } from './sessionSnapshot';
 import { descriptionToHookPrompt } from '../../utils/descriptionAttachments';
+import { detectPullRequestForTask } from '../../services/githubTaskActions';
 import log from 'electron-log/renderer';
 
 const actionsLog = log.scope('terminalActions');
@@ -415,6 +416,13 @@ export async function addProjectTerminal(
     // Fetch initial git status and tags
     term.refreshGitStatus();
     term.loadTags();
+
+    // Auto-detect an existing pull request for this task's branch. Runs in the
+    // background and stays silent on failure — it only ever adds a badge, so a
+    // repo without GitHub or an offline machine should cost nothing visible.
+    if (options?.taskId != null) {
+      void detectPullRequestForTask(projectPath, options.taskId);
+    }
 
     if (options?.initialUiState) {
       await applyInitialUiState(term, options.initialUiState);

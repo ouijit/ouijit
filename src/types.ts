@@ -34,10 +34,40 @@ export type {
 export { SANDBOX_BACKEND_LABELS, legacySandboxProvider, isActiveSandbox } from './sandbox/types';
 // Re-export hook status types from hookServer.ts (single source of truth)
 export type { HookStatus, HookStatusEntry } from './hookServer';
+// Re-export the GitHub domain types (single source of truth)
+export type {
+  RepoIdentity,
+  GithubAvailability,
+  PullRequestSummary,
+  PullRequestDetail,
+  PullRequestFile,
+  PullRequestInbox,
+  PullRequestLabel,
+  ReviewThread,
+  ReviewComment,
+  ReviewDraft,
+  ReviewEvent,
+  MergeMethod,
+  MergeStatus,
+  GithubIssue,
+  GithubChangedPayload,
+  CheckRun,
+  TimelineItem,
+} from './github/types';
 
 // Import for local use within this file
 import type { GitStatus, GitFileStatus, GitDropdownInfo, FileDiff, WorktreeDiffSummary, BranchInfo } from './git';
 import type { TaskWorktreeResult, WorktreeInfo, WorktreeRemoveResult, CheckWorktreeResult } from './worktree';
+import type {
+  GithubAvailability,
+  PullRequestDetail,
+  GithubIssue,
+  ReviewDraft,
+  ReviewEvent,
+  MergeMethod,
+  GithubChangedPayload,
+} from './github/types';
+import type { InboxResult, PullRequestFilesResult, SaveDraftInput, PromoteToTaskResult } from './github/service';
 import type { TaskStatus, TagRow } from './db';
 import type { ActiveSession } from './ptyManager';
 import type { LimaStatus } from './lima/types';
@@ -338,6 +368,10 @@ export interface TaskWithWorkspace {
   prompt?: string;
   order?: number;
   parentTaskNumber?: number;
+  /** Linked GitHub pull request, if any. Drives the kanban card badge. */
+  githubPrNumber?: number;
+  /** Linked GitHub issue, if the task was created from one. */
+  githubIssueNumber?: number;
 }
 
 /**
@@ -599,6 +633,74 @@ export interface ElectronAPI {
   health: HealthAPI;
   /** Capture-mode API (only populated when OUIJIT_CAPTURE_MODE=1) */
   capture: CaptureAPI;
+  /** GitHub pull requests and issues, via the `gh` CLI on the host */
+  github: GithubAPI;
+}
+
+/**
+ * GitHub API exposed to the renderer.
+ *
+ * Every call crosses into the main process and shells out to `gh`. The renderer
+ * never sees a token — there isn't one to see, because auth lives entirely in
+ * the user's `gh` installation.
+ */
+export interface GithubAPI {
+  availability(projectPath: string): Promise<GithubAvailability>;
+  inbox(projectPath: string): Promise<InboxResult>;
+  pullRequest(projectPath: string, number: number): Promise<PullRequestDetail>;
+  pullRequestFiles(
+    projectPath: string,
+    number: number,
+    baseSha: string,
+    headSha: string,
+  ): Promise<PullRequestFilesResult>;
+  pullRequestFileDiff(
+    projectPath: string,
+    number: number,
+    baseSha: string,
+    headSha: string,
+    filePath: string,
+    contextLines?: number,
+  ): Promise<FileDiff | null>;
+  issues(projectPath: string): Promise<GithubIssue[]>;
+  refresh(projectPath: string): Promise<void>;
+
+  linkTaskPr(projectPath: string, taskNumber: number, prNumber: number | null): Promise<GithubActionResult>;
+  linkTaskIssue(projectPath: string, taskNumber: number, issueNumber: number | null): Promise<GithubActionResult>;
+  detectTaskPr(projectPath: string, taskNumber: number): Promise<{ prNumber: number | null }>;
+
+  drafts(projectPath: string, prNumber: number): Promise<ReviewDraft[]>;
+  saveDraft(projectPath: string, input: SaveDraftInput): Promise<ReviewDraft>;
+  discardDraft(projectPath: string, draftId: string): Promise<{ success: boolean }>;
+  submitReview(
+    projectPath: string,
+    prNumber: number,
+    event: ReviewEvent,
+    body: string,
+  ): Promise<GithubActionResult & { url?: string }>;
+  comment(projectPath: string, prNumber: number, body: string): Promise<GithubActionResult>;
+  replyToThread(projectPath: string, prNumber: number, commentId: number, body: string): Promise<GithubActionResult>;
+  resolveThread(projectPath: string, threadId: string, resolved: boolean): Promise<GithubActionResult>;
+  createPr(
+    projectPath: string,
+    taskNumber: number,
+    options: { title?: string; body?: string; base?: string; draft?: boolean },
+  ): Promise<GithubActionResult & { url?: string; prNumber?: number }>;
+  mergePr(
+    projectPath: string,
+    prNumber: number,
+    method: MergeMethod,
+    deleteBranch: boolean,
+  ): Promise<GithubActionResult>;
+  taskFromIssue(projectPath: string, issueNumber: number): Promise<GithubActionResult & { taskNumber?: number }>;
+  taskFromPr(projectPath: string, prNumber: number): Promise<PromoteToTaskResult>;
+
+  onChanged(callback: (payload: GithubChangedPayload) => void): () => void;
+}
+
+export interface GithubActionResult {
+  success: boolean;
+  error?: string;
 }
 
 /**

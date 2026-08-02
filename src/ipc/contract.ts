@@ -43,6 +43,16 @@ import type {
   CliPanelResponse,
 } from '../types';
 import type { LimaStatus } from '../lima/types';
+import type {
+  GithubAvailability,
+  PullRequestDetail,
+  GithubIssue,
+  ReviewDraft,
+  ReviewEvent,
+  MergeMethod,
+  GithubChangedPayload,
+} from '../github/types';
+import type { InboxResult, PullRequestFilesResult, SaveDraftInput, PromoteToTaskResult } from '../github/service';
 import type { SandboxProviderStatus, NonoConfig } from '../sandbox/types';
 import type { HookStatusEntry } from '../hookServer';
 import type { HealthStatus } from '../healthCheck';
@@ -222,6 +232,77 @@ export interface IpcInvokeContract {
   'sandbox:nono-config': { args: [projectPath: string]; return: NonoConfig };
   'sandbox:set-nono-config': { args: [projectPath: string, config: NonoConfig]; return: { success: boolean } };
 
+  // ── GitHub ───────────────────────────────────────────────────────────
+  // Every one of these runs `gh` on the host from the main process. No token
+  // is ever read, stored, or handed to a renderer or a sandbox guest.
+  'github:availability': { args: [projectPath: string]; return: GithubAvailability };
+  'github:inbox': { args: [projectPath: string]; return: InboxResult };
+  'github:pull-request': { args: [projectPath: string, number: number]; return: PullRequestDetail };
+  'github:pull-request-files': {
+    args: [projectPath: string, number: number, baseSha: string, headSha: string];
+    return: PullRequestFilesResult;
+  };
+  'github:pull-request-file-diff': {
+    args: [
+      projectPath: string,
+      number: number,
+      baseSha: string,
+      headSha: string,
+      filePath: string,
+      contextLines?: number,
+    ];
+    return: FileDiff | null;
+  };
+  'github:issues': { args: [projectPath: string]; return: GithubIssue[] };
+  'github:refresh': { args: [projectPath: string]; return: void };
+
+  'github:link-task-pr': {
+    args: [projectPath: string, taskNumber: number, prNumber: number | null];
+    return: { success: boolean; error?: string };
+  };
+  'github:link-task-issue': {
+    args: [projectPath: string, taskNumber: number, issueNumber: number | null];
+    return: { success: boolean; error?: string };
+  };
+  'github:detect-task-pr': { args: [projectPath: string, taskNumber: number]; return: { prNumber: number | null } };
+
+  'github:drafts': { args: [projectPath: string, prNumber: number]; return: ReviewDraft[] };
+  'github:save-draft': { args: [projectPath: string, input: SaveDraftInput]; return: ReviewDraft };
+  'github:discard-draft': { args: [projectPath: string, draftId: string]; return: { success: boolean } };
+  'github:submit-review': {
+    args: [projectPath: string, prNumber: number, event: ReviewEvent, body: string];
+    return: { success: boolean; error?: string; url?: string };
+  };
+  'github:comment': {
+    args: [projectPath: string, prNumber: number, body: string];
+    return: { success: boolean; error?: string };
+  };
+  'github:reply-to-thread': {
+    args: [projectPath: string, prNumber: number, commentId: number, body: string];
+    return: { success: boolean; error?: string };
+  };
+  'github:resolve-thread': {
+    args: [projectPath: string, threadId: string, resolved: boolean];
+    return: { success: boolean; error?: string };
+  };
+  'github:create-pr': {
+    args: [
+      projectPath: string,
+      taskNumber: number,
+      options: { title?: string; body?: string; base?: string; draft?: boolean },
+    ];
+    return: { success: boolean; error?: string; url?: string; prNumber?: number };
+  };
+  'github:merge-pr': {
+    args: [projectPath: string, prNumber: number, method: MergeMethod, deleteBranch: boolean];
+    return: { success: boolean; error?: string };
+  };
+  'github:task-from-issue': {
+    args: [projectPath: string, issueNumber: number];
+    return: { success: boolean; error?: string; taskNumber?: number };
+  };
+  'github:task-from-pr': { args: [projectPath: string, prNumber: number]; return: PromoteToTaskResult };
+
   // ── Lima ─────────────────────────────────────────────────────────────
   'lima:status': { args: [projectPath: string]; return: LimaStatus };
   'lima:start': { args: [projectPath: string]; return: { success: boolean; error?: string } };
@@ -329,4 +410,6 @@ export interface IpcPushContract {
     ];
   };
   'capture:navigate': { args: [payload: CaptureNavigatePayload] };
+  /** The poller (or a manual refresh) observed new GitHub state for a project. */
+  'github:changed': { args: [payload: GithubChangedPayload] };
 }

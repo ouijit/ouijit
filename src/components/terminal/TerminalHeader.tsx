@@ -17,7 +17,9 @@ import { HookConfigDialog } from '../dialogs/HookConfigDialog';
 import { useTerminalPanels } from './useTerminalPanels';
 import { panelIcon, panelLabel, type TerminalPanel } from './panelTypes';
 import type { GitFileStatus, RunnerScript } from '../../types';
-import { openInEntry, moveToEntry, type TaskMenuActions } from '../kanban/taskMenu';
+import { openInEntry, moveToEntry, githubEntries, type TaskMenuActions } from '../kanban/taskMenu';
+import { useExperimentalStore } from '../../stores/experimentalStore';
+import { openPullRequestInPanel, createPullRequestForTask, unlinkPullRequest } from '../../services/githubTaskActions';
 import { BranchFromTaskDialog } from '../dialogs/BranchFromTaskDialog';
 
 interface TerminalHeaderProps {
@@ -87,6 +89,7 @@ export const TerminalHeader = memo(function TerminalHeader({
   const availableSandboxProviders = useProjectStore((s) => s.availableSandboxProviders);
   const hasEditorHook = useProjectStore((s) => !!s.configuredHooks.editor);
   const task = useProjectStore((s) => (taskId != null ? s.tasks.find((t) => t.taskNumber === taskId) : undefined));
+  const githubEnabled = useExperimentalStore((s) => s.flagsByProject[projectPath]?.github ?? false);
 
   const contextMenuItems = useMemo((): ContextMenuEntry[] => {
     if (!instance) return [];
@@ -135,6 +138,21 @@ export const TerminalHeader = memo(function TerminalHeader({
         items.push({ label: 'Branch from this task', icon: 'git-branch', onClick: () => setBranchFromDialog(true) });
       }
       items.push({ label: 'Rename task', icon: 'pencil-simple', onClick: () => setRenameTarget('task') });
+
+      // Same entries the kanban card shows — one definition, two surfaces.
+      const github = task
+        ? githubEntries(
+            { enabled: githubEnabled, prNumber: task.githubPrNumber, hasBranch: !!task.branch },
+            {
+              openPullRequest: (prNumber) => openPullRequestInPanel(projectPath, prNumber),
+              createPullRequest: () => void createPullRequestForTask(projectPath, task),
+              unlinkPullRequest: () => void unlinkPullRequest(projectPath, task.taskNumber),
+            },
+          )
+        : [];
+      if (github.length > 0) {
+        items.push({ separator: true }, ...github);
+      }
     }
 
     items.push({
@@ -144,7 +162,7 @@ export const TerminalHeader = memo(function TerminalHeader({
     });
 
     return items;
-  }, [isTaskTerminal, instance, projectPath, taskId, availableSandboxProviders, hasEditorHook, task]);
+  }, [isTaskTerminal, instance, projectPath, taskId, availableSandboxProviders, hasEditorHook, task, githubEnabled]);
 
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
