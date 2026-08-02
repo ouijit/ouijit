@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useMemo } from 'react';
 import { useGithubStore } from '../../stores/githubStore';
 import { useProjectStore } from '../../stores/projectStore';
+import { useAppStore } from '../../stores/appStore';
+import { activateTask, taskOpenAction, TASK_OPEN_LABEL } from '../navigation';
 import { Icon } from '../terminal/Icon';
 import { PullRequestList } from './PullRequestList';
 import { PullRequestDetailView } from './PullRequestDetailView';
 import { IssueList } from './IssueList';
+import type { TaskWithWorkspace } from '../../types';
 import { RefreshButton } from './RefreshButton';
 import { Loading } from './Loading';
 
@@ -94,12 +97,24 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
   // every store read, which never equals the last one and re-renders forever.
   const tasks = useProjectStore((s) => s.tasks);
   const issueLinkedTasks = useMemo(() => {
-    const map: Record<number, number> = {};
+    const map: Record<number, TaskWithWorkspace> = {};
     for (const task of tasks) {
-      if (task.githubIssueNumber != null) map[task.githubIssueNumber] = task.taskNumber;
+      if (task.githubIssueNumber != null) map[task.githubIssueNumber] = task;
     }
     return map;
   }, [tasks]);
+
+  // The panel only ever renders for the project being viewed, so the active
+  // project is the one a linked task belongs to.
+  const project = useAppStore((s) => s.activeProjectData);
+
+  const openLinkedTask = useCallback(
+    (task: TaskWithWorkspace) => {
+      if (!project) return;
+      void activateTask(project, task);
+    },
+    [project],
+  );
 
   const createTaskFromIssue = useCallback(
     async (issueNumber: number) => {
@@ -108,10 +123,23 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
         useProjectStore.getState().addToast(result.error ?? 'Could not create the task', 'error');
         return;
       }
-      useProjectStore.getState().addToast(`Created task #${result.taskNumber} from issue #${issueNumber}`, 'success');
       await useProjectStore.getState().loadTasks(projectPath);
+
+      // Offer the jump rather than taking it: creating several tasks from a
+      // list of issues in one pass is the common case, and navigating away on
+      // the first one would break that.
+      const created = useProjectStore.getState().tasks.find((t) => t.taskNumber === result.taskNumber);
+      useProjectStore.getState().addToast(`Created task #${result.taskNumber} from issue #${issueNumber}`, {
+        type: 'success',
+        ...(created && project
+          ? {
+              actionLabel: TASK_OPEN_LABEL[taskOpenAction(projectPath, created)],
+              onAction: () => void activateTask(project, created),
+            }
+          : {}),
+      });
     },
-    [projectPath],
+    [projectPath, project],
   );
 
   const promoteToTask = useCallback(async () => {
@@ -243,6 +271,8 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
                 issues={issues}
                 linkedTasks={issueLinkedTasks}
                 onCreateTask={(n) => void createTaskFromIssue(n)}
+                onOpenTask={openLinkedTask}
+                openTaskLabel={(task) => TASK_OPEN_LABEL[taskOpenAction(projectPath, task)]}
                 onOpenExternal={(url) => void window.api.openExternal(url)}
               />
             )

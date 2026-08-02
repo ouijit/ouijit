@@ -5,7 +5,14 @@ vi.mock('electron-log/renderer', () => ({
   default: { scope: () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }) },
 }));
 
+vi.mock('../../components/navigation', async () => {
+  const actual = await vi.importActual<typeof import('../../components/navigation')>('../../components/navigation');
+  return { ...actual, activateTask: vi.fn().mockResolvedValue(undefined) };
+});
+
 import { PullRequestsPanel } from '../../components/github/PullRequestsPanel';
+import { activateTask } from '../../components/navigation';
+import { useAppStore } from '../../stores/appStore';
 import { useGithubStore } from '../../stores/githubStore';
 import { useProjectStore } from '../../stores/projectStore';
 import type { PullRequestSummary, TaskWithWorkspace } from '../../types';
@@ -67,6 +74,7 @@ describe('PullRequestsPanel', () => {
     useGithubStore.getState().reset();
     useGithubStore.setState({ projectPath: null });
     useProjectStore.setState({ tasks: [] });
+    useAppStore.setState({ activeProjectData: { path: PROJECT, name: 'Alpha' } });
     vi.mocked(window.api.github.availability).mockResolvedValue({
       available: true,
       identity: { host: 'github.com', owner: 'o', repo: 'r' },
@@ -162,6 +170,72 @@ describe('PullRequestsPanel', () => {
     fireEvent.click(screen.getByText('Try again'));
 
     expect(await screen.findByText('Back after retry')).toBeTruthy();
+  });
+
+  /**
+   * A linked issue used to render a dead "task #7" label: it announced that
+   * work existed and gave you no way to reach it, which left the screen with
+   * nothing to offer once a task had been made.
+   */
+  test('a linked issue row opens the task it tracks', async () => {
+    vi.mocked(window.api.github.issues).mockResolvedValue([
+      {
+        number: 12,
+        title: 'Something is broken',
+        body: 'details',
+        state: 'open',
+        author: 'someone',
+        createdAt: '2026-07-01T00:00:00.000Z',
+        updatedAt: '2026-07-02T00:00:00.000Z',
+        url: 'https://github.com/o/r/issues/12',
+        labels: [],
+        isMine: false,
+        commentCount: 0,
+      },
+    ]);
+    const linked = task({ taskNumber: 7, githubIssueNumber: 12, status: 'in_progress' });
+    useProjectStore.setState({ tasks: [linked] });
+
+    render(<PullRequestsPanel projectPath={PROJECT} />);
+
+    fireEvent.click(await screen.findByText('Issues'));
+
+    // The chip carries the task's number and where it has got to, so the row
+    // reports the state of the work rather than merely that work exists.
+    expect(await screen.findByText('T-7')).toBeTruthy();
+    expect(screen.getByText('In Progress')).toBeTruthy();
+
+    fireEvent.click(screen.getByText('T-7'));
+    await waitFor(() => {
+      expect(activateTask).toHaveBeenCalledWith({ path: PROJECT, name: 'Alpha' }, linked);
+    });
+  });
+
+  test('an unlinked issue offers to create a task', async () => {
+    vi.mocked(window.api.github.issues).mockResolvedValue([
+      {
+        number: 13,
+        title: 'Needs doing',
+        body: '',
+        state: 'open',
+        author: 'someone',
+        createdAt: '2026-07-01T00:00:00.000Z',
+        updatedAt: '2026-07-02T00:00:00.000Z',
+        url: 'https://github.com/o/r/issues/13',
+        labels: [],
+        isMine: false,
+        commentCount: 0,
+      },
+    ]);
+    vi.mocked(window.api.github.taskFromIssue).mockResolvedValue({ success: true, taskNumber: 9 });
+
+    render(<PullRequestsPanel projectPath={PROJECT} />);
+    fireEvent.click(await screen.findByText('Issues'));
+    fireEvent.click(await screen.findByText('Create task'));
+
+    await waitFor(() => {
+      expect(window.api.github.taskFromIssue).toHaveBeenCalledWith(PROJECT, 13);
+    });
   });
 
   test('surfaces why the panel is empty instead of rendering blank', async () => {

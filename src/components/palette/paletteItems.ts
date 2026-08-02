@@ -22,7 +22,7 @@ import type { TerminalDisplayState } from '../../stores/terminalStore';
 import type { SearchField } from '../../utils/paletteScore';
 import { formatAge } from '../../utils/formatDate';
 import { STATUS_LABELS } from '../kanban/taskMenu';
-import { focusTerminal, openTaskWorktree, selectProject, startTaskWorktree } from '../navigation';
+import { activateTask, focusTerminal, selectProject, TASK_OPEN_LABEL } from '../navigation';
 import { openPullRequestInPanel } from '../../services/githubTaskActions';
 
 export type PaletteKind = 'terminal' | 'project' | 'task' | 'pull';
@@ -284,22 +284,10 @@ export function buildPaletteItems(input: PaletteInput): PaletteItem[] {
       // ages line up, and the long form would truncate.
       meta: `${status} · ${formatAge((Date.now() - new Date(task.createdAt).getTime()) / 1000)}`,
       // No status dot: the shells carry their own, on their branch rows.
-      action: first ? 'Focus terminal' : openable ? 'Open worktree' : 'Start task',
-      run: () => {
-        if (first) {
-          void focusTerminal(first.ptyId, first.projectPath);
-        } else if (openable) {
-          void openTaskWorktree({
-            project,
-            taskNumber: task.taskNumber,
-            worktreePath: task.worktreePath as string,
-            branch: task.branch as string,
-            createdAt: task.createdAt,
-          });
-        } else {
-          void startTaskWorktree(project, task.taskNumber, task.createdAt, task.name || 'Untitled');
-        }
-      },
+      action: TASK_OPEN_LABEL[first ? 'focus' : openable ? 'open' : 'start'],
+      // Shared with the GitHub panel's issue rows, so "take me to the work on
+      // this" means the same thing wherever it is offered.
+      run: () => void activateTask(project, task, first?.ptyId),
     });
 
     // The task's shells, drawn as branches off its row the way a kanban card

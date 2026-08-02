@@ -1,12 +1,18 @@
 import type { GithubIssue } from '../../github/types';
+import type { TaskWithWorkspace } from '../../types';
 import { Icon } from '../terminal/Icon';
+import { STATUS_LABELS } from '../kanban/taskMenu';
 import { labelStyle, since } from './prFormat';
 
 interface IssueListProps {
   issues: GithubIssue[];
-  /** Issue number → task number, when a task already tracks it. */
-  linkedTasks: Record<number, number>;
+  /** Issue number → the task tracking it, when there is one. */
+  linkedTasks: Record<number, TaskWithWorkspace>;
   onCreateTask: (issueNumber: number) => void;
+  /** Go to the work on a linked task: focus its shell, or open/create its worktree. */
+  onOpenTask: (task: TaskWithWorkspace) => void;
+  /** What that click will do, so the chip can say so before it is pressed. */
+  openTaskLabel: (task: TaskWithWorkspace) => string;
   onOpenExternal: (url: string) => void;
 }
 
@@ -14,8 +20,19 @@ interface IssueListProps {
  * Open issues, each with a one-click path to a task carrying the issue body as
  * its description. A PR later opened from that task closes the issue on merge,
  * because the closing keyword goes into the PR body automatically.
+ *
+ * Once an issue has a task, its row becomes the way into that work rather than
+ * a note that work exists somewhere else: the chip carries the task's status
+ * and opens it, doing whatever the switcher would do for the same task.
  */
-export function IssueList({ issues, linkedTasks, onCreateTask, onOpenExternal }: IssueListProps) {
+export function IssueList({
+  issues,
+  linkedTasks,
+  onCreateTask,
+  onOpenTask,
+  openTaskLabel,
+  onOpenExternal,
+}: IssueListProps) {
   if (issues.length === 0) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center gap-2 text-text-tertiary">
@@ -52,8 +69,17 @@ export function IssueList({ issues, linkedTasks, onCreateTask, onOpenExternal }:
                 {issue.isMine && <span>assigned to you</span>}
               </div>
             </div>
-            {linked != null ? (
-              <span className="shrink-0 text-xs font-mono text-text-tertiary">task #{linked}</span>
+            {linked ? (
+              <button
+                type="button"
+                className="shrink-0 flex items-center gap-1.5 text-xs pl-2 pr-2.5 py-1 rounded-md bg-ink/[0.06] text-text-secondary hover:bg-ink/[0.12] hover:text-text-primary transition-colors duration-100"
+                title={`${openTaskLabel(linked)} — ${linked.name}`}
+                onClick={() => onOpenTask(linked)}
+              >
+                <span className="font-mono tabular-nums">T-{linked.taskNumber}</span>
+                <span className="opacity-50">{STATUS_LABELS[linked.status] ?? linked.status}</span>
+                <Icon name="arrow-right" className="w-3 h-3 opacity-60" />
+              </button>
             ) : (
               <button
                 type="button"
