@@ -81,6 +81,7 @@ export function KanbanColumn({
       onBodyClick={(e) => {
         if (e.target === e.currentTarget) useProjectStore.getState().clearSelection();
       }}
+      footer={onAddTask ? <KanbanAddInput onAdd={onAddTask} /> : undefined}
     >
       <SortableContext items={taskIds} strategy={verticalListSortingStrategy}>
         {tasks.map((task) => (
@@ -106,7 +107,6 @@ export function KanbanColumn({
           No tasks yet. Type a name below to add one.
         </div>
       )}
-      {onAddTask && <KanbanAddInput onAdd={onAddTask} />}
     </KanbanColumnView>
   );
 }

@@ -72,16 +72,52 @@ export function parseDescription(text: string): DescriptionSegment[] {
  * text content, with `<br>` and block boundaries becoming newlines.
  */
 export function serializeDescriptionDOM(root: Node): string {
+  return walkDescriptionDOM(root).text.trim();
+}
+
+/** A DOM Range start position, used to stop the walk at the caret. */
+interface CaretStop {
+  node: Node;
+  offset: number;
+}
+
+/**
+ * The shared walk behind serialization and caret measurement. Without a stop
+ * it produces the full (untrimmed) storage string; with one it stops at that
+ * position, so `text.length` is the caret's offset into the same string.
+ */
+function walkDescriptionDOM(root: Node, stop?: CaretStop): { text: string; stopped: boolean } {
   let out = '';
+  let stopped = false;
 
   const appendBlockBoundary = (): void => {
     // Avoid duplicate newlines from nested blocks.
     if (out.length > 0 && !out.endsWith('\n')) out += '\n';
   };
 
+  /** Walk an element's children, honouring a stop that points between them. */
+  const walkChildren = (parent: Node): void => {
+    const children = Array.from(parent.childNodes);
+    for (let i = 0; i < children.length; i++) {
+      if (stop && stop.node === parent && stop.offset === i) {
+        stopped = true;
+        return;
+      }
+      walk(children[i]);
+      if (stopped) return;
+    }
+    if (stop && stop.node === parent && stop.offset >= children.length) stopped = true;
+  };
+
   const walk = (node: Node): void => {
     if (node.nodeType === Node.TEXT_NODE) {
-      out += node.textContent ?? '';
+      const text = node.textContent ?? '';
+      if (stop && stop.node === node) {
+        out += text.slice(0, stop.offset);
+        stopped = true;
+      } else {
+        out += text;
+      }
       return;
     }
     if (node.nodeType !== Node.ELEMENT_NODE) return;
@@ -100,13 +136,82 @@ export function serializeDescriptionDOM(root: Node): string {
     const isBlock = el.tagName === 'DIV' || el.tagName === 'P';
     if (isBlock) appendBlockBoundary();
 
-    for (const child of Array.from(el.childNodes)) walk(child);
+    walkChildren(el);
+    if (stopped) return;
 
     if (isBlock) appendBlockBoundary();
   };
 
-  for (const child of Array.from(root.childNodes)) walk(child);
-  return out.trim();
+  walkChildren(root);
+  return { text: out, stopped };
+}
+
+/** Serialized length of one chip, i.e. the `![](path)` marker it stands for. */
+function chipMarkerLength(chip: HTMLElement): number {
+  return `![](${encodeAttachmentPath(chip.getAttribute(ATTACHMENT_PATH_ATTR) ?? '')})`.length;
+}
+
+/**
+ * Where the caret sits, expressed as an offset into the *storage* string
+ * rather than into the DOM. That makes it portable between two editors
+ * showing the same value, which is what moving a draft between the inline
+ * composer and the expanded sheet needs. A chip counts as the full length of
+ * its `![](path)` marker, matching how the value is stored.
+ *
+ * Returns null when the selection isn't inside `root`.
+ */
+export function getCaretOffset(root: HTMLElement): number | null {
+  const selection = root.ownerDocument.defaultView?.getSelection();
+  if (!selection || selection.rangeCount === 0) return null;
+  const range = selection.getRangeAt(0);
+  if (!root.contains(range.startContainer)) return null;
+
+  const prefix = walkDescriptionDOM(root, { node: range.startContainer, offset: range.startOffset });
+  if (!prefix.stopped) return null;
+
+  // serializeDescriptionDOM trims, so drop the leading whitespace the caret
+  // offset would otherwise be measured past.
+  const full = walkDescriptionDOM(root).text;
+  const trimmedFromStart = full.length - full.trimStart().length;
+  return Math.max(0, prefix.text.length - trimmedFromStart);
+}
+
+/**
+ * Place the caret `offset` characters into the storage string. Intended for
+ * an editor that was just repopulated from that value, where the children are
+ * the flat list of text nodes and chips that `parseDescription` produces.
+ */
+export function setCaretOffset(root: HTMLElement, offset: number): void {
+  const doc = root.ownerDocument;
+  const selection = doc.defaultView?.getSelection();
+  if (!selection) return;
+
+  const range = doc.createRange();
+  let remaining = Math.max(0, offset);
+  let placed = false;
+
+  for (const node of Array.from(root.childNodes)) {
+    const length = isAttachmentChip(node) ? chipMarkerLength(node) : (node.textContent ?? '').length;
+    if (remaining <= length) {
+      if (node.nodeType === Node.TEXT_NODE) range.setStart(node, remaining);
+      else if (remaining === 0) range.setStartBefore(node);
+      else range.setStartAfter(node);
+      placed = true;
+      break;
+    }
+    remaining -= length;
+  }
+
+  if (placed) {
+    range.collapse(true);
+  } else {
+    // Past the end (or an empty editor): park at the end of the content.
+    range.selectNodeContents(root);
+    range.collapse(false);
+  }
+
+  selection.removeAllRanges();
+  selection.addRange(range);
 }
 
 /**

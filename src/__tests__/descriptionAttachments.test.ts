@@ -7,6 +7,8 @@ import {
   descriptionToHookPrompt,
   encodeAttachmentPath,
   decodeAttachmentPath,
+  getCaretOffset,
+  setCaretOffset,
 } from '../utils/descriptionAttachments';
 
 describe('parseDescription', () => {
@@ -148,5 +150,73 @@ describe('descriptionToHookPrompt with special characters', () => {
 
   test('escapes a literal backslash to keep escape sequences unambiguous', () => {
     expect(descriptionToHookPrompt('![](/tmp/a\\b.png)')).toBe('"/tmp/a\\\\b.png"');
+  });
+});
+
+/**
+ * The caret travels between the inline composer and its expanded sheet as an
+ * offset into the storage string, so both editors agree on where it sits even
+ * though their DOM differs. Chips count as their whole `![](path)` marker,
+ * matching how the value is stored.
+ */
+describe('caret offsets', () => {
+  /** Build an editor the way parseDescription would populate one. */
+  function editorFor(value: string): HTMLElement {
+    const el = document.createElement('div');
+    document.body.appendChild(el);
+    for (const segment of parseDescription(value)) {
+      if (segment.type === 'text') el.appendChild(document.createTextNode(segment.value));
+      else el.appendChild(createAttachmentChip(segment.path));
+    }
+    return el;
+  }
+
+  test('round-trips a caret through two editors holding the same value', () => {
+    const value = 'fix ![](/tmp/shot.png) the header';
+    const source = editorFor(value);
+
+    // Caret just after "the " in the trailing text node.
+    const trailing = source.childNodes[2] as Text;
+    const range = document.createRange();
+    range.setStart(trailing, ' the '.length);
+    range.collapse(true);
+    const selection = window.getSelection()!;
+    selection.removeAllRanges();
+    selection.addRange(range);
+
+    const offset = getCaretOffset(source);
+    // 'fix ' + the full marker + ' the '
+    expect(offset).toBe('fix ![](/tmp/shot.png) the '.length);
+
+    // The same offset lands in the same place in a freshly built editor.
+    const target = editorFor(value);
+    setCaretOffset(target, offset!);
+    expect(getCaretOffset(target)).toBe(offset);
+
+    const placed = window.getSelection()!.getRangeAt(0);
+    expect(placed.startContainer.textContent).toBe(' the header');
+    expect(placed.startOffset).toBe(' the '.length);
+  });
+
+  test('parks the caret at the end when the offset runs past the content', () => {
+    const target = editorFor('short');
+    setCaretOffset(target, 999);
+    expect(getCaretOffset(target)).toBe('short'.length);
+  });
+
+  test('reports no offset when the selection is outside the editor', () => {
+    const editor = editorFor('text');
+    const outside = document.createElement('div');
+    outside.textContent = 'elsewhere';
+    document.body.appendChild(outside);
+
+    const range = document.createRange();
+    range.setStart(outside.firstChild!, 2);
+    range.collapse(true);
+    const selection = window.getSelection()!;
+    selection.removeAllRanges();
+    selection.addRange(range);
+
+    expect(getCaretOffset(editor)).toBeNull();
   });
 });

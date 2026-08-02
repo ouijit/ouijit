@@ -1,4 +1,4 @@
-import type { MouseEvent, ReactNode, Ref } from 'react';
+import { useEffect, useRef, type MouseEvent, type ReactNode, type Ref } from 'react';
 import type { HookType } from '../../types';
 import { Icon } from '../terminal/Icon';
 
@@ -16,6 +16,11 @@ export interface KanbanColumnViewProps {
    *  modifier-key affordances mid-drag (e.g. "shift to skip hook"). */
   caption?: string;
   children?: ReactNode;
+  /**
+   * Pinned below the scrolling card list. The new-task composer lives here so
+   * column length never pushes it out of view.
+   */
+  footer?: ReactNode;
 }
 
 /**
@@ -36,9 +41,37 @@ export function KanbanColumnView({
   onBodyClick,
   caption,
   children,
+  footer,
 }: KanbanColumnViewProps) {
+  const columnRef = useRef<HTMLDivElement>(null);
+  const headerRef = useRef<HTMLDivElement>(null);
+
+  /**
+   * Publish the room a column has for its card list as `--kanban-body-h`, so
+   * the composer can cap its description at a share of it without measuring
+   * anything itself.
+   *
+   * Deliberately derived from the *column* rather than the card list: the
+   * composer sits in the same flex column, so a cap measured off the live body
+   * height would shrink as the composer grew, chasing its own tail. Column
+   * height minus the header is fixed by the board, so the cap holds still.
+   */
+  useEffect(() => {
+    const column = columnRef.current;
+    const header = headerRef.current;
+    if (!column || !header || typeof ResizeObserver === 'undefined') return;
+
+    const publish = () =>
+      column.style.setProperty('--kanban-body-h', `${Math.max(0, column.clientHeight - header.offsetHeight)}px`);
+    publish();
+    const observer = new ResizeObserver(publish);
+    observer.observe(column);
+    return () => observer.disconnect();
+  }, []);
+
   return (
     <div
+      ref={columnRef}
       className="kanban-column flex flex-col transition-all duration-150 ease-out shrink-0 last:border-r-0"
       style={{
         minWidth: 240,
@@ -47,7 +80,7 @@ export function KanbanColumnView({
       }}
       data-status={status}
     >
-      <div className="flex items-center gap-2 px-3 py-2.5 shrink-0 h-[46px]">
+      <div ref={headerRef} className="flex items-center gap-2 px-3 py-2.5 shrink-0 h-[46px]">
         <span className="text-[13px] font-medium text-text-secondary tracking-wide flex-1">
           {label}
           {caption ? (
@@ -80,6 +113,7 @@ export function KanbanColumnView({
       >
         {children}
       </div>
+      {footer && <div className="kanban-column-footer shrink-0">{footer}</div>}
     </div>
   );
 }

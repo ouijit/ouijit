@@ -825,6 +825,181 @@ textarea,
   line-height: 1;
 }
 
+.kanban-add-button-filled {
+  background: var(--color-accent);
+  color: var(--color-accent-ink);
+  padding: 7px 14px;
+}
+
+.kanban-add-button-filled:hover {
+  background: var(--color-accent-hover);
+}
+
+.kanban-add-button-filled:disabled:hover {
+  background: var(--color-accent);
+}
+
+/* ── New-task composer ────────────────────────────────────────────── */
+
+/* Pinned below the card list rather than scrolling with it, so it reads as
+   part of the column's frame. */
+.kanban-column-footer .kanban-add-form {
+  background: color-mix(in srgb, var(--color-ink) 2%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--color-ink) 8%, transparent);
+  box-shadow: 0 -8px 16px -10px rgba(0, 0, 0, 0.45);
+}
+
+/* Resting state: one row, same place at any column length. */
+.kanban-add-rest {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: var(--color-text-tertiary);
+  font-family: 'Iosevka Term Extended', ui-monospace, monospace;
+  font-size: 13px;
+  padding: 13px 12px;
+  text-align: left;
+  cursor: text;
+  transition:
+    background-color 120ms ease-out,
+    color 120ms ease-out;
+}
+
+.kanban-add-rest:hover {
+  background: color-mix(in srgb, var(--color-ink) 4%, transparent);
+  color: var(--color-text-secondary);
+}
+
+.kanban-add-rest-plus {
+  opacity: 0.7;
+}
+
+.kanban-add-rest .kanban-add-button-hint {
+  margin-left: auto;
+  opacity: 0.5;
+}
+
+/* A draft survives collapsing; the row says so instead of looking empty. */
+.kanban-add-draft-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  flex-shrink: 0;
+}
+
+.kanban-add-draft-label {
+  color: var(--color-text-secondary);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Drag strip along the composer's top edge. */
+.kanban-add-grip {
+  height: 9px;
+  display: grid;
+  place-items: center;
+  cursor: ns-resize;
+  touch-action: none;
+}
+
+.kanban-add-grip::before {
+  content: '';
+  width: 26px;
+  height: 2px;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--color-ink) 12%, transparent);
+  transition: background-color 120ms ease-out;
+}
+
+.kanban-add-grip:hover::before {
+  background: var(--color-text-secondary);
+}
+
+.kanban-add-description-wrap {
+  position: relative;
+}
+
+/* Edge fades stand in for a scrollbar: they say "more text this way" without
+   taking width from a 240px column. Masking the text rather than painting a
+   gradient over it means the fade works on any background, including the
+   focus tint and whatever the column sits on. The mask applies to the border
+   box, so it stays at the visual edges while the content scrolls under it. */
+.kanban-add-description-wrap[data-clip='top'] .kanban-description-editor {
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 20px);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 20px);
+}
+
+.kanban-add-description-wrap[data-clip='bottom'] .kanban-description-editor {
+  -webkit-mask-image: linear-gradient(to top, transparent 0, #000 20px);
+  mask-image: linear-gradient(to top, transparent 0, #000 20px);
+}
+
+.kanban-add-description-wrap[data-clip='both'] .kanban-description-editor {
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 20px, #000 calc(100% - 20px), transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 20px, #000 calc(100% - 20px), transparent 100%);
+}
+
+.kanban-add-expand {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--color-text-tertiary);
+  opacity: 0;
+  transition:
+    opacity 140ms ease-out,
+    background-color 120ms ease-out,
+    color 140ms ease-out;
+}
+
+.kanban-add-description-wrap:hover .kanban-add-expand,
+.kanban-add-description-wrap:focus-within .kanban-add-expand {
+  opacity: 1;
+}
+
+.kanban-add-expand:hover {
+  background: color-mix(in srgb, var(--color-ink) 8%, transparent);
+  color: var(--color-text-primary);
+}
+
+/* At the cap the affordance stops being a hover-only secret: this is the
+   moment the inline box has run out of room. */
+.kanban-add-description-wrap.is-capped .kanban-add-expand {
+  opacity: 1;
+  color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+}
+
+/* ── Expanded composer sheet ──────────────────────────────────────── */
+
+.kanban-composer-chip {
+  font-family: 'Iosevka Term Extended', ui-monospace, monospace;
+  font-size: 10.5px;
+  line-height: 1;
+  padding: 4px 8px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--color-ink) 6%, transparent);
+  color: var(--color-text-secondary);
+}
+
+/* The editor is narrowed to a measure, so its focus tint would read as a
+   floating stripe. Let the sheet carry the surface instead. */
+.kanban-composer-sheet-editor:focus {
+  background: transparent;
+}
+
 /* ── Task description attachment chip ─────────────────────────────── */
 
 .kanban-description-editor {
