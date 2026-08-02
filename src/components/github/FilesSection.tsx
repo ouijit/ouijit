@@ -222,10 +222,10 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
                 key={draft.id}
                 type="button"
                 data-draft-id={draft.id}
-                className="block w-[calc(100%-180px)] mx-[90px] my-1 text-left px-3 py-2 bg-terminal-surface border border-dashed border-accent/50 rounded-md text-sm text-text-secondary hover:border-accent"
+                className="block w-[calc(100%-176px)] mx-[88px] my-1.5 text-left px-3 py-2 bg-terminal-surface border-l-2 border-dashed border-accent rounded-md text-sm text-text-secondary hover:bg-ink/[0.04] transition-colors duration-100"
                 onClick={() => setEditingDraftId(draft.id)}
               >
-                <span className="block font-mono text-[10px] text-accent mb-0.5">Pending comment</span>
+                <span className="block text-[11px] text-accent mb-0.5">Unsent comment</span>
                 {draft.body}
               </button>
             ),

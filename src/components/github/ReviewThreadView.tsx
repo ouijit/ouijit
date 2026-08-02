@@ -9,12 +9,20 @@ interface ReviewThreadViewProps {
   thread: ReviewThread;
   onReply: (thread: ReviewThread, body: string) => Promise<void>;
   onToggleResolved: (thread: ReviewThread) => Promise<void>;
-  /** Rendered inline in the diff rather than in a list — tightens the chrome. */
+  /** Rendered inline in the diff rather than in a list — needs its own frame. */
   inline?: boolean;
 }
 
 /**
  * One review thread and its replies.
+ *
+ * In the timeline this is not a card: it is the same avatar-and-column shape
+ * every other comment there uses, with a quiet line naming the code it hangs
+ * off. A filled box with its own rules was a second surface inside the panel
+ * and read as a foreign object.
+ *
+ * Inline in a diff it does keep a frame, because there it is an insert into a
+ * stream of code and needs to be told apart from it.
  *
  * An outdated thread — the head moved past the lines it was left on — stays
  * rendered in place rather than being collapsed away, but says so and shows the
@@ -41,110 +49,123 @@ export function ReviewThreadView({ thread, onReply, onToggleResolved, inline = f
 
   const anchorLine = thread.line ?? thread.originalLine;
 
-  return (
-    // Inline in a diff, the thread is an insert into a code stream and keeps
-    // its own frame. In the conversation it is one entry among others, so it
-    // runs full bleed under the same hairline everything else there uses.
-    <div
-      className={`bg-terminal-surface border-l-2 ${thread.isResolved ? 'border-vcs-added/40' : 'border-accent/60'} ${
-        inline ? 'mx-[90px] my-1 rounded-r-md border-y border-r border-ink/[0.06]' : 'border-b border-ink/[0.06]'
-      } overflow-hidden`}
-    >
-      <div className="flex items-center gap-2 px-3 py-1.5 text-xs text-text-tertiary border-b border-ink/[0.06]">
-        <button
-          type="button"
-          className="flex items-center gap-1 hover:text-text-primary transition-colors duration-100"
-          onClick={() => setCollapsed(!collapsed)}
-        >
-          <Icon name={collapsed ? 'caret-right' : 'caret-down'} className="!w-3 !h-3" />
-          <span>
-            {thread.comments.length} {thread.comments.length === 1 ? 'comment' : 'comments'}
-          </span>
-        </button>
+  const header = (
+    <div className="flex items-center gap-2 text-[13px] text-text-tertiary">
+      <button
+        type="button"
+        className="flex items-center gap-1.5 hover:text-text-primary transition-colors duration-100"
+        onClick={() => setCollapsed(!collapsed)}
+      >
+        <Icon
+          name="caret-right"
+          className={`w-3 h-3 transition-transform duration-150 ${collapsed ? '' : 'rotate-90'}`}
+        />
         {!inline && (
-          <span className="font-mono truncate">
+          <span className="font-mono text-[12px]">
             {thread.path}
             {anchorLine != null && `:${anchorLine}`}
           </span>
         )}
-        {thread.isOutdated && (
-          <span
-            className="shrink-0 text-[10px] px-1.5 py-px rounded-full bg-vcs-modified/15 text-vcs-modified"
-            title={`Written against line ${thread.originalLine ?? '?'}, which has since changed`}
-          >
-            outdated
+        {inline && (
+          <span>
+            {thread.comments.length} {thread.comments.length === 1 ? 'comment' : 'comments'}
           </span>
         )}
-        {thread.isResolved && (
-          <span className="shrink-0 text-[10px] px-1.5 py-px rounded-full bg-vcs-added/15 text-vcs-added">
-            resolved
-          </span>
-        )}
+      </button>
+
+      {thread.isOutdated && (
+        <span
+          className="shrink-0 text-[11px] text-vcs-modified"
+          title={`Written against line ${thread.originalLine ?? '?'}, which has since changed`}
+        >
+          outdated
+        </span>
+      )}
+      {thread.isResolved && <span className="shrink-0 text-[11px] text-vcs-added">resolved</span>}
+
+      <button
+        type="button"
+        className="ml-auto shrink-0 hover:text-text-primary transition-colors duration-100"
+        onClick={() => void onToggleResolved(thread)}
+      >
+        {thread.isResolved ? 'Unresolve' : 'Resolve'}
+      </button>
+    </div>
+  );
+
+  const comments = thread.comments.map((comment) => (
+    <div key={comment.id} className="flex gap-3">
+      <Avatar login={comment.author} url={comment.authorAvatarUrl} size={inline ? 20 : 26} className="mt-0.5" />
+      <div className="flex-1 min-w-0 flex flex-col gap-1">
+        <div className="flex items-center gap-2 text-[13px] text-text-tertiary">
+          <span className={inline ? 'text-text-secondary' : 'text-text-primary text-[15px]'}>{comment.author}</span>
+          <span className="opacity-50">·</span>
+          <span>{since(comment.createdAt)}</span>
+        </div>
+        <Markdown body={comment.body} />
+      </div>
+    </div>
+  ));
+
+  const reply = replying ? (
+    <div className="flex flex-col items-start gap-2">
+      <textarea
+        autoFocus
+        rows={3}
+        value={body}
+        onChange={(e) => setBody(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) void submitReply();
+          if (e.key === 'Escape') setReplying(false);
+        }}
+        placeholder="Reply"
+        className="field resize-y"
+      />
+      <div className="flex items-center gap-2">
         <button
           type="button"
-          className="ml-auto shrink-0 hover:text-text-primary transition-colors duration-100"
-          onClick={() => void onToggleResolved(thread)}
+          disabled={!body.trim() || busy}
+          className="btn-primary btn-compact"
+          onClick={() => void submitReply()}
         >
-          {thread.isResolved ? 'Unresolve' : 'Resolve'}
+          {busy ? 'Sending…' : 'Reply'}
+        </button>
+        <button type="button" className="btn-secondary btn-compact" onClick={() => setReplying(false)}>
+          Cancel
         </button>
       </div>
+    </div>
+  ) : (
+    <button
+      type="button"
+      className="self-start text-[13px] text-text-tertiary hover:text-text-primary transition-colors duration-100"
+      onClick={() => setReplying(true)}
+    >
+      Reply
+    </button>
+  );
 
-      {!collapsed && (
-        <>
-          <div className="divide-y divide-ink/[0.06]">
-            {thread.comments.map((comment) => (
-              <div key={comment.id} className="flex gap-2 px-3 py-2">
-                <Avatar login={comment.author} url={comment.authorAvatarUrl} size={20} className="mt-0.5" />
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 text-xs text-text-tertiary mb-1">
-                    <span className="text-text-secondary">{comment.author}</span>
-                    <span>{since(comment.createdAt)}</span>
-                  </div>
-                  <Markdown body={comment.body} />
-                </div>
-              </div>
-            ))}
-          </div>
+  if (!inline) {
+    return (
+      <div className="flex flex-col gap-3">
+        {header}
+        {!collapsed && comments}
+        {!collapsed && reply}
+      </div>
+    );
+  }
 
-          {replying ? (
-            <div className="p-2 border-t border-ink/[0.06]">
-              <textarea
-                autoFocus
-                rows={3}
-                value={body}
-                onChange={(e) => setBody(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) void submitReply();
-                  if (e.key === 'Escape') setReplying(false);
-                }}
-                placeholder="Reply…"
-                className="field resize-y"
-              />
-              <div className="flex items-center gap-2 mt-2">
-                <button
-                  type="button"
-                  disabled={!body.trim() || busy}
-                  className="btn-primary btn-compact"
-                  onClick={() => void submitReply()}
-                >
-                  {busy ? 'Sending…' : 'Reply'}
-                </button>
-                <button type="button" className="btn-secondary btn-compact" onClick={() => setReplying(false)}>
-                  Cancel
-                </button>
-              </div>
-            </div>
-          ) : (
-            <button
-              type="button"
-              className="w-full text-left px-3 py-1.5 text-xs text-text-tertiary hover:text-text-primary hover:bg-ink/[0.03] border-t border-ink/[0.06] transition-colors duration-100"
-              onClick={() => setReplying(true)}
-            >
-              Reply…
-            </button>
-          )}
-        </>
-      )}
+  return (
+    <div
+      className={`mx-[88px] my-1.5 rounded-md border-l-2 ${
+        thread.isResolved ? 'border-vcs-added/40' : 'border-accent/60'
+      } bg-terminal-surface`}
+    >
+      <div className="flex flex-col gap-2.5 px-3 py-2">
+        {header}
+        {!collapsed && comments}
+        {!collapsed && reply}
+      </div>
     </div>
   );
 }

@@ -59,7 +59,7 @@ export function DiscussionSection({ projectPath, detail }: DiscussionSectionProp
   return (
     <div className="w-full max-w-3xl mx-auto px-8 py-7 flex flex-col gap-6">
       {unresolved.length > 0 && (
-        <section className="flex flex-col gap-3">
+        <section className="flex flex-col gap-6">
           <h2 className="text-[19px] font-medium text-text-primary pb-2.5 border-b border-ink/[0.08]">
             Unresolved
             <span className="ml-2 text-[15px] text-text-tertiary">{unresolved.length}</span>

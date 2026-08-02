@@ -38,7 +38,7 @@ export function DraftCommentBox({
   };
 
   return (
-    <div className="mx-[90px] my-1 p-2 bg-terminal-surface border border-accent/40 rounded-md">
+    <div className="mx-[88px] my-1.5 px-3 py-2.5 bg-terminal-surface border-l-2 border-accent rounded-md">
       <textarea
         autoFocus
         rows={3}
