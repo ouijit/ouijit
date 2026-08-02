@@ -75,6 +75,9 @@ import arrowSquareOut from '@phosphor-icons/core/assets/regular/arrow-square-out
 import checkCircle from '@phosphor-icons/core/assets/regular/check-circle.svg?raw';
 import circle from '@phosphor-icons/core/assets/regular/circle.svg?raw';
 import circleDashed from '@phosphor-icons/core/assets/regular/circle-dashed.svg?raw';
+import userCircle from '@phosphor-icons/core/assets/regular/user-circle.svg?raw';
+import arrowUp from '@phosphor-icons/core/assets/regular/arrow-up.svg?raw';
+import chatCircle from '@phosphor-icons/core/assets/regular/chat-circle.svg?raw';
 import clock from '@phosphor-icons/core/assets/regular/clock.svg?raw';
 import gitCommit from '@phosphor-icons/core/assets/regular/git-commit.svg?raw';
 import gitPullRequest from '@phosphor-icons/core/assets/regular/git-pull-request.svg?raw';
@@ -155,6 +158,9 @@ export const iconMap: Record<string, string> = {
   'check-circle': checkCircle,
   circle: circle,
   'circle-dashed': circleDashed,
+  'user-circle': userCircle,
+  'arrow-up': arrowUp,
+  'chat-circle': chatCircle,
   clock: clock,
   'git-commit': gitCommit,
   'git-pull-request': gitPullRequest,

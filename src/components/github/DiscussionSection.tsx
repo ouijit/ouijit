@@ -1,11 +1,11 @@
-import { useCallback, useState } from 'react';
+import { useCallback } from 'react';
 import type { PullRequestDetail, ReviewThread } from '../../github/types';
 import { useGithubStore } from '../../stores/githubStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { Icon } from '../terminal/Icon';
 import { Markdown } from './Markdown';
+import { CommentComposer } from './CommentComposer';
 import { ReviewThreadView } from './ReviewThreadView';
-import { Entry } from './DocumentSection';
 import { reviewStateLabel, since } from './prFormat';
 
 interface DiscussionSectionProps {
@@ -22,9 +22,6 @@ interface DiscussionSectionProps {
  * right hunk to discover.
  */
 export function DiscussionSection({ projectPath, detail }: DiscussionSectionProps) {
-  const [comment, setComment] = useState('');
-  const [posting, setPosting] = useState(false);
-
   const unresolved = detail.threads.filter((t) => !t.isResolved);
 
   const replyToThread = useCallback(
@@ -56,82 +53,58 @@ export function DiscussionSection({ projectPath, detail }: DiscussionSectionProp
     [projectPath],
   );
 
-  const postComment = async () => {
-    if (!comment.trim() || posting) return;
-    setPosting(true);
-    try {
-      const result = await window.api.github.comment(projectPath, detail.number, comment);
-      if (!result.success) {
-        useProjectStore.getState().addToast(result.error ?? 'Could not post the comment', 'error');
-        return;
-      }
-      setComment('');
-      await useGithubStore.getState().reloadDetail(projectPath);
-    } finally {
-      setPosting(false);
-    }
-  };
-
   const entries = detail.timeline.length + unresolved.length;
 
   return (
-    <div className="py-1">
-      {unresolved.map((thread) => (
-        <ReviewThreadView key={thread.id} thread={thread} onReply={replyToThread} onToggleResolved={toggleResolved} />
-      ))}
-
-      {detail.timeline.map((item) =>
-        item.kind === 'event' ? (
-          <div
-            key={item.id}
-            className="flex items-center gap-1.5 px-4 py-1.5 font-mono text-[10px] leading-tight text-text-secondary"
-          >
-            <Icon name="git-commit" className="w-3 h-3 shrink-0 opacity-60" />
-            <span>{item.author}</span>
-            <span className="opacity-30">·</span>
-            <span className="opacity-70">{item.eventType}</span>
-            <span className="opacity-30">·</span>
-            <span className="opacity-70">{since(item.createdAt)}</span>
-          </div>
-        ) : (
-          <Entry
-            key={item.id}
-            author={item.author}
-            action={`${item.kind === 'review' ? reviewStateLabel(item.reviewState) : 'commented'} ${since(item.createdAt)}`}
-          >
-            {item.body.trim() && <Markdown body={item.body} />}
-          </Entry>
-        ),
+    <div className="max-w-3xl px-8 py-7 flex flex-col gap-6">
+      {unresolved.length > 0 && (
+        <section className="flex flex-col gap-3">
+          <h2 className="text-[19px] font-medium text-text-primary pb-2.5 border-b border-ink/[0.08]">
+            Unresolved
+            <span className="ml-2 text-[15px] text-text-tertiary">{unresolved.length}</span>
+          </h2>
+          {unresolved.map((thread) => (
+            <ReviewThreadView
+              key={thread.id}
+              thread={thread}
+              onReply={replyToThread}
+              onToggleResolved={toggleResolved}
+            />
+          ))}
+        </section>
       )}
 
-      {entries === 0 && (
-        <p className="px-4 py-3 font-mono text-[11px] text-text-tertiary">Nothing has been said about this change</p>
-      )}
-
-      <div className="px-4 py-3 flex flex-col items-start gap-2">
-        <textarea
-          rows={2}
-          value={comment}
-          onChange={(e) => setComment(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) void postComment();
-          }}
-          placeholder="Add a comment…"
-          className="w-full text-sm bg-terminal-inset border border-ink/10 rounded-md px-3 py-2 text-text-primary outline-none focus:border-accent resize-y"
-        />
-        {/* Only offered once there is something to send: an always-live button
-            beside an empty box is a control that mostly cannot be used. */}
-        {comment.trim() && (
-          <button
-            type="button"
-            className="btn-primary btn-compact"
-            disabled={posting}
-            onClick={() => void postComment()}
-          >
-            {posting ? 'Posting…' : 'Comment'}
-          </button>
+      <section className="flex flex-col gap-5">
+        {detail.timeline.length > 0 && (
+          <h2 className="text-[19px] font-medium text-text-primary pb-2.5 border-b border-ink/[0.08]">Timeline</h2>
         )}
-      </div>
+
+        {detail.timeline.map((item) =>
+          item.kind === 'event' ? (
+            <div key={item.id} className="flex items-center gap-2 text-[13px] text-text-tertiary">
+              <Icon name="git-commit" className="w-4 h-4 shrink-0 opacity-60" />
+              <span className="text-text-secondary">{item.author}</span>
+              <span>{item.eventType}</span>
+              <span className="opacity-50">·</span>
+              <span>{since(item.createdAt)}</span>
+            </div>
+          ) : (
+            <article key={item.id} className="flex flex-col gap-2">
+              <div className="flex items-center gap-2 text-[13px] text-text-tertiary">
+                <span className="text-text-primary text-[15px]">{item.author}</span>
+                <span>{item.kind === 'review' ? reviewStateLabel(item.reviewState) : 'commented'}</span>
+                <span className="opacity-50">·</span>
+                <span>{since(item.createdAt)}</span>
+              </div>
+              {item.body.trim() && <Markdown body={item.body} />}
+            </article>
+          ),
+        )}
+
+        {entries === 0 && <p className="text-[15px] text-text-tertiary">Nothing has been said about this change</p>}
+      </section>
+
+      <CommentComposer projectPath={projectPath} prNumber={detail.number} />
     </div>
   );
 }

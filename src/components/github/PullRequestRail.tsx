@@ -2,27 +2,24 @@ import { useMemo } from 'react';
 import type { ChangedFile } from '../../types';
 import type { PullRequestDetail, PullRequestFile } from '../../github/types';
 import { DiffFileTree } from '../diff/DiffFileTree';
-import { filePathOf, type PrSection } from './DocumentSection';
 
 interface PullRequestRailProps {
   detail: PullRequestDetail;
   files: PullRequestFile[];
-  section: PrSection;
-  onSelect: (section: PrSection) => void;
+  /** Null shows the whole diff in order. */
+  activePath: string | null;
+  onSelect: (path: string | null) => void;
 }
 
 /**
- * The rail is the navigation. Picking a part of the pull request shows that
- * part and nothing else — the description, the checks, the discussion, all the
- * files at once, or one file on its own.
+ * The changed files, for the code pane only.
  *
  * Reviewing a file at a time is the case this is built around: the diff gets
- * the whole pane, and moving to the next file is one click rather than a scroll
- * past everything in between.
+ * the rest of the width, and moving to the next file is one click rather than
+ * a scroll past everything in between.
  */
-export function PullRequestRail({ detail, files, section, onSelect }: PullRequestRailProps) {
+export function PullRequestRail({ detail, files, activePath, onSelect }: PullRequestRailProps) {
   const changedFiles: ChangedFile[] = useMemo(() => files.map(toChangedFile), [files]);
-  const activePath = filePathOf(section);
 
   const unresolvedByPath = useMemo(() => {
     const counts = new Map<string, number>();
@@ -33,19 +30,12 @@ export function PullRequestRail({ detail, files, section, onSelect }: PullReques
     return counts;
   }, [detail.threads]);
 
-  const unresolved = detail.threads.filter((t) => !t.isResolved).length;
-  const failing = detail.checks.filter(
-    (c) =>
-      (!c.status || c.status === 'COMPLETED') &&
-      ['FAILURE', 'ERROR', 'TIMED_OUT', 'ACTION_REQUIRED'].includes(c.conclusion ?? ''),
-  ).length;
-
   return (
     <div className="w-[228px] shrink-0 flex flex-col overflow-hidden border-r border-ink/[0.06]">
       <DiffFileTree
         files={changedFiles}
         activePath={activePath}
-        onFileClick={(path) => onSelect(`file:${path}`)}
+        onFileClick={onSelect}
         renderFileTrailing={(file) => {
           const count = unresolvedByPath.get(file.path);
           if (!count) return null;
@@ -56,28 +46,12 @@ export function PullRequestRail({ detail, files, section, onSelect }: PullReques
           );
         }}
         header={
-          <div className="pb-2 mb-1 border-b border-ink/[0.06]">
-            <RailEntry label="Description" active={section === 'description'} onClick={() => onSelect('description')} />
-            <RailEntry
-              label="Checks"
-              note={failing > 0 ? `${failing} failing` : detail.checks.length > 0 ? 'passing' : undefined}
-              alert={failing > 0}
-              active={section === 'checks'}
-              onClick={() => onSelect('checks')}
-            />
-            <RailEntry
-              label="Discussion"
-              note={unresolved > 0 ? `${unresolved}` : undefined}
-              active={section === 'discussion'}
-              onClick={() => onSelect('discussion')}
-            />
-            <RailEntry
-              label="All files"
-              note={`${detail.changedFiles}`}
-              active={section === 'files'}
-              onClick={() => onSelect('files')}
-            />
-          </div>
+          <RailEntry
+            label="All files"
+            note={`${detail.changedFiles}`}
+            active={activePath === null}
+            onClick={() => onSelect(null)}
+          />
         }
       />
     </div>
@@ -87,13 +61,11 @@ export function PullRequestRail({ detail, files, section, onSelect }: PullReques
 function RailEntry({
   label,
   note,
-  alert,
   active,
   onClick,
 }: {
   label: string;
   note?: string;
-  alert?: boolean;
   active: boolean;
   onClick: () => void;
 }) {
@@ -106,9 +78,7 @@ function RailEntry({
       onClick={onClick}
     >
       <span className="flex-1 min-w-0 truncate">{label}</span>
-      {note && (
-        <span className={`shrink-0 font-mono text-[10px] ${alert ? 'text-vcs-deleted' : 'text-ink/35'}`}>{note}</span>
-      )}
+      {note && <span className="shrink-0 font-mono text-[11px] text-ink/35">{note}</span>}
     </button>
   );
 }

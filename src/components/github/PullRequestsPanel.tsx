@@ -4,8 +4,7 @@ import { useProjectStore } from '../../stores/projectStore';
 import { useAppStore } from '../../stores/appStore';
 import { activateTask, taskOpenAction, TASK_OPEN_LABEL } from '../navigation';
 import { Icon } from '../terminal/Icon';
-import { PullRequestList } from './PullRequestList';
-import { IssueList } from './IssueList';
+import { PullRequestSidebar } from './PullRequestSidebar';
 import { PullRequestDetailView } from './PullRequestDetailView';
 import type { TaskWithWorkspace } from '../../types';
 import { RefreshButton } from './RefreshButton';
@@ -16,9 +15,10 @@ interface PullRequestsPanelProps {
 }
 
 /**
- * The GitHub surface: pull requests and issues, in the frame the kanban board
- * occupies and in the same slot, so switching between them moves what is inside
- * the frame rather than the frame.
+ * The GitHub surface: the list on the left, whatever you opened on the right.
+ *
+ * The list stays put. Review is a queue you work down, and replacing it with
+ * the thing you just opened loses your place every time.
  *
  * Reviewing a teammate's PR here is ephemeral: the diff is read straight out of
  * the object database with no checkout and no worktree, and the session leaves
@@ -34,6 +34,7 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
   const issues = useGithubStore((s) => s.issues);
   const issuesLoading = useGithubStore((s) => s.issuesLoading);
   const issuesError = useGithubStore((s) => s.issuesError);
+  const activeNumber = useGithubStore((s) => s.activeNumber);
   const detail = useGithubStore((s) => s.detail);
   const detailLoading = useGithubStore((s) => s.detailLoading);
   const detailError = useGithubStore((s) => s.detailError);
@@ -46,8 +47,8 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
 
   const available = availability?.available ?? false;
 
-  // Both loads start together so the tab counts are true before either tab is
-  // opened, and so switching tabs never waits on a fetch.
+  // Both loads start together so either list is ready the moment it is asked
+  // for, and the sidebar never waits on a fetch to switch.
   useEffect(() => {
     if (!available) return;
     const store = useGithubStore.getState();
@@ -82,13 +83,13 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
     };
   }, [available, projectPath]);
 
-  // Escape returns to the list, then out of the panel — matching how the
+  // Escape closes what is open, then leaves the panel — matching how the
   // settings panel treats Escape.
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return;
       const store = useGithubStore.getState();
-      if (store.view === 'detail') {
+      if (store.activeNumber != null) {
         store.closeDetail();
         return;
       }
@@ -181,137 +182,81 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
 
   if (availability && !available) {
     return (
-      <BoardFrame>
+      <Frame>
         <UnavailableNotice message={availability.message} reason={availability.reason} />
-      </BoardFrame>
+      </Frame>
     );
   }
 
   // The availability probe is a `gh --version` plus an auth check, normally a
   // few hundred milliseconds. A message would flash; an empty frame doesn't.
-  if (!availability) return <BoardFrame />;
+  if (!availability) return <Frame />;
 
-  if (view === 'detail') {
-    return (
-      <BoardFrame>
-        {detailError ? (
-          <div className="flex-1 flex flex-col items-center justify-center gap-3 text-text-tertiary">
-            <span className="text-sm">{detailError}</span>
-            <button
-              type="button"
-              className="font-mono text-[11px] text-text-secondary hover:text-text-primary underline underline-offset-2"
-              onClick={() => useGithubStore.getState().closeDetail()}
-            >
-              Back to the board
-            </button>
-          </div>
-        ) : detail ? (
-          <PullRequestDetailView
-            projectPath={projectPath}
-            detail={detail}
-            linkedTask={linkedTask}
-            openTaskLabel={openTaskLabel}
-            onOpenTask={openLinkedTask}
-            onPromoteToTask={() => void promoteToTask()}
-          />
-        ) : detailLoading ? (
-          <Loading label="Loading pull request" />
-        ) : null}
-      </BoardFrame>
-    );
-  }
-
-  const showingIssues = view === 'issues';
+  const error = view === 'issues' ? issuesError : inboxError;
 
   return (
-    <BoardFrame>
-      <nav className="shrink-0 flex items-center gap-1 px-3 pt-1.5 border-b border-ink/[0.06]">
-        <Tab
-          label="Pull requests"
-          count={inbox ? inbox.needsReview.length + inbox.mine.length + inbox.others.length : undefined}
-          active={!showingIssues}
-          onClick={() => useGithubStore.getState().setView('inbox')}
-        />
-        <Tab
-          label="Issues"
-          count={issues.length || undefined}
-          active={showingIssues}
-          onClick={() => useGithubStore.getState().setView('issues')}
-        />
-      </nav>
-
-      {/* The spinner shows only on a first load. A refresh keeps the rows
-          already on screen: swapping them for a spinner would throw away what
-          the user is reading to announce a re-fetch that the spinning refresh
-          button already reports. */}
-      <div className="flex-1 min-h-0 overflow-y-auto flex flex-col">
-        {showingIssues ? (
-          issuesError ? (
-            <ErrorNotice message={issuesError} onRetry={() => void useGithubStore.getState().loadIssues(projectPath)} />
-          ) : issuesLoading && issues.length === 0 ? (
-            <Loading label="Loading issues" />
-          ) : (
-            <IssueList
-              issues={issues}
-              linkedTasks={issueTasks}
-              openTaskLabel={openTaskLabel}
-              onCreateTask={(n) => void createTaskFromIssue(n)}
-              onOpenTask={openLinkedTask}
-              onOpenExternal={(url) => void window.api.openExternal(url)}
-            />
-          )
-        ) : inboxError ? (
-          <ErrorNotice message={inboxError} onRetry={refresh} />
-        ) : !inbox ? (
-          <Loading label="Loading pull requests" />
-        ) : (
-          <PullRequestList
-            needsReview={inbox.needsReview}
-            mine={inbox.mine}
-            others={inbox.others}
-            draftCounts={inbox.draftCounts}
-            linkedTasks={prTasks}
-            openTaskLabel={openTaskLabel}
-            onOpen={(n) => void useGithubStore.getState().openPullRequest(projectPath, n)}
-            onOpenTask={openLinkedTask}
-          />
-        )}
-      </div>
-
-      <BoardFooter
-        slug={availability.identity ? `${availability.identity.owner}/${availability.identity.repo}` : ''}
-        busy={showingIssues ? issuesLoading : inboxLoading}
-        onRefresh={refresh}
+    <Frame>
+      <PullRequestSidebar
+        needsReview={inbox?.needsReview ?? []}
+        mine={inbox?.mine ?? []}
+        others={inbox?.others ?? []}
+        issues={issues}
+        draftCounts={inbox?.draftCounts ?? {}}
+        prTasks={prTasks}
+        issueTasks={issueTasks}
+        showing={view === 'issues' ? 'issues' : 'pulls'}
+        activeNumber={activeNumber}
+        loading={view === 'issues' ? issuesLoading : inboxLoading}
+        onShow={(showing) => useGithubStore.getState().setView(showing === 'issues' ? 'issues' : 'inbox')}
+        onOpenPullRequest={(n) => void useGithubStore.getState().openPullRequest(projectPath, n)}
+        onOpenIssue={(issue) => void window.api.openExternal(issue.url)}
+        onCreateTaskFromIssue={(n) => void createTaskFromIssue(n)}
+        onOpenTask={openLinkedTask}
       />
-    </BoardFrame>
-  );
-}
 
-/** Switches the list. Typed like a column header, since it names one. */
-function Tab({
-  label,
-  count,
-  active,
-  onClick,
-}: {
-  label: string;
-  count?: number;
-  active: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      className={`px-2 py-2.5 text-[13px] font-medium tracking-wide transition-colors duration-100 -mb-px border-b ${
-        active
-          ? 'text-text-primary border-accent'
-          : 'text-text-secondary opacity-60 hover:opacity-100 border-transparent'
-      }`}
-      onClick={onClick}
-    >
-      {label}
-      {count != null && <span className="ml-1.5 font-normal opacity-50">{count}</span>}
-    </button>
+      {error ? (
+        <Centred>
+          <Icon name="warning" className="w-6 h-6 text-vcs-modified opacity-70" />
+          <p className="text-[15px] text-text-secondary max-w-sm text-center">{error}</p>
+          <button type="button" className="btn-secondary btn-compact" onClick={refresh}>
+            Try again
+          </button>
+        </Centred>
+      ) : detailError ? (
+        <Centred>
+          <p className="text-[15px] text-text-secondary">{detailError}</p>
+          <button
+            type="button"
+            className="btn-secondary btn-compact"
+            onClick={() => useGithubStore.getState().closeDetail()}
+          >
+            Close
+          </button>
+        </Centred>
+      ) : detail ? (
+        <PullRequestDetailView
+          projectPath={projectPath}
+          detail={detail}
+          linkedTask={linkedTask}
+          openTaskLabel={openTaskLabel}
+          onOpenTask={openLinkedTask}
+          onPromoteToTask={() => void promoteToTask()}
+        />
+      ) : detailLoading ? (
+        <Loading label="Loading pull request" />
+      ) : !inbox && inboxLoading ? (
+        <Loading label="Loading pull requests" />
+      ) : (
+        <Centred>
+          <Icon name="git-pull-request" className="w-8 h-8 text-text-tertiary opacity-30" />
+          <p className="text-[15px] text-text-tertiary">Pick something from the list</p>
+          <span className="flex items-center gap-2 text-[13px] text-text-tertiary">
+            {availability.identity ? `${availability.identity.owner}/${availability.identity.repo}` : ''}
+            <RefreshButton busy={inboxLoading || issuesLoading} onClick={refresh} />
+          </span>
+        </Centred>
+      )}
+    </Frame>
   );
 }
 
@@ -320,10 +265,10 @@ function Tab({
  * between the two with the title bar toggle should move what is inside the
  * frame, not the frame.
  */
-function BoardFrame({ children }: { children?: ReactNode }) {
+function Frame({ children }: { children?: ReactNode }) {
   return (
     <div
-      className="glass-bevel fixed top-[82px] bottom-4 z-[140] flex flex-col rounded-[14px] overflow-hidden border border-bezel-panel"
+      className="glass-bevel fixed top-[82px] bottom-4 z-[140] flex rounded-[14px] overflow-hidden border border-bezel-panel"
       style={{
         left: 'calc(var(--sidebar-offset, 0px) + 16px)',
         right: 16,
@@ -337,39 +282,8 @@ function BoardFrame({ children }: { children?: ReactNode }) {
   );
 }
 
-/** Footer strip: which repo the board is showing, and the way to re-ask. */
-function BoardFooter({ slug, busy, onRefresh }: { slug: string; busy: boolean; onRefresh: () => void }) {
-  return (
-    <div
-      className="shrink-0 flex items-center gap-2 px-3 py-1.5"
-      style={{ borderTop: '1px solid color-mix(in srgb, var(--color-ink) 6%, transparent)' }}
-    >
-      <span className="flex items-center gap-1.5 min-w-0 text-text-tertiary [&>svg]:w-3.5 [&>svg]:h-3.5 [&>svg]:shrink-0">
-        <Icon name="git-pull-request" />
-        <span className="font-mono text-[11px] truncate min-w-0">{slug}</span>
-      </span>
-      <span className="ml-auto shrink-0">
-        <RefreshButton busy={busy} onClick={onRefresh} />
-      </span>
-    </div>
-  );
-}
-
-/** A failed fetch, with the retry the user would otherwise hunt for. */
-function ErrorNotice({ message, onRetry }: { message: string; onRetry: () => void }) {
-  return (
-    <div className="flex-1 flex flex-col items-center justify-center gap-3 text-center px-6">
-      <Icon name="warning" className="w-6 h-6 text-vcs-modified opacity-70" />
-      <p className="text-sm text-text-secondary max-w-sm">{message}</p>
-      <button
-        type="button"
-        className="font-mono text-[11px] text-text-secondary hover:text-text-primary underline underline-offset-2"
-        onClick={onRetry}
-      >
-        Try again
-      </button>
-    </div>
-  );
+function Centred({ children }: { children: ReactNode }) {
+  return <div className="flex-1 min-w-0 flex flex-col items-center justify-center gap-3 px-6">{children}</div>;
 }
 
 /**
@@ -378,18 +292,20 @@ function ErrorNotice({ message, onRetry }: { message: string; onRetry: () => voi
  */
 function UnavailableNotice({ message, reason }: { message?: string; reason?: string }) {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center gap-3 px-6 text-center">
+    <Centred>
       <Icon name="git-pull-request" className="w-8 h-8 text-text-tertiary opacity-40" />
-      <p className="text-sm text-text-secondary max-w-sm">{message ?? 'GitHub is not available for this project.'}</p>
+      <p className="text-[15px] text-text-secondary max-w-sm text-center">
+        {message ?? 'GitHub is not available for this project.'}
+      </p>
       {reason === 'gh-missing' && (
         <button
           type="button"
-          className="font-mono text-[11px] text-text-secondary hover:text-text-primary underline underline-offset-2"
+          className="btn-secondary btn-compact"
           onClick={() => void window.api.openExternal('https://cli.github.com')}
         >
           Get the GitHub CLI
         </button>
       )}
-    </div>
+    </Centred>
   );
 }

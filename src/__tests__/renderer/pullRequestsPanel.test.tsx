@@ -123,7 +123,7 @@ describe('PullRequestsPanel', () => {
     spy.mockRestore();
   });
 
-  test('renders the three inbox sections, and only those with rows', async () => {
+  test('groups the sidebar and only shows groups with rows', async () => {
     vi.mocked(window.api.github.inbox).mockResolvedValue(
       inbox({
         needsReview: [pr({ number: 1, title: 'Needs a look', reviewRequested: true })],
@@ -136,7 +136,7 @@ describe('PullRequestsPanel', () => {
     expect(await screen.findByText('Needs a look')).toBeTruthy();
     expect(screen.getByText('Mine to land')).toBeTruthy();
     expect(screen.getByText('Needs your review')).toBeTruthy();
-    expect(screen.getByText('Yours')).toBeTruthy();
+    expect(screen.getByText('Authored')).toBeTruthy();
     // No PRs landed in the third bucket, so its header must not render.
     expect(screen.queryByText('Everything else')).toBeNull();
   });
@@ -186,12 +186,7 @@ describe('PullRequestsPanel', () => {
     expect(await screen.findByText('Back after retry')).toBeTruthy();
   });
 
-  /**
-   * A linked issue used to render a dead "task #7" label: it announced that
-   * work existed and gave you no way to reach it, which left the screen with
-   * nothing to offer once a task had been made.
-   */
-  test('a linked issue row opens the task it tracks', async () => {
+  test('a linked issue row names the task tracking it', async () => {
     vi.mocked(window.api.github.issues).mockResolvedValue([
       {
         number: 12,
@@ -213,12 +208,9 @@ describe('PullRequestsPanel', () => {
     render(<PullRequestsPanel projectPath={PROJECT} />);
     fireEvent.click(await screen.findByText('Issues'));
 
-    // The sub-row carries the task's number and where it has got to, so the
-    // card reports the state of the work rather than merely that work exists.
-    expect(await screen.findByText('T-7')).toBeTruthy();
-    expect(screen.getByText('In Progress')).toBeTruthy();
-
-    fireEvent.click(screen.getByText('T-7'));
+    // The row names the task and is the way into it. A bare number announced
+    // that work existed and gave you no way to reach it.
+    fireEvent.click(await screen.findByText('T-7'));
     await waitFor(() => {
       expect(activateTask).toHaveBeenCalledWith({ path: PROJECT, name: 'Alpha' }, linked);
     });
@@ -226,28 +218,25 @@ describe('PullRequestsPanel', () => {
 
   /**
    * A pull request checked out locally and the task holding that checkout are
-   * the same work. The card hangs the task off itself the way a kanban card
-   * hangs off its terminals, and opening it does what the switcher would do.
+   * the same work, so the summary offers the way into it rather than only
+   * naming it.
    */
-  test('a pull request checked out as a task opens it from the card', async () => {
+  test('a checked-out pull request opens its task from the summary', async () => {
     vi.mocked(window.api.github.inbox).mockResolvedValue(
       inbox({ mine: [pr({ number: 42, title: 'Half landed', isMine: true })] }),
     );
+    vi.mocked(window.api.github.pullRequest).mockResolvedValue(detail({ number: 42, isMine: true }));
     const linked = task({ taskNumber: 3, githubPrNumber: 42, status: 'in_review' });
     useProjectStore.setState({ tasks: [linked] });
 
     render(<PullRequestsPanel projectPath={PROJECT} />);
+    fireEvent.click(await screen.findByText('Half landed'));
 
-    expect(await screen.findByText('T-3')).toBeTruthy();
-    expect(screen.getByText('In Review')).toBeTruthy();
-
-    fireEvent.click(screen.getByText('T-3'));
+    expect(await screen.findByText('In Review')).toBeTruthy();
+    fireEvent.click(screen.getAllByText('T-3')[0]);
     await waitFor(() => {
       expect(activateTask).toHaveBeenCalledWith({ path: PROJECT, name: 'Alpha' }, linked);
     });
-    // The sub-row is the target, not the card underneath it: opening the task
-    // must not also open the pull request behind it.
-    expect(window.api.github.pullRequest).not.toHaveBeenCalled();
   });
 
   test('an unlinked issue offers to create a task', async () => {
@@ -283,7 +272,7 @@ describe('PullRequestsPanel', () => {
    * meant navigating. One document means every part is present at once and the
    * action bar is never somewhere the reader is not.
    */
-  test('the rail switches parts and the actions stay put', async () => {
+  test('the panes switch and the actions stay in the chrome', async () => {
     vi.mocked(window.api.github.inbox).mockResolvedValue(
       inbox({ needsReview: [pr({ number: 5, title: 'Please look', reviewRequested: true })] }),
     );
@@ -292,17 +281,17 @@ describe('PullRequestsPanel', () => {
     render(<PullRequestsPanel projectPath={PROJECT} />);
     fireEvent.click(await screen.findByText('Please look'));
 
-    // Each part is named once, in the rail, and shown one at a time.
-    for (const part of ['Description', 'Checks', 'Discussion', 'All files']) {
-      expect(await screen.findByText(part)).toBeTruthy();
+    // Lands on the summary: what the change claims to be, before the diff.
+    for (const pane of ['Summary', 'Timeline', 'Code']) {
+      expect(await screen.findByText(pane)).toBeTruthy();
     }
-
-    // Opens on the diff: reviewing is what this surface is for.
-    expect(screen.queryByText('why this change exists')).toBeNull();
-    fireEvent.click(screen.getByText('Description'));
     expect(await screen.findByText('why this change exists')).toBeTruthy();
+    expect(screen.getByText('Ready for review')).toBeTruthy();
 
-    // Both terminal actions are on the bar, whatever part you are reading.
+    // The list stays put behind it, so the queue is never lost.
+    expect(screen.getByText('Please look')).toBeTruthy();
+
+    // Both terminal actions sit in the chrome, reachable from every pane.
     expect(screen.getByText('Review')).toBeTruthy();
     expect(screen.getByText('Merge')).toBeTruthy();
 
@@ -338,8 +327,7 @@ describe('PullRequestsPanel', () => {
     render(<PullRequestsPanel projectPath={PROJECT} />);
     fireEvent.click(await screen.findByText('Landed already'));
 
-    expect(await screen.findByText('Description')).toBeTruthy();
-    expect(screen.getByText('Review')).toBeTruthy();
+    expect(await screen.findByText('Review')).toBeTruthy();
     expect(screen.queryByText('Merge')).toBeNull();
   });
 

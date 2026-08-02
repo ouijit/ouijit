@@ -5,8 +5,10 @@ import { Icon } from '../terminal/Icon';
 
 interface ActionMenuProps {
   label: string;
-  /** `primary` is the accent pill; there is at most one of those on the bar. */
+  /** `primary` is the accent pill; there is at most one of those in the bar. */
   variant?: 'primary' | 'secondary';
+  /** Accent text on a quiet ground — for a count, not an action. */
+  tone?: 'accent';
   disabled?: boolean;
   title?: string;
   children: (close: () => void) => ReactNode;
@@ -21,13 +23,13 @@ interface ActionMenuProps {
  * choices that are not equal, and spent the app's two status colours — which
  * everywhere else mean added and removed — on chrome.
  */
-export function ActionMenu({ label, variant = 'secondary', disabled, title, children }: ActionMenuProps) {
+export function ActionMenu({ label, variant = 'secondary', tone, disabled, title, children }: ActionMenuProps) {
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
   const { refs, floatingStyles } = useFloating({
-    placement: 'top-end',
+    placement: 'bottom-end',
     strategy: 'fixed',
     middleware: [offset(6), flip(), shift({ padding: 8 })],
     whileElementsMounted: autoUpdate,
@@ -69,7 +71,11 @@ export function ActionMenu({ label, variant = 'secondary', disabled, title, chil
         title={title}
         aria-expanded={open}
         aria-haspopup="menu"
-        className={`${variant === 'primary' ? 'btn-primary' : 'btn-secondary'} btn-compact`}
+        className={
+          tone === 'accent'
+            ? 'inline-flex items-center gap-1.5 px-3 h-7 rounded-full text-[13px] font-medium text-accent hover:bg-ink/[0.06] transition-colors duration-150'
+            : `${variant === 'primary' ? 'btn-primary' : 'btn-secondary'} btn-compact`
+        }
         onClick={() => setOpen(!open)}
       >
         {label}
@@ -85,7 +91,7 @@ export function ActionMenu({ label, variant = 'secondary', disabled, title, chil
             }}
             role="menu"
             style={{ ...floatingStyles, background: 'var(--color-terminal-bg)', boxShadow: 'var(--shadow-menu)' }}
-            className="w-64 border border-bezel rounded-[12px] z-[1000] p-1"
+            className="w-72 max-h-[22rem] overflow-y-auto border border-bezel rounded-[12px] z-[1000] p-1"
           >
             {children(() => setOpen(false))}
           </div>,
