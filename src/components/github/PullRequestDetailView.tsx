@@ -7,6 +7,7 @@ import { PullRequestConversation } from './PullRequestConversation';
 import { PullRequestFiles } from './PullRequestFiles';
 import { PullRequestChecks } from './PullRequestChecks';
 import { MergeBox } from './MergeBox';
+import { RefreshButton } from './RefreshButton';
 import { checksBadge, labelStyle, reviewDecisionLabel, since, stateBadge } from './prFormat';
 
 interface PullRequestDetailViewProps {
@@ -30,6 +31,7 @@ export function PullRequestDetailView({
   onPromoteToTask,
 }: PullRequestDetailViewProps) {
   const tab = useGithubStore((s) => s.tab);
+  const detailLoading = useGithubStore((s) => s.detailLoading);
   const badge = stateBadge(detail);
   const checks = checksBadge(detail.checksState);
   const decision = reviewDecisionLabel(detail.reviewDecision);
@@ -101,14 +103,10 @@ export function PullRequestDetailView({
                 Check out as task
               </button>
             )}
-            <button
-              type="button"
-              className="w-7 h-7 rounded-md text-text-secondary flex items-center justify-center hover:bg-ink/10 hover:text-text-primary transition-all duration-150"
-              title="Refresh"
+            <RefreshButton
+              busy={detailLoading}
               onClick={() => void useGithubStore.getState().reloadDetail(projectPath)}
-            >
-              <Icon name="arrows-clockwise" />
-            </button>
+            />
             <button
               type="button"
               className="w-7 h-7 rounded-md text-text-secondary flex items-center justify-center hover:bg-ink/10 hover:text-text-primary transition-all duration-150"

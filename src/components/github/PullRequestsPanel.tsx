@@ -5,6 +5,8 @@ import { Icon } from '../terminal/Icon';
 import { PullRequestList } from './PullRequestList';
 import { PullRequestDetailView } from './PullRequestDetailView';
 import { IssueList } from './IssueList';
+import { RefreshButton } from './RefreshButton';
+import { Loading } from './Loading';
 
 interface PullRequestsPanelProps {
   projectPath: string;
@@ -144,18 +146,18 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
     return <UnavailableNotice message={availability.message} reason={availability.reason} />;
   }
 
+  // The availability probe is a `gh --version` plus an auth check, normally a
+  // few hundred milliseconds. A message would flash; an empty pane doesn't.
   if (!availability) {
-    return (
-      <div className="flex flex-col h-full items-center justify-center text-text-tertiary">
-        Checking GitHub availability…
-      </div>
-    );
+    return <div className="flex flex-col h-full" style={{ marginLeft: 'var(--sidebar-offset, 0px)' }} />;
   }
 
   if (view === 'detail') {
     if (detailLoading && !detail) {
       return (
-        <div className="flex flex-col h-full items-center justify-center text-text-tertiary">Loading pull request…</div>
+        <div className="flex flex-col h-full" style={{ marginLeft: 'var(--sidebar-offset, 0px)' }}>
+          <Loading label="Loading pull request" />
+        </div>
       );
     }
     if (detailError) {
@@ -212,25 +214,30 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
             <span className="text-xs text-text-tertiary font-mono">
               {availability.identity ? `${availability.identity.owner}/${availability.identity.repo}` : ''}
             </span>
-            <button
-              type="button"
-              className="ml-auto w-7 h-7 rounded-md text-text-secondary flex items-center justify-center hover:bg-ink/10 hover:text-text-primary transition-all duration-150"
-              title="Refresh"
-              onClick={() => {
-                const store = useGithubStore.getState();
-                if (view === 'issues') void store.loadIssues(projectPath);
-                else void store.loadInbox(projectPath);
-              }}
-            >
-              <Icon name="arrows-clockwise" />
-            </button>
+            <span className="ml-auto">
+              <RefreshButton
+                busy={view === 'issues' ? issuesLoading : inboxLoading}
+                onClick={() => {
+                  const store = useGithubStore.getState();
+                  if (view === 'issues') void store.loadIssues(projectPath);
+                  else void store.loadInbox(projectPath);
+                }}
+              />
+            </span>
           </div>
 
+          {/* The spinner shows only on a first load. A refresh keeps the rows
+              already on screen: swapping them for a spinner would throw away
+              what the user is reading to announce a re-fetch the spinning
+              refresh button already reports. */}
           {view === 'issues' ? (
-            issuesLoading && issues.length === 0 ? (
-              <p className="text-sm text-text-tertiary">Loading issues…</p>
-            ) : issuesError ? (
-              <p className="text-sm text-vcs-deleted">{issuesError}</p>
+            issuesError ? (
+              <ErrorNotice
+                message={issuesError}
+                onRetry={() => void useGithubStore.getState().loadIssues(projectPath)}
+              />
+            ) : issuesLoading && issues.length === 0 ? (
+              <Loading label="Loading issues" />
             ) : (
               <IssueList
                 issues={issues}
@@ -239,11 +246,11 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
                 onOpenExternal={(url) => void window.api.openExternal(url)}
               />
             )
-          ) : inboxLoading && !inbox ? (
-            <p className="text-sm text-text-tertiary">Loading pull requests…</p>
           ) : inboxError ? (
-            <p className="text-sm text-vcs-deleted">{inboxError}</p>
-          ) : inbox ? (
+            <ErrorNotice message={inboxError} onRetry={() => void useGithubStore.getState().loadInbox(projectPath)} />
+          ) : !inbox ? (
+            <Loading label="Loading pull requests" />
+          ) : (
             <PullRequestList
               needsReview={inbox.needsReview}
               mine={inbox.mine}
@@ -252,9 +259,26 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
               linkedTasks={inbox.linkedTasks}
               onOpen={(n) => void useGithubStore.getState().openPullRequest(projectPath, n)}
             />
-          ) : null}
+          )}
         </div>
       </div>
+    </div>
+  );
+}
+
+/** A failed fetch, with the retry the user would otherwise hunt for. */
+function ErrorNotice({ message, onRetry }: { message: string; onRetry: () => void }) {
+  return (
+    <div className="flex-1 flex flex-col items-center justify-center gap-3 text-center px-6">
+      <Icon name="warning" className="w-6 h-6 text-vcs-modified opacity-70" />
+      <p className="text-sm text-text-secondary max-w-sm">{message}</p>
+      <button
+        type="button"
+        className="text-xs px-3 py-1.5 rounded-md bg-ink/[0.08] text-text-primary hover:bg-ink/[0.12]"
+        onClick={onRetry}
+      >
+        Try again
+      </button>
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach, vi } from 'vitest';
-import { render, screen, waitFor, cleanup } from '@testing-library/react';
+import { render, screen, waitFor, cleanup, fireEvent } from '@testing-library/react';
 
 vi.mock('electron-log/renderer', () => ({
   default: { scope: () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }) },
@@ -117,6 +117,51 @@ describe('PullRequestsPanel', () => {
     expect(screen.getByText('Yours')).toBeTruthy();
     // No PRs landed in the third bucket, so its header must not render.
     expect(screen.queryByText('Everything else')).toBeNull();
+  });
+
+  test('shows skeleton rows on a first load, not on a refresh', async () => {
+    let release!: (value: InboxResult) => void;
+    vi.mocked(window.api.github.inbox).mockReturnValueOnce(
+      new Promise<InboxResult>((resolve) => {
+        release = resolve;
+      }),
+    );
+
+    render(<PullRequestsPanel projectPath={PROJECT} />);
+
+    // First load: nothing to show yet, so placeholders stand in.
+    expect(await screen.findByLabelText('Loading pull requests')).toBeTruthy();
+
+    release(inbox({ mine: [pr({ number: 3, title: 'Already on screen', isMine: true })] }));
+    expect(await screen.findByText('Already on screen')).toBeTruthy();
+    expect(screen.queryByLabelText('Loading pull requests')).toBeNull();
+
+    // Refresh: the row the user is reading stays put. Replacing it with
+    // placeholders would throw away content to announce a re-fetch that the
+    // spinning button already reports.
+    vi.mocked(window.api.github.inbox).mockReturnValueOnce(new Promise<InboxResult>(() => {}));
+    fireEvent.click(screen.getByTitle('Refresh'));
+
+    await waitFor(() => {
+      expect(window.api.github.inbox).toHaveBeenCalledTimes(2);
+    });
+    expect(screen.getByText('Already on screen')).toBeTruthy();
+    expect(screen.queryByLabelText('Loading pull requests')).toBeNull();
+  });
+
+  test('offers a retry when the fetch fails', async () => {
+    vi.mocked(window.api.github.inbox).mockRejectedValueOnce(new Error('Could not reach GitHub.'));
+
+    render(<PullRequestsPanel projectPath={PROJECT} />);
+
+    expect(await screen.findByText('Could not reach GitHub.')).toBeTruthy();
+
+    vi.mocked(window.api.github.inbox).mockResolvedValueOnce(
+      inbox({ mine: [pr({ number: 4, title: 'Back after retry', isMine: true })] }),
+    );
+    fireEvent.click(screen.getByText('Try again'));
+
+    expect(await screen.findByText('Back after retry')).toBeTruthy();
   });
 
   test('surfaces why the panel is empty instead of rendering blank', async () => {
