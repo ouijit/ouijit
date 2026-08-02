@@ -195,8 +195,11 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
         className="pointer-events-none h-6 shrink-0 -mb-6 relative z-10"
         style={{ background: 'linear-gradient(to bottom, var(--color-background), transparent)' }}
       />
-      <div className="flex-1 overflow-y-auto">
-        <div className="px-6 pt-4 pb-16 max-w-3xl">
+      <div className="flex-1 min-h-0 overflow-y-auto">
+        {/* Full width, unlike the settings panel this shell is modelled on:
+            that caps its column because it is a form, whereas these rows carry
+            a title, branch, author, and stats that want the room. */}
+        <div className="flex flex-col min-h-full px-6 pt-4 pb-16">
           <div className="flex items-center gap-3 mb-4">
             <div className="flex items-center h-8 bg-background-secondary glass-bevel relative border border-bezel rounded-[12px] overflow-hidden">
               <TabButton active={view === 'inbox'} onClick={() => useGithubStore.getState().setView('inbox')}>
