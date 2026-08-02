@@ -55,22 +55,18 @@ export function DraftCommentBox({
         <button
           type="button"
           disabled={!body.trim() || busy}
-          className="text-xs px-2.5 py-1 rounded-md bg-accent text-accent-ink disabled:opacity-40"
+          className="btn-primary btn-compact"
           onClick={() => void save()}
         >
           {draft ? 'Update comment' : 'Add comment'}
         </button>
-        <button
-          type="button"
-          className="text-xs px-2.5 py-1 rounded-md text-text-tertiary hover:text-text-primary"
-          onClick={onCancel}
-        >
+        <button type="button" className="btn-secondary btn-compact" onClick={onCancel}>
           Cancel
         </button>
         {onDiscard && (
           <button
             type="button"
-            className="text-xs px-2.5 py-1 rounded-md text-vcs-deleted/80 hover:text-vcs-deleted ml-auto"
+            className="ml-auto text-[13px] text-text-tertiary hover:text-error transition-colors duration-100"
             onClick={() => void onDiscard()}
           >
             Discard

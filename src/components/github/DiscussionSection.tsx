@@ -5,7 +5,7 @@ import { useProjectStore } from '../../stores/projectStore';
 import { Icon } from '../terminal/Icon';
 import { Markdown } from './Markdown';
 import { ReviewThreadView } from './ReviewThreadView';
-import { BandHeader, Entry, SECTION_IDS } from './DocumentSection';
+import { Band, Entry, SECTION_IDS } from './DocumentSection';
 import { reviewStateLabel, since } from './prFormat';
 
 interface DiscussionSectionProps {
@@ -73,11 +73,18 @@ export function DiscussionSection({ projectPath, detail }: DiscussionSectionProp
   };
 
   const entries = detail.timeline.length + unresolved.length;
+  const summary =
+    unresolved.length > 0
+      ? `${unresolved.length} unresolved`
+      : entries === 0
+        ? 'nothing said yet'
+        : `${entries} ${entries === 1 ? 'entry' : 'entries'}`;
 
   return (
-    <section id={SECTION_IDS.discussion}>
-      <BandHeader label="Discussion" count={entries} />
-
+    // Open only when something is outstanding. A long timeline sitting above
+    // the diff is exactly the cost of reading a pull request as one document,
+    // and it is only worth paying when there is an obligation in it.
+    <Band id={SECTION_IDS.discussion} label="Discussion" summary={summary} defaultOpen={unresolved.length > 0}>
       {unresolved.map((thread) => (
         <ReviewThreadView key={thread.id} thread={thread} onReply={replyToThread} onToggleResolved={toggleResolved} />
       ))}
@@ -86,8 +93,7 @@ export function DiscussionSection({ projectPath, detail }: DiscussionSectionProp
         item.kind === 'event' ? (
           <div
             key={item.id}
-            className="flex items-center gap-1.5 px-3 py-2 font-mono text-[10px] leading-tight text-text-secondary"
-            style={{ borderBottom: '1px solid color-mix(in srgb, var(--color-ink) 6%, transparent)' }}
+            className="flex items-center gap-1.5 px-3 py-1.5 font-mono text-[10px] leading-tight text-text-secondary"
           >
             <Icon name="git-commit" className="w-3 h-3 shrink-0 opacity-60" />
             <span>{item.author}</span>
@@ -107,19 +113,7 @@ export function DiscussionSection({ projectPath, detail }: DiscussionSectionProp
         ),
       )}
 
-      {entries === 0 && (
-        <div
-          className="px-3 py-4 font-mono text-[11px] text-text-tertiary"
-          style={{ borderBottom: '1px solid color-mix(in srgb, var(--color-ink) 6%, transparent)' }}
-        >
-          Nothing said yet
-        </div>
-      )}
-
-      <div
-        className="px-3 py-3 flex flex-col items-start gap-2"
-        style={{ borderBottom: '1px solid color-mix(in srgb, var(--color-ink) 6%, transparent)' }}
-      >
+      <div className="px-3 py-2.5 flex flex-col items-start gap-2">
         <textarea
           rows={2}
           value={comment}
@@ -135,7 +129,7 @@ export function DiscussionSection({ projectPath, detail }: DiscussionSectionProp
         {comment.trim() && (
           <button
             type="button"
-            className="btn-secondary btn-compact"
+            className="btn-primary btn-compact"
             disabled={posting}
             onClick={() => void postComment()}
           >
@@ -143,6 +137,6 @@ export function DiscussionSection({ projectPath, detail }: DiscussionSectionProp
           </button>
         )}
       </div>
-    </section>
+    </Band>
   );
 }

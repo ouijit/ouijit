@@ -4,8 +4,8 @@ import type { TaskWithWorkspace } from '../../types';
 import { useGithubStore } from '../../stores/githubStore';
 import { Icon } from '../terminal/Icon';
 import { STATUS_LABELS } from '../kanban/taskMenu';
-import { BoardChip, BoardLabels, NumberChip } from './BoardCard';
-import { BandHeader, Entry, SECTION_IDS, type SectionId } from './DocumentSection';
+import { BoardChip, BoardLabels } from './BoardCard';
+import { Band, Entry, SECTION_IDS, type SectionId } from './DocumentSection';
 import { ChecksSection } from './ChecksSection';
 import { DiscussionSection } from './DiscussionSection';
 import { FilesSection, type FilesSectionHandle } from './FilesSection';
@@ -13,7 +13,7 @@ import { PullRequestRail } from './PullRequestRail';
 import { ReviewActionBar } from './ReviewActionBar';
 import { Markdown } from './Markdown';
 import { RefreshButton } from './RefreshButton';
-import { checksBadge, reviewDecisionLabel, since, stateBadge } from './prFormat';
+import { reviewDecisionLabel, since, stateBadge } from './prFormat';
 
 interface PullRequestDetailViewProps {
   projectPath: string;
@@ -39,12 +39,6 @@ const DECISION_TONE: Record<string, string> = {
   'Review required': 'var(--color-text-tertiary)',
 };
 
-const CHECK_TONE: Record<string, string> = {
-  'check-circle': 'var(--color-vcs-added)',
-  'x-circle': 'var(--color-vcs-deleted)',
-  clock: 'var(--color-vcs-modified)',
-};
-
 /**
  * One pull request as one document.
  *
@@ -65,7 +59,6 @@ export function PullRequestDetailView({
   const detailLoading = useGithubStore((s) => s.detailLoading);
   const files = useGithubStore((s) => s.files);
   const badge = stateBadge(detail);
-  const checks = checksBadge(detail.checksState);
   const decision = reviewDecisionLabel(detail.reviewDecision);
 
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -185,15 +178,14 @@ export function PullRequestDetailView({
           </div>
         </div>
 
-        <div className="flex items-center gap-1 flex-wrap mt-1.5 pl-8">
-          <NumberChip number={detail.number} />
+        {/* One line, not three. The state is worth a chip; the rest is text.
+            Checks used to have a chip here too, which said the same thing the
+            Checks band says a few pixels below it. */}
+        <div className="flex items-center gap-2 flex-wrap mt-1.5 pl-8 font-mono text-[10px] leading-tight text-text-secondary">
           <BoardChip tone={STATE_TONE[badge.label]}>{badge.label}</BoardChip>
           {decision && <BoardChip tone={DECISION_TONE[decision.label]}>{decision.label}</BoardChip>}
-          {checks && <BoardChip tone={CHECK_TONE[checks.icon]}>{checks.label}</BoardChip>}
-          <BoardLabels labels={detail.labels} max={4} />
-        </div>
-
-        <div className="flex items-center gap-1.5 flex-wrap mt-1.5 pl-8 font-mono text-[10px] leading-tight text-text-secondary">
+          <span>#{detail.number}</span>
+          <span className="opacity-30">·</span>
           <span>{detail.author}</span>
           <span className="opacity-30">·</span>
           <span>
@@ -201,6 +193,7 @@ export function PullRequestDetailView({
           </span>
           <span className="opacity-30">·</span>
           <span>{since(detail.updatedAt)}</span>
+          {detail.labels.length > 0 && <BoardLabels labels={detail.labels} max={3} />}
         </div>
       </header>
 
@@ -214,16 +207,16 @@ export function PullRequestDetailView({
         />
 
         <div ref={scrollRef} className="flex-1 min-w-0 overflow-y-auto">
-          <section id={SECTION_IDS.description}>
-            <BandHeader label="Description" />
+          <Band
+            id={SECTION_IDS.description}
+            label="Description"
+            summary={detail.body.trim() ? undefined : 'none written'}
+            defaultOpen={detail.body.trim().length > 0}
+          >
             <Entry author={detail.author} action={`opened this ${since(detail.createdAt)}`}>
-              {detail.body.trim() ? (
-                <Markdown body={detail.body} />
-              ) : (
-                <p className="font-mono text-[11px] text-text-tertiary">No description</p>
-              )}
+              <Markdown body={detail.body} />
             </Entry>
-          </section>
+          </Band>
 
           <ChecksSection checks={detail.checks} />
           <DiscussionSection projectPath={projectPath} detail={detail} />

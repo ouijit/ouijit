@@ -7,7 +7,7 @@ import type { DiffLineAnchor } from '../diff/DiffLineView';
 import { Icon } from '../terminal/Icon';
 import { ReviewThreadView } from './ReviewThreadView';
 import { DraftCommentBox } from './DraftCommentBox';
-import { BandHeader, SECTION_IDS } from './DocumentSection';
+import { Band, SECTION_IDS } from './DocumentSection';
 import { Loading } from './Loading';
 
 const DIFF_BATCH_SIZE = 10;
@@ -250,18 +250,17 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
   );
 
   return (
-    <section id={SECTION_IDS.files}>
-      <BandHeader
-        label="Files changed"
-        count={detail.changedFiles}
-        trailing={
-          <span className="font-mono text-[11px]">
-            <span className="text-diff-added">+{detail.additions}</span>{' '}
-            <span className="text-diff-removed">-{detail.deletions}</span>
-          </span>
-        }
-      />
-
+    <Band
+      id={SECTION_IDS.files}
+      label="Files changed"
+      count={detail.changedFiles}
+      summary={
+        <>
+          <span className="text-diff-added">+{detail.additions}</span>{' '}
+          <span className="text-diff-removed">-{detail.deletions}</span>
+        </>
+      }
+    >
       {filesFromGit && (
         <div className="px-3 py-2 font-mono text-[11px] text-text-tertiary border-b border-ink/[0.06]">
           File list read from git — GitHub&apos;s list was unavailable
@@ -300,7 +299,9 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
 
       {orphanThreads.length > 0 && (
         <>
-          <BandHeader label="Threads outside this diff" count={orphanThreads.length} />
+          <div className="px-3 py-2 font-mono text-[11px] text-text-tertiary border-t border-ink/[0.06]">
+            {orphanThreads.length} {orphanThreads.length === 1 ? 'thread' : 'threads'} on lines outside this diff
+          </div>
           {orphanThreads.map((thread) => (
             <ReviewThreadView
               key={thread.id}
@@ -318,6 +319,6 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
           Showing {files.length} of {detail.changedFiles} changed files
         </div>
       )}
-    </section>
+    </Band>
   );
 });

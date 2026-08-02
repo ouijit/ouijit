@@ -298,15 +298,31 @@ describe('PullRequestsPanel', () => {
     }
     expect(screen.getByText('Files changed')).toBeTruthy();
 
-    // Every verdict, and the merge, without leaving the page.
-    expect(screen.getByText('Approve')).toBeTruthy();
-    expect(screen.getByText('Request changes')).toBeTruthy();
-    expect(screen.getByText('Squash and merge')).toBeTruthy();
+    // Both terminal actions are on the bar, whatever part you are reading.
+    expect(screen.getByText('Review')).toBeTruthy();
+    expect(screen.getByText('Merge')).toBeTruthy();
 
+    // The verdicts live in the review menu rather than as three loud buttons.
+    fireEvent.click(screen.getByText('Review'));
+    expect(screen.getByText('Request changes')).toBeTruthy();
     fireEvent.click(screen.getByText('Approve'));
     await waitFor(() => {
       expect(window.api.github.submitReview).toHaveBeenCalledWith(PROJECT, 5, 'APPROVE', '');
     });
+  });
+
+  test('you cannot approve your own pull request', async () => {
+    vi.mocked(window.api.github.inbox).mockResolvedValue(
+      inbox({ mine: [pr({ number: 8, title: 'Mine', isMine: true })] }),
+    );
+    vi.mocked(window.api.github.pullRequest).mockResolvedValue(detail({ number: 8, isMine: true }));
+
+    render(<PullRequestsPanel projectPath={PROJECT} />);
+    fireEvent.click(await screen.findByText('Mine'));
+    fireEvent.click(await screen.findByText('Review'));
+
+    expect(screen.getByText('Approve').closest('button')?.disabled).toBe(true);
+    expect(screen.getByText('Comment').closest('button')?.disabled).toBe(false);
   });
 
   test('a closed pull request offers no merge', async () => {
@@ -319,7 +335,7 @@ describe('PullRequestsPanel', () => {
     fireEvent.click(await screen.findByText('Landed already'));
 
     expect(await screen.findAllByText('Description')).toHaveLength(2);
-    expect(screen.queryByText('Squash and merge')).toBeNull();
+    expect(screen.queryByText('Merge')).toBeNull();
   });
 
   test('surfaces why the panel is empty instead of rendering blank', async () => {

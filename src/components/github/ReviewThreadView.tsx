@@ -120,16 +120,12 @@ export function ReviewThreadView({ thread, onReply, onToggleResolved, inline = f
                 <button
                   type="button"
                   disabled={!body.trim() || busy}
-                  className="text-xs px-2.5 py-1 rounded-md bg-accent text-accent-ink disabled:opacity-40"
+                  className="btn-primary btn-compact"
                   onClick={() => void submitReply()}
                 >
                   {busy ? 'Sending…' : 'Reply'}
                 </button>
-                <button
-                  type="button"
-                  className="text-xs px-2.5 py-1 rounded-md text-text-tertiary hover:text-text-primary"
-                  onClick={() => setReplying(false)}
-                >
+                <button type="button" className="btn-secondary btn-compact" onClick={() => setReplying(false)}>
                   Cancel
                 </button>
               </div>
