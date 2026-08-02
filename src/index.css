@@ -971,14 +971,16 @@ textarea,
 /* ── Expanded composer sheet ──────────────────────────────────────── */
 
 /* Prose settings for the sheet's editor: looser leading than the 240px
-   inline box, and a placeholder that sits on the first line rather than
-   being italicised at this size. */
+   inline box. The placeholder drops the italic the inline editor uses —
+   at this size a full italic line reads as content, not as a prompt.
+   Both classes, to outrank the base rule further down the file. */
 .composer-sheet-editor {
   line-height: 1.7;
 }
 
-.composer-sheet-editor[data-empty='true']::before {
+.kanban-description-editor.composer-sheet-editor[data-empty='true']::before {
   font-style: normal;
+  color: var(--color-text-tertiary);
 }
 
 /* Footer actions. Quieter than a filled pill — this bar is a legend the
@@ -1015,13 +1017,13 @@ textarea,
   color: var(--color-accent);
 }
 
-.composer-sheet-action:disabled {
-  opacity: 0.4;
-}
-
+/* Disabled drops the accent entirely rather than fading it. A washed-out
+   tint on a dark panel reads as a rendering fault; a neutral, legible
+   control reads as "not yet". */
+.composer-sheet-action:disabled,
 .composer-sheet-action:disabled:hover {
-  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
-  color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-ink) 5%, transparent);
+  color: var(--color-text-tertiary);
 }
 
 .composer-sheet-action kbd {
@@ -1031,10 +1033,17 @@ textarea,
   padding: 3px 5px;
   border-radius: 4px;
   background: color-mix(in srgb, var(--color-ink) 8%, transparent);
+  color: inherit;
 }
 
 .composer-sheet-action-primary kbd {
-  background: color-mix(in srgb, var(--color-accent) 18%, transparent);
+  background: color-mix(in srgb, var(--color-accent) 26%, transparent);
+}
+
+/* After the primary rule, so a disabled button's shortcut chip loses the
+   accent with the rest of it instead of sitting there lit up. */
+.composer-sheet-action:disabled kbd {
+  background: color-mix(in srgb, var(--color-ink) 8%, transparent);
 }
 
 /* ── Task description attachment chip ─────────────────────────────── */

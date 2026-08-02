@@ -120,7 +120,9 @@ export function TaskComposerSheet({
     <div
       data-testid="composer-sheet-overlay"
       data-visible={visible}
-      className={`fixed inset-0 z-[10003] flex justify-center px-6 pt-[12vh] pb-10 transition-opacity duration-200 ease-out ${
+      // items-start, so the panel is sized by its content. Stretching it to
+      // the viewport would strand the footer mid-panel with dead space below.
+      className={`fixed inset-0 z-[10003] flex items-start justify-center px-6 pt-[12vh] pb-10 transition-opacity duration-200 ease-out ${
         visible ? 'opacity-100' : 'opacity-0'
       }`}
       style={{ background: 'rgba(0, 0, 0, 0.4)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)' }}
@@ -178,7 +180,9 @@ export function TaskComposerSheet({
           onAttachFile={onAttachFile}
           placeholder={isCreate ? 'Describe the task, or write the prompt to start from…' : 'Add a description…'}
           className="composer-sheet-editor settings-scrollable w-full overflow-y-auto px-8 pt-5 pb-6 font-mono text-[13px] text-text-primary bg-transparent outline-none border-none"
-          style={{ minHeight: '13rem', maxHeight: '46vh', whiteSpace: 'pre-wrap', wordWrap: 'break-word' }}
+          // Floor is a few lines, not a canvas: an empty sheet should look
+          // ready rather than vacant, and it grows from there as you write.
+          style={{ minHeight: '8.5rem', maxHeight: '46vh', whiteSpace: 'pre-wrap', wordWrap: 'break-word' }}
         />
 
         <div className="shrink-0 flex items-center gap-4 px-3 py-2 border-t border-ink/[0.06] text-[11px] text-ink/40">
