@@ -71,6 +71,16 @@ import upload from '@phosphor-icons/core/assets/regular/upload.svg?raw';
 import webhooksLogo from '@phosphor-icons/core/assets/regular/webhooks-logo.svg?raw';
 import x from '@phosphor-icons/core/assets/regular/x.svg?raw';
 import log from 'electron-log/renderer';
+import arrowSquareOut from '@phosphor-icons/core/assets/regular/arrow-square-out.svg?raw';
+import checkCircle from '@phosphor-icons/core/assets/regular/check-circle.svg?raw';
+import circle from '@phosphor-icons/core/assets/regular/circle.svg?raw';
+import circleDashed from '@phosphor-icons/core/assets/regular/circle-dashed.svg?raw';
+import clock from '@phosphor-icons/core/assets/regular/clock.svg?raw';
+import gitCommit from '@phosphor-icons/core/assets/regular/git-commit.svg?raw';
+import gitPullRequest from '@phosphor-icons/core/assets/regular/git-pull-request.svg?raw';
+import minusCircle from '@phosphor-icons/core/assets/regular/minus-circle.svg?raw';
+import warning from '@phosphor-icons/core/assets/regular/warning.svg?raw';
+import xCircle from '@phosphor-icons/core/assets/regular/x-circle.svg?raw';
 
 const iconsLog = log.scope('icons');
 
@@ -141,6 +151,16 @@ export const iconMap: Record<string, string> = {
   upload: upload,
   'webhooks-logo': webhooksLogo,
   x: x,
+  'arrow-square-out': arrowSquareOut,
+  'check-circle': checkCircle,
+  circle: circle,
+  'circle-dashed': circleDashed,
+  clock: clock,
+  'git-commit': gitCommit,
+  'git-pull-request': gitPullRequest,
+  'minus-circle': minusCircle,
+  warning: warning,
+  'x-circle': xCircle,
 };
 
 /**
