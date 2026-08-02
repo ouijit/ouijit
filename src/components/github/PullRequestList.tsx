@@ -126,8 +126,10 @@ function PullRequestRow({
           )}
         </div>
       </div>
+      {/* Centered on the row, not topped out on its first line — same reason
+          the issue rows center their controls. */}
       {checks && (
-        <span title={checks.label} className="shrink-0 mt-0.5">
+        <span title={checks.label} className="shrink-0 self-center">
           <Icon name={checks.icon} className={`w-4 h-4 ${checks.className}`} />
         </span>
       )}
