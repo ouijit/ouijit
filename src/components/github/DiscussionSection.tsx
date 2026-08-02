@@ -56,7 +56,7 @@ export function DiscussionSection({ projectPath, detail }: DiscussionSectionProp
   const entries = detail.timeline.length + unresolved.length;
 
   return (
-    <div className="max-w-3xl px-8 py-7 flex flex-col gap-6">
+    <div className="w-full max-w-3xl mx-auto px-8 py-7 flex flex-col gap-6">
       {unresolved.length > 0 && (
         <section className="flex flex-col gap-3">
           <h2 className="text-[19px] font-medium text-text-primary pb-2.5 border-b border-ink/[0.08]">

@@ -38,7 +38,7 @@ export function SummaryPane({
   const comments = detail.timeline.filter((i) => i.kind !== 'event').length;
 
   return (
-    <div className="max-w-3xl px-8 py-7 flex flex-col gap-7">
+    <div className="w-full max-w-3xl mx-auto px-8 py-7 flex flex-col gap-7">
       <header className="flex flex-col gap-3">
         <h1 className="text-[28px] leading-tight font-medium text-text-primary text-balance">{detail.title}</h1>
         <div className="flex items-center gap-2 text-[15px] text-text-secondary">
