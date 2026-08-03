@@ -42,6 +42,7 @@ import {
   submitReview,
   replyToReviewComment,
   addIssueComment,
+  deleteComment as deleteCommentApi,
   setThreadResolved,
   createPullRequest,
   mergePullRequest,
@@ -55,6 +56,7 @@ import type {
   PullRequestFile,
   GithubIssue,
   IssueDetail,
+  CommentKind,
   ReviewDraft,
   ReviewEvent,
   MergeMethod,
@@ -420,6 +422,27 @@ export async function commentOnPullRequest(
   try {
     const identity = await requireIdentity(projectPath);
     await addIssueComment(identity, prNumber, body);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: describeError(error) };
+  }
+}
+
+/**
+ * Delete one comment on GitHub.
+ *
+ * Whether the viewer is allowed to is GitHub's call, not ours — the detail
+ * query asks for `viewerCanDelete` per comment and the UI only offers this
+ * where that is true, so a refusal here means the answer changed underneath us.
+ */
+export async function deleteComment(
+  projectPath: string,
+  kind: CommentKind,
+  commentId: number,
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const identity = await requireIdentity(projectPath);
+    await deleteCommentApi(identity, kind, commentId);
     return { success: true };
   } catch (error) {
     return { success: false, error: describeError(error) };

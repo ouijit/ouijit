@@ -499,6 +499,68 @@ describe('PullRequestsPanel', () => {
     expect(await screen.findByText('why this change exists, revised')).toBeTruthy();
   });
 
+  /**
+   * Deleting asks first, and is only offered where GitHub says the viewer may
+   * do it — `viewerCanDelete` rather than a login comparison, which would miss
+   * a maintainer's right to delete someone else's comment.
+   */
+  test('a comment can be opened on github and deleted, once confirmed', async () => {
+    vi.mocked(window.api.github.inbox).mockResolvedValue(
+      inbox({ needsReview: [pr({ number: 5, title: 'Please look' })] }),
+    );
+    vi.mocked(window.api.github.pullRequest).mockResolvedValue(
+      detail({
+        timeline: [
+          {
+            id: 'c1',
+            kind: 'comment',
+            author: 'me',
+            body: 'mine to delete',
+            createdAt: '2026-07-02T00:00:00.000Z',
+            url: 'https://github.com/o/r/pull/5#issuecomment-1',
+            databaseId: 991,
+            viewerCanDelete: true,
+          },
+          {
+            id: 'c2',
+            kind: 'comment',
+            author: 'someone',
+            body: 'not mine',
+            createdAt: '2026-07-02T00:00:00.000Z',
+            url: 'https://github.com/o/r/pull/5#issuecomment-2',
+            databaseId: 992,
+            viewerCanDelete: false,
+          },
+        ],
+      }),
+    );
+
+    render(<PullRequestsPanel projectPath={PROJECT} />);
+    fireEvent.click(await screen.findByText('Please look'));
+    expect(await screen.findByText('mine to delete')).toBeTruthy();
+
+    // Both comments link out; only the deletable one offers deletion.
+    expect(screen.getAllByText('View on GitHub')).toHaveLength(2);
+    expect(screen.getAllByText('Delete')).toHaveLength(1);
+
+    fireEvent.click(screen.getAllByText('View on GitHub')[0]);
+    expect(window.api.openExternal).toHaveBeenCalledWith('https://github.com/o/r/pull/5#issuecomment-1');
+
+    // Asking first: the click arms the confirmation rather than deleting.
+    fireEvent.click(screen.getByText('Delete'));
+    expect(await screen.findByText('Delete this comment?')).toBeTruthy();
+    expect(window.api.github.deleteComment).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByText('Cancel'));
+    expect(screen.queryByText('Delete this comment?')).toBeNull();
+
+    fireEvent.click(screen.getByText('Delete'));
+    fireEvent.click(await screen.findByText('Delete'));
+    await waitFor(() => {
+      expect(window.api.github.deleteComment).toHaveBeenCalledWith(PROJECT, 'issue', 991);
+    });
+  });
+
   test('you cannot approve your own pull request', async () => {
     vi.mocked(window.api.github.inbox).mockResolvedValue(
       inbox({ mine: [pr({ number: 8, title: 'Mine', isMine: true })] }),

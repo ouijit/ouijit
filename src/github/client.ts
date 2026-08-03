@@ -194,22 +194,34 @@ export interface RestOptions extends ExecOptions {
  * `repos/o/r/pulls/12/files`.
  */
 export async function ghRest<T>(path: string, options: RestOptions = {}): Promise<T> {
-  const args = ['api', path];
-  if (options.method && options.method !== 'GET') args.push('--method', options.method);
-  if (options.paginate) args.push('--paginate', '--slurp');
-  if (options.body !== undefined) args.push('--input', '-');
-
-  const raw = await runGh(args, {
-    ...options,
-    input: options.body !== undefined ? JSON.stringify(options.body) : options.input,
-  });
-
-  const parsed = parseJson<T>(raw, path);
+  const parsed = parseJson<T>(await ghRestRaw(path, options), path);
   // --slurp wraps each page in an outer array; flatten so callers see one list.
   if (options.paginate && Array.isArray(parsed)) {
     return (parsed as unknown[]).flat() as T;
   }
   return parsed;
+}
+
+/**
+ * A REST call whose success is the absence of an error.
+ *
+ * A DELETE answers 204 with an empty body, which `ghRest` would reject as
+ * unparseable — the empty response is the success, not a malformed one.
+ */
+export async function ghRestVoid(path: string, options: RestOptions = {}): Promise<void> {
+  await ghRestRaw(path, options);
+}
+
+async function ghRestRaw(path: string, options: RestOptions): Promise<string> {
+  const args = ['api', path];
+  if (options.method && options.method !== 'GET') args.push('--method', options.method);
+  if (options.paginate) args.push('--paginate', '--slurp');
+  if (options.body !== undefined) args.push('--input', '-');
+
+  return runGh(args, {
+    ...options,
+    input: options.body !== undefined ? JSON.stringify(options.body) : options.input,
+  });
 }
 
 // ── GraphQL ──────────────────────────────────────────────────────────

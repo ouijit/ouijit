@@ -87,6 +87,7 @@ query($owner: String!, $repo: String!, $number: Int!) {
               url
               line
               originalLine
+              viewerCanDelete
               author { login avatarUrl }
             }
           }
@@ -98,7 +99,7 @@ query($owner: String!, $repo: String!, $number: Int!) {
       ) {
         nodes {
           __typename
-          ... on IssueComment { id body createdAt url author { login avatarUrl } }
+          ... on IssueComment { id databaseId body createdAt url viewerCanDelete author { login avatarUrl } }
           ... on PullRequestReview { id body state createdAt url author { login avatarUrl } }
           ... on MergedEvent { id createdAt url actor { login avatarUrl } }
           ... on ClosedEvent { id createdAt actor { login avatarUrl } }
@@ -167,7 +168,7 @@ query($owner: String!, $repo: String!, $number: Int!) {
       timelineItems(last: 60, itemTypes: [ISSUE_COMMENT, CLOSED_EVENT, REOPENED_EVENT]) {
         nodes {
           __typename
-          ... on IssueComment { id body createdAt url author { login avatarUrl } }
+          ... on IssueComment { id databaseId body createdAt url viewerCanDelete author { login avatarUrl } }
           ... on ClosedEvent { id createdAt actor { login avatarUrl } }
           ... on ReopenedEvent { id createdAt actor { login avatarUrl } }
         }

@@ -86,8 +86,10 @@ export interface PullRequestFile {
 export interface ReviewComment {
   /** GraphQL node id — needed for replies and resolution. */
   id: string;
-  /** REST id, used for `in_reply_to`. */
+  /** REST id, used for `in_reply_to` and for deletion. */
   databaseId: number | null;
+  /** GitHub's own answer on whether this viewer may delete it. */
+  viewerCanDelete: boolean;
   author: string;
   authorAvatarUrl?: string;
   body: string;
@@ -123,6 +125,10 @@ export interface TimelineItem {
   body: string;
   createdAt: string;
   url?: string;
+  /** REST id of a comment, which is what deleting one takes. */
+  databaseId?: number | null;
+  /** GitHub's own answer on whether this viewer may delete it. */
+  viewerCanDelete?: boolean;
   /** For reviews: APPROVED / CHANGES_REQUESTED / COMMENTED / DISMISSED. */
   reviewState?: string;
   /** For events: 'merged', 'closed', 'reopened', … */
@@ -225,6 +231,12 @@ export interface ReviewDraft {
   /** REST comment id the reply hangs off (GitHub needs the numeric id). */
   replyToCommentId?: number;
 }
+
+/**
+ * Which endpoint deletes a comment. A conversation comment lives on the issue
+ * thread; one anchored to a line lives on the pull request's review comments.
+ */
+export type CommentKind = 'issue' | 'review';
 
 export type ReviewEvent = 'APPROVE' | 'REQUEST_CHANGES' | 'COMMENT';
 

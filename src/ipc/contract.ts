@@ -48,6 +48,7 @@ import type {
   PullRequestDetail,
   GithubIssue,
   IssueDetail,
+  CommentKind,
   ReviewDraft,
   ReviewEvent,
   MergeMethod,
@@ -286,6 +287,10 @@ export interface IpcInvokeContract {
   };
   'github:reply-to-thread': {
     args: [projectPath: string, prNumber: number, commentId: number, body: string];
+    return: { success: boolean; error?: string };
+  };
+  'github:delete-comment': {
+    args: [projectPath: string, kind: CommentKind, commentId: number];
     return: { success: boolean; error?: string };
   };
   'github:resolve-thread': {

@@ -67,6 +67,7 @@ interface GithubStoreActions {
   closeDetail: () => void;
   reloadDetail: (projectPath: string) => Promise<void>;
   reloadIssue: (projectPath: string) => Promise<void>;
+  reloadOpen: (projectPath: string) => Promise<void>;
 
   loadDrafts: (projectPath: string, prNumber: number) => Promise<void>;
   setComposingAt: (anchor: GithubStoreState['composingAt']) => void;
@@ -301,6 +302,16 @@ export const useGithubStore = create<GithubStore>()((set, get) => ({
       set({ issueLoading: false, ...(get().issue ? {} : { issueError: message(error) }) });
       if (get().issue) githubLog.warn('issue refresh failed', { number, error: message(error) });
     }
+  },
+
+  /**
+   * Refresh whatever is open. For anything that can act on both — deleting a
+   * comment reaches the same endpoint from either view — so the caller doesn't
+   * have to know which of the two it is looking at.
+   */
+  reloadOpen: async (projectPath) => {
+    const store = get();
+    await (store.activeIssue != null ? store.reloadIssue(projectPath) : store.reloadDetail(projectPath));
   },
 
   loadDrafts: async (projectPath, prNumber) => {

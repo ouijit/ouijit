@@ -20,7 +20,7 @@ import type {
   CliPanelResponse,
 } from './types';
 import type { CaptureNavigatePayload } from './capture/types';
-import type { ReviewEvent, MergeMethod, GithubChangedPayload } from './github/types';
+import type { CommentKind, ReviewEvent, MergeMethod, GithubChangedPayload } from './github/types';
 import type { SaveDraftInput } from './github/service';
 
 // ── Typed IPC helpers ───────────────────────────────────────────────────────
@@ -343,6 +343,8 @@ contextBridge.exposeInMainWorld('api', {
       typedInvoke('github:comment', projectPath, prNumber, body),
     replyToThread: (projectPath: string, prNumber: number, commentId: number, body: string) =>
       typedInvoke('github:reply-to-thread', projectPath, prNumber, commentId, body),
+    deleteComment: (projectPath: string, kind: CommentKind, commentId: number) =>
+      typedInvoke('github:delete-comment', projectPath, kind, commentId),
     resolveThread: (projectPath: string, threadId: string, resolved: boolean) =>
       typedInvoke('github:resolve-thread', projectPath, threadId, resolved),
     createPr: (

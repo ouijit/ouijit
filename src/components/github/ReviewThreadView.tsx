@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { ReviewThread } from '../../github/types';
 import { Icon } from '../terminal/Icon';
 import { Avatar } from './Avatar';
+import { CommentActions } from './CommentActions';
 import { Markdown } from './Markdown';
 import { since } from './prFormat';
 
@@ -94,13 +95,21 @@ export function ReviewThreadView({ thread, onReply, onToggleResolved, inline = f
   );
 
   const comments = thread.comments.map((comment) => (
-    <div key={comment.id} className="flex gap-3">
+    <div key={comment.id} className="group/comment flex gap-3">
       <Avatar login={comment.author} url={comment.authorAvatarUrl} size={inline ? 20 : 26} className="mt-0.5" />
       <div className="flex-1 min-w-0 flex flex-col gap-1">
         <div className="flex items-center gap-2 text-[13px] text-text-tertiary">
           <span className={inline ? 'text-text-secondary' : 'text-text-primary text-[15px]'}>{comment.author}</span>
           <span className="opacity-50">·</span>
-          <span>{since(comment.createdAt)}</span>
+          <span className="flex-1 min-w-0 truncate">{since(comment.createdAt)}</span>
+          <CommentActions
+            url={comment.url}
+            deletable={
+              comment.viewerCanDelete && comment.databaseId != null
+                ? { kind: 'review', commentId: comment.databaseId }
+                : undefined
+            }
+          />
         </div>
         <Markdown body={comment.body} />
       </div>

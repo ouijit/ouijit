@@ -18,6 +18,7 @@ import {
   submitPullRequestReview,
   commentOnPullRequest,
   replyToThread,
+  deleteComment,
   resolveThread,
   createPullRequestForTask,
   mergePr,
@@ -65,6 +66,7 @@ export function registerGithubHandlers(): void {
   typedHandle('github:reply-to-thread', (projectPath, prNumber, commentId, body) =>
     replyToThread(projectPath, prNumber, commentId, body),
   );
+  typedHandle('github:delete-comment', (projectPath, kind, commentId) => deleteComment(projectPath, kind, commentId));
   typedHandle('github:resolve-thread', (projectPath, threadId, resolved) =>
     resolveThread(projectPath, threadId, resolved),
   );

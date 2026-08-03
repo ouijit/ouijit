@@ -6,7 +6,7 @@
  * — and git supplies the bytes. Nothing here fetches a `patch`.
  */
 
-import { ghRest, ghGraphql, runGh, GithubError } from './client';
+import { ghRest, ghRestVoid, ghGraphql, runGh, GithubError } from './client';
 import { repoSlug } from './types';
 import {
   PULL_REQUEST_LIST_QUERY,
@@ -32,6 +32,7 @@ import type {
   MergeStatus,
   GithubIssue,
   IssueDetail,
+  CommentKind,
   ReviewEvent,
   MergeMethod,
   PullRequestState,
@@ -91,6 +92,7 @@ interface RawThread {
 interface RawReviewComment {
   id: string;
   databaseId: number | null;
+  viewerCanDelete: boolean;
   body: string;
   createdAt: string;
   url: string;
@@ -102,6 +104,8 @@ interface RawReviewComment {
 interface RawTimelineNode {
   __typename: string;
   id: string;
+  databaseId?: number | null;
+  viewerCanDelete?: boolean;
   body?: string;
   state?: string;
   createdAt: string;
@@ -252,6 +256,7 @@ function mapComment(raw: RawReviewComment, side: 'LEFT' | 'RIGHT'): ReviewCommen
   return {
     id: raw.id,
     databaseId: raw.databaseId,
+    viewerCanDelete: raw.viewerCanDelete,
     author: actorLogin(raw.author),
     authorAvatarUrl: raw.author?.avatarUrl,
     body: raw.body,
@@ -289,7 +294,13 @@ function mapTimelineItem(raw: RawTimelineNode): TimelineItem | null {
   };
   switch (raw.__typename) {
     case 'IssueComment':
-      return { ...base, kind: 'comment', body: raw.body ?? '' };
+      return {
+        ...base,
+        kind: 'comment',
+        body: raw.body ?? '',
+        databaseId: raw.databaseId ?? null,
+        viewerCanDelete: raw.viewerCanDelete ?? false,
+      };
     case 'PullRequestReview':
       // A review with no body and no state worth showing is just the envelope
       // around inline comments, which the threads panel already renders.
@@ -635,6 +646,19 @@ export async function addIssueComment(identity: RepoIdentity, number: number, bo
     body: { body },
     identity,
   });
+}
+
+/**
+ * Delete a comment.
+ *
+ * Two endpoints for what reads as one thing: a conversation comment belongs to
+ * the issue thread (a pull request has one of those too), and a comment
+ * anchored to a line belongs to the pull request's review comments. GitHub does
+ * not accept either id at the other's path.
+ */
+export async function deleteComment(identity: RepoIdentity, kind: CommentKind, commentId: number): Promise<void> {
+  const path = kind === 'review' ? 'pulls/comments' : 'issues/comments';
+  await ghRestVoid(`repos/${repoSlug(identity)}/${path}/${commentId}`, { method: 'DELETE', identity });
 }
 
 export async function setThreadResolved(identity: RepoIdentity, threadId: string, resolved: boolean): Promise<void> {

@@ -52,6 +52,7 @@ export type {
   MergeStatus,
   GithubIssue,
   IssueDetail,
+  CommentKind,
   GithubChangedPayload,
   CheckRun,
   TimelineItem,
@@ -65,6 +66,7 @@ import type {
   PullRequestDetail,
   GithubIssue,
   IssueDetail,
+  CommentKind,
   ReviewDraft,
   ReviewEvent,
   MergeMethod,
@@ -693,6 +695,7 @@ export interface GithubAPI {
   ): Promise<GithubActionResult & { url?: string }>;
   comment(projectPath: string, prNumber: number, body: string): Promise<GithubActionResult>;
   replyToThread(projectPath: string, prNumber: number, commentId: number, body: string): Promise<GithubActionResult>;
+  deleteComment(projectPath: string, kind: CommentKind, commentId: number): Promise<GithubActionResult>;
   resolveThread(projectPath: string, threadId: string, resolved: boolean): Promise<GithubActionResult>;
   createPr(
     projectPath: string,

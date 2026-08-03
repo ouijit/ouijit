@@ -175,6 +175,7 @@ const mockApi = {
     submitReview: vi.fn().mockResolvedValue({ success: true }),
     comment: vi.fn().mockResolvedValue({ success: true }),
     replyToThread: vi.fn().mockResolvedValue({ success: true }),
+    deleteComment: vi.fn().mockResolvedValue({ success: true }),
     resolveThread: vi.fn().mockResolvedValue({ success: true }),
     createPr: vi.fn().mockResolvedValue({ success: true }),
     mergePr: vi.fn().mockResolvedValue({ success: true }),
