@@ -76,6 +76,7 @@ import checkCircle from '@phosphor-icons/core/assets/regular/check-circle.svg?ra
 import circle from '@phosphor-icons/core/assets/regular/circle.svg?raw';
 import circleDashed from '@phosphor-icons/core/assets/regular/circle-dashed.svg?raw';
 import userCircle from '@phosphor-icons/core/assets/regular/user-circle.svg?raw';
+import users from '@phosphor-icons/core/assets/regular/users.svg?raw';
 import arrowUp from '@phosphor-icons/core/assets/regular/arrow-up.svg?raw';
 import chatCircle from '@phosphor-icons/core/assets/regular/chat-circle.svg?raw';
 import clock from '@phosphor-icons/core/assets/regular/clock.svg?raw';
@@ -159,6 +160,7 @@ export const iconMap: Record<string, string> = {
   circle: circle,
   'circle-dashed': circleDashed,
   'user-circle': userCircle,
+  users: users,
   'arrow-up': arrowUp,
   'chat-circle': chatCircle,
   clock: clock,

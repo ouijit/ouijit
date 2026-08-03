@@ -6,6 +6,7 @@ import { activateTask, taskOpenAction, TASK_OPEN_LABEL } from '../navigation';
 import { Icon } from '../terminal/Icon';
 import { PullRequestSidebar } from './PullRequestSidebar';
 import { PullRequestDetailView } from './PullRequestDetailView';
+import { IssueDetailView } from './IssueDetailView';
 import type { TaskWithWorkspace } from '../../types';
 import { RefreshButton } from './RefreshButton';
 import { Loading } from './Loading';
@@ -28,6 +29,7 @@ interface PullRequestsPanelProps {
 export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
   const availability = useGithubStore((s) => s.availability);
   const view = useGithubStore((s) => s.view);
+  const listView = useGithubStore((s) => s.listView);
   const inbox = useGithubStore((s) => s.inbox);
   const inboxLoading = useGithubStore((s) => s.inboxLoading);
   const inboxError = useGithubStore((s) => s.inboxError);
@@ -38,6 +40,10 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
   const detail = useGithubStore((s) => s.detail);
   const detailLoading = useGithubStore((s) => s.detailLoading);
   const detailError = useGithubStore((s) => s.detailError);
+  const activeIssue = useGithubStore((s) => s.activeIssue);
+  const issue = useGithubStore((s) => s.issue);
+  const issueLoading = useGithubStore((s) => s.issueLoading);
+  const issueDetailError = useGithubStore((s) => s.issueError);
 
   useEffect(() => {
     const store = useGithubStore.getState();
@@ -70,7 +76,9 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
       if (payload.projectPath !== projectPath) return;
       const store = useGithubStore.getState();
       void store.loadInbox(projectPath);
+      void store.loadIssues(projectPath);
       if (store.activeNumber != null) void store.reloadDetail(projectPath);
+      if (store.activeIssue != null) void store.reloadIssue(projectPath);
     });
     const onFocus = () => {
       if (document.hidden) return;
@@ -89,7 +97,7 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
     const handler = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return;
       const store = useGithubStore.getState();
-      if (store.activeNumber != null) {
+      if (store.activeNumber != null || store.activeIssue != null) {
         store.closeDetail();
         return;
       }
@@ -179,6 +187,7 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
   }, [projectPath]);
 
   const linkedTask = detail ? prTasks[detail.number] : undefined;
+  const linkedIssueTask = issue ? issueTasks[issue.number] : undefined;
 
   if (availability && !available) {
     return (
@@ -192,7 +201,8 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
   // few hundred milliseconds. A message would flash; an empty frame doesn't.
   if (!availability) return <Frame />;
 
-  const error = view === 'issues' ? issuesError : inboxError;
+  const showing = view === 'detail' ? listView : view;
+  const error = showing === 'issues' ? issuesError : inboxError;
 
   return (
     <Frame>
@@ -204,12 +214,13 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
         draftCounts={inbox?.draftCounts ?? {}}
         prTasks={prTasks}
         issueTasks={issueTasks}
-        showing={view === 'issues' ? 'issues' : 'pulls'}
+        showing={showing === 'issues' ? 'issues' : 'pulls'}
         activeNumber={activeNumber}
-        loading={view === 'issues' ? issuesLoading : inboxLoading}
-        onShow={(showing) => useGithubStore.getState().setView(showing === 'issues' ? 'issues' : 'inbox')}
+        activeIssue={activeIssue}
+        loading={showing === 'issues' ? issuesLoading : inboxLoading}
+        onShow={(next) => useGithubStore.getState().setView(next === 'issues' ? 'issues' : 'inbox')}
         onOpenPullRequest={(n) => void useGithubStore.getState().openPullRequest(projectPath, n)}
-        onOpenIssue={(issue) => void window.api.openExternal(issue.url)}
+        onOpenIssue={(row) => void useGithubStore.getState().openIssue(projectPath, row.number)}
         onCreateTaskFromIssue={(n) => void createTaskFromIssue(n)}
         onOpenTask={openLinkedTask}
       />
@@ -222,9 +233,9 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
             Try again
           </button>
         </Centred>
-      ) : detailError ? (
+      ) : detailError || issueDetailError ? (
         <Centred>
-          <p className="text-[15px] text-text-secondary">{detailError}</p>
+          <p className="text-[15px] text-text-secondary">{detailError ?? issueDetailError}</p>
           <button
             type="button"
             className="btn-secondary btn-compact"
@@ -233,6 +244,15 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
             Close
           </button>
         </Centred>
+      ) : issue ? (
+        <IssueDetailView
+          projectPath={projectPath}
+          issue={issue}
+          linkedTask={linkedIssueTask}
+          openTaskLabel={openTaskLabel}
+          onOpenTask={openLinkedTask}
+          onCreateTask={() => void createTaskFromIssue(issue.number)}
+        />
       ) : detail ? (
         <PullRequestDetailView
           projectPath={projectPath}
@@ -244,6 +264,8 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
         />
       ) : detailLoading ? (
         <Loading label="Loading pull request" />
+      ) : issueLoading ? (
+        <Loading label="Loading issue" />
       ) : !inbox && inboxLoading ? (
         <Loading label="Loading pull requests" />
       ) : (

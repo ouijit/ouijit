@@ -12,6 +12,7 @@ import {
   PULL_REQUEST_LIST_QUERY,
   PULL_REQUEST_DETAIL_QUERY,
   ISSUE_LIST_QUERY,
+  ISSUE_DETAIL_QUERY,
   RESOLVE_THREAD_MUTATION,
   UNRESOLVE_THREAD_MUTATION,
 } from './queries';
@@ -30,6 +31,7 @@ import type {
   ReviewDecision,
   MergeStatus,
   GithubIssue,
+  IssueDetail,
   ReviewEvent,
   MergeMethod,
   PullRequestState,
@@ -119,6 +121,21 @@ interface RawCheckContext {
   targetUrl?: string | null;
 }
 
+interface RawIssue {
+  number: number;
+  title: string;
+  body: string;
+  state: string;
+  stateReason: string | null;
+  url: string;
+  createdAt: string;
+  updatedAt: string;
+  author: RawActor | null;
+  comments: { totalCount: number } | null;
+  labels: RawLabelConnection | null;
+  assignees: { nodes: Array<{ login: string } | null> | null } | null;
+}
+
 interface RawDetail extends RawSummary {
   body: string;
   headRefOid: string;
@@ -199,6 +216,26 @@ function mapSummary(raw: RawSummary, viewer: string, reviewRequested: Set<number
     labels: mapLabels(raw.labels),
     isMine: author === viewer,
     reviewRequested: reviewRequested.has(raw.number),
+  };
+}
+
+function mapIssue(raw: RawIssue, viewer: string): GithubIssue {
+  const assignees = (raw.assignees?.nodes ?? []).map((a) => a?.login).filter((l): l is string => l != null);
+  return {
+    number: raw.number,
+    title: raw.title,
+    body: raw.body ?? '',
+    state: raw.state === 'CLOSED' ? 'closed' : 'open',
+    stateReason: raw.stateReason,
+    author: actorLogin(raw.author),
+    authorAvatarUrl: raw.author?.avatarUrl,
+    createdAt: raw.createdAt,
+    updatedAt: raw.updatedAt,
+    url: raw.url,
+    labels: mapLabels(raw.labels),
+    assignees,
+    isMine: assignees.includes(viewer),
+    commentCount: raw.comments?.totalCount ?? 0,
   };
 }
 
@@ -463,44 +500,43 @@ function mapRestFile(file: RestFile): PullRequestFile {
 export async function fetchIssues(identity: RepoIdentity): Promise<GithubIssue[]> {
   const data = await ghGraphql<{
     viewer: { login: string };
-    repository: {
-      issues: {
-        nodes: Array<{
-          number: number;
-          title: string;
-          body: string;
-          state: string;
-          url: string;
-          createdAt: string;
-          updatedAt: string;
-          author: RawActor | null;
-          comments: { totalCount: number } | null;
-          labels: RawLabelConnection | null;
-          assignees: { nodes: Array<{ login: string } | null> | null } | null;
-        } | null> | null;
-      };
-    } | null;
+    repository: { issues: { nodes: Array<RawIssue | null> | null } } | null;
   }>(ISSUE_LIST_QUERY, { owner: identity.owner, repo: identity.repo, first: ISSUE_LIST_LIMIT }, { identity });
 
   if (!data.repository) throw new GithubError('not-found', `Repository ${repoSlug(identity)} not found`);
-  const viewer = data.viewer.login;
 
   return (data.repository.issues.nodes ?? [])
-    .filter((n): n is NonNullable<typeof n> => n != null)
-    .map((n) => ({
-      number: n.number,
-      title: n.title,
-      body: n.body ?? '',
-      state: n.state === 'CLOSED' ? ('closed' as const) : ('open' as const),
-      author: actorLogin(n.author),
-      authorAvatarUrl: n.author?.avatarUrl,
-      createdAt: n.createdAt,
-      updatedAt: n.updatedAt,
-      url: n.url,
-      labels: mapLabels(n.labels),
-      isMine: (n.assignees?.nodes ?? []).some((a) => a?.login === viewer),
-      commentCount: n.comments?.totalCount ?? 0,
-    }));
+    .filter((n): n is RawIssue => n != null)
+    .map((n) => mapIssue(n, data.viewer.login));
+}
+
+/**
+ * One issue by number, with its thread.
+ *
+ * Deliberately not "find it in the list": the list is open issues only, so
+ * looking one up there fails for anything closed, anything past the limit, and
+ * anything that changed state since the last fetch.
+ */
+export async function fetchIssue(identity: RepoIdentity, number: number): Promise<IssueDetail> {
+  const data = await ghGraphql<{
+    viewer: { login: string; avatarUrl?: string };
+    repository: {
+      issue: (RawIssue & { timelineItems: { nodes: Array<RawTimelineNode | null> | null } | null }) | null;
+    } | null;
+  }>(ISSUE_DETAIL_QUERY, { owner: identity.owner, repo: identity.repo, number }, { identity });
+
+  const issue = data.repository?.issue;
+  if (!issue) throw new GithubError('not-found', `Issue #${number} not found`);
+
+  return {
+    ...mapIssue(issue, data.viewer.login),
+    viewer: data.viewer.login,
+    viewerAvatarUrl: data.viewer.avatarUrl,
+    timeline: (issue.timelineItems?.nodes ?? [])
+      .filter((t): t is RawTimelineNode => t != null)
+      .map(mapTimelineItem)
+      .filter((t): t is TimelineItem => t != null),
+  };
 }
 
 /** The open PR whose head is `branch`, or null. Drives auto-detect on task load. */

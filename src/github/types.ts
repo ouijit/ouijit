@@ -171,15 +171,32 @@ export interface GithubIssue {
   title: string;
   body: string;
   state: 'open' | 'closed';
+  /** Why a closed issue was closed: COMPLETED, NOT_PLANNED, or null. */
+  stateReason: string | null;
   author: string;
   authorAvatarUrl?: string;
   createdAt: string;
   updatedAt: string;
   url: string;
   labels: PullRequestLabel[];
+  assignees: string[];
   /** Assigned to the authenticated user. */
   isMine: boolean;
   commentCount: number;
+}
+
+/**
+ * One issue, with everything said about it.
+ *
+ * Same shape as a pull request detail minus the code: the panel renders the two
+ * through the same chrome, and an issue you can only open in a browser is an
+ * issue you stop reading in the app.
+ */
+export interface IssueDetail extends GithubIssue {
+  timeline: TimelineItem[];
+  /** Who fetched this, so a comment box can show their face without the inbox. */
+  viewer: string;
+  viewerAvatarUrl?: string;
 }
 
 /** The three groups the inbox renders, computed main-side so both surfaces agree. */

@@ -51,6 +51,7 @@ export type {
   MergeMethod,
   MergeStatus,
   GithubIssue,
+  IssueDetail,
   GithubChangedPayload,
   CheckRun,
   TimelineItem,
@@ -63,6 +64,7 @@ import type {
   GithubAvailability,
   PullRequestDetail,
   GithubIssue,
+  IssueDetail,
   ReviewDraft,
   ReviewEvent,
   MergeMethod,
@@ -673,6 +675,7 @@ export interface GithubAPI {
     oldPath?: string,
   ): Promise<PrFileVersions>;
   issues(projectPath: string): Promise<GithubIssue[]>;
+  issue(projectPath: string, number: number): Promise<IssueDetail>;
   refresh(projectPath: string): Promise<void>;
 
   linkTaskPr(projectPath: string, taskNumber: number, prNumber: number | null): Promise<GithubActionResult>;

@@ -8,6 +8,7 @@ import {
   getPullRequestFileDiff,
   getPullRequestFileVersions,
   getIssues,
+  getIssue,
   linkTaskToPr,
   linkTaskToIssue,
   detectPullRequestForTask,
@@ -43,6 +44,7 @@ export function registerGithubHandlers(): void {
     getPullRequestFileVersions(projectPath, number, baseSha, headSha, filePath, oldPath),
   );
   typedHandle('github:issues', (projectPath) => getIssues(projectPath));
+  typedHandle('github:issue', (projectPath, number) => getIssue(projectPath, number));
   typedHandle('github:refresh', (projectPath) => refreshGithubNow(projectPath));
 
   typedHandle('github:link-task-pr', (projectPath, taskNumber, prNumber) =>

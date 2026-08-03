@@ -1,11 +1,18 @@
 import { create } from 'zustand';
 import log from 'electron-log/renderer';
-import type { GithubAvailability, PullRequestDetail, PullRequestFile, GithubIssue, ReviewDraft } from '../github/types';
+import type {
+  GithubAvailability,
+  PullRequestDetail,
+  PullRequestFile,
+  GithubIssue,
+  IssueDetail,
+  ReviewDraft,
+} from '../github/types';
 import type { InboxResult } from '../github/service';
 
 const githubLog = log.scope('github');
 
-/** Which pane the panel is showing: the lists, or one pull request. */
+/** Which pane the panel is showing: a list, or the thing you opened. */
 export type GithubView = 'inbox' | 'issues' | 'detail';
 
 interface GithubStoreState {
@@ -22,6 +29,12 @@ interface GithubStoreState {
   issues: GithubIssue[];
   issuesLoading: boolean;
   issuesError: string | null;
+
+  /** Issue currently open in the detail view. Exclusive with `activeNumber`. */
+  activeIssue: number | null;
+  issue: IssueDetail | null;
+  issueLoading: boolean;
+  issueError: string | null;
 
   /** PR currently open in the detail view. */
   activeNumber: number | null;
@@ -50,8 +63,10 @@ interface GithubStoreActions {
   loadIssues: (projectPath: string) => Promise<void>;
 
   openPullRequest: (projectPath: string, number: number) => Promise<void>;
+  openIssue: (projectPath: string, number: number) => Promise<void>;
   closeDetail: () => void;
   reloadDetail: (projectPath: string) => Promise<void>;
+  reloadIssue: (projectPath: string) => Promise<void>;
 
   loadDrafts: (projectPath: string, prNumber: number) => Promise<void>;
   setComposingAt: (anchor: GithubStoreState['composingAt']) => void;
@@ -73,6 +88,10 @@ const INITIAL: GithubStoreState = {
   issues: [],
   issuesLoading: false,
   issuesError: null,
+  activeIssue: null,
+  issue: null,
+  issueLoading: false,
+  issueError: null,
   activeNumber: null,
   detail: null,
   detailLoading: false,
@@ -95,6 +114,7 @@ const INITIAL: GithubStoreState = {
 let inboxVersion = 0;
 let detailVersion = 0;
 let issuesVersion = 0;
+let issueVersion = 0;
 
 function message(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -108,7 +128,9 @@ export const useGithubStore = create<GithubStore>()((set, get) => ({
     set({ ...INITIAL, projectPath });
   },
 
-  setView: (view) => set({ view }),
+  // Switching lists while something is open leaves it open — the list is a
+  // sidebar, not a destination — but it does become the list closing returns to.
+  setView: (view) => set(view === 'detail' ? { view } : { view, listView: view }),
 
   loadAvailability: async (projectPath) => {
     try {
@@ -157,6 +179,9 @@ export const useGithubStore = create<GithubStore>()((set, get) => ({
       // then going back should land you on issues, not on pull requests.
       ...(from !== 'detail' ? { listView: from } : {}),
       activeNumber: number,
+      activeIssue: null,
+      issue: null,
+      issueError: null,
       detail: null,
       detailLoading: true,
       detailError: null,
@@ -191,17 +216,68 @@ export const useGithubStore = create<GithubStore>()((set, get) => ({
     }
   },
 
+  /**
+   * Open one issue. Same pane and same chrome as a pull request — an issue you
+   * can only read in a browser is an issue you stop reading here.
+   */
+  openIssue: async (projectPath, number) => {
+    const version = ++issueVersion;
+    detailVersion++;
+    const from = get().view;
+    set({
+      view: 'detail',
+      ...(from !== 'detail' ? { listView: from } : {}),
+      activeIssue: number,
+      issue: null,
+      issueLoading: true,
+      issueError: null,
+      activeNumber: null,
+      detail: null,
+      detailError: null,
+      files: [],
+      drafts: [],
+      composingAt: null,
+    });
+
+    try {
+      const issue = await window.api.github.issue(projectPath, number);
+      if (version !== issueVersion) return;
+      set({ issue, issueLoading: false });
+    } catch (error) {
+      if (version !== issueVersion) return;
+      set({ issueLoading: false, issueError: message(error) });
+    }
+  },
+
   closeDetail: () => {
     // Bump so a detail load still in flight can't reopen the pane behind the
     // user after they've gone back to the list.
     detailVersion++;
-    set({ view: get().listView, activeNumber: null, detail: null, files: [], drafts: [], composingAt: null });
+    issueVersion++;
+    set({
+      view: get().listView,
+      activeNumber: null,
+      detail: null,
+      detailError: null,
+      activeIssue: null,
+      issue: null,
+      issueError: null,
+      files: [],
+      drafts: [],
+      composingAt: null,
+    });
   },
 
   reloadDetail: async (projectPath) => {
     const number = get().activeNumber;
     if (number == null) return;
     await get().openPullRequest(projectPath, number);
+  },
+
+  reloadIssue: async (projectPath) => {
+    const number = get().activeIssue;
+    if (number == null) return;
+    await get().openIssue(projectPath, number);
   },
 
   loadDrafts: async (projectPath, prNumber) => {

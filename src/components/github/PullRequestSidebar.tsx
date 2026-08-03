@@ -17,6 +17,7 @@ interface PullRequestSidebarProps {
   /** Which list is showing, and which row in it is open. */
   showing: 'pulls' | 'issues';
   activeNumber: number | null;
+  activeIssue: number | null;
   onShow: (showing: 'pulls' | 'issues') => void;
   onOpenPullRequest: (number: number) => void;
   onOpenIssue: (issue: GithubIssue) => void;
@@ -43,6 +44,7 @@ export function PullRequestSidebar({
   issueTasks,
   showing,
   activeNumber,
+  activeIssue,
   onShow,
   onOpenPullRequest,
   onOpenIssue,
@@ -121,6 +123,7 @@ export function PullRequestSidebar({
                 key={issue.number}
                 issue={issue}
                 task={issueTasks[issue.number]}
+                active={activeIssue === issue.number}
                 onOpen={() => onOpenIssue(issue)}
                 onOpenTask={onOpenTask}
                 onCreateTask={() => onCreateTaskFromIssue(issue.number)}
@@ -248,18 +251,24 @@ function TaskLink({ task, onOpen }: { task: TaskWithWorkspace; onOpen: (task: Ta
 function IssueRow({
   issue,
   task,
+  active,
   onOpen,
   onOpenTask,
   onCreateTask,
 }: {
   issue: GithubIssue;
   task?: TaskWithWorkspace;
+  active: boolean;
   onOpen: () => void;
   onOpenTask: (task: TaskWithWorkspace) => void;
   onCreateTask: () => void;
 }) {
   return (
-    <div className="group w-full px-4 py-2 flex flex-col gap-0.5 hover:bg-ink/[0.04] transition-colors duration-100">
+    <div
+      className={`group w-full px-4 py-2 flex flex-col gap-0.5 transition-colors duration-100 ${
+        active ? 'bg-ink/[0.07]' : 'hover:bg-ink/[0.04]'
+      }`}
+    >
       <button type="button" className="flex items-baseline gap-2 text-left" onClick={onOpen}>
         <span className="flex-1 min-w-0 truncate text-[15px] text-text-primary">{issue.title}</span>
         <span className="shrink-0 text-[13px] text-text-tertiary">{since(issue.updatedAt)}</span>

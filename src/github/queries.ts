@@ -126,23 +126,51 @@ query($owner: String!, $repo: String!, $number: Int!) {
   }
 }`;
 
+/** Fields every issue needs, whether it is a row in the list or the open one. */
+const ISSUE_FIELDS = `
+  number
+  title
+  body
+  state
+  stateReason
+  url
+  createdAt
+  updatedAt
+  author { login avatarUrl }
+  comments { totalCount }
+  labels(first: 10) { nodes { name color } }
+  assignees(first: 10) { nodes { login } }
+`;
+
 export const ISSUE_LIST_QUERY = `
 query($owner: String!, $repo: String!, $first: Int!) {
   viewer { login avatarUrl }
   repository(owner: $owner, name: $repo) {
     issues(first: $first, states: [OPEN], orderBy: { field: UPDATED_AT, direction: DESC }) {
-      nodes {
-        number
-        title
-        body
-        state
-        url
-        createdAt
-        updatedAt
-        author { login avatarUrl }
-        comments { totalCount }
-        labels(first: 10) { nodes { name color } }
-        assignees(first: 10) { nodes { login } }
+      nodes { ${ISSUE_FIELDS} }
+    }
+  }
+}`;
+
+/**
+ * One issue and its thread.
+ *
+ * Fetched by number rather than found in the list, so a closed issue — or one
+ * past the list's limit — is still readable and still convertible to a task.
+ */
+export const ISSUE_DETAIL_QUERY = `
+query($owner: String!, $repo: String!, $number: Int!) {
+  viewer { login avatarUrl }
+  repository(owner: $owner, name: $repo) {
+    issue(number: $number) {
+      ${ISSUE_FIELDS}
+      timelineItems(last: 60, itemTypes: [ISSUE_COMMENT, CLOSED_EVENT, REOPENED_EVENT]) {
+        nodes {
+          __typename
+          ... on IssueComment { id body createdAt url author { login avatarUrl } }
+          ... on ClosedEvent { id createdAt actor { login avatarUrl } }
+          ... on ReopenedEvent { id createdAt actor { login avatarUrl } }
+        }
       }
     }
   }

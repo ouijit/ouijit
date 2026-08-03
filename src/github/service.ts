@@ -37,6 +37,7 @@ import {
   fetchPullRequest,
   fetchPullRequestFiles,
   fetchIssues,
+  fetchIssue,
   findPullRequestForBranch,
   submitReview,
   replyToReviewComment,
@@ -53,6 +54,7 @@ import type {
   PullRequestDetail,
   PullRequestFile,
   GithubIssue,
+  IssueDetail,
   ReviewDraft,
   ReviewEvent,
   MergeMethod,
@@ -238,6 +240,12 @@ export async function getPullRequestFileVersions(
 export async function getIssues(projectPath: string): Promise<GithubIssue[]> {
   const identity = await requireIdentity(projectPath);
   return fetchIssues(identity);
+}
+
+/** One issue and its thread, fetched by number rather than found in the list. */
+export async function getIssue(projectPath: string, number: number): Promise<IssueDetail> {
+  const identity = await requireIdentity(projectPath);
+  return fetchIssue(identity, number);
 }
 
 // ── Task linking ─────────────────────────────────────────────────────
@@ -538,15 +546,14 @@ export interface TaskFromGithubResult {
  * so a PR opened from it later closes the issue automatically.
  */
 export async function createTaskFromIssue(projectPath: string, issueNumber: number): Promise<TaskFromGithubResult> {
-  let issues: GithubIssue[];
+  // By number, not by searching the open list: a closed issue, or one past the
+  // list limit, is still something you can turn into a task.
+  let issue: IssueDetail;
   try {
-    issues = await getIssues(projectPath);
+    issue = await getIssue(projectPath, issueNumber);
   } catch (error) {
     return { success: false, error: describeError(error) };
   }
-
-  const issue = issues.find((i) => i.number === issueNumber);
-  if (!issue) return { success: false, error: `Issue #${issueNumber} not found among the open issues` };
 
   const existing = (await getProjectTasks(projectPath)).find((t) => t.githubIssueNumber === issueNumber);
   if (existing)

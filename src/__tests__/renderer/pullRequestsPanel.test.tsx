@@ -15,7 +15,7 @@ import { activateTask } from '../../components/navigation';
 import { useAppStore } from '../../stores/appStore';
 import { useGithubStore } from '../../stores/githubStore';
 import { useProjectStore } from '../../stores/projectStore';
-import type { PullRequestDetail, PullRequestSummary, TaskWithWorkspace } from '../../types';
+import type { GithubIssue, IssueDetail, PullRequestDetail, PullRequestSummary, TaskWithWorkspace } from '../../types';
 import type { InboxResult } from '../../github/service';
 
 const PROJECT = '/work/alpha';
@@ -68,6 +68,28 @@ function detail(over: Partial<PullRequestDetail> = {}): PullRequestDetail {
     merge: { mergeable: 'MERGEABLE', blockers: [] },
     ...over,
   };
+}
+
+function issue(over: Partial<GithubIssue> & { number: number }): GithubIssue {
+  return {
+    title: `Issue ${over.number}`,
+    body: 'what is wrong',
+    state: 'open',
+    stateReason: null,
+    author: 'someone',
+    createdAt: '2026-07-01T00:00:00.000Z',
+    updatedAt: '2026-07-02T00:00:00.000Z',
+    url: `https://github.com/o/r/issues/${over.number}`,
+    labels: [],
+    assignees: [],
+    isMine: false,
+    commentCount: 0,
+    ...over,
+  };
+}
+
+function issueDetail(over: Partial<IssueDetail> & { number: number }): IssueDetail {
+  return { ...issue(over), timeline: [], viewer: 'me', ...over };
 }
 
 function task(over: Partial<TaskWithWorkspace> & { taskNumber: number }): TaskWithWorkspace {
@@ -213,21 +235,7 @@ describe('PullRequestsPanel', () => {
   });
 
   test('a linked issue row names the task tracking it', async () => {
-    vi.mocked(window.api.github.issues).mockResolvedValue([
-      {
-        number: 12,
-        title: 'Something is broken',
-        body: 'details',
-        state: 'open',
-        author: 'someone',
-        createdAt: '2026-07-01T00:00:00.000Z',
-        updatedAt: '2026-07-02T00:00:00.000Z',
-        url: 'https://github.com/o/r/issues/12',
-        labels: [],
-        isMine: false,
-        commentCount: 0,
-      },
-    ]);
+    vi.mocked(window.api.github.issues).mockResolvedValue([issue({ number: 12, title: 'Something is broken' })]);
     const linked = task({ taskNumber: 7, githubIssueNumber: 12, status: 'in_progress' });
     useProjectStore.setState({ tasks: [linked] });
 
@@ -239,6 +247,57 @@ describe('PullRequestsPanel', () => {
     fireEvent.click(await screen.findByText('T-7'));
     await waitFor(() => {
       expect(activateTask).toHaveBeenCalledWith({ path: PROJECT, name: 'Alpha' }, linked);
+    });
+  });
+
+  /**
+   * An issue used to open in a browser, which meant leaving the app to read the
+   * thing the work is about. It opens in the same chrome a pull request does.
+   */
+  test('an issue opens in the panel and takes a comment', async () => {
+    vi.mocked(window.api.github.issues).mockResolvedValue([issue({ number: 12, title: 'Something is broken' })]);
+    vi.mocked(window.api.github.issue).mockResolvedValue(
+      issueDetail({
+        number: 12,
+        title: 'Something is broken',
+        body: 'it throws on startup',
+        assignees: ['someone'],
+        timeline: [
+          {
+            id: 'c1',
+            kind: 'comment',
+            author: 'other',
+            body: 'I can reproduce this',
+            createdAt: '2026-07-02T00:00:00.000Z',
+          },
+        ],
+      }),
+    );
+    vi.mocked(window.api.github.comment).mockResolvedValue({ success: true });
+
+    render(<PullRequestsPanel projectPath={PROJECT} />);
+    fireEvent.click(await screen.findByText('Issues'));
+    fireEvent.click(await screen.findByText('Something is broken'));
+
+    await waitFor(() => {
+      expect(window.api.github.issue).toHaveBeenCalledWith(PROJECT, 12);
+    });
+    // Nothing opened a browser: the point is that it reads here.
+    expect(window.api.openExternal).not.toHaveBeenCalled();
+
+    // The body and the thread, not just a count of them.
+    expect(await screen.findByText('it throws on startup')).toBeTruthy();
+    expect(screen.getByText('I can reproduce this')).toBeTruthy();
+    expect(screen.getByText('1 comment')).toBeTruthy();
+
+    // The list stays put behind it, the way it does for a pull request.
+    expect(screen.getAllByText('Something is broken').length).toBeGreaterThan(1);
+
+    const box = screen.getByPlaceholderText('Leave a comment');
+    fireEvent.change(box, { target: { value: 'me too' } });
+    fireEvent.click(screen.getByText('Comment'));
+    await waitFor(() => {
+      expect(window.api.github.comment).toHaveBeenCalledWith(PROJECT, 12, 'me too');
     });
   });
 
@@ -266,21 +325,7 @@ describe('PullRequestsPanel', () => {
   });
 
   test('an unlinked issue offers to create a task', async () => {
-    vi.mocked(window.api.github.issues).mockResolvedValue([
-      {
-        number: 13,
-        title: 'Needs doing',
-        body: '',
-        state: 'open',
-        author: 'someone',
-        createdAt: '2026-07-01T00:00:00.000Z',
-        updatedAt: '2026-07-02T00:00:00.000Z',
-        url: 'https://github.com/o/r/issues/13',
-        labels: [],
-        isMine: false,
-        commentCount: 0,
-      },
-    ]);
+    vi.mocked(window.api.github.issues).mockResolvedValue([issue({ number: 13, title: 'Needs doing', body: '' })]);
     vi.mocked(window.api.github.taskFromIssue).mockResolvedValue({ success: true, taskNumber: 9 });
 
     render(<PullRequestsPanel projectPath={PROJECT} />);

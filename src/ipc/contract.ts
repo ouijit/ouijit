@@ -47,6 +47,7 @@ import type {
   GithubAvailability,
   PullRequestDetail,
   GithubIssue,
+  IssueDetail,
   ReviewDraft,
   ReviewEvent,
   MergeMethod,
@@ -259,6 +260,7 @@ export interface IpcInvokeContract {
     return: PrFileVersions;
   };
   'github:issues': { args: [projectPath: string]; return: GithubIssue[] };
+  'github:issue': { args: [projectPath: string, number: number]; return: IssueDetail };
   'github:refresh': { args: [projectPath: string]; return: void };
 
   'github:link-task-pr': {

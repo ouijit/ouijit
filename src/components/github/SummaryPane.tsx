@@ -1,4 +1,3 @@
-import { useState, type ReactNode } from 'react';
 import type { PullRequestDetail } from '../../github/types';
 import type { TaskWithWorkspace } from '../../types';
 import { Icon } from '../terminal/Icon';
@@ -7,6 +6,7 @@ import { STATUS_LABELS } from '../kanban/taskMenu';
 import { ChecksSection } from './ChecksSection';
 import { Markdown } from './Markdown';
 import { CommentComposer } from './CommentComposer';
+import { Dot, Fact, Section } from './Sections';
 import { TimelineEntries } from './TimelineEntries';
 import { since } from './prFormat';
 
@@ -120,64 +120,10 @@ export function SummaryPane({
       <Section label="Comments" count={comments.length} defaultOpen>
         <div className="flex flex-col gap-5">
           <TimelineEntries items={comments} empty="No comments yet" />
-          <CommentComposer projectPath={projectPath} prNumber={detail.number} />
+          <CommentComposer projectPath={projectPath} number={detail.number} subject="pr" />
         </div>
       </Section>
     </div>
-  );
-}
-
-function Dot() {
-  return <span className="text-text-tertiary opacity-60">·</span>;
-}
-
-/** One label-and-value row. The label column is fixed so the values line up. */
-function Fact({ icon, label, children }: { icon: string; label: string; children: ReactNode }) {
-  return (
-    <div className="flex items-center gap-3">
-      <dt className="flex items-center gap-2 w-[150px] shrink-0 text-[15px] text-text-tertiary">
-        <Icon name={icon} className="w-4 h-4 shrink-0 opacity-70" />
-        {label}
-      </dt>
-      <dd className="flex items-center gap-1.5 min-w-0 flex-wrap text-[15px]">{children}</dd>
-    </div>
-  );
-}
-
-/**
- * A heading, a rule under it, and content. The rule belongs to the heading
- * rather than to the boundary between sections, which is why there is only
- * ever one of them and never two lines meeting.
- */
-function Section({
-  label,
-  count,
-  defaultOpen = false,
-  children,
-}: {
-  label: string;
-  count?: number;
-  defaultOpen?: boolean;
-  children: ReactNode;
-}) {
-  const [open, setOpen] = useState(defaultOpen);
-  return (
-    <section className="flex flex-col">
-      <button
-        type="button"
-        aria-expanded={open}
-        className="group flex items-center gap-2 pb-2.5 border-b border-ink/[0.08] text-left"
-        onClick={() => setOpen(!open)}
-      >
-        <span className="text-[19px] font-medium text-text-primary">{label}</span>
-        <Icon
-          name="caret-right"
-          className={`w-4 h-4 text-text-tertiary transition-transform duration-150 ${open ? 'rotate-90' : ''}`}
-        />
-        {count != null && count > 0 && <span className="text-[15px] text-text-tertiary">{count}</span>}
-      </button>
-      {open && <div className="pt-4">{children}</div>}
-    </section>
   );
 }
 

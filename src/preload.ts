@@ -324,6 +324,7 @@ contextBridge.exposeInMainWorld('api', {
       oldPath?: string,
     ) => typedInvoke('github:pull-request-file-versions', projectPath, number, baseSha, headSha, filePath, oldPath),
     issues: (projectPath: string) => typedInvoke('github:issues', projectPath),
+    issue: (projectPath: string, number: number) => typedInvoke('github:issue', projectPath, number),
     refresh: (projectPath: string) => typedInvoke('github:refresh', projectPath),
 
     linkTaskPr: (projectPath: string, taskNumber: number, prNumber: number | null) =>

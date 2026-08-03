@@ -2,14 +2,13 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { PullRequestDetail, ReviewDraft } from '../../github/types';
 import type { TaskWithWorkspace } from '../../types';
 import { useGithubStore } from '../../stores/githubStore';
-import { Icon } from '../terminal/Icon';
 import { Tab, TabBar } from './Tabs';
+import { DetailChrome } from './DetailChrome';
 import { DiscussionSection } from './DiscussionSection';
 import { FilesSection, type FilesSectionHandle } from './FilesSection';
 import { PullRequestRail } from './PullRequestRail';
 import { ReviewActions } from './ReviewActions';
 import { SummaryPane } from './SummaryPane';
-import { RefreshButton } from './RefreshButton';
 import { stateBadge } from './prFormat';
 
 interface PullRequestDetailViewProps {
@@ -81,54 +80,30 @@ export function PullRequestDetailView({
 
   return (
     <div className="flex flex-col flex-1 min-w-0">
-      <header className="shrink-0 h-12 flex items-center gap-3 px-3 border-b border-ink/[0.06]">
-        <button
-          type="button"
-          className="flex items-center gap-2 min-w-0 max-w-[280px] text-text-secondary hover:text-text-primary transition-colors duration-150"
-          title={detail.title}
-          onClick={() => useGithubStore.getState().closeDetail()}
-        >
-          <Icon name={badge.icon} className={`w-4 h-4 shrink-0 ${STATE_TONE[badge.label] ?? ''}`} />
-          <span className="truncate text-[15px]">{detail.title}</span>
-        </button>
-
-        <TabBar className="mx-auto shrink-0 self-stretch items-center">
-          {PANES.map((p) => (
-            <Tab
-              key={p.id}
-              active={pane === p.id}
-              count={p.id === 'code' ? detail.changedFiles : undefined}
-              onClick={() => setPane(p.id)}
-            >
-              {p.label}
-            </Tab>
-          ))}
-        </TabBar>
-
-        <div className="flex items-center gap-1 shrink-0">
-          <ReviewActions projectPath={projectPath} detail={detail} onJumpToDraft={jumpToDraft} />
-          <RefreshButton
-            busy={detailLoading}
-            onClick={() => void useGithubStore.getState().reloadDetail(projectPath)}
-          />
-          <button
-            type="button"
-            className="w-7 h-7 rounded-md text-text-tertiary flex items-center justify-center hover:bg-ink/[0.08] hover:text-text-primary transition-colors duration-150"
-            title="Open on GitHub"
-            onClick={() => void window.api.openExternal(detail.url)}
-          >
-            <Icon name="arrow-square-out" className="w-4 h-4" />
-          </button>
-          <button
-            type="button"
-            className="w-7 h-7 rounded-md text-text-tertiary flex items-center justify-center hover:bg-ink/[0.08] hover:text-text-primary transition-colors duration-150"
-            title="Close"
-            onClick={() => useGithubStore.getState().closeDetail()}
-          >
-            <Icon name="x" className="w-4 h-4" />
-          </button>
-        </div>
-      </header>
+      <DetailChrome
+        icon={badge.icon}
+        tone={STATE_TONE[badge.label]}
+        title={detail.title}
+        url={detail.url}
+        busy={detailLoading}
+        onRefresh={() => void useGithubStore.getState().reloadDetail(projectPath)}
+        onClose={() => useGithubStore.getState().closeDetail()}
+        actions={<ReviewActions projectPath={projectPath} detail={detail} onJumpToDraft={jumpToDraft} />}
+        tabs={
+          <TabBar className="mx-auto shrink-0 self-stretch items-center">
+            {PANES.map((p) => (
+              <Tab
+                key={p.id}
+                active={pane === p.id}
+                count={p.id === 'code' ? detail.changedFiles : undefined}
+                onClick={() => setPane(p.id)}
+              >
+                {p.label}
+              </Tab>
+            ))}
+          </TabBar>
+        }
+      />
 
       <div className="flex flex-1 min-h-0">
         {pane === 'code' && <PullRequestRail detail={detail} files={files} activePath={file} onSelect={setFile} />}

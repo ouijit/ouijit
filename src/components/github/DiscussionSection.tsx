@@ -82,7 +82,7 @@ export function DiscussionSection({ projectPath, detail }: DiscussionSectionProp
         />
       </section>
 
-      <CommentComposer projectPath={projectPath} prNumber={detail.number} />
+      <CommentComposer projectPath={projectPath} number={detail.number} subject="pr" />
     </div>
   );
 }

@@ -3,19 +3,31 @@ import { useGithubStore } from '../../stores/githubStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { Avatar } from './Avatar';
 
+interface CommentComposerProps {
+  projectPath: string;
+  number: number;
+  /** Which thread the comment lands on, and therefore what to reload after. */
+  subject: 'pr' | 'issue';
+}
+
 /**
- * Leave a comment on the pull request itself.
+ * Leave a comment on a pull request or an issue.
  *
  * A field and a button under it, the way every dialog in this app takes text.
  * The chat-bubble shape this replaced — a capsule with a circular send button
  * inside it — belongs to a messaging app; nothing else here is drawn that way.
+ *
+ * One endpoint serves both: GitHub keeps pull request conversation on the issue
+ * thread, so the only thing that differs is which view is reloaded afterwards.
  */
-export function CommentComposer({ projectPath, prNumber }: { projectPath: string; prNumber: number }) {
-  // From the pull request itself, which is always loaded when this renders.
-  // Reading it off the inbox meant the box showed a placeholder whenever the
-  // list had not been fetched.
-  const viewer = useGithubStore((s) => s.detail?.viewer ?? s.inbox?.viewer);
-  const viewerAvatarUrl = useGithubStore((s) => s.detail?.viewerAvatarUrl ?? s.inbox?.viewerAvatarUrl);
+export function CommentComposer({ projectPath, number, subject }: CommentComposerProps) {
+  // From the thing itself, which is always loaded when this renders. Reading it
+  // off the inbox meant the box showed a placeholder whenever the list had not
+  // been fetched.
+  const viewer = useGithubStore((s) => s.detail?.viewer ?? s.issue?.viewer ?? s.inbox?.viewer);
+  const viewerAvatarUrl = useGithubStore(
+    (s) => s.detail?.viewerAvatarUrl ?? s.issue?.viewerAvatarUrl ?? s.inbox?.viewerAvatarUrl,
+  );
   const [body, setBody] = useState('');
   const [posting, setPosting] = useState(false);
 
@@ -23,13 +35,14 @@ export function CommentComposer({ projectPath, prNumber }: { projectPath: string
     if (!body.trim() || posting) return;
     setPosting(true);
     try {
-      const result = await window.api.github.comment(projectPath, prNumber, body);
+      const result = await window.api.github.comment(projectPath, number, body);
       if (!result.success) {
         useProjectStore.getState().addToast(result.error ?? 'Could not post the comment', 'error');
         return;
       }
       setBody('');
-      await useGithubStore.getState().reloadDetail(projectPath);
+      const store = useGithubStore.getState();
+      await (subject === 'issue' ? store.reloadIssue(projectPath) : store.reloadDetail(projectPath));
     } finally {
       setPosting(false);
     }
