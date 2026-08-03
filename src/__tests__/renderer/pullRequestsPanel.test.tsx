@@ -458,6 +458,47 @@ describe('PullRequestsPanel', () => {
     expect(screen.queryByText('No diff available')).toBeNull();
   });
 
+  /**
+   * Regression: refreshing was implemented as reopening, which nulled the
+   * detail and the file list first. Submitting a review, posting a comment and
+   * every poll tick therefore tore the document down to a spinner and rebuilt
+   * it, which read as the page flashing blank on every write.
+   */
+  test('submitting a review refreshes in place instead of blanking the page', async () => {
+    vi.mocked(window.api.github.inbox).mockResolvedValue(
+      inbox({ needsReview: [pr({ number: 5, title: 'Please look' })] }),
+    );
+
+    let finishReload: ((detail: PullRequestDetail) => void) | undefined;
+    vi.mocked(window.api.github.pullRequest)
+      .mockResolvedValueOnce(detail())
+      .mockImplementationOnce(
+        () =>
+          new Promise<PullRequestDetail>((resolve) => {
+            finishReload = resolve;
+          }),
+      );
+    vi.mocked(window.api.github.submitReview).mockResolvedValue({ success: true });
+
+    render(<PullRequestsPanel projectPath={PROJECT} />);
+    fireEvent.click(await screen.findByText('Please look'));
+    expect(await screen.findByText('why this change exists')).toBeTruthy();
+
+    fireEvent.click(screen.getByText('Review'));
+    fireEvent.click(screen.getByText('Approve'));
+    await waitFor(() => {
+      expect(window.api.github.submitReview).toHaveBeenCalled();
+      expect(window.api.github.pullRequest).toHaveBeenCalledTimes(2);
+    });
+
+    // The refresh is in flight. What you were reading is still on screen.
+    expect(screen.getByText('why this change exists')).toBeTruthy();
+    expect(screen.queryByRole('status', { name: 'Loading pull request' })).toBeNull();
+
+    finishReload?.(detail({ body: 'why this change exists, revised' }));
+    expect(await screen.findByText('why this change exists, revised')).toBeTruthy();
+  });
+
   test('you cannot approve your own pull request', async () => {
     vi.mocked(window.api.github.inbox).mockResolvedValue(
       inbox({ mine: [pr({ number: 8, title: 'Mine', isMine: true })] }),

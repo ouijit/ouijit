@@ -170,8 +170,15 @@ export const useGithubStore = create<GithubStore>()((set, get) => ({
     }
   },
 
+  /**
+   * Open a different pull request: clear what is on screen, then load.
+   *
+   * The clearing is the whole difference between this and `reloadDetail` —
+   * showing the previous pull request's description while the next one loads
+   * would be a lie, and showing this one's while it refreshes is not.
+   */
   openPullRequest: async (projectPath, number) => {
-    const version = ++detailVersion;
+    issueVersion++;
     const from = get().view;
     set({
       view: 'detail',
@@ -191,29 +198,7 @@ export const useGithubStore = create<GithubStore>()((set, get) => ({
       drafts: [],
       composingAt: null,
     });
-
-    try {
-      const detail = await window.api.github.pullRequest(projectPath, number);
-      if (version !== detailVersion) return;
-      set({ detail, detailLoading: false });
-
-      void get().loadDrafts(projectPath, number);
-
-      // Files come second: the document renders the description first, and the
-      // file list needs the base/head SHAs the detail call just returned.
-      set({ filesLoading: true });
-      const result = await window.api.github.pullRequestFiles(projectPath, number, detail.baseSha, detail.headSha);
-      if (version !== detailVersion) return;
-      set({
-        files: result.files,
-        filesLoading: false,
-        filesFromGit: result.fromGit,
-        filesError: result.error ?? null,
-      });
-    } catch (error) {
-      if (version !== detailVersion) return;
-      set({ detailLoading: false, filesLoading: false, detailError: message(error) });
-    }
+    await get().reloadDetail(projectPath);
   },
 
   /**
@@ -221,7 +206,6 @@ export const useGithubStore = create<GithubStore>()((set, get) => ({
    * can only read in a browser is an issue you stop reading here.
    */
   openIssue: async (projectPath, number) => {
-    const version = ++issueVersion;
     detailVersion++;
     const from = get().view;
     set({
@@ -238,15 +222,7 @@ export const useGithubStore = create<GithubStore>()((set, get) => ({
       drafts: [],
       composingAt: null,
     });
-
-    try {
-      const issue = await window.api.github.issue(projectPath, number);
-      if (version !== issueVersion) return;
-      set({ issue, issueLoading: false });
-    } catch (error) {
-      if (version !== issueVersion) return;
-      set({ issueLoading: false, issueError: message(error) });
-    }
+    await get().reloadIssue(projectPath);
   },
 
   closeDetail: () => {
@@ -268,16 +244,63 @@ export const useGithubStore = create<GithubStore>()((set, get) => ({
     });
   },
 
+  /**
+   * Fetch the open pull request again, in place.
+   *
+   * Nothing visible is cleared first. Submitting a review, posting a comment
+   * and every poll tick all land here, and blanking the document back to a
+   * spinner each time made a two-second round trip read as the page being torn
+   * down and rebuilt. The new data replaces the old when it arrives.
+   */
   reloadDetail: async (projectPath) => {
     const number = get().activeNumber;
     if (number == null) return;
-    await get().openPullRequest(projectPath, number);
+    const version = ++detailVersion;
+    set({ detailLoading: true, detailError: null });
+
+    try {
+      const detail = await window.api.github.pullRequest(projectPath, number);
+      if (version !== detailVersion) return;
+      set({ detail, detailLoading: false });
+
+      void get().loadDrafts(projectPath, number);
+
+      // Files come second: the document renders the description first, and the
+      // file list needs the base/head SHAs the detail call just returned.
+      set({ filesLoading: true });
+      const result = await window.api.github.pullRequestFiles(projectPath, number, detail.baseSha, detail.headSha);
+      if (version !== detailVersion) return;
+      set({
+        files: result.files,
+        filesLoading: false,
+        filesFromGit: result.fromGit,
+        filesError: result.error ?? null,
+      });
+    } catch (error) {
+      if (version !== detailVersion) return;
+      set({ detailLoading: false, filesLoading: false, ...(get().detail ? {} : { detailError: message(error) }) });
+      // A refresh that fails leaves what is on screen alone — a poll tick
+      // during a dropped connection should not replace a pull request you are
+      // reading with an error. Only a first load has nothing to fall back to.
+      if (get().detail) githubLog.warn('pull request refresh failed', { number, error: message(error) });
+    }
   },
 
   reloadIssue: async (projectPath) => {
     const number = get().activeIssue;
     if (number == null) return;
-    await get().openIssue(projectPath, number);
+    const version = ++issueVersion;
+    set({ issueLoading: true, issueError: null });
+
+    try {
+      const issue = await window.api.github.issue(projectPath, number);
+      if (version !== issueVersion) return;
+      set({ issue, issueLoading: false });
+    } catch (error) {
+      if (version !== issueVersion) return;
+      set({ issueLoading: false, ...(get().issue ? {} : { issueError: message(error) }) });
+      if (get().issue) githubLog.warn('issue refresh failed', { number, error: message(error) });
+    }
   },
 
   loadDrafts: async (projectPath, prNumber) => {
