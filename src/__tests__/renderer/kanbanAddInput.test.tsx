@@ -140,18 +140,18 @@ describe('KanbanAddInput', () => {
     expect(getDescription()!.textContent).toBe('Long prompt worth keeping');
   });
 
-  it('discards the draft on a second Escape, and from the Discard button', () => {
+  it('discards the draft only from the Discard button', () => {
     render(<KanbanAddInput onAdd={vi.fn()} />);
 
     const title = openComposer();
     fireEvent.change(title, { target: { value: 'Fix login' } });
+
+    // Collapsing is not discarding, however many times you press Escape.
     fireEvent.keyDown(title, { key: 'Escape' });
-    fireEvent.keyDown(getRest()!, { key: 'Escape' });
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(getRest()!.textContent).toContain('Fix login');
 
-    expect(getRest()!.textContent).toContain('New task');
-    expect(openComposer().value).toBe('');
-
-    fireEvent.change(getTitle()!, { target: { value: 'Another' } });
+    fireEvent.click(getRest()!);
     fireEvent.click(screen.getByRole('button', { name: 'Discard' }));
     expect(getTitle()).toBeNull();
     expect(getRest()!.textContent).toContain('New task');

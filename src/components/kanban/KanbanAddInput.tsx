@@ -199,18 +199,6 @@ export function KanbanAddInput({ onAdd }: KanbanAddInputProps) {
     [submit, collapse, expand],
   );
 
-  const handleRestKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      // A second Escape, on the collapsed row, is what actually discards.
-      if (e.key === 'Escape' && hasDraft) {
-        e.preventDefault();
-        e.stopPropagation();
-        discard();
-      }
-    },
-    [hasDraft, discard],
-  );
-
   const handleDescriptionFocus = useCallback(() => setFocusedField('description'), []);
   const handleNameFocus = useCallback(() => {
     setActive(true);
@@ -287,14 +275,12 @@ export function KanbanAddInput({ onAdd }: KanbanAddInputProps) {
           type="button"
           className="kanban-add-rest"
           onClick={openForm}
-          onKeyDown={handleRestKeyDown}
           aria-label={hasDraft ? 'Resume draft task' : 'New task'}
         >
           {hasDraft ? (
             <>
               <Icon name="file-dashed" className="kanban-add-draft-icon" />
               <span className="kanban-add-draft-label">{name.trim() || 'Untitled draft'}</span>
-              <span className="kanban-add-button-hint kanban-add-button-hint-text">Esc to discard</span>
             </>
           ) : (
             <>
