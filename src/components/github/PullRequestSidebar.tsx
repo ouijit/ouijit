@@ -205,12 +205,8 @@ function PullRequestRow({
 }) {
   const badge = stateBadge(pr);
   return (
-    <div
-      className={`w-full px-4 py-2 flex flex-col gap-0.5 transition-colors duration-100 ${
-        active ? 'bg-ink/[0.07]' : 'hover:bg-ink/[0.04]'
-      }`}
-    >
-      <button type="button" className="flex items-baseline gap-2 text-left" onClick={onOpen}>
+    <div className={rowClass(active)}>
+      <button type="button" className={rowTitleClass} onClick={onOpen}>
         <span className="flex-1 min-w-0 truncate text-[15px] text-text-primary">{pr.title}</span>
         <span className="shrink-0 text-[13px] text-text-tertiary">{since(pr.updatedAt)}</span>
       </button>
@@ -231,6 +227,27 @@ function PullRequestRow({
 }
 
 /**
+ * A row is opened by clicking it anywhere, not by hitting its title.
+ *
+ * The row itself cannot be the button — it contains buttons of its own, and a
+ * button inside a button is invalid and unreachable by keyboard. So the title
+ * button stretches its hit area over the whole row with a `::before`, and the
+ * controls that need their own click are lifted above it. The alternative,
+ * making the row a div with a click handler, gives up keyboard access for
+ * every row in the list.
+ */
+function rowClass(active: boolean): string {
+  return `group relative w-full px-4 py-2 flex flex-col gap-0.5 transition-colors duration-100 ${
+    active ? 'bg-ink/[0.07]' : 'hover:bg-ink/[0.04]'
+  }`;
+}
+
+const rowTitleClass = "flex items-baseline gap-2 text-left before:absolute before:inset-0 before:content-['']";
+
+/** A control inside a row, raised above the title's stretched hit area. */
+const rowActionClass = 'relative z-10 shrink-0';
+
+/**
  * The task tracking this row, and the way into it. A bare number announced
  * that work existed and gave you no way to reach it, which left the row with
  * nothing to offer once a task had been made.
@@ -239,7 +256,7 @@ function TaskLink({ task, onOpen }: { task: TaskWithWorkspace; onOpen: (task: Ta
   return (
     <button
       type="button"
-      className="shrink-0 font-mono text-[12px] text-text-tertiary hover:text-accent transition-colors duration-100"
+      className={`${rowActionClass} font-mono text-[12px] text-text-tertiary hover:text-accent transition-colors duration-100`}
       title={task.name}
       onClick={() => onOpen(task)}
     >
@@ -264,12 +281,8 @@ function IssueRow({
   onCreateTask: () => void;
 }) {
   return (
-    <div
-      className={`group w-full px-4 py-2 flex flex-col gap-0.5 transition-colors duration-100 ${
-        active ? 'bg-ink/[0.07]' : 'hover:bg-ink/[0.04]'
-      }`}
-    >
-      <button type="button" className="flex items-baseline gap-2 text-left" onClick={onOpen}>
+    <div className={rowClass(active)}>
+      <button type="button" className={rowTitleClass} onClick={onOpen}>
         <span className="flex-1 min-w-0 truncate text-[15px] text-text-primary">{issue.title}</span>
         <span className="shrink-0 text-[13px] text-text-tertiary">{since(issue.updatedAt)}</span>
       </button>
@@ -283,7 +296,7 @@ function IssueRow({
         ) : (
           <button
             type="button"
-            className="shrink-0 text-[13px] text-text-tertiary opacity-0 group-hover:opacity-100 hover:text-accent transition-all duration-100"
+            className={`${rowActionClass} text-[13px] text-text-tertiary opacity-0 group-hover:opacity-100 hover:text-accent transition-all duration-100`}
             onClick={onCreateTask}
           >
             Create task
