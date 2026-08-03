@@ -2,28 +2,30 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useFloating, offset, flip, shift, autoUpdate } from '@floating-ui/react';
 import { Icon } from '../terminal/Icon';
+import { segmentAccent, segmentBase, segmentQuiet } from './SegmentedGroup';
 
 interface ActionMenuProps {
   label: string;
-  /** `primary` is the accent pill; there is at most one of those in the bar. */
-  variant?: 'primary' | 'secondary';
-  /** Accent text on a quiet ground — for a count, not an action. */
-  tone?: 'accent';
+  /** The filled segment — the one primary action in the group. */
+  accent?: boolean;
+  /** An accent dot before the label, flagging state rather than naming an action. */
+  dot?: boolean;
   disabled?: boolean;
   title?: string;
   children: (close: () => void) => ReactNode;
 }
 
 /**
- * A pill that opens a menu, cut from the same cloth as the settings dropdown:
- * same floating-ui wiring, same portaled surface, same option rows.
+ * One segment of a joined control that opens a menu, cut from the same cloth as
+ * the settings dropdown: same floating-ui wiring, same portaled surface, same
+ * option rows.
  *
  * Consequential actions live in here rather than sitting on the bar as their
  * own coloured buttons. Three verdict buttons side by side gave equal weight to
  * choices that are not equal, and spent the app's two status colours — which
  * everywhere else mean added and removed — on chrome.
  */
-export function ActionMenu({ label, variant = 'secondary', tone, disabled, title, children }: ActionMenuProps) {
+export function ActionMenu({ label, accent, dot, disabled, title, children }: ActionMenuProps) {
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -71,13 +73,12 @@ export function ActionMenu({ label, variant = 'secondary', tone, disabled, title
         title={title}
         aria-expanded={open}
         aria-haspopup="menu"
-        className={
-          tone === 'accent'
-            ? 'inline-flex items-center gap-1.5 px-3 h-7 rounded-full text-[13px] font-medium text-accent hover:bg-ink/[0.06] transition-colors duration-150'
-            : `${variant === 'primary' ? 'btn-primary' : 'btn-secondary'} btn-compact`
-        }
+        className={`${segmentBase} ${
+          accent ? segmentAccent : open ? 'bg-background-tertiary text-text-primary' : segmentQuiet
+        }`}
         onClick={() => setOpen(!open)}
       >
+        {dot && <span aria-hidden className="w-1.5 h-1.5 rounded-full bg-accent shrink-0" />}
         {label}
         <Icon name="caret-down" className="w-3 h-3 opacity-60" />
       </button>

@@ -4,6 +4,7 @@ import { useGithubStore } from '../../stores/githubStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { Icon } from '../terminal/Icon';
 import { ActionMenu, MenuDivider, MenuField, MenuItem } from './ActionMenu';
+import { SegmentedGroup } from './SegmentedGroup';
 
 interface ReviewActionsProps {
   projectPath: string;
@@ -22,11 +23,12 @@ const METHODS: Array<{ value: MergeMethod; label: string }> = [
  * Everything you can do to a pull request, in the chrome bar beside the panes,
  * so it is reachable from all three rather than living on one of them.
  *
- * Two controls, one of them accent. Verdicts sit inside the review menu rather
- * than on the bar as green and red buttons: those two colours mean added and
- * removed everywhere else in this app, and three equally loud buttons made
- * three unequal choices look alike. Comments written but not sent are counted
- * on the Review pill, so unsent work is visible from any pane.
+ * One joined, extruded control with exactly one accent segment. Verdicts sit
+ * inside the review menu rather than on the bar as green and red buttons: those
+ * two colours mean added and removed everywhere else in this app, and three
+ * equally loud buttons made three unequal choices look alike. Comments written
+ * but not sent get their own segment, dotted in accent, so unsent work is
+ * visible from any pane.
  */
 export function ReviewActions({ projectPath, detail, onJumpToDraft }: ReviewActionsProps) {
   const drafts = useGithubStore((s) => s.drafts);
@@ -85,13 +87,9 @@ export function ReviewActions({ projectPath, detail, onJumpToDraft }: ReviewActi
   };
 
   return (
-    <span className="flex items-center gap-2">
+    <SegmentedGroup>
       {drafts.length > 0 && <DraftsPopover drafts={drafts} onJump={onJumpToDraft} onDiscard={discardDraft} />}
-      <ActionMenu
-        label={submitting ? 'Submitting…' : 'Review'}
-        disabled={submitting}
-        variant={isOpen ? 'secondary' : 'primary'}
-      >
+      <ActionMenu label={submitting ? 'Submitting…' : 'Review'} disabled={submitting} accent={!isOpen}>
         {(close) => (
           <>
             <MenuField>
@@ -135,12 +133,7 @@ export function ReviewActions({ projectPath, detail, onJumpToDraft }: ReviewActi
       </ActionMenu>
 
       {isOpen && (
-        <ActionMenu
-          label={merging ? 'Merging…' : 'Merge'}
-          variant="primary"
-          disabled={merging || hardBlock}
-          title={blockedReason}
-        >
+        <ActionMenu label={merging ? 'Merging…' : 'Merge'} accent disabled={merging || hardBlock} title={blockedReason}>
           {(close) => (
             <>
               {/* Said before the press, not reported as a failure after
@@ -189,7 +182,7 @@ export function ReviewActions({ projectPath, detail, onJumpToDraft }: ReviewActi
           )}
         </ActionMenu>
       )}
-    </span>
+    </SegmentedGroup>
   );
 }
 
@@ -204,7 +197,7 @@ function DraftsPopover({
   onDiscard: (draft: ReviewDraft) => Promise<void>;
 }) {
   return (
-    <ActionMenu label={`${drafts.length} unsent`} tone="accent">
+    <ActionMenu label={`${drafts.length} unsent`} dot>
       {(close) =>
         drafts.map((draft) => (
           <div key={draft.id} className="group flex items-start gap-1">
