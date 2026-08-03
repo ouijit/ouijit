@@ -986,67 +986,11 @@ textarea,
   color: var(--color-text-tertiary);
 }
 
-/* Footer actions. Quieter than a filled pill — this bar is a legend the
-   primary action sits in, not a dialog's button row. */
-.composer-sheet-action {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 5px 8px 5px 10px;
-  border: none;
-  border-radius: 7px;
-  background: transparent;
-  color: var(--color-text-secondary);
-  font-size: 12px;
-  font-weight: 500;
-  line-height: 1;
-  transition:
-    color 100ms ease-out,
-    background-color 100ms ease-out;
-}
-
-.composer-sheet-action:hover {
-  background: color-mix(in srgb, var(--color-ink) 6%, transparent);
-  color: var(--color-text-primary);
-}
-
-.composer-sheet-action-primary {
-  background: color-mix(in srgb, var(--color-accent) 14%, transparent);
-  color: var(--color-accent);
-}
-
-.composer-sheet-action-primary:hover {
-  background: color-mix(in srgb, var(--color-accent) 22%, transparent);
-  color: var(--color-accent);
-}
-
-/* Disabled drops the accent entirely rather than fading it. A washed-out
-   tint on a dark panel reads as a rendering fault; a neutral, legible
-   control reads as "not yet". */
-.composer-sheet-action:disabled,
-.composer-sheet-action:disabled:hover {
-  background: color-mix(in srgb, var(--color-ink) 5%, transparent);
-  color: var(--color-text-tertiary);
-}
-
-.composer-sheet-action kbd {
-  font-family: 'Iosevka Term Extended', ui-monospace, monospace;
-  font-size: 10px;
-  line-height: 1;
-  padding: 3px 5px;
-  border-radius: 4px;
-  background: color-mix(in srgb, var(--color-ink) 8%, transparent);
-  color: inherit;
-}
-
-.composer-sheet-action-primary kbd {
-  background: color-mix(in srgb, var(--color-accent) 26%, transparent);
-}
-
-/* After the primary rule, so a disabled button's shortcut chip loses the
-   accent with the rest of it instead of sitting there lit up. */
-.composer-sheet-action:disabled kbd {
-  background: color-mix(in srgb, var(--color-ink) 8%, transparent);
+/* The page's caret sits at the text edge, so the body needs room below the
+   last line to click into — a document's bottom margin, not padding that
+   ends where the text does. */
+.composer-sheet-page {
+  cursor: text;
 }
 
 /* ── Task description attachment chip ─────────────────────────────── */

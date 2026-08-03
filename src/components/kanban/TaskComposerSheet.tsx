@@ -7,7 +7,7 @@ import { KeyHint } from '../ui/KeyHint';
 const isMac = typeof navigator !== 'undefined' && navigator.platform.toLowerCase().includes('mac');
 const MOD = isMac ? '⌘' : 'Ctrl ';
 
-/** Matches the palette's enter/exit so the two overlays feel like siblings. */
+/** Matches the app's other overlays, so the surfaces enter and leave alike. */
 const TRANSITION_MS = 200;
 
 interface TaskComposerSheetProps {
@@ -31,11 +31,13 @@ interface TaskComposerSheetProps {
 }
 
 /**
- * The composer's expanded view: the same draft as the inline form, given room
- * to write in. Built on the same floating panel as the command palette —
- * top-anchored so it grows downward under a fixed header, glass-beveled, on
- * the terminal surface — because this is a writing surface the user chose to
- * open, not a dialog interrupting them.
+ * The composer's expanded view, built as a document rather than a form.
+ *
+ * The panel is the app's floating surface — glass bevel, 14px squircle, panel
+ * shadow — and inside it the draft is laid out the way the plan panel lays out
+ * a markdown file: a thin chrome strip naming what you're looking at, then a
+ * page with real margins holding a heading and its prose, scrolling as one
+ * body. Actions are the app's flat pills.
  *
  * Both editors are views onto one piece of state held by the parent, so moving
  * between them is a change of surface rather than a handoff, including the
@@ -55,7 +57,8 @@ export function TaskComposerSheet({
 }: TaskComposerSheetProps) {
   const [visible, setVisible] = useState(false);
   const editorRef = useRef<DescriptionChipEditorHandle>(null);
-  const nameRef = useRef<HTMLInputElement>(null);
+  const nameRef = useRef<HTMLTextAreaElement>(null);
+  const pageRef = useRef<HTMLDivElement>(null);
 
   const isCreate = mode === 'create';
   const canSubmit = !isCreate || (name ?? '').trim().length > 0;
@@ -81,9 +84,18 @@ export function TaskComposerSheet({
     dismiss(onSubmit);
   }, [canSubmit, dismiss, onSubmit]);
 
+  /** Grow the title with its content — it wraps like a heading, not a field. */
+  const sizeName = useCallback(() => {
+    const el = nameRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight}px`;
+  }, []);
+
   // Land where the inline editor left off. An empty name in create mode means
   // this is a fresh draft, so start there instead of in the description.
   useEffect(() => {
+    sizeName();
     const frame = requestAnimationFrame(() => {
       if (isCreate && !(name ?? '').trim()) {
         nameRef.current?.focus();
@@ -120,9 +132,7 @@ export function TaskComposerSheet({
     <div
       data-testid="composer-sheet-overlay"
       data-visible={visible}
-      // items-start, so the panel is sized by its content. Stretching it to
-      // the viewport would strand the footer mid-panel with dead space below.
-      className={`fixed inset-0 z-[10003] flex items-start justify-center px-6 pt-[12vh] pb-10 transition-opacity duration-200 ease-out ${
+      className={`fixed inset-0 z-[10003] flex items-start justify-center px-6 pt-[9vh] pb-10 transition-opacity duration-200 ease-out ${
         visible ? 'opacity-100' : 'opacity-0'
       }`}
       style={{ background: 'rgba(0, 0, 0, 0.4)', backdropFilter: 'blur(4px)', WebkitBackdropFilter: 'blur(4px)' }}
@@ -132,7 +142,7 @@ export function TaskComposerSheet({
     >
       <div
         data-testid="composer-sheet"
-        className={`glass-bevel w-full max-w-[40rem] max-h-full flex flex-col rounded-[14px] border border-bezel-panel overflow-hidden ${
+        className={`glass-bevel w-full max-w-[44rem] max-h-full flex flex-col rounded-[14px] border border-bezel-panel overflow-hidden ${
           visible ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 -translate-y-2'
         }`}
         style={{
@@ -141,20 +151,40 @@ export function TaskComposerSheet({
           transition: 'opacity 200ms ease-out, transform 200ms ease-out',
         }}
       >
-        {/* Name row, styled as the card name it becomes. */}
-        <div className="flex items-center gap-3 px-4 py-3 border-b border-ink/[0.06] shrink-0">
-          <span className="shrink-0 text-text-tertiary [&>svg]:w-4 [&>svg]:h-4">
-            <Icon name={isCreate ? 'file-plus' : 'pencil-simple'} />
-          </span>
+        {/* Chrome strip, the way the plan panel names the file it's showing. */}
+        <div className="flex items-center gap-2 px-3 py-1.5 shrink-0">
+          <Icon name={isCreate ? 'file-plus' : 'file-text'} className="w-3.5 h-3.5 text-ink/50 shrink-0" />
+          <span className="text-[13px] text-ink/50 truncate flex-1">{isCreate ? 'New task' : 'Description'}</span>
+          <span className="text-[13px] text-ink/35 shrink-0">{isCreate ? 'Todo' : name}</span>
+        </div>
+
+        {/* The page: heading and prose in one scrolling body, with margins. */}
+        <div
+          ref={pageRef}
+          // px-20 on a 44rem page leaves the text about three quarters of the
+          // width, which is a page's proportions and holds the measure near
+          // 78 characters.
+          className="composer-sheet-page settings-scrollable flex-1 min-h-0 overflow-y-auto px-20 pt-8 pb-10"
+          onMouseDown={(e) => {
+            // Clicking the page margins puts the caret at the end, so there's
+            // no dead area inside the document.
+            if (e.target !== pageRef.current) return;
+            e.preventDefault();
+            editorRef.current?.focusAtCaret(Number.MAX_SAFE_INTEGER);
+          }}
+        >
           {isCreate ? (
-            <input
+            <textarea
               ref={nameRef}
-              type="text"
+              rows={1}
               value={name ?? ''}
-              onChange={(e) => onNameChange?.(e.target.value)}
+              onChange={(e) => {
+                onNameChange?.(e.target.value);
+                sizeName();
+              }}
               onKeyDown={(e) => {
-                // Enter moves on rather than submitting: at this size the
-                // description is almost certainly the point.
+                // Enter moves into the body rather than submitting: on a page
+                // this size, the description is the point.
                 if (e.key === 'Enter') {
                   e.preventDefault();
                   editorRef.current?.focus();
@@ -163,44 +193,34 @@ export function TaskComposerSheet({
               placeholder="Task name"
               spellCheck={false}
               aria-label="Task name"
-              className="flex-1 min-w-0 bg-transparent border-none outline-none text-[15px] text-text-primary placeholder:text-text-tertiary"
+              className="w-full resize-none overflow-hidden bg-transparent border-none outline-none text-lg font-semibold text-text-primary placeholder:text-text-tertiary placeholder:font-normal"
             />
           ) : (
-            <span className="flex-1 min-w-0 truncate text-[15px] text-text-primary">{name}</span>
+            <h1 className="text-lg font-semibold text-text-primary">{name}</h1>
           )}
-          <span className="shrink-0 text-[11px] text-ink/40">{isCreate ? 'Todo' : 'Description'}</span>
-        </div>
 
-        {/* The writing surface. Padding is generous on purpose: it sets the
-            measure and, being inside the editable box, stays clickable. */}
-        <DescriptionChipEditor
-          ref={editorRef}
-          initialValue={description}
-          onChange={onDescriptionChange}
-          onAttachFile={onAttachFile}
-          placeholder={isCreate ? 'Describe the task, or write the prompt to start from…' : 'Add a description…'}
-          className="composer-sheet-editor settings-scrollable w-full overflow-y-auto px-8 pt-5 pb-6 text-sm leading-relaxed text-text-primary bg-transparent outline-none border-none"
-          // Floor is a few lines, not a canvas: an empty sheet should look
-          // ready rather than vacant, and it grows from there as you write.
-          style={{ minHeight: '8.5rem', maxHeight: '46vh', whiteSpace: 'pre-wrap', wordWrap: 'break-word' }}
-        />
+          <DescriptionChipEditor
+            ref={editorRef}
+            initialValue={description}
+            onChange={onDescriptionChange}
+            onAttachFile={onAttachFile}
+            placeholder={isCreate ? 'Describe the task, or write the prompt to start from…' : 'Add a description…'}
+            className="composer-sheet-editor mt-3 w-full text-sm leading-relaxed text-ink/80 bg-transparent outline-none border-none"
+            style={{ minHeight: '18rem', whiteSpace: 'pre-wrap', wordWrap: 'break-word' }}
+          />
+        </div>
 
         <div className="shrink-0 flex items-center gap-4 px-3 py-2 border-t border-ink/[0.06] text-[11px] text-ink/40">
           <KeyHint keys="esc" label={isCreate ? 'Draft stays in the column' : 'Back to the card'} />
           <span className="flex-1" />
           {onDiscard && (
-            <button type="button" onClick={onDiscard} className="composer-sheet-action">
+            <button type="button" onClick={onDiscard} className="btn-secondary">
               Discard
             </button>
           )}
-          <button
-            type="button"
-            onClick={submit}
-            disabled={!canSubmit}
-            className="composer-sheet-action composer-sheet-action-primary"
-          >
+          <button type="button" onClick={submit} disabled={!canSubmit} className="btn-primary">
             {isCreate ? 'Create task' : 'Save'}
-            <kbd>{MOD}↵</kbd>
+            <span className="opacity-60 font-mono text-[11px]">{MOD}↵</span>
           </button>
         </div>
       </div>
