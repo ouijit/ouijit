@@ -384,11 +384,6 @@ export async function deleteReviewDraft(id: string): Promise<void> {
   rr.delete(id);
 }
 
-export async function clearReviewDrafts(projectPath: string, prNumber: number): Promise<void> {
-  const { reviewDraftRepo: rr } = repos();
-  rr.deleteForPr(projectPath, prNumber);
-}
-
 export async function getReviewDraftCounts(projectPath: string): Promise<Record<number, number>> {
   const { reviewDraftRepo: rr } = repos();
   return Object.fromEntries(rr.countsByPr(projectPath));

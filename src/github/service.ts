@@ -20,7 +20,6 @@ import {
   getReviewDrafts,
   saveReviewDraft,
   deleteReviewDraft,
-  clearReviewDrafts,
   getReviewDraftCounts,
   getGlobalSetting,
   createTask,
@@ -389,8 +388,14 @@ export interface SubmitReviewResult {
  *
  * Replies to existing threads can't ride inside the reviews payload, so those
  * go first as individual reply calls; whatever is left is a new-thread comment
- * and travels in the single `POST /pulls/{n}/reviews`. Drafts are only cleared
- * once the whole thing succeeds — a failure leaves the user's writing intact.
+ * and travels in the single `POST /pulls/{n}/reviews`.
+ *
+ * Each draft is dropped the moment its own write lands, rather than all of them
+ * at the end. A failure part way through — one stale line anchor is enough for
+ * a 422 — leaves the unsent writing intact but does not resurrect the replies
+ * GitHub already has, which would otherwise be posted a second time on the
+ * retry. Drafts are also deleted by id: a batch submit is seconds of network,
+ * and anything written during it is not part of what was sent.
  */
 export async function submitPullRequestReview(
   projectPath: string,
@@ -402,15 +407,14 @@ export async function submitPullRequestReview(
   const drafts = await getReviewDrafts(projectPath, prNumber);
 
   const replies = drafts.filter((d) => d.reply_to_comment_id != null);
-  const newThreads: DraftReviewComment[] = drafts
-    .filter((d) => d.reply_to_comment_id == null)
-    .map((d) => ({
-      path: d.path,
-      line: d.line,
-      side: d.side,
-      ...(d.start_line != null ? { start_line: d.start_line, start_side: d.side } : {}),
-      body: d.body,
-    }));
+  const newThreadDrafts = drafts.filter((d) => d.reply_to_comment_id == null);
+  const newThreads: DraftReviewComment[] = newThreadDrafts.map((d) => ({
+    path: d.path,
+    line: d.line,
+    side: d.side,
+    ...(d.start_line != null ? { start_line: d.start_line, start_side: d.side } : {}),
+    body: d.body,
+  }));
 
   if (newThreads.length === 0 && replies.length === 0 && !body.trim() && event === 'COMMENT') {
     return { success: false, error: 'Nothing to submit — add a comment or a review body first.' };
@@ -429,9 +433,12 @@ export async function submitPullRequestReview(
   try {
     for (const reply of replies) {
       await replyToReviewComment(identity, prNumber, reply.reply_to_comment_id!, reply.body);
+      await deleteReviewDraft(reply.id);
     }
     const result = await submitReview(identity, prNumber, event, body, newThreads);
-    await clearReviewDrafts(projectPath, prNumber);
+    for (const draft of newThreadDrafts) {
+      await deleteReviewDraft(draft.id);
+    }
     return { success: true, url: result.url };
   } catch (error) {
     return { success: false, error: describeError(error) };

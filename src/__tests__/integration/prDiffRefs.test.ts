@@ -49,6 +49,40 @@ describe('pull request refs', () => {
     expect(git('rev-parse', prHeadRef(12))).toBe(sha);
     expect(git('rev-parse', prBaseRef(12))).toBe(sha);
   });
+
+  /**
+   * Being present in the object store is not the same as being reachable. A PR
+   * head can already be there from a since-deleted branch or an old FETCH_HEAD,
+   * and pinning only what this call had to fetch left exactly those commits
+   * prunable — the diff then failed after a `git gc` the user did not connect
+   * to it.
+   */
+  test('pins both commits even when neither had to be fetched', async () => {
+    git('commit', '--allow-empty', '-m', 'base');
+    const trunk = git('rev-parse', '--abbrev-ref', 'HEAD');
+    const baseSha = git('rev-parse', 'HEAD');
+
+    git('checkout', '-b', 'theirs');
+    git('commit', '--allow-empty', '-m', 'their change');
+    const headSha = git('rev-parse', 'HEAD');
+    git('checkout', trunk);
+    git('branch', '-D', 'theirs');
+
+    // Present, but nothing durable reaches it. No remote is configured, so a
+    // fetch here would fail rather than quietly cover for a missing pin.
+    expect(git('rev-parse', `${headSha}^{commit}`)).toBe(headSha);
+
+    const result = await ensurePrRefs(repoDir, 9, baseSha, headSha, 'origin');
+    expect(result.success).toBe(true);
+    expect(git('rev-parse', prHeadRef(9))).toBe(headSha);
+    expect(git('rev-parse', prBaseRef(9))).toBe(baseSha);
+
+    git('reflog', 'expire', '--expire=now', '--all');
+    git('prune', '--expire=now');
+    expect(git('rev-parse', `${headSha}^{commit}`)).toBe(headSha);
+    // A dozen git subprocesses; the default 5s is not enough under a loaded
+    // suite even though it takes a fraction of that on its own.
+  }, 20_000);
 });
 
 describe('concurrent diff loads', () => {

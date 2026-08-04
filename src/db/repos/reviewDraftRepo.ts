@@ -69,13 +69,6 @@ export class ReviewDraftRepo {
     this.db.prepare('DELETE FROM github_review_drafts WHERE id = ?').run(id);
   }
 
-  /** Clear a PR's drafts — called after a review is submitted successfully. */
-  deleteForPr(projectPath: string, prNumber: number): void {
-    this.db
-      .prepare('DELETE FROM github_review_drafts WHERE project_path = ? AND pr_number = ?')
-      .run(projectPath, prNumber);
-  }
-
   /** Draft counts per PR, so the inbox can badge which PRs have work in progress. */
   countsByPr(projectPath: string): Map<number, number> {
     const rows = this.db

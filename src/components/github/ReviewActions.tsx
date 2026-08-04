@@ -65,6 +65,10 @@ export function ReviewActions({ projectPath, detail, onJumpToDraft }: ReviewActi
       useProjectStore.getState().addToast('Review submitted', 'success');
       setSummary('');
       await useGithubStore.getState().reloadDetail(projectPath);
+      // The sidebar's unsent count comes from the inbox, not from the detail —
+      // without this the row goes on advertising comments that have been sent
+      // until the next poll tick.
+      await useGithubStore.getState().loadInbox(projectPath);
     } finally {
       useGithubStore.getState().setSubmitting(false);
     }

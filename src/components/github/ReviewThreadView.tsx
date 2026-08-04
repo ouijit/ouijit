@@ -36,6 +36,16 @@ export function ReviewThreadView({ thread, onReply, onToggleResolved, inline = f
   const [busy, setBusy] = useState(false);
   const [collapsed, setCollapsed] = useState(thread.isResolved);
 
+  // Resolving a thread folds it away and unresolving opens it back up. The
+  // component stays mounted across both (it is keyed by thread id), so without
+  // this a reopened thread keeps the collapsed body it was resolved with and
+  // there is nowhere to write the reply the reopening was for.
+  const [wasResolved, setWasResolved] = useState(thread.isResolved);
+  if (wasResolved !== thread.isResolved) {
+    setWasResolved(thread.isResolved);
+    setCollapsed(thread.isResolved);
+  }
+
   const submitReply = async () => {
     if (!body.trim() || busy) return;
     setBusy(true);

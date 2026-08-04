@@ -132,12 +132,14 @@ async function fetchPrRefs(
   headSha: string,
   remote: string,
 ): Promise<PrRefsResult> {
+  // An install that fetched under the old flat layout has a ref *file* at
+  // `refs/ouijit/pr/<n>`, which blocks creating the directory the sibling refs
+  // need — both the fetch below and the pins further down. Dropping it is a
+  // no-op everywhere else.
+  await tryGit(projectPath, ['update-ref', '-d', `refs/ouijit/pr/${prNumber}`]);
+
   const needHead = !(await resolveRef(projectPath, headSha));
   if (needHead) {
-    // An install that fetched under the old flat layout has a ref *file* at
-    // `refs/ouijit/pr/<n>`, which blocks creating the directory the sibling
-    // refs need. Dropping it is a no-op everywhere else.
-    await tryGit(projectPath, ['update-ref', '-d', `refs/ouijit/pr/${prNumber}`]);
     const result = await fetchRefspec(projectPath, remote, `+refs/pull/${prNumber}/head:${prHeadRef(prNumber)}`);
     if (!result.success) {
       return { success: false, error: `Could not fetch pull request #${prNumber}: ${result.error ?? 'fetch failed'}` };
@@ -153,8 +155,16 @@ async function fetchPrRefs(
         error: `Could not fetch the base commit ${baseSha.slice(0, 7)}: ${result.error ?? ''}`.trim(),
       };
     }
-    await pinRef(projectPath, prBaseRef(prNumber), baseSha);
   }
+
+  // Pinned whether or not this call fetched them. A commit already in the
+  // object store is not necessarily reachable from anything durable — it can be
+  // left over from a FETCH_HEAD, a since-deleted remote branch, or an earlier
+  // unpinned fetch — so skipping the pin because the lookup succeeded is what
+  // lets `git gc` prune it out from under a repo the user never touched.
+  // `update-ref` is idempotent, so the repeat costs nothing.
+  await pinRef(projectPath, prHeadRef(prNumber), headSha);
+  await pinRef(projectPath, prBaseRef(prNumber), baseSha);
 
   // A shallow or partial clone can hold both endpoints without holding the
   // commit they share, which is what `base...head` actually diffs against. One

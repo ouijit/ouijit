@@ -72,6 +72,17 @@ const identityCache = new Map<string, RepoIdentity | null>();
 const inflight = new Map<string, Promise<RepoIdentity | null>>();
 
 /**
+ * Bumped by every invalidation. A resolution that started before the remote
+ * changed must not write what it read afterwards: invalidating is synchronous
+ * and the refresh that follows it spends hundreds of milliseconds in
+ * subprocesses, which is plenty of room for a poll tick's already-running
+ * lookup to land and put the stale identity back. Stamping each resolution and
+ * dropping the write when the stamp has moved costs at most one extra
+ * subprocess on the next read.
+ */
+let cacheGeneration = 0;
+
+/**
  * Resolve (and cache) a project's GitHub identity. A project stays cached even
  * when it resolves to null — a repo without a GitHub remote shouldn't cost a
  * subprocess on every poll tick.
@@ -86,10 +97,11 @@ export async function getRepoIdentity(projectPath: string, remote = 'origin'): P
   const pending = inflight.get(key);
   if (pending) return pending;
 
+  const startedAt = cacheGeneration;
   const promise = (async () => {
     const url = await getRemoteUrl(projectPath, remote);
     const identity = url ? parseRemoteUrl(url) : null;
-    identityCache.set(key, identity);
+    if (cacheGeneration === startedAt) identityCache.set(key, identity);
     return identity;
   })();
 
@@ -106,6 +118,7 @@ export async function getRepoIdentity(projectPath: string, remote = 'origin'): P
  * have changed underneath us; passing no argument clears everything.
  */
 export function invalidateRepoIdentity(projectPath?: string): void {
+  cacheGeneration++;
   if (projectPath == null) {
     identityCache.clear();
     inflight.clear();

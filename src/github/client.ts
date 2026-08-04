@@ -172,6 +172,13 @@ export async function runGh(args: string[], options: ExecOptions = {}): Promise<
         timeout: GH_TIMEOUT_MS,
       });
       if (options.input != null) {
+        // A review body carrying every batched inline comment is easily larger
+        // than the pipe buffer, so the write outlives the spawn. When gh exits
+        // first — bad auth, a 422, rate limiting — the rest of the write hits a
+        // closed pipe, and an EPIPE nobody listens for is an uncaught exception
+        // in the main process. The failure the user cares about is the one gh
+        // reports through its exit code, which the catch below already handles.
+        child.child.stdin?.on('error', () => {});
         child.child.stdin?.end(options.input);
       }
       const { stdout } = await child;
