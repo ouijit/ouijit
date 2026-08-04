@@ -11,7 +11,7 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import { getCachedHealth, checkHealth } from '../healthCheck';
+import { getCachedHealth, checkHealth, refreshHealth } from '../healthCheck';
 import {
   getTaskByNumber,
   getProjectTasks,
@@ -48,7 +48,14 @@ import {
   mergePullRequest,
   type DraftReviewComment,
 } from './api';
-import { getPrFileDiff, getPrFileVersions, getPrDiffFiles, prunePrRefs, type PrFileVersions } from './prDiff';
+import {
+  getPrFileDiff,
+  getPrFileVersions,
+  getPrDiffFiles,
+  createPrHeadBranch,
+  prunePrRefs,
+  type PrFileVersions,
+} from './prDiff';
 import type {
   GithubAvailability,
   PullRequestInbox,
@@ -80,12 +87,15 @@ export async function isGithubEnabled(projectPath: string): Promise<boolean> {
  * The panel stays hidden rather than showing a blank screen, and the reason is
  * surfaced wherever a user would otherwise wonder where the feature went.
  */
-export async function getAvailability(projectPath: string): Promise<GithubAvailability> {
+export async function getAvailability(projectPath: string, recheck = false): Promise<GithubAvailability> {
   if (!(await isGithubEnabled(projectPath))) {
     return { available: false, reason: 'flag-off' };
   }
 
-  const health = getCachedHealth() ?? (await checkHealth());
+  // The health probe is cached for the life of the app, so a cached "not
+  // signed in" would survive the `gh auth login` the message asks for and no
+  // amount of refreshing would clear it. An explicit recheck re-probes.
+  const health = recheck ? await refreshHealth() : (getCachedHealth() ?? (await checkHealth()));
 
   if (!health.gh) {
     return {
@@ -223,8 +233,9 @@ export async function getPullRequestFileDiff(
   headSha: string,
   filePath: string,
   contextLines?: number,
+  oldPath?: string,
 ): Promise<FileDiff | null> {
-  return getPrFileDiff(projectPath, number, baseSha, headSha, filePath, contextLines);
+  return getPrFileDiff(projectPath, number, baseSha, headSha, filePath, contextLines, oldPath);
 }
 
 /** Both sides of a binary file, for the image viewer. */
@@ -399,6 +410,16 @@ export async function submitPullRequestReview(
 
   if (newThreads.length === 0 && replies.length === 0 && !body.trim() && event === 'COMMENT') {
     return { success: false, error: 'Nothing to submit — add a comment or a review body first.' };
+  }
+
+  // GitHub rejects a COMMENT or REQUEST_CHANGES review with a blank body, even
+  // when it carries inline comments — "Body can not be blank", 422, and the
+  // whole batch is lost. Only an approval may be wordless.
+  if (!body.trim() && event !== 'APPROVE') {
+    return {
+      success: false,
+      error: 'GitHub needs a summary on this kind of review. Write one, or approve instead.',
+    };
   }
 
   try {
@@ -621,6 +642,14 @@ export async function prepareTaskFromPullRequest(projectPath: string, prNumber: 
     return { success: false, error: `Task #${existing.taskNumber} is already linked to pull request #${prNumber}` };
   }
 
+  // Before the task exists, not after: a worktree can only be built at the PR
+  // head if the head is already here on a branch. Failing now leaves nothing
+  // half-made behind.
+  const head = await createPrHeadBranch(projectPath, prNumber, pr.baseSha, pr.headSha, pr.headRefName);
+  if (!head.success || !head.branch) {
+    return { success: false, error: head.error ?? `Could not fetch pull request #${prNumber}` };
+  }
+
   const taskNumber = await getNextTaskNumber(projectPath);
   await createTask(projectPath, taskNumber, `PR #${pr.number}: ${pr.title}`, {
     status: 'todo',
@@ -633,7 +662,7 @@ export async function prepareTaskFromPullRequest(projectPath: string, prNumber: 
     success: true,
     taskNumber,
     mergeTarget: pr.baseRefName,
-    headRef: pr.headRefName,
+    headRef: head.branch,
   };
 }
 

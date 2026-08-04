@@ -28,8 +28,15 @@ const diffLog = getLogger().scope('github:diff');
 /** How much history to pull in when a shallow clone can't reach the merge base. */
 const DEEPEN_COMMITS = 250;
 
+/**
+ * The two refs are siblings under the PR's own directory rather than one
+ * nested inside the other: git's ref store is a filesystem, so a ref at
+ * `refs/ouijit/pr/12` makes `refs/ouijit/pr/12/base` uncreatable — the head is
+ * a file where the base needs a directory. Pinning the base failed silently,
+ * which left it prunable by `git gc`.
+ */
 export function prHeadRef(prNumber: number): string {
-  return `refs/ouijit/pr/${prNumber}`;
+  return `refs/ouijit/pr/${prNumber}/head`;
 }
 
 export function prBaseRef(prNumber: number): string {
@@ -97,6 +104,10 @@ export async function ensurePrRefs(
 ): Promise<PrRefsResult> {
   const needHead = !(await resolveRef(projectPath, headSha));
   if (needHead) {
+    // An install that fetched under the old flat layout has a ref *file* at
+    // `refs/ouijit/pr/<n>`, which blocks creating the directory the sibling
+    // refs need. Dropping it is a no-op everywhere else.
+    await tryGit(projectPath, ['update-ref', '-d', `refs/ouijit/pr/${prNumber}`]);
     const result = await fetchRefspec(projectPath, remote, `+refs/pull/${prNumber}/head:${prHeadRef(prNumber)}`);
     if (!result.success) {
       return { success: false, error: `Could not fetch pull request #${prNumber}: ${result.error ?? 'fetch failed'}` };
@@ -173,10 +184,52 @@ export async function getPrFileDiff(
   headSha: string,
   filePath: string,
   contextLines?: number,
+  oldPath?: string,
 ): Promise<FileDiff | null> {
   const refs = await ensurePrRefs(projectPath, prNumber, baseSha, headSha);
   if (!refs.success) return null;
-  return getRangeFileDiff(projectPath, baseSha, headSha, filePath, contextLines);
+  return getRangeFileDiff(projectPath, baseSha, headSha, filePath, contextLines, oldPath);
+}
+
+/**
+ * Put the pull request's head on a local branch, ready to be checked out.
+ *
+ * `git worktree add -b <name>` branches off whatever HEAD happens to be, so
+ * handing a task the PR's head *branch name* and hoping produced an empty
+ * branch with none of the PR's commits for every fork PR — and reported
+ * success. The commits have to be here first, on a ref a worktree can use.
+ *
+ * The branch is named after the PR's head branch when that name is free. When
+ * it is taken by something else — a fork whose head branch is called `main` is
+ * the case that matters — the name is qualified with the PR number rather than
+ * moving a branch the user already has.
+ */
+export async function createPrHeadBranch(
+  projectPath: string,
+  prNumber: number,
+  baseSha: string,
+  headSha: string,
+  headRefName: string,
+): Promise<{ success: boolean; branch?: string; error?: string }> {
+  const refs = await ensurePrRefs(projectPath, prNumber, baseSha, headSha);
+  if (!refs.success) return { success: false, error: refs.error };
+
+  const existing = await resolveRef(projectPath, `refs/heads/${headRefName}`);
+  if (existing === headSha) return { success: true, branch: headRefName };
+
+  const branch = existing ? `pr-${prNumber}/${headRefName}` : headRefName;
+  const taken = await resolveRef(projectPath, `refs/heads/${branch}`);
+  if (taken === headSha) return { success: true, branch };
+
+  try {
+    // Never force: a qualified name that already points somewhere else means a
+    // previous checkout of this PR is still in use.
+    await execFileAsync('git', ['branch', branch, headSha], { cwd: projectPath, encoding: 'utf8' });
+    return { success: true, branch };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return { success: false, error: `Could not create a branch for #${prNumber}: ${message.split('\n')[0]}` };
+  }
 }
 
 /**
@@ -222,7 +275,9 @@ export async function getPrFileVersions(
  * a long-lived project doesn't accumulate a ref per PR ever reviewed.
  */
 export async function prunePrRefs(projectPath: string, prNumber: number): Promise<void> {
-  for (const ref of [prHeadRef(prNumber), prBaseRef(prNumber)]) {
+  for (const ref of [prHeadRef(prNumber), prBaseRef(prNumber), `refs/ouijit/pr/${prNumber}`]) {
+    // The last one is the pre-sibling layout's head ref, dropped so an install
+    // that fetched under the old scheme doesn't keep it forever.
     await tryGit(projectPath, ['update-ref', '-d', ref]);
   }
 }

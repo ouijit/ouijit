@@ -64,12 +64,22 @@ export function PullRequestDetailView({
   }, [pane, file]);
 
   // A pending comment lives on a line in a file, so jumping to one means the
-  // code pane, showing that file.
+  // code pane, showing that file. The jump is usually made from Summary or
+  // Timeline, where `FilesSection` is not mounted and the ref is still null —
+  // so the draft is remembered and opened once the pane it lives on exists.
+  const [pendingDraftId, setPendingDraftId] = useState<string | null>(null);
+
   const jumpToDraft = useCallback((draft: ReviewDraft) => {
     setPane('code');
     setFile(draft.path);
-    filesRef.current?.editDraft(draft.id);
+    setPendingDraftId(draft.id);
   }, []);
+
+  useEffect(() => {
+    if (pane !== 'code' || !pendingDraftId) return;
+    filesRef.current?.editDraft(pendingDraftId);
+    setPendingDraftId(null);
+  }, [pane, pendingDraftId, file]);
 
   // A file that disappears under you — a force-push drops it from the diff —
   // would otherwise leave the pane empty with no way back.

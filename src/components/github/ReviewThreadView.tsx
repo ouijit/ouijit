@@ -125,7 +125,12 @@ export function ReviewThreadView({ thread, onReply, onToggleResolved, inline = f
         onChange={(e) => setBody(e.target.value)}
         onKeyDown={(e) => {
           if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) void submitReply();
-          if (e.key === 'Escape') setReplying(false);
+          if (e.key === 'Escape') {
+            // Claim it, or the panel's own Escape handler closes the pull
+            // request out from under a cancelled comment.
+            e.preventDefault();
+            setReplying(false);
+          }
         }}
         placeholder="Reply"
         className="field resize-y"

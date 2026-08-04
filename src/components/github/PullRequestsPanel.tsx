@@ -64,6 +64,10 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
 
   const refresh = useCallback(() => {
     const store = useGithubStore.getState();
+    // Re-probe `gh` rather than trusting the startup health cache: the
+    // unavailable message tells the user to sign in and come back, and a
+    // cached "not signed in" would outlive them doing exactly that.
+    void store.loadAvailability(projectPath, true);
     void store.loadInbox(projectPath);
     void store.loadIssues(projectPath);
   }, [projectPath]);
@@ -96,6 +100,10 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return;
+      // A comment box, a menu or the search field takes Escape first and stops
+      // it; without this the same keypress that cancelled a comment also threw
+      // you out of the pull request.
+      if (e.defaultPrevented) return;
       const store = useGithubStore.getState();
       if (store.activeNumber != null || store.activeIssue != null) {
         store.closeDetail();
@@ -172,8 +180,10 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
       useProjectStore.getState().addToast(result.error ?? 'Could not create the task', 'error');
       return;
     }
-    // The task is created as a todo; starting it builds the worktree at the PR
-    // head with mergeTarget already pointing at the PR's base.
+    // `headRef` is a local branch the main process just created at the PR's
+    // head, so the worktree is built from the PR's commits rather than from a
+    // new empty branch off whatever HEAD is. The merge target was stored with
+    // the task and `startTask` no longer overwrites one that is already set.
     const start = await window.api.task.start(projectPath, result.taskNumber, result.headRef);
     await useProjectStore.getState().loadTasks(projectPath);
     if (!start.success) {
@@ -225,7 +235,10 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
         onOpenTask={openLinkedTask}
       />
 
-      {error ? (
+      {/* The list error only takes the pane when nothing is open. A poll-driven
+          inbox failure used to discard the pull request you were reading,
+          which is the opposite of what `reloadDetail` deliberately does. */}
+      {error && !detail && !issue ? (
         <Centred>
           <Icon name="warning" className="w-6 h-6 text-vcs-modified opacity-70" />
           <p className="text-[15px] text-text-secondary max-w-sm text-center">{error}</p>

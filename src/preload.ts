@@ -302,7 +302,7 @@ contextBridge.exposeInMainWorld('api', {
   },
 
   github: {
-    availability: (projectPath: string) => typedInvoke('github:availability', projectPath),
+    availability: (projectPath: string, recheck?: boolean) => typedInvoke('github:availability', projectPath, recheck),
     inbox: (projectPath: string) => typedInvoke('github:inbox', projectPath),
     pullRequest: (projectPath: string, number: number) => typedInvoke('github:pull-request', projectPath, number),
     pullRequestFiles: (projectPath: string, number: number, baseSha: string, headSha: string) =>
@@ -314,7 +314,18 @@ contextBridge.exposeInMainWorld('api', {
       headSha: string,
       filePath: string,
       contextLines?: number,
-    ) => typedInvoke('github:pull-request-file-diff', projectPath, number, baseSha, headSha, filePath, contextLines),
+      oldPath?: string,
+    ) =>
+      typedInvoke(
+        'github:pull-request-file-diff',
+        projectPath,
+        number,
+        baseSha,
+        headSha,
+        filePath,
+        contextLines,
+        oldPath,
+      ),
     pullRequestFileVersions: (
       projectPath: string,
       number: number,

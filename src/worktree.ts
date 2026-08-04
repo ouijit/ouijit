@@ -556,7 +556,10 @@ async function startTaskImpl(
       await execAsync('git commit --allow-empty -m "Initial commit"', { cwd: projectPath });
     }
 
-    const mergeTarget = baseBranch || branchHead;
+    // A task that already names its merge target keeps it. A pull request
+    // checked out here merges back into that PR's base branch, which is rarely
+    // the branch the project happened to be on when the worktree was made.
+    const mergeTarget = baseBranch || task.mergeTarget || branchHead;
 
     // Probe + add run inside the mutex so two concurrent starts don't both
     // claim the same T-N. Prune has already completed above, so the probe

@@ -571,8 +571,15 @@ describe('PullRequestsPanel', () => {
     fireEvent.click(await screen.findByText('Mine'));
     fireEvent.click(await screen.findByText('Review'));
 
-    expect(screen.getByText('Approve').closest('button')?.disabled).toBe(true);
+    // GitHub rejects a wordless COMMENT review, so that one is gated on the
+    // summary rather than on authorship.
+    expect(screen.getByText('Comment').closest('button')?.disabled).toBe(true);
+    fireEvent.change(screen.getByPlaceholderText('Summary'), { target: { value: 'looks fine to me' } });
     expect(screen.getByText('Comment').closest('button')?.disabled).toBe(false);
+
+    // Approving your own is GitHub's rule, and no summary makes it allowed.
+    expect(screen.getByText('Approve').closest('button')?.disabled).toBe(true);
+    expect(screen.getByText('Request changes').closest('button')?.disabled).toBe(true);
   });
 
   test('a closed pull request offers no merge', async () => {

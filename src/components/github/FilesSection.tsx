@@ -2,6 +2,7 @@ import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useSt
 import type { FileDiff } from '../../types';
 import type { PullRequestDetail, ReviewDraft, ReviewThread } from '../../github/types';
 import { useGithubStore } from '../../stores/githubStore';
+import { useProjectStore } from '../../stores/projectStore';
 import { BinaryFileView } from '../diff/BinaryFileView';
 import { DiffFileSection } from '../diff/DiffFileSection';
 import type { DiffLineAnchor } from '../diff/DiffLineView';
@@ -23,6 +24,10 @@ interface FilesSectionProps {
 export interface FilesSectionHandle {
   /** Open a pending comment for editing — the action bar jumps to one. */
   editDraft: (draftId: string) => void;
+}
+
+function describe(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
 /** Key for the (path, line, side) triple that anchors a comment. */
@@ -56,7 +61,10 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
 
   useImperativeHandle(ref, () => ({ editDraft: setEditingDraftId }), []);
 
-  const filesFingerprint = useMemo(() => files.map((f) => `${f.status}:${f.path}`).join('\n'), [files]);
+  const filesFingerprint = useMemo(
+    () => files.map((f) => `${f.status}:${f.oldPath ?? ''}:${f.path}`).join('\n'),
+    [files],
+  );
 
   // Same batched load the worktree panel uses: ten files at a time, one state
   // write per batch rather than one per file.
@@ -80,6 +88,10 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
                 detail.baseSha,
                 detail.headSha,
                 file.path,
+                undefined,
+                // A renamed file needs both paths, or git reports it as a
+                // whole-file add rather than as the edit it actually is.
+                file.oldPath,
               );
               return [file.path, diff];
             } catch {
@@ -134,8 +146,29 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
    */
   const orphanThreads = useMemo(() => {
     const renderedPaths = new Set(files.map((f) => f.path));
-    return detail.threads.filter((t) => (t.line ?? t.originalLine) == null || !renderedPaths.has(t.path));
-  }, [detail.threads, files]);
+
+    // Every anchor the loaded diffs actually offer. A thread can carry a line
+    // and a path that exist and still match nothing — GitHub allows a LEFT
+    // comment on a line the diff only renders as RIGHT context — and it would
+    // then appear nowhere while still being counted in the rail.
+    const anchors = new Set<string>();
+    for (const [path, diff] of diffs) {
+      for (const hunk of diff?.hunks ?? []) {
+        for (const line of hunk.lines) {
+          if (line.oldLineNo != null) anchors.add(anchorKey(path, line.oldLineNo, 'LEFT'));
+          if (line.newLineNo != null) anchors.add(anchorKey(path, line.newLineNo, 'RIGHT'));
+        }
+      }
+    }
+
+    return detail.threads.filter((thread) => {
+      const line = thread.line ?? thread.originalLine;
+      if (line == null || !renderedPaths.has(thread.path)) return true;
+      // Not yet loaded is not the same as unanchorable; wait for the diff.
+      if (!diffs.has(thread.path)) return false;
+      return !anchors.has(anchorKey(thread.path, line, thread.side));
+    });
+  }, [detail.threads, files, diffs]);
 
   const startComment = useCallback((path: string, anchor: DiffLineAnchor) => {
     setEditingDraftId(null);
@@ -144,14 +177,21 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
 
   const saveDraft = useCallback(
     async (input: { id?: string; path: string; line: number; side: 'LEFT' | 'RIGHT'; body: string }) => {
-      await window.api.github.saveDraft(projectPath, {
-        id: input.id,
-        prNumber: detail.number,
-        path: input.path,
-        line: input.line,
-        side: input.side,
-        body: input.body,
-      });
+      try {
+        await window.api.github.saveDraft(projectPath, {
+          id: input.id,
+          prNumber: detail.number,
+          path: input.path,
+          line: input.line,
+          side: input.side,
+          body: input.body,
+        });
+      } catch (error) {
+        // Leave the box open and say so. Closing it on a failed save discards
+        // what was written with nothing to show for it.
+        useProjectStore.getState().addToast(`Could not save the comment: ${describe(error)}`, 'error');
+        return;
+      }
       useGithubStore.getState().setComposingAt(null);
       setEditingDraftId(null);
       await useGithubStore.getState().loadDrafts(projectPath, detail.number);
@@ -161,7 +201,12 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
 
   const discardDraft = useCallback(
     async (draft: ReviewDraft) => {
-      await window.api.github.discardDraft(projectPath, draft.id);
+      try {
+        await window.api.github.discardDraft(projectPath, draft.id);
+      } catch (error) {
+        useProjectStore.getState().addToast(`Could not discard the comment: ${describe(error)}`, 'error');
+        return;
+      }
       setEditingDraftId(null);
       await useGithubStore.getState().loadDrafts(projectPath, detail.number);
     },
@@ -171,9 +216,17 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
   const replyToThread = useCallback(
     async (thread: ReviewThread, body: string) => {
       const target = thread.comments[thread.comments.length - 1] ?? thread.comments[0];
-      if (!target?.databaseId) return;
+      if (!target?.databaseId) {
+        useProjectStore.getState().addToast('Could not find the comment to reply to', 'error');
+        return;
+      }
       const result = await window.api.github.replyToThread(projectPath, detail.number, target.databaseId, body);
-      if (!result.success) return;
+      if (!result.success) {
+        // The reply box clears itself on return, so a silent failure took the
+        // typed text with it.
+        useProjectStore.getState().addToast(result.error ?? 'Reply failed', 'error');
+        return;
+      }
       await useGithubStore.getState().reloadDetail(projectPath);
     },
     [projectPath, detail.number],
@@ -182,7 +235,10 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
   const toggleResolved = useCallback(
     async (thread: ReviewThread) => {
       const result = await window.api.github.resolveThread(projectPath, thread.id, !thread.isResolved);
-      if (!result.success) return;
+      if (!result.success) {
+        useProjectStore.getState().addToast(result.error ?? 'Could not update the thread', 'error');
+        return;
+      }
       await useGithubStore.getState().reloadDetail(projectPath);
     },
     [projectPath],
@@ -311,7 +367,7 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
       {!only && orphanThreads.length > 0 && (
         <>
           <div className="px-3 py-2 font-mono text-[11px] text-text-tertiary border-t border-ink/[0.06]">
-            {orphanThreads.length} {orphanThreads.length === 1 ? 'thread' : 'threads'} on lines outside this diff
+            {orphanThreads.length} {orphanThreads.length === 1 ? 'thread' : 'threads'} not anchored in this diff
           </div>
           {orphanThreads.map((thread) => (
             <ReviewThreadView

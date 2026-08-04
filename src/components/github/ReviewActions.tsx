@@ -43,6 +43,11 @@ export function ReviewActions({ projectPath, detail, onJumpToDraft }: ReviewActi
   const hardBlock = detail.merge.mergeable === 'CONFLICTING' || detail.isDraft;
   const blockers = isOpen ? detail.merge.blockers : [];
 
+  // GitHub rejects a COMMENT or REQUEST_CHANGES review with a blank body, even
+  // one carrying inline comments. Said here rather than as a 422 after the fact.
+  const needsSummary = !summary.trim();
+  const summaryHint = 'GitHub needs a summary for this kind of review';
+
   const blockedReason = detail.isDraft
     ? 'Mark the pull request ready for review first'
     : detail.merge.mergeable === 'CONFLICTING'
@@ -97,7 +102,7 @@ export function ReviewActions({ projectPath, detail, onJumpToDraft }: ReviewActi
                 rows={3}
                 value={summary}
                 onChange={(e) => setSummary(e.target.value)}
-                placeholder="Summary (optional)"
+                placeholder="Summary"
                 className="field resize-y"
               />
             </MenuField>
@@ -105,6 +110,8 @@ export function ReviewActions({ projectPath, detail, onJumpToDraft }: ReviewActi
             <MenuItem
               label="Comment"
               hint={drafts.length > 0 ? `sends ${drafts.length}` : undefined}
+              disabled={needsSummary}
+              title={needsSummary ? summaryHint : undefined}
               onClick={() => {
                 close();
                 void submitReview('COMMENT');
@@ -121,8 +128,14 @@ export function ReviewActions({ projectPath, detail, onJumpToDraft }: ReviewActi
             />
             <MenuItem
               label="Request changes"
-              disabled={detail.isMine}
-              title={detail.isMine ? 'GitHub does not allow requesting changes on your own pull request' : undefined}
+              disabled={detail.isMine || needsSummary}
+              title={
+                detail.isMine
+                  ? 'GitHub does not allow requesting changes on your own pull request'
+                  : needsSummary
+                    ? summaryHint
+                    : undefined
+              }
               onClick={() => {
                 close();
                 void submitReview('REQUEST_CHANGES');

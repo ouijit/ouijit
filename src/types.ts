@@ -651,7 +651,7 @@ export interface ElectronAPI {
  * the user's `gh` installation.
  */
 export interface GithubAPI {
-  availability(projectPath: string): Promise<GithubAvailability>;
+  availability(projectPath: string, recheck?: boolean): Promise<GithubAvailability>;
   inbox(projectPath: string): Promise<InboxResult>;
   pullRequest(projectPath: string, number: number): Promise<PullRequestDetail>;
   pullRequestFiles(
@@ -667,6 +667,7 @@ export interface GithubAPI {
     headSha: string,
     filePath: string,
     contextLines?: number,
+    oldPath?: string,
   ): Promise<FileDiff | null>;
   pullRequestFileVersions(
     projectPath: string,

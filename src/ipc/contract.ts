@@ -238,7 +238,7 @@ export interface IpcInvokeContract {
   // ── GitHub ───────────────────────────────────────────────────────────
   // Every one of these runs `gh` on the host from the main process. No token
   // is ever read, stored, or handed to a renderer or a sandbox guest.
-  'github:availability': { args: [projectPath: string]; return: GithubAvailability };
+  'github:availability': { args: [projectPath: string, recheck?: boolean]; return: GithubAvailability };
   'github:inbox': { args: [projectPath: string]; return: InboxResult };
   'github:pull-request': { args: [projectPath: string, number: number]; return: PullRequestDetail };
   'github:pull-request-files': {
@@ -253,6 +253,7 @@ export interface IpcInvokeContract {
       headSha: string,
       filePath: string,
       contextLines?: number,
+      oldPath?: string,
     ];
     return: FileDiff | null;
   };

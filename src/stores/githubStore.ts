@@ -58,7 +58,7 @@ interface GithubStoreActions {
   setProject: (projectPath: string | null) => void;
   setView: (view: GithubView) => void;
 
-  loadAvailability: (projectPath: string) => Promise<void>;
+  loadAvailability: (projectPath: string, recheck?: boolean) => Promise<void>;
   loadInbox: (projectPath: string) => Promise<void>;
   loadIssues: (projectPath: string) => Promise<void>;
 
@@ -133,9 +133,9 @@ export const useGithubStore = create<GithubStore>()((set, get) => ({
   // sidebar, not a destination — but it does become the list closing returns to.
   setView: (view) => set(view === 'detail' ? { view } : { view, listView: view }),
 
-  loadAvailability: async (projectPath) => {
+  loadAvailability: async (projectPath, recheck) => {
     try {
-      const availability = await window.api.github.availability(projectPath);
+      const availability = await window.api.github.availability(projectPath, recheck);
       if (get().projectPath !== projectPath) return;
       set({ availability });
     } catch (error) {

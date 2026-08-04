@@ -681,44 +681,44 @@ textarea,
   content: 'File not found';
 }
 
-.plan-markdown strong {
+.app-markdown strong {
   @apply text-text-primary font-medium;
 }
 
-.plan-markdown hr {
+.app-markdown hr {
   @apply my-4 border-ink/10;
 }
 
-.plan-markdown table {
+.app-markdown table {
   @apply my-3 w-full border-collapse;
 }
 
-.plan-markdown th {
+.app-markdown th {
   @apply px-3 py-1.5 text-left text-xs font-medium text-ink/60 border-b border-ink/10;
 }
 
-.plan-markdown td {
+.app-markdown td {
   @apply px-3 py-1.5 text-sm border-b border-ink/[0.06];
 }
 
 /* Task list checkboxes */
-.plan-markdown li:has(> input[type='checkbox']) {
+.app-markdown li:has(> input[type='checkbox']) {
   list-style: none;
   margin-left: -1.25rem;
 }
 
-.plan-markdown input[type='checkbox'] {
+.app-markdown input[type='checkbox'] {
   @apply appearance-none w-4 h-4 mr-2 rounded border border-ink/25 bg-ink/[0.06] align-middle relative;
   transition: all 0.15s ease-out;
 }
 
-.plan-markdown input[type='checkbox']:checked {
+.app-markdown input[type='checkbox']:checked {
   @apply bg-accent border-accent;
 }
 
 /* Check mark is baked white in the data URI — fine in every theme because it
    always sits on the accent fill. */
-.plan-markdown input[type='checkbox']:checked::after {
+.app-markdown input[type='checkbox']:checked::after {
   content: '';
   @apply absolute inset-0;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='white'%3E%3Cpath d='M12.207 4.793a1 1 0 0 1 0 1.414l-5 5a1 1 0 0 1-1.414 0l-2-2a1 1 0 0 1 1.414-1.414L6.5 9.086l4.293-4.293a1 1 0 0 1 1.414 0z'/%3E%3C/svg%3E");

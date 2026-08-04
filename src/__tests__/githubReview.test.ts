@@ -81,10 +81,12 @@ describe('gh version floor', () => {
   });
 
   test.each([
-    ['2.20.0', true],
+    ['2.48.0', true],
     ['2.85.0', true],
     ['3.0.0', true],
-    ['2.19.9', false],
+    // 2.47 has every flag but `gh api --slurp`, which paginated reads need.
+    ['2.47.1', false],
+    ['2.20.0', false],
     ['1.14.0', false],
   ])('%s meets the floor: %s', (version, expected) => {
     expect(versionAtLeast(version, MIN_GH_VERSION)).toBe(expected);

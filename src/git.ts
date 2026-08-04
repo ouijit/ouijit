@@ -391,17 +391,26 @@ export async function getRangeDiffFiles(
   }
 }
 
-/** Per-file diff for a revision range. Mirrors `getWorktreeFileDiff` on SHAs. */
+/**
+ * Per-file diff for a revision range. Mirrors `getWorktreeFileDiff` on SHAs.
+ *
+ * `oldPath` matters for a rename: git pairs the two sides by seeing both paths
+ * in the pathspec, and given only the new one it reports the file as freshly
+ * added with every line as an addition rather than as a rename with the lines
+ * that actually changed.
+ */
 export async function getRangeFileDiff(
   projectPath: string,
   baseRev: string,
   headRev: string,
   filePath: string,
   contextLines?: number,
+  oldPath?: string,
 ): Promise<FileDiff | null> {
   const args = ['diff'];
   if (contextLines != null) args.push(`-U${contextLines}`);
   args.push(`${baseRev}...${headRev}`, '--', filePath);
+  if (oldPath && oldPath !== filePath) args.push(oldPath);
   try {
     const { stdout } = await execFileAsync('git', args, {
       ...gitExecOpts(projectPath),

@@ -94,6 +94,14 @@ export function PullRequestSidebar({
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => {
+                // Escape clears the search it belongs to. Only once there is
+                // nothing to clear does it fall through to leaving the panel.
+                if (e.key === 'Escape' && query) {
+                  e.preventDefault();
+                  setQuery('');
+                }
+              }}
               placeholder={showing === 'issues' ? 'Search issues' : 'Search pull requests'}
               className="flex-1 min-w-0 bg-transparent border-none outline-none text-sm text-text-primary placeholder:text-text-tertiary"
             />

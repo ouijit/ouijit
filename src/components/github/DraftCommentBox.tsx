@@ -46,7 +46,12 @@ export function DraftCommentBox({
         onChange={(e) => setBody(e.target.value)}
         onKeyDown={(e) => {
           if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) void save();
-          if (e.key === 'Escape') onCancel();
+          if (e.key === 'Escape') {
+            // Claim it, or the panel's own Escape handler closes the pull
+            // request out from under a cancelled comment.
+            e.preventDefault();
+            onCancel();
+          }
         }}
         placeholder={placeholder}
         className="field resize-y"

@@ -21,11 +21,12 @@ const execFileAsync = promisify(execFile);
 const ghLog = getLogger().scope('github');
 
 /**
- * `line`/`side` review anchors, `--jq`, and the `gh api graphql -F` flags this
- * module relies on all predate 2.20. Anything older gets told to upgrade
- * rather than failing with a confusing flag error mid-review.
+ * `gh api --slurp`, which paginated reads depend on, first shipped in 2.48.0.
+ * Below that the version gate used to pass and then the file list would die
+ * with `unknown flag: --slurp`, silently degrading every pull request to the
+ * git file list. Anything older gets told to upgrade instead.
  */
-export const MIN_GH_VERSION = '2.20.0';
+export const MIN_GH_VERSION = '2.48.0';
 
 /** A busy inbox must not fork twenty `gh` processes at once. */
 const MAX_CONCURRENT = 4;
