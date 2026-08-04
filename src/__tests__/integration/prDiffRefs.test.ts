@@ -13,7 +13,7 @@ import * as path from 'node:path';
 import * as os from 'node:os';
 import { execFileSync } from 'node:child_process';
 import { getRangeFileDiff } from '../../git';
-import { prHeadRef, prBaseRef } from '../../github/prDiff';
+import { prHeadRef, prBaseRef, ensurePrRefs } from '../../github/prDiff';
 
 let tmpDir: string;
 let repoDir: string;
@@ -49,6 +49,51 @@ describe('pull request refs', () => {
     expect(git('rev-parse', prHeadRef(12))).toBe(sha);
     expect(git('rev-parse', prBaseRef(12))).toBe(sha);
   });
+});
+
+describe('concurrent diff loads', () => {
+  /**
+   * The files view loads ten diffs at once and each needs the refs, so on a
+   * PR's first open all ten used to start the same `git fetch` — ten network
+   * round trips for one ref, three hundred on a large PR. Concurrent fetches
+   * of the same refspec do all succeed, so this was never visible; it was just
+   * the same work repeated.
+   */
+  test('fetch the pull request refs once, not once per file', async () => {
+    git('commit', '--allow-empty', '-m', 'base');
+    const baseSha = git('rev-parse', 'HEAD');
+
+    // A bare "remote" exposing a PR head the project does not have yet, the way
+    // GitHub exposes refs/pull/<n>/head.
+    const remoteDir = path.join(tmpDir, 'remote.git');
+    const workDir = path.join(tmpDir, 'contributor');
+    execFileSync('git', ['clone', '--bare', repoDir, remoteDir], { encoding: 'utf8' });
+    execFileSync('git', ['clone', remoteDir, workDir], { encoding: 'utf8' });
+    const inWork = (...args: string[]) => execFileSync('git', args, { cwd: workDir, encoding: 'utf8' }).trim();
+    inWork('config', 'user.email', 'them@test.com');
+    inWork('config', 'user.name', 'Them');
+    inWork('commit', '--allow-empty', '-m', 'their change');
+    inWork('push', 'origin', 'HEAD:refs/pull/7/head');
+    const headSha = inWork('rev-parse', 'HEAD');
+
+    git('remote', 'add', 'origin', remoteDir);
+    expect(headSha).not.toBe(baseSha);
+
+    // Ten at once, exactly as the batched file loader issues them. They share
+    // one promise, which is the same thing as sharing one fetch.
+    const calls = Array.from({ length: 10 }, () => ensurePrRefs(repoDir, 7, baseSha, headSha, 'origin'));
+    expect(new Set(calls).size).toBe(1);
+
+    const results = await Promise.all(calls);
+    expect(results.filter((r) => !r.success)).toEqual([]);
+    expect(git('rev-parse', prHeadRef(7))).toBe(headSha);
+
+    // And once it has settled the next caller starts fresh rather than being
+    // served a stale promise forever.
+    expect(calls[0]).not.toBe(ensurePrRefs(repoDir, 7, baseSha, headSha, 'origin'));
+    // Three clones and a fetch; the default 5s is not enough under a loaded
+    // suite even though it takes a fraction of that on its own.
+  }, 20_000);
 });
 
 describe('a renamed file', () => {

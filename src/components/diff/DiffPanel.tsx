@@ -220,7 +220,7 @@ export function DiffPanel({ ptyId, projectPath, mode, onClose }: DiffPanelProps)
                 status={file.status}
                 additions={file.additions}
                 deletions={file.deletions}
-                diff={diffs.get(file.path) ?? null}
+                diff={diffs.get(file.path)}
               />
             ))}
           {!loading && truncated && (

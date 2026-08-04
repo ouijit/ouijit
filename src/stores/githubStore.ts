@@ -126,6 +126,13 @@ export const useGithubStore = create<GithubStore>()((set, get) => ({
 
   setProject: (projectPath) => {
     if (get().projectPath === projectPath) return;
+    // Bump every counter: a detail or issue fetch already in flight for the
+    // previous project would otherwise resolve into this one's store, showing
+    // its pull request while every action went to the new project.
+    inboxVersion++;
+    issuesVersion++;
+    detailVersion++;
+    issueVersion++;
     set({ ...INITIAL, projectPath });
   },
 
@@ -261,7 +268,7 @@ export const useGithubStore = create<GithubStore>()((set, get) => ({
 
     try {
       const detail = await window.api.github.pullRequest(projectPath, number);
-      if (version !== detailVersion) return;
+      if (version !== detailVersion || get().projectPath !== projectPath) return;
       set({ detail, detailLoading: false });
 
       void get().loadDrafts(projectPath, number);
@@ -270,7 +277,7 @@ export const useGithubStore = create<GithubStore>()((set, get) => ({
       // file list needs the base/head SHAs the detail call just returned.
       set({ filesLoading: true });
       const result = await window.api.github.pullRequestFiles(projectPath, number, detail.baseSha, detail.headSha);
-      if (version !== detailVersion) return;
+      if (version !== detailVersion || get().projectPath !== projectPath) return;
       set({
         files: result.files,
         filesLoading: false,
@@ -295,7 +302,7 @@ export const useGithubStore = create<GithubStore>()((set, get) => ({
 
     try {
       const issue = await window.api.github.issue(projectPath, number);
-      if (version !== issueVersion) return;
+      if (version !== issueVersion || get().projectPath !== projectPath) return;
       set({ issue, issueLoading: false });
     } catch (error) {
       if (version !== issueVersion) return;

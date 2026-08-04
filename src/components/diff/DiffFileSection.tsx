@@ -20,7 +20,8 @@ export interface DiffFileSectionProps {
   status: DiffFileStatus | string;
   additions: number;
   deletions: number;
-  diff: FileDiff | null;
+  /** `undefined` while it loads, `null` when it could not be produced. */
+  diff: FileDiff | null | undefined;
   /** Content anchored under a specific line — review threads and drafts. */
   renderBelowLine?: (anchor: DiffLineAnchor) => ReactNode;
   /** Enables the per-line comment affordance in the gutter. */
@@ -34,6 +35,7 @@ export interface DiffFileSectionProps {
   binaryView?: ReactNode;
   loadingLabel?: string;
   emptyLabel?: string;
+  failedLabel?: string;
 }
 
 export function DiffFileSection({
@@ -48,6 +50,7 @@ export function DiffFileSection({
   binaryView,
   loadingLabel = 'Loading...',
   emptyLabel = 'No diff available',
+  failedLabel = 'Could not read this file',
 }: DiffFileSectionProps) {
   const tokens = useSyntaxHighlight(diff, path);
 
@@ -73,10 +76,14 @@ export function DiffFileSection({
         )}
       </div>
       <div>
-        {diff === null ? (
+        {diff === undefined ? (
           <div className="flex-1 flex flex-col items-center justify-center text-text-tertiary gap-2">
             {loadingLabel}
           </div>
+        ) : diff === null ? (
+          // Distinct from loading: a file whose diff git could not produce used
+          // to sit on "Loading..." for as long as the pane stayed open.
+          <div className="flex-1 flex flex-col items-center justify-center text-text-tertiary gap-2">{failedLabel}</div>
         ) : diff.binary ? (
           (binaryView ?? (
             <div className="px-4 py-6 text-center font-mono text-[11px] text-text-tertiary">Binary file</div>

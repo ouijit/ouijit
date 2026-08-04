@@ -1,6 +1,13 @@
 import { describe, test, expect } from 'vitest';
 import { anchorForLine } from '../components/diff/diffAnchor';
-import { classifyGhError, parseGhVersion, versionAtLeast, MIN_GH_VERSION } from '../github/client';
+import {
+  classifyGhError,
+  parseGhVersion,
+  versionAtLeast,
+  MIN_GH_VERSION,
+  activeGhCount,
+  runGh,
+} from '../github/client';
 import { deriveMergeStatus } from '../github/api';
 import { parseDiff } from '../git';
 import type { DiffLine } from '../types';
@@ -41,6 +48,39 @@ describe('review anchors', () => {
       { line: 11, side: 'LEFT' },
       { line: 11, side: 'RIGHT' },
     ]);
+  });
+});
+
+describe('gh concurrency gate', () => {
+  /**
+   * A smoke test on the invariant, not a reproduction: the overshoot this
+   * guards against needs a caller to enter during the microtask between a slot
+   * being freed and the woken waiter claiming it, which no scheduling this test
+   * can arrange reaches reliably. Handing the slot straight to the waiter makes
+   * the count conserved by construction; this checks the cap and the drain.
+   */
+  test('holds the cap under a burst and gives every slot back', async () => {
+    let peak = 0;
+
+    // `gh --version` is the cheapest real invocation; twenty of them at once is
+    // well past the cap of four.
+    const calls = Array.from({ length: 20 }, () =>
+      runGh(['--version']).then(
+        () => undefined,
+        () => undefined,
+      ),
+    );
+    const watch = setInterval(() => {
+      peak = Math.max(peak, activeGhCount());
+    }, 1);
+
+    await Promise.all(calls);
+    clearInterval(watch);
+
+    expect(peak).toBeGreaterThan(0);
+    expect(peak).toBeLessThanOrEqual(4);
+    // Every slot handed back at the end.
+    expect(activeGhCount()).toBe(0);
   });
 });
 

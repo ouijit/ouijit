@@ -567,8 +567,11 @@ export async function findPullRequestForBranch(
         branch,
         '--state',
         'all',
+        // More than one: with a limit of 1 the open-vs-closed preference below
+        // could never apply, so a branch whose old PR was merged and then
+        // reopened linked to the merged one.
         '--limit',
-        '1',
+        '10',
         '--json',
         'number,state',
       ],

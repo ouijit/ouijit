@@ -7,7 +7,7 @@ import { useResolvedTheme } from '../../hooks/useResolvedTheme';
  * Hook that tokenizes diff hunks for syntax highlighting.
  * Returns null while loading or if highlighting is unavailable.
  */
-export function useSyntaxHighlight(diff: FileDiff | null, filePath: string): HunkTokens[] | null {
+export function useSyntaxHighlight(diff: FileDiff | null | undefined, filePath: string): HunkTokens[] | null {
   const [tokens, setTokens] = useState<HunkTokens[] | null>(null);
   // Tokenization reads the resolved theme; re-tokenize when it changes.
   const resolvedTheme = useResolvedTheme();

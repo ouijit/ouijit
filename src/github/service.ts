@@ -30,7 +30,7 @@ import {
 import { experimentalStorageKey, parseExperimentalFlags } from '../experimentalFlags';
 import { pushBranch } from '../git';
 import { getLogger } from '../logger';
-import { getRepoIdentity } from './repoIdentity';
+import { getRepoIdentity, invalidateRepoIdentity } from './repoIdentity';
 import { GithubError, MIN_GH_VERSION, getViewerLogin } from './client';
 import {
   fetchInbox,
@@ -95,6 +95,10 @@ export async function getAvailability(projectPath: string, recheck = false): Pro
   // The health probe is cached for the life of the app, so a cached "not
   // signed in" would survive the `gh auth login` the message asks for and no
   // amount of refreshing would clear it. An explicit recheck re-probes.
+  // A recheck re-probes everything that is otherwise cached for the life of
+  // the process. Negative results are cached too, so a project opened before
+  // `git remote add origin` stayed "no remote" until the app restarted.
+  if (recheck) invalidateRepoIdentity(projectPath);
   const health = recheck ? await refreshHealth() : (getCachedHealth() ?? (await checkHealth()));
 
   if (!health.gh) {

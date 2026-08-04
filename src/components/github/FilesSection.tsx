@@ -332,7 +332,7 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
           status={file.status}
           additions={file.additions}
           deletions={file.deletions}
-          diff={diffs.get(file.path) ?? null}
+          diff={diffs.get(file.path)}
           onAddComment={startComment}
           renderBelowLine={(anchor) => renderBelowLine(file.path, anchor)}
           binaryView={

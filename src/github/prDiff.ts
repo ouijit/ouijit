@@ -95,12 +95,42 @@ async function tryGit(projectPath: string, args: string[]): Promise<void> {
  * directly — GitHub allows fetching any reachable commit — and pinned, since a
  * base SHA is frequently no longer the base branch's tip.
  */
-export async function ensurePrRefs(
+export function ensurePrRefs(
   projectPath: string,
   prNumber: number,
   baseSha: string,
   headSha: string,
   remote = 'origin',
+): Promise<PrRefsResult> {
+  const key = `${projectPath} ${prNumber} ${baseSha} ${headSha}`;
+  const existing = inflightRefs.get(key);
+  if (existing) return existing;
+
+  const run = fetchPrRefs(projectPath, prNumber, baseSha, headSha, remote);
+  inflightRefs.set(key, run);
+  void run.finally(() => {
+    if (inflightRefs.get(key) === run) inflightRefs.delete(key);
+  });
+  return run;
+}
+
+/**
+ * One fetch per pull request, not one per file.
+ *
+ * The files view loads ten diffs at a time and each one needs the refs. On a
+ * PR's first open all ten find the head missing and each starts the same
+ * `git fetch` — ten network round trips for one ref, and up to three hundred on
+ * a large PR. They all succeed, so nothing looks wrong; it is just the same
+ * work done again and again. Callers share the first call's promise instead.
+ */
+const inflightRefs = new Map<string, Promise<PrRefsResult>>();
+
+async function fetchPrRefs(
+  projectPath: string,
+  prNumber: number,
+  baseSha: string,
+  headSha: string,
+  remote: string,
 ): Promise<PrRefsResult> {
   const needHead = !(await resolveRef(projectPath, headSha));
   if (needHead) {

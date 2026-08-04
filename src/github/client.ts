@@ -59,18 +59,30 @@ export class GithubError extends Error {
 let active = 0;
 const waiting: Array<() => void> = [];
 
+/**
+ * The slot is handed straight to the next waiter rather than released and
+ * re-taken. Decrementing first left a window in which a fresh caller saw a free
+ * slot, took it, and the waking waiter then incremented on top — so the gate
+ * that exists to cap concurrent `gh` forks could be exceeded.
+ */
 async function withSlot<T>(fn: () => Promise<T>): Promise<T> {
   if (active >= MAX_CONCURRENT) {
     await new Promise<void>((resolve) => waiting.push(resolve));
+  } else {
+    active++;
   }
-  active++;
   try {
     return await fn();
   } finally {
-    active--;
     const next = waiting.shift();
     if (next) next();
+    else active--;
   }
+}
+
+/** Concurrent `gh` processes right now. Exposed for the concurrency test. */
+export function activeGhCount(): number {
+  return active;
 }
 
 // ── Error mapping ────────────────────────────────────────────────────
