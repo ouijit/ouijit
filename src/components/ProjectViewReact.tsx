@@ -8,11 +8,9 @@ import { TerminalCardStack } from './terminal/TerminalCardStack';
 import { TerminalCanvas, syncCanvasWithTerminals } from './canvas/TerminalCanvas';
 import { KanbanBoard } from './kanban/KanbanBoard';
 import { ProjectSettingsPanel } from './scripts/ProjectSettingsPanel';
-import { TaskComposerSheet } from './kanban/TaskComposerSheet';
+import { StandaloneComposerSheet } from './kanban/StandaloneComposerSheet';
 import { RunHookDialog } from './dialogs/RunHookDialog';
-import { useComposerStore, isBoardMounted } from '../stores/composerStore';
 import { openTaskComposer } from '../utils/openTaskComposer';
-import { resolveAttachmentPath } from '../utils/taskAttachments';
 import {
   addProjectTerminal,
   closeProjectTerminal,
@@ -339,61 +337,6 @@ export function ProjectView() {
       <GlobalRunHookDialog />
       <StandaloneComposerSheet projectPath={projectPath} />
     </div>
-  );
-}
-
-/**
- * The composer sheet as its own surface, for ⌘N away from the board. When the
- * board is up its column composer owns the sheet instead, so exactly one of
- * the two renders it and both read the same draft.
- */
-function StandaloneComposerSheet({ projectPath }: { projectPath: string }) {
-  const kanbanVisible = useProjectStore((s) => s.kanbanVisible);
-  const activePanel = useProjectStore((s) => s.activePanel);
-  const sheetOpen = useComposerStore((s) => s.sheetOpen);
-  const name = useComposerStore((s) => s.draft.name);
-  const description = useComposerStore((s) => s.draft.description);
-
-  const boardMounted = isBoardMounted(activePanel, kanbanVisible);
-
-  // The board's Escape handler stands down while a composer sheet is up.
-  useEffect(() => {
-    const owned = sheetOpen && !boardMounted;
-    useAppStore.getState().setComposerSheetOpen(owned);
-    return () => useAppStore.getState().setComposerSheetOpen(false);
-  }, [sheetOpen, boardMounted]);
-
-  const create = useCallback(async () => {
-    const trimmedName = name.trim();
-    if (!trimmedName) return;
-    const trimmedDescription = description.trim();
-    const composer = useComposerStore.getState();
-    composer.clearDraft();
-    composer.closeSheet();
-    await window.api.task.create(projectPath, trimmedName, trimmedDescription || undefined);
-    void useProjectStore.getState().loadTasks(projectPath);
-  }, [name, description, projectPath]);
-
-  if (!sheetOpen || boardMounted) return null;
-
-  return (
-    <TaskComposerSheet
-      mode="create"
-      name={name}
-      description={description}
-      onNameChange={useComposerStore.getState().setName}
-      onDescriptionChange={useComposerStore.getState().setDescription}
-      onAttachFile={resolveAttachmentPath}
-      onSubmit={create}
-      // Nothing to hand a caret back to out here; the draft is kept either way
-      // and the column composer picks it up when you next open the board.
-      onCollapse={() => useComposerStore.getState().closeSheet()}
-      onDiscard={() => {
-        const composer = useComposerStore.getState();
-        composer.clearDraft();
-        composer.closeSheet();
-      }}
-    />
   );
 }
 
