@@ -15,6 +15,9 @@ import { useAppStore } from '../../stores/appStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { openTaskComposer } from '../../utils/openTaskComposer';
 
+/** The platform modifier the app binds to, mirrored so these run on any host. */
+const MOD = navigator.platform.toLowerCase().includes('mac') ? { metaKey: true } : { ctrlKey: true };
+
 const getRest = () => document.querySelector('.kanban-add-rest') as HTMLButtonElement | null;
 const getTitle = () => document.querySelector('.kanban-add-input') as HTMLInputElement | null;
 /** Description is a contentEditable div — query by its stable class. */
@@ -60,7 +63,7 @@ afterEach(() => {
 // The draft outlives the component by design, so it also outlives a test.
 beforeEach(() => {
   useComposerStore.setState({ draft: { name: '', description: '' }, sheetOpen: false, sheetCaret: null });
-  useAppStore.setState({ composerSheetOpen: false });
+  useAppStore.setState({ composerSheetCount: 0 });
   useProjectStore.setState({ activePanel: 'terminals', kanbanVisible: true });
 });
 
@@ -101,7 +104,7 @@ describe('KanbanAddInput', () => {
     const title = openComposer();
     fireEvent.change(title, { target: { value: 'Fix login' } });
     typeInto(getDescription()!, 'Session expires after 30s');
-    fireEvent.keyDown(getDescription()!, { key: 'Enter', metaKey: true });
+    fireEvent.keyDown(getDescription()!, { key: 'Enter', ...MOD });
     expect(onAdd).toHaveBeenNthCalledWith(1, 'Fix login', 'Session expires after 30s');
 
     fireEvent.change(getTitle()!, { target: { value: 'Second' } });
@@ -164,7 +167,7 @@ describe('KanbanAddInput', () => {
     const title = openComposer();
     fireEvent.change(title, { target: { value: 'Fix login' } });
     typeInto(getDescription()!, 'Started inline');
-    fireEvent.keyDown(getDescription()!, { key: 'e', metaKey: true });
+    fireEvent.keyDown(getDescription()!, { key: 'e', ...MOD });
 
     // The sheet opens on the same draft.
     expect(getSheet()).not.toBeNull();
@@ -188,9 +191,9 @@ describe('KanbanAddInput', () => {
 
     const title = openComposer();
     fireEvent.change(title, { target: { value: 'Fix login' } });
-    fireEvent.keyDown(title, { key: 'e', metaKey: true });
+    fireEvent.keyDown(title, { key: 'e', ...MOD });
     typeInto(getSheetDescription()!, 'Written with room to think');
-    fireEvent.keyDown(document, { key: 'Enter', metaKey: true });
+    fireEvent.keyDown(document, { key: 'Enter', ...MOD });
     await flushSheetExit();
 
     expect(onAdd).toHaveBeenCalledWith('Fix login', 'Written with room to think');
@@ -254,7 +257,7 @@ describe('KanbanAddInput', () => {
     fireEvent.paste(editor, { clipboardData: dataTransfer });
     await new Promise((r) => setTimeout(r, 0));
 
-    fireEvent.keyDown(editor, { key: 'Enter', metaKey: true });
+    fireEvent.keyDown(editor, { key: 'Enter', ...MOD });
     expect(getPathForFile).toHaveBeenCalledTimes(1);
     expect(saveAttachment).toHaveBeenCalledTimes(1);
     expect(onAdd).toHaveBeenCalledWith('With image', '![](/tmp/img-test.png)');
@@ -279,7 +282,7 @@ describe('KanbanAddInput', () => {
     fireEvent.drop(editor, { dataTransfer, clientX: 0, clientY: 0 });
     await new Promise((r) => setTimeout(r, 0));
 
-    fireEvent.keyDown(editor, { key: 'Enter', metaKey: true });
+    fireEvent.keyDown(editor, { key: 'Enter', ...MOD });
     expect(getPathForFile).toHaveBeenCalledTimes(1);
     expect(saveAttachment).not.toHaveBeenCalled();
     expect(onAdd).toHaveBeenCalledWith('With file', '![](/Users/me/notes/agenda.txt)');

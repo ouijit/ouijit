@@ -3,9 +3,7 @@ import { createPortal } from 'react-dom';
 import { DescriptionChipEditor, type DescriptionChipEditorHandle } from './DescriptionChipEditor';
 import { Icon } from '../terminal/Icon';
 import { KeyHint } from '../ui/KeyHint';
-
-const isMac = typeof navigator !== 'undefined' && navigator.platform.toLowerCase().includes('mac');
-const MOD = isMac ? '⌘' : 'Ctrl ';
+import { isModKey, MOD_LABEL } from '../../utils/modKey';
 
 /** Matches the app's other overlays, so the surfaces enter and leave alike. */
 const TRANSITION_MS = 200;
@@ -68,8 +66,15 @@ export function TaskComposerSheet({
     return () => cancelAnimationFrame(frame);
   }, []);
 
-  /** Play the exit before handing control back, like the app's other overlays. */
+  /**
+   * Play the exit before handing control back, like the app's other overlays.
+   * Latched, because the callback is deferred: without it, holding ⌘↵ queues a
+   * timer per repeat and each one creates the same task again.
+   */
+  const dismissedRef = useRef(false);
   const dismiss = useCallback((run: () => void) => {
+    if (dismissedRef.current) return;
+    dismissedRef.current = true;
     setVisible(false);
     setTimeout(run, TRANSITION_MS);
   }, []);
@@ -113,7 +118,11 @@ export function TaskComposerSheet({
   // handler, which would clear the card selection underneath.
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      const mod = e.metaKey || e.ctrlKey;
+      if (e.repeat) return;
+      const mod = isModKey(e);
+      // ⌘E only on the platform it belongs to: Ctrl+E is move-to-end-of-line
+      // in a macOS text field, and shadowing it here would cost more than the
+      // shortcut is worth.
       if (e.key === 'Escape' || (mod && e.key.toLowerCase() === 'e')) {
         e.preventDefault();
         e.stopPropagation();
@@ -220,7 +229,7 @@ export function TaskComposerSheet({
           )}
           <button type="button" onClick={submit} disabled={!canSubmit} className="btn-primary">
             {isCreate ? 'Create task' : 'Save'}
-            <span className="opacity-60 font-mono text-[11px]">{MOD}↵</span>
+            <span className="opacity-60 font-mono text-[11px]">{MOD_LABEL}↵</span>
           </button>
         </div>
       </div>

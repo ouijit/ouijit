@@ -63,12 +63,30 @@ export interface DescriptionChipEditorProps {
 }
 
 /**
+ * Bring the caret's line into view after the caret is placed. Only does
+ * anything when the editor is height-capped and the caret landed in the part
+ * that's scrolled off.
+ */
+function scrollCaretIntoView(el: HTMLElement): void {
+  const selection = el.ownerDocument.defaultView?.getSelection();
+  if (!selection || selection.rangeCount === 0) return;
+  const caret = selection.getRangeAt(0).getBoundingClientRect();
+  const box = el.getBoundingClientRect();
+  // jsdom and an unlaid-out editor both report zeroes; nothing to do either way.
+  if (caret.height === 0 && caret.top === 0) return;
+  const margin = 8;
+  if (caret.top < box.top + margin) el.scrollTop -= box.top + margin - caret.top;
+  else if (caret.bottom > box.bottom - margin) el.scrollTop += caret.bottom - box.bottom + margin;
+}
+
+/**
  * Uncontrolled contentEditable that renders task descriptions with inline
  * image attachment chips. The DOM is the source of truth between explicit
  * resets via the imperative handle; `onChange` mirrors every edit so a parent
  * holding the value in state stays in sync. Re-render is safe because no
  * children are passed to the editable div — React never touches its content.
  */
+
 export const DescriptionChipEditor = forwardRef<DescriptionChipEditorHandle, DescriptionChipEditorProps>(
   function DescriptionChipEditor(
     {
@@ -147,11 +165,14 @@ export const DescriptionChipEditor = forwardRef<DescriptionChipEditorHandle, Des
         focusAtCaret: (offset: number) => {
           const el = editorRef.current;
           if (!el) return;
+          // setCaretOffset measures against the flat structure `populate`
+          // produces. Typing in a contentEditable adds block wrappers whose
+          // newlines it can't see, so repopulate from the current value first
+          // and the precondition holds by construction.
+          populate(serializeDescriptionDOM(el));
           el.focus();
           setCaretOffset(el, offset);
-          // Bring the caret's line into view when it landed inside the
-          // scrolled-off part of a capped editor.
-          el.scrollTop = Math.min(el.scrollTop, el.scrollHeight);
+          scrollCaretIntoView(el);
           emitMetrics();
         },
         refreshMetrics: emitMetrics,

@@ -24,19 +24,27 @@ export function StandaloneComposerSheet({ projectPath }: { projectPath: string }
 
   // The board's Escape handler stands down while a composer sheet is up.
   useEffect(() => {
-    useAppStore.getState().setComposerSheetOpen(owned);
-    return () => useAppStore.getState().setComposerSheetOpen(false);
+    if (!owned) return;
+    useAppStore.getState().openComposerSheet();
+    return () => useAppStore.getState().closeComposerSheet();
   }, [owned]);
 
   const create = useCallback(async () => {
     const trimmedName = name.trim();
     if (!trimmedName) return;
     const trimmedDescription = description.trim();
-    const composer = useComposerStore.getState();
-    composer.clearDraft();
-    composer.closeSheet();
-    await window.api.task.create(projectPath, trimmedName, trimmedDescription || undefined);
-    void useProjectStore.getState().loadTasks(projectPath);
+    // Close first so the sheet doesn't sit there through the round trip, but
+    // hold the draft until the task actually exists — losing a written prompt
+    // to a failed IPC call is the one outcome worth guarding against.
+    useComposerStore.getState().closeSheet();
+    try {
+      const result = await window.api.task.create(projectPath, trimmedName, trimmedDescription || undefined);
+      if (!result?.success) throw new Error(result?.error ?? 'Failed to create task');
+      useComposerStore.getState().clearDraft();
+      void useProjectStore.getState().loadTasks(projectPath);
+    } catch (error) {
+      useProjectStore.getState().addToast(error instanceof Error ? error.message : 'Failed to create task', 'error');
+    }
   }, [name, description, projectPath]);
 
   const discard = useCallback(() => {

@@ -10,10 +10,9 @@ import { Tooltip } from '../ui/Tooltip';
 import { useAppStore } from '../../stores/appStore';
 import { useComposerStore } from '../../stores/composerStore';
 import { resolveAttachmentPath } from '../../utils/taskAttachments';
+import { isModKey, MOD_LABEL } from '../../utils/modKey';
 
 const isMac = typeof navigator !== 'undefined' && navigator.platform.toLowerCase().includes('mac');
-/** Modifier name for tooltips and the resting row's shortcut hint. */
-const MOD_LABEL = isMac ? '⌘' : 'Ctrl ';
 
 /**
  * The description grows with its content up to this share of the column body,
@@ -24,8 +23,9 @@ const DESCRIPTION_CAP_RATIO = 0.4;
 
 /** Bounds for a height set by dragging the composer's top edge. */
 const MIN_DRAG_HEIGHT = 72;
-/** Leave at least this much column body visible above a dragged composer. */
-const DRAG_HEADROOM = 48;
+/** Cards that must stay visible above a dragged composer. Matches the card
+ *  list's own min-height, which is what stops it absorbing the difference. */
+const MIN_CARD_LIST_HEIGHT = 80;
 
 /** Global setting holding the dragged height, so it survives restarts. */
 const HEIGHT_SETTING_KEY = 'ui:composerDescriptionHeight';
@@ -99,10 +99,12 @@ export function KanbanAddInput({ onAdd }: KanbanAddInputProps) {
     editorRef.current?.refreshMetrics();
   }, [pinnedHeight, active]);
 
-  // Let the board know the sheet owns Escape and ⌘N while it's up.
+  // Let the board know the sheet owns Escape and ⌘N while it's up. Registered
+  // only while open, so a component that never opens one can't clear the count.
   useEffect(() => {
-    useAppStore.getState().setComposerSheetOpen(sheetOpen);
-    return () => useAppStore.getState().setComposerSheetOpen(false);
+    if (!sheetOpen) return;
+    useAppStore.getState().openComposerSheet();
+    return () => useAppStore.getState().closeComposerSheet();
   }, [sheetOpen]);
 
   const openForm = useCallback(() => {
@@ -161,12 +163,9 @@ export function KanbanAddInput({ onAdd }: KanbanAddInputProps) {
     });
   }, []);
 
-  /** Cmd or Ctrl, accepting either so the bindings work on any keyboard. */
-  const isModifier = (e: React.KeyboardEvent): boolean => e.metaKey || e.ctrlKey;
-
   const handleNameKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      if (isModifier(e) && e.key.toLowerCase() === 'e') {
+      if (isModKey(e) && e.key.toLowerCase() === 'e') {
         e.preventDefault();
         expand();
       } else if (e.key === 'Enter') {
@@ -185,10 +184,10 @@ export function KanbanAddInput({ onAdd }: KanbanAddInputProps) {
     (e: React.KeyboardEvent) => {
       // Cmd/Ctrl+Enter submits; plain Enter falls through to contentEditable's
       // native line-break handling.
-      if (isModifier(e) && e.key.toLowerCase() === 'e') {
+      if (isModKey(e) && e.key.toLowerCase() === 'e') {
         e.preventDefault();
         expand();
-      } else if (e.key === 'Enter' && isModifier(e)) {
+      } else if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
         e.preventDefault();
         submit();
       } else if (e.key === 'Escape') {
@@ -224,13 +223,17 @@ export function KanbanAddInput({ onAdd }: KanbanAddInputProps) {
     const editor = document.querySelector<HTMLElement>('.kanban-add-description');
     const form = formRef.current;
     if (!editor || !form) return;
-    // The column publishes its body height as a custom property; the cap and
-    // the drag ceiling are both shares of it.
+    // The column publishes the room below its header as a custom property. That
+    // span holds the card list *and* this composer, so the ceiling has to
+    // subtract the composer's own chrome and the list's min-height — otherwise
+    // the form grows past the column and the action row is clipped away.
     const bodyHeight = Number.parseFloat(getComputedStyle(form).getPropertyValue('--kanban-body-h')) || 0;
+    const editorHeight = editor.getBoundingClientRect().height;
+    const chrome = form.getBoundingClientRect().height - editorHeight;
     dragRef.current = {
       startY: e.clientY,
-      startHeight: editor.getBoundingClientRect().height,
-      max: Math.max(MIN_DRAG_HEIGHT, bodyHeight - DRAG_HEADROOM),
+      startHeight: editorHeight,
+      max: Math.max(MIN_DRAG_HEIGHT, bodyHeight - chrome - MIN_CARD_LIST_HEIGHT),
     };
     e.currentTarget.setPointerCapture(e.pointerId);
     e.preventDefault();
@@ -413,7 +416,7 @@ export function KanbanAddInput({ onAdd }: KanbanAddInputProps) {
 export function focusKanbanAddInput(): void {
   // The expanded sheet holds the same draft and already has focus; pulling it
   // back to the input behind the scrim would strand the caret.
-  if (useAppStore.getState().composerSheetOpen) return;
+  if (useAppStore.getState().composerSheetCount > 0) return;
 
   const input = document.querySelector<HTMLInputElement>('.kanban-add-input');
   if (input) {

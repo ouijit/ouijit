@@ -176,7 +176,7 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
 
   // Hotkeys
   const runHookActive = useProjectStore((s) => s.runHookQueue.length > 0);
-  const composerSheetOpen = useAppStore((s) => s.composerSheetOpen);
+  const composerSheetOpen = useAppStore((s) => s.composerSheetCount > 0);
   const hasOpenDialog = !!(runHookActive || hookDialog || missingWorktreeDialog || composerSheetOpen);
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {

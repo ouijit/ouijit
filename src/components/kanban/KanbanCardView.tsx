@@ -11,6 +11,7 @@ import {
 import { TaskComposerSheet } from './TaskComposerSheet';
 import { Tooltip } from '../ui/Tooltip';
 import { useAppStore } from '../../stores/appStore';
+import { isModKey, MOD_LABEL } from '../../utils/modKey';
 
 const isMac = typeof navigator !== 'undefined' && navigator.platform.toLowerCase().includes('mac');
 
@@ -177,10 +178,13 @@ export const KanbanCardView = memo(function KanbanCardView({
     });
   }, []);
 
-  // The board leaves Escape to the sheet while it's open.
+  // The board leaves Escape to the sheet while it's open. Only registered
+  // while open: every card mounts this, and a card remounting from a
+  // background task reload must not clear a sheet someone else has up.
   useEffect(() => {
-    useAppStore.getState().setComposerSheetOpen(sheetOpen);
-    return () => useAppStore.getState().setComposerSheetOpen(false);
+    if (!sheetOpen) return;
+    useAppStore.getState().openComposerSheet();
+    return () => useAppStore.getState().closeComposerSheet();
   }, [sheetOpen]);
 
   /**
@@ -221,7 +225,7 @@ export const KanbanCardView = memo(function KanbanCardView({
   /** Enter (without shift) commits the description; ⌘E opens the sheet. */
   const handleEditorKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLDivElement>) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'e') {
+      if (isModKey(e) && e.key.toLowerCase() === 'e') {
         e.preventDefault();
         expandDescription();
       } else if (e.key === 'Enter' && !e.shiftKey) {
@@ -411,7 +415,10 @@ export const KanbanCardView = memo(function KanbanCardView({
               placeholder="Add description…"
               editable={editingDesc}
               onKeyDown={handleEditorKeyDown}
-              onBlur={editingDesc ? commitDescription : undefined}
+              // Not while the sheet is up: opening it moves focus to its own
+              // editor, and a blur commit there would write the description
+              // out and drop this editor back to read-only underneath it.
+              onBlur={editingDesc && !sheetOpen ? commitDescription : undefined}
               onClick={() => {
                 if (!editingDesc) setEditingDesc(true);
               }}
@@ -436,7 +443,7 @@ export const KanbanCardView = memo(function KanbanCardView({
                 text={
                   <span className="flex items-center gap-2">
                     Expand
-                    <span className="kanban-add-button-hint kanban-add-button-hint-text">{isMac ? '⌘' : 'Ctrl '}E</span>
+                    <span className="kanban-add-button-hint kanban-add-button-hint-text">{MOD_LABEL}E</span>
                   </span>
                 }
                 referenceClassName="kanban-add-expand-anchor"
