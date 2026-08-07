@@ -323,43 +323,36 @@ export interface GhProbe {
   version?: string;
   /** False when gh is present but below MIN_GH_VERSION. */
   versionOk: boolean;
-  authenticated: boolean;
+}
+
+/** Detect gh and read its version. Local, like every other health probe. */
+export async function probeGh(): Promise<GhProbe> {
+  try {
+    const { stdout } = await execFileAsync('gh', ['--version'], { encoding: 'utf8', timeout: 10_000 });
+    const version = parseGhVersion(stdout) ?? undefined;
+    return { installed: true, version, versionOk: version ? versionAtLeast(version, MIN_GH_VERSION) : false };
+  } catch {
+    return { installed: false, versionOk: false };
+  }
 }
 
 /**
- * Detect gh and whether it holds credentials. Runs the two probes in parallel;
- * `gh auth status` exits non-zero when logged out, which is the signal rather
- * than an error.
+ * Whether gh holds credentials. `gh auth status` validates the token against
+ * GitHub, so this is a network call and stays out of the startup health probe —
+ * offline, it costs the full timeout, and only the GitHub panel needs the
+ * answer. Logged out exits non-zero, which is the signal rather than an error.
  */
-export async function probeGh(): Promise<GhProbe> {
-  let version: string | undefined;
-  let installed = false;
-  try {
-    const { stdout } = await execFileAsync('gh', ['--version'], { encoding: 'utf8', timeout: 10_000 });
-    installed = true;
-    version = parseGhVersion(stdout) ?? undefined;
-  } catch {
-    return { installed: false, versionOk: false, authenticated: false };
-  }
-
-  let authenticated = false;
+export async function probeGhAuth(): Promise<boolean> {
   try {
     await execFileAsync('gh', ['auth', 'status'], {
       encoding: 'utf8',
       env: ghEnv(),
       timeout: 15_000,
     });
-    authenticated = true;
+    return true;
   } catch {
-    authenticated = false;
+    return false;
   }
-
-  return {
-    installed,
-    version,
-    versionOk: version ? versionAtLeast(version, MIN_GH_VERSION) : false,
-    authenticated,
-  };
 }
 
 /** Login of the authenticated user, or null when gh can't tell us. */

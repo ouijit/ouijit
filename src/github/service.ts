@@ -30,7 +30,7 @@ import { experimentalStorageKey, parseExperimentalFlags } from '../experimentalF
 import { pushBranch } from '../git';
 import { getLogger } from '../logger';
 import { getRepoIdentity, invalidateRepoIdentity } from './repoIdentity';
-import { GithubError, MIN_GH_VERSION, getViewerLogin } from './client';
+import { GithubError, MIN_GH_VERSION, getViewerLogin, probeGhAuth } from './client';
 import {
   fetchInbox,
   fetchPullRequest,
@@ -81,6 +81,20 @@ export async function isGithubEnabled(projectPath: string): Promise<boolean> {
 }
 
 /**
+ * `gh auth status` is a network call, so it is not part of the startup health
+ * probe. It runs here instead, the first time anything asks whether the panel
+ * can open, and is then cached for the life of the process like the rest of
+ * availability. A recheck re-probes so the `gh auth login` the message asks for
+ * takes effect without a restart.
+ */
+let ghAuth: Promise<boolean> | null = null;
+
+function isGhAuthenticated(recheck: boolean): Promise<boolean> {
+  if (recheck || !ghAuth) ghAuth = probeGhAuth();
+  return ghAuth;
+}
+
+/**
  * Whether the GitHub surface can run for a project, and why not when it can't.
  *
  * The panel stays hidden rather than showing a blank screen, and the reason is
@@ -91,12 +105,10 @@ export async function getAvailability(projectPath: string, recheck = false): Pro
     return { available: false, reason: 'flag-off' };
   }
 
-  // The health probe is cached for the life of the app, so a cached "not
-  // signed in" would survive the `gh auth login` the message asks for and no
-  // amount of refreshing would clear it. An explicit recheck re-probes.
   // A recheck re-probes everything that is otherwise cached for the life of
   // the process. Negative results are cached too, so a project opened before
-  // `git remote add origin` stayed "no remote" until the app restarted.
+  // `git remote add origin` stayed "no remote" until the app restarted, and a
+  // gh installed after launch stayed missing.
   if (recheck) invalidateRepoIdentity(projectPath);
   const health = recheck ? await refreshHealth() : (getCachedHealth() ?? (await checkHealth()));
 
@@ -114,7 +126,7 @@ export async function getAvailability(projectPath: string, recheck = false): Pro
       message: `The GitHub CLI is ${health.ghVersion ?? 'an unknown version'}; this needs ${MIN_GH_VERSION} or newer.`,
     };
   }
-  if (!health.ghAuthenticated) {
+  if (!(await isGhAuthenticated(recheck))) {
     return {
       available: false,
       reason: 'gh-unauthenticated',

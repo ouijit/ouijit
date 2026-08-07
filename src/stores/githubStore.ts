@@ -196,6 +196,9 @@ export const useGithubStore = create<GithubStore>()((set, get) => ({
       activeNumber: number,
       activeIssue: null,
       issue: null,
+      // Same reason as `closeDetail`: the issue load this cancels won't clear
+      // the flag itself.
+      issueLoading: false,
       issueError: null,
       detail: null,
       detailLoading: true,
@@ -225,8 +228,10 @@ export const useGithubStore = create<GithubStore>()((set, get) => ({
       issueError: null,
       activeNumber: null,
       detail: null,
+      detailLoading: false,
       detailError: null,
       files: [],
+      filesLoading: false,
       drafts: [],
       composingAt: null,
     });
@@ -242,11 +247,17 @@ export const useGithubStore = create<GithubStore>()((set, get) => ({
       view: get().listView,
       activeNumber: null,
       detail: null,
+      // The load that just lost its version check returns without clearing its
+      // own flag, so closing has to. Left set, the next visit to this pane opens
+      // on a spinner that nothing is coming to replace.
+      detailLoading: false,
       detailError: null,
       activeIssue: null,
       issue: null,
+      issueLoading: false,
       issueError: null,
       files: [],
+      filesLoading: false,
       drafts: [],
       composingAt: null,
     });

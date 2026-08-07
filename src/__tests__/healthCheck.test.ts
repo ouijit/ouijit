@@ -40,7 +40,6 @@ vi.mock('../sandbox/nono/binary', () => ({
  */
 const GH_ABSENT = {
   gh: false,
-  ghAuthenticated: false,
   ghVersionOk: false,
   ghVersion: undefined,
 } as const;
@@ -198,13 +197,12 @@ describe('healthCheck', () => {
     });
   });
 
-  test('detects gh and its auth state', async () => {
+  test('detects gh without contacting GitHub', async () => {
     execFileMock.mockImplementation((cmd: string, args: string[], cb: Function) => {
       if (cmd === 'git') cb(null, 'git version 2.45.0\n', '');
       else if (cmd === 'gh' && args[0] === '--version') cb(null, 'gh version 2.85.0 (2026-01-14)\n', '');
-      else if (cmd === 'gh' && args[0] === 'auth') cb(null, 'Logged in to github.com\n', '');
       else if (cmd === 'which') cb(new Error('not found'));
-      else cb(new Error(`unexpected ${cmd}`));
+      else cb(new Error(`unexpected ${cmd} ${args.join(' ')}`));
     });
     isLimaInstalledMock.mockResolvedValue(false);
 
@@ -213,31 +211,16 @@ describe('healthCheck', () => {
     expect(status.gh).toBe(true);
     expect(status.ghVersion).toBe('2.85.0');
     expect(status.ghVersionOk).toBe(true);
-    expect(status.ghAuthenticated).toBe(true);
-  });
-
-  test('reports gh installed but signed out — the panel needs to tell these apart', async () => {
-    execFileMock.mockImplementation((cmd: string, args: string[], cb: Function) => {
-      if (cmd === 'git') cb(null, 'git version 2.45.0\n', '');
-      else if (cmd === 'gh' && args[0] === '--version') cb(null, 'gh version 2.85.0 (2026-01-14)\n', '');
-      // `gh auth status` exits non-zero when logged out; that is the signal.
-      else if (cmd === 'gh' && args[0] === 'auth') cb(new Error('You are not logged into any GitHub hosts'));
-      else if (cmd === 'which') cb(new Error('not found'));
-      else cb(new Error(`unexpected ${cmd}`));
-    });
-    isLimaInstalledMock.mockResolvedValue(false);
-
-    const { checkHealth } = await import('../healthCheck');
-    const status = await checkHealth();
-    expect(status.gh).toBe(true);
-    expect(status.ghAuthenticated).toBe(false);
+    // `gh auth status` validates the token over the network. Every other probe
+    // here is a local binary check, and an offline machine would wait out its
+    // timeout before the renderer learned anything about git or the agents.
+    expect(execFileMock.mock.calls.some((call) => call[1]?.[0] === 'auth')).toBe(false);
   });
 
   test('flags a gh below the version floor as unusable rather than merely present', async () => {
     execFileMock.mockImplementation((cmd: string, args: string[], cb: Function) => {
       if (cmd === 'git') cb(null, 'git version 2.45.0\n', '');
       else if (cmd === 'gh' && args[0] === '--version') cb(null, 'gh version 2.4.0 (2021-01-01)\n', '');
-      else if (cmd === 'gh' && args[0] === 'auth') cb(null, 'Logged in\n', '');
       else if (cmd === 'which') cb(new Error('not found'));
       else cb(new Error(`unexpected ${cmd}`));
     });
