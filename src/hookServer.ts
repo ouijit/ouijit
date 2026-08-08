@@ -331,6 +331,50 @@ ouijit script set --name "<name>" --command "<cmd>"
 ouijit script run <id-or-name>                # executes and streams output
 ouijit script run <id-or-name> --task <number> # run in task's worktree dir
 
+## Pull Request Commands
+Use these, not \`gh\`, for anything that belongs to a review. \`gh\` reaches
+GitHub directly and posts under the user's name; these write locally, and the
+user sends the review themselves. Reading the diff with \`gh pr diff <n>\` is
+fine — there is no Ouijit equivalent — but nothing should be posted with \`gh\`.
+
+When a terminal is opened against a pull request, these are set:
+OUIJIT_PR_NUMBER, OUIJIT_PR_BRANCH, OUIJIT_PR_URL, OUIJIT_PR_TITLE, and
+OUIJIT_WORKTREE_PATH when it is checked out as a task.
+
+ouijit pr list                                # → open PRs, grouped review/yours/others
+ouijit pr view <number>                       # → one PR with threads, timeline, checks
+ouijit pr link <number> --task <n>            # link a PR to a task
+
+### Review comments (staged locally, sent by the user)
+ouijit pr draft list <number>
+ouijit pr draft add <number> --file <path> --line <n> --body "<text>" [--origin <name>]
+ouijit pr draft add <number> --file <path> --line <n> --body -    # body on stdin
+ouijit pr draft discard <number> <draft-id>
+
+--body - is the one to use for anything multi-line. --origin names who wrote it,
+so the user can see which comments came from an agent before sending.
+Anchor to a line that appears as an ADDED line in the diff, by its new-file line
+number: GitHub rejects the whole review at submit time if any comment points at
+a line outside the diff, so a bad anchor loses every comment with it.
+
+### Reading order (how the Code pane groups the diff)
+ouijit pr lens get <number> --head-sha <sha>
+ouijit pr lens set <number> --body -          # JSON on stdin
+ouijit pr lens clear <number>
+
+The body names the parts of the change and points each at the hunks that make
+it up. One file can appear in several parts — that is the point of it:
+{"headSha": "<sha>", "groups": [
+  {"title": "Draft storage", "summary": "Where an unsent comment lives",
+   "slices": [{"path": "src/github/service.ts", "ranges": [[329, 388]]},
+              {"path": "src/db/repos/reviewDraftRepo.ts"}]}
+]}
+Ranges are new-file line numbers and select whole hunks; omit "ranges" to claim
+the whole file. headSha must be the PR's current head, or the lens is ignored.
+Hunks no group claims are still shown, in a trailing group — a lens can reorder
+and split a diff but never hides part of it, so covering everything is not
+required.
+
 ## Markdown Panel Commands (open .md files as tabs in this terminal)
 ouijit markdown add <path.md>                 # open a markdown file panel on this terminal
 ouijit markdown list                          # → {ptyId, kind, panels: [{label, path, active}, ...]}
@@ -384,6 +428,12 @@ ouijit tag add 3 auth
 
 # Set up a project run hook:
 ouijit hook set run --name "Dev server" --command "npm run dev"
+
+# Review a pull request without posting anything to GitHub:
+gh pr diff $OUIJIT_PR_NUMBER                  # read it
+ouijit pr draft add $OUIJIT_PR_NUMBER --file src/api.ts --line 88 \\
+  --origin claude --body "this can throw when the token is missing"
+# ...then the user reads the staged comments and sends the review themselves.
 `;
 
 /**
