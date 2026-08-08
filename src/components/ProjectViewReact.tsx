@@ -8,8 +8,9 @@ import { TerminalCardStack } from './terminal/TerminalCardStack';
 import { TerminalCanvas, syncCanvasWithTerminals } from './canvas/TerminalCanvas';
 import { KanbanBoard } from './kanban/KanbanBoard';
 import { ProjectSettingsPanel } from './scripts/ProjectSettingsPanel';
-import { focusKanbanAddInput } from './kanban/KanbanAddInput';
+import { StandaloneComposerSheet } from './kanban/StandaloneComposerSheet';
 import { RunHookDialog } from './dialogs/RunHookDialog';
+import { openTaskComposer } from '../utils/openTaskComposer';
 import {
   addProjectTerminal,
   closeProjectTerminal,
@@ -90,14 +91,12 @@ export function ProjectView() {
         return;
       }
 
-      // Cmd+N — show kanban board and focus new task input
+      // Cmd+N — focus the column composer on the board, open the sheet from
+      // anywhere else rather than yanking the view over to the board
       if (key === 'n') {
         e.preventDefault();
         e.stopPropagation();
-        const store = useProjectStore.getState();
-        store.setActivePanel('terminals');
-        store.setKanbanVisible(true);
-        requestAnimationFrame(() => focusKanbanAddInput());
+        openTaskComposer();
         return;
       }
 
@@ -336,6 +335,7 @@ export function ProjectView() {
         </>
       )}
       <GlobalRunHookDialog />
+      <StandaloneComposerSheet projectPath={projectPath} />
     </div>
   );
 }
