@@ -561,6 +561,24 @@ describe('PullRequestsPanel', () => {
     });
   });
 
+  /**
+   * The number is what gets pasted and quoted elsewhere, so it is also the way
+   * out to GitHub — not only the unlabelled glyph in the chrome.
+   */
+  test('the pull request number opens it on github', async () => {
+    vi.mocked(window.api.github.inbox).mockResolvedValue(
+      inbox({ needsReview: [pr({ number: 5, title: 'Please look' })] }),
+    );
+    vi.mocked(window.api.github.pullRequest).mockResolvedValue(detail());
+
+    render(<PullRequestsPanel projectPath={PROJECT} />);
+    fireEvent.click(await screen.findByText('Please look'));
+
+    const link = await screen.findByTitle('Open #5 on GitHub');
+    fireEvent.click(link);
+    expect(window.api.openExternal).toHaveBeenCalledWith('https://github.com/o/r/pull/5');
+  });
+
   test('you cannot approve your own pull request', async () => {
     vi.mocked(window.api.github.inbox).mockResolvedValue(
       inbox({ mine: [pr({ number: 8, title: 'Mine', isMine: true })] }),

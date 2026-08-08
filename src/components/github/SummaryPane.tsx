@@ -50,6 +50,19 @@ export function SummaryPane({
           <Dot />
           <span>{since(detail.createdAt)}</span>
           <Dot />
+          {/* The number is the thing people paste and quote, so it doubles as
+              the way out to GitHub — the chrome's icon button says the same
+              thing, but only to someone who already knows what it is. */}
+          <button
+            type="button"
+            className="flex items-center gap-1 hover:text-accent transition-colors duration-100"
+            title={`Open #${detail.number} on GitHub`}
+            onClick={() => void window.api.openExternal(detail.url)}
+          >
+            #{detail.number}
+            <Icon name="arrow-square-out" className="w-3.5 h-3.5 opacity-60" />
+          </button>
+          <Dot />
           <span>{readyLabel(detail)}</span>
         </div>
       </header>
