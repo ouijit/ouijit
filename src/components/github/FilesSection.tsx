@@ -5,7 +5,8 @@ import { useGithubStore } from '../../stores/githubStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { BinaryFileView } from '../diff/BinaryFileView';
 import { DiffFileSection } from '../diff/DiffFileSection';
-import type { DiffLineAnchor } from '../diff/DiffLineView';
+import type { DiffLineAnchor } from '../diff/diffAnchor';
+import { anchorKey, unanchoredThreads } from './reviewAnchors';
 import { Icon } from '../terminal/Icon';
 import { ReviewThreadView } from './ReviewThreadView';
 import { DraftCommentBox } from './DraftCommentBox';
@@ -28,11 +29,6 @@ export interface FilesSectionHandle {
 
 function describe(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
-}
-
-/** Key for the (path, line, side) triple that anchors a comment. */
-function anchorKey(path: string, line: number, side: 'LEFT' | 'RIGHT'): string {
-  return `${path} ${line} ${side}`;
 }
 
 /**
@@ -138,37 +134,12 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
     return map;
   }, [drafts]);
 
-  /**
-   * Threads that will never render inline — either they carry no anchor line at
-   * all, or they sit on a file this diff doesn't include (a thread left on a
-   * file that a later push reverted, or one past the file cap). Collected so
-   * they're still readable instead of silently disappearing.
-   */
-  const orphanThreads = useMemo(() => {
-    const renderedPaths = new Set(files.map((f) => f.path));
-
-    // Every anchor the loaded diffs actually offer. A thread can carry a line
-    // and a path that exist and still match nothing — GitHub allows a LEFT
-    // comment on a line the diff only renders as RIGHT context — and it would
-    // then appear nowhere while still being counted in the rail.
-    const anchors = new Set<string>();
-    for (const [path, diff] of diffs) {
-      for (const hunk of diff?.hunks ?? []) {
-        for (const line of hunk.lines) {
-          if (line.oldLineNo != null) anchors.add(anchorKey(path, line.oldLineNo, 'LEFT'));
-          if (line.newLineNo != null) anchors.add(anchorKey(path, line.newLineNo, 'RIGHT'));
-        }
-      }
-    }
-
-    return detail.threads.filter((thread) => {
-      const line = thread.line ?? thread.originalLine;
-      if (line == null || !renderedPaths.has(thread.path)) return true;
-      // Not yet loaded is not the same as unanchorable; wait for the diff.
-      if (!diffs.has(thread.path)) return false;
-      return !anchors.has(anchorKey(thread.path, line, thread.side));
-    });
-  }, [detail.threads, files, diffs]);
+  // Threads with nowhere to render, collected so they stay readable instead of
+  // silently disappearing.
+  const orphanThreads = useMemo(
+    () => unanchoredThreads(detail.threads, files, diffs),
+    [detail.threads, files, diffs],
+  );
 
   const startComment = useCallback((path: string, anchor: DiffLineAnchor) => {
     setEditingDraftId(null);

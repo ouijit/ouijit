@@ -1,5 +1,6 @@
 import { describe, test, expect } from 'vitest';
 import { anchorForLine } from '../components/diff/diffAnchor';
+import { unanchoredThreads } from '../components/github/reviewAnchors';
 import {
   classifyGhError,
   parseGhVersion,
@@ -11,6 +12,7 @@ import {
 import { deriveMergeStatus } from '../github/api';
 import { parseDiff } from '../git';
 import type { DiffLine } from '../types';
+import type { ReviewThread } from '../github/types';
 
 describe('review anchors', () => {
   // These four cases are the diff-source decision in miniature: if the line
@@ -34,6 +36,44 @@ describe('review anchors', () => {
   test('a line with no number for its side cannot be anchored', () => {
     expect(anchorForLine({ type: 'deletion', content: 'x' })).toBeNull();
     expect(anchorForLine({ type: 'addition', content: 'x' })).toBeNull();
+  });
+
+  test('a thread whose anchor no line offers is surfaced rather than lost', () => {
+    const hunks = parseDiff(['@@ -10,2 +10,2 @@', ' unchanged line', '-removed line', '+added line'].join('\n'));
+    const diffs = new Map([['a.ts', { path: 'a.ts', hunks, isBinary: false }]]);
+    const files = [{ path: 'a.ts' }];
+    const thread = (over: Partial<ReviewThread>): ReviewThread => ({
+      id: 't',
+      path: 'a.ts',
+      line: 10,
+      originalLine: null,
+      side: 'RIGHT',
+      isResolved: false,
+      isOutdated: false,
+      comments: [],
+      ...over,
+    });
+
+    const orphans = unanchoredThreads(
+      [
+        // Renders inline: the context line anchors RIGHT at 10.
+        thread({ id: 'anchored' }),
+        // GitHub takes a LEFT comment on the left pane of that same context
+        // line, but the line only ever draws its RIGHT anchor.
+        thread({ id: 'left-on-context', line: 10, side: 'LEFT' }),
+        // Outdated threads fall back to originalLine; this one has neither.
+        thread({ id: 'no-line', line: null }),
+        // The file isn't in the diff at all.
+        thread({ id: 'other-file', path: 'gone.ts' }),
+      ],
+      files,
+      diffs,
+    );
+    expect(orphans.map((t) => t.id)).toEqual(['left-on-context', 'no-line', 'other-file']);
+
+    // A file whose diff hasn't loaded yet is pending, not unanchorable —
+    // listing it here would flash every thread into the orphan list on open.
+    expect(unanchoredThreads([thread({ id: 'anchored' })], files, new Map())).toEqual([]);
   });
 
   test('anchors derived from a parsed hunk are real file line numbers', () => {

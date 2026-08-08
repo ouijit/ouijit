@@ -20,8 +20,6 @@ export interface HealthStatus {
   gitVersion?: string;
   /** `gh` is on PATH. The GitHub panel needs it; nothing else does. */
   gh: boolean;
-  /** `gh` holds credentials. False means the panel shows "run gh auth login". */
-  ghAuthenticated: boolean;
   /** False when gh is installed but too old for the flags this app passes. */
   ghVersionOk: boolean;
   ghVersion?: string;
@@ -96,7 +94,6 @@ export async function checkHealth(): Promise<HealthStatus> {
     nono,
     gitVersion: git.version,
     gh: gh.installed,
-    ghAuthenticated: gh.authenticated,
     ghVersionOk: gh.versionOk,
     ghVersion: gh.version,
   };
@@ -110,7 +107,6 @@ export async function checkHealth(): Promise<HealthStatus> {
     nono: cached.nono,
     gitVersion: cached.gitVersion,
     gh: cached.gh,
-    ghAuthenticated: cached.ghAuthenticated,
     ghVersion: cached.ghVersion,
   });
   return cached;
