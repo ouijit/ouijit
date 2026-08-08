@@ -14,6 +14,11 @@ interface PullRequestRailProps {
   groups: ResolvedGroup[] | null;
   lensOn: boolean;
   onLensOn: (on: boolean) => void;
+  /** Runs the project's reading-order command against this pull request. */
+  onWriteLens: () => void;
+  /** False until one is configured, which is what the empty state offers. */
+  hasLensCommand: boolean;
+  lensWriting: boolean;
 }
 
 /**
@@ -35,6 +40,9 @@ export function PullRequestRail({
   groups,
   lensOn,
   onLensOn,
+  onWriteLens,
+  hasLensCommand,
+  lensWriting,
 }: PullRequestRailProps) {
   const changedFiles: ChangedFile[] = useMemo(() => files.map(toChangedFile), [files]);
 
@@ -85,16 +93,20 @@ export function PullRequestRail({
             }}
           />
         ) : (
-          // A state, not a control: there is nothing to press until something
-          // has read the diff. Said anyway, because a reader who has never seen
-          // one has no other way to learn the Code pane can be read in the
-          // order the change was made rather than the order it was stored.
-          <div
-            className="px-3 py-1 text-[13px] text-ink/35"
-            title="Run a review command from the action bar above, and an agent can write one"
-          >
-            No reading order yet
-          </div>
+          // The way to get one sits where one would appear. Putting it in an
+          // action menu about something else would leave a reader looking at
+          // the file list with no idea the pane could do anything else.
+          <RailEntry
+            label={lensWriting ? 'Writing…' : hasLensCommand ? 'Write a reading order' : 'Set up a reading order…'}
+            muted
+            active={false}
+            title={
+              hasLensCommand
+                ? 'Run this project’s reading-order command, so the parts of this change are named and ordered'
+                : 'Choose the command that reads a diff and writes its reading order'
+            }
+            onClick={onWriteLens}
+          />
         )}
       </div>
 
@@ -138,6 +150,7 @@ function RailEntry({
   onClick,
   trailing,
   title,
+  muted,
 }: {
   label: string;
   note?: string;
@@ -145,13 +158,14 @@ function RailEntry({
   onClick: () => void;
   trailing?: ReactNode;
   title?: string;
+  muted?: boolean;
 }) {
   return (
     <button
       type="button"
       title={title}
       className={`w-full flex items-center gap-1.5 py-1 pl-3 pr-3 text-[13px] text-left transition-colors duration-150 ease-out hover:bg-ink/5 ${
-        active ? 'bg-ink/[0.07] text-ink' : 'text-ink/70'
+        active ? 'bg-ink/[0.07] text-ink' : muted ? 'text-ink/45' : 'text-ink/70'
       }`}
       onClick={onClick}
     >

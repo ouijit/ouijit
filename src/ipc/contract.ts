@@ -275,6 +275,8 @@ export interface IpcInvokeContract {
   };
   'github:delete-pr-command': { args: [projectPath: string, name: string]; return: { success: boolean } };
   'github:lens': { args: [projectPath: string, prNumber: number, headSha: string]; return: LensResult };
+  'github:lens-command': { args: [projectPath: string]; return: string };
+  'github:set-lens-command': { args: [projectPath: string, command: string]; return: { success: boolean } };
   'github:clear-lens': { args: [projectPath: string, prNumber: number]; return: { success: boolean } };
   'github:issues': { args: [projectPath: string]; return: GithubIssue[] };
   'github:issue': { args: [projectPath: string, number: number]; return: IssueDetail };

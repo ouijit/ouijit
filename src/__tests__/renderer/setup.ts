@@ -172,6 +172,8 @@ const mockApi = {
     listPrCommands: vi.fn().mockResolvedValue([]),
     lens: vi.fn().mockResolvedValue({ groups: null }),
     clearLens: vi.fn().mockResolvedValue({ success: true }),
+    lensCommand: vi.fn().mockResolvedValue(''),
+    setLensCommand: vi.fn().mockResolvedValue({ success: true }),
     savePrCommand: vi.fn().mockResolvedValue({ name: '', command: '' }),
     deletePrCommand: vi.fn().mockResolvedValue({ success: true }),
     saveDraft: vi.fn().mockResolvedValue({ id: 'draft-1' }),

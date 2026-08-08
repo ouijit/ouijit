@@ -723,6 +723,8 @@ export interface GithubAPI {
   deletePrCommand(projectPath: string, name: string): Promise<{ success: boolean }>;
   lens(projectPath: string, prNumber: number, headSha: string): Promise<LensResult>;
   clearLens(projectPath: string, prNumber: number): Promise<{ success: boolean }>;
+  lensCommand(projectPath: string): Promise<string>;
+  setLensCommand(projectPath: string, command: string): Promise<{ success: boolean }>;
 
   onDraftsChanged(callback: (payload: GithubDraftsChangedPayload) => void): () => void;
 }

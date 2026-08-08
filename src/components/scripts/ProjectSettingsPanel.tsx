@@ -9,6 +9,7 @@ import { ExperimentalFeaturesSection } from './ExperimentalFeaturesSection';
 import { WorktreeSection } from './WorktreeSection';
 import { IconColorSection } from './IconColorSection';
 import { PrCommandList } from './PrCommandList';
+import { LensCommandSection } from './LensCommandSection';
 import { useExperimentalStore } from '../../stores/experimentalStore';
 import { useWorktreeSettingsStore } from '../../stores/worktreeSettingsStore';
 
@@ -108,6 +109,16 @@ export function ProjectSettingsPanel({ projectPath }: ProjectSettingsPanelProps)
               <ScriptList projectPath={projectPath} bare />
             </div>
           </section>
+          {githubEnabled && (
+            <section>
+              <h2 className="text-sm font-semibold text-text-primary mb-2">Reading Order</h2>
+              <p className="text-xs text-text-tertiary mb-4">
+                The command the Code pane runs to have a pull request grouped into the parts of its change, instead of a
+                list of files.
+              </p>
+              <LensCommandSection projectPath={projectPath} />
+            </section>
+          )}
           {githubEnabled && (
             <section>
               <h2 className="text-sm font-semibold text-text-primary mb-2">Pull Request Commands</h2>

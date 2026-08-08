@@ -135,13 +135,9 @@ export function ReviewActions({ projectPath, detail, linkedTask, onJumpToDraft }
     <SegmentedGroup>
       {drafts.length > 0 && <DraftsPopover drafts={drafts} onJump={onJumpToDraft} onDiscard={discardDraft} />}
 
-      {/* Always here, even with nothing configured. A command that writes
-          review comments and a reading order is the point of this surface, and
-          gating the way in on having already found it is how it stayed
-          invisible. */}
-      <ActionMenu label="Run">
-        {(close) =>
-          prCommands.length > 0 ? (
+      {prCommands.length > 0 && (
+        <ActionMenu label="Run">
+          {(close) =>
             prCommands.map((cmd) => (
               <MenuItem
                 key={cmd.name}
@@ -153,19 +149,9 @@ export function ReviewActions({ projectPath, detail, linkedTask, onJumpToDraft }
                 }}
               />
             ))
-          ) : (
-            <MenuItem
-              label="Set up a review command…"
-              hint="Project Settings"
-              title="A command run against this pull request — an agent started here can file review comments and write the Code pane's reading order"
-              onClick={() => {
-                close();
-                useProjectStore.getState().setActivePanel('settings');
-              }}
-            />
-          )
-        }
-      </ActionMenu>
+          }
+        </ActionMenu>
+      )}
 
       <ActionMenu label={submitting ? 'Submitting…' : 'Review'} disabled={submitting} accent={!isOpen}>
         {(close) => (

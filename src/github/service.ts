@@ -28,6 +28,7 @@ import {
   savePrLens,
   deletePrLens,
   getGlobalSetting,
+  setGlobalSetting,
   createTask,
   getNextTaskNumber,
   type ReviewDraftRow,
@@ -435,6 +436,27 @@ export async function deletePrCommand(projectPath: string, name: string): Promis
 }
 
 // ── Lens ────────────────────────────────────────────────────────
+
+/**
+ * The command that writes a reading order.
+ *
+ * One per project, and deliberately not one of the named pull request commands:
+ * those are things you choose to run, this is what the Code pane calls when a
+ * reader asks for a story. Reuse lives here — at the prompt, which is the same
+ * for every pull request — and never in the grouping, which is specific to one.
+ */
+export function lensCommandKey(projectPath: string): string {
+  return 'github:lens-command:' + projectPath;
+}
+
+export async function getLensCommand(projectPath: string): Promise<string> {
+  return (await getGlobalSetting(lensCommandKey(projectPath))) ?? '';
+}
+
+export async function setLensCommand(projectPath: string, command: string): Promise<{ success: boolean }> {
+  await setGlobalSetting(lensCommandKey(projectPath), command.trim());
+  return { success: true };
+}
 
 export interface LensResult {
   /** Null when none has been written, or when the one on file is stale. */

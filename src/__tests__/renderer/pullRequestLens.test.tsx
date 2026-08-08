@@ -83,6 +83,7 @@ describe('PullRequestsPanel — lens', () => {
     vi.mocked(window.api.github.listPrCommands).mockResolvedValue([]);
     vi.mocked(window.api.github.lens).mockResolvedValue({ groups: null });
     vi.mocked(window.api.github.pullRequestFiles).mockResolvedValue({ files: [], fromGit: false });
+    vi.mocked(window.api.github.lensCommand).mockResolvedValue('');
   });
 
   /**
@@ -123,10 +124,10 @@ describe('PullRequestsPanel — lens', () => {
   });
 
   /**
-   * With none written the pane still says so, and Run is still there to write
-   * one. Gating both on a lens already existing is how this shipped invisible.
+   * With none written, the rail is where the way to get one lives — beside
+   * where it would appear, not in a menu about running other things.
    */
-  test('with no lens the pane says so, and Run leads to setting one up', async () => {
+  test('with no lens the rail leads to setting one up', async () => {
     vi.mocked(window.api.github.inbox).mockResolvedValue(
       inbox({ needsReview: [pr({ number: 5, title: 'Please look' })] }),
     );
@@ -139,13 +140,27 @@ describe('PullRequestsPanel — lens', () => {
 
     expect(await screen.findByText('All files')).toBeTruthy();
     expect(screen.queryByText('Read as a story')).toBeNull();
-    expect(screen.getByText('No reading order yet')).toBeTruthy();
 
-    // Nothing configured, so Run offers the way to configure something rather
-    // than not being there at all.
-    fireEvent.click(screen.getByText('Run'));
-    fireEvent.click(await screen.findByText('Set up a review command…'));
+    // Nothing configured, so the press is about choosing a command — and it
+    // sits in the rail, where a reading order would appear, not in a menu
+    // about something else.
+    fireEvent.click(await screen.findByText('Set up a reading order…'));
     expect(useProjectStore.getState().activePanel).toBe('settings');
+  });
+
+  test('with a command configured the rail offers to write one', async () => {
+    vi.mocked(window.api.github.inbox).mockResolvedValue(
+      inbox({ needsReview: [pr({ number: 5, title: 'Please look' })] }),
+    );
+    vi.mocked(window.api.github.pullRequest).mockResolvedValue(detail());
+    vi.mocked(window.api.github.lens).mockResolvedValue({ groups: null });
+    vi.mocked(window.api.github.lensCommand).mockResolvedValue('claude "group this"');
+
+    render(<PullRequestsPanel projectPath={PROJECT} />);
+    fireEvent.click(await screen.findByText('Please look'));
+    fireEvent.click(await screen.findByText('Code'));
+
+    expect(await screen.findByText('Write a reading order')).toBeTruthy();
   });
 
   /**
