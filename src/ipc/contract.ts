@@ -52,9 +52,17 @@ import type {
   ReviewDraft,
   ReviewEvent,
   MergeMethod,
-  GithubChangedPayload,
+  GithubDraftsChangedPayload,
+  PullRequestFile,
 } from '../github/types';
-import type { InboxResult, PullRequestFilesResult, SaveDraftInput, PromoteToTaskResult } from '../github/service';
+import type {
+  InboxResult,
+  PullRequestFilesResult,
+  SaveDraftInput,
+  PromoteToTaskResult,
+  PrCommandSummary,
+} from '../github/service';
+import type { LensResult } from '../github/prCommand';
 import type { PrFileVersions } from '../github/prDiff';
 import type { SandboxProviderStatus, NonoConfig } from '../sandbox/types';
 import type { HookStatusEntry } from '../hookServer';
@@ -261,9 +269,13 @@ export interface IpcInvokeContract {
     args: [projectPath: string, number: number, baseSha: string, headSha: string, filePath: string, oldPath?: string];
     return: PrFileVersions;
   };
+  'github:list-pr-commands': { args: [projectPath: string]; return: PrCommandSummary[] };
+  'github:run-lens': {
+    args: [projectPath: string, name: string, detail: PullRequestDetail, files: PullRequestFile[]];
+    return: LensResult;
+  };
   'github:issues': { args: [projectPath: string]; return: GithubIssue[] };
   'github:issue': { args: [projectPath: string, number: number]; return: IssueDetail };
-  'github:refresh': { args: [projectPath: string]; return: void };
 
   'github:link-task-pr': {
     args: [projectPath: string, taskNumber: number, prNumber: number | null];
@@ -423,6 +435,6 @@ export interface IpcPushContract {
     ];
   };
   'capture:navigate': { args: [payload: CaptureNavigatePayload] };
-  /** The poller (or a manual refresh) observed new GitHub state for a project. */
-  'github:changed': { args: [payload: GithubChangedPayload] };
+  /** A review draft was written or discarded outside the renderer (the CLI). */
+  'github:drafts-changed': { args: [payload: GithubDraftsChangedPayload] };
 }

@@ -165,11 +165,12 @@ const mockApi = {
     pullRequestFileVersions: vi.fn().mockResolvedValue({ before: null, after: null }),
     issues: vi.fn().mockResolvedValue([]),
     issue: vi.fn().mockResolvedValue(null),
-    refresh: vi.fn().mockResolvedValue(undefined),
     linkTaskPr: vi.fn().mockResolvedValue({ success: true }),
     linkTaskIssue: vi.fn().mockResolvedValue({ success: true }),
     detectTaskPr: vi.fn().mockResolvedValue({ prNumber: null }),
     drafts: vi.fn().mockResolvedValue([]),
+    listPrCommands: vi.fn().mockResolvedValue([]),
+    runLens: vi.fn().mockResolvedValue({ success: true, groups: [] }),
     saveDraft: vi.fn().mockResolvedValue({ id: 'draft-1' }),
     discardDraft: vi.fn().mockResolvedValue({ success: true }),
     submitReview: vi.fn().mockResolvedValue({ success: true }),
@@ -181,7 +182,7 @@ const mockApi = {
     mergePr: vi.fn().mockResolvedValue({ success: true }),
     taskFromIssue: vi.fn().mockResolvedValue({ success: true }),
     taskFromPr: vi.fn().mockResolvedValue({ success: true }),
-    onChanged: vi.fn().mockReturnValue(() => {}),
+    onDraftsChanged: vi.fn().mockReturnValue(() => {}),
   },
 };
 

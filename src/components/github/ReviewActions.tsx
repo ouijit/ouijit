@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import type { TaskWithWorkspace } from '../../types';
+import { addProjectTerminal } from '../terminal/terminalActions';
 import type { MergeMethod, PullRequestDetail, ReviewDraft, ReviewEvent } from '../../github/types';
 import { useGithubStore } from '../../stores/githubStore';
 import { useProjectStore } from '../../stores/projectStore';
@@ -9,6 +11,8 @@ import { SegmentedGroup } from './SegmentedGroup';
 interface ReviewActionsProps {
   projectPath: string;
   detail: PullRequestDetail;
+  /** The task holding this pull request's worktree, when one exists. */
+  linkedTask?: TaskWithWorkspace;
   /** Scroll the document to a pending comment and open it for editing. */
   onJumpToDraft: (draft: ReviewDraft) => void;
 }
@@ -30,14 +34,17 @@ const METHODS: Array<{ value: MergeMethod; label: string }> = [
  * but not sent get their own segment, dotted in accent, so unsent work is
  * visible from any pane.
  */
-export function ReviewActions({ projectPath, detail, onJumpToDraft }: ReviewActionsProps) {
+export function ReviewActions({ projectPath, detail, linkedTask, onJumpToDraft }: ReviewActionsProps) {
   const drafts = useGithubStore((s) => s.drafts);
   const submitting = useGithubStore((s) => s.submitting);
+  const prCommands = useGithubStore((s) => s.prCommands);
 
   const [summary, setSummary] = useState('');
   const [method, setMethod] = useState<MergeMethod>('squash');
   const [deleteBranch, setDeleteBranch] = useState(true);
   const [merging, setMerging] = useState(false);
+
+  const terminalCommands = prCommands.filter((c) => c.mode === 'terminal');
 
   const isOpen = detail.state === 'open';
   const hardBlock = detail.merge.mergeable === 'CONFLICTING' || detail.isDraft;
@@ -95,9 +102,62 @@ export function ReviewActions({ projectPath, detail, onJumpToDraft }: ReviewActi
     }
   };
 
+  /**
+   * Hand this pull request to a command in a terminal.
+   *
+   * In the pull request's worktree when it has one, in the project otherwise —
+   * reviewing a teammate's PR is deliberately checkout-free, and a command that
+   * only wants the number and the URL should not require checking anything out
+   * first. Runs because it was pressed; nothing triggers it in the background.
+   */
+  const runCommand = async (name: string, command: string) => {
+    const task = linkedTask;
+    await addProjectTerminal(
+      projectPath,
+      { name, command, source: 'custom', priority: 0 },
+      {
+        ...(task?.worktreePath
+          ? {
+              existingWorktree: {
+                path: task.worktreePath,
+                branch: task.branch || '',
+                createdAt: task.createdAt,
+              },
+              taskId: task.taskNumber,
+            }
+          : {}),
+        skipAutoHook: true,
+        extraEnv: {
+          OUIJIT_PR_NUMBER: String(detail.number),
+          OUIJIT_PR_BRANCH: detail.headRefName,
+          OUIJIT_PR_URL: detail.url,
+          OUIJIT_PR_TITLE: detail.title,
+        },
+      },
+    );
+  };
+
   return (
     <SegmentedGroup>
       {drafts.length > 0 && <DraftsPopover drafts={drafts} onJump={onJumpToDraft} onDiscard={discardDraft} />}
+
+      {terminalCommands.length > 0 && (
+        <ActionMenu label="Run">
+          {(close) =>
+            terminalCommands.map((cmd) => (
+              <MenuItem
+                key={cmd.name}
+                label={cmd.name}
+                title={cmd.command}
+                onClick={() => {
+                  close();
+                  void runCommand(cmd.name, cmd.command);
+                }}
+              />
+            ))
+          }
+        </ActionMenu>
+      )}
       <ActionMenu label={submitting ? 'Submitting…' : 'Review'} disabled={submitting} accent={!isOpen}>
         {(close) => (
           <>
@@ -226,8 +286,18 @@ function DraftsPopover({
                 onJump(draft);
               }}
             >
-              <span className="block font-mono text-[11px] text-text-tertiary truncate">
-                {draft.path}:{draft.line}
+              <span className="flex items-center gap-1.5 font-mono text-[11px] text-text-tertiary truncate">
+                <span className="truncate">
+                  {draft.path}:{draft.line}
+                </span>
+                {/* Said before you send, not discovered afterwards: these go up
+                    under your name, so anything you did not type is marked.
+                    Untrusted text — a caller names itself, so it is clamped. */}
+                {draft.origin !== 'human' && (
+                  <span className="shrink-0 px-1 rounded bg-ink/[0.08] text-text-secondary">
+                    {draft.origin.slice(0, 16)}
+                  </span>
+                )}
               </span>
               <span className="block text-[13px] text-text-secondary truncate">{draft.body}</span>
             </button>

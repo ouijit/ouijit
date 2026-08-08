@@ -60,6 +60,9 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
     const store = useGithubStore.getState();
     void store.loadInbox(projectPath);
     void store.loadIssues(projectPath);
+    // Local read, so it rides along with the panel's first load rather than
+    // waiting for the code pane to be opened.
+    void store.loadPrCommands(projectPath);
   }, [available, projectPath]);
 
   const refresh = useCallback(() => {
@@ -72,27 +75,19 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
     void store.loadIssues(projectPath);
   }, [projectPath]);
 
-  // Refresh when the poller reports movement, and again whenever the window
-  // regains focus — the two fast paths that let the poll interval stay slow.
+  // The one thing that arrives unasked. A draft written by the CLI happens in
+  // another process, so there is no press to hang the update on; everything
+  // else in this panel refreshes because someone asked it to. The handler does
+  // a single local read — nothing here may reach the network, or this becomes
+  // the broadcast-and-refetch-everything path it replaced.
   useEffect(() => {
     if (!available) return;
-    const off = window.api.github.onChanged((payload) => {
+    return window.api.github.onDraftsChanged((payload) => {
       if (payload.projectPath !== projectPath) return;
       const store = useGithubStore.getState();
-      void store.loadInbox(projectPath);
-      void store.loadIssues(projectPath);
-      if (store.activeNumber != null) void store.reloadDetail(projectPath);
-      if (store.activeIssue != null) void store.reloadIssue(projectPath);
+      if (store.activeNumber !== payload.prNumber) return;
+      void store.loadDrafts(projectPath, payload.prNumber);
     });
-    const onFocus = () => {
-      if (document.hidden) return;
-      void useGithubStore.getState().loadInbox(projectPath);
-    };
-    window.addEventListener('focus', onFocus);
-    return () => {
-      off();
-      window.removeEventListener('focus', onFocus);
-    };
   }, [available, projectPath]);
 
   // Escape closes what is open, then leaves the panel — matching how the

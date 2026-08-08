@@ -1,5 +1,4 @@
 import { typedHandle } from '../helpers';
-import { refreshGithubNow } from '../../github/poller';
 import {
   getAvailability,
   getInbox,
@@ -22,6 +21,8 @@ import {
   resolveThread,
   createPullRequestForTask,
   mergePr,
+  listPrCommands,
+  runPrLens,
   createTaskFromIssue,
   prepareTaskFromPullRequest,
 } from '../../github/service';
@@ -48,7 +49,6 @@ export function registerGithubHandlers(): void {
   );
   typedHandle('github:issues', (projectPath) => getIssues(projectPath));
   typedHandle('github:issue', (projectPath, number) => getIssue(projectPath, number));
-  typedHandle('github:refresh', (projectPath) => refreshGithubNow(projectPath));
 
   typedHandle('github:link-task-pr', (projectPath, taskNumber, prNumber) =>
     linkTaskToPr(projectPath, taskNumber, prNumber),
@@ -75,6 +75,9 @@ export function registerGithubHandlers(): void {
   typedHandle('github:create-pr', (projectPath, taskNumber, options) =>
     createPullRequestForTask(projectPath, taskNumber, options),
   );
+  typedHandle('github:list-pr-commands', (projectPath) => listPrCommands(projectPath));
+  typedHandle('github:run-lens', (projectPath, name, detail, files) => runPrLens(projectPath, name, detail, files));
+
   typedHandle('github:merge-pr', (projectPath, prNumber, method, deleteBranch) =>
     mergePr(projectPath, prNumber, method, deleteBranch),
   );

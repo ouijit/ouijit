@@ -109,7 +109,7 @@ describe('PullRequestsPanel', () => {
     vi.clearAllMocks();
     useGithubStore.getState().reset();
     useGithubStore.setState({ projectPath: null });
-    useProjectStore.setState({ tasks: [] });
+    useProjectStore.setState({ tasks: [], toasts: [] });
     useAppStore.setState({ activeProjectData: { path: PROJECT, name: 'Alpha' } });
     vi.mocked(window.api.github.availability).mockResolvedValue({
       available: true,
@@ -117,7 +117,11 @@ describe('PullRequestsPanel', () => {
     });
     vi.mocked(window.api.github.inbox).mockResolvedValue(inbox());
     vi.mocked(window.api.github.issues).mockResolvedValue([]);
-    vi.mocked(window.api.github.onChanged).mockReturnValue(() => {});
+    vi.mocked(window.api.github.onDraftsChanged).mockReturnValue(() => {});
+    // clearAllMocks resets call records but keeps implementations, so a test
+    // that stubs these leaves its stub behind for every test after it.
+    vi.mocked(window.api.github.drafts).mockResolvedValue([]);
+    vi.mocked(window.api.github.listPrCommands).mockResolvedValue([]);
   });
 
   /**
@@ -559,6 +563,178 @@ describe('PullRequestsPanel', () => {
     await waitFor(() => {
       expect(window.api.github.deleteComment).toHaveBeenCalledWith(PROJECT, 'issue', 991);
     });
+  });
+
+  /**
+   * A lens is a press, never automatic: opening the code pane shows the flat
+   * file list, and the command only runs when its name is chosen. A diff you
+   * cannot see until some command finishes is worse than an unsorted one.
+   */
+  test('a lens runs when picked, and not before', async () => {
+    vi.mocked(window.api.github.inbox).mockResolvedValue(
+      inbox({ needsReview: [pr({ number: 5, title: 'Please look' })] }),
+    );
+    vi.mocked(window.api.github.pullRequest).mockResolvedValue(detail({ changedFiles: 2 }));
+    vi.mocked(window.api.github.pullRequestFiles).mockResolvedValue({
+      files: [
+        { path: 'src/api.ts', status: 'M', additions: 1, deletions: 1 },
+        { path: 'src/ui.tsx', status: 'M', additions: 1, deletions: 1 },
+      ],
+      fromGit: false,
+    });
+    vi.mocked(window.api.github.listPrCommands).mockResolvedValue([
+      { name: 'narrative', command: './order.sh', mode: 'lens' },
+    ]);
+    vi.mocked(window.api.github.runLens).mockResolvedValue({
+      success: true,
+      groups: [
+        { title: 'Transport', paths: ['src/api.ts'] },
+        { title: 'Everything else', paths: ['src/ui.tsx'] },
+      ],
+    });
+
+    render(<PullRequestsPanel projectPath={PROJECT} />);
+    fireEvent.click(await screen.findByText('Please look'));
+    fireEvent.click(await screen.findByText('Code'));
+
+    // The lens is offered by name, and has not run.
+    expect(await screen.findByText('narrative')).toBeTruthy();
+    expect(window.api.github.runLens).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByText('narrative'));
+
+    await waitFor(() => expect(window.api.github.runLens).toHaveBeenCalled());
+    // Each group titles both the rail entry and the section it heads.
+    expect((await screen.findAllByText('Transport')).length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Everything else').length).toBeGreaterThan(0);
+  });
+
+  /** A lens that fails says why and gets out of the way. */
+  test('a failing lens falls back to the flat list', async () => {
+    vi.mocked(window.api.github.inbox).mockResolvedValue(
+      inbox({ needsReview: [pr({ number: 5, title: 'Please look' })] }),
+    );
+    vi.mocked(window.api.github.pullRequest).mockResolvedValue(detail());
+    vi.mocked(window.api.github.pullRequestFiles).mockResolvedValue({
+      files: [{ path: 'src/api.ts', status: 'M', additions: 1, deletions: 1 }],
+      fromGit: false,
+    });
+    vi.mocked(window.api.github.listPrCommands).mockResolvedValue([
+      { name: 'narrative', command: './order.sh', mode: 'lens' },
+    ]);
+    vi.mocked(window.api.github.runLens).mockResolvedValue({ success: false, error: 'order.sh: not found' });
+
+    render(<PullRequestsPanel projectPath={PROJECT} />);
+    fireEvent.click(await screen.findByText('Please look'));
+    fireEvent.click(await screen.findByText('Code'));
+    fireEvent.click(await screen.findByText('narrative'));
+
+    // The error is said, and the file list is still there to read.
+    await waitFor(() => expect(useProjectStore.getState().toasts[0]?.message).toBe('order.sh: not found'));
+    expect(screen.getByText('All files')).toBeTruthy();
+  });
+
+  /**
+   * The rule the whole refresh design rests on: a local write costs a local
+   * read and nothing else.
+   *
+   * This replaced a broadcast whose only handler re-fetched the inbox, the
+   * issues, and the open pull request — so an agent filing twenty comments cost
+   * eighty network round trips against a shared rate limit. If someone widens
+   * this handler again, this test is what says no.
+   */
+  test('a draft written elsewhere refreshes drafts, and nothing else', async () => {
+    let notify!: (payload: { projectPath: string; prNumber: number }) => void;
+    vi.mocked(window.api.github.onDraftsChanged).mockImplementation((cb) => {
+      notify = cb;
+      return () => {};
+    });
+    vi.mocked(window.api.github.inbox).mockResolvedValue(
+      inbox({ needsReview: [pr({ number: 5, title: 'Please look' })] }),
+    );
+    vi.mocked(window.api.github.pullRequest).mockResolvedValue(detail());
+
+    render(<PullRequestsPanel projectPath={PROJECT} />);
+    fireEvent.click(await screen.findByText('Please look'));
+    await waitFor(() => expect(window.api.github.drafts).toHaveBeenCalled());
+
+    vi.mocked(window.api.github.inbox).mockClear();
+    vi.mocked(window.api.github.issues).mockClear();
+    vi.mocked(window.api.github.pullRequest).mockClear();
+    vi.mocked(window.api.github.drafts).mockClear();
+
+    notify({ projectPath: PROJECT, prNumber: 5 });
+
+    await waitFor(() => expect(window.api.github.drafts).toHaveBeenCalledWith(PROJECT, 5));
+    expect(window.api.github.inbox).not.toHaveBeenCalled();
+    expect(window.api.github.issues).not.toHaveBeenCalled();
+    expect(window.api.github.pullRequest).not.toHaveBeenCalled();
+  });
+
+  /** A notification about a pull request you are not reading costs nothing. */
+  test('a draft written on another pull request is ignored', async () => {
+    let notify!: (payload: { projectPath: string; prNumber: number }) => void;
+    vi.mocked(window.api.github.onDraftsChanged).mockImplementation((cb) => {
+      notify = cb;
+      return () => {};
+    });
+    vi.mocked(window.api.github.inbox).mockResolvedValue(
+      inbox({ needsReview: [pr({ number: 5, title: 'Please look' })] }),
+    );
+    vi.mocked(window.api.github.pullRequest).mockResolvedValue(detail());
+
+    render(<PullRequestsPanel projectPath={PROJECT} />);
+    fireEvent.click(await screen.findByText('Please look'));
+    await waitFor(() => expect(window.api.github.drafts).toHaveBeenCalled());
+    vi.mocked(window.api.github.drafts).mockClear();
+
+    notify({ projectPath: PROJECT, prNumber: 99 });
+
+    await Promise.resolve();
+    expect(window.api.github.drafts).not.toHaveBeenCalled();
+  });
+
+  /**
+   * Twelve agent-written comments and twelve you typed must not look the same
+   * in a queue you are about to send under your own name.
+   */
+  test('a draft written by something else is labelled in the unsent list', async () => {
+    vi.mocked(window.api.github.inbox).mockResolvedValue(
+      inbox({ needsReview: [pr({ number: 5, title: 'Please look' })] }),
+    );
+    vi.mocked(window.api.github.pullRequest).mockResolvedValue(detail());
+    vi.mocked(window.api.github.drafts).mockResolvedValue([
+      {
+        id: 'd1',
+        projectPath: PROJECT,
+        prNumber: 5,
+        path: 'src/api.ts',
+        line: 12,
+        side: 'RIGHT',
+        body: 'this can throw',
+        createdAt: '2026-07-02T00:00:00.000Z',
+        origin: 'claude',
+      },
+      {
+        id: 'd2',
+        projectPath: PROJECT,
+        prNumber: 5,
+        path: 'src/api.ts',
+        line: 20,
+        side: 'RIGHT',
+        body: 'mine',
+        createdAt: '2026-07-02T00:00:00.000Z',
+        origin: 'human',
+      },
+    ]);
+
+    render(<PullRequestsPanel projectPath={PROJECT} />);
+    fireEvent.click(await screen.findByText('Please look'));
+
+    fireEvent.click(await screen.findByText('2 unsent'));
+    expect(await screen.findByText('claude')).toBeTruthy();
+    // The one you typed carries no badge — only what you did not write is named.
+    expect(screen.queryByText('human')).toBeNull();
   });
 
   /**

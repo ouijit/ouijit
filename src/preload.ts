@@ -20,7 +20,14 @@ import type {
   CliPanelResponse,
 } from './types';
 import type { CaptureNavigatePayload } from './capture/types';
-import type { CommentKind, ReviewEvent, MergeMethod, GithubChangedPayload } from './github/types';
+import type {
+  CommentKind,
+  ReviewEvent,
+  MergeMethod,
+  GithubDraftsChangedPayload,
+  PullRequestDetail,
+  PullRequestFile,
+} from './github/types';
 import type { SaveDraftInput } from './github/service';
 
 // ── Typed IPC helpers ───────────────────────────────────────────────────────
@@ -334,9 +341,11 @@ contextBridge.exposeInMainWorld('api', {
       filePath: string,
       oldPath?: string,
     ) => typedInvoke('github:pull-request-file-versions', projectPath, number, baseSha, headSha, filePath, oldPath),
+    listPrCommands: (projectPath: string) => typedInvoke('github:list-pr-commands', projectPath),
+    runLens: (projectPath: string, name: string, detail: PullRequestDetail, files: PullRequestFile[]) =>
+      typedInvoke('github:run-lens', projectPath, name, detail, files),
     issues: (projectPath: string) => typedInvoke('github:issues', projectPath),
     issue: (projectPath: string, number: number) => typedInvoke('github:issue', projectPath, number),
-    refresh: (projectPath: string) => typedInvoke('github:refresh', projectPath),
 
     linkTaskPr: (projectPath: string, taskNumber: number, prNumber: number | null) =>
       typedInvoke('github:link-task-pr', projectPath, taskNumber, prNumber),
@@ -369,6 +378,7 @@ contextBridge.exposeInMainWorld('api', {
       typedInvoke('github:task-from-issue', projectPath, issueNumber),
     taskFromPr: (projectPath: string, prNumber: number) => typedInvoke('github:task-from-pr', projectPath, prNumber),
 
-    onChanged: (callback: (payload: GithubChangedPayload) => void) => typedListen('github:changed', callback),
+    onDraftsChanged: (callback: (payload: GithubDraftsChangedPayload) => void) =>
+      typedListen('github:drafts-changed', callback),
   },
 });

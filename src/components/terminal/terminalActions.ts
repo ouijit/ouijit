@@ -86,6 +86,12 @@ export interface AddProjectTerminalOptions {
    *  shell-integration precmd hook). On non-zero exit it stays open so the
    *  failure is debuggable in the interactive shell that survives the command. */
   autoCloseOnSuccess?: boolean;
+  /**
+   * Extra environment for this spawn, merged last. A pull request command needs
+   * OUIJIT_PR_* alongside the task vars, and it can run against a pull request
+   * that has no worktree at all, so it cannot come from the worktree builder.
+   */
+  extraEnv?: Record<string, string>;
 }
 
 // ── Apply persisted UI state from a session snapshot ────────────────
@@ -289,6 +295,7 @@ export async function addProjectTerminal(
   // Determine command to run
   let startCommand = command;
   let startEnv: Record<string, string> | undefined;
+  const extraEnv = options?.extraEnv;
 
   if (worktreeInfo) {
     startEnv = buildWorktreeStartEnv({
@@ -369,7 +376,7 @@ export async function addProjectTerminal(
     label,
     taskId: options?.taskId,
     worktreePath: worktreeInfo?.path,
-    env: startEnv,
+    env: extraEnv ? { ...startEnv, ...extraEnv } : startEnv,
     sandboxProvider,
   };
 

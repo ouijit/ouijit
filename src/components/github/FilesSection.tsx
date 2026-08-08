@@ -1,6 +1,6 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useState } from 'react';
 import type { FileDiff } from '../../types';
-import type { PullRequestDetail, ReviewDraft, ReviewThread } from '../../github/types';
+import type { PullRequestDetail, PullRequestFile, ReviewDraft, ReviewThread } from '../../github/types';
 import { useGithubStore } from '../../stores/githubStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { BinaryFileView } from '../diff/BinaryFileView';
@@ -51,6 +51,7 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
   const filesFromGit = useGithubStore((s) => s.filesFromGit);
   const drafts = useGithubStore((s) => s.drafts);
   const composingAt = useGithubStore((s) => s.composingAt);
+  const lensGroups = useGithubStore((s) => s.lensGroups);
 
   const [diffs, setDiffs] = useState<Map<string, FileDiff | null>>(new Map());
   const [editingDraftId, setEditingDraftId] = useState<string | null>(null);
@@ -136,10 +137,7 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
 
   // Threads with nowhere to render, collected so they stay readable instead of
   // silently disappearing.
-  const orphanThreads = useMemo(
-    () => unanchoredThreads(detail.threads, files, diffs),
-    [detail.threads, files, diffs],
-  );
+  const orphanThreads = useMemo(() => unanchoredThreads(detail.threads, files, diffs), [detail.threads, files, diffs]);
 
   const startComment = useCallback((path: string, anchor: DiffLineAnchor) => {
     setEditingDraftId(null);
@@ -281,6 +279,51 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
 
   const shown = only ? files.filter((f) => f.path === only) : files;
 
+  const renderFile = (file: PullRequestFile) => (
+    <DiffFileSection
+      key={file.path}
+      path={file.path}
+      status={file.status}
+      additions={file.additions}
+      deletions={file.deletions}
+      diff={diffs.get(file.path)}
+      onAddComment={startComment}
+      renderBelowLine={(anchor) => renderBelowLine(file.path, anchor)}
+      binaryView={
+        <BinaryFileView
+          path={file.path}
+          revision={`${detail.baseSha}...${detail.headSha}`}
+          load={() =>
+            window.api.github.pullRequestFileVersions(
+              projectPath,
+              detail.number,
+              detail.baseSha,
+              detail.headSha,
+              file.path,
+              file.oldPath,
+            )
+          }
+        />
+      }
+      headerRight={
+        file.oldPath ? (
+          <span
+            className="shrink-0 font-mono text-[11px] text-text-tertiary truncate"
+            title={`Renamed from ${file.oldPath}`}
+          >
+            from {file.oldPath}
+          </span>
+        ) : null
+      }
+    />
+  );
+
+  // A lens rearranges the whole document, so it applies only when the whole
+  // document is what's on screen. Reading one file is already the narrowest
+  // view there is; grouping a single file would be grouping nothing.
+  const grouped = !only && lensGroups ? lensGroups : null;
+  const byPath = new Map(files.map((f) => [f.path, f]));
+
   return (
     <>
       {filesFromGit && (
@@ -296,44 +339,20 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
         </div>
       )}
 
-      {shown.map((file) => (
-        <DiffFileSection
-          key={file.path}
-          path={file.path}
-          status={file.status}
-          additions={file.additions}
-          deletions={file.deletions}
-          diff={diffs.get(file.path)}
-          onAddComment={startComment}
-          renderBelowLine={(anchor) => renderBelowLine(file.path, anchor)}
-          binaryView={
-            <BinaryFileView
-              path={file.path}
-              revision={`${detail.baseSha}...${detail.headSha}`}
-              load={() =>
-                window.api.github.pullRequestFileVersions(
-                  projectPath,
-                  detail.number,
-                  detail.baseSha,
-                  detail.headSha,
-                  file.path,
-                  file.oldPath,
-                )
-              }
-            />
-          }
-          headerRight={
-            file.oldPath ? (
-              <span
-                className="shrink-0 font-mono text-[11px] text-text-tertiary truncate"
-                title={`Renamed from ${file.oldPath}`}
-              >
-                from {file.oldPath}
-              </span>
-            ) : null
-          }
-        />
-      ))}
+      {grouped
+        ? grouped.map((group) => (
+            <div key={group.title} className="flex flex-col">
+              <div className="sticky top-0 z-10 px-3 py-2 bg-surface border-b border-ink/[0.06]">
+                <div className="text-[12px] font-medium text-text-primary">{group.title}</div>
+                {group.summary && <div className="text-[11px] text-text-tertiary">{group.summary}</div>}
+              </div>
+              {group.paths.map((path) => {
+                const file = byPath.get(path);
+                return file ? renderFile(file) : null;
+              })}
+            </div>
+          ))
+        : shown.map(renderFile)}
 
       {!only && orphanThreads.length > 0 && (
         <>

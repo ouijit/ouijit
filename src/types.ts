@@ -53,7 +53,7 @@ export type {
   GithubIssue,
   IssueDetail,
   CommentKind,
-  GithubChangedPayload,
+  GithubDraftsChangedPayload,
   CheckRun,
   TimelineItem,
 } from './github/types';
@@ -70,9 +70,17 @@ import type {
   ReviewDraft,
   ReviewEvent,
   MergeMethod,
-  GithubChangedPayload,
+  GithubDraftsChangedPayload,
+  PullRequestFile,
 } from './github/types';
-import type { InboxResult, PullRequestFilesResult, SaveDraftInput, PromoteToTaskResult } from './github/service';
+import type {
+  InboxResult,
+  PullRequestFilesResult,
+  SaveDraftInput,
+  PromoteToTaskResult,
+  PrCommandSummary,
+} from './github/service';
+import type { LensResult } from './github/prCommand';
 import type { PrFileVersions } from './github/prDiff';
 import type { TaskStatus, TagRow } from './db';
 import type { ActiveSession } from './ptyManager';
@@ -712,7 +720,10 @@ export interface GithubAPI {
   taskFromIssue(projectPath: string, issueNumber: number): Promise<GithubActionResult & { taskNumber?: number }>;
   taskFromPr(projectPath: string, prNumber: number): Promise<PromoteToTaskResult>;
 
-  onChanged(callback: (payload: GithubChangedPayload) => void): () => void;
+  listPrCommands(projectPath: string): Promise<PrCommandSummary[]>;
+  runLens(projectPath: string, name: string, detail: PullRequestDetail, files: PullRequestFile[]): Promise<LensResult>;
+
+  onDraftsChanged(callback: (payload: GithubDraftsChangedPayload) => void): () => void;
 }
 
 export interface GithubActionResult {

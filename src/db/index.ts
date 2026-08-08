@@ -15,6 +15,7 @@ import { TagRepo, type TagRow } from './repos/tagRepo';
 import { GlobalSettingsRepo } from './repos/globalSettingsRepo';
 import { ScriptRepo, type ScriptRow } from './repos/scriptRepo';
 import { ReviewDraftRepo, type ReviewDraftRow } from './repos/reviewDraftRepo';
+import { PrCommandRepo, type PrCommandRow, type PrCommandMode } from './repos/prCommandRepo';
 import type { ProjectSettings, ScriptHook } from '../types';
 import { getLogger } from '../logger';
 
@@ -50,6 +51,7 @@ let tagRepo: TagRepo | null = null;
 let globalSettingsRepo: GlobalSettingsRepo | null = null;
 let scriptRepo: ScriptRepo | null = null;
 let reviewDraftRepo: ReviewDraftRepo | null = null;
+let prCommandRepo: PrCommandRepo | null = null;
 
 function repos() {
   if (!taskRepo) {
@@ -61,6 +63,7 @@ function repos() {
     globalSettingsRepo = new GlobalSettingsRepo(db);
     scriptRepo = new ScriptRepo(db);
     reviewDraftRepo = new ReviewDraftRepo(db);
+    prCommandRepo = new PrCommandRepo(db);
   }
   return {
     projectRepo: projectRepo!,
@@ -70,6 +73,7 @@ function repos() {
     globalSettingsRepo: globalSettingsRepo!,
     scriptRepo: scriptRepo!,
     reviewDraftRepo: reviewDraftRepo!,
+    prCommandRepo: prCommandRepo!,
   };
 }
 
@@ -84,6 +88,7 @@ export function _resetCacheForTesting(): void {
   globalSettingsRepo = new GlobalSettingsRepo(db);
   scriptRepo = new ScriptRepo(db);
   reviewDraftRepo = new ReviewDraftRepo(db);
+  prCommandRepo = new PrCommandRepo(db);
 }
 
 // ── Row → TaskMetadata conversion ────────────────────────────────────
@@ -374,7 +379,9 @@ export async function getReviewDrafts(projectPath: string, prNumber: number): Pr
   return rr.getForPr(projectPath, prNumber);
 }
 
-export async function saveReviewDraft(row: ReviewDraftRow): Promise<ReviewDraftRow> {
+export async function saveReviewDraft(
+  row: Omit<ReviewDraftRow, 'created_at' | 'origin'> & { created_at?: string; origin?: string },
+): Promise<ReviewDraftRow> {
   const { reviewDraftRepo: rr } = repos();
   return rr.save(row);
 }
@@ -387,6 +394,36 @@ export async function deleteReviewDraft(id: string): Promise<void> {
 export async function getReviewDraftCounts(projectPath: string): Promise<Record<number, number>> {
   const { reviewDraftRepo: rr } = repos();
   return Object.fromEntries(rr.countsByPr(projectPath));
+}
+
+// ── Pull request commands ────────────────────────────────────────────
+
+export type { PrCommandRow, PrCommandMode } from './repos/prCommandRepo';
+
+export async function getPrCommands(projectPath: string): Promise<PrCommandRow[]> {
+  const { prCommandRepo: pc } = repos();
+  return pc.getAll(projectPath);
+}
+
+export async function getPrCommand(projectPath: string, name: string): Promise<PrCommandRow | undefined> {
+  const { prCommandRepo: pc } = repos();
+  return pc.getByName(projectPath, name);
+}
+
+export async function savePrCommand(
+  projectPath: string,
+  name: string,
+  command: string,
+  mode: PrCommandMode,
+): Promise<PrCommandRow> {
+  const { prCommandRepo: pc } = repos();
+  return pc.save(projectPath, name, command, mode);
+}
+
+export async function deletePrCommand(projectPath: string, name: string): Promise<{ success: boolean }> {
+  const { prCommandRepo: pc } = repos();
+  pc.delete(projectPath, name);
+  return { success: true };
 }
 
 export async function deleteTaskByNumber(

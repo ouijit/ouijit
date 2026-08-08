@@ -1,7 +1,7 @@
 /**
  * The GitHub feature's main-process entry points.
  *
- * IPC handlers, the REST router, and the poller all call in here rather than
+ * IPC handlers and the REST router both call in here rather than
  * touching `api.ts` / `prDiff.ts` directly, so availability gating, error
  * shaping, and the task-link side effects happen in exactly one place.
  *
@@ -21,6 +21,9 @@ import {
   saveReviewDraft,
   deleteReviewDraft,
   getReviewDraftCounts,
+  getPrCommands,
+  getPrCommand,
+  type PrCommandMode,
   getGlobalSetting,
   createTask,
   getNextTaskNumber,
@@ -55,6 +58,7 @@ import {
   prunePrRefs,
   type PrFileVersions,
 } from './prDiff';
+import { runLens, type LensResult } from './prCommand';
 import type {
   GithubAvailability,
   PullRequestInbox,
@@ -339,6 +343,7 @@ function toDraft(row: ReviewDraftRow): ReviewDraft {
     ...(row.start_line != null ? { startLine: row.start_line } : {}),
     body: row.body,
     createdAt: row.created_at,
+    origin: row.origin,
     ...(row.reply_to_thread_id ? { replyToThreadId: row.reply_to_thread_id } : {}),
     ...(row.reply_to_comment_id != null ? { replyToCommentId: row.reply_to_comment_id } : {}),
   };
@@ -358,6 +363,8 @@ export interface SaveDraftInput {
   body: string;
   replyToThreadId?: string;
   replyToCommentId?: number;
+  /** Defaults to 'human'. The renderer never sets it; the CLI and REST do. */
+  origin?: string;
 }
 
 export async function saveDraft(projectPath: string, input: SaveDraftInput): Promise<ReviewDraft> {
@@ -377,6 +384,9 @@ export async function saveDraft(projectPath: string, input: SaveDraftInput): Pro
     reply_to_comment_id: input.replyToCommentId ?? null,
     // Preserve the original timestamp on edit so drafts keep their write order.
     created_at: existing?.created_at ?? new Date().toISOString(),
+    // An edit with no stated origin is a renderer edit, and rewriting the text
+    // makes you the author — provenance does not survive being overwritten.
+    origin: input.origin ?? 'human',
   });
   return toDraft(row);
 }
@@ -385,6 +395,42 @@ export async function discardDraft(projectPath: string, draftId: string): Promis
   void projectPath;
   await deleteReviewDraft(draftId);
   return { success: true };
+}
+
+// ── Pull request commands ────────────────────────────────────────────
+
+export interface PrCommandSummary {
+  name: string;
+  command: string;
+  mode: PrCommandMode;
+}
+
+export async function listPrCommands(projectPath: string): Promise<PrCommandSummary[]> {
+  return (await getPrCommands(projectPath)).map((row) => ({
+    name: row.name,
+    command: row.command,
+    mode: row.mode,
+  }));
+}
+
+/**
+ * Run a lens over an open pull request.
+ *
+ * The detail and file list come from the caller rather than being re-fetched:
+ * the renderer already has both on screen, and going back to `gh` to render
+ * something the user is already looking at is exactly the reflex this surface
+ * is built to avoid.
+ */
+export async function runPrLens(
+  projectPath: string,
+  name: string,
+  detail: PullRequestDetail,
+  files: PullRequestFile[],
+): Promise<LensResult> {
+  const row = await getPrCommand(projectPath, name);
+  if (!row) return { success: false, error: `No pull request command named “${name}”` };
+  if (row.mode !== 'lens') return { success: false, error: `“${name}” is a ${row.mode} command, not a lens` };
+  return runLens(row, projectPath, detail, files);
 }
 
 // ── Writes ───────────────────────────────────────────────────────────

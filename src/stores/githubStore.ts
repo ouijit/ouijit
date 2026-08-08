@@ -8,7 +8,8 @@ import type {
   IssueDetail,
   ReviewDraft,
 } from '../github/types';
-import type { InboxResult } from '../github/service';
+import type { InboxResult, PrCommandSummary } from '../github/service';
+import type { LensGroup } from '../github/prCommand';
 
 const githubLog = log.scope('github');
 
@@ -48,6 +49,14 @@ interface GithubStoreState {
   /** True when the file list came from git because the API list failed. */
   filesFromGit: boolean;
 
+  /** Named commands configured for this project, both modes. */
+  prCommands: PrCommandSummary[];
+  /** Lens currently regrouping the code pane, or null for the flat file list. */
+  activeLens: string | null;
+  lensGroups: LensGroup[] | null;
+  lensRunning: boolean;
+  lensError: string | null;
+
   drafts: ReviewDraft[];
   /** Anchor the user is currently composing a new comment on. */
   composingAt: { path: string; line: number; side: 'LEFT' | 'RIGHT' } | null;
@@ -70,6 +79,8 @@ interface GithubStoreActions {
   reloadOpen: (projectPath: string) => Promise<void>;
 
   loadDrafts: (projectPath: string, prNumber: number) => Promise<void>;
+  loadPrCommands: (projectPath: string) => Promise<void>;
+  applyLens: (projectPath: string, name: string | null) => Promise<void>;
   setComposingAt: (anchor: GithubStoreState['composingAt']) => void;
   setSubmitting: (submitting: boolean) => void;
 
@@ -101,6 +112,11 @@ const INITIAL: GithubStoreState = {
   filesLoading: false,
   filesError: null,
   filesFromGit: false,
+  prCommands: [],
+  activeLens: null,
+  lensGroups: null,
+  lensRunning: false,
+  lensError: null,
   drafts: [],
   composingAt: null,
   submitting: false,
@@ -112,7 +128,16 @@ const INITIAL: GithubStoreState = {
  * fresher data. Switching projects or PRs while a `gh` call is running is the
  * normal case here, not an edge case — `gh` forks a process per call.
  */
+/** Per-PR lens state, cleared wherever the pull request under it changes. */
+const CLEAR_LENS: Pick<GithubStoreState, 'activeLens' | 'lensGroups' | 'lensRunning' | 'lensError'> = {
+  activeLens: null,
+  lensGroups: null,
+  lensRunning: false,
+  lensError: null,
+};
+
 let inboxVersion = 0;
+let lensVersion = 0;
 let detailVersion = 0;
 let issuesVersion = 0;
 let issueVersion = 0;
@@ -208,6 +233,7 @@ export const useGithubStore = create<GithubStore>()((set, get) => ({
       filesFromGit: false,
       drafts: [],
       composingAt: null,
+      ...CLEAR_LENS,
     });
     await get().reloadDetail(projectPath);
   },
@@ -234,6 +260,7 @@ export const useGithubStore = create<GithubStore>()((set, get) => ({
       filesLoading: false,
       drafts: [],
       composingAt: null,
+      ...CLEAR_LENS,
     });
     await get().reloadIssue(projectPath);
   },
@@ -244,6 +271,7 @@ export const useGithubStore = create<GithubStore>()((set, get) => ({
     detailVersion++;
     issueVersion++;
     set({
+      ...CLEAR_LENS,
       view: get().listView,
       activeNumber: null,
       detail: null,
@@ -280,7 +308,11 @@ export const useGithubStore = create<GithubStore>()((set, get) => ({
     try {
       const detail = await window.api.github.pullRequest(projectPath, number);
       if (version !== detailVersion || get().projectPath !== projectPath) return;
-      set({ detail, detailLoading: false });
+      // A lens grouped the files at one head. After a force-push those groups
+      // describe a diff that no longer exists, so they go rather than quietly
+      // becoming wrong.
+      const staleLens = get().detail?.headSha !== detail.headSha;
+      set({ detail, detailLoading: false, ...(staleLens ? CLEAR_LENS : {}) });
 
       void get().loadDrafts(projectPath, number);
 
@@ -344,6 +376,46 @@ export const useGithubStore = create<GithubStore>()((set, get) => ({
 
   setComposingAt: (composingAt) => set({ composingAt }),
   setSubmitting: (submitting) => set({ submitting }),
+
+  loadPrCommands: async (projectPath) => {
+    try {
+      const prCommands = await window.api.github.listPrCommands(projectPath);
+      if (get().projectPath !== projectPath) return;
+      set({ prCommands });
+    } catch (error) {
+      githubLog.warn('failed to load pull request commands', { error: message(error) });
+    }
+  },
+
+  /**
+   * Run a lens over the open pull request, or clear back to the flat list.
+   *
+   * Explicit: nothing runs one on open. A lens can cost a model call and several
+   * seconds, and a diff that will not render until some command finishes is a
+   * worse diff than an unordered one.
+   */
+  applyLens: async (projectPath, name) => {
+    if (name == null) {
+      set({ activeLens: null, lensGroups: null, lensError: null });
+      return;
+    }
+
+    const { detail, files } = get();
+    if (!detail || files.length === 0) return;
+
+    const version = ++lensVersion;
+    set({ activeLens: name, lensRunning: true, lensError: null });
+    const result = await window.api.github.runLens(projectPath, name, detail, files);
+    if (version !== lensVersion || get().projectPath !== projectPath) return;
+
+    if (!result.success) {
+      // Back to the flat list rather than an empty pane: a lens is a way of
+      // reading the diff, and failing to arrange it is no reason to withhold it.
+      set({ activeLens: null, lensGroups: null, lensRunning: false, lensError: result.error });
+      return;
+    }
+    set({ lensGroups: result.groups ?? [], lensRunning: false });
+  },
 
   reset: () => set({ ...INITIAL }),
 }));

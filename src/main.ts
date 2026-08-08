@@ -18,7 +18,6 @@ import { TaskRepo } from './db/repos/taskRepo';
 import { HookRepo } from './db/repos/hookRepo';
 import { importAll } from './services/dataImportService';
 import { initUpdater, cleanupUpdater } from './updater';
-import { initGithubPoller, cleanupGithubPoller } from './github/poller';
 import { checkHealth } from './healthCheck';
 import { setGlobalSetting } from './db';
 import { GlobalSettingsRepo } from './db/repos/globalSettingsRepo';
@@ -343,8 +342,6 @@ app.on('ready', async () => {
     }
   } else {
     initUpdater(mainWindow);
-    // Ticks only for projects with the github flag on; a dark flag costs nothing.
-    initGithubPoller(mainWindow);
   }
 
   // Health probe (git/claude/lima detection) — push to renderer once it's ready
@@ -395,7 +392,6 @@ app.on('before-quit', (e) => {
 app.on('will-quit', () => {
   appLog.info('app quitting');
   cleanupUpdater();
-  cleanupGithubPoller();
   cleanupIpc();
   closeDatabase();
 });

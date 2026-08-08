@@ -12,6 +12,8 @@ export interface ReviewDraftRow {
   reply_to_thread_id: string | null;
   reply_to_comment_id: number | null;
   created_at: string;
+  /** Who wrote it: 'human' from the renderer, or the CLI caller's name. */
+  origin: string;
 }
 
 /**
@@ -34,12 +36,12 @@ export class ReviewDraftRepo {
     return this.db.prepare('SELECT * FROM github_review_drafts WHERE id = ?').get(id) as ReviewDraftRow | undefined;
   }
 
-  save(row: Omit<ReviewDraftRow, 'created_at'> & { created_at?: string }): ReviewDraftRow {
+  save(row: Omit<ReviewDraftRow, 'created_at' | 'origin'> & { created_at?: string; origin?: string }): ReviewDraftRow {
     this.db
       .prepare(
         `INSERT INTO github_review_drafts
-           (id, project_path, pr_number, path, line, side, start_line, body, reply_to_thread_id, reply_to_comment_id, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+           (id, project_path, pr_number, path, line, side, start_line, body, reply_to_thread_id, reply_to_comment_id, created_at, origin)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(id) DO UPDATE SET
            path = excluded.path,
            line = excluded.line,
@@ -47,7 +49,8 @@ export class ReviewDraftRepo {
            start_line = excluded.start_line,
            body = excluded.body,
            reply_to_thread_id = excluded.reply_to_thread_id,
-           reply_to_comment_id = excluded.reply_to_comment_id`,
+           reply_to_comment_id = excluded.reply_to_comment_id,
+           origin = excluded.origin`,
       )
       .run(
         row.id,
@@ -61,6 +64,7 @@ export class ReviewDraftRepo {
         row.reply_to_thread_id,
         row.reply_to_comment_id,
         row.created_at ?? new Date().toISOString(),
+        row.origin ?? 'human',
       );
     return this.get(row.id)!;
   }

@@ -226,6 +226,8 @@ export interface ReviewDraft {
   startLine?: number;
   body: string;
   createdAt: string;
+  /** 'human' when typed here; the caller's name when written by the CLI. */
+  origin: string;
   /** GraphQL thread id when this draft is a reply rather than a new thread. */
   replyToThreadId?: string;
   /** REST comment id the reply hangs off (GitHub needs the numeric id). */
@@ -242,9 +244,15 @@ export type ReviewEvent = 'APPROVE' | 'REQUEST_CHANGES' | 'COMMENT';
 
 export type MergeMethod = 'merge' | 'squash' | 'rebase';
 
-/** What `github:changed` carries so the renderer can refresh selectively. */
-export interface GithubChangedPayload {
+/**
+ * What `github:drafts-changed` carries.
+ *
+ * The only push in the GitHub surface. A draft written by the CLI happens in
+ * another process, so the renderer cannot know without being told; everything
+ * else refreshes because someone pressed something. Its handler does one local
+ * read and never touches the network — keep it that way.
+ */
+export interface GithubDraftsChangedPayload {
   projectPath: string;
-  /** Bumped every poll that observed different data. */
-  ts: number;
+  prNumber: number;
 }

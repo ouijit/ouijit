@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { PullRequestDetail, ReviewDraft } from '../../github/types';
 import type { TaskWithWorkspace } from '../../types';
 import { useGithubStore } from '../../stores/githubStore';
+import { useProjectStore } from '../../stores/projectStore';
 import { Tab, TabBar } from './Tabs';
 import { DetailChrome } from './DetailChrome';
 import { DiscussionSection } from './DiscussionSection';
@@ -52,6 +53,11 @@ export function PullRequestDetailView({
 }: PullRequestDetailViewProps) {
   const detailLoading = useGithubStore((s) => s.detailLoading);
   const files = useGithubStore((s) => s.files);
+  const prCommands = useGithubStore((s) => s.prCommands);
+  const activeLens = useGithubStore((s) => s.activeLens);
+  const lensGroups = useGithubStore((s) => s.lensGroups);
+  const lensRunning = useGithubStore((s) => s.lensRunning);
+  const lensError = useGithubStore((s) => s.lensError);
   const badge = stateBadge(detail);
 
   const filesRef = useRef<FilesSectionHandle>(null);
@@ -81,6 +87,14 @@ export function PullRequestDetailView({
     setPendingDraftId(null);
   }, [pane, pendingDraftId, file]);
 
+  // A lens that failed is reported where the press happened, then cleared, so
+  // the same message does not reappear every render.
+  useEffect(() => {
+    if (!lensError) return;
+    useProjectStore.getState().addToast(lensError, 'error');
+    useGithubStore.setState({ lensError: null });
+  }, [lensError]);
+
   // A file that disappears under you — a force-push drops it from the diff —
   // would otherwise leave the pane empty with no way back.
   useEffect(() => {
@@ -98,7 +112,14 @@ export function PullRequestDetailView({
         busy={detailLoading}
         onRefresh={() => void useGithubStore.getState().reloadDetail(projectPath)}
         onClose={() => useGithubStore.getState().closeDetail()}
-        actions={<ReviewActions projectPath={projectPath} detail={detail} onJumpToDraft={jumpToDraft} />}
+        actions={
+          <ReviewActions
+            projectPath={projectPath}
+            detail={detail}
+            linkedTask={linkedTask}
+            onJumpToDraft={jumpToDraft}
+          />
+        }
         tabs={
           <TabBar className="mx-auto shrink-0 self-stretch items-center">
             {PANES.map((p) => (
@@ -116,7 +137,19 @@ export function PullRequestDetailView({
       />
 
       <div className="flex flex-1 min-h-0">
-        {pane === 'code' && <PullRequestRail detail={detail} files={files} activePath={file} onSelect={setFile} />}
+        {pane === 'code' && (
+          <PullRequestRail
+            detail={detail}
+            files={files}
+            activePath={file}
+            onSelect={setFile}
+            prCommands={prCommands}
+            activeLens={activeLens}
+            lensGroups={lensGroups}
+            lensRunning={lensRunning}
+            onLens={(name) => void useGithubStore.getState().applyLens(projectPath, name)}
+          />
+        )}
         <div ref={paneRef} className="flex-1 min-w-0 overflow-y-auto">
           {pane === 'summary' ? (
             <SummaryPane
