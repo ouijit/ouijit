@@ -22,6 +22,17 @@ interface AppStoreState {
   whatsNew: { version: string; notes: string } | null;
   helpDialogOpen: boolean;
   /**
+   * How many composer sheets are open. The board reads this to leave Escape
+   * alone while a sheet owns it, the same way it does for the hook and
+   * worktree dialogs.
+   *
+   * A count rather than a flag because several components can open one — the
+   * column composer, the standalone sheet, and any card — and they mount and
+   * unmount independently. With a boolean, a background `loadTasks` that
+   * remounts a card would clear the flag out from under an open sheet.
+   */
+  composerSheetCount: number;
+  /**
    * Session-only onboarding panel state. Lives in the app store (not in the
    * OnboardingPanel component) so it survives kanban-toggle remounts — without
    * this, hitting "Hide for now" or being in the stuck state would reset every
@@ -46,6 +57,9 @@ interface AppStoreActions {
   setSandboxStarting: (starting: boolean) => void;
   setWhatsNew: (info: { version: string; notes: string } | null) => void;
   setHelpDialogOpen: (open: boolean) => void;
+  /** Register an open composer sheet; returns nothing, pair with the close. */
+  openComposerSheet: () => void;
+  closeComposerSheet: () => void;
   setOnboardingSoftDismissed: (value: boolean) => void;
   setOnboardingStuckLatched: (value: boolean) => void;
   setHealth: (status: HealthStatus | null) => void;
@@ -86,6 +100,7 @@ export const useAppStore = create<AppStore>()((set, get) => ({
   sandboxStarting: false,
   whatsNew: null,
   helpDialogOpen: false,
+  composerSheetCount: 0,
   onboardingSoftDismissed: false,
   onboardingStuckLatched: false,
   health: null,
@@ -105,6 +120,10 @@ export const useAppStore = create<AppStore>()((set, get) => ({
   setWhatsNew: (info) => set({ whatsNew: info }),
 
   setHelpDialogOpen: (open) => set({ helpDialogOpen: open }),
+
+  openComposerSheet: () => set((s) => ({ composerSheetCount: s.composerSheetCount + 1 })),
+
+  closeComposerSheet: () => set((s) => ({ composerSheetCount: Math.max(0, s.composerSheetCount - 1) })),
 
   setOnboardingSoftDismissed: (value) => set({ onboardingSoftDismissed: value }),
 

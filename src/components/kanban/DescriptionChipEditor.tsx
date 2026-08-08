@@ -1,15 +1,35 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef } from 'react';
 import {
   createAttachmentChip,
+  getCaretOffset,
   isAttachmentChip,
   parseDescription,
   serializeDescriptionDOM,
+  setCaretOffset,
 } from '../../utils/descriptionAttachments';
+
+/**
+ * How the content sits inside a height-capped editor. Drives the "there is
+ * more text up/down" fades and the promoted expand affordance, so the parent
+ * doesn't have to read scroll geometry off a ref it doesn't own.
+ */
+export interface DescriptionEditorMetrics {
+  /** Content is taller than the box, so the editor is scrolling internally. */
+  overflowing: boolean;
+  atTop: boolean;
+  atBottom: boolean;
+}
 
 export interface DescriptionChipEditorHandle {
   getValue: () => string;
   setValue: (value: string) => void;
   focus: () => void;
+  /** Caret position as an offset into the storage string, or null if unfocused. */
+  getCaret: () => number | null;
+  /** Focus the editor and place the caret at a storage-string offset. */
+  focusAtCaret: (offset: number) => void;
+  /** Re-measure and re-emit metrics, e.g. after the cap height changes. */
+  refreshMetrics: () => void;
 }
 
 export interface DescriptionChipEditorProps {
@@ -30,10 +50,33 @@ export interface DescriptionChipEditorProps {
   /** Defaults to true. */
   editable?: boolean;
   autoFocus?: boolean;
+  /**
+   * Fires whenever the content's fit inside the box changes — on edit, on
+   * scroll, and on demand via `refreshMetrics`. Only useful when the editor
+   * is height-capped; an uncapped editor never overflows.
+   */
+  onMetrics?: (metrics: DescriptionEditorMetrics) => void;
   onKeyDown?: (e: React.KeyboardEvent<HTMLDivElement>) => void;
   onBlur?: (e: React.FocusEvent<HTMLDivElement>) => void;
   onFocus?: (e: React.FocusEvent<HTMLDivElement>) => void;
   onClick?: (e: React.MouseEvent<HTMLDivElement>) => void;
+}
+
+/**
+ * Bring the caret's line into view after the caret is placed. Only does
+ * anything when the editor is height-capped and the caret landed in the part
+ * that's scrolled off.
+ */
+function scrollCaretIntoView(el: HTMLElement): void {
+  const selection = el.ownerDocument.defaultView?.getSelection();
+  if (!selection || selection.rangeCount === 0) return;
+  const caret = selection.getRangeAt(0).getBoundingClientRect();
+  const box = el.getBoundingClientRect();
+  // jsdom and an unlaid-out editor both report zeroes; nothing to do either way.
+  if (caret.height === 0 && caret.top === 0) return;
+  const margin = 8;
+  if (caret.top < box.top + margin) el.scrollTop -= box.top + margin - caret.top;
+  else if (caret.bottom > box.bottom - margin) el.scrollTop += caret.bottom - box.bottom + margin;
 }
 
 /**
@@ -43,6 +86,7 @@ export interface DescriptionChipEditorProps {
  * holding the value in state stays in sync. Re-render is safe because no
  * children are passed to the editable div — React never touches its content.
  */
+
 export const DescriptionChipEditor = forwardRef<DescriptionChipEditorHandle, DescriptionChipEditorProps>(
   function DescriptionChipEditor(
     {
@@ -54,6 +98,7 @@ export const DescriptionChipEditor = forwardRef<DescriptionChipEditorHandle, Des
       style,
       editable = true,
       autoFocus = false,
+      onMetrics,
       onKeyDown,
       onBlur,
       onFocus,
@@ -62,6 +107,20 @@ export const DescriptionChipEditor = forwardRef<DescriptionChipEditorHandle, Des
     ref,
   ) {
     const editorRef = useRef<HTMLDivElement>(null);
+
+    /** Read the current fit and hand it to the parent. Cheap enough to call
+     *  on every keystroke: three layout reads, no writes. */
+    const emitMetrics = useCallback(() => {
+      const el = editorRef.current;
+      if (!el || !onMetrics) return;
+      const slack = el.scrollHeight - el.clientHeight;
+      onMetrics({
+        // A pixel of slack is rounding, not overflow.
+        overflowing: slack > 1,
+        atTop: el.scrollTop <= 1,
+        atBottom: el.scrollTop >= slack - 1,
+      });
+    }, [onMetrics]);
 
     const populate = useCallback((value: string) => {
       const el = editorRef.current;
@@ -79,6 +138,7 @@ export const DescriptionChipEditor = forwardRef<DescriptionChipEditorHandle, Des
     useEffect(() => {
       populate(initialValue);
       if (autoFocus) editorRef.current?.focus();
+      emitMetrics();
       // Intentionally only on mount: subsequent prop changes don't repopulate.
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
@@ -89,16 +149,35 @@ export const DescriptionChipEditor = forwardRef<DescriptionChipEditorHandle, Des
       const serialized = serializeDescriptionDOM(el);
       el.dataset.empty = serialized.length === 0 ? 'true' : 'false';
       onChange?.(serialized);
-    }, [onChange]);
+      emitMetrics();
+    }, [onChange, emitMetrics]);
 
     useImperativeHandle(
       ref,
       () => ({
         getValue: () => (editorRef.current ? serializeDescriptionDOM(editorRef.current) : ''),
-        setValue: (value: string) => populate(value),
+        setValue: (value: string) => {
+          populate(value);
+          emitMetrics();
+        },
         focus: () => editorRef.current?.focus(),
+        getCaret: () => (editorRef.current ? getCaretOffset(editorRef.current) : null),
+        focusAtCaret: (offset: number) => {
+          const el = editorRef.current;
+          if (!el) return;
+          // setCaretOffset measures against the flat structure `populate`
+          // produces. Typing in a contentEditable adds block wrappers whose
+          // newlines it can't see, so repopulate from the current value first
+          // and the precondition holds by construction.
+          populate(serializeDescriptionDOM(el));
+          el.focus();
+          setCaretOffset(el, offset);
+          scrollCaretIntoView(el);
+          emitMetrics();
+        },
+        refreshMetrics: emitMetrics,
       }),
-      [populate],
+      [populate, emitMetrics],
     );
 
     const insertChipAtRange = useCallback(
@@ -245,6 +324,7 @@ export const DescriptionChipEditor = forwardRef<DescriptionChipEditorHandle, Des
         data-placeholder={placeholder ?? ''}
         data-empty={initialValue.length === 0 ? 'true' : 'false'}
         onInput={emitChange}
+        onScroll={emitMetrics}
         onPaste={handlePaste}
         onDragOver={handleDragOver}
         onDrop={handleDrop}

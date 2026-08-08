@@ -176,7 +176,8 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
 
   // Hotkeys
   const runHookActive = useProjectStore((s) => s.runHookQueue.length > 0);
-  const hasOpenDialog = !!(runHookActive || hookDialog || missingWorktreeDialog);
+  const composerSheetOpen = useAppStore((s) => s.composerSheetCount > 0);
+  const hasOpenDialog = !!(runHookActive || hookDialog || missingWorktreeDialog || composerSheetOpen);
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -766,9 +767,7 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
             }}
           >
             <div className="flex items-start gap-2">
-              <span className="flex-1 font-mono text-sm font-medium text-text-primary min-w-0 break-words">
-                {activeTask.name}
-              </span>
+              <span className="flex-1 text-[15px] text-text-primary min-w-0 break-words">{activeTask.name}</span>
             </div>
             {selectedTaskCount > 1 && (
               <span
