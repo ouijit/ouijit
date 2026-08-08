@@ -3,9 +3,22 @@ import type { TaskWithWorkspace } from '../../types';
 import type { TerminalDisplayState } from '../../stores/terminalStore';
 import { Icon } from '../terminal/Icon';
 import { StatusDot, sandboxSuffix } from '../terminal/StatusDot';
-import { DescriptionChipEditor, type DescriptionChipEditorHandle } from './DescriptionChipEditor';
+import {
+  DescriptionChipEditor,
+  type DescriptionChipEditorHandle,
+  type DescriptionEditorMetrics,
+} from './DescriptionChipEditor';
+import { TaskComposerSheet } from './TaskComposerSheet';
+import { Tooltip } from '../ui/Tooltip';
+import { useAppStore } from '../../stores/appStore';
+import { isModKey, MOD_LABEL } from '../../utils/modKey';
 
 const isMac = typeof navigator !== 'undefined' && navigator.platform.toLowerCase().includes('mac');
+
+/** Matches the new-task composer's cap: a share of the column's card list. */
+const DESCRIPTION_CAP_RATIO = 0.4;
+
+const EMPTY_METRICS: DescriptionEditorMetrics = { overflowing: false, atTop: true, atBottom: true };
 
 export interface KanbanCardViewProps {
   task: TaskWithWorkspace;
@@ -87,6 +100,10 @@ export const KanbanCardView = memo(function KanbanCardView({
 }: KanbanCardViewProps) {
   const [expanded, setExpanded] = useState(false);
   const [editingDesc, setEditingDesc] = useState(false);
+  const [metrics, setMetrics] = useState<DescriptionEditorMetrics>(EMPTY_METRICS);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [sheetDraft, setSheetDraft] = useState('');
+  const [sheetCaret, setSheetCaret] = useState<number | null>(null);
   const nameInputRef = useRef<HTMLTextAreaElement>(null);
   const descEditorRef = useRef<DescriptionChipEditorHandle>(null);
   const terminalRenameRef = useRef<HTMLInputElement>(null);
@@ -140,6 +157,37 @@ export const KanbanCardView = memo(function KanbanCardView({
   }, [task.taskNumber, onUpdateDescription]);
 
   /**
+   * Hand the in-progress description to the expanded sheet. The card's editor
+   * stays mounted underneath and is mirrored on every keystroke, so collapsing
+   * returns to the same text with the caret where it was left.
+   */
+  const expandDescription = useCallback(() => {
+    setSheetDraft(descEditorRef.current?.getValue() ?? '');
+    setSheetCaret(descEditorRef.current?.getCaret() ?? null);
+    setSheetOpen(true);
+  }, []);
+
+  /** Which edges are hiding text, so the mask fades only those. */
+  const clip = !metrics.overflowing ? 'none' : metrics.atTop ? 'bottom' : metrics.atBottom ? 'top' : 'both';
+
+  const collapseSheet = useCallback((caret: number | null) => {
+    setSheetOpen(false);
+    requestAnimationFrame(() => {
+      if (caret != null) descEditorRef.current?.focusAtCaret(caret);
+      else descEditorRef.current?.focus();
+    });
+  }, []);
+
+  // The board leaves Escape to the sheet while it's open. Only registered
+  // while open: every card mounts this, and a card remounting from a
+  // background task reload must not clear a sheet someone else has up.
+  useEffect(() => {
+    if (!sheetOpen) return;
+    useAppStore.getState().openComposerSheet();
+    return () => useAppStore.getState().closeComposerSheet();
+  }, [sheetOpen]);
+
+  /**
    * Sync the editor with `task.prompt` when an external change arrives — but
    * skip the case where the change is just our own commit round-tripping back
    * (otherwise we'd repopulate the DOM and stomp the caret). While editing,
@@ -174,15 +222,18 @@ export const KanbanCardView = memo(function KanbanCardView({
     [editingDesc, onUpdateDescription, task.taskNumber],
   );
 
-  /** Enter (without shift) commits the description. */
+  /** Enter (without shift) commits the description; ⌘E opens the sheet. */
   const handleEditorKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLDivElement>) => {
-      if (e.key === 'Enter' && !e.shiftKey) {
+      if (isModKey(e) && e.key.toLowerCase() === 'e') {
+        e.preventDefault();
+        expandDescription();
+      } else if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
         commitDescription();
       }
     },
-    [commitDescription],
+    [commitDescription, expandDescription],
   );
 
   const commitTerminalRename = useCallback(() => {
@@ -252,7 +303,7 @@ export const KanbanCardView = memo(function KanbanCardView({
         {isRenamingTask ? (
           <textarea
             ref={nameInputRef}
-            className="flex-1 font-mono text-sm font-medium text-text-primary bg-transparent border-0 border-b border-accent p-0 outline-none min-w-0 resize-none overflow-hidden [-webkit-app-region:no-drag] break-words"
+            className="flex-1 text-[15px] text-text-primary bg-transparent border-0 border-b border-accent p-0 outline-none min-w-0 resize-none overflow-hidden [-webkit-app-region:no-drag] break-words"
             // Keep the card's drag activator (dnd-kit listeners on the wrapper)
             // and its shift-click selection handling off the rename field, so
             // dragging across the text selects it instead of dragging the card.
@@ -265,7 +316,7 @@ export const KanbanCardView = memo(function KanbanCardView({
           />
         ) : (
           <span
-            className={`kanban-card-name flex-1 font-mono text-sm font-medium min-w-0 break-words ${isDone ? 'line-through text-text-secondary' : 'text-text-primary'}`}
+            className={`kanban-card-name flex-1 text-[15px] min-w-0 break-words ${isDone ? 'line-through text-text-secondary' : 'text-text-primary'}`}
             onDoubleClick={onStartRenameTask}
           >
             {task.name}
@@ -357,22 +408,66 @@ export const KanbanCardView = memo(function KanbanCardView({
           // start a card drag.
           onPointerDown={(e) => e.stopPropagation()}
         >
-          <div className="flex flex-col gap-1 text-sm">
+          <div
+            className={`kanban-add-description-wrap flex flex-col gap-1 text-sm${
+              editingDesc && metrics.overflowing ? ' is-capped' : ''
+            }`}
+            data-clip={editingDesc ? clip : 'none'}
+          >
             <DescriptionChipEditor
               ref={descEditorRef}
               initialValue={task.prompt ?? ''}
               onChange={handleEditorChange}
               onAttachFile={onAttachFile}
+              onMetrics={editingDesc ? setMetrics : undefined}
               placeholder="Add description…"
               editable={editingDesc}
               onKeyDown={handleEditorKeyDown}
-              onBlur={editingDesc ? commitDescription : undefined}
+              // Not while the sheet is up: opening it moves focus to its own
+              // editor, and a blur commit there would write the description
+              // out and drop this editor back to read-only underneath it.
+              onBlur={editingDesc && !sheetOpen ? commitDescription : undefined}
               onClick={() => {
                 if (!editingDesc) setEditingDesc(true);
               }}
-              className={`text-text-secondary cursor-text break-words${editingDesc ? ' outline-none' : ' line-clamp-3'}`}
-              style={editingDesc ? { whiteSpace: 'pre-wrap', wordWrap: 'break-word', lineHeight: 1.5 } : undefined}
+              className={`text-sm leading-relaxed text-text-secondary cursor-text break-words${editingDesc ? ' outline-none' : ' line-clamp-3'}`}
+              style={
+                editingDesc
+                  ? {
+                      whiteSpace: 'pre-wrap',
+                      wordWrap: 'break-word',
+                      lineHeight: 1.5,
+                      // The same cap the composer uses, so a long description
+                      // can't grow past its share of the column.
+                      maxHeight: `calc(var(--kanban-body-h, 20rem) * ${DESCRIPTION_CAP_RATIO})`,
+                      overflowY: 'auto',
+                    }
+                  : undefined
+              }
             />
+            {editingDesc && (
+              <Tooltip
+                placement="left"
+                text={
+                  <span className="flex items-center gap-2">
+                    Expand
+                    <span className="kanban-add-button-hint kanban-add-button-hint-text">{MOD_LABEL}E</span>
+                  </span>
+                }
+                referenceClassName="kanban-add-expand-anchor"
+              >
+                <button
+                  type="button"
+                  className="kanban-add-expand"
+                  aria-label="Expand the description"
+                  // Hold focus in the editor so its caret is still readable.
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={expandDescription}
+                >
+                  <Icon name="arrows-out" className="w-3.5 h-3.5" />
+                </button>
+              </Tooltip>
+            )}
           </div>
           {task.branch && (
             <div className="flex items-center gap-1 font-mono text-[13px] text-ink/50 min-w-0 overflow-hidden [&>svg]:w-3 [&>svg]:h-3 [&>svg]:shrink-0">
@@ -382,6 +477,27 @@ export const KanbanCardView = memo(function KanbanCardView({
           )}
           {formattedDate && <div className="flex flex-col gap-1 text-sm">Created {formattedDate}</div>}
         </div>
+      )}
+
+      {sheetOpen && (
+        <TaskComposerSheet
+          mode="edit"
+          name={task.name}
+          description={sheetDraft}
+          initialCaret={sheetCaret}
+          onDescriptionChange={(value) => {
+            setSheetDraft(value);
+            // Mirror into the card's editor so collapsing returns to the same
+            // text, and so a commit reads the value from one place.
+            descEditorRef.current?.setValue(value);
+          }}
+          onAttachFile={onAttachFile ?? (async () => null)}
+          onSubmit={() => {
+            setSheetOpen(false);
+            commitDescription();
+          }}
+          onCollapse={collapseSheet}
+        />
       )}
     </div>
   );

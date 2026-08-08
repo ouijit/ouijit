@@ -81,6 +81,7 @@ export function KanbanColumn({
       onBodyClick={(e) => {
         if (e.target === e.currentTarget) useProjectStore.getState().clearSelection();
       }}
+      footer={onAddTask ? <KanbanAddInput onAdd={onAddTask} /> : undefined}
     >
       <SortableContext items={taskIds} strategy={verticalListSortingStrategy}>
         {tasks.map((task) => (
@@ -106,7 +107,6 @@ export function KanbanColumn({
           No tasks yet. Type a name below to add one.
         </div>
       )}
-      {onAddTask && <KanbanAddInput onAdd={onAddTask} />}
     </KanbanColumnView>
   );
 }
@@ -170,9 +170,7 @@ function SortableCard({
           style={{ borderBottom: '1px solid color-mix(in srgb, var(--color-ink) 6%, transparent)' }}
         >
           <div className="flex items-start gap-2">
-            <span className="flex-1 font-mono text-sm font-medium text-text-primary min-w-0 break-words">
-              {task.name}
-            </span>
+            <span className="flex-1 text-[15px] text-text-primary min-w-0 break-words">{task.name}</span>
           </div>
         </div>
       </div>

@@ -8,7 +8,7 @@ import { useTerminalStore, collectActiveTags } from '../stores/terminalStore';
 import { Icon } from './terminal/Icon';
 import { TagFilterControl } from './terminal/TagFilterControl';
 import { addProjectTerminal } from './terminal/terminalActions';
-import { focusKanbanAddInput } from './kanban/KanbanAddInput';
+import { openTaskComposer } from '../utils/openTaskComposer';
 import { Tooltip } from './ui/Tooltip';
 import { TooltipButton } from './ui/TooltipButton';
 
@@ -80,12 +80,7 @@ export function TitleBar({ mode }: TitleBarProps) {
     }
   }, [activeProjectPath]);
 
-  const handleNewTask = useCallback(() => {
-    const store = useProjectStore.getState();
-    store.setActivePanel('terminals');
-    store.setKanbanVisible(true);
-    requestAnimationFrame(() => focusKanbanAddInput());
-  }, []);
+  const handleNewTask = useCallback(() => openTaskComposer(), []);
 
   const isProjectOrHome = mode === 'project' || mode === 'home';
   const needsTrafficLightPad = isMac && !fullscreen;

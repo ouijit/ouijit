@@ -403,6 +403,11 @@ function BranchCopy({ branch }: { branch: string }) {
 // trigger, and a full-width toggle when a panel is active.
 const groupButtonBase =
   'group/seg h-full px-2.5 flex items-center gap-1 border-none font-sans text-[13px] font-medium transition-colors duration-150 ease-out';
+// Panel tabs behave like browser tabs: `flex-1` (zero basis, equal grow) hands
+// every tab the same share of the control, `max-w-max` caps each at its own
+// natural width so a lone tab isn't stretched, and `min-w-0` lets them all
+// truncate together once the header runs out of room.
+const groupButtonFlexible = 'flex-1 min-w-0 max-w-max overflow-hidden';
 const groupButtonInactive = 'bg-transparent text-text-secondary hover:text-text-primary hover:bg-background-tertiary';
 const groupButtonActive = 'bg-accent text-accent-ink hover:bg-accent';
 
@@ -453,7 +458,7 @@ function PanelControls({
     slots.push(
       <button
         key={panel.id}
-        className={`${groupButtonBase} ${active ? groupButtonActive : groupButtonInactive}`}
+        className={`${groupButtonBase} ${groupButtonFlexible} ${active ? groupButtonActive : groupButtonInactive}`}
         // Clicking the already-active tab minimizes it (collapses to the bare terminal).
         onClick={() => (active ? onMinimize() : onActivate(panel.id))}
       >
@@ -470,7 +475,9 @@ function PanelControls({
             e.stopPropagation();
             onClosePanel(panel.id);
           }}
-          className="-mr-1 ml-0.5 w-4 h-4 flex items-center justify-center rounded shrink-0 opacity-0 group-hover/seg:opacity-100 hover:bg-ink/15 transition-all duration-150 [&>svg]:w-3 [&>svg]:h-3"
+          // The huge shrink factor collapses the close affordance before the
+          // label gives up any width, so a squeezed tab still reads as itself.
+          className="-mr-1 ml-0.5 w-4 h-4 flex items-center justify-center rounded shrink-[9999] min-w-0 overflow-hidden opacity-0 group-hover/seg:opacity-100 hover:bg-ink/15 transition-all duration-150 [&>svg]:w-3 [&>svg]:h-3"
         >
           <Icon name="x" />
         </span>
@@ -482,7 +489,7 @@ function PanelControls({
     slots.push(
       <button
         key="diff"
-        className={`${groupButtonBase} ${diffPanelOpen ? groupButtonActive : groupButtonInactive}`}
+        className={`${groupButtonBase} shrink-0 ${diffPanelOpen ? groupButtonActive : groupButtonInactive}`}
         onClick={onDiffClick}
       >
         {hasUncommitted ? (
@@ -504,7 +511,7 @@ function PanelControls({
     <button
       key="add"
       ref={addRef}
-      className={`${groupButtonBase} !px-2 ${groupButtonInactive}`}
+      className={`${groupButtonBase} shrink-0 !px-2 ${groupButtonInactive}`}
       onClick={onAddClick}
       aria-label="Add panel"
     >
@@ -513,10 +520,10 @@ function PanelControls({
   );
 
   return (
-    <div className="inline-flex items-center h-7 bg-background-secondary glass-bevel relative border border-bezel rounded-[12px] overflow-hidden">
+    <div className="flex items-center min-w-0 h-7 bg-background-secondary glass-bevel relative border border-bezel rounded-[12px] overflow-hidden">
       {slots.map((slot, i) => (
         <Fragment key={i}>
-          {i > 0 && <div aria-hidden className="w-px h-3 bg-ink/10 self-center" />}
+          {i > 0 && <div aria-hidden className="w-px h-3 shrink-0 bg-ink/10 self-center" />}
           {slot}
         </Fragment>
       ))}

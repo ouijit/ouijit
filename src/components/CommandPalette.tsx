@@ -28,6 +28,7 @@ import { frecencyBoost, loadFrecency, persistFrecency, recordUse, type FrecencyM
 import { buildPaletteItems, KIND_LABEL, type PaletteItem, type PaletteKind } from './palette/paletteItems';
 import { PaletteRow } from './palette/PaletteRow';
 import { Icon } from './terminal/Icon';
+import { KeyHint } from './ui/KeyHint';
 import type { ActiveSession } from '../types';
 
 /** Per-group cap while browsing, so one crowded group can't bury the others. */
@@ -405,24 +406,13 @@ function PaletteBody({ visible }: { visible: boolean }) {
         )}
 
         <div className="shrink-0 flex items-center gap-4 px-3 py-2 border-t border-ink/[0.06] text-[11px] text-ink/40">
-          <Hint keys="↑↓" label="Navigate" />
-          {action && <Hint keys="↵" label={action} />}
+          <KeyHint keys="↑↓" label="Navigate" />
+          {action && <KeyHint keys="↵" label={action} />}
           <span className="flex-1" />
-          <Hint keys="esc" label="Close" />
+          <KeyHint keys="esc" label="Close" />
         </div>
       </div>
     </div>,
     document.body,
-  );
-}
-
-function Hint({ keys, label }: { keys: string; label: string }) {
-  return (
-    <span className="flex items-center gap-1.5 min-w-0">
-      <kbd className="font-mono text-[10px] leading-none px-1.5 py-1 rounded bg-ink/[0.06] text-text-tertiary">
-        {keys}
-      </kbd>
-      <span className="truncate">{label}</span>
-    </span>
   );
 }
