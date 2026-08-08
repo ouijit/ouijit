@@ -566,6 +566,26 @@ describe('PullRequestsPanel', () => {
   });
 
   /**
+   * Lenses are configured from the CLI, which means the app is the only place
+   * anyone could learn they exist. With none set up the code pane still says so
+   * — a capability that is invisible until you already know about it has not
+   * really shipped.
+   */
+  test('the code pane says lenses exist even when none are configured', async () => {
+    vi.mocked(window.api.github.inbox).mockResolvedValue(
+      inbox({ needsReview: [pr({ number: 5, title: 'Please look' })] }),
+    );
+    vi.mocked(window.api.github.pullRequest).mockResolvedValue(detail());
+    vi.mocked(window.api.github.listPrCommands).mockResolvedValue([]);
+
+    render(<PullRequestsPanel projectPath={PROJECT} />);
+    fireEvent.click(await screen.findByText('Please look'));
+    fireEvent.click(await screen.findByText('Code'));
+
+    expect(await screen.findByText('Group by lens')).toBeTruthy();
+  });
+
+  /**
    * A lens is a press, never automatic: opening the code pane shows the flat
    * file list, and the command only runs when its name is chosen. A diff you
    * cannot see until some command finishes is worse than an unsorted one.

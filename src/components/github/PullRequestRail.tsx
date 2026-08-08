@@ -4,6 +4,8 @@ import type { PullRequestDetail, PullRequestFile } from '../../github/types';
 import type { PrCommandSummary } from '../../github/service';
 import type { LensGroup } from '../../github/prCommand';
 import { DiffFileTree } from '../diff/DiffFileTree';
+import { Icon } from '../terminal/Icon';
+import { Tooltip } from '../ui/Tooltip';
 
 interface PullRequestRailProps {
   detail: PullRequestDetail;
@@ -83,6 +85,32 @@ export function PullRequestRail({
               onClick={() => onLens(lens.name)}
             />
           ))}
+        </div>
+      )}
+
+      {/* With none configured there is nothing to pick, but a capability the
+          app never mentions is one nobody finds: the only way to add a lens is
+          a CLI command, and you cannot run a command you have not heard of.
+          Said once, quietly, at the foot of the list rather than as a control
+          that does nothing when pressed. */}
+      {lenses.length === 0 && (
+        <div className="shrink-0 order-last border-t border-ink/[0.06] px-3 py-1.5 flex items-center gap-1.5">
+          <span className="text-[11px] text-ink/35">Group by lens</span>
+          <Tooltip
+            placement="top"
+            text={
+              <span className="block max-w-[280px] whitespace-normal leading-snug font-normal">
+                A lens reorders this diff into a reading order — yours to define, as any command printing{' '}
+                <span className="font-mono">{'{"groups":[…]}'}</span>. Add one with{' '}
+                <span className="font-mono">ouijit pr command set --name … --command … --mode lens</span>.
+              </span>
+            }
+          >
+            <Icon
+              name="info"
+              className="w-3.5 h-3.5 text-text-tertiary hover:text-text-secondary transition-colors duration-100"
+            />
+          </Tooltip>
         </div>
       )}
 
