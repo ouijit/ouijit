@@ -124,32 +124,98 @@ Examples:
       );
     });
 
+  // ── Lens ────────────────────────────────────────────────────────────
+  // A reading order for one pull request: the parts of the change, and which
+  // hunks make up each part. Written by whatever has read the diff — the point
+  // is that a grouping worth having is specific to one change, so there is
+  // nothing here to configure in advance and nothing reusable to store.
+  const lens = pr
+    .command('lens')
+    .description('Write the reading order shown in the Code pane')
+    .addHelpText(
+      'after',
+      `
+Shape, on stdin:
+  {"headSha": "<sha>", "groups": [
+    {"title": "Draft storage",
+     "summary": "Where an unsent comment lives",
+     "slices": [{"path": "src/github/service.ts", "ranges": [[329, 388]]},
+                {"path": "src/db/repos/reviewDraftRepo.ts"}]}
+  ]}
+
+Ranges are new-file line numbers, the same anchoring drafts use, and select
+whole hunks — a range touching any line of a hunk takes it entire. Omit
+"ranges" to claim the whole file. Hunks no group claims are still shown, in a
+trailing group: a lens can reorder and split a diff but never hide part of it.
+
+Examples:
+  ouijit pr lens get 42
+  ouijit pr lens set 42 --body -
+  ouijit pr lens clear 42`,
+    );
+
+  lens
+    .command('get')
+    .description('Show the reading order stored for a pull request')
+    .argument('<number>', 'pull request number')
+    .requiredOption('--head-sha <sha>', 'head commit the lens must describe')
+    .action(async (number: string, options: { headSha: string }) => {
+      const project = requireProject();
+      printJson(
+        await get(
+          `/api/pulls/${encodeURIComponent(number)}/lens?project=${encodeURIComponent(project)}&headSha=${encodeURIComponent(options.headSha)}`,
+        ),
+      );
+    });
+
+  lens
+    .command('set')
+    .description('Write the reading order for a pull request')
+    .argument('<number>', 'pull request number')
+    .requiredOption('--body <json>', 'the lens as JSON, or - to read stdin')
+    .action(async (number: string, options: { body: string }) => {
+      const project = requireProject();
+      const raw = await readBody(options.body);
+      let parsed: { headSha?: unknown; groups?: unknown };
+      try {
+        parsed = JSON.parse(raw) as { headSha?: unknown; groups?: unknown };
+      } catch {
+        throw new Error('Body is not valid JSON');
+      }
+      if (typeof parsed.headSha !== 'string') throw new Error('Body needs a headSha');
+      printJson(
+        await put(`/api/pulls/${encodeURIComponent(number)}/lens?project=${encodeURIComponent(project)}`, {
+          headSha: parsed.headSha,
+          groups: parsed.groups,
+        }),
+      );
+    });
+
+  lens
+    .command('clear')
+    .description('Delete the reading order stored for a pull request')
+    .argument('<number>', 'pull request number')
+    .action(async (number: string) => {
+      const project = requireProject();
+      printJson(await del(`/api/pulls/${encodeURIComponent(number)}/lens?project=${encodeURIComponent(project)}`));
+    });
+
   // ── Pull request commands ───────────────────────────────────────────
-  // Named shell commands run with a pull request's context. A `lens` reads the
-  // changed-file list on stdin and prints { "groups": [...] } to regroup the
-  // diff into a reading order; a `terminal` command opens a session instead.
-  // Ouijit supplies the context and the plumbing — what the command decides is
-  // entirely yours.
+  // Named shell commands run against a pull request in a terminal. This is
+  // what starts an agent; what it writes back is drafts and a lens.
   const prCommand = pr
     .command('command')
     .description('Manage named commands that run against a pull request')
     .addHelpText(
       'after',
       `
-Environment given to both modes:
-  OUIJIT_PR_NUMBER  OUIJIT_PR_BRANCH  OUIJIT_PR_URL  OUIJIT_PR_TITLE
-  OUIJIT_WORKTREE_PATH (only when the pull request is checked out as a task)
-
-A lens reads {"prNumber","title","baseRefName","headRefName","files":[{"path",…]}
-on stdin and prints {"groups":[{"title","summary","paths":[…]}]} on stdout. Files
-it leaves out are still shown, in a trailing group — a lens can reorder the diff
-but never hide part of it.
+Runs with OUIJIT_PR_NUMBER, OUIJIT_PR_BRANCH, OUIJIT_PR_URL, OUIJIT_PR_TITLE,
+and OUIJIT_WORKTREE_PATH when the pull request is checked out as a task.
 
 Examples:
   ouijit pr command list
-  ouijit pr command set --name narrative --command ./scripts/review-order.sh --mode lens
-  ouijit pr command set --name claude --command 'claude "review this PR"' --mode terminal
-  ouijit pr command delete narrative`,
+  ouijit pr command set --name "Review" --command 'claude "review this PR"'
+  ouijit pr command delete Review`,
     );
 
   prCommand
@@ -165,17 +231,12 @@ Examples:
     .description('Create or update a pull request command')
     .requiredOption('--name <name>', 'name shown in the app')
     .requiredOption('--command <command>', 'shell command to run')
-    .option('--mode <mode>', 'lens (regroups the diff) or terminal (opens a session)', 'lens')
-    .action(async (options: { name: string; command: string; mode: string }) => {
+    .action(async (options: { name: string; command: string }) => {
       const project = requireProject();
-      if (options.mode !== 'lens' && options.mode !== 'terminal') {
-        throw new Error(`Invalid mode "${options.mode}". Must be lens or terminal.`);
-      }
       printJson(
         await put(`/api/pr-commands?project=${encodeURIComponent(project)}`, {
           name: options.name,
           command: options.command,
-          mode: options.mode,
         }),
       );
     });

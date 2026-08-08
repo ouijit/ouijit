@@ -20,15 +20,7 @@ import type {
   CliPanelResponse,
 } from './types';
 import type { CaptureNavigatePayload } from './capture/types';
-import type { PrCommandMode } from './db';
-import type {
-  CommentKind,
-  ReviewEvent,
-  MergeMethod,
-  GithubDraftsChangedPayload,
-  PullRequestDetail,
-  PullRequestFile,
-} from './github/types';
+import type { CommentKind, ReviewEvent, MergeMethod, GithubDraftsChangedPayload } from './github/types';
 import type { SaveDraftInput } from './github/service';
 
 // ── Typed IPC helpers ───────────────────────────────────────────────────────
@@ -343,11 +335,12 @@ contextBridge.exposeInMainWorld('api', {
       oldPath?: string,
     ) => typedInvoke('github:pull-request-file-versions', projectPath, number, baseSha, headSha, filePath, oldPath),
     listPrCommands: (projectPath: string) => typedInvoke('github:list-pr-commands', projectPath),
-    savePrCommand: (projectPath: string, name: string, command: string, mode: PrCommandMode, previousName?: string) =>
-      typedInvoke('github:save-pr-command', projectPath, name, command, mode, previousName),
+    savePrCommand: (projectPath: string, name: string, command: string, previousName?: string) =>
+      typedInvoke('github:save-pr-command', projectPath, name, command, previousName),
     deletePrCommand: (projectPath: string, name: string) => typedInvoke('github:delete-pr-command', projectPath, name),
-    runLens: (projectPath: string, name: string, detail: PullRequestDetail, files: PullRequestFile[]) =>
-      typedInvoke('github:run-lens', projectPath, name, detail, files),
+    lens: (projectPath: string, prNumber: number, headSha: string) =>
+      typedInvoke('github:lens', projectPath, prNumber, headSha),
+    clearLens: (projectPath: string, prNumber: number) => typedInvoke('github:clear-lens', projectPath, prNumber),
     issues: (projectPath: string) => typedInvoke('github:issues', projectPath),
     issue: (projectPath: string, number: number) => typedInvoke('github:issue', projectPath, number),
 

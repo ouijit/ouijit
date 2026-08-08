@@ -1,10 +1,8 @@
 import { useMemo, type ReactNode } from 'react';
 import type { ChangedFile } from '../../types';
 import type { PullRequestDetail, PullRequestFile } from '../../github/types';
-import type { PrCommandSummary } from '../../github/service';
-import type { LensGroup } from '../../github/prCommand';
+import type { ResolvedGroup } from '../../github/lens';
 import { DiffFileTree } from '../diff/DiffFileTree';
-import { useProjectStore } from '../../stores/projectStore';
 
 interface PullRequestRailProps {
   detail: PullRequestDetail;
@@ -12,11 +10,10 @@ interface PullRequestRailProps {
   /** Null shows the whole diff in order. */
   activePath: string | null;
   onSelect: (path: string | null) => void;
-  prCommands: PrCommandSummary[];
-  activeLens: string | null;
-  lensGroups: LensGroup[] | null;
-  lensRunning: boolean;
-  onLens: (name: string | null) => void;
+  /** The lens as bound to this diff, or null when none has been written. */
+  groups: ResolvedGroup[] | null;
+  lensOn: boolean;
+  onLensOn: (on: boolean) => void;
 }
 
 /**
@@ -25,17 +22,19 @@ interface PullRequestRailProps {
  * Reviewing a file at a time is the case this is built around: the diff gets
  * the rest of the width, and moving to the next file is one click rather than
  * a scroll past everything in between.
+ *
+ * With a lens on, the same rail lists the parts of the change instead — and a
+ * file that belongs to three parts appears in all three, because that is the
+ * point of it.
  */
 export function PullRequestRail({
   detail,
   files,
   activePath,
   onSelect,
-  prCommands,
-  activeLens,
-  lensGroups,
-  lensRunning,
-  onLens,
+  groups,
+  lensOn,
+  onLensOn,
 }: PullRequestRailProps) {
   const changedFiles: ChangedFile[] = useMemo(() => files.map(toChangedFile), [files]);
 
@@ -47,8 +46,6 @@ export function PullRequestRail({
     }
     return counts;
   }, [detail.threads]);
-
-  const lenses = useMemo(() => prCommands.filter((c) => c.mode === 'lens'), [prCommands]);
 
   const trailing = (path: string) => {
     const count = unresolvedByPath.get(path);
@@ -62,65 +59,50 @@ export function PullRequestRail({
 
   return (
     <div className="w-[228px] shrink-0 flex flex-col overflow-hidden border-r border-ink/[0.06]">
-      {/* A file list is the order the change was written in, not the order it
-          reads in. A lens is someone's answer to that, and it is a press —
-          nothing regroups on its own, because arranging a diff can cost a
-          model call and a diff you cannot see yet is worse than an unsorted
-          one. */}
+      {/* A diff arrives in the order the change was stored, not the order it
+          reads in. A lens is one answer to that, written for this change and no
+          other; the toggle is here because a reading order is a way of looking
+          at the diff, not a replacement for it. */}
       <div className="shrink-0 flex flex-col border-b border-ink/[0.06] py-1">
         <RailEntry
           label="All files"
           note={`${detail.changedFiles}`}
-          active={!activeLens && activePath === null}
+          active={!lensOn && activePath === null}
           onClick={() => {
             onSelect(null);
-            onLens(null);
+            onLensOn(false);
           }}
         />
-        {lenses.map((lens) => (
+        {groups && (
           <RailEntry
-            key={lens.name}
-            label={lens.name}
-            note={lensRunning && activeLens === lens.name ? '…' : undefined}
-            active={activeLens === lens.name && activePath === null}
+            label="Read as a story"
+            note={`${groups.length}`}
+            active={lensOn && activePath === null}
+            title="Group this diff into the parts of the change"
             onClick={() => {
-              // Already the active lens: this is "back to the whole document",
-              // not "run it again". Re-running would spend another model call
-              // to produce the grouping already on screen.
               onSelect(null);
-              if (activeLens !== lens.name) onLens(lens.name);
+              onLensOn(true);
             }}
-          />
-        ))}
-        {/* Configured none, and the row still stands where a lens would: it is
-            the only place in the app a reader learns the diff can be ordered
-            some other way, and it goes somewhere real rather than explaining
-            itself and leaving them to find settings alone. */}
-        {lenses.length === 0 && (
-          <RailEntry
-            label="Add a lens…"
-            muted
-            active={false}
-            title="Group this diff into a reading order, using a command you define"
-            onClick={() => useProjectStore.getState().setActivePanel('settings')}
           />
         )}
       </div>
 
-      {lensGroups ? (
+      {lensOn && groups ? (
         <div className="flex-1 min-h-0 overflow-y-auto py-1">
-          {lensGroups.map((group) => (
+          {groups.map((group) => (
             <div key={group.title} className="flex flex-col">
               <div className="px-3 pt-2 pb-1 text-[10px] uppercase tracking-wider text-ink/40" title={group.summary}>
                 {group.title}
               </div>
-              {group.paths.map((path) => (
+              {group.slices.map((slice) => (
                 <RailEntry
-                  key={path}
-                  label={path.split('/').pop() ?? path}
-                  active={activePath === path}
-                  onClick={() => onSelect(path)}
-                  trailing={trailing(path)}
+                  key={`${group.title}:${slice.path}`}
+                  label={slice.path.split('/').pop() ?? slice.path}
+                  title={slice.path}
+                  note={slice.hunks.length > 1 ? `${slice.hunks.length}` : undefined}
+                  active={activePath === slice.path}
+                  onClick={() => onSelect(slice.path)}
+                  trailing={trailing(slice.path)}
                 />
               ))}
             </div>
@@ -144,7 +126,6 @@ function RailEntry({
   active,
   onClick,
   trailing,
-  muted,
   title,
 }: {
   label: string;
@@ -152,7 +133,6 @@ function RailEntry({
   active: boolean;
   onClick: () => void;
   trailing?: ReactNode;
-  muted?: boolean;
   title?: string;
 }) {
   return (
@@ -160,7 +140,7 @@ function RailEntry({
       type="button"
       title={title}
       className={`w-full flex items-center gap-1.5 py-1 pl-3 pr-3 text-[13px] text-left transition-colors duration-150 ease-out hover:bg-ink/5 ${
-        active ? 'bg-ink/[0.07] text-ink' : muted ? 'text-ink/40' : 'text-ink/70'
+        active ? 'bg-ink/[0.07] text-ink' : 'text-ink/70'
       }`}
       onClick={onClick}
     >

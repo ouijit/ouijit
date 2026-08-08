@@ -56,6 +56,9 @@ import {
   saveDraft,
   discardDraft,
   listPrCommands,
+  getLens,
+  setLens,
+  clearLens,
 } from '../github/service';
 import { getProjectList } from '../projectList';
 import { cliPanelRequest } from '../cliPanels';
@@ -719,6 +722,41 @@ const routes: Route[] = [
     'sandbox',
   ),
 
+  // ── Lens ─────────────────────────────────────────────────────
+  // Sandbox-reachable for the same reason drafts are: this is where an agent
+  // that has read the diff writes down what it found, and the safest agent is
+  // the one running contained. It touches one local table and no credentials.
+  route(
+    'GET',
+    'pulls/:number/lens',
+    async (r) => {
+      const project = requireProject(r.query);
+      const headSha = r.query.get('headSha');
+      if (!headSha) throw new HttpError(400, 'Missing ?headSha=');
+      return getLens(project, prNumber(r), headSha);
+    },
+    false,
+    'sandbox',
+  ),
+
+  route(
+    'PUT',
+    'pulls/:number/lens',
+    async (r) => {
+      const project = requireProject(r.query);
+      const headSha = r.body.headSha;
+      const groups = r.body.groups;
+      if (typeof headSha !== 'string' || !headSha) throw new HttpError(400, 'Missing headSha');
+      const result = await setLens(project, prNumber(r), headSha, JSON.stringify({ groups }));
+      if (!result.success) throw new HttpError(400, result.error ?? 'Invalid lens');
+      return result;
+    },
+    true,
+    'sandbox',
+  ),
+
+  route('DELETE', 'pulls/:number/lens', async (r) => clearLens(requireProject(r.query), prNumber(r)), true, 'sandbox'),
+
   // ── Pull request commands ─────────────────────────────────────────
   // Host-only: these define shell commands that later run on the host.
   route('GET', 'pr-commands', async (r) => listPrCommands(requireProject(r.query))),
@@ -728,11 +766,10 @@ const routes: Route[] = [
     'pr-commands',
     async (r) => {
       const project = requireProject(r.query);
-      const { name, command, mode } = r.body;
+      const { name, command } = r.body;
       if (typeof name !== 'string' || !name.trim()) throw new HttpError(400, 'Missing name');
       if (typeof command !== 'string' || !command.trim()) throw new HttpError(400, 'Missing command');
-      if (mode !== 'lens' && mode !== 'terminal') throw new HttpError(400, 'mode must be lens or terminal');
-      return savePrCommand(project, name, command, mode);
+      return savePrCommand(project, name, command);
     },
     true,
   ),

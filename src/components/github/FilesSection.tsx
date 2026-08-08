@@ -6,6 +6,7 @@ import { useProjectStore } from '../../stores/projectStore';
 import { BinaryFileView } from '../diff/BinaryFileView';
 import { DiffFileSection } from '../diff/DiffFileSection';
 import type { DiffLineAnchor } from '../diff/diffAnchor';
+import type { ResolvedGroup } from '../../github/lens';
 import { anchorKey, unanchoredThreads } from './reviewAnchors';
 import { Icon } from '../terminal/Icon';
 import { ReviewThreadView } from './ReviewThreadView';
@@ -20,6 +21,8 @@ interface FilesSectionProps {
   detail: PullRequestDetail;
   /** Render only this file. Omitted, the whole diff renders in order. */
   only?: string | null;
+  /** The lens bound to this diff, when the reader has it on. */
+  groups?: ResolvedGroup[] | null;
 }
 
 export interface FilesSectionHandle {
@@ -29,6 +32,18 @@ export interface FilesSectionHandle {
 
 function describe(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+/**
+ * A file's diff narrowed to the hunks one part of the story claims.
+ *
+ * Selection is by whole hunk — a lens says which hunks belong to a part, never
+ * where to cut one. Halving a hunk would strip the context lines that make a
+ * diff readable, and a hunk is already the smallest piece that stands alone.
+ */
+function sliceDiff(diff: FileDiff | null | undefined, hunks?: number[]): FileDiff | null | undefined {
+  if (!diff || !hunks) return diff;
+  return { ...diff, hunks: hunks.map((i) => diff.hunks[i]).filter(Boolean) };
 }
 
 /**
@@ -42,7 +57,7 @@ function describe(error: unknown): string {
  * like any other.
  */
 export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(function FilesSection(
-  { projectPath, detail, only },
+  { projectPath, detail, only, groups },
   ref,
 ) {
   const files = useGithubStore((s) => s.files);
@@ -51,9 +66,9 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
   const filesFromGit = useGithubStore((s) => s.filesFromGit);
   const drafts = useGithubStore((s) => s.drafts);
   const composingAt = useGithubStore((s) => s.composingAt);
-  const lensGroups = useGithubStore((s) => s.lensGroups);
 
-  const [diffs, setDiffs] = useState<Map<string, FileDiff | null>>(new Map());
+  const diffs = useGithubStore((s) => s.diffs);
+  const setDiffs = useGithubStore((s) => s.setDiffs);
   const [editingDraftId, setEditingDraftId] = useState<string | null>(null);
 
   useImperativeHandle(ref, () => ({ editDraft: setEditingDraftId }), []);
@@ -107,7 +122,7 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- filesFingerprint is the stable proxy for files
-  }, [filesFingerprint, projectPath, detail.number, detail.baseSha, detail.headSha]);
+  }, [filesFingerprint, projectPath, detail.number, detail.baseSha, detail.headSha, setDiffs]);
 
   // Threads and drafts indexed by anchor, so each line render is a map lookup
   // rather than a scan of every thread on the PR.
@@ -279,14 +294,14 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
 
   const shown = only ? files.filter((f) => f.path === only) : files;
 
-  const renderFile = (file: PullRequestFile) => (
+  const renderFile = (file: PullRequestFile, key?: string, hunks?: number[]) => (
     <DiffFileSection
-      key={file.path}
+      key={key ?? file.path}
       path={file.path}
       status={file.status}
       additions={file.additions}
       deletions={file.deletions}
-      diff={diffs.get(file.path)}
+      diff={sliceDiff(diffs.get(file.path), hunks)}
       onAddComment={startComment}
       renderBelowLine={(anchor) => renderBelowLine(file.path, anchor)}
       binaryView={
@@ -321,7 +336,7 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
   // A lens rearranges the whole document, so it applies only when the whole
   // document is what's on screen. Reading one file is already the narrowest
   // view there is; grouping a single file would be grouping nothing.
-  const grouped = !only && lensGroups ? lensGroups : null;
+  const grouped = !only ? groups : null;
   const byPath = new Map(files.map((f) => [f.path, f]));
 
   return (
@@ -346,13 +361,13 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
                 <div className="text-[12px] font-medium text-text-primary">{group.title}</div>
                 {group.summary && <div className="text-[11px] text-text-tertiary">{group.summary}</div>}
               </div>
-              {group.paths.map((path) => {
-                const file = byPath.get(path);
-                return file ? renderFile(file) : null;
+              {group.slices.map((slice) => {
+                const file = byPath.get(slice.path);
+                return file ? renderFile(file, `${group.title}:${slice.path}`, slice.hunks) : null;
               })}
             </div>
           ))
-        : shown.map(renderFile)}
+        : shown.map((file) => renderFile(file))}
 
       {!only && orphanThreads.length > 0 && (
         <>

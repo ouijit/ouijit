@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { PullRequestDetail, ReviewDraft } from '../../github/types';
 import type { TaskWithWorkspace } from '../../types';
 import { useGithubStore } from '../../stores/githubStore';
-import { useProjectStore } from '../../stores/projectStore';
+import { resolveLens } from '../../github/lens';
 import { Tab, TabBar } from './Tabs';
 import { DetailChrome } from './DetailChrome';
 import { DiscussionSection } from './DiscussionSection';
@@ -53,11 +53,9 @@ export function PullRequestDetailView({
 }: PullRequestDetailViewProps) {
   const detailLoading = useGithubStore((s) => s.detailLoading);
   const files = useGithubStore((s) => s.files);
-  const prCommands = useGithubStore((s) => s.prCommands);
-  const activeLens = useGithubStore((s) => s.activeLens);
+  const diffs = useGithubStore((s) => s.diffs);
   const lensGroups = useGithubStore((s) => s.lensGroups);
-  const lensRunning = useGithubStore((s) => s.lensRunning);
-  const lensError = useGithubStore((s) => s.lensError);
+  const lensOn = useGithubStore((s) => s.lensOn);
   const badge = stateBadge(detail);
 
   const filesRef = useRef<FilesSectionHandle>(null);
@@ -87,13 +85,20 @@ export function PullRequestDetailView({
     setPendingDraftId(null);
   }, [pane, pendingDraftId, file]);
 
-  // A lens that failed is reported where the press happened, then cleared, so
-  // the same message does not reappear every render.
-  useEffect(() => {
-    if (!lensError) return;
-    useProjectStore.getState().addToast(lensError, 'error');
-    useGithubStore.setState({ lensError: null });
-  }, [lensError]);
+  // Bound once, where both the rail and the document can read the same result.
+  // Resolution needs the parsed diffs, so it waits for them: until they land the
+  // lens has nothing to point at.
+  const resolved = useMemo(
+    () =>
+      lensGroups
+        ? resolveLens(
+            lensGroups,
+            diffs,
+            files.map((f) => f.path),
+          )
+        : null,
+    [lensGroups, diffs, files],
+  );
 
   // A file that disappears under you — a force-push drops it from the diff —
   // would otherwise leave the pane empty with no way back.
@@ -143,11 +148,9 @@ export function PullRequestDetailView({
             files={files}
             activePath={file}
             onSelect={setFile}
-            prCommands={prCommands}
-            activeLens={activeLens}
-            lensGroups={lensGroups}
-            lensRunning={lensRunning}
-            onLens={(name) => void useGithubStore.getState().applyLens(projectPath, name)}
+            groups={resolved}
+            lensOn={lensOn}
+            onLensOn={(on) => useGithubStore.getState().setLensOn(on)}
           />
         )}
         <div ref={paneRef} className="flex-1 min-w-0 overflow-y-auto">
@@ -163,7 +166,13 @@ export function PullRequestDetailView({
           ) : pane === 'timeline' ? (
             <DiscussionSection projectPath={projectPath} detail={detail} />
           ) : (
-            <FilesSection ref={filesRef} projectPath={projectPath} detail={detail} only={file} />
+            <FilesSection
+              ref={filesRef}
+              projectPath={projectPath}
+              detail={detail}
+              only={file}
+              groups={lensOn ? resolved : null}
+            />
           )}
         </div>
       </div>

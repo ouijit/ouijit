@@ -1,26 +1,12 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useProjectStore } from '../../stores/projectStore';
 import type { PrCommandSummary } from '../../github/service';
-import type { PrCommandMode } from '../../db';
 import { Icon } from '../terminal/Icon';
 import { ScriptRowView } from './ScriptRowView';
 
 interface PrCommandListProps {
   projectPath: string;
 }
-
-const MODES: Array<{ value: PrCommandMode; label: string; hint: string }> = [
-  {
-    value: 'lens',
-    label: 'Lens',
-    hint: 'Reads the changed files on stdin and prints {"groups":[{"title","paths"}]}. Reorders the diff in the Code pane; files it leaves out still show, in a trailing group.',
-  },
-  {
-    value: 'terminal',
-    label: 'Terminal',
-    hint: 'Opens a terminal running this command, in the pull request’s worktree when it has one. Reachable from Run in the pull request’s action bar.',
-  },
-];
 
 /**
  * Pull request commands, as rows you can add and edit.
@@ -50,7 +36,7 @@ export function PrCommandList({ projectPath }: PrCommandListProps) {
   const save = useCallback(
     async (command: PrCommandSummary, previousName?: string) => {
       try {
-        await window.api.github.savePrCommand(projectPath, command.name, command.command, command.mode, previousName);
+        await window.api.github.savePrCommand(projectPath, command.name, command.command, previousName);
       } catch (error) {
         useProjectStore.getState().addToast(error instanceof Error ? error.message : String(error), 'error');
         return;
@@ -87,7 +73,7 @@ export function PrCommandList({ projectPath }: PrCommandListProps) {
         {commands.map((command) => (
           <div key={command.name}>
             <ScriptRowView
-              name={`${command.name}  ·  ${command.mode}`}
+              name={command.name}
               command={command.command}
               expanded={expandedName === command.name}
               onClick={() => {
@@ -150,7 +136,6 @@ function PrCommandForm({
 }) {
   const [name, setName] = useState(initial?.name ?? '');
   const [command, setCommand] = useState(initial?.command ?? '');
-  const [mode, setMode] = useState<PrCommandMode>(initial?.mode ?? 'lens');
   const nameRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -164,8 +149,8 @@ function PrCommandForm({
 
   const submit = useCallback(() => {
     if (!name.trim() || !command.trim() || collides) return;
-    onSave({ name: name.trim(), command: command.trim(), mode });
-  }, [name, command, mode, collides, onSave]);
+    onSave({ name: name.trim(), command: command.trim() });
+  }, [name, command, collides, onSave]);
 
   const onKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -191,42 +176,22 @@ function PrCommandForm({
       </div>
 
       <div>
-        <label className="block text-[11px] text-text-tertiary mb-1">Mode</label>
-        <div className="flex gap-1.5">
-          {MODES.map((m) => (
-            <button
-              key={m.value}
-              type="button"
-              title={m.hint}
-              className={`px-2.5 py-1 text-xs rounded-md border transition-colors duration-150 ${
-                mode === m.value
-                  ? 'text-accent-ink bg-accent border-accent'
-                  : 'text-text-secondary bg-transparent border-border hover:bg-background-tertiary'
-              }`}
-              onClick={() => setMode(m.value)}
-            >
-              {m.label}
-            </button>
-          ))}
-        </div>
-        <p className="mt-1.5 text-[11px] text-text-tertiary leading-snug">
-          {MODES.find((m) => m.value === mode)?.hint}
-        </p>
-      </div>
-
-      <div>
         <label className="block text-[11px] text-text-tertiary mb-1">Command</label>
         <input
           className="w-full px-2.5 py-1.5 text-xs text-text-primary bg-background-secondary border border-border rounded-md outline-none focus:border-accent transition-colors font-mono"
           value={command}
           onChange={(e) => setCommand(e.target.value)}
           onKeyDown={onKeyDown}
-          placeholder={mode === 'lens' ? 'e.g. ./scripts/review-order.sh' : 'e.g. claude "review this pull request"'}
+          placeholder='e.g. claude "review this pull request"'
         />
         <p className="mt-1.5 text-[11px] text-text-tertiary leading-snug">
-          Runs with <span className="font-mono">OUIJIT_PR_NUMBER</span>,{' '}
-          <span className="font-mono">OUIJIT_PR_BRANCH</span>, <span className="font-mono">OUIJIT_PR_URL</span> and{' '}
+          Opens a terminal in the pull request&apos;s worktree, with <span className="font-mono">OUIJIT_PR_NUMBER</span>
+          , <span className="font-mono">OUIJIT_PR_BRANCH</span>, <span className="font-mono">OUIJIT_PR_URL</span> and{' '}
           <span className="font-mono">OUIJIT_PR_TITLE</span> set.
+        </p>
+        <p className="mt-1.5 text-[11px] text-text-tertiary leading-snug">
+          An agent started here files review comments with <span className="font-mono">ouijit pr draft add</span>, and
+          writes the Code pane&apos;s reading order with <span className="font-mono">ouijit pr lens set</span>.
         </p>
       </div>
 

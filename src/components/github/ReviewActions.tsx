@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { TaskWithWorkspace } from '../../types';
 import { addProjectTerminal } from '../terminal/terminalActions';
+import { prCommandEnv } from '../../github/prCommandEnv';
 import type { MergeMethod, PullRequestDetail, ReviewDraft, ReviewEvent } from '../../github/types';
 import { useGithubStore } from '../../stores/githubStore';
 import { useProjectStore } from '../../stores/projectStore';
@@ -43,8 +44,6 @@ export function ReviewActions({ projectPath, detail, linkedTask, onJumpToDraft }
   const [method, setMethod] = useState<MergeMethod>('squash');
   const [deleteBranch, setDeleteBranch] = useState(true);
   const [merging, setMerging] = useState(false);
-
-  const terminalCommands = prCommands.filter((c) => c.mode === 'terminal');
 
   const isOpen = detail.state === 'open';
   const hardBlock = detail.merge.mergeable === 'CONFLICTING' || detail.isDraft;
@@ -127,12 +126,7 @@ export function ReviewActions({ projectPath, detail, linkedTask, onJumpToDraft }
             }
           : {}),
         skipAutoHook: true,
-        extraEnv: {
-          OUIJIT_PR_NUMBER: String(detail.number),
-          OUIJIT_PR_BRANCH: detail.headRefName,
-          OUIJIT_PR_URL: detail.url,
-          OUIJIT_PR_TITLE: detail.title,
-        },
+        extraEnv: prCommandEnv(detail, task?.worktreePath),
       },
     );
   };
@@ -141,10 +135,10 @@ export function ReviewActions({ projectPath, detail, linkedTask, onJumpToDraft }
     <SegmentedGroup>
       {drafts.length > 0 && <DraftsPopover drafts={drafts} onJump={onJumpToDraft} onDiscard={discardDraft} />}
 
-      {terminalCommands.length > 0 && (
+      {prCommands.length > 0 && (
         <ActionMenu label="Run">
           {(close) =>
-            terminalCommands.map((cmd) => (
+            prCommands.map((cmd) => (
               <MenuItem
                 key={cmd.name}
                 label={cmd.name}

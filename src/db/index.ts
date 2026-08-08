@@ -15,7 +15,8 @@ import { TagRepo, type TagRow } from './repos/tagRepo';
 import { GlobalSettingsRepo } from './repos/globalSettingsRepo';
 import { ScriptRepo, type ScriptRow } from './repos/scriptRepo';
 import { ReviewDraftRepo, type ReviewDraftRow } from './repos/reviewDraftRepo';
-import { PrCommandRepo, type PrCommandRow, type PrCommandMode } from './repos/prCommandRepo';
+import { PrCommandRepo, type PrCommandRow } from './repos/prCommandRepo';
+import { PrLensRepo, type PrLensRow } from './repos/prLensRepo';
 import type { ProjectSettings, ScriptHook } from '../types';
 import { getLogger } from '../logger';
 
@@ -52,6 +53,7 @@ let globalSettingsRepo: GlobalSettingsRepo | null = null;
 let scriptRepo: ScriptRepo | null = null;
 let reviewDraftRepo: ReviewDraftRepo | null = null;
 let prCommandRepo: PrCommandRepo | null = null;
+let prLensRepo: PrLensRepo | null = null;
 
 function repos() {
   if (!taskRepo) {
@@ -64,6 +66,7 @@ function repos() {
     scriptRepo = new ScriptRepo(db);
     reviewDraftRepo = new ReviewDraftRepo(db);
     prCommandRepo = new PrCommandRepo(db);
+    prLensRepo = new PrLensRepo(db);
   }
   return {
     projectRepo: projectRepo!,
@@ -74,6 +77,7 @@ function repos() {
     scriptRepo: scriptRepo!,
     reviewDraftRepo: reviewDraftRepo!,
     prCommandRepo: prCommandRepo!,
+    prLensRepo: prLensRepo!,
   };
 }
 
@@ -89,6 +93,7 @@ export function _resetCacheForTesting(): void {
   scriptRepo = new ScriptRepo(db);
   reviewDraftRepo = new ReviewDraftRepo(db);
   prCommandRepo = new PrCommandRepo(db);
+  prLensRepo = new PrLensRepo(db);
 }
 
 // ── Row → TaskMetadata conversion ────────────────────────────────────
@@ -398,7 +403,8 @@ export async function getReviewDraftCounts(projectPath: string): Promise<Record<
 
 // ── Pull request commands ────────────────────────────────────────────
 
-export type { PrCommandRow, PrCommandMode } from './repos/prCommandRepo';
+export type { PrCommandRow } from './repos/prCommandRepo';
+export type { PrLensRow } from './repos/prLensRepo';
 
 export async function getPrCommands(projectPath: string): Promise<PrCommandRow[]> {
   const { prCommandRepo: pc } = repos();
@@ -410,14 +416,30 @@ export async function getPrCommand(projectPath: string, name: string): Promise<P
   return pc.getByName(projectPath, name);
 }
 
-export async function savePrCommand(
-  projectPath: string,
-  name: string,
-  command: string,
-  mode: PrCommandMode,
-): Promise<PrCommandRow> {
+export async function savePrCommand(projectPath: string, name: string, command: string): Promise<PrCommandRow> {
   const { prCommandRepo: pc } = repos();
-  return pc.save(projectPath, name, command, mode);
+  return pc.save(projectPath, name, command);
+}
+
+export async function getPrLens(projectPath: string, prNumber: number): Promise<PrLensRow | undefined> {
+  const { prLensRepo: pn } = repos();
+  return pn.get(projectPath, prNumber);
+}
+
+export async function savePrLens(
+  projectPath: string,
+  prNumber: number,
+  headSha: string,
+  groups: string,
+): Promise<void> {
+  const { prLensRepo: pn } = repos();
+  pn.save(projectPath, prNumber, headSha, groups);
+}
+
+export async function deletePrLens(projectPath: string, prNumber: number): Promise<{ success: boolean }> {
+  const { prLensRepo: pn } = repos();
+  pn.delete(projectPath, prNumber);
+  return { success: true };
 }
 
 export async function deletePrCommand(projectPath: string, name: string): Promise<{ success: boolean }> {

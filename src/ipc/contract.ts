@@ -53,7 +53,6 @@ import type {
   ReviewEvent,
   MergeMethod,
   GithubDraftsChangedPayload,
-  PullRequestFile,
 } from '../github/types';
 import type {
   InboxResult,
@@ -61,9 +60,8 @@ import type {
   SaveDraftInput,
   PromoteToTaskResult,
   PrCommandSummary,
+  LensResult,
 } from '../github/service';
-import type { PrCommandMode } from '../db';
-import type { LensResult } from '../github/prCommand';
 import type { PrFileVersions } from '../github/prDiff';
 import type { SandboxProviderStatus, NonoConfig } from '../sandbox/types';
 import type { HookStatusEntry } from '../hookServer';
@@ -272,14 +270,12 @@ export interface IpcInvokeContract {
   };
   'github:list-pr-commands': { args: [projectPath: string]; return: PrCommandSummary[] };
   'github:save-pr-command': {
-    args: [projectPath: string, name: string, command: string, mode: PrCommandMode, previousName?: string];
+    args: [projectPath: string, name: string, command: string, previousName?: string];
     return: PrCommandSummary;
   };
   'github:delete-pr-command': { args: [projectPath: string, name: string]; return: { success: boolean } };
-  'github:run-lens': {
-    args: [projectPath: string, name: string, detail: PullRequestDetail, files: PullRequestFile[]];
-    return: LensResult;
-  };
+  'github:lens': { args: [projectPath: string, prNumber: number, headSha: string]; return: LensResult };
+  'github:clear-lens': { args: [projectPath: string, prNumber: number]; return: { success: boolean } };
   'github:issues': { args: [projectPath: string]; return: GithubIssue[] };
   'github:issue': { args: [projectPath: string, number: number]; return: IssueDetail };
 

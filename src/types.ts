@@ -41,7 +41,6 @@ export type {
   GithubAvailability,
   PullRequestSummary,
   PullRequestDetail,
-  PullRequestFile,
   PullRequestInbox,
   PullRequestLabel,
   ReviewThread,
@@ -71,7 +70,6 @@ import type {
   ReviewEvent,
   MergeMethod,
   GithubDraftsChangedPayload,
-  PullRequestFile,
 } from './github/types';
 import type {
   InboxResult,
@@ -79,10 +77,10 @@ import type {
   SaveDraftInput,
   PromoteToTaskResult,
   PrCommandSummary,
+  LensResult,
 } from './github/service';
-import type { LensResult } from './github/prCommand';
 import type { PrFileVersions } from './github/prDiff';
-import type { TaskStatus, TagRow, PrCommandMode } from './db';
+import type { TaskStatus, TagRow } from './db';
 import type { ActiveSession } from './ptyManager';
 import type { LimaStatus } from './lima/types';
 import type { SandboxProviderId, SandboxProviderStatus, NonoConfig } from './sandbox/types';
@@ -721,15 +719,10 @@ export interface GithubAPI {
   taskFromPr(projectPath: string, prNumber: number): Promise<PromoteToTaskResult>;
 
   listPrCommands(projectPath: string): Promise<PrCommandSummary[]>;
-  savePrCommand(
-    projectPath: string,
-    name: string,
-    command: string,
-    mode: PrCommandMode,
-    previousName?: string,
-  ): Promise<PrCommandSummary>;
+  savePrCommand(projectPath: string, name: string, command: string, previousName?: string): Promise<PrCommandSummary>;
   deletePrCommand(projectPath: string, name: string): Promise<{ success: boolean }>;
-  runLens(projectPath: string, name: string, detail: PullRequestDetail, files: PullRequestFile[]): Promise<LensResult>;
+  lens(projectPath: string, prNumber: number, headSha: string): Promise<LensResult>;
+  clearLens(projectPath: string, prNumber: number): Promise<{ success: boolean }>;
 
   onDraftsChanged(callback: (payload: GithubDraftsChangedPayload) => void): () => void;
 }

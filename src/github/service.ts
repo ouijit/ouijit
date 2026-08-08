@@ -22,10 +22,11 @@ import {
   deleteReviewDraft,
   getReviewDraftCounts,
   getPrCommands,
-  getPrCommand,
   savePrCommand as savePrCommandRow,
   deletePrCommand as deletePrCommandRow,
-  type PrCommandMode,
+  getPrLens,
+  savePrLens,
+  deletePrLens,
   getGlobalSetting,
   createTask,
   getNextTaskNumber,
@@ -60,7 +61,7 @@ import {
   prunePrRefs,
   type PrFileVersions,
 } from './prDiff';
-import { runLens, type LensResult } from './prCommand';
+import { parseLens, type LensGroup } from './lens';
 import type {
   GithubAvailability,
   PullRequestInbox,
@@ -404,15 +405,10 @@ export async function discardDraft(projectPath: string, draftId: string): Promis
 export interface PrCommandSummary {
   name: string;
   command: string;
-  mode: PrCommandMode;
 }
 
 export async function listPrCommands(projectPath: string): Promise<PrCommandSummary[]> {
-  return (await getPrCommands(projectPath)).map((row) => ({
-    name: row.name,
-    command: row.command,
-    mode: row.mode,
-  }));
+  return (await getPrCommands(projectPath)).map((row) => ({ name: row.name, command: row.command }));
 }
 
 /**
@@ -427,36 +423,58 @@ export async function savePrCommand(
   projectPath: string,
   name: string,
   command: string,
-  mode: PrCommandMode,
   previousName?: string,
 ): Promise<PrCommandSummary> {
   if (previousName && previousName !== name) await deletePrCommandRow(projectPath, previousName);
-  const row = await savePrCommandRow(projectPath, name, command, mode);
-  return { name: row.name, command: row.command, mode: row.mode };
+  const row = await savePrCommandRow(projectPath, name, command);
+  return { name: row.name, command: row.command };
 }
 
 export async function deletePrCommand(projectPath: string, name: string): Promise<{ success: boolean }> {
   return deletePrCommandRow(projectPath, name);
 }
 
+// ── Lens ────────────────────────────────────────────────────────
+
+export interface LensResult {
+  /** Null when none has been written, or when the one on file is stale. */
+  groups: LensGroup[] | null;
+  /** Set when a lens exists but describes an older head. */
+  staleFor?: string;
+}
+
 /**
- * Run a lens over an open pull request.
+ * The reading order stored for a pull request, if it still describes this head.
  *
- * The detail and file list come from the caller rather than being re-fetched:
- * the renderer already has both on screen, and going back to `gh` to render
- * something the user is already looking at is exactly the reflex this surface
- * is built to avoid.
+ * A lens points at specific hunks. After a force-push those hunks are gone,
+ * so rather than rendering a confident description of code that is no longer
+ * there, the stale one is reported as stale and the reader gets the flat list
+ * back until something writes a new one.
  */
-export async function runPrLens(
+export async function getLens(projectPath: string, prNumber: number, headSha: string): Promise<LensResult> {
+  const row = await getPrLens(projectPath, prNumber);
+  if (!row) return { groups: null };
+  if (row.head_sha !== headSha) return { groups: null, staleFor: row.head_sha };
+  const groups = parseLens(row.groups);
+  return { groups };
+}
+
+export async function setLens(
   projectPath: string,
-  name: string,
-  detail: PullRequestDetail,
-  files: PullRequestFile[],
-): Promise<LensResult> {
-  const row = await getPrCommand(projectPath, name);
-  if (!row) return { success: false, error: `No pull request command named “${name}”` };
-  if (row.mode !== 'lens') return { success: false, error: `“${name}” is a ${row.mode} command, not a lens` };
-  return runLens(row, projectPath, detail, files);
+  prNumber: number,
+  headSha: string,
+  body: string,
+): Promise<{ success: boolean; error?: string; groups?: LensGroup[] }> {
+  const groups = parseLens(body);
+  if (!groups) {
+    return { success: false, error: 'Expected {"groups":[{"title","slices":[{"path","ranges"}]}]}' };
+  }
+  await savePrLens(projectPath, prNumber, headSha, JSON.stringify({ groups }));
+  return { success: true, groups };
+}
+
+export async function clearLens(projectPath: string, prNumber: number): Promise<{ success: boolean }> {
+  return deletePrLens(projectPath, prNumber);
 }
 
 // ── Writes ───────────────────────────────────────────────────────────

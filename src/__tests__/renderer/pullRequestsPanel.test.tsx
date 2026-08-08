@@ -122,6 +122,8 @@ describe('PullRequestsPanel', () => {
     // that stubs these leaves its stub behind for every test after it.
     vi.mocked(window.api.github.drafts).mockResolvedValue([]);
     vi.mocked(window.api.github.listPrCommands).mockResolvedValue([]);
+    vi.mocked(window.api.github.lens).mockResolvedValue({ groups: null });
+    vi.mocked(window.api.github.pullRequestFiles).mockResolvedValue({ files: [], fromGit: false });
   });
 
   /**
@@ -563,103 +565,6 @@ describe('PullRequestsPanel', () => {
     await waitFor(() => {
       expect(window.api.github.deleteComment).toHaveBeenCalledWith(PROJECT, 'issue', 991);
     });
-  });
-
-  /**
-   * The rail says the diff can be ordered some other way even when nobody has
-   * set that up — the row stands where a lens would, so the control never moves
-   * once one exists, and it leads to where lenses are configured rather than
-   * describing them and leaving you to find settings yourself.
-   */
-  test('with no lenses the rail still offers to add one, and goes to settings', async () => {
-    vi.mocked(window.api.github.inbox).mockResolvedValue(
-      inbox({ needsReview: [pr({ number: 5, title: 'Please look' })] }),
-    );
-    vi.mocked(window.api.github.pullRequest).mockResolvedValue(detail());
-    vi.mocked(window.api.github.listPrCommands).mockResolvedValue([]);
-
-    render(<PullRequestsPanel projectPath={PROJECT} />);
-    fireEvent.click(await screen.findByText('Please look'));
-    fireEvent.click(await screen.findByText('Code'));
-
-    fireEvent.click(await screen.findByText('Add a lens…'));
-    expect(useProjectStore.getState().activePanel).toBe('settings');
-  });
-
-  /**
-   * A lens is a press, never automatic: opening the code pane shows the flat
-   * file list, and the command only runs when its name is chosen. A diff you
-   * cannot see until some command finishes is worse than an unsorted one.
-   */
-  test('a lens runs when picked, and not before', async () => {
-    vi.mocked(window.api.github.inbox).mockResolvedValue(
-      inbox({ needsReview: [pr({ number: 5, title: 'Please look' })] }),
-    );
-    vi.mocked(window.api.github.pullRequest).mockResolvedValue(detail({ changedFiles: 2 }));
-    vi.mocked(window.api.github.pullRequestFiles).mockResolvedValue({
-      files: [
-        { path: 'src/api.ts', status: 'M', additions: 1, deletions: 1 },
-        { path: 'src/ui.tsx', status: 'M', additions: 1, deletions: 1 },
-      ],
-      fromGit: false,
-    });
-    vi.mocked(window.api.github.listPrCommands).mockResolvedValue([
-      { name: 'narrative', command: './order.sh', mode: 'lens' },
-    ]);
-    vi.mocked(window.api.github.runLens).mockResolvedValue({
-      success: true,
-      groups: [
-        { title: 'Transport', paths: ['src/api.ts'] },
-        { title: 'Everything else', paths: ['src/ui.tsx'] },
-      ],
-    });
-
-    render(<PullRequestsPanel projectPath={PROJECT} />);
-    fireEvent.click(await screen.findByText('Please look'));
-    fireEvent.click(await screen.findByText('Code'));
-
-    // The lens is offered by name, and has not run.
-    expect(await screen.findByText('narrative')).toBeTruthy();
-    expect(window.api.github.runLens).not.toHaveBeenCalled();
-
-    fireEvent.click(screen.getByText('narrative'));
-
-    await waitFor(() => expect(window.api.github.runLens).toHaveBeenCalled());
-    // Each group titles both the rail entry and the section it heads.
-    expect((await screen.findAllByText('Transport')).length).toBeGreaterThan(0);
-    expect(screen.getAllByText('Everything else').length).toBeGreaterThan(0);
-
-    // Pressing the active lens again is "back to the whole document", not a
-    // second run — re-running would spend another model call for the grouping
-    // already on screen.
-    vi.mocked(window.api.github.runLens).mockClear();
-    fireEvent.click(screen.getByText('narrative'));
-    expect(window.api.github.runLens).not.toHaveBeenCalled();
-  });
-
-  /** A lens that fails says why and gets out of the way. */
-  test('a failing lens falls back to the flat list', async () => {
-    vi.mocked(window.api.github.inbox).mockResolvedValue(
-      inbox({ needsReview: [pr({ number: 5, title: 'Please look' })] }),
-    );
-    vi.mocked(window.api.github.pullRequest).mockResolvedValue(detail());
-    vi.mocked(window.api.github.pullRequestFiles).mockResolvedValue({
-      files: [{ path: 'src/api.ts', status: 'M', additions: 1, deletions: 1 }],
-      fromGit: false,
-    });
-    vi.mocked(window.api.github.listPrCommands).mockResolvedValue([
-      { name: 'narrative', command: './order.sh', mode: 'lens' },
-    ]);
-    vi.mocked(window.api.github.runLens).mockResolvedValue({ success: false, error: 'order.sh: not found' });
-
-    render(<PullRequestsPanel projectPath={PROJECT} />);
-    fireEvent.click(await screen.findByText('Please look'));
-    fireEvent.click(await screen.findByText('Code'));
-    fireEvent.click(await screen.findByText('narrative'));
-
-    // The error is said, and the file list is still there to read.
-    await waitFor(() => expect(useProjectStore.getState().toasts[0]?.message).toBe('order.sh: not found'));
-    expect(screen.getByText('All files')).toBeTruthy();
   });
 
   /**

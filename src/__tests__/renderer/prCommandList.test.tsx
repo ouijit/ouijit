@@ -16,51 +16,32 @@ describe('PrCommandList', () => {
     vi.clearAllMocks();
     useProjectStore.setState({ toasts: [] });
     vi.mocked(window.api.github.listPrCommands).mockResolvedValue([]);
-    vi.mocked(window.api.github.savePrCommand).mockResolvedValue({
-      name: 'narrative',
-      command: './order.sh',
-      mode: 'lens',
-    });
+    vi.mocked(window.api.github.savePrCommand).mockResolvedValue({ name: 'Review', command: 'claude review' });
   });
 
-  test('adds a lens, and says what a lens is while you are choosing', async () => {
+  test('adds a command, and says what an agent can write back', async () => {
     render(<PrCommandList projectPath={PROJECT} />);
 
     expect(await screen.findByText('No pull request commands yet. Add one below.')).toBeTruthy();
 
     fireEvent.click(screen.getByText('Add Command'));
 
-    // Lens is the default, and the form explains it rather than assuming the
-    // reader already knows what one does.
-    expect(screen.getByText(/Reads the changed files on stdin/)).toBeTruthy();
+    // The form says what this is for: an agent started here files comments and
+    // writes a reading order, which is the whole reason to configure one.
+    expect(screen.getByText(/ouijit pr draft add/)).toBeTruthy();
+    expect(screen.getByText(/ouijit pr lens set/)).toBeTruthy();
 
     fireEvent.change(screen.getByPlaceholderText('e.g. Narrative, Review with Claude'), {
-      target: { value: 'narrative' },
+      target: { value: 'Review' },
     });
-    fireEvent.change(screen.getByPlaceholderText('e.g. ./scripts/review-order.sh'), {
-      target: { value: './order.sh' },
+    fireEvent.change(screen.getByPlaceholderText('e.g. claude "review this pull request"'), {
+      target: { value: 'claude review' },
     });
     fireEvent.click(screen.getByText('Save'));
 
     await waitFor(() =>
-      expect(window.api.github.savePrCommand).toHaveBeenCalledWith(
-        PROJECT,
-        'narrative',
-        './order.sh',
-        'lens',
-        undefined,
-      ),
+      expect(window.api.github.savePrCommand).toHaveBeenCalledWith(PROJECT, 'Review', 'claude review', undefined),
     );
-  });
-
-  test('switching to terminal changes what the command field expects', async () => {
-    render(<PrCommandList projectPath={PROJECT} />);
-    fireEvent.click(await screen.findByText('Add Command'));
-
-    fireEvent.click(screen.getByText('Terminal'));
-
-    expect(screen.getByPlaceholderText('e.g. claude "review this pull request"')).toBeTruthy();
-    expect(screen.getByText(/Opens a terminal running this command/)).toBeTruthy();
   });
 
   /**
@@ -68,47 +49,37 @@ describe('PrCommandList', () => {
    * overwrite it. Refused in the form rather than discovered afterwards.
    */
   test('a duplicate name is refused before it can overwrite anything', async () => {
-    vi.mocked(window.api.github.listPrCommands).mockResolvedValue([
-      { name: 'narrative', command: './order.sh', mode: 'lens' },
-    ]);
+    vi.mocked(window.api.github.listPrCommands).mockResolvedValue([{ name: 'Review', command: 'claude review' }]);
 
     render(<PrCommandList projectPath={PROJECT} />);
     // Wait for the existing row, or there is nothing to collide with yet.
-    await screen.findByText(/narrative/);
+    await screen.findByText('Review');
     fireEvent.click(screen.getByText('Add Command'));
 
     fireEvent.change(screen.getByPlaceholderText('e.g. Narrative, Review with Claude'), {
-      target: { value: 'narrative' },
+      target: { value: 'Review' },
     });
-    fireEvent.change(screen.getByPlaceholderText('e.g. ./scripts/review-order.sh'), {
-      target: { value: './other.sh' },
+    fireEvent.change(screen.getByPlaceholderText('e.g. claude "review this pull request"'), {
+      target: { value: 'other' },
     });
 
-    expect(screen.getByText('A command called “narrative” already exists')).toBeTruthy();
+    expect(screen.getByText('A command called “Review” already exists')).toBeTruthy();
     fireEvent.click(screen.getByText('Save'));
     expect(window.api.github.savePrCommand).not.toHaveBeenCalled();
   });
 
   /** Renaming has to carry the old name, or the old row survives as a duplicate. */
   test('renaming passes the previous name so the old row goes', async () => {
-    vi.mocked(window.api.github.listPrCommands).mockResolvedValue([
-      { name: 'narrative', command: './order.sh', mode: 'lens' },
-    ]);
+    vi.mocked(window.api.github.listPrCommands).mockResolvedValue([{ name: 'Review', command: 'claude review' }]);
 
     render(<PrCommandList projectPath={PROJECT} />);
-    fireEvent.click(await screen.findByText(/narrative/));
+    fireEvent.click(await screen.findByText('Review'));
 
-    fireEvent.change(screen.getByDisplayValue('narrative'), { target: { value: 'reading order' } });
+    fireEvent.change(screen.getByDisplayValue('Review'), { target: { value: 'Deep review' } });
     fireEvent.click(screen.getByText('Save'));
 
     await waitFor(() =>
-      expect(window.api.github.savePrCommand).toHaveBeenCalledWith(
-        PROJECT,
-        'reading order',
-        './order.sh',
-        'lens',
-        'narrative',
-      ),
+      expect(window.api.github.savePrCommand).toHaveBeenCalledWith(PROJECT, 'Deep review', 'claude review', 'Review'),
     );
   });
 });
