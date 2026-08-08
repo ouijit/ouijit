@@ -20,6 +20,7 @@ import type {
   CliPanelResponse,
 } from './types';
 import type { CaptureNavigatePayload } from './capture/types';
+import type { PrCommandMode } from './db';
 import type {
   CommentKind,
   ReviewEvent,
@@ -342,6 +343,9 @@ contextBridge.exposeInMainWorld('api', {
       oldPath?: string,
     ) => typedInvoke('github:pull-request-file-versions', projectPath, number, baseSha, headSha, filePath, oldPath),
     listPrCommands: (projectPath: string) => typedInvoke('github:list-pr-commands', projectPath),
+    savePrCommand: (projectPath: string, name: string, command: string, mode: PrCommandMode, previousName?: string) =>
+      typedInvoke('github:save-pr-command', projectPath, name, command, mode, previousName),
+    deletePrCommand: (projectPath: string, name: string) => typedInvoke('github:delete-pr-command', projectPath, name),
     runLens: (projectPath: string, name: string, detail: PullRequestDetail, files: PullRequestFile[]) =>
       typedInvoke('github:run-lens', projectPath, name, detail, files),
     issues: (projectPath: string) => typedInvoke('github:issues', projectPath),

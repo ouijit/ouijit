@@ -62,6 +62,7 @@ import type {
   PromoteToTaskResult,
   PrCommandSummary,
 } from '../github/service';
+import type { PrCommandMode } from '../db';
 import type { LensResult } from '../github/prCommand';
 import type { PrFileVersions } from '../github/prDiff';
 import type { SandboxProviderStatus, NonoConfig } from '../sandbox/types';
@@ -270,6 +271,11 @@ export interface IpcInvokeContract {
     return: PrFileVersions;
   };
   'github:list-pr-commands': { args: [projectPath: string]; return: PrCommandSummary[] };
+  'github:save-pr-command': {
+    args: [projectPath: string, name: string, command: string, mode: PrCommandMode, previousName?: string];
+    return: PrCommandSummary;
+  };
+  'github:delete-pr-command': { args: [projectPath: string, name: string]; return: { success: boolean } };
   'github:run-lens': {
     args: [projectPath: string, name: string, detail: PullRequestDetail, files: PullRequestFile[]];
     return: LensResult;

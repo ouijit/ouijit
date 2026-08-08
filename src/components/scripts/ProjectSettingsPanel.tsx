@@ -8,6 +8,8 @@ import { SandboxSection } from './SandboxSection';
 import { ExperimentalFeaturesSection } from './ExperimentalFeaturesSection';
 import { WorktreeSection } from './WorktreeSection';
 import { IconColorSection } from './IconColorSection';
+import { PrCommandList } from './PrCommandList';
+import { useExperimentalStore } from '../../stores/experimentalStore';
 import { useWorktreeSettingsStore } from '../../stores/worktreeSettingsStore';
 
 const LIFECYCLE_HOOKS: HookEntry[] = [
@@ -29,6 +31,7 @@ interface ProjectSettingsPanelProps {
 
 export function ProjectSettingsPanel({ projectPath }: ProjectSettingsPanelProps) {
   const sandboxAvailable = useProjectStore((s) => s.availableSandboxProviders.length > 0);
+  const githubEnabled = useExperimentalStore((s) => s.flagsByProject[projectPath]?.github ?? false);
 
   useEffect(() => {
     useProjectStore.getState().loadScripts(projectPath);
@@ -105,6 +108,16 @@ export function ProjectSettingsPanel({ projectPath }: ProjectSettingsPanelProps)
               <ScriptList projectPath={projectPath} bare />
             </div>
           </section>
+          {githubEnabled && (
+            <section>
+              <h2 className="text-sm font-semibold text-text-primary mb-2">Pull Request Commands</h2>
+              <p className="text-xs text-text-tertiary mb-4">
+                Commands you can run against a pull request. A lens regroups the diff into a reading order; a terminal
+                command opens a session on it.
+              </p>
+              <PrCommandList projectPath={projectPath} />
+            </section>
+          )}
           <section>
             <h2 className="text-sm font-semibold text-text-primary mb-2">Editor</h2>
             <p className="text-xs text-text-tertiary mb-4">Command to open task worktrees in your editor.</p>
