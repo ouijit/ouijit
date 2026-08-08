@@ -73,7 +73,7 @@ export function PullRequestRail({
             onLensOn(false);
           }}
         />
-        {groups && (
+        {groups ? (
           <RailEntry
             label="Read as a story"
             note={`${groups.length}`}
@@ -84,6 +84,17 @@ export function PullRequestRail({
               onLensOn(true);
             }}
           />
+        ) : (
+          // A state, not a control: there is nothing to press until something
+          // has read the diff. Said anyway, because a reader who has never seen
+          // one has no other way to learn the Code pane can be read in the
+          // order the change was made rather than the order it was stored.
+          <div
+            className="px-3 py-1 text-[13px] text-ink/35"
+            title="Run a review command from the action bar above, and an agent can write one"
+          >
+            No reading order yet
+          </div>
         )}
       </div>
 

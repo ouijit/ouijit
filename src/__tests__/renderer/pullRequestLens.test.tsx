@@ -122,8 +122,11 @@ describe('PullRequestsPanel — lens', () => {
     expect(screen.queryByText('Transport')).toBeNull();
   });
 
-  /** No lens written means no story to offer — just the files. */
-  test('with no lens the rail is the plain file list', async () => {
+  /**
+   * With none written the pane still says so, and Run is still there to write
+   * one. Gating both on a lens already existing is how this shipped invisible.
+   */
+  test('with no lens the pane says so, and Run leads to setting one up', async () => {
     vi.mocked(window.api.github.inbox).mockResolvedValue(
       inbox({ needsReview: [pr({ number: 5, title: 'Please look' })] }),
     );
@@ -136,6 +139,13 @@ describe('PullRequestsPanel — lens', () => {
 
     expect(await screen.findByText('All files')).toBeTruthy();
     expect(screen.queryByText('Read as a story')).toBeNull();
+    expect(screen.getByText('No reading order yet')).toBeTruthy();
+
+    // Nothing configured, so Run offers the way to configure something rather
+    // than not being there at all.
+    fireEvent.click(screen.getByText('Run'));
+    fireEvent.click(await screen.findByText('Set up a review command…'));
+    expect(useProjectStore.getState().activePanel).toBe('settings');
   });
 
   /**
