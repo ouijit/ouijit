@@ -304,6 +304,12 @@ export const KanbanCardView = memo(function KanbanCardView({
           <textarea
             ref={nameInputRef}
             className="flex-1 text-[15px] text-text-primary bg-transparent border-0 border-b border-accent p-0 outline-none min-w-0 resize-none overflow-hidden [-webkit-app-region:no-drag] break-words"
+            // Keep the card's drag activator (dnd-kit listeners on the wrapper)
+            // and its shift-click selection handling off the rename field, so
+            // dragging across the text selects it instead of dragging the card.
+            onPointerDown={(e) => e.stopPropagation()}
+            onMouseDown={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
             onBlur={commitRename}
             onKeyDown={handleNameKeyDown}
             rows={1}
@@ -373,6 +379,8 @@ export const KanbanCardView = memo(function KanbanCardView({
                   <input
                     ref={terminalRenameRef}
                     className="font-mono text-[10px] leading-tight text-text-secondary bg-transparent border-0 border-b border-accent p-0 outline-none min-w-0 [-webkit-app-region:no-drag]"
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onMouseDown={(e) => e.stopPropagation()}
                     onClick={(e) => e.stopPropagation()}
                     onBlur={commitTerminalRename}
                     onKeyDown={(e) => {
