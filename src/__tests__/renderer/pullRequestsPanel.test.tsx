@@ -566,6 +566,27 @@ describe('PullRequestsPanel', () => {
   });
 
   /**
+   * The rail says the diff can be ordered some other way even when nobody has
+   * set that up — the row stands where a lens would, so the control never moves
+   * once one exists, and it leads to where lenses are configured rather than
+   * describing them and leaving you to find settings yourself.
+   */
+  test('with no lenses the rail still offers to add one, and goes to settings', async () => {
+    vi.mocked(window.api.github.inbox).mockResolvedValue(
+      inbox({ needsReview: [pr({ number: 5, title: 'Please look' })] }),
+    );
+    vi.mocked(window.api.github.pullRequest).mockResolvedValue(detail());
+    vi.mocked(window.api.github.listPrCommands).mockResolvedValue([]);
+
+    render(<PullRequestsPanel projectPath={PROJECT} />);
+    fireEvent.click(await screen.findByText('Please look'));
+    fireEvent.click(await screen.findByText('Code'));
+
+    fireEvent.click(await screen.findByText('Add a lens…'));
+    expect(useProjectStore.getState().activePanel).toBe('settings');
+  });
+
+  /**
    * A lens is a press, never automatic: opening the code pane shows the flat
    * file list, and the command only runs when its name is chosen. A diff you
    * cannot see until some command finishes is worse than an unsorted one.
@@ -607,6 +628,13 @@ describe('PullRequestsPanel', () => {
     // Each group titles both the rail entry and the section it heads.
     expect((await screen.findAllByText('Transport')).length).toBeGreaterThan(0);
     expect(screen.getAllByText('Everything else').length).toBeGreaterThan(0);
+
+    // Pressing the active lens again is "back to the whole document", not a
+    // second run — re-running would spend another model call for the grouping
+    // already on screen.
+    vi.mocked(window.api.github.runLens).mockClear();
+    fireEvent.click(screen.getByText('narrative'));
+    expect(window.api.github.runLens).not.toHaveBeenCalled();
   });
 
   /** A lens that fails says why and gets out of the way. */

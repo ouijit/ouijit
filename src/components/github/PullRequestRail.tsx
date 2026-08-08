@@ -4,6 +4,7 @@ import type { PullRequestDetail, PullRequestFile } from '../../github/types';
 import type { PrCommandSummary } from '../../github/service';
 import type { LensGroup } from '../../github/prCommand';
 import { DiffFileTree } from '../diff/DiffFileTree';
+import { useProjectStore } from '../../stores/projectStore';
 
 interface PullRequestRailProps {
   detail: PullRequestDetail;
@@ -66,25 +67,45 @@ export function PullRequestRail({
           nothing regroups on its own, because arranging a diff can cost a
           model call and a diff you cannot see yet is worse than an unsorted
           one. */}
-      {lenses.length > 0 && (
-        <div className="shrink-0 flex flex-col border-b border-ink/[0.06] py-1">
+      <div className="shrink-0 flex flex-col border-b border-ink/[0.06] py-1">
+        <RailEntry
+          label="All files"
+          note={`${detail.changedFiles}`}
+          active={!activeLens && activePath === null}
+          onClick={() => {
+            onSelect(null);
+            onLens(null);
+          }}
+        />
+        {lenses.map((lens) => (
           <RailEntry
-            label="All files"
-            note={`${detail.changedFiles}`}
-            active={!activeLens}
-            onClick={() => onLens(null)}
+            key={lens.name}
+            label={lens.name}
+            note={lensRunning && activeLens === lens.name ? '…' : undefined}
+            active={activeLens === lens.name && activePath === null}
+            onClick={() => {
+              // Already the active lens: this is "back to the whole document",
+              // not "run it again". Re-running would spend another model call
+              // to produce the grouping already on screen.
+              onSelect(null);
+              if (activeLens !== lens.name) onLens(lens.name);
+            }}
           />
-          {lenses.map((lens) => (
-            <RailEntry
-              key={lens.name}
-              label={lens.name}
-              note={lensRunning && activeLens === lens.name ? '…' : undefined}
-              active={activeLens === lens.name}
-              onClick={() => onLens(lens.name)}
-            />
-          ))}
-        </div>
-      )}
+        ))}
+        {/* Configured none, and the row still stands where a lens would: it is
+            the only place in the app a reader learns the diff can be ordered
+            some other way, and it goes somewhere real rather than explaining
+            itself and leaving them to find settings alone. */}
+        {lenses.length === 0 && (
+          <RailEntry
+            label="Add a lens…"
+            muted
+            active={false}
+            title="Group this diff into a reading order, using a command you define"
+            onClick={() => useProjectStore.getState().setActivePanel('settings')}
+          />
+        )}
+      </div>
 
       {lensGroups ? (
         <div className="flex-1 min-h-0 overflow-y-auto py-1">
@@ -111,16 +132,6 @@ export function PullRequestRail({
           activePath={activePath}
           onFileClick={onSelect}
           renderFileTrailing={(file) => trailing(file.path)}
-          header={
-            lenses.length > 0 ? undefined : (
-              <RailEntry
-                label="All files"
-                note={`${detail.changedFiles}`}
-                active={activePath === null}
-                onClick={() => onSelect(null)}
-              />
-            )
-          }
         />
       )}
     </div>
@@ -133,18 +144,23 @@ function RailEntry({
   active,
   onClick,
   trailing,
+  muted,
+  title,
 }: {
   label: string;
   note?: string;
   active: boolean;
   onClick: () => void;
   trailing?: ReactNode;
+  muted?: boolean;
+  title?: string;
 }) {
   return (
     <button
       type="button"
+      title={title}
       className={`w-full flex items-center gap-1.5 py-1 pl-3 pr-3 text-[13px] text-left transition-colors duration-150 ease-out hover:bg-ink/5 ${
-        active ? 'bg-ink/[0.07] text-ink' : 'text-ink/70'
+        active ? 'bg-ink/[0.07] text-ink' : muted ? 'text-ink/40' : 'text-ink/70'
       }`}
       onClick={onClick}
     >
