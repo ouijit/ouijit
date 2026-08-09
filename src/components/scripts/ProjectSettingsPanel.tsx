@@ -8,6 +8,7 @@ import { SandboxSection } from './SandboxSection';
 import { ExperimentalFeaturesSection } from './ExperimentalFeaturesSection';
 import { WorktreeSection } from './WorktreeSection';
 import { IconColorSection } from './IconColorSection';
+import { Icon } from '../terminal/Icon';
 import { PrCommandList } from './PrCommandList';
 import { LensList } from './LensList';
 import { useExperimentalStore } from '../../stores/experimentalStore';
@@ -111,7 +112,10 @@ export function ProjectSettingsPanel({ projectPath }: ProjectSettingsPanelProps)
           </section>
           {githubEnabled && (
             <section>
-              <h2 className="text-sm font-semibold text-text-primary mb-2">Lenses</h2>
+              <h2 className="flex items-center gap-1.5 text-sm font-semibold text-text-primary mb-2">
+                <Icon name="aperture" className="w-4 h-4 text-accent" />
+                Lenses
+              </h2>
               <p className="text-xs text-text-tertiary mb-4">
                 Ways of reading a pull request. Each is a command that reads the diff and says what the parts of the
                 change are, so the Code pane can show them in that order instead of a list of files.

@@ -89,6 +89,7 @@ export function PullRequestRail({
       <div className="pane-ledge shrink-0 flex flex-col">
         <RailEntry
           tall
+          icon="tree-structure"
           label="All files"
           note={viewed.size > 0 ? `${viewed.size}/${detail.changedFiles}` : `${detail.changedFiles}`}
           title={viewed.size > 0 ? `${viewed.size} of ${detail.changedFiles} marked viewed` : undefined}
@@ -101,6 +102,7 @@ export function PullRequestRail({
         {groups ? (
           <RailEntry
             tall
+            icon="aperture"
             label="Lens"
             note={`${groups.length}`}
             active={lensOn && activePath === null}
@@ -117,6 +119,7 @@ export function PullRequestRail({
           // idea the pane could do anything else.
           <RailEntry
             tall
+            icon="aperture"
             label={lensWriting ? `Writing ${lensWriting}…` : 'Lenses…'}
             muted
             active={false}
@@ -131,9 +134,10 @@ export function PullRequestRail({
           {groups.map((group) => (
             <div key={group.title} className="flex flex-col">
               <div
-                className="flex items-center h-9 px-3 text-[10px] uppercase tracking-wider text-ink/40"
+                className="flex items-center gap-1.5 h-9 px-3 text-[10px] uppercase tracking-wider text-ink/40"
                 title={group.summary}
               >
+                <Icon name="aperture" className="shrink-0 w-3 h-3 opacity-70" />
                 {group.title}
               </div>
               {group.slices.map((slice) => (
@@ -162,20 +166,20 @@ export function PullRequestRail({
   );
 }
 
-/** Opens the lenses without leaving the one already applied. */
+/** Opens the lenses without dropping the one already applied. */
 function LensesButton({ onClick }: { onClick: () => void }) {
   return (
     <button
       type="button"
-      title="Lenses"
-      aria-label="Lenses"
+      title="Other lenses"
+      aria-label="Other lenses"
       className="shrink-0 w-5 h-5 rounded text-ink/40 flex items-center justify-center transition-colors duration-150 hover:bg-ink/10 hover:text-ink/80 [&>svg]:w-3 [&>svg]:h-3"
       onClick={(e) => {
         e.stopPropagation();
         onClick();
       }}
     >
-      <Icon name="list-checks" />
+      <Icon name="caret-down" />
     </button>
   );
 }
@@ -189,6 +193,7 @@ function RailEntry({
   title,
   muted,
   tall,
+  icon,
 }: {
   label: string;
   note?: string;
@@ -199,6 +204,8 @@ function RailEntry({
   muted?: boolean;
   /** An action rather than a file: takes the height of a file header. */
   tall?: boolean;
+  /** Leading glyph, so the actions read down the same column as the files. */
+  icon?: string;
 }) {
   return (
     <button
@@ -209,6 +216,7 @@ function RailEntry({
       } ${active ? 'bg-ink/[0.07] text-ink' : muted ? 'text-ink/45' : 'text-ink/70'}`}
       onClick={onClick}
     >
+      {icon && <Icon name={icon} className="shrink-0 w-4 h-4 opacity-70" />}
       <span className="flex-1 min-w-0 truncate">{label}</span>
       {note && <span className="shrink-0 font-mono text-[11px] text-ink/35">{note}</span>}
       {trailing}

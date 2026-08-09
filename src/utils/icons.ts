@@ -51,6 +51,7 @@ import gitMerge from '@phosphor-icons/core/assets/regular/git-merge.svg?raw';
 import info from '@phosphor-icons/core/assets/regular/info.svg?raw';
 import kanban from '@phosphor-icons/core/assets/regular/kanban.svg?raw';
 import listChecks from '@phosphor-icons/core/assets/regular/list-checks.svg?raw';
+import aperture from '@phosphor-icons/core/assets/regular/aperture.svg?raw';
 import magnifyingGlass from '@phosphor-icons/core/assets/regular/magnifying-glass.svg?raw';
 import minus from '@phosphor-icons/core/assets/regular/minus.svg?raw';
 import pencilSimple from '@phosphor-icons/core/assets/regular/pencil-simple.svg?raw';
@@ -136,6 +137,7 @@ export const iconMap: Record<string, string> = {
   info: info,
   kanban: kanban,
   'list-checks': listChecks,
+  aperture: aperture,
   'magnifying-glass': magnifyingGlass,
   minus: minus,
   'pencil-simple': pencilSimple,

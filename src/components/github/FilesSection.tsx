@@ -187,6 +187,7 @@ function LensGroup({ group, children }: { group: ResolvedGroup; children: ReactN
           so the whole band across the seam is level. A summary is free text —
           it truncates rather than setting the height of everything else. */}
       <div ref={headerRef} className="pane-ledge-raised sticky top-0 z-20 flex items-center gap-2 h-9 px-3 bg-surface">
+        <Icon name="aperture" className="shrink-0 w-3.5 h-3.5 text-accent/70" />
         <span className="shrink-0 text-[12px] font-medium text-text-primary">{group.title}</span>
         {group.summary && (
           <span className="min-w-0 truncate text-[11px] text-text-tertiary" title={group.summary}>
