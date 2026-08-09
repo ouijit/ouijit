@@ -1,5 +1,7 @@
 import type { ReactNode } from 'react';
 import { Icon } from '../terminal/Icon';
+import { SidebarToggle } from '../common/SidebarToggle';
+import { useGithubStore } from '../../stores/githubStore';
 import { RefreshButton } from './RefreshButton';
 
 interface DetailChromeProps {
@@ -27,10 +29,21 @@ interface DetailChromeProps {
  * a detail view and a dedicated arrow would be a fourth button.
  */
 export function DetailChrome({ icon, tone, title, url, tabs, actions, busy, onRefresh, onClose }: DetailChromeProps) {
+  const sidebarCollapsed = useGithubStore((s) => s.sidebarCollapsed);
+
   return (
-    // Extra room on the left for the sidebar toggle, which floats on the
-    // resize handle immediately outside this pane.
-    <header className="shrink-0 h-12 flex items-center gap-3 pl-7 pr-3 border-b border-ink/[0.06]">
+    <header className="shrink-0 h-12 flex items-center gap-3 px-3 border-b border-ink/[0.06]">
+      {/* The leftmost thing in the pane, immediately right of the divider —
+          and here rather than on the divider itself because the panel frame
+          gives every one of its direct children the same stacking level, so
+          anything floating between two of them ends up under the later one. */}
+      <SidebarToggle
+        collapsed={sidebarCollapsed}
+        onCollapsedChange={(collapsed) => useGithubStore.getState().setSidebarCollapsed(collapsed)}
+        hideLabel="Hide the list"
+        showLabel="Show the list"
+        className="-ml-1"
+      />
       <button
         type="button"
         className="flex items-center gap-2 min-w-0 max-w-[280px] text-text-secondary hover:text-text-primary transition-colors duration-150"

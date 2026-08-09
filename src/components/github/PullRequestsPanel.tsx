@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, type ReactNode } from 'react';
 import { useGithubStore, SIDEBAR_DEFAULT_WIDTH, SIDEBAR_MIN_WIDTH, SIDEBAR_MAX_WIDTH } from '../../stores/githubStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { ResizeHandle } from '../common/ResizeHandle';
+import { SidebarToggle } from '../common/SidebarToggle';
 import { useAppStore } from '../../stores/appStore';
 import { activateTask, taskOpenAction, TASK_OPEN_LABEL } from '../navigation';
 import { Icon } from '../terminal/Icon';
@@ -236,7 +237,6 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
         />
       )}
 
-      {/* Always rendered, collapsed or not — it carries the way back. */}
       <ResizeHandle
         width={sidebarWidth}
         onWidth={(width) => useGithubStore.getState().setSidebarWidth(width)}
@@ -244,68 +244,82 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
         max={SIDEBAR_MAX_WIDTH}
         defaultWidth={SIDEBAR_DEFAULT_WIDTH}
         label="Resize the list"
-        collapsed={sidebarCollapsed}
-        onCollapsedChange={(collapsed) => useGithubStore.getState().setSidebarCollapsed(collapsed)}
-        hideLabel="Hide the list"
-        showLabel="Show the list"
       />
 
-      {/* The list error only takes the pane when nothing is open. A poll-driven
+      <div className="flex-1 min-w-0 flex flex-col">
+        {/* With something open, `DetailChrome` is the bar and carries the
+            toggle. With nothing open there is no bar, and the toggle still has
+            to be somewhere — collapsing the list while reading a pull request
+            and then closing it must not strand you. */}
+        {!detail && !issue && (
+          <div className="shrink-0 h-12 flex items-center px-3 border-b border-ink/[0.06]">
+            <SidebarToggle
+              collapsed={sidebarCollapsed}
+              onCollapsedChange={(collapsed) => useGithubStore.getState().setSidebarCollapsed(collapsed)}
+              hideLabel="Hide the list"
+              showLabel="Show the list"
+              className="-ml-1"
+            />
+          </div>
+        )}
+
+        {/* The list error only takes the pane when nothing is open. A poll-driven
           inbox failure used to discard the pull request you were reading,
           which is the opposite of what `reloadDetail` deliberately does. */}
-      {error && !detail && !issue ? (
-        <Centred>
-          <Icon name="warning" className="w-6 h-6 text-vcs-modified opacity-70" />
-          <p className="text-[15px] text-text-secondary max-w-sm text-center">{error}</p>
-          <button type="button" className="btn-secondary btn-compact" onClick={refresh}>
-            Try again
-          </button>
-        </Centred>
-      ) : detailError || issueDetailError ? (
-        <Centred>
-          <p className="text-[15px] text-text-secondary">{detailError ?? issueDetailError}</p>
-          <button
-            type="button"
-            className="btn-secondary btn-compact"
-            onClick={() => useGithubStore.getState().closeDetail()}
-          >
-            Close
-          </button>
-        </Centred>
-      ) : issue ? (
-        <IssueDetailView
-          projectPath={projectPath}
-          issue={issue}
-          linkedTask={linkedIssueTask}
-          openTaskLabel={openTaskLabel}
-          onOpenTask={openLinkedTask}
-          onCreateTask={() => void createTaskFromIssue(issue.number)}
-        />
-      ) : detail ? (
-        <PullRequestDetailView
-          projectPath={projectPath}
-          detail={detail}
-          linkedTask={linkedTask}
-          openTaskLabel={openTaskLabel}
-          onOpenTask={openLinkedTask}
-          onPromoteToTask={() => void promoteToTask()}
-        />
-      ) : detailLoading ? (
-        <Loading label="Loading pull request" />
-      ) : issueLoading ? (
-        <Loading label="Loading issue" />
-      ) : !inbox && inboxLoading ? (
-        <Loading label="Loading pull requests" />
-      ) : (
-        <Centred>
-          <Icon name="git-pull-request" className="w-8 h-8 text-text-tertiary opacity-30" />
-          <p className="text-[15px] text-text-tertiary">Pick something from the list</p>
-          <span className="flex items-center gap-2 text-[13px] text-text-tertiary">
-            {availability.identity ? `${availability.identity.owner}/${availability.identity.repo}` : ''}
-            <RefreshButton busy={inboxLoading || issuesLoading} onClick={refresh} />
-          </span>
-        </Centred>
-      )}
+        {error && !detail && !issue ? (
+          <Centred>
+            <Icon name="warning" className="w-6 h-6 text-vcs-modified opacity-70" />
+            <p className="text-[15px] text-text-secondary max-w-sm text-center">{error}</p>
+            <button type="button" className="btn-secondary btn-compact" onClick={refresh}>
+              Try again
+            </button>
+          </Centred>
+        ) : detailError || issueDetailError ? (
+          <Centred>
+            <p className="text-[15px] text-text-secondary">{detailError ?? issueDetailError}</p>
+            <button
+              type="button"
+              className="btn-secondary btn-compact"
+              onClick={() => useGithubStore.getState().closeDetail()}
+            >
+              Close
+            </button>
+          </Centred>
+        ) : issue ? (
+          <IssueDetailView
+            projectPath={projectPath}
+            issue={issue}
+            linkedTask={linkedIssueTask}
+            openTaskLabel={openTaskLabel}
+            onOpenTask={openLinkedTask}
+            onCreateTask={() => void createTaskFromIssue(issue.number)}
+          />
+        ) : detail ? (
+          <PullRequestDetailView
+            projectPath={projectPath}
+            detail={detail}
+            linkedTask={linkedTask}
+            openTaskLabel={openTaskLabel}
+            onOpenTask={openLinkedTask}
+            onPromoteToTask={() => void promoteToTask()}
+          />
+        ) : detailLoading ? (
+          <Loading label="Loading pull request" />
+        ) : issueLoading ? (
+          <Loading label="Loading issue" />
+        ) : !inbox && inboxLoading ? (
+          <Loading label="Loading pull requests" />
+        ) : (
+          <Centred>
+            <Icon name="git-pull-request" className="w-8 h-8 text-text-tertiary opacity-30" />
+            <p className="text-[15px] text-text-tertiary">Pick something from the list</p>
+            <span className="flex items-center gap-2 text-[13px] text-text-tertiary">
+              {availability.identity ? `${availability.identity.owner}/${availability.identity.repo}` : ''}
+              <RefreshButton busy={inboxLoading || issuesLoading} onClick={refresh} />
+            </span>
+          </Centred>
+        )}
+      </div>
     </Frame>
   );
 }

@@ -7,6 +7,7 @@ import { DiffFileTree } from './DiffFileTree';
 import { DiffFileSection } from './DiffFileSection';
 import { DeferredMount } from './DeferredMount';
 import { ResizeHandle } from '../common/ResizeHandle';
+import { SidebarToggle } from '../common/SidebarToggle';
 import { estimateFileHeight } from './diffMetrics';
 
 interface DiffPanelProps {
@@ -168,20 +169,20 @@ export function DiffPanel({ ptyId, projectPath, mode, onClose }: DiffPanelProps)
           <DiffFileTree files={files} untrackedFiles={untrackedFiles} onFileClick={scrollToFile} />
         </div>
       )}
-      {/* Always rendered, collapsed or not — it carries the way back. */}
       <ResizeHandle
         width={sidebarWidth}
         onWidth={setSidebarWidth}
         defaultWidth={DEFAULT_SIDEBAR_WIDTH}
         label="Resize the file list"
-        collapsed={sidebarCollapsed}
-        onCollapsedChange={setSidebarCollapsed}
-        hideLabel="Hide the file list"
-        showLabel="Show the file list"
       />
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        {/* Left padding clears the toggle sitting on the handle. */}
-        <div className="pl-7 pr-3 py-2 text-sm text-ink/70 flex items-center gap-2 shrink-0">
+        <div className="px-3 py-2 text-sm text-ink/70 flex items-center gap-2 shrink-0">
+          <SidebarToggle
+            collapsed={sidebarCollapsed}
+            onCollapsedChange={setSidebarCollapsed}
+            hideLabel="Hide the file list"
+            showLabel="Show the file list"
+          />
           <span
             className="text-xs bg-ink/[0.06] pl-2 pr-1 py-1 text-ink/50 flex items-center gap-1.5 relative"
             style={{ borderRadius: '5px' }}

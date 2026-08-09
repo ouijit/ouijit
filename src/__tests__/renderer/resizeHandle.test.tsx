@@ -9,19 +9,8 @@ function handle() {
 
 function renderHandle(overrides: Partial<React.ComponentProps<typeof ResizeHandle>> = {}) {
   const onWidth = vi.fn();
-  const onCollapsedChange = vi.fn();
-  const result = render(
-    <ResizeHandle
-      width={300}
-      onWidth={onWidth}
-      min={200}
-      max={500}
-      collapsed={false}
-      onCollapsedChange={onCollapsedChange}
-      {...overrides}
-    />,
-  );
-  return { ...result, onWidth, onCollapsedChange };
+  const result = render(<ResizeHandle width={300} onWidth={onWidth} min={200} max={500} {...overrides} />);
+  return { ...result, onWidth };
 }
 
 describe('ResizeHandle', () => {
@@ -107,37 +96,5 @@ describe('ResizeHandle', () => {
     expect(separator.getAttribute('aria-valuemin')).toBe('200');
     expect(separator.getAttribute('aria-valuemax')).toBe('500');
     expect(separator.getAttribute('aria-label')).toBe('Resize the list');
-  });
-
-  describe('the toggle it carries', () => {
-    test('hides the pane', () => {
-      const { onCollapsedChange } = renderHandle({ hideLabel: 'Hide the list', showLabel: 'Show the list' });
-
-      fireEvent.click(screen.getByLabelText('Hide the list'));
-      expect(onCollapsedChange).toHaveBeenCalledWith(true);
-    });
-
-    /**
-     * The reason the toggle lives on the handle rather than in the pane it
-     * toggles, or in the pane beside it: with the sidebar gone and the content
-     * beside it conditional, this is the only place guaranteed to still be on
-     * screen.
-     */
-    test('is still there once the pane is gone', () => {
-      const { onCollapsedChange } = renderHandle({
-        collapsed: true,
-        hideLabel: 'Hide the list',
-        showLabel: 'Show the list',
-      });
-
-      fireEvent.click(screen.getByLabelText('Show the list'));
-      expect(onCollapsedChange).toHaveBeenCalledWith(false);
-    });
-
-    test('collapsed, there is nothing left to drag', () => {
-      renderHandle({ collapsed: true });
-      // A drag would set a width for a pane that is not on screen.
-      expect(screen.queryByRole('separator')).toBeNull();
-    });
   });
 });

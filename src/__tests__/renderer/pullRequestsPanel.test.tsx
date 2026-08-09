@@ -734,4 +734,49 @@ describe('PullRequestsPanel', () => {
     expect(await screen.findByText(/not signed in/)).toBeTruthy();
     expect(window.api.github.inbox).not.toHaveBeenCalled();
   });
+
+  /**
+   * The toggle belongs to the pane on the right of the divider, never to the
+   * list itself, so that hiding the list cannot take away the control that
+   * brings it back.
+   */
+  test('the list can be hidden and brought back', async () => {
+    // Not covered by `reset()`: the sidebar layout deliberately survives it.
+    useGithubStore.getState().setSidebarCollapsed(false);
+    vi.mocked(window.api.github.inbox).mockResolvedValue(
+      inbox({ needsReview: [pr({ number: 5, title: 'Please look' })] }),
+    );
+
+    render(<PullRequestsPanel projectPath={PROJECT} />);
+    expect(await screen.findByText('Please look')).toBeTruthy();
+
+    fireEvent.click(screen.getByLabelText('Hide the list'));
+    await waitFor(() => expect(screen.queryByText('Please look')).toBeNull());
+
+    fireEvent.click(screen.getByLabelText('Show the list'));
+    expect(await screen.findByText('Please look')).toBeTruthy();
+  });
+
+  /**
+   * Regression: the toggle was floating on the divider between the list and
+   * this pane. The panel frame gives every one of its direct children the same
+   * stacking level, so the pane painted over the toggle and the press landed on
+   * whatever was underneath.
+   */
+  test('the toggle is reachable with a pull request open', async () => {
+    useGithubStore.getState().setSidebarCollapsed(false);
+    vi.mocked(window.api.github.inbox).mockResolvedValue(
+      inbox({ needsReview: [pr({ number: 5, title: 'Please look' })] }),
+    );
+    vi.mocked(window.api.github.pullRequest).mockResolvedValue(detail());
+
+    render(<PullRequestsPanel projectPath={PROJECT} />);
+    fireEvent.click(await screen.findByText('Please look'));
+    await screen.findByText('Summary');
+
+    fireEvent.click(screen.getByLabelText('Hide the list'));
+    await waitFor(() => expect(screen.getByLabelText('Show the list')).toBeTruthy());
+    // The pull request stays open through it — this hides the list, nothing else.
+    expect(screen.getByText('Summary')).toBeTruthy();
+  });
 });
