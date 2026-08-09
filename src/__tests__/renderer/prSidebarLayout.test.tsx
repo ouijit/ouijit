@@ -2,6 +2,7 @@ import { describe, test, expect, beforeEach, vi } from 'vitest';
 import { render, screen, cleanup, fireEvent } from '@testing-library/react';
 
 import { PullRequestSidebar } from '../../components/github/PullRequestSidebar';
+import { useGithubStore, SIDEBAR_MIN_WIDTH, SIDEBAR_MAX_WIDTH } from '../../stores/githubStore';
 import type { PullRequestSummary } from '../../github/types';
 
 function pr(number: number, title: string): PullRequestSummary {
@@ -18,35 +19,6 @@ function pr(number: number, title: string): PullRequestSummary {
   } as PullRequestSummary;
 }
 
-function renderSidebar(overrides: Partial<React.ComponentProps<typeof PullRequestSidebar>> = {}) {
-  const onCollapsedChange = vi.fn();
-  const result = render(
-    <PullRequestSidebar
-      needsReview={[pr(5, 'Please look')]}
-      mine={[]}
-      others={[]}
-      issues={[]}
-      draftCounts={{}}
-      prTasks={{}}
-      issueTasks={{}}
-      showing="pulls"
-      activeNumber={null}
-      activeIssue={null}
-      loading={false}
-      onShow={vi.fn()}
-      onOpenPullRequest={vi.fn()}
-      onOpenIssue={vi.fn()}
-      onCreateTaskFromIssue={vi.fn()}
-      onOpenTask={vi.fn()}
-      width={320}
-      collapsed={false}
-      onCollapsedChange={onCollapsedChange}
-      {...overrides}
-    />,
-  );
-  return { ...result, onCollapsedChange };
-}
-
 describe('PullRequestSidebar layout', () => {
   beforeEach(() => {
     cleanup();
@@ -54,36 +26,58 @@ describe('PullRequestSidebar layout', () => {
   });
 
   test('it is as wide as it has been dragged to', () => {
-    const { container } = renderSidebar({ width: 415 });
+    const { container } = render(
+      <PullRequestSidebar
+        needsReview={[pr(5, 'Please look')]}
+        mine={[]}
+        others={[]}
+        issues={[]}
+        draftCounts={{}}
+        prTasks={{}}
+        issueTasks={{}}
+        showing="pulls"
+        activeNumber={null}
+        activeIssue={null}
+        loading={false}
+        onShow={vi.fn()}
+        onOpenPullRequest={vi.fn()}
+        onOpenIssue={vi.fn()}
+        onCreateTaskFromIssue={vi.fn()}
+        onOpenTask={vi.fn()}
+        width={415}
+      />,
+    );
+
     expect((container.firstChild as HTMLElement).style.width).toBe('415px');
   });
+});
 
-  test('hiding the list asks for it to be hidden', () => {
-    const { onCollapsedChange } = renderSidebar();
-
-    fireEvent.click(screen.getByLabelText('Hide the list'));
-    expect(onCollapsedChange).toHaveBeenCalledWith(true);
+/**
+ * The width and whether the list is showing are not facts about a repository,
+ * so they are deliberately held outside the per-project state that gets wiped.
+ */
+describe('sidebar layout in the store', () => {
+  beforeEach(() => {
+    useGithubStore.getState().reset();
   });
 
-  /**
-   * The way back has to be on screen whatever else is. Everything to the right
-   * of the list is conditional — a pull request, an issue, a spinner, an empty
-   * state — so collapsing to nothing would mean closing what you had open could
-   * leave no control anywhere that brings the list back.
-   */
-  test('collapsed, it still offers a way back', () => {
-    const { onCollapsedChange } = renderSidebar({ collapsed: true });
+  test('a width survives switching to another project', () => {
+    useGithubStore.getState().setSidebarWidth(420);
+    useGithubStore.getState().setSidebarCollapsed(true);
 
-    expect(screen.queryByPlaceholderText('Search pull requests')).toBeNull();
-    expect(screen.queryByText('Please look')).toBeNull();
+    useGithubStore.getState().setProject('/work/other');
 
-    fireEvent.click(screen.getByLabelText('Show the list'));
-    expect(onCollapsedChange).toHaveBeenCalledWith(false);
+    expect(useGithubStore.getState().sidebarWidth).toBe(420);
+    expect(useGithubStore.getState().sidebarCollapsed).toBe(true);
+    // The project's own state did clear.
+    expect(useGithubStore.getState().detail).toBeNull();
   });
 
-  test('collapsed, it still says how much is waiting', () => {
-    renderSidebar({ collapsed: true, needsReview: [pr(5, 'One'), pr(6, 'Two')] });
-    // A rail that said nothing would be a worse trade for the width it costs.
-    expect(screen.getByText('2')).toBeTruthy();
+  test('a width outside the limits is brought back inside them', () => {
+    useGithubStore.getState().setSidebarWidth(10_000);
+    expect(useGithubStore.getState().sidebarWidth).toBe(SIDEBAR_MAX_WIDTH);
+
+    useGithubStore.getState().setSidebarWidth(1);
+    expect(useGithubStore.getState().sidebarWidth).toBe(SIDEBAR_MIN_WIDTH);
   });
 });

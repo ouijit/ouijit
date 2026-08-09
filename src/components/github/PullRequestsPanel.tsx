@@ -214,38 +214,41 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
 
   return (
     <Frame>
-      <PullRequestSidebar
-        needsReview={inbox?.needsReview ?? []}
-        mine={inbox?.mine ?? []}
-        others={inbox?.others ?? []}
-        issues={issues}
-        draftCounts={inbox?.draftCounts ?? {}}
-        prTasks={prTasks}
-        issueTasks={issueTasks}
-        showing={showing === 'issues' ? 'issues' : 'pulls'}
-        activeNumber={activeNumber}
-        activeIssue={activeIssue}
-        loading={showing === 'issues' ? issuesLoading : inboxLoading}
-        onShow={(next) => useGithubStore.getState().setView(next === 'issues' ? 'issues' : 'inbox')}
-        onOpenPullRequest={(n) => void useGithubStore.getState().openPullRequest(projectPath, n)}
-        onOpenIssue={(row) => void useGithubStore.getState().openIssue(projectPath, row.number)}
-        onCreateTaskFromIssue={(n) => void createTaskFromIssue(n)}
-        onOpenTask={openLinkedTask}
-        width={sidebarWidth}
-        collapsed={sidebarCollapsed}
-        onCollapsedChange={(collapsed) => useGithubStore.getState().setSidebarCollapsed(collapsed)}
-      />
-
       {!sidebarCollapsed && (
-        <ResizeHandle
+        <PullRequestSidebar
+          needsReview={inbox?.needsReview ?? []}
+          mine={inbox?.mine ?? []}
+          others={inbox?.others ?? []}
+          issues={issues}
+          draftCounts={inbox?.draftCounts ?? {}}
+          prTasks={prTasks}
+          issueTasks={issueTasks}
+          showing={showing === 'issues' ? 'issues' : 'pulls'}
+          activeNumber={activeNumber}
+          activeIssue={activeIssue}
+          loading={showing === 'issues' ? issuesLoading : inboxLoading}
+          onShow={(next) => useGithubStore.getState().setView(next === 'issues' ? 'issues' : 'inbox')}
+          onOpenPullRequest={(n) => void useGithubStore.getState().openPullRequest(projectPath, n)}
+          onOpenIssue={(row) => void useGithubStore.getState().openIssue(projectPath, row.number)}
+          onCreateTaskFromIssue={(n) => void createTaskFromIssue(n)}
+          onOpenTask={openLinkedTask}
           width={sidebarWidth}
-          onWidth={(width) => useGithubStore.getState().setSidebarWidth(width)}
-          min={SIDEBAR_MIN_WIDTH}
-          max={SIDEBAR_MAX_WIDTH}
-          defaultWidth={SIDEBAR_DEFAULT_WIDTH}
-          label="Resize the list"
         />
       )}
+
+      {/* Always rendered, collapsed or not — it carries the way back. */}
+      <ResizeHandle
+        width={sidebarWidth}
+        onWidth={(width) => useGithubStore.getState().setSidebarWidth(width)}
+        min={SIDEBAR_MIN_WIDTH}
+        max={SIDEBAR_MAX_WIDTH}
+        defaultWidth={SIDEBAR_DEFAULT_WIDTH}
+        label="Resize the list"
+        collapsed={sidebarCollapsed}
+        onCollapsedChange={(collapsed) => useGithubStore.getState().setSidebarCollapsed(collapsed)}
+        hideLabel="Hide the list"
+        showLabel="Show the list"
+      />
 
       {/* The list error only takes the pane when nothing is open. A poll-driven
           inbox failure used to discard the pull request you were reading,

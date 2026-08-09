@@ -163,33 +163,25 @@ export function DiffPanel({ ptyId, projectPath, mode, onClose }: DiffPanelProps)
 
   return (
     <div className="flex flex-1 min-h-0 overflow-hidden" style={{ background: 'var(--color-terminal-bg)' }}>
-      <div
-        className={
-          sidebarCollapsed
-            ? 'w-0 overflow-hidden border-r-0 shrink-0 flex flex-col'
-            : 'shrink-0 overflow-hidden flex flex-col'
-        }
-        style={sidebarCollapsed ? { transition: 'width 0.2s ease' } : { width: sidebarWidth }}
-      >
-        <DiffFileTree files={files} untrackedFiles={untrackedFiles} onFileClick={scrollToFile} />
-      </div>
       {!sidebarCollapsed && (
-        <ResizeHandle
-          width={sidebarWidth}
-          onWidth={setSidebarWidth}
-          defaultWidth={DEFAULT_SIDEBAR_WIDTH}
-          label="Resize the file list"
-        />
+        <div className="shrink-0 overflow-hidden flex flex-col" style={{ width: sidebarWidth }}>
+          <DiffFileTree files={files} untrackedFiles={untrackedFiles} onFileClick={scrollToFile} />
+        </div>
       )}
+      {/* Always rendered, collapsed or not — it carries the way back. */}
+      <ResizeHandle
+        width={sidebarWidth}
+        onWidth={setSidebarWidth}
+        defaultWidth={DEFAULT_SIDEBAR_WIDTH}
+        label="Resize the file list"
+        collapsed={sidebarCollapsed}
+        onCollapsedChange={setSidebarCollapsed}
+        hideLabel="Hide the file list"
+        showLabel="Show the file list"
+      />
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <div className="px-3 py-2 text-sm text-ink/70 flex items-center gap-2 shrink-0">
-          <button
-            className="w-7 h-7 rounded-md bg-transparent border-none text-ink/60 flex items-center justify-center shrink-0 transition-all duration-150 ease-out hover:bg-ink/10 hover:text-ink/90"
-            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-            title={sidebarCollapsed ? 'Show sidebar' : 'Hide sidebar'}
-          >
-            <Icon name={sidebarCollapsed ? 'caret-right' : 'caret-left'} />
-          </button>
+        {/* Left padding clears the toggle sitting on the handle. */}
+        <div className="pl-7 pr-3 py-2 text-sm text-ink/70 flex items-center gap-2 shrink-0">
           <span
             className="text-xs bg-ink/[0.06] pl-2 pr-1 py-1 text-ink/50 flex items-center gap-1.5 relative"
             style={{ borderRadius: '5px' }}

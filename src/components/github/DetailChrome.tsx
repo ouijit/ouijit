@@ -28,7 +28,9 @@ interface DetailChromeProps {
  */
 export function DetailChrome({ icon, tone, title, url, tabs, actions, busy, onRefresh, onClose }: DetailChromeProps) {
   return (
-    <header className="shrink-0 h-12 flex items-center gap-3 px-3 border-b border-ink/[0.06]">
+    // Extra room on the left for the sidebar toggle, which floats on the
+    // resize handle immediately outside this pane.
+    <header className="shrink-0 h-12 flex items-center gap-3 pl-7 pr-3 border-b border-ink/[0.06]">
       <button
         type="button"
         className="flex items-center gap-2 min-w-0 max-w-[280px] text-text-secondary hover:text-text-primary transition-colors duration-150"
