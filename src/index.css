@@ -511,15 +511,30 @@ textarea,
     0 6px 12px -6px var(--seam-shadow);
 }
 
-/* A selected card, still parted from the one below it. The rail and the cut
+/* The same boundary, owned by the piece below it and drawn inside its own top
+   edge rather than under the piece above.
+ *
+ * A ledge casts its cut downward, which works when what follows is
+ * transparent. In a stack of opaque siblings — cards in a column — the next
+ * one covers it, and every card rubs out the line above itself. Drawn inset,
+ * nothing can be painted over it, and it lands on exactly the pixels a ledge
+ * would have used, so a card under a column header agrees with the header's
+ * own boundary instead of doubling it. */
+.pane-cut-above {
+  box-shadow:
+    inset 0 1px 0 var(--seam-cut),
+    inset 0 2px 0 var(--seam-catch);
+}
+
+/* A selected card, still parted from the one above it. The rail and the cut
    are one `box-shadow` because a second declaration would replace the first
    rather than add to it — which is how selecting a card came to rub out the
    boundary underneath it. */
 .kanban-card-selected {
   box-shadow:
     inset 2px 0 0 0 var(--color-accent),
-    0 1px 0 var(--seam-cut),
-    0 2px 0 var(--seam-catch);
+    inset 0 1px 0 var(--seam-cut),
+    inset 0 2px 0 var(--seam-catch);
 }
 
 /* ===================================
