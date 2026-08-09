@@ -41,9 +41,15 @@ export function buildTree(files: ChangedFile[]): TreeNode[] {
     }
   }
 
-  // Collapse single-child directories
+  // Collapse single-child directories, and sort as we go.
+  //
+  // Sorted here rather than at the point of rendering, which is where it used
+  // to be: the walk that gives the document its order reads this tree, so a
+  // sort applied on the way to the screen was a sort the document never saw.
+  // The rail and the document then disagreed about the order of every
+  // directory with more than one thing in it.
   function collapse(nodes: TreeNode[]): TreeNode[] {
-    return nodes.map((node) => {
+    const collapsed = nodes.map((node) => {
       if (!node.isFile && node.children.length === 1 && !node.children[0].isFile) {
         const child = node.children[0];
         return {
@@ -54,9 +60,20 @@ export function buildTree(files: ChangedFile[]): TreeNode[] {
       }
       return { ...node, children: collapse(node.children) };
     });
+    // After collapsing, so a folded-up `src/github` sorts under the name it is
+    // shown as rather than the one it was built from.
+    return sortTreeNodes(collapsed);
   }
 
   return collapse(root);
+}
+
+/** Directories first, then by name — one order, wherever the tree is read. */
+function sortTreeNodes(nodes: TreeNode[]): TreeNode[] {
+  return [...nodes].sort((a, b) => {
+    if (a.isFile !== b.isFile) return a.isFile ? 1 : -1;
+    return a.name.localeCompare(b.name);
+  });
 }
 
 /**
@@ -235,7 +252,7 @@ function TreeNodeView({
       </div>
       {expanded && (
         <div className="pl-3">
-          {sortTreeNodes(node.children).map((child) => (
+          {node.children.map((child) => (
             <TreeNodeView
               key={child.fullPath}
               node={child}
@@ -248,11 +265,4 @@ function TreeNodeView({
       )}
     </div>
   );
-}
-
-function sortTreeNodes(nodes: TreeNode[]): TreeNode[] {
-  return [...nodes].sort((a, b) => {
-    if (a.isFile !== b.isFile) return a.isFile ? 1 : -1;
-    return a.name.localeCompare(b.name);
-  });
 }

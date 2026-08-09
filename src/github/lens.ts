@@ -155,8 +155,17 @@ export function resolveLens(
       const hunks = hunksInRanges(diff, slice.ranges).filter((index) => take(slice.path, index));
       if (hunks.length > 0) slices.push({ path: slice.path, hunks });
     }
+    // In the order the rail will show them, not the order the lens listed them.
+    // The rail draws each part as a tree, because which directories a part
+    // touches is most of what says what kind of change it is — and a tree sorts.
+    // Keeping the lens's order here left the two reading differently inside
+    // every part, which is the same disagreement in a smaller place.
     if (slices.length > 0)
-      resolved.push({ title: group.title, ...(group.summary ? { summary: group.summary } : {}), slices });
+      resolved.push({
+        title: group.title,
+        ...(group.summary ? { summary: group.summary } : {}),
+        slices: slices.sort((a, b) => order.indexOf(a.path) - order.indexOf(b.path)),
+      });
   }
 
   // Whatever the lens did not account for, in the diff's own order.
