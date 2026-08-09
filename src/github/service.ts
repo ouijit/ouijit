@@ -37,6 +37,8 @@ import { experimentalStorageKey, parseExperimentalFlags } from '../experimentalF
 import { pushBranch } from '../git';
 import { getLogger } from '../logger';
 import { getRepoIdentity, invalidateRepoIdentity } from './repoIdentity';
+import { DEFAULT_LENS_AGENT, type LensAgentChoice } from './lensAgents';
+import { runLens } from './runLens';
 import { GithubError, MIN_GH_VERSION, getViewerLogin, probeGhAuth } from './client';
 import {
   fetchInbox,
@@ -451,16 +453,12 @@ export async function deletePrCommand(projectPath: string, name: string): Promis
  */
 export interface LensSummary {
   name: string;
-  command: string;
+  /** What the reader wants, in prose. The context is ours to supply. */
+  instruction: string;
 }
 
 export function lensesKey(projectPath: string): string {
   return 'github:lenses:' + projectPath;
-}
-
-/** Where the single lens command lived before there could be more than one. */
-function legacyLensCommandKey(projectPath: string): string {
-  return 'github:lens-command:' + projectPath;
 }
 
 function parseLenses(raw: string | null | undefined): LensSummary[] | null {
@@ -474,9 +472,9 @@ function parseLenses(raw: string | null | undefined): LensSummary[] | null {
           typeof entry === 'object' &&
           entry !== null &&
           typeof (entry as LensSummary).name === 'string' &&
-          typeof (entry as LensSummary).command === 'string',
+          typeof (entry as LensSummary).instruction === 'string',
       )
-      .map((entry) => ({ name: entry.name, command: entry.command }));
+      .map((entry) => ({ name: entry.name, instruction: entry.instruction }));
   } catch {
     return null;
   }
@@ -486,10 +484,7 @@ export async function listLenses(projectPath: string): Promise<LensSummary[]> {
   const stored = parseLenses(await getGlobalSetting(lensesKey(projectPath)));
   if (stored) return stored;
 
-  // Carried over rather than dropped: whoever configured the one command this
-  // replaced should find it here under a name, not find nothing.
-  const legacy = (await getGlobalSetting(legacyLensCommandKey(projectPath)))?.trim();
-  return legacy ? [{ name: 'Lens', command: legacy }] : [];
+  return [];
 }
 
 async function writeLenses(projectPath: string, lenses: LensSummary[]): Promise<void> {
@@ -506,10 +501,10 @@ async function writeLenses(projectPath: string, lenses: LensSummary[]): Promise<
 export async function saveLens(
   projectPath: string,
   name: string,
-  command: string,
+  instruction: string,
   previousName?: string,
 ): Promise<LensSummary> {
-  const lens: LensSummary = { name: name.trim(), command: command.trim() };
+  const lens: LensSummary = { name: name.trim(), instruction: instruction.trim() };
   const lenses = await listLenses(projectPath);
   const without = lenses.filter((l) => l.name !== lens.name && l.name !== previousName);
   const at = previousName ? lenses.findIndex((l) => l.name === previousName) : -1;
@@ -521,6 +516,84 @@ export async function saveLens(
 
   await writeLenses(projectPath, without);
   return lens;
+}
+
+export function lensAgentKey(projectPath: string): string {
+  return 'github:lens-agent:' + projectPath;
+}
+
+export async function getLensAgentChoice(projectPath: string): Promise<LensAgentChoice> {
+  const raw = await getGlobalSetting(lensAgentKey(projectPath));
+  if (!raw) return { agentId: DEFAULT_LENS_AGENT };
+  try {
+    const parsed = JSON.parse(raw) as Partial<LensAgentChoice>;
+    return {
+      agentId: typeof parsed.agentId === 'string' ? parsed.agentId : DEFAULT_LENS_AGENT,
+      ...(typeof parsed.command === 'string' ? { command: parsed.command } : {}),
+    };
+  } catch {
+    return { agentId: DEFAULT_LENS_AGENT };
+  }
+}
+
+export async function setLensAgentChoice(projectPath: string, choice: LensAgentChoice): Promise<{ success: boolean }> {
+  await setGlobalSetting(lensAgentKey(projectPath), JSON.stringify(choice));
+  return { success: true };
+}
+
+/**
+ * Read the pull request through one of the project's lenses.
+ *
+ * Everything the agent needs is gathered here — the description, the file list
+ * and the diff — so that what it is asked to do is the one thing it is for.
+ */
+export async function writeLensWithAgent(
+  projectPath: string,
+  prNumber: number,
+  lensName: string,
+): Promise<{ success: boolean; error?: string }> {
+  const lens = (await listLenses(projectPath)).find((l) => l.name === lensName);
+  if (!lens) return { success: false, error: `No lens called “${lensName}”` };
+
+  const detail = await getPullRequest(projectPath, prNumber);
+  if (!detail) return { success: false, error: 'Could not read the pull request' };
+
+  const listed = await getPullRequestFiles(projectPath, prNumber, detail.baseSha, detail.headSha);
+  if (listed.files.length === 0) {
+    return { success: false, error: listed.error ?? 'This pull request has no files to group' };
+  }
+
+  // Read here rather than reused from the renderer's copy: this runs in main,
+  // and a lens written against half-loaded diffs would be a lens written
+  // against whichever files happened to have arrived.
+  const diffs = new Map<string, FileDiff | null>();
+  for (const file of listed.files) {
+    diffs.set(
+      file.path,
+      await getPullRequestFileDiff(
+        projectPath,
+        prNumber,
+        detail.baseSha,
+        detail.headSha,
+        file.path,
+        undefined,
+        file.oldPath,
+      ),
+    );
+  }
+
+  const result = await runLens({
+    detail,
+    files: listed.files,
+    diffs,
+    instruction: lens.instruction,
+    agent: await getLensAgentChoice(projectPath),
+    cwd: projectPath,
+  });
+  if (!result.success || !result.body) return { success: false, error: result.error };
+
+  await savePrLens(projectPath, prNumber, detail.headSha, result.body);
+  return { success: true };
 }
 
 export async function deleteLens(projectPath: string, name: string): Promise<{ success: boolean }> {

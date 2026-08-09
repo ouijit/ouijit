@@ -64,6 +64,7 @@ import type {
   LensSummary,
   LensResult,
 } from '../github/service';
+import type { LensAgentChoice } from '../github/lensAgents';
 import type { PrFileVersions } from '../github/prDiff';
 import type { SandboxProviderStatus, NonoConfig } from '../sandbox/types';
 import type { HookStatusEntry } from '../hookServer';
@@ -283,6 +284,12 @@ export interface IpcInvokeContract {
     return: LensSummary;
   };
   'github:delete-lens': { args: [projectPath: string, name: string]; return: { success: boolean } };
+  'github:run-lens': {
+    args: [projectPath: string, prNumber: number, lensName: string];
+    return: { success: boolean; error?: string };
+  };
+  'github:lens-agent': { args: [projectPath: string]; return: LensAgentChoice };
+  'github:set-lens-agent': { args: [projectPath: string, choice: LensAgentChoice]; return: { success: boolean } };
   'github:viewed-files': { args: [projectPath: string, prNumber: number, headSha: string]; return: string[] };
   'github:set-file-viewed': {
     args: [projectPath: string, prNumber: number, headSha: string, path: string, viewed: boolean];

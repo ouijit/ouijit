@@ -2,8 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { PullRequestDetail, ReviewDraft } from '../../github/types';
 import type { TaskWithWorkspace } from '../../types';
 import { useGithubStore, RAIL_DEFAULT_WIDTH, RAIL_MIN_WIDTH, RAIL_MAX_WIDTH } from '../../stores/githubStore';
-import { addProjectTerminal } from '../terminal/terminalActions';
-import { prCommandEnv } from '../../github/prCommandEnv';
 import { resolveLens } from '../../github/lens';
 import { useProjectStore } from '../../stores/projectStore';
 import type { LensSummary } from '../../github/service';
@@ -97,45 +95,30 @@ export function PullRequestDetailView({
   const [lensWriting, setLensWriting] = useState<string | null>(null);
 
   /**
-   * Hand this pull request to one of the project's lenses.
+   * Read this pull request through one of the project's lenses.
    *
-   * The command runs in a terminal, which is behind this panel — so without
-   * saying so, pressing a lens looks like pressing nothing. The rail keeps
-   * saying it is writing until the lens arrives, which is the push, not the
-   * spawn: `addProjectTerminal` resolves the moment the shell exists, long
-   * before the command it is running has read anything.
+   * One call. Main assembles the title, description and diff, asks the agent
+   * once, and stores what comes back — there is no session, no terminal, and
+   * nothing for the agent to go and look up. What used to be here spawned a
+   * shell and hoped.
    */
   const writeLens = useCallback(
     (lens: LensSummary) => {
-      if (!detail) return;
       setLensWriting(lens.name);
       setLensesOpen(false);
-      useProjectStore
-        .getState()
-        .addToast(`Running “${lens.name}” in a terminal — the lens appears here when it is written`, 'info');
-      void addProjectTerminal(
-        projectPath,
-        { name: lens.name, command: lens.command, source: 'custom', priority: 0 },
-        {
-          ...(linkedTask?.worktreePath
-            ? {
-                existingWorktree: {
-                  path: linkedTask.worktreePath,
-                  branch: linkedTask.branch || '',
-                  createdAt: linkedTask.createdAt,
-                },
-                taskId: linkedTask.taskNumber,
-              }
-            : {}),
-          skipAutoHook: true,
-          extraEnv: prCommandEnv(detail, linkedTask?.worktreePath),
-        },
-      ).catch(() => {
-        useProjectStore.getState().addToast(`Could not start “${lens.name}”`, 'error');
-        setLensWriting(null);
-      });
+      void window.api.github
+        .runLens(projectPath, detail.number, lens.name)
+        .then((result) => {
+          if (result.success) return;
+          useProjectStore.getState().addToast(result.error ?? `“${lens.name}” could not read this change`, 'error');
+          setLensWriting(null);
+        })
+        .catch((error: unknown) => {
+          useProjectStore.getState().addToast(error instanceof Error ? error.message : String(error), 'error');
+          setLensWriting(null);
+        });
     },
-    [detail, projectPath, linkedTask],
+    [projectPath, detail.number],
   );
 
   // Arrived, so it is no longer being written. This is the only thing that

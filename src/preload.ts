@@ -27,6 +27,7 @@ import type {
   GithubDraftsChangedPayload,
   GithubLensChangedPayload,
 } from './github/types';
+import type { LensAgentChoice } from './github/lensAgents';
 import type { SaveDraftInput } from './github/service';
 
 // ── Typed IPC helpers ───────────────────────────────────────────────────────
@@ -351,6 +352,11 @@ contextBridge.exposeInMainWorld('api', {
     saveLens: (projectPath: string, name: string, command: string, previousName?: string) =>
       typedInvoke('github:save-lens', projectPath, name, command, previousName),
     deleteLens: (projectPath: string, name: string) => typedInvoke('github:delete-lens', projectPath, name),
+    runLens: (projectPath: string, prNumber: number, lensName: string) =>
+      typedInvoke('github:run-lens', projectPath, prNumber, lensName),
+    lensAgent: (projectPath: string) => typedInvoke('github:lens-agent', projectPath),
+    setLensAgent: (projectPath: string, choice: LensAgentChoice) =>
+      typedInvoke('github:set-lens-agent', projectPath, choice),
     viewedFiles: (projectPath: string, prNumber: number, headSha: string) =>
       typedInvoke('github:viewed-files', projectPath, prNumber, headSha),
     setFileViewed: (projectPath: string, prNumber: number, headSha: string, path: string, viewed: boolean) =>

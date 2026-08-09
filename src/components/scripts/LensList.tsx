@@ -43,7 +43,7 @@ export function LensList({ projectPath, onRun, running }: LensListProps) {
   const save = useCallback(
     async (lens: LensSummary, previousName?: string) => {
       try {
-        await window.api.github.saveLens(projectPath, lens.name, lens.command, previousName);
+        await window.api.github.saveLens(projectPath, lens.name, lens.instruction, previousName);
       } catch (error) {
         useProjectStore.getState().addToast(error instanceof Error ? error.message : String(error), 'error');
         return;
@@ -160,7 +160,7 @@ function LensRow({
         <span className="flex-1 min-w-0">
           <span className="block text-[13px] text-text-primary truncate">{lens.name}</span>
           <span className="block text-[11px] text-text-tertiary font-mono truncate">
-            {writing ? 'Writing…' : lens.command}
+            {writing ? 'Writing…' : lens.instruction}
           </span>
         </span>
       </button>
@@ -194,7 +194,7 @@ function LensForm({
   onDelete?: () => void;
 }) {
   const [name, setName] = useState(initial?.name ?? '');
-  const [command, setCommand] = useState(initial?.command ?? '');
+  const [instruction, setInstruction] = useState(initial?.instruction ?? '');
   const nameRef = useRef<HTMLInputElement>(null);
   const commandRef = useRef<HTMLTextAreaElement>(null);
   const autoResize = useAutoResize();
@@ -213,12 +213,12 @@ function LensForm({
   // Names are the key, so a new one colliding would silently overwrite the
   // lens already using it. Said before the save, not after.
   const collides = !initial && existingNames?.includes(name.trim());
-  const isValid = Boolean(name.trim()) && Boolean(command.trim()) && !collides;
+  const isValid = Boolean(name.trim()) && Boolean(instruction.trim()) && !collides;
 
   const submit = useCallback(() => {
-    if (!name.trim() || !command.trim() || collides) return;
-    onSave({ name: name.trim(), command: command.trim() });
-  }, [name, command, collides, onSave]);
+    if (!name.trim() || !instruction.trim() || collides) return;
+    onSave({ name: name.trim(), instruction: instruction.trim() });
+  }, [name, instruction, collides, onSave]);
 
   const onKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -244,25 +244,26 @@ function LensForm({
       </div>
 
       <div>
-        <label className="block text-[11px] text-text-tertiary mb-1">Command</label>
-        {/* A textarea, because a lens command is a sentence and a single-line
-            input turns one into a slot you scroll sideways through. */}
+        <label className="block text-[11px] text-text-tertiary mb-1">How to group it</label>
+        {/* Prose, not a command. The title, the description and the diff are
+            put in front of the agent by Ouijit; this is the only part that is
+            the reader's to say. */}
         <textarea
           ref={commandRef}
-          rows={2}
-          className="w-full px-2.5 py-2 text-xs text-text-primary bg-background-secondary border border-border rounded-md outline-none focus:border-accent transition-colors font-mono resize-none leading-relaxed"
-          value={command}
+          rows={3}
+          className="w-full px-2.5 py-2 text-xs text-text-primary bg-background-secondary border border-border rounded-md outline-none focus:border-accent transition-colors resize-none leading-relaxed"
+          value={instruction}
           onChange={(e) => {
-            setCommand(e.target.value);
+            setInstruction(e.target.value);
             autoResize(e);
           }}
           onInput={autoResize}
           onKeyDown={onKeyDown}
-          placeholder='claude "group this pull request into the parts of the change"'
+          placeholder="Group by the parts of the change and order them so each one makes sense given the last — data model first, then the code that uses it, then the UI."
         />
         <p className="mt-2 text-[11px] text-text-tertiary leading-relaxed">
-          Runs in a terminal with <span className="font-mono">OUIJIT_PR_NUMBER</span> set, and writes back with{' '}
-          <span className="font-mono">ouijit pr lens set</span>.
+          The pull request&rsquo;s title, description and full diff are sent with this. Say how you want it organised —
+          nothing about where to find it.
         </p>
       </div>
 

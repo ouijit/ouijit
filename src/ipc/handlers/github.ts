@@ -30,6 +30,9 @@ import {
   listLenses,
   saveLens,
   deleteLens,
+  writeLensWithAgent,
+  getLensAgentChoice,
+  setLensAgentChoice,
   createTaskFromIssue,
   prepareTaskFromPullRequest,
 } from '../../github/service';
@@ -93,6 +96,11 @@ export function registerGithubHandlers(): void {
     saveLens(projectPath, name, command, previousName),
   );
   typedHandle('github:delete-lens', (projectPath, name) => deleteLens(projectPath, name));
+  typedHandle('github:run-lens', (projectPath, prNumber, lensName) =>
+    writeLensWithAgent(projectPath, prNumber, lensName),
+  );
+  typedHandle('github:lens-agent', (projectPath) => getLensAgentChoice(projectPath));
+  typedHandle('github:set-lens-agent', (projectPath, choice) => setLensAgentChoice(projectPath, choice));
   typedHandle('github:viewed-files', (projectPath, prNumber, headSha) =>
     getViewedFiles(projectPath, prNumber, headSha),
   );

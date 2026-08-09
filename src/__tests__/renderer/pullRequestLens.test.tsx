@@ -155,7 +155,7 @@ describe('PullRequestsPanel — lens', () => {
     );
     vi.mocked(window.api.github.pullRequest).mockResolvedValue(detail());
     vi.mocked(window.api.github.lens).mockResolvedValue({ groups: null });
-    vi.mocked(window.api.github.listLenses).mockResolvedValue([{ name: 'Narrative', command: 'claude "group this"' }]);
+    vi.mocked(window.api.github.listLenses).mockResolvedValue([{ name: 'Narrative', instruction: 'group by story' }]);
 
     render(<PullRequestsPanel projectPath={PROJECT} />);
     fireEvent.click(await screen.findByText('Please look'));
@@ -175,7 +175,7 @@ describe('PullRequestsPanel — lens', () => {
     );
     vi.mocked(window.api.github.pullRequest).mockResolvedValue(detail());
     vi.mocked(window.api.github.lens).mockResolvedValue({ groups: null });
-    vi.mocked(window.api.github.listLenses).mockResolvedValue([{ name: 'Narrative', command: 'claude "group this"' }]);
+    vi.mocked(window.api.github.listLenses).mockResolvedValue([{ name: 'Narrative', instruction: 'group by story' }]);
 
     render(<PullRequestsPanel projectPath={PROJECT} />);
     fireEvent.click(await screen.findByText('Please look'));
@@ -183,7 +183,7 @@ describe('PullRequestsPanel — lens', () => {
     fireEvent.click(await screen.findByText('Lenses…'));
 
     fireEvent.click(await screen.findByLabelText('Edit Narrative'));
-    expect(await screen.findByDisplayValue('claude "group this"')).toBeTruthy();
+    expect(await screen.findByDisplayValue('group by story')).toBeTruthy();
   });
 
   /**

@@ -83,6 +83,7 @@ import type {
   LensResult,
 } from './github/service';
 import type { PrFileVersions } from './github/prDiff';
+import type { LensAgentChoice } from './github/lensAgents';
 import type { TaskStatus, TagRow } from './db';
 import type { ActiveSession } from './ptyManager';
 import type { LimaStatus } from './lima/types';
@@ -729,6 +730,9 @@ export interface GithubAPI {
   listLenses(projectPath: string): Promise<LensSummary[]>;
   saveLens(projectPath: string, name: string, command: string, previousName?: string): Promise<LensSummary>;
   deleteLens(projectPath: string, name: string): Promise<{ success: boolean }>;
+  runLens(projectPath: string, prNumber: number, lensName: string): Promise<{ success: boolean; error?: string }>;
+  lensAgent(projectPath: string): Promise<LensAgentChoice>;
+  setLensAgent(projectPath: string, choice: LensAgentChoice): Promise<{ success: boolean }>;
   viewedFiles(projectPath: string, prNumber: number, headSha: string): Promise<string[]>;
   setFileViewed(
     projectPath: string,
