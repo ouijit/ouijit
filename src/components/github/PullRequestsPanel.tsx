@@ -237,14 +237,18 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
         />
       )}
 
-      <ResizeHandle
-        width={sidebarWidth}
-        onWidth={(width) => useGithubStore.getState().setSidebarWidth(width)}
-        min={SIDEBAR_MIN_WIDTH}
-        max={SIDEBAR_MAX_WIDTH}
-        defaultWidth={SIDEBAR_DEFAULT_WIDTH}
-        label="Resize the list"
-      />
+      {/* Collapsed there is nothing on the other side of it, and a seam with
+          one side is just a line down the edge of the pane. */}
+      {!sidebarCollapsed && (
+        <ResizeHandle
+          width={sidebarWidth}
+          onWidth={(width) => useGithubStore.getState().setSidebarWidth(width)}
+          min={SIDEBAR_MIN_WIDTH}
+          max={SIDEBAR_MAX_WIDTH}
+          defaultWidth={SIDEBAR_DEFAULT_WIDTH}
+          label="Resize the list"
+        />
+      )}
 
       <div className="flex-1 min-w-0 flex flex-col">
         {/* With something open, `DetailChrome` is the bar and carries the

@@ -750,11 +750,17 @@ describe('PullRequestsPanel', () => {
     render(<PullRequestsPanel projectPath={PROJECT} />);
     expect(await screen.findByText('Please look')).toBeTruthy();
 
+    expect(screen.getByRole('separator')).toBeTruthy();
+
     fireEvent.click(screen.getByLabelText('Hide the list'));
     await waitFor(() => expect(screen.queryByText('Please look')).toBeNull());
+    // The seam goes with it: with nothing on its left it is not a boundary
+    // between two things, just a line down the edge of the pane.
+    expect(screen.queryByRole('separator')).toBeNull();
 
     fireEvent.click(screen.getByLabelText('Show the list'));
     expect(await screen.findByText('Please look')).toBeTruthy();
+    expect(screen.getByRole('separator')).toBeTruthy();
   });
 
   /**
