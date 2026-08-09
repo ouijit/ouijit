@@ -6,6 +6,7 @@ import { Icon } from '../terminal/Icon';
 import { DiffFileTree } from './DiffFileTree';
 import { DiffFileSection } from './DiffFileSection';
 import { DeferredMount } from './DeferredMount';
+import { ResizeHandle } from '../common/ResizeHandle';
 import { estimateFileHeight } from './diffMetrics';
 
 interface DiffPanelProps {
@@ -16,6 +17,7 @@ interface DiffPanelProps {
 }
 
 const MAX_DIFF_FILES = 300;
+const DEFAULT_SIDEBAR_WIDTH = 220;
 const DIFF_BATCH_SIZE = 10;
 
 /**
@@ -29,9 +31,8 @@ export function DiffPanel({ ptyId, projectPath, mode, onClose }: DiffPanelProps)
   const gitFileStatus = useTerminalStore((s) => s.displayStates[ptyId]?.gitFileStatus ?? null);
   const [diffs, setDiffs] = useState<Map<string, FileDiff | null>>(new Map());
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [sidebarWidth, setSidebarWidth] = useState(220);
+  const [sidebarWidth, setSidebarWidth] = useState(DEFAULT_SIDEBAR_WIDTH);
   const contentRef = useRef<HTMLDivElement>(null);
-  const draggingRef = useRef(false);
 
   const instance = terminalInstances.get(ptyId);
   const gitPath = instance?.worktreePath || projectPath;
@@ -144,28 +145,6 @@ export function DiffPanel({ ptyId, projectPath, mode, onClose }: DiffPanelProps)
     const timer = setTimeout(settle, 600);
   }, []);
 
-  const handleSidebarDragStart = useCallback(
-    (e: React.MouseEvent) => {
-      e.preventDefault();
-      draggingRef.current = true;
-      const startX = e.clientX;
-      const startWidth = sidebarWidth;
-
-      const onMouseMove = (ev: MouseEvent) => {
-        const newWidth = Math.max(120, Math.min(500, startWidth + ev.clientX - startX));
-        setSidebarWidth(newWidth);
-      };
-      const onMouseUp = () => {
-        draggingRef.current = false;
-        document.removeEventListener('mousemove', onMouseMove);
-        document.removeEventListener('mouseup', onMouseUp);
-      };
-      document.addEventListener('mousemove', onMouseMove);
-      document.addEventListener('mouseup', onMouseUp);
-    },
-    [sidebarWidth],
-  );
-
   // Header stats
   const stats = useMemo(() => {
     const displayed = files.length;
@@ -195,10 +174,11 @@ export function DiffPanel({ ptyId, projectPath, mode, onClose }: DiffPanelProps)
         <DiffFileTree files={files} untrackedFiles={untrackedFiles} onFileClick={scrollToFile} />
       </div>
       {!sidebarCollapsed && (
-        <div
-          className="w-[3px] shrink-0 bg-ink/10 hover:bg-accent/60 active:bg-accent transition-colors duration-100"
-          style={{ cursor: 'col-resize' }}
-          onMouseDown={handleSidebarDragStart}
+        <ResizeHandle
+          width={sidebarWidth}
+          onWidth={setSidebarWidth}
+          defaultWidth={DEFAULT_SIDEBAR_WIDTH}
+          label="Resize the file list"
         />
       )}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">

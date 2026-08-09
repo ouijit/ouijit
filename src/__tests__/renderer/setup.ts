@@ -5,6 +5,17 @@
 import { vi, afterEach } from 'vitest';
 import { cleanup } from '@testing-library/react';
 
+/**
+ * Importing the renderer logger under jsdom hangs — no error, no timeout, it
+ * takes the whole run with it, and the only symptom is a test file that never
+ * reports. Every renderer test so far has mocked it at the top of the file,
+ * which works but means the next one that does not gets an hour of bisecting.
+ * Mocked here so a component can be imported without knowing this.
+ */
+vi.mock('electron-log/renderer', () => ({
+  default: { scope: () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }) },
+}));
+
 // Cleanup React DOM after each test
 afterEach(() => {
   cleanup();

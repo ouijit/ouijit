@@ -25,6 +25,10 @@ interface PullRequestSidebarProps {
   /** Go to the work: focus its shell, or open/create its worktree. */
   onOpenTask: (task: TaskWithWorkspace) => void;
   loading: boolean;
+  /** Set by dragging the handle beside this. */
+  width: number;
+  collapsed: boolean;
+  onCollapsedChange: (collapsed: boolean) => void;
 }
 
 /**
@@ -51,6 +55,9 @@ export function PullRequestSidebar({
   onCreateTaskFromIssue,
   onOpenTask,
   loading,
+  width,
+  collapsed,
+  onCollapsedChange,
 }: PullRequestSidebarProps) {
   const [query, setQuery] = useState('');
 
@@ -77,8 +84,36 @@ export function PullRequestSidebar({
       ? groups.issues.length === 0
       : groups.needsReview.length === 0 && groups.mine.length === 0 && groups.others.length === 0;
 
+  /**
+   * Collapsed, the list becomes a rail rather than nothing at all.
+   *
+   * The button that brings it back has to live somewhere that is always on
+   * screen, and everything to the right of here is conditional — a pull
+   * request, an issue, a spinner, an empty state. Collapsing to zero width
+   * would mean closing what you had open could leave you with no way to get
+   * the list back.
+   */
+  if (collapsed) {
+    const count = showing === 'issues' ? issues.length : pullCount;
+    return (
+      <div className="w-9 shrink-0 flex flex-col items-center gap-2 pt-3 border-r border-ink/[0.06]">
+        <button
+          type="button"
+          title="Show the list"
+          aria-label="Show the list"
+          aria-expanded={false}
+          className="w-7 h-7 rounded-md text-ink/60 flex items-center justify-center transition-colors duration-150 hover:bg-ink/10 hover:text-ink/90"
+          onClick={() => onCollapsedChange(false)}
+        >
+          <Icon name="caret-right" />
+        </button>
+        {count > 0 && <span className="font-mono text-[11px] text-text-tertiary tabular-nums">{count}</span>}
+      </div>
+    );
+  }
+
   return (
-    <div className="w-[320px] shrink-0 flex flex-col overflow-hidden border-r border-ink/[0.06]">
+    <div className="shrink-0 flex flex-col overflow-hidden border-r border-ink/[0.06]" style={{ width }}>
       <div className="shrink-0 flex flex-col">
         <TabBar className="h-12 px-3 items-center border-b border-ink/[0.06]">
           <Tab active={showing === 'pulls'} count={pullCount} onClick={() => onShow('pulls')}>
@@ -87,6 +122,16 @@ export function PullRequestSidebar({
           <Tab active={showing === 'issues'} count={issues.length} onClick={() => onShow('issues')}>
             Issues
           </Tab>
+          <button
+            type="button"
+            title="Hide the list"
+            aria-label="Hide the list"
+            aria-expanded
+            className="ml-auto shrink-0 w-7 h-7 rounded-md text-ink/50 flex items-center justify-center transition-colors duration-150 hover:bg-ink/10 hover:text-ink/90"
+            onClick={() => onCollapsedChange(true)}
+          >
+            <Icon name="caret-left" />
+          </button>
         </TabBar>
         <div className="px-3 py-2">
           <label className="flex items-center gap-2 h-9 px-3 rounded-full bg-ink/[0.05] focus-within:bg-ink/[0.08] transition-colors duration-150">

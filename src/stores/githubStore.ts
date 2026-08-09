@@ -24,6 +24,17 @@ interface GithubStoreState {
   /** The list to return to when the detail view closes. */
   listView: 'inbox' | 'issues';
 
+  /**
+   * How the list sits beside what it opens.
+   *
+   * Held apart from everything else here, and deliberately not cleared with it:
+   * how wide you like the list, and whether you want it at all, is not a fact
+   * about a repository. Switching projects or closing a pull request should
+   * leave the pane the shape you put it in.
+   */
+  sidebarWidth: number;
+  sidebarCollapsed: boolean;
+
   inbox: InboxResult | null;
   inboxLoading: boolean;
   inboxError: string | null;
@@ -94,13 +105,26 @@ interface GithubStoreActions {
   clearLens: (projectPath: string, prNumber: number) => Promise<void>;
   setComposingAt: (anchor: GithubStoreState['composingAt']) => void;
   setSubmitting: (submitting: boolean) => void;
+  setSidebarWidth: (width: number) => void;
+  setSidebarCollapsed: (collapsed: boolean) => void;
 
   reset: () => void;
 }
 
 type GithubStore = GithubStoreState & GithubStoreActions;
 
-const INITIAL: GithubStoreState = {
+export const SIDEBAR_DEFAULT_WIDTH = 320;
+export const SIDEBAR_MIN_WIDTH = 240;
+export const SIDEBAR_MAX_WIDTH = 560;
+
+/**
+ * One project's GitHub session, and so what gets cleared when that changes.
+ *
+ * The sidebar layout is excluded by type rather than by remembering not to put
+ * it here — `set({ ...INITIAL })` merges, so anything left out survives a reset
+ * and a project switch, which is exactly what a layout preference should do.
+ */
+const INITIAL: Omit<GithubStoreState, 'sidebarWidth' | 'sidebarCollapsed'> = {
   projectPath: null,
   availability: null,
   view: 'inbox',
@@ -152,6 +176,8 @@ function message(error: unknown): string {
 
 export const useGithubStore = create<GithubStore>()((set, get) => ({
   ...INITIAL,
+  sidebarWidth: SIDEBAR_DEFAULT_WIDTH,
+  sidebarCollapsed: false,
 
   setProject: (projectPath) => {
     if (get().projectPath === projectPath) return;
@@ -421,6 +447,11 @@ export const useGithubStore = create<GithubStore>()((set, get) => ({
     await window.api.github.clearLens(projectPath, prNumber);
     set({ lensGroups: null, lensOn: false });
   },
+
+  setSidebarWidth: (width) =>
+    set({ sidebarWidth: Math.max(SIDEBAR_MIN_WIDTH, Math.min(SIDEBAR_MAX_WIDTH, Math.round(width))) }),
+
+  setSidebarCollapsed: (collapsed) => set({ sidebarCollapsed: collapsed }),
 
   reset: () => set({ ...INITIAL }),
 }));

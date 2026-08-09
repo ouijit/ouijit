@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, type ReactNode } from 'react';
-import { useGithubStore } from '../../stores/githubStore';
+import { useGithubStore, SIDEBAR_DEFAULT_WIDTH, SIDEBAR_MIN_WIDTH, SIDEBAR_MAX_WIDTH } from '../../stores/githubStore';
 import { useProjectStore } from '../../stores/projectStore';
+import { ResizeHandle } from '../common/ResizeHandle';
 import { useAppStore } from '../../stores/appStore';
 import { activateTask, taskOpenAction, TASK_OPEN_LABEL } from '../navigation';
 import { Icon } from '../terminal/Icon';
@@ -41,6 +42,8 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
   const detailLoading = useGithubStore((s) => s.detailLoading);
   const detailError = useGithubStore((s) => s.detailError);
   const activeIssue = useGithubStore((s) => s.activeIssue);
+  const sidebarWidth = useGithubStore((s) => s.sidebarWidth);
+  const sidebarCollapsed = useGithubStore((s) => s.sidebarCollapsed);
   const issue = useGithubStore((s) => s.issue);
   const issueLoading = useGithubStore((s) => s.issueLoading);
   const issueDetailError = useGithubStore((s) => s.issueError);
@@ -228,7 +231,21 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
         onOpenIssue={(row) => void useGithubStore.getState().openIssue(projectPath, row.number)}
         onCreateTaskFromIssue={(n) => void createTaskFromIssue(n)}
         onOpenTask={openLinkedTask}
+        width={sidebarWidth}
+        collapsed={sidebarCollapsed}
+        onCollapsedChange={(collapsed) => useGithubStore.getState().setSidebarCollapsed(collapsed)}
       />
+
+      {!sidebarCollapsed && (
+        <ResizeHandle
+          width={sidebarWidth}
+          onWidth={(width) => useGithubStore.getState().setSidebarWidth(width)}
+          min={SIDEBAR_MIN_WIDTH}
+          max={SIDEBAR_MAX_WIDTH}
+          defaultWidth={SIDEBAR_DEFAULT_WIDTH}
+          label="Resize the list"
+        />
+      )}
 
       {/* The list error only takes the pane when nothing is open. A poll-driven
           inbox failure used to discard the pull request you were reading,
