@@ -32,7 +32,10 @@ export function DetailChrome({ icon, tone, title, url, tabs, actions, busy, onRe
   const sidebarCollapsed = useGithubStore((s) => s.sidebarCollapsed);
 
   return (
-    <header className="pane-ledge shrink-0 h-12 flex items-center gap-3 px-3">
+    // Raised above the pane below it: the cut is a shadow falling outside this
+    // box, and the first thing at that pixel in the code pane is a sticky file
+    // header with an opaque background, which would paint straight over it.
+    <header className="pane-ledge relative z-30 shrink-0 h-12 flex items-center gap-3 px-3">
       {/* The leftmost thing in the pane, immediately right of the divider —
           and here rather than on the divider itself because the panel frame
           gives every one of its direct children the same stacking level, so
