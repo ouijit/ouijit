@@ -68,7 +68,9 @@ export function TerminalHeaderView({
         onContextMenu={onContextMenu}
       >
         <div className="flex flex-col min-w-0 shrink gap-0.5">
-          <div className="group/meta flex items-center gap-2 min-w-0">
+          {/* overflow-hidden keeps rigid identity content (label, tag pills) from
+              bleeding over the actions area when the header runs out of room. */}
+          <div className="group/meta flex items-center gap-2 min-w-0 overflow-hidden">
             <StatusDot summaryType={summaryType} sandboxProvider={sandboxProvider} />
             {!isActive && stackPosition != null && stackPosition <= 9 && (
               <kbd className="inline-flex items-center font-mono text-base text-ink/40 shrink-0">
@@ -81,11 +83,13 @@ export function TerminalHeaderView({
           </div>
           {!compact && isActive && branchContent}
         </div>
-        <div className="flex items-center gap-2 shrink-0 justify-end">
+        {/* Shrinkable so the panel tabs inside `actions` can give up width
+            instead of overflowing the header. */}
+        <div className="flex items-center gap-2 min-w-0 justify-end">
           {actions}
           {showCloseButton && (
             <button
-              className="w-7 h-7 flex items-center justify-center bg-transparent border-none text-ink/40 hover:text-ink/90 transition-colors duration-150 ml-1 [&_svg]:w-4 [&_svg]:h-4"
+              className="w-7 h-7 shrink-0 flex items-center justify-center bg-transparent border-none text-ink/40 hover:text-ink/90 transition-colors duration-150 ml-1 [&_svg]:w-4 [&_svg]:h-4"
               onClick={onClose}
             >
               <Icon name="x" />

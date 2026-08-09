@@ -14,6 +14,7 @@ import { HookConfigDialog } from '../dialogs/HookConfigDialog';
 import { BranchFromTaskDialog } from '../dialogs/BranchFromTaskDialog';
 import { Tooltip } from '../ui/Tooltip';
 import { revealInFileManager } from '../../utils/fileManager';
+import { resolveAttachmentPath } from '../../utils/taskAttachments';
 import type { TaskChainInfo } from '../../utils/taskChain';
 import { isChainMember, isDescendantOf } from '../../utils/taskChain';
 import { KanbanCardView } from './KanbanCardView';
@@ -282,27 +283,6 @@ export const KanbanCard = memo(function KanbanCard({
     handleStartRenameTask,
   ]);
 
-  const handleAttachFile = useCallback(async (file: File): Promise<string | null> => {
-    // Prefer the file's existing on-disk path — drag-drop from Finder and
-    // most clipboard file pastes already have one. Skipping the copy keeps
-    // the user's file under their control and works for any extension.
-    const existingPath = window.api.getPathForFile(file);
-    if (existingPath) return existingPath;
-
-    // No source path — bytes only (typically a clipboard-pasted screenshot).
-    // Save those to userData so CLI agents have a stable path to read.
-    if (!file.type.startsWith('image/')) {
-      useProjectStore.getState().addToast('Only image clipboard content can be attached', 'error');
-      return null;
-    }
-    const ext = file.type.split('/')[1] || 'png';
-    const data = new Uint8Array(await file.arrayBuffer());
-    const result = await window.api.task.saveAttachment(data, ext);
-    if (result.success && result.path) return result.path;
-    useProjectStore.getState().addToast(result.error || 'Failed to attach image', 'error');
-    return null;
-  }, []);
-
   return (
     <>
       <KanbanCardView
@@ -332,7 +312,7 @@ export const KanbanCard = memo(function KanbanCard({
         onPlainClick={handlePlainClick}
         onContextMenu={(e) => setContextMenu({ x: e.clientX, y: e.clientY })}
         onUpdateDescription={onUpdateDescription}
-        onAttachFile={handleAttachFile}
+        onAttachFile={resolveAttachmentPath}
         onSwitchToTerminal={onSwitchToTerminal}
         onTerminalContextMenu={(ptyId, e) => setTerminalContextMenu({ x: e.clientX, y: e.clientY, ptyId })}
         isRenamingTask={isRenamingTask}

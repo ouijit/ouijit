@@ -72,6 +72,22 @@ describe('KanbanCardView', () => {
     expect(onCancel).toHaveBeenCalledTimes(1);
   });
 
+  it('keeps rename-field pointer events off the card drag activator', () => {
+    const onPointerDown = vi.fn();
+    const onMouseDown = vi.fn();
+    const { container } = render(
+      // The real card is wrapped by a div carrying dnd-kit's drag listeners.
+      <div onPointerDown={onPointerDown} onMouseDown={onMouseDown}>
+        <KanbanCardView task={baseTask} isRenamingTask />
+      </div>,
+    );
+    const textarea = container.querySelector('textarea')!;
+    fireEvent.pointerDown(textarea);
+    fireEvent.mouseDown(textarea);
+    expect(onPointerDown).not.toHaveBeenCalled();
+    expect(onMouseDown).not.toHaveBeenCalled();
+  });
+
   it('commits a non-empty new name on blur', () => {
     const onCommit = vi.fn();
     const onCancel = vi.fn();
