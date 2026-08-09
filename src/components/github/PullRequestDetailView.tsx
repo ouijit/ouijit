@@ -8,6 +8,7 @@ import type { LensSummary } from '../../github/service';
 import { LensDialog } from '../dialogs/LensDialog';
 import { ResizeHandle } from '../common/ResizeHandle';
 import { treeFileOrder } from '../diff/DiffFileTree';
+import { scrollToSection, fileSelector } from '../diff/scrollToSection';
 import { Tab, TabBar } from './Tabs';
 import { DetailChrome } from './DetailChrome';
 import { DiscussionSection } from './DiscussionSection';
@@ -63,34 +64,51 @@ export function PullRequestDetailView({
   const lensName = useGithubStore((s) => s.lensName);
   const lensOn = useGithubStore((s) => s.lensOn);
   const railWidth = useGithubStore((s) => s.railWidth);
+  const collapsedGroups = useGithubStore((s) => s.collapsedGroups);
   const badge = stateBadge(detail);
 
   const filesRef = useRef<FilesSectionHandle>(null);
   const paneRef = useRef<HTMLDivElement>(null);
   const [pane, setPane] = useState<Pane>('summary');
-  const [file, setFile] = useState<string | null>(null);
 
   useEffect(() => {
     if (paneRef.current) paneRef.current.scrollTop = 0;
-  }, [pane, file]);
+  }, [pane]);
+
+  /**
+   * Take the reader to a file rather than showing them that file alone.
+   *
+   * The rail is a way through the document, not a filter on it: a diff is read
+   * in order, and a click that threw the rest of the change away made the file
+   * before and the file after unreachable without going back to the list.
+   */
+  const scrollToFile = useCallback((path: string | null, group?: string) => {
+    const container = paneRef.current;
+    if (!path) {
+      if (container) container.scrollTop = 0;
+      return;
+    }
+    useGithubStore.getState().setActivePath(path);
+    scrollToSection(container, fileSelector(path, group));
+  }, []);
 
   // A pending comment lives on a line in a file, so jumping to one means the
   // code pane, showing that file. The jump is usually made from Summary or
   // Timeline, where `FilesSection` is not mounted and the ref is still null —
   // so the draft is remembered and opened once the pane it lives on exists.
-  const [pendingDraftId, setPendingDraftId] = useState<string | null>(null);
+  const [pendingDraft, setPendingDraft] = useState<{ id: string; path: string } | null>(null);
 
   const jumpToDraft = useCallback((draft: ReviewDraft) => {
     setPane('code');
-    setFile(draft.path);
-    setPendingDraftId(draft.id);
+    setPendingDraft({ id: draft.id, path: draft.path });
   }, []);
 
   useEffect(() => {
-    if (pane !== 'code' || !pendingDraftId) return;
-    filesRef.current?.editDraft(pendingDraftId);
-    setPendingDraftId(null);
-  }, [pane, pendingDraftId, file]);
+    if (pane !== 'code' || !pendingDraft) return;
+    scrollToFile(pendingDraft.path);
+    filesRef.current?.editDraft(pendingDraft.id);
+    setPendingDraft(null);
+  }, [pane, pendingDraft, scrollToFile]);
 
   const [lensesOpen, setLensesOpen] = useState(false);
   // Only this pull request's run is this pull request's business.
@@ -158,12 +176,55 @@ export function PullRequestDetailView({
     [lensGroups, diffs, files],
   );
 
-  // A file that disappears under you — a force-push drops it from the diff —
-  // would otherwise leave the pane empty with no way back.
+  /**
+   * Follow the reader down the document, so the rail marks where they are.
+   *
+   * Written straight to the store rather than held here: this fires as the
+   * document is scrolled, and state in this component would re-render the whole
+   * diff to move a highlight in the rail.
+   *
+   * The anchors are the placeholders, which exist whether or not their file has
+   * mounted yet, so this observes a stable set. Nested anchors are skipped — a
+   * mounted file has one on its section too, and the wrapper is the one that
+   * holds a place in the scroll.
+   */
   useEffect(() => {
-    if (!file || files.length === 0) return;
-    if (!files.some((f) => f.path === file)) setFile(null);
-  }, [file, files]);
+    const container = paneRef.current;
+    if (pane !== 'code' || !container || typeof IntersectionObserver === 'undefined') return;
+
+    const anchors = Array.from(container.querySelectorAll<HTMLElement>('[data-path]')).filter(
+      (anchor) => !anchor.parentElement?.closest('[data-path]'),
+    );
+    if (anchors.length === 0) return;
+
+    const onScreen = new Set<HTMLElement>();
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          const anchor = entry.target as HTMLElement;
+          if (entry.isIntersecting) onScreen.add(anchor);
+          else onScreen.delete(anchor);
+        }
+        // The highest of what is on screen is the one being read: a file
+        // running off the top of the pane is still the file you are in.
+        let topmost: HTMLElement | null = null;
+        let highest = Infinity;
+        for (const anchor of onScreen) {
+          const top = anchor.getBoundingClientRect().top;
+          if (top < highest) {
+            highest = top;
+            topmost = anchor;
+          }
+        }
+        if (topmost?.dataset.path) useGithubStore.getState().setActivePath(topmost.dataset.path);
+      },
+      // Only the top of the pane counts as where you are — otherwise the last
+      // file of a long scroll claims it from the bottom of the screen.
+      { root: container, rootMargin: '0px 0px -60% 0px' },
+    );
+    for (const anchor of anchors) observer.observe(anchor);
+    return () => observer.disconnect();
+  }, [pane, files, resolved, lensOn, collapsedGroups]);
 
   return (
     <div className="flex flex-col flex-1 min-w-0 min-h-0">
@@ -208,8 +269,7 @@ export function PullRequestDetailView({
               width={railWidth}
               detail={detail}
               files={files}
-              activePath={file}
-              onSelect={setFile}
+              onSelect={scrollToFile}
               groups={resolved}
               lensName={lensName}
               lensOn={lensOn}
@@ -242,13 +302,7 @@ export function PullRequestDetailView({
           ) : pane === 'timeline' ? (
             <DiscussionSection projectPath={projectPath} detail={detail} />
           ) : (
-            <FilesSection
-              ref={filesRef}
-              projectPath={projectPath}
-              detail={detail}
-              only={file}
-              groups={lensOn ? resolved : null}
-            />
+            <FilesSection ref={filesRef} projectPath={projectPath} detail={detail} groups={lensOn ? resolved : null} />
           )}
         </div>
       </div>

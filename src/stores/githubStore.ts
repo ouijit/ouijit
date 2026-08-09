@@ -104,6 +104,15 @@ interface GithubStoreState {
   collapsedGroups: string[];
 
   /**
+   * The file the reader is on in the code pane, for the rail to mark.
+   *
+   * Here rather than in the detail view because it changes as the document is
+   * scrolled: state in the view would re-render the whole diff on every frame
+   * of a scroll, and only the rail needs to know.
+   */
+  activePath: string | null;
+
+  /**
    * The lens being written, and which pull request it is for.
    *
    * In the store rather than the detail view because the run outlives the
@@ -142,6 +151,7 @@ interface GithubStoreActions {
   setLensOn: (on: boolean) => void;
   setLensRun: (run: { prNumber: number; name: string } | null) => void;
   setGroupCollapsed: (title: string, collapsed: boolean) => void;
+  setActivePath: (path: string | null) => void;
   renameLensName: (from: string, to: string) => void;
   loadViewed: (projectPath: string, prNumber: number, headSha: string) => Promise<void>;
   setFileViewed: (projectPath: string, prNumber: number, headSha: string, path: string, viewed: boolean) => void;
@@ -202,6 +212,7 @@ const INITIAL: Omit<GithubStoreState, 'sidebarWidth' | 'sidebarCollapsed' | 'rai
   lensOn: false,
   viewedPaths: [],
   collapsedGroups: [],
+  activePath: null,
   lensRun: null,
   drafts: [],
   composingAt: null,
@@ -219,14 +230,17 @@ const INITIAL: Omit<GithubStoreState, 'sidebarWidth' | 'sidebarCollapsed' | 'rai
  * changes. Both are answers about specific hunks: a lens points at them, and a
  * file marked read is a claim to have read them.
  */
-const CLEAR_FOR_HEAD: Pick<GithubStoreState, 'lensGroups' | 'lensName' | 'lensOn' | 'viewedPaths' | 'collapsedGroups'> =
-  {
-    lensGroups: null,
-    lensName: null,
-    lensOn: false,
-    viewedPaths: [],
-    collapsedGroups: [],
-  };
+const CLEAR_FOR_HEAD: Pick<
+  GithubStoreState,
+  'lensGroups' | 'lensName' | 'lensOn' | 'viewedPaths' | 'collapsedGroups' | 'activePath'
+> = {
+  lensGroups: null,
+  lensName: null,
+  lensOn: false,
+  viewedPaths: [],
+  collapsedGroups: [],
+  activePath: null,
+};
 
 let inboxVersion = 0;
 let detailVersion = 0;
@@ -526,6 +540,10 @@ export const useGithubStore = create<GithubStore>()((set, get) => ({
    */
   renameLensName: (from, to) => {
     if (get().lensName === from) set({ lensName: to });
+  },
+
+  setActivePath: (path) => {
+    if (get().activePath !== path) set({ activePath: path });
   },
 
   setGroupCollapsed: (title, collapsed) => {

@@ -34,8 +34,6 @@ const DIFF_BATCH_SIZE = 10;
 interface FilesSectionProps {
   projectPath: string;
   detail: PullRequestDetail;
-  /** Render only this file. Omitted, the whole diff renders in order. */
-  only?: string | null;
   /** The lens bound to this diff, when the reader has it on. */
   groups?: ResolvedGroup[] | null;
 }
@@ -128,7 +126,13 @@ const FileSection = memo(function FileSection({
   );
 
   return (
-    <DeferredMount estimatedHeight={estimateFileHeight(diff, file.additions + file.deletions, 1, viewed)}>
+    // Named on the wrapper rather than only on the section inside it, so the
+    // rail can scroll to a file that is still a placeholder — which, in a diff
+    // this long, is most of them.
+    <DeferredMount
+      dataPath={file.path}
+      estimatedHeight={estimateFileHeight(diff, file.additions + file.deletions, 1, viewed)}
+    >
       <DiffFileSection
         path={file.path}
         status={file.status}
@@ -192,7 +196,13 @@ function LensGroup({
   }, [group.title, group.summary]);
 
   return (
-    <div className="flex flex-col" style={{ '--diff-sticky-offset': `${headerHeight}px` } as CSSProperties}>
+    // Named, because one file can belong to three parts and the rail has to be
+    // able to say which copy of it a click meant.
+    <div
+      data-group={group.title}
+      className="flex flex-col"
+      style={{ '--diff-sticky-offset': `${headerHeight}px` } as CSSProperties}
+    >
       {/* One line, at the height of a file header: the two pin one above the
           other, and the rail beside them lists its actions on the same unit,
           so the whole band across the seam is level. A summary is free text —
@@ -243,7 +253,7 @@ function LensGroup({
  * like any other.
  */
 export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(function FilesSection(
-  { projectPath, detail, only, groups },
+  { projectPath, detail, groups },
   ref,
 ) {
   const files = useGithubStore((s) => s.files);
@@ -484,7 +494,6 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
   // whatever order the file list arrived and the two disagree the moment a
   // directory's files are not contiguous in it.
   const ordered = useMemo(() => inTreeOrder(files), [files]);
-  const shown = only ? ordered.filter((f) => f.path === only) : ordered;
 
   /**
    * Sliced diffs, kept identical across renders while their source is.
@@ -539,10 +548,6 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
     />
   );
 
-  // A lens rearranges the whole document, so it applies only when the whole
-  // document is what's on screen. Reading one file is already the narrowest
-  // view there is; grouping a single file would be grouping nothing.
-  const grouped = !only ? groups : null;
   const byPath = new Map(files.map((f) => [f.path, f]));
 
   return (
@@ -560,8 +565,8 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
         </div>
       )}
 
-      {grouped
-        ? grouped.map((group) => (
+      {groups
+        ? groups.map((group) => (
             <LensGroup
               key={group.title}
               group={group}
@@ -574,9 +579,9 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
               })}
             </LensGroup>
           ))
-        : shown.map((file) => renderFile(file))}
+        : ordered.map((file) => renderFile(file))}
 
-      {!only && orphanThreads.length > 0 && (
+      {orphanThreads.length > 0 && (
         <>
           <div className="px-3 py-2 font-mono text-[11px] text-text-tertiary border-t border-ink/[0.06]">
             {orphanThreads.length} {orphanThreads.length === 1 ? 'thread' : 'threads'} not anchored in this diff
@@ -592,7 +597,7 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
         </>
       )}
 
-      {!only && detail.changedFiles > files.length && (
+      {detail.changedFiles > files.length && (
         <div className="flex items-center justify-center gap-1.5 px-3 py-3 font-mono text-[11px] text-text-tertiary border-t border-ink/[0.06]">
           <Icon name="warning" className="w-3 h-3" />
           Showing {files.length} of {detail.changedFiles} changed files

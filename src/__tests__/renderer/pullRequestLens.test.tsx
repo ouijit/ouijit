@@ -214,6 +214,46 @@ describe('PullRequestsPanel — lens', () => {
   });
 
   /**
+   * The rail is a way through the document, not a filter on it. Clicking a file
+   * used to leave that file alone on screen, which made the one before it and
+   * the one after it unreachable without going back to the list.
+   */
+  test('clicking a file in the rail takes you to it, leaving the rest in place', async () => {
+    vi.mocked(window.api.github.inbox).mockResolvedValue(
+      inbox({ needsReview: [pr({ number: 5, title: 'Please look' })] }),
+    );
+    vi.mocked(window.api.github.pullRequest).mockResolvedValue(detail({ changedFiles: 2 }));
+    vi.mocked(window.api.github.pullRequestFiles).mockResolvedValue({
+      files: [
+        { path: 'src/api.ts', status: 'M', additions: 1, deletions: 1 },
+        { path: 'src/ui.tsx', status: 'M', additions: 1, deletions: 1 },
+      ],
+      fromGit: false,
+    });
+
+    render(<PullRequestsPanel projectPath={PROJECT} />);
+    fireEvent.click(await screen.findByText('Please look'));
+    fireEvent.click(await screen.findByText('Code'));
+
+    await waitFor(() => expect(screen.getAllByText('api.ts').length).toBeGreaterThan(0));
+
+    // The document beside the rail — the pane the rail scrolls.
+    const pane = document.querySelector<HTMLElement>('div.flex-1.min-w-0.overflow-y-auto');
+    const anchors = () =>
+      Array.from(pane?.querySelectorAll<HTMLElement>('[data-path]') ?? [])
+        .filter((el) => !el.parentElement?.closest('[data-path]'))
+        .map((el) => el.dataset.path);
+
+    // Both files are in the document before the click, and both after it.
+    expect(anchors()).toEqual(['src/api.ts', 'src/ui.tsx']);
+    fireEvent.click(screen.getAllByText('ui.tsx')[0]);
+    expect(anchors()).toEqual(['src/api.ts', 'src/ui.tsx']);
+
+    // And the rail marks the one you were taken to.
+    await waitFor(() => expect(useGithubStore.getState().activePath).toBe('src/ui.tsx'));
+  });
+
+  /**
    * A part of a change is read and finished with the way a file is, so it folds
    * the way a file does — and on both sides of the seam, since the rail and the
    * document are showing the same part.

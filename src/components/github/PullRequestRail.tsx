@@ -11,9 +11,8 @@ import { LensPicker } from './LensPicker';
 interface PullRequestRailProps {
   detail: PullRequestDetail;
   files: PullRequestFile[];
-  /** Null shows the whole diff in order. */
-  activePath: string | null;
-  onSelect: (path: string | null) => void;
+  /** Take the document to a file — or, with no path, back to the top. */
+  onSelect: (path: string | null, group?: string) => void;
   /** The lens as bound to this diff, or null when none has been written. */
   groups: ResolvedGroup[] | null;
   /** Which lens wrote it, when that is known. */
@@ -46,7 +45,6 @@ interface PullRequestRailProps {
 export function PullRequestRail({
   detail,
   files,
-  activePath,
   onSelect,
   groups,
   lensName,
@@ -62,6 +60,7 @@ export function PullRequestRail({
   const byPath = useMemo(() => new Map(changedFiles.map((file) => [file.path, file])), [changedFiles]);
   const viewedPaths = useGithubStore((s) => s.viewedPaths);
   const viewed = useMemo(() => new Set(viewedPaths), [viewedPaths]);
+  const activePath = useGithubStore((s) => s.activePath);
   const collapsedGroups = useGithubStore((s) => s.collapsedGroups);
   const collapsed = useMemo(() => new Set(collapsedGroups), [collapsedGroups]);
 
@@ -117,12 +116,14 @@ export function PullRequestRail({
           viewed={viewed.size}
           writing={lensWriting}
           onAllFiles={() => {
-            onSelect(null);
+            // Mode first, then the scroll back to the top: what the reader
+            // asked for must not depend on a scroll succeeding.
             onLensOn(false);
+            onSelect(null);
           }}
           onShowLens={() => {
-            onSelect(null);
             onLensOn(true);
+            onSelect(null);
           }}
           onRun={onRunLens}
           onManage={onOpenLenses}
@@ -160,7 +161,7 @@ export function PullRequestRail({
                   <DiffFileTreeNodes
                     files={filesInGroup(group, byPath)}
                     activePath={activePath}
-                    onFileClick={onSelect}
+                    onFileClick={(path) => onSelect(path, group.title)}
                     renderFileTrailing={(file) => trailing(file.path, hunkCount(group, file.path))}
                   />
                 )}

@@ -59,7 +59,14 @@ export function DeferredMount({ estimatedHeight, rootMargin = '150%', dataPath, 
   }, [mounted, rootMargin]);
 
   return (
-    <div ref={ref} data-path={dataPath} style={mounted ? undefined : { height: estimatedHeight }}>
+    <div
+      ref={ref}
+      data-path={dataPath}
+      // Scrolled to, so it stops below whatever is pinned above it — a lens
+      // publishes the height of its part header, and nothing publishes one
+      // where there is no lens.
+      style={{ scrollMarginTop: 'var(--diff-sticky-offset, 0px)', ...(mounted ? null : { height: estimatedHeight }) }}
+    >
       {mounted ? children : null}
     </div>
   );

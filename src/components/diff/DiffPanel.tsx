@@ -6,6 +6,7 @@ import { Icon } from '../terminal/Icon';
 import { DiffFileTree, inTreeOrder } from './DiffFileTree';
 import { DiffFileSection } from './DiffFileSection';
 import { DeferredMount } from './DeferredMount';
+import { scrollToSection, fileSelector } from './scrollToSection';
 import { ResizeHandle } from '../common/ResizeHandle';
 import { SidebarToggle } from '../common/SidebarToggle';
 import { estimateFileHeight } from './diffMetrics';
@@ -128,28 +129,7 @@ export function DiffPanel({ ptyId, projectPath, mode, onClose }: DiffPanelProps)
   }, [filesFingerprint, effectiveMode, gitPath, projectPath, instance?.worktreeBranch]);
 
   const scrollToFile = useCallback((path: string) => {
-    const container = contentRef.current;
-    const find = () => container?.querySelector(`[data-path="${CSS.escape(path)}"]`);
-    const section = find();
-    if (!section || !container) return;
-
-    section.scrollIntoView({ behavior: 'smooth', block: 'start' });
-
-    // The target may have been standing at an estimated height and mounted on
-    // the way there, moving everything below it. Once the scroll has settled,
-    // land on where the file actually ended up.
-    const settle = () => {
-      clearTimeout(timer);
-      container.removeEventListener('scrollend', settle);
-      const top = find()?.getBoundingClientRect().top;
-      if (top != null && Math.abs(top - container.getBoundingClientRect().top) > 4) {
-        find()?.scrollIntoView({ behavior: 'auto', block: 'start' });
-      }
-    };
-    container.addEventListener('scrollend', settle);
-    // `scrollend` is not guaranteed — nothing fires if the view was already
-    // where it needed to be — so the listener must not be left waiting.
-    const timer = setTimeout(settle, 600);
+    scrollToSection(contentRef.current, fileSelector(path));
   }, []);
 
   // Header stats
