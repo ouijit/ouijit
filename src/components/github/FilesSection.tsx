@@ -140,12 +140,12 @@ const FileSection = memo(function FileSection({
 });
 
 /**
- * One part of the reading order, with the files that make it up.
+ * One part of a lens, with the files that make it up.
  *
  * Two things pin themselves to the top of this pane — which part of the change
  * you are in, and which file you are in — and they are a hierarchy, not rivals
  * for the same line. Both were pinned to `top: 0`, so the file header sat on
- * top of the part it belongs to and the reading order became invisible exactly
+ * top of the part it belongs to and the lens became invisible exactly
  * when it was being used.
  *
  * The part header measures itself and publishes its height, and file headers
@@ -442,7 +442,7 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
   /**
    * Sliced diffs, kept identical across renders while their source is.
    *
-   * Narrowing a file to one part of a reading order builds a new `FileDiff`,
+   * Narrowing a file to one part of a lens builds a new `FileDiff`,
    * and doing that inside the render meant a different object every time —
    * which the tokenizer reads as a different file, so a lens re-highlighted the
    * entire pull request on every render. Slicing reuses the underlying hunk

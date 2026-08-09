@@ -77,6 +77,7 @@ import type {
   SaveDraftInput,
   PromoteToTaskResult,
   PrCommandSummary,
+  LensSummary,
   LensResult,
 } from './github/service';
 import type { PrFileVersions } from './github/prDiff';
@@ -723,8 +724,9 @@ export interface GithubAPI {
   deletePrCommand(projectPath: string, name: string): Promise<{ success: boolean }>;
   lens(projectPath: string, prNumber: number, headSha: string): Promise<LensResult>;
   clearLens(projectPath: string, prNumber: number): Promise<{ success: boolean }>;
-  lensCommand(projectPath: string): Promise<string>;
-  setLensCommand(projectPath: string, command: string): Promise<{ success: boolean }>;
+  listLenses(projectPath: string): Promise<LensSummary[]>;
+  saveLens(projectPath: string, name: string, command: string, previousName?: string): Promise<LensSummary>;
+  deleteLens(projectPath: string, name: string): Promise<{ success: boolean }>;
 
   onDraftsChanged(callback: (payload: GithubDraftsChangedPayload) => void): () => void;
 }

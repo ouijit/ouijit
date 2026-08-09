@@ -191,7 +191,7 @@ function PrCommandForm({
         </p>
         <p className="mt-1.5 text-[11px] text-text-tertiary leading-snug">
           An agent started here files review comments with <span className="font-mono">ouijit pr draft add</span>, and
-          writes the Code pane&apos;s reading order with <span className="font-mono">ouijit pr lens set</span>.
+          writes the Code pane&apos;s lens with <span className="font-mono">ouijit pr lens set</span>.
         </p>
       </div>
 

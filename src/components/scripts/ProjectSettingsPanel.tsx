@@ -9,7 +9,7 @@ import { ExperimentalFeaturesSection } from './ExperimentalFeaturesSection';
 import { WorktreeSection } from './WorktreeSection';
 import { IconColorSection } from './IconColorSection';
 import { PrCommandList } from './PrCommandList';
-import { LensCommandSection } from './LensCommandSection';
+import { LensList } from './LensList';
 import { useExperimentalStore } from '../../stores/experimentalStore';
 import { useWorktreeSettingsStore } from '../../stores/worktreeSettingsStore';
 
@@ -111,20 +111,20 @@ export function ProjectSettingsPanel({ projectPath }: ProjectSettingsPanelProps)
           </section>
           {githubEnabled && (
             <section>
-              <h2 className="text-sm font-semibold text-text-primary mb-2">Reading Order</h2>
+              <h2 className="text-sm font-semibold text-text-primary mb-2">Lenses</h2>
               <p className="text-xs text-text-tertiary mb-4">
-                The command the Code pane runs to have a pull request grouped into the parts of its change, instead of a
-                list of files.
+                Ways of reading a pull request. Each is a command that reads the diff and says what the parts of the
+                change are, so the Code pane can show them in that order instead of a list of files.
               </p>
-              <LensCommandSection projectPath={projectPath} />
+              <LensList projectPath={projectPath} />
             </section>
           )}
           {githubEnabled && (
             <section>
               <h2 className="text-sm font-semibold text-text-primary mb-2">Pull Request Commands</h2>
               <p className="text-xs text-text-tertiary mb-4">
-                Commands you can run against a pull request. A lens regroups the diff into a reading order; a terminal
-                command opens a session on it.
+                Commands you can run against a pull request. Each opens a terminal session on it, with the pull
+                request&rsquo;s number, branch, URL and title set in the environment.
               </p>
               <PrCommandList projectPath={projectPath} />
             </section>

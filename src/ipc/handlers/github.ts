@@ -26,8 +26,9 @@ import {
   deletePrCommand,
   getLens,
   clearLens,
-  getLensCommand,
-  setLensCommand,
+  listLenses,
+  saveLens,
+  deleteLens,
   createTaskFromIssue,
   prepareTaskFromPullRequest,
 } from '../../github/service';
@@ -86,8 +87,11 @@ export function registerGithubHandlers(): void {
   );
   typedHandle('github:delete-pr-command', (projectPath, name) => deletePrCommand(projectPath, name));
   typedHandle('github:lens', (projectPath, prNumber, headSha) => getLens(projectPath, prNumber, headSha));
-  typedHandle('github:lens-command', (projectPath) => getLensCommand(projectPath));
-  typedHandle('github:set-lens-command', (projectPath, command) => setLensCommand(projectPath, command));
+  typedHandle('github:list-lenses', (projectPath) => listLenses(projectPath));
+  typedHandle('github:save-lens', (projectPath, name, command, previousName) =>
+    saveLens(projectPath, name, command, previousName),
+  );
+  typedHandle('github:delete-lens', (projectPath, name) => deleteLens(projectPath, name));
   typedHandle('github:clear-lens', (projectPath, prNumber) => clearLens(projectPath, prNumber));
 
   typedHandle('github:merge-pr', (projectPath, prNumber, method, deleteBranch) =>

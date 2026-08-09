@@ -125,13 +125,13 @@ Examples:
     });
 
   // ── Lens ────────────────────────────────────────────────────────────
-  // A reading order for one pull request: the parts of the change, and which
+  // A lens on one pull request: the parts of the change, and which
   // hunks make up each part. Written by whatever has read the diff — the point
   // is that a grouping worth having is specific to one change, so there is
   // nothing here to configure in advance and nothing reusable to store.
   const lens = pr
     .command('lens')
-    .description('Write the reading order shown in the Code pane')
+    .description('Write the lens shown in the Code pane')
     .addHelpText(
       'after',
       `
@@ -156,7 +156,7 @@ Examples:
 
   lens
     .command('get')
-    .description('Show the reading order stored for a pull request')
+    .description('Show the lens stored for a pull request')
     .argument('<number>', 'pull request number')
     .requiredOption('--head-sha <sha>', 'head commit the lens must describe')
     .action(async (number: string, options: { headSha: string }) => {
@@ -170,7 +170,7 @@ Examples:
 
   lens
     .command('set')
-    .description('Write the reading order for a pull request')
+    .description('Write the lens for a pull request')
     .argument('<number>', 'pull request number')
     .requiredOption('--body <json>', 'the lens as JSON, or - to read stdin')
     .action(async (number: string, options: { body: string }) => {
@@ -193,7 +193,7 @@ Examples:
 
   lens
     .command('clear')
-    .description('Delete the reading order stored for a pull request')
+    .description('Delete the lens stored for a pull request')
     .argument('<number>', 'pull request number')
     .action(async (number: string) => {
       const project = requireProject();

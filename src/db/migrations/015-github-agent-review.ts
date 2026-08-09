@@ -14,7 +14,7 @@ import type Database from 'better-sqlite3';
  * task status transition and all receive task environment, and a pull request
  * action does neither.
  *
- * `github_pr_lenses` holds one reading order per pull request per head. A
+ * `github_pr_lenses` holds one lens per pull request per head. A
  * lens names the parts of a change and points each at the hunks that make
  * it up, so a diff can be read as the story it is rather than as files in
  * alphabetical order. Keyed by head SHA because it describes specific hunks:

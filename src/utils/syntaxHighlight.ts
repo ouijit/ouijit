@@ -97,7 +97,7 @@ const EXT_MAP: Record<string, BundledLanguage> = {
  *
  * A hunk object is stable for as long as its file's diff is: slicing a diff for
  * a lens reuses the very same hunk objects, and the same file appearing in
- * three parts of a reading order hands out three references to one hunk. Keying
+ * three parts of a lens hands out three references to one hunk. Keying
  * on identity means each is tokenized once however many places render it, and a
  * weak key means the entry goes when the diff does.
  */

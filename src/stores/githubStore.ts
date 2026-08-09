@@ -72,7 +72,7 @@ interface GithubStoreState {
   /** Named commands configured for this project. */
   prCommands: PrCommandSummary[];
   /**
-   * The reading order written for this pull request, when one exists for the
+   * The lens written for this pull request, when one exists for the
    * head on screen. Whether it is applied is the reader's choice — `lensOn`.
    */
   lensGroups: LensGroup[] | null;

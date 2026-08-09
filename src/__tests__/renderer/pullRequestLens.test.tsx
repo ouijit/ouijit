@@ -83,7 +83,7 @@ describe('PullRequestsPanel — lens', () => {
     vi.mocked(window.api.github.listPrCommands).mockResolvedValue([]);
     vi.mocked(window.api.github.lens).mockResolvedValue({ groups: null });
     vi.mocked(window.api.github.pullRequestFiles).mockResolvedValue({ files: [], fromGit: false });
-    vi.mocked(window.api.github.lensCommand).mockResolvedValue('');
+    vi.mocked(window.api.github.listLenses).mockResolvedValue([]);
   });
 
   /**
@@ -113,7 +113,7 @@ describe('PullRequestsPanel — lens', () => {
 
     // Read for this head, and applied without asking.
     await waitFor(() => expect(window.api.github.lens).toHaveBeenCalledWith(PROJECT, 5, 'bbb'));
-    expect(await screen.findByText('Read as a story')).toBeTruthy();
+    expect(await screen.findByText('Lens')).toBeTruthy();
     expect((await screen.findAllByText('Transport')).length).toBeGreaterThan(0);
 
     // The file the lens never mentioned is still in the diff, not hidden.
@@ -125,9 +125,9 @@ describe('PullRequestsPanel — lens', () => {
 
   /**
    * With none written, the rail is where the way to get one lives — beside
-   * where it would appear, not in a menu about running other things.
+   * where it would appear, not behind the settings panel.
    */
-  test('with no lens the rail leads to setting one up', async () => {
+  test('with no lens the rail opens the lenses', async () => {
     vi.mocked(window.api.github.inbox).mockResolvedValue(
       inbox({ needsReview: [pr({ number: 5, title: 'Please look' })] }),
     );
@@ -139,28 +139,30 @@ describe('PullRequestsPanel — lens', () => {
     fireEvent.click(await screen.findByText('Code'));
 
     expect(await screen.findByText('All files')).toBeTruthy();
-    expect(screen.queryByText('Read as a story')).toBeNull();
+    expect(screen.queryByText('Lens')).toBeNull();
 
-    // Nothing configured, so the press is about choosing a command — and it
-    // sits in the rail, where a reading order would appear, not in a menu
-    // about something else.
-    fireEvent.click(await screen.findByText('Set up a reading order…'));
-    expect(useProjectStore.getState().activePanel).toBe('settings');
+    // The dialog opens here rather than sending the reader to settings and
+    // leaving them to find their way back.
+    fireEvent.click(await screen.findByText('Lenses…'));
+    expect(await screen.findByText('No lenses yet. Add one below.')).toBeTruthy();
+    expect(useProjectStore.getState().activePanel).not.toBe('settings');
   });
 
-  test('with a command configured the rail offers to write one', async () => {
+  test('a lens in the dialog can be written against the pull request', async () => {
     vi.mocked(window.api.github.inbox).mockResolvedValue(
       inbox({ needsReview: [pr({ number: 5, title: 'Please look' })] }),
     );
     vi.mocked(window.api.github.pullRequest).mockResolvedValue(detail());
     vi.mocked(window.api.github.lens).mockResolvedValue({ groups: null });
-    vi.mocked(window.api.github.lensCommand).mockResolvedValue('claude "group this"');
+    vi.mocked(window.api.github.listLenses).mockResolvedValue([{ name: 'Narrative', command: 'claude "group this"' }]);
 
     render(<PullRequestsPanel projectPath={PROJECT} />);
     fireEvent.click(await screen.findByText('Please look'));
     fireEvent.click(await screen.findByText('Code'));
 
-    expect(await screen.findByText('Write a reading order')).toBeTruthy();
+    fireEvent.click(await screen.findByText('Lenses…'));
+    expect(await screen.findByText('Narrative')).toBeTruthy();
+    expect(screen.getByText('Write')).toBeTruthy();
   });
 
   /**
@@ -180,6 +182,6 @@ describe('PullRequestsPanel — lens', () => {
     fireEvent.click(await screen.findByText('Code'));
 
     expect(await screen.findByText('All files')).toBeTruthy();
-    expect(screen.queryByText('Read as a story')).toBeNull();
+    expect(screen.queryByText('Lens')).toBeNull();
   });
 });

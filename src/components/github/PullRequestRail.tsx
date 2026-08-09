@@ -3,6 +3,7 @@ import type { ChangedFile } from '../../types';
 import type { PullRequestDetail, PullRequestFile } from '../../github/types';
 import type { ResolvedGroup } from '../../github/lens';
 import { DiffFileTree } from '../diff/DiffFileTree';
+import { Icon } from '../terminal/Icon';
 
 interface PullRequestRailProps {
   detail: PullRequestDetail;
@@ -14,11 +15,10 @@ interface PullRequestRailProps {
   groups: ResolvedGroup[] | null;
   lensOn: boolean;
   onLensOn: (on: boolean) => void;
-  /** Runs the project's reading-order command against this pull request. */
-  onWriteLens: () => void;
-  /** False until one is configured, which is what the empty state offers. */
-  hasLensCommand: boolean;
-  lensWriting: boolean;
+  /** Opens the project's lenses, to write one against this pull request. */
+  onOpenLenses: () => void;
+  /** Name of the lens being written, if one is running. */
+  lensWriting: string | null;
   /** Set by dragging the seam beside this. */
   width: number;
 }
@@ -42,8 +42,7 @@ export function PullRequestRail({
   groups,
   lensOn,
   onLensOn,
-  onWriteLens,
-  hasLensCommand,
+  onOpenLenses,
   lensWriting,
   width,
 }: PullRequestRailProps) {
@@ -74,8 +73,8 @@ export function PullRequestRail({
     <div className="shrink-0 flex flex-col overflow-hidden" style={{ width }}>
       {/* A diff arrives in the order the change was stored, not the order it
           reads in. A lens is one answer to that, written for this change and no
-          other; the toggle is here because a reading order is a way of looking
-          at the diff, not a replacement for it. */}
+          other; the toggle is here because a lens is a way of looking at the
+          diff, not a replacement for it. */}
       <div className="pane-ledge shrink-0 flex flex-col">
         <RailEntry
           tall
@@ -90,7 +89,7 @@ export function PullRequestRail({
         {groups ? (
           <RailEntry
             tall
-            label="Read as a story"
+            label="Lens"
             note={`${groups.length}`}
             active={lensOn && activePath === null}
             title="Group this diff into the parts of the change"
@@ -98,22 +97,19 @@ export function PullRequestRail({
               onSelect(null);
               onLensOn(true);
             }}
+            trailing={<LensesButton onClick={onOpenLenses} />}
           />
         ) : (
-          // The way to get one sits where one would appear. Putting it in an
-          // action menu about something else would leave a reader looking at
-          // the file list with no idea the pane could do anything else.
+          // The way to get one sits where one would appear. Putting it behind
+          // the settings panel left a reader looking at the file list with no
+          // idea the pane could do anything else.
           <RailEntry
             tall
-            label={lensWriting ? 'Writing…' : hasLensCommand ? 'Write a reading order' : 'Set up a reading order…'}
+            label={lensWriting ? `Writing ${lensWriting}…` : 'Lenses…'}
             muted
             active={false}
-            title={
-              hasLensCommand
-                ? 'Run this project’s reading-order command, so the parts of this change are named and ordered'
-                : 'Choose the command that reads a diff and writes its reading order'
-            }
-            onClick={onWriteLens}
+            title="Write a lens for this pull request, or add one"
+            onClick={onOpenLenses}
           />
         )}
       </div>
@@ -151,6 +147,24 @@ export function PullRequestRail({
         />
       )}
     </div>
+  );
+}
+
+/** Opens the lenses without leaving the one already applied. */
+function LensesButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      title="Lenses"
+      aria-label="Lenses"
+      className="shrink-0 w-5 h-5 rounded text-ink/40 flex items-center justify-center transition-colors duration-150 hover:bg-ink/10 hover:text-ink/80 [&>svg]:w-3 [&>svg]:h-3"
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick();
+      }}
+    >
+      <Icon name="list-checks" />
+    </button>
   );
 }
 

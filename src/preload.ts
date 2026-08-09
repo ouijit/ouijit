@@ -341,9 +341,10 @@ contextBridge.exposeInMainWorld('api', {
     lens: (projectPath: string, prNumber: number, headSha: string) =>
       typedInvoke('github:lens', projectPath, prNumber, headSha),
     clearLens: (projectPath: string, prNumber: number) => typedInvoke('github:clear-lens', projectPath, prNumber),
-    lensCommand: (projectPath: string) => typedInvoke('github:lens-command', projectPath),
-    setLensCommand: (projectPath: string, command: string) =>
-      typedInvoke('github:set-lens-command', projectPath, command),
+    listLenses: (projectPath: string) => typedInvoke('github:list-lenses', projectPath),
+    saveLens: (projectPath: string, name: string, command: string, previousName?: string) =>
+      typedInvoke('github:save-lens', projectPath, name, command, previousName),
+    deleteLens: (projectPath: string, name: string) => typedInvoke('github:delete-lens', projectPath, name),
     issues: (projectPath: string) => typedInvoke('github:issues', projectPath),
     issue: (projectPath: string, number: number) => typedInvoke('github:issue', projectPath, number),
 

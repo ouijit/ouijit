@@ -357,7 +357,7 @@ Anchor to a line that appears as an ADDED line in the diff, by its new-file line
 number: GitHub rejects the whole review at submit time if any comment points at
 a line outside the diff, so a bad anchor loses every comment with it.
 
-### Reading order (how the Code pane groups the diff)
+### Lenses (how the Code pane groups the diff)
 ouijit pr lens get <number> --head-sha <sha>
 ouijit pr lens set <number> --body -          # JSON on stdin
 ouijit pr lens clear <number>

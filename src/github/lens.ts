@@ -1,5 +1,5 @@
 /**
- * A reading order for a pull request.
+ * A lens on a pull request.
  *
  * A diff arrives as files in alphabetical order, which is the order the change
  * was stored in, not the order it reads in. A lens names the parts of the

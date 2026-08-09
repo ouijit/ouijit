@@ -2,10 +2,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { PullRequestDetail, ReviewDraft } from '../../github/types';
 import type { TaskWithWorkspace } from '../../types';
 import { useGithubStore, RAIL_DEFAULT_WIDTH, RAIL_MIN_WIDTH, RAIL_MAX_WIDTH } from '../../stores/githubStore';
-import { useProjectStore } from '../../stores/projectStore';
 import { addProjectTerminal } from '../terminal/terminalActions';
 import { prCommandEnv } from '../../github/prCommandEnv';
 import { resolveLens } from '../../github/lens';
+import type { LensSummary } from '../../github/service';
+import { LensDialog } from '../dialogs/LensDialog';
 import { ResizeHandle } from '../common/ResizeHandle';
 import { Tab, TabBar } from './Tabs';
 import { DetailChrome } from './DetailChrome';
@@ -90,47 +91,36 @@ export function PullRequestDetailView({
     setPendingDraftId(null);
   }, [pane, pendingDraftId, file]);
 
-  // The reading-order command is a project setting, read once the pane opens so
-  // the rail knows whether it is offering to run one or to choose one.
-  const [lensCommand, setLensCommand] = useState('');
-  const [lensWriting, setLensWriting] = useState(false);
-  useEffect(() => {
-    void window.api.github.lensCommand(projectPath).then(setLensCommand);
-  }, [projectPath]);
+  const [lensesOpen, setLensesOpen] = useState(false);
+  const [lensWriting, setLensWriting] = useState<string | null>(null);
 
-  /**
-   * Hand this pull request to the reading-order command.
-   *
-   * Nothing configured yet means the press is about choosing one, so it goes to
-   * settings — the same control, doing the next thing that has to happen either
-   * way, rather than two controls a reader has to tell apart.
-   */
-  const writeLens = useCallback(() => {
-    if (!lensCommand) {
-      useProjectStore.getState().setActivePanel('settings');
-      return;
-    }
-    if (!detail) return;
-    setLensWriting(true);
-    void addProjectTerminal(
-      projectPath,
-      { name: 'Reading order', command: lensCommand, source: 'custom', priority: 0 },
-      {
-        ...(linkedTask?.worktreePath
-          ? {
-              existingWorktree: {
-                path: linkedTask.worktreePath,
-                branch: linkedTask.branch || '',
-                createdAt: linkedTask.createdAt,
-              },
-              taskId: linkedTask.taskNumber,
-            }
-          : {}),
-        skipAutoHook: true,
-        extraEnv: prCommandEnv(detail, linkedTask?.worktreePath),
-      },
-    ).finally(() => setLensWriting(false));
-  }, [lensCommand, detail, projectPath, linkedTask]);
+  /** Hand this pull request to one of the project's lenses. */
+  const writeLens = useCallback(
+    (lens: LensSummary) => {
+      if (!detail) return;
+      setLensWriting(lens.name);
+      setLensesOpen(false);
+      void addProjectTerminal(
+        projectPath,
+        { name: lens.name, command: lens.command, source: 'custom', priority: 0 },
+        {
+          ...(linkedTask?.worktreePath
+            ? {
+                existingWorktree: {
+                  path: linkedTask.worktreePath,
+                  branch: linkedTask.branch || '',
+                  createdAt: linkedTask.createdAt,
+                },
+                taskId: linkedTask.taskNumber,
+              }
+            : {}),
+          skipAutoHook: true,
+          extraEnv: prCommandEnv(detail, linkedTask?.worktreePath),
+        },
+      ).finally(() => setLensWriting(null));
+    },
+    [detail, projectPath, linkedTask],
+  );
 
   // Bound once, where both the rail and the document can read the same result.
   // Resolution needs the parsed diffs, so it waits for them: until they land the
@@ -202,8 +192,7 @@ export function PullRequestDetailView({
               groups={resolved}
               lensOn={lensOn}
               onLensOn={(on) => useGithubStore.getState().setLensOn(on)}
-              onWriteLens={writeLens}
-              hasLensCommand={Boolean(lensCommand)}
+              onOpenLenses={() => setLensesOpen(true)}
               lensWriting={lensWriting}
             />
             <ResizeHandle
@@ -239,6 +228,15 @@ export function PullRequestDetailView({
           )}
         </div>
       </div>
+
+      {lensesOpen && (
+        <LensDialog
+          projectPath={projectPath}
+          onRun={writeLens}
+          running={lensWriting}
+          onClose={() => setLensesOpen(false)}
+        />
+      )}
     </div>
   );
 }

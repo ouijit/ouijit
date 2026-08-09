@@ -9,7 +9,7 @@ import { useResolvedTheme } from '../../hooks/useResolvedTheme';
  *
  * The cache this reads lives in `syntaxHighlight.ts`, keyed on the hunk objects
  * themselves rather than here on the component — one file rendered in three
- * parts of a reading order is one tokenization, not three, and a file scrolled
+ * parts of a lens is one tokenization, not three, and a file scrolled
  * back to is already done.
  */
 export function useSyntaxHighlight(diff: FileDiff | null | undefined, filePath: string): HunkTokens[] | null {

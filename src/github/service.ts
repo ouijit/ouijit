@@ -435,26 +435,100 @@ export async function deletePrCommand(projectPath: string, name: string): Promis
   return deletePrCommandRow(projectPath, name);
 }
 
-// ── Lens ────────────────────────────────────────────────────────
+// ── Lenses ────────────────────────────────────────────────────────
 
 /**
- * The command that writes a reading order.
+ * The commands that write a lens, by name.
  *
- * One per project, and deliberately not one of the named pull request commands:
- * those are things you choose to run, this is what the Code pane calls when a
- * reader asks for a story. Reuse lives here — at the prompt, which is the same
- * for every pull request — and never in the grouping, which is specific to one.
+ * A lens is a way of reading one pull request — the parts of the change, named
+ * and ordered. What is reusable is the prompt that finds them, never the
+ * grouping it produces, so this is where reuse lives and a project keeps as
+ * many as it has ways of reading a change: one for a refactor, one for a
+ * feature, one that goes looking for what the tests do not cover.
+ *
+ * Kept in settings rather than a table: it was one command in settings before
+ * it was a list, and a list of two fields does not earn a schema.
  */
-export function lensCommandKey(projectPath: string): string {
+export interface LensSummary {
+  name: string;
+  command: string;
+}
+
+export function lensesKey(projectPath: string): string {
+  return 'github:lenses:' + projectPath;
+}
+
+/** Where the single lens command lived before there could be more than one. */
+function legacyLensCommandKey(projectPath: string): string {
   return 'github:lens-command:' + projectPath;
 }
 
-export async function getLensCommand(projectPath: string): Promise<string> {
-  return (await getGlobalSetting(lensCommandKey(projectPath))) ?? '';
+function parseLenses(raw: string | null | undefined): LensSummary[] | null {
+  if (!raw) return null;
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return null;
+    return parsed
+      .filter(
+        (entry): entry is LensSummary =>
+          typeof entry === 'object' &&
+          entry !== null &&
+          typeof (entry as LensSummary).name === 'string' &&
+          typeof (entry as LensSummary).command === 'string',
+      )
+      .map((entry) => ({ name: entry.name, command: entry.command }));
+  } catch {
+    return null;
+  }
 }
 
-export async function setLensCommand(projectPath: string, command: string): Promise<{ success: boolean }> {
-  await setGlobalSetting(lensCommandKey(projectPath), command.trim());
+export async function listLenses(projectPath: string): Promise<LensSummary[]> {
+  const stored = parseLenses(await getGlobalSetting(lensesKey(projectPath)));
+  if (stored) return stored;
+
+  // Carried over rather than dropped: whoever configured the one command this
+  // replaced should find it here under a name, not find nothing.
+  const legacy = (await getGlobalSetting(legacyLensCommandKey(projectPath)))?.trim();
+  return legacy ? [{ name: 'Lens', command: legacy }] : [];
+}
+
+async function writeLenses(projectPath: string, lenses: LensSummary[]): Promise<void> {
+  await setGlobalSetting(lensesKey(projectPath), JSON.stringify(lenses));
+}
+
+/**
+ * Create or rename a lens.
+ *
+ * Keyed by name, so an edit that changes the name would otherwise leave the old
+ * one behind as a duplicate — the caller passes what it was called and the
+ * rename happens here, in one call, as it does for pull request commands.
+ */
+export async function saveLens(
+  projectPath: string,
+  name: string,
+  command: string,
+  previousName?: string,
+): Promise<LensSummary> {
+  const lens: LensSummary = { name: name.trim(), command: command.trim() };
+  const lenses = await listLenses(projectPath);
+  const without = lenses.filter((l) => l.name !== lens.name && l.name !== previousName);
+  const at = previousName ? lenses.findIndex((l) => l.name === previousName) : -1;
+
+  // A rename keeps its place in the list. Sending it to the bottom would make
+  // renaming feel like deleting and adding, which is what it must not be.
+  if (at >= 0) without.splice(Math.min(at, without.length), 0, lens);
+  else without.push(lens);
+
+  await writeLenses(projectPath, without);
+  return lens;
+}
+
+export async function deleteLens(projectPath: string, name: string): Promise<{ success: boolean }> {
+  const lenses = await listLenses(projectPath);
+  await writeLenses(
+    projectPath,
+    lenses.filter((lens) => lens.name !== name),
+  );
   return { success: true };
 }
 
@@ -466,7 +540,7 @@ export interface LensResult {
 }
 
 /**
- * The reading order stored for a pull request, if it still describes this head.
+ * The lens stored for a pull request, if it still describes this head.
  *
  * A lens points at specific hunks. After a force-push those hunks are gone,
  * so rather than rendering a confident description of code that is no longer

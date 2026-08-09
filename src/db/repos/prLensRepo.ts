@@ -10,7 +10,7 @@ export interface PrLensRow {
 }
 
 /**
- * One reading order per pull request.
+ * One lens per pull request.
  *
  * A pull request has at most one, replaced rather than accumulated: a second
  * lens for the same change is a correction, not an addition. Reads are
