@@ -149,7 +149,6 @@ export function MenuItem({
   disabled,
   title,
   selected,
-  icon,
   onClick,
 }: {
   label: string;
@@ -157,8 +156,6 @@ export function MenuItem({
   disabled?: boolean;
   title?: string;
   selected?: boolean;
-  /** Leading glyph, for menus whose rows are of more than one kind. */
-  icon?: string;
   onClick: () => void;
 }) {
   return (
@@ -170,7 +167,6 @@ export function MenuItem({
       className="w-full text-left px-2.5 py-1.5 rounded-[7px] text-sm flex items-center gap-2 text-text-secondary hover:bg-ink/[0.08] hover:text-text-primary disabled:opacity-40 disabled:hover:bg-transparent transition-colors duration-100"
       onClick={onClick}
     >
-      {icon && <Icon name={icon} className="w-3.5 h-3.5 shrink-0 opacity-60" />}
       <span className="flex-1 truncate">{label}</span>
       {hint && <span className="text-[11px] text-text-tertiary shrink-0">{hint}</span>}
       {selected && <Icon name="check" className="w-3.5 h-3.5 text-accent shrink-0" />}

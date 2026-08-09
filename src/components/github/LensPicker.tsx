@@ -108,9 +108,12 @@ export function LensPicker({
         </button>
       )}
     >
+      {/* No glyphs down the rows: what they are is said by the one on the
+          control above and by the divider between the file list and the
+          lenses, and an aperture beside every line of a menu of lenses is a
+          word repeated until it stops being read. */}
       <MenuItem
         label="All files"
-        icon="tree-structure"
         hint={viewed > 0 ? `${viewed}/${changedFiles} read` : `${changedFiles}`}
         selected={!showingLens}
         onClick={() => {
@@ -124,7 +127,6 @@ export function LensPicker({
       {orphan && applied && (
         <MenuItem
           label={appliedLabel}
-          icon="aperture"
           hint={`${applied.groups} parts`}
           selected={showingLens}
           title="Written for this change"
@@ -141,7 +143,6 @@ export function LensPicker({
           <MenuItem
             key={lens.name}
             label={lens.name}
-            icon="aperture"
             hint={writing === lens.name ? 'Writing…' : isApplied ? `${applied.groups} parts` : undefined}
             selected={isApplied && lensOn}
             // One run at a time — but the lens already written is a view to

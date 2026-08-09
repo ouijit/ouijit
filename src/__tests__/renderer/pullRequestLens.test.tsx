@@ -312,6 +312,55 @@ describe('PullRequestsPanel — lens', () => {
     expect(await screen.findByText('Writing Narrative…')).toBeTruthy();
   });
 
+  /**
+   * A lens is keyed by name, and the grouping it wrote records that name. A
+   * rename that leaves the record behind turns what is already on screen into
+   * something the project no longer has — listed a second time, under the name
+   * it used to have.
+   */
+  test('renaming a lens carries the reading it has already done', async () => {
+    vi.mocked(window.api.github.inbox).mockResolvedValue(
+      inbox({ needsReview: [pr({ number: 5, title: 'Please look' })] }),
+    );
+    vi.mocked(window.api.github.pullRequest).mockResolvedValue(detail({ changedFiles: 1 }));
+    vi.mocked(window.api.github.pullRequestFiles).mockResolvedValue({
+      files: [{ path: 'src/api.ts', status: 'M', additions: 1, deletions: 1 }],
+      fromGit: false,
+    });
+    vi.mocked(window.api.github.lens).mockResolvedValue({
+      name: 'Narrative',
+      groups: [{ title: 'Transport', slices: [{ path: 'src/api.ts' }] }],
+    });
+    vi.mocked(window.api.github.listLenses).mockResolvedValue([{ name: 'Narrative', instruction: 'group by story' }]);
+    vi.mocked(window.api.github.saveLens).mockImplementation(async (_project, name, instruction) => {
+      vi.mocked(window.api.github.listLenses).mockResolvedValue([{ name, instruction }]);
+      return { name, instruction };
+    });
+
+    render(<PullRequestsPanel projectPath={PROJECT} />);
+    fireEvent.click(await screen.findByText('Please look'));
+    fireEvent.click(await screen.findByText('Code'));
+    await openPicker();
+    pick('Manage lenses…');
+
+    fireEvent.click(await screen.findByLabelText('Edit Narrative'));
+    fireEvent.change(await screen.findByDisplayValue('Narrative'), { target: { value: 'Narrative v2' } });
+    fireEvent.click(screen.getByText('Save'));
+
+    await waitFor(() =>
+      expect(window.api.github.saveLens).toHaveBeenCalledWith(PROJECT, 'Narrative v2', 'group by story', 'Narrative'),
+    );
+    // What is on screen is still what it was, under the name just typed.
+    expect(await screen.findByTitle('Reading this change through “Narrative v2”')).toBeTruthy();
+
+    fireEvent.click(screen.getByText('Done'));
+    await waitFor(() => expect(screen.queryByText('Add a lens')).toBeNull());
+
+    await openPicker();
+    const rows = screen.getAllByRole('menuitem').map((row) => row.textContent);
+    expect(rows.filter((row) => row?.startsWith('Narrative'))).toEqual(['Narrative v21 parts']);
+  });
+
   test('a lens can be edited without running it', async () => {
     vi.mocked(window.api.github.inbox).mockResolvedValue(
       inbox({ needsReview: [pr({ number: 5, title: 'Please look' })] }),

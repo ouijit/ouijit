@@ -26,6 +26,7 @@ import {
   deletePrCommand as deletePrCommandRow,
   getPrLens,
   savePrLens,
+  renamePrLens,
   deletePrLens,
   getGlobalSetting,
   setGlobalSetting,
@@ -515,6 +516,11 @@ export async function saveLens(
   else without.push(lens);
 
   await writeLenses(projectPath, without);
+
+  // Anything already read through it is still being read through it, whatever
+  // it is now called.
+  if (previousName && previousName !== lens.name) await renamePrLens(projectPath, previousName, lens.name);
+
   return lens;
 }
 

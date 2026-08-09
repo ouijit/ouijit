@@ -142,6 +142,7 @@ interface GithubStoreActions {
   setLensOn: (on: boolean) => void;
   setLensRun: (run: { prNumber: number; name: string } | null) => void;
   setGroupCollapsed: (title: string, collapsed: boolean) => void;
+  renameLensName: (from: string, to: string) => void;
   loadViewed: (projectPath: string, prNumber: number, headSha: string) => Promise<void>;
   setFileViewed: (projectPath: string, prNumber: number, headSha: string, path: string, viewed: boolean) => void;
   clearLens: (projectPath: string, prNumber: number) => Promise<void>;
@@ -516,6 +517,16 @@ export const useGithubStore = create<GithubStore>()((set, get) => ({
   setLensOn: (on) => set({ lensOn: on }),
 
   setLensRun: (run) => set({ lensRun: run }),
+
+  /**
+   * A lens renamed while its work is on screen.
+   *
+   * Main renames it in the stored grouping too, so this only keeps the open
+   * pull request from having to be reloaded to agree with what was just typed.
+   */
+  renameLensName: (from, to) => {
+    if (get().lensName === from) set({ lensName: to });
+  },
 
   setGroupCollapsed: (title, collapsed) => {
     const current = get().collapsedGroups;

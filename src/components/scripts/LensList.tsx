@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useProjectStore } from '../../stores/projectStore';
+import { useGithubStore } from '../../stores/githubStore';
 import type { LensSummary } from '../../github/service';
 import { Icon } from '../terminal/Icon';
 import { useAutoResize } from '../../hooks/useAutoResize';
@@ -47,6 +48,11 @@ export function LensList({ projectPath, onRun, running }: LensListProps) {
       } catch (error) {
         useProjectStore.getState().addToast(error instanceof Error ? error.message : String(error), 'error');
         return;
+      }
+      // A pull request being read through this one should say what it is called
+      // now, rather than waiting to be reopened to find out.
+      if (previousName && previousName !== lens.name) {
+        useGithubStore.getState().renameLensName(previousName, lens.name);
       }
       await reload();
       setExpandedName(null);

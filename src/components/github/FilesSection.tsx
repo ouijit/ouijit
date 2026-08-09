@@ -210,7 +210,6 @@ function LensGroup({
           onClick={() => onCollapsedChange(!collapsed)}
         >
           <Icon name={collapsed ? 'caret-right' : 'caret-down'} className="shrink-0 !w-3 !h-3 text-ink/40" />
-          <Icon name="aperture" className={`shrink-0 w-3.5 h-3.5 ${collapsed ? 'text-accent/40' : 'text-accent/70'}`} />
           <span className={`shrink-0 text-[12px] font-medium ${collapsed ? 'text-ink/45' : 'text-text-primary'}`}>
             {group.title}
           </span>

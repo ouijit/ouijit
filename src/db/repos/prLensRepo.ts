@@ -42,6 +42,20 @@ export class PrLensRepo {
       .run(projectPath, prNumber, headSha, groups, lensName, new Date().toISOString());
   }
 
+  /**
+   * Follow a lens that has been renamed.
+   *
+   * The stored grouping records which lens wrote it, and that record is a name.
+   * Left behind, a renamed lens turns what is already on screen into something
+   * the project no longer has — listed a second time, under the name it used
+   * to have.
+   */
+  rename(projectPath: string, from: string, to: string): void {
+    this.db
+      .prepare('UPDATE github_pr_lenses SET lens_name = ? WHERE project_path = ? AND lens_name = ?')
+      .run(to, projectPath, from);
+  }
+
   delete(projectPath: string, prNumber: number): void {
     this.db.prepare('DELETE FROM github_pr_lenses WHERE project_path = ? AND pr_number = ?').run(projectPath, prNumber);
   }

@@ -437,6 +437,11 @@ export async function savePrLens(
   pn.save(projectPath, prNumber, headSha, groups, lensName);
 }
 
+export async function renamePrLens(projectPath: string, from: string, to: string): Promise<void> {
+  const { prLensRepo: pn } = repos();
+  pn.rename(projectPath, from, to);
+}
+
 export async function deletePrLens(projectPath: string, prNumber: number): Promise<{ success: boolean }> {
   const { prLensRepo: pn } = repos();
   pn.delete(projectPath, prNumber);

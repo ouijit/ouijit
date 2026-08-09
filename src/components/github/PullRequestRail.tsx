@@ -150,7 +150,6 @@ export function PullRequestRail({
                   onClick={() => useGithubStore.getState().setGroupCollapsed(group.title, !folded)}
                 >
                   <Icon name={folded ? 'caret-right' : 'caret-down'} className="shrink-0 !w-3 !h-3 opacity-50" />
-                  <Icon name="aperture" className="shrink-0 w-3 h-3 opacity-70" />
                   <span className="min-w-0 truncate">{group.title}</span>
                 </button>
                 {/* The same tree the flat list uses. Which directories a part of
