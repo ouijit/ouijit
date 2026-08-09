@@ -31,7 +31,14 @@ export function estimateHunkHeight(hunk: DiffHunk): number {
  * assumed — a placeholder that is short is worse than one that is tall, because
  * short means every file below it shifts upward as the real content lands.
  */
-export function estimateFileHeight(diff: FileDiff | null | undefined, changedLines: number, hunkCount = 1): number {
+export function estimateFileHeight(
+  diff: FileDiff | null | undefined,
+  changedLines: number,
+  hunkCount = 1,
+  collapsed = false,
+): number {
+  // Folded, there is nothing below the header to hold room for.
+  if (collapsed) return FILE_HEADER_HEIGHT;
   if (diff && !diff.binary && diff.hunks.length > 0) {
     let height = FILE_HEADER_HEIGHT;
     for (const hunk of diff.hunks) height += HUNK_HEADER_HEIGHT + estimateHunkHeight(hunk);

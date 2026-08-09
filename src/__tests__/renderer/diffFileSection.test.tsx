@@ -106,6 +106,55 @@ describe('DiffFileSection', () => {
     expect(onAddComment).toHaveBeenCalledWith('src/app.ts', { line: 2, side: 'LEFT' });
   });
 
+  /**
+   * Reviewing a large pull request means getting what you have finished with
+   * out of the way. Folded, a file is its header — so scrolling past the work
+   * already done costs one row rather than its whole diff.
+   */
+  test('folding a file leaves its header and nothing else', () => {
+    const onCollapsedChange = vi.fn();
+    const { container, rerender } = render(
+      <DiffFileSection
+        path="src/app.ts"
+        status="M"
+        additions={1}
+        deletions={1}
+        diff={diff}
+        collapsed={false}
+        onCollapsedChange={onCollapsedChange}
+        collapseLabel="Viewed"
+      />,
+    );
+
+    expect(rows(container)).toHaveLength(3);
+    fireEvent.click(screen.getByLabelText('Viewed'));
+    expect(onCollapsedChange).toHaveBeenCalledWith(true);
+
+    rerender(
+      <DiffFileSection
+        path="src/app.ts"
+        status="M"
+        additions={1}
+        deletions={1}
+        diff={diff}
+        collapsed
+        onCollapsedChange={onCollapsedChange}
+        collapseLabel="Viewed"
+      />,
+    );
+
+    expect(rows(container)).toHaveLength(0);
+    // The header stays: it is the way back, and the only thing naming the file.
+    expect(screen.getByTitle('src/app.ts')).toBeTruthy();
+    expect(screen.getByLabelText('Viewed').getAttribute('aria-pressed')).toBe('true');
+  });
+
+  test('no fold control without a handler for it', () => {
+    render(<DiffFileSection path="src/app.ts" status="M" additions={1} deletions={1} diff={diff} />);
+    expect(screen.queryByLabelText('Viewed')).toBeNull();
+    expect(screen.queryByLabelText('Collapse')).toBeNull();
+  });
+
   test('a view with no comment handler offers nothing on hover', () => {
     // The worktree diff panel renders the same primitive and has no review to
     // add to; it should not grow a button that leads nowhere.

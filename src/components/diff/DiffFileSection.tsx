@@ -6,6 +6,7 @@ import { useSyntaxHighlight } from './useSyntaxHighlight';
 import { DiffLineView, anchorForLine, type DiffLineAnchor } from './DiffLineView';
 import { estimateHunkHeight } from './diffMetrics';
 import { badgeColorClass, statusLabel, type DiffFileStatus } from './diffStatus';
+import { Icon } from '../terminal/Icon';
 
 /**
  * One file's diff, header and all.
@@ -37,6 +38,12 @@ export interface DiffFileSectionProps {
   loadingLabel?: string;
   emptyLabel?: string;
   failedLabel?: string;
+  /** Folded to its header alone. */
+  collapsed?: boolean;
+  /** Enables the fold control in the header. */
+  onCollapsedChange?: (collapsed: boolean) => void;
+  /** What the control means here — "Viewed" in a review, "Collapse" outside one. */
+  collapseLabel?: string;
 }
 
 export const DiffFileSection = memo(function DiffFileSection({
@@ -52,8 +59,14 @@ export const DiffFileSection = memo(function DiffFileSection({
   loadingLabel = 'Loading...',
   emptyLabel = 'No diff available',
   failedLabel = 'Could not read this file',
+  collapsed,
+  onCollapsedChange,
+  collapseLabel = 'Collapse',
 }: DiffFileSectionProps) {
-  const tokens = useSyntaxHighlight(diff, path);
+  // Nothing below the header exists while it is folded, so a file already dealt
+  // with costs one row of the scroll rather than its whole diff — which is the
+  // point of folding it.
+  const tokens = useSyntaxHighlight(collapsed ? undefined : diff, path);
 
   // One closure for the file rather than one per line. A new function per line
   // per render is what stops a memoized line from ever bailing out.
@@ -71,7 +84,23 @@ export const DiffFileSection = memo(function DiffFileSection({
         className="pane-ledge sticky z-10 flex items-center gap-2 px-4 h-9 bg-terminal-surface"
         style={{ top: 'var(--diff-sticky-offset, 0px)' }}
       >
-        <span className="flex-1 min-w-0 truncate font-mono text-[13px]" title={path}>
+        {onCollapsedChange && (
+          <button
+            type="button"
+            title={collapsed ? `${collapseLabel} — click to unfold` : collapseLabel}
+            aria-label={collapseLabel}
+            aria-pressed={Boolean(collapsed)}
+            className={`shrink-0 w-4 h-4 rounded border flex items-center justify-center transition-colors duration-150 [&>svg]:w-3 [&>svg]:h-3 ${
+              collapsed
+                ? 'bg-accent border-accent text-accent-ink'
+                : 'border-ink/25 text-transparent hover:border-ink/50'
+            }`}
+            onClick={() => onCollapsedChange(!collapsed)}
+          >
+            <Icon name="check-circle" />
+          </button>
+        )}
+        <span className={`flex-1 min-w-0 truncate font-mono text-[13px] ${collapsed ? 'opacity-45' : ''}`} title={path}>
           <span className="text-ink/35">{dirname(path)}</span>
           <span className="text-ink/90">{basename(path)}</span>
         </span>
@@ -88,7 +117,7 @@ export const DiffFileSection = memo(function DiffFileSection({
         )}
       </div>
       <div>
-        {diff === undefined ? (
+        {collapsed ? null : diff === undefined ? (
           <div className="flex-1 flex flex-col items-center justify-center text-text-tertiary gap-2">
             {loadingLabel}
           </div>

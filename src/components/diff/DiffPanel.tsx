@@ -33,6 +33,9 @@ export function DiffPanel({ ptyId, projectPath, mode, onClose }: DiffPanelProps)
   const [diffs, setDiffs] = useState<Map<string, FileDiff | null>>(new Map());
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(DEFAULT_SIDEBAR_WIDTH);
+  // Local, and gone when the panel closes: there is no review here to be part
+  // way through, only a long diff to get out of your own way.
+  const [folded, setFolded] = useState<Set<string>>(new Set());
   const contentRef = useRef<HTMLDivElement>(null);
 
   const instance = terminalInstances.get(ptyId);
@@ -218,7 +221,12 @@ export function DiffPanel({ ptyId, projectPath, mode, onClose }: DiffPanelProps)
               <DeferredMount
                 key={file.path}
                 dataPath={file.path}
-                estimatedHeight={estimateFileHeight(diffs.get(file.path), file.additions + file.deletions)}
+                estimatedHeight={estimateFileHeight(
+                  diffs.get(file.path),
+                  file.additions + file.deletions,
+                  1,
+                  folded.has(file.path),
+                )}
               >
                 <DiffFileSection
                   path={file.path}
@@ -226,6 +234,15 @@ export function DiffPanel({ ptyId, projectPath, mode, onClose }: DiffPanelProps)
                   additions={file.additions}
                   deletions={file.deletions}
                   diff={diffs.get(file.path)}
+                  collapsed={folded.has(file.path)}
+                  onCollapsedChange={(next) =>
+                    setFolded((prev) => {
+                      const copy = new Set(prev);
+                      if (next) copy.add(file.path);
+                      else copy.delete(file.path);
+                      return copy;
+                    })
+                  }
                 />
               </DeferredMount>
             ))}

@@ -345,6 +345,10 @@ contextBridge.exposeInMainWorld('api', {
     saveLens: (projectPath: string, name: string, command: string, previousName?: string) =>
       typedInvoke('github:save-lens', projectPath, name, command, previousName),
     deleteLens: (projectPath: string, name: string) => typedInvoke('github:delete-lens', projectPath, name),
+    viewedFiles: (projectPath: string, prNumber: number, headSha: string) =>
+      typedInvoke('github:viewed-files', projectPath, prNumber, headSha),
+    setFileViewed: (projectPath: string, prNumber: number, headSha: string, path: string, viewed: boolean) =>
+      typedInvoke('github:set-file-viewed', projectPath, prNumber, headSha, path, viewed),
     issues: (projectPath: string) => typedInvoke('github:issues', projectPath),
     issue: (projectPath: string, number: number) => typedInvoke('github:issue', projectPath, number),
 

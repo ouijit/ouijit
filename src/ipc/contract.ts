@@ -282,6 +282,11 @@ export interface IpcInvokeContract {
     return: LensSummary;
   };
   'github:delete-lens': { args: [projectPath: string, name: string]; return: { success: boolean } };
+  'github:viewed-files': { args: [projectPath: string, prNumber: number, headSha: string]; return: string[] };
+  'github:set-file-viewed': {
+    args: [projectPath: string, prNumber: number, headSha: string, path: string, viewed: boolean];
+    return: string[];
+  };
   'github:clear-lens': { args: [projectPath: string, prNumber: number]; return: { success: boolean } };
   'github:issues': { args: [projectPath: string]; return: GithubIssue[] };
   'github:issue': { args: [projectPath: string, number: number]; return: IssueDetail };

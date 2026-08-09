@@ -78,6 +78,15 @@ interface GithubStoreState {
   lensGroups: LensGroup[] | null;
   lensOn: boolean;
 
+  /**
+   * Files the reviewer has finished with, for the head on screen.
+   *
+   * Held here rather than in the document so the rail can dim what is done and
+   * the pane can collapse it from one answer — and so it survives switching to
+   * the summary and back, which is not a decision to re-read anything.
+   */
+  viewedPaths: string[];
+
   drafts: ReviewDraft[];
   /** Anchor the user is currently composing a new comment on. */
   composingAt: { path: string; line: number; side: 'LEFT' | 'RIGHT' } | null;
@@ -104,6 +113,8 @@ interface GithubStoreActions {
   loadPrCommands: (projectPath: string) => Promise<void>;
   loadLens: (projectPath: string, prNumber: number, headSha: string) => Promise<void>;
   setLensOn: (on: boolean) => void;
+  loadViewed: (projectPath: string, prNumber: number, headSha: string) => Promise<void>;
+  setFileViewed: (projectPath: string, prNumber: number, headSha: string, path: string, viewed: boolean) => void;
   clearLens: (projectPath: string, prNumber: number) => Promise<void>;
   setComposingAt: (anchor: GithubStoreState['composingAt']) => void;
   setSubmitting: (submitting: boolean) => void;
@@ -158,6 +169,7 @@ const INITIAL: Omit<GithubStoreState, 'sidebarWidth' | 'sidebarCollapsed' | 'rai
   prCommands: [],
   lensGroups: null,
   lensOn: false,
+  viewedPaths: [],
   drafts: [],
   composingAt: null,
   submitting: false,
@@ -169,8 +181,16 @@ const INITIAL: Omit<GithubStoreState, 'sidebarWidth' | 'sidebarCollapsed' | 'rai
  * fresher data. Switching projects or PRs while a `gh` call is running is the
  * normal case here, not an edge case — `gh` forks a process per call.
  */
-/** Per-PR lens state, cleared wherever the pull request under it changes. */
-const CLEAR_LENS: Pick<GithubStoreState, 'lensGroups' | 'lensOn'> = { lensGroups: null, lensOn: false };
+/**
+ * What belongs to one pull request at one head, cleared wherever either
+ * changes. Both are answers about specific hunks: a lens points at them, and a
+ * file marked read is a claim to have read them.
+ */
+const CLEAR_FOR_HEAD: Pick<GithubStoreState, 'lensGroups' | 'lensOn' | 'viewedPaths'> = {
+  lensGroups: null,
+  lensOn: false,
+  viewedPaths: [],
+};
 
 let inboxVersion = 0;
 let detailVersion = 0;
@@ -272,7 +292,7 @@ export const useGithubStore = create<GithubStore>()((set, get) => ({
       filesFromGit: false,
       drafts: [],
       composingAt: null,
-      ...CLEAR_LENS,
+      ...CLEAR_FOR_HEAD,
     });
     await get().reloadDetail(projectPath);
   },
@@ -299,7 +319,7 @@ export const useGithubStore = create<GithubStore>()((set, get) => ({
       filesLoading: false,
       drafts: [],
       composingAt: null,
-      ...CLEAR_LENS,
+      ...CLEAR_FOR_HEAD,
     });
     await get().reloadIssue(projectPath);
   },
@@ -310,7 +330,7 @@ export const useGithubStore = create<GithubStore>()((set, get) => ({
     detailVersion++;
     issueVersion++;
     set({
-      ...CLEAR_LENS,
+      ...CLEAR_FOR_HEAD,
       view: get().listView,
       activeNumber: null,
       detail: null,
@@ -351,12 +371,13 @@ export const useGithubStore = create<GithubStore>()((set, get) => ({
       // describe a diff that no longer exists, so they go rather than quietly
       // becoming wrong.
       const staleLens = get().detail?.headSha !== detail.headSha;
-      set({ detail, detailLoading: false, ...(staleLens ? CLEAR_LENS : {}) });
+      set({ detail, detailLoading: false, ...(staleLens ? CLEAR_FOR_HEAD : {}) });
 
       void get().loadDrafts(projectPath, number);
       // Filtered by head on the way out, so a lens describing hunks that no
       // longer exist simply does not come back.
       void get().loadLens(projectPath, number, detail.headSha);
+      void get().loadViewed(projectPath, number, detail.headSha);
 
       // Files come second: the document renders the description first, and the
       // file list needs the base/head SHAs the detail call just returned.
@@ -450,6 +471,24 @@ export const useGithubStore = create<GithubStore>()((set, get) => ({
   setDiffs: (diffs) => set({ diffs }),
 
   setLensOn: (on) => set({ lensOn: on }),
+
+  loadViewed: async (projectPath, prNumber, headSha) => {
+    const paths = await window.api.github.viewedFiles(projectPath, prNumber, headSha);
+    // The pane may have moved on while this was in flight; landing then would
+    // mark files done on a pull request nobody asked about.
+    if (get().projectPath !== projectPath || get().activeNumber !== prNumber) return;
+    set({ viewedPaths: paths });
+  },
+
+  setFileViewed: (projectPath, prNumber, headSha, path, viewed) => {
+    // Applied here and written behind: a checkbox that waits for a round trip
+    // to tick is a checkbox you press twice.
+    const current = get().viewedPaths;
+    set({ viewedPaths: viewed ? [...new Set([...current, path])] : current.filter((p) => p !== path) });
+    void window.api.github.setFileViewed(projectPath, prNumber, headSha, path, viewed).catch(() => {
+      set({ viewedPaths: current });
+    });
+  },
 
   clearLens: async (projectPath, prNumber) => {
     await window.api.github.clearLens(projectPath, prNumber);

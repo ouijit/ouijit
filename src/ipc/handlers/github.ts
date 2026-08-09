@@ -1,3 +1,4 @@
+import { getViewedFiles, setFileViewed } from '../../github/viewedFiles';
 import { typedHandle } from '../helpers';
 import {
   getAvailability,
@@ -92,6 +93,12 @@ export function registerGithubHandlers(): void {
     saveLens(projectPath, name, command, previousName),
   );
   typedHandle('github:delete-lens', (projectPath, name) => deleteLens(projectPath, name));
+  typedHandle('github:viewed-files', (projectPath, prNumber, headSha) =>
+    getViewedFiles(projectPath, prNumber, headSha),
+  );
+  typedHandle('github:set-file-viewed', (projectPath, prNumber, headSha, path, viewed) =>
+    setFileViewed(projectPath, prNumber, headSha, path, viewed),
+  );
   typedHandle('github:clear-lens', (projectPath, prNumber) => clearLens(projectPath, prNumber));
 
   typedHandle('github:merge-pr', (projectPath, prNumber, method, deleteBranch) =>

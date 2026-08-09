@@ -3,6 +3,7 @@ import type { ChangedFile } from '../../types';
 import type { PullRequestDetail, PullRequestFile } from '../../github/types';
 import type { ResolvedGroup } from '../../github/lens';
 import { DiffFileTree } from '../diff/DiffFileTree';
+import { useGithubStore } from '../../stores/githubStore';
 import { Icon } from '../terminal/Icon';
 
 interface PullRequestRailProps {
@@ -47,6 +48,8 @@ export function PullRequestRail({
   width,
 }: PullRequestRailProps) {
   const changedFiles: ChangedFile[] = useMemo(() => files.map(toChangedFile), [files]);
+  const viewedPaths = useGithubStore((s) => s.viewedPaths);
+  const viewed = useMemo(() => new Set(viewedPaths), [viewedPaths]);
 
   const unresolvedByPath = useMemo(() => {
     const counts = new Map<string, number>();
@@ -59,11 +62,19 @@ export function PullRequestRail({
 
   const trailing = (path: string) => {
     const count = unresolvedByPath.get(path);
-    if (!count) return null;
+    // A file already dealt with says so here too, so how far through a review
+    // you are is answerable without scrolling the document to find out.
+    const done = viewed.has(path) ? (
+      <Icon key="viewed" name="check-circle" className="shrink-0 w-3 h-3 text-accent/70" />
+    ) : null;
+    if (!count) return done;
     return (
-      <span className="shrink-0 font-mono text-[10px] text-accent" title="Unresolved threads">
-        {count}
-      </span>
+      <>
+        <span className="shrink-0 font-mono text-[10px] text-accent" title="Unresolved threads">
+          {count}
+        </span>
+        {done}
+      </>
     );
   };
 
@@ -79,7 +90,8 @@ export function PullRequestRail({
         <RailEntry
           tall
           label="All files"
-          note={`${detail.changedFiles}`}
+          note={viewed.size > 0 ? `${viewed.size}/${detail.changedFiles}` : `${detail.changedFiles}`}
+          title={viewed.size > 0 ? `${viewed.size} of ${detail.changedFiles} marked viewed` : undefined}
           active={!lensOn && activePath === null}
           onClick={() => {
             onSelect(null);

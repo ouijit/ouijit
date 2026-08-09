@@ -69,6 +69,8 @@ interface FileSectionProps {
   headSha: string;
   onAddComment: (path: string, anchor: DiffLineAnchor) => void;
   renderBelowLine: (path: string, anchor: DiffLineAnchor) => ReactNode;
+  viewed: boolean;
+  onViewedChange: (path: string, viewed: boolean) => void;
 }
 
 /**
@@ -90,6 +92,8 @@ const FileSection = memo(function FileSection({
   headSha,
   onAddComment,
   renderBelowLine,
+  viewed,
+  onViewedChange,
 }: FileSectionProps) {
   const belowLine = useCallback(
     (anchor: DiffLineAnchor) => renderBelowLine(file.path, anchor),
@@ -123,7 +127,7 @@ const FileSection = memo(function FileSection({
   );
 
   return (
-    <DeferredMount estimatedHeight={estimateFileHeight(diff, file.additions + file.deletions)}>
+    <DeferredMount estimatedHeight={estimateFileHeight(diff, file.additions + file.deletions, 1, viewed)}>
       <DiffFileSection
         path={file.path}
         status={file.status}
@@ -134,6 +138,9 @@ const FileSection = memo(function FileSection({
         renderBelowLine={belowLine}
         binaryView={binaryView}
         headerRight={headerRight}
+        collapsed={viewed}
+        onCollapsedChange={(next) => onViewedChange(file.path, next)}
+        collapseLabel="Viewed"
       />
     </DeferredMount>
   );
@@ -213,6 +220,7 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
   const composingAt = useGithubStore((s) => s.composingAt);
 
   const diffs = useGithubStore((s) => s.diffs);
+  const viewedPaths = useGithubStore((s) => s.viewedPaths);
   const setDiffs = useGithubStore((s) => s.setDiffs);
   const [editingDraftId, setEditingDraftId] = useState<string | null>(null);
 
@@ -465,6 +473,16 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
     return result;
   }, []);
 
+  // A Set so a hundred file sections do not each scan the list.
+  const viewed = useMemo(() => new Set(viewedPaths), [viewedPaths]);
+
+  const setViewed = useCallback(
+    (path: string, next: boolean) => {
+      useGithubStore.getState().setFileViewed(projectPath, detail.number, detail.headSha, path, next);
+    },
+    [projectPath, detail.number, detail.headSha],
+  );
+
   const renderFile = (file: PullRequestFile, key?: string, hunks?: number[]) => (
     <FileSection
       key={key ?? file.path}
@@ -476,6 +494,8 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
       headSha={detail.headSha}
       onAddComment={startComment}
       renderBelowLine={renderBelowLine}
+      viewed={viewed.has(file.path)}
+      onViewedChange={setViewed}
     />
   );
 

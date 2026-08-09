@@ -727,6 +727,14 @@ export interface GithubAPI {
   listLenses(projectPath: string): Promise<LensSummary[]>;
   saveLens(projectPath: string, name: string, command: string, previousName?: string): Promise<LensSummary>;
   deleteLens(projectPath: string, name: string): Promise<{ success: boolean }>;
+  viewedFiles(projectPath: string, prNumber: number, headSha: string): Promise<string[]>;
+  setFileViewed(
+    projectPath: string,
+    prNumber: number,
+    headSha: string,
+    path: string,
+    viewed: boolean,
+  ): Promise<string[]>;
 
   onDraftsChanged(callback: (payload: GithubDraftsChangedPayload) => void): () => void;
 }
