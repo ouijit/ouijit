@@ -14,6 +14,7 @@ import { up as migration012 } from './migrations/012-per-runnable-restart';
 import { up as migration013 } from './migrations/013-drop-task-sandboxed';
 import { up as migration014 } from './migrations/014-github-integration';
 import { up as migration015 } from './migrations/015-github-agent-review';
+import { up as migration016 } from './migrations/016-lens-name';
 
 const migrations = [
   { version: 1, up: migration001 },
@@ -31,6 +32,7 @@ const migrations = [
   { version: 13, up: migration013 },
   { version: 14, up: migration014 },
   { version: 15, up: migration015 },
+  { version: 16, up: migration016 },
 ];
 
 let db: Database.Database | null = null;

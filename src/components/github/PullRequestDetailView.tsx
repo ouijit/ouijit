@@ -60,6 +60,7 @@ export function PullRequestDetailView({
   const files = useGithubStore((s) => s.files);
   const diffs = useGithubStore((s) => s.diffs);
   const lensGroups = useGithubStore((s) => s.lensGroups);
+  const lensName = useGithubStore((s) => s.lensName);
   const lensOn = useGithubStore((s) => s.lensOn);
   const railWidth = useGithubStore((s) => s.railWidth);
   const badge = stateBadge(detail);
@@ -95,6 +96,16 @@ export function PullRequestDetailView({
   // Only this pull request's run is this pull request's business.
   const lensRun = useGithubStore((s) => s.lensRun);
   const lensWriting = lensRun?.prNumber === detail.number ? lensRun.name : null;
+
+  // The project's lenses, for the picker to offer alongside the file list.
+  // Read here rather than in the rail so the dialog that edits them can hand
+  // back an up-to-date list on the way out.
+  const [lenses, setLenses] = useState<LensSummary[]>([]);
+  const loadLenses = useCallback(() => {
+    void window.api.github.listLenses(projectPath).then(setLenses);
+  }, [projectPath]);
+
+  useEffect(() => loadLenses(), [loadLenses]);
 
   /**
    * Read this pull request through one of the project's lenses.
@@ -200,8 +211,11 @@ export function PullRequestDetailView({
               activePath={file}
               onSelect={setFile}
               groups={resolved}
+              lensName={lensName}
               lensOn={lensOn}
               onLensOn={(on) => useGithubStore.getState().setLensOn(on)}
+              lenses={lenses}
+              onRunLens={writeLens}
               onOpenLenses={() => setLensesOpen(true)}
               lensWriting={lensWriting}
             />
@@ -244,7 +258,12 @@ export function PullRequestDetailView({
           projectPath={projectPath}
           onRun={writeLens}
           running={lensWriting}
-          onClose={() => setLensesOpen(false)}
+          onClose={() => {
+            setLensesOpen(false);
+            // Whatever was added, renamed or deleted in there is what the
+            // picker should offer next time it is opened.
+            loadLenses();
+          }}
         />
       )}
     </div>

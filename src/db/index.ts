@@ -431,9 +431,10 @@ export async function savePrLens(
   prNumber: number,
   headSha: string,
   groups: string,
+  lensName: string | null,
 ): Promise<void> {
   const { prLensRepo: pn } = repos();
-  pn.save(projectPath, prNumber, headSha, groups);
+  pn.save(projectPath, prNumber, headSha, groups, lensName);
 }
 
 export async function deletePrLens(projectPath: string, prNumber: number): Promise<{ success: boolean }> {

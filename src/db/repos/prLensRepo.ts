@@ -6,6 +6,8 @@ export interface PrLensRow {
   head_sha: string;
   /** JSON: the groups, as written. Parsed and reconciled on the way out. */
   groups: string;
+  /** The lens that wrote it, or null when an agent posted groups directly. */
+  lens_name: string | null;
   created_at: string;
 }
 
@@ -26,17 +28,18 @@ export class PrLensRepo {
       .get(projectPath, prNumber) as PrLensRow | undefined;
   }
 
-  save(projectPath: string, prNumber: number, headSha: string, groups: string): void {
+  save(projectPath: string, prNumber: number, headSha: string, groups: string, lensName: string | null): void {
     this.db
       .prepare(
-        `INSERT INTO github_pr_lenses (project_path, pr_number, head_sha, groups, created_at)
-         VALUES (?, ?, ?, ?, ?)
+        `INSERT INTO github_pr_lenses (project_path, pr_number, head_sha, groups, lens_name, created_at)
+         VALUES (?, ?, ?, ?, ?, ?)
          ON CONFLICT(project_path, pr_number) DO UPDATE SET
            head_sha = excluded.head_sha,
            groups = excluded.groups,
+           lens_name = excluded.lens_name,
            created_at = excluded.created_at`,
       )
-      .run(projectPath, prNumber, headSha, groups, new Date().toISOString());
+      .run(projectPath, prNumber, headSha, groups, lensName, new Date().toISOString());
   }
 
   delete(projectPath: string, prNumber: number): void {

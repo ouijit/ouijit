@@ -1,10 +1,12 @@
-import { useMemo, type ReactNode } from 'react';
+import { useMemo } from 'react';
 import type { ChangedFile } from '../../types';
 import type { PullRequestDetail, PullRequestFile } from '../../github/types';
 import type { ResolvedGroup } from '../../github/lens';
+import type { LensSummary } from '../../github/service';
 import { DiffFileTree, DiffFileTreeNodes } from '../diff/DiffFileTree';
 import { useGithubStore } from '../../stores/githubStore';
 import { Icon } from '../terminal/Icon';
+import { LensPicker } from './LensPicker';
 
 interface PullRequestRailProps {
   detail: PullRequestDetail;
@@ -14,9 +16,15 @@ interface PullRequestRailProps {
   onSelect: (path: string | null) => void;
   /** The lens as bound to this diff, or null when none has been written. */
   groups: ResolvedGroup[] | null;
+  /** Which lens wrote it, when that is known. */
+  lensName: string | null;
   lensOn: boolean;
   onLensOn: (on: boolean) => void;
-  /** Opens the project's lenses, to write one against this pull request. */
+  /** The lenses the project keeps, for the picker to offer. */
+  lenses: LensSummary[];
+  /** Read this pull request through one — an agent run. */
+  onRunLens: (lens: LensSummary) => void;
+  /** Opens the project's lenses, to add or edit one. */
   onOpenLenses: () => void;
   /** Name of the lens being written, if one is running. */
   lensWriting: string | null;
@@ -41,8 +49,11 @@ export function PullRequestRail({
   activePath,
   onSelect,
   groups,
+  lensName,
   lensOn,
   onLensOn,
+  lenses,
+  onRunLens,
   onOpenLenses,
   lensWriting,
   width,
@@ -51,6 +62,8 @@ export function PullRequestRail({
   const byPath = useMemo(() => new Map(changedFiles.map((file) => [file.path, file])), [changedFiles]);
   const viewedPaths = useGithubStore((s) => s.viewedPaths);
   const viewed = useMemo(() => new Set(viewedPaths), [viewedPaths]);
+  const collapsedGroups = useGithubStore((s) => s.collapsedGroups);
+  const collapsed = useMemo(() => new Set(collapsedGroups), [collapsedGroups]);
 
   const unresolvedByPath = useMemo(() => {
     const counts = new Map<string, number>();
@@ -93,89 +106,68 @@ export function PullRequestRail({
     <div className="shrink-0 flex flex-col overflow-hidden" style={{ width }}>
       {/* A diff arrives in the order the change was stored, not the order it
           reads in. A lens is one answer to that, written for this change and no
-          other; the toggle is here because a lens is a way of looking at the
-          diff, not a replacement for it. */}
+          other — and the flat file list is the answer you get when nothing has
+          been written, so the two are one choice made in one place. */}
       <div className="pane-ledge shrink-0 flex flex-col">
-        <RailEntry
-          tall
-          icon="tree-structure"
-          label="All files"
-          note={viewed.size > 0 ? `${viewed.size}/${detail.changedFiles}` : `${detail.changedFiles}`}
-          title={viewed.size > 0 ? `${viewed.size} of ${detail.changedFiles} marked viewed` : undefined}
-          active={!lensOn && activePath === null}
-          onClick={() => {
+        <LensPicker
+          lenses={lenses}
+          applied={groups ? { name: lensName, groups: groups.length } : null}
+          lensOn={lensOn}
+          changedFiles={detail.changedFiles}
+          viewed={viewed.size}
+          writing={lensWriting}
+          onAllFiles={() => {
             onSelect(null);
             onLensOn(false);
           }}
+          onShowLens={() => {
+            onSelect(null);
+            onLensOn(true);
+          }}
+          onRun={onRunLens}
+          onManage={onOpenLenses}
         />
-        {groups ? (
-          <RailEntry
-            tall
-            icon="aperture"
-            label="Lens"
-            note={`${groups.length}`}
-            active={lensOn && activePath === null}
-            title="Group this diff into the parts of the change"
-            onClick={() => {
-              onSelect(null);
-              onLensOn(true);
-            }}
-            trailing={<LensesButton onClick={onOpenLenses} />}
-          />
-        ) : (
-          // The way to get one sits where one would appear. Putting it behind
-          // the settings panel left a reader looking at the file list with no
-          // idea the pane could do anything else.
-          <RailEntry
-            tall
-            icon="aperture"
-            label={lensWriting ? `Writing ${lensWriting}…` : 'Lenses…'}
-            muted={!lensWriting}
-            active={false}
-            title={
-              lensWriting
-                ? `${lensWriting} is running in a terminal. The lens appears here when it writes one.`
-                : 'Write a lens for this pull request, or add one'
-            }
-            onClick={onOpenLenses}
-            trailing={
-              lensWriting ? (
-                <Icon
-                  name="arrows-clockwise"
-                  className="shrink-0 w-3 h-3 text-accent"
-                  style={{ animation: 'loading-dot-spin 0.8s linear infinite' }}
-                />
-              ) : undefined
-            }
-          />
-        )}
       </div>
 
       {lensOn && groups ? (
         <div className="flex-1 min-h-0 overflow-y-auto py-1">
-          {groups.map((group) => (
-            <div key={group.title} className="flex flex-col">
-              {/* Set as the lens wrote it. Uppercasing a title shouts, and
-                  algorithmic title case would spell GitHub "Github". */}
-              <div
-                className="flex items-center gap-1.5 h-9 px-3 text-[11px] font-medium text-ink/55"
-                title={group.summary}
-              >
-                <Icon name="aperture" className="shrink-0 w-3 h-3 opacity-70" />
-                <span className="min-w-0 truncate">{group.title}</span>
+          {groups.map((group) => {
+            const folded = collapsed.has(group.title);
+            return (
+              <div key={group.title} className="flex flex-col">
+                {/* Set as the lens wrote it. Uppercasing a title shouts, and
+                    algorithmic title case would spell GitHub "Github".
+
+                    Folds with the part it names in the document: one part of
+                    the change is one thing, and having it put away on one side
+                    of the seam and open on the other is two answers to the same
+                    question. */}
+                <button
+                  type="button"
+                  aria-expanded={!folded}
+                  className="flex items-center gap-1.5 h-9 px-3 text-[11px] font-medium text-ink/55 text-left transition-colors duration-150 ease-out hover:bg-ink/5 hover:text-ink/75"
+                  title={group.summary}
+                  onClick={() => useGithubStore.getState().setGroupCollapsed(group.title, !folded)}
+                >
+                  <Icon name={folded ? 'caret-right' : 'caret-down'} className="shrink-0 !w-3 !h-3 opacity-50" />
+                  <Icon name="aperture" className="shrink-0 w-3 h-3 opacity-70" />
+                  <span className="min-w-0 truncate">{group.title}</span>
+                </button>
+                {/* The same tree the flat list uses. Which directories a part of
+                    the change touches is most of what says what kind of change
+                    it is, so a grouping that hides them is a grouping that
+                    answered the easy half of the question. */}
+                {!folded && (
+                  <DiffFileTreeNodes
+                    files={filesInGroup(group, byPath)}
+                    activePath={activePath}
+                    onFileClick={onSelect}
+                    renderFileTrailing={(file) => trailing(file.path, hunkCount(group, file.path))}
+                  />
+                )}
               </div>
-              {/* The same tree the flat list uses. Which directories a part of
-                  the change touches is most of what says what kind of change
-                  it is, so a grouping that hides them is a grouping that
-                  answered the easy half of the question. */}
-              <DiffFileTreeNodes
-                files={filesInGroup(group, byPath)}
-                activePath={activePath}
-                onFileClick={onSelect}
-                renderFileTrailing={(file) => trailing(file.path, hunkCount(group, file.path))}
-              />
-            </div>
-          ))}
+            );
+          })}
         </div>
       ) : (
         <DiffFileTree
@@ -186,64 +178,6 @@ export function PullRequestRail({
         />
       )}
     </div>
-  );
-}
-
-/** Opens the lenses without dropping the one already applied. */
-function LensesButton({ onClick }: { onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      title="Other lenses"
-      aria-label="Other lenses"
-      className="shrink-0 w-5 h-5 rounded text-ink/40 flex items-center justify-center transition-colors duration-150 hover:bg-ink/10 hover:text-ink/80 [&>svg]:w-3 [&>svg]:h-3"
-      onClick={(e) => {
-        e.stopPropagation();
-        onClick();
-      }}
-    >
-      <Icon name="caret-down" />
-    </button>
-  );
-}
-
-function RailEntry({
-  label,
-  note,
-  active,
-  onClick,
-  trailing,
-  title,
-  muted,
-  tall,
-  icon,
-}: {
-  label: string;
-  note?: string;
-  active: boolean;
-  onClick: () => void;
-  trailing?: ReactNode;
-  title?: string;
-  muted?: boolean;
-  /** An action rather than a file: takes the height of a file header. */
-  tall?: boolean;
-  /** Leading glyph, so the actions read down the same column as the files. */
-  icon?: string;
-}) {
-  return (
-    <button
-      type="button"
-      title={title}
-      className={`w-full flex items-center gap-1.5 pl-3 pr-3 text-[13px] text-left transition-colors duration-150 ease-out hover:bg-ink/5 ${
-        tall ? 'h-9 shrink-0' : 'py-1'
-      } ${active ? 'bg-ink/[0.07] text-ink' : muted ? 'text-ink/45' : 'text-ink/70'}`}
-      onClick={onClick}
-    >
-      {icon && <Icon name={icon} className="shrink-0 w-4 h-4 opacity-70" />}
-      <span className="flex-1 min-w-0 truncate">{label}</span>
-      {note && <span className="shrink-0 font-mono text-[11px] text-ink/35">{note}</span>}
-      {trailing}
-    </button>
   );
 }
 

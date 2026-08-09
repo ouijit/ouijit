@@ -76,6 +76,12 @@ interface GithubStoreState {
    * head on screen. Whether it is applied is the reader's choice — `lensOn`.
    */
   lensGroups: LensGroup[] | null;
+  /**
+   * Which of the project's lenses wrote it. Null when one was posted over the
+   * CLI without going through a lens — the picker names that one generically
+   * rather than claiming a lens it cannot vouch for.
+   */
+  lensName: string | null;
   lensOn: boolean;
 
   /**
@@ -86,6 +92,16 @@ interface GithubStoreState {
    * the summary and back, which is not a decision to re-read anything.
    */
   viewedPaths: string[];
+
+  /**
+   * Parts of the lens folded away in the document, by title.
+   *
+   * Beside `viewedPaths` for the same reason: it is a claim about how far
+   * through a reading you are, and going to look at the timeline and coming
+   * back is not a decision to unfold everything again. Not stored on disk,
+   * though — a fold is where you are in a document, not what you think of it.
+   */
+  collapsedGroups: string[];
 
   /**
    * The lens being written, and which pull request it is for.
@@ -125,6 +141,7 @@ interface GithubStoreActions {
   loadLens: (projectPath: string, prNumber: number, headSha: string) => Promise<void>;
   setLensOn: (on: boolean) => void;
   setLensRun: (run: { prNumber: number; name: string } | null) => void;
+  setGroupCollapsed: (title: string, collapsed: boolean) => void;
   loadViewed: (projectPath: string, prNumber: number, headSha: string) => Promise<void>;
   setFileViewed: (projectPath: string, prNumber: number, headSha: string, path: string, viewed: boolean) => void;
   clearLens: (projectPath: string, prNumber: number) => Promise<void>;
@@ -180,8 +197,10 @@ const INITIAL: Omit<GithubStoreState, 'sidebarWidth' | 'sidebarCollapsed' | 'rai
   filesFromGit: false,
   prCommands: [],
   lensGroups: null,
+  lensName: null,
   lensOn: false,
   viewedPaths: [],
+  collapsedGroups: [],
   lensRun: null,
   drafts: [],
   composingAt: null,
@@ -199,11 +218,14 @@ const INITIAL: Omit<GithubStoreState, 'sidebarWidth' | 'sidebarCollapsed' | 'rai
  * changes. Both are answers about specific hunks: a lens points at them, and a
  * file marked read is a claim to have read them.
  */
-const CLEAR_FOR_HEAD: Pick<GithubStoreState, 'lensGroups' | 'lensOn' | 'viewedPaths'> = {
-  lensGroups: null,
-  lensOn: false,
-  viewedPaths: [],
-};
+const CLEAR_FOR_HEAD: Pick<GithubStoreState, 'lensGroups' | 'lensName' | 'lensOn' | 'viewedPaths' | 'collapsedGroups'> =
+  {
+    lensGroups: null,
+    lensName: null,
+    lensOn: false,
+    viewedPaths: [],
+    collapsedGroups: [],
+  };
 
 let inboxVersion = 0;
 let detailVersion = 0;
@@ -475,7 +497,15 @@ export const useGithubStore = create<GithubStore>()((set, get) => ({
     try {
       const result = await window.api.github.lens(projectPath, prNumber, headSha);
       if (get().projectPath !== projectPath || get().activeNumber !== prNumber) return;
-      set({ lensGroups: result.groups ?? null, lensOn: Boolean(result.groups) });
+      // Folds go with the groups they were made against: a lens that has just
+      // been rewritten names different parts, and a title that happens to match
+      // would arrive folded for no reason the reader could name.
+      set({
+        lensGroups: result.groups ?? null,
+        lensName: result.name ?? null,
+        lensOn: Boolean(result.groups),
+        collapsedGroups: [],
+      });
     } catch (error) {
       githubLog.warn('failed to read the lens', { error: message(error) });
     }
@@ -486,6 +516,11 @@ export const useGithubStore = create<GithubStore>()((set, get) => ({
   setLensOn: (on) => set({ lensOn: on }),
 
   setLensRun: (run) => set({ lensRun: run }),
+
+  setGroupCollapsed: (title, collapsed) => {
+    const current = get().collapsedGroups;
+    set({ collapsedGroups: collapsed ? [...new Set([...current, title])] : current.filter((t) => t !== title) });
+  },
 
   loadViewed: async (projectPath, prNumber, headSha) => {
     const paths = await window.api.github.viewedFiles(projectPath, prNumber, headSha);
@@ -507,7 +542,7 @@ export const useGithubStore = create<GithubStore>()((set, get) => ({
 
   clearLens: async (projectPath, prNumber) => {
     await window.api.github.clearLens(projectPath, prNumber);
-    set({ lensGroups: null, lensOn: false });
+    set({ lensGroups: null, lensName: null, lensOn: false });
   },
 
   setSidebarWidth: (width) =>

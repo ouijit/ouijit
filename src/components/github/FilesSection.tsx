@@ -163,7 +163,18 @@ const FileSection = memo(function FileSection({
  * publishes it without a lens, and the fallback of `0px` is what every other
  * diff in the app already does.
  */
-function LensGroup({ group, children }: { group: ResolvedGroup; children: ReactNode }) {
+function LensGroup({
+  group,
+  collapsed,
+  onCollapsedChange,
+  children,
+}: {
+  group: ResolvedGroup;
+  /** Folded to its header alone, the way a file folds to its own. */
+  collapsed: boolean;
+  onCollapsedChange: (collapsed: boolean) => void;
+  children: ReactNode;
+}) {
   const headerRef = useRef<HTMLDivElement>(null);
   const [headerHeight, setHeaderHeight] = useState(0);
 
@@ -185,17 +196,39 @@ function LensGroup({ group, children }: { group: ResolvedGroup; children: ReactN
       {/* One line, at the height of a file header: the two pin one above the
           other, and the rail beside them lists its actions on the same unit,
           so the whole band across the seam is level. A summary is free text —
-          it truncates rather than setting the height of everything else. */}
-      <div ref={headerRef} className="pane-ledge-raised sticky top-0 z-20 flex items-center gap-2 h-9 px-3 bg-surface">
-        <Icon name="aperture" className="shrink-0 w-3.5 h-3.5 text-accent/70" />
-        <span className="shrink-0 text-[12px] font-medium text-text-primary">{group.title}</span>
-        {group.summary && (
-          <span className="min-w-0 truncate text-[11px] text-text-tertiary" title={group.summary}>
-            {group.summary}
+          it truncates rather than setting the height of everything else.
+
+          The whole line folds it. A part of a change is read and finished with
+          the same way a file is, and nothing else in this header competes for
+          the press. */}
+      <div ref={headerRef} className="pane-ledge-raised sticky top-0 z-20 bg-surface">
+        <button
+          type="button"
+          aria-expanded={!collapsed}
+          title={collapsed ? `${group.title} — click to unfold` : `Fold ${group.title} away`}
+          className="w-full flex items-center gap-2 h-9 px-3 text-left transition-colors duration-150 ease-out hover:bg-ink/5"
+          onClick={() => onCollapsedChange(!collapsed)}
+        >
+          <Icon name={collapsed ? 'caret-right' : 'caret-down'} className="shrink-0 !w-3 !h-3 text-ink/40" />
+          <Icon name="aperture" className={`shrink-0 w-3.5 h-3.5 ${collapsed ? 'text-accent/40' : 'text-accent/70'}`} />
+          <span className={`shrink-0 text-[12px] font-medium ${collapsed ? 'text-ink/45' : 'text-text-primary'}`}>
+            {group.title}
           </span>
-        )}
+          {group.summary && (
+            <span className="min-w-0 truncate text-[11px] text-text-tertiary" title={group.summary}>
+              {group.summary}
+            </span>
+          )}
+          {/* Folded, the part has to say what is inside it — otherwise the only
+              way to know what you skipped is to unfold it again. */}
+          {collapsed && (
+            <span className="ml-auto shrink-0 font-mono text-[11px] text-ink/35">
+              {group.slices.length} {group.slices.length === 1 ? 'file' : 'files'}
+            </span>
+          )}
+        </button>
       </div>
-      {children}
+      {collapsed ? null : children}
     </div>
   );
 }
@@ -223,6 +256,7 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
 
   const diffs = useGithubStore((s) => s.diffs);
   const viewedPaths = useGithubStore((s) => s.viewedPaths);
+  const collapsedGroups = useGithubStore((s) => s.collapsedGroups);
   const setDiffs = useGithubStore((s) => s.setDiffs);
   const [editingDraftId, setEditingDraftId] = useState<string | null>(null);
 
@@ -481,6 +515,7 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
 
   // A Set so a hundred file sections do not each scan the list.
   const viewed = useMemo(() => new Set(viewedPaths), [viewedPaths]);
+  const collapsed = useMemo(() => new Set(collapsedGroups), [collapsedGroups]);
 
   const setViewed = useCallback(
     (path: string, next: boolean) => {
@@ -528,7 +563,12 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
 
       {grouped
         ? grouped.map((group) => (
-            <LensGroup key={group.title} group={group}>
+            <LensGroup
+              key={group.title}
+              group={group}
+              collapsed={collapsed.has(group.title)}
+              onCollapsedChange={(next) => useGithubStore.getState().setGroupCollapsed(group.title, next)}
+            >
               {group.slices.map((slice) => {
                 const file = byPath.get(slice.path);
                 return file ? renderFile(file, `${group.title}:${slice.path}`, slice.hunks) : null;

@@ -594,7 +594,7 @@ export async function writeLensWithAgent(
   });
   if (!result.success || !result.body) return { success: false, error: result.error };
 
-  await savePrLens(projectPath, prNumber, detail.headSha, result.body);
+  await savePrLens(projectPath, prNumber, detail.headSha, result.body, lens.name);
   return { success: true };
 }
 
@@ -610,6 +610,8 @@ export async function deleteLens(projectPath: string, name: string): Promise<{ s
 export interface LensResult {
   /** Null when none has been written, or when the one on file is stale. */
   groups: LensGroup[] | null;
+  /** The lens that wrote them; null when an agent posted groups directly. */
+  name?: string | null;
   /** Set when a lens exists but describes an older head. */
   staleFor?: string;
 }
@@ -627,9 +629,10 @@ export async function getLens(projectPath: string, prNumber: number, headSha: st
   if (!row) return { groups: null };
   if (row.head_sha !== headSha) return { groups: null, staleFor: row.head_sha };
   const groups = parseLens(row.groups);
-  return { groups };
+  return { groups, name: row.lens_name ?? null };
 }
 
+/** A lens posted over the CLI, by an agent that read the diff itself. */
 export async function setLens(
   projectPath: string,
   prNumber: number,
@@ -640,7 +643,9 @@ export async function setLens(
   if (!groups) {
     return { success: false, error: 'Expected {"groups":[{"title","slices":[{"path","ranges"}]}]}' };
   }
-  await savePrLens(projectPath, prNumber, headSha, JSON.stringify({ groups }));
+  // No name: nothing here went through one of the project's lenses, and
+  // borrowing a name from whichever ran last would be a lie about what wrote it.
+  await savePrLens(projectPath, prNumber, headSha, JSON.stringify({ groups }), null);
   return { success: true, groups };
 }
 
