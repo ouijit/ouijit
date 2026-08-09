@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { PullRequestDetail, ReviewDraft } from '../../github/types';
 import type { TaskWithWorkspace } from '../../types';
-import { useGithubStore } from '../../stores/githubStore';
+import { useGithubStore, RAIL_DEFAULT_WIDTH, RAIL_MIN_WIDTH, RAIL_MAX_WIDTH } from '../../stores/githubStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { addProjectTerminal } from '../terminal/terminalActions';
 import { prCommandEnv } from '../../github/prCommandEnv';
 import { resolveLens } from '../../github/lens';
+import { ResizeHandle } from '../common/ResizeHandle';
 import { Tab, TabBar } from './Tabs';
 import { DetailChrome } from './DetailChrome';
 import { DiscussionSection } from './DiscussionSection';
@@ -59,6 +60,7 @@ export function PullRequestDetailView({
   const diffs = useGithubStore((s) => s.diffs);
   const lensGroups = useGithubStore((s) => s.lensGroups);
   const lensOn = useGithubStore((s) => s.lensOn);
+  const railWidth = useGithubStore((s) => s.railWidth);
   const badge = stateBadge(detail);
 
   const filesRef = useRef<FilesSectionHandle>(null);
@@ -187,19 +189,32 @@ export function PullRequestDetailView({
       />
 
       <div className="flex flex-1 min-h-0">
+        {/* Only the code pane has a rail, so only it has a seam. Summary and
+            timeline are prose and take the full width. */}
         {pane === 'code' && (
-          <PullRequestRail
-            detail={detail}
-            files={files}
-            activePath={file}
-            onSelect={setFile}
-            groups={resolved}
-            lensOn={lensOn}
-            onLensOn={(on) => useGithubStore.getState().setLensOn(on)}
-            onWriteLens={writeLens}
-            hasLensCommand={Boolean(lensCommand)}
-            lensWriting={lensWriting}
-          />
+          <>
+            <PullRequestRail
+              width={railWidth}
+              detail={detail}
+              files={files}
+              activePath={file}
+              onSelect={setFile}
+              groups={resolved}
+              lensOn={lensOn}
+              onLensOn={(on) => useGithubStore.getState().setLensOn(on)}
+              onWriteLens={writeLens}
+              hasLensCommand={Boolean(lensCommand)}
+              lensWriting={lensWriting}
+            />
+            <ResizeHandle
+              width={railWidth}
+              onWidth={(width) => useGithubStore.getState().setRailWidth(width)}
+              min={RAIL_MIN_WIDTH}
+              max={RAIL_MAX_WIDTH}
+              defaultWidth={RAIL_DEFAULT_WIDTH}
+              label="Resize the changed files"
+            />
+          </>
         )}
         <div ref={paneRef} className="flex-1 min-w-0 overflow-y-auto">
           {pane === 'summary' ? (

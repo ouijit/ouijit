@@ -19,6 +19,8 @@ interface PullRequestRailProps {
   /** False until one is configured, which is what the empty state offers. */
   hasLensCommand: boolean;
   lensWriting: boolean;
+  /** Set by dragging the seam beside this. */
+  width: number;
 }
 
 /**
@@ -43,6 +45,7 @@ export function PullRequestRail({
   onWriteLens,
   hasLensCommand,
   lensWriting,
+  width,
 }: PullRequestRailProps) {
   const changedFiles: ChangedFile[] = useMemo(() => files.map(toChangedFile), [files]);
 
@@ -66,7 +69,9 @@ export function PullRequestRail({
   };
 
   return (
-    <div className="w-[228px] shrink-0 flex flex-col overflow-hidden border-r border-ink/[0.06]">
+    // No right border: the seam beside this is the boundary, and two of them
+    // read as a double rule.
+    <div className="shrink-0 flex flex-col overflow-hidden" style={{ width }}>
       {/* A diff arrives in the order the change was stored, not the order it
           reads in. A lens is one answer to that, written for this change and no
           other; the toggle is here because a reading order is a way of looking

@@ -2,7 +2,13 @@ import { describe, test, expect, beforeEach, vi } from 'vitest';
 import { render, screen, cleanup, fireEvent } from '@testing-library/react';
 
 import { PullRequestSidebar } from '../../components/github/PullRequestSidebar';
-import { useGithubStore, SIDEBAR_MIN_WIDTH, SIDEBAR_MAX_WIDTH } from '../../stores/githubStore';
+import {
+  useGithubStore,
+  SIDEBAR_MIN_WIDTH,
+  SIDEBAR_MAX_WIDTH,
+  RAIL_MIN_WIDTH,
+  RAIL_MAX_WIDTH,
+} from '../../stores/githubStore';
 import type { PullRequestSummary } from '../../github/types';
 
 function pr(number: number, title: string): PullRequestSummary {
@@ -79,5 +85,16 @@ describe('sidebar layout in the store', () => {
 
     useGithubStore.getState().setSidebarWidth(1);
     expect(useGithubStore.getState().sidebarWidth).toBe(SIDEBAR_MIN_WIDTH);
+  });
+
+  test('the changed-file rail is kept the same way', () => {
+    useGithubStore.getState().setRailWidth(300);
+    useGithubStore.getState().setProject('/work/other');
+    expect(useGithubStore.getState().railWidth).toBe(300);
+
+    useGithubStore.getState().setRailWidth(10_000);
+    expect(useGithubStore.getState().railWidth).toBe(RAIL_MAX_WIDTH);
+    useGithubStore.getState().setRailWidth(1);
+    expect(useGithubStore.getState().railWidth).toBe(RAIL_MIN_WIDTH);
   });
 });

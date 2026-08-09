@@ -34,6 +34,8 @@ interface GithubStoreState {
    */
   sidebarWidth: number;
   sidebarCollapsed: boolean;
+  /** Width of the changed-file rail inside the code pane. */
+  railWidth: number;
 
   inbox: InboxResult | null;
   inboxLoading: boolean;
@@ -107,6 +109,7 @@ interface GithubStoreActions {
   setSubmitting: (submitting: boolean) => void;
   setSidebarWidth: (width: number) => void;
   setSidebarCollapsed: (collapsed: boolean) => void;
+  setRailWidth: (width: number) => void;
 
   reset: () => void;
 }
@@ -117,6 +120,10 @@ export const SIDEBAR_DEFAULT_WIDTH = 320;
 export const SIDEBAR_MIN_WIDTH = 240;
 export const SIDEBAR_MAX_WIDTH = 560;
 
+export const RAIL_DEFAULT_WIDTH = 228;
+export const RAIL_MIN_WIDTH = 160;
+export const RAIL_MAX_WIDTH = 480;
+
 /**
  * One project's GitHub session, and so what gets cleared when that changes.
  *
@@ -124,7 +131,7 @@ export const SIDEBAR_MAX_WIDTH = 560;
  * it here — `set({ ...INITIAL })` merges, so anything left out survives a reset
  * and a project switch, which is exactly what a layout preference should do.
  */
-const INITIAL: Omit<GithubStoreState, 'sidebarWidth' | 'sidebarCollapsed'> = {
+const INITIAL: Omit<GithubStoreState, 'sidebarWidth' | 'sidebarCollapsed' | 'railWidth'> = {
   projectPath: null,
   availability: null,
   view: 'inbox',
@@ -178,6 +185,7 @@ export const useGithubStore = create<GithubStore>()((set, get) => ({
   ...INITIAL,
   sidebarWidth: SIDEBAR_DEFAULT_WIDTH,
   sidebarCollapsed: false,
+  railWidth: RAIL_DEFAULT_WIDTH,
 
   setProject: (projectPath) => {
     if (get().projectPath === projectPath) return;
@@ -452,6 +460,8 @@ export const useGithubStore = create<GithubStore>()((set, get) => ({
     set({ sidebarWidth: Math.max(SIDEBAR_MIN_WIDTH, Math.min(SIDEBAR_MAX_WIDTH, Math.round(width))) }),
 
   setSidebarCollapsed: (collapsed) => set({ sidebarCollapsed: collapsed }),
+
+  setRailWidth: (width) => set({ railWidth: Math.max(RAIL_MIN_WIDTH, Math.min(RAIL_MAX_WIDTH, Math.round(width))) }),
 
   reset: () => set({ ...INITIAL }),
 }));
