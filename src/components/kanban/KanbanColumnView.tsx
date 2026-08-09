@@ -39,15 +39,14 @@ export function KanbanColumnView({
 }: KanbanColumnViewProps) {
   return (
     <div
-      className="kanban-column flex flex-col transition-all duration-150 ease-out shrink-0 last:border-r-0"
-      style={{
-        minWidth: 240,
-        flex: '1 0 240px',
-        borderRight: '1px solid color-mix(in srgb, var(--color-ink) 6%, transparent)',
-      }}
+      // The board is one surface parted into columns, not three cards on a
+      // ground, so what runs between them is a cut. `last:` drops it on the
+      // rightmost column, which has nothing on the other side of it.
+      className="kanban-column pane-seam-right flex flex-col transition-all duration-150 ease-out shrink-0 last:border-r-0 last:shadow-none"
+      style={{ minWidth: 240, flex: '1 0 240px' }}
       data-status={status}
     >
-      <div className="flex items-center gap-2 px-3 py-2.5 shrink-0 h-[46px]">
+      <div className="pane-ledge relative z-10 flex items-center gap-2 px-3 py-2.5 shrink-0 h-[46px]">
         <span className="text-[13px] font-medium text-text-secondary tracking-wide flex-1">
           {label}
           {caption ? (

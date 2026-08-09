@@ -457,6 +457,15 @@ textarea,
   background: var(--color-accent);
 }
 
+/* A seam that is an element's own right edge, for panes laid out against each
+   other with nothing between them to put a strip in — the kanban columns. Same
+   pair as `.pane-seam`: the cut belongs to this column, the lit face falls on
+   the one beside it. */
+.pane-seam-right {
+  border-right: 1px solid var(--seam-cut);
+  box-shadow: 1px 0 0 var(--seam-catch);
+}
+
 /* ===================================
    Pane ledge — a header the content scrolls under
    =================================== */
