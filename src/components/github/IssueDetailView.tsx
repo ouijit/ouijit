@@ -51,7 +51,7 @@ export function IssueDetailView({
   const open = issue.state === 'open';
 
   return (
-    <div className="flex flex-col flex-1 min-w-0">
+    <div className="flex flex-col flex-1 min-w-0 min-h-0">
       <DetailChrome
         icon={open ? 'circle-dashed' : 'check-circle'}
         tone={open ? 'text-vcs-added' : 'text-vcs-renamed'}

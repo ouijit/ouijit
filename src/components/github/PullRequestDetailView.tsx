@@ -153,7 +153,7 @@ export function PullRequestDetailView({
   }, [file, files]);
 
   return (
-    <div className="flex flex-col flex-1 min-w-0">
+    <div className="flex flex-col flex-1 min-w-0 min-h-0">
       <DetailChrome
         icon={badge.icon}
         tone={STATE_TONE[badge.label]}

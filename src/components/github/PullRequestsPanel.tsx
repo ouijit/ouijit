@@ -250,7 +250,7 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
         />
       )}
 
-      <div className="flex-1 min-w-0 flex flex-col">
+      <div className="flex-1 min-w-0 min-h-0 flex flex-col">
         {/* With something open, `DetailChrome` is the bar and carries the
             toggle. With nothing open there is no bar, and the toggle still has
             to be somewhere — collapsing the list while reading a pull request
