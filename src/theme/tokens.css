@@ -184,6 +184,12 @@
   --bevel-side: rgba(255, 255, 255, 0.05);
   --bevel-bottom: rgba(0, 0, 0, 0.5);
   --bevel-glow: rgba(255, 255, 255, 0.08);
+
+  /* Pane seam (see .pane-seam in index.css) — the same light as the bevel,
+     from the same direction: the cut goes dark like the bottom edge, the face
+     beside it catches what the sides catch. */
+  --seam-cut: rgba(0, 0, 0, 0.55);
+  --seam-catch: rgba(255, 255, 255, 0.06);
 }
 
 /* ===================================
@@ -277,4 +283,9 @@
   --bevel-side: rgba(255, 255, 255, 0.35);
   --bevel-bottom: rgba(0, 0, 0, 0.12);
   --bevel-glow: rgba(255, 255, 255, 0.5);
+
+  /* A cut in a pale surface is shallower than one in a dark surface, and the
+     catch beside it has almost nothing to show against. */
+  --seam-cut: rgba(0, 0, 0, 0.14);
+  --seam-catch: rgba(255, 255, 255, 0.6);
 }

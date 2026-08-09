@@ -432,6 +432,32 @@ textarea,
 }
 
 /* ===================================
+   Pane seam — the cut between two panes of one surface
+   =================================== */
+
+/* Not a drawn line but a gap: the dark of the cut itself, and the near face
+   beside it catching the same overhead light the panel bevels are lit by. A
+   hairline in the border colour reads as something drawn on top of one
+   surface; this reads as two pieces meeting. One pixel of layout — the catch
+   is a shadow, so it costs no width. */
+.pane-seam {
+  background: var(--seam-cut);
+  box-shadow: 1px 0 0 var(--seam-catch);
+  transition: background-color 0.1s ease;
+}
+
+/* Grabbable, and saying so. The accent replaces the cut rather than sitting
+   beside it, so the seam stays one pixel wide while it is being used. */
+.pane-seam:hover,
+.pane-seam:has(:focus-visible) {
+  background: color-mix(in srgb, var(--color-accent) 60%, transparent);
+}
+
+.pane-seam:active {
+  background: var(--color-accent);
+}
+
+/* ===================================
    Canvas pane cursor — default at rest, grabbing while panning
    =================================== */
 

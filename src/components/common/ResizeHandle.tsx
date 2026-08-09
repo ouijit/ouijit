@@ -18,9 +18,12 @@ function clamp(value: number, min: number, max: number): number {
 }
 
 /**
- * The line between a sidebar and what it opens, dragged to set the width.
+ * The seam between a sidebar and what it opens, dragged to set the width.
  *
- * The rule is one pixel; the grab target is not. A one-pixel pointer target is
+ * Drawn as a cut rather than a rule — see `.pane-seam` — so the two panes read
+ * as pieces of one surface that has been parted, which is what they are.
+ *
+ * The seam is one pixel; the grab target is not. A one-pixel pointer target is
  * a game of skill, so an invisible strip either side takes the drag and the
  * pixel is what lights up.
  */
@@ -73,7 +76,7 @@ export function ResizeHandle({
   );
 
   return (
-    <div className="relative w-px shrink-0 bg-ink/10 transition-colors duration-100 hover:bg-accent/60 active:bg-accent">
+    <div className="pane-seam relative w-px shrink-0">
       <div
         role="separator"
         aria-orientation="vertical"
