@@ -210,7 +210,9 @@ export const KanbanCardView = memo(function KanbanCardView({
 
   return (
     <div
-      className="kanban-card group px-3 py-3.5 ease-out [-webkit-app-region:no-drag] hover:bg-black/10 active:bg-black/[0.12]"
+      className={`kanban-card group px-3 py-3.5 ease-out [-webkit-app-region:no-drag] hover:bg-black/10 active:bg-black/[0.12] ${
+        isSelected ? 'kanban-card-selected' : 'pane-ledge'
+      }`}
       style={{
         background: isSelected
           ? 'color-mix(in srgb, var(--color-accent) 6%, transparent)'
@@ -221,7 +223,6 @@ export const KanbanCardView = memo(function KanbanCardView({
               : 'var(--color-terminal-bg)',
         transition:
           'background 150ms ease-out, opacity 150ms ease-out, outline-color 150ms ease-out, box-shadow 150ms ease-out',
-        borderBottom: '1px solid color-mix(in srgb, var(--color-ink) 6%, transparent)',
         outline: isHoveredBadgeTarget
           ? '1px solid color-mix(in srgb, var(--color-accent) 60%, transparent)'
           : isValidBadgeTarget
@@ -229,7 +230,6 @@ export const KanbanCardView = memo(function KanbanCardView({
             : 'none',
         outlineOffset: -1,
         ...(isInvalidBadgeTarget && { opacity: 0.4 }),
-        ...(isSelected && { boxShadow: 'inset 2px 0 0 0 var(--color-accent)' }),
       }}
       data-task-number={task.taskNumber}
       onMouseDown={(e) => {

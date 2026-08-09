@@ -466,6 +466,15 @@ textarea,
   box-shadow: 1px 0 0 var(--seam-catch);
 }
 
+/* The last one has nothing on the other side of it, so there is nothing to
+   part it from. Suppressed here rather than with a `last:` utility: this file
+   is unlayered and Tailwind's utilities are not, so the utility loses the
+   cascade and the seam stayed on. */
+.pane-seam-right:last-child {
+  border-right: 0;
+  box-shadow: none;
+}
+
 /* ===================================
    Pane ledge — a header the content scrolls under
    =================================== */
@@ -500,6 +509,17 @@ textarea,
     0 1px 0 var(--seam-cut),
     0 2px 0 var(--seam-catch),
     0 6px 12px -6px var(--seam-shadow);
+}
+
+/* A selected card, still parted from the one below it. The rail and the cut
+   are one `box-shadow` because a second declaration would replace the first
+   rather than add to it — which is how selecting a card came to rub out the
+   boundary underneath it. */
+.kanban-card-selected {
+  box-shadow:
+    inset 2px 0 0 0 var(--color-accent),
+    0 1px 0 var(--seam-cut),
+    0 2px 0 var(--seam-catch);
 }
 
 /* ===================================
