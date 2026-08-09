@@ -1,9 +1,10 @@
-import { useMemo, type ReactNode } from 'react';
+import { memo, useCallback, useMemo, useState, type ReactNode } from 'react';
 import type { FileDiff, DiffHunk } from '../../types';
 import type { HunkTokens } from '../../utils/syntaxHighlight';
 import { computeWordHighlights } from '../../utils/wordDiff';
 import { useSyntaxHighlight } from './useSyntaxHighlight';
 import { DiffLineView, anchorForLine, type DiffLineAnchor } from './DiffLineView';
+import { estimateHunkHeight } from './diffMetrics';
 import { badgeColorClass, statusLabel, type DiffFileStatus } from './diffStatus';
 
 /**
@@ -38,7 +39,7 @@ export interface DiffFileSectionProps {
   failedLabel?: string;
 }
 
-export function DiffFileSection({
+export const DiffFileSection = memo(function DiffFileSection({
   path,
   status,
   additions,
@@ -54,11 +55,22 @@ export function DiffFileSection({
 }: DiffFileSectionProps) {
   const tokens = useSyntaxHighlight(diff, path);
 
+  // One closure for the file rather than one per line. A new function per line
+  // per render is what stops a memoized line from ever bailing out.
+  const addComment = useCallback((anchor: DiffLineAnchor) => onAddComment?.(path, anchor), [onAddComment, path]);
+
   return (
     <div className="last:border-b-0" data-path={path}>
       {/* The directory is context and the filename is the subject, so they are
-          not set at the same weight. */}
-      <div className="sticky top-0 z-10 flex items-center gap-2 px-4 h-9 bg-terminal-surface border-y border-ink/[0.06]">
+          not set at the same weight.
+
+          It pins below whatever else has claimed the top of the pane — a lens
+          publishes the height of the part header above it — and to the top
+          itself when nothing has, which is every other diff in the app. */}
+      <div
+        className="sticky z-10 flex items-center gap-2 px-4 h-9 bg-terminal-surface border-y border-ink/[0.06]"
+        style={{ top: 'var(--diff-sticky-offset, 0px)' }}
+      >
         <span className="flex-1 min-w-0 truncate font-mono text-[13px]" title={path}>
           <span className="text-ink/35">{dirname(path)}</span>
           <span className="text-ink/90">{basename(path)}</span>
@@ -99,9 +111,8 @@ export function DiffFileSection({
                 <DiffHunkView
                   hunk={hunk}
                   hunkTokens={tokens?.[i] ?? null}
-                  path={path}
+                  onAddComment={onAddComment ? addComment : undefined}
                   renderBelowLine={renderBelowLine}
-                  onAddComment={onAddComment}
                 />
               </div>
             ))}
@@ -110,7 +121,7 @@ export function DiffFileSection({
       </div>
     </div>
   );
-}
+});
 
 /**
  * `@@ -12,7 +12,10 @@ export function readToken()`.
@@ -149,18 +160,37 @@ function basename(path: string): string {
 export interface DiffHunkViewProps {
   hunk: DiffHunk;
   hunkTokens: HunkTokens | null;
-  path?: string;
   renderBelowLine?: (anchor: DiffLineAnchor) => ReactNode;
-  onAddComment?: (path: string, anchor: DiffLineAnchor) => void;
+  /** Already bound to the file — one closure for the hunk, not one per line. */
+  onAddComment?: (anchor: DiffLineAnchor) => void;
 }
 
-export function DiffHunkView({ hunk, hunkTokens, path, renderBelowLine, onAddComment }: DiffHunkViewProps) {
+export const DiffHunkView = memo(function DiffHunkView({
+  hunk,
+  hunkTokens,
+  renderBelowLine,
+  onAddComment,
+}: DiffHunkViewProps) {
   const wordHighlights = useMemo(() => computeWordHighlights(hunk.lines), [hunk.lines]);
+  const anchors = useMemo(() => hunk.lines.map(anchorForLine), [hunk.lines]);
+  const [hovered, setHovered] = useState(-1);
+
+  const onHover = useCallback((index: number) => {
+    setHovered((current) => (current === index ? current : index));
+  }, []);
 
   return (
-    <div>
+    <div
+      onMouseLeave={onAddComment ? () => setHovered(-1) : undefined}
+      // A hunk holds nothing that has to be laid out while it is off screen, so
+      // the browser is told it may skip one entirely — the difference between
+      // paying for every line in the pull request on each scroll and paying for
+      // the ones being read. `auto` on the intrinsic size means the estimate is
+      // only used until the hunk has been measured once for real.
+      style={{ contentVisibility: 'auto', containIntrinsicSize: `auto ${estimateHunkHeight(hunk)}px` }}
+    >
       {hunk.lines.map((line, i) => {
-        const anchor = anchorForLine(line);
+        const anchor = anchors[i];
         const below = anchor && renderBelowLine ? renderBelowLine(anchor) : null;
         return (
           <div key={i}>
@@ -168,7 +198,11 @@ export function DiffHunkView({ hunk, hunkTokens, path, renderBelowLine, onAddCom
               line={line}
               tokens={hunkTokens?.[i] ?? null}
               wordHighlight={wordHighlights.get(i)}
-              onAddComment={onAddComment && path ? (a) => onAddComment(path, a) : undefined}
+              anchor={anchor}
+              onAddComment={onAddComment}
+              showComment={onAddComment ? hovered === i : false}
+              index={i}
+              onHover={onAddComment ? onHover : undefined}
             />
             {below}
           </div>
@@ -176,4 +210,4 @@ export function DiffHunkView({ hunk, hunkTokens, path, renderBelowLine, onAddCom
       })}
     </div>
   );
-}
+});

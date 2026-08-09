@@ -1,4 +1,4 @@
-import { type ReactNode } from 'react';
+import { memo, type ReactNode } from 'react';
 import type { DiffLine } from '../../types';
 import type { ThemedToken } from '../../utils/syntaxHighlight';
 import type { WordHighlight } from '../../utils/wordDiff';
@@ -12,11 +12,35 @@ export interface DiffLineViewProps {
   line: DiffLine;
   tokens: ThemedToken[] | null;
   wordHighlight?: WordHighlight;
-  /** When set, hovering the line reveals a button that starts a comment here. */
+  /** Where a comment on this line would attach, or null if nowhere. */
+  anchor?: DiffLineAnchor | null;
+  /** When set, the hovered line offers a button that starts a comment here. */
   onAddComment?: (anchor: DiffLineAnchor) => void;
+  /**
+   * Whether this is the line the pointer is on.
+   *
+   * The comment button used to be rendered on every line and revealed with a
+   * CSS hover rule — one button and one icon per line, of which at most one is
+   * ever visible. On a large diff that was tens of thousands of nodes, and an
+   * `Icon` re-parses its source on each render. The parent tracks the hovered
+   * line instead and only that line builds the button.
+   */
+  showComment?: boolean;
+  /** Position within the hunk, reported back on hover. */
+  index?: number;
+  onHover?: (index: number) => void;
 }
 
-export function DiffLineView({ line, tokens, wordHighlight, onAddComment }: DiffLineViewProps) {
+export const DiffLineView = memo(function DiffLineView({
+  line,
+  tokens,
+  wordHighlight,
+  anchor,
+  onAddComment,
+  showComment,
+  index,
+  onHover,
+}: DiffLineViewProps) {
   const lineBg =
     line.type === 'addition' ? 'bg-diff-added/10' : line.type === 'deletion' ? 'bg-diff-removed/[0.08]' : '';
   const gutterBg =
@@ -34,10 +58,13 @@ export function DiffLineView({ line, tokens, wordHighlight, onAddComment }: Diff
         ? 'color-mix(in srgb, var(--color-diff-removed) 22%, transparent)'
         : undefined;
 
-  const anchor = onAddComment ? anchorForLine(line) : null;
+  const commentable = showComment && anchor && onAddComment;
 
   return (
-    <div className={`group/diffline relative flex font-mono text-sm leading-normal ${lineBg}`}>
+    <div
+      className={`relative flex font-mono text-sm leading-normal ${lineBg}`}
+      onMouseEnter={onHover && index != null ? () => onHover(index) : undefined}
+    >
       {/* One rule at the edge of the gutter, not one between the two number
           columns as well. Two hairlines running the height of every diff was
           the single noisiest thing on the page. */}
@@ -45,14 +72,14 @@ export function DiffLineView({ line, tokens, wordHighlight, onAddComment }: Diff
         <span className="w-[44px] px-2 text-right text-ink/25">{line.oldLineNo ?? ''}</span>
         <span className="relative w-[44px] px-2 text-right text-ink/25">
           {line.newLineNo ?? ''}
-          {anchor && (
+          {commentable && (
             <button
               type="button"
               title="Comment on this line"
-              className="absolute right-[-9px] top-1/2 -translate-y-1/2 z-[2] w-[18px] h-[18px] rounded bg-accent text-accent-ink flex items-center justify-center opacity-0 transition-opacity duration-100 group-hover/diffline:opacity-100 [&>svg]:w-3 [&>svg]:h-3"
+              className="absolute right-[-9px] top-1/2 -translate-y-1/2 z-[2] w-[18px] h-[18px] rounded bg-accent text-accent-ink flex items-center justify-center [&>svg]:w-3 [&>svg]:h-3"
               onClick={(e) => {
                 e.stopPropagation();
-                onAddComment?.(anchor);
+                onAddComment(anchor);
               }}
             >
               <Icon name="plus" />
@@ -70,7 +97,7 @@ export function DiffLineView({ line, tokens, wordHighlight, onAddComment }: Diff
       </span>
     </div>
   );
-}
+});
 
 /** Render syntax tokens, splitting them at word-highlight boundaries */
 export function renderTokensWithHighlights(

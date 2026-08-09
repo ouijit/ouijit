@@ -5,6 +5,8 @@ import { terminalInstances, refreshTerminalGitStatus } from '../terminal/termina
 import { Icon } from '../terminal/Icon';
 import { DiffFileTree } from './DiffFileTree';
 import { DiffFileSection } from './DiffFileSection';
+import { DeferredMount } from './DeferredMount';
+import { estimateFileHeight } from './diffMetrics';
 
 interface DiffPanelProps {
   ptyId: string;
@@ -118,8 +120,28 @@ export function DiffPanel({ ptyId, projectPath, mode, onClose }: DiffPanelProps)
   }, [filesFingerprint, effectiveMode, gitPath, projectPath, instance?.worktreeBranch]);
 
   const scrollToFile = useCallback((path: string) => {
-    const section = contentRef.current?.querySelector(`[data-path="${CSS.escape(path)}"]`);
-    section?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    const container = contentRef.current;
+    const find = () => container?.querySelector(`[data-path="${CSS.escape(path)}"]`);
+    const section = find();
+    if (!section || !container) return;
+
+    section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+    // The target may have been standing at an estimated height and mounted on
+    // the way there, moving everything below it. Once the scroll has settled,
+    // land on where the file actually ended up.
+    const settle = () => {
+      clearTimeout(timer);
+      container.removeEventListener('scrollend', settle);
+      const top = find()?.getBoundingClientRect().top;
+      if (top != null && Math.abs(top - container.getBoundingClientRect().top) > 4) {
+        find()?.scrollIntoView({ behavior: 'auto', block: 'start' });
+      }
+    };
+    container.addEventListener('scrollend', settle);
+    // `scrollend` is not guaranteed — nothing fires if the view was already
+    // where it needed to be — so the listener must not be left waiting.
+    const timer = setTimeout(settle, 600);
   }, []);
 
   const handleSidebarDragStart = useCallback(
@@ -214,14 +236,21 @@ export function DiffPanel({ ptyId, projectPath, mode, onClose }: DiffPanelProps)
           )}
           {!loading &&
             files.map((file) => (
-              <DiffFileSection
+              // The wrapper carries `data-path` so jumping to a file from the
+              // tree works whether or not that file has been mounted yet.
+              <DeferredMount
                 key={file.path}
-                path={file.path}
-                status={file.status}
-                additions={file.additions}
-                deletions={file.deletions}
-                diff={diffs.get(file.path)}
-              />
+                dataPath={file.path}
+                estimatedHeight={estimateFileHeight(diffs.get(file.path), file.additions + file.deletions)}
+              >
+                <DiffFileSection
+                  path={file.path}
+                  status={file.status}
+                  additions={file.additions}
+                  deletions={file.deletions}
+                  diff={diffs.get(file.path)}
+                />
+              </DeferredMount>
             ))}
           {!loading && truncated && (
             <div className="px-4 py-3 text-xs text-ink/40 text-center border-t border-ink/[0.06]">

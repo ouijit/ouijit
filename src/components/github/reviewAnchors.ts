@@ -24,6 +24,11 @@ export function unanchoredThreads(
   files: readonly { path: string }[],
   diffs: ReadonlyMap<string, FileDiff | null>,
 ): ReviewThread[] {
+  // Building the anchor set walks every line of every loaded file, and the
+  // diffs arrive in batches, so this runs once per batch. A pull request with
+  // no review comments has nothing to place, so it should not pay for that.
+  if (threads.length === 0) return [];
+
   const renderedPaths = new Set(files.map((f) => f.path));
 
   const anchors = new Set<string>();

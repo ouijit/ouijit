@@ -1,10 +1,24 @@
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useState } from 'react';
+import {
+  forwardRef,
+  memo,
+  useCallback,
+  useEffect,
+  useImperativeHandle,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from 'react';
 import type { FileDiff } from '../../types';
 import type { PullRequestDetail, PullRequestFile, ReviewDraft, ReviewThread } from '../../github/types';
 import { useGithubStore } from '../../stores/githubStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { BinaryFileView } from '../diff/BinaryFileView';
+import { DeferredMount } from '../diff/DeferredMount';
 import { DiffFileSection } from '../diff/DiffFileSection';
+import { estimateFileHeight } from '../diff/diffMetrics';
 import type { DiffLineAnchor } from '../diff/diffAnchor';
 import type { ResolvedGroup } from '../../github/lens';
 import { anchorKey, unanchoredThreads } from './reviewAnchors';
@@ -44,6 +58,127 @@ function describe(error: unknown): string {
 function sliceDiff(diff: FileDiff | null | undefined, hunks?: number[]): FileDiff | null | undefined {
   if (!diff || !hunks) return diff;
   return { ...diff, hunks: hunks.map((i) => diff.hunks[i]).filter(Boolean) };
+}
+
+interface FileSectionProps {
+  file: PullRequestFile;
+  diff: FileDiff | null | undefined;
+  projectPath: string;
+  prNumber: number;
+  baseSha: string;
+  headSha: string;
+  onAddComment: (path: string, anchor: DiffLineAnchor) => void;
+  renderBelowLine: (path: string, anchor: DiffLineAnchor) => ReactNode;
+}
+
+/**
+ * One file of the pull request, and everything that only it needs to know.
+ *
+ * Memoized, and holding its own binary view and header rather than being handed
+ * them: an element built in the parent's render is a new element every time the
+ * parent renders, which is enough on its own to make memoizing pointless. The
+ * per-file diffs arrive in batches, so the parent re-renders once per batch —
+ * ten times over a large pull request — and with this in place each of those
+ * renders touches only the files that batch brought in.
+ */
+const FileSection = memo(function FileSection({
+  file,
+  diff,
+  projectPath,
+  prNumber,
+  baseSha,
+  headSha,
+  onAddComment,
+  renderBelowLine,
+}: FileSectionProps) {
+  const belowLine = useCallback(
+    (anchor: DiffLineAnchor) => renderBelowLine(file.path, anchor),
+    [renderBelowLine, file.path],
+  );
+
+  const binaryView = useMemo(
+    () => (
+      <BinaryFileView
+        path={file.path}
+        revision={`${baseSha}...${headSha}`}
+        load={() =>
+          window.api.github.pullRequestFileVersions(projectPath, prNumber, baseSha, headSha, file.path, file.oldPath)
+        }
+      />
+    ),
+    [projectPath, prNumber, baseSha, headSha, file.path, file.oldPath],
+  );
+
+  const headerRight = useMemo(
+    () =>
+      file.oldPath ? (
+        <span
+          className="shrink-0 font-mono text-[11px] text-text-tertiary truncate"
+          title={`Renamed from ${file.oldPath}`}
+        >
+          from {file.oldPath}
+        </span>
+      ) : null,
+    [file.oldPath],
+  );
+
+  return (
+    <DeferredMount estimatedHeight={estimateFileHeight(diff, file.additions + file.deletions)}>
+      <DiffFileSection
+        path={file.path}
+        status={file.status}
+        additions={file.additions}
+        deletions={file.deletions}
+        diff={diff}
+        onAddComment={onAddComment}
+        renderBelowLine={belowLine}
+        binaryView={binaryView}
+        headerRight={headerRight}
+      />
+    </DeferredMount>
+  );
+});
+
+/**
+ * One part of the reading order, with the files that make it up.
+ *
+ * Two things pin themselves to the top of this pane — which part of the change
+ * you are in, and which file you are in — and they are a hierarchy, not rivals
+ * for the same line. Both were pinned to `top: 0`, so the file header sat on
+ * top of the part it belongs to and the reading order became invisible exactly
+ * when it was being used.
+ *
+ * The part header measures itself and publishes its height, and file headers
+ * pin below it. Measured rather than assumed because a summary is free text and
+ * wraps to however many lines it wants; nothing renders without a lens, and the
+ * fallback of `0px` is what every other diff in the app already does.
+ */
+function LensGroup({ group, children }: { group: ResolvedGroup; children: ReactNode }) {
+  const headerRef = useRef<HTMLDivElement>(null);
+  const [headerHeight, setHeaderHeight] = useState(0);
+
+  useLayoutEffect(() => {
+    const element = headerRef.current;
+    if (!element) return;
+
+    const measure = () => setHeaderHeight(element.getBoundingClientRect().height);
+    measure();
+
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [group.title, group.summary]);
+
+  return (
+    <div className="flex flex-col" style={{ '--diff-sticky-offset': `${headerHeight}px` } as CSSProperties}>
+      <div ref={headerRef} className="sticky top-0 z-20 px-3 py-2 bg-surface border-b border-ink/[0.06]">
+        <div className="text-[12px] font-medium text-text-primary">{group.title}</div>
+        {group.summary && <div className="text-[11px] text-text-tertiary">{group.summary}</div>}
+      </div>
+      {children}
+    </div>
+  );
 }
 
 /**
@@ -294,42 +429,43 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
 
   const shown = only ? files.filter((f) => f.path === only) : files;
 
+  /**
+   * Sliced diffs, kept identical across renders while their source is.
+   *
+   * Narrowing a file to one part of a reading order builds a new `FileDiff`,
+   * and doing that inside the render meant a different object every time —
+   * which the tokenizer reads as a different file, so a lens re-highlighted the
+   * entire pull request on every render. Slicing reuses the underlying hunk
+   * objects, so holding the wrapper steady is all that is needed.
+   */
+  const sliceCache = useRef(
+    new Map<string, { source: FileDiff | null | undefined; result: FileDiff | null | undefined }>(),
+  );
+  useEffect(() => {
+    sliceCache.current.clear();
+  }, [detail.number]);
+
+  const sliceFor = useCallback((path: string, source: FileDiff | null | undefined, hunks?: number[]) => {
+    if (!source || !hunks) return source;
+    const key = `${path}\u0000${hunks.join(',')}`;
+    const cached = sliceCache.current.get(key);
+    if (cached && cached.source === source) return cached.result;
+    const result = sliceDiff(source, hunks);
+    sliceCache.current.set(key, { source, result });
+    return result;
+  }, []);
+
   const renderFile = (file: PullRequestFile, key?: string, hunks?: number[]) => (
-    <DiffFileSection
+    <FileSection
       key={key ?? file.path}
-      path={file.path}
-      status={file.status}
-      additions={file.additions}
-      deletions={file.deletions}
-      diff={sliceDiff(diffs.get(file.path), hunks)}
+      file={file}
+      diff={sliceFor(file.path, diffs.get(file.path), hunks)}
+      projectPath={projectPath}
+      prNumber={detail.number}
+      baseSha={detail.baseSha}
+      headSha={detail.headSha}
       onAddComment={startComment}
-      renderBelowLine={(anchor) => renderBelowLine(file.path, anchor)}
-      binaryView={
-        <BinaryFileView
-          path={file.path}
-          revision={`${detail.baseSha}...${detail.headSha}`}
-          load={() =>
-            window.api.github.pullRequestFileVersions(
-              projectPath,
-              detail.number,
-              detail.baseSha,
-              detail.headSha,
-              file.path,
-              file.oldPath,
-            )
-          }
-        />
-      }
-      headerRight={
-        file.oldPath ? (
-          <span
-            className="shrink-0 font-mono text-[11px] text-text-tertiary truncate"
-            title={`Renamed from ${file.oldPath}`}
-          >
-            from {file.oldPath}
-          </span>
-        ) : null
-      }
+      renderBelowLine={renderBelowLine}
     />
   );
 
@@ -356,16 +492,12 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
 
       {grouped
         ? grouped.map((group) => (
-            <div key={group.title} className="flex flex-col">
-              <div className="sticky top-0 z-10 px-3 py-2 bg-surface border-b border-ink/[0.06]">
-                <div className="text-[12px] font-medium text-text-primary">{group.title}</div>
-                {group.summary && <div className="text-[11px] text-text-tertiary">{group.summary}</div>}
-              </div>
+            <LensGroup key={group.title} group={group}>
               {group.slices.map((slice) => {
                 const file = byPath.get(slice.path);
                 return file ? renderFile(file, `${group.title}:${slice.path}`, slice.hunks) : null;
               })}
-            </div>
+            </LensGroup>
           ))
         : shown.map((file) => renderFile(file))}
 
