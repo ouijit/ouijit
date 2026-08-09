@@ -78,7 +78,6 @@ import type {
   PullRequestFilesResult,
   SaveDraftInput,
   PromoteToTaskResult,
-  PrCommandSummary,
   LensSummary,
   LensResult,
 } from './github/service';
@@ -722,9 +721,6 @@ export interface GithubAPI {
   taskFromIssue(projectPath: string, issueNumber: number): Promise<GithubActionResult & { taskNumber?: number }>;
   taskFromPr(projectPath: string, prNumber: number): Promise<PromoteToTaskResult>;
 
-  listPrCommands(projectPath: string): Promise<PrCommandSummary[]>;
-  savePrCommand(projectPath: string, name: string, command: string, previousName?: string): Promise<PrCommandSummary>;
-  deletePrCommand(projectPath: string, name: string): Promise<{ success: boolean }>;
   lens(projectPath: string, prNumber: number, headSha: string): Promise<LensResult>;
   clearLens(projectPath: string, prNumber: number): Promise<{ success: boolean }>;
   listLenses(projectPath: string): Promise<LensSummary[]>;

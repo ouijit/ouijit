@@ -9,7 +9,6 @@ import { ExperimentalFeaturesSection } from './ExperimentalFeaturesSection';
 import { WorktreeSection } from './WorktreeSection';
 import { IconColorSection } from './IconColorSection';
 import { Icon } from '../terminal/Icon';
-import { PrCommandList } from './PrCommandList';
 import { LensList } from './LensList';
 import { useExperimentalStore } from '../../stores/experimentalStore';
 import { useWorktreeSettingsStore } from '../../stores/worktreeSettingsStore';
@@ -121,16 +120,6 @@ export function ProjectSettingsPanel({ projectPath }: ProjectSettingsPanelProps)
                 change are, so the Code pane can show them in that order instead of a list of files.
               </p>
               <LensList projectPath={projectPath} />
-            </section>
-          )}
-          {githubEnabled && (
-            <section>
-              <h2 className="text-sm font-semibold text-text-primary mb-2">Pull Request Commands</h2>
-              <p className="text-xs text-text-tertiary mb-4">
-                Commands you can run against a pull request. Each opens a terminal session on it, with the pull
-                request&rsquo;s number, branch, URL and title set in the environment.
-              </p>
-              <PrCommandList projectPath={projectPath} />
             </section>
           )}
           <section>

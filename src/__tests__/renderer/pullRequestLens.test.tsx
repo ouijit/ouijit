@@ -91,7 +91,6 @@ describe('PullRequestsPanel — lens', () => {
     vi.mocked(window.api.github.onDraftsChanged).mockReturnValue(() => {});
     vi.mocked(window.api.github.onLensChanged).mockReturnValue(() => {});
     vi.mocked(window.api.github.drafts).mockResolvedValue([]);
-    vi.mocked(window.api.github.listPrCommands).mockResolvedValue([]);
     vi.mocked(window.api.github.lens).mockResolvedValue({ groups: null });
     vi.mocked(window.api.github.pullRequestFiles).mockResolvedValue({ files: [], fromGit: false });
     vi.mocked(window.api.github.listLenses).mockResolvedValue([]);

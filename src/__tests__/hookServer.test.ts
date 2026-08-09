@@ -127,9 +127,9 @@ describe('CLI_REFERENCE', () => {
   test('tells an agent how to write review comments and a reading order', () => {
     expect(CLI_REFERENCE).toContain('ouijit pr draft add');
     expect(CLI_REFERENCE).toContain('ouijit pr lens set');
-    // The environment it will find itself with, or it cannot address the right
-    // pull request.
-    expect(CLI_REFERENCE).toContain('OUIJIT_PR_NUMBER');
+    // How to find which pull request it is on, or it cannot address the right
+    // one — the task it is working in carries the number.
+    expect(CLI_REFERENCE).toContain('ouijit task current | jq .githubPrNumber');
   });
 
   test('says what must not be done with gh, and why', () => {

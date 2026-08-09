@@ -22,9 +22,6 @@ import {
   resolveThread,
   createPullRequestForTask,
   mergePr,
-  listPrCommands,
-  savePrCommand,
-  deletePrCommand,
   getLens,
   clearLens,
   listLenses,
@@ -85,11 +82,6 @@ export function registerGithubHandlers(): void {
   typedHandle('github:create-pr', (projectPath, taskNumber, options) =>
     createPullRequestForTask(projectPath, taskNumber, options),
   );
-  typedHandle('github:list-pr-commands', (projectPath) => listPrCommands(projectPath));
-  typedHandle('github:save-pr-command', (projectPath, name, command, previousName) =>
-    savePrCommand(projectPath, name, command, previousName),
-  );
-  typedHandle('github:delete-pr-command', (projectPath, name) => deletePrCommand(projectPath, name));
   typedHandle('github:lens', (projectPath, prNumber, headSha) => getLens(projectPath, prNumber, headSha));
   typedHandle('github:list-lenses', (projectPath) => listLenses(projectPath));
   typedHandle('github:save-lens', (projectPath, name, command, previousName) =>

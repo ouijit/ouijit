@@ -1,18 +1,13 @@
 import type Database from 'better-sqlite3';
 
 /**
- * What an agent leaves behind on a pull request, and the commands that start one.
+ * What an agent leaves behind on a pull request.
  *
  * `origin` exists because a draft can now be written by something that is not
  * the person about to sign it. Sending a review is a human press either way, so
  * the queue has to say what came from where — twelve agent-written comments and
  * twelve you typed must not look identical. Free text rather than an enum so a
  * caller can name itself; the renderer treats it as untrusted display text.
- *
- * `github_pr_commands` holds named shell commands run with a pull request's
- * context, in a terminal. Deliberately not a `HookType`: those six all fire on a
- * task status transition and all receive task environment, and a pull request
- * action does neither.
  *
  * `github_pr_lenses` holds one lens per pull request per head. A
  * lens names the parts of a change and points each at the hunks that make
@@ -32,17 +27,6 @@ export function up(db: Database.Database): void {
   }
 
   db.exec(`
-    CREATE TABLE IF NOT EXISTS github_pr_commands (
-      id TEXT PRIMARY KEY,
-      project_path TEXT NOT NULL,
-      name TEXT NOT NULL,
-      command TEXT NOT NULL,
-      sort_order INTEGER NOT NULL DEFAULT 0
-    );
-
-    CREATE UNIQUE INDEX IF NOT EXISTS idx_pr_commands_name
-      ON github_pr_commands (project_path, name);
-
     CREATE TABLE IF NOT EXISTS github_pr_lenses (
       project_path TEXT NOT NULL,
       pr_number INTEGER NOT NULL,

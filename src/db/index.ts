@@ -15,7 +15,6 @@ import { TagRepo, type TagRow } from './repos/tagRepo';
 import { GlobalSettingsRepo } from './repos/globalSettingsRepo';
 import { ScriptRepo, type ScriptRow } from './repos/scriptRepo';
 import { ReviewDraftRepo, type ReviewDraftRow } from './repos/reviewDraftRepo';
-import { PrCommandRepo, type PrCommandRow } from './repos/prCommandRepo';
 import { PrLensRepo, type PrLensRow } from './repos/prLensRepo';
 import type { ProjectSettings, ScriptHook } from '../types';
 import { getLogger } from '../logger';
@@ -52,7 +51,6 @@ let tagRepo: TagRepo | null = null;
 let globalSettingsRepo: GlobalSettingsRepo | null = null;
 let scriptRepo: ScriptRepo | null = null;
 let reviewDraftRepo: ReviewDraftRepo | null = null;
-let prCommandRepo: PrCommandRepo | null = null;
 let prLensRepo: PrLensRepo | null = null;
 
 function repos() {
@@ -65,7 +63,6 @@ function repos() {
     globalSettingsRepo = new GlobalSettingsRepo(db);
     scriptRepo = new ScriptRepo(db);
     reviewDraftRepo = new ReviewDraftRepo(db);
-    prCommandRepo = new PrCommandRepo(db);
     prLensRepo = new PrLensRepo(db);
   }
   return {
@@ -76,7 +73,6 @@ function repos() {
     globalSettingsRepo: globalSettingsRepo!,
     scriptRepo: scriptRepo!,
     reviewDraftRepo: reviewDraftRepo!,
-    prCommandRepo: prCommandRepo!,
     prLensRepo: prLensRepo!,
   };
 }
@@ -92,7 +88,6 @@ export function _resetCacheForTesting(): void {
   globalSettingsRepo = new GlobalSettingsRepo(db);
   scriptRepo = new ScriptRepo(db);
   reviewDraftRepo = new ReviewDraftRepo(db);
-  prCommandRepo = new PrCommandRepo(db);
   prLensRepo = new PrLensRepo(db);
 }
 
@@ -401,25 +396,9 @@ export async function getReviewDraftCounts(projectPath: string): Promise<Record<
   return Object.fromEntries(rr.countsByPr(projectPath));
 }
 
-// ── Pull request commands ────────────────────────────────────────────
+// ── Pull request lenses ──────────────────────────────────────────────
 
-export type { PrCommandRow } from './repos/prCommandRepo';
 export type { PrLensRow } from './repos/prLensRepo';
-
-export async function getPrCommands(projectPath: string): Promise<PrCommandRow[]> {
-  const { prCommandRepo: pc } = repos();
-  return pc.getAll(projectPath);
-}
-
-export async function getPrCommand(projectPath: string, name: string): Promise<PrCommandRow | undefined> {
-  const { prCommandRepo: pc } = repos();
-  return pc.getByName(projectPath, name);
-}
-
-export async function savePrCommand(projectPath: string, name: string, command: string): Promise<PrCommandRow> {
-  const { prCommandRepo: pc } = repos();
-  return pc.save(projectPath, name, command);
-}
 
 export async function getPrLens(projectPath: string, prNumber: number): Promise<PrLensRow | undefined> {
   const { prLensRepo: pn } = repos();
@@ -445,12 +424,6 @@ export async function renamePrLens(projectPath: string, from: string, to: string
 export async function deletePrLens(projectPath: string, prNumber: number): Promise<{ success: boolean }> {
   const { prLensRepo: pn } = repos();
   pn.delete(projectPath, prNumber);
-  return { success: true };
-}
-
-export async function deletePrCommand(projectPath: string, name: string): Promise<{ success: boolean }> {
-  const { prCommandRepo: pc } = repos();
-  pc.delete(projectPath, name);
   return { success: true };
 }
 

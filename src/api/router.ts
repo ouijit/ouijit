@@ -27,8 +27,6 @@ import {
   getTaskByNumber,
   getGlobalSetting,
   setGlobalSetting,
-  savePrCommand,
-  deletePrCommand,
 } from '../db';
 import {
   THEME_PREFERENCE_KEY,
@@ -55,7 +53,6 @@ import {
   listDrafts,
   saveDraft,
   discardDraft,
-  listPrCommands,
   getLens,
   setLens,
   clearLens,
@@ -756,30 +753,6 @@ const routes: Route[] = [
   ),
 
   route('DELETE', 'pulls/:number/lens', async (r) => clearLens(requireProject(r.query), prNumber(r)), true, 'sandbox'),
-
-  // ── Pull request commands ─────────────────────────────────────────
-  // Host-only: these define shell commands that later run on the host.
-  route('GET', 'pr-commands', async (r) => listPrCommands(requireProject(r.query))),
-
-  route(
-    'PUT',
-    'pr-commands',
-    async (r) => {
-      const project = requireProject(r.query);
-      const { name, command } = r.body;
-      if (typeof name !== 'string' || !name.trim()) throw new HttpError(400, 'Missing name');
-      if (typeof command !== 'string' || !command.trim()) throw new HttpError(400, 'Missing command');
-      return savePrCommand(project, name, command);
-    },
-    true,
-  ),
-
-  route(
-    'DELETE',
-    'pr-commands/:name',
-    async (r) => deletePrCommand(requireProject(r.query), decodeURIComponent(r.segments[1])),
-    true,
-  ),
 
   // ── Panels ────────────────────────────────────────────────────────
   // The two user-addressable panel kinds on a terminal: markdown files and

@@ -21,9 +21,6 @@ import {
   saveReviewDraft,
   deleteReviewDraft,
   getReviewDraftCounts,
-  getPrCommands,
-  savePrCommand as savePrCommandRow,
-  deletePrCommand as deletePrCommandRow,
   getPrLens,
   savePrLens,
   renamePrLens,
@@ -405,38 +402,6 @@ export async function discardDraft(projectPath: string, draftId: string): Promis
 }
 
 // ── Pull request commands ────────────────────────────────────────────
-
-export interface PrCommandSummary {
-  name: string;
-  command: string;
-}
-
-export async function listPrCommands(projectPath: string): Promise<PrCommandSummary[]> {
-  return (await getPrCommands(projectPath)).map((row) => ({ name: row.name, command: row.command }));
-}
-
-/**
- * Create or rename a pull request command.
- *
- * Rows are keyed by name, so an edit that changes the name would otherwise
- * leave the old one behind as a duplicate. The caller passes what it was
- * called, and the rename happens here rather than as two calls the UI has to
- * remember to make in order.
- */
-export async function savePrCommand(
-  projectPath: string,
-  name: string,
-  command: string,
-  previousName?: string,
-): Promise<PrCommandSummary> {
-  if (previousName && previousName !== name) await deletePrCommandRow(projectPath, previousName);
-  const row = await savePrCommandRow(projectPath, name, command);
-  return { name: row.name, command: row.command };
-}
-
-export async function deletePrCommand(projectPath: string, name: string): Promise<{ success: boolean }> {
-  return deletePrCommandRow(projectPath, name);
-}
 
 // ── Lenses ────────────────────────────────────────────────────────
 

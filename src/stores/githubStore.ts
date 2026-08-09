@@ -8,7 +8,7 @@ import type {
   IssueDetail,
   ReviewDraft,
 } from '../github/types';
-import type { InboxResult, PrCommandSummary } from '../github/service';
+import type { InboxResult } from '../github/service';
 import type { FileDiff } from '../types';
 import type { LensGroup } from '../github/lens';
 
@@ -69,8 +69,6 @@ interface GithubStoreState {
   /** True when the file list came from git because the API list failed. */
   filesFromGit: boolean;
 
-  /** Named commands configured for this project. */
-  prCommands: PrCommandSummary[];
   /**
    * The lens written for this pull request, when one exists for the
    * head on screen. Whether it is applied is the reader's choice — `lensOn`.
@@ -146,7 +144,6 @@ interface GithubStoreActions {
 
   loadDrafts: (projectPath: string, prNumber: number) => Promise<void>;
   setDiffs: (diffs: Map<string, FileDiff | null>) => void;
-  loadPrCommands: (projectPath: string) => Promise<void>;
   loadLens: (projectPath: string, prNumber: number, headSha: string) => Promise<void>;
   setLensOn: (on: boolean) => void;
   setLensRun: (run: { prNumber: number; name: string } | null) => void;
@@ -206,7 +203,6 @@ const INITIAL: Omit<GithubStoreState, 'sidebarWidth' | 'sidebarCollapsed' | 'rai
   filesLoading: false,
   filesError: null,
   filesFromGit: false,
-  prCommands: [],
   lensGroups: null,
   lensName: null,
   lensOn: false,
@@ -489,16 +485,6 @@ export const useGithubStore = create<GithubStore>()((set, get) => ({
 
   setComposingAt: (composingAt) => set({ composingAt }),
   setSubmitting: (submitting) => set({ submitting }),
-
-  loadPrCommands: async (projectPath) => {
-    try {
-      const prCommands = await window.api.github.listPrCommands(projectPath);
-      if (get().projectPath !== projectPath) return;
-      set({ prCommands });
-    } catch (error) {
-      githubLog.warn('failed to load pull request commands', { error: message(error) });
-    }
-  },
 
   /**
    * Read the lens written for this pull request, if one describes this head.

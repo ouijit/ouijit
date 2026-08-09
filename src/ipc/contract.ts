@@ -60,7 +60,6 @@ import type {
   PullRequestFilesResult,
   SaveDraftInput,
   PromoteToTaskResult,
-  PrCommandSummary,
   LensSummary,
   LensResult,
 } from '../github/service';
@@ -271,12 +270,6 @@ export interface IpcInvokeContract {
     args: [projectPath: string, number: number, baseSha: string, headSha: string, filePath: string, oldPath?: string];
     return: PrFileVersions;
   };
-  'github:list-pr-commands': { args: [projectPath: string]; return: PrCommandSummary[] };
-  'github:save-pr-command': {
-    args: [projectPath: string, name: string, command: string, previousName?: string];
-    return: PrCommandSummary;
-  };
-  'github:delete-pr-command': { args: [projectPath: string, name: string]; return: { success: boolean } };
   'github:lens': { args: [projectPath: string, prNumber: number, headSha: string]; return: LensResult };
   'github:list-lenses': { args: [projectPath: string]; return: LensSummary[] };
   'github:save-lens': {

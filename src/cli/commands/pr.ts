@@ -200,56 +200,6 @@ Examples:
       printJson(await del(`/api/pulls/${encodeURIComponent(number)}/lens?project=${encodeURIComponent(project)}`));
     });
 
-  // ── Pull request commands ───────────────────────────────────────────
-  // Named shell commands run against a pull request in a terminal. This is
-  // what starts an agent; what it writes back is drafts and a lens.
-  const prCommand = pr
-    .command('command')
-    .description('Manage named commands that run against a pull request')
-    .addHelpText(
-      'after',
-      `
-Runs with OUIJIT_PR_NUMBER, OUIJIT_PR_BRANCH, OUIJIT_PR_URL, OUIJIT_PR_TITLE,
-and OUIJIT_WORKTREE_PATH when the pull request is checked out as a task.
-
-Examples:
-  ouijit pr command list
-  ouijit pr command set --name "Review" --command 'claude "review this PR"'
-  ouijit pr command delete Review`,
-    );
-
-  prCommand
-    .command('list')
-    .description('List the pull request commands for this project')
-    .action(async () => {
-      const project = requireProject();
-      printJson(await get(`/api/pr-commands?project=${encodeURIComponent(project)}`));
-    });
-
-  prCommand
-    .command('set')
-    .description('Create or update a pull request command')
-    .requiredOption('--name <name>', 'name shown in the app')
-    .requiredOption('--command <command>', 'shell command to run')
-    .action(async (options: { name: string; command: string }) => {
-      const project = requireProject();
-      printJson(
-        await put(`/api/pr-commands?project=${encodeURIComponent(project)}`, {
-          name: options.name,
-          command: options.command,
-        }),
-      );
-    });
-
-  prCommand
-    .command('delete')
-    .description('Delete a pull request command')
-    .argument('<name>', 'command name')
-    .action(async (name: string) => {
-      const project = requireProject();
-      printJson(await del(`/api/pr-commands/${encodeURIComponent(name)}?project=${encodeURIComponent(project)}`));
-    });
-
   pr.command('link')
     .description('Link a pull request to a task')
     .argument('<number>', 'pull request number')

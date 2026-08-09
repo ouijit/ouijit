@@ -236,14 +236,7 @@ export function PullRequestDetailView({
         busy={detailLoading}
         onRefresh={() => void useGithubStore.getState().reloadDetail(projectPath)}
         onClose={() => useGithubStore.getState().closeDetail()}
-        actions={
-          <ReviewActions
-            projectPath={projectPath}
-            detail={detail}
-            linkedTask={linkedTask}
-            onJumpToDraft={jumpToDraft}
-          />
-        }
+        actions={<ReviewActions projectPath={projectPath} detail={detail} onJumpToDraft={jumpToDraft} />}
         tabs={
           <TabBar className="mx-auto shrink-0 self-stretch items-center">
             {PANES.map((p) => (

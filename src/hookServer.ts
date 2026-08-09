@@ -331,15 +331,14 @@ ouijit script set --name "<name>" --command "<cmd>"
 ouijit script run <id-or-name>                # executes and streams output
 ouijit script run <id-or-name> --task <number> # run in task's worktree dir
 
-## Pull Request Commands
+## Pull Requests
 Use these, not \`gh\`, for anything that belongs to a review. \`gh\` reaches
 GitHub directly and posts under the user's name; these write locally, and the
 user sends the review themselves. Reading the diff with \`gh pr diff <n>\` is
 fine — there is no Ouijit equivalent — but nothing should be posted with \`gh\`.
 
-When a terminal is opened against a pull request, these are set:
-OUIJIT_PR_NUMBER, OUIJIT_PR_BRANCH, OUIJIT_PR_URL, OUIJIT_PR_TITLE, and
-OUIJIT_WORKTREE_PATH when it is checked out as a task.
+A task made from a pull request carries its number:
+ouijit task current | jq .githubPrNumber
 
 ouijit pr list                                # → open PRs, grouped review/yours/others
 ouijit pr view <number>                       # → one PR with threads, timeline, checks
@@ -430,8 +429,9 @@ ouijit tag add 3 auth
 ouijit hook set run --name "Dev server" --command "npm run dev"
 
 # Review a pull request without posting anything to GitHub:
-gh pr diff $OUIJIT_PR_NUMBER                  # read it
-ouijit pr draft add $OUIJIT_PR_NUMBER --file src/api.ts --line 88 \\
+PR=$(ouijit task current | jq .githubPrNumber)
+gh pr diff $PR                                # read it
+ouijit pr draft add $PR --file src/api.ts --line 88 \\
   --origin claude --body "this can throw when the token is missing"
 # ...then the user reads the staged comments and sends the review themselves.
 `;

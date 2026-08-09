@@ -66,7 +66,6 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
     void store.loadIssues(projectPath);
     // Local read, so it rides along with the panel's first load rather than
     // waiting for the code pane to be opened.
-    void store.loadPrCommands(projectPath);
   }, [available, projectPath]);
 
   const refresh = useCallback(() => {

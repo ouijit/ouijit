@@ -1,7 +1,4 @@
 import { useState } from 'react';
-import type { TaskWithWorkspace } from '../../types';
-import { addProjectTerminal } from '../terminal/terminalActions';
-import { prCommandEnv } from '../../github/prCommandEnv';
 import type { MergeMethod, PullRequestDetail, ReviewDraft, ReviewEvent } from '../../github/types';
 import { useGithubStore } from '../../stores/githubStore';
 import { useProjectStore } from '../../stores/projectStore';
@@ -12,8 +9,6 @@ import { SegmentedGroup } from './SegmentedGroup';
 interface ReviewActionsProps {
   projectPath: string;
   detail: PullRequestDetail;
-  /** The task holding this pull request's worktree, when one exists. */
-  linkedTask?: TaskWithWorkspace;
   /** Scroll the document to a pending comment and open it for editing. */
   onJumpToDraft: (draft: ReviewDraft) => void;
 }
@@ -35,10 +30,9 @@ const METHODS: Array<{ value: MergeMethod; label: string }> = [
  * but not sent get their own segment, dotted in accent, so unsent work is
  * visible from any pane.
  */
-export function ReviewActions({ projectPath, detail, linkedTask, onJumpToDraft }: ReviewActionsProps) {
+export function ReviewActions({ projectPath, detail, onJumpToDraft }: ReviewActionsProps) {
   const drafts = useGithubStore((s) => s.drafts);
   const submitting = useGithubStore((s) => s.submitting);
-  const prCommands = useGithubStore((s) => s.prCommands);
 
   const [summary, setSummary] = useState('');
   const [method, setMethod] = useState<MergeMethod>('squash');
@@ -101,57 +95,9 @@ export function ReviewActions({ projectPath, detail, linkedTask, onJumpToDraft }
     }
   };
 
-  /**
-   * Hand this pull request to a command in a terminal.
-   *
-   * In the pull request's worktree when it has one, in the project otherwise —
-   * reviewing a teammate's PR is deliberately checkout-free, and a command that
-   * only wants the number and the URL should not require checking anything out
-   * first. Runs because it was pressed; nothing triggers it in the background.
-   */
-  const runCommand = async (name: string, command: string) => {
-    const task = linkedTask;
-    await addProjectTerminal(
-      projectPath,
-      { name, command, source: 'custom', priority: 0 },
-      {
-        ...(task?.worktreePath
-          ? {
-              existingWorktree: {
-                path: task.worktreePath,
-                branch: task.branch || '',
-                createdAt: task.createdAt,
-              },
-              taskId: task.taskNumber,
-            }
-          : {}),
-        skipAutoHook: true,
-        extraEnv: prCommandEnv(detail, task?.worktreePath),
-      },
-    );
-  };
-
   return (
     <SegmentedGroup>
       {drafts.length > 0 && <DraftsPopover drafts={drafts} onJump={onJumpToDraft} onDiscard={discardDraft} />}
-
-      {prCommands.length > 0 && (
-        <ActionMenu label="Run">
-          {(close) =>
-            prCommands.map((cmd) => (
-              <MenuItem
-                key={cmd.name}
-                label={cmd.name}
-                title={cmd.command}
-                onClick={() => {
-                  close();
-                  void runCommand(cmd.name, cmd.command);
-                }}
-              />
-            ))
-          }
-        </ActionMenu>
-      )}
 
       <ActionMenu label={submitting ? 'Submitting…' : 'Review'} disabled={submitting} accent={!isOpen}>
         {(close) => (

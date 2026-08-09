@@ -341,10 +341,6 @@ contextBridge.exposeInMainWorld('api', {
       filePath: string,
       oldPath?: string,
     ) => typedInvoke('github:pull-request-file-versions', projectPath, number, baseSha, headSha, filePath, oldPath),
-    listPrCommands: (projectPath: string) => typedInvoke('github:list-pr-commands', projectPath),
-    savePrCommand: (projectPath: string, name: string, command: string, previousName?: string) =>
-      typedInvoke('github:save-pr-command', projectPath, name, command, previousName),
-    deletePrCommand: (projectPath: string, name: string) => typedInvoke('github:delete-pr-command', projectPath, name),
     lens: (projectPath: string, prNumber: number, headSha: string) =>
       typedInvoke('github:lens', projectPath, prNumber, headSha),
     clearLens: (projectPath: string, prNumber: number) => typedInvoke('github:clear-lens', projectPath, prNumber),
