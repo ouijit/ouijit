@@ -85,7 +85,7 @@ export function PullRequestSidebar({
     // list and what it opens, and two of them read as a seam.
     <div className="shrink-0 flex flex-col overflow-hidden" style={{ width }}>
       <div className="shrink-0 flex flex-col">
-        <TabBar className="h-12 px-3 items-center border-b border-ink/[0.06]">
+        <TabBar className="pane-ledge h-12 px-3 items-center">
           <Tab active={showing === 'pulls'} count={pullCount} onClick={() => onShow('pulls')}>
             Pull requests
           </Tab>

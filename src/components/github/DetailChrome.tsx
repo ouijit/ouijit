@@ -32,7 +32,7 @@ export function DetailChrome({ icon, tone, title, url, tabs, actions, busy, onRe
   const sidebarCollapsed = useGithubStore((s) => s.sidebarCollapsed);
 
   return (
-    <header className="shrink-0 h-12 flex items-center gap-3 px-3 border-b border-ink/[0.06]">
+    <header className="pane-ledge shrink-0 h-12 flex items-center gap-3 px-3">
       {/* The leftmost thing in the pane, immediately right of the divider —
           and here rather than on the divider itself because the panel frame
           gives every one of its direct children the same stacking level, so

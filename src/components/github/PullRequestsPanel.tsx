@@ -269,7 +269,7 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
             to be somewhere — collapsing the list while reading a pull request
             and then closing it must not strand you. */}
         {!detail && !issue && (
-          <div className="shrink-0 h-12 flex items-center px-3 border-b border-ink/[0.06]">
+          <div className="pane-ledge shrink-0 h-12 flex items-center px-3">
             <SidebarToggle
               collapsed={sidebarCollapsed}
               onCollapsedChange={(collapsed) => useGithubStore.getState().setSidebarCollapsed(collapsed)}

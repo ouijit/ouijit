@@ -186,7 +186,7 @@ export function DiffPanel({ ptyId, projectPath, mode, onClose }: DiffPanelProps)
         />
       )}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <div className="px-3 py-2 text-sm text-ink/70 flex items-center gap-2 shrink-0">
+        <div className="pane-ledge px-3 py-2 text-sm text-ink/70 flex items-center gap-2 shrink-0">
           <SidebarToggle
             collapsed={sidebarCollapsed}
             onCollapsedChange={setSidebarCollapsed}
@@ -269,7 +269,7 @@ function UntrackedFilesSection({ files }: { files: string[] }) {
   return (
     <div className="border-t border-ink/[0.08]">
       <div
-        className="flex items-center gap-2 px-4 py-2 bg-terminal-surface border-b border-ink/[0.06] text-sm text-ink/50 hover:text-ink/70 transition-colors duration-150"
+        className="pane-ledge flex items-center gap-2 px-4 py-2 bg-terminal-surface text-sm text-ink/50 hover:text-ink/70 transition-colors duration-150"
         onClick={() => setExpanded(!expanded)}
       >
         <Icon name={expanded ? 'caret-down' : 'caret-right'} className="!w-3 !h-3" />
