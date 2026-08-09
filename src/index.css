@@ -507,35 +507,6 @@ textarea,
     0 6px 12px -6px var(--seam-shadow);
 }
 
-/* One task from the next.
- *
- * The same cut as everywhere else. It was shallower for a while, on the
- * grounds that a list is not two surfaces meeting — but a catch needs a dark
- * line to sit against, and against a cut that faint it read as a lone pale
- * smear rather than an edge.
- *
- * The left face is here too, lit against the column's cut, so it shows on
- * every card rather than only the translucent ones.
- *
- * Drawn inside the bottom edge, so the card below cannot paint over it, the
- * last card in a column still closes, and the first one does not land on the
- * boundary the column header already owns. */
-.kanban-card-edge {
-  box-shadow:
-    inset 1px 0 0 var(--seam-catch),
-    inset 0 -1px 0 var(--seam-catch),
-    inset 0 -2px 0 var(--seam-cut);
-}
-
-/* The rail and the edge are one declaration because a second would replace the
-   first rather than add to it. */
-.kanban-card-edge.is-selected {
-  box-shadow:
-    inset 2px 0 0 0 var(--color-accent),
-    inset 0 -1px 0 var(--seam-catch),
-    inset 0 -2px 0 var(--seam-cut);
-}
-
 /* ===================================
    Canvas pane cursor — default at rest, grabbing while panning
    =================================== */
