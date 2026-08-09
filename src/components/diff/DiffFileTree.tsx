@@ -106,21 +106,24 @@ export interface DiffFileTreeProps {
   footer?: ReactNode;
 }
 
-export function DiffFileTree({
+/**
+ * Just the nodes, for somewhere that already owns its scrolling.
+ *
+ * A lens groups the same files under headings, and each group still wants the
+ * directories: which layer a change touches is most of what tells a reviewer
+ * what kind of change it is, and a flat list of basenames throws that away
+ * exactly where the grouping was supposed to explain it.
+ */
+export function DiffFileTreeNodes({
   files,
-  untrackedFiles = [],
   onFileClick,
   renderFileTrailing,
-  header,
   activePath,
-  footer,
-}: DiffFileTreeProps) {
+}: Pick<DiffFileTreeProps, 'files' | 'onFileClick' | 'renderFileTrailing' | 'activePath'>) {
   const tree = useMemo(() => buildTree(files), [files]);
-  const [untrackedExpanded, setUntrackedExpanded] = useState(false);
 
   return (
-    <div className="flex-1 overflow-y-auto py-2">
-      {header}
+    <>
       {tree.map((node) => (
         <TreeNodeView
           key={node.fullPath}
@@ -130,6 +133,30 @@ export function DiffFileTree({
           activePath={activePath}
         />
       ))}
+    </>
+  );
+}
+
+export function DiffFileTree({
+  files,
+  untrackedFiles = [],
+  onFileClick,
+  renderFileTrailing,
+  header,
+  activePath,
+  footer,
+}: DiffFileTreeProps) {
+  const [untrackedExpanded, setUntrackedExpanded] = useState(false);
+
+  return (
+    <div className="flex-1 overflow-y-auto py-2">
+      {header}
+      <DiffFileTreeNodes
+        files={files}
+        onFileClick={onFileClick}
+        renderFileTrailing={renderFileTrailing}
+        activePath={activePath}
+      />
       {untrackedFiles.length > 0 && (
         <>
           <div

@@ -2,7 +2,7 @@ import { useMemo, type ReactNode } from 'react';
 import type { ChangedFile } from '../../types';
 import type { PullRequestDetail, PullRequestFile } from '../../github/types';
 import type { ResolvedGroup } from '../../github/lens';
-import { DiffFileTree } from '../diff/DiffFileTree';
+import { DiffFileTree, DiffFileTreeNodes } from '../diff/DiffFileTree';
 import { useGithubStore } from '../../stores/githubStore';
 import { Icon } from '../terminal/Icon';
 
@@ -48,6 +48,7 @@ export function PullRequestRail({
   width,
 }: PullRequestRailProps) {
   const changedFiles: ChangedFile[] = useMemo(() => files.map(toChangedFile), [files]);
+  const byPath = useMemo(() => new Map(changedFiles.map((file) => [file.path, file])), [changedFiles]);
   const viewedPaths = useGithubStore((s) => s.viewedPaths);
   const viewed = useMemo(() => new Set(viewedPaths), [viewedPaths]);
 
@@ -60,16 +61,24 @@ export function PullRequestRail({
     return counts;
   }, [detail.threads]);
 
-  const trailing = (path: string) => {
+  const trailing = (path: string, hunks?: number) => {
     const count = unresolvedByPath.get(path);
+    // How much of a file a part of the change claims, when it is not all of it.
+    const share =
+      hunks && hunks > 1 ? (
+        <span key="hunks" className="shrink-0 font-mono text-[10px] text-ink/35" title={`${hunks} hunks here`}>
+          {hunks}
+        </span>
+      ) : null;
     // A file already dealt with says so here too, so how far through a review
     // you are is answerable without scrolling the document to find out.
     const done = viewed.has(path) ? (
       <Icon key="viewed" name="check-circle" className="shrink-0 w-3 h-3 text-accent/70" />
     ) : null;
-    if (!count) return done;
+    if (!count) return share || done ? <>{[share, done]}</> : null;
     return (
       <>
+        {share}
         <span className="shrink-0 font-mono text-[10px] text-accent" title="Unresolved threads">
           {count}
         </span>
@@ -146,24 +155,25 @@ export function PullRequestRail({
         <div className="flex-1 min-h-0 overflow-y-auto py-1">
           {groups.map((group) => (
             <div key={group.title} className="flex flex-col">
+              {/* Set as the lens wrote it. Uppercasing a title shouts, and
+                  algorithmic title case would spell GitHub "Github". */}
               <div
-                className="flex items-center gap-1.5 h-9 px-3 text-[10px] uppercase tracking-wider text-ink/40"
+                className="flex items-center gap-1.5 h-9 px-3 text-[11px] font-medium text-ink/55"
                 title={group.summary}
               >
                 <Icon name="aperture" className="shrink-0 w-3 h-3 opacity-70" />
-                {group.title}
+                <span className="min-w-0 truncate">{group.title}</span>
               </div>
-              {group.slices.map((slice) => (
-                <RailEntry
-                  key={`${group.title}:${slice.path}`}
-                  label={slice.path.split('/').pop() ?? slice.path}
-                  title={slice.path}
-                  note={slice.hunks.length > 1 ? `${slice.hunks.length}` : undefined}
-                  active={activePath === slice.path}
-                  onClick={() => onSelect(slice.path)}
-                  trailing={trailing(slice.path)}
-                />
-              ))}
+              {/* The same tree the flat list uses. Which directories a part of
+                  the change touches is most of what says what kind of change
+                  it is, so a grouping that hides them is a grouping that
+                  answered the easy half of the question. */}
+              <DiffFileTreeNodes
+                files={filesInGroup(group, byPath)}
+                activePath={activePath}
+                onFileClick={onSelect}
+                renderFileTrailing={(file) => trailing(file.path, hunkCount(group, file.path))}
+              />
             </div>
           ))}
         </div>
@@ -235,6 +245,20 @@ function RailEntry({
       {trailing}
     </button>
   );
+}
+
+/** The files one part of the change claims, in the order the lens put them. */
+function filesInGroup(group: ResolvedGroup, byPath: Map<string, ChangedFile>): ChangedFile[] {
+  const out: ChangedFile[] = [];
+  for (const slice of group.slices) {
+    const file = byPath.get(slice.path);
+    if (file) out.push(file);
+  }
+  return out;
+}
+
+function hunkCount(group: ResolvedGroup, path: string): number | undefined {
+  return group.slices.find((slice) => slice.path === path)?.hunks.length;
 }
 
 function toChangedFile(file: PullRequestFile): ChangedFile {

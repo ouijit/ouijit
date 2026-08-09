@@ -125,6 +125,49 @@ describe('PullRequestsPanel — lens', () => {
   });
 
   /**
+   * A grouping that hides the directories has answered the easy half of the
+   * question. Which layer a part of the change touches is most of what tells a
+   * reviewer what kind of change they are looking at.
+   */
+  test('a group keeps the directories its files sit in', async () => {
+    vi.mocked(window.api.github.inbox).mockResolvedValue(
+      inbox({ needsReview: [pr({ number: 5, title: 'Please look' })] }),
+    );
+    vi.mocked(window.api.github.pullRequest).mockResolvedValue(detail({ changedFiles: 2 }));
+    vi.mocked(window.api.github.pullRequestFiles).mockResolvedValue({
+      files: [
+        { path: 'src/github/api.ts', status: 'M', additions: 1, deletions: 1 },
+        { path: 'src/github/client.ts', status: 'M', additions: 1, deletions: 1 },
+      ],
+      fromGit: false,
+    });
+    vi.mocked(window.api.github.lens).mockResolvedValue({
+      groups: [
+        {
+          title: 'Talking to GitHub',
+          slices: [{ path: 'src/github/api.ts' }, { path: 'src/github/client.ts' }],
+        },
+      ],
+    });
+
+    render(<PullRequestsPanel projectPath={PROJECT} />);
+    fireEvent.click(await screen.findByText('Please look'));
+    fireEvent.click(await screen.findByText('Code'));
+    fireEvent.click(await screen.findByText('Lens'));
+
+    // The shared directory is collapsed to one node above the two files, the
+    // same as the flat tree does it.
+    expect(await screen.findByText('src/github')).toBeTruthy();
+    expect(screen.getAllByText('api.ts').length).toBeGreaterThan(0);
+
+    // And the title is set as the lens wrote it, not shouted at the reader —
+    // in the rail and in the document, which both show it.
+    const headings = screen.getAllByText('Talking to GitHub');
+    expect(headings.length).toBeGreaterThan(0);
+    for (const heading of headings) expect(heading.className).not.toContain('uppercase');
+  });
+
+  /**
    * With none written, the rail is where the way to get one lives — beside
    * where it would appear, not behind the settings panel.
    */
