@@ -469,7 +469,6 @@ textarea,
  * this column's own edge, since that is the face the light reaches. */
 .pane-seam-left {
   border-left: 1px solid var(--seam-cut);
-  box-shadow: inset 1px 0 0 var(--seam-catch);
 }
 
 /* ===================================
@@ -510,17 +509,22 @@ textarea,
 
 /* One task from the next.
  *
- * The shallow cut, not the full one: cards are items in a list rather than two
- * surfaces meeting. Still a cut and a catch though — a single pale line is not
- * a gap, it is a rule drawn on the card.
+ * The same cut as everywhere else. It was shallower for a while, on the
+ * grounds that a list is not two surfaces meeting — but a catch needs a dark
+ * line to sit against, and against a cut that faint it read as a lone pale
+ * smear rather than an edge.
+ *
+ * The left face is here too, lit against the column's cut, so it shows on
+ * every card rather than only the translucent ones.
  *
  * Drawn inside the bottom edge, so the card below cannot paint over it, the
  * last card in a column still closes, and the first one does not land on the
  * boundary the column header already owns. */
 .kanban-card-edge {
   box-shadow:
+    inset 1px 0 0 var(--seam-catch),
     inset 0 -1px 0 var(--seam-catch),
-    inset 0 -2px 0 var(--seam-cut-soft);
+    inset 0 -2px 0 var(--seam-cut);
 }
 
 /* The rail and the edge are one declaration because a second would replace the
@@ -529,7 +533,7 @@ textarea,
   box-shadow:
     inset 2px 0 0 0 var(--color-accent),
     inset 0 -1px 0 var(--seam-catch),
-    inset 0 -2px 0 var(--seam-cut-soft);
+    inset 0 -2px 0 var(--seam-cut);
 }
 
 /* ===================================
