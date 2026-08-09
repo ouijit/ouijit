@@ -6,7 +6,7 @@ import { resolveLensAgent, type LensAgentChoice } from './lensAgents';
 import { buildLensPrompt, extractJson } from './lensPrompt';
 import type { PullRequestDetail, PullRequestFile } from './types';
 
-const log = getLogger();
+const log = getLogger().scope('github:lens');
 
 /**
  * One question, one answer, no session.
@@ -56,29 +56,45 @@ export async function runLens(input: RunLensInput): Promise<RunLensResult> {
   const args = agent.promptVia === 'arg' ? [...agent.args, prompt] : agent.args;
   const started = Date.now();
 
+  // Enough to answer "what is it doing" without reading the code: which binary,
+  // with which flags, how much was sent and how much of the change it covers.
+  log.info('lens run starting', {
+    lens: input.instruction.slice(0, 60),
+    command: `${agent.command} ${agent.args.join(' ')}`.trim(),
+    files: input.files.length,
+    promptChars: prompt.length,
+  });
+
   let output: string;
   try {
     output = await capture(agent.command, args, agent.promptVia === 'stdin' ? prompt : null, input.cwd, input.signal);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    log.warn('lens agent failed', { command: agent.command, error: message });
+    log.warn('lens run failed to complete', { command: agent.command, ms: Date.now() - started, error: message });
     return { success: false, error: message };
   }
 
-  log.info('lens agent returned', { command: agent.command, ms: Date.now() - started, bytes: output.length });
+  log.info('lens agent replied', { command: agent.command, ms: Date.now() - started, bytes: output.length });
 
   const json = extractJson(output);
   if (!json) {
     // The tail rather than the head: what went wrong is usually the last thing
     // said, and the first thing is usually a banner.
+    log.warn('lens reply had no JSON in it', { reply: tail(output) });
     return { success: false, error: `No JSON in the reply. It ended: ${tail(output)}` };
   }
 
   const groups = parseLens(json);
   if (!groups) {
+    log.warn('lens reply was JSON but not a lens', { json: json.slice(0, 400) });
     return { success: false, error: 'The reply was JSON, but not a lens — no usable groups in it.' };
   }
 
+  log.info('lens written', {
+    ms: Date.now() - started,
+    groups: groups.length,
+    slices: groups.reduce((total, group) => total + group.slices.length, 0),
+  });
   return { success: true, body: JSON.stringify({ groups }) };
 }
 
@@ -155,6 +171,7 @@ function capture(
     });
 
     child.on('close', (code) => {
+      log.info('lens agent exited', { command, code, stdout: out.length, stderr: err.length });
       // A non-zero exit with usable output still counts: some agents exit
       // non-zero on a warning they have already answered through.
       if (code !== 0 && !out.trim()) {

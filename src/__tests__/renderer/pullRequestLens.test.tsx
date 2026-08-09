@@ -187,6 +187,89 @@ describe('PullRequestsPanel — lens', () => {
   });
 
   /**
+   * Regression: the run saved the lens in main and returned, but the only
+   * thing that cleared "writing" was a push emitted from the REST router —
+   * which this path does not go through. The lens was on disk and the rail
+   * span for ever.
+   */
+  test('a finished run shows its lens and stops saying it is writing', async () => {
+    vi.mocked(window.api.github.inbox).mockResolvedValue(
+      inbox({ needsReview: [pr({ number: 5, title: 'Please look' })] }),
+    );
+    vi.mocked(window.api.github.pullRequest).mockResolvedValue(detail({ changedFiles: 1 }));
+    vi.mocked(window.api.github.pullRequestFiles).mockResolvedValue({
+      files: [{ path: 'src/api.ts', status: 'M', additions: 1, deletions: 1 }],
+      fromGit: false,
+    });
+    vi.mocked(window.api.github.lens).mockResolvedValue({ groups: null });
+    vi.mocked(window.api.github.listLenses).mockResolvedValue([{ name: 'Narrative', instruction: 'group by story' }]);
+    vi.mocked(window.api.github.runLens).mockImplementation(async () => {
+      vi.mocked(window.api.github.lens).mockResolvedValue({
+        groups: [{ title: 'Transport', slices: [{ path: 'src/api.ts' }] }],
+      });
+      return { success: true };
+    });
+
+    render(<PullRequestsPanel projectPath={PROJECT} />);
+    fireEvent.click(await screen.findByText('Please look'));
+    fireEvent.click(await screen.findByText('Code'));
+    fireEvent.click(await screen.findByText('Lenses…'));
+    fireEvent.click(await screen.findByText('Narrative'));
+
+    expect(await screen.findByText('Lens')).toBeTruthy();
+    expect(screen.queryByText(/Writing/)).toBeNull();
+    expect(useGithubStore.getState().lensRun).toBeNull();
+  });
+
+  /**
+   * A run that fails has to stop too. Clearing only on success is the same
+   * bug wearing a different hat.
+   */
+  test('a failed run says so and stops spinning', async () => {
+    vi.mocked(window.api.github.inbox).mockResolvedValue(
+      inbox({ needsReview: [pr({ number: 5, title: 'Please look' })] }),
+    );
+    vi.mocked(window.api.github.pullRequest).mockResolvedValue(detail());
+    vi.mocked(window.api.github.lens).mockResolvedValue({ groups: null });
+    vi.mocked(window.api.github.listLenses).mockResolvedValue([{ name: 'Narrative', instruction: 'group by story' }]);
+    vi.mocked(window.api.github.runLens).mockResolvedValue({ success: false, error: 'claude is not on PATH' });
+
+    render(<PullRequestsPanel projectPath={PROJECT} />);
+    fireEvent.click(await screen.findByText('Please look'));
+    fireEvent.click(await screen.findByText('Code'));
+    fireEvent.click(await screen.findByText('Lenses…'));
+    fireEvent.click(await screen.findByText('Narrative'));
+
+    await waitFor(() => expect(useGithubStore.getState().lensRun).toBeNull());
+    expect(useProjectStore.getState().toasts.some((t) => t.message.includes('not on PATH'))).toBe(true);
+  });
+
+  /**
+   * The run happens in main, so leaving the pull request is not a reason to
+   * forget it — the rail used to hold it in component state and lose it.
+   */
+  test('the run survives closing the pull request', async () => {
+    vi.mocked(window.api.github.inbox).mockResolvedValue(
+      inbox({ needsReview: [pr({ number: 5, title: 'Please look' })] }),
+    );
+    vi.mocked(window.api.github.pullRequest).mockResolvedValue(detail());
+    vi.mocked(window.api.github.lens).mockResolvedValue({ groups: null });
+    vi.mocked(window.api.github.listLenses).mockResolvedValue([{ name: 'Narrative', instruction: 'group by story' }]);
+    vi.mocked(window.api.github.runLens).mockReturnValue(new Promise(() => {}));
+
+    render(<PullRequestsPanel projectPath={PROJECT} />);
+    fireEvent.click(await screen.findByText('Please look'));
+    fireEvent.click(await screen.findByText('Code'));
+    fireEvent.click(await screen.findByText('Lenses…'));
+    fireEvent.click(await screen.findByText('Narrative'));
+
+    await waitFor(() => expect(useGithubStore.getState().lensRun).toEqual({ prNumber: 5, name: 'Narrative' }));
+
+    useGithubStore.getState().closeDetail();
+    expect(useGithubStore.getState().lensRun).toEqual({ prNumber: 5, name: 'Narrative' });
+  });
+
+  /**
    * The command runs in a terminal the panel cannot see the end of, so the
    * write is what tells it. Without this the rail says "writing" forever while
    * the lens is already on disk.

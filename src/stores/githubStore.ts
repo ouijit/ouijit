@@ -87,6 +87,17 @@ interface GithubStoreState {
    */
   viewedPaths: string[];
 
+  /**
+   * The lens being written, and which pull request it is for.
+   *
+   * In the store rather than the detail view because the run outlives the
+   * view: it happens in the main process, and closing the pull request to go
+   * and look at something else is not a reason to stop being told about it.
+   * The pull request number is carried so the rail only claims to be writing
+   * when it is this one being written.
+   */
+  lensRun: { prNumber: number; name: string } | null;
+
   drafts: ReviewDraft[];
   /** Anchor the user is currently composing a new comment on. */
   composingAt: { path: string; line: number; side: 'LEFT' | 'RIGHT' } | null;
@@ -113,6 +124,7 @@ interface GithubStoreActions {
   loadPrCommands: (projectPath: string) => Promise<void>;
   loadLens: (projectPath: string, prNumber: number, headSha: string) => Promise<void>;
   setLensOn: (on: boolean) => void;
+  setLensRun: (run: { prNumber: number; name: string } | null) => void;
   loadViewed: (projectPath: string, prNumber: number, headSha: string) => Promise<void>;
   setFileViewed: (projectPath: string, prNumber: number, headSha: string, path: string, viewed: boolean) => void;
   clearLens: (projectPath: string, prNumber: number) => Promise<void>;
@@ -170,6 +182,7 @@ const INITIAL: Omit<GithubStoreState, 'sidebarWidth' | 'sidebarCollapsed' | 'rai
   lensGroups: null,
   lensOn: false,
   viewedPaths: [],
+  lensRun: null,
   drafts: [],
   composingAt: null,
   submitting: false,
@@ -471,6 +484,8 @@ export const useGithubStore = create<GithubStore>()((set, get) => ({
   setDiffs: (diffs) => set({ diffs }),
 
   setLensOn: (on) => set({ lensOn: on }),
+
+  setLensRun: (run) => set({ lensRun: run }),
 
   loadViewed: async (projectPath, prNumber, headSha) => {
     const paths = await window.api.github.viewedFiles(projectPath, prNumber, headSha);

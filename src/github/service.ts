@@ -582,6 +582,8 @@ export async function writeLensWithAgent(
     );
   }
 
+  ghLog.info('gathering context for a lens', { prNumber, files: listed.files.length, lens: lensName });
+
   const result = await runLens({
     detail,
     files: listed.files,

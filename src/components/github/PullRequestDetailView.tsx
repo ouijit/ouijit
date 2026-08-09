@@ -92,40 +92,52 @@ export function PullRequestDetailView({
   }, [pane, pendingDraftId, file]);
 
   const [lensesOpen, setLensesOpen] = useState(false);
-  const [lensWriting, setLensWriting] = useState<string | null>(null);
+  // Only this pull request's run is this pull request's business.
+  const lensRun = useGithubStore((s) => s.lensRun);
+  const lensWriting = lensRun?.prNumber === detail.number ? lensRun.name : null;
 
   /**
    * Read this pull request through one of the project's lenses.
    *
    * One call. Main assembles the title, description and diff, asks the agent
    * once, and stores what comes back — there is no session, no terminal, and
-   * nothing for the agent to go and look up. What used to be here spawned a
-   * shell and hoped.
+   * nothing for the agent to go and look up.
+   *
+   * The lens is loaded here on success rather than waited for: this call knows
+   * it finished, so being told by a push would be indirection standing in for
+   * something already known. The push exists for the other writer — an agent
+   * using the CLI, in another process, that nothing here can see.
    */
   const writeLens = useCallback(
     (lens: LensSummary) => {
-      setLensWriting(lens.name);
+      const prNumber = detail.number;
+      const headSha = detail.headSha;
+      useGithubStore.getState().setLensRun({ prNumber, name: lens.name });
       setLensesOpen(false);
+
       void window.api.github
-        .runLens(projectPath, detail.number, lens.name)
-        .then((result) => {
-          if (result.success) return;
-          useProjectStore.getState().addToast(result.error ?? `“${lens.name}” could not read this change`, 'error');
-          setLensWriting(null);
+        .runLens(projectPath, prNumber, lens.name)
+        .then(async (result) => {
+          if (!result.success) {
+            useProjectStore.getState().addToast(result.error ?? `“${lens.name}” could not read this change`, 'error');
+            return;
+          }
+          await useGithubStore.getState().loadLens(projectPath, prNumber, headSha);
         })
         .catch((error: unknown) => {
           useProjectStore.getState().addToast(error instanceof Error ? error.message : String(error), 'error');
-          setLensWriting(null);
+        })
+        .finally(() => {
+          // Whatever happened, it is no longer happening. Clearing only on
+          // success is how a failed run leaves a spinner turning for ever.
+          const current = useGithubStore.getState().lensRun;
+          if (current?.prNumber === prNumber && current.name === lens.name) {
+            useGithubStore.getState().setLensRun(null);
+          }
         });
     },
-    [projectPath, detail.number],
+    [projectPath, detail.number, detail.headSha],
   );
-
-  // Arrived, so it is no longer being written. This is the only thing that
-  // clears the state on success: nothing else knows when the command is done.
-  useEffect(() => {
-    if (lensGroups) setLensWriting(null);
-  }, [lensGroups]);
 
   // Bound once, where both the rail and the document can read the same result.
   // Resolution needs the parsed diffs, so it waits for them: until they land the
