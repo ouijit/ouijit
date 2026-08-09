@@ -20,7 +20,13 @@ import type {
   CliPanelResponse,
 } from './types';
 import type { CaptureNavigatePayload } from './capture/types';
-import type { CommentKind, ReviewEvent, MergeMethod, GithubDraftsChangedPayload } from './github/types';
+import type {
+  CommentKind,
+  ReviewEvent,
+  MergeMethod,
+  GithubDraftsChangedPayload,
+  GithubLensChangedPayload,
+} from './github/types';
 import type { SaveDraftInput } from './github/service';
 
 // ── Typed IPC helpers ───────────────────────────────────────────────────────
@@ -385,5 +391,7 @@ contextBridge.exposeInMainWorld('api', {
 
     onDraftsChanged: (callback: (payload: GithubDraftsChangedPayload) => void) =>
       typedListen('github:drafts-changed', callback),
+    onLensChanged: (callback: (payload: GithubLensChangedPayload) => void) =>
+      typedListen('github:lens-changed', callback),
   },
 });

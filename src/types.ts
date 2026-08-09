@@ -53,6 +53,7 @@ export type {
   IssueDetail,
   CommentKind,
   GithubDraftsChangedPayload,
+  GithubLensChangedPayload,
   CheckRun,
   TimelineItem,
 } from './github/types';
@@ -70,6 +71,7 @@ import type {
   ReviewEvent,
   MergeMethod,
   GithubDraftsChangedPayload,
+  GithubLensChangedPayload,
 } from './github/types';
 import type {
   InboxResult,
@@ -737,6 +739,7 @@ export interface GithubAPI {
   ): Promise<string[]>;
 
   onDraftsChanged(callback: (payload: GithubDraftsChangedPayload) => void): () => void;
+  onLensChanged(callback: (payload: GithubLensChangedPayload) => void): () => void;
 }
 
 export interface GithubActionResult {

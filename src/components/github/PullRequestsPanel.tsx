@@ -94,6 +94,19 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
     });
   }, [available, projectPath]);
 
+  // The other thing that arrives unasked: the command that writes a lens runs
+  // in a terminal, so the pane that started it has no other way to learn it
+  // finished. One local read, same rule as the drafts push.
+  useEffect(() => {
+    if (!available) return;
+    return window.api.github.onLensChanged((payload) => {
+      if (payload.projectPath !== projectPath) return;
+      const store = useGithubStore.getState();
+      if (store.activeNumber !== payload.prNumber || !store.detail) return;
+      void store.loadLens(projectPath, payload.prNumber, store.detail.headSha);
+    });
+  }, [available, projectPath]);
+
   // Escape closes what is open, then leaves the panel — matching how the
   // settings panel treats Escape.
   useEffect(() => {

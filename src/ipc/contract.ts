@@ -53,6 +53,7 @@ import type {
   ReviewEvent,
   MergeMethod,
   GithubDraftsChangedPayload,
+  GithubLensChangedPayload,
 } from '../github/types';
 import type {
   InboxResult,
@@ -451,4 +452,5 @@ export interface IpcPushContract {
   'capture:navigate': { args: [payload: CaptureNavigatePayload] };
   /** A review draft was written or discarded outside the renderer (the CLI). */
   'github:drafts-changed': { args: [payload: GithubDraftsChangedPayload] };
+  'github:lens-changed': { args: [payload: GithubLensChangedPayload] };
 }

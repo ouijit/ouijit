@@ -121,10 +121,23 @@ export function PullRequestRail({
             tall
             icon="aperture"
             label={lensWriting ? `Writing ${lensWriting}…` : 'Lenses…'}
-            muted
+            muted={!lensWriting}
             active={false}
-            title="Write a lens for this pull request, or add one"
+            title={
+              lensWriting
+                ? `${lensWriting} is running in a terminal. The lens appears here when it writes one.`
+                : 'Write a lens for this pull request, or add one'
+            }
             onClick={onOpenLenses}
+            trailing={
+              lensWriting ? (
+                <Icon
+                  name="arrows-clockwise"
+                  className="shrink-0 w-3 h-3 text-accent"
+                  style={{ animation: 'loading-dot-spin 0.8s linear infinite' }}
+                />
+              ) : undefined
+            }
           />
         )}
       </div>

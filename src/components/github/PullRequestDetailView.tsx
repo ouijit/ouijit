@@ -5,6 +5,7 @@ import { useGithubStore, RAIL_DEFAULT_WIDTH, RAIL_MIN_WIDTH, RAIL_MAX_WIDTH } fr
 import { addProjectTerminal } from '../terminal/terminalActions';
 import { prCommandEnv } from '../../github/prCommandEnv';
 import { resolveLens } from '../../github/lens';
+import { useProjectStore } from '../../stores/projectStore';
 import type { LensSummary } from '../../github/service';
 import { LensDialog } from '../dialogs/LensDialog';
 import { ResizeHandle } from '../common/ResizeHandle';
@@ -95,12 +96,23 @@ export function PullRequestDetailView({
   const [lensesOpen, setLensesOpen] = useState(false);
   const [lensWriting, setLensWriting] = useState<string | null>(null);
 
-  /** Hand this pull request to one of the project's lenses. */
+  /**
+   * Hand this pull request to one of the project's lenses.
+   *
+   * The command runs in a terminal, which is behind this panel — so without
+   * saying so, pressing a lens looks like pressing nothing. The rail keeps
+   * saying it is writing until the lens arrives, which is the push, not the
+   * spawn: `addProjectTerminal` resolves the moment the shell exists, long
+   * before the command it is running has read anything.
+   */
   const writeLens = useCallback(
     (lens: LensSummary) => {
       if (!detail) return;
       setLensWriting(lens.name);
       setLensesOpen(false);
+      useProjectStore
+        .getState()
+        .addToast(`Running “${lens.name}” in a terminal — the lens appears here when it is written`, 'info');
       void addProjectTerminal(
         projectPath,
         { name: lens.name, command: lens.command, source: 'custom', priority: 0 },
@@ -118,10 +130,19 @@ export function PullRequestDetailView({
           skipAutoHook: true,
           extraEnv: prCommandEnv(detail, linkedTask?.worktreePath),
         },
-      ).finally(() => setLensWriting(null));
+      ).catch(() => {
+        useProjectStore.getState().addToast(`Could not start “${lens.name}”`, 'error');
+        setLensWriting(null);
+      });
     },
     [detail, projectPath, linkedTask],
   );
+
+  // Arrived, so it is no longer being written. This is the only thing that
+  // clears the state on success: nothing else knows when the command is done.
+  useEffect(() => {
+    if (lensGroups) setLensWriting(null);
+  }, [lensGroups]);
 
   // Bound once, where both the rail and the document can read the same result.
   // Resolution needs the parsed diffs, so it waits for them: until they land the

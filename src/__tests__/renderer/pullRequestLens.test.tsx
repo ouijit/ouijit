@@ -79,6 +79,7 @@ describe('PullRequestsPanel — lens', () => {
     vi.mocked(window.api.github.inbox).mockResolvedValue(inbox());
     vi.mocked(window.api.github.issues).mockResolvedValue([]);
     vi.mocked(window.api.github.onDraftsChanged).mockReturnValue(() => {});
+    vi.mocked(window.api.github.onLensChanged).mockReturnValue(() => {});
     vi.mocked(window.api.github.drafts).mockResolvedValue([]);
     vi.mocked(window.api.github.listPrCommands).mockResolvedValue([]);
     vi.mocked(window.api.github.lens).mockResolvedValue({ groups: null });
@@ -183,6 +184,43 @@ describe('PullRequestsPanel — lens', () => {
 
     fireEvent.click(await screen.findByLabelText('Edit Narrative'));
     expect(await screen.findByDisplayValue('claude "group this"')).toBeTruthy();
+  });
+
+  /**
+   * The command runs in a terminal the panel cannot see the end of, so the
+   * write is what tells it. Without this the rail says "writing" forever while
+   * the lens is already on disk.
+   */
+  test('a lens written elsewhere arrives without asking', async () => {
+    vi.mocked(window.api.github.inbox).mockResolvedValue(
+      inbox({ needsReview: [pr({ number: 5, title: 'Please look' })] }),
+    );
+    vi.mocked(window.api.github.pullRequest).mockResolvedValue(detail({ changedFiles: 1 }));
+    vi.mocked(window.api.github.pullRequestFiles).mockResolvedValue({
+      files: [{ path: 'src/api.ts', status: 'M', additions: 1, deletions: 1 }],
+      fromGit: false,
+    });
+    vi.mocked(window.api.github.lens).mockResolvedValue({ groups: null });
+
+    let notify: ((payload: { projectPath: string; prNumber: number }) => void) | null = null;
+    vi.mocked(window.api.github.onLensChanged).mockImplementation((cb) => {
+      notify = cb;
+      return () => {};
+    });
+
+    render(<PullRequestsPanel projectPath={PROJECT} />);
+    fireEvent.click(await screen.findByText('Please look'));
+    fireEvent.click(await screen.findByText('Code'));
+    expect(await screen.findByText('Lenses…')).toBeTruthy();
+
+    vi.mocked(window.api.github.lens).mockResolvedValue({
+      groups: [{ title: 'Transport', slices: [{ path: 'src/api.ts' }] }],
+    });
+    notify?.({ projectPath: PROJECT, prNumber: 5 });
+
+    expect(await screen.findByText('Lens')).toBeTruthy();
+    // One local read for the lens, and nothing else refetched.
+    expect(window.api.github.pullRequest).toHaveBeenCalledTimes(1);
   });
 
   /**

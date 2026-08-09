@@ -202,6 +202,7 @@ const mockApi = {
     taskFromIssue: vi.fn().mockResolvedValue({ success: true }),
     taskFromPr: vi.fn().mockResolvedValue({ success: true }),
     onDraftsChanged: vi.fn().mockReturnValue(() => {}),
+    onLensChanged: vi.fn().mockReturnValue(() => {}),
   },
 };
 

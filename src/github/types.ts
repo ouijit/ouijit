@@ -256,3 +256,9 @@ export interface GithubDraftsChangedPayload {
   projectPath: string;
   prNumber: number;
 }
+
+/** A lens was written or cleared by something outside the renderer. */
+export interface GithubLensChangedPayload {
+  projectPath: string;
+  prNumber: number;
+}
