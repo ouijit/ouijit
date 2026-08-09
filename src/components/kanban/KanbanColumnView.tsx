@@ -68,8 +68,9 @@ export function KanbanColumnView({
       <div
         ref={bodyRef}
         className="kanban-column-body flex flex-col overflow-y-auto flex-1 min-h-0"
+        // No border of its own: the header above owns that boundary, and the
+        // two together were three lines stacked at the top of every column.
         style={{
-          borderTop: '1px solid color-mix(in srgb, var(--color-ink) 6%, transparent)',
           scrollbarColor: 'transparent transparent',
           transition: 'background 150ms ease',
           minHeight: 80,
