@@ -149,9 +149,11 @@ const FileSection = memo(function FileSection({
  * when it was being used.
  *
  * The part header measures itself and publishes its height, and file headers
- * pin below it. Measured rather than assumed because a summary is free text and
- * wraps to however many lines it wants; nothing renders without a lens, and the
- * fallback of `0px` is what every other diff in the app already does.
+ * pin below it. Measured rather than hard-coded to the one line it is set to:
+ * the number this has to agree with is a rendered height, and text that grows
+ * with the platform's font size would leave a fixed offset behind. Nothing
+ * publishes it without a lens, and the fallback of `0px` is what every other
+ * diff in the app already does.
  */
 function LensGroup({ group, children }: { group: ResolvedGroup; children: ReactNode }) {
   const headerRef = useRef<HTMLDivElement>(null);
@@ -172,9 +174,17 @@ function LensGroup({ group, children }: { group: ResolvedGroup; children: ReactN
 
   return (
     <div className="flex flex-col" style={{ '--diff-sticky-offset': `${headerHeight}px` } as CSSProperties}>
-      <div ref={headerRef} className="sticky top-0 z-20 px-3 py-2 bg-surface border-b border-ink/[0.06]">
-        <div className="text-[12px] font-medium text-text-primary">{group.title}</div>
-        {group.summary && <div className="text-[11px] text-text-tertiary">{group.summary}</div>}
+      {/* One line, at the height of a file header: the two pin one above the
+          other, and the rail beside them lists its actions on the same unit,
+          so the whole band across the seam is level. A summary is free text —
+          it truncates rather than setting the height of everything else. */}
+      <div ref={headerRef} className="pane-ledge-raised sticky top-0 z-20 flex items-center gap-2 h-9 px-3 bg-surface">
+        <span className="shrink-0 text-[12px] font-medium text-text-primary">{group.title}</span>
+        {group.summary && (
+          <span className="min-w-0 truncate text-[11px] text-text-tertiary" title={group.summary}>
+            {group.summary}
+          </span>
+        )}
       </div>
       {children}
     </div>

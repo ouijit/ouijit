@@ -458,6 +458,31 @@ textarea,
 }
 
 /* ===================================
+   Pane ledge — a header the content scrolls under
+   =================================== */
+
+/* The horizontal counterpart of the seam. A sticky header is a piece in front
+   of the document rather than a band drawn on it, so it takes the light on its
+   top face and is cut away from what passes beneath it. A pair of hairline
+   borders said only "something changes here"; this says which of the two is in
+   front, which is the whole question a sticky header answers. */
+.pane-ledge {
+  box-shadow:
+    inset 0 1px 0 var(--seam-catch),
+    0 1px 0 var(--seam-cut);
+}
+
+/* Two ledges stack in the reading order: the part of the change pins at the
+   top and the file within it pins under. The upper one throws a shadow so the
+   depth between them is visible, not merely implied by which one moves. */
+.pane-ledge-raised {
+  box-shadow:
+    inset 0 1px 0 var(--seam-catch),
+    0 1px 0 var(--seam-cut),
+    0 6px 12px -6px var(--seam-shadow);
+}
+
+/* ===================================
    Canvas pane cursor — default at rest, grabbing while panning
    =================================== */
 

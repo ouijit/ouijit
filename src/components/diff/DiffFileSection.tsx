@@ -68,7 +68,7 @@ export const DiffFileSection = memo(function DiffFileSection({
           publishes the height of the part header above it — and to the top
           itself when nothing has, which is every other diff in the app. */}
       <div
-        className="sticky z-10 flex items-center gap-2 px-4 h-9 bg-terminal-surface border-y border-ink/[0.06]"
+        className="pane-ledge sticky z-10 flex items-center gap-2 px-4 h-9 bg-terminal-surface"
         style={{ top: 'var(--diff-sticky-offset, 0px)' }}
       >
         <span className="flex-1 min-w-0 truncate font-mono text-[13px]" title={path}>

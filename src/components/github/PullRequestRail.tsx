@@ -71,8 +71,9 @@ export function PullRequestRail({
           reads in. A lens is one answer to that, written for this change and no
           other; the toggle is here because a reading order is a way of looking
           at the diff, not a replacement for it. */}
-      <div className="shrink-0 flex flex-col border-b border-ink/[0.06] py-1">
+      <div className="pane-ledge shrink-0 flex flex-col">
         <RailEntry
+          tall
           label="All files"
           note={`${detail.changedFiles}`}
           active={!lensOn && activePath === null}
@@ -83,6 +84,7 @@ export function PullRequestRail({
         />
         {groups ? (
           <RailEntry
+            tall
             label="Read as a story"
             note={`${groups.length}`}
             active={lensOn && activePath === null}
@@ -97,6 +99,7 @@ export function PullRequestRail({
           // action menu about something else would leave a reader looking at
           // the file list with no idea the pane could do anything else.
           <RailEntry
+            tall
             label={lensWriting ? 'Writing…' : hasLensCommand ? 'Write a reading order' : 'Set up a reading order…'}
             muted
             active={false}
@@ -114,7 +117,10 @@ export function PullRequestRail({
         <div className="flex-1 min-h-0 overflow-y-auto py-1">
           {groups.map((group) => (
             <div key={group.title} className="flex flex-col">
-              <div className="px-3 pt-2 pb-1 text-[10px] uppercase tracking-wider text-ink/40" title={group.summary}>
+              <div
+                className="flex items-center h-9 px-3 text-[10px] uppercase tracking-wider text-ink/40"
+                title={group.summary}
+              >
                 {group.title}
               </div>
               {group.slices.map((slice) => (
@@ -151,6 +157,7 @@ function RailEntry({
   trailing,
   title,
   muted,
+  tall,
 }: {
   label: string;
   note?: string;
@@ -159,14 +166,16 @@ function RailEntry({
   trailing?: ReactNode;
   title?: string;
   muted?: boolean;
+  /** An action rather than a file: takes the height of a file header. */
+  tall?: boolean;
 }) {
   return (
     <button
       type="button"
       title={title}
-      className={`w-full flex items-center gap-1.5 py-1 pl-3 pr-3 text-[13px] text-left transition-colors duration-150 ease-out hover:bg-ink/5 ${
-        active ? 'bg-ink/[0.07] text-ink' : muted ? 'text-ink/45' : 'text-ink/70'
-      }`}
+      className={`w-full flex items-center gap-1.5 pl-3 pr-3 text-[13px] text-left transition-colors duration-150 ease-out hover:bg-ink/5 ${
+        tall ? 'h-9 shrink-0' : 'py-1'
+      } ${active ? 'bg-ink/[0.07] text-ink' : muted ? 'text-ink/45' : 'text-ink/70'}`}
       onClick={onClick}
     >
       <span className="flex-1 min-w-0 truncate">{label}</span>

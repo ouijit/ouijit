@@ -190,6 +190,8 @@
      beside it catches what the sides catch. */
   --seam-cut: rgba(0, 0, 0, 0.55);
   --seam-catch: rgba(255, 255, 255, 0.06);
+  /* Thrown by a sticky header onto what slides beneath it. */
+  --seam-shadow: rgba(0, 0, 0, 0.45);
 }
 
 /* ===================================
@@ -288,4 +290,5 @@
      catch beside it has almost nothing to show against. */
   --seam-cut: rgba(0, 0, 0, 0.14);
   --seam-catch: rgba(255, 255, 255, 0.6);
+  --seam-shadow: rgba(0, 0, 0, 0.12);
 }
