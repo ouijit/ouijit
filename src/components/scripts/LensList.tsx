@@ -2,7 +2,7 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { useProjectStore } from '../../stores/projectStore';
 import type { LensSummary } from '../../github/service';
 import { Icon } from '../terminal/Icon';
-import { ScriptRowView } from './ScriptRowView';
+import { useAutoResize } from '../../hooks/useAutoResize';
 
 interface LensListProps {
   projectPath: string;
@@ -71,47 +71,37 @@ export function LensList({ projectPath, onRun, running }: LensListProps) {
       style={{ background: 'var(--color-terminal-bg)' }}
     >
       {lenses.length === 0 && !addingNew && (
-        <div className="px-4 py-6 text-center text-xs text-text-tertiary">No lenses yet. Add one below.</div>
+        <div className="px-4 py-8 text-center text-xs text-text-tertiary">
+          No lenses yet — add one below and it will be here for every pull request.
+        </div>
       )}
 
-      {lenses.map((lens) => (
-        <div key={lens.name}>
-          <div className="flex items-stretch">
-            <div className="flex-1 min-w-0">
-              <ScriptRowView
-                name={lens.name}
-                command={lens.command}
-                expanded={expandedName === lens.name}
-                onClick={() => {
-                  setExpandedName((prev) => (prev === lens.name ? null : lens.name));
-                  setAddingNew(false);
-                }}
-              />
-            </div>
-            {onRun && (
-              <button
-                type="button"
-                className="shrink-0 self-center mr-3 px-2.5 py-1 text-[11px] rounded-md text-text-secondary bg-ink/[0.06] hover:bg-ink/10 hover:text-text-primary transition-colors duration-150 disabled:opacity-50"
-                disabled={Boolean(running)}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onRun(lens);
-                }}
-              >
-                {running === lens.name ? 'Writing…' : 'Write'}
-              </button>
-            )}
-          </div>
-          {expandedName === lens.name && (
-            <LensForm
-              initial={lens}
-              onSave={(next) => void save(next, lens.name)}
-              onCancel={() => setExpandedName(null)}
-              onDelete={() => void remove(lens.name)}
-            />
-          )}
-        </div>
-      ))}
+      {lenses.map((lens) =>
+        expandedName === lens.name ? (
+          <LensForm
+            key={lens.name}
+            initial={lens}
+            onSave={(next) => void save(next, lens.name)}
+            onCancel={() => setExpandedName(null)}
+            onDelete={() => void remove(lens.name)}
+          />
+        ) : (
+          <LensRow
+            key={lens.name}
+            lens={lens}
+            // In the dialog the row is the lens: pressing it reads the pull
+            // request through it. In settings there is nothing to read, so the
+            // row opens itself for editing instead.
+            onPress={() => (onRun ? onRun(lens) : setExpandedName(lens.name))}
+            onEdit={() => {
+              setExpandedName(lens.name);
+              setAddingNew(false);
+            }}
+            writing={running === lens.name}
+            busy={Boolean(running)}
+          />
+        ),
+      )}
 
       {addingNew && (
         <LensForm
@@ -122,19 +112,68 @@ export function LensList({ projectPath, onRun, running }: LensListProps) {
       )}
 
       {!addingNew && (
-        <div
-          className="px-3 py-2 hover:bg-ink/[0.04] transition-colors duration-100"
+        <button
+          type="button"
+          className="w-full flex items-center gap-2 px-4 py-3 text-xs text-text-tertiary hover:text-text-primary hover:bg-ink/[0.04] transition-colors duration-100"
           onClick={() => {
             setAddingNew(true);
             setExpandedName(null);
           }}
         >
-          <span className="flex items-center gap-2 text-xs text-text-tertiary hover:text-text-primary transition-colors duration-150">
-            <Icon name="plus" className="w-3.5 h-3.5" />
-            Add Lens
-          </span>
-        </div>
+          <Icon name="plus" className="w-3.5 h-3.5" />
+          Add a lens
+        </button>
       )}
+    </div>
+  );
+}
+
+/**
+ * One lens, given room to be read.
+ *
+ * The name and the command are two different things and get two lines. Sharing
+ * one, as the script rows do, left a truncated prompt fighting a truncated name
+ * for the same width — and a lens command is a sentence, not a binary name.
+ */
+function LensRow({
+  lens,
+  onPress,
+  onEdit,
+  writing,
+  busy,
+}: {
+  lens: LensSummary;
+  onPress: () => void;
+  onEdit: () => void;
+  writing: boolean;
+  busy: boolean;
+}) {
+  return (
+    <div className="group/lens flex items-center gap-3 pl-4 pr-2">
+      <button
+        type="button"
+        className="flex-1 min-w-0 flex items-center gap-3 py-3 text-left disabled:opacity-50"
+        disabled={busy}
+        onClick={onPress}
+      >
+        <Icon name="aperture" className={`shrink-0 w-4 h-4 ${writing ? 'text-accent' : 'text-accent/60'}`} />
+        <span className="flex-1 min-w-0">
+          <span className="block text-[13px] text-text-primary truncate">{lens.name}</span>
+          <span className="block text-[11px] text-text-tertiary font-mono truncate">
+            {writing ? 'Writing…' : lens.command}
+          </span>
+        </span>
+      </button>
+
+      <button
+        type="button"
+        title={`Edit ${lens.name}`}
+        aria-label={`Edit ${lens.name}`}
+        className="shrink-0 w-7 h-7 rounded-md text-text-tertiary flex items-center justify-center opacity-0 group-hover/lens:opacity-100 focus-visible:opacity-100 hover:bg-ink/[0.08] hover:text-text-primary transition-all duration-150"
+        onClick={onEdit}
+      >
+        <Icon name="pencil-simple" className="w-4 h-4" />
+      </button>
     </div>
   );
 }
@@ -157,9 +196,18 @@ function LensForm({
   const [name, setName] = useState(initial?.name ?? '');
   const [command, setCommand] = useState(initial?.command ?? '');
   const nameRef = useRef<HTMLInputElement>(null);
+  const commandRef = useRef<HTMLTextAreaElement>(null);
+  const autoResize = useAutoResize();
 
   useEffect(() => {
     if (!initial) nameRef.current?.focus();
+    // Grown to what is already in it, or an edited lens opens with its command
+    // clipped to two lines.
+    const box = commandRef.current;
+    if (box) {
+      box.style.height = 'auto';
+      box.style.height = `${box.scrollHeight}px`;
+    }
   }, [initial]);
 
   // Names are the key, so a new one colliding would silently overwrite the
@@ -181,7 +229,7 @@ function LensForm({
   );
 
   return (
-    <div className="px-4 py-3 space-y-3" onClick={(e) => e.stopPropagation()}>
+    <div className="px-4 py-4 space-y-4 bg-ink/[0.03]" onClick={(e) => e.stopPropagation()}>
       <div>
         <label className="block text-[11px] text-text-tertiary mb-1">Name</label>
         <input
@@ -197,18 +245,24 @@ function LensForm({
 
       <div>
         <label className="block text-[11px] text-text-tertiary mb-1">Command</label>
-        <input
-          className="w-full px-2.5 py-1.5 text-xs text-text-primary bg-background-secondary border border-border rounded-md outline-none focus:border-accent transition-colors font-mono"
+        {/* A textarea, because a lens command is a sentence and a single-line
+            input turns one into a slot you scroll sideways through. */}
+        <textarea
+          ref={commandRef}
+          rows={2}
+          className="w-full px-2.5 py-2 text-xs text-text-primary bg-background-secondary border border-border rounded-md outline-none focus:border-accent transition-colors font-mono resize-none leading-relaxed"
           value={command}
-          onChange={(e) => setCommand(e.target.value)}
+          onChange={(e) => {
+            setCommand(e.target.value);
+            autoResize(e);
+          }}
+          onInput={autoResize}
           onKeyDown={onKeyDown}
-          placeholder='e.g. claude "group this pull request into the parts of the change"'
+          placeholder='claude "group this pull request into the parts of the change"'
         />
-        <p className="mt-1.5 text-[11px] text-text-tertiary leading-snug">
+        <p className="mt-2 text-[11px] text-text-tertiary leading-relaxed">
           Runs in a terminal with <span className="font-mono">OUIJIT_PR_NUMBER</span> set, and writes back with{' '}
-          <span className="font-mono">ouijit pr lens set</span>. Groups name the parts of the change and point at the
-          hunks that make each one up, so the Code pane can be read in the order the change was made rather than the
-          order it was stored.
+          <span className="font-mono">ouijit pr lens set</span>.
         </p>
       </div>
 

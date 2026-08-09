@@ -144,7 +144,7 @@ describe('PullRequestsPanel — lens', () => {
     // The dialog opens here rather than sending the reader to settings and
     // leaving them to find their way back.
     fireEvent.click(await screen.findByText('Lenses…'));
-    expect(await screen.findByText('No lenses yet. Add one below.')).toBeTruthy();
+    expect(await screen.findByText(/No lenses yet/)).toBeTruthy();
     expect(useProjectStore.getState().activePanel).not.toBe('settings');
   });
 
@@ -161,8 +161,28 @@ describe('PullRequestsPanel — lens', () => {
     fireEvent.click(await screen.findByText('Code'));
 
     fireEvent.click(await screen.findByText('Lenses…'));
-    expect(await screen.findByText('Narrative')).toBeTruthy();
-    expect(screen.getByText('Write')).toBeTruthy();
+
+    // The row is the lens: pressing it reads the pull request through it.
+    // There is no verb to learn and no second button to aim at.
+    fireEvent.click(await screen.findByText('Narrative'));
+    await waitFor(() => expect(screen.queryByText('Narrative')).toBeNull());
+  });
+
+  test('a lens can be edited without running it', async () => {
+    vi.mocked(window.api.github.inbox).mockResolvedValue(
+      inbox({ needsReview: [pr({ number: 5, title: 'Please look' })] }),
+    );
+    vi.mocked(window.api.github.pullRequest).mockResolvedValue(detail());
+    vi.mocked(window.api.github.lens).mockResolvedValue({ groups: null });
+    vi.mocked(window.api.github.listLenses).mockResolvedValue([{ name: 'Narrative', command: 'claude "group this"' }]);
+
+    render(<PullRequestsPanel projectPath={PROJECT} />);
+    fireEvent.click(await screen.findByText('Please look'));
+    fireEvent.click(await screen.findByText('Code'));
+    fireEvent.click(await screen.findByText('Lenses…'));
+
+    fireEvent.click(await screen.findByLabelText('Edit Narrative'));
+    expect(await screen.findByDisplayValue('claude "group this"')).toBeTruthy();
   });
 
   /**
