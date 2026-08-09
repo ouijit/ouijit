@@ -19,6 +19,7 @@ import { BinaryFileView } from '../diff/BinaryFileView';
 import { DeferredMount } from '../diff/DeferredMount';
 import { DiffFileSection } from '../diff/DiffFileSection';
 import { estimateFileHeight } from '../diff/diffMetrics';
+import { inTreeOrder } from '../diff/DiffFileTree';
 import type { DiffLineAnchor } from '../diff/diffAnchor';
 import type { ResolvedGroup } from '../../github/lens';
 import { anchorKey, unanchoredThreads } from './reviewAnchors';
@@ -445,7 +446,11 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
     ],
   );
 
-  const shown = only ? files.filter((f) => f.path === only) : files;
+  // The same order the rail lists them in. Without this the document runs in
+  // whatever order the file list arrived and the two disagree the moment a
+  // directory's files are not contiguous in it.
+  const ordered = useMemo(() => inTreeOrder(files), [files]);
+  const shown = only ? ordered.filter((f) => f.path === only) : ordered;
 
   /**
    * Sliced diffs, kept identical across renders while their source is.

@@ -59,6 +59,39 @@ export function buildTree(files: ChangedFile[]): TreeNode[] {
   return collapse(root);
 }
 
+/**
+ * The order the tree shows these files in.
+ *
+ * The tree nests by directory, so two files that share one sit together
+ * however far apart they were in the list that arrived — and that list arrives
+ * in whatever order GitHub or git chose. The document has to follow it: a rail
+ * whose order is not the order you scroll through is a rail you cannot use to
+ * keep your place.
+ *
+ * Built by the same function that builds the tree, rather than by sorting to
+ * the same rule twice. Two implementations of one order are two things to keep
+ * in step, and this is exactly the bug that comes of missing.
+ */
+export function treeFileOrder(files: readonly { path: string }[]): string[] {
+  const order: string[] = [];
+
+  const walk = (nodes: TreeNode[]) => {
+    for (const node of nodes) {
+      if (node.isFile && node.file) order.push(node.file.path);
+      else walk(node.children);
+    }
+  };
+
+  walk(buildTree(files.map((file) => ({ ...file, status: 'M', additions: 0, deletions: 0 }) as ChangedFile)));
+  return order;
+}
+
+/** Sorts anything with a path into the order the tree shows it in. */
+export function inTreeOrder<T extends { path: string }>(files: readonly T[]): T[] {
+  const rank = new Map(treeFileOrder(files).map((path, index) => [path, index]));
+  return [...files].sort((a, b) => (rank.get(a.path) ?? 0) - (rank.get(b.path) ?? 0));
+}
+
 export interface DiffFileTreeProps {
   files: ChangedFile[];
   /** Only the worktree view has these; a PR never does. */

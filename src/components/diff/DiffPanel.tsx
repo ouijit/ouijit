@@ -3,7 +3,7 @@ import type { FileDiff } from '../../types';
 import { useTerminalStore } from '../../stores/terminalStore';
 import { terminalInstances, refreshTerminalGitStatus } from '../terminal/terminalReact';
 import { Icon } from '../terminal/Icon';
-import { DiffFileTree } from './DiffFileTree';
+import { DiffFileTree, inTreeOrder } from './DiffFileTree';
 import { DiffFileSection } from './DiffFileSection';
 import { DeferredMount } from './DeferredMount';
 import { ResizeHandle } from '../common/ResizeHandle';
@@ -57,6 +57,9 @@ export function DiffPanel({ ptyId, projectPath, mode, onClose }: DiffPanelProps)
 
   const totalFileCount = storeFiles.length;
   const files = useMemo(() => storeFiles.slice(0, MAX_DIFF_FILES), [storeFiles]);
+  // The tree groups by directory; the document below it has to run in the same
+  // order or clicking a file in one is no way to find it in the other.
+  const orderedFiles = useMemo(() => inTreeOrder(files), [files]);
   const truncated = totalFileCount > MAX_DIFF_FILES;
   const loading = gitFileStatus === null;
   const untrackedFiles = gitFileStatus?.untrackedFiles ?? [];
@@ -215,7 +218,7 @@ export function DiffPanel({ ptyId, projectPath, mode, onClose }: DiffPanelProps)
             <div className="flex-1 flex flex-col items-center justify-center text-text-tertiary gap-2">No changes</div>
           )}
           {!loading &&
-            files.map((file) => (
+            orderedFiles.map((file) => (
               // The wrapper carries `data-path` so jumping to a file from the
               // tree works whether or not that file has been mounted yet.
               <DeferredMount

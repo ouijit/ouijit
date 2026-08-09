@@ -8,6 +8,7 @@ import { resolveLens } from '../../github/lens';
 import type { LensSummary } from '../../github/service';
 import { LensDialog } from '../dialogs/LensDialog';
 import { ResizeHandle } from '../common/ResizeHandle';
+import { treeFileOrder } from '../diff/DiffFileTree';
 import { Tab, TabBar } from './Tabs';
 import { DetailChrome } from './DetailChrome';
 import { DiscussionSection } from './DiscussionSection';
@@ -126,14 +127,7 @@ export function PullRequestDetailView({
   // Resolution needs the parsed diffs, so it waits for them: until they land the
   // lens has nothing to point at.
   const resolved = useMemo(
-    () =>
-      lensGroups
-        ? resolveLens(
-            lensGroups,
-            diffs,
-            files.map((f) => f.path),
-          )
-        : null,
+    () => (lensGroups ? resolveLens(lensGroups, diffs, treeFileOrder(files)) : null),
     [lensGroups, diffs, files],
   );
 
