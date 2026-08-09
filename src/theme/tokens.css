@@ -197,6 +197,9 @@
      falling on a surface, which genuinely does depend on the surface, so it
      stays translucent. */
   --seam-cut: #0a0a0a;
+  /* The same gap, shallower — between items in a list rather than between two
+     surfaces. Opaque for the same reason the cut is. */
+  --seam-cut-soft: #101012;
   --seam-catch: rgba(255, 255, 255, 0.06);
   /* Thrown by a sticky header onto what slides beneath it. */
   --seam-shadow: rgba(0, 0, 0, 0.45);
@@ -297,6 +300,7 @@
   /* A cut in a pale surface is shallower than one in a dark surface, and the
      catch beside it has almost nothing to show against. */
   --seam-cut: #dbdbdf;
+  --seam-cut-soft: #e7e7eb;
   --seam-catch: rgba(255, 255, 255, 0.6);
   --seam-shadow: rgba(0, 0, 0, 0.12);
 }

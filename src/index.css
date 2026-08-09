@@ -510,16 +510,17 @@ textarea,
 
 /* One task from the next.
  *
- * A hairline, not a cut. Cards are items in a list rather than surfaces
- * meeting, which is the same line the pull request view draws between a
- * notice and the diff it annotates — a cut there would claim two pieces where
- * there is one list.
+ * The shallow cut, not the full one: cards are items in a list rather than two
+ * surfaces meeting. Still a cut and a catch though — a single pale line is not
+ * a gap, it is a rule drawn on the card.
  *
  * Drawn inside the bottom edge, so the card below cannot paint over it, the
  * last card in a column still closes, and the first one does not land on the
  * boundary the column header already owns. */
 .kanban-card-edge {
-  box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--color-ink) 8%, transparent);
+  box-shadow:
+    inset 0 -1px 0 var(--seam-catch),
+    inset 0 -2px 0 var(--seam-cut-soft);
 }
 
 /* The rail and the edge are one declaration because a second would replace the
@@ -527,7 +528,8 @@ textarea,
 .kanban-card-edge.is-selected {
   box-shadow:
     inset 2px 0 0 0 var(--color-accent),
-    inset 0 -1px 0 color-mix(in srgb, var(--color-ink) 8%, transparent);
+    inset 0 -1px 0 var(--seam-catch),
+    inset 0 -2px 0 var(--seam-cut-soft);
 }
 
 /* ===================================
