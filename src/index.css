@@ -467,14 +467,18 @@ textarea,
    borders said only "something changes here"; this says which of the two is in
    front, which is the whole question a sticky header answers.
 
-   The cut and the catch below it are adjacent, exactly as they are either side
-   of the seam. That adjacency is where an edge gets its crispness: a lone dark
-   line on a dark ground is a shadow, and reads soft however far the colour is
-   pushed. The inset catch on top is a third thing — the lit top face of this
-   bar — and is 48px away from the boundary, so it cannot do that job. */
+   The cut and the catch are adjacent, exactly as they are either side of the
+   seam. That adjacency is where an edge gets its crispness: a lone dark line on
+   a dark ground is a shadow, and reads soft however far the colour is pushed.
+
+   A ledge marks the boundary below it and nothing else. It used to light its
+   own top face as well, which put a highlight into the very pixel the ledge
+   above was cutting — two elements owning one boundary, with paint order
+   deciding which showed. Under the pull request header that is a rail and a
+   file header both lighting the line that was meant to separate them from it,
+   and the cut disappearing under them. */
 .pane-ledge {
   box-shadow:
-    inset 0 1px 0 var(--seam-catch),
     0 1px 0 var(--seam-cut),
     0 2px 0 var(--seam-catch);
 }
@@ -484,7 +488,6 @@ textarea,
    depth between them is visible, not merely implied by which one moves. */
 .pane-ledge-raised {
   box-shadow:
-    inset 0 1px 0 var(--seam-catch),
     0 1px 0 var(--seam-cut),
     0 2px 0 var(--seam-catch),
     0 6px 12px -6px var(--seam-shadow);
