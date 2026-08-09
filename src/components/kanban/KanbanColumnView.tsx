@@ -39,10 +39,11 @@ export function KanbanColumnView({
 }: KanbanColumnViewProps) {
   return (
     <div
-      // The board is one surface parted into columns, not three cards on a
-      // ground, so what runs between them is a cut. `last:` drops it on the
-      // rightmost column, which has nothing on the other side of it.
-      className="kanban-column pane-seam-right flex flex-col transition-all duration-150 ease-out shrink-0"
+      // The board is one surface parted into columns, not cards on a ground,
+      // so what runs between them is a cut — and it belongs to the column,
+      // which owns every vertical boundary here. A card owns the horizontal
+      // ones between itself and the task below.
+      className="kanban-column pane-seam-left flex flex-col transition-all duration-150 ease-out shrink-0"
       style={{ minWidth: 240, flex: '1 0 240px' }}
       data-status={status}
     >

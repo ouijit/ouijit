@@ -457,22 +457,19 @@ textarea,
   background: var(--color-accent);
 }
 
-/* A seam that is an element's own right edge, for panes laid out against each
-   other with nothing between them to put a strip in — the kanban columns. Same
-   pair as `.pane-seam`: the cut belongs to this column, the lit face falls on
-   the one beside it. */
-.pane-seam-right {
-  border-right: 1px solid var(--seam-cut);
-  box-shadow: 1px 0 0 var(--seam-catch);
-}
-
-/* The last one has nothing on the other side of it, so there is nothing to
-   part it from. Suppressed here rather than with a `last:` utility: this file
-   is unlayered and Tailwind's utilities are not, so the utility loses the
-   cascade and the seam stayed on. */
-.pane-seam-right:last-child {
-  border-right: 0;
-  box-shadow: none;
+/* A seam that is an element's own left edge, for panes laid against each other
+   with nothing between them to put a strip in — the kanban columns.
+ *
+ * On the left rather than the right so that every column has one, including
+ * the first: with it on the right the leftmost column was open on that side
+ * and its cards had no edge to sit against. It also means no rule about the
+ * last one, and so nothing for a `last:` utility to lose the cascade over.
+ *
+ * Same pair as `.pane-seam`, with the cut on the outside and the lit face on
+ * this column's own edge, since that is the face the light reaches. */
+.pane-seam-left {
+  border-left: 1px solid var(--seam-cut);
+  box-shadow: inset 1px 0 0 var(--seam-catch);
 }
 
 /* ===================================
