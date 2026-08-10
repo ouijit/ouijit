@@ -328,7 +328,9 @@ export function PullRequestDetailView({
             />
           </>
         )}
-        <div ref={paneRef} className="flex-1 min-w-0 overflow-y-auto">
+        {/* Only the diff sits in a well — summary and timeline are prose, and
+            prose in a trough reads as a form field. */}
+        <div ref={paneRef} className={`flex-1 min-w-0 overflow-y-auto ${pane === 'code' ? 'diff-well' : ''}`}>
           {pane === 'summary' ? (
             <SummaryPane
               projectPath={projectPath}

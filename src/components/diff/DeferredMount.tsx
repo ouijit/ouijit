@@ -64,8 +64,12 @@ export function DeferredMount({ estimatedHeight, rootMargin = '150%', dataPath, 
       data-path={dataPath}
       // Scrolled to, so it stops below whatever is pinned above it — a lens
       // publishes the height of its part header, and nothing publishes one
-      // where there is no lens.
-      style={{ scrollMarginTop: 'var(--diff-sticky-offset, 0px)', ...(mounted ? null : { height: estimatedHeight }) }}
+      // where there is no lens — plus the gap the cards sit in, so a file
+      // lands showing its own top edge rather than tucked under it.
+      style={{
+        scrollMarginTop: 'calc(var(--diff-sticky-offset, 0px) + 12px)',
+        ...(mounted ? null : { height: estimatedHeight }),
+      }}
     >
       {mounted ? children : null}
     </div>

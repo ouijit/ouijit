@@ -200,7 +200,8 @@ function LensGroup({
     // able to say which copy of it a click meant.
     <div
       data-group={group.title}
-      className="flex flex-col"
+      data-collapsed={collapsed ? '' : undefined}
+      className="diff-list flex flex-col"
       style={{ '--diff-sticky-offset': `${headerHeight}px` } as CSSProperties}
     >
       {/* One line, at the height of a file header: the two pin one above the
@@ -211,7 +212,7 @@ function LensGroup({
           The whole line folds it. A part of a change is read and finished with
           the same way a file is, and nothing else in this header competes for
           the press. */}
-      <div ref={headerRef} className="pane-ledge-raised sticky top-0 z-20 bg-surface">
+      <div ref={headerRef} className="pane-ledge-raised over-well sticky top-0 z-20 bg-surface">
         <button
           type="button"
           aria-expanded={!collapsed}
@@ -565,21 +566,23 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
         </div>
       )}
 
-      {groups
-        ? groups.map((group) => (
-            <LensGroup
-              key={group.title}
-              group={group}
-              collapsed={collapsed.has(group.title)}
-              onCollapsedChange={(next) => useGithubStore.getState().setGroupCollapsed(group.title, next)}
-            >
-              {group.slices.map((slice) => {
-                const file = byPath.get(slice.path);
-                return file ? renderFile(file, `${group.title}:${slice.path}`, slice.hunks) : null;
-              })}
-            </LensGroup>
-          ))
-        : ordered.map((file) => renderFile(file))}
+      <div className="diff-list pb-3">
+        {groups
+          ? groups.map((group) => (
+              <LensGroup
+                key={group.title}
+                group={group}
+                collapsed={collapsed.has(group.title)}
+                onCollapsedChange={(next) => useGithubStore.getState().setGroupCollapsed(group.title, next)}
+              >
+                {group.slices.map((slice) => {
+                  const file = byPath.get(slice.path);
+                  return file ? renderFile(file, `${group.title}:${slice.path}`, slice.hunks) : null;
+                })}
+              </LensGroup>
+            ))
+          : ordered.map((file) => renderFile(file))}
+      </div>
 
       {orphanThreads.length > 0 && (
         <>

@@ -73,7 +73,12 @@ export const DiffFileSection = memo(function DiffFileSection({
   const addComment = useCallback((anchor: DiffLineAnchor) => onAddComment?.(path, anchor), [onAddComment, path]);
 
   return (
-    <div className="last:border-b-0" data-path={path}>
+    /* A card rather than a band running edge to edge: a diff is a list of
+       files, and a list of things reads as things when each one has an edge.
+       `overflow: clip` rather than `hidden` — clip rounds the corners without
+       becoming a scroll container, which is what would strand the sticky header
+       below inside its own box instead of pinning it to the pane. */
+    <div className="diff-card mx-6 rounded-[14px] border border-bezel bg-diff-card overflow-clip" data-path={path}>
       {/* The directory is context and the filename is the subject, so they are
           not set at the same weight.
 
@@ -97,7 +102,7 @@ export const DiffFileSection = memo(function DiffFileSection({
             }`}
             onClick={() => onCollapsedChange(!collapsed)}
           >
-            <Icon name="check-circle" />
+            <Icon name="check" />
           </button>
         )}
         <span className={`flex-1 min-w-0 truncate font-mono text-[13px] ${collapsed ? 'opacity-45' : ''}`} title={path}>

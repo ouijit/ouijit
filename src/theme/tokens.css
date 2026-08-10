@@ -99,6 +99,16 @@
   --color-diff-added: #3fb950;
   --color-diff-removed: #f85149;
   --color-diff-hunk: #8b8bcd;
+  /* The trough a list of diff cards sits in, and the cards themselves.
+     Derived rather than fixed: a preset re-skins the app by overriding
+     --color-terminal-bg, and a well written as a literal would keep this one
+     theme's grey while everything around it turned. A card is the ordinary
+     content surface; the well is the same surface, sunk. */
+  --color-diff-well: color-mix(in srgb, var(--color-terminal-bg) 93%, #000);
+  /* Lifted off the well by a hair of the theme's own ink, because a dark
+     card's border is darker than the card and would read as a groove rather
+     than an edge. */
+  --color-diff-card: color-mix(in srgb, var(--color-terminal-bg) 97%, var(--color-ink));
   /* File status colors (git porcelain letters) */
   --color-vcs-added: #34c759;
   --color-vcs-deleted: #ff3b30;
@@ -106,6 +116,9 @@
   --color-vcs-modified: #ff9f0a;
 
   /* ── Shadows ───────────────────────────────────────────────────── */
+  /* Recession, not elevation: the light that falls on a raised thing catches
+     the near lip of a sunken one. Shallow — this is a tray, not a pit. */
+  --shadow-well: inset 0 1px 2px rgba(0, 0, 0, 0.22);
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
   --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5);
@@ -267,11 +280,16 @@
   --color-diff-added: #1a7f37;
   --color-diff-removed: #cf222e;
   --color-diff-hunk: #6a6ac0;
+  /* Less of a drop on a light theme: the same 7% reads as a hole in paper.
+     And the card is the surface itself — ink would only dirty it. */
+  --color-diff-well: color-mix(in srgb, var(--color-terminal-bg) 96%, #000);
+  --color-diff-card: var(--color-terminal-bg);
   --color-vcs-added: #248a3d;
   --color-vcs-deleted: #d70015;
   --color-vcs-renamed: #5856d6;
   --color-vcs-modified: #ad5f00;
 
+  --shadow-well: inset 0 1px 2px rgba(0, 0, 0, 0.06);
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.08);
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.1);
   --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12);

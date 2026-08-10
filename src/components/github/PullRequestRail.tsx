@@ -86,7 +86,7 @@ export function PullRequestRail({
     // A file already dealt with says so here too, so how far through a review
     // you are is answerable without scrolling the document to find out.
     const done = viewed.has(path) ? (
-      <Icon key="viewed" name="check-circle" className="shrink-0 w-3 h-3 text-accent/70" />
+      <Icon key="viewed" name="check" className="shrink-0 w-3 h-3 text-accent/70" />
     ) : null;
     if (!count) return share || done ? <>{[share, done]}</> : null;
     return (

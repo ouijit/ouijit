@@ -472,6 +472,65 @@ textarea,
 }
 
 /* ===================================
+   Diff cards — a list of files, parted by air
+   =================================== */
+
+/* The same lit edge every other card in the app wears, so a diff reads as one
+   of them rather than as a rectangle of code.
+ *
+ * Not `.glass-bevel`, which sets `position: relative` on every child — that
+ * would land on the file header and quietly turn its `sticky` into `relative`,
+ * unpinning it from the top of the pane. This lights the same four edges and
+ * leaves the children alone.
+ *
+ * `isolation` keeps the overlay's stacking inside the card: above the header
+ * pinned within it, so the lit edge survives being scrolled under, and below
+ * the part heading of a lens, which the whole card passes beneath. */
+.diff-card {
+  position: relative;
+  isolation: isolate;
+}
+
+.diff-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  box-shadow:
+    inset 0 1px 0 var(--bevel-top),
+    inset 1px 0 0 var(--bevel-side),
+    inset -1px 0 0 var(--bevel-side),
+    inset 0 -1px 0 var(--bevel-bottom),
+    inset 0 2px 6px -3px var(--bevel-glow);
+  z-index: 20;
+}
+
+/* The trough the cards sit in: lower than the chrome around it, with the cut
+   of light along its top lip. Painted on the scrolling element itself, so it
+   fills the pane whether the diff is three lines or three thousand, and the
+   lip stays at the top edge rather than scrolling away with the content. */
+.diff-well {
+  background: var(--color-diff-well);
+  box-shadow: var(--shadow-well);
+}
+
+/* Spacing lives here rather than on a flex `gap` because it is conditional: a
+   part of a change folded to its heading is a line in a list of headings, and
+   a run of them should read as that list rather than as bands floating apart.
+   A file folded to its header keeps its space — it is still one of the cards,
+   and closing it is not the same as putting the whole part away. `gap` cannot
+   tell those apart; adjacent margins can. */
+.diff-list > * + * {
+  margin-top: 12px;
+}
+
+.diff-list > [data-collapsed] + *,
+.diff-list > * + [data-collapsed] {
+  margin-top: 0;
+}
+
+/* ===================================
    Pane ledge — a header the content scrolls under
    =================================== */
 
@@ -495,6 +554,19 @@ textarea,
   box-shadow:
     0 1px 0 var(--seam-cut),
     0 2px 0 var(--seam-catch);
+}
+
+/* Over a well, the catch comes off: the near face of a sunken surface is in
+   shadow, and a lit line there is the edge of a raised thing sitting on the
+   boundary that was meant to say it is not one.
+ *
+ * Only for a ledge that borders a well along its whole length. The bar above
+ * this pane and the seam beside it run past the rail as well as the document,
+ * and the rail is an ordinary surface — one shadow cannot light half of its
+ * own length, and taking it off took the lit top and left edges away from the
+ * rail's own rows too. */
+.pane-ledge-raised.over-well {
+  box-shadow: 0 1px 0 var(--seam-cut);
 }
 
 /* Two ledges stack in the reading order: the part of the change pins at the

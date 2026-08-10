@@ -188,7 +188,9 @@ export function DiffPanel({ ptyId, projectPath, mode, onClose }: DiffPanelProps)
             <Icon name="x" />
           </button>
         </div>
-        <div ref={contentRef} className="flex-1 overflow-auto p-0">
+        {/* The gap between two cards is what the border between two bands
+            used to be. */}
+        <div ref={contentRef} className="diff-well diff-list flex-1 overflow-auto pb-3">
           {loading && (
             <div className="flex-1 flex flex-col items-center justify-center text-text-tertiary gap-2">
               Loading changes...
