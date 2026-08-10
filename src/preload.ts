@@ -312,6 +312,8 @@ contextBridge.exposeInMainWorld('api', {
     availability: (projectPath: string, recheck?: boolean) => typedInvoke('github:availability', projectPath, recheck),
     inbox: (projectPath: string) => typedInvoke('github:inbox', projectPath),
     pullRequest: (projectPath: string, number: number) => typedInvoke('github:pull-request', projectPath, number),
+    pullRequestFreshness: (projectPath: string, number: number) =>
+      typedInvoke('github:pull-request-freshness', projectPath, number),
     pullRequestFiles: (projectPath: string, number: number, baseSha: string, headSha: string) =>
       typedInvoke('github:pull-request-files', projectPath, number, baseSha, headSha),
     pullRequestFileDiff: (

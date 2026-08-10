@@ -11,6 +11,7 @@ import { repoSlug } from './types';
 import {
   PULL_REQUEST_LIST_QUERY,
   PULL_REQUEST_DETAIL_QUERY,
+  PULL_REQUEST_FRESHNESS_QUERY,
   ISSUE_LIST_QUERY,
   ISSUE_DETAIL_QUERY,
   RESOLVE_THREAD_MUTATION,
@@ -20,6 +21,7 @@ import type {
   RepoIdentity,
   PullRequestSummary,
   PullRequestDetail,
+  PullRequestFreshness,
   PullRequestFile,
   PullRequestInbox,
   PullRequestLabel,
@@ -413,6 +415,26 @@ export async function fetchInbox(identity: RepoIdentity): Promise<PullRequestInb
   const others = all.filter((pr) => !claimed.has(pr.number));
 
   return { viewer, viewerAvatarUrl: data.viewer.avatarUrl, needsReview, mine, others };
+}
+
+/**
+ * The cheapest question that can be asked about a pull request: is it still
+ * the one on screen?
+ *
+ * Deliberately not `fetchPullRequest` with the answer thrown away. This runs on
+ * hover, and the detail query costs a hundred review threads, a timeline and a
+ * check rollup to answer a question about four fields.
+ */
+export async function fetchPullRequestFreshness(identity: RepoIdentity, number: number): Promise<PullRequestFreshness> {
+  const data = await ghGraphql<{
+    repository: {
+      pullRequest: { headRefOid: string; updatedAt: string; state: string; isDraft: boolean } | null;
+    } | null;
+  }>(PULL_REQUEST_FRESHNESS_QUERY, { owner: identity.owner, repo: identity.repo, number }, { identity });
+
+  const pr = data.repository?.pullRequest;
+  if (!pr) throw new GithubError('not-found', `Pull request #${number} not found`);
+  return { headSha: pr.headRefOid, updatedAt: pr.updatedAt, state: pr.state, isDraft: pr.isDraft };
 }
 
 export async function fetchPullRequest(identity: RepoIdentity, number: number): Promise<PullRequestDetail> {

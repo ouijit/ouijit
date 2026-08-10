@@ -3,6 +3,7 @@ import { Icon } from '../terminal/Icon';
 import { SidebarToggle } from '../common/SidebarToggle';
 import { useGithubStore } from '../../stores/githubStore';
 import { RefreshButton } from './RefreshButton';
+import { Tooltip } from '../ui/Tooltip';
 
 interface DetailChromeProps {
   icon: string;
@@ -16,6 +17,14 @@ interface DetailChromeProps {
   actions?: ReactNode;
   busy: boolean;
   onRefresh: () => void;
+  /**
+   * What refreshing would do, once something has checked. Plain "Refresh"
+   * where nothing has — an issue has no such check, and a pull request has
+   * none until the button is pointed at.
+   */
+  refreshTip?: string;
+  /** Pointed at: the moment to find out whether there is anything to pull. */
+  onRefreshHover?: () => void;
   onClose: () => void;
 }
 
@@ -28,7 +37,19 @@ interface DetailChromeProps {
  * doubles as the way back, since going back is the most common thing to do from
  * a detail view and a dedicated arrow would be a fourth button.
  */
-export function DetailChrome({ icon, tone, title, url, tabs, actions, busy, onRefresh, onClose }: DetailChromeProps) {
+export function DetailChrome({
+  icon,
+  tone,
+  title,
+  url,
+  tabs,
+  actions,
+  busy,
+  onRefresh,
+  refreshTip,
+  onRefreshHover,
+  onClose,
+}: DetailChromeProps) {
   const sidebarCollapsed = useGithubStore((s) => s.sidebarCollapsed);
 
   return (
@@ -61,7 +82,16 @@ export function DetailChrome({ icon, tone, title, url, tabs, actions, busy, onRe
 
       <div className="flex items-center gap-1 shrink-0">
         {actions}
-        <RefreshButton busy={busy} onClick={onRefresh} />
+        {/* The check runs when the tooltip opens rather than on the first
+            pixel of hover: the tooltip's own delay is the debounce, so a mouse
+            crossing the bar on its way somewhere else asks GitHub nothing. */}
+        <Tooltip
+          text={refreshTip ?? 'Refresh'}
+          delay={250}
+          onHoverChange={(hovering) => hovering && onRefreshHover?.()}
+        >
+          <RefreshButton busy={busy} onClick={onRefresh} title="" />
+        </Tooltip>
         <IconButton icon="arrow-square-out" label="Open on GitHub" onClick={() => void window.api.openExternal(url)} />
         <IconButton icon="x" label="Close" onClick={onClose} />
       </div>
@@ -71,13 +101,15 @@ export function DetailChrome({ icon, tone, title, url, tabs, actions, busy, onRe
 
 function IconButton({ icon, label, onClick }: { icon: string; label: string; onClick: () => void }) {
   return (
-    <button
-      type="button"
-      className="w-7 h-7 rounded-md text-text-tertiary flex items-center justify-center hover:bg-ink/[0.08] hover:text-text-primary transition-colors duration-150"
-      title={label}
-      onClick={onClick}
-    >
-      <Icon name={icon} className="w-4 h-4" />
-    </button>
+    <Tooltip text={label}>
+      <button
+        type="button"
+        aria-label={label}
+        className="w-7 h-7 rounded-md text-text-tertiary flex items-center justify-center hover:bg-ink/[0.08] hover:text-text-primary transition-colors duration-150"
+        onClick={onClick}
+      >
+        <Icon name={icon} className="w-4 h-4" />
+      </button>
+    </Tooltip>
   );
 }

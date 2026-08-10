@@ -785,4 +785,45 @@ describe('PullRequestsPanel', () => {
     // The pull request stays open through it — this hides the list, nothing else.
     expect(screen.getByText('Summary')).toBeTruthy();
   });
+  /**
+   * Nothing polls GitHub, so a pull request updated while you read it looks
+   * exactly like one that has not been — and pressing refresh to find out
+   * costs the whole detail fetch and your place in the document. Pointing at
+   * the button asks the cheap question instead.
+   */
+  test('hovering refresh checks for changes and says what it found', async () => {
+    // Layout survives a store reset by design, so the test before this one can
+    // leave the list hidden and the pull request unreachable.
+    useGithubStore.getState().setSidebarCollapsed(false);
+    vi.mocked(window.api.github.inbox).mockResolvedValue(
+      inbox({ needsReview: [pr({ number: 5, title: 'Please look' })] }),
+    );
+    vi.mocked(window.api.github.pullRequest).mockResolvedValue(detail({ headSha: 'bbb' }));
+    vi.mocked(window.api.github.pullRequestFreshness).mockResolvedValue({
+      headSha: 'ccc',
+      updatedAt: '2026-07-02T00:00:00.000Z',
+      state: 'open',
+      isDraft: false,
+    });
+
+    render(<PullRequestsPanel projectPath={PROJECT} />);
+    fireEvent.click(await screen.findByText('Please look'));
+    await screen.findByText('Summary');
+
+    // Nothing asked until it is pointed at: the detail load must not spend a
+    // call answering a question nobody has.
+    expect(window.api.github.pullRequestFreshness).not.toHaveBeenCalled();
+
+    fireEvent.mouseEnter(screen.getByRole('button', { name: 'Refresh' }).parentElement as HTMLElement);
+
+    await waitFor(() => expect(window.api.github.pullRequestFreshness).toHaveBeenCalledWith(PROJECT, 5));
+    expect(await screen.findByText('New commits — refresh to read them')).toBeTruthy();
+
+    // Pointed at again, asked again. An answer kept from the last hover would
+    // be the thing this was built to stop: something that looks live and is
+    // not — and the tooltip's own delay is what keeps a passing mouse quiet.
+    fireEvent.mouseLeave(screen.getByRole('button', { name: 'Refresh' }).parentElement as HTMLElement);
+    fireEvent.mouseEnter(screen.getByRole('button', { name: 'Refresh' }).parentElement as HTMLElement);
+    await waitFor(() => expect(window.api.github.pullRequestFreshness).toHaveBeenCalledTimes(2));
+  });
 });

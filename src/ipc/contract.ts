@@ -46,6 +46,7 @@ import type { LimaStatus } from '../lima/types';
 import type {
   GithubAvailability,
   PullRequestDetail,
+  PullRequestFreshness,
   GithubIssue,
   IssueDetail,
   CommentKind,
@@ -266,6 +267,7 @@ export interface IpcInvokeContract {
     ];
     return: FileDiff | null;
   };
+  'github:pull-request-freshness': { args: [projectPath: string, number: number]; return: PullRequestFreshness };
   'github:pull-request-file-versions': {
     args: [projectPath: string, number: number, baseSha: string, headSha: string, filePath: string, oldPath?: string];
     return: PrFileVersions;

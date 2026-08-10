@@ -41,6 +41,7 @@ export type {
   GithubAvailability,
   PullRequestSummary,
   PullRequestDetail,
+  PullRequestFreshness,
   PullRequestInbox,
   PullRequestLabel,
   ReviewThread,
@@ -64,6 +65,7 @@ import type { TaskWorktreeResult, WorktreeInfo, WorktreeRemoveResult, CheckWorkt
 import type {
   GithubAvailability,
   PullRequestDetail,
+  PullRequestFreshness,
   GithubIssue,
   IssueDetail,
   CommentKind,
@@ -663,6 +665,7 @@ export interface GithubAPI {
   availability(projectPath: string, recheck?: boolean): Promise<GithubAvailability>;
   inbox(projectPath: string): Promise<InboxResult>;
   pullRequest(projectPath: string, number: number): Promise<PullRequestDetail>;
+  pullRequestFreshness(projectPath: string, number: number): Promise<PullRequestFreshness>;
   pullRequestFiles(
     projectPath: string,
     number: number,

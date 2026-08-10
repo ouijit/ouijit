@@ -92,6 +92,50 @@ export function PullRequestDetailView({
     scrollToSection(container, fileSelector(path, group));
   }, []);
 
+  /**
+   * What refreshing would do, found out by pointing at the button.
+   *
+   * Nothing polls GitHub, so a pull request updated while you read it looks
+   * exactly like one that has not been — and pressing refresh to find out costs
+   * the whole detail fetch and throws away your place in the document. The
+   * question is asked here instead, on hover, with four fields.
+   *
+   * Asked again every time it is pointed at. The tooltip's own delay is the
+   * debounce — reaching this at all means the pointer was held still on the
+   * button — and an answer kept from a minute ago would be the thing this was
+   * built to stop: something that looks live and is not.
+   */
+  const [refreshTip, setRefreshTip] = useState<string | undefined>(undefined);
+  const asking = useRef(false);
+
+  const checkFreshness = useCallback(() => {
+    if (detailLoading || asking.current) return;
+
+    asking.current = true;
+    setRefreshTip('Checking for changes…');
+    void window.api.github
+      .pullRequestFreshness(projectPath, detail.number)
+      .then((remote) => {
+        setRefreshTip(
+          remote.headSha !== detail.headSha
+            ? 'New commits — refresh to read them'
+            : remote.updatedAt !== detail.updatedAt
+              ? 'New activity — refresh to see it'
+              : 'Up to date',
+        );
+      })
+      // Silent: the button still refreshes, and a tooltip is the wrong place
+      // to report that a network call failed.
+      .catch(() => setRefreshTip(undefined))
+      .finally(() => {
+        asking.current = false;
+      });
+  }, [projectPath, detail.number, detail.headSha, detail.updatedAt, detailLoading]);
+
+  // What was true of the pull request that was on screen is not an answer about
+  // the one that is now.
+  useEffect(() => setRefreshTip(undefined), [detail.number, detail.headSha, detail.updatedAt]);
+
   // A pending comment lives on a line in a file, so jumping to one means the
   // code pane, showing that file. The jump is usually made from Summary or
   // Timeline, where `FilesSection` is not mounted and the ref is still null —
@@ -235,6 +279,8 @@ export function PullRequestDetailView({
         url={detail.url}
         busy={detailLoading}
         onRefresh={() => void useGithubStore.getState().reloadDetail(projectPath)}
+        refreshTip={refreshTip}
+        onRefreshHover={checkFreshness}
         onClose={() => useGithubStore.getState().closeDetail()}
         actions={<ReviewActions projectPath={projectPath} detail={detail} onJumpToDraft={jumpToDraft} />}
         tabs={

@@ -7,6 +7,7 @@ const MIN_SPIN_MS = 450;
 interface RefreshButtonProps {
   busy: boolean;
   onClick: () => void;
+  /** Empty where something else is doing the telling — a tooltip around this. */
   title?: string;
 }
 
@@ -43,7 +44,10 @@ export function RefreshButton({ busy, onClick, title = 'Refresh' }: RefreshButto
       // something looks stale, and refusing the second press is the wrong
       // answer to "did that do anything?".
       className="w-7 h-7 rounded-md text-text-secondary flex items-center justify-center transition-all duration-150 hover:bg-ink/10 hover:text-text-primary"
-      title={title}
+      title={title || undefined}
+      // Named whether or not it carries a title of its own: wrapped in a
+      // tooltip it has none, and a button holding one glyph has no other name.
+      aria-label="Refresh"
       aria-busy={spinning}
       onClick={onClick}
     >

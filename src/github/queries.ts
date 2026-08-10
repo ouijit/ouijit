@@ -190,3 +190,23 @@ mutation($threadId: ID!) {
     thread { id isResolved }
   }
 }`;
+
+/**
+ * Is what is on screen still what GitHub has?
+ *
+ * Four fields, asked on hover — the detail query pulls a hundred threads, a
+ * timeline and a check rollup, none of which answers "has anything changed".
+ * `updatedAt` moves for a comment or a review as well as a push, so the two
+ * together say both whether there is anything new and whether it is code.
+ */
+export const PULL_REQUEST_FRESHNESS_QUERY = `
+query($owner: String!, $repo: String!, $number: Int!) {
+  repository(owner: $owner, name: $repo) {
+    pullRequest(number: $number) {
+      headRefOid
+      updatedAt
+      state
+      isDraft
+    }
+  }
+}`;

@@ -171,6 +171,9 @@ const mockApi = {
       .fn()
       .mockResolvedValue({ viewer: '', needsReview: [], mine: [], others: [], draftCounts: {}, linkedTasks: {} }),
     pullRequest: vi.fn().mockResolvedValue(null),
+    pullRequestFreshness: vi
+      .fn()
+      .mockResolvedValue({ headSha: 'bbb', updatedAt: '2026-07-02T00:00:00.000Z', state: 'open', isDraft: false }),
     pullRequestFiles: vi.fn().mockResolvedValue({ files: [], fromGit: false }),
     pullRequestFileDiff: vi.fn().mockResolvedValue(null),
     pullRequestFileVersions: vi.fn().mockResolvedValue({ before: null, after: null }),

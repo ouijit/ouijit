@@ -83,6 +83,18 @@ export interface PullRequestFile {
   deletions: number;
 }
 
+/**
+ * What GitHub has for a pull request right now, without fetching the rest of
+ * it. Compared against what is on screen to answer whether a refresh would
+ * bring anything back.
+ */
+export interface PullRequestFreshness {
+  headSha: string;
+  updatedAt: string;
+  state: string;
+  isDraft: boolean;
+}
+
 export interface ReviewComment {
   /** GraphQL node id — needed for replies and resolution. */
   id: string;

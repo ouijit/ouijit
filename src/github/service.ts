@@ -41,6 +41,7 @@ import { GithubError, MIN_GH_VERSION, getViewerLogin, probeGhAuth } from './clie
 import {
   fetchInbox,
   fetchPullRequest,
+  fetchPullRequestFreshness,
   fetchPullRequestFiles,
   fetchIssues,
   fetchIssue,
@@ -67,6 +68,7 @@ import type {
   GithubAvailability,
   PullRequestInbox,
   PullRequestDetail,
+  PullRequestFreshness,
   PullRequestFile,
   GithubIssue,
   IssueDetail,
@@ -202,6 +204,18 @@ export async function getInbox(projectPath: string): Promise<InboxResult> {
 export async function getPullRequest(projectPath: string, number: number): Promise<PullRequestDetail> {
   const identity = await requireIdentity(projectPath);
   return fetchPullRequest(identity, number);
+}
+
+/**
+ * Whether a refresh would bring anything back, asked without fetching it.
+ *
+ * The caller compares this against what it has on screen: nothing here knows
+ * what that is, and a check that answered "up to date" from main would have to
+ * be told anyway.
+ */
+export async function getPullRequestFreshness(projectPath: string, number: number): Promise<PullRequestFreshness> {
+  const identity = await requireIdentity(projectPath);
+  return fetchPullRequestFreshness(identity, number);
 }
 
 export interface PullRequestFilesResult {

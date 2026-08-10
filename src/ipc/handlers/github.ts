@@ -4,6 +4,7 @@ import {
   getAvailability,
   getInbox,
   getPullRequest,
+  getPullRequestFreshness,
   getPullRequestFiles,
   getPullRequestFileDiff,
   getPullRequestFileVersions,
@@ -43,6 +44,7 @@ export function registerGithubHandlers(): void {
   typedHandle('github:availability', (projectPath, recheck) => getAvailability(projectPath, recheck));
   typedHandle('github:inbox', (projectPath) => getInbox(projectPath));
   typedHandle('github:pull-request', (projectPath, number) => getPullRequest(projectPath, number));
+  typedHandle('github:pull-request-freshness', (projectPath, number) => getPullRequestFreshness(projectPath, number));
   typedHandle('github:pull-request-files', (projectPath, number, baseSha, headSha) =>
     getPullRequestFiles(projectPath, number, baseSha, headSha),
   );
