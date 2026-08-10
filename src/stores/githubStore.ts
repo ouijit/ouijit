@@ -83,6 +83,20 @@ interface GithubStoreState {
   lensOn: boolean;
 
   /**
+   * A lens on file that describes an earlier version of this change.
+   *
+   * Kept rather than discarded so the pane can say an agent run went stale and
+   * offer to spend another one. Only the name, because that is all that can be
+   * acted on: the grouping itself points at hunks that have moved, and showing
+   * it would be a confident description of code that is no longer there.
+   *
+   * Null when nothing is stale, and also when the stale one has no name to
+   * offer — a lens posted over the CLI cannot be written again from here, and
+   * saying it existed would be a notice with no cure.
+   */
+  staleLensName: string | null;
+
+  /**
    * Files the reviewer has finished with, for the head on screen.
    *
    * Held here rather than in the document so the rail can dim what is done and
@@ -206,6 +220,7 @@ const INITIAL: Omit<GithubStoreState, 'sidebarWidth' | 'sidebarCollapsed' | 'rai
   lensGroups: null,
   lensName: null,
   lensOn: false,
+  staleLensName: null,
   viewedPaths: [],
   collapsedGroups: [],
   activePath: null,
@@ -228,11 +243,12 @@ const INITIAL: Omit<GithubStoreState, 'sidebarWidth' | 'sidebarCollapsed' | 'rai
  */
 const CLEAR_FOR_HEAD: Pick<
   GithubStoreState,
-  'lensGroups' | 'lensName' | 'lensOn' | 'viewedPaths' | 'collapsedGroups' | 'activePath'
+  'lensGroups' | 'lensName' | 'lensOn' | 'staleLensName' | 'viewedPaths' | 'collapsedGroups' | 'activePath'
 > = {
   lensGroups: null,
   lensName: null,
   lensOn: false,
+  staleLensName: null,
   viewedPaths: [],
   collapsedGroups: [],
   activePath: null,
@@ -505,6 +521,7 @@ export const useGithubStore = create<GithubStore>()((set, get) => ({
         lensGroups: result.groups ?? null,
         lensName: result.name ?? null,
         lensOn: Boolean(result.groups),
+        staleLensName: result.groups ? null : (result.staleFor && result.name) || null,
         collapsedGroups: [],
       });
     } catch (error) {
@@ -526,6 +543,7 @@ export const useGithubStore = create<GithubStore>()((set, get) => ({
    */
   renameLensName: (from, to) => {
     if (get().lensName === from) set({ lensName: to });
+    if (get().staleLensName === from) set({ staleLensName: to });
   },
 
   setActivePath: (path) => {
@@ -557,7 +575,7 @@ export const useGithubStore = create<GithubStore>()((set, get) => ({
 
   clearLens: async (projectPath, prNumber) => {
     await window.api.github.clearLens(projectPath, prNumber);
-    set({ lensGroups: null, lensName: null, lensOn: false });
+    set({ lensGroups: null, lensName: null, lensOn: false, staleLensName: null });
   },
 
   setSidebarWidth: (width) =>

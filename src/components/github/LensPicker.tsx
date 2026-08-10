@@ -18,6 +18,11 @@ interface LensPickerProps {
   lensOn: boolean;
   changedFiles: number;
   viewed: number;
+  /**
+   * A lens on file for an earlier version of this change, by name. Offered
+   * again rather than shown: what it points at has moved.
+   */
+  stale: string | null;
   /** Name of the lens being written, if a run is in flight for this pull request. */
   writing: string | null;
   onAllFiles: () => void;
@@ -47,6 +52,7 @@ export function LensPicker({
   lensOn,
   changedFiles,
   viewed,
+  stale,
   writing,
   onAllFiles,
   onShowLens,
@@ -61,6 +67,10 @@ export function LensPicker({
   // of its own in the list below — it gets one here so what is on screen can
   // always be named and gone back to.
   const orphan = applied !== null && !lenses.some((lens) => lens.name === applied.name);
+  // Marked only where it can be acted on. A stale lens the project no longer
+  // has — renamed, deleted, or never one of its own — has no row to carry the
+  // notice and nothing to offer, so it is left unsaid.
+  const staleOffered = stale !== null && lenses.some((lens) => lens.name === stale);
 
   const label = writing ? `Writing ${writing}…` : showingLens ? appliedLabel : 'All files';
   const note = showingLens ? `${applied.groups}` : viewed > 0 ? `${viewed}/${changedFiles}` : `${changedFiles}`;
@@ -83,7 +93,9 @@ export function LensPicker({
             writing
               ? `${writing} is running. The lens appears here when it writes one.`
               : !showingLens
-                ? 'How to read this change'
+                ? staleOffered
+                  ? `How to read this change — “${stale}” was written for earlier commits`
+                  : 'How to read this change'
                 : applied?.name
                   ? `Reading this change through “${applied.name}”`
                   : 'Reading this change through a lens written for it'
@@ -95,6 +107,10 @@ export function LensPicker({
         >
           <Icon name={showingLens ? 'aperture' : 'tree-structure'} className="shrink-0 w-4 h-4 opacity-70" />
           <span className="flex-1 min-w-0 truncate">{label}</span>
+          {/* Something is waiting behind a control nobody has to open. Without
+              it, a reader who never opens the picker never learns that the run
+              they paid for describes commits that are no longer here. */}
+          {staleOffered && !writing && <span aria-hidden className="shrink-0 w-1.5 h-1.5 rounded-full bg-accent" />}
           {!writing && <span className="shrink-0 font-mono text-[11px] text-ink/35">{note}</span>}
           {writing ? (
             <Icon
@@ -139,16 +155,31 @@ export function LensPicker({
 
       {lenses.map((lens) => {
         const isApplied = applied?.name === lens.name;
+        const isStale = staleOffered && stale === lens.name;
         return (
           <MenuItem
             key={lens.name}
             label={lens.name}
-            hint={writing === lens.name ? 'Writing…' : isApplied ? `${applied.groups} parts` : undefined}
+            hint={
+              writing === lens.name
+                ? 'Writing…'
+                : isApplied
+                  ? `${applied.groups} parts`
+                  : isStale
+                    ? 'out of date'
+                    : undefined
+            }
             selected={isApplied && lensOn}
             // One run at a time — but the lens already written is a view to
             // switch to, not a run to start, so it stays live.
             disabled={Boolean(writing) && !isApplied}
-            title={isApplied ? lens.instruction : `Read this change through “${lens.name}”`}
+            title={
+              isApplied
+                ? lens.instruction
+                : isStale
+                  ? `Written for earlier commits — read this change through “${lens.name}” again`
+                  : `Read this change through “${lens.name}”`
+            }
             onClick={() => {
               setOpen(false);
               if (isApplied) onShowLens();

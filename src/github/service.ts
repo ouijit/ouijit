@@ -598,7 +598,10 @@ export interface LensResult {
 export async function getLens(projectPath: string, prNumber: number, headSha: string): Promise<LensResult> {
   const row = await getPrLens(projectPath, prNumber);
   if (!row) return { groups: null };
-  if (row.head_sha !== headSha) return { groups: null, staleFor: row.head_sha };
+  // Named even when it is stale: the pane cannot offer to write it again
+  // without knowing which lens wrote it, and dropping the name is how a reader
+  // loses an agent run without being told one ever happened.
+  if (row.head_sha !== headSha) return { groups: null, name: row.lens_name ?? null, staleFor: row.head_sha };
   const groups = parseLens(row.groups);
   return { groups, name: row.lens_name ?? null };
 }

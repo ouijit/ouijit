@@ -562,4 +562,58 @@ describe('PullRequestsPanel — lens', () => {
     expect(await screen.findByTitle('How to read this change')).toBeTruthy();
     expect(screen.getByText('All files')).toBeTruthy();
   });
+
+  /**
+   * An agent run that has gone stale is still a thing the reader paid for.
+   * Dropping to the file list without a word is how they lose it without ever
+   * learning it happened — so the lens that wrote it says it is out of date,
+   * and pressing it writes it again.
+   */
+  test('a stale lens says so and offers to be written again', async () => {
+    vi.mocked(window.api.github.inbox).mockResolvedValue(
+      inbox({ needsReview: [pr({ number: 5, title: 'Please look' })] }),
+    );
+    vi.mocked(window.api.github.pullRequest).mockResolvedValue(detail());
+    vi.mocked(window.api.github.lens).mockResolvedValue({ groups: null, name: 'Narrative', staleFor: 'older-sha' });
+    vi.mocked(window.api.github.listLenses).mockResolvedValue([{ name: 'Narrative', instruction: 'group by story' }]);
+    vi.mocked(window.api.github.runLens).mockReturnValue(new Promise(() => {}));
+
+    render(<PullRequestsPanel projectPath={PROJECT} />);
+    fireEvent.click(await screen.findByText('Please look'));
+    fireEvent.click(await screen.findByText('Code'));
+
+    // Said on the control itself, for a reader who never opens it.
+    expect(
+      await screen.findByTitle('How to read this change — “Narrative” was written for earlier commits'),
+    ).toBeTruthy();
+
+    await openPicker();
+    expect(screen.getByRole('menuitem', { name: 'Narrativeout of date' })).toBeTruthy();
+
+    pick(/^Narrative/);
+    await waitFor(() => expect(window.api.github.runLens).toHaveBeenCalledWith(PROJECT, 5, 'Narrative'));
+  });
+
+  /**
+   * A lens posted over the CLI cannot be written again from here, and one the
+   * project has since renamed or deleted has no row to carry the notice. A
+   * notice with no cure is a nag, so nothing is said.
+   */
+  test('a stale lens the project cannot run again is left unsaid', async () => {
+    vi.mocked(window.api.github.inbox).mockResolvedValue(
+      inbox({ needsReview: [pr({ number: 5, title: 'Please look' })] }),
+    );
+    vi.mocked(window.api.github.pullRequest).mockResolvedValue(detail());
+    vi.mocked(window.api.github.lens).mockResolvedValue({ groups: null, name: 'Gone', staleFor: 'older-sha' });
+    vi.mocked(window.api.github.listLenses).mockResolvedValue([{ name: 'Narrative', instruction: 'group by story' }]);
+
+    render(<PullRequestsPanel projectPath={PROJECT} />);
+    fireEvent.click(await screen.findByText('Please look'));
+    fireEvent.click(await screen.findByText('Code'));
+
+    expect(await screen.findByTitle('How to read this change')).toBeTruthy();
+    await openPicker();
+    expect(screen.queryByText('out of date')).toBeNull();
+    expect(screen.getByRole('menuitem', { name: 'Narrative' })).toBeTruthy();
+  });
 });

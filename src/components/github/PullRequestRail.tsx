@@ -61,6 +61,7 @@ export function PullRequestRail({
   const viewedPaths = useGithubStore((s) => s.viewedPaths);
   const viewed = useMemo(() => new Set(viewedPaths), [viewedPaths]);
   const activePath = useGithubStore((s) => s.activePath);
+  const staleLensName = useGithubStore((s) => s.staleLensName);
   const collapsedGroups = useGithubStore((s) => s.collapsedGroups);
   const collapsed = useMemo(() => new Set(collapsedGroups), [collapsedGroups]);
 
@@ -114,6 +115,7 @@ export function PullRequestRail({
           lensOn={lensOn}
           changedFiles={detail.changedFiles}
           viewed={viewed.size}
+          stale={staleLensName}
           writing={lensWriting}
           onAllFiles={() => {
             // Mode first, then the scroll back to the top: what the reader
