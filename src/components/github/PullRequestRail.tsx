@@ -141,6 +141,13 @@ export function PullRequestRail({
                 {/* Set as the lens wrote it. Uppercasing a title shouts, and
                     algorithmic title case would spell GitHub "Github".
 
+                    No caret at the head of the line, where every directory
+                    below already has one: a part of the change and a folder of
+                    files are different kinds of thing, and giving them the same
+                    mark in the same column made the list read as one tree. The
+                    toggle sits at the far end instead, and says plus or minus
+                    rather than pointing.
+
                     Folds with the part it names in the document: one part of
                     the change is one thing, and having it put away on one side
                     of the seam and open on the other is two answers to the same
@@ -152,8 +159,8 @@ export function PullRequestRail({
                   title={group.summary}
                   onClick={() => useGithubStore.getState().setGroupCollapsed(group.title, !folded)}
                 >
-                  <Icon name={folded ? 'caret-right' : 'caret-down'} className="shrink-0 !w-3 !h-3 opacity-50" />
-                  <span className="min-w-0 truncate">{group.title}</span>
+                  <span className="min-w-0 flex-1 truncate">{group.title}</span>
+                  <Icon name={folded ? 'plus' : 'minus'} className="shrink-0 !w-3 !h-3 opacity-50" />
                 </button>
                 {/* The same tree the flat list uses. Which directories a part of
                     the change touches is most of what says what kind of change
