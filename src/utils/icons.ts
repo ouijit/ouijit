@@ -70,6 +70,9 @@ import trash from '@phosphor-icons/core/assets/regular/trash.svg?raw';
 import treeStructure from '@phosphor-icons/core/assets/regular/tree-structure.svg?raw';
 import upload from '@phosphor-icons/core/assets/regular/upload.svg?raw';
 import webhooksLogo from '@phosphor-icons/core/assets/regular/webhooks-logo.svg?raw';
+// Filled, unlike everything else here: the mark is a brand, and the outline
+// variant loses the octocat at the size a badge renders it.
+import githubLogo from '@phosphor-icons/core/assets/fill/github-logo-fill.svg?raw';
 import x from '@phosphor-icons/core/assets/regular/x.svg?raw';
 import log from 'electron-log/renderer';
 import arrowSquareOut from '@phosphor-icons/core/assets/regular/arrow-square-out.svg?raw';
@@ -156,6 +159,7 @@ export const iconMap: Record<string, string> = {
   'tree-structure': treeStructure,
   upload: upload,
   'webhooks-logo': webhooksLogo,
+  'github-logo': githubLogo,
   x: x,
   'arrow-square-out': arrowSquareOut,
   'check-circle': checkCircle,

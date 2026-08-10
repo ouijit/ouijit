@@ -68,9 +68,13 @@ export function DetailChrome({
         showLabel="Show the list"
         className="-ml-1"
       />
+      {/* A share of the bar rather than a fixed 280px, which truncated a title
+          the same way on a 2000px display as on a laptop. The cap is a cap, not
+          a width: this shrinks below it when the tabs and the actions need the
+          room, so a narrow pane behaves as it did. */}
       <button
         type="button"
-        className="flex items-center gap-2 min-w-0 max-w-[280px] text-text-secondary hover:text-text-primary transition-colors duration-150"
+        className="flex items-center gap-2 min-w-0 max-w-[min(45%,720px)] text-text-secondary hover:text-text-primary transition-colors duration-150"
         title={title}
         onClick={onClose}
       >
