@@ -1,8 +1,11 @@
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
+import * as path from 'node:path';
 import { isLimaInstalled } from './lima/manager';
 import { isNonoInstalled } from './sandbox/nono/binary';
 import { probeGh } from './github/client';
+import { ensureLoginPath } from './loginPath';
+import { getWrapperBinDir } from './wrapperBin';
 import { getLogger } from './logger';
 
 const execFileAsync = promisify(execFile);
@@ -37,36 +40,28 @@ async function detectGit(): Promise<{ ok: boolean; version?: string }> {
   }
 }
 
-async function detectClaude(): Promise<boolean> {
-  try {
-    await execFileAsync('which', ['claude']);
-    return true;
-  } catch {
-    return false;
-  }
+/**
+ * A PATH with the Ouijit wrapper directory taken out of it.
+ *
+ * `which codex` finds `~/.config/Ouijit/bin/codex` whether or not codex is
+ * installed: that file is ours, a shell script that goes looking for the real
+ * binary and only fails once it is run. Probing through it reports all four
+ * agents present on a machine that has none of them — and the lens then picks
+ * one of them as its default and dies at spawn.
+ */
+export function withoutWrapperDir(pathValue: string, wrapperDir: string): string {
+  return pathValue
+    .split(path.delimiter)
+    .filter((dir) => dir && path.resolve(dir) !== path.resolve(wrapperDir))
+    .join(path.delimiter);
 }
 
-async function detectCodex(): Promise<boolean> {
+/** Whether the real binary — not our wrapper for it — is on PATH. */
+async function detectAgent(binary: string): Promise<boolean> {
   try {
-    await execFileAsync('which', ['codex']);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-async function detectPi(): Promise<boolean> {
-  try {
-    await execFileAsync('which', ['pi']);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-async function detectOpencode(): Promise<boolean> {
-  try {
-    await execFileAsync('which', ['opencode']);
+    await execFileAsync('which', [binary], {
+      env: { ...process.env, PATH: withoutWrapperDir(process.env.PATH ?? '', getWrapperBinDir()) },
+    });
     return true;
   } catch {
     return false;
@@ -74,12 +69,16 @@ async function detectOpencode(): Promise<boolean> {
 }
 
 export async function checkHealth(): Promise<HealthStatus> {
+  // Before anything is looked for. A windowed launch inherits a PATH with
+  // none of the places these binaries install themselves into.
+  ensureLoginPath();
+
   const [git, claude, codex, pi, opencode, lima, nono, gh] = await Promise.all([
     detectGit(),
-    detectClaude(),
-    detectCodex(),
-    detectPi(),
-    detectOpencode(),
+    detectAgent('claude'),
+    detectAgent('codex'),
+    detectAgent('pi'),
+    detectAgent('opencode'),
     isLimaInstalled(),
     isNonoInstalled(),
     probeGh(),

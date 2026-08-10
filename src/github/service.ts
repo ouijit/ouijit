@@ -35,7 +35,7 @@ import { experimentalStorageKey, parseExperimentalFlags } from '../experimentalF
 import { pushBranch } from '../git';
 import { getLogger } from '../logger';
 import { getRepoIdentity, invalidateRepoIdentity } from './repoIdentity';
-import { DEFAULT_LENS_AGENT, type LensAgentChoice } from './lensAgents';
+import { installedAgents, resolveLensAgent, type LensAgent, type LensAgentChoice } from './lensAgents';
 import { runLens } from './runLens';
 import { GithubError, MIN_GH_VERSION, getViewerLogin, probeGhAuth } from './client';
 import {
@@ -509,16 +509,28 @@ export function lensAgentKey(projectPath: string): string {
 
 export async function getLensAgentChoice(projectPath: string): Promise<LensAgentChoice> {
   const raw = await getGlobalSetting(lensAgentKey(projectPath));
-  if (!raw) return { agentId: DEFAULT_LENS_AGENT };
+  if (!raw) return { agentId: null };
   try {
     const parsed = JSON.parse(raw) as Partial<LensAgentChoice>;
     return {
-      agentId: typeof parsed.agentId === 'string' ? parsed.agentId : DEFAULT_LENS_AGENT,
+      agentId: typeof parsed.agentId === 'string' ? parsed.agentId : null,
       ...(typeof parsed.command === 'string' ? { command: parsed.command } : {}),
     };
   } catch {
-    return { agentId: DEFAULT_LENS_AGENT };
+    return { agentId: null };
   }
+}
+
+/**
+ * The agent this project's lenses run through, resolved against what is here.
+ *
+ * Null when nothing is chosen and nothing is installed — answered before the
+ * diff is gathered, so a machine with no agent on it is told that rather than
+ * spending a minute reading a pull request to fail at the spawn.
+ */
+export async function resolveLensAgentFor(projectPath: string): Promise<LensAgent | null> {
+  const health = getCachedHealth() ?? (await checkHealth());
+  return resolveLensAgent(await getLensAgentChoice(projectPath), installedAgents(health));
 }
 
 export async function setLensAgentChoice(projectPath: string, choice: LensAgentChoice): Promise<{ success: boolean }> {
@@ -539,6 +551,14 @@ export async function writeLensWithAgent(
 ): Promise<{ success: boolean; error?: string }> {
   const lens = (await listLenses(projectPath)).find((l) => l.name === lensName);
   if (!lens) return { success: false, error: `No lens called “${lensName}”` };
+
+  const agent = await resolveLensAgentFor(projectPath);
+  if (!agent) {
+    return {
+      success: false,
+      error: 'No coding agent is installed. A lens is written by one of Claude Code, Codex, Pi or opencode.',
+    };
+  }
 
   const detail = await getPullRequest(projectPath, prNumber);
   if (!detail) return { success: false, error: 'Could not read the pull request' };
@@ -574,7 +594,7 @@ export async function writeLensWithAgent(
     files: listed.files,
     diffs,
     instruction: lens.instruction,
-    agent: await getLensAgentChoice(projectPath),
+    agent,
     cwd: projectPath,
   });
   if (!result.success || !result.body) return { success: false, error: result.error };

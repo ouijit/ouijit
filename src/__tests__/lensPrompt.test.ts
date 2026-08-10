@@ -1,6 +1,6 @@
 import { describe, test, expect } from 'vitest';
 import { buildLensPrompt, extractJson, hunkSpan } from '../github/lensPrompt';
-import { resolveLensAgent, LENS_AGENTS } from '../github/lensAgents';
+import { resolveLensAgent, pickLensAgent, installedAgents, LENS_AGENTS } from '../github/lensAgents';
 import type { FileDiff } from '../types';
 import type { PullRequestDetail, PullRequestFile } from '../github/types';
 
@@ -148,23 +148,63 @@ describe('extractJson', () => {
 });
 
 describe('lens agents', () => {
-  test('every shipped preset feeds the prompt on stdin', () => {
-    // A whole diff on an argv is a diff against the platform's argument limit.
-    for (const agent of LENS_AGENTS) expect(agent.promptVia).toBe('stdin');
+  const ALL = { claude: true, codex: true, pi: true, opencode: true };
+
+  test('the prompt goes on stdin wherever the agent will read it there', () => {
+    // A whole diff on an argv is a diff against the platform's argument limit,
+    // so an argument is for the one agent that has no other way in.
+    for (const agent of LENS_AGENTS) {
+      expect(agent.promptVia).toBe(agent.id === 'opencode' ? 'arg' : 'stdin');
+    }
   });
 
   test('an unknown agent falls back rather than failing to run', () => {
-    expect(resolveLensAgent({ agentId: 'nonexistent' }).command).toBe(LENS_AGENTS[0].command);
+    expect(resolveLensAgent({ agentId: 'nonexistent' }, ALL)?.command).toBe(LENS_AGENTS[0].command);
   });
 
   test('a custom command replaces the preset, arguments and all', () => {
-    const agent = resolveLensAgent({ agentId: 'claude', command: 'my-agent --one-shot --json' });
-    expect(agent.command).toBe('my-agent');
-    expect(agent.args).toEqual(['--one-shot', '--json']);
-    expect(agent.promptVia).toBe('stdin');
+    const agent = resolveLensAgent({ agentId: 'claude', command: 'my-agent --one-shot --json' }, ALL);
+    expect(agent?.command).toBe('my-agent');
+    expect(agent?.args).toEqual(['--one-shot', '--json']);
+    expect(agent?.promptVia).toBe('stdin');
   });
 
   test('a blank override leaves the preset alone', () => {
-    expect(resolveLensAgent({ agentId: 'codex', command: '   ' }).args).toEqual(['exec', '-']);
+    expect(resolveLensAgent({ agentId: 'codex', command: '   ' }, ALL)?.args).toEqual(['exec', '-']);
+  });
+
+  test('a custom command runs even when nothing recognised is installed', () => {
+    // It names a binary this app has never heard of; refusing it because none
+    // of the four are here would defeat the point of the field.
+    expect(resolveLensAgent({ agentId: null, command: 'my-agent' }, {})?.command).toBe('my-agent');
+  });
+
+  test('with no choice made, the first installed agent writes the lens', () => {
+    expect(pickLensAgent({ codex: true, pi: true })?.id).toBe('codex');
+    expect(pickLensAgent({ opencode: true })?.id).toBe('opencode');
+    expect(resolveLensAgent(null, { pi: true })?.id).toBe('pi');
+  });
+
+  test('a chosen agent is used even once something earlier in the list appears', () => {
+    // The point of storing a choice: installing Claude Code does not silently
+    // take the lens back off whoever was asked for.
+    expect(resolveLensAgent({ agentId: 'opencode' }, ALL)?.id).toBe('opencode');
+  });
+
+  test('nothing installed and nothing chosen resolves to nothing', () => {
+    // Answered here so the failure can name the four agents, rather than
+    // arriving as an ENOENT for whichever binary we assumed.
+    expect(resolveLensAgent(null, {})).toBeNull();
+    expect(pickLensAgent({})).toBeNull();
+  });
+
+  test('the health probe maps onto the agent ids', () => {
+    expect(installedAgents({ claude: false, codex: true, pi: false, opencode: true })).toEqual({
+      claude: false,
+      codex: true,
+      pi: false,
+      opencode: true,
+    });
+    expect(installedAgents(null)).toEqual({});
   });
 });

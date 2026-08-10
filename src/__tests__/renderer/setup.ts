@@ -165,6 +165,22 @@ const mockApi = {
     get: vi.fn().mockResolvedValue(undefined),
     set: vi.fn().mockResolvedValue({ success: true }),
   },
+  health: {
+    // A machine with every agent on it, so a test that renders the lens
+    // settings is not also a test about what is installed.
+    check: vi.fn().mockResolvedValue({
+      git: true,
+      claude: true,
+      codex: true,
+      pi: true,
+      opencode: true,
+      lima: false,
+      nono: false,
+      gh: true,
+      ghVersionOk: true,
+    }),
+    onUpdate: vi.fn().mockReturnValue(() => {}),
+  },
   github: {
     availability: vi.fn().mockResolvedValue({ available: false, reason: 'flag-off' }),
     inbox: vi
@@ -188,7 +204,7 @@ const mockApi = {
     listLenses: vi.fn().mockResolvedValue([]),
     saveLens: vi.fn().mockResolvedValue({ name: '', instruction: '' }),
     runLens: vi.fn().mockResolvedValue({ success: true }),
-    lensAgent: vi.fn().mockResolvedValue({ agentId: 'claude' }),
+    lensAgent: vi.fn().mockResolvedValue({ agentId: null }),
     setLensAgent: vi.fn().mockResolvedValue({ success: true }),
     deleteLens: vi.fn().mockResolvedValue({ success: true }),
     viewedFiles: vi.fn().mockResolvedValue([]),

@@ -4,6 +4,7 @@ import { useGithubStore } from '../../stores/githubStore';
 import type { LensSummary } from '../../github/service';
 import { Icon } from '../terminal/Icon';
 import { useAutoResize } from '../../hooks/useAutoResize';
+import { LensAgentRow } from './LensAgentRow';
 
 interface LensListProps {
   projectPath: string;
@@ -76,6 +77,10 @@ export function LensList({ projectPath, onRun, running }: LensListProps) {
       className="glass-bevel relative border border-bezel rounded-[14px] overflow-hidden divide-y divide-ink/[0.06]"
       style={{ background: 'var(--color-terminal-bg)' }}
     >
+      {/* Above the lenses because it is true of all of them: a lens is a
+          prompt, and this is who gets asked. */}
+      <LensAgentRow projectPath={projectPath} />
+
       {lenses.length === 0 && !addingNew && (
         <div className="px-4 py-8 text-center text-xs text-text-tertiary">
           No lenses yet — add one below and it will be here for every pull request.

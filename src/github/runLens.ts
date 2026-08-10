@@ -2,7 +2,7 @@ import { spawn } from 'node:child_process';
 import type { FileDiff } from '../types';
 import { getLogger } from '../logger';
 import { parseLens } from './lens';
-import { resolveLensAgent, type LensAgentChoice } from './lensAgents';
+import type { LensAgent } from './lensAgents';
 import { buildLensPrompt, extractJson } from './lensPrompt';
 import type { PullRequestDetail, PullRequestFile } from './types';
 
@@ -32,7 +32,8 @@ export interface RunLensInput {
   files: PullRequestFile[];
   diffs: Map<string, FileDiff | null>;
   instruction: string;
-  agent: LensAgentChoice | null;
+  /** Already resolved: which binary, with which flags, and how it is fed. */
+  agent: LensAgent;
   cwd: string;
   signal?: AbortSignal;
 }
@@ -45,7 +46,7 @@ export interface RunLensResult {
 }
 
 export async function runLens(input: RunLensInput): Promise<RunLensResult> {
-  const agent = resolveLensAgent(input.agent);
+  const agent = input.agent;
   const prompt = buildLensPrompt({
     detail: input.detail,
     files: input.files,
@@ -165,7 +166,7 @@ function capture(
     child.on('error', (error) => {
       const message =
         (error as NodeJS.ErrnoException).code === 'ENOENT'
-          ? `${command} is not on PATH. Set the lens agent in project settings.`
+          ? `${command} is not on PATH. Pick another agent under Lenses.`
           : error.message;
       finish(() => reject(new Error(message)));
     });

@@ -247,4 +247,18 @@ describe('healthCheck', () => {
     expect(status.lima).toBe(false);
     expect(status.nono).toBe(true);
   });
+
+  test('agents are looked for past our own wrappers', async () => {
+    // `which codex` finds ~/.config/Ouijit/bin/codex whether or not codex is
+    // installed — that file is ours. Probing through it reports four agents on
+    // a machine with none, and the lens then picks one and dies at the spawn.
+    const { withoutWrapperDir } = await import('../healthCheck');
+    const wrapper = '/home/me/.config/Ouijit/bin';
+
+    expect(withoutWrapperDir(`/usr/bin:${wrapper}:/usr/local/bin`, wrapper)).toBe('/usr/bin:/usr/local/bin');
+    // Same directory, spelled differently.
+    expect(withoutWrapperDir(`${wrapper}/:/usr/bin`, wrapper)).toBe('/usr/bin');
+    // Nothing of ours on it: left exactly as it was.
+    expect(withoutWrapperDir('/usr/bin:/bin', wrapper)).toBe('/usr/bin:/bin');
+  });
 });
