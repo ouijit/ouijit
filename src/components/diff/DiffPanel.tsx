@@ -9,12 +9,16 @@ import { DeferredMount } from './DeferredMount';
 import { scrollToSection, fileSelector } from './scrollToSection';
 import { ResizeHandle } from '../common/ResizeHandle';
 import { SidebarToggle } from '../common/SidebarToggle';
+import { FullWidthToggle, PanelCloseButton } from '../terminal/FullWidthToggle';
 import { estimateFileHeight } from './diffMetrics';
 
 interface DiffPanelProps {
   ptyId: string;
   projectPath: string;
   mode: 'uncommitted' | 'worktree';
+  /** Filling the terminal body, rather than split beside the terminal. */
+  fullWidth: boolean;
+  onToggleFullWidth: () => void;
   onClose: () => void;
 }
 
@@ -29,7 +33,7 @@ const DIFF_BATCH_SIZE = 10;
  * word-diff splicing all live in this directory's shared primitives — the same
  * ones the pull request files view renders — so the two can't drift apart.
  */
-export function DiffPanel({ ptyId, projectPath, mode, onClose }: DiffPanelProps) {
+export function DiffPanel({ ptyId, projectPath, mode, fullWidth, onToggleFullWidth, onClose }: DiffPanelProps) {
   const gitFileStatus = useTerminalStore((s) => s.displayStates[ptyId]?.gitFileStatus ?? null);
   const [diffs, setDiffs] = useState<Map<string, FileDiff | null>>(new Map());
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -166,7 +170,12 @@ export function DiffPanel({ ptyId, projectPath, mode, onClose }: DiffPanelProps)
         />
       )}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <div className="pane-ledge relative z-30 px-3 py-2 text-sm text-ink/70 flex items-center gap-2 shrink-0">
+        {/* Over the well along its whole length — unlike the pull request's
+            bar, which spans the rail beside it as well — so the cut is all it
+            gets: the near face of a sunken surface is in shadow, and a lit line
+            there would be the edge of a raised thing sitting on the boundary
+            that was meant to say it is not one. */}
+        <div className="pane-ledge over-well relative z-30 px-3 py-2 text-sm text-ink/70 flex items-center gap-2 shrink-0">
           <SidebarToggle
             collapsed={sidebarCollapsed}
             onCollapsedChange={setSidebarCollapsed}
@@ -180,13 +189,11 @@ export function DiffPanel({ ptyId, projectPath, mode, onClose }: DiffPanelProps)
             {modeLabel}
           </span>
           <span className="text-xs text-text-tertiary ml-auto relative">{stats}</span>
-          <button
-            className="w-7 h-7 rounded-md bg-transparent border-none text-ink/60 flex items-center justify-center shrink-0 transition-all duration-150 ease-out hover:bg-ink/10 hover:text-ink/90 [&>svg]:w-4 [&>svg]:h-4"
-            onClick={onClose}
-            title="Close"
-          >
-            <Icon name="x" />
-          </button>
+          {/* The same pair every other panel beside a terminal carries, in the
+              same order: what the diff is doing is often best read next to what
+              is still being done. */}
+          <FullWidthToggle fullWidth={fullWidth} onToggle={onToggleFullWidth} />
+          <PanelCloseButton onClose={onClose} />
         </div>
         {/* The gap between two cards is what the border between two bands
             used to be. */}
@@ -231,8 +238,10 @@ export function DiffPanel({ ptyId, projectPath, mode, onClose }: DiffPanelProps)
                 />
               </DeferredMount>
             ))}
+          {/* A note in the well rather than a band ruled off from the cards:
+              the gap either side of it is the boundary. */}
           {!loading && truncated && (
-            <div className="px-4 py-3 text-xs text-ink/40 text-center border-t border-ink/[0.06]">
+            <div className="mx-6 px-4 py-3 text-xs text-ink/40 text-center">
               Showing {files.length} of {totalFileCount} changed files
             </div>
           )}
@@ -249,19 +258,26 @@ function UntrackedFilesSection({ files }: { files: string[] }) {
   const [expanded, setExpanded] = useState(false);
 
   return (
-    <div className="border-t border-ink/[0.08]">
-      <div
-        className="pane-ledge flex items-center gap-2 px-4 py-2 bg-terminal-surface text-sm text-ink/50 hover:text-ink/70 transition-colors duration-150"
+    // The same card the changed files sit in. An untracked file is one of the
+    // changes — git simply has nothing to diff it against yet — so it belongs
+    // in the list rather than in a band ruled off underneath it.
+    <div className="diff-card mx-6 rounded-[14px] border border-bezel bg-diff-card overflow-clip">
+      {/* The whole line folds it, as a file's header does, and the caret is on
+          the left where every other foldable thing in a diff keeps one. */}
+      <button
+        type="button"
+        aria-expanded={expanded}
+        className="pane-ledge w-full flex items-center gap-2 h-9 px-4 bg-terminal-surface text-sm text-ink/50 text-left hover:text-ink/70 hover:bg-ink/5 transition-colors duration-150"
         onClick={() => setExpanded(!expanded)}
       >
-        <Icon name={expanded ? 'caret-down' : 'caret-right'} className="!w-3 !h-3" />
-        <Icon name="file-plus" className="w-3.5 h-3.5 text-vcs-modified" />
-        <span>
+        <Icon name={expanded ? 'caret-down' : 'caret-right'} className="shrink-0 !w-3 !h-3 text-ink/40" />
+        <Icon name="file-plus" className="shrink-0 w-3.5 h-3.5 text-vcs-modified" />
+        <span className="min-w-0 flex-1 truncate">
           {files.length} untracked {files.length === 1 ? 'file' : 'files'}
         </span>
-      </div>
+      </button>
       {expanded && (
-        <div className="bg-terminal-surface-alt">
+        <div className="py-1">
           {files.map((filePath) => (
             <div key={filePath} className="flex items-center gap-2 px-4 py-1 text-sm text-ink/50 font-mono">
               <span className="truncate">{filePath}</span>

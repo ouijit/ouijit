@@ -540,6 +540,21 @@ textarea,
   margin-top: 0;
 }
 
+/* The first card gets the same air above it as it has below: it is a card in a
+   well, and one flush against the lip is a card the well has swallowed. */
+.diff-list > *:first-child {
+  margin-top: 12px;
+}
+
+/* Not a part of a change, though. Its heading pins to the top of the pane, so
+   space above it is space the heading slides down over on the first scroll —
+   and inside the part the heading is the first thing, immediately under the
+   pane's own lip, with the same nothing above it. */
+.diff-list > [data-group]:first-child,
+.diff-list[data-group] > *:first-child {
+  margin-top: 0;
+}
+
 /* ===================================
    Pane ledge — a header the content scrolls under
    =================================== */
@@ -575,6 +590,7 @@ textarea,
  * and the rail is an ordinary surface — one shadow cannot light half of its
  * own length, and taking it off took the lit top and left edges away from the
  * rail's own rows too. */
+.pane-ledge.over-well,
 .pane-ledge-raised.over-well {
   box-shadow: 0 1px 0 var(--seam-cut);
 }

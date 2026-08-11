@@ -37,7 +37,14 @@ export function TerminalBody({ ptyId, projectPath }: TerminalBodyProps) {
   const ops = useTerminalPanels(ptyId);
 
   const activePanel = panels.find((p) => p.id === activePanelId) ?? null;
-  const split = !!activePanel && !panelFullWidth;
+  // The diff takes the panel slot while it is open rather than covering the
+  // body: it is a view of the same work as everything else that opens beside a
+  // terminal, and it was the one that could not be dragged narrower to keep an
+  // eye on what the agent was doing while reading what it had done. It is not
+  // one of the tabs — nobody opens two — so it borrows the slot instead of
+  // joining the list, and the tab underneath is still there when it closes.
+  const slotOpen = diffPanelOpen || !!activePanel;
+  const split = slotOpen && !panelFullWidth;
 
   const instance = terminalInstances.get(ptyId);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -47,12 +54,14 @@ export function TerminalBody({ ptyId, projectPath }: TerminalBodyProps) {
   const [dragging, setDragging] = useState(false);
 
   // Only animate the width when the SAME panel toggles between full-width and
-  // split. Opening, switching, or closing a panel changes the active id and
-  // should snap instantly — otherwise the panel appears to grow from the right.
-  const prevActiveId = useRef(activePanelId);
-  const animate = prevActiveId.current === activePanelId;
+  // split. Opening, switching, or closing a panel changes what is in the slot
+  // and should snap instantly — otherwise the panel appears to grow from the
+  // right. The diff is one more thing the slot can hold, so it counts here.
+  const slotKey = diffPanelOpen ? 'diff' : activePanelId;
+  const prevSlotKey = useRef(slotKey);
+  const animate = prevSlotKey.current === slotKey;
   useEffect(() => {
-    prevActiveId.current = activePanelId;
+    prevSlotKey.current = slotKey;
   });
 
   // Keep the panel area in sync with the current layout, and refit both
@@ -64,7 +73,7 @@ export function TerminalBody({ ptyId, projectPath }: TerminalBodyProps) {
       const active = inst?.getActivePanel();
       if (active?.kind === 'runner') inst?.runnerChildren.get(active.id)?.fit();
     });
-  }, [ptyId, activePanelId, panelFullWidth, split]);
+  }, [ptyId, activePanelId, diffPanelOpen, panelFullWidth, split]);
 
   // Resize-handle drag: adjust the shared split ratio.
   useEffect(() => {
@@ -132,7 +141,7 @@ export function TerminalBody({ ptyId, projectPath }: TerminalBodyProps) {
   // back from the right. flex-shrink lets basis:100% fit without margin overflow.
   // The xterm stays mounted at basis 0 when hidden so the toggle has a frame to
   // animate from. When there is no panel at all, the xterm grows to fill.
-  const xtermBasis = !activePanel || !split ? '0%' : `${(1 - splitRatio) * 100}%`;
+  const xtermBasis = !slotOpen || !split ? '0%' : `${(1 - splitRatio) * 100}%`;
   const panelBasis = split ? `${splitRatio * 100}%` : '100%';
   const transition = animate ? 'flex-basis 0.25s ease' : 'none';
 
@@ -143,12 +152,12 @@ export function TerminalBody({ ptyId, projectPath }: TerminalBodyProps) {
           ptyId={ptyId}
           className={XTERM_CLASS}
           style={{
-            flexGrow: activePanel ? 0 : 1,
+            flexGrow: slotOpen ? 0 : 1,
             flexShrink: 1,
             flexBasis: xtermBasis,
             transition,
             // Collapse padding too when hidden, so basis 0 means truly zero width.
-            ...(activePanel && !split ? { padding: 0 } : {}),
+            ...(slotOpen && !split ? { padding: 0 } : {}),
             background: 'var(--color-terminal-bg)',
           }}
         />
@@ -159,7 +168,7 @@ export function TerminalBody({ ptyId, projectPath }: TerminalBodyProps) {
             style={{ width: 4, cursor: 'col-resize', background: 'transparent', transition: 'background 0.15s ease' }}
           />
         )}
-        {activePanel && (
+        {slotOpen && (
           <div
             ref={panelRef}
             className="relative flex flex-col min-h-0 overflow-hidden glass-bevel border border-bezel-panel rounded-[14px] m-3"
@@ -173,32 +182,29 @@ export function TerminalBody({ ptyId, projectPath }: TerminalBodyProps) {
               ...(dragging ? { pointerEvents: 'none' } : {}),
             }}
           >
-            <ActivePanel
-              ptyId={ptyId}
-              panel={activePanel}
-              ops={ops}
-              fullWidth={panelFullWidth}
-              onToggleFullWidth={() => ops.setPanelFullWidth(!panelFullWidth)}
-            />
+            {diffPanelOpen ? (
+              <DiffPanel
+                ptyId={ptyId}
+                projectPath={projectPath}
+                mode={diffPanelMode}
+                fullWidth={panelFullWidth}
+                onToggleFullWidth={() => ops.setPanelFullWidth(!panelFullWidth)}
+                onClose={() => terminalInstances.get(ptyId)?.setDiffPanelOpen(false)}
+              />
+            ) : (
+              activePanel && (
+                <ActivePanel
+                  ptyId={ptyId}
+                  panel={activePanel}
+                  ops={ops}
+                  fullWidth={panelFullWidth}
+                  onToggleFullWidth={() => ops.setPanelFullWidth(!panelFullWidth)}
+                />
+              )
+            )}
           </div>
         )}
       </div>
-      {diffPanelOpen && (
-        <div
-          className="absolute inset-0 z-20 flex flex-col m-3 glass-bevel border border-bezel-panel rounded-[14px] overflow-hidden"
-          style={{
-            background: 'var(--color-terminal-bg)',
-            boxShadow: 'var(--shadow-inset-panel)',
-          }}
-        >
-          <DiffPanel
-            ptyId={ptyId}
-            projectPath={projectPath}
-            mode={diffPanelMode}
-            onClose={() => terminalInstances.get(ptyId)?.setDiffPanelOpen(false)}
-          />
-        </div>
-      )}
     </div>
   );
 }
