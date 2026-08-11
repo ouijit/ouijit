@@ -1,5 +1,7 @@
 import { execSync, execFileSync, execFile } from 'node:child_process';
 import { promisify } from 'node:util';
+import * as fs from 'node:fs/promises';
+import * as path from 'node:path';
 import { formatAge } from './utils/formatDate';
 
 const execFileAsync = promisify(execFile);
@@ -123,8 +125,15 @@ export interface GitFileStatus {
   uncommittedFiles: ChangedFile[];
   /** Branch changes vs main (empty when on main) */
   branchDiffFiles: ChangedFile[];
-  /** Untracked files not in .gitignore (paths only, no diff data) */
-  untrackedFiles: string[];
+  /**
+   * Untracked files not in .gitignore, counted like any other change.
+   *
+   * Held apart from the two lists above rather than folded into them because
+   * they belong to both — an untracked file is as much a part of the branch's
+   * changes as of the working tree's — while the choice between those two
+   * modes is made on tracked changes alone.
+   */
+  untrackedFiles: ChangedFile[];
 }
 
 /**
@@ -919,6 +928,43 @@ function parseNameStatus(
   return files;
 }
 
+/** Past this, a file is reported without a line count rather than read. */
+const UNTRACKED_COUNT_LIMIT = 2 * 1024 * 1024;
+
+/**
+ * Untracked paths as changed files, with the line count each one would add.
+ *
+ * Counted here rather than by `git diff --no-index`, which would be one child
+ * process per file on a status poll that runs every few seconds. Binary files
+ * report no lines, matching what the diff view will say about them.
+ */
+async function countUntracked(projectPath: string, paths: string[]): Promise<ChangedFile[]> {
+  return Promise.all(
+    paths.map(async (relPath): Promise<ChangedFile> => {
+      const file: ChangedFile = { path: relPath, status: '?', additions: 0, deletions: 0 };
+      try {
+        const absolute = path.join(projectPath, relPath);
+        const stats = await fs.stat(absolute);
+        if (!stats.isFile() || stats.size > UNTRACKED_COUNT_LIMIT) return file;
+
+        const contents = await fs.readFile(absolute);
+        // The same test git uses: a NUL byte early on means it is not text.
+        if (contents.subarray(0, 8000).includes(0)) return file;
+
+        let lines = 0;
+        for (const byte of contents) if (byte === 0x0a) lines++;
+        // A final line with no newline after it is still a line.
+        if (contents.length > 0 && contents[contents.length - 1] !== 0x0a) lines++;
+        file.additions = lines;
+      } catch {
+        // Deleted between the listing and now, or unreadable. It is still a
+        // file the diff should mention.
+      }
+      return file;
+    }),
+  );
+}
+
 // ── Unified git file status ─────────────────────────────────────────
 
 /**
@@ -963,11 +1009,12 @@ export async function getGitFileStatus(projectPath: string, diffBase?: string): 
         ? parseNameStatus(uncommittedNameStatusResult.value, uncommittedStatsMap)
         : [];
 
-    // Parse untracked file paths
-    const untrackedFiles =
+    // Parse untracked file paths, then count what each one would add.
+    const untrackedPaths =
       untrackedResult.status === 'fulfilled' && untrackedResult.value
         ? untrackedResult.value.split('\n').filter(Boolean)
         : [];
+    const untrackedFiles = await countUntracked(projectPath, untrackedPaths);
 
     // Build branch diff files
     const branchStatsMap =

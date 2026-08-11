@@ -7,9 +7,8 @@ import { statusIcon, statusColorClass, badgeColorClass } from './diffStatus';
  * The changed-file sidebar, shared by the worktree diff panel and the pull
  * request files view.
  *
- * Untracked files are optional — a PR has no such concept — and callers can
- * append their own footer (the PR view uses it for the "N files not shown" cap
- * notice).
+ * Callers can append their own footer — the PR view uses it for the "N files
+ * not shown" cap notice.
  */
 
 interface TreeNode {
@@ -111,8 +110,6 @@ export function inTreeOrder<T extends { path: string }>(files: readonly T[]): T[
 
 export interface DiffFileTreeProps {
   files: ChangedFile[];
-  /** Only the worktree view has these; a PR never does. */
-  untrackedFiles?: string[];
   onFileClick: (path: string) => void;
   /** Per-file trailing content — the PR view puts unresolved-thread counts here. */
   renderFileTrailing?: (file: ChangedFile) => ReactNode;
@@ -156,15 +153,12 @@ export function DiffFileTreeNodes({
 
 export function DiffFileTree({
   files,
-  untrackedFiles = [],
   onFileClick,
   renderFileTrailing,
   header,
   activePath,
   footer,
 }: DiffFileTreeProps) {
-  const [untrackedExpanded, setUntrackedExpanded] = useState(false);
-
   return (
     <div className="flex-1 overflow-y-auto py-2">
       {header}
@@ -174,24 +168,6 @@ export function DiffFileTree({
         renderFileTrailing={renderFileTrailing}
         activePath={activePath}
       />
-      {untrackedFiles.length > 0 && (
-        <>
-          <div
-            className="flex items-center gap-1.5 py-1 pl-3 pr-3 mt-1 border-t border-ink/[0.06] text-[13px] text-ink/40 transition-colors duration-150 ease-out hover:bg-ink/5 hover:text-ink/60"
-            onClick={() => setUntrackedExpanded(!untrackedExpanded)}
-          >
-            <Icon name={untrackedExpanded ? 'caret-down' : 'caret-right'} className="!w-3 !h-3" />
-            <span>{untrackedFiles.length} untracked</span>
-          </div>
-          {untrackedExpanded &&
-            untrackedFiles.map((filePath) => (
-              <div key={filePath} className="flex items-center gap-1.5 py-1 pl-6 pr-3 text-[13px] text-ink/40">
-                <Icon name="file-plus" className="w-4 h-4 text-vcs-modified" />
-                <span className="flex-1 min-w-0 truncate">{filePath}</span>
-              </div>
-            ))}
-        </>
-      )}
       {footer}
     </div>
   );

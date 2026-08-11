@@ -2,7 +2,6 @@ import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import type { FileDiff } from '../../types';
 import { useTerminalStore } from '../../stores/terminalStore';
 import { terminalInstances, refreshTerminalGitStatus } from '../terminal/terminalReact';
-import { Icon } from '../terminal/Icon';
 import { DiffFileTree, inTreeOrder } from './DiffFileTree';
 import { DiffFileSection } from './DiffFileSection';
 import { DeferredMount } from './DeferredMount';
@@ -63,10 +62,15 @@ export function DiffPanel({ ptyId, projectPath, mode, fullWidth, onToggleFullWid
     return gitFileStatus.uncommittedFiles.length > 0 ? 'uncommitted' : 'worktree';
   }, [mode, gitFileStatus]);
 
-  // Derive file list from the store (same data the GitStats button uses)
+  // Derive file list from the store (same data the GitStats button uses).
+  // Untracked files join whichever mode is showing: git has nothing to diff
+  // them against yet, but they are part of both the working tree's changes and
+  // the branch's, and a diff that lists a new file without its contents is a
+  // diff with a hole in it.
   const storeFiles = useMemo(() => {
     if (!gitFileStatus) return [];
-    return effectiveMode === 'worktree' ? gitFileStatus.branchDiffFiles : gitFileStatus.uncommittedFiles;
+    const tracked = effectiveMode === 'worktree' ? gitFileStatus.branchDiffFiles : gitFileStatus.uncommittedFiles;
+    return [...tracked, ...gitFileStatus.untrackedFiles];
   }, [gitFileStatus, effectiveMode]);
 
   const totalFileCount = storeFiles.length;
@@ -76,7 +80,6 @@ export function DiffPanel({ ptyId, projectPath, mode, fullWidth, onToggleFullWid
   const orderedFiles = useMemo(() => inTreeOrder(files), [files]);
   const truncated = totalFileCount > MAX_DIFF_FILES;
   const loading = gitFileStatus === null;
-  const untrackedFiles = gitFileStatus?.untrackedFiles ?? [];
 
   // Stable fingerprint — only changes when the actual file list changes.
   // Prevents hunk-loading from restarting on no-op 3s git status refreshes.
@@ -111,15 +114,13 @@ export function DiffPanel({ ptyId, projectPath, mode, fullWidth, onToggleFullWid
         const results = await Promise.all(
           batch.map(async (file): Promise<[string, FileDiff | null]> => {
             try {
-              const diff =
-                effectiveMode === 'worktree' && instance?.worktreeBranch
-                  ? await window.api.worktree.getFileDiff(
-                      projectPath,
-                      instance.worktreeBranch,
-                      file.path,
-                      instance.mergeTarget,
-                    )
-                  : await window.api.getFileDiff(gitPath, file.path);
+              // An untracked file is in no revision, so it always comes from
+              // the working tree — asking the branch diff for one returns
+              // nothing, and the card would claim the file has no contents.
+              const branch = effectiveMode === 'worktree' && file.status !== '?' ? instance?.worktreeBranch : undefined;
+              const diff = branch
+                ? await window.api.worktree.getFileDiff(projectPath, branch, file.path, instance?.mergeTarget)
+                : await window.api.getFileDiff(gitPath, file.path);
               return [file.path, diff];
             } catch {
               return [file.path, null];
@@ -237,7 +238,7 @@ export function DiffPanel({ ptyId, projectPath, mode, fullWidth, onToggleFullWid
     <div className="flex flex-1 min-h-0 overflow-hidden" style={{ background: 'var(--color-terminal-bg)' }}>
       {!sidebarCollapsed && (
         <div className="shrink-0 overflow-hidden flex flex-col" style={{ width: sidebarWidth }}>
-          <DiffFileTree files={files} untrackedFiles={untrackedFiles} onFileClick={scrollToFile} />
+          <DiffFileTree files={files} onFileClick={scrollToFile} />
         </div>
       )}
       {/* Collapsed there is nothing on the other side of it, and a seam with
@@ -292,7 +293,7 @@ export function DiffPanel({ ptyId, projectPath, mode, fullWidth, onToggleFullWid
               Loading changes...
             </div>
           )}
-          {!loading && files.length === 0 && untrackedFiles.length === 0 && (
+          {!loading && files.length === 0 && (
             <div className="flex-1 flex flex-col items-center justify-center text-text-tertiary gap-2">No changes</div>
           )}
           {!loading &&
@@ -336,7 +337,6 @@ export function DiffPanel({ ptyId, projectPath, mode, fullWidth, onToggleFullWid
               Showing {files.length} of {totalFileCount} changed files
             </div>
           )}
-          {!loading && untrackedFiles.length > 0 && <UntrackedFilesSection files={untrackedFiles} />}
         </div>
         <DiffNotesIsland
           notes={notes.notes}
@@ -347,43 +347,6 @@ export function DiffPanel({ ptyId, projectPath, mode, fullWidth, onToggleFullWid
           onClear={notes.clear}
         />
       </div>
-    </div>
-  );
-}
-
-// ── Untracked files section ──────────────────────────────────────────
-
-function UntrackedFilesSection({ files }: { files: string[] }) {
-  const [expanded, setExpanded] = useState(false);
-
-  return (
-    // The same card the changed files sit in. An untracked file is one of the
-    // changes — git simply has nothing to diff it against yet — so it belongs
-    // in the list rather than in a band ruled off underneath it.
-    <div className="diff-card mx-6 rounded-[14px] border border-bezel bg-diff-card overflow-clip">
-      {/* The whole line folds it, as a file's header does, and the caret is on
-          the left where every other foldable thing in a diff keeps one. */}
-      <button
-        type="button"
-        aria-expanded={expanded}
-        className="pane-ledge w-full flex items-center gap-2 h-9 px-4 bg-terminal-surface text-sm text-ink/50 text-left hover:text-ink/70 hover:bg-ink/5 transition-colors duration-150"
-        onClick={() => setExpanded(!expanded)}
-      >
-        <Icon name={expanded ? 'caret-down' : 'caret-right'} className="shrink-0 !w-3 !h-3 text-ink/40" />
-        <Icon name="file-plus" className="shrink-0 w-3.5 h-3.5 text-vcs-modified" />
-        <span className="min-w-0 flex-1 truncate">
-          {files.length} untracked {files.length === 1 ? 'file' : 'files'}
-        </span>
-      </button>
-      {expanded && (
-        <div className="py-1">
-          {files.map((filePath) => (
-            <div key={filePath} className="flex items-center gap-2 px-4 py-1 text-sm text-ink/50 font-mono">
-              <span className="truncate">{filePath}</span>
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   );
 }
