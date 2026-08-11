@@ -8,7 +8,7 @@ import {
   type LensAgentChoice,
 } from '../../github/lensAgents';
 import { Icon } from '../terminal/Icon';
-import { MenuPopover, MenuItem, MenuDivider } from '../github/ActionMenu';
+import { MenuPopover, MenuItem, MenuDivider } from '../ui/Menu';
 
 /**
  * Which agent writes this project's lenses.

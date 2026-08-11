@@ -3,8 +3,9 @@ import type { MergeMethod, PullRequestDetail, ReviewDraft, ReviewEvent } from '.
 import { useGithubStore } from '../../stores/githubStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { Icon } from '../terminal/Icon';
-import { ActionMenu, MenuDivider, MenuField, MenuItem } from './ActionMenu';
-import { SegmentedGroup } from './SegmentedGroup';
+import { ActionMenu } from '../ui/ActionMenu';
+import { MenuDivider, MenuField, MenuItem } from '../ui/Menu';
+import { SegmentedGroup } from '../ui/SegmentedGroup';
 
 interface ReviewActionsProps {
   projectPath: string;

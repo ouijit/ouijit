@@ -29,6 +29,7 @@ import type {
 } from './github/types';
 import type { LensAgentChoice } from './github/lensAgents';
 import type { SaveDraftInput } from './github/service';
+import type { SaveDiffNoteInput } from './diffNotes';
 
 // ── Typed IPC helpers ───────────────────────────────────────────────────────
 // These ensure channel names, argument types, and return types are all
@@ -397,5 +398,12 @@ contextBridge.exposeInMainWorld('api', {
       typedListen('github:drafts-changed', callback),
     onLensChanged: (callback: (payload: GithubLensChangedPayload) => void) =>
       typedListen('github:lens-changed', callback),
+  },
+
+  diffNotes: {
+    list: (worktreePath: string) => typedInvoke('diff-notes:list', worktreePath),
+    save: (input: SaveDiffNoteInput) => typedInvoke('diff-notes:save', input),
+    discard: (id: string) => typedInvoke('diff-notes:discard', id),
+    clear: (worktreePath: string) => typedInvoke('diff-notes:clear', worktreePath),
   },
 });

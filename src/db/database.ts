@@ -16,6 +16,7 @@ import { up as migration014 } from './migrations/014-github-integration';
 import { up as migration015 } from './migrations/015-github-agent-review';
 import { up as migration016 } from './migrations/016-lens-name';
 import { up as migration017 } from './migrations/017-drop-pr-commands';
+import { up as migration018 } from './migrations/018-diff-notes';
 
 const migrations = [
   { version: 1, up: migration001 },
@@ -35,6 +36,7 @@ const migrations = [
   { version: 15, up: migration015 },
   { version: 16, up: migration016 },
   { version: 17, up: migration017 },
+  { version: 18, up: migration018 },
 ];
 
 let db: Database.Database | null = null;

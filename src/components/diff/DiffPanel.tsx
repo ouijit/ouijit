@@ -11,6 +11,10 @@ import { ResizeHandle } from '../common/ResizeHandle';
 import { SidebarToggle } from '../common/SidebarToggle';
 import { FullWidthToggle, PanelCloseButton } from '../terminal/FullWidthToggle';
 import { estimateFileHeight } from './diffMetrics';
+import { InlineCommentBox } from './InlineCommentBox';
+import { DiffNotesIsland } from './DiffNotesIsland';
+import { useDiffNotes, anchorKey } from './useDiffNotes';
+import { lineTextAt, type DiffLineAnchor } from './diffAnchor';
 
 interface DiffPanelProps {
   ptyId: string;
@@ -23,6 +27,7 @@ interface DiffPanelProps {
 }
 
 const MAX_DIFF_FILES = 300;
+const NOTE_HINT = 'Kept with this worktree until you hand it to the agent.';
 const DEFAULT_SIDEBAR_WIDTH = 220;
 const DIFF_BATCH_SIZE = 10;
 
@@ -45,6 +50,10 @@ export function DiffPanel({ ptyId, projectPath, mode, fullWidth, onToggleFullWid
 
   const instance = terminalInstances.get(ptyId);
   const gitPath = instance?.worktreePath || projectPath;
+
+  // Keyed by worktree, not by panel or terminal session, so notes survive the
+  // panel being closed and reopened mid-review.
+  const notes = useDiffNotes(gitPath);
 
   // Derive effective mode to match the GitStats button logic:
   // the button shows uncommitted changes when they exist, falling back to branch diff.
@@ -136,6 +145,78 @@ export function DiffPanel({ ptyId, projectPath, mode, fullWidth, onToggleFullWid
     scrollToSection(contentRef.current, fileSelector(path));
   }, []);
 
+  const { setComposingAt, setEditingId } = notes;
+  const startNote = useCallback(
+    (path: string, anchor: DiffLineAnchor) => {
+      setEditingId(null);
+      setComposingAt({ path, line: anchor.line, side: anchor.side });
+    },
+    [setComposingAt, setEditingId],
+  );
+
+  /**
+   * The notes anchored to one line, and the box that writes another.
+   *
+   * The same slot the pull request's files view fills with threads and drafts,
+   * on the same renderer underneath.
+   */
+  const renderBelowLine = useCallback(
+    (path: string, anchor: DiffLineAnchor) => {
+      const key = anchorKey(path, anchor.line, anchor.side);
+      const here = notes.byAnchor.get(key);
+      const composing =
+        notes.composingAt?.path === path &&
+        notes.composingAt.line === anchor.line &&
+        notes.composingAt.side === anchor.side;
+
+      if (!here && !composing) return null;
+
+      const lineText = lineTextAt(diffs.get(path), anchor);
+
+      return (
+        <div className="py-1">
+          {here?.map((note) =>
+            notes.editingId === note.id ? (
+              <InlineCommentBox
+                key={note.id}
+                initialBody={note.body}
+                placeholder="Note for the agent…"
+                editLabel="Update note"
+                hint={NOTE_HINT}
+                onSave={(body) =>
+                  notes.save({ id: note.id, path, line: anchor.line, side: anchor.side, lineText, body })
+                }
+                onCancel={() => notes.setEditingId(null)}
+                onDiscard={() => notes.discard(note.id)}
+              />
+            ) : (
+              <button
+                key={note.id}
+                type="button"
+                data-note-id={note.id}
+                className="block w-[calc(100%-176px)] mx-[88px] my-1.5 text-left px-3 py-2 bg-terminal-surface rounded-md text-sm text-text-secondary hover:bg-ink/[0.06] transition-colors duration-100"
+                onClick={() => notes.setEditingId(note.id)}
+              >
+                <span className="block text-[11px] text-accent mb-0.5">Note</span>
+                {note.body}
+              </button>
+            ),
+          )}
+          {composing && (
+            <InlineCommentBox
+              placeholder="Note for the agent…"
+              submitLabel="Add note"
+              hint={NOTE_HINT}
+              onSave={(body) => notes.save({ path, line: anchor.line, side: anchor.side, lineText, body })}
+              onCancel={() => notes.setComposingAt(null)}
+            />
+          )}
+        </div>
+      );
+    },
+    [notes, diffs],
+  );
+
   // Header stats
   const stats = useMemo(() => {
     const displayed = files.length;
@@ -169,7 +250,9 @@ export function DiffPanel({ ptyId, projectPath, mode, fullWidth, onToggleFullWid
           label="Resize the file list"
         />
       )}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+      {/* Positioned so the notes island floats over the foot of this column,
+          over the diff rather than over the file rail beside it. */}
+      <div className="relative flex-1 flex flex-col min-w-0 overflow-hidden">
         {/* Over the well along its whole length — unlike the pull request's
             bar, which spans the rail beside it as well — so the cut is all it
             gets: the near face of a sunken surface is in shadow, and a lit line
@@ -196,8 +279,14 @@ export function DiffPanel({ ptyId, projectPath, mode, fullWidth, onToggleFullWid
           <PanelCloseButton onClose={onClose} />
         </div>
         {/* The gap between two cards is what the border between two bands
-            used to be. */}
-        <div ref={contentRef} className="diff-well diff-list flex-1 overflow-auto pb-3">
+            used to be.
+
+            Extra padding at the foot while the island is showing, so the last
+            card scrolls clear of it instead of ending behind it. */}
+        <div
+          ref={contentRef}
+          className={`diff-well diff-list flex-1 overflow-auto ${notes.notes.length > 0 ? 'pb-16' : 'pb-3'}`}
+        >
           {loading && (
             <div className="flex-1 flex flex-col items-center justify-center text-text-tertiary gap-2">
               Loading changes...
@@ -226,6 +315,8 @@ export function DiffPanel({ ptyId, projectPath, mode, fullWidth, onToggleFullWid
                   additions={file.additions}
                   deletions={file.deletions}
                   diff={diffs.get(file.path)}
+                  onAddComment={startNote}
+                  renderBelowLine={(anchor) => renderBelowLine(file.path, anchor)}
                   collapsed={folded.has(file.path)}
                   onCollapsedChange={(next) =>
                     setFolded((prev) => {
@@ -247,6 +338,14 @@ export function DiffPanel({ ptyId, projectPath, mode, fullWidth, onToggleFullWid
           )}
           {!loading && untrackedFiles.length > 0 && <UntrackedFilesSection files={untrackedFiles} />}
         </div>
+        <DiffNotesIsland
+          notes={notes.notes}
+          mode={effectiveMode}
+          ptyId={ptyId}
+          onJump={(note) => scrollToFile(note.path)}
+          onDiscard={notes.discard}
+          onClear={notes.clear}
+        />
       </div>
     </div>
   );

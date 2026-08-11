@@ -65,6 +65,7 @@ import type {
   LensResult,
 } from '../github/service';
 import type { LensAgentChoice } from '../github/lensAgents';
+import type { DiffNote, SaveDiffNoteInput } from '../diffNotes';
 import type { PrFileVersions } from '../github/prDiff';
 import type { SandboxProviderStatus, NonoConfig } from '../sandbox/types';
 import type { HookStatusEntry } from '../hookServer';
@@ -303,6 +304,14 @@ export interface IpcInvokeContract {
     return: { success: boolean; error?: string };
   };
   'github:detect-task-pr': { args: [projectPath: string, taskNumber: number]; return: { prNumber: number | null } };
+
+  // ── Diff notes ─────────────────────────────────────────────────────
+  // Notes on a worktree's own diff, keyed by the worktree rather than by a pull
+  // request, since they are handed to the agent working in it rather than sent.
+  'diff-notes:list': { args: [worktreePath: string]; return: DiffNote[] };
+  'diff-notes:save': { args: [input: SaveDiffNoteInput]; return: DiffNote };
+  'diff-notes:discard': { args: [id: string]; return: { success: boolean } };
+  'diff-notes:clear': { args: [worktreePath: string]; return: { success: boolean } };
 
   'github:drafts': { args: [projectPath: string, prNumber: number]; return: ReviewDraft[] };
   'github:save-draft': { args: [projectPath: string, input: SaveDraftInput]; return: ReviewDraft };

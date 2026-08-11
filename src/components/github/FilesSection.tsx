@@ -25,11 +25,14 @@ import type { ResolvedGroup } from '../../github/lens';
 import { anchorKey, unanchoredThreads } from './reviewAnchors';
 import { Icon } from '../terminal/Icon';
 import { ReviewThreadView } from './ReviewThreadView';
-import { DraftCommentBox } from './DraftCommentBox';
+import { InlineCommentBox } from '../diff/InlineCommentBox';
 
 import { Loading } from './Loading';
 
 const DIFF_BATCH_SIZE = 10;
+
+/** Nothing reaches GitHub until the review is submitted as a batch. */
+const DRAFT_HINT = 'Saved locally until you submit the review.';
 
 interface FilesSectionProps {
   projectPath: string;
@@ -462,12 +465,13 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
           ))}
           {anchorDrafts?.map((draft) =>
             editingDraftId === draft.id ? (
-              <DraftCommentBox
+              <InlineCommentBox
                 key={draft.id}
-                draft={draft}
+                initialBody={draft.body}
                 onSave={(body) => saveDraft({ id: draft.id, path, line: anchor.line, side: anchor.side, body })}
                 onCancel={() => setEditingDraftId(null)}
                 onDiscard={() => discardDraft(draft)}
+                hint={DRAFT_HINT}
               />
             ) : (
               <button
@@ -483,9 +487,10 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
             ),
           )}
           {composing && (
-            <DraftCommentBox
+            <InlineCommentBox
               onSave={(body) => saveDraft({ path, line: anchor.line, side: anchor.side, body })}
               onCancel={() => useGithubStore.getState().setComposingAt(null)}
+              hint={DRAFT_HINT}
             />
           )}
         </div>

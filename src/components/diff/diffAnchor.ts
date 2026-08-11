@@ -1,4 +1,4 @@
-import type { DiffLine } from '../../types';
+import type { DiffLine, FileDiff } from '../../types';
 
 /**
  * Where a review comment attaches on a diff line.
@@ -27,4 +27,24 @@ export function anchorForLine(line: DiffLine): DiffLineAnchor | null {
     return line.oldLineNo != null ? { line: line.oldLineNo, side: 'LEFT' } : null;
   }
   return line.newLineNo != null ? { line: line.newLineNo, side: 'RIGHT' } : null;
+}
+
+/**
+ * The source line an anchor points at, or null if this diff has no such line.
+ *
+ * A context line carries a number on both sides, and a deletion and an addition
+ * can carry the same number on opposite sides, so the side decides which line
+ * the anchor meant.
+ */
+export function lineTextAt(diff: FileDiff | null | undefined, anchor: DiffLineAnchor): string | null {
+  if (!diff) return null;
+  for (const hunk of diff.hunks) {
+    for (const line of hunk.lines) {
+      const number = anchor.side === 'LEFT' ? line.oldLineNo : line.newLineNo;
+      if (number !== anchor.line) continue;
+      const onThisSide = anchor.side === 'LEFT' ? line.type !== 'addition' : line.type !== 'deletion';
+      if (onThisSide) return line.content;
+    }
+  }
+  return null;
 }

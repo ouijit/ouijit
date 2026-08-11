@@ -16,6 +16,7 @@ import { GlobalSettingsRepo } from './repos/globalSettingsRepo';
 import { ScriptRepo, type ScriptRow } from './repos/scriptRepo';
 import { ReviewDraftRepo, type ReviewDraftRow } from './repos/reviewDraftRepo';
 import { PrLensRepo, type PrLensRow } from './repos/prLensRepo';
+import { DiffNoteRepo, type DiffNoteRow } from './repos/diffNoteRepo';
 import type { ProjectSettings, ScriptHook } from '../types';
 import { getLogger } from '../logger';
 
@@ -52,6 +53,7 @@ let globalSettingsRepo: GlobalSettingsRepo | null = null;
 let scriptRepo: ScriptRepo | null = null;
 let reviewDraftRepo: ReviewDraftRepo | null = null;
 let prLensRepo: PrLensRepo | null = null;
+let diffNoteRepo: DiffNoteRepo | null = null;
 
 function repos() {
   if (!taskRepo) {
@@ -64,6 +66,7 @@ function repos() {
     scriptRepo = new ScriptRepo(db);
     reviewDraftRepo = new ReviewDraftRepo(db);
     prLensRepo = new PrLensRepo(db);
+    diffNoteRepo = new DiffNoteRepo(db);
   }
   return {
     projectRepo: projectRepo!,
@@ -74,6 +77,7 @@ function repos() {
     scriptRepo: scriptRepo!,
     reviewDraftRepo: reviewDraftRepo!,
     prLensRepo: prLensRepo!,
+    diffNoteRepo: diffNoteRepo!,
   };
 }
 
@@ -89,6 +93,7 @@ export function _resetCacheForTesting(): void {
   scriptRepo = new ScriptRepo(db);
   reviewDraftRepo = new ReviewDraftRepo(db);
   prLensRepo = new PrLensRepo(db);
+  diffNoteRepo = new DiffNoteRepo(db);
 }
 
 // ── Row → TaskMetadata conversion ────────────────────────────────────
@@ -394,6 +399,30 @@ export async function deleteReviewDraft(id: string): Promise<void> {
 export async function getReviewDraftCounts(projectPath: string): Promise<Record<number, number>> {
   const { reviewDraftRepo: rr } = repos();
   return Object.fromEntries(rr.countsByPr(projectPath));
+}
+
+// ── Diff notes ───────────────────────────────────────────────────────
+
+export type { DiffNoteRow } from './repos/diffNoteRepo';
+
+export async function getDiffNotes(worktreePath: string): Promise<DiffNoteRow[]> {
+  const { diffNoteRepo: dr } = repos();
+  return dr.getForWorktree(worktreePath);
+}
+
+export async function saveDiffNote(row: DiffNoteRow): Promise<DiffNoteRow> {
+  const { diffNoteRepo: dr } = repos();
+  return dr.save(row);
+}
+
+export async function deleteDiffNote(id: string): Promise<void> {
+  const { diffNoteRepo: dr } = repos();
+  dr.delete(id);
+}
+
+export async function clearDiffNotes(worktreePath: string): Promise<void> {
+  const { diffNoteRepo: dr } = repos();
+  dr.deleteForWorktree(worktreePath);
 }
 
 // ── Pull request lenses ──────────────────────────────────────────────

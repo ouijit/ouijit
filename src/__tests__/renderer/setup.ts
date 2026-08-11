@@ -181,6 +181,12 @@ const mockApi = {
     }),
     onUpdate: vi.fn().mockReturnValue(() => {}),
   },
+  diffNotes: {
+    list: vi.fn().mockResolvedValue([]),
+    save: vi.fn().mockResolvedValue(undefined),
+    discard: vi.fn().mockResolvedValue({ success: true }),
+    clear: vi.fn().mockResolvedValue({ success: true }),
+  },
   github: {
     availability: vi.fn().mockResolvedValue({ available: false, reason: 'flag-off' }),
     inbox: vi

@@ -18,12 +18,29 @@ export const segmentBase =
 export const segmentQuiet = 'bg-transparent text-text-secondary hover:text-text-primary hover:bg-background-tertiary';
 export const segmentAccent = 'bg-accent text-accent-ink hover:bg-accent';
 
-export function SegmentedGroup({ children }: { children: ReactNode }) {
+export function SegmentedGroup({ children, floating }: { children: ReactNode; floating?: boolean }) {
   const segments = Children.toArray(children);
   if (segments.length === 0) return null;
 
   return (
-    <div className="inline-flex items-center h-7 bg-background-secondary glass-bevel relative border border-bezel rounded-[12px] overflow-hidden">
+    // Floating adds the cast shadow, and an opaque base under the fill:
+    // `background-secondary` is a 6% wash, which reads as a lifted control over
+    // the app's chrome but as nothing at all over a pane's own content. Same
+    // wash, over a surface of its own.
+    <div
+      className={`inline-flex items-center h-7 glass-bevel relative border border-bezel rounded-[12px] overflow-hidden ${
+        floating ? '' : 'bg-background-secondary'
+      }`}
+      style={
+        floating
+          ? {
+              background:
+                'linear-gradient(var(--color-background-secondary), var(--color-background-secondary)), var(--color-surface)',
+              boxShadow: 'var(--shadow-menu)',
+            }
+          : undefined
+      }
+    >
       {segments.map((segment, i) => (
         <Fragment key={i}>
           {i > 0 && <div aria-hidden className="w-px h-3 bg-ink/10 self-center" />}

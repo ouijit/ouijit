@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { LensSummary } from '../../github/service';
 import { Icon } from '../terminal/Icon';
-import { MenuDivider, MenuItem, MenuPopover } from './ActionMenu';
+import { MenuDivider, MenuItem, MenuPopover } from '../ui/Menu';
 
 /** The lens on this pull request: what wrote it, and how many parts it names. */
 export interface AppliedLens {

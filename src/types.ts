@@ -59,6 +59,8 @@ export type {
   TimelineItem,
 } from './github/types';
 
+export type { DiffNote, SaveDiffNoteInput, DiffNoteMode } from './diffNotes';
+
 // Import for local use within this file
 import type { GitStatus, GitFileStatus, GitDropdownInfo, FileDiff, WorktreeDiffSummary, BranchInfo } from './git';
 import type { TaskWorktreeResult, WorktreeInfo, WorktreeRemoveResult, CheckWorktreeResult } from './worktree';
@@ -85,6 +87,7 @@ import type {
 } from './github/service';
 import type { PrFileVersions } from './github/prDiff';
 import type { LensAgentChoice } from './github/lensAgents';
+import type { DiffNote, SaveDiffNoteInput } from './diffNotes';
 import type { TaskStatus, TagRow } from './db';
 import type { ActiveSession } from './ptyManager';
 import type { LimaStatus } from './lima/types';
@@ -652,6 +655,22 @@ export interface ElectronAPI {
   capture: CaptureAPI;
   /** GitHub pull requests and issues, via the `gh` CLI on the host */
   github: GithubAPI;
+  /** Notes written on a worktree's own diff */
+  diffNotes: DiffNotesAPI;
+}
+
+/**
+ * Notes on a worktree diff.
+ *
+ * The pull request equivalent is `github.drafts`, which ends at a review sent
+ * to GitHub. These are handed to the agent in the terminal instead, so there is
+ * no submit step — only a list, and discarding it once it has been handed over.
+ */
+export interface DiffNotesAPI {
+  list(worktreePath: string): Promise<DiffNote[]>;
+  save(input: SaveDiffNoteInput): Promise<DiffNote>;
+  discard(id: string): Promise<{ success: boolean }>;
+  clear(worktreePath: string): Promise<{ success: boolean }>;
 }
 
 /**

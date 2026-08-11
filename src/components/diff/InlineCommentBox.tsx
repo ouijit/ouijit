@@ -1,30 +1,37 @@
 import { useState } from 'react';
-import type { ReviewDraft } from '../../github/types';
 
-interface DraftCommentBoxProps {
-  /** Set when editing an existing draft rather than starting a new one. */
-  draft?: ReviewDraft;
+interface InlineCommentBoxProps {
+  /** Set when editing something already written rather than starting fresh. */
+  initialBody?: string;
   onSave: (body: string) => Promise<void>;
   onCancel: () => void;
   onDiscard?: () => Promise<void>;
   placeholder?: string;
+  /** The button's word for saving — "Add comment", "Add note". */
+  submitLabel?: string;
+  editLabel?: string;
+  /** One line under the box saying where what you write goes. */
+  hint?: string;
 }
 
 /**
- * The editor for one unsubmitted review comment.
+ * The editor for one comment anchored to a diff line.
  *
- * Saving stores the draft locally; nothing reaches GitHub until the review is
- * submitted as a batch. That is what lets a half-written review survive a
- * restart without creating a server-side pending review per edit.
+ * Shared by the pull request's review drafts and the worktree diff's notes,
+ * indented to clear the line-number gutter in both. Where the text ends up is
+ * the caller's business.
  */
-export function DraftCommentBox({
-  draft,
+export function InlineCommentBox({
+  initialBody,
   onSave,
   onCancel,
   onDiscard,
   placeholder = 'Leave a comment…',
-}: DraftCommentBoxProps) {
-  const [body, setBody] = useState(draft?.body ?? '');
+  submitLabel = 'Add comment',
+  editLabel = 'Update comment',
+  hint,
+}: InlineCommentBoxProps) {
+  const [body, setBody] = useState(initialBody ?? '');
   const [busy, setBusy] = useState(false);
 
   const save = async () => {
@@ -47,8 +54,8 @@ export function DraftCommentBox({
         onKeyDown={(e) => {
           if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) void save();
           if (e.key === 'Escape') {
-            // Claim it, or the panel's own Escape handler closes the pull
-            // request out from under a cancelled comment.
+            // Claim it, or the panel's own Escape handler closes the view out
+            // from under a cancelled comment.
             e.preventDefault();
             onCancel();
           }
@@ -63,7 +70,7 @@ export function DraftCommentBox({
           className="btn-primary btn-compact"
           onClick={() => void save()}
         >
-          {draft ? 'Update comment' : 'Add comment'}
+          {initialBody != null ? editLabel : submitLabel}
         </button>
         <button type="button" className="btn-secondary btn-compact" onClick={onCancel}>
           Cancel
@@ -78,7 +85,7 @@ export function DraftCommentBox({
           </button>
         )}
       </div>
-      <p className="text-[11px] text-text-tertiary mt-1.5">Saved locally until you submit the review.</p>
+      {hint && <p className="text-[11px] text-text-tertiary mt-1.5">{hint}</p>}
     </div>
   );
 }
