@@ -34,10 +34,11 @@ export function KanbanShellBar({ projectPath, onSwitchToTerminal }: KanbanShellB
   if (shells.length === 0) return null;
 
   return (
-    <div
-      className="shrink-0 flex items-center gap-2 px-3 py-2 overflow-x-auto"
-      style={{ borderTop: '1px solid color-mix(in srgb, var(--color-ink) 6%, transparent)' }}
-    >
+    // A piece in front of the board rather than a band drawn on it, so it is
+    // cut away from the columns above the same way their headers are cut away
+    // from the cards below. Raised, because the cut falls outside this box and
+    // the first thing at that pixel is a card with a background of its own.
+    <div className="pane-ledge-under relative z-10 shrink-0 flex items-center gap-2 px-3 py-2 overflow-x-auto">
       <span className="flex items-center gap-1.5 shrink-0 text-text-tertiary [&>svg]:w-3.5 [&>svg]:h-3.5">
         <Icon name="terminal" />
         <span className="font-mono text-[11px] uppercase tracking-wide">Shells</span>
