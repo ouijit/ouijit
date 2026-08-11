@@ -431,6 +431,17 @@ textarea,
   z-index: 0;
 }
 
+/* Except a ledge, which is in front of what it cuts away from by definition.
+   Levelling every child at zero leaves paint order to decide, and the thing
+   below a ledge always comes after it — so the card's own body painted over
+   the cut and the header read as a band with no boundary.
+ *
+ * Here rather than as a `z-10` utility on the header: utilities are layered
+ * and the rule above is not, so it wins whatever the specificity. */
+.glass-bevel > .pane-ledge {
+  z-index: 10;
+}
+
 /* ===================================
    Pane seam — the cut between two panes of one surface
    =================================== */

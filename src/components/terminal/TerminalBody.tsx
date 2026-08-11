@@ -161,24 +161,30 @@ export function TerminalBody({ ptyId, projectPath }: TerminalBodyProps) {
             background: 'var(--color-terminal-bg)',
           }}
         />
+        {/* One pixel of cut, with a grab target either side of it — see
+            `.pane-seam`. The panel is no longer a card floating in the
+            terminal's, so what parts them is the same seam that parts every
+            other pair of panes in the app. */}
         {split && (
           <div
             ref={handleRef}
-            className="shrink-0 relative hover:bg-ink/15 active:bg-ink/15 after:content-[''] after:absolute after:top-0 after:bottom-0 after:-left-2 after:-right-2"
-            style={{ width: 4, cursor: 'col-resize', background: 'transparent', transition: 'background 0.15s ease' }}
+            className="pane-seam relative w-px shrink-0 after:content-[''] after:absolute after:top-0 after:bottom-0 after:-left-2 after:-right-2"
+            style={{ cursor: 'col-resize' }}
           />
         )}
         {slotOpen && (
+          // Flush to the card it opens in, not inset within it: a panel is one
+          // of the two things the card is showing, not something laid on top
+          // of it. The card's own rounding clips the outer corners.
           <div
             ref={panelRef}
-            className="relative flex flex-col min-h-0 overflow-hidden glass-bevel border border-bezel-panel rounded-[14px] m-3"
+            className="relative flex flex-col min-h-0 overflow-hidden"
             style={{
               flexGrow: 0,
               flexShrink: 1,
               flexBasis: panelBasis,
               transition,
               background: 'var(--color-terminal-bg)',
-              boxShadow: 'var(--shadow-inset-panel)',
               ...(dragging ? { pointerEvents: 'none' } : {}),
             }}
           >
