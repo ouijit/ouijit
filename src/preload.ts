@@ -30,6 +30,7 @@ import type {
 import type { LensAgentChoice } from './github/lensAgents';
 import type { SaveDraftInput } from './github/service';
 import type { SaveDiffNoteInput } from './diffNotes';
+import type { DiffLensTarget } from './diffLens';
 
 // ── Typed IPC helpers ───────────────────────────────────────────────────────
 // These ensure channel names, argument types, and return types are all
@@ -405,5 +406,11 @@ contextBridge.exposeInMainWorld('api', {
     save: (input: SaveDiffNoteInput) => typedInvoke('diff-notes:save', input),
     discard: (id: string) => typedInvoke('diff-notes:discard', id),
     clear: (worktreePath: string) => typedInvoke('diff-notes:clear', worktreePath),
+  },
+
+  diffLens: {
+    get: (target: DiffLensTarget) => typedInvoke('diff-lens:get', target),
+    run: (target: DiffLensTarget, lensName: string) => typedInvoke('diff-lens:run', target, lensName),
+    clear: (target: DiffLensTarget) => typedInvoke('diff-lens:clear', target),
   },
 });

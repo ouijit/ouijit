@@ -17,6 +17,7 @@ import { ScriptRepo, type ScriptRow } from './repos/scriptRepo';
 import { ReviewDraftRepo, type ReviewDraftRow } from './repos/reviewDraftRepo';
 import { PrLensRepo, type PrLensRow } from './repos/prLensRepo';
 import { DiffNoteRepo, type DiffNoteRow } from './repos/diffNoteRepo';
+import { WorktreeLensRepo, type WorktreeLensRow } from './repos/worktreeLensRepo';
 import type { ProjectSettings, ScriptHook } from '../types';
 import { getLogger } from '../logger';
 
@@ -54,6 +55,7 @@ let scriptRepo: ScriptRepo | null = null;
 let reviewDraftRepo: ReviewDraftRepo | null = null;
 let prLensRepo: PrLensRepo | null = null;
 let diffNoteRepo: DiffNoteRepo | null = null;
+let worktreeLensRepo: WorktreeLensRepo | null = null;
 
 function repos() {
   if (!taskRepo) {
@@ -67,6 +69,7 @@ function repos() {
     reviewDraftRepo = new ReviewDraftRepo(db);
     prLensRepo = new PrLensRepo(db);
     diffNoteRepo = new DiffNoteRepo(db);
+    worktreeLensRepo = new WorktreeLensRepo(db);
   }
   return {
     projectRepo: projectRepo!,
@@ -78,6 +81,7 @@ function repos() {
     reviewDraftRepo: reviewDraftRepo!,
     prLensRepo: prLensRepo!,
     diffNoteRepo: diffNoteRepo!,
+    worktreeLensRepo: worktreeLensRepo!,
   };
 }
 
@@ -94,6 +98,7 @@ export function _resetCacheForTesting(): void {
   reviewDraftRepo = new ReviewDraftRepo(db);
   prLensRepo = new PrLensRepo(db);
   diffNoteRepo = new DiffNoteRepo(db);
+  worktreeLensRepo = new WorktreeLensRepo(db);
 }
 
 // ── Row → TaskMetadata conversion ────────────────────────────────────
@@ -423,6 +428,31 @@ export async function deleteDiffNote(id: string): Promise<void> {
 export async function clearDiffNotes(worktreePath: string): Promise<void> {
   const { diffNoteRepo: dr } = repos();
   dr.deleteForWorktree(worktreePath);
+}
+
+// ── Worktree lenses ──────────────────────────────────────────────────
+
+export type { WorktreeLensRow } from './repos/worktreeLensRepo';
+
+export async function getWorktreeLens(worktreePath: string, mode: string): Promise<WorktreeLensRow | undefined> {
+  const { worktreeLensRepo: wr } = repos();
+  return wr.get(worktreePath, mode);
+}
+
+export async function saveWorktreeLens(
+  worktreePath: string,
+  mode: string,
+  pin: string,
+  groups: string,
+  lensName: string | null,
+): Promise<void> {
+  const { worktreeLensRepo: wr } = repos();
+  wr.save(worktreePath, mode, pin, groups, lensName);
+}
+
+export async function deleteWorktreeLens(worktreePath: string, mode: string): Promise<void> {
+  const { worktreeLensRepo: wr } = repos();
+  wr.delete(worktreePath, mode);
 }
 
 // ── Pull request lenses ──────────────────────────────────────────────

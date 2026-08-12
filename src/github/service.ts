@@ -590,7 +590,11 @@ export async function writeLensWithAgent(
   ghLog.info('gathering context for a lens', { prNumber, files: listed.files.length, lens: lensName });
 
   const result = await runLens({
-    detail,
+    subject: {
+      lead: 'You are grouping the changes in a pull request so a reviewer can read them in a sensible order.',
+      heading: `# Pull request #${detail.number}: ${detail.title}`,
+      body: detail.body,
+    },
     files: listed.files,
     diffs,
     instruction: lens.instruction,

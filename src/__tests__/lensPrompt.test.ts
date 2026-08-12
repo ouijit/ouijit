@@ -27,8 +27,15 @@ const detail = {
   headSha: 'bbb',
 } as PullRequestDetail;
 
+/** What `writeLensWithAgent` passes for a pull request. */
+const subject = {
+  lead: 'You are grouping the changes in a pull request so a reviewer can read them in a sensible order.',
+  heading: `# Pull request #${detail.number}: ${detail.title}`,
+  body: detail.body,
+};
+
 function prompt(files: PullRequestFile[], diffs: Map<string, FileDiff | null>, budget?: number) {
-  return buildLensPrompt({ detail, files, diffs, instruction: 'group it by story', budget });
+  return buildLensPrompt({ subject, files, diffs, instruction: 'group it by story', budget });
 }
 
 describe('buildLensPrompt', () => {

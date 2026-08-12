@@ -66,6 +66,7 @@ import type {
 } from '../github/service';
 import type { LensAgentChoice } from '../github/lensAgents';
 import type { DiffNote, SaveDiffNoteInput } from '../diffNotes';
+import type { DiffLensTarget, DiffLensResult } from '../diffLens';
 import type { PrFileVersions } from '../github/prDiff';
 import type { SandboxProviderStatus, NonoConfig } from '../sandbox/types';
 import type { HookStatusEntry } from '../hookServer';
@@ -308,6 +309,12 @@ export interface IpcInvokeContract {
   // ── Diff notes ─────────────────────────────────────────────────────
   // Notes on a worktree's own diff, keyed by the worktree rather than by a pull
   // request, since they are handed to the agent working in it rather than sent.
+  // A lens over a worktree's own diff, written by the same agent and stored
+  // under the same named instructions as a pull request's.
+  'diff-lens:get': { args: [target: DiffLensTarget]; return: DiffLensResult | null };
+  'diff-lens:run': { args: [target: DiffLensTarget, lensName: string]; return: { success: boolean; error?: string } };
+  'diff-lens:clear': { args: [target: DiffLensTarget]; return: { success: boolean } };
+
   'diff-notes:list': { args: [worktreePath: string]; return: DiffNote[] };
   'diff-notes:save': { args: [input: SaveDiffNoteInput]; return: DiffNote };
   'diff-notes:discard': { args: [id: string]; return: { success: boolean } };

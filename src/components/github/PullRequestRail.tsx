@@ -6,7 +6,7 @@ import type { LensSummary } from '../../github/service';
 import { DiffFileTree, DiffFileTreeNodes } from '../diff/DiffFileTree';
 import { useGithubStore } from '../../stores/githubStore';
 import { Icon } from '../terminal/Icon';
-import { LensPicker } from './LensPicker';
+import { LensPicker } from '../diff/LensPicker';
 
 interface PullRequestRailProps {
   detail: PullRequestDetail;

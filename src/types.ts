@@ -60,6 +60,7 @@ export type {
 } from './github/types';
 
 export type { DiffNote, SaveDiffNoteInput, DiffNoteMode } from './diffNotes';
+export type { DiffLensTarget, DiffLensResult, DiffLensMode } from './diffLens';
 
 // Import for local use within this file
 import type { GitStatus, GitFileStatus, GitDropdownInfo, FileDiff, WorktreeDiffSummary, BranchInfo } from './git';
@@ -88,6 +89,7 @@ import type {
 import type { PrFileVersions } from './github/prDiff';
 import type { LensAgentChoice } from './github/lensAgents';
 import type { DiffNote, SaveDiffNoteInput } from './diffNotes';
+import type { DiffLensTarget, DiffLensResult } from './diffLens';
 import type { TaskStatus, TagRow } from './db';
 import type { ActiveSession } from './ptyManager';
 import type { LimaStatus } from './lima/types';
@@ -657,6 +659,15 @@ export interface ElectronAPI {
   github: GithubAPI;
   /** Notes written on a worktree's own diff */
   diffNotes: DiffNotesAPI;
+  /** Agent-written grouping over a worktree's own diff */
+  diffLens: DiffLensAPI;
+}
+
+/** The pull request equivalent is `github.lens` / `runLens` / `clearLens`. */
+export interface DiffLensAPI {
+  get(target: DiffLensTarget): Promise<DiffLensResult | null>;
+  run(target: DiffLensTarget, lensName: string): Promise<{ success: boolean; error?: string }>;
+  clear(target: DiffLensTarget): Promise<{ success: boolean }>;
 }
 
 /**

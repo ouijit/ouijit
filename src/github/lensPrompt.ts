@@ -1,5 +1,4 @@
 import type { FileDiff, DiffHunk } from '../types';
-import type { PullRequestDetail, PullRequestFile } from './types';
 
 /**
  * Everything an agent needs to group a pull request, assembled here.
@@ -23,9 +22,34 @@ const MAX_HUNK_CHARS = 6_000;
 
 const MAX_BODY_CHARS = 4_000;
 
+/**
+ * A changed file, as much of one as the prompt needs.
+ *
+ * Structural rather than either concrete type: a pull request's files and a
+ * worktree's are the same list to a lens, and the only difference between them
+ * is where they were read from.
+ */
+export interface LensFile {
+  path: string;
+  status: string;
+  additions: number;
+  deletions: number;
+  oldPath?: string;
+}
+
+/** What is being grouped, in the words the prompt opens with. */
+export interface LensSubject {
+  /** First line: what kind of thing this is. */
+  lead: string;
+  /** Markdown heading naming it — a PR number and title, or a branch. */
+  heading: string;
+  /** Whatever description exists: a PR body, or the task's prompt. */
+  body?: string;
+}
+
 export interface LensPromptInput {
-  detail: PullRequestDetail;
-  files: PullRequestFile[];
+  subject: LensSubject;
+  files: LensFile[];
   diffs: Map<string, FileDiff | null>;
   instruction: string;
   budget?: number;
@@ -68,7 +92,7 @@ function truncate(text: string, max: number): string {
  * how large they are, and a grouping that has not been told a file exists can
  * only leave it out — which is the one thing a lens must never do.
  */
-function skeleton(files: PullRequestFile[], diffs: Map<string, FileDiff | null>): string {
+function skeleton(files: LensFile[], diffs: Map<string, FileDiff | null>): string {
   const out: string[] = [];
 
   for (const file of files) {
@@ -104,7 +128,7 @@ function skeleton(files: PullRequestFile[], diffs: Map<string, FileDiff | null>)
  * instead of pretending the tail is not there.
  */
 function bodies(
-  files: PullRequestFile[],
+  files: LensFile[],
   diffs: Map<string, FileDiff | null>,
   budget: number,
 ): { text: string; omitted: number } {
@@ -163,7 +187,7 @@ Rules:
 - Only use paths from the list above. Invented paths are dropped.
 - You do not need to cover every file; whatever is left over is shown at the end.`;
 
-export function buildLensPrompt({ detail, files, diffs, instruction, budget }: LensPromptInput): string {
+export function buildLensPrompt({ subject, files, diffs, instruction, budget }: LensPromptInput): string {
   const limit = budget ?? LENS_PROMPT_BUDGET;
   const structure = skeleton(files, diffs);
 
@@ -173,11 +197,11 @@ export function buildLensPrompt({ detail, files, diffs, instruction, budget }: L
   const { text: hunks, omitted } = bodies(files, diffs, remaining);
 
   return [
-    'You are grouping the changes in a pull request so a reviewer can read them in a sensible order.',
+    subject.lead,
     '',
-    `# Pull request #${detail.number}: ${detail.title}`,
+    subject.heading,
     '',
-    detail.body ? truncate(detail.body, MAX_BODY_CHARS) : '(no description)',
+    subject.body ? truncate(subject.body, MAX_BODY_CHARS) : '(no description)',
     '',
     `# Files changed (${files.length})`,
     '',

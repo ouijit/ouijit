@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import type { FileDiff } from '../../types';
 import { useTerminalStore } from '../../stores/terminalStore';
 import { terminalInstances, refreshTerminalGitStatus } from '../terminal/terminalReact';
-import { DiffFileTree, inTreeOrder } from './DiffFileTree';
+import { DiffFileTree, inTreeOrder, treeFileOrder } from './DiffFileTree';
 import { DiffFileSection } from './DiffFileSection';
 import { DeferredMount } from './DeferredMount';
 import { scrollToSection, fileSelector } from './scrollToSection';
@@ -13,7 +13,12 @@ import { estimateFileHeight } from './diffMetrics';
 import { InlineCommentBox } from './InlineCommentBox';
 import { DiffNotesIsland } from './DiffNotesIsland';
 import { useDiffNotes, anchorKey } from './useDiffNotes';
+import { useDiffLens } from './useDiffLens';
+import { LensPicker } from './LensPicker';
+import { LensGroupSection } from './LensGroupSection';
+import { LensDialog } from '../dialogs/LensDialog';
 import { lineTextAt, type DiffLineAnchor } from './diffAnchor';
+import type { DiffLensTarget } from '../../diffLens';
 
 interface DiffPanelProps {
   ptyId: string;
@@ -81,6 +86,32 @@ export function DiffPanel({ ptyId, projectPath, mode, fullWidth, onToggleFullWid
   const truncated = totalFileCount > MAX_DIFF_FILES;
   const loading = gitFileStatus === null;
 
+  // What a lens over this diff is written against. Null while the terminal has
+  // no worktree of its own to key one to.
+  const lensTarget = useMemo<DiffLensTarget | null>(
+    () =>
+      gitPath
+        ? {
+            projectPath,
+            worktreePath: gitPath,
+            mode: effectiveMode,
+            ...(instance?.worktreeBranch ? { branch: instance.worktreeBranch } : {}),
+            ...(instance?.mergeTarget ? { mergeTarget: instance.mergeTarget } : {}),
+            ...(instance?.label ? { title: instance.label } : {}),
+            ...(instance?.taskPrompt ? { description: instance.taskPrompt } : {}),
+          }
+        : null,
+    [
+      gitPath,
+      projectPath,
+      effectiveMode,
+      instance?.worktreeBranch,
+      instance?.mergeTarget,
+      instance?.label,
+      instance?.taskPrompt,
+    ],
+  );
+
   // Stable fingerprint — only changes when the actual file list changes.
   // Prevents hunk-loading from restarting on no-op 3s git status refreshes.
   const filesFingerprint = useMemo(
@@ -141,6 +172,12 @@ export function DiffPanel({ ptyId, projectPath, mode, fullWidth, onToggleFullWid
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- filesFingerprint is the stable proxy for files
   }, [filesFingerprint, effectiveMode, gitPath, projectPath, instance?.worktreeBranch]);
+
+  // The order the rail shows them in, which is the order a lens's groups are
+  // sorted into so the two never disagree about where a file sits.
+  const order = useMemo(() => treeFileOrder(files), [files]);
+  const lens = useDiffLens(lensTarget, diffs, order);
+  const [lensesOpen, setLensesOpen] = useState(false);
 
   const scrollToFile = useCallback((path: string) => {
     scrollToSection(contentRef.current, fileSelector(path));
@@ -234,6 +271,49 @@ export function DiffPanel({ ptyId, projectPath, mode, fullWidth, onToggleFullWid
 
   const modeLabel = effectiveMode === 'worktree' ? 'Branch changes' : 'Uncommitted changes';
 
+  const byPath = useMemo(() => new Map(files.map((f) => [f.path, f])), [files]);
+
+  /**
+   * One file's card, wherever it is being rendered from.
+   *
+   * A lens can name the same file in more than one part, so the key is the
+   * caller's to give — otherwise React sees one file rendered twice and keeps
+   * only the second.
+   */
+  const renderFile = (file: (typeof files)[number], key?: string, hunks?: number[]) => (
+    // The wrapper carries `data-path` so jumping to a file from the tree works
+    // whether or not that file has been mounted yet.
+    <DeferredMount
+      key={key ?? file.path}
+      dataPath={file.path}
+      estimatedHeight={estimateFileHeight(
+        diffs.get(file.path),
+        file.additions + file.deletions,
+        1,
+        folded.has(file.path),
+      )}
+    >
+      <DiffFileSection
+        path={file.path}
+        status={file.status}
+        additions={file.additions}
+        deletions={file.deletions}
+        diff={lens.sliceFor(file.path, diffs.get(file.path), hunks)}
+        onAddComment={startNote}
+        renderBelowLine={(anchor) => renderBelowLine(file.path, anchor)}
+        collapsed={folded.has(file.path)}
+        onCollapsedChange={(next) =>
+          setFolded((prev) => {
+            const copy = new Set(prev);
+            if (next) copy.add(file.path);
+            else copy.delete(file.path);
+            return copy;
+          })
+        }
+      />
+    </DeferredMount>
+  );
+
   return (
     <div className="flex flex-1 min-h-0 overflow-hidden" style={{ background: 'var(--color-terminal-bg)' }}>
       {!sidebarCollapsed && (
@@ -272,6 +352,26 @@ export function DiffPanel({ ptyId, projectPath, mode, fullWidth, onToggleFullWid
           >
             {modeLabel}
           </span>
+          {/* How to read this diff, the same one choice a pull request offers.
+              Only where there is a worktree to key a lens to. */}
+          {lensTarget && (
+            <LensPicker
+              lenses={lens.lenses}
+              applied={lens.lens ? { name: lens.lens.lensName, groups: lens.lens.groups.length } : null}
+              lensOn={lens.resolved !== null}
+              changedFiles={files.length}
+              viewed={folded.size}
+              // Offered again rather than hidden: unlike a pull request, this
+              // diff moves under the lens constantly, and one written a minute
+              // ago still groups most of it.
+              stale={lens.lens?.stale ? (lens.lens.lensName ?? null) : null}
+              writing={lens.writing}
+              onAllFiles={() => lens.setLensOn(false)}
+              onShowLens={() => lens.setLensOn(true)}
+              onRun={(picked) => void lens.run(picked.name)}
+              onManage={() => setLensesOpen(true)}
+            />
+          )}
           <span className="text-xs text-text-tertiary ml-auto relative">{stats}</span>
           {/* The same pair every other panel beside a terminal carries, in the
               same order: what the diff is doing is often best read next to what
@@ -296,40 +396,28 @@ export function DiffPanel({ ptyId, projectPath, mode, fullWidth, onToggleFullWid
           {!loading && files.length === 0 && (
             <div className="flex-1 flex flex-col items-center justify-center text-text-tertiary gap-2">No changes</div>
           )}
-          {!loading &&
-            orderedFiles.map((file) => (
-              // The wrapper carries `data-path` so jumping to a file from the
-              // tree works whether or not that file has been mounted yet.
-              <DeferredMount
-                key={file.path}
-                dataPath={file.path}
-                estimatedHeight={estimateFileHeight(
-                  diffs.get(file.path),
-                  file.additions + file.deletions,
-                  1,
-                  folded.has(file.path),
-                )}
-              >
-                <DiffFileSection
-                  path={file.path}
-                  status={file.status}
-                  additions={file.additions}
-                  deletions={file.deletions}
-                  diff={diffs.get(file.path)}
-                  onAddComment={startNote}
-                  renderBelowLine={(anchor) => renderBelowLine(file.path, anchor)}
-                  collapsed={folded.has(file.path)}
+          {!loading && lens.resolved
+            ? lens.resolved.map((group) => (
+                <LensGroupSection
+                  key={group.title}
+                  group={group}
+                  collapsed={lens.collapsed.has(group.title)}
                   onCollapsedChange={(next) =>
-                    setFolded((prev) => {
+                    lens.setCollapsed((prev) => {
                       const copy = new Set(prev);
-                      if (next) copy.add(file.path);
-                      else copy.delete(file.path);
+                      if (next) copy.add(group.title);
+                      else copy.delete(group.title);
                       return copy;
                     })
                   }
-                />
-              </DeferredMount>
-            ))}
+                >
+                  {group.slices.map((slice) => {
+                    const file = byPath.get(slice.path);
+                    return file ? renderFile(file, `${group.title}:${slice.path}`, slice.hunks) : null;
+                  })}
+                </LensGroupSection>
+              ))
+            : !loading && orderedFiles.map((file) => renderFile(file))}
           {/* A note in the well rather than a band ruled off from the cards:
               the gap either side of it is the boundary. */}
           {!loading && truncated && (
@@ -346,6 +434,14 @@ export function DiffPanel({ ptyId, projectPath, mode, fullWidth, onToggleFullWid
           onDiscard={notes.discard}
           onClear={notes.clear}
         />
+        {lensesOpen && (
+          <LensDialog
+            projectPath={projectPath}
+            onRun={(picked) => void lens.run(picked.name)}
+            running={lens.writing}
+            onClose={() => setLensesOpen(false)}
+          />
+        )}
       </div>
     </div>
   );

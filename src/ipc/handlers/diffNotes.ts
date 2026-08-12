@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { typedHandle } from '../helpers';
 import { getDiffNotes, saveDiffNote, deleteDiffNote, clearDiffNotes } from '../../db';
+import { readDiffLens, writeDiffLens, clearDiffLens } from '../../diffLens';
 import type { DiffNote } from '../../diffNotes';
 import type { DiffNoteRow } from '../../db';
 
@@ -46,4 +47,8 @@ export function registerDiffNoteHandlers(): void {
     await clearDiffNotes(worktreePath);
     return { success: true };
   });
+
+  typedHandle('diff-lens:get', (target) => readDiffLens(target));
+  typedHandle('diff-lens:run', (target, lensName) => writeDiffLens(target, lensName));
+  typedHandle('diff-lens:clear', (target) => clearDiffLens(target));
 }

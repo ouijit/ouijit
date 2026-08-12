@@ -880,6 +880,31 @@ export function getFileDiff(projectPath: string, filePath: string, contextLines?
 /**
  * Helper to run a git command asynchronously without blocking the main thread
  */
+/**
+ * The two revisions a branch diff is taken between, as SHAs.
+ *
+ * Branch names are no good for saying whether a diff has moved — they stay put
+ * while the commits under them change — so this resolves both ends. Returns
+ * null when either cannot be resolved, which the caller reads as "cannot say".
+ */
+export async function getBranchDiffPin(
+  projectPath: string,
+  branch: string,
+  targetBranch?: string,
+): Promise<string | null> {
+  try {
+    const base = targetBranch || (await getMainBranchAsync(projectPath));
+    const [mergeBase, head] = await Promise.all([
+      gitAsync(['merge-base', base, branch], projectPath),
+      gitAsync(['rev-parse', branch], projectPath),
+    ]);
+    if (!mergeBase || !head) return null;
+    return `${mergeBase}..${head}`;
+  } catch {
+    return null;
+  }
+}
+
 async function gitAsync(args: string[], projectPath: string): Promise<string> {
   const { stdout } = await execFileAsync('git', args, {
     cwd: projectPath,

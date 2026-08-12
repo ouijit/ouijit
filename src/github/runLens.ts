@@ -3,8 +3,7 @@ import type { FileDiff } from '../types';
 import { getLogger } from '../logger';
 import { parseLens } from './lens';
 import type { LensAgent } from './lensAgents';
-import { buildLensPrompt, extractJson } from './lensPrompt';
-import type { PullRequestDetail, PullRequestFile } from './types';
+import { buildLensPrompt, extractJson, type LensFile, type LensSubject } from './lensPrompt';
 
 const log = getLogger().scope('github:lens');
 
@@ -28,8 +27,8 @@ const TIMEOUT_MS = 5 * 60 * 1000;
 const MAX_OUTPUT_BYTES = 2_000_000;
 
 export interface RunLensInput {
-  detail: PullRequestDetail;
-  files: PullRequestFile[];
+  subject: LensSubject;
+  files: LensFile[];
   diffs: Map<string, FileDiff | null>;
   instruction: string;
   /** Already resolved: which binary, with which flags, and how it is fed. */
@@ -48,7 +47,7 @@ export interface RunLensResult {
 export async function runLens(input: RunLensInput): Promise<RunLensResult> {
   const agent = input.agent;
   const prompt = buildLensPrompt({
-    detail: input.detail,
+    subject: input.subject,
     files: input.files,
     diffs: input.diffs,
     instruction: input.instruction,
