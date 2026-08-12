@@ -25,9 +25,8 @@ const MAX_BODY_CHARS = 4_000;
 /**
  * A changed file, as much of one as the prompt needs.
  *
- * Structural rather than either concrete type: a pull request's files and a
- * worktree's are the same list to a lens, and the only difference between them
- * is where they were read from.
+ * Structural rather than either concrete type, since a pull request's files
+ * and a worktree's are the same list to a lens.
  */
 export interface LensFile {
   path: string;

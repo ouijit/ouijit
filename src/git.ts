@@ -883,9 +883,9 @@ export function getFileDiff(projectPath: string, filePath: string, contextLines?
 /**
  * The two revisions a branch diff is taken between, as SHAs.
  *
- * Branch names are no good for saying whether a diff has moved — they stay put
- * while the commits under them change — so this resolves both ends. Returns
- * null when either cannot be resolved, which the caller reads as "cannot say".
+ * Branch names cannot say whether a diff has moved, since they stay put while
+ * the commits under them change, so both ends are resolved. Null when either
+ * cannot be, which the caller reads as "cannot say".
  */
 export async function getBranchDiffPin(
   projectPath: string,
@@ -982,8 +982,8 @@ async function countUntracked(projectPath: string, paths: string[]): Promise<Cha
         if (contents.length > 0 && contents[contents.length - 1] !== 0x0a) lines++;
         file.additions = lines;
       } catch {
-        // Deleted between the listing and now, or unreadable. It is still a
-        // file the diff should mention.
+        // Deleted between the listing and now, or unreadable — still a file
+        // the diff should mention, just without a count.
       }
       return file;
     }),

@@ -68,10 +68,9 @@ export function DiffPanel({ ptyId, projectPath, mode, fullWidth, onToggleFullWid
   }, [mode, gitFileStatus]);
 
   // Derive file list from the store (same data the GitStats button uses).
-  // Untracked files join whichever mode is showing: git has nothing to diff
-  // them against yet, but they are part of both the working tree's changes and
-  // the branch's, and a diff that lists a new file without its contents is a
-  // diff with a hole in it.
+  // Untracked files join whichever mode is showing. They belong to both the
+  // working tree's changes and the branch's, and the mode decision is made on
+  // tracked files alone.
   const storeFiles = useMemo(() => {
     if (!gitFileStatus) return [];
     const tracked = effectiveMode === 'worktree' ? gitFileStatus.branchDiffFiles : gitFileStatus.uncommittedFiles;
@@ -273,13 +272,8 @@ export function DiffPanel({ ptyId, projectPath, mode, fullWidth, onToggleFullWid
 
   const byPath = useMemo(() => new Map(files.map((f) => [f.path, f])), [files]);
 
-  /**
-   * One file's card, wherever it is being rendered from.
-   *
-   * A lens can name the same file in more than one part, so the key is the
-   * caller's to give — otherwise React sees one file rendered twice and keeps
-   * only the second.
-   */
+  // The key is the caller's to give: a lens can name the same file in more than
+  // one part, and React would otherwise keep only the second copy.
   const renderFile = (file: (typeof files)[number], key?: string, hunks?: number[]) => (
     // The wrapper carries `data-path` so jumping to a file from the tree works
     // whether or not that file has been mounted yet.
@@ -318,6 +312,29 @@ export function DiffPanel({ ptyId, projectPath, mode, fullWidth, onToggleFullWid
     <div className="flex flex-1 min-h-0 overflow-hidden" style={{ background: 'var(--color-terminal-bg)' }}>
       {!sidebarCollapsed && (
         <div className="shrink-0 overflow-hidden flex flex-col" style={{ width: sidebarWidth }}>
+          {/* Above the list it reorders and outside its scroll, where the pull
+              request rail keeps its own. "All files" is one of the options, so
+              the file list and the lenses are a single choice. */}
+          {lensTarget && (
+            <div className="pane-ledge shrink-0 flex flex-col">
+              <LensPicker
+                lenses={lens.lenses}
+                applied={lens.lens ? { name: lens.lens.lensName, groups: lens.lens.groups.length } : null}
+                lensOn={lens.resolved !== null}
+                changedFiles={files.length}
+                viewed={folded.size}
+                // Offered again rather than hidden. A pull request drops a
+                // stale lens, but this diff moves on every save, so one written
+                // a minute ago still groups most of it.
+                stale={lens.lens?.stale ? (lens.lens.lensName ?? null) : null}
+                writing={lens.writing}
+                onAllFiles={() => lens.setLensOn(false)}
+                onShowLens={() => lens.setLensOn(true)}
+                onRun={(picked) => void lens.run(picked.name)}
+                onManage={() => setLensesOpen(true)}
+              />
+            </div>
+          )}
           <DiffFileTree files={files} onFileClick={scrollToFile} />
         </div>
       )}
@@ -352,26 +369,6 @@ export function DiffPanel({ ptyId, projectPath, mode, fullWidth, onToggleFullWid
           >
             {modeLabel}
           </span>
-          {/* How to read this diff, the same one choice a pull request offers.
-              Only where there is a worktree to key a lens to. */}
-          {lensTarget && (
-            <LensPicker
-              lenses={lens.lenses}
-              applied={lens.lens ? { name: lens.lens.lensName, groups: lens.lens.groups.length } : null}
-              lensOn={lens.resolved !== null}
-              changedFiles={files.length}
-              viewed={folded.size}
-              // Offered again rather than hidden: unlike a pull request, this
-              // diff moves under the lens constantly, and one written a minute
-              // ago still groups most of it.
-              stale={lens.lens?.stale ? (lens.lens.lensName ?? null) : null}
-              writing={lens.writing}
-              onAllFiles={() => lens.setLensOn(false)}
-              onShowLens={() => lens.setLensOn(true)}
-              onRun={(picked) => void lens.run(picked.name)}
-              onManage={() => setLensesOpen(true)}
-            />
-          )}
           <span className="text-xs text-text-tertiary ml-auto relative">{stats}</span>
           {/* The same pair every other panel beside a terminal carries, in the
               same order: what the diff is doing is often best read next to what
