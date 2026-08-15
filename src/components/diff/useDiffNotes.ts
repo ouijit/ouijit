@@ -1,15 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { DiffNote, SaveDiffNoteInput } from '../../diffNotes';
-import { anchorKey } from './diffAnchor';
+import { anchorKey, type DiffAnchor } from './diffAnchor';
 import { useProjectStore } from '../../stores/projectStore';
 import { describeError } from '../../utils/describeError';
-
-/** The line an unsaved note is being written against. */
-export interface ComposingAt {
-  path: string;
-  line: number;
-  side: 'LEFT' | 'RIGHT';
-}
 
 /**
  * The notes on one worktree's diff.
@@ -19,7 +12,7 @@ export interface ComposingAt {
  */
 export function useDiffNotes(worktreePath: string) {
   const [notes, setNotes] = useState<DiffNote[]>([]);
-  const [composingAt, setComposingAt] = useState<ComposingAt | null>(null);
+  const [composingAt, setComposingAt] = useState<DiffAnchor | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
@@ -35,46 +28,44 @@ export function useDiffNotes(worktreePath: string) {
     void reload();
   }, [reload]);
 
-  const save = useCallback(
-    async (input: Omit<SaveDiffNoteInput, 'worktreePath'>) => {
+  /**
+   * A write, then a re-read of the list it changed.
+   *
+   * Returning early on failure is what leaves an open box open, so a save that
+   * did not land does not discard what was typed.
+   */
+  const mutate = useCallback(
+    async (verb: string, write: () => Promise<unknown>, settle?: () => void) => {
       try {
-        await window.api.diffNotes.save({ ...input, worktreePath });
+        await write();
       } catch (error) {
-        // Returning early leaves the box open, so a failed save doesn't
-        // discard what was typed.
-        useProjectStore.getState().addToast(`Could not save the note: ${describeError(error)}`, 'error');
+        useProjectStore.getState().addToast(`Could not ${verb}: ${describeError(error)}`, 'error');
         return;
       }
-      setComposingAt(null);
-      setEditingId(null);
-      await reload();
-    },
-    [worktreePath, reload],
-  );
-
-  const discard = useCallback(
-    async (id: string) => {
-      try {
-        await window.api.diffNotes.discard(id);
-      } catch (error) {
-        useProjectStore.getState().addToast(`Could not discard the note: ${describeError(error)}`, 'error');
-        return;
-      }
-      setEditingId(null);
+      settle?.();
       await reload();
     },
     [reload],
   );
 
-  const clear = useCallback(async () => {
-    try {
-      await window.api.diffNotes.clear(worktreePath);
-    } catch (error) {
-      useProjectStore.getState().addToast(`Could not clear the notes: ${describeError(error)}`, 'error');
-      return;
-    }
-    await reload();
-  }, [worktreePath, reload]);
+  const save = useCallback(
+    (input: Omit<SaveDiffNoteInput, 'worktreePath'>) =>
+      mutate('save the note', () => window.api.diffNotes.save({ ...input, worktreePath }), () => {
+        setComposingAt(null);
+        setEditingId(null);
+      }),
+    [worktreePath, mutate],
+  );
+
+  const discard = useCallback(
+    (id: string) => mutate('discard the note', () => window.api.diffNotes.discard(id), () => setEditingId(null)),
+    [mutate],
+  );
+
+  const clear = useCallback(
+    () => mutate('clear the notes', () => window.api.diffNotes.clear(worktreePath)),
+    [worktreePath, mutate],
+  );
 
   // One lookup per rendered line rather than a scan of every note on the diff.
   const byAnchor = useMemo(() => Map.groupBy(notes, (note) => anchorKey(note.path, note.line, note.side)), [notes]);
@@ -84,6 +75,6 @@ export function useDiffNotes(worktreePath: string) {
   // file sections below it would never bail out.
   return useMemo(
     () => ({ notes, byAnchor, composingAt, setComposingAt, editingId, setEditingId, save, discard, clear }),
-    [notes, byAnchor, composingAt, editingId, save, discard, clear],
+    [notes, composingAt, editingId, save, discard, clear],
   );
 }

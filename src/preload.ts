@@ -90,7 +90,7 @@ contextBridge.exposeInMainWorld('api', {
   gitCreateBranch: (projectPath: string, branchName: string) =>
     typedInvoke('git-create-branch', projectPath, branchName),
   gitMergeIntoMain: (projectPath: string) => typedInvoke('git-merge-into-main', projectPath),
-  getFileDiff: (projectPath: string, filePath: string, contextLines?: number, untracked?: boolean) =>
+  getFileDiff: (projectPath: string, filePath: string, contextLines: number | undefined, untracked: boolean) =>
     typedInvoke('get-file-diff', projectPath, filePath, contextLines, untracked),
 
   pty: {

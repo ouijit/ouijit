@@ -1,5 +1,6 @@
 import type { GitFileStatus, SandboxProviderId } from '../types';
 import type { TerminalPanel } from '../components/terminal/panelTypes';
+import type { DiffMode } from '../diffSource';
 
 /** Renderable state pushed from OuijitTerminal class to React */
 export interface TerminalDisplayState {
@@ -18,7 +19,7 @@ export interface TerminalDisplayState {
   panelFullWidth: boolean;
   /** Automatic diff takeover (header-driven, separate from the panel tabs). */
   diffPanelOpen: boolean;
-  diffPanelMode: 'uncommitted' | 'worktree';
+  diffPanelMode: DiffMode;
   /** Which backend runs the terminal (undefined = host); `isActiveSandbox` derives the boolean. */
   sandboxProvider?: SandboxProviderId;
   taskId: number | null;

@@ -22,7 +22,7 @@ import { revealInFileManager } from '../../utils/fileManager';
 import { useExperimentalStore } from '../../stores/experimentalStore';
 import { openPullRequestInPanel, createPullRequestForTask, unlinkPullRequest } from '../../services/githubTaskActions';
 import { BranchFromTaskDialog } from '../dialogs/BranchFromTaskDialog';
-import { effectiveDiffMode } from '../../diffSource';
+import { effectiveDiffMode, filesInDiff } from '../../diffSource';
 
 interface TerminalHeaderProps {
   ptyId: string;
@@ -462,15 +462,18 @@ function PanelControls({
   onDiffClick: (e: React.MouseEvent) => void;
   onAddClick: (e: React.MouseEvent) => void;
 }) {
-  const dirtyFileCount = gitFileStatus?.uncommittedFiles.length ?? 0;
-  const insertions = gitFileStatus?.uncommittedFiles.reduce((s, f) => s + f.additions, 0) ?? 0;
-  const deletions = gitFileStatus?.uncommittedFiles.reduce((s, f) => s + f.deletions, 0) ?? 0;
-  const branchDiffCount = gitFileStatus?.branchDiffFiles.length ?? 0;
-  // The same rule the panel this button opens follows, so the two never offer
-  // and show different diffs.
+  // The same rule the panel this button opens follows, and then the same file
+  // list, so the two never offer and show different diffs. Counting from
+  // `uncommittedFiles` alone would leave untracked files out of the button and
+  // in the panel — and hide the button entirely for a branch whose only changes
+  // are new files.
   const mode = gitFileStatus ? effectiveDiffMode(gitFileStatus, 'worktree') : null;
+  const diffFiles = gitFileStatus && mode ? filesInDiff(gitFileStatus, mode) : [];
+  const dirtyFileCount = diffFiles.length;
+  const insertions = diffFiles.reduce((s, f) => s + f.additions, 0);
+  const deletions = diffFiles.reduce((s, f) => s + f.deletions, 0);
   const hasUncommitted = mode === 'uncommitted';
-  const showCompare = mode === 'worktree' && isWorktree && branchDiffCount > 0;
+  const showCompare = mode === 'worktree' && isWorktree && dirtyFileCount > 0;
   const showDiff = hasUncommitted || showCompare;
 
   const slots: React.ReactNode[] = [];

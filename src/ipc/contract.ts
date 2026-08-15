@@ -124,7 +124,7 @@ export interface IpcInvokeContract {
   'git-create-branch': { args: [projectPath: string, branchName: string]; return: GitCheckoutResult };
   'git-merge-into-main': { args: [projectPath: string]; return: GitMergeResult };
   'get-file-diff': {
-    args: [projectPath: string, filePath: string, contextLines?: number, untracked?: boolean];
+    args: [projectPath: string, filePath: string, contextLines: number | undefined, untracked: boolean];
     return: FileDiff | null;
   };
 
@@ -309,14 +309,15 @@ export interface IpcInvokeContract {
   };
   'github:detect-task-pr': { args: [projectPath: string, taskNumber: number]; return: { prNumber: number | null } };
 
-  // ── Diff notes ─────────────────────────────────────────────────────
-  // Notes on a worktree's own diff, keyed by the worktree rather than by a pull
-  // request, since they are handed to the agent working in it rather than sent.
+  // ── Worktree diff lens ─────────────────────────────────────────────
   // A lens over a worktree's own diff, written by the same agent and stored
   // under the same named instructions as a pull request's.
   'diff-lens:get': { args: [target: DiffLensTarget]; return: DiffLensResult | null };
   'diff-lens:run': { args: [target: DiffLensTarget, lensName: string]; return: { success: boolean; error?: string } };
 
+  // ── Diff notes ─────────────────────────────────────────────────────
+  // Notes on a worktree's own diff, keyed by the worktree rather than by a pull
+  // request, since they are handed to the agent working in it rather than sent.
   'diff-notes:list': { args: [worktreePath: string]; return: DiffNote[] };
   'diff-notes:save': { args: [input: SaveDiffNoteInput]; return: { success: boolean } };
   'diff-notes:discard': { args: [id: string]; return: { success: boolean } };

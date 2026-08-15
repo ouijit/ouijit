@@ -17,6 +17,14 @@ export interface DiffLineAnchor {
 }
 
 /**
+ * An anchor in a diff rather than in one file — the triple `anchorKey` takes.
+ *
+ * What a comment being written is pinned to, on both diffs: the pull request's
+ * drafts and the worktree's notes.
+ */
+export type DiffAnchor = DiffLineAnchor & { path: string };
+
+/**
  * Key for the (path, line, side) triple that anchors a comment.
  *
  * NUL-joined because a path may contain any of the characters that would

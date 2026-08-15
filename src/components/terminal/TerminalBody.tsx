@@ -43,7 +43,11 @@ export function TerminalBody({ ptyId, projectPath }: TerminalBodyProps) {
   // eye on what the agent was doing while reading what it had done. It is not
   // one of the tabs — nobody opens two — so it borrows the slot instead of
   // joining the list, and the tab underneath is still there when it closes.
-  const slotOpen = diffPanelOpen || !!activePanel;
+  // What is in the slot, and the identity the width animation is keyed on.
+  // From the resolved panel rather than the id, so an id left pointing at a
+  // panel that has gone reads as an empty slot.
+  const slotKey = diffPanelOpen ? 'diff' : (activePanel?.id ?? null);
+  const slotOpen = slotKey !== null;
   const split = slotOpen && !panelFullWidth;
 
   const instance = terminalInstances.get(ptyId);
@@ -57,7 +61,6 @@ export function TerminalBody({ ptyId, projectPath }: TerminalBodyProps) {
   // split. Opening, switching, or closing a panel changes what is in the slot
   // and should snap instantly — otherwise the panel appears to grow from the
   // right. The diff is one more thing the slot can hold, so it counts here.
-  const slotKey = diffPanelOpen ? 'diff' : activePanelId;
   const prevSlotKey = useRef(slotKey);
   const animate = prevSlotKey.current === slotKey;
   useEffect(() => {
@@ -141,7 +144,7 @@ export function TerminalBody({ ptyId, projectPath }: TerminalBodyProps) {
   // back from the right. flex-shrink lets basis:100% fit without margin overflow.
   // The xterm stays mounted at basis 0 when hidden so the toggle has a frame to
   // animate from. When there is no panel at all, the xterm grows to fill.
-  const xtermBasis = !slotOpen || !split ? '0%' : `${(1 - splitRatio) * 100}%`;
+  const xtermBasis = !split ? '0%' : `${(1 - splitRatio) * 100}%`;
   const panelBasis = split ? `${splitRatio * 100}%` : '100%';
   const transition = animate ? 'flex-basis 0.25s ease' : 'none';
 

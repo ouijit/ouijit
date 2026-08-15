@@ -10,14 +10,13 @@ import { DiffFileSection } from '../diff/DiffFileSection';
 import { estimateFileHeight } from '../diff/diffMetrics';
 import { useDiffSlices } from '../diff/diffSlice';
 import { useBatchedDiffs } from '../diff/useBatchedDiffs';
-import { inTreeOrder } from '../diff/DiffFileTree';
 import { anchorKey, type DiffLineAnchor } from '../diff/diffAnchor';
 import type { ResolvedGroup } from '../../lens/lens';
 import { unanchoredThreads } from './reviewAnchors';
 import { Icon } from '../terminal/Icon';
 import { ReviewThreadView } from './ReviewThreadView';
 import { InlineCommentBox, InlineCommentCard } from '../diff/InlineCommentBox';
-import { LensGroupSection } from '../diff/LensGroupSection';
+import { LensedFileList } from '../diff/LensedFileList';
 
 import { Loading } from './Loading';
 
@@ -173,7 +172,6 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
         file.oldPath,
       ),
     setDiffs,
-    (file) => file.path,
   );
 
   // Threads and drafts indexed by anchor, so each line render is a map lookup
@@ -331,11 +329,6 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
     ],
   );
 
-  // The same order the rail lists them in. Without this the document runs in
-  // whatever order the file list arrived and the two disagree the moment a
-  // directory's files are not contiguous in it.
-  const ordered = useMemo(() => inTreeOrder(files), [files]);
-
   // A new pull request, or a new grouping of this one, makes every cached
   // slice meaningless.
   const sliceFor = useDiffSlices(groups ?? detail.number);
@@ -350,6 +343,10 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
     },
     [projectPath, detail.number, detail.headSha],
   );
+
+  const setGroupCollapsed = useCallback((title: string, next: boolean) => {
+    useGithubStore.getState().setGroupCollapsed(title, next);
+  }, []);
 
   const renderFile = (file: PullRequestFile, key?: string, hunks?: number[]) => (
     <FileSection
@@ -367,8 +364,6 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
     />
   );
 
-  const byPath = useMemo(() => new Map(files.map((f) => [f.path, f])), [files]);
-
   return (
     <>
       {filesFromGit && (
@@ -385,21 +380,13 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
       )}
 
       <div className="diff-list pb-3">
-        {groups
-          ? groups.map((group) => (
-              <LensGroupSection
-                key={group.title}
-                group={group}
-                collapsed={collapsed.has(group.title)}
-                onCollapsedChange={(next) => useGithubStore.getState().setGroupCollapsed(group.title, next)}
-              >
-                {group.slices.map((slice) => {
-                  const file = byPath.get(slice.path);
-                  return file ? renderFile(file, `${group.title}:${slice.path}`, slice.hunks) : null;
-                })}
-              </LensGroupSection>
-            ))
-          : ordered.map((file) => renderFile(file))}
+        <LensedFileList
+          files={files}
+          groups={groups ?? null}
+          renderFile={renderFile}
+          collapsed={collapsed}
+          onCollapsedChange={setGroupCollapsed}
+        />
       </div>
 
       {orphanThreads.length > 0 && (

@@ -11,6 +11,8 @@ import type {
 import type { InboxResult } from '../github/service';
 import type { FileDiff } from '../types';
 import type { LensGroup } from '../lens/lens';
+import { describeError } from '../utils/describeError';
+import type { DiffAnchor } from '../components/diff/diffAnchor';
 
 const githubLog = log.scope('github');
 
@@ -137,7 +139,7 @@ interface GithubStoreState {
 
   drafts: ReviewDraft[];
   /** Anchor the user is currently composing a new comment on. */
-  composingAt: { path: string; line: number; side: 'LEFT' | 'RIGHT' } | null;
+  composingAt: DiffAnchor | null;
   submitting: boolean;
 }
 
@@ -259,10 +261,6 @@ let detailVersion = 0;
 let issuesVersion = 0;
 let issueVersion = 0;
 
-function message(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
-
 export const useGithubStore = create<GithubStore>()((set, get) => ({
   ...INITIAL,
   sidebarWidth: SIDEBAR_DEFAULT_WIDTH,
@@ -291,9 +289,9 @@ export const useGithubStore = create<GithubStore>()((set, get) => ({
       if (get().projectPath !== projectPath) return;
       set({ availability });
     } catch (error) {
-      githubLog.error('availability check failed', { error: message(error) });
+      githubLog.error('availability check failed', { error: describeError(error) });
       if (get().projectPath !== projectPath) return;
-      set({ availability: { available: false, message: message(error) } });
+      set({ availability: { available: false, message: describeError(error) } });
     }
   },
 
@@ -306,7 +304,7 @@ export const useGithubStore = create<GithubStore>()((set, get) => ({
       set({ inbox, inboxLoading: false });
     } catch (error) {
       if (version !== inboxVersion || get().projectPath !== projectPath) return;
-      set({ inboxLoading: false, inboxError: message(error) });
+      set({ inboxLoading: false, inboxError: describeError(error) });
     }
   },
 
@@ -319,7 +317,7 @@ export const useGithubStore = create<GithubStore>()((set, get) => ({
       set({ issues, issuesLoading: false });
     } catch (error) {
       if (version !== issuesVersion || get().projectPath !== projectPath) return;
-      set({ issuesLoading: false, issuesError: message(error) });
+      set({ issuesLoading: false, issuesError: describeError(error) });
     }
   },
 
@@ -454,11 +452,11 @@ export const useGithubStore = create<GithubStore>()((set, get) => ({
       });
     } catch (error) {
       if (version !== detailVersion) return;
-      set({ detailLoading: false, filesLoading: false, ...(get().detail ? {} : { detailError: message(error) }) });
+      set({ detailLoading: false, filesLoading: false, ...(get().detail ? {} : { detailError: describeError(error) }) });
       // A refresh that fails leaves what is on screen alone — a poll tick
       // during a dropped connection should not replace a pull request you are
       // reading with an error. Only a first load has nothing to fall back to.
-      if (get().detail) githubLog.warn('pull request refresh failed', { number, error: message(error) });
+      if (get().detail) githubLog.warn('pull request refresh failed', { number, error: describeError(error) });
     }
   },
 
@@ -474,8 +472,8 @@ export const useGithubStore = create<GithubStore>()((set, get) => ({
       set({ issue, issueLoading: false });
     } catch (error) {
       if (version !== issueVersion) return;
-      set({ issueLoading: false, ...(get().issue ? {} : { issueError: message(error) }) });
-      if (get().issue) githubLog.warn('issue refresh failed', { number, error: message(error) });
+      set({ issueLoading: false, ...(get().issue ? {} : { issueError: describeError(error) }) });
+      if (get().issue) githubLog.warn('issue refresh failed', { number, error: describeError(error) });
     }
   },
 
@@ -495,7 +493,7 @@ export const useGithubStore = create<GithubStore>()((set, get) => ({
       if (get().activeNumber !== prNumber) return;
       set({ drafts });
     } catch (error) {
-      githubLog.warn('failed to load review drafts', { error: message(error) });
+      githubLog.warn('failed to load review drafts', { error: describeError(error) });
     }
   },
 
@@ -525,7 +523,7 @@ export const useGithubStore = create<GithubStore>()((set, get) => ({
         collapsedGroups: [],
       });
     } catch (error) {
-      githubLog.warn('failed to read the lens', { error: message(error) });
+      githubLog.warn('failed to read the lens', { error: describeError(error) });
     }
   },
 

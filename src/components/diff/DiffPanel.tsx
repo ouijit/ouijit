@@ -16,7 +16,7 @@ import { DiffNotesIsland } from './DiffNotesIsland';
 import { useDiffNotes } from './useDiffNotes';
 import { useDiffLens } from './useDiffLens';
 import { LensPicker } from './LensPicker';
-import { LensGroupSection } from './LensGroupSection';
+import { LensedFileList } from './LensedFileList';
 import { LensDialog } from '../dialogs/LensDialog';
 import { anchorKey, lineTextAt, type DiffLineAnchor } from './diffAnchor';
 import { diffShape, effectiveDiffMode, filesInDiff, usesBranchDiff } from '../../diffSource';
@@ -87,16 +87,9 @@ export function DiffPanel({ ptyId, projectPath, mode, fullWidth, onToggleFullWid
   const filesFingerprint = useMemo(() => diffShape(storeFiles.slice(0, MAX_DIFF_FILES)), [storeFiles]);
   // eslint-disable-next-line react-hooks/exhaustive-deps -- the fingerprint is the point: it changes only when the list does
   const files = useMemo(() => storeFiles.slice(0, MAX_DIFF_FILES), [filesFingerprint]);
-  const byPath = useMemo(() => new Map(files.map((f) => [f.path, f])), [files]);
-  // The tree groups by directory; the document below it has to run in the same
-  // order or clicking a file in one is no way to find it in the other. It is
-  // also the order a lens's groups are sorted into, so the two never disagree
-  // about where a file sits — one tree walk answers both.
+  // The order a lens's groups are sorted into. `LensedFileList` runs the
+  // document in the same one, so the two never disagree about where a file sits.
   const order = useMemo(() => treeFileOrder(files), [files]);
-  const orderedFiles = useMemo(
-    () => order.map((path) => byPath.get(path)).filter((f) => f !== undefined),
-    [order, byPath],
-  );
   const truncated = totalFileCount > MAX_DIFF_FILES;
   const loading = gitFileStatus === null;
 
@@ -142,7 +135,6 @@ export function DiffPanel({ ptyId, projectPath, mode, fullWidth, onToggleFullWid
         : window.api.getFileDiff(gitPath, file.path, undefined, file.status === '?');
     },
     setDiffs,
-    (file) => file.path,
   );
 
   const lens = useDiffLens(lensTarget, diffs, order);
@@ -223,9 +215,19 @@ export function DiffPanel({ ptyId, projectPath, mode, fullWidth, onToggleFullWid
     [notes],
   );
 
+  const hasNotes = notes.notes.length > 0 || notes.composingAt !== null;
+
   const toggleFolded = useCallback((path: string, next: boolean) => {
     setFolded((prev) => toggleIn(prev, path, next));
   }, []);
+
+  const { setCollapsed } = lens;
+  const toggleGroup = useCallback(
+    (title: string, next: boolean) => {
+      setCollapsed((prev) => toggleIn(prev, title, next));
+    },
+    [setCollapsed],
+  );
 
   // Header stats
   const stats = useMemo(() => {
@@ -265,7 +267,11 @@ export function DiffPanel({ ptyId, projectPath, mode, fullWidth, onToggleFullWid
         deletions={file.deletions}
         diff={lens.sliceFor(file.path, diffs.get(file.path), hunks)}
         onAddComment={startNote}
-        renderBelowLine={renderBelowLine}
+        // Withheld until there is something to draw. It is called once per diff
+        // line, and it changes identity whenever the notes do — so passing it
+        // on a diff with no notes on it costs a key build and a map lookup per
+        // line, and makes saving the first note re-render every mounted file.
+        renderBelowLine={hasNotes ? renderBelowLine : undefined}
         collapsed={folded.has(file.path)}
         onCollapsedChange={toggleFolded}
       />
@@ -357,22 +363,15 @@ export function DiffPanel({ ptyId, projectPath, mode, fullWidth, onToggleFullWid
           {!loading && files.length === 0 && (
             <div className="flex-1 flex flex-col items-center justify-center text-text-tertiary gap-2">No changes</div>
           )}
-          {!loading &&
-            (lens.resolved
-              ? lens.resolved.map((group) => (
-                  <LensGroupSection
-                    key={group.title}
-                    group={group}
-                    collapsed={lens.collapsed.has(group.title)}
-                    onCollapsedChange={(next) => lens.setCollapsed((prev) => toggleIn(prev, group.title, next))}
-                  >
-                    {group.slices.map((slice) => {
-                      const file = byPath.get(slice.path);
-                      return file ? renderFile(file, `${group.title}:${slice.path}`, slice.hunks) : null;
-                    })}
-                  </LensGroupSection>
-                ))
-              : orderedFiles.map((file) => renderFile(file)))}
+          {!loading && (
+            <LensedFileList
+              files={files}
+              groups={lens.resolved}
+              renderFile={renderFile}
+              collapsed={lens.collapsed}
+              onCollapsedChange={toggleGroup}
+            />
+          )}
           {/* A note in the well rather than a band ruled off from the cards:
               the gap either side of it is the boundary. */}
           {!loading && truncated && (

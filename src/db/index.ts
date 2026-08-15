@@ -442,13 +442,19 @@ export async function getWorktreeLens(worktreePath: string, mode: DiffMode): Pro
 
 export async function saveWorktreeLens(
   worktreePath: string,
+  projectPath: string,
   mode: DiffMode,
   pin: string,
   groups: string,
   lensName: string | null,
 ): Promise<void> {
   const { worktreeLensRepo: wr } = repos();
-  wr.save(worktreePath, mode, pin, groups, lensName);
+  wr.save(worktreePath, projectPath, mode, pin, groups, lensName);
+}
+
+export async function renameWorktreeLens(projectPath: string, from: string, to: string): Promise<void> {
+  const { worktreeLensRepo: wr } = repos();
+  wr.rename(projectPath, from, to);
 }
 
 // ── Pull request lenses ──────────────────────────────────────────────

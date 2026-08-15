@@ -549,13 +549,15 @@ export interface ElectronAPI {
   gitCreateBranch(projectPath: string, branchName: string): Promise<GitCheckoutResult>;
   /** Merge current branch into main */
   gitMergeIntoMain(projectPath: string): Promise<GitMergeResult>;
-  /** Get diff for a specific file */
-  /** `untracked` saves a repo-wide listing when the caller already knows. */
+  /**
+   * Get diff for a specific file. `untracked` is required: working it out in
+   * main would mean listing every untracked path in the repo, once per file.
+   */
   getFileDiff(
     projectPath: string,
     filePath: string,
-    contextLines?: number,
-    untracked?: boolean,
+    contextLines: number | undefined,
+    untracked: boolean,
   ): Promise<FileDiff | null>;
   /** Create a new project */
   createProject(options: CreateProjectOptions): Promise<CreateProjectResult>;
@@ -681,7 +683,7 @@ export interface DiffLensAPI {
  */
 export interface DiffNotesAPI {
   list(worktreePath: string): Promise<DiffNote[]>;
-  save(input: SaveDiffNoteInput): Promise<DiffNote>;
+  save(input: SaveDiffNoteInput): Promise<{ success: boolean }>;
   discard(id: string): Promise<{ success: boolean }>;
   clear(worktreePath: string): Promise<{ success: boolean }>;
 }

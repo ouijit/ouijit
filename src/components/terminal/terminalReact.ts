@@ -19,6 +19,7 @@ import { useTerminalStore } from '../../stores/terminalStore';
 import { closeProjectTerminal } from './terminalActions';
 import { parseOsc133ExitCodes } from './osc133';
 import type { TerminalPanel, RunnerPanel, WebPreviewPanel } from './panelTypes';
+import type { DiffMode } from '../../diffSource';
 
 // ── Idle fallback timer constants ────────────────────────────────────
 const IDLE_FALLBACK_MS = 3000;
@@ -406,7 +407,7 @@ export class OuijitTerminal {
 
   // ── Diff (automatic, header-driven — not a user-managed panel tab) ──
   diffPanelOpen = false;
-  diffPanelMode: 'uncommitted' | 'worktree' = 'uncommitted';
+  diffPanelMode: DiffMode = 'uncommitted';
 
   // ── Data side-effect throttling ─────────────────────────────────────
   private sideEffectTimer: ReturnType<typeof setTimeout> | null = null;

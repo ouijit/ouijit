@@ -17,6 +17,7 @@ import { PullRequestRail } from './PullRequestRail';
 import { ReviewActions } from './ReviewActions';
 import { SummaryPane } from './SummaryPane';
 import { stateBadge } from './prFormat';
+import { describeError } from '../../utils/describeError';
 
 interface PullRequestDetailViewProps {
   projectPath: string;
@@ -198,7 +199,7 @@ export function PullRequestDetailView({
           await useGithubStore.getState().loadLens(projectPath, prNumber, headSha);
         })
         .catch((error: unknown) => {
-          useProjectStore.getState().addToast(error instanceof Error ? error.message : String(error), 'error');
+          useProjectStore.getState().addToast(describeError(error), 'error');
         })
         .finally(() => {
           // Whatever happened, it is no longer happening. Clearing only on

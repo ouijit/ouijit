@@ -16,6 +16,9 @@ import { getLogger } from './logger';
 
 const log = getLogger().scope('diff:lens');
 
+/** How many files' diffs are read at once when gathering context for a lens. */
+const DIFF_BATCH_SIZE = 10;
+
 export interface DiffLensTarget {
   projectPath: string;
   /** The worktree the diff is of, and the key the lens is stored under. */
@@ -49,13 +52,16 @@ export interface DiffLensResult {
  * diff has no revision to name, so it is fingerprinted by the shape of the
  * change — approximate, since an edit that preserves line counts will not
  * register as drift, but cheap enough to compute on the status poll.
+ *
+ * `files` is a thunk because the branch case never reads it, and producing it
+ * costs a full status poll — including a read of every untracked file.
  */
-async function pinFor(target: DiffLensTarget, files: ChangedFile[]): Promise<string> {
+async function pinFor(target: DiffLensTarget, files: () => Promise<ChangedFile[]>): Promise<string> {
   if (target.mode === 'worktree' && target.branch) {
     const revisions = await getBranchDiffPin(target.projectPath, target.branch, target.mergeTarget);
     if (revisions) return revisions;
   }
-  return `shape:${createHash('sha256').update(diffShape(files)).digest('hex').slice(0, 16)}`;
+  return `shape:${createHash('sha256').update(diffShape(await files())).digest('hex').slice(0, 16)}`;
 }
 
 /** Every file the panel would show, in the same two lists it reads. */
@@ -64,7 +70,7 @@ async function filesFor(target: DiffLensTarget): Promise<ChangedFile[]> {
   return status ? filesInDiff(status, target.mode) : [];
 }
 
-function diffFor(target: DiffLensTarget, file: ChangedFile): FileDiff | null {
+function diffFor(target: DiffLensTarget, file: ChangedFile): Promise<FileDiff | null> {
   if (target.branch && usesBranchDiff(target.mode, file.status)) {
     return getWorktreeFileDiff(target.projectPath, target.branch, file.path, target.mergeTarget);
   }
@@ -83,7 +89,7 @@ export async function readDiffLens(target: DiffLensTarget): Promise<DiffLensResu
   const groups = parseLens(row.groups);
   if (!groups) return null;
 
-  const pin = await pinFor(target, await filesFor(target));
+  const pin = await pinFor(target, () => filesFor(target));
   return { groups, lensName: row.lens_name, stale: pin !== row.pin };
 }
 
@@ -104,8 +110,19 @@ export async function writeDiffLens(
   const files = await filesFor(target);
   if (files.length === 0) return { success: false, error: 'There are no changes to group' };
 
+  // Taken before the agent runs, not after. It records the diff the lens was
+  // written against, and an agent that takes a minute leaves time for that to
+  // move — pinning to the later state would call a stale lens fresh.
+  const pin = await pinFor(target, () => Promise.resolve(files));
+
+  // A batch at a time rather than all at once: every one of these is a `git`
+  // child process, and a 300-file change would otherwise spawn 300 together.
   const diffs = new Map<string, FileDiff | null>();
-  for (const file of files) diffs.set(file.path, diffFor(target, file));
+  for (let i = 0; i < files.length; i += DIFF_BATCH_SIZE) {
+    const batch = files.slice(i, i + DIFF_BATCH_SIZE);
+    const read = await Promise.all(batch.map((file) => diffFor(target, file)));
+    batch.forEach((file, at) => diffs.set(file.path, read[at]));
+  }
 
   const what = target.mode === 'worktree' ? "a branch's changes" : 'the uncommitted changes in a working tree';
   log.info('gathering context for a lens', { mode: target.mode, files: files.length, lens: lensName });
@@ -126,6 +143,6 @@ export async function writeDiffLens(
 
   // `runLens` has already parsed what the agent said and re-serialised it, the
   // same body the pull request path stores.
-  await saveWorktreeLens(target.worktreePath, target.mode, await pinFor(target, files), result.body, lens.name);
+  await saveWorktreeLens(target.worktreePath, target.projectPath, target.mode, pin, result.body, lens.name);
   return { success: true };
 }

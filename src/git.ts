@@ -836,73 +836,72 @@ function toFileDiff(filePath: string, diffOutput: string): FileDiff | null {
 }
 
 /**
- * The whole of an untracked file, as additions.
+ * One file's diff, from whichever `git diff` argv the caller needs.
  *
- * Exported so a caller that already knows the file is untracked — the file
- * list says so — can skip `getFileDiff`'s repo-wide probe for it.
+ * `quiet` is for `--no-index`, which exits 1 to mean "these differ" — the
+ * output is on stdout either way, so the failure is the expected case.
  */
-export function getUntrackedFileDiff(projectPath: string, filePath: string, contextLines?: number): FileDiff | null {
+async function readFileDiff(
+  projectPath: string,
+  filePath: string,
+  args: string[],
+  quiet = false,
+): Promise<FileDiff | null> {
   const opts = { ...gitExecOpts(projectPath), maxBuffer: 10 * 1024 * 1024 };
-  const contextArg = contextLines != null ? `-U${contextLines}` : undefined;
-
   try {
-    let diffOutput: string;
-    try {
-      const args = ['diff', '--no-index', ...(contextArg ? [contextArg] : []), '/dev/null', filePath];
-      diffOutput = execFileSync('git', args, { ...opts, stdio: ['pipe', 'pipe', 'ignore'] }).toString();
-    } catch (error) {
-      // git diff --no-index returns exit code 1 when files differ, which is expected
-      if (error && typeof error === 'object' && 'stdout' in error) {
-        diffOutput = (error as { stdout: Buffer }).stdout.toString();
-      } else {
-        diffOutput = '';
-      }
+    const { stdout } = await execFileAsync('git', ['diff', ...args], opts);
+    return toFileDiff(filePath, stdout);
+  } catch (error) {
+    if (quiet && error && typeof error === 'object' && 'stdout' in error) {
+      return toFileDiff(filePath, String((error as { stdout: string }).stdout));
     }
-    return toFileDiff(filePath, diffOutput);
-  } catch {
     return null;
   }
 }
 
-/** A tracked file's diff against HEAD. */
-export function getTrackedFileDiff(projectPath: string, filePath: string, contextLines?: number): FileDiff | null {
-  const opts = { ...gitExecOpts(projectPath), maxBuffer: 10 * 1024 * 1024 };
-  const contextArg = contextLines != null ? `-U${contextLines}` : undefined;
+function contextArgs(contextLines?: number): string[] {
+  return contextLines != null ? [`-U${contextLines}`] : [];
+}
 
-  try {
-    const args = ['diff', ...(contextArg ? [contextArg] : []), 'HEAD', '--', filePath];
-    return toFileDiff(filePath, execFileSync('git', args, opts).toString());
-  } catch {
-    return null;
-  }
+/**
+ * The whole of an untracked file, as additions.
+ *
+ * Exported so a caller that already knows the file is untracked — the file
+ * list says so — can name that directly rather than going through `getFileDiff`.
+ */
+export function getUntrackedFileDiff(
+  projectPath: string,
+  filePath: string,
+  contextLines?: number,
+): Promise<FileDiff | null> {
+  return readFileDiff(projectPath, filePath, ['--no-index', ...contextArgs(contextLines), '/dev/null', filePath], true);
+}
+
+/** A tracked file's diff against HEAD. */
+export function getTrackedFileDiff(
+  projectPath: string,
+  filePath: string,
+  contextLines?: number,
+): Promise<FileDiff | null> {
+  return readFileDiff(projectPath, filePath, [...contextArgs(contextLines), 'HEAD', '--', filePath]);
 }
 
 /**
  * Gets the diff for a specific file, tracked or not.
  *
- * Working out which it is means listing every untracked path in the repo, so a
- * caller working through a file list that already carries statuses should pass
- * `untracked` and skip it — otherwise that listing runs once per file.
+ * `untracked` is required rather than probed for: working it out here would
+ * mean listing every untracked path in the repo, once per file. Every caller
+ * arrives from a file list that already carries the status.
  */
 export function getFileDiff(
   projectPath: string,
   filePath: string,
-  contextLines?: number,
-  untracked?: boolean,
-): FileDiff | null {
-  try {
-    const isUntracked = untracked ?? untrackedPaths(projectPath).includes(filePath);
-    return isUntracked
-      ? getUntrackedFileDiff(projectPath, filePath, contextLines)
-      : getTrackedFileDiff(projectPath, filePath, contextLines);
-  } catch {
-    return null;
-  }
-}
-
-function untrackedPaths(projectPath: string): string[] {
-  const opts = { ...gitExecOpts(projectPath), maxBuffer: 10 * 1024 * 1024 };
-  return execSync('git ls-files --others --exclude-standard', opts).toString().trim().split('\n');
+  contextLines: number | undefined,
+  untracked: boolean,
+): Promise<FileDiff | null> {
+  return untracked
+    ? getUntrackedFileDiff(projectPath, filePath, contextLines)
+    : getTrackedFileDiff(projectPath, filePath, contextLines);
 }
 
 /**
@@ -982,6 +981,20 @@ function parseNameStatus(
 /** Past this, a file is reported without a line count rather than read. */
 const UNTRACKED_COUNT_LIMIT = 2 * 1024 * 1024;
 
+/** How many untracked files are read at once. */
+const UNTRACKED_READ_BATCH = 16;
+
+/**
+ * Line counts already worked out, keyed by the file and the version of it.
+ *
+ * The status poll runs every few seconds and almost nothing it lists has
+ * changed since last time, so the `stat` each entry is keyed on is usually the
+ * whole cost. Bounded because a long session in a repo with a busy build
+ * directory would otherwise accumulate an entry per path ever seen.
+ */
+const untrackedLines = new Map<string, number>();
+const UNTRACKED_CACHE_LIMIT = 5000;
+
 /**
  * Untracked paths as changed files, with the line count each one would add.
  *
@@ -990,32 +1003,48 @@ const UNTRACKED_COUNT_LIMIT = 2 * 1024 * 1024;
  * report no lines, matching what the diff view will say about them.
  */
 async function countUntracked(projectPath: string, paths: string[]): Promise<ChangedFile[]> {
-  return Promise.all(
-    paths.map(async (relPath): Promise<ChangedFile> => {
-      const file: ChangedFile = { path: relPath, status: '?', additions: 0, deletions: 0 };
-      try {
-        const absolute = path.join(projectPath, relPath);
-        const stats = await fs.stat(absolute);
-        if (!stats.isFile() || stats.size > UNTRACKED_COUNT_LIMIT) return file;
+  const files: ChangedFile[] = [];
+  // In batches: a repo with hundreds of untracked files would otherwise have
+  // every one of them open at once.
+  for (let i = 0; i < paths.length; i += UNTRACKED_READ_BATCH) {
+    files.push(...(await Promise.all(paths.slice(i, i + UNTRACKED_READ_BATCH).map((p) => countOne(projectPath, p)))));
+  }
+  return files;
+}
 
-        const contents = await fs.readFile(absolute);
-        // The same test git uses: a NUL byte early on means it is not text.
-        if (contents.subarray(0, 8000).includes(0)) return file;
+async function countOne(projectPath: string, relPath: string): Promise<ChangedFile> {
+  const file: ChangedFile = { path: relPath, status: '?', additions: 0, deletions: 0 };
+  try {
+    const absolute = path.join(projectPath, relPath);
+    const stats = await fs.stat(absolute);
+    if (!stats.isFile() || stats.size > UNTRACKED_COUNT_LIMIT) return file;
 
-        // `indexOf` scans in native code. Iterating the Buffer in JS to do the
-        // same thing runs on the main thread, and this is on a status poll.
-        let lines = 0;
-        for (let at = contents.indexOf(0x0a); at !== -1; at = contents.indexOf(0x0a, at + 1)) lines++;
-        // A final line with no newline after it is still a line.
-        if (contents.length > 0 && contents[contents.length - 1] !== 0x0a) lines++;
-        file.additions = lines;
-      } catch {
-        // Deleted between the listing and now, or unreadable — still a file
-        // the diff should mention, just without a count.
-      }
+    const key = `${absolute}\0${stats.size}\0${stats.mtimeMs}`;
+    const cached = untrackedLines.get(key);
+    if (cached !== undefined) {
+      file.additions = cached;
       return file;
-    }),
-  );
+    }
+
+    const contents = await fs.readFile(absolute);
+    // The same test git uses: a NUL byte early on means it is not text.
+    if (contents.subarray(0, 8000).includes(0)) return file;
+
+    // `indexOf` scans in native code. Iterating the Buffer in JS to do the
+    // same thing runs on the main thread, and this is on a status poll.
+    let lines = 0;
+    for (let at = contents.indexOf(0x0a); at !== -1; at = contents.indexOf(0x0a, at + 1)) lines++;
+    // A final line with no newline after it is still a line.
+    if (contents.length > 0 && contents[contents.length - 1] !== 0x0a) lines++;
+
+    if (untrackedLines.size >= UNTRACKED_CACHE_LIMIT) untrackedLines.clear();
+    untrackedLines.set(key, lines);
+    file.additions = lines;
+  } catch {
+    // Deleted between the listing and now, or unreadable — still a file
+    // the diff should mention, just without a count.
+  }
+  return file;
 }
 
 // ── Unified git file status ─────────────────────────────────────────
@@ -1175,23 +1204,20 @@ export function getWorktreeDiff(
 /**
  * Gets the diff for a specific file between worktree branch and a target branch
  */
-export function getWorktreeFileDiff(
+export async function getWorktreeFileDiff(
   projectPath: string,
   worktreeBranch: string,
   filePath: string,
   targetBranch?: string,
   contextLines?: number,
-): FileDiff | null {
-  const opts = { ...gitExecOpts(projectPath), maxBuffer: 10 * 1024 * 1024 };
-  const baseBranch = targetBranch || getMainBranch(projectPath);
-  const contextArg = contextLines != null ? `-U${contextLines}` : undefined;
-
-  try {
-    const args = ['diff', ...(contextArg ? [contextArg] : []), `${baseBranch}...${worktreeBranch}`, '--', filePath];
-    return toFileDiff(filePath, execFileSync('git', args, opts).toString());
-  } catch {
-    return null;
-  }
+): Promise<FileDiff | null> {
+  const baseBranch = targetBranch || (await getMainBranchAsync(projectPath));
+  return readFileDiff(projectPath, filePath, [
+    ...contextArgs(contextLines),
+    `${baseBranch}...${worktreeBranch}`,
+    '--',
+    filePath,
+  ]);
 }
 
 /**

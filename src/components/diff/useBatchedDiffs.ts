@@ -19,12 +19,11 @@ const BATCH_SIZE = 10;
  * renders as "could not read" — distinct from `undefined`, which is still
  * loading.
  */
-export function useBatchedDiffs<T>(
+export function useBatchedDiffs<T extends { path: string }>(
   files: readonly T[],
   fingerprint: string,
   loadOne: (file: T) => Promise<FileDiff | null>,
   publish: (diffs: Map<string, FileDiff | null>) => void,
-  pathOf: (file: T) => string,
 ): void {
   useEffect(() => {
     let cancelled = false;
@@ -40,9 +39,9 @@ export function useBatchedDiffs<T>(
         const results = await Promise.all(
           batch.map(async (file): Promise<[string, FileDiff | null]> => {
             try {
-              return [pathOf(file), await loadOne(file)];
+              return [file.path, await loadOne(file)];
             } catch {
-              return [pathOf(file), null];
+              return [file.path, null];
             }
           }),
         );

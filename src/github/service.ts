@@ -24,6 +24,7 @@ import {
   getPrLens,
   savePrLens,
   renamePrLens,
+  renameWorktreeLens,
   deletePrLens,
   getGlobalSetting,
   createTask,
@@ -456,8 +457,11 @@ export async function saveLens(
   await writeLenses(projectPath, without);
 
   // Anything already read through it is still being read through it, whatever
-  // it is now called.
-  if (previousName && previousName !== lens.name) await renamePrLens(projectPath, previousName, lens.name);
+  // it is now called — on both diffs a lens can be applied to.
+  if (previousName && previousName !== lens.name) {
+    await renamePrLens(projectPath, previousName, lens.name);
+    await renameWorktreeLens(projectPath, previousName, lens.name);
+  }
 
   return lens;
 }
