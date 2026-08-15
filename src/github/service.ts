@@ -352,6 +352,13 @@ export async function listDrafts(projectPath: string, prNumber: number): Promise
 
 export async function saveDraft(projectPath: string, input: SaveDraftInput): Promise<ReviewDraft> {
   const existing = input.id ? await getReviewDraft(input.id) : null;
+  // A draft id is unique across every project, and the write below is an
+  // upsert, so an id belonging to somewhere else would not be rejected — it
+  // would be *moved* here, taking its body with it. The CLI and REST callers
+  // supply the id, so it is checked rather than trusted.
+  if (existing && (existing.project_path !== projectPath || existing.pr_number !== input.prNumber)) {
+    throw new Error(`Draft ${input.id} belongs to another pull request`);
+  }
   const row = await saveReviewDraft({
     id: input.id ?? randomUUID(),
     project_path: projectPath,

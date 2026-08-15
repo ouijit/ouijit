@@ -153,7 +153,12 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
 
   useImperativeHandle(ref, () => ({ editDraft: setEditingDraftId }), []);
 
-  const filesFingerprint = useMemo(() => diffShape(files), [files]);
+  // The head is part of it, not just the file list: a force-push that leaves
+  // every path and line count where they were — a reordering, a swap, an
+  // amended commit — produces the same shape, and the loader below would then
+  // go on showing the previous head's hunks while every review anchor points
+  // at the new one.
+  const filesFingerprint = useMemo(() => `${detail.headSha}\n${diffShape(files)}`, [files, detail.headSha]);
 
   useBatchedDiffs(
     files,

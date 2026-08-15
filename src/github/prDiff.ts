@@ -152,6 +152,17 @@ async function fetchPrRefs(
     if (!result.success) {
       return { success: false, error: `Could not fetch pull request #${prNumber}: ${result.error ?? 'fetch failed'}` };
     }
+    // `refs/pull/<n>/head` is whatever the pull request points at now, which is
+    // not necessarily the head the caller read a moment ago. Checked rather
+    // than assumed: without this a force-push mid-read falls through to the
+    // merge-base test below and is reported as a shallow clone, which sends the
+    // user off to run `git fetch --unshallow` for a problem they do not have.
+    if (!(await resolveRef(projectPath, headSha))) {
+      return {
+        success: false,
+        error: `Pull request #${prNumber} has moved since it was read — refresh it and try again.`,
+      };
+    }
   }
 
   const needBase = !(await resolveRef(projectPath, baseSha));

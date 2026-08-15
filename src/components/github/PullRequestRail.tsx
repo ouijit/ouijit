@@ -131,10 +131,12 @@ export function PullRequestRail({
 
       {lensOn && groups ? (
         <div className="flex-1 min-h-0 overflow-y-auto py-1">
-          {groups.map((group) => {
+          {groups.map((group, at) => {
             const folded = collapsed.has(group.title);
             return (
-              <div key={group.title} className="flex flex-col">
+              // Indexed: two parts of a lens may carry the same title, and a
+              // key that is only the title keeps one of them.
+              <div key={`${at}:${group.title}`} className="flex flex-col">
                 {/* Set as the lens wrote it. Uppercasing a title shouts, and
                     algorithmic title case would spell GitHub "Github".
 

@@ -42,9 +42,11 @@ export function LensedFileList<T extends { path: string }>({
 
   return (
     <>
-      {groups.map((group) => (
+      {groups.map((group, at) => (
         <LensGroupSection
-          key={group.title}
+          // Indexed, because nothing stops a lens naming two parts the same and
+          // React would then keep only one of them.
+          key={`${at}:${group.title}`}
           group={group}
           collapsed={collapsed.has(group.title)}
           onCollapsedChange={(next) => onCollapsedChange(group.title, next)}

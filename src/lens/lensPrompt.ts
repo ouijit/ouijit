@@ -233,31 +233,61 @@ export function extractJson(output: string): string | null {
     if (fences[i].startsWith('{')) return fences[i];
   }
 
-  const start = output.indexOf('{');
-  if (start === -1) return null;
+  // Every balanced object in the reply, not just the one the first `{` opens:
+  // a preamble that mentions a brace at all — "use {ranges} to select lines" —
+  // otherwise hands back that fragment and the whole run is lost to a parse
+  // error. The one that looks like a lens wins; failing that, the last one,
+  // since the answer is what an agent says after it has finished talking.
+  const objects = balancedObjects(output);
+  if (objects.length === 0) return null;
 
+  for (let i = objects.length - 1; i >= 0; i--) {
+    if (looksLikeLens(objects[i])) return objects[i];
+  }
+  return objects[objects.length - 1];
+}
+
+function looksLikeLens(candidate: string): boolean {
+  try {
+    const parsed: unknown = JSON.parse(candidate);
+    return typeof parsed === 'object' && parsed !== null && Array.isArray((parsed as { groups?: unknown }).groups);
+  } catch {
+    return false;
+  }
+}
+
+/** Every top-level `{…}` in the text, in the order they appear. */
+function balancedObjects(output: string): string[] {
+  const found: string[] = [];
+  let start = -1;
   let depth = 0;
   let inString = false;
   let escaped = false;
 
-  for (let i = start; i < output.length; i++) {
+  for (let i = 0; i < output.length; i++) {
     const char = output[i];
     if (escaped) {
       escaped = false;
       continue;
     }
     if (char === '\\') {
-      escaped = true;
+      // Only meaningful inside a string; outside one there is nothing to escape.
+      if (inString) escaped = true;
       continue;
     }
-    if (char === '"') inString = !inString;
+    if (char === '"' && depth > 0) inString = !inString;
     if (inString) continue;
-    if (char === '{') depth++;
-    else if (char === '}') {
+    if (char === '{') {
+      if (depth === 0) start = i;
+      depth++;
+    } else if (char === '}' && depth > 0) {
       depth--;
-      if (depth === 0) return output.slice(start, i + 1);
+      if (depth === 0 && start !== -1) {
+        found.push(output.slice(start, i + 1));
+        start = -1;
+      }
     }
   }
 
-  return null;
+  return found;
 }

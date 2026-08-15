@@ -83,7 +83,13 @@ export function DiffPanel({ ptyId, projectPath, mode, fullWidth, onToggleFullWid
   // anything moved, and everything below here — the tree walk, the lens
   // resolution, the per-file loader — keys off `files`. Without this they all
   // re-run on a diff that did not change.
-  const filesFingerprint = useMemo(() => diffShape(storeFiles.slice(0, MAX_DIFF_FILES)), [storeFiles]);
+  // The mode rides along, because it decides which git command each file's
+  // diff comes from and two modes can list the same shape — the moment an
+  // agent commits, the uncommitted list becomes the branch list unchanged.
+  const filesFingerprint = useMemo(
+    () => `${effectiveMode}\n${diffShape(storeFiles.slice(0, MAX_DIFF_FILES))}`,
+    [storeFiles, effectiveMode],
+  );
   // eslint-disable-next-line react-hooks/exhaustive-deps -- the fingerprint is the point: it changes only when the list does
   const files = useMemo(() => storeFiles.slice(0, MAX_DIFF_FILES), [filesFingerprint]);
   // The order a lens's groups are sorted into. `LensedFileList` runs the

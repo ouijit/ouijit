@@ -57,6 +57,12 @@ export function CommentComposer({ projectPath, number, subject }: CommentCompose
           onChange={(e) => setBody(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) void post();
+            if (e.key === 'Escape') {
+              // Claim it, or the panel's own Escape handler closes the pull
+              // request out from under a comment being written.
+              e.preventDefault();
+              e.currentTarget.blur();
+            }
           }}
           placeholder="Leave a comment"
           className="field resize-y"

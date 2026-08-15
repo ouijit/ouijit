@@ -39,7 +39,13 @@ export const useComposerStore = create<ComposerStore>()((set) => ({
   closeSheet: () => set({ sheetOpen: false, sheetCaret: null }),
 }));
 
-/** True when the board is on screen, so the column composer exists to focus. */
+/**
+ * True when the board is on screen, so the column composer exists to focus.
+ *
+ * Named panels are checked in, not out: every panel that is not `terminals`
+ * renders in place of the board, so a new one added later reads as "no board"
+ * rather than silently claiming a composer that isn't mounted.
+ */
 export function isBoardMounted(activePanel: string, kanbanVisible: boolean): boolean {
-  return activePanel !== 'settings' && kanbanVisible;
+  return activePanel === 'terminals' && kanbanVisible;
 }
