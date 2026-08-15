@@ -12,7 +12,7 @@ import { up as migration010 } from './migrations/010-project-icon-color';
 import { up as migration011 } from './migrations/011-drop-project-icon-data-url';
 import { up as migration012 } from './migrations/012-per-runnable-restart';
 import { up as migration013 } from './migrations/013-drop-task-sandboxed';
-import { up as migration015 } from './migrations/015-github-diff-and-lenses';
+import { up as migration014 } from './migrations/014-github-diff-and-lenses';
 
 const migrations = [
   { version: 1, up: migration001 },
@@ -28,9 +28,7 @@ const migrations = [
   { version: 11, up: migration011 },
   { version: 12, up: migration012 },
   { version: 13, up: migration013 },
-  // 14 is skipped: it was this work's first, partial migration, and databases
-  // from the development period have it recorded. See 015 for why.
-  { version: 15, up: migration015 },
+  { version: 14, up: migration014 },
 ];
 
 let db: Database.Database | null = null;

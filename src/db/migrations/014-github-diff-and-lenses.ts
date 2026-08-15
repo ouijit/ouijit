@@ -4,15 +4,6 @@ import type Database from 'better-sqlite3';
  * Everything the GitHub integration, diff notes and lenses need: pull requests,
  * issues, review drafts, the notes written on a worktree diff, and the lenses
  * read over either.
- *
- * 15 rather than 14, though it is the only migration this work adds. A database
- * that ran a build from the development period has 14 recorded and a partial
- * schema behind it — the review drafts and diff notes, but the lens table under
- * its old name and shape. The runner keys on the version alone, so numbering
- * this 14 would mean it never runs there and `diff_lenses` is never created.
- *
- * That is what the guards below are for as well. This has to be able to land on
- * a database that already has half of it.
  */
 export function up(db: Database.Database): void {
   const taskColumns = db.prepare("PRAGMA table_info('tasks')").all() as { name: string }[];
@@ -66,12 +57,6 @@ export function up(db: Database.Database): void {
     );
 
     CREATE INDEX IF NOT EXISTS idx_diff_notes_worktree ON diff_notes(worktree_path);
-
-    -- The lens table as it was first written, and as it was renamed to before
-    -- being generalised: same rows, keyed by pull request and pinned to a head
-    -- SHA. Neither shipped, but a database from that period has one of them.
-    DROP TABLE IF EXISTS github_pr_lenses;
-    DROP TABLE IF EXISTS worktree_lenses;
 
     -- One row per lens, whatever diff it was written over. subject_key says
     -- which diff -- pr:<number>, or wt:<path>:<mode> -- and is only ever
