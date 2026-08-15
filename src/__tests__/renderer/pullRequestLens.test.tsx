@@ -10,52 +10,9 @@ import { useAppStore } from '../../stores/appStore';
 import { useGithubStore } from '../../stores/githubStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { _resetLensRunsForTesting } from '../../components/diff/useLensSession';
-import type { PullRequestDetail, PullRequestSummary } from '../../types';
-import type { InboxResult } from '../../github/types';
+import { pr, inbox, detail } from './githubFixtures';
 
 const PROJECT = '/work/alpha';
-
-function pr(over: Partial<PullRequestSummary> & { number: number }): PullRequestSummary {
-  return {
-    title: `PR ${over.number}`,
-    state: 'open',
-    isDraft: false,
-    author: 'someone',
-    headRefName: `feat-${over.number}`,
-    baseRefName: 'main',
-    createdAt: '2026-07-01T00:00:00.000Z',
-    updatedAt: '2026-07-02T00:00:00.000Z',
-    url: `https://github.com/o/r/pull/${over.number}`,
-    additions: 1,
-    deletions: 1,
-    changedFiles: 1,
-    commentCount: 0,
-    reviewDecision: null,
-    checksState: 'none',
-    labels: [],
-    isMine: false,
-    reviewRequested: false,
-    ...over,
-  };
-}
-
-function inbox(over: Partial<InboxResult> = {}): InboxResult {
-  return { viewer: 'me', needsReview: [], mine: [], others: [], draftCounts: {}, linkedTasks: {}, ...over };
-}
-
-function detail(over: Partial<PullRequestDetail> = {}): PullRequestDetail {
-  return {
-    ...pr({ number: 5 }),
-    body: 'why this change exists',
-    baseSha: 'aaa',
-    headSha: 'bbb',
-    threads: [],
-    timeline: [],
-    checks: [],
-    merge: { mergeable: 'MERGEABLE', blockers: [] },
-    ...over,
-  };
-}
 
 /** The rail's one control: how this change is being read. */
 async function openPicker() {
