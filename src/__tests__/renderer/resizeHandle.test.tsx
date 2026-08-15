@@ -19,52 +19,30 @@ describe('ResizeHandle', () => {
     vi.clearAllMocks();
   });
 
-  test('dragging reports the new width', () => {
+  test('a drag reports widths, stops at the limits, and ends when released', () => {
     const { onWidth } = renderHandle();
 
     fireEvent.mouseDown(handle(), { clientX: 400 });
+    // Without this, dragging the handle sweeps a text selection across the diff
+    // behind it.
+    expect(document.body.style.userSelect).toBe('none');
+    expect(document.body.style.cursor).toBe('col-resize');
+
     fireEvent.mouseMove(document, { clientX: 460 });
     expect(onWidth).toHaveBeenLastCalledWith(360);
-
-    fireEvent.mouseUp(document);
-  });
-
-  test('a drag past the limits stops at them', () => {
-    const { onWidth } = renderHandle();
-
-    fireEvent.mouseDown(handle(), { clientX: 400 });
     fireEvent.mouseMove(document, { clientX: 4000 });
     expect(onWidth).toHaveBeenLastCalledWith(500);
     fireEvent.mouseMove(document, { clientX: -4000 });
     expect(onWidth).toHaveBeenLastCalledWith(200);
 
     fireEvent.mouseUp(document);
-  });
-
-  test('the drag stops listening once the button is released', () => {
-    const { onWidth } = renderHandle();
-
-    fireEvent.mouseDown(handle(), { clientX: 400 });
-    fireEvent.mouseUp(document);
-    onWidth.mockClear();
-
-    // Otherwise the pane keeps resizing as the pointer wanders the window.
-    fireEvent.mouseMove(document, { clientX: 800 });
-    expect(onWidth).not.toHaveBeenCalled();
-  });
-
-  test('the page stops selecting text while a drag is in progress', () => {
-    renderHandle();
-
-    fireEvent.mouseDown(handle(), { clientX: 400 });
-    // Without this, dragging the handle sweeps a selection across the diff
-    // behind it.
-    expect(document.body.style.userSelect).toBe('none');
-    expect(document.body.style.cursor).toBe('col-resize');
-
-    fireEvent.mouseUp(document);
     expect(document.body.style.userSelect).toBe('');
     expect(document.body.style.cursor).toBe('');
+
+    // Otherwise the pane keeps resizing as the pointer wanders the window.
+    onWidth.mockClear();
+    fireEvent.mouseMove(document, { clientX: 800 });
+    expect(onWidth).not.toHaveBeenCalled();
   });
 
   test('double-clicking returns to the default width', () => {

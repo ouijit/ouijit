@@ -54,8 +54,9 @@ describe('tokenizeDiffHunks', () => {
     expect(peekDiffTokens([h], 'b.ts')).not.toBeNull();
   });
 
-  test('adjacent tokens styled the same are merged into one', async () => {
-    const [tokens] = await tokenizeDiffHunks([hunk(['const someObject = other.deeply.nested.property;'])], 'a.ts');
+  test('adjacent tokens styled the same are merged, and the line still reads', async () => {
+    const content = 'const someObject = other.deeply.nested.property;';
+    const [tokens] = await tokenizeDiffHunks([hunk([content])], 'a.ts');
     const line = tokens[0];
     expect(line).toBeTruthy();
 
@@ -63,12 +64,8 @@ describe('tokenizeDiffHunks', () => {
     // appearance — five nodes for `a.b.c` that all render identically.
     const adjacentDuplicates = (line ?? []).filter((token, i) => i > 0 && line![i - 1].color === token.color);
     expect(adjacentDuplicates).toEqual([]);
-  });
-
-  test('rejoined token content still spells the original line', async () => {
-    const content = 'const someObject = other.deeply.nested.property;';
-    const [tokens] = await tokenizeDiffHunks([hunk([content])], 'a.ts');
-    expect((tokens[0] ?? []).map((t) => t.content).join('')).toBe(content);
+    // Which is only a merge if nothing was dropped on the way.
+    expect((line ?? []).map((t) => t.content).join('')).toBe(content);
   });
 
   test('a file too large to be worth highlighting is left plain', async () => {
@@ -81,14 +78,12 @@ describe('tokenizeDiffHunks', () => {
     expect(tokens[0].every((line) => line === null)).toBe(true);
   });
 
-  test('a minified line is left plain without dragging its hunk down with it', async () => {
-    const tokens = await tokenizeDiffHunks([hunk(['x'.repeat(1001)])], 'bundle.js');
-    expect(tokens[0].every((line) => line === null)).toBe(true);
-  });
+  test('a minified line or an unknown language is plain rather than an error', async () => {
+    const minified = await tokenizeDiffHunks([hunk(['x'.repeat(1001)])], 'bundle.js');
+    expect(minified[0].every((line) => line === null)).toBe(true);
 
-  test('an unrecognised language is plain rather than an error', async () => {
-    const tokens = await tokenizeDiffHunks([hunk(['whatever this is'])], 'notes.unknownext');
-    expect(tokens[0].every((line) => line === null)).toBe(true);
+    const unknown = await tokenizeDiffHunks([hunk(['whatever this is'])], 'notes.unknownext');
+    expect(unknown[0].every((line) => line === null)).toBe(true);
   });
 });
 

@@ -10,40 +10,26 @@ import type { ChangedFile } from '../../types';
  * and scrolling the document reads as shuffled.
  */
 describe('treeFileOrder', () => {
-  test('files sharing a directory are brought together', () => {
-    // The order a file list arrives in is GitHub's or git's, not one that
-    // keeps a directory's files next to each other.
-    const arrived = [{ path: 'src/db.ts' }, { path: 'docs/readme.md' }, { path: 'src/api.ts' }];
-
-    expect(treeFileOrder(arrived)).toEqual(['docs/readme.md', 'src/api.ts', 'src/db.ts']);
-  });
-
-  test('a list already grouped is left as it is', () => {
-    const arrived = [{ path: 'src/a.ts' }, { path: 'src/b.ts' }, { path: 'test/c.ts' }];
-    expect(treeFileOrder(arrived)).toEqual(['src/a.ts', 'src/b.ts', 'test/c.ts']);
-  });
-
-  test('a directory comes before the files beside it', () => {
-    const arrived = [{ path: 'src/api.ts' }, { path: 'src/ui/Panel.tsx' }, { path: 'src/db.ts' }];
-    expect(treeFileOrder(arrived)).toEqual(['src/ui/Panel.tsx', 'src/api.ts', 'src/db.ts']);
-  });
-
-  test('root files and nested ones both come through exactly once', () => {
-    const arrived = [{ path: 'README.md' }, { path: 'src/deep/nested/thing.ts' }, { path: 'package.json' }];
-    const order = treeFileOrder(arrived);
-
-    expect(new Set(order)).toEqual(new Set(arrived.map((f) => f.path)));
-    expect(order).toHaveLength(arrived.length);
-  });
-
-  test('sorting carries the rest of the file with it', () => {
-    const files = [
+  test('directories are gathered, nested ones first, and nothing is lost', () => {
+    // The order a file list arrives in is GitHub's or git's, not one that keeps
+    // a directory's files next to each other.
+    const arrived = [
       { path: 'src/db.ts', additions: 1 },
       { path: 'docs/readme.md', additions: 2 },
       { path: 'src/api.ts', additions: 3 },
+      { path: 'src/ui/Panel.tsx', additions: 4 },
+      { path: 'README.md', additions: 5 },
     ];
 
-    expect(inTreeOrder(files).map((f) => f.additions)).toEqual([2, 3, 1]);
+    expect(treeFileOrder(arrived)).toEqual([
+      'docs/readme.md',
+      'src/ui/Panel.tsx',
+      'src/api.ts',
+      'src/db.ts',
+      'README.md',
+    ]);
+    // inTreeOrder is the same order with the whole file carried along.
+    expect(inTreeOrder(arrived).map((f) => f.additions)).toEqual([2, 4, 3, 1, 5]);
   });
 
   test('an empty list is empty rather than a throw', () => {

@@ -129,28 +129,27 @@ describe('hunkSpan', () => {
  * asked not to, and the reply is useless if a preamble makes it unparseable.
  */
 describe('extractJson', () => {
-  test('takes a bare object', () => {
-    expect(extractJson('{"groups":[]}')).toBe('{"groups":[]}');
-  });
-
-  test('ignores what is said before and after it', () => {
-    const out = 'Sure! Here is the grouping:\n{"groups":[{"title":"A"}]}\nLet me know if you want changes.';
-    expect(extractJson(out)).toBe('{"groups":[{"title":"A"}]}');
-  });
-
-  test('prefers a fenced block, which is what they mostly emit', () => {
-    const out = 'Thinking about {this} first.\n```json\n{"groups":[{"title":"Real"}]}\n```\n';
-    expect(extractJson(out)).toBe('{"groups":[{"title":"Real"}]}');
-  });
-
-  test('a brace inside a string does not end the object early', () => {
-    const out = '{"groups":[{"title":"a } brace","summary":"\\" quote"}]}';
-    expect(extractJson(out)).toBe(out);
-  });
-
-  test('nothing usable is null rather than a throw', () => {
-    expect(extractJson('I could not do that.')).toBeNull();
-    expect(extractJson('')).toBeNull();
+  test.each([
+    ['a bare object', '{"groups":[]}', '{"groups":[]}'],
+    [
+      'what is said before and after it',
+      'Sure! Here is the grouping:\n{"groups":[{"title":"A"}]}\nLet me know if you want changes.',
+      '{"groups":[{"title":"A"}]}',
+    ],
+    [
+      'a fenced block, which is what they mostly emit',
+      'Thinking about {this} first.\n```json\n{"groups":[{"title":"Real"}]}\n```\n',
+      '{"groups":[{"title":"Real"}]}',
+    ],
+    [
+      'a brace inside a string, which does not end the object early',
+      '{"groups":[{"title":"a } brace","summary":"\\" quote"}]}',
+      '{"groups":[{"title":"a } brace","summary":"\\" quote"}]}',
+    ],
+    ['nothing usable, which is null rather than a throw', 'I could not do that.', null],
+    ['an empty reply', '', null],
+  ])('%s', (_what, output, expected) => {
+    expect(extractJson(output)).toBe(expected);
   });
 });
 

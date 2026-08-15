@@ -22,36 +22,42 @@ describe('formatNotesForAgent', () => {
     expect(formatNotesForAgent([], 'uncommitted')).toBe('');
   });
 
-  it('leads with a count and names which diff the notes are on', () => {
+  it('is one note per block under a count, anchored and quoted', () => {
+    const text = formatNotesForAgent(
+      [
+        note(),
+        // A LEFT anchor numbers the line in the file as it was, so it says so.
+        note({ id: 'n2', side: 'LEFT', line: 7 }),
+        // Nothing to quote, and a body that runs to several lines.
+        note({ id: 'n3', lineText: null, body: 'first\n\nsecond' }),
+      ],
+      'worktree',
+    );
+
+    expect(text).toBe(
+      [
+        "3 notes on this branch's changes.",
+        '',
+        'src/a.ts:12',
+        '> const x = doThing()',
+        'this can throw',
+        '',
+        'src/a.ts:7 (removed line)',
+        '> const x = doThing()',
+        'this can throw',
+        '',
+        'src/a.ts:12',
+        'first',
+        '',
+        'second',
+      ].join('\n'),
+    );
+    // A trailing newline is the Enter key once this is pasted into a TUI.
+    expect(text.endsWith('\n')).toBe(false);
+  });
+
+  it('says one note rather than 1 notes', () => {
     expect(formatNotesForAgent([note()], 'uncommitted')).toMatch(/^1 note on the uncommitted changes\./);
-    expect(formatNotesForAgent([note(), note({ id: 'n2' })], 'worktree')).toMatch(
-      /^2 notes on this branch's changes\./,
-    );
-  });
-
-  it('anchors each note at path:line with the source line quoted', () => {
-    expect(formatNotesForAgent([note()], 'uncommitted')).toBe(
-      '1 note on the uncommitted changes.\n\nsrc/a.ts:12\n> const x = doThing()\nthis can throw',
-    );
-  });
-
-  it('marks a note on a removed line, whose number is not in the file any more', () => {
-    expect(formatNotesForAgent([note({ side: 'LEFT' })], 'uncommitted')).toContain('src/a.ts:12 (removed line)');
-  });
-
-  it('omits the quote when the line could not be read', () => {
-    const text = formatNotesForAgent([note({ lineText: null })], 'uncommitted');
-    expect(text).not.toContain('>');
-    expect(text).toContain('src/a.ts:12\nthis can throw');
-  });
-
-  it('keeps a multi-line note intact', () => {
-    const text = formatNotesForAgent([note({ body: 'first\n\nsecond' })], 'uncommitted');
-    expect(text).toContain('first\n\nsecond');
-  });
-
-  it('ends without a newline — a trailing one is the Enter key in a TUI', () => {
-    expect(formatNotesForAgent([note()], 'uncommitted').endsWith('\n')).toBe(false);
   });
 });
 

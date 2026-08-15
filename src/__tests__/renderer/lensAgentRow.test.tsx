@@ -43,14 +43,10 @@ describe('which agent writes a lens', () => {
     expect(screen.getByText('Automatic')).toBeTruthy();
   });
 
-  test('with Claude Code missing, it falls to the next one installed', async () => {
-    installed({ claude: false });
-    render(<LensAgentRow projectPath={PROJECT} />);
-
-    expect(await screen.findByText(/codex exec -/)).toBeTruthy();
-  });
-
   test('with nothing installed it says so rather than naming a binary', async () => {
+    // Which agent wins when several are installed is `resolveLensAgent`'s, and
+    // is settled in lensPrompt.test.ts. What is left here is the one answer it
+    // gives that has no command to render.
     installed({ claude: false, codex: false, pi: false, opencode: false });
     render(<LensAgentRow projectPath={PROJECT} />);
 

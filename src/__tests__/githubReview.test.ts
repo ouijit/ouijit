@@ -5,28 +5,9 @@ import { classifyGhError, parseGhVersion, MIN_GH_VERSION, activeGhCount, runGh }
 import { versionAtLeast } from '../utils/semver';
 import { deriveMergeStatus } from '../github/api';
 import { parseDiff } from '../git';
-import type { DiffLine } from '../types';
 import type { ReviewThread } from '../github/types';
 
 describe('review anchors', () => {
-  // These four cases are the diff-source decision in miniature: if the line
-  // numbers a local `base...head` diff produces are not the numbers GitHub
-  // expects in `line`/`side`, every review comment lands on the wrong line.
-  test('a deletion anchors LEFT at its base-blob line', () => {
-    const line: DiffLine = { type: 'deletion', content: 'gone', oldLineNo: 42 };
-    expect(anchorForLine(line)).toEqual({ line: 42, side: 'LEFT' });
-  });
-
-  test('an addition anchors RIGHT at its head-blob line', () => {
-    const line: DiffLine = { type: 'addition', content: 'new', newLineNo: 17 };
-    expect(anchorForLine(line)).toEqual({ line: 17, side: 'RIGHT' });
-  });
-
-  test('a context line anchors RIGHT — it exists in the head blob', () => {
-    const line: DiffLine = { type: 'context', content: 'same', oldLineNo: 8, newLineNo: 9 };
-    expect(anchorForLine(line)).toEqual({ line: 9, side: 'RIGHT' });
-  });
-
   test('a line with no number for its side cannot be anchored', () => {
     expect(anchorForLine({ type: 'deletion', content: 'x' })).toBeNull();
     expect(anchorForLine({ type: 'addition', content: 'x' })).toBeNull();
@@ -71,6 +52,10 @@ describe('review anchors', () => {
   });
 
   test('anchors derived from a parsed hunk are real file line numbers', () => {
+    // The diff-source decision in miniature: if the line numbers a local
+    // `base...head` diff produces are not the numbers GitHub expects in
+    // `line`/`side`, every review comment lands on the wrong line.
+    //
     // A hunk starting at line 10 on both sides: one context, one deletion, one
     // addition. The anchors must be 10 (context, RIGHT), 11 (deletion, LEFT),
     // and 11 (addition, RIGHT) — file positions, never offsets into the patch.
