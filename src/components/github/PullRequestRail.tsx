@@ -1,8 +1,8 @@
 import { useMemo } from 'react';
 import type { ChangedFile } from '../../types';
 import type { PullRequestDetail, PullRequestFile } from '../../github/types';
-import type { ResolvedGroup } from '../../github/lens';
-import type { LensSummary } from '../../github/service';
+import type { ResolvedGroup } from '../../lens/lens';
+import type { LensSummary } from '../../lens/config';
 import { DiffFileTree, DiffFileTreeNodes } from '../diff/DiffFileTree';
 import { useGithubStore } from '../../stores/githubStore';
 import { Icon } from '../terminal/Icon';

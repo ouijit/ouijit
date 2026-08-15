@@ -35,11 +35,6 @@ export interface LensGroup {
   slices: LensSlice[];
 }
 
-export interface PrLens {
-  headSha: string;
-  groups: LensGroup[];
-}
-
 /** Hunk indices within one file, in the order they appear in the diff. */
 export interface ResolvedSlice {
   path: string;
@@ -66,10 +61,17 @@ export function hunksInRanges(diff: FileDiff, ranges?: LineRange[]): number[] {
 
   const selected: number[] = [];
   diff.hunks.forEach((hunk, index) => {
-    const lineNumbers = hunk.lines.map((l) => l.newLineNo).filter((n): n is number => n != null);
-    if (lineNumbers.length === 0) return;
-    const first = Math.min(...lineNumbers);
-    const last = Math.max(...lineNumbers);
+    // One pass rather than mapping the numbers out and spreading them into
+    // Math.min/max: a whole untracked file arrives as a single hunk, and
+    // spreading tens of thousands of arguments overflows the call stack.
+    let first = Infinity;
+    let last = -Infinity;
+    for (const line of hunk.lines) {
+      if (line.newLineNo == null) continue;
+      if (line.newLineNo < first) first = line.newLineNo;
+      if (line.newLineNo > last) last = line.newLineNo;
+    }
+    if (first === Infinity) return;
     if (ranges.some(([start, end]) => start <= last && end >= first)) selected.push(index);
   });
   return selected;

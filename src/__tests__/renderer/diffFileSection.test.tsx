@@ -128,7 +128,7 @@ describe('DiffFileSection', () => {
 
     expect(rows(container)).toHaveLength(3);
     fireEvent.click(screen.getByLabelText('Viewed'));
-    expect(onCollapsedChange).toHaveBeenCalledWith(true);
+    expect(onCollapsedChange).toHaveBeenCalledWith('src/app.ts', true);
 
     rerender(
       <DiffFileSection

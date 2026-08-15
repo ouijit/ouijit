@@ -1,14 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { FileDiff } from '../../types';
 import type { DiffLensResult, DiffLensTarget } from '../../diffLens';
-import type { LensSummary } from '../../github/service';
-import { resolveLens } from '../../github/lens';
+import type { LensSummary } from '../../lens/config';
+import { resolveLens } from '../../lens/lens';
 import { useDiffSlices } from './diffSlice';
 import { useProjectStore } from '../../stores/projectStore';
-
-function describe(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
+import { describeError } from '../../utils/describeError';
 
 /** The lens over a worktree diff: what is stored, and what it resolves to. */
 export function useDiffLens(target: DiffLensTarget | null, diffs: Map<string, FileDiff | null>, order: string[]) {
@@ -58,7 +55,7 @@ export function useDiffLens(target: DiffLensTarget | null, diffs: Map<string, Fi
         setLensOn(true);
         await reload();
       } catch (error) {
-        useProjectStore.getState().addToast(`Could not write the lens: ${describe(error)}`, 'error');
+        useProjectStore.getState().addToast(`Could not write the lens: ${describeError(error)}`, 'error');
       } finally {
         setWriting(null);
       }

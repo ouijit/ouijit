@@ -46,8 +46,14 @@ export interface DiffFileSectionProps {
   failedLabel?: string;
   /** Folded to its header alone. */
   collapsed?: boolean;
-  /** Enables the fold control in the header. */
-  onCollapsedChange?: (collapsed: boolean) => void;
+  /**
+   * Enables the fold control in the header.
+   *
+   * Takes the path for the same reason `renderBelowLine` does — one callback
+   * held by the caller, rather than a fresh closure per file per render, which
+   * is enough on its own to stop this component's memo ever bailing out.
+   */
+  onCollapsedChange?: (path: string, collapsed: boolean) => void;
   /** What the control means here — "Viewed" in a review, "Collapse" outside one. */
   collapseLabel?: string;
 }
@@ -78,6 +84,7 @@ export const DiffFileSection = memo(function DiffFileSection({
   // per render is what stops a memoized line from ever bailing out.
   const addComment = useCallback((anchor: DiffLineAnchor) => onAddComment?.(path, anchor), [onAddComment, path]);
   const belowLine = useCallback((anchor: DiffLineAnchor) => renderBelowLine?.(path, anchor), [renderBelowLine, path]);
+  const setCollapsed = useCallback((next: boolean) => onCollapsedChange?.(path, next), [onCollapsedChange, path]);
 
   return (
     /* A card rather than a band running edge to edge: a diff is a list of
@@ -107,7 +114,7 @@ export const DiffFileSection = memo(function DiffFileSection({
                 ? 'bg-accent border-accent text-accent-ink'
                 : 'border-ink/25 text-transparent hover:border-ink/50'
             }`}
-            onClick={() => onCollapsedChange(!collapsed)}
+            onClick={() => setCollapsed(!collapsed)}
           >
             <Icon name="check" />
           </button>

@@ -1,6 +1,6 @@
 import { describe, test, expect } from 'vitest';
-import { buildLensPrompt, extractJson, hunkSpan } from '../github/lensPrompt';
-import { resolveLensAgent, pickLensAgent, installedAgents, LENS_AGENTS } from '../github/lensAgents';
+import { buildLensPrompt, extractJson, hunkSpan } from '../lens/lensPrompt';
+import { resolveLensAgent, pickLensAgent, installedAgents, LENS_AGENTS } from '../lens/lensAgents';
 import type { FileDiff } from '../types';
 import type { PullRequestDetail, PullRequestFile } from '../github/types';
 

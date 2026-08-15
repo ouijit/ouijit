@@ -26,7 +26,6 @@ import {
   renamePrLens,
   deletePrLens,
   getGlobalSetting,
-  setGlobalSetting,
   createTask,
   getNextTaskNumber,
   type ReviewDraftRow,
@@ -35,8 +34,8 @@ import { experimentalStorageKey, parseExperimentalFlags } from '../experimentalF
 import { pushBranch } from '../git';
 import { getLogger } from '../logger';
 import { getRepoIdentity, invalidateRepoIdentity } from './repoIdentity';
-import { installedAgents, resolveLensAgent, type LensAgent, type LensAgentChoice } from './lensAgents';
-import { runLens } from './runLens';
+import { runLens } from '../lens/runLens';
+import { listLenses, resolveLensRun, writeLenses, type LensSummary } from '../lens/config';
 import { GithubError, MIN_GH_VERSION, getViewerLogin, probeGhAuth } from './client';
 import {
   fetchInbox,
@@ -63,7 +62,7 @@ import {
   prunePrRefs,
   type PrFileVersions,
 } from './prDiff';
-import { parseLens, type LensGroup } from './lens';
+import { parseLens, type LensGroup } from '../lens/lens';
 import type {
   GithubAvailability,
   PullRequestInbox,
@@ -431,46 +430,6 @@ export async function discardDraft(projectPath: string, draftId: string): Promis
  * Kept in settings rather than a table: it was one command in settings before
  * it was a list, and a list of two fields does not earn a schema.
  */
-export interface LensSummary {
-  name: string;
-  /** What the reader wants, in prose. The context is ours to supply. */
-  instruction: string;
-}
-
-export function lensesKey(projectPath: string): string {
-  return 'github:lenses:' + projectPath;
-}
-
-function parseLenses(raw: string | null | undefined): LensSummary[] | null {
-  if (!raw) return null;
-  try {
-    const parsed: unknown = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return null;
-    return parsed
-      .filter(
-        (entry): entry is LensSummary =>
-          typeof entry === 'object' &&
-          entry !== null &&
-          typeof (entry as LensSummary).name === 'string' &&
-          typeof (entry as LensSummary).instruction === 'string',
-      )
-      .map((entry) => ({ name: entry.name, instruction: entry.instruction }));
-  } catch {
-    return null;
-  }
-}
-
-export async function listLenses(projectPath: string): Promise<LensSummary[]> {
-  const stored = parseLenses(await getGlobalSetting(lensesKey(projectPath)));
-  if (stored) return stored;
-
-  return [];
-}
-
-async function writeLenses(projectPath: string, lenses: LensSummary[]): Promise<void> {
-  await setGlobalSetting(lensesKey(projectPath), JSON.stringify(lenses));
-}
-
 /**
  * Create or rename a lens.
  *
@@ -501,62 +460,6 @@ export async function saveLens(
   if (previousName && previousName !== lens.name) await renamePrLens(projectPath, previousName, lens.name);
 
   return lens;
-}
-
-export function lensAgentKey(projectPath: string): string {
-  return 'github:lens-agent:' + projectPath;
-}
-
-export async function getLensAgentChoice(projectPath: string): Promise<LensAgentChoice> {
-  const raw = await getGlobalSetting(lensAgentKey(projectPath));
-  if (!raw) return { agentId: null };
-  try {
-    const parsed = JSON.parse(raw) as Partial<LensAgentChoice>;
-    return {
-      agentId: typeof parsed.agentId === 'string' ? parsed.agentId : null,
-      ...(typeof parsed.command === 'string' ? { command: parsed.command } : {}),
-    };
-  } catch {
-    return { agentId: null };
-  }
-}
-
-/**
- * The agent this project's lenses run through, resolved against what is here.
- *
- * Null when nothing is chosen and nothing is installed — answered before the
- * diff is gathered, so a machine with no agent on it is told that rather than
- * spending a minute reading a pull request to fail at the spawn.
- */
-export async function resolveLensAgentFor(projectPath: string): Promise<LensAgent | null> {
-  const health = getCachedHealth() ?? (await checkHealth());
-  return resolveLensAgent(await getLensAgentChoice(projectPath), installedAgents(health));
-}
-
-export async function setLensAgentChoice(projectPath: string, choice: LensAgentChoice): Promise<{ success: boolean }> {
-  await setGlobalSetting(lensAgentKey(projectPath), JSON.stringify(choice));
-  return { success: true };
-}
-
-/**
- * The named lens and the agent that will write it, or why neither can be had.
- *
- * The pull request and the worktree diff both start here, so the wording a
- * reader sees when a lens cannot run is the same wherever they asked from.
- */
-export async function resolveLensRun(
-  projectPath: string,
-  lensName: string,
-): Promise<{ lens: LensSummary; agent: LensAgent } | { error: string }> {
-  const lens = (await listLenses(projectPath)).find((l) => l.name === lensName);
-  if (!lens) return { error: `No lens called “${lensName}”` };
-
-  const agent = await resolveLensAgentFor(projectPath);
-  if (!agent) {
-    return { error: 'No coding agent is installed. A lens is written by one of Claude Code, Codex, Pi or opencode.' };
-  }
-
-  return { lens, agent };
 }
 
 /**

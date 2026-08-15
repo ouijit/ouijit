@@ -4,6 +4,7 @@ import { formatNotesForAgent } from '../../diffNotes';
 import { useProjectStore } from '../../stores/projectStore';
 import { Icon } from '../terminal/Icon';
 import { Tooltip } from '../ui/Tooltip';
+import { PendingRow } from '../ui/PendingRow';
 import { ActionMenu } from '../ui/ActionMenu';
 import { MenuDivider, MenuItem } from '../ui/Menu';
 import { SegmentedGroup, segmentBase, segmentQuiet } from '../ui/SegmentedGroup';
@@ -41,10 +42,12 @@ function pasteIntoTerminal(ptyId: string, text: string): void {
 export function DiffNotesIsland({ notes, mode, ptyId, onJump, onDiscard, onClear }: DiffNotesIslandProps) {
   if (notes.length === 0) return null;
 
-  const text = formatNotesForAgent(notes, mode);
+  // Formatted when it is asked for, not on every render: nothing on screen
+  // shows it, and it walks every note.
+  const forAgent = () => formatNotesForAgent(notes, mode);
 
   const copy = () => {
-    void navigator.clipboard.writeText(text).then(
+    void navigator.clipboard.writeText(forAgent()).then(
       () => useProjectStore.getState().addToast(`${notes.length} copied`, 'success'),
       () => useProjectStore.getState().addToast('Could not copy the notes', 'error'),
     );
@@ -60,29 +63,18 @@ export function DiffNotesIsland({ notes, mode, ptyId, onJump, onDiscard, onClear
             {(close) => (
               <>
                 {notes.map((note) => (
-                  <div key={note.id} className="group flex items-start gap-1">
-                    <button
-                      type="button"
-                      className="flex-1 min-w-0 text-left px-2.5 py-1.5 rounded-[7px] hover:bg-ink/[0.08]"
-                      onClick={() => {
-                        close();
-                        onJump(note);
-                      }}
-                    >
-                      <span className="block font-mono text-[11px] text-text-tertiary truncate">
-                        {note.path}:{note.line}
-                      </span>
-                      <span className="block text-[13px] text-text-secondary truncate">{note.body}</span>
-                    </button>
-                    <button
-                      type="button"
-                      className="shrink-0 w-6 h-6 mt-1.5 rounded flex items-center justify-center text-text-tertiary opacity-0 group-hover:opacity-100 hover:text-error transition-opacity duration-100"
-                      title="Discard this note"
-                      onClick={() => void onDiscard(note.id)}
-                    >
-                      <Icon name="x" className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
+                  <PendingRow
+                    key={note.id}
+                    path={note.path}
+                    line={note.line}
+                    body={note.body}
+                    discardTitle="Discard this note"
+                    onJump={() => {
+                      close();
+                      onJump(note);
+                    }}
+                    onDiscard={() => void onDiscard(note.id)}
+                  />
                 ))}
                 <MenuDivider />
                 <MenuItem
@@ -114,7 +106,7 @@ export function DiffNotesIsland({ notes, mode, ptyId, onJump, onDiscard, onClear
               type="button"
               aria-label="Paste into the terminal"
               className={`${segmentBase} ${segmentQuiet} [&>svg]:w-3.5 [&>svg]:h-3.5`}
-              onClick={() => pasteIntoTerminal(ptyId, text)}
+              onClick={() => pasteIntoTerminal(ptyId, forAgent())}
             >
               <Icon name="terminal" />
             </button>

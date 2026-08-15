@@ -59,10 +59,6 @@ export type {
   TimelineItem,
 } from './github/types';
 
-export type { DiffNote, SaveDiffNoteInput } from './diffNotes';
-export type { DiffLensTarget, DiffLensResult } from './diffLens';
-export type { DiffMode } from './diffSource';
-
 // Import for local use within this file
 import type { GitStatus, GitFileStatus, GitDropdownInfo, FileDiff, WorktreeDiffSummary, BranchInfo } from './git';
 import type { TaskWorktreeResult, WorktreeInfo, WorktreeRemoveResult, CheckWorktreeResult } from './worktree';
@@ -84,11 +80,11 @@ import type {
   PullRequestFilesResult,
   SaveDraftInput,
   PromoteToTaskResult,
-  LensSummary,
   LensResult,
 } from './github/service';
 import type { PrFileVersions } from './github/prDiff';
-import type { LensAgentChoice } from './github/lensAgents';
+import type { LensAgentChoice } from './lens/lensAgents';
+import type { LensSummary } from './lens/config';
 import type { DiffNote, SaveDiffNoteInput } from './diffNotes';
 import type { DiffLensTarget, DiffLensResult } from './diffLens';
 import type { TaskStatus, TagRow } from './db';
@@ -554,7 +550,13 @@ export interface ElectronAPI {
   /** Merge current branch into main */
   gitMergeIntoMain(projectPath: string): Promise<GitMergeResult>;
   /** Get diff for a specific file */
-  getFileDiff(projectPath: string, filePath: string, contextLines?: number): Promise<FileDiff | null>;
+  /** `untracked` saves a repo-wide listing when the caller already knows. */
+  getFileDiff(
+    projectPath: string,
+    filePath: string,
+    contextLines?: number,
+    untracked?: boolean,
+  ): Promise<FileDiff | null>;
   /** Create a new project */
   createProject(options: CreateProjectOptions): Promise<CreateProjectResult>;
   /** Show native folder picker dialog */

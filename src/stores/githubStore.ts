@@ -10,7 +10,7 @@ import type {
 } from '../github/types';
 import type { InboxResult } from '../github/service';
 import type { FileDiff } from '../types';
-import type { LensGroup } from '../github/lens';
+import type { LensGroup } from '../lens/lens';
 
 const githubLog = log.scope('github');
 

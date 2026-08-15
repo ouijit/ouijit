@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'vitest';
-import { hunksInRanges, parseLens, resolveLens, type LensGroup } from '../github/lens';
+import { hunksInRanges, parseLens, resolveLens, type LensGroup } from '../lens/lens';
 import type { FileDiff } from '../types';
 
 /** A file whose hunks cover the given new-file line spans, one hunk each. */

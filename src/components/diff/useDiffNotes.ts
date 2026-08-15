@@ -2,16 +2,13 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { DiffNote, SaveDiffNoteInput } from '../../diffNotes';
 import { anchorKey } from './diffAnchor';
 import { useProjectStore } from '../../stores/projectStore';
+import { describeError } from '../../utils/describeError';
 
 /** The line an unsaved note is being written against. */
 export interface ComposingAt {
   path: string;
   line: number;
   side: 'LEFT' | 'RIGHT';
-}
-
-function describe(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }
 
 /**
@@ -45,7 +42,7 @@ export function useDiffNotes(worktreePath: string) {
       } catch (error) {
         // Returning early leaves the box open, so a failed save doesn't
         // discard what was typed.
-        useProjectStore.getState().addToast(`Could not save the note: ${describe(error)}`, 'error');
+        useProjectStore.getState().addToast(`Could not save the note: ${describeError(error)}`, 'error');
         return;
       }
       setComposingAt(null);
@@ -60,7 +57,7 @@ export function useDiffNotes(worktreePath: string) {
       try {
         await window.api.diffNotes.discard(id);
       } catch (error) {
-        useProjectStore.getState().addToast(`Could not discard the note: ${describe(error)}`, 'error');
+        useProjectStore.getState().addToast(`Could not discard the note: ${describeError(error)}`, 'error');
         return;
       }
       setEditingId(null);
@@ -73,23 +70,14 @@ export function useDiffNotes(worktreePath: string) {
     try {
       await window.api.diffNotes.clear(worktreePath);
     } catch (error) {
-      useProjectStore.getState().addToast(`Could not clear the notes: ${describe(error)}`, 'error');
+      useProjectStore.getState().addToast(`Could not clear the notes: ${describeError(error)}`, 'error');
       return;
     }
     await reload();
   }, [worktreePath, reload]);
 
   // One lookup per rendered line rather than a scan of every note on the diff.
-  const byAnchor = useMemo(() => {
-    const map = new Map<string, DiffNote[]>();
-    for (const note of notes) {
-      const key = anchorKey(note.path, note.line, note.side);
-      const existing = map.get(key);
-      if (existing) existing.push(note);
-      else map.set(key, [note]);
-    }
-    return map;
-  }, [notes]);
+  const byAnchor = useMemo(() => Map.groupBy(notes, (note) => anchorKey(note.path, note.line, note.side)), [notes]);
 
   // Held stable so the panel's `renderBelowLine` can be memoized on it — a new
   // object every render would be a new callback every render, and the memoized

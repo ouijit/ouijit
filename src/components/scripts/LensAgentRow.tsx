@@ -1,12 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { HealthStatus } from '../../healthCheck';
-import {
-  LENS_AGENTS,
-  installedAgents,
-  lensAgent,
-  resolveLensAgent,
-  type LensAgentChoice,
-} from '../../github/lensAgents';
+import { LENS_AGENTS, installedAgents, lensAgent, resolveLensAgent, type LensAgentChoice } from '../../lens/lensAgents';
 import { Icon } from '../terminal/Icon';
 import { MenuPopover, MenuItem, MenuDivider } from '../ui/Menu';
 

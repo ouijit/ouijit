@@ -3,6 +3,7 @@ import type { MergeMethod, PullRequestDetail, ReviewDraft, ReviewEvent } from '.
 import { useGithubStore } from '../../stores/githubStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { Icon } from '../terminal/Icon';
+import { PendingRow } from '../ui/PendingRow';
 import { ActionMenu } from '../ui/ActionMenu';
 import { MenuDivider, MenuField, MenuItem } from '../ui/Menu';
 import { SegmentedGroup } from '../ui/SegmentedGroup';
@@ -219,39 +220,28 @@ function DraftsPopover({
     <ActionMenu label={`${drafts.length} unsent`} dot>
       {(close) =>
         drafts.map((draft) => (
-          <div key={draft.id} className="group flex items-start gap-1">
-            <button
-              type="button"
-              className="flex-1 min-w-0 text-left px-2.5 py-1.5 rounded-[7px] hover:bg-ink/[0.08]"
-              onClick={() => {
-                close();
-                onJump(draft);
-              }}
-            >
-              <span className="flex items-center gap-1.5 font-mono text-[11px] text-text-tertiary truncate">
-                <span className="truncate">
-                  {draft.path}:{draft.line}
+          <PendingRow
+            key={draft.id}
+            path={draft.path}
+            line={draft.line}
+            body={draft.body}
+            discardTitle="Discard this comment"
+            /* Said before you send, not discovered afterwards: these go up
+               under your name, so anything you did not type is marked.
+               Untrusted text — a caller names itself, so it is clamped. */
+            badge={
+              draft.origin !== 'human' ? (
+                <span className="shrink-0 px-1 rounded bg-ink/[0.08] text-text-secondary">
+                  {draft.origin.slice(0, 16)}
                 </span>
-                {/* Said before you send, not discovered afterwards: these go up
-                    under your name, so anything you did not type is marked.
-                    Untrusted text — a caller names itself, so it is clamped. */}
-                {draft.origin !== 'human' && (
-                  <span className="shrink-0 px-1 rounded bg-ink/[0.08] text-text-secondary">
-                    {draft.origin.slice(0, 16)}
-                  </span>
-                )}
-              </span>
-              <span className="block text-[13px] text-text-secondary truncate">{draft.body}</span>
-            </button>
-            <button
-              type="button"
-              className="shrink-0 w-6 h-6 mt-1.5 rounded flex items-center justify-center text-text-tertiary opacity-0 group-hover:opacity-100 hover:text-error transition-opacity duration-100"
-              title="Discard this comment"
-              onClick={() => void onDiscard(draft)}
-            >
-              <Icon name="x" className="w-3.5 h-3.5" />
-            </button>
-          </div>
+              ) : undefined
+            }
+            onJump={() => {
+              close();
+              onJump(draft);
+            }}
+            onDiscard={() => void onDiscard(draft)}
+          />
         ))
       }
     </ActionMenu>

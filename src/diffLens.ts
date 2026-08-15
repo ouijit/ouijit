@@ -9,9 +9,9 @@ import {
 } from './git';
 import { getWorktreeLens, saveWorktreeLens } from './db';
 import { diffShape, filesInDiff, usesBranchDiff, type DiffMode } from './diffSource';
-import { resolveLensRun } from './github/service';
-import { runLens } from './github/runLens';
-import { parseLens, type LensGroup } from './github/lens';
+import { resolveLensRun } from './lens/config';
+import { runLens } from './lens/runLens';
+import { parseLens, type LensGroup } from './lens/lens';
 import { getLogger } from './logger';
 
 const log = getLogger().scope('diff:lens');

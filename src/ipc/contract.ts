@@ -61,10 +61,10 @@ import type {
   PullRequestFilesResult,
   SaveDraftInput,
   PromoteToTaskResult,
-  LensSummary,
   LensResult,
 } from '../github/service';
-import type { LensAgentChoice } from '../github/lensAgents';
+import type { LensAgentChoice } from '../lens/lensAgents';
+import type { LensSummary } from '../lens/config';
 import type { DiffNote, SaveDiffNoteInput } from '../diffNotes';
 import type { DiffLensTarget, DiffLensResult } from '../diffLens';
 import type { PrFileVersions } from '../github/prDiff';
@@ -123,7 +123,10 @@ export interface IpcInvokeContract {
   'git-checkout': { args: [projectPath: string, branchName: string]; return: GitCheckoutResult };
   'git-create-branch': { args: [projectPath: string, branchName: string]; return: GitCheckoutResult };
   'git-merge-into-main': { args: [projectPath: string]; return: GitMergeResult };
-  'get-file-diff': { args: [projectPath: string, filePath: string, contextLines?: number]; return: FileDiff | null };
+  'get-file-diff': {
+    args: [projectPath: string, filePath: string, contextLines?: number, untracked?: boolean];
+    return: FileDiff | null;
+  };
 
   // ── PTY ──────────────────────────────────────────────────────────────
   'pty:spawn': { args: [options: PtySpawnOptions]; return: PtySpawnResult };
@@ -315,7 +318,7 @@ export interface IpcInvokeContract {
   'diff-lens:run': { args: [target: DiffLensTarget, lensName: string]; return: { success: boolean; error?: string } };
 
   'diff-notes:list': { args: [worktreePath: string]; return: DiffNote[] };
-  'diff-notes:save': { args: [input: SaveDiffNoteInput]; return: DiffNote };
+  'diff-notes:save': { args: [input: SaveDiffNoteInput]; return: { success: boolean } };
   'diff-notes:discard': { args: [id: string]; return: { success: boolean } };
   'diff-notes:clear': { args: [worktreePath: string]; return: { success: boolean } };
 

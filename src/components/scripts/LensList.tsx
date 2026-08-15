@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useProjectStore } from '../../stores/projectStore';
 import { useGithubStore } from '../../stores/githubStore';
-import type { LensSummary } from '../../github/service';
+import type { LensSummary } from '../../lens/config';
 import { Icon } from '../terminal/Icon';
 import { useAutoResize } from '../../hooks/useAutoResize';
 import { LensAgentRow } from './LensAgentRow';

@@ -5,7 +5,7 @@ import { parseLens } from './lens';
 import type { LensAgent } from './lensAgents';
 import { buildLensPrompt, extractJson, type LensFile, type LensSubject } from './lensPrompt';
 
-const log = getLogger().scope('github:lens');
+const log = getLogger().scope('lens');
 
 /**
  * One question, one answer, no session.

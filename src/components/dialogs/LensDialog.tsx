@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { LensSummary } from '../../github/service';
+import type { LensSummary } from '../../lens/config';
 import { LensList } from '../scripts/LensList';
 import { Icon } from '../terminal/Icon';
 import { DialogOverlay } from './DialogOverlay';

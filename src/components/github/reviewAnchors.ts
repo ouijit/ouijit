@@ -2,9 +2,6 @@ import type { FileDiff } from '../../types';
 import type { ReviewThread } from '../../github/types';
 import { anchorForLine, anchorKey } from '../diff/diffAnchor';
 
-// Re-exported for the pull request side, which reaches for its anchors here.
-export { anchorKey };
-
 /**
  * Threads that will never render inline — either they carry no anchor line at
  * all, they sit on a file this diff doesn't include (a thread left on a file

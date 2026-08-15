@@ -1,34 +1,25 @@
-import {
-  forwardRef,
-  memo,
-  useCallback,
-  useEffect,
-  useImperativeHandle,
-  useMemo,
-  useState,
-  type ReactNode,
-} from 'react';
+import { forwardRef, memo, useCallback, useImperativeHandle, useMemo, useState, type ReactNode } from 'react';
 import type { FileDiff } from '../../types';
 import type { PullRequestDetail, PullRequestFile, ReviewDraft, ReviewThread } from '../../github/types';
 import { useGithubStore } from '../../stores/githubStore';
 import { useProjectStore } from '../../stores/projectStore';
+import { describeError } from '../../utils/describeError';
 import { BinaryFileView } from '../diff/BinaryFileView';
 import { DeferredMount } from '../diff/DeferredMount';
 import { DiffFileSection } from '../diff/DiffFileSection';
 import { estimateFileHeight } from '../diff/diffMetrics';
 import { useDiffSlices } from '../diff/diffSlice';
+import { useBatchedDiffs } from '../diff/useBatchedDiffs';
 import { inTreeOrder } from '../diff/DiffFileTree';
-import type { DiffLineAnchor } from '../diff/diffAnchor';
-import type { ResolvedGroup } from '../../github/lens';
-import { anchorKey, unanchoredThreads } from './reviewAnchors';
+import { anchorKey, type DiffLineAnchor } from '../diff/diffAnchor';
+import type { ResolvedGroup } from '../../lens/lens';
+import { unanchoredThreads } from './reviewAnchors';
 import { Icon } from '../terminal/Icon';
 import { ReviewThreadView } from './ReviewThreadView';
 import { InlineCommentBox, InlineCommentCard } from '../diff/InlineCommentBox';
 import { LensGroupSection } from '../diff/LensGroupSection';
 
 import { Loading } from './Loading';
-
-const DIFF_BATCH_SIZE = 10;
 
 /** Nothing reaches GitHub until the review is submitted as a batch. */
 const DRAFT_HINT = 'Saved locally until you submit the review.';
@@ -43,10 +34,6 @@ interface FilesSectionProps {
 export interface FilesSectionHandle {
   /** Open a pending comment for editing — the action bar jumps to one. */
   editDraft: (draftId: string) => void;
-}
-
-function describe(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }
 
 interface FileSectionProps {
@@ -129,7 +116,7 @@ const FileSection = memo(function FileSection({
         binaryView={binaryView}
         headerRight={headerRight}
         collapsed={viewed}
-        onCollapsedChange={(next) => onViewedChange(file.path, next)}
+        onCollapsedChange={onViewedChange}
         collapseLabel="Viewed"
       />
     </DeferredMount>
@@ -170,77 +157,38 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
     [files],
   );
 
-  // Same batched load the worktree panel uses: ten files at a time, one state
-  // write per batch rather than one per file.
-  useEffect(() => {
-    let cancelled = false;
-    setDiffs(new Map());
-    if (files.length === 0) return;
-
-    const accumulated = new Map<string, FileDiff | null>();
-
-    const load = async () => {
-      for (let i = 0; i < files.length; i += DIFF_BATCH_SIZE) {
-        if (cancelled) return;
-        const batch = files.slice(i, i + DIFF_BATCH_SIZE);
-        const results = await Promise.all(
-          batch.map(async (file): Promise<[string, FileDiff | null]> => {
-            try {
-              const diff = await window.api.github.pullRequestFileDiff(
-                projectPath,
-                detail.number,
-                detail.baseSha,
-                detail.headSha,
-                file.path,
-                undefined,
-                // A renamed file needs both paths, or git reports it as a
-                // whole-file add rather than as the edit it actually is.
-                file.oldPath,
-              );
-              return [file.path, diff];
-            } catch {
-              return [file.path, null];
-            }
-          }),
-        );
-        if (cancelled) return;
-        for (const [path, diff] of results) accumulated.set(path, diff);
-        setDiffs(new Map(accumulated));
-      }
-    };
-
-    void load();
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- filesFingerprint is the stable proxy for files
-  }, [filesFingerprint, projectPath, detail.number, detail.baseSha, detail.headSha, setDiffs]);
+  useBatchedDiffs(
+    files,
+    filesFingerprint,
+    (file) =>
+      window.api.github.pullRequestFileDiff(
+        projectPath,
+        detail.number,
+        detail.baseSha,
+        detail.headSha,
+        file.path,
+        undefined,
+        // A renamed file needs both paths, or git reports it as a whole-file
+        // add rather than as the edit it actually is.
+        file.oldPath,
+      ),
+    setDiffs,
+    (file) => file.path,
+  );
 
   // Threads and drafts indexed by anchor, so each line render is a map lookup
   // rather than a scan of every thread on the PR.
   const threadsByAnchor = useMemo(() => {
-    const map = new Map<string, ReviewThread[]>();
-    for (const thread of detail.threads) {
-      const line = thread.line ?? thread.originalLine;
-      if (line == null) continue;
-      const key = anchorKey(thread.path, line, thread.side);
-      const existing = map.get(key);
-      if (existing) existing.push(thread);
-      else map.set(key, [thread]);
-    }
-    return map;
+    // A thread with no line has no anchor to sit on; it is collected as an
+    // orphan below rather than grouped here.
+    const anchored = detail.threads.filter((t) => (t.line ?? t.originalLine) != null);
+    return Map.groupBy(anchored, (t) => anchorKey(t.path, (t.line ?? t.originalLine)!, t.side));
   }, [detail.threads]);
 
-  const draftsByAnchor = useMemo(() => {
-    const map = new Map<string, ReviewDraft[]>();
-    for (const draft of drafts) {
-      const key = anchorKey(draft.path, draft.line, draft.side);
-      const existing = map.get(key);
-      if (existing) existing.push(draft);
-      else map.set(key, [draft]);
-    }
-    return map;
-  }, [drafts]);
+  const draftsByAnchor = useMemo(
+    () => Map.groupBy(drafts, (draft) => anchorKey(draft.path, draft.line, draft.side)),
+    [drafts],
+  );
 
   // Threads with nowhere to render, collected so they stay readable instead of
   // silently disappearing.
@@ -265,7 +213,7 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
       } catch (error) {
         // Leave the box open and say so. Closing it on a failed save discards
         // what was written with nothing to show for it.
-        useProjectStore.getState().addToast(`Could not save the comment: ${describe(error)}`, 'error');
+        useProjectStore.getState().addToast(`Could not save the comment: ${describeError(error)}`, 'error');
         return;
       }
       useGithubStore.getState().setComposingAt(null);
@@ -280,7 +228,7 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
       try {
         await window.api.github.discardDraft(projectPath, draft.id);
       } catch (error) {
-        useProjectStore.getState().addToast(`Could not discard the comment: ${describe(error)}`, 'error');
+        useProjectStore.getState().addToast(`Could not discard the comment: ${describeError(error)}`, 'error');
         return;
       }
       setEditingDraftId(null);
@@ -355,7 +303,6 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
             ) : (
               <InlineCommentCard
                 key={draft.id}
-                data-draft-id={draft.id}
                 label="Unsent comment"
                 body={draft.body}
                 onClick={() => setEditingDraftId(draft.id)}
@@ -420,7 +367,7 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
     />
   );
 
-  const byPath = new Map(files.map((f) => [f.path, f]));
+  const byPath = useMemo(() => new Map(files.map((f) => [f.path, f])), [files]);
 
   return (
     <>

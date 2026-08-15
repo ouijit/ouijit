@@ -425,8 +425,7 @@ export async function getRangeFileDiff(
       ...gitExecOpts(projectPath),
       maxBuffer: 20 * 1024 * 1024,
     });
-    if (!stdout.trim()) return null;
-    return { path: filePath, hunks: parseDiff(stdout), binary: isBinaryDiff(stdout) };
+    return toFileDiff(filePath, stdout);
   } catch {
     return null;
   }
@@ -881,20 +880,29 @@ export function getTrackedFileDiff(projectPath: string, filePath: string, contex
 /**
  * Gets the diff for a specific file, tracked or not.
  *
- * The untracked test is a listing of every untracked path in the repo, so a
- * caller working through a file list it already has the statuses for should
- * reach for one of the two above instead of paying for it per file.
+ * Working out which it is means listing every untracked path in the repo, so a
+ * caller working through a file list that already carries statuses should pass
+ * `untracked` and skip it — otherwise that listing runs once per file.
  */
-export function getFileDiff(projectPath: string, filePath: string, contextLines?: number): FileDiff | null {
+export function getFileDiff(
+  projectPath: string,
+  filePath: string,
+  contextLines?: number,
+  untracked?: boolean,
+): FileDiff | null {
   try {
-    const opts = { ...gitExecOpts(projectPath), maxBuffer: 10 * 1024 * 1024 };
-    const untracked = execSync('git ls-files --others --exclude-standard', opts).toString().trim().split('\n');
-    return untracked.includes(filePath)
+    const isUntracked = untracked ?? untrackedPaths(projectPath).includes(filePath);
+    return isUntracked
       ? getUntrackedFileDiff(projectPath, filePath, contextLines)
       : getTrackedFileDiff(projectPath, filePath, contextLines);
   } catch {
     return null;
   }
+}
+
+function untrackedPaths(projectPath: string): string[] {
+  const opts = { ...gitExecOpts(projectPath), maxBuffer: 10 * 1024 * 1024 };
+  return execSync('git ls-files --others --exclude-standard', opts).toString().trim().split('\n');
 }
 
 /**
@@ -1180,17 +1188,7 @@ export function getWorktreeFileDiff(
 
   try {
     const args = ['diff', ...(contextArg ? [contextArg] : []), `${baseBranch}...${worktreeBranch}`, '--', filePath];
-    const diffOutput = execFileSync('git', args, opts).toString();
-
-    if (!diffOutput.trim()) {
-      return null;
-    }
-
-    return {
-      path: filePath,
-      hunks: parseDiff(diffOutput),
-      binary: isBinaryDiff(diffOutput),
-    };
+    return toFileDiff(filePath, execFileSync('git', args, opts).toString());
   } catch {
     return null;
   }

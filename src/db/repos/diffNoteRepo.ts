@@ -26,11 +26,7 @@ export class DiffNoteRepo {
       .all(worktreePath) as DiffNoteRow[];
   }
 
-  get(id: string): DiffNoteRow | undefined {
-    return this.db.prepare('SELECT * FROM diff_notes WHERE id = ?').get(id) as DiffNoteRow | undefined;
-  }
-
-  save(row: DiffNoteRow): DiffNoteRow {
+  save(row: DiffNoteRow): void {
     this.db
       .prepare(
         `INSERT INTO diff_notes (id, worktree_path, path, line, side, line_text, body, created_at)
@@ -43,7 +39,6 @@ export class DiffNoteRepo {
            body = excluded.body`,
       )
       .run(row.id, row.worktree_path, row.path, row.line, row.side, row.line_text, row.body, row.created_at);
-    return this.get(row.id)!;
   }
 
   delete(id: string): void {

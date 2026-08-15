@@ -10,6 +10,7 @@ import { ResizeHandle } from '../common/ResizeHandle';
 import { SidebarToggle } from '../common/SidebarToggle';
 import { FullWidthToggle, PanelCloseButton } from '../terminal/FullWidthToggle';
 import { estimateFileHeight } from './diffMetrics';
+import { useBatchedDiffs } from './useBatchedDiffs';
 import { InlineCommentBox, InlineCommentCard } from './InlineCommentBox';
 import { DiffNotesIsland } from './DiffNotesIsland';
 import { useDiffNotes } from './useDiffNotes';
@@ -18,9 +19,10 @@ import { LensPicker } from './LensPicker';
 import { LensGroupSection } from './LensGroupSection';
 import { LensDialog } from '../dialogs/LensDialog';
 import { anchorKey, lineTextAt, type DiffLineAnchor } from './diffAnchor';
-import { diffShape, filesInDiff, usesBranchDiff } from '../../diffSource';
+import { diffShape, effectiveDiffMode, filesInDiff, usesBranchDiff } from '../../diffSource';
 import type { DiffMode } from '../../diffSource';
 import type { DiffLensTarget } from '../../diffLens';
+import { toggleIn } from '../../utils/toggleIn';
 
 interface DiffPanelProps {
   ptyId: string;
@@ -35,7 +37,6 @@ interface DiffPanelProps {
 const MAX_DIFF_FILES = 300;
 const NOTE_HINT = 'Kept with this worktree until you hand it to the agent.';
 const DEFAULT_SIDEBAR_WIDTH = 220;
-const DIFF_BATCH_SIZE = 10;
 
 /**
  * Uncommitted and branch diffs for a terminal's worktree.
@@ -53,6 +54,10 @@ export function DiffPanel({ ptyId, projectPath, mode, fullWidth, onToggleFullWid
   // way through, only a long diff to get out of your own way.
   const [folded, setFolded] = useState<Set<string>>(new Set());
   const contentRef = useRef<HTMLDivElement>(null);
+  // The loaded diffs, for callbacks that must not be rebuilt each time a batch
+  // of them arrives.
+  const diffsRef = useRef(diffs);
+  diffsRef.current = diffs;
 
   const instance = terminalInstances.get(ptyId);
   const gitPath = instance?.worktreePath || projectPath;
@@ -61,13 +66,7 @@ export function DiffPanel({ ptyId, projectPath, mode, fullWidth, onToggleFullWid
   // panel being closed and reopened mid-review.
   const notes = useDiffNotes(gitPath);
 
-  // Derive effective mode to match the GitStats button logic:
-  // the button shows uncommitted changes when they exist, falling back to branch diff.
-  // The panel must follow the same logic so they always agree.
-  const effectiveMode = useMemo(() => {
-    if (mode !== 'worktree' || !gitFileStatus) return mode;
-    return gitFileStatus.uncommittedFiles.length > 0 ? 'uncommitted' : 'worktree';
-  }, [mode, gitFileStatus]);
+  const effectiveMode = useMemo(() => effectiveDiffMode(gitFileStatus, mode), [mode, gitFileStatus]);
 
   // Derive file list from the store (same data the GitStats button uses), by
   // the same rule main follows when it gathers the diff for a lens.
@@ -77,7 +76,17 @@ export function DiffPanel({ ptyId, projectPath, mode, fullWidth, onToggleFullWid
   );
 
   const totalFileCount = storeFiles.length;
-  const files = useMemo(() => storeFiles.slice(0, MAX_DIFF_FILES), [storeFiles]);
+
+  // The shape of the change, and the file list held at the same identity for as
+  // long as it says the change is the same one.
+  //
+  // A status poll hands back a fresh object every few seconds whether or not
+  // anything moved, and everything below here — the tree walk, the lens
+  // resolution, the per-file loader — keys off `files`. Without this they all
+  // re-run on a diff that did not change.
+  const filesFingerprint = useMemo(() => diffShape(storeFiles.slice(0, MAX_DIFF_FILES)), [storeFiles]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- the fingerprint is the point: it changes only when the list does
+  const files = useMemo(() => storeFiles.slice(0, MAX_DIFF_FILES), [filesFingerprint]);
   const byPath = useMemo(() => new Map(files.map((f) => [f.path, f])), [files]);
   // The tree groups by directory; the document below it has to run in the same
   // order or clicking a file in one is no way to find it in the other. It is
@@ -117,60 +126,24 @@ export function DiffPanel({ ptyId, projectPath, mode, fullWidth, onToggleFullWid
     ],
   );
 
-  // Stable fingerprint — only changes when the actual file list changes.
-  // Prevents hunk-loading from restarting on no-op 3s git status refreshes.
-  const filesFingerprint = useMemo(() => diffShape(files), [files]);
-
   // Trigger an immediate git status refresh when panel opens for fresh data
   useEffect(() => {
     const inst = terminalInstances.get(ptyId);
     if (inst) refreshTerminalGitStatus(inst);
   }, [ptyId]);
 
-  // Load per-file diffs in batches when the file list changes.
-  // Within each batch we mutate a single Map and call setDiffs once with a
-  // fresh clone — previously each finished file cloned the entire map
-  // (O(N) per file → O(N²) for the whole load). With ~300 files that was
-  // tens of thousands of redundant copies during the load.
-  useEffect(() => {
-    let cancelled = false;
-    setDiffs(new Map());
-
-    if (files.length === 0) return;
-
-    const accumulated = new Map<string, FileDiff | null>();
-
-    const loadDiffs = async () => {
-      for (let i = 0; i < files.length; i += DIFF_BATCH_SIZE) {
-        if (cancelled) return;
-        const batch = files.slice(i, i + DIFF_BATCH_SIZE);
-        const results = await Promise.all(
-          batch.map(async (file): Promise<[string, FileDiff | null]> => {
-            try {
-              const branch = usesBranchDiff(effectiveMode, file.status) ? instance?.worktreeBranch : undefined;
-              const diff = branch
-                ? await window.api.worktree.getFileDiff(projectPath, branch, file.path, instance?.mergeTarget)
-                : await window.api.getFileDiff(gitPath, file.path);
-              return [file.path, diff];
-            } catch {
-              return [file.path, null];
-            }
-          }),
-        );
-        if (cancelled) return;
-        for (const [path, diff] of results) accumulated.set(path, diff);
-        // One copy per batch instead of one per file — batches of 10 means
-        // ~30 copies for 300 files instead of ~45 000.
-        setDiffs(new Map(accumulated));
-      }
-    };
-
-    loadDiffs();
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- filesFingerprint is the stable proxy for files
-  }, [filesFingerprint, effectiveMode, gitPath, projectPath, instance?.worktreeBranch]);
+  useBatchedDiffs(
+    files,
+    filesFingerprint,
+    (file) => {
+      const branch = usesBranchDiff(effectiveMode, file.status) ? instance?.worktreeBranch : undefined;
+      return branch
+        ? window.api.worktree.getFileDiff(projectPath, branch, file.path, instance?.mergeTarget)
+        : window.api.getFileDiff(gitPath, file.path, undefined, file.status === '?');
+    },
+    setDiffs,
+    (file) => file.path,
+  );
 
   const lens = useDiffLens(lensTarget, diffs, order);
   const [lensesOpen, setLensesOpen] = useState(false);
@@ -206,8 +179,9 @@ export function DiffPanel({ ptyId, projectPath, mode, fullWidth, onToggleFullWid
       if (!here && !composing) return null;
 
       // Read when a note is saved rather than on every render: it walks every
-      // line of the file, and nothing on screen shows it.
-      const lineText = () => lineTextAt(diffs.get(path), anchor);
+      // line of the file, and nothing on screen shows it. Through the ref, so
+      // this callback does not have to change identity once per load batch.
+      const lineText = () => lineTextAt(diffsRef.current.get(path), anchor);
 
       return (
         <div className="py-1">
@@ -228,7 +202,6 @@ export function DiffPanel({ ptyId, projectPath, mode, fullWidth, onToggleFullWid
             ) : (
               <InlineCommentCard
                 key={note.id}
-                data-note-id={note.id}
                 label="Note"
                 body={note.body}
                 onClick={() => notes.setEditingId(note.id)}
@@ -247,8 +220,12 @@ export function DiffPanel({ ptyId, projectPath, mode, fullWidth, onToggleFullWid
         </div>
       );
     },
-    [notes, diffs],
+    [notes],
   );
+
+  const toggleFolded = useCallback((path: string, next: boolean) => {
+    setFolded((prev) => toggleIn(prev, path, next));
+  }, []);
 
   // Header stats
   const stats = useMemo(() => {
@@ -290,14 +267,7 @@ export function DiffPanel({ ptyId, projectPath, mode, fullWidth, onToggleFullWid
         onAddComment={startNote}
         renderBelowLine={renderBelowLine}
         collapsed={folded.has(file.path)}
-        onCollapsedChange={(next) =>
-          setFolded((prev) => {
-            const copy = new Set(prev);
-            if (next) copy.add(file.path);
-            else copy.delete(file.path);
-            return copy;
-          })
-        }
+        onCollapsedChange={toggleFolded}
       />
     </DeferredMount>
   );
@@ -394,14 +364,7 @@ export function DiffPanel({ ptyId, projectPath, mode, fullWidth, onToggleFullWid
                     key={group.title}
                     group={group}
                     collapsed={lens.collapsed.has(group.title)}
-                    onCollapsedChange={(next) =>
-                      lens.setCollapsed((prev) => {
-                        const copy = new Set(prev);
-                        if (next) copy.add(group.title);
-                        else copy.delete(group.title);
-                        return copy;
-                      })
-                    }
+                    onCollapsedChange={(next) => lens.setCollapsed((prev) => toggleIn(prev, group.title, next))}
                   >
                     {group.slices.map((slice) => {
                       const file = byPath.get(slice.path);

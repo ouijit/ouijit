@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { LensSummary } from '../../github/service';
+import type { LensSummary } from '../../lens/config';
 import { Icon } from '../terminal/Icon';
 import { MenuDivider, MenuItem, MenuPopover } from '../ui/Menu';
 

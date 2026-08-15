@@ -27,7 +27,7 @@ import type {
   GithubDraftsChangedPayload,
   GithubLensChangedPayload,
 } from './github/types';
-import type { LensAgentChoice } from './github/lensAgents';
+import type { LensAgentChoice } from './lens/lensAgents';
 import type { SaveDraftInput } from './github/service';
 import type { SaveDiffNoteInput } from './diffNotes';
 import type { DiffLensTarget } from './diffLens';
@@ -90,8 +90,8 @@ contextBridge.exposeInMainWorld('api', {
   gitCreateBranch: (projectPath: string, branchName: string) =>
     typedInvoke('git-create-branch', projectPath, branchName),
   gitMergeIntoMain: (projectPath: string) => typedInvoke('git-merge-into-main', projectPath),
-  getFileDiff: (projectPath: string, filePath: string, contextLines?: number) =>
-    typedInvoke('get-file-diff', projectPath, filePath, contextLines),
+  getFileDiff: (projectPath: string, filePath: string, contextLines?: number, untracked?: boolean) =>
+    typedInvoke('get-file-diff', projectPath, filePath, contextLines, untracked),
 
   pty: {
     spawn: (options: PtySpawnOptions) => typedInvoke('pty:spawn', options),

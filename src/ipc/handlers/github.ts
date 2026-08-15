@@ -25,15 +25,13 @@ import {
   mergePr,
   getLens,
   clearLens,
-  listLenses,
   saveLens,
   deleteLens,
   writeLensWithAgent,
-  getLensAgentChoice,
-  setLensAgentChoice,
   createTaskFromIssue,
   prepareTaskFromPullRequest,
 } from '../../github/service';
+import { listLenses, getLensAgentChoice, setLensAgentChoice } from '../../lens/config';
 
 /**
  * Thin delegations, matching every other handler module in here. All the

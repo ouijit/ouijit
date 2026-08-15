@@ -1,5 +1,5 @@
 import { useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import type { ResolvedGroup } from '../../github/lens';
+import type { ResolvedGroup } from '../../lens/lens';
 import { Icon } from '../terminal/Icon';
 
 /**

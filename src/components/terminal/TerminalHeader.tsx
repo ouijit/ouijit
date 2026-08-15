@@ -22,6 +22,7 @@ import { revealInFileManager } from '../../utils/fileManager';
 import { useExperimentalStore } from '../../stores/experimentalStore';
 import { openPullRequestInPanel, createPullRequestForTask, unlinkPullRequest } from '../../services/githubTaskActions';
 import { BranchFromTaskDialog } from '../dialogs/BranchFromTaskDialog';
+import { effectiveDiffMode } from '../../diffSource';
 
 interface TerminalHeaderProps {
   ptyId: string;
@@ -465,8 +466,11 @@ function PanelControls({
   const insertions = gitFileStatus?.uncommittedFiles.reduce((s, f) => s + f.additions, 0) ?? 0;
   const deletions = gitFileStatus?.uncommittedFiles.reduce((s, f) => s + f.deletions, 0) ?? 0;
   const branchDiffCount = gitFileStatus?.branchDiffFiles.length ?? 0;
-  const hasUncommitted = !!gitFileStatus && dirtyFileCount > 0;
-  const showCompare = !!gitFileStatus && !hasUncommitted && isWorktree && branchDiffCount > 0;
+  // The same rule the panel this button opens follows, so the two never offer
+  // and show different diffs.
+  const mode = gitFileStatus ? effectiveDiffMode(gitFileStatus, 'worktree') : null;
+  const hasUncommitted = mode === 'uncommitted';
+  const showCompare = mode === 'worktree' && isWorktree && branchDiffCount > 0;
   const showDiff = hasUncommitted || showCompare;
 
   const slots: React.ReactNode[] = [];

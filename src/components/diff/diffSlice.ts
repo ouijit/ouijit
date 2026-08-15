@@ -8,7 +8,7 @@ import type { FileDiff } from '../../types';
  * where to cut one. Halving a hunk would strip the context lines that make a
  * diff readable, and a hunk is already the smallest piece that stands alone.
  */
-export function sliceDiff(diff: FileDiff | null | undefined, hunks?: number[]): FileDiff | null | undefined {
+function sliceDiff(diff: FileDiff | null | undefined, hunks?: number[]): FileDiff | null | undefined {
   if (!diff || !hunks) return diff;
   return { ...diff, hunks: hunks.map((i) => diff.hunks[i]).filter(Boolean) };
 }

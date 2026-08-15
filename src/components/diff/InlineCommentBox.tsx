@@ -7,20 +7,10 @@ import { useState, type ReactNode } from 'react';
  * with the editor it turns into, which indents by the width of the line-number
  * gutter beside it, and two copies of that number drift.
  */
-export function InlineCommentCard({
-  label,
-  body,
-  onClick,
-  ...data
-}: {
-  label: string;
-  body: ReactNode;
-  onClick: () => void;
-} & Record<`data-${string}`, string>) {
+export function InlineCommentCard({ label, body, onClick }: { label: string; body: ReactNode; onClick: () => void }) {
   return (
     <button
       type="button"
-      {...data}
       className="block w-[calc(100%-176px)] mx-[88px] my-1.5 text-left px-3 py-2 bg-terminal-surface rounded-md text-sm text-text-secondary hover:bg-ink/[0.06] transition-colors duration-100"
       onClick={onClick}
     >

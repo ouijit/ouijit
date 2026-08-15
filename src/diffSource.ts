@@ -12,6 +12,19 @@ import type { ChangedFile, GitFileStatus } from './git';
 export type DiffMode = 'uncommitted' | 'worktree';
 
 /**
+ * Which diff a worktree is actually showing.
+ *
+ * Uncommitted changes win when there are any, and the branch diff is the
+ * fallback. The header's button and the panel it opens both answer this, and
+ * they have to answer it the same way or the button offers one diff and the
+ * panel shows the other. Asking for `uncommitted` is taken at its word.
+ */
+export function effectiveDiffMode(status: GitFileStatus | null, requested: DiffMode): DiffMode {
+  if (requested !== 'worktree' || !status) return requested;
+  return status.uncommittedFiles.length > 0 ? 'uncommitted' : 'worktree';
+}
+
+/**
  * Every file the diff contains, in the two lists it is drawn from.
  *
  * Untracked files join whichever mode is showing. They belong to both the

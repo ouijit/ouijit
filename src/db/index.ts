@@ -416,9 +416,9 @@ export async function getDiffNotes(worktreePath: string): Promise<DiffNoteRow[]>
   return dr.getForWorktree(worktreePath);
 }
 
-export async function saveDiffNote(row: DiffNoteRow): Promise<DiffNoteRow> {
+export async function saveDiffNote(row: DiffNoteRow): Promise<void> {
   const { diffNoteRepo: dr } = repos();
-  return dr.save(row);
+  dr.save(row);
 }
 
 export async function deleteDiffNote(id: string): Promise<void> {
