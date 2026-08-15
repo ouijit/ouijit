@@ -1,16 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { FileDiff } from '../../types';
 import type { DiffLensResult, DiffLensTarget } from '../../diffLens';
-import type { LensSummary } from '../../lens/config';
 import { resolveLens } from '../../lens/lens';
 import { useDiffSlices } from './diffSlice';
+import { useProjectLenses } from './useProjectLenses';
 import { useProjectStore } from '../../stores/projectStore';
 import { describeError } from '../../utils/describeError';
 
 /** The lens over a worktree diff: what is stored, and what it resolves to. */
 export function useDiffLens(target: DiffLensTarget | null, diffs: Map<string, FileDiff | null>, order: string[]) {
   const [lens, setLens] = useState<DiffLensResult | null>(null);
-  const [lenses, setLenses] = useState<LensSummary[]>([]);
+  const { lenses } = useProjectLenses(target?.projectPath ?? '');
   const [lensOn, setLensOn] = useState(true);
   const [writing, setWriting] = useState<string | null>(null);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
@@ -32,15 +32,6 @@ export function useDiffLens(target: DiffLensTarget | null, diffs: Map<string, Fi
   useEffect(() => {
     void reload();
   }, [reload]);
-
-  useEffect(() => {
-    if (!target) return;
-    void window.api.github
-      .listLenses(target.projectPath)
-      .then(setLenses)
-      .catch(() => setLenses([]));
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- only the project decides this
-  }, [target?.projectPath]);
 
   const run = useCallback(
     async (lensName: string) => {

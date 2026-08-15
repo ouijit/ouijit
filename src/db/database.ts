@@ -13,7 +13,7 @@ import { up as migration011 } from './migrations/011-drop-project-icon-data-url'
 import { up as migration012 } from './migrations/012-per-runnable-restart';
 import { up as migration013 } from './migrations/013-drop-task-sandboxed';
 import { up as migration014 } from './migrations/014-github-and-diff-notes';
-import { up as migration015 } from './migrations/015-worktree-lenses';
+import { up as migration015 } from './migrations/015-diff-lenses';
 
 const migrations = [
   { version: 1, up: migration001 },

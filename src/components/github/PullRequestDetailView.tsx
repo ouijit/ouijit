@@ -8,6 +8,7 @@ import type { LensSummary } from '../../lens/config';
 import { LensDialog } from '../dialogs/LensDialog';
 import { ResizeHandle } from '../common/ResizeHandle';
 import { treeFileOrder } from '../diff/DiffFileTree';
+import { useProjectLenses } from '../diff/useProjectLenses';
 import { scrollToSection, fileSelector } from '../diff/scrollToSection';
 import { Tab, TabBar } from './Tabs';
 import { DetailChrome } from './DetailChrome';
@@ -163,12 +164,7 @@ export function PullRequestDetailView({
   // The project's lenses, for the picker to offer alongside the file list.
   // Read here rather than in the rail so the dialog that edits them can hand
   // back an up-to-date list on the way out.
-  const [lenses, setLenses] = useState<LensSummary[]>([]);
-  const loadLenses = useCallback(() => {
-    void window.api.github.listLenses(projectPath).then(setLenses);
-  }, [projectPath]);
-
-  useEffect(() => loadLenses(), [loadLenses]);
+  const { lenses, reload: loadLenses } = useProjectLenses(projectPath);
 
   /**
    * Read this pull request through one of the project's lenses.

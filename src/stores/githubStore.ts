@@ -452,7 +452,11 @@ export const useGithubStore = create<GithubStore>()((set, get) => ({
       });
     } catch (error) {
       if (version !== detailVersion) return;
-      set({ detailLoading: false, filesLoading: false, ...(get().detail ? {} : { detailError: describeError(error) }) });
+      set({
+        detailLoading: false,
+        filesLoading: false,
+        ...(get().detail ? {} : { detailError: describeError(error) }),
+      });
       // A refresh that fails leaves what is on screen alone — a poll tick
       // during a dropped connection should not replace a pull request you are
       // reading with an error. Only a first load has nothing to fall back to.

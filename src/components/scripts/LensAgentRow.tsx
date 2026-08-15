@@ -26,7 +26,7 @@ export function LensAgentRow({ projectPath }: { projectPath: string }) {
   const [custom, setCustom] = useState<string | null>(null);
 
   useEffect(() => {
-    void window.api.github.lensAgent(projectPath).then(setChoice);
+    void window.api.lens.agent(projectPath).then(setChoice);
   }, [projectPath]);
 
   // Probed rather than taken from the startup cache: an agent installed while
@@ -38,7 +38,7 @@ export function LensAgentRow({ projectPath }: { projectPath: string }) {
   const save = useCallback(
     async (next: LensAgentChoice) => {
       setChoice(next);
-      await window.api.github.setLensAgent(projectPath, next);
+      await window.api.lens.setAgent(projectPath, next);
     },
     [projectPath],
   );

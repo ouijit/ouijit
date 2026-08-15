@@ -15,10 +15,8 @@ import { TagRepo, type TagRow } from './repos/tagRepo';
 import { GlobalSettingsRepo } from './repos/globalSettingsRepo';
 import { ScriptRepo, type ScriptRow } from './repos/scriptRepo';
 import { ReviewDraftRepo, type ReviewDraftRow } from './repos/reviewDraftRepo';
-import { PrLensRepo, type PrLensRow } from './repos/prLensRepo';
-import type { DiffMode } from '../diffSource';
+import { DiffLensRepo, type DiffLensRow } from './repos/diffLensRepo';
 import { DiffNoteRepo, type DiffNoteRow } from './repos/diffNoteRepo';
-import { WorktreeLensRepo, type WorktreeLensRow } from './repos/worktreeLensRepo';
 import type { ProjectSettings, ScriptHook } from '../types';
 import { getLogger } from '../logger';
 
@@ -54,9 +52,8 @@ let tagRepo: TagRepo | null = null;
 let globalSettingsRepo: GlobalSettingsRepo | null = null;
 let scriptRepo: ScriptRepo | null = null;
 let reviewDraftRepo: ReviewDraftRepo | null = null;
-let prLensRepo: PrLensRepo | null = null;
+let diffLensRepo: DiffLensRepo | null = null;
 let diffNoteRepo: DiffNoteRepo | null = null;
-let worktreeLensRepo: WorktreeLensRepo | null = null;
 
 function repos() {
   if (!taskRepo) {
@@ -68,9 +65,8 @@ function repos() {
     globalSettingsRepo = new GlobalSettingsRepo(db);
     scriptRepo = new ScriptRepo(db);
     reviewDraftRepo = new ReviewDraftRepo(db);
-    prLensRepo = new PrLensRepo(db);
+    diffLensRepo = new DiffLensRepo(db);
     diffNoteRepo = new DiffNoteRepo(db);
-    worktreeLensRepo = new WorktreeLensRepo(db);
   }
   return {
     projectRepo: projectRepo!,
@@ -80,9 +76,8 @@ function repos() {
     globalSettingsRepo: globalSettingsRepo!,
     scriptRepo: scriptRepo!,
     reviewDraftRepo: reviewDraftRepo!,
-    prLensRepo: prLensRepo!,
+    diffLensRepo: diffLensRepo!,
     diffNoteRepo: diffNoteRepo!,
-    worktreeLensRepo: worktreeLensRepo!,
   };
 }
 
@@ -97,9 +92,8 @@ export function _resetCacheForTesting(): void {
   globalSettingsRepo = new GlobalSettingsRepo(db);
   scriptRepo = new ScriptRepo(db);
   reviewDraftRepo = new ReviewDraftRepo(db);
-  prLensRepo = new PrLensRepo(db);
+  diffLensRepo = new DiffLensRepo(db);
   diffNoteRepo = new DiffNoteRepo(db);
-  worktreeLensRepo = new WorktreeLensRepo(db);
 }
 
 // ── Row → TaskMetadata conversion ────────────────────────────────────
@@ -431,60 +425,34 @@ export async function clearDiffNotes(worktreePath: string): Promise<void> {
   dr.deleteForWorktree(worktreePath);
 }
 
-// ── Worktree lenses ──────────────────────────────────────────────────
+// ── Lenses ───────────────────────────────────────────────────────────
 
-export type { WorktreeLensRow } from './repos/worktreeLensRepo';
+export type { DiffLensRow } from './repos/diffLensRepo';
 
-export async function getWorktreeLens(worktreePath: string, mode: DiffMode): Promise<WorktreeLensRow | undefined> {
-  const { worktreeLensRepo: wr } = repos();
-  return wr.get(worktreePath, mode);
+export async function getDiffLens(projectPath: string, subjectKey: string): Promise<DiffLensRow | undefined> {
+  const { diffLensRepo: dl } = repos();
+  return dl.get(projectPath, subjectKey);
 }
 
-export async function saveWorktreeLens(
-  worktreePath: string,
+export async function saveDiffLens(
   projectPath: string,
-  mode: DiffMode,
+  subjectKey: string,
   pin: string,
   groups: string,
   lensName: string | null,
 ): Promise<void> {
-  const { worktreeLensRepo: wr } = repos();
-  wr.save(worktreePath, projectPath, mode, pin, groups, lensName);
+  const { diffLensRepo: dl } = repos();
+  dl.save(projectPath, subjectKey, pin, groups, lensName);
 }
 
-export async function renameWorktreeLens(projectPath: string, from: string, to: string): Promise<void> {
-  const { worktreeLensRepo: wr } = repos();
-  wr.rename(projectPath, from, to);
+export async function renameDiffLens(projectPath: string, from: string, to: string): Promise<void> {
+  const { diffLensRepo: dl } = repos();
+  dl.rename(projectPath, from, to);
 }
 
-// ── Pull request lenses ──────────────────────────────────────────────
-
-export type { PrLensRow } from './repos/prLensRepo';
-
-export async function getPrLens(projectPath: string, prNumber: number): Promise<PrLensRow | undefined> {
-  const { prLensRepo: pn } = repos();
-  return pn.get(projectPath, prNumber);
-}
-
-export async function savePrLens(
-  projectPath: string,
-  prNumber: number,
-  headSha: string,
-  groups: string,
-  lensName: string | null,
-): Promise<void> {
-  const { prLensRepo: pn } = repos();
-  pn.save(projectPath, prNumber, headSha, groups, lensName);
-}
-
-export async function renamePrLens(projectPath: string, from: string, to: string): Promise<void> {
-  const { prLensRepo: pn } = repos();
-  pn.rename(projectPath, from, to);
-}
-
-export async function deletePrLens(projectPath: string, prNumber: number): Promise<{ success: boolean }> {
-  const { prLensRepo: pn } = repos();
-  pn.delete(projectPath, prNumber);
+export async function deleteDiffLens(projectPath: string, subjectKey: string): Promise<{ success: boolean }> {
+  const { diffLensRepo: dl } = repos();
+  dl.delete(projectPath, subjectKey);
   return { success: true };
 }
 

@@ -289,14 +289,17 @@ export function DiffPanel({ ptyId, projectPath, mode, fullWidth, onToggleFullWid
             <div className="pane-ledge shrink-0 flex flex-col">
               <LensPicker
                 lenses={lens.lenses}
-                applied={lens.lens ? { name: lens.lens.lensName, groups: lens.lens.groups.length } : null}
+                // Rendered even when stale, unlike a pull request's: this diff
+                // moves on every save, so one written a minute ago still groups
+                // most of it. The picker offers to write it again either way.
+                onFile={
+                  lens.lens
+                    ? { name: lens.lens.lensName, groups: lens.lens.groups.length, stale: lens.lens.stale }
+                    : null
+                }
                 lensOn={lens.lensOn}
                 changedFiles={files.length}
                 viewed={folded.size}
-                // Offered again rather than hidden. A pull request drops a
-                // stale lens, but this diff moves on every save, so one written
-                // a minute ago still groups most of it.
-                stale={lens.lens?.stale ? (lens.lens.lensName ?? null) : null}
                 writing={lens.writing}
                 onAllFiles={() => lens.setLensOn(false)}
                 onShowLens={() => lens.setLensOn(true)}

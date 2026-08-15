@@ -111,11 +111,19 @@ export function PullRequestRail({
       <div className="pane-ledge shrink-0 flex flex-col">
         <LensPicker
           lenses={lenses}
-          applied={groups ? { name: lensName, groups: groups.length } : null}
+          // A stale lens is on file with nothing rendered: after a force-push
+          // the hunks it points at are gone, so it is named and offered again
+          // rather than drawn over code that has moved.
+          onFile={
+            groups
+              ? { name: lensName, groups: groups.length, stale: false }
+              : staleLensName
+                ? { name: staleLensName, groups: null, stale: true }
+                : null
+          }
           lensOn={lensOn}
           changedFiles={detail.changedFiles}
           viewed={viewed.size}
-          stale={staleLensName}
           writing={lensWriting}
           onAllFiles={() => {
             // Mode first, then the scroll back to the top: what the reader

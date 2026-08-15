@@ -50,18 +50,6 @@ export function up(db: Database.Database): void {
     CREATE INDEX IF NOT EXISTS idx_review_drafts_pr
       ON github_review_drafts (project_path, pr_number);
 
-    -- One pull request's lens: the parts of the change, named and ordered,
-    -- pinned to the head SHA they were written against.
-    CREATE TABLE IF NOT EXISTS github_pr_lenses (
-      project_path TEXT NOT NULL,
-      pr_number INTEGER NOT NULL,
-      head_sha TEXT NOT NULL,
-      groups TEXT NOT NULL,
-      created_at TEXT NOT NULL DEFAULT (datetime('now')),
-      lens_name TEXT,
-      PRIMARY KEY (project_path, pr_number)
-    );
-
     -- Notes written on a worktree diff, keyed by worktree path rather than by
     -- task or terminal, since the changes outlive the terminal that was open
     -- when the notes were written.

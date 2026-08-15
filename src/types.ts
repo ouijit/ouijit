@@ -666,6 +666,22 @@ export interface ElectronAPI {
   diffNotes: DiffNotesAPI;
   /** Agent-written grouping over a worktree's own diff */
   diffLens: DiffLensAPI;
+  /** The project's named lenses and the agent that runs them */
+  lens: LensAPI;
+}
+
+/**
+ * The project's lenses: named instructions, and which agent runs them.
+ *
+ * Not part of `github` — a worktree diff reads through these with no remote in
+ * sight, and nothing behind them touches GitHub.
+ */
+export interface LensAPI {
+  list(projectPath: string): Promise<LensSummary[]>;
+  save(projectPath: string, name: string, instruction: string, previousName?: string): Promise<LensSummary>;
+  delete(projectPath: string, name: string): Promise<{ success: boolean }>;
+  agent(projectPath: string): Promise<LensAgentChoice>;
+  setAgent(projectPath: string, choice: LensAgentChoice): Promise<{ success: boolean }>;
 }
 
 /** The pull request equivalent is `github.lens` / `runLens`. */
@@ -760,12 +776,7 @@ export interface GithubAPI {
 
   lens(projectPath: string, prNumber: number, headSha: string): Promise<LensResult>;
   clearLens(projectPath: string, prNumber: number): Promise<{ success: boolean }>;
-  listLenses(projectPath: string): Promise<LensSummary[]>;
-  saveLens(projectPath: string, name: string, command: string, previousName?: string): Promise<LensSummary>;
-  deleteLens(projectPath: string, name: string): Promise<{ success: boolean }>;
   runLens(projectPath: string, prNumber: number, lensName: string): Promise<{ success: boolean; error?: string }>;
-  lensAgent(projectPath: string): Promise<LensAgentChoice>;
-  setLensAgent(projectPath: string, choice: LensAgentChoice): Promise<{ success: boolean }>;
   viewedFiles(projectPath: string, prNumber: number, headSha: string): Promise<string[]>;
   setFileViewed(
     projectPath: string,

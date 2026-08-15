@@ -5,6 +5,7 @@ import type { LensSummary } from '../../lens/config';
 import { Icon } from '../terminal/Icon';
 import { useAutoResize } from '../../hooks/useAutoResize';
 import { LensAgentRow } from './LensAgentRow';
+import { useProjectLenses } from '../diff/useProjectLenses';
 
 interface LensListProps {
   projectPath: string;
@@ -27,25 +28,14 @@ interface LensListProps {
  * adding a lens is possible from the place you wanted one.
  */
 export function LensList({ projectPath, onRun, running }: LensListProps) {
-  // Local rather than from the github store, for the same reason the pull
-  // request command list is: that store's loaders are guarded against the
-  // panel's active project, which settings never sets.
-  const [lenses, setLenses] = useState<LensSummary[]>([]);
+  const { lenses, reload } = useProjectLenses(projectPath);
   const [expandedName, setExpandedName] = useState<string | null>(null);
   const [addingNew, setAddingNew] = useState(false);
-
-  const reload = useCallback(async () => {
-    setLenses(await window.api.github.listLenses(projectPath));
-  }, [projectPath]);
-
-  useEffect(() => {
-    void reload();
-  }, [reload]);
 
   const save = useCallback(
     async (lens: LensSummary, previousName?: string) => {
       try {
-        await window.api.github.saveLens(projectPath, lens.name, lens.instruction, previousName);
+        await window.api.lens.save(projectPath, lens.name, lens.instruction, previousName);
       } catch (error) {
         useProjectStore.getState().addToast(error instanceof Error ? error.message : String(error), 'error');
         return;
@@ -64,7 +54,7 @@ export function LensList({ projectPath, onRun, running }: LensListProps) {
 
   const remove = useCallback(
     async (name: string) => {
-      await window.api.github.deleteLens(projectPath, name);
+      await window.api.lens.delete(projectPath, name);
       await reload();
       setExpandedName(null);
       useProjectStore.getState().addToast(`Deleted “${name}”`, 'success');

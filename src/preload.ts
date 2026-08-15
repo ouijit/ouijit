@@ -348,15 +348,8 @@ contextBridge.exposeInMainWorld('api', {
     lens: (projectPath: string, prNumber: number, headSha: string) =>
       typedInvoke('github:lens', projectPath, prNumber, headSha),
     clearLens: (projectPath: string, prNumber: number) => typedInvoke('github:clear-lens', projectPath, prNumber),
-    listLenses: (projectPath: string) => typedInvoke('github:list-lenses', projectPath),
-    saveLens: (projectPath: string, name: string, command: string, previousName?: string) =>
-      typedInvoke('github:save-lens', projectPath, name, command, previousName),
-    deleteLens: (projectPath: string, name: string) => typedInvoke('github:delete-lens', projectPath, name),
     runLens: (projectPath: string, prNumber: number, lensName: string) =>
       typedInvoke('github:run-lens', projectPath, prNumber, lensName),
-    lensAgent: (projectPath: string) => typedInvoke('github:lens-agent', projectPath),
-    setLensAgent: (projectPath: string, choice: LensAgentChoice) =>
-      typedInvoke('github:set-lens-agent', projectPath, choice),
     viewedFiles: (projectPath: string, prNumber: number, headSha: string) =>
       typedInvoke('github:viewed-files', projectPath, prNumber, headSha),
     setFileViewed: (projectPath: string, prNumber: number, headSha: string, path: string, viewed: boolean) =>
@@ -411,5 +404,14 @@ contextBridge.exposeInMainWorld('api', {
   diffLens: {
     get: (target: DiffLensTarget) => typedInvoke('diff-lens:get', target),
     run: (target: DiffLensTarget, lensName: string) => typedInvoke('diff-lens:run', target, lensName),
+  },
+
+  lens: {
+    list: (projectPath: string) => typedInvoke('lens:list', projectPath),
+    save: (projectPath: string, name: string, instruction: string, previousName?: string) =>
+      typedInvoke('lens:save', projectPath, name, instruction, previousName),
+    delete: (projectPath: string, name: string) => typedInvoke('lens:delete', projectPath, name),
+    agent: (projectPath: string) => typedInvoke('lens:agent', projectPath),
+    setAgent: (projectPath: string, choice: LensAgentChoice) => typedInvoke('lens:set-agent', projectPath, choice),
   },
 });

@@ -30,8 +30,8 @@ describe('which agent writes a lens', () => {
     cleanup();
     vi.clearAllMocks();
     window.api.health.check = vi.fn().mockResolvedValue(HEALTH);
-    window.api.github.lensAgent = vi.fn().mockResolvedValue({ agentId: null });
-    window.api.github.setLensAgent = vi.fn().mockResolvedValue({ success: true });
+    window.api.lens.agent = vi.fn().mockResolvedValue({ agentId: null });
+    window.api.lens.setAgent = vi.fn().mockResolvedValue({ success: true });
   });
 
   test('says which command it will run, not just which agent', async () => {
@@ -65,7 +65,7 @@ describe('which agent writes a lens', () => {
     fireEvent.click(await screen.findByRole('menuitem', { name: /^Pi/ }));
 
     await waitFor(() => {
-      expect(window.api.github.setLensAgent).toHaveBeenCalledWith(PROJECT, { agentId: 'pi' });
+      expect(window.api.lens.setAgent).toHaveBeenCalledWith(PROJECT, { agentId: 'pi' });
     });
     // Claude Code is installed and comes first, but a choice was made.
     expect(await screen.findByText(/pi -p --no-tools/)).toBeTruthy();
@@ -97,7 +97,7 @@ describe('which agent writes a lens', () => {
     fireEvent.keyDown(field, { key: 'Enter' });
 
     await waitFor(() => {
-      expect(window.api.github.setLensAgent).toHaveBeenCalledWith(PROJECT, {
+      expect(window.api.lens.setAgent).toHaveBeenCalledWith(PROJECT, {
         agentId: null,
         command: 'my-agent --one-shot',
       });
@@ -106,7 +106,7 @@ describe('which agent writes a lens', () => {
   });
 
   test('emptying the custom command goes back to the presets', async () => {
-    window.api.github.lensAgent = vi.fn().mockResolvedValue({ agentId: null, command: 'my-agent' });
+    window.api.lens.agent = vi.fn().mockResolvedValue({ agentId: null, command: 'my-agent' });
     render(<LensAgentRow projectPath={PROJECT} />);
     await screen.findByText('Custom');
 
@@ -118,7 +118,7 @@ describe('which agent writes a lens', () => {
     fireEvent.keyDown(field, { key: 'Enter' });
 
     await waitFor(() => {
-      expect(window.api.github.setLensAgent).toHaveBeenCalledWith(PROJECT, { agentId: null });
+      expect(window.api.lens.setAgent).toHaveBeenCalledWith(PROJECT, { agentId: null });
     });
     expect(await screen.findByText(/claude -p/)).toBeTruthy();
   });

@@ -278,18 +278,10 @@ export interface IpcInvokeContract {
     return: PrFileVersions;
   };
   'github:lens': { args: [projectPath: string, prNumber: number, headSha: string]; return: LensResult };
-  'github:list-lenses': { args: [projectPath: string]; return: LensSummary[] };
-  'github:save-lens': {
-    args: [projectPath: string, name: string, command: string, previousName?: string];
-    return: LensSummary;
-  };
-  'github:delete-lens': { args: [projectPath: string, name: string]; return: { success: boolean } };
   'github:run-lens': {
     args: [projectPath: string, prNumber: number, lensName: string];
     return: { success: boolean; error?: string };
   };
-  'github:lens-agent': { args: [projectPath: string]; return: LensAgentChoice };
-  'github:set-lens-agent': { args: [projectPath: string, choice: LensAgentChoice]; return: { success: boolean } };
   'github:viewed-files': { args: [projectPath: string, prNumber: number, headSha: string]; return: string[] };
   'github:set-file-viewed': {
     args: [projectPath: string, prNumber: number, headSha: string, path: string, viewed: boolean];
@@ -309,7 +301,19 @@ export interface IpcInvokeContract {
   };
   'github:detect-task-pr': { args: [projectPath: string, taskNumber: number]; return: { prNumber: number | null } };
 
-  // ── Worktree diff lens ─────────────────────────────────────────────
+  // ── Lenses ─────────────────────────────────────────────────────────
+  // The project's named instructions and the agent that runs them. Not under
+  // `github:` — a worktree with no remote reads its own diff through these,
+  // and nothing behind them touches GitHub.
+  'lens:list': { args: [projectPath: string]; return: LensSummary[] };
+  'lens:save': {
+    args: [projectPath: string, name: string, command: string, previousName?: string];
+    return: LensSummary;
+  };
+  'lens:delete': { args: [projectPath: string, name: string]; return: { success: boolean } };
+  'lens:agent': { args: [projectPath: string]; return: LensAgentChoice };
+  'lens:set-agent': { args: [projectPath: string, choice: LensAgentChoice]; return: { success: boolean } };
+
   // A lens over a worktree's own diff, written by the same agent and stored
   // under the same named instructions as a pull request's.
   'diff-lens:get': { args: [target: DiffLensTarget]; return: DiffLensResult | null };

@@ -25,13 +25,10 @@ import {
   mergePr,
   getLens,
   clearLens,
-  saveLens,
-  deleteLens,
   writeLensWithAgent,
   createTaskFromIssue,
   prepareTaskFromPullRequest,
 } from '../../github/service';
-import { listLenses, getLensAgentChoice, setLensAgentChoice } from '../../lens/config';
 
 /**
  * Thin delegations, matching every other handler module in here. All the
@@ -83,16 +80,9 @@ export function registerGithubHandlers(): void {
     createPullRequestForTask(projectPath, taskNumber, options),
   );
   typedHandle('github:lens', (projectPath, prNumber, headSha) => getLens(projectPath, prNumber, headSha));
-  typedHandle('github:list-lenses', (projectPath) => listLenses(projectPath));
-  typedHandle('github:save-lens', (projectPath, name, command, previousName) =>
-    saveLens(projectPath, name, command, previousName),
-  );
-  typedHandle('github:delete-lens', (projectPath, name) => deleteLens(projectPath, name));
   typedHandle('github:run-lens', (projectPath, prNumber, lensName) =>
     writeLensWithAgent(projectPath, prNumber, lensName),
   );
-  typedHandle('github:lens-agent', (projectPath) => getLensAgentChoice(projectPath));
-  typedHandle('github:set-lens-agent', (projectPath, choice) => setLensAgentChoice(projectPath, choice));
   typedHandle('github:viewed-files', (projectPath, prNumber, headSha) =>
     getViewedFiles(projectPath, prNumber, headSha),
   );

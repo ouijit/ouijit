@@ -50,15 +50,24 @@ export function useDiffNotes(worktreePath: string) {
 
   const save = useCallback(
     (input: Omit<SaveDiffNoteInput, 'worktreePath'>) =>
-      mutate('save the note', () => window.api.diffNotes.save({ ...input, worktreePath }), () => {
-        setComposingAt(null);
-        setEditingId(null);
-      }),
+      mutate(
+        'save the note',
+        () => window.api.diffNotes.save({ ...input, worktreePath }),
+        () => {
+          setComposingAt(null);
+          setEditingId(null);
+        },
+      ),
     [worktreePath, mutate],
   );
 
   const discard = useCallback(
-    (id: string) => mutate('discard the note', () => window.api.diffNotes.discard(id), () => setEditingId(null)),
+    (id: string) =>
+      mutate(
+        'discard the note',
+        () => window.api.diffNotes.discard(id),
+        () => setEditingId(null),
+      ),
     [mutate],
   );
 
@@ -75,6 +84,6 @@ export function useDiffNotes(worktreePath: string) {
   // file sections below it would never bail out.
   return useMemo(
     () => ({ notes, byAnchor, composingAt, setComposingAt, editingId, setEditingId, save, discard, clear }),
-    [notes, composingAt, editingId, save, discard, clear],
+    [notes, byAnchor, composingAt, editingId, save, discard, clear],
   );
 }

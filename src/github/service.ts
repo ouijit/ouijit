@@ -21,11 +21,10 @@ import {
   saveReviewDraft,
   deleteReviewDraft,
   getReviewDraftCounts,
-  getPrLens,
-  savePrLens,
-  renamePrLens,
-  renameWorktreeLens,
-  deletePrLens,
+  getDiffLens,
+  saveDiffLens,
+  renameDiffLens,
+  deleteDiffLens,
   getGlobalSetting,
   createTask,
   getNextTaskNumber,
@@ -35,8 +34,10 @@ import { experimentalStorageKey, parseExperimentalFlags } from '../experimentalF
 import { pushBranch } from '../git';
 import { getLogger } from '../logger';
 import { getRepoIdentity, invalidateRepoIdentity } from './repoIdentity';
-import { runLens } from '../lens/runLens';
-import { listLenses, resolveLensRun, writeLenses, type LensSummary } from '../lens/config';
+import { writeLens } from '../lens/writeLens';
+import type { DiffSubject } from '../lens/subject';
+import type { LensFile, LensSubject } from '../lens/lensPrompt';
+import { listLenses, writeLenses, type LensSummary } from '../lens/config';
 import { GithubError, MIN_GH_VERSION, getViewerLogin, probeGhAuth } from './client';
 import {
   fetchInbox,
@@ -458,74 +459,94 @@ export async function saveLens(
 
   // Anything already read through it is still being read through it, whatever
   // it is now called — on both diffs a lens can be applied to.
-  if (previousName && previousName !== lens.name) {
-    await renamePrLens(projectPath, previousName, lens.name);
-    await renameWorktreeLens(projectPath, previousName, lens.name);
-  }
+  if (previousName && previousName !== lens.name) await renameDiffLens(projectPath, previousName, lens.name);
 
   return lens;
 }
 
+/** One pull request, within its project. */
+function prSubjectKey(prNumber: number): string {
+  return `pr:${prNumber}`;
+}
+
 /**
- * Read the pull request through one of the project's lenses.
+ * A pull request as something a lens can be written over.
  *
  * Everything the agent needs is gathered here — the description, the file list
  * and the diff — so that what it is asked to do is the one thing it is for.
+ * The procedure around it is `writeLens`, shared with the worktree diff.
  */
-export async function writeLensWithAgent(
+class PullRequestSubject implements DiffSubject {
+  readonly key: string;
+  readonly label: Record<string, unknown>;
+  /** Resolved by `listFiles`, which every later step runs after. */
+  private detail: PullRequestDetail | null = null;
+
+  constructor(
+    readonly projectPath: string,
+    private prNumber: number,
+  ) {
+    this.key = prSubjectKey(prNumber);
+    this.label = { prNumber };
+  }
+
+  /** The agent runs in the project, since that is where the checkout is. */
+  get cwd(): string {
+    return this.projectPath;
+  }
+
+  async listFiles(): Promise<{ files: LensFile[]; error?: string; emptyMessage: string }> {
+    const empty = { files: [] as LensFile[], emptyMessage: 'This pull request has no files to group' };
+
+    this.detail = await getPullRequest(this.projectPath, this.prNumber);
+    if (!this.detail) return { ...empty, error: 'Could not read the pull request' };
+
+    const listed = await getPullRequestFiles(this.projectPath, this.prNumber, this.detail.baseSha, this.detail.headSha);
+    return { ...empty, files: listed.files, error: listed.error };
+  }
+
+  diffFor(file: LensFile): Promise<FileDiff | null> {
+    const detail = this.require();
+    return getPullRequestFileDiff(
+      this.projectPath,
+      this.prNumber,
+      detail.baseSha,
+      detail.headSha,
+      file.path,
+      undefined,
+      file.oldPath,
+    );
+  }
+
+  /**
+   * The head the lens describes. A force-push moves it, and the hunks the lens
+   * points at go with it.
+   */
+  pin(): Promise<string> {
+    return Promise.resolve(this.require().headSha);
+  }
+
+  describe(): LensSubject {
+    const detail = this.require();
+    return {
+      lead: 'You are grouping the changes in a pull request so a reviewer can read them in a sensible order.',
+      heading: `# Pull request #${detail.number}: ${detail.title}`,
+      body: detail.body,
+    };
+  }
+
+  private require(): PullRequestDetail {
+    if (!this.detail) throw new Error('The pull request has not been read yet');
+    return this.detail;
+  }
+}
+
+export function writeLensWithAgent(
   projectPath: string,
   prNumber: number,
   lensName: string,
 ): Promise<{ success: boolean; error?: string }> {
-  const resolved = await resolveLensRun(projectPath, lensName);
-  if ('error' in resolved) return { success: false, error: resolved.error };
-  const { lens, agent } = resolved;
-
-  const detail = await getPullRequest(projectPath, prNumber);
-  if (!detail) return { success: false, error: 'Could not read the pull request' };
-
-  const listed = await getPullRequestFiles(projectPath, prNumber, detail.baseSha, detail.headSha);
-  if (listed.files.length === 0) {
-    return { success: false, error: listed.error ?? 'This pull request has no files to group' };
-  }
-
-  // Read here rather than reused from the renderer's copy: this runs in main,
-  // and a lens written against half-loaded diffs would be a lens written
-  // against whichever files happened to have arrived.
-  const diffs = new Map<string, FileDiff | null>();
-  for (const file of listed.files) {
-    diffs.set(
-      file.path,
-      await getPullRequestFileDiff(
-        projectPath,
-        prNumber,
-        detail.baseSha,
-        detail.headSha,
-        file.path,
-        undefined,
-        file.oldPath,
-      ),
-    );
-  }
-
-  ghLog.info('gathering context for a lens', { prNumber, files: listed.files.length, lens: lensName });
-
-  const result = await runLens({
-    subject: {
-      lead: 'You are grouping the changes in a pull request so a reviewer can read them in a sensible order.',
-      heading: `# Pull request #${detail.number}: ${detail.title}`,
-      body: detail.body,
-    },
-    files: listed.files,
-    diffs,
-    instruction: lens.instruction,
-    agent,
-    cwd: projectPath,
-  });
-  if (!result.success || !result.body) return { success: false, error: result.error };
-
-  await savePrLens(projectPath, prNumber, detail.headSha, result.body, lens.name);
-  return { success: true };
+  return writeLens(new PullRequestSubject(projectPath, prNumber), lensName);
 }
 
 export async function deleteLens(projectPath: string, name: string): Promise<{ success: boolean }> {
@@ -555,12 +576,12 @@ export interface LensResult {
  * back until something writes a new one.
  */
 export async function getLens(projectPath: string, prNumber: number, headSha: string): Promise<LensResult> {
-  const row = await getPrLens(projectPath, prNumber);
+  const row = await getDiffLens(projectPath, prSubjectKey(prNumber));
   if (!row) return { groups: null };
   // Named even when it is stale: the pane cannot offer to write it again
   // without knowing which lens wrote it, and dropping the name is how a reader
   // loses an agent run without being told one ever happened.
-  if (row.head_sha !== headSha) return { groups: null, name: row.lens_name ?? null, staleFor: row.head_sha };
+  if (row.pin !== headSha) return { groups: null, name: row.lens_name ?? null, staleFor: row.pin };
   const groups = parseLens(row.groups);
   return { groups, name: row.lens_name ?? null };
 }
@@ -578,12 +599,12 @@ export async function setLens(
   }
   // No name: nothing here went through one of the project's lenses, and
   // borrowing a name from whichever ran last would be a lie about what wrote it.
-  await savePrLens(projectPath, prNumber, headSha, JSON.stringify({ groups }), null);
+  await saveDiffLens(projectPath, prSubjectKey(prNumber), headSha, JSON.stringify({ groups }), null);
   return { success: true, groups };
 }
 
 export async function clearLens(projectPath: string, prNumber: number): Promise<{ success: boolean }> {
-  return deletePrLens(projectPath, prNumber);
+  return deleteDiffLens(projectPath, prSubjectKey(prNumber));
 }
 
 // ── Writes ───────────────────────────────────────────────────────────
