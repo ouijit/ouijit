@@ -1,4 +1,5 @@
 import { getGlobalSetting, setGlobalSetting } from '../db';
+import { toggleInList } from '../utils/toggleIn';
 
 /**
  * Which files of a pull request the reviewer has finished with.
@@ -43,7 +44,7 @@ export async function setFileViewed(
   viewed: boolean,
 ): Promise<string[]> {
   const current = await getViewedFiles(projectPath, prNumber, headSha);
-  const next = viewed ? [...new Set([...current, path])] : current.filter((p) => p !== path);
+  const next = toggleInList(current, path, viewed);
   await setGlobalSetting(viewedFilesKey(projectPath, prNumber), JSON.stringify({ headSha, paths: next }));
   return next;
 }

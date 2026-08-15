@@ -5,17 +5,27 @@ vi.mock('electron-log/renderer', () => ({
   default: { scope: () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }) },
 }));
 
-import { LensPicker, type LensOnFile } from '../../components/diff/LensPicker';
+import { LensPicker } from '../../components/diff/LensPicker';
+import type { StoredLens } from '../../lens/readLens';
+
+/** A lens as it comes back from main: named, with as many groups as it claims. */
+function onFile(lensName: string | null, groups: number | null, stale: boolean): StoredLens {
+  return {
+    lensName,
+    groups: groups === null ? null : Array.from({ length: groups }, (_, i) => ({ title: `Part ${i}`, slices: [] })),
+    stale,
+  };
+}
 
 const LENSES = [{ name: 'Narrative', instruction: 'group by story' }];
 
-function open(onFile: LensOnFile | null, over: { lensOn?: boolean; writing?: string | null } = {}) {
+function open(lens: StoredLens | null, over: { lensOn?: boolean; writing?: string | null } = {}) {
   const onRun = vi.fn();
   const onShowLens = vi.fn();
   render(
     <LensPicker
       lenses={LENSES}
-      onFile={onFile}
+      onFile={lens}
       lensOn={over.lensOn ?? true}
       changedFiles={4}
       viewed={0}
@@ -37,7 +47,7 @@ describe('picking how to read a diff', () => {
   });
 
   test('a lens that still fits is a view to switch to, not a run to repeat', () => {
-    const { onRun, onShowLens, row } = open({ name: 'Narrative', groups: 3, stale: false }, { lensOn: false });
+    const { onRun, onShowLens, row } = open(onFile('Narrative', 3, false), { lensOn: false });
 
     expect(row().textContent).toContain('3 parts');
     fireEvent.click(row());
@@ -52,7 +62,7 @@ describe('picking how to read a diff', () => {
    * lens a reader could see had drifted was the one they could not re-run.
    */
   test('a lens that is on screen and out of date offers to be written again', () => {
-    const { onRun, onShowLens, row } = open({ name: 'Narrative', groups: 3, stale: true });
+    const { onRun, onShowLens, row } = open(onFile('Narrative', 3, true));
 
     expect(row().textContent).toContain('3 parts');
     expect(row().textContent).toContain('out of date');
@@ -65,7 +75,7 @@ describe('picking how to read a diff', () => {
   test('a lens dropped for being out of date is named and offered again', () => {
     // What a pull request does with one: after a force-push the hunks it points
     // at are gone, so nothing is rendered and only the name survives.
-    const { onRun, row } = open({ name: 'Narrative', groups: null, stale: true });
+    const { onRun, row } = open(onFile('Narrative', null, true));
 
     expect(row().textContent).toContain('out of date');
     expect(row().textContent).not.toContain('parts');
@@ -75,14 +85,14 @@ describe('picking how to read a diff', () => {
   });
 
   test('one run at a time — a stale lens cannot be started while another is writing', () => {
-    const { row } = open({ name: 'Narrative', groups: 3, stale: true }, { writing: 'Other' });
+    const { row } = open(onFile('Narrative', 3, true), { writing: 'Other' });
     expect(row().hasAttribute('disabled')).toBe(true);
   });
 
   test('a lens the project no longer has is named but not offered to run', () => {
     // Renamed, deleted, or posted over the CLI: there is no row in the list to
     // start it from, so the picker gives it one that only goes back to it.
-    const { onRun, onShowLens } = open({ name: 'Gone', groups: 2, stale: true });
+    const { onRun, onShowLens } = open(onFile('Gone', 2, true));
 
     const orphan = screen.getByRole('menuitem', { name: /^Gone/ });
     expect(orphan.textContent).toContain('out of date');

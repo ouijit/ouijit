@@ -1,4 +1,4 @@
-import type { FileDiff, DiffHunk } from '../types';
+import type { ChangedFile, FileDiff, DiffHunk } from '../types';
 
 /**
  * Everything an agent needs to group a pull request, assembled here.
@@ -30,7 +30,7 @@ const MAX_BODY_CHARS = 4_000;
  */
 export interface LensFile {
   path: string;
-  status: string;
+  status: ChangedFile['status'];
   additions: number;
   deletions: number;
   oldPath?: string;

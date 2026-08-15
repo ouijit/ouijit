@@ -47,7 +47,7 @@ export async function registerIpcHandlers(mainWindow: BrowserWindow): Promise<vo
   registerPlanHandlers(mainWindow);
   registerHealthHandlers();
   registerGithubHandlers();
-  registerDiffPanelHandlers();
+  registerDiffPanelHandlers(mainWindow);
   initCliPanels(mainWindow);
 }
 

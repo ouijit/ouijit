@@ -929,11 +929,18 @@ export async function getBranchDiffPin(
   }
 }
 
-/** Run a git command asynchronously, without blocking the main thread. */
-async function gitAsync(args: string[], projectPath: string): Promise<string> {
+/**
+ * Run a git command asynchronously, without blocking the main thread.
+ *
+ * Exported so nothing else has to build its own way of spawning git — one set
+ * of defaults, one place to change them. Throws on a non-zero exit, which is
+ * how callers ask git a yes/no question.
+ */
+export async function gitAsync(args: string[], projectPath: string, maxBuffer?: number): Promise<string> {
   const { stdout } = await execFileAsync('git', args, {
     cwd: projectPath,
     encoding: 'utf8',
+    ...(maxBuffer ? { maxBuffer } : {}),
   });
   return stdout.trim();
 }

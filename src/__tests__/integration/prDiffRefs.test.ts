@@ -13,7 +13,7 @@ import * as path from 'node:path';
 import * as os from 'node:os';
 import { execFileSync } from 'node:child_process';
 import { getRangeFileDiff } from '../../git';
-import { prHeadRef, prBaseRef, ensurePrRefs } from '../../github/prDiff';
+import { prHeadRef, prBaseRef, ensurePrRefs, prunePrRefs } from '../../github/prDiff';
 
 let tmpDir: string;
 let repoDir: string;
@@ -91,7 +91,8 @@ describe('concurrent diff loads', () => {
    * PR's first open all ten used to start the same `git fetch` — ten network
    * round trips for one ref, three hundred on a large PR. Concurrent fetches
    * of the same refspec do all succeed, so this was never visible; it was just
-   * the same work repeated.
+   * the same work repeated. The answer is kept once it settles, so the second
+   * batch of ten does not repeat the check either.
    */
   test('fetch the pull request refs once, not once per file', async () => {
     git('commit', '--allow-empty', '-m', 'base');
@@ -122,9 +123,14 @@ describe('concurrent diff loads', () => {
     expect(results.filter((r) => !r.success)).toEqual([]);
     expect(git('rev-parse', prHeadRef(7))).toBe(headSha);
 
-    // And once it has settled the next caller starts fresh rather than being
-    // served a stale promise forever.
-    expect(calls[0]).not.toBe(ensurePrRefs(repoDir, 7, baseSha, headSha, 'origin'));
+    // And a later batch is served the settled answer rather than redoing the
+    // whole ref check. Success is not a thing that stops being true: the SHAs
+    // are in the object store and pinned under refs we own.
+    expect(ensurePrRefs(repoDir, 7, baseSha, headSha, 'origin')).toBe(calls[0]);
+
+    // Until the refs are dropped, at which point it is asked again.
+    await prunePrRefs(repoDir, 7);
+    expect(ensurePrRefs(repoDir, 7, baseSha, headSha, 'origin')).not.toBe(calls[0]);
     // Three clones and a fetch; the default 5s is not enough under a loaded
     // suite even though it takes a fraction of that on its own.
   }, 20_000);

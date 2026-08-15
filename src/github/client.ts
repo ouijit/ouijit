@@ -13,6 +13,7 @@
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { getLogger } from '../logger';
+import { versionAtLeast } from '../utils/semver';
 import { isDotCom } from './repoIdentity';
 import type { RepoIdentity } from './types';
 
@@ -305,19 +306,6 @@ export function parseGhVersion(stdout: string): string | null {
   return match?.[1] ?? null;
 }
 
-/** True when `version` is at least `minimum`. Both are plain X.Y.Z. */
-export function versionAtLeast(version: string, minimum: string): boolean {
-  const a = version.split('.').map(Number);
-  const b = minimum.split('.').map(Number);
-  for (let i = 0; i < 3; i++) {
-    const left = a[i] ?? 0;
-    const right = b[i] ?? 0;
-    if (left > right) return true;
-    if (left < right) return false;
-  }
-  return true;
-}
-
 export interface GhProbe {
   installed: boolean;
   version?: string;
@@ -352,16 +340,6 @@ export async function probeGhAuth(): Promise<boolean> {
     return true;
   } catch {
     return false;
-  }
-}
-
-/** Login of the authenticated user, or null when gh can't tell us. */
-export async function getViewerLogin(identity?: RepoIdentity): Promise<string | null> {
-  try {
-    const raw = await runGh(['api', 'user', '--jq', '.login'], { identity });
-    return raw.trim() || null;
-  } catch {
-    return null;
   }
 }
 

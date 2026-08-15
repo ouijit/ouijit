@@ -2,7 +2,7 @@ import { describe, test, expect } from 'vitest';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import * as path from 'node:path';
 import { statusIcon } from '../components/diff/diffStatus';
-import { checkRunAppearance, checksBadge, stateBadge } from '../components/github/prFormat';
+import { checkRunAppearance, stateBadge } from '../components/github/prFormat';
 
 /**
  * Every icon name referenced in source must exist in the icon map.
@@ -91,11 +91,6 @@ describe('icon names', () => {
     const produced = new Set<string>();
 
     for (const status of ['M', 'A', 'D', 'R', '?', 'unexpected']) produced.add(statusIcon(status));
-
-    for (const state of ['success', 'failure', 'pending', 'none'] as const) {
-      const badge = checksBadge(state);
-      if (badge) produced.add(badge.icon);
-    }
 
     for (const conclusion of [
       'SUCCESS',

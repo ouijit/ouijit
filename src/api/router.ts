@@ -239,7 +239,7 @@ function route(
   return { method, pattern: pattern.split('/').filter(Boolean), handler, mutating, minScope };
 }
 
-// ── Review draft helpers ─────────────────────────────────────────────
+// ── Pull request helpers ─────────────────────────────────────────────
 
 function prNumber(r: ParsedRequest): number {
   return requireInt(r.segments[1], 'Pull request number');
@@ -659,18 +659,14 @@ const routes: Route[] = [
     return getGithubInbox(project);
   }),
 
-  route('GET', 'pulls/:number', async (r) => {
-    const project = requireProject(r.query);
-    const num = requireInt(r.segments[1], 'Pull request number');
-    return getGithubPullRequest(project, num);
-  }),
+  route('GET', 'pulls/:number', (r) => getGithubPullRequest(requireProject(r.query), prNumber(r))),
 
   route(
     'POST',
     'pulls/:number/link',
     async (r) => {
       const project = requireProject(r.query);
-      const num = requireInt(r.segments[1], 'Pull request number');
+      const num = prNumber(r);
       const taskNumber = r.body.taskNumber;
       if (typeof taskNumber !== 'number') throw new HttpError(400, 'Missing taskNumber in body');
       const result = await linkGithubTaskToPr(project, taskNumber, num);
@@ -709,11 +705,10 @@ const routes: Route[] = [
   route(
     'DELETE',
     'pulls/:number/drafts/:id',
-    async (r) => {
-      const project = requireProject(r.query);
+    (r) => {
       const id = r.segments[3];
       if (!id) throw new HttpError(400, 'Missing draft id');
-      return discardDraft(project, id);
+      return discardDraft(id);
     },
     true,
     'sandbox',

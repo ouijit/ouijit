@@ -1,32 +1,23 @@
 import { useState } from 'react';
 import type { LensSummary } from '../../lens/config';
+import type { StoredLens } from '../../lens/readLens';
 import { Icon } from '../terminal/Icon';
 import { MenuDivider, MenuItem, MenuPopover } from '../ui/Menu';
-
-/**
- * The lens this diff has on file.
- *
- * Freshness rides with it rather than beside it, because the two diffs disagree
- * about what a lens that has drifted means and a separate flag could only
- * describe one of them. A pull request drops a stale lens — its hunks are gone
- * after a force-push — so it has a name and no parts. A worktree keeps rendering
- * one, since the diff moves on every save and a lens written a minute ago still
- * groups most of it, so it has both. Either way the row for it offers to write
- * it again, which is the thing the two-flag version could not say.
- */
-export interface LensOnFile {
-  /** Null when an agent posted groups over the CLI rather than through a lens. */
-  name: string | null;
-  /** How many parts it names, or null when it is on file but not rendered. */
-  groups: number | null;
-  /** Written against a different diff than the one on screen. */
-  stale: boolean;
-}
 
 interface LensPickerProps {
   /** The lenses the project keeps, in the order it keeps them. */
   lenses: LensSummary[];
-  onFile: LensOnFile | null;
+  /**
+   * The lens this diff has on file, exactly as it was read.
+   *
+   * Freshness rides with it rather than beside it, because the two diffs
+   * disagree about what a lens that has drifted means and a separate flag could
+   * only describe one of them. A pull request drops a stale one — its hunks are
+   * gone after a force-push — so it arrives named with no groups. A worktree
+   * keeps rendering one, so it arrives with both. Either way the row for it
+   * offers to write it again, which is the thing two flags could not say.
+   */
+  onFile: StoredLens | null;
   /** Whether the lens on file is the one on screen. */
   lensOn: boolean;
   changedFiles: number;
@@ -39,6 +30,57 @@ interface LensPickerProps {
   onRun: (lens: LensSummary) => void;
   /** Add, edit and delete the project's lenses. */
   onManage: () => void;
+}
+
+/** What the control says it will do, which depends on what it is showing. */
+function triggerTitle({
+  writing,
+  showingLens,
+  onFile,
+  staleName,
+}: {
+  writing: string | null;
+  showingLens: boolean;
+  onFile: StoredLens | null;
+  /** The stale lens, when it is one the project still has and can run again. */
+  staleName: string | null;
+}): string {
+  if (writing) return `${writing} is running. The lens appears here when it writes one.`;
+  if (!showingLens) {
+    return staleName
+      ? `How to read this change — “${staleName}” was written for earlier commits`
+      : 'How to read this change';
+  }
+  if (onFile?.stale) {
+    return `Reading this change through “${onFile.lensName ?? 'Lens'}”, written for an earlier version of it`;
+  }
+  if (onFile?.lensName) return `Reading this change through “${onFile.lensName}”`;
+  return 'Reading this change through a lens written for it';
+}
+
+function rowHint(
+  lens: LensSummary,
+  {
+    isApplied,
+    isStale,
+    writing,
+    parts,
+  }: { isApplied: boolean; isStale: boolean; writing: string | null; parts: number | null },
+): string | undefined {
+  if (writing === lens.name) return 'Writing…';
+  if (isApplied) return isStale ? `${parts} parts · out of date` : `${parts} parts`;
+  return isStale ? 'out of date' : undefined;
+}
+
+function rowTitle(lens: LensSummary, isApplied: boolean, isStale: boolean): string {
+  if (isApplied) {
+    return isStale
+      ? `Written for an earlier version of this change — read it again through “${lens.name}”`
+      : lens.instruction;
+  }
+  return isStale
+    ? `Written for earlier commits — read this change through “${lens.name}” again`
+    : `Read this change through “${lens.name}”`;
 }
 
 /**
@@ -68,21 +110,22 @@ export function LensPicker({
 }: LensPickerProps) {
   const [open, setOpen] = useState(false);
 
-  const rendered = onFile !== null && onFile.groups !== null;
+  const rendered = onFile?.groups != null;
+  const parts = onFile?.groups?.length ?? null;
   const showingLens = lensOn && rendered;
-  const appliedLabel = onFile?.name ?? 'Lens';
+  const appliedLabel = onFile?.lensName ?? 'Lens';
   // A lens written by the CLI, or by one since renamed or deleted, has no row
   // of its own in the list below — it gets one here so what is on screen can
   // always be named and gone back to.
-  const orphan = rendered && !lenses.some((lens) => lens.name === onFile.name);
+  const orphan = rendered && !lenses.some((lens) => lens.name === onFile?.lensName);
   // Marked only where it can be acted on. A stale lens the project no longer
   // has — renamed, deleted, or never one of its own — has no row to carry the
   // notice and nothing to offer, so it is left unsaid.
-  const staleName = onFile?.stale ? onFile.name : null;
+  const staleName = onFile?.stale ? onFile.lensName : null;
   const staleOffered = staleName !== null && lenses.some((lens) => lens.name === staleName);
 
   const label = writing ? `Writing ${writing}…` : showingLens ? appliedLabel : 'All files';
-  const note = showingLens ? `${onFile.groups}` : viewed > 0 ? `${viewed}/${changedFiles}` : `${changedFiles}`;
+  const note = showingLens ? `${parts}` : viewed > 0 ? `${viewed}/${changedFiles}` : `${changedFiles}`;
 
   return (
     <MenuPopover
@@ -98,19 +141,7 @@ export function LensPicker({
           type="button"
           aria-haspopup="menu"
           aria-expanded={open}
-          title={
-            writing
-              ? `${writing} is running. The lens appears here when it writes one.`
-              : !showingLens
-                ? staleOffered
-                  ? `How to read this change — “${staleName}” was written for earlier commits`
-                  : 'How to read this change'
-                : onFile?.stale
-                  ? `Reading this change through “${appliedLabel}”, written for an earlier version of it`
-                  : onFile?.name
-                    ? `Reading this change through “${onFile.name}”`
-                    : 'Reading this change through a lens written for it'
-          }
+          title={triggerTitle({ writing, showingLens, onFile, staleName: staleOffered ? staleName : null })}
           className={`w-full h-9 shrink-0 flex items-center gap-1.5 pl-3 pr-3 text-[13px] text-left transition-colors duration-150 ease-out hover:bg-ink/5 ${
             open ? 'bg-ink/[0.07] text-ink' : writing ? 'text-ink/45' : 'text-ink/70'
           }`}
@@ -154,7 +185,7 @@ export function LensPicker({
       {orphan && onFile && (
         <MenuItem
           label={appliedLabel}
-          hint={onFile.stale ? `${onFile.groups} parts · out of date` : `${onFile.groups} parts`}
+          hint={onFile.stale ? `${parts} parts · out of date` : `${parts} parts`}
           selected={showingLens}
           // No offer to write it again: the project has no lens by this name to
           // run. What it can still do is name what is on screen and go back to it.
@@ -167,44 +198,25 @@ export function LensPicker({
       )}
 
       {lenses.map((lens) => {
-        const isApplied = rendered && onFile.name === lens.name;
-        const isStale = staleOffered && staleName === lens.name;
+        const isApplied = rendered && onFile?.lensName === lens.name;
         // A lens that has drifted is a run to start again, whether or not it is
         // the one on screen. Showing it is not an option that leads anywhere:
         // when it is rendered the reader is already looking at it, and the
         // notice they want acting on is that it describes an older change.
-        const reruns = isStale;
+        const isStale = staleOffered && staleName === lens.name;
         return (
           <MenuItem
             key={lens.name}
             label={lens.name}
-            hint={
-              writing === lens.name
-                ? 'Writing…'
-                : isApplied && isStale
-                  ? `${onFile.groups} parts · out of date`
-                  : isApplied
-                    ? `${onFile.groups} parts`
-                    : isStale
-                      ? 'out of date'
-                      : undefined
-            }
+            hint={rowHint(lens, { isApplied, isStale, writing, parts })}
             selected={isApplied && lensOn}
             // One run at a time. The lens already written and still current is
             // a view to switch to rather than a run to start, so it stays live.
-            disabled={Boolean(writing) && (reruns || !isApplied)}
-            title={
-              isApplied && isStale
-                ? `Written for an earlier version of this change — read it again through “${lens.name}”`
-                : isApplied
-                  ? lens.instruction
-                  : isStale
-                    ? `Written for earlier commits — read this change through “${lens.name}” again`
-                    : `Read this change through “${lens.name}”`
-            }
+            disabled={Boolean(writing) && (isStale || !isApplied)}
+            title={rowTitle(lens, isApplied, isStale)}
             onClick={() => {
               setOpen(false);
-              if (isApplied && !reruns) onShowLens();
+              if (isApplied && !isStale) onShowLens();
               else onRun(lens);
             }}
           />

@@ -1,14 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { PullRequestDetail, ReviewDraft } from '../../github/types';
+import type { LensSummary } from '../../lens/config';
 import type { TaskWithWorkspace } from '../../types';
 import { useGithubStore, RAIL_DEFAULT_WIDTH, RAIL_MIN_WIDTH, RAIL_MAX_WIDTH } from '../../stores/githubStore';
-import { resolveLens } from '../../lens/lens';
-import { useProjectStore } from '../../stores/projectStore';
-import type { LensSummary } from '../../lens/config';
 import { LensDialog } from '../dialogs/LensDialog';
 import { ResizeHandle } from '../common/ResizeHandle';
 import { treeFileOrder } from '../diff/DiffFileTree';
 import { useProjectLenses } from '../diff/useProjectLenses';
+import { useLensSession } from '../diff/useLensSession';
 import { scrollToSection, fileSelector } from '../diff/scrollToSection';
 import { Tab, TabBar } from './Tabs';
 import { DetailChrome } from './DetailChrome';
@@ -18,7 +17,6 @@ import { PullRequestRail } from './PullRequestRail';
 import { ReviewActions } from './ReviewActions';
 import { SummaryPane } from './SummaryPane';
 import { stateBadge } from './prFormat';
-import { describeError } from '../../utils/describeError';
 
 interface PullRequestDetailViewProps {
   projectPath: string;
@@ -36,13 +34,6 @@ const PANES: Array<{ id: Pane; label: string }> = [
   { id: 'timeline', label: 'Timeline' },
   { id: 'code', label: 'Code' },
 ];
-
-const STATE_TONE: Record<string, string> = {
-  Merged: 'text-vcs-renamed',
-  Closed: 'text-vcs-deleted',
-  Draft: 'text-text-tertiary',
-  Open: 'text-vcs-added',
-};
 
 /**
  * One pull request: a chrome bar naming it, three panes, and the actions.
@@ -62,9 +53,6 @@ export function PullRequestDetailView({
   const detailLoading = useGithubStore((s) => s.detailLoading);
   const files = useGithubStore((s) => s.files);
   const diffs = useGithubStore((s) => s.diffs);
-  const lensGroups = useGithubStore((s) => s.lensGroups);
-  const lensName = useGithubStore((s) => s.lensName);
-  const lensOn = useGithubStore((s) => s.lensOn);
   const railWidth = useGithubStore((s) => s.railWidth);
   const collapsedGroups = useGithubStore((s) => s.collapsedGroups);
   const badge = stateBadge(detail);
@@ -157,65 +145,79 @@ export function PullRequestDetailView({
   }, [pane, pendingDraft, scrollToFile]);
 
   const [lensesOpen, setLensesOpen] = useState(false);
-  // Only this pull request's run is this pull request's business.
-  const lensRun = useGithubStore((s) => s.lensRun);
-  const lensWriting = lensRun?.prNumber === detail.number ? lensRun.name : null;
 
   // The project's lenses, for the picker to offer alongside the file list.
   // Read here rather than in the rail so the dialog that edits them can hand
   // back an up-to-date list on the way out.
   const { lenses, reload: loadLenses } = useProjectLenses(projectPath);
 
+  // The tree order is the file list's, not the diffs' — kept out of the
+  // resolution below so it is not rebuilt once per arriving batch.
+  const fileOrder = useMemo(() => treeFileOrder(files), [files]);
+
   /**
-   * Read this pull request through one of the project's lenses.
+   * This pull request's lens, bound once where both the rail and the document
+   * read the same result.
    *
-   * One call. Main assembles the title, description and diff, asks the agent
-   * once, and stores what comes back — there is no session, no terminal, and
-   * nothing for the agent to go and look up.
-   *
-   * The lens is loaded here on success rather than waited for: this call knows
-   * it finished, so being told by a push would be indirection standing in for
-   * something already known. The push exists for the other writer — an agent
-   * using the CLI, in another process, that nothing here can see.
+   * A run is one call: main assembles the title, description and diff, asks the
+   * agent once, and stores what comes back — there is no session, no terminal,
+   * and nothing for the agent to go and look up. The rest is the same session a
+   * worktree diff has, keyed here to the pull request rather than the head, so
+   * a run outlives closing the pane to go and look at something else.
    */
-  const writeLens = useCallback(
-    (lens: LensSummary) => {
-      const prNumber = detail.number;
-      const headSha = detail.headSha;
-      useGithubStore.getState().setLensRun({ prNumber, name: lens.name });
-      setLensesOpen(false);
-
-      void window.api.github
-        .runLens(projectPath, prNumber, lens.name)
-        .then(async (result) => {
-          if (!result.success) {
-            useProjectStore.getState().addToast(result.error ?? `“${lens.name}” could not read this change`, 'error');
-            return;
-          }
-          await useGithubStore.getState().loadLens(projectPath, prNumber, headSha);
-        })
-        .catch((error: unknown) => {
-          useProjectStore.getState().addToast(describeError(error), 'error');
-        })
-        .finally(() => {
-          // Whatever happened, it is no longer happening. Clearing only on
-          // success is how a failed run leaves a spinner turning for ever.
-          const current = useGithubStore.getState().lensRun;
-          if (current?.prNumber === prNumber && current.name === lens.name) {
-            useGithubStore.getState().setLensRun(null);
-          }
+  const lens = useLensSession(
+    {
+      key: `pr:${detail.number}`,
+      revision: detail.headSha,
+      read: () => window.api.github.lens(projectPath, detail.number, detail.headSha),
+      write: (lensName) => window.api.github.runLens(projectPath, detail.number, lensName),
+      subscribe: (refresh) => {
+        // A lens written by an agent over the CLI, in another process, that
+        // nothing here can otherwise see — shown as soon as it lands, since
+        // someone paid for the run.
+        const written = window.api.github.onLensChanged((payload) => {
+          if (payload.projectPath === projectPath && payload.prNumber === detail.number) refresh(true);
         });
+        // A rename changes what it is called and nothing about what the reader
+        // chose to look at.
+        const renamed = window.api.lens.onRenamed((payload) => {
+          if (payload.projectPath === projectPath) refresh(false);
+        });
+        return () => {
+          written();
+          renamed();
+        };
+      },
     },
-    [projectPath, detail.number, detail.headSha],
+    diffs,
+    fileOrder,
   );
 
-  // Bound once, where both the rail and the document can read the same result.
-  // Resolution needs the parsed diffs, so it waits for them: until they land the
-  // lens has nothing to point at.
-  const resolved = useMemo(
-    () => (lensGroups ? resolveLens(lensGroups, diffs, treeFileOrder(files)) : null),
-    [lensGroups, diffs, files],
+  const runLens = useCallback(
+    (picked: LensSummary) => {
+      setLensesOpen(false);
+      void lens.run(picked.name);
+    },
+    [lens],
   );
+
+  const resolved = lens.resolved;
+  const lensOn = lens.lensOn;
+
+  /**
+   * The anchors the observer below watches, as a value that only changes when
+   * they do.
+   *
+   * `resolved` is a fresh array every time a batch of diffs lands — thirty
+   * times over a long pull request — and keying the effect on it tore the
+   * observer down and rebuilt it over every anchor in the pane each time.
+   */
+  const anchorShape = useMemo(() => {
+    if (lensOn && resolved) {
+      return resolved.map((group) => `${group.title}\t${group.slices.map((s) => s.path).join(',')}`).join('\n');
+    }
+    return fileOrder.join('\n');
+  }, [lensOn, resolved, fileOrder]);
 
   /**
    * Follow the reader down the document, so the rail marks where they are.
@@ -265,13 +267,13 @@ export function PullRequestDetailView({
     );
     for (const anchor of anchors) observer.observe(anchor);
     return () => observer.disconnect();
-  }, [pane, files, resolved, lensOn, collapsedGroups]);
+  }, [pane, anchorShape, collapsedGroups]);
 
   return (
     <div className="flex flex-col flex-1 min-w-0 min-h-0">
       <DetailChrome
         icon={badge.icon}
-        tone={STATE_TONE[badge.label]}
+        tone={badge.tone}
         title={detail.title}
         url={detail.url}
         busy={detailLoading}
@@ -307,13 +309,13 @@ export function PullRequestDetailView({
               files={files}
               onSelect={scrollToFile}
               groups={resolved}
-              lensName={lensName}
+              onFile={lens.lens}
               lensOn={lensOn}
-              onLensOn={(on) => useGithubStore.getState().setLensOn(on)}
+              onLensOn={lens.setLensOn}
               lenses={lenses}
-              onRunLens={writeLens}
+              onRunLens={runLens}
               onOpenLenses={() => setLensesOpen(true)}
-              lensWriting={lensWriting}
+              lensWriting={lens.writing}
             />
             <ResizeHandle
               width={railWidth}
@@ -340,7 +342,7 @@ export function PullRequestDetailView({
           ) : pane === 'timeline' ? (
             <DiscussionSection projectPath={projectPath} detail={detail} />
           ) : (
-            <FilesSection ref={filesRef} projectPath={projectPath} detail={detail} groups={lensOn ? resolved : null} />
+            <FilesSection ref={filesRef} projectPath={projectPath} detail={detail} groups={lens.shown} />
           )}
         </div>
       </div>
@@ -348,8 +350,8 @@ export function PullRequestDetailView({
       {lensesOpen && (
         <LensDialog
           projectPath={projectPath}
-          onRun={writeLens}
-          running={lensWriting}
+          onRun={runLens}
+          running={lens.writing}
           onClose={() => {
             setLensesOpen(false);
             // Whatever was added, renamed or deleted in there is what the

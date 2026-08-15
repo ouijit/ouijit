@@ -55,19 +55,18 @@ import type {
   MergeMethod,
   GithubDraftsChangedPayload,
   GithubLensChangedPayload,
-} from '../github/types';
-import type {
+  LensRenamedPayload,
   InboxResult,
   PullRequestFilesResult,
   SaveDraftInput,
   PromoteToTaskResult,
-  LensResult,
-} from '../github/service';
+  PrFileVersions,
+} from '../github/types';
 import type { LensAgentChoice } from '../lens/lensAgents';
 import type { LensSummary } from '../lens/config';
 import type { DiffNote, SaveDiffNoteInput } from '../diffNotes';
-import type { DiffLensTarget, DiffLensResult } from '../diffLens';
-import type { PrFileVersions } from '../github/prDiff';
+import type { DiffLensTarget } from '../diffLens';
+import type { StoredLens } from '../lens/readLens';
 import type { SandboxProviderStatus, NonoConfig } from '../sandbox/types';
 import type { HookStatusEntry } from '../hookServer';
 import type { HealthStatus } from '../healthCheck';
@@ -277,7 +276,7 @@ export interface IpcInvokeContract {
     args: [projectPath: string, number: number, baseSha: string, headSha: string, filePath: string, oldPath?: string];
     return: PrFileVersions;
   };
-  'github:lens': { args: [projectPath: string, prNumber: number, headSha: string]; return: LensResult };
+  'github:lens': { args: [projectPath: string, prNumber: number, headSha: string]; return: StoredLens | null };
   'github:run-lens': {
     args: [projectPath: string, prNumber: number, lensName: string];
     return: { success: boolean; error?: string };
@@ -316,7 +315,7 @@ export interface IpcInvokeContract {
 
   // A lens over a worktree's own diff, written by the same agent and stored
   // under the same named instructions as a pull request's.
-  'diff-lens:get': { args: [target: DiffLensTarget]; return: DiffLensResult | null };
+  'diff-lens:get': { args: [target: DiffLensTarget]; return: StoredLens | null };
   'diff-lens:run': { args: [target: DiffLensTarget, lensName: string]; return: { success: boolean; error?: string } };
 
   // ── Diff notes ─────────────────────────────────────────────────────
@@ -478,4 +477,13 @@ export interface IpcPushContract {
   /** A review draft was written or discarded outside the renderer (the CLI). */
   'github:drafts-changed': { args: [payload: GithubDraftsChangedPayload] };
   'github:lens-changed': { args: [payload: GithubLensChangedPayload] };
+  /**
+   * A lens was renamed in project settings.
+   *
+   * The stored groupings are renamed with it in the same call, so anything
+   * showing one only has to read its row again. Broadcast rather than returned
+   * from `lens:save`, because the pane that would have to be told is never the
+   * pane the rename was typed into.
+   */
+  'lens:renamed': { args: [payload: LensRenamedPayload] };
 }

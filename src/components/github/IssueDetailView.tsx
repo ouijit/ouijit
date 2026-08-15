@@ -2,13 +2,11 @@ import { useEffect, useRef, useState } from 'react';
 import type { IssueDetail } from '../../github/types';
 import type { TaskWithWorkspace } from '../../types';
 import { useGithubStore } from '../../stores/githubStore';
-import { STATUS_LABELS } from '../kanban/taskMenu';
-import { Icon } from '../terminal/Icon';
 import { Avatar } from './Avatar';
 import { CommentComposer } from './CommentComposer';
 import { DetailChrome } from './DetailChrome';
 import { Markdown } from './Markdown';
-import { Dot, Fact, LabelChips, Section } from './Sections';
+import { Dot, Fact, LabelChips, Section, TaskFact } from './Sections';
 import { Tab, TabBar } from './Tabs';
 import { TimelineEntries } from './TimelineEntries';
 import { since } from './prFormat';
@@ -90,29 +88,14 @@ export function IssueDetailView({
             </header>
 
             <dl className="flex flex-col gap-2.5">
-              <Fact icon="user-circle" label="Task">
-                {linkedTask ? (
-                  <button
-                    type="button"
-                    className="flex items-center gap-1.5 text-[15px] text-text-primary hover:text-accent transition-colors duration-100"
-                    title={openTaskLabel ? `${openTaskLabel(linkedTask)} — ${linkedTask.name}` : linkedTask.name}
-                    onClick={() => onOpenTask(linkedTask)}
-                  >
-                    <span className="font-mono text-[13px]">T-{linkedTask.taskNumber}</span>
-                    <span className="text-text-tertiary">{STATUS_LABELS[linkedTask.status] ?? linkedTask.status}</span>
-                    <Icon name="arrow-right" className="w-3.5 h-3.5 opacity-60" />
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    className="text-[15px] text-text-tertiary hover:text-accent transition-colors duration-100"
-                    title="Create a task from this issue"
-                    onClick={onCreateTask}
-                  >
-                    Create task
-                  </button>
-                )}
-              </Fact>
+              <TaskFact
+                task={linkedTask}
+                openTaskLabel={openTaskLabel}
+                onOpenTask={onOpenTask}
+                createLabel="Create task"
+                createTitle="Create a task from this issue"
+                onCreate={onCreateTask}
+              />
 
               <Fact icon="users" label="Assignees">
                 {issue.assignees.length === 0 ? (

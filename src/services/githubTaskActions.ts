@@ -9,6 +9,7 @@
 
 import log from 'electron-log/renderer';
 import type { TaskWithWorkspace } from '../types';
+import { describeError } from '../utils/describeError';
 import { useProjectStore } from '../stores/projectStore';
 import { useGithubStore } from '../stores/githubStore';
 
@@ -78,9 +79,6 @@ export async function detectPullRequestForTask(projectPath: string, taskNumber: 
     if (result.prNumber == null) return;
     await useProjectStore.getState().loadTasks(projectPath);
   } catch (error) {
-    actionLog.warn('pull request detection failed', {
-      taskNumber,
-      error: error instanceof Error ? error.message : String(error),
-    });
+    actionLog.warn('pull request detection failed', { taskNumber, error: describeError(error) });
   }
 }

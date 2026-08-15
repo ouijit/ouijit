@@ -3,22 +3,12 @@ import { updateElectronApp, UpdateSourceType } from 'update-electron-app';
 import { getLogger } from './logger';
 import { typedPush } from './ipc/helpers';
 import { getGlobalSetting, setGlobalSetting } from './db';
+import { semverGt } from './utils/semver';
 
 const updaterLog = getLogger().scope('updater');
 
 const REPO = 'ouijit/ouijit';
 const CHECK_INTERVAL = 60 * 60 * 1000; // 1 hour
-
-/** Compare two semver strings (X.Y.Z). Returns true if a > b. */
-export function semverGt(a: string, b: string): boolean {
-  const pa = a.split('.').map(Number);
-  const pb = b.split('.').map(Number);
-  for (let i = 0; i < 3; i++) {
-    if ((pa[i] ?? 0) > (pb[i] ?? 0)) return true;
-    if ((pa[i] ?? 0) < (pb[i] ?? 0)) return false;
-  }
-  return false;
-}
 
 function initMacUpdater(): void {
   updateElectronApp({

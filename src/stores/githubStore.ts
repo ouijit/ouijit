@@ -7,11 +7,12 @@ import type {
   GithubIssue,
   IssueDetail,
   ReviewDraft,
+  InboxResult,
 } from '../github/types';
-import type { InboxResult } from '../github/service';
+
 import type { FileDiff } from '../types';
-import type { LensGroup } from '../lens/lens';
 import { describeError } from '../utils/describeError';
+import { toggleInList } from '../utils/toggleIn';
 import type { DiffAnchor } from '../components/diff/diffAnchor';
 
 const githubLog = log.scope('github');
@@ -72,33 +73,6 @@ interface GithubStoreState {
   filesFromGit: boolean;
 
   /**
-   * The lens written for this pull request, when one exists for the
-   * head on screen. Whether it is applied is the reader's choice — `lensOn`.
-   */
-  lensGroups: LensGroup[] | null;
-  /**
-   * Which of the project's lenses wrote it. Null when one was posted over the
-   * CLI without going through a lens — the picker names that one generically
-   * rather than claiming a lens it cannot vouch for.
-   */
-  lensName: string | null;
-  lensOn: boolean;
-
-  /**
-   * A lens on file that describes an earlier version of this change.
-   *
-   * Kept rather than discarded so the pane can say an agent run went stale and
-   * offer to spend another one. Only the name, because that is all that can be
-   * acted on: the grouping itself points at hunks that have moved, and showing
-   * it would be a confident description of code that is no longer there.
-   *
-   * Null when nothing is stale, and also when the stale one has no name to
-   * offer — a lens posted over the CLI cannot be written again from here, and
-   * saying it existed would be a notice with no cure.
-   */
-  staleLensName: string | null;
-
-  /**
    * Files the reviewer has finished with, for the head on screen.
    *
    * Held here rather than in the document so the rail can dim what is done and
@@ -126,17 +100,6 @@ interface GithubStoreState {
    */
   activePath: string | null;
 
-  /**
-   * The lens being written, and which pull request it is for.
-   *
-   * In the store rather than the detail view because the run outlives the
-   * view: it happens in the main process, and closing the pull request to go
-   * and look at something else is not a reason to stop being told about it.
-   * The pull request number is carried so the rail only claims to be writing
-   * when it is this one being written.
-   */
-  lensRun: { prNumber: number; name: string } | null;
-
   drafts: ReviewDraft[];
   /** Anchor the user is currently composing a new comment on. */
   composingAt: DiffAnchor | null;
@@ -160,15 +123,10 @@ interface GithubStoreActions {
 
   loadDrafts: (projectPath: string, prNumber: number) => Promise<void>;
   setDiffs: (diffs: Map<string, FileDiff | null>) => void;
-  loadLens: (projectPath: string, prNumber: number, headSha: string) => Promise<void>;
-  setLensOn: (on: boolean) => void;
-  setLensRun: (run: { prNumber: number; name: string } | null) => void;
   setGroupCollapsed: (title: string, collapsed: boolean) => void;
   setActivePath: (path: string | null) => void;
-  renameLensName: (from: string, to: string) => void;
   loadViewed: (projectPath: string, prNumber: number, headSha: string) => Promise<void>;
   setFileViewed: (projectPath: string, prNumber: number, headSha: string, path: string, viewed: boolean) => void;
-  clearLens: (projectPath: string, prNumber: number) => Promise<void>;
   setComposingAt: (anchor: GithubStoreState['composingAt']) => void;
   setSubmitting: (submitting: boolean) => void;
   setSidebarWidth: (width: number) => void;
@@ -219,17 +177,23 @@ const INITIAL: Omit<GithubStoreState, 'sidebarWidth' | 'sidebarCollapsed' | 'rai
   filesLoading: false,
   filesError: null,
   filesFromGit: false,
-  lensGroups: null,
-  lensName: null,
-  lensOn: false,
-  staleLensName: null,
   viewedPaths: [],
   collapsedGroups: [],
   activePath: null,
-  lensRun: null,
   drafts: [],
   composingAt: null,
   submitting: false,
+};
+
+/**
+ * What belongs to one pull request at one head, cleared wherever either
+ * changes. Both are answers about specific hunks: a lens points at them, and a
+ * file marked read is a claim to have read them.
+ */
+const CLEAR_FOR_HEAD: Pick<GithubStoreState, 'viewedPaths' | 'collapsedGroups' | 'activePath'> = {
+  viewedPaths: [],
+  collapsedGroups: [],
+  activePath: null,
 };
 
 /**
@@ -238,24 +202,6 @@ const INITIAL: Omit<GithubStoreState, 'sidebarWidth' | 'sidebarCollapsed' | 'rai
  * fresher data. Switching projects or PRs while a `gh` call is running is the
  * normal case here, not an edge case — `gh` forks a process per call.
  */
-/**
- * What belongs to one pull request at one head, cleared wherever either
- * changes. Both are answers about specific hunks: a lens points at them, and a
- * file marked read is a claim to have read them.
- */
-const CLEAR_FOR_HEAD: Pick<
-  GithubStoreState,
-  'lensGroups' | 'lensName' | 'lensOn' | 'staleLensName' | 'viewedPaths' | 'collapsedGroups' | 'activePath'
-> = {
-  lensGroups: null,
-  lensName: null,
-  lensOn: false,
-  staleLensName: null,
-  viewedPaths: [],
-  collapsedGroups: [],
-  activePath: null,
-};
-
 let inboxVersion = 0;
 let detailVersion = 0;
 let issuesVersion = 0;
@@ -434,9 +380,6 @@ export const useGithubStore = create<GithubStore>()((set, get) => ({
       set({ detail, detailLoading: false, ...(staleLens ? CLEAR_FOR_HEAD : {}) });
 
       void get().loadDrafts(projectPath, number);
-      // Filtered by head on the way out, so a lens describing hunks that no
-      // longer exist simply does not come back.
-      void get().loadLens(projectPath, number, detail.headSha);
       void get().loadViewed(projectPath, number, detail.headSha);
 
       // Files come second: the document renders the description first, and the
@@ -504,57 +447,14 @@ export const useGithubStore = create<GithubStore>()((set, get) => ({
   setComposingAt: (composingAt) => set({ composingAt }),
   setSubmitting: (submitting) => set({ submitting }),
 
-  /**
-   * Read the lens written for this pull request, if one describes this head.
-   *
-   * A local read, so it rides along with the detail load. It is applied as soon
-   * as it is found: someone went to the trouble of having an agent describe
-   * this change, and showing the flat list anyway would hide the result of that
-   * work behind a control they would have to know to press.
-   */
-  loadLens: async (projectPath, prNumber, headSha) => {
-    try {
-      const result = await window.api.github.lens(projectPath, prNumber, headSha);
-      if (get().projectPath !== projectPath || get().activeNumber !== prNumber) return;
-      // Folds go with the groups they were made against: a lens that has just
-      // been rewritten names different parts, and a title that happens to match
-      // would arrive folded for no reason the reader could name.
-      set({
-        lensGroups: result.groups ?? null,
-        lensName: result.name ?? null,
-        lensOn: Boolean(result.groups),
-        staleLensName: result.groups ? null : (result.staleFor && result.name) || null,
-        collapsedGroups: [],
-      });
-    } catch (error) {
-      githubLog.warn('failed to read the lens', { error: describeError(error) });
-    }
-  },
-
   setDiffs: (diffs) => set({ diffs }),
-
-  setLensOn: (on) => set({ lensOn: on }),
-
-  setLensRun: (run) => set({ lensRun: run }),
-
-  /**
-   * A lens renamed while its work is on screen.
-   *
-   * Main renames it in the stored grouping too, so this only keeps the open
-   * pull request from having to be reloaded to agree with what was just typed.
-   */
-  renameLensName: (from, to) => {
-    if (get().lensName === from) set({ lensName: to });
-    if (get().staleLensName === from) set({ staleLensName: to });
-  },
 
   setActivePath: (path) => {
     if (get().activePath !== path) set({ activePath: path });
   },
 
   setGroupCollapsed: (title, collapsed) => {
-    const current = get().collapsedGroups;
-    set({ collapsedGroups: collapsed ? [...new Set([...current, title])] : current.filter((t) => t !== title) });
+    set({ collapsedGroups: toggleInList(get().collapsedGroups, title, collapsed) });
   },
 
   loadViewed: async (projectPath, prNumber, headSha) => {
@@ -569,15 +469,10 @@ export const useGithubStore = create<GithubStore>()((set, get) => ({
     // Applied here and written behind: a checkbox that waits for a round trip
     // to tick is a checkbox you press twice.
     const current = get().viewedPaths;
-    set({ viewedPaths: viewed ? [...new Set([...current, path])] : current.filter((p) => p !== path) });
+    set({ viewedPaths: toggleInList(current, path, viewed) });
     void window.api.github.setFileViewed(projectPath, prNumber, headSha, path, viewed).catch(() => {
       set({ viewedPaths: current });
     });
-  },
-
-  clearLens: async (projectPath, prNumber) => {
-    await window.api.github.clearLens(projectPath, prNumber);
-    set({ lensGroups: null, lensName: null, lensOn: false, staleLensName: null });
   },
 
   setSidebarWidth: (width) =>

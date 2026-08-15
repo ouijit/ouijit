@@ -11,16 +11,21 @@ import { statusIcon, statusColorClass, badgeColorClass } from './diffStatus';
  * not shown" cap notice.
  */
 
-interface TreeNode {
+interface TreeNode<T = ChangedFile> {
   name: string;
   fullPath: string;
   isFile: boolean;
-  file?: ChangedFile;
-  children: TreeNode[];
+  file?: T;
+  children: TreeNode<T>[];
 }
 
-export function buildTree(files: ChangedFile[]): TreeNode[] {
-  const root: TreeNode[] = [];
+/**
+ * Generic in the file, since the order this produces is wanted for file lists
+ * that are not `ChangedFile`s — and standing in a fake one per file just to get
+ * an order back was an allocation per file per render.
+ */
+export function buildTree<T extends { path: string }>(files: readonly T[]): TreeNode<T>[] {
+  const root: TreeNode<T>[] = [];
 
   for (const file of files) {
     const parts = file.path.split('/');
@@ -47,7 +52,7 @@ export function buildTree(files: ChangedFile[]): TreeNode[] {
   // sort applied on the way to the screen was a sort the document never saw.
   // The rail and the document then disagreed about the order of every
   // directory with more than one thing in it.
-  function collapse(nodes: TreeNode[]): TreeNode[] {
+  function collapse(nodes: TreeNode<T>[]): TreeNode<T>[] {
     const collapsed = nodes.map((node) => {
       if (!node.isFile && node.children.length === 1 && !node.children[0].isFile) {
         const child = node.children[0];
@@ -68,7 +73,7 @@ export function buildTree(files: ChangedFile[]): TreeNode[] {
 }
 
 /** Directories first, then by name — one order, wherever the tree is read. */
-function sortTreeNodes(nodes: TreeNode[]): TreeNode[] {
+function sortTreeNodes<T>(nodes: TreeNode<T>[]): TreeNode<T>[] {
   return [...nodes].sort((a, b) => {
     if (a.isFile !== b.isFile) return a.isFile ? 1 : -1;
     return a.name.localeCompare(b.name);
@@ -91,14 +96,14 @@ function sortTreeNodes(nodes: TreeNode[]): TreeNode[] {
 export function treeFileOrder(files: readonly { path: string }[]): string[] {
   const order: string[] = [];
 
-  const walk = (nodes: TreeNode[]) => {
+  const walk = (nodes: TreeNode<{ path: string }>[]) => {
     for (const node of nodes) {
       if (node.isFile && node.file) order.push(node.file.path);
       else walk(node.children);
     }
   };
 
-  walk(buildTree(files.map((file) => ({ ...file, status: 'M', additions: 0, deletions: 0 }) as ChangedFile)));
+  walk(buildTree(files));
   return order;
 }
 

@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
-import type { ChangedFile } from '../../types';
 import type { PullRequestDetail, PullRequestFile } from '../../github/types';
 import type { ResolvedGroup } from '../../lens/lens';
+import type { StoredLens } from '../../lens/readLens';
 import type { LensSummary } from '../../lens/config';
 import { DiffFileTree, DiffFileTreeNodes } from '../diff/DiffFileTree';
 import { useGithubStore } from '../../stores/githubStore';
@@ -15,8 +15,8 @@ interface PullRequestRailProps {
   onSelect: (path: string | null, group?: string) => void;
   /** The lens as bound to this diff, or null when none has been written. */
   groups: ResolvedGroup[] | null;
-  /** Which lens wrote it, when that is known. */
-  lensName: string | null;
+  /** The lens on file, exactly as it was read, for the picker to describe. */
+  onFile: StoredLens | null;
   lensOn: boolean;
   onLensOn: (on: boolean) => void;
   /** The lenses the project keeps, for the picker to offer. */
@@ -47,7 +47,7 @@ export function PullRequestRail({
   files,
   onSelect,
   groups,
-  lensName,
+  onFile,
   lensOn,
   onLensOn,
   lenses,
@@ -56,12 +56,10 @@ export function PullRequestRail({
   lensWriting,
   width,
 }: PullRequestRailProps) {
-  const changedFiles: ChangedFile[] = useMemo(() => files.map(toChangedFile), [files]);
-  const byPath = useMemo(() => new Map(changedFiles.map((file) => [file.path, file])), [changedFiles]);
+  const byPath = useMemo(() => new Map(files.map((file) => [file.path, file])), [files]);
   const viewedPaths = useGithubStore((s) => s.viewedPaths);
   const viewed = useMemo(() => new Set(viewedPaths), [viewedPaths]);
   const activePath = useGithubStore((s) => s.activePath);
-  const staleLensName = useGithubStore((s) => s.staleLensName);
   const collapsedGroups = useGithubStore((s) => s.collapsedGroups);
   const collapsed = useMemo(() => new Set(collapsedGroups), [collapsedGroups]);
 
@@ -111,16 +109,7 @@ export function PullRequestRail({
       <div className="pane-ledge shrink-0 flex flex-col">
         <LensPicker
           lenses={lenses}
-          // A stale lens is on file with nothing rendered: after a force-push
-          // the hunks it points at are gone, so it is named and offered again
-          // rather than drawn over code that has moved.
-          onFile={
-            groups
-              ? { name: lensName, groups: groups.length, stale: false }
-              : staleLensName
-                ? { name: staleLensName, groups: null, stale: true }
-                : null
-          }
+          onFile={onFile}
           lensOn={lensOn}
           changedFiles={detail.changedFiles}
           viewed={viewed.size}
@@ -188,7 +177,7 @@ export function PullRequestRail({
         </div>
       ) : (
         <DiffFileTree
-          files={changedFiles}
+          files={files}
           activePath={activePath}
           onFileClick={onSelect}
           renderFileTrailing={(file) => trailing(file.path)}
@@ -199,8 +188,8 @@ export function PullRequestRail({
 }
 
 /** The files one part of the change claims, in the order the lens put them. */
-function filesInGroup(group: ResolvedGroup, byPath: Map<string, ChangedFile>): ChangedFile[] {
-  const out: ChangedFile[] = [];
+function filesInGroup(group: ResolvedGroup, byPath: Map<string, PullRequestFile>): PullRequestFile[] {
+  const out: PullRequestFile[] = [];
   for (const slice of group.slices) {
     const file = byPath.get(slice.path);
     if (file) out.push(file);
@@ -210,14 +199,4 @@ function filesInGroup(group: ResolvedGroup, byPath: Map<string, ChangedFile>): C
 
 function hunkCount(group: ResolvedGroup, path: string): number | undefined {
   return group.slices.find((slice) => slice.path === path)?.hunks.length;
-}
-
-function toChangedFile(file: PullRequestFile): ChangedFile {
-  return {
-    path: file.path,
-    status: file.status,
-    ...(file.oldPath ? { oldPath: file.oldPath } : {}),
-    additions: file.additions,
-    deletions: file.deletions,
-  };
 }

@@ -1,14 +1,8 @@
 import { describe, test, expect } from 'vitest';
 import { anchorForLine } from '../components/diff/diffAnchor';
 import { unanchoredThreads } from '../components/github/reviewAnchors';
-import {
-  classifyGhError,
-  parseGhVersion,
-  versionAtLeast,
-  MIN_GH_VERSION,
-  activeGhCount,
-  runGh,
-} from '../github/client';
+import { classifyGhError, parseGhVersion, MIN_GH_VERSION, activeGhCount, runGh } from '../github/client';
+import { versionAtLeast } from '../utils/semver';
 import { deriveMergeStatus } from '../github/api';
 import { parseDiff } from '../git';
 import type { DiffLine } from '../types';

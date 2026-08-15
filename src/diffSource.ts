@@ -8,6 +8,14 @@
 
 import type { ChangedFile, GitFileStatus } from './git';
 
+/**
+ * How many files of one change are worth rendering.
+ *
+ * A change past this is not a thing you read in an app. Shared by both diffs so
+ * the cap can't drift into two numbers held together by a comment.
+ */
+export const MAX_DIFF_FILES = 300;
+
 /** Which of a worktree's two diffs is being read. */
 export type DiffMode = 'uncommitted' | 'worktree';
 

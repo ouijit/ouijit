@@ -2,9 +2,19 @@
  * GitHub domain types shared by the main process, the IPC contract, and the
  * renderer.
  *
- * Leaf module: no imports, so both sides of the process boundary can depend on
- * it without dragging main-process code into the renderer bundle.
+ * Leaf module at runtime: type-only imports and nothing else, so both sides of
+ * the process boundary can depend on it without dragging main-process code into
+ * the renderer bundle. `import type` is erased at compile time and adds no edge
+ * to the module graph — what must never appear here is a value import.
+ *
+ * The shapes a service happens to return belong here too, not in the module
+ * that computes them. Declared beside the implementation, the renderer's
+ * contract and one function's return type were the same declaration, and adding
+ * a field to the latter silently changed the former.
  */
+
+import type { BlobContent } from '../git';
+import type { TaskWithWorkspace } from '../types';
 
 /** A repo resolved from a git remote URL. `host` is 'github.com' or a GHES host. */
 export interface RepoIdentity {
@@ -273,4 +283,72 @@ export interface GithubDraftsChangedPayload {
 export interface GithubLensChangedPayload {
   projectPath: string;
   prNumber: number;
+}
+
+/** One of the project's lenses was renamed, so anything showing it is out of date. */
+export interface LensRenamedPayload {
+  projectPath: string;
+  from: string;
+  to: string;
+}
+
+// ── What the service hands back ──────────────────────────────────────
+
+export interface InboxResult extends PullRequestInbox {
+  /** Draft counts per PR so the list can badge unsubmitted work. */
+  draftCounts: Record<number, number>;
+  /**
+   * PR number → task number. For the REST and CLI callers, which have no task
+   * store to join against; the panel derives its own from live task state so a
+   * new link shows up without waiting for the next inbox fetch.
+   */
+  linkedTasks: Record<number, number>;
+}
+
+export interface PullRequestFilesResult {
+  files: PullRequestFile[];
+  /** True when the file list came from git because the API list was unusable. */
+  fromGit: boolean;
+  error?: string;
+}
+
+export interface SaveDraftInput {
+  id?: string;
+  prNumber: number;
+  path: string;
+  line: number;
+  side: 'LEFT' | 'RIGHT';
+  startLine?: number;
+  body: string;
+  replyToThreadId?: string;
+  replyToCommentId?: number;
+  /** Defaults to 'human'. The renderer never sets it; the CLI and REST do. */
+  origin?: string;
+}
+
+export interface TaskFromGithubResult {
+  success: boolean;
+  error?: string;
+  task?: TaskWithWorkspace;
+  taskNumber?: number;
+}
+
+export interface PromoteToTaskResult extends TaskFromGithubResult {
+  /** Base branch the task's worktree should merge back into. */
+  mergeTarget?: string;
+  headRef?: string;
+}
+
+export interface SubmitReviewResult {
+  success: boolean;
+  error?: string;
+  url?: string;
+}
+
+/** Both sides of a binary file, so an image can be shown before and after. */
+export interface PrFileVersions {
+  /** The file as of the base. Null when the pull request adds it. */
+  before: BlobContent | null;
+  /** The file as of the head. Null when the pull request deletes it. */
+  after: BlobContent | null;
 }

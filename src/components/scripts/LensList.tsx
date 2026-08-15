@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useProjectStore } from '../../stores/projectStore';
-import { useGithubStore } from '../../stores/githubStore';
 import type { LensSummary } from '../../lens/config';
+import { describeError } from '../../utils/describeError';
 import { Icon } from '../terminal/Icon';
 import { useAutoResize } from '../../hooks/useAutoResize';
 import { LensAgentRow } from './LensAgentRow';
@@ -37,14 +37,12 @@ export function LensList({ projectPath, onRun, running }: LensListProps) {
       try {
         await window.api.lens.save(projectPath, lens.name, lens.instruction, previousName);
       } catch (error) {
-        useProjectStore.getState().addToast(error instanceof Error ? error.message : String(error), 'error');
+        useProjectStore.getState().addToast(describeError(error), 'error');
         return;
       }
-      // A pull request being read through this one should say what it is called
-      // now, rather than waiting to be reopened to find out.
-      if (previousName && previousName !== lens.name) {
-        useGithubStore.getState().renameLensName(previousName, lens.name);
-      }
+      // Anything reading through this one is told by `lens:renamed`, which main
+      // pushes from the same call — this component does not need to know which
+      // surfaces are currently showing a lens, and that list only ever grew.
       await reload();
       setExpandedName(null);
       setAddingNew(false);

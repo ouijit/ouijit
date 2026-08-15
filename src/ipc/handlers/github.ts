@@ -64,7 +64,7 @@ export function registerGithubHandlers(): void {
 
   typedHandle('github:drafts', (projectPath, prNumber) => listDrafts(projectPath, prNumber));
   typedHandle('github:save-draft', (projectPath, input) => saveDraft(projectPath, input));
-  typedHandle('github:discard-draft', (projectPath, draftId) => discardDraft(projectPath, draftId));
+  typedHandle('github:discard-draft', (_projectPath, draftId) => discardDraft(draftId));
   typedHandle('github:submit-review', (projectPath, prNumber, event, body) =>
     submitPullRequestReview(projectPath, prNumber, event, body),
   );

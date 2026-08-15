@@ -26,9 +26,10 @@ import type {
   MergeMethod,
   GithubDraftsChangedPayload,
   GithubLensChangedPayload,
+  LensRenamedPayload,
+  SaveDraftInput,
 } from './github/types';
 import type { LensAgentChoice } from './lens/lensAgents';
-import type { SaveDraftInput } from './github/service';
 import type { SaveDiffNoteInput } from './diffNotes';
 import type { DiffLensTarget } from './diffLens';
 
@@ -413,5 +414,6 @@ contextBridge.exposeInMainWorld('api', {
     delete: (projectPath: string, name: string) => typedInvoke('lens:delete', projectPath, name),
     agent: (projectPath: string) => typedInvoke('lens:agent', projectPath),
     setAgent: (projectPath: string, choice: LensAgentChoice) => typedInvoke('lens:set-agent', projectPath, choice),
+    onRenamed: (callback: (payload: LensRenamedPayload) => void) => typedListen('lens:renamed', callback),
   },
 });

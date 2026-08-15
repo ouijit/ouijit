@@ -1,5 +1,8 @@
-import { execFileSync } from 'node:child_process';
+import { execFile } from 'node:child_process';
 import * as path from 'node:path';
+import { promisify } from 'node:util';
+
+const execFileAsync = promisify(execFile);
 
 /**
  * The PATH a windowed app does not get.
@@ -11,23 +14,27 @@ import * as path from 'node:path';
  * looking in the wrong places, which is how a machine with four coding agents
  * on it can be told it has none.
  *
- * Once per process. The login shell costs a fork, and its answer does not
- * change while the app is open.
+ * Once per process, and awaited rather than blocking. A login shell with a real
+ * profile behind it takes a good fraction of a second, and this runs as the
+ * first thing the health probe does — synchronously, that was the main process
+ * stopped dead while the window it just opened tried to paint.
  */
 
-let resolved = false;
+let resolved: Promise<void> | null = null;
 
-export function ensureLoginPath(): void {
-  if (resolved) return;
-  resolved = true;
+export function ensureLoginPath(): Promise<void> {
+  resolved ??= readLoginPath();
+  return resolved;
+}
 
+async function readLoginPath(): Promise<void> {
   try {
     const shell = process.env.SHELL || '/bin/sh';
-    const login = execFileSync(shell, ['-l', '-c', 'printenv PATH'], {
+    const { stdout } = await execFileAsync(shell, ['-l', '-c', 'printenv PATH'], {
       encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore'],
       timeout: 5000,
-    }).trim();
+    });
+    const login = stdout.trim();
     // Ahead of what we already had rather than instead of it: a packaged run
     // may have been given something deliberately that no profile mentions.
     if (login) process.env.PATH = [login, process.env.PATH || ''].join(path.delimiter);

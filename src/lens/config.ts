@@ -13,7 +13,7 @@
  * would mean migrating what every project has already stored.
  */
 
-import { getGlobalSetting, setGlobalSetting } from '../db';
+import { getGlobalSetting, setGlobalSetting, renameDiffLens } from '../db';
 import { getCachedHealth, checkHealth } from '../healthCheck';
 import { installedAgents, resolveLensAgent, type LensAgent, type LensAgentChoice } from './lensAgents';
 
@@ -47,14 +47,52 @@ function parseLenses(raw: string | null | undefined): LensSummary[] | null {
 }
 
 export async function listLenses(projectPath: string): Promise<LensSummary[]> {
-  const stored = parseLenses(await getGlobalSetting(lensesKey(projectPath)));
-  if (stored) return stored;
-
-  return [];
+  return parseLenses(await getGlobalSetting(lensesKey(projectPath))) ?? [];
 }
 
 export async function writeLenses(projectPath: string, lenses: LensSummary[]): Promise<void> {
   await setGlobalSetting(lensesKey(projectPath), JSON.stringify(lenses));
+}
+
+/**
+ * Create or rename a lens.
+ *
+ * Keyed by name, so an edit that changes the name would otherwise leave the old
+ * one behind as a duplicate — the caller passes what it was called and the
+ * rename happens here, in one call.
+ */
+export async function saveLens(
+  projectPath: string,
+  name: string,
+  instruction: string,
+  previousName?: string,
+): Promise<LensSummary> {
+  const lens: LensSummary = { name: name.trim(), instruction: instruction.trim() };
+  const lenses = await listLenses(projectPath);
+  const without = lenses.filter((l) => l.name !== lens.name && l.name !== previousName);
+  const at = previousName ? lenses.findIndex((l) => l.name === previousName) : -1;
+
+  // A rename keeps its place in the list. Sending it to the bottom would make
+  // renaming feel like deleting and adding, which is what it must not be.
+  if (at >= 0) without.splice(Math.min(at, without.length), 0, lens);
+  else without.push(lens);
+
+  await writeLenses(projectPath, without);
+
+  // Anything already read through it is still being read through it, whatever
+  // it is now called — on both diffs a lens can be applied to.
+  if (previousName && previousName !== lens.name) await renameDiffLens(projectPath, previousName, lens.name);
+
+  return lens;
+}
+
+export async function deleteLens(projectPath: string, name: string): Promise<{ success: boolean }> {
+  const lenses = await listLenses(projectPath);
+  await writeLenses(
+    projectPath,
+    lenses.filter((lens) => lens.name !== name),
+  );
+  return { success: true };
 }
 
 export function lensAgentKey(projectPath: string): string {

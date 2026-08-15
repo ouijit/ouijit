@@ -7,11 +7,10 @@ import {
   getWorktreeFileDiff,
   getBranchDiffPin,
 } from './git';
-import { getDiffLens } from './db';
 import { diffShape, filesInDiff, usesBranchDiff, type DiffMode } from './diffSource';
-import { parseLens, type LensGroup } from './lens/lens';
 import type { LensFile, LensSubject } from './lens/lensPrompt';
 import type { DiffSubject } from './lens/subject';
+import { readLens, type StoredLens } from './lens/readLens';
 import { writeLens } from './lens/writeLens';
 
 export interface DiffLensTarget {
@@ -25,19 +24,6 @@ export interface DiffLensTarget {
   /** Whatever names the change for the agent — usually the task. */
   title?: string;
   description?: string;
-}
-
-export interface DiffLensResult {
-  groups: LensGroup[];
-  lensName: string | null;
-  /**
-   * Written against a different diff than the one on screen.
-   *
-   * Still rendered: `resolveLens` drops what no longer matches and puts
-   * everything unclaimed in a trailing group, so drift costs grouping rather
-   * than hiding a change.
-   */
-  stale: boolean;
 }
 
 /** One worktree's diff, in one of its two modes. */
@@ -79,6 +65,8 @@ class WorktreeSubject implements DiffSubject {
   readonly key: string;
   readonly cwd: string;
   readonly label: Record<string, unknown>;
+  /** A working tree moves on every save, so a drifted lens still groups most of it. */
+  readonly whenStale = 'render' as const;
 
   constructor(private target: DiffLensTarget) {
     this.projectPath = target.projectPath;
@@ -93,8 +81,7 @@ class WorktreeSubject implements DiffSubject {
 
   diffFor(file: LensFile): Promise<FileDiff | null> {
     const { projectPath, worktreePath, branch, mergeTarget, mode } = this.target;
-    const status = file.status as ChangedFile['status'];
-    if (branch && usesBranchDiff(mode, status)) {
+    if (branch && usesBranchDiff(mode, file.status)) {
       return getWorktreeFileDiff(projectPath, branch, file.path, mergeTarget);
     }
     // The status says which of the two this is, so neither call has to work it
@@ -104,8 +91,8 @@ class WorktreeSubject implements DiffSubject {
       : getTrackedFileDiff(worktreePath, file.path);
   }
 
-  pin(files: LensFile[]): Promise<string> {
-    return pinFor(this.target, () => Promise.resolve(files as ChangedFile[]));
+  pin(files?: LensFile[]): Promise<string> {
+    return pinFor(this.target, files ? () => Promise.resolve(files) : () => filesFor(this.target));
   }
 
   describe(): LensSubject {
@@ -120,15 +107,8 @@ class WorktreeSubject implements DiffSubject {
 }
 
 /** The stored lens, if there is one, with whether it still matches the diff. */
-export async function readDiffLens(target: DiffLensTarget): Promise<DiffLensResult | null> {
-  const row = await getDiffLens(target.projectPath, subjectKey(target));
-  if (!row) return null;
-
-  const groups = parseLens(row.groups);
-  if (!groups) return null;
-
-  const pin = await pinFor(target, () => filesFor(target));
-  return { groups, lensName: row.lens_name, stale: pin !== row.pin };
+export function readDiffLens(target: DiffLensTarget): Promise<StoredLens | null> {
+  return readLens(new WorktreeSubject(target));
 }
 
 export function writeDiffLens(target: DiffLensTarget, lensName: string): Promise<{ success: boolean; error?: string }> {

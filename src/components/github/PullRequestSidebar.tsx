@@ -29,6 +29,13 @@ interface PullRequestSidebarProps {
   width: number;
 }
 
+/** Reading order: what is asked of you, then what is yours, then the rest. */
+const PULL_GROUPS = [
+  ['Needs your review', 'needsReview'],
+  ['Authored', 'mine'],
+  ['Everything else', 'others'],
+] as const;
+
 /**
  * The list, kept on screen rather than replaced by whatever you opened.
  *
@@ -144,9 +151,9 @@ export function PullRequestSidebar({
             ))}
           </Group>
         ) : (
-          <>
-            <Group label="Needs your review">
-              {groups.needsReview.map((pr) => (
+          PULL_GROUPS.map(([label, key]) => (
+            <Group key={label} label={label}>
+              {groups[key].map((pr) => (
                 <PullRequestRow
                   key={pr.number}
                   pr={pr}
@@ -158,33 +165,7 @@ export function PullRequestSidebar({
                 />
               ))}
             </Group>
-            <Group label="Authored">
-              {groups.mine.map((pr) => (
-                <PullRequestRow
-                  key={pr.number}
-                  pr={pr}
-                  drafts={draftCounts[pr.number] ?? 0}
-                  task={prTasks[pr.number]}
-                  active={activeNumber === pr.number}
-                  onOpen={() => onOpenPullRequest(pr.number)}
-                  onOpenTask={onOpenTask}
-                />
-              ))}
-            </Group>
-            <Group label="Everything else">
-              {groups.others.map((pr) => (
-                <PullRequestRow
-                  key={pr.number}
-                  pr={pr}
-                  drafts={draftCounts[pr.number] ?? 0}
-                  task={prTasks[pr.number]}
-                  active={activeNumber === pr.number}
-                  onOpen={() => onOpenPullRequest(pr.number)}
-                  onOpenTask={onOpenTask}
-                />
-              ))}
-            </Group>
-          </>
+          ))
         )}
       </div>
     </div>
@@ -224,7 +205,7 @@ function PullRequestRow({
         <span className="shrink-0 text-[13px] text-text-tertiary">{since(pr.updatedAt)}</span>
       </button>
       <span className="flex items-center gap-2 min-w-0 text-[13px] text-text-tertiary">
-        <Icon name={badge.icon} className={`w-3.5 h-3.5 shrink-0 ${STATE_TONE[badge.label] ?? ''}`} />
+        <Icon name={badge.icon} className={`w-3.5 h-3.5 shrink-0 ${badge.tone}`} />
         <Avatar login={pr.author} url={pr.authorAvatarUrl} size={16} />
         <span className="shrink-0">{pr.author}</span>
         <span className="flex-1 min-w-0 truncate font-mono text-[12px]">{pr.headRefName}</span>
@@ -319,10 +300,3 @@ function IssueRow({
     </div>
   );
 }
-
-const STATE_TONE: Record<string, string> = {
-  Merged: 'text-vcs-renamed',
-  Closed: 'text-vcs-deleted',
-  Draft: 'text-text-tertiary',
-  Open: 'text-vcs-added',
-};

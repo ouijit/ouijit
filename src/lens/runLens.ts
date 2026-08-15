@@ -1,6 +1,7 @@
 import { spawn } from 'node:child_process';
 import type { FileDiff } from '../types';
 import { getLogger } from '../logger';
+import { describeError } from '../utils/describeError';
 import { parseLens } from './lens';
 import type { LensAgent } from './lensAgents';
 import { buildLensPrompt, extractJson, type LensFile, type LensSubject } from './lensPrompt';
@@ -69,7 +70,7 @@ export async function runLens(input: RunLensInput): Promise<RunLensResult> {
   try {
     output = await capture(agent.command, args, agent.promptVia === 'stdin' ? prompt : null, input.cwd, input.signal);
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = describeError(error);
     log.warn('lens run failed to complete', { command: agent.command, ms: Date.now() - started, error: message });
     return { success: false, error: message };
   }

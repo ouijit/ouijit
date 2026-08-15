@@ -16,7 +16,7 @@ import { useAppStore } from '../../stores/appStore';
 import { useGithubStore } from '../../stores/githubStore';
 import { useProjectStore } from '../../stores/projectStore';
 import type { GithubIssue, IssueDetail, PullRequestDetail, PullRequestSummary, TaskWithWorkspace } from '../../types';
-import type { InboxResult } from '../../github/service';
+import type { InboxResult } from '../../github/types';
 
 const PROJECT = '/work/alpha';
 

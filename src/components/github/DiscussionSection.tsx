@@ -1,10 +1,8 @@
-import { useCallback } from 'react';
-import type { PullRequestDetail, ReviewThread } from '../../github/types';
-import { useGithubStore } from '../../stores/githubStore';
-import { useProjectStore } from '../../stores/projectStore';
+import type { PullRequestDetail } from '../../github/types';
 import { CommentComposer } from './CommentComposer';
 import { ReviewThreadView } from './ReviewThreadView';
 import { TimelineEntries } from './TimelineEntries';
+import { useThreadActions } from './useThreadActions';
 
 interface DiscussionSectionProps {
   projectPath: string;
@@ -21,35 +19,7 @@ interface DiscussionSectionProps {
  */
 export function DiscussionSection({ projectPath, detail }: DiscussionSectionProps) {
   const unresolved = detail.threads.filter((t) => !t.isResolved);
-
-  const replyToThread = useCallback(
-    async (thread: ReviewThread, body: string) => {
-      const target = thread.comments[thread.comments.length - 1] ?? thread.comments[0];
-      if (!target?.databaseId) {
-        useProjectStore.getState().addToast('Could not find the comment to reply to', 'error');
-        return;
-      }
-      const result = await window.api.github.replyToThread(projectPath, detail.number, target.databaseId, body);
-      if (!result.success) {
-        useProjectStore.getState().addToast(result.error ?? 'Reply failed', 'error');
-        return;
-      }
-      await useGithubStore.getState().reloadDetail(projectPath);
-    },
-    [projectPath, detail.number],
-  );
-
-  const toggleResolved = useCallback(
-    async (thread: ReviewThread) => {
-      const result = await window.api.github.resolveThread(projectPath, thread.id, !thread.isResolved);
-      if (!result.success) {
-        useProjectStore.getState().addToast(result.error ?? 'Could not update the thread', 'error');
-        return;
-      }
-      await useGithubStore.getState().reloadDetail(projectPath);
-    },
-    [projectPath],
-  );
+  const { replyToThread, toggleResolved } = useThreadActions(projectPath, detail.number);
 
   const entries = detail.timeline.length + unresolved.length;
 

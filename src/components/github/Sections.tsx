@@ -1,5 +1,7 @@
 import { useState, type ReactNode } from 'react';
+import type { TaskWithWorkspace } from '../../types';
 import { Icon } from '../terminal/Icon';
+import { STATUS_LABELS } from '../kanban/taskMenu';
 
 /**
  * The parts a detail pane is built from, shared by pull requests and issues so
@@ -20,6 +22,55 @@ export function Fact({ icon, label, children }: { icon: string; label: string; c
       </dt>
       <dd className="flex items-center gap-1.5 min-w-0 flex-wrap text-[15px]">{children}</dd>
     </div>
+  );
+}
+
+/**
+ * The work tracking this pull request or issue, and the way into it.
+ *
+ * Either there is a task — shown with its status, and a click away — or there
+ * is the offer to make one. What making one means differs between a pull
+ * request and an issue, so the caller supplies that wording.
+ */
+export function TaskFact({
+  task,
+  openTaskLabel,
+  onOpenTask,
+  createLabel,
+  createTitle,
+  onCreate,
+}: {
+  task?: TaskWithWorkspace;
+  openTaskLabel?: (task: TaskWithWorkspace) => string;
+  onOpenTask: (task: TaskWithWorkspace) => void;
+  createLabel: string;
+  createTitle: string;
+  onCreate: () => void;
+}) {
+  return (
+    <Fact icon="user-circle" label="Task">
+      {task ? (
+        <button
+          type="button"
+          className="flex items-center gap-1.5 text-[15px] text-text-primary hover:text-accent transition-colors duration-100"
+          title={openTaskLabel ? `${openTaskLabel(task)} — ${task.name}` : task.name}
+          onClick={() => onOpenTask(task)}
+        >
+          <span className="font-mono text-[13px]">T-{task.taskNumber}</span>
+          <span className="text-text-tertiary">{STATUS_LABELS[task.status] ?? task.status}</span>
+          <Icon name="arrow-right" className="w-3.5 h-3.5 opacity-60" />
+        </button>
+      ) : (
+        <button
+          type="button"
+          className="text-[15px] text-text-tertiary hover:text-accent transition-colors duration-100"
+          title={createTitle}
+          onClick={onCreate}
+        >
+          {createLabel}
+        </button>
+      )}
+    </Fact>
   );
 }
 

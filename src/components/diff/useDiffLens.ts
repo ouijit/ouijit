@@ -1,81 +1,53 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useState, type Dispatch, type SetStateAction } from 'react';
 import type { FileDiff } from '../../types';
-import type { DiffLensResult, DiffLensTarget } from '../../diffLens';
-import { resolveLens } from '../../lens/lens';
-import { useDiffSlices } from './diffSlice';
+import type { DiffLensTarget } from '../../diffLens';
+import type { LensSummary } from '../../lens/config';
 import { useProjectLenses } from './useProjectLenses';
-import { useProjectStore } from '../../stores/projectStore';
-import { describeError } from '../../utils/describeError';
+import { useLensSession, type LensSession } from './useLensSession';
 
-/** The lens over a worktree diff: what is stored, and what it resolves to. */
-export function useDiffLens(target: DiffLensTarget | null, diffs: Map<string, FileDiff | null>, order: string[]) {
-  const [lens, setLens] = useState<DiffLensResult | null>(null);
+export interface DiffLens extends LensSession {
+  /** The project's lenses, for the picker to offer. */
+  lenses: LensSummary[];
+  /** Parts of the lens folded away in the document, by title. */
+  collapsed: Set<string>;
+  setCollapsed: Dispatch<SetStateAction<Set<string>>>;
+}
+
+/**
+ * The lens over a worktree diff.
+ *
+ * The session — reading it, running one, what a failed run leaves behind — is
+ * `useLensSession`, shared with the pull request pane. What is here is only
+ * what a worktree diff knows and a pull request does not: how to name itself,
+ * and where its folds live.
+ */
+export function useDiffLens(
+  target: DiffLensTarget | null,
+  diffs: Map<string, FileDiff | null>,
+  order: string[],
+): DiffLens {
   const { lenses } = useProjectLenses(target?.projectPath ?? '');
-  const [lensOn, setLensOn] = useState(true);
-  const [writing, setWriting] = useState<string | null>(null);
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
 
   // A string rather than the target object, which is rebuilt on every render
-  // and would make the effects below reload forever.
-  const key = target ? `${target.worktreePath}\0${target.mode}\0${target.branch ?? ''}` : null;
+  // and would have the session reloading forever.
+  const key = target ? `wt:${target.worktreePath}:${target.mode}:${target.branch ?? ''}` : null;
 
-  const reload = useCallback(async () => {
-    if (!target) return;
-    try {
-      setLens(await window.api.diffLens.get(target));
-    } catch {
-      setLens(null);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- key is the stable proxy for target
-  }, [key]);
-
-  useEffect(() => {
-    void reload();
-  }, [reload]);
-
-  const run = useCallback(
-    async (lensName: string) => {
-      if (!target || writing) return;
-      setWriting(lensName);
-      try {
-        const result = await window.api.diffLens.run(target, lensName);
-        if (!result.success) {
-          useProjectStore.getState().addToast(result.error ?? 'Could not write the lens', 'error');
-          return;
-        }
-        setLensOn(true);
-        await reload();
-      } catch (error) {
-        useProjectStore.getState().addToast(`Could not write the lens: ${describeError(error)}`, 'error');
-      } finally {
-        setWriting(null);
-      }
+  const session = useLensSession(
+    {
+      key,
+      read: () => (target ? window.api.diffLens.get(target) : Promise.resolve(null)),
+      write: (lensName) => (target ? window.api.diffLens.run(target, lensName) : Promise.resolve({ success: false })),
+      // Renaming a lens does not change what it grouped, so its name is read
+      // again and nothing else about the reading changes.
+      subscribe: (refresh) =>
+        window.api.lens.onRenamed((payload) => {
+          if (payload.projectPath === target?.projectPath) refresh(false);
+        }),
     },
-    [target, writing, reload],
+    diffs,
+    order,
   );
 
-  // Recomputed whenever either side moves, which for a working tree is often.
-  // Safe because `resolveLens` gives unclaimed hunks a trailing group of their
-  // own, so a drifted lens cannot hide a change.
-  const resolved = useMemo(() => {
-    if (!lens || !lensOn || order.length === 0) return null;
-    return resolveLens(lens.groups, diffs, order);
-  }, [lens, lensOn, diffs, order]);
-
-  // A different diff, or a different grouping of it, makes every cached slice
-  // meaningless.
-  const sliceFor = useDiffSlices(lens);
-
-  return {
-    lens,
-    lenses,
-    resolved,
-    lensOn,
-    setLensOn,
-    writing,
-    collapsed,
-    setCollapsed,
-    run,
-    sliceFor,
-  };
+  return { ...session, lenses, collapsed, setCollapsed };
 }

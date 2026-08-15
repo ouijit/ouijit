@@ -1,8 +1,9 @@
 import { forwardRef, memo, useCallback, useImperativeHandle, useMemo, useState, type ReactNode } from 'react';
 import type { FileDiff } from '../../types';
-import type { PullRequestDetail, PullRequestFile, ReviewDraft, ReviewThread } from '../../github/types';
+import type { PullRequestDetail, PullRequestFile, ReviewDraft } from '../../github/types';
 import { useGithubStore } from '../../stores/githubStore';
 import { useProjectStore } from '../../stores/projectStore';
+import { diffShape } from '../../diffSource';
 import { describeError } from '../../utils/describeError';
 import { BinaryFileView } from '../diff/BinaryFileView';
 import { DeferredMount } from '../diff/DeferredMount';
@@ -17,6 +18,7 @@ import { Icon } from '../terminal/Icon';
 import { ReviewThreadView } from './ReviewThreadView';
 import { InlineCommentBox, InlineCommentCard } from '../diff/InlineCommentBox';
 import { LensedFileList } from '../diff/LensedFileList';
+import { useThreadActions } from './useThreadActions';
 
 import { Loading } from './Loading';
 
@@ -43,7 +45,7 @@ interface FileSectionProps {
   baseSha: string;
   headSha: string;
   onAddComment: (path: string, anchor: DiffLineAnchor) => void;
-  renderBelowLine: (path: string, anchor: DiffLineAnchor) => ReactNode;
+  renderBelowLine?: (path: string, anchor: DiffLineAnchor) => ReactNode;
   viewed: boolean;
   onViewedChange: (path: string, viewed: boolean) => void;
 }
@@ -151,10 +153,7 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
 
   useImperativeHandle(ref, () => ({ editDraft: setEditingDraftId }), []);
 
-  const filesFingerprint = useMemo(
-    () => files.map((f) => `${f.status}:${f.oldPath ?? ''}:${f.path}`).join('\n'),
-    [files],
-  );
+  const filesFingerprint = useMemo(() => diffShape(files), [files]);
 
   useBatchedDiffs(
     files,
@@ -189,8 +188,13 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
   );
 
   // Threads with nowhere to render, collected so they stay readable instead of
-  // silently disappearing.
-  const orphanThreads = useMemo(() => unanchoredThreads(detail.threads, files, diffs), [detail.threads, files, diffs]);
+  // silently disappearing. Answered once the diffs are all in: it walks every
+  // line of every one of them, and running it per arriving batch made that a
+  // quadratic sweep for an answer that is only final at the end anyway.
+  const orphanThreads = useMemo(
+    () => (filesLoading ? [] : unanchoredThreads(detail.threads, files, diffs)),
+    [filesLoading, detail.threads, files, diffs],
+  );
 
   const startComment = useCallback((path: string, anchor: DiffLineAnchor) => {
     setEditingDraftId(null);
@@ -235,38 +239,9 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
     [projectPath, detail.number],
   );
 
-  const replyToThread = useCallback(
-    async (thread: ReviewThread, body: string) => {
-      const target = thread.comments[thread.comments.length - 1] ?? thread.comments[0];
-      if (!target?.databaseId) {
-        useProjectStore.getState().addToast('Could not find the comment to reply to', 'error');
-        return;
-      }
-      const result = await window.api.github.replyToThread(projectPath, detail.number, target.databaseId, body);
-      if (!result.success) {
-        // The reply box clears itself on return, so a silent failure took the
-        // typed text with it.
-        useProjectStore.getState().addToast(result.error ?? 'Reply failed', 'error');
-        return;
-      }
-      await useGithubStore.getState().reloadDetail(projectPath);
-    },
-    [projectPath, detail.number],
-  );
+  const { replyToThread, toggleResolved } = useThreadActions(projectPath, detail.number);
 
-  const toggleResolved = useCallback(
-    async (thread: ReviewThread) => {
-      const result = await window.api.github.resolveThread(projectPath, thread.id, !thread.isResolved);
-      if (!result.success) {
-        useProjectStore.getState().addToast(result.error ?? 'Could not update the thread', 'error');
-        return;
-      }
-      await useGithubStore.getState().reloadDetail(projectPath);
-    },
-    [projectPath],
-  );
-
-  const renderBelowLine = useCallback(
+  const renderComments = useCallback(
     (path: string, anchor: DiffLineAnchor) => {
       const key = anchorKey(path, anchor.line, anchor.side);
       const threads = threadsByAnchor.get(key);
@@ -328,6 +303,16 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
       discardDraft,
     ],
   );
+
+  /**
+   * Withheld when there is nothing that could render below a line.
+   *
+   * Passing it costs a key build and two map lookups per line of the diff, and
+   * makes saving the first comment re-render every mounted file — so a pull
+   * request nobody has commented on pays none of it.
+   */
+  const renderBelowLine =
+    threadsByAnchor.size > 0 || draftsByAnchor.size > 0 || composingAt ? renderComments : undefined;
 
   // A new pull request, or a new grouping of this one, makes every cached
   // slice meaningless.

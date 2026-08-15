@@ -2,13 +2,12 @@ import type { PullRequestDetail } from '../../github/types';
 import type { TaskWithWorkspace } from '../../types';
 import { Icon } from '../terminal/Icon';
 import { Avatar } from './Avatar';
-import { STATUS_LABELS } from '../kanban/taskMenu';
 import { ChecksSection } from './ChecksSection';
 import { Markdown } from './Markdown';
 import { CommentComposer } from './CommentComposer';
-import { Dot, Fact, Section } from './Sections';
+import { Dot, Fact, Section, TaskFact } from './Sections';
 import { TimelineEntries } from './TimelineEntries';
-import { since } from './prFormat';
+import { checkOutcome, since } from './prFormat';
 
 interface SummaryPaneProps {
   projectPath: string;
@@ -78,29 +77,14 @@ export function SummaryPane({
           </span>
         </Fact>
 
-        <Fact icon="user-circle" label="Task">
-          {linkedTask ? (
-            <button
-              type="button"
-              className="flex items-center gap-1.5 text-[15px] text-text-primary hover:text-accent transition-colors duration-100"
-              title={openTaskLabel ? `${openTaskLabel(linkedTask)} — ${linkedTask.name}` : linkedTask.name}
-              onClick={() => onOpenTask(linkedTask)}
-            >
-              <span className="font-mono text-[13px]">T-{linkedTask.taskNumber}</span>
-              <span className="text-text-tertiary">{STATUS_LABELS[linkedTask.status] ?? linkedTask.status}</span>
-              <Icon name="arrow-right" className="w-3.5 h-3.5 opacity-60" />
-            </button>
-          ) : (
-            <button
-              type="button"
-              className="text-[15px] text-text-tertiary hover:text-accent transition-colors duration-100"
-              title="Create a task with a worktree at this pull request's head"
-              onClick={onPromoteToTask}
-            >
-              Check out as task
-            </button>
-          )}
-        </Fact>
+        <TaskFact
+          task={linkedTask}
+          openTaskLabel={openTaskLabel}
+          onOpenTask={onOpenTask}
+          createLabel="Check out as task"
+          createTitle="Create a task with a worktree at this pull request's head"
+          onCreate={onPromoteToTask}
+        />
 
         <Fact icon="chat-circle" label="Comments">
           <span className={comments.length + unresolved === 0 ? 'text-text-tertiary' : 'text-text-primary'}>
@@ -151,12 +135,9 @@ function readyLabel(detail: PullRequestDetail): string {
 
 function checksLabel(detail: PullRequestDetail): string {
   if (detail.checks.length === 0) return 'No CI checks';
-  const failing = detail.checks.filter(
-    (c) =>
-      (!c.status || c.status === 'COMPLETED') &&
-      ['FAILURE', 'ERROR', 'TIMED_OUT', 'ACTION_REQUIRED'].includes(c.conclusion ?? ''),
-  ).length;
-  const running = detail.checks.filter((c) => c.status && c.status !== 'COMPLETED').length;
+  const outcomes = detail.checks.map((c) => checkOutcome(c.conclusion, c.status));
+  const failing = outcomes.filter((o) => o === 'failing').length;
+  const running = outcomes.filter((o) => o === 'running').length;
   if (failing > 0) return `${failing} of ${detail.checks.length} failing`;
   if (running > 0) return `${running} running`;
   return `${detail.checks.length} passing`;

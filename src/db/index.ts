@@ -384,6 +384,11 @@ export async function getReviewDrafts(projectPath: string, prNumber: number): Pr
   return rr.getForPr(projectPath, prNumber);
 }
 
+export async function getReviewDraft(id: string): Promise<ReviewDraftRow | undefined> {
+  const { reviewDraftRepo: rr } = repos();
+  return rr.get(id);
+}
+
 export async function saveReviewDraft(
   row: Omit<ReviewDraftRow, 'created_at' | 'origin'> & { created_at?: string; origin?: string },
 ): Promise<ReviewDraftRow> {

@@ -71,7 +71,7 @@ async function detectAgent(binary: string): Promise<boolean> {
 export async function checkHealth(): Promise<HealthStatus> {
   // Before anything is looked for. A windowed launch inherits a PATH with
   // none of the places these binaries install themselves into.
-  ensureLoginPath();
+  await ensureLoginPath();
 
   const [git, claude, codex, pi, opencode, lima, nono, gh] = await Promise.all([
     detectGit(),

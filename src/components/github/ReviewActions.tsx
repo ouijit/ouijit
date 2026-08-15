@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { MergeMethod, PullRequestDetail, ReviewDraft, ReviewEvent } from '../../github/types';
+import { reviewSubmitProblem } from '../../github/reviewRules';
 import { useGithubStore } from '../../stores/githubStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { Icon } from '../terminal/Icon';
@@ -45,10 +46,12 @@ export function ReviewActions({ projectPath, detail, onJumpToDraft }: ReviewActi
   const hardBlock = detail.merge.mergeable === 'CONFLICTING' || detail.isDraft;
   const blockers = isOpen ? detail.merge.blockers : [];
 
-  // GitHub rejects a COMMENT or REQUEST_CHANGES review with a blank body, even
-  // one carrying inline comments. Said here rather than as a 422 after the fact.
-  const needsSummary = !summary.trim();
-  const summaryHint = 'GitHub needs a summary for this kind of review';
+  // Said here rather than as a 422 after the fact — and asked of the same
+  // function main asks before it sends, so the two cannot disagree about what
+  // GitHub will take.
+  const problem = (event: ReviewEvent) => reviewSubmitProblem(event, summary, drafts.length);
+  const commentProblem = problem('COMMENT');
+  const changesProblem = problem('REQUEST_CHANGES');
 
   const blockedReason = detail.isDraft
     ? 'Mark the pull request ready for review first'
@@ -117,8 +120,8 @@ export function ReviewActions({ projectPath, detail, onJumpToDraft }: ReviewActi
             <MenuItem
               label="Comment"
               hint={drafts.length > 0 ? `sends ${drafts.length}` : undefined}
-              disabled={needsSummary}
-              title={needsSummary ? summaryHint : undefined}
+              disabled={Boolean(commentProblem)}
+              title={commentProblem ?? undefined}
               onClick={() => {
                 close();
                 void submitReview('COMMENT');
@@ -135,13 +138,11 @@ export function ReviewActions({ projectPath, detail, onJumpToDraft }: ReviewActi
             />
             <MenuItem
               label="Request changes"
-              disabled={detail.isMine || needsSummary}
+              disabled={detail.isMine || Boolean(changesProblem)}
               title={
                 detail.isMine
                   ? 'GitHub does not allow requesting changes on your own pull request'
-                  : needsSummary
-                    ? summaryHint
-                    : undefined
+                  : (changesProblem ?? undefined)
               }
               onClick={() => {
                 close();

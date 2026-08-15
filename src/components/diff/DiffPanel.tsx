@@ -19,7 +19,7 @@ import { LensPicker } from './LensPicker';
 import { LensedFileList } from './LensedFileList';
 import { LensDialog } from '../dialogs/LensDialog';
 import { anchorKey, lineTextAt, type DiffLineAnchor } from './diffAnchor';
-import { diffShape, effectiveDiffMode, filesInDiff, usesBranchDiff } from '../../diffSource';
+import { MAX_DIFF_FILES, diffShape, effectiveDiffMode, filesInDiff, usesBranchDiff } from '../../diffSource';
 import type { DiffMode } from '../../diffSource';
 import type { DiffLensTarget } from '../../diffLens';
 import { toggleIn } from '../../utils/toggleIn';
@@ -34,7 +34,6 @@ interface DiffPanelProps {
   onClose: () => void;
 }
 
-const MAX_DIFF_FILES = 300;
 const NOTE_HINT = 'Kept with this worktree until you hand it to the agent.';
 const DEFAULT_SIDEBAR_WIDTH = 220;
 
@@ -289,14 +288,7 @@ export function DiffPanel({ ptyId, projectPath, mode, fullWidth, onToggleFullWid
             <div className="pane-ledge shrink-0 flex flex-col">
               <LensPicker
                 lenses={lens.lenses}
-                // Rendered even when stale, unlike a pull request's: this diff
-                // moves on every save, so one written a minute ago still groups
-                // most of it. The picker offers to write it again either way.
-                onFile={
-                  lens.lens
-                    ? { name: lens.lens.lensName, groups: lens.lens.groups.length, stale: lens.lens.stale }
-                    : null
-                }
+                onFile={lens.lens}
                 lensOn={lens.lensOn}
                 changedFiles={files.length}
                 viewed={folded.size}
@@ -369,7 +361,7 @@ export function DiffPanel({ ptyId, projectPath, mode, fullWidth, onToggleFullWid
           {!loading && (
             <LensedFileList
               files={files}
-              groups={lens.resolved}
+              groups={lens.shown}
               renderFile={renderFile}
               collapsed={lens.collapsed}
               onCollapsedChange={toggleGroup}

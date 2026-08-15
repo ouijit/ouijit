@@ -7,6 +7,7 @@
  */
 
 import { ghRest, ghRestVoid, ghGraphql, runGh, GithubError } from './client';
+import { MAX_DIFF_FILES } from '../diffSource';
 import { repoSlug } from './types';
 import {
   PULL_REQUEST_LIST_QUERY,
@@ -39,9 +40,6 @@ import type {
   MergeMethod,
   PullRequestState,
 } from './types';
-
-/** Matches the DiffPanel cap — a PR past this is not a thing you review in an app. */
-export const MAX_PR_FILES = 300;
 
 const PR_LIST_LIMIT = 50;
 const ISSUE_LIST_LIMIT = 50;
@@ -165,10 +163,10 @@ function mapLabels(labels: RawLabelConnection | null | undefined): PullRequestLa
   return (labels?.nodes ?? []).filter((l): l is PullRequestLabel => l != null);
 }
 
-function mapState(state: string, isDraft: boolean): PullRequestState {
+/** Draft is not a state here — it rides beside this one, as `isDraft`. */
+function mapState(state: string): PullRequestState {
   if (state === 'MERGED') return 'merged';
   if (state === 'CLOSED') return 'closed';
-  void isDraft;
   return 'open';
 }
 
@@ -204,7 +202,7 @@ function mapSummary(raw: RawSummary, viewer: string, reviewRequested: Set<number
   return {
     number: raw.number,
     title: raw.title,
-    state: mapState(raw.state, raw.isDraft),
+    state: mapState(raw.state),
     isDraft: raw.isDraft,
     author,
     authorAvatarUrl: raw.author?.avatarUrl,
@@ -509,7 +507,7 @@ export async function fetchPullRequestFiles(identity: RepoIdentity, number: numb
     paginate: true,
     identity,
   });
-  return raw.slice(0, MAX_PR_FILES).map(mapRestFile);
+  return raw.slice(0, MAX_DIFF_FILES).map(mapRestFile);
 }
 
 function mapRestFile(file: RestFile): PullRequestFile {

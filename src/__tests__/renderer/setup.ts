@@ -191,6 +191,7 @@ const mockApi = {
     delete: vi.fn().mockResolvedValue({ success: true }),
     agent: vi.fn().mockResolvedValue({ agentId: null }),
     setAgent: vi.fn().mockResolvedValue({ success: true }),
+    onRenamed: vi.fn().mockReturnValue(() => {}),
   },
   diffNotes: {
     list: vi.fn().mockResolvedValue([]),
@@ -216,7 +217,7 @@ const mockApi = {
     linkTaskIssue: vi.fn().mockResolvedValue({ success: true }),
     detectTaskPr: vi.fn().mockResolvedValue({ prNumber: null }),
     drafts: vi.fn().mockResolvedValue([]),
-    lens: vi.fn().mockResolvedValue({ groups: null }),
+    lens: vi.fn().mockResolvedValue(null),
     clearLens: vi.fn().mockResolvedValue({ success: true }),
     runLens: vi.fn().mockResolvedValue({ success: true }),
     viewedFiles: vi.fn().mockResolvedValue([]),

@@ -17,14 +17,12 @@ import {
   getProjectTasks,
   setTaskGithubPr,
   setTaskGithubIssue,
+  getReviewDraft,
   getReviewDrafts,
   saveReviewDraft,
   deleteReviewDraft,
   getReviewDraftCounts,
-  getDiffLens,
   saveDiffLens,
-  renameDiffLens,
-  deleteDiffLens,
   getGlobalSetting,
   createTask,
   getNextTaskNumber,
@@ -35,10 +33,12 @@ import { pushBranch } from '../git';
 import { getLogger } from '../logger';
 import { getRepoIdentity, invalidateRepoIdentity } from './repoIdentity';
 import { writeLens } from '../lens/writeLens';
+import { readLens, clearLens as clearStoredLens, type StoredLens } from '../lens/readLens';
 import type { DiffSubject } from '../lens/subject';
 import type { LensFile, LensSubject } from '../lens/lensPrompt';
-import { listLenses, writeLenses, type LensSummary } from '../lens/config';
-import { GithubError, MIN_GH_VERSION, getViewerLogin, probeGhAuth } from './client';
+import { GithubError, MIN_GH_VERSION, probeGhAuth } from './client';
+import { reviewSubmitProblem } from './reviewRules';
+import { describeError } from '../utils/describeError';
 import {
   fetchInbox,
   fetchPullRequest,
@@ -56,18 +56,10 @@ import {
   mergePullRequest,
   type DraftReviewComment,
 } from './api';
-import {
-  getPrFileDiff,
-  getPrFileVersions,
-  getPrDiffFiles,
-  createPrHeadBranch,
-  prunePrRefs,
-  type PrFileVersions,
-} from './prDiff';
+import { getPrFileDiff, getPrFileVersions, getPrDiffFiles, createPrHeadBranch, prunePrRefs } from './prDiff';
 import { parseLens, type LensGroup } from '../lens/lens';
 import type {
   GithubAvailability,
-  PullRequestInbox,
   PullRequestDetail,
   PullRequestFreshness,
   PullRequestFile,
@@ -78,8 +70,15 @@ import type {
   ReviewEvent,
   MergeMethod,
   RepoIdentity,
+  InboxResult,
+  PullRequestFilesResult,
+  SaveDraftInput,
+  SubmitReviewResult,
+  TaskFromGithubResult,
+  PromoteToTaskResult,
+  PrFileVersions,
 } from './types';
-import type { FileDiff, ChangedFile, TaskWithWorkspace } from '../types';
+import type { FileDiff, ChangedFile } from '../types';
 
 const ghLog = getLogger().scope('github:service');
 
@@ -175,17 +174,6 @@ async function requireIdentity(projectPath: string): Promise<RepoIdentity> {
 
 // ── Reads ────────────────────────────────────────────────────────────
 
-export interface InboxResult extends PullRequestInbox {
-  /** Draft counts per PR so the list can badge unsubmitted work. */
-  draftCounts: Record<number, number>;
-  /**
-   * PR number → task number. For the REST and CLI callers, which have no task
-   * store to join against; the panel derives its own from live task state so a
-   * new link shows up without waiting for the next inbox fetch.
-   */
-  linkedTasks: Record<number, number>;
-}
-
 export async function getInbox(projectPath: string): Promise<InboxResult> {
   const identity = await requireIdentity(projectPath);
   const [inbox, draftCounts, tasks] = await Promise.all([
@@ -219,13 +207,6 @@ export async function getPullRequestFreshness(projectPath: string, number: numbe
   return fetchPullRequestFreshness(identity, number);
 }
 
-export interface PullRequestFilesResult {
-  files: PullRequestFile[];
-  /** True when the file list came from git because the API list was unusable. */
-  fromGit: boolean;
-  error?: string;
-}
-
 /**
  * The changed-file list. GitHub's list is preferred because its rename
  * detection is authoritative, but a failure there falls back to git rather
@@ -241,10 +222,7 @@ export async function getPullRequestFiles(
   try {
     return { files: await fetchPullRequestFiles(identity, number), fromGit: false };
   } catch (error) {
-    ghLog.warn('API file list failed, falling back to git', {
-      number,
-      error: error instanceof Error ? error.message : String(error),
-    });
+    ghLog.warn('API file list failed, falling back to git', { number, error: describeError(error) });
     const result = await getPrDiffFiles(projectPath, number, baseSha, headSha);
     if (!result.success || !result.files) {
       return { files: [], fromGit: true, error: result.error };
@@ -372,24 +350,8 @@ export async function listDrafts(projectPath: string, prNumber: number): Promise
   return (await getReviewDrafts(projectPath, prNumber)).map(toDraft);
 }
 
-export interface SaveDraftInput {
-  id?: string;
-  prNumber: number;
-  path: string;
-  line: number;
-  side: 'LEFT' | 'RIGHT';
-  startLine?: number;
-  body: string;
-  replyToThreadId?: string;
-  replyToCommentId?: number;
-  /** Defaults to 'human'. The renderer never sets it; the CLI and REST do. */
-  origin?: string;
-}
-
 export async function saveDraft(projectPath: string, input: SaveDraftInput): Promise<ReviewDraft> {
-  const existing = input.id
-    ? (await getReviewDrafts(projectPath, input.prNumber)).find((d) => d.id === input.id)
-    : null;
+  const existing = input.id ? await getReviewDraft(input.id) : null;
   const row = await saveReviewDraft({
     id: input.id ?? randomUUID(),
     project_path: projectPath,
@@ -410,59 +372,13 @@ export async function saveDraft(projectPath: string, input: SaveDraftInput): Pro
   return toDraft(row);
 }
 
-export async function discardDraft(projectPath: string, draftId: string): Promise<{ success: boolean }> {
-  void projectPath;
+/** A draft's id is unique on its own, so the project it belongs to is not asked for. */
+export async function discardDraft(draftId: string): Promise<{ success: boolean }> {
   await deleteReviewDraft(draftId);
   return { success: true };
 }
 
-// ── Pull request commands ────────────────────────────────────────────
-
 // ── Lenses ────────────────────────────────────────────────────────
-
-/**
- * The commands that write a lens, by name.
- *
- * A lens is a way of reading one pull request — the parts of the change, named
- * and ordered. What is reusable is the prompt that finds them, never the
- * grouping it produces, so this is where reuse lives and a project keeps as
- * many as it has ways of reading a change: one for a refactor, one for a
- * feature, one that goes looking for what the tests do not cover.
- *
- * Kept in settings rather than a table: it was one command in settings before
- * it was a list, and a list of two fields does not earn a schema.
- */
-/**
- * Create or rename a lens.
- *
- * Keyed by name, so an edit that changes the name would otherwise leave the old
- * one behind as a duplicate — the caller passes what it was called and the
- * rename happens here, in one call, as it does for pull request commands.
- */
-export async function saveLens(
-  projectPath: string,
-  name: string,
-  instruction: string,
-  previousName?: string,
-): Promise<LensSummary> {
-  const lens: LensSummary = { name: name.trim(), instruction: instruction.trim() };
-  const lenses = await listLenses(projectPath);
-  const without = lenses.filter((l) => l.name !== lens.name && l.name !== previousName);
-  const at = previousName ? lenses.findIndex((l) => l.name === previousName) : -1;
-
-  // A rename keeps its place in the list. Sending it to the bottom would make
-  // renaming feel like deleting and adding, which is what it must not be.
-  if (at >= 0) without.splice(Math.min(at, without.length), 0, lens);
-  else without.push(lens);
-
-  await writeLenses(projectPath, without);
-
-  // Anything already read through it is still being read through it, whatever
-  // it is now called — on both diffs a lens can be applied to.
-  if (previousName && previousName !== lens.name) await renameDiffLens(projectPath, previousName, lens.name);
-
-  return lens;
-}
 
 /** One pull request, within its project. */
 function prSubjectKey(prNumber: number): string {
@@ -479,12 +395,16 @@ function prSubjectKey(prNumber: number): string {
 class PullRequestSubject implements DiffSubject {
   readonly key: string;
   readonly label: Record<string, unknown>;
-  /** Resolved by `listFiles`, which every later step runs after. */
+  /** A force-push takes the hunks a lens points at with it. */
+  readonly whenStale = 'drop' as const;
+  /** Resolved by `listFiles`, which every later step of a write runs after. */
   private detail: PullRequestDetail | null = null;
 
   constructor(
     readonly projectPath: string,
     private prNumber: number,
+    /** The head the caller is looking at. Reads have one; writes fetch their own. */
+    private headSha?: string,
   ) {
     this.key = prSubjectKey(prNumber);
     this.label = { prNumber };
@@ -521,9 +441,14 @@ class PullRequestSubject implements DiffSubject {
   /**
    * The head the lens describes. A force-push moves it, and the hunks the lens
    * points at go with it.
+   *
+   * The freshly fetched head wins where there is one — a write pins to what it
+   * actually read, not to what the pane happened to be showing when it started.
    */
   pin(): Promise<string> {
-    return Promise.resolve(this.require().headSha);
+    const headSha = this.detail?.headSha ?? this.headSha;
+    if (!headSha) throw new Error('The pull request has not been read yet');
+    return Promise.resolve(headSha);
   }
 
   describe(): LensSubject {
@@ -549,41 +474,9 @@ export function writeLensWithAgent(
   return writeLens(new PullRequestSubject(projectPath, prNumber), lensName);
 }
 
-export async function deleteLens(projectPath: string, name: string): Promise<{ success: boolean }> {
-  const lenses = await listLenses(projectPath);
-  await writeLenses(
-    projectPath,
-    lenses.filter((lens) => lens.name !== name),
-  );
-  return { success: true };
-}
-
-export interface LensResult {
-  /** Null when none has been written, or when the one on file is stale. */
-  groups: LensGroup[] | null;
-  /** The lens that wrote them; null when an agent posted groups directly. */
-  name?: string | null;
-  /** Set when a lens exists but describes an older head. */
-  staleFor?: string;
-}
-
-/**
- * The lens stored for a pull request, if it still describes this head.
- *
- * A lens points at specific hunks. After a force-push those hunks are gone,
- * so rather than rendering a confident description of code that is no longer
- * there, the stale one is reported as stale and the reader gets the flat list
- * back until something writes a new one.
- */
-export async function getLens(projectPath: string, prNumber: number, headSha: string): Promise<LensResult> {
-  const row = await getDiffLens(projectPath, prSubjectKey(prNumber));
-  if (!row) return { groups: null };
-  // Named even when it is stale: the pane cannot offer to write it again
-  // without knowing which lens wrote it, and dropping the name is how a reader
-  // loses an agent run without being told one ever happened.
-  if (row.pin !== headSha) return { groups: null, name: row.lens_name ?? null, staleFor: row.pin };
-  const groups = parseLens(row.groups);
-  return { groups, name: row.lens_name ?? null };
+/** The lens stored for a pull request, if it still describes this head. */
+export function getLens(projectPath: string, prNumber: number, headSha: string): Promise<StoredLens | null> {
+  return readLens(new PullRequestSubject(projectPath, prNumber, headSha));
 }
 
 /** A lens posted over the CLI, by an agent that read the diff itself. */
@@ -603,17 +496,11 @@ export async function setLens(
   return { success: true, groups };
 }
 
-export async function clearLens(projectPath: string, prNumber: number): Promise<{ success: boolean }> {
-  return deleteDiffLens(projectPath, prSubjectKey(prNumber));
+export function clearLens(projectPath: string, prNumber: number): Promise<{ success: boolean }> {
+  return clearStoredLens(new PullRequestSubject(projectPath, prNumber));
 }
 
 // ── Writes ───────────────────────────────────────────────────────────
-
-export interface SubmitReviewResult {
-  success: boolean;
-  error?: string;
-  url?: string;
-}
 
 /**
  * Send every batched draft up as one review.
@@ -648,19 +535,8 @@ export async function submitPullRequestReview(
     body: d.body,
   }));
 
-  if (newThreads.length === 0 && replies.length === 0 && !body.trim() && event === 'COMMENT') {
-    return { success: false, error: 'Nothing to submit — add a comment or a review body first.' };
-  }
-
-  // GitHub rejects a COMMENT or REQUEST_CHANGES review with a blank body, even
-  // when it carries inline comments — "Body can not be blank", 422, and the
-  // whole batch is lost. Only an approval may be wordless.
-  if (!body.trim() && event !== 'APPROVE') {
-    return {
-      success: false,
-      error: 'GitHub needs a summary on this kind of review. Write one, or approve instead.',
-    };
-  }
+  const problem = reviewSubmitProblem(event, body, newThreads.length + replies.length);
+  if (problem) return { success: false, error: problem };
 
   try {
     for (const reply of replies) {
@@ -821,13 +697,6 @@ export async function mergePr(
 
 // ── Issue to task, PR to task ────────────────────────────────────────
 
-export interface TaskFromGithubResult {
-  success: boolean;
-  error?: string;
-  task?: TaskWithWorkspace;
-  taskNumber?: number;
-}
-
 /**
  * Issue to task: a todo carrying the issue body as its description, linked back
  * so a PR opened from it later closes the issue automatically.
@@ -854,12 +723,6 @@ export async function createTaskFromIssue(projectPath: string, issueNumber: numb
     githubIssueNumber: issueNumber,
   });
   return { success: true, taskNumber };
-}
-
-export interface PromoteToTaskResult extends TaskFromGithubResult {
-  /** Base branch the task's worktree should merge back into. */
-  mergeTarget?: string;
-  headRef?: string;
 }
 
 /**
@@ -907,19 +770,4 @@ export async function prepareTaskFromPullRequest(projectPath: string, prNumber: 
     mergeTarget: pr.baseRefName,
     headRef: head.branch,
   };
-}
-
-// ── Error shaping ────────────────────────────────────────────────────
-
-/** One place that decides what a GitHub failure reads like in the UI. */
-export function describeError(error: unknown): string {
-  if (error instanceof GithubError) return error.message;
-  return error instanceof Error ? error.message : String(error);
-}
-
-/** Login of the signed-in user, for the "yours" bucket and self-review guards. */
-export async function getViewer(projectPath: string): Promise<string | null> {
-  const availability = await getAvailability(projectPath);
-  if (!availability.available) return null;
-  return getViewerLogin(availability.identity);
 }

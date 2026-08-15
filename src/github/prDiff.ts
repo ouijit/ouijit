@@ -15,13 +15,11 @@
  * `refs/ouijit/pr/<n>` so they stay prunable and never pollute the branch list.
  */
 
-import { execFile } from 'node:child_process';
-import { promisify } from 'node:util';
-import { fetchRefspec, resolveRef, getRangeDiffFiles, getRangeFileDiff, readBlob } from '../git';
+import { fetchRefspec, resolveRef, getRangeDiffFiles, getRangeFileDiff, readBlob, gitAsync } from '../git';
 import { getLogger } from '../logger';
-import type { BlobContent, ChangedFile, FileDiff } from '../types';
-
-const execFileAsync = promisify(execFile);
+import { describeError } from '../utils/describeError';
+import type { ChangedFile, FileDiff } from '../types';
+import type { PrFileVersions } from './types';
 
 const diffLog = getLogger().scope('github:diff');
 
@@ -50,11 +48,7 @@ export interface PrRefsResult {
 
 async function isShallow(projectPath: string): Promise<boolean> {
   try {
-    const { stdout } = await execFileAsync('git', ['rev-parse', '--is-shallow-repository'], {
-      cwd: projectPath,
-      encoding: 'utf8',
-    });
-    return stdout.trim() === 'true';
+    return (await gitAsync(['rev-parse', '--is-shallow-repository'], projectPath)) === 'true';
   } catch {
     return false;
   }
@@ -62,7 +56,7 @@ async function isShallow(projectPath: string): Promise<boolean> {
 
 async function hasMergeBase(projectPath: string, baseSha: string, headSha: string): Promise<boolean> {
   try {
-    await execFileAsync('git', ['merge-base', baseSha, headSha], { cwd: projectPath, encoding: 'utf8' });
+    await gitAsync(['merge-base', baseSha, headSha], projectPath);
     return true;
   } catch {
     return false;
@@ -71,17 +65,14 @@ async function hasMergeBase(projectPath: string, baseSha: string, headSha: strin
 
 /** Pin a fetched SHA under our namespace so it survives `git gc`. */
 async function pinRef(projectPath: string, ref: string, sha: string): Promise<void> {
-  try {
-    await execFileAsync('git', ['update-ref', ref, sha], { cwd: projectPath, encoding: 'utf8' });
-  } catch {
-    // A missing pin only costs a re-fetch later; not worth failing the diff over.
-  }
+  // A missing pin only costs a re-fetch later; not worth failing the diff over.
+  await tryGit(projectPath, ['update-ref', ref, sha]);
 }
 
 /** Run a git command whose failure is not worth reporting. */
 async function tryGit(projectPath: string, args: string[]): Promise<void> {
   try {
-    await execFileAsync('git', args, { cwd: projectPath, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
+    await gitAsync(args, projectPath, 32 * 1024 * 1024);
   } catch {
     // Best effort by design — callers re-check the condition they cared about.
   }
@@ -102,28 +93,45 @@ export function ensurePrRefs(
   headSha: string,
   remote = 'origin',
 ): Promise<PrRefsResult> {
-  const key = `${projectPath} ${prNumber} ${baseSha} ${headSha}`;
-  const existing = inflightRefs.get(key);
+  const key = refsKey(projectPath, prNumber, baseSha, headSha);
+  const existing = settledRefs.get(key);
   if (existing) return existing;
 
   const run = fetchPrRefs(projectPath, prNumber, baseSha, headSha, remote);
-  inflightRefs.set(key, run);
-  void run.finally(() => {
-    if (inflightRefs.get(key) === run) inflightRefs.delete(key);
-  });
+  settledRefs.set(key, run);
+  void run
+    .then((result) => {
+      // A failure is worth trying again — the network came back, the user ran
+      // `git fetch --unshallow`. A success is not: the SHAs are in the object
+      // store and pinned under our own refs, and nothing but `prunePrRefs`
+      // takes them away.
+      if (!result.success && settledRefs.get(key) === run) settledRefs.delete(key);
+    })
+    .catch(() => settledRefs.delete(key));
   return run;
 }
 
 /**
- * One fetch per pull request, not one per file.
+ * One fetch per pull request, not one per file, and not once per batch either.
  *
  * The files view loads ten diffs at a time and each one needs the refs. On a
  * PR's first open all ten find the head missing and each starts the same
  * `git fetch` — ten network round trips for one ref, and up to three hundred on
- * a large PR. They all succeed, so nothing looks wrong; it is just the same
- * work done again and again. Callers share the first call's promise instead.
+ * a large PR. Keyed by both SHAs, so a force-push asks again.
  */
-const inflightRefs = new Map<string, Promise<PrRefsResult>>();
+const settledRefs = new Map<string, Promise<PrRefsResult>>();
+
+function refsKey(projectPath: string, prNumber: number, baseSha: string, headSha: string): string {
+  return `${projectPath} ${prNumber} ${baseSha} ${headSha}`;
+}
+
+/** Everything remembered about one PR's refs, for when they are dropped. */
+function forgetRefs(projectPath: string, prNumber: number): void {
+  const prefix = `${projectPath} ${prNumber} `;
+  for (const key of settledRefs.keys()) {
+    if (key.startsWith(prefix)) settledRefs.delete(key);
+  }
+}
 
 async function fetchPrRefs(
   projectPath: string,
@@ -264,10 +272,10 @@ export async function createPrHeadBranch(
   try {
     // Never force: a qualified name that already points somewhere else means a
     // previous checkout of this PR is still in use.
-    await execFileAsync('git', ['branch', branch, headSha], { cwd: projectPath, encoding: 'utf8' });
+    await gitAsync(['branch', branch, headSha], projectPath);
     return { success: true, branch };
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = describeError(error);
     return { success: false, error: `Could not create a branch for #${prNumber}: ${message.split('\n')[0]}` };
   }
 }
@@ -278,13 +286,6 @@ export async function createPrHeadBranch(
  * a file that large anyway.
  */
 const MAX_INLINE_BLOB_BYTES = 12 * 1024 * 1024;
-
-export interface PrFileVersions {
-  /** The file as of the base. Null when the pull request adds it. */
-  before: BlobContent | null;
-  /** The file as of the head. Null when the pull request deletes it. */
-  after: BlobContent | null;
-}
 
 /**
  * Both sides of a binary file, so an image can be shown before and after.
@@ -315,6 +316,7 @@ export async function getPrFileVersions(
  * a long-lived project doesn't accumulate a ref per PR ever reviewed.
  */
 export async function prunePrRefs(projectPath: string, prNumber: number): Promise<void> {
+  forgetRefs(projectPath, prNumber);
   for (const ref of [prHeadRef(prNumber), prBaseRef(prNumber), `refs/ouijit/pr/${prNumber}`]) {
     // The last one is the pre-sibling layout's head ref, dropped so an install
     // that fetched under the old scheme doesn't keep it forever.
