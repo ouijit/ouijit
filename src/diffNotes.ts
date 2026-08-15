@@ -7,6 +7,8 @@
  * component that copies it.
  */
 
+import type { DiffMode } from './diffSource';
+
 export interface DiffNote {
   id: string;
   /** The worktree the diff is of — a task's, or the project itself for a plain shell. */
@@ -37,9 +39,7 @@ export interface SaveDiffNoteInput {
   body: string;
 }
 
-export type DiffNoteMode = 'uncommitted' | 'worktree';
-
-function subject(mode: DiffNoteMode): string {
+function subject(mode: DiffMode): string {
   return mode === 'worktree' ? "this branch's changes" : 'the uncommitted changes';
 }
 
@@ -54,7 +54,7 @@ function subject(mode: DiffNoteMode): string {
  * No trailing newline: this is pasted into a prompt, and a trailing newline in
  * a TUI is the Enter key.
  */
-export function formatNotesForAgent(notes: DiffNote[], mode: DiffNoteMode): string {
+export function formatNotesForAgent(notes: DiffNote[], mode: DiffMode): string {
   if (notes.length === 0) return '';
 
   const heading = `${notes.length} ${notes.length === 1 ? 'note' : 'notes'} on ${subject(mode)}.`;

@@ -59,8 +59,9 @@ export type {
   TimelineItem,
 } from './github/types';
 
-export type { DiffNote, SaveDiffNoteInput, DiffNoteMode } from './diffNotes';
-export type { DiffLensTarget, DiffLensResult, DiffLensMode } from './diffLens';
+export type { DiffNote, SaveDiffNoteInput } from './diffNotes';
+export type { DiffLensTarget, DiffLensResult } from './diffLens';
+export type { DiffMode } from './diffSource';
 
 // Import for local use within this file
 import type { GitStatus, GitFileStatus, GitDropdownInfo, FileDiff, WorktreeDiffSummary, BranchInfo } from './git';
@@ -663,11 +664,10 @@ export interface ElectronAPI {
   diffLens: DiffLensAPI;
 }
 
-/** The pull request equivalent is `github.lens` / `runLens` / `clearLens`. */
+/** The pull request equivalent is `github.lens` / `runLens`. */
 export interface DiffLensAPI {
   get(target: DiffLensTarget): Promise<DiffLensResult | null>;
   run(target: DiffLensTarget, lensName: string): Promise<{ success: boolean; error?: string }>;
-  clear(target: DiffLensTarget): Promise<{ success: boolean }>;
 }
 
 /**

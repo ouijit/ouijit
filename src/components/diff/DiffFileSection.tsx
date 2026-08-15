@@ -24,8 +24,14 @@ export interface DiffFileSectionProps {
   deletions: number;
   /** `undefined` while it loads, `null` when it could not be produced. */
   diff: FileDiff | null | undefined;
-  /** Content anchored under a specific line — review threads and drafts. */
-  renderBelowLine?: (anchor: DiffLineAnchor) => ReactNode;
+  /**
+   * Content anchored under a specific line — review threads, drafts, notes.
+   *
+   * Takes the path, like `onAddComment`, so a caller can hold one callback for
+   * the whole diff. Binding it per file in the caller's render would hand every
+   * file a new function each time and no memoized line below would ever bail.
+   */
+  renderBelowLine?: (path: string, anchor: DiffLineAnchor) => ReactNode;
   /** Enables the per-line comment affordance in the gutter. */
   onAddComment?: (path: string, anchor: DiffLineAnchor) => void;
   /** Extra header content, right-aligned before the stats. */
@@ -71,6 +77,7 @@ export const DiffFileSection = memo(function DiffFileSection({
   // One closure for the file rather than one per line. A new function per line
   // per render is what stops a memoized line from ever bailing out.
   const addComment = useCallback((anchor: DiffLineAnchor) => onAddComment?.(path, anchor), [onAddComment, path]);
+  const belowLine = useCallback((anchor: DiffLineAnchor) => renderBelowLine?.(path, anchor), [renderBelowLine, path]);
 
   return (
     /* A card rather than a band running edge to edge: a diff is a list of
@@ -146,7 +153,7 @@ export const DiffFileSection = memo(function DiffFileSection({
                   hunk={hunk}
                   hunkTokens={tokens?.[i] ?? null}
                   onAddComment={onAddComment ? addComment : undefined}
-                  renderBelowLine={renderBelowLine}
+                  renderBelowLine={renderBelowLine ? belowLine : undefined}
                 />
               </div>
             ))}

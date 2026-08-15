@@ -32,8 +32,4 @@ export class WorktreeLensRepo {
       )
       .run(worktreePath, mode, pin, groups, lensName);
   }
-
-  delete(worktreePath: string, mode: string): void {
-    this.db.prepare('DELETE FROM worktree_lenses WHERE worktree_path = ? AND mode = ?').run(worktreePath, mode);
-  }
 }

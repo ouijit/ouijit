@@ -23,23 +23,10 @@ export function SegmentedGroup({ children, floating }: { children: ReactNode; fl
   if (segments.length === 0) return null;
 
   return (
-    // Floating adds the cast shadow, and an opaque base under the fill:
-    // `background-secondary` is a 6% wash, which reads as a lifted control over
-    // the app's chrome but as nothing at all over a pane's own content. Same
-    // wash, over a surface of its own.
     <div
       className={`inline-flex items-center h-7 glass-bevel relative border border-bezel rounded-[12px] overflow-hidden ${
-        floating ? '' : 'bg-background-secondary'
+        floating ? 'segmented-floating' : 'bg-background-secondary'
       }`}
-      style={
-        floating
-          ? {
-              background:
-                'linear-gradient(var(--color-background-secondary), var(--color-background-secondary)), var(--color-surface)',
-              boxShadow: 'var(--shadow-menu)',
-            }
-          : undefined
-      }
     >
       {segments.map((segment, i) => (
         <Fragment key={i}>

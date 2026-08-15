@@ -5,7 +5,6 @@ import {
   useEffect,
   useImperativeHandle,
   useMemo,
-  useRef,
   useState,
   type ReactNode,
 } from 'react';
@@ -17,13 +16,14 @@ import { BinaryFileView } from '../diff/BinaryFileView';
 import { DeferredMount } from '../diff/DeferredMount';
 import { DiffFileSection } from '../diff/DiffFileSection';
 import { estimateFileHeight } from '../diff/diffMetrics';
+import { useDiffSlices } from '../diff/diffSlice';
 import { inTreeOrder } from '../diff/DiffFileTree';
 import type { DiffLineAnchor } from '../diff/diffAnchor';
 import type { ResolvedGroup } from '../../github/lens';
 import { anchorKey, unanchoredThreads } from './reviewAnchors';
 import { Icon } from '../terminal/Icon';
 import { ReviewThreadView } from './ReviewThreadView';
-import { InlineCommentBox } from '../diff/InlineCommentBox';
+import { InlineCommentBox, InlineCommentCard } from '../diff/InlineCommentBox';
 import { LensGroupSection } from '../diff/LensGroupSection';
 
 import { Loading } from './Loading';
@@ -47,18 +47,6 @@ export interface FilesSectionHandle {
 
 function describe(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
-}
-
-/**
- * A file's diff narrowed to the hunks one part of the story claims.
- *
- * Selection is by whole hunk — a lens says which hunks belong to a part, never
- * where to cut one. Halving a hunk would strip the context lines that make a
- * diff readable, and a hunk is already the smallest piece that stands alone.
- */
-function sliceDiff(diff: FileDiff | null | undefined, hunks?: number[]): FileDiff | null | undefined {
-  if (!diff || !hunks) return diff;
-  return { ...diff, hunks: hunks.map((i) => diff.hunks[i]).filter(Boolean) };
 }
 
 interface FileSectionProps {
@@ -96,11 +84,6 @@ const FileSection = memo(function FileSection({
   viewed,
   onViewedChange,
 }: FileSectionProps) {
-  const belowLine = useCallback(
-    (anchor: DiffLineAnchor) => renderBelowLine(file.path, anchor),
-    [renderBelowLine, file.path],
-  );
-
   const binaryView = useMemo(
     () => (
       <BinaryFileView
@@ -142,7 +125,7 @@ const FileSection = memo(function FileSection({
         deletions={file.deletions}
         diff={diff}
         onAddComment={onAddComment}
-        renderBelowLine={belowLine}
+        renderBelowLine={renderBelowLine}
         binaryView={binaryView}
         headerRight={headerRight}
         collapsed={viewed}
@@ -363,22 +346,20 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
               <InlineCommentBox
                 key={draft.id}
                 initialBody={draft.body}
+                saveLabel="Update comment"
                 onSave={(body) => saveDraft({ id: draft.id, path, line: anchor.line, side: anchor.side, body })}
                 onCancel={() => setEditingDraftId(null)}
                 onDiscard={() => discardDraft(draft)}
                 hint={DRAFT_HINT}
               />
             ) : (
-              <button
+              <InlineCommentCard
                 key={draft.id}
-                type="button"
                 data-draft-id={draft.id}
-                className="block w-[calc(100%-176px)] mx-[88px] my-1.5 text-left px-3 py-2 bg-terminal-surface rounded-md text-sm text-text-secondary hover:bg-ink/[0.06] transition-colors duration-100"
+                label="Unsent comment"
+                body={draft.body}
                 onClick={() => setEditingDraftId(draft.id)}
-              >
-                <span className="block text-[11px] text-accent mb-0.5">Unsent comment</span>
-                {draft.body}
-              </button>
+              />
             ),
           )}
           {composing && (
@@ -408,31 +389,9 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
   // directory's files are not contiguous in it.
   const ordered = useMemo(() => inTreeOrder(files), [files]);
 
-  /**
-   * Sliced diffs, kept identical across renders while their source is.
-   *
-   * Narrowing a file to one part of a lens builds a new `FileDiff`,
-   * and doing that inside the render meant a different object every time —
-   * which the tokenizer reads as a different file, so a lens re-highlighted the
-   * entire pull request on every render. Slicing reuses the underlying hunk
-   * objects, so holding the wrapper steady is all that is needed.
-   */
-  const sliceCache = useRef(
-    new Map<string, { source: FileDiff | null | undefined; result: FileDiff | null | undefined }>(),
-  );
-  useEffect(() => {
-    sliceCache.current.clear();
-  }, [detail.number]);
-
-  const sliceFor = useCallback((path: string, source: FileDiff | null | undefined, hunks?: number[]) => {
-    if (!source || !hunks) return source;
-    const key = `${path}\u0000${hunks.join(',')}`;
-    const cached = sliceCache.current.get(key);
-    if (cached && cached.source === source) return cached.result;
-    const result = sliceDiff(source, hunks);
-    sliceCache.current.set(key, { source, result });
-    return result;
-  }, []);
+  // A new pull request, or a new grouping of this one, makes every cached
+  // slice meaningless.
+  const sliceFor = useDiffSlices(groups ?? detail.number);
 
   // A Set so a hundred file sections do not each scan the list.
   const viewed = useMemo(() => new Set(viewedPaths), [viewedPaths]);

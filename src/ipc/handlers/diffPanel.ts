@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { typedHandle } from '../helpers';
 import { getDiffNotes, saveDiffNote, deleteDiffNote, clearDiffNotes } from '../../db';
-import { readDiffLens, writeDiffLens, clearDiffLens } from '../../diffLens';
+import { readDiffLens, writeDiffLens } from '../../diffLens';
 import type { DiffNote } from '../../diffNotes';
 import type { DiffNoteRow } from '../../db';
 
@@ -18,13 +18,13 @@ function toNote(row: DiffNoteRow): DiffNote {
   };
 }
 
-export function registerDiffNoteHandlers(): void {
+export function registerDiffPanelHandlers(): void {
   typedHandle('diff-notes:list', async (worktreePath) => (await getDiffNotes(worktreePath)).map(toNote));
 
   typedHandle('diff-notes:save', async (input) => {
-    // An edit keeps the timestamp it was written with, so editing a note does
-    // not move it to the end of a list that is ordered by where it points.
-    const existing = input.id ? (await getDiffNotes(input.worktreePath)).find((n) => n.id === input.id) : undefined;
+    // `created_at` only lands on an insert — the repo's upsert leaves it alone —
+    // so editing a note keeps the timestamp it was written with, and does not
+    // move it to the end of a list that is ordered by where it points.
     const row = await saveDiffNote({
       id: input.id ?? randomUUID(),
       worktree_path: input.worktreePath,
@@ -33,7 +33,7 @@ export function registerDiffNoteHandlers(): void {
       side: input.side,
       line_text: input.lineText ?? null,
       body: input.body,
-      created_at: existing?.created_at ?? new Date().toISOString(),
+      created_at: new Date().toISOString(),
     });
     return toNote(row);
   });
@@ -50,5 +50,4 @@ export function registerDiffNoteHandlers(): void {
 
   typedHandle('diff-lens:get', (target) => readDiffLens(target));
   typedHandle('diff-lens:run', (target, lensName) => writeDiffLens(target, lensName));
-  typedHandle('diff-lens:clear', (target) => clearDiffLens(target));
 }

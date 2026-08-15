@@ -1,4 +1,34 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
+
+/**
+ * A comment that is written but not yet open for editing.
+ *
+ * The gutter arithmetic is the point of sharing it: the card has to line up
+ * with the editor it turns into, which indents by the width of the line-number
+ * gutter beside it, and two copies of that number drift.
+ */
+export function InlineCommentCard({
+  label,
+  body,
+  onClick,
+  ...data
+}: {
+  label: string;
+  body: ReactNode;
+  onClick: () => void;
+} & Record<`data-${string}`, string>) {
+  return (
+    <button
+      type="button"
+      {...data}
+      className="block w-[calc(100%-176px)] mx-[88px] my-1.5 text-left px-3 py-2 bg-terminal-surface rounded-md text-sm text-text-secondary hover:bg-ink/[0.06] transition-colors duration-100"
+      onClick={onClick}
+    >
+      <span className="block text-[11px] text-accent mb-0.5">{label}</span>
+      {body}
+    </button>
+  );
+}
 
 interface InlineCommentBoxProps {
   /** Set when editing something already written rather than starting fresh. */
@@ -7,9 +37,8 @@ interface InlineCommentBoxProps {
   onCancel: () => void;
   onDiscard?: () => Promise<void>;
   placeholder?: string;
-  /** The button's word for saving — "Add comment", "Add note". */
-  submitLabel?: string;
-  editLabel?: string;
+  /** The button's word for saving — "Add comment", "Update note". */
+  saveLabel?: string;
   /** One line under the box saying where what you write goes. */
   hint?: string;
 }
@@ -27,8 +56,7 @@ export function InlineCommentBox({
   onCancel,
   onDiscard,
   placeholder = 'Leave a comment…',
-  submitLabel = 'Add comment',
-  editLabel = 'Update comment',
+  saveLabel = 'Add comment',
   hint,
 }: InlineCommentBoxProps) {
   const [body, setBody] = useState(initialBody ?? '');
@@ -70,7 +98,7 @@ export function InlineCommentBox({
           className="btn-primary btn-compact"
           onClick={() => void save()}
         >
-          {initialBody != null ? editLabel : submitLabel}
+          {saveLabel}
         </button>
         <button type="button" className="btn-secondary btn-compact" onClick={onCancel}>
           Cancel

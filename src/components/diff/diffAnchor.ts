@@ -17,6 +17,16 @@ export interface DiffLineAnchor {
 }
 
 /**
+ * Key for the (path, line, side) triple that anchors a comment.
+ *
+ * NUL-joined because a path may contain any of the characters that would
+ * otherwise read as a separator, and never this one.
+ */
+export function anchorKey(path: string, line: number, side: 'LEFT' | 'RIGHT'): string {
+  return `${path}\0${line}\0${side}`;
+}
+
+/**
  * A deletion only exists in the base blob, so it anchors LEFT at its old line
  * number. Additions and context lines both exist in the head blob and anchor
  * RIGHT at their new one. A line missing the number for its side can't be

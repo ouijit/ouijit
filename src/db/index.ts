@@ -16,6 +16,7 @@ import { GlobalSettingsRepo } from './repos/globalSettingsRepo';
 import { ScriptRepo, type ScriptRow } from './repos/scriptRepo';
 import { ReviewDraftRepo, type ReviewDraftRow } from './repos/reviewDraftRepo';
 import { PrLensRepo, type PrLensRow } from './repos/prLensRepo';
+import type { DiffMode } from '../diffSource';
 import { DiffNoteRepo, type DiffNoteRow } from './repos/diffNoteRepo';
 import { WorktreeLensRepo, type WorktreeLensRow } from './repos/worktreeLensRepo';
 import type { ProjectSettings, ScriptHook } from '../types';
@@ -434,25 +435,20 @@ export async function clearDiffNotes(worktreePath: string): Promise<void> {
 
 export type { WorktreeLensRow } from './repos/worktreeLensRepo';
 
-export async function getWorktreeLens(worktreePath: string, mode: string): Promise<WorktreeLensRow | undefined> {
+export async function getWorktreeLens(worktreePath: string, mode: DiffMode): Promise<WorktreeLensRow | undefined> {
   const { worktreeLensRepo: wr } = repos();
   return wr.get(worktreePath, mode);
 }
 
 export async function saveWorktreeLens(
   worktreePath: string,
-  mode: string,
+  mode: DiffMode,
   pin: string,
   groups: string,
   lensName: string | null,
 ): Promise<void> {
   const { worktreeLensRepo: wr } = repos();
   wr.save(worktreePath, mode, pin, groups, lensName);
-}
-
-export async function deleteWorktreeLens(worktreePath: string, mode: string): Promise<void> {
-  const { worktreeLensRepo: wr } = repos();
-  wr.delete(worktreePath, mode);
 }
 
 // ── Pull request lenses ──────────────────────────────────────────────

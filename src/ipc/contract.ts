@@ -313,7 +313,6 @@ export interface IpcInvokeContract {
   // under the same named instructions as a pull request's.
   'diff-lens:get': { args: [target: DiffLensTarget]; return: DiffLensResult | null };
   'diff-lens:run': { args: [target: DiffLensTarget, lensName: string]; return: { success: boolean; error?: string } };
-  'diff-lens:clear': { args: [target: DiffLensTarget]; return: { success: boolean } };
 
   'diff-notes:list': { args: [worktreePath: string]; return: DiffNote[] };
   'diff-notes:save': { args: [input: SaveDiffNoteInput]; return: DiffNote };

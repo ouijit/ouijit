@@ -442,6 +442,17 @@ textarea,
   z-index: 10;
 }
 
+/* A segmented group lifted off a pane's own content rather than sitting on the
+   app's chrome: the cast shadow, and an opaque base under the fill.
+   `background-secondary` is a 6% wash, which reads as a raised control over
+   chrome but as nothing at all over content — so the same wash is given a
+   surface of its own to sit on. */
+.segmented-floating {
+  background:
+    linear-gradient(var(--color-background-secondary), var(--color-background-secondary)), var(--color-surface);
+  box-shadow: var(--shadow-menu);
+}
+
 /* ===================================
    Pane seam — the cut between two panes of one surface
    =================================== */

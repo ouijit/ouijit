@@ -1,4 +1,5 @@
-import type { DiffNote, DiffNoteMode } from '../../diffNotes';
+import type { DiffNote } from '../../diffNotes';
+import type { DiffMode } from '../../diffSource';
 import { formatNotesForAgent } from '../../diffNotes';
 import { useProjectStore } from '../../stores/projectStore';
 import { Icon } from '../terminal/Icon';
@@ -9,7 +10,7 @@ import { SegmentedGroup, segmentBase, segmentQuiet } from '../ui/SegmentedGroup'
 
 interface DiffNotesIslandProps {
   notes: DiffNote[];
-  mode: DiffNoteMode;
+  mode: DiffMode;
   /** The terminal the notes are about, and the one they are handed to. */
   ptyId: string;
   onJump: (note: DiffNote) => void;

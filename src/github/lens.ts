@@ -132,6 +132,11 @@ export function resolveLens(
   diffs: Map<string, FileDiff | null | undefined>,
   order: string[],
 ): ResolvedGroup[] {
+  // Where each file sits in the rail's order. A lens over a long diff asks
+  // this once per slice and again inside every sort comparator, and scanning
+  // the list for each answer is what makes that quadratic.
+  const rank = new Map(order.map((path, index) => [path, index]));
+
   const claimed = new Map<string, Set<number>>();
   const take = (path: string, hunk: number): boolean => {
     let seen = claimed.get(path);
@@ -149,7 +154,7 @@ export function resolveLens(
       // A file with no text diff — binary, or still loading — can still be
       // named by a lens; it just has no hunks to claim.
       if (!diff) {
-        if (order.includes(slice.path) && take(slice.path, -1)) slices.push({ path: slice.path, hunks: [] });
+        if (rank.has(slice.path) && take(slice.path, -1)) slices.push({ path: slice.path, hunks: [] });
         continue;
       }
       const hunks = hunksInRanges(diff, slice.ranges).filter((index) => take(slice.path, index));
@@ -164,7 +169,7 @@ export function resolveLens(
       resolved.push({
         title: group.title,
         ...(group.summary ? { summary: group.summary } : {}),
-        slices: slices.sort((a, b) => order.indexOf(a.path) - order.indexOf(b.path)),
+        slices: slices.sort((a, b) => rank.get(a.path)! - rank.get(b.path)!),
       });
   }
 

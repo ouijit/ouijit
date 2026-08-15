@@ -1,11 +1,9 @@
 import type { FileDiff } from '../../types';
 import type { ReviewThread } from '../../github/types';
-import { anchorForLine } from '../diff/diffAnchor';
+import { anchorForLine, anchorKey } from '../diff/diffAnchor';
 
-/** Key for the (path, line, side) triple that anchors a comment. */
-export function anchorKey(path: string, line: number, side: 'LEFT' | 'RIGHT'): string {
-  return `${path} ${line} ${side}`;
-}
+// Re-exported for the pull request side, which reaches for its anchors here.
+export { anchorKey };
 
 /**
  * Threads that will never render inline — either they carry no anchor line at

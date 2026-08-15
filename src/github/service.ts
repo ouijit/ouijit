@@ -539,6 +539,27 @@ export async function setLensAgentChoice(projectPath: string, choice: LensAgentC
 }
 
 /**
+ * The named lens and the agent that will write it, or why neither can be had.
+ *
+ * The pull request and the worktree diff both start here, so the wording a
+ * reader sees when a lens cannot run is the same wherever they asked from.
+ */
+export async function resolveLensRun(
+  projectPath: string,
+  lensName: string,
+): Promise<{ lens: LensSummary; agent: LensAgent } | { error: string }> {
+  const lens = (await listLenses(projectPath)).find((l) => l.name === lensName);
+  if (!lens) return { error: `No lens called “${lensName}”` };
+
+  const agent = await resolveLensAgentFor(projectPath);
+  if (!agent) {
+    return { error: 'No coding agent is installed. A lens is written by one of Claude Code, Codex, Pi or opencode.' };
+  }
+
+  return { lens, agent };
+}
+
+/**
  * Read the pull request through one of the project's lenses.
  *
  * Everything the agent needs is gathered here — the description, the file list
@@ -549,16 +570,9 @@ export async function writeLensWithAgent(
   prNumber: number,
   lensName: string,
 ): Promise<{ success: boolean; error?: string }> {
-  const lens = (await listLenses(projectPath)).find((l) => l.name === lensName);
-  if (!lens) return { success: false, error: `No lens called “${lensName}”` };
-
-  const agent = await resolveLensAgentFor(projectPath);
-  if (!agent) {
-    return {
-      success: false,
-      error: 'No coding agent is installed. A lens is written by one of Claude Code, Codex, Pi or opencode.',
-    };
-  }
+  const resolved = await resolveLensRun(projectPath, lensName);
+  if ('error' in resolved) return { success: false, error: resolved.error };
+  const { lens, agent } = resolved;
 
   const detail = await getPullRequest(projectPath, prNumber);
   if (!detail) return { success: false, error: 'Could not read the pull request' };

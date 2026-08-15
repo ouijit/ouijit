@@ -827,59 +827,76 @@ export function parseDiff(diffOutput: string): DiffHunk[] {
   return hunks;
 }
 
+function toFileDiff(filePath: string, diffOutput: string): FileDiff | null {
+  if (!diffOutput.trim()) return null;
+  return {
+    path: filePath,
+    hunks: parseDiff(diffOutput),
+    binary: isBinaryDiff(diffOutput),
+  };
+}
+
 /**
- * Gets the diff for a specific file
+ * The whole of an untracked file, as additions.
+ *
+ * Exported so a caller that already knows the file is untracked — the file
+ * list says so — can skip `getFileDiff`'s repo-wide probe for it.
  */
-export function getFileDiff(projectPath: string, filePath: string, contextLines?: number): FileDiff | null {
+export function getUntrackedFileDiff(projectPath: string, filePath: string, contextLines?: number): FileDiff | null {
   const opts = { ...gitExecOpts(projectPath), maxBuffer: 10 * 1024 * 1024 };
   const contextArg = contextLines != null ? `-U${contextLines}` : undefined;
 
   try {
     let diffOutput: string;
-
-    // Check if file is untracked (new file)
-    const untrackedFiles = execSync('git ls-files --others --exclude-standard', opts).toString().trim().split('\n');
-    const isUntracked = untrackedFiles.includes(filePath);
-
-    if (isUntracked) {
-      // For untracked files, show the entire file as additions
-      try {
-        const args = ['diff', '--no-index', ...(contextArg ? [contextArg] : []), '/dev/null', filePath];
-        diffOutput = execFileSync('git', args, {
-          ...opts,
-          stdio: ['pipe', 'pipe', 'ignore'],
-        }).toString();
-      } catch (error) {
-        // git diff --no-index returns exit code 1 when files differ, which is expected
-        if (error && typeof error === 'object' && 'stdout' in error) {
-          diffOutput = (error as { stdout: Buffer }).stdout.toString();
-        } else {
-          diffOutput = '';
-        }
+    try {
+      const args = ['diff', '--no-index', ...(contextArg ? [contextArg] : []), '/dev/null', filePath];
+      diffOutput = execFileSync('git', args, { ...opts, stdio: ['pipe', 'pipe', 'ignore'] }).toString();
+    } catch (error) {
+      // git diff --no-index returns exit code 1 when files differ, which is expected
+      if (error && typeof error === 'object' && 'stdout' in error) {
+        diffOutput = (error as { stdout: Buffer }).stdout.toString();
+      } else {
+        diffOutput = '';
       }
-    } else {
-      // For tracked files, get the diff against HEAD
-      const args = ['diff', ...(contextArg ? [contextArg] : []), 'HEAD', '--', filePath];
-      diffOutput = execFileSync('git', args, opts).toString();
     }
+    return toFileDiff(filePath, diffOutput);
+  } catch {
+    return null;
+  }
+}
 
-    if (!diffOutput.trim()) {
-      return null;
-    }
+/** A tracked file's diff against HEAD. */
+export function getTrackedFileDiff(projectPath: string, filePath: string, contextLines?: number): FileDiff | null {
+  const opts = { ...gitExecOpts(projectPath), maxBuffer: 10 * 1024 * 1024 };
+  const contextArg = contextLines != null ? `-U${contextLines}` : undefined;
 
-    return {
-      path: filePath,
-      hunks: parseDiff(diffOutput),
-      binary: isBinaryDiff(diffOutput),
-    };
+  try {
+    const args = ['diff', ...(contextArg ? [contextArg] : []), 'HEAD', '--', filePath];
+    return toFileDiff(filePath, execFileSync('git', args, opts).toString());
   } catch {
     return null;
   }
 }
 
 /**
- * Helper to run a git command asynchronously without blocking the main thread
+ * Gets the diff for a specific file, tracked or not.
+ *
+ * The untracked test is a listing of every untracked path in the repo, so a
+ * caller working through a file list it already has the statuses for should
+ * reach for one of the two above instead of paying for it per file.
  */
+export function getFileDiff(projectPath: string, filePath: string, contextLines?: number): FileDiff | null {
+  try {
+    const opts = { ...gitExecOpts(projectPath), maxBuffer: 10 * 1024 * 1024 };
+    const untracked = execSync('git ls-files --others --exclude-standard', opts).toString().trim().split('\n');
+    return untracked.includes(filePath)
+      ? getUntrackedFileDiff(projectPath, filePath, contextLines)
+      : getTrackedFileDiff(projectPath, filePath, contextLines);
+  } catch {
+    return null;
+  }
+}
+
 /**
  * The two revisions a branch diff is taken between, as SHAs.
  *
@@ -905,6 +922,7 @@ export async function getBranchDiffPin(
   }
 }
 
+/** Run a git command asynchronously, without blocking the main thread. */
 async function gitAsync(args: string[], projectPath: string): Promise<string> {
   const { stdout } = await execFileAsync('git', args, {
     cwd: projectPath,
@@ -976,8 +994,10 @@ async function countUntracked(projectPath: string, paths: string[]): Promise<Cha
         // The same test git uses: a NUL byte early on means it is not text.
         if (contents.subarray(0, 8000).includes(0)) return file;
 
+        // `indexOf` scans in native code. Iterating the Buffer in JS to do the
+        // same thing runs on the main thread, and this is on a status poll.
         let lines = 0;
-        for (const byte of contents) if (byte === 0x0a) lines++;
+        for (let at = contents.indexOf(0x0a); at !== -1; at = contents.indexOf(0x0a, at + 1)) lines++;
         // A final line with no newline after it is still a line.
         if (contents.length > 0 && contents[contents.length - 1] !== 0x0a) lines++;
         file.additions = lines;
