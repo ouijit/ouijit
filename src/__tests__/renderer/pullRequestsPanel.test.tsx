@@ -127,10 +127,10 @@ describe('PullRequestsPanel', () => {
   });
 
   /**
-   * Regression: the issue→task lookup was built inside a zustand selector, so
-   * every store read returned a fresh object, never compared equal to the last
-   * one, and re-rendered until React tore the whole view down with "Maximum
-   * update depth exceeded". Mounting with tasks present is what reproduces it.
+   * A zustand selector must not build the object it returns: a fresh object
+   * never compares equal to the last, so the view re-renders until React tears
+   * it down with "Maximum update depth exceeded". The issue→task lookup is the
+   * one that invites it, and mounting with tasks present is what exposes it.
    */
   test('mounts without a render loop when tasks are present', async () => {
     useProjectStore.setState({
@@ -257,8 +257,8 @@ describe('PullRequestsPanel', () => {
   });
 
   /**
-   * An issue used to open in a browser, which meant leaving the app to read the
-   * thing the work is about. It opens in the same chrome a pull request does.
+   * An issue opens in the same chrome a pull request does. Handing it to a
+   * browser means leaving the app to read the thing the work is about.
    */
   test('an issue opens in the panel and takes a comment', async () => {
     vi.mocked(window.api.github.issues).mockResolvedValue([issue({ number: 12, title: 'Something is broken' })]);
@@ -344,10 +344,10 @@ describe('PullRequestsPanel', () => {
   });
 
   /**
-   * The interior used to be three tabs, which put merge on one of them and
-   * submit-review on another, so finishing the diff and deciding to land it
-   * meant navigating. One document means every part is present at once and the
-   * action bar is never somewhere the reader is not.
+   * One document, so every part is present at once and the action bar is never
+   * somewhere the reader is not. Split across tabs, merge sits on one and
+   * submit-review on another, and landing a change you have just read is a
+   * navigation.
    */
   test('the panes switch and the actions stay in the chrome', async () => {
     vi.mocked(window.api.github.inbox).mockResolvedValue(
@@ -382,9 +382,9 @@ describe('PullRequestsPanel', () => {
   });
 
   /**
-   * Regression: the summary's Comments section counted the timeline's comments
-   * and then rendered only the composer, so posting one bumped the count and
-   * showed nothing. A section that counts entries must render those entries.
+   * A section that counts entries has to render them. Counting the timeline's
+   * comments and rendering only the composer means posting one bumps the count
+   * and shows nothing.
    */
   test('the comments section shows the comments it counts', async () => {
     vi.mocked(window.api.github.inbox).mockResolvedValue(
@@ -427,9 +427,9 @@ describe('PullRequestsPanel', () => {
   });
 
   /**
-   * Regression: git emits no hunks for a binary file, and the diff viewer read
-   * that as an empty diff and said "No diff available" — so a pull request that
-   * changed an image showed nothing at all.
+   * git emits no hunks for a binary file, which is not the same as an empty
+   * diff. Read as one, a pull request that changed an image says "No diff
+   * available" and shows nothing at all.
    */
   test('an image in the diff renders both versions instead of an empty diff', async () => {
     vi.mocked(window.api.github.inbox).mockResolvedValue(
@@ -465,10 +465,10 @@ describe('PullRequestsPanel', () => {
   });
 
   /**
-   * Regression: refreshing was implemented as reopening, which nulled the
-   * detail and the file list first. Submitting a review, posting a comment and
-   * every poll tick therefore tore the document down to a spinner and rebuilt
-   * it, which read as the page flashing blank on every write.
+   * Refreshing must not null the detail and the file list on the way. Written
+   * as a reopen, every review submitted, comment posted and poll tick tears the
+   * document down to a spinner and rebuilds it — the page flashing blank on
+   * every write.
    */
   test('submitting a review refreshes in place instead of blanking the page', async () => {
     vi.mocked(window.api.github.inbox).mockResolvedValue(
@@ -764,10 +764,9 @@ describe('PullRequestsPanel', () => {
   });
 
   /**
-   * Regression: the toggle was floating on the divider between the list and
-   * this pane. The panel frame gives every one of its direct children the same
-   * stacking level, so the pane painted over the toggle and the press landed on
-   * whatever was underneath.
+   * The panel frame gives every direct child the same stacking level, so a
+   * control floating on the divider between the list and this pane is painted
+   * over by the pane, and the press lands on whatever is underneath.
    */
   test('the toggle is reachable with a pull request open', async () => {
     useGithubStore.getState().setSidebarCollapsed(false);

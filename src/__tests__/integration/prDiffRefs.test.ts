@@ -2,9 +2,9 @@
  * The two things a PR diff depends on git for: that our ref names can coexist,
  * and that a renamed file diffs as a rename.
  *
- * Both failed silently. The head ref sat where the base ref's parent directory
- * had to go, so pinning the base always failed and `pinRef` swallowed it; and a
- * per-file diff given only the new path reported a rename as a whole-file add.
+ * Both fail silently when they fail. A head ref in the base ref's parent
+ * directory makes every pin of the base fail, and `pinRef` swallows it; a
+ * per-file diff given only the new path reports a rename as a whole-file add.
  */
 
 import { describe, test, expect, beforeEach, afterEach } from 'vitest';
@@ -87,12 +87,12 @@ describe('pull request refs', () => {
 
 describe('concurrent diff loads', () => {
   /**
-   * The files view loads ten diffs at once and each needs the refs, so on a
-   * PR's first open all ten used to start the same `git fetch` — ten network
-   * round trips for one ref, three hundred on a large PR. Concurrent fetches
-   * of the same refspec do all succeed, so this was never visible; it was just
-   * the same work repeated. The answer is kept once it settles, so the second
-   * batch of ten does not repeat the check either.
+   * The files view loads ten diffs at once and each needs the refs, so without
+   * this all ten start the same `git fetch` — ten network round trips for one
+   * ref, three hundred on a large pull request. Concurrent fetches of the same
+   * refspec all succeed, so nothing looks wrong; it is the same work repeated.
+   * The answer is kept once it settles, so the next batch does not repeat the
+   * check either.
    */
   test('fetch the pull request refs once, not once per file', async () => {
     git('commit', '--allow-empty', '-m', 'base');
@@ -156,7 +156,7 @@ describe('a renamed file', () => {
     expect(changed.map((l) => l.content)).toEqual(['line 5', 'line 5 changed']);
 
     // Without the old path git cannot pair the two sides, and the file reads as
-    // forty new lines — which is what this looked like before.
+    // forty new lines.
     const withoutOldPath = await getRangeFileDiff(repoDir, baseSha, headSha, 'new.txt');
     const asAdded = (withoutOldPath?.hunks ?? []).flatMap((h) => h.lines);
     expect(asAdded).toHaveLength(40);

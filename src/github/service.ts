@@ -115,10 +115,10 @@ export async function getAvailability(projectPath: string, recheck = false): Pro
     return { available: false, reason: 'flag-off' };
   }
 
-  // A recheck re-probes everything that is otherwise cached for the life of
-  // the process. Negative results are cached too, so a project opened before
-  // `git remote add origin` stayed "no remote" until the app restarted, and a
-  // gh installed after launch stayed missing.
+  // A recheck re-probes everything that is otherwise cached for the life of the
+  // process. Negative results are cached too, so without one a project opened
+  // before `git remote add origin` reads "no remote" until the app restarts,
+  // and a gh installed after launch stays missing.
   if (recheck) invalidateRepoIdentity(projectPath);
   const health = recheck ? await refreshHealth() : (getCachedHealth() ?? (await checkHealth()));
 

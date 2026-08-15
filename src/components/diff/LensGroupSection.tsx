@@ -10,9 +10,8 @@ import { Icon } from '../terminal/Icon';
  *
  * Two things pin themselves to the top of the pane — which part of the change
  * you are in, and which file you are in — and they are a hierarchy, not rivals
- * for the same line. Both were pinned to `top: 0`, so the file header sat on
- * top of the part it belongs to and the lens became invisible exactly when it
- * was being used.
+ * for the same line. Pinning both to `top: 0` puts the file header over the
+ * part it belongs to, hiding the lens exactly while it is being used.
  *
  * The part header measures itself and publishes its height, and file headers
  * pin below it. Measured rather than hard-coded to the one line it is set to:

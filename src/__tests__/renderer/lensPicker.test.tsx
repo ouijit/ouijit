@@ -56,10 +56,10 @@ describe('picking how to read a diff', () => {
   });
 
   /**
-   * The worktree diff's ordinary condition, and the one the picker could not
-   * previously act on: a lens is on screen *and* out of date, because this diff
-   * moves on every save. Being applied used to win every branch, so the one
-   * lens a reader could see had drifted was the one they could not re-run.
+   * A lens on screen *and* out of date is the worktree diff's ordinary
+   * condition, since that diff moves on every save. If being applied wins the
+   * branch, the one lens a reader can see has drifted is the one they cannot
+   * re-run.
    */
   test('a lens that is on screen and out of date offers to be written again', () => {
     const { onRun, onShowLens, row } = open(onFile('Narrative', 3, true));

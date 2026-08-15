@@ -11,14 +11,10 @@ const log = getLogger().scope('lens');
 /**
  * One question, one answer, no session.
  *
- * A lens used to be a shell command that had to discover the pull request for
- * itself: read the environment, shell out to `gh` or `ouijit`, and write its
- * answer back through the CLI. Every one of those steps is a tool call, every
- * tool call can want approving, and a headless run has nobody to approve it —
- * so the common outcome was an agent that talked itself out of the task.
- *
- * Now the context arrives with the question. What is left is a single
- * completion, which is the only part an agent is actually needed for.
+ * The context arrives with the question, leaving a single completion — the only
+ * part an agent is needed for. Anything it has to go and fetch is a tool call,
+ * every tool call can want approving, and a headless run has nobody to approve
+ * it; the usual outcome is an agent that talks itself out of the task.
  */
 
 /** Long enough for a large diff on a slow model, short enough to give up on a hang. */

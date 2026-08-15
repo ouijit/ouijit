@@ -680,8 +680,9 @@ const routes: Route[] = [
   // Deliberately reachable from a sandbox, unlike their neighbours above. The
   // host-only rule there is about shelling out to `gh` with the user's
   // credentials; these touch one local table and shell out to nothing. Locking
-  // them to the host would mean an agent running in a sandbox — the safest way
-  // to run one — could not write a draft at all, which is the whole point.
+  // them to the host would stop an agent running in a sandbox — the safest way
+  // to run one — from writing a draft at all.
+  //
   // A sandboxed caller cannot name itself: the origin is stamped here, so a
   // draft's provenance cannot be forged by the thing that wrote it.
   route('GET', 'pulls/:number/drafts', (r) => listDrafts(requireProject(r.query), prNumber(r)), false, 'sandbox'),

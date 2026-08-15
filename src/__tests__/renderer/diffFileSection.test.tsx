@@ -47,10 +47,9 @@ describe('DiffFileSection', () => {
   });
 
   /**
-   * The comment affordance used to be rendered on every line and revealed with
-   * a CSS hover rule: a button and an inline SVG per line, of which at most one
-   * is ever visible. Across a large pull request that is tens of thousands of
-   * nodes built so that one of them can be seen.
+   * Not a CSS hover rule over a button on every line: that is a button and an
+   * inline SVG per line, of which at most one is ever visible — tens of
+   * thousands of nodes across a large pull request so that one can be seen.
    */
   test('only the line under the pointer offers to be commented on', () => {
     const { container } = render(

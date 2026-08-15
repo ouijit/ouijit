@@ -1,13 +1,12 @@
 /**
  * Turns the stores into the rows the mod+K switcher ranks.
  *
- * The one rule worth stating: **a task is one row, always**. Earlier the same
- * task could be absent (no worktree yet), listed under Tasks (worktree, no
- * shell), or listed under Terminals wearing whatever label its agent had set
- * via OSC (shell running). Searching for it therefore turned up a different
- * thing, a differently-named thing, or nothing, depending on state the user
- * wasn't thinking about. Now the row is the task; its state only decides what
- * Enter does:
+ * The one rule worth stating: **a task is one row, always**. Split by state, the
+ * same task is absent (no worktree yet), under Tasks (worktree, no shell), or
+ * under Terminals wearing whatever label its agent set via OSC (shell running)
+ * — so searching for it turns up a different thing, a differently-named thing,
+ * or nothing, depending on state the user wasn't thinking about. The row is the
+ * task; its state only decides what Enter does:
  *
  *   live terminal  →  focus it
  *   worktree only  →  open a plain shell there

@@ -207,12 +207,10 @@ export function getGitStatus(projectPath: string): GitStatus | null {
 }
 
 /**
- * Cache the resolved main branch per project. `git branch --list` is cheap
- * but it spawns a child process — when this used to run synchronously from
- * inside the otherwise-async `getGitFileStatus`, it blocked the main process
- * on every git-status refresh (30s timer per project, plus 3s after every
- * terminal output burst). The cache is a Map<projectPath, mainBranch>; main
- * branches effectively never change during a session.
+ * The resolved main branch per project. `git branch --list` is cheap but it
+ * spawns a child process, and `getGitFileStatus` asks on every status refresh —
+ * a 30s timer per project, plus 3s after every burst of terminal output. A main
+ * branch effectively never changes during a session.
  */
 const projectMainBranchCache = new Map<string, string>();
 

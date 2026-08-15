@@ -87,10 +87,9 @@ function rowTitle(lens: LensSummary, isApplied: boolean, isStale: boolean): stri
  * How to read the diff, as one choice.
  *
  * All files is a lens like any other — the one that groups nothing and takes
- * the order the diff arrived in — so it sits in the same list as the rest
- * rather than in a control of its own. Two side-by-side rows said the opposite:
- * that the file list and a lens were different kinds of thing, and left the
- * project's other lenses hidden behind a caret on the second one.
+ * the order the diff arrived in — so it sits in the same list rather than in a
+ * control of its own. Two controls would say the file list and a lens are
+ * different kinds of thing, and hide the rest of the lenses behind one of them.
  *
  * Picking a lens that has not been written for this head writes it: a lens is
  * an agent run, and the reader asking to read this change through one is the

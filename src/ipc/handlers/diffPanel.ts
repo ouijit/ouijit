@@ -19,10 +19,10 @@ export function registerDiffPanelHandlers(mainWindow: BrowserWindow): void {
   typedHandle('lens:list', (projectPath) => listLenses(projectPath));
   typedHandle('lens:save', async (projectPath, name, command, previousName) => {
     const lens = await saveLens(projectPath, name, command, previousName);
-    // `saveLens` has already followed the rename through the stored groupings,
-    // so anything reading one is one local row behind and nothing more. Told
-    // here rather than by the settings panel reaching into whichever surfaces
-    // it can currently see — that list only ever grows, and was already short.
+    // `saveLens` follows the rename through the stored groupings, so anything
+    // showing one is a single local row out of date. Broadcast rather than
+    // patched in by the settings panel, which would have to know every surface
+    // currently displaying a lens.
     if (previousName && previousName !== lens.name) {
       typedPush(mainWindow, 'lens:renamed', { projectPath, from: previousName, to: lens.name });
     }

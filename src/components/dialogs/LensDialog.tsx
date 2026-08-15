@@ -15,10 +15,9 @@ interface LensDialogProps {
 /**
  * The project's lenses, opened from wherever one is wanted.
  *
- * Configuring these used to mean leaving the pull request for the settings
- * panel and finding your way back, which is a long way to go to answer "what
- * would this change look like grouped". The same list settings shows is here,
- * with a way to write one against the pull request already open.
+ * The same list the settings panel shows, plus a way to run one against the
+ * pull request already open — so answering "what would this change look like
+ * grouped" does not cost leaving it and finding your way back.
  */
 export function LensDialog({ projectPath, onRun, running, onClose }: LensDialogProps) {
   const [visible, setVisible] = useState(false);

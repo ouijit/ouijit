@@ -1,13 +1,12 @@
 import type { ChangedFile, FileDiff, DiffHunk } from '../types';
 
 /**
- * Everything an agent needs to group a pull request, assembled here.
+ * Everything an agent needs to group a diff, assembled here.
  *
- * The point of the feature: the agent is asked one question, with the answer
- * material already in front of it. It reads no files, calls no tools, and needs
- * no approval for anything — which is what a lens used to fail on, since a
- * headless session cannot approve a tool call and would sit there until it gave
- * up and guessed.
+ * The agent is asked one question with the answer material already in front of
+ * it: it reads no files, calls no tools, and needs no approval for anything. A
+ * headless session cannot approve a tool call, so anything it has to go and
+ * fetch is somewhere the run can stall.
  *
  * A user writes only the instruction. Everything else on the way in, and the
  * shape expected on the way out, is ours to get right once.

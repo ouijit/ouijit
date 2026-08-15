@@ -5,10 +5,9 @@ import type { BrowserWindow } from 'electron';
  * Renaming a lens is told, not reached for.
  *
  * The rename happens in one call — the lens list and every grouping it wrote —
- * and whatever is showing one is then a single local row out of date. The
- * settings panel used to patch the pull request store directly, which meant it
- * had to know which surfaces were currently displaying a lens; it was already
- * one short, and that list only ever grows.
+ * so whatever is showing one is a single local row out of date. Patching that
+ * in from the settings panel instead would mean knowing every surface currently
+ * displaying a lens, which is a list that only grows.
  */
 
 const typedHandlers = new Map<string, (...args: never[]) => unknown>();

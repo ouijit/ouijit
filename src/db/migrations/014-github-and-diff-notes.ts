@@ -4,9 +4,9 @@ import type Database from 'better-sqlite3';
  * Everything the GitHub integration and diff notes need.
  *
  * Pull requests, issues, review drafts, lenses and the notes written on a
- * worktree diff arrived over five migrations while the shape was still being
- * worked out — three of them only adding a column to a table the one before
- * had just created. None of it shipped, so it is one migration.
+ * worktree diff, as one migration rather than the five they were developed as:
+ * none of those shipped, and three only added a column to a table the one
+ * before had just created.
  *
  * The guards are load-bearing rather than defensive: rolling a database back
  * to 13 is done by deleting the rows above it from `schema_migrations`, which

@@ -38,11 +38,9 @@ export function TerminalBody({ ptyId, projectPath }: TerminalBodyProps) {
 
   const activePanel = panels.find((p) => p.id === activePanelId) ?? null;
   // The diff takes the panel slot while it is open rather than covering the
-  // body: it is a view of the same work as everything else that opens beside a
-  // terminal, and it was the one that could not be dragged narrower to keep an
-  // eye on what the agent was doing while reading what it had done. It is not
-  // one of the tabs — nobody opens two — so it borrows the slot instead of
-  // joining the list, and the tab underneath is still there when it closes.
+  // body, so it can be dragged narrower to watch the terminal alongside it.
+  // It is not one of the tabs — nobody opens two — so it borrows the slot
+  // instead of joining the list, and the tab underneath survives it closing.
   // What is in the slot, and the identity the width animation is keyed on.
   // From the resolved panel rather than the id, so an id left pointing at a
   // panel that has gone reads as an empty slot.

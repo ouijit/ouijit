@@ -15,9 +15,9 @@ const execFileAsync = promisify(execFile);
  * on it can be told it has none.
  *
  * Once per process, and awaited rather than blocking. A login shell with a real
- * profile behind it takes a good fraction of a second, and this runs as the
- * first thing the health probe does — synchronously, that was the main process
- * stopped dead while the window it just opened tried to paint.
+ * profile behind it costs a good fraction of a second, and this is the first
+ * thing the health probe does — run synchronously it stops the main process
+ * dead while the window it just opened tries to paint.
  */
 
 let resolved: Promise<void> | null = null;

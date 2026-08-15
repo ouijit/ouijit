@@ -220,9 +220,9 @@ describe('PullRequestsPanel — lens', () => {
   });
 
   /**
-   * The rail is a way through the document, not a filter on it. Clicking a file
-   * used to leave that file alone on screen, which made the one before it and
-   * the one after it unreachable without going back to the list.
+   * The rail is a way through the document, not a filter on it. Leaving the
+   * clicked file alone on screen makes the one before it and the one after it
+   * unreachable without going back to the list.
    */
   test('clicking a file in the rail takes you to it, leaving the rest in place', async () => {
     vi.mocked(window.api.github.inbox).mockResolvedValue(
@@ -361,9 +361,8 @@ describe('PullRequestsPanel — lens', () => {
 
   /**
    * A lens is keyed by name, and the grouping it wrote records that name. A
-   * rename that leaves the record behind turns what is already on screen into
-   * something the project no longer has — listed a second time, under the name
-   * it used to have.
+   * rename that leaves the record behind turns what is on screen into something
+   * the project does not have, listed a second time under its former name.
    */
   test('renaming a lens carries the reading it has already done', async () => {
     vi.mocked(window.api.github.inbox).mockResolvedValue(
@@ -443,10 +442,10 @@ describe('PullRequestsPanel — lens', () => {
   });
 
   /**
-   * Regression: the run saved the lens in main and returned, but the only
-   * thing that cleared "writing" was a push emitted from the REST router —
-   * which this path does not go through. The lens was on disk and the rail
-   * span for ever.
+   * The call that starts a run is the one that knows it finished, so it clears
+   * "writing" itself. Leaving that to the push from the REST router strands
+   * this path, which does not go through it: the lens lands on disk and the
+   * rail spins for ever.
    */
   test('a finished run shows its lens and stops saying it is writing', async () => {
     vi.mocked(window.api.github.inbox).mockResolvedValue(
@@ -503,8 +502,8 @@ describe('PullRequestsPanel — lens', () => {
 
   /**
    * The run happens in main, so leaving the pull request is not a reason to
-   * forget it — the rail used to hold it in component state and lose it. Now
-   * that both diffs read through one session, both get this.
+   * forget it. Held in component state it dies with the pane, and reopening
+   * shows no sign of the agent still working.
    */
   test('the run survives closing the pull request', async () => {
     vi.mocked(window.api.github.inbox).mockResolvedValue(

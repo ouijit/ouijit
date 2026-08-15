@@ -5,10 +5,10 @@ import type { DiffSubject } from '../lens/subject';
 /**
  * One reader for both diffs, and the one thing they disagree about.
  *
- * A pull request and a worktree used to have a reader each, with a result type
- * each and a staleness rule each — which is how the two ended up doing
- * different things with a drifted lens without either saying so. The difference
- * is real; it is now a property of the subject, and this is what it means.
+ * The two diffs genuinely disagree about what a drifted lens is worth drawing,
+ * and that is the only thing they disagree about. A reader each would be two
+ * staleness rules neither of them states — it is a property of the subject
+ * instead, and this is what each setting means.
  */
 
 const rows = new Map<string, DiffLensRow>();

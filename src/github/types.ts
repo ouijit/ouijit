@@ -4,13 +4,12 @@
  *
  * Leaf module at runtime: type-only imports and nothing else, so both sides of
  * the process boundary can depend on it without dragging main-process code into
- * the renderer bundle. `import type` is erased at compile time and adds no edge
- * to the module graph — what must never appear here is a value import.
+ * the renderer bundle. `import type` is erased and adds no edge to the module
+ * graph — what must never appear here is a value import.
  *
- * The shapes a service happens to return belong here too, not in the module
- * that computes them. Declared beside the implementation, the renderer's
- * contract and one function's return type were the same declaration, and adding
- * a field to the latter silently changed the former.
+ * What a service returns belongs here too, not beside the function computing
+ * it. There the renderer's contract and one function's return type are the same
+ * declaration, and a field added to the latter silently changes the former.
  */
 
 import type { BlobContent } from '../git';

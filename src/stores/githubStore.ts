@@ -186,9 +186,9 @@ const INITIAL: Omit<GithubStoreState, 'sidebarWidth' | 'sidebarCollapsed' | 'rai
 };
 
 /**
- * What belongs to one pull request at one head, cleared wherever either
- * changes. Both are answers about specific hunks: a lens points at them, and a
- * file marked read is a claim to have read them.
+ * Where the reader is in one pull request at one head, cleared wherever either
+ * changes. Every one of these is a claim about specific hunks — read, folded
+ * away, scrolled to — and hunks do not survive a new head.
  */
 const CLEAR_FOR_HEAD: Pick<GithubStoreState, 'viewedPaths' | 'collapsedGroups' | 'activePath'> = {
   viewedPaths: [],

@@ -11,10 +11,9 @@
  *
  * Two layouts, chosen by whether there's a query:
  *
- *   query   one flat, globally ranked list. Grouping by type meant the first
- *           row was always the best *terminal*, so Enter regularly opened
- *           something other than the best match. Ranked flat, the top row is
- *           the best match by construction.
+ *   query   one flat, globally ranked list, so the top row is the best match by
+ *           construction. Grouped by type, the first row is the best *terminal*
+ *           and Enter opens something other than what was searched for.
  *   empty   grouped browse, led by the places you actually return to.
  */
 

@@ -39,9 +39,9 @@ const PULL_GROUPS = [
 /**
  * The list, kept on screen rather than replaced by whatever you opened.
  *
- * Review is a queue: you work down it, and losing sight of what is left every
- * time you open something is what made the old full-width list wrong. Search
- * filters what is already loaded — no round trip, so it narrows as you type.
+ * Review is a queue: you work down it, and a full-width list loses sight of
+ * what is left every time you open something. Search filters what is already
+ * loaded — no round trip, so it narrows as you type.
  */
 export function PullRequestSidebar({
   needsReview,

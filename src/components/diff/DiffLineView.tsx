@@ -17,13 +17,11 @@ export interface DiffLineViewProps {
   /** When set, the hovered line offers a button that starts a comment here. */
   onAddComment?: (anchor: DiffLineAnchor) => void;
   /**
-   * Whether this is the line the pointer is on.
+   * Whether this is the line the pointer is on, so only it builds the button.
    *
-   * The comment button used to be rendered on every line and revealed with a
-   * CSS hover rule — one button and one icon per line, of which at most one is
-   * ever visible. On a large diff that was tens of thousands of nodes, and an
-   * `Icon` re-parses its source on each render. The parent tracks the hovered
-   * line instead and only that line builds the button.
+   * Not a CSS hover rule: that means a button and an `Icon` per line — tens of
+   * thousands of nodes on a large diff, each re-parsing its source on render —
+   * for one that is ever visible.
    */
   showComment?: boolean;
   /** Position within the hunk, reported back on hover. */
@@ -124,7 +122,6 @@ export function renderTokensWithHighlights(
     const tokenEnd = charPos + token.content.length;
     const baseStyle: React.CSSProperties = token.color ? { color: token.color } : {};
 
-    // Check if this token overlaps any highlight range
     let hasOverlap = false;
     for (let r = rangeIdx; r < ranges.length && ranges[r][0] < tokenEnd; r++) {
       if (ranges[r][1] > tokenStart) {

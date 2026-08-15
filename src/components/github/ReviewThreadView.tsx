@@ -19,8 +19,8 @@ interface ReviewThreadViewProps {
  *
  * In the timeline this is not a card: it is the same avatar-and-column shape
  * every other comment there uses, with a quiet line naming the code it hangs
- * off. A filled box with its own rules was a second surface inside the panel
- * and read as a foreign object.
+ * off. A filled box with its own rules is a second surface inside the panel,
+ * and reads as a foreign object.
  *
  * Inline in a diff it does keep a frame, because there it is an insert into a
  * stream of code and needs to be told apart from it.

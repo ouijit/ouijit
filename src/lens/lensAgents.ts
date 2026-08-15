@@ -3,9 +3,8 @@
  *
  * Every agent here also has an interactive wrapper in `hookServer.ts`; this is
  * the other axis — no session, no tools, no approvals, prompt in and text out.
- * That distinction is the whole point of the redesign: a lens used to be a
- * command that had to go and find the pull request for itself, through tools
- * that need approving, in a session that often cannot approve them.
+ * A lens must need none of them: a headless run cannot answer an approval
+ * prompt, so an agent that has to go and find the diff for itself stalls.
  *
  * The invocations are data rather than code because they are somebody else's
  * flags. Agent CLIs rename and reshuffle theirs far faster than this app ships,
@@ -39,8 +38,7 @@ export interface LensAgent {
  *             stdin"), and `--permission-mode dontAsk` denies rather than
  *             prompts — a headless run has nobody to approve a tool call, and
  *             one that asks would sit there until the timeout. Not `--bare`,
- *             which skips the keychain and would break every subscription
- *             login. Verified against the real binary.
+ *             which skips the keychain and breaks every subscription login.
  *   codex     `exec -` reads the whole prompt from stdin, streams progress to
  *             stderr and prints only the final message to stdout. Its exec
  *             sandbox is read-only by default, so there is no tool to deny.

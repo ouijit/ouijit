@@ -20,9 +20,9 @@ interface TreeNode<T = ChangedFile> {
 }
 
 /**
- * Generic in the file, since the order this produces is wanted for file lists
- * that are not `ChangedFile`s — and standing in a fake one per file just to get
- * an order back was an allocation per file per render.
+ * Generic in the file: the order this produces is wanted for lists that are not
+ * `ChangedFile`s, and standing in a fake one per file costs an allocation per
+ * file per render.
  */
 export function buildTree<T extends { path: string }>(files: readonly T[]): TreeNode<T>[] {
   const root: TreeNode<T>[] = [];
@@ -47,11 +47,10 @@ export function buildTree<T extends { path: string }>(files: readonly T[]): Tree
 
   // Collapse single-child directories, and sort as we go.
   //
-  // Sorted here rather than at the point of rendering, which is where it used
-  // to be: the walk that gives the document its order reads this tree, so a
-  // sort applied on the way to the screen was a sort the document never saw.
-  // The rail and the document then disagreed about the order of every
-  // directory with more than one thing in it.
+  // Sorted here rather than on the way to the screen: `treeFileOrder` walks
+  // this tree to give the document its order, so a sort applied at render is
+  // one the document never sees — leaving the rail and the document disagreeing
+  // about every directory with more than one thing in it.
   function collapse(nodes: TreeNode<T>[]): TreeNode<T>[] {
     const collapsed = nodes.map((node) => {
       if (!node.isFile && node.children.length === 1 && !node.children[0].isFile) {

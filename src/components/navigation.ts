@@ -234,10 +234,10 @@ export async function startTaskWorktree(
 /**
  * What opening a task does, given the state it happens to be in.
  *
- * One definition, because more than one surface now offers "take me to the work
- * on this": the mod+K switcher's task rows and the GitHub panel's issue rows.
- * If they disagreed about what a click means, the same task would behave one
- * way from the switcher and another from an issue.
+ * One definition, because two surfaces offer "take me to the work on this": the
+ * mod+K switcher's task rows and the GitHub panel's issue rows. Disagreeing
+ * about what a click means would make the same task behave one way from the
+ * switcher and another from an issue.
  */
 export type TaskOpenAction = 'focus' | 'open' | 'start';
 

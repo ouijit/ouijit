@@ -7,16 +7,14 @@ import { MenuPopover, MenuItem, MenuDivider } from '../ui/Menu';
 /**
  * Which agent writes this project's lenses.
  *
- * Left to itself it is the first one installed, which is the right answer on
- * the machines that only have one and a reasonable one everywhere else. What
- * it must not be is a decision nobody can see or overturn: the four harnesses
- * are not interchangeable, an agent can be logged out or out of quota, and
- * until this row existed the choice was stored, read on every run, and
- * unreachable.
+ * Left to itself it is the first one installed, which is right on a machine
+ * with only one and reasonable everywhere else. What it must not be is a
+ * decision nobody can see or overturn: the four harnesses are not
+ * interchangeable, and any of them can be logged out or out of quota.
  *
  * The line underneath is the command as it will actually be spawned. A preset
- * is somebody else's flags, so the one thing this row owes the reader is what
- * we are about to do with them.
+ * is somebody else's flags, so what this row owes the reader is what is about
+ * to be done with them.
  */
 export function LensAgentRow({ projectPath }: { projectPath: string }) {
   const [choice, setChoice] = useState<LensAgentChoice | null>(null);

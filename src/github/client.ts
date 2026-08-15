@@ -23,9 +23,9 @@ const ghLog = getLogger().scope('github');
 
 /**
  * `gh api --slurp`, which paginated reads depend on, first shipped in 2.48.0.
- * Below that the version gate used to pass and then the file list would die
- * with `unknown flag: --slurp`, silently degrading every pull request to the
- * git file list. Anything older gets told to upgrade instead.
+ * Gated here rather than left to fail: below it every paginated read dies with
+ * `unknown flag: --slurp`, silently degrading each pull request to the git file
+ * list. Anything older is told to upgrade.
  */
 export const MIN_GH_VERSION = '2.48.0';
 

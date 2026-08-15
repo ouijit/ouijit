@@ -21,9 +21,8 @@ interface CommentComposerProps {
  * thread, so the only thing that differs is which view is reloaded afterwards.
  */
 export function CommentComposer({ projectPath, number, subject }: CommentComposerProps) {
-  // From the thing itself, which is always loaded when this renders. Reading it
-  // off the inbox meant the box showed a placeholder whenever the list had not
-  // been fetched.
+  // From the thing itself, which is always loaded when this renders. The inbox
+  // is not: off it, the box shows a placeholder until the list is fetched.
   const viewer = useGithubStore((s) => s.detail?.viewer ?? s.issue?.viewer ?? s.inbox?.viewer);
   const viewerAvatarUrl = useGithubStore(
     (s) => s.detail?.viewerAvatarUrl ?? s.issue?.viewerAvatarUrl ?? s.inbox?.viewerAvatarUrl,

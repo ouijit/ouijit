@@ -33,14 +33,13 @@ export function DeferredMount({ estimatedHeight, rootMargin = '150%', dataPath, 
     if (!element) return;
 
     // Whether this section is already in view is answered here rather than left
-    // to the observer's first callback: the callback is a frame away, and in
-    // that frame the reader would watch a blank placeholder be replaced by the
-    // file they asked for. Every placeholder measures against the same layout,
-    // so this costs one layout pass for the pane, not one per file.
+    // to the observer's first callback, which is a frame away — a frame the
+    // reader spends watching a blank placeholder become the file they asked
+    // for. Every placeholder measures against the same layout, so this costs
+    // one layout pass for the pane, not one per file.
     //
-    // It is also what makes the component testable. Under jsdom every rect is
-    // zero and every section is therefore "in view", so a test sees the whole
-    // diff — which is what a test asking about a diff means.
+    // Under jsdom every rect is zero, so every section reads as in view and a
+    // test sees the whole diff.
     const rect = element.getBoundingClientRect();
     const reach = window.innerHeight * 1.5;
     if (rect.top < window.innerHeight + reach && rect.bottom > -reach) {
