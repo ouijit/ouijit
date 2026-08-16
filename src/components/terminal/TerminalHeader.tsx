@@ -461,7 +461,10 @@ function PanelControls({
   const dirtyFileCount = diffFiles.length;
   const insertions = diffFiles.reduce((s, f) => s + f.additions, 0);
   const deletions = diffFiles.reduce((s, f) => s + f.deletions, 0);
-  const showDiff = dirtyFileCount > 0;
+  // Offered wherever there is a repo to read, not only where the comparison it
+  // opens on has something in it: the panel is where another one is chosen, so
+  // gating the way in on this one leaves no way to reach the rest.
+  const showDiff = gitFileStatus !== null;
   const comparison = gitFileStatus ? describeDiffComparison(gitFileStatus.base, gitFileStatus.branch) : '';
 
   const slots: React.ReactNode[] = [];
@@ -502,18 +505,30 @@ function PanelControls({
     slots.push(
       <button
         key="diff"
-        className={`${groupButtonBase} shrink-0 ${diffPanelOpen ? groupButtonActive : groupButtonInactive}`}
+        className={`${groupButtonBase} shrink-0 ${dirtyFileCount === 0 ? '!px-2' : ''} ${
+          diffPanelOpen ? groupButtonActive : groupButtonInactive
+        }`}
         title={`${comparison} — ${dirtyFileCount} ${dirtyFileCount === 1 ? 'file' : 'files'}`}
+        aria-label="Diff"
         onClick={onDiffClick}
       >
         {/* The size of the change, and nothing about what it is measured
             against: the panel this opens names that, and on a board of task
-            cards the base is the same one on nearly every card. */}
-        <span className="shrink-0">
-          {dirtyFileCount} {dirtyFileCount === 1 ? 'file' : 'files'}
-        </span>
-        {insertions > 0 && <span className={diffPanelOpen ? '' : 'text-status-ready'}>+{insertions}</span>}
-        {deletions > 0 && <span className={diffPanelOpen ? '' : 'text-ansi-red'}>-{deletions}</span>}
+            cards the base is the same one on nearly every card.
+
+            With nothing to count there is no size to state, and a card that is
+            not carrying work should not read as though it is. */}
+        {dirtyFileCount === 0 ? (
+          <Icon name="git-diff" className="w-3.5 h-3.5" />
+        ) : (
+          <>
+            <span className="shrink-0">
+              {dirtyFileCount} {dirtyFileCount === 1 ? 'file' : 'files'}
+            </span>
+            {insertions > 0 && <span className={diffPanelOpen ? '' : 'text-status-ready'}>+{insertions}</span>}
+            {deletions > 0 && <span className={diffPanelOpen ? '' : 'text-ansi-red'}>-{deletions}</span>}
+          </>
+        )}
       </button>,
     );
   }
