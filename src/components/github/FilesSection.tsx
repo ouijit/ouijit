@@ -9,15 +9,13 @@ import { BinaryFileView } from '../diff/BinaryFileView';
 import { DeferredMount } from '../diff/DeferredMount';
 import { DiffFileSection } from '../diff/DiffFileSection';
 import { estimateFileHeight } from '../diff/diffMetrics';
-import { useDiffSlices } from '../diff/diffSlice';
 import { useBatchedDiffs } from '../diff/useBatchedDiffs';
 import { anchorKey, type DiffLineAnchor } from '../diff/diffAnchor';
-import type { ResolvedGroup } from '../../lens/lens';
 import { unanchoredThreads } from './reviewAnchors';
 import { Icon } from '../terminal/Icon';
 import { ReviewThreadView } from './ReviewThreadView';
 import { InlineCommentBox, InlineCommentCard } from '../diff/InlineCommentBox';
-import { LensedFileList } from '../diff/LensedFileList';
+import { inTreeOrder } from '../diff/DiffFileTree';
 import { useThreadActions } from './useThreadActions';
 
 import { Loading } from './Loading';
@@ -28,8 +26,6 @@ const DRAFT_HINT = 'Saved locally until you submit the review.';
 interface FilesSectionProps {
   projectPath: string;
   detail: PullRequestDetail;
-  /** The lens bound to this diff, when the reader has it on. */
-  groups?: ResolvedGroup[] | null;
 }
 
 export interface FilesSectionHandle {
@@ -135,7 +131,7 @@ const FileSection = memo(function FileSection({
  * like any other.
  */
 export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(function FilesSection(
-  { projectPath, detail, groups },
+  { projectPath, detail },
   ref,
 ) {
   const files = useGithubStore((s) => s.files);
@@ -147,7 +143,6 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
 
   const diffs = useGithubStore((s) => s.diffs);
   const viewedPaths = useGithubStore((s) => s.viewedPaths);
-  const collapsedGroups = useGithubStore((s) => s.collapsedGroups);
   const setDiffs = useGithubStore((s) => s.setDiffs);
   const [editingDraftId, setEditingDraftId] = useState<string | null>(null);
 
@@ -319,13 +314,8 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
   const renderBelowLine =
     threadsByAnchor.size > 0 || draftsByAnchor.size > 0 || composingAt ? renderComments : undefined;
 
-  // A new pull request, or a new grouping of this one, makes every cached
-  // slice meaningless.
-  const sliceFor = useDiffSlices(groups ?? detail.number);
-
   // A Set so a hundred file sections do not each scan the list.
   const viewed = useMemo(() => new Set(viewedPaths), [viewedPaths]);
-  const collapsed = useMemo(() => new Set(collapsedGroups), [collapsedGroups]);
 
   const setViewed = useCallback(
     (path: string, next: boolean) => {
@@ -334,15 +324,11 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
     [projectPath, detail.number, detail.headSha],
   );
 
-  const setGroupCollapsed = useCallback((title: string, next: boolean) => {
-    useGithubStore.getState().setGroupCollapsed(title, next);
-  }, []);
-
-  const renderFile = (file: PullRequestFile, key?: string, hunks?: number[]) => (
+  const renderFile = (file: PullRequestFile) => (
     <FileSection
-      key={key ?? file.path}
+      key={file.path}
       file={file}
-      diff={sliceFor(file.path, diffs.get(file.path), hunks)}
+      diff={diffs.get(file.path)}
       projectPath={projectPath}
       prNumber={detail.number}
       baseSha={detail.baseSha}
@@ -369,15 +355,7 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
         </div>
       )}
 
-      <div className="diff-list pb-3">
-        <LensedFileList
-          files={files}
-          groups={groups ?? null}
-          renderFile={renderFile}
-          collapsed={collapsed}
-          onCollapsedChange={setGroupCollapsed}
-        />
-      </div>
+      <div className="diff-list pb-3">{inTreeOrder(files).map((file) => renderFile(file))}</div>
 
       {orphanThreads.length > 0 && (
         <>

@@ -10,8 +10,8 @@ import { toggleInList } from '../utils/toggleIn';
  * wrong by an edit to another, and quietly carrying "done" across a force-push
  * is how a review comes to cover code nobody looked at.
  *
- * Kept in settings for the same reason lenses are: two fields per pull request
- * that only this pane reads.
+ * Kept in settings rather than a table: two fields per pull request that only
+ * this pane reads.
  */
 export interface ViewedFiles {
   headSha: string;

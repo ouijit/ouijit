@@ -1,13 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { PullRequestDetail, ReviewDraft } from '../../github/types';
-import type { LensSummary } from '../../lens/config';
 import type { TaskWithWorkspace } from '../../types';
 import { useGithubStore, RAIL_DEFAULT_WIDTH, RAIL_MIN_WIDTH, RAIL_MAX_WIDTH } from '../../stores/githubStore';
-import { LensDialog } from '../dialogs/LensDialog';
 import { ResizeHandle } from '../common/ResizeHandle';
 import { treeFileOrder } from '../diff/DiffFileTree';
-import { useProjectLenses } from '../diff/useProjectLenses';
-import { useLensSession } from '../diff/useLensSession';
 import { scrollToSection, fileSelector } from '../diff/scrollToSection';
 import { Tab, TabBar } from './Tabs';
 import { DetailChrome } from './DetailChrome';
@@ -52,9 +48,7 @@ export function PullRequestDetailView({
 }: PullRequestDetailViewProps) {
   const detailLoading = useGithubStore((s) => s.detailLoading);
   const files = useGithubStore((s) => s.files);
-  const diffs = useGithubStore((s) => s.diffs);
   const railWidth = useGithubStore((s) => s.railWidth);
-  const collapsedGroups = useGithubStore((s) => s.collapsedGroups);
   const badge = stateBadge(detail);
 
   const filesRef = useRef<FilesSectionHandle>(null);
@@ -72,14 +66,14 @@ export function PullRequestDetailView({
    * in order, and a click that threw the rest of the change away made the file
    * before and the file after unreachable without going back to the list.
    */
-  const scrollToFile = useCallback((path: string | null, group?: string) => {
+  const scrollToFile = useCallback((path: string | null) => {
     const container = paneRef.current;
     if (!path) {
       if (container) container.scrollTop = 0;
       return;
     }
     useGithubStore.getState().setActivePath(path);
-    scrollToSection(container, fileSelector(path, group));
+    scrollToSection(container, fileSelector(path));
   }, []);
 
   /**
@@ -144,80 +138,17 @@ export function PullRequestDetailView({
     setPendingDraft(null);
   }, [pane, pendingDraft, scrollToFile]);
 
-  const [lensesOpen, setLensesOpen] = useState(false);
-
-  // The project's lenses, for the picker to offer alongside the file list.
-  // Read here rather than in the rail so the dialog that edits them can hand
-  // back an up-to-date list on the way out.
-  const { lenses, reload: loadLenses } = useProjectLenses(projectPath);
-
   // The tree order is the file list's, not the diffs' — kept out of the
-  // resolution below so it is not rebuilt once per arriving batch.
+  // effect below so it is not rebuilt once per arriving batch.
   const fileOrder = useMemo(() => treeFileOrder(files), [files]);
 
   /**
-   * This pull request's lens, bound once where both the rail and the document
-   * read the same result.
-   *
-   * A run is one call: main assembles the title, description and diff, asks the
-   * agent once, and stores what comes back — there is no session, no terminal,
-   * and nothing for the agent to go and look up. The rest is the same session a
-   * worktree diff has, keyed here to the pull request rather than the head, so
-   * a run outlives closing the pane to go and look at something else.
-   */
-  const lens = useLensSession(
-    {
-      key: `pr:${detail.number}`,
-      revision: detail.headSha,
-      read: () => window.api.github.lens(projectPath, detail.number, detail.headSha),
-      write: (lensName) => window.api.github.runLens(projectPath, detail.number, lensName),
-      subscribe: (refresh) => {
-        // A lens written by an agent over the CLI, in another process, that
-        // nothing here can otherwise see — shown as soon as it lands, since
-        // someone paid for the run.
-        const written = window.api.github.onLensChanged((payload) => {
-          if (payload.projectPath === projectPath && payload.prNumber === detail.number) refresh(true);
-        });
-        // A rename changes what it is called and nothing about what the reader
-        // chose to look at.
-        const renamed = window.api.lens.onRenamed((payload) => {
-          if (payload.projectPath === projectPath) refresh(false);
-        });
-        return () => {
-          written();
-          renamed();
-        };
-      },
-    },
-    diffs,
-    fileOrder,
-  );
-
-  const runLens = useCallback(
-    (picked: LensSummary) => {
-      setLensesOpen(false);
-      void lens.run(picked.name);
-    },
-    [lens],
-  );
-
-  const resolved = lens.resolved;
-  const lensOn = lens.lensOn;
-
-  /**
    * The anchors the observer below watches, as a value that only changes when
-   * they do.
-   *
-   * `resolved` is a fresh array every time a batch of diffs lands — thirty
-   * times over a long pull request — and keying the effect on it tore the
-   * observer down and rebuilt it over every anchor in the pane each time.
+   * they do — the file list is rebuilt every time a batch of diffs lands, and
+   * keying the effect on it tore the observer down and rebuilt it over every
+   * anchor in the pane each time.
    */
-  const anchorShape = useMemo(() => {
-    if (lensOn && resolved) {
-      return resolved.map((group) => `${group.title}\t${group.slices.map((s) => s.path).join(',')}`).join('\n');
-    }
-    return fileOrder.join('\n');
-  }, [lensOn, resolved, fileOrder]);
+  const anchorShape = useMemo(() => fileOrder.join('\n'), [fileOrder]);
 
   /**
    * Follow the reader down the document, so the rail marks where they are.
@@ -267,7 +198,7 @@ export function PullRequestDetailView({
     );
     for (const anchor of anchors) observer.observe(anchor);
     return () => observer.disconnect();
-  }, [pane, anchorShape, collapsedGroups]);
+  }, [pane, anchorShape]);
 
   return (
     <div className="flex flex-col flex-1 min-w-0 min-h-0">
@@ -303,20 +234,7 @@ export function PullRequestDetailView({
             timeline are prose and take the full width. */}
         {pane === 'code' && (
           <>
-            <PullRequestRail
-              width={railWidth}
-              detail={detail}
-              files={files}
-              onSelect={scrollToFile}
-              groups={resolved}
-              onFile={lens.lens}
-              lensOn={lensOn}
-              onLensOn={lens.setLensOn}
-              lenses={lenses}
-              onRunLens={runLens}
-              onOpenLenses={() => setLensesOpen(true)}
-              lensWriting={lens.writing}
-            />
+            <PullRequestRail width={railWidth} detail={detail} files={files} onSelect={scrollToFile} />
             <ResizeHandle
               width={railWidth}
               onWidth={(width) => useGithubStore.getState().setRailWidth(width)}
@@ -342,24 +260,10 @@ export function PullRequestDetailView({
           ) : pane === 'timeline' ? (
             <DiscussionSection projectPath={projectPath} detail={detail} />
           ) : (
-            <FilesSection ref={filesRef} projectPath={projectPath} detail={detail} groups={lens.shown} />
+            <FilesSection ref={filesRef} projectPath={projectPath} detail={detail} />
           )}
         </div>
       </div>
-
-      {lensesOpen && (
-        <LensDialog
-          projectPath={projectPath}
-          onRun={runLens}
-          running={lens.writing}
-          onClose={() => {
-            setLensesOpen(false);
-            // Whatever was added, renamed or deleted in there is what the
-            // picker should offer next time it is opened.
-            loadLenses();
-          }}
-        />
-      )}
     </div>
   );
 }

@@ -31,7 +31,7 @@ describe('tokenizeDiffHunks', () => {
     const first = await tokenizeDiffHunks([h], 'a.ts');
     const second = await tokenizeDiffHunks([h], 'a.ts');
 
-    // The same array, not an equal one: a lens can put one file in three parts
+    // The same array, not an equal one: one file can be rendered more than once
     // of a reading order, and each would otherwise tokenize it again.
     expect(second[0]).toBe(first[0]);
   });

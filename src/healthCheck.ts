@@ -46,8 +46,7 @@ async function detectGit(): Promise<{ ok: boolean; version?: string }> {
  * `which codex` finds `~/.config/Ouijit/bin/codex` whether or not codex is
  * installed: that file is ours, a shell script that goes looking for the real
  * binary and only fails once it is run. Probing through it reports all four
- * agents present on a machine that has none of them — and the lens then picks
- * one of them as its default and dies at spawn.
+ * agents present on a machine that has none of them.
  */
 export function withoutWrapperDir(pathValue: string, wrapperDir: string): string {
   return pathValue

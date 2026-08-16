@@ -20,18 +20,8 @@ import type {
   CliPanelResponse,
 } from './types';
 import type { CaptureNavigatePayload } from './capture/types';
-import type {
-  CommentKind,
-  ReviewEvent,
-  MergeMethod,
-  GithubDraftsChangedPayload,
-  GithubLensChangedPayload,
-  LensRenamedPayload,
-  SaveDraftInput,
-} from './github/types';
-import type { LensAgentChoice } from './lens/lensAgents';
+import type { CommentKind, ReviewEvent, MergeMethod, GithubDraftsChangedPayload, SaveDraftInput } from './github/types';
 import type { SaveDiffNoteInput } from './diffNotes';
-import type { DiffLensTarget } from './diffLens';
 
 // ── Typed IPC helpers ───────────────────────────────────────────────────────
 // These ensure channel names, argument types, and return types are all
@@ -346,11 +336,6 @@ contextBridge.exposeInMainWorld('api', {
       filePath: string,
       oldPath?: string,
     ) => typedInvoke('github:pull-request-file-versions', projectPath, number, baseSha, headSha, filePath, oldPath),
-    lens: (projectPath: string, prNumber: number, headSha: string) =>
-      typedInvoke('github:lens', projectPath, prNumber, headSha),
-    clearLens: (projectPath: string, prNumber: number) => typedInvoke('github:clear-lens', projectPath, prNumber),
-    runLens: (projectPath: string, prNumber: number, lensName: string) =>
-      typedInvoke('github:run-lens', projectPath, prNumber, lensName),
     viewedFiles: (projectPath: string, prNumber: number, headSha: string) =>
       typedInvoke('github:viewed-files', projectPath, prNumber, headSha),
     setFileViewed: (projectPath: string, prNumber: number, headSha: string, path: string, viewed: boolean) =>
@@ -391,8 +376,6 @@ contextBridge.exposeInMainWorld('api', {
 
     onDraftsChanged: (callback: (payload: GithubDraftsChangedPayload) => void) =>
       typedListen('github:drafts-changed', callback),
-    onLensChanged: (callback: (payload: GithubLensChangedPayload) => void) =>
-      typedListen('github:lens-changed', callback),
   },
 
   diffNotes: {
@@ -400,20 +383,5 @@ contextBridge.exposeInMainWorld('api', {
     save: (input: SaveDiffNoteInput) => typedInvoke('diff-notes:save', input),
     discard: (id: string) => typedInvoke('diff-notes:discard', id),
     clear: (worktreePath: string) => typedInvoke('diff-notes:clear', worktreePath),
-  },
-
-  diffLens: {
-    get: (target: DiffLensTarget) => typedInvoke('diff-lens:get', target),
-    run: (target: DiffLensTarget, lensName: string) => typedInvoke('diff-lens:run', target, lensName),
-  },
-
-  lens: {
-    list: (projectPath: string) => typedInvoke('lens:list', projectPath),
-    save: (projectPath: string, name: string, instruction: string, previousName?: string) =>
-      typedInvoke('lens:save', projectPath, name, instruction, previousName),
-    delete: (projectPath: string, name: string) => typedInvoke('lens:delete', projectPath, name),
-    agent: (projectPath: string) => typedInvoke('lens:agent', projectPath),
-    setAgent: (projectPath: string, choice: LensAgentChoice) => typedInvoke('lens:set-agent', projectPath, choice),
-    onRenamed: (callback: (payload: LensRenamedPayload) => void) => typedListen('lens:renamed', callback),
   },
 });

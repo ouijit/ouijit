@@ -28,10 +28,9 @@ export function scrollToSection(container: HTMLElement | null, selector: string)
   setTimeout(land, 250);
 }
 
-/** The section for one file, optionally the copy inside one part of a lens. */
-export function fileSelector(path: string, group?: string): string {
-  const file = `[data-path="${escapeValue(path)}"]`;
-  return group ? `[data-group="${escapeValue(group)}"] ${file}` : file;
+/** The section for one file. */
+export function fileSelector(path: string): string {
+  return `[data-path="${escapeValue(path)}"]`;
 }
 
 /** `CSS.escape` where there is one — jsdom has no `CSS` at all. */

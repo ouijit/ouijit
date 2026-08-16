@@ -96,8 +96,8 @@ const EXT_MAP: Record<string, BundledLanguage> = {
  * Tokens already computed for a hunk, keyed by the hunk object itself.
  *
  * A hunk object is stable for as long as its file's diff is: slicing a diff for
- * a lens reuses the very same hunk objects, and the same file appearing in
- * three parts of a lens hands out three references to one hunk. Keying
+ * slicing a diff reuses the very same hunk objects, so one hunk can be handed
+ * out under more than one reference. Keying
  * on identity means each is tokenized once however many places render it, and a
  * weak key means the entry goes when the diff does.
  */
@@ -189,7 +189,7 @@ function writeCache(hunk: DiffHunk, key: string, tokens: HunkTokens): void {
  * Tokens for a diff if they can be had without doing any work.
  *
  * Rendering starts from this, so a file that has been tokenized before — the
- * same file under a lens, or one scrolled back to — draws highlighted on its
+ * same file scrolled back to — draws highlighted on its
  * first frame rather than flashing plain and then re-colouring.
  */
 export function peekDiffTokens(hunks: DiffHunk[], filePath: string): HunkTokens[] | null {

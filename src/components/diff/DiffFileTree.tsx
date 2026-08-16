@@ -124,14 +124,7 @@ export interface DiffFileTreeProps {
   footer?: ReactNode;
 }
 
-/**
- * Just the nodes, for somewhere that already owns its scrolling.
- *
- * A lens groups the same files under headings, and each group still wants the
- * directories: which layer a change touches is most of what tells a reviewer
- * what kind of change it is, and a flat list of basenames throws that away
- * exactly where the grouping was supposed to explain it.
- */
+/** Just the nodes, for somewhere that already owns its scrolling. */
 export function DiffFileTreeNodes({
   files,
   onFileClick,

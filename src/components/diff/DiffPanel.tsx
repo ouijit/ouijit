@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import type { FileDiff } from '../../types';
 import { useTerminalStore } from '../../stores/terminalStore';
 import { terminalInstances, refreshTerminalGitStatus } from '../terminal/terminalReact';
-import { DiffFileTree, treeFileOrder } from './DiffFileTree';
+import { DiffFileTree, inTreeOrder } from './DiffFileTree';
 import { DiffFileSection } from './DiffFileSection';
 import { DeferredMount } from './DeferredMount';
 import { scrollToSection, fileSelector } from './scrollToSection';
@@ -14,14 +14,9 @@ import { useBatchedDiffs } from './useBatchedDiffs';
 import { InlineCommentBox, InlineCommentCard } from './InlineCommentBox';
 import { DiffNotesIsland } from './DiffNotesIsland';
 import { useDiffNotes } from './useDiffNotes';
-import { useDiffLens } from './useDiffLens';
-import { LensPicker } from './LensPicker';
-import { LensedFileList } from './LensedFileList';
-import { LensDialog } from '../dialogs/LensDialog';
 import { anchorKey, lineTextAt, type DiffLineAnchor } from './diffAnchor';
 import { MAX_DIFF_FILES, diffShape, effectiveDiffMode, filesInDiff, usesBranchDiff } from '../../diffSource';
 import type { DiffMode } from '../../diffSource';
-import type { DiffLensTarget } from '../../diffLens';
 import { toggleIn } from '../../utils/toggleIn';
 
 interface DiffPanelProps {
@@ -67,8 +62,7 @@ export function DiffPanel({ ptyId, projectPath, mode, fullWidth, onToggleFullWid
 
   const effectiveMode = useMemo(() => effectiveDiffMode(gitFileStatus, mode), [mode, gitFileStatus]);
 
-  // Derive file list from the store (same data the GitStats button uses), by
-  // the same rule main follows when it gathers the diff for a lens.
+  // Derive file list from the store (same data the GitStats button uses).
   const storeFiles = useMemo(
     () => (gitFileStatus ? filesInDiff(gitFileStatus, effectiveMode) : []),
     [gitFileStatus, effectiveMode],
@@ -80,9 +74,9 @@ export function DiffPanel({ ptyId, projectPath, mode, fullWidth, onToggleFullWid
   // long as it says the change is the same one.
   //
   // A status poll hands back a fresh object every few seconds whether or not
-  // anything moved, and everything below here — the tree walk, the lens
-  // resolution, the per-file loader — keys off `files`. Without this they all
-  // re-run on a diff that did not change.
+  // anything moved, and everything below here — the tree walk, the per-file
+  // loader — keys off `files`. Without this they all re-run on a diff that did
+  // not change.
   // The mode rides along, because it decides which git command each file's
   // diff comes from and two modes can list the same shape — the moment an
   // agent commits, the uncommitted list becomes the branch list unchanged.
@@ -92,37 +86,11 @@ export function DiffPanel({ ptyId, projectPath, mode, fullWidth, onToggleFullWid
   );
   // eslint-disable-next-line react-hooks/exhaustive-deps -- the fingerprint is the point: it changes only when the list does
   const files = useMemo(() => storeFiles.slice(0, MAX_DIFF_FILES), [filesFingerprint]);
-  // The order a lens's groups are sorted into. `LensedFileList` runs the
-  // document in the same one, so the two never disagree about where a file sits.
-  const order = useMemo(() => treeFileOrder(files), [files]);
+  // The tree groups by directory; the document runs in the same order, or
+  // clicking a file in one is no way to find it in the other.
+  const ordered = useMemo(() => inTreeOrder(files), [files]);
   const truncated = totalFileCount > MAX_DIFF_FILES;
   const loading = gitFileStatus === null;
-
-  // What a lens over this diff is written against. Null only when there is no
-  // path to key one to — neither a worktree nor a project.
-  const lensTarget = useMemo<DiffLensTarget | null>(
-    () =>
-      gitPath
-        ? {
-            projectPath,
-            worktreePath: gitPath,
-            mode: effectiveMode,
-            branch: instance?.worktreeBranch,
-            mergeTarget: instance?.mergeTarget,
-            title: instance?.label,
-            description: instance?.taskPrompt,
-          }
-        : null,
-    [
-      gitPath,
-      projectPath,
-      effectiveMode,
-      instance?.worktreeBranch,
-      instance?.mergeTarget,
-      instance?.label,
-      instance?.taskPrompt,
-    ],
-  );
 
   // Trigger an immediate git status refresh when panel opens for fresh data
   useEffect(() => {
@@ -141,9 +109,6 @@ export function DiffPanel({ ptyId, projectPath, mode, fullWidth, onToggleFullWid
     },
     setDiffs,
   );
-
-  const lens = useDiffLens(lensTarget, diffs, order);
-  const [lensesOpen, setLensesOpen] = useState(false);
 
   const scrollToFile = useCallback((path: string) => {
     scrollToSection(contentRef.current, fileSelector(path));
@@ -226,14 +191,6 @@ export function DiffPanel({ ptyId, projectPath, mode, fullWidth, onToggleFullWid
     setFolded((prev) => toggleIn(prev, path, next));
   }, []);
 
-  const { setCollapsed } = lens;
-  const toggleGroup = useCallback(
-    (title: string, next: boolean) => {
-      setCollapsed((prev) => toggleIn(prev, title, next));
-    },
-    [setCollapsed],
-  );
-
   // Header stats
   const stats = useMemo(() => {
     const displayed = files.length;
@@ -250,13 +207,11 @@ export function DiffPanel({ ptyId, projectPath, mode, fullWidth, onToggleFullWid
 
   const modeLabel = effectiveMode === 'worktree' ? 'Branch changes' : 'Uncommitted changes';
 
-  // The key is the caller's to give: a lens can name the same file in more than
-  // one part, and React would otherwise keep only the second copy.
-  const renderFile = (file: (typeof files)[number], key?: string, hunks?: number[]) => (
+  const renderFile = (file: (typeof files)[number]) => (
     // The wrapper carries `data-path` so jumping to a file from the tree works
     // whether or not that file has been mounted yet.
     <DeferredMount
-      key={key ?? file.path}
+      key={file.path}
       dataPath={file.path}
       estimatedHeight={estimateFileHeight(
         diffs.get(file.path),
@@ -270,7 +225,7 @@ export function DiffPanel({ ptyId, projectPath, mode, fullWidth, onToggleFullWid
         status={file.status}
         additions={file.additions}
         deletions={file.deletions}
-        diff={lens.sliceFor(file.path, diffs.get(file.path), hunks)}
+        diff={diffs.get(file.path)}
         onAddComment={startNote}
         // Withheld until there is something to draw. It is called once per diff
         // line, and it changes identity whenever the notes do — so passing it
@@ -287,25 +242,6 @@ export function DiffPanel({ ptyId, projectPath, mode, fullWidth, onToggleFullWid
     <div className="flex flex-1 min-h-0 overflow-hidden" style={{ background: 'var(--color-terminal-bg)' }}>
       {!sidebarCollapsed && (
         <div className="shrink-0 overflow-hidden flex flex-col" style={{ width: sidebarWidth }}>
-          {/* Above the list it reorders and outside its scroll, where the pull
-              request rail keeps its own. "All files" is one of the options, so
-              the file list and the lenses are a single choice. */}
-          {lensTarget && (
-            <div className="pane-ledge shrink-0 flex flex-col">
-              <LensPicker
-                lenses={lens.lenses}
-                onFile={lens.lens}
-                lensOn={lens.lensOn}
-                changedFiles={files.length}
-                viewed={folded.size}
-                writing={lens.writing}
-                onAllFiles={() => lens.setLensOn(false)}
-                onShowLens={() => lens.setLensOn(true)}
-                onRun={(picked) => void lens.run(picked.name)}
-                onManage={() => setLensesOpen(true)}
-              />
-            </div>
-          )}
           <DiffFileTree files={files} onFileClick={scrollToFile} />
         </div>
       )}
@@ -364,15 +300,7 @@ export function DiffPanel({ ptyId, projectPath, mode, fullWidth, onToggleFullWid
           {!loading && files.length === 0 && (
             <div className="flex-1 flex flex-col items-center justify-center text-text-tertiary gap-2">No changes</div>
           )}
-          {!loading && (
-            <LensedFileList
-              files={files}
-              groups={lens.shown}
-              renderFile={renderFile}
-              collapsed={lens.collapsed}
-              onCollapsedChange={toggleGroup}
-            />
-          )}
+          {!loading && ordered.map((file) => renderFile(file))}
           {/* A note in the well rather than a band ruled off from the cards:
               the gap either side of it is the boundary. */}
           {!loading && truncated && (
@@ -389,14 +317,6 @@ export function DiffPanel({ ptyId, projectPath, mode, fullWidth, onToggleFullWid
           onDiscard={notes.discard}
           onClear={notes.clear}
         />
-        {lensesOpen && (
-          <LensDialog
-            projectPath={projectPath}
-            onRun={(picked) => void lens.run(picked.name)}
-            running={lens.writing}
-            onClose={() => setLensesOpen(false)}
-          />
-        )}
       </div>
     </div>
   );

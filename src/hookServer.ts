@@ -356,24 +356,6 @@ Anchor to a line that appears as an ADDED line in the diff, by its new-file line
 number: GitHub rejects the whole review at submit time if any comment points at
 a line outside the diff, so a bad anchor loses every comment with it.
 
-### Lenses (how the Code pane groups the diff)
-ouijit pr lens get <number> --head-sha <sha>
-ouijit pr lens set <number> --body -          # JSON on stdin
-ouijit pr lens clear <number>
-
-The body names the parts of the change and points each at the hunks that make
-it up. One file can appear in several parts — that is the point of it:
-{"headSha": "<sha>", "groups": [
-  {"title": "Draft storage", "summary": "Where an unsent comment lives",
-   "slices": [{"path": "src/github/service.ts", "ranges": [[329, 388]]},
-              {"path": "src/db/repos/reviewDraftRepo.ts"}]}
-]}
-Ranges are new-file line numbers and select whole hunks; omit "ranges" to claim
-the whole file. headSha must be the PR's current head, or the lens is ignored.
-Hunks no group claims are still shown, in a trailing group — a lens can reorder
-and split a diff but never hides part of it, so covering everything is not
-required.
-
 ## Markdown Panel Commands (open .md files as tabs in this terminal)
 ouijit markdown add <path.md>                 # open a markdown file panel on this terminal
 ouijit markdown list                          # → {ptyId, kind, panels: [{label, path, active}, ...]}

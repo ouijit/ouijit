@@ -61,11 +61,7 @@ interface GithubStoreState {
   detailError: string | null;
 
   files: PullRequestFile[];
-  /**
-   * Parsed diffs per path. Held here rather than in the document so the rail
-   * can bind a lens to the same hunks the document renders — two resolutions of
-   * one lens would be two chances to disagree.
-   */
+  /** Parsed diffs per path, so the rail and the document read the same hunks. */
   diffs: Map<string, FileDiff | null>;
   filesLoading: boolean;
   filesError: string | null;
@@ -80,16 +76,6 @@ interface GithubStoreState {
    * the summary and back, which is not a decision to re-read anything.
    */
   viewedPaths: string[];
-
-  /**
-   * Parts of the lens folded away in the document, by title.
-   *
-   * Beside `viewedPaths` for the same reason: it is a claim about how far
-   * through a reading you are, and going to look at the timeline and coming
-   * back is not a decision to unfold everything again. Not stored on disk,
-   * though — a fold is where you are in a document, not what you think of it.
-   */
-  collapsedGroups: string[];
 
   /**
    * The file the reader is on in the code pane, for the rail to mark.
@@ -123,7 +109,6 @@ interface GithubStoreActions {
 
   loadDrafts: (projectPath: string, prNumber: number) => Promise<void>;
   setDiffs: (diffs: Map<string, FileDiff | null>) => void;
-  setGroupCollapsed: (title: string, collapsed: boolean) => void;
   setActivePath: (path: string | null) => void;
   loadViewed: (projectPath: string, prNumber: number, headSha: string) => Promise<void>;
   setFileViewed: (projectPath: string, prNumber: number, headSha: string, path: string, viewed: boolean) => void;
@@ -178,7 +163,6 @@ const INITIAL: Omit<GithubStoreState, 'sidebarWidth' | 'sidebarCollapsed' | 'rai
   filesError: null,
   filesFromGit: false,
   viewedPaths: [],
-  collapsedGroups: [],
   activePath: null,
   drafts: [],
   composingAt: null,
@@ -190,9 +174,8 @@ const INITIAL: Omit<GithubStoreState, 'sidebarWidth' | 'sidebarCollapsed' | 'rai
  * changes. Every one of these is a claim about specific hunks — read, folded
  * away, scrolled to — and hunks do not survive a new head.
  */
-const CLEAR_FOR_HEAD: Pick<GithubStoreState, 'viewedPaths' | 'collapsedGroups' | 'activePath'> = {
+const CLEAR_FOR_HEAD: Pick<GithubStoreState, 'viewedPaths' | 'activePath'> = {
   viewedPaths: [],
-  collapsedGroups: [],
   activePath: null,
 };
 
@@ -373,11 +356,10 @@ export const useGithubStore = create<GithubStore>()((set, get) => ({
     try {
       const detail = await window.api.github.pullRequest(projectPath, number);
       if (version !== detailVersion || get().projectPath !== projectPath) return;
-      // A lens grouped the files at one head. After a force-push those groups
-      // describe a diff that no longer exists, so they go rather than quietly
-      // becoming wrong.
-      const staleLens = get().detail?.headSha !== detail.headSha;
-      set({ detail, detailLoading: false, ...(staleLens ? CLEAR_FOR_HEAD : {}) });
+      // Every claim in there is about specific hunks at one head, and a
+      // force-push leaves none of them true.
+      const newHead = get().detail?.headSha !== detail.headSha;
+      set({ detail, detailLoading: false, ...(newHead ? CLEAR_FOR_HEAD : {}) });
 
       void get().loadDrafts(projectPath, number);
       void get().loadViewed(projectPath, number, detail.headSha);
@@ -451,10 +433,6 @@ export const useGithubStore = create<GithubStore>()((set, get) => ({
 
   setActivePath: (path) => {
     if (get().activePath !== path) set({ activePath: path });
-  },
-
-  setGroupCollapsed: (title, collapsed) => {
-    set({ collapsedGroups: toggleInList(get().collapsedGroups, title, collapsed) });
   },
 
   loadViewed: async (projectPath, prNumber, headSha) => {

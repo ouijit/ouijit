@@ -53,9 +53,6 @@ import {
   listDrafts,
   saveDraft,
   discardDraft,
-  getLens,
-  setLens,
-  clearLens,
 } from '../github/service';
 import { getProjectList } from '../projectList';
 import { cliPanelRequest } from '../cliPanels';
@@ -715,41 +712,6 @@ const routes: Route[] = [
     'sandbox',
   ),
 
-  // ── Lens ─────────────────────────────────────────────────────
-  // Sandbox-reachable for the same reason drafts are: this is where an agent
-  // that has read the diff writes down what it found, and the safest agent is
-  // the one running contained. It touches one local table and no credentials.
-  route(
-    'GET',
-    'pulls/:number/lens',
-    async (r) => {
-      const project = requireProject(r.query);
-      const headSha = r.query.get('headSha');
-      if (!headSha) throw new HttpError(400, 'Missing ?headSha=');
-      return getLens(project, prNumber(r), headSha);
-    },
-    false,
-    'sandbox',
-  ),
-
-  route(
-    'PUT',
-    'pulls/:number/lens',
-    async (r) => {
-      const project = requireProject(r.query);
-      const headSha = r.body.headSha;
-      const groups = r.body.groups;
-      if (typeof headSha !== 'string' || !headSha) throw new HttpError(400, 'Missing headSha');
-      const result = await setLens(project, prNumber(r), headSha, JSON.stringify({ groups }));
-      if (!result.success) throw new HttpError(400, result.error ?? 'Invalid lens');
-      return result;
-    },
-    true,
-    'sandbox',
-  ),
-
-  route('DELETE', 'pulls/:number/lens', async (r) => clearLens(requireProject(r.query), prNumber(r)), true, 'sandbox'),
-
   // ── Panels ────────────────────────────────────────────────────────
   // The two user-addressable panel kinds on a terminal: markdown files and
   // web previews. A terminal can hold several of each, so these are plural
@@ -911,17 +873,6 @@ async function handleAsync(req: IncomingMessage, res: ServerResponse, window: Br
       // local read. It must never grow into "something changed, refetch".
       if (segments[0] === 'pulls' && segments[2] === 'drafts') {
         typedPush(window, 'github:drafts-changed', {
-          projectPath: project,
-          prNumber: parseInt(segments[1], 10),
-        });
-      }
-
-      // Same shape, same rule, for the other thing an agent writes on its own:
-      // a lens is written by a command the pane started and then has no way to
-      // know finished. Without this the pane sits on "writing" while the lens
-      // is already on disk. Its handler reads one local row and nothing else.
-      if (segments[0] === 'pulls' && segments[2] === 'lens') {
-        typedPush(window, 'github:lens-changed', {
           projectPath: project,
           prNumber: parseInt(segments[1], 10),
         });

@@ -251,7 +251,7 @@ describe('healthCheck', () => {
   test('agents are looked for past our own wrappers', async () => {
     // `which codex` finds ~/.config/Ouijit/bin/codex whether or not codex is
     // installed — that file is ours. Probing through it reports four agents on
-    // a machine with none, and the lens then picks one and dies at the spawn.
+    // a machine with none, and whatever picks one of them dies at the spawn.
     const { withoutWrapperDir } = await import('../healthCheck');
     const wrapper = '/home/me/.config/Ouijit/bin';
 

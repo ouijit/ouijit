@@ -124,9 +124,8 @@ afterEach(async () => {
  * the agent cannot know about is one that does not exist.
  */
 describe('CLI_REFERENCE', () => {
-  test('tells an agent how to write review comments and a reading order', () => {
+  test('tells an agent how to write review comments', () => {
     expect(CLI_REFERENCE).toContain('ouijit pr draft add');
-    expect(CLI_REFERENCE).toContain('ouijit pr lens set');
     // How to find which pull request it is on, or it cannot address the right
     // one — the task it is working in carries the number.
     expect(CLI_REFERENCE).toContain('ouijit task current | jq .githubPrNumber');

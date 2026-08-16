@@ -87,9 +87,9 @@ export function MenuPopover({
             }}
             role="menu"
             style={{ ...floatingStyles, background: 'var(--color-terminal-bg)', boxShadow: 'var(--shadow-menu)' }}
-            // Above the dialog overlay (10001): a menu is opened from inside
-            // one — the lens agent picker — and a portal to the body is a
-            // sibling of it, so nothing but the number keeps it in front.
+            // Above the dialog overlay (10001): a menu can be opened from
+            // inside one, and a portal to the body is a sibling of it, so
+            // nothing but the number keeps it in front.
             className={`${className} flex flex-col overflow-hidden glass-bevel border border-bezel rounded-[12px] z-[10002]`}
           >
             {/* The bevel is drawn on the surface and the scrolling happens

@@ -1,9 +1,8 @@
 import type Database from 'better-sqlite3';
 
 /**
- * Everything the GitHub integration, diff notes and lenses need: pull requests,
- * issues, review drafts, the notes written on a worktree diff, and the lenses
- * read over either.
+ * Everything the GitHub integration and diff notes need: pull requests, issues,
+ * review drafts, and the notes written on a worktree diff.
  */
 export function up(db: Database.Database): void {
   const taskColumns = db.prepare("PRAGMA table_info('tasks')").all() as { name: string }[];
@@ -57,20 +56,5 @@ export function up(db: Database.Database): void {
     );
 
     CREATE INDEX IF NOT EXISTS idx_diff_notes_worktree ON diff_notes(worktree_path);
-
-    -- One row per lens, whatever diff it was written over. subject_key says
-    -- which diff -- pr:<number>, or wt:<path>:<mode> -- and is only ever
-    -- compared, so what a subject puts in it is that subject's business. pin is
-    -- the same bargain: two SHAs for a pull request or a branch diff, a
-    -- fingerprint of the change for a working tree.
-    CREATE TABLE IF NOT EXISTS diff_lenses (
-      project_path TEXT NOT NULL,
-      subject_key TEXT NOT NULL,
-      pin TEXT NOT NULL,
-      groups TEXT NOT NULL,
-      lens_name TEXT,
-      created_at TEXT NOT NULL DEFAULT (datetime('now')),
-      PRIMARY KEY (project_path, subject_key)
-    );
   `);
 }

@@ -54,19 +54,13 @@ import type {
   ReviewEvent,
   MergeMethod,
   GithubDraftsChangedPayload,
-  GithubLensChangedPayload,
-  LensRenamedPayload,
   InboxResult,
   PullRequestFilesResult,
   SaveDraftInput,
   PromoteToTaskResult,
   PrFileVersions,
 } from '../github/types';
-import type { LensAgentChoice } from '../lens/lensAgents';
-import type { LensSummary } from '../lens/config';
 import type { DiffNote, SaveDiffNoteInput } from '../diffNotes';
-import type { DiffLensTarget } from '../diffLens';
-import type { StoredLens } from '../lens/readLens';
 import type { SandboxProviderStatus, NonoConfig } from '../sandbox/types';
 import type { HookStatusEntry } from '../hookServer';
 import type { HealthStatus } from '../healthCheck';
@@ -276,17 +270,11 @@ export interface IpcInvokeContract {
     args: [projectPath: string, number: number, baseSha: string, headSha: string, filePath: string, oldPath?: string];
     return: PrFileVersions;
   };
-  'github:lens': { args: [projectPath: string, prNumber: number, headSha: string]; return: StoredLens | null };
-  'github:run-lens': {
-    args: [projectPath: string, prNumber: number, lensName: string];
-    return: { success: boolean; error?: string };
-  };
   'github:viewed-files': { args: [projectPath: string, prNumber: number, headSha: string]; return: string[] };
   'github:set-file-viewed': {
     args: [projectPath: string, prNumber: number, headSha: string, path: string, viewed: boolean];
     return: string[];
   };
-  'github:clear-lens': { args: [projectPath: string, prNumber: number]; return: { success: boolean } };
   'github:issues': { args: [projectPath: string]; return: GithubIssue[] };
   'github:issue': { args: [projectPath: string, number: number]; return: IssueDetail };
 
@@ -299,24 +287,6 @@ export interface IpcInvokeContract {
     return: { success: boolean; error?: string };
   };
   'github:detect-task-pr': { args: [projectPath: string, taskNumber: number]; return: { prNumber: number | null } };
-
-  // ── Lenses ─────────────────────────────────────────────────────────
-  // The project's named instructions and the agent that runs them. Not under
-  // `github:` — a worktree with no remote reads its own diff through these,
-  // and nothing behind them touches GitHub.
-  'lens:list': { args: [projectPath: string]; return: LensSummary[] };
-  'lens:save': {
-    args: [projectPath: string, name: string, command: string, previousName?: string];
-    return: LensSummary;
-  };
-  'lens:delete': { args: [projectPath: string, name: string]; return: { success: boolean } };
-  'lens:agent': { args: [projectPath: string]; return: LensAgentChoice };
-  'lens:set-agent': { args: [projectPath: string, choice: LensAgentChoice]; return: { success: boolean } };
-
-  // A lens over a worktree's own diff, written by the same agent and stored
-  // under the same named instructions as a pull request's.
-  'diff-lens:get': { args: [target: DiffLensTarget]; return: StoredLens | null };
-  'diff-lens:run': { args: [target: DiffLensTarget, lensName: string]; return: { success: boolean; error?: string } };
 
   // ── Diff notes ─────────────────────────────────────────────────────
   // Notes on a worktree's own diff, keyed by the worktree rather than by a pull
@@ -476,14 +446,4 @@ export interface IpcPushContract {
   'capture:navigate': { args: [payload: CaptureNavigatePayload] };
   /** A review draft was written or discarded outside the renderer (the CLI). */
   'github:drafts-changed': { args: [payload: GithubDraftsChangedPayload] };
-  'github:lens-changed': { args: [payload: GithubLensChangedPayload] };
-  /**
-   * A lens was renamed in project settings.
-   *
-   * The stored groupings are renamed with it in the same call, so anything
-   * showing one only has to read its row again. Broadcast rather than returned
-   * from `lens:save`, because the pane that would have to be told is never the
-   * pane the rename was typed into.
-   */
-  'lens:renamed': { args: [payload: LensRenamedPayload] };
 }

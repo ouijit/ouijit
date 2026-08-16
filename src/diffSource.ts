@@ -2,8 +2,8 @@
  * What a worktree diff is made of, agreed on by both sides of the IPC boundary.
  *
  * The renderer decides what to draw and main decides what to hand an agent, and
- * the two have to reach the same answer or a lens is written against a file set
- * the panel never shows. Kept free of node and of React so both can import it.
+ * the two have to reach the same answer. Kept free of node and of React so both
+ * can import it.
  */
 
 import type { ChangedFile, GitFileStatus } from './git';
@@ -48,9 +48,8 @@ export function filesInDiff(status: GitFileStatus, mode: DiffMode): ChangedFile[
  * A fingerprint of the change, for telling one file set from another.
  *
  * Approximate on purpose: an edit that preserves line counts does not register.
- * The renderer uses it to avoid restarting a load on a no-op status poll, and a
- * lens uses it to say whether it was written against this diff — both of which
- * would rather miss a change than re-run on every poll.
+ * The renderer uses it to avoid restarting a load on a no-op status poll, which
+ * would rather miss a change than re-run on every one.
  */
 export function diffShape(files: readonly ChangedFile[]): string {
   return files.map((f) => `${f.status}:${f.path}:${f.additions}:${f.deletions}`).join('\n');
