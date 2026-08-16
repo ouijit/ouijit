@@ -41,8 +41,8 @@ export function LensDialog({ projectPath, onRun, running, onClose }: LensDialogP
           </h2>
           <p className="mt-1.5 text-xs text-text-tertiary leading-relaxed">
             {onRun
-              ? 'A lens reads the diff and names the parts of the change, so the Code pane can be read in the order it was made. Pick one to read this pull request through.'
-              : 'A lens reads the diff and names the parts of the change, so the Code pane can be read in the order it was made. The command is what a project keeps; what it writes belongs to one pull request.'}
+              ? 'Lenses group a diff into named parts so you can review by change, not by file. Select one to apply to this pull request.'
+              : 'Lenses group a diff into named parts so you can review by change, not by file. Each one is saved with the project and applies to any pull request.'}
           </p>
         </div>
 

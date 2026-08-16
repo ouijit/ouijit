@@ -50,16 +50,24 @@ export function MenuPopover({
     };
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return;
-      // The panel closes the pull request on Escape; a menu takes it first.
+      // The panel closes the pull request on Escape, and a dialog closes
+      // itself; a menu takes it first and closes only itself.
+      //
+      // On the window, not the document, because both of those listen on the
+      // document in capture too — and there listeners run in the order they
+      // were bound, so the dialog the menu was opened from is ahead of it.
+      // Capture reaches the window before the document whatever the order,
+      // which is the only way a menu can be sure of getting there first.
+      e.preventDefault();
       e.stopPropagation();
       onOpenChange(false);
     };
     const timer = setTimeout(() => document.addEventListener('mousedown', onDown), 0);
-    document.addEventListener('keydown', onKey, true);
+    window.addEventListener('keydown', onKey, true);
     return () => {
       clearTimeout(timer);
       document.removeEventListener('mousedown', onDown);
-      document.removeEventListener('keydown', onKey, true);
+      window.removeEventListener('keydown', onKey, true);
     };
   }, [open, onOpenChange]);
 
@@ -79,7 +87,10 @@ export function MenuPopover({
             }}
             role="menu"
             style={{ ...floatingStyles, background: 'var(--color-terminal-bg)', boxShadow: 'var(--shadow-menu)' }}
-            className={`${className} flex flex-col overflow-hidden glass-bevel border border-bezel rounded-[12px] z-[1000]`}
+            // Above the dialog overlay (10001): a menu is opened from inside
+            // one — the lens agent picker — and a portal to the body is a
+            // sibling of it, so nothing but the number keeps it in front.
+            className={`${className} flex flex-col overflow-hidden glass-bevel border border-bezel rounded-[12px] z-[10002]`}
           >
             {/* The bevel is drawn on the surface and the scrolling happens
                 inside it. On one element they fight: the ::before is laid out

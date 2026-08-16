@@ -71,7 +71,7 @@ export function LensList({ projectPath, onRun, running }: LensListProps) {
 
       {lenses.length === 0 && !addingNew && (
         <div className="px-4 py-8 text-center text-xs text-text-tertiary">
-          No lenses yet — add one below and it will be here for every pull request.
+          No lenses yet. Add one to review by change, not by file.
         </div>
       )}
 
@@ -261,8 +261,7 @@ function LensForm({
           placeholder="Group by the parts of the change and order them so each one makes sense given the last — data model first, then the code that uses it, then the UI."
         />
         <p className="mt-2 text-[11px] text-text-tertiary leading-relaxed">
-          The pull request&rsquo;s title, description and full diff are sent with this. Say how you want it organised —
-          nothing about where to find it.
+          The pull request&rsquo;s title, description, and full diff are sent with this instruction.
         </p>
       </div>
 

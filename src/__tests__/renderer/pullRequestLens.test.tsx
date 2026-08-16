@@ -293,6 +293,32 @@ describe('PullRequestsPanel — lens', () => {
   });
 
   /**
+   * Escape belongs to the innermost thing that is open. A menu opened inside
+   * the dialog is portaled out of it, so nothing but the handlers decides
+   * this — and the dialog was listening first.
+   */
+  test('escape closes a menu inside the lens dialog, not the dialog', async () => {
+    vi.mocked(window.api.github.inbox).mockResolvedValue(
+      inbox({ needsReview: [pr({ number: 5, title: 'Please look' })] }),
+    );
+    vi.mocked(window.api.github.pullRequest).mockResolvedValue(detail());
+
+    render(<PullRequestsPanel projectPath={PROJECT} />);
+    fireEvent.click(await screen.findByText('Please look'));
+    fireEvent.click(await screen.findByText('Code'));
+    await openPicker();
+    pick('Add a lens…');
+
+    fireEvent.click(await screen.findByRole('button', { name: /Automatic/ }));
+    expect(await screen.findByRole('menuitem', { name: 'Custom command…' })).toBeTruthy();
+
+    fireEvent.keyDown(document.body, { key: 'Escape' });
+
+    await waitFor(() => expect(screen.queryByRole('menuitem', { name: 'Custom command…' })).toBeNull());
+    expect(screen.getByTestId('dialog-overlay').dataset.visible).toBe('true');
+  });
+
+  /**
    * The row is the lens: picking one reads the pull request through it. There
    * is no verb to learn, and no dialog between wanting one and having it.
    */
