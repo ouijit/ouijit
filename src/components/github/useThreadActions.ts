@@ -7,8 +7,8 @@ import { useProjectStore } from '../../stores/projectStore';
  * Replying to a thread and resolving one, wherever a thread is rendered.
  *
  * The same threads appear twice — against their line in the diff, and gathered
- * as the outstanding ones on the timeline — and both places offer the same two
- * actions. Written once so a fix in one is a fix in both.
+ * as the outstanding ones on the timeline — and both places offer these two
+ * actions.
  */
 export function useThreadActions(
   projectPath: string,

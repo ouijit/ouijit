@@ -271,11 +271,7 @@ export async function trashTaskWithWorktree(
   return dbResult;
 }
 
-/**
- * Project a stored task plus its resolved worktree into the renderer-facing
- * shape. One mapper for both the list and the by-number lookup, so a field
- * added here cannot reach one path and miss the other.
- */
+/** A stored task plus its resolved worktree, in the shape the renderer takes. */
 function toTaskWithWorkspace(task: TaskMetadata, worktree: WorktreeInfo | undefined): TaskWithWorkspace {
   return {
     taskNumber: task.taskNumber,

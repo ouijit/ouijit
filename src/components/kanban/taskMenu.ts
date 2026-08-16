@@ -13,9 +13,9 @@ export const STATUS_LABELS: Record<TaskStatus, string> = {
 
 /**
  * The task actions shared by the kanban card menu and a task terminal's header
- * menu, so the two can't drift. Callers supply the handlers (they open
- * terminals / move status through different plumbing) and compose these entries
- * with their own context-specific items around them.
+ * menu. Callers supply the handlers — they open terminals and move status
+ * through different plumbing — and compose these entries with their own
+ * context-specific items around them.
  */
 export interface TaskMenuActions {
   /** Open a new terminal for the task; a provider opens it sandboxed. */
@@ -65,9 +65,8 @@ export function openInEntry(
  * GitHub actions for a task. Returns nothing when the feature is off for the
  * project, so the menu shape is unchanged for anyone not using it.
  *
- * Lives here rather than in either caller because the kanban card and the
- * terminal header share this menu — adding it in one place would silently make
- * the two disagree about what a task can do.
+ * Lives here rather than in either caller: the kanban card and the terminal
+ * header share this menu.
  */
 export interface GithubMenuActions {
   openPullRequest: (prNumber: number) => void;

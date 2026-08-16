@@ -2,9 +2,7 @@
  * Task-level GitHub actions, shared by the kanban card menu, the terminal
  * header menu, and the command palette.
  *
- * These wrap the IPC calls with the toasts and store refreshes each one needs,
- * so the three entry points can't drift into behaving differently for the same
- * action.
+ * These wrap the IPC calls with the toasts and store refreshes each one needs.
  */
 
 import log from 'electron-log/renderer';

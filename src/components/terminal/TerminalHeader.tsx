@@ -142,7 +142,7 @@ export const TerminalHeader = memo(function TerminalHeader({
       }
       items.push({ label: 'Rename task', icon: 'pencil-simple', onClick: () => setRenameTarget('task') });
 
-      // Same entries the kanban card shows — one definition, two surfaces.
+      // The same entries the kanban card shows.
       const github = task
         ? githubEntries(
             { enabled: githubEnabled, prNumber: task.githubPrNumber, hasBranch: !!task.branch },

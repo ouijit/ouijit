@@ -61,8 +61,7 @@ export type CheckOutcome = 'running' | 'passing' | 'failing' | 'neutral' | 'unkn
  * What one check amounts to, from GitHub's two overlapping fields.
  *
  * A check that has not finished has no conclusion worth reading, so status wins
- * over conclusion. Everything that counts a check — the list's glyph, the
- * summary's tally — asks this, so the two can't disagree about what failing is.
+ * over conclusion. The list's glyph and the summary's tally both ask this.
  */
 export function checkOutcome(conclusion: string | null, status: string | null): CheckOutcome {
   if (status && status !== 'COMPLETED') return 'running';

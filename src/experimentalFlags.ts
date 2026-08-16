@@ -1,9 +1,9 @@
 /**
  * Per-project experimental feature flags: storage key, shape, and parsing.
  *
- * Leaf module (no renderer or db imports) so both the renderer store and
- * main-process consumers share one definition of the key and shape without
- * dragging renderer dependencies across the process boundary.
+ * Leaf module (no renderer or db imports), so main-process consumers can read
+ * the key and shape without dragging renderer dependencies across the process
+ * boundary.
  */
 
 /** Experimental features that can be toggled per project. */

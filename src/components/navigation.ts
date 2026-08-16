@@ -5,8 +5,7 @@
  * "go to this project / home / terminal" behavior, and the sequences are
  * order-sensitive (tasks are pre-fetched before navigating so the kanban paints
  * correctly through the view-transition snapshot; the terminal card stack
- * reverts an active index that a tag filter hides). Keeping one copy here means
- * the palette can't drift from what clicking the sidebar does.
+ * reverts an active index that a tag filter hides).
  */
 
 import type { Project, TaskWithWorkspace } from '../types';
@@ -168,8 +167,8 @@ export async function openTaskWorktree(target: TaskWorktreeTarget): Promise<void
  * `task.start` creates the branch and worktree and moves a todo task to
  * in_progress; it runs no hook, and the spawn skips the continue hook, so what
  * lands is a plain shell in a new worktree. Same sequence the board's "open in
- * terminal" and the home recents panel already use for a task with no worktree,
- * so all three agree on what opening an unstarted task means.
+ * terminal" and the home recents panel already use for a task with no
+ * worktree.
  *
  * Creating a worktree takes long enough to see, so this borrows the kanban
  * drop's staging rather than awaiting it behind a closed palette: a loading slot
@@ -234,10 +233,8 @@ export async function startTaskWorktree(
 /**
  * What opening a task does, given the state it happens to be in.
  *
- * One definition, because two surfaces offer "take me to the work on this": the
- * mod+K switcher's task rows and the GitHub panel's issue rows. Disagreeing
- * about what a click means would make the same task behave one way from the
- * switcher and another from an issue.
+ * Two surfaces offer "take me to the work on this": the mod+K switcher's task
+ * rows and the GitHub panel's issue rows.
  */
 export type TaskOpenAction = 'focus' | 'open' | 'start';
 

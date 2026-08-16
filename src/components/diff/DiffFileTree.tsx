@@ -86,8 +86,8 @@ function sortTreeNodes<T>(nodes: TreeNode<T>[]): TreeNode<T>[] {
  * however far apart they were in the list that arrived. The document follows
  * this order, or the rail cannot be used to keep a place in it.
  *
- * Built by the same walk that builds the tree rather than by sorting to the
- * same rule twice, so the two cannot drift.
+ * Built by the same walk that builds the tree, rather than by sorting to the
+ * same rule twice.
  */
 export function treeFileOrder(files: readonly { path: string }[]): string[] {
   const order: string[] = [];

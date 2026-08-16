@@ -373,9 +373,8 @@ export function deriveMergeStatus(raw: {
 // ── Reads ────────────────────────────────────────────────────────────
 
 /**
- * Open PRs for a repo, split into the three inbox buckets. The split happens
- * here so the panel, the command palette, and anything else that grows a PR
- * surface later can't disagree about what "needs your review" means.
+ * Open PRs for a repo, split into the three inbox buckets. Split main-side, so
+ * the panel and the command palette read the same buckets.
  */
 export async function fetchInbox(identity: RepoIdentity): Promise<PullRequestInbox> {
   const data = await ghGraphql<{

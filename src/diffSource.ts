@@ -9,8 +9,7 @@
 import type { ChangedFile, GitFileStatus } from './git';
 
 /**
- * How many files of one change are rendered. Shared by both diffs so the cap
- * cannot drift into two numbers.
+ * How many files of one change are rendered. Shared by both diffs.
  */
 export const MAX_DIFF_FILES = 300;
 

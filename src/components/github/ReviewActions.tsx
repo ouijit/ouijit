@@ -44,9 +44,8 @@ export function ReviewActions({ projectPath, detail, onJumpToDraft }: ReviewActi
   const hardBlock = detail.merge.mergeable === 'CONFLICTING' || detail.isDraft;
   const blockers = isOpen ? detail.merge.blockers : [];
 
-  // Said here rather than as a 422 after the fact — and asked of the same
-  // function main asks before it sends, so the two cannot disagree about what
-  // GitHub will take.
+  // Said here rather than as a 422 after the fact, and asked of the same
+  // function main asks before it sends.
   const problem = (event: ReviewEvent) => reviewSubmitProblem(event, summary, drafts.length);
   const commentProblem = problem('COMMENT');
   const changesProblem = problem('REQUEST_CHANGES');

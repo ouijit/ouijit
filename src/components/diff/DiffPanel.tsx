@@ -37,7 +37,7 @@ const DEFAULT_SIDEBAR_WIDTH = 220;
  *
  * The file tree, file sections, hunk and line renderers, and the token /
  * word-diff splicing all live in this directory's shared primitives — the same
- * ones the pull request files view renders — so the two can't drift apart.
+ * ones the pull request files view renders.
  */
 export function DiffPanel({ ptyId, projectPath, mode, fullWidth, onToggleFullWidth, onClose }: DiffPanelProps) {
   const gitFileStatus = useTerminalStore((s) => s.displayStates[ptyId]?.gitFileStatus ?? null);
