@@ -7,8 +7,6 @@
  * component that copies it.
  */
 
-import type { DiffMode } from './diffSource';
-
 export interface DiffNote {
   id: string;
   /** The worktree the diff is of — a task's, or the project itself for a plain shell. */
@@ -39,10 +37,6 @@ export interface SaveDiffNoteInput {
   body: string;
 }
 
-function subject(mode: DiffMode): string {
-  return mode === 'worktree' ? "this branch's changes" : 'the uncommitted changes';
-}
-
 /**
  * The notes as one block of text to paste into an agent.
  *
@@ -53,11 +47,15 @@ function subject(mode: DiffMode): string {
  *
  * No trailing newline: this is pasted into a prompt, and a trailing newline in
  * a TUI is the Enter key.
+ *
+ * `subject` names the comparison the notes were written on — `diffSubject` in
+ * `diffSource.ts` — since a line number means something different against the
+ * working tree than against a branch.
  */
-export function formatNotesForAgent(notes: DiffNote[], mode: DiffMode): string {
+export function formatNotesForAgent(notes: DiffNote[], subject: string): string {
   if (notes.length === 0) return '';
 
-  const heading = `${notes.length} ${notes.length === 1 ? 'note' : 'notes'} on ${subject(mode)}.`;
+  const heading = `${notes.length} ${notes.length === 1 ? 'note' : 'notes'} on ${subject}.`;
 
   const blocks = notes.map((note) => {
     // A LEFT anchor numbers the line in the file as it was, so without the

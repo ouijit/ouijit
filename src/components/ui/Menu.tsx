@@ -11,6 +11,8 @@ interface MenuPopoverProps {
   placement?: Placement;
   /** Sizing for the surface: how wide it sits and how tall it may grow. */
   className?: string;
+  /** Held above the rows and outside their scroll, for a field that filters them. */
+  header?: ReactNode;
   children: ReactNode;
 }
 
@@ -28,6 +30,7 @@ export function MenuPopover({
   trigger,
   placement = 'bottom-end',
   className = 'w-72 max-h-[22rem]',
+  header,
   children,
 }: MenuPopoverProps) {
   const triggerRef = useRef<HTMLButtonElement | null>(null);
@@ -92,6 +95,10 @@ export function MenuPopover({
             // nothing but the number keeps it in front.
             className={`${className} flex flex-col overflow-hidden glass-bevel border border-bezel rounded-[12px] z-[10002]`}
           >
+            {/* Outside the scroll below, so a field that filters the rows
+                stays put while they move. Full-bleed to the surface, with the
+                inset kept even on all three of its sides. */}
+            {header && <div className="shrink-0 p-2 border-b border-ink/[0.06]">{header}</div>}
             {/* The bevel is drawn on the surface and the scrolling happens
                 inside it. On one element they fight: the ::before is laid out
                 against the padding box, so it would scroll away from the edge

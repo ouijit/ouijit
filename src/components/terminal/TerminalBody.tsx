@@ -21,7 +21,7 @@ const XTERM_CLASS =
   'terminal-xterm-container flex-1 min-h-0 min-w-0 rounded-none border-none pt-4 pl-4 pr-2 pb-2 overflow-hidden';
 
 export function TerminalBody({ ptyId, projectPath }: TerminalBodyProps) {
-  const { panels, activePanelId, panelFullWidth, diffPanelOpen, diffPanelMode } = useTerminalStore(
+  const { panels, activePanelId, panelFullWidth, diffPanelOpen } = useTerminalStore(
     useShallow((s) => {
       const d = s.displayStates[ptyId];
       return {
@@ -29,7 +29,6 @@ export function TerminalBody({ ptyId, projectPath }: TerminalBodyProps) {
         activePanelId: d?.activePanelId ?? null,
         panelFullWidth: d?.panelFullWidth ?? true,
         diffPanelOpen: d?.diffPanelOpen ?? false,
-        diffPanelMode: d?.diffPanelMode ?? 'uncommitted',
       };
     }),
   );
@@ -190,7 +189,6 @@ export function TerminalBody({ ptyId, projectPath }: TerminalBodyProps) {
               <DiffPanel
                 ptyId={ptyId}
                 projectPath={projectPath}
-                mode={diffPanelMode}
                 fullWidth={panelFullWidth}
                 onToggleFullWidth={() => ops.setPanelFullWidth(!panelFullWidth)}
                 onClose={() => terminalInstances.get(ptyId)?.setDiffPanelOpen(false)}

@@ -13,6 +13,8 @@ export type {
   GitFileStatus,
   WorktreeDiffSummary,
   BranchInfo,
+  DiffBaseRef,
+  DiffBases,
 } from './git';
 // Re-export worktree types from worktree.ts (single source of truth)
 export type { TaskWorktreeResult, WorktreeInfo, WorktreeRemoveResult, CheckWorktreeResult } from './worktree';
@@ -65,7 +67,15 @@ export type {
 } from './github/types';
 
 // Import for local use within this file
-import type { GitStatus, GitFileStatus, GitDropdownInfo, FileDiff, WorktreeDiffSummary, BranchInfo } from './git';
+import type {
+  GitStatus,
+  GitFileStatus,
+  GitDropdownInfo,
+  FileDiff,
+  WorktreeDiffSummary,
+  BranchInfo,
+  DiffBases,
+} from './git';
 import type { TaskWorktreeResult, WorktreeInfo, WorktreeRemoveResult, CheckWorktreeResult } from './worktree';
 import type {
   GithubAvailability,
@@ -483,11 +493,12 @@ export interface WorktreeAPI {
   remove(projectPath: string, worktreePath: string): Promise<WorktreeRemoveResult>;
   list(projectPath: string): Promise<WorktreeInfo[]>;
   getDiff(projectPath: string, worktreeBranch: string, targetBranch?: string): Promise<WorktreeDiffSummary | null>;
+  /** One file, as it differs between `base` and the working tree at `gitPath`. */
   getFileDiff(
-    projectPath: string,
-    worktreeBranch: string,
+    gitPath: string,
+    base: string,
     filePath: string,
-    targetBranch?: string,
+    oldPath?: string,
     contextLines?: number,
   ): Promise<FileDiff | null>;
   merge(projectPath: string, worktreeBranch: string): Promise<GitMergeResult>;
@@ -541,6 +552,10 @@ export interface ElectronAPI {
   getGitFileStatus(projectPath: string, diffBase?: string): Promise<GitFileStatus | null>;
   /** Get extended git dropdown info for a project */
   getGitDropdownInfo(projectPath: string): Promise<GitDropdownInfo | null>;
+  /** The refs a branch diff can be taken against, and when the repo last fetched. */
+  listDiffBases(projectPath: string): Promise<DiffBases>;
+  /** Update one remote-tracking ref, so a comparison against it is current. */
+  fetchDiffBase(projectPath: string, ref: string): Promise<{ success: boolean; error?: string }>;
   /** Checkout a git branch */
   gitCheckout(projectPath: string, branchName: string): Promise<GitCheckoutResult>;
   /** Create a new git branch */

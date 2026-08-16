@@ -13,16 +13,15 @@ import { estimateFileHeight } from './diffMetrics';
 import { useBatchedDiffs } from './useBatchedDiffs';
 import { InlineCommentBox, InlineCommentCard } from './InlineCommentBox';
 import { DiffNotesIsland } from './DiffNotesIsland';
+import { DiffComparisonPicker } from './DiffComparisonPicker';
 import { useDiffNotes } from './useDiffNotes';
 import { anchorKey, lineTextAt, type DiffLineAnchor } from './diffAnchor';
-import { MAX_DIFF_FILES, diffShape, effectiveDiffMode, filesInDiff, usesBranchDiff } from '../../diffSource';
-import type { DiffMode } from '../../diffSource';
+import { MAX_DIFF_FILES, diffShape, diffSubject, filesInDiff } from '../../diffSource';
 import { toggleIn } from '../../utils/toggleIn';
 
 interface DiffPanelProps {
   ptyId: string;
   projectPath: string;
-  mode: DiffMode;
   /** Filling the terminal body, rather than split beside the terminal. */
   fullWidth: boolean;
   onToggleFullWidth: () => void;
@@ -39,7 +38,7 @@ const DEFAULT_SIDEBAR_WIDTH = 220;
  * word-diff splicing all live in this directory's shared primitives — the same
  * ones the pull request files view renders.
  */
-export function DiffPanel({ ptyId, projectPath, mode, fullWidth, onToggleFullWidth, onClose }: DiffPanelProps) {
+export function DiffPanel({ ptyId, projectPath, fullWidth, onToggleFullWidth, onClose }: DiffPanelProps) {
   const gitFileStatus = useTerminalStore((s) => s.displayStates[ptyId]?.gitFileStatus ?? null);
   const [diffs, setDiffs] = useState<Map<string, FileDiff | null>>(new Map());
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -60,12 +59,13 @@ export function DiffPanel({ ptyId, projectPath, mode, fullWidth, onToggleFullWid
   // panel being closed and reopened mid-review.
   const notes = useDiffNotes(gitPath);
 
-  const effectiveMode = useMemo(() => effectiveDiffMode(gitFileStatus, mode), [mode, gitFileStatus]);
+  // Both from the status rather than from the terminal's request, so the label
+  // and the list can never name different comparisons: this is the base the
+  // answer on screen was actually produced against.
+  const base = gitFileStatus?.base ?? null;
+  const branch = gitFileStatus?.branch ?? null;
 
-  const storeFiles = useMemo(
-    () => (gitFileStatus ? filesInDiff(gitFileStatus, effectiveMode) : []),
-    [gitFileStatus, effectiveMode],
-  );
+  const storeFiles = useMemo(() => (gitFileStatus ? filesInDiff(gitFileStatus) : []), [gitFileStatus]);
 
   const totalFileCount = storeFiles.length;
 
@@ -76,12 +76,12 @@ export function DiffPanel({ ptyId, projectPath, mode, fullWidth, onToggleFullWid
   // anything moved, and everything below here — the tree walk, the per-file
   // loader — keys off `files`. Without this they all re-run on a diff that did
   // not change.
-  // The mode rides along, because it decides which git command each file's
-  // diff comes from and two modes can list the same shape — the moment an
-  // agent commits, the uncommitted list becomes the branch list unchanged.
+  // The base rides along, because two comparisons can list the same shape and
+  // the hunks under it still differ — a branch level with its remote lists the
+  // same files either way it is read.
   const filesFingerprint = useMemo(
-    () => `${effectiveMode}\n${diffShape(storeFiles.slice(0, MAX_DIFF_FILES))}`,
-    [storeFiles, effectiveMode],
+    () => `${base ?? ''}\n${diffShape(storeFiles.slice(0, MAX_DIFF_FILES))}`,
+    [storeFiles, base],
   );
   // eslint-disable-next-line react-hooks/exhaustive-deps -- the fingerprint is the point: it changes only when the list does
   const files = useMemo(() => storeFiles.slice(0, MAX_DIFF_FILES), [filesFingerprint]);
@@ -100,10 +100,11 @@ export function DiffPanel({ ptyId, projectPath, mode, fullWidth, onToggleFullWid
     files,
     filesFingerprint,
     (file) => {
-      const branch = usesBranchDiff(effectiveMode, file.status) ? instance?.worktreeBranch : undefined;
-      return branch
-        ? window.api.worktree.getFileDiff(projectPath, branch, file.path, instance?.mergeTarget)
-        : window.api.getFileDiff(gitPath, file.path, undefined, file.status === '?');
+      // An untracked file is in no revision, so no comparison can produce it —
+      // it is read whole, as the addition it would be.
+      return file.status === '?' || !base
+        ? window.api.getFileDiff(gitPath, file.path, undefined, file.status === '?')
+        : window.api.worktree.getFileDiff(gitPath, base, file.path, file.oldPath);
     },
     setDiffs,
   );
@@ -202,8 +203,6 @@ export function DiffPanel({ ptyId, projectPath, mode, fullWidth, onToggleFullWid
     return text;
   }, [files, truncated, totalFileCount]);
 
-  const modeLabel = effectiveMode === 'worktree' ? 'Branch changes' : 'Uncommitted changes';
-
   const renderFile = (file: (typeof files)[number]) => (
     // The wrapper carries `data-path` so jumping to a file from the tree works
     // whether or not that file has been mounted yet.
@@ -261,12 +260,14 @@ export function DiffPanel({ ptyId, projectPath, mode, fullWidth, onToggleFullWid
             hideLabel="Hide the file list"
             showLabel="Show the file list"
           />
-          <span
-            className="text-xs bg-ink/[0.06] pl-2 pr-1 py-1 text-ink/50 flex items-center gap-1.5 relative"
-            style={{ borderRadius: '5px' }}
-          >
-            {modeLabel}
-          </span>
+          <DiffComparisonPicker
+            ptyId={ptyId}
+            gitPath={gitPath}
+            base={base}
+            defaultBase={instance?.mergeTarget ?? gitFileStatus?.mainBranch ?? null}
+            mainBranch={gitFileStatus?.mainBranch ?? null}
+            branch={branch}
+          />
           <span className="text-xs text-text-tertiary ml-auto relative">{stats}</span>
           <FullWidthToggle fullWidth={fullWidth} onToggle={onToggleFullWidth} />
           <PanelCloseButton onClose={onClose} />
@@ -295,7 +296,7 @@ export function DiffPanel({ ptyId, projectPath, mode, fullWidth, onToggleFullWid
         </div>
         <DiffNotesIsland
           notes={notes.notes}
-          mode={effectiveMode}
+          subject={diffSubject(base, branch)}
           ptyId={ptyId}
           onJump={(note) => scrollToFile(note.path)}
           onDiscard={notes.discard}

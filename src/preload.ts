@@ -77,6 +77,8 @@ contextBridge.exposeInMainWorld('api', {
   getGitFileStatus: (projectPath: string, diffBase?: string) =>
     typedInvoke('get-git-file-status', projectPath, diffBase),
   getGitDropdownInfo: (projectPath: string) => typedInvoke('get-git-dropdown-info', projectPath),
+  listDiffBases: (projectPath: string) => typedInvoke('git-diff-bases', projectPath),
+  fetchDiffBase: (projectPath: string, ref: string) => typedInvoke('git-fetch-diff-base', projectPath, ref),
   gitCheckout: (projectPath: string, branchName: string) => typedInvoke('git-checkout', projectPath, branchName),
   gitCreateBranch: (projectPath: string, branchName: string) =>
     typedInvoke('git-create-branch', projectPath, branchName),
@@ -118,13 +120,8 @@ contextBridge.exposeInMainWorld('api', {
     list: (projectPath: string) => typedInvoke('worktree:list', projectPath),
     getDiff: (projectPath: string, worktreeBranch: string, targetBranch?: string) =>
       typedInvoke('worktree:get-diff', projectPath, worktreeBranch, targetBranch),
-    getFileDiff: (
-      projectPath: string,
-      worktreeBranch: string,
-      filePath: string,
-      targetBranch?: string,
-      contextLines?: number,
-    ) => typedInvoke('worktree:get-file-diff', projectPath, worktreeBranch, filePath, targetBranch, contextLines),
+    getFileDiff: (gitPath: string, base: string, filePath: string, oldPath?: string, contextLines?: number) =>
+      typedInvoke('worktree:get-file-diff', gitPath, base, filePath, oldPath, contextLines),
     merge: (projectPath: string, worktreeBranch: string) => typedInvoke('worktree:merge', projectPath, worktreeBranch),
     ship: (projectPath: string, worktreeBranch: string, commitMessage?: string) =>
       typedInvoke('worktree:ship', projectPath, worktreeBranch, commitMessage),

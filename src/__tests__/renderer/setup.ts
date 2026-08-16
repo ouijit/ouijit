@@ -58,6 +58,8 @@ const mockApi = {
   getGitStatus: vi.fn().mockResolvedValue(null),
   getGitFileStatus: vi.fn().mockResolvedValue(null),
   getGitDropdownInfo: vi.fn().mockResolvedValue(null),
+  listDiffBases: vi.fn().mockResolvedValue({ refs: [], upstream: null, defaultRemote: null, lastFetch: null }),
+  fetchDiffBase: vi.fn().mockResolvedValue({ success: true }),
   gitCheckout: vi.fn().mockResolvedValue({ success: true }),
   gitCreateBranch: vi.fn().mockResolvedValue({ success: true }),
   gitMergeIntoMain: vi.fn().mockResolvedValue({ success: true }),

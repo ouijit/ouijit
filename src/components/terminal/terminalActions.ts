@@ -353,7 +353,6 @@ export async function addProjectTerminal(
         sandboxProvider,
         taskId: options?.taskId ?? null,
         worktreeBranch: worktreeInfo?.branch ?? null,
-        diffPanelMode: term.diffPanelMode,
       },
       options?.background,
     );
@@ -406,7 +405,6 @@ export async function addProjectTerminal(
           sandboxProvider,
           taskId: options?.taskId ?? null,
           worktreeBranch: worktreeInfo?.branch ?? null,
-          diffPanelMode: term.diffPanelMode,
         },
         options?.background,
         options?.replaceLoadingId,

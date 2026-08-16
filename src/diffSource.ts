@@ -8,37 +8,43 @@
 
 import type { ChangedFile, GitFileStatus } from './git';
 
-/**
- * How many files of one change are rendered. Shared by both diffs.
- */
+/** How many files of one change are rendered. Shared with the pull request view. */
 export const MAX_DIFF_FILES = 300;
 
-/** Which of a worktree's two diffs is being read. */
-export type DiffMode = 'uncommitted' | 'worktree';
-
 /**
- * Which diff a worktree is actually showing.
+ * The base that makes a comparison the uncommitted changes.
  *
- * Uncommitted changes win when there are any, and the branch diff is the
- * fallback. The header's button and the panel it opens both answer this, and
- * they have to answer it the same way or the button offers one diff and the
- * panel shows the other. Asking for `uncommitted` is taken at its word.
+ * A diff panel asks one question — what do I have that its base does not — and
+ * this is the base for which the answer is what has not been committed. It is
+ * one of the refs on offer rather than a mode beside them.
  */
-export function effectiveDiffMode(status: GitFileStatus | null, requested: DiffMode): DiffMode {
-  if (requested !== 'worktree' || !status) return requested;
-  return status.uncommittedFiles.length > 0 ? 'uncommitted' : 'worktree';
+export const UNCOMMITTED_BASE = 'HEAD';
+
+/** Whether a base is the one that leaves only what has not been committed. */
+export function isUncommittedBase(base: string | null, branch: string | null): boolean {
+  return !base || base === UNCOMMITTED_BASE || base === branch;
+}
+
+/** How a comparison reads in the panel's chip and on the terminal's diff button. */
+export function describeDiffComparison(base: string | null, branch: string | null): string {
+  return isUncommittedBase(base, branch) ? 'Uncommitted changes' : `vs ${base}`;
+}
+
+/** The same comparison mid-sentence, for the heading the agent is handed. */
+export function diffSubject(base: string | null, branch: string | null): string {
+  return isUncommittedBase(base, branch) ? 'the uncommitted changes' : `the changes against ${base}`;
 }
 
 /**
- * Every file the diff contains, in the two lists it is drawn from.
+ * Every file the diff contains.
  *
- * Untracked files join whichever mode is showing. They belong to both the
- * working tree's changes and the branch's, and the mode decision is made on
- * tracked files alone.
+ * Untracked files are held apart by git — they are in no revision, so no diff
+ * can name them — and joined back on here, because a file the branch has and
+ * its base does not is part of the answer whether or not git has been told
+ * about it yet.
  */
-export function filesInDiff(status: GitFileStatus, mode: DiffMode): ChangedFile[] {
-  const tracked = mode === 'worktree' ? status.branchDiffFiles : status.uncommittedFiles;
-  return [...tracked, ...status.untrackedFiles];
+export function filesInDiff(status: GitFileStatus): ChangedFile[] {
+  return [...status.changedFiles, ...status.untrackedFiles];
 }
 
 /**
@@ -50,15 +56,4 @@ export function filesInDiff(status: GitFileStatus, mode: DiffMode): ChangedFile[
  */
 export function diffShape(files: readonly ChangedFile[]): string {
   return files.map((f) => `${f.status}:${f.path}:${f.additions}:${f.deletions}`).join('\n');
-}
-
-/**
- * Whether this file's diff comes from the branch rather than the working tree.
- *
- * An untracked file exists in no revision, so it always comes from the working
- * tree — asking the branch diff for one returns nothing, and the file would
- * read as having no contents at all.
- */
-export function usesBranchDiff(mode: DiffMode, status: ChangedFile['status']): boolean {
-  return mode === 'worktree' && status !== '?';
 }

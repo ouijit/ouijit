@@ -1,5 +1,4 @@
 import type { DiffNote } from '../../diffNotes';
-import type { DiffMode } from '../../diffSource';
 import { formatNotesForAgent } from '../../diffNotes';
 import { useProjectStore } from '../../stores/projectStore';
 import { Icon } from '../terminal/Icon';
@@ -11,7 +10,8 @@ import { SegmentedGroup, segmentBase, segmentQuiet } from '../ui/SegmentedGroup'
 
 interface DiffNotesIslandProps {
   notes: DiffNote[];
-  mode: DiffMode;
+  /** The comparison these were written on, for the heading the agent is handed. */
+  subject: string;
   /** The terminal the notes are about, and the one they are handed to. */
   ptyId: string;
   onJump: (note: DiffNote) => void;
@@ -37,12 +37,12 @@ function pasteIntoTerminal(ptyId: string, text: string): void {
  * Mounted only while there are notes, and floated over the foot of the pane
  * rather than sat in the header, since notes are written while scrolling.
  */
-export function DiffNotesIsland({ notes, mode, ptyId, onJump, onDiscard, onClear }: DiffNotesIslandProps) {
+export function DiffNotesIsland({ notes, subject, ptyId, onJump, onDiscard, onClear }: DiffNotesIslandProps) {
   if (notes.length === 0) return null;
 
   // Formatted when it is asked for, not on every render: nothing on screen
   // shows it, and it walks every note.
-  const forAgent = () => formatNotesForAgent(notes, mode);
+  const forAgent = () => formatNotesForAgent(notes, subject);
 
   const copy = () => {
     void navigator.clipboard.writeText(forAgent()).then(

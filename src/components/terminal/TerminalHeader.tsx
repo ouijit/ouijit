@@ -22,7 +22,7 @@ import { revealInFileManager } from '../../utils/fileManager';
 import { useExperimentalStore } from '../../stores/experimentalStore';
 import { openPullRequestInPanel, createPullRequestForTask, unlinkPullRequest } from '../../services/githubTaskActions';
 import { BranchFromTaskDialog } from '../dialogs/BranchFromTaskDialog';
-import { effectiveDiffMode, filesInDiff } from '../../diffSource';
+import { describeDiffComparison, filesInDiff } from '../../diffSource';
 
 interface TerminalHeaderProps {
   ptyId: string;
@@ -50,7 +50,6 @@ export const TerminalHeader = memo(function TerminalHeader({
     tags,
     sandboxProvider,
     taskId,
-    worktreeBranch,
     diffPanelOpen,
     panels,
     activePanelId,
@@ -65,7 +64,6 @@ export const TerminalHeader = memo(function TerminalHeader({
         tags: d?.tags ?? EMPTY_TAGS,
         sandboxProvider: d?.sandboxProvider,
         taskId: d?.taskId ?? null,
-        worktreeBranch: d?.worktreeBranch ?? null,
         diffPanelOpen: d?.diffPanelOpen ?? false,
         panels: d?.panels ?? EMPTY_PANELS,
         activePanelId: d?.activePanelId ?? null,
@@ -242,8 +240,6 @@ export const TerminalHeader = memo(function TerminalHeader({
     [ptyId],
   );
 
-  const isWorktree = taskId != null && !!worktreeBranch;
-
   const nameContent = renameTarget ? (
     <input
       ref={renameInputRef}
@@ -357,7 +353,6 @@ export const TerminalHeader = memo(function TerminalHeader({
             panels={panels}
             activePanelId={activePanelId}
             gitFileStatus={gitFileStatus}
-            isWorktree={isWorktree}
             diffPanelOpen={diffPanelOpen}
             addRef={addRef}
             onActivate={panelOps.activatePanel}
@@ -441,7 +436,6 @@ function PanelControls({
   panels,
   activePanelId,
   gitFileStatus,
-  isWorktree,
   diffPanelOpen,
   addRef,
   onActivate,
@@ -453,7 +447,6 @@ function PanelControls({
   panels: TerminalPanel[];
   activePanelId: string | null;
   gitFileStatus: GitFileStatus | null;
-  isWorktree: boolean;
   diffPanelOpen: boolean;
   addRef: React.RefObject<HTMLButtonElement | null>;
   onActivate: (id: string) => void;
@@ -462,19 +455,14 @@ function PanelControls({
   onDiffClick: (e: React.MouseEvent) => void;
   onAddClick: (e: React.MouseEvent) => void;
 }) {
-  // The same rule the panel this button opens follows, and then the same file
-  // list, so the two never offer and show different diffs. Counting from
-  // `uncommittedFiles` alone would leave untracked files out of the button and
-  // in the panel — and hide the button entirely for a branch whose only changes
-  // are new files.
-  const mode = gitFileStatus ? effectiveDiffMode(gitFileStatus, 'worktree') : null;
-  const diffFiles = gitFileStatus && mode ? filesInDiff(gitFileStatus, mode) : [];
+  // The same list the panel this button opens shows, read off the same status,
+  // so the two can never offer and show different diffs.
+  const diffFiles = gitFileStatus ? filesInDiff(gitFileStatus) : [];
   const dirtyFileCount = diffFiles.length;
   const insertions = diffFiles.reduce((s, f) => s + f.additions, 0);
   const deletions = diffFiles.reduce((s, f) => s + f.deletions, 0);
-  const hasUncommitted = mode === 'uncommitted';
-  const showCompare = mode === 'worktree' && isWorktree && dirtyFileCount > 0;
-  const showDiff = hasUncommitted || showCompare;
+  const showDiff = dirtyFileCount > 0;
+  const comparison = gitFileStatus ? describeDiffComparison(gitFileStatus.base, gitFileStatus.branch) : '';
 
   const slots: React.ReactNode[] = [];
 
@@ -515,19 +503,17 @@ function PanelControls({
       <button
         key="diff"
         className={`${groupButtonBase} shrink-0 ${diffPanelOpen ? groupButtonActive : groupButtonInactive}`}
+        title={`${comparison} — ${dirtyFileCount} ${dirtyFileCount === 1 ? 'file' : 'files'}`}
         onClick={onDiffClick}
       >
-        {hasUncommitted ? (
-          <>
-            <span>
-              {dirtyFileCount} {dirtyFileCount === 1 ? 'file' : 'files'}
-            </span>
-            {insertions > 0 && <span className={diffPanelOpen ? '' : 'text-status-ready'}>+{insertions}</span>}
-            {deletions > 0 && <span className={diffPanelOpen ? '' : 'text-ansi-red'}>-{deletions}</span>}
-          </>
-        ) : (
-          <span>Compare</span>
-        )}
+        {/* The size of the change, and nothing about what it is measured
+            against: the panel this opens names that, and on a board of task
+            cards the base is the same one on nearly every card. */}
+        <span className="shrink-0">
+          {dirtyFileCount} {dirtyFileCount === 1 ? 'file' : 'files'}
+        </span>
+        {insertions > 0 && <span className={diffPanelOpen ? '' : 'text-status-ready'}>+{insertions}</span>}
+        {deletions > 0 && <span className={diffPanelOpen ? '' : 'text-ansi-red'}>-{deletions}</span>}
       </button>,
     );
   }

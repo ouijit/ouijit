@@ -19,7 +19,7 @@ function note(partial: Partial<DiffNote> = {}): DiffNote {
 
 describe('formatNotesForAgent', () => {
   it('is empty when there is nothing to hand over', () => {
-    expect(formatNotesForAgent([], 'uncommitted')).toBe('');
+    expect(formatNotesForAgent([], 'the uncommitted changes')).toBe('');
   });
 
   it('is one note per block under a count, anchored and quoted', () => {
@@ -31,12 +31,12 @@ describe('formatNotesForAgent', () => {
         // Nothing to quote, and a body that runs to several lines.
         note({ id: 'n3', lineText: null, body: 'first\n\nsecond' }),
       ],
-      'worktree',
+      'the changes against main',
     );
 
     expect(text).toBe(
       [
-        "3 notes on this branch's changes.",
+        '3 notes on the changes against main.',
         '',
         'src/a.ts:12',
         '> const x = doThing()',
@@ -57,7 +57,7 @@ describe('formatNotesForAgent', () => {
   });
 
   it('says one note rather than 1 notes', () => {
-    expect(formatNotesForAgent([note()], 'uncommitted')).toMatch(/^1 note on the uncommitted changes\./);
+    expect(formatNotesForAgent([note()], 'the uncommitted changes')).toMatch(/^1 note on the uncommitted changes\./);
   });
 });
 

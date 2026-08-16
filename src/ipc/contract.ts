@@ -19,6 +19,7 @@ import type {
   GitDropdownInfo,
   GitCheckoutResult,
   GitMergeResult,
+  DiffBases,
   FileDiff,
   WorktreeDiffSummary,
   WorktreeInfo,
@@ -113,6 +114,11 @@ export interface IpcInvokeContract {
   'get-git-status': { args: [projectPath: string]; return: GitStatus | null };
   'get-git-file-status': { args: [projectPath: string, diffBase?: string]; return: GitFileStatus | null };
   'get-git-dropdown-info': { args: [projectPath: string]; return: GitDropdownInfo | null };
+  'git-diff-bases': { args: [projectPath: string]; return: DiffBases };
+  'git-fetch-diff-base': {
+    args: [projectPath: string, ref: string];
+    return: { success: boolean; error?: string };
+  };
   'git-checkout': { args: [projectPath: string, branchName: string]; return: GitCheckoutResult };
   'git-create-branch': { args: [projectPath: string, branchName: string]; return: GitCheckoutResult };
   'git-merge-into-main': { args: [projectPath: string]; return: GitMergeResult };
@@ -188,7 +194,7 @@ export interface IpcInvokeContract {
     return: WorktreeDiffSummary | null;
   };
   'worktree:get-file-diff': {
-    args: [projectPath: string, worktreeBranch: string, filePath: string, targetBranch?: string, contextLines?: number];
+    args: [gitPath: string, base: string, filePath: string, oldPath?: string, contextLines?: number];
     return: FileDiff | null;
   };
   'worktree:merge': { args: [projectPath: string, worktreeBranch: string]; return: GitMergeResult };
