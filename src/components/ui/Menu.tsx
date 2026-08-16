@@ -79,9 +79,13 @@ export function MenuPopover({
             }}
             role="menu"
             style={{ ...floatingStyles, background: 'var(--color-terminal-bg)', boxShadow: 'var(--shadow-menu)' }}
-            className={`${className} overflow-y-auto border border-bezel rounded-[12px] z-[1000] p-1`}
+            className={`${className} flex flex-col overflow-hidden glass-bevel border border-bezel rounded-[12px] z-[1000]`}
           >
-            {children}
+            {/* The bevel is drawn on the surface and the scrolling happens
+                inside it. On one element they fight: the ::before is laid out
+                against the padding box, so it would scroll away from the edge
+                it is meant to sit on the moment the menu is long enough. */}
+            <div className="min-h-0 overflow-y-auto p-1">{children}</div>
           </div>,
           document.body,
         )}
