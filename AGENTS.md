@@ -1,33 +1,29 @@
 # Ouijit
 
-Comments, by example:
+## Comments
 
-```ts
-// ✗ Pinning the base failed silently, which left it prunable by `git gc`.
-// ✓ git's ref store is a filesystem, so a ref at `refs/ouijit/pr/12` makes
-//   `refs/ouijit/pr/12/base` uncreatable.
+Write:
 
-// ✗ Without this, every reconnectTerminal would have run activateLast.
-// ✓ reconnectTerminal calls activateLast, so without this whichever PTY
-//   reconnects last takes the selection.
+- A constraint from outside the code — git, GitHub's API, the DOM, SQLite, an
+  agent CLI's flags — because nothing in the file says it. ("git's ref store is
+  a filesystem, so a ref at `refs/ouijit/pr/12` blocks one at
+  `refs/ouijit/pr/12/base`.")
+- An invariant, and what breaks without it, so the next edit knows the edge it
+  is working near.
+- Why the obvious approach is not the one taken, as a property of the code as
+  it stands.
+- What is not visible from here: who else calls this, what has to change with
+  it, which process it runs in.
 
-// ✗ The line numbers are the least useful part, so the range is dimmed.
-// ✓ Splits `@@ -12,7 +12,10 @@ export function readToken()` into range and context.
+Avoid:
 
-// ✗ A checkbox that waits for a round trip to tick is one you press twice.
-// ✓ Applied here and written behind; the write reverts it on failure.
-
-// ✗ One mapper for both paths, so a field added here cannot miss one.
-// ✓ The kanban card and the terminal header both render this menu.
-
-// ✗ Two hairlines running the height of every diff was the noisiest thing
-//   on the page.
-// ✓ One rule at the edge of the gutter, not a second between the two
-//   number columns.
-
-// ✗ /** Is the experimental flag on for this project? */
-//   export async function isGithubEnabled(projectPath: string)
-// ✓ export async function isGithubEnabled(projectPath: string)
-```
+- Development history — what broke, what an earlier version did, what was
+  tried. It dates immediately and belongs in the pull request.
+- Taste — "reads better", "the noisiest thing on the page". Nothing to act on.
+- Reasoning that fits any code — DRY, "single source of truth", "so the two
+  cannot disagree". True of anything written once, so it says nothing about
+  this.
+- Restating the signature.
+- Guessing how a user feels about the result.
 
 Delete a comment rather than rewrite a weak one.
