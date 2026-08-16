@@ -14,8 +14,7 @@ interface AvatarProps {
  * The image is requested from GitHub's CDN at twice the rendered size so it
  * stays sharp on a retina panel, and with no referrer — the CDN has no business
  * knowing which page asked. A missing or broken URL falls back to the initial
- * on a colour derived from the login, so a row never collapses to a blank
- * circle and two different people never look identical.
+ * on a colour derived from the login.
  */
 export function Avatar({ login, url, size = 20, className = '' }: AvatarProps) {
   const [failed, setFailed] = useState(false);

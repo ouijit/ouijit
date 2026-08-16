@@ -18,15 +18,7 @@ interface SummaryPaneProps {
   onPromoteToTask: () => void;
 }
 
-/**
- * What this change is, before you read a line of it.
- *
- * The facts you check first — where it goes, who is on it, whether it builds —
- * are a label-and-value list rather than a row of chips, because they are read
- * by scanning down the labels for the one you want. Everything below is
- * collapsible and separated by a single rule under its heading; there is no
- * card, box or bevel anywhere on this pane.
- */
+/** What this change is, before you read a line of it. */
 export function SummaryPane({
   projectPath,
   detail,

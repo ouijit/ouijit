@@ -16,9 +16,6 @@ interface PullRequestRailProps {
 /**
  * The changed files, for the code pane only.
  *
- * Reviewing a file at a time is the case this is built around: the diff gets
- * the rest of the width, and moving to the next file is one click rather than
- * a scroll past everything in between.
  */
 export function PullRequestRail({ detail, files, onSelect, width }: PullRequestRailProps) {
   const viewedPaths = useGithubStore((s) => s.viewedPaths);
@@ -51,8 +48,7 @@ export function PullRequestRail({ detail, files, onSelect, width }: PullRequestR
   };
 
   return (
-    // No right border: the seam beside this is the boundary, and two of them
-    // read as a double rule.
+    // No right border: the seam beside this is the boundary.
     <div className="shrink-0 flex flex-col overflow-hidden" style={{ width }}>
       <DiffFileTree
         files={files}

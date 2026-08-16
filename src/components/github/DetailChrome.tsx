@@ -32,10 +32,8 @@ interface DetailChromeProps {
  * The bar above whatever is open: what it is on the left, the panes centred,
  * the actions on the right.
  *
- * Shared by pull requests and issues so the two are the same view of different
- * things rather than two views that happen to resemble each other. The title
- * doubles as the way back, since going back is the most common thing to do from
- * a detail view and a dedicated arrow would be a fourth button.
+ * Shared by pull requests and issues. The title doubles as the way back,
+ * rather than a fourth button beside the other three.
  */
 export function DetailChrome({
   icon,
@@ -53,14 +51,13 @@ export function DetailChrome({
   const sidebarCollapsed = useGithubStore((s) => s.sidebarCollapsed);
 
   return (
-    // Raised above the pane below it: the cut is a shadow falling outside this
-    // box, and the first thing at that pixel in the code pane is a sticky file
-    // header with an opaque background, which would paint straight over it.
+    // Raised: the cut is a shadow falling outside this box, and the first thing
+    // at that pixel in the code pane is a sticky file header with an opaque
+    // background, which would paint straight over it.
     <header className="pane-ledge relative z-30 shrink-0 h-12 flex items-center gap-3 px-3">
-      {/* The leftmost thing in the pane, immediately right of the divider —
-          and here rather than on the divider itself because the panel frame
-          gives every one of its direct children the same stacking level, so
-          anything floating between two of them ends up under the later one. */}
+      {/* Here rather than on the divider itself: the panel frame gives every
+          one of its direct children the same stacking level, so anything
+          floating between two of them ends up under the later one. */}
       <SidebarToggle
         collapsed={sidebarCollapsed}
         onCollapsedChange={(collapsed) => useGithubStore.getState().setSidebarCollapsed(collapsed)}
@@ -68,9 +65,6 @@ export function DetailChrome({
         showLabel="Show the list"
         className="-ml-1"
       />
-      {/* A share of the bar rather than a fixed width, so a wide display gives
-          the title more room. The cap is a cap, not a width: this shrinks below
-          it when the tabs and the actions need the room. */}
       <button
         type="button"
         className="flex items-center gap-2 min-w-0 max-w-[min(45%,720px)] text-text-secondary hover:text-text-primary transition-colors duration-150"

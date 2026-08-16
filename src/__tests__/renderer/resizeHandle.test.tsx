@@ -55,7 +55,6 @@ describe('ResizeHandle', () => {
   test('arrow keys resize it without a pointer', () => {
     const { onWidth } = renderHandle();
 
-    // Even with a wider grab strip this is the least reachable control here.
     fireEvent.keyDown(handle(), { key: 'ArrowRight' });
     expect(onWidth).toHaveBeenLastCalledWith(316);
     fireEvent.keyDown(handle(), { key: 'ArrowLeft' });

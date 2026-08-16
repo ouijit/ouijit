@@ -118,12 +118,10 @@ textarea,
     background: var(--color-background-tertiary);
   }
 
-  /* The same pills at the density of a toolbar rather than a dialog. */
   .btn-compact {
     @apply px-3 py-1 text-[13px];
   }
 
-  /* Text input, as the dialogs have always drawn one. */
   .field {
     @apply w-full px-3 py-2 font-sans text-sm leading-snug text-text-primary bg-background border border-border rounded-md outline-none transition-all duration-150 ease-out placeholder:text-text-tertiary;
   }
@@ -431,22 +429,15 @@ textarea,
   z-index: 0;
 }
 
-/* Except a ledge, which is in front of what it cuts away from by definition.
-   Levelling every child at zero leaves paint order to decide, and the thing
-   below a ledge always comes after it — so the card's own body painted over
-   the cut and the header read as a band with no boundary.
- *
- * Here rather than as a `z-10` utility on the header: utilities are layered
- * and the rule above is not, so it wins whatever the specificity. */
+/* A ledge is in front of what scrolls beneath it, so it is not levelled with
+   the rest. Here rather than as a `z-10` utility on the header: utilities are
+   layered and the rule above is not, so it wins whatever the specificity. */
 .glass-bevel > .pane-ledge {
   z-index: 10;
 }
 
-/* A segmented group lifted off a pane's own content rather than sitting on the
-   app's chrome: the cast shadow, and an opaque base under the fill.
-   `background-secondary` is a 6% wash, which reads as a raised control over
-   chrome but as nothing at all over content — so the same wash is given a
-   surface of its own to sit on. */
+/* `background-secondary` is a 6% wash, which disappears over a pane's own
+   content, so the fill is given an opaque base to sit on. */
 .segmented-floating {
   background:
     linear-gradient(var(--color-background-secondary), var(--color-background-secondary)), var(--color-surface);
@@ -454,22 +445,18 @@ textarea,
 }
 
 /* ===================================
-   Pane seam — the cut between two panes of one surface
+   Pane seam — the boundary between two panes of one surface
    =================================== */
 
-/* Not a drawn line but a gap: the dark of the cut itself, and the near face
-   beside it catching the same overhead light the panel bevels are lit by. A
-   hairline in the border colour reads as something drawn on top of one
-   surface; this reads as two pieces meeting. One pixel of layout — the catch
-   is a shadow, so it costs no width. */
+/* One pixel of layout: the catch is a shadow, so it costs no width. */
 .pane-seam {
   background: var(--seam-cut);
   box-shadow: 1px 0 0 var(--seam-catch);
   transition: background-color 0.1s ease;
 }
 
-/* Grabbable, and saying so. The accent replaces the cut rather than sitting
-   beside it, so the seam stays one pixel wide while it is being used. */
+/* The accent replaces the cut rather than sitting beside it, so the seam stays
+   one pixel wide while it is being dragged. */
 .pane-seam:hover,
 .pane-seam:has(:focus-visible) {
   background: color-mix(in srgb, var(--color-accent) 60%, transparent);
@@ -479,45 +466,30 @@ textarea,
   background: var(--color-accent);
 }
 
-/* A seam that is an element's own left edge, for panes laid against each other
-   with nothing between them to put a strip in — the kanban columns.
- *
- * On the left rather than the right because the right-hand one had to be taken
- * off the last column, and the board's own bevel is the boundary there.
- *
- * Same pair as `.pane-seam`, with the cut on the outside and the lit face on
- * this column's own edge, since that is the face the light reaches. */
+/* For panes laid directly against each other with nowhere to put a strip — the
+   kanban columns. On the left edge, since the board's own bevel is already the
+   boundary past the last column's right one. */
 .pane-seam-left {
   border-left: 1px solid var(--seam-cut);
 }
 
-/* Except the first, whose left edge is not between two columns but against the
-   side of the board, where the panel's own bevel already draws the boundary. A
-   cut there is a dark rule down the edge of the window.
- *
- * Here rather than as a `first:` utility on the column: utilities live in
- * `@layer utilities`, and unlayered CSS beats any layered rule whatever its
- * specificity — so the seam above would win and the exception would silently
- * do nothing. */
+/* Except the first, whose left edge is the board's own bevel. Here rather than
+   as a `first:` utility on the column: utilities live in `@layer utilities`,
+   and unlayered CSS beats any layered rule whatever its specificity, so the
+   rule above would win and the exception would silently do nothing. */
 .kanban-column:first-child {
   border-left: 0;
 }
 
 /* ===================================
-   Diff cards — a list of files, parted by air
+   Diff cards — one file's diff
    =================================== */
 
-/* The same lit edge every other card in the app wears, so a diff reads as one
-   of them rather than as a rectangle of code.
- *
- * Not `.glass-bevel`, which sets `position: relative` on every child — that
- * would land on the file header and quietly turn its `sticky` into `relative`,
- * unpinning it from the top of the pane. This lights the same four edges and
- * leaves the children alone.
- *
- * `isolation` keeps the overlay's stacking inside the card: above the header
- * pinned within it, so the lit edge survives being scrolled under, and below
- * the part heading of a lens, which the whole card passes beneath. */
+/* Not `.glass-bevel`, which sets `position: relative` on every child — that
+   would land on the file header and turn its `sticky` into `relative`,
+   unpinning it from the top of the pane. This lights the same four edges and
+   leaves the children alone. `isolation` keeps the overlay above the header
+   pinned inside the card, so the lit edge survives being scrolled under. */
 .diff-card {
   position: relative;
   isolation: isolate;
@@ -538,105 +510,44 @@ textarea,
   z-index: 20;
 }
 
-/* The trough the cards sit in: lower than the chrome around it, with the cut
-   of light along its top lip. Painted on the scrolling element itself, so it
-   fills the pane whether the diff is three lines or three thousand, and the
-   lip stays at the top edge rather than scrolling away with the content. */
+/* On the scrolling element itself, so the lip stays at the top edge rather
+   than scrolling away with the content. */
 .diff-well {
   background: var(--color-diff-well);
   box-shadow: var(--shadow-well);
 }
 
-/* Spacing lives here rather than on a flex `gap` because it is conditional: a
-   part of a change folded to its heading is a line in a list of headings, and
-   a run of them should read as that list rather than as bands floating apart.
-   A file folded to its header keeps its space — it is still one of the cards,
-   and closing it is not the same as putting the whole part away. `gap` cannot
-   tell those apart; adjacent margins can. */
-.diff-list > * + * {
-  margin-top: 12px;
-}
-
-.diff-list > [data-collapsed] + *,
-.diff-list > * + [data-collapsed] {
-  margin-top: 0;
-}
-
-/* The first card gets the same air above it as it has below: it is a card in a
-   well, and one flush against the lip is a card the well has swallowed. */
+.diff-list > * + *,
 .diff-list > *:first-child {
   margin-top: 12px;
-}
-
-/* Not a part of a change, though. Its heading pins to the top of the pane, so
-   space above it is space the heading slides down over on the first scroll —
-   and inside the part the heading is the first thing, immediately under the
-   pane's own lip, with the same nothing above it. */
-.diff-list > [data-group]:first-child,
-.diff-list[data-group] > *:first-child {
-  margin-top: 0;
 }
 
 /* ===================================
    Pane ledge — a header the content scrolls under
    =================================== */
 
-/* The horizontal counterpart of the seam. A sticky header is a piece in front
-   of the document rather than a band drawn on it, so it takes the light on its
-   top face and is cut away from what passes beneath it. A pair of hairline
-   borders said only "something changes here"; this says which of the two is in
-   front, which is the whole question a sticky header answers.
-
-   The cut and the catch are adjacent, exactly as they are either side of the
-   seam. That adjacency is where an edge gets its crispness: a lone dark line on
-   a dark ground is a shadow, and reads soft however far the colour is pushed.
-
-   A ledge marks the boundary below it and nothing else. It used to light its
-   own top face as well, which put a highlight into the very pixel the ledge
-   above was cutting — two elements owning one boundary, with paint order
-   deciding which showed. Under the pull request header that is a rail and a
-   file header both lighting the line that was meant to separate them from it,
-   and the cut disappearing under them. */
+/* A ledge marks the boundary below it and nothing else. Lighting its own top
+   face as well puts a highlight into the pixel the ledge above is cutting, and
+   two elements owning one boundary leaves paint order to decide which shows. */
 .pane-ledge {
   box-shadow:
     0 1px 0 var(--seam-cut),
     0 2px 0 var(--seam-catch);
 }
 
-/* Over a well, the catch comes off: the near face of a sunken surface is in
-   shadow, and a lit line there is the edge of a raised thing sitting on the
-   boundary that was meant to say it is not one.
- *
- * Only for a ledge that borders a well along its whole length. The bar above
- * this pane and the seam beside it run past the rail as well as the document,
- * and the rail is an ordinary surface — one shadow cannot light half of its
- * own length, and taking it off took the lit top and left edges away from the
- * rail's own rows too. */
-.pane-ledge.over-well,
-.pane-ledge-raised.over-well {
+/* Only where the ledge borders the well along its whole length: one shadow
+   cannot light half of its own length, so a bar running past the rail as well
+   as the document keeps the catch. */
+.pane-ledge.over-well {
   box-shadow: 0 1px 0 var(--seam-cut);
 }
 
-/* The same ledge the other way up, for a strip pinned under the content rather
-   than over it — the board's shelf of standalone shells.
- *
- * The pair keeps its order: the cut above, the catch immediately below it. The
- * catch is inset because the face the light reaches here is the shelf's own
- * top, the shelf being the lower of the two pieces. */
+/* The same ledge inverted, for a strip pinned under the content rather than
+   over it. */
 .pane-ledge-under {
   box-shadow:
     0 -1px 0 var(--seam-cut),
     inset 0 1px 0 var(--seam-catch);
-}
-
-/* Two ledges stack in the reading order: the part of the change pins at the
-   top and the file within it pins under. The upper one throws a shadow so the
-   depth between them is visible, not merely implied by which one moves. */
-.pane-ledge-raised {
-  box-shadow:
-    0 1px 0 var(--seam-cut),
-    0 2px 0 var(--seam-catch),
-    0 6px 12px -6px var(--seam-shadow);
 }
 
 /* ===================================
@@ -732,14 +643,11 @@ textarea,
 }
 
 /* ===================================
-   GitHub comment markdown styles
-   =================================== */
-
-/* Comment bodies are short and dense — headings stay close to body size so a
-   PR description with an h1 in it doesn't tower over the timeline around it. */
-/* ===================================
    Rendered markdown — plan panel, pull request bodies and comments
    =================================== */
+
+/* Headings stay close to body size: a PR description with an h1 in it renders
+   inline in the timeline alongside ordinary comments. */
 
 .app-markdown {
   @apply text-sm text-ink/80 leading-relaxed;
@@ -1055,12 +963,7 @@ textarea,
 
 /* ── New-task composer ────────────────────────────────────────────── */
 
-/* Pinned below the card list rather than scrolling with it, so it reads as
-   part of the column's frame.
- *
- * The shelf's treatment — see `.pane-ledge-under` — with the throw kept on:
- * two pieces meeting is what the cut and the catch say, and how far apart they
- * are is what the shadow says. The card list passes under this one. */
+/* Raised over the card list, which scrolls under it. */
 .kanban-column-footer {
   position: relative;
   z-index: 1;

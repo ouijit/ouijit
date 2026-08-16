@@ -39,9 +39,8 @@ const PULL_GROUPS = [
 /**
  * The list, kept on screen rather than replaced by whatever you opened.
  *
- * Review is a queue: you work down it, and a full-width list loses sight of
- * what is left every time you open something. Search filters what is already
- * loaded — no round trip, so it narrows as you type.
+ * Search filters what is already loaded — no round trip, so it narrows as you
+ * type.
  */
 export function PullRequestSidebar({
   needsReview,
@@ -88,8 +87,7 @@ export function PullRequestSidebar({
       : groups.needsReview.length === 0 && groups.mine.length === 0 && groups.others.length === 0;
 
   return (
-    // No right border: the resize handle beside this is the rule between the
-    // list and what it opens.
+    // No right border: the resize handle beside this is the boundary.
     <div className="shrink-0 flex flex-col overflow-hidden" style={{ width }}>
       <div className="shrink-0 flex flex-col">
         <TabBar className="pane-ledge h-12 px-3 items-center">

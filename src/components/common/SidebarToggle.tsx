@@ -12,9 +12,7 @@ interface SidebarToggleProps {
  * Puts a sidebar away and brings it back.
  *
  * Belongs to the pane on the right of the divider, not to the sidebar, so that
- * hiding the sidebar cannot take the control with it. Same button as the other
- * icon buttons in that pane's header, because that is what it is — it just
- * happens to be the leftmost one.
+ * hiding the sidebar cannot take the control with it.
  */
 export function SidebarToggle({
   collapsed,

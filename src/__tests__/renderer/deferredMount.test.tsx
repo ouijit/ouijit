@@ -50,7 +50,7 @@ describe('DeferredMount', () => {
 
     expect(screen.queryByText('the diff')).toBeNull();
     // The height has to be held, or every file below this one sits at the wrong
-    // scroll offset and the scrollbar is a lie.
+    // scroll offset.
     expect((container.firstChild as HTMLElement).style.height).toBe('400px');
   });
 

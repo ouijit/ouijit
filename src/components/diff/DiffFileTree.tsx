@@ -45,8 +45,6 @@ export function buildTree<T extends { path: string }>(files: readonly T[]): Tree
     }
   }
 
-  // Collapse single-child directories, and sort as we go.
-  //
   // Sorted here rather than on the way to the screen: `treeFileOrder` walks
   // this tree to give the document its order, so a sort applied at render is
   // one the document never sees — leaving the rail and the document disagreeing
@@ -82,9 +80,8 @@ function sortTreeNodes<T>(nodes: TreeNode<T>[]): TreeNode<T>[] {
 /**
  * The order the tree shows these files in.
  *
- * The tree nests by directory, so two files that share one sit together
- * however far apart they were in the list that arrived. The document follows
- * this order, or the rail cannot be used to keep a place in it.
+ * The document follows this order, or the rail cannot be used to keep a place
+ * in it.
  *
  * Built by the same walk that builds the tree, rather than by sorting to the
  * same rule twice.
@@ -210,7 +207,6 @@ function TreeNodeView({
     );
   }
 
-  // Directory node
   return (
     <div data-expanded={expanded}>
       <div

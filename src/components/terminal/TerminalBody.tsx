@@ -163,9 +163,7 @@ export function TerminalBody({ ptyId, projectPath }: TerminalBodyProps) {
           }}
         />
         {/* One pixel of cut, with a grab target either side of it — see
-            `.pane-seam`. The panel is no longer a card floating in the
-            terminal's, so what parts them is the same seam that parts every
-            other pair of panes in the app. */}
+            `.pane-seam`. */}
         {split && (
           <div
             ref={handleRef}
@@ -174,9 +172,8 @@ export function TerminalBody({ ptyId, projectPath }: TerminalBodyProps) {
           />
         )}
         {slotOpen && (
-          // Flush to the card it opens in, not inset within it: a panel is one
-          // of the two things the card is showing, not something laid on top
-          // of it. The card's own rounding clips the outer corners.
+          // Flush to the card it opens in: the card's own rounding clips the
+          // outer corners.
           <div
             ref={panelRef}
             className="relative flex flex-col min-h-0 overflow-hidden"

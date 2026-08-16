@@ -34,9 +34,8 @@ const PANES: Array<{ id: Pane; label: string }> = [
 /**
  * One pull request: a chrome bar naming it, three panes, and the actions.
  *
- * Summary is what the change claims to be, Timeline is what has been said about
- * it, Code is the diff. Only Code needs a file rail, so only Code has one —
- * the other two get the full width for prose.
+ * Only the Code pane has a file rail; Summary and Timeline take the full
+ * width.
  */
 export function PullRequestDetailView({
   projectPath,
@@ -220,8 +219,6 @@ export function PullRequestDetailView({
       />
 
       <div className="flex flex-1 min-h-0">
-        {/* Only the code pane has a rail, so only it has a seam. Summary and
-            timeline are prose and take the full width. */}
         {pane === 'code' && (
           <>
             <PullRequestRail width={railWidth} detail={detail} files={files} onSelect={scrollToFile} />
@@ -235,8 +232,6 @@ export function PullRequestDetailView({
             />
           </>
         )}
-        {/* Only the diff sits in a well — summary and timeline are prose, and
-            prose in a trough reads as a form field. */}
         <div ref={paneRef} className={`flex-1 min-w-0 overflow-y-auto ${pane === 'code' ? 'diff-well' : ''}`}>
           {pane === 'summary' ? (
             <SummaryPane

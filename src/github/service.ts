@@ -101,7 +101,7 @@ function isGhAuthenticated(recheck: boolean): Promise<boolean> {
  * Whether the GitHub surface can run for a project, and why not when it can't.
  *
  * The panel stays hidden rather than showing a blank screen, and the reason is
- * surfaced wherever a user would otherwise wonder where the feature went.
+ * surfaced wherever the feature would otherwise be missing without explanation.
  */
 export async function getAvailability(projectPath: string, recheck = false): Promise<GithubAvailability> {
   if (!(await isGithubEnabled(projectPath))) {

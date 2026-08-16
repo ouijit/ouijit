@@ -1,13 +1,7 @@
 import type { GithubIssue, IssueDetail, PullRequestDetail, PullRequestSummary, TaskWithWorkspace } from '../../types';
 import type { InboxResult } from '../../github/types';
 
-/**
- * What the GitHub panel is handed, filled in enough to render.
- *
- * Shared rather than copied per test file: a builder that drifts is a fixture
- * that stops standing for what the panel actually receives, and the copy that
- * drifted first hid it behind a cast.
- */
+/** What the GitHub panel is handed, filled in enough to render. */
 
 export function pr(over: Partial<PullRequestSummary> & { number: number }): PullRequestSummary {
   return {

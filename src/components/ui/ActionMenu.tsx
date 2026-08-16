@@ -22,10 +22,9 @@ interface ActionMenuProps {
  * the settings dropdown: same floating-ui wiring, same portaled surface, same
  * option rows.
  *
- * Consequential actions live in here rather than sitting on the bar as their
- * own coloured buttons. Three verdict buttons side by side gave equal weight to
- * choices that are not equal, and spent the app's two status colours — which
- * everywhere else mean added and removed — on chrome.
+ * Consequential actions live in here rather than on the bar as coloured
+ * buttons: the app's two status colours mean added and removed everywhere
+ * else.
  */
 export function ActionMenu({ label, accent, dot, disabled, title, placement, children }: ActionMenuProps) {
   const [open, setOpen] = useState(false);

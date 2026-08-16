@@ -1,9 +1,8 @@
 /**
  * Comparing plain X.Y.Z version strings.
  *
- * Not a semver library, and deliberately the only one of these: the app's own
- * releases and the `gh` version probe both compare versions, and a second
- * comparator is one that grows prerelease handling without the other.
+ * Not a semver library: no prerelease or build metadata. Read by the update
+ * check and the `gh` version probe.
  */
 
 /** True when `a` is a later version than `b`. */

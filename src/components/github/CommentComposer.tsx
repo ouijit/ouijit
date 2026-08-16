@@ -13,8 +13,6 @@ interface CommentComposerProps {
 /**
  * Leave a comment on a pull request or an issue.
  *
- * A field and a button under it, the way every dialog in this app takes text.
- *
  * One endpoint serves both: GitHub keeps pull request conversation on the issue
  * thread, so the only thing that differs is which view is reloaded afterwards.
  */
@@ -65,7 +63,6 @@ export function CommentComposer({ projectPath, number, subject }: CommentCompose
           placeholder="Leave a comment"
           className="field resize-y"
         />
-        {/* Offered once there is something to send. */}
         {body.trim() && (
           <button type="button" className="btn-primary btn-compact" disabled={posting} onClick={() => void post()}>
             {posting ? 'Posting…' : 'Comment'}

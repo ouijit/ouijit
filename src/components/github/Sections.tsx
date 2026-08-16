@@ -74,11 +74,7 @@ export function TaskFact({
   );
 }
 
-/**
- * A heading, a rule under it, and content. The rule belongs to the heading
- * rather than to the boundary between sections, which is why there is only
- * ever one of them and never two lines meeting.
- */
+/** The rule belongs to the heading, not to the boundary between sections. */
 export function Section({
   label,
   count,

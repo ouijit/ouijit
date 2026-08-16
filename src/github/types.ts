@@ -215,9 +215,8 @@ export interface GithubIssue {
 /**
  * One issue, with everything said about it.
  *
- * Same shape as a pull request detail minus the code: the panel renders the two
- * through the same chrome, and an issue you can only open in a browser is an
- * issue you stop reading in the app.
+ * Same shape as a pull request detail minus the code, since the panel renders
+ * the two through the same chrome.
  */
 export interface IssueDetail extends GithubIssue {
   timeline: TimelineItem[];

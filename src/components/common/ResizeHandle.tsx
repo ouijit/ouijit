@@ -20,10 +20,8 @@ function clamp(value: number, min: number, max: number): number {
 /**
  * The seam between a sidebar and what it opens, dragged to set the width.
  *
- * Drawn as a cut rather than a rule — see `.pane-seam`.
- *
- * The seam is one pixel; the grab target is not. An invisible strip either side
- * takes the drag, and the pixel is what lights up.
+ * The seam is one pixel; the grab target is not. An invisible strip either
+ * side takes the drag, and the pixel is what lights up.
  */
 export function ResizeHandle({
   width,
@@ -61,8 +59,6 @@ export function ResizeHandle({
 
   const onKeyDown = useCallback(
     (event: KeyboardEvent) => {
-      // Even with the wider grab strip this is the least reachable control on
-      // the page, so it answers to arrow keys once focused as well.
       if (event.key === 'ArrowLeft') onWidth(clamp(width - STEP, min, max));
       else if (event.key === 'ArrowRight') onWidth(clamp(width + STEP, min, max));
       else if (event.key === 'Home') onWidth(min);

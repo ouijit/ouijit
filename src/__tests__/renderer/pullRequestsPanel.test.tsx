@@ -164,8 +164,7 @@ describe('PullRequestsPanel', () => {
     render(<PullRequestsPanel projectPath={PROJECT} />);
     fireEvent.click(await screen.findByText('Issues'));
 
-    // The row names the task and is the way into it. A bare number announced
-    // that work existed and gave you no way to reach it.
+    // The row names the task and is the way into it.
     fireEvent.click(await screen.findByText('T-7'));
     await waitFor(() => {
       expect(activateTask).toHaveBeenCalledWith({ path: PROJECT, name: 'Alpha' }, linked);
@@ -173,8 +172,8 @@ describe('PullRequestsPanel', () => {
   });
 
   /**
-   * An issue opens in the same chrome a pull request does. Handing it to a
-   * browser means leaving the app to read the thing the work is about.
+   * An issue opens in the same chrome a pull request does, rather than in a
+   * browser.
    */
   test('an issue opens in the panel and takes a comment', async () => {
     vi.mocked(window.api.github.issues).mockResolvedValue([issue({ number: 12, title: 'Something is broken' })]);
@@ -260,10 +259,8 @@ describe('PullRequestsPanel', () => {
   });
 
   /**
-   * One document, so every part is present at once and the action bar is never
-   * somewhere the reader is not. Split across tabs, merge sits on one and
-   * submit-review on another, and landing a change you have just read is a
-   * navigation.
+   * One document: every pane is present at once, so the action bar is reachable
+   * from all of them.
    */
   test('the panes switch and the actions stay in the chrome', async () => {
     vi.mocked(window.api.github.inbox).mockResolvedValue(
@@ -484,13 +481,10 @@ describe('PullRequestsPanel', () => {
   });
 
   /**
-   * The rule the whole refresh design rests on: a local write costs a local
-   * read and nothing else.
-   *
-   * This replaced a broadcast whose only handler re-fetched the inbox, the
-   * issues, and the open pull request — so an agent filing twenty comments cost
-   * eighty network round trips against a shared rate limit. If someone widens
-   * this handler again, this test is what says no.
+   * The rule the refresh design rests on: a local write costs a local read and
+   * nothing else. Widened into a refetch of the inbox, the issues and the open
+   * pull request, an agent filing twenty comments costs eighty network round
+   * trips against a rate limit shared with everything else using the token.
    */
   test('a draft written elsewhere refreshes drafts, and nothing else', async () => {
     let notify!: (payload: { projectPath: string; prNumber: number }) => void;
@@ -732,9 +726,8 @@ describe('PullRequestsPanel', () => {
     await waitFor(() => expect(window.api.github.pullRequestFreshness).toHaveBeenCalledWith(PROJECT, 5));
     expect(await screen.findByText('New commits — refresh to read them')).toBeTruthy();
 
-    // Pointed at again, asked again. An answer kept from the last hover would
-    // be the thing this was built to stop: something that looks live and is
-    // not — and the tooltip's own delay is what keeps a passing mouse quiet.
+    // Pointed at again, asked again: a kept answer is one that looks live and
+    // is not. The tooltip's own delay is what keeps a passing mouse quiet.
     fireEvent.mouseLeave(screen.getByRole('button', { name: 'Refresh' }).parentElement as HTMLElement);
     fireEvent.mouseEnter(screen.getByRole('button', { name: 'Refresh' }).parentElement as HTMLElement);
     await waitFor(() => expect(window.api.github.pullRequestFreshness).toHaveBeenCalledTimes(2));

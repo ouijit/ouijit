@@ -1,10 +1,8 @@
 import { useState, type ReactNode } from 'react';
 
 /**
- * A comment that is written but not yet open for editing.
- *
- * Shared with the editor it turns into so the gutter arithmetic is written
- * once: both indent by the width of the line-number gutter beside them.
+ * A comment that is written but not yet open for editing. Indented to clear
+ * the line-number gutter, like the editor it turns into.
  */
 export function InlineCommentCard({ label, body, onClick }: { label: string; body: ReactNode; onClick: () => void }) {
   return (

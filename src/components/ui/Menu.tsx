@@ -104,7 +104,6 @@ export function MenuPopover({
   );
 }
 
-/** One action in a menu. */
 export function MenuItem({
   label,
   hint,

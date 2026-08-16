@@ -1,9 +1,7 @@
 /**
  * Status glyphs, colors, and labels for a changed file.
  *
- * Shared by every surface that renders a diff — the worktree panel and the
- * pull request files view — so a renamed file can't look like one thing in one
- * place and something else in the other.
+ * Read by the worktree diff panel and the pull request files view.
  */
 
 import type { ChangedFile } from '../../types';

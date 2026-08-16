@@ -8,8 +8,7 @@
  *
  * The API's `patch` field is deliberately not used: it is absent for files past
  * a size threshold and for PRs past 3000 files, and context can never be
- * expanded beyond the hunk. "This file is too large to display" is exactly the
- * moment a user gives up and opens github.com.
+ * expanded beyond the hunk.
  *
  * Fetching a PR head needs no checkout and no worktree. Refs land under
  * `refs/ouijit/pr/<n>` so they stay prunable and never pollute the branch list.

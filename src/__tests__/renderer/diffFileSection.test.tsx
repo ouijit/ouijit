@@ -105,9 +105,8 @@ describe('DiffFileSection', () => {
   });
 
   /**
-   * Reviewing a large pull request means getting what you have finished with
-   * out of the way. Folded, a file is its header — so scrolling past the work
-   * already done costs one row rather than its whole diff.
+   * Folded, a file is its header, so scrolling past a file already dealt with
+   * costs one row rather than its whole diff.
    */
   test('folding a file leaves its header and nothing else', () => {
     const onCollapsedChange = vi.fn();
@@ -142,7 +141,7 @@ describe('DiffFileSection', () => {
     );
 
     expect(rows(container)).toHaveLength(0);
-    // The header stays: it is the way back, and the only thing naming the file.
+    // The header stays: it is the only thing naming the file.
     expect(screen.getByTitle('src/app.ts')).toBeTruthy();
     expect(screen.getByLabelText('Viewed').getAttribute('aria-pressed')).toBe('true');
   });

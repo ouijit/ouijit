@@ -25,9 +25,8 @@ type Pane = 'summary' | 'timeline';
 /**
  * One issue, in the same chrome a pull request gets.
  *
- * An issue has no code, so it has no third pane and no file rail — everything
- * else is the pull request view: what it says, who is on it, what has been said
- * about it, and the way into the work tracking it.
+ * An issue has no code, so it has no third pane and no file rail. Everything
+ * else is the pull request view.
  */
 export function IssueDetailView({
   projectPath,

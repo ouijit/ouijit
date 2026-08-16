@@ -3,10 +3,6 @@ import { Children, Fragment, type ReactNode } from 'react';
 /**
  * The joined, extruded control the terminal header draws its panel tabs with.
  *
- * One bevelled capsule with hairline-separated segments, rather than a row of
- * loose pills: these actions belong to each other, and the app already has a
- * shape for a set of related controls that sit together.
- *
  * The classes are kept beside the group rather than folded into the terminal
  * header's copy, which carries hover-group wiring for its close affordances
  * that nothing here needs.

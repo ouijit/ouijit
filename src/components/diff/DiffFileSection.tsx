@@ -32,7 +32,6 @@ export interface DiffFileSectionProps {
    * file a new function each time and no memoized line below would ever bail.
    */
   renderBelowLine?: (path: string, anchor: DiffLineAnchor) => ReactNode;
-  /** Enables the per-line comment affordance in the gutter. */
   onAddComment?: (path: string, anchor: DiffLineAnchor) => void;
   /** Extra header content, right-aligned before the stats. */
   headerRight?: ReactNode;
@@ -44,7 +43,6 @@ export interface DiffFileSectionProps {
   loadingLabel?: string;
   emptyLabel?: string;
   failedLabel?: string;
-  /** Folded to its header alone. */
   collapsed?: boolean;
   /** Enables the fold control. Takes the path for the same reason `renderBelowLine` does. */
   onCollapsedChange?: (path: string, collapsed: boolean) => void;
@@ -69,9 +67,8 @@ export const DiffFileSection = memo(function DiffFileSection({
   onCollapsedChange,
   collapseLabel = 'Collapse',
 }: DiffFileSectionProps) {
-  // Nothing below the header exists while it is folded, so a file already dealt
-  // with costs one row of the scroll rather than its whole diff — which is the
-  // point of folding it.
+  // Nothing below the header is rendered while it is folded, so a file already
+  // dealt with costs one row of the scroll rather than its whole diff.
   const tokens = useSyntaxHighlight(collapsed ? undefined : diff, path);
 
   // One closure for the file rather than one per line. A new function per line
@@ -81,14 +78,10 @@ export const DiffFileSection = memo(function DiffFileSection({
   const setCollapsed = useCallback((next: boolean) => onCollapsedChange?.(path, next), [onCollapsedChange, path]);
 
   return (
-    /* A card rather than a band running edge to edge: a diff is a list of
-       files, and a list of things reads as things when each one has an edge.
-       `overflow: clip` rather than `hidden` — clip rounds the corners without
-       becoming a scroll container, which is what would strand the sticky header
-       below inside its own box instead of pinning it to the pane. */
+    /* `overflow: clip` rather than `hidden`: clip rounds the corners without
+       becoming a scroll container, which would strand the sticky header below
+       inside its own box instead of pinning it to the pane. */
     <div className="diff-card mx-6 rounded-[14px] border border-bezel bg-diff-card overflow-clip" data-path={path}>
-      {/* The directory is context and the filename is the subject, so they are
-          not set at the same weight. */}
       <div className="pane-ledge sticky top-0 z-10 flex items-center gap-2 px-4 h-9 bg-terminal-surface">
         {onCollapsedChange && (
           <button
@@ -128,8 +121,8 @@ export const DiffFileSection = memo(function DiffFileSection({
             {loadingLabel}
           </div>
         ) : diff === null ? (
-          // Distinct from loading: a file whose diff git could not produce used
-          // to sit on "Loading..." for as long as the pane stayed open.
+          // `null` is a diff git could not produce, which is not the same as one
+          // that has not arrived yet.
           <div className="flex-1 flex flex-col items-center justify-center text-text-tertiary gap-2">{failedLabel}</div>
         ) : diff.binary ? (
           (binaryView ?? (
@@ -210,11 +203,10 @@ export const DiffHunkView = memo(function DiffHunkView({
   return (
     <div
       onMouseLeave={onAddComment ? () => setHovered(-1) : undefined}
-      // A hunk holds nothing that has to be laid out while it is off screen, so
-      // the browser is told it may skip one entirely — the difference between
-      // paying for every line in the pull request on each scroll and paying for
-      // the ones being read. `auto` on the intrinsic size means the estimate is
-      // only used until the hunk has been measured once for real.
+      // A hunk off screen holds nothing that has to be laid out, so the browser
+      // is told it may skip one — otherwise every line in the pull request is
+      // laid out on each scroll. `auto` on the intrinsic size means the estimate
+      // is used only until the hunk has been measured once for real.
       style={{ contentVisibility: 'auto', containIntrinsicSize: `auto ${estimateHunkHeight(hunk)}px` }}
     >
       {hunk.lines.map((line, i) => {

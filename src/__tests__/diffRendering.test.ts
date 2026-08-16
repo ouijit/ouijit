@@ -19,11 +19,6 @@ function hunk(contents: string[]): DiffHunk {
   };
 }
 
-/**
- * The tokenizer is on the critical path of every diff that is opened, and the
- * things guarded here are the ones whose absence is invisible until a pull
- * request is large enough to hurt.
- */
 describe('tokenizeDiffHunks', () => {
   test('a hunk is tokenized once however many times it is asked for', async () => {
     const h = hunk(['const alpha = 1;', 'const beta = 2;']);
@@ -31,8 +26,8 @@ describe('tokenizeDiffHunks', () => {
     const first = await tokenizeDiffHunks([h], 'a.ts');
     const second = await tokenizeDiffHunks([h], 'a.ts');
 
-    // The same array, not an equal one: one file can be rendered more than once
-    // of a reading order, and each would otherwise tokenize it again.
+    // The same array, not an equal one: a file rendered in two places would
+    // otherwise be tokenized twice.
     expect(second[0]).toBe(first[0]);
   });
 
@@ -71,8 +66,7 @@ describe('tokenizeDiffHunks', () => {
   test('a file too large to be worth highlighting is left plain', async () => {
     const huge = hunk(Array.from({ length: 4001 }, (_, i) => `const v${i} = ${i};`));
 
-    // Cheap enough to be worth checking twice — the point is that this answers
-    // without tokenizing, so it must also answer synchronously.
+    // This answers without tokenizing, so it must also answer synchronously.
     expect(peekDiffTokens([huge], 'big.ts')?.[0].every((line) => line === null)).toBe(true);
     const tokens = await tokenizeDiffHunks([huge], 'big.ts');
     expect(tokens[0].every((line) => line === null)).toBe(true);

@@ -35,7 +35,6 @@ export type {
 export { SANDBOX_BACKEND_LABELS, legacySandboxProvider, isActiveSandbox } from './sandbox/types';
 // Re-export hook status types from hookServer.ts (single source of truth)
 export type { HookStatus, HookStatusEntry } from './hookServer';
-// Re-export the GitHub domain types (single source of truth)
 export type {
   RepoIdentity,
   GithubAvailability,

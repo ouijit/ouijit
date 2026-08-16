@@ -1,8 +1,6 @@
 /**
- * Presentation helpers for pull request state, checks, and reviews.
- *
- * Kept out of the components so the list badge, the detail header, and the
- * kanban card badge all describe the same PR the same way.
+ * Presentation helpers for pull request state, checks, and reviews, read by
+ * the list badge, the detail header, and the kanban card badge.
  */
 
 import type { PullRequestSummary } from '../../github/types';

@@ -98,7 +98,6 @@ function defaultUserDataPath(): string {
   return path.join(configDir, 'ouijit');
 }
 
-/** Where Ouijit installs the agent wrappers and helper scripts. */
 export function getWrapperBinDir(): string {
   return path.join(os.homedir(), '.config', 'Ouijit', 'bin');
 }

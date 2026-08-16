@@ -62,9 +62,9 @@ const waiting: Array<() => void> = [];
 
 /**
  * The slot is handed straight to the next waiter rather than released and
- * re-taken. Decrementing first left a window in which a fresh caller saw a free
- * slot, took it, and the waking waiter then incremented on top — so the gate
- * that exists to cap concurrent `gh` forks could be exceeded.
+ * re-taken: decrementing first leaves a window in which a fresh caller takes
+ * the free slot and the waking waiter increments on top of it, putting the
+ * count past the cap.
  */
 async function withSlot<T>(fn: () => Promise<T>): Promise<T> {
   if (active >= MAX_CONCURRENT) {

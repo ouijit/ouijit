@@ -286,8 +286,7 @@ export const useGithubStore = create<GithubStore>()((set, get) => ({
   },
 
   /**
-   * Open one issue. Same pane and same chrome as a pull request — an issue you
-   * can only read in a browser is an issue you stop reading here.
+   * Open one issue, in the same pane and the same chrome as a pull request.
    */
   openIssue: async (projectPath, number) => {
     detailVersion++;

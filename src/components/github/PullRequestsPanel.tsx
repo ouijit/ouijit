@@ -20,9 +20,6 @@ interface PullRequestsPanelProps {
 /**
  * The GitHub surface: the list on the left, whatever you opened on the right.
  *
- * The list stays put. Review is a queue you work down, and replacing it with
- * the thing you just opened loses your place every time.
- *
  * Reviewing a teammate's PR here is ephemeral: the diff is read straight out of
  * the object database with no checkout and no worktree, and the session leaves
  * nothing behind but the fetched refs. "Check out as task" is the deliberate
@@ -203,8 +200,8 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
     );
   }
 
-  // The availability probe is a `gh --version` plus an auth check, normally a
-  // few hundred milliseconds. A message would flash; an empty frame doesn't.
+  // The availability probe is a `gh --version` plus an auth check — a few
+  // hundred milliseconds, too short to say anything about.
   if (!availability) return <Frame />;
 
   const showing = view === 'detail' ? listView : view;

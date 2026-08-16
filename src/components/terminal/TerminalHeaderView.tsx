@@ -63,14 +63,11 @@ export function TerminalHeaderView({
   return (
     <Fragment>
       {overlays}
-      {/* Cut away from what is under it, the same way the bar above a pull
-          request is — the terminal and the panel beside it are pieces of one
-          surface and this is in front of both. It has to be raised over them,
-          which the card sees to: see `.glass-bevel > .pane-ledge`.
+      {/* Raised over the terminal and the panel beside it, which the card sees
+          to: see `.glass-bevel > .pane-ledge`.
 
-          Only on the card that has a body: a card behind the active one is a
-          header and nothing else, and a cut under it would be a line drawn
-          along the bottom edge of the card itself. */}
+          Only on the card that has a body — under a back card the cut would be
+          a line along the card's own bottom edge. */}
       <div
         className={`${isActive ? 'pane-ledge ' : ''}flex items-center justify-between pl-3 pr-3 ${
           compact || isBackCard ? 'pt-0.5 pb-1' : 'py-2'

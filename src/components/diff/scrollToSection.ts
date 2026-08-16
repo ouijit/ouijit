@@ -7,9 +7,6 @@
  * The landing is repeated because the target may have been standing at an
  * estimated height and mounted on the way there, moving everything below it.
  * Landing again is idempotent when nothing moved, and invisible when it did.
- *
- * Shared by the two panes that navigate a diff from a file list, which have to
- * behave the same way: the worktree diff panel and the pull request code pane.
  */
 export function scrollToSection(container: HTMLElement | null, selector: string): void {
   if (!container) return;
@@ -25,7 +22,6 @@ export function scrollToSection(container: HTMLElement | null, selector: string)
   setTimeout(land, 250);
 }
 
-/** The section for one file. */
 export function fileSelector(path: string): string {
   return `[data-path="${escapeValue(path)}"]`;
 }

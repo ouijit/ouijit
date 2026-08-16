@@ -34,10 +34,8 @@ function pasteIntoTerminal(ptyId: string, text: string): void {
 /**
  * The notes written on this diff, and the two ways to hand them over.
  *
- * The same joined capsule and count-and-list segment the pull request's review
- * bar uses for unsent comments, since it is the same state. It sits over the
- * foot of the pane rather than in the header because notes are written while
- * scrolling, and it is only mounted while there are notes to show.
+ * Mounted only while there are notes, and floated over the foot of the pane
+ * rather than sat in the header, since notes are written while scrolling.
  */
 export function DiffNotesIsland({ notes, mode, ptyId, onJump, onDiscard, onClear }: DiffNotesIslandProps) {
   if (notes.length === 0) return null;
@@ -99,8 +97,8 @@ export function DiffNotesIsland({ notes, mode, ptyId, onJump, onDiscard, onClear
             </button>
           </Tooltip>
 
-          {/* The direct route: the agent these are meant for is the terminal
-              this panel is split against. */}
+          {/* The agent these are meant for is the terminal this panel is split
+              against. */}
           <Tooltip text="Paste into the terminal" placement="top" referenceClassName="inline-flex h-full">
             <button
               type="button"

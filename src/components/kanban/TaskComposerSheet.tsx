@@ -31,11 +31,6 @@ interface TaskComposerSheetProps {
 /**
  * The composer's expanded view, built as a document rather than a form.
  *
- * The panel is the app's floating surface, and inside it the draft is laid out
- * the way the plan panel lays out a markdown file: a chrome strip naming what
- * is open, then a page with margins holding a heading and its prose, scrolling
- * as one body.
- *
  * Both editors are views onto one piece of state held by the parent, so moving
  * between them is a change of surface rather than a handoff, including the
  * caret, which travels as an offset into the storage string.

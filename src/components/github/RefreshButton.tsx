@@ -14,11 +14,8 @@ interface RefreshButtonProps {
 /**
  * Refresh, with the spin held to a minimum duration.
  *
- * A warm `gh` call can return in well under a frame or two, and a spinner that
- * appears and vanishes that fast looks like a rendering fault — worse than no
- * feedback at all, because the user can't tell whether the click registered.
- * Holding the animation briefly past the response makes the press legible
- * without pretending the work took longer than it did.
+ * A warm `gh` call can return in under a frame, so the spin is held past the
+ * response rather than appearing and vanishing within one.
  */
 export function RefreshButton({ busy, onClick, title = 'Refresh' }: RefreshButtonProps) {
   const [spinning, setSpinning] = useState(busy);
@@ -40,9 +37,8 @@ export function RefreshButton({ busy, onClick, title = 'Refresh' }: RefreshButto
   return (
     <button
       type="button"
-      // Not disabled while spinning: the button is the user's recourse when
-      // something looks stale, and refusing the second press is the wrong
-      // answer to "did that do anything?".
+      // Not disabled while spinning: a second press is a legitimate ask for
+      // fresher data.
       className="w-7 h-7 rounded-md text-text-secondary flex items-center justify-center transition-all duration-150 hover:bg-ink/10 hover:text-text-primary"
       title={title || undefined}
       // Named whether or not it carries a title of its own: wrapped in a

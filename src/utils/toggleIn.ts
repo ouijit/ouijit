@@ -13,9 +13,7 @@ export function toggleIn<T>(set: ReadonlySet<T>, value: T, present: boolean): Se
 
 /**
  * The same, for the lists that cross the IPC boundary and are stored as JSON.
- *
- * Adding is deduped rather than appended blind: these are membership lists, and
- * marking something twice is not a thing to record twice.
+ * Adding is deduped, since these are membership lists.
  */
 export function toggleInList<T>(list: readonly T[], value: T, present: boolean): T[] {
   if (!present) return list.filter((entry) => entry !== value);

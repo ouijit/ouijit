@@ -8,9 +8,8 @@ import { reviewStateLabel, since } from './prFormat';
 /**
  * Timeline entries: who said or did what, in order.
  *
- * Shared by the summary's comment list and the timeline pane so the two cannot
- * describe the same comment differently — and so a section that counts entries
- * is always rendering the same entries it counted.
+ * Shared by the summary's comment list and the timeline pane, so a section
+ * that counts entries is always rendering the same entries it counted.
  */
 export function TimelineEntries({ items, empty }: { items: TimelineItem[]; empty?: string }) {
   if (items.length === 0) {

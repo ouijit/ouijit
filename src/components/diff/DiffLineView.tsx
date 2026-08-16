@@ -63,8 +63,6 @@ export const DiffLineView = memo(function DiffLineView({
       className={`relative flex font-mono text-sm leading-normal ${lineBg}`}
       onMouseEnter={onHover && index != null ? () => onHover(index) : undefined}
     >
-      {/* One rule at the edge of the gutter, not a second between the two
-          number columns. */}
       <span className={`flex shrink-0 select-none sticky left-0 z-[1] ${gutterBg} border-r border-ink/[0.07]`}>
         <span className="w-[44px] px-2 text-right text-ink/25">{line.oldLineNo ?? ''}</span>
         <span className="relative w-[44px] px-2 text-right text-ink/25">
@@ -96,7 +94,6 @@ export const DiffLineView = memo(function DiffLineView({
   );
 });
 
-/** Render syntax tokens, splitting them at word-highlight boundaries */
 export function renderTokensWithHighlights(
   tokens: ThemedToken[],
   wordHighlight: WordHighlight | undefined,
@@ -136,16 +133,13 @@ export function renderTokensWithHighlights(
         </span>,
       );
     } else {
-      // Split token at highlight boundaries
       let pos = 0;
       let partIdx = 0;
       while (pos < token.content.length) {
         const absPos = tokenStart + pos;
-        // Find the next relevant range
         while (rangeIdx < ranges.length && ranges[rangeIdx][1] <= absPos) rangeIdx++;
 
         if (rangeIdx < ranges.length && ranges[rangeIdx][0] <= absPos) {
-          // Inside a highlight range
           const end = Math.min(token.content.length, ranges[rangeIdx][1] - tokenStart);
           elements.push(
             <span key={`${ti}-${partIdx++}`} style={{ ...baseStyle, backgroundColor: wordBg, borderRadius: '2px' }}>
@@ -154,7 +148,6 @@ export function renderTokensWithHighlights(
           );
           pos = end;
         } else {
-          // Before the next highlight range
           const nextRangeStart = rangeIdx < ranges.length ? ranges[rangeIdx][0] - tokenStart : token.content.length;
           const end = Math.min(token.content.length, nextRangeStart);
           elements.push(
@@ -173,7 +166,6 @@ export function renderTokensWithHighlights(
   return elements;
 }
 
-/** Render plain text content with word-highlight backgrounds */
 export function renderPlainWithHighlights(
   content: string,
   wordHighlight: WordHighlight | undefined,

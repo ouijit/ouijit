@@ -17,11 +17,8 @@ interface ReviewThreadViewProps {
 /**
  * One review thread and its replies.
  *
- * In the timeline this is not a card: it is the same avatar-and-column shape
- * every other comment there uses, with a line naming the code it hangs off.
- *
- * Inline in a diff it does keep a frame, because there it is an insert into a
- * stream of code and needs to be told apart from it.
+ * Inline in a diff it keeps a frame, since there it is an insert into a stream
+ * of code; in the timeline it takes the same shape as any other comment.
  *
  * An outdated thread — the head moved past the lines it was left on — stays
  * rendered in place rather than being collapsed away, but says so and shows the
@@ -178,8 +175,6 @@ export function ReviewThreadView({ thread, onReply, onToggleResolved, inline = f
   }
 
   return (
-    // No left bar: the fill and the gutter offset already separate it from the
-    // code around it.
     <div className="mx-[88px] my-1.5 rounded-md bg-terminal-surface">
       <div className="flex flex-col gap-2.5 px-3 py-2">
         {header}

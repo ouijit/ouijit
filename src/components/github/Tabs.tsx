@@ -1,11 +1,5 @@
 import type { ReactNode } from 'react';
 
-/**
- * Text tabs with an underline on the active one. No capsule, no fill, no
- * dividers — the label carries the state and the rule under the bar gives the
- * underline something to sit against.
- */
-
 export function TabBar({ children, className = '' }: { children: ReactNode; className?: string }) {
   return <nav className={`flex items-stretch gap-4 ${className}`}>{children}</nav>;
 }

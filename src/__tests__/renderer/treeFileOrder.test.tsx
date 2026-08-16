@@ -38,12 +38,9 @@ describe('treeFileOrder', () => {
   });
 
   /**
-   * The one that matters, and the one that was missing: the order this function
-   * reports is the order the rail draws. It was checked against a description of
-   * the tree rather than against the tree, and the two had drifted — the sort
-   * lived at the point of rendering, where nothing computing an order could see
-   * it, so every directory with more than one thing in it read differently in
-   * the rail than in the document.
+   * Against the tree itself, not against a description of it: the sort has to
+   * live in the walk both the rail and the document read, and a sort applied at
+   * the point of rendering is one nothing computing an order can see.
    */
   test('the reported order is the order the rail renders', () => {
     const paths = [

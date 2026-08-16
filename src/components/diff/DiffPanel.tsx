@@ -62,7 +62,6 @@ export function DiffPanel({ ptyId, projectPath, mode, fullWidth, onToggleFullWid
 
   const effectiveMode = useMemo(() => effectiveDiffMode(gitFileStatus, mode), [mode, gitFileStatus]);
 
-  // Derive file list from the store (same data the GitStats button uses).
   const storeFiles = useMemo(
     () => (gitFileStatus ? filesInDiff(gitFileStatus, effectiveMode) : []),
     [gitFileStatus, effectiveMode],
@@ -269,8 +268,6 @@ export function DiffPanel({ ptyId, projectPath, mode, fullWidth, onToggleFullWid
             {modeLabel}
           </span>
           <span className="text-xs text-text-tertiary ml-auto relative">{stats}</span>
-          {/* The same pair every other panel beside a terminal carries, in the
-              same order. */}
           <FullWidthToggle fullWidth={fullWidth} onToggle={onToggleFullWidth} />
           <PanelCloseButton onClose={onClose} />
         </div>

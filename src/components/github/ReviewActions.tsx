@@ -26,10 +26,8 @@ const METHODS: Array<{ value: MergeMethod; label: string }> = [
  * Everything you can do to a pull request, in the chrome bar beside the panes,
  * so it is reachable from all three rather than living on one of them.
  *
- * One joined control with exactly one accent segment. Verdicts sit inside the
- * review menu rather than on the bar as green and red buttons, which mean added
- * and removed everywhere else in this app. Comments written but not sent get
- * their own segment, dotted in accent, so unsent work is visible from any pane.
+ * Verdicts sit inside the review menu rather than on the bar as green and red
+ * buttons, which mean added and removed everywhere else in this app.
  */
 export function ReviewActions({ projectPath, detail, onJumpToDraft }: ReviewActionsProps) {
   const drafts = useGithubStore((s) => s.drafts);
@@ -154,10 +152,9 @@ export function ReviewActions({ projectPath, detail, onJumpToDraft }: ReviewActi
         <ActionMenu label={merging ? 'Merging…' : 'Merge'} accent disabled={merging || hardBlock} title={blockedReason}>
           {(close) => (
             <>
-              {/* Said before the press, not reported as a failure after
-                      it. Advisory blockers still let the button through:
-                      GitHub is the authority, and branch protection we cannot
-                      see may permit or forbid the merge. */}
+              {/* Advisory blockers still let the button through: GitHub is the
+                  authority, and branch protection we cannot see may permit or
+                  forbid the merge. */}
               {blockers.length > 0 && (
                 <ul className="px-2.5 py-1.5 flex flex-col gap-1">
                   {blockers.map((blocker) => (
@@ -224,9 +221,9 @@ function DraftsPopover({
             line={draft.line}
             body={draft.body}
             discardTitle="Discard this comment"
-            /* Said before you send, not discovered afterwards: these go up
-               under your name, so anything you did not type is marked.
-               Untrusted text — a caller names itself, so it is clamped. */
+            /* A review goes up under your name, so anything you did not type
+               is marked. The origin is a caller-supplied name, so it is
+               clamped. */
             badge={
               draft.origin !== 'human' ? (
                 <span className="shrink-0 px-1 rounded bg-ink/[0.08] text-text-secondary">
