@@ -113,10 +113,7 @@ export interface BlobContent {
   base64?: string;
 }
 
-/**
- * Detailed git file status — single source of truth for both the GitStats button
- * and the DiffPanel. Contains per-file ChangedFile arrays instead of aggregate counts.
- */
+/** What one comparison found, per file, for the GitStats button and the DiffPanel. */
 export interface GitFileStatus {
   branch: string;
   mainBranch: string;
@@ -1155,8 +1152,8 @@ async function countOne(projectPath: string, relPath: string): Promise<ChangedFi
 // ── Unified git file status ─────────────────────────────────────────
 
 /**
- * Everything that differs between `diffBase` and the working tree — single
- * source of truth for both the GitStats button and the DiffPanel.
+ * Everything that differs between `diffBase` and the working tree, read by the
+ * GitStats button and the DiffPanel.
  *
  * `--merge-base` rather than a plain two-dot diff: the base moves on while a
  * branch is worked on, and a commit someone else landed there would otherwise

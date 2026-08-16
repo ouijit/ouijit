@@ -14,6 +14,7 @@ vi.mock('../../components/terminal/terminalReact', () => ({
 import { DiffComparisonPicker } from '../../components/diff/DiffComparisonPicker';
 import { terminalInstances, refreshTerminalGitStatus } from '../../components/terminal/terminalReact';
 import type { DiffBaseRef, DiffBases } from '../../types';
+import { describeDiffComparison } from '../../diffSource';
 
 const setDiffBase = vi.mocked(
   (terminalInstances.get('pty-1') as unknown as { setDiffBase: ReturnType<typeof vi.fn> }).setDiffBase,
@@ -44,7 +45,7 @@ const PROPS = {
 
 function open(props: Partial<Parameters<typeof DiffComparisonPicker>[0]> = {}) {
   render(<DiffComparisonPicker {...PROPS} {...props} />);
-  fireEvent.click(screen.getByLabelText('Change what this diff compares'));
+  fireEvent.click(screen.getByRole('button', { name: describeDiffComparison(props.base ?? PROPS.base, PROPS.branch) }));
 }
 
 const rowNames = () => screen.getAllByRole('menuitem').map((el) => el.textContent?.trim() ?? '');

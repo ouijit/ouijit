@@ -96,8 +96,7 @@ export function MenuPopover({
             className={`${className} flex flex-col overflow-hidden glass-bevel border border-bezel rounded-[12px] z-[10002]`}
           >
             {/* Outside the scroll below, so a field that filters the rows
-                stays put while they move. Full-bleed to the surface, with the
-                inset kept even on all three of its sides. */}
+                stays put while they move. */}
             {header && <div className="shrink-0 p-2 border-b border-ink/[0.06]">{header}</div>}
             {/* The bevel is drawn on the surface and the scrolling happens
                 inside it. On one element they fight: the ::before is laid out

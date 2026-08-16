@@ -504,11 +504,7 @@ function PanelControls({
 
   if (showDiff) {
     slots.push(
-      <Tooltip
-        key="diff"
-        text={`${comparison} — ${dirtyFileCount} ${dirtyFileCount === 1 ? 'file' : 'files'}`}
-        referenceClassName="shrink-0 inline-flex h-full"
-      >
+      <Tooltip key="diff" text={comparison} referenceClassName="shrink-0 inline-flex h-full">
         <button
           className={`${groupButtonBase} ${dirtyFileCount === 0 ? '!px-2' : ''} ${
             diffPanelOpen ? groupButtonActive : groupButtonInactive
@@ -517,11 +513,8 @@ function PanelControls({
           onClick={onDiffClick}
         >
           {/* The size of the change, and nothing about what it is measured
-              against: the panel this opens names that, and on a board of task
-              cards the base is the same one on nearly every card.
-
-              With nothing to count there is no size to state, and a card that
-              is not carrying work should not read as though it is. */}
+              against — the tooltip says that, and on a board of task cards the
+              base is the same one on nearly every card. */}
           {dirtyFileCount === 0 ? (
             <Icon name="git-diff" className="w-3.5 h-3.5" />
           ) : (

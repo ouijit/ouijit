@@ -18,38 +18,22 @@ function status(changed: string[], untracked: string[]): GitFileStatus {
 }
 
 describe('what the panel is comparing', () => {
-  test('the last commit is the base that leaves the uncommitted changes', () => {
+  test('the uncommitted changes are a base like any other, and so is the branch itself', () => {
     expect(isUncommittedBase(UNCOMMITTED_BASE, 'feat/x')).toBe(true);
-  });
-
-  test('so is the branch itself, which has nothing on it the branch lacks', () => {
+    // Nothing on a branch is absent from that same branch.
     expect(isUncommittedBase('main', 'main')).toBe(true);
-  });
-
-  test('another branch is not', () => {
     expect(isUncommittedBase('origin/main', 'feat/x')).toBe(false);
   });
-});
 
-describe('how a comparison reads', () => {
-  test('names the ref, so a remote base is never mistaken for a local one', () => {
+  test('reads as the ref it is against, or as what that means when the ref says nothing', () => {
     expect(describeDiffComparison('origin/main', 'feat/x')).toBe('vs origin/main');
     expect(diffSubject('origin/main', 'feat/x')).toBe('the changes against origin/main');
-  });
-
-  test('the uncommitted comparison is named by what it means, not by its ref', () => {
     expect(describeDiffComparison(UNCOMMITTED_BASE, 'feat/x')).toBe('Uncommitted changes');
     expect(diffSubject(UNCOMMITTED_BASE, 'feat/x')).toBe('the uncommitted changes');
   });
-});
 
-describe('the files a comparison contains', () => {
-  test('untracked files join whatever it is compared against', () => {
-    const files = filesInDiff(status(['a.ts'], ['new.ts']));
-    expect(files.map((f) => f.path)).toEqual(['a.ts', 'new.ts']);
-  });
-
-  test('and are all there is when nothing tracked differs', () => {
+  test('untracked files join whatever it is compared against, and can be all of it', () => {
+    expect(filesInDiff(status(['a.ts'], ['new.ts'])).map((f) => f.path)).toEqual(['a.ts', 'new.ts']);
     expect(filesInDiff(status([], ['new.ts'])).map((f) => f.path)).toEqual(['new.ts']);
   });
 });

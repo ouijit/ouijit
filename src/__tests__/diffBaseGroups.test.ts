@@ -16,7 +16,7 @@ function bases(names: string[], extra: Partial<DiffBases> = {}): DiffBases {
 const ON_FEAT = { branch: 'feat/x', base: 'main', mainBranch: 'main' };
 
 describe('the refs that mean something to this branch', () => {
-  test('the base, the base on the remote, and the branch as pushed', () => {
+  test('the base, the base on the remote, and the branch as pushed — in that order', () => {
     const groups = groupDiffBases(
       bases(['main', 'origin/main', 'feat/x', 'origin/feat/x'], { upstream: 'origin/feat/x' }),
       ON_FEAT,
@@ -47,12 +47,7 @@ describe('the refs that mean something to this branch', () => {
     ]);
   });
 
-  test('the base being main does not put main in twice', () => {
-    const groups = groupDiffBases(bases(['main', 'origin/main', 'feat/x']), ON_FEAT);
-    expect(groups.roles.filter((r) => r.ref === 'main')).toHaveLength(1);
-  });
-
-  test('a fork keeps its own remote for the roles', () => {
+  test('a fork keeps its own remote up here, and the other one stays in the full list', () => {
     const groups = groupDiffBases(
       bases(['main', 'upstream/main', 'origin/main', 'feat/x'], { defaultRemote: 'upstream' }),
       ON_FEAT,
@@ -63,16 +58,12 @@ describe('the refs that mean something to this branch', () => {
 });
 
 describe('everything else', () => {
-  test('alphabetically, with each branch beside the remotes carrying it', () => {
+  test('alphabetically, each branch beside its remotes, and never the branch being read', () => {
     const listed = bases(['main', 'origin/main', 'feat/x', 'apple', 'origin/apple']).refs.sort((a, b) =>
       a.branch.localeCompare(b.branch),
     );
     const groups = groupDiffBases({ ...bases([]), refs: listed }, ON_FEAT);
     expect(groups.rest.map((r) => r.ref)).toEqual(['apple', 'origin/apple']);
-  });
-
-  test('never offers the branch being read as its own base', () => {
-    const groups = groupDiffBases(bases(['main', 'feat/x']), ON_FEAT);
     expect(groups.roles.concat(groups.rest).map((r) => r.ref)).not.toContain('feat/x');
   });
 
@@ -85,18 +76,11 @@ describe('everything else', () => {
 });
 
 describe('finding a branch by typing', () => {
-  test('one flat list, best match first', () => {
+  test('one flat list, the branch asked for by name ahead of the remote carrying it', () => {
     const found = searchDiffBases(refs('main', 'origin/main', 'maintenance', 'feat/x'), 'main', 'feat/x');
-    expect(found[0].ref).toBe('main');
-    expect(found.map((r) => r.ref)).toContain('origin/main');
-  });
-
-  test('the remote prefix does not have to be typed to reach a remote branch', () => {
-    const found = searchDiffBases(refs('origin/release'), 'release', null);
-    expect(found.map((r) => r.ref)).toEqual(['origin/release']);
-  });
-
-  test('nothing that does not match', () => {
+    expect(found.map((r) => r.ref).slice(0, 2)).toEqual(['main', 'origin/main']);
+    // The remote prefix does not have to be typed to reach a remote branch.
+    expect(searchDiffBases(refs('origin/release'), 'release', null).map((r) => r.ref)).toEqual(['origin/release']);
     expect(searchDiffBases(refs('main', 'origin/main'), 'zzz', null)).toEqual([]);
   });
 });

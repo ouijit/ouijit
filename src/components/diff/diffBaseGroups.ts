@@ -33,10 +33,10 @@ export interface DiffBaseContext {
  * The refs on offer, split into the ones that answer a question about this
  * branch and the ones that are merely available.
  *
- * The roles are the reasons anyone opens this: what the branch merges into,
- * that base as the remote has it, and the branch itself as pushed — which is
- * the "what have I not sent yet" reading. A ref that isn't there (a branch
- * never pushed) is left out rather than offered and broken.
+ * The roles are what the branch merges into, that base as the remote has it,
+ * and the branch itself as pushed — the "what have I not sent yet" reading. A
+ * ref that isn't there, a branch never pushed among them, is left out rather
+ * than offered and broken.
  */
 export function groupDiffBases(bases: DiffBases, context: DiffBaseContext): DiffBaseGroups {
   const present = new Map(bases.refs.map((r) => [r.ref, r]));

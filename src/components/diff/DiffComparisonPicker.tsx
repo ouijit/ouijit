@@ -155,20 +155,15 @@ export function DiffComparisonPicker({
         className="w-72 max-h-[26rem]"
         trigger={(triggerRef) => (
           <SegmentedGroup>
-            {/* Silent while the menu is open: the thing it describes is on
-                screen, and a tooltip over it is in the way. */}
-            <Tooltip text="Change what this diff compares" disabled={open} referenceClassName="inline-flex h-full">
-              <button
-                ref={triggerRef}
-                type="button"
-                aria-label="Change what this diff compares"
-                className={`${segmentBase} ${open ? 'bg-background-tertiary text-text-primary' : segmentQuiet}`}
-                onClick={() => setOpen(!open)}
-              >
-                <span className="truncate max-w-[16rem]">{describeDiffComparison(base, branch)}</span>
-                <Icon name="caret-down" className="w-3 h-3 shrink-0" />
-              </button>
-            </Tooltip>
+            <button
+              ref={triggerRef}
+              type="button"
+              className={`${segmentBase} ${open ? 'bg-background-tertiary text-text-primary' : segmentQuiet}`}
+              onClick={() => setOpen(!open)}
+            >
+              <span className="truncate max-w-[16rem]">{describeDiffComparison(base, branch)}</span>
+              <Icon name="caret-down" className="w-3 h-3 shrink-0" />
+            </button>
           </SegmentedGroup>
         )}
         header={
