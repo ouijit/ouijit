@@ -179,7 +179,9 @@ export function LensPicker({
         }}
       />
 
-      <MenuDivider />
+      {/* Only when there is a list to divide off. With no lens written yet the
+          menu is two rows, and a rule between them separates nothing. */}
+      {(lenses.length > 0 || (orphan && onFile)) && <MenuDivider />}
 
       {orphan && onFile && (
         <MenuItem
@@ -221,12 +223,6 @@ export function LensPicker({
           />
         );
       })}
-
-      {lenses.length === 0 && (
-        <div className="px-2.5 py-1.5 text-[11px] text-text-tertiary leading-relaxed">
-          A lens names the parts of a change, so the diff can be read in the order it was made.
-        </div>
-      )}
 
       <MenuDivider />
 
