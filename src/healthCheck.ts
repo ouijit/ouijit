@@ -3,9 +3,9 @@ import { promisify } from 'node:util';
 import * as path from 'node:path';
 import { isLimaInstalled } from './lima/manager';
 import { isNonoInstalled } from './sandbox/nono/binary';
+import { getWrapperBinDir } from './paths';
 import { probeGh } from './github/client';
 import { ensureLoginPath } from './loginPath';
-import { getWrapperBinDir } from './wrapperBin';
 import { getLogger } from './logger';
 
 const execFileAsync = promisify(execFile);

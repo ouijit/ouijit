@@ -29,7 +29,8 @@ vi.mock('../sandbox/nono/profile', () => ({
   ensureProjectProfile: (_p: string, override: string | undefined) =>
     Promise.resolve(override ? 'ouijit-local' : 'ouijit'),
 }));
-vi.mock('../hookServer', () => ({
+vi.mock('../paths', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../paths')>()),
   getWrapperBinDir: () => '/Users/dev/.config/Ouijit/bin',
 }));
 

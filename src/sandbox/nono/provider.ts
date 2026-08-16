@@ -1,8 +1,7 @@
 import * as path from 'node:path';
 import * as fs from 'node:fs/promises';
 import { createHash } from 'node:crypto';
-import { getWrapperBinDir } from '../../hookServer';
-import { getCliPath, getUserDataPath } from '../../paths';
+import { getWrapperBinDir, getCliPath, getUserDataPath } from '../../paths';
 import { getLogger } from '../../logger';
 import type { WrapperSandboxProvider } from '../provider';
 import type { SandboxLaunch, SandboxProviderStatus, SandboxSpawnContext } from '../types';

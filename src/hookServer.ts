@@ -15,9 +15,9 @@ import { BrowserWindow } from 'electron';
 import { isPtyActive } from './ptyManager';
 import { getShellIntegrationDir, installShellIntegration } from './shellIntegration';
 import { getLogger } from './logger';
-import { getWrapperBinDir } from './wrapperBin';
 import { handleApiRequest } from './api/router';
 import { authenticateRequest, type AuthContext } from './apiAuth';
+import { getWrapperBinDir } from './paths';
 
 const hookServerLog = getLogger().scope('hookServer');
 
@@ -206,10 +206,6 @@ export function stopHookServer(): Promise<void> {
 }
 
 // ── Hook definitions ─────────────────────────────────────────────────
-
-/** Path where wrapper and helper scripts are installed. Defined in
- *  `wrapperBin`, where the health probe can reach it without importing this. */
-export { getWrapperBinDir };
 
 /** Path to the CLI reference file loaded by Claude via --append-system-prompt-file. */
 export function getCliReferencePath(): string {

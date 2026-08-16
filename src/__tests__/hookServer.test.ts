@@ -27,6 +27,14 @@ vi.mock('node:os', async (importOriginal) => {
   };
 });
 
+// `paths` is already evaluated by the time this file's `node:os` mock lands —
+// the DB layer imports it from the test setup — so the wrapper dir has to be
+// pointed at the temporary home directly.
+vi.mock('../paths', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../paths')>()),
+  getWrapperBinDir: () => path.join(_testHomedir || os.homedir(), '.config', 'Ouijit', 'bin'),
+}));
+
 vi.mock('../ptyManager', () => ({
   isPtyActive: () => true,
 }));
