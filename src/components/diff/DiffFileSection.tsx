@@ -46,13 +46,7 @@ export interface DiffFileSectionProps {
   failedLabel?: string;
   /** Folded to its header alone. */
   collapsed?: boolean;
-  /**
-   * Enables the fold control in the header.
-   *
-   * Takes the path for the same reason `renderBelowLine` does — one callback
-   * held by the caller, rather than a fresh closure per file per render, which
-   * is enough on its own to stop this component's memo ever bailing out.
-   */
+  /** Enables the fold control. Takes the path for the same reason `renderBelowLine` does. */
   onCollapsedChange?: (path: string, collapsed: boolean) => void;
   /** What the control means here — "Viewed" in a review, "Collapse" outside one. */
   collapseLabel?: string;
@@ -164,14 +158,7 @@ export const DiffFileSection = memo(function DiffFileSection({
   );
 });
 
-/**
- * `@@ -12,7 +12,10 @@ export function readToken()`.
- *
- * The line numbers are the least useful part — the gutter beside every line
- * already carries them — and the enclosing function is the most useful, so the
- * range is dimmed and the context reads plainly. The old purple wash on a full
- * width band drew more attention than a hunk boundary deserves.
- */
+/** Splits `@@ -12,7 +12,10 @@ export function readToken()` into range and context. */
 export function HunkHeader({ header, first = false }: { header: string; first?: boolean }) {
   const match = /^(@@[^@]*@@)\s*(.*)$/.exec(header);
   const range = match?.[1] ?? header;

@@ -4,9 +4,8 @@
  *
  * `kanbanAddInput.test.tsx` covers the column composer. This covers what it
  * hands off to: the standalone sheet that ⌘N opens away from the board, the
- * card's sheet for editing an existing description, and the structural fact
- * that the composer sits outside the column's scroll container — which is the
- * fix that made any of this worth doing.
+ * card's sheet for editing an existing description, and the requirement that
+ * the composer sits outside the column's scroll container.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, fireEvent, screen, act } from '@testing-library/react';
@@ -56,7 +55,7 @@ describe('column placement', () => {
 
     const body = container.querySelector('.kanban-column-body')!;
     expect(body.contains(screen.getByTestId('card'))).toBe(true);
-    // The whole point: column length can't push the composer out of view.
+    // Outside the scrolling body, so column length cannot push it out of view.
     expect(body.contains(screen.getByTestId('composer'))).toBe(false);
   });
 });

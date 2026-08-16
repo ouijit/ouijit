@@ -27,11 +27,10 @@ const diffLog = getLogger().scope('github:diff');
 const DEEPEN_COMMITS = 250;
 
 /**
- * The two refs are siblings under the PR's own directory rather than one
- * nested inside the other: git's ref store is a filesystem, so a ref at
- * `refs/ouijit/pr/12` makes `refs/ouijit/pr/12/base` uncreatable — the head is
- * a file where the base needs a directory. Pinning the base failed silently,
- * which left it prunable by `git gc`.
+ * The two refs are siblings under the PR's own directory rather than one nested
+ * inside the other: git's ref store is a filesystem, so a ref at
+ * `refs/ouijit/pr/12` makes `refs/ouijit/pr/12/base` uncreatable — the head
+ * would be a file where the base needs a directory.
  */
 export function prHeadRef(prNumber: number): string {
   return `refs/ouijit/pr/${prNumber}/head`;
@@ -69,12 +68,13 @@ async function pinRef(projectPath: string, ref: string, sha: string): Promise<vo
   await tryGit(projectPath, ['update-ref', ref, sha]);
 }
 
-/** Run a git command whose failure is not worth reporting. */
+/** Run a git command whose failure is not worth reporting: every caller
+ *  re-checks the condition it cared about. */
 async function tryGit(projectPath: string, args: string[]): Promise<void> {
   try {
     await gitAsync(args, projectPath, 32 * 1024 * 1024);
   } catch {
-    // Best effort by design — callers re-check the condition they cared about.
+    // Swallowed by design.
   }
 }
 
@@ -125,7 +125,7 @@ function refsKey(projectPath: string, prNumber: number, baseSha: string, headSha
   return `${projectPath} ${prNumber} ${baseSha} ${headSha}`;
 }
 
-/** Everything remembered about one PR's refs, for when they are dropped. */
+/** Forget that a PR's refs were ever fetched, so the next read fetches again. */
 function forgetRefs(projectPath: string, prNumber: number): void {
   const prefix = `${projectPath} ${prNumber} `;
   for (const key of settledRefs.keys()) {
@@ -253,15 +253,13 @@ export async function getPrFileDiff(
 /**
  * Put the pull request's head on a local branch, ready to be checked out.
  *
- * `git worktree add -b <name>` branches off whatever HEAD happens to be, so
- * handing a task the PR's head *branch name* and hoping produced an empty
- * branch with none of the PR's commits for every fork PR — and reported
- * success. The commits have to be here first, on a ref a worktree can use.
+ * `git worktree add -b <name>` branches off whatever HEAD is, so the PR's
+ * commits have to be here first, on a ref a worktree can use — a head branch
+ * name alone yields an empty branch for every fork PR.
  *
- * The branch is named after the PR's head branch when that name is free. When
- * it is taken by something else — a fork whose head branch is called `main` is
- * the case that matters — the name is qualified with the PR number rather than
- * moving a branch the user already has.
+ * The branch takes the PR's head branch name when that name is free, and is
+ * qualified with the PR number when it is taken (a fork whose head branch is
+ * called `main`), rather than moving a branch the user already has.
  */
 export async function createPrHeadBranch(
   projectPath: string,

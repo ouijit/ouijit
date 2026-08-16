@@ -556,15 +556,13 @@ export function updateRunnerStatusFromOsc133(data: string, parent: OuijitTermina
   }
 }
 
-/** Create a runner panel and spawn its command. Returns the new panel id. */
 /**
  * Resolve what a runner should execute into a concrete command, scoped to the
- * project. An explicit `script` is itself the answer; otherwise we look up the
- * project's run hook. Returns null when there's nothing to run (e.g. the run
- * hook isn't actually configured for this project). Doing this BEFORE the panel
- * is created is the whole point of the unification: run hooks and scripts then
- * flow through one identical path, and a missing command can't manifest as a
- * panel that silently closes itself the instant it opens.
+ * project. An explicit `script` is itself the answer; otherwise the project's
+ * run hook is looked up. Returns null when there is nothing to run.
+ *
+ * Resolved before the panel is created, so hooks and scripts take one path and
+ * a missing command cannot open a panel that closes itself immediately.
  */
 async function resolveRunnable(
   projectPath: string,
@@ -583,6 +581,7 @@ async function resolveRunnable(
   };
 }
 
+/** Create a runner panel and spawn its command. Returns the new panel id. */
 export async function startRunner(ptyId: string, script?: RunnerScript): Promise<string | null> {
   const instance = terminalInstances.get(ptyId);
   if (!instance) return null;
@@ -900,8 +899,8 @@ export async function reconnectOrphanedSessions(projectPath?: string): Promise<v
     });
   }
 
-  // Restore the focused card per project. Without this, every reconnectTerminal
-  // would have run activateLast and the last PTY back would win the selection.
+  // Restore the focused card per project: reconnectTerminal calls activateLast,
+  // so without this whichever PTY reconnects last takes the selection.
   const store = useTerminalStore.getState();
   const focusProjects = projectPath ? [projectPath] : [...new Set(mainSessions.map((s) => s.projectPath))];
   for (const pp of focusProjects) {

@@ -80,10 +80,9 @@ describe('theme model', () => {
 });
 
 /**
- * A token defined for one theme and not the other is invisible until someone
- * switches, which is exactly when nobody is looking for it. The light block
- * redefines only what differs, so anything it names must exist in the dark
- * block it layers over.
+ * A token defined for one theme and not the other only shows up on a switch.
+ * The light block redefines only what differs, so anything it names must exist
+ * in the dark block it layers over.
  */
 describe('theme tokens', () => {
   const css = fs.readFileSync(path.resolve(__dirname, '../theme/tokens.css'), 'utf8');

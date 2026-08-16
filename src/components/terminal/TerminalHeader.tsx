@@ -501,7 +501,7 @@ function PanelControls({
             onClosePanel(panel.id);
           }}
           // The huge shrink factor collapses the close affordance before the
-          // label gives up any width, so a squeezed tab still reads as itself.
+          // label gives up any width, so a squeezed tab keeps its name.
           className="-mr-1 ml-0.5 w-4 h-4 flex items-center justify-center rounded shrink-[9999] min-w-0 overflow-hidden opacity-0 group-hover/seg:opacity-100 hover:bg-ink/15 transition-all duration-150 [&>svg]:w-3 [&>svg]:h-3"
         >
           <Icon name="x" />

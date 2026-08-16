@@ -171,8 +171,8 @@ const INITIAL: Omit<GithubStoreState, 'sidebarWidth' | 'sidebarCollapsed' | 'rai
 
 /**
  * Where the reader is in one pull request at one head, cleared wherever either
- * changes. Every one of these is a claim about specific hunks — read, folded
- * away, scrolled to — and hunks do not survive a new head.
+ * changes. Both are claims about specific hunks — read, scrolled to — and hunks
+ * do not survive a new head.
  */
 const CLEAR_FOR_HEAD: Pick<GithubStoreState, 'viewedPaths' | 'activePath'> = {
   viewedPaths: [],
@@ -182,8 +182,8 @@ const CLEAR_FOR_HEAD: Pick<GithubStoreState, 'viewedPaths' | 'activePath'> = {
 /**
  * Version counters, same pattern the project store uses: a later load bumps the
  * counter so an earlier in-flight response can't land after it and overwrite
- * fresher data. Switching projects or PRs while a `gh` call is running is the
- * normal case here, not an edge case — `gh` forks a process per call.
+ * fresher data. `gh` forks a process per call, so a switch mid-flight is
+ * routine.
  */
 let inboxVersion = 0;
 let detailVersion = 0;
@@ -253,9 +253,8 @@ export const useGithubStore = create<GithubStore>()((set, get) => ({
   /**
    * Open a different pull request: clear what is on screen, then load.
    *
-   * The clearing is the whole difference between this and `reloadDetail` —
-   * showing the previous pull request's description while the next one loads
-   * would be a lie, and showing this one's while it refreshes is not.
+   * Clearing first is the difference between this and `reloadDetail`, which
+   * refreshes the same pull request in place.
    */
   openPullRequest: async (projectPath, number) => {
     issueVersion++;
@@ -342,10 +341,9 @@ export const useGithubStore = create<GithubStore>()((set, get) => ({
   /**
    * Fetch the open pull request again, in place.
    *
-   * Nothing visible is cleared first. Submitting a review, posting a comment
-   * and every poll tick all land here, and blanking the document back to a
-   * spinner each time made a two-second round trip read as the page being torn
-   * down and rebuilt. The new data replaces the old when it arrives.
+   * Nothing visible is cleared: submitting a review, posting a comment and
+   * every poll tick land here, and the new data replaces the old when it
+   * arrives.
    */
   reloadDetail: async (projectPath) => {
     const number = get().activeNumber;
@@ -438,14 +436,14 @@ export const useGithubStore = create<GithubStore>()((set, get) => ({
   loadViewed: async (projectPath, prNumber, headSha) => {
     const paths = await window.api.github.viewedFiles(projectPath, prNumber, headSha);
     // The pane may have moved on while this was in flight; landing then would
-    // mark files done on a pull request nobody asked about.
+    // mark files done on whatever is open now.
     if (get().projectPath !== projectPath || get().activeNumber !== prNumber) return;
     set({ viewedPaths: paths });
   },
 
   setFileViewed: (projectPath, prNumber, headSha, path, viewed) => {
-    // Applied here and written behind: a checkbox that waits for a round trip
-    // to tick is a checkbox you press twice.
+    // Applied here and written behind, so the checkbox does not wait on a
+    // round trip. The write reverts it on failure.
     const current = get().viewedPaths;
     set({ viewedPaths: toggleInList(current, path, viewed) });
     void window.api.github.setFileViewed(projectPath, prNumber, headSha, path, viewed).catch(() => {

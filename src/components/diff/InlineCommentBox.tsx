@@ -3,9 +3,8 @@ import { useState, type ReactNode } from 'react';
 /**
  * A comment that is written but not yet open for editing.
  *
- * The gutter arithmetic is the point of sharing it: the card has to line up
- * with the editor it turns into, which indents by the width of the line-number
- * gutter beside it, and two copies of that number drift.
+ * Shared with the editor it turns into so the gutter arithmetic is written
+ * once: both indent by the width of the line-number gutter beside them.
  */
 export function InlineCommentCard({ label, body, onClick }: { label: string; body: ReactNode; onClick: () => void }) {
   return (

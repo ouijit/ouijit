@@ -715,7 +715,7 @@ const routes: Route[] = [
   // ── Panels ────────────────────────────────────────────────────────
   // The two user-addressable panel kinds on a terminal: markdown files and
   // web previews. A terminal can hold several of each, so these are plural
-  // (list/add/remove) rather than the old single-plan-per-pty model.
+  // (list/add/remove).
   //
   // Host-only (default scope): the guest shouldn't be able to steer the host
   // renderer to open arbitrary .md files or URLs.

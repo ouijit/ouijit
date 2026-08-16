@@ -29,8 +29,8 @@ const STYLES: Record<string, StatusStyle> = {
   A: { icon: 'file-plus', color: 'text-vcs-added', badge: 'bg-vcs-added/15 text-vcs-added', label: 'added' },
   D: { icon: 'file-minus', color: 'text-vcs-deleted', badge: 'bg-vcs-deleted/15 text-vcs-deleted', label: 'deleted' },
   R: { icon: 'file-text', color: 'text-vcs-renamed', badge: 'bg-vcs-renamed/15 text-vcs-renamed', label: 'renamed' },
-  // Untracked reads as added — it is a file that isn't there yet — but keeps
-  // its own colour, because git hasn't been told about it.
+  // Untracked shares the added icon but keeps its own colour: git has no
+  // record of the file at all.
   '?': {
     icon: 'file-plus',
     color: 'text-vcs-modified',

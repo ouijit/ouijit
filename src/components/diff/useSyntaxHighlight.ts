@@ -8,9 +8,8 @@ import { useResolvedTheme } from '../../hooks/useResolvedTheme';
  * Returns null while loading or if highlighting is unavailable.
  *
  * The cache this reads lives in `syntaxHighlight.ts`, keyed on the hunk objects
- * themselves rather than here on the component — one file rendered in three
- * the same file rendered twice is one tokenization, not two, and one scrolled
- * back to is already done.
+ * themselves rather than here on the component, so the same file rendered twice
+ * is one tokenization and one scrolled back to is already done.
  */
 export function useSyntaxHighlight(diff: FileDiff | null | undefined, filePath: string): HunkTokens[] | null {
   // Tokenization reads the resolved theme; re-tokenize when it changes.

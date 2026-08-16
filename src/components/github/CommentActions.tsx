@@ -13,10 +13,9 @@ interface CommentActionsProps {
 /**
  * What you can do to somebody's comment, revealed on hovering it.
  *
- * Quiet text rather than icons, matching the Reply and Resolve controls a
- * review thread already carries. Deleting asks first and asks in place: it
- * cannot be undone on GitHub, and a modal for one line of text would be a
- * heavier interruption than the action deserves.
+ * Text rather than icons, matching the Reply and Resolve controls a review
+ * thread already carries. Deleting asks first, and asks in place, because it
+ * cannot be undone on GitHub.
  *
  * Whether deletion is offered at all is GitHub's answer, not a guess from the
  * author's login — the detail query asks `viewerCanDelete` per comment, which

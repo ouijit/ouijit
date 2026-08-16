@@ -82,8 +82,7 @@ describe('DiffFileSection', () => {
     expect(screen.queryAllByTitle('Comment on this line')).toHaveLength(1);
 
     fireEvent.click(screen.getByTitle('Comment on this line'));
-    // An addition anchors RIGHT at its new line number — the whole point of
-    // which line the button ended up on.
+    // An addition anchors RIGHT, at its new-file line number.
     expect(onAddComment).toHaveBeenCalledWith('src/app.ts', { line: 2, side: 'RIGHT' });
   });
 

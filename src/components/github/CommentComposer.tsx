@@ -14,8 +14,6 @@ interface CommentComposerProps {
  * Leave a comment on a pull request or an issue.
  *
  * A field and a button under it, the way every dialog in this app takes text.
- * The chat-bubble shape this replaced — a capsule with a circular send button
- * inside it — belongs to a messaging app; nothing else here is drawn that way.
  *
  * One endpoint serves both: GitHub keeps pull request conversation on the issue
  * thread, so the only thing that differs is which view is reloaded afterwards.
@@ -67,8 +65,7 @@ export function CommentComposer({ projectPath, number, subject }: CommentCompose
           placeholder="Leave a comment"
           className="field resize-y"
         />
-        {/* Offered once there is something to send. An always-live button
-            beside an empty box is a control that mostly cannot be used. */}
+        {/* Offered once there is something to send. */}
         {body.trim() && (
           <button type="button" className="btn-primary btn-compact" disabled={posting} onClick={() => void post()}>
             {posting ? 'Posting…' : 'Comment'}

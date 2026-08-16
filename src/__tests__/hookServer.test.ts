@@ -125,11 +125,8 @@ afterEach(async () => {
 
 /**
  * This file is the only thing an agent is told about Ouijit, so anything it is
- * supposed to use has to be named here.
- *
- * Written after an agent opened on a pull request went straight to `gh` — not
- * unreasonably, since nothing had told it there was another way. A capability
- * the agent cannot know about is one that does not exist.
+ * supposed to use has to be named here. A capability the agent is not told
+ * about is one it will not use.
  */
 describe('CLI_REFERENCE', () => {
   test('tells an agent how to write review comments', () => {
@@ -140,8 +137,8 @@ describe('CLI_REFERENCE', () => {
   });
 
   test('says what must not be done with gh, and why', () => {
-    // The whole point of staging drafts is that the human sends them. An agent
-    // with an authenticated gh will post directly unless told otherwise.
+    // Drafts are staged so the human sends them, and an agent with an
+    // authenticated gh will post directly unless told not to.
     expect(CLI_REFERENCE).toMatch(/not.*`gh`|nothing should be posted with/i);
     expect(CLI_REFERENCE).toContain('user sends the review themselves');
   });
@@ -514,7 +511,7 @@ describe('installWrapper', () => {
   });
 
   test('does not require ~/.claude to exist', () => {
-    // No .claude dir — wrapper should still install (unlike the old installHooks)
+    // The wrapper installs on a machine that has never run Claude Code.
     expect(fs.existsSync(path.join(tmpHome, '.claude'))).toBe(false);
 
     installWrapper();

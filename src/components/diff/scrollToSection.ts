@@ -1,11 +1,8 @@
 /**
  * Jump a long diff to one of its sections.
  *
- * Instant rather than animated. A file list is navigation: the answer is the
- * new position, and half a second of watching a thousand lines of someone
- * else's code fly past is neither information nor pleasure — it is also the
- * most expensive way to arrive, since every frame of it lays out and paints
- * diff that nobody asked to see.
+ * Instant rather than animated: a file list is navigation, and smooth-scrolling
+ * a long diff lays out and paints every frame it passes through.
  *
  * The landing is repeated because the target may have been standing at an
  * estimated height and mounted on the way there, moving everything below it.

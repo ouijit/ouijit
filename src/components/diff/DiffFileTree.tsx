@@ -83,14 +83,11 @@ function sortTreeNodes<T>(nodes: TreeNode<T>[]): TreeNode<T>[] {
  * The order the tree shows these files in.
  *
  * The tree nests by directory, so two files that share one sit together
- * however far apart they were in the list that arrived — and that list arrives
- * in whatever order GitHub or git chose. The document has to follow it: a rail
- * whose order is not the order you scroll through is a rail you cannot use to
- * keep your place.
+ * however far apart they were in the list that arrived. The document follows
+ * this order, or the rail cannot be used to keep a place in it.
  *
- * Built by the same function that builds the tree, rather than by sorting to
- * the same rule twice. Two implementations of one order are two things to keep
- * in step, and this is exactly the bug that comes of missing.
+ * Built by the same walk that builds the tree rather than by sorting to the
+ * same rule twice, so the two cannot drift.
  */
 export function treeFileOrder(files: readonly { path: string }[]): string[] {
   const order: string[] = [];

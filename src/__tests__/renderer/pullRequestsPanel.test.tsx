@@ -670,8 +670,7 @@ describe('PullRequestsPanel', () => {
 
     fireEvent.click(screen.getByLabelText('Hide the list'));
     await waitFor(() => expect(screen.queryByText('Please look')).toBeNull());
-    // The seam goes with it: with nothing on its left it is not a boundary
-    // between two things, just a line down the edge of the pane.
+    // The seam goes with it: with nothing on its left it divides nothing.
     expect(screen.queryByRole('separator')).toBeNull();
 
     fireEvent.click(screen.getByLabelText('Show the list'));
@@ -725,8 +724,7 @@ describe('PullRequestsPanel', () => {
     fireEvent.click(await screen.findByText('Please look'));
     await screen.findByText('Summary');
 
-    // Nothing asked until it is pointed at: the detail load must not spend a
-    // call answering a question nobody has.
+    // Nothing is asked until the button is pointed at.
     expect(window.api.github.pullRequestFreshness).not.toHaveBeenCalled();
 
     fireEvent.mouseEnter(screen.getByRole('button', { name: 'Refresh' }).parentElement as HTMLElement);

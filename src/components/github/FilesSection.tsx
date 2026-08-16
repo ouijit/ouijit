@@ -96,8 +96,7 @@ const FileSection = memo(function FileSection({
 
   return (
     // Named on the wrapper rather than only on the section inside it, so the
-    // rail can scroll to a file that is still a placeholder — which, in a diff
-    // this long, is most of them.
+    // rail can scroll to a file that is still a placeholder.
     <DeferredMount
       dataPath={file.path}
       estimatedHeight={estimateFileHeight(diff, file.additions + file.deletions, 1, viewed)}
@@ -187,10 +186,9 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
     [drafts],
   );
 
-  // Threads with nowhere to render, collected so they stay readable instead of
-  // silently disappearing. Answered once the diffs are all in: it walks every
-  // line of every one of them, and running it per arriving batch made that a
-  // quadratic sweep for an answer that is only final at the end anyway.
+  // Threads with nowhere to render, collected so they stay readable. Computed
+  // once the diffs are all in: it walks every line of every file, so running it
+  // per arriving batch would be quadratic for an answer only final at the end.
   const orphanThreads = useMemo(
     () => (filesLoading ? [] : unanchoredThreads(detail.threads, files, diffs)),
     [filesLoading, detail.threads, files, diffs],
@@ -305,11 +303,9 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
   );
 
   /**
-   * Withheld when there is nothing that could render below a line.
-   *
-   * Passing it costs a key build and two map lookups per line of the diff, and
-   * makes saving the first comment re-render every mounted file — so a pull
-   * request nobody has commented on pays none of it.
+   * Withheld when there is nothing that could render below a line: passing it
+   * costs a key build and two map lookups per line of the diff, and makes
+   * saving the first comment re-render every mounted file.
    */
   const renderBelowLine =
     threadsByAnchor.size > 0 || draftsByAnchor.size > 0 || composingAt ? renderComments : undefined;

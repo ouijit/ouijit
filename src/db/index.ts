@@ -113,9 +113,8 @@ function rowToTask(row: TaskRow): TaskMetadata {
     ...(row.merge_target && { mergeTarget: row.merge_target }),
     ...(row.prompt && { prompt: row.prompt }),
     ...(row.parent_task_number != null && { parentTaskNumber: row.parent_task_number }),
-    // `!= null` rather than truthiness: PR and issue numbers are 1-based today,
-    // but the conditional-spread style used above would silently drop a 0 and
-    // the difference is invisible until it isn't.
+    // `!= null` rather than truthiness: the conditional-spread style above
+    // drops a 0, and nothing guarantees these numbers stay 1-based.
     ...(row.github_pr_number != null && { githubPrNumber: row.github_pr_number }),
     ...(row.github_issue_number != null && { githubIssueNumber: row.github_issue_number }),
   };

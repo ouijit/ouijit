@@ -11,18 +11,14 @@ export interface KanbanPrBadgeViewProps {
  * The linked pull request chip on a kanban card.
  *
  * Styled after {@link KanbanBadgeView} — same pill geometry and mono type — so
- * a card carrying both reads as one row of chips rather than two competing
- * badge languages.
+ * a card carrying both renders as one row of chips.
  *
- * Wears GitHub's mark rather than a git glyph, because that is what it means: a
- * branch is a git thing and every card has one, while this is a pull request on
- * a service, opened by pressing it.
+ * Wears GitHub's mark rather than a git glyph: a branch is a git thing and
+ * every card has one, while this is a pull request on a service.
  *
- * Uncoloured, and deliberately. A card knows a pull request's number and
- * nothing else — not whether it is open, drafted, merged or closed — so any
- * colour it wore would be a claim about a state it has never read. Green said
- * "open" about pull requests that had been closed for a week. The mark is
- * monochrome anyway, which is the brand being honest about the same thing.
+ * Uncoloured, because a card knows the number and nothing else — not whether
+ * the pull request is open, drafted, merged or closed — so any colour would
+ * claim a state it has never read.
  */
 export function KanbanPrBadgeView({ prNumber, onClick }: KanbanPrBadgeViewProps) {
   const style: CSSProperties = {

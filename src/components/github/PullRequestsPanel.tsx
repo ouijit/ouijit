@@ -64,8 +64,6 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
     const store = useGithubStore.getState();
     void store.loadInbox(projectPath);
     void store.loadIssues(projectPath);
-    // Local read, so it rides along with the panel's first load rather than
-    // waiting for the code pane to be opened.
   }, [available, projectPath]);
 
   const refresh = useCallback(() => {
@@ -179,9 +177,9 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
       return;
     }
     // `headRef` is a local branch the main process just created at the PR's
-    // head, so the worktree is built from the PR's commits rather than from a
-    // new empty branch off whatever HEAD is. The merge target was stored with
-    // the task and `startTask` no longer overwrites one that is already set.
+    // head, so the worktree is built from the PR's commits rather than a new
+    // empty branch off whatever HEAD is. The merge target was stored with the
+    // task, and `startTask` leaves one that is already set.
     const start = await window.api.task.start(projectPath, result.taskNumber, result.headRef);
     await useProjectStore.getState().loadTasks(projectPath);
     if (!start.success) {
@@ -236,8 +234,7 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
         />
       )}
 
-      {/* Collapsed there is nothing on the other side of it, and a seam with
-          one side is just a line down the edge of the pane. */}
+      {/* Collapsed there is nothing on its left, so the seam divides nothing. */}
       {!sidebarCollapsed && (
         <ResizeHandle
           width={sidebarWidth}
@@ -266,9 +263,8 @@ export function PullRequestsPanel({ projectPath }: PullRequestsPanelProps) {
           </div>
         )}
 
-        {/* The list error only takes the pane when nothing is open. A poll-driven
-          inbox failure used to discard the pull request you were reading,
-          which is the opposite of what `reloadDetail` deliberately does. */}
+        {/* The list error only takes the pane when nothing is open, so an inbox
+          failure cannot discard the pull request being read. */}
         {error && !detail && !issue ? (
           <Centred>
             <Icon name="warning" className="w-6 h-6 text-vcs-modified opacity-70" />
@@ -353,10 +349,7 @@ function Centred({ children }: { children: ReactNode }) {
   return <div className="flex-1 min-w-0 flex flex-col items-center justify-center gap-3 px-6">{children}</div>;
 }
 
-/**
- * Why the panel is empty, said plainly. The alternative — a blank screen when
- * `gh` is missing or logged out — is the failure this exists to avoid.
- */
+/** Why the panel is empty, rather than a blank screen. */
 function UnavailableNotice({ message, reason }: { message?: string; reason?: string }) {
   return (
     <Centred>

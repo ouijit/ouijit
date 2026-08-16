@@ -15,13 +15,10 @@ interface DeferredMountProps {
  *
  * A large pull request is thousands of diff lines, and mounting all of them
  * costs the same whether or not anyone scrolls that far: React builds the tree,
- * the browser lays it out, and every file asks to be tokenized at once. Opening
- * such a diff is the moment the pane feels slow, and it is entirely spent on
- * content nobody is looking at yet.
+ * the browser lays it out, and every file asks to be tokenized at once.
  *
  * Mounting is one-way. Unmounting again would bound the DOM further, but a
- * section can hold a half-written review comment, and no amount of scrolling
- * performance is worth throwing away something the user typed.
+ * section can hold a half-written review comment.
  */
 export function DeferredMount({ estimatedHeight, rootMargin = '150%', dataPath, children }: DeferredMountProps) {
   const [mounted, setMounted] = useState(false);
@@ -32,13 +29,11 @@ export function DeferredMount({ estimatedHeight, rootMargin = '150%', dataPath, 
     const element = ref.current;
     if (!element) return;
 
-    // Whether this section is already in view is answered here rather than left
-    // to the observer's first callback, which is a frame away — a frame the
-    // reader spends watching a blank placeholder become the file they asked
-    // for. Every placeholder measures against the same layout, so this costs
-    // one layout pass for the pane, not one per file.
+    // Measured here rather than left to the observer's first callback, which is
+    // a frame away. Every placeholder measures against the same layout, so this
+    // costs one layout pass for the pane, not one per file.
     //
-    // Under jsdom every rect is zero, so every section reads as in view and a
+    // Under jsdom every rect is zero, so every section counts as in view and a
     // test sees the whole diff.
     const rect = element.getBoundingClientRect();
     const reach = window.innerHeight * 1.5;

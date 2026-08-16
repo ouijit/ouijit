@@ -1,10 +1,8 @@
 /**
  * Resolving a project to the GitHub repo it lives in.
  *
- * The app has never read `git remote`, so this is the first thing that can tell
- * a repo is on GitHub at all. Cached per project alongside the main-branch
- * cache in git.ts — with an invalidation path that is actually wired up, unlike
- * `invalidateMainBranchCache`.
+ * Cached per project, with an invalidation path for a remote that changes
+ * underneath the app.
  */
 
 import { getRemoteUrl } from '../git';

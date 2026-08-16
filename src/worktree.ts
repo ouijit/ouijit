@@ -241,10 +241,9 @@ async function copyGitIgnoredFiles(
     if (items.length === 0) return;
 
     // CoW clones only work within a single volume. When the project and the
-    // worktree live on different devices, skip the doomed clone syscalls and
-    // go straight to cp, and say so in the log, because "quick start is slow"
-    // reports are often exactly this: every copy silently degrading to a full
-    // physical copy.
+    // worktree live on different devices, skip the doomed clone syscalls and go
+    // straight to cp, and log it: a degrade to full physical copies is
+    // otherwise indistinguishable from a slow start.
     if (clonefileAsync || ficloneFn) {
       try {
         const [srcStat, dstStat] = await Promise.all([fs.stat(sourcePath), fs.stat(worktreePath)]);

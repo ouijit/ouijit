@@ -273,9 +273,8 @@ export async function trashTaskWithWorktree(
 
 /**
  * Project a stored task plus its resolved worktree into the renderer-facing
- * shape. Single mapper for both the list and the by-number lookup: they were
- * two hand-written copies, so any field added to one and missed on the other
- * vanished from that path with no type error to catch it.
+ * shape. One mapper for both the list and the by-number lookup, so a field
+ * added here cannot reach one path and miss the other.
  */
 function toTaskWithWorkspace(task: TaskMetadata, worktree: WorktreeInfo | undefined): TaskWithWorkspace {
   return {

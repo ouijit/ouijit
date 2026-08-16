@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Icon } from '../terminal/Icon';
 
-/** Below this, a spin that starts and stops reads as a glitch rather than work. */
+/** Minimum spin, so a refresh that returns instantly still shows as one. */
 const MIN_SPIN_MS = 450;
 
 interface RefreshButtonProps {

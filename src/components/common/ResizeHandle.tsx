@@ -20,12 +20,10 @@ function clamp(value: number, min: number, max: number): number {
 /**
  * The seam between a sidebar and what it opens, dragged to set the width.
  *
- * Drawn as a cut rather than a rule — see `.pane-seam` — so the two panes read
- * as pieces of one surface that has been parted, which is what they are.
+ * Drawn as a cut rather than a rule — see `.pane-seam`.
  *
- * The seam is one pixel; the grab target is not. A one-pixel pointer target is
- * a game of skill, so an invisible strip either side takes the drag and the
- * pixel is what lights up.
+ * The seam is one pixel; the grab target is not. An invisible strip either side
+ * takes the drag, and the pixel is what lights up.
  */
 export function ResizeHandle({
   width,

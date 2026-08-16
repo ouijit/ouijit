@@ -49,9 +49,8 @@ export function SummaryPane({
           <Dot />
           <span>{since(detail.createdAt)}</span>
           <Dot />
-          {/* The number is the thing people paste and quote, so it doubles as
-              the way out to GitHub — the chrome's icon button says the same
-              thing, but only to someone who already knows what it is. */}
+          {/* The number is what people paste and quote, so it doubles as the
+              way out to GitHub. */}
           <button
             type="button"
             className="flex items-center gap-1 hover:text-accent transition-colors duration-100"

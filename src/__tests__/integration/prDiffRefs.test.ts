@@ -2,9 +2,9 @@
  * The two things a PR diff depends on git for: that our ref names can coexist,
  * and that a renamed file diffs as a rename.
  *
- * Both fail silently when they fail. A head ref in the base ref's parent
- * directory makes every pin of the base fail, and `pinRef` swallows it; a
- * per-file diff given only the new path reports a rename as a whole-file add.
+ * Both fail silently. A head ref in the base ref's parent directory makes every
+ * pin of the base fail, and `pinRef` swallows the error; a per-file diff given
+ * only the new path reports a rename as a whole-file add.
  */
 
 import { describe, test, expect, beforeEach, afterEach } from 'vitest';

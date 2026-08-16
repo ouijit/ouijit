@@ -3,8 +3,7 @@ import type { DiffLine, FileDiff } from '../../types';
 /**
  * Where a review comment attaches on a diff line.
  *
- * This is the hinge the whole diff-source decision turns on. GitHub's `line`
- * and `side` are not diff offsets — they are plain file line numbers in the
+ * GitHub's `line` and `side` are not diff offsets — they are file line numbers in the
  * head blob (`RIGHT`) or the base blob (`LEFT`). GitHub computes a PR's diff as
  * `base...head`, which is exactly what `git diff <baseSha>...<headSha>`
  * computes, so the line numbers `parseDiff()` already emits *are* the GitHub

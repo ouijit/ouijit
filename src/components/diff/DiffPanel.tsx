@@ -44,8 +44,8 @@ export function DiffPanel({ ptyId, projectPath, mode, fullWidth, onToggleFullWid
   const [diffs, setDiffs] = useState<Map<string, FileDiff | null>>(new Map());
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(DEFAULT_SIDEBAR_WIDTH);
-  // Local, and gone when the panel closes: there is no review here to be part
-  // way through, only a long diff to get out of your own way.
+  // Local, and gone when the panel closes: folding here is scroll management,
+  // not review state that has to survive.
   const [folded, setFolded] = useState<Set<string>>(new Set());
   const contentRef = useRef<HTMLDivElement>(null);
   // The loaded diffs, for callbacks that must not be rebuilt each time a batch
@@ -92,7 +92,6 @@ export function DiffPanel({ ptyId, projectPath, mode, fullWidth, onToggleFullWid
   const truncated = totalFileCount > MAX_DIFF_FILES;
   const loading = gitFileStatus === null;
 
-  // Trigger an immediate git status refresh when panel opens for fresh data
   useEffect(() => {
     const inst = terminalInstances.get(ptyId);
     if (inst) refreshTerminalGitStatus(inst);
@@ -191,7 +190,6 @@ export function DiffPanel({ ptyId, projectPath, mode, fullWidth, onToggleFullWid
     setFolded((prev) => toggleIn(prev, path, next));
   }, []);
 
-  // Header stats
   const stats = useMemo(() => {
     const displayed = files.length;
     const untracked = files.filter((f) => f.status === '?').length;
@@ -227,10 +225,8 @@ export function DiffPanel({ ptyId, projectPath, mode, fullWidth, onToggleFullWid
         deletions={file.deletions}
         diff={diffs.get(file.path)}
         onAddComment={startNote}
-        // Withheld until there is something to draw. It is called once per diff
-        // line, and it changes identity whenever the notes do — so passing it
-        // on a diff with no notes on it costs a key build and a map lookup per
-        // line, and makes saving the first note re-render every mounted file.
+        // Withheld until there is something to draw: it is called once per
+        // diff line and changes identity whenever the notes do.
         renderBelowLine={hasNotes ? renderBelowLine : undefined}
         collapsed={folded.has(file.path)}
         onCollapsedChange={toggleFolded}
@@ -245,8 +241,7 @@ export function DiffPanel({ ptyId, projectPath, mode, fullWidth, onToggleFullWid
           <DiffFileTree files={files} onFileClick={scrollToFile} />
         </div>
       )}
-      {/* Collapsed there is nothing on the other side of it, and a seam with
-          one side is just a line down the edge of the pane. */}
+      {/* Collapsed there is nothing on its left, so the seam divides nothing. */}
       {!sidebarCollapsed && (
         <ResizeHandle
           width={sidebarWidth}
@@ -258,11 +253,8 @@ export function DiffPanel({ ptyId, projectPath, mode, fullWidth, onToggleFullWid
       {/* Positioned so the notes island floats over the foot of this column,
           over the diff rather than over the file rail beside it. */}
       <div className="relative flex-1 flex flex-col min-w-0 overflow-hidden">
-        {/* Over the well along its whole length — unlike the pull request's
-            bar, which spans the rail beside it as well — so the cut is all it
-            gets: the near face of a sunken surface is in shadow, and a lit line
-            there would be the edge of a raised thing sitting on the boundary
-            that was meant to say it is not one. */}
+        {/* Spans the well only, unlike the pull request's bar, which covers the
+            rail beside it as well. */}
         <div className="pane-ledge over-well relative z-30 px-3 py-2 text-sm text-ink/70 flex items-center gap-2 shrink-0">
           <SidebarToggle
             collapsed={sidebarCollapsed}
@@ -278,16 +270,12 @@ export function DiffPanel({ ptyId, projectPath, mode, fullWidth, onToggleFullWid
           </span>
           <span className="text-xs text-text-tertiary ml-auto relative">{stats}</span>
           {/* The same pair every other panel beside a terminal carries, in the
-              same order: what the diff is doing is often best read next to what
-              is still being done. */}
+              same order. */}
           <FullWidthToggle fullWidth={fullWidth} onToggle={onToggleFullWidth} />
           <PanelCloseButton onClose={onClose} />
         </div>
-        {/* The gap between two cards is what the border between two bands
-            used to be.
-
-            Extra padding at the foot while the island is showing, so the last
-            card scrolls clear of it instead of ending behind it. */}
+        {/* Extra padding at the foot while the island is showing, so the last
+            card scrolls clear of it rather than ending behind it. */}
         <div
           ref={contentRef}
           className={`diff-well diff-list flex-1 overflow-auto ${notes.notes.length > 0 ? 'pb-16' : 'pb-3'}`}
@@ -301,8 +289,7 @@ export function DiffPanel({ ptyId, projectPath, mode, fullWidth, onToggleFullWid
             <div className="flex-1 flex flex-col items-center justify-center text-text-tertiary gap-2">No changes</div>
           )}
           {!loading && ordered.map((file) => renderFile(file))}
-          {/* A note in the well rather than a band ruled off from the cards:
-              the gap either side of it is the boundary. */}
+
           {!loading && truncated && (
             <div className="mx-6 px-4 py-3 text-xs text-ink/40 text-center">
               Showing {files.length} of {totalFileCount} changed files

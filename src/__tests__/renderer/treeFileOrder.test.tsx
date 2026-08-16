@@ -5,9 +5,9 @@ import { treeFileOrder, inTreeOrder, DiffFileTreeNodes } from '../../components/
 import type { ChangedFile } from '../../types';
 
 /**
- * The rail nests files by directory; the document is a flat run of them. They
- * have to agree, or clicking a file in one is no way to find it in the other
- * and scrolling the document reads as shuffled.
+ * The rail nests files by directory; the document is a flat run of them. The
+ * two orders have to agree, or a file clicked in one cannot be found in the
+ * other.
  */
 describe('treeFileOrder', () => {
   test('directories are gathered, nested ones first, and nothing is lost', () => {

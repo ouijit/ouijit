@@ -8,8 +8,8 @@ const BATCH_SIZE = 10;
  * Load a diff per file, a batch at a time, publishing once per batch.
  *
  * One state write per batch rather than one per file: each write clones the
- * accumulated map, so writing per file made the whole load quadratic — with 300
- * files that was ~45 000 copies instead of ~30.
+ * accumulated map, so a write per file is quadratic — 300 files costs ~45,000
+ * copies against ~30.
  *
  * `fingerprint` rather than the file array drives it. The list arrives fresh
  * from a status poll every few seconds whether or not anything changed, and

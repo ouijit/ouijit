@@ -18,9 +18,7 @@ interface ReviewThreadViewProps {
  * One review thread and its replies.
  *
  * In the timeline this is not a card: it is the same avatar-and-column shape
- * every other comment there uses, with a quiet line naming the code it hangs
- * off. A filled box with its own rules is a second surface inside the panel,
- * and reads as a foreign object.
+ * every other comment there uses, with a line naming the code it hangs off.
  *
  * Inline in a diff it does keep a frame, because there it is an insert into a
  * stream of code and needs to be told apart from it.
@@ -180,9 +178,8 @@ export function ReviewThreadView({ thread, onReply, onToggleResolved, inline = f
   }
 
   return (
-    // No left bar: the fill and the gutter offset already tell it apart from
-    // the code around it, and a coloured rule down the side of every thread
-    // made a reviewed file look striped.
+    // No left bar: the fill and the gutter offset already separate it from the
+    // code around it.
     <div className="mx-[88px] my-1.5 rounded-md bg-terminal-surface">
       <div className="flex flex-col gap-2.5 px-3 py-2">
         {header}

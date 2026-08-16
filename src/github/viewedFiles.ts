@@ -5,10 +5,8 @@ import { toggleInList } from '../utils/toggleIn';
  * Which files of a pull request the reviewer has finished with.
  *
  * Scoped to a head: a file you read and then someone pushed to is a file you
- * have not read. Clearing the whole set on a new head rather than keeping it
- * per-file is deliberate — the change you approved of in one file can be made
- * wrong by an edit to another, and quietly carrying "done" across a force-push
- * is how a review comes to cover code nobody looked at.
+ * have not read. The whole set clears on a new head rather than per file, since
+ * a change approved in one file can be made wrong by an edit to another.
  *
  * Kept in settings rather than a table: two fields per pull request that only
  * this pane reads.

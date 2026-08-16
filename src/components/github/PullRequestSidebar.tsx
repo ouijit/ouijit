@@ -89,7 +89,7 @@ export function PullRequestSidebar({
 
   return (
     // No right border: the resize handle beside this is the rule between the
-    // list and what it opens, and two of them read as a seam.
+    // list and what it opens.
     <div className="shrink-0 flex flex-col overflow-hidden" style={{ width }}>
       <div className="shrink-0 flex flex-col">
         <TabBar className="pane-ledge h-12 px-3 items-center">
@@ -241,11 +241,7 @@ const rowTitleClass = "flex items-baseline gap-2 text-left before:absolute befor
 /** A control inside a row, raised above the title's stretched hit area. */
 const rowActionClass = 'relative z-10 shrink-0';
 
-/**
- * The task tracking this row, and the way into it. A bare number announced
- * that work existed and gave you no way to reach it, which left the row with
- * nothing to offer once a task had been made.
- */
+/** The task tracking this row, and the way into it. */
 function TaskLink({ task, onOpen }: { task: TaskWithWorkspace; onOpen: (task: TaskWithWorkspace) => void }) {
   return (
     <button

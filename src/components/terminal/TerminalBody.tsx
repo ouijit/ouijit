@@ -38,12 +38,12 @@ export function TerminalBody({ ptyId, projectPath }: TerminalBodyProps) {
 
   const activePanel = panels.find((p) => p.id === activePanelId) ?? null;
   // The diff takes the panel slot while it is open rather than covering the
-  // body, so it can be dragged narrower to watch the terminal alongside it.
-  // It is not one of the tabs — nobody opens two — so it borrows the slot
-  // instead of joining the list, and the tab underneath survives it closing.
-  // What is in the slot, and the identity the width animation is keyed on.
-  // From the resolved panel rather than the id, so an id left pointing at a
-  // panel that has gone reads as an empty slot.
+  // body, so it can be dragged narrower to watch the terminal alongside it. It
+  // borrows the slot instead of joining the tabs, so the tab underneath
+  // survives it closing.
+  //
+  // Keyed on the resolved panel rather than the id: an id pointing at a panel
+  // that has gone counts as an empty slot.
   const slotKey = diffPanelOpen ? 'diff' : (activePanel?.id ?? null);
   const slotOpen = slotKey !== null;
   const split = slotOpen && !panelFullWidth;

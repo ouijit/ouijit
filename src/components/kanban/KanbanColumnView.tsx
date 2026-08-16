@@ -72,12 +72,10 @@ export function KanbanColumnView({
   return (
     <div
       ref={columnRef}
-      // The board is one surface parted into columns, not cards on a ground,
-      // so what runs between them is a cut — and it belongs to the column,
-      // which owns every vertical boundary here. A card owns the horizontal
-      // ones between itself and the task below. The first column goes without
-      // one — see `.kanban-column:first-child`, which has to be CSS rather
-      // than a `first:` utility to outrank the seam.
+      // The column owns every vertical boundary on the board; a card owns the
+      // horizontal ones between itself and the task below. The first column
+      // goes without one — see `.kanban-column:first-child`, which has to be
+      // CSS rather than a `first:` utility to outrank the seam.
       className="kanban-column pane-seam-left flex flex-col transition-all duration-150 ease-out shrink-0"
       style={{ minWidth: 240, flex: '1 0 240px' }}
       data-status={status}

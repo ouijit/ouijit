@@ -27,8 +27,8 @@ export function useThreadActions(
         }
         const result = await window.api.github.replyToThread(projectPath, prNumber, target.databaseId, body);
         if (!result.success) {
-          // The reply box clears itself on return, so a silent failure took the
-          // typed text with it.
+          // The reply box clears on return, so a silent failure would lose the
+          // typed text.
           useProjectStore.getState().addToast(result.error ?? 'Reply failed', 'error');
           return;
         }

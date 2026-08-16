@@ -61,7 +61,7 @@ export function formatNotesForAgent(notes: DiffNote[], mode: DiffMode): string {
 
   const blocks = notes.map((note) => {
     // A LEFT anchor numbers the line in the file as it was, so without the
-    // marker it reads as a line number that simply does not resolve.
+    // marker the number does not resolve against the file on disk.
     const where = `${note.path}:${note.line}${note.side === 'LEFT' ? ' (removed line)' : ''}`;
     const quoted = note.lineText?.trim() ? `\n> ${note.lineText.trim()}` : '';
     return `${where}${quoted}\n${note.body.trim()}`;

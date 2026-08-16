@@ -59,13 +59,7 @@ export function PullRequestDetailView({
     if (paneRef.current) paneRef.current.scrollTop = 0;
   }, [pane]);
 
-  /**
-   * Take the reader to a file rather than showing them that file alone.
-   *
-   * The rail is a way through the document, not a filter on it: a diff is read
-   * in order, and a click that threw the rest of the change away made the file
-   * before and the file after unreachable without going back to the list.
-   */
+  /** The rail navigates the document; it never filters it. */
   const scrollToFile = useCallback((path: string | null) => {
     const container = paneRef.current;
     if (!path) {
@@ -81,13 +75,9 @@ export function PullRequestDetailView({
    *
    * Nothing polls GitHub, so a pull request updated while you read it looks
    * exactly like one that has not been — and pressing refresh to find out costs
-   * the whole detail fetch and throws away your place in the document. The
-   * question is asked here instead, on hover, with four fields.
-   *
-   * Asked again every time it is pointed at. The tooltip's own delay is the
-   * debounce — reaching this at all means the pointer was held still on the
-   * button — and an answer kept from a minute ago would be the thing this was
-   * built to stop: something that looks live and is not.
+   * the whole detail fetch and your place in the document. Asked again on every
+   * hover, since a kept answer would be the thing this exists to prevent:
+   * something that looks live and is not.
    */
   const [refreshTip, setRefreshTip] = useState<string | undefined>(undefined);
   const asking = useRef(false);

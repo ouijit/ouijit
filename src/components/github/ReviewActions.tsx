@@ -26,12 +26,10 @@ const METHODS: Array<{ value: MergeMethod; label: string }> = [
  * Everything you can do to a pull request, in the chrome bar beside the panes,
  * so it is reachable from all three rather than living on one of them.
  *
- * One joined, extruded control with exactly one accent segment. Verdicts sit
- * inside the review menu rather than on the bar as green and red buttons: those
- * two colours mean added and removed everywhere else in this app, and three
- * equally loud buttons made three unequal choices look alike. Comments written
- * but not sent get their own segment, dotted in accent, so unsent work is
- * visible from any pane.
+ * One joined control with exactly one accent segment. Verdicts sit inside the
+ * review menu rather than on the bar as green and red buttons, which mean added
+ * and removed everywhere else in this app. Comments written but not sent get
+ * their own segment, dotted in accent, so unsent work is visible from any pane.
  */
 export function ReviewActions({ projectPath, detail, onJumpToDraft }: ReviewActionsProps) {
   const drafts = useGithubStore((s) => s.drafts);

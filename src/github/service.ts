@@ -78,7 +78,6 @@ const ghLog = getLogger().scope('github:service');
 
 // ── Availability ─────────────────────────────────────────────────────
 
-/** Is the experimental flag on for this project? */
 export async function isGithubEnabled(projectPath: string): Promise<boolean> {
   const raw = await getGlobalSetting(experimentalStorageKey(projectPath));
   return parseExperimentalFlags(raw).github;

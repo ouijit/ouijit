@@ -1,7 +1,7 @@
 /**
  * Turns the stores into the rows the mod+K switcher ranks.
  *
- * The one rule worth stating: **a task is one row, always**. Split by state, the
+ * The rule this rests on: **a task is one row, always**. Split by state, the
  * same task is absent (no worktree yet), under Tasks (worktree, no shell), or
  * under Terminals wearing whatever label its agent set via OSC (shell running)
  * — so searching for it turns up a different thing, a differently-named thing,

@@ -648,7 +648,6 @@ export async function submitReview(
   return { id: response.id, url: response.html_url };
 }
 
-/** Reply inside an existing review thread. */
 export async function replyToReviewComment(
   identity: RepoIdentity,
   number: number,

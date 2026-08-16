@@ -63,9 +63,8 @@ export const DiffLineView = memo(function DiffLineView({
       className={`relative flex font-mono text-sm leading-normal ${lineBg}`}
       onMouseEnter={onHover && index != null ? () => onHover(index) : undefined}
     >
-      {/* One rule at the edge of the gutter, not one between the two number
-          columns as well. Two hairlines running the height of every diff was
-          the single noisiest thing on the page. */}
+      {/* One rule at the edge of the gutter, not a second between the two
+          number columns. */}
       <span className={`flex shrink-0 select-none sticky left-0 z-[1] ${gutterBg} border-r border-ink/[0.07]`}>
         <span className="w-[44px] px-2 text-right text-ink/25">{line.oldLineNo ?? ''}</span>
         <span className="relative w-[44px] px-2 text-right text-ink/25">

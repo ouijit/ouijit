@@ -95,11 +95,10 @@ const EXT_MAP: Record<string, BundledLanguage> = {
 /**
  * Tokens already computed for a hunk, keyed by the hunk object itself.
  *
- * A hunk object is stable for as long as its file's diff is: slicing a diff for
- * slicing a diff reuses the very same hunk objects, so one hunk can be handed
- * out under more than one reference. Keying
- * on identity means each is tokenized once however many places render it, and a
- * weak key means the entry goes when the diff does.
+ * A hunk object is stable for as long as its file's diff is, and slicing a diff
+ * reuses the very same hunk objects, so one hunk can be handed out under more
+ * than one reference. Keying on identity means each is tokenized once however
+ * many places render it, and a weak key means the entry goes when the diff does.
  */
 const HUNK_TOKENS = new WeakMap<DiffHunk, Map<string, HunkTokens>>();
 
@@ -188,9 +187,8 @@ function writeCache(hunk: DiffHunk, key: string, tokens: HunkTokens): void {
 /**
  * Tokens for a diff if they can be had without doing any work.
  *
- * Rendering starts from this, so a file that has been tokenized before — the
- * same file scrolled back to — draws highlighted on its
- * first frame rather than flashing plain and then re-colouring.
+ * Rendering starts from this, so a file that has been tokenized before draws
+ * highlighted on its first frame rather than flashing plain and re-colouring.
  */
 export function peekDiffTokens(hunks: DiffHunk[], filePath: string): HunkTokens[] | null {
   if (hunks.length === 0) return null;
@@ -276,7 +274,7 @@ function tokenizeHunk(hl: HighlighterGeneric<any, any>, hunk: DiffHunk, lang: st
   const { lines } = hunk;
 
   // One minified line can hold more text than a whole file of source, and
-  // tokenizing it produces thousands of spans nobody reads.
+  // tokenizing it produces thousands of spans.
   let chars = 0;
   for (const line of lines) {
     chars += line.content.length;
