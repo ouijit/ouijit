@@ -65,5 +65,3 @@ cd ouijit
 npm install
 npm start
 ```
-
-Conventions for writing code here are in [CONTRIBUTING.md](CONTRIBUTING.md).

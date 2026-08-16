@@ -1,6 +1,6 @@
 # Ouijit
 
-Conventions: [CONTRIBUTING.md](CONTRIBUTING.md). Comments, by example:
+Comments, by example:
 
 ```ts
 // ✗ Pinning the base failed silently, which left it prunable by `git gc`.
