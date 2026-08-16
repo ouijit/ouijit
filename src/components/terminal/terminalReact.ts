@@ -16,6 +16,7 @@ import { isActiveSandbox } from '../../types';
 import { notifyReady, readyBody } from '../../utils/notifications';
 import { generateId } from '../../utils/ids';
 import { useTerminalStore } from '../../stores/terminalStore';
+import { diffBaseSettingKey } from '../../diffSource';
 import { closeProjectTerminal } from './terminalActions';
 import { parseOsc133ExitCodes } from './osc133';
 import type { TerminalPanel, RunnerPanel, WebPreviewPanel } from './panelTypes';
@@ -317,6 +318,24 @@ function diffBaseFor(term: OuijitTerminal): string | undefined {
   return term.diffBase ?? term.mergeTarget;
 }
 
+function diffBaseKey(term: OuijitTerminal): string {
+  return diffBaseSettingKey(term.worktreePath || term.projectPath);
+}
+
+/**
+ * Put back the comparison this worktree was last read against.
+ *
+ * Runs a settings read behind the first status poll, so an early poll answers
+ * for the merge target and this corrects it. A pick made in the meantime is the
+ * newer answer and is left alone.
+ */
+async function restoreDiffBase(term: OuijitTerminal): Promise<void> {
+  const stored = await window.api.globalSettings.get(diffBaseKey(term));
+  if (!stored || term.diffBase) return;
+  term.diffBase = stored;
+  await refreshTerminalGitStatus(term);
+}
+
 function applyGitStatus(term: OuijitTerminal, fileStatus: GitFileStatus | null): void {
   term.gitFileStatus = fileStatus;
   term.pushDisplayState({ gitFileStatus: fileStatus });
@@ -457,6 +476,7 @@ export class OuijitTerminal {
     this.worktreeBranch = opts.worktreeBranch;
     this.mergeTarget = opts.mergeTarget;
     this.autoCloseOnSuccess = opts.autoCloseOnSuccess ?? false;
+    void restoreDiffBase(this);
 
     // Initialize display state
     this.label = opts.label;
@@ -876,6 +896,7 @@ export class OuijitTerminal {
   /** Compare against something else, and read the change back straight away. */
   setDiffBase(base: string): void {
     this.diffBase = base;
+    void window.api.globalSettings.set(diffBaseKey(this), base);
     void refreshTerminalGitStatus(this);
   }
 

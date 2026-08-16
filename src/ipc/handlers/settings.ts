@@ -4,7 +4,7 @@ import { getGlobalSetting, setGlobalSetting } from '../../db';
 import { WINDOW_BACKGROUND_KEY, isWindowBackgroundColor } from '../../theme/themes';
 
 /** Check if a settings key is allowed through the IPC boundary */
-function isAllowedKey(key: string): boolean {
+export function isAllowedKey(key: string): boolean {
   return (
     key === 'lastActiveView' ||
     key === 'disableUpdates' ||

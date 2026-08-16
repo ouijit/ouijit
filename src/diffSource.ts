@@ -48,6 +48,21 @@ export function filesInDiff(status: GitFileStatus): ChangedFile[] {
 }
 
 /**
+ * Where a worktree's chosen comparison is remembered between sessions.
+ *
+ * Keyed by the worktree, like the notes written on its diff: what a change is
+ * being read against belongs to the change, not to the terminal session that
+ * happened to be open on it.
+ *
+ * The `ui:` prefix is not decoration — the settings channel refuses any key
+ * outside its allow-list (`isAllowedKey` in `ipc/handlers/settings.ts`), and
+ * refuses it silently, so a key of another shape reads back as never written.
+ */
+export function diffBaseSettingKey(gitPath: string): string {
+  return `ui:diff-base:${gitPath}`;
+}
+
+/**
  * A fingerprint of the change, for telling one file set from another.
  *
  * Approximate on purpose: an edit that preserves line counts does not register.

@@ -33,19 +33,18 @@ const BASES: DiffBases = {
   lastFetch: Date.now() - 4 * 60 * 1000,
 };
 
+const PROPS = {
+  ptyId: 'pty-1',
+  gitPath: '/w',
+  base: 'HEAD',
+  defaultBase: 'main',
+  mainBranch: 'main',
+  branch: 'feat/x',
+};
+
 function open(props: Partial<Parameters<typeof DiffComparisonPicker>[0]> = {}) {
-  render(
-    <DiffComparisonPicker
-      ptyId="pty-1"
-      gitPath="/w"
-      base="HEAD"
-      defaultBase="main"
-      mainBranch="main"
-      branch="feat/x"
-      {...props}
-    />,
-  );
-  fireEvent.click(screen.getByTitle('Change what this diff compares'));
+  render(<DiffComparisonPicker {...PROPS} {...props} />);
+  fireEvent.click(screen.getByLabelText('Change what this diff compares'));
 }
 
 const rowNames = () => screen.getAllByRole('menuitem').map((el) => el.textContent?.trim() ?? '');
@@ -58,16 +57,7 @@ describe('choosing what the diff compares', () => {
   });
 
   test('the trigger names the comparison rather than only its kind', () => {
-    render(
-      <DiffComparisonPicker
-        ptyId="pty-1"
-        gitPath="/w"
-        base="origin/main"
-        defaultBase="main"
-        mainBranch="main"
-        branch="feat/x"
-      />,
-    );
+    render(<DiffComparisonPicker {...PROPS} base="origin/main" />);
     expect(screen.getByText('vs origin/main')).toBeTruthy();
   });
 
@@ -112,16 +102,35 @@ describe('choosing what the diff compares', () => {
     await waitFor(() => expect(refreshTerminalGitStatus).toHaveBeenCalled());
   });
 
-  test('says how stale the remote is, and offers to fetch again', async () => {
-    open({ base: 'origin/main' });
-    await waitFor(() => expect(screen.getByRole('menuitem', { name: /Fetch now/ })).toBeTruthy());
-    expect(screen.getByText('fetched 4m ago')).toBeTruthy();
+  test('says how stale a remote base is without anything being opened', async () => {
+    render(<DiffComparisonPicker {...PROPS} base="origin/main" />);
+    await waitFor(() => expect(screen.getByText('4m')).toBeTruthy());
+    expect(screen.getByLabelText('Fetch origin/main')).toBeTruthy();
+  });
+
+  test('a ref nothing has ever fetched says so rather than claiming an age', async () => {
+    vi.mocked(window.api.listDiffBases).mockResolvedValue({ ...BASES, lastFetch: null });
+    render(<DiffComparisonPicker {...PROPS} base="origin/main" />);
+    await waitFor(() => expect(screen.getByText('never')).toBeTruthy());
+  });
+
+  test('a fetch that just landed reads as prose, not as a duration of zero', async () => {
+    vi.mocked(window.api.listDiffBases).mockResolvedValue({ ...BASES, lastFetch: Date.now() - 2000 });
+    render(<DiffComparisonPicker {...PROPS} base="origin/main" />);
+    await waitFor(() => expect(screen.getByText('just now')).toBeTruthy());
+  });
+
+  test('and fetches it again when that is pressed', async () => {
+    render(<DiffComparisonPicker {...PROPS} base="origin/main" />);
+    await waitFor(() => expect(screen.getByText('4m')).toBeTruthy());
+    fireEvent.click(screen.getByText('4m'));
+    await waitFor(() => expect(window.api.fetchDiffBase).toHaveBeenCalledWith('/w', 'origin/main'));
   });
 
   test('nothing to fetch for a local base', async () => {
-    open({ base: 'main' });
-    await waitFor(() => expect(screen.getByRole('menuitem', { name: /^origin\/main/ })).toBeTruthy());
-    expect(screen.queryByRole('menuitem', { name: /Fetch now/ })).toBeNull();
+    render(<DiffComparisonPicker {...PROPS} base="main" />);
+    await waitFor(() => expect(window.api.listDiffBases).toHaveBeenCalled());
+    expect(screen.queryByText('4m')).toBeNull();
   });
 });
 

@@ -12,6 +12,7 @@ import { Icon } from './Icon';
 import { TagInput } from './TagInput';
 import { TerminalHeaderView, TerminalHeaderName } from './TerminalHeaderView';
 import { ContextMenu, type ContextMenuEntry } from '../ui/ContextMenu';
+import { Tooltip } from '../ui/Tooltip';
 import { AddPanelMenu } from './AddPanelMenu';
 import { HookConfigDialog } from '../dialogs/HookConfigDialog';
 import { useTerminalPanels } from './useTerminalPanels';
@@ -503,33 +504,37 @@ function PanelControls({
 
   if (showDiff) {
     slots.push(
-      <button
+      <Tooltip
         key="diff"
-        className={`${groupButtonBase} shrink-0 ${dirtyFileCount === 0 ? '!px-2' : ''} ${
-          diffPanelOpen ? groupButtonActive : groupButtonInactive
-        }`}
-        title={`${comparison} — ${dirtyFileCount} ${dirtyFileCount === 1 ? 'file' : 'files'}`}
-        aria-label="Diff"
-        onClick={onDiffClick}
+        text={`${comparison} — ${dirtyFileCount} ${dirtyFileCount === 1 ? 'file' : 'files'}`}
+        referenceClassName="shrink-0 inline-flex h-full"
       >
-        {/* The size of the change, and nothing about what it is measured
-            against: the panel this opens names that, and on a board of task
-            cards the base is the same one on nearly every card.
+        <button
+          className={`${groupButtonBase} ${dirtyFileCount === 0 ? '!px-2' : ''} ${
+            diffPanelOpen ? groupButtonActive : groupButtonInactive
+          }`}
+          aria-label="Diff"
+          onClick={onDiffClick}
+        >
+          {/* The size of the change, and nothing about what it is measured
+              against: the panel this opens names that, and on a board of task
+              cards the base is the same one on nearly every card.
 
-            With nothing to count there is no size to state, and a card that is
-            not carrying work should not read as though it is. */}
-        {dirtyFileCount === 0 ? (
-          <Icon name="git-diff" className="w-3.5 h-3.5" />
-        ) : (
-          <>
-            <span className="shrink-0">
-              {dirtyFileCount} {dirtyFileCount === 1 ? 'file' : 'files'}
-            </span>
-            {insertions > 0 && <span className={diffPanelOpen ? '' : 'text-status-ready'}>+{insertions}</span>}
-            {deletions > 0 && <span className={diffPanelOpen ? '' : 'text-ansi-red'}>-{deletions}</span>}
-          </>
-        )}
-      </button>,
+              With nothing to count there is no size to state, and a card that
+              is not carrying work should not read as though it is. */}
+          {dirtyFileCount === 0 ? (
+            <Icon name="git-diff" className="w-3.5 h-3.5" />
+          ) : (
+            <>
+              <span className="shrink-0">
+                {dirtyFileCount} {dirtyFileCount === 1 ? 'file' : 'files'}
+              </span>
+              {insertions > 0 && <span className={diffPanelOpen ? '' : 'text-status-ready'}>+{insertions}</span>}
+              {deletions > 0 && <span className={diffPanelOpen ? '' : 'text-ansi-red'}>-{deletions}</span>}
+            </>
+          )}
+        </button>
+      </Tooltip>,
     );
   }
 
