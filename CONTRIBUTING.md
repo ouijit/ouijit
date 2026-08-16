@@ -2,8 +2,9 @@
 
 ## Comments
 
-A comment says what the code has to keep being true. Anything that was only
-true while the code was being written belongs in the pull request instead.
+A comment explains a constraint the code must satisfy, or a trap it avoids.
+Anything that was only true while the code was being written belongs in the
+pull request instead.
 
 The test: if it would fit as a review comment on the commit that introduced it,
 it does not go in the code.
