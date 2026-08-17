@@ -242,8 +242,16 @@ export interface ReviewDraft {
   path: string;
   line: number;
   side: 'LEFT' | 'RIGHT';
-  /** Set for multi-line comments; must be < line and on the same side. */
-  startLine?: number;
+  /** The first line. Equal to `line` where the comment is on one. */
+  startLine: number;
+  /**
+   * True when the pull request's head has moved past this comment and its
+   * snippet was nowhere in the new diff.
+   *
+   * GitHub rejects a whole review if one comment anchors outside the diff, so a
+   * draft in this state takes every other one down with it if sent.
+   */
+  unplaceable?: boolean;
   body: string;
   createdAt: string;
   /** 'human' when typed here; the caller's name when written by the CLI. */
@@ -297,6 +305,12 @@ export interface PullRequestFilesResult {
   error?: string;
 }
 
+/** The revisions a pull request's diff is read between, and its drafts anchored in. */
+export interface PrHead {
+  baseSha: string;
+  headSha: string;
+}
+
 export interface SaveDraftInput {
   id?: string;
   prNumber: number;
@@ -304,6 +318,9 @@ export interface SaveDraftInput {
   line: number;
   side: 'LEFT' | 'RIGHT';
   startLine?: number;
+  /** The lines commented on, and the head they were read at. Both ignored on an edit. */
+  snippet?: string | null;
+  headSha?: string | null;
   body: string;
   replyToThreadId?: string;
   replyToCommentId?: number;

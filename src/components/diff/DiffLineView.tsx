@@ -3,7 +3,7 @@ import type { DiffLine } from '../../types';
 import type { ThemedToken } from '../../utils/syntaxHighlight';
 import type { WordHighlight } from '../../utils/wordDiff';
 import { Icon } from '../terminal/Icon';
-import { anchorForLine, type DiffLineAnchor } from './diffAnchor';
+import { anchorForLine, type DiffLineAnchor } from '../../diffAnchor';
 
 export { anchorForLine };
 export type { DiffLineAnchor };
@@ -14,8 +14,13 @@ export interface DiffLineViewProps {
   wordHighlight?: WordHighlight;
   /** Where a comment on this line would attach, or null if nowhere. */
   anchor?: DiffLineAnchor | null;
-  /** When set, the hovered line offers a button that starts a comment here. */
-  onAddComment?: (anchor: DiffLineAnchor) => void;
+  /**
+   * Press to comment here. Held rather than clicked, it is the start of a drag
+   * across the lines the comment is about — the hunk owns that gesture, so this
+   * only reports where it began. Takes the index for the reason `onHover` does:
+   * one closure for the hunk, not one per line per render.
+   */
+  onStartSelect?: (index: number) => void;
   /**
    * Whether this is the line the pointer is on, so only it builds the button.
    *
@@ -24,6 +29,15 @@ export interface DiffLineViewProps {
    * for one that is ever visible.
    */
   showComment?: boolean;
+  /** Within the run of lines a comment is being dragged across. */
+  selected?: boolean;
+  /**
+   * Covered by a comment that spans more than this line.
+   *
+   * A range renders under its last line, so without a mark on the rest of it
+   * nothing on screen says how far back the comment reaches.
+   */
+  marked?: boolean;
   /** Position within the hunk, reported back on hover. */
   index?: number;
   onHover?: (index: number) => void;
@@ -34,19 +48,27 @@ export const DiffLineView = memo(function DiffLineView({
   tokens,
   wordHighlight,
   anchor,
-  onAddComment,
+  onStartSelect,
   showComment,
+  selected,
+  marked,
   index,
   onHover,
 }: DiffLineViewProps) {
   const lineBg =
     line.type === 'addition' ? 'bg-diff-added/10' : line.type === 'deletion' ? 'bg-diff-removed/[0.08]' : '';
-  const gutterBg =
-    line.type === 'addition'
+  // A commented range claims the gutter, which is where the diff already keeps
+  // everything that is about the code rather than part of it. The source itself
+  // is left alone: a wash over it would take the added/removed colour off every
+  // line it covered, and those are what the diff is for.
+  const gutterBg = marked
+    ? 'bg-accent/[0.18]'
+    : line.type === 'addition'
       ? 'bg-diff-added/[0.12]'
       : line.type === 'deletion'
         ? 'bg-diff-removed/10'
         : 'bg-terminal-inset';
+  const numberColor = marked ? 'text-accent' : 'text-ink/25';
   const prefixColor =
     line.type === 'addition' ? 'text-diff-added' : line.type === 'deletion' ? 'text-diff-removed' : 'text-transparent';
   const wordBg =
@@ -56,25 +78,27 @@ export const DiffLineView = memo(function DiffLineView({
         ? 'color-mix(in srgb, var(--color-diff-removed) 22%, transparent)'
         : undefined;
 
-  const commentable = showComment && anchor && onAddComment;
+  const commentable = showComment && anchor && onStartSelect && index != null;
 
   return (
     <div
-      className={`relative flex font-mono text-sm leading-normal ${lineBg}`}
+      className={`relative flex font-mono text-sm leading-normal ${selected ? 'bg-accent/[0.14]' : lineBg}`}
       onMouseEnter={onHover && index != null ? () => onHover(index) : undefined}
     >
       <span className={`flex shrink-0 select-none sticky left-0 z-[1] ${gutterBg} border-r border-ink/[0.07]`}>
-        <span className="w-[44px] px-2 text-right text-ink/25">{line.oldLineNo ?? ''}</span>
-        <span className="relative w-[44px] px-2 text-right text-ink/25">
+        <span className={`w-[44px] px-2 text-right ${numberColor}`}>{line.oldLineNo ?? ''}</span>
+        <span className={`relative w-[44px] px-2 text-right ${numberColor}`}>
           {line.newLineNo ?? ''}
           {commentable && (
             <button
               type="button"
-              title="Comment on this line"
+              title="Comment here, or drag over the lines it is about"
               className="absolute right-[-9px] top-1/2 -translate-y-1/2 z-[2] w-[18px] h-[18px] rounded bg-accent text-accent-ink flex items-center justify-center [&>svg]:w-3 [&>svg]:h-3"
-              onClick={(e) => {
+              onMouseDown={(e) => {
                 e.stopPropagation();
-                onAddComment(anchor);
+                // Or the press begins a text selection across the diff instead.
+                e.preventDefault();
+                onStartSelect(index);
               }}
             >
               <Icon name="plus" />

@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { DiffNote, SaveDiffNoteInput } from '../../diffNotes';
-import { anchorKey, type DiffAnchor } from './diffAnchor';
+import { anchorKey, type DiffAnchor } from '../../diffAnchor';
 import { useProjectStore } from '../../stores/projectStore';
 import { describeError } from '../../utils/describeError';
 
@@ -9,15 +9,26 @@ import { describeError } from '../../utils/describeError';
  *
  * Stored in the database rather than in component state, so a half-written
  * review survives the panel being closed or the app restarting.
+ *
+ * Re-read whenever `revision` changes — the fingerprint of the comparison on
+ * screen, so every poll that finds the tree moved is also when the notes are
+ * swept for ones whose code has gone. The note open for editing is named to
+ * that sweep so an open box cannot be deleted out from under what is being
+ * typed into it.
  */
-export function useDiffNotes(worktreePath: string) {
+export function useDiffNotes(worktreePath: string, revision: string) {
   const [notes, setNotes] = useState<DiffNote[]>([]);
   const [composingAt, setComposingAt] = useState<DiffAnchor | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
 
+  // Through a ref: a reload is triggered by the tree moving, never by which
+  // note happens to be open, and naming it as a dependency would do both.
+  const editing = useRef<string | null>(null);
+  editing.current = editingId;
+
   const reload = useCallback(async () => {
     try {
-      setNotes(await window.api.diffNotes.list(worktreePath));
+      setNotes(await window.api.diffNotes.list(worktreePath, editing.current ? [editing.current] : []));
     } catch {
       // The diff is still readable without them.
       setNotes([]);
@@ -26,7 +37,7 @@ export function useDiffNotes(worktreePath: string) {
 
   useEffect(() => {
     void reload();
-  }, [reload]);
+  }, [reload, revision]);
 
   /**
    * A write, then a re-read of the list it changed.

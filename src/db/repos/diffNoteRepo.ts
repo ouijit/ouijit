@@ -5,8 +5,9 @@ export interface DiffNoteRow {
   worktree_path: string;
   path: string;
   line: number;
+  start_line: number | null;
   side: 'LEFT' | 'RIGHT';
-  line_text: string | null;
+  snippet: string | null;
   body: string;
   created_at: string;
 }
@@ -26,26 +27,45 @@ export class DiffNoteRepo {
       .all(worktreePath) as DiffNoteRow[];
   }
 
+  /**
+   * An edit rewrites the body and nothing else. Where a note points is not the
+   * writer's to change after the fact — the snippet is what it was written
+   * about, and `move` is the only thing that renumbers it.
+   */
   save(row: DiffNoteRow): void {
     this.db
       .prepare(
-        `INSERT INTO diff_notes (id, worktree_path, path, line, side, line_text, body, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-         ON CONFLICT(id) DO UPDATE SET
-           path = excluded.path,
-           line = excluded.line,
-           side = excluded.side,
-           line_text = excluded.line_text,
-           body = excluded.body`,
+        `INSERT INTO diff_notes (id, worktree_path, path, line, start_line, side, snippet, body, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(id) DO UPDATE SET body = excluded.body`,
       )
-      .run(row.id, row.worktree_path, row.path, row.line, row.side, row.line_text, row.body, row.created_at);
+      .run(
+        row.id,
+        row.worktree_path,
+        row.path,
+        row.line,
+        row.start_line,
+        row.side,
+        row.snippet,
+        row.body,
+        row.created_at,
+      );
+  }
+
+  move(id: string, startLine: number, line: number): void {
+    this.db.prepare('UPDATE diff_notes SET start_line = ?, line = ? WHERE id = ?').run(startLine, line, id);
   }
 
   delete(id: string): void {
     this.db.prepare('DELETE FROM diff_notes WHERE id = ?').run(id);
   }
 
-  /** Discard all of a worktree's notes at once, once they have been handed over. */
+  deleteMany(ids: readonly string[]): void {
+    if (ids.length === 0) return;
+    const drop = this.db.prepare('DELETE FROM diff_notes WHERE id = ?');
+    this.db.transaction((all: readonly string[]) => all.forEach((id) => drop.run(id)))(ids);
+  }
+
   deleteForWorktree(worktreePath: string): void {
     this.db.prepare('DELETE FROM diff_notes WHERE worktree_path = ?').run(worktreePath);
   }

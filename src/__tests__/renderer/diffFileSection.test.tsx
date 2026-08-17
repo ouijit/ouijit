@@ -40,6 +40,14 @@ function rows(container: HTMLElement): HTMLElement[] {
   return Array.from(container.querySelectorAll<HTMLElement>('div.leading-normal'));
 }
 
+const COMMENT = 'Comment here, or drag over the lines it is about';
+
+function drag(button: HTMLElement, over: HTMLElement[] = []) {
+  fireEvent.mouseDown(button);
+  over.forEach((row) => fireEvent.mouseEnter(row));
+  fireEvent.mouseUp(window);
+}
+
 describe('DiffFileSection', () => {
   beforeEach(() => {
     cleanup();
@@ -57,10 +65,10 @@ describe('DiffFileSection', () => {
     );
 
     expect(rows(container)).toHaveLength(3);
-    expect(screen.queryAllByTitle('Comment on this line')).toHaveLength(0);
+    expect(screen.queryAllByTitle(COMMENT)).toHaveLength(0);
 
     fireEvent.mouseEnter(rows(container)[0]);
-    expect(screen.queryAllByTitle('Comment on this line')).toHaveLength(1);
+    expect(screen.queryAllByTitle(COMMENT)).toHaveLength(1);
   });
 
   test('the pointer moving to another line moves the button with it', () => {
@@ -79,9 +87,9 @@ describe('DiffFileSection', () => {
     const [context, , addition] = rows(container);
     fireEvent.mouseEnter(context);
     fireEvent.mouseEnter(addition);
-    expect(screen.queryAllByTitle('Comment on this line')).toHaveLength(1);
+    expect(screen.queryAllByTitle(COMMENT)).toHaveLength(1);
 
-    fireEvent.click(screen.getByTitle('Comment on this line'));
+    drag(screen.getByTitle(COMMENT));
     // An addition anchors RIGHT, at its new-file line number.
     expect(onAddComment).toHaveBeenCalledWith('src/app.ts', { line: 2, side: 'RIGHT' });
   });
@@ -100,8 +108,58 @@ describe('DiffFileSection', () => {
     );
 
     fireEvent.mouseEnter(rows(container)[1]);
-    fireEvent.click(screen.getByTitle('Comment on this line'));
+    drag(screen.getByTitle(COMMENT));
     expect(onAddComment).toHaveBeenCalledWith('src/app.ts', { line: 2, side: 'LEFT' });
+  });
+
+  test('dragging down the gutter comments on the run of lines it covers', () => {
+    const onAddComment = vi.fn();
+    const { container } = render(
+      <DiffFileSection
+        path="src/app.ts"
+        status="M"
+        additions={1}
+        deletions={1}
+        diff={diff}
+        onAddComment={onAddComment}
+      />,
+    );
+
+    const [context, deletion, addition] = rows(container);
+    fireEvent.mouseEnter(context);
+    drag(screen.getByTitle(COMMENT), [deletion, addition]);
+
+    // The drag covered the deleted line as well, and the comment is about what
+    // replaced it rather than about both.
+    expect(onAddComment).toHaveBeenCalledWith('src/app.ts', { line: 2, startLine: 1, side: 'RIGHT' });
+  });
+
+  /**
+   * A range comment renders under its last line, so the lines above it are the
+   * only place the extent of it can be shown.
+   */
+  test('the lines a comment covers are marked, and only those', () => {
+    const { container } = render(
+      <DiffFileSection
+        path="src/app.ts"
+        status="M"
+        additions={1}
+        deletions={1}
+        diff={diff}
+        onAddComment={vi.fn()}
+        // A comment on new-file lines 1 to 2, the context line and the addition.
+        markLine={(_path, anchor) => anchor.side === 'RIGHT' && anchor.line >= 1 && anchor.line <= 2}
+      />,
+    );
+
+    // The mark is on the gutter, so that is what is asked about.
+    const gutter = (row: HTMLElement) => row.firstElementChild!.className;
+    const [context, deletion, addition] = rows(container);
+    expect(gutter(context)).toContain('bg-accent');
+    expect(gutter(addition)).toContain('bg-accent');
+    // The deleted line was replaced by what the comment is about, not covered
+    // by it — the anchor excludes it, and so does the mark.
+    expect(gutter(deletion)).not.toContain('bg-accent');
   });
 
   /**
@@ -160,6 +218,6 @@ describe('DiffFileSection', () => {
     );
 
     fireEvent.mouseEnter(rows(container)[0]);
-    expect(screen.queryAllByTitle('Comment on this line')).toHaveLength(0);
+    expect(screen.queryAllByTitle(COMMENT)).toHaveLength(0);
   });
 });

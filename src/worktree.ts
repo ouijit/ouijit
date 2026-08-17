@@ -20,6 +20,7 @@ import {
   setTaskWorktreePath,
   setTaskMergeTarget,
   getGlobalSetting,
+  clearDiffNotes,
   type TaskMetadata,
 } from './db';
 import { mergeWorktreeBranch } from './git';
@@ -766,6 +767,11 @@ export async function removeTaskWorktree(
         // Branch may already be deleted, ignore
       }
     }
+
+    // Notes are keyed by worktree path, and this path is handed out again the
+    // next time this task is started — without this they would come back with
+    // it, pointing into a tree that has been rebuilt since.
+    await clearDiffNotes(worktreePath);
 
     // Delete task metadata
     if (!Number.isNaN(taskNumber)) {

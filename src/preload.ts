@@ -20,7 +20,14 @@ import type {
   CliPanelResponse,
 } from './types';
 import type { CaptureNavigatePayload } from './capture/types';
-import type { CommentKind, ReviewEvent, MergeMethod, GithubDraftsChangedPayload, SaveDraftInput } from './github/types';
+import type {
+  CommentKind,
+  ReviewEvent,
+  MergeMethod,
+  GithubDraftsChangedPayload,
+  SaveDraftInput,
+  PrHead,
+} from './github/types';
 import type { SaveDiffNoteInput } from './diffNotes';
 
 // ── Typed IPC helpers ───────────────────────────────────────────────────────
@@ -347,7 +354,8 @@ contextBridge.exposeInMainWorld('api', {
     detectTaskPr: (projectPath: string, taskNumber: number) =>
       typedInvoke('github:detect-task-pr', projectPath, taskNumber),
 
-    drafts: (projectPath: string, prNumber: number) => typedInvoke('github:drafts', projectPath, prNumber),
+    drafts: (projectPath: string, prNumber: number, head?: PrHead) =>
+      typedInvoke('github:drafts', projectPath, prNumber, head),
     saveDraft: (projectPath: string, input: SaveDraftInput) => typedInvoke('github:save-draft', projectPath, input),
     discardDraft: (projectPath: string, draftId: string) => typedInvoke('github:discard-draft', projectPath, draftId),
     submitReview: (projectPath: string, prNumber: number, event: ReviewEvent, body: string) =>
@@ -376,7 +384,7 @@ contextBridge.exposeInMainWorld('api', {
   },
 
   diffNotes: {
-    list: (worktreePath: string) => typedInvoke('diff-notes:list', worktreePath),
+    list: (worktreePath: string, keep?: string[]) => typedInvoke('diff-notes:list', worktreePath, keep),
     save: (input: SaveDiffNoteInput) => typedInvoke('diff-notes:save', input),
     discard: (id: string) => typedInvoke('diff-notes:discard', id),
     clear: (worktreePath: string) => typedInvoke('diff-notes:clear', worktreePath),

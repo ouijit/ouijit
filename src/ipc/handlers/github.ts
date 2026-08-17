@@ -59,7 +59,7 @@ export function registerGithubHandlers(): void {
   );
   typedHandle('github:detect-task-pr', (projectPath, taskNumber) => detectPullRequestForTask(projectPath, taskNumber));
 
-  typedHandle('github:drafts', (projectPath, prNumber) => listDrafts(projectPath, prNumber));
+  typedHandle('github:drafts', (projectPath, prNumber, head) => listDrafts(projectPath, prNumber, head));
   typedHandle('github:save-draft', (projectPath, input) => saveDraft(projectPath, input));
   typedHandle('github:discard-draft', (_projectPath, draftId) => discardDraft(draftId));
   typedHandle('github:submit-review', (projectPath, prNumber, event, body) =>

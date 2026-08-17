@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { MergeMethod, PullRequestDetail, ReviewDraft, ReviewEvent } from '../../github/types';
 import { reviewSubmitProblem } from '../../github/reviewRules';
+import { describeLines } from '../../diffAnchor';
 import { useGithubStore } from '../../stores/githubStore';
 import { useProjectStore } from '../../stores/projectStore';
 import { Icon } from '../terminal/Icon';
@@ -44,9 +45,13 @@ export function ReviewActions({ projectPath, detail, onJumpToDraft }: ReviewActi
 
   // Said here rather than as a 422 after the fact, and asked of the same
   // function main asks before it sends.
-  const problem = (event: ReviewEvent) => reviewSubmitProblem(event, summary, drafts.length);
+  const unplaceable = drafts.filter((d) => d.unplaceable).length;
+  const problem = (event: ReviewEvent) => reviewSubmitProblem(event, summary, drafts.length, unplaceable);
   const commentProblem = problem('COMMENT');
   const changesProblem = problem('REQUEST_CHANGES');
+  // An approval may be wordless, but it still carries the inline comments up
+  // with it, so a stranded one sinks it the same way.
+  const approveProblem = problem('APPROVE');
 
   const blockedReason = detail.isDraft
     ? 'Mark the pull request ready for review first'
@@ -124,8 +129,10 @@ export function ReviewActions({ projectPath, detail, onJumpToDraft }: ReviewActi
             />
             <MenuItem
               label="Approve"
-              disabled={detail.isMine}
-              title={detail.isMine ? 'GitHub does not allow approving your own pull request' : undefined}
+              disabled={detail.isMine || Boolean(approveProblem)}
+              title={
+                detail.isMine ? 'GitHub does not allow approving your own pull request' : (approveProblem ?? undefined)
+              }
               onClick={() => {
                 close();
                 void submitReview('APPROVE');
@@ -218,14 +225,16 @@ function DraftsPopover({
           <PendingRow
             key={draft.id}
             path={draft.path}
-            line={draft.line}
+            line={describeLines(draft.startLine, draft.line)}
             body={draft.body}
             discardTitle="Discard this comment"
             /* A review goes up under your name, so anything you did not type
                is marked. The origin is a caller-supplied name, so it is
-               clamped. */
+               clamped. Being stranded outranks it: that one blocks the send. */
             badge={
-              draft.origin !== 'human' ? (
+              draft.unplaceable ? (
+                <span className="shrink-0 px-1 rounded bg-error/15 text-error">not in the diff</span>
+              ) : draft.origin !== 'human' ? (
                 <span className="shrink-0 px-1 rounded bg-ink/[0.08] text-text-secondary">
                   {draft.origin.slice(0, 16)}
                 </span>

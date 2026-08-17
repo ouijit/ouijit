@@ -18,7 +18,8 @@ export function PendingRow({
   discardTitle,
 }: {
   path: string;
-  line: number;
+  /** A line, or `42-58` where it covers a range. */
+  line: number | string;
   body: string;
   /** Anything that qualifies the anchor — who wrote it, say. */
   badge?: ReactNode;

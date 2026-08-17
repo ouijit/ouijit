@@ -1,6 +1,6 @@
 import type { FileDiff } from '../../types';
 import type { ReviewThread } from '../../github/types';
-import { anchorForLine, anchorKey } from '../diff/diffAnchor';
+import { anchorForLine, anchorKey } from '../../diffAnchor';
 
 /**
  * Threads that will never render inline — either they carry no anchor line at

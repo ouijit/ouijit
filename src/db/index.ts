@@ -390,6 +390,11 @@ export async function saveReviewDraft(
   return rr.save(row);
 }
 
+export async function reanchorReviewDraft(id: string, startLine: number, line: number, headSha: string): Promise<void> {
+  const { reviewDraftRepo: rr } = repos();
+  rr.reanchor(id, startLine, line, headSha);
+}
+
 export async function deleteReviewDraft(id: string): Promise<void> {
   const { reviewDraftRepo: rr } = repos();
   rr.delete(id);
@@ -417,6 +422,16 @@ export async function saveDiffNote(row: DiffNoteRow): Promise<void> {
 export async function deleteDiffNote(id: string): Promise<void> {
   const { diffNoteRepo: dr } = repos();
   dr.delete(id);
+}
+
+export async function deleteDiffNotes(ids: readonly string[]): Promise<void> {
+  const { diffNoteRepo: dr } = repos();
+  dr.deleteMany(ids);
+}
+
+export async function moveDiffNote(id: string, startLine: number, line: number): Promise<void> {
+  const { diffNoteRepo: dr } = repos();
+  dr.move(id, startLine, line);
 }
 
 export async function clearDiffNotes(worktreePath: string): Promise<void> {

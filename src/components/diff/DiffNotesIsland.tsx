@@ -1,5 +1,6 @@
 import type { DiffNote } from '../../diffNotes';
 import { formatNotesForAgent } from '../../diffNotes';
+import { describeLines } from '../../diffAnchor';
 import { useProjectStore } from '../../stores/projectStore';
 import { Icon } from '../terminal/Icon';
 import { Tooltip } from '../ui/Tooltip';
@@ -10,6 +11,14 @@ import { SegmentedGroup, segmentBase, segmentQuiet } from '../ui/SegmentedGroup'
 
 interface DiffNotesIslandProps {
   notes: DiffNote[];
+  /**
+   * The notes whose lines are on screen under the comparison being viewed.
+   *
+   * The rest are as live as any other — a note on work since committed is
+   * simply not in a diff of what is uncommitted — so they are listed and handed
+   * over all the same, and only say that there is nothing to jump to.
+   */
+  inView: ReadonlySet<string>;
   /** The comparison these were written on, for the heading the agent is handed. */
   subject: string;
   /** The terminal the notes are about, and the one they are handed to. */
@@ -37,7 +46,7 @@ function pasteIntoTerminal(ptyId: string, text: string): void {
  * Mounted only while there are notes, and floated over the foot of the pane
  * rather than sat in the header, since notes are written while scrolling.
  */
-export function DiffNotesIsland({ notes, subject, ptyId, onJump, onDiscard, onClear }: DiffNotesIslandProps) {
+export function DiffNotesIsland({ notes, inView, subject, ptyId, onJump, onDiscard, onClear }: DiffNotesIslandProps) {
   if (notes.length === 0) return null;
 
   // Formatted when it is asked for, not on every render: nothing on screen
@@ -64,10 +73,18 @@ export function DiffNotesIsland({ notes, subject, ptyId, onJump, onDiscard, onCl
                   <PendingRow
                     key={note.id}
                     path={note.path}
-                    line={note.line}
+                    line={describeLines(note.startLine, note.line)}
                     body={note.body}
                     discardTitle="Discard this note"
+                    badge={
+                      inView.has(note.id) ? undefined : (
+                        <span className="shrink-0 px-1 rounded bg-ink/[0.08] text-text-secondary">
+                          not in this comparison
+                        </span>
+                      )
+                    }
                     onJump={() => {
+                      if (!inView.has(note.id)) return;
                       close();
                       onJump(note);
                     }}
@@ -86,10 +103,10 @@ export function DiffNotesIsland({ notes, subject, ptyId, onJump, onDiscard, onCl
             )}
           </ActionMenu>
 
-          <Tooltip text="Copy for the agent" placement="top" referenceClassName="inline-flex h-full">
+          <Tooltip text="Copy" placement="top" referenceClassName="inline-flex h-full">
             <button
               type="button"
-              aria-label="Copy for the agent"
+              aria-label="Copy"
               className={`${segmentBase} ${segmentQuiet} [&>svg]:w-3.5 [&>svg]:h-3.5`}
               onClick={copy}
             >
@@ -99,10 +116,10 @@ export function DiffNotesIsland({ notes, subject, ptyId, onJump, onDiscard, onCl
 
           {/* The agent these are meant for is the terminal this panel is split
               against. */}
-          <Tooltip text="Paste into the terminal" placement="top" referenceClassName="inline-flex h-full">
+          <Tooltip text="Send" placement="top" referenceClassName="inline-flex h-full">
             <button
               type="button"
-              aria-label="Paste into the terminal"
+              aria-label="Send"
               className={`${segmentBase} ${segmentQuiet} [&>svg]:w-3.5 [&>svg]:h-3.5`}
               onClick={() => pasteIntoTerminal(ptyId, forAgent())}
             >

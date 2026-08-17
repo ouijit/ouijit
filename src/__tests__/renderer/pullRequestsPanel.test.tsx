@@ -508,7 +508,11 @@ describe('PullRequestsPanel', () => {
 
     notify({ projectPath: PROJECT, prNumber: 5 });
 
-    await waitFor(() => expect(window.api.github.drafts).toHaveBeenCalledWith(PROJECT, 5));
+    // With the head being read, so a draft written against an earlier one is
+    // followed into it rather than coming back anchored where it no longer is.
+    await waitFor(() =>
+      expect(window.api.github.drafts).toHaveBeenCalledWith(PROJECT, 5, { baseSha: 'aaa', headSha: 'bbb' }),
+    );
     expect(window.api.github.inbox).not.toHaveBeenCalled();
     expect(window.api.github.issues).not.toHaveBeenCalled();
     expect(window.api.github.pullRequest).not.toHaveBeenCalled();

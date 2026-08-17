@@ -1,9 +1,10 @@
-import { memo, useCallback, useMemo, useState, type ReactNode } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { FileDiff, DiffHunk } from '../../types';
 import type { HunkTokens } from '../../utils/syntaxHighlight';
 import { computeWordHighlights } from '../../utils/wordDiff';
 import { useSyntaxHighlight } from './useSyntaxHighlight';
 import { DiffLineView, anchorForLine, type DiffLineAnchor } from './DiffLineView';
+import { anchorForRange } from '../../diffAnchor';
 import { estimateHunkHeight } from './diffMetrics';
 import { badgeColorClass, statusLabel, type DiffFileStatus } from './diffStatus';
 import { Icon } from '../terminal/Icon';
@@ -33,6 +34,13 @@ export interface DiffFileSectionProps {
    */
   renderBelowLine?: (path: string, anchor: DiffLineAnchor) => ReactNode;
   onAddComment?: (path: string, anchor: DiffLineAnchor) => void;
+  /**
+   * Whether a comment covers this line without rendering on it.
+   *
+   * Takes the path for the reason `renderBelowLine` does. Withheld when nothing
+   * is marked: it is asked once per line of the diff.
+   */
+  markLine?: (path: string, anchor: DiffLineAnchor) => boolean;
   /** Extra header content, right-aligned before the stats. */
   headerRight?: ReactNode;
   /**
@@ -58,6 +66,7 @@ export const DiffFileSection = memo(function DiffFileSection({
   diff,
   renderBelowLine,
   onAddComment,
+  markLine,
   headerRight,
   binaryView,
   loadingLabel = 'Loading...',
@@ -75,6 +84,7 @@ export const DiffFileSection = memo(function DiffFileSection({
   // per render is what stops a memoized line from ever bailing out.
   const addComment = useCallback((anchor: DiffLineAnchor) => onAddComment?.(path, anchor), [onAddComment, path]);
   const belowLine = useCallback((anchor: DiffLineAnchor) => renderBelowLine?.(path, anchor), [renderBelowLine, path]);
+  const lineMarked = useCallback((anchor: DiffLineAnchor) => markLine?.(path, anchor) ?? false, [markLine, path]);
   const setCollapsed = useCallback((next: boolean) => onCollapsedChange?.(path, next), [onCollapsedChange, path]);
 
   return (
@@ -141,6 +151,7 @@ export const DiffFileSection = memo(function DiffFileSection({
                   hunkTokens={tokens?.[i] ?? null}
                   onAddComment={onAddComment ? addComment : undefined}
                   renderBelowLine={renderBelowLine ? belowLine : undefined}
+                  markLine={markLine ? lineMarked : undefined}
                 />
               </div>
             ))}
@@ -184,6 +195,7 @@ export interface DiffHunkViewProps {
   renderBelowLine?: (anchor: DiffLineAnchor) => ReactNode;
   /** Already bound to the file — one closure for the hunk, not one per line. */
   onAddComment?: (anchor: DiffLineAnchor) => void;
+  markLine?: (anchor: DiffLineAnchor) => boolean;
 }
 
 export const DiffHunkView = memo(function DiffHunkView({
@@ -191,14 +203,37 @@ export const DiffHunkView = memo(function DiffHunkView({
   hunkTokens,
   renderBelowLine,
   onAddComment,
+  markLine,
 }: DiffHunkViewProps) {
   const wordHighlights = useMemo(() => computeWordHighlights(hunk.lines), [hunk.lines]);
   const anchors = useMemo(() => hunk.lines.map(anchorForLine), [hunk.lines]);
   const [hovered, setHovered] = useState(-1);
+  // The run being dragged out, as indices into this hunk. A comment may cover
+  // several lines but not a gap between hunks: the lines either side of one are
+  // not adjacent in the file, whatever the diff makes them look like.
+  const [drag, setDrag] = useState<{ from: number; to: number } | null>(null);
 
   const onHover = useCallback((index: number) => {
     setHovered((current) => (current === index ? current : index));
+    setDrag((current) => (current && current.to !== index ? { ...current, to: index } : current));
   }, []);
+
+  const startSelect = useCallback((index: number) => setDrag({ from: index, to: index }), []);
+
+  // The release ends the drag wherever it happens — a pointer that has left the
+  // hunk, or the window, still let go of a selection that has to be resolved.
+  useEffect(() => {
+    if (!drag) return;
+    const finish = () => {
+      setDrag(null);
+      const anchor = anchorForRange(hunk.lines, drag.from, drag.to);
+      if (anchor) onAddComment?.(anchor);
+    };
+    window.addEventListener('mouseup', finish);
+    return () => window.removeEventListener('mouseup', finish);
+  }, [drag, hunk.lines, onAddComment]);
+
+  const selection = drag && { lo: Math.min(drag.from, drag.to), hi: Math.max(drag.from, drag.to) };
 
   return (
     <div
@@ -207,7 +242,14 @@ export const DiffHunkView = memo(function DiffHunkView({
       // is told it may skip one — otherwise every line in the pull request is
       // laid out on each scroll. `auto` on the intrinsic size means the estimate
       // is used only until the hunk has been measured once for real.
-      style={{ contentVisibility: 'auto', containIntrinsicSize: `auto ${estimateHunkHeight(hunk)}px` }}
+      //
+      // A drag across lines is a range, not a text selection; without the second
+      // the browser paints one over the diff as the pointer moves.
+      style={{
+        contentVisibility: 'auto',
+        containIntrinsicSize: `auto ${estimateHunkHeight(hunk)}px`,
+        ...(drag ? { userSelect: 'none' as const } : {}),
+      }}
     >
       {hunk.lines.map((line, i) => {
         const anchor = anchors[i];
@@ -219,8 +261,10 @@ export const DiffHunkView = memo(function DiffHunkView({
               tokens={hunkTokens?.[i] ?? null}
               wordHighlight={wordHighlights.get(i)}
               anchor={anchor}
-              onAddComment={onAddComment}
-              showComment={onAddComment ? hovered === i : false}
+              onStartSelect={onAddComment ? startSelect : undefined}
+              showComment={onAddComment ? hovered === i && !drag : false}
+              selected={selection ? i >= selection.lo && i <= selection.hi : false}
+              marked={anchor && markLine ? markLine(anchor) : false}
               index={i}
               onHover={onAddComment ? onHover : undefined}
             />

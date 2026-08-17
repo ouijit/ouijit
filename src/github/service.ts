@@ -20,6 +20,7 @@ import {
   getReviewDraft,
   getReviewDrafts,
   saveReviewDraft,
+  reanchorReviewDraft,
   deleteReviewDraft,
   getReviewDraftCounts,
   getGlobalSetting,
@@ -53,6 +54,7 @@ import {
 } from './api';
 import { getPrFileDiff, getPrFileVersions, getPrDiffFiles, createPrHeadBranch, prunePrRefs } from './prDiff';
 import type {
+  PrHead,
   GithubAvailability,
   PullRequestDetail,
   PullRequestFreshness,
@@ -73,6 +75,8 @@ import type {
   PrFileVersions,
 } from './types';
 import type { FileDiff, ChangedFile } from '../types';
+import { locateInHunks } from '../snippetAnchor';
+import { linesOnSide } from '../diffAnchor';
 
 const ghLog = getLogger().scope('github:service');
 
@@ -322,7 +326,7 @@ export async function detectPullRequestForTask(
 
 // ── Review drafts ────────────────────────────────────────────────────
 
-function toDraft(row: ReviewDraftRow): ReviewDraft {
+function toDraft(row: ReviewDraftRow, head?: string): ReviewDraft {
   return {
     id: row.id,
     projectPath: row.project_path,
@@ -330,7 +334,10 @@ function toDraft(row: ReviewDraftRow): ReviewDraft {
     path: row.path,
     line: row.line,
     side: row.side,
-    ...(row.start_line != null ? { startLine: row.start_line } : {}),
+    startLine: row.start_line ?? row.line,
+    // A draft with no head recorded predates any of this being tracked, which
+    // is not evidence that it cannot be placed.
+    ...(head && row.head_sha && row.head_sha !== head ? { unplaceable: true } : {}),
     body: row.body,
     createdAt: row.created_at,
     origin: row.origin,
@@ -339,8 +346,54 @@ function toDraft(row: ReviewDraftRow): ReviewDraft {
   };
 }
 
-export async function listDrafts(projectPath: string, prNumber: number): Promise<ReviewDraft[]> {
-  return (await getReviewDrafts(projectPath, prNumber)).map(toDraft);
+/**
+ * The drafts on a pull request, each followed into the diff at `head` first.
+ *
+ * Given no head — the CLI and REST callers, which have no diff on screen to
+ * anchor against — the drafts are returned as they were stored.
+ */
+export async function listDrafts(projectPath: string, prNumber: number, head?: PrHead): Promise<ReviewDraft[]> {
+  const rows = await getReviewDrafts(projectPath, prNumber);
+  if (head) await reanchorDrafts(projectPath, prNumber, rows, head);
+  return rows.map((row) => toDraft(row, head?.headSha));
+}
+
+/**
+ * Move drafts written against an earlier head onto the lines their code sits at
+ * now, and leave the ones that are nowhere to be found.
+ *
+ * A left-behind draft keeps its old anchor and its old head, which is what
+ * `toDraft` reads to call it unplaceable. Deleting it instead would throw away
+ * writing over a force-push the author may well undo.
+ */
+async function reanchorDrafts(
+  projectPath: string,
+  prNumber: number,
+  rows: ReviewDraftRow[],
+  head: PrHead,
+): Promise<void> {
+  const diffs = new Map<string, FileDiff | null>();
+
+  for (const row of rows) {
+    if (row.head_sha === head.headSha || !row.snippet || row.reply_to_comment_id != null) continue;
+
+    if (!diffs.has(row.path)) {
+      diffs.set(
+        row.path,
+        await getPrFileDiff(projectPath, prNumber, head.baseSha, head.headSha, row.path).catch(
+          (): FileDiff | null => null,
+        ),
+      );
+    }
+
+    const found = locateInHunks(linesOnSide(diffs.get(row.path), row.side), row.snippet, row.start_line ?? row.line);
+    if (!found) continue;
+
+    row.start_line = found.startLine;
+    row.line = found.line;
+    row.head_sha = head.headSha;
+    await reanchorReviewDraft(row.id, found.startLine, found.line, head.headSha);
+  }
 }
 
 export async function saveDraft(projectPath: string, input: SaveDraftInput): Promise<ReviewDraft> {
@@ -359,7 +412,9 @@ export async function saveDraft(projectPath: string, input: SaveDraftInput): Pro
     path: input.path,
     line: input.line,
     side: input.side,
-    start_line: input.startLine ?? null,
+    start_line: input.startLine ?? input.line,
+    snippet: input.snippet ?? null,
+    head_sha: input.headSha ?? null,
     body: input.body,
     reply_to_thread_id: input.replyToThreadId ?? null,
     reply_to_comment_id: input.replyToCommentId ?? null,
@@ -409,7 +464,7 @@ export async function submitPullRequestReview(
     path: d.path,
     line: d.line,
     side: d.side,
-    ...(d.start_line != null ? { start_line: d.start_line, start_side: d.side } : {}),
+    ...(d.start_line != null && d.start_line !== d.line ? { start_line: d.start_line, start_side: d.side } : {}),
     body: d.body,
   }));
 

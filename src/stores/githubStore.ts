@@ -13,7 +13,7 @@ import type {
 import type { FileDiff } from '../types';
 import { describeError } from '../utils/describeError';
 import { toggleInList } from '../utils/toggleIn';
-import type { DiffAnchor } from '../components/diff/diffAnchor';
+import type { DiffAnchor } from '../diffAnchor';
 
 const githubLog = log.scope('github');
 
@@ -415,7 +415,12 @@ export const useGithubStore = create<GithubStore>()((set, get) => ({
 
   loadDrafts: async (projectPath, prNumber) => {
     try {
-      const drafts = await window.api.github.drafts(projectPath, prNumber);
+      // The head is what a draft written against an older one is followed into.
+      // Absent while the detail is still arriving, and the drafts then come back
+      // anchored where they were until the next load.
+      const detail = get().detail;
+      const head = detail?.number === prNumber ? { baseSha: detail.baseSha, headSha: detail.headSha } : undefined;
+      const drafts = await window.api.github.drafts(projectPath, prNumber, head);
       if (get().activeNumber !== prNumber) return;
       set({ drafts });
     } catch (error) {

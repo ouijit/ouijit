@@ -52,6 +52,7 @@ import type {
   IssueDetail,
   CommentKind,
   ReviewDraft,
+  PrHead,
   ReviewEvent,
   MergeMethod,
   GithubDraftsChangedPayload,
@@ -297,12 +298,12 @@ export interface IpcInvokeContract {
   // ── Diff notes ─────────────────────────────────────────────────────
   // Notes on a worktree's own diff, keyed by the worktree rather than by a pull
   // request, since they are handed to the agent working in it rather than sent.
-  'diff-notes:list': { args: [worktreePath: string]; return: DiffNote[] };
+  'diff-notes:list': { args: [worktreePath: string, keep?: string[]]; return: DiffNote[] };
   'diff-notes:save': { args: [input: SaveDiffNoteInput]; return: { success: boolean } };
   'diff-notes:discard': { args: [id: string]; return: { success: boolean } };
   'diff-notes:clear': { args: [worktreePath: string]; return: { success: boolean } };
 
-  'github:drafts': { args: [projectPath: string, prNumber: number]; return: ReviewDraft[] };
+  'github:drafts': { args: [projectPath: string, prNumber: number, head?: PrHead]; return: ReviewDraft[] };
   'github:save-draft': { args: [projectPath: string, input: SaveDraftInput]; return: ReviewDraft };
   'github:discard-draft': { args: [projectPath: string, draftId: string]; return: { success: boolean } };
   'github:submit-review': {

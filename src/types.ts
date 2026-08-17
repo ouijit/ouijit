@@ -85,6 +85,7 @@ import type {
   IssueDetail,
   CommentKind,
   ReviewDraft,
+  PrHead,
   ReviewEvent,
   MergeMethod,
   GithubDraftsChangedPayload,
@@ -684,10 +685,15 @@ export interface ElectronAPI {
  *
  * The pull request equivalent is `github.drafts`, which ends at a review sent
  * to GitHub. These are handed to the agent in the terminal instead, so there is
- * no submit step — only a list, and discarding it once it has been handed over.
+ * no submit step — a note ends when the code it was written about does.
  */
 export interface DiffNotesAPI {
-  list(worktreePath: string): Promise<DiffNote[]>;
+  /**
+   * Sweeps before it answers, so a note whose code has gone is never handed
+   * back. `keep` holds one back regardless — the note open for editing, which
+   * would take what is being typed with it.
+   */
+  list(worktreePath: string, keep?: string[]): Promise<DiffNote[]>;
   save(input: SaveDiffNoteInput): Promise<{ success: boolean }>;
   discard(id: string): Promise<{ success: boolean }>;
   clear(worktreePath: string): Promise<{ success: boolean }>;
@@ -735,7 +741,12 @@ export interface GithubAPI {
   linkTaskIssue(projectPath: string, taskNumber: number, issueNumber: number | null): Promise<GithubActionResult>;
   detectTaskPr(projectPath: string, taskNumber: number): Promise<{ prNumber: number | null }>;
 
-  drafts(projectPath: string, prNumber: number): Promise<ReviewDraft[]>;
+  /**
+   * Given the head being viewed, drafts written against an earlier one are
+   * followed into it first, and the ones that could not be placed come back
+   * marked.
+   */
+  drafts(projectPath: string, prNumber: number, head?: PrHead): Promise<ReviewDraft[]>;
   saveDraft(projectPath: string, input: SaveDraftInput): Promise<ReviewDraft>;
   discardDraft(projectPath: string, draftId: string): Promise<{ success: boolean }>;
   submitReview(

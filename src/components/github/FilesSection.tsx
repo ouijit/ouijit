@@ -1,4 +1,4 @@
-import { forwardRef, memo, useCallback, useImperativeHandle, useMemo, useState, type ReactNode } from 'react';
+import { forwardRef, memo, useCallback, useImperativeHandle, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { FileDiff } from '../../types';
 import type { PullRequestDetail, PullRequestFile, ReviewDraft } from '../../github/types';
 import { useGithubStore } from '../../stores/githubStore';
@@ -10,7 +10,14 @@ import { DeferredMount } from '../diff/DeferredMount';
 import { DiffFileSection } from '../diff/DiffFileSection';
 import { estimateFileHeight } from '../diff/diffMetrics';
 import { useBatchedDiffs } from '../diff/useBatchedDiffs';
-import { anchorKey, type DiffLineAnchor } from '../diff/diffAnchor';
+import {
+  anchorKey,
+  anchorStart,
+  blockAt,
+  composingAt as composingAtAnchor,
+  type DiffLineAnchor,
+} from '../../diffAnchor';
+import { describeLines } from '../../diffAnchor';
 import { unanchoredThreads } from './reviewAnchors';
 import { Icon } from '../terminal/Icon';
 import { ReviewThreadView } from './ReviewThreadView';
@@ -22,6 +29,8 @@ import { Loading } from './Loading';
 
 /** Nothing reaches GitHub until the review is submitted as a batch. */
 const DRAFT_HINT = 'Saved locally until you submit the review.';
+
+const UNPLACEABLE_HINT = 'The code this was written on is not in the diff any more. Sending will fail the review.';
 
 interface FilesSectionProps {
   projectPath: string;
@@ -42,6 +51,7 @@ interface FileSectionProps {
   headSha: string;
   onAddComment: (path: string, anchor: DiffLineAnchor) => void;
   renderBelowLine?: (path: string, anchor: DiffLineAnchor) => ReactNode;
+  markLine?: (path: string, anchor: DiffLineAnchor) => boolean;
   viewed: boolean;
   onViewedChange: (path: string, viewed: boolean) => void;
 }
@@ -65,6 +75,7 @@ const FileSection = memo(function FileSection({
   headSha,
   onAddComment,
   renderBelowLine,
+  markLine,
   viewed,
   onViewedChange,
 }: FileSectionProps) {
@@ -109,6 +120,7 @@ const FileSection = memo(function FileSection({
         diff={diff}
         onAddComment={onAddComment}
         renderBelowLine={renderBelowLine}
+        markLine={markLine}
         binaryView={binaryView}
         headerRight={headerRight}
         collapsed={viewed}
@@ -138,12 +150,17 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
   const filesError = useGithubStore((s) => s.filesError);
   const filesFromGit = useGithubStore((s) => s.filesFromGit);
   const drafts = useGithubStore((s) => s.drafts);
-  const composingAt = useGithubStore((s) => s.composingAt);
+  const composingWhere = useGithubStore((s) => s.composingAt);
 
   const diffs = useGithubStore((s) => s.diffs);
   const viewedPaths = useGithubStore((s) => s.viewedPaths);
   const setDiffs = useGithubStore((s) => s.setDiffs);
   const [editingDraftId, setEditingDraftId] = useState<string | null>(null);
+
+  // The loaded diffs, for a callback that reads them when a comment is saved
+  // and must not be rebuilt each time a batch of them arrives.
+  const diffsRef = useRef(diffs);
+  diffsRef.current = diffs;
 
   useImperativeHandle(ref, () => ({ editDraft: setEditingDraftId }), []);
 
@@ -196,18 +213,29 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
 
   const startComment = useCallback((path: string, anchor: DiffLineAnchor) => {
     setEditingDraftId(null);
-    useGithubStore.getState().setComposingAt({ path, line: anchor.line, side: anchor.side });
+    useGithubStore.getState().setComposingAt({ path, ...anchor });
   }, []);
 
   const saveDraft = useCallback(
-    async (input: { id?: string; path: string; line: number; side: 'LEFT' | 'RIGHT'; body: string }) => {
+    async (input: {
+      id?: string;
+      path: string;
+      line: number;
+      startLine?: number;
+      side: 'LEFT' | 'RIGHT';
+      snippet?: string | null;
+      body: string;
+    }) => {
       try {
         await window.api.github.saveDraft(projectPath, {
           id: input.id,
           prNumber: detail.number,
           path: input.path,
           line: input.line,
+          startLine: input.startLine,
           side: input.side,
+          snippet: input.snippet,
+          headSha: detail.headSha,
           body: input.body,
         });
       } catch (error) {
@@ -220,7 +248,7 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
       setEditingDraftId(null);
       await useGithubStore.getState().loadDrafts(projectPath, detail.number);
     },
-    [projectPath, detail.number],
+    [projectPath, detail.number, detail.headSha],
   );
 
   const discardDraft = useCallback(
@@ -244,8 +272,7 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
       const key = anchorKey(path, anchor.line, anchor.side);
       const threads = threadsByAnchor.get(key);
       const anchorDrafts = draftsByAnchor.get(key);
-      const composing =
-        composingAt?.path === path && composingAt.line === anchor.line && composingAt.side === anchor.side;
+      const composing = composingAtAnchor(composingWhere, path, anchor);
 
       if (!threads && !anchorDrafts && !composing) return null;
 
@@ -266,15 +293,15 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
                 key={draft.id}
                 initialBody={draft.body}
                 saveLabel="Update comment"
-                onSave={(body) => saveDraft({ id: draft.id, path, line: anchor.line, side: anchor.side, body })}
+                onSave={(body) => saveDraft({ id: draft.id, path, line: draft.line, side: draft.side, body })}
                 onCancel={() => setEditingDraftId(null)}
                 onDiscard={() => discardDraft(draft)}
-                hint={DRAFT_HINT}
+                hint={draft.unplaceable ? UNPLACEABLE_HINT : DRAFT_HINT}
               />
             ) : (
               <InlineCommentCard
                 key={draft.id}
-                label="Unsent comment"
+                label={`Unsent comment · ${describeLines(draft.startLine, draft.line)}`}
                 body={draft.body}
                 onClick={() => setEditingDraftId(draft.id)}
               />
@@ -282,7 +309,16 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
           )}
           {composing && (
             <InlineCommentBox
-              onSave={(body) => saveDraft({ path, line: anchor.line, side: anchor.side, body })}
+              onSave={(body) =>
+                saveDraft({
+                  path,
+                  line: composing.line,
+                  startLine: composing.startLine,
+                  side: composing.side,
+                  snippet: blockAt(diffsRef.current.get(path), composing),
+                  body,
+                })
+              }
               onCancel={() => useGithubStore.getState().setComposingAt(null)}
               hint={DRAFT_HINT}
             />
@@ -293,7 +329,7 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
     [
       threadsByAnchor,
       draftsByAnchor,
-      composingAt,
+      composingWhere,
       editingDraftId,
       replyToThread,
       toggleResolved,
@@ -302,13 +338,32 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
     ],
   );
 
+  // Which lines a comment covers without rendering on them — see the same
+  // computation in the worktree panel.
+  const spans = useMemo(() => {
+    const saved = drafts.filter((draft) => draft.startLine !== draft.line);
+    return composingWhere && anchorStart(composingWhere) !== composingWhere.line ? [...saved, composingWhere] : saved;
+  }, [drafts, composingWhere]);
+
+  const markLine = useCallback(
+    (path: string, anchor: DiffLineAnchor) =>
+      spans.some(
+        (span) =>
+          span.path === path &&
+          span.side === anchor.side &&
+          anchor.line >= anchorStart(span) &&
+          anchor.line <= span.line,
+      ),
+    [spans],
+  );
+
   /**
    * Withheld when there is nothing that could render below a line: passing it
    * costs a key build and two map lookups per line of the diff, and makes
    * saving the first comment re-render every mounted file.
    */
   const renderBelowLine =
-    threadsByAnchor.size > 0 || draftsByAnchor.size > 0 || composingAt ? renderComments : undefined;
+    threadsByAnchor.size > 0 || draftsByAnchor.size > 0 || composingWhere ? renderComments : undefined;
 
   // A Set so a hundred file sections do not each scan the list.
   const viewed = useMemo(() => new Set(viewedPaths), [viewedPaths]);
@@ -331,6 +386,7 @@ export const FilesSection = forwardRef<FilesSectionHandle, FilesSectionProps>(fu
       headSha={detail.headSha}
       onAddComment={startComment}
       renderBelowLine={renderBelowLine}
+      markLine={spans.length > 0 ? markLine : undefined}
       viewed={viewed.has(file.path)}
       onViewedChange={setViewed}
     />

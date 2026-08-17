@@ -15,7 +15,7 @@ import { InlineCommentBox, InlineCommentCard } from './InlineCommentBox';
 import { DiffNotesIsland } from './DiffNotesIsland';
 import { DiffComparisonPicker } from './DiffComparisonPicker';
 import { useDiffNotes } from './useDiffNotes';
-import { anchorKey, lineTextAt, type DiffLineAnchor } from './diffAnchor';
+import { anchorKey, anchorStart, blockAt, composingAt, describeAnchor, type DiffLineAnchor } from '../../diffAnchor';
 import { MAX_DIFF_FILES, diffShape, diffSubject, filesInDiff } from '../../diffSource';
 import { toggleIn } from '../../utils/toggleIn';
 
@@ -55,10 +55,6 @@ export function DiffPanel({ ptyId, projectPath, fullWidth, onToggleFullWidth, on
   const instance = terminalInstances.get(ptyId);
   const gitPath = instance?.worktreePath || projectPath;
 
-  // Keyed by worktree, not by panel or terminal session, so notes survive the
-  // panel being closed and reopened mid-review.
-  const notes = useDiffNotes(gitPath);
-
   // Both from the status rather than from the terminal's request, so the label
   // and the list can never name different comparisons: this is the base the
   // answer on screen was actually produced against.
@@ -91,6 +87,10 @@ export function DiffPanel({ ptyId, projectPath, fullWidth, onToggleFullWidth, on
   const truncated = totalFileCount > MAX_DIFF_FILES;
   const loading = gitFileStatus === null;
 
+  // Keyed by worktree, not by panel or terminal session, so notes survive the
+  // panel being closed and reopened mid-review.
+  const notes = useDiffNotes(gitPath, filesFingerprint);
+
   useEffect(() => {
     const inst = terminalInstances.get(ptyId);
     if (inst) refreshTerminalGitStatus(inst);
@@ -117,7 +117,7 @@ export function DiffPanel({ ptyId, projectPath, fullWidth, onToggleFullWidth, on
   const startNote = useCallback(
     (path: string, anchor: DiffLineAnchor) => {
       setEditingId(null);
-      setComposingAt({ path, line: anchor.line, side: anchor.side });
+      setComposingAt({ path, ...anchor });
     },
     [setComposingAt, setEditingId],
   );
@@ -132,17 +132,9 @@ export function DiffPanel({ ptyId, projectPath, fullWidth, onToggleFullWidth, on
     (path: string, anchor: DiffLineAnchor) => {
       const key = anchorKey(path, anchor.line, anchor.side);
       const here = notes.byAnchor.get(key);
-      const composing =
-        notes.composingAt?.path === path &&
-        notes.composingAt.line === anchor.line &&
-        notes.composingAt.side === anchor.side;
+      const composing = composingAt(notes.composingAt, path, anchor);
 
       if (!here && !composing) return null;
-
-      // Read when a note is saved rather than on every render: it walks every
-      // line of the file, and nothing on screen shows it. Through the ref, so
-      // this callback does not have to change identity once per load batch.
-      const lineText = () => lineTextAt(diffsRef.current.get(path), anchor);
 
       return (
         <div className="py-1">
@@ -154,16 +146,14 @@ export function DiffPanel({ ptyId, projectPath, fullWidth, onToggleFullWidth, on
                 placeholder="Note for the agent…"
                 saveLabel="Update note"
                 hint={NOTE_HINT}
-                onSave={(body) =>
-                  notes.save({ id: note.id, path, line: anchor.line, side: anchor.side, lineText: lineText(), body })
-                }
+                onSave={(body) => notes.save({ id: note.id, path, line: note.line, side: note.side, body })}
                 onCancel={() => notes.setEditingId(null)}
                 onDiscard={() => notes.discard(note.id)}
               />
             ) : (
               <InlineCommentCard
                 key={note.id}
-                label="Note"
+                label={`Note · ${describeAnchor(note)}`}
                 body={note.body}
                 onClick={() => notes.setEditingId(note.id)}
               />
@@ -174,7 +164,19 @@ export function DiffPanel({ ptyId, projectPath, fullWidth, onToggleFullWidth, on
               placeholder="Note for the agent…"
               saveLabel="Add note"
               hint={NOTE_HINT}
-              onSave={(body) => notes.save({ path, line: anchor.line, side: anchor.side, lineText: lineText(), body })}
+              // The snippet is read here, once, rather than on every render: it
+              // walks the file, and nothing on screen shows it. Through the ref
+              // so this callback survives a batch of diffs arriving.
+              onSave={(body) =>
+                notes.save({
+                  path,
+                  line: composing.line,
+                  startLine: composing.startLine,
+                  side: composing.side,
+                  snippet: blockAt(diffsRef.current.get(path), composing),
+                  body,
+                })
+              }
               onCancel={() => notes.setComposingAt(null)}
             />
           )}
@@ -185,6 +187,35 @@ export function DiffPanel({ ptyId, projectPath, fullWidth, onToggleFullWidth, on
   );
 
   const hasNotes = notes.notes.length > 0 || notes.composingAt !== null;
+
+  // Which lines a comment covers without rendering on them: the range being
+  // written, and every saved range. Single lines are left out — the box sits
+  // directly under the line it is about, which says it already.
+  const spans = useMemo(() => {
+    const saved = notes.notes.filter((note) => note.startLine !== note.line);
+    const at = notes.composingAt;
+    return at && anchorStart(at) !== at.line ? [...saved, at] : saved;
+  }, [notes.notes, notes.composingAt]);
+
+  const markLine = useCallback(
+    (path: string, anchor: DiffLineAnchor) =>
+      spans.some(
+        (span) =>
+          span.path === path &&
+          span.side === anchor.side &&
+          anchor.line >= anchorStart(span) &&
+          anchor.line <= span.line,
+      ),
+    [spans],
+  );
+
+  // A note is on screen when the diff being shown carries the lines it is
+  // about. Not merely when its file is listed: a note can sit on a line this
+  // comparison leaves outside every hunk.
+  const inView = useMemo(
+    () => new Set(notes.notes.filter((note) => blockAt(diffs.get(note.path), note) !== null).map((note) => note.id)),
+    [notes.notes, diffs],
+  );
 
   const toggleFolded = useCallback((path: string, next: boolean) => {
     setFolded((prev) => toggleIn(prev, path, next));
@@ -226,6 +257,7 @@ export function DiffPanel({ ptyId, projectPath, fullWidth, onToggleFullWidth, on
         // Withheld until there is something to draw: it is called once per
         // diff line and changes identity whenever the notes do.
         renderBelowLine={hasNotes ? renderBelowLine : undefined}
+        markLine={spans.length > 0 ? markLine : undefined}
         collapsed={folded.has(file.path)}
         onCollapsedChange={toggleFolded}
       />
@@ -268,7 +300,11 @@ export function DiffPanel({ ptyId, projectPath, fullWidth, onToggleFullWidth, on
             mainBranch={gitFileStatus?.mainBranch ?? null}
             branch={branch}
           />
-          <span className="text-xs text-text-tertiary ml-auto relative">{stats}</span>
+          {/* `min-w-0` is what lets it shrink at all — a flex item will not go
+              below its content without it, and this one would rather wrap to
+              three lines than give way. Nothing recovers what the cut takes:
+              the same counts are on the terminal's own diff button. */}
+          <span className="ml-auto min-w-0 truncate text-xs text-text-tertiary">{stats}</span>
           <FullWidthToggle fullWidth={fullWidth} onToggle={onToggleFullWidth} />
           <PanelCloseButton onClose={onClose} />
         </div>
@@ -296,6 +332,7 @@ export function DiffPanel({ ptyId, projectPath, fullWidth, onToggleFullWidth, on
         </div>
         <DiffNotesIsland
           notes={notes.notes}
+          inView={inView}
           subject={diffSubject(base, branch)}
           ptyId={ptyId}
           onJump={(note) => scrollToFile(note.path)}
