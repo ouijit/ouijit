@@ -3,12 +3,15 @@ import { useState, type ReactNode } from 'react';
 /**
  * A comment that is written but not yet open for editing. Indented to clear
  * the line-number gutter, like the editor it turns into.
+ *
+ * Lit on its four edges like the card it sits inside, a step tighter in the
+ * corner so it reads as nested rather than as a second card of equal standing.
  */
 export function InlineCommentCard({ label, body, onClick }: { label: string; body: ReactNode; onClick: () => void }) {
   return (
     <button
       type="button"
-      className="block w-[calc(100%-176px)] mx-[88px] my-1.5 text-left px-3 py-2 bg-terminal-surface rounded-md text-sm text-text-secondary hover:bg-ink/[0.06] transition-colors duration-100"
+      className="relative glass-bevel block w-[calc(100%-176px)] mx-[88px] my-1.5 text-left px-3 py-2 bg-terminal-surface border border-bezel rounded-[12px] text-sm text-text-secondary hover:bg-ink/[0.06] transition-colors duration-100"
       onClick={onClick}
     >
       <span className="block text-[11px] text-accent mb-0.5">{label}</span>
@@ -60,7 +63,7 @@ export function InlineCommentBox({
   };
 
   return (
-    <div className="mx-[88px] my-1.5 px-3 py-2.5 bg-terminal-surface rounded-md">
+    <div className="relative glass-bevel mx-[88px] my-1.5 px-3 py-2.5 bg-terminal-surface border border-bezel rounded-[12px]">
       <textarea
         autoFocus
         rows={3}

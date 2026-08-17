@@ -158,9 +158,12 @@ export function DiffComparisonPicker({
             <button
               ref={triggerRef}
               type="button"
-              className={`${segmentBase} ${open ? 'bg-background-tertiary text-text-primary' : segmentQuiet}`}
+              className={`${segmentBase} min-w-0 ${open ? 'bg-background-tertiary text-text-primary' : segmentQuiet}`}
               onClick={() => setOpen(!open)}
             >
+              {/* The group clips what overflows it, so without `min-w-0` above
+                  a long ref holds the button at full width and the clipped edge
+                  falls on the caret rather than on the name. */}
               <span className="truncate max-w-[16rem]">{describeDiffComparison(base, branch)}</span>
               <Icon name="caret-down" className="w-3 h-3 shrink-0" />
             </button>
