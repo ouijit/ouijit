@@ -21,6 +21,11 @@ export function up(db: Database.Database): void {
     -- persists the same way a task-backed one does. The origin column is who
     -- wrote it: 'human' from the renderer, or the CLI caller's name.
     --
+    -- A comment anchors to a range of lines and records the code it was written
+    -- about, in snippet. head_sha is the head that anchor was last read against:
+    -- a draft still carrying an older head than the pull request's is one the
+    -- re-anchor pass could not place.
+    --
     -- Comments stay outside the parentheses: SQLite keeps anything inside them
     -- in sqlite_master as part of the table's own schema text.
     CREATE TABLE IF NOT EXISTS github_review_drafts (
@@ -31,6 +36,8 @@ export function up(db: Database.Database): void {
       line INTEGER NOT NULL,
       side TEXT NOT NULL DEFAULT 'RIGHT',
       start_line INTEGER,
+      snippet TEXT,
+      head_sha TEXT,
       body TEXT NOT NULL,
       reply_to_thread_id TEXT,
       reply_to_comment_id INTEGER,
@@ -49,8 +56,9 @@ export function up(db: Database.Database): void {
       worktree_path TEXT NOT NULL,
       path TEXT NOT NULL,
       line INTEGER NOT NULL,
+      start_line INTEGER,
       side TEXT NOT NULL,
-      line_text TEXT,
+      snippet TEXT,
       body TEXT NOT NULL,
       created_at TEXT NOT NULL
     );
