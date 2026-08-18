@@ -69,7 +69,6 @@ contextBridge.exposeInMainWorld('api', {
   createProject: (options: CreateProjectOptions) => typedInvoke('create-project', options),
   showFolderPicker: (options?: FolderPickerOptions) => typedInvoke('show-folder-picker', options),
   getDefaultProjectsFolder: () => typedInvoke('projects:get-default-folder'),
-  scanSiblingProjects: (folderPath: string) => typedInvoke('projects:scan-siblings', folderPath),
   prepareProjectsFolderChange: (newFolder: string) => typedInvoke('projects:prepare-folder-change', newFolder),
   applyProjectsFolderChange: (newFolder: string, action: ProjectsFolderChangeAction) =>
     typedInvoke('projects:apply-folder-change', newFolder, action),
