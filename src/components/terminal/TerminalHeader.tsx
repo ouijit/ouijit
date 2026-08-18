@@ -12,14 +12,18 @@ import { Icon } from './Icon';
 import { TagInput } from './TagInput';
 import { TerminalHeaderView, TerminalHeaderName } from './TerminalHeaderView';
 import { ContextMenu, type ContextMenuEntry } from '../ui/ContextMenu';
+import { Tooltip } from '../ui/Tooltip';
 import { AddPanelMenu } from './AddPanelMenu';
 import { HookConfigDialog } from '../dialogs/HookConfigDialog';
 import { useTerminalPanels } from './useTerminalPanels';
 import { panelIcon, panelLabel, type TerminalPanel } from './panelTypes';
 import type { GitFileStatus, RunnerScript } from '../../types';
-import { openInEntry, moveToEntry, type TaskMenuActions } from '../kanban/taskMenu';
+import { openInEntry, moveToEntry, githubEntries, type TaskMenuActions } from '../kanban/taskMenu';
 import { revealInFileManager } from '../../utils/fileManager';
+import { useExperimentalStore } from '../../stores/experimentalStore';
+import { openPullRequestInPanel, createPullRequestForTask, unlinkPullRequest } from '../../services/githubTaskActions';
 import { BranchFromTaskDialog } from '../dialogs/BranchFromTaskDialog';
+import { describeDiffComparison, filesInDiff } from '../../diffSource';
 
 interface TerminalHeaderProps {
   ptyId: string;
@@ -47,7 +51,6 @@ export const TerminalHeader = memo(function TerminalHeader({
     tags,
     sandboxProvider,
     taskId,
-    worktreeBranch,
     diffPanelOpen,
     panels,
     activePanelId,
@@ -62,7 +65,6 @@ export const TerminalHeader = memo(function TerminalHeader({
         tags: d?.tags ?? EMPTY_TAGS,
         sandboxProvider: d?.sandboxProvider,
         taskId: d?.taskId ?? null,
-        worktreeBranch: d?.worktreeBranch ?? null,
         diffPanelOpen: d?.diffPanelOpen ?? false,
         panels: d?.panels ?? EMPTY_PANELS,
         activePanelId: d?.activePanelId ?? null,
@@ -88,6 +90,7 @@ export const TerminalHeader = memo(function TerminalHeader({
   const availableSandboxProviders = useProjectStore((s) => s.availableSandboxProviders);
   const hasEditorHook = useProjectStore((s) => !!s.configuredHooks.editor);
   const task = useProjectStore((s) => (taskId != null ? s.tasks.find((t) => t.taskNumber === taskId) : undefined));
+  const githubEnabled = useExperimentalStore((s) => s.flagsByProject[projectPath]?.github ?? false);
 
   const contextMenuItems = useMemo((): ContextMenuEntry[] => {
     if (!instance) return [];
@@ -137,6 +140,21 @@ export const TerminalHeader = memo(function TerminalHeader({
         items.push({ label: 'Branch from this task', icon: 'git-branch', onClick: () => setBranchFromDialog(true) });
       }
       items.push({ label: 'Rename task', icon: 'pencil-simple', onClick: () => setRenameTarget('task') });
+
+      // The same entries the kanban card shows.
+      const github = task
+        ? githubEntries(
+            { enabled: githubEnabled, prNumber: task.githubPrNumber, hasBranch: !!task.branch },
+            {
+              openPullRequest: (prNumber) => openPullRequestInPanel(projectPath, prNumber),
+              createPullRequest: () => void createPullRequestForTask(projectPath, task),
+              unlinkPullRequest: () => void unlinkPullRequest(projectPath, task.taskNumber),
+            },
+          )
+        : [];
+      if (github.length > 0) {
+        items.push({ separator: true }, ...github);
+      }
     }
 
     items.push({
@@ -146,7 +164,7 @@ export const TerminalHeader = memo(function TerminalHeader({
     });
 
     return items;
-  }, [isTaskTerminal, instance, projectPath, taskId, availableSandboxProviders, hasEditorHook, task]);
+  }, [isTaskTerminal, instance, projectPath, taskId, availableSandboxProviders, hasEditorHook, task, githubEnabled]);
 
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -222,8 +240,6 @@ export const TerminalHeader = memo(function TerminalHeader({
     },
     [ptyId],
   );
-
-  const isWorktree = taskId != null && !!worktreeBranch;
 
   const nameContent = renameTarget ? (
     <input
@@ -338,7 +354,6 @@ export const TerminalHeader = memo(function TerminalHeader({
             panels={panels}
             activePanelId={activePanelId}
             gitFileStatus={gitFileStatus}
-            isWorktree={isWorktree}
             diffPanelOpen={diffPanelOpen}
             addRef={addRef}
             onActivate={panelOps.activatePanel}
@@ -422,7 +437,6 @@ function PanelControls({
   panels,
   activePanelId,
   gitFileStatus,
-  isWorktree,
   diffPanelOpen,
   addRef,
   onActivate,
@@ -434,7 +448,6 @@ function PanelControls({
   panels: TerminalPanel[];
   activePanelId: string | null;
   gitFileStatus: GitFileStatus | null;
-  isWorktree: boolean;
   diffPanelOpen: boolean;
   addRef: React.RefObject<HTMLButtonElement | null>;
   onActivate: (id: string) => void;
@@ -443,13 +456,17 @@ function PanelControls({
   onDiffClick: (e: React.MouseEvent) => void;
   onAddClick: (e: React.MouseEvent) => void;
 }) {
-  const dirtyFileCount = gitFileStatus?.uncommittedFiles.length ?? 0;
-  const insertions = gitFileStatus?.uncommittedFiles.reduce((s, f) => s + f.additions, 0) ?? 0;
-  const deletions = gitFileStatus?.uncommittedFiles.reduce((s, f) => s + f.deletions, 0) ?? 0;
-  const branchDiffCount = gitFileStatus?.branchDiffFiles.length ?? 0;
-  const hasUncommitted = !!gitFileStatus && dirtyFileCount > 0;
-  const showCompare = !!gitFileStatus && !hasUncommitted && isWorktree && branchDiffCount > 0;
-  const showDiff = hasUncommitted || showCompare;
+  // The same list the panel this button opens shows, read off the same status,
+  // so the two can never offer and show different diffs.
+  const diffFiles = gitFileStatus ? filesInDiff(gitFileStatus) : [];
+  const dirtyFileCount = diffFiles.length;
+  const insertions = diffFiles.reduce((s, f) => s + f.additions, 0);
+  const deletions = diffFiles.reduce((s, f) => s + f.deletions, 0);
+  // Offered wherever there is a repo to read, not only where the comparison it
+  // opens on has something in it: the panel is where another one is chosen, so
+  // gating the way in on this one leaves no way to reach the rest.
+  const showDiff = gitFileStatus !== null;
+  const comparison = gitFileStatus ? describeDiffComparison(gitFileStatus.base, gitFileStatus.branch) : '';
 
   const slots: React.ReactNode[] = [];
 
@@ -476,7 +493,7 @@ function PanelControls({
             onClosePanel(panel.id);
           }}
           // The huge shrink factor collapses the close affordance before the
-          // label gives up any width, so a squeezed tab still reads as itself.
+          // label gives up any width, so a squeezed tab keeps its name.
           className="-mr-1 ml-0.5 w-4 h-4 flex items-center justify-center rounded shrink-[9999] min-w-0 overflow-hidden opacity-0 group-hover/seg:opacity-100 hover:bg-ink/15 transition-all duration-150 [&>svg]:w-3 [&>svg]:h-3"
         >
           <Icon name="x" />
@@ -487,23 +504,30 @@ function PanelControls({
 
   if (showDiff) {
     slots.push(
-      <button
-        key="diff"
-        className={`${groupButtonBase} shrink-0 ${diffPanelOpen ? groupButtonActive : groupButtonInactive}`}
-        onClick={onDiffClick}
-      >
-        {hasUncommitted ? (
-          <>
-            <span>
-              {dirtyFileCount} {dirtyFileCount === 1 ? 'file' : 'files'}
-            </span>
-            {insertions > 0 && <span className={diffPanelOpen ? '' : 'text-status-ready'}>+{insertions}</span>}
-            {deletions > 0 && <span className={diffPanelOpen ? '' : 'text-ansi-red'}>-{deletions}</span>}
-          </>
-        ) : (
-          <span>Compare</span>
-        )}
-      </button>,
+      <Tooltip key="diff" text={comparison} referenceClassName="shrink-0 inline-flex h-full">
+        <button
+          className={`${groupButtonBase} ${dirtyFileCount === 0 ? '!px-2' : ''} ${
+            diffPanelOpen ? groupButtonActive : groupButtonInactive
+          }`}
+          aria-label="Diff"
+          onClick={onDiffClick}
+        >
+          {/* The size of the change, and nothing about what it is measured
+              against — the tooltip says that, and on a board of task cards the
+              base is the same one on nearly every card. */}
+          {dirtyFileCount === 0 ? (
+            <Icon name="git-diff" className="w-3.5 h-3.5" />
+          ) : (
+            <>
+              <span className="shrink-0">
+                {dirtyFileCount} {dirtyFileCount === 1 ? 'file' : 'files'}
+              </span>
+              {insertions > 0 && <span className={diffPanelOpen ? '' : 'text-status-ready'}>+{insertions}</span>}
+              {deletions > 0 && <span className={diffPanelOpen ? '' : 'text-ansi-red'}>-{deletions}</span>}
+            </>
+          )}
+        </button>
+      </Tooltip>,
     );
   }
 

@@ -17,6 +17,7 @@ import { registerScriptCommands } from './commands/script';
 import { registerMarkdownCommands } from './commands/markdown';
 import { registerPreviewCommands } from './commands/preview';
 import { registerThemeCommands } from './commands/theme';
+import { registerPrCommands } from './commands/pr';
 
 const program = new Command();
 
@@ -32,7 +33,8 @@ Examples:
   ouijit task list
   ouijit task set-status 5 in_review
   ouijit hook set start --name "Install" --command "npm install"
-  ouijit tag add 5 bug`,
+  ouijit tag add 5 bug
+  ouijit pr list`,
   );
 
 function requireProject(): string {
@@ -47,6 +49,7 @@ registerHookCommands(program, requireProject);
 registerTagCommands(program, requireProject);
 registerProjectCommands(program);
 registerScriptCommands(program, requireProject);
+registerPrCommands(program, requireProject);
 registerMarkdownCommands(program);
 registerPreviewCommands(program);
 registerThemeCommands(program);

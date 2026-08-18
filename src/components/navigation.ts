@@ -5,11 +5,10 @@
  * "go to this project / home / terminal" behavior, and the sequences are
  * order-sensitive (tasks are pre-fetched before navigating so the kanban paints
  * correctly through the view-transition snapshot; the terminal card stack
- * reverts an active index that a tag filter hides). Keeping one copy here means
- * the palette can't drift from what clicking the sidebar does.
+ * reverts an active index that a tag filter hides).
  */
 
-import type { Project } from '../types';
+import type { Project, TaskWithWorkspace } from '../types';
 import { useAppStore } from '../stores/appStore';
 import { useProjectStore } from '../stores/projectStore';
 import { useTerminalStore, terminalMatchesTag } from '../stores/terminalStore';
@@ -168,8 +167,8 @@ export async function openTaskWorktree(target: TaskWorktreeTarget): Promise<void
  * `task.start` creates the branch and worktree and moves a todo task to
  * in_progress; it runs no hook, and the spawn skips the continue hook, so what
  * lands is a plain shell in a new worktree. Same sequence the board's "open in
- * terminal" and the home recents panel already use for a task with no worktree,
- * so all three agree on what opening an unstarted task means.
+ * terminal" and the home recents panel already use for a task with no
+ * worktree.
  *
  * Creating a worktree takes long enough to see, so this borrows the kanban
  * drop's staging rather than awaiting it behind a closed palette: a loading slot
@@ -229,4 +228,61 @@ export async function startTaskWorktree(
       useTerminalStore.getState().removeTerminal(slotId);
     }
   }
+}
+
+/**
+ * What opening a task does, given the state it happens to be in.
+ *
+ * Two surfaces offer "take me to the work on this": the mod+K switcher's task
+ * rows and the GitHub panel's issue rows.
+ */
+export type TaskOpenAction = 'focus' | 'open' | 'start';
+
+export const TASK_OPEN_LABEL: Record<TaskOpenAction, string> = {
+  focus: 'Focus terminal',
+  open: 'Open worktree',
+  start: 'Start task',
+};
+
+/** The live shell for a task, if one is registered for its project. */
+function liveTerminalForTask(projectPath: string, taskNumber: number): string | null {
+  const store = useTerminalStore.getState();
+  for (const ptyId of store.terminalsByProject[projectPath] ?? []) {
+    const display = store.displayStates[ptyId];
+    if (display && !display.isLoading && display.taskId === taskNumber) return ptyId;
+  }
+  return null;
+}
+
+export function taskOpenAction(projectPath: string, task: TaskWithWorkspace): TaskOpenAction {
+  if (liveTerminalForTask(projectPath, task.taskNumber)) return 'focus';
+  return task.worktreePath && task.branch ? 'open' : 'start';
+}
+
+/**
+ * Go to a task's work: focus its shell, open one in its worktree, or create the
+ * worktree first.
+ *
+ * `knownPtyId` lets a caller that already resolved a live shell pass it in. The
+ * switcher does: it merges the store with `getActiveSessions`, so it can see
+ * shells in projects this renderer never hydrated, which a store lookup here
+ * would miss.
+ */
+export async function activateTask(project: Project, task: TaskWithWorkspace, knownPtyId?: string): Promise<void> {
+  const ptyId = knownPtyId ?? liveTerminalForTask(project.path, task.taskNumber);
+  if (ptyId) {
+    await focusTerminal(ptyId, project.path);
+    return;
+  }
+  if (task.worktreePath && task.branch) {
+    await openTaskWorktree({
+      project,
+      taskNumber: task.taskNumber,
+      worktreePath: task.worktreePath,
+      branch: task.branch,
+      createdAt: task.createdAt,
+    });
+    return;
+  }
+  await startTaskWorktree(project, task.taskNumber, task.createdAt, task.name || 'Untitled');
 }

@@ -1,12 +1,11 @@
 /**
  * One switcher result.
  *
- * Single line, fixed height. Rows used to stack a title over a subtitle, which
- * at a dozen results filled the panel with more text than could be scanned; the
- * supporting detail is now inline and dim, and the row's leading glyph carries
- * the type. That last part matters most — previously a terminal, a project and
- * a task in the same project all rendered the same colored initials tile, so
- * the icon column told you nothing.
+ * Single line, fixed height: a title stacked over a subtitle fills the panel
+ * with more text than can be scanned at a dozen results, so supporting detail
+ * is inline and dim. The leading glyph carries the type, which matters most —
+ * a colored initials tile is the same for a terminal, a project and a task in
+ * the same project, leaving the icon column saying nothing.
  *
  * Highlighting follows the field that actually matched. A row surfaced by its
  * branch or its tag shows that text, highlighted, instead of leaving the user
@@ -125,12 +124,17 @@ function BranchLabel({ item }: { item: PaletteItem }) {
 }
 
 /**
- * Leading column. A task leads with its number, which is what you scan for and
- * what you type; the other kinds lead with a glyph that says what they are.
+ * Leading column. A task or pull request leads with its number, which is what
+ * you scan for and what you type; the other kinds lead with a glyph that says
+ * what they are.
  */
 function Leading({ item }: { item: PaletteItem }) {
   if (item.taskNumber != null && item.kind === 'task') {
     return <span className="font-mono text-[11px] text-text-tertiary tabular-nums">T-{item.taskNumber}</span>;
+  }
+
+  if (item.kind === 'pull' && item.prNumber != null) {
+    return <span className="font-mono text-[11px] text-text-tertiary tabular-nums">#{item.prNumber}</span>;
   }
 
   if (item.status) {

@@ -5,6 +5,17 @@
 import { vi, afterEach } from 'vitest';
 import { cleanup } from '@testing-library/react';
 
+/**
+ * Importing the renderer logger under jsdom hangs — no error, no timeout, it
+ * takes the whole run with it, and the only symptom is a test file that never
+ * reports. Every renderer test so far has mocked it at the top of the file,
+ * which works but means the next one that does not gets an hour of bisecting.
+ * Mocked here so a component can be imported without knowing this.
+ */
+vi.mock('electron-log/renderer', () => ({
+  default: { scope: () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }) },
+}));
+
 // Cleanup React DOM after each test
 afterEach(() => {
   cleanup();
@@ -47,6 +58,8 @@ const mockApi = {
   getGitStatus: vi.fn().mockResolvedValue(null),
   getGitFileStatus: vi.fn().mockResolvedValue(null),
   getGitDropdownInfo: vi.fn().mockResolvedValue(null),
+  listDiffBases: vi.fn().mockResolvedValue({ refs: [], upstream: null, defaultRemote: null, lastFetch: null }),
+  fetchDiffBase: vi.fn().mockResolvedValue({ success: true }),
   gitCheckout: vi.fn().mockResolvedValue({ success: true }),
   gitCreateBranch: vi.fn().mockResolvedValue({ success: true }),
   gitMergeIntoMain: vi.fn().mockResolvedValue({ success: true }),
@@ -154,9 +167,86 @@ const mockApi = {
     get: vi.fn().mockResolvedValue(undefined),
     set: vi.fn().mockResolvedValue({ success: true }),
   },
+  health: {
+    check: vi.fn().mockResolvedValue({
+      git: true,
+      claude: true,
+      codex: true,
+      pi: true,
+      opencode: true,
+      lima: false,
+      nono: false,
+      gh: true,
+      ghVersionOk: true,
+    }),
+    onUpdate: vi.fn().mockReturnValue(() => {}),
+  },
+  diffNotes: {
+    list: vi.fn().mockResolvedValue([]),
+    save: vi.fn().mockResolvedValue(undefined),
+    discard: vi.fn().mockResolvedValue({ success: true }),
+    clear: vi.fn().mockResolvedValue({ success: true }),
+  },
+  github: {
+    availability: vi.fn().mockResolvedValue({ available: false, reason: 'flag-off' }),
+    inbox: vi
+      .fn()
+      .mockResolvedValue({ viewer: '', needsReview: [], mine: [], others: [], draftCounts: {}, linkedTasks: {} }),
+    pullRequest: vi.fn().mockResolvedValue(null),
+    pullRequestFreshness: vi
+      .fn()
+      .mockResolvedValue({ headSha: 'bbb', updatedAt: '2026-07-02T00:00:00.000Z', state: 'open', isDraft: false }),
+    pullRequestFiles: vi.fn().mockResolvedValue({ files: [], fromGit: false }),
+    pullRequestFileDiff: vi.fn().mockResolvedValue(null),
+    pullRequestFileVersions: vi.fn().mockResolvedValue({ before: null, after: null }),
+    issues: vi.fn().mockResolvedValue([]),
+    issue: vi.fn().mockResolvedValue(null),
+    linkTaskPr: vi.fn().mockResolvedValue({ success: true }),
+    linkTaskIssue: vi.fn().mockResolvedValue({ success: true }),
+    detectTaskPr: vi.fn().mockResolvedValue({ prNumber: null }),
+    drafts: vi.fn().mockResolvedValue([]),
+    viewedFiles: vi.fn().mockResolvedValue([]),
+    setFileViewed: vi.fn().mockResolvedValue([]),
+    saveDraft: vi.fn().mockResolvedValue({ id: 'draft-1' }),
+    discardDraft: vi.fn().mockResolvedValue({ success: true }),
+    submitReview: vi.fn().mockResolvedValue({ success: true }),
+    comment: vi.fn().mockResolvedValue({ success: true }),
+    replyToThread: vi.fn().mockResolvedValue({ success: true }),
+    deleteComment: vi.fn().mockResolvedValue({ success: true }),
+    resolveThread: vi.fn().mockResolvedValue({ success: true }),
+    createPr: vi.fn().mockResolvedValue({ success: true }),
+    mergePr: vi.fn().mockResolvedValue({ success: true }),
+    taskFromIssue: vi.fn().mockResolvedValue({ success: true }),
+    taskFromPr: vi.fn().mockResolvedValue({ success: true }),
+    onDraftsChanged: vi.fn().mockReturnValue(() => {}),
+  },
 };
 
 Object.defineProperty(window, 'api', {
   value: mockApi,
   writable: true,
 });
+
+// jsdom implements neither of these; Chromium implements both. Stubbed rather
+// than guarded at the call site so components can use them unconditionally.
+if (!('IntersectionObserver' in window)) {
+  class NoopIntersectionObserver {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+    takeRecords() {
+      return [];
+    }
+    readonly root = null;
+    readonly rootMargin = '';
+    readonly thresholds: number[] = [];
+  }
+  Object.defineProperty(window, 'IntersectionObserver', {
+    value: NoopIntersectionObserver,
+    writable: true,
+  });
+}
+
+if (!Element.prototype.scrollIntoView) {
+  Element.prototype.scrollIntoView = function scrollIntoView() {};
+}

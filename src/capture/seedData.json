@@ -27,8 +27,7 @@
       "status": "in_progress",
       "prompt": "Align CTA hover states with the design tokens.",
       "branch": "cta-hover-states-121",
-      "mergeTarget": "main",
-      "sandboxed": true
+      "mergeTarget": "main"
     },
     {
       "name": "Wire settings sync across windows",
@@ -49,13 +48,15 @@
       "name": "Speed up initial workspace scan",
       "status": "in_review",
       "prompt": "Parallelize workspace indexing on first load.",
-      "branch": "speed-up-workspace-scan-116"
+      "branch": "speed-up-workspace-scan-116",
+      "githubPrNumber": 116
     },
     {
       "name": "Harden session auth middleware",
       "status": "in_review",
       "prompt": "Rotate session tokens on privilege change and scope them per origin.",
-      "branch": "harden-session-auth-115"
+      "branch": "harden-session-auth-115",
+      "githubPrNumber": 115
     },
     {
       "name": "Make charts opt-in via feature flag",
@@ -73,7 +74,8 @@
       "name": "Add CSV export to the reports page",
       "status": "done",
       "prompt": "Export current report view as CSV with applied filters.",
-      "branch": "reports-csv-export-105"
+      "branch": "reports-csv-export-105",
+      "githubPrNumber": 105
     }
   ],
   "hooks": [

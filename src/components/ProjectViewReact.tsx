@@ -8,6 +8,7 @@ import { TerminalCardStack } from './terminal/TerminalCardStack';
 import { TerminalCanvas, syncCanvasWithTerminals } from './canvas/TerminalCanvas';
 import { KanbanBoard } from './kanban/KanbanBoard';
 import { ProjectSettingsPanel } from './scripts/ProjectSettingsPanel';
+import { PullRequestsPanel } from './github/PullRequestsPanel';
 import { StandaloneComposerSheet } from './kanban/StandaloneComposerSheet';
 import { RunHookDialog } from './dialogs/RunHookDialog';
 import { openTaskComposer } from '../utils/openTaskComposer';
@@ -54,6 +55,9 @@ export function ProjectView() {
   const terminalLayout = useProjectStore((s) => s.terminalLayout);
   const canvasEnabled = useExperimentalStore((s) =>
     projectPath ? (s.flagsByProject[projectPath]?.canvas ?? false) : false,
+  );
+  const githubEnabled = useExperimentalStore((s) =>
+    projectPath ? (s.flagsByProject[projectPath]?.github ?? false) : false,
   );
 
   const activeIndex = useTerminalStore((s) => (projectPath ? (s.activeIndices[projectPath] ?? 0) : 0));
@@ -231,6 +235,14 @@ export function ProjectView() {
     }
   }, [canvasEnabled, terminalLayout]);
 
+  // Same guard for the GitHub panel — turning the flag off must not leave the
+  // user stranded on a panel whose toggle has just disappeared.
+  useEffect(() => {
+    if (!githubEnabled && activePanel === 'pull-requests') {
+      useProjectStore.getState().setActivePanel('terminals');
+    }
+  }, [githubEnabled, activePanel]);
+
   // Reconnect orphaned sessions, or show kanban if none exist
   useEffect(() => {
     if (!projectPath) return;
@@ -328,6 +340,8 @@ export function ProjectView() {
     <div className="project-view h-full">
       {activePanel === 'settings' ? (
         <ProjectSettingsPanel projectPath={projectPath} />
+      ) : activePanel === 'pull-requests' ? (
+        <PullRequestsPanel projectPath={projectPath} />
       ) : (
         <>
           {kanbanVisible && <KanbanBoard projectPath={projectPath} onHide={handleHideKanban} />}

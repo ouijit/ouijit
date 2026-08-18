@@ -31,12 +31,6 @@ interface TaskComposerSheetProps {
 /**
  * The composer's expanded view, built as a document rather than a form.
  *
- * The panel is the app's floating surface — glass bevel, 14px squircle, panel
- * shadow — and inside it the draft is laid out the way the plan panel lays out
- * a markdown file: a thin chrome strip naming what you're looking at, then a
- * page with real margins holding a heading and its prose, scrolling as one
- * body. Actions are the app's flat pills.
- *
  * Both editors are views onto one piece of state held by the parent, so moving
  * between them is a change of surface rather than a handoff, including the
  * caret, which travels as an offset into the storage string.
@@ -121,8 +115,7 @@ export function TaskComposerSheet({
       if (e.repeat) return;
       const mod = isModKey(e);
       // ⌘E only on the platform it belongs to: Ctrl+E is move-to-end-of-line
-      // in a macOS text field, and shadowing it here would cost more than the
-      // shortcut is worth.
+      // in a macOS text field.
       if (e.key === 'Escape' || (mod && e.key.toLowerCase() === 'e')) {
         e.preventDefault();
         e.stopPropagation();
@@ -192,8 +185,8 @@ export function TaskComposerSheet({
                 sizeName();
               }}
               onKeyDown={(e) => {
-                // Enter moves into the body rather than submitting: on a page
-                // this size, the description is the point.
+                // Enter moves into the body rather than submitting: the sheet
+                // is opened to write a description.
                 if (e.key === 'Enter') {
                   e.preventDefault();
                   editorRef.current?.focus();

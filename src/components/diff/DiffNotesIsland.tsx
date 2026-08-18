@@ -1,0 +1,133 @@
+import type { DiffNote } from '../../diffNotes';
+import { formatNotesForAgent } from '../../diffNotes';
+import { describeLines } from '../../diffAnchor';
+import { useProjectStore } from '../../stores/projectStore';
+import { Icon } from '../terminal/Icon';
+import { Tooltip } from '../ui/Tooltip';
+import { PendingRow } from '../ui/PendingRow';
+import { ActionMenu } from '../ui/ActionMenu';
+import { MenuDivider, MenuItem } from '../ui/Menu';
+import { SegmentedGroup, segmentBase, segmentQuiet } from '../ui/SegmentedGroup';
+
+interface DiffNotesIslandProps {
+  notes: DiffNote[];
+  /**
+   * The notes whose lines are on screen under the comparison being viewed.
+   *
+   * The rest are as live as any other — a note on work since committed is
+   * simply not in a diff of what is uncommitted — so they are listed and handed
+   * over all the same, and only say that there is nothing to jump to.
+   */
+  inView: ReadonlySet<string>;
+  /** The comparison these were written on, for the heading the agent is handed. */
+  subject: string;
+  /** The terminal the notes are about, and the one they are handed to. */
+  ptyId: string;
+  onJump: (note: DiffNote) => void;
+  onDiscard: (id: string) => Promise<void>;
+  onClear: () => Promise<void>;
+}
+
+/**
+ * Write the notes into the terminal as a paste rather than as typing.
+ *
+ * The bracketed-paste markers are what a terminal emulator wraps a real paste
+ * in; without them a newline is the Enter key and a three-line note submits
+ * itself a third of the way through. Nothing follows the closing marker, so the
+ * text sits in the agent's prompt unsent.
+ */
+function pasteIntoTerminal(ptyId: string, text: string): void {
+  window.api.pty.write(ptyId, `\x1b[200~${text}\x1b[201~`);
+}
+
+/**
+ * The notes written on this diff, and the two ways to hand them over.
+ *
+ * Mounted only while there are notes, and floated over the foot of the pane
+ * rather than sat in the header, since notes are written while scrolling.
+ */
+export function DiffNotesIsland({ notes, inView, subject, ptyId, onJump, onDiscard, onClear }: DiffNotesIslandProps) {
+  if (notes.length === 0) return null;
+
+  // Formatted when it is asked for, not on every render: nothing on screen
+  // shows it, and it walks every note.
+  const forAgent = () => formatNotesForAgent(notes, subject);
+
+  const copy = () => {
+    void navigator.clipboard.writeText(forAgent()).then(
+      () => useProjectStore.getState().addToast(`${notes.length} copied`, 'success'),
+      () => useProjectStore.getState().addToast('Could not copy the notes', 'error'),
+    );
+  };
+
+  return (
+    // Inset from the foot of the pane and centred on the diff column. Only the
+    // capsule takes pointer events, so the well behind it stays scrollable.
+    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-40 max-w-[calc(100%-2rem)] pointer-events-none">
+      <div className="pointer-events-auto">
+        <SegmentedGroup floating>
+          <ActionMenu label={`${notes.length} ${notes.length === 1 ? 'note' : 'notes'}`} dot placement="top-start">
+            {(close) => (
+              <>
+                {notes.map((note) => (
+                  <PendingRow
+                    key={note.id}
+                    path={note.path}
+                    line={describeLines(note.startLine, note.line)}
+                    body={note.body}
+                    discardTitle="Discard this note"
+                    badge={
+                      inView.has(note.id) ? undefined : (
+                        <span className="shrink-0 px-1 rounded bg-ink/[0.08] text-text-secondary">
+                          not in this comparison
+                        </span>
+                      )
+                    }
+                    onJump={() => {
+                      if (!inView.has(note.id)) return;
+                      close();
+                      onJump(note);
+                    }}
+                    onDiscard={() => void onDiscard(note.id)}
+                  />
+                ))}
+                <MenuDivider />
+                <MenuItem
+                  label="Discard all"
+                  onClick={() => {
+                    close();
+                    void onClear();
+                  }}
+                />
+              </>
+            )}
+          </ActionMenu>
+
+          <Tooltip text="Copy" placement="top" referenceClassName="inline-flex h-full">
+            <button
+              type="button"
+              aria-label="Copy"
+              className={`${segmentBase} ${segmentQuiet} [&>svg]:w-3.5 [&>svg]:h-3.5`}
+              onClick={copy}
+            >
+              <Icon name="copy" />
+            </button>
+          </Tooltip>
+
+          {/* The agent these are meant for is the terminal this panel is split
+              against. */}
+          <Tooltip text="Send" placement="top" referenceClassName="inline-flex h-full">
+            <button
+              type="button"
+              aria-label="Send"
+              className={`${segmentBase} ${segmentQuiet} [&>svg]:w-3.5 [&>svg]:h-3.5`}
+              onClick={() => pasteIntoTerminal(ptyId, forAgent())}
+            >
+              <Icon name="terminal" />
+            </button>
+          </Tooltip>
+        </SegmentedGroup>
+      </div>
+    </div>
+  );
+}

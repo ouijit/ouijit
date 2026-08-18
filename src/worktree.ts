@@ -20,6 +20,7 @@ import {
   setTaskWorktreePath,
   setTaskMergeTarget,
   getGlobalSetting,
+  clearDiffNotes,
   type TaskMetadata,
 } from './db';
 import { mergeWorktreeBranch } from './git';
@@ -241,10 +242,9 @@ async function copyGitIgnoredFiles(
     if (items.length === 0) return;
 
     // CoW clones only work within a single volume. When the project and the
-    // worktree live on different devices, skip the doomed clone syscalls and
-    // go straight to cp, and say so in the log, because "quick start is slow"
-    // reports are often exactly this: every copy silently degrading to a full
-    // physical copy.
+    // worktree live on different devices, skip the doomed clone syscalls and go
+    // straight to cp, and log it: a degrade to full physical copies is
+    // otherwise indistinguishable from a slow start.
     if (clonefileAsync || ficloneFn) {
       try {
         const [srcStat, dstStat] = await Promise.all([fs.stat(sourcePath), fs.stat(worktreePath)]);
@@ -556,7 +556,10 @@ async function startTaskImpl(
       await execAsync('git commit --allow-empty -m "Initial commit"', { cwd: projectPath });
     }
 
-    const mergeTarget = baseBranch || branchHead;
+    // A task that already names its merge target keeps it. A pull request
+    // checked out here merges back into that PR's base branch, which is rarely
+    // the branch the project happened to be on when the worktree was made.
+    const mergeTarget = baseBranch || task.mergeTarget || branchHead;
 
     // Probe + add run inside the mutex so two concurrent starts don't both
     // claim the same T-N. Prune has already completed above, so the probe
@@ -764,6 +767,11 @@ export async function removeTaskWorktree(
         // Branch may already be deleted, ignore
       }
     }
+
+    // Notes are keyed by worktree path, and this path is handed out again the
+    // next time this task is started — without this they would come back with
+    // it, pointing into a tree that has been rebuilt since.
+    await clearDiffNotes(worktreePath);
 
     // Delete task metadata
     if (!Number.isNaN(taskNumber)) {

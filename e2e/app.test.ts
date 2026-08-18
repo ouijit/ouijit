@@ -49,6 +49,23 @@ async function dismissKanban(appPage: Page): Promise<void> {
 }
 
 /**
+ * Helper: open the Todo column's composer and hand back its title field.
+ *
+ * The composer rests as a collapsed row and only becomes a field when asked
+ * for, so a test that means to type a task name has to open it first. ⌘N is
+ * the way in, and it reaches the column only while the board is up — off the
+ * board the same key opens the composer as a sheet instead.
+ */
+async function openColumnComposer(appPage: Page): Promise<Locator> {
+  await expect(appPage.locator('.kanban-board')).toBeVisible({ timeout: 5_000 });
+  await appPage.keyboard.press(`${modifier}+n`);
+  const input = appPage.locator('.kanban-add-input');
+  await expect(input).toBeVisible({ timeout: 5_000 });
+  await expect(input).toBeFocused();
+  return input;
+}
+
+/**
  * Helper: pick a leaf entry out of a context-menu submenu ("Open in ▸ Terminal").
  * The flyout is a CSS hover state on its parent row, so the parent has to be
  * hovered before the leaf exists as a click target.
@@ -152,12 +169,17 @@ test('project mode: terminals, kanban, context menu, and task lifecycle', async 
 
   // --- Kanban task creation ---
 
+  // Away from the board, ⌘N opens the composer as a sheet over the terminals
+  // rather than switching the view out from under you. Dismissed again here —
+  // the rest of this test is about the task landing in the column.
   await appPage.keyboard.press(`${modifier}+n`);
-  await expect(appPage.locator('.kanban-board')).toBeVisible({ timeout: 5_000 });
+  const composerSheet = appPage.locator('[data-testid="composer-sheet"]');
+  await expect(composerSheet).toBeVisible({ timeout: 5_000 });
+  await appPage.keyboard.press('Escape');
+  await expect(composerSheet).toHaveCount(0, { timeout: 5_000 });
 
-  const input = appPage.locator('.kanban-add-input');
-  await expect(input).toBeVisible();
-  await expect(input).toBeFocused();
+  await appPage.keyboard.press(`${modifier}+t`);
+  const input = await openColumnComposer(appPage);
   await input.fill('E2E test task');
   await input.press('Enter');
 
@@ -269,10 +291,8 @@ test('lifecycle hooks: start hook via drag shows dialog', async ({ appPage, test
     await window.api.hooks.save(rp, { id: 'hook-start', type: 'start', name: 'Start', command: 'echo starting' });
   }, repoPath);
 
-  // Open kanban and create a task
-  await appPage.keyboard.press(`${modifier}+n`);
-  await expect(appPage.locator('.kanban-board')).toBeVisible({ timeout: 5_000 });
-  const input = appPage.locator('.kanban-add-input');
+  // Create a task — entering the project already left the board up
+  const input = await openColumnComposer(appPage);
   await input.fill('Hook task');
   await input.press('Enter');
 
@@ -305,6 +325,9 @@ test('lifecycle hooks: start hook via drag shows dialog', async ({ appPage, test
 
   // --- Cancel flow: create task 2, drag, cancel dialog ---
 
+  // The composer went back to its resting row when the first task was created,
+  // and again when the board remounted behind the terminal toggle.
+  await openColumnComposer(appPage);
   await input.fill('Hook task 2');
   await input.press('Enter');
   await expect(todoColumn.locator('.kanban-card')).toHaveCount(1, { timeout: 5_000 });
@@ -334,6 +357,7 @@ test('lifecycle hooks: start hook via drag shows dialog', async ({ appPage, test
     await window.api.hooks.delete(rp, 'start');
   }, repoPath);
 
+  await openColumnComposer(appPage);
   await input.fill('Hook task 3');
   await input.press('Enter');
   await expect(todoColumn.locator('.kanban-card')).toHaveCount(1, { timeout: 5_000 });
@@ -353,7 +377,7 @@ test('missing worktree: recovery dialog recreates worktree on open', async ({ ap
   await enterProject(appPage, repoPath);
 
   // Create a task and open it in terminal (creates worktree, moves to in_progress)
-  const input = appPage.locator('.kanban-add-input');
+  const input = await openColumnComposer(appPage);
   await input.fill('Recovery task');
   await input.press('Enter');
 
@@ -447,7 +471,7 @@ test('open in editor: runs the editor hook in a task terminal with the worktree 
   );
 
   // Create a task and open it in a terminal (creates the worktree).
-  const input = appPage.locator('.kanban-add-input');
+  const input = await openColumnComposer(appPage);
   await input.fill('Editor task');
   await input.press('Enter');
 

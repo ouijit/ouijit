@@ -1,0 +1,39 @@
+import { describe, test, expect } from 'vitest';
+import { UNCOMMITTED_BASE, describeDiffComparison, diffSubject, filesInDiff, isUncommittedBase } from '../diffSource';
+import type { ChangedFile, GitFileStatus } from '../git';
+
+function file(path: string): ChangedFile {
+  return { path, status: 'M', additions: 1, deletions: 0 };
+}
+
+function status(changed: string[], untracked: string[]): GitFileStatus {
+  return {
+    branch: 'feat/x',
+    mainBranch: 'main',
+    base: 'main',
+    commitsAheadOfMain: 1,
+    changedFiles: changed.map(file),
+    untrackedFiles: untracked.map((path) => ({ ...file(path), status: '?' as const })),
+  };
+}
+
+describe('what the panel is comparing', () => {
+  test('the uncommitted changes are a base like any other, and so is the branch itself', () => {
+    expect(isUncommittedBase(UNCOMMITTED_BASE, 'feat/x')).toBe(true);
+    // Nothing on a branch is absent from that same branch.
+    expect(isUncommittedBase('main', 'main')).toBe(true);
+    expect(isUncommittedBase('origin/main', 'feat/x')).toBe(false);
+  });
+
+  test('reads as the ref it is against, or as what that means when the ref says nothing', () => {
+    expect(describeDiffComparison('origin/main', 'feat/x')).toBe('vs origin/main');
+    expect(diffSubject('origin/main', 'feat/x')).toBe('the changes against origin/main');
+    expect(describeDiffComparison(UNCOMMITTED_BASE, 'feat/x')).toBe('Uncommitted changes');
+    expect(diffSubject(UNCOMMITTED_BASE, 'feat/x')).toBe('the uncommitted changes');
+  });
+
+  test('untracked files join whatever it is compared against, and can be all of it', () => {
+    expect(filesInDiff(status(['a.ts'], ['new.ts'])).map((f) => f.path)).toEqual(['a.ts', 'new.ts']);
+    expect(filesInDiff(status([], ['new.ts'])).map((f) => f.path)).toEqual(['new.ts']);
+  });
+});

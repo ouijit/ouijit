@@ -2,7 +2,7 @@ import { memo, useState, useCallback, useEffect, useMemo, useRef, type ReactNode
 import { useDraggable } from '@dnd-kit/core';
 import { useShallow } from 'zustand/react/shallow';
 import type { TaskWithWorkspace, SandboxProviderId } from '../../types';
-import { openInEntry, moveToEntry, STATUS_LABELS, type TaskMenuActions } from './taskMenu';
+import { openInEntry, moveToEntry, githubEntries, STATUS_LABELS, type TaskMenuActions } from './taskMenu';
 import { completeTask } from '../../services/taskCompletion';
 import { useTerminalStore, type TerminalDisplayState } from '../../stores/terminalStore';
 import { useProjectStore } from '../../stores/projectStore';
@@ -19,6 +19,9 @@ import type { TaskChainInfo } from '../../utils/taskChain';
 import { isChainMember, isDescendantOf } from '../../utils/taskChain';
 import { KanbanCardView } from './KanbanCardView';
 import { KanbanBadgeView } from './KanbanBadgeView';
+import { KanbanPrBadgeView } from './KanbanPrBadgeView';
+import { useExperimentalStore } from '../../stores/experimentalStore';
+import { openPullRequestInPanel, createPullRequestForTask, unlinkPullRequest } from '../../services/githubTaskActions';
 
 interface KanbanCardProps {
   task: TaskWithWorkspace;
@@ -65,6 +68,7 @@ export const KanbanCard = memo(function KanbanCard({
   const [isRenamingTask, setIsRenamingTask] = useState(false);
 
   const isInChain = isChainMember(chainInfo);
+  const githubEnabled = useExperimentalStore((s) => s.flagsByProject[projectPath]?.github ?? false);
 
   // Badge drag visual feedback — derive per-card booleans in selectors to avoid O(N) re-renders
   const activeBadgeDragSource = useProjectStore((s) => s.activeBadgeDrag);
@@ -252,6 +256,18 @@ export const KanbanCard = memo(function KanbanCard({
       onClick: handleStartRenameTask,
     });
 
+    const github = githubEntries(
+      { enabled: githubEnabled, prNumber: task.githubPrNumber, hasBranch: !!task.branch },
+      {
+        openPullRequest: (prNumber) => openPullRequestInPanel(projectPath, prNumber),
+        createPullRequest: () => void createPullRequestForTask(projectPath, task),
+        unlinkPullRequest: () => void unlinkPullRequest(projectPath, task.taskNumber),
+      },
+    );
+    if (github.length > 0) {
+      items.push({ separator: true }, ...github);
+    }
+
     return items;
   }, [
     connectedDisplays,
@@ -261,6 +277,7 @@ export const KanbanCard = memo(function KanbanCard({
     hasEditorHook,
     isSelected,
     selectedCount,
+    githubEnabled,
     onSwitchToTerminal,
     onOpenTerminal,
     handleStartRenameTask,
@@ -280,6 +297,14 @@ export const KanbanCard = memo(function KanbanCard({
         badge={
           showBadge ? (
             <DraggableBadge task={task} projectPath={projectPath} chainInfo={chainInfo} chainMap={chainMap} />
+          ) : null
+        }
+        prBadge={
+          githubEnabled && task.githubPrNumber != null ? (
+            <KanbanPrBadgeView
+              prNumber={task.githubPrNumber}
+              onClick={() => openPullRequestInPanel(projectPath, task.githubPrNumber!)}
+            />
           ) : null
         }
         formattedDate={formattedDate}

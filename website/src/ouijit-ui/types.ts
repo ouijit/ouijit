@@ -32,4 +32,6 @@ export interface TaskWithWorkspace {
   sandboxed?: boolean;
   order?: number;
   parentTaskNumber?: number;
+  githubPrNumber?: number;
+  githubIssueNumber?: number;
 }

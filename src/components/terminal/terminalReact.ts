@@ -16,6 +16,7 @@ import { isActiveSandbox } from '../../types';
 import { notifyReady, readyBody } from '../../utils/notifications';
 import { generateId } from '../../utils/ids';
 import { useTerminalStore } from '../../stores/terminalStore';
+import { diffBaseSettingKey } from '../../diffSource';
 import { closeProjectTerminal } from './terminalActions';
 import { parseOsc133ExitCodes } from './osc133';
 import type { TerminalPanel, RunnerPanel, WebPreviewPanel } from './panelTypes';
@@ -304,11 +305,46 @@ function scheduleTerminalGitStatusRefresh(term: OuijitTerminal): void {
   );
 }
 
-export async function refreshTerminalGitStatus(term: OuijitTerminal): Promise<void> {
-  const gitPath = term.worktreePath || term.projectPath;
-  const fileStatus = await window.api.getGitFileStatus(gitPath, term.mergeTarget);
+/**
+ * The ref this terminal's diff is taken against.
+ *
+ * The reader's choice, then the task's merge target, and `getGitFileStatus`
+ * falls back to the project's main branch when neither says — and reports back
+ * which it used. Both the status poll and the per-file loads have to ask for
+ * the same one, or the file list and the hunks under it are two different
+ * comparisons.
+ */
+function diffBaseFor(term: OuijitTerminal): string | undefined {
+  return term.diffBase ?? term.mergeTarget;
+}
+
+function diffBaseKey(term: OuijitTerminal): string {
+  return diffBaseSettingKey(term.worktreePath || term.projectPath);
+}
+
+/**
+ * Put back the comparison this worktree was last read against.
+ *
+ * Runs a settings read behind the first status poll, so an early poll answers
+ * for the merge target and this corrects it. A pick made in the meantime is the
+ * newer answer and is left alone.
+ */
+async function restoreDiffBase(term: OuijitTerminal): Promise<void> {
+  const stored = await window.api.globalSettings.get(diffBaseKey(term));
+  if (!stored || term.diffBase) return;
+  term.diffBase = stored;
+  await refreshTerminalGitStatus(term);
+}
+
+function applyGitStatus(term: OuijitTerminal, fileStatus: GitFileStatus | null): void {
   term.gitFileStatus = fileStatus;
   term.pushDisplayState({ gitFileStatus: fileStatus });
+}
+
+export async function refreshTerminalGitStatus(term: OuijitTerminal): Promise<void> {
+  const gitPath = term.worktreePath || term.projectPath;
+  const fileStatus = await window.api.getGitFileStatus(gitPath, diffBaseFor(term));
+  applyGitStatus(term, fileStatus);
 }
 
 export async function refreshAllTerminalGitStatus(projectPath: string): Promise<void> {
@@ -316,13 +352,14 @@ export async function refreshAllTerminalGitStatus(projectPath: string): Promise<
   const ptyIds = store.terminalsByProject[projectPath] ?? [];
   if (ptyIds.length === 0) return;
 
-  // Group by gitPath + mergeTarget so child-task terminals diff against their parent branch
+  // Group by gitPath + base, so a child task diffing against its parent branch
+  // and a terminal the reader pointed at a remote each get their own answer.
   const groupToTerminals = new Map<string, OuijitTerminal[]>();
   for (const ptyId of ptyIds) {
     const term = terminalInstances.get(ptyId);
     if (!term) continue;
     const gitPath = term.worktreePath || term.projectPath;
-    const key = `${gitPath}\0${term.mergeTarget ?? ''}`;
+    const key = `${gitPath}\0${diffBaseFor(term) ?? ''}`;
     const group = groupToTerminals.get(key);
     if (group) {
       group.push(term);
@@ -334,12 +371,8 @@ export async function refreshAllTerminalGitStatus(projectPath: string): Promise<
   await Promise.all(
     Array.from(groupToTerminals.entries()).map(async ([key, terms]) => {
       const gitPath = key.split('\0')[0];
-      const mergeTarget = terms[0].mergeTarget;
-      const fileStatus = await window.api.getGitFileStatus(gitPath, mergeTarget);
-      for (const t of terms) {
-        t.gitFileStatus = fileStatus;
-        t.pushDisplayState({ gitFileStatus: fileStatus });
-      }
+      const fileStatus = await window.api.getGitFileStatus(gitPath, diffBaseFor(terms[0]));
+      for (const t of terms) applyGitStatus(t, fileStatus);
     }),
   );
 }
@@ -406,7 +439,8 @@ export class OuijitTerminal {
 
   // ── Diff (automatic, header-driven — not a user-managed panel tab) ──
   diffPanelOpen = false;
-  diffPanelMode: 'uncommitted' | 'worktree' = 'uncommitted';
+  /** Ref the diff is taken against. Unset falls back to the merge target. */
+  diffBase?: string;
 
   // ── Data side-effect throttling ─────────────────────────────────────
   private sideEffectTimer: ReturnType<typeof setTimeout> | null = null;
@@ -442,10 +476,7 @@ export class OuijitTerminal {
     this.worktreeBranch = opts.worktreeBranch;
     this.mergeTarget = opts.mergeTarget;
     this.autoCloseOnSuccess = opts.autoCloseOnSuccess ?? false;
-
-    if (opts.taskId != null) {
-      this.diffPanelMode = 'worktree';
-    }
+    void restoreDiffBase(this);
 
     // Initialize display state
     this.label = opts.label;
@@ -860,6 +891,13 @@ export class OuijitTerminal {
 
   toggleDiffPanel(): void {
     this.setDiffPanelOpen(!this.diffPanelOpen);
+  }
+
+  /** Compare against something else, and read the change back straight away. */
+  setDiffBase(base: string): void {
+    this.diffBase = base;
+    void window.api.globalSettings.set(diffBaseKey(this), base);
+    void refreshTerminalGitStatus(this);
   }
 
   closePanel(id: string): void {

@@ -9,6 +9,7 @@ export function ExperimentalFeaturesSection({ projectPath }: ExperimentalFeature
   const flags = useExperimentalStore((s) => s.flagsByProject[projectPath]);
   const canvasEnabled = flags?.canvas ?? false;
   const nonoEnabled = flags?.nono ?? false;
+  const githubEnabled = flags?.github ?? false;
 
   const handleToggleCanvas = async () => {
     const next = !canvasEnabled;
@@ -25,6 +26,16 @@ export function ExperimentalFeaturesSection({ projectPath }: ExperimentalFeature
     await useProjectStore.getState().loadProjectConfig(projectPath);
   };
 
+  const handleToggleGithub = async () => {
+    const next = !githubEnabled;
+    await useExperimentalStore.getState().setFlag(projectPath, 'github', next);
+    // The panel is a projectStore value, so leaving it selected after the
+    // toggle disappears would strand the user on a panel they can't get back to.
+    if (!next && useProjectStore.getState().activePanel === 'pull-requests') {
+      useProjectStore.getState().setActivePanel('terminals');
+    }
+  };
+
   return (
     <div className="glass-bevel relative border border-bezel rounded-[14px] overflow-hidden divide-y divide-ink/[0.06] bg-terminal-bg">
       <ToggleRow
@@ -38,6 +49,12 @@ export function ExperimentalFeaturesSection({ projectPath }: ExperimentalFeature
         description="Run a task's terminals under nono's kernel-level access limits instead of a Lima VM."
         checked={nonoEnabled}
         onChange={handleToggleNono}
+      />
+      <ToggleRow
+        label="GitHub"
+        description="Pull request inbox and review, powered by the GitHub CLI. Requires gh on PATH and signed in."
+        checked={githubEnabled}
+        onChange={handleToggleGithub}
       />
     </div>
   );

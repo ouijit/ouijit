@@ -17,6 +17,7 @@ import { getShellIntegrationDir, installShellIntegration } from './shellIntegrat
 import { getLogger } from './logger';
 import { handleApiRequest } from './api/router';
 import { authenticateRequest, type AuthContext } from './apiAuth';
+import { getWrapperBinDir } from './paths';
 
 const hookServerLog = getLogger().scope('hookServer');
 
@@ -206,11 +207,6 @@ export function stopHookServer(): Promise<void> {
 
 // ── Hook definitions ─────────────────────────────────────────────────
 
-/** Path where wrapper and helper scripts are installed. */
-export function getWrapperBinDir(): string {
-  return path.join(os.homedir(), '.config', 'Ouijit', 'bin');
-}
-
 /** Path to the CLI reference file loaded by Claude via --append-system-prompt-file. */
 export function getCliReferencePath(): string {
   return path.join(os.homedir(), '.config', 'Ouijit', 'ouijit-cli-reference.md');
@@ -331,6 +327,31 @@ ouijit script set --name "<name>" --command "<cmd>"
 ouijit script run <id-or-name>                # executes and streams output
 ouijit script run <id-or-name> --task <number> # run in task's worktree dir
 
+## Pull Requests
+Use these, not \`gh\`, for anything that belongs to a review. \`gh\` reaches
+GitHub directly and posts under the user's name; these write locally, and the
+user sends the review themselves. Reading the diff with \`gh pr diff <n>\` is
+fine — there is no Ouijit equivalent — but nothing should be posted with \`gh\`.
+
+A task made from a pull request carries its number:
+ouijit task current | jq .githubPrNumber
+
+ouijit pr list                                # → open PRs, grouped review/yours/others
+ouijit pr view <number>                       # → one PR with threads, timeline, checks
+ouijit pr link <number> --task <n>            # link a PR to a task
+
+### Review comments (staged locally, sent by the user)
+ouijit pr draft list <number>
+ouijit pr draft add <number> --file <path> --line <n> --body "<text>" [--origin <name>]
+ouijit pr draft add <number> --file <path> --line <n> --body -    # body on stdin
+ouijit pr draft discard <number> <draft-id>
+
+--body - is the one to use for anything multi-line. --origin names who wrote it,
+so the user can see which comments came from an agent before sending.
+Anchor to a line that appears as an ADDED line in the diff, by its new-file line
+number: GitHub rejects the whole review at submit time if any comment points at
+a line outside the diff, so a bad anchor loses every comment with it.
+
 ## Markdown Panel Commands (open .md files as tabs in this terminal)
 ouijit markdown add <path.md>                 # open a markdown file panel on this terminal
 ouijit markdown list                          # → {ptyId, kind, panels: [{label, path, active}, ...]}
@@ -384,6 +405,13 @@ ouijit tag add 3 auth
 
 # Set up a project run hook:
 ouijit hook set run --name "Dev server" --command "npm run dev"
+
+# Review a pull request without posting anything to GitHub:
+PR=$(ouijit task current | jq .githubPrNumber)
+gh pr diff $PR                                # read it
+ouijit pr draft add $PR --file src/api.ts --line 88 \\
+  --origin claude --body "this can throw when the token is missing"
+# ...then the user reads the staged comments and sends the review themselves.
 `;
 
 /**

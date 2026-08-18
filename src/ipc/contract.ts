@@ -19,6 +19,7 @@ import type {
   GitDropdownInfo,
   GitCheckoutResult,
   GitMergeResult,
+  DiffBases,
   FileDiff,
   WorktreeDiffSummary,
   WorktreeInfo,
@@ -43,6 +44,25 @@ import type {
   CliPanelResponse,
 } from '../types';
 import type { LimaStatus } from '../lima/types';
+import type {
+  GithubAvailability,
+  PullRequestDetail,
+  PullRequestFreshness,
+  GithubIssue,
+  IssueDetail,
+  CommentKind,
+  ReviewDraft,
+  PrHead,
+  ReviewEvent,
+  MergeMethod,
+  GithubDraftsChangedPayload,
+  InboxResult,
+  PullRequestFilesResult,
+  SaveDraftInput,
+  PromoteToTaskResult,
+  PrFileVersions,
+} from '../github/types';
+import type { DiffNote, SaveDiffNoteInput } from '../diffNotes';
 import type { SandboxProviderStatus, NonoConfig } from '../sandbox/types';
 import type { HookStatusEntry } from '../hookServer';
 import type { HealthStatus } from '../healthCheck';
@@ -95,10 +115,18 @@ export interface IpcInvokeContract {
   'get-git-status': { args: [projectPath: string]; return: GitStatus | null };
   'get-git-file-status': { args: [projectPath: string, diffBase?: string]; return: GitFileStatus | null };
   'get-git-dropdown-info': { args: [projectPath: string]; return: GitDropdownInfo | null };
+  'git-diff-bases': { args: [projectPath: string]; return: DiffBases };
+  'git-fetch-diff-base': {
+    args: [projectPath: string, ref: string];
+    return: { success: boolean; error?: string };
+  };
   'git-checkout': { args: [projectPath: string, branchName: string]; return: GitCheckoutResult };
   'git-create-branch': { args: [projectPath: string, branchName: string]; return: GitCheckoutResult };
   'git-merge-into-main': { args: [projectPath: string]; return: GitMergeResult };
-  'get-file-diff': { args: [projectPath: string, filePath: string, contextLines?: number]; return: FileDiff | null };
+  'get-file-diff': {
+    args: [projectPath: string, filePath: string, contextLines: number | undefined, untracked: boolean];
+    return: FileDiff | null;
+  };
 
   // ── PTY ──────────────────────────────────────────────────────────────
   'pty:spawn': { args: [options: PtySpawnOptions]; return: PtySpawnResult };
@@ -167,7 +195,7 @@ export interface IpcInvokeContract {
     return: WorktreeDiffSummary | null;
   };
   'worktree:get-file-diff': {
-    args: [projectPath: string, worktreeBranch: string, filePath: string, targetBranch?: string, contextLines?: number];
+    args: [gitPath: string, base: string, filePath: string, oldPath?: string, contextLines?: number];
     return: FileDiff | null;
   };
   'worktree:merge': { args: [projectPath: string, worktreeBranch: string]; return: GitMergeResult };
@@ -221,6 +249,100 @@ export interface IpcInvokeContract {
   'sandbox:status': { args: [projectPath: string]; return: SandboxProviderStatus[] };
   'sandbox:nono-config': { args: [projectPath: string]; return: NonoConfig };
   'sandbox:set-nono-config': { args: [projectPath: string, config: NonoConfig]; return: { success: boolean } };
+
+  // ── GitHub ───────────────────────────────────────────────────────────
+  // Every one of these runs `gh` on the host from the main process. No token
+  // is ever read, stored, or handed to a renderer or a sandbox guest.
+  'github:availability': { args: [projectPath: string, recheck?: boolean]; return: GithubAvailability };
+  'github:inbox': { args: [projectPath: string]; return: InboxResult };
+  'github:pull-request': { args: [projectPath: string, number: number]; return: PullRequestDetail };
+  'github:pull-request-files': {
+    args: [projectPath: string, number: number, baseSha: string, headSha: string];
+    return: PullRequestFilesResult;
+  };
+  'github:pull-request-file-diff': {
+    args: [
+      projectPath: string,
+      number: number,
+      baseSha: string,
+      headSha: string,
+      filePath: string,
+      contextLines?: number,
+      oldPath?: string,
+    ];
+    return: FileDiff | null;
+  };
+  'github:pull-request-freshness': { args: [projectPath: string, number: number]; return: PullRequestFreshness };
+  'github:pull-request-file-versions': {
+    args: [projectPath: string, number: number, baseSha: string, headSha: string, filePath: string, oldPath?: string];
+    return: PrFileVersions;
+  };
+  'github:viewed-files': { args: [projectPath: string, prNumber: number, headSha: string]; return: string[] };
+  'github:set-file-viewed': {
+    args: [projectPath: string, prNumber: number, headSha: string, path: string, viewed: boolean];
+    return: string[];
+  };
+  'github:issues': { args: [projectPath: string]; return: GithubIssue[] };
+  'github:issue': { args: [projectPath: string, number: number]; return: IssueDetail };
+
+  'github:link-task-pr': {
+    args: [projectPath: string, taskNumber: number, prNumber: number | null];
+    return: { success: boolean; error?: string };
+  };
+  'github:link-task-issue': {
+    args: [projectPath: string, taskNumber: number, issueNumber: number | null];
+    return: { success: boolean; error?: string };
+  };
+  'github:detect-task-pr': { args: [projectPath: string, taskNumber: number]; return: { prNumber: number | null } };
+
+  // ── Diff notes ─────────────────────────────────────────────────────
+  // Notes on a worktree's own diff, keyed by the worktree rather than by a pull
+  // request, since they are handed to the agent working in it rather than sent.
+  'diff-notes:list': { args: [worktreePath: string, keep?: string[]]; return: DiffNote[] };
+  'diff-notes:save': { args: [input: SaveDiffNoteInput]; return: { success: boolean } };
+  'diff-notes:discard': { args: [id: string]; return: { success: boolean } };
+  'diff-notes:clear': { args: [worktreePath: string]; return: { success: boolean } };
+
+  'github:drafts': { args: [projectPath: string, prNumber: number, head?: PrHead]; return: ReviewDraft[] };
+  'github:save-draft': { args: [projectPath: string, input: SaveDraftInput]; return: ReviewDraft };
+  'github:discard-draft': { args: [projectPath: string, draftId: string]; return: { success: boolean } };
+  'github:submit-review': {
+    args: [projectPath: string, prNumber: number, event: ReviewEvent, body: string];
+    return: { success: boolean; error?: string; url?: string };
+  };
+  'github:comment': {
+    args: [projectPath: string, prNumber: number, body: string];
+    return: { success: boolean; error?: string };
+  };
+  'github:reply-to-thread': {
+    args: [projectPath: string, prNumber: number, commentId: number, body: string];
+    return: { success: boolean; error?: string };
+  };
+  'github:delete-comment': {
+    args: [projectPath: string, kind: CommentKind, commentId: number];
+    return: { success: boolean; error?: string };
+  };
+  'github:resolve-thread': {
+    args: [projectPath: string, threadId: string, resolved: boolean];
+    return: { success: boolean; error?: string };
+  };
+  'github:create-pr': {
+    args: [
+      projectPath: string,
+      taskNumber: number,
+      options: { title?: string; body?: string; base?: string; draft?: boolean },
+    ];
+    return: { success: boolean; error?: string; url?: string; prNumber?: number };
+  };
+  'github:merge-pr': {
+    args: [projectPath: string, prNumber: number, method: MergeMethod, deleteBranch: boolean];
+    return: { success: boolean; error?: string };
+  };
+  'github:task-from-issue': {
+    args: [projectPath: string, issueNumber: number];
+    return: { success: boolean; error?: string; taskNumber?: number };
+  };
+  'github:task-from-pr': { args: [projectPath: string, prNumber: number]; return: PromoteToTaskResult };
 
   // ── Lima ─────────────────────────────────────────────────────────────
   'lima:status': { args: [projectPath: string]; return: LimaStatus };
@@ -329,4 +451,6 @@ export interface IpcPushContract {
     ];
   };
   'capture:navigate': { args: [payload: CaptureNavigatePayload] };
+  /** A review draft was written or discarded outside the renderer (the CLI). */
+  'github:drafts-changed': { args: [payload: GithubDraftsChangedPayload] };
 }

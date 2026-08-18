@@ -9,9 +9,12 @@ export type {
   DiffLine,
   DiffHunk,
   FileDiff,
+  BlobContent,
   GitFileStatus,
   WorktreeDiffSummary,
   BranchInfo,
+  DiffBaseRef,
+  DiffBases,
 } from './git';
 // Re-export worktree types from worktree.ts (single source of truth)
 export type { TaskWorktreeResult, WorktreeInfo, WorktreeRemoveResult, CheckWorktreeResult } from './worktree';
@@ -34,10 +37,65 @@ export type {
 export { SANDBOX_BACKEND_LABELS, legacySandboxProvider, isActiveSandbox } from './sandbox/types';
 // Re-export hook status types from hookServer.ts (single source of truth)
 export type { HookStatus, HookStatusEntry } from './hookServer';
+export type {
+  RepoIdentity,
+  GithubAvailability,
+  PullRequestSummary,
+  PullRequestDetail,
+  PullRequestFreshness,
+  PullRequestInbox,
+  PullRequestLabel,
+  ReviewThread,
+  ReviewComment,
+  ReviewDraft,
+  ReviewEvent,
+  MergeMethod,
+  MergeStatus,
+  GithubIssue,
+  IssueDetail,
+  CommentKind,
+  GithubDraftsChangedPayload,
+  CheckRun,
+  TimelineItem,
+  InboxResult,
+  PullRequestFilesResult,
+  SaveDraftInput,
+  PromoteToTaskResult,
+  TaskFromGithubResult,
+  SubmitReviewResult,
+  PrFileVersions,
+} from './github/types';
 
 // Import for local use within this file
-import type { GitStatus, GitFileStatus, GitDropdownInfo, FileDiff, WorktreeDiffSummary, BranchInfo } from './git';
+import type {
+  GitStatus,
+  GitFileStatus,
+  GitDropdownInfo,
+  FileDiff,
+  WorktreeDiffSummary,
+  BranchInfo,
+  DiffBases,
+} from './git';
 import type { TaskWorktreeResult, WorktreeInfo, WorktreeRemoveResult, CheckWorktreeResult } from './worktree';
+import type {
+  GithubAvailability,
+  PullRequestDetail,
+  PullRequestFreshness,
+  GithubIssue,
+  IssueDetail,
+  CommentKind,
+  ReviewDraft,
+  PrHead,
+  ReviewEvent,
+  MergeMethod,
+  GithubDraftsChangedPayload,
+  InboxResult,
+  PullRequestFilesResult,
+  SaveDraftInput,
+  PromoteToTaskResult,
+  PrFileVersions,
+} from './github/types';
+import type { DiffNote, SaveDiffNoteInput } from './diffNotes';
 import type { TaskStatus, TagRow } from './db';
 import type { ActiveSession } from './ptyManager';
 import type { LimaStatus } from './lima/types';
@@ -338,6 +396,10 @@ export interface TaskWithWorkspace {
   prompt?: string;
   order?: number;
   parentTaskNumber?: number;
+  /** Linked GitHub pull request, if any. Drives the kanban card badge. */
+  githubPrNumber?: number;
+  /** Linked GitHub issue, if the task was created from one. */
+  githubIssueNumber?: number;
 }
 
 /**
@@ -432,11 +494,12 @@ export interface WorktreeAPI {
   remove(projectPath: string, worktreePath: string): Promise<WorktreeRemoveResult>;
   list(projectPath: string): Promise<WorktreeInfo[]>;
   getDiff(projectPath: string, worktreeBranch: string, targetBranch?: string): Promise<WorktreeDiffSummary | null>;
+  /** One file, as it differs between `base` and the working tree at `gitPath`. */
   getFileDiff(
-    projectPath: string,
-    worktreeBranch: string,
+    gitPath: string,
+    base: string,
     filePath: string,
-    targetBranch?: string,
+    oldPath?: string,
     contextLines?: number,
   ): Promise<FileDiff | null>;
   merge(projectPath: string, worktreeBranch: string): Promise<GitMergeResult>;
@@ -490,14 +553,26 @@ export interface ElectronAPI {
   getGitFileStatus(projectPath: string, diffBase?: string): Promise<GitFileStatus | null>;
   /** Get extended git dropdown info for a project */
   getGitDropdownInfo(projectPath: string): Promise<GitDropdownInfo | null>;
+  /** The refs a branch diff can be taken against, and when the repo last fetched. */
+  listDiffBases(projectPath: string): Promise<DiffBases>;
+  /** Update one remote-tracking ref, so a comparison against it is current. */
+  fetchDiffBase(projectPath: string, ref: string): Promise<{ success: boolean; error?: string }>;
   /** Checkout a git branch */
   gitCheckout(projectPath: string, branchName: string): Promise<GitCheckoutResult>;
   /** Create a new git branch */
   gitCreateBranch(projectPath: string, branchName: string): Promise<GitCheckoutResult>;
   /** Merge current branch into main */
   gitMergeIntoMain(projectPath: string): Promise<GitMergeResult>;
-  /** Get diff for a specific file */
-  getFileDiff(projectPath: string, filePath: string, contextLines?: number): Promise<FileDiff | null>;
+  /**
+   * Get diff for a specific file. `untracked` is required: working it out in
+   * main would mean listing every untracked path in the repo, once per file.
+   */
+  getFileDiff(
+    projectPath: string,
+    filePath: string,
+    contextLines: number | undefined,
+    untracked: boolean,
+  ): Promise<FileDiff | null>;
   /** Create a new project */
   createProject(options: CreateProjectOptions): Promise<CreateProjectResult>;
   /** Show native folder picker dialog */
@@ -599,6 +674,120 @@ export interface ElectronAPI {
   health: HealthAPI;
   /** Capture-mode API (only populated when OUIJIT_CAPTURE_MODE=1) */
   capture: CaptureAPI;
+  /** GitHub pull requests and issues, via the `gh` CLI on the host */
+  github: GithubAPI;
+  /** Notes written on a worktree's own diff */
+  diffNotes: DiffNotesAPI;
+}
+
+/**
+ * Notes on a worktree diff.
+ *
+ * The pull request equivalent is `github.drafts`, which ends at a review sent
+ * to GitHub. These are handed to the agent in the terminal instead, so there is
+ * no submit step — a note ends when the code it was written about does.
+ */
+export interface DiffNotesAPI {
+  /**
+   * Sweeps before it answers, so a note whose code has gone is never handed
+   * back. `keep` holds one back regardless — the note open for editing, which
+   * would take what is being typed with it.
+   */
+  list(worktreePath: string, keep?: string[]): Promise<DiffNote[]>;
+  save(input: SaveDiffNoteInput): Promise<{ success: boolean }>;
+  discard(id: string): Promise<{ success: boolean }>;
+  clear(worktreePath: string): Promise<{ success: boolean }>;
+}
+
+/**
+ * GitHub API exposed to the renderer.
+ *
+ * Every call crosses into the main process and shells out to `gh`. The renderer
+ * never sees a token — there isn't one to see, because auth lives entirely in
+ * the user's `gh` installation.
+ */
+export interface GithubAPI {
+  availability(projectPath: string, recheck?: boolean): Promise<GithubAvailability>;
+  inbox(projectPath: string): Promise<InboxResult>;
+  pullRequest(projectPath: string, number: number): Promise<PullRequestDetail>;
+  pullRequestFreshness(projectPath: string, number: number): Promise<PullRequestFreshness>;
+  pullRequestFiles(
+    projectPath: string,
+    number: number,
+    baseSha: string,
+    headSha: string,
+  ): Promise<PullRequestFilesResult>;
+  pullRequestFileDiff(
+    projectPath: string,
+    number: number,
+    baseSha: string,
+    headSha: string,
+    filePath: string,
+    contextLines?: number,
+    oldPath?: string,
+  ): Promise<FileDiff | null>;
+  pullRequestFileVersions(
+    projectPath: string,
+    number: number,
+    baseSha: string,
+    headSha: string,
+    filePath: string,
+    oldPath?: string,
+  ): Promise<PrFileVersions>;
+  issues(projectPath: string): Promise<GithubIssue[]>;
+  issue(projectPath: string, number: number): Promise<IssueDetail>;
+
+  linkTaskPr(projectPath: string, taskNumber: number, prNumber: number | null): Promise<GithubActionResult>;
+  linkTaskIssue(projectPath: string, taskNumber: number, issueNumber: number | null): Promise<GithubActionResult>;
+  detectTaskPr(projectPath: string, taskNumber: number): Promise<{ prNumber: number | null }>;
+
+  /**
+   * Given the head being viewed, drafts written against an earlier one are
+   * followed into it first, and the ones that could not be placed come back
+   * marked.
+   */
+  drafts(projectPath: string, prNumber: number, head?: PrHead): Promise<ReviewDraft[]>;
+  saveDraft(projectPath: string, input: SaveDraftInput): Promise<ReviewDraft>;
+  discardDraft(projectPath: string, draftId: string): Promise<{ success: boolean }>;
+  submitReview(
+    projectPath: string,
+    prNumber: number,
+    event: ReviewEvent,
+    body: string,
+  ): Promise<GithubActionResult & { url?: string }>;
+  comment(projectPath: string, prNumber: number, body: string): Promise<GithubActionResult>;
+  replyToThread(projectPath: string, prNumber: number, commentId: number, body: string): Promise<GithubActionResult>;
+  deleteComment(projectPath: string, kind: CommentKind, commentId: number): Promise<GithubActionResult>;
+  resolveThread(projectPath: string, threadId: string, resolved: boolean): Promise<GithubActionResult>;
+  createPr(
+    projectPath: string,
+    taskNumber: number,
+    options: { title?: string; body?: string; base?: string; draft?: boolean },
+  ): Promise<GithubActionResult & { url?: string; prNumber?: number }>;
+  mergePr(
+    projectPath: string,
+    prNumber: number,
+    method: MergeMethod,
+    deleteBranch: boolean,
+  ): Promise<GithubActionResult>;
+  taskFromIssue(projectPath: string, issueNumber: number): Promise<GithubActionResult & { taskNumber?: number }>;
+  taskFromPr(projectPath: string, prNumber: number): Promise<PromoteToTaskResult>;
+
+  viewedFiles(projectPath: string, prNumber: number, headSha: string): Promise<string[]>;
+  setFileViewed(
+    projectPath: string,
+    prNumber: number,
+    headSha: string,
+    path: string,
+    viewed: boolean,
+  ): Promise<string[]>;
+
+  onDraftsChanged(callback: (payload: GithubDraftsChangedPayload) => void): () => void;
+}
+
+export interface GithubActionResult {
+  success: boolean;
+  error?: string;
 }
 
 /**

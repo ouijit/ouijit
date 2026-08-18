@@ -33,6 +33,17 @@ vi.mock('../sandbox/nono/binary', () => ({
   isNonoInstalled: () => isNonoInstalledMock(),
 }));
 
+/**
+ * What the gh fields look like when `gh` is not on PATH. Every case below whose
+ * execFile mock rejects unknown commands lands here, so spelling it once keeps
+ * the assertions about the tool each test actually cares about.
+ */
+const GH_ABSENT = {
+  gh: false,
+  ghVersionOk: false,
+  ghVersion: undefined,
+} as const;
+
 describe('healthCheck', () => {
   beforeEach(() => {
     vi.resetModules();
@@ -63,6 +74,7 @@ describe('healthCheck', () => {
       lima: true,
       nono: true,
       gitVersion: '2.39.5',
+      ...GH_ABSENT,
     });
   });
 
@@ -85,6 +97,7 @@ describe('healthCheck', () => {
       lima: false,
       nono: false,
       gitVersion: undefined,
+      ...GH_ABSENT,
     });
   });
 
@@ -108,6 +121,7 @@ describe('healthCheck', () => {
       lima: false,
       nono: false,
       gitVersion: '2.41.0',
+      ...GH_ABSENT,
     });
   });
 
@@ -131,6 +145,7 @@ describe('healthCheck', () => {
       lima: false,
       nono: false,
       gitVersion: '2.42.0',
+      ...GH_ABSENT,
     });
   });
 
@@ -154,6 +169,7 @@ describe('healthCheck', () => {
       lima: false,
       nono: false,
       gitVersion: '2.43.0',
+      ...GH_ABSENT,
     });
   });
 
@@ -177,7 +193,44 @@ describe('healthCheck', () => {
       lima: true,
       nono: false,
       gitVersion: '2.40.0',
+      ...GH_ABSENT,
     });
+  });
+
+  test('detects gh without contacting GitHub', async () => {
+    execFileMock.mockImplementation((cmd: string, args: string[], cb: Function) => {
+      if (cmd === 'git') cb(null, 'git version 2.45.0\n', '');
+      else if (cmd === 'gh' && args[0] === '--version') cb(null, 'gh version 2.85.0 (2026-01-14)\n', '');
+      else if (cmd === 'which') cb(new Error('not found'));
+      else cb(new Error(`unexpected ${cmd} ${args.join(' ')}`));
+    });
+    isLimaInstalledMock.mockResolvedValue(false);
+
+    const { checkHealth } = await import('../healthCheck');
+    const status = await checkHealth();
+    expect(status.gh).toBe(true);
+    expect(status.ghVersion).toBe('2.85.0');
+    expect(status.ghVersionOk).toBe(true);
+    // `gh auth status` validates the token over the network. Every other probe
+    // here is a local binary check, and an offline machine would wait out its
+    // timeout before the renderer learned anything about git or the agents.
+    expect(execFileMock.mock.calls.some((call) => call[1]?.[0] === 'auth')).toBe(false);
+  });
+
+  test('flags a gh below the version floor as unusable rather than merely present', async () => {
+    execFileMock.mockImplementation((cmd: string, args: string[], cb: Function) => {
+      if (cmd === 'git') cb(null, 'git version 2.45.0\n', '');
+      else if (cmd === 'gh' && args[0] === '--version') cb(null, 'gh version 2.4.0 (2021-01-01)\n', '');
+      else if (cmd === 'which') cb(new Error('not found'));
+      else cb(new Error(`unexpected ${cmd}`));
+    });
+    isLimaInstalledMock.mockResolvedValue(false);
+
+    const { checkHealth } = await import('../healthCheck');
+    const status = await checkHealth();
+    expect(status.gh).toBe(true);
+    expect(status.ghVersion).toBe('2.4.0');
+    expect(status.ghVersionOk).toBe(false);
   });
 
   test('detects nono independently of lima', async () => {
@@ -193,5 +246,19 @@ describe('healthCheck', () => {
     const status = await checkHealth();
     expect(status.lima).toBe(false);
     expect(status.nono).toBe(true);
+  });
+
+  test('agents are looked for past our own wrappers', async () => {
+    // `which codex` finds ~/.config/Ouijit/bin/codex whether or not codex is
+    // installed — that file is ours. Probing through it reports four agents on
+    // a machine with none, and whatever picks one of them dies at the spawn.
+    const { withoutWrapperDir } = await import('../healthCheck');
+    const wrapper = '/home/me/.config/Ouijit/bin';
+
+    expect(withoutWrapperDir(`/usr/bin:${wrapper}:/usr/local/bin`, wrapper)).toBe('/usr/bin:/usr/local/bin');
+    // Same directory, spelled differently.
+    expect(withoutWrapperDir(`${wrapper}/:/usr/bin`, wrapper)).toBe('/usr/bin');
+    // Nothing of ours on it: left exactly as it was.
+    expect(withoutWrapperDir('/usr/bin:/bin', wrapper)).toBe('/usr/bin:/bin');
   });
 });

@@ -3,11 +3,11 @@ import { BrowserWindow } from 'electron';
 import type { PtyId, PtySpawnOptions, PtySpawnResult, SandboxProviderId } from './types';
 import type { WrapperSandboxProvider } from './sandbox/provider';
 import { generateId } from './utils/ids';
-import { getApiPort, getWrapperBinDir, clearHookStatus, clearAllHookStatuses } from './hookServer';
+import { getApiPort, clearHookStatus, clearAllHookStatuses } from './hookServer';
+import { getWrapperBinDir, getUserDataPath, getCliPath } from './paths';
 import { getShellIntegrationDir, resolveShellIntegration } from './shellIntegration';
 import { typedPush } from './ipc/helpers';
 import { getLogger } from './logger';
-import { getUserDataPath, getCliPath } from './paths';
 import { getVendoredNonoPath } from './sandbox/nono/binary';
 import { issueToken, revokeToken, revokeAllTokens } from './apiAuth';
 

@@ -99,6 +99,11 @@
   --color-diff-added: #3fb950;
   --color-diff-removed: #f85149;
   --color-diff-hunk: #8b8bcd;
+  /* Derived from --color-terminal-bg, which is what a theme preset overrides:
+     written as literals these two would keep this theme's grey while
+     everything around them turned. */
+  --color-diff-well: color-mix(in srgb, var(--color-terminal-bg) 93%, #000);
+  --color-diff-card: color-mix(in srgb, var(--color-terminal-bg) 97%, var(--color-ink));
   /* File status colors (git porcelain letters) */
   --color-vcs-added: #34c759;
   --color-vcs-deleted: #ff3b30;
@@ -106,6 +111,7 @@
   --color-vcs-modified: #ff9f0a;
 
   /* ── Shadows ───────────────────────────────────────────────────── */
+  --shadow-well: inset 0 1px 2px rgba(0, 0, 0, 0.22);
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
   --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.5);
@@ -184,6 +190,14 @@
   --bevel-side: rgba(255, 255, 255, 0.05);
   --bevel-bottom: rgba(0, 0, 0, 0.5);
   --bevel-glow: rgba(255, 255, 255, 0.08);
+
+  /* Pane seam (see .pane-seam in index.css). The cut is opaque, so it looks
+     the same over a file header as over the pane behind it; the catch is
+     light on a surface, which does depend on the surface, so it is not. */
+  --seam-cut: #0a0a0a;
+  --seam-catch: rgba(255, 255, 255, 0.06);
+  /* Thrown by a sticky header onto what slides beneath it. */
+  --seam-shadow: rgba(0, 0, 0, 0.45);
 }
 
 /* ===================================
@@ -251,11 +265,14 @@
   --color-diff-added: #1a7f37;
   --color-diff-removed: #cf222e;
   --color-diff-hunk: #6a6ac0;
+  --color-diff-well: color-mix(in srgb, var(--color-terminal-bg) 96%, #000);
+  --color-diff-card: var(--color-terminal-bg);
   --color-vcs-added: #248a3d;
   --color-vcs-deleted: #d70015;
   --color-vcs-renamed: #5856d6;
   --color-vcs-modified: #ad5f00;
 
+  --shadow-well: inset 0 1px 2px rgba(0, 0, 0, 0.06);
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.08);
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.1);
   --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12);
@@ -277,4 +294,8 @@
   --bevel-side: rgba(255, 255, 255, 0.35);
   --bevel-bottom: rgba(0, 0, 0, 0.12);
   --bevel-glow: rgba(255, 255, 255, 0.5);
+
+  --seam-cut: #dbdbdf;
+  --seam-catch: rgba(255, 255, 255, 0.6);
+  --seam-shadow: rgba(0, 0, 0, 0.12);
 }

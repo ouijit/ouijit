@@ -11,10 +11,9 @@
  *
  * Two layouts, chosen by whether there's a query:
  *
- *   query   one flat, globally ranked list. Grouping by type meant the first
- *           row was always the best *terminal*, so Enter regularly opened
- *           something other than the best match. Ranked flat, the top row is
- *           the best match by construction.
+ *   query   one flat, globally ranked list, so the top row is the best match by
+ *           construction. Grouped by type, the first row is the best *terminal*
+ *           and Enter opens something other than what was searched for.
  *   empty   grouped browse, led by the places you actually return to.
  */
 
@@ -22,6 +21,8 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { createPortal } from 'react-dom';
 import { useAppStore } from '../stores/appStore';
 import { useTerminalStore } from '../stores/terminalStore';
+import { useGithubStore } from '../stores/githubStore';
+import { useExperimentalStore } from '../stores/experimentalStore';
 import { useUIStore } from '../stores/uiStore';
 import { scoreFields, type FieldMatch } from '../utils/paletteScore';
 import { frecencyBoost, loadFrecency, persistFrecency, recordUse, type FrecencyMap } from '../utils/paletteFrecency';
@@ -42,7 +43,7 @@ const VISIBLE_ROWS = 9;
 /** Fade-out duration; matches the dialog transitions. */
 const EXIT_MS = 200;
 
-const GROUP_ORDER: PaletteKind[] = ['terminal', 'project', 'task'];
+const GROUP_ORDER: PaletteKind[] = ['terminal', 'project', 'task', 'pull'];
 
 type GroupKey = 'results' | 'recent' | PaletteKind;
 
@@ -104,6 +105,10 @@ function PaletteBody({ visible }: { visible: boolean }) {
   const taskCacheByProject = useAppStore((s) => s.taskCacheByProject);
   const terminalsByProject = useTerminalStore((s) => s.terminalsByProject);
   const displayStates = useTerminalStore((s) => s.displayStates);
+  const githubEnabled = useExperimentalStore((s) =>
+    activeProjectPath ? (s.flagsByProject[activeProjectPath]?.github ?? false) : false,
+  );
+  const inbox = useGithubStore((s) => s.inbox);
 
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState(0);
@@ -139,9 +144,18 @@ function PaletteBody({ visible }: { visible: boolean }) {
       setFrecency(map);
     });
     void useAppStore.getState().loadHomeRecents();
+    // Same background-refresh idea as the task cache: paint from whatever is
+    // already loaded and reconcile behind the user. Gated on the flag, so a
+    // project without GitHub never pays for a `gh` fork to open the switcher.
+    if (githubEnabled && activeProjectPath) {
+      const store = useGithubStore.getState();
+      store.setProject(activeProjectPath);
+      void store.loadInbox(activeProjectPath);
+    }
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- open-once effect; the body remounts per palette session
   }, []);
 
   // Focus before paint, not on the next frame. A deferred focus leaves a window
@@ -182,6 +196,13 @@ function PaletteBody({ visible }: { visible: boolean }) {
     return () => document.removeEventListener('mousemove', onMove);
   }, []);
 
+  // Only the active project's inbox lists, and only while the flag is on —
+  // switching it off must not leave stale PR rows behind.
+  const pullRequests = useMemo(() => {
+    if (!githubEnabled || !inbox) return undefined;
+    return [...inbox.needsReview, ...inbox.mine, ...inbox.others];
+  }, [githubEnabled, inbox]);
+
   const items = useMemo(
     () =>
       buildPaletteItems({
@@ -191,8 +212,9 @@ function PaletteBody({ visible }: { visible: boolean }) {
         displayStates,
         sessions,
         taskCacheByProject,
+        pullRequests,
       }),
-    [projects, activeProjectPath, terminalsByProject, displayStates, sessions, taskCacheByProject],
+    [projects, activeProjectPath, terminalsByProject, displayStates, sessions, taskCacheByProject, pullRequests],
   );
 
   // A task's shells are branch rows under it, never free-standing results.

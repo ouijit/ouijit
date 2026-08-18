@@ -398,8 +398,8 @@ export function KanbanAddInput({ onAdd }: KanbanAddInputProps) {
           onNameChange={setName}
           onDescriptionChange={(value) => {
             setDescription(value);
-            // Mirror into the inline editor behind the scrim so collapsing
-            // reads as a return to the same draft, not a jump to a stale one.
+            // Mirror into the inline editor behind the scrim, so collapsing
+            // returns to the same draft rather than a stale one.
             editorRef.current?.setValue(value);
           }}
           onAttachFile={resolveAttachmentPath}

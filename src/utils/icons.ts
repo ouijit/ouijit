@@ -51,6 +51,7 @@ import gitMerge from '@phosphor-icons/core/assets/regular/git-merge.svg?raw';
 import info from '@phosphor-icons/core/assets/regular/info.svg?raw';
 import kanban from '@phosphor-icons/core/assets/regular/kanban.svg?raw';
 import listChecks from '@phosphor-icons/core/assets/regular/list-checks.svg?raw';
+import aperture from '@phosphor-icons/core/assets/regular/aperture.svg?raw';
 import magnifyingGlass from '@phosphor-icons/core/assets/regular/magnifying-glass.svg?raw';
 import minus from '@phosphor-icons/core/assets/regular/minus.svg?raw';
 import pencilSimple from '@phosphor-icons/core/assets/regular/pencil-simple.svg?raw';
@@ -69,8 +70,25 @@ import trash from '@phosphor-icons/core/assets/regular/trash.svg?raw';
 import treeStructure from '@phosphor-icons/core/assets/regular/tree-structure.svg?raw';
 import upload from '@phosphor-icons/core/assets/regular/upload.svg?raw';
 import webhooksLogo from '@phosphor-icons/core/assets/regular/webhooks-logo.svg?raw';
+// Filled, unlike everything else here: the mark is a brand, and the outline
+// variant loses the octocat at the size a badge renders it.
+import githubLogo from '@phosphor-icons/core/assets/fill/github-logo-fill.svg?raw';
 import x from '@phosphor-icons/core/assets/regular/x.svg?raw';
 import log from 'electron-log/renderer';
+import arrowSquareOut from '@phosphor-icons/core/assets/regular/arrow-square-out.svg?raw';
+import checkCircle from '@phosphor-icons/core/assets/regular/check-circle.svg?raw';
+import circle from '@phosphor-icons/core/assets/regular/circle.svg?raw';
+import circleDashed from '@phosphor-icons/core/assets/regular/circle-dashed.svg?raw';
+import userCircle from '@phosphor-icons/core/assets/regular/user-circle.svg?raw';
+import users from '@phosphor-icons/core/assets/regular/users.svg?raw';
+import arrowUp from '@phosphor-icons/core/assets/regular/arrow-up.svg?raw';
+import chatCircle from '@phosphor-icons/core/assets/regular/chat-circle.svg?raw';
+import clock from '@phosphor-icons/core/assets/regular/clock.svg?raw';
+import gitCommit from '@phosphor-icons/core/assets/regular/git-commit.svg?raw';
+import gitPullRequest from '@phosphor-icons/core/assets/regular/git-pull-request.svg?raw';
+import minusCircle from '@phosphor-icons/core/assets/regular/minus-circle.svg?raw';
+import warning from '@phosphor-icons/core/assets/regular/warning.svg?raw';
+import xCircle from '@phosphor-icons/core/assets/regular/x-circle.svg?raw';
 
 const iconsLog = log.scope('icons');
 
@@ -122,6 +140,7 @@ export const iconMap: Record<string, string> = {
   info: info,
   kanban: kanban,
   'list-checks': listChecks,
+  aperture: aperture,
   'magnifying-glass': magnifyingGlass,
   minus: minus,
   'pencil-simple': pencilSimple,
@@ -140,7 +159,22 @@ export const iconMap: Record<string, string> = {
   'tree-structure': treeStructure,
   upload: upload,
   'webhooks-logo': webhooksLogo,
+  'github-logo': githubLogo,
   x: x,
+  'arrow-square-out': arrowSquareOut,
+  'check-circle': checkCircle,
+  circle: circle,
+  'circle-dashed': circleDashed,
+  'user-circle': userCircle,
+  users: users,
+  'arrow-up': arrowUp,
+  'chat-circle': chatCircle,
+  clock: clock,
+  'git-commit': gitCommit,
+  'git-pull-request': gitPullRequest,
+  'minus-circle': minusCircle,
+  warning: warning,
+  'x-circle': xCircle,
 };
 
 /**

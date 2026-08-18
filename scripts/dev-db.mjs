@@ -161,7 +161,6 @@ function seed() {
   exec(`
     INSERT OR IGNORE INTO projects (path, name, sort_order) VALUES ('${esc(projectPath)}', '${esc(projectName)}', 0);
     INSERT OR IGNORE INTO project_counters (project_path) VALUES ('${esc(projectPath)}');
-    INSERT OR IGNORE INTO project_settings (project_path) VALUES ('${esc(projectPath)}');
   `);
 
   // Tasks — task_number = index + 1, sort_order grouped per status, mirrors TaskRepo.create
@@ -174,7 +173,7 @@ function seed() {
       ? join(dirname(projectPath), `${projectName}-worktrees`, `T-${taskNumber}`)
       : null;
     const createdAt = new Date(Date.now() - (seedData.tasks.length - i) * 3600_000).toISOString();
-    return `INSERT INTO tasks (project_path, task_number, name, status, prompt, branch, worktree_path, merge_target, sandboxed, sort_order, created_at, parent_task_number) VALUES ('${esc(projectPath)}', ${taskNumber}, '${esc(t.name)}', '${esc(status)}', ${nullable(t.prompt)}, ${nullable(t.branch)}, ${nullable(worktreePath)}, ${nullable(t.mergeTarget)}, ${t.sandboxed ? 1 : 0}, ${sortOrder}, '${esc(createdAt)}', ${t.parentTaskNumber ?? 'NULL'});`;
+    return `INSERT INTO tasks (project_path, task_number, name, status, prompt, branch, worktree_path, merge_target, sort_order, created_at, parent_task_number, github_pr_number, github_issue_number) VALUES ('${esc(projectPath)}', ${taskNumber}, '${esc(t.name)}', '${esc(status)}', ${nullable(t.prompt)}, ${nullable(t.branch)}, ${nullable(worktreePath)}, ${nullable(t.mergeTarget)}, ${sortOrder}, '${esc(createdAt)}', ${t.parentTaskNumber ?? 'NULL'}, ${t.githubPrNumber ?? 'NULL'}, ${t.githubIssueNumber ?? 'NULL'});`;
   });
   const nextTaskNumber = seedData.tasks.length + 1;
   exec(

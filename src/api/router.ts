@@ -45,6 +45,15 @@ import {
   getTasksWithWorkspaces,
   getTaskWithWorkspace,
 } from '../taskLifecycle';
+import {
+  getAvailability as getGithubAvailability,
+  getInbox as getGithubInbox,
+  getPullRequest as getGithubPullRequest,
+  linkTaskToPr as linkGithubTaskToPr,
+  listDrafts,
+  saveDraft,
+  discardDraft,
+} from '../github/service';
 import { getProjectList } from '../projectList';
 import { cliPanelRequest } from '../cliPanels';
 import { isPtyActive, getPtyTaskContext } from '../ptyManager';
@@ -225,6 +234,42 @@ function route(
   minScope: ApiScope = 'host',
 ): Route {
   return { method, pattern: pattern.split('/').filter(Boolean), handler, mutating, minScope };
+}
+
+// ── Pull request helpers ─────────────────────────────────────────────
+
+function prNumber(r: ParsedRequest): number {
+  return requireInt(r.segments[1], 'Pull request number');
+}
+
+/**
+ * Validate the body of a draft write. Everything a comment anchors to is
+ * required: a draft that lands on no line is one the review submit will reject
+ * later, and finding that out at send time loses the work.
+ */
+function draftInput(body: Record<string, unknown>): {
+  path: string;
+  line: number;
+  side: 'LEFT' | 'RIGHT';
+  startLine?: number;
+  body: string;
+  id?: string;
+} {
+  const path = body.path;
+  const line = body.line;
+  const text = body.body;
+  if (typeof path !== 'string' || !path) throw new HttpError(400, 'Missing path');
+  if (typeof line !== 'number') throw new HttpError(400, 'Missing line');
+  if (typeof text !== 'string' || !text.trim()) throw new HttpError(400, 'Missing body');
+  const side = body.side === 'LEFT' ? 'LEFT' : 'RIGHT';
+  return {
+    path,
+    line,
+    side,
+    ...(typeof body.startLine === 'number' ? { startLine: body.startLine } : {}),
+    body: text,
+    ...(typeof body.id === 'string' ? { id: body.id } : {}),
+  };
 }
 
 // ── Panel route helpers ──────────────────────────────────────────────
@@ -598,10 +643,79 @@ const routes: Route[] = [
     true,
   ),
 
+  // ── Pull requests ─────────────────────────────────────────────────
+  // Host-only (default scope): these shell out to `gh` on the host with the
+  // user's credentials. A sandboxed session must not be able to reach them,
+  // which is also why the guest env keeps its GITHUB_TOKEN stripped.
+  route('GET', 'pulls', async (r) => {
+    const project = requireProject(r.query);
+    const availability = await getGithubAvailability(project);
+    if (!availability.available) {
+      throw new HttpError(400, availability.message ?? 'GitHub is not enabled for this project');
+    }
+    return getGithubInbox(project);
+  }),
+
+  route('GET', 'pulls/:number', (r) => getGithubPullRequest(requireProject(r.query), prNumber(r))),
+
+  route(
+    'POST',
+    'pulls/:number/link',
+    async (r) => {
+      const project = requireProject(r.query);
+      const num = prNumber(r);
+      const taskNumber = r.body.taskNumber;
+      if (typeof taskNumber !== 'number') throw new HttpError(400, 'Missing taskNumber in body');
+      const result = await linkGithubTaskToPr(project, taskNumber, num);
+      if (!result.success) throw new HttpError(400, result.error ?? 'Failed to link');
+      return { success: true, taskNumber, prNumber: num };
+    },
+    true,
+  ),
+
+  // ── Review drafts ─────────────────────────────────────────────────
+  // Deliberately reachable from a sandbox, unlike their neighbours above. The
+  // host-only rule there is about shelling out to `gh` with the user's
+  // credentials; these touch one local table and shell out to nothing. Locking
+  // them to the host would stop an agent running in a sandbox — the safest way
+  // to run one — from writing a draft at all.
+  //
+  // A sandboxed caller cannot name itself: the origin is stamped here, so a
+  // draft's provenance cannot be forged by the thing that wrote it.
+  route('GET', 'pulls/:number/drafts', (r) => listDrafts(requireProject(r.query), prNumber(r)), false, 'sandbox'),
+
+  route(
+    'POST',
+    'pulls/:number/drafts',
+    async (r) => {
+      const project = requireProject(r.query);
+      const draft = await saveDraft(project, {
+        ...draftInput(r.body),
+        prNumber: prNumber(r),
+        origin: r.auth.scope === 'sandbox' ? 'sandbox' : ((r.body.origin as string | undefined) ?? 'cli'),
+      });
+      return draft;
+    },
+    true,
+    'sandbox',
+  ),
+
+  route(
+    'DELETE',
+    'pulls/:number/drafts/:id',
+    (r) => {
+      const id = r.segments[3];
+      if (!id) throw new HttpError(400, 'Missing draft id');
+      return discardDraft(id);
+    },
+    true,
+    'sandbox',
+  ),
+
   // ── Panels ────────────────────────────────────────────────────────
   // The two user-addressable panel kinds on a terminal: markdown files and
   // web previews. A terminal can hold several of each, so these are plural
-  // (list/add/remove) rather than the old single-plan-per-pty model.
+  // (list/add/remove).
   //
   // Host-only (default scope): the guest shouldn't be able to steer the host
   // renderer to open arbitrary .md files or URLs.
@@ -750,6 +864,18 @@ async function handleAsync(req: IncomingMessage, res: ServerResponse, window: Br
       // tell it to re-read global settings and re-apply.
       if (segments[0] === 'themes') {
         typedPush(window, 'cli:theme-changed');
+      }
+
+      // A draft written here belongs to a pull request the renderer may have
+      // open, and it happened in another process, so there is nothing for the
+      // renderer to have noticed. This is the only GitHub push there is: it
+      // names the one pull request that moved, and its handler does a single
+      // local read. It must never grow into "something changed, refetch".
+      if (segments[0] === 'pulls' && segments[2] === 'drafts') {
+        typedPush(window, 'github:drafts-changed', {
+          projectPath: project,
+          prNumber: parseInt(segments[1], 10),
+        });
       }
 
       // Task-start routes also need a terminal + hook in the renderer.

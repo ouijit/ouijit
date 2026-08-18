@@ -14,6 +14,8 @@ import { HookRepo, type HookType } from './repos/hookRepo';
 import { TagRepo, type TagRow } from './repos/tagRepo';
 import { GlobalSettingsRepo } from './repos/globalSettingsRepo';
 import { ScriptRepo, type ScriptRow } from './repos/scriptRepo';
+import { ReviewDraftRepo, type ReviewDraftRow } from './repos/reviewDraftRepo';
+import { DiffNoteRepo, type DiffNoteRow } from './repos/diffNoteRepo';
 import type { ProjectSettings, ScriptHook } from '../types';
 import { getLogger } from '../logger';
 
@@ -36,6 +38,8 @@ export interface TaskMetadata {
   prompt?: string;
   order?: number;
   parentTaskNumber?: number;
+  githubPrNumber?: number;
+  githubIssueNumber?: number;
 }
 
 // ── Lazy singleton repos ─────────────────────────────────────────────
@@ -46,6 +50,8 @@ let hookRepo: HookRepo | null = null;
 let tagRepo: TagRepo | null = null;
 let globalSettingsRepo: GlobalSettingsRepo | null = null;
 let scriptRepo: ScriptRepo | null = null;
+let reviewDraftRepo: ReviewDraftRepo | null = null;
+let diffNoteRepo: DiffNoteRepo | null = null;
 
 function repos() {
   if (!taskRepo) {
@@ -56,6 +62,8 @@ function repos() {
     tagRepo = new TagRepo(db);
     globalSettingsRepo = new GlobalSettingsRepo(db);
     scriptRepo = new ScriptRepo(db);
+    reviewDraftRepo = new ReviewDraftRepo(db);
+    diffNoteRepo = new DiffNoteRepo(db);
   }
   return {
     projectRepo: projectRepo!,
@@ -64,6 +72,8 @@ function repos() {
     tagRepo: tagRepo!,
     globalSettingsRepo: globalSettingsRepo!,
     scriptRepo: scriptRepo!,
+    reviewDraftRepo: reviewDraftRepo!,
+    diffNoteRepo: diffNoteRepo!,
   };
 }
 
@@ -77,6 +87,8 @@ export function _resetCacheForTesting(): void {
   tagRepo = new TagRepo(db);
   globalSettingsRepo = new GlobalSettingsRepo(db);
   scriptRepo = new ScriptRepo(db);
+  reviewDraftRepo = new ReviewDraftRepo(db);
+  diffNoteRepo = new DiffNoteRepo(db);
 }
 
 // ── Row → TaskMetadata conversion ────────────────────────────────────
@@ -101,6 +113,10 @@ function rowToTask(row: TaskRow): TaskMetadata {
     ...(row.merge_target && { mergeTarget: row.merge_target }),
     ...(row.prompt && { prompt: row.prompt }),
     ...(row.parent_task_number != null && { parentTaskNumber: row.parent_task_number }),
+    // `!= null` rather than truthiness: the conditional-spread style above
+    // drops a 0, and nothing guarantees these numbers stay 1-based.
+    ...(row.github_pr_number != null && { githubPrNumber: row.github_pr_number }),
+    ...(row.github_issue_number != null && { githubIssueNumber: row.github_issue_number }),
   };
 }
 
@@ -159,6 +175,8 @@ export async function createTask(
     prompt?: string;
     worktreePath?: string;
     parentTaskNumber?: number;
+    githubPrNumber?: number;
+    githubIssueNumber?: number;
   },
 ): Promise<TaskMetadata> {
   ensureProject(projectPath);
@@ -313,6 +331,112 @@ export async function setTaskDescription(
   } catch (error) {
     return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
   }
+}
+
+/**
+ * Link a task to a GitHub pull request, or clear the link with null. Separate
+ * from the issue link because the two are set at different points in a task's
+ * life — the issue when the task is created from one, the PR when one is opened
+ * or auto-detected on load.
+ */
+export async function setTaskGithubPr(
+  projectPath: string,
+  taskNumber: number,
+  prNumber: number | null,
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { taskRepo: tr } = repos();
+    if (!tr.getByTaskNumber(projectPath, taskNumber)) return { success: false, error: 'Task not found' };
+    tr.updateGithubPrNumber(projectPath, taskNumber, prNumber);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+}
+
+export async function setTaskGithubIssue(
+  projectPath: string,
+  taskNumber: number,
+  issueNumber: number | null,
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { taskRepo: tr } = repos();
+    if (!tr.getByTaskNumber(projectPath, taskNumber)) return { success: false, error: 'Task not found' };
+    tr.updateGithubIssueNumber(projectPath, taskNumber, issueNumber);
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+  }
+}
+
+// ── Review drafts ────────────────────────────────────────────────────
+
+export type { ReviewDraftRow } from './repos/reviewDraftRepo';
+
+export async function getReviewDrafts(projectPath: string, prNumber: number): Promise<ReviewDraftRow[]> {
+  const { reviewDraftRepo: rr } = repos();
+  return rr.getForPr(projectPath, prNumber);
+}
+
+export async function getReviewDraft(id: string): Promise<ReviewDraftRow | undefined> {
+  const { reviewDraftRepo: rr } = repos();
+  return rr.get(id);
+}
+
+export async function saveReviewDraft(
+  row: Omit<ReviewDraftRow, 'created_at' | 'origin'> & { created_at?: string; origin?: string },
+): Promise<ReviewDraftRow> {
+  const { reviewDraftRepo: rr } = repos();
+  return rr.save(row);
+}
+
+export async function reanchorReviewDraft(id: string, startLine: number, line: number, headSha: string): Promise<void> {
+  const { reviewDraftRepo: rr } = repos();
+  rr.reanchor(id, startLine, line, headSha);
+}
+
+export async function deleteReviewDraft(id: string): Promise<void> {
+  const { reviewDraftRepo: rr } = repos();
+  rr.delete(id);
+}
+
+export async function getReviewDraftCounts(projectPath: string): Promise<Record<number, number>> {
+  const { reviewDraftRepo: rr } = repos();
+  return Object.fromEntries(rr.countsByPr(projectPath));
+}
+
+// ── Diff notes ───────────────────────────────────────────────────────
+
+export type { DiffNoteRow } from './repos/diffNoteRepo';
+
+export async function getDiffNotes(worktreePath: string): Promise<DiffNoteRow[]> {
+  const { diffNoteRepo: dr } = repos();
+  return dr.getForWorktree(worktreePath);
+}
+
+export async function saveDiffNote(row: DiffNoteRow): Promise<void> {
+  const { diffNoteRepo: dr } = repos();
+  dr.save(row);
+}
+
+export async function deleteDiffNote(id: string): Promise<void> {
+  const { diffNoteRepo: dr } = repos();
+  dr.delete(id);
+}
+
+export async function deleteDiffNotes(ids: readonly string[]): Promise<void> {
+  const { diffNoteRepo: dr } = repos();
+  dr.deleteMany(ids);
+}
+
+export async function moveDiffNote(id: string, startLine: number, line: number): Promise<void> {
+  const { diffNoteRepo: dr } = repos();
+  dr.move(id, startLine, line);
+}
+
+export async function clearDiffNotes(worktreePath: string): Promise<void> {
+  const { diffNoteRepo: dr } = repos();
+  dr.deleteForWorktree(worktreePath);
 }
 
 export async function deleteTaskByNumber(

@@ -16,6 +16,8 @@ export interface TaskRow {
   created_at: string;
   closed_at: string | null;
   parent_task_number: number | null;
+  github_pr_number: number | null;
+  github_issue_number: number | null;
 }
 
 export class TaskRepo {
@@ -58,6 +60,8 @@ export class TaskRepo {
       worktreePath?: string;
       createdAt?: string;
       parentTaskNumber?: number;
+      githubPrNumber?: number;
+      githubIssueNumber?: number;
     },
   ): TaskRow {
     return this.db.transaction(() => {
@@ -72,8 +76,8 @@ export class TaskRepo {
       this.db
         .prepare(
           `
-        INSERT INTO tasks (project_path, task_number, name, status, prompt, branch, worktree_path, merge_target, sort_order, created_at, parent_task_number)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO tasks (project_path, task_number, name, status, prompt, branch, worktree_path, merge_target, sort_order, created_at, parent_task_number, github_pr_number, github_issue_number)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `,
         )
         .run(
@@ -88,6 +92,8 @@ export class TaskRepo {
           sortOrder,
           options?.createdAt ?? new Date().toISOString(),
           options?.parentTaskNumber ?? null,
+          options?.githubPrNumber ?? null,
+          options?.githubIssueNumber ?? null,
         );
 
       // Bump counter if this task number matches or exceeds it
@@ -159,6 +165,23 @@ export class TaskRepo {
     this.db
       .prepare('UPDATE tasks SET parent_task_number = ? WHERE project_path = ? AND task_number = ?')
       .run(parentTaskNumber, projectPath, taskNumber);
+  }
+
+  /**
+   * Link (or unlink, with null) the GitHub pull request for a task. Kept as two
+   * setters rather than one because the two links are set at different moments:
+   * the issue at task creation, the PR when one is opened or auto-detected.
+   */
+  updateGithubPrNumber(projectPath: string, taskNumber: number, prNumber: number | null): void {
+    this.db
+      .prepare('UPDATE tasks SET github_pr_number = ? WHERE project_path = ? AND task_number = ?')
+      .run(prNumber, projectPath, taskNumber);
+  }
+
+  updateGithubIssueNumber(projectPath: string, taskNumber: number, issueNumber: number | null): void {
+    this.db
+      .prepare('UPDATE tasks SET github_issue_number = ? WHERE project_path = ? AND task_number = ?')
+      .run(issueNumber, projectPath, taskNumber);
   }
 
   updateName(projectPath: string, taskNumber: number, name: string): void {

@@ -117,6 +117,18 @@ textarea,
   .btn-secondary:hover:not(:disabled) {
     background: var(--color-background-tertiary);
   }
+
+  .btn-compact {
+    @apply px-3 py-1 text-[13px];
+  }
+
+  .field {
+    @apply w-full px-3 py-2 font-sans text-sm leading-snug text-text-primary bg-background border border-border rounded-md outline-none transition-all duration-150 ease-out placeholder:text-text-tertiary;
+  }
+
+  .field:focus {
+    @apply border-accent ring-3 ring-accent-light;
+  }
 }
 
 /* ===================================
@@ -417,6 +429,127 @@ textarea,
   z-index: 0;
 }
 
+/* A ledge is in front of what scrolls beneath it, so it is not levelled with
+   the rest. Here rather than as a `z-10` utility on the header: utilities are
+   layered and the rule above is not, so it wins whatever the specificity. */
+.glass-bevel > .pane-ledge {
+  z-index: 10;
+}
+
+/* `background-secondary` is a 6% wash, which disappears over a pane's own
+   content, so the fill is given an opaque base to sit on. */
+.segmented-floating {
+  background:
+    linear-gradient(var(--color-background-secondary), var(--color-background-secondary)), var(--color-surface);
+  box-shadow: var(--shadow-menu);
+}
+
+/* ===================================
+   Pane seam — the boundary between two panes of one surface
+   =================================== */
+
+/* One pixel of layout: the catch is a shadow, so it costs no width. */
+.pane-seam {
+  background: var(--seam-cut);
+  box-shadow: 1px 0 0 var(--seam-catch);
+  transition: background-color 0.1s ease;
+}
+
+/* The accent replaces the cut rather than sitting beside it, so the seam stays
+   one pixel wide while it is being dragged. */
+.pane-seam:hover,
+.pane-seam:has(:focus-visible) {
+  background: color-mix(in srgb, var(--color-accent) 60%, transparent);
+}
+
+.pane-seam:active {
+  background: var(--color-accent);
+}
+
+/* For panes laid directly against each other with nowhere to put a strip — the
+   kanban columns. On the left edge, since the board's own bevel is already the
+   boundary past the last column's right one. */
+.pane-seam-left {
+  border-left: 1px solid var(--seam-cut);
+}
+
+/* Except the first, whose left edge is the board's own bevel. Here rather than
+   as a `first:` utility on the column: utilities live in `@layer utilities`,
+   and unlayered CSS beats any layered rule whatever its specificity, so the
+   rule above would win and the exception would silently do nothing. */
+.kanban-column:first-child {
+  border-left: 0;
+}
+
+/* ===================================
+   Diff cards — one file's diff
+   =================================== */
+
+/* Not `.glass-bevel`, which sets `position: relative` on every child — that
+   would land on the file header and turn its `sticky` into `relative`,
+   unpinning it from the top of the pane. This lights the same four edges and
+   leaves the children alone. `isolation` keeps the overlay above the header
+   pinned inside the card, so the lit edge survives being scrolled under. */
+.diff-card {
+  position: relative;
+  isolation: isolate;
+}
+
+.diff-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  box-shadow:
+    inset 0 1px 0 var(--bevel-top),
+    inset 1px 0 0 var(--bevel-side),
+    inset -1px 0 0 var(--bevel-side),
+    inset 0 -1px 0 var(--bevel-bottom),
+    inset 0 2px 6px -3px var(--bevel-glow);
+  z-index: 20;
+}
+
+/* On the scrolling element itself, so the lip stays at the top edge rather
+   than scrolling away with the content. */
+.diff-well {
+  background: var(--color-diff-well);
+  box-shadow: var(--shadow-well);
+}
+
+.diff-list > * + *,
+.diff-list > *:first-child {
+  margin-top: 12px;
+}
+
+/* ===================================
+   Pane ledge — a header the content scrolls under
+   =================================== */
+
+/* A ledge marks the boundary below it and nothing else. Lighting its own top
+   face as well puts a highlight into the pixel the ledge above is cutting, and
+   two elements owning one boundary leaves paint order to decide which shows. */
+.pane-ledge {
+  box-shadow:
+    0 1px 0 var(--seam-cut),
+    0 2px 0 var(--seam-catch);
+}
+
+/* Only where the ledge borders the well along its whole length: one shadow
+   cannot light half of its own length, so a bar running past the rail as well
+   as the document keeps the catch. */
+.pane-ledge.over-well {
+  box-shadow: 0 1px 0 var(--seam-cut);
+}
+
+/* The same ledge inverted, for a strip pinned under the content rather than
+   over it. */
+.pane-ledge-under {
+  box-shadow:
+    0 -1px 0 var(--seam-cut),
+    inset 0 1px 0 var(--seam-catch);
+}
+
 /* ===================================
    Canvas pane cursor — default at rest, grabbing while panning
    =================================== */
@@ -510,56 +643,59 @@ textarea,
 }
 
 /* ===================================
-   Plan panel markdown styles
+   Rendered markdown — plan panel, pull request bodies and comments
    =================================== */
 
-.plan-markdown {
+/* Headings stay close to body size: a PR description with an h1 in it renders
+   inline in the timeline alongside ordinary comments. */
+
+.app-markdown {
   @apply text-sm text-ink/80 leading-relaxed;
 }
 
-.plan-markdown h1 {
+.app-markdown h1 {
   @apply text-lg font-semibold text-text-primary mt-0 mb-3;
 }
 
-.plan-markdown h2 {
+.app-markdown h2 {
   @apply text-base font-semibold text-text-primary mt-6 mb-2;
 }
 
-.plan-markdown h3 {
+.app-markdown h3 {
   @apply text-sm font-semibold text-text-primary mt-4 mb-1;
 }
 
-.plan-markdown h4 {
+.app-markdown h4 {
   @apply text-sm font-medium text-ink/90 mt-3 mb-1;
 }
 
-.plan-markdown p {
+.app-markdown p {
   @apply my-2;
 }
 
-.plan-markdown ul,
-.plan-markdown ol {
+.app-markdown ul,
+.app-markdown ol {
   @apply my-2 pl-5;
 }
 
-.plan-markdown ul {
+.app-markdown ul {
   list-style-type: disc;
 }
 
-.plan-markdown ol {
+.app-markdown ol {
   list-style-type: decimal;
 }
 
-.plan-markdown li {
+.app-markdown li {
   @apply my-0.5;
 }
 
-.plan-markdown li > ul,
-.plan-markdown li > ol {
+.app-markdown li > ul,
+.app-markdown li > ol {
   @apply my-0;
 }
 
-.plan-markdown code {
+.app-markdown code {
   @apply px-1 py-0.5 rounded text-[13px] font-mono;
   background: var(--color-background-secondary);
   color: var(--color-ansi-red);
@@ -568,19 +704,19 @@ textarea,
 /* The pre is the visual frame (border, bevel); the inner code is the scroll
    container. If the pre itself scrolled, the absolutely-positioned
    .glass-bevel::before overlay would scroll away with the content. */
-.plan-markdown pre {
+.app-markdown pre {
   @apply relative my-3 p-3 rounded-[14px] border border-bezel bg-ink/[0.06] overflow-hidden;
 }
 
-.plan-markdown pre code {
+.app-markdown pre code {
   @apply block p-0 bg-transparent text-ink/70 overflow-x-auto;
 }
 
-.plan-markdown blockquote {
+.app-markdown blockquote {
   @apply my-2 pl-3 border-l-2 border-ink/20 text-ink/60;
 }
 
-.plan-markdown a {
+.app-markdown a {
   @apply text-accent hover:underline;
 }
 
@@ -661,44 +797,44 @@ textarea,
   content: 'File not found';
 }
 
-.plan-markdown strong {
+.app-markdown strong {
   @apply text-text-primary font-medium;
 }
 
-.plan-markdown hr {
+.app-markdown hr {
   @apply my-4 border-ink/10;
 }
 
-.plan-markdown table {
+.app-markdown table {
   @apply my-3 w-full border-collapse;
 }
 
-.plan-markdown th {
+.app-markdown th {
   @apply px-3 py-1.5 text-left text-xs font-medium text-ink/60 border-b border-ink/10;
 }
 
-.plan-markdown td {
+.app-markdown td {
   @apply px-3 py-1.5 text-sm border-b border-ink/[0.06];
 }
 
 /* Task list checkboxes */
-.plan-markdown li:has(> input[type='checkbox']) {
+.app-markdown li:has(> input[type='checkbox']) {
   list-style: none;
   margin-left: -1.25rem;
 }
 
-.plan-markdown input[type='checkbox'] {
+.app-markdown input[type='checkbox'] {
   @apply appearance-none w-4 h-4 mr-2 rounded border border-ink/25 bg-ink/[0.06] align-middle relative;
   transition: all 0.15s ease-out;
 }
 
-.plan-markdown input[type='checkbox']:checked {
+.app-markdown input[type='checkbox']:checked {
   @apply bg-accent border-accent;
 }
 
 /* Check mark is baked white in the data URI — fine in every theme because it
    always sits on the accent fill. */
-.plan-markdown input[type='checkbox']:checked::after {
+.app-markdown input[type='checkbox']:checked::after {
   content: '';
   @apply absolute inset-0;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='white'%3E%3Cpath d='M12.207 4.793a1 1 0 0 1 0 1.414l-5 5a1 1 0 0 1-1.414 0l-2-2a1 1 0 0 1 1.414-1.414L6.5 9.086l4.293-4.293a1 1 0 0 1 1.414 0z'/%3E%3C/svg%3E");
@@ -827,12 +963,18 @@ textarea,
 
 /* ── New-task composer ────────────────────────────────────────────── */
 
-/* Pinned below the card list rather than scrolling with it, so it reads as
-   part of the column's frame. */
+/* Raised over the card list, which scrolls under it. */
+.kanban-column-footer {
+  position: relative;
+  z-index: 1;
+}
+
 .kanban-column-footer .kanban-add-form {
   background: color-mix(in srgb, var(--color-ink) 2%, transparent);
-  border-top: 1px solid color-mix(in srgb, var(--color-ink) 8%, transparent);
-  box-shadow: 0 -8px 16px -10px rgba(0, 0, 0, 0.45);
+  box-shadow:
+    0 -1px 0 var(--seam-cut),
+    inset 0 1px 0 var(--seam-catch),
+    0 -6px 12px -6px var(--seam-shadow);
 }
 
 /* Resting state: one row, same place at any column length. */

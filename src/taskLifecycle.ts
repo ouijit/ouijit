@@ -18,9 +18,10 @@ import {
   clearParentReferences,
   reorderTask,
   type TaskStatus,
+  type TaskMetadata,
 } from './db';
 import { listWorktrees, removeTaskWorktree, startTask } from './worktree';
-import type { TaskWithWorkspace, TaskWorktreeResult } from './types';
+import type { TaskWithWorkspace, TaskWorktreeResult, WorktreeInfo } from './types';
 import { getCachedHealth } from './healthCheck';
 import { getLogger } from './logger';
 import { deleteOrphanedAttachments, extractAttachmentPaths } from './attachments';
@@ -270,6 +271,25 @@ export async function trashTaskWithWorktree(
   return dbResult;
 }
 
+/** A stored task plus its resolved worktree, in the shape the renderer takes. */
+function toTaskWithWorkspace(task: TaskMetadata, worktree: WorktreeInfo | undefined): TaskWithWorkspace {
+  return {
+    taskNumber: task.taskNumber,
+    name: task.name,
+    status: task.status,
+    branch: task.branch,
+    worktreePath: worktree?.path || task.worktreePath,
+    createdAt: task.createdAt,
+    closedAt: task.closedAt,
+    mergeTarget: task.mergeTarget,
+    prompt: task.prompt,
+    order: task.order,
+    parentTaskNumber: task.parentTaskNumber,
+    githubPrNumber: task.githubPrNumber,
+    githubIssueNumber: task.githubIssueNumber,
+  };
+}
+
 /**
  * Get all tasks with their resolved worktree paths.
  */
@@ -278,22 +298,7 @@ export async function getTasksWithWorkspaces(projectPath: string): Promise<TaskW
   const tasks = await getProjectTasks(projectPath);
   const worktreeMap = new Map(worktrees.map((wt) => [wt.branch, wt]));
 
-  return tasks.map((task) => {
-    const wt = task.branch ? worktreeMap.get(task.branch) : undefined;
-    return {
-      taskNumber: task.taskNumber,
-      name: task.name,
-      status: task.status,
-      branch: task.branch,
-      worktreePath: wt?.path || task.worktreePath,
-      createdAt: task.createdAt,
-      closedAt: task.closedAt,
-      mergeTarget: task.mergeTarget,
-      prompt: task.prompt,
-      order: task.order,
-      parentTaskNumber: task.parentTaskNumber,
-    };
-  });
+  return tasks.map((task) => toTaskWithWorkspace(task, task.branch ? worktreeMap.get(task.branch) : undefined));
 }
 
 /**
@@ -303,18 +308,5 @@ export async function getTaskWithWorkspace(projectPath: string, taskNumber: numb
   const task = await getTaskByNumber(projectPath, taskNumber);
   if (!task) return null;
   const worktrees = await listWorktrees(projectPath);
-  const wt = task.branch ? worktrees.find((w) => w.branch === task.branch) : undefined;
-  return {
-    taskNumber: task.taskNumber,
-    name: task.name,
-    status: task.status,
-    branch: task.branch,
-    worktreePath: wt?.path || task.worktreePath,
-    createdAt: task.createdAt,
-    closedAt: task.closedAt,
-    mergeTarget: task.mergeTarget,
-    prompt: task.prompt,
-    order: task.order,
-    parentTaskNumber: task.parentTaskNumber,
-  };
+  return toTaskWithWorkspace(task, task.branch ? worktrees.find((w) => w.branch === task.branch) : undefined);
 }

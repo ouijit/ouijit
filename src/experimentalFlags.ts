@@ -1,9 +1,9 @@
 /**
  * Per-project experimental feature flags: storage key, shape, and parsing.
  *
- * Leaf module (no renderer or db imports) so both the renderer store and
- * main-process consumers share one definition of the key and shape without
- * dragging renderer dependencies across the process boundary.
+ * Leaf module (no renderer or db imports), so main-process consumers can read
+ * the key and shape without dragging renderer dependencies across the process
+ * boundary.
  */
 
 /** Experimental features that can be toggled per project. */
@@ -12,11 +12,14 @@ export interface ExperimentalFlags {
   canvas: boolean;
   /** The nono sandbox backend (still maturing; gated off by default). */
   nono: boolean;
+  /** GitHub pull request inbox and review surface. Panel and polling stay dark until on. */
+  github: boolean;
 }
 
 export const DEFAULT_EXPERIMENTAL_FLAGS: ExperimentalFlags = {
   canvas: false,
   nono: false,
+  github: false,
 };
 
 /** globalSettings key holding a project's experimental flags JSON. */

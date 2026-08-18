@@ -35,8 +35,8 @@ export function registerWorktreeHandlers(): void {
     getWorktreeDiff(projectPath, worktreeBranch, targetBranch),
   );
 
-  typedHandle('worktree:get-file-diff', (projectPath, worktreeBranch, filePath, targetBranch, contextLines) =>
-    getWorktreeFileDiff(projectPath, worktreeBranch, filePath, targetBranch, contextLines),
+  typedHandle('worktree:get-file-diff', (gitPath, base, filePath, oldPath, contextLines) =>
+    getWorktreeFileDiff(gitPath, base, filePath, oldPath, contextLines),
   );
 
   typedHandle('worktree:merge', (projectPath, worktreeBranch) => mergeWorktreeBranch(projectPath, worktreeBranch));

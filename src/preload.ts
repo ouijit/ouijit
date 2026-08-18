@@ -20,6 +20,15 @@ import type {
   CliPanelResponse,
 } from './types';
 import type { CaptureNavigatePayload } from './capture/types';
+import type {
+  CommentKind,
+  ReviewEvent,
+  MergeMethod,
+  GithubDraftsChangedPayload,
+  SaveDraftInput,
+  PrHead,
+} from './github/types';
+import type { SaveDiffNoteInput } from './diffNotes';
 
 // ── Typed IPC helpers ───────────────────────────────────────────────────────
 // These ensure channel names, argument types, and return types are all
@@ -75,12 +84,14 @@ contextBridge.exposeInMainWorld('api', {
   getGitFileStatus: (projectPath: string, diffBase?: string) =>
     typedInvoke('get-git-file-status', projectPath, diffBase),
   getGitDropdownInfo: (projectPath: string) => typedInvoke('get-git-dropdown-info', projectPath),
+  listDiffBases: (projectPath: string) => typedInvoke('git-diff-bases', projectPath),
+  fetchDiffBase: (projectPath: string, ref: string) => typedInvoke('git-fetch-diff-base', projectPath, ref),
   gitCheckout: (projectPath: string, branchName: string) => typedInvoke('git-checkout', projectPath, branchName),
   gitCreateBranch: (projectPath: string, branchName: string) =>
     typedInvoke('git-create-branch', projectPath, branchName),
   gitMergeIntoMain: (projectPath: string) => typedInvoke('git-merge-into-main', projectPath),
-  getFileDiff: (projectPath: string, filePath: string, contextLines?: number) =>
-    typedInvoke('get-file-diff', projectPath, filePath, contextLines),
+  getFileDiff: (projectPath: string, filePath: string, contextLines: number | undefined, untracked: boolean) =>
+    typedInvoke('get-file-diff', projectPath, filePath, contextLines, untracked),
 
   pty: {
     spawn: (options: PtySpawnOptions) => typedInvoke('pty:spawn', options),
@@ -116,13 +127,8 @@ contextBridge.exposeInMainWorld('api', {
     list: (projectPath: string) => typedInvoke('worktree:list', projectPath),
     getDiff: (projectPath: string, worktreeBranch: string, targetBranch?: string) =>
       typedInvoke('worktree:get-diff', projectPath, worktreeBranch, targetBranch),
-    getFileDiff: (
-      projectPath: string,
-      worktreeBranch: string,
-      filePath: string,
-      targetBranch?: string,
-      contextLines?: number,
-    ) => typedInvoke('worktree:get-file-diff', projectPath, worktreeBranch, filePath, targetBranch, contextLines),
+    getFileDiff: (gitPath: string, base: string, filePath: string, oldPath?: string, contextLines?: number) =>
+      typedInvoke('worktree:get-file-diff', gitPath, base, filePath, oldPath, contextLines),
     merge: (projectPath: string, worktreeBranch: string) => typedInvoke('worktree:merge', projectPath, worktreeBranch),
     ship: (projectPath: string, worktreeBranch: string, commitMessage?: string) =>
       typedInvoke('worktree:ship', projectPath, worktreeBranch, commitMessage),
@@ -297,5 +303,90 @@ contextBridge.exposeInMainWorld('api', {
     nonoConfig: (projectPath: string) => typedInvoke('sandbox:nono-config', projectPath),
     setNonoConfig: (projectPath: string, config: NonoConfig) =>
       typedInvoke('sandbox:set-nono-config', projectPath, config),
+  },
+
+  github: {
+    availability: (projectPath: string, recheck?: boolean) => typedInvoke('github:availability', projectPath, recheck),
+    inbox: (projectPath: string) => typedInvoke('github:inbox', projectPath),
+    pullRequest: (projectPath: string, number: number) => typedInvoke('github:pull-request', projectPath, number),
+    pullRequestFreshness: (projectPath: string, number: number) =>
+      typedInvoke('github:pull-request-freshness', projectPath, number),
+    pullRequestFiles: (projectPath: string, number: number, baseSha: string, headSha: string) =>
+      typedInvoke('github:pull-request-files', projectPath, number, baseSha, headSha),
+    pullRequestFileDiff: (
+      projectPath: string,
+      number: number,
+      baseSha: string,
+      headSha: string,
+      filePath: string,
+      contextLines?: number,
+      oldPath?: string,
+    ) =>
+      typedInvoke(
+        'github:pull-request-file-diff',
+        projectPath,
+        number,
+        baseSha,
+        headSha,
+        filePath,
+        contextLines,
+        oldPath,
+      ),
+    pullRequestFileVersions: (
+      projectPath: string,
+      number: number,
+      baseSha: string,
+      headSha: string,
+      filePath: string,
+      oldPath?: string,
+    ) => typedInvoke('github:pull-request-file-versions', projectPath, number, baseSha, headSha, filePath, oldPath),
+    viewedFiles: (projectPath: string, prNumber: number, headSha: string) =>
+      typedInvoke('github:viewed-files', projectPath, prNumber, headSha),
+    setFileViewed: (projectPath: string, prNumber: number, headSha: string, path: string, viewed: boolean) =>
+      typedInvoke('github:set-file-viewed', projectPath, prNumber, headSha, path, viewed),
+    issues: (projectPath: string) => typedInvoke('github:issues', projectPath),
+    issue: (projectPath: string, number: number) => typedInvoke('github:issue', projectPath, number),
+
+    linkTaskPr: (projectPath: string, taskNumber: number, prNumber: number | null) =>
+      typedInvoke('github:link-task-pr', projectPath, taskNumber, prNumber),
+    linkTaskIssue: (projectPath: string, taskNumber: number, issueNumber: number | null) =>
+      typedInvoke('github:link-task-issue', projectPath, taskNumber, issueNumber),
+    detectTaskPr: (projectPath: string, taskNumber: number) =>
+      typedInvoke('github:detect-task-pr', projectPath, taskNumber),
+
+    drafts: (projectPath: string, prNumber: number, head?: PrHead) =>
+      typedInvoke('github:drafts', projectPath, prNumber, head),
+    saveDraft: (projectPath: string, input: SaveDraftInput) => typedInvoke('github:save-draft', projectPath, input),
+    discardDraft: (projectPath: string, draftId: string) => typedInvoke('github:discard-draft', projectPath, draftId),
+    submitReview: (projectPath: string, prNumber: number, event: ReviewEvent, body: string) =>
+      typedInvoke('github:submit-review', projectPath, prNumber, event, body),
+    comment: (projectPath: string, prNumber: number, body: string) =>
+      typedInvoke('github:comment', projectPath, prNumber, body),
+    replyToThread: (projectPath: string, prNumber: number, commentId: number, body: string) =>
+      typedInvoke('github:reply-to-thread', projectPath, prNumber, commentId, body),
+    deleteComment: (projectPath: string, kind: CommentKind, commentId: number) =>
+      typedInvoke('github:delete-comment', projectPath, kind, commentId),
+    resolveThread: (projectPath: string, threadId: string, resolved: boolean) =>
+      typedInvoke('github:resolve-thread', projectPath, threadId, resolved),
+    createPr: (
+      projectPath: string,
+      taskNumber: number,
+      options: { title?: string; body?: string; base?: string; draft?: boolean },
+    ) => typedInvoke('github:create-pr', projectPath, taskNumber, options),
+    mergePr: (projectPath: string, prNumber: number, method: MergeMethod, deleteBranch: boolean) =>
+      typedInvoke('github:merge-pr', projectPath, prNumber, method, deleteBranch),
+    taskFromIssue: (projectPath: string, issueNumber: number) =>
+      typedInvoke('github:task-from-issue', projectPath, issueNumber),
+    taskFromPr: (projectPath: string, prNumber: number) => typedInvoke('github:task-from-pr', projectPath, prNumber),
+
+    onDraftsChanged: (callback: (payload: GithubDraftsChangedPayload) => void) =>
+      typedListen('github:drafts-changed', callback),
+  },
+
+  diffNotes: {
+    list: (worktreePath: string, keep?: string[]) => typedInvoke('diff-notes:list', worktreePath, keep),
+    save: (input: SaveDiffNoteInput) => typedInvoke('diff-notes:save', input),
+    discard: (id: string) => typedInvoke('diff-notes:discard', id),
+    clear: (worktreePath: string) => typedInvoke('diff-notes:clear', worktreePath),
   },
 });

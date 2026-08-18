@@ -72,15 +72,15 @@ export function KanbanColumnView({
   return (
     <div
       ref={columnRef}
-      className="kanban-column flex flex-col transition-all duration-150 ease-out shrink-0 last:border-r-0"
-      style={{
-        minWidth: 240,
-        flex: '1 0 240px',
-        borderRight: '1px solid color-mix(in srgb, var(--color-ink) 6%, transparent)',
-      }}
+      // The column owns every vertical boundary on the board; a card owns the
+      // horizontal ones between itself and the task below. The first column
+      // goes without one — see `.kanban-column:first-child`, which has to be
+      // CSS rather than a `first:` utility to outrank the seam.
+      className="kanban-column pane-seam-left flex flex-col transition-all duration-150 ease-out shrink-0"
+      style={{ minWidth: 240, flex: '1 0 240px' }}
       data-status={status}
     >
-      <div ref={headerRef} className="flex items-center gap-2 px-3 py-2.5 shrink-0 h-[46px]">
+      <div ref={headerRef} className="pane-ledge relative z-10 flex items-center gap-2 px-3 py-2.5 shrink-0 h-[46px]">
         <span className="text-[13px] font-medium text-text-secondary tracking-wide flex-1">
           {label}
           {caption ? (
@@ -102,8 +102,9 @@ export function KanbanColumnView({
       <div
         ref={bodyRef}
         className="kanban-column-body flex flex-col overflow-y-auto flex-1 min-h-0"
+        // No border of its own: the header above owns that boundary, and two
+        // of them stack three lines at the top of every column.
         style={{
-          borderTop: '1px solid color-mix(in srgb, var(--color-ink) 6%, transparent)',
           scrollbarColor: 'transparent transparent',
           transition: 'background 150ms ease',
           minHeight: 80,

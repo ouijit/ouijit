@@ -13,9 +13,9 @@ export const STATUS_LABELS: Record<TaskStatus, string> = {
 
 /**
  * The task actions shared by the kanban card menu and a task terminal's header
- * menu, so the two can't drift. Callers supply the handlers (they open
- * terminals / move status through different plumbing) and compose these entries
- * with their own context-specific items around them.
+ * menu. Callers supply the handlers — they open terminals and move status
+ * through different plumbing — and compose these entries with their own
+ * context-specific items around them.
  */
 export interface TaskMenuActions {
   /** Open a new terminal for the task; a provider opens it sandboxed. */
@@ -59,6 +59,41 @@ export function openInEntry(
     submenu.push({ label: FILE_MANAGER_NAME, icon: 'folder-open', onClick: actions.openFolder });
   }
   return { label: 'Open in', submenu };
+}
+
+/**
+ * GitHub actions for a task. Returns nothing when the feature is off for the
+ * project, so the menu shape is unchanged for anyone not using it.
+ *
+ * Lives here rather than in either caller: the kanban card and the terminal
+ * header share this menu.
+ */
+export interface GithubMenuActions {
+  openPullRequest: (prNumber: number) => void;
+  createPullRequest: () => void;
+  unlinkPullRequest: () => void;
+}
+
+export function githubEntries(
+  options: { enabled: boolean; prNumber?: number; hasBranch: boolean },
+  actions: GithubMenuActions,
+): ContextMenuEntry[] {
+  if (!options.enabled) return [];
+
+  if (options.prNumber != null) {
+    const prNumber = options.prNumber;
+    return [
+      {
+        label: `Pull request #${prNumber}`,
+        icon: 'git-pull-request',
+        onClick: () => actions.openPullRequest(prNumber),
+      },
+      { label: 'Unlink pull request', onClick: actions.unlinkPullRequest },
+    ];
+  }
+
+  if (!options.hasBranch) return [];
+  return [{ label: 'Create pull request', icon: 'git-pull-request', onClick: actions.createPullRequest }];
 }
 
 /** "Move to ▸" — the four columns, then a danger Trash. */

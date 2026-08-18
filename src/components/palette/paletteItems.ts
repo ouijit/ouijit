@@ -1,13 +1,12 @@
 /**
  * Turns the stores into the rows the mod+K switcher ranks.
  *
- * The one rule worth stating: **a task is one row, always**. Earlier the same
- * task could be absent (no worktree yet), listed under Tasks (worktree, no
- * shell), or listed under Terminals wearing whatever label its agent had set
- * via OSC (shell running). Searching for it therefore turned up a different
- * thing, a differently-named thing, or nothing, depending on state the user
- * wasn't thinking about. Now the row is the task; its state only decides what
- * Enter does:
+ * The rule this rests on: **a task is one row, always**. Split by state, the
+ * same task is absent (no worktree yet), under Tasks (worktree, no shell), or
+ * under Terminals wearing whatever label its agent set via OSC (shell running)
+ * — so searching for it turns up a different thing, a differently-named thing,
+ * or nothing, depending on state the user wasn't thinking about. The row is the
+ * task; its state only decides what Enter does:
  *
  *   live terminal  →  focus it
  *   worktree only  →  open a plain shell there
@@ -17,19 +16,21 @@
  * panels on a parent card and never list at all.
  */
 
-import type { ActiveSession, Project, SandboxProviderId, TaskWithWorkspace } from '../../types';
+import type { ActiveSession, Project, PullRequestSummary, SandboxProviderId, TaskWithWorkspace } from '../../types';
 import type { TerminalDisplayState } from '../../stores/terminalStore';
 import type { SearchField } from '../../utils/paletteScore';
 import { formatAge } from '../../utils/formatDate';
 import { STATUS_LABELS } from '../kanban/taskMenu';
-import { focusTerminal, openTaskWorktree, selectProject, startTaskWorktree } from '../navigation';
+import { activateTask, focusTerminal, selectProject, TASK_OPEN_LABEL } from '../navigation';
+import { openPullRequestInPanel } from '../../services/githubTaskActions';
 
-export type PaletteKind = 'terminal' | 'project' | 'task';
+export type PaletteKind = 'terminal' | 'project' | 'task' | 'pull';
 
 export const KIND_LABEL: Record<PaletteKind, string> = {
   terminal: 'Terminals',
   project: 'Projects',
   task: 'Tasks',
+  pull: 'Pull requests',
 };
 
 export interface PaletteItem {
@@ -48,6 +49,8 @@ export interface PaletteItem {
   fields: SearchField[];
   project?: Project;
   taskNumber?: number;
+  /** Set on pull request rows — the number is what you scan for and type. */
+  prNumber?: number;
   tags?: string[];
   /** Right-aligned, dim. */
   meta?: string;
@@ -77,6 +80,12 @@ export interface PaletteInput {
   displayStates: Record<string, TerminalDisplayState>;
   sessions: ActiveSession[];
   taskCacheByProject: Record<string, TaskWithWorkspace[]>;
+  /**
+   * Open pull requests for the active project, when the GitHub flag is on and
+   * the inbox has already loaded. Absent otherwise — the palette never triggers
+   * a fetch of its own, it paints from what is cached.
+   */
+  pullRequests?: PullRequestSummary[];
 }
 
 /** One live, switchable shell, from either source. */
@@ -274,22 +283,10 @@ export function buildPaletteItems(input: PaletteInput): PaletteItem[] {
       // ages line up, and the long form would truncate.
       meta: `${status} · ${formatAge((Date.now() - new Date(task.createdAt).getTime()) / 1000)}`,
       // No status dot: the shells carry their own, on their branch rows.
-      action: first ? 'Focus terminal' : openable ? 'Open worktree' : 'Start task',
-      run: () => {
-        if (first) {
-          void focusTerminal(first.ptyId, first.projectPath);
-        } else if (openable) {
-          void openTaskWorktree({
-            project,
-            taskNumber: task.taskNumber,
-            worktreePath: task.worktreePath as string,
-            branch: task.branch as string,
-            createdAt: task.createdAt,
-          });
-        } else {
-          void startTaskWorktree(project, task.taskNumber, task.createdAt, task.name || 'Untitled');
-        }
-      },
+      action: TASK_OPEN_LABEL[first ? 'focus' : openable ? 'open' : 'start'],
+      // Shared with the GitHub panel's issue rows, so "take me to the work on
+      // this" means the same thing wherever it is offered.
+      run: () => void activateTask(project, task, first?.ptyId),
     });
 
     // The task's shells, drawn as branches off its row the way a kanban card
@@ -311,6 +308,46 @@ export function buildPaletteItems(input: PaletteInput): PaletteItem[] {
         run: () => void focusTerminal(terminal.ptyId, terminal.projectPath),
       });
     });
+  }
+
+  // ── Pull requests ──
+  // Navigation only: Enter shows the PR in the project panel. Nothing here
+  // creates a worktree or writes to GitHub, matching the rest of the switcher.
+  // A PR already checked out as a task is skipped — that task row is the one
+  // row for it, and listing both would be the duplicate-identity problem the
+  // task rows above exist to avoid.
+  if (input.activeProjectPath && input.pullRequests?.length) {
+    const project = projectByPath.get(input.activeProjectPath);
+    const projectPath = input.activeProjectPath;
+    const linkedPrNumbers = new Set(
+      (input.taskCacheByProject[projectPath] ?? []).map((t) => t.githubPrNumber).filter((n): n is number => n != null),
+    );
+
+    for (const pr of input.pullRequests) {
+      if (linkedPrNumbers.has(pr.number)) continue;
+      push({
+        id: `pull:${projectPath}#${pr.number}`,
+        key: `pull:${projectPath}#${pr.number}`,
+        kind: 'pull',
+        title: pr.title,
+        context: project?.name ?? projectPath,
+        fields: [
+          { key: 'title', text: pr.title, weight: 1 },
+          // Both forms, so "#42" and "42" each hit exactly rather than
+          // scattering as a subsequence of the title.
+          { key: 'number', text: `#${pr.number}`, weight: 1 },
+          { key: 'number', text: String(pr.number), weight: 0.9 },
+          { key: 'author', text: pr.author, weight: 0.6 },
+          { key: 'branch', text: pr.headRefName, weight: 0.7 },
+          { key: 'project', text: project?.name ?? projectPath, weight: 0.5 },
+        ],
+        project,
+        prNumber: pr.number,
+        meta: pr.reviewRequested && !pr.isMine ? 'needs review' : pr.isMine ? 'yours' : undefined,
+        action: 'Open pull request',
+        run: () => openPullRequestInPanel(projectPath, pr.number),
+      });
+    }
   }
 
   return items;

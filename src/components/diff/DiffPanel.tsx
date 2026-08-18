@@ -1,145 +1,226 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
-import type { ChangedFile, FileDiff, DiffHunk, DiffLine } from '../../types';
-import type { ThemedToken, HunkTokens } from '../../utils/syntaxHighlight';
-import type { WordHighlight } from '../../utils/wordDiff';
-import { computeWordHighlights } from '../../utils/wordDiff';
+import type { FileDiff } from '../../types';
 import { useTerminalStore } from '../../stores/terminalStore';
 import { terminalInstances, refreshTerminalGitStatus } from '../terminal/terminalReact';
-import { Icon } from '../terminal/Icon';
-import { useSyntaxHighlight } from './useSyntaxHighlight';
+import { DiffFileTree, inTreeOrder } from './DiffFileTree';
+import { DiffFileSection } from './DiffFileSection';
+import { DeferredMount } from './DeferredMount';
+import { scrollToSection, fileSelector } from './scrollToSection';
+import { ResizeHandle } from '../common/ResizeHandle';
+import { SidebarToggle } from '../common/SidebarToggle';
+import { FullWidthToggle, PanelCloseButton } from '../terminal/FullWidthToggle';
+import { estimateFileHeight } from './diffMetrics';
+import { useBatchedDiffs } from './useBatchedDiffs';
+import { InlineCommentBox, InlineCommentCard } from './InlineCommentBox';
+import { DiffNotesIsland } from './DiffNotesIsland';
+import { DiffComparisonPicker } from './DiffComparisonPicker';
+import { useDiffNotes } from './useDiffNotes';
+import { anchorKey, anchorStart, blockAt, composingAt, describeAnchor, type DiffLineAnchor } from '../../diffAnchor';
+import { MAX_DIFF_FILES, diffShape, diffSubject, filesInDiff } from '../../diffSource';
+import { toggleIn } from '../../utils/toggleIn';
 
 interface DiffPanelProps {
   ptyId: string;
   projectPath: string;
-  mode: 'uncommitted' | 'worktree';
+  /** Filling the terminal body, rather than split beside the terminal. */
+  fullWidth: boolean;
+  onToggleFullWidth: () => void;
   onClose: () => void;
 }
 
-const MAX_DIFF_FILES = 300;
-const DIFF_BATCH_SIZE = 10;
+const NOTE_HINT = 'Kept with this worktree until you hand it to the agent.';
+const DEFAULT_SIDEBAR_WIDTH = 220;
 
-export function DiffPanel({ ptyId, projectPath, mode, onClose }: DiffPanelProps) {
+/**
+ * Uncommitted and branch diffs for a terminal's worktree.
+ *
+ * The file tree, file sections, hunk and line renderers, and the token /
+ * word-diff splicing all live in this directory's shared primitives — the same
+ * ones the pull request files view renders.
+ */
+export function DiffPanel({ ptyId, projectPath, fullWidth, onToggleFullWidth, onClose }: DiffPanelProps) {
   const gitFileStatus = useTerminalStore((s) => s.displayStates[ptyId]?.gitFileStatus ?? null);
   const [diffs, setDiffs] = useState<Map<string, FileDiff | null>>(new Map());
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [sidebarWidth, setSidebarWidth] = useState(220);
+  const [sidebarWidth, setSidebarWidth] = useState(DEFAULT_SIDEBAR_WIDTH);
+  // Local, and gone when the panel closes: folding here is scroll management,
+  // not review state that has to survive.
+  const [folded, setFolded] = useState<Set<string>>(new Set());
   const contentRef = useRef<HTMLDivElement>(null);
-  const draggingRef = useRef(false);
+  // The loaded diffs, for callbacks that must not be rebuilt each time a batch
+  // of them arrives.
+  const diffsRef = useRef(diffs);
+  diffsRef.current = diffs;
 
   const instance = terminalInstances.get(ptyId);
   const gitPath = instance?.worktreePath || projectPath;
 
-  // Derive effective mode to match the GitStats button logic:
-  // the button shows uncommitted changes when they exist, falling back to branch diff.
-  // The panel must follow the same logic so they always agree.
-  const effectiveMode = useMemo(() => {
-    if (mode !== 'worktree' || !gitFileStatus) return mode;
-    return gitFileStatus.uncommittedFiles.length > 0 ? 'uncommitted' : 'worktree';
-  }, [mode, gitFileStatus]);
+  // Both from the status rather than from the terminal's request, so the label
+  // and the list can never name different comparisons: this is the base the
+  // answer on screen was actually produced against.
+  const base = gitFileStatus?.base ?? null;
+  const branch = gitFileStatus?.branch ?? null;
 
-  // Derive file list from the store (same data the GitStats button uses)
-  const storeFiles = useMemo(() => {
-    if (!gitFileStatus) return [];
-    return effectiveMode === 'worktree' ? gitFileStatus.branchDiffFiles : gitFileStatus.uncommittedFiles;
-  }, [gitFileStatus, effectiveMode]);
+  const storeFiles = useMemo(() => (gitFileStatus ? filesInDiff(gitFileStatus) : []), [gitFileStatus]);
 
   const totalFileCount = storeFiles.length;
-  const files = useMemo(() => storeFiles.slice(0, MAX_DIFF_FILES), [storeFiles]);
+
+  // The shape of the change, and the file list held at the same identity for as
+  // long as it says the change is the same one.
+  //
+  // A status poll hands back a fresh object every few seconds whether or not
+  // anything moved, and everything below here — the tree walk, the per-file
+  // loader — keys off `files`. Without this they all re-run on a diff that did
+  // not change.
+  // The base rides along, because two comparisons can list the same shape and
+  // the hunks under it still differ — a branch level with its remote lists the
+  // same files either way it is read.
+  const filesFingerprint = useMemo(
+    () => `${base ?? ''}\n${diffShape(storeFiles.slice(0, MAX_DIFF_FILES))}`,
+    [storeFiles, base],
+  );
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- the fingerprint is the point: it changes only when the list does
+  const files = useMemo(() => storeFiles.slice(0, MAX_DIFF_FILES), [filesFingerprint]);
+  // The tree groups by directory; the document runs in the same order, or
+  // clicking a file in one is no way to find it in the other.
+  const ordered = useMemo(() => inTreeOrder(files), [files]);
   const truncated = totalFileCount > MAX_DIFF_FILES;
   const loading = gitFileStatus === null;
-  const untrackedFiles = gitFileStatus?.untrackedFiles ?? [];
 
-  // Stable fingerprint — only changes when the actual file list changes.
-  // Prevents hunk-loading from restarting on no-op 3s git status refreshes.
-  const filesFingerprint = useMemo(
-    () => files.map((f) => `${f.status}:${f.path}:${f.additions}:${f.deletions}`).join('\n'),
-    [files],
-  );
+  // Keyed by worktree, not by panel or terminal session, so notes survive the
+  // panel being closed and reopened mid-review.
+  const notes = useDiffNotes(gitPath, filesFingerprint);
 
-  // Trigger an immediate git status refresh when panel opens for fresh data
   useEffect(() => {
     const inst = terminalInstances.get(ptyId);
     if (inst) refreshTerminalGitStatus(inst);
   }, [ptyId]);
 
-  // Load per-file diffs in batches when the file list changes.
-  // Within each batch we mutate a single Map and call setDiffs once with a
-  // fresh clone — previously each finished file cloned the entire map
-  // (O(N) per file → O(N²) for the whole load). With ~300 files that was
-  // tens of thousands of redundant copies during the load.
-  useEffect(() => {
-    let cancelled = false;
-    setDiffs(new Map());
-
-    if (files.length === 0) return;
-
-    const accumulated = new Map<string, FileDiff | null>();
-
-    const loadDiffs = async () => {
-      for (let i = 0; i < files.length; i += DIFF_BATCH_SIZE) {
-        if (cancelled) return;
-        const batch = files.slice(i, i + DIFF_BATCH_SIZE);
-        const results = await Promise.all(
-          batch.map(async (file): Promise<[string, FileDiff | null]> => {
-            try {
-              const diff =
-                effectiveMode === 'worktree' && instance?.worktreeBranch
-                  ? await window.api.worktree.getFileDiff(
-                      projectPath,
-                      instance.worktreeBranch,
-                      file.path,
-                      instance.mergeTarget,
-                    )
-                  : await window.api.getFileDiff(gitPath, file.path);
-              return [file.path, diff];
-            } catch {
-              return [file.path, null];
-            }
-          }),
-        );
-        if (cancelled) return;
-        for (const [path, diff] of results) accumulated.set(path, diff);
-        // One copy per batch instead of one per file — batches of 10 means
-        // ~30 copies for 300 files instead of ~45 000.
-        setDiffs(new Map(accumulated));
-      }
-    };
-
-    loadDiffs();
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- filesFingerprint is the stable proxy for files
-  }, [filesFingerprint, effectiveMode, gitPath, projectPath, instance?.worktreeBranch]);
-
-  const scrollToFile = useCallback((path: string) => {
-    const section = contentRef.current?.querySelector(`[data-path="${CSS.escape(path)}"]`);
-    section?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }, []);
-
-  const handleSidebarDragStart = useCallback(
-    (e: React.MouseEvent) => {
-      e.preventDefault();
-      draggingRef.current = true;
-      const startX = e.clientX;
-      const startWidth = sidebarWidth;
-
-      const onMouseMove = (ev: MouseEvent) => {
-        const newWidth = Math.max(120, Math.min(500, startWidth + ev.clientX - startX));
-        setSidebarWidth(newWidth);
-      };
-      const onMouseUp = () => {
-        draggingRef.current = false;
-        document.removeEventListener('mousemove', onMouseMove);
-        document.removeEventListener('mouseup', onMouseUp);
-      };
-      document.addEventListener('mousemove', onMouseMove);
-      document.addEventListener('mouseup', onMouseUp);
+  useBatchedDiffs(
+    files,
+    filesFingerprint,
+    (file) => {
+      // An untracked file is in no revision, so no comparison can produce it —
+      // it is read whole, as the addition it would be.
+      return file.status === '?' || !base
+        ? window.api.getFileDiff(gitPath, file.path, undefined, file.status === '?')
+        : window.api.worktree.getFileDiff(gitPath, base, file.path, file.oldPath);
     },
-    [sidebarWidth],
+    setDiffs,
   );
 
-  // Header stats
+  const scrollToFile = useCallback((path: string) => {
+    scrollToSection(contentRef.current, fileSelector(path));
+  }, []);
+
+  const { setComposingAt, setEditingId } = notes;
+  const startNote = useCallback(
+    (path: string, anchor: DiffLineAnchor) => {
+      setEditingId(null);
+      setComposingAt({ path, ...anchor });
+    },
+    [setComposingAt, setEditingId],
+  );
+
+  /**
+   * The notes anchored to one line, and the box that writes another.
+   *
+   * The same slot the pull request's files view fills with threads and drafts,
+   * on the same renderer underneath.
+   */
+  const renderBelowLine = useCallback(
+    (path: string, anchor: DiffLineAnchor) => {
+      const key = anchorKey(path, anchor.line, anchor.side);
+      const here = notes.byAnchor.get(key);
+      const composing = composingAt(notes.composingAt, path, anchor);
+
+      if (!here && !composing) return null;
+
+      return (
+        <div className="py-1">
+          {here?.map((note) =>
+            notes.editingId === note.id ? (
+              <InlineCommentBox
+                key={note.id}
+                initialBody={note.body}
+                placeholder="Note for the agent…"
+                saveLabel="Update note"
+                hint={NOTE_HINT}
+                onSave={(body) => notes.save({ id: note.id, path, line: note.line, side: note.side, body })}
+                onCancel={() => notes.setEditingId(null)}
+                onDiscard={() => notes.discard(note.id)}
+              />
+            ) : (
+              <InlineCommentCard
+                key={note.id}
+                label={`Note · ${describeAnchor(note)}`}
+                body={note.body}
+                onClick={() => notes.setEditingId(note.id)}
+              />
+            ),
+          )}
+          {composing && (
+            <InlineCommentBox
+              placeholder="Note for the agent…"
+              saveLabel="Add note"
+              hint={NOTE_HINT}
+              // The snippet is read here, once, rather than on every render: it
+              // walks the file, and nothing on screen shows it. Through the ref
+              // so this callback survives a batch of diffs arriving.
+              onSave={(body) =>
+                notes.save({
+                  path,
+                  line: composing.line,
+                  startLine: composing.startLine,
+                  side: composing.side,
+                  snippet: blockAt(diffsRef.current.get(path), composing),
+                  body,
+                })
+              }
+              onCancel={() => notes.setComposingAt(null)}
+            />
+          )}
+        </div>
+      );
+    },
+    [notes],
+  );
+
+  const hasNotes = notes.notes.length > 0 || notes.composingAt !== null;
+
+  // Which lines a comment covers without rendering on them: the range being
+  // written, and every saved range. Single lines are left out — the box sits
+  // directly under the line it is about, which says it already.
+  const spans = useMemo(() => {
+    const saved = notes.notes.filter((note) => note.startLine !== note.line);
+    const at = notes.composingAt;
+    return at && anchorStart(at) !== at.line ? [...saved, at] : saved;
+  }, [notes.notes, notes.composingAt]);
+
+  const markLine = useCallback(
+    (path: string, anchor: DiffLineAnchor) =>
+      spans.some(
+        (span) =>
+          span.path === path &&
+          span.side === anchor.side &&
+          anchor.line >= anchorStart(span) &&
+          anchor.line <= span.line,
+      ),
+    [spans],
+  );
+
+  // A note is on screen when the diff being shown carries the lines it is
+  // about. Not merely when its file is listed: a note can sit on a line this
+  // comparison leaves outside every hunk.
+  const inView = useMemo(
+    () => new Set(notes.notes.filter((note) => blockAt(diffs.get(note.path), note) !== null).map((note) => note.id)),
+    [notes.notes, diffs],
+  );
+
+  const toggleFolded = useCallback((path: string, next: boolean) => {
+    setFolded((prev) => toggleIn(prev, path, next));
+  }, []);
+
   const stats = useMemo(() => {
     const displayed = files.length;
     const untracked = files.filter((f) => f.status === '?').length;
@@ -153,531 +234,112 @@ export function DiffPanel({ ptyId, projectPath, mode, onClose }: DiffPanelProps)
     return text;
   }, [files, truncated, totalFileCount]);
 
-  const modeLabel = effectiveMode === 'worktree' ? 'Branch changes' : 'Uncommitted changes';
+  const renderFile = (file: (typeof files)[number]) => (
+    // The wrapper carries `data-path` so jumping to a file from the tree works
+    // whether or not that file has been mounted yet.
+    <DeferredMount
+      key={file.path}
+      dataPath={file.path}
+      estimatedHeight={estimateFileHeight(
+        diffs.get(file.path),
+        file.additions + file.deletions,
+        1,
+        folded.has(file.path),
+      )}
+    >
+      <DiffFileSection
+        path={file.path}
+        status={file.status}
+        additions={file.additions}
+        deletions={file.deletions}
+        diff={diffs.get(file.path)}
+        onAddComment={startNote}
+        // Withheld until there is something to draw: it is called once per
+        // diff line and changes identity whenever the notes do.
+        renderBelowLine={hasNotes ? renderBelowLine : undefined}
+        markLine={spans.length > 0 ? markLine : undefined}
+        collapsed={folded.has(file.path)}
+        onCollapsedChange={toggleFolded}
+      />
+    </DeferredMount>
+  );
 
   return (
     <div className="flex flex-1 min-h-0 overflow-hidden" style={{ background: 'var(--color-terminal-bg)' }}>
-      <div
-        className={
-          sidebarCollapsed
-            ? 'w-0 overflow-hidden border-r-0 shrink-0 flex flex-col'
-            : 'shrink-0 overflow-hidden flex flex-col'
-        }
-        style={sidebarCollapsed ? { transition: 'width 0.2s ease' } : { width: sidebarWidth }}
-      >
-        <DiffFileTree files={files} untrackedFiles={untrackedFiles} onFileClick={scrollToFile} />
-      </div>
       {!sidebarCollapsed && (
-        <div
-          className="w-[3px] shrink-0 bg-ink/10 hover:bg-accent/60 active:bg-accent transition-colors duration-100"
-          style={{ cursor: 'col-resize' }}
-          onMouseDown={handleSidebarDragStart}
+        <div className="shrink-0 overflow-hidden flex flex-col" style={{ width: sidebarWidth }}>
+          <DiffFileTree files={files} onFileClick={scrollToFile} />
+        </div>
+      )}
+      {/* Collapsed there is nothing on its left, so the seam divides nothing. */}
+      {!sidebarCollapsed && (
+        <ResizeHandle
+          width={sidebarWidth}
+          onWidth={setSidebarWidth}
+          defaultWidth={DEFAULT_SIDEBAR_WIDTH}
+          label="Resize the file list"
         />
       )}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <div className="px-3 py-2 text-sm text-ink/70 flex items-center gap-2 shrink-0">
-          <button
-            className="w-7 h-7 rounded-md bg-transparent border-none text-ink/60 flex items-center justify-center shrink-0 transition-all duration-150 ease-out hover:bg-ink/10 hover:text-ink/90"
-            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-            title={sidebarCollapsed ? 'Show sidebar' : 'Hide sidebar'}
-          >
-            <Icon name={sidebarCollapsed ? 'caret-right' : 'caret-left'} />
-          </button>
-          <span
-            className="text-xs bg-ink/[0.06] pl-2 pr-1 py-1 text-ink/50 flex items-center gap-1.5 relative"
-            style={{ borderRadius: '5px' }}
-          >
-            {modeLabel}
-          </span>
-          <span className="text-xs text-text-tertiary ml-auto relative">{stats}</span>
-          <button
-            className="w-7 h-7 rounded-md bg-transparent border-none text-ink/60 flex items-center justify-center shrink-0 transition-all duration-150 ease-out hover:bg-ink/10 hover:text-ink/90 [&>svg]:w-4 [&>svg]:h-4"
-            onClick={onClose}
-            title="Close"
-          >
-            <Icon name="x" />
-          </button>
+      {/* Positioned so the notes island floats over the foot of this column,
+          over the diff rather than over the file rail beside it. */}
+      <div className="relative flex-1 flex flex-col min-w-0 overflow-hidden">
+        {/* Spans the well only, unlike the pull request's bar, which covers the
+            rail beside it as well. */}
+        <div className="pane-ledge over-well relative z-30 px-3 py-2 text-sm text-ink/70 flex items-center gap-2 shrink-0">
+          <SidebarToggle
+            collapsed={sidebarCollapsed}
+            onCollapsedChange={setSidebarCollapsed}
+            hideLabel="Hide the file list"
+            showLabel="Show the file list"
+          />
+          <DiffComparisonPicker
+            ptyId={ptyId}
+            gitPath={gitPath}
+            base={base}
+            defaultBase={instance?.mergeTarget ?? gitFileStatus?.mainBranch ?? null}
+            mainBranch={gitFileStatus?.mainBranch ?? null}
+            branch={branch}
+          />
+          {/* `min-w-0` is what lets it shrink at all — a flex item will not go
+              below its content without it, and this one would rather wrap to
+              three lines than give way. Nothing recovers what the cut takes:
+              the same counts are on the terminal's own diff button. */}
+          <span className="ml-auto min-w-0 truncate text-xs text-text-tertiary">{stats}</span>
+          <FullWidthToggle fullWidth={fullWidth} onToggle={onToggleFullWidth} />
+          <PanelCloseButton onClose={onClose} />
         </div>
-        <div ref={contentRef} className="flex-1 overflow-auto p-0">
+        {/* Extra padding at the foot while the island is showing, so the last
+            card scrolls clear of it rather than ending behind it. */}
+        <div
+          ref={contentRef}
+          className={`diff-well diff-list flex-1 overflow-auto ${notes.notes.length > 0 ? 'pb-16' : 'pb-3'}`}
+        >
           {loading && (
             <div className="flex-1 flex flex-col items-center justify-center text-text-tertiary gap-2">
               Loading changes...
             </div>
           )}
-          {!loading && files.length === 0 && untrackedFiles.length === 0 && (
+          {!loading && files.length === 0 && (
             <div className="flex-1 flex flex-col items-center justify-center text-text-tertiary gap-2">No changes</div>
           )}
-          {!loading &&
-            files.map((file) => <DiffFileSection key={file.path} file={file} diff={diffs.get(file.path) ?? null} />)}
+          {!loading && ordered.map((file) => renderFile(file))}
+
           {!loading && truncated && (
-            <div className="px-4 py-3 text-xs text-ink/40 text-center border-t border-ink/[0.06]">
+            <div className="mx-6 px-4 py-3 text-xs text-ink/40 text-center">
               Showing {files.length} of {totalFileCount} changed files
             </div>
           )}
-          {!loading && untrackedFiles.length > 0 && <UntrackedFilesSection files={untrackedFiles} />}
         </div>
+        <DiffNotesIsland
+          notes={notes.notes}
+          inView={inView}
+          subject={diffSubject(base, branch)}
+          ptyId={ptyId}
+          onJump={(note) => scrollToFile(note.path)}
+          onDiscard={notes.discard}
+          onClear={notes.clear}
+        />
       </div>
     </div>
   );
-}
-
-// ── Untracked files section ──────────────────────────────────────────
-
-function UntrackedFilesSection({ files }: { files: string[] }) {
-  const [expanded, setExpanded] = useState(false);
-
-  return (
-    <div className="border-t border-ink/[0.08]">
-      <div
-        className="flex items-center gap-2 px-4 py-2 bg-terminal-surface border-b border-ink/[0.06] text-sm text-ink/50 hover:text-ink/70 transition-colors duration-150"
-        onClick={() => setExpanded(!expanded)}
-      >
-        <Icon name={expanded ? 'caret-down' : 'caret-right'} className="!w-3 !h-3" />
-        <Icon name="file-plus" className="w-3.5 h-3.5 text-vcs-modified" />
-        <span>
-          {files.length} untracked {files.length === 1 ? 'file' : 'files'}
-        </span>
-      </div>
-      {expanded && (
-        <div className="bg-terminal-surface-alt">
-          {files.map((filePath) => (
-            <div key={filePath} className="flex items-center gap-2 px-4 py-1 text-sm text-ink/50 font-mono">
-              <span className="truncate">{filePath}</span>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ── File tree sidebar ────────────────────────────────────────────────
-
-interface TreeNode {
-  name: string;
-  fullPath: string;
-  isFile: boolean;
-  file?: ChangedFile;
-  children: TreeNode[];
-}
-
-function buildTree(files: ChangedFile[]): TreeNode[] {
-  const root: TreeNode[] = [];
-
-  for (const file of files) {
-    const parts = file.path.split('/');
-    let current = root;
-
-    for (let i = 0; i < parts.length; i++) {
-      const name = parts[i];
-      const isFile = i === parts.length - 1;
-      const fullPath = parts.slice(0, i + 1).join('/');
-
-      let existing = current.find((n) => n.name === name && n.isFile === isFile);
-      if (!existing) {
-        existing = { name, fullPath, isFile, children: [], file: isFile ? file : undefined };
-        current.push(existing);
-      }
-      current = existing.children;
-    }
-  }
-
-  // Collapse single-child directories
-  function collapse(nodes: TreeNode[]): TreeNode[] {
-    return nodes.map((node) => {
-      if (!node.isFile && node.children.length === 1 && !node.children[0].isFile) {
-        const child = node.children[0];
-        return {
-          ...child,
-          name: `${node.name}/${child.name}`,
-          children: collapse(child.children),
-        };
-      }
-      return { ...node, children: collapse(node.children) };
-    });
-  }
-
-  return collapse(root);
-}
-
-function DiffFileTree({
-  files,
-  untrackedFiles,
-  onFileClick,
-}: {
-  files: ChangedFile[];
-  untrackedFiles: string[];
-  onFileClick: (path: string) => void;
-}) {
-  const tree = useMemo(() => buildTree(files), [files]);
-  const [untrackedExpanded, setUntrackedExpanded] = useState(false);
-
-  return (
-    <div className="flex-1 overflow-y-auto py-2">
-      {tree.map((node) => (
-        <TreeNodeView key={node.fullPath} node={node} onFileClick={onFileClick} />
-      ))}
-      {untrackedFiles.length > 0 && (
-        <>
-          <div
-            className="flex items-center gap-1.5 py-1 pl-3 pr-3 mt-1 border-t border-ink/[0.06] text-[13px] text-ink/40 transition-colors duration-150 ease-out hover:bg-ink/5 hover:text-ink/60"
-            onClick={() => setUntrackedExpanded(!untrackedExpanded)}
-          >
-            <Icon name={untrackedExpanded ? 'caret-down' : 'caret-right'} className="!w-3 !h-3" />
-            <span>{untrackedFiles.length} untracked</span>
-          </div>
-          {untrackedExpanded &&
-            untrackedFiles.map((filePath) => (
-              <div key={filePath} className="flex items-center gap-1.5 py-1 pl-6 pr-3 text-[13px] text-ink/40">
-                <Icon name="file-plus" className="w-4 h-4 text-vcs-modified" />
-                <span className="flex-1 min-w-0 truncate">{filePath}</span>
-              </div>
-            ))}
-        </>
-      )}
-    </div>
-  );
-}
-
-function TreeNodeView({ node, onFileClick }: { node: TreeNode; onFileClick: (path: string) => void }) {
-  const [expanded, setExpanded] = useState(true);
-
-  if (node.isFile && node.file) {
-    return (
-      <div
-        className="flex items-center gap-1.5 py-1 pl-3 pr-3 text-[13px] text-ink/70 transition-colors duration-150 ease-out hover:bg-ink/5"
-        data-path={node.file.path}
-        onClick={() => onFileClick(node.file!.path)}
-      >
-        <Icon name={statusIcon(node.file.status)} className={`w-4 h-4 ${statusColorClass(node.file.status)}`} />
-        <span className="flex-1 min-w-0 truncate">{node.name}</span>
-        {node.file.status === '?' && (
-          <span className={`shrink-0 text-[11px] px-1 py-px rounded font-medium ${badgeColorClass('?')}`}>
-            untracked
-          </span>
-        )}
-        {(node.file.additions > 0 || node.file.deletions > 0) && (
-          <span className="shrink-0 font-mono text-[13px]">
-            {node.file.additions > 0 && <span className="text-diff-added">+{node.file.additions}</span>}
-            {node.file.additions > 0 && node.file.deletions > 0 && ' '}
-            {node.file.deletions > 0 && <span className="text-diff-removed">-{node.file.deletions}</span>}
-          </span>
-        )}
-      </div>
-    );
-  }
-
-  // Directory node
-  return (
-    <div data-expanded={expanded}>
-      <div
-        className="flex items-center gap-1.5 py-1 pl-3 pr-3 text-[13px] text-ink/50 transition-colors duration-150 ease-out hover:bg-ink/5 hover:text-ink/70"
-        onClick={() => setExpanded(!expanded)}
-      >
-        <Icon name={expanded ? 'caret-down' : 'caret-right'} className="!w-3 !h-3" />
-        <span className="flex-1 min-w-0 truncate">{node.name}</span>
-      </div>
-      {expanded && (
-        <div className="pl-3">
-          {sortTreeNodes(node.children).map((child) => (
-            <TreeNodeView key={child.fullPath} node={child} onFileClick={onFileClick} />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function sortTreeNodes(nodes: TreeNode[]): TreeNode[] {
-  return [...nodes].sort((a, b) => {
-    if (a.isFile !== b.isFile) return a.isFile ? 1 : -1;
-    return a.name.localeCompare(b.name);
-  });
-}
-
-function statusIcon(status: string): string {
-  switch (status) {
-    case 'A':
-    case '?':
-      return 'file-plus';
-    case 'D':
-      return 'file-minus';
-    case 'R':
-      return 'file-text';
-    default:
-      return 'file-dashed';
-  }
-}
-
-function statusColorClass(status: string): string {
-  switch (status) {
-    case 'A':
-      return 'text-vcs-added';
-    case 'D':
-      return 'text-vcs-deleted';
-    case 'R':
-      return 'text-vcs-renamed';
-    case '?':
-      return 'text-vcs-modified';
-    default:
-      return 'text-ink/50';
-  }
-}
-
-function badgeColorClass(status: string): string {
-  switch (status) {
-    case 'A':
-      return 'bg-vcs-added/15 text-vcs-added';
-    case 'D':
-      return 'bg-vcs-deleted/15 text-vcs-deleted';
-    case 'R':
-      return 'bg-vcs-renamed/15 text-vcs-renamed';
-    case '?':
-      return 'bg-vcs-modified/15 text-vcs-modified';
-    default:
-      return 'bg-ink/[0.06] text-ink/40';
-  }
-}
-
-// ── Diff file section ────────────────────────────────────────────────
-
-function DiffFileSection({ file, diff }: { file: ChangedFile; diff: FileDiff | null }) {
-  const tokens = useSyntaxHighlight(diff, file.path);
-
-  const badgeLabel =
-    file.status === '?'
-      ? 'untracked'
-      : file.status === 'A'
-        ? 'added'
-        : file.status === 'D'
-          ? 'deleted'
-          : file.status === 'R'
-            ? 'renamed'
-            : 'modified';
-
-  return (
-    <div className="border-b border-ink/[0.08] last:border-b-0" data-path={file.path}>
-      <div className="sticky top-0 z-10 flex items-center gap-2 px-4 py-2 bg-terminal-surface border-b border-ink/[0.06]">
-        <span className="flex-1 min-w-0 truncate text-sm text-ink/90" title={file.path}>
-          {file.path}
-        </span>
-        <span className={`shrink-0 text-[11px] px-1 py-px rounded font-medium ${badgeColorClass(file.status)}`}>
-          {badgeLabel}
-        </span>
-        {(file.additions > 0 || file.deletions > 0) && (
-          <span className="shrink-0 font-mono text-[13px]">
-            {file.additions > 0 && <span className="text-diff-added">+{file.additions}</span>}
-            {file.deletions > 0 && <span className="text-diff-removed">-{file.deletions}</span>}
-          </span>
-        )}
-      </div>
-      <div>
-        {diff === null ? (
-          <div className="flex-1 flex flex-col items-center justify-center text-text-tertiary gap-2">Loading...</div>
-        ) : diff.hunks.length === 0 ? (
-          <div className="flex-1 flex flex-col items-center justify-center text-text-tertiary gap-2">
-            No diff available
-          </div>
-        ) : (
-          <div className="min-w-full">
-            {diff.hunks.map((hunk, i) => (
-              <div key={i}>
-                <HunkHeader header={hunk.header} />
-                <DiffHunkView hunk={hunk} hunkTokens={tokens?.[i] ?? null} />
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function HunkHeader({ header }: { header: string }) {
-  return (
-    <div
-      className="py-1 pr-4 bg-vcs-renamed/10 text-diff-hunk font-mono text-xs truncate"
-      style={{ paddingLeft: '106px' }}
-    >
-      {header}
-    </div>
-  );
-}
-
-function DiffHunkView({ hunk, hunkTokens }: { hunk: DiffHunk; hunkTokens: HunkTokens | null }) {
-  const wordHighlights = useMemo(() => computeWordHighlights(hunk.lines), [hunk.lines]);
-
-  return (
-    <div>
-      {hunk.lines.map((line, i) => (
-        <DiffLineView key={i} line={line} tokens={hunkTokens?.[i] ?? null} wordHighlight={wordHighlights.get(i)} />
-      ))}
-    </div>
-  );
-}
-
-function DiffLineView({
-  line,
-  tokens,
-  wordHighlight,
-}: {
-  line: DiffLine;
-  tokens: ThemedToken[] | null;
-  wordHighlight?: WordHighlight;
-}) {
-  const lineBg =
-    line.type === 'addition' ? 'bg-diff-added/10' : line.type === 'deletion' ? 'bg-diff-removed/[0.08]' : '';
-  const gutterBg =
-    line.type === 'addition'
-      ? 'bg-diff-added/[0.12]'
-      : line.type === 'deletion'
-        ? 'bg-diff-removed/10'
-        : 'bg-terminal-inset';
-  const prefixColor =
-    line.type === 'addition' ? 'text-diff-added' : line.type === 'deletion' ? 'text-diff-removed' : 'text-transparent';
-  const wordBg =
-    line.type === 'addition'
-      ? 'color-mix(in srgb, var(--color-diff-added) 25%, transparent)'
-      : line.type === 'deletion'
-        ? 'color-mix(in srgb, var(--color-diff-removed) 22%, transparent)'
-        : undefined;
-
-  return (
-    <div className={`flex font-mono text-sm leading-normal ${lineBg}`}>
-      <span className="flex shrink-0 select-none sticky left-0 z-[1]">
-        <span className={`w-[45px] px-2 text-right text-ink/25 ${gutterBg} border-r border-ink/5`}>
-          {line.oldLineNo ?? ''}
-        </span>
-        <span className={`w-[45px] px-2 text-right text-ink/25 ${gutterBg} border-r border-ink/5`}>
-          {line.newLineNo ?? ''}
-        </span>
-      </span>
-      <span className="flex-1 pl-2 pr-12 whitespace-pre-wrap break-words">
-        <span className={`inline-block w-4 select-none ${prefixColor}`}>
-          {line.type === 'context' ? ' ' : line.type === 'addition' ? '+' : '-'}
-        </span>
-        {tokens
-          ? renderTokensWithHighlights(tokens, wordHighlight, wordBg)
-          : renderPlainWithHighlights(line.content, wordHighlight, wordBg)}
-      </span>
-    </div>
-  );
-}
-
-/** Render syntax tokens, splitting them at word-highlight boundaries */
-function renderTokensWithHighlights(
-  tokens: ThemedToken[],
-  wordHighlight: WordHighlight | undefined,
-  wordBg: string | undefined,
-): React.ReactNode[] {
-  if (!wordHighlight || wordHighlight.ranges.length === 0 || !wordBg) {
-    return tokens.map((token, i) => (
-      <span key={i} style={token.color ? { color: token.color } : undefined}>
-        {token.content}
-      </span>
-    ));
-  }
-
-  const elements: React.ReactNode[] = [];
-  let charPos = 0;
-  let rangeIdx = 0;
-  const ranges = wordHighlight.ranges;
-
-  for (let ti = 0; ti < tokens.length; ti++) {
-    const token = tokens[ti];
-    const tokenStart = charPos;
-    const tokenEnd = charPos + token.content.length;
-    const baseStyle: React.CSSProperties = token.color ? { color: token.color } : {};
-
-    // Check if this token overlaps any highlight range
-    let hasOverlap = false;
-    for (let r = rangeIdx; r < ranges.length && ranges[r][0] < tokenEnd; r++) {
-      if (ranges[r][1] > tokenStart) {
-        hasOverlap = true;
-        break;
-      }
-    }
-
-    if (!hasOverlap) {
-      elements.push(
-        <span key={`${ti}`} style={baseStyle}>
-          {token.content}
-        </span>,
-      );
-    } else {
-      // Split token at highlight boundaries
-      let pos = 0;
-      let partIdx = 0;
-      while (pos < token.content.length) {
-        const absPos = tokenStart + pos;
-        // Find the next relevant range
-        while (rangeIdx < ranges.length && ranges[rangeIdx][1] <= absPos) rangeIdx++;
-
-        if (rangeIdx < ranges.length && ranges[rangeIdx][0] <= absPos) {
-          // Inside a highlight range
-          const end = Math.min(token.content.length, ranges[rangeIdx][1] - tokenStart);
-          elements.push(
-            <span key={`${ti}-${partIdx++}`} style={{ ...baseStyle, backgroundColor: wordBg, borderRadius: '2px' }}>
-              {token.content.slice(pos, end)}
-            </span>,
-          );
-          pos = end;
-        } else {
-          // Before the next highlight range
-          const nextRangeStart = rangeIdx < ranges.length ? ranges[rangeIdx][0] - tokenStart : token.content.length;
-          const end = Math.min(token.content.length, nextRangeStart);
-          elements.push(
-            <span key={`${ti}-${partIdx++}`} style={baseStyle}>
-              {token.content.slice(pos, end)}
-            </span>,
-          );
-          pos = end;
-        }
-      }
-    }
-
-    charPos = tokenEnd;
-  }
-
-  return elements;
-}
-
-/** Render plain text content with word-highlight backgrounds */
-function renderPlainWithHighlights(
-  content: string,
-  wordHighlight: WordHighlight | undefined,
-  wordBg: string | undefined,
-): React.ReactNode {
-  if (!wordHighlight || wordHighlight.ranges.length === 0 || !wordBg) {
-    return <span className="text-diff-fg">{content}</span>;
-  }
-
-  const elements: React.ReactNode[] = [];
-  let pos = 0;
-
-  for (const [start, end] of wordHighlight.ranges) {
-    if (start > pos) {
-      elements.push(
-        <span key={pos} className="text-diff-fg">
-          {content.slice(pos, start)}
-        </span>,
-      );
-    }
-    elements.push(
-      <span key={start} className="text-diff-fg" style={{ backgroundColor: wordBg, borderRadius: '2px' }}>
-        {content.slice(start, end)}
-      </span>,
-    );
-    pos = end;
-  }
-
-  if (pos < content.length) {
-    elements.push(
-      <span key={pos} className="text-diff-fg">
-        {content.slice(pos)}
-      </span>,
-    );
-  }
-
-  return elements;
 }

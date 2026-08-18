@@ -1,4 +1,6 @@
 import { describe, test, expect } from 'vitest';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import {
   isThemePreference,
   parseCustomTheme,
@@ -74,5 +76,40 @@ describe('theme model', () => {
     expect(parseCustomThemes('not json')).toEqual([]);
     expect(parseCustomThemes(undefined)).toEqual([]);
     expect(parseCustomThemes('{}')).toEqual([]);
+  });
+});
+
+/**
+ * A token defined for one theme and not the other only shows up on a switch.
+ * The light block redefines only what differs, so anything it names must exist
+ * in the dark block it layers over.
+ */
+describe('theme tokens', () => {
+  const css = fs.readFileSync(path.resolve(__dirname, '../theme/tokens.css'), 'utf8');
+  // Matched at the start of a line: the file's header comment names this
+  // selector too, and `indexOf` finds the prose before the rule.
+  const lightAt = css.search(/^:root\[data-theme='light'\]/m);
+
+  function tokensIn(source: string): Set<string> {
+    return new Set(Array.from(source.matchAll(/(--[\w-]+)\s*:/g), (m) => m[1]));
+  }
+
+  // Everything before the light block is the dark theme, and it is spread over
+  // an `@theme` block and a `:root` one rather than living in a single rule.
+  const dark = tokensIn(css.slice(0, lightAt));
+  const light = tokensIn(css.slice(lightAt));
+
+  test('every token the light theme sets is one the dark theme defines', () => {
+    expect(lightAt).toBeGreaterThan(0);
+    // The light block redefines only what differs, so a token it names and the
+    // dark block does not is one that falls back to nothing.
+    expect([...light].filter((token) => !dark.has(token))).toEqual([]);
+  });
+
+  test('the pane seam is defined for both', () => {
+    for (const token of ['--seam-cut', '--seam-catch']) {
+      expect(dark.has(token)).toBe(true);
+      expect(light.has(token)).toBe(true);
+    }
   });
 });
