@@ -162,11 +162,13 @@ export function TerminalBody({ ptyId, projectPath }: TerminalBodyProps) {
           }}
         />
         {/* One pixel of cut, with a grab target either side of it — see
-            `.pane-seam`. */}
+            `.pane-seam`. The target is lifted but the cut is not: the panel
+            is flush and positioned, so it would otherwise take the half of
+            the target that overlaps it. */}
         {split && (
           <div
             ref={handleRef}
-            className="pane-seam relative w-px shrink-0 after:content-[''] after:absolute after:top-0 after:bottom-0 after:-left-2 after:-right-2"
+            className="pane-seam relative w-px shrink-0 after:content-[''] after:absolute after:z-[1] after:top-0 after:bottom-0 after:-left-2 after:-right-2"
             style={{ cursor: 'col-resize' }}
           />
         )}

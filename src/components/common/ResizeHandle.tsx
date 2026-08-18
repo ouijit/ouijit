@@ -22,6 +22,12 @@ function clamp(value: number, min: number, max: number): number {
  *
  * The seam is one pixel; the grab target is not. An invisible strip either
  * side takes the drag, and the pixel is what lights up.
+ *
+ * The strip alone is lifted, not the seam. A pane laid flush against the seam
+ * is positioned and comes later in the document, so at the same level it takes
+ * the half of the strip that overlaps it and the drag works from one side
+ * only. Lifting the seam too would raise its catch over that pane as well,
+ * which is paint, not target.
  */
 export function ResizeHandle({
   width,
@@ -80,7 +86,7 @@ export function ResizeHandle({
         aria-valuemax={max}
         tabIndex={0}
         title={defaultWidth != null ? `${label} — double-click to reset` : label}
-        className="absolute inset-y-0 -left-1 -right-1 focus:outline-none"
+        className="absolute inset-y-0 -left-1 -right-1 z-[1] focus:outline-none"
         style={{ cursor: 'col-resize' }}
         onMouseDown={onMouseDown}
         onKeyDown={onKeyDown}
