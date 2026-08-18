@@ -740,6 +740,7 @@ export interface GithubAPI {
   linkTaskPr(projectPath: string, taskNumber: number, prNumber: number | null): Promise<GithubActionResult>;
   linkTaskIssue(projectPath: string, taskNumber: number, issueNumber: number | null): Promise<GithubActionResult>;
   detectTaskPr(projectPath: string, taskNumber: number): Promise<{ prNumber: number | null }>;
+  detectProjectPrs(projectPath: string): Promise<{ linked: number }>;
 
   /**
    * Given the head being viewed, drafts written against an earlier one are

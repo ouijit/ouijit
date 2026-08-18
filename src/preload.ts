@@ -353,6 +353,7 @@ contextBridge.exposeInMainWorld('api', {
       typedInvoke('github:link-task-issue', projectPath, taskNumber, issueNumber),
     detectTaskPr: (projectPath: string, taskNumber: number) =>
       typedInvoke('github:detect-task-pr', projectPath, taskNumber),
+    detectProjectPrs: (projectPath: string) => typedInvoke('github:detect-project-prs', projectPath),
 
     drafts: (projectPath: string, prNumber: number, head?: PrHead) =>
       typedInvoke('github:drafts', projectPath, prNumber, head),

@@ -13,6 +13,7 @@ import { addProjectTerminal } from '../components/terminal/terminalActions';
 import { STATUS_LABELS } from '../components/kanban/taskMenu';
 import type { RunHookResult } from '../components/dialogs/RunHookDialog';
 import { completeTask } from './taskCompletion';
+import { detectPullRequestForTask } from './githubTaskActions';
 import { useProjectStore } from '../stores/projectStore';
 import { useTerminalStore } from '../stores/terminalStore';
 import { legacySandboxProvider } from '../types';
@@ -323,6 +324,10 @@ async function runTransition(
     }
 
     await useProjectStore.getState().loadTasks(projectPath);
+
+    // A task reaching review has usually had its pull request opened from the
+    // worktree, long after the terminal spawn that last looked for one.
+    if (newStatus === 'in_review') void detectPullRequestForTask(projectPath, taskNumber);
 
     // 6. Spawn the terminal. For in_progress drops we open a terminal (with the
     // hook command if accepted, otherwise a plain shell) so the loading slot

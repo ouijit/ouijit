@@ -43,6 +43,7 @@ import {
   fetchIssues,
   fetchIssue,
   findPullRequestForBranch,
+  fetchOpenPullRequestBranches,
   submitReview,
   replyToReviewComment,
   addIssueComment,
@@ -74,7 +75,7 @@ import type {
   PromoteToTaskResult,
   PrFileVersions,
 } from './types';
-import type { FileDiff, ChangedFile } from '../types';
+import type { FileDiff, ChangedFile, TaskMetadata } from '../types';
 import { locateInHunks } from '../snippetAnchor';
 import { linesOnSide } from '../diffAnchor';
 
@@ -171,6 +172,13 @@ async function requireIdentity(projectPath: string): Promise<RepoIdentity> {
 
 // ── Reads ────────────────────────────────────────────────────────────
 
+/**
+ * The pull request inbox, and the task each of its entries belongs to.
+ *
+ * Linking happens here rather than only in the reads that ask for it: this is
+ * the one place the repo's open pull requests and the project's tasks are both
+ * already in hand, so matching them costs no `gh` call at all.
+ */
 export async function getInbox(projectPath: string): Promise<InboxResult> {
   const identity = await requireIdentity(projectPath);
   const [inbox, draftCounts, tasks] = await Promise.all([
@@ -179,10 +187,11 @@ export async function getInbox(projectPath: string): Promise<InboxResult> {
     getProjectTasks(projectPath),
   ]);
 
-  const linkedTasks: Record<number, number> = {};
-  for (const task of tasks) {
-    if (task.githubPrNumber != null) linkedTasks[task.githubPrNumber] = task.taskNumber;
-  }
+  const { linkedTasks } = await linkTasksToOpenPrs(projectPath, tasks, [
+    ...inbox.needsReview,
+    ...inbox.mine,
+    ...inbox.others,
+  ]);
 
   return { ...inbox, draftCounts, linkedTasks };
 }
@@ -304,9 +313,10 @@ export async function linkTaskToIssue(
 /**
  * Look for an existing PR whose head is the task's branch, and link it.
  *
- * Called when a task loads, so a PR opened from a terminal (or by a teammate on
- * the same branch) shows up on the card without the user telling the app about
- * it. Silently does nothing when the feature is off or the task has no branch.
+ * One task, one `gh` call — for the moments that are about a single task, such
+ * as its terminal opening or its move into review. Use
+ * `detectPullRequestsForProject` for a whole board. Silently does nothing when
+ * the feature is off or the task has no branch.
  */
 export async function detectPullRequestForTask(
   projectPath: string,
@@ -322,6 +332,62 @@ export async function detectPullRequestForTask(
   const prNumber = await findPullRequestForBranch(availability.identity, task.branch, task.worktreePath);
   if (prNumber != null) await setTaskGithubPr(projectPath, taskNumber, prNumber);
   return { prNumber };
+}
+
+/**
+ * Link every unlinked task whose branch is the head of one of `openPrs`.
+ *
+ * Takes the pull requests instead of fetching them so the inbox, which already
+ * has them, spends nothing extra, and a caller that doesn't spends one call for
+ * the board rather than one per task.
+ */
+async function linkTasksToOpenPrs(
+  projectPath: string,
+  tasks: TaskMetadata[],
+  openPrs: Array<{ number: number; headRefName: string }>,
+): Promise<{ linkedTasks: Record<number, number>; newlyLinked: number[] }> {
+  const linkedTasks: Record<number, number> = {};
+  const unlinkedByBranch = new Map<string, number>();
+  for (const task of tasks) {
+    if (task.githubPrNumber != null) linkedTasks[task.githubPrNumber] = task.taskNumber;
+    else if (task.branch) unlinkedByBranch.set(task.branch, task.taskNumber);
+  }
+
+  const newlyLinked: number[] = [];
+  for (const pr of openPrs) {
+    const taskNumber = unlinkedByBranch.get(pr.headRefName);
+    // A PR already claimed by another task stays with it: a second task on the
+    // same branch is the odd case, and stealing the link would flip the badge
+    // back and forth on every refresh.
+    if (taskNumber == null || linkedTasks[pr.number] != null) continue;
+    const result = await setTaskGithubPr(projectPath, taskNumber, pr.number);
+    if (!result.success) continue;
+    linkedTasks[pr.number] = taskNumber;
+    newlyLinked.push(taskNumber);
+  }
+
+  return { linkedTasks, newlyLinked };
+}
+
+/**
+ * Match the project's tasks against the repo's open pull requests and link the
+ * ones that gained a PR after their terminal spawned.
+ *
+ * Per-task detection only ever runs at a moment chosen in advance, and the
+ * usual flow — spawn the terminal, work, then open the PR from the worktree —
+ * puts the PR after all of them. Costs one `gh` call, and none when every task
+ * with a branch is already linked.
+ */
+export async function detectPullRequestsForProject(projectPath: string): Promise<{ linked: number }> {
+  const tasks = await getProjectTasks(projectPath);
+  if (!tasks.some((task) => task.branch && task.githubPrNumber == null)) return { linked: 0 };
+
+  const availability = await getAvailability(projectPath);
+  if (!availability.available || !availability.identity) return { linked: 0 };
+
+  const openPrs = await fetchOpenPullRequestBranches(availability.identity, projectPath);
+  const { newlyLinked } = await linkTasksToOpenPrs(projectPath, tasks, openPrs);
+  return { linked: newlyLinked.length };
 }
 
 // ── Review drafts ────────────────────────────────────────────────────

@@ -606,6 +606,37 @@ export async function findPullRequestForBranch(
   }
 }
 
+/**
+ * Number and head branch of every open PR, for matching a whole board of tasks
+ * to their pull requests in one call. `findPullRequestForBranch` answers for a
+ * single branch and costs a `gh` process per task asked about.
+ */
+export async function fetchOpenPullRequestBranches(
+  identity: RepoIdentity,
+  cwd?: string,
+): Promise<Array<{ number: number; headRefName: string }>> {
+  try {
+    const raw = await runGh(
+      [
+        'pr',
+        'list',
+        '--repo',
+        repoSlug(identity),
+        '--state',
+        'open',
+        '--limit',
+        String(PR_LIST_LIMIT),
+        '--json',
+        'number,headRefName',
+      ],
+      { identity, cwd },
+    );
+    return JSON.parse(raw.trim() || '[]') as Array<{ number: number; headRefName: string }>;
+  } catch {
+    return [];
+  }
+}
+
 // ── Writes ───────────────────────────────────────────────────────────
 
 export interface DraftReviewComment {

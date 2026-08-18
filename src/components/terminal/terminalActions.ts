@@ -26,7 +26,7 @@ import { parseOsc133ExitCodes } from './osc133';
 import { buildEditorCommand } from './editorCommand';
 import { readSnapshot } from './sessionSnapshot';
 import { descriptionToHookPrompt } from '../../utils/descriptionAttachments';
-import { detectPullRequestForTask } from '../../services/githubTaskActions';
+import { detectPullRequestForTask, detectPullRequestsForProject } from '../../services/githubTaskActions';
 import log from 'electron-log/renderer';
 
 const actionsLog = log.scope('terminalActions');
@@ -900,8 +900,8 @@ export async function reconnectOrphanedSessions(projectPath?: string): Promise<v
   // Restore the focused card per project: reconnectTerminal calls activateLast,
   // so without this whichever PTY reconnects last takes the selection.
   const store = useTerminalStore.getState();
-  const focusProjects = projectPath ? [projectPath] : [...new Set(mainSessions.map((s) => s.projectPath))];
-  for (const pp of focusProjects) {
+  const projectPaths = projectPath ? [projectPath] : [...new Set(mainSessions.map((s) => s.projectPath))];
+  for (const pp of projectPaths) {
     const activeEntry = (snapshot?.terminals ?? []).find((t) => t.projectPath === pp && t.isActiveInProject && t.ptyId);
     const idx = activeEntry ? (store.terminalsByProject[pp] ?? []).indexOf(activeEntry.ptyId as string) : -1;
     if (idx >= 0) {
@@ -909,6 +909,12 @@ export async function reconnectOrphanedSessions(projectPath?: string): Promise<v
     } else {
       store.activateLast(pp);
     }
+  }
+
+  // A pull request opened while the app was closed had no terminal spawn to
+  // detect it, so this is the one sweep that catches up on a restart.
+  for (const pp of projectPaths) {
+    void detectPullRequestsForProject(pp);
   }
 
   // Reconnect runners to their parent terminals

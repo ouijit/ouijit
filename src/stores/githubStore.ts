@@ -14,6 +14,7 @@ import type { FileDiff } from '../types';
 import { describeError } from '../utils/describeError';
 import { toggleInList } from '../utils/toggleIn';
 import type { DiffAnchor } from '../diffAnchor';
+import { useProjectStore } from './projectStore';
 
 const githubLog = log.scope('github');
 
@@ -231,6 +232,13 @@ export const useGithubStore = create<GithubStore>()((set, get) => ({
       const inbox = await window.api.github.inbox(projectPath);
       if (version !== inboxVersion || get().projectPath !== projectPath) return;
       set({ inbox, inboxLoading: false });
+      // Fetching the inbox is also what links tasks to pull requests opened
+      // since they were last looked at, so the board can be a link behind.
+      const tasks = useProjectStore.getState().tasks;
+      const behind = Object.entries(inbox.linkedTasks).some(
+        ([prNumber, taskNumber]) => tasks.find((t) => t.taskNumber === taskNumber)?.githubPrNumber !== Number(prNumber),
+      );
+      if (behind) void useProjectStore.getState().loadTasks(projectPath);
     } catch (error) {
       if (version !== inboxVersion || get().projectPath !== projectPath) return;
       set({ inboxLoading: false, inboxError: describeError(error) });
