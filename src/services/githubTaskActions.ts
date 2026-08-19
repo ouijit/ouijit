@@ -79,7 +79,6 @@ export async function detectPullRequestForTask(projectPath: string, taskNumber: 
   }
 }
 
-/** The whole-board sweep, silent on failure for the same reason as the above. */
 export async function detectPullRequestsForProject(projectPath: string): Promise<void> {
   try {
     const result = await window.api.github.detectProjectPrs(projectPath);

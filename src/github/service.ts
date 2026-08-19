@@ -363,10 +363,6 @@ async function linkTasksToOpenPrs(
   return { linkedTasks, newlyLinked };
 }
 
-/**
- * The early return is load-bearing, not an optimization: without it every call
- * forks a `gh` for a board that has nothing left to link.
- */
 export async function detectPullRequestsForProject(projectPath: string): Promise<{ linked: number }> {
   const tasks = await getProjectTasks(projectPath);
   if (!tasks.some((task) => task.branch && task.githubPrNumber == null)) return { linked: 0 };
