@@ -37,11 +37,16 @@ export function ReviewActions({ projectPath, detail, onJumpToDraft }: ReviewActi
   const [summary, setSummary] = useState('');
   const [method, setMethod] = useState<MergeMethod>('squash');
   const [deleteBranch, setDeleteBranch] = useState(true);
+  const [bypassRequested, setBypassRequested] = useState(false);
   const [merging, setMerging] = useState(false);
 
   const isOpen = detail.state === 'open';
   const hardBlock = detail.merge.mergeable === 'CONFLICTING' || detail.isDraft;
   const blockers = isOpen ? detail.merge.blockers : [];
+  // The toggle is hidden once nothing stands in the way, and a hidden toggle
+  // must not go on sending the bypass.
+  const offerBypass = detail.merge.canBypass && blockers.length > 0;
+  const bypass = offerBypass && bypassRequested;
 
   // Said here rather than as a 422 after the fact, and asked of the same
   // function main asks before it sends.
@@ -87,7 +92,7 @@ export function ReviewActions({ projectPath, detail, onJumpToDraft }: ReviewActi
   const merge = async () => {
     setMerging(true);
     try {
-      const result = await window.api.github.mergePr(projectPath, detail.number, method, deleteBranch);
+      const result = await window.api.github.mergePr(projectPath, detail.number, { method, deleteBranch, bypass });
       if (!result.success) {
         useProjectStore.getState().addToast(result.error ?? 'Merge failed', 'error');
         return;
@@ -171,6 +176,13 @@ export function ReviewActions({ projectPath, detail, onJumpToDraft }: ReviewActi
                     </li>
                   ))}
                 </ul>
+              )}
+              {offerBypass && (
+                <MenuItem
+                  label="Merge without meeting requirements"
+                  selected={bypassRequested}
+                  onClick={() => setBypassRequested(!bypassRequested)}
+                />
               )}
               {blockers.length > 0 && <MenuDivider />}
               {METHODS.map((m) => (

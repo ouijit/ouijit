@@ -23,7 +23,7 @@ import type { CaptureNavigatePayload } from './capture/types';
 import type {
   CommentKind,
   ReviewEvent,
-  MergeMethod,
+  MergeOptions,
   GithubDraftsChangedPayload,
   SaveDraftInput,
   PrHead,
@@ -373,8 +373,8 @@ contextBridge.exposeInMainWorld('api', {
       taskNumber: number,
       options: { title?: string; body?: string; base?: string; draft?: boolean },
     ) => typedInvoke('github:create-pr', projectPath, taskNumber, options),
-    mergePr: (projectPath: string, prNumber: number, method: MergeMethod, deleteBranch: boolean) =>
-      typedInvoke('github:merge-pr', projectPath, prNumber, method, deleteBranch),
+    mergePr: (projectPath: string, prNumber: number, options: MergeOptions) =>
+      typedInvoke('github:merge-pr', projectPath, prNumber, options),
     taskFromIssue: (projectPath: string, issueNumber: number) =>
       typedInvoke('github:task-from-issue', projectPath, issueNumber),
     taskFromPr: (projectPath: string, prNumber: number) => typedInvoke('github:task-from-pr', projectPath, prNumber),

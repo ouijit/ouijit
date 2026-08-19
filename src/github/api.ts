@@ -37,7 +37,7 @@ import type {
   IssueDetail,
   CommentKind,
   ReviewEvent,
-  MergeMethod,
+  MergeOptions,
   PullRequestState,
 } from './types';
 
@@ -147,6 +147,7 @@ interface RawDetail extends RawSummary {
   mergeable: string;
   mergeStateStatus: string;
   viewerCanUpdate: boolean;
+  viewerCanMergeAsAdmin: boolean;
   reviewThreads: { nodes: Array<RawThread | null> | null } | null;
   timelineItems: { nodes: Array<RawTimelineNode | null> | null } | null;
 }
@@ -351,6 +352,7 @@ export function deriveMergeStatus(raw: {
   isDraft: boolean;
   reviewDecision: ReviewDecision;
   checksState: ChecksState;
+  viewerCanMergeAsAdmin: boolean;
 }): MergeStatus {
   const blockers: string[] = [];
   if (raw.isDraft) blockers.push('Pull request is a draft');
@@ -367,6 +369,9 @@ export function deriveMergeStatus(raw: {
     mergeable: raw.mergeable === 'MERGEABLE' || raw.mergeable === 'CONFLICTING' ? raw.mergeable : 'UNKNOWN',
     stateStatus: raw.mergeStateStatus,
     blockers,
+    // A conflict or a draft is the pull request's own problem; no permission
+    // merges past either, so bypass is not offered for them.
+    canBypass: raw.viewerCanMergeAsAdmin && raw.mergeable !== 'CONFLICTING' && !raw.isDraft,
   };
 }
 
@@ -475,6 +480,7 @@ export async function fetchPullRequest(identity: RepoIdentity, number: number): 
       isDraft: pr.isDraft,
       reviewDecision: summary.reviewDecision,
       checksState: summary.checksState,
+      viewerCanMergeAsAdmin: pr.viewerCanMergeAsAdmin,
     }),
     threads: (pr.reviewThreads?.nodes ?? []).filter((t): t is RawThread => t != null).map(mapThread),
     timeline: (pr.timelineItems?.nodes ?? [])
@@ -730,10 +736,16 @@ export async function createPullRequest(
 export async function mergePullRequest(
   identity: RepoIdentity,
   number: number,
-  method: MergeMethod,
-  options?: { deleteBranch?: boolean; cwd?: string },
+  options: MergeOptions & { cwd?: string },
 ): Promise<void> {
-  const args = ['pr', 'merge', String(number), '--repo', repoSlug(identity), `--${method}`];
-  if (options?.deleteBranch) args.push('--delete-branch');
-  await runGh(args, { identity, cwd: options?.cwd });
+  await runGh(mergeArgs(identity, number, options), { identity, cwd: options.cwd });
+}
+
+/** Split out from the call so the flags can be asserted without a `gh` process. */
+export function mergeArgs(identity: RepoIdentity, number: number, options: MergeOptions): string[] {
+  const args = ['pr', 'merge', String(number), '--repo', repoSlug(identity), `--${options.method}`];
+  if (options.deleteBranch) args.push('--delete-branch');
+  // gh's name for the bypass GitHub offers admins on a protected branch.
+  if (options.bypass) args.push('--admin');
+  return args;
 }

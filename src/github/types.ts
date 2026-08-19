@@ -172,6 +172,8 @@ export interface MergeStatus {
   stateStatus: string;
   /** Plain-language blockers, surfaced before the merge button rather than after. */
   blockers: string[];
+  /** GitHub's answer on whether this viewer may merge past branch protection. */
+  canBypass: boolean;
 }
 
 export interface PullRequestDetail extends PullRequestSummary {
@@ -271,6 +273,13 @@ export type CommentKind = 'issue' | 'review';
 export type ReviewEvent = 'APPROVE' | 'REQUEST_CHANGES' | 'COMMENT';
 
 export type MergeMethod = 'merge' | 'squash' | 'rebase';
+
+export interface MergeOptions {
+  method: MergeMethod;
+  deleteBranch: boolean;
+  /** Merge past branch protection, for a viewer GitHub says may. */
+  bypass: boolean;
+}
 
 /**
  * What `github:drafts-changed` carries.

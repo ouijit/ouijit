@@ -50,6 +50,7 @@ export type {
   ReviewDraft,
   ReviewEvent,
   MergeMethod,
+  MergeOptions,
   MergeStatus,
   GithubIssue,
   IssueDetail,
@@ -87,7 +88,7 @@ import type {
   ReviewDraft,
   PrHead,
   ReviewEvent,
-  MergeMethod,
+  MergeOptions,
   GithubDraftsChangedPayload,
   InboxResult,
   PullRequestFilesResult,
@@ -764,12 +765,7 @@ export interface GithubAPI {
     taskNumber: number,
     options: { title?: string; body?: string; base?: string; draft?: boolean },
   ): Promise<GithubActionResult & { url?: string; prNumber?: number }>;
-  mergePr(
-    projectPath: string,
-    prNumber: number,
-    method: MergeMethod,
-    deleteBranch: boolean,
-  ): Promise<GithubActionResult>;
+  mergePr(projectPath: string, prNumber: number, options: MergeOptions): Promise<GithubActionResult>;
   taskFromIssue(projectPath: string, issueNumber: number): Promise<GithubActionResult & { taskNumber?: number }>;
   taskFromPr(projectPath: string, prNumber: number): Promise<PromoteToTaskResult>;
 

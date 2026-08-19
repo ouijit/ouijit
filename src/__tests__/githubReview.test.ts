@@ -3,7 +3,7 @@ import { anchorForLine } from '../diffAnchor';
 import { unanchoredThreads } from '../components/github/reviewAnchors';
 import { classifyGhError, parseGhVersion, MIN_GH_VERSION, activeGhCount, runGh } from '../github/client';
 import { versionAtLeast } from '../utils/semver';
-import { deriveMergeStatus } from '../github/api';
+import { deriveMergeStatus, mergeArgs } from '../github/api';
 import { parseDiff } from '../git';
 import type { ReviewThread } from '../github/types';
 
@@ -164,10 +164,16 @@ describe('merge blockers', () => {
     isDraft: false,
     reviewDecision: 'APPROVED' as const,
     checksState: 'success' as const,
+    viewerCanMergeAsAdmin: false,
   };
 
   test('a clean, approved, green PR has nothing standing in the way', () => {
-    expect(deriveMergeStatus(clean)).toEqual({ mergeable: 'MERGEABLE', stateStatus: 'CLEAN', blockers: [] });
+    expect(deriveMergeStatus(clean)).toEqual({
+      mergeable: 'MERGEABLE',
+      stateStatus: 'CLEAN',
+      blockers: [],
+      canBypass: false,
+    });
   });
 
   test('conflicts, drafts, failing checks and requested changes each surface', () => {
@@ -201,6 +207,37 @@ describe('merge blockers', () => {
     // With a concrete cause present, the vague message would be noise.
     expect(deriveMergeStatus({ ...clean, mergeStateStatus: 'BLOCKED', checksState: 'failure' }).blockers).toEqual([
       'Checks are failing',
+    ]);
+  });
+
+  test('bypass is offered only for what a bypass can actually clear', () => {
+    const admin = { ...clean, viewerCanMergeAsAdmin: true };
+    expect(deriveMergeStatus({ ...admin, mergeStateStatus: 'BLOCKED' }).canBypass).toBe(true);
+    expect(deriveMergeStatus({ ...admin, mergeable: 'CONFLICTING' }).canBypass).toBe(false);
+    expect(deriveMergeStatus({ ...admin, isDraft: true }).canBypass).toBe(false);
+    // Without the permission GitHub reports, there is nothing to offer.
+    expect(deriveMergeStatus({ ...clean, mergeStateStatus: 'BLOCKED' }).canBypass).toBe(false);
+  });
+
+  test('gh is told to bypass only when asked to', () => {
+    const identity = { host: 'github.com', owner: 'o', repo: 'r' };
+    expect(mergeArgs(identity, 7, { method: 'squash', deleteBranch: true, bypass: false })).toEqual([
+      'pr',
+      'merge',
+      '7',
+      '--repo',
+      'o/r',
+      '--squash',
+      '--delete-branch',
+    ]);
+    expect(mergeArgs(identity, 7, { method: 'merge', deleteBranch: false, bypass: true })).toEqual([
+      'pr',
+      'merge',
+      '7',
+      '--repo',
+      'o/r',
+      '--merge',
+      '--admin',
     ]);
   });
 

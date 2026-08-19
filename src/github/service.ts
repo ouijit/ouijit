@@ -64,7 +64,7 @@ import type {
   CommentKind,
   ReviewDraft,
   ReviewEvent,
-  MergeMethod,
+  MergeOptions,
   RepoIdentity,
   InboxResult,
   PullRequestFilesResult,
@@ -614,12 +614,11 @@ function buildPrBody(body: string, issueNumber?: number): string {
 export async function mergePr(
   projectPath: string,
   prNumber: number,
-  method: MergeMethod,
-  deleteBranch: boolean,
+  options: MergeOptions,
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const identity = await requireIdentity(projectPath);
-    await mergePullRequest(identity, prNumber, method, { deleteBranch, cwd: projectPath });
+    await mergePullRequest(identity, prNumber, { ...options, cwd: projectPath });
     // The refs were only ever there to render the diff; the PR is now history.
     await prunePrRefs(projectPath, prNumber);
     return { success: true };

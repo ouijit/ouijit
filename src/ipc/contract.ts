@@ -54,7 +54,7 @@ import type {
   ReviewDraft,
   PrHead,
   ReviewEvent,
-  MergeMethod,
+  MergeOptions,
   GithubDraftsChangedPayload,
   InboxResult,
   PullRequestFilesResult,
@@ -335,7 +335,7 @@ export interface IpcInvokeContract {
     return: { success: boolean; error?: string; url?: string; prNumber?: number };
   };
   'github:merge-pr': {
-    args: [projectPath: string, prNumber: number, method: MergeMethod, deleteBranch: boolean];
+    args: [projectPath: string, prNumber: number, options: MergeOptions];
     return: { success: boolean; error?: string };
   };
   'github:task-from-issue': {
