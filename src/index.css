@@ -1128,10 +1128,13 @@ textarea,
   color: var(--color-text-tertiary);
 }
 
-/* The page's caret sits at the text edge, so the body needs room below the
-   last line to click into — a document's bottom margin, not padding that
-   ends where the text does. */
-.composer-sheet-page {
+/* The page is the writing surface, margins included. Named alongside the
+   fields so a container change can't take the caret off them. */
+.composer-sheet-page,
+.composer-sheet-title,
+.composer-sheet-editor,
+.kanban-add-input,
+.kanban-add-description {
   cursor: text;
 }
 
