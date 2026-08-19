@@ -28,6 +28,7 @@ import {
   createTask,
   getNextTaskNumber,
   type ReviewDraftRow,
+  type TaskMetadata,
 } from '../db';
 import { experimentalStorageKey, parseExperimentalFlags } from '../experimentalFlags';
 import { pushBranch } from '../git';
@@ -171,7 +172,6 @@ async function requireIdentity(projectPath: string): Promise<RepoIdentity> {
   return availability.identity;
 }
 
-/** The silent counterpart to `requireIdentity`, for background work that has no one to report to. */
 async function identityIfAvailable(projectPath: string): Promise<RepoIdentity | null> {
   const availability = await getAvailability(projectPath);
   return availability.available ? (availability.identity ?? null) : null;
@@ -285,13 +285,13 @@ export async function getIssue(projectPath: string, number: number): Promise<Iss
 // ── Task linking ─────────────────────────────────────────────────────
 
 /**
- * Attach a PR to a task, or detach with null. Detaching also prunes the fetched
- * refs so a long-lived project doesn't accumulate one per PR ever reviewed.
+ * Attach a PR to a task. Relinking prunes the refs fetched for the previous one,
+ * so a long-lived project doesn't accumulate a set per PR ever reviewed.
  */
 export async function linkTaskToPr(
   projectPath: string,
   taskNumber: number,
-  prNumber: number | null,
+  prNumber: number,
 ): Promise<{ success: boolean; error?: string }> {
   const previous = (await getTaskByNumber(projectPath, taskNumber))?.githubPrNumber;
   const result = await setTaskGithubPr(projectPath, taskNumber, prNumber);
@@ -311,15 +311,15 @@ export async function linkTaskToIssue(
 
 /**
  * Matches closed and merged pull requests too, which the project-wide sweep
- * never sees.
+ * never sees. Reports only a pull request it linked itself, so a task that
+ * already had one costs the caller no refresh.
  */
 export async function detectPullRequestForTask(
   projectPath: string,
   taskNumber: number,
 ): Promise<{ prNumber: number | null }> {
   const task = await getTaskByNumber(projectPath, taskNumber);
-  if (!task?.branch) return { prNumber: null };
-  if (task.githubPrNumber != null) return { prNumber: task.githubPrNumber };
+  if (!task?.branch || task.githubPrNumber != null) return { prNumber: null };
 
   const identity = await identityIfAvailable(projectPath);
   if (!identity) return { prNumber: null };
@@ -331,29 +331,31 @@ export async function detectPullRequestForTask(
 }
 
 /**
- * Per-project gate over a sweep's cost: one in flight at a time, and no more
- * than one per interval however many callers ask. A sweep is only done once
- * `gh` has answered or timed out, so without this, repeat requests queue up and
- * each takes a `gh` slot ahead of whatever the user asked for.
+ * A sweep is only done once `gh` has answered or timed out, so without a gate
+ * repeat requests queue up and each takes a `gh` slot ahead of whatever the user
+ * asked for. The floor has to stay under the interval any poller runs at, or it
+ * refuses every other tick.
  */
-const SWEEP_MIN_INTERVAL_MS = 30_000;
-const sweeps = new Map<string, { startedAt: number; inFlight?: Promise<{ linked: number }> }>();
+const SWEEP_MIN_INTERVAL_MS = 20_000;
+const sweepsInFlight = new Map<string, Promise<{ linked: number }>>();
+const sweptAt = new Map<string, number>();
 
 export function detectPullRequestsForProject(projectPath: string): Promise<{ linked: number }> {
-  const last = sweeps.get(projectPath);
-  if (last?.inFlight) return last.inFlight;
-  if (last && Date.now() - last.startedAt < SWEEP_MIN_INTERVAL_MS) return Promise.resolve({ linked: 0 });
+  const inFlight = sweepsInFlight.get(projectPath);
+  if (inFlight) return inFlight;
+  const last = sweptAt.get(projectPath);
+  if (last != null && Date.now() - last < SWEEP_MIN_INTERVAL_MS) return Promise.resolve({ linked: 0 });
 
-  const entry: { startedAt: number; inFlight?: Promise<{ linked: number }> } = { startedAt: Date.now() };
-  entry.inFlight = sweepPullRequests(projectPath).finally(() => delete entry.inFlight);
-  sweeps.set(projectPath, entry);
-  return entry.inFlight;
+  const sweep = sweepPullRequests(projectPath).finally(() => sweepsInFlight.delete(projectPath));
+  sweepsInFlight.set(projectPath, sweep);
+  sweptAt.set(projectPath, Date.now());
+  return sweep;
 }
 
 async function sweepPullRequests(projectPath: string): Promise<{ linked: number }> {
   // Read first so a project with nothing unlinked returns before any subprocess.
   const tasks = await getProjectTasks(projectPath);
-  const unlinkedByBranch = new Map<string, (typeof tasks)[number]>();
+  const unlinkedByBranch = new Map<string, TaskMetadata>();
   for (const task of tasks) {
     if (task.githubPrNumber != null || !task.branch) continue;
     const claimant = unlinkedByBranch.get(task.branch);

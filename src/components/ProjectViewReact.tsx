@@ -281,14 +281,17 @@ export function ProjectView() {
   useEffect(() => {
     if (!projectPath) return;
     let interval: ReturnType<typeof setInterval> | null = null;
+    const sweepPullRequests = () => {
+      if (githubEnabled) void detectPullRequestsForProject(projectPath);
+    };
     const start = () => {
       if (interval != null || document.hidden) return;
       // Catches a pull request opened while the window was hidden; the service
       // rate-limits, so an alt-tab back costs nothing.
-      void detectPullRequestsForProject(projectPath);
+      sweepPullRequests();
       interval = setInterval(() => {
         refreshAllTerminalGitStatus(projectPath);
-        void detectPullRequestsForProject(projectPath);
+        sweepPullRequests();
       }, PROJECT_REFRESH_INTERVAL);
     };
     const stop = () => {
@@ -304,7 +307,7 @@ export function ProjectView() {
       document.removeEventListener('visibilitychange', onVisibility);
       stop();
     };
-  }, [projectPath]);
+  }, [projectPath, githubEnabled]);
 
   // Hook status: register ongoing listener + seed existing terminals
   useHookStatusListener(projectPath);

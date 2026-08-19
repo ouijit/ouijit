@@ -50,6 +50,10 @@ function openPr(number: number, headRefName: string, isCrossRepository = false):
   return { number, headRefName, state: 'OPEN', isCrossRepository };
 }
 
+function closedPr(number: number, headRefName: string): RemotePr {
+  return { number, headRefName, state: 'CLOSED', isCrossRepository: false };
+}
+
 async function enableGithub(project: string): Promise<void> {
   await setGlobalSetting(experimentalStorageKey(project), JSON.stringify({ github: true }));
 }
@@ -76,7 +80,7 @@ describe('pull request detection across a project', () => {
     expect(runGh).not.toHaveBeenCalled();
   });
 
-  test('a project whose tasks are all linked sweeps without spawning `gh`', async () => {
+  test('a project whose tasks are all linked detects without spawning `gh`', async () => {
     const project = '/test/pr-detect-nothing-unlinked';
     await enableGithub(project);
     await createTask(project, 1, 'Ship it', { branch: 'feat/ship' });
@@ -84,6 +88,8 @@ describe('pull request detection across a project', () => {
     remotePrs = [openPr(265, 'feat/ship')];
 
     expect(await detectPullRequestsForProject(project)).toEqual({ linked: 0 });
+    // Null rather than 265: neither call linked anything, so neither is worth a refresh.
+    expect(await detectPullRequestForTask(project, 1)).toEqual({ prNumber: null });
     expect(runGh).not.toHaveBeenCalled();
   });
 
@@ -131,10 +137,7 @@ describe('pull request detection across a project', () => {
     const project = '/test/pr-detect-fork';
     await enableGithub(project);
     await createTask(project, 1, 'Ship it', { branch: 'patch-1' });
-    remotePrs = [
-      openPr(900, 'patch-1', true),
-      { number: 265, headRefName: 'patch-1', state: 'CLOSED', isCrossRepository: false },
-    ];
+    remotePrs = [openPr(900, 'patch-1', true), closedPr(265, 'patch-1')];
 
     expect(await detectPullRequestsForProject(project)).toEqual({ linked: 0 });
     // 900 is the fork's, 265 this repo's — closed, and still the only match.

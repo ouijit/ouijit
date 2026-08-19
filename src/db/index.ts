@@ -334,15 +334,14 @@ export async function setTaskDescription(
 }
 
 /**
- * Link a task to a GitHub pull request, or clear the link with null. Separate
- * from the issue link because the two are set at different points in a task's
- * life — the issue when the task is created from one, the PR when one is opened
- * or auto-detected on load.
+ * Separate from the issue link because the two are set at different points in a
+ * task's life — the issue when the task is created from one, the PR when one is
+ * opened or detected.
  */
 export async function setTaskGithubPr(
   projectPath: string,
   taskNumber: number,
-  prNumber: number | null,
+  prNumber: number,
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const { taskRepo: tr } = repos();
@@ -354,15 +353,7 @@ export async function setTaskGithubPr(
   }
 }
 
-/**
- * Link a task to a pull request, unless the task already has one or another
- * task in the project holds that pull request. Reports whether it claimed it.
- */
-export async function claimTaskGithubPr(
-  projectPath: string,
-  taskNumber: number,
-  prNumber: number,
-): Promise<boolean> {
+export async function claimTaskGithubPr(projectPath: string, taskNumber: number, prNumber: number): Promise<boolean> {
   const { taskRepo: tr } = repos();
   return tr.claimGithubPrNumber(projectPath, taskNumber, prNumber);
 }
