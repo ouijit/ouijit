@@ -607,9 +607,9 @@ export async function findPullRequestForBranch(
 }
 
 /**
- * Number and head branch of every open PR, for matching a whole board of tasks
- * to their pull requests in one call. `findPullRequestForBranch` answers for a
- * single branch and costs a `gh` process per task asked about.
+ * Every open PR's head branch, for matching a whole board of tasks in one call.
+ * `findPullRequestForBranch` answers for one branch, and each `gh` is a process
+ * fork against a rate limit shared with the user's own tools.
  */
 export async function fetchOpenPullRequestBranches(
   identity: RepoIdentity,

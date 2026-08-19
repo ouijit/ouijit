@@ -43,7 +43,6 @@ describe('pull request detection across a project', () => {
     expect(await detectPullRequestsForProject(project)).toEqual({ linked: 1 });
     expect((await getTaskByNumber(project, 1))?.githubPrNumber).toBe(265);
 
-    // A second sweep finds nothing left to link, so it never asks GitHub.
     fetchOpenPullRequestBranches.mockClear();
     expect(await detectPullRequestsForProject(project)).toEqual({ linked: 0 });
     expect(fetchOpenPullRequestBranches).not.toHaveBeenCalled();

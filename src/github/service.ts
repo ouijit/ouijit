@@ -173,11 +173,9 @@ async function requireIdentity(projectPath: string): Promise<RepoIdentity> {
 // ── Reads ────────────────────────────────────────────────────────────
 
 /**
- * The pull request inbox, and the task each of its entries belongs to.
- *
- * Linking happens here rather than only in the reads that ask for it: this is
- * the one place the repo's open pull requests and the project's tasks are both
- * already in hand, so matching them costs no `gh` call at all.
+ * A read that also writes: this is the one place the repo's open pull requests
+ * and the project's tasks are both already in hand, so linking them here costs
+ * no `gh` call at all.
  */
 export async function getInbox(projectPath: string): Promise<InboxResult> {
   const identity = await requireIdentity(projectPath);
@@ -313,10 +311,9 @@ export async function linkTaskToIssue(
 /**
  * Look for an existing PR whose head is the task's branch, and link it.
  *
- * One task, one `gh` call — for the moments that are about a single task, such
- * as its terminal opening or its move into review. Use
- * `detectPullRequestsForProject` for a whole board. Silently does nothing when
- * the feature is off or the task has no branch.
+ * One task, one `gh` call — called from the moments that are about a single
+ * task: its terminal opening, its move into review. Use
+ * `detectPullRequestsForProject` for a whole board.
  */
 export async function detectPullRequestForTask(
   projectPath: string,
@@ -335,8 +332,6 @@ export async function detectPullRequestForTask(
 }
 
 /**
- * Link every unlinked task whose branch is the head of one of `openPrs`.
- *
  * Takes the pull requests instead of fetching them so the inbox, which already
  * has them, spends nothing extra, and a caller that doesn't spends one call for
  * the board rather than one per task.
@@ -370,13 +365,8 @@ async function linkTasksToOpenPrs(
 }
 
 /**
- * Match the project's tasks against the repo's open pull requests and link the
- * ones that gained a PR after their terminal spawned.
- *
- * Per-task detection only ever runs at a moment chosen in advance, and the
- * usual flow — spawn the terminal, work, then open the PR from the worktree —
- * puts the PR after all of them. Costs one `gh` call, and none when every task
- * with a branch is already linked.
+ * The whole-board sweep, run from terminal reconnect at app start. One `gh`
+ * call however many tasks are on the board.
  */
 export async function detectPullRequestsForProject(projectPath: string): Promise<{ linked: number }> {
   const tasks = await getProjectTasks(projectPath);
