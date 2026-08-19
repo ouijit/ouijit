@@ -1,6 +1,9 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest';
 import type { WrapperSandboxProvider } from '../sandbox/provider';
 
+import * as apiAuth from '../apiAuth';
+import { spawnPty, getActiveSessions } from '../ptyManager';
+
 // Fake node-pty so no real process is spawned; capture spawn args.
 const ptySpawn = vi.fn(() => ({
   pid: 4242,
@@ -21,9 +24,6 @@ vi.mock('../shellIntegration', () => ({
     launch: () => ({ file: '/bin/zsh', args: ['-il'], env: {} }),
   }),
 }));
-
-import * as apiAuth from '../apiAuth';
-import { spawnPty, getActiveSessions } from '../ptyManager';
 
 const window = { isDestroyed: () => false, webContents: { send: vi.fn() } } as unknown as Electron.BrowserWindow;
 

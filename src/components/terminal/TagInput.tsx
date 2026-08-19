@@ -1,8 +1,8 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useTerminalStore } from '../../stores/terminalStore';
+import { terminalInstances } from './terminalReact';
 
 const EMPTY_TAGS: string[] = [];
-import { terminalInstances } from './terminalReact';
 
 interface TagInputProps {
   ptyId: string;

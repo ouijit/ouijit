@@ -1,5 +1,4 @@
 import { describe, test, expect, beforeEach, vi } from 'vitest';
-import * as fs from 'node:fs/promises';
 import {
   generateDefaultConfig,
   resolveEnvVars,

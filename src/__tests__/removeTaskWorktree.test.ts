@@ -1,6 +1,8 @@
 import { describe, test, expect, vi } from 'vitest';
 import { createTask, getTaskByNumber } from '../db';
 
+import { removeTaskWorktree } from '../worktree';
+
 // Mock child_process so git commands don't actually run
 vi.mock('node:child_process', () => ({
   execSync: vi.fn(),
@@ -31,8 +33,6 @@ vi.mock('node:fs/promises', async (importOriginal) => {
 vi.mock('koffi', () => ({
   default: { load: vi.fn() },
 }));
-
-import { removeTaskWorktree } from '../worktree';
 
 describe('removeTaskWorktree', () => {
   test('deletes the task matching the provided taskNumber, not the directory name', async () => {

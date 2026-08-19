@@ -1,6 +1,13 @@
 import { describe, test, expect, beforeEach, vi } from 'vitest';
 import { render, screen, waitFor, cleanup, fireEvent } from '@testing-library/react';
 
+import { PullRequestsPanel } from '../../components/github/PullRequestsPanel';
+import { activateTask } from '../../components/navigation';
+import { useAppStore } from '../../stores/appStore';
+import { useGithubStore } from '../../stores/githubStore';
+import { useProjectStore } from '../../stores/projectStore';
+import { pr, inbox, detail, issue, issueDetail, task } from './githubFixtures';
+
 vi.mock('electron-log/renderer', () => ({
   default: { scope: () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }) },
 }));
@@ -9,13 +16,6 @@ vi.mock('../../components/navigation', async () => {
   const actual = await vi.importActual<typeof import('../../components/navigation')>('../../components/navigation');
   return { ...actual, activateTask: vi.fn().mockResolvedValue(undefined) };
 });
-
-import { PullRequestsPanel } from '../../components/github/PullRequestsPanel';
-import { activateTask } from '../../components/navigation';
-import { useAppStore } from '../../stores/appStore';
-import { useGithubStore } from '../../stores/githubStore';
-import { useProjectStore } from '../../stores/projectStore';
-import { pr, inbox, detail, issue, issueDetail, task } from './githubFixtures';
 
 const PROJECT = '/work/alpha';
 

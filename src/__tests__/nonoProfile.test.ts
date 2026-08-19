@@ -3,6 +3,8 @@ import * as fs from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
 
+import { installUnionProfile } from '../sandbox/nono/profile';
+
 // Intercept `nono pull` (the registry fallback) and the bundled-resources
 // lookup; everything else (lockfile merge, pack copies, profile write) runs
 // against real files in per-test temp dirs.
@@ -17,8 +19,6 @@ vi.mock('node:child_process', () => ({
 vi.mock('../paths', () => ({
   resolveBundledResourceDir: (...segments: string[]) => resolveBundledResourceDir(...segments),
 }));
-
-import { installUnionProfile } from '../sandbox/nono/profile';
 
 const PACKS = [
   'always-further/claude',

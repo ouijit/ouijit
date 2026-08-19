@@ -1,5 +1,9 @@
 import { describe, test, expect, beforeEach, vi } from 'vitest';
 
+import { useProjectStore } from '../../stores/projectStore';
+import { bulkTransitionTasks } from '../../services/taskStartService';
+import type { TaskWithWorkspace, TaskStatus } from '../../types';
+
 vi.mock('electron-log/renderer', () => ({
   default: { scope: () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }) },
 }));
@@ -11,10 +15,6 @@ vi.mock('../../components/terminal/terminalActions', () => ({
   addProjectTerminal: vi.fn().mockResolvedValue(true),
   closeProjectTerminal: vi.fn(),
 }));
-
-import { useProjectStore } from '../../stores/projectStore';
-import { bulkTransitionTasks } from '../../services/taskStartService';
-import type { TaskWithWorkspace, TaskStatus } from '../../types';
 
 const PROJECT = '/project';
 
