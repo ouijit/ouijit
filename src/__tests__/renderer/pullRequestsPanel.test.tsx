@@ -634,6 +634,7 @@ describe('PullRequestsPanel', () => {
           mergeable: 'MERGEABLE',
           stateStatus: 'BLOCKED',
           blockers: ['Blocked by a branch protection rule'],
+          hardBlock: null,
           canBypass: true,
         },
       }),
@@ -654,22 +655,6 @@ describe('PullRequestsPanel', () => {
         bypass: true,
       });
     });
-  });
-
-  test('nothing in the way means nothing to bypass', async () => {
-    vi.mocked(window.api.github.inbox).mockResolvedValue(inbox({ others: [pr({ number: 8, title: 'Green' })] }));
-    vi.mocked(window.api.github.pullRequest).mockResolvedValue(
-      detail({
-        number: 8,
-        merge: { mergeable: 'MERGEABLE', stateStatus: 'CLEAN', blockers: [], canBypass: true },
-      }),
-    );
-
-    render(<PullRequestsPanel projectPath={PROJECT} />);
-    fireEvent.click(await screen.findByText('Green'));
-
-    fireEvent.click(await screen.findByText('Merge'));
-    expect(screen.queryByText('Merge without meeting requirements')).toBeNull();
   });
 
   test('a closed pull request offers no merge', async () => {

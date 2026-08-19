@@ -40,7 +40,7 @@ export function detail(over: Partial<PullRequestDetail> = {}): PullRequestDetail
     threads: [],
     timeline: [],
     checks: [],
-    merge: { mergeable: 'MERGEABLE', stateStatus: 'CLEAN', blockers: [], canBypass: false },
+    merge: { mergeable: 'MERGEABLE', stateStatus: 'CLEAN', blockers: [], hardBlock: null, canBypass: false },
     ...over,
   };
 }

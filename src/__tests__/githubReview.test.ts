@@ -157,7 +157,7 @@ describe('gh version floor', () => {
   });
 });
 
-describe('merge blockers', () => {
+describe('merging', () => {
   const clean = {
     mergeable: 'MERGEABLE',
     mergeStateStatus: 'CLEAN',
@@ -172,6 +172,7 @@ describe('merge blockers', () => {
       mergeable: 'MERGEABLE',
       stateStatus: 'CLEAN',
       blockers: [],
+      hardBlock: null,
       canBypass: false,
     });
   });
@@ -192,6 +193,9 @@ describe('merge blockers', () => {
       'Changes were requested',
       'Checks are failing',
     ]);
+    expect(status.hardBlock).toBe('Mark the pull request ready for review first');
+    expect(deriveMergeStatus({ ...clean, mergeable: 'CONFLICTING' }).hardBlock).toBe('Resolve the conflicts first');
+    expect(deriveMergeStatus({ ...clean, checksState: 'failure' }).hardBlock).toBeNull();
   });
 
   test('a behind branch is reported as needing an update rather than as generic blockage', () => {
@@ -215,7 +219,7 @@ describe('merge blockers', () => {
     expect(deriveMergeStatus({ ...admin, mergeStateStatus: 'BLOCKED' }).canBypass).toBe(true);
     expect(deriveMergeStatus({ ...admin, mergeable: 'CONFLICTING' }).canBypass).toBe(false);
     expect(deriveMergeStatus({ ...admin, isDraft: true }).canBypass).toBe(false);
-    // Without the permission GitHub reports, there is nothing to offer.
+    expect(deriveMergeStatus(admin).canBypass).toBe(false);
     expect(deriveMergeStatus({ ...clean, mergeStateStatus: 'BLOCKED' }).canBypass).toBe(false);
   });
 

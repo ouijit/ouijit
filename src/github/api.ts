@@ -365,13 +365,17 @@ export function deriveMergeStatus(raw: {
   if (raw.mergeStateStatus === 'BLOCKED' && blockers.length === 0) {
     blockers.push('Blocked by a branch protection rule');
   }
+  const hardBlock = raw.isDraft
+    ? 'Mark the pull request ready for review first'
+    : raw.mergeable === 'CONFLICTING'
+      ? 'Resolve the conflicts first'
+      : null;
   return {
     mergeable: raw.mergeable === 'MERGEABLE' || raw.mergeable === 'CONFLICTING' ? raw.mergeable : 'UNKNOWN',
     stateStatus: raw.mergeStateStatus,
     blockers,
-    // A conflict or a draft is the pull request's own problem; no permission
-    // merges past either, so bypass is not offered for them.
-    canBypass: raw.viewerCanMergeAsAdmin && raw.mergeable !== 'CONFLICTING' && !raw.isDraft,
+    hardBlock,
+    canBypass: raw.viewerCanMergeAsAdmin && hardBlock == null && blockers.length > 0,
   };
 }
 
@@ -757,7 +761,6 @@ export async function mergePullRequest(
   await runGh(mergeArgs(identity, number, options), { identity, cwd: options.cwd });
 }
 
-/** Split out from the call so the flags can be asserted without a `gh` process. */
 export function mergeArgs(identity: RepoIdentity, number: number, options: MergeOptions): string[] {
   const args = ['pr', 'merge', String(number), '--repo', repoSlug(identity), `--${options.method}`];
   if (options.deleteBranch) args.push('--delete-branch');
