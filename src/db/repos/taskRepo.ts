@@ -168,14 +168,28 @@ export class TaskRepo {
   }
 
   /**
-   * Link (or unlink, with null) the GitHub pull request for a task. Kept as two
-   * setters rather than one because the two links are set at different moments:
-   * the issue at task creation, the PR when one is opened or auto-detected.
+   * Kept as two setters rather than one because the two links are set at
+   * different moments: the issue at task creation, the PR when one is opened.
    */
-  updateGithubPrNumber(projectPath: string, taskNumber: number, prNumber: number | null): void {
+  updateGithubPrNumber(projectPath: string, taskNumber: number, prNumber: number): void {
     this.db
       .prepare('UPDATE tasks SET github_pr_number = ? WHERE project_path = ? AND task_number = ?')
       .run(prNumber, projectPath, taskNumber);
+  }
+
+  /**
+   * One statement, so a caller that decided to claim after a slow network read
+   * cannot overwrite a link made in the meantime.
+   */
+  claimGithubPrNumber(projectPath: string, taskNumber: number, prNumber: number): boolean {
+    const result = this.db
+      .prepare(
+        `UPDATE tasks SET github_pr_number = ?
+           WHERE project_path = ? AND task_number = ? AND github_pr_number IS NULL
+             AND NOT EXISTS (SELECT 1 FROM tasks WHERE project_path = ? AND github_pr_number = ?)`,
+      )
+      .run(prNumber, projectPath, taskNumber, projectPath, prNumber);
+    return result.changes > 0;
   }
 
   updateGithubIssueNumber(projectPath: string, taskNumber: number, issueNumber: number | null): void {

@@ -283,15 +283,12 @@ export interface IpcInvokeContract {
   'github:issues': { args: [projectPath: string]; return: GithubIssue[] };
   'github:issue': { args: [projectPath: string, number: number]; return: IssueDetail };
 
-  'github:link-task-pr': {
-    args: [projectPath: string, taskNumber: number, prNumber: number | null];
-    return: { success: boolean; error?: string };
-  };
   'github:link-task-issue': {
     args: [projectPath: string, taskNumber: number, issueNumber: number | null];
     return: { success: boolean; error?: string };
   };
   'github:detect-task-pr': { args: [projectPath: string, taskNumber: number]; return: { prNumber: number | null } };
+  'github:detect-project-prs': { args: [projectPath: string]; return: { linked: number } };
 
   // ── Diff notes ─────────────────────────────────────────────────────
   // Notes on a worktree's own diff, keyed by the worktree rather than by a pull

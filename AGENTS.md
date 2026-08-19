@@ -14,8 +14,8 @@ comment:
   `refs/ouijit/pr/12` blocks one at `refs/ouijit/pr/12/base`.")
 - An invariant that spans more than one place, and what breaks without it.
 - Why the obvious approach is not the one taken.
-- What is not visible from here: who else calls this, what has to change with
-  it, which process it runs in.
+- What is not visible from here: which process it runs in, what a caller has to
+  guarantee, what has to change alongside it.
 
 Not that:
 
@@ -28,5 +28,7 @@ Not that:
 - Anything the code already says. A comment restating a signature is a naming
   problem wearing a disguise.
 - Guessing how a user feels about the result.
+- Where it is called from, or how often. A caller changes that without touching
+  this file.
 
 Delete a comment rather than rewrite a weak one.

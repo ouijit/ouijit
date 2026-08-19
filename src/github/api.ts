@@ -569,41 +569,57 @@ export async function fetchIssue(identity: RepoIdentity, number: number): Promis
   };
 }
 
-/** The open PR whose head is `branch`, or null. Drives auto-detect on task load. */
+/**
+ * A pull request from a fork can carry the same head branch name as a local
+ * one, so cross-repository rows are dropped here rather than by each caller.
+ */
+async function listPrs<T>(
+  identity: RepoIdentity,
+  filters: string[],
+  fields: Array<keyof T & string>,
+  cwd?: string,
+): Promise<T[]> {
+  try {
+    const raw = await runGh(
+      ['pr', 'list', '--repo', repoSlug(identity), ...filters, '--json', [...fields, 'isCrossRepository'].join(',')],
+      { identity, cwd },
+    );
+    const parsed: unknown = JSON.parse(raw.trim() || '[]');
+    if (!Array.isArray(parsed)) return [];
+    return (parsed as Array<T & { isCrossRepository: boolean }>).filter((pr) => !pr.isCrossRepository);
+  } catch {
+    return [];
+  }
+}
+
 export async function findPullRequestForBranch(
   identity: RepoIdentity,
   branch: string,
   cwd?: string,
 ): Promise<number | null> {
-  try {
-    const raw = await runGh(
-      [
-        'pr',
-        'list',
-        '--repo',
-        repoSlug(identity),
-        '--head',
-        branch,
-        '--state',
-        'all',
-        // More than one: with a limit of 1 the open-vs-closed preference below
-        // could never apply, so a branch whose old PR was merged and then
-        // reopened linked to the merged one.
-        '--limit',
-        '10',
-        '--json',
-        'number,state',
-      ],
-      { identity, cwd },
-    );
-    const parsed = JSON.parse(raw.trim() || '[]') as Array<{ number: number; state: string }>;
-    // Prefer an open PR; a stale closed one for the same branch shouldn't get
-    // linked to a task that is being worked on again.
-    const open = parsed.find((p) => p.state === 'OPEN');
-    return (open ?? parsed[0])?.number ?? null;
-  } catch {
-    return null;
-  }
+  const prs = await listPrs<{ number: number; state: string }>(
+    identity,
+    // More than one, so the open-over-closed preference below has something to
+    // choose between on a branch whose old pull request was merged.
+    ['--head', branch, '--state', 'all', '--limit', '10'],
+    ['number', 'state'],
+    cwd,
+  );
+  // Prefer an open PR; a stale closed one for the same branch shouldn't get
+  // linked to a task that is being worked on again.
+  const open = prs.find((p) => p.state === 'OPEN');
+  return (open ?? prs[0])?.number ?? null;
+}
+
+type PullRequestBranch = Pick<PullRequestSummary, 'number' | 'headRefName'>;
+
+export async function fetchOpenPullRequestBranches(identity: RepoIdentity, cwd?: string): Promise<PullRequestBranch[]> {
+  return listPrs<PullRequestBranch>(
+    identity,
+    ['--state', 'open', '--limit', String(PR_LIST_LIMIT)],
+    ['number', 'headRefName'],
+    cwd,
+  );
 }
 
 // ── Writes ───────────────────────────────────────────────────────────
