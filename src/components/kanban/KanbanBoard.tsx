@@ -19,6 +19,7 @@ import { useTerminalStore } from '../../stores/terminalStore';
 import type { TaskWithWorkspace, TaskStatus, HookType, SandboxProviderId } from '../../types';
 import { addProjectTerminal } from '../terminal/terminalActions';
 import { beginTransition, bulkTransitionTasks, surfaceStartWarnings } from '../../services/taskStartService';
+import { detectPullRequestsForProject } from '../../services/githubTaskActions';
 import { completeTask } from '../../services/taskCompletion';
 import { KanbanColumn } from './KanbanColumn';
 import { BulkActionBar } from './BulkActionBar';
@@ -169,9 +170,9 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
     setItems(grouped);
   }, [storeTasks, activeTask]);
 
-  // Load tasks on mount
   useEffect(() => {
     useProjectStore.getState().loadTasks(projectPath);
+    void detectPullRequestsForProject(projectPath);
   }, [projectPath]);
 
   // Hotkeys
