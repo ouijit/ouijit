@@ -6,6 +6,10 @@
 import { describe, test, expect, vi, beforeEach } from 'vitest';
 import * as os from 'node:os';
 import { createTask, _resetCacheForTesting } from '../db';
+import { exec } from 'node:child_process';
+import { listWorktrees, shipWorktree } from '../worktree';
+import { createProject } from '../projectCreator';
+import { getTasksWithWorkspaces } from '../taskLifecycle';
 
 // ── Mocks (superset needed by all describe blocks) ──────────────────
 
@@ -44,13 +48,6 @@ vi.mock('../git', () => ({
 vi.mock('../hookRunner', () => ({
   executeHook: vi.fn(async () => ({ success: true, output: '' })),
 }));
-
-// ── Imports (after mocks) ───────────────────────────────────────────
-
-import { exec } from 'node:child_process';
-import { listWorktrees, shipWorktree } from '../worktree';
-import { createProject } from '../projectCreator';
-import { getTasksWithWorkspaces } from '../taskLifecycle';
 
 // ── Helpers ─────────────────────────────────────────────────────────
 

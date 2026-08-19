@@ -1,6 +1,9 @@
 import { describe, test, expect, vi } from 'vitest';
 import { createTask, getTaskByNumber } from '../db';
 
+import { startTask } from '../worktree';
+import { beginTask } from '../taskLifecycle';
+
 // Mock child_process so execAsync resolves without real git commands
 vi.mock('node:child_process', () => ({
   execSync: vi.fn(),
@@ -41,9 +44,6 @@ vi.mock('node:fs/promises', async (importOriginal) => {
 vi.mock('koffi', () => ({
   default: { load: vi.fn() },
 }));
-
-import { startTask } from '../worktree';
-import { beginTask } from '../taskLifecycle';
 
 describe('startTask', () => {
   test('does not change a todo task status to in_progress', async () => {

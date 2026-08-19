@@ -1,3 +1,39 @@
+// Import for local use within this file
+import type {
+  GitStatus,
+  GitFileStatus,
+  GitDropdownInfo,
+  FileDiff,
+  WorktreeDiffSummary,
+  BranchInfo,
+  DiffBases,
+} from './git';
+import type { TaskWorktreeResult, WorktreeInfo, WorktreeRemoveResult, CheckWorktreeResult } from './worktree';
+import type {
+  GithubAvailability,
+  PullRequestDetail,
+  PullRequestFreshness,
+  GithubIssue,
+  IssueDetail,
+  CommentKind,
+  ReviewDraft,
+  PrHead,
+  ReviewEvent,
+  MergeMethod,
+  GithubDraftsChangedPayload,
+  InboxResult,
+  PullRequestFilesResult,
+  SaveDraftInput,
+  PromoteToTaskResult,
+  PrFileVersions,
+} from './github/types';
+import type { DiffNote, SaveDiffNoteInput } from './diffNotes';
+import type { TaskStatus, TagRow } from './db';
+import type { ActiveSession } from './ptyManager';
+import type { LimaStatus } from './lima/types';
+import type { SandboxProviderId, SandboxProviderStatus, NonoConfig } from './sandbox/types';
+import type { HookStatus, HookStatusEntry } from './hookServer';
+
 // Re-export all git types from git.ts (single source of truth)
 export type {
   GitStatus,
@@ -65,42 +101,6 @@ export type {
   SubmitReviewResult,
   PrFileVersions,
 } from './github/types';
-
-// Import for local use within this file
-import type {
-  GitStatus,
-  GitFileStatus,
-  GitDropdownInfo,
-  FileDiff,
-  WorktreeDiffSummary,
-  BranchInfo,
-  DiffBases,
-} from './git';
-import type { TaskWorktreeResult, WorktreeInfo, WorktreeRemoveResult, CheckWorktreeResult } from './worktree';
-import type {
-  GithubAvailability,
-  PullRequestDetail,
-  PullRequestFreshness,
-  GithubIssue,
-  IssueDetail,
-  CommentKind,
-  ReviewDraft,
-  PrHead,
-  ReviewEvent,
-  MergeMethod,
-  GithubDraftsChangedPayload,
-  InboxResult,
-  PullRequestFilesResult,
-  SaveDraftInput,
-  PromoteToTaskResult,
-  PrFileVersions,
-} from './github/types';
-import type { DiffNote, SaveDiffNoteInput } from './diffNotes';
-import type { TaskStatus, TagRow } from './db';
-import type { ActiveSession } from './ptyManager';
-import type { LimaStatus } from './lima/types';
-import type { SandboxProviderId, SandboxProviderStatus, NonoConfig } from './sandbox/types';
-import type { HookStatus, HookStatusEntry } from './hookServer';
 
 /**
  * Persisted last active view for session recovery

@@ -11,7 +11,6 @@ export default tseslint.config(
       '.vite/',
       'node_modules/',
       'e2e/',
-      'src/__tests__/',
       '**/*.js',
       '**/*.mjs',
       '**/*.cjs',
@@ -28,6 +27,7 @@ export default tseslint.config(
       'import-x/no-cycle': ['error', { maxDepth: Infinity }],
 
       // Useful import rules
+      'import-x/first': 'error',
       'import-x/no-duplicates': 'error',
       'import-x/no-self-import': 'error',
 

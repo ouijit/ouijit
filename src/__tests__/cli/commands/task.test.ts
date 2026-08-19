@@ -2,6 +2,8 @@ import { describe, test, expect, vi, beforeEach, afterEach } from 'vitest';
 import { Command } from 'commander';
 import { registerTaskCommands } from '../../../cli/commands/task';
 
+import { get, post, patch, del } from '../../../cli/api';
+
 vi.mock('../../../cli/api', () => ({
   get: vi.fn(),
   post: vi.fn(),
@@ -9,8 +11,6 @@ vi.mock('../../../cli/api', () => ({
   del: vi.fn(),
   projectQuery: (p: string) => '?project=' + encodeURIComponent(p),
 }));
-
-import { get, post, patch, del } from '../../../cli/api';
 
 function captureOutput() {
   const chunks: string[] = [];
