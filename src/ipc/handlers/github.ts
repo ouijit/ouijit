@@ -80,9 +80,7 @@ export function registerGithubHandlers(): void {
   typedHandle('github:set-file-viewed', (projectPath, prNumber, headSha, path, viewed) =>
     setFileViewed(projectPath, prNumber, headSha, path, viewed),
   );
-  typedHandle('github:merge-pr', (projectPath, prNumber, method, deleteBranch) =>
-    mergePr(projectPath, prNumber, method, deleteBranch),
-  );
+  typedHandle('github:merge-pr', (projectPath, prNumber, options) => mergePr(projectPath, prNumber, options));
   typedHandle('github:task-from-issue', (projectPath, issueNumber) => createTaskFromIssue(projectPath, issueNumber));
   typedHandle('github:task-from-pr', (projectPath, prNumber) => prepareTaskFromPullRequest(projectPath, prNumber));
 }

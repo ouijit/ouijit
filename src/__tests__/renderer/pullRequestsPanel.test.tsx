@@ -623,6 +623,40 @@ describe('PullRequestsPanel', () => {
     expect(screen.getByText('Request changes').closest('button')?.disabled).toBe(true);
   });
 
+  test('bypass is offered when protection blocks a merge the viewer may force', async () => {
+    vi.mocked(window.api.github.inbox).mockResolvedValue(
+      inbox({ others: [pr({ number: 7, title: 'Held by protection' })] }),
+    );
+    vi.mocked(window.api.github.pullRequest).mockResolvedValue(
+      detail({
+        number: 7,
+        merge: {
+          mergeable: 'MERGEABLE',
+          stateStatus: 'BLOCKED',
+          blockers: ['Blocked by a branch protection rule'],
+          hardBlock: null,
+          canBypass: true,
+        },
+      }),
+    );
+
+    render(<PullRequestsPanel projectPath={PROJECT} />);
+    fireEvent.click(await screen.findByText('Held by protection'));
+
+    fireEvent.click(await screen.findByText('Merge'));
+    fireEvent.click(screen.getByText('Merge without meeting requirements'));
+    // The chosen method names both its menu row and the button that commits it.
+    fireEvent.click(screen.getAllByText('Squash and merge').at(-1)!);
+
+    await waitFor(() => {
+      expect(window.api.github.mergePr).toHaveBeenCalledWith(PROJECT, 7, {
+        method: 'squash',
+        deleteBranch: true,
+        bypass: true,
+      });
+    });
+  });
+
   test('a closed pull request offers no merge', async () => {
     vi.mocked(window.api.github.inbox).mockResolvedValue(
       inbox({ others: [pr({ number: 6, title: 'Landed already', state: 'merged' })] }),

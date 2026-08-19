@@ -67,6 +67,7 @@ query($owner: String!, $repo: String!, $number: Int!) {
       mergeable
       mergeStateStatus
       viewerCanUpdate
+      viewerCanMergeAsAdmin
       reviewThreads(first: 100) {
         nodes {
           id

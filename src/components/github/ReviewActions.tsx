@@ -37,11 +37,14 @@ export function ReviewActions({ projectPath, detail, onJumpToDraft }: ReviewActi
   const [summary, setSummary] = useState('');
   const [method, setMethod] = useState<MergeMethod>('squash');
   const [deleteBranch, setDeleteBranch] = useState(true);
+  const [bypassRequested, setBypassRequested] = useState(false);
   const [merging, setMerging] = useState(false);
 
   const isOpen = detail.state === 'open';
-  const hardBlock = detail.merge.mergeable === 'CONFLICTING' || detail.isDraft;
   const blockers = isOpen ? detail.merge.blockers : [];
+  // bypassRequested outlives the row that set it: a reload that clears the
+  // blockers hides the toggle without unsetting it.
+  const bypass = detail.merge.canBypass && bypassRequested;
 
   // Said here rather than as a 422 after the fact, and asked of the same
   // function main asks before it sends.
@@ -52,12 +55,6 @@ export function ReviewActions({ projectPath, detail, onJumpToDraft }: ReviewActi
   // An approval may be wordless, but it still carries the inline comments up
   // with it, so a stranded one sinks it the same way.
   const approveProblem = problem('APPROVE');
-
-  const blockedReason = detail.isDraft
-    ? 'Mark the pull request ready for review first'
-    : detail.merge.mergeable === 'CONFLICTING'
-      ? 'Resolve the conflicts first'
-      : undefined;
 
   const submitReview = async (event: ReviewEvent) => {
     useGithubStore.getState().setSubmitting(true);
@@ -87,7 +84,7 @@ export function ReviewActions({ projectPath, detail, onJumpToDraft }: ReviewActi
   const merge = async () => {
     setMerging(true);
     try {
-      const result = await window.api.github.mergePr(projectPath, detail.number, method, deleteBranch);
+      const result = await window.api.github.mergePr(projectPath, detail.number, { method, deleteBranch, bypass });
       if (!result.success) {
         useProjectStore.getState().addToast(result.error ?? 'Merge failed', 'error');
         return;
@@ -156,7 +153,12 @@ export function ReviewActions({ projectPath, detail, onJumpToDraft }: ReviewActi
       </ActionMenu>
 
       {isOpen && (
-        <ActionMenu label={merging ? 'Merging…' : 'Merge'} accent disabled={merging || hardBlock} title={blockedReason}>
+        <ActionMenu
+          label={merging ? 'Merging…' : 'Merge'}
+          accent
+          disabled={merging || detail.merge.hardBlock != null}
+          title={detail.merge.hardBlock ?? undefined}
+        >
           {(close) => (
             <>
               {/* Advisory blockers still let the button through: GitHub is the
@@ -171,6 +173,13 @@ export function ReviewActions({ projectPath, detail, onJumpToDraft }: ReviewActi
                     </li>
                   ))}
                 </ul>
+              )}
+              {detail.merge.canBypass && (
+                <MenuItem
+                  label="Merge without meeting requirements"
+                  selected={bypassRequested}
+                  onClick={() => setBypassRequested(!bypassRequested)}
+                />
               )}
               {blockers.length > 0 && <MenuDivider />}
               {METHODS.map((m) => (

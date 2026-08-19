@@ -172,6 +172,16 @@ export interface MergeStatus {
   stateStatus: string;
   /** Plain-language blockers, surfaced before the merge button rather than after. */
   blockers: string[];
+  /**
+   * Why no merge can be attempted at all, or null. Unlike `blockers`, which
+   * GitHub may still let through, nothing gets past this.
+   */
+  hardBlock: string | null;
+  /**
+   * Whether to offer a bypass: GitHub says this viewer may force a merge, and
+   * there is a blocker for it to clear.
+   */
+  canBypass: boolean;
 }
 
 export interface PullRequestDetail extends PullRequestSummary {
@@ -271,6 +281,13 @@ export type CommentKind = 'issue' | 'review';
 export type ReviewEvent = 'APPROVE' | 'REQUEST_CHANGES' | 'COMMENT';
 
 export type MergeMethod = 'merge' | 'squash' | 'rebase';
+
+export interface MergeOptions {
+  method: MergeMethod;
+  deleteBranch: boolean;
+  /** Merge past branch protection instead of satisfying it. */
+  bypass: boolean;
+}
 
 /**
  * What `github:drafts-changed` carries.
