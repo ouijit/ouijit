@@ -195,7 +195,7 @@ export function TaskComposerSheet({
               placeholder="Task name"
               spellCheck={false}
               aria-label="Task name"
-              className="w-full resize-none overflow-hidden bg-transparent border-none outline-none text-lg font-semibold text-text-primary placeholder:text-text-tertiary placeholder:font-normal"
+              className="composer-sheet-title w-full resize-none overflow-hidden bg-transparent border-none outline-none text-lg font-semibold text-text-primary placeholder:text-text-tertiary placeholder:font-normal"
             />
           ) : (
             <h1 className="text-lg font-semibold text-text-primary">{name}</h1>

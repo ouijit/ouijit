@@ -36,7 +36,6 @@ import type {
   Script,
   ValidateFolderFailureReason,
   FolderPickerOptions,
-  SiblingScanResult,
   ProjectsFolderChangePlan,
   ProjectsFolderChangeAction,
   ApplyProjectsFolderChangeResult,
@@ -89,7 +88,6 @@ export interface IpcInvokeContract {
   'create-project': { args: [options: CreateProjectOptions]; return: CreateProjectResult };
   'show-folder-picker': { args: [options?: FolderPickerOptions]; return: { canceled: boolean; filePaths: string[] } };
   'projects:get-default-folder': { args: []; return: string };
-  'projects:scan-siblings': { args: [folderPath: string]; return: SiblingScanResult };
   'projects:prepare-folder-change': { args: [newFolder: string]; return: ProjectsFolderChangePlan };
   'projects:apply-folder-change': {
     args: [newFolder: string, action: ProjectsFolderChangeAction];
