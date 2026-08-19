@@ -569,67 +569,48 @@ export async function fetchIssue(identity: RepoIdentity, number: number): Promis
   };
 }
 
+async function listPrs<T>(identity: RepoIdentity, filters: string[], fields: string, cwd?: string): Promise<T[]> {
+  try {
+    const raw = await runGh(['pr', 'list', '--repo', repoSlug(identity), ...filters, '--json', fields], {
+      identity,
+      cwd,
+    });
+    return JSON.parse(raw.trim() || '[]') as T[];
+  } catch {
+    return [];
+  }
+}
+
 /** The open PR whose head is `branch`, or null. Drives auto-detect on task load. */
 export async function findPullRequestForBranch(
   identity: RepoIdentity,
   branch: string,
   cwd?: string,
 ): Promise<number | null> {
-  try {
-    const raw = await runGh(
-      [
-        'pr',
-        'list',
-        '--repo',
-        repoSlug(identity),
-        '--head',
-        branch,
-        '--state',
-        'all',
-        // More than one: with a limit of 1 the open-vs-closed preference below
-        // could never apply, so a branch whose old PR was merged and then
-        // reopened linked to the merged one.
-        '--limit',
-        '10',
-        '--json',
-        'number,state',
-      ],
-      { identity, cwd },
-    );
-    const parsed = JSON.parse(raw.trim() || '[]') as Array<{ number: number; state: string }>;
-    // Prefer an open PR; a stale closed one for the same branch shouldn't get
-    // linked to a task that is being worked on again.
-    const open = parsed.find((p) => p.state === 'OPEN');
-    return (open ?? parsed[0])?.number ?? null;
-  } catch {
-    return null;
-  }
+  const parsed = await listPrs<{ number: number; state: string }>(
+    identity,
+    // More than one: with a limit of 1 the open-vs-closed preference below could
+    // never apply, so a branch whose old PR was merged and then reopened linked
+    // to the merged one.
+    ['--head', branch, '--state', 'all', '--limit', '10'],
+    'number,state',
+    cwd,
+  );
+  // Prefer an open PR; a stale closed one for the same branch shouldn't get
+  // linked to a task that is being worked on again.
+  const open = parsed.find((p) => p.state === 'OPEN');
+  return (open ?? parsed[0])?.number ?? null;
 }
 
-export async function fetchOpenPullRequestBranches(
-  identity: RepoIdentity,
-  cwd?: string,
-): Promise<Array<{ number: number; headRefName: string }>> {
-  try {
-    const raw = await runGh(
-      [
-        'pr',
-        'list',
-        '--repo',
-        repoSlug(identity),
-        '--state',
-        'open',
-        '--limit',
-        String(PR_LIST_LIMIT),
-        '--json',
-        'number,headRefName',
-      ],
-      { identity, cwd },
-    );
-    return JSON.parse(raw.trim() || '[]') as Array<{ number: number; headRefName: string }>;
-  } catch {
-    return [];
-  }
+type PullRequestBranch = Pick<PullRequestSummary, 'number' | 'headRefName'>;
+
+export function fetchOpenPullRequestBranches(identity: RepoIdentity, cwd?: string): Promise<PullRequestBranch[]> {
+  return listPrs<PullRequestBranch>(
+    identity,
+    ['--state', 'open', '--limit', String(PR_LIST_LIMIT)],
+    'number,headRefName',
+    cwd,
+  );
 }
 
 // ── Writes ───────────────────────────────────────────────────────────

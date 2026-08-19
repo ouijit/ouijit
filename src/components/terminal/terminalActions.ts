@@ -415,9 +415,6 @@ export async function addProjectTerminal(
     term.refreshGitStatus();
     term.loadTags();
 
-    // Auto-detect an existing pull request for this task's branch. Runs in the
-    // background and stays silent on failure — it only ever adds a badge, so a
-    // repo without GitHub or an offline machine should cost nothing visible.
     if (options?.taskId != null) {
       void detectPullRequestForTask(projectPath, options.taskId);
     }

@@ -75,7 +75,7 @@ import type {
   PromoteToTaskResult,
   PrFileVersions,
 } from './types';
-import type { FileDiff, ChangedFile, TaskMetadata } from '../types';
+import type { FileDiff, ChangedFile } from '../types';
 import { locateInHunks } from '../snippetAnchor';
 import { linesOnSide } from '../diffAnchor';
 
@@ -172,10 +172,6 @@ async function requireIdentity(projectPath: string): Promise<RepoIdentity> {
 
 // ── Reads ────────────────────────────────────────────────────────────
 
-/**
- * Also links tasks to pull requests, being the only place both lists are
- * already in hand.
- */
 export async function getInbox(projectPath: string): Promise<InboxResult> {
   const identity = await requireIdentity(projectPath);
   const [inbox, draftCounts, tasks] = await Promise.all([
@@ -184,11 +180,10 @@ export async function getInbox(projectPath: string): Promise<InboxResult> {
     getProjectTasks(projectPath),
   ]);
 
-  const { linkedTasks } = await linkTasksToOpenPrs(projectPath, tasks, [
-    ...inbox.needsReview,
-    ...inbox.mine,
-    ...inbox.others,
-  ]);
+  const linkedTasks: Record<number, number> = {};
+  for (const task of tasks) {
+    if (task.githubPrNumber != null) linkedTasks[task.githubPrNumber] = task.taskNumber;
+  }
 
   return { ...inbox, draftCounts, linkedTasks };
 }
@@ -310,8 +305,8 @@ export async function linkTaskToIssue(
 /**
  * Look for an existing PR whose head is the task's branch, and link it.
  *
- * `detectPullRequestsForProject` costs one `gh` call for any number of tasks,
- * so this is only for the single-task case.
+ * Matches closed and merged pull requests too, which the project-wide sweep
+ * never sees.
  */
 export async function detectPullRequestForTask(
   projectPath: string,
@@ -330,46 +325,44 @@ export async function detectPullRequestForTask(
 }
 
 /**
- * Takes the pull requests rather than fetching them, so a caller already
- * holding them spends nothing.
+ * Per-project in-flight gate. A sweep can outlive the tick that scheduled it —
+ * `gh` waits longer than the refresh interval — so without this they queue up
+ * behind each other, each one taking a `gh` slot ahead of whatever the user
+ * asked for.
  */
-async function linkTasksToOpenPrs(
-  projectPath: string,
-  tasks: TaskMetadata[],
-  openPrs: Array<{ number: number; headRefName: string }>,
-): Promise<{ linkedTasks: Record<number, number>; newlyLinked: number[] }> {
-  const linkedTasks: Record<number, number> = {};
+const sweeps = new Map<string, Promise<{ linked: number }>>();
+
+export function detectPullRequestsForProject(projectPath: string): Promise<{ linked: number }> {
+  const existing = sweeps.get(projectPath);
+  if (existing) return existing;
+  const sweep = sweepPullRequests(projectPath).finally(() => sweeps.delete(projectPath));
+  sweeps.set(projectPath, sweep);
+  return sweep;
+}
+
+async function sweepPullRequests(projectPath: string): Promise<{ linked: number }> {
+  const availability = await getAvailability(projectPath);
+  if (!availability.available || !availability.identity) return { linked: 0 };
+
+  const tasks = await getProjectTasks(projectPath);
+  const claimed = new Set<number>();
   const unlinkedByBranch = new Map<string, number>();
   for (const task of tasks) {
-    if (task.githubPrNumber != null) linkedTasks[task.githubPrNumber] = task.taskNumber;
+    if (task.githubPrNumber != null) claimed.add(task.githubPrNumber);
     else if (task.branch) unlinkedByBranch.set(task.branch, task.taskNumber);
   }
+  if (unlinkedByBranch.size === 0) return { linked: 0 };
 
-  const newlyLinked: number[] = [];
+  const openPrs = await fetchOpenPullRequestBranches(availability.identity, projectPath);
+  let linked = 0;
   for (const pr of openPrs) {
     const taskNumber = unlinkedByBranch.get(pr.headRefName);
     // Two tasks can share a branch. Reassigning the PR to the second would flip
     // the badge between them on every refresh.
-    if (taskNumber == null || linkedTasks[pr.number] != null) continue;
-    const result = await setTaskGithubPr(projectPath, taskNumber, pr.number);
-    if (!result.success) continue;
-    linkedTasks[pr.number] = taskNumber;
-    newlyLinked.push(taskNumber);
+    if (taskNumber == null || claimed.has(pr.number)) continue;
+    if ((await setTaskGithubPr(projectPath, taskNumber, pr.number)).success) linked++;
   }
-
-  return { linkedTasks, newlyLinked };
-}
-
-export async function detectPullRequestsForProject(projectPath: string): Promise<{ linked: number }> {
-  const tasks = await getProjectTasks(projectPath);
-  if (!tasks.some((task) => task.branch && task.githubPrNumber == null)) return { linked: 0 };
-
-  const availability = await getAvailability(projectPath);
-  if (!availability.available || !availability.identity) return { linked: 0 };
-
-  const openPrs = await fetchOpenPullRequestBranches(availability.identity, projectPath);
-  const { newlyLinked } = await linkTasksToOpenPrs(projectPath, tasks, openPrs);
-  return { linked: newlyLinked.length };
+  return { linked };
 }
 
 // ── Review drafts ────────────────────────────────────────────────────

@@ -81,9 +81,8 @@ export async function detectPullRequestForTask(projectPath: string, taskNumber: 
 
 export async function detectPullRequestsForProject(projectPath: string): Promise<void> {
   try {
-    const result = await window.api.github.detectProjectPrs(projectPath);
-    if (result.linked === 0) return;
-    await useProjectStore.getState().loadTasks(projectPath);
+    const { linked } = await window.api.github.detectProjectPrs(projectPath);
+    if (linked > 0) await useProjectStore.getState().loadTasks(projectPath);
   } catch (error) {
     actionLog.warn('project pull request detection failed', { projectPath, error: describeError(error) });
   }

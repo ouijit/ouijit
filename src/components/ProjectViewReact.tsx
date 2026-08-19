@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useRef } from 'react';
 import { useAppStore } from '../stores/appStore';
 import { useProjectStore } from '../stores/projectStore';
 import { useTerminalStore, getTerminalIndexByStackPosition, STACK_PAGE_SIZE } from '../stores/terminalStore';
@@ -60,6 +60,9 @@ export function ProjectView() {
   const githubEnabled = useExperimentalStore((s) =>
     projectPath ? (s.flagsByProject[projectPath]?.github ?? false) : false,
   );
+
+  // Survives the visibility flips that restart the refresh interval below.
+  const lastSweptAt = useRef(0);
 
   const activeIndex = useTerminalStore((s) => (projectPath ? (s.activeIndices[projectPath] ?? 0) : 0));
   const terminalList = useTerminalStore((s) => (projectPath ? s.terminalsByProject[projectPath] : undefined));
@@ -281,11 +284,19 @@ export function ProjectView() {
   useEffect(() => {
     if (!projectPath) return;
     let interval: ReturnType<typeof setInterval> | null = null;
+    const sweep = () => {
+      lastSweptAt.current = Date.now();
+      void detectPullRequestsForProject(projectPath);
+    };
     const start = () => {
       if (interval != null || document.hidden) return;
+      // The interval doesn't run while the window is hidden, so a pull request
+      // opened in the meantime would sit undetected for a full period. Skipping
+      // a still-fresh sweep keeps alt-tabbing from spending `gh` calls.
+      if (githubEnabled && Date.now() - lastSweptAt.current >= PROJECT_REFRESH_INTERVAL) sweep();
       interval = setInterval(() => {
         refreshAllTerminalGitStatus(projectPath);
-        void detectPullRequestsForProject(projectPath);
+        if (githubEnabled) sweep();
       }, PROJECT_REFRESH_INTERVAL);
     };
     const stop = () => {
@@ -301,7 +312,7 @@ export function ProjectView() {
       document.removeEventListener('visibilitychange', onVisibility);
       stop();
     };
-  }, [projectPath]);
+  }, [projectPath, githubEnabled]);
 
   // Hook status: register ongoing listener + seed existing terminals
   useHookStatusListener(projectPath);

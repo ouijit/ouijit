@@ -2,19 +2,18 @@ import { describe, test, expect, vi, beforeEach } from 'vitest';
 
 vi.mock('../healthCheck', () => ({
   getCachedHealth: () => ({ gh: true, ghVersionOk: true }),
-  checkHealth: async () => ({ gh: true, ghVersionOk: true }),
-  refreshHealth: async () => ({ gh: true, ghVersionOk: true }),
 }));
 vi.mock('../github/repoIdentity', () => ({
   getRepoIdentity: async () => ({ owner: 'acme', repo: 'app' }),
-  invalidateRepoIdentity: () => {},
 }));
 
-const fetchOpenPullRequestBranches = vi.fn<() => Promise<Array<{ number: number; headRefName: string }>>>();
+const { fetchOpenPullRequestBranches } = vi.hoisted(() => ({
+  fetchOpenPullRequestBranches: vi.fn<typeof import('../github/api').fetchOpenPullRequestBranches>(),
+}));
 
 vi.mock('../github/api', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../github/api')>()),
-  fetchOpenPullRequestBranches: () => fetchOpenPullRequestBranches(),
+  fetchOpenPullRequestBranches,
 }));
 vi.mock('../github/client', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../github/client')>()),
