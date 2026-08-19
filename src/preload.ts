@@ -69,7 +69,6 @@ contextBridge.exposeInMainWorld('api', {
   createProject: (options: CreateProjectOptions) => typedInvoke('create-project', options),
   showFolderPicker: (options?: FolderPickerOptions) => typedInvoke('show-folder-picker', options),
   getDefaultProjectsFolder: () => typedInvoke('projects:get-default-folder'),
-  scanSiblingProjects: (folderPath: string) => typedInvoke('projects:scan-siblings', folderPath),
   prepareProjectsFolderChange: (newFolder: string) => typedInvoke('projects:prepare-folder-change', newFolder),
   applyProjectsFolderChange: (newFolder: string, action: ProjectsFolderChangeAction) =>
     typedInvoke('projects:apply-folder-change', newFolder, action),
@@ -347,12 +346,11 @@ contextBridge.exposeInMainWorld('api', {
     issues: (projectPath: string) => typedInvoke('github:issues', projectPath),
     issue: (projectPath: string, number: number) => typedInvoke('github:issue', projectPath, number),
 
-    linkTaskPr: (projectPath: string, taskNumber: number, prNumber: number | null) =>
-      typedInvoke('github:link-task-pr', projectPath, taskNumber, prNumber),
     linkTaskIssue: (projectPath: string, taskNumber: number, issueNumber: number | null) =>
       typedInvoke('github:link-task-issue', projectPath, taskNumber, issueNumber),
     detectTaskPr: (projectPath: string, taskNumber: number) =>
       typedInvoke('github:detect-task-pr', projectPath, taskNumber),
+    detectProjectPrs: (projectPath: string) => typedInvoke('github:detect-project-prs', projectPath),
 
     drafts: (projectPath: string, prNumber: number, head?: PrHead) =>
       typedInvoke('github:drafts', projectPath, prNumber, head),

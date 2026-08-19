@@ -320,8 +320,8 @@ export async function getPrFileVersions(
 }
 
 /**
- * Drop the refs we fetched for a PR. Called when a PR is unlinked or merged, so
- * a long-lived project doesn't accumulate a ref per PR ever reviewed.
+ * Drop the refs we fetched for a PR, so a long-lived project doesn't accumulate
+ * a ref per PR ever reviewed.
  */
 export async function prunePrRefs(projectPath: string, prNumber: number): Promise<void> {
   forgetRefs(projectPath, prNumber);

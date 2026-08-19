@@ -19,11 +19,12 @@ import {
   startRunner,
 } from './terminal/terminalActions';
 import { terminalInstances, refreshAllTerminalGitStatus } from './terminal/terminalReact';
+import { detectPullRequestsForProject } from '../services/githubTaskActions';
 import { useHookStatusListener } from '../hooks/useHookStatusListener';
 import { useCliPanelListener } from '../hooks/useCliPanelListener';
 
 const isMac = navigator.platform.toLowerCase().includes('mac');
-const GIT_STATUS_PERIODIC_INTERVAL = 30000;
+const PROJECT_REFRESH_INTERVAL = 30000;
 const EMPTY: string[] = [];
 
 /** Get the currently selected ptyId from the canvas (first selected node). */
@@ -275,16 +276,23 @@ export function ProjectView() {
     useProjectStore.getState().loadScripts(projectPath);
   }, [projectPath]);
 
-  // Periodic git status refresh — pauses while the window is hidden so we
-  // don't keep spawning git subprocesses for a project the user isn't watching.
+  // Pauses while the window is hidden so we don't keep spawning subprocesses
+  // for a project the user isn't watching.
   useEffect(() => {
     if (!projectPath) return;
     let interval: ReturnType<typeof setInterval> | null = null;
+    const sweepPullRequests = () => {
+      if (githubEnabled) void detectPullRequestsForProject(projectPath);
+    };
     const start = () => {
       if (interval != null || document.hidden) return;
+      // Catches a pull request opened while the window was hidden; the service
+      // rate-limits, so an alt-tab back costs nothing.
+      sweepPullRequests();
       interval = setInterval(() => {
         refreshAllTerminalGitStatus(projectPath);
-      }, GIT_STATUS_PERIODIC_INTERVAL);
+        sweepPullRequests();
+      }, PROJECT_REFRESH_INTERVAL);
     };
     const stop = () => {
       if (interval != null) {
@@ -299,7 +307,7 @@ export function ProjectView() {
       document.removeEventListener('visibilitychange', onVisibility);
       stop();
     };
-  }, [projectPath]);
+  }, [projectPath, githubEnabled]);
 
   // Hook status: register ongoing listener + seed existing terminals
   useHookStatusListener(projectPath);

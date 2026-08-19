@@ -4,12 +4,7 @@ import { typedHandle } from '../helpers';
 import { getProjectList } from '../../projectList';
 import { removeProject, reorderProjects, setProjectIconColor } from '../../db';
 import { initGitRepo } from '../../projectCreator';
-import {
-  getDefaultProjectsDir,
-  scanSiblingProjects,
-  prepareProjectsFolderChange,
-  applyProjectsFolderChange,
-} from '../../projectsFolder';
+import { getDefaultProjectsDir, prepareProjectsFolderChange, applyProjectsFolderChange } from '../../projectsFolder';
 import { addExistingProject, createAndRegisterProject } from '../../services/projectRegistration';
 import { seedOnboardingTaskIfFirstProject } from '../../onboarding';
 import { openFileInEditor } from '../../editorLauncher';
@@ -87,7 +82,6 @@ export function registerProjectHandlers(mainWindow: BrowserWindow): void {
   });
 
   typedHandle('projects:get-default-folder', () => getDefaultProjectsDir());
-  typedHandle('projects:scan-siblings', (folderPath) => scanSiblingProjects(folderPath));
   typedHandle('projects:prepare-folder-change', (newFolder) =>
     prepareProjectsFolderChange(newFolder, activeProjectPaths()),
   );
