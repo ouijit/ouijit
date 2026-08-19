@@ -66,8 +66,8 @@ export async function unlinkPullRequest(projectPath: string, taskNumber: number)
 /**
  * Look for an existing PR on a task's branch and link it.
  *
- * Failures are silent by design: this is a background nicety, and a toast for
- * every offline task would be noise.
+ * Silent on failure: it runs unprompted, so a toast for every task on an
+ * offline machine would be noise.
  */
 export async function detectPullRequestForTask(projectPath: string, taskNumber: number): Promise<void> {
   try {

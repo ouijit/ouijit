@@ -232,8 +232,8 @@ export const useGithubStore = create<GithubStore>()((set, get) => ({
       const inbox = await window.api.github.inbox(projectPath);
       if (version !== inboxVersion || get().projectPath !== projectPath) return;
       set({ inbox, inboxLoading: false });
-      // Fetching the inbox is also what links tasks to pull requests opened
-      // since they were last looked at, so the board can be a link behind.
+      // The main process links tasks to pull requests while serving this, so
+      // the task state here can be a link behind what it returns.
       const tasks = useProjectStore.getState().tasks;
       const behind = Object.entries(inbox.linkedTasks).some(
         ([prNumber, taskNumber]) => tasks.find((t) => t.taskNumber === taskNumber)?.githubPrNumber !== Number(prNumber),

@@ -173,9 +173,8 @@ async function requireIdentity(projectPath: string): Promise<RepoIdentity> {
 // ── Reads ────────────────────────────────────────────────────────────
 
 /**
- * A read that also writes: this is the one place the repo's open pull requests
- * and the project's tasks are both already in hand, so linking them here costs
- * no `gh` call at all.
+ * Also links tasks to pull requests, being the only place both lists are
+ * already in hand.
  */
 export async function getInbox(projectPath: string): Promise<InboxResult> {
   const identity = await requireIdentity(projectPath);
@@ -311,8 +310,8 @@ export async function linkTaskToIssue(
 /**
  * Look for an existing PR whose head is the task's branch, and link it.
  *
- * One `gh` call for one task. `detectPullRequestsForProject` costs the same
- * for a whole board, so prefer it wherever more than one task is in question.
+ * `detectPullRequestsForProject` costs one `gh` call for any number of tasks,
+ * so this is only for the single-task case.
  */
 export async function detectPullRequestForTask(
   projectPath: string,
@@ -331,9 +330,8 @@ export async function detectPullRequestForTask(
 }
 
 /**
- * Takes the pull requests rather than fetching them: a caller holding them
- * already spends nothing, and one that isn't spends a single call for the whole
- * board instead of one per task.
+ * Takes the pull requests rather than fetching them, so a caller already
+ * holding them spends nothing.
  */
 async function linkTasksToOpenPrs(
   projectPath: string,
@@ -350,9 +348,8 @@ async function linkTasksToOpenPrs(
   const newlyLinked: number[] = [];
   for (const pr of openPrs) {
     const taskNumber = unlinkedByBranch.get(pr.headRefName);
-    // A PR already claimed by another task stays with it: a second task on the
-    // same branch is the odd case, and stealing the link would flip the badge
-    // back and forth on every refresh.
+    // Two tasks can share a branch. Reassigning the PR to the second would flip
+    // the badge between them on every refresh.
     if (taskNumber == null || linkedTasks[pr.number] != null) continue;
     const result = await setTaskGithubPr(projectPath, taskNumber, pr.number);
     if (!result.success) continue;

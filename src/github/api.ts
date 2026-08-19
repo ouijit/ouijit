@@ -606,11 +606,6 @@ export async function findPullRequestForBranch(
   }
 }
 
-/**
- * Matches a whole board of tasks in one call, where `findPullRequestForBranch`
- * answers for a single branch — each `gh` is a process fork against a rate
- * limit shared with the user's own tools.
- */
 export async function fetchOpenPullRequestBranches(
   identity: RepoIdentity,
   cwd?: string,
