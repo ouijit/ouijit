@@ -70,7 +70,7 @@ export const KanbanCard = memo(function KanbanCard({
   const isInChain = isChainMember(chainInfo);
   const githubEnabled = useExperimentalStore((s) => s.flagsByProject[projectPath]?.github ?? false);
 
-  // Badge drag visual feedback — derive per-card booleans in selectors to avoid O(N) re-renders
+  // Derived in selectors, so a badge drag re-renders only the cards involved.
   const activeBadgeDragSource = useProjectStore((s) => s.activeBadgeDrag);
   const isHoveredByBadgeDrag = useProjectStore((s) => s.badgeDragOverTask === task.taskNumber);
   const optionKeyHeld = useProjectStore((s) => s.optionKeyHeld);
@@ -83,7 +83,7 @@ export const KanbanCard = memo(function KanbanCard({
   const isInvalidBadgeTarget = isBadgeDragActive && !isValidBadgeTarget;
   const showBadge = isInChain || optionKeyHeld;
 
-  // Find connected terminals for this task — shallow compare avoids re-renders from unrelated terminal updates
+  // Shallow compare, so unrelated terminal updates don't re-render this card.
   const connectedDisplays = useTerminalStore(
     useShallow((s) => {
       const ids = s.terminalsByProject[projectPath] ?? [];
@@ -347,8 +347,8 @@ export const KanbanCard = memo(function KanbanCard({
             setEditorHookDialog(false);
             if (result?.saved) {
               onEditorHookConfigured?.();
-              // Open the editor straight away — the user picked "Open in Editor"
-              // to get into the editor, not just to fill out a config dialog.
+              // Open the editor straight away: the config dialog was a detour,
+              // not the request.
               if (result.hook?.command && task.worktreePath && task.branch) {
                 openWorktreeEditor(
                   projectPath,

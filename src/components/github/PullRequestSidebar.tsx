@@ -22,14 +22,13 @@ interface PullRequestSidebarProps {
   onOpenPullRequest: (number: number) => void;
   onOpenIssue: (issue: GithubIssue) => void;
   onCreateTaskFromIssue: (issueNumber: number) => void;
-  /** Go to the work: focus its shell, or open/create its worktree. */
+  /** Focus the task's shell, or open/create its worktree. */
   onOpenTask: (task: TaskWithWorkspace) => void;
   loading: boolean;
-  /** Set by dragging the handle beside this. */
   width: number;
 }
 
-/** Reading order: what is asked of you, then what is yours, then the rest. */
+/** Reading order: review requests, then your own, then the rest. */
 const PULL_GROUPS = [
   ['Needs your review', 'needsReview'],
   ['Authored', 'mine'],
@@ -37,10 +36,8 @@ const PULL_GROUPS = [
 ] as const;
 
 /**
- * The list, kept on screen rather than replaced by whatever you opened.
- *
- * Search filters what is already loaded — no round trip, so it narrows as you
- * type.
+ * The list, kept on screen beside whatever is open. Search filters what is
+ * already loaded, with no round trip.
  */
 export function PullRequestSidebar({
   needsReview,
@@ -105,8 +102,8 @@ export function PullRequestSidebar({
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={(e) => {
-                // Escape clears the search it belongs to. Only once there is
-                // nothing to clear does it fall through to leaving the panel.
+                // Escape clears the query first, and only then falls through
+                // to leaving the panel.
                 if (e.key === 'Escape' && query) {
                   e.preventDefault();
                   setQuery('');
@@ -219,14 +216,10 @@ function PullRequestRow({
 }
 
 /**
- * A row is opened by clicking it anywhere, not by hitting its title.
- *
- * The row itself cannot be the button — it contains buttons of its own, and a
- * button inside a button is invalid and unreachable by keyboard. So the title
- * button stretches its hit area over the whole row with a `::before`, and the
- * controls that need their own click are lifted above it. The alternative,
- * making the row a div with a click handler, gives up keyboard access for
- * every row in the list.
+ * The whole row opens the item, but the row cannot itself be a button: it holds
+ * buttons, and nesting them is invalid and unreachable by keyboard. The title
+ * button stretches over the row with a `::before`, and the controls that need
+ * their own click are raised above it.
  */
 function rowClass(active: boolean): string {
   return `group relative w-full px-4 py-2 flex flex-col gap-0.5 transition-colors duration-100 ${
@@ -239,7 +232,6 @@ const rowTitleClass = "flex items-baseline gap-2 text-left before:absolute befor
 /** A control inside a row, raised above the title's stretched hit area. */
 const rowActionClass = 'relative z-10 shrink-0';
 
-/** The task tracking this row, and the way into it. */
 function TaskLink({ task, onOpen }: { task: TaskWithWorkspace; onOpen: (task: TaskWithWorkspace) => void }) {
   return (
     <button

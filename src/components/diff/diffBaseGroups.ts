@@ -1,42 +1,33 @@
 import type { DiffBaseRef, DiffBases } from '../../types';
 import { fuzzyMatch } from '../../utils/fuzzyMatch';
 
-/** How many branches the list shows before saying how many it is holding back. */
 export const MAX_BASE_ROWS = 15;
 
-/** One offered ref, and why it is being offered where it is. */
 export interface DiffBaseRow {
   ref: string;
-  /** What this ref is to the branch being read — absent in the full list. */
+  /** Role this ref plays for the branch; unset for plain rows. */
   hint?: string;
 }
 
 export interface DiffBaseGroups {
-  /** The refs that mean something to this branch, in the order they matter. */
   roles: DiffBaseRow[];
-  /** Everything else, alphabetically, cut to `MAX_BASE_ROWS`. */
+  /** Alphabetical, capped at `MAX_BASE_ROWS`. */
   rest: DiffBaseRow[];
-  /** How many the cut left out, so the list can say so. */
   hidden: number;
 }
 
 export interface DiffBaseContext {
-  /** The branch being read, which cannot also be what it is read against. */
   branch: string | null;
-  /** What this branch merges into — a task's target, or the main branch. */
+  /** What the branch merges into — a task's target, or the main branch. */
   base: string | null;
-  /** The project's main branch, when it is not the base already. */
   mainBranch: string | null;
 }
 
 /**
- * The refs on offer, split into the ones that answer a question about this
- * branch and the ones that are merely available.
+ * Splits the refs into ones with a role for this branch and the rest.
  *
- * The roles are what the branch merges into, that base as the remote has it,
- * and the branch itself as pushed — the "what have I not sent yet" reading. A
- * ref that isn't there, a branch never pushed among them, is left out rather
- * than offered and broken.
+ * A role ref that git doesn't have — a branch never pushed, say — is dropped
+ * rather than offered, since diffing against it would fail.
  */
 export function groupDiffBases(bases: DiffBases, context: DiffBaseContext): DiffBaseGroups {
   const present = new Map(bases.refs.map((r) => [r.ref, r]));
@@ -64,12 +55,9 @@ export function groupDiffBases(bases: DiffBases, context: DiffBaseContext): Diff
 }
 
 /**
- * Ranked matches for a query, as one flat list.
- *
- * Flat rather than grouped, for the reason the switcher is: the best match has
- * to be the first row, and a grouped list makes it the best match within its
- * group instead. Matched on the branch name as well as the whole ref, so
- * typing `main` finds `origin/main` without also typing the remote.
+ * Ranked matches for a query, flat so the best match is the first row — a
+ * grouped list would only make it the best match within its group. Remote refs
+ * also match on their branch name, so `main` finds `origin/main`.
  */
 export function searchDiffBases(refs: readonly DiffBaseRef[], query: string, branch: string | null): DiffBaseRow[] {
   const scored: { ref: string; score: number; remote: boolean }[] = [];
@@ -80,8 +68,8 @@ export function searchDiffBases(refs: readonly DiffBaseRef[], query: string, bra
     const score = Math.max(onRef?.score ?? -Infinity, onBranch?.score ?? -Infinity);
     if (score > -Infinity) scored.push({ ref: candidate.ref, score, remote: candidate.remote !== null });
   }
-  // A branch and its remote match a query on the branch name identically, and
-  // the local one is the one being asked for by that name.
+  // A branch and its remote score identically on a branch-name query; prefer
+  // the local one.
   scored.sort((a, b) => b.score - a.score || Number(a.remote) - Number(b.remote) || a.ref.localeCompare(b.ref));
   return scored.map(({ ref }) => ({ ref }));
 }

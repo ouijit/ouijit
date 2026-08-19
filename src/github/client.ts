@@ -1,13 +1,10 @@
 /**
- * The `gh` CLI wrapper.
+ * The `gh` CLI wrapper. Everything GitHub goes through here, in git.ts's
+ * execFile idiom. Auth is entirely `gh`'s: no token is read, stored or
+ * forwarded, so the app has no secret-storage surface.
  *
- * Everything GitHub goes through here, in the same execFile idiom as git.ts.
- * Auth is entirely `gh`'s problem: we never read, store, or forward a token,
- * so there is no secret-storage surface anywhere in the app.
- *
- * Two entry points — one REST helper and one GraphQL helper. GraphQL is not
- * optional: resolving a review thread and reading `statusCheckRollup` have no
- * REST equivalent.
+ * Both a REST and a GraphQL helper: resolving a review thread and reading
+ * `statusCheckRollup` have no REST equivalent.
  */
 
 import { execFile } from 'node:child_process';
@@ -23,9 +20,8 @@ const ghLog = getLogger().scope('github');
 
 /**
  * `gh api --slurp`, which paginated reads depend on, first shipped in 2.48.0.
- * Gated here rather than left to fail: below it every paginated read dies with
- * `unknown flag: --slurp`, silently degrading each pull request to the git file
- * list. Anything older is told to upgrade.
+ * Below it every paginated read dies with `unknown flag: --slurp`, silently
+ * degrading each pull request to the git file list.
  */
 export const MIN_GH_VERSION = '2.48.0';
 
@@ -61,10 +57,9 @@ let active = 0;
 const waiting: Array<() => void> = [];
 
 /**
- * The slot is handed straight to the next waiter rather than released and
- * re-taken: decrementing first leaves a window in which a fresh caller takes
- * the free slot and the waking waiter increments on top of it, putting the
- * count past the cap.
+ * The slot is handed to the next waiter, not released and re-taken: decrementing
+ * first lets a fresh caller take the free slot while the waking waiter
+ * increments on top of it, putting the count past the cap.
  */
 async function withSlot<T>(fn: () => Promise<T>): Promise<T> {
   if (active >= MAX_CONCURRENT) {
@@ -144,10 +139,9 @@ interface ExecOptions {
 }
 
 /**
- * Build the child env. `GH_HOST` is what points gh at an Enterprise instance;
- * `GH_PROMPT_DISABLED` and `GH_NO_UPDATE_NOTIFIER` keep gh from ever blocking
- * on a TTY prompt or writing an upgrade banner into stdout we then try to
- * parse as JSON.
+ * `GH_HOST` points gh at an Enterprise instance; `GH_PROMPT_DISABLED` and
+ * `GH_NO_UPDATE_NOTIFIER` stop it blocking on a TTY prompt or writing an
+ * upgrade banner into the stdout we parse as JSON.
  */
 function ghEnv(identity?: RepoIdentity): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = {
@@ -173,12 +167,10 @@ export async function runGh(args: string[], options: ExecOptions = {}): Promise<
         timeout: GH_TIMEOUT_MS,
       });
       if (options.input != null) {
-        // A review body carrying every batched inline comment is easily larger
-        // than the pipe buffer, so the write outlives the spawn. When gh exits
-        // first — bad auth, a 422, rate limiting — the rest of the write hits a
-        // closed pipe, and an EPIPE nobody listens for is an uncaught exception
-        // in the main process. The failure the user cares about is the one gh
-        // reports through its exit code, which the catch below already handles.
+        // A review body carrying every batched comment outgrows the pipe
+        // buffer, so the write outlives the spawn. If gh exits first, the rest
+        // of the write hits a closed pipe, and an unhandled EPIPE would crash
+        // the main process; gh's exit code carries the real failure.
         child.child.stdin?.on('error', () => {});
         child.child.stdin?.end(options.input);
       }
@@ -224,10 +216,8 @@ export async function ghRest<T>(path: string, options: RestOptions = {}): Promis
 }
 
 /**
- * A REST call whose success is the absence of an error.
- *
- * A DELETE answers 204 with an empty body, which `ghRest` would reject as
- * unparseable — the empty response is the success, not a malformed one.
+ * For calls with no response body: a DELETE answers 204 empty, which `ghRest`
+ * would reject as unparseable.
  */
 export async function ghRestVoid(path: string, options: RestOptions = {}): Promise<void> {
   await ghRestRaw(path, options);
@@ -253,9 +243,8 @@ interface GraphqlResponse<T> {
 }
 
 /**
- * `gh api graphql`. Variables go through `-F name=value` (typed) rather than
- * being interpolated into the query, so a branch name with a quote in it can't
- * break the document.
+ * `gh api graphql`. Variables go through `-F name=value` rather than being
+ * interpolated, so a branch name with a quote in it cannot break the document.
  */
 export async function ghGraphql<T>(
   query: string,
@@ -326,9 +315,8 @@ export async function probeGh(): Promise<GhProbe> {
 
 /**
  * Whether gh holds credentials. `gh auth status` validates the token against
- * GitHub, so this is a network call and stays out of the startup health probe —
- * offline, it costs the full timeout, and only the GitHub panel needs the
- * answer. Logged out exits non-zero, which is the signal rather than an error.
+ * GitHub, so this is a network call, kept out of the startup health probe where
+ * it would cost the full timeout offline. Logged out exits non-zero.
  */
 export async function probeGhAuth(): Promise<boolean> {
   try {

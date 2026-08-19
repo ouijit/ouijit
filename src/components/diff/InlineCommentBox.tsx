@@ -1,11 +1,8 @@
 import { useState, type ReactNode } from 'react';
 
 /**
- * A comment that is written but not yet open for editing. Indented to clear
- * the line-number gutter, like the editor it turns into.
- *
- * Lit on its four edges like the card it sits inside, a step tighter in the
- * corner so it reads as nested rather than as a second card of equal standing.
+ * A saved comment, before it is opened for editing. Indented to clear the
+ * line-number gutter, matching the editor it turns into.
  */
 export function InlineCommentCard({ label, body, onClick }: { label: string; body: ReactNode; onClick: () => void }) {
   return (
@@ -29,16 +26,13 @@ interface InlineCommentBoxProps {
   placeholder?: string;
   /** The button's word for saving — "Add comment", "Update note". */
   saveLabel?: string;
-  /** One line under the box saying where what you write goes. */
+  /** One line under the box saying where what is written goes. */
   hint?: string;
 }
 
 /**
- * The editor for one comment anchored to a diff line.
- *
- * Shared by the pull request's review drafts and the worktree diff's notes,
- * indented to clear the line-number gutter in both. Where the text ends up is
- * the caller's business.
+ * The editor for one comment anchored to a diff line. Indented to clear the
+ * line-number gutter, matching the card it replaces.
  */
 export function InlineCommentBox({
   initialBody,
@@ -72,8 +66,7 @@ export function InlineCommentBox({
         onKeyDown={(e) => {
           if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) void save();
           if (e.key === 'Escape') {
-            // Claim it, or the panel's own Escape handler closes the view out
-            // from under a cancelled comment.
+            // Claim it, or the panel's own Escape handler closes the whole view.
             e.preventDefault();
             onCancel();
           }

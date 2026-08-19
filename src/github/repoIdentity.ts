@@ -70,13 +70,10 @@ const identityCache = new Map<string, RepoIdentity | null>();
 const inflight = new Map<string, Promise<RepoIdentity | null>>();
 
 /**
- * Bumped by every invalidation. A resolution that started before the remote
- * changed must not write what it read afterwards: invalidating is synchronous
- * and the refresh that follows it spends hundreds of milliseconds in
- * subprocesses, which is plenty of room for a poll tick's already-running
- * lookup to land and put the stale identity back. Stamping each resolution and
- * dropping the write when the stamp has moved costs at most one extra
- * subprocess on the next read.
+ * Bumped by every invalidation. Invalidating is synchronous but the refresh
+ * after it spends hundreds of milliseconds in subprocesses, so an already
+ * running lookup can land and write the stale identity back. Each resolution
+ * stamps this and drops its write when the stamp has moved.
  */
 let cacheGeneration = 0;
 

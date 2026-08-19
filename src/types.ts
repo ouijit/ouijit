@@ -103,9 +103,6 @@ export type {
   PrFileVersions,
 } from './github/types';
 
-/**
- * Persisted last active view for session recovery
- */
 export type LastActiveView = { type: 'home' } | { type: 'project'; path: string };
 
 /**
@@ -184,9 +181,6 @@ export interface LastSessionSnapshot {
   terminals: SnapshotTerminal[];
 }
 
-/**
- * Represents a run configuration for launching a project
- */
 export interface RunConfig {
   /** Display name (e.g., "dev", "start", "run") */
   name: string;
@@ -217,9 +211,6 @@ export interface CustomCommand {
   description?: string;
 }
 
-/**
- * Hook type - when the script runs
- */
 export type HookType = 'start' | 'continue' | 'run' | 'review' | 'done' | 'editor';
 
 /**
@@ -232,9 +223,6 @@ export type HookType = 'start' | 'continue' | 'run' | 'review' | 'done' | 'edito
  */
 export type CliHookMode = 'run' | 'skip' | 'command';
 
-/**
- * Script hook configuration
- */
 export interface ScriptHook {
   /** Unique identifier */
   id: string;
@@ -250,9 +238,6 @@ export interface ScriptHook {
   restartIfRunning?: boolean;
 }
 
-/**
- * Ad-hoc script configuration (user-defined, project-scoped)
- */
 export interface Script {
   id: string;
   name: string;
@@ -262,9 +247,7 @@ export interface Script {
   restartIfRunning: boolean;
 }
 
-/**
- * Minimal script reference for runner execution (no persistence concern)
- */
+/** A script the runner can execute, with no persistence concern. */
 export interface RunnerScript {
   name: string;
   command: string;
@@ -272,9 +255,6 @@ export interface RunnerScript {
   restartIfRunning?: boolean;
 }
 
-/**
- * Project-specific settings stored by the app
- */
 export interface ProjectSettings {
   /** @deprecated Use hooks instead */
   customCommands?: CustomCommand[];
@@ -291,31 +271,19 @@ export interface ProjectSettings {
   };
 }
 
-/**
- * Result of git checkout operation
- */
 export interface GitCheckoutResult {
   success: boolean;
   error?: string;
 }
 
-/**
- * Result of git merge into main operation
- */
 export interface GitMergeResult {
   success: boolean;
   error?: string;
   mergedBranch?: string;
 }
 
-/**
- * Unique identifier for a PTY session
- */
 export type PtyId = string;
 
-/**
- * Options for spawning a new PTY
- */
 export interface PtySpawnOptions {
   cwd: string;
   /** The project this terminal belongs to (for session restoration). Defaults to cwd if not specified. */
@@ -340,18 +308,12 @@ export interface PtySpawnOptions {
   sandboxProvider?: SandboxProviderId;
 }
 
-/**
- * Result of spawning a PTY
- */
 export interface PtySpawnResult {
   success: boolean;
   ptyId?: PtyId;
   error?: string;
 }
 
-/**
- * Result of reconnecting to a PTY
- */
 export interface PtyReconnectResult {
   success: boolean;
   /** Buffered output that was missed during disconnection */
@@ -365,9 +327,6 @@ export interface PtyReconnectResult {
   error?: string;
 }
 
-/**
- * PTY API exposed to the renderer
- */
 export interface PtyAPI {
   spawn(options: PtySpawnOptions): Promise<PtySpawnResult>;
   write(ptyId: PtyId, data: string): void;
@@ -403,9 +362,6 @@ export interface TaskWithWorkspace {
   githubIssueNumber?: number;
 }
 
-/**
- * Hooks API exposed to the renderer
- */
 export interface HooksAPI {
   /** Get all hooks for a project */
   get(projectPath: string): Promise<{
@@ -430,9 +386,6 @@ export interface TagsAPI {
   setTaskTags(projectPath: string, taskNumber: number, tagNames: string[]): Promise<TagRow[]>;
 }
 
-/**
- * Scripts API exposed to the renderer
- */
 export interface ScriptsAPI {
   /** Get all scripts for a project, ordered by sort_order */
   getAll(projectPath: string): Promise<Script[]>;
@@ -486,9 +439,7 @@ export interface TaskAPI {
   saveAttachment(data: Uint8Array, ext: string): Promise<{ success: boolean; path?: string; error?: string }>;
 }
 
-/**
- * Worktree API exposed to the renderer (git plumbing only — task ops are on TaskAPI)
- */
+/** Git plumbing only; task operations live on TaskAPI. */
 export interface WorktreeAPI {
   validateBranchName(projectPath: string, branchName: string): Promise<{ valid: boolean; error?: string }>;
   generateBranchName(projectPath: string, name: string): Promise<string>;
@@ -513,9 +464,6 @@ export interface WorktreeAPI {
   getMainBranch(projectPath: string): Promise<string>;
 }
 
-/**
- * Project interface representing a development project
- */
 export interface Project {
   name: string;
   path: string;
@@ -523,9 +471,6 @@ export interface Project {
   iconColor?: string;
 }
 
-/**
- * API interface exposed by the preload script
- */
 export interface ElectronAPI {
   getProjects(): Promise<Project[]>;
   openProject(path: string): Promise<{ success: boolean; error?: string }>;
@@ -680,11 +625,8 @@ export interface ElectronAPI {
 }
 
 /**
- * Notes on a worktree diff.
- *
- * The pull request equivalent is `github.drafts`, which ends at a review sent
- * to GitHub. These are handed to the agent in the terminal instead, so there is
- * no submit step — a note ends when the code it was written about does.
+ * Notes on a worktree diff. Unlike `github.drafts` there is no submit step: a
+ * note ends when the code it was written about does.
  */
 export interface DiffNotesAPI {
   /**
@@ -699,11 +641,8 @@ export interface DiffNotesAPI {
 }
 
 /**
- * GitHub API exposed to the renderer.
- *
- * Every call crosses into the main process and shells out to `gh`. The renderer
- * never sees a token — there isn't one to see, because auth lives entirely in
- * the user's `gh` installation.
+ * Every call crosses into the main process and shells out to `gh`. No token
+ * exists to expose: auth lives entirely in the user's `gh` installation.
  */
 export interface GithubAPI {
   availability(projectPath: string, recheck?: boolean): Promise<GithubAvailability>;
@@ -784,9 +723,6 @@ export interface GithubActionResult {
   error?: string;
 }
 
-/**
- * Onboarding API exposed to the renderer
- */
 export interface OnboardingAPI {
   seedTask(projectPath: string): Promise<{ success: boolean }>;
 }
@@ -815,32 +751,22 @@ export interface OnboardingState {
   dismissed: boolean;
 }
 
-/**
- * Health probe API exposed to the renderer
- */
 export interface HealthAPI {
   check(): Promise<import('./healthCheck').HealthStatus>;
   onUpdate(callback: (status: import('./healthCheck').HealthStatus) => void): () => void;
 }
 
-/**
- * Capture-mode API for the screenshot driver.
- */
 export interface CaptureAPI {
   onNavigate(callback: (payload: import('./capture/types').CaptureNavigatePayload) => void): () => void;
 }
 
-/**
- * CLI agent hook events API exposed to the renderer. Shared by claude / codex / pi / opencode.
- */
+/** CLI agent hook events, covering claude, codex, pi and opencode alike. */
 export interface AgentHooksAPI {
   onStatus(callback: (ptyId: PtyId, status: HookStatus) => void): () => void;
   getStatus(ptyId: PtyId): Promise<HookStatusEntry | null>;
 }
 
-/**
- * Markdown file viewing API exposed to the renderer (the "Markdown File" panel)
- */
+/** Backs the "Markdown File" panel. */
 export interface PlanAPI {
   read(planPath: string): Promise<string | null>;
   watch(planPath: string): Promise<{ success: boolean }>;
@@ -914,9 +840,6 @@ export interface SandboxAPI {
   setNonoConfig(projectPath: string, config: NonoConfig): Promise<{ success: boolean }>;
 }
 
-/**
- * Lima sandbox API exposed to the renderer
- */
 export interface LimaAPI {
   status(projectPath: string): Promise<LimaStatus>;
   start(projectPath: string): Promise<{ success: boolean; error?: string }>;
@@ -932,17 +855,11 @@ export interface LimaAPI {
   ): () => void;
 }
 
-/**
- * Global settings API exposed to the renderer
- */
 export interface GlobalSettingsAPI {
   get(key: string): Promise<string | undefined>;
   set(key: string, value: string): Promise<{ success: boolean }>;
 }
 
-/**
- * Options for creating a new project
- */
 export interface CreateProjectOptions {
   name: string;
   /** Directory the project folder is created in. Defaults to the projects folder setting. */
@@ -990,9 +907,6 @@ export interface ApplyProjectsFolderChangeResult {
   failed: { path: string; error: string }[];
 }
 
-/**
- * Result of creating a new project
- */
 export interface CreateProjectResult {
   success: boolean;
   projectPath?: string;

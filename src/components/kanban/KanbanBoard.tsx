@@ -48,8 +48,8 @@ const TRASH_ID = 'trash-zone';
 const isMac = navigator.platform.toLowerCase().includes('mac');
 
 /**
- * Custom collision detection: try pointerWithin first (works for empty containers),
- * fall back to rectIntersection (works for sortable items within columns).
+ * pointerWithin first, which handles empty containers; rectIntersection as a
+ * fallback, which handles sortable items inside columns.
  */
 const customCollision: CollisionDetection = (args) => {
   const pointerCollisions = pointerWithin(args);
@@ -87,8 +87,8 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
   } | null>(null);
 
   /**
-   * Check if a task's worktree exists on disk. If missing, prompt the user to recover it.
-   * Returns the (possibly new) worktree path on success, or null if cancelled/failed.
+   * Prompts to recover the worktree when it is missing from disk. Returns the
+   * (possibly new) path, or null if cancelled or failed.
    */
   const ensureWorktreeExists = useCallback(
     async (task: TaskWithWorkspace): Promise<string | null> => {
@@ -126,19 +126,16 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
     [projectPath],
   );
 
-  // Project config is owned by projectStore; loaded once per project by
-  // ProjectViewReact, and refreshed by HookList / this board's hook-dialog
-  // close handler whenever a hook is added. No on-mount refetch needed.
+  // projectStore owns the config: loaded per project by ProjectViewReact and
+  // refreshed by HookList and this board's hook-dialog close handler.
   const markEditorHookConfigured = useCallback(() => {
     useProjectStore.getState().markHookConfigured('editor');
   }, []);
 
   // Local task state for drag preview — synced from store, mutated during drag.
-  // chainMap depends only on parent relations, but `storeTasks` identity churns
-  // on every task edit (name, status, order). Memoize on a content fingerprint
-  // of just (taskNumber → parentTaskNumber) so the Map identity stays stable
-  // across reorders, status changes, and renames — and memoized cards keep
-  // their memo intact instead of re-rendering on every unrelated task tweak.
+  // `storeTasks` gets a new identity on every task edit, so chainMap is keyed on
+  // a fingerprint of the parent relations it actually depends on; otherwise
+  // every rename re-renders every memoized card.
   const chainFingerprint = useMemo(
     () =>
       storeTasks
@@ -232,11 +229,8 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
     }),
   );
 
-  // O(1) reverse lookup for findContainer. `items` only changes when a card
-  // actually crosses a column (or when the store syncs); dnd-kit's onDragOver
-  // fires continuously during drag, so doing this once per items mutation
-  // instead of scanning every column on every drag tick is a clear win as
-  // the task list grows.
+  // Reverse lookup for findContainer. dnd-kit's onDragOver fires continuously
+  // during a drag, while `items` changes only when a card crosses a column.
   const taskStatusByNumber = useMemo(() => {
     const lookup = new Map<number, TaskStatus>();
     for (const [status, tasks] of Object.entries(items)) {
@@ -259,9 +253,8 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
   const overTrashRef = useRef(false);
   const trashRef = useRef<HTMLDivElement>(null);
 
-  // Track pointer proximity to right edge during drag, and whether pointer is over the trash zone.
-  // Coalesce pointermove processing to one tick per animation frame — pointer events fire on every
-  // pixel during a drag and we don't need higher resolution than the display.
+  // Tracks pointer proximity to the right edge and the trash zone during a
+  // drag, coalesced to one tick per frame since pointermove fires per pixel.
   useEffect(() => {
     if (!activeTask || activeBadgeDrag) {
       setShowTrash(false);
@@ -483,11 +476,8 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
 
       const newStatus = finalContainer as TaskStatus;
 
-      // Done is its own lifecycle: snapshot existing task terminals, spawn the
-      // done-hook terminal (if configured), close the snapshot, persist status.
-      // All three entry points (kanban, terminal Close Task menu, CLI) funnel
-      // through completeTask so they behave identically. Shift-drag skips the
-      // configured done hook for this one transition.
+      // Done has its own lifecycle. Kanban, the terminal's Close Task menu and
+      // the CLI all funnel through completeTask so they behave identically.
       if (newStatus === 'done' && origStatus && origStatus !== newStatus) {
         if (draggedTask.worktreePath) {
           const wtPath = await ensureWorktreeExists(draggedTask);
@@ -510,24 +500,21 @@ export function KanbanBoard({ projectPath, onHide }: KanbanBoardProps) {
         return;
       }
 
-      // Persist status + position optimistically BEFORE async work (worktree creation, etc.)
-      // This updates the store so that when we clear activeTask the effect re-syncs to the new position.
+      // Persisted before the async work below, so clearing activeTask re-syncs
+      // the effect to the new position rather than the old one.
       await useProjectStore.getState().moveTask(projectPath, activeTaskNum, finalContainer, targetIndex);
       setActiveTask(null);
 
-      // For an existing worktree that may have been deleted externally, prompt
-      // to recover it before kicking off a transition. This dialog still lives
-      // in the kanban because it's tied to the recovery flow.
+      // A worktree may have been deleted outside the app; recover it before
+      // starting a transition that assumes it exists.
       if (draggedTask.worktreePath) {
         const wtPath = await ensureWorktreeExists(draggedTask);
         if (!wtPath) return;
         draggedTask = { ...draggedTask, worktreePath: wtPath };
       }
 
-      // Hand off the rest of the lifecycle (worktree creation if needed, hook
-      // prompt, terminal spawn) to the service. Returns immediately — the
-      // service runs to completion regardless of whether this component stays
-      // mounted.
+      // The service runs worktree creation, the hook prompt and the terminal
+      // spawn to completion whether or not this component stays mounted.
       if (!origStatus || origStatus === finalContainer) {
         // Pure reorder, no status change — nothing more to do.
         return;

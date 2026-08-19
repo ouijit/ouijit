@@ -15,15 +15,12 @@ interface ReviewThreadViewProps {
 }
 
 /**
- * One review thread and its replies.
+ * One review thread and its replies: framed inline in a diff, plain in the
+ * timeline.
  *
- * Inline in a diff it keeps a frame, since there it is an insert into a stream
- * of code; in the timeline it takes the same shape as any other comment.
- *
- * An outdated thread — the head moved past the lines it was left on — stays
- * rendered in place rather than being collapsed away, but says so and shows the
- * line it was originally written against. Hiding it would lose the one piece of
- * context that explains why the comment reads oddly against the current code.
+ * An outdated thread — the head moved past the lines it was left on — stays in
+ * place and names the line it was written against, which is what explains why
+ * it reads oddly against the current code.
  */
 export function ReviewThreadView({ thread, onReply, onToggleResolved, inline = false }: ReviewThreadViewProps) {
   const [replying, setReplying] = useState(false);
@@ -31,10 +28,9 @@ export function ReviewThreadView({ thread, onReply, onToggleResolved, inline = f
   const [busy, setBusy] = useState(false);
   const [collapsed, setCollapsed] = useState(thread.isResolved);
 
-  // Resolving a thread folds it away and unresolving opens it back up. The
-  // component stays mounted across both (it is keyed by thread id), so without
-  // this a reopened thread keeps the collapsed body it was resolved with and
-  // there is nowhere to write the reply the reopening was for.
+  // The component is keyed by thread id and stays mounted across resolve and
+  // unresolve, so without this a reopened thread stays collapsed with nowhere
+  // to write the reply it was reopened for.
   const [wasResolved, setWasResolved] = useState(thread.isResolved);
   if (wasResolved !== thread.isResolved) {
     setWasResolved(thread.isResolved);

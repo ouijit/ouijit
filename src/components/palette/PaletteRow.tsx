@@ -124,9 +124,8 @@ function BranchLabel({ item }: { item: PaletteItem }) {
 }
 
 /**
- * Leading column. A task or pull request leads with its number, which is what
- * you scan for and what you type; the other kinds lead with a glyph that says
- * what they are.
+ * Leading column: tasks and pull requests lead with their number, which is what
+ * gets typed; everything else leads with a glyph.
  */
 function Leading({ item }: { item: PaletteItem }) {
   if (item.taskNumber != null && item.kind === 'task') {

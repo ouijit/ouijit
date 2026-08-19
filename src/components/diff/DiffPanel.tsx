@@ -22,7 +22,7 @@ import { toggleIn } from '../../utils/toggleIn';
 interface DiffPanelProps {
   ptyId: string;
   projectPath: string;
-  /** Filling the terminal body, rather than split beside the terminal. */
+  /** Fills the terminal body instead of splitting beside the terminal. */
   fullWidth: boolean;
   onToggleFullWidth: () => void;
   onClose: () => void;
@@ -31,13 +31,7 @@ interface DiffPanelProps {
 const NOTE_HINT = 'Kept with this worktree until you hand it to the agent.';
 const DEFAULT_SIDEBAR_WIDTH = 220;
 
-/**
- * Uncommitted and branch diffs for a terminal's worktree.
- *
- * The file tree, file sections, hunk and line renderers, and the token /
- * word-diff splicing all live in this directory's shared primitives — the same
- * ones the pull request files view renders.
- */
+/** Uncommitted and branch diffs for a terminal's worktree. */
 export function DiffPanel({ ptyId, projectPath, fullWidth, onToggleFullWidth, onClose }: DiffPanelProps) {
   const gitFileStatus = useTerminalStore((s) => s.displayStates[ptyId]?.gitFileStatus ?? null);
   const [diffs, setDiffs] = useState<Map<string, FileDiff | null>>(new Map());
@@ -47,17 +41,15 @@ export function DiffPanel({ ptyId, projectPath, fullWidth, onToggleFullWidth, on
   // not review state that has to survive.
   const [folded, setFolded] = useState<Set<string>>(new Set());
   const contentRef = useRef<HTMLDivElement>(null);
-  // The loaded diffs, for callbacks that must not be rebuilt each time a batch
-  // of them arrives.
+  // Through a ref so callbacks survive each batch of diffs arriving.
   const diffsRef = useRef(diffs);
   diffsRef.current = diffs;
 
   const instance = terminalInstances.get(ptyId);
   const gitPath = instance?.worktreePath || projectPath;
 
-  // Both from the status rather than from the terminal's request, so the label
-  // and the list can never name different comparisons: this is the base the
-  // answer on screen was actually produced against.
+  // From the status, not the terminal's request: this is the base the files on
+  // screen were actually produced against.
   const base = gitFileStatus?.base ?? null;
   const branch = gitFileStatus?.branch ?? null;
 
@@ -65,30 +57,23 @@ export function DiffPanel({ ptyId, projectPath, fullWidth, onToggleFullWidth, on
 
   const totalFileCount = storeFiles.length;
 
-  // The shape of the change, and the file list held at the same identity for as
-  // long as it says the change is the same one.
-  //
-  // A status poll hands back a fresh object every few seconds whether or not
-  // anything moved, and everything below here — the tree walk, the per-file
-  // loader — keys off `files`. Without this they all re-run on a diff that did
-  // not change.
-  // The base rides along, because two comparisons can list the same shape and
-  // the hunks under it still differ — a branch level with its remote lists the
-  // same files either way it is read.
+  // Status polls hand back a fresh object every few seconds, so the tree walk
+  // and per-file loader below key off this fingerprint instead. The base is
+  // part of it: two comparisons can list the same files with different hunks.
   const filesFingerprint = useMemo(
     () => `${base ?? ''}\n${diffShape(storeFiles.slice(0, MAX_DIFF_FILES))}`,
     [storeFiles, base],
   );
   // eslint-disable-next-line react-hooks/exhaustive-deps -- the fingerprint is the point: it changes only when the list does
   const files = useMemo(() => storeFiles.slice(0, MAX_DIFF_FILES), [filesFingerprint]);
-  // The tree groups by directory; the document runs in the same order, or
-  // clicking a file in one is no way to find it in the other.
+  // The document must run in the tree's order, or clicking a file in the rail
+  // is no way to find it here.
   const ordered = useMemo(() => inTreeOrder(files), [files]);
   const truncated = totalFileCount > MAX_DIFF_FILES;
   const loading = gitFileStatus === null;
 
-  // Keyed by worktree, not by panel or terminal session, so notes survive the
-  // panel being closed and reopened mid-review.
+  // Keyed by worktree, not by panel or session, so notes survive the panel
+  // being closed and reopened mid-review.
   const notes = useDiffNotes(gitPath, filesFingerprint);
 
   useEffect(() => {
@@ -100,8 +85,8 @@ export function DiffPanel({ ptyId, projectPath, fullWidth, onToggleFullWidth, on
     files,
     filesFingerprint,
     (file) => {
-      // An untracked file is in no revision, so no comparison can produce it —
-      // it is read whole, as the addition it would be.
+      // An untracked file is in no revision, so no comparison can produce it;
+      // read it whole instead.
       return file.status === '?' || !base
         ? window.api.getFileDiff(gitPath, file.path, undefined, file.status === '?')
         : window.api.worktree.getFileDiff(gitPath, base, file.path, file.oldPath);
@@ -122,12 +107,7 @@ export function DiffPanel({ ptyId, projectPath, fullWidth, onToggleFullWidth, on
     [setComposingAt, setEditingId],
   );
 
-  /**
-   * The notes anchored to one line, and the box that writes another.
-   *
-   * The same slot the pull request's files view fills with threads and drafts,
-   * on the same renderer underneath.
-   */
+  /** Fills the same slot the pull request files view uses for its threads. */
   const renderBelowLine = useCallback(
     (path: string, anchor: DiffLineAnchor) => {
       const key = anchorKey(path, anchor.line, anchor.side);
@@ -164,9 +144,8 @@ export function DiffPanel({ ptyId, projectPath, fullWidth, onToggleFullWidth, on
               placeholder="Note for the agent…"
               saveLabel="Add note"
               hint={NOTE_HINT}
-              // The snippet is read here, once, rather than on every render: it
-              // walks the file, and nothing on screen shows it. Through the ref
-              // so this callback survives a batch of diffs arriving.
+              // The snippet is read on save, not per render: it walks the file
+              // and nothing displays it.
               onSave={(body) =>
                 notes.save({
                   path,
@@ -188,9 +167,8 @@ export function DiffPanel({ ptyId, projectPath, fullWidth, onToggleFullWidth, on
 
   const hasNotes = notes.notes.length > 0 || notes.composingAt !== null;
 
-  // Which lines a comment covers without rendering on them: the range being
-  // written, and every saved range. Single lines are left out — the box sits
-  // directly under the line it is about, which says it already.
+  // Multi-line ranges only: a single-line note renders directly under its line,
+  // so marking it says nothing extra.
   const spans = useMemo(() => {
     const saved = notes.notes.filter((note) => note.startLine !== note.line);
     const at = notes.composingAt;
@@ -209,9 +187,8 @@ export function DiffPanel({ ptyId, projectPath, fullWidth, onToggleFullWidth, on
     [spans],
   );
 
-  // A note is on screen when the diff being shown carries the lines it is
-  // about. Not merely when its file is listed: a note can sit on a line this
-  // comparison leaves outside every hunk.
+  // Listing a note's file is not enough: it can sit on a line this comparison
+  // leaves outside every hunk.
   const inView = useMemo(
     () => new Set(notes.notes.filter((note) => blockAt(diffs.get(note.path), note) !== null).map((note) => note.id)),
     [notes.notes, diffs],
@@ -235,8 +212,8 @@ export function DiffPanel({ ptyId, projectPath, fullWidth, onToggleFullWidth, on
   }, [files, truncated, totalFileCount]);
 
   const renderFile = (file: (typeof files)[number]) => (
-    // The wrapper carries `data-path` so jumping to a file from the tree works
-    // whether or not that file has been mounted yet.
+    // `data-path` on the wrapper, so the tree can jump to a file that has not
+    // mounted yet.
     <DeferredMount
       key={file.path}
       dataPath={file.path}
@@ -254,8 +231,8 @@ export function DiffPanel({ ptyId, projectPath, fullWidth, onToggleFullWidth, on
         deletions={file.deletions}
         diff={diffs.get(file.path)}
         onAddComment={startNote}
-        // Withheld until there is something to draw: it is called once per
-        // diff line and changes identity whenever the notes do.
+        // Withheld until there is something to draw: it runs once per diff line
+        // and changes identity whenever the notes do.
         renderBelowLine={hasNotes ? renderBelowLine : undefined}
         markLine={spans.length > 0 ? markLine : undefined}
         collapsed={folded.has(file.path)}
@@ -271,7 +248,6 @@ export function DiffPanel({ ptyId, projectPath, fullWidth, onToggleFullWidth, on
           <DiffFileTree files={files} onFileClick={scrollToFile} />
         </div>
       )}
-      {/* Collapsed there is nothing on its left, so the seam divides nothing. */}
       {!sidebarCollapsed && (
         <ResizeHandle
           width={sidebarWidth}
@@ -280,11 +256,8 @@ export function DiffPanel({ ptyId, projectPath, fullWidth, onToggleFullWidth, on
           label="Resize the file list"
         />
       )}
-      {/* Positioned so the notes island floats over the foot of this column,
-          over the diff rather than over the file rail beside it. */}
+      {/* `relative` so the notes island floats over the diff, not the rail. */}
       <div className="relative flex-1 flex flex-col min-w-0 overflow-hidden">
-        {/* Spans the well only, unlike the pull request's bar, which covers the
-            rail beside it as well. */}
         <div className="pane-ledge over-well relative z-30 px-3 py-2 text-sm text-ink/70 flex items-center gap-2 shrink-0">
           <SidebarToggle
             collapsed={sidebarCollapsed}
@@ -300,16 +273,14 @@ export function DiffPanel({ ptyId, projectPath, fullWidth, onToggleFullWidth, on
             mainBranch={gitFileStatus?.mainBranch ?? null}
             branch={branch}
           />
-          {/* `min-w-0` is what lets it shrink at all — a flex item will not go
-              below its content without it, and this one would rather wrap to
-              three lines than give way. Nothing recovers what the cut takes:
-              the same counts are on the terminal's own diff button. */}
+          {/* Without `min-w-0` a flex item will not shrink below its content,
+              and this one wraps to three lines instead of truncating. */}
           <span className="ml-auto min-w-0 truncate text-xs text-text-tertiary">{stats}</span>
           <FullWidthToggle fullWidth={fullWidth} onToggle={onToggleFullWidth} />
           <PanelCloseButton onClose={onClose} />
         </div>
-        {/* Extra padding at the foot while the island is showing, so the last
-            card scrolls clear of it rather than ending behind it. */}
+        {/* Extra foot padding while the island shows, so the last card can
+            scroll clear of it. */}
         <div
           ref={contentRef}
           className={`diff-well diff-list flex-1 overflow-auto ${notes.notes.length > 0 ? 'pb-16' : 'pb-3'}`}

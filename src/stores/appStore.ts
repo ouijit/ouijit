@@ -26,17 +26,15 @@ interface AppStoreState {
    * alone while a sheet owns it, the same way it does for the hook and
    * worktree dialogs.
    *
-   * A count rather than a flag because several components can open one — the
-   * column composer, the standalone sheet, and any card — and they mount and
-   * unmount independently. With a boolean, a background `loadTasks` that
-   * remounts a card would clear the flag out from under an open sheet.
+   * A count, not a flag: the column composer, the standalone sheet and any
+   * card can each open one and unmount independently, so a background
+   * `loadTasks` remounting a card would clear a boolean under an open sheet.
    */
   composerSheetCount: number;
   /**
-   * Session-only onboarding panel state. Lives in the app store (not in the
-   * OnboardingPanel component) so it survives kanban-toggle remounts — without
-   * this, hitting "Hide for now" or being in the stuck state would reset every
-   * time the user toggled the kanban view off and back on.
+   * Session-only onboarding panel state, kept here rather than in
+   * OnboardingPanel so "Hide for now" and the stuck state survive the kanban
+   * being toggled off and back on.
    */
   onboardingSoftDismissed: boolean;
   onboardingStuckLatched: boolean;
@@ -193,7 +191,7 @@ export const useAppStore = create<AppStore>()((set, get) => ({
   },
 }));
 
-/** Helper for checking staleness after async operations */
+/** Whether an async result still applies to the project now selected. */
 export function staleGuard(expectedVersion: number) {
   return () => useAppStore.getState()._version !== expectedVersion;
 }
