@@ -579,8 +579,6 @@ export interface ElectronAPI {
   showFolderPicker(options?: FolderPickerOptions): Promise<{ canceled: boolean; filePaths: string[] }>;
   /** Get the folder new projects are created in (setting or built-in default) */
   getDefaultProjectsFolder(): Promise<string>;
-  /** Scan a just-added project's parent directory for sibling git repos to offer adding */
-  scanSiblingProjects(folderPath: string): Promise<SiblingScanResult>;
   /** Ask to change the projects folder; returns whether affected projects need a user decision */
   prepareProjectsFolderChange(newFolder: string): Promise<ProjectsFolderChangePlan>;
   /** Apply a projects folder change with the user's chosen action for affected projects */
@@ -737,9 +735,9 @@ export interface GithubAPI {
   issues(projectPath: string): Promise<GithubIssue[]>;
   issue(projectPath: string, number: number): Promise<IssueDetail>;
 
-  linkTaskPr(projectPath: string, taskNumber: number, prNumber: number | null): Promise<GithubActionResult>;
   linkTaskIssue(projectPath: string, taskNumber: number, issueNumber: number | null): Promise<GithubActionResult>;
   detectTaskPr(projectPath: string, taskNumber: number): Promise<{ prNumber: number | null }>;
+  detectProjectPrs(projectPath: string): Promise<{ linked: number }>;
 
   /**
    * Given the head being viewed, drafts written against an earlier one are
@@ -960,13 +958,6 @@ export interface FolderPickerOptions {
   title?: string;
   buttonLabel?: string;
   defaultPath?: string;
-}
-
-/** Result of scanning a just-added project's parent directory for sibling git repos */
-export interface SiblingScanResult {
-  parentDir: string;
-  /** Absolute paths of sibling git repos not yet registered as projects */
-  siblings: string[];
 }
 
 /** What happens to projects living in the old folder when the projects folder setting changes */

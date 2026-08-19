@@ -71,7 +71,6 @@ export function openInEntry(
 export interface GithubMenuActions {
   openPullRequest: (prNumber: number) => void;
   createPullRequest: () => void;
-  unlinkPullRequest: () => void;
 }
 
 export function githubEntries(
@@ -88,7 +87,6 @@ export function githubEntries(
         icon: 'git-pull-request',
         onClick: () => actions.openPullRequest(prNumber),
       },
-      { label: 'Unlink pull request', onClick: actions.unlinkPullRequest },
     ];
   }
 

@@ -6,7 +6,6 @@ import {
   getDefaultProjectsDir,
   getFallbackProjectsDir,
   setDefaultProjectsDir,
-  scanSiblingProjects,
   moveProjects,
   prepareProjectsFolderChange,
   applyProjectsFolderChange,
@@ -82,35 +81,6 @@ describe('getDefaultProjectsDir', () => {
   test('ignores a non-absolute stored value', async () => {
     await setDefaultProjectsDir('relative/path');
     expect(await getDefaultProjectsDir()).toBe(getFallbackProjectsDir());
-  });
-});
-
-describe('scanSiblingProjects', () => {
-  test('finds unregistered sibling git repos, skipping non-repos and hidden dirs', async () => {
-    const added = await makeFakeRepo(scratchDir, 'added');
-    const siblingA = await makeFakeRepo(scratchDir, 'sibling-a');
-    const siblingB = await makeFakeRepo(scratchDir, 'sibling-b');
-    await fs.mkdir(path.join(scratchDir, 'plain-folder'));
-    await makeFakeRepo(scratchDir, '.hidden-repo');
-
-    const result = await scanSiblingProjects(added);
-    expect(result.parentDir).toBe(scratchDir);
-    expect(result.siblings).toEqual([siblingA, siblingB]);
-  });
-
-  test('excludes already-registered projects', async () => {
-    const added = await makeFakeRepo(scratchDir, 'added');
-    const registered = await makeFakeRepo(scratchDir, 'registered');
-    const fresh = await makeFakeRepo(scratchDir, 'fresh');
-    await addProject(registered);
-
-    const result = await scanSiblingProjects(added);
-    expect(result.siblings).toEqual([fresh]);
-  });
-
-  test('returns empty when the parent directory is unreadable', async () => {
-    const result = await scanSiblingProjects(path.join(scratchDir, 'missing', 'repo'));
-    expect(result.siblings).toEqual([]);
   });
 });
 

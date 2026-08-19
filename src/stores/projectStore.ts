@@ -164,6 +164,7 @@ interface ProjectStoreActions {
 
   /** Load tasks from IPC with staleness check */
   loadTasks: (projectPath: string) => Promise<void>;
+  loadTasksIfActive: (projectPath: string) => Promise<void>;
   /** Load scripts from IPC */
   loadScripts: (projectPath: string) => Promise<void>;
   /**
@@ -392,6 +393,17 @@ export const useProjectStore = create<ProjectStore>()((set, get) => ({
       if (get()._version !== version) return;
       get().addToast(`Failed to load tasks: ${err instanceof Error ? err.message : String(err)}`, 'error');
     }
+  },
+
+  /**
+   * `tasks` is a singleton holding the *active* project's list, so anything
+   * that finishes after the user has moved on must not load into it. Not folded
+   * into `loadTasks`: navigation loads a project's tasks before making it
+   * active, so the board paints with content.
+   */
+  loadTasksIfActive: async (projectPath) => {
+    if (useAppStore.getState().activeProjectPath !== projectPath) return;
+    await get().loadTasks(projectPath);
   },
 
   loadScripts: async (projectPath) => {

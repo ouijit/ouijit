@@ -18,7 +18,7 @@ import type { GitFileStatus, RunnerScript } from '../../types';
 import { openInEntry, moveToEntry, githubEntries, type TaskMenuActions } from '../kanban/taskMenu';
 import { revealInFileManager } from '../../utils/fileManager';
 import { useExperimentalStore } from '../../stores/experimentalStore';
-import { openPullRequestInPanel, createPullRequestForTask, unlinkPullRequest } from '../../services/githubTaskActions';
+import { openPullRequestInPanel, createPullRequestForTask } from '../../services/githubTaskActions';
 import { BranchFromTaskDialog } from '../dialogs/BranchFromTaskDialog';
 import { describeDiffComparison, filesInDiff } from '../../diffSource';
 
@@ -148,7 +148,6 @@ export const TerminalHeader = memo(function TerminalHeader({
             {
               openPullRequest: (prNumber) => openPullRequestInPanel(projectPath, prNumber),
               createPullRequest: () => void createPullRequestForTask(projectPath, task),
-              unlinkPullRequest: () => void unlinkPullRequest(projectPath, task.taskNumber),
             },
           )
         : [];
