@@ -8,6 +8,7 @@
 import log from 'electron-log/renderer';
 import type { TaskWithWorkspace } from '../types';
 import { describeError } from '../utils/describeError';
+import { useAppStore } from '../stores/appStore';
 import { useProjectStore } from '../stores/projectStore';
 import { useGithubStore } from '../stores/githubStore';
 
@@ -54,26 +55,21 @@ export async function createPullRequestForTask(projectPath: string, task: TaskWi
   });
 }
 
-export async function unlinkPullRequest(projectPath: string, taskNumber: number): Promise<void> {
-  const result = await window.api.github.linkTaskPr(projectPath, taskNumber, null);
-  if (!result.success) {
-    useProjectStore.getState().addToast(result.error ?? 'Could not unlink the pull request', 'error');
-    return;
-  }
+/** A detection can outlive the project it ran for; its tasks must not reach another project's board. */
+async function reloadTasksIfStillActive(projectPath: string): Promise<void> {
+  if (useAppStore.getState().activeProjectPath !== projectPath) return;
   await useProjectStore.getState().loadTasks(projectPath);
 }
 
 /**
- * Look for an existing PR on a task's branch and link it.
- *
- * Silent on failure: it runs unprompted, so a toast for every task on an
- * offline machine would be noise.
+ * Both detections run unprompted, so a failure is logged rather than toasted —
+ * an offline machine would otherwise toast once per task.
  */
 export async function detectPullRequestForTask(projectPath: string, taskNumber: number): Promise<void> {
   try {
     const result = await window.api.github.detectTaskPr(projectPath, taskNumber);
     if (result.prNumber == null) return;
-    await useProjectStore.getState().loadTasks(projectPath);
+    await reloadTasksIfStillActive(projectPath);
   } catch (error) {
     actionLog.warn('pull request detection failed', { taskNumber, error: describeError(error) });
   }
@@ -82,7 +78,7 @@ export async function detectPullRequestForTask(projectPath: string, taskNumber: 
 export async function detectPullRequestsForProject(projectPath: string): Promise<void> {
   try {
     const { linked } = await window.api.github.detectProjectPrs(projectPath);
-    if (linked > 0) await useProjectStore.getState().loadTasks(projectPath);
+    if (linked > 0) await reloadTasksIfStillActive(projectPath);
   } catch (error) {
     actionLog.warn('project pull request detection failed', { projectPath, error: describeError(error) });
   }

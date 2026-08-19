@@ -21,7 +21,7 @@ import { KanbanCardView } from './KanbanCardView';
 import { KanbanBadgeView } from './KanbanBadgeView';
 import { KanbanPrBadgeView } from './KanbanPrBadgeView';
 import { useExperimentalStore } from '../../stores/experimentalStore';
-import { openPullRequestInPanel, createPullRequestForTask, unlinkPullRequest } from '../../services/githubTaskActions';
+import { openPullRequestInPanel, createPullRequestForTask } from '../../services/githubTaskActions';
 
 interface KanbanCardProps {
   task: TaskWithWorkspace;
@@ -261,7 +261,6 @@ export const KanbanCard = memo(function KanbanCard({
       {
         openPullRequest: (prNumber) => openPullRequestInPanel(projectPath, prNumber),
         createPullRequest: () => void createPullRequestForTask(projectPath, task),
-        unlinkPullRequest: () => void unlinkPullRequest(projectPath, task.taskNumber),
       },
     );
     if (github.length > 0) {

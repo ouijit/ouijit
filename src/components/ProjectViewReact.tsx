@@ -27,8 +27,6 @@ const isMac = navigator.platform.toLowerCase().includes('mac');
 const PROJECT_REFRESH_INTERVAL = 30000;
 const EMPTY: string[] = [];
 
-// Keyed by project and held outside the component: switching projects reuses
-// the same ProjectView, and navigating home and back builds a new one.
 const lastSweptAt = new Map<string, number>();
 
 /** Get the currently selected ptyId from the canvas (first selected node). */
@@ -292,9 +290,8 @@ export function ProjectView() {
     };
     const start = () => {
       if (interval != null || document.hidden) return;
-      // The interval doesn't run while the window is hidden, so a pull request
-      // opened in the meantime would sit undetected for a full period. The
-      // freshness check keeps alt-tabbing from spending a `gh` call each time.
+      // Catches a pull request opened while the window was hidden, without
+      // sweeping on every alt-tab back.
       if (Date.now() - (lastSweptAt.get(projectPath) ?? 0) >= PROJECT_REFRESH_INTERVAL) sweep();
       interval = setInterval(() => {
         refreshAllTerminalGitStatus(projectPath);
