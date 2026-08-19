@@ -2,7 +2,6 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { checkForLinuxUpdate, initUpdater, cleanupUpdater, _resetForTesting } from '../updater';
 import { semverGt } from '../utils/semver';
 
-// Mock electron modules
 const mockGetVersion = vi.fn(() => '1.0.0');
 const mockFetch = vi.fn();
 const mockTypedPush = vi.fn();

@@ -35,13 +35,12 @@ async function fetchLatestRelease(): Promise<Release | null> {
 }
 
 /**
- * Squirrel.Mac downloads the whole ~100MB zip on every checkForUpdates and
- * keeps no record of what it already fetched, so an app left running — with
- * the restart prompt deferred, or with a download that keeps failing — would
- * re-fetch the same update every hour. Reading GitHub's latest release costs a
- * few KB, so it gates the expensive check: only ever ask Squirrel for a version
- * we have not asked for before. A version whose download fails is then not
- * retried until the next launch, which is the cheap side of that trade.
+ * Squirrel.Mac re-downloads the whole ~100MB zip on every checkForUpdates and
+ * keeps no record of what it already fetched, so an unguarded hourly check
+ * re-fetches the same update for as long as the app stays open. Reading
+ * GitHub's latest release costs a few KB, so it gates the expensive call: only
+ * ask Squirrel for a version not asked for before. The cost is that a failed
+ * download waits for the next launch.
  */
 let requestedVersion: string | null = null;
 
