@@ -303,8 +303,6 @@ export async function linkTaskToIssue(
 }
 
 /**
- * Look for an existing PR whose head is the task's branch, and link it.
- *
  * Matches closed and merged pull requests too, which the project-wide sweep
  * never sees.
  */
@@ -341,9 +339,8 @@ export function detectPullRequestsForProject(projectPath: string): Promise<{ lin
 }
 
 async function sweepPullRequests(projectPath: string): Promise<{ linked: number }> {
-  const availability = await getAvailability(projectPath);
-  if (!availability.available || !availability.identity) return { linked: 0 };
-
+  // Ahead of getAvailability, whose first call per process spends a `gh auth
+  // status` round trip and a `git remote` on resolving the identity.
   const tasks = await getProjectTasks(projectPath);
   const claimed = new Set<number>();
   const unlinkedByBranch = new Map<string, number>();
@@ -352,6 +349,9 @@ async function sweepPullRequests(projectPath: string): Promise<{ linked: number 
     else if (task.branch) unlinkedByBranch.set(task.branch, task.taskNumber);
   }
   if (unlinkedByBranch.size === 0) return { linked: 0 };
+
+  const availability = await getAvailability(projectPath);
+  if (!availability.available || !availability.identity) return { linked: 0 };
 
   const openPrs = await fetchOpenPullRequestBranches(availability.identity, projectPath);
   let linked = 0;

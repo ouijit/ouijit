@@ -581,7 +581,6 @@ async function listPrs<T>(identity: RepoIdentity, filters: string[], fields: str
   }
 }
 
-/** The open PR whose head is `branch`, or null. Drives auto-detect on task load. */
 export async function findPullRequestForBranch(
   identity: RepoIdentity,
   branch: string,

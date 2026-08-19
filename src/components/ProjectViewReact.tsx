@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useRef } from 'react';
+import { useEffect, useCallback } from 'react';
 import { useAppStore } from '../stores/appStore';
 import { useProjectStore } from '../stores/projectStore';
 import { useTerminalStore, getTerminalIndexByStackPosition, STACK_PAGE_SIZE } from '../stores/terminalStore';
@@ -26,6 +26,10 @@ import { useCliPanelListener } from '../hooks/useCliPanelListener';
 const isMac = navigator.platform.toLowerCase().includes('mac');
 const PROJECT_REFRESH_INTERVAL = 30000;
 const EMPTY: string[] = [];
+
+// Keyed by project and held outside the component: switching projects reuses
+// the same ProjectView, and navigating home and back builds a new one.
+const lastSweptAt = new Map<string, number>();
 
 /** Get the currently selected ptyId from the canvas (first selected node). */
 function getCanvasSelectedPtyId(projectPath: string): string | undefined {
@@ -60,9 +64,6 @@ export function ProjectView() {
   const githubEnabled = useExperimentalStore((s) =>
     projectPath ? (s.flagsByProject[projectPath]?.github ?? false) : false,
   );
-
-  // Survives the visibility flips that restart the refresh interval below.
-  const lastSweptAt = useRef(0);
 
   const activeIndex = useTerminalStore((s) => (projectPath ? (s.activeIndices[projectPath] ?? 0) : 0));
   const terminalList = useTerminalStore((s) => (projectPath ? s.terminalsByProject[projectPath] : undefined));
@@ -285,18 +286,19 @@ export function ProjectView() {
     if (!projectPath) return;
     let interval: ReturnType<typeof setInterval> | null = null;
     const sweep = () => {
-      lastSweptAt.current = Date.now();
+      if (!githubEnabled) return;
+      lastSweptAt.set(projectPath, Date.now());
       void detectPullRequestsForProject(projectPath);
     };
     const start = () => {
       if (interval != null || document.hidden) return;
       // The interval doesn't run while the window is hidden, so a pull request
-      // opened in the meantime would sit undetected for a full period. Skipping
-      // a still-fresh sweep keeps alt-tabbing from spending `gh` calls.
-      if (githubEnabled && Date.now() - lastSweptAt.current >= PROJECT_REFRESH_INTERVAL) sweep();
+      // opened in the meantime would sit undetected for a full period. The
+      // freshness check keeps alt-tabbing from spending a `gh` call each time.
+      if (Date.now() - (lastSweptAt.get(projectPath) ?? 0) >= PROJECT_REFRESH_INTERVAL) sweep();
       interval = setInterval(() => {
         refreshAllTerminalGitStatus(projectPath);
-        if (githubEnabled) sweep();
+        sweep();
       }, PROJECT_REFRESH_INTERVAL);
     };
     const stop = () => {
